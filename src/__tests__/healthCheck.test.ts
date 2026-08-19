@@ -33,6 +33,8 @@ vi.mock('../sandbox/nono/binary', () => ({
   isNonoInstalled: () => isNonoInstalledMock(),
 }));
 
+type ExecFileCallback = (err: Error | null, stdout?: string, stderr?: string) => void;
+
 /**
  * What the gh fields look like when `gh` is not on PATH. Every case below whose
  * execFile mock rejects unknown commands lands here, so spelling it once keeps
@@ -55,7 +57,7 @@ describe('healthCheck', () => {
   });
 
   test('reports all tools present and parses git version', async () => {
-    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: ExecFileCallback) => {
       if (cmd === 'git') cb(null, 'git version 2.39.5\n', '');
       else if (cmd === 'which') cb(null, `/usr/local/bin/${args[0]}\n`, '');
       else cb(new Error(`unexpected ${cmd}`));
@@ -79,7 +81,7 @@ describe('healthCheck', () => {
   });
 
   test('reports git missing when execFile rejects', async () => {
-    execFileMock.mockImplementation((cmd: string, _args: string[], cb: Function) => {
+    execFileMock.mockImplementation((cmd: string, _args: string[], cb: ExecFileCallback) => {
       if (cmd === 'git') cb(new Error('command not found'));
       else if (cmd === 'which') cb(new Error('command not found'));
       else cb(new Error(`unexpected ${cmd}`));
@@ -102,7 +104,7 @@ describe('healthCheck', () => {
   });
 
   test('detects codex independently of claude', async () => {
-    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: ExecFileCallback) => {
       if (cmd === 'git') cb(null, 'git version 2.41.0\n', '');
       else if (cmd === 'which' && args[0] === 'codex') cb(null, '/opt/homebrew/bin/codex\n', '');
       else if (cmd === 'which') cb(new Error('not found'));
@@ -126,7 +128,7 @@ describe('healthCheck', () => {
   });
 
   test('detects pi independently of claude and codex', async () => {
-    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: ExecFileCallback) => {
       if (cmd === 'git') cb(null, 'git version 2.42.0\n', '');
       else if (cmd === 'which' && args[0] === 'pi') cb(null, '/opt/homebrew/bin/pi\n', '');
       else if (cmd === 'which') cb(new Error('not found'));
@@ -150,7 +152,7 @@ describe('healthCheck', () => {
   });
 
   test('detects opencode independently of the other agents', async () => {
-    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: ExecFileCallback) => {
       if (cmd === 'git') cb(null, 'git version 2.43.0\n', '');
       else if (cmd === 'which' && args[0] === 'opencode') cb(null, '/opt/homebrew/bin/opencode\n', '');
       else if (cmd === 'which') cb(new Error('not found'));
@@ -174,7 +176,7 @@ describe('healthCheck', () => {
   });
 
   test('caches result and exposes via getCachedHealth', async () => {
-    execFileMock.mockImplementation((cmd: string, _args: string[], cb: Function) => {
+    execFileMock.mockImplementation((cmd: string, _args: string[], cb: ExecFileCallback) => {
       if (cmd === 'git') cb(null, 'git version 2.40.0\n', '');
       else if (cmd === 'which') cb(new Error('not found'));
       else cb(new Error(`unexpected ${cmd}`));
@@ -198,7 +200,7 @@ describe('healthCheck', () => {
   });
 
   test('detects gh without contacting GitHub', async () => {
-    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: ExecFileCallback) => {
       if (cmd === 'git') cb(null, 'git version 2.45.0\n', '');
       else if (cmd === 'gh' && args[0] === '--version') cb(null, 'gh version 2.85.0 (2026-01-14)\n', '');
       else if (cmd === 'which') cb(new Error('not found'));
@@ -218,7 +220,7 @@ describe('healthCheck', () => {
   });
 
   test('flags a gh below the version floor as unusable rather than merely present', async () => {
-    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: ExecFileCallback) => {
       if (cmd === 'git') cb(null, 'git version 2.45.0\n', '');
       else if (cmd === 'gh' && args[0] === '--version') cb(null, 'gh version 2.4.0 (2021-01-01)\n', '');
       else if (cmd === 'which') cb(new Error('not found'));
@@ -234,7 +236,7 @@ describe('healthCheck', () => {
   });
 
   test('detects nono independently of lima', async () => {
-    execFileMock.mockImplementation((cmd: string, _args: string[], cb: Function) => {
+    execFileMock.mockImplementation((cmd: string, _args: string[], cb: ExecFileCallback) => {
       if (cmd === 'git') cb(null, 'git version 2.44.0\n', '');
       else if (cmd === 'which') cb(new Error('not found'));
       else cb(new Error(`unexpected ${cmd}`));

@@ -1,5 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 
+import { getNonoPath, getVendoredNonoPath, checkPlatformSupport } from '../sandbox/nono/binary';
+
 // The bundled-binary resolution logic is shared in paths.ts (exercised by its
 // own coverage); here we mock it to verify getNonoPath delegates with the right
 // binary name rather than re-testing the resolver's fs probing.
@@ -14,8 +16,6 @@ vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:os')>();
   return { ...actual, release: () => osReleaseMock() };
 });
-
-import { getNonoPath, getVendoredNonoPath, checkPlatformSupport } from '../sandbox/nono/binary';
 
 const realPlatform = process.platform;
 

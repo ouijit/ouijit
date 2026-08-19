@@ -1,6 +1,8 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import type { LimaStatus } from '../lima/types';
 
+import { limaProvider } from '../lima/provider';
+
 // The Lima provider is a thin adapter over the real lima surface. Mock the
 // heavy submodules (node-pty, limactl, git) so the test exercises only the
 // adapter's mapping logic.
@@ -27,8 +29,6 @@ vi.mock('../lima/manager', () => ({
 vi.mock('../lima/sandboxSync', () => ({
   stopSandboxView: (...args: unknown[]) => stopSandboxView(...(args as [])),
 }));
-
-import { limaProvider } from '../lima/provider';
 
 beforeEach(() => {
   vi.clearAllMocks();

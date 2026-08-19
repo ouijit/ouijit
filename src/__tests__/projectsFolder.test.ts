@@ -2,22 +2,6 @@ import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-
-// Pass-through mock so one test can make the path migration fail and exercise
-// moveProjects' rollback; every other test gets the real implementation.
-const pathRenameControl = vi.hoisted(() => ({ failNext: false }));
-vi.mock('../services/projectPathRename', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../services/projectPathRename')>();
-  return {
-    renameProjectPath: async (oldPath: string, newPath: string) => {
-      if (pathRenameControl.failNext) {
-        pathRenameControl.failNext = false;
-        throw new Error('database unavailable');
-      }
-      return actual.renameProjectPath(oldPath, newPath);
-    },
-  };
-});
 import {
   getDefaultProjectsDir,
   getFallbackProjectsDir,
@@ -40,6 +24,22 @@ import {
   setGlobalSetting,
   removeProject,
 } from '../db';
+
+// Pass-through mock so one test can make the path migration fail and exercise
+// moveProjects' rollback; every other test gets the real implementation.
+const pathRenameControl = vi.hoisted(() => ({ failNext: false }));
+vi.mock('../services/projectPathRename', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/projectPathRename')>();
+  return {
+    renameProjectPath: async (oldPath: string, newPath: string) => {
+      if (pathRenameControl.failNext) {
+        pathRenameControl.failNext = false;
+        throw new Error('database unavailable');
+      }
+      return actual.renameProjectPath(oldPath, newPath);
+    },
+  };
+});
 
 let scratchDir: string;
 

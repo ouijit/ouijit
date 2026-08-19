@@ -1,6 +1,9 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
+import { DiffFileSection } from '../../components/diff/DiffFileSection';
+import type { FileDiff } from '../../types';
+
 /**
  * Tokenizing is asynchronous and splits a line into a span per token, so what
  * is on screen at the moment of an assertion depends on whether shiki has come
@@ -12,9 +15,6 @@ vi.mock('../../utils/syntaxHighlight', () => ({
   peekDiffTokens: (hunks: Array<{ lines: unknown[] }>) => hunks.map((hunk) => hunk.lines.map(() => null)),
   tokenizeDiffHunks: async (hunks: Array<{ lines: unknown[] }>) => hunks.map((hunk) => hunk.lines.map(() => null)),
 }));
-
-import { DiffFileSection } from '../../components/diff/DiffFileSection';
-import type { FileDiff } from '../../types';
 
 const diff: FileDiff = {
   path: 'src/app.ts',

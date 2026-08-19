@@ -1,11 +1,11 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 
+import { getRemoteUrl as rawGetRemoteUrl } from '../git';
+import { parseRemoteUrl, isDotCom, getRepoIdentity, invalidateRepoIdentity } from '../github/repoIdentity';
+
 // vi.mock is hoisted above the imports, so the factory can't close over a
 // top-level const. Reach the spy through the mocked module instead.
 vi.mock('../git', () => ({ getRemoteUrl: vi.fn() }));
-
-import { getRemoteUrl as rawGetRemoteUrl } from '../git';
-import { parseRemoteUrl, isDotCom, getRepoIdentity, invalidateRepoIdentity } from '../github/repoIdentity';
 
 const getRemoteUrl = vi.mocked(rawGetRemoteUrl);
 

@@ -7,6 +7,9 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as http from 'node:http';
 import type { BrowserWindow } from 'electron';
 
+import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
+import { issueToken, revokeAllTokens } from '../apiAuth';
+
 vi.mock('../ptyManager', () => ({
   isPtyActive: () => true,
   getPtyTaskContext: () => null,
@@ -56,9 +59,6 @@ vi.mock('../taskLifecycle', () => ({
 vi.mock('../projectList', () => ({
   getProjectList: vi.fn(async () => []),
 }));
-
-import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
-import { issueToken, revokeAllTokens } from '../apiAuth';
 
 function mockWindow(): BrowserWindow {
   return {

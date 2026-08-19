@@ -1,5 +1,10 @@
 import { describe, test, expect, vi } from 'vitest';
 
+import { applyInitialUiState } from '../components/terminal/terminalActions';
+import type { OuijitTerminal } from '../components/terminal/terminalReact';
+import type { TerminalPanel } from '../components/terminal/panelTypes';
+import type { SnapshotTerminalUi } from '../types';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
@@ -8,11 +13,6 @@ vi.mock('../components/terminal/terminalReact', () => ({
   OuijitTerminal: class {},
   terminalInstances: new Map(),
 }));
-
-import { applyInitialUiState } from '../components/terminal/terminalActions';
-import type { OuijitTerminal } from '../components/terminal/terminalReact';
-import type { TerminalPanel } from '../components/terminal/panelTypes';
-import type { SnapshotTerminalUi } from '../types';
 
 function makeFakeTerm() {
   const term = {

@@ -1,5 +1,11 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
+import { useProjectStore } from '../../stores/projectStore';
+import { useTerminalStore } from '../../stores/terminalStore';
+import { beginTransition } from '../../services/taskStartService';
+import { addProjectTerminal, closeProjectTerminal } from '../../components/terminal/terminalActions';
+import type { TaskWithWorkspace } from '../../types';
+
 // electron-log/renderer expects an Electron host to talk to via IPC. Stub it
 // to a no-op logger so the service module evaluates cleanly under jsdom.
 vi.mock('electron-log/renderer', () => ({
@@ -11,12 +17,6 @@ vi.mock('../../components/terminal/terminalActions', () => ({
   addProjectTerminal: vi.fn().mockResolvedValue(true),
   closeProjectTerminal: vi.fn(),
 }));
-
-import { useProjectStore } from '../../stores/projectStore';
-import { useTerminalStore } from '../../stores/terminalStore';
-import { beginTransition } from '../../services/taskStartService';
-import { addProjectTerminal, closeProjectTerminal } from '../../components/terminal/terminalActions';
-import type { TaskWithWorkspace } from '../../types';
 
 const PROJECT = '/project';
 
