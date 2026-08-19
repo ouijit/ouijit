@@ -318,15 +318,26 @@ export async function detectPullRequestForTask(
   if (!availability.available || !availability.identity) return { prNumber: null };
 
   const prNumber = await findPullRequestForBranch(availability.identity, task.branch, task.worktreePath);
-  if (prNumber != null) await setTaskGithubPr(projectPath, taskNumber, prNumber);
+  if (prNumber == null) return { prNumber: null };
+  if (!(await taskCanTakePr(projectPath, taskNumber, prNumber))) return { prNumber: null };
+  await setTaskGithubPr(projectPath, taskNumber, prNumber);
   return { prNumber };
 }
 
 /**
- * Per-project in-flight gate. A sweep can outlive the tick that scheduled it —
- * `gh` waits longer than the refresh interval — so without this they queue up
- * behind each other, each one taking a `gh` slot ahead of whatever the user
- * asked for.
+ * A task list read before `gh` answered can be stale by the time the write
+ * lands: a link made in between stands, and since two tasks can share a branch,
+ * one pull request must not reach two cards.
+ */
+async function taskCanTakePr(projectPath: string, taskNumber: number, prNumber: number): Promise<boolean> {
+  const tasks = await getProjectTasks(projectPath);
+  return !tasks.some((t) => (t.taskNumber === taskNumber ? t.githubPrNumber != null : t.githubPrNumber === prNumber));
+}
+
+/**
+ * Per-project in-flight gate. A sweep is only done once `gh` has answered or
+ * timed out, so without this, repeat requests queue up behind each other and
+ * each takes a `gh` slot ahead of whatever the user asked for.
  */
 const sweeps = new Map<string, Promise<{ linked: number }>>();
 
@@ -339,14 +350,15 @@ export function detectPullRequestsForProject(projectPath: string): Promise<{ lin
 }
 
 async function sweepPullRequests(projectPath: string): Promise<{ linked: number }> {
-  // Ahead of getAvailability, whose first call per process spends a `gh auth
-  // status` round trip and a `git remote` on resolving the identity.
+  // Read first so a project with nothing unlinked returns before any subprocess.
   const tasks = await getProjectTasks(projectPath);
-  const claimed = new Set<number>();
-  const unlinkedByBranch = new Map<string, number>();
+  const unlinkedByBranch = new Map<string, (typeof tasks)[number]>();
   for (const task of tasks) {
-    if (task.githubPrNumber != null) claimed.add(task.githubPrNumber);
-    else if (task.branch) unlinkedByBranch.set(task.branch, task.taskNumber);
+    if (task.githubPrNumber != null || !task.branch) continue;
+    const claimant = unlinkedByBranch.get(task.branch);
+    if (claimant == null || (claimant.status === 'done' && task.status !== 'done')) {
+      unlinkedByBranch.set(task.branch, task);
+    }
   }
   if (unlinkedByBranch.size === 0) return { linked: 0 };
 
@@ -356,11 +368,11 @@ async function sweepPullRequests(projectPath: string): Promise<{ linked: number 
   const openPrs = await fetchOpenPullRequestBranches(availability.identity, projectPath);
   let linked = 0;
   for (const pr of openPrs) {
-    const taskNumber = unlinkedByBranch.get(pr.headRefName);
-    // Two tasks can share a branch. Reassigning the PR to the second would flip
-    // the badge between them on every refresh.
-    if (taskNumber == null || claimed.has(pr.number)) continue;
-    if ((await setTaskGithubPr(projectPath, taskNumber, pr.number)).success) linked++;
+    const task = unlinkedByBranch.get(pr.headRefName);
+    if (task == null) continue;
+    if (!(await taskCanTakePr(projectPath, task.taskNumber, pr.number))) continue;
+    if (!(await setTaskGithubPr(projectPath, task.taskNumber, pr.number)).success) continue;
+    linked++;
   }
   return { linked };
 }
