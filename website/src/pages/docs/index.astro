@@ -6,6 +6,7 @@ const sections = [
   { id: 'worktrees', label: 'Worktree Isolation' },
   { id: 'kanban', label: 'Kanban Board' },
   { id: 'terminals', label: 'Terminal Sessions' },
+  { id: 'canvas', label: 'Canvas Layout' },
   { id: 'sandbox', label: 'Sandbox' },
   { id: 'hooks', label: 'Hooks' },
   { id: 'harnesses', label: 'Harnesses' },
@@ -239,6 +240,7 @@ git branch --show-current</code></pre>
             <tr><td><code>⌘N</code> / <code>Ctrl+N</code></td><td>Show kanban board and focus new task input</td></tr>
             <tr><td><code>⌘P</code> / <code>Ctrl+P</code></td><td>Toggle runner panel</td></tr>
             <tr><td><code>⌘D</code> / <code>Ctrl+D</code></td><td>Toggle diff panel</td></tr>
+            <tr><td><code>⌘L</code> / <code>Ctrl+L</code></td><td>Switch between the card stack and the <a href="#canvas">canvas</a></td></tr>
           </tbody>
         </table>
         <h2>Runner panel</h2>
@@ -252,6 +254,49 @@ git branch --show-current</code></pre>
 
         <h2>Working with harnesses</h2>
         <p>Each terminal is a normal shell, so any CLI tool runs in it. <a href="#harnesses">Claude Code, Codex, Pi, and OpenCode</a> get live status indicators and can drive Ouijit through the <a href="#cli">CLI</a>.</p>
+      </section>
+
+
+      <section id="canvas">
+        <h1>Canvas Layout</h1>
+        <p class="lead">An alternative to the card stack: every terminal is a window you place yourself, on one pannable, zoomable surface.</p>
+
+        <h2>Turning it on</h2>
+        <p>The canvas is experimental. Enable <strong>Canvas layout</strong> under <strong>App Settings → Experimental</strong>; it applies to every project. A canvas button then appears in the title bar next to the stack button, and <code>⌘L</code> switches between the two. Your choice, each terminal's position and size, and any groups you draw are remembered across restarts.</p>
+
+        <h2>Moving around</h2>
+        <table>
+          <thead>
+            <tr><th>Gesture</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Two-finger scroll</td><td>Pan the canvas</td></tr>
+            <tr><td><code>Space</code> + drag</td><td>Pan the canvas</td></tr>
+            <tr><td><code>⌘</code> + scroll / pinch</td><td>Zoom</td></tr>
+            <tr><td>Double-click a terminal</td><td>Frame it and focus it</td></tr>
+            <tr><td><code>Shift</code> + drag</td><td>Rubber-band select</td></tr>
+            <tr><td>Drag a terminal's header</td><td>Move it</td></tr>
+          </tbody>
+        </table>
+        <p>Terminals are live wherever they sit: click into one and type, scroll its scrollback, select its output. No selection click first.</p>
+
+        <h2>Arranging</h2>
+        <table>
+          <thead>
+            <tr><th>Shortcut</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>⌘L</code> / <code>Ctrl+L</code></td><td>Switch between the card stack and the canvas</td></tr>
+            <tr><td><code>⌘G</code> / <code>Ctrl+G</code></td><td>Group the selected terminals</td></tr>
+            <tr><td><code>⌘⇧G</code> / <code>Ctrl+Shift+G</code></td><td>Ungroup</td></tr>
+            <tr><td><code>⌘1</code>–<code>⌘9</code></td><td>Select a terminal by position</td></tr>
+          </tbody>
+        </table>
+        <p>Right-click a selection of two or more terminals for align, distribute, grid layout, and a chain tree layout that lays parent tasks out to the left of their children. Dragging shows smart guides against the other terminals; the toolbar at the top toggles snap-to-grid.</p>
+        <p>The <code>?</code> button in that toolbar lists these shortcuts without leaving the app.</p>
+
+        <h2>Chains and tags</h2>
+        <p>Terminals belonging to <a href="#kanban">chained tasks</a> are joined by colored edges, so a parent task and everything spawned from it read as one cluster. The minimap in the corner uses the same colors. Filtering by tag hides the terminals that don't match without disturbing anyone's position.</p>
       </section>
 
       <section id="sandbox">

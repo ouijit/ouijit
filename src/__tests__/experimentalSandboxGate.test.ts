@@ -19,6 +19,6 @@ describe('applyExperimentalSandboxGate', () => {
       expect(gatedNono?.detail).toMatch(/experimental/i);
     }
     // Enabled: nono passes through untouched.
-    expect(applyExperimentalSandboxGate([lima, nono], { canvas: false, nono: true })).toEqual([lima, nono]);
+    expect(applyExperimentalSandboxGate([lima, nono], { nono: true, github: false })).toEqual([lima, nono]);
   });
 });

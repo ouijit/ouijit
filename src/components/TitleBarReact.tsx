@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
+import { useProjectStore } from '../stores/projectStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { useExperimentalStore } from '../stores/experimentalStore';
-import { useUIStore } from '../stores/uiStore';
+import { useUIStore, type TerminalLayout } from '../stores/uiStore';
 import { useTerminalStore, collectActiveTags } from '../stores/terminalStore';
 import { Icon } from './terminal/Icon';
 import { TagFilterControl } from './terminal/TagFilterControl';
@@ -24,12 +24,10 @@ export function TitleBar({ mode }: TitleBarProps) {
   const activeView = useAppStore((s) => s.activeView);
   const fullscreen = useAppStore((s) => s.fullscreen);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
-  const terminalLayout = useProjectStore((s) => s.terminalLayout);
+  const terminalLayout = useUIStore((s) => s.terminalLayout);
   const activePanel = useProjectStore((s) => s.activePanel);
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
-  const canvasEnabled = useExperimentalStore((s) =>
-    activeProjectPath ? (s.flagsByProject[activeProjectPath]?.canvas ?? false) : false,
-  );
+  const canvasEnabled = useUIStore((s) => s.canvasEnabled);
   const githubEnabled = useExperimentalStore((s) =>
     activeProjectPath ? (s.flagsByProject[activeProjectPath]?.github ?? false) : false,
   );
@@ -70,7 +68,7 @@ export function TitleBar({ mode }: TitleBarProps) {
     } else {
       store.setActivePanel('terminals');
       store.setKanbanVisible(false);
-      store.setTerminalLayout(view as TerminalLayout);
+      useUIStore.getState().setTerminalLayout(view as TerminalLayout);
     }
   }, []);
 

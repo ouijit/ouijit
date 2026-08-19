@@ -8,8 +8,6 @@
 
 /** Experimental features that can be toggled per project. */
 export interface ExperimentalFlags {
-  /** React-flow free-form terminal canvas. */
-  canvas: boolean;
   /** The nono sandbox backend (still maturing; gated off by default). */
   nono: boolean;
   /** GitHub pull request inbox and review surface. Panel and polling stay dark until on. */
@@ -17,7 +15,6 @@ export interface ExperimentalFlags {
 }
 
 export const DEFAULT_EXPERIMENTAL_FLAGS: ExperimentalFlags = {
-  canvas: false,
   nono: false,
   github: false,
 };

@@ -108,11 +108,11 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
   store.setActivePanel('terminals');
   store.setKanbanVisible(false);
 
-  if (store.terminalLayout === 'canvas') {
+  if (useUIStore.getState().terminalLayout === 'canvas') {
     const canvas = useCanvasStore.getState().canvasByProject[ownerPath];
     if (canvas) {
-      const nodes = canvas.nodes.map((node) => ({ ...node, selected: node.id === ptyId }));
-      useCanvasStore.getState().loadCanvas(ownerPath, { ...canvas, nodes });
+      const nodes = canvas.nodes.map((node) => ({ ...node, selected: node.data.ptyId === ptyId }));
+      useCanvasStore.getState().setNodes(ownerPath, nodes);
     }
   } else {
     const terminals = useTerminalStore.getState().terminalsByProject[ownerPath] ?? [];

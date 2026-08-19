@@ -1,5 +1,13 @@
 import { memo, useCallback } from 'react';
-import { useCanvasStore, persistCanvas, type TerminalNode } from '../../stores/canvasStore';
+import {
+  useCanvasStore,
+  persistCanvas,
+  nodeWidth,
+  nodeHeight,
+  type CanvasNode,
+  type AlignType,
+  type DistributeAxis,
+} from '../../stores/canvasStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { buildChainMap, type TaskChainInfo } from '../../utils/taskChain';
@@ -11,191 +19,42 @@ interface AlignMenuProps {
   onClose: () => void;
 }
 
-type AlignType = 'left' | 'center-h' | 'right' | 'top' | 'center-v' | 'bottom';
-type DistributeType = 'horizontal' | 'vertical';
-
 /** Context menu for aligning and distributing selected nodes. */
 export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClose }: AlignMenuProps) {
   const handleAlign = useCallback(
     (type: AlignType) => {
-      const canvas = useCanvasStore.getState().canvasByProject[projectPath];
-      if (!canvas) return;
-      const selected = canvas.nodes.filter((n) => n.selected);
-      if (selected.length < 2) return;
-
-      const getWidth = (n: TerminalNode) => n.measured?.width ?? (n.style?.width ? Number(n.style.width) : 720);
-      const getHeight = (n: TerminalNode) => n.measured?.height ?? (n.style?.height ? Number(n.style.height) : 480);
-
-      let updatedNodes = [...canvas.nodes];
-
-      switch (type) {
-        case 'left': {
-          const minX = Math.min(...selected.map((n) => n.position.x));
-          updatedNodes = updatedNodes.map((n) => (n.selected ? { ...n, position: { ...n.position, x: minX } } : n));
-          break;
-        }
-        case 'right': {
-          const maxRight = Math.max(...selected.map((n) => n.position.x + getWidth(n)));
-          updatedNodes = updatedNodes.map((n) =>
-            n.selected ? { ...n, position: { ...n.position, x: maxRight - getWidth(n) } } : n,
-          );
-          break;
-        }
-        case 'center-h': {
-          const centerX =
-            (Math.min(...selected.map((n) => n.position.x)) +
-              Math.max(...selected.map((n) => n.position.x + getWidth(n)))) /
-            2;
-          updatedNodes = updatedNodes.map((n) =>
-            n.selected ? { ...n, position: { ...n.position, x: centerX - getWidth(n) / 2 } } : n,
-          );
-          break;
-        }
-        case 'top': {
-          const minY = Math.min(...selected.map((n) => n.position.y));
-          updatedNodes = updatedNodes.map((n) => (n.selected ? { ...n, position: { ...n.position, y: minY } } : n));
-          break;
-        }
-        case 'bottom': {
-          const maxBottom = Math.max(...selected.map((n) => n.position.y + getHeight(n)));
-          updatedNodes = updatedNodes.map((n) =>
-            n.selected ? { ...n, position: { ...n.position, y: maxBottom - getHeight(n) } } : n,
-          );
-          break;
-        }
-        case 'center-v': {
-          const centerY =
-            (Math.min(...selected.map((n) => n.position.y)) +
-              Math.max(...selected.map((n) => n.position.y + getHeight(n)))) /
-            2;
-          updatedNodes = updatedNodes.map((n) =>
-            n.selected ? { ...n, position: { ...n.position, y: centerY - getHeight(n) / 2 } } : n,
-          );
-          break;
-        }
-      }
-
-      useCanvasStore.getState().loadCanvas(projectPath, { ...canvas, nodes: updatedNodes as TerminalNode[] });
+      useCanvasStore.getState().alignSelected(projectPath, type);
       persistCanvas(projectPath);
     },
     [projectPath],
   );
 
   const handleDistribute = useCallback(
-    (type: DistributeType) => {
-      const canvas = useCanvasStore.getState().canvasByProject[projectPath];
-      if (!canvas) return;
-      const selected = canvas.nodes.filter((n) => n.selected);
-      if (selected.length < 3) return;
-
-      const getWidth = (n: TerminalNode) => n.measured?.width ?? (n.style?.width ? Number(n.style.width) : 720);
-      const getHeight = (n: TerminalNode) => n.measured?.height ?? (n.style?.height ? Number(n.style.height) : 480);
-
-      let updatedNodes = [...canvas.nodes];
-
-      if (type === 'horizontal') {
-        const sorted = [...selected].sort((a, b) => a.position.x - b.position.x);
-        const totalWidth = sorted.reduce((sum, n) => sum + getWidth(n), 0);
-        const minX = sorted[0].position.x;
-        const maxRight = sorted[sorted.length - 1].position.x + getWidth(sorted[sorted.length - 1]);
-        const spacing = (maxRight - minX - totalWidth) / (sorted.length - 1);
-
-        let currentX = minX;
-        const positions = new Map<string, number>();
-        for (const node of sorted) {
-          positions.set(node.id, currentX);
-          currentX += getWidth(node) + spacing;
-        }
-
-        updatedNodes = updatedNodes.map((n) =>
-          positions.has(n.id) ? { ...n, position: { ...n.position, x: positions.get(n.id)! } } : n,
-        );
-      } else {
-        const sorted = [...selected].sort((a, b) => a.position.y - b.position.y);
-        const totalHeight = sorted.reduce((sum, n) => sum + getHeight(n), 0);
-        const minY = sorted[0].position.y;
-        const maxBottom = sorted[sorted.length - 1].position.y + getHeight(sorted[sorted.length - 1]);
-        const spacing = (maxBottom - minY - totalHeight) / (sorted.length - 1);
-
-        let currentY = minY;
-        const positions = new Map<string, number>();
-        for (const node of sorted) {
-          positions.set(node.id, currentY);
-          currentY += getHeight(node) + spacing;
-        }
-
-        updatedNodes = updatedNodes.map((n) =>
-          positions.has(n.id) ? { ...n, position: { ...n.position, y: positions.get(n.id)! } } : n,
-        );
-      }
-
-      useCanvasStore.getState().loadCanvas(projectPath, { ...canvas, nodes: updatedNodes as TerminalNode[] });
+    (axis: DistributeAxis) => {
+      useCanvasStore.getState().distributeSelected(projectPath, axis);
       persistCanvas(projectPath);
     },
     [projectPath],
   );
 
-  const tasks = useProjectStore((s) => s.tasks);
-  const displayStates = useTerminalStore((s) => s.displayStates);
-
   const handleGridLayout = useCallback(() => {
-    const canvas = useCanvasStore.getState().canvasByProject[projectPath];
-    if (!canvas) return;
-    const selected = canvas.nodes.filter((n) => n.selected);
-    if (selected.length < 2) return;
-
-    const getWidth = (n: TerminalNode) => n.measured?.width ?? (n.style?.width ? Number(n.style.width) : 740);
-    const getHeight = (n: TerminalNode) => n.measured?.height ?? (n.style?.height ? Number(n.style.height) : 556);
-    const gap = 24;
-
-    // Grid dimensions: prefer wider than tall
-    const cols = Math.ceil(Math.sqrt(selected.length));
-    const sorted = [...selected].sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y);
-
-    // Compute column widths and row heights
-    const colWidths: number[] = [];
-    const rowHeights: number[] = [];
-    for (let i = 0; i < sorted.length; i++) {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      colWidths[col] = Math.max(colWidths[col] ?? 0, getWidth(sorted[i]));
-      rowHeights[row] = Math.max(rowHeights[row] ?? 0, getHeight(sorted[i]));
-    }
-
-    // Place from the top-left of the current bounding box
-    const originX = Math.min(...selected.map((n) => n.position.x));
-    const originY = Math.min(...selected.map((n) => n.position.y));
-
-    const positions = new Map<string, { x: number; y: number }>();
-    for (let i = 0; i < sorted.length; i++) {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x = originX + colWidths.slice(0, col).reduce((s, w) => s + w + gap, 0);
-      const y = originY + rowHeights.slice(0, row).reduce((s, h) => s + h + gap, 0);
-      positions.set(sorted[i].id, { x, y });
-    }
-
-    const updatedNodes = canvas.nodes.map((n) => {
-      const pos = positions.get(n.id);
-      return pos ? { ...n, position: pos } : n;
-    });
-
-    useCanvasStore.getState().loadCanvas(projectPath, { ...canvas, nodes: updatedNodes as TerminalNode[] });
+    useCanvasStore.getState().gridLayoutSelected(projectPath);
     persistCanvas(projectPath);
   }, [projectPath]);
+
+  const tasks = useProjectStore((s) => s.tasks);
+  const displayStates = useTerminalStore((s) => s.displayStates);
 
   const handleChainLayout = useCallback(() => {
     const canvas = useCanvasStore.getState().canvasByProject[projectPath];
     if (!canvas) return;
 
     const chainMap = buildChainMap(tasks);
-    const getWidth = (n: TerminalNode) => n.measured?.width ?? (n.style?.width ? Number(n.style.width) : 740);
-    const getHeight = (n: TerminalNode) => n.measured?.height ?? (n.style?.height ? Number(n.style.height) : 556);
     const hGap = 80;
     const vGap = 60;
 
     // Build taskNumber → nodes lookup
-    const taskToNodes = new Map<number, TerminalNode[]>();
+    const taskToNodes = new Map<number, CanvasNode[]>();
     for (const node of canvas.nodes) {
       const display = displayStates[node.data.ptyId];
       if (display?.taskId != null) {
@@ -233,14 +92,14 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
       let nodeY = y;
       for (const node of nodes) {
         positions.set(node.id, { x, y: nodeY });
-        nodeY += getHeight(node) + vGap;
+        nodeY += nodeHeight(node) + vGap;
       }
       const thisHeight = nodes.length > 0 ? nodeY - y - vGap : 0;
 
       // Layout children to the right
       if (!info || info.childTaskNumbers.length === 0) return Math.max(thisHeight, 0);
 
-      const maxNodeWidth = nodes.length > 0 ? Math.max(...nodes.map(getWidth)) : 0;
+      const maxNodeWidth = nodes.length > 0 ? Math.max(...nodes.map(nodeWidth)) : 0;
       const childX = x + maxNodeWidth + hGap;
 
       // Center children vertically relative to this task's nodes
@@ -249,7 +108,7 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
       // First pass: compute total height needed
       for (const childNum of info.childTaskNumbers) {
         if (!chainTaskNumbers.has(childNum)) continue;
-        const h = estimateSubtreeHeight(childNum, chainMap, taskToNodes, getHeight, vGap);
+        const h = estimateSubtreeHeight(childNum, chainMap, taskToNodes, vGap);
         childHeights.push(h);
         totalChildHeight += h;
       }
@@ -282,7 +141,7 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
       return pos ? { ...n, position: pos } : n;
     });
 
-    useCanvasStore.getState().loadCanvas(projectPath, { ...canvas, nodes: updatedNodes as TerminalNode[] });
+    useCanvasStore.getState().setNodes(projectPath, updatedNodes);
     persistCanvas(projectPath);
   }, [projectPath, tasks, displayStates]);
 
@@ -323,14 +182,13 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
 function estimateSubtreeHeight(
   taskNum: number,
   chainMap: Map<number, TaskChainInfo>,
-  taskToNodes: Map<number, TerminalNode[]>,
-  getHeight: (n: TerminalNode) => number,
+  taskToNodes: Map<number, CanvasNode[]>,
   vGap: number,
 ): number {
   const nodes = taskToNodes.get(taskNum) ?? [];
   const info = chainMap.get(taskNum);
 
-  const thisHeight = nodes.length > 0 ? nodes.reduce((sum, n) => sum + getHeight(n) + vGap, 0) - vGap : 0;
+  const thisHeight = nodes.length > 0 ? nodes.reduce((sum, n) => sum + nodeHeight(n) + vGap, 0) - vGap : 0;
 
   if (!info || info.childTaskNumbers.length === 0) return Math.max(thisHeight, 0);
 
@@ -339,7 +197,7 @@ function estimateSubtreeHeight(
   for (const childNum of info.childTaskNumbers) {
     const childInfo = chainMap.get(childNum);
     if (!childInfo || (childInfo.depth === 0 && childInfo.childTaskNumbers.length === 0)) continue;
-    childTotal += estimateSubtreeHeight(childNum, chainMap, taskToNodes, getHeight, vGap);
+    childTotal += estimateSubtreeHeight(childNum, chainMap, taskToNodes, vGap);
     childCount++;
   }
   if (childCount > 1) childTotal += (childCount - 1) * vGap;

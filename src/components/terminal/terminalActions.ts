@@ -199,9 +199,13 @@ function registerTerminal(
     useTerminalStore.getState().addTerminal(projectPath, ptyId, initial);
   }
 
-  // Add to canvas
+  // Add to canvas. A replaced loading slot already has a node — rekeying it
+  // keeps the node (and its position) instead of remounting a fresh terminal.
   useCanvasStore.getState().ensureProject(projectPath);
-  useCanvasStore.getState().addNode(projectPath, ptyId);
+  if (replaceLoadingId) {
+    useCanvasStore.getState().rekeyNode(projectPath, replaceLoadingId, ptyId);
+  }
+  useCanvasStore.getState().addNode(projectPath, ptyId, { taskId: initial.taskId ?? null });
   persistCanvas(projectPath);
 
   // Activate last unless background. With a replaced loading slot the

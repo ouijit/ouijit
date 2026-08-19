@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useReactFlow, type OnNodeDrag } from '@xyflow/react';
-import type { TerminalNode } from '../../stores/canvasStore';
+import { nodeWidth, nodeHeight, type CanvasNode } from '../../stores/canvasStore';
 
 export interface GuideLine {
   orientation: 'horizontal' | 'vertical';
@@ -9,33 +9,23 @@ export interface GuideLine {
 }
 
 const SNAP_THRESHOLD = 8;
-const DEFAULT_W = 740;
-const DEFAULT_H = 556;
-
-function getW(node: { measured?: { width?: number }; style?: { width?: number | string } }): number {
-  return node.measured?.width ?? (node.style?.width ? Number(node.style.width) : DEFAULT_W);
-}
-
-function getH(node: { measured?: { height?: number }; style?: { height?: number | string } }): number {
-  return node.measured?.height ?? (node.style?.height ? Number(node.style.height) : DEFAULT_H);
-}
 
 /**
  * Computes smart alignment guides during node drag.
  * Returns guide lines in screen-space and drag event handlers.
  */
-export function useSmartGuides(nodes: TerminalNode[]) {
+export function useSmartGuides(nodes: CanvasNode[]) {
   const [guides, setGuides] = useState<GuideLine[]>([]);
   const { getViewport } = useReactFlow();
 
-  const onNodeDrag: OnNodeDrag<TerminalNode> = useCallback(
+  const onNodeDrag: OnNodeDrag<CanvasNode> = useCallback(
     (_event, draggedNode) => {
       const { x: panX, y: panY, zoom } = getViewport();
       const matches: { orientation: 'horizontal' | 'vertical'; canvasPos: number }[] = [];
 
       const dLeft = draggedNode.position.x;
-      const dWidth = getW(draggedNode);
-      const dHeight = getH(draggedNode);
+      const dWidth = nodeWidth(draggedNode);
+      const dHeight = nodeHeight(draggedNode);
       const dRight = dLeft + dWidth;
       const dTop = draggedNode.position.y;
       const dBottom = dTop + dHeight;
@@ -46,8 +36,8 @@ export function useSmartGuides(nodes: TerminalNode[]) {
         if (node.id === draggedNode.id) continue;
 
         const nLeft = node.position.x;
-        const nWidth = getW(node);
-        const nHeight = getH(node);
+        const nWidth = nodeWidth(node);
+        const nHeight = nodeHeight(node);
         const nRight = nLeft + nWidth;
         const nTop = node.position.y;
         const nBottom = nTop + nHeight;
@@ -88,7 +78,7 @@ export function useSmartGuides(nodes: TerminalNode[]) {
     [nodes, getViewport],
   );
 
-  const onNodeDragStop: OnNodeDrag<TerminalNode> = useCallback(() => {
+  const onNodeDragStop: OnNodeDrag<CanvasNode> = useCallback(() => {
     setGuides([]);
   }, []);
 

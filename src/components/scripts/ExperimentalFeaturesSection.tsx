@@ -7,17 +7,8 @@ interface ExperimentalFeaturesSectionProps {
 
 export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeaturesSectionProps) {
   const flags = useExperimentalStore((s) => s.flagsByProject[projectPath]);
-  const canvasEnabled = flags?.canvas ?? false;
   const nonoEnabled = flags?.nono ?? false;
   const githubEnabled = flags?.github ?? false;
-
-  const handleToggleCanvas = async () => {
-    const next = !canvasEnabled;
-    await useExperimentalStore.getState().setFlag(projectPath, 'canvas', next);
-    if (!next && useProjectStore.getState().terminalLayout === 'canvas') {
-      useProjectStore.getState().setTerminalLayout('stack');
-    }
-  };
 
   const handleToggleNono = async () => {
     await useExperimentalStore.getState().setFlag(projectPath, 'nono', !nonoEnabled);
@@ -38,12 +29,6 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
 
   return (
     <div className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
-      <ToggleRow
-        label="Canvas layout"
-        description="React-flow based free-form terminal canvas with grouping and chain edges."
-        checked={canvasEnabled}
-        onChange={handleToggleCanvas}
-      />
       <ToggleRow
         label="nono sandbox"
         description="Run a task's terminals under nono's kernel-level access limits instead of a Lima VM."

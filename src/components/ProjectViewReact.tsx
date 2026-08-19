@@ -3,9 +3,11 @@ import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../stores/canvasStore';
+import { syncCanvasWithTerminals } from '../stores/canvasSync';
 import { useExperimentalStore } from '../stores/experimentalStore';
+import { useUIStore } from '../stores/uiStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
-import { TerminalCanvas, syncCanvasWithTerminals } from './canvas/TerminalCanvas';
+import { TerminalCanvas } from './canvas/TerminalCanvas';
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
 import { PullRequestsPanel } from './github/PullRequestsPanel';
@@ -30,13 +32,13 @@ const EMPTY: string[] = [];
 function getCanvasSelectedPtyId(projectPath: string): string | undefined {
   const project = useCanvasStore.getState().canvasByProject[projectPath];
   if (!project) return undefined;
-  const selected = project.nodes.find((n) => n.selected);
-  return selected?.id;
+  const selected = project.nodes.find((n) => n.selected && n.type === 'terminal');
+  return selected?.data.ptyId;
 }
 
 /** Get the active ptyId based on the current layout mode. */
 function getActivePtyId(projectPath: string): string | undefined {
-  const layout = useProjectStore.getState().terminalLayout;
+  const layout = useUIStore.getState().terminalLayout;
   if (layout === 'canvas') {
     return getCanvasSelectedPtyId(projectPath);
   }
@@ -52,10 +54,8 @@ export function ProjectView() {
   const projectData = useAppStore((s) => s.activeProjectData);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const activePanel = useProjectStore((s) => s.activePanel);
-  const terminalLayout = useProjectStore((s) => s.terminalLayout);
-  const canvasEnabled = useExperimentalStore((s) =>
-    projectPath ? (s.flagsByProject[projectPath]?.canvas ?? false) : false,
-  );
+  const terminalLayout = useUIStore((s) => s.terminalLayout);
+  const canvasEnabled = useUIStore((s) => s.canvasEnabled);
   const githubEnabled = useExperimentalStore((s) =>
     projectPath ? (s.flagsByProject[projectPath]?.github ?? false) : false,
   );
@@ -116,12 +116,12 @@ export function ProjectView() {
       if (key === 'l' && canvasEnabled) {
         e.preventDefault();
         e.stopPropagation();
-        useProjectStore.getState().toggleTerminalLayout();
+        useUIStore.getState().toggleTerminalLayout();
         return;
       }
 
       // Cmd+G / Cmd+Shift+G — group/ungroup (canvas mode only)
-      if (key === 'g' && canvasEnabled && useProjectStore.getState().terminalLayout === 'canvas') {
+      if (key === 'g' && canvasEnabled && useUIStore.getState().terminalLayout === 'canvas') {
         e.preventDefault();
         e.stopPropagation();
         if (e.shiftKey) {
@@ -174,7 +174,7 @@ export function ProjectView() {
       if (num >= 1 && num <= 9) {
         e.preventDefault();
         e.stopPropagation();
-        const layout = useProjectStore.getState().terminalLayout;
+        const layout = useUIStore.getState().terminalLayout;
         if (layout === 'canvas') {
           // Canvas mode: select Nth terminal node
           const terms = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
@@ -185,9 +185,9 @@ export function ProjectView() {
             if (canvas) {
               const updatedNodes = canvas.nodes.map((n) => ({
                 ...n,
-                selected: n.id === targetPtyId,
+                selected: n.data.ptyId === targetPtyId,
               }));
-              useCanvasStore.getState().loadCanvas(projectPath, { ...canvas, nodes: updatedNodes });
+              useCanvasStore.getState().setNodes(projectPath, updatedNodes);
             }
             const inst = terminalInstances.get(targetPtyId);
             if (inst) {
@@ -206,7 +206,7 @@ export function ProjectView() {
 
       // Cmd+Shift+Left/Right — page navigation (stack mode only)
       if (e.shiftKey && (key === 'arrowleft' || key === 'arrowright')) {
-        const layout = useProjectStore.getState().terminalLayout;
+        const layout = useUIStore.getState().terminalLayout;
         if (layout === 'stack') {
           e.preventDefault();
           e.stopPropagation();
@@ -227,13 +227,6 @@ export function ProjectView() {
     document.addEventListener('keydown', handler, true);
     return () => document.removeEventListener('keydown', handler, true);
   }, [projectPath, canvasEnabled]);
-
-  // Force layout back to stack if the canvas flag gets disabled while active
-  useEffect(() => {
-    if (!canvasEnabled && terminalLayout === 'canvas') {
-      useProjectStore.getState().setTerminalLayout('stack');
-    }
-  }, [canvasEnabled, terminalLayout]);
 
   // Same guard for the GitHub panel — turning the flag off must not leave the
   // user stranded on a panel whose toggle has just disappeared.

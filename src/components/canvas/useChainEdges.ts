@@ -2,11 +2,8 @@ import { useEffect } from 'react';
 import { Position, type Edge } from '@xyflow/react';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { useCanvasStore, persistCanvas, type TerminalNode } from '../../stores/canvasStore';
+import { useCanvasStore, nodeWidth, nodeHeight, type CanvasNode } from '../../stores/canvasStore';
 import { buildChainMap, getChainColor } from '../../utils/taskChain';
-
-const DEFAULT_W = 740;
-const DEFAULT_H = 556;
 
 interface NodeRect {
   x: number;
@@ -17,9 +14,9 @@ interface NodeRect {
   cy: number;
 }
 
-function getNodeRect(node: TerminalNode): NodeRect {
-  const w = node.measured?.width ?? (node.style?.width ? Number(node.style.width) : DEFAULT_W);
-  const h = node.measured?.height ?? (node.style?.height ? Number(node.style.height) : DEFAULT_H);
+function getNodeRect(node: CanvasNode): NodeRect {
+  const w = nodeWidth(node);
+  const h = nodeHeight(node);
   return {
     x: node.position.x,
     y: node.position.y,
@@ -84,8 +81,9 @@ export function useChainEdges(projectPath: string): void {
     const chainMap = buildChainMap(tasks);
 
     // Build taskNumber -> nodes lookup (a task can have multiple terminals)
-    const taskToNodes = new Map<number, TerminalNode[]>();
+    const taskToNodes = new Map<number, CanvasNode[]>();
     for (const node of canvasNodes) {
+      if (node.type === 'group') continue;
       const ptyId = node.data.ptyId;
       const display = displayStates[ptyId];
       if (display?.taskId != null) {
@@ -135,8 +133,8 @@ export function useChainEdges(projectPath: string): void {
 
       // Find the closest pair between parent and child terminal groups
       let bestDist = Infinity;
-      let bestParent: TerminalNode | undefined;
-      let bestChild: TerminalNode | undefined;
+      let bestParent: CanvasNode | undefined;
+      let bestChild: CanvasNode | undefined;
       for (const pNode of parentNodes) {
         const pr = getNodeRect(pNode);
         for (const cNode of childNodes) {
@@ -181,7 +179,6 @@ export function useChainEdges(projectPath: string): void {
 
     if (changed) {
       useCanvasStore.getState().setEdges(projectPath, edges);
-      persistCanvas(projectPath);
     }
   }, [tasks, displayStates, canvasNodes, projectPath]);
 }

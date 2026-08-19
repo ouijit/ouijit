@@ -12,6 +12,7 @@ import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
+import { useUIStore } from '../stores/uiStore';
 import { OuijitTerminal, terminalInstances } from '../components/terminal/terminalReact';
 import { legacySandboxProvider } from '../types';
 import type { CaptureNavigatePayload, CaptureTerminalSeed } from './types';
@@ -101,7 +102,7 @@ export function installCaptureNavigator(): void {
       case 'terminal-stack':
         projectStore.setActivePanel('terminals');
         projectStore.setKanbanVisible(false);
-        projectStore.setTerminalLayout('stack');
+        useUIStore.setState({ terminalLayout: 'stack' });
         break;
       case 'settings':
         projectStore.setActivePanel('settings');
@@ -110,11 +111,11 @@ export function installCaptureNavigator(): void {
       case 'canvas':
         projectStore.setActivePanel('terminals');
         projectStore.setKanbanVisible(false);
-        projectStore.setTerminalLayout('canvas');
+        useUIStore.setState({ canvasEnabled: true, terminalLayout: 'canvas' });
         if (payload.terminalSeeds) {
           const canvas = useCanvasStore.getState();
           for (const seed of payload.terminalSeeds) {
-            canvas.addNode(payload.projectPath, seed.ptyId, seed.canvasPosition);
+            canvas.addNode(payload.projectPath, seed.ptyId, { taskId: seed.taskId, position: seed.canvasPosition });
           }
           if (payload.canvasViewport) {
             canvas.setViewport(payload.projectPath, payload.canvasViewport);

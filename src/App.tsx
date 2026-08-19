@@ -21,7 +21,7 @@ import { installCaptureNavigator } from './capture/navigator';
 import { hydrateTerminalFont } from './components/terminal/terminalReact';
 import { hydrateNotificationSettings } from './utils/notifications';
 import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
-import { useUIStore } from './stores/uiStore';
+import { useUIStore, loadLayoutPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
 import type { Project, SiblingScanResult } from './types';
 
@@ -116,6 +116,12 @@ export function App() {
     window.api.globalSettings.get('ui:sidebar-pinned').then((value) => {
       if (value === '0') useUIStore.setState({ sidebarPinned: false });
     });
+  }, []);
+
+  // Hydrate the canvas toggle and the stack/canvas choice before the first
+  // project view mounts, so a saved canvas layout doesn't flash the stack.
+  useEffect(() => {
+    void loadLayoutPreferences();
   }, []);
 
   // Subscribe to terminal store changes so the cross-launch session snapshot

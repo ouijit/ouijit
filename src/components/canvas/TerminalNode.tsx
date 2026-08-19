@@ -1,6 +1,6 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import { NodeResizer, Handle, Position, type NodeProps } from '@xyflow/react';
-import { type TerminalNode as TerminalNodeType } from '../../stores/canvasStore';
+import { type CanvasNode } from '../../stores/canvasStore';
 import { TerminalBody } from '../terminal/TerminalBody';
 import { TerminalHeader } from '../terminal/TerminalHeader';
 import { closeProjectTerminal } from '../terminal/terminalActions';
@@ -9,9 +9,24 @@ const INSET_TOP = 8;
 const INSET_SIDE = 10;
 const INSET_BOTTOM = 8;
 
-export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeProps<TerminalNodeType>) {
+export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeProps<CanvasNode>) {
   if (data.loading) return <LoadingNode label={data.loadingLabel} />;
   return <ActiveTerminalNode data={data} selected={selected} />;
+});
+
+/** Group container. Chrome only — the terminals inside it are separate nodes. */
+export const GroupNode = memo(function GroupNode({ selected }: NodeProps<CanvasNode>) {
+  return (
+    <div
+      className="w-full h-full rounded-2xl"
+      style={{
+        background: 'color-mix(in srgb, var(--color-ink) 2%, transparent)',
+        border: selected
+          ? '1px dashed color-mix(in srgb, var(--color-accent) 60%, transparent)'
+          : '1px dashed color-mix(in srgb, var(--color-ink) 10%, transparent)',
+      }}
+    />
+  );
 });
 
 function LoadingNode({ label }: { label?: string }) {
@@ -40,16 +55,29 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
   data,
   selected,
 }: {
-  data: TerminalNodeType['data'];
+  data: CanvasNode['data'];
   selected?: boolean;
 }) {
   const { ptyId, projectPath } = data;
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   const handleClose = useCallback(() => {
     closeProjectTerminal(ptyId);
   }, [ptyId]);
 
-  const bodyClasses = selected ? 'nodrag nowheel nopan flex flex-col flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0';
+  // The terminal and the canvas both want the wheel. React Flow reads its
+  // wheel events off an ancestor, so a capture-phase listener here can keep
+  // plain scrolls for xterm's scrollback while letting ⌘/pinch scrolls
+  // through to zoom. The `nowheel` class would take both.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.metaKey && !event.ctrlKey) event.stopPropagation();
+    };
+    el.addEventListener('wheel', onWheel, { capture: true });
+    return () => el.removeEventListener('wheel', onWheel, { capture: true });
+  }, []);
 
   return (
     <>
@@ -85,7 +113,7 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
         <div className="terminal-drag-handle shrink-0" style={{ zIndex: 2 }}>
           <TerminalHeader ptyId={ptyId} isActive onClose={handleClose} />
         </div>
-        <div className={bodyClasses} style={selected ? undefined : { pointerEvents: 'none' }}>
+        <div ref={bodyRef} className="canvas-terminal-body flex flex-col flex-1 min-h-0">
           <TerminalBody ptyId={ptyId} projectPath={projectPath} />
         </div>
       </div>

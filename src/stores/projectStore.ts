@@ -11,8 +11,6 @@ import type {
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { useAppStore } from './appStore';
 
-export type TerminalLayout = 'stack' | 'canvas';
-
 export interface RunHookRequest {
   id: number;
   projectPath: string;
@@ -68,7 +66,6 @@ export interface PendingCliCompletion {
 interface ProjectStoreState {
   tasks: TaskWithWorkspace[];
   kanbanVisible: boolean;
-  terminalLayout: TerminalLayout;
   activePanel: 'terminals' | 'settings' | 'pull-requests';
   /** When set, the terminal stack and canvas show only sessions whose task has this tag. */
   tagFilter: string | null;
@@ -149,8 +146,6 @@ interface ProjectStoreActions {
   setBadgeDragOverTask: (taskNumber: number | null) => void;
   clearChainHighlights: () => void;
   resetBadgeDragState: () => void;
-  setTerminalLayout: (layout: TerminalLayout) => void;
-  toggleTerminalLayout: () => void;
   setActivePanel: (panel: 'terminals' | 'settings' | 'pull-requests') => void;
   setTagFilter: (tag: string | null) => void;
   resetForProject: () => void;
@@ -218,7 +213,6 @@ let scriptsLoadVersion = 0;
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
   tasks: [],
   kanbanVisible: false,
-  terminalLayout: 'stack',
   activePanel: 'terminals',
   tagFilter: null,
   scripts: [],
@@ -284,10 +278,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   resetBadgeDragState: () =>
     set({ activeBadgeDrag: null, badgeDragOverTask: null, highlightedChainTask: null, detachHoverParent: null }),
 
-  setTerminalLayout: (layout) => set({ terminalLayout: layout }),
-
-  toggleTerminalLayout: () => set((s) => ({ terminalLayout: s.terminalLayout === 'stack' ? 'canvas' : 'stack' })),
-
   setActivePanel: (panel) => set({ activePanel: panel }),
 
   setTagFilter: (tag) => set({ tagFilter: tag }),
@@ -323,7 +313,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     set({
       tasks: [],
       kanbanVisible: false,
-      terminalLayout: 'stack',
       activePanel: 'terminals',
       tagFilter: null,
       scripts: [],

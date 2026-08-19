@@ -902,10 +902,18 @@ textarea,
   pointer-events: none;
 }
 
-/* Selection box styling */
-.terminal-canvas .react-flow__selection {
+/* Selection box styling — also the rect drawn around a multi-node selection */
+.terminal-canvas .react-flow__selection,
+.terminal-canvas .react-flow__nodesselection-rect {
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
   background: color-mix(in srgb, var(--color-accent) 5%, transparent);
+}
+
+/* Terminals take pointer events directly, so a rubber band started over one
+   would land in the terminal. Shift is the selection modifier — while it's
+   held, node bodies step aside so a band can start anywhere. */
+.terminal-canvas.canvas-selecting .canvas-terminal-body {
+  pointer-events: none;
 }
 
 /* Minimap — styled to match controls bar */

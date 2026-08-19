@@ -17,10 +17,11 @@ import {
   useCanvasStore,
   loadPersistedCanvas,
   persistCanvas,
-  type TerminalNode as TerminalNodeType,
+  type CanvasNode as CanvasNodeType,
 } from '../../stores/canvasStore';
+import { syncCanvasWithTerminals } from '../../stores/canvasSync';
 import { useTerminalStore, terminalMatchesTag } from '../../stores/terminalStore';
-import { TerminalNode } from './TerminalNode';
+import { TerminalNode, GroupNode } from './TerminalNode';
 import { terminalInstances } from '../terminal/terminalReact';
 import { ChainEdge } from './ChainEdge';
 import { CanvasControls } from './CanvasControls';
@@ -31,53 +32,15 @@ import { useSmartGuides } from './useSmartGuides';
 import { getChainColor, buildChainMap } from '../../utils/taskChain';
 import { useProjectStore } from '../../stores/projectStore';
 import { readToken } from '../../theme/themeManager';
-import { useThemeEpoch } from '../../hooks/useResolvedTheme';
-
-/**
- * Reconcile canvas nodes with the terminal store — add missing, remove stale.
- * Treats missing terminal list as empty (all canvas nodes are stale).
- */
-export function syncCanvasWithTerminals(projectPath: string): void {
-  // Skip placeholder slots flagged `isLoading`: they're stack-only placeholders
-  // with no real PTY, and have no canvas representation.
-  const termState = useTerminalStore.getState();
-  const terminalPtyIds = (termState.terminalsByProject[projectPath] ?? []).filter(
-    (id) => !termState.displayStates[id]?.isLoading,
-  );
-  const canvasState = useCanvasStore.getState().canvasByProject[projectPath];
-  if (!canvasState) return;
-
-  const terminalSet = new Set(terminalPtyIds);
-  const store = useCanvasStore.getState();
-
-  // Add canvas nodes for terminals that don't have one yet
-  const canvasNodeIds = new Set(canvasState.nodes.map((n) => n.id));
-  for (const ptyId of terminalPtyIds) {
-    if (!canvasNodeIds.has(ptyId)) {
-      store.addNode(projectPath, ptyId);
-    }
-  }
-
-  // Remove canvas nodes whose terminal no longer exists
-  let changed = false;
-  for (const node of canvasState.nodes) {
-    if (node.type === 'terminal' && !node.id.startsWith('group-') && !terminalSet.has(node.id)) {
-      store.removeNode(projectPath, node.id);
-      changed = true;
-    }
-  }
-  if (changed) {
-    persistCanvas(projectPath);
-  }
-}
+import { useResolvedTheme, useThemeEpoch } from '../../hooks/useResolvedTheme';
 
 // Defined outside component to prevent re-renders
-const nodeTypes = { terminal: TerminalNode };
+const nodeTypes = { terminal: TerminalNode, group: GroupNode };
 const edgeTypes = { chain: ChainEdge };
 const snapGrid: [number, number] = [20, 20];
 const proOptions = { hideAttribution: true };
 
-const EMPTY_NODES: TerminalNodeType[] = [];
+const EMPTY_NODES: CanvasNodeType[] = [];
 const EMPTY_EDGES: import('@xyflow/react').Edge[] = [];
 
 interface TerminalCanvasProps {
@@ -98,7 +61,10 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const hiddenIds = useMemo(() => {
     if (!tagFilter) return null;
     const set = new Set<string>();
-    for (const n of nodes) if (!terminalMatchesTag(displayStates[n.id], tagFilter)) set.add(n.id);
+    for (const n of nodes) {
+      if (n.type === 'group') continue;
+      if (!terminalMatchesTag(displayStates[n.data.ptyId], tagFilter)) set.add(n.id);
+    }
     return set;
   }, [nodes, tagFilter, displayStates]);
   const renderedNodes = useMemo(
@@ -119,6 +85,24 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   // Phase 3: smart guides
   const { guides, onNodeDrag, onNodeDragStop } = useSmartGuides(nodes);
 
+  // Terminals are live, so a rubber band started over one would land inside
+  // the terminal instead of the canvas. Shift is the selection modifier — while
+  // it's held, node bodies stop taking pointer events so a band can start
+  // anywhere.
+  const [selecting, setSelecting] = useState(false);
+  useEffect(() => {
+    const sync = (e: KeyboardEvent) => setSelecting(e.shiftKey);
+    const clear = () => setSelecting(false);
+    window.addEventListener('keydown', sync);
+    window.addEventListener('keyup', sync);
+    window.addEventListener('blur', clear);
+    return () => {
+      window.removeEventListener('keydown', sync);
+      window.removeEventListener('keyup', sync);
+      window.removeEventListener('blur', clear);
+    };
+  }, []);
+
   // Minimap toggle
   const [minimapOpen, setMinimapOpen] = useState(true);
   const handleToggleMinimap = useCallback(() => setMinimapOpen((v) => !v), []);
@@ -135,7 +119,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   // Double-click a node to frame it and focus its terminal
   const { fitView } = useReactFlow();
   const handleNodeDoubleClick = useCallback(
-    (_: React.MouseEvent, node: TerminalNodeType) => {
+    (_: React.MouseEvent, node: CanvasNodeType) => {
       setMenuPos(null);
       if (node.data?.loading) return;
       fitView({ nodes: [{ id: node.id }], padding: 0.1, duration: 350 });
@@ -153,16 +137,17 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   // read the tokens per applied theme (the epoch also covers switches between
   // two themes with the same base, which the resolved base can't see).
   const themeEpoch = useThemeEpoch();
-  const [minimapFallbackColor, minimapBgColor] = useMemo(() => {
+  const colorMode = useResolvedTheme();
+  const [minimapFallbackColor, minimapBgColor, minimapMaskColor] = useMemo(() => {
     void themeEpoch; // the tokens change when the applied theme does
-    return [readToken('--color-border-hover'), readToken('--color-background')];
+    return [readToken('--color-border-hover'), readToken('--color-background'), readToken('--color-minimap-mask')];
   }, [themeEpoch]);
   const tasks = useProjectStore((s) => s.tasks);
   // React Flow calls nodeColor once per node on every minimap render, so build
   // the chain map once here rather than rebuilding it inside the callback.
   const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);
   const minimapNodeColor = useCallback(
-    (node: TerminalNodeType) => {
+    (node: CanvasNodeType) => {
       const ptyId = node.data?.ptyId;
       if (!ptyId) return minimapFallbackColor;
       const display = displayStates[ptyId];
@@ -186,8 +171,27 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     });
   }, [projectPath]);
 
+  // Terminals also arrive while the canvas is already mounted — starting a task
+  // from the board stages a loading slot well before its PTY exists. Re-sync on
+  // any change to the project's terminal list or to a loading flag.
+  useEffect(() => {
+    const signature = () => {
+      const state = useTerminalStore.getState();
+      return (state.terminalsByProject[projectPath] ?? [])
+        .map((id) => `${id}:${state.displayStates[id]?.isLoading ? 1 : 0}`)
+        .join('|');
+    };
+    let last = signature();
+    return useTerminalStore.subscribe(() => {
+      const next = signature();
+      if (next === last) return;
+      last = next;
+      syncCanvasWithTerminals(projectPath);
+    });
+  }, [projectPath]);
+
   const onNodesChange = useCallback(
-    (changes: NodeChange<TerminalNodeType>[]) => {
+    (changes: NodeChange<CanvasNodeType>[]) => {
       useCanvasStore.getState().onNodesChange(projectPath, changes);
       persistCanvas(projectPath);
     },
@@ -216,7 +220,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     : { defaultViewport: { x: 0, y: 0, zoom: 1 } as Viewport };
 
   return (
-    <div className="terminal-canvas relative w-full h-full">
+    <div className={`terminal-canvas relative w-full h-full${selecting ? ' canvas-selecting' : ''}`}>
       <ReactFlow
         nodes={renderedNodes}
         edges={renderedEdges}
@@ -246,7 +250,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
         snapGrid={snapGrid}
         deleteKeyCode={null}
         disableKeyboardA11y
-        colorMode="dark"
+        colorMode={colorMode}
         fitView
         proOptions={proOptions}
       >
@@ -258,7 +262,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
               zoomable
               position="bottom-right"
               nodeColor={minimapNodeColor as (node: any) => string}
-              maskColor="rgba(0, 0, 0, 0.25)"
+              maskColor={minimapMaskColor}
               bgColor={minimapBgColor}
               nodeBorderRadius={16}
               onClick={handleToggleMinimap}

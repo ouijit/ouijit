@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
+import { useUIStore } from '../stores/uiStore';
 import { setTerminalFontFamily, setTerminalFontSize } from './terminal/terminalReact';
 import { setReadyAudioDisabled } from '../utils/notifications';
 import { FontPickerRow } from './FontPickerRow';
@@ -21,6 +22,8 @@ export function GlobalSettingsPanel() {
   const [fontFamily, setFontFamily] = useState('');
   const [fontSize, setFontSize] = useState<number | null>(null);
   const [projectsFolder, setProjectsFolder] = useState<string | null>(null);
+  const canvasEnabled = useUIStore((s) => s.canvasEnabled);
+  const toggleCanvas = () => useUIStore.getState().setCanvasEnabled(!canvasEnabled);
   const [moveDialog, setMoveDialog] = useState<{
     newFolder: string;
     projects: AffectedProject[];
@@ -212,6 +215,18 @@ export function GlobalSettingsPanel() {
                 description="When off, Ouijit won't contact the update service or download new versions."
                 checked={autoUpdate}
                 onChange={toggleAutoUpdate}
+              />
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-semibold text-text-primary mb-4">Experimental</h2>
+            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
+              <ToggleRow
+                label="Canvas layout"
+                description="Arrange a project's terminals anywhere on a zoomable canvas, as an alternative to the card stack."
+                checked={canvasEnabled}
+                onChange={toggleCanvas}
               />
             </div>
           </section>

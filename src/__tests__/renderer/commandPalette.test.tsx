@@ -85,12 +85,16 @@ function seed(): void {
   });
   useProjectStore.setState({
     tagFilter: null,
-    terminalLayout: 'stack',
     kanbanVisible: true,
     toasts: [],
     startingTaskNumbers: new Set<number>(),
   });
-  useUIStore.setState({ paletteOpen: true, homeActivePtyId: null, homeTagFilter: null });
+  useUIStore.setState({
+    paletteOpen: true,
+    homeActivePtyId: null,
+    homeTagFilter: null,
+    terminalLayout: 'stack',
+  });
 }
 
 function rowLabels(): string[] {
