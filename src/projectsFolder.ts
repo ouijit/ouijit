@@ -1,7 +1,7 @@
 /**
  * Projects folder setting and the operations built on it: where new projects
- * are created, scanning a folder for sibling repos to add, and changing the
- * setting with the user's chosen handling of projects in the old folder.
+ * are created, and changing the setting with the user's chosen handling of
+ * projects in the old folder.
  */
 
 import * as fs from 'node:fs/promises';
@@ -10,7 +10,6 @@ import * as os from 'node:os';
 import { getGlobalSetting, setGlobalSetting, getAllProjects } from './db';
 import { renameProjectPath } from './services/projectPathRename';
 import type {
-  SiblingScanResult,
   AffectedProject,
   ProjectsFolderChangePlan,
   ProjectsFolderChangeAction,
@@ -38,47 +37,6 @@ export async function getDefaultProjectsDir(): Promise<string> {
 /** Persist a folder as the default for future project creation. */
 export async function setDefaultProjectsDir(folderPath: string): Promise<void> {
   await setGlobalSetting(PROJECTS_FOLDER_KEY, folderPath);
-}
-
-/**
- * Scans the parent directory of a just-added project for sibling git repos
- * that aren't registered yet — the Obsidian-vault-style "you opened one
- * project from a folder full of projects" detection.
- */
-export async function scanSiblingProjects(folderPath: string): Promise<SiblingScanResult> {
-  const parentDir = path.dirname(folderPath);
-  // At the filesystem root dirname() returns the path itself — nothing to scan.
-  if (parentDir === folderPath) return { parentDir, siblings: [] };
-
-  try {
-    const entries = await fs.readdir(parentDir, { withFileTypes: true });
-    const registered = new Set((await getAllProjects()).map((p) => p.path));
-    const candidates = entries
-      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
-      .map((entry) => path.join(parentDir, entry.name))
-      .filter((candidate) => candidate !== folderPath && !registered.has(candidate));
-    const siblings = (
-      await Promise.all(
-        candidates.map(async (candidate) => {
-          try {
-            // `.git` is a directory in normal repos and a file in worktrees/submodules.
-            await fs.access(path.join(candidate, '.git'));
-            return candidate;
-          } catch {
-            return null;
-          }
-        }),
-      )
-    ).filter((candidate): candidate is string => candidate !== null);
-    siblings.sort((a, b) => a.localeCompare(b));
-    return { parentDir, siblings };
-  } catch (error) {
-    projectsFolderLog.warn('sibling scan failed', {
-      parentDir,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return { parentDir, siblings: [] };
-  }
 }
 
 /** Registered projects living directly in the given folder. */
