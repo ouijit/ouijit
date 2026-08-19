@@ -36,38 +36,43 @@ async function fetchLatestRelease(): Promise<Release | null> {
 
 /**
  * Squirrel.Mac downloads the whole ~100MB zip on every checkForUpdates and
- * keeps no record of what it already staged, so an app left running with the
- * restart prompt deferred would re-fetch the same update every hour. Once
- * something is staged, only a strictly newer release earns another check —
- * and if the feed never named the staged version, nothing does until restart.
+ * keeps no record of what it already fetched, so an app left running — with
+ * the restart prompt deferred, or with a download that keeps failing — would
+ * re-fetch the same update every hour. Reading GitHub's latest release costs a
+ * few KB, so it gates the expensive check: only ever ask Squirrel for a version
+ * we have not asked for before. A version whose download fails is then not
+ * retried until the next launch, which is the cheap side of that trade.
  */
-let stagedVersion: string | null = null;
-let hasStagedUpdate = false;
+let requestedVersion: string | null = null;
 
 async function checkForMacUpdate(): Promise<void> {
-  if (hasStagedUpdate) {
-    if (!stagedVersion) return;
-    const latest = await fetchLatestRelease();
-    if (!latest || !semverGt(latest.version, stagedVersion)) return;
-    updaterLog.info('newer release than the staged update', {
-      staged: stagedVersion,
-      latest: latest.version,
-    });
-  }
+  const latest = await fetchLatestRelease();
+  if (!latest) return;
+  if (requestedVersion && !semverGt(latest.version, requestedVersion)) return;
+
+  requestedVersion = latest.version;
+  updaterLog.info('asking Squirrel for an update', { version: latest.version });
   autoUpdater.checkForUpdates();
 }
 
-function promptRestart(releaseName: string | undefined): void {
+function promptRestart(version: string | null): void {
   dialog
     .showMessageBox({
       type: 'info',
       buttons: ['Restart', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
       title: 'Update Ready',
-      message: releaseName ? `Ouijit ${releaseName} is ready to install` : 'A new version is ready to install',
+      message: version ? `Ouijit ${version} is ready to install` : 'A new version is ready to install',
       detail: 'Restart to finish updating.',
     })
     .then(({ response }) => {
       if (response === 0) autoUpdater.quitAndInstall();
+    })
+    .catch((error: unknown) => {
+      updaterLog.warn('restart prompt failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
 }
 
@@ -89,10 +94,9 @@ function initMacUpdater(): void {
     updaterLog.info('no update available');
   });
   autoUpdater.on('update-downloaded', (_event, _releaseNotes, releaseName) => {
-    hasStagedUpdate = true;
-    stagedVersion = releaseName ? releaseName.replace(/^v/, '') : null;
-    updaterLog.info('update downloaded', { version: stagedVersion });
-    promptRestart(releaseName);
+    const version = releaseName ? releaseName.replace(/^v/, '') : null;
+    updaterLog.info('update downloaded', { version });
+    promptRestart(version);
   });
 
   const check = () => checkForMacUpdate();
@@ -170,8 +174,7 @@ export function cleanupUpdater(): void {
 
 export function _resetForTesting(): void {
   lastNotifiedVersion = null;
-  stagedVersion = null;
-  hasStagedUpdate = false;
+  requestedVersion = null;
   cleanupUpdater();
 }
 

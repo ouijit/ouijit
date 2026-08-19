@@ -177,19 +177,22 @@ describe('initUpdater opt-out gates', () => {
 });
 
 describe('macOS update checks', () => {
-  const stageUpdate = (releaseName?: string) =>
-    updaterHandlers.get('update-downloaded')?.(undefined, undefined, releaseName);
-
-  const hourPasses = async () => {
-    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
-  };
-
   const latestRelease = (tag: string) => ({
     ok: true,
     json: () => Promise.resolve({ tag_name: tag, html_url: 'https://example.com' }),
   });
 
-  beforeEach(async () => {
+  const hourPasses = () => vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+  const launch = async () => {
+    await initUpdater(mockWindow);
+    await vi.advanceTimersByTimeAsync(0);
+  };
+
+  const downloadCompletes = (releaseName?: string) =>
+    updaterHandlers.get('update-downloaded')?.(undefined, undefined, releaseName);
+
+  beforeEach(() => {
     vi.clearAllMocks();
     updaterHandlers.clear();
     _resetForTesting();
@@ -197,9 +200,7 @@ describe('macOS update checks', () => {
     delete process.env.OUIJIT_DISABLE_UPDATES;
     isPackaged = true;
     mockGetVersion.mockReturnValue('1.0.0');
-    mockFetch.mockResolvedValue({ ok: false, status: 404 });
-    await initUpdater(mockWindow);
-    mockCheckForUpdates.mockClear();
+    mockShowMessageBox.mockResolvedValue({ response: 1 });
   });
 
   afterEach(() => {
@@ -208,55 +209,57 @@ describe('macOS update checks', () => {
     isPackaged = false;
   });
 
-  it('keeps checking hourly while nothing is staged', async () => {
-    await hourPasses();
-    await hourPasses();
-
-    expect(mockCheckForUpdates).toHaveBeenCalledTimes(2);
-  });
-
-  it('stops checking once an update is staged', async () => {
+  it('asks for a given release only once, however long it stays the latest', async () => {
     mockFetch.mockResolvedValue(latestRelease('v1.1.0'));
-    stageUpdate('v1.1.0');
 
+    await launch();
     await hourPasses();
-    await hourPasses();
-
-    expect(mockCheckForUpdates).not.toHaveBeenCalled();
-    expect(mockShowMessageBox).toHaveBeenCalledTimes(1);
-  });
-
-  it('checks again when a release newer than the staged one ships', async () => {
-    stageUpdate('v1.1.0');
-    mockFetch.mockResolvedValue(latestRelease('v1.2.0'));
-
     await hourPasses();
 
     expect(mockCheckForUpdates).toHaveBeenCalledTimes(1);
   });
 
-  it('stays put when the staged version cannot be read from the feed', async () => {
-    mockFetch.mockResolvedValue(latestRelease('v9.9.9'));
-    stageUpdate(undefined);
+  it('does not ask again while the restart prompt sits deferred', async () => {
+    mockFetch.mockResolvedValue(latestRelease('v1.1.0'));
+    await launch();
 
+    downloadCompletes('v1.1.0');
+    await hourPasses();
     await hourPasses();
 
-    expect(mockCheckForUpdates).not.toHaveBeenCalled();
+    expect(mockCheckForUpdates).toHaveBeenCalledTimes(1);
+    expect(mockShowMessageBox).toHaveBeenCalledTimes(1);
+    expect(mockQuitAndInstall).not.toHaveBeenCalled();
   });
 
-  it('stays put when the release lookup fails', async () => {
-    stageUpdate('v1.1.0');
-    mockFetch.mockRejectedValue(new Error('network failure'));
+  it('asks again once a newer release ships', async () => {
+    mockFetch.mockResolvedValue(latestRelease('v1.1.0'));
+    await launch();
 
+    mockFetch.mockResolvedValue(latestRelease('v1.2.0'));
     await hourPasses();
 
+    expect(mockCheckForUpdates).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips the download when the release lookup fails, and recovers next hour', async () => {
+    mockFetch.mockRejectedValue(new Error('network failure'));
+    await launch();
+
     expect(mockCheckForUpdates).not.toHaveBeenCalled();
+
+    mockFetch.mockResolvedValue(latestRelease('v1.1.0'));
+    await hourPasses();
+
+    expect(mockCheckForUpdates).toHaveBeenCalledTimes(1);
   });
 
   it('installs the staged update when the user picks Restart', async () => {
     mockShowMessageBox.mockResolvedValue({ response: 0 });
+    mockFetch.mockResolvedValue(latestRelease('v1.1.0'));
+    await launch();
 
-    stageUpdate('v1.1.0');
+    downloadCompletes('v1.1.0');
     await vi.waitFor(() => expect(mockQuitAndInstall).toHaveBeenCalled());
   });
 });
