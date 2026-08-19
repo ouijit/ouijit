@@ -27,8 +27,6 @@ const isMac = navigator.platform.toLowerCase().includes('mac');
 const PROJECT_REFRESH_INTERVAL = 30000;
 const EMPTY: string[] = [];
 
-const lastSweptAt = new Map<string, number>();
-
 /** Get the currently selected ptyId from the canvas (first selected node). */
 function getCanvasSelectedPtyId(projectPath: string): string | undefined {
   const project = useCanvasStore.getState().canvasByProject[projectPath];
@@ -283,19 +281,14 @@ export function ProjectView() {
   useEffect(() => {
     if (!projectPath) return;
     let interval: ReturnType<typeof setInterval> | null = null;
-    const sweep = () => {
-      if (!githubEnabled) return;
-      lastSweptAt.set(projectPath, Date.now());
-      void detectPullRequestsForProject(projectPath);
-    };
     const start = () => {
       if (interval != null || document.hidden) return;
-      // Catches a pull request opened while the window was hidden, without
-      // sweeping on every alt-tab back.
-      if (Date.now() - (lastSweptAt.get(projectPath) ?? 0) >= PROJECT_REFRESH_INTERVAL) sweep();
+      // Catches a pull request opened while the window was hidden; the service
+      // rate-limits, so an alt-tab back costs nothing.
+      void detectPullRequestsForProject(projectPath);
       interval = setInterval(() => {
         refreshAllTerminalGitStatus(projectPath);
-        sweep();
+        void detectPullRequestsForProject(projectPath);
       }, PROJECT_REFRESH_INTERVAL);
     };
     const stop = () => {
@@ -311,7 +304,7 @@ export function ProjectView() {
       document.removeEventListener('visibilitychange', onVisibility);
       stop();
     };
-  }, [projectPath, githubEnabled]);
+  }, [projectPath]);
 
   // Hook status: register ongoing listener + seed existing terminals
   useHookStatusListener(projectPath);

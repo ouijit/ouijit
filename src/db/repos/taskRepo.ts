@@ -178,6 +178,23 @@ export class TaskRepo {
       .run(prNumber, projectPath, taskNumber);
   }
 
+  /**
+   * Link a task to a pull request only if the task is still unlinked and no
+   * other task in the project holds that pull request. One statement, so a
+   * caller that decided to claim after a slow network read cannot overwrite a
+   * link made in the meantime. Returns whether the row changed.
+   */
+  claimGithubPrNumber(projectPath: string, taskNumber: number, prNumber: number): boolean {
+    const result = this.db
+      .prepare(
+        `UPDATE tasks SET github_pr_number = ?
+           WHERE project_path = ? AND task_number = ? AND github_pr_number IS NULL
+             AND NOT EXISTS (SELECT 1 FROM tasks WHERE project_path = ? AND github_pr_number = ?)`,
+      )
+      .run(prNumber, projectPath, taskNumber, projectPath, prNumber);
+    return result.changes > 0;
+  }
+
   updateGithubIssueNumber(projectPath: string, taskNumber: number, issueNumber: number | null): void {
     this.db
       .prepare('UPDATE tasks SET github_issue_number = ? WHERE project_path = ? AND task_number = ?')

@@ -201,7 +201,6 @@ const mockApi = {
     pullRequestFileVersions: vi.fn().mockResolvedValue({ before: null, after: null }),
     issues: vi.fn().mockResolvedValue([]),
     issue: vi.fn().mockResolvedValue(null),
-    linkTaskPr: vi.fn().mockResolvedValue({ success: true }),
     linkTaskIssue: vi.fn().mockResolvedValue({ success: true }),
     detectTaskPr: vi.fn().mockResolvedValue({ prNumber: null }),
     detectProjectPrs: vi.fn().mockResolvedValue({ linked: 0 }),

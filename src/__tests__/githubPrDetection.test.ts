@@ -71,6 +71,18 @@ describe('pull request detection across a project', () => {
     expect((await getTaskByNumber(project, 1))?.githubPrNumber).toBe(265);
 
     runGh.mockClear();
+    // Swept once already, so the second call is refused by the interval gate.
+    expect(await detectPullRequestsForProject(project)).toEqual({ linked: 0 });
+    expect(runGh).not.toHaveBeenCalled();
+  });
+
+  test('a project whose tasks are all linked sweeps without spawning `gh`', async () => {
+    const project = '/test/pr-detect-nothing-unlinked';
+    await enableGithub(project);
+    await createTask(project, 1, 'Ship it', { branch: 'feat/ship' });
+    await setTaskGithubPr(project, 1, 265);
+    remotePrs = [openPr(265, 'feat/ship')];
+
     expect(await detectPullRequestsForProject(project)).toEqual({ linked: 0 });
     expect(runGh).not.toHaveBeenCalled();
   });
@@ -129,17 +141,19 @@ describe('pull request detection across a project', () => {
     expect(await detectPullRequestForTask(project, 1)).toEqual({ prNumber: 265 });
   });
 
-  test('a `gh` that fails or answers with an object leaves the task unlinked', async () => {
-    const project = '/test/pr-detect-gh-broken';
+  // A separate project per failure, so the sweep's once-per-interval gate can't
+  // stand in for the failure handling under test.
+  test.each([
+    ['fails', () => runGh.mockRejectedValue(new Error('gh: not authenticated'))],
+    ['answers with an object', () => runGh.mockResolvedValue('{"message":"Not Found"}')],
+  ])('a `gh` that %s leaves the task unlinked', async (label, breakGh) => {
+    const project = `/test/pr-detect-gh-${label.replace(/ /g, '-')}`;
     await enableGithub(project);
     await createTask(project, 1, 'Ship it', { branch: 'feat/ship' });
+    breakGh();
 
-    runGh.mockRejectedValue(new Error('gh: not authenticated'));
     expect(await detectPullRequestsForProject(project)).toEqual({ linked: 0 });
     expect(await detectPullRequestForTask(project, 1)).toEqual({ prNumber: null });
-
-    runGh.mockResolvedValue('{"message":"Not Found"}');
-    expect(await detectPullRequestsForProject(project)).toEqual({ linked: 0 });
-    expect(await detectPullRequestForTask(project, 1)).toEqual({ prNumber: null });
+    expect((await getTaskByNumber(project, 1))?.githubPrNumber).toBeUndefined();
   });
 });

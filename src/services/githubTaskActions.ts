@@ -3,12 +3,14 @@
  * header menu, and the command palette.
  *
  * These wrap the IPC calls with the toasts and store refreshes each one needs.
+ *
+ * The two detections run unprompted, so a failure is logged rather than
+ * toasted — an offline machine would otherwise toast once per task.
  */
 
 import log from 'electron-log/renderer';
 import type { TaskWithWorkspace } from '../types';
 import { describeError } from '../utils/describeError';
-import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useGithubStore } from '../stores/githubStore';
 
@@ -55,21 +57,11 @@ export async function createPullRequestForTask(projectPath: string, task: TaskWi
   });
 }
 
-/** A detection can outlive the project it ran for; its tasks must not reach another project's board. */
-async function reloadTasksIfStillActive(projectPath: string): Promise<void> {
-  if (useAppStore.getState().activeProjectPath !== projectPath) return;
-  await useProjectStore.getState().loadTasks(projectPath);
-}
-
-/**
- * Both detections run unprompted, so a failure is logged rather than toasted —
- * an offline machine would otherwise toast once per task.
- */
 export async function detectPullRequestForTask(projectPath: string, taskNumber: number): Promise<void> {
   try {
     const result = await window.api.github.detectTaskPr(projectPath, taskNumber);
     if (result.prNumber == null) return;
-    await reloadTasksIfStillActive(projectPath);
+    await useProjectStore.getState().loadTasksIfActive(projectPath);
   } catch (error) {
     actionLog.warn('pull request detection failed', { taskNumber, error: describeError(error) });
   }
@@ -78,7 +70,7 @@ export async function detectPullRequestForTask(projectPath: string, taskNumber: 
 export async function detectPullRequestsForProject(projectPath: string): Promise<void> {
   try {
     const { linked } = await window.api.github.detectProjectPrs(projectPath);
-    if (linked > 0) await reloadTasksIfStillActive(projectPath);
+    if (linked > 0) await useProjectStore.getState().loadTasksIfActive(projectPath);
   } catch (error) {
     actionLog.warn('project pull request detection failed', { projectPath, error: describeError(error) });
   }

@@ -285,10 +285,6 @@ export interface IpcInvokeContract {
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 
-  'github:link-task-pr': {
-    args: [projectPath: string, taskNumber: number, prNumber: number | null];
-    return: { success: boolean; error?: string };
-  };
   'github:link-task-issue': {
     args: [projectPath: string, taskNumber: number, issueNumber: number | null];
     return: { success: boolean; error?: string };

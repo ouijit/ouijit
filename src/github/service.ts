@@ -16,6 +16,7 @@ import {
   getTaskByNumber,
   getProjectTasks,
   setTaskGithubPr,
+  claimTaskGithubPr,
   setTaskGithubIssue,
   getReviewDraft,
   getReviewDrafts,
@@ -170,6 +171,12 @@ async function requireIdentity(projectPath: string): Promise<RepoIdentity> {
   return availability.identity;
 }
 
+/** The silent counterpart to `requireIdentity`, for background work that has no one to report to. */
+async function identityIfAvailable(projectPath: string): Promise<RepoIdentity | null> {
+  const availability = await getAvailability(projectPath);
+  return availability.available ? (availability.identity ?? null) : null;
+}
+
 // ── Reads ────────────────────────────────────────────────────────────
 
 export async function getInbox(projectPath: string): Promise<InboxResult> {
@@ -314,39 +321,33 @@ export async function detectPullRequestForTask(
   if (!task?.branch) return { prNumber: null };
   if (task.githubPrNumber != null) return { prNumber: task.githubPrNumber };
 
-  const availability = await getAvailability(projectPath);
-  if (!availability.available || !availability.identity) return { prNumber: null };
+  const identity = await identityIfAvailable(projectPath);
+  if (!identity) return { prNumber: null };
 
-  const prNumber = await findPullRequestForBranch(availability.identity, task.branch, task.worktreePath);
+  const prNumber = await findPullRequestForBranch(identity, task.branch, task.worktreePath);
   if (prNumber == null) return { prNumber: null };
-  if (!(await taskCanTakePr(projectPath, taskNumber, prNumber))) return { prNumber: null };
-  await setTaskGithubPr(projectPath, taskNumber, prNumber);
+  if (!(await claimTaskGithubPr(projectPath, taskNumber, prNumber))) return { prNumber: null };
   return { prNumber };
 }
 
 /**
- * A task list read before `gh` answered can be stale by the time the write
- * lands: a link made in between stands, and since two tasks can share a branch,
- * one pull request must not reach two cards.
- */
-async function taskCanTakePr(projectPath: string, taskNumber: number, prNumber: number): Promise<boolean> {
-  const tasks = await getProjectTasks(projectPath);
-  return !tasks.some((t) => (t.taskNumber === taskNumber ? t.githubPrNumber != null : t.githubPrNumber === prNumber));
-}
-
-/**
- * Per-project in-flight gate. A sweep is only done once `gh` has answered or
- * timed out, so without this, repeat requests queue up behind each other and
+ * Per-project gate over a sweep's cost: one in flight at a time, and no more
+ * than one per interval however many callers ask. A sweep is only done once
+ * `gh` has answered or timed out, so without this, repeat requests queue up and
  * each takes a `gh` slot ahead of whatever the user asked for.
  */
-const sweeps = new Map<string, Promise<{ linked: number }>>();
+const SWEEP_MIN_INTERVAL_MS = 30_000;
+const sweeps = new Map<string, { startedAt: number; inFlight?: Promise<{ linked: number }> }>();
 
 export function detectPullRequestsForProject(projectPath: string): Promise<{ linked: number }> {
-  const existing = sweeps.get(projectPath);
-  if (existing) return existing;
-  const sweep = sweepPullRequests(projectPath).finally(() => sweeps.delete(projectPath));
-  sweeps.set(projectPath, sweep);
-  return sweep;
+  const last = sweeps.get(projectPath);
+  if (last?.inFlight) return last.inFlight;
+  if (last && Date.now() - last.startedAt < SWEEP_MIN_INTERVAL_MS) return Promise.resolve({ linked: 0 });
+
+  const entry: { startedAt: number; inFlight?: Promise<{ linked: number }> } = { startedAt: Date.now() };
+  entry.inFlight = sweepPullRequests(projectPath).finally(() => delete entry.inFlight);
+  sweeps.set(projectPath, entry);
+  return entry.inFlight;
 }
 
 async function sweepPullRequests(projectPath: string): Promise<{ linked: number }> {
@@ -362,17 +363,15 @@ async function sweepPullRequests(projectPath: string): Promise<{ linked: number 
   }
   if (unlinkedByBranch.size === 0) return { linked: 0 };
 
-  const availability = await getAvailability(projectPath);
-  if (!availability.available || !availability.identity) return { linked: 0 };
+  const identity = await identityIfAvailable(projectPath);
+  if (!identity) return { linked: 0 };
 
-  const openPrs = await fetchOpenPullRequestBranches(availability.identity, projectPath);
+  const openPrs = await fetchOpenPullRequestBranches(identity, projectPath);
   let linked = 0;
   for (const pr of openPrs) {
     const task = unlinkedByBranch.get(pr.headRefName);
     if (task == null) continue;
-    if (!(await taskCanTakePr(projectPath, task.taskNumber, pr.number))) continue;
-    if (!(await setTaskGithubPr(projectPath, task.taskNumber, pr.number)).success) continue;
-    linked++;
+    if (await claimTaskGithubPr(projectPath, task.taskNumber, pr.number)) linked++;
   }
   return { linked };
 }

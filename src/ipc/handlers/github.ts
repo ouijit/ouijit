@@ -10,7 +10,6 @@ import {
   getPullRequestFileVersions,
   getIssues,
   getIssue,
-  linkTaskToPr,
   linkTaskToIssue,
   detectPullRequestForTask,
   detectPullRequestsForProject,
@@ -52,9 +51,6 @@ export function registerGithubHandlers(): void {
   typedHandle('github:issues', (projectPath) => getIssues(projectPath));
   typedHandle('github:issue', (projectPath, number) => getIssue(projectPath, number));
 
-  typedHandle('github:link-task-pr', (projectPath, taskNumber, prNumber) =>
-    linkTaskToPr(projectPath, taskNumber, prNumber),
-  );
   typedHandle('github:link-task-issue', (projectPath, taskNumber, issueNumber) =>
     linkTaskToIssue(projectPath, taskNumber, issueNumber),
   );

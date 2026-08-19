@@ -354,6 +354,19 @@ export async function setTaskGithubPr(
   }
 }
 
+/**
+ * Link a task to a pull request, unless the task already has one or another
+ * task in the project holds that pull request. Reports whether it claimed it.
+ */
+export async function claimTaskGithubPr(
+  projectPath: string,
+  taskNumber: number,
+  prNumber: number,
+): Promise<boolean> {
+  const { taskRepo: tr } = repos();
+  return tr.claimGithubPrNumber(projectPath, taskNumber, prNumber);
+}
+
 export async function setTaskGithubIssue(
   projectPath: string,
   taskNumber: number,

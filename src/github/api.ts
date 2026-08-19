@@ -569,6 +569,10 @@ export async function fetchIssue(identity: RepoIdentity, number: number): Promis
   };
 }
 
+/**
+ * A pull request from a fork can carry the same head branch name as a local
+ * one, so cross-repository rows are dropped here rather than by each caller.
+ */
 async function listPrs<T>(
   identity: RepoIdentity,
   filters: string[],
@@ -576,12 +580,13 @@ async function listPrs<T>(
   cwd?: string,
 ): Promise<T[]> {
   try {
-    const raw = await runGh(['pr', 'list', '--repo', repoSlug(identity), ...filters, '--json', fields.join(',')], {
-      identity,
-      cwd,
-    });
+    const raw = await runGh(
+      ['pr', 'list', '--repo', repoSlug(identity), ...filters, '--json', [...fields, 'isCrossRepository'].join(',')],
+      { identity, cwd },
+    );
     const parsed: unknown = JSON.parse(raw.trim() || '[]');
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as Array<T & { isCrossRepository: boolean }>).filter((pr) => !pr.isCrossRepository);
   } catch {
     return [];
   }
@@ -592,31 +597,29 @@ export async function findPullRequestForBranch(
   branch: string,
   cwd?: string,
 ): Promise<number | null> {
-  const all = await listPrs<{ number: number; state: string; isCrossRepository: boolean }>(
+  const prs = await listPrs<{ number: number; state: string }>(
     identity,
     // More than one, so the open-over-closed preference below has something to
     // choose between on a branch whose old pull request was merged.
     ['--head', branch, '--state', 'all', '--limit', '10'],
-    ['number', 'state', 'isCrossRepository'],
+    ['number', 'state'],
     cwd,
   );
-  const parsed = all.filter((p) => !p.isCrossRepository);
   // Prefer an open PR; a stale closed one for the same branch shouldn't get
   // linked to a task that is being worked on again.
-  const open = parsed.find((p) => p.state === 'OPEN');
-  return (open ?? parsed[0])?.number ?? null;
+  const open = prs.find((p) => p.state === 'OPEN');
+  return (open ?? prs[0])?.number ?? null;
 }
 
 type PullRequestBranch = Pick<PullRequestSummary, 'number' | 'headRefName'>;
 
 export async function fetchOpenPullRequestBranches(identity: RepoIdentity, cwd?: string): Promise<PullRequestBranch[]> {
-  const prs = await listPrs<PullRequestBranch & { isCrossRepository: boolean }>(
+  return listPrs<PullRequestBranch>(
     identity,
     ['--state', 'open', '--limit', String(PR_LIST_LIMIT)],
-    ['number', 'headRefName', 'isCrossRepository'],
+    ['number', 'headRefName'],
     cwd,
   );
-  return prs.filter((pr) => !pr.isCrossRepository);
 }
 
 // ── Writes ───────────────────────────────────────────────────────────
