@@ -911,8 +911,8 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
     }
   }
 
-  // A pull request opened while the app was closed had no terminal spawn to
-  // detect it. Nothing else re-checks on the way back in.
+  // A pull request opened while the app was closed had nothing running to
+  // detect it.
   for (const pp of projectPaths) {
     void detectPullRequestsForProject(pp);
   }

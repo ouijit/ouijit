@@ -311,9 +311,8 @@ export async function linkTaskToIssue(
 /**
  * Look for an existing PR whose head is the task's branch, and link it.
  *
- * One task, one `gh` call — called from the moments that are about a single
- * task: its terminal opening, its move into review. Use
- * `detectPullRequestsForProject` for a whole board.
+ * One `gh` call for one task. `detectPullRequestsForProject` costs the same
+ * for a whole board, so prefer it wherever more than one task is in question.
  */
 export async function detectPullRequestForTask(
   projectPath: string,
@@ -332,9 +331,9 @@ export async function detectPullRequestForTask(
 }
 
 /**
- * Takes the pull requests instead of fetching them so the inbox, which already
- * has them, spends nothing extra, and a caller that doesn't spends one call for
- * the board rather than one per task.
+ * Takes the pull requests rather than fetching them: a caller holding them
+ * already spends nothing, and one that isn't spends a single call for the whole
+ * board instead of one per task.
  */
 async function linkTasksToOpenPrs(
   projectPath: string,
@@ -365,8 +364,8 @@ async function linkTasksToOpenPrs(
 }
 
 /**
- * The whole-board sweep, run from terminal reconnect at app start. One `gh`
- * call however many tasks are on the board.
+ * The early return is load-bearing, not an optimization: without it every call
+ * forks a `gh` for a board that has nothing left to link.
  */
 export async function detectPullRequestsForProject(projectPath: string): Promise<{ linked: number }> {
   const tasks = await getProjectTasks(projectPath);

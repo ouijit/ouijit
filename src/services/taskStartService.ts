@@ -326,7 +326,7 @@ async function runTransition(
     await useProjectStore.getState().loadTasks(projectPath);
 
     // A task reaching review has usually had its pull request opened from the
-    // worktree, long after the terminal spawn that last looked for one.
+    // worktree by now.
     if (newStatus === 'in_review') void detectPullRequestForTask(projectPath, taskNumber);
 
     // 6. Spawn the terminal. For in_progress drops we open a terminal (with the

@@ -291,10 +291,9 @@ export interface InboxResult extends PullRequestInbox {
   /** Draft counts per PR so the list can badge unsubmitted work. */
   draftCounts: Record<number, number>;
   /**
-   * PR number → task number, including the links this fetch just made. For the
-   * REST and CLI callers, which have no task store to join against, and for the
-   * panel to tell when its own task state is a link behind — it otherwise
-   * derives the mapping live so a new link shows without a refetch.
+   * PR number → task number, including the links this fetch itself made. For
+   * callers with no task state of their own to join against, and for those that
+   * have it to notice theirs is a link behind.
    */
   linkedTasks: Record<number, number>;
 }

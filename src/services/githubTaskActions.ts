@@ -66,9 +66,8 @@ export async function unlinkPullRequest(projectPath: string, taskNumber: number)
 /**
  * Look for an existing PR on a task's branch and link it.
  *
- * Runs at the moments that are about one task — its terminal opening, its move
- * into review. Failures are silent by design: this is a background nicety, and
- * a toast for every offline task would be noise.
+ * Failures are silent by design: this is a background nicety, and a toast for
+ * every offline task would be noise.
  */
 export async function detectPullRequestForTask(projectPath: string, taskNumber: number): Promise<void> {
   try {
@@ -80,14 +79,7 @@ export async function detectPullRequestForTask(projectPath: string, taskNumber: 
   }
 }
 
-/**
- * Link every task in the project whose branch has gained a pull request.
- *
- * The per-task detect above only fires at a moment chosen in advance, so a PR
- * opened from the worktree between those moments is missed until something
- * sweeps for it. Same silence on failure, and the same one call for the whole
- * board.
- */
+/** The whole-board sweep, silent on failure for the same reason as the above. */
 export async function detectPullRequestsForProject(projectPath: string): Promise<void> {
   try {
     const result = await window.api.github.detectProjectPrs(projectPath);
