@@ -191,6 +191,10 @@ describe('macOS update checks', () => {
   const downloadCompletes = (releaseName?: string) =>
     updaterHandlers.get('update-downloaded')?.(undefined, undefined, releaseName);
 
+  const realPlatform = process.platform;
+  const setPlatform = (platform: string) =>
+    Object.defineProperty(process, 'platform', { value: platform, configurable: true });
+
   beforeEach(() => {
     vi.clearAllMocks();
     updaterHandlers.clear();
@@ -198,6 +202,7 @@ describe('macOS update checks', () => {
     vi.useFakeTimers();
     delete process.env.OUIJIT_DISABLE_UPDATES;
     isPackaged = true;
+    setPlatform('darwin');
     mockGetVersion.mockReturnValue('1.0.0');
     mockShowMessageBox.mockResolvedValue({ response: 1 });
   });
@@ -206,6 +211,7 @@ describe('macOS update checks', () => {
     cleanupUpdater();
     vi.useRealTimers();
     isPackaged = false;
+    setPlatform(realPlatform);
   });
 
   it('asks for a given release only once, however long it stays the latest', async () => {
