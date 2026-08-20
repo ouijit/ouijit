@@ -31,7 +31,7 @@ let pathResolved = false;
 
 /**
  * Ensures process.env.PATH includes the user's login shell PATH and
- * known editor CLI binary directories. Called once, results cached.
+ * known editor CLI binary directories. Cached after the first call.
  */
 function ensureEditorPath(): void {
   if (pathResolved) return;

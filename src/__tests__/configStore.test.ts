@@ -92,7 +92,6 @@ describe('configStore', () => {
     test('ensureConfig creates default when missing', async () => {
       const yaml = await ensureConfig(testProject);
       expect(yaml).toContain('cpus');
-      // Second call returns same content (already exists)
       const yaml2 = await ensureConfig(testProject);
       expect(yaml2).toBe(yaml);
     });
@@ -112,7 +111,6 @@ describe('configStore', () => {
     });
 
     test('deleteConfig is idempotent', async () => {
-      // Should not throw when file doesn't exist
       await deleteConfig(testProject);
       await deleteConfig(testProject);
     });

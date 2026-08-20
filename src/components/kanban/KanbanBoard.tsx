@@ -152,7 +152,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const [items, setItems] = useState<Record<string, TaskWithWorkspace[]>>({});
   const originalStatusRef = useRef<TaskStatus | null>(null);
 
-  // Sync from store when not dragging
   useEffect(() => {
     if (activeTask) return; // Don't clobber during drag
     const grouped: Record<string, TaskWithWorkspace[]> = {};
@@ -166,7 +165,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     setItems(grouped);
   }, [storeTasks, activeTask]);
 
-  // Load tasks on mount
   useEffect(() => {
     useProjectStore.getState().loadTasks(projectPath);
   }, [projectPath]);
@@ -308,7 +306,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       useProjectStore.getState().setActiveBadgeDrag(null);
       if (task) originalStatusRef.current = task.status;
 
-      // If dragged card is in the selection, enter multi-drag mode
       const { selectedTaskNumbers } = useProjectStore.getState();
       if (task && selectedTaskNumbers.has(task.taskNumber) && selectedTaskNumbers.size > 1) {
         multiDragRef.current = [...selectedTaskNumbers];
@@ -351,7 +348,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         const [movedTask] = sourceItems.splice(activeIndex, 1);
         const updatedTask = { ...movedTask, status: overContainer as TaskStatus };
 
-        // Determine insertion index
         let overIndex = destItems.length;
         if (!COLUMN_IDS.has(overId)) {
           const overTaskNum = parseInt(overId.replace('task-', ''), 10);

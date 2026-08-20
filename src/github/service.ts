@@ -104,7 +104,6 @@ function isGhAuthenticated(recheck: boolean): Promise<boolean> {
   return ghAuth;
 }
 
-/** Whether the GitHub surface can run for a project, and why not when it can't. */
 export async function getAvailability(projectPath: string, recheck = false): Promise<GithubAvailability> {
   if (!(await isGithubEnabled(projectPath))) {
     return { available: false, reason: 'flag-off' };
@@ -251,7 +250,6 @@ export async function getPullRequestFileDiff(
   return getPrFileDiff(projectPath, number, baseSha, headSha, filePath, contextLines, oldPath);
 }
 
-/** Both sides of a binary file, for the image viewer. */
 export async function getPullRequestFileVersions(
   projectPath: string,
   number: number,

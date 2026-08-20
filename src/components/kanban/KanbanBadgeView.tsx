@@ -6,7 +6,6 @@ import { Icon } from '../terminal/Icon';
 export interface KanbanBadgeViewProps {
   taskNumber: number;
   chainInfo?: TaskChainInfo;
-  /** Visual emphasis for drag/detach states. The wrapper sets these. */
   isDragging?: boolean;
   isDimmed?: boolean;
   shouldJitter?: boolean;

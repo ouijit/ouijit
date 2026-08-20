@@ -24,7 +24,6 @@ const TITLE_FIELDS = new Set(['name', 'label', 'number']);
 /** Fields already rendered as the row's context text. */
 const CONTEXT_FIELDS = new Set(['project', 'path']);
 
-/** Split text into matched and unmatched runs. */
 function highlight(text: string, ranges: MatchRange[] | undefined): React.ReactNode {
   if (!ranges || ranges.length === 0) return text;
   const parts: React.ReactNode[] = [];
@@ -44,7 +43,6 @@ function highlight(text: string, ranges: MatchRange[] | undefined): React.ReactN
 
 export interface PaletteRowProps {
   item: PaletteItem;
-  /** The winning field, when a query produced one. */
   match: FieldMatch | null;
   selected: boolean;
   rowRef?: React.Ref<HTMLDivElement>;

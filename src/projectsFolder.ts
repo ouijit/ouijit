@@ -34,7 +34,6 @@ export async function getDefaultProjectsDir(): Promise<string> {
   return getFallbackProjectsDir();
 }
 
-/** Persist a folder as the default for future project creation. */
 export async function setDefaultProjectsDir(folderPath: string): Promise<void> {
   await setGlobalSetting(PROJECTS_FOLDER_KEY, folderPath);
 }

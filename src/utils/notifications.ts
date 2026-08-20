@@ -26,12 +26,10 @@ export async function hydrateNotificationSettings(): Promise<void> {
   readyAudioDisabled = value === '1';
 }
 
-/** Update the cached ready-audio toggle (called when the setting changes). */
 export function setReadyAudioDisabled(disabled: boolean): void {
   readyAudioDisabled = disabled;
 }
 
-/** Build notification body from terminal label and OSC title. */
 export function readyBody(label: string, oscTitle: string): string {
   if (label !== 'Shell') return `${label} is ready`;
   if (oscTitle) return `Ready — ${oscTitle}`;
@@ -53,7 +51,6 @@ export function notifyReady(title: string, body: string): void {
   }
 }
 
-/** Play the transition-down sound when entering thinking state. */
 export function notifyThinking(): void {
   if (!transitionDownAudio) {
     transitionDownAudio = new Audio(transitionDownUrl);

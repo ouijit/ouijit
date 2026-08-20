@@ -57,7 +57,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
 
   const projectMap = new Map(projects.map((p) => [p.path, p]));
 
-  // DnD sensors
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const handleDragEnd = useCallback(
@@ -73,7 +72,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
     [orderedPaths],
   );
 
-  // Auto-hide sidebar
   const showSidebar = useCallback(() => {
     if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
@@ -101,7 +99,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
     }, 300);
   }, [addMenuOpen, noProjects, sidebarPinned]);
 
-  // Listen for show-sidebar events from the header toggle button
   useEffect(() => {
     const handler = () => showSidebar();
     document.addEventListener('show-sidebar', handler);
@@ -137,7 +134,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
     document.documentElement.style.setProperty('--sidebar-offset', 'var(--sidebar-width)');
   }, []);
 
-  // Listen for open-add-menu events from the home empty state CTA
   useEffect(() => {
     const handler = () => {
       showSidebar();
@@ -166,7 +162,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
     }
   }, [sidebarPinned]);
 
-  // Context menu dismiss
   useEffect(() => {
     if (!contextMenu) return;
     const dismiss = (e: MouseEvent) => {
@@ -181,7 +176,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
     };
   }, [contextMenu]);
 
-  // Add menu dismiss
   useEffect(() => {
     if (!addMenuOpen) return;
     const dismiss = (e: MouseEvent) => {

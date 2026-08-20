@@ -400,7 +400,6 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
   );
 }
 
-/** Focus the kanban add input programmatically, opening the form if collapsed */
 export function focusKanbanAddInput(): void {
   // The expanded sheet holds the same draft and already has focus; pulling it
   // back to the input behind the scrim would strand the caret.

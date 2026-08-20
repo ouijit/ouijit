@@ -49,7 +49,6 @@ export interface KanbanCardViewProps {
 
   /** Controlled — when true, the View renders the name as an editable textarea. */
   isRenamingTask?: boolean;
-  /** Called when the user double-clicks the name to enter rename mode. */
   onStartRenameTask?: () => void;
   /** Called on Enter or blur with a non-empty value different from the current name. */
   onCommitRenameTask?: (taskNumber: number, newName: string) => void;
@@ -203,7 +202,6 @@ export const KanbanCardView = memo(function KanbanCardView({
     lastSyncedPromptRef.current = next;
   }, [task.prompt, editingDesc, expanded]);
 
-  /** Focus the editor when the user enters edit mode. */
   useEffect(() => {
     if (!editingDesc) return;
     requestAnimationFrame(() => descEditorRef.current?.focus());

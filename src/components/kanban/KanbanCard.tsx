@@ -34,7 +34,6 @@ interface KanbanCardProps {
   availableSandboxProviders?: SandboxProviderId[];
   /** Hoisted from per-card IPC to a single board-level call. */
   hasEditorHook?: boolean;
-  /** Called after the user saves an editor hook from this card's dialog. */
   onEditorHookConfigured?: () => void;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;

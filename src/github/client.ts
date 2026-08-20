@@ -155,7 +155,7 @@ function ghEnv(identity?: RepoIdentity): NodeJS.ProcessEnv {
   return env;
 }
 
-/** Run `gh` with the given argv and return stdout. Throws GithubError. */
+/** Throws GithubError, with gh's stderr mapped onto it. */
 export async function runGh(args: string[], options: ExecOptions = {}): Promise<string> {
   return withSlot(async () => {
     try {
@@ -302,7 +302,7 @@ export interface GhProbe {
   versionOk: boolean;
 }
 
-/** Detect gh and read its version. Local, like every other health probe. */
+/** No network: `gh --version` only, unlike the auth probe. */
 export async function probeGh(): Promise<GhProbe> {
   try {
     const { stdout } = await execFileAsync('gh', ['--version'], { encoding: 'utf8', timeout: 10_000 });

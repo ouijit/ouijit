@@ -5,7 +5,6 @@ import { Icon } from '../terminal/Icon';
 
 interface KanbanShellBarProps {
   projectPath: string;
-  /** Switch to the given terminal and reveal the terminal view. */
   onSwitchToTerminal: (ptyId: string) => void;
 }
 

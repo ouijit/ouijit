@@ -5,7 +5,6 @@
  * the Electron <webview> element.
  */
 
-/** Normalize user-entered URL input: add http:// when a scheme is missing. */
 export function normalizeUrl(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) return '';

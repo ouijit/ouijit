@@ -3,7 +3,6 @@ import type { ReviewThread } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 
-/** Reply and resolve for one thread, wherever it is rendered. */
 export function useThreadActions(
   projectPath: string,
   prNumber: number,

@@ -55,7 +55,7 @@ interface AppStoreActions {
   setSandboxStarting: (starting: boolean) => void;
   setWhatsNew: (info: { version: string; notes: string } | null) => void;
   setHelpDialogOpen: (open: boolean) => void;
-  /** Register an open composer sheet; returns nothing, pair with the close. */
+  /** Must be paired with `closeComposerSheet` when the sheet unmounts. */
   openComposerSheet: () => void;
   closeComposerSheet: () => void;
   setOnboardingSoftDismissed: (value: boolean) => void;

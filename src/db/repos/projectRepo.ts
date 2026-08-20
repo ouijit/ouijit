@@ -68,7 +68,6 @@ export class ProjectRepo {
     this.db.prepare('UPDATE projects SET icon_color = ? WHERE path = ?').run(color, path);
   }
 
-  /** Reorder projects by setting sort_order based on the given path order */
   reorder(paths: string[]): void {
     const stmt = this.db.prepare('UPDATE projects SET sort_order = ? WHERE path = ?');
     this.db.transaction(() => {

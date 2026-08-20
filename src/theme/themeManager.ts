@@ -89,7 +89,6 @@ export function getCustomThemes(): CustomTheme[] {
   return customThemes;
 }
 
-/** Subscribe to theme changes. Returns an unsubscribe function. */
 export function subscribeTheme(callback: () => void): () => void {
   subscribers.add(callback);
   return () => subscribers.delete(callback);
@@ -199,9 +198,9 @@ export async function initTheme(): Promise<void> {
 }
 
 /**
- * Re-read persisted theme settings and re-apply. Called when the CLI
- * mutates themes through the REST API (main process writes the settings
- * DB directly, so this module's state must be refreshed).
+ * Re-read persisted theme settings and re-apply. Needed after a CLI theme
+ * mutation: the main process writes the settings DB directly, leaving this
+ * module's state stale.
  */
 export async function reloadTheme(): Promise<void> {
   if (await loadPersistedTheme()) applyTheme();

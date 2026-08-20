@@ -6,7 +6,6 @@ import { SHIKI_THEMES, currentShikiTheme } from '../theme/shikiTheme';
 
 export type { ThemedToken };
 
-/** Tokens for each line in a hunk, indexed by line position within the hunk */
 export type HunkTokens = (ThemedToken[] | null)[];
 
 const PRELOADED_LANGS: BundledLanguage[] = [

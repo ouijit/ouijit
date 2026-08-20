@@ -14,7 +14,6 @@ interface PullRequestSidebarProps {
   draftCounts: Record<number, number>;
   prTasks: Record<number, TaskWithWorkspace>;
   issueTasks: Record<number, TaskWithWorkspace>;
-  /** Which list is showing, and which row in it is open. */
   showing: 'pulls' | 'issues';
   activeNumber: number | null;
   activeIssue: number | null;

@@ -34,7 +34,6 @@ import type { LimaStatus } from './lima/types';
 import type { SandboxProviderId, SandboxProviderStatus, NonoConfig } from './sandbox/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';
 
-// Re-export all git types from git.ts (single source of truth)
 export type {
   GitStatus,
   GitDropdownInfo,
@@ -52,17 +51,11 @@ export type {
   DiffBaseRef,
   DiffBases,
 } from './git';
-// Re-export worktree types from worktree.ts (single source of truth)
 export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
-// Re-export task types from db layer (single source of truth)
 export type { TaskStatus, TaskMetadata } from './db';
-// Re-export tag types from db layer (single source of truth)
 export type { TagRow } from './db';
-// Re-export PTY session type from ptyManager.ts (single source of truth)
 export type { ActiveSession } from './ptyManager';
-// Re-export the VM-shaped Lima status (single source of truth)
 export type { LimaStatus } from './lima/types';
-// Re-export the cross-provider sandbox types (single source of truth)
 export type {
   SandboxProviderId,
   SandboxBackendId,
@@ -71,7 +64,6 @@ export type {
   NonoConfig,
 } from './sandbox/types';
 export { SANDBOX_BACKEND_LABELS, legacySandboxProvider, isActiveSandbox } from './sandbox/types';
-// Re-export hook status types from hookServer.ts (single source of truth)
 export type { HookStatus, HookStatusEntry } from './hookServer';
 export type {
   RepoIdentity,
@@ -184,15 +176,12 @@ export interface LastSessionSnapshot {
 export interface RunConfig {
   /** Display name (e.g., "dev", "start", "run") */
   name: string;
-  /** Full command to execute */
   command: string;
-  /** Source file that defined this config */
   source: 'package.json' | 'Makefile' | 'Cargo.toml' | 'go.mod' | 'pyproject.toml' | 'docker-compose.yml' | 'custom';
   /** Optional description of the command */
   description?: string;
   /** Priority for sorting (lower = higher priority) */
   priority: number;
-  /** Whether this is a custom user-defined command */
   isCustom?: boolean;
 }
 
@@ -201,13 +190,9 @@ export interface RunConfig {
  * @deprecated Use ScriptHook instead
  */
 export interface CustomCommand {
-  /** Unique identifier */
   id: string;
-  /** Display name */
   name: string;
-  /** Full command to execute */
   command: string;
-  /** Optional description */
   description?: string;
 }
 
@@ -224,15 +209,10 @@ export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'edito
 export type CliHookMode = 'run' | 'skip' | 'command';
 
 export interface ScriptHook {
-  /** Unique identifier */
   id: string;
-  /** Hook type - determines when it runs */
   type: HookType;
-  /** Display name */
   name: string;
-  /** Command to execute */
   command: string;
-  /** Optional description */
   description?: string;
   /** Restart the command if an instance is already running in the same task (run hook only). */
   restartIfRunning?: boolean;
@@ -292,17 +272,13 @@ export interface PtySpawnOptions {
   command?: string;
   cols?: number;
   rows?: number;
-  /** Display label for the terminal */
   label?: string;
-  /** Task ID for task terminals */
   taskId?: number;
-  /** Path to the worktree */
   worktreePath?: string;
   /** Whether this is a runner PTY (secondary terminal for running commands) */
   isRunner?: boolean;
   /** Parent PTY ID if this is a runner (for session restoration) */
   parentPtyId?: PtyId;
-  /** Additional environment variables to set */
   env?: Record<string, string>;
   /** Which sandbox backend runs this terminal, or omitted/'none' for a host shell. */
   sandboxProvider?: SandboxProviderId;
@@ -316,13 +292,11 @@ export interface PtySpawnResult {
 
 export interface PtyReconnectResult {
   success: boolean;
-  /** Buffered output that was missed during disconnection */
   bufferedOutput?: string;
   /** Whether the PTY is currently in alternate screen mode (TUI) */
   isAltScreen?: boolean;
   /** Terminal cols at time of last resize (for accurate buffer replay) */
   lastCols?: number;
-  /** Terminal rows at time of last resize */
   lastRows?: number;
   error?: string;
 }
@@ -332,13 +306,10 @@ export interface PtyAPI {
   write(ptyId: PtyId, data: string): void;
   resize(ptyId: PtyId, cols: number, rows: number): void;
   kill(ptyId: PtyId): void;
-  /** Update a terminal's display label after a user rename */
   setLabel(ptyId: PtyId, label: string): void;
   onData(ptyId: PtyId, callback: (data: string) => void): () => void;
   onExit(ptyId: PtyId, callback: (exitCode: number) => void): () => void;
-  /** Get list of active sessions (for reconnection after reload) */
   getActiveSessions(): Promise<ActiveSession[]>;
-  /** Reconnect to an existing PTY after renderer reload */
   reconnect(ptyId: PtyId): Promise<PtyReconnectResult>;
   /** Update window reference after reconnection */
   setWindow(): void;
@@ -363,7 +334,6 @@ export interface TaskWithWorkspace {
 }
 
 export interface HooksAPI {
-  /** Get all hooks for a project */
   get(projectPath: string): Promise<{
     start?: ScriptHook;
     continue?: ScriptHook;
@@ -372,9 +342,7 @@ export interface HooksAPI {
     done?: ScriptHook;
     editor?: ScriptHook;
   }>;
-  /** Save a hook for a project */
   save(projectPath: string, hook: ScriptHook): Promise<{ success: boolean }>;
-  /** Delete a hook for a project */
   delete(projectPath: string, hookType: HookType): Promise<{ success: boolean }>;
 }
 
@@ -391,7 +359,6 @@ export interface ScriptsAPI {
   getAll(projectPath: string): Promise<Script[]>;
   /** Save (create or update) a script */
   save(projectPath: string, script: Script): Promise<{ success: boolean; script?: Script }>;
-  /** Delete a script by ID */
   delete(projectPath: string, scriptId: string): Promise<{ success: boolean }>;
   /** Reorder scripts by setting sort_order from array position */
   reorder(projectPath: string, scriptIds: string[]): Promise<{ success: boolean }>;
@@ -483,31 +450,21 @@ export interface ElectronAPI {
     filePath: string,
     line?: number,
   ): Promise<{ success: boolean; error?: string }>;
-  /** Open a URL in the default browser */
   openExternal(url: string): Promise<void>;
-  /** PTY management API */
   pty: PtyAPI;
-  /** Worktree management API */
   worktree: WorktreeAPI;
-  /** Task lifecycle API */
   task: TaskAPI;
-  /** Refresh the project list */
   refreshProjects(): Promise<Project[]>;
   /** Get git status (branch and dirty state) for a project */
   getGitStatus(projectPath: string): Promise<GitStatus | null>;
-  /** Get detailed file-level git status (single source of truth for button + diff panel) */
   getGitFileStatus(projectPath: string, diffBase?: string): Promise<GitFileStatus | null>;
-  /** Get extended git dropdown info for a project */
   getGitDropdownInfo(projectPath: string): Promise<GitDropdownInfo | null>;
   /** The refs a branch diff can be taken against, and when the repo last fetched. */
   listDiffBases(projectPath: string): Promise<DiffBases>;
   /** Update one remote-tracking ref, so a comparison against it is current. */
   fetchDiffBase(projectPath: string, ref: string): Promise<{ success: boolean; error?: string }>;
-  /** Checkout a git branch */
   gitCheckout(projectPath: string, branchName: string): Promise<GitCheckoutResult>;
-  /** Create a new git branch */
   gitCreateBranch(projectPath: string, branchName: string): Promise<GitCheckoutResult>;
-  /** Merge current branch into main */
   gitMergeIntoMain(projectPath: string): Promise<GitMergeResult>;
   /**
    * Get diff for a specific file. `untracked` is required: working it out in
@@ -519,9 +476,7 @@ export interface ElectronAPI {
     contextLines: number | undefined,
     untracked: boolean,
   ): Promise<FileDiff | null>;
-  /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
-  /** Show native folder picker dialog */
   showFolderPicker(options?: FolderPickerOptions): Promise<{ canceled: boolean; filePaths: string[] }>;
   /** Get the folder new projects are created in (setting or built-in default) */
   getDefaultProjectsFolder(): Promise<string>;
@@ -532,17 +487,13 @@ export interface ElectronAPI {
     newFolder: string,
     action: ProjectsFolderChangeAction,
   ): Promise<ApplyProjectsFolderChangeResult>;
-  /** Add a project folder to the app */
   addProject(folderPath: string): Promise<{ success: boolean; error?: string; reason?: ValidateFolderFailureReason }>;
   /** Initialize a git repository in an existing folder (recovers a non-git folder) */
   initGitRepo(folderPath: string, initialCommit?: boolean): Promise<{ success: boolean; error?: string }>;
-  /** Remove a project folder from the app */
   removeProject(folderPath: string): Promise<{ success: boolean }>;
-  /** Reorder projects in the sidebar */
   reorderProjects(paths: string[]): Promise<{ success: boolean }>;
   /** Set a custom icon color for a project, or null to revert to the generated color */
   setProjectIconColor(projectPath: string, color: string | null): Promise<{ success: boolean }>;
-  /** Listen for fullscreen state changes */
   onFullscreenChange(callback: (isFullscreen: boolean) => void): () => void;
   /** Listen for app update availability (Linux only) */
   onUpdateAvailable(callback: (info: { version: string; url: string }) => void): () => void;
@@ -590,29 +541,20 @@ export interface ElectronAPI {
       hookCommand?: string;
     }) => void,
   ): () => void;
-  /** Script hooks API */
   hooks: HooksAPI;
-  /** Tags API */
   tags: TagsAPI;
-  /** Ad-hoc scripts API */
   scripts: ScriptsAPI;
   /** CLI agent hook events (claude/codex/pi/opencode) */
   agentHooks: AgentHooksAPI;
-  /** Plan file detection and viewing */
   plan: PlanAPI;
   /** CLI-driven terminal panel ops (markdown / web preview) */
   cliPanels: CliPanelsAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
-  /** User's home directory */
   homePath(): Promise<string>;
-  /** Lima sandbox API */
   lima: LimaAPI;
-  /** Cross-provider sandbox API */
   sandbox: SandboxAPI;
-  /** Global settings API */
   globalSettings: GlobalSettingsAPI;
-  /** Onboarding API */
   onboarding: OnboardingAPI;
   /** Health probe API (git/claude/lima detection) */
   health: HealthAPI;
@@ -834,9 +776,7 @@ export interface CliPanelsAPI {
 export interface SandboxAPI {
   /** Availability + readiness of every registered sandbox backend. */
   status(projectPath: string): Promise<SandboxProviderStatus[]>;
-  /** Read a project's nono config. */
   nonoConfig(projectPath: string): Promise<NonoConfig>;
-  /** Persist a project's nono config. */
   setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }>;
 }
 
@@ -866,7 +806,6 @@ export interface CreateProjectOptions {
   parentDir?: string;
 }
 
-/** Options for the native directory picker */
 export interface FolderPickerOptions {
   title?: string;
   buttonLabel?: string;
@@ -899,7 +838,6 @@ export interface ProjectsFolderChangePlan {
   affected: AffectedProject[];
 }
 
-/** Result of applying a projects folder change with the user's chosen action */
 export interface ApplyProjectsFolderChangeResult {
   /** Whether the setting now points at the new folder */
   committed: boolean;

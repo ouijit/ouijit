@@ -940,7 +940,6 @@ export async function gitAsync(args: string[], projectPath: string, maxBuffer?: 
 
 // ── Shared diff parsing helpers ──────────────────────────────────────
 
-/** Parses `git diff --numstat` output into a per-file stats map. */
 function parseNumstat(output: string): Map<string, { additions: number; deletions: number }> {
   const map = new Map<string, { additions: number; deletions: number }>();
   if (!output) return map;

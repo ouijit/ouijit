@@ -47,7 +47,6 @@ vi.mock('../../utils/icons', () => ({
   }),
 }));
 
-// Mock the Electron API surface
 const mockApi = {
   getProjects: vi.fn().mockResolvedValue([]),
   openProject: vi.fn().mockResolvedValue({ success: true }),

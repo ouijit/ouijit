@@ -226,7 +226,6 @@ export function createAttachmentChip(path: string, doc: Document = document): HT
   return chip;
 }
 
-/** True if `node` is an attachment chip element. */
 export function isAttachmentChip(node: Node | null | undefined): node is HTMLElement {
   return (
     !!node && node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).classList.contains(ATTACHMENT_CHIP_CLASS)

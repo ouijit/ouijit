@@ -12,7 +12,6 @@ interface PullRequestRailProps {
   width: number;
 }
 
-/** The changed files, for the code pane only. */
 export function PullRequestRail({ detail, files, onSelect, width }: PullRequestRailProps) {
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);

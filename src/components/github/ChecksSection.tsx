@@ -2,7 +2,6 @@ import type { CheckRun } from '../../github/types';
 import { Icon } from '../terminal/Icon';
 import { checkRunAppearance } from './prFormat';
 
-/** The check rollup. Clicking a run opens its log on GitHub. */
 export function ChecksSection({ checks }: { checks: CheckRun[] }) {
   if (checks.length === 0) {
     return <p className="px-4 py-4 font-mono text-[11px] text-text-tertiary">Nothing has reported on this change</p>;

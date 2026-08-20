@@ -67,7 +67,6 @@ export class TaskRepo {
     return this.db.transaction(() => {
       const status = options?.status ?? 'in_progress';
 
-      // Assign order at the end of the target column
       const maxOrder = this.db
         .prepare('SELECT MAX(sort_order) as max_order FROM tasks WHERE project_path = ? AND status = ?')
         .get(projectPath, status) as { max_order: number | null };
@@ -96,7 +95,6 @@ export class TaskRepo {
           options?.githubIssueNumber ?? null,
         );
 
-      // Bump counter if this task number matches or exceeds it
       this.db
         .prepare('UPDATE project_counters SET next_task_number = MAX(next_task_number, ? + 1) WHERE project_path = ?')
         .run(taskNumber, projectPath);
@@ -114,7 +112,6 @@ export class TaskRepo {
       const closedAt = status === 'done' ? new Date().toISOString() : null;
 
       if (oldStatus !== status) {
-        // Append to end of new column
         const maxOrder = this.db
           .prepare(
             'SELECT MAX(sort_order) as max_order FROM tasks WHERE project_path = ? AND status = ? AND task_number != ?',
@@ -126,7 +123,6 @@ export class TaskRepo {
           .prepare('UPDATE tasks SET status = ?, closed_at = ?, sort_order = ? WHERE id = ?')
           .run(status, closedAt, newOrder, task.id);
 
-        // Compact old column orders
         const oldColumnTasks = this.db
           .prepare(
             'SELECT id FROM tasks WHERE project_path = ? AND status = ? AND task_number != ? ORDER BY sort_order, id',
@@ -137,7 +133,6 @@ export class TaskRepo {
           updateOrder.run(i, oldColumnTasks[i].id);
         }
       } else {
-        // Same status — just update closedAt if needed
         this.db.prepare('UPDATE tasks SET status = ?, closed_at = ? WHERE id = ?').run(status, closedAt, task.id);
       }
     })();
@@ -218,29 +213,24 @@ export class TaskRepo {
       const oldStatus = task.status;
       const closedAt = newStatus === 'done' ? new Date().toISOString() : oldStatus === 'done' ? null : task.closed_at;
 
-      // Get tasks in the target column (excluding the moved task), ordered
       const columnTasks = this.db
         .prepare(
           'SELECT id, task_number FROM tasks WHERE project_path = ? AND status = ? AND task_number != ? ORDER BY sort_order, id',
         )
         .all(projectPath, newStatus, taskNumber) as { id: number; task_number: number }[];
 
-      // Insert at the target position
       const clampedIndex = Math.max(0, Math.min(targetIndex, columnTasks.length));
       columnTasks.splice(clampedIndex, 0, { id: task.id, task_number: taskNumber });
 
       // Prepare once, reuse in loop
       const updateOrder = this.db.prepare('UPDATE tasks SET sort_order = ? WHERE id = ?');
 
-      // Reassign order values for the target column
       for (let i = 0; i < columnTasks.length; i++) {
         updateOrder.run(i, columnTasks[i].id);
       }
 
-      // Update status and closedAt
       this.db.prepare('UPDATE tasks SET status = ?, closed_at = ? WHERE id = ?').run(newStatus, closedAt, task.id);
 
-      // If moving across columns, also compact the old column
       if (oldStatus !== newStatus) {
         const oldColumnTasks = this.db
           .prepare(

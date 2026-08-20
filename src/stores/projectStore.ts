@@ -155,17 +155,13 @@ interface ProjectStoreActions {
   setTagFilter: (tag: string | null) => void;
   resetForProject: () => void;
 
-  /** Toggle a single task's selection (Cmd/Ctrl+click) */
   toggleTaskSelection: (taskNumber: number) => void;
-  /** Select a range of tasks from anchor to target (Shift+click) */
   selectTaskRange: (taskNumber: number, orderedTaskNumbers: number[]) => void;
-  /** Clear all selection */
   clearSelection: () => void;
 
   /** Load tasks from IPC with staleness check */
   loadTasks: (projectPath: string) => Promise<void>;
   loadTasksIfActive: (projectPath: string) => Promise<void>;
-  /** Load scripts from IPC */
   loadScripts: (projectPath: string) => Promise<void>;
   /**
    * Load project-scoped config (sandbox availability + configured hooks) in a
@@ -458,12 +454,10 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   moveTask: async (projectPath, taskNumber, newStatus, targetIndex) => {
     const prev = get().tasks;
     const moveVersion = ++moveCounter;
-    // Optimistic: reorder locally
     const task = prev.find((t) => t.taskNumber === taskNumber);
     if (!task) return;
     const updated = prev.filter((t) => t.taskNumber !== taskNumber);
     const updatedTask = { ...task, status: newStatus as TaskWithWorkspace['status'] };
-    // Insert at target position within the status group
     const statusTasks = updated.filter((t) => t.status === newStatus);
     const otherTasks = updated.filter((t) => t.status !== newStatus);
     statusTasks.splice(targetIndex, 0, updatedTask);

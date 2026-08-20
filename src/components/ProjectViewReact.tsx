@@ -27,7 +27,7 @@ const isMac = navigator.platform.toLowerCase().includes('mac');
 const PROJECT_REFRESH_INTERVAL = 30000;
 const EMPTY: string[] = [];
 
-/** Get the currently selected ptyId from the canvas (first selected node). */
+/** The first selected node, when the canvas has several selected. */
 function getCanvasSelectedPtyId(projectPath: string): string | undefined {
   const project = useCanvasStore.getState().canvasByProject[projectPath];
   if (!project) return undefined;
@@ -35,7 +35,6 @@ function getCanvasSelectedPtyId(projectPath: string): string | undefined {
   return selected?.id;
 }
 
-/** Get the active ptyId based on the current layout mode. */
 function getActivePtyId(projectPath: string): string | undefined {
   const layout = useProjectStore.getState().terminalLayout;
   if (layout === 'canvas') {
@@ -65,7 +64,6 @@ export function ProjectView() {
   const terminalList = useTerminalStore((s) => (projectPath ? s.terminalsByProject[projectPath] : undefined));
   const terminals = terminalList ?? EMPTY;
 
-  // Keyboard shortcuts for project mode
   useEffect(() => {
     if (!projectPath) return;
 
@@ -244,7 +242,6 @@ export function ProjectView() {
     }
   }, [githubEnabled, activePanel]);
 
-  // Reconnect orphaned sessions, or show kanban if none exist
   useEffect(() => {
     if (!projectPath) return;
     const existing = useTerminalStore.getState().terminalsByProject[projectPath];
@@ -259,7 +256,6 @@ export function ProjectView() {
       // Sync canvas to prune stale nodes from previous sessions.
       syncCanvasWithTerminals(projectPath);
 
-      // Only show kanban if reconnection didn't restore any terminals
       const reconnected = useTerminalStore.getState().terminalsByProject[projectPath];
       if (!reconnected || reconnected.length === 0) {
         useProjectStore.getState().setKanbanVisible(true);

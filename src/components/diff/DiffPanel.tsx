@@ -107,7 +107,6 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     [setComposingAt, setEditingId],
   );
 
-  /** Fills the same slot the pull request files view uses for its threads. */
   const renderBelowLine = useCallback(
     (path: string, anchor: DiffLineAnchor) => {
       const key = anchorKey(path, anchor.line, anchor.side);

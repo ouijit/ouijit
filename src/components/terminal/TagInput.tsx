@@ -9,7 +9,6 @@ interface TagInputProps {
   onClose: () => void;
 }
 
-/** Collect unique tags from all active terminal sessions */
 function getActiveSessionTags(): string[] {
   const seen = new Map<string, string>();
   const state = useTerminalStore.getState();

@@ -70,14 +70,12 @@ describe('data import service', () => {
     expect(result.tasksImported).toBe(2);
     expect(result.errors).toHaveLength(0);
 
-    // Verify tasks were imported
     const tasks = taskRepo.getAllForProject('/projects/myapp');
     expect(tasks).toHaveLength(2);
     expect(tasks.find((t) => t.task_number === 1)?.branch).toBe('feat/login');
     expect(tasks.find((t) => t.task_number === 2)?.status).toBe('done');
     expect(tasks.find((t) => t.task_number === 2)?.closed_at).toBe('2024-01-03T00:00:00.000Z');
 
-    // Verify counter was set
     expect(taskRepo.getNextTaskNumber('/projects/myapp')).toBe(3);
   });
 
@@ -137,7 +135,6 @@ describe('data import service', () => {
   test('writes marker file and skips on subsequent runs', async () => {
     const { db, projectRepo, taskRepo, hookRepo } = setupImport();
 
-    // First run should succeed
     const result1 = await importAll(db, projectRepo, taskRepo, hookRepo);
     expect(result1).toBeDefined();
 

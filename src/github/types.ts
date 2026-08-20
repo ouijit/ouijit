@@ -24,7 +24,6 @@ export function repoSlug(identity: RepoIdentity): string {
   return `${identity.owner}/${identity.repo}`;
 }
 
-/** Why the GitHub surface is unavailable for a project. */
 export type GithubUnavailableReason =
   | 'flag-off'
   | 'gh-missing'

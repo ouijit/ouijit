@@ -109,8 +109,8 @@ export async function getRepoIdentity(projectPath: string, remote = 'origin'): P
 }
 
 /**
- * Drop cached identities. Called when a project is re-added or its remote could
- * have changed underneath us; passing no argument clears everything.
+ * Drop cached identities — needed whenever a project's remote could have
+ * changed underneath the cache. Passing no argument clears everything.
  */
 export function invalidateRepoIdentity(projectPath?: string): void {
   cacheGeneration++;

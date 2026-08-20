@@ -33,7 +33,6 @@ function pasteIntoTerminal(ptyId: string, text: string): void {
   window.api.pty.write(ptyId, `\x1b[200~${text}\x1b[201~`);
 }
 
-/** The notes written on this diff, and the two ways to hand them over. */
 export function DiffNotesIsland({ notes, inView, subject, ptyId, onJump, onDiscard, onClear }: DiffNotesIslandProps) {
   if (notes.length === 0) return null;
 
