@@ -85,11 +85,19 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
 
   // Shift drives `.canvas-selecting` (see index.css). Written to the DOM rather
   // than held in React state: every shifted keystroke typed into a terminal
-  // fires this, and none of them concern the canvas tree.
+  // fires this, and none of them concern the canvas tree. `pointer-events` is
+  // inherited, so each write invalidates the style of every xterm row under
+  // every node — hence the latch, which writes only on a transition.
   const surfaceRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const sync = (e: KeyboardEvent) => surfaceRef.current?.classList.toggle('canvas-selecting', e.shiftKey);
-    const clear = () => surfaceRef.current?.classList.remove('canvas-selecting');
+    let held = false;
+    const set = (shift: boolean) => {
+      if (shift === held) return;
+      held = shift;
+      surfaceRef.current?.classList.toggle('canvas-selecting', shift);
+    };
+    const sync = (e: KeyboardEvent) => set(e.shiftKey);
+    const clear = () => set(false);
     window.addEventListener('keydown', sync);
     window.addEventListener('keyup', sync);
     window.addEventListener('blur', clear);
@@ -117,10 +125,10 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const handleNodeDoubleClick = useCallback(
     (_: React.MouseEvent, node: CanvasNodeType) => {
       setMenuPos(null);
-      const ptyId = node.data.ptyId;
-      if (useTerminalStore.getState().displayStates[ptyId]?.isLoading) return;
+      const ptyId = isGroupNode(node) ? null : node.data.ptyId;
+      if (ptyId && useTerminalStore.getState().displayStates[ptyId]?.isLoading) return;
       fitView({ nodes: [{ id: node.id }], padding: 0.1, duration: 350 });
-      const instance = terminalInstances.get(ptyId);
+      const instance = ptyId ? terminalInstances.get(ptyId) : undefined;
       if (instance) requestAnimationFrame(() => instance.xterm.focus());
     },
     [fitView],
@@ -141,7 +149,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);
   const minimapNodeColor = useCallback(
     (node: CanvasNodeType) => {
-      const display = displayStates[node.data.ptyId];
+      const display = isGroupNode(node) ? undefined : displayStates[node.data.ptyId];
       if (!display?.taskId) return minimapFallbackColor;
       const info = chainMap.get(display.taskId);
       if (!info) return minimapFallbackColor;

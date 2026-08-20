@@ -1,4 +1,3 @@
-/** One entry in a keyboard legend, sized to sit quietly under what it describes. */
 export function KeyHint({ keys, label }: { keys: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5 min-w-0">

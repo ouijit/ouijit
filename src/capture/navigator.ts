@@ -11,7 +11,8 @@ import log from 'electron-log/renderer';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
-import { useCanvasStore } from '../stores/canvasStore';
+import { useCanvasStore, isGroupNode } from '../stores/canvasStore';
+import { syncCanvasWithTerminals } from '../stores/canvasSync';
 import { useUIStore } from '../stores/uiStore';
 import { OuijitTerminal, terminalInstances } from '../components/terminal/terminalReact';
 import { legacySandboxProvider } from '../types';
@@ -102,6 +103,8 @@ export function installCaptureNavigator(): void {
       case 'terminal-stack':
         projectStore.setActivePanel('terminals');
         projectStore.setKanbanVisible(false);
+        // setState, not the store's setters: those write the choice to global
+        // settings, and a screenshot fixture must not outlive its own run.
         useUIStore.setState({ terminalLayout: 'stack' });
         break;
       case 'settings':
@@ -114,9 +117,16 @@ export function installCaptureNavigator(): void {
         useUIStore.setState({ canvasEnabled: true, terminalLayout: 'canvas' });
         if (payload.terminalSeeds) {
           const canvas = useCanvasStore.getState();
-          for (const seed of payload.terminalSeeds) {
-            canvas.addNode(payload.projectPath, seed.ptyId, { taskId: seed.taskId, position: seed.canvasPosition });
-          }
+          canvas.ensureProject(payload.projectPath);
+          syncCanvasWithTerminals(payload.projectPath);
+          const seeded = new Map(payload.terminalSeeds.map((seed) => [seed.ptyId, seed.canvasPosition]));
+          canvas.setNodes(
+            payload.projectPath,
+            canvas.canvasByProject[payload.projectPath]?.nodes.map((node) => {
+              const position = isGroupNode(node) ? undefined : seeded.get(node.data.ptyId);
+              return position ? { ...node, position } : node;
+            }) ?? [],
+          );
           if (payload.canvasViewport) {
             canvas.setViewport(payload.projectPath, payload.canvasViewport);
           }

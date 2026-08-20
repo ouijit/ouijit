@@ -6,7 +6,8 @@ import {
   canvasNodeBase,
   type CanvasNode,
 } from '../../stores/canvasStore';
-import { syncCanvasWithTerminals } from '../../stores/canvasSync';
+import { syncCanvasWithTerminals, nodesByTask } from '../../stores/canvasSync';
+import type { TaskChainInfo } from '../../utils/taskChain';
 import { useTerminalStore } from '../../stores/terminalStore';
 
 const PROJECT = '/project';
@@ -262,5 +263,73 @@ describe('align and distribute', () => {
     select('pty-a', 'pty-b');
     useCanvasStore.getState().distributeSelected(PROJECT, 'horizontal');
     expect(nodeFor('pty-b').position.x).toBe(200);
+  });
+});
+
+describe('chain tree layout', () => {
+  test('lays a parent out to the left of its children, centred against them', () => {
+    addTerminal('pty-parent', 1);
+    addTerminal('pty-kid-a', 2);
+    addTerminal('pty-kid-b', 3);
+    syncCanvasWithTerminals(PROJECT);
+    place({
+      'pty-parent': { x: 0, y: 0 },
+      'pty-kid-a': { x: 500, y: 500 },
+      'pty-kid-b': { x: 500, y: 700 },
+    });
+
+    const chainMap = new Map<number, TaskChainInfo>([
+      [1, { rootTaskNumber: 1, depth: 0, childTaskNumbers: [2, 3] }],
+      [2, { rootTaskNumber: 1, depth: 1, childTaskNumbers: [] }],
+      [3, { rootTaskNumber: 1, depth: 1, childTaskNumbers: [] }],
+    ]);
+    const byTask = nodesByTask(canvas().nodes, useTerminalStore.getState().displayStates);
+
+    useCanvasStore.getState().chainLayout(PROJECT, chainMap, byTask);
+
+    expect(nodeFor('pty-parent').position).toEqual({ x: 0, y: 0 });
+    // Children share a column one parent-width plus the gap to the right, and
+    // straddle the parent's centre line.
+    expect(nodeFor('pty-kid-a').position).toEqual({ x: 180, y: -80 });
+    expect(nodeFor('pty-kid-b').position).toEqual({ x: 180, y: 80 });
+  });
+
+  test('leaves a canvas with no chained tasks untouched', () => {
+    addTerminal('pty-a', 1);
+    addTerminal('pty-b', 2);
+    syncCanvasWithTerminals(PROJECT);
+    place({ 'pty-a': { x: 40, y: 50 }, 'pty-b': { x: 700, y: 90 } });
+
+    const chainMap = new Map<number, TaskChainInfo>([
+      [1, { rootTaskNumber: 1, depth: 0, childTaskNumbers: [] }],
+      [2, { rootTaskNumber: 2, depth: 0, childTaskNumbers: [] }],
+    ]);
+    useCanvasStore
+      .getState()
+      .chainLayout(PROJECT, chainMap, nodesByTask(canvas().nodes, useTerminalStore.getState().displayStates));
+
+    expect(nodeFor('pty-a').position).toEqual({ x: 40, y: 50 });
+    expect(nodeFor('pty-b').position).toEqual({ x: 700, y: 90 });
+  });
+});
+
+describe('persistence', () => {
+  test('a selection click does not schedule a write, a move does', async () => {
+    addTerminal('pty-a', 1);
+    syncCanvasWithTerminals(PROJECT);
+    await vi.advanceTimersByTimeAsync(400);
+    vi.mocked(window.api.globalSettings.set).mockClear();
+
+    useCanvasStore.getState().onNodesChange(PROJECT, [{ id: `${canvasNodeBase(1)}#0`, type: 'select', selected: true }]);
+    await vi.advanceTimersByTimeAsync(400);
+    expect(window.api.globalSettings.set).not.toHaveBeenCalled();
+
+    useCanvasStore
+      .getState()
+      .onNodesChange(PROJECT, [
+        { id: `${canvasNodeBase(1)}#0`, type: 'position', position: { x: 12, y: 34 }, dragging: false },
+      ]);
+    await vi.advanceTimersByTimeAsync(400);
+    expect(window.api.globalSettings.set).toHaveBeenCalledWith('canvas:/project', expect.any(String));
   });
 });

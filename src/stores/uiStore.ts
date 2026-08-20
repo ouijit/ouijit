@@ -5,6 +5,7 @@ export type HomeGroupMode = 'project' | 'tag';
 /** How a project's terminals are arranged: a card stack, or a free canvas. */
 export type TerminalLayout = 'stack' | 'canvas';
 
+const SIDEBAR_PINNED_KEY = 'ui:sidebar-pinned';
 const CANVAS_ENABLED_KEY = 'ui:canvas-enabled';
 const TERMINAL_LAYOUT_KEY = 'ui:terminal-layout';
 
@@ -71,13 +72,13 @@ export const useUIStore = create<UIStore>()((set, get) => ({
 
   setSidebarPinned: (pinned) => {
     set({ sidebarPinned: pinned });
-    void window.api.globalSettings.set('ui:sidebar-pinned', pinned ? '1' : '0');
+    void window.api.globalSettings.set(SIDEBAR_PINNED_KEY, pinned ? '1' : '0');
   },
 
   toggleSidebarPinned: () => {
     const next = !get().sidebarPinned;
     set({ sidebarPinned: next });
-    void window.api.globalSettings.set('ui:sidebar-pinned', next ? '1' : '0');
+    void window.api.globalSettings.set(SIDEBAR_PINNED_KEY, next ? '1' : '0');
   },
 
   setGitDropdownVisible: (visible) => set({ gitDropdownVisible: visible }),
@@ -110,14 +111,18 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   toggleTerminalLayout: () => get().setTerminalLayout(get().terminalLayout === 'stack' ? 'canvas' : 'stack'),
 }));
 
-/** Hydrate the persisted layout preferences. Called once on launch. */
-export async function loadLayoutPreferences(): Promise<void> {
-  const [enabled, layout] = await Promise.all([
+/** Hydrate every persisted UI preference. Called once on launch. */
+export async function hydrateUIPreferences(): Promise<void> {
+  const [pinned, enabled, layout] = await Promise.all([
+    window.api.globalSettings.get(SIDEBAR_PINNED_KEY),
     window.api.globalSettings.get(CANVAS_ENABLED_KEY),
     window.api.globalSettings.get(TERMINAL_LAYOUT_KEY),
   ]);
   const canvasEnabled = enabled === '1';
   useUIStore.setState({
+    // Defaults to pinned (see the store's initial state) — only an explicit
+    // '0' from a prior session unpins it.
+    sidebarPinned: pinned !== '0',
     canvasEnabled,
     terminalLayout: canvasEnabled && layout === 'canvas' ? 'canvas' : 'stack',
   });

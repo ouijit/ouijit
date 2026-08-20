@@ -1,9 +1,9 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { useTerminalStore, STACK_PAGE_SIZE } from '../../stores/terminalStore';
-import { terminalInstances } from './terminalReact';
 import { TerminalHeader } from './TerminalHeader';
 import { TerminalBody } from './TerminalBody';
 import { TerminalCardView } from './TerminalCardView';
+import { closeProjectTerminal } from './terminalActions';
 
 interface TerminalCardProps {
   ptyId: string;
@@ -65,11 +65,7 @@ export const TerminalCard = memo(function TerminalCard({
   }, [isActive, projectPath, ptyId]);
 
   const handleClose = useCallback(() => {
-    const instance = terminalInstances.get(ptyId);
-    if (instance) {
-      instance.dispose();
-    }
-    useTerminalStore.getState().removeTerminal(ptyId);
+    closeProjectTerminal(ptyId);
   }, [ptyId]);
 
   const [hovered, setHovered] = useState(false);

@@ -4,7 +4,10 @@ import { useProjectStore } from '../stores/projectStore';
 import {
   useTerminalStore,
   getActivePtyId,
+  getStackPage,
   getTerminalIndexByStackPosition,
+  getTotalStackPages,
+  getVisibleTerminals,
   STACK_PAGE_SIZE,
 } from '../stores/terminalStore';
 import { useCanvasStore, selectedCanvasPtyId } from '../stores/canvasStore';
@@ -165,11 +168,8 @@ export function ProjectView() {
         e.stopPropagation();
         const layout = useUIStore.getState().terminalLayout;
         if (layout === 'canvas') {
-          // Canvas mode: select Nth terminal node
-          const terms = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
-          const targetIdx = num - 1;
-          if (targetIdx < terms.length) {
-            const targetPtyId = terms[targetIdx];
+          const targetPtyId = getVisibleTerminals(projectPath)[num - 1];
+          if (targetPtyId) {
             useCanvasStore.getState().selectNode(projectPath, targetPtyId);
             const inst = terminalInstances.get(targetPtyId);
             if (inst) {
@@ -192,15 +192,9 @@ export function ProjectView() {
         if (layout === 'stack') {
           e.preventDefault();
           e.stopPropagation();
-          const store = useTerminalStore.getState();
-          const terms = store.terminalsByProject[projectPath] ?? [];
-          const currentIndex = store.activeIndices[projectPath] ?? 0;
-          const currentPage = Math.floor(currentIndex / STACK_PAGE_SIZE);
-          const totalPages = Math.max(1, Math.ceil(terms.length / STACK_PAGE_SIZE));
-          const direction = key === 'arrowleft' ? -1 : 1;
-          const targetPage = currentPage + direction;
-          if (targetPage >= 0 && targetPage < totalPages) {
-            store.setActiveIndex(projectPath, targetPage * STACK_PAGE_SIZE);
+          const targetPage = getStackPage(projectPath) + (key === 'arrowleft' ? -1 : 1);
+          if (targetPage >= 0 && targetPage < getTotalStackPages(projectPath)) {
+            useTerminalStore.getState().setActiveIndex(projectPath, targetPage * STACK_PAGE_SIZE);
           }
         }
       }

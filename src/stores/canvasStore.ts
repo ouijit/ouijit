@@ -8,6 +8,7 @@ import {
   type EdgeChange,
   type Viewport,
 } from '@xyflow/react';
+import { isChainMember, type TaskChainInfo } from '../utils/taskChain';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -16,7 +17,12 @@ export interface CanvasNodeData extends Record<string, unknown> {
   projectPath: string;
 }
 
-export type CanvasNode = Node<CanvasNodeData, 'terminal' | 'group'>;
+export type TerminalCanvasNode = Node<CanvasNodeData, 'terminal'>;
+
+/** Chrome the user draws around terminals; there is no session behind it. */
+export type GroupCanvasNode = Node<Record<string, never>, 'group'>;
+
+export type CanvasNode = TerminalCanvasNode | GroupCanvasNode;
 
 /**
  * Geometry remembered against a node's stable id. It outlives the node, so a
@@ -51,14 +57,9 @@ interface PersistedCanvas {
 export type AlignType = 'left' | 'center-h' | 'right' | 'top' | 'center-v' | 'bottom';
 export type DistributeAxis = 'horizontal' | 'vertical';
 
-interface AddNodeOptions {
-  /** Task the terminal belongs to; null for a bare project shell. */
-  taskId?: number | null;
-  position?: { x: number; y: number };
-}
-
 export interface TerminalRef {
   ptyId: string;
+  /** Task the terminal belongs to; null for a bare project shell. */
   taskId: number | null;
 }
 
@@ -69,7 +70,6 @@ interface CanvasStoreState {
 interface CanvasStoreActions {
   onNodesChange: (projectPath: string, changes: NodeChange<CanvasNode>[]) => void;
   onEdgesChange: (projectPath: string, changes: EdgeChange[]) => void;
-  addNode: (projectPath: string, ptyId: string, options?: AddNodeOptions) => void;
   rekeyNode: (projectPath: string, oldPtyId: string, newPtyId: string) => void;
   /** Bring the canvas in line with the project's live terminals. */
   reconcileNodes: (projectPath: string, terminals: TerminalRef[]) => void;
@@ -83,6 +83,11 @@ interface CanvasStoreActions {
   alignSelected: (projectPath: string, type: AlignType) => void;
   distributeSelected: (projectPath: string, axis: DistributeAxis) => void;
   gridLayoutSelected: (projectPath: string) => void;
+  chainLayout: (
+    projectPath: string,
+    chainMap: Map<number, TaskChainInfo>,
+    nodesByTask: Map<number, CanvasNode[]>,
+  ) => void;
   loadCanvas: (projectPath: string, persisted: PersistedCanvas) => void;
   ensureProject: (projectPath: string) => void;
 }
@@ -96,6 +101,8 @@ const DEFAULT_NODE_HEIGHT = 556;
 const NODE_SPACING = 60;
 const GROUP_PADDING = 20;
 const GRID_GAP = 24;
+const CHAIN_H_GAP = 80;
+const CHAIN_V_GAP = 60;
 
 /**
  * Layout entries deliberately outlive their nodes, so nothing prunes them as
@@ -134,7 +141,7 @@ function nextNodeId(nodes: CanvasNode[], base: string): string {
   }
 }
 
-export function isGroupNode(node: CanvasNode): boolean {
+export function isGroupNode(node: CanvasNode): node is GroupCanvasNode {
   return node.type === 'group';
 }
 
@@ -219,14 +226,45 @@ function layoutSnapshot(project: CanvasProjectState): Record<string, NodeLayout>
   return capLayout(layout, project.nodes);
 }
 
+/** Reading and measuring a node along one axis. */
+function axisOf(horizontal: boolean) {
+  return {
+    at: (n: CanvasNode) => (horizontal ? n.position.x : n.position.y),
+    extent: horizontal ? nodeWidth : nodeHeight,
+  };
+}
+
+function reposition(
+  project: CanvasProjectState,
+  positions: Map<string, { x: number; y: number }>,
+): CanvasProjectState {
+  return {
+    ...project,
+    nodes: project.nodes.map((n) => {
+      const position = positions.get(n.id);
+      return position ? { ...n, position } : n;
+    }),
+  };
+}
+
+/** Move nodes to new coordinates along one axis, leaving the other untouched. */
+function repositionAlongAxis(
+  project: CanvasProjectState,
+  horizontal: boolean,
+  coords: Map<string, number>,
+): CanvasProjectState {
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const node of project.nodes) {
+    const coord = coords.get(node.id);
+    if (coord === undefined) continue;
+    positions.set(node.id, horizontal ? { x: coord, y: node.position.y } : { x: node.position.x, y: coord });
+  }
+  return reposition(project, positions);
+}
+
 // ── Store ────────────────────────────────────────────────────────────
 
-function makeNode(
-  project: CanvasProjectState,
-  projectPath: string,
-  ref: TerminalRef,
-  position?: { x: number; y: number },
-): CanvasNode {
+function makeNode(project: CanvasProjectState, projectPath: string, ref: TerminalRef): TerminalCanvasNode {
   const id = nextNodeId(project.nodes, canvasNodeBase(ref.taskId));
   const saved = project.layout[id];
   const parentId = saved?.parentId && project.nodes.some((n) => n.id === saved.parentId) ? saved.parentId : undefined;
@@ -234,8 +272,7 @@ function makeNode(
   return {
     id,
     type: 'terminal',
-    position:
-      position ?? (saved ? { x: saved.x, y: saved.y } : computeNewNodePosition(project.nodes, project.viewport)),
+    position: saved ? { x: saved.x, y: saved.y } : computeNewNodePosition(project.nodes, project.viewport),
     data: { ptyId: ref.ptyId, projectPath },
     dragHandle: '.terminal-drag-handle',
     width: saved?.width ?? DEFAULT_NODE_WIDTH,
@@ -272,8 +309,8 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
       write(projectPath, emptyProjectState());
     },
 
-    onNodesChange: (projectPath, changes) =>
-      updatePersisted(projectPath, (project) => ({
+    onNodesChange: (projectPath, changes) => {
+      const wrote = update(projectPath, (project) => ({
         ...project,
         // A remove change would drop the node without banking its geometry.
         // Removal belongs to reconcileNodes, which does.
@@ -281,25 +318,20 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
           changes.filter((c) => c.type !== 'remove'),
           project.nodes,
         ) as CanvasNode[],
-      })),
+      }));
+      // Selection is not in `PersistedCanvas`, so a plain click is not a write.
+      if (wrote && changes.some((c) => c.type !== 'select')) persistCanvas(projectPath);
+    },
 
     onEdgesChange: (projectPath, changes) =>
       update(projectPath, (project) => ({ ...project, edges: applyEdgeChanges(changes, project.edges) })),
-
-    addNode: (projectPath, ptyId, options = {}) => {
-      const project = get().canvasByProject[projectPath] ?? emptyProjectState();
-      if (project.nodes.some((n) => n.data.ptyId === ptyId)) return;
-      const node = makeNode(project, projectPath, { ptyId, taskId: options.taskId ?? null }, options.position);
-      write(projectPath, { ...project, nodes: [...project.nodes, node] });
-      persistCanvas(projectPath);
-    },
 
     rekeyNode: (projectPath, oldPtyId, newPtyId) => {
       if (oldPtyId === newPtyId) return;
       update(projectPath, (project) => ({
         ...project,
         nodes: project.nodes.map((n) =>
-          n.data.ptyId === oldPtyId ? { ...n, data: { ...n.data, ptyId: newPtyId } } : n,
+          !isGroupNode(n) && n.data.ptyId === oldPtyId ? { ...n, data: { ...n.data, ptyId: newPtyId } } : n,
         ),
       }));
     },
@@ -369,11 +401,11 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
         );
 
         const groupId = nextNodeId(project.nodes, 'group');
-        const groupNode: CanvasNode = {
+        const groupNode: GroupCanvasNode = {
           id: groupId,
           type: 'group',
           position: { x: bounds.minX - GROUP_PADDING, y: bounds.minY - GROUP_PADDING },
-          data: { ptyId: groupId, projectPath },
+          data: {},
           width: bounds.maxX - bounds.minX + GROUP_PADDING * 2,
           height: bounds.maxY - bounds.minY + GROUP_PADDING * 2,
         };
@@ -430,8 +462,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
         if (selected.length < 2) return project;
 
         const horizontal = type === 'left' || type === 'center-h' || type === 'right';
-        const at = (n: CanvasNode) => (horizontal ? n.position.x : n.position.y);
-        const extent = horizontal ? nodeWidth : nodeHeight;
+        const { at, extent } = axisOf(horizontal);
 
         const near = Math.min(...selected.map(at));
         const far = Math.max(...selected.map((n) => at(n) + extent(n)));
@@ -449,14 +480,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
           }
         };
 
-        return {
-          ...project,
-          nodes: project.nodes.map((n) => {
-            if (!n.selected) return n;
-            const coord = place(n);
-            return { ...n, position: horizontal ? { x: coord, y: n.position.y } : { x: n.position.x, y: coord } };
-          }),
-        };
+        return repositionAlongAxis(project, horizontal, new Map(selected.map((n) => [n.id, place(n)])));
       }),
 
     distributeSelected: (projectPath, axis) =>
@@ -465,8 +489,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
         if (selected.length < 3) return project;
 
         const horizontal = axis === 'horizontal';
-        const at = (n: CanvasNode) => (horizontal ? n.position.x : n.position.y);
-        const extent = horizontal ? nodeWidth : nodeHeight;
+        const { at, extent } = axisOf(horizontal);
 
         const sorted = [...selected].sort((a, b) => at(a) - at(b));
         const last = sorted[sorted.length - 1];
@@ -481,14 +504,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
           cursor += extent(node) + gap;
         }
 
-        return {
-          ...project,
-          nodes: project.nodes.map((n) => {
-            const coord = placed.get(n.id);
-            if (coord === undefined) return n;
-            return { ...n, position: horizontal ? { x: coord, y: n.position.y } : { x: n.position.x, y: coord } };
-          }),
-        };
+        return repositionAlongAxis(project, horizontal, placed);
       }),
 
     gridLayoutSelected: (projectPath) =>
@@ -520,22 +536,63 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
           });
         }
 
-        return {
-          ...project,
-          nodes: project.nodes.map((n) => {
-            const position = placed.get(n.id);
-            return position ? { ...n, position } : n;
-          }),
+        return reposition(project, placed);
+      }),
+
+    chainLayout: (projectPath, chainMap, nodesByTask) =>
+      updatePersisted(projectPath, (project) => {
+        const inChain = new Set([...chainMap].filter(([, info]) => isChainMember(info)).map(([taskNum]) => taskNum));
+        if (inChain.size === 0) return project;
+
+        const positions = new Map<string, { x: number; y: number }>();
+
+        /** Places a task's terminals at `x`, its children to the right, and returns the height used. */
+        const layoutSubtree = (taskNum: number, x: number, y: number): number => {
+          const info = chainMap.get(taskNum);
+          const nodes = nodesByTask.get(taskNum) ?? [];
+          if (nodes.length === 0 && !info?.childTaskNumbers.length) return 0;
+
+          let nodeY = y;
+          for (const node of nodes) {
+            positions.set(node.id, { x, y: nodeY });
+            nodeY += nodeHeight(node) + CHAIN_V_GAP;
+          }
+          const ownHeight = nodes.length > 0 ? nodeY - y - CHAIN_V_GAP : 0;
+
+          const children = info?.childTaskNumbers.filter((c) => inChain.has(c)) ?? [];
+          if (children.length === 0) return Math.max(ownHeight, 0);
+
+          const childHeights = children.map((c) => subtreeHeight(c, chainMap, nodesByTask));
+          const totalChildHeight =
+            childHeights.reduce((sum, h) => sum + h, 0) + (children.length - 1) * CHAIN_V_GAP;
+
+          const childX = x + (nodes.length > 0 ? Math.max(...nodes.map(nodeWidth)) : 0) + CHAIN_H_GAP;
+          let childY = y + ownHeight / 2 - totalChildHeight / 2;
+          children.forEach((child, i) => {
+            const used = layoutSubtree(child, childX, childY);
+            childY += (used > 0 ? used : childHeights[i]) + CHAIN_V_GAP;
+          });
+
+          return Math.max(ownHeight, totalChildHeight);
         };
+
+        const originX = Math.min(...project.nodes.map((n) => n.position.x));
+        let cursorY = Math.min(...project.nodes.map((n) => n.position.y));
+        for (const taskNum of inChain) {
+          if (chainMap.get(taskNum)?.depth !== 0) continue;
+          cursorY += layoutSubtree(taskNum, originX, cursorY) + CHAIN_V_GAP * 2;
+        }
+
+        return reposition(project, positions);
       }),
 
     loadCanvas: (projectPath, persisted) => {
       write(projectPath, {
         nodes: persisted.groups.map((g) => ({
           id: g.id,
-          type: 'group',
+          type: 'group' as const,
           position: g.position,
-          data: { ptyId: g.id, projectPath },
+          data: {},
           width: g.width,
           height: g.height,
         })),
@@ -547,6 +604,27 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
     },
   };
 });
+
+/** Height a subtree will take, needed to centre children against their parent before placing them. */
+function subtreeHeight(
+  taskNum: number,
+  chainMap: Map<number, TaskChainInfo>,
+  nodesByTask: Map<number, CanvasNode[]>,
+): number {
+  const nodes = nodesByTask.get(taskNum) ?? [];
+  const info = chainMap.get(taskNum);
+  const ownHeight =
+    nodes.length > 0 ? nodes.reduce((sum, n) => sum + nodeHeight(n) + CHAIN_V_GAP, 0) - CHAIN_V_GAP : 0;
+
+  const children = (info?.childTaskNumbers ?? []).filter((c) => isChainMember(chainMap.get(c)));
+  if (children.length === 0) return Math.max(ownHeight, 0);
+
+  const childTotal =
+    children.reduce((sum, c) => sum + subtreeHeight(c, chainMap, nodesByTask), 0) +
+    (children.length - 1) * CHAIN_V_GAP;
+
+  return Math.max(ownHeight, childTotal);
+}
 
 /** The terminal the canvas currently has selected, if any. */
 export function selectedCanvasPtyId(projectPath: string): string | undefined {

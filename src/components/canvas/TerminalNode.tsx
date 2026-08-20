@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef } from 'react';
 import { NodeResizer, Handle, Position, type NodeProps } from '@xyflow/react';
-import { type CanvasNode } from '../../stores/canvasStore';
+import { type GroupCanvasNode, type TerminalCanvasNode } from '../../stores/canvasStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { TerminalBody } from '../terminal/TerminalBody';
 import { TerminalHeader } from '../terminal/TerminalHeader';
@@ -10,14 +10,14 @@ const INSET_TOP = 8;
 const INSET_SIDE = 10;
 const INSET_BOTTOM = 8;
 
-export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeProps<CanvasNode>) {
+export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeProps<TerminalCanvasNode>) {
   const display = useTerminalStore((s) => s.displayStates[data.ptyId]);
   if (display?.isLoading) return <LoadingNode label={display.label} />;
   return <ActiveTerminalNode data={data} selected={selected} />;
 });
 
 /** Group container. Chrome only — the terminals inside it are separate nodes. */
-export const GroupNode = memo(function GroupNode({ selected }: NodeProps<CanvasNode>) {
+export const GroupNode = memo(function GroupNode({ selected }: NodeProps<GroupCanvasNode>) {
   return (
     <div
       className="w-full h-full rounded-2xl"
@@ -57,7 +57,7 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
   data,
   selected,
 }: {
-  data: CanvasNode['data'];
+  data: TerminalCanvasNode['data'];
   selected?: boolean;
 }) {
   const { ptyId, projectPath } = data;
