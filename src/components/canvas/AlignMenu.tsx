@@ -1,7 +1,6 @@
 import { memo, useCallback } from 'react';
 import {
   useCanvasStore,
-  persistCanvas,
   nodeWidth,
   nodeHeight,
   type CanvasNode,
@@ -9,6 +8,7 @@ import {
   type DistributeAxis,
 } from '../../stores/canvasStore';
 import { useTerminalStore } from '../../stores/terminalStore';
+import { nodesByTask } from '../../stores/canvasSync';
 import { useProjectStore } from '../../stores/projectStore';
 import { buildChainMap, type TaskChainInfo } from '../../utils/taskChain';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
@@ -24,7 +24,6 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
   const handleAlign = useCallback(
     (type: AlignType) => {
       useCanvasStore.getState().alignSelected(projectPath, type);
-      persistCanvas(projectPath);
     },
     [projectPath],
   );
@@ -32,14 +31,12 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
   const handleDistribute = useCallback(
     (axis: DistributeAxis) => {
       useCanvasStore.getState().distributeSelected(projectPath, axis);
-      persistCanvas(projectPath);
     },
     [projectPath],
   );
 
   const handleGridLayout = useCallback(() => {
     useCanvasStore.getState().gridLayoutSelected(projectPath);
-    persistCanvas(projectPath);
   }, [projectPath]);
 
   const tasks = useProjectStore((s) => s.tasks);
@@ -53,16 +50,7 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
     const hGap = 80;
     const vGap = 60;
 
-    // Build taskNumber → nodes lookup
-    const taskToNodes = new Map<number, CanvasNode[]>();
-    for (const node of canvas.nodes) {
-      const display = displayStates[node.data.ptyId];
-      if (display?.taskId != null) {
-        const list = taskToNodes.get(display.taskId);
-        if (list) list.push(node);
-        else taskToNodes.set(display.taskId, [node]);
-      }
-    }
+    const taskToNodes = nodesByTask(canvas.nodes, displayStates);
 
     // Only layout nodes that are part of chains
     const chainTaskNumbers = new Set<number>();
@@ -142,7 +130,6 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
     });
 
     useCanvasStore.getState().setNodes(projectPath, updatedNodes);
-    persistCanvas(projectPath);
   }, [projectPath, tasks, displayStates]);
 
   const canvasNodes = useCanvasStore((s) => s.canvasByProject[projectPath]?.nodes);

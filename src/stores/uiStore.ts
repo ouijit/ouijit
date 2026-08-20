@@ -32,7 +32,6 @@ interface UIStoreState {
    * per-project: it is a way of looking at terminals, not a property of a repo.
    */
   canvasEnabled: boolean;
-  /** Which arrangement the terminals view shows. Persisted with canvasEnabled. */
   terminalLayout: TerminalLayout;
 }
 
@@ -96,11 +95,11 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
 
   setCanvasEnabled: (enabled) => {
+    set({ canvasEnabled: enabled });
+    void window.api.globalSettings.set(CANVAS_ENABLED_KEY, enabled ? '1' : '0');
     // Turning the canvas off while it is showing would strand the user on a
     // view whose toggle has just disappeared.
-    set(enabled ? { canvasEnabled: true } : { canvasEnabled: false, terminalLayout: 'stack' });
-    void window.api.globalSettings.set(CANVAS_ENABLED_KEY, enabled ? '1' : '0');
-    if (!enabled) void window.api.globalSettings.set(TERMINAL_LAYOUT_KEY, 'stack');
+    if (!enabled) get().setTerminalLayout('stack');
   },
 
   setTerminalLayout: (layout) => {

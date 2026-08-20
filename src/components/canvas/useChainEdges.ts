@@ -3,6 +3,7 @@ import { Position, type Edge } from '@xyflow/react';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useCanvasStore, nodeWidth, nodeHeight, type CanvasNode } from '../../stores/canvasStore';
+import { nodesByTask } from '../../stores/canvasSync';
 import { buildChainMap, getChainColor } from '../../utils/taskChain';
 
 interface NodeRect {
@@ -80,18 +81,7 @@ export function useChainEdges(projectPath: string): void {
     // Build task chain map
     const chainMap = buildChainMap(tasks);
 
-    // Build taskNumber -> nodes lookup (a task can have multiple terminals)
-    const taskToNodes = new Map<number, CanvasNode[]>();
-    for (const node of canvasNodes) {
-      if (node.type === 'group') continue;
-      const ptyId = node.data.ptyId;
-      const display = displayStates[ptyId];
-      if (display?.taskId != null) {
-        const list = taskToNodes.get(display.taskId);
-        if (list) list.push(node);
-        else taskToNodes.set(display.taskId, [node]);
-      }
-    }
+    const taskToNodes = nodesByTask(canvasNodes, displayStates);
 
     const edges: Edge[] = [];
 

@@ -57,7 +57,6 @@ interface AddNodeOptions {
   position?: { x: number; y: number };
 }
 
-/** A terminal as the canvas needs to see it: an id to show, and what keys its slot. */
 export interface TerminalRef {
   ptyId: string;
   taskId: number | null;
@@ -72,8 +71,8 @@ interface CanvasStoreActions {
   onEdgesChange: (projectPath: string, changes: EdgeChange[]) => void;
   addNode: (projectPath: string, ptyId: string, options?: AddNodeOptions) => void;
   rekeyNode: (projectPath: string, oldPtyId: string, newPtyId: string) => void;
-  /** Bring the canvas in line with the project's live terminals. Returns whether anything moved. */
-  reconcileNodes: (projectPath: string, terminals: TerminalRef[]) => boolean;
+  /** Bring the canvas in line with the project's live terminals. */
+  reconcileNodes: (projectPath: string, terminals: TerminalRef[]) => void;
   selectNode: (projectPath: string, ptyId: string) => void;
   setViewport: (projectPath: string, viewport: Viewport) => void;
   setNodes: (projectPath: string, nodes: CanvasNode[]) => void;
@@ -84,7 +83,6 @@ interface CanvasStoreActions {
   alignSelected: (projectPath: string, type: AlignType) => void;
   distributeSelected: (projectPath: string, axis: DistributeAxis) => void;
   gridLayoutSelected: (projectPath: string) => void;
-  commitLayout: (projectPath: string) => void;
   loadCanvas: (projectPath: string, persisted: PersistedCanvas) => void;
   ensureProject: (projectPath: string) => void;
 }
@@ -190,7 +188,6 @@ function cascadeIfOccupied(existing: CanvasNode[], x: number, y: number): { x: n
   return pos;
 }
 
-/** Drop group containers whose last child has gone. */
 function pruneEmptyGroups(nodes: CanvasNode[]): CanvasNode[] {
   const occupied = new Set(nodes.map((n) => n.parentId).filter(Boolean) as string[]);
   return nodes.filter((n) => !isGroupNode(n) || occupied.has(n.id));
@@ -207,6 +204,19 @@ function capLayout(layout: Record<string, NodeLayout>, nodes: CanvasNode[]): Rec
 
   const dropped = new Set(evictable.slice(0, dropCount));
   return Object.fromEntries(keys.filter((k) => !dropped.has(k)).map((k) => [k, layout[k]]));
+}
+
+/**
+ * Geometry for everything on the canvas now, laid over what was banked for the
+ * nodes that have left. Built at save time rather than kept in the store: only
+ * a node that is *not* on the canvas is ever read back out of `layout`.
+ */
+function layoutSnapshot(project: CanvasProjectState): Record<string, NodeLayout> {
+  const layout = { ...project.layout };
+  for (const node of project.nodes) {
+    if (!isGroupNode(node)) layout[node.id] = layoutOf(node);
+  }
+  return capLayout(layout, project.nodes);
 }
 
 // ── Store ────────────────────────────────────────────────────────────
@@ -238,12 +248,20 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
   const write = (projectPath: string, next: CanvasProjectState): void =>
     set((s) => ({ canvasByProject: { ...s.canvasByProject, [projectPath]: next } }));
 
-  /** Apply a change to one project's canvas, or do nothing if the project has none yet. */
-  const update = (projectPath: string, next: (project: CanvasProjectState) => CanvasProjectState): void => {
+  /** Returns whether it wrote — an unknown project, or a change that is a no-op, does not. */
+  const update = (projectPath: string, next: (project: CanvasProjectState) => CanvasProjectState): boolean => {
     const project = get().canvasByProject[projectPath];
-    if (!project) return;
+    if (!project) return false;
     const changed = next(project);
-    if (changed !== project) write(projectPath, changed);
+    if (changed === project) return false;
+    write(projectPath, changed);
+    return true;
+  };
+
+  // Edges and selection are rebuilt from the terminal and task stores on every
+  // mount, so only the actions that touch what `PersistedCanvas` holds save.
+  const updatePersisted = (projectPath: string, next: (project: CanvasProjectState) => CanvasProjectState): void => {
+    if (update(projectPath, next)) persistCanvas(projectPath);
   };
 
   return {
@@ -255,7 +273,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
     },
 
     onNodesChange: (projectPath, changes) =>
-      update(projectPath, (project) => ({
+      updatePersisted(projectPath, (project) => ({
         ...project,
         // A remove change would drop the node without banking its geometry.
         // Removal belongs to reconcileNodes, which does.
@@ -273,6 +291,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
       if (project.nodes.some((n) => n.data.ptyId === ptyId)) return;
       const node = makeNode(project, projectPath, { ptyId, taskId: options.taskId ?? null }, options.position);
       write(projectPath, { ...project, nodes: [...project.nodes, node] });
+      persistCanvas(projectPath);
     },
 
     rekeyNode: (projectPath, oldPtyId, newPtyId) => {
@@ -287,13 +306,13 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
 
     reconcileNodes: (projectPath, terminals) => {
       const project = get().canvasByProject[projectPath];
-      if (!project) return false;
+      if (!project) return;
 
       const live = new Set(terminals.map((t) => t.ptyId));
       const onCanvas = new Set(project.nodes.filter((n) => !isGroupNode(n)).map((n) => n.data.ptyId));
       const gone = project.nodes.filter((n) => !isGroupNode(n) && !live.has(n.data.ptyId));
       const arrived = terminals.filter((t) => !onCanvas.has(t.ptyId));
-      if (gone.length === 0 && arrived.length === 0) return false;
+      if (gone.length === 0 && arrived.length === 0) return;
 
       const goneIds = new Set(gone.map((n) => n.id));
       const layout = { ...project.layout };
@@ -311,7 +330,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
         edges: project.edges.filter((e) => !goneIds.has(e.source) && !goneIds.has(e.target)),
         layout,
       });
-      return true;
+      persistCanvas(projectPath);
     },
 
     selectNode: (projectPath, ptyId) =>
@@ -326,16 +345,16 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
         return changed ? { ...project, nodes } : project;
       }),
 
-    setViewport: (projectPath, viewport) => update(projectPath, (project) => ({ ...project, viewport })),
+    setViewport: (projectPath, viewport) => updatePersisted(projectPath, (project) => ({ ...project, viewport })),
 
-    setNodes: (projectPath, nodes) => update(projectPath, (project) => ({ ...project, nodes })),
+    setNodes: (projectPath, nodes) => updatePersisted(projectPath, (project) => ({ ...project, nodes })),
 
     setEdges: (projectPath, edges) => update(projectPath, (project) => ({ ...project, edges })),
 
-    setGridSnap: (projectPath, snap) => update(projectPath, (project) => ({ ...project, gridSnap: snap })),
+    setGridSnap: (projectPath, snap) => updatePersisted(projectPath, (project) => ({ ...project, gridSnap: snap })),
 
     groupSelected: (projectPath) =>
-      update(projectPath, (project) => {
+      updatePersisted(projectPath, (project) => {
         const selected = project.nodes.filter((n) => n.selected && !isGroupNode(n) && !n.parentId);
         if (selected.length < 2) return project;
 
@@ -376,7 +395,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
       }),
 
     ungroupSelected: (projectPath) =>
-      update(projectPath, (project) => {
+      updatePersisted(projectPath, (project) => {
         const groupIds = new Set<string>();
         for (const node of project.nodes) {
           if (node.selected && isGroupNode(node)) groupIds.add(node.id);
@@ -406,48 +425,42 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
       }),
 
     alignSelected: (projectPath, type) =>
-      update(projectPath, (project) => {
+      updatePersisted(projectPath, (project) => {
         const selected = project.nodes.filter((n) => n.selected);
         if (selected.length < 2) return project;
 
-        const minX = Math.min(...selected.map((n) => n.position.x));
-        const maxRight = Math.max(...selected.map((n) => n.position.x + nodeWidth(n)));
-        const minY = Math.min(...selected.map((n) => n.position.y));
-        const maxBottom = Math.max(...selected.map((n) => n.position.y + nodeHeight(n)));
+        const horizontal = type === 'left' || type === 'center-h' || type === 'right';
+        const at = (n: CanvasNode) => (horizontal ? n.position.x : n.position.y);
+        const extent = horizontal ? nodeWidth : nodeHeight;
 
-        const placeX = (n: CanvasNode): number => {
+        const near = Math.min(...selected.map(at));
+        const far = Math.max(...selected.map((n) => at(n) + extent(n)));
+
+        const place = (n: CanvasNode): number => {
           switch (type) {
             case 'left':
-              return minX;
-            case 'right':
-              return maxRight - nodeWidth(n);
-            case 'center-h':
-              return (minX + maxRight) / 2 - nodeWidth(n) / 2;
-            default:
-              return n.position.x;
-          }
-        };
-        const placeY = (n: CanvasNode): number => {
-          switch (type) {
             case 'top':
-              return minY;
+              return near;
+            case 'right':
             case 'bottom':
-              return maxBottom - nodeHeight(n);
-            case 'center-v':
-              return (minY + maxBottom) / 2 - nodeHeight(n) / 2;
+              return far - extent(n);
             default:
-              return n.position.y;
+              return (near + far) / 2 - extent(n) / 2;
           }
         };
 
         return {
           ...project,
-          nodes: project.nodes.map((n) => (n.selected ? { ...n, position: { x: placeX(n), y: placeY(n) } } : n)),
+          nodes: project.nodes.map((n) => {
+            if (!n.selected) return n;
+            const coord = place(n);
+            return { ...n, position: horizontal ? { x: coord, y: n.position.y } : { x: n.position.x, y: coord } };
+          }),
         };
       }),
 
     distributeSelected: (projectPath, axis) =>
-      update(projectPath, (project) => {
+      updatePersisted(projectPath, (project) => {
         const selected = project.nodes.filter((n) => n.selected);
         if (selected.length < 3) return project;
 
@@ -479,7 +492,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
       }),
 
     gridLayoutSelected: (projectPath) =>
-      update(projectPath, (project) => {
+      updatePersisted(projectPath, (project) => {
         const selected = project.nodes.filter((n) => n.selected);
         if (selected.length < 2) return project;
 
@@ -488,32 +501,32 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
 
         const colWidths: number[] = [];
         const rowHeights: number[] = [];
-        sorted.forEach((node, i) => {
-          colWidths[i % cols] = Math.max(colWidths[i % cols] ?? 0, nodeWidth(node));
-          rowHeights[Math.floor(i / cols)] = Math.max(rowHeights[Math.floor(i / cols)] ?? 0, nodeHeight(node));
+        const cells = sorted.map((node, i) => {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          colWidths[col] = Math.max(colWidths[col] ?? 0, nodeWidth(node));
+          rowHeights[row] = Math.max(rowHeights[row] ?? 0, nodeHeight(node));
+          return { node, col, row };
         });
 
         const originX = Math.min(...selected.map((n) => n.position.x));
         const originY = Math.min(...selected.map((n) => n.position.y));
 
         const placed = new Map<string, { x: number; y: number }>();
-        sorted.forEach((node, i) => {
+        for (const { node, col, row } of cells) {
           placed.set(node.id, {
-            x: originX + colWidths.slice(0, i % cols).reduce((s, w) => s + w + GRID_GAP, 0),
-            y: originY + rowHeights.slice(0, Math.floor(i / cols)).reduce((s, h) => s + h + GRID_GAP, 0),
+            x: originX + colWidths.slice(0, col).reduce((s, w) => s + w + GRID_GAP, 0),
+            y: originY + rowHeights.slice(0, row).reduce((s, h) => s + h + GRID_GAP, 0),
           });
-        });
-
-        return { ...project, nodes: project.nodes.map((n) => ({ ...n, position: placed.get(n.id) ?? n.position })) };
-      }),
-
-    commitLayout: (projectPath) =>
-      update(projectPath, (project) => {
-        const layout = { ...project.layout };
-        for (const node of project.nodes) {
-          if (!isGroupNode(node)) layout[node.id] = layoutOf(node);
         }
-        return { ...project, layout: capLayout(layout, project.nodes) };
+
+        return {
+          ...project,
+          nodes: project.nodes.map((n) => {
+            const position = placed.get(n.id);
+            return position ? { ...n, position } : n;
+          }),
+        };
       }),
 
     loadCanvas: (projectPath, persisted) => {
@@ -535,6 +548,12 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
   };
 });
 
+/** The terminal the canvas currently has selected, if any. */
+export function selectedCanvasPtyId(projectPath: string): string | undefined {
+  const project = useCanvasStore.getState().canvasByProject[projectPath];
+  return project?.nodes.find((n) => n.selected && !isGroupNode(n))?.data.ptyId;
+}
+
 // ── Persistence ──────────────────────────────────────────────────────
 
 const persistTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -551,13 +570,12 @@ export function persistCanvas(projectPath: string): void {
     projectPath,
     setTimeout(() => {
       persistTimers.delete(projectPath);
-      useCanvasStore.getState().commitLayout(projectPath);
       const project = useCanvasStore.getState().canvasByProject[projectPath];
       if (!project) return;
 
       const payload: PersistedCanvas = {
         version: 2,
-        layout: project.layout,
+        layout: layoutSnapshot(project),
         groups: project.nodes
           .filter(isGroupNode)
           .map((n) => ({ id: n.id, position: n.position, width: n.width, height: n.height })),

@@ -1,8 +1,13 @@
 import { useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
-import { useCanvasStore, persistCanvas } from '../stores/canvasStore';
+import {
+  useTerminalStore,
+  getActivePtyId,
+  getTerminalIndexByStackPosition,
+  STACK_PAGE_SIZE,
+} from '../stores/terminalStore';
+import { useCanvasStore, selectedCanvasPtyId } from '../stores/canvasStore';
 import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
@@ -27,25 +32,11 @@ const isMac = navigator.platform.toLowerCase().includes('mac');
 const GIT_STATUS_PERIODIC_INTERVAL = 30000;
 const EMPTY: string[] = [];
 
-/** Get the currently selected ptyId from the canvas (first selected node). */
-function getCanvasSelectedPtyId(projectPath: string): string | undefined {
-  const project = useCanvasStore.getState().canvasByProject[projectPath];
-  if (!project) return undefined;
-  const selected = project.nodes.find((n) => n.selected && n.type === 'terminal');
-  return selected?.data.ptyId;
-}
-
-/** Get the active ptyId based on the current layout mode. */
-function getActivePtyId(projectPath: string): string | undefined {
-  const layout = useUIStore.getState().terminalLayout;
-  if (layout === 'canvas') {
-    return getCanvasSelectedPtyId(projectPath);
-  }
-  // Stack mode
-  const store = useTerminalStore.getState();
-  const terms = store.terminalsByProject[projectPath] ?? [];
-  const activeIdx = store.activeIndices[projectPath] ?? 0;
-  return terms[activeIdx];
+/** The terminal the current layout treats as active. */
+function activePtyId(projectPath: string): string | undefined {
+  return useUIStore.getState().terminalLayout === 'canvas'
+    ? selectedCanvasPtyId(projectPath)
+    : getActivePtyId(projectPath);
 }
 
 export function ProjectView() {
@@ -89,7 +80,7 @@ export function ProjectView() {
       if (key === 'w') {
         e.preventDefault();
         e.stopPropagation();
-        const ptyId = getActivePtyId(projectPath);
+        const ptyId = activePtyId(projectPath);
         if (ptyId) closeProjectTerminal(ptyId);
         return;
       }
@@ -128,7 +119,6 @@ export function ProjectView() {
         } else {
           useCanvasStore.getState().groupSelected(projectPath);
         }
-        persistCanvas(projectPath);
         return;
       }
 
@@ -136,7 +126,7 @@ export function ProjectView() {
       if (key === 'p') {
         e.preventDefault();
         e.stopPropagation();
-        const pPtyId = getActivePtyId(projectPath);
+        const pPtyId = activePtyId(projectPath);
         if (pPtyId) {
           const inst = terminalInstances.get(pPtyId);
           if (inst) {
@@ -157,7 +147,7 @@ export function ProjectView() {
       if (key === 'd') {
         e.preventDefault();
         e.stopPropagation();
-        const tPtyId = getActivePtyId(projectPath);
+        const tPtyId = activePtyId(projectPath);
         if (tPtyId) {
           const inst = terminalInstances.get(tPtyId);
           if (inst) {
@@ -220,8 +210,8 @@ export function ProjectView() {
     return () => document.removeEventListener('keydown', handler, true);
   }, [projectPath, canvasEnabled]);
 
-  // Same guard for the GitHub panel — turning the flag off must not leave the
-  // user stranded on a panel whose toggle has just disappeared.
+  // Turning the GitHub flag off must not leave the user stranded on a panel
+  // whose toggle has just disappeared.
   useEffect(() => {
     if (!githubEnabled && activePanel === 'pull-requests') {
       useProjectStore.getState().setActivePanel('terminals');

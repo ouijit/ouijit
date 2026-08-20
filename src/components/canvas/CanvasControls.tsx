@@ -1,7 +1,8 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useState, type Ref } from 'react';
 import { useReactFlow, useViewport } from '@xyflow/react';
 import { useCanvasStore } from '../../stores/canvasStore';
 import { KeyHint } from '../ui/KeyHint';
+import { MenuPopover } from '../ui/Menu';
 import { MOD_LABEL, modChord } from '../../utils/modKey';
 
 const SHORTCUTS: Array<{ keys: string; label: string }> = [
@@ -36,27 +37,9 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
 
   const [helpOpen, setHelpOpen] = useState(false);
   const handleToggleHelp = useCallback(() => setHelpOpen((v) => !v), []);
-  const barRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!helpOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!barRef.current?.contains(e.target as Node)) setHelpOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setHelpOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [helpOpen]);
 
   return (
     <div
-      ref={barRef}
       className="glass-bevel flex items-center gap-0.5 px-1.5 rounded-lg border border-bezel"
       style={{
         position: 'absolute',
@@ -97,25 +80,23 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
         <GridIcon />
       </ControlButton>
 
-      <ControlButton onClick={handleToggleHelp} title="Canvas shortcuts" active={helpOpen}>
-        <HelpIcon />
-      </ControlButton>
-
-      {helpOpen && (
-        <div
-          className="glass-bevel absolute left-1/2 -translate-x-1/2 top-10 w-[19rem] p-3 rounded-xl border border-bezel flex flex-col gap-2 text-xs text-text-secondary"
-          style={{
-            background: 'color-mix(in srgb, var(--color-background) 92%, transparent)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            boxShadow: 'var(--shadow-menu)',
-          }}
-        >
+      <MenuPopover
+        open={helpOpen}
+        onOpenChange={setHelpOpen}
+        placement="bottom"
+        className="w-[19rem]"
+        trigger={(ref) => (
+          <ControlButton ref={ref} onClick={handleToggleHelp} title="Canvas shortcuts" active={helpOpen}>
+            <HelpIcon />
+          </ControlButton>
+        )}
+      >
+        <div className="flex flex-col gap-2 p-2 text-xs text-text-secondary">
           {SHORTCUTS.map((s) => (
             <KeyHint key={s.keys} keys={s.keys} label={s.label} />
           ))}
         </div>
-      )}
+      </MenuPopover>
     </div>
   );
 });
@@ -127,14 +108,17 @@ function ControlButton({
   title,
   active,
   children,
+  ref,
 }: {
   onClick: () => void;
   title: string;
   active?: boolean;
   children: React.ReactNode;
+  ref?: Ref<HTMLButtonElement>;
 }) {
   return (
     <button
+      ref={ref}
       className={`w-7 h-7 flex items-center justify-center rounded bg-transparent border-none transition-colors duration-150 ${
         active ? 'text-accent' : 'text-ink/40 hover:text-ink/70'
       }`}

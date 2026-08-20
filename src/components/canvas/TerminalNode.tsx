@@ -11,9 +11,8 @@ const INSET_SIDE = 10;
 const INSET_BOTTOM = 8;
 
 export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeProps<CanvasNode>) {
-  const isLoading = useTerminalStore((s) => s.displayStates[data.ptyId]?.isLoading ?? false);
-  const loadingLabel = useTerminalStore((s) => s.displayStates[data.ptyId]?.label ?? '');
-  if (isLoading) return <LoadingNode label={loadingLabel} />;
+  const display = useTerminalStore((s) => s.displayStates[data.ptyId]);
+  if (display?.isLoading) return <LoadingNode label={display.label} />;
   return <ActiveTerminalNode data={data} selected={selected} />;
 });
 
@@ -32,7 +31,7 @@ export const GroupNode = memo(function GroupNode({ selected }: NodeProps<CanvasN
   );
 });
 
-function LoadingNode({ label }: { label?: string }) {
+function LoadingNode({ label }: { label: string }) {
   return (
     <div
       className="canvas-terminal-node glass-bevel absolute rounded-[14px] border border-bezel-panel overflow-hidden flex flex-col items-center justify-center gap-3"

@@ -15,8 +15,8 @@ import {
 import '@xyflow/react/dist/base.css';
 import {
   useCanvasStore,
+  isGroupNode,
   loadPersistedCanvas,
-  persistCanvas,
   type CanvasNode as CanvasNodeType,
 } from '../../stores/canvasStore';
 import { syncCanvasWithTerminals } from '../../stores/canvasSync';
@@ -62,7 +62,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     if (!tagFilter) return null;
     const set = new Set<string>();
     for (const n of nodes) {
-      if (n.type === 'group') continue;
+      if (isGroupNode(n)) continue;
       if (!terminalMatchesTag(displayStates[n.data.ptyId], tagFilter)) set.add(n.id);
     }
     return set;
@@ -79,10 +79,8 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     [edges, hiddenIds],
   );
 
-  // Phase 2: chain edges
   useChainEdges(projectPath);
 
-  // Phase 3: smart guides
   const { guides, onNodeDrag, onNodeDragStop } = useSmartGuides(nodes);
 
   // Shift drives `.canvas-selecting` (see index.css). Written to the DOM rather
@@ -106,7 +104,6 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const [minimapOpen, setMinimapOpen] = useState(true);
   const handleToggleMinimap = useCallback(() => setMinimapOpen((v) => !v), []);
 
-  // Phase 3: align/distribute context menu
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const handleSelectionContextMenu = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
@@ -129,7 +126,6 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     [fitView],
   );
 
-  // Phase 3: minimap node color from chain info.
   // MiniMap colors land in SVG fill attributes where var() can't resolve, so
   // read the tokens per applied theme (the epoch also covers switches between
   // two themes with the same base, which the resolved base can't see).
@@ -178,7 +174,6 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const onNodesChange = useCallback(
     (changes: NodeChange<CanvasNodeType>[]) => {
       useCanvasStore.getState().onNodesChange(projectPath, changes);
-      persistCanvas(projectPath);
     },
     [projectPath],
   );
@@ -186,7 +181,6 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
       useCanvasStore.getState().onEdgesChange(projectPath, changes);
-      persistCanvas(projectPath);
     },
     [projectPath],
   );
@@ -194,7 +188,6 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const onViewportChange = useCallback(
     (vp: Viewport) => {
       useCanvasStore.getState().setViewport(projectPath, vp);
-      persistCanvas(projectPath);
     },
     [projectPath],
   );

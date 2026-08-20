@@ -44,7 +44,7 @@ function select(...ptyIds: string[]) {
 }
 
 function addTerminal(ptyId: string, taskId: number | null, extra: { isLoading?: boolean; label?: string } = {}) {
-  useTerminalStore.getState().addTerminal(PROJECT, ptyId, { taskId, label: extra.label ?? '', ...extra });
+  useTerminalStore.getState().addTerminal(PROJECT, ptyId, { taskId, label: '', ...extra });
 }
 
 beforeEach(() => {

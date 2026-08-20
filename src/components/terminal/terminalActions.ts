@@ -192,12 +192,14 @@ function registerTerminal(
 
   if (replaceLoadingId) {
     // Take the loading slot's place: same array position, same active index.
+    // The canvas derives its nodes from the terminal store and is subscribed to
+    // it, so the node has to be carried over to the real PTY first — otherwise
+    // that subscription fires on a node still holding the loading id and
+    // rebuilds it from scratch.
+    useCanvasStore.getState().rekeyNode(projectPath, replaceLoadingId, ptyId);
     // Clear the `isLoading` flag now that a real PTY backs the slot.
     useTerminalStore.getState().rekeyTerminal(replaceLoadingId, ptyId);
     useTerminalStore.getState().updateDisplay(ptyId, { ...initial, isLoading: false });
-    // The canvas builds its own nodes from the terminal store. Carrying the
-    // loading slot's node over to the real PTY is the one part it cannot derive.
-    useCanvasStore.getState().rekeyNode(projectPath, replaceLoadingId, ptyId);
   } else {
     useTerminalStore.getState().addTerminal(projectPath, ptyId, initial);
   }
