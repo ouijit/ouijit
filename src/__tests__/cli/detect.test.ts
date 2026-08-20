@@ -40,7 +40,6 @@ describe('detectProject', () => {
   });
 
   test('resolves main repo root from worktree', () => {
-    // Create main repo with an initial commit
     const mainRepo = path.join(tempDir, 'main-repo');
     fs.mkdirSync(mainRepo);
     execSync('git init', { cwd: mainRepo, stdio: 'ignore' });
@@ -48,7 +47,6 @@ describe('detectProject', () => {
     execSync('git config user.name "Test"', { cwd: mainRepo, stdio: 'ignore' });
     execSync('git commit --allow-empty -m "init"', { cwd: mainRepo, stdio: 'ignore' });
 
-    // Create a worktree
     const wtPath = path.join(tempDir, 'wt-1');
     execSync(`git worktree add -b test-branch "${wtPath}"`, { cwd: mainRepo, stdio: 'ignore' });
 

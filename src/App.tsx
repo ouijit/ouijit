@@ -75,7 +75,6 @@ export function App() {
   const [gitInitPath, setGitInitPath] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
-  // Hydrate experimental flags whenever the active project changes
   useEffect(() => {
     if (activeProjectPath) {
       useExperimentalStore.getState().loadFor(activeProjectPath);
@@ -132,7 +131,6 @@ export function App() {
     })();
   }, []);
 
-  // Load projects and restore last active view before rendering content
   useEffect(() => {
     window.api.getProjects().then(async (projects) => {
       useAppStore.getState().setProjects(projects);

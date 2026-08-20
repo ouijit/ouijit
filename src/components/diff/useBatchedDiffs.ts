@@ -1,23 +1,16 @@
 import { useEffect } from 'react';
 import type { FileDiff } from '../../types';
 
-/** How many files are fetched at once. */
 const BATCH_SIZE = 10;
 
 /**
- * Load a diff per file, a batch at a time, publishing once per batch.
+ * Loads a diff per file, publishing once per batch: each publish clones the
+ * accumulated map, so publishing per file would be quadratic.
  *
- * One state write per batch rather than one per file: each write clones the
- * accumulated map, so a write per file is quadratic — 300 files costs ~45,000
- * copies against ~30.
- *
- * `fingerprint` rather than the file array drives it. The list arrives fresh
- * from a status poll every few seconds whether or not anything changed, and
- * restarting the load each time would mean never finishing one.
- *
- * A file whose diff cannot be read is stored as `null`, which the file section
- * renders as "could not read" — distinct from `undefined`, which is still
- * loading.
+ * Keyed on `fingerprint`, not the file array — status polls hand back a fresh
+ * array every few seconds, and restarting on each would never finish a load. A
+ * diff that could not be read is stored as `null`, distinct from `undefined`
+ * for still loading.
  */
 export function useBatchedDiffs<T extends { path: string }>(
   files: readonly T[],

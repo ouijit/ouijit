@@ -40,10 +40,9 @@ describe('buildWorktreeStartEnv', () => {
     expect(env.OUIJIT_TASK_NAME).toBe('My Task');
   });
 
-  // The bug (T-387): editing a task's description after its worktree exists
-  // left OUIJIT_TASK_DESCRIPTION stale, because the value was sourced from the
-  // worktree snapshot captured at creation time. The value must come from the
-  // live task instead.
+  // The worktree snapshot's description is captured at creation time, so an
+  // edit afterwards leaves it stale. OUIJIT_TASK_DESCRIPTION must come from
+  // the live task.
   test('sources the description from the live task, not the stale worktree snapshot', () => {
     const env = buildWorktreeStartEnv({
       hookType: 'continue',

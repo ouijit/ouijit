@@ -7,11 +7,9 @@ export { DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from './terminalDisp
 export const STACK_PAGE_SIZE = 5;
 
 interface TerminalStoreState {
-  /** Per-terminal renderable state keyed by ptyId */
   displayStates: Record<string, TerminalDisplayState>;
   /** Ordered list of terminal ptyIds per project path */
   terminalsByProject: Record<string, string[]>;
-  /** Active terminal index per project path */
   activeIndices: Record<string, number>;
 }
 
@@ -202,7 +200,6 @@ export function getVisibleTerminals(projectPath: string): string[] {
 
 // ── Derived selectors ────────────────────────────────────────────────
 
-/** Get the active ptyId for a project */
 export function getActivePtyId(projectPath: string): string | undefined {
   const state = useTerminalStore.getState();
   const terminals = state.terminalsByProject[projectPath];
@@ -211,14 +208,12 @@ export function getActivePtyId(projectPath: string): string | undefined {
   return terminals[index];
 }
 
-/** Get current stack page for a project */
 export function getStackPage(projectPath: string): number {
   const state = useTerminalStore.getState();
   const index = state.activeIndices[projectPath] ?? 0;
   return Math.floor(index / STACK_PAGE_SIZE);
 }
 
-/** Get total stack pages for a project */
 export function getTotalStackPages(projectPath: string): number {
   const state = useTerminalStore.getState();
   const terminals = state.terminalsByProject[projectPath] ?? [];

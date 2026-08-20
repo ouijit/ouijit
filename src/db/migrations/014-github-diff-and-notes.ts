@@ -16,18 +16,14 @@ export function up(db: Database.Database): void {
   }
 
   db.exec(`
-    -- Review comments written but not yet sent to GitHub. Keyed by
+    -- Review comments written but not yet sent to GitHub, keyed by
     -- (project_path, pr_number) so a review of a PR with no task behind it
-    -- persists the same way a task-backed one does. The origin column is who
-    -- wrote it: 'human' from the renderer, or the CLI caller's name.
+    -- persists too. origin is 'human' from the renderer, or the CLI caller's
+    -- name. head_sha is the head the anchor was last read against: a draft
+    -- carrying an older one is one the re-anchor pass could not place.
     --
-    -- A comment anchors to a range of lines and records the code it was written
-    -- about, in snippet. head_sha is the head that anchor was last read against:
-    -- a draft still carrying an older head than the pull request's is one the
-    -- re-anchor pass could not place.
-    --
-    -- Comments stay outside the parentheses: SQLite keeps anything inside them
-    -- in sqlite_master as part of the table's own schema text.
+    -- Keep comments outside the parentheses: SQLite stores anything inside them
+    -- in sqlite_master as part of the table's schema text.
     CREATE TABLE IF NOT EXISTS github_review_drafts (
       id TEXT PRIMARY KEY,
       project_path TEXT NOT NULL,
@@ -48,9 +44,8 @@ export function up(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_review_drafts_pr
       ON github_review_drafts (project_path, pr_number);
 
-    -- Notes written on a worktree diff, keyed by worktree path rather than by
-    -- task or terminal, since the changes outlive the terminal that was open
-    -- when the notes were written.
+    -- Notes written on a worktree diff, keyed by worktree path rather than task
+    -- or terminal: the changes outlive the terminal that was open at the time.
     CREATE TABLE IF NOT EXISTS diff_notes (
       id TEXT PRIMARY KEY,
       worktree_path TEXT NOT NULL,

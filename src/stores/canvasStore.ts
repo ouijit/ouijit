@@ -401,7 +401,6 @@ export function persistCanvas(projectPath: string): void {
   }, 300);
 }
 
-/** Load canvas state from persistence, returns null if none saved. */
 export async function loadPersistedCanvas(projectPath: string): Promise<CanvasProjectState | null> {
   const json = await window.api.globalSettings.get('canvas:' + projectPath);
   if (!json) return null;

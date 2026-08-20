@@ -1,15 +1,12 @@
 /**
- * GitHub domain types shared by the main process, the IPC contract, and the
- * renderer.
+ * GitHub domain types.
  *
- * Leaf module at runtime: type-only imports and nothing else, so both sides of
- * the process boundary can depend on it without dragging main-process code into
- * the renderer bundle. `import type` is erased and adds no edge to the module
- * graph — what must never appear here is a value import.
+ * Must stay a runtime leaf: `import type` is erased, but a value import here
+ * would drag main-process code into the renderer bundle.
  *
- * What a service returns belongs here too, not beside the function computing
- * it. There the renderer's contract and one function's return type are the same
- * declaration, and a field added to the latter silently changes the former.
+ * Service return types belong here too. Declared beside the function instead,
+ * the renderer's contract and that function's return type are one declaration,
+ * and a field added to the latter silently changes the former.
  */
 
 import type { BlobContent } from '../git';
@@ -27,7 +24,6 @@ export function repoSlug(identity: RepoIdentity): string {
   return `${identity.owner}/${identity.repo}`;
 }
 
-/** Why the GitHub surface is unavailable for a project. */
 export type GithubUnavailableReason =
   | 'flag-off'
   | 'gh-missing'
@@ -170,7 +166,7 @@ export interface MergeStatus {
   mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
   /** GitHub's mergeStateStatus: CLEAN, BLOCKED, BEHIND, DIRTY, DRAFT, UNSTABLE, … */
   stateStatus: string;
-  /** Plain-language blockers, surfaced before the merge button rather than after. */
+  /** Plain-language blockers, shown before the merge button is pressed. */
   blockers: string[];
   /**
    * Why no merge can be attempted at all, or null. Unlike `blockers`, which
@@ -195,9 +191,8 @@ export interface PullRequestDetail extends PullRequestSummary {
   /** True when the viewer can push to the head branch (drives the merge button). */
   viewerCanUpdate: boolean;
   /**
-   * Who fetched this, and their avatar. `isMine` is already derived from the
-   * same field, and carrying it lets a comment box show you your own face
-   * without waiting on a separate inbox fetch to say who you are.
+   * Who fetched this, and their avatar, so a comment box can show the viewer's
+   * own face without a separate inbox fetch.
    */
   viewer: string;
   viewerAvatarUrl?: string;
@@ -222,12 +217,7 @@ export interface GithubIssue {
   commentCount: number;
 }
 
-/**
- * One issue, with everything said about it.
- *
- * Same shape as a pull request detail minus the code, since the panel renders
- * the two through the same chrome.
- */
+/** A pull request detail minus the code: the panel renders both the same way. */
 export interface IssueDetail extends GithubIssue {
   timeline: TimelineItem[];
   /** Who fetched this, so a comment box can show their face without the inbox. */
@@ -255,11 +245,9 @@ export interface ReviewDraft {
   /** The first line. Equal to `line` where the comment is on one. */
   startLine: number;
   /**
-   * True when the pull request's head has moved past this comment and its
-   * snippet was nowhere in the new diff.
-   *
-   * GitHub rejects a whole review if one comment anchors outside the diff, so a
-   * draft in this state takes every other one down with it if sent.
+   * The head moved past this comment and its snippet is nowhere in the new
+   * diff. GitHub rejects a whole review over one such comment, so sending this
+   * takes every other draft down with it.
    */
   unplaceable?: boolean;
   body: string;
@@ -290,12 +278,9 @@ export interface MergeOptions {
 }
 
 /**
- * What `github:drafts-changed` carries.
- *
- * The only push in the GitHub surface. A draft written by the CLI happens in
- * another process, so the renderer cannot know without being told; everything
- * else refreshes because someone pressed something. Its handler does one local
- * read and never touches the network — keep it that way.
+ * What `github:drafts-changed` carries. The only push in the GitHub surface,
+ * since a CLI-written draft happens in another process. Its handler must stay
+ * one local read: a network call here turns every CLI write into a refetch.
  */
 export interface GithubDraftsChangedPayload {
   projectPath: string;
@@ -308,9 +293,8 @@ export interface InboxResult extends PullRequestInbox {
   /** Draft counts per PR so the list can badge unsubmitted work. */
   draftCounts: Record<number, number>;
   /**
-   * PR number → task number. For the REST and CLI callers, which have no task
-   * store to join against; the panel derives its own from live task state so a
-   * new link shows up without waiting for the next inbox fetch.
+   * PR number → task number, for the REST and CLI callers, which have no task
+   * store to join against. The panel derives its own from live task state.
    */
   linkedTasks: Record<number, number>;
 }

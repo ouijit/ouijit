@@ -134,7 +134,6 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
       return { success: false, error: 'Invalid project name' };
     }
 
-    // Check if project already exists
     try {
       await fs.access(projectPath);
       return { success: false, error: 'A project with this name already exists' };
@@ -142,10 +141,8 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
       // Directory doesn't exist, which is what we want
     }
 
-    // Ensure the projects directory exists
     await fs.mkdir(projectsDir, { recursive: true });
 
-    // Create the project directory
     await fs.mkdir(projectPath);
 
     // Initialize git — required. If this fails, roll back the directory.

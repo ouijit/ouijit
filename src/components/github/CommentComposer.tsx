@@ -11,14 +11,12 @@ interface CommentComposerProps {
 }
 
 /**
- * Leave a comment on a pull request or an issue.
- *
- * One endpoint serves both: GitHub keeps pull request conversation on the issue
- * thread, so the only thing that differs is which view is reloaded afterwards.
+ * One endpoint serves pull requests and issues alike — GitHub keeps pull
+ * request conversation on the issue thread — so only the reload differs.
  */
 export function CommentComposer({ projectPath, number, subject }: CommentComposerProps) {
-  // From the thing itself, which is always loaded when this renders. The inbox
-  // is not: off it, the box shows a placeholder until the list is fetched.
+  // From the open item, which is always loaded here; the inbox may not be, so
+  // the box shows a placeholder until the list arrives.
   const viewer = useGithubStore((s) => s.detail?.viewer ?? s.issue?.viewer ?? s.inbox?.viewer);
   const viewerAvatarUrl = useGithubStore(
     (s) => s.detail?.viewerAvatarUrl ?? s.issue?.viewerAvatarUrl ?? s.inbox?.viewerAvatarUrl,

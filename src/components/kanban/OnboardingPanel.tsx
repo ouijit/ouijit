@@ -21,20 +21,17 @@ const io: OnboardingStorageIO = {
 };
 
 /**
- * First-run onboarding banner. Walks the user through configuring a start
- * hook and dragging the seeded tutorial task through the board. Mirrors the
- * task's lifecycle: setup → in-flight (task in_progress) → complete (task in
- * in_review or done). Dismissal is permanent via the ✕ or the final CTA.
+ * First-run onboarding banner, staged against the seeded tutorial task's
+ * lifecycle: setup → in-flight (in_progress) → complete (in_review or done).
+ * The ✕ and the final CTA dismiss it permanently.
  */
 export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }: OnboardingPanelProps) {
   const tasks = useProjectStore((s) => s.tasks);
   const startHookConfigured = useProjectStore((s) => !!s.configuredHooks.start);
   // `undefined` = not yet loaded, `null` = loaded but no state exists yet.
   const [state, setState] = useState<OnboardingState | null | undefined>(undefined);
-  // Session-only flags live in the app store so they survive panel unmount
-  // (e.g., user toggles the kanban view off and back on). If these were
-  // useState they'd reset on every remount, which contradicts "Hide for now"
-  // and would lose the stuck-state context too.
+  // In the app store, not useState: the panel unmounts when the kanban view is
+  // toggled off, which would reset "Hide for now" and the stuck-state latch.
   const softDismissed = useAppStore((s) => s.onboardingSoftDismissed);
   const stuckLatched = useAppStore((s) => s.onboardingStuckLatched);
   const setSoftDismissed = useAppStore((s) => s.setOnboardingSoftDismissed);
@@ -66,17 +63,12 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
     return 'complete';
   }, [seededTaskNumber, seededTask]);
 
-  // "Stuck" = task transitioned into in_progress without a start hook
-  // configured, so nothing actually fired. We latch this so re-configuring
-  // the hook after the fact doesn't silently flip the stage display — the
-  // user still needs to drag back and forward to retrigger.
+  // Stuck: the task reached in_progress with no start hook, so nothing fired.
+  // Latched, since configuring the hook afterwards doesn't retrigger it.
   //
-  // The latch is set only on a real stage TRANSITION into 'in-flight'.
-  // Checking just `stage === 'in-flight'` on first render would falsely
-  // latch when the panel mounts with a task already in_progress (e.g., after
-  // an app restart) before the project's configuredHooks have loaded from
-  // the store — startHookConfigured is briefly `false` even when the hook
-  // exists. Tracking the previous stage closes that window.
+  // Set only on a real transition into 'in-flight'. On mount with a task
+  // already in_progress, configuredHooks has not loaded and
+  // startHookConfigured is briefly false, which would latch falsely.
   const prevStageRef = useRef<Stage | undefined>(undefined);
   useEffect(() => {
     const prev = prevStageRef.current;
@@ -85,8 +77,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
       setStuckLatched(true);
     }
     if (stage === 'setup' || stage === 'intro' || stage === 'complete') {
-      // Task moved out of in_progress: clear the latch so a subsequent
-      // forward drag re-evaluates cleanly.
+      // Out of in_progress: clear the latch so a forward drag re-evaluates.
       if (stuckLatched) setStuckLatched(false);
     }
   }, [stage, startHookConfigured, stuckLatched, setStuckLatched]);
@@ -98,8 +89,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
 
   const handleDismiss = async () => {
     if (stage === 'intro') {
-      // Soft dismiss: hide for this session, but allow the panel to return on
-      // next launch so a casually-dismissed first-run user isn't stranded.
+      // Soft dismiss: hidden for this session, back on next launch.
       setSoftDismissed(true);
       return;
     }
@@ -194,10 +184,8 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
 }
 
 /**
- * Crossfades between stages: old stage runs its exit animation while the new
- * stage renders in the same grid cell with its entrance animation. The grid
- * sizes the container to the max of the two children's heights during the
- * overlap, so the parent height changes smoothly as old shrinks and new grows.
+ * Crossfades stages in one grid cell: the grid sizes to the taller of the two
+ * during the overlap, so the parent height moves smoothly between them.
  */
 function StageCrossfade({ stage, renderStage }: { stage: Stage; renderStage: (s: Stage) => React.ReactNode }) {
   const [exiting, setExiting] = useState<Stage | null>(null);

@@ -2,14 +2,11 @@ import { getGlobalSetting, setGlobalSetting } from '../db';
 import { toggleInList } from '../utils/toggleIn';
 
 /**
- * Which files of a pull request the reviewer has finished with.
+ * Which files of a pull request the reviewer has finished with, scoped to a
+ * head. The whole set clears on a new head rather than per file: an edit in one
+ * file can invalidate a reading of another.
  *
- * Scoped to a head: a file you read and then someone pushed to is a file you
- * have not read. The whole set clears on a new head rather than per file, since
- * a change approved in one file can be made wrong by an edit to another.
- *
- * Kept in settings rather than a table: two fields per pull request that only
- * this pane reads.
+ * In settings rather than a table: two fields per pull request.
  */
 export interface ViewedFiles {
   headSha: string;

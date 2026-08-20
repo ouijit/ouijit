@@ -5,20 +5,17 @@ import { Icon } from '../terminal/Icon';
 
 interface KanbanShellBarProps {
   projectPath: string;
-  /** Switch to the given terminal and reveal the terminal view. */
   onSwitchToTerminal: (ptyId: string) => void;
 }
 
 /**
- * Footer strip on the kanban board that surfaces non-task interactive shells
- * (terminals with `taskId === null`). The board otherwise only renders task
- * columns, so standalone shells opened via Cmd+I are invisible while the board
- * is up — disorienting when you've left a shell running. Each shell is a chip
- * that switches to it. Renders nothing when there are no standalone shells.
+ * Footer strip listing non-task shells (terminals with `taskId === null`). The
+ * board renders only task columns, so shells opened via Cmd+I would otherwise
+ * be invisible while it is up. Renders nothing when there are none.
  */
 export function KanbanShellBar({ projectPath, onSwitchToTerminal }: KanbanShellBarProps) {
-  // Mirror KanbanCard's selector shape: return the live display objects (stable
-  // references) so useShallow can skip re-renders when unrelated terminals change.
+  // Return the store's live display objects, whose references are stable, so
+  // useShallow can skip re-renders from unrelated terminals.
   const shells = useTerminalStore(
     useShallow((s) => {
       const ids = s.terminalsByProject[projectPath] ?? [];
@@ -34,8 +31,8 @@ export function KanbanShellBar({ projectPath, onSwitchToTerminal }: KanbanShellB
   if (shells.length === 0) return null;
 
   return (
-    // Raised: the cut falls outside this box, and the first thing at that pixel
-    // is a card with a background of its own.
+    // Raised so the ledge shadow, which falls outside this box, is not painted
+    // over by the card below it.
     <div className="pane-ledge-under relative z-10 shrink-0 flex items-center gap-2 px-3 py-2 overflow-x-auto">
       <span className="flex items-center gap-1.5 shrink-0 text-text-tertiary [&>svg]:w-3.5 [&>svg]:h-3.5">
         <Icon name="terminal" />

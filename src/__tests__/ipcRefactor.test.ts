@@ -1,6 +1,6 @@
 /**
- * Tests for the IPC refactor: async listWorktrees/shipWorktree conversions,
- * path traversal validation, and taskLifecycle await propagation.
+ * Async listWorktrees/shipWorktree, path-traversal validation, and await
+ * propagation through taskLifecycle.
  */
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';
@@ -235,7 +235,6 @@ describe('getTasksWithWorkspaces', () => {
     const project = '/projects/myproject';
     const livePath = `${baseDir}/T-1`;
 
-    // Return a worktree list that maps feature-1 → livePath
     mockExec(() => {
       const porcelain = [
         `worktree /projects/myproject`,

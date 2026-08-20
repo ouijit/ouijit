@@ -39,7 +39,7 @@
   /* ── Borders & edges ───────────────────────────────────────────── */
   --color-border: rgba(255, 255, 255, 0.1);
   --color-border-hover: rgba(255, 255, 255, 0.15);
-  /* Dark lip around cards/panels (was border-black/60 everywhere) */
+  /* Dark lip around cards and panels. */
   --color-bezel: rgba(0, 0, 0, 0.6);
   /* Border on large floating panels (terminal cards, kanban board,
      settings cards) — darker than --color-bezel on light themes */

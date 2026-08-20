@@ -164,7 +164,7 @@ function mapLabels(labels: RawLabelConnection | null | undefined): PullRequestLa
   return (labels?.nodes ?? []).filter((l): l is PullRequestLabel => l != null);
 }
 
-/** Draft is not a state here — it rides beside this one, as `isDraft`. */
+/** Draft status rides beside this as `isDraft`, not as one of these values. */
 function mapState(state: string): PullRequestState {
   if (state === 'MERGED') return 'merged';
   if (state === 'CLOSED') return 'closed';
@@ -303,8 +303,8 @@ function mapTimelineItem(raw: RawTimelineNode): TimelineItem | null {
         viewerCanDelete: raw.viewerCanDelete ?? false,
       };
     case 'PullRequestReview':
-      // A review with no body and no state worth showing is just the envelope
-      // around inline comments, which the threads panel already renders.
+      // A review with no body and no state is only the envelope around inline
+      // comments, which the threads panel already renders.
       if (!raw.body && (raw.state === 'COMMENTED' || !raw.state)) return null;
       return { ...base, kind: 'review', body: raw.body ?? '', reviewState: raw.state };
     case 'MergedEvent':
@@ -424,12 +424,9 @@ export async function fetchInbox(identity: RepoIdentity): Promise<PullRequestInb
 }
 
 /**
- * The cheapest question that can be asked about a pull request: is it still
- * the one on screen?
- *
- * Deliberately not `fetchPullRequest` with the answer thrown away. This runs on
- * hover, and the detail query costs a hundred review threads, a timeline and a
- * check rollup to answer a question about four fields.
+ * Whether the pull request on screen is still current. Runs on hover, so it
+ * asks for four fields rather than reusing `fetchPullRequest`, whose detail
+ * query pulls a hundred threads, a timeline and a check rollup.
  */
 export async function fetchPullRequestFreshness(identity: RepoIdentity, number: number): Promise<PullRequestFreshness> {
   const data = await ghGraphql<{
@@ -551,11 +548,9 @@ export async function fetchIssues(identity: RepoIdentity): Promise<GithubIssue[]
 }
 
 /**
- * One issue by number, with its thread.
- *
- * Deliberately not "find it in the list": the list is open issues only, so
- * looking one up there fails for anything closed, anything past the limit, and
- * anything that changed state since the last fetch.
+ * One issue by number, with its thread. Not looked up in the list, which holds
+ * open issues only and is capped, so anything closed or past the limit would be
+ * unreachable.
  */
 export async function fetchIssue(identity: RepoIdentity, number: number): Promise<IssueDetail> {
   const data = await ghGraphql<{
@@ -644,16 +639,13 @@ export interface DraftReviewComment {
 }
 
 /**
- * Submit a review as a single request carrying every batched comment.
+ * Submits a review as one `POST /pulls/{n}/reviews` rather than a call per
+ * draft: it is atomic, and it avoids the secondary rate limiting GitHub applies
+ * to rapid comment writes.
  *
- * One `POST /pulls/{n}/reviews` rather than a comment call per draft: it is
- * atomic (a partial failure can't leave half a review on the PR) and it stays
- * clear of the secondary rate limiting GitHub applies to rapid comment writes.
- *
- * Anchors are `line` + `side`, which are file line numbers in the head blob
- * (RIGHT) or base blob (LEFT) — exactly what the local `base...head` diff
- * already produces. The older `position` field is a diff offset and is not
- * sent.
+ * Anchors are `line` + `side`, file line numbers in the head or base blob,
+ * which the local `base...head` diff already produces. The older `position`
+ * field is a diff offset and is not sent.
  */
 export async function submitReview(
   identity: RepoIdentity,
@@ -696,12 +688,9 @@ export async function addIssueComment(identity: RepoIdentity, number: number, bo
 }
 
 /**
- * Delete a comment.
- *
- * Two endpoints for what reads as one thing: a conversation comment belongs to
- * the issue thread (a pull request has one of those too), and a comment
- * anchored to a line belongs to the pull request's review comments. GitHub does
- * not accept either id at the other's path.
+ * Two endpoints: a conversation comment belongs to the issue thread, and a
+ * line-anchored one to the pull request's review comments. GitHub does not
+ * accept either id at the other's path.
  */
 export async function deleteComment(identity: RepoIdentity, kind: CommentKind, commentId: number): Promise<void> {
   const path = kind === 'review' ? 'pulls/comments' : 'issues/comments';
@@ -721,11 +710,9 @@ export interface CreatePullRequestOptions {
 }
 
 /**
- * Create a PR through `gh pr create` rather than the raw API.
- *
- * That choice is deliberate: gh applies the repo's pull request template and
- * expands closing keywords (`Fixes #123`) the way GitHub's own UI does, which
- * a bare `POST /pulls` would not.
+ * Through `gh pr create` rather than `POST /pulls`: gh applies the repo's pull
+ * request template and expands closing keywords (`Fixes #123`) as GitHub's own
+ * UI does.
  */
 export async function createPullRequest(
   identity: RepoIdentity,

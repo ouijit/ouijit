@@ -25,7 +25,6 @@ describe('parseDiff', () => {
 
     expect(hunks).toHaveLength(2);
 
-    // First hunk
     expect(hunks[0].header).toBe('@@ -1,5 +1,6 @@');
     expect(hunks[0].lines).toHaveLength(6);
     expect(hunks[0].lines[0]).toEqual({
@@ -40,7 +39,6 @@ describe('parseDiff', () => {
     expect(hunks[0].lines[4]).toEqual({ type: 'context', content: '', oldLineNo: 3, newLineNo: 4 });
     expect(hunks[0].lines[5]).toEqual({ type: 'context', content: 'const x = 1;', oldLineNo: 4, newLineNo: 5 });
 
-    // Second hunk
     expect(hunks[1].header).toBe('@@ -20,3 +21,2 @@');
     expect(hunks[1].lines).toHaveLength(3);
     expect(hunks[1].lines[0]).toEqual({ type: 'context', content: 'function hello() {', oldLineNo: 20, newLineNo: 21 });

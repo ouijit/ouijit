@@ -17,7 +17,7 @@ interface TaskComposerSheetProps {
   initialCaret?: number | null;
   mode: 'create' | 'edit';
   onNameChange?: (name: string) => void;
-  /** Fires on every keystroke so the inline editor behind the scrim stays in step. */
+  /** Fires on every keystroke so the inline editor behind the scrim keeps up. */
   onDescriptionChange: (description: string) => void;
   onAttachFile: (file: File) => Promise<string | null>;
   /** Create the task, or save the edited description. */
@@ -29,11 +29,9 @@ interface TaskComposerSheetProps {
 }
 
 /**
- * The composer's expanded view, built as a document rather than a form.
- *
- * Both editors are views onto one piece of state held by the parent, so moving
- * between them is a change of surface rather than a handoff, including the
- * caret, which travels as an offset into the storage string.
+ * The composer's expanded view. Both editors read one piece of parent state, so
+ * switching between them carries the text and the caret, the latter as an
+ * offset into the storage string.
  */
 export function TaskComposerSheet({
   description,
@@ -61,9 +59,9 @@ export function TaskComposerSheet({
   }, []);
 
   /**
-   * Play the exit before handing control back, like the app's other overlays.
-   * Latched, because the callback is deferred: without it, holding ⌘↵ queues a
-   * timer per repeat and each one creates the same task again.
+   * Plays the exit before handing control back. Latched because the callback is
+   * deferred: without it, holding ⌘↵ queues a timer per repeat and each creates
+   * the task again.
    */
   const dismissedRef = useRef(false);
   const dismiss = useCallback((run: () => void) => {
@@ -91,8 +89,8 @@ export function TaskComposerSheet({
     el.style.height = `${el.scrollHeight}px`;
   }, []);
 
-  // Land where the inline editor left off. An empty name in create mode means
-  // this is a fresh draft, so start there instead of in the description.
+  // Land where the inline editor left off, except on a fresh draft in create
+  // mode, which starts in the name.
   useEffect(() => {
     sizeName();
     const frame = requestAnimationFrame(() => {
@@ -114,8 +112,7 @@ export function TaskComposerSheet({
     const handler = (e: KeyboardEvent) => {
       if (e.repeat) return;
       const mod = isModKey(e);
-      // ⌘E only on the platform it belongs to: Ctrl+E is move-to-end-of-line
-      // in a macOS text field.
+      // macOS only: Ctrl+E is move-to-end-of-line in a text field.
       if (e.key === 'Escape' || (mod && e.key.toLowerCase() === 'e')) {
         e.preventDefault();
         e.stopPropagation();
@@ -153,19 +150,15 @@ export function TaskComposerSheet({
           transition: 'opacity 200ms ease-out, transform 200ms ease-out',
         }}
       >
-        {/* Chrome strip, the way the plan panel names the file it's showing. */}
         <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
           <Icon name={isCreate ? 'file-plus' : 'file-text'} className="w-3.5 h-3.5 text-ink/50 shrink-0" />
           <span className="text-[13px] text-ink/50 truncate flex-1">{isCreate ? 'New task' : 'Description'}</span>
           <span className="text-[13px] text-ink/35 shrink-0">{isCreate ? 'Todo' : name}</span>
         </div>
 
-        {/* The page: heading and prose in one scrolling body, with margins. */}
         <div
           ref={pageRef}
-          // px-20 on a 44rem page leaves the text about three quarters of the
-          // width, which is a page's proportions and holds the measure near
-          // 78 characters.
+          // px-20 on a 44rem page holds the measure near 78 characters.
           className="composer-sheet-page settings-scrollable flex-1 min-h-0 overflow-y-auto px-20 pt-8 pb-10"
           onMouseDown={(e) => {
             // Clicking the page margins puts the caret at the end, so there's

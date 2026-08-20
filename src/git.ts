@@ -6,9 +6,6 @@ import { formatAge } from './utils/formatDate';
 
 const execFileAsync = promisify(execFile);
 
-/**
- * Common exec options for git commands
- */
 function gitExecOpts(projectPath: string) {
   return {
     cwd: projectPath,
@@ -17,26 +14,17 @@ function gitExecOpts(projectPath: string) {
   };
 }
 
-/**
- * Git status information for a project
- */
 export interface GitStatus {
   branch: string;
   isDirty: boolean;
 }
 
-/**
- * Uncommitted changes summary
- */
 export interface UncommittedChanges {
   filesChanged: number;
   insertions: number;
   deletions: number;
 }
 
-/**
- * Extended git status with ahead/behind info
- */
 export interface ExtendedGitStatus {
   branch: string;
   ahead: number;
@@ -44,27 +32,18 @@ export interface ExtendedGitStatus {
   uncommitted: UncommittedChanges | null;
 }
 
-/**
- * Recent branch information
- */
 export interface RecentBranch {
   name: string;
   commitsAhead: number;
   lastCommitAge: string; // "2d", "5h", "1w"
 }
 
-/**
- * Full git dropdown info
- */
 export interface GitDropdownInfo {
   current: ExtendedGitStatus;
   recentBranches: RecentBranch[];
   mainBranch: string;
 }
 
-/**
- * A changed file with its status
- */
 export interface ChangedFile {
   path: string;
   status: 'M' | 'A' | 'D' | 'R' | '?'; // Modified, Added, Deleted, Renamed, Untracked
@@ -73,9 +52,6 @@ export interface ChangedFile {
   deletions: number;
 }
 
-/**
- * A line in a diff
- */
 export interface DiffLine {
   type: 'context' | 'addition' | 'deletion';
   content: string;
@@ -83,25 +59,17 @@ export interface DiffLine {
   newLineNo?: number;
 }
 
-/**
- * A hunk in a diff
- */
 export interface DiffHunk {
   header: string;
   lines: DiffLine[];
 }
 
-/**
- * Full diff for a file
- */
 export interface FileDiff {
   path: string;
   hunks: DiffHunk[];
   /**
-   * Git could not express the change as lines — an image, a font, any binary
-   * asset. There are no hunks in that case, so a viewer that only knows how to
-   * draw hunks has to be told the difference between "nothing to show" and
-   * "something to show that isn't text".
+   * Git could not diff the file as text. There are no hunks in that case, so a
+   * viewer needs this to tell "nothing to show" from "not text".
    */
   binary?: boolean;
 }
@@ -126,17 +94,11 @@ export interface GitFileStatus {
   untrackedFiles: ChangedFile[];
 }
 
-/**
- * Information about a git branch
- */
 export interface BranchInfo {
   name: string;
   isMain: boolean;
 }
 
-/**
- * Lists all local branches in a repository
- */
 export function listBranches(projectPath: string): BranchInfo[] {
   const opts = gitExecOpts(projectPath);
 
@@ -166,7 +128,7 @@ export function listBranches(projectPath: string): BranchInfo[] {
 export interface DiffBaseRef {
   /** `main`, or `origin/main` for a remote-tracking one. */
   ref: string;
-  /** The branch, which is the same name whichever side of a remote it is on. */
+  /** The branch name, the same on either side of a remote. */
   branch: string;
   /** The remote carrying it, or null for a local branch. */
   remote: string | null;
@@ -174,7 +136,7 @@ export interface DiffBaseRef {
 
 /** The refs a branch diff can be taken against. */
 export interface DiffBases {
-  /** By branch name, so a branch sits beside the remotes carrying it. */
+  /** Sorted by branch name, so a branch sits beside the remotes carrying it. */
   refs: DiffBaseRef[];
   /** What the current branch tracks (`origin/feat-x`), when it tracks anything. */
   upstream: string | null;
@@ -192,13 +154,13 @@ export async function listDiffBases(projectPath: string): Promise<DiffBases> {
     lastFetchTime(projectPath),
   ]);
 
-  // `origin/HEAD` is a symbolic ref standing for the remote's default branch,
-  // and diffing against it says nothing the branch it points at does not.
+  // `origin/HEAD` is a symbolic ref for the remote's default branch; diffing
+  // against it says nothing the branch it points at does not.
   const refs = [...local, ...remote.filter((r) => !r.ref.endsWith('/HEAD'))];
   refs.sort((a, b) => a.branch.localeCompare(b.branch) || a.ref.localeCompare(b.ref));
 
-  // Read off the refs rather than from `git remote`: a remote nothing has ever
-  // been fetched from carries no ref, so there is nothing to compare against.
+  // From the refs, not `git remote`: a remote never fetched from carries no
+  // ref, so there is nothing to compare against.
   const remotes = new Set(remote.map((r) => r.remote).filter((name): name is string => name !== null));
   const upstreamRemote = upstream?.split('/')[0];
 
@@ -218,8 +180,8 @@ async function refNames(projectPath: string, prefix: string, remote: boolean): P
       .filter(Boolean)
       .map((ref) => ({
         ref,
-        // A remote-tracking ref is `<remote>/<branch>` by construction, so the
-        // first segment is the remote and never part of the branch name.
+        // A remote-tracking ref is `<remote>/<branch>`, so the first segment is
+        // always the remote.
         branch: remote ? ref.slice(ref.indexOf('/') + 1) : ref,
         remote: remote ? ref.slice(0, ref.indexOf('/')) : null,
       }));
@@ -238,10 +200,9 @@ async function upstreamOf(projectPath: string): Promise<string | null> {
 }
 
 /**
- * When this repo last talked to a remote, from `FETCH_HEAD`'s mtime — git
- * rewrites that file on every fetch and keeps no other record of one. Read
- * through `--git-path` because a worktree's `.git` is a file, and FETCH_HEAD
- * lives in the common directory it points at.
+ * When this repo last fetched, from `FETCH_HEAD`'s mtime — git rewrites that
+ * file on every fetch and keeps no other record. Read through `--git-path`: a
+ * worktree's `.git` is a file, and FETCH_HEAD lives in the common directory.
  */
 async function lastFetchTime(projectPath: string): Promise<number | null> {
   try {
@@ -254,12 +215,9 @@ async function lastFetchTime(projectPath: string): Promise<number | null> {
 }
 
 /**
- * Update one remote-tracking ref, so a comparison against it is against what
- * the remote has now.
- *
- * The refspec is spelled out rather than left to `git fetch origin main`, which
- * writes FETCH_HEAD and only opportunistically moves the tracking ref this is
- * being asked to move.
+ * Updates one remote-tracking ref. The refspec is spelled out because `git
+ * fetch origin main` writes FETCH_HEAD and only opportunistically moves the
+ * tracking ref this is meant to move.
  */
 export async function fetchDiffBase(projectPath: string, ref: string): Promise<{ success: boolean; error?: string }> {
   const slash = ref.indexOf('/');
@@ -269,11 +227,7 @@ export async function fetchDiffBase(projectPath: string, ref: string): Promise<{
   return fetchRefspec(projectPath, remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`);
 }
 
-/**
- * Gets the current git branch and dirty status for a project
- * @param projectPath - Path to the project directory
- * @returns GitStatus object or null if not a git repo or commands fail
- */
+/** Null when the path isn't a git repo or the commands fail. */
 export function getGitStatus(projectPath: string): GitStatus | null {
   const opts = gitExecOpts(projectPath);
 
@@ -304,10 +258,9 @@ export function getGitStatus(projectPath: string): GitStatus | null {
 }
 
 /**
- * The resolved main branch per project. `git branch --list` is cheap but it
- * spawns a child process, and `getGitFileStatus` asks on every status refresh —
- * a 30s timer per project, plus 3s after every burst of terminal output. A main
- * branch effectively never changes during a session.
+ * Cached because `getGitFileStatus` asks on every status refresh — a 30s timer
+ * per project plus 3s after each burst of terminal output — and each miss
+ * spawns a child process. A main branch does not change during a session.
  */
 const projectMainBranchCache = new Map<string, string>();
 
@@ -323,9 +276,8 @@ function parseMainBranchOutput(stdout: string): string {
 }
 
 /**
- * Detects the main branch (main or master) for a repo. Sync — kept for the
- * many legacy sync git helpers in this file. First call per project spawns
- * `git branch --list`; subsequent calls return from cache.
+ * Detects the main branch (main or master). Sync, for the legacy sync helpers
+ * in this file; prefer `getMainBranchAsync`.
  */
 export function getMainBranch(projectPath: string): string {
   const cached = projectMainBranchCache.get(projectPath);
@@ -343,17 +295,12 @@ export function getMainBranch(projectPath: string): string {
 }
 
 /**
- * Per-project in-flight Promise for `getMainBranchAsync`. Without it, the
- * periodic git-status refresh, an open DiffPanel, and a worktree merge can
- * all hit a cold cache concurrently and each spawn their own `git branch
- * --list` — the cache exists to prevent exactly that.
+ * In-flight promises, so a cold cache hit by the status refresh, an open
+ * DiffPanel and a merge at once spawns one `git branch --list`, not three.
  */
 const mainBranchInflight = new Map<string, Promise<string>>();
 
-/**
- * Async variant for hot paths (most importantly `getGitFileStatus`). Falls
- * through to `execFileAsync` on cache miss so the main process isn't blocked.
- */
+/** Async variant for hot paths, so a cache miss doesn't block the main process. */
 export async function getMainBranchAsync(projectPath: string): Promise<string> {
   const cached = projectMainBranchCache.get(projectPath);
   if (cached) return cached;
@@ -391,13 +338,7 @@ export function invalidateMainBranchCache(projectPath?: string): void {
   }
 }
 
-/**
- * Reads a remote's fetch URL. Async because every caller (repo identity
- * resolution, the GitHub availability probe) is off the hot path and the
- * main process should not block on a subprocess for it.
- *
- * Returns null when the repo has no such remote, or isn't a repo at all.
- */
+/** Null when the repo has no such remote, or isn't a repo at all. */
 export async function getRemoteUrl(projectPath: string, remote = 'origin'): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync('git', ['remote', 'get-url', remote], gitExecOpts(projectPath));
@@ -409,10 +350,9 @@ export async function getRemoteUrl(projectPath: string, remote = 'origin'): Prom
 }
 
 /**
- * Fetch a refspec from a remote. The GitHub integration uses this to pull a PR
- * head into a namespaced local ref so the diff can be read straight out of the
- * object database — no checkout, no worktree, and nothing added to the user's
- * branch list.
+ * Fetches a refspec. The GitHub integration pulls a PR head into a namespaced
+ * local ref with it, so the diff is readable from the object database without a
+ * checkout, a worktree, or an entry in the user's branch list.
  */
 export async function fetchRefspec(
   projectPath: string,
@@ -444,8 +384,8 @@ export async function resolveRef(projectPath: string, rev: string): Promise<stri
 }
 
 /**
- * Push a branch to a remote, setting upstream. Used by the task-to-PR path,
- * which needs the branch on the remote before `gh pr create` can reference it.
+ * Pushes a branch and sets upstream. The task-to-PR path needs the branch on
+ * the remote before `gh pr create` can reference it.
  */
 export async function pushBranch(
   projectPath: string,
@@ -472,11 +412,9 @@ export async function pushBranch(
 }
 
 /**
- * Three-dot diff between two revisions, listing changed files with per-file
- * stats. Same shape `getWorktreeDiff` produces, but pinned to SHAs rather than
- * branch names — GitHub computes a PR's diff as `base...head`, so pinning to
- * the SHAs the API reports is what makes the resulting line numbers valid
- * review anchors.
+ * Three-dot diff between two revisions, in `getWorktreeDiff`'s shape but pinned
+ * to SHAs. GitHub computes a PR's diff as `base...head`, so only the SHAs it
+ * reports yield line numbers valid as review anchors.
  */
 export async function getRangeDiffFiles(
   projectPath: string,
@@ -498,10 +436,8 @@ export async function getRangeDiffFiles(
 /**
  * Per-file diff for a revision range. Mirrors `getWorktreeFileDiff` on SHAs.
  *
- * `oldPath` matters for a rename: git pairs the two sides by seeing both paths
- * in the pathspec, and given only the new one it reports the file as freshly
- * added with every line as an addition rather than as a rename with the lines
- * that actually changed.
+ * A rename needs `oldPath`: git pairs the two sides only when both are in the
+ * pathspec, and otherwise reports the file as freshly added.
  */
 export async function getRangeFileDiff(
   projectPath: string,
@@ -526,9 +462,6 @@ export async function getRangeFileDiff(
   }
 }
 
-/**
- * Gets ahead/behind count relative to upstream
- */
 function getAheadBehind(projectPath: string): { ahead: number; behind: number } {
   const opts = gitExecOpts(projectPath);
 
@@ -542,9 +475,6 @@ function getAheadBehind(projectPath: string): { ahead: number; behind: number } 
   }
 }
 
-/**
- * Gets uncommitted changes summary
- */
 function getUncommittedChanges(projectPath: string): UncommittedChanges | null {
   const opts = gitExecOpts(projectPath);
 
@@ -569,9 +499,6 @@ function getUncommittedChanges(projectPath: string): UncommittedChanges | null {
   }
 }
 
-/**
- * Gets recent branches with their commit info
- */
 function getRecentBranches(
   projectPath: string,
   currentBranch: string,
@@ -655,9 +582,6 @@ function getRecentBranches(
   }
 }
 
-/**
- * Gets full dropdown info for git status
- */
 export function getGitDropdownInfo(projectPath: string): GitDropdownInfo | null {
   const opts = gitExecOpts(projectPath);
 
@@ -690,9 +614,6 @@ export function getGitDropdownInfo(projectPath: string): GitDropdownInfo | null 
   }
 }
 
-/**
- * Checkout a git branch
- */
 export function checkoutBranch(projectPath: string, branchName: string): { success: boolean; error?: string } {
   const opts = gitExecOpts(projectPath);
 
@@ -717,9 +638,6 @@ export function checkoutBranch(projectPath: string, branchName: string): { succe
   }
 }
 
-/**
- * Create a new git branch and switch to it
- */
 export function createBranch(projectPath: string, branchName: string): { success: boolean; error?: string } {
   const opts = gitExecOpts(projectPath);
 
@@ -747,9 +665,7 @@ export function createBranch(projectPath: string, branchName: string): { success
   }
 }
 
-/**
- * Merge current branch into main (checkout main, merge feature branch)
- */
+/** Checks out main and merges the current branch into it. */
 export function mergeIntoMain(projectPath: string): { success: boolean; error?: string; mergedBranch?: string } {
   const opts = gitExecOpts(projectPath);
 
@@ -820,23 +736,18 @@ export function mergeIntoMain(projectPath: string): { success: boolean; error?: 
 }
 
 /**
- * Whether git declined to diff a file as text.
- *
- * Taken from git's own output rather than guessed from the extension: git
- * decides this from the content and from `.gitattributes`, so a `.txt` marked
- * binary and a `.png` marked text both come out right.
+ * Read from git's output rather than guessed from the extension: git decides
+ * this from the content and `.gitattributes`, so a `.txt` marked binary and a
+ * `.png` marked text both come out right.
  */
 export function isBinaryDiff(diffOutput: string): boolean {
   return /^Binary files .* differ$/m.test(diffOutput) || diffOutput.includes('GIT binary patch');
 }
 
 /**
- * One revision's copy of a file, base64 encoded.
- *
- * Returns null when the path does not exist at that revision, which is how an
- * added or deleted file reports its missing side. Blobs past `maxBytes` come
- * back with their size and no content, so a caller can say how big the thing is
- * without moving it across a process boundary.
+ * One revision's copy of a file, base64 encoded. Null when the path does not
+ * exist at that revision, which is how an added or deleted file reports its
+ * missing side. A blob past `maxBytes` comes back with its size and no content.
  */
 export async function readBlob(
   projectPath: string,
@@ -871,9 +782,6 @@ export async function readBlob(
   }
 }
 
-/**
- * Parses unified diff output into structured hunks
- */
 export function parseDiff(diffOutput: string): DiffHunk[] {
   const hunks: DiffHunk[] = [];
   const lines = diffOutput.split('\n');
@@ -931,10 +839,9 @@ function toFileDiff(filePath: string, diffOutput: string): FileDiff | null {
 }
 
 /**
- * One file's diff, from whichever `git diff` argv the caller needs.
- *
- * `quiet` is for `--no-index`, which exits 1 to mean "these differ" — the
- * output is on stdout either way, so the failure is the expected case.
+ * One file's diff, from whichever `git diff` argv the caller needs. `quiet` is
+ * for `--no-index`, which exits 1 to mean "these differ" while still writing
+ * the diff to stdout.
  */
 async function readFileDiff(
   projectPath: string,
@@ -959,10 +866,8 @@ function contextArgs(contextLines?: number): string[] {
 }
 
 /**
- * The whole of an untracked file, as additions.
- *
- * Exported so a caller that already knows the file is untracked — the file
- * list says so — can name that directly rather than going through `getFileDiff`.
+ * The whole of an untracked file, as additions. Exported so a caller whose file
+ * list already reports the status can skip `getFileDiff`'s branch.
  */
 export function getUntrackedFileDiff(
   projectPath: string,
@@ -982,11 +887,9 @@ export function getTrackedFileDiff(
 }
 
 /**
- * Gets the diff for a specific file, tracked or not.
- *
- * `untracked` is required rather than probed for: working it out here would
- * mean listing every untracked path in the repo, once per file. Every caller
- * arrives from a file list that already carries the status.
+ * The diff for one file, tracked or not. `untracked` is required rather than
+ * probed: working it out here means listing every untracked path in the repo,
+ * once per file, and every caller already has the status.
  */
 export function getFileDiff(
   projectPath: string,
@@ -1000,11 +903,9 @@ export function getFileDiff(
 }
 
 /**
- * The two revisions a branch diff is taken between, as SHAs.
- *
- * Branch names cannot say whether a diff has moved, since they stay put while
- * the commits under them change, so both ends are resolved. Null when either
- * cannot be, which the caller reads as "cannot say".
+ * The two revisions a branch diff is taken between, as SHAs: branch names stay
+ * put while the commits under them move, so they cannot say whether a diff has
+ * changed. Null when either end cannot be resolved.
  */
 export async function getBranchDiffPin(
   projectPath: string,
@@ -1025,11 +926,8 @@ export async function getBranchDiffPin(
 }
 
 /**
- * Run a git command asynchronously, without blocking the main thread.
- *
- * Exported so nothing else has to build its own way of spawning git — one set
- * of defaults, one place to change them. Throws on a non-zero exit, which is
- * how callers ask git a yes/no question.
+ * Runs git off the main thread, with this file's shared defaults. Throws on a
+ * non-zero exit, which is how callers ask git a yes/no question.
  */
 export async function gitAsync(args: string[], projectPath: string, maxBuffer?: number): Promise<string> {
   const { stdout } = await execFileAsync('git', args, {
@@ -1042,7 +940,6 @@ export async function gitAsync(args: string[], projectPath: string, maxBuffer?: 
 
 // ── Shared diff parsing helpers ──────────────────────────────────────
 
-/** Parse `git diff --numstat` output into a per-file stats map */
 function parseNumstat(output: string): Map<string, { additions: number; deletions: number }> {
   const map = new Map<string, { additions: number; deletions: number }>();
   if (!output) return map;
@@ -1057,7 +954,7 @@ function parseNumstat(output: string): Map<string, { additions: number; deletion
   return map;
 }
 
-/** Parse `git diff --name-status` output, enriched with numstat data */
+/** Parses `git diff --name-status` output, enriched with numstat data. */
 function parseNameStatus(
   output: string,
   statsMap: Map<string, { additions: number; deletions: number }>,
@@ -1087,27 +984,21 @@ const UNTRACKED_COUNT_LIMIT = 2 * 1024 * 1024;
 const UNTRACKED_READ_BATCH = 16;
 
 /**
- * Line counts already worked out, keyed by the file and the version of it.
- *
- * The status poll runs every few seconds and almost nothing it lists has
- * changed since last time, so the `stat` each entry is keyed on is usually the
- * whole cost. Bounded because a long session in a repo with a busy build
- * directory would otherwise accumulate an entry per path ever seen.
+ * Line counts keyed by path and stat, so the status poll's repeated listings
+ * usually cost one `stat` each. Bounded: a long session in a repo with a busy
+ * build directory would otherwise keep an entry per path ever seen.
  */
 const untrackedLines = new Map<string, number>();
 const UNTRACKED_CACHE_LIMIT = 5000;
 
 /**
- * Untracked paths as changed files, with the line count each one would add.
- *
- * Counted here rather than by `git diff --no-index`, which would be one child
- * process per file on a status poll that runs every few seconds. Binary files
- * report no lines, matching what the diff view will say about them.
+ * Untracked paths as changed files, with the lines each would add. Counted here
+ * because `git diff --no-index` is a child process per file, on a poll that
+ * runs every few seconds. Binary files report no lines.
  */
 async function countUntracked(projectPath: string, paths: string[]): Promise<ChangedFile[]> {
   const files: ChangedFile[] = [];
-  // In batches: a repo with hundreds of untracked files would otherwise have
-  // every one of them open at once.
+  // In batches, or a repo with hundreds of untracked files opens them all.
   for (let i = 0; i < paths.length; i += UNTRACKED_READ_BATCH) {
     files.push(...(await Promise.all(paths.slice(i, i + UNTRACKED_READ_BATCH).map((p) => countOne(projectPath, p)))));
   }
@@ -1132,8 +1023,8 @@ async function countOne(projectPath: string, relPath: string): Promise<ChangedFi
     // The same test git uses: a NUL byte early on means it is not text.
     if (contents.subarray(0, 8000).includes(0)) return file;
 
-    // `indexOf` scans in native code. Iterating the Buffer in JS to do the
-    // same thing runs on the main thread, and this is on a status poll.
+    // `indexOf` scans in native code; the JS equivalent runs on the main
+    // thread, and this is on a status poll.
     let lines = 0;
     for (let at = contents.indexOf(0x0a); at !== -1; at = contents.indexOf(0x0a, at + 1)) lines++;
     // A final line with no newline after it is still a line.
@@ -1143,8 +1034,8 @@ async function countOne(projectPath: string, relPath: string): Promise<ChangedFi
     untrackedLines.set(key, lines);
     file.additions = lines;
   } catch {
-    // Deleted between the listing and now, or unreadable — still a file
-    // the diff should mention, just without a count.
+    // Deleted since the listing, or unreadable: still worth listing, without
+    // a count.
   }
   return file;
 }
@@ -1152,18 +1043,15 @@ async function countOne(projectPath: string, relPath: string): Promise<ChangedFi
 // ── Unified git file status ─────────────────────────────────────────
 
 /**
- * Everything that differs between `diffBase` and the working tree, read by the
- * GitStats button and the DiffPanel.
+ * Everything that differs between `diffBase` and the working tree.
  *
- * `--merge-base` rather than a plain two-dot diff: the base moves on while a
- * branch is worked on, and a commit someone else landed there would otherwise
- * be reported as a change of yours, inverted. Starting at the point the branch
- * left the base leaves only what is yours.
+ * `--merge-base`, not a two-dot diff: the base moves on while a branch is
+ * worked on, and commits landed there by others would otherwise show up
+ * inverted as changes of yours.
  *
- * The comparison ends at the working tree, not at HEAD, so an edit that has not
- * been committed is part of the same answer as one that has. `HEAD` as the base
- * is what makes that answer the uncommitted changes alone, and nothing else in
- * here treats it specially.
+ * The comparison ends at the working tree, so uncommitted edits are included.
+ * A `HEAD` base therefore yields the uncommitted changes alone, with no special
+ * casing anywhere in here.
  */
 export async function getGitFileStatus(projectPath: string, diffBase?: string): Promise<GitFileStatus | null> {
   try {
@@ -1208,9 +1096,6 @@ export async function getGitFileStatus(projectPath: string, diffBase?: string): 
   }
 }
 
-/**
- * Summary of changes between a worktree branch and main
- */
 export interface WorktreeDiffSummary {
   filesChanged: number;
   insertions: number;
@@ -1218,9 +1103,6 @@ export interface WorktreeDiffSummary {
   files: ChangedFile[];
 }
 
-/**
- * Gets the diff summary between a worktree branch and a target branch
- */
 export function getWorktreeDiff(
   projectPath: string,
   worktreeBranch: string,
@@ -1292,15 +1174,12 @@ export function getWorktreeDiff(
 }
 
 /**
- * One file, as it differs between a base and the working tree.
+ * One file, under the same comparison `getGitFileStatus` lists — `--merge-base`
+ * ending at the working tree — so its hunks match the counts in that row.
+ * `gitPath` is the worktree being read, not the project.
  *
- * Same comparison `getGitFileStatus` lists — `--merge-base`, ending at the
- * working tree — so the hunks under a file are the ones its row in that list
- * was counted from. `gitPath` is the worktree being read, not the project.
- *
- * `oldPath` matters for a rename: git pairs the two sides by seeing both paths
- * in the pathspec, and given only the new one it reports the file as freshly
- * added with every line as an addition.
+ * A rename needs `oldPath`: git pairs the two sides only when both are in the
+ * pathspec, and otherwise reports the file as freshly added.
  */
 export async function getWorktreeFileDiff(
   gitPath: string,
@@ -1314,9 +1193,7 @@ export async function getWorktreeFileDiff(
   return readFileDiff(gitPath, filePath, args);
 }
 
-/**
- * Merge a specific branch into a target branch (defaults to main)
- */
+/** Squash-merges a branch into a target branch, defaulting to main. */
 export function mergeWorktreeBranch(
   projectPath: string,
   branchToMerge: string,

@@ -24,11 +24,9 @@ const METHODS: Array<{ value: MergeMethod; label: string }> = [
 ];
 
 /**
- * Everything you can do to a pull request, in the chrome bar beside the panes,
- * so it is reachable from all three rather than living on one of them.
- *
- * Verdicts sit inside the review menu rather than on the bar as green and red
- * buttons, which mean added and removed everywhere else in this app.
+ * Pull request actions, in the chrome bar so all three panes reach them.
+ * Verdicts stay inside the review menu: green and red on the bar would read as
+ * added and removed, which is what they mean everywhere else here.
  */
 export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActionsProps) {
   const drafts = useGithubStore((s) => s.drafts);
@@ -46,14 +44,14 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
   // blockers hides the toggle without unsetting it.
   const bypass = detail.merge.canBypass && bypassRequested;
 
-  // Said here rather than as a 422 after the fact, and asked of the same
-  // function main asks before it sends.
+  // Checked with the same function main uses, so the block is shown here
+  // instead of arriving as a 422 after the send.
   const unplaceable = drafts.filter((d) => d.unplaceable).length;
   const problem = (event: ReviewEvent) => reviewSubmitProblem(event, summary, drafts.length, unplaceable);
   const commentProblem = problem('COMMENT');
   const changesProblem = problem('REQUEST_CHANGES');
-  // An approval may be wordless, but it still carries the inline comments up
-  // with it, so a stranded one sinks it the same way.
+  // An approval may be wordless, but it still carries the inline comments, so
+  // a stranded one blocks it too.
   const approveProblem = problem('APPROVE');
 
   const submitReview = async (event: ReviewEvent) => {
@@ -67,9 +65,8 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
       useProjectStore.getState().addToast('Review submitted', 'success');
       setSummary('');
       await useGithubStore.getState().reloadDetail(projectPath);
-      // The sidebar's unsent count comes from the inbox, not from the detail —
-      // without this the row goes on advertising comments that have been sent
-      // until the next poll tick.
+      // The sidebar's unsent count comes from the inbox, not the detail, so it
+      // would keep advertising sent comments until the next poll.
       await useGithubStore.getState().loadInbox(projectPath);
     } finally {
       useGithubStore.getState().setSubmitting(false);
@@ -161,9 +158,8 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
         >
           {(close) => (
             <>
-              {/* Advisory blockers still let the button through: GitHub is the
-                  authority, and branch protection we cannot see may permit or
-                  forbid the merge. */}
+              {/* Advisory blockers still let the button through: branch
+                  protection we cannot see may permit or forbid the merge. */}
               {blockers.length > 0 && (
                 <ul className="px-2.5 py-1.5 flex flex-col gap-1">
                   {blockers.map((blocker) => (
@@ -217,7 +213,6 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
   );
 }
 
-/** The unsent-comment count, and the list behind it. */
 function DraftsPopover({
   drafts,
   onJump,
@@ -237,9 +232,8 @@ function DraftsPopover({
             line={describeLines(draft.startLine, draft.line)}
             body={draft.body}
             discardTitle="Discard this comment"
-            /* A review goes up under your name, so anything you did not type
-               is marked. The origin is a caller-supplied name, so it is
-               clamped. Being stranded outranks it: that one blocks the send. */
+            /* A review goes up under the user's name, so anything they did not
+               type is marked. The origin is caller-supplied, hence the clamp. */
             badge={
               draft.unplaceable ? (
                 <span className="shrink-0 px-1 rounded bg-error/15 text-error">not in the diff</span>

@@ -1,7 +1,7 @@
 /**
  * Verifies the API router fires the `cli:task-started` push channel after a
  * successful CLI-initiated task start, so the renderer can spawn a terminal
- * + run the configured hook (T-366). Companion to apiRouterAuth.test.ts.
+ * + run the configured hook.
  */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as http from 'node:http';

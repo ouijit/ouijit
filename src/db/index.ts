@@ -182,7 +182,7 @@ export async function createTask(
   ensureProject(projectPath);
   const { taskRepo: tr } = repos();
 
-  // Match old behavior: if task already exists, return it
+  // Idempotent: an existing task is returned rather than replaced.
   const existing = tr.getByTaskNumber(projectPath, taskNumber);
   if (existing) return rowToTask(existing);
 
@@ -235,7 +235,6 @@ export async function setTaskParent(
     const row = tr.getByTaskNumber(projectPath, taskNumber);
     if (!row) return { success: false, error: 'Task not found' };
 
-    // Prevent self-reference
     if (parentTaskNumber === taskNumber) return { success: false, error: 'Task cannot be its own parent' };
 
     // Prevent cycles: walk up from proposed parent to root

@@ -36,11 +36,9 @@ const execFileAsync = promisify(execFile);
 
 // Coalesces concurrent worktree materializations (start/recover) for the same
 // task. startTask persists worktreePath to the DB before the ignored-file copy
-// completes, so a second caller consulting the DB mid-copy (the idempotent
-// early return, CLI `ouijit task start`, open-terminal affordances) would be
-// handed a half-populated worktree and could run hooks against it, the same
-// corruption #112 fixed for the primary start path. Awaiting the in-flight
-// promise instead means every caller observes the copy's completion.
+// completes, so a second caller consulting the DB mid-copy would be handed a
+// half-populated worktree and could run hooks against it. Awaiting the
+// in-flight promise instead means every caller observes the copy's completion.
 const inFlightWorktreeOps = new Map<string, Promise<TaskWorktreeResult>>();
 
 function coalesceWorktreeOp(
@@ -95,9 +93,8 @@ function timer(): Timer {
 // macOS: clonefile() clones files and directories atomically in one kernel call.
 // Called via koffi's .async so the (potentially long, for big directory trees)
 // syscall runs on a worker thread instead of blocking the main-process event
-// loop. Cloning node_modules synchronously beachballed the UI (#59), and the
-// cp -c child-process workaround walked the tree file-by-file, making
-// quick-start worktrees ~10x slower than a single directory clone.
+// loop — cloning node_modules synchronously blocks it for seconds. `cp -c`
+// walks the tree file-by-file, roughly 10x slower than one directory clone.
 // Linux: ioctl(FICLONE) for CoW file cloning on btrfs/xfs
 let clonefileAsync: ((src: string, dst: string) => Promise<number>) | null = null;
 let ficloneFn: ((destFd: number, srcFd: number) => boolean) | null = null;
@@ -264,7 +261,6 @@ async function copyGitIgnoredFiles(
     }
 
     await runWithConcurrency(items, COPY_CONCURRENCY, async (item) => {
-      // Remove trailing slash if present (directories)
       const cleanItem = item.replace(/\/$/, '');
       if (!cleanItem) return;
 
@@ -297,7 +293,6 @@ async function copyGitIgnoredFiles(
           return;
         }
 
-        // Ensure parent directory exists
         await fs.mkdir(path.dirname(destItem), { recursive: true });
 
         // macOS: clonefile() clones files and whole directory trees (e.g.
@@ -356,7 +351,6 @@ async function copyGitIgnoredFiles(
           await fs.unlink(destItem).catch(() => {});
         }
 
-        // Fallback: cp command
         if (stat.isDirectory()) {
           const cpFlags = os.platform() === 'darwin' ? '-RPpc' : '-RPp --reflink=auto';
           await execAsync(`cp ${cpFlags} ${shellEscape(sourceItem)} ${shellEscape(destItem)}`);
@@ -445,14 +439,12 @@ export async function validateBranchName(
     return { valid: false, error: 'HEAD is a reserved name' };
   }
 
-  // Check git ref format validity
   try {
     await execAsync(`git check-ref-format --branch ${shellEscape(branchName)}`, { cwd: projectPath });
   } catch {
     return { valid: false, error: 'Invalid branch name' };
   }
 
-  // Check for conflicts with existing branches
   try {
     const { stdout } = await execAsync(`git branch --list ${shellEscape(branchName)}`, { cwd: projectPath });
     if (stdout.trim()) {
@@ -522,7 +514,6 @@ async function startTaskImpl(
 
     worktreeLog.info('starting task', { taskNumber, name: task.name });
 
-    // Kick off everything that does not depend on each other in parallel.
     const projectName = path.basename(projectPath);
     const baseDir = getWorktreeBaseDir(projectName);
     const branch = branchName || generateBranchName(task.name, taskNumber);

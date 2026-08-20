@@ -57,14 +57,10 @@ interface FileSectionProps {
 }
 
 /**
- * One file of the pull request, and everything that only it needs to know.
- *
- * Memoized, and holding its own binary view and header rather than being handed
- * them: an element built in the parent's render is a new element every time the
- * parent renders, which is enough on its own to make memoizing pointless. The
- * per-file diffs arrive in batches, so the parent re-renders once per batch —
- * ten times over a large pull request — and with this in place each of those
- * renders touches only the files that batch brought in.
+ * One file of the pull request. Builds its own binary view and header rather
+ * than taking them as props: an element built in the parent's render is new
+ * every time, which would defeat the memo. Diffs arrive in batches, so the
+ * parent re-renders once per batch.
  */
 const FileSection = memo(function FileSection({
   file,
@@ -106,8 +102,8 @@ const FileSection = memo(function FileSection({
   );
 
   return (
-    // Named on the wrapper rather than only on the section inside it, so the
-    // rail can scroll to a file that is still a placeholder.
+    // On the wrapper as well as the section, so the rail can scroll to a file
+    // that is still a placeholder.
     <DeferredMount
       dataPath={file.path}
       estimatedHeight={estimateFileHeight(diff, file.additions + file.deletions, 1, viewed)}
@@ -132,14 +128,10 @@ const FileSection = memo(function FileSection({
 });
 
 /**
- * Every changed file, with review threads rendered inline against the lines
- * they belong to.
- *
- * Uses the same tree, file section, hunk and line renderers as the worktree
- * diff panel — the only additions are the two review slots those primitives
- * expose. The diff bytes come from the local object database, so context can be
- * expanded past what a GitHub patch would carry, and a very large file renders
- * like any other.
+ * Every changed file, with review threads inline against their lines. Uses the
+ * worktree diff panel's renderers plus their two review slots. Diff bytes come
+ * from the local object database, not GitHub's patches, so context is not
+ * capped at what a patch would carry.
  */
 export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(function FilesSection(
   { projectPath, detail },
@@ -157,18 +149,15 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const setDiffs = useGithubStore((s) => s.setDiffs);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
-  // The loaded diffs, for a callback that reads them when a comment is saved
-  // and must not be rebuilt each time a batch of them arrives.
+  // Through a ref so the save callback survives each batch of diffs arriving.
   const diffsRef = useRef(diffs);
   diffsRef.current = diffs;
 
   useImperativeHandle(ref, () => ({ editDraft: setEditingDraftId }), []);
 
-  // The head is part of it, not just the file list: a force-push that leaves
-  // every path and line count where they were — a reordering, a swap, an
-  // amended commit — produces the same shape, and the loader below would then
-  // go on showing the previous head's hunks while every review anchor points
-  // at the new one.
+  // The head is part of the fingerprint: an amend or reorder can leave every
+  // path and line count identical, and the loader would then keep the old
+  // head's hunks while every review anchor points at the new one.
   const filesFingerprint = useMemo(() => `${detail.headSha}\n${diffShape(files)}`, [files, detail.headSha]);
 
   useBatchedDiffs(
@@ -189,11 +178,9 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     setDiffs,
   );
 
-  // Threads and drafts indexed by anchor, so each line render is a map lookup
-  // rather than a scan of every thread on the PR.
+  // Indexed by anchor, so each line render is a lookup rather than a scan.
   const threadsByAnchor = useMemo(() => {
-    // A thread with no line has no anchor to sit on; it is collected as an
-    // orphan below rather than grouped here.
+    // A thread with no line has no anchor; it is collected as an orphan below.
     const anchored = detail.threads.filter((t) => (t.line ?? t.originalLine) != null);
     return Map.groupBy(anchored, (t) => anchorKey(t.path, (t.line ?? t.originalLine)!, t.side));
   }, [detail.threads]);
@@ -203,9 +190,8 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     [drafts],
   );
 
-  // Threads with nowhere to render, collected so they stay readable. Computed
-  // once the diffs are all in: it walks every line of every file, so running it
-  // per arriving batch would be quadratic for an answer only final at the end.
+  // Computed once every diff is in: it walks every line of every file, and the
+  // answer is only final at the end anyway.
   const orphanThreads = useMemo(
     () => (filesLoading ? [] : unanchoredThreads(detail.threads, files, diffs)),
     [filesLoading, detail.threads, files, diffs],
@@ -239,8 +225,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
           body: input.body,
         });
       } catch (error) {
-        // Leave the box open and say so. Closing it on a failed save discards
-        // what was written with nothing to show for it.
+        // Leave the box open: closing it on a failed save discards the text.
         useProjectStore.getState().addToast(`Could not save the comment: ${describeError(error)}`, 'error');
         return;
       }
@@ -358,9 +343,8 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   );
 
   /**
-   * Withheld when there is nothing that could render below a line: passing it
-   * costs a key build and two map lookups per line of the diff, and makes
-   * saving the first comment re-render every mounted file.
+   * Withheld when nothing could render below a line: passing it costs a key
+   * build and two map lookups per diff line.
    */
   const renderBelowLine =
     threadsByAnchor.size > 0 || draftsByAnchor.size > 0 || composingWhere ? renderComments : undefined;

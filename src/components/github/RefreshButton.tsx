@@ -7,15 +7,13 @@ const MIN_SPIN_MS = 450;
 interface RefreshButtonProps {
   busy: boolean;
   onClick: () => void;
-  /** Empty where something else is doing the telling — a tooltip around this. */
+  /** Pass empty where a surrounding tooltip already names the button. */
   title?: string;
 }
 
 /**
- * Refresh, with the spin held to a minimum duration.
- *
- * A warm `gh` call can return in under a frame, so the spin is held past the
- * response rather than appearing and vanishing within one.
+ * A warm `gh` call can return inside a frame, so the spin is held past the
+ * response rather than flashing.
  */
 export function RefreshButton({ busy, onClick, title = 'Refresh' }: RefreshButtonProps) {
   const [spinning, setSpinning] = useState(busy);
@@ -41,8 +39,8 @@ export function RefreshButton({ busy, onClick, title = 'Refresh' }: RefreshButto
       // fresher data.
       className="w-7 h-7 rounded-md text-text-secondary flex items-center justify-center transition-all duration-150 hover:bg-ink/10 hover:text-text-primary"
       title={title || undefined}
-      // Named whether or not it carries a title of its own: wrapped in a
-      // tooltip it has none, and a button holding one glyph has no other name.
+      // Always labelled: wrapped in a tooltip it has no title, and a glyph-only
+      // button has no other accessible name.
       aria-label="Refresh"
       aria-busy={spinning}
       onClick={onClick}

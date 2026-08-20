@@ -1,14 +1,9 @@
 import type { FileDiff, DiffHunk } from '../../types';
 
 /**
- * How tall a diff will be before it has been rendered.
- *
- * Used for two things that both need a number up front: the placeholder a file
- * section stands in as until it is scrolled near, and the intrinsic size the
- * browser assumes for a hunk it is skipping. Both only need to be close — the
- * placeholder is replaced by the real thing, and `contain-intrinsic-size: auto`
- * remembers the measured height once a hunk has been laid out once. Being far
- * out only costs a scrollbar that settles as you go.
+ * Estimated heights, used for unmounted file placeholders and for
+ * `contain-intrinsic-size` on skipped hunks. Both are corrected once the real
+ * content is laid out, so an inexact estimate only costs a settling scrollbar.
  */
 
 /** `text-sm leading-normal`: 14px at 1.5. */
@@ -23,13 +18,9 @@ export function estimateHunkHeight(hunk: DiffHunk): number {
 }
 
 /**
- * A file's full height, from the diff when it has arrived and from the change
- * counts when it has not.
- *
- * Before the diff loads, the only thing known about a file is how many lines it
- * adds and removes. Context lines are not in that count, so a few per hunk are
- * assumed — a placeholder that is short is worse than one that is tall, because
- * short means every file below it shifts upward as the real content lands.
+ * Before the diff loads, only the added/removed counts are known, and those
+ * exclude context lines. Assume a few per hunk: an over-tall placeholder is
+ * harmless, but a short one makes every file below it jump up on arrival.
  */
 export function estimateFileHeight(
   diff: FileDiff | null | undefined,
@@ -37,7 +28,6 @@ export function estimateFileHeight(
   hunkCount = 1,
   collapsed = false,
 ): number {
-  // Folded, there is nothing below the header to hold room for.
   if (collapsed) return FILE_HEADER_HEIGHT;
   if (diff && !diff.binary && diff.hunks.length > 0) {
     let height = FILE_HEADER_HEIGHT;

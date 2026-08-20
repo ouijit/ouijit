@@ -22,7 +22,6 @@ interface RunHookDialogProps {
   hookType: HookType;
   hook: ScriptHook;
   projectPath: string;
-  /** Name of the task this hook belongs to — shown in the stepper subtitle. */
   taskName?: string;
   /** 1-based position of this prompt in the queue (only set when queued). */
   queuePosition?: number;

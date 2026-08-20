@@ -18,12 +18,11 @@ interface PullRequestsPanelProps {
 }
 
 /**
- * The GitHub surface: the list on the left, whatever you opened on the right.
+ * The GitHub surface: the list on the left, whatever is open on the right.
  *
- * Reviewing a teammate's PR here is ephemeral: the diff is read straight out of
- * the object database with no checkout and no worktree, and the session leaves
- * nothing behind but the fetched refs. "Check out as task" is the deliberate
- * step from that into real local work.
+ * Reviewing leaves nothing behind but the fetched refs — the diff is read out
+ * of the object database with no checkout and no worktree. "Check out as task"
+ * is the deliberate step into local work.
  */
 export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   const availability = useGithubStore((s) => s.availability);
@@ -54,8 +53,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 
   const available = availability?.available ?? false;
 
-  // Both loads start together so either list is ready the moment it is asked
-  // for, and the sidebar never waits on a fetch to switch.
+  // Both lists load together, so switching between them never waits on a fetch.
   useEffect(() => {
     if (!available) return;
     const store = useGithubStore.getState();
@@ -65,19 +63,16 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 
   const refresh = useCallback(() => {
     const store = useGithubStore.getState();
-    // Re-probe `gh` rather than trusting the startup health cache: the
-    // unavailable message tells the user to sign in and come back, and a
-    // cached "not signed in" would outlive them doing exactly that.
+    // Re-probe `gh` rather than trusting the startup health cache: a cached
+    // "not signed in" would outlive the user signing in and coming back.
     void store.loadAvailability(projectPath, true);
     void store.loadInbox(projectPath);
     void store.loadIssues(projectPath);
   }, [projectPath]);
 
-  // The one thing that arrives unasked. A draft written by the CLI happens in
-  // another process, so there is no press to hang the update on; everything
-  // else in this panel refreshes because someone asked it to. The handler does
-  // a single local read — nothing here may reach the network, or this becomes
-  // the broadcast-and-refetch-everything path it replaced.
+  // The one update that arrives unasked: a draft written by the CLI happens in
+  // another process. The handler must stay a single local read — a network call
+  // here turns every CLI write into a full refetch.
   useEffect(() => {
     if (!available) return;
     return window.api.github.onDraftsChanged((payload) => {
@@ -88,14 +83,13 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     });
   }, [available, projectPath]);
 
-  // Escape closes what is open, then leaves the panel — matching how the
-  // settings panel treats Escape.
+  // Escape closes what is open, then leaves the panel, as the settings panel
+  // does.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      // A comment box, a menu or the search field takes Escape first and stops
-      // it; without this the same keypress that cancelled a comment also threw
-      // you out of the pull request.
+      // A comment box, menu or search field claims Escape first; without this
+      // the keypress that cancelled a comment also closed the pull request.
       if (e.defaultPrevented) return;
       const store = useGithubStore.getState();
       if (store.activeNumber != null || store.activeIssue != null) {
@@ -108,9 +102,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
-  // Select the array (a stable reference from the store) and build the maps in
-  // a memo. Building them inside the selector would return a fresh object on
-  // every store read, which never equals the last one and re-renders forever.
+  // The maps are built in a memo, not the selector: a selector returning a
+  // fresh object never equals the last one and re-renders forever.
   const tasks = useProjectStore((s) => s.tasks);
   const { issueTasks, prTasks } = useMemo(() => {
     const issueTasks: Record<number, TaskWithWorkspace> = {};
@@ -122,8 +115,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     return { issueTasks, prTasks };
   }, [tasks]);
 
-  // The panel only ever renders for the project being viewed, so the active
-  // project is the one a linked task belongs to.
+  // The panel only renders for the project being viewed, so the active project
+  // is the one a linked task belongs to.
   const project = useAppStore((s) => s.activeProjectData);
 
   const openLinkedTask = useCallback(
@@ -149,8 +142,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
       await useProjectStore.getState().loadTasks(projectPath);
 
       // Offer the jump rather than taking it: creating several tasks from a
-      // list of issues in one pass is the common case, and navigating away on
-      // the first one would break that.
+      // list of issues in one pass is the common case.
       const created = useProjectStore.getState().tasks.find((t) => t.taskNumber === result.taskNumber);
       useProjectStore.getState().addToast(`Created task #${result.taskNumber} from issue #${issueNumber}`, {
         type: 'success',
@@ -174,9 +166,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
       return;
     }
     // `headRef` is a local branch the main process just created at the PR's
-    // head, so the worktree is built from the PR's commits rather than a new
-    // empty branch off whatever HEAD is. The merge target was stored with the
-    // task, and `startTask` leaves one that is already set.
+    // head, so the worktree carries the PR's commits rather than branching off
+    // whatever HEAD is.
     const start = await window.api.task.start(projectPath, result.taskNumber, result.headRef);
     await useProjectStore.getState().loadTasks(projectPath);
     if (!start.success) {
@@ -200,8 +191,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     );
   }
 
-  // The availability probe is a `gh --version` plus an auth check — a few
-  // hundred milliseconds, too short to say anything about.
+  // The availability probe is `gh --version` plus an auth check: a few hundred
+  // milliseconds, too short to warrant a spinner.
   if (!availability) return <Frame />;
 
   const showing = view === 'detail' ? listView : view;
@@ -231,7 +222,6 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         />
       )}
 
-      {/* Collapsed there is nothing on its left, so the seam divides nothing. */}
       {!sidebarCollapsed && (
         <ResizeHandle
           width={sidebarWidth}
@@ -244,10 +234,9 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
       )}
 
       <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-        {/* With something open, `DetailChrome` is the bar and carries the
-            toggle. With nothing open there is no bar, and the toggle still has
-            to be somewhere — collapsing the list while reading a pull request
-            and then closing it must not strand you. */}
+        {/* `DetailChrome` carries the toggle when something is open. With
+            nothing open there is no bar, and a collapsed list would otherwise
+            leave no way back. */}
         {!detail && !issue && (
           <div className="pane-ledge relative z-30 shrink-0 h-12 flex items-center px-3">
             <SidebarToggle
@@ -321,9 +310,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 }
 
 /**
- * The panel surface, pinned exactly where the kanban board is pinned. Switching
- * between the two with the title bar toggle should move what is inside the
- * frame, not the frame.
+ * Pinned exactly where the kanban board is, so the title bar toggle moves what
+ * is inside the frame rather than the frame.
  */
 function Frame({ children }: { children?: ReactNode }) {
   return (
@@ -346,7 +334,6 @@ function Centred({ children }: { children: ReactNode }) {
   return <div className="flex-1 min-w-0 flex flex-col items-center justify-center gap-3 px-6">{children}</div>;
 }
 
-/** Why the panel is empty, rather than a blank screen. */
 function UnavailableNotice({ message, reason }: { message?: string; reason?: string }) {
   return (
     <Centred>

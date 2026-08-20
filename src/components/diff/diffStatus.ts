@@ -1,9 +1,3 @@
-/**
- * Status glyphs, colors, and labels for a changed file.
- *
- * Read by the worktree diff panel and the pull request files view.
- */
-
 import type { ChangedFile } from '../../types';
 
 export type DiffFileStatus = ChangedFile['status'];
@@ -15,7 +9,7 @@ interface StatusStyle {
   label: string;
 }
 
-/** Modified is also the fallback: anything git reports that isn't one of these. */
+/** Also the fallback for any status git reports that isn't listed below. */
 const MODIFIED: StatusStyle = {
   icon: 'file-dashed',
   color: 'text-ink/50',

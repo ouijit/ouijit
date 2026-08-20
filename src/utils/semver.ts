@@ -5,7 +5,6 @@
  * check and the `gh` version probe.
  */
 
-/** True when `a` is a later version than `b`. */
 export function semverGt(a: string, b: string): boolean {
   const pa = a.split('.').map(Number);
   const pb = b.split('.').map(Number);
@@ -16,7 +15,6 @@ export function semverGt(a: string, b: string): boolean {
   return false;
 }
 
-/** True when `version` is at least `minimum`. */
 export function versionAtLeast(version: string, minimum: string): boolean {
   return !semverGt(minimum, version);
 }

@@ -1,7 +1,6 @@
 /**
- * Regression coverage for T-378: the home view was missing the
- * agentHooks.onStatus subscription, so its status dot never updated after
- * the initial seed.
+ * Every view rendering terminal cards must mount the agentHooks.onStatus
+ * subscription, or its status dots never move past the initial seed.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';

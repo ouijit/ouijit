@@ -67,7 +67,6 @@ import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
 
-/** Hooks object returned by hooks:get — derived from the canonical ProjectSettings type */
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
 
 /**
