@@ -1,29 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { checkForLinuxUpdate, initUpdater, _resetForTesting } from '../updater';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { checkForLinuxUpdate, initUpdater, cleanupUpdater, _resetForTesting } from '../updater';
 import { semverGt } from '../utils/semver';
 
-// Mock electron modules
 const mockGetVersion = vi.fn(() => '1.0.0');
 const mockFetch = vi.fn();
 const mockTypedPush = vi.fn();
+const mockCheckForUpdates = vi.fn();
+const mockQuitAndInstall = vi.fn();
+const mockShowMessageBox = vi.fn(() => Promise.resolve({ response: 1 }));
+const updaterHandlers = new Map<string, (...args: unknown[]) => void>();
+let isPackaged = false;
 
 vi.mock('electron', () => ({
   app: {
     getPath: () => '/tmp/test',
+    getName: () => 'ouijit',
     get isPackaged() {
-      return false;
+      return isPackaged;
     },
     getVersion: () => mockGetVersion(),
+  },
+  autoUpdater: {
+    setFeedURL: vi.fn(),
+    on: (event: string, handler: (...args: unknown[]) => void) => updaterHandlers.set(event, handler),
+    checkForUpdates: () => mockCheckForUpdates(),
+    quitAndInstall: () => mockQuitAndInstall(),
+  },
+  dialog: {
+    showMessageBox: () => mockShowMessageBox(),
   },
   net: {
     fetch: (...args: unknown[]) => mockFetch(...args),
   },
   BrowserWindow: vi.fn(),
-}));
-
-vi.mock('update-electron-app', () => ({
-  updateElectronApp: vi.fn(),
-  UpdateSourceType: { ElectronPublicUpdateService: 0 },
 }));
 
 vi.mock('../ipc/helpers', () => ({
@@ -150,6 +159,7 @@ describe('initUpdater opt-out gates', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     _resetForTesting();
+    isPackaged = false;
     delete process.env.OUIJIT_DISABLE_UPDATES;
   });
 
@@ -160,8 +170,101 @@ describe('initUpdater opt-out gates', () => {
   });
 
   it('returns early in dev mode (not packaged)', async () => {
-    // app.isPackaged is hard-coded to false in the mock above
     await initUpdater(mockWindow);
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('macOS update checks', () => {
+  const latestRelease = (tag: string) => ({
+    ok: true,
+    json: () => Promise.resolve({ tag_name: tag, html_url: 'https://example.com' }),
+  });
+
+  const hourPasses = () => vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+  const launch = async () => {
+    await initUpdater(mockWindow);
+    await vi.advanceTimersByTimeAsync(0);
+  };
+
+  const downloadCompletes = (releaseName?: string) =>
+    updaterHandlers.get('update-downloaded')?.(undefined, undefined, releaseName);
+
+  const realPlatform = process.platform;
+  const setPlatform = (platform: string) =>
+    Object.defineProperty(process, 'platform', { value: platform, configurable: true });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updaterHandlers.clear();
+    _resetForTesting();
+    vi.useFakeTimers();
+    delete process.env.OUIJIT_DISABLE_UPDATES;
+    isPackaged = true;
+    setPlatform('darwin');
+    mockGetVersion.mockReturnValue('1.0.0');
+    mockShowMessageBox.mockResolvedValue({ response: 1 });
+  });
+
+  afterEach(() => {
+    cleanupUpdater();
+    vi.useRealTimers();
+    isPackaged = false;
+    setPlatform(realPlatform);
+  });
+
+  it('asks for a given release only once, however long it stays the latest', async () => {
+    mockFetch.mockResolvedValue(latestRelease('v1.1.0'));
+
+    await launch();
+    await hourPasses();
+    await hourPasses();
+
+    expect(mockCheckForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not ask again while the restart prompt sits deferred', async () => {
+    mockFetch.mockResolvedValue(latestRelease('v1.1.0'));
+    await launch();
+
+    downloadCompletes('v1.1.0');
+    await hourPasses();
+    await hourPasses();
+
+    expect(mockCheckForUpdates).toHaveBeenCalledTimes(1);
+    expect(mockShowMessageBox).toHaveBeenCalledTimes(1);
+    expect(mockQuitAndInstall).not.toHaveBeenCalled();
+  });
+
+  it('asks again once a newer release ships', async () => {
+    mockFetch.mockResolvedValue(latestRelease('v1.1.0'));
+    await launch();
+
+    mockFetch.mockResolvedValue(latestRelease('v1.2.0'));
+    await hourPasses();
+
+    expect(mockCheckForUpdates).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips the download when the release lookup fails, and recovers next hour', async () => {
+    mockFetch.mockRejectedValue(new Error('network failure'));
+    await launch();
+
+    expect(mockCheckForUpdates).not.toHaveBeenCalled();
+
+    mockFetch.mockResolvedValue(latestRelease('v1.1.0'));
+    await hourPasses();
+
+    expect(mockCheckForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('installs the staged update when the user picks Restart', async () => {
+    mockShowMessageBox.mockResolvedValue({ response: 0 });
+    mockFetch.mockResolvedValue(latestRelease('v1.1.0'));
+    await launch();
+
+    downloadCompletes('v1.1.0');
+    await vi.waitFor(() => expect(mockQuitAndInstall).toHaveBeenCalled());
   });
 });

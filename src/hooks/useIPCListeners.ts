@@ -88,7 +88,7 @@ function runCliCompletion(projectPath: string, completion: PendingCliCompletion)
 
 /**
  * Registers global IPC push event listeners.
- * Call once in App.tsx. Handles cleanup on unmount.
+ * Call once; cleans up on unmount.
  *
  * Per-terminal listeners (pty:data, pty:exit) remain in OuijitTerminal.bind()
  * and are NOT registered here — they are imperative, not React-managed.
@@ -101,7 +101,6 @@ export function useIPCListeners() {
   useEffect(() => {
     const cleanups: Array<() => void> = [];
 
-    // Fullscreen state changes from main process
     cleanups.push(
       window.api.onFullscreenChange((isFullscreen) => {
         useAppStore.getState().setFullscreen(isFullscreen);
@@ -152,7 +151,6 @@ export function useIPCListeners() {
       }),
     );
 
-    // Health probe results from main
     cleanups.push(
       window.api.health.onUpdate((status) => {
         useAppStore.getState().setHealth(status);

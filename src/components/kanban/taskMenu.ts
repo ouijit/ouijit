@@ -3,7 +3,7 @@ import type { SandboxProviderId, TaskStatus } from '../../types';
 import { SANDBOX_BACKEND_LABELS } from '../../types';
 import { FILE_MANAGER_NAME } from '../../utils/fileManager';
 
-/** Column display names, shared by the "Move to" menu and its toasts. */
+/** Column display names, as the "Move to" menu and its toasts write them. */
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: 'To Do',
   in_progress: 'In Progress',
@@ -11,12 +11,7 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
   done: 'Done',
 };
 
-/**
- * The task actions shared by the kanban card menu and a task terminal's header
- * menu. Callers supply the handlers — they open terminals and move status
- * through different plumbing — and compose these entries with their own
- * context-specific items around them.
- */
+/** Callers supply the handlers and add their own entries around these. */
 export interface TaskMenuActions {
   /** Open a new terminal for the task; a provider opens it sandboxed. */
   openTerminal: (provider?: SandboxProviderId) => void;
@@ -36,7 +31,7 @@ export interface TaskMenuActions {
 /**
  * "Open in ▸" — a host Terminal, one entry per installed sandbox backend,
  * Editor, and the OS file manager. The file manager entry needs a worktree on
- * disk to point at, so it only appears once the task has one.
+ * disk, so it only appears once the task has one.
  */
 export function openInEntry(
   sandboxProviders: SandboxProviderId[],
@@ -61,17 +56,10 @@ export function openInEntry(
   return { label: 'Open in', submenu };
 }
 
-/**
- * GitHub actions for a task. Returns nothing when the feature is off for the
- * project, so the menu shape is unchanged for anyone not using it.
- *
- * Lives here rather than in either caller: the kanban card and the terminal
- * header share this menu.
- */
+/** Returns nothing when the GitHub feature is off for the project. */
 export interface GithubMenuActions {
   openPullRequest: (prNumber: number) => void;
   createPullRequest: () => void;
-  unlinkPullRequest: () => void;
 }
 
 export function githubEntries(
@@ -88,7 +76,6 @@ export function githubEntries(
         icon: 'git-pull-request',
         onClick: () => actions.openPullRequest(prNumber),
       },
-      { label: 'Unlink pull request', onClick: actions.unlinkPullRequest },
     ];
   }
 

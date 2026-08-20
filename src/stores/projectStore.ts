@@ -150,16 +150,13 @@ interface ProjectStoreActions {
   setTagFilter: (tag: string | null) => void;
   resetForProject: () => void;
 
-  /** Toggle a single task's selection (Cmd/Ctrl+click) */
   toggleTaskSelection: (taskNumber: number) => void;
-  /** Select a range of tasks from anchor to target (Shift+click) */
   selectTaskRange: (taskNumber: number, orderedTaskNumbers: number[]) => void;
-  /** Clear all selection */
   clearSelection: () => void;
 
   /** Load tasks from IPC with staleness check */
   loadTasks: (projectPath: string) => Promise<void>;
-  /** Load scripts from IPC */
+  loadTasksIfActive: (projectPath: string) => Promise<void>;
   loadScripts: (projectPath: string) => Promise<void>;
   /**
    * Load project-scoped config (sandbox availability + configured hooks) in a
@@ -383,6 +380,17 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     }
   },
 
+  /**
+   * `tasks` is a singleton holding the *active* project's list, so anything
+   * that finishes after the user has moved on must not load into it. Not folded
+   * into `loadTasks`: navigation loads a project's tasks before making it
+   * active, so the board paints with content.
+   */
+  loadTasksIfActive: async (projectPath) => {
+    if (useAppStore.getState().activeProjectPath !== projectPath) return;
+    await get().loadTasks(projectPath);
+  },
+
   loadScripts: async (projectPath) => {
     // Version-guarded like loadProjectConfig: if the user switches A → B while
     // A's IPC is in flight, B's call bumps the version so A's late response is
@@ -435,12 +443,10 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   moveTask: async (projectPath, taskNumber, newStatus, targetIndex) => {
     const prev = get().tasks;
     const moveVersion = ++moveCounter;
-    // Optimistic: reorder locally
     const task = prev.find((t) => t.taskNumber === taskNumber);
     if (!task) return;
     const updated = prev.filter((t) => t.taskNumber !== taskNumber);
     const updatedTask = { ...task, status: newStatus as TaskWithWorkspace['status'] };
-    // Insert at target position within the status group
     const statusTasks = updated.filter((t) => t.status === newStatus);
     const otherTasks = updated.filter((t) => t.status !== newStatus);
     statusTasks.splice(targetIndex, 0, updatedTask);

@@ -1,6 +1,15 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 
+import { CommandPalette } from '../../components/CommandPalette';
+import { usePaletteShortcut } from '../../hooks/usePaletteShortcut';
+import { addProjectTerminal, reconnectOrphanedSessions } from '../../components/terminal/terminalActions';
+import { useAppStore } from '../../stores/appStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { useTerminalStore, DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from '../../stores/terminalStore';
+import { useUIStore } from '../../stores/uiStore';
+import type { ActiveSession, Project, TaskWithWorkspace } from '../../types';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
@@ -16,15 +25,6 @@ vi.mock('../../components/terminal/terminalActions', () => ({
 vi.mock('../../components/terminal/terminalReact', () => ({
   terminalInstances: new Map(),
 }));
-
-import { CommandPalette } from '../../components/CommandPalette';
-import { usePaletteShortcut } from '../../hooks/usePaletteShortcut';
-import { addProjectTerminal, reconnectOrphanedSessions } from '../../components/terminal/terminalActions';
-import { useAppStore } from '../../stores/appStore';
-import { useProjectStore } from '../../stores/projectStore';
-import { useTerminalStore, DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from '../../stores/terminalStore';
-import { useUIStore } from '../../stores/uiStore';
-import type { ActiveSession, Project, TaskWithWorkspace } from '../../types';
 
 const projectA: Project = { path: '/work/alpha', name: 'Alpha' };
 const projectB: Project = { path: '/work/bravo', name: 'Bravo' };

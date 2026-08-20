@@ -1,11 +1,15 @@
 /**
- * Tests for the IPC refactor: async listWorktrees/shipWorktree conversions,
- * path traversal validation, and taskLifecycle await propagation.
+ * Async listWorktrees/shipWorktree, path-traversal validation, and await
+ * propagation through taskLifecycle.
  */
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import * as os from 'node:os';
 import { createTask, _resetCacheForTesting } from '../db';
+import { exec } from 'node:child_process';
+import { listWorktrees, shipWorktree } from '../worktree';
+import { createProject } from '../projectCreator';
+import { getTasksWithWorkspaces } from '../taskLifecycle';
 
 // ── Mocks (superset needed by all describe blocks) ──────────────────
 
@@ -44,13 +48,6 @@ vi.mock('../git', () => ({
 vi.mock('../hookRunner', () => ({
   executeHook: vi.fn(async () => ({ success: true, output: '' })),
 }));
-
-// ── Imports (after mocks) ───────────────────────────────────────────
-
-import { exec } from 'node:child_process';
-import { listWorktrees, shipWorktree } from '../worktree';
-import { createProject } from '../projectCreator';
-import { getTasksWithWorkspaces } from '../taskLifecycle';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -238,7 +235,6 @@ describe('getTasksWithWorkspaces', () => {
     const project = '/projects/myproject';
     const livePath = `${baseDir}/T-1`;
 
-    // Return a worktree list that maps feature-1 → livePath
     mockExec(() => {
       const porcelain = [
         `worktree /projects/myproject`,

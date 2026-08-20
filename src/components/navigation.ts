@@ -1,11 +1,8 @@
 /**
- * Shared navigation actions.
- *
- * The sidebar, the app-init restore and the command palette all need the same
- * "go to this project / home / terminal" behavior, and the sequences are
- * order-sensitive (tasks are pre-fetched before navigating so the kanban paints
- * correctly through the view-transition snapshot; the terminal card stack
- * reverts an active index that a tag filter hides).
+ * Shared navigation actions for the sidebar, the app-init restore and the
+ * command palette. The sequences are order-sensitive: tasks are pre-fetched
+ * before navigating so the kanban paints through the view-transition snapshot,
+ * and the terminal card stack reverts an active index a tag filter hides.
  */
 
 import type { Project, TaskWithWorkspace } from '../types';
@@ -19,12 +16,8 @@ import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartSe
 import { terminalInstances } from './terminal/terminalReact';
 
 /**
- * Navigate to a project. Direction of the view transition reflects the
- * relative position in the sidebar — a project below the current one slides the
- * new view up into place, above slides down. Home is the top of the list.
- *
- * Tasks are loaded before navigating so the first paint of the project view
- * (kanban included) shows real content rather than an empty board.
+ * Navigates to a project, transitioning in the direction of its position in the
+ * sidebar. Tasks load first, so the project view's first paint has content.
  */
 export async function selectProject(path: string, project: Project): Promise<void> {
   const state = useAppStore.getState();
@@ -61,14 +54,10 @@ function focusXterm(ptyId: string): void {
 }
 
 /**
- * Bring a terminal to the front, wherever it lives.
- *
- * A session that this renderer hasn't hydrated yet (its project was never
- * visited this launch) is reconnected first — `reconnectOrphanedSessions` is
- * idempotent, so this is safe for already-registered projects too.
- *
- * `projectPath` is only needed for that not-yet-hydrated case; for a terminal
- * already in the store it's read from the display state.
+ * Brings a terminal to the front, reconnecting a session this renderer has not
+ * hydrated yet. `reconnectOrphanedSessions` is idempotent, so this is safe for
+ * registered projects too. `projectPath` is needed only for the unhydrated
+ * case.
  */
 export async function focusTerminal(ptyId: string, projectPath?: string): Promise<void> {
   let display = useTerminalStore.getState().displayStates[ptyId];
@@ -128,15 +117,12 @@ export interface TaskWorktreeTarget {
 }
 
 /**
- * Open a plain shell in an existing task worktree.
+ * Opens a plain shell in an existing task worktree. `skipAutoHook` is required:
+ * without it `addProjectTerminal` substitutes the project's continue hook and
+ * relaunches the agent.
  *
- * `skipAutoHook` keeps this a pure navigation action: without it,
- * `addProjectTerminal` substitutes the project's continue hook as the start
- * command and relaunches the agent (what the home recents panel wants, not what
- * a switcher should do).
- *
- * Spawns before navigating, matching the recents panel — the project view force-
- * shows the kanban when it mounts with no terminals registered for the project.
+ * Spawns before navigating, since the project view force-shows the kanban when
+ * it mounts with no terminals registered.
  */
 export async function openTaskWorktree(target: TaskWorktreeTarget): Promise<void> {
   const added = await addProjectTerminal(target.project.path, undefined, {

@@ -12,22 +12,19 @@ export interface KanbanColumnViewProps {
   isOver?: boolean;
   bodyRef?: Ref<HTMLDivElement>;
   onBodyClick?: (e: MouseEvent<HTMLDivElement>) => void;
-  /** Short caption rendered in place of the count when set — used to surface
-   *  modifier-key affordances mid-drag (e.g. "shift to skip hook"). */
+  /** Replaces the count when set — used for mid-drag modifier hints. */
   caption?: string;
   children?: ReactNode;
   /**
-   * Pinned below the scrolling card list. The new-task composer lives here so
-   * column length never pushes it out of view.
+   * Pinned below the scrolling card list, so the new-task composer stays in
+   * view however long the column is.
    */
   footer?: ReactNode;
 }
 
 /**
- * Pure presentational kanban column. No store reads, no dnd hooks.
- *
- * Used by the smart KanbanColumn wrapper (which attaches dnd-kit via bodyRef)
- * and by the marketing site (which omits bodyRef and renders static cards).
+ * Pure presentational kanban column: no store reads, no dnd hooks. The
+ * marketing site renders it too, so it must stay free of both.
  */
 export function KanbanColumnView({
   status,
@@ -47,14 +44,12 @@ export function KanbanColumnView({
   const headerRef = useRef<HTMLDivElement>(null);
 
   /**
-   * Publish the room a column has for its card list as `--kanban-body-h`, so
-   * the composer can cap its description at a share of it without measuring
-   * anything itself.
+   * Publishes the column's room for cards as `--kanban-body-h`, so the composer
+   * can cap its description without measuring anything itself.
    *
-   * Deliberately derived from the *column* rather than the card list: the
-   * composer sits in the same flex column, so a cap measured off the live body
-   * height would shrink as the composer grew, chasing its own tail. Column
-   * height minus the header is fixed by the board, so the cap holds still.
+   * Measured off the column, not the card list: the composer shares that flex
+   * column, so a cap read from the live body height would shrink as the
+   * composer grew. Column height minus the header is fixed by the board.
    */
   useEffect(() => {
     const column = columnRef.current;
@@ -72,10 +67,9 @@ export function KanbanColumnView({
   return (
     <div
       ref={columnRef}
-      // The column owns every vertical boundary on the board; a card owns the
-      // horizontal ones between itself and the task below. The first column
-      // goes without one — see `.kanban-column:first-child`, which has to be
-      // CSS rather than a `first:` utility to outrank the seam.
+      // Columns own the board's vertical seams; cards own the horizontal ones.
+      // The first column's exception is `.kanban-column:first-child`, which
+      // must be CSS rather than a `first:` utility to outrank this.
       className="kanban-column pane-seam-left flex flex-col transition-all duration-150 ease-out shrink-0"
       style={{ minWidth: 240, flex: '1 0 240px' }}
       data-status={status}
@@ -102,8 +96,7 @@ export function KanbanColumnView({
       <div
         ref={bodyRef}
         className="kanban-column-body flex flex-col overflow-y-auto flex-1 min-h-0"
-        // No border of its own: the header above owns that boundary, and two
-        // of them stack three lines at the top of every column.
+        // No border: the header above owns that boundary.
         style={{
           scrollbarColor: 'transparent transparent',
           transition: 'background 150ms ease',

@@ -1,5 +1,10 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
+import { reconnectRunnerToParent } from '../../components/terminal/terminalActions';
+import { terminalInstances, OuijitTerminal } from '../../components/terminal/terminalReact';
+import { useTerminalStore } from '../../stores/terminalStore';
+import type { ActiveSession } from '../../types';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
@@ -59,11 +64,6 @@ vi.mock('../../components/terminal/terminalReact', () => {
       taskName || branch || fallback || 'Shell',
   };
 });
-
-import { reconnectRunnerToParent } from '../../components/terminal/terminalActions';
-import { terminalInstances, OuijitTerminal } from '../../components/terminal/terminalReact';
-import { useTerminalStore } from '../../stores/terminalStore';
-import type { ActiveSession } from '../../types';
 
 const PROJECT = '/project';
 

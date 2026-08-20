@@ -37,7 +37,7 @@ import type {
   IssueDetail,
   CommentKind,
   ReviewEvent,
-  MergeMethod,
+  MergeOptions,
   PullRequestState,
 } from './types';
 
@@ -147,6 +147,7 @@ interface RawDetail extends RawSummary {
   mergeable: string;
   mergeStateStatus: string;
   viewerCanUpdate: boolean;
+  viewerCanMergeAsAdmin: boolean;
   reviewThreads: { nodes: Array<RawThread | null> | null } | null;
   timelineItems: { nodes: Array<RawTimelineNode | null> | null } | null;
 }
@@ -163,7 +164,7 @@ function mapLabels(labels: RawLabelConnection | null | undefined): PullRequestLa
   return (labels?.nodes ?? []).filter((l): l is PullRequestLabel => l != null);
 }
 
-/** Draft is not a state here — it rides beside this one, as `isDraft`. */
+/** Draft status rides beside this as `isDraft`, not as one of these values. */
 function mapState(state: string): PullRequestState {
   if (state === 'MERGED') return 'merged';
   if (state === 'CLOSED') return 'closed';
@@ -302,8 +303,8 @@ function mapTimelineItem(raw: RawTimelineNode): TimelineItem | null {
         viewerCanDelete: raw.viewerCanDelete ?? false,
       };
     case 'PullRequestReview':
-      // A review with no body and no state worth showing is just the envelope
-      // around inline comments, which the threads panel already renders.
+      // A review with no body and no state is only the envelope around inline
+      // comments, which the threads panel already renders.
       if (!raw.body && (raw.state === 'COMMENTED' || !raw.state)) return null;
       return { ...base, kind: 'review', body: raw.body ?? '', reviewState: raw.state };
     case 'MergedEvent':
@@ -351,6 +352,7 @@ export function deriveMergeStatus(raw: {
   isDraft: boolean;
   reviewDecision: ReviewDecision;
   checksState: ChecksState;
+  viewerCanMergeAsAdmin: boolean;
 }): MergeStatus {
   const blockers: string[] = [];
   if (raw.isDraft) blockers.push('Pull request is a draft');
@@ -363,10 +365,17 @@ export function deriveMergeStatus(raw: {
   if (raw.mergeStateStatus === 'BLOCKED' && blockers.length === 0) {
     blockers.push('Blocked by a branch protection rule');
   }
+  const hardBlock = raw.isDraft
+    ? 'Mark the pull request ready for review first'
+    : raw.mergeable === 'CONFLICTING'
+      ? 'Resolve the conflicts first'
+      : null;
   return {
     mergeable: raw.mergeable === 'MERGEABLE' || raw.mergeable === 'CONFLICTING' ? raw.mergeable : 'UNKNOWN',
     stateStatus: raw.mergeStateStatus,
     blockers,
+    hardBlock,
+    canBypass: raw.viewerCanMergeAsAdmin && hardBlock == null && blockers.length > 0,
   };
 }
 
@@ -415,12 +424,9 @@ export async function fetchInbox(identity: RepoIdentity): Promise<PullRequestInb
 }
 
 /**
- * The cheapest question that can be asked about a pull request: is it still
- * the one on screen?
- *
- * Deliberately not `fetchPullRequest` with the answer thrown away. This runs on
- * hover, and the detail query costs a hundred review threads, a timeline and a
- * check rollup to answer a question about four fields.
+ * Whether the pull request on screen is still current. Runs on hover, so it
+ * asks for four fields rather than reusing `fetchPullRequest`, whose detail
+ * query pulls a hundred threads, a timeline and a check rollup.
  */
 export async function fetchPullRequestFreshness(identity: RepoIdentity, number: number): Promise<PullRequestFreshness> {
   const data = await ghGraphql<{
@@ -475,6 +481,7 @@ export async function fetchPullRequest(identity: RepoIdentity, number: number): 
       isDraft: pr.isDraft,
       reviewDecision: summary.reviewDecision,
       checksState: summary.checksState,
+      viewerCanMergeAsAdmin: pr.viewerCanMergeAsAdmin,
     }),
     threads: (pr.reviewThreads?.nodes ?? []).filter((t): t is RawThread => t != null).map(mapThread),
     timeline: (pr.timelineItems?.nodes ?? [])
@@ -541,11 +548,9 @@ export async function fetchIssues(identity: RepoIdentity): Promise<GithubIssue[]
 }
 
 /**
- * One issue by number, with its thread.
- *
- * Deliberately not "find it in the list": the list is open issues only, so
- * looking one up there fails for anything closed, anything past the limit, and
- * anything that changed state since the last fetch.
+ * One issue by number, with its thread. Not looked up in the list, which holds
+ * open issues only and is capped, so anything closed or past the limit would be
+ * unreachable.
  */
 export async function fetchIssue(identity: RepoIdentity, number: number): Promise<IssueDetail> {
   const data = await ghGraphql<{
@@ -569,41 +574,57 @@ export async function fetchIssue(identity: RepoIdentity, number: number): Promis
   };
 }
 
-/** The open PR whose head is `branch`, or null. Drives auto-detect on task load. */
+/**
+ * A pull request from a fork can carry the same head branch name as a local
+ * one, so cross-repository rows are dropped here rather than by each caller.
+ */
+async function listPrs<T>(
+  identity: RepoIdentity,
+  filters: string[],
+  fields: Array<keyof T & string>,
+  cwd?: string,
+): Promise<T[]> {
+  try {
+    const raw = await runGh(
+      ['pr', 'list', '--repo', repoSlug(identity), ...filters, '--json', [...fields, 'isCrossRepository'].join(',')],
+      { identity, cwd },
+    );
+    const parsed: unknown = JSON.parse(raw.trim() || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as Array<T & { isCrossRepository: boolean }>).filter((pr) => !pr.isCrossRepository);
+  } catch {
+    return [];
+  }
+}
+
 export async function findPullRequestForBranch(
   identity: RepoIdentity,
   branch: string,
   cwd?: string,
 ): Promise<number | null> {
-  try {
-    const raw = await runGh(
-      [
-        'pr',
-        'list',
-        '--repo',
-        repoSlug(identity),
-        '--head',
-        branch,
-        '--state',
-        'all',
-        // More than one: with a limit of 1 the open-vs-closed preference below
-        // could never apply, so a branch whose old PR was merged and then
-        // reopened linked to the merged one.
-        '--limit',
-        '10',
-        '--json',
-        'number,state',
-      ],
-      { identity, cwd },
-    );
-    const parsed = JSON.parse(raw.trim() || '[]') as Array<{ number: number; state: string }>;
-    // Prefer an open PR; a stale closed one for the same branch shouldn't get
-    // linked to a task that is being worked on again.
-    const open = parsed.find((p) => p.state === 'OPEN');
-    return (open ?? parsed[0])?.number ?? null;
-  } catch {
-    return null;
-  }
+  const prs = await listPrs<{ number: number; state: string }>(
+    identity,
+    // More than one, so the open-over-closed preference below has something to
+    // choose between on a branch whose old pull request was merged.
+    ['--head', branch, '--state', 'all', '--limit', '10'],
+    ['number', 'state'],
+    cwd,
+  );
+  // Prefer an open PR; a stale closed one for the same branch shouldn't get
+  // linked to a task that is being worked on again.
+  const open = prs.find((p) => p.state === 'OPEN');
+  return (open ?? prs[0])?.number ?? null;
+}
+
+type PullRequestBranch = Pick<PullRequestSummary, 'number' | 'headRefName'>;
+
+export async function fetchOpenPullRequestBranches(identity: RepoIdentity, cwd?: string): Promise<PullRequestBranch[]> {
+  return listPrs<PullRequestBranch>(
+    identity,
+    ['--state', 'open', '--limit', String(PR_LIST_LIMIT)],
+    ['number', 'headRefName'],
+    cwd,
+  );
 }
 
 // ── Writes ───────────────────────────────────────────────────────────
@@ -618,16 +639,13 @@ export interface DraftReviewComment {
 }
 
 /**
- * Submit a review as a single request carrying every batched comment.
+ * Submits a review as one `POST /pulls/{n}/reviews` rather than a call per
+ * draft: it is atomic, and it avoids the secondary rate limiting GitHub applies
+ * to rapid comment writes.
  *
- * One `POST /pulls/{n}/reviews` rather than a comment call per draft: it is
- * atomic (a partial failure can't leave half a review on the PR) and it stays
- * clear of the secondary rate limiting GitHub applies to rapid comment writes.
- *
- * Anchors are `line` + `side`, which are file line numbers in the head blob
- * (RIGHT) or base blob (LEFT) — exactly what the local `base...head` diff
- * already produces. The older `position` field is a diff offset and is not
- * sent.
+ * Anchors are `line` + `side`, file line numbers in the head or base blob,
+ * which the local `base...head` diff already produces. The older `position`
+ * field is a diff offset and is not sent.
  */
 export async function submitReview(
   identity: RepoIdentity,
@@ -670,12 +688,9 @@ export async function addIssueComment(identity: RepoIdentity, number: number, bo
 }
 
 /**
- * Delete a comment.
- *
- * Two endpoints for what reads as one thing: a conversation comment belongs to
- * the issue thread (a pull request has one of those too), and a comment
- * anchored to a line belongs to the pull request's review comments. GitHub does
- * not accept either id at the other's path.
+ * Two endpoints: a conversation comment belongs to the issue thread, and a
+ * line-anchored one to the pull request's review comments. GitHub does not
+ * accept either id at the other's path.
  */
 export async function deleteComment(identity: RepoIdentity, kind: CommentKind, commentId: number): Promise<void> {
   const path = kind === 'review' ? 'pulls/comments' : 'issues/comments';
@@ -695,11 +710,9 @@ export interface CreatePullRequestOptions {
 }
 
 /**
- * Create a PR through `gh pr create` rather than the raw API.
- *
- * That choice is deliberate: gh applies the repo's pull request template and
- * expands closing keywords (`Fixes #123`) the way GitHub's own UI does, which
- * a bare `POST /pulls` would not.
+ * Through `gh pr create` rather than `POST /pulls`: gh applies the repo's pull
+ * request template and expands closing keywords (`Fixes #123`) as GitHub's own
+ * UI does.
  */
 export async function createPullRequest(
   identity: RepoIdentity,
@@ -730,10 +743,15 @@ export async function createPullRequest(
 export async function mergePullRequest(
   identity: RepoIdentity,
   number: number,
-  method: MergeMethod,
-  options?: { deleteBranch?: boolean; cwd?: string },
+  options: MergeOptions & { cwd?: string },
 ): Promise<void> {
-  const args = ['pr', 'merge', String(number), '--repo', repoSlug(identity), `--${method}`];
-  if (options?.deleteBranch) args.push('--delete-branch');
-  await runGh(args, { identity, cwd: options?.cwd });
+  await runGh(mergeArgs(identity, number, options), { identity, cwd: options.cwd });
+}
+
+export function mergeArgs(identity: RepoIdentity, number: number, options: MergeOptions): string[] {
+  const args = ['pr', 'merge', String(number), '--repo', repoSlug(identity), `--${options.method}`];
+  if (options.deleteBranch) args.push('--delete-branch');
+  // gh's name for the bypass GitHub offers admins on a protected branch.
+  if (options.bypass) args.push('--admin');
+  return args;
 }

@@ -23,7 +23,7 @@ import type { CaptureNavigatePayload } from './capture/types';
 import type {
   CommentKind,
   ReviewEvent,
-  MergeMethod,
+  MergeOptions,
   GithubDraftsChangedPayload,
   SaveDraftInput,
   PrHead,
@@ -69,7 +69,6 @@ contextBridge.exposeInMainWorld('api', {
   createProject: (options: CreateProjectOptions) => typedInvoke('create-project', options),
   showFolderPicker: (options?: FolderPickerOptions) => typedInvoke('show-folder-picker', options),
   getDefaultProjectsFolder: () => typedInvoke('projects:get-default-folder'),
-  scanSiblingProjects: (folderPath: string) => typedInvoke('projects:scan-siblings', folderPath),
   prepareProjectsFolderChange: (newFolder: string) => typedInvoke('projects:prepare-folder-change', newFolder),
   applyProjectsFolderChange: (newFolder: string, action: ProjectsFolderChangeAction) =>
     typedInvoke('projects:apply-folder-change', newFolder, action),
@@ -347,12 +346,11 @@ contextBridge.exposeInMainWorld('api', {
     issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
     issue: (projectPath: string, number: number) => typedInvoke('github:issue', projectPath, number),
 
-    linkTaskPr: (projectPath: string, taskNumber: number, prNumber: number | null) =>
-      typedInvoke('github:link-task-pr', projectPath, taskNumber, prNumber),
     linkTaskIssue: (projectPath: string, taskNumber: number, issueNumber: number | null) =>
       typedInvoke('github:link-task-issue', projectPath, taskNumber, issueNumber),
     detectTaskPr: (projectPath: string, taskNumber: number) =>
       typedInvoke('github:detect-task-pr', projectPath, taskNumber),
+    detectProjectPrs: (projectPath: string) => typedInvoke('github:detect-project-prs', projectPath),
 
     drafts: (projectPath: string, prNumber: number, head?: PrHead) =>
       typedInvoke('github:drafts', projectPath, prNumber, head),
@@ -373,8 +371,8 @@ contextBridge.exposeInMainWorld('api', {
       taskNumber: number,
       options: { title?: string; body?: string; base?: string; draft?: boolean },
     ) => typedInvoke('github:create-pr', projectPath, taskNumber, options),
-    mergePr: (projectPath: string, prNumber: number, method: MergeMethod, deleteBranch: boolean) =>
-      typedInvoke('github:merge-pr', projectPath, prNumber, method, deleteBranch),
+    mergePr: (projectPath: string, prNumber: number, options: MergeOptions) =>
+      typedInvoke('github:merge-pr', projectPath, prNumber, options),
     taskFromIssue: (projectPath: string, issueNumber: number) =>
       typedInvoke('github:task-from-issue', projectPath, issueNumber),
     taskFromPr: (projectPath: string, prNumber: number) => typedInvoke('github:task-from-pr', projectPath, prNumber),

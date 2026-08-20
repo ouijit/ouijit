@@ -1,16 +1,12 @@
 /**
- * Following a comment's anchor as the code under it moves, and knowing when it
- * has stopped existing.
+ * Follows a comment's anchor as the code under it moves.
  *
- * A comment records the lines it was written about. That snippet, not the line
- * number, is what the comment is *about*: an edit anywhere above it shifts every
- * number below without changing a thing anyone wrote. So the numbers are
- * re-derived from the snippet, and only a snippet that can no longer be found
- * means the comment has outlived its subject.
+ * Line numbers are re-derived from the recorded snippet, since an edit above a
+ * comment shifts every number below it without touching what it was written
+ * about. A comment is spent only once its snippet can no longer be found.
  *
- * A `LEFT` anchor is the mirror of that. It was written about lines that are
- * *gone*, so it holds while they stay gone and outlives its subject the moment
- * they come back.
+ * A `LEFT` anchor inverts this: it was written about lines that are gone, so it
+ * holds while they stay gone and is spent when they come back.
  */
 
 export interface SnippetAnchor {
@@ -30,10 +26,8 @@ export type AnchorVerdict =
 
 /**
  * Where `snippet` sits in `haystack` now, as a 1-based line number, or null.
- *
  * Compared trimmed, so a reindent is not a rewrite. Ties go to the occurrence
- * nearest `near`, which is where it was last seen — a file with the same three
- * lines in four places is common, and the one that did not move is the match.
+ * nearest `near`, where it was last seen.
  */
 export function findSnippet(haystack: readonly string[], snippet: readonly string[], near: number): number | null {
   if (snippet.length === 0 || snippet.length > haystack.length) return null;
@@ -65,11 +59,8 @@ export interface AnchoredLine {
 
 /**
  * Where a snippet sits in a diff now, given one side of it hunk by hunk.
- *
- * Searched a hunk at a time rather than across the whole file: a comment must
- * anchor inside the diff, and the numbers either side of a hunk boundary are
- * contiguous only within one hunk. A snippet spanning a gap is not a match, it
- * is two fragments that happen to adjoin on screen.
+ * Searched per hunk: line numbers are contiguous only within one, so a snippet
+ * spanning a hunk boundary is not a match.
  */
 export function locateInHunks(
   hunks: readonly (readonly AnchoredLine[])[],
@@ -94,12 +85,9 @@ export function locateInHunks(
 }
 
 /**
- * What has become of one anchor, given the file as it reads now — `null` for a
- * file that is no longer there.
- *
- * An anchor with nothing recorded is never dropped: without a snippet there is
- * no evidence either way, and deleting on a guess loses writing that cannot be
- * recovered.
+ * What has become of one anchor, given the file as it reads now; `null` when
+ * the file is gone. An anchor with no snippet is never dropped — there is no
+ * evidence either way, and a wrong guess deletes writing irrecoverably.
  */
 export function judgeAnchor(anchor: SnippetAnchor, fileLines: readonly string[] | null): AnchorVerdict {
   const snippet = anchor.snippet?.split('\n') ?? null;

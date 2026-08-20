@@ -11,7 +11,6 @@ describe('platform', () => {
     await trashItem('/some/path');
     expect(trashed).toEqual(['/some/path']);
 
-    // Reset to avoid side effects
     setTrashItem(async () => {});
   });
 

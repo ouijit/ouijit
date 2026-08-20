@@ -5,24 +5,19 @@ import { useProjectStore } from '../../stores/projectStore';
 import { describeError } from '../../utils/describeError';
 
 /**
- * The notes on one worktree's diff.
+ * Notes on one worktree's diff, kept in the database so a half-written review
+ * survives the panel closing or the app restarting.
  *
- * Stored in the database rather than in component state, so a half-written
- * review survives the panel being closed or the app restarting.
- *
- * Re-read whenever `revision` changes — the fingerprint of the comparison on
- * screen, so every poll that finds the tree moved is also when the notes are
- * swept for ones whose code has gone. The note open for editing is named to
- * that sweep so an open box cannot be deleted out from under what is being
- * typed into it.
+ * Re-read whenever `revision` changes, which is also when notes whose code has
+ * gone are swept. The note being edited is exempted from that sweep.
  */
 export function useDiffNotes(worktreePath: string, revision: string) {
   const [notes, setNotes] = useState<DiffNote[]>([]);
   const [composingAt, setComposingAt] = useState<DiffAnchor | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Through a ref: a reload is triggered by the tree moving, never by which
-  // note happens to be open, and naming it as a dependency would do both.
+  // Through a ref: reloads follow the tree moving, and naming `editingId` as a
+  // dependency would also reload whenever a box is opened.
   const editing = useRef<string | null>(null);
   editing.current = editingId;
 
@@ -40,10 +35,8 @@ export function useDiffNotes(worktreePath: string, revision: string) {
   }, [reload, revision]);
 
   /**
-   * A write, then a re-read of the list it changed.
-   *
-   * Returning early on failure is what leaves an open box open, so a save that
-   * did not land does not discard what was typed.
+   * Writes, then re-reads. Returning before `settle` on failure is what leaves
+   * an open box open, so a save that did not land keeps what was typed.
    */
   const mutate = useCallback(
     async (verb: string, write: () => Promise<unknown>, settle?: () => void) => {
@@ -90,9 +83,8 @@ export function useDiffNotes(worktreePath: string, revision: string) {
   // One lookup per rendered line rather than a scan of every note on the diff.
   const byAnchor = useMemo(() => Map.groupBy(notes, (note) => anchorKey(note.path, note.line, note.side)), [notes]);
 
-  // Held stable so the panel's `renderBelowLine` can be memoized on it — a new
-  // object every render would be a new callback every render, and the memoized
-  // file sections below it would never bail out.
+  // Held stable so the panel's `renderBelowLine` can memoize on it; otherwise
+  // every file section below re-renders on every render.
   return useMemo(
     () => ({ notes, byAnchor, composingAt, setComposingAt, editingId, setEditingId, save, discard, clear }),
     [notes, byAnchor, composingAt, editingId, save, discard, clear],

@@ -183,10 +183,8 @@ function registerTerminal(
 ): void {
   const ptyId = term.ptyId;
 
-  // Add to instance registry
   terminalInstances.set(ptyId, term);
 
-  // Set project name getter for notifications
   term.setProjectNameGetter(() => useAppStore.getState().activeProjectData?.name ?? 'Ouijit');
 
   if (replaceLoadingId) {
@@ -280,7 +278,6 @@ export async function addProjectTerminal(
   const label = options?.label ?? resolveTerminalLabel(taskName, worktreeInfo?.branch, runConfig?.name);
   const command = runConfig?.command;
 
-  // Determine command to run
   let startCommand = command;
   let startEnv: Record<string, string> | undefined;
 
@@ -317,7 +314,6 @@ export async function addProjectTerminal(
   const sandboxProvider = await resolveAvailableProvider(projectPath, requestedProvider);
   const useSandbox = sandboxProvider != null;
 
-  // Create OuijitTerminal
   const term = new OuijitTerminal({
     projectPath,
     command: startCommand,
@@ -331,7 +327,7 @@ export async function addProjectTerminal(
     autoCloseOnSuccess: options?.autoCloseOnSuccess,
   });
 
-  // Open xterm into viewport element (not yet in DOM — React will attach via XTermContainer)
+  // The viewport element is not in the DOM yet; XTermContainer attaches it.
   term.openTerminal();
 
   // For sandbox: register early (before spawn) so the card shows. Skip if
@@ -352,7 +348,6 @@ export async function addProjectTerminal(
     );
   }
 
-  // Spawn PTY
   const spawnOptions: PtySpawnOptions = {
     cwd: terminalCwd,
     projectPath,
@@ -405,13 +400,9 @@ export async function addProjectTerminal(
       );
     }
 
-    // Fetch initial git status and tags
     term.refreshGitStatus();
     term.loadTags();
 
-    // Auto-detect an existing pull request for this task's branch. Runs in the
-    // background and stays silent on failure — it only ever adds a badge, so a
-    // repo without GitHub or an offline machine should cost nothing visible.
     if (options?.taskId != null) {
       void detectPullRequestForTask(projectPath, options.taskId);
     }
@@ -478,20 +469,17 @@ export async function reconnectTerminal(
 
   term.openTerminal();
 
-  // Reconnect to existing PTY
   const result = await window.api.pty.reconnect(session.ptyId);
   if (!result.success) {
     term.dispose();
     return null;
   }
 
-  // Replay buffered output
   term.replayBuffer(result.bufferedOutput, result.lastCols, result.isAltScreen);
 
   // Suppress PTY resizes while layout settles to avoid SIGWINCH → zsh % artifacts
   term.suppressResizeDuring(500);
 
-  // Bind to PTY (wires data, input, exit, resize)
   term.bind(session.ptyId);
 
   // Register in store as a background terminal — focus is restored explicitly
@@ -510,7 +498,6 @@ export async function reconnectTerminal(
     /* background */ true,
   );
 
-  // Load tags and git status
   term.loadTags();
   term.refreshGitStatus();
 
@@ -563,7 +550,6 @@ async function resolveRunnable(
   };
 }
 
-/** Create a runner panel and spawn its command. Returns the new panel id. */
 export async function startRunner(ptyId: string, script?: RunnerScript): Promise<string | null> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return null;
@@ -596,7 +582,6 @@ export async function spawnRunner(ptyId: string, panelId: string): Promise<void>
   const instance = terminalInstances.get(ptyId);
   if (!instance) return;
 
-  // Double-spawn guard (per runner panel)
   if (instance.runnerSpawning.has(panelId)) return;
   instance.runnerSpawning.add(panelId);
 
@@ -610,8 +595,6 @@ export async function spawnRunner(ptyId: string, panelId: string): Promise<void>
 async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Promise<void> {
   const path = instance.projectPath;
 
-  // Everything needed to run was resolved up front and lives on the panel — one
-  // path for run hooks and scripts alike.
   const panel = instance.panels.find((p) => p.id === panelId);
   if (!panel || panel.kind !== 'runner' || !panel.scriptCommand) {
     instance.updatePanel(panelId, { status: 'error' });
@@ -642,7 +625,6 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
 
   runner.openTerminal();
 
-  // Spawn PTY for the runner
   const cwd = instance.worktreePath || path;
   const spawnOptions: PtySpawnOptions = {
     cwd,
@@ -678,10 +660,8 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
       return;
     }
 
-    // Register runner in instance registry
     terminalInstances.set(result.ptyId, runner);
 
-    // Bind runner with custom data/exit handlers
     runner.bind(result.ptyId, {
       skipSideEffects: true,
       onData: (data) => {
@@ -835,10 +815,8 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
     return;
   }
 
-  // The single reconnect path, used by both the project view (scoped to one
-  // project) and the home view (all projects). Scoping only narrows which
-  // sessions are considered; the per-terminal restore is identical either way,
-  // so panels can't be dropped by one path that the other applies.
+  // `projectPath` only narrows which sessions are considered; the per-terminal
+  // restore below is identical either way.
   const relevant = projectPath ? sessions.filter((s) => s.projectPath === projectPath) : sessions;
   if (relevant.length === 0) return;
 

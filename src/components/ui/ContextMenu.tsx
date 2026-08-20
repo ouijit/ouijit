@@ -38,7 +38,6 @@ const PANEL_STYLE = {
   boxShadow: 'var(--shadow-menu)',
 } as const;
 
-/** Renders the entries of a menu (or submenu). `onSelect` fires a leaf action. */
 function MenuList({
   items,
   onSelect,

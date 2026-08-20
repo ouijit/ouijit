@@ -6,7 +6,6 @@
  * boundary.
  */
 
-/** Experimental features that can be toggled per project. */
 export interface ExperimentalFlags {
   /** The nono sandbox backend (still maturing; gated off by default). */
   nono: boolean;

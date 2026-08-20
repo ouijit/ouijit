@@ -16,10 +16,9 @@ export interface TerminalHeaderViewProps {
   isBackCard?: boolean;
   compact?: boolean;
 
-  /** Identity slot (label, OSC title, optional rename input). Required. */
+  /** Identity slot: label, OSC title, optional rename input. */
   nameContent: ReactNode;
 
-  /** Tag chips. Optional. */
   tagsContent?: ReactNode;
 
   /** Branch row content (typically a copy-button). Rendered below the identity row when active. */
@@ -28,7 +27,6 @@ export interface TerminalHeaderViewProps {
   /** Right-side action area (panel controls, add menu, etc.). */
   actions?: ReactNode;
 
-  /** When true, renders a close × button to the right of actions. */
   showCloseButton?: boolean;
   onClose?: (e: MouseEvent) => void;
   onContextMenu?: (e: MouseEvent) => void;
@@ -124,7 +122,6 @@ export function TerminalHeaderName({ label, lastOscTitle }: { label?: string; la
   );
 }
 
-/** Standard pill renderer for a list of tag strings. */
 export function TerminalHeaderTags({ tags }: { tags: string[] }) {
   return (
     <Fragment>

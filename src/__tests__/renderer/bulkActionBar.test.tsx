@@ -1,6 +1,11 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 
+import { useProjectStore } from '../../stores/projectStore';
+import { BulkActionBar } from '../../components/kanban/BulkActionBar';
+import { bulkTransitionTasks } from '../../services/taskStartService';
+import type { TaskWithWorkspace } from '../../types';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
@@ -10,11 +15,6 @@ vi.mock('electron-log/renderer', () => ({
 vi.mock('../../services/taskStartService', () => ({
   bulkTransitionTasks: vi.fn().mockResolvedValue([]),
 }));
-
-import { useProjectStore } from '../../stores/projectStore';
-import { BulkActionBar } from '../../components/kanban/BulkActionBar';
-import { bulkTransitionTasks } from '../../services/taskStartService';
-import type { TaskWithWorkspace } from '../../types';
 
 const PROJECT = '/project';
 

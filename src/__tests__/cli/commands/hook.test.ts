@@ -2,14 +2,14 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerHookCommands } from '../../../cli/commands/hook';
 
+import { get, put, del } from '../../../cli/api';
+
 vi.mock('../../../cli/api', () => ({
   get: vi.fn(),
   put: vi.fn(),
   del: vi.fn(),
   projectQuery: (p: string) => '?project=' + encodeURIComponent(p),
 }));
-
-import { get, put, del } from '../../../cli/api';
 
 function captureOutput() {
   const chunks: string[] = [];

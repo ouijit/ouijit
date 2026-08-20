@@ -42,7 +42,7 @@
   /* Canvas minimap mask over the area outside the viewport. Read from JS into
      an SVG fill, so it has to be a literal color, not a color-mix(). */
   --color-minimap-mask: rgba(0, 0, 0, 0.35);
-  /* Dark lip around cards/panels (was border-black/60 everywhere) */
+  /* Dark lip around cards and panels. */
   --color-bezel: rgba(0, 0, 0, 0.6);
   /* Border on large floating panels (terminal cards, kanban board,
      settings cards) — darker than --color-bezel on light themes */

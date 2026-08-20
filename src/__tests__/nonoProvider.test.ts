@@ -1,5 +1,8 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 
+import { nonoProvider } from '../sandbox/nono/provider';
+import type { SandboxLaunch, SandboxSpawnContext } from '../sandbox/types';
+
 // Control binary/config resolution so the provider logic is exercised in
 // isolation (no real nono, git, or DB).
 const isNonoInstalled = vi.fn<() => Promise<boolean>>();
@@ -33,9 +36,6 @@ vi.mock('../paths', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../paths')>()),
   getWrapperBinDir: () => '/Users/dev/.config/Ouijit/bin',
 }));
-
-import { nonoProvider } from '../sandbox/nono/provider';
-import type { SandboxLaunch, SandboxSpawnContext } from '../sandbox/types';
 
 const ctx: SandboxSpawnContext = {
   projectPath: '/proj',

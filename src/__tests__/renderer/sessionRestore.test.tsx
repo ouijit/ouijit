@@ -1,5 +1,10 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
+import { restoreSession } from '../../components/terminal/sessionRestore';
+import { addProjectTerminal } from '../../components/terminal/terminalActions';
+import type { LastSessionSnapshot, Project, SnapshotTerminal } from '../../types';
+import type { RestorableEntry } from '../../components/terminal/sessionRestore';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
@@ -13,11 +18,6 @@ vi.mock('../../components/terminal/sessionSnapshot', () => ({
   suspendSnapshotSaves: vi.fn(),
   resumeSnapshotSaves: vi.fn(),
 }));
-
-import { restoreSession } from '../../components/terminal/sessionRestore';
-import { addProjectTerminal } from '../../components/terminal/terminalActions';
-import type { LastSessionSnapshot, Project, SnapshotTerminal } from '../../types';
-import type { RestorableEntry } from '../../components/terminal/sessionRestore';
 
 const PROJECT = '/project';
 const project: Project = { path: PROJECT, name: 'Project' } as Project;

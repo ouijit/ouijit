@@ -3,6 +3,8 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+import { installUnionProfile } from '../sandbox/nono/profile';
+
 // Intercept `nono pull` (the registry fallback) and the bundled-resources
 // lookup; everything else (lockfile merge, pack copies, profile write) runs
 // against real files in per-test temp dirs.
@@ -17,8 +19,6 @@ vi.mock('node:child_process', () => ({
 vi.mock('../paths', () => ({
   resolveBundledResourceDir: (...segments: string[]) => resolveBundledResourceDir(...segments),
 }));
-
-import { installUnionProfile } from '../sandbox/nono/profile';
 
 const PACKS = [
   'always-further/claude',
@@ -124,8 +124,8 @@ describe('installUnionProfile', () => {
   test("repairs broken pairs from the bundled tree without clobbering the user's own lockfile state", async () => {
     await writeBundledFixture();
     const packagesDir = path.join(configBase, 'nono', 'packages');
-    // claude: the T-490 state — a pack dir on disk with NO lockfile entry
-    // (nono fails every run with "has no lockfile entry").
+    // claude: a pack dir on disk with no lockfile entry, which makes nono fail
+    // every run with "has no lockfile entry".
     const claudeDir = path.join(packagesDir, 'always-further', 'claude');
     await fs.mkdir(claudeDir, { recursive: true });
     await fs.writeFile(path.join(claudeDir, 'stale.txt'), 'old contents', 'utf8');

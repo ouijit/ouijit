@@ -12,7 +12,6 @@ import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
-import { AddSiblingProjectsDialog } from './components/dialogs/AddSiblingProjectsDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
 import { CommandPalette } from './components/CommandPalette';
@@ -23,7 +22,7 @@ import { hydrateNotificationSettings } from './utils/notifications';
 import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
 import { hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
-import type { Project, SiblingScanResult } from './types';
+import type { Project } from './types';
 
 const appLog = log.scope('app');
 
@@ -74,10 +73,8 @@ export function App() {
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const [showNewProject, setShowNewProject] = useState(false);
   const [gitInitPath, setGitInitPath] = useState<string | null>(null);
-  const [siblingScan, setSiblingScan] = useState<SiblingScanResult | null>(null);
   const [initialized, setInitialized] = useState(false);
 
-  // Hydrate experimental flags whenever the active project changes
   useEffect(() => {
     if (activeProjectPath) {
       useExperimentalStore.getState().loadFor(activeProjectPath);
@@ -132,7 +129,6 @@ export function App() {
     })();
   }, []);
 
-  // Load projects and restore last active view before rendering content
   useEffect(() => {
     window.api.getProjects().then(async (projects) => {
       useAppStore.getState().setProjects(projects);
@@ -209,24 +205,12 @@ export function App() {
   }, []);
 
   // Register the added folder, refresh the project list, and navigate to it.
-  // Then check the parent directory for sibling repos worth offering to add
-  // in bulk (the Obsidian-vault pattern: one folder holding all projects).
   const finalizeAddedProject = useCallback(async (addedPath: string) => {
-    const [projects, scan] = await Promise.all([
-      window.api.refreshProjects(),
-      // A failed scan only costs the sibling-import offer; the add succeeded.
-      window.api.scanSiblingProjects(addedPath).catch((error: unknown): null => {
-        appLog.warn('sibling scan failed', { error: error instanceof Error ? error.message : String(error) });
-        return null;
-      }),
-    ]);
+    const projects = await window.api.refreshProjects();
     useAppStore.getState().setProjects(projects);
     const project = projects.find((p) => p.path === addedPath);
     if (project) {
       useAppStore.getState().navigateToProject(addedPath, project);
-    }
-    if (scan && scan.siblings.length > 0) {
-      setSiblingScan(scan);
     }
   }, []);
 
@@ -259,29 +243,6 @@ export function App() {
       }
     },
     [gitInitPath, finalizeAddedProject],
-  );
-
-  const handleSiblingScanClose = useCallback(
-    async (result: { addAll: boolean } | null) => {
-      const scan = siblingScan;
-      setSiblingScan(null);
-      if (!result?.addAll || !scan) return;
-      const results = await Promise.all(scan.siblings.map((sibling) => window.api.addProject(sibling)));
-      let added = 0;
-      for (const addResult of results) {
-        if (addResult.success) {
-          added++;
-        } else if (addResult.error) {
-          useProjectStore.getState().addToast(addResult.error, 'error');
-        }
-      }
-      if (added > 0) {
-        const projects = await window.api.refreshProjects();
-        useAppStore.getState().setProjects(projects);
-        useProjectStore.getState().addToast(`Added ${added} ${added === 1 ? 'project' : 'projects'}`, 'success');
-      }
-    },
-    [siblingScan],
   );
 
   const handleCreateNew = useCallback(() => {
@@ -346,13 +307,6 @@ export function App() {
       <ToastContainer />
       {showNewProject && <NewProjectDialog onClose={handleNewProjectClose} />}
       {gitInitPath && <InitGitRepoDialog folderPath={gitInitPath} onClose={handleGitInitClose} />}
-      {siblingScan && (
-        <AddSiblingProjectsDialog
-          parentDir={siblingScan.parentDir}
-          siblings={siblingScan.siblings}
-          onClose={handleSiblingScanClose}
-        />
-      )}
       {whatsNew && (
         <WhatsNewDialog
           version={whatsNew.version}

@@ -8,6 +8,14 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 
+import { useIPCListeners } from '../../hooks/useIPCListeners';
+import { useAppStore } from '../../stores/appStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { useTerminalStore } from '../../stores/terminalStore';
+import { beginTransition } from '../../services/taskStartService';
+import { completeTask } from '../../services/taskCompletion';
+import type { TaskWithWorkspace } from '../../types';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
@@ -20,14 +28,6 @@ vi.mock('../../services/taskStartService', () => ({
 vi.mock('../../services/taskCompletion', () => ({
   completeTask: vi.fn().mockResolvedValue(undefined),
 }));
-
-import { useIPCListeners } from '../../hooks/useIPCListeners';
-import { useAppStore } from '../../stores/appStore';
-import { useProjectStore } from '../../stores/projectStore';
-import { useTerminalStore } from '../../stores/terminalStore';
-import { beginTransition } from '../../services/taskStartService';
-import { completeTask } from '../../services/taskCompletion';
-import type { TaskWithWorkspace } from '../../types';
 
 type CliTaskStartedPayload = Parameters<Parameters<typeof window.api.onCliTaskStarted>[0]>[0];
 type CliTaskStartedCb = (payload: CliTaskStartedPayload) => void;

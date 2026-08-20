@@ -43,7 +43,6 @@ interface ManagedPty {
   worktreePath?: string;
   /** Sandbox backend running this PTY, or undefined for a plain host shell. */
   sandboxProvider?: SandboxProviderId;
-  // Runner identification
   isRunner: boolean;
   parentPtyId?: PtyId;
   // Array-based buffer for scroll history preservation (avoids string concatenation churn)
@@ -56,7 +55,6 @@ interface ManagedPty {
   // and flush once per Node event-loop tick.
   pendingForwardChunks: string[];
   forwardFlushScheduled: boolean;
-  // Terminal state tracking for accurate reconnection replay
   isAltScreen: boolean;
   lastCols: number;
   lastRows: number;
@@ -81,7 +79,6 @@ let currentWindow: BrowserWindow | null = null;
 // the toast fires once per shell rather than on every spawn.
 const warnedUnsupportedShells = new Set<string>();
 
-// Maximum bytes to buffer for scroll history preservation (100KB)
 const MAX_BUFFER_SIZE = 100 * 1024;
 const SIGKILL_GRACE = 3000;
 
@@ -92,10 +89,7 @@ function getDefaultShell(): string {
   return process.env.SHELL || '/bin/bash';
 }
 
-/**
- * Set the current window for IPC communication
- * Called when renderer connects/reconnects
- */
+/** The window every PTY message is forwarded to; replaced on reconnect. */
 export function setWindow(window: BrowserWindow): void {
   currentWindow = window;
 }
@@ -157,7 +151,6 @@ function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
     managed.outputSize -= removed.length;
   }
 
-  // Coalesce forwards to the renderer
   managed.pendingForwardChunks.push(data);
   if (!managed.forwardFlushScheduled) {
     managed.forwardFlushScheduled = true;
@@ -177,11 +170,9 @@ export async function spawnPty(
     const ptyId = generateId('pty');
     const shell = getDefaultShell();
 
-    // Store window reference
     currentWindow = window;
 
-    // Build environment: start with process.env, add our vars, then custom env
-    // Filter out undefined values which can cause issues with node-pty
+    // node-pty rejects undefined values, so process.env is filtered first.
     const baseEnv: Record<string, string> = {};
     for (const [key, value] of Object.entries(process.env)) {
       if (value !== undefined) {
@@ -230,7 +221,6 @@ export async function spawnPty(
     const vendoredNono = getVendoredNonoPath();
     if (vendoredNono) finalEnv['OUIJIT_NONO_PATH'] = vendoredNono;
 
-    // Build the command string to run in the spawned shell
     const expandedCommand = buildCommandString(options.command, options.env);
 
     // Resolve the shell's integration provider (zsh/bash/fish, or a fail-open
@@ -368,7 +358,6 @@ export function reconnectPty(
     return { success: false, error: `PTY ${ptyId} not found` };
   }
 
-  // Update window reference
   currentWindow = window;
 
   // Drop any chunks queued for forwarding — `outputChunks` already contains
@@ -406,7 +395,6 @@ export function getActiveSessions(): ActiveSession[] {
   }));
 }
 
-/** Get the number of active PTY sessions */
 export function getActiveSessionCount(): number {
   return activePtys.size;
 }
@@ -422,12 +410,12 @@ export function setPtyLabel(ptyId: PtyId, label: string): void {
 }
 
 /**
- * Sandbox PTYs are tracked in src/lima/spawn.ts in their own map — they never
- * enter `activePtys`. But hookServer and `task current` need a
- * single source of truth for "is this ptyId live?" and "what task does this
- * ptyId belong to?" across both kinds. spawn.ts registers / unregisters ids
- * here over its lifecycle. Direct import would cycle (spawn already imports
- * from hookServer), hence this narrow one-way hook.
+ * Sandbox PTYs live in their own map in src/lima/spawn.ts and never enter
+ * `activePtys`, so spawn.ts registers and unregisters their ids here to keep
+ * "is this ptyId live?" answerable for both kinds.
+ *
+ * A direct import would cycle — spawn.ts already imports from hookServer —
+ * hence this narrow one-way hook.
  */
 interface SandboxPtyInfo {
   projectPath: string;

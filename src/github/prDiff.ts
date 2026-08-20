@@ -1,17 +1,16 @@
 /**
  * PR diffs, read from the local object database.
  *
- * GitHub computes a PR's diff as `base...head`, which is exactly what
- * `git diff <baseSha>...<headSha>` computes — so the line numbers `parseDiff()`
- * already emits are valid `line` + `side` review anchors, provided we pin to
- * the SHAs the API reports rather than to branch names.
+ * GitHub computes a PR's diff as `base...head`, the same as
+ * `git diff <baseSha>...<headSha>`, so the line numbers `parseDiff()` emits are
+ * valid `line` + `side` anchors — but only when pinned to the SHAs the API
+ * reports, not to branch names.
  *
- * The API's `patch` field is deliberately not used: it is absent for files past
- * a size threshold and for PRs past 3000 files, and context can never be
- * expanded beyond the hunk.
+ * The API's `patch` field is unused: it is absent for large files and for PRs
+ * past 3000 files, and its context cannot be expanded past the hunk.
  *
- * Fetching a PR head needs no checkout and no worktree. Refs land under
- * `refs/ouijit/pr/<n>` so they stay prunable and never pollute the branch list.
+ * Fetched refs land under `refs/ouijit/pr/<n>`, so they stay prunable and out
+ * of the branch list.
  */
 
 import { fetchRefspec, resolveRef, getRangeDiffFiles, getRangeFileDiff, readBlob, gitAsync } from '../git';
@@ -26,10 +25,9 @@ const diffLog = getLogger().scope('github:diff');
 const DEEPEN_COMMITS = 250;
 
 /**
- * The two refs are siblings under the PR's own directory rather than one nested
- * inside the other: git's ref store is a filesystem, so a ref at
- * `refs/ouijit/pr/12` makes `refs/ouijit/pr/12/base` uncreatable — the head
- * would be a file where the base needs a directory.
+ * Siblings under the PR's directory, not one nested in the other: git's ref
+ * store is a filesystem, so a ref at `refs/ouijit/pr/12` is a file where
+ * `refs/ouijit/pr/12/base` needs a directory.
  */
 export function prHeadRef(prNumber: number): string {
   return `refs/ouijit/pr/${prNumber}/head`;
@@ -67,7 +65,7 @@ async function pinRef(projectPath: string, ref: string, sha: string): Promise<vo
   await tryGit(projectPath, ['update-ref', ref, sha]);
 }
 
-/** Run a git command whose failure is not worth reporting: every caller
+/** For git commands whose failure is not worth reporting: every caller
  *  re-checks the condition it cared about. */
 async function tryGit(projectPath: string, args: string[]): Promise<void> {
   try {
@@ -78,12 +76,10 @@ async function tryGit(projectPath: string, args: string[]): Promise<void> {
 }
 
 /**
- * Make sure both SHAs of a PR are present locally, fetching what is missing.
- *
- * The head arrives via `refs/pull/<n>/head`, which every GitHub repo exposes
- * whether or not the fork's branch still exists. The base is fetched by SHA
- * directly — GitHub allows fetching any reachable commit — and pinned, since a
- * base SHA is frequently no longer the base branch's tip.
+ * Fetches whichever of a PR's two SHAs are missing locally. The head comes from
+ * `refs/pull/<n>/head`, which GitHub exposes even when the fork's branch is
+ * gone; the base is fetched by SHA and pinned, since it is often no longer the
+ * base branch's tip.
  */
 export function ensurePrRefs(
   projectPath: string,
@@ -100,10 +96,8 @@ export function ensurePrRefs(
   settledRefs.set(key, run);
   void run
     .then((result) => {
-      // A failure is worth trying again — the network came back, the user ran
-      // `git fetch --unshallow`. A success is not: the SHAs are in the object
-      // store and pinned under our own refs, and nothing but `prunePrRefs`
-      // takes them away.
+      // Only failures are retried: on success the SHAs are pinned under our own
+      // refs, and nothing but `prunePrRefs` removes them.
       if (!result.success && settledRefs.get(key) === run) settledRefs.delete(key);
     })
     .catch(() => settledRefs.delete(key));
@@ -111,12 +105,9 @@ export function ensurePrRefs(
 }
 
 /**
- * One fetch per pull request, not one per file, and not once per batch either.
- *
- * The files view loads ten diffs at a time and each one needs the refs. On a
- * PR's first open all ten find the head missing and each starts the same
- * `git fetch` — ten network round trips for one ref, and up to three hundred on
- * a large PR. Keyed by both SHAs, so a force-push asks again.
+ * One fetch per pull request. The files view loads ten diffs at a time and each
+ * needs the refs, so without this a PR's first open starts ten identical
+ * fetches. Keyed by both SHAs, so a force-push asks again.
  */
 const settledRefs = new Map<string, Promise<PrRefsResult>>();
 
@@ -151,11 +142,9 @@ async function fetchPrRefs(
     if (!result.success) {
       return { success: false, error: `Could not fetch pull request #${prNumber}: ${result.error ?? 'fetch failed'}` };
     }
-    // `refs/pull/<n>/head` is whatever the pull request points at now, which is
-    // not necessarily the head the caller read a moment ago. Checked rather
-    // than assumed: without this a force-push mid-read falls through to the
-    // merge-base test below and is reported as a shallow clone, which sends the
-    // user off to run `git fetch --unshallow` for a problem they do not have.
+    // `refs/pull/<n>/head` is whatever the PR points at now, not necessarily
+    // the head the caller read. Unchecked, a force-push mid-read falls through
+    // to the merge-base test and is misreported as a shallow clone.
     if (!(await resolveRef(projectPath, headSha))) {
       return {
         success: false,
@@ -175,19 +164,15 @@ async function fetchPrRefs(
     }
   }
 
-  // Pinned whether or not this call fetched them. A commit already in the
-  // object store is not necessarily reachable from anything durable — it can be
-  // left over from a FETCH_HEAD, a since-deleted remote branch, or an earlier
-  // unpinned fetch — so skipping the pin because the lookup succeeded is what
-  // lets `git gc` prune it out from under a repo the user never touched.
-  // `update-ref` is idempotent, so the repeat costs nothing.
+  // Pinned whether or not this call fetched them: a commit in the object store
+  // is not necessarily reachable from anything durable, so skipping the pin
+  // lets `git gc` prune it. `update-ref` is idempotent.
   await pinRef(projectPath, prHeadRef(prNumber), headSha);
   await pinRef(projectPath, prBaseRef(prNumber), baseSha);
 
-  // A shallow or partial clone can hold both endpoints without holding the
-  // commit they share, which is what `base...head` actually diffs against. One
-  // bounded deepening pass rather than an unbounded `--unshallow` on a repo the
-  // user deliberately kept small.
+  // A shallow clone can hold both endpoints without the merge base that
+  // `base...head` diffs from. Deepen by a bounded amount rather than
+  // `--unshallow`, on a repo the user deliberately kept small.
   if (!(await hasMergeBase(projectPath, baseSha, headSha))) {
     if (await isShallow(projectPath)) {
       diffLog.info('deepening shallow clone for PR diff', { prNumber, deepen: DEEPEN_COMMITS });
@@ -213,8 +198,8 @@ export interface PrDiffFilesResult {
 }
 
 /**
- * Changed files straight from git. Used as the fallback when the API file list
- * is unavailable, and as the source of truth for the diff bytes either way.
+ * Changed files straight from git: the fallback when the API file list is
+ * unavailable, and the source of the diff bytes either way.
  */
 export async function getPrDiffFiles(
   projectPath: string,
@@ -231,9 +216,8 @@ export async function getPrDiffFiles(
 }
 
 /**
- * One file's hunks. `contextLines` lets the UI expand context past what a
- * GitHub patch would ever include, because this reads the blobs rather than a
- * pre-rendered patch.
+ * One file's hunks. Reading the blobs rather than a patch means `contextLines`
+ * can expand past what a GitHub patch would carry.
  */
 export async function getPrFileDiff(
   projectPath: string,
@@ -250,15 +234,12 @@ export async function getPrFileDiff(
 }
 
 /**
- * Put the pull request's head on a local branch, ready to be checked out.
+ * Puts the pull request's head on a local branch, ready to check out.
+ * `git worktree add -b <name>` branches off HEAD, so a head branch name alone
+ * yields an empty branch for every fork PR.
  *
- * `git worktree add -b <name>` branches off whatever HEAD is, so the PR's
- * commits have to be here first, on a ref a worktree can use — a head branch
- * name alone yields an empty branch for every fork PR.
- *
- * The branch takes the PR's head branch name when that name is free, and is
- * qualified with the PR number when it is taken (a fork whose head branch is
- * called `main`), rather than moving a branch the user already has.
+ * The branch takes the PR's head branch name when free, and is qualified with
+ * the PR number when taken, rather than moving a branch the user has.
  */
 export async function createPrHeadBranch(
   projectPath: string,
@@ -289,17 +270,14 @@ export async function createPrHeadBranch(
 }
 
 /**
- * How much of a binary file we are willing to base64 across the IPC boundary.
- * Past this the viewer states the size instead, which is the useful fact about
- * a file that large anyway.
+ * How much of a binary file is base64'd across the IPC boundary. Past this the
+ * viewer reports the size instead.
  */
 const MAX_INLINE_BLOB_BYTES = 12 * 1024 * 1024;
 
 /**
- * Both sides of a binary file, so an image can be shown before and after.
- *
- * A rename moves the path, so the base side is looked up under `oldPath` when
- * there is one — otherwise a renamed image would read as deleted and added.
+ * Both sides of a binary file. The base side is looked up under `oldPath` when
+ * there is one, or a renamed image reads as deleted and added.
  */
 export async function getPrFileVersions(
   projectPath: string,
@@ -320,8 +298,8 @@ export async function getPrFileVersions(
 }
 
 /**
- * Drop the refs we fetched for a PR. Called when a PR is unlinked or merged, so
- * a long-lived project doesn't accumulate a ref per PR ever reviewed.
+ * Drop the refs we fetched for a PR, so a long-lived project doesn't accumulate
+ * a ref per PR ever reviewed.
  */
 export async function prunePrRefs(projectPath: string, prNumber: number): Promise<void> {
   forgetRefs(projectPath, prNumber);

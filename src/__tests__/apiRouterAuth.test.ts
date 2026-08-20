@@ -10,6 +10,11 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as http from 'node:http';
 import type { BrowserWindow } from 'electron';
 
+import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
+import { issueToken, revokeAllTokens } from '../apiAuth';
+import { getTaskWithWorkspace } from '../taskLifecycle';
+import { typedPush } from '../ipc/helpers';
+
 const { getPtyTaskContextMock } = vi.hoisted(() => ({
   getPtyTaskContextMock: vi.fn<() => { projectPath: string; taskId: number } | null>(),
 }));
@@ -67,11 +72,6 @@ vi.mock('../projectList', () => ({
 vi.mock('../cliPanels', () => ({
   cliPanelRequest: vi.fn(async () => ({ ok: true, panels: [] })),
 }));
-
-import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
-import { issueToken, revokeAllTokens } from '../apiAuth';
-import { getTaskWithWorkspace } from '../taskLifecycle';
-import { typedPush } from '../ipc/helpers';
 
 const mockSend = vi.fn();
 function mockWindow(): BrowserWindow {

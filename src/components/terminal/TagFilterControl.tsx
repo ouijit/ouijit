@@ -9,13 +9,9 @@ interface TagFilterControlProps {
   value: string | null;
   /** Highlight the trigger button (e.g. filtering, or grouping by tag). */
   active: boolean;
-  /** Whether the "all" row shows a check. */
   allSelected: boolean;
-  /** Label for the null/all option. */
   allLabel?: string;
-  /** Picked the "all" row. */
   onSelectAll: () => void;
-  /** Picked a specific tag. */
   onSelectTag: (tag: string) => void;
   /** Trigger styling: a standalone rounded pill, or a button inside a segmented group. */
   variant?: 'pill' | 'segment';

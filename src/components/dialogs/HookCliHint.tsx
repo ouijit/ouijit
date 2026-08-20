@@ -2,10 +2,9 @@ import { Tooltip } from '../ui/Tooltip';
 import { Icon } from '../terminal/Icon';
 
 /**
- * Info icon + tooltip shown next to hook command fields. Explains that a hook
- * runs in the task's worktree and that an agent started there can inspect and
- * update the task through the ouijit CLI — which is what lets command
- * placeholders be plain-language prompts instead of env-var plumbing.
+ * Info icon and tooltip beside hook command fields, explaining that a hook runs
+ * in the task's worktree and that an agent started there can read and update the
+ * task through the ouijit CLI.
  */
 export function HookCliHint({ placement = 'top' }: { placement?: 'top' | 'bottom' | 'right' }) {
   return (

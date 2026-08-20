@@ -1,6 +1,11 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
+import { DiffComparisonPicker } from '../../components/diff/DiffComparisonPicker';
+import { terminalInstances, refreshTerminalGitStatus } from '../../components/terminal/terminalReact';
+import type { DiffBaseRef, DiffBases } from '../../types';
+import { describeDiffComparison } from '../../diffSource';
+
 // terminalReact pulls xterm in, which hangs under jsdom. The picker only ever
 // reaches it for the instance it is changing and the status refresh after.
 //
@@ -10,11 +15,6 @@ vi.mock('../../components/terminal/terminalReact', () => ({
   terminalInstances: new Map([['pty-1', { setDiffBase: vi.fn() }]]),
   refreshTerminalGitStatus: vi.fn().mockResolvedValue(undefined),
 }));
-
-import { DiffComparisonPicker } from '../../components/diff/DiffComparisonPicker';
-import { terminalInstances, refreshTerminalGitStatus } from '../../components/terminal/terminalReact';
-import type { DiffBaseRef, DiffBases } from '../../types';
-import { describeDiffComparison } from '../../diffSource';
 
 const setDiffBase = vi.mocked(
   (terminalInstances.get('pty-1') as unknown as { setDiffBase: ReturnType<typeof vi.fn> }).setDiffBase,

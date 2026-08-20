@@ -1,7 +1,6 @@
 import { memo } from 'react';
 import { BaseEdge, getBezierPath, type EdgeProps, type Position } from '@xyflow/react';
 
-/** Smooth bezier edge for task chain connections. */
 export const ChainEdge = memo(function ChainEdge({
   sourceX,
   sourceY,

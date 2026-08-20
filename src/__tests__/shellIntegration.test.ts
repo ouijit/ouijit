@@ -78,10 +78,9 @@ describe('bash launch', () => {
 });
 
 /**
- * Regression for #223: fish can't parse our POSIX bootstrap (`export`, the
- * `(...)` subshell, `$?`). Running it via `fish -ic` produced shell errors and
- * tasks never started. The bootstrap must run under /bin/sh, which execs into
- * fish with the integration sourced via `-C`.
+ * fish cannot parse the POSIX bootstrap (`export`, the `(...)` subshell, `$?`),
+ * so it must run under /bin/sh, which execs into fish with the integration
+ * sourced via `-C`.
  */
 describe('fish launch (#223)', () => {
   it('runs the bootstrap under /bin/sh, never fish -ic', () => {

@@ -28,7 +28,6 @@ function getNodeRect(node: CanvasNode): NodeRect {
   };
 }
 
-/** Determine which side of each node to connect, based on relative position. */
 function getClosestSides(
   source: NodeRect,
   target: NodeRect,
@@ -38,7 +37,6 @@ function getClosestSides(
 
   // Use the axis with the greater distance to pick sides
   if (Math.abs(dx) > Math.abs(dy)) {
-    // Horizontal relationship
     if (dx > 0) {
       return {
         sourceHandle: 'right',
@@ -54,7 +52,6 @@ function getClosestSides(
       targetPosition: Position.Right,
     };
   }
-  // Vertical relationship
   if (dy > 0) {
     return {
       sourceHandle: 'bottom',
@@ -118,7 +115,6 @@ export function useChainEdges(projectPath: string, chainMap: Map<number, TaskCha
       const chainInfo = chainMap.get(task.taskNumber);
       if (!chainInfo) continue;
 
-      // Find the closest pair between parent and child terminal groups
       let bestDist = Infinity;
       let bestParent: CanvasNode | undefined;
       let bestChild: CanvasNode | undefined;

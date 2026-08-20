@@ -12,7 +12,6 @@ interface AlignMenuProps {
   onClose: () => void;
 }
 
-/** Context menu for aligning and distributing selected nodes. */
 export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClose }: AlignMenuProps) {
   const tasks = useProjectStore((s) => s.tasks);
   const displayStates = useTerminalStore((s) => s.displayStates);

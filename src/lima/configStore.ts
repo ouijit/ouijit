@@ -14,13 +14,11 @@ function getConfigDir(): string {
   return path.join(getUserDataPath(), 'sandbox-configs');
 }
 
-/** Get the YAML config file path for a project */
 export function getConfigPath(projectPath: string): string {
   const instanceName = getInstanceName(projectPath);
   return path.join(getConfigDir(), `${instanceName}.yaml`);
 }
 
-/** Check if a config file exists for this project */
 export async function configExists(projectPath: string): Promise<boolean> {
   try {
     await fs.access(getConfigPath(projectPath));
@@ -62,7 +60,6 @@ export function generateDefaultConfig(): string {
   return stringify(config);
 }
 
-/** Read the user's raw YAML config for a project. Returns null if no file exists. */
 export async function readUserConfig(projectPath: string): Promise<string | null> {
   try {
     return await fs.readFile(getConfigPath(projectPath), 'utf-8');
@@ -106,7 +103,6 @@ export async function renameConfig(oldProjectPath: string, newProjectPath: strin
   }
 }
 
-/** Delete the config file for a project */
 export async function deleteConfig(projectPath: string): Promise<void> {
   try {
     await fs.unlink(getConfigPath(projectPath));

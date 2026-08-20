@@ -153,11 +153,10 @@ async function saveSnapshotNow(): Promise<void> {
 }
 
 /**
- * Persist immediately, cancelling any pending debounced save. Called on renderer
- * unload (refresh / reload / quit) so changes made within the debounce window —
- * e.g. a panel attached moments before a refresh — aren't lost. Without this the
- * pending timer is discarded when the renderer tears down and those changes
- * never reach the snapshot, so reconnect restores a stale layout.
+ * Persist immediately, cancelling any pending debounced save. Must run on
+ * renderer unload: the pending timer is discarded when the renderer tears
+ * down, so anything changed inside the debounce window would never reach the
+ * snapshot and reconnect would restore a stale layout.
  */
 export function flushSnapshotSave(): void {
   if (saveTimer) {

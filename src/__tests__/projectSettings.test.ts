@@ -72,7 +72,6 @@ describe('projectSettings', () => {
       command: 'rm -rf tmp',
     });
 
-    // Verify it exists before reset
     const hookBefore = await getHook(project, 'done');
     expect(hookBefore).toBeDefined();
     expect(hookBefore!.command).toBe('rm -rf tmp');
@@ -80,7 +79,6 @@ describe('projectSettings', () => {
     // Reset creates a fresh in-memory DB — data from prior state is gone
     _resetCacheForTesting();
 
-    // Should NOT find the hook (fresh database)
     const hookAfter = await getHook(project, 'done');
     expect(hookAfter).toBeUndefined();
   });

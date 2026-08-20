@@ -1,6 +1,10 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { createTask, setGlobalSetting } from '../db';
 
+import { createTaskWorktree, recoverTaskWorktree } from '../worktree';
+import { beginTask } from '../taskLifecycle';
+import { exec as execMockedRaw } from 'node:child_process';
+
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
   return {
@@ -42,10 +46,6 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 vi.mock('koffi', () => ({
   default: { load: vi.fn() },
 }));
-
-import { createTaskWorktree, recoverTaskWorktree } from '../worktree';
-import { beginTask } from '../taskLifecycle';
-import { exec as execMockedRaw } from 'node:child_process';
 
 const execMocked = vi.mocked(execMockedRaw);
 
