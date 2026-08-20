@@ -320,7 +320,9 @@ describe('persistence', () => {
     await vi.advanceTimersByTimeAsync(400);
     vi.mocked(window.api.globalSettings.set).mockClear();
 
-    useCanvasStore.getState().onNodesChange(PROJECT, [{ id: `${canvasNodeBase(1)}#0`, type: 'select', selected: true }]);
+    useCanvasStore
+      .getState()
+      .onNodesChange(PROJECT, [{ id: `${canvasNodeBase(1)}#0`, type: 'select', selected: true }]);
     await vi.advanceTimersByTimeAsync(400);
     expect(window.api.globalSettings.set).not.toHaveBeenCalled();
 

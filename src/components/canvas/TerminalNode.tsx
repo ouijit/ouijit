@@ -11,8 +11,9 @@ const INSET_SIDE = 10;
 const INSET_BOTTOM = 8;
 
 export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeProps<TerminalCanvasNode>) {
-  const display = useTerminalStore((s) => s.displayStates[data.ptyId]);
-  if (display?.isLoading) return <LoadingNode label={display.label} />;
+  const isLoading = useTerminalStore((s) => s.displayStates[data.ptyId]?.isLoading ?? false);
+  const loadingLabel = useTerminalStore((s) => s.displayStates[data.ptyId]?.label ?? '');
+  if (isLoading) return <LoadingNode label={loadingLabel} />;
   return <ActiveTerminalNode data={data} selected={selected} />;
 });
 

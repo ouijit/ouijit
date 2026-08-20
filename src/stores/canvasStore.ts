@@ -234,10 +234,7 @@ function axisOf(horizontal: boolean) {
   };
 }
 
-function reposition(
-  project: CanvasProjectState,
-  positions: Map<string, { x: number; y: number }>,
-): CanvasProjectState {
+function reposition(project: CanvasProjectState, positions: Map<string, { x: number; y: number }>): CanvasProjectState {
   return {
     ...project,
     nodes: project.nodes.map((n) => {
@@ -546,41 +543,64 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
 
         const positions = new Map<string, { x: number; y: number }>();
 
-        /** Places a task's terminals at `x`, its children to the right, and returns the height used. */
-        const layoutSubtree = (taskNum: number, x: number, y: number): number => {
-          const info = chainMap.get(taskNum);
+        const childrenOf = (taskNum: number): number[] =>
+          chainMap.get(taskNum)?.childTaskNumbers.filter((c) => inChain.has(c)) ?? [];
+
+        const stackedHeight = (nodes: CanvasNode[]): number =>
+          nodes.length > 0 ? nodes.reduce((sum, n) => sum + nodeHeight(n) + CHAIN_V_GAP, 0) - CHAIN_V_GAP : 0;
+
+        // The placing pass below needs a child's height before it has placed
+        // it, so heights are measured first. Memoised: every parent asks for
+        // the same subtree its own parent already asked about.
+        const heights = new Map<number, number>();
+        const heightOf = (taskNum: number): number => {
+          const known = heights.get(taskNum);
+          if (known !== undefined) return known;
+
+          const ownHeight = stackedHeight(nodesByTask.get(taskNum) ?? []);
+          const children = childrenOf(taskNum);
+          const height =
+            children.length === 0
+              ? ownHeight
+              : Math.max(
+                  ownHeight,
+                  children.reduce((sum, c) => sum + heightOf(c), 0) + (children.length - 1) * CHAIN_V_GAP,
+                );
+
+          heights.set(taskNum, height);
+          return height;
+        };
+
+        /** Places a task's terminals at `x` and its children to the right, centred against it. */
+        const layoutSubtree = (taskNum: number, x: number, y: number): void => {
           const nodes = nodesByTask.get(taskNum) ?? [];
-          if (nodes.length === 0 && !info?.childTaskNumbers.length) return 0;
 
           let nodeY = y;
           for (const node of nodes) {
             positions.set(node.id, { x, y: nodeY });
             nodeY += nodeHeight(node) + CHAIN_V_GAP;
           }
-          const ownHeight = nodes.length > 0 ? nodeY - y - CHAIN_V_GAP : 0;
 
-          const children = info?.childTaskNumbers.filter((c) => inChain.has(c)) ?? [];
-          if (children.length === 0) return Math.max(ownHeight, 0);
+          const children = childrenOf(taskNum);
+          if (children.length === 0) return;
 
-          const childHeights = children.map((c) => subtreeHeight(c, chainMap, nodesByTask));
           const totalChildHeight =
-            childHeights.reduce((sum, h) => sum + h, 0) + (children.length - 1) * CHAIN_V_GAP;
+            children.reduce((sum, c) => sum + heightOf(c), 0) + (children.length - 1) * CHAIN_V_GAP;
 
           const childX = x + (nodes.length > 0 ? Math.max(...nodes.map(nodeWidth)) : 0) + CHAIN_H_GAP;
-          let childY = y + ownHeight / 2 - totalChildHeight / 2;
-          children.forEach((child, i) => {
-            const used = layoutSubtree(child, childX, childY);
-            childY += (used > 0 ? used : childHeights[i]) + CHAIN_V_GAP;
-          });
-
-          return Math.max(ownHeight, totalChildHeight);
+          let childY = y + stackedHeight(nodes) / 2 - totalChildHeight / 2;
+          for (const child of children) {
+            layoutSubtree(child, childX, childY);
+            childY += heightOf(child) + CHAIN_V_GAP;
+          }
         };
 
         const originX = Math.min(...project.nodes.map((n) => n.position.x));
         let cursorY = Math.min(...project.nodes.map((n) => n.position.y));
         for (const taskNum of inChain) {
           if (chainMap.get(taskNum)?.depth !== 0) continue;
-          cursorY += layoutSubtree(taskNum, originX, cursorY) + CHAIN_V_GAP * 2;
+          layoutSubtree(taskNum, originX, cursorY);
+          cursorY += heightOf(taskNum) + CHAIN_V_GAP * 2;
         }
 
         return reposition(project, positions);
@@ -604,27 +624,6 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
     },
   };
 });
-
-/** Height a subtree will take, needed to centre children against their parent before placing them. */
-function subtreeHeight(
-  taskNum: number,
-  chainMap: Map<number, TaskChainInfo>,
-  nodesByTask: Map<number, CanvasNode[]>,
-): number {
-  const nodes = nodesByTask.get(taskNum) ?? [];
-  const info = chainMap.get(taskNum);
-  const ownHeight =
-    nodes.length > 0 ? nodes.reduce((sum, n) => sum + nodeHeight(n) + CHAIN_V_GAP, 0) - CHAIN_V_GAP : 0;
-
-  const children = (info?.childTaskNumbers ?? []).filter((c) => isChainMember(chainMap.get(c)));
-  if (children.length === 0) return Math.max(ownHeight, 0);
-
-  const childTotal =
-    children.reduce((sum, c) => sum + subtreeHeight(c, chainMap, nodesByTask), 0) +
-    (children.length - 1) * CHAIN_V_GAP;
-
-  return Math.max(ownHeight, childTotal);
-}
 
 /** The terminal the canvas currently has selected, if any. */
 export function selectedCanvasPtyId(projectPath: string): string | undefined {

@@ -79,7 +79,13 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     [edges, hiddenIds],
   );
 
-  useChainEdges(projectPath);
+  // Built once here and handed to both consumers: React Flow calls nodeColor
+  // per node on every minimap render, and the edge effect re-runs on each drag
+  // frame, so neither can afford to rebuild it.
+  const tasks = useProjectStore((s) => s.tasks);
+  const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);
+
+  useChainEdges(projectPath, chainMap);
 
   const { guides, onNodeDrag, onNodeDragStop } = useSmartGuides(nodes);
 
@@ -143,10 +149,6 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     void themeEpoch; // the tokens change when the applied theme does
     return [readToken('--color-border-hover'), readToken('--color-background'), readToken('--color-minimap-mask')];
   }, [themeEpoch]);
-  const tasks = useProjectStore((s) => s.tasks);
-  // React Flow calls nodeColor once per node on every minimap render, so build
-  // the chain map once here rather than rebuilding it inside the callback.
-  const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);
   const minimapNodeColor = useCallback(
     (node: CanvasNodeType) => {
       const display = isGroupNode(node) ? undefined : displayStates[node.data.ptyId];

@@ -3,6 +3,7 @@ import { useReactFlow, useViewport } from '@xyflow/react';
 import { useCanvasStore } from '../../stores/canvasStore';
 import { KeyHint } from '../ui/KeyHint';
 import { MenuPopover } from '../ui/Menu';
+import { Icon } from '../terminal/Icon';
 import { MOD_LABEL, modChord } from '../../utils/modKey';
 
 const SHORTCUTS: Array<{ keys: string; label: string }> = [
@@ -15,6 +16,16 @@ const SHORTCUTS: Array<{ keys: string; label: string }> = [
   { keys: 'Double-click', label: 'Frame a terminal' },
   { keys: 'Right-click', label: 'Align and distribute a selection' },
 ];
+
+// `useViewport` re-renders this bar on every pan and zoom step; the list is
+// static, so build its tree once rather than per frame.
+const SHORTCUT_LIST = (
+  <div className="flex flex-col gap-2 p-2 text-xs text-text-secondary">
+    {SHORTCUTS.map((s) => (
+      <KeyHint key={s.keys} keys={s.keys} label={s.label} />
+    ))}
+  </div>
+);
 
 interface CanvasControlsProps {
   projectPath: string;
@@ -87,15 +98,11 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
         className="w-[19rem]"
         trigger={(ref) => (
           <ControlButton ref={ref} onClick={handleToggleHelp} title="Canvas shortcuts" active={helpOpen}>
-            <HelpIcon />
+            <Icon name="question" className="w-3.5 h-3.5" />
           </ControlButton>
         )}
       >
-        <div className="flex flex-col gap-2 p-2 text-xs text-text-secondary">
-          {SHORTCUTS.map((s) => (
-            <KeyHint key={s.keys} keys={s.keys} label={s.label} />
-          ))}
-        </div>
+        {SHORTCUT_LIST}
       </MenuPopover>
     </div>
   );
@@ -181,25 +188,6 @@ function FitIcon() {
       <polyline points="9 21 3 21 3 15" />
       <line x1="21" y1="3" x2="14" y2="10" />
       <line x1="3" y1="21" x2="10" y2="14" />
-    </svg>
-  );
-}
-
-function HelpIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.9.7-.9 1.3v.3" />
-      <line x1="12" y1="17" x2="12" y2="17" />
     </svg>
   );
 }

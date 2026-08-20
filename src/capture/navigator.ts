@@ -120,12 +120,15 @@ export function installCaptureNavigator(): void {
           canvas.ensureProject(payload.projectPath);
           syncCanvasWithTerminals(payload.projectPath);
           const seeded = new Map(payload.terminalSeeds.map((seed) => [seed.ptyId, seed.canvasPosition]));
+          // Re-read: the nodes to place are the ones the sync above just built,
+          // which the snapshot `canvas` was taken too early to see.
+          const synced = useCanvasStore.getState().canvasByProject[payload.projectPath]?.nodes ?? [];
           canvas.setNodes(
             payload.projectPath,
-            canvas.canvasByProject[payload.projectPath]?.nodes.map((node) => {
+            synced.map((node) => {
               const position = isGroupNode(node) ? undefined : seeded.get(node.data.ptyId);
               return position ? { ...node, position } : node;
-            }) ?? [],
+            }),
           );
           if (payload.canvasViewport) {
             canvas.setViewport(payload.projectPath, payload.canvasViewport);

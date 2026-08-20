@@ -4,7 +4,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useCanvasStore, nodeWidth, nodeHeight, type CanvasNode } from '../../stores/canvasStore';
 import { nodesByTask } from '../../stores/canvasSync';
-import { buildChainMap, getChainColor } from '../../utils/taskChain';
+import { getChainColor, type TaskChainInfo } from '../../utils/taskChain';
 
 interface NodeRect {
   x: number;
@@ -70,16 +70,13 @@ function getClosestSides(
  * Computes react-flow edges from task chain relationships
  * and syncs them into canvasStore whenever tasks or terminals change.
  */
-export function useChainEdges(projectPath: string): void {
+export function useChainEdges(projectPath: string, chainMap: Map<number, TaskChainInfo>): void {
   const tasks = useProjectStore((s) => s.tasks);
   const displayStates = useTerminalStore((s) => s.displayStates);
   const canvasNodes = useCanvasStore((s) => s.canvasByProject[projectPath]?.nodes);
 
   useEffect(() => {
     if (!canvasNodes || canvasNodes.length === 0) return;
-
-    // Build task chain map
-    const chainMap = buildChainMap(tasks);
 
     const taskToNodes = nodesByTask(canvasNodes, displayStates);
 
@@ -170,5 +167,5 @@ export function useChainEdges(projectPath: string): void {
     if (changed) {
       useCanvasStore.getState().setEdges(projectPath, edges);
     }
-  }, [tasks, displayStates, canvasNodes, projectPath]);
+  }, [tasks, chainMap, displayStates, canvasNodes, projectPath]);
 }

@@ -17,16 +17,14 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
   const tasks = useProjectStore((s) => s.tasks);
   const displayStates = useTerminalStore((s) => s.displayStates);
 
-  const handleChainLayout = useCallback(() => {
-    const canvas = useCanvasStore.getState().canvasByProject[projectPath];
-    if (!canvas) return;
-    useCanvasStore
-      .getState()
-      .chainLayout(projectPath, buildChainMap(tasks), nodesByTask(canvas.nodes, displayStates));
-  }, [projectPath, tasks, displayStates]);
-
   const canvasNodes = useCanvasStore((s) => s.canvasByProject[projectPath]?.nodes);
   const selectedCount = canvasNodes?.filter((n) => n.selected).length ?? 0;
+
+  const handleChainLayout = useCallback(() => {
+    useCanvasStore
+      .getState()
+      .chainLayout(projectPath, buildChainMap(tasks), nodesByTask(canvasNodes ?? [], displayStates));
+  }, [projectPath, tasks, displayStates, canvasNodes]);
 
   if (!position || selectedCount < 2) return null;
 

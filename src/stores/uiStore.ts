@@ -75,11 +75,7 @@ export const useUIStore = create<UIStore>()((set, get) => ({
     void window.api.globalSettings.set(SIDEBAR_PINNED_KEY, pinned ? '1' : '0');
   },
 
-  toggleSidebarPinned: () => {
-    const next = !get().sidebarPinned;
-    set({ sidebarPinned: next });
-    void window.api.globalSettings.set(SIDEBAR_PINNED_KEY, next ? '1' : '0');
-  },
+  toggleSidebarPinned: () => get().setSidebarPinned(!get().sidebarPinned),
 
   setGitDropdownVisible: (visible) => set({ gitDropdownVisible: visible }),
 
@@ -120,8 +116,6 @@ export async function hydrateUIPreferences(): Promise<void> {
   ]);
   const canvasEnabled = enabled === '1';
   useUIStore.setState({
-    // Defaults to pinned (see the store's initial state) — only an explicit
-    // '0' from a prior session unpins it.
     sidebarPinned: pinned !== '0',
     canvasEnabled,
     terminalLayout: canvasEnabled && layout === 'canvas' ? 'canvas' : 'stack',
