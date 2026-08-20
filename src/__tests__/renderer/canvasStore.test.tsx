@@ -120,18 +120,39 @@ describe('canvas node identity', () => {
 });
 
 describe('syncCanvasWithTerminals', () => {
-  test('rekeying a loading slot keeps its node, so the real PTY lands where the slot was', () => {
+  test('a loading slot taking on its real PTY id keeps its node, position and selection', () => {
     addTerminal('slot-1', 4, { isLoading: true });
     syncCanvasWithTerminals(PROJECT);
     place({ 'slot-1': { x: 300, y: 120 } });
+    select('slot-1');
 
-    useCanvasStore.getState().rekeyNode(PROJECT, 'slot-1', 'pty-real');
+    useTerminalStore.getState().rekeyTerminal('slot-1', 'pty-real');
+    syncCanvasWithTerminals(PROJECT);
 
     expect(nodeFor('pty-real')).toMatchObject({
       id: `${canvasNodeBase(4)}#0`,
       position: { x: 300, y: 120 },
+      selected: true,
     });
     expect(canvas().nodes).toHaveLength(1);
+  });
+
+  test('a group whose only child is re-keyed survives the pass', () => {
+    addTerminal('slot-1', 4, { isLoading: true });
+    addTerminal('pty-b', 5);
+    syncCanvasWithTerminals(PROJECT);
+    select('slot-1', 'pty-b');
+    useCanvasStore.getState().groupSelected(PROJECT);
+    const groupId = canvas().nodes.find((n) => n.type === 'group')!.id;
+
+    // The other child leaves first, so the re-keyed one is all that holds the group.
+    useTerminalStore.getState().removeTerminal('pty-b');
+    syncCanvasWithTerminals(PROJECT);
+    useTerminalStore.getState().rekeyTerminal('slot-1', 'pty-real');
+    syncCanvasWithTerminals(PROJECT);
+
+    expect(canvas().nodes.some((n) => n.id === groupId)).toBe(true);
+    expect(nodeFor('pty-real').parentId).toBe(groupId);
   });
 
   test('prunes nodes with no terminal and leaves groups alone', () => {

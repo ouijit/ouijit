@@ -70,7 +70,6 @@ interface CanvasStoreState {
 interface CanvasStoreActions {
   onNodesChange: (projectPath: string, changes: NodeChange<CanvasNode>[]) => void;
   onEdgesChange: (projectPath: string, changes: EdgeChange[]) => void;
-  rekeyNode: (projectPath: string, oldPtyId: string, newPtyId: string) => void;
   /** Bring the canvas in line with the project's live terminals. */
   reconcileNodes: (projectPath: string, terminals: TerminalRef[]) => void;
   selectNode: (projectPath: string, ptyId: string) => void;
@@ -323,16 +322,6 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
     onEdgesChange: (projectPath, changes) =>
       update(projectPath, (project) => ({ ...project, edges: applyEdgeChanges(changes, project.edges) })),
 
-    rekeyNode: (projectPath, oldPtyId, newPtyId) => {
-      if (oldPtyId === newPtyId) return;
-      update(projectPath, (project) => ({
-        ...project,
-        nodes: project.nodes.map((n) =>
-          !isGroupNode(n) && n.data.ptyId === oldPtyId ? { ...n, data: { ...n.data, ptyId: newPtyId } } : n,
-        ),
-      }));
-    },
-
     reconcileNodes: (projectPath, terminals) => {
       const project = get().canvasByProject[projectPath];
       if (!project) return;
@@ -343,20 +332,28 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
       const arrived = terminals.filter((t) => !onCanvas.has(t.ptyId));
       if (gone.length === 0 && arrived.length === 0) return;
 
-      const goneIds = new Set(gone.map((n) => n.id));
+      const departed = new Map(gone.map((n) => [n.id, n]));
       const layout = { ...project.layout };
       for (const node of gone) layout[node.id] = layoutOf(node);
 
       // Departures are banked before arrivals are placed, so a terminal that
       // reopens for the same task reclaims the ordinal — and with it the
-      // position — the closed one had.
-      const nodes = pruneEmptyGroups(project.nodes.filter((n) => !goneIds.has(n.id)));
-      for (const ref of arrived) nodes.push(makeNode({ ...project, nodes, layout }, projectPath, ref));
+      // position — the closed one had. A PTY that is re-keyed rather than
+      // closed (a loading slot taking on its real id) leaves and arrives in
+      // this same pass, so it also reclaims selection, which is not persisted
+      // and so cannot come back through `layout`.
+      const nodes = project.nodes.filter((n) => !departed.has(n.id));
+      for (const ref of arrived) {
+        const node = makeNode({ ...project, nodes, layout }, projectPath, ref);
+        nodes.push(departed.get(node.id)?.selected ? { ...node, selected: true } : node);
+      }
 
       write(projectPath, {
         ...project,
-        nodes,
-        edges: project.edges.filter((e) => !goneIds.has(e.source) && !goneIds.has(e.target)),
+        // After the arrivals, so a group whose only child was re-keyed still
+        // has that child when it is checked for emptiness.
+        nodes: pruneEmptyGroups(nodes),
+        edges: project.edges.filter((e) => !departed.has(e.source) && !departed.has(e.target)),
         layout,
       });
       persistCanvas(projectPath);
