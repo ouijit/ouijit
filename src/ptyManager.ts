@@ -10,6 +10,7 @@ import { typedPush } from './ipc/helpers';
 import { getLogger } from './logger';
 import { getVendoredNonoPath } from './sandbox/nono/binary';
 import { issueToken, revokeToken, revokeAllTokens } from './apiAuth';
+import { terminalLocale } from './locale';
 
 const ptyLog = getLogger().scope('pty');
 
@@ -191,6 +192,7 @@ export async function spawnPty(
     const finalEnv: Record<string, string> = {
       ...baseEnv,
       TERM: 'xterm-256color',
+      ...(await terminalLocale(baseEnv)),
     };
     // Add custom env vars (these take precedence)
     if (options.env) {
