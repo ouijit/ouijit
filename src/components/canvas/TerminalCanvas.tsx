@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -85,14 +85,13 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   // Phase 3: smart guides
   const { guides, onNodeDrag, onNodeDragStop } = useSmartGuides(nodes);
 
-  // Terminals are live, so a rubber band started over one would land inside
-  // the terminal instead of the canvas. Shift is the selection modifier — while
-  // it's held, node bodies stop taking pointer events so a band can start
-  // anywhere.
-  const [selecting, setSelecting] = useState(false);
+  // Shift drives `.canvas-selecting` (see index.css). Written to the DOM rather
+  // than held in React state: every shifted keystroke typed into a terminal
+  // fires this, and none of them concern the canvas tree.
+  const surfaceRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const sync = (e: KeyboardEvent) => setSelecting(e.shiftKey);
-    const clear = () => setSelecting(false);
+    const sync = (e: KeyboardEvent) => surfaceRef.current?.classList.toggle('canvas-selecting', e.shiftKey);
+    const clear = () => surfaceRef.current?.classList.remove('canvas-selecting');
     window.addEventListener('keydown', sync);
     window.addEventListener('keyup', sync);
     window.addEventListener('blur', clear);
@@ -121,13 +120,11 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const handleNodeDoubleClick = useCallback(
     (_: React.MouseEvent, node: CanvasNodeType) => {
       setMenuPos(null);
-      if (node.data?.loading) return;
+      const ptyId = node.data.ptyId;
+      if (useTerminalStore.getState().displayStates[ptyId]?.isLoading) return;
       fitView({ nodes: [{ id: node.id }], padding: 0.1, duration: 350 });
-      const ptyId = node.data?.ptyId;
-      if (ptyId) {
-        const instance = terminalInstances.get(ptyId);
-        if (instance) requestAnimationFrame(() => instance.xterm.focus());
-      }
+      const instance = terminalInstances.get(ptyId);
+      if (instance) requestAnimationFrame(() => instance.xterm.focus());
     },
     [fitView],
   );
@@ -148,9 +145,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);
   const minimapNodeColor = useCallback(
     (node: CanvasNodeType) => {
-      const ptyId = node.data?.ptyId;
-      if (!ptyId) return minimapFallbackColor;
-      const display = displayStates[ptyId];
+      const display = displayStates[node.data.ptyId];
       if (!display?.taskId) return minimapFallbackColor;
       const info = chainMap.get(display.taskId);
       if (!info) return minimapFallbackColor;
@@ -172,20 +167,10 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   }, [projectPath]);
 
   // Terminals also arrive while the canvas is already mounted — starting a task
-  // from the board stages a loading slot well before its PTY exists. Re-sync on
-  // any change to the project's terminal list or to a loading flag.
+  // from the board stages a loading slot well before its PTY exists.
   useEffect(() => {
-    const signature = () => {
-      const state = useTerminalStore.getState();
-      return (state.terminalsByProject[projectPath] ?? [])
-        .map((id) => `${id}:${state.displayStates[id]?.isLoading ? 1 : 0}`)
-        .join('|');
-    };
-    let last = signature();
-    return useTerminalStore.subscribe(() => {
-      const next = signature();
-      if (next === last) return;
-      last = next;
+    return useTerminalStore.subscribe((state, prev) => {
+      if (state.terminalsByProject[projectPath] === prev.terminalsByProject[projectPath]) return;
       syncCanvasWithTerminals(projectPath);
     });
   }, [projectPath]);
@@ -220,7 +205,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     : { defaultViewport: { x: 0, y: 0, zoom: 1 } as Viewport };
 
   return (
-    <div className={`terminal-canvas relative w-full h-full${selecting ? ' canvas-selecting' : ''}`}>
+    <div ref={surfaceRef} className="terminal-canvas relative w-full h-full">
       <ReactFlow
         nodes={renderedNodes}
         edges={renderedEdges}

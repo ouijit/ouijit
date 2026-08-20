@@ -3,7 +3,6 @@ import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../stores/canvasStore';
-import { syncCanvasWithTerminals } from '../stores/canvasSync';
 import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
@@ -181,14 +180,7 @@ export function ProjectView() {
           const targetIdx = num - 1;
           if (targetIdx < terms.length) {
             const targetPtyId = terms[targetIdx];
-            const canvas = useCanvasStore.getState().canvasByProject[projectPath];
-            if (canvas) {
-              const updatedNodes = canvas.nodes.map((n) => ({
-                ...n,
-                selected: n.data.ptyId === targetPtyId,
-              }));
-              useCanvasStore.getState().setNodes(projectPath, updatedNodes);
-            }
+            useCanvasStore.getState().selectNode(projectPath, targetPtyId);
             const inst = terminalInstances.get(targetPtyId);
             if (inst) {
               requestAnimationFrame(() => inst.xterm.focus());
@@ -240,17 +232,9 @@ export function ProjectView() {
   useEffect(() => {
     if (!projectPath) return;
     const existing = useTerminalStore.getState().terminalsByProject[projectPath];
-    if (existing && existing.length > 0) {
-      // Terminals already exist — sync canvas to prune any stale persisted nodes
-      syncCanvasWithTerminals(projectPath);
-      return;
-    }
+    if (existing && existing.length > 0) return;
 
     reconnectOrphanedSessions(projectPath).then(() => {
-      // Reconnection is done — terminal list is now final.
-      // Sync canvas to prune stale nodes from previous sessions.
-      syncCanvasWithTerminals(projectPath);
-
       // Only show kanban if reconnection didn't restore any terminals
       const reconnected = useTerminalStore.getState().terminalsByProject[projectPath];
       if (!reconnected || reconnected.length === 0) {

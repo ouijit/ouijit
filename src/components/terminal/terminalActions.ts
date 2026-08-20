@@ -17,7 +17,7 @@ import type {
 import { legacySandboxProvider } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
+import { useCanvasStore } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
 import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
 import type { TerminalPanel } from './panelTypes';
@@ -195,18 +195,12 @@ function registerTerminal(
     // Clear the `isLoading` flag now that a real PTY backs the slot.
     useTerminalStore.getState().rekeyTerminal(replaceLoadingId, ptyId);
     useTerminalStore.getState().updateDisplay(ptyId, { ...initial, isLoading: false });
+    // The canvas builds its own nodes from the terminal store. Carrying the
+    // loading slot's node over to the real PTY is the one part it cannot derive.
+    useCanvasStore.getState().rekeyNode(projectPath, replaceLoadingId, ptyId);
   } else {
     useTerminalStore.getState().addTerminal(projectPath, ptyId, initial);
   }
-
-  // Add to canvas. A replaced loading slot already has a node — rekeying it
-  // keeps the node (and its position) instead of remounting a fresh terminal.
-  useCanvasStore.getState().ensureProject(projectPath);
-  if (replaceLoadingId) {
-    useCanvasStore.getState().rekeyNode(projectPath, replaceLoadingId, ptyId);
-  }
-  useCanvasStore.getState().addNode(projectPath, ptyId, { taskId: initial.taskId ?? null });
-  persistCanvas(projectPath);
 
   // Activate last unless background. With a replaced loading slot the
   // active index already points at it — just focus the new xterm.
@@ -462,18 +456,8 @@ export function renameTerminal(ptyId: string, label: string): void {
 // ── Close a terminal ─────────────────────────────────────────────────
 
 export function closeProjectTerminal(ptyId: string): void {
-  const instance = terminalInstances.get(ptyId);
-  const projectPath = instance?.projectPath;
-  if (instance) {
-    instance.dispose();
-  }
+  terminalInstances.get(ptyId)?.dispose();
   useTerminalStore.getState().removeTerminal(ptyId);
-
-  // Remove from canvas
-  if (projectPath) {
-    useCanvasStore.getState().removeNode(projectPath, ptyId);
-    persistCanvas(projectPath);
-  }
 }
 
 // ── Reconnect to an orphaned PTY ─────────────────────────────────────

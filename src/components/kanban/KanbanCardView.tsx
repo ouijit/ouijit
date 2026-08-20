@@ -11,7 +11,7 @@ import {
 import { TaskComposerSheet } from './TaskComposerSheet';
 import { Tooltip } from '../ui/Tooltip';
 import { useAppStore } from '../../stores/appStore';
-import { isModKey, MOD_LABEL } from '../../utils/modKey';
+import { isModKey, modChord } from '../../utils/modKey';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
@@ -459,7 +459,7 @@ export const KanbanCardView = memo(function KanbanCardView({
                 text={
                   <span className="flex items-center gap-2">
                     Expand
-                    <span className="kanban-add-button-hint kanban-add-button-hint-text">{MOD_LABEL}E</span>
+                    <span className="kanban-add-button-hint kanban-add-button-hint-text">{modChord('E')}</span>
                   </span>
                 }
                 referenceClassName="kanban-add-expand-anchor"

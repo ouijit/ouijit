@@ -10,7 +10,7 @@ import { Tooltip } from '../ui/Tooltip';
 import { useAppStore } from '../../stores/appStore';
 import { useComposerStore } from '../../stores/composerStore';
 import { resolveAttachmentPath } from '../../utils/taskAttachments';
-import { isModKey, MOD_LABEL } from '../../utils/modKey';
+import { isModKey, modChord } from '../../utils/modKey';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
@@ -289,7 +289,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             <>
               <span className="kanban-add-rest-plus">+</span>
               <span>New task</span>
-              <span className="kanban-add-button-hint kanban-add-button-hint-text">{MOD_LABEL}N</span>
+              <span className="kanban-add-button-hint kanban-add-button-hint-text">{modChord('N')}</span>
             </>
           )}
         </button>
@@ -347,7 +347,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
               text={
                 <span className="flex items-center gap-2">
                   {metrics.overflowing ? 'Expand to the full sheet' : 'Expand'}
-                  <span className="kanban-add-button-hint kanban-add-button-hint-text">{MOD_LABEL}E</span>
+                  <span className="kanban-add-button-hint kanban-add-button-hint-text">{modChord('E')}</span>
                 </span>
               }
               referenceClassName="kanban-add-expand-anchor"

@@ -119,15 +119,18 @@ describe('canvas node identity', () => {
 });
 
 describe('syncCanvasWithTerminals', () => {
-  test('carries a loading slot onto the canvas and clears it when the PTY arrives', () => {
-    addTerminal('slot-1', 4, { isLoading: true, label: 'Fix auth' });
+  test('rekeying a loading slot keeps its node, so the real PTY lands where the slot was', () => {
+    addTerminal('slot-1', 4, { isLoading: true });
     syncCanvasWithTerminals(PROJECT);
-
-    expect(nodeFor('slot-1').data).toMatchObject({ loading: true, loadingLabel: 'Fix auth' });
+    place({ 'slot-1': { x: 300, y: 120 } });
 
     useCanvasStore.getState().rekeyNode(PROJECT, 'slot-1', 'pty-real');
-    expect(nodeFor('pty-real').data.loading).toBe(false);
-    expect(nodeFor('pty-real').id).toBe(`${canvasNodeBase(4)}#0`);
+
+    expect(nodeFor('pty-real')).toMatchObject({
+      id: `${canvasNodeBase(4)}#0`,
+      position: { x: 300, y: 120 },
+    });
+    expect(canvas().nodes).toHaveLength(1);
   });
 
   test('prunes nodes with no terminal and leaves groups alone', () => {

@@ -2,16 +2,14 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useReactFlow, useViewport } from '@xyflow/react';
 import { useCanvasStore } from '../../stores/canvasStore';
 import { KeyHint } from '../ui/KeyHint';
-
-const isMac = navigator.platform.toLowerCase().includes('mac');
-const mod = isMac ? '⌘' : 'Ctrl';
+import { MOD_LABEL, modChord } from '../../utils/modKey';
 
 const SHORTCUTS: Array<{ keys: string; label: string }> = [
-  { keys: `${mod}L`, label: 'Switch between stack and canvas' },
-  { keys: `${mod}G`, label: 'Group the selected terminals' },
-  { keys: `${mod}⇧G`, label: 'Ungroup' },
+  { keys: modChord('L'), label: 'Switch between stack and canvas' },
+  { keys: modChord('G'), label: 'Group the selected terminals' },
+  { keys: modChord('⇧G'), label: 'Ungroup' },
   { keys: 'Space + drag', label: 'Pan' },
-  { keys: `${mod} + scroll`, label: 'Zoom' },
+  { keys: `${MOD_LABEL} + scroll`, label: 'Zoom' },
   { keys: 'Shift + drag', label: 'Select a region' },
   { keys: 'Double-click', label: 'Frame a terminal' },
   { keys: 'Right-click', label: 'Align and distribute a selection' },

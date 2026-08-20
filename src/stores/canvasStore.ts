@@ -14,8 +14,6 @@ import {
 export interface CanvasNodeData extends Record<string, unknown> {
   ptyId: string;
   projectPath: string;
-  loading?: boolean;
-  loadingLabel?: string;
 }
 
 export type CanvasNode = Node<CanvasNodeData, 'terminal' | 'group'>;
@@ -57,8 +55,12 @@ interface AddNodeOptions {
   /** Task the terminal belongs to; null for a bare project shell. */
   taskId?: number | null;
   position?: { x: number; y: number };
-  loading?: boolean;
-  loadingLabel?: string;
+}
+
+/** A terminal as the canvas needs to see it: an id to show, and what keys its slot. */
+export interface TerminalRef {
+  ptyId: string;
+  taskId: number | null;
 }
 
 interface CanvasStoreState {
@@ -69,8 +71,10 @@ interface CanvasStoreActions {
   onNodesChange: (projectPath: string, changes: NodeChange<CanvasNode>[]) => void;
   onEdgesChange: (projectPath: string, changes: EdgeChange[]) => void;
   addNode: (projectPath: string, ptyId: string, options?: AddNodeOptions) => void;
-  removeNode: (projectPath: string, ptyId: string) => void;
   rekeyNode: (projectPath: string, oldPtyId: string, newPtyId: string) => void;
+  /** Bring the canvas in line with the project's live terminals. Returns whether anything moved. */
+  reconcileNodes: (projectPath: string, terminals: TerminalRef[]) => boolean;
+  selectNode: (projectPath: string, ptyId: string) => void;
   setViewport: (projectPath: string, viewport: Viewport) => void;
   setNodes: (projectPath: string, nodes: CanvasNode[]) => void;
   setEdges: (projectPath: string, edges: Edge[]) => void;
@@ -89,8 +93,8 @@ type CanvasStore = CanvasStoreState & CanvasStoreActions;
 
 // ── Constants ────────────────────────────────────────────────────────
 
-export const DEFAULT_NODE_WIDTH = 740;
-export const DEFAULT_NODE_HEIGHT = 556;
+const DEFAULT_NODE_WIDTH = 740;
+const DEFAULT_NODE_HEIGHT = 556;
 const NODE_SPACING = 60;
 const GROUP_PADDING = 20;
 const GRID_GAP = 24;
@@ -207,357 +211,329 @@ function capLayout(layout: Record<string, NodeLayout>, nodes: CanvasNode[]): Rec
 
 // ── Store ────────────────────────────────────────────────────────────
 
-function patch(
-  set: (partial: Partial<CanvasStoreState>) => void,
-  state: CanvasStoreState,
+function makeNode(
+  project: CanvasProjectState,
   projectPath: string,
-  next: CanvasProjectState,
-): void {
-  set({ canvasByProject: { ...state.canvasByProject, [projectPath]: next } });
+  ref: TerminalRef,
+  position?: { x: number; y: number },
+): CanvasNode {
+  const id = nextNodeId(project.nodes, canvasNodeBase(ref.taskId));
+  const saved = project.layout[id];
+  const parentId = saved?.parentId && project.nodes.some((n) => n.id === saved.parentId) ? saved.parentId : undefined;
+
+  return {
+    id,
+    type: 'terminal',
+    position:
+      position ?? (saved ? { x: saved.x, y: saved.y } : computeNewNodePosition(project.nodes, project.viewport)),
+    data: { ptyId: ref.ptyId, projectPath },
+    dragHandle: '.terminal-drag-handle',
+    width: saved?.width ?? DEFAULT_NODE_WIDTH,
+    height: saved?.height ?? DEFAULT_NODE_HEIGHT,
+    ...(parentId ? { parentId } : {}),
+  };
 }
 
-export const useCanvasStore = create<CanvasStore>()((set, get) => ({
-  canvasByProject: {},
+export const useCanvasStore = create<CanvasStore>()((set, get) => {
+  const write = (projectPath: string, next: CanvasProjectState): void =>
+    set((s) => ({ canvasByProject: { ...s.canvasByProject, [projectPath]: next } }));
 
-  ensureProject: (projectPath) => {
-    const state = get();
-    if (state.canvasByProject[projectPath]) return;
-    patch(set, state, projectPath, emptyProjectState());
-  },
-
-  onNodesChange: (projectPath, changes) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
+  /** Apply a change to one project's canvas, or do nothing if the project has none yet. */
+  const update = (projectPath: string, next: (project: CanvasProjectState) => CanvasProjectState): void => {
+    const project = get().canvasByProject[projectPath];
     if (!project) return;
+    const changed = next(project);
+    if (changed !== project) write(projectPath, changed);
+  };
 
-    // Node removal goes through removeNode, which also banks the geometry.
-    const safeChanges = changes.filter((c) => c.type !== 'remove');
+  return {
+    canvasByProject: {},
 
-    patch(set, state, projectPath, {
-      ...project,
-      nodes: applyNodeChanges(safeChanges, project.nodes) as CanvasNode[],
-    });
-  },
+    ensureProject: (projectPath) => {
+      if (get().canvasByProject[projectPath]) return;
+      write(projectPath, emptyProjectState());
+    },
 
-  onEdgesChange: (projectPath, changes) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-    patch(set, state, projectPath, { ...project, edges: applyEdgeChanges(changes, project.edges) });
-  },
+    onNodesChange: (projectPath, changes) =>
+      update(projectPath, (project) => ({
+        ...project,
+        // A remove change would drop the node without banking its geometry.
+        // Removal belongs to reconcileNodes, which does.
+        nodes: applyNodeChanges(
+          changes.filter((c) => c.type !== 'remove'),
+          project.nodes,
+        ) as CanvasNode[],
+      })),
 
-  addNode: (projectPath, ptyId, options = {}) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath] ?? emptyProjectState();
-    if (project.nodes.some((n) => n.data.ptyId === ptyId)) return;
+    onEdgesChange: (projectPath, changes) =>
+      update(projectPath, (project) => ({ ...project, edges: applyEdgeChanges(changes, project.edges) })),
 
-    const id = nextNodeId(project.nodes, canvasNodeBase(options.taskId));
-    const saved = project.layout[id];
-    const position =
-      options.position ??
-      (saved ? { x: saved.x, y: saved.y } : computeNewNodePosition(project.nodes, project.viewport));
-    const parentId = saved?.parentId && project.nodes.some((n) => n.id === saved.parentId) ? saved.parentId : undefined;
+    addNode: (projectPath, ptyId, options = {}) => {
+      const project = get().canvasByProject[projectPath] ?? emptyProjectState();
+      if (project.nodes.some((n) => n.data.ptyId === ptyId)) return;
+      const node = makeNode(project, projectPath, { ptyId, taskId: options.taskId ?? null }, options.position);
+      write(projectPath, { ...project, nodes: [...project.nodes, node] });
+    },
 
-    const node: CanvasNode = {
-      id,
-      type: 'terminal',
-      position,
-      data: { ptyId, projectPath, loading: options.loading, loadingLabel: options.loadingLabel },
-      dragHandle: '.terminal-drag-handle',
-      width: saved?.width ?? DEFAULT_NODE_WIDTH,
-      height: saved?.height ?? DEFAULT_NODE_HEIGHT,
-      ...(parentId ? { parentId } : {}),
-    };
+    rekeyNode: (projectPath, oldPtyId, newPtyId) => {
+      if (oldPtyId === newPtyId) return;
+      update(projectPath, (project) => ({
+        ...project,
+        nodes: project.nodes.map((n) =>
+          n.data.ptyId === oldPtyId ? { ...n, data: { ...n.data, ptyId: newPtyId } } : n,
+        ),
+      }));
+    },
 
-    patch(set, state, projectPath, { ...project, nodes: [...project.nodes, node] });
-  },
+    reconcileNodes: (projectPath, terminals) => {
+      const project = get().canvasByProject[projectPath];
+      if (!project) return false;
 
-  removeNode: (projectPath, ptyId) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-    const node = project.nodes.find((n) => n.data.ptyId === ptyId && !isGroupNode(n));
-    if (!node) return;
+      const live = new Set(terminals.map((t) => t.ptyId));
+      const onCanvas = new Set(project.nodes.filter((n) => !isGroupNode(n)).map((n) => n.data.ptyId));
+      const gone = project.nodes.filter((n) => !isGroupNode(n) && !live.has(n.data.ptyId));
+      const arrived = terminals.filter((t) => !onCanvas.has(t.ptyId));
+      if (gone.length === 0 && arrived.length === 0) return false;
 
-    patch(set, state, projectPath, {
-      ...project,
-      nodes: pruneEmptyGroups(project.nodes.filter((n) => n.id !== node.id)),
-      edges: project.edges.filter((e) => e.source !== node.id && e.target !== node.id),
-      layout: { ...project.layout, [node.id]: layoutOf(node) },
-    });
-  },
+      const goneIds = new Set(gone.map((n) => n.id));
+      const layout = { ...project.layout };
+      for (const node of gone) layout[node.id] = layoutOf(node);
 
-  rekeyNode: (projectPath, oldPtyId, newPtyId) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project || oldPtyId === newPtyId) return;
+      // Departures are banked before arrivals are placed, so a terminal that
+      // reopens for the same task reclaims the ordinal — and with it the
+      // position — the closed one had.
+      const nodes = pruneEmptyGroups(project.nodes.filter((n) => !goneIds.has(n.id)));
+      for (const ref of arrived) nodes.push(makeNode({ ...project, nodes, layout }, projectPath, ref));
 
-    patch(set, state, projectPath, {
-      ...project,
-      nodes: project.nodes.map((n) =>
-        n.data.ptyId === oldPtyId
-          ? { ...n, data: { ...n.data, ptyId: newPtyId, loading: false, loadingLabel: undefined } }
-          : n,
-      ),
-    });
-  },
+      write(projectPath, {
+        ...project,
+        nodes,
+        edges: project.edges.filter((e) => !goneIds.has(e.source) && !goneIds.has(e.target)),
+        layout,
+      });
+      return true;
+    },
 
-  setViewport: (projectPath, viewport) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-    patch(set, state, projectPath, { ...project, viewport });
-  },
-
-  setNodes: (projectPath, nodes) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-    patch(set, state, projectPath, { ...project, nodes });
-  },
-
-  setEdges: (projectPath, edges) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-    patch(set, state, projectPath, { ...project, edges });
-  },
-
-  setGridSnap: (projectPath, snap) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-    patch(set, state, projectPath, { ...project, gridSnap: snap });
-  },
-
-  groupSelected: (projectPath) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-
-    const selected = project.nodes.filter((n) => n.selected && !isGroupNode(n) && !n.parentId);
-    if (selected.length < 2) return;
-
-    const bounds = selected.reduce(
-      (acc, n) => ({
-        minX: Math.min(acc.minX, n.position.x),
-        minY: Math.min(acc.minY, n.position.y),
-        maxX: Math.max(acc.maxX, n.position.x + nodeWidth(n)),
-        maxY: Math.max(acc.maxY, n.position.y + nodeHeight(n)),
-      }),
-      { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
-    );
-
-    const groupId = nextNodeId(project.nodes, 'group');
-    const groupNode: CanvasNode = {
-      id: groupId,
-      type: 'group',
-      position: { x: bounds.minX - GROUP_PADDING, y: bounds.minY - GROUP_PADDING },
-      data: { ptyId: groupId, projectPath },
-      width: bounds.maxX - bounds.minX + GROUP_PADDING * 2,
-      height: bounds.maxY - bounds.minY + GROUP_PADDING * 2,
-    };
-
-    const selectedIds = new Set(selected.map((n) => n.id));
-    const children = project.nodes.map((n) =>
-      selectedIds.has(n.id)
-        ? {
-            ...n,
-            parentId: groupId,
-            position: { x: n.position.x - groupNode.position.x, y: n.position.y - groupNode.position.y },
-            selected: false,
-          }
-        : n,
-    );
-
-    // React Flow requires a parent to precede its children in the array.
-    patch(set, state, projectPath, { ...project, nodes: [groupNode, ...children] });
-  },
-
-  ungroupSelected: (projectPath) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-
-    const groupIds = new Set<string>();
-    for (const node of project.nodes) {
-      if (node.selected && isGroupNode(node)) groupIds.add(node.id);
-      if (node.selected && node.parentId) groupIds.add(node.parentId);
-    }
-    if (groupIds.size === 0) return;
-
-    const nodes: CanvasNode[] = [];
-    for (const node of project.nodes) {
-      if (isGroupNode(node) && groupIds.has(node.id)) continue;
-      if (node.parentId && groupIds.has(node.parentId)) {
-        const parent = project.nodes.find((n) => n.id === node.parentId);
-        nodes.push({
-          ...node,
-          parentId: undefined,
-          position: {
-            x: node.position.x + (parent?.position.x ?? 0),
-            y: node.position.y + (parent?.position.y ?? 0),
-          },
+    selectNode: (projectPath, ptyId) =>
+      update(projectPath, (project) => {
+        let changed = false;
+        const nodes = project.nodes.map((n) => {
+          const selected = !isGroupNode(n) && n.data.ptyId === ptyId;
+          if (!!n.selected === selected) return n;
+          changed = true;
+          return { ...n, selected };
         });
-      } else {
-        nodes.push(node);
-      }
-    }
+        return changed ? { ...project, nodes } : project;
+      }),
 
-    patch(set, state, projectPath, { ...project, nodes });
-  },
+    setViewport: (projectPath, viewport) => update(projectPath, (project) => ({ ...project, viewport })),
 
-  alignSelected: (projectPath, type) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-    const selected = project.nodes.filter((n) => n.selected);
-    if (selected.length < 2) return;
+    setNodes: (projectPath, nodes) => update(projectPath, (project) => ({ ...project, nodes })),
 
-    const minX = Math.min(...selected.map((n) => n.position.x));
-    const maxRight = Math.max(...selected.map((n) => n.position.x + nodeWidth(n)));
-    const minY = Math.min(...selected.map((n) => n.position.y));
-    const maxBottom = Math.max(...selected.map((n) => n.position.y + nodeHeight(n)));
+    setEdges: (projectPath, edges) => update(projectPath, (project) => ({ ...project, edges })),
 
-    const placeX = (n: CanvasNode): number => {
-      switch (type) {
-        case 'left':
-          return minX;
-        case 'right':
-          return maxRight - nodeWidth(n);
-        case 'center-h':
-          return (minX + maxRight) / 2 - nodeWidth(n) / 2;
-        default:
-          return n.position.x;
-      }
-    };
-    const placeY = (n: CanvasNode): number => {
-      switch (type) {
-        case 'top':
-          return minY;
-        case 'bottom':
-          return maxBottom - nodeHeight(n);
-        case 'center-v':
-          return (minY + maxBottom) / 2 - nodeHeight(n) / 2;
-        default:
-          return n.position.y;
-      }
-    };
+    setGridSnap: (projectPath, snap) => update(projectPath, (project) => ({ ...project, gridSnap: snap })),
 
-    patch(set, state, projectPath, {
-      ...project,
-      nodes: project.nodes.map((n) => (n.selected ? { ...n, position: { x: placeX(n), y: placeY(n) } } : n)),
-    });
-  },
+    groupSelected: (projectPath) =>
+      update(projectPath, (project) => {
+        const selected = project.nodes.filter((n) => n.selected && !isGroupNode(n) && !n.parentId);
+        if (selected.length < 2) return project;
 
-  distributeSelected: (projectPath, axis) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-    const selected = project.nodes.filter((n) => n.selected);
-    if (selected.length < 3) return;
+        const bounds = selected.reduce(
+          (acc, n) => ({
+            minX: Math.min(acc.minX, n.position.x),
+            minY: Math.min(acc.minY, n.position.y),
+            maxX: Math.max(acc.maxX, n.position.x + nodeWidth(n)),
+            maxY: Math.max(acc.maxY, n.position.y + nodeHeight(n)),
+          }),
+          { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
+        );
 
-    const horizontal = axis === 'horizontal';
-    const at = (n: CanvasNode) => (horizontal ? n.position.x : n.position.y);
-    const extent = horizontal ? nodeWidth : nodeHeight;
+        const groupId = nextNodeId(project.nodes, 'group');
+        const groupNode: CanvasNode = {
+          id: groupId,
+          type: 'group',
+          position: { x: bounds.minX - GROUP_PADDING, y: bounds.minY - GROUP_PADDING },
+          data: { ptyId: groupId, projectPath },
+          width: bounds.maxX - bounds.minX + GROUP_PADDING * 2,
+          height: bounds.maxY - bounds.minY + GROUP_PADDING * 2,
+        };
 
-    const sorted = [...selected].sort((a, b) => at(a) - at(b));
-    const last = sorted[sorted.length - 1];
-    const start = at(sorted[0]);
-    const span = at(last) + extent(last) - start;
-    const gap = (span - sorted.reduce((sum, n) => sum + extent(n), 0)) / (sorted.length - 1);
+        const selectedIds = new Set(selected.map((n) => n.id));
+        const children = project.nodes.map((n) =>
+          selectedIds.has(n.id)
+            ? {
+                ...n,
+                parentId: groupId,
+                position: { x: n.position.x - groupNode.position.x, y: n.position.y - groupNode.position.y },
+                selected: false,
+              }
+            : n,
+        );
 
-    let cursor = start;
-    const placed = new Map<string, number>();
-    for (const node of sorted) {
-      placed.set(node.id, cursor);
-      cursor += extent(node) + gap;
-    }
+        // React Flow requires a parent to precede its children in the array.
+        return { ...project, nodes: [groupNode, ...children] };
+      }),
 
-    patch(set, state, projectPath, {
-      ...project,
-      nodes: project.nodes.map((n) => {
-        const coord = placed.get(n.id);
-        if (coord === undefined) return n;
+    ungroupSelected: (projectPath) =>
+      update(projectPath, (project) => {
+        const groupIds = new Set<string>();
+        for (const node of project.nodes) {
+          if (node.selected && isGroupNode(node)) groupIds.add(node.id);
+          if (node.selected && node.parentId) groupIds.add(node.parentId);
+        }
+        if (groupIds.size === 0) return project;
+
+        const nodes: CanvasNode[] = [];
+        for (const node of project.nodes) {
+          if (isGroupNode(node) && groupIds.has(node.id)) continue;
+          if (node.parentId && groupIds.has(node.parentId)) {
+            const parent = project.nodes.find((n) => n.id === node.parentId);
+            nodes.push({
+              ...node,
+              parentId: undefined,
+              position: {
+                x: node.position.x + (parent?.position.x ?? 0),
+                y: node.position.y + (parent?.position.y ?? 0),
+              },
+            });
+          } else {
+            nodes.push(node);
+          }
+        }
+
+        return { ...project, nodes };
+      }),
+
+    alignSelected: (projectPath, type) =>
+      update(projectPath, (project) => {
+        const selected = project.nodes.filter((n) => n.selected);
+        if (selected.length < 2) return project;
+
+        const minX = Math.min(...selected.map((n) => n.position.x));
+        const maxRight = Math.max(...selected.map((n) => n.position.x + nodeWidth(n)));
+        const minY = Math.min(...selected.map((n) => n.position.y));
+        const maxBottom = Math.max(...selected.map((n) => n.position.y + nodeHeight(n)));
+
+        const placeX = (n: CanvasNode): number => {
+          switch (type) {
+            case 'left':
+              return minX;
+            case 'right':
+              return maxRight - nodeWidth(n);
+            case 'center-h':
+              return (minX + maxRight) / 2 - nodeWidth(n) / 2;
+            default:
+              return n.position.x;
+          }
+        };
+        const placeY = (n: CanvasNode): number => {
+          switch (type) {
+            case 'top':
+              return minY;
+            case 'bottom':
+              return maxBottom - nodeHeight(n);
+            case 'center-v':
+              return (minY + maxBottom) / 2 - nodeHeight(n) / 2;
+            default:
+              return n.position.y;
+          }
+        };
+
         return {
-          ...n,
-          position: horizontal ? { x: coord, y: n.position.y } : { x: n.position.x, y: coord },
+          ...project,
+          nodes: project.nodes.map((n) => (n.selected ? { ...n, position: { x: placeX(n), y: placeY(n) } } : n)),
         };
       }),
-    });
-  },
 
-  gridLayoutSelected: (projectPath) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-    const selected = project.nodes.filter((n) => n.selected);
-    if (selected.length < 2) return;
+    distributeSelected: (projectPath, axis) =>
+      update(projectPath, (project) => {
+        const selected = project.nodes.filter((n) => n.selected);
+        if (selected.length < 3) return project;
 
-    const cols = Math.ceil(Math.sqrt(selected.length));
-    const sorted = [...selected].sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y);
+        const horizontal = axis === 'horizontal';
+        const at = (n: CanvasNode) => (horizontal ? n.position.x : n.position.y);
+        const extent = horizontal ? nodeWidth : nodeHeight;
 
-    const colWidths: number[] = [];
-    const rowHeights: number[] = [];
-    sorted.forEach((node, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      colWidths[col] = Math.max(colWidths[col] ?? 0, nodeWidth(node));
-      rowHeights[row] = Math.max(rowHeights[row] ?? 0, nodeHeight(node));
-    });
+        const sorted = [...selected].sort((a, b) => at(a) - at(b));
+        const last = sorted[sorted.length - 1];
+        const start = at(sorted[0]);
+        const span = at(last) + extent(last) - start;
+        const gap = (span - sorted.reduce((sum, n) => sum + extent(n), 0)) / (sorted.length - 1);
 
-    const originX = Math.min(...selected.map((n) => n.position.x));
-    const originY = Math.min(...selected.map((n) => n.position.y));
+        let cursor = start;
+        const placed = new Map<string, number>();
+        for (const node of sorted) {
+          placed.set(node.id, cursor);
+          cursor += extent(node) + gap;
+        }
 
-    const placed = new Map<string, { x: number; y: number }>();
-    sorted.forEach((node, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      placed.set(node.id, {
-        x: originX + colWidths.slice(0, col).reduce((s, w) => s + w + GRID_GAP, 0),
-        y: originY + rowHeights.slice(0, row).reduce((s, h) => s + h + GRID_GAP, 0),
+        return {
+          ...project,
+          nodes: project.nodes.map((n) => {
+            const coord = placed.get(n.id);
+            if (coord === undefined) return n;
+            return { ...n, position: horizontal ? { x: coord, y: n.position.y } : { x: n.position.x, y: coord } };
+          }),
+        };
+      }),
+
+    gridLayoutSelected: (projectPath) =>
+      update(projectPath, (project) => {
+        const selected = project.nodes.filter((n) => n.selected);
+        if (selected.length < 2) return project;
+
+        const cols = Math.ceil(Math.sqrt(selected.length));
+        const sorted = [...selected].sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y);
+
+        const colWidths: number[] = [];
+        const rowHeights: number[] = [];
+        sorted.forEach((node, i) => {
+          colWidths[i % cols] = Math.max(colWidths[i % cols] ?? 0, nodeWidth(node));
+          rowHeights[Math.floor(i / cols)] = Math.max(rowHeights[Math.floor(i / cols)] ?? 0, nodeHeight(node));
+        });
+
+        const originX = Math.min(...selected.map((n) => n.position.x));
+        const originY = Math.min(...selected.map((n) => n.position.y));
+
+        const placed = new Map<string, { x: number; y: number }>();
+        sorted.forEach((node, i) => {
+          placed.set(node.id, {
+            x: originX + colWidths.slice(0, i % cols).reduce((s, w) => s + w + GRID_GAP, 0),
+            y: originY + rowHeights.slice(0, Math.floor(i / cols)).reduce((s, h) => s + h + GRID_GAP, 0),
+          });
+        });
+
+        return { ...project, nodes: project.nodes.map((n) => ({ ...n, position: placed.get(n.id) ?? n.position })) };
+      }),
+
+    commitLayout: (projectPath) =>
+      update(projectPath, (project) => {
+        const layout = { ...project.layout };
+        for (const node of project.nodes) {
+          if (!isGroupNode(node)) layout[node.id] = layoutOf(node);
+        }
+        return { ...project, layout: capLayout(layout, project.nodes) };
+      }),
+
+    loadCanvas: (projectPath, persisted) => {
+      write(projectPath, {
+        nodes: persisted.groups.map((g) => ({
+          id: g.id,
+          type: 'group',
+          position: g.position,
+          data: { ptyId: g.id, projectPath },
+          width: g.width,
+          height: g.height,
+        })),
+        edges: [],
+        viewport: persisted.viewport,
+        gridSnap: persisted.gridSnap,
+        layout: persisted.layout,
       });
-    });
-
-    patch(set, state, projectPath, {
-      ...project,
-      nodes: project.nodes.map((n) => ({ ...n, position: placed.get(n.id) ?? n.position })),
-    });
-  },
-
-  commitLayout: (projectPath) => {
-    const state = get();
-    const project = state.canvasByProject[projectPath];
-    if (!project) return;
-
-    const layout = { ...project.layout };
-    for (const node of project.nodes) {
-      if (isGroupNode(node)) continue;
-      layout[node.id] = layoutOf(node);
-    }
-    patch(set, state, projectPath, { ...project, layout: capLayout(layout, project.nodes) });
-  },
-
-  loadCanvas: (projectPath, persisted) => {
-    const state = get();
-    const groups: CanvasNode[] = persisted.groups.map((g) => ({
-      id: g.id,
-      type: 'group',
-      position: g.position,
-      data: { ptyId: g.id, projectPath },
-      width: g.width,
-      height: g.height,
-    }));
-
-    patch(set, state, projectPath, {
-      nodes: groups,
-      edges: [],
-      viewport: persisted.viewport,
-      gridSnap: persisted.gridSnap,
-      layout: persisted.layout,
-    });
-  },
-}));
+    },
+  };
+});
 
 // ── Persistence ──────────────────────────────────────────────────────
 

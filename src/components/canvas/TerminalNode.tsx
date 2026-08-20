@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef } from 'react';
 import { NodeResizer, Handle, Position, type NodeProps } from '@xyflow/react';
 import { type CanvasNode } from '../../stores/canvasStore';
+import { useTerminalStore } from '../../stores/terminalStore';
 import { TerminalBody } from '../terminal/TerminalBody';
 import { TerminalHeader } from '../terminal/TerminalHeader';
 import { closeProjectTerminal } from '../terminal/terminalActions';
@@ -10,7 +11,9 @@ const INSET_SIDE = 10;
 const INSET_BOTTOM = 8;
 
 export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeProps<CanvasNode>) {
-  if (data.loading) return <LoadingNode label={data.loadingLabel} />;
+  const isLoading = useTerminalStore((s) => s.displayStates[data.ptyId]?.isLoading ?? false);
+  const loadingLabel = useTerminalStore((s) => s.displayStates[data.ptyId]?.label ?? '');
+  if (isLoading) return <LoadingNode label={loadingLabel} />;
   return <ActiveTerminalNode data={data} selected={selected} />;
 });
 

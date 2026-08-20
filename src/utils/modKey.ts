@@ -13,4 +13,9 @@ export function isModKey(e: { metaKey: boolean; ctrlKey: boolean }): boolean {
 }
 
 /** Label for the same modifier, for tooltips and key hints. */
-export const MOD_LABEL = isMac ? '⌘' : 'Ctrl ';
+export const MOD_LABEL = isMac ? '⌘' : 'Ctrl';
+
+/** The modifier joined to the keys it is pressed with, spaced for the platform. */
+export function modChord(keys: string): string {
+  return isMac ? `${MOD_LABEL}${keys}` : `${MOD_LABEL} ${keys}`;
+}

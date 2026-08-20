@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
 import { Icon } from '../terminal/Icon';
 import { KeyHint } from '../ui/KeyHint';
-import { isModKey, MOD_LABEL } from '../../utils/modKey';
+import { isModKey, modChord } from '../../utils/modKey';
 
 /** Matches the app's other overlays, so the surfaces enter and leave alike. */
 const TRANSITION_MS = 200;
@@ -222,7 +222,7 @@ export function TaskComposerSheet({
           )}
           <button type="button" onClick={submit} disabled={!canSubmit} className="btn-primary">
             {isCreate ? 'Create task' : 'Save'}
-            <span className="opacity-60 font-mono text-[11px]">{MOD_LABEL}↵</span>
+            <span className="opacity-60 font-mono text-[11px]">{modChord('↵')}</span>
           </button>
         </div>
       </div>
