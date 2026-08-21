@@ -11,6 +11,7 @@ describe('pickLocale', () => {
   test('prefers the system language, in the spelling the system uses', () => {
     expect(pickLocale({}, 'nb-NO', MACOS)).toBe('nb_NO.UTF-8');
     expect(pickLocale({}, 'nb-NO', LINUX)).toBe('nb_NO.utf8');
+    expect(pickLocale({}, 'zh-Hans-CN', ['zh_CN.UTF-8', ...MACOS])).toBe('zh_CN.UTF-8');
   });
 
   test('falls back to en_US when the system language has no UTF-8 locale', () => {

@@ -208,8 +208,7 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     let innerCmd: string;
     if (options.command) {
       // Run command then drop to interactive bash
-      const escapedCmd = options.command.replace(/'/g, "'\\''");
-      innerCmd = `${envExports}${hookSetup}${escapedCmd}; exec bash`;
+      innerCmd = `${envExports}${hookSetup}${options.command}; exec bash`;
     } else {
       innerCmd = `${envExports}${hookSetup}exec bash`;
     }

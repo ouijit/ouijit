@@ -17,9 +17,12 @@ export async function terminalLocale(base: NodeJS.ProcessEnv): Promise<Record<st
 
 let available: Promise<string[]> | null = null;
 
-function availableLocales(): Promise<string[]> {
-  available ??= readLocales();
-  return available;
+async function availableLocales(): Promise<string[]> {
+  const locales = await (available ??= readLocales());
+  // An empty list means `locale -a` failed; keeping it would leave every
+  // terminal for the rest of the session without LANG.
+  if (locales.length === 0) available = null;
+  return locales;
 }
 
 async function readLocales(): Promise<string[]> {
@@ -45,11 +48,18 @@ export function pickLocale(
 ): string | undefined {
   if (env.LC_ALL || env.LC_CTYPE || env.LANG) return undefined;
   const utf8 = available.map((name) => name.trim()).filter((name) => /\.utf-?8$/i.test(name));
-  const language = preferred?.replace('-', '_');
+  const language = localeName(preferred);
   return (
     (language && utf8.find((name) => name.startsWith(`${language}.`))) ||
     utf8.find((name) => name.startsWith('en_US.')) ||
     utf8.find((name) => name.startsWith('C.')) ||
     utf8[0]
   );
+}
+
+/** A BCP 47 tag can carry a script subtag `locale -a` never names: `zh-Hans-CN` is `zh_CN`. */
+function localeName(tag: string | undefined): string | undefined {
+  if (!tag) return undefined;
+  const parts = tag.split('-');
+  return parts.length > 1 ? `${parts[0]}_${parts[parts.length - 1]}` : parts[0];
 }
