@@ -9,6 +9,7 @@ import {
   type Viewport,
 } from '@xyflow/react';
 import { isChainMember, type TaskChainInfo } from '../utils/taskChain';
+import type { TerminalDisplayState } from './terminalDisplay';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -85,7 +86,7 @@ interface CanvasStoreActions {
   chainLayout: (
     projectPath: string,
     chainMap: Map<number, TaskChainInfo>,
-    nodesByTask: Map<number, CanvasNode[]>,
+    displayStates: Record<string, TerminalDisplayState>,
   ) => void;
   loadCanvas: (projectPath: string, persisted: PersistedCanvas) => void;
   ensureProject: (projectPath: string) => void;
@@ -142,6 +143,23 @@ function nextNodeId(nodes: CanvasNode[], base: string): string {
 
 export function isGroupNode(node: CanvasNode): node is GroupCanvasNode {
   return node.type === 'group';
+}
+
+/** Terminal nodes grouped by the task they belong to; a task can have several. */
+export function nodesByTask(
+  nodes: CanvasNode[],
+  displayStates: Record<string, TerminalDisplayState>,
+): Map<number, CanvasNode[]> {
+  const byTask = new Map<number, CanvasNode[]>();
+  for (const node of nodes) {
+    if (isGroupNode(node)) continue;
+    const taskId = displayStates[node.data.ptyId]?.taskId;
+    if (taskId == null) continue;
+    const list = byTask.get(taskId);
+    if (list) list.push(node);
+    else byTask.set(taskId, [node]);
+  }
+  return byTask;
 }
 
 // ── Geometry helpers ─────────────────────────────────────────────────
@@ -204,11 +222,7 @@ function capLayout(layout: Record<string, NodeLayout>, nodes: CanvasNode[]): Rec
   if (keys.length <= MAX_LAYOUT_ENTRIES) return layout;
 
   const live = new Set(nodes.map((n) => n.id));
-  const evictable = keys.filter((k) => !live.has(k));
-  const dropCount = Math.min(evictable.length, keys.length - MAX_LAYOUT_ENTRIES);
-  if (dropCount === 0) return layout;
-
-  const dropped = new Set(evictable.slice(0, dropCount));
+  const dropped = new Set(keys.filter((k) => !live.has(k)).slice(0, keys.length - MAX_LAYOUT_ENTRIES));
   return Object.fromEntries(keys.filter((k) => !dropped.has(k)).map((k) => [k, layout[k]]));
 }
 
@@ -533,18 +547,22 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
         return reposition(project, placed);
       }),
 
-    chainLayout: (projectPath, chainMap, nodesByTask) =>
+    chainLayout: (projectPath, chainMap, displayStates) =>
       updatePersisted(projectPath, (project) => {
         const inChain = new Set([...chainMap].filter(([, info]) => isChainMember(info)).map(([taskNum]) => taskNum));
         if (inChain.size === 0) return project;
 
+        const byTask = nodesByTask(project.nodes, displayStates);
         const positions = new Map<string, { x: number; y: number }>();
 
         const childrenOf = (taskNum: number): number[] =>
           chainMap.get(taskNum)?.childTaskNumbers.filter((c) => inChain.has(c)) ?? [];
 
-        const stackedHeight = (nodes: CanvasNode[]): number =>
-          nodes.length > 0 ? nodes.reduce((sum, n) => sum + nodeHeight(n) + CHAIN_V_GAP, 0) - CHAIN_V_GAP : 0;
+        /** Total height of things stacked with a gap between each. */
+        const stacked = (heights: number[]): number =>
+          heights.length > 0 ? heights.reduce((sum, h) => sum + h, 0) + (heights.length - 1) * CHAIN_V_GAP : 0;
+
+        const ownHeight = (taskNum: number): number => stacked((byTask.get(taskNum) ?? []).map(nodeHeight));
 
         // The placing pass below needs a child's height before it has placed
         // it, so heights are measured first. Memoised: every parent asks for
@@ -554,15 +572,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
           const known = heights.get(taskNum);
           if (known !== undefined) return known;
 
-          const ownHeight = stackedHeight(nodesByTask.get(taskNum) ?? []);
-          const children = childrenOf(taskNum);
-          const height =
-            children.length === 0
-              ? ownHeight
-              : Math.max(
-                  ownHeight,
-                  children.reduce((sum, c) => sum + heightOf(c), 0) + (children.length - 1) * CHAIN_V_GAP,
-                );
+          const height = Math.max(ownHeight(taskNum), stacked(childrenOf(taskNum).map(heightOf)));
 
           heights.set(taskNum, height);
           return height;
@@ -570,7 +580,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
 
         /** Places a task's terminals at `x` and its children to the right, centred against it. */
         const layoutSubtree = (taskNum: number, x: number, y: number): void => {
-          const nodes = nodesByTask.get(taskNum) ?? [];
+          const nodes = byTask.get(taskNum) ?? [];
 
           let nodeY = y;
           for (const node of nodes) {
@@ -581,11 +591,8 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => {
           const children = childrenOf(taskNum);
           if (children.length === 0) return;
 
-          const totalChildHeight =
-            children.reduce((sum, c) => sum + heightOf(c), 0) + (children.length - 1) * CHAIN_V_GAP;
-
           const childX = x + (nodes.length > 0 ? Math.max(...nodes.map(nodeWidth)) : 0) + CHAIN_H_GAP;
-          let childY = y + stackedHeight(nodes) / 2 - totalChildHeight / 2;
+          let childY = y + ownHeight(taskNum) / 2 - stacked(children.map(heightOf)) / 2;
           for (const child of children) {
             layoutSubtree(child, childX, childY);
             childY += heightOf(child) + CHAIN_V_GAP;

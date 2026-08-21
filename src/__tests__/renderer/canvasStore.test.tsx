@@ -6,7 +6,7 @@ import {
   canvasNodeBase,
   type CanvasNode,
 } from '../../stores/canvasStore';
-import { syncCanvasWithTerminals, nodesByTask } from '../../stores/canvasSync';
+import { syncCanvasWithTerminals } from '../../stores/canvasSync';
 import type { TaskChainInfo } from '../../utils/taskChain';
 import { useTerminalStore } from '../../stores/terminalStore';
 
@@ -304,9 +304,8 @@ describe('chain tree layout', () => {
       [2, { rootTaskNumber: 1, depth: 1, childTaskNumbers: [] }],
       [3, { rootTaskNumber: 1, depth: 1, childTaskNumbers: [] }],
     ]);
-    const byTask = nodesByTask(canvas().nodes, useTerminalStore.getState().displayStates);
 
-    useCanvasStore.getState().chainLayout(PROJECT, chainMap, byTask);
+    useCanvasStore.getState().chainLayout(PROJECT, chainMap, useTerminalStore.getState().displayStates);
 
     expect(nodeFor('pty-parent').position).toEqual({ x: 0, y: 0 });
     // Children share a column one parent-width plus the gap to the right, and
@@ -325,9 +324,7 @@ describe('chain tree layout', () => {
       [1, { rootTaskNumber: 1, depth: 0, childTaskNumbers: [] }],
       [2, { rootTaskNumber: 2, depth: 0, childTaskNumbers: [] }],
     ]);
-    useCanvasStore
-      .getState()
-      .chainLayout(PROJECT, chainMap, nodesByTask(canvas().nodes, useTerminalStore.getState().displayStates));
+    useCanvasStore.getState().chainLayout(PROJECT, chainMap, useTerminalStore.getState().displayStates);
 
     expect(nodeFor('pty-a').position).toEqual({ x: 40, y: 50 });
     expect(nodeFor('pty-b').position).toEqual({ x: 700, y: 90 });

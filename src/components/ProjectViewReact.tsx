@@ -12,7 +12,7 @@ import {
 } from '../stores/terminalStore';
 import { useCanvasStore, selectedCanvasPtyId } from '../stores/canvasStore';
 import { useExperimentalStore } from '../stores/experimentalStore';
-import { useUIStore } from '../stores/uiStore';
+import { useUIStore, terminalLayout } from '../stores/uiStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { TerminalCanvas } from './canvas/TerminalCanvas';
 import { KanbanBoard } from './kanban/KanbanBoard';
@@ -20,6 +20,7 @@ import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
 import { PullRequestsPanel } from './github/PullRequestsPanel';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { RunHookDialog } from './dialogs/RunHookDialog';
+import { focusXterm } from './navigation';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import {
   addProjectTerminal,
@@ -38,9 +39,7 @@ const EMPTY: string[] = [];
 
 /** The terminal the current layout treats as active. */
 function activePtyId(projectPath: string): string | undefined {
-  return useUIStore.getState().terminalLayout === 'canvas'
-    ? selectedCanvasPtyId(projectPath)
-    : getActivePtyId(projectPath);
+  return terminalLayout() === 'canvas' ? selectedCanvasPtyId(projectPath) : getActivePtyId(projectPath);
 }
 
 export function ProjectView() {
@@ -48,7 +47,7 @@ export function ProjectView() {
   const projectData = useAppStore((s) => s.activeProjectData);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const activePanel = useProjectStore((s) => s.activePanel);
-  const terminalLayout = useUIStore((s) => s.terminalLayout);
+  const layout = useUIStore(terminalLayout);
   const canvasEnabled = useUIStore((s) => s.canvasEnabled);
   const githubEnabled = useExperimentalStore((s) =>
     projectPath ? (s.flagsByProject[projectPath]?.github ?? false) : false,
@@ -114,7 +113,7 @@ export function ProjectView() {
       }
 
       // Cmd+G / Cmd+Shift+G — group/ungroup (canvas mode only)
-      if (key === 'g' && canvasEnabled && useUIStore.getState().terminalLayout === 'canvas') {
+      if (key === 'g' && terminalLayout() === 'canvas') {
         e.preventDefault();
         e.stopPropagation();
         if (e.shiftKey) {
@@ -166,15 +165,12 @@ export function ProjectView() {
       if (num >= 1 && num <= 9) {
         e.preventDefault();
         e.stopPropagation();
-        const layout = useUIStore.getState().terminalLayout;
+        const layout = terminalLayout();
         if (layout === 'canvas') {
           const targetPtyId = getVisibleTerminals(projectPath)[num - 1];
           if (targetPtyId) {
             useCanvasStore.getState().selectNode(projectPath, targetPtyId);
-            const inst = terminalInstances.get(targetPtyId);
-            if (inst) {
-              requestAnimationFrame(() => inst.xterm.focus());
-            }
+            focusXterm(targetPtyId);
           }
         } else {
           // Stack mode: switch by stack position
@@ -188,7 +184,7 @@ export function ProjectView() {
 
       // Cmd+Shift+Left/Right — page navigation (stack mode only)
       if (e.shiftKey && (key === 'arrowleft' || key === 'arrowright')) {
-        const layout = useUIStore.getState().terminalLayout;
+        const layout = terminalLayout();
         if (layout === 'stack') {
           e.preventDefault();
           e.stopPropagation();
@@ -275,17 +271,10 @@ export function ProjectView() {
 
   // Focus active terminal when active index changes (stack mode only)
   useEffect(() => {
-    if (!projectPath || terminals.length === 0 || kanbanVisible || terminalLayout !== 'stack') return;
+    if (!projectPath || terminals.length === 0 || kanbanVisible || layout !== 'stack') return;
     const ptyId = terminals[activeIndex];
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (instance) {
-      requestAnimationFrame(() => {
-        instance.fit();
-        instance.xterm.focus();
-      });
-    }
-  }, [activeIndex, terminals, projectPath, kanbanVisible, terminalLayout]);
+    if (ptyId) focusXterm(ptyId);
+  }, [activeIndex, terminals, projectPath, kanbanVisible, layout]);
 
   const handleHideKanban = useCallback(() => {
     useProjectStore.getState().setKanbanVisible(false);
@@ -296,7 +285,7 @@ export function ProjectView() {
   }
 
   const renderTerminals = () => {
-    if (canvasEnabled && terminalLayout === 'canvas') {
+    if (layout === 'canvas') {
       return <TerminalCanvas projectPath={projectPath} />;
     }
     return <TerminalCardStack projectPath={projectPath} />;

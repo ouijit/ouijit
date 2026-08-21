@@ -105,7 +105,7 @@ export function installCaptureNavigator(): void {
         projectStore.setKanbanVisible(false);
         // setState, not the store's setters: those write the choice to global
         // settings, and a screenshot fixture must not outlive its own run.
-        useUIStore.setState({ terminalLayout: 'stack' });
+        useUIStore.setState({ preferredLayout: 'stack' });
         break;
       case 'settings':
         projectStore.setActivePanel('settings');
@@ -114,7 +114,7 @@ export function installCaptureNavigator(): void {
       case 'canvas':
         projectStore.setActivePanel('terminals');
         projectStore.setKanbanVisible(false);
-        useUIStore.setState({ canvasEnabled: true, terminalLayout: 'canvas' });
+        useUIStore.setState({ canvasEnabled: true, preferredLayout: 'canvas' });
         if (payload.terminalSeeds) {
           const canvas = useCanvasStore.getState();
           canvas.ensureProject(payload.projectPath);

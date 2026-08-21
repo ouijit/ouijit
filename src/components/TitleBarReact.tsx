@@ -3,7 +3,7 @@ import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { useExperimentalStore } from '../stores/experimentalStore';
-import { useUIStore, type TerminalLayout } from '../stores/uiStore';
+import { useUIStore, terminalLayout, type TerminalLayout } from '../stores/uiStore';
 import { useTerminalStore, collectActiveTags } from '../stores/terminalStore';
 import { Icon } from './terminal/Icon';
 import { TagFilterControl } from './terminal/TagFilterControl';
@@ -24,7 +24,7 @@ export function TitleBar({ mode }: TitleBarProps) {
   const activeView = useAppStore((s) => s.activeView);
   const fullscreen = useAppStore((s) => s.fullscreen);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
-  const terminalLayout = useUIStore((s) => s.terminalLayout);
+  const layout = useUIStore(terminalLayout);
   const activePanel = useProjectStore((s) => s.activePanel);
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const canvasEnabled = useUIStore((s) => s.canvasEnabled);
@@ -68,7 +68,7 @@ export function TitleBar({ mode }: TitleBarProps) {
     } else {
       store.setActivePanel('terminals');
       store.setKanbanVisible(false);
-      useUIStore.getState().setTerminalLayout(view as TerminalLayout);
+      useUIStore.getState().setPreferredLayout(view as TerminalLayout);
     }
   }, []);
 
@@ -141,7 +141,7 @@ export function TitleBar({ mode }: TitleBarProps) {
               </TooltipButton>
               <TooltipButton
                 text="Terminal stack"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'terminals' && !kanbanVisible && terminalLayout === 'stack' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'terminals' && !kanbanVisible && layout === 'stack' ? ' text-text-primary bg-background-tertiary' : ''}`}
                 onClick={() => handleToggleView('stack')}
               >
                 <Icon name="cards-three" />
@@ -149,7 +149,7 @@ export function TitleBar({ mode }: TitleBarProps) {
               {canvasEnabled && (
                 <TooltipButton
                   text="Canvas"
-                  className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'terminals' && !kanbanVisible && terminalLayout === 'canvas' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                  className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'terminals' && !kanbanVisible && layout === 'canvas' ? ' text-text-primary bg-background-tertiary' : ''}`}
                   onClick={() => handleToggleView('canvas')}
                 >
                   <CanvasIcon />

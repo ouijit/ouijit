@@ -17,15 +17,33 @@ const SHORTCUTS: Array<{ keys: string; label: string }> = [
   { keys: 'Right-click', label: 'Align and distribute a selection' },
 ];
 
-// `useViewport` re-renders this bar on every pan and zoom step; the list is
-// static, so build its tree once rather than per frame.
-const SHORTCUT_LIST = (
-  <div className="flex flex-col gap-2 p-2 text-xs text-text-secondary">
-    {SHORTCUTS.map((s) => (
-      <KeyHint key={s.keys} keys={s.keys} label={s.label} />
-    ))}
-  </div>
-);
+// `useViewport` re-renders the bar on every pan and zoom step. Nothing here
+// depends on the viewport, and `MenuPopover` is not cheap to re-render — it
+// re-runs floating-ui's middleware comparison — so it sits behind its own memo.
+const CanvasShortcutsMenu = memo(function CanvasShortcutsMenu() {
+  const [open, setOpen] = useState(false);
+  const handleToggle = useCallback(() => setOpen((v) => !v), []);
+
+  return (
+    <MenuPopover
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottom"
+      className="w-[19rem]"
+      trigger={(ref) => (
+        <ControlButton ref={ref} onClick={handleToggle} title="Canvas shortcuts" active={open}>
+          <Icon name="question" className="w-3.5 h-3.5" />
+        </ControlButton>
+      )}
+    >
+      <div className="flex flex-col gap-2 p-2 text-xs text-text-secondary">
+        {SHORTCUTS.map((s) => (
+          <KeyHint key={s.keys} keys={s.keys} label={s.label} />
+        ))}
+      </div>
+    </MenuPopover>
+  );
+});
 
 interface CanvasControlsProps {
   projectPath: string;
@@ -45,9 +63,6 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
   );
 
   const zoomPercent = Math.round(zoom * 100);
-
-  const [helpOpen, setHelpOpen] = useState(false);
-  const handleToggleHelp = useCallback(() => setHelpOpen((v) => !v), []);
 
   return (
     <div
@@ -91,19 +106,7 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
         <GridIcon />
       </ControlButton>
 
-      <MenuPopover
-        open={helpOpen}
-        onOpenChange={setHelpOpen}
-        placement="bottom"
-        className="w-[19rem]"
-        trigger={(ref) => (
-          <ControlButton ref={ref} onClick={handleToggleHelp} title="Canvas shortcuts" active={helpOpen}>
-            <Icon name="question" className="w-3.5 h-3.5" />
-          </ControlButton>
-        )}
-      >
-        {SHORTCUT_LIST}
-      </MenuPopover>
+      <CanvasShortcutsMenu />
     </div>
   );
 });

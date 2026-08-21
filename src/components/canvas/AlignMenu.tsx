@@ -1,7 +1,6 @@
-import { memo, useCallback } from 'react';
+import { memo } from 'react';
 import { useCanvasStore, type AlignType, type DistributeAxis } from '../../stores/canvasStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { nodesByTask } from '../../stores/canvasSync';
 import { useProjectStore } from '../../stores/projectStore';
 import { buildChainMap } from '../../utils/taskChain';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
@@ -16,14 +15,9 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
   const tasks = useProjectStore((s) => s.tasks);
   const displayStates = useTerminalStore((s) => s.displayStates);
 
-  const canvasNodes = useCanvasStore((s) => s.canvasByProject[projectPath]?.nodes);
-  const selectedCount = canvasNodes?.filter((n) => n.selected).length ?? 0;
-
-  const handleChainLayout = useCallback(() => {
-    useCanvasStore
-      .getState()
-      .chainLayout(projectPath, buildChainMap(tasks), nodesByTask(canvasNodes ?? [], displayStates));
-  }, [projectPath, tasks, displayStates, canvasNodes]);
+  const selectedCount = useCanvasStore(
+    (s) => s.canvasByProject[projectPath]?.nodes.filter((n) => n.selected).length ?? 0,
+  );
 
   if (!position || selectedCount < 2) return null;
 
@@ -59,7 +53,11 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
       icon: 'grid-four',
       onClick: () => useCanvasStore.getState().gridLayoutSelected(projectPath),
     },
-    { label: 'Chain Tree Layout', icon: 'tree-structure', onClick: handleChainLayout },
+    {
+      label: 'Chain Tree Layout',
+      icon: 'tree-structure',
+      onClick: () => useCanvasStore.getState().chainLayout(projectPath, buildChainMap(tasks), displayStates),
+    },
   );
 
   return <ContextMenu x={position.x} y={position.y} items={items} onClose={onClose} />;

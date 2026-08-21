@@ -22,7 +22,7 @@ import {
 import { syncCanvasWithTerminals } from '../../stores/canvasSync';
 import { useTerminalStore, terminalMatchesTag } from '../../stores/terminalStore';
 import { TerminalNode, GroupNode } from './TerminalNode';
-import { terminalInstances } from '../terminal/terminalReact';
+import { focusXterm } from '../navigation';
 import { ChainEdge } from './ChainEdge';
 import { CanvasControls } from './CanvasControls';
 import { SmartGuideOverlay } from './SmartGuideOverlay';
@@ -134,8 +134,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
       const ptyId = isGroupNode(node) ? null : node.data.ptyId;
       if (ptyId && useTerminalStore.getState().displayStates[ptyId]?.isLoading) return;
       fitView({ nodes: [{ id: node.id }], padding: 0.1, duration: 350 });
-      const instance = ptyId ? terminalInstances.get(ptyId) : undefined;
-      if (instance) requestAnimationFrame(() => instance.xterm.focus());
+      if (ptyId) focusXterm(ptyId);
     },
     [fitView],
   );

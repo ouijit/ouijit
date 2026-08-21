@@ -33,7 +33,12 @@ interface UIStoreState {
    * per-project: it is a way of looking at terminals, not a property of a repo.
    */
   canvasEnabled: boolean;
-  terminalLayout: TerminalLayout;
+  /**
+   * The layout the user last asked for. Read it through `terminalLayout`, which
+   * falls back to the stack while the canvas is switched off — so turning the
+   * canvas off cannot strand the user on a view whose toggle has just gone.
+   */
+  preferredLayout: TerminalLayout;
 }
 
 interface UIStoreActions {
@@ -49,7 +54,7 @@ interface UIStoreActions {
   setPaletteOpen: (open: boolean) => void;
   togglePalette: () => void;
   setCanvasEnabled: (enabled: boolean) => void;
-  setTerminalLayout: (layout: TerminalLayout) => void;
+  setPreferredLayout: (layout: TerminalLayout) => void;
   toggleTerminalLayout: () => void;
 }
 
@@ -64,7 +69,7 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   homeActivePtyId: null,
   paletteOpen: false,
   canvasEnabled: false,
-  terminalLayout: 'stack',
+  preferredLayout: 'stack',
 
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
 
@@ -94,18 +99,20 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   setCanvasEnabled: (enabled) => {
     set({ canvasEnabled: enabled });
     void window.api.globalSettings.set(CANVAS_ENABLED_KEY, enabled ? '1' : '0');
-    // Turning the canvas off while it is showing would strand the user on a
-    // view whose toggle has just disappeared.
-    if (!enabled) get().setTerminalLayout('stack');
   },
 
-  setTerminalLayout: (layout) => {
-    set({ terminalLayout: layout });
+  setPreferredLayout: (layout) => {
+    set({ preferredLayout: layout });
     void window.api.globalSettings.set(TERMINAL_LAYOUT_KEY, layout);
   },
 
-  toggleTerminalLayout: () => get().setTerminalLayout(get().terminalLayout === 'stack' ? 'canvas' : 'stack'),
+  toggleTerminalLayout: () => get().setPreferredLayout(terminalLayout(get()) === 'stack' ? 'canvas' : 'stack'),
 }));
+
+/** The layout actually on screen. Doubles as a store selector and a plain getter. */
+export function terminalLayout(state: UIStoreState = useUIStore.getState()): TerminalLayout {
+  return state.canvasEnabled ? state.preferredLayout : 'stack';
+}
 
 /** Hydrate every persisted UI preference. Called once on launch. */
 export async function hydrateUIPreferences(): Promise<void> {
@@ -114,10 +121,9 @@ export async function hydrateUIPreferences(): Promise<void> {
     window.api.globalSettings.get(CANVAS_ENABLED_KEY),
     window.api.globalSettings.get(TERMINAL_LAYOUT_KEY),
   ]);
-  const canvasEnabled = enabled === '1';
   useUIStore.setState({
     sidebarPinned: pinned !== '0',
-    canvasEnabled,
-    terminalLayout: canvasEnabled && layout === 'canvas' ? 'canvas' : 'stack',
+    canvasEnabled: enabled === '1',
+    preferredLayout: layout === 'canvas' ? 'canvas' : 'stack',
   });
 }

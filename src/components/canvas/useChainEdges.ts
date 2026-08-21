@@ -2,8 +2,7 @@ import { useEffect } from 'react';
 import { Position, type Edge } from '@xyflow/react';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { useCanvasStore, nodeWidth, nodeHeight, type CanvasNode } from '../../stores/canvasStore';
-import { nodesByTask } from '../../stores/canvasSync';
+import { useCanvasStore, nodeWidth, nodeHeight, nodesByTask, type CanvasNode } from '../../stores/canvasStore';
 import { getChainColor, type TaskChainInfo } from '../../utils/taskChain';
 
 interface NodeRect {

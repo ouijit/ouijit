@@ -12,8 +12,7 @@ const INSET_BOTTOM = 8;
 
 export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeProps<TerminalCanvasNode>) {
   const isLoading = useTerminalStore((s) => s.displayStates[data.ptyId]?.isLoading ?? false);
-  const loadingLabel = useTerminalStore((s) => s.displayStates[data.ptyId]?.label ?? '');
-  if (isLoading) return <LoadingNode label={loadingLabel} />;
+  if (isLoading) return <LoadingNode ptyId={data.ptyId} />;
   return <ActiveTerminalNode data={data} selected={selected} />;
 });
 
@@ -32,7 +31,9 @@ export const GroupNode = memo(function GroupNode({ selected }: NodeProps<GroupCa
   );
 });
 
-function LoadingNode({ label }: { label: string }) {
+function LoadingNode({ ptyId }: { ptyId: string }) {
+  const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
+
   return (
     <div
       className="canvas-terminal-node glass-bevel absolute rounded-[14px] border border-bezel-panel overflow-hidden flex flex-col items-center justify-center gap-3"

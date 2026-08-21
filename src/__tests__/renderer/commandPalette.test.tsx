@@ -93,7 +93,7 @@ function seed(): void {
     paletteOpen: true,
     homeActivePtyId: null,
     homeTagFilter: null,
-    terminalLayout: 'stack',
+    preferredLayout: 'stack',
   });
 }
 

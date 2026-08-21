@@ -10,7 +10,7 @@ import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
-import { useUIStore } from '../stores/uiStore';
+import { useUIStore, terminalLayout } from '../stores/uiStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalReact';
@@ -44,7 +44,7 @@ export function selectHome(): void {
 }
 
 /** Fit and focus a terminal's xterm once React has had a frame to mount it. */
-function focusXterm(ptyId: string): void {
+export function focusXterm(ptyId: string): void {
   requestAnimationFrame(() => {
     const instance = terminalInstances.get(ptyId);
     if (!instance) return;
@@ -97,7 +97,7 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
   store.setActivePanel('terminals');
   store.setKanbanVisible(false);
 
-  if (useUIStore.getState().terminalLayout === 'canvas') {
+  if (terminalLayout() === 'canvas') {
     useCanvasStore.getState().selectNode(ownerPath, ptyId);
   } else {
     const terminals = useTerminalStore.getState().terminalsByProject[ownerPath] ?? [];
