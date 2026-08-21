@@ -8,18 +8,14 @@ export interface BinaryFileVersions {
 
 interface BinaryFileViewProps {
   path: string;
-  /** Loads both sides. Called on mount and whenever `revision` changes. */
   load: () => Promise<BinaryFileVersions>;
-  /** Identifies the pair of revisions being compared, so a new one refetches. */
+  /** Identifies the pair of revisions compared; a new value refetches. */
   revision?: string;
 }
 
 /**
- * What a binary file looks like when git has no lines to show for it.
- *
- * An image renders as its two versions side by side, which is the only reading
- * of an image change anyone can actually do. Everything else states the sizes,
- * because that is all that is knowable without an interpreter for the format.
+ * Stands in where git has no lines to show. Images render both versions side by
+ * side; anything else can only report its size.
  */
 export function BinaryFileView({ path, load, revision }: BinaryFileViewProps) {
   const [versions, setVersions] = useState<BinaryFileVersions | null>(null);
@@ -78,9 +74,8 @@ function Note({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The checkerboard behind a transparent image. Without it a PNG with an alpha
- * channel is indistinguishable from one with a white or black background,
- * depending on the theme.
+ * Checkerboard behind transparent images. Without it a PNG with an alpha
+ * channel looks identical to one with a solid theme-coloured background.
  */
 const CHECKER: CSSProperties = {
   backgroundImage: [
@@ -142,7 +137,6 @@ const IMAGE_MIME: Record<string, string> = {
   webp: 'image/webp',
 };
 
-/** The MIME type a browser can render this path as, if any. */
 export function imageMime(path: string): string | null {
   const cut = path.lastIndexOf('.');
   if (cut === -1) return null;

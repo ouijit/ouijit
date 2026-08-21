@@ -3,6 +3,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 
+import { setUserDataPath } from '../paths';
+import { _resetCacheForTesting } from '../db';
+
 // Provide navigator for modules that reference it at import time (e.g. hotkeys.ts)
 if (typeof globalThis.navigator === 'undefined') {
   (globalThis as any).navigator = { platform: 'MacIntel' };
@@ -56,11 +59,7 @@ vi.mock('better-sqlite3', async () => {
 });
 
 // Sync paths.ts with the mocked Electron userData path
-import { setUserDataPath } from '../paths';
 setUserDataPath(testDataDir);
-
-// Auto-reset DB for every test via the db layer's reset function
-import { _resetCacheForTesting } from '../db';
 
 beforeEach(() => {
   _resetCacheForTesting();

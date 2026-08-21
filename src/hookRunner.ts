@@ -18,15 +18,10 @@ export interface HookResult {
 }
 
 export interface HookEnvironment {
-  /** Main project path */
   projectPath: string;
-  /** Task worktree path */
   worktreePath: string;
-  /** Git branch name */
   taskBranch: string;
-  /** Task display name */
   taskName: string;
-  /** Optional prompt for the task */
   taskPrompt?: string;
 }
 

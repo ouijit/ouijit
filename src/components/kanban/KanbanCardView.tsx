@@ -49,12 +49,11 @@ export interface KanbanCardViewProps {
 
   /** Controlled — when true, the View renders the name as an editable textarea. */
   isRenamingTask?: boolean;
-  /** Called when the user double-clicks the name to enter rename mode. */
   onStartRenameTask?: () => void;
   /** Called on Enter or blur with a non-empty value different from the current name. */
   onCommitRenameTask?: (taskNumber: number, newName: string) => void;
   /** Called on Escape, or when blur produces no committable value. The wrapper
-   *  is expected to clear `isRenamingTask` in response. */
+   *  must clear `isRenamingTask` in response. */
   onCancelRenameTask?: () => void;
 
   /** Controlled — ptyId currently being renamed inline. View renders an input when set. */
@@ -63,7 +62,7 @@ export interface KanbanCardViewProps {
   /** Called on Enter or blur with a non-empty value. */
   onCommitRenameTerminal?: (ptyId: string, label: string) => void;
   /** Called on Escape, or when blur produces no committable value. The wrapper
-   *  is expected to clear `renamingTerminalId` in response. */
+   *  must clear `renamingTerminalId` in response. */
   onCancelRenameTerminal?: (ptyId: string) => void;
 }
 
@@ -160,9 +159,9 @@ export const KanbanCardView = memo(function KanbanCardView({
   }, [task.taskNumber, onUpdateDescription]);
 
   /**
-   * Hand the in-progress description to the expanded sheet. The card's editor
-   * stays mounted underneath and is mirrored on every keystroke, so collapsing
-   * returns to the same text with the caret where it was left.
+   * Hands the in-progress description to the expanded sheet. The card's editor
+   * stays mounted and mirrored, so collapsing returns to the same text and
+   * caret.
    */
   const expandDescription = useCallback(() => {
     setSheetDraft(descEditorRef.current?.getValue() ?? '');
@@ -181,9 +180,8 @@ export const KanbanCardView = memo(function KanbanCardView({
     });
   }, []);
 
-  // The board leaves Escape to the sheet while it's open. Only registered
-  // while open: every card mounts this, and a card remounting from a
-  // background task reload must not clear a sheet someone else has up.
+  // Registered only while open: every card mounts this, and one remounting
+  // from a background task reload must not clear another card's sheet.
   useEffect(() => {
     if (!sheetOpen) return;
     useAppStore.getState().openComposerSheet();
@@ -204,7 +202,6 @@ export const KanbanCardView = memo(function KanbanCardView({
     lastSyncedPromptRef.current = next;
   }, [task.prompt, editingDesc, expanded]);
 
-  /** Focus the editor when the user enters edit mode. */
   useEffect(() => {
     if (!editingDesc) return;
     requestAnimationFrame(() => descEditorRef.current?.focus());
@@ -431,9 +428,8 @@ export const KanbanCardView = memo(function KanbanCardView({
               placeholder="Add description…"
               editable={editingDesc}
               onKeyDown={handleEditorKeyDown}
-              // Not while the sheet is up: opening it moves focus to its own
-              // editor, and a blur commit there would write the description
-              // out and drop this editor back to read-only underneath it.
+              // Not while the sheet is up: it takes focus, and the resulting
+              // blur commit would drop this editor back to read-only.
               onBlur={editingDesc && !sheetOpen ? commitDescription : undefined}
               onClick={() => {
                 if (!editingDesc) setEditingDesc(true);
@@ -496,7 +492,7 @@ export const KanbanCardView = memo(function KanbanCardView({
           onDescriptionChange={(value) => {
             setSheetDraft(value);
             // Mirror into the card's editor so collapsing returns to the same
-            // text, and so a commit reads the value from one place.
+            // text.
             descEditorRef.current?.setValue(value);
           }}
           onAttachFile={onAttachFile ?? (async () => null)}

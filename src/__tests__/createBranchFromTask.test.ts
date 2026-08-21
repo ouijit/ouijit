@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { createTask, getTaskByNumber } from '../db';
+import { createTask } from '../db';
 import { createBranchFromTask } from '../taskLifecycle';
 
 describe('createBranchFromTask', () => {

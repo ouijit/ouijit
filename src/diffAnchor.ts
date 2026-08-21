@@ -4,15 +4,14 @@ import type { AnchoredLine } from './snippetAnchor';
 /**
  * Where a review comment attaches on a diff.
  *
- * GitHub's `line` and `side` are not diff offsets — they are file line numbers in the
- * head blob (`RIGHT`) or the base blob (`LEFT`). GitHub computes a PR's diff as
- * `base...head`, which is exactly what `git diff <baseSha>...<headSha>`
- * computes, so the line numbers `parseDiff()` already emits *are* the GitHub
- * anchors — provided the diff is pinned to the SHAs the API reports rather than
- * to branch names.
+ * GitHub's `line` and `side` are file line numbers in the head blob (`RIGHT`)
+ * or the base blob (`LEFT`), not diff offsets. It computes a PR's diff as
+ * `base...head`, the same as `git diff <baseSha>...<headSha>`, so the numbers
+ * `parseDiff()` emits are already valid anchors — but only when the diff is
+ * pinned to the SHAs the API reports, not to branch names.
  *
- * `line` is the last line of the range and `startLine` the first, which is the
- * order GitHub's API takes them in and the line a comment renders under.
+ * `line` is the last line of the range and `startLine` the first, the order
+ * GitHub's API takes them in.
  */
 export interface DiffLineAnchor {
   line: number;
@@ -21,22 +20,14 @@ export interface DiffLineAnchor {
   startLine?: number;
 }
 
-/**
- * An anchor in a diff rather than in one file — the triple `anchorKey` takes.
- *
- * What a comment being written is pinned to, on both diffs: the pull request's
- * drafts and the worktree's notes.
- */
+/** An anchor plus its path: the triple `anchorKey` takes. */
 export type DiffAnchor = DiffLineAnchor & { path: string };
 
 /**
- * Key for the (path, line, side) triple that anchors a comment.
+ * Key for the (path, line, side) triple that anchors a comment. A range keys on
+ * its last line, so it shares a slot with a single-line comment ending there.
  *
- * A range keys on its last line, which is where it renders, so a range and a
- * single-line comment ending on the same line share a slot.
- *
- * NUL-joined because a path may contain any of the characters that would
- * otherwise read as a separator, and never this one.
+ * NUL-joined: a path may contain any other plausible separator, never this one.
  */
 export function anchorKey(path: string, line: number, side: 'LEFT' | 'RIGHT'): string {
   return `${path}\0${line}\0${side}`;
@@ -47,11 +38,9 @@ export function anchorStart(anchor: DiffLineAnchor): number {
 }
 
 /**
- * The comment being written here, if it is being written here.
- *
- * Matched on the last line, because that is the slot a range renders in, and
- * returned rather than answered yes or no: a range knows how far back it
- * reaches and the line it renders under does not.
+ * The comment being written at this anchor, if any. Matched on the last line,
+ * which is the slot a range renders in, and returned whole: only the anchor
+ * knows how far back the range reaches.
  */
 export function composingAt(composing: DiffAnchor | null, path: string, anchor: DiffLineAnchor): DiffAnchor | null {
   if (!composing || composing.path !== path) return null;
@@ -68,13 +57,12 @@ export function describeAnchor(anchor: DiffLineAnchor): string {
 }
 
 /**
- * One side of a diff is one blob: the base (`LEFT`) or the head (`RIGHT`).
+ * One side of a diff is one blob: the base (`LEFT`) or the head (`RIGHT`). A
+ * context line is in both, an addition only in the head, a deletion only in the
+ * base, and each side numbers by its own blob.
  *
- * A context line is in both, an addition only in the head, a deletion only in
- * the base — so a side excludes the one kind the other blob does not have, and
- * numbers what is left by that blob's line numbers. Everything that reads a
- * diff by anchor goes through here, or two readers disagree about what a `LEFT`
- * anchor covers and one of them cannot find what the other wrote down.
+ * Everything reading a diff by anchor must go through here, or two readers
+ * disagree about what a `LEFT` anchor covers.
  */
 function onSide(line: DiffLine, side: 'LEFT' | 'RIGHT'): number | null {
   if (line.type === (side === 'LEFT' ? 'addition' : 'deletion')) return null;
@@ -82,10 +70,8 @@ function onSide(line: DiffLine, side: 'LEFT' | 'RIGHT'): number | null {
 }
 
 /**
- * One side of a diff, hunk by hunk.
- *
- * Kept in hunks rather than flattened because the numbers run contiguously only
- * within one — everything between two hunks is missing from the diff.
+ * One side of a diff, kept in hunks: line numbers run contiguously only within
+ * a hunk, since the diff omits everything between two of them.
  */
 export function linesOnSide(diff: FileDiff | null | undefined, side: 'LEFT' | 'RIGHT'): AnchoredLine[][] {
   if (!diff) return [];
@@ -98,10 +84,9 @@ export function linesOnSide(diff: FileDiff | null | undefined, side: 'LEFT' | 'R
 }
 
 /**
- * A deletion only exists in the base blob, so it anchors LEFT at its old line
- * number. Additions and context lines both exist in the head blob and anchor
- * RIGHT at their new one. A line missing the number for its side can't be
- * anchored at all (the `\ No newline at end of file` marker, for instance).
+ * A deletion exists only in the base blob and anchors LEFT at its old number;
+ * additions and context lines anchor RIGHT at their new one. A line without the
+ * number for its side — `\ No newline at end of file` — cannot be anchored.
  */
 export function anchorForLine(line: DiffLine): DiffLineAnchor | null {
   if (line.type === 'deletion') {
@@ -111,12 +96,9 @@ export function anchorForLine(line: DiffLine): DiffLineAnchor | null {
 }
 
 /**
- * The anchor for a run of lines dragged out within one hunk.
- *
- * A selection that touches anything still in the file anchors RIGHT and covers
- * only that — the deleted lines dragged over are what the surviving code
- * replaced, not part of it. Only a selection of nothing but deletions anchors
- * LEFT, and it is then about the absence rather than about any code.
+ * The anchor for a run of lines dragged out within one hunk. A selection
+ * touching anything still in the file anchors RIGHT and covers only that;
+ * a selection of nothing but deletions anchors LEFT.
  */
 export function anchorForRange(lines: readonly DiffLine[], from: number, to: number): DiffLineAnchor | null {
   const selected = lines.slice(Math.min(from, to), Math.max(from, to) + 1);
@@ -133,7 +115,7 @@ export function anchorForRange(lines: readonly DiffLine[], from: number, to: num
   return start === line ? { line, side } : { line, side, startLine: start };
 }
 
-/** The source an anchor covers, as it reads in this diff, or null if the diff has none of it. */
+/** The source an anchor covers in this diff, or null if the diff lacks it. */
 export function blockAt(diff: FileDiff | null | undefined, anchor: DiffLineAnchor): string | null {
   const first = anchorStart(anchor);
   const found = linesOnSide(diff, anchor.side)

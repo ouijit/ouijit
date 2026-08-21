@@ -1,12 +1,12 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 
-vi.mock('../components/terminal/terminalActions', () => ({
-  closeProjectTerminal: vi.fn(),
-}));
-
 import { scheduleAutoCloseOnSuccess, AUTO_CLOSE_GRACE_MS } from '../components/terminal/terminalReact';
 import { closeProjectTerminal } from '../components/terminal/terminalActions';
 import type { PtyId } from '../types';
+
+vi.mock('../components/terminal/terminalActions', () => ({
+  closeProjectTerminal: vi.fn(),
+}));
 
 describe('scheduleAutoCloseOnSuccess', () => {
   beforeEach(() => {

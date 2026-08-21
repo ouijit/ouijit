@@ -81,7 +81,6 @@ function buildVmHookSetup(): string {
     hookScript,
     'OUIJIT_HOOK_EOF',
     'chmod +x ~/ouijit-hook',
-    // Write Claude settings
     'mkdir -p ~/.claude',
     `cat > ~/.claude/settings.json <<'OUIJIT_SETTINGS_EOF'`,
     hookSettings,
@@ -204,7 +203,6 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     // Inject hook script + Claude settings into VM's ephemeral home dir
     const hookSetup = buildVmHookSetup();
 
-    // Build the command to run inside the VM
     let innerCmd: string;
     if (options.command) {
       // Run command then drop to interactive bash
@@ -213,7 +211,6 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
       innerCmd = `${envExports}${hookSetup}exec bash`;
     }
 
-    // Build limactl shell args
     const limactlArgs = ['shell', '--workdir', guestCwd, instanceName, '--', 'bash', '-c', innerCmd];
 
     // Build env for the host-side limactl child process. Only keys limactl
@@ -390,9 +387,7 @@ export function reconnectSandboxPty(
   return { success: true, bufferedOutput };
 }
 
-/**
- * Clean up all sandboxed PTYs (called on app quit)
- */
+/** Synchronous, so it completes before the process exits. */
 export function cleanupSandboxPtys(): void {
   for (const [ptyId, managed] of activeSandboxPtys) {
     managed.disposeRefWatcher?.();

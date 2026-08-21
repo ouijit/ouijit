@@ -17,7 +17,7 @@ import type { DiffAnchor } from '../diffAnchor';
 
 const githubLog = log.scope('github');
 
-/** Which pane the panel is showing: a list, or the thing you opened. */
+/** Which pane the panel is showing: a list, or an open item. */
 export type GithubView = 'inbox' | 'issues' | 'detail';
 
 interface GithubStoreState {
@@ -28,12 +28,8 @@ interface GithubStoreState {
   listView: 'inbox' | 'issues';
 
   /**
-   * How the list sits beside what it opens.
-   *
-   * Held apart from everything else here, and deliberately not cleared with it:
-   * how wide you like the list, and whether you want it at all, is not a fact
-   * about a repository. Switching projects or closing a pull request should
-   * leave the pane the shape you put it in.
+   * Layout of the list beside what it opens. Excluded from every reset: it is a
+   * preference, not state about a repository.
    */
   sidebarWidth: number;
   sidebarCollapsed: boolean;
@@ -69,20 +65,16 @@ interface GithubStoreState {
   filesFromGit: boolean;
 
   /**
-   * Files the reviewer has finished with, for the head on screen.
-   *
-   * Held here rather than in the document so the rail can dim what is done and
-   * the pane can collapse it from one answer — and so it survives switching to
-   * the summary and back, which is not a decision to re-read anything.
+   * Files the reviewer has finished with, at the head on screen. Here rather
+   * than in the document so the rail and the pane read one answer, and so it
+   * survives switching panes.
    */
   viewedPaths: string[];
 
   /**
-   * The file the reader is on in the code pane, for the rail to mark.
-   *
-   * Here rather than in the detail view because it changes as the document is
-   * scrolled: state in the view would re-render the whole diff on every frame
-   * of a scroll, and only the rail needs to know.
+   * The file the reader is on, for the rail to mark. Here rather than in the
+   * detail view: it changes on every scroll frame, and view state would
+   * re-render the whole diff each time.
    */
   activePath: string | null;
 
@@ -132,11 +124,9 @@ export const RAIL_MIN_WIDTH = 160;
 export const RAIL_MAX_WIDTH = 480;
 
 /**
- * One project's GitHub session, and so what gets cleared when that changes.
- *
- * The sidebar layout is excluded by type rather than by remembering not to put
- * it here — `set({ ...INITIAL })` merges, so anything left out survives a reset
- * and a project switch, which is exactly what a layout preference should do.
+ * One project's GitHub session: what a project switch clears. The sidebar
+ * layout is excluded by type, since `set({ ...INITIAL })` merges and anything
+ * left out survives the reset.
  */
 const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'railWidth'> = {
   projectPath: null,
@@ -170,9 +160,8 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
 };
 
 /**
- * Where the reader is in one pull request at one head, cleared wherever either
- * changes. Both are claims about specific hunks — read, scrolled to — and hunks
- * do not survive a new head.
+ * Where the reader is in one pull request at one head. Cleared when either
+ * changes: both fields name specific hunks, which a new head invalidates.
  */
 const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'activePath'> = {
   viewedPaths: [],

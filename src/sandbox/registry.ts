@@ -44,12 +44,10 @@ export function listSessionOwners(): SessionOwnerSandboxProvider[] {
   return sessionOwnersCache;
 }
 
-/** Find the session-owning provider that owns a given PTY, if any. */
 export function findSessionOwner(ptyId: PtyId): SessionOwnerSandboxProvider | undefined {
   return listSessionOwners().find((p) => p.ownsPty(ptyId));
 }
 
-/** App-quit cleanup across all registered providers. */
 export function cleanupSandboxProviders(): void {
   for (const provider of providers.values()) {
     provider.cleanup();

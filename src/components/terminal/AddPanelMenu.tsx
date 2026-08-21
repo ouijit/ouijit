@@ -17,7 +17,6 @@ interface AddPanelMenuProps {
   onClose: () => void;
 }
 
-/** The "+" dropdown on the panel tab strip — creates a new panel by type. */
 export function AddPanelMenu({
   ptyId,
   projectPath,

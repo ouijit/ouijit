@@ -10,12 +10,8 @@ import { badgeColorClass, statusLabel, type DiffFileStatus } from './diffStatus'
 import { Icon } from '../terminal/Icon';
 
 /**
- * One file's diff, header and all.
- *
- * The worktree panel and the pull request files view both render this. The PR
- * view supplies the two review slots — content below an anchored line (threads
- * and unsent drafts) and the add-comment handler — and the worktree view
- * supplies neither, so it renders exactly what it always did.
+ * One file's diff. The review slots — `renderBelowLine` and `onAddComment` —
+ * are optional; without them it renders a plain diff.
  */
 
 export interface DiffFileSectionProps {
@@ -28,25 +24,20 @@ export interface DiffFileSectionProps {
   /**
    * Content anchored under a specific line — review threads, drafts, notes.
    *
-   * Takes the path, like `onAddComment`, so a caller can hold one callback for
-   * the whole diff. Binding it per file in the caller's render would hand every
-   * file a new function each time and no memoized line below would ever bail.
+   * Takes the path so the caller can hold one callback for the whole diff;
+   * binding per file would break memoization on every line below.
    */
   renderBelowLine?: (path: string, anchor: DiffLineAnchor) => ReactNode;
   onAddComment?: (path: string, anchor: DiffLineAnchor) => void;
   /**
-   * Whether a comment covers this line without rendering on it.
-   *
-   * Takes the path for the reason `renderBelowLine` does. Withheld when nothing
-   * is marked: it is asked once per line of the diff.
+   * Whether a comment covers this line without rendering on it. Takes the path
+   * for the reason `renderBelowLine` does; leave it unset when nothing is
+   * marked, since it is called once per line of the diff.
    */
   markLine?: (path: string, anchor: DiffLineAnchor) => boolean;
   /** Extra header content, right-aligned before the stats. */
   headerRight?: ReactNode;
-  /**
-   * Shown in place of the hunks when git reports the file as binary. Without
-   * one, a binary file says so rather than claiming there is no diff.
-   */
+  /** Shown in place of the hunks when git reports the file as binary. */
   binaryView?: ReactNode;
   loadingLabel?: string;
   emptyLabel?: string;
@@ -54,7 +45,7 @@ export interface DiffFileSectionProps {
   collapsed?: boolean;
   /** Enables the fold control. Takes the path for the same reason `renderBelowLine` does. */
   onCollapsedChange?: (path: string, collapsed: boolean) => void;
-  /** What the control means here — "Viewed" in a review, "Collapse" outside one. */
+  /** Wording for the fold control — "Viewed" in a review, "Collapse" outside one. */
   collapseLabel?: string;
 }
 
@@ -76,21 +67,19 @@ export const DiffFileSection = memo(function DiffFileSection({
   onCollapsedChange,
   collapseLabel = 'Collapse',
 }: DiffFileSectionProps) {
-  // Nothing below the header is rendered while it is folded, so a file already
-  // dealt with costs one row of the scroll rather than its whole diff.
+  // Skip tokenizing a folded file: nothing below the header renders.
   const tokens = useSyntaxHighlight(collapsed ? undefined : diff, path);
 
-  // One closure for the file rather than one per line. A new function per line
-  // per render is what stops a memoized line from ever bailing out.
+  // One closure per file, not one per line: a new function per line per render
+  // stops every memoized line from bailing out.
   const addComment = useCallback((anchor: DiffLineAnchor) => onAddComment?.(path, anchor), [onAddComment, path]);
   const belowLine = useCallback((anchor: DiffLineAnchor) => renderBelowLine?.(path, anchor), [renderBelowLine, path]);
   const lineMarked = useCallback((anchor: DiffLineAnchor) => markLine?.(path, anchor) ?? false, [markLine, path]);
   const setCollapsed = useCallback((next: boolean) => onCollapsedChange?.(path, next), [onCollapsedChange, path]);
 
   return (
-    /* `overflow: clip` rather than `hidden`: clip rounds the corners without
-       becoming a scroll container, which would strand the sticky header below
-       inside its own box instead of pinning it to the pane. */
+    /* `clip`, not `hidden`: `hidden` makes a scroll container, which strands
+       the sticky header inside this box instead of pinning it to the pane. */
     <div className="diff-card mx-6 rounded-[14px] border border-bezel bg-diff-card overflow-clip" data-path={path}>
       <div className="pane-ledge sticky top-0 z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface">
         {onCollapsedChange && (
@@ -131,8 +120,6 @@ export const DiffFileSection = memo(function DiffFileSection({
             {loadingLabel}
           </div>
         ) : diff === null ? (
-          // `null` is a diff git could not produce, which is not the same as one
-          // that has not arrived yet.
           <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">{failedLabel}</div>
         ) : diff.binary ? (
           (binaryView ?? (
@@ -144,7 +131,6 @@ export const DiffFileSection = memo(function DiffFileSection({
           <div className="min-w-full">
             {diff.hunks.map((hunk, i) => (
               <div key={i}>
-                {/* The first hunk needs no boundary; the file header is one. */}
                 <HunkHeader header={hunk.header} first={i === 0} />
                 <DiffHunkView
                   hunk={hunk}
@@ -208,9 +194,8 @@ export const DiffHunkView = memo(function DiffHunkView({
   const wordHighlights = useMemo(() => computeWordHighlights(hunk.lines), [hunk.lines]);
   const anchors = useMemo(() => hunk.lines.map(anchorForLine), [hunk.lines]);
   const [hovered, setHovered] = useState(-1);
-  // The run being dragged out, as indices into this hunk. A comment may cover
-  // several lines but not a gap between hunks: the lines either side of one are
-  // not adjacent in the file, whatever the diff makes them look like.
+  // Indices into this hunk only: a comment may span lines but not a gap
+  // between hunks, whose neighbouring lines aren't adjacent in the file.
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
 
   const onHover = useCallback((index: number) => {
@@ -220,8 +205,7 @@ export const DiffHunkView = memo(function DiffHunkView({
 
   const startSelect = useCallback((index: number) => setDrag({ from: index, to: index }), []);
 
-  // The release ends the drag wherever it happens — a pointer that has left the
-  // hunk, or the window, still let go of a selection that has to be resolved.
+  // On window, not the hunk: the pointer may be released outside it.
   useEffect(() => {
     if (!drag) return;
     const finish = () => {
@@ -238,13 +222,10 @@ export const DiffHunkView = memo(function DiffHunkView({
   return (
     <div
       onMouseLeave={onAddComment ? () => setHovered(-1) : undefined}
-      // A hunk off screen holds nothing that has to be laid out, so the browser
-      // is told it may skip one — otherwise every line in the pull request is
-      // laid out on each scroll. `auto` on the intrinsic size means the estimate
-      // is used only until the hunk has been measured once for real.
-      //
-      // A drag across lines is a range, not a text selection; without the second
-      // the browser paints one over the diff as the pointer moves.
+      // Skip layout for off-screen hunks, or every line in the pull request is
+      // laid out on each scroll; `auto` drops the estimate once measured.
+      // `userSelect` while dragging stops the browser painting a text selection
+      // over the range being picked.
       style={{
         contentVisibility: 'auto',
         containIntrinsicSize: `auto ${estimateHunkHeight(hunk)}px`,

@@ -15,27 +15,21 @@ export interface DiffLineViewProps {
   /** Where a comment on this line would attach, or null if nowhere. */
   anchor?: DiffLineAnchor | null;
   /**
-   * Press to comment here. Held rather than clicked, it is the start of a drag
-   * across the lines the comment is about — the hunk owns that gesture, so this
-   * only reports where it began. Takes the index for the reason `onHover` does:
-   * one closure for the hunk, not one per line per render.
+   * Reports where a comment drag began; the hunk owns the rest of the gesture.
+   * Takes the index so the hunk can hold one closure rather than one per line.
    */
   onStartSelect?: (index: number) => void;
   /**
-   * Whether this is the line the pointer is on, so only it builds the button.
-   *
-   * Not a CSS hover rule: that means a button and an `Icon` per line — tens of
-   * thousands of nodes on a large diff, each re-parsing its source on render —
-   * for one that is ever visible.
+   * Whether the pointer is on this line, so only it builds the comment button.
+   * A CSS hover rule instead would mean a button and an `Icon` in every line of
+   * the diff, for the one that is ever visible.
    */
   showComment?: boolean;
   /** Within the run of lines a comment is being dragged across. */
   selected?: boolean;
   /**
-   * Covered by a comment that spans more than this line.
-   *
-   * A range renders under its last line, so without a mark on the rest of it
-   * nothing on screen says how far back the comment reaches.
+   * Covered by a multi-line comment. The comment renders under the range's last
+   * line, so the mark is all that shows how far back it reaches.
    */
   marked?: boolean;
   /** Position within the hunk, reported back on hover. */
@@ -57,10 +51,8 @@ export const DiffLineView = memo(function DiffLineView({
 }: DiffLineViewProps) {
   const lineBg =
     line.type === 'addition' ? 'bg-diff-added/10' : line.type === 'deletion' ? 'bg-diff-removed/[0.08]' : '';
-  // A commented range claims the gutter, which is where the diff already keeps
-  // everything that is about the code rather than part of it. The source itself
-  // is left alone: a wash over it would take the added/removed colour off every
-  // line it covered, and those are what the diff is for.
+  // A commented range tints the gutter, not the source: a wash over the source
+  // would hide the added/removed colour on every line it covered.
   const gutterBg = marked
     ? 'bg-accent/[0.18]'
     : line.type === 'addition'

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { renderPlanMarkdown } from '../../utils/renderPlanMarkdown';
+
 // Stub shiki — full grammar loading is irrelevant to the mermaid tests
 // and slow under jsdom.
 vi.mock('shiki', () => ({
@@ -24,8 +26,6 @@ vi.mock('mermaid', () => ({
     render: (...args: [string, string]) => mermaidRender(...args),
   },
 }));
-
-import { renderPlanMarkdown } from '../../utils/renderPlanMarkdown';
 
 describe('renderPlanMarkdown — mermaid support', () => {
   beforeEach(() => {

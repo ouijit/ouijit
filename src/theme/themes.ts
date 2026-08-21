@@ -86,12 +86,10 @@ export function resolveThemeBase(
   return systemPrefersDark ? 'dark' : 'light';
 }
 
-/** Add or replace a theme by id. */
 export function upsertCustomTheme(list: CustomTheme[], theme: CustomTheme): CustomTheme[] {
   return [...list.filter((t) => t.id !== theme.id), theme];
 }
 
-/** The custom theme selected by a preference, if any. */
 export function selectedCustomTheme(preference: ThemePreference, customThemes: CustomTheme[]): CustomTheme | null {
   if (!preference.startsWith('custom:')) return null;
   return customThemes.find((t) => `custom:${t.id}` === preference) ?? null;

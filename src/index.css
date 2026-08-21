@@ -198,11 +198,10 @@ textarea,
   }
 }
 
-/* View Transitions — used for home/project/sub-panel switches. We name the
-   main content area so only it animates; the sidebar and title bar are part
-   of the root snapshot and we suppress its animation explicitly so they stay
-   still during the crossfade. Triggered via `withViewTransition` in
-   src/utils/viewTransition.ts. */
+/* View transitions for home/project/sub-panel switches, triggered by
+   `withViewTransition` in src/utils/viewTransition.ts. Naming the main content
+   area confines the animation to it; the root snapshot carrying the sidebar and
+   title bar is suppressed so those stay still. */
 .app-content-main {
   view-transition-name: app-content;
 }
@@ -238,10 +237,8 @@ textarea,
   }
 }
 
-/* Directional variants — old content drifts in the navigation direction
-   while new content slides in from the opposite side. Translate + a hint
-   of scale gives enough visual weight to read clearly even when the
-   project-to-project content is structurally similar. */
+/* Directional variants: old content drifts the way navigation went, new
+   content slides in from the opposite side. */
 .view-transition-down::view-transition-old(app-content) {
   animation: 240ms cubic-bezier(0.4, 0, 0.2, 1) both view-transition-out-up;
 }
@@ -347,13 +344,11 @@ textarea,
   }
 }
 
-/* Outer panel mount: single block fades + slides in, Apple-style decelerate easing. */
 .onboarding-stage-enter {
   animation: onboarding-block-enter 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
-/* Stage entrance: each direct child animates in sequence to give the eye a
-   top-to-bottom reading rhythm. Same easing curve as the outer panel. */
+/* Each direct child animates in sequence, on the outer panel's easing. */
 .onboarding-stage-children-enter > * {
   animation: onboarding-block-enter 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
@@ -373,7 +368,6 @@ textarea,
   animation-delay: 280ms;
 }
 
-/* Faster, more decisive exit. Material "accelerate" curve. */
 .onboarding-stage-exit {
   animation: onboarding-stage-exit 150ms cubic-bezier(0.7, 0, 0.84, 0) forwards;
   pointer-events: none;
@@ -395,11 +389,9 @@ textarea,
   mask-position: center;
 }
 
-/* Project icon tile — a true squircle rather than a rounded rectangle.
-   `corner-shape` gives continuous curvature: flat along the edges, rounding
-   only into the corner, which is why the radius here is larger than the
-   `rounded-md` a circular-arc corner would use at this size. Browsers without
-   `corner-shape` (Chromium < 139) fall back to a plain rounded rect. */
+/* `corner-shape` gives continuous curvature, which is why the radius is larger
+   than a circular-arc corner would need at this size. Chromium < 139 has no
+   `corner-shape` and falls back to a plain rounded rect. */
 .project-tile {
   border-radius: 12px;
   corner-shape: squircle;
@@ -429,15 +421,14 @@ textarea,
   z-index: 0;
 }
 
-/* A ledge is in front of what scrolls beneath it, so it is not levelled with
-   the rest. Here rather than as a `z-10` utility on the header: utilities are
-   layered and the rule above is not, so it wins whatever the specificity. */
+/* Here rather than as a `z-10` utility on the header: utilities are layered
+   and the rule above is not, so it would win whatever the specificity. */
 .glass-bevel > .pane-ledge {
   z-index: 10;
 }
 
-/* `background-secondary` is a 6% wash, which disappears over a pane's own
-   content, so the fill is given an opaque base to sit on. */
+/* `background-secondary` is a 6% wash, invisible over a pane's own content,
+   so it needs an opaque base underneath. */
 .segmented-floating {
   background:
     linear-gradient(var(--color-background-secondary), var(--color-background-secondary)), var(--color-surface);
@@ -456,7 +447,7 @@ textarea,
 }
 
 /* The accent replaces the cut rather than sitting beside it, so the seam stays
-   one pixel wide while it is being dragged. */
+   one pixel wide while dragged. */
 .pane-seam:hover,
 .pane-seam:has(:focus-visible) {
   background: color-mix(in srgb, var(--color-accent) 60%, transparent);
@@ -466,17 +457,14 @@ textarea,
   background: var(--color-accent);
 }
 
-/* For panes laid directly against each other with nowhere to put a strip — the
-   kanban columns. On the left edge, since the board's own bevel is already the
-   boundary past the last column's right one. */
+/* For panes laid directly against each other, such as the kanban columns. On
+   the left edge: the board's own bevel already closes the right. */
 .pane-seam-left {
   border-left: 1px solid var(--seam-cut);
 }
 
-/* Except the first, whose left edge is the board's own bevel. Here rather than
-   as a `first:` utility on the column: utilities live in `@layer utilities`,
-   and unlayered CSS beats any layered rule whatever its specificity, so the
-   rule above would win and the exception would silently do nothing. */
+/* Not a `first:` utility on the column: utilities live in `@layer utilities`,
+   and unlayered CSS beats any layered rule, so the rule above would win. */
 .kanban-column:first-child {
   border-left: 0;
 }
@@ -485,11 +473,9 @@ textarea,
    Diff cards — one file's diff
    =================================== */
 
-/* Not `.glass-bevel`, which sets `position: relative` on every child — that
-   would land on the file header and turn its `sticky` into `relative`,
-   unpinning it from the top of the pane. This lights the same four edges and
-   leaves the children alone. `isolation` keeps the overlay above the header
-   pinned inside the card, so the lit edge survives being scrolled under. */
+/* Not `.glass-bevel`: it sets `position: relative` on every child, which would
+   turn the file header's `sticky` into `relative` and unpin it. `isolation`
+   keeps the overlay above the header, so the lit edge survives scrolling. */
 .diff-card {
   position: relative;
   isolation: isolate;
@@ -510,8 +496,7 @@ textarea,
   z-index: 20;
 }
 
-/* On the scrolling element itself, so the lip stays at the top edge rather
-   than scrolling away with the content. */
+/* On the scrolling element itself, so the lip stays at the top edge. */
 .diff-well {
   background: var(--color-diff-well);
   box-shadow: var(--shadow-well);
@@ -526,9 +511,8 @@ textarea,
    Pane ledge — a header the content scrolls under
    =================================== */
 
-/* A ledge marks the boundary below it and nothing else. Lighting its own top
-   face as well puts a highlight into the pixel the ledge above is cutting, and
-   two elements owning one boundary leaves paint order to decide which shows. */
+/* Bottom edge only: lighting the top face too would put a highlight in the
+   pixel the ledge above is cutting, and paint order would decide which wins. */
 .pane-ledge {
   box-shadow:
     0 1px 0 var(--seam-cut),
@@ -536,14 +520,13 @@ textarea,
 }
 
 /* Only where the ledge borders the well along its whole length: one shadow
-   cannot light half of its own length, so a bar running past the rail as well
-   as the document keeps the catch. */
+   cannot light half of itself, so a bar spanning rail and document keeps the
+   catch. */
 .pane-ledge.over-well {
   box-shadow: 0 1px 0 var(--seam-cut);
 }
 
-/* The same ledge inverted, for a strip pinned under the content rather than
-   over it. */
+/* The same ledge inverted, for a strip pinned under the content. */
 .pane-ledge-under {
   box-shadow:
     0 -1px 0 var(--seam-cut),
@@ -701,9 +684,8 @@ textarea,
   color: var(--color-ansi-red);
 }
 
-/* The pre is the visual frame (border, bevel); the inner code is the scroll
-   container. If the pre itself scrolled, the absolutely-positioned
-   .glass-bevel::before overlay would scroll away with the content. */
+/* The pre is the frame and the inner code scrolls: were the pre to scroll, the
+   absolutely-positioned .glass-bevel::before overlay would scroll away too. */
 .app-markdown pre {
   @apply relative my-3 p-3 rounded-[14px] border border-bezel bg-ink/[0.06] overflow-hidden;
 }
@@ -727,9 +709,8 @@ textarea,
   transition: color 0.4s ease;
 }
 
-/* Shared tooltip for resolved file refs. Deliberately theme-independent:
-   the embedded SVG icons are baked white in data URIs, so the tooltip keeps
-   a dark chrome in every theme. */
+/* Theme-independent: the embedded SVG icons are baked white in their data
+   URIs, so this chrome stays dark in every theme. */
 .plan-markdown a.file-ref[data-file-exists] {
   position: relative;
 }
@@ -1012,8 +993,7 @@ textarea,
   white-space: nowrap;
 }
 
-/* A draft survives collapsing; the row says so instead of looking empty.
-   The dashed page reads as "unfinished" on its own, which a dot never did. */
+/* Shown on the collapsed row when a draft is being held. */
 .kanban-add-draft-icon {
   width: 15px;
   height: 15px;
@@ -1055,11 +1035,10 @@ textarea,
   position: relative;
 }
 
-/* Edge fades stand in for a scrollbar: they say "more text this way" without
-   taking width from a 240px column. Masking the text rather than painting a
-   gradient over it means the fade works on any background, including the
-   focus tint and whatever the column sits on. The mask applies to the border
-   box, so it stays at the visual edges while the content scrolls under it. */
+/* Edge fades stand in for a scrollbar, which would take width from a 240px
+   column. Masking rather than overlaying a gradient keeps the fade correct on
+   any background, and the mask applies to the border box, so it stays at the
+   visual edges as content scrolls under it. */
 .kanban-add-description-wrap[data-clip='top'] .kanban-description-editor {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
   mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
@@ -1110,8 +1089,7 @@ textarea,
   color: var(--color-text-primary);
 }
 
-/* At the cap the affordance stops being a hover-only secret: this is the
-   moment the inline box has run out of room. */
+/* Shown unconditionally at the cap, where the inline box is out of room. */
 .kanban-add-description-wrap.is-capped .kanban-add-expand {
   opacity: 1;
   color: var(--color-accent);
@@ -1120,18 +1098,20 @@ textarea,
 
 /* ── Expanded composer sheet ──────────────────────────────────────── */
 
-/* The placeholder drops the italic the inline editor uses — at this size a
-   full italic line reads as content, not as a prompt. Both classes, to
-   outrank the base rule further down the file. */
+/* Drops the inline editor's italic placeholder. Both classes, to outrank the
+   base rule further down the file. */
 .kanban-description-editor.composer-sheet-editor[data-empty='true']::before {
   font-style: normal;
   color: var(--color-text-tertiary);
 }
 
-/* The page's caret sits at the text edge, so the body needs room below the
-   last line to click into — a document's bottom margin, not padding that
-   ends where the text does. */
-.composer-sheet-page {
+/* The page's margins are part of the writing surface. Each field is named
+   individually so a container change can't take the caret off them. */
+.composer-sheet-page,
+.composer-sheet-title,
+.composer-sheet-editor,
+.kanban-add-input,
+.kanban-add-description {
   cursor: text;
 }
 

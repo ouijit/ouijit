@@ -33,7 +33,6 @@ import { seedCaptureFixture } from './capture/fixture';
 import { registerStaticToken } from './apiAuth';
 import { buildAppMenu } from './appMenu';
 
-/** Wraps electron-log to the Logger interface */
 function createElectronLogAdapter(electronLog: typeof log): Logger {
   return {
     info: (msg, meta?) => (meta ? electronLog.info(msg, meta) : electronLog.info(msg)),
@@ -135,7 +134,6 @@ const resolveWindowBackgroundColor = (): string => {
 const createWindow = (): BrowserWindow => {
   const backgroundColor = resolveWindowBackgroundColor();
 
-  // Create the browser window.
   const isMac = process.platform === 'darwin';
   const isLinux = process.platform === 'linux';
   const captureMode = isCaptureMode();
@@ -159,7 +157,6 @@ const createWindow = (): BrowserWindow => {
     },
   });
 
-  // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
@@ -216,7 +213,6 @@ const createWindow = (): BrowserWindow => {
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
   });
 
-  // Notify renderer of fullscreen state changes
   window.on('enter-full-screen', () => {
     typedPush(window, 'fullscreen-change', true);
   });
@@ -224,7 +220,6 @@ const createWindow = (): BrowserWindow => {
     typedPush(window, 'fullscreen-change', false);
   });
 
-  // Confirm before closing via window close button if terminal sessions are active
   window.on('close', (e) => {
     if (quitConfirmed) return;
 
@@ -253,9 +248,6 @@ const createWindow = (): BrowserWindow => {
   return window;
 };
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
 app.on('ready', async () => {
   log.initialize(); // Inject preload for renderer IPC bridge
   setLogger(createElectronLogAdapter(log));

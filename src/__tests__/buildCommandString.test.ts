@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildCommandString } from '../ptyManager';
 
 /**
- * Regression: OUIJIT_* values must not be textually interpolated into the
+ * OUIJIT_* values must not be textually interpolated into the
  * hook/start command string. They are passed to the PTY as real environment
  * variables, so the shell expands $VAR itself. Pre-substituting raw values
  * splices shell metacharacters (backticks, $(), quotes) into the command,

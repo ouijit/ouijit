@@ -35,7 +35,6 @@ function contextualizeError(msg: string): string {
   return msg;
 }
 
-/** Get the path to the bundled limactl binary */
 export function getLimactlPath(): string {
   return resolveBundledBinary('limactl');
 }
@@ -84,7 +83,6 @@ export function buildLimactlHostEnv(hostEnv: NodeJS.ProcessEnv): Record<string, 
   return env;
 }
 
-/** Shorthand for callers that need the ambient process env. */
 export function getLimaEnv(): Record<string, string> {
   return buildLimactlHostEnv(process.env);
 }
@@ -165,7 +163,6 @@ export async function createInstance(
     }
   }
 
-  // Write YAML to a temp file
   const tmpDir = os.tmpdir();
   const yamlPath = path.join(tmpDir, `${instanceName}.yaml`);
   await fs.writeFile(yamlPath, yaml, 'utf-8');
@@ -189,7 +186,6 @@ export async function createInstance(
     }
     return { success: false, error: `Failed to create VM: ${contextualizeError(msg)}` };
   } finally {
-    // Clean up temp file
     try {
       await fs.unlink(yamlPath);
     } catch {
@@ -240,7 +236,7 @@ function tailHostAgentLog(instanceName: string, onMessage: (msg: string) => void
           if (msg.startsWith('[VZ]')) continue;
           onMessage(msg);
         } catch {
-          // Not valid JSON — skip
+          // Not a JSON log line.
         }
       }
     } catch {

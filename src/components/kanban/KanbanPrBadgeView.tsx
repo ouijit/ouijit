@@ -3,22 +3,16 @@ import { Icon } from '../terminal/Icon';
 
 export interface KanbanPrBadgeViewProps {
   prNumber: number;
-  /** Click opens the pull request in the panel. Omitted, the badge is inert. */
+  /** Opens the pull request in the panel; without it the badge is inert. */
   onClick?: () => void;
 }
 
 /**
- * The linked pull request chip on a kanban card.
+ * The linked pull request chip on a kanban card, matching
+ * {@link KanbanBadgeView}'s geometry so a card carrying both reads as one row.
  *
- * Styled after {@link KanbanBadgeView} — same pill geometry and mono type — so
- * a card carrying both renders as one row of chips.
- *
- * Wears GitHub's mark rather than a git glyph: a branch is a git thing and
- * every card has one, while this is a pull request on a service.
- *
- * Uncoloured, because a card knows the number and nothing else — not whether
- * the pull request is open, drafted, merged or closed — so any colour would
- * claim a state it has never read.
+ * Uncoloured: the card knows the number and nothing else, so any state colour
+ * would claim something it has never read.
  */
 export function KanbanPrBadgeView({ prNumber, onClick }: KanbanPrBadgeViewProps) {
   const style: CSSProperties = {

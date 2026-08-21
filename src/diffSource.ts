@@ -1,9 +1,7 @@
 /**
- * What a worktree diff is made of, agreed on by both sides of the IPC boundary.
- *
- * The renderer decides what to draw and main decides what to hand an agent, and
- * the two have to reach the same answer. Kept free of node and of React so both
- * can import it.
+ * What a worktree diff is made of, shared across the IPC boundary: the renderer
+ * draws from it and main hands agents the same answer. Free of node and React
+ * so both sides can import it.
  */
 
 import type { ChangedFile, GitFileStatus } from './git';
@@ -12,11 +10,8 @@ import type { ChangedFile, GitFileStatus } from './git';
 export const MAX_DIFF_FILES = 300;
 
 /**
- * The base that makes a comparison the uncommitted changes.
- *
- * A diff panel asks one question — what do I have that its base does not — and
- * this is the base for which the answer is what has not been committed. It is
- * one of the refs on offer rather than a mode beside them.
+ * The base for which "what do I have that this does not" answers with the
+ * uncommitted changes. Offered as one of the refs, not as a separate mode.
  */
 export const UNCOMMITTED_BASE = 'HEAD';
 
@@ -36,27 +31,20 @@ export function diffSubject(base: string | null, branch: string | null): string 
 }
 
 /**
- * Every file the diff contains.
- *
- * Untracked files are held apart by git — they are in no revision, so no diff
- * can name them — and joined back on here, because a file the branch has and
- * its base does not is part of the answer whether or not git has been told
- * about it yet.
+ * Every file the diff contains. Untracked files are in no revision, so git
+ * reports them separately and they are joined back on here.
  */
 export function filesInDiff(status: GitFileStatus): ChangedFile[] {
   return [...status.changedFiles, ...status.untrackedFiles];
 }
 
 /**
- * Where a worktree's chosen comparison is remembered between sessions.
+ * Where a worktree's chosen comparison is remembered between sessions, keyed by
+ * worktree rather than terminal session.
  *
- * Keyed by the worktree, like the notes written on its diff: what a change is
- * being read against belongs to the change, not to the terminal session that
- * happened to be open on it.
- *
- * The `ui:` prefix is not decoration — the settings channel refuses any key
- * outside its allow-list (`isAllowedKey` in `ipc/handlers/settings.ts`), and
- * refuses it silently, so a key of another shape reads back as never written.
+ * The `ui:` prefix is required: the settings channel silently drops any key
+ * outside its allow-list (`isAllowedKey` in `ipc/handlers/settings.ts`), so a
+ * key of another shape reads back as never written.
  */
 export function diffBaseSettingKey(gitPath: string): string {
   return `ui:diff-base:${gitPath}`;
@@ -64,10 +52,8 @@ export function diffBaseSettingKey(gitPath: string): string {
 
 /**
  * A fingerprint of the change, for telling one file set from another.
- *
- * Approximate on purpose: an edit that preserves line counts does not register.
- * The renderer uses it to avoid restarting a load on a no-op status poll, which
- * would rather miss a change than re-run on every one.
+ * Approximate: an edit preserving line counts does not register. The renderer
+ * uses it to skip reloading on a no-op status poll.
  */
 export function diffShape(files: readonly ChangedFile[]): string {
   return files.map((f) => `${f.status}:${f.path}:${f.additions}:${f.deletions}`).join('\n');

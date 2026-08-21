@@ -9,9 +9,8 @@ import {
 } from '../../utils/descriptionAttachments';
 
 /**
- * How the content sits inside a height-capped editor. Drives the "there is
- * more text up/down" fades and the promoted expand affordance, so the parent
- * doesn't have to read scroll geometry off a ref it doesn't own.
+ * How the content sits inside a height-capped editor, so the parent can draw
+ * its overflow fades without reading scroll geometry off a ref it doesn't own.
  */
 export interface DescriptionEditorMetrics {
   /** Content is taller than the box, so the editor is scrolling internally. */
@@ -38,10 +37,9 @@ export interface DescriptionChipEditorProps {
   /** Fires on every edit with the current serialized value. */
   onChange?: (value: string) => void;
   /**
-   * Resolve a pasted/dropped file to the absolute path that goes into the
-   * prompt as a chip. The caller decides whether to use the file's existing
-   * on-disk path (drag-drop from the filesystem) or save the bytes somewhere
-   * first (clipboard paste of raw image data). Returning null skips the file.
+   * Resolves a pasted or dropped file to the absolute path that becomes a chip.
+   * The caller chooses between the file's existing path and writing the bytes
+   * out first. Returning null skips the file.
    */
   onAttachFile?: (file: File) => Promise<string | null>;
   placeholder?: string;
@@ -51,9 +49,8 @@ export interface DescriptionChipEditorProps {
   editable?: boolean;
   autoFocus?: boolean;
   /**
-   * Fires whenever the content's fit inside the box changes — on edit, on
-   * scroll, and on demand via `refreshMetrics`. Only useful when the editor
-   * is height-capped; an uncapped editor never overflows.
+   * Fires on edit, on scroll, and via `refreshMetrics`. Only meaningful when
+   * the editor is height-capped; an uncapped one never overflows.
    */
   onMetrics?: (metrics: DescriptionEditorMetrics) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
@@ -63,9 +60,8 @@ export interface DescriptionChipEditorProps {
 }
 
 /**
- * Bring the caret's line into view after the caret is placed. Only does
- * anything when the editor is height-capped and the caret landed in the part
- * that's scrolled off.
+ * Brings the caret's line into view. Does nothing unless the editor is
+ * height-capped and the caret landed in the scrolled-off part.
  */
 function scrollCaretIntoView(el: HTMLElement): void {
   const selection = el.ownerDocument.defaultView?.getSelection();
@@ -80,11 +76,10 @@ function scrollCaretIntoView(el: HTMLElement): void {
 }
 
 /**
- * Uncontrolled contentEditable that renders task descriptions with inline
- * image attachment chips. The DOM is the source of truth between explicit
- * resets via the imperative handle; `onChange` mirrors every edit so a parent
- * holding the value in state stays in sync. Re-render is safe because no
- * children are passed to the editable div — React never touches its content.
+ * Uncontrolled contentEditable rendering task descriptions with inline image
+ * chips. The DOM holds the value between explicit resets through the imperative
+ * handle, and `onChange` mirrors every edit. Re-rendering is safe only because
+ * no children are passed to the editable div, so React never touches it.
  */
 
 export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, DescriptionChipEditorProps>(
@@ -108,8 +103,7 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
   ) {
     const editorRef = useRef<HTMLDivElement>(null);
 
-    /** Read the current fit and hand it to the parent. Cheap enough to call
-     *  on every keystroke: three layout reads, no writes. */
+    /** Cheap enough for every keystroke: three layout reads, no writes. */
     const emitMetrics = useCallback(() => {
       const el = editorRef.current;
       if (!el || !onMetrics) return;
@@ -133,8 +127,7 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
       el.dataset.empty = value.length === 0 ? 'true' : 'false';
     }, []);
 
-    // Initial populate on mount. The editor is uncontrolled afterwards —
-    // external resets go through the imperative `setValue` handle.
+    // Populated once; external resets go through the `setValue` handle.
     useEffect(() => {
       populate(initialValue);
       if (autoFocus) editorRef.current?.focus();
@@ -166,9 +159,8 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
           const el = editorRef.current;
           if (!el) return;
           // setCaretOffset measures against the flat structure `populate`
-          // produces. Typing in a contentEditable adds block wrappers whose
-          // newlines it can't see, so repopulate from the current value first
-          // and the precondition holds by construction.
+          // produces, and typing adds block wrappers whose newlines it cannot
+          // see. Repopulating first restores that precondition.
           populate(serializeDescriptionDOM(el));
           el.focus();
           setCaretOffset(el, offset);
@@ -206,24 +198,21 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
         if (!clipboard) return;
         const fileItem = onAttachFile ? Array.from(clipboard.items).find((it) => it.kind === 'file') : undefined;
 
-        // Always strip formatting: the description is plain text, and the
-        // browser's default rich-HTML paste drags in fonts, colors, and code
-        // backgrounds from styled sources (e.g. an `OUIJIT_*` env var copied
-        // from a docs code block) that look broken in the editor.
+        // The description is plain text, and the browser's default rich-HTML
+        // paste carries fonts, colours and code backgrounds along with it.
         if (!fileItem) {
           const text = clipboard.getData('text/plain');
           if (!text) return;
           e.preventDefault();
           // execCommand is deprecated but is the only API that produces a
-          // single, undoable insertion at the current selection in a
-          // contentEditable. The modern alternative (manual Range surgery)
-          // breaks browser undo.
+          // single undoable insertion in a contentEditable; manual Range
+          // surgery breaks browser undo.
           document.execCommand('insertText', false, text);
           return;
         }
 
-        // Block default paste — contentEditable would embed an <img>, and
-        // we own placement of the chip element instead.
+        // Block the default paste: contentEditable would embed an <img>, and
+        // chip placement is handled here instead.
         e.preventDefault();
 
         const file = fileItem.getAsFile();
@@ -254,8 +243,7 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
         e.preventDefault();
         e.stopPropagation();
 
-        // Resolve the drop point to a caret range *before* the await — the
-        // hit-test API needs the live layout from the drop event.
+        // Before the await: the hit-test API needs the drop event's layout.
         const docWithCaret = document as Document & {
           caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
         };
@@ -286,7 +274,7 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLDivElement>) => {
         // Chip-aware Backspace/Delete: remove the whole chip in one keypress
-        // instead of the browser's two-step "select then delete" behaviour.
+        // instead of the browser's two-step "select then delete".
         if (e.key === 'Backspace' || e.key === 'Delete') {
           const sel = window.getSelection();
           if (sel && sel.rangeCount > 0 && sel.isCollapsed) {

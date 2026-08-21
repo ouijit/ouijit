@@ -297,7 +297,6 @@ describe('taskMetadata', () => {
     await reorderTask(project, 1, 'in_progress', 0);
     await reorderTask(project, 2, 'in_progress', 1);
 
-    // Create a task in todo and move it via setTaskStatus
     await createTask(project, 3, 'C', { status: 'todo' });
     await setTaskStatus(project, 3, 'in_progress');
 

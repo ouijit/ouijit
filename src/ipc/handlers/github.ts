@@ -10,9 +10,9 @@ import {
   getPullRequestFileVersions,
   getIssues,
   getIssue,
-  linkTaskToPr,
   linkTaskToIssue,
   detectPullRequestForTask,
+  detectPullRequestsForProject,
   listDrafts,
   saveDraft,
   discardDraft,
@@ -51,13 +51,11 @@ export function registerGithubHandlers(): void {
   typedHandle('github:issues', (projectPath) => getIssues(projectPath));
   typedHandle('github:issue', (projectPath, number) => getIssue(projectPath, number));
 
-  typedHandle('github:link-task-pr', (projectPath, taskNumber, prNumber) =>
-    linkTaskToPr(projectPath, taskNumber, prNumber),
-  );
   typedHandle('github:link-task-issue', (projectPath, taskNumber, issueNumber) =>
     linkTaskToIssue(projectPath, taskNumber, issueNumber),
   );
   typedHandle('github:detect-task-pr', (projectPath, taskNumber) => detectPullRequestForTask(projectPath, taskNumber));
+  typedHandle('github:detect-project-prs', (projectPath) => detectPullRequestsForProject(projectPath));
 
   typedHandle('github:drafts', (projectPath, prNumber, head) => listDrafts(projectPath, prNumber, head));
   typedHandle('github:save-draft', (projectPath, input) => saveDraft(projectPath, input));
@@ -82,9 +80,7 @@ export function registerGithubHandlers(): void {
   typedHandle('github:set-file-viewed', (projectPath, prNumber, headSha, path, viewed) =>
     setFileViewed(projectPath, prNumber, headSha, path, viewed),
   );
-  typedHandle('github:merge-pr', (projectPath, prNumber, method, deleteBranch) =>
-    mergePr(projectPath, prNumber, method, deleteBranch),
-  );
+  typedHandle('github:merge-pr', (projectPath, prNumber, options) => mergePr(projectPath, prNumber, options));
   typedHandle('github:task-from-issue', (projectPath, issueNumber) => createTaskFromIssue(projectPath, issueNumber));
   typedHandle('github:task-from-pr', (projectPath, prNumber) => prepareTaskFromPullRequest(projectPath, prNumber));
 }

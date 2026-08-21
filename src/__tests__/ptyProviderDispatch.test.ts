@@ -1,5 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 
+import { registerPtyHandlers } from '../ipc/handlers/pty';
+
 // Capture the handlers that registerPtyHandlers installs, so we can invoke them
 // directly and assert the dispatch routing without a live Electron IPC channel.
 const handlers = new Map<string, (...a: unknown[]) => unknown>();
@@ -37,8 +39,6 @@ vi.mock('../sandbox', () => ({
   findSessionOwner: (id: unknown) => findSessionOwner(id),
   listSessionOwners: () => listSessionOwners(),
 }));
-
-import { registerPtyHandlers } from '../ipc/handlers/pty';
 
 const window = {} as unknown as Electron.BrowserWindow;
 

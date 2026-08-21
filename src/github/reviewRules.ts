@@ -1,12 +1,9 @@
 /**
- * What GitHub will refuse, worked out before it is asked.
+ * What GitHub will refuse, worked out before it is asked. A review reaches
+ * GitHub from the panel's Review menu and from the CLI/REST path, so both read
+ * this: the panel as the disabled reason, main as the error.
  *
- * A review reaches GitHub from two directions — the panel's Review menu, and
- * the CLI/REST path an agent uses — so the rule cannot live in the component
- * that happens to have a button. Stated once here: the panel disables the entry
- * and shows this as the reason, and main returns it as the error.
- *
- * Leaf module, one type-only import, so the renderer can have it too.
+ * Leaf module with one type-only import, so the renderer can import it.
  */
 
 import type { ReviewEvent } from './types';
@@ -15,9 +12,8 @@ import type { ReviewEvent } from './types';
  * Why this review cannot be submitted as it stands, or null when it can.
  *
  * `unplaceable` counts comments whose lines are no longer in the diff. GitHub
- * takes the batch as one payload and rejects all of it over any one of them, so
- * a single stranded comment is the whole review's problem. Zero from the CLI
- * path, which anchors by line at the moment it writes.
+ * takes the batch as one payload and rejects all of it over any one of them.
+ * Always zero from the CLI path, which anchors at the moment it writes.
  */
 export function reviewSubmitProblem(
   event: ReviewEvent,

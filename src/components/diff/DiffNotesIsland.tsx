@@ -12,16 +12,12 @@ import { SegmentedGroup, segmentBase, segmentQuiet } from '../ui/SegmentedGroup'
 interface DiffNotesIslandProps {
   notes: DiffNote[];
   /**
-   * The notes whose lines are on screen under the comparison being viewed.
-   *
-   * The rest are as live as any other — a note on work since committed is
-   * simply not in a diff of what is uncommitted — so they are listed and handed
-   * over all the same, and only say that there is nothing to jump to.
+   * Notes whose lines appear in the comparison being viewed. The rest are still
+   * listed and handed over, but have nothing to jump to.
    */
   inView: ReadonlySet<string>;
-  /** The comparison these were written on, for the heading the agent is handed. */
+  /** The comparison these were written on, used as the heading for the agent. */
   subject: string;
-  /** The terminal the notes are about, and the one they are handed to. */
   ptyId: string;
   onJump: (note: DiffNote) => void;
   onDiscard: (id: string) => Promise<void>;
@@ -29,28 +25,18 @@ interface DiffNotesIslandProps {
 }
 
 /**
- * Write the notes into the terminal as a paste rather than as typing.
- *
- * The bracketed-paste markers are what a terminal emulator wraps a real paste
- * in; without them a newline is the Enter key and a three-line note submits
- * itself a third of the way through. Nothing follows the closing marker, so the
- * text sits in the agent's prompt unsent.
+ * Wrapped in bracketed-paste markers: without them the terminal reads each
+ * newline as Enter and submits a multi-line note partway through. Nothing
+ * follows the closing marker, so the text sits in the prompt unsent.
  */
 function pasteIntoTerminal(ptyId: string, text: string): void {
   window.api.pty.write(ptyId, `\x1b[200~${text}\x1b[201~`);
 }
 
-/**
- * The notes written on this diff, and the two ways to hand them over.
- *
- * Mounted only while there are notes, and floated over the foot of the pane
- * rather than sat in the header, since notes are written while scrolling.
- */
 export function DiffNotesIsland({ notes, inView, subject, ptyId, onJump, onDiscard, onClear }: DiffNotesIslandProps) {
   if (notes.length === 0) return null;
 
-  // Formatted when it is asked for, not on every render: nothing on screen
-  // shows it, and it walks every note.
+  // On demand, not per render: it walks every note and nothing displays it.
   const forAgent = () => formatNotesForAgent(notes, subject);
 
   const copy = () => {
@@ -61,8 +47,7 @@ export function DiffNotesIsland({ notes, inView, subject, ptyId, onJump, onDisca
   };
 
   return (
-    // Inset from the foot of the pane and centred on the diff column. Only the
-    // capsule takes pointer events, so the well behind it stays scrollable.
+    // Only the capsule takes pointer events, so the pane behind stays scrollable.
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100%-2rem)] pointer-events-none">
       <div className="pointer-events-auto">
         <SegmentedGroup floating>

@@ -2,13 +2,13 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { registerPreviewCommands } from '../../../cli/commands/preview';
 
+import { get, post, del } from '../../../cli/api';
+
 vi.mock('../../../cli/api', () => ({
   get: vi.fn(),
   post: vi.fn(),
   del: vi.fn(),
 }));
-
-import { get, post, del } from '../../../cli/api';
 
 function captureOutput() {
   const chunks: string[] = [];

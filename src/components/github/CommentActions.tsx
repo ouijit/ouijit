@@ -4,21 +4,15 @@ import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 
 interface CommentActionsProps {
-  /** The comment on github.com. */
   url?: string;
   /** Set only when GitHub says this viewer may delete it. */
   deletable?: { kind: CommentKind; commentId: number };
 }
 
 /**
- * What you can do to somebody's comment, revealed on hovering it.
- *
- * Deleting asks first, and asks in place, because it cannot be undone on
- * GitHub.
- *
- * Whether deletion is offered at all is GitHub's answer, not a guess from the
- * author's login — the detail query asks `viewerCanDelete` per comment, which
- * accounts for repo permissions a login comparison would miss.
+ * Per-comment actions, revealed on hover. Deleting confirms first, since GitHub
+ * cannot undo it. Whether it is offered comes from `viewerCanDelete` on the
+ * detail query, which accounts for repo permissions a login comparison misses.
  */
 export function CommentActions({ url, deletable }: CommentActionsProps) {
   const [confirming, setConfirming] = useState(false);

@@ -1,5 +1,4 @@
-import { app, BrowserWindow, net } from 'electron';
-import { updateElectronApp, UpdateSourceType } from 'update-electron-app';
+import { app, autoUpdater, BrowserWindow, dialog, net } from 'electron';
 import { getLogger } from './logger';
 import { typedPush } from './ipc/helpers';
 import { getGlobalSetting, setGlobalSetting } from './db';
@@ -8,23 +7,13 @@ import { semverGt } from './utils/semver';
 const updaterLog = getLogger().scope('updater');
 
 const REPO = 'ouijit/ouijit';
-const CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour
+const CHECK_INTERVAL = 60 * 60 * 1000;
 
-function initMacUpdater(): void {
-  updateElectronApp({
-    updateSource: {
-      type: UpdateSourceType.ElectronPublicUpdateService,
-      repo: REPO,
-    },
-    updateInterval: '1 hour',
-    logger: { ...updaterLog, log: updaterLog.info },
-  });
-  updaterLog.info('macOS auto-updater initialized');
-}
+let updateIntervalId: ReturnType<typeof setInterval> | null = null;
 
-let lastNotifiedVersion: string | null = null;
+type Release = { version: string; url: string };
 
-export async function checkForLinuxUpdate(mainWindow: BrowserWindow): Promise<void> {
+async function fetchLatestRelease(): Promise<Release | null> {
   try {
     const response = await net.fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
       headers: { Accept: 'application/vnd.github.v3+json' },
@@ -32,26 +21,103 @@ export async function checkForLinuxUpdate(mainWindow: BrowserWindow): Promise<vo
 
     if (!response.ok) {
       updaterLog.warn('GitHub API error', { status: response.status });
-      return;
+      return null;
     }
 
     const release = (await response.json()) as { tag_name: string; html_url: string };
-    const latestVersion = release.tag_name.replace(/^v/, '');
-    const currentVersion = app.getVersion();
-
-    if (semverGt(latestVersion, currentVersion) && latestVersion !== lastNotifiedVersion) {
-      lastNotifiedVersion = latestVersion;
-      typedPush(mainWindow, 'update-available', { version: latestVersion, url: release.html_url });
-      updaterLog.info('update available', { current: currentVersion, latest: latestVersion });
-    }
+    return { version: release.tag_name.replace(/^v/, ''), url: release.html_url };
   } catch (error) {
-    updaterLog.warn('update check failed', {
+    updaterLog.warn('release lookup failed', {
       error: error instanceof Error ? error.message : String(error),
     });
+    return null;
   }
 }
 
-let updateIntervalId: ReturnType<typeof setInterval> | null = null;
+/**
+ * Squirrel.Mac re-downloads the whole ~100MB zip on every checkForUpdates and
+ * keeps no record of what it already fetched, so an unguarded hourly check
+ * re-fetches the same update for as long as the app stays open. Reading
+ * GitHub's latest release costs a few KB, so it gates the expensive call: only
+ * ask Squirrel for a version not asked for before. The cost is that a failed
+ * download waits for the next launch.
+ */
+let requestedVersion: string | null = null;
+
+async function checkForMacUpdate(): Promise<void> {
+  const latest = await fetchLatestRelease();
+  if (!latest) return;
+  if (requestedVersion && !semverGt(latest.version, requestedVersion)) return;
+
+  requestedVersion = latest.version;
+  updaterLog.info('asking Squirrel for an update', { version: latest.version });
+  autoUpdater.checkForUpdates();
+}
+
+function promptRestart(version: string | null): void {
+  dialog
+    .showMessageBox({
+      type: 'info',
+      buttons: ['Restart', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Update Ready',
+      message: version ? `Ouijit ${version} is ready to install` : 'A new version is ready to install',
+      detail: 'Restart to finish updating.',
+    })
+    .then(({ response }) => {
+      if (response === 0) autoUpdater.quitAndInstall();
+    })
+    .catch((error: unknown) => {
+      updaterLog.warn('restart prompt failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+}
+
+function initMacUpdater(): void {
+  const feedURL = `https://update.electronjs.org/${REPO}/${process.platform}-${process.arch}/${app.getVersion()}`;
+
+  autoUpdater.setFeedURL({
+    url: feedURL,
+    headers: { 'User-Agent': `${app.getName()}/${app.getVersion()} (${process.platform}: ${process.arch})` },
+  });
+
+  autoUpdater.on('error', (error) => {
+    updaterLog.warn('updater error', { error: error.message });
+  });
+  autoUpdater.on('update-available', () => {
+    updaterLog.info('update available, downloading');
+  });
+  autoUpdater.on('update-not-available', () => {
+    updaterLog.info('no update available');
+  });
+  autoUpdater.on('update-downloaded', (_event, _releaseNotes, releaseName) => {
+    const version = releaseName ? releaseName.replace(/^v/, '') : null;
+    updaterLog.info('update downloaded', { version });
+    promptRestart(version);
+  });
+
+  const check = () => checkForMacUpdate();
+  check();
+  updateIntervalId = setInterval(check, CHECK_INTERVAL);
+  updaterLog.info('macOS auto-updater initialized', { feedURL });
+}
+
+let lastNotifiedVersion: string | null = null;
+
+export async function checkForLinuxUpdate(mainWindow: BrowserWindow): Promise<void> {
+  const release = await fetchLatestRelease();
+  if (!release) return;
+
+  const currentVersion = app.getVersion();
+
+  if (semverGt(release.version, currentVersion) && release.version !== lastNotifiedVersion) {
+    lastNotifiedVersion = release.version;
+    typedPush(mainWindow, 'update-available', { version: release.version, url: release.url });
+    updaterLog.info('update available', { current: currentVersion, latest: release.version });
+  }
+}
 
 function initLinuxUpdater(mainWindow: BrowserWindow): void {
   const check = () => checkForLinuxUpdate(mainWindow);
@@ -107,6 +173,8 @@ export function cleanupUpdater(): void {
 
 export function _resetForTesting(): void {
   lastNotifiedVersion = null;
+  requestedVersion = null;
+  cleanupUpdater();
 }
 
 export async function initUpdater(mainWindow: BrowserWindow): Promise<void> {

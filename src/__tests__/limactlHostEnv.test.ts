@@ -1,8 +1,8 @@
 import { describe, test, expect, vi } from 'vitest';
 
-vi.mock('electron', () => ({ app: { getPath: () => '/tmp/ouijit-test' } }));
-
 import { buildLimactlHostEnv } from '../lima/manager';
+
+vi.mock('electron', () => ({ app: { getPath: () => '/tmp/ouijit-test' } }));
 
 describe('buildLimactlHostEnv', () => {
   test('forwards allowlisted keys', () => {
