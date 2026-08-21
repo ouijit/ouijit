@@ -56,16 +56,30 @@ if (fs.existsSync(projectPath)) {
 }
 fs.mkdirSync(CODE_DIR, { recursive: true });
 
+// Sized for the split panes (~66 cols); anything wider wraps and tears.
+const CLAUDE_RULE = '\x1b[38;5;240m' + '─'.repeat(64) + '\x1b[0m\r\n';
 const CLAUDE_SCREEN = [
-  '\x1b[38;5;245m> \x1b[0m\x1b[38;5;252mSplit the onboarding wizard into a stepper with saved progress, and move\r\n',
-  '  the welcome copy into a reusable intro component so the marketing site\r\n',
-  '  can embed it too.\x1b[0m\r\n\r\n',
-  '\x1b[38;5;245m⏺\x1b[0m \x1b[1mEdit(src/onboarding/Stepper.tsx)\x1b[0m\r\n',
-  '\x1b[38;5;244m  ⎿\x1b[0m  Added step-level progress persistence and a back affordance between\r\n',
-  '      each pair of screens.\r\n\r\n',
-  '\x1b[38;5;245m⏺\x1b[0m \x1b[1mBash(npm test onboarding)\x1b[0m\r\n',
-  '\x1b[38;5;244m  ⎿\x1b[0m  \x1b[38;5;108m✓\x1b[0m 14 passed, 0 failed\r\n\r\n',
-  '\x1b[38;5;212m✦\x1b[0m \x1b[2mThinking…\x1b[0m\r\n',
+  '\x1b[38;5;245m>\x1b[0m \x1b[38;5;252mSplit the onboarding wizard into a stepper with saved\r\n',
+  '  progress, and move the welcome copy into a reusable intro\r\n',
+  '  component so the marketing site can embed it too.\x1b[0m\r\n',
+  '\r\n',
+  "\x1b[38;5;252m⏺\x1b[0m I'll persist the step in localStorage first, then lift the\r\n",
+  '  welcome copy out into its own component.\r\n',
+  '\r\n',
+  '\x1b[38;5;114m⏺\x1b[0m \x1b[1mEdit(src/onboarding/Stepper.tsx)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Updated src/onboarding/Stepper.tsx with 15 additions and\x1b[0m\r\n',
+  '\x1b[38;5;244m     5 removals\x1b[0m\r\n',
+  '\r\n',
+  '\x1b[38;5;114m⏺\x1b[0m \x1b[1mBash(npm test -- onboarding)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Tests: 14 passed, 14 total\x1b[0m\r\n',
+  '\r\n',
+  '\x1b[38;5;204m✳\x1b[0m Sautéing… \x1b[38;5;244m(47s · ↓ 3.2k tokens)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Tip: Use /btw to ask a quick side question\x1b[0m\r\n',
+  '\r\n',
+  CLAUDE_RULE,
+  '\x1b[38;5;252m>\x1b[0m \x1b[7m \x1b[0m\r\n',
+  CLAUDE_RULE,
+  '  \x1b[38;5;179m⏵⏵ auto mode on\x1b[0m \x1b[38;5;244m(shift+tab to cycle) · esc to interrupt\x1b[0m\r\n',
 ].join('');
 
 const VITE_SCREEN = [
