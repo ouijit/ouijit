@@ -137,8 +137,10 @@ export function encodePng({ width, height, rgba }) {
 /**
  * Join equally sized images into one frame of slanted vertical bands with a
  * transparent seam between neighbours — image i owns band i, left to right.
+ * Band edges feather their alpha over a couple of pixels; a hard per-pixel
+ * cut stair-steps visibly along the slant.
  */
-export function composeDiagonalSlices(images, { gap = 14, tilt = 72 } = {}) {
+export function composeDiagonalSlices(images, { gap = 14, tilt = 72, feather = 2 } = {}) {
   const [{ width, height }] = images;
   for (const image of images) {
     if (image.width !== width || image.height !== height) throw new Error('composite inputs differ in size');
@@ -152,17 +154,20 @@ export function composeDiagonalSlices(images, { gap = 14, tilt = 72 } = {}) {
     for (let i = 1; i < n; i++) boundaries.push((width * i) / n + shift);
     for (let x = 0; x < width; x++) {
       let slice = 0;
-      let seam = false;
+      let nearest = Infinity;
       for (const boundary of boundaries) {
-        if (Math.abs(x - boundary) < gap / 2) {
-          seam = true;
-          break;
-        }
+        const distance = Math.abs(x - boundary);
+        if (distance < nearest) nearest = distance;
         if (x > boundary) slice++;
       }
-      if (seam) continue; // stays transparent
+      const coverage = Math.min(1, Math.max(0, (nearest - gap / 2) / feather + 1));
+      if (coverage === 0) continue; // stays transparent
       const offset = (y * width + x) * 4;
-      images[slice].rgba.copy(out, offset, offset, offset + 4);
+      const source = images[slice].rgba;
+      out[offset] = source[offset];
+      out[offset + 1] = source[offset + 1];
+      out[offset + 2] = source[offset + 2];
+      out[offset + 3] = Math.round(source[offset + 3] * coverage);
     }
   }
 
