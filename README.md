@@ -66,7 +66,7 @@ Choose system, light, dark, or one of five presets, or define your own theme as 
 
 ## Hooks, scripts, and settings
 
-Six lifecycle hooks (start, continue, run, review, done, editor) and per-project scripts define how tasks launch and what runs alongside them.
+Five lifecycle hooks (start, continue, run, review, done) and per-project scripts define how tasks launch and what runs alongside them.
 
 <img src="website/public/assets/screenshots/settings.png" alt="Project settings with hooks and scripts" width="100%">
 
