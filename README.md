@@ -83,22 +83,26 @@ To request support for another harness, [open an issue](https://github.com/ouiji
 
 ## CLI
 
-The `ouijit` command is available in every terminal Ouijit opens. Use it to create and advance tasks, manage hooks and scripts, stage pull request comments, switch themes, or open markdown and web preview panels:
+Every terminal Ouijit opens has the `ouijit` command on PATH, and the supported harnesses learn it automatically. So you shape the app by asking your agent: it can file follow-up tasks, move its own card, set up hooks, stage review comments, switch themes, or open panels beside itself. The CLI is what makes those requests work:
 
 ```bash
-ouijit task list                              # array of tasks in the current project
-ouijit task current                           # task owning this terminal
-ouijit task create-and-start "Fix login bug"  # new task + worktree + terminal
+# "file a task for the flaky login test"
+ouijit task create "Fix flaky login test"
+# "move this task to review"
 ouijit task set-status 5 in_review
+# "run claude on every task I start"
 ouijit hook set start --command 'claude "$OUIJIT_TASK_DESCRIPTION"'
-ouijit script run Lint
+# "leave a review comment on PR 116"
 ouijit pr draft add 116 --file src/api.ts --line 88 --body "throws when the token is missing"
+# "switch to dracula"
 ouijit theme use dracula
-ouijit markdown add ./plan.md                 # open a markdown file as a panel
-ouijit preview add http://localhost:3000      # open a web preview panel
+# "open your plan next to you"
+ouijit markdown add ./plan.md
+# "show me the app"
+ouijit preview add http://localhost:3000
 ```
 
-The supported harnesses know how to use it out of the box. Output is JSON for easy piping into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
+It works from your shell too. Output is JSON, so it pipes into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
 
 ## Setup
 
