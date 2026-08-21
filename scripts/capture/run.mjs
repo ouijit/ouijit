@@ -139,10 +139,16 @@ function buildTerminalSeeds() {
   ];
 }
 
+// Every scene pins its theme — an unpinned scene follows the capturing
+// machine's OS appearance and the output would flip between runs.
 const SCENES = [
-  { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds() },
-  { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true },
-  { scene: 'settings', file: 'settings.png', needsProject: true },
+  { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds(), theme: 'dark' },
+  { scene: 'kanban', file: 'kanban-light.png', needsProject: true, theme: 'light' },
+  { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true, theme: 'dark' },
+  { scene: 'palette', file: 'palette.png', needsProject: true, theme: 'dark' },
+  { scene: 'diff', file: 'diff.png', needsProject: true, diffPtyId: 'capture-pty-1a', theme: 'dark' },
+  { scene: 'settings', file: 'settings.png', needsProject: true, theme: 'dark' },
+  { scene: 'resume', file: 'resume.png', needsProject: true, seeds: buildTerminalSeeds(), theme: 'dark', settleMs: 2500 },
 ];
 
 async function sleep(ms) {
@@ -273,17 +279,19 @@ async function main() {
       const payload = { scene: scene.scene };
       if (scene.needsProject) payload.projectPath = projectPath;
       if (scene.seeds) payload.terminalSeeds = scene.seeds;
+      if (scene.theme) payload.theme = scene.theme;
+      if (scene.diffPtyId) payload.diffPtyId = scene.diffPtyId;
 
-      console.log(`→ ${scene.scene}`);
+      console.log(`→ ${scene.file}`);
       const outPath = path.join(OUT_DIR, scene.file);
       try {
-        const res = await postSnapshot(apiPort, payload, outPath, { mode });
+        const res = await postSnapshot(apiPort, payload, outPath, { mode, settleMs: scene.settleMs });
         console.log(`   wrote ${path.relative(REPO_ROOT, outPath)} (${res.data.bytes} bytes, mode=${res.data.mode})`);
       } catch (err) {
         if (mode === 'native') {
           console.warn(`   native capture failed (${err.message.split('\n')[0]}); falling back to content mode`);
           mode = 'content';
-          const res = await postSnapshot(apiPort, payload, outPath, { mode });
+          const res = await postSnapshot(apiPort, payload, outPath, { mode, settleMs: scene.settleMs });
           console.log(`   wrote ${path.relative(REPO_ROOT, outPath)} (${res.data.bytes} bytes, mode=${res.data.mode})`);
         } else {
           throw err;

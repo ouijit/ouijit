@@ -1,6 +1,6 @@
 import type { TerminalDisplayState } from '../stores/terminalStore';
 
-export type CaptureScene = 'kanban' | 'settings' | 'terminal-stack' | 'canvas';
+export type CaptureScene = 'kanban' | 'settings' | 'terminal-stack' | 'canvas' | 'palette' | 'diff' | 'resume';
 
 export interface CaptureTerminalSeed {
   ptyId: string;
@@ -27,4 +27,8 @@ export interface CaptureNavigatePayload {
   focusedTaskId?: number;
   /** Canvas scene viewport (pan + zoom) */
   canvasViewport?: { x: number; y: number; zoom: number };
+  /** Terminal whose diff takeover opens — only consumed by the diff scene */
+  diffPtyId?: string;
+  /** Theme rendered for this shot (via previewTheme, never persisted) */
+  theme?: string;
 }

@@ -8,6 +8,7 @@ import { TaskRepo } from '../db/repos/taskRepo';
 import { ProjectRepo } from '../db/repos/projectRepo';
 import { HookRepo } from '../db/repos/hookRepo';
 import { ScriptRepo } from '../db/repos/scriptRepo';
+import { execFileSync } from 'node:child_process';
 
 describe('seedCaptureFixture', () => {
   let tempRoot: string;
@@ -54,5 +55,16 @@ describe('seedCaptureFixture', () => {
 
     const scripts = new ScriptRepo(db).getAll(seeded);
     expect(scripts.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('stages uncommitted changes for the diff scene', () => {
+    const db = _initTestDatabase();
+
+    const projectPath = path.join(tempRoot, 'horizon');
+    seedCaptureFixture(db, { projectPath, projectName: 'horizon' });
+
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: projectPath, encoding: 'utf8' });
+    expect(status).toContain(' M src/onboarding/Stepper.tsx');
+    expect(status).toContain('?? src/onboarding/IntroCard.tsx');
   });
 });

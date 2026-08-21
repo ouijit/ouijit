@@ -106,6 +106,9 @@ export type LastActiveView = { type: 'home' } | { type: 'project'; path: string 
  * to one-click re-run).
  */
 /** One persisted user-managed panel in the multi-panel snapshot shape. */
+/** Global-settings key the session snapshot persists under. */
+export const SNAPSHOT_KEY = 'lastSession:snapshot';
+
 export interface SnapshotPanel {
   kind: 'runner' | 'webPreview' | 'plan';
   /** runner */
