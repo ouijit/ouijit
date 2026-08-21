@@ -56,6 +56,13 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
   }
 }
 
+/** Bring one terminal to the front of the stack so its body actually renders. */
+function focusTerminal(projectPath: string, ptyId: string): void {
+  const ptyIds = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
+  const index = ptyIds.indexOf(ptyId);
+  if (index >= 0) useTerminalStore.getState().setActiveIndex(projectPath, index);
+}
+
 /** Click a control that only exists after async state settles, polling for it. */
 async function clickWhenPresent(selector: string, timeoutMs = 5000): Promise<void> {
   const start = Date.now();
@@ -182,9 +189,24 @@ export function installCaptureNavigator(): void {
         projectStore.setTerminalLayout('stack');
         const target = payload.diffPtyId ?? payload.terminalSeeds?.[0]?.ptyId;
         const term = target ? terminalInstances.get(target) : undefined;
-        if (term) {
+        if (term && target) {
+          focusTerminal(payload.projectPath, target);
           term.setDiffPanelOpen(true);
           await clickWhenPresent('button[aria-label="Hide the file list"]');
+        }
+        break;
+      }
+      case 'preview': {
+        projectStore.setActivePanel('terminals');
+        projectStore.setKanbanVisible(false);
+        projectStore.setTerminalLayout('stack');
+        const target = payload.previewPtyId ?? payload.terminalSeeds?.[0]?.ptyId;
+        const term = target ? terminalInstances.get(target) : undefined;
+        if (term && target && payload.previewUrl) {
+          focusTerminal(payload.projectPath, target);
+          if (!term.panels.some((p) => p.kind === 'webPreview')) {
+            term.addWebPreviewPanel(payload.previewUrl, { activate: true });
+          }
         }
         break;
       }
@@ -194,7 +216,10 @@ export function installCaptureNavigator(): void {
         projectStore.setTerminalLayout('stack');
         const term = [...terminalInstances.values()].find((t) => t.panels.some((p) => p.kind === 'plan'));
         const plan = term?.panels.find((p) => p.kind === 'plan');
-        if (term && plan) term.activatePanel(plan.id);
+        if (term && plan) {
+          focusTerminal(payload.projectPath, term.ptyId);
+          term.activatePanel(plan.id);
+        }
         break;
       }
       case 'canvas':

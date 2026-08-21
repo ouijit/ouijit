@@ -8,6 +8,7 @@ export type CaptureScene =
   | 'palette'
   | 'diff'
   | 'markdown'
+  | 'preview'
   | 'resume';
 
 export interface CaptureTerminalSeed {
@@ -37,6 +38,9 @@ export interface CaptureNavigatePayload {
   canvasViewport?: { x: number; y: number; zoom: number };
   /** Terminal whose diff takeover opens — only consumed by the diff scene */
   diffPtyId?: string;
+  /** URL and terminal for the web preview panel — only consumed by the preview scene */
+  previewUrl?: string;
+  previewPtyId?: string;
   /** Theme rendered for this shot (via previewTheme, never persisted) */
   theme?: string;
 }

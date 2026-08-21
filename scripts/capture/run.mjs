@@ -16,6 +16,7 @@
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
+import * as http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -76,6 +77,76 @@ const VITE_SCREEN = [
   '\x1b[38;5;244m11:52:18 AM\x1b[0m [vite] hmr update \x1b[38;5;108m/src/onboarding/Stepper.tsx\x1b[0m\r\n',
   '\x1b[38;5;244m11:52:19 AM\x1b[0m [vite] page reload \x1b[38;5;108msrc/routes/dashboard.tsx\x1b[0m\r\n',
 ].join('');
+
+// What the preview scene's webview shows — the onboarding stepper the seeded
+// agent narrative is building, served by a throwaway local HTTP server.
+const PREVIEW_PAGE = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>horizon</title>
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: #101014; color: #e8e8ec; min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 18px 28px; border-bottom: 1px solid #ffffff14;
+  }
+  .dot { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(135deg, #7c5cff, #4f9cff); }
+  .brand { font-weight: 650; letter-spacing: 0.01em; }
+  main { flex: 1; display: grid; place-items: center; padding: 32px; }
+  .card {
+    width: min(520px, 92vw); background: #17171d; border: 1px solid #ffffff14;
+    border-radius: 16px; padding: 36px 40px 32px;
+  }
+  ol { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0 0 30px; }
+  li { flex: 1; text-align: center; font-size: 12px; color: #9a9aa5; padding-top: 10px; border-top: 3px solid #2c2c36; }
+  li.active { color: #e8e8ec; border-top-color: #7c5cff; }
+  h1 { font-size: 24px; margin-bottom: 10px; }
+  p { color: #b6b6c0; line-height: 1.55; margin-bottom: 26px; }
+  label { display: block; font-size: 12px; color: #9a9aa5; margin-bottom: 6px; }
+  input {
+    width: 100%; padding: 10px 12px; margin-bottom: 22px; border-radius: 9px;
+    border: 1px solid #ffffff1f; background: #101014; color: #e8e8ec; font-size: 14px;
+  }
+  button {
+    width: 100%; padding: 11px; border: none; border-radius: 9px;
+    background: #7c5cff; color: #fff; font-size: 14px; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+  <header><div class="dot"></div><span class="brand">horizon</span></header>
+  <main>
+    <div class="card">
+      <ol><li>Profile</li><li class="active">Workspace</li><li>Invite</li></ol>
+      <h1>Name your workspace</h1>
+      <p>Three quick steps and your workspace is ready to share. Close the tab any time — you'll pick up right here.</p>
+      <label for="ws">Workspace name</label>
+      <input id="ws" value="Horizon HQ">
+      <button>Continue</button>
+    </div>
+  </main>
+</body>
+</html>
+`;
+
+function startPreviewServer(port) {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(PREVIEW_PAGE);
+    });
+    // The preferred port matches the seeded vite screen's printed URL; when
+    // something real is already listening there, any free port still works.
+    server.once('error', () => server.listen(0, '127.0.0.1', () => resolve(server)));
+    server.listen(port, '127.0.0.1', () => resolve(server));
+  });
+}
 
 const SANDBOX_SCREEN = [
   '\x1b[38;5;75m╭─ horizon\x1b[0m \x1b[2m(sandbox)\x1b[0m \x1b[38;5;75m──────────────────────────────╮\x1b[0m\r\n',
@@ -145,6 +216,7 @@ function buildTerminalSeeds() {
 const SCENES = [
   { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds(), theme: 'dark' },
   { scene: 'markdown', file: 'markdown.png', needsProject: true, theme: 'dark', settleMs: 1600 },
+  { scene: 'preview', file: 'preview.png', needsProject: true, previewPtyId: 'capture-pty-1b', theme: 'dark', settleMs: 2500 },
   { scene: 'palette', file: 'palette.png', needsProject: true, theme: 'dark' },
   { scene: 'diff', file: 'diff.png', needsProject: true, diffPtyId: 'capture-pty-1a', theme: 'dark' },
   { scene: 'settings', file: 'settings.png', needsProject: true, theme: 'dark' },
@@ -238,10 +310,12 @@ async function main() {
   });
 
   let electronPid = null;
+  let previewServer = null;
   let cleanedUp = false;
   const cleanup = async () => {
     if (cleanedUp) return;
     cleanedUp = true;
+    previewServer?.close();
     if (KEEP) {
       console.log('OUIJIT_CAPTURE_KEEP=1 — leaving app + temp dir in place.');
       console.log('temp dir:', tempRoot);
@@ -291,6 +365,9 @@ async function main() {
     // Let the renderer settle before the first navigate
     await sleep(1500);
 
+    previewServer = await startPreviewServer(5173);
+    const previewUrl = `http://localhost:${previewServer.address().port}/`;
+
     let mode = process.env.OUIJIT_CAPTURE_MODE_HINT ?? 'native';
     const capture = async (payload, outPath, settleMs) => {
       try {
@@ -311,6 +388,10 @@ async function main() {
       if (scene.seeds) payload.terminalSeeds = scene.seeds;
       if (scene.theme) payload.theme = scene.theme;
       if (scene.diffPtyId) payload.diffPtyId = scene.diffPtyId;
+      if (scene.previewPtyId) {
+        payload.previewPtyId = scene.previewPtyId;
+        payload.previewUrl = previewUrl;
+      }
 
       console.log(`→ ${scene.file}`);
       await capture(payload, path.join(OUT_DIR, scene.file), scene.settleMs);
