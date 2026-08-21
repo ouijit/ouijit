@@ -84,53 +84,108 @@ const PREVIEW_PAGE = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>horizon</title>
+<title>Workspace · horizon</title>
 <style>
   * { margin: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { display: none; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    background: #101014; color: #e8e8ec; min-height: 100vh;
-    display: flex; flex-direction: column;
+    background: #0e0f12; color: #dddee3; min-height: 100vh; font-size: 14px;
+    -webkit-font-smoothing: antialiased;
   }
   header {
-    display: flex; align-items: center; gap: 10px;
-    padding: 18px 28px; border-bottom: 1px solid #ffffff14;
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px; border-bottom: 1px solid #ffffff0f; font-size: 13px;
   }
-  .dot { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(135deg, #7c5cff, #4f9cff); }
-  .brand { font-weight: 650; letter-spacing: 0.01em; }
-  main { flex: 1; display: grid; place-items: center; padding: 32px; }
-  .card {
-    width: min(520px, 92vw); background: #17171d; border: 1px solid #ffffff14;
-    border-radius: 16px; padding: 36px 40px 32px;
+  .mark {
+    width: 20px; height: 20px; border-radius: 5px; background: #2a2c33;
+    color: #e6e7eb; font-size: 11px; font-weight: 700;
+    display: grid; place-items: center;
   }
-  ol { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0 0 30px; }
-  li { flex: 1; text-align: center; font-size: 12px; color: #9a9aa5; padding-top: 10px; border-top: 3px solid #2c2c36; }
-  li.active { color: #e8e8ec; border-top-color: #7c5cff; }
-  h1 { font-size: 24px; margin-bottom: 10px; }
-  p { color: #b6b6c0; line-height: 1.55; margin-bottom: 26px; }
-  label { display: block; font-size: 12px; color: #9a9aa5; margin-bottom: 6px; }
-  input {
-    width: 100%; padding: 10px 12px; margin-bottom: 22px; border-radius: 9px;
-    border: 1px solid #ffffff1f; background: #101014; color: #e8e8ec; font-size: 14px;
+  .crumb { color: #83858e; }
+  .crumb b { color: #dddee3; font-weight: 550; }
+  .spacer { flex: 1; }
+  .avatars { display: flex; }
+  .avatar {
+    width: 22px; height: 22px; border-radius: 50%; margin-left: -6px;
+    border: 2px solid #0e0f12; background: #3b4252; color: #d5d8e0;
+    font-size: 9px; font-weight: 600; display: grid; place-items: center;
   }
-  button {
-    width: 100%; padding: 11px; border: none; border-radius: 9px;
-    background: #7c5cff; color: #fff; font-size: 14px; font-weight: 600;
+  main { max-width: 560px; margin: 0 auto; padding: 40px 24px 24px; }
+  .step { font-size: 12px; color: #83858e; margin-bottom: 6px; }
+  .bar { height: 2px; background: #24262c; border-radius: 1px; margin-bottom: 28px; }
+  .bar i { display: block; height: 2px; width: 66%; background: #5f9bf5; border-radius: 1px; }
+  h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 6px; }
+  .sub { color: #9a9ca4; margin-bottom: 28px; line-height: 1.5; }
+  .field { margin-bottom: 18px; }
+  label { display: block; font-size: 12px; font-weight: 550; color: #b9bbc2; margin-bottom: 6px; }
+  input, .select {
+    width: 100%; padding: 8px 10px; border-radius: 7px; font-size: 14px;
+    border: 1px solid #ffffff1a; background: #131418; color: #dddee3;
   }
+  .url { display: flex; align-items: center; }
+  .url input { border-radius: 7px 0 0 7px; border-right: none; text-align: right; padding-right: 2px; width: 40%; }
+  .url .suffix {
+    flex: 1; padding: 8px 10px 8px 2px; border: 1px solid #ffffff1a; border-left: none;
+    border-radius: 0 7px 7px 0; background: #131418; color: #6d6f78;
+  }
+  .select { display: flex; justify-content: space-between; color: #dddee3; }
+  .select span:last-child { color: #6d6f78; }
+  .hint { font-size: 12px; color: #6d6f78; margin-top: 6px; }
+  .row {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 0; margin-top: 6px; border-top: 1px solid #ffffff0f;
+  }
+  .row p { color: #9a9ca4; font-size: 12px; margin-top: 2px; }
+  .toggle { width: 34px; height: 20px; border-radius: 10px; background: #5f9bf5; position: relative; flex-shrink: 0; }
+  .toggle i { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+  .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; }
+  .back { color: #9a9ca4; background: none; border: none; font-size: 14px; }
+  .continue {
+    padding: 8px 18px; border: none; border-radius: 7px; font-size: 14px; font-weight: 600;
+    background: #5f9bf5; color: #0b1018;
+  }
+  footer { max-width: 560px; margin: 0 auto; padding: 0 24px 32px; font-size: 12px; color: #6d6f78; }
 </style>
 </head>
 <body>
-  <header><div class="dot"></div><span class="brand">horizon</span></header>
+  <header>
+    <div class="mark">h</div>
+    <span class="crumb">horizon / <b>Getting started</b></span>
+    <div class="spacer"></div>
+    <div class="avatars"><div class="avatar">MK</div><div class="avatar">JT</div><div class="avatar">+3</div></div>
+  </header>
   <main>
-    <div class="card">
-      <ol><li>Profile</li><li class="active">Workspace</li><li>Invite</li></ol>
-      <h1>Name your workspace</h1>
-      <p>Three quick steps and your workspace is ready to share. Close the tab any time — you'll pick up right here.</p>
-      <label for="ws">Workspace name</label>
-      <input id="ws" value="Horizon HQ">
-      <button>Continue</button>
+    <div class="step">Step 2 of 3 · Workspace</div>
+    <div class="bar"><i></i></div>
+    <h1>Set up your workspace</h1>
+    <div class="sub">This is where your team's projects and docs live. You can rename it any time.</div>
+    <div class="field">
+      <label for="name">Workspace name</label>
+      <input id="name" value="Horizon HQ">
+    </div>
+    <div class="field">
+      <label for="slug">Workspace URL</label>
+      <div class="url"><input id="slug" value="horizon-hq"><span class="suffix">.usehorizon.app</span></div>
+      <div class="hint">Lowercase letters, numbers, and dashes only.</div>
+    </div>
+    <div class="field">
+      <label>Data region</label>
+      <div class="select"><span>United States (us-east)</span><span>⌄</span></div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Allow email domain sign-up</label>
+        <p>Anyone with an @horizon.dev address can join without an invite.</p>
+      </div>
+      <div class="toggle"><i></i></div>
+    </div>
+    <div class="actions">
+      <button class="back">Back</button>
+      <button class="continue">Continue</button>
     </div>
   </main>
+  <footer>You can change these later in Settings → Workspace.</footer>
 </body>
 </html>
 `;
