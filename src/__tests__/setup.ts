@@ -19,6 +19,8 @@ vi.mock('electron', () => ({
       if (name === 'userData') return testDataDir;
       return testDataDir;
     },
+    isReady: () => true,
+    getLocale: () => 'en-US',
   },
 }));
 

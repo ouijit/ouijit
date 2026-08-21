@@ -178,8 +178,9 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
       }
     }
 
-    // Export Ouijit env vars inside the VM since SSH doesn't forward them
-    let envExports = '';
+    // Export Ouijit env vars inside the VM since SSH doesn't forward them.
+    // LANG is the guest's own: its Ubuntu image generates only C.utf8.
+    let envExports = `export LANG='C.UTF-8'\n`;
     if (options.env) {
       for (const [key, value] of Object.entries(options.env)) {
         if (value !== undefined) {
@@ -205,8 +206,7 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     let innerCmd: string;
     if (options.command) {
       // Run command then drop to interactive bash
-      const escapedCmd = options.command.replace(/'/g, "'\\''");
-      innerCmd = `${envExports}${hookSetup}${escapedCmd}; exec bash`;
+      innerCmd = `${envExports}${hookSetup}${options.command}; exec bash`;
     } else {
       innerCmd = `${envExports}${hookSetup}exec bash`;
     }
