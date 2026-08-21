@@ -165,9 +165,7 @@ const SCENES = [
 const THEME_COMPOSITE = {
   file: 'themes.png',
   scene: 'kanban',
-  // Bands must read as different themes at a glance, so favor the
-  // high-contrast presets over the ones that stay near-black.
-  themes: ['dark', 'custom:matrix', 'custom:sepia', 'light'],
+  themes: ['dark', 'custom:dracula', 'custom:sepia', 'light'],
 };
 
 async function sleep(ms) {
