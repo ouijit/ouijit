@@ -113,6 +113,11 @@ export function seedCaptureFixture(
     const onboardingDir = path.join(projectPath, 'src', 'onboarding');
     fs.mkdirSync(onboardingDir, { recursive: true });
     fs.writeFileSync(path.join(onboardingDir, 'Stepper.tsx'), STEPPER_COMMITTED);
+    // Committed rather than left untracked: the diff scene should lead with
+    // the code changes, not a page of plan markdown.
+    const plansDir = path.join(projectPath, 'plans');
+    fs.mkdirSync(plansDir, { recursive: true });
+    fs.writeFileSync(path.join(plansDir, seedData.onboardingPlanFilename), seedData.onboardingPlanMarkdown);
     execFileSync('git', ['add', '.'], { cwd: projectPath });
     execFileSync(
       'git',
@@ -165,10 +170,6 @@ export function seedCaptureFixture(
   for (const script of seedData.scripts) {
     scriptRepo.save(projectPath, script.name, script.command);
   }
-
-  const plansDir = path.join(projectPath, 'plans');
-  fs.mkdirSync(plansDir, { recursive: true });
-  fs.writeFileSync(path.join(plansDir, seedData.onboardingPlanFilename), seedData.onboardingPlanMarkdown);
 
   new GlobalSettingsRepo(db).set(`experimental:${projectPath}`, JSON.stringify({ canvas: false }));
 

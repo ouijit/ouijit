@@ -19,6 +19,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { decodePng, encodePng, composeDiagonalSlices } from './composite.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -143,13 +144,32 @@ function buildTerminalSeeds() {
 // machine's OS appearance and the output would flip between runs.
 const SCENES = [
   { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds(), theme: 'dark' },
-  { scene: 'kanban', file: 'kanban-light.png', needsProject: true, theme: 'light' },
   { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true, theme: 'dark' },
+  { scene: 'markdown', file: 'markdown.png', needsProject: true, theme: 'dark', settleMs: 1600 },
   { scene: 'palette', file: 'palette.png', needsProject: true, theme: 'dark' },
   { scene: 'diff', file: 'diff.png', needsProject: true, diffPtyId: 'capture-pty-1a', theme: 'dark' },
   { scene: 'settings', file: 'settings.png', needsProject: true, theme: 'dark' },
-  { scene: 'resume', file: 'resume.png', needsProject: true, seeds: buildTerminalSeeds(), theme: 'dark', settleMs: 2500 },
+  // The resume banner lists one row per snapshot terminal; three rows reads as
+  // an example, the full seed list reads as clutter.
+  {
+    scene: 'resume',
+    file: 'resume.png',
+    needsProject: true,
+    seeds: buildTerminalSeeds().slice(0, 3),
+    theme: 'dark',
+    settleMs: 2500,
+  },
 ];
+
+// One kanban shot per theme, joined into slanted bands — a single image that
+// shows theming instead of a second full screenshot per theme.
+const THEME_COMPOSITE = {
+  file: 'themes.png',
+  scene: 'kanban',
+  // Bands must read as different themes at a glance, so favor the
+  // high-contrast presets over the ones that stay near-black.
+  themes: ['dark', 'custom:matrix', 'custom:sepia', 'light'],
+};
 
 async function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -275,6 +295,19 @@ async function main() {
     await sleep(1500);
 
     let mode = process.env.OUIJIT_CAPTURE_MODE_HINT ?? 'native';
+    const capture = async (payload, outPath, settleMs) => {
+      try {
+        const res = await postSnapshot(apiPort, payload, outPath, { mode, settleMs });
+        console.log(`   wrote ${path.relative(REPO_ROOT, outPath)} (${res.data.bytes} bytes, mode=${res.data.mode})`);
+      } catch (err) {
+        if (mode !== 'native') throw err;
+        console.warn(`   native capture failed (${err.message.split('\n')[0]}); falling back to content mode`);
+        mode = 'content';
+        const res = await postSnapshot(apiPort, payload, outPath, { mode, settleMs });
+        console.log(`   wrote ${path.relative(REPO_ROOT, outPath)} (${res.data.bytes} bytes, mode=${res.data.mode})`);
+      }
+    };
+
     for (const scene of SCENES) {
       const payload = { scene: scene.scene };
       if (scene.needsProject) payload.projectPath = projectPath;
@@ -283,21 +316,26 @@ async function main() {
       if (scene.diffPtyId) payload.diffPtyId = scene.diffPtyId;
 
       console.log(`→ ${scene.file}`);
-      const outPath = path.join(OUT_DIR, scene.file);
-      try {
-        const res = await postSnapshot(apiPort, payload, outPath, { mode, settleMs: scene.settleMs });
-        console.log(`   wrote ${path.relative(REPO_ROOT, outPath)} (${res.data.bytes} bytes, mode=${res.data.mode})`);
-      } catch (err) {
-        if (mode === 'native') {
-          console.warn(`   native capture failed (${err.message.split('\n')[0]}); falling back to content mode`);
-          mode = 'content';
-          const res = await postSnapshot(apiPort, payload, outPath, { mode, settleMs: scene.settleMs });
-          console.log(`   wrote ${path.relative(REPO_ROOT, outPath)} (${res.data.bytes} bytes, mode=${res.data.mode})`);
-        } else {
-          throw err;
-        }
-      }
+      await capture(payload, path.join(OUT_DIR, scene.file), scene.settleMs);
     }
+
+    console.log(`→ ${THEME_COMPOSITE.file}`);
+    const slicePaths = [];
+    for (const [i, theme] of THEME_COMPOSITE.themes.entries()) {
+      const slicePath = path.join(tempRoot, `theme-${i}.png`);
+      // Re-seed: the resume scene cleared the terminals, and the board reads
+      // better with agent chips on the cards.
+      await capture(
+        { scene: THEME_COMPOSITE.scene, projectPath, theme, terminalSeeds: buildTerminalSeeds() },
+        slicePath,
+        undefined,
+      );
+      slicePaths.push(slicePath);
+    }
+    const composed = composeDiagonalSlices(slicePaths.map((p) => decodePng(fs.readFileSync(p))));
+    const compositePath = path.join(OUT_DIR, THEME_COMPOSITE.file);
+    fs.writeFileSync(compositePath, encodePng(composed));
+    console.log(`   wrote ${path.relative(REPO_ROOT, compositePath)} (${fs.statSync(compositePath).size} bytes)`);
 
     console.log('Done.');
   } catch (err) {

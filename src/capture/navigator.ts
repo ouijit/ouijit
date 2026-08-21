@@ -56,18 +56,18 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
   }
 }
 
-/** The banner renders only after its async snapshot read resolves, so poll for it. */
-async function expandResumeBanner(timeoutMs = 5000): Promise<void> {
+/** Click a control that only exists after async state settles, polling for it. */
+async function clickWhenPresent(selector: string, timeoutMs = 5000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const button = document.querySelector<HTMLButtonElement>('button[aria-label="Show session details"]');
+    const button = document.querySelector<HTMLButtonElement>(selector);
     if (button) {
       button.click();
       return;
     }
     await new Promise((r) => setTimeout(r, 150));
   }
-  captureLog.warn('resume banner never appeared');
+  captureLog.warn('control never appeared', { selector });
 }
 
 async function waitForProject(projectPath: string, timeoutMs = 10_000): Promise<boolean> {
@@ -91,7 +91,10 @@ export function installCaptureNavigator(): void {
     // Scenes run in sequence against one renderer, so close what an earlier
     // scene opened before staging the next one.
     useUIStore.getState().setPaletteOpen(false);
-    for (const term of terminalInstances.values()) term.setDiffPanelOpen(false);
+    for (const term of terminalInstances.values()) {
+      term.setDiffPanelOpen(false);
+      term.setPanelFullWidth(false);
+    }
 
     // The resume banner only renders on a home view with no open terminals,
     // reads its snapshot once on mount, and stays hidden if any snapshot PTY is
@@ -125,7 +128,7 @@ export function installCaptureNavigator(): void {
         }
       }
       useAppStore.getState().navigateHome();
-      await expandResumeBanner();
+      await clickWhenPresent('button[aria-label="Show session details"]');
       return;
     }
 
@@ -178,7 +181,24 @@ export function installCaptureNavigator(): void {
         projectStore.setKanbanVisible(false);
         projectStore.setTerminalLayout('stack');
         const target = payload.diffPtyId ?? payload.terminalSeeds?.[0]?.ptyId;
-        if (target) terminalInstances.get(target)?.setDiffPanelOpen(true);
+        const term = target ? terminalInstances.get(target) : undefined;
+        if (term) {
+          term.setPanelFullWidth(true);
+          term.setDiffPanelOpen(true);
+          await clickWhenPresent('button[aria-label="Hide the file list"]');
+        }
+        break;
+      }
+      case 'markdown': {
+        projectStore.setActivePanel('terminals');
+        projectStore.setKanbanVisible(false);
+        projectStore.setTerminalLayout('stack');
+        const term = [...terminalInstances.values()].find((t) => t.panels.some((p) => p.kind === 'plan'));
+        const plan = term?.panels.find((p) => p.kind === 'plan');
+        if (term && plan) {
+          term.activatePanel(plan.id);
+          term.setPanelFullWidth(true);
+        }
         break;
       }
       case 'canvas':

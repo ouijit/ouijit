@@ -67,6 +67,9 @@ function ensureMermaid(): void {
     // Render labels as native SVG <text> elements rather than <foreignObject>
     // wrappers around HTML. Keeps DOMPurify config trivial and dodges the
     // namespace edge cases that strip child content of foreignObject.
+    // Mermaid 11 only honors the top-level flag; the flowchart-scoped one is
+    // ignored, and DOMPurify then strips every node label.
+    htmlLabels: false,
     flowchart: { htmlLabels: false },
   });
   mermaidTheme = theme;
