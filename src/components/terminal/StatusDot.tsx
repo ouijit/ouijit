@@ -5,12 +5,10 @@ import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
 
 interface StatusDotProps {
   summaryType: string;
-  /** Backend running the terminal; drives the sandbox ring + tooltip. Host when unset. */
   sandboxProvider?: SandboxProviderId;
   size?: number;
 }
 
-/** " (lima)" backend suffix for a sandboxed terminal label; empty for a host shell. */
 export function sandboxSuffix(sandboxProvider?: SandboxProviderId): string {
   return isActiveSandbox(sandboxProvider) ? ` (${sandboxProvider})` : '';
 }
