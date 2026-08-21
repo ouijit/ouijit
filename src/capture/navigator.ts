@@ -52,7 +52,9 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
   terminalInstances.set(seed.ptyId, term);
 
   if (seed.content) {
-    term.xterm.write(seed.content);
+    // Hide xterm's own cursor: canned screens draw their own, and the real one
+    // would sit after the last written character, outside the mock input.
+    term.xterm.write(seed.content + '\x1b[?25l');
   }
 }
 
