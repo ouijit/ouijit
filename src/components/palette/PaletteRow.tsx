@@ -24,7 +24,6 @@ const TITLE_FIELDS = new Set(['name', 'label', 'number']);
 /** Fields already rendered as the row's context text. */
 const CONTEXT_FIELDS = new Set(['project', 'path']);
 
-/** Split text into matched and unmatched runs. */
 function highlight(text: string, ranges: MatchRange[] | undefined): React.ReactNode {
   if (!ranges || ranges.length === 0) return text;
   const parts: React.ReactNode[] = [];
@@ -44,7 +43,6 @@ function highlight(text: string, ranges: MatchRange[] | undefined): React.ReactN
 
 export interface PaletteRowProps {
   item: PaletteItem;
-  /** The winning field, when a query produced one. */
   match: FieldMatch | null;
   selected: boolean;
   rowRef?: React.Ref<HTMLDivElement>;
@@ -124,9 +122,8 @@ function BranchLabel({ item }: { item: PaletteItem }) {
 }
 
 /**
- * Leading column. A task or pull request leads with its number, which is what
- * you scan for and what you type; the other kinds lead with a glyph that says
- * what they are.
+ * Leading column: tasks and pull requests lead with their number, which is what
+ * gets typed; everything else leads with a glyph.
  */
 function Leading({ item }: { item: PaletteItem }) {
   if (item.taskNumber != null && item.kind === 'task') {

@@ -76,19 +76,16 @@ function getChainHsl(rootTaskNumber: number, depth: number): [number, number] {
   return [getChainHue(rootTaskNumber), Math.max(72 - depth * 14, 30)];
 }
 
-/** HSL color string for a badge at a given depth within a chain. */
 export function getChainColor(rootTaskNumber: number, depth: number): string {
   const [hue, lightness] = getChainHsl(rootTaskNumber, depth);
   return `hsl(${hue}, 55%, ${lightness}%)`;
 }
 
-/** Semi-transparent background for badge. */
 export function getChainBgColor(rootTaskNumber: number, depth: number): string {
   const [hue, lightness] = getChainHsl(rootTaskNumber, depth);
   return `hsla(${hue}, 55%, ${lightness}%, 0.15)`;
 }
 
-/** Check if possibleDescendant is a descendant of ancestor in the chain map. */
 export function isDescendantOf(
   possibleDescendant: number,
   ancestor: number,

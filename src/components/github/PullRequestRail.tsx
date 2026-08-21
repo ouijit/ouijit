@@ -7,16 +7,11 @@ import { Icon } from '../terminal/Icon';
 interface PullRequestRailProps {
   detail: PullRequestDetail;
   files: PullRequestFile[];
-  /** Take the document to a file — or, with no path, back to the top. */
+  /** Takes the document to a file, or with no path back to the top. */
   onSelect: (path: string | null) => void;
-  /** Set by dragging the seam beside this. */
   width: number;
 }
 
-/**
- * The changed files, for the code pane only.
- *
- */
 export function PullRequestRail({ detail, files, onSelect, width }: PullRequestRailProps) {
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
@@ -33,8 +28,8 @@ export function PullRequestRail({ detail, files, onSelect, width }: PullRequestR
 
   const trailing = (path: string) => {
     const count = unresolvedByPath.get(path);
-    // A file already dealt with says so here too, so how far through a review
-    // you are is answerable without scrolling the document to find out.
+    // Viewed state shows here too, so review progress is readable without
+    // scrolling the document.
     const done = viewed.has(path) ? <Icon name="check" className="shrink-0 w-3 h-3 text-accent/70" /> : null;
     if (!count) return done;
     return (

@@ -3,6 +3,9 @@
  * header menu, and the command palette.
  *
  * These wrap the IPC calls with the toasts and store refreshes each one needs.
+ *
+ * The two detections run unprompted, so a failure is logged rather than
+ * toasted — an offline machine would otherwise toast once per task.
  */
 
 import log from 'electron-log/renderer';
@@ -54,29 +57,21 @@ export async function createPullRequestForTask(projectPath: string, task: TaskWi
   });
 }
 
-export async function unlinkPullRequest(projectPath: string, taskNumber: number): Promise<void> {
-  const result = await window.api.github.linkTaskPr(projectPath, taskNumber, null);
-  if (!result.success) {
-    useProjectStore.getState().addToast(result.error ?? 'Could not unlink the pull request', 'error');
-    return;
-  }
-  await useProjectStore.getState().loadTasks(projectPath);
-}
-
-/**
- * Look for an existing PR on a task's branch and link it.
- *
- * Runs when a task's terminal opens, so a PR created from the terminal (or by
- * someone else pushing to the same branch) shows on the card without the user
- * telling the app about it. Failures are silent by design: this is a background
- * nicety, and a toast for every offline task would be noise.
- */
 export async function detectPullRequestForTask(projectPath: string, taskNumber: number): Promise<void> {
   try {
     const result = await window.api.github.detectTaskPr(projectPath, taskNumber);
     if (result.prNumber == null) return;
-    await useProjectStore.getState().loadTasks(projectPath);
+    await useProjectStore.getState().loadTasksIfActive(projectPath);
   } catch (error) {
     actionLog.warn('pull request detection failed', { taskNumber, error: describeError(error) });
+  }
+}
+
+export async function detectPullRequestsForProject(projectPath: string): Promise<void> {
+  try {
+    const { linked } = await window.api.github.detectProjectPrs(projectPath);
+    if (linked > 0) await useProjectStore.getState().loadTasksIfActive(projectPath);
+  } catch (error) {
+    actionLog.warn('project pull request detection failed', { projectPath, error: describeError(error) });
   }
 }

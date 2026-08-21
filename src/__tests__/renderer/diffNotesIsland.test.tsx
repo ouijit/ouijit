@@ -1,12 +1,12 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 
+import { DiffNotesIsland } from '../../components/diff/DiffNotesIsland';
+import type { DiffNote } from '../../diffNotes';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
-
-import { DiffNotesIsland } from '../../components/diff/DiffNotesIsland';
-import type { DiffNote } from '../../diffNotes';
 
 const PTY = 'pty-1';
 const SUBJECT = 'the uncommitted changes';

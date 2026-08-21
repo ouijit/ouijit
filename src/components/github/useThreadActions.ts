@@ -3,13 +3,6 @@ import type { ReviewThread } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 
-/**
- * Replying to a thread and resolving one, wherever a thread is rendered.
- *
- * The same threads appear twice — against their line in the diff, and gathered
- * as the outstanding ones on the timeline — and both places offer these two
- * actions.
- */
 export function useThreadActions(
   projectPath: string,
   prNumber: number,

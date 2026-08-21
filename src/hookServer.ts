@@ -25,7 +25,6 @@ let server: http.Server | null = null;
 let apiPort = 0;
 let mainWindow: BrowserWindow | null = null;
 
-/** Get the port the hook server is listening on. */
 export function getApiPort(): number {
   return apiPort;
 }
@@ -41,17 +40,14 @@ export interface HookStatusEntry {
 
 const hookStatusMap = new Map<string, HookStatusEntry>();
 
-/** Get the current hook status for a ptyId. Returns null if no hook activity. */
 export function getHookStatus(ptyId: string): HookStatusEntry | null {
   return hookStatusMap.get(ptyId) ?? null;
 }
 
-/** Clear hook status for a ptyId (call on PTY exit). */
 export function clearHookStatus(ptyId: string): void {
   hookStatusMap.delete(ptyId);
 }
 
-/** Clear all hook statuses (call on app cleanup). */
 export function clearAllHookStatuses(): void {
   hookStatusMap.clear();
 }
@@ -93,10 +89,7 @@ const actionHandlers: Record<string, ActionHandler> = {
 
 // ── Server lifecycle ─────────────────────────────────────────────────
 
-/**
- * Start the hook HTTP server. Call once at app init.
- * Returns a promise that resolves once the server is listening.
- */
+/** Call once at app init; resolves once the server is listening. */
 export function startHookServer(window: BrowserWindow): Promise<void> {
   if (server) return Promise.resolve();
   mainWindow = window;
@@ -190,10 +183,7 @@ export function startHookServer(window: BrowserWindow): Promise<void> {
   });
 }
 
-/**
- * Stop the hook server. Call on app quit.
- * Destroys active connections so in-flight requests don't delay shutdown.
- */
+/** Destroys active connections so in-flight requests don't delay shutdown. */
 export function stopHookServer(): Promise<void> {
   if (!server) return Promise.resolve();
   const s = server;
@@ -221,7 +211,6 @@ interface HookMatcher {
   hooks: HookEntry[];
 }
 
-/** Build hook settings for a given ouijit-hook command path. */
 function buildHookSettings(hookCmd: string): { hooks: Record<string, HookMatcher[]> } {
   return {
     hooks: {
@@ -428,7 +417,7 @@ ouijit pr draft add $PR --file src/api.ts --line 88 \\
  * the wrapper dir twice with even a slight difference (trailing slash, symlink
  * target, normalised vs raw) the strip silently misses one copy and we exec
  * ourselves. Each recursion appends a few KB of injected `-c` / `--settings`
- * overrides to argv until execve hits ARG_MAX and fails with E2BIG (T-407).
+ * overrides to argv until execve hits ARG_MAX and fails with E2BIG.
  * Comparing candidates by inode (`-ef`) collapses every spelling onto the same
  * identity check.
  */
@@ -728,7 +717,6 @@ export function getOpencodePluginDir(): string {
   return path.join(os.homedir(), '.config', 'opencode', 'plugins');
 }
 
-/** Path to the ouijit opencode status plugin. */
 export function getOpencodePluginPath(): string {
   return path.join(getOpencodePluginDir(), 'ouijit.ts');
 }

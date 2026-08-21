@@ -3,11 +3,6 @@ import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 
-/**
- * The parts a detail pane is built from, shared by pull requests and issues so
- * the two read as the same document with different contents.
- */
-
 export function Dot() {
   return <span className="text-text-tertiary opacity-60">·</span>;
 }
@@ -26,11 +21,8 @@ export function Fact({ icon, label, children }: { icon: string; label: string; c
 }
 
 /**
- * The work tracking this pull request or issue, and the way into it.
- *
- * Either there is a task — shown with its status, and a click away — or there
- * is the offer to make one. What making one means differs between a pull
- * request and an issue, so the caller supplies that wording.
+ * The task tracking this pull request or issue, or the offer to create one.
+ * Creating means different things for the two, so the caller supplies wording.
  */
 export function TaskFact({
   task,
@@ -74,7 +66,6 @@ export function TaskFact({
   );
 }
 
-/** The rule belongs to the heading, not to the boundary between sections. */
 export function Section({
   label,
   count,
@@ -107,7 +98,6 @@ export function Section({
   );
 }
 
-/** The coloured dot GitHub puts beside a label name, at the size this app uses. */
 export function LabelChips({ labels }: { labels: Array<{ name: string; color: string }> }) {
   return (
     <>

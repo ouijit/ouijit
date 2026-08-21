@@ -5,9 +5,6 @@ import { useShallow } from 'zustand/react/shallow';
 import { terminalInstances } from './terminalReact';
 import { addProjectTerminal, openWorktreeEditor, renameTerminal, startRunner } from './terminalActions';
 import { completeTask } from '../../services/taskCompletion';
-
-const EMPTY_TAGS: string[] = [];
-const EMPTY_PANELS: TerminalPanel[] = [];
 import { Icon } from './Icon';
 import { TagInput } from './TagInput';
 import { TerminalHeaderView, TerminalHeaderName } from './TerminalHeaderView';
@@ -21,9 +18,12 @@ import type { GitFileStatus, RunnerScript } from '../../types';
 import { openInEntry, moveToEntry, githubEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
-import { openPullRequestInPanel, createPullRequestForTask, unlinkPullRequest } from '../../services/githubTaskActions';
+import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { describeDiffComparison, filesInDiff } from '../../diffSource';
+
+const EMPTY_TAGS: string[] = [];
+const EMPTY_PANELS: TerminalPanel[] = [];
 
 interface TerminalHeaderProps {
   ptyId: string;
@@ -148,7 +148,6 @@ export const TerminalHeader = memo(function TerminalHeader({
             {
               openPullRequest: (prNumber) => openPullRequestInPanel(projectPath, prNumber),
               createPullRequest: () => void createPullRequestForTask(projectPath, task),
-              unlinkPullRequest: () => void unlinkPullRequest(projectPath, task.taskNumber),
             },
           )
         : [];

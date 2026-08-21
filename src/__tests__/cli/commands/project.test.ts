@@ -2,12 +2,12 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerProjectCommands } from '../../../cli/commands/project';
 
+import { get } from '../../../cli/api';
+
 vi.mock('../../../cli/api', () => ({
   get: vi.fn(),
   projectQuery: (p: string) => '?project=' + encodeURIComponent(p),
 }));
-
-import { get } from '../../../cli/api';
 
 function captureOutput() {
   const chunks: string[] = [];

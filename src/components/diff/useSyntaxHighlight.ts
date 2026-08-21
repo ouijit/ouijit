@@ -4,20 +4,17 @@ import { peekDiffTokens, tokenizeDiffHunks, type HunkTokens } from '../../utils/
 import { useResolvedTheme } from '../../hooks/useResolvedTheme';
 
 /**
- * Hook that tokenizes diff hunks for syntax highlighting.
- * Returns null while loading or if highlighting is unavailable.
- *
- * The cache this reads lives in `syntaxHighlight.ts`, keyed on the hunk objects
- * themselves rather than here on the component, so the same file rendered twice
- * is one tokenization and one scrolled back to is already done.
+ * Tokenizes diff hunks, returning null while loading or when highlighting is
+ * unavailable. The cache lives in `syntaxHighlight.ts` keyed on the hunk
+ * objects, not here, so a file rendered twice is tokenized once.
  */
 export function useSyntaxHighlight(diff: FileDiff | null | undefined, filePath: string): HunkTokens[] | null {
   // Tokenization reads the resolved theme; re-tokenize when it changes.
   const resolvedTheme = useResolvedTheme();
   const hunks = diff?.hunks;
 
-  // Start from whatever is already known, so a re-render of an unchanged file
-  // never flashes plain text on its way back to the same tokens.
+  // Start from what is already cached, or an unchanged file flashes plain text
+  // on its way back to the same tokens.
   const [tokens, setTokens] = useState<HunkTokens[] | null>(() => (hunks ? peekDiffTokens(hunks, filePath) : null));
 
   useEffect(() => {
@@ -35,8 +32,7 @@ export function useSyntaxHighlight(diff: FileDiff | null | undefined, filePath: 
     setTokens(null);
     let cancelled = false;
 
-    // The highlighter itself loads lazily inside tokenizeDiffHunks, so the
-    // first call absorbs shiki's WASM setup; later calls are pure CPU.
+    // The first call absorbs shiki's lazy WASM setup; later calls are pure CPU.
     void tokenizeDiffHunks(hunks, filePath).then((result) => {
       if (!cancelled) setTokens(result);
     });

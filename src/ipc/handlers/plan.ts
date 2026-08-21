@@ -115,7 +115,6 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
   });
 }
 
-/** Clean up all file watchers (call on app quit). */
 export function cleanupPlanWatchers(): void {
   for (const [, entry] of watchers) {
     if (entry.timer) clearTimeout(entry.timer);

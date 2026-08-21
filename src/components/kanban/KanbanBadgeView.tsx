@@ -6,7 +6,6 @@ import { Icon } from '../terminal/Icon';
 export interface KanbanBadgeViewProps {
   taskNumber: number;
   chainInfo?: TaskChainInfo;
-  /** Visual emphasis for drag/detach states. The wrapper sets these. */
   isDragging?: boolean;
   isDimmed?: boolean;
   shouldJitter?: boolean;
@@ -17,11 +16,9 @@ export interface KanbanBadgeViewProps {
 }
 
 /**
- * Pure visual badge for a task. Renders the rounded-pill chip with the
- * chain-derived color and the optional git-merge glyph for nested tasks.
- *
- * The smart DraggableBadge (in KanbanCard.tsx) wraps this with useDraggable,
- * Tooltip, and the detach affordance. The marketing site uses this directly.
+ * Presentational task badge, with the drag, tooltip and detach behaviour left
+ * to a wrapper. The marketing site renders it directly, so it must stay free of
+ * store reads and dnd.
  */
 export function KanbanBadgeView({
   taskNumber,

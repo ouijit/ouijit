@@ -6,7 +6,6 @@
  * boundary.
  */
 
-/** Experimental features that can be toggled per project. */
 export interface ExperimentalFlags {
   /** React-flow free-form terminal canvas. */
   canvas: boolean;

@@ -21,21 +21,27 @@ a comment eligible, not what makes it worth writing:
   CLI's flags. ("git's ref store is a filesystem, so a ref at
   `refs/ouijit/pr/12` blocks one at `refs/ouijit/pr/12/base`.")
 - An invariant that spans more than one place, and what breaks without it.
-- Why the obvious approach is not the one taken.
-- What is not visible from here: who else calls this, what has to change with
-  it, which process it runs in.
+- Why the obvious approach is not the one taken — only when a reader would
+  otherwise change the code to it.
+- What is not visible from here: which process it runs in, what a caller has to
+  guarantee, what has to change alongside it.
 
 Not that:
 
 - Development history — what broke, what an earlier version did, what was
   tried. It dates immediately and belongs in the pull request.
 - Taste — "reads better", "the noisiest thing on the page". Nothing to act on.
+- The alternative you rejected, named to justify the code against it — "per
+  spawn, not process.env", "a map rather than an array". Nobody was going to
+  write the other one. It belongs in the commit message.
 - Reasoning that fits any code — DRY, "single source of truth", "so the two
   cannot disagree". True of anything written once, so it says nothing about
   this.
 - Anything the code already says. A comment restating a signature is a naming
   problem wearing a disguise.
 - Guessing how a user feels about the result.
+- Where it is called from, or how often. A caller changes that without touching
+  this file.
 
 Delete a comment rather than rewrite a weak one. Shortening a comment that
 should not exist still leaves a comment that should not exist.

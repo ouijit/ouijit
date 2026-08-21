@@ -35,7 +35,6 @@ function contextualizeError(msg: string): string {
   return msg;
 }
 
-/** Get the path to the bundled limactl binary */
 export function getLimactlPath(): string {
   return resolveBundledBinary('limactl');
 }
@@ -43,8 +42,7 @@ export function getLimactlPath(): string {
 /**
  * Allowlist of host env vars forwarded to every `limactl` child process
  * (VM lifecycle commands and `limactl shell`). limactl needs PATH to
- * resolve ssh/socat, HOME for its SSH config, and locale vars so the
- * guest SSH session doesn't fall back to POSIX. Everything else — API
+ * resolve ssh/socat and HOME for its SSH config. Everything else — API
  * keys, cloud creds, shell history paths, SSH_AUTH_SOCK — is dropped
  * so a process list or crash dump on the host cannot leak secrets
  * through limactl.
@@ -52,17 +50,7 @@ export function getLimactlPath(): string {
  * Guest-side env (options.env in spawn.ts) is re-exported inside the VM
  * by `envExports`; it does not need to ride on the host child.
  */
-const LIMACTL_HOST_ENV_ALLOWLIST: readonly string[] = [
-  'PATH',
-  'HOME',
-  'USER',
-  'LOGNAME',
-  'SHELL',
-  'LANG',
-  'LC_ALL',
-  'LC_CTYPE',
-  'TMPDIR',
-];
+const LIMACTL_HOST_ENV_ALLOWLIST: readonly string[] = ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR'];
 
 /**
  * Path used as LIMA_HOME for all `limactl` invocations.
@@ -95,7 +83,6 @@ export function buildLimactlHostEnv(hostEnv: NodeJS.ProcessEnv): Record<string, 
   return env;
 }
 
-/** Shorthand for callers that need the ambient process env. */
 export function getLimaEnv(): Record<string, string> {
   return buildLimactlHostEnv(process.env);
 }
@@ -176,7 +163,6 @@ export async function createInstance(
     }
   }
 
-  // Write YAML to a temp file
   const tmpDir = os.tmpdir();
   const yamlPath = path.join(tmpDir, `${instanceName}.yaml`);
   await fs.writeFile(yamlPath, yaml, 'utf-8');
@@ -200,7 +186,6 @@ export async function createInstance(
     }
     return { success: false, error: `Failed to create VM: ${contextualizeError(msg)}` };
   } finally {
-    // Clean up temp file
     try {
       await fs.unlink(yamlPath);
     } catch {
@@ -251,7 +236,7 @@ function tailHostAgentLog(instanceName: string, onMessage: (msg: string) => void
           if (msg.startsWith('[VZ]')) continue;
           onMessage(msg);
         } catch {
-          // Not valid JSON — skip
+          // Not a JSON log line.
         }
       }
     } catch {

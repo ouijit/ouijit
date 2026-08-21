@@ -3,25 +3,21 @@ import type { ReviewThread } from '../../github/types';
 import { anchorForLine, anchorKey } from '../../diffAnchor';
 
 /**
- * Threads that will never render inline — either they carry no anchor line at
- * all, they sit on a file this diff doesn't include (a thread left on a file
- * that a later push reverted, or one past the file cap), or their anchor is one
- * no rendered line offers.
+ * Threads that will never render inline: no anchor line, a file this diff does
+ * not include, or an anchor no rendered line offers.
  *
- * That last case is the subtle one: a line renders the single anchor
- * `anchorForLine` gives it, so a context line offers RIGHT and nothing else,
- * while GitHub happily takes a LEFT comment on the same line in split view.
- * Treating both of a line's numbers as offered would leave such a thread
- * counted in the rail and drawn nowhere.
+ * A line offers only the single anchor `anchorForLine` gives it, so a context
+ * line offers RIGHT alone, while GitHub accepts a LEFT comment on the same line
+ * in split view. Counting both sides would leave such a thread listed in the
+ * rail and drawn nowhere.
  */
 export function unanchoredThreads(
   threads: readonly ReviewThread[],
   files: readonly { path: string }[],
   diffs: ReadonlyMap<string, FileDiff | null>,
 ): ReviewThread[] {
-  // Building the anchor set walks every line of every loaded file, and the
-  // diffs arrive in batches, so this runs once per batch. A pull request with
-  // no review comments has nothing to place, so it should not pay for that.
+  // Building the anchor set walks every line of every loaded file, once per
+  // arriving batch; skip it entirely when there is nothing to place.
   if (threads.length === 0) return [];
 
   const renderedPaths = new Set(files.map((f) => f.path));

@@ -3,6 +3,10 @@ import { createTask } from '../db';
 import { registerSandboxProvider, _resetSandboxRegistryForTesting } from '../sandbox/registry';
 import type { SessionOwnerSandboxProvider } from '../sandbox/provider';
 
+import { createTaskWorktree, recoverTaskWorktree, removeTaskWorktree } from '../worktree';
+import { beginTask } from '../taskLifecycle';
+import { exec as execMockedRaw } from 'node:child_process';
+
 // Mock child_process so git commands don't actually run.
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
@@ -45,10 +49,6 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 vi.mock('koffi', () => ({
   default: { load: vi.fn() },
 }));
-
-import { createTaskWorktree, recoverTaskWorktree, removeTaskWorktree } from '../worktree';
-import { beginTask } from '../taskLifecycle';
-import { exec as execMockedRaw } from 'node:child_process';
 
 const execMocked = vi.mocked(execMockedRaw);
 

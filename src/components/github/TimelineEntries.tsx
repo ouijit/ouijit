@@ -6,10 +6,8 @@ import { Markdown } from './Markdown';
 import { reviewStateLabel, since } from './prFormat';
 
 /**
- * Timeline entries: who said or did what, in order.
- *
- * Shared by the summary's comment list and the timeline pane, so a section
- * that counts entries is always rendering the same entries it counted.
+ * Timeline entries. A section that shows a count must render through this, or
+ * the count and the list disagree.
  */
 export function TimelineEntries({ items, empty }: { items: TimelineItem[]; empty?: string }) {
   if (items.length === 0) {

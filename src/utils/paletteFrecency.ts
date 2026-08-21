@@ -1,20 +1,16 @@
 /**
- * What the mod+K switcher remembers about where you go.
+ * What the mod+K switcher remembers about where the user goes. A jump records
+ * its target's key, which boosts that target's score and fills the "Recent"
+ * group on an empty query.
  *
- * A jump records its target's key; later opens boost that target's score and,
- * with an empty query, fill the "Recent" group. Both halves matter: recency
- * alone forgets the terminal you return to every day, frequency alone keeps
- * promoting last month's task.
- *
- * Keys have to outlive the thing they describe. A task keeps the same key
- * across every worktree shell it ever spawns, so jumping to its terminal today
- * still ranks the task tomorrow. Loose terminals key on their ptyId and simply
- * age out once the session is gone, which is what the prune is for.
+ * Keys must outlive what they describe: a task keeps one key across every
+ * worktree shell it spawns. Loose terminals key on their ptyId instead and are
+ * pruned once the session is gone.
  */
 
 const SETTINGS_KEY = 'ui:palette-frecency';
 
-/** Recency halves every three days — about one working sprint of memory. */
+/** Recency halves every three days. */
 const HALF_LIFE_MS = 3 * 24 * 60 * 60 * 1000;
 /** Ceiling on the boost. Below `TIER_STEP`, so frecency reorders rows within a
  *  match tier but never lifts a weak match above a literal one. */

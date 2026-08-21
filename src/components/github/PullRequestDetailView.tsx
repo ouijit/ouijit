@@ -32,10 +32,8 @@ const PANES: Array<{ id: Pane; label: string }> = [
 ];
 
 /**
- * One pull request: a chrome bar naming it, three panes, and the actions.
- *
- * Only the Code pane has a file rail; Summary and Timeline take the full
- * width.
+ * One pull request: a chrome bar naming it, three panes, and the actions. Only
+ * the Code pane has a file rail.
  */
 export function PullRequestDetailView({
   projectPath,
@@ -70,13 +68,9 @@ export function PullRequestDetailView({
   }, []);
 
   /**
-   * What refreshing would do, found out by pointing at the button.
-   *
-   * Nothing polls GitHub, so a pull request updated while you read it looks
-   * exactly like one that has not been — and pressing refresh to find out costs
-   * the whole detail fetch and your place in the document. Asked again on every
-   * hover, since a kept answer would be the thing this exists to prevent:
-   * something that looks live and is not.
+   * Nothing polls GitHub, so hovering refresh is how to find out whether there
+   * is anything to pull without paying for the whole detail fetch. Re-asked on
+   * every hover: a cached answer would be exactly the stale claim this avoids.
    */
   const [refreshTip, setRefreshTip] = useState<string | undefined>(undefined);
   const asking = useRef(false);
@@ -105,14 +99,12 @@ export function PullRequestDetailView({
       });
   }, [projectPath, detail.number, detail.headSha, detail.updatedAt, detailLoading]);
 
-  // What was true of the pull request that was on screen is not an answer about
-  // the one that is now.
+  // Clear it on a new pull request: the previous answer says nothing about it.
   useEffect(() => setRefreshTip(undefined), [detail.number, detail.headSha, detail.updatedAt]);
 
-  // A pending comment lives on a line in a file, so jumping to one means the
-  // code pane, showing that file. The jump is usually made from Summary or
-  // Timeline, where `FilesSection` is not mounted and the ref is still null —
-  // so the draft is remembered and opened once the pane it lives on exists.
+  // Jumping to a draft means the code pane, but the jump is usually made from
+  // Summary or Timeline where `FilesSection` is unmounted and the ref is null.
+  // Remember the draft and open it once that pane exists.
   const [pendingDraft, setPendingDraft] = useState<{ id: string; path: string } | null>(null);
 
   const jumpToDraft = useCallback((draft: ReviewDraft) => {
@@ -127,29 +119,22 @@ export function PullRequestDetailView({
     setPendingDraft(null);
   }, [pane, pendingDraft, scrollToFile]);
 
-  // The tree order is the file list's, not the diffs' — kept out of the
-  // effect below so it is not rebuilt once per arriving batch.
+  // Ordered from the file list, not the diffs, so arriving batches do not
+  // rebuild it.
   const fileOrder = useMemo(() => treeFileOrder(files), [files]);
 
   /**
-   * The anchors the observer below watches, as a value that only changes when
-   * they do — the file list is rebuilt every time a batch of diffs lands, and
-   * keying the effect on it tore the observer down and rebuilt it over every
-   * anchor in the pane each time.
+   * Changes only when the anchors do. Keying the observer effect on the file
+   * list instead rebuilds it over every anchor each time a batch of diffs
+   * lands.
    */
   const anchorShape = useMemo(() => fileOrder.join('\n'), [fileOrder]);
 
   /**
-   * Follow the reader down the document, so the rail marks where they are.
-   *
-   * Written straight to the store rather than held here: this fires as the
-   * document is scrolled, and state in this component would re-render the whole
-   * diff to move a highlight in the rail.
-   *
-   * The anchors are the placeholders, which exist whether or not their file has
-   * mounted yet, so this observes a stable set. Nested anchors are skipped — a
-   * mounted file has one on its section too, and the wrapper is the one that
-   * holds a place in the scroll.
+   * Marks where the reader is in the rail. Written straight to the store: this
+   * fires on scroll, and component state would re-render the whole diff to move
+   * a highlight. Observes the placeholder wrappers, which exist whether or not
+   * their file has mounted; the nested anchor on a mounted section is skipped.
    */
   useEffect(() => {
     const container = paneRef.current;
@@ -168,8 +153,8 @@ export function PullRequestDetailView({
           if (entry.isIntersecting) onScreen.add(anchor);
           else onScreen.delete(anchor);
         }
-        // The highest of what is on screen is the one being read: a file
-        // running off the top of the pane is still the file you are in.
+        // The topmost visible file is the one being read, even when it runs off
+        // the top of the pane.
         let topmost: HTMLElement | null = null;
         let highest = Infinity;
         for (const anchor of onScreen) {
@@ -181,8 +166,8 @@ export function PullRequestDetailView({
         }
         if (topmost?.dataset.path) useGithubStore.getState().setActivePath(topmost.dataset.path);
       },
-      // Only the top of the pane counts as where you are — otherwise the last
-      // file of a long scroll claims it from the bottom of the screen.
+      // Only the top band of the pane counts, or the last file of a long scroll
+      // claims the mark from the bottom of the screen.
       { root: container, rootMargin: '0px 0px -60% 0px' },
     );
     for (const anchor of anchors) observer.observe(anchor);

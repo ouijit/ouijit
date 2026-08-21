@@ -67,7 +67,6 @@ export function scheduleAutoCloseOnSuccess(ptyId: PtyId, isDisposed: () => boole
   }, AUTO_CLOSE_GRACE_MS);
 }
 
-// Platform detection
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
 function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string) => void): void {
@@ -117,7 +116,6 @@ function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string)
         }
       }
 
-      // Mod+Shift+Arrow for page navigation
       if (event.shiftKey && (key === 'arrowleft' || key === 'arrowright')) {
         return false;
       }
@@ -133,7 +131,6 @@ function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string)
   });
 }
 
-/** Call fitAddon.fit() while preserving the terminal's scroll position. */
 export function scrollSafeFit(terminal: XTerminal, fitAddon: FitAddon): void {
   const buf = terminal.buffer.active;
   const atBottom = buf.viewportY >= buf.baseY;
@@ -147,7 +144,6 @@ export function scrollSafeFit(terminal: XTerminal, fitAddon: FitAddon): void {
   }
 }
 
-// Track pending resize timeouts per PTY
 const pendingResizes = new Map<PtyId, ReturnType<typeof setTimeout>>();
 const pendingResizeFrames = new Map<PtyId, number>();
 
@@ -178,7 +174,6 @@ function debouncedResize(ptyId: PtyId, terminal: XTerminal, fitAddon: FitAddon):
   );
 }
 
-/** Format a branch name for display (hyphens to spaces) */
 export function formatBranchNameForDisplay(branch: string): string {
   const agentMatch = branch.match(/^agent-(\d+)$/);
   if (agentMatch) {
@@ -191,7 +186,6 @@ export function formatBranchNameForDisplay(branch: string): string {
   return branch.replace(/-/g, ' ');
 }
 
-/** Resolve the display label for a terminal card. */
 export function resolveTerminalLabel(
   taskName: string | null | undefined,
   worktreeBranch: string | undefined,
@@ -204,7 +198,6 @@ export function resolveTerminalLabel(
 
 // ── Terminal instance registry (outside React state) ─────────────────
 
-/** Global registry of OuijitTerminal instances by ptyId */
 export const terminalInstances = new Map<string, OuijitTerminal>();
 
 // Re-skin every live terminal (including runner children not yet in the
@@ -408,7 +401,6 @@ export class OuijitTerminal {
 
   // ── Task/worktree metadata ──────────────────────────────────────────
   readonly sandboxProvider: SandboxProviderId | undefined;
-  /** Display convenience: is this terminal running under any sandbox backend. */
   get sandboxed(): boolean {
     return isActiveSandbox(this.sandboxProvider);
   }
@@ -432,7 +424,6 @@ export class OuijitTerminal {
    *  or split alongside the xterm. */
   panelFullWidth = true;
   panelSplitRatio = 0.5;
-  /** Live runner child terminals, keyed by their runner panel id. */
   runnerChildren = new Map<string, OuijitTerminal>();
   /** Guards against double-spawn per runner panel. */
   runnerSpawning = new Set<string>();
@@ -478,12 +469,10 @@ export class OuijitTerminal {
     this.autoCloseOnSuccess = opts.autoCloseOnSuccess ?? false;
     void restoreDiffBase(this);
 
-    // Initialize display state
     this.label = opts.label;
     this.summaryType = opts.initialSummaryType ?? 'ready';
     this.tags = opts.tags ?? [];
 
-    // Create xterm instance
     this.xterm = new XTerminal({
       theme: buildXtermTheme(),
       fontFamily: cachedTerminalFontFamily,
@@ -507,11 +496,10 @@ export class OuijitTerminal {
       if (this.ptyId) window.api.pty.write(this.ptyId, data);
     });
 
-    // Create viewport element (minimal — React owns card chrome)
+    // Minimal: React owns the card chrome around this.
     this.viewportElement = document.createElement('div');
     this.viewportElement.className = 'w-full h-full';
 
-    // Bind immediately if ptyId was provided
     if (opts.ptyId) {
       this.ptyId = opts.ptyId;
     }
@@ -519,27 +507,24 @@ export class OuijitTerminal {
 
   // ── Viewport access for React ──────────────────────────────────────
 
-  /** Get the DOM element containing the xterm viewport. React components reparent this. */
+  /** React components reparent this element, so read it fresh rather than caching. */
   getViewportElement(): HTMLDivElement {
     return this.viewportElement;
   }
 
   // ── Display state push ─────────────────────────────────────────────
 
-  /** Push a partial display state update to the Zustand store. */
   pushDisplayState(patch: Record<string, unknown>): void {
     if (!this.ptyId) return;
     useTerminalStore.getState().updateDisplay(this.ptyId, patch);
   }
 
-  /** Set project name getter for notifications */
   setProjectNameGetter(getter: () => string): void {
     this.getProjectName = getter;
   }
 
   // ── Public API ──────────────────────────────────────────────────────
 
-  /** Open the xterm in its viewport element and set up drag/drop. */
   openTerminal(): void {
     this.xterm.open(this.viewportElement);
     this.wireDragDrop(this.viewportElement);
@@ -557,7 +542,6 @@ export class OuijitTerminal {
     this.resizeSuppressed = true;
     setTimeout(() => {
       this.resizeSuppressed = false;
-      // Sync once after layout has settled
       this.syncPtySize();
     }, ms);
   }
@@ -572,7 +556,6 @@ export class OuijitTerminal {
     window.api.pty.resize(this.ptyId, cols, rows);
   }
 
-  /** Bind to a PTY — wire data, exit, input, and resize handlers. */
   bind(
     ptyId: PtyId,
     opts?: { onData?: (data: string) => void; onExit?: (exitCode: number) => void; skipSideEffects?: boolean },
@@ -617,7 +600,6 @@ export class OuijitTerminal {
         return label.length > maxLen ? label.slice(0, maxLen - 1) + '…' : label;
       };
 
-      // Write initial spinner line
       this.xterm.write(`\x1b[90m${spinner[0]} ${activeLabel}\x1b[0m`);
 
       // Spinner animation: overwrite in place, then clear trailing chars (no full line clear to avoid flicker)
@@ -651,7 +633,6 @@ export class OuijitTerminal {
       cleanupProgress = () => {
         clearInterval(interval);
         unlistenProgress();
-        // Clear any leftover spinner line
         if (activeId) {
           this.xterm.write('\r\x1b[2K');
         }
@@ -673,7 +654,6 @@ export class OuijitTerminal {
     return result.ptyId;
   }
 
-  /** Replay buffered output from a reconnected PTY session. */
   replayBuffer(bufferedOutput: string | undefined, lastCols?: number, isAltScreen?: boolean): void {
     if (!bufferedOutput) return;
 
@@ -714,7 +694,6 @@ export class OuijitTerminal {
     this.clearDataThrottle();
   }
 
-  /** Re-attach after detach — reconnect resize observer. */
   reattach(): void {
     if (!this.ptyId || this.disposed) return;
 
@@ -735,7 +714,6 @@ export class OuijitTerminal {
     }
   }
 
-  /** Dispose — full lifecycle cleanup. Kills PTY, removes listeners, disposes xterm. */
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -893,7 +871,6 @@ export class OuijitTerminal {
     this.setDiffPanelOpen(!this.diffPanelOpen);
   }
 
-  /** Compare against something else, and read the change back straight away. */
   setDiffBase(base: string): void {
     this.diffBase = base;
     void window.api.globalSettings.set(diffBaseKey(this), base);
@@ -920,7 +897,6 @@ export class OuijitTerminal {
     this.syncPanels();
   }
 
-  /** Track the live runner child for a runner panel. */
   setRunnerChild(panelId: string, runner: OuijitTerminal): void {
     const prev = this.runnerChildren.get(panelId);
     if (prev && prev !== runner) prev.dispose();

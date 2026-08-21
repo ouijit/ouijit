@@ -14,17 +14,13 @@ import { isModKey, MOD_LABEL } from '../../utils/modKey';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
-/**
- * The description grows with its content up to this share of the column body,
- * then scrolls internally. Enough room for a real paragraph, few enough cards
- * hidden that you keep your place in the column.
- */
+/** The description grows to this share of the column body, then scrolls. */
 const DESCRIPTION_CAP_RATIO = 0.4;
 
 /** Bounds for a height set by dragging the composer's top edge. */
 const MIN_DRAG_HEIGHT = 72;
-/** Cards that must stay visible above a dragged composer. Matches the card
- *  list's own min-height, which is what stops it absorbing the difference. */
+/** Cards kept visible above a dragged composer. Must match the card list's
+ *  own min-height, or the list absorbs the difference instead. */
 const MIN_CARD_LIST_HEIGHT = 80;
 
 /** Global setting holding the dragged height, so it survives restarts. */
@@ -46,13 +42,10 @@ interface KanbanAddInputProps {
 }
 
 /**
- * The new-task composer, pinned below the Todo column's card list.
- *
- * Three things make it work at any column length and any draft length:
- * it lives outside the column's scroll container, its description grows only
- * to a share of the column before scrolling internally, and at that point it
- * offers an expanded sheet holding the same draft. A draft is never discarded
- * implicitly — Escape collapses and keeps it.
+ * The new-task composer, pinned below the Todo column's card list and outside
+ * its scroll container. The description grows to a share of the column, then
+ * scrolls and offers the expanded sheet on the same draft. A draft is never
+ * discarded implicitly: Escape collapses and keeps it.
  */
 export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
   // The draft is shared with the standalone sheet, which opens on ⌘N when the
@@ -65,8 +58,8 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
   const setDescription = useComposerStore((s) => s.setDescription);
 
   const [active, setActive] = useState(false);
-  // Which input owns focus right now — drives the submit hint, since plain
-  // Enter creates from the title field but the description needs ⌘/Ctrl+↵.
+  // Drives the submit hint: plain Enter creates from the title field, but the
+  // description needs ⌘/Ctrl+↵.
   const [focusedField, setFocusedField] = useState<'title' | 'description'>('title');
   const [metrics, setMetrics] = useState<DescriptionEditorMetrics>(EMPTY_METRICS);
   const [pinnedHeight, setPinnedHeight] = useState<number | null>(null);
@@ -80,8 +73,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
   const hasDraft = name.trim().length > 0 || description.trim().length > 0;
   const canSubmit = name.trim().length > 0;
 
-  // Restore the dragged height once; a missing or malformed value just means
-  // the cap is in charge, which is the default anyway.
+  // A missing or malformed stored height just leaves the cap in charge.
   useEffect(() => {
     let cancelled = false;
     void window.api.globalSettings.get(HEIGHT_SETTING_KEY).then((stored) => {
@@ -93,8 +85,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     };
   }, []);
 
-  // The cap moved (drag, restore, or reset), so the fades and the promoted
-  // expand affordance need re-measuring against the new box.
+  // The cap moved, so the fades and expand affordance need re-measuring.
   useEffect(() => {
     editorRef.current?.refreshMetrics();
   }, [pinnedHeight, active]);
@@ -140,7 +131,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     const trimmedDescription = description.trim();
     onAdd(trimmedName, trimmedDescription || undefined);
     // Clear the fields but keep the form open and focused so the next task
-    // can be typed immediately without clicking back in.
+    // can be typed immediately.
     const composer = useComposerStore.getState();
     composer.clearDraft();
     composer.closeSheet();
@@ -204,8 +195,8 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     setFocusedField('title');
   }, []);
 
-  // Collapse only when focus leaves the whole form and nothing was entered.
-  // With something in it the form stays open — the draft outlives a stray click.
+  // Collapse only when focus leaves the whole form and nothing was entered, so
+  // a stray click cannot lose a draft.
   const handleBlur = useCallback(
     (e: React.FocusEvent) => {
       const nextFocus = e.relatedTarget as Node | null;
@@ -223,10 +214,9 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     const editor = document.querySelector<HTMLElement>('.kanban-add-description');
     const form = formRef.current;
     if (!editor || !form) return;
-    // The column publishes the room below its header as a custom property. That
-    // span holds the card list *and* this composer, so the ceiling has to
-    // subtract the composer's own chrome and the list's min-height — otherwise
-    // the form grows past the column and the action row is clipped away.
+    // The column's published height covers the card list and this composer, so
+    // subtract the composer's chrome and the list's min-height, or the form
+    // grows past the column and its action row is clipped.
     const bodyHeight = Number.parseFloat(getComputedStyle(form).getPropertyValue('--kanban-body-h')) || 0;
     const editorHeight = editor.getBoundingClientRect().height;
     const chrome = form.getBoundingClientRect().height - editorHeight;
@@ -304,8 +294,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             onPointerMove={handleGripPointerMove}
             onPointerUp={handleGripPointerUp}
             onPointerCancel={handleGripPointerUp}
-            // Reset belongs to the control that set the height, rather than a
-            // link in the footer that's only ever relevant after a drag.
+            // Reset lives on the control that set the height.
             onDoubleClick={resetHeight}
           />
           <input
@@ -356,8 +345,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
                 type="button"
                 className="kanban-add-expand"
                 aria-label="Expand the description"
-                // Keep focus in the editor so the caret is still readable when
-                // the sheet asks for it.
+                // Keep focus in the editor so the sheet can read its caret.
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={expand}
               >
@@ -399,7 +387,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
           onDescriptionChange={(value) => {
             setDescription(value);
             // Mirror into the inline editor behind the scrim, so collapsing
-            // returns to the same draft rather than a stale one.
+            // returns to the same draft.
             editorRef.current?.setValue(value);
           }}
           onAttachFile={resolveAttachmentPath}
@@ -412,7 +400,6 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
   );
 }
 
-/** Focus the kanban add input programmatically, opening the form if collapsed */
 export function focusKanbanAddInput(): void {
   // The expanded sheet holds the same draft and already has focus; pulling it
   // back to the input behind the scrim would strand the caret.

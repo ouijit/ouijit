@@ -1,6 +1,13 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 
+import { PullRequestsPanel } from '../../components/github/PullRequestsPanel';
+import { activateTask } from '../../components/navigation';
+import { useAppStore } from '../../stores/appStore';
+import { useGithubStore } from '../../stores/githubStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { pr, inbox, detail, issue, issueDetail, task } from './githubFixtures';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
@@ -9,13 +16,6 @@ vi.mock('../../components/navigation', async () => {
   const actual = await vi.importActual<typeof import('../../components/navigation')>('../../components/navigation');
   return { ...actual, activateTask: vi.fn().mockResolvedValue(undefined) };
 });
-
-import { PullRequestsPanel } from '../../components/github/PullRequestsPanel';
-import { activateTask } from '../../components/navigation';
-import { useAppStore } from '../../stores/appStore';
-import { useGithubStore } from '../../stores/githubStore';
-import { useProjectStore } from '../../stores/projectStore';
-import { pr, inbox, detail, issue, issueDetail, task } from './githubFixtures';
 
 const PROJECT = '/work/alpha';
 
@@ -621,6 +621,40 @@ describe('PullRequestsPanel', () => {
     // Approving your own is GitHub's rule, and no summary makes it allowed.
     expect(screen.getByText('Approve').closest('button')?.disabled).toBe(true);
     expect(screen.getByText('Request changes').closest('button')?.disabled).toBe(true);
+  });
+
+  test('bypass is offered when protection blocks a merge the viewer may force', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ others: [pr({ number: 7, title: 'Held by protection' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(
+      detail({
+        number: 7,
+        merge: {
+          mergeable: 'MERGEABLE',
+          stateStatus: 'BLOCKED',
+          blockers: ['Blocked by a branch protection rule'],
+          hardBlock: null,
+          canBypass: true,
+        },
+      }),
+    );
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Held by protection'));
+
+    fireEvent.click(await screen.findByText('Merge'));
+    fireEvent.click(screen.getByText('Merge without meeting requirements'));
+    // The chosen method names both its menu row and the button that commits it.
+    fireEvent.click(screen.getAllByText('Squash and merge').at(-1)!);
+
+    await waitFor(() => {
+      expect(window.api.github.mergePr).toHaveBeenCalledWith(PROJECT, 7, {
+        method: 'squash',
+        deleteBranch: true,
+        bypass: true,
+      });
+    });
   });
 
   test('a closed pull request offers no merge', async () => {

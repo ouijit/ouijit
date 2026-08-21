@@ -9,7 +9,7 @@ import { KanbanCard } from './KanbanCard';
 import { KanbanAddInput } from './KanbanAddInput';
 import { KanbanColumnView } from './KanbanColumnView';
 
-/** Map column status to the hook type(s) its config button should open */
+/** Hook types each column's config button opens. */
 const COLUMN_HOOK_TYPES: Record<string, HookType[]> = {
   todo: [],
   in_progress: ['start', 'continue'],
@@ -62,8 +62,7 @@ export function KanbanColumn({
 
   const showOverHighlight = isOver && tasks.length === 0;
 
-  // Surface the shift-to-skip affordance on the done column when shift is held
-  // mid-drag and a done hook is actually configured (otherwise the cue is noise).
+  // Only shown when a done hook is configured, or the cue promises nothing.
   const shiftKeyHeld = useProjectStore((s) => s.shiftKeyHeld);
   const showSkipHookHint = status === 'done' && shiftKeyHeld && !!hasConfiguredHook;
 

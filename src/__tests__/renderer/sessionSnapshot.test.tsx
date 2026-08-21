@@ -1,5 +1,12 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
+import { gatherSnapshot } from '../../components/terminal/sessionSnapshot';
+import { renameTerminal } from '../../components/terminal/terminalActions';
+import { terminalInstances } from '../../components/terminal/terminalReact';
+import { useTerminalStore } from '../../stores/terminalStore';
+import { useAppStore } from '../../stores/appStore';
+import type { OuijitTerminal } from '../../components/terminal/terminalReact';
+
 // electron-log/renderer expects an Electron host; stub it to a no-op logger.
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -14,13 +21,6 @@ vi.mock('../../components/terminal/terminalReact', () => ({
   resolveTerminalLabel: (taskName?: string | null, branch?: string, fallback?: string) =>
     taskName || branch || fallback || 'Shell',
 }));
-
-import { gatherSnapshot } from '../../components/terminal/sessionSnapshot';
-import { renameTerminal } from '../../components/terminal/terminalActions';
-import { terminalInstances } from '../../components/terminal/terminalReact';
-import { useTerminalStore } from '../../stores/terminalStore';
-import { useAppStore } from '../../stores/appStore';
-import type { OuijitTerminal } from '../../components/terminal/terminalReact';
 
 const PROJECT = '/project';
 

@@ -1,10 +1,7 @@
 /**
- * GraphQL documents.
- *
- * Kept apart from api.ts so the query text is readable as a block and the
- * mapping code stays readable as code. Every document takes its arguments as
- * declared variables — nothing is interpolated into the string, so a branch or
- * repo name containing a quote can't break the document.
+ * GraphQL documents. Every one takes its arguments as declared variables:
+ * nothing is interpolated, so a branch or repo name containing a quote cannot
+ * break the document.
  */
 
 /** Fields every PR row in the inbox needs. */
@@ -29,12 +26,9 @@ const PR_SUMMARY_FIELDS = `
 `;
 
 /**
- * The inbox, in one round trip.
- *
- * The `reviewRequested` search runs alongside the plain list because a review
- * request can land on a team rather than a person — `reviewRequests` on the PR
- * itself would only show the team, not whether the viewer is in it. GitHub's
- * search resolves team membership for us.
+ * The inbox, in one round trip. The `reviewRequested` search runs alongside the
+ * plain list because a review request can land on a team: `reviewRequests` on
+ * the PR names the team without saying whether the viewer is in it.
  */
 export const PULL_REQUEST_LIST_QUERY = `
 query($owner: String!, $repo: String!, $first: Int!, $reviewQuery: String!) {
@@ -50,10 +44,8 @@ query($owner: String!, $repo: String!, $first: Int!, $reviewQuery: String!) {
 }`;
 
 /**
- * Everything the PR detail view renders: overview, threads, timeline, and the
- * check rollup. One document rather than four calls, because each `gh` process
- * is a fork and the rate limit is shared with every other tool using the
- * user's token.
+ * Everything the PR detail view renders, in one document: each `gh` call is a
+ * fork, and the rate limit is shared with every other tool using the token.
  */
 export const PULL_REQUEST_DETAIL_QUERY = `
 query($owner: String!, $repo: String!, $number: Int!) {
@@ -67,6 +59,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
       mergeable
       mergeStateStatus
       viewerCanUpdate
+      viewerCanMergeAsAdmin
       reviewThreads(first: 100) {
         nodes {
           id
@@ -154,10 +147,8 @@ query($owner: String!, $repo: String!, $first: Int!) {
 }`;
 
 /**
- * One issue and its thread.
- *
- * Fetched by number rather than found in the list, so a closed issue — or one
- * past the list's limit — is still readable and still convertible to a task.
+ * One issue and its thread, fetched by number so a closed issue or one past the
+ * list's limit is still readable and convertible to a task.
  */
 export const ISSUE_DETAIL_QUERY = `
 query($owner: String!, $repo: String!, $number: Int!) {
@@ -192,12 +183,9 @@ mutation($threadId: ID!) {
 }`;
 
 /**
- * Is what is on screen still what GitHub has?
- *
- * Four fields, asked on hover — the detail query pulls a hundred threads, a
- * timeline and a check rollup, none of which answers "has anything changed".
- * `updatedAt` moves for a comment or a review as well as a push, so the two
- * together say both whether there is anything new and whether it is code.
+ * Whether what is on screen is still current, in four fields, asked on hover.
+ * `updatedAt` moves for a comment or review as well as a push, so the pair says
+ * both whether anything is new and whether it is code.
  */
 export const PULL_REQUEST_FRESHNESS_QUERY = `
 query($owner: String!, $repo: String!, $number: Int!) {

@@ -152,11 +152,9 @@ function chipMarkerLength(chip: HTMLElement): number {
 }
 
 /**
- * Where the caret sits, expressed as an offset into the *storage* string
- * rather than into the DOM. That makes it portable between two editors
- * showing the same value, which is what moving a draft between the inline
- * composer and the expanded sheet needs. A chip counts as the full length of
- * its `![](path)` marker, matching how the value is stored.
+ * Where the caret sits, as an offset into the storage string rather than the
+ * DOM, so it carries between the inline composer and the expanded sheet. A chip
+ * counts as the full length of its `![](path)` marker.
  *
  * Returns null when the selection isn't inside `root`.
  */
@@ -228,7 +226,6 @@ export function createAttachmentChip(path: string, doc: Document = document): HT
   return chip;
 }
 
-/** True if `node` is an attachment chip element. */
 export function isAttachmentChip(node: Node | null | undefined): node is HTMLElement {
   return (
     !!node && node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).classList.contains(ATTACHMENT_CHIP_CLASS)

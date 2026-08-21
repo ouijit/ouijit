@@ -10,12 +10,9 @@ interface DiscussionSectionProps {
 }
 
 /**
- * Timeline, unresolved threads, and the box for a top-level comment.
- *
- * Threads anchored to a line render against that line further down the
- * document; the ones repeated here are the unresolved ones, which are the
- * outstanding obligations on the change and should not require finding the
- * right hunk to discover.
+ * Timeline, unresolved threads, and the box for a top-level comment. Anchored
+ * threads also render against their line further down; unresolved ones are
+ * repeated here so they can be found without hunting for the hunk.
  */
 export function DiscussionSection({ projectPath, detail }: DiscussionSectionProps) {
   const unresolved = detail.threads.filter((t) => !t.isResolved);

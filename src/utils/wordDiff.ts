@@ -6,7 +6,6 @@ export interface WordHighlight {
   ranges: [number, number][];
 }
 
-/** Map from line index within a hunk to its word-level highlights */
 export type HunkWordHighlights = Map<number, WordHighlight>;
 
 /**
@@ -126,7 +125,6 @@ function tokenize(str: string): Token[] {
   return tokens;
 }
 
-/** Compute LCS of two string arrays */
 function computeLCS(a: string[], b: string[]): string[] {
   const m = a.length;
   const n = b.length;

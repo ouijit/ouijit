@@ -36,7 +36,6 @@ import type {
   Script,
   ValidateFolderFailureReason,
   FolderPickerOptions,
-  SiblingScanResult,
   ProjectsFolderChangePlan,
   ProjectsFolderChangeAction,
   ApplyProjectsFolderChangeResult,
@@ -54,7 +53,7 @@ import type {
   ReviewDraft,
   PrHead,
   ReviewEvent,
-  MergeMethod,
+  MergeOptions,
   GithubDraftsChangedPayload,
   InboxResult,
   PullRequestFilesResult,
@@ -68,7 +67,6 @@ import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
 
-/** Hooks object returned by hooks:get — derived from the canonical ProjectSettings type */
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
 
 /**
@@ -89,7 +87,6 @@ export interface IpcInvokeContract {
   'create-project': { args: [options: CreateProjectOptions]; return: CreateProjectResult };
   'show-folder-picker': { args: [options?: FolderPickerOptions]; return: { canceled: boolean; filePaths: string[] } };
   'projects:get-default-folder': { args: []; return: string };
-  'projects:scan-siblings': { args: [folderPath: string]; return: SiblingScanResult };
   'projects:prepare-folder-change': { args: [newFolder: string]; return: ProjectsFolderChangePlan };
   'projects:apply-folder-change': {
     args: [newFolder: string, action: ProjectsFolderChangeAction];
@@ -285,15 +282,12 @@ export interface IpcInvokeContract {
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 
-  'github:link-task-pr': {
-    args: [projectPath: string, taskNumber: number, prNumber: number | null];
-    return: { success: boolean; error?: string };
-  };
   'github:link-task-issue': {
     args: [projectPath: string, taskNumber: number, issueNumber: number | null];
     return: { success: boolean; error?: string };
   };
   'github:detect-task-pr': { args: [projectPath: string, taskNumber: number]; return: { prNumber: number | null } };
+  'github:detect-project-prs': { args: [projectPath: string]; return: { linked: number } };
 
   // ── Diff notes ─────────────────────────────────────────────────────
   // Notes on a worktree's own diff, keyed by the worktree rather than by a pull
@@ -335,7 +329,7 @@ export interface IpcInvokeContract {
     return: { success: boolean; error?: string; url?: string; prNumber?: number };
   };
   'github:merge-pr': {
-    args: [projectPath: string, prNumber: number, method: MergeMethod, deleteBranch: boolean];
+    args: [projectPath: string, prNumber: number, options: MergeOptions];
     return: { success: boolean; error?: string };
   };
   'github:task-from-issue': {

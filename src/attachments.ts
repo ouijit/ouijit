@@ -28,7 +28,6 @@ export interface SaveAttachmentResult {
   error?: string;
 }
 
-/** Directory holding all task prompt attachments. */
 export function getAttachmentsDir(): string {
   return path.join(getUserDataPath(), 'attachments');
 }

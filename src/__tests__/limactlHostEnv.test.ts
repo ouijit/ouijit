@@ -1,8 +1,8 @@
 import { describe, test, expect, vi } from 'vitest';
 
-vi.mock('electron', () => ({ app: { getPath: () => '/tmp/ouijit-test' } }));
-
 import { buildLimactlHostEnv } from '../lima/manager';
+
+vi.mock('electron', () => ({ app: { getPath: () => '/tmp/ouijit-test' } }));
 
 describe('buildLimactlHostEnv', () => {
   test('forwards allowlisted keys', () => {
@@ -11,13 +11,16 @@ describe('buildLimactlHostEnv', () => {
       HOME: '/Users/me',
       USER: 'me',
       SHELL: '/bin/zsh',
-      LANG: 'en_US.UTF-8',
     });
     expect(env.PATH).toBe('/usr/bin:/bin');
     expect(env.HOME).toBe('/Users/me');
     expect(env.USER).toBe('me');
     expect(env.SHELL).toBe('/bin/zsh');
-    expect(env.LANG).toBe('en_US.UTF-8');
+  });
+
+  test.each(['LANG', 'LC_ALL', 'LC_CTYPE'])('drops %s, which ssh would carry into the guest', (key) => {
+    const env = buildLimactlHostEnv({ [key]: 'nb_NO.UTF-8' });
+    expect(env[key]).toBeUndefined();
   });
 
   test('always sets TERM and LIMA_HOME', () => {

@@ -72,7 +72,6 @@ export function useSmartGuides(nodes: TerminalNode[]) {
         if (Math.abs(dBottom - nTop) < SNAP_THRESHOLD) matches.push({ orientation: 'horizontal', canvasPos: nTop });
       }
 
-      // Deduplicate and convert to screen space
       const seen = new Set<string>();
       const result: GuideLine[] = [];
       for (const m of matches) {

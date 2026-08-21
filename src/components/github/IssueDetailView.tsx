@@ -23,10 +23,8 @@ interface IssueDetailViewProps {
 type Pane = 'summary' | 'timeline';
 
 /**
- * One issue, in the same chrome a pull request gets.
- *
- * An issue has no code, so it has no third pane and no file rail. Everything
- * else is the pull request view.
+ * One issue, in the same chrome a pull request gets, minus the code pane and
+ * file rail.
  */
 export function IssueDetailView({
   projectPath,

@@ -8,7 +8,6 @@ interface AppMenuOptions {
   appPath: string;
 }
 
-/** Extract the dev-server port from its URL, or '' if it can't be parsed. */
 function devServerPort(devServerUrl: string): string {
   try {
     return new URL(devServerUrl).port;
