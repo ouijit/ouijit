@@ -271,7 +271,7 @@ function buildTerminalSeeds() {
 const SCENES = [
   { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds(), theme: 'dark' },
   { scene: 'markdown', file: 'markdown.png', needsProject: true, theme: 'dark', settleMs: 1600 },
-  { scene: 'preview', file: 'preview.png', needsProject: true, previewPtyId: 'capture-pty-1b', theme: 'dark', settleMs: 2500 },
+  { scene: 'preview', file: 'preview.png', needsProject: true, previewPtyId: 'capture-pty-1a', theme: 'dark', settleMs: 2500 },
   { scene: 'palette', file: 'palette.png', needsProject: true, theme: 'dark' },
   { scene: 'diff', file: 'diff.png', needsProject: true, diffPtyId: 'capture-pty-1a', theme: 'dark' },
   { scene: 'settings', file: 'settings.png', needsProject: true, theme: 'dark' },
