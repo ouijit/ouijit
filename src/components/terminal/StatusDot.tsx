@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Tooltip } from '../ui/Tooltip';
 import type { SandboxProviderId } from '../../types';
 import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
@@ -21,9 +22,6 @@ const COLORS: Record<string, string> = {
   error: 'var(--color-error)',
 };
 
-const RING_WIDTH_PX = 1.5;
-const RING_GAP_PX = 2;
-
 const LABELS: Record<string, string> = {
   thinking: 'Thinking',
   ready: 'Ready',
@@ -36,28 +34,23 @@ export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotP
   const label = LABELS[summaryType] ?? LABELS.ready;
   const sandboxed = isActiveSandbox(sandboxProvider);
   const tooltipText = sandboxed ? `${label} · ${SANDBOX_BACKEND_LABELS[sandboxProvider]}` : label;
-  const outerSize = sandboxed ? size + 2 * (RING_GAP_PX + RING_WIDTH_PX) : size;
   return (
-    <Tooltip text={tooltipText} placement="top" delay={300} offsetPx={6}>
-      {/* The ring is part of the dot's own box rather than an outline around it:
-          headers and pills that hold a dot clip their overflow, and anything
-          painted outside the box gets cut. */}
+    <Tooltip text={tooltipText} placement="top" delay={300}>
       <span
-        className="inline-flex items-center justify-center rounded-full shrink-0"
+        className="status-dot inline-flex items-center justify-center rounded-full shrink-0"
         data-status={summaryType}
-        style={{
-          width: outerSize,
-          height: outerSize,
-          ...(sandboxed
-            ? { border: `${RING_WIDTH_PX}px solid color-mix(in srgb, var(--color-ansi-blue) 60%, transparent)` }
-            : {}),
-        }}
+        style={
+          {
+            '--status-dot-size': `${size}px`,
+            ...(sandboxed
+              ? { '--status-ring-color': 'color-mix(in srgb, var(--color-ansi-blue) 60%, transparent)' }
+              : {}),
+          } as CSSProperties
+        }
       >
         <span
-          className="rounded-full transition-all duration-200 ease-out"
+          className="status-dot-fill rounded-full transition-all duration-200 ease-out"
           style={{
-            width: size,
-            height: size,
             background,
             ...(isThinking ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
           }}

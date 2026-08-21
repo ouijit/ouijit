@@ -623,6 +623,31 @@ textarea,
 }
 
 /* ===================================
+   Terminal status dot
+   =================================== */
+
+.status-dot {
+  --status-ring-width: 1px;
+  --status-ring-gap: 2px;
+
+  width: calc(var(--status-dot-size) + 2 * (var(--status-ring-width) + var(--status-ring-gap)));
+  height: calc(var(--status-dot-size) + 2 * (var(--status-ring-width) + var(--status-ring-gap)));
+  border: var(--status-ring-width) solid var(--status-ring-color, transparent);
+}
+
+@media (min-resolution: 2dppx) {
+  .status-dot {
+    --status-ring-width: 1.5px;
+    --status-ring-gap: 1.5px;
+  }
+}
+
+.status-dot-fill {
+  width: var(--status-dot-size);
+  height: var(--status-dot-size);
+}
+
+/* ===================================
    xterm overrides — third-party DOM we don't control
    =================================== */
 
