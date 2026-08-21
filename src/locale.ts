@@ -44,22 +44,32 @@ async function readLocales(): Promise<string[]> {
 export function pickLocale(
   env: NodeJS.ProcessEnv,
   preferred: string | undefined,
-  available: readonly string[],
+  installed: readonly string[],
 ): string | undefined {
   if (env.LC_ALL || env.LC_CTYPE || env.LANG) return undefined;
-  const utf8 = available.map((name) => name.trim()).filter((name) => /\.utf-?8$/i.test(name));
-  const language = localeName(preferred);
+  const utf8 = installed.map((name) => name.trim()).filter((name) => /\.utf-?8$/i.test(name));
+  const name = localeName(preferred);
+  const language = name?.split('_')[0];
   return (
-    (language && utf8.find((name) => name.startsWith(`${language}.`))) ||
-    utf8.find((name) => name.startsWith('en_US.')) ||
-    utf8.find((name) => name.startsWith('C.')) ||
+    (name && utf8.find((locale) => locale.startsWith(`${name}.`))) ||
+    (language && utf8.find((locale) => locale.startsWith(`${language}_`))) ||
+    utf8.find((locale) => locale.startsWith('en_US.')) ||
+    utf8.find((locale) => locale.startsWith('C.')) ||
     utf8[0]
   );
 }
 
-/** A BCP 47 tag can carry a script subtag `locale -a` never names: `zh-Hans-CN` is `zh_CN`. */
+/**
+ * `locale -a` names a region and no script; a BCP 47 tag from `app.getLocale()`
+ * can do the opposite — `zh-Hans-CN` and `nb` are `zh_CN` and `nb_NO`. Widening
+ * the tag first fills in the region CLDR considers likely for the language.
+ */
 function localeName(tag: string | undefined): string | undefined {
   if (!tag) return undefined;
-  const parts = tag.split('-');
-  return parts.length > 1 ? `${parts[0]}_${parts[parts.length - 1]}` : parts[0];
+  try {
+    const { language, region } = new Intl.Locale(tag).maximize();
+    return region ? `${language}_${region}` : language;
+  } catch {
+    return tag.split('-')[0];
+  }
 }
