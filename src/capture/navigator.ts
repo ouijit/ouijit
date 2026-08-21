@@ -183,7 +183,6 @@ export function installCaptureNavigator(): void {
         const target = payload.diffPtyId ?? payload.terminalSeeds?.[0]?.ptyId;
         const term = target ? terminalInstances.get(target) : undefined;
         if (term) {
-          term.setPanelFullWidth(true);
           term.setDiffPanelOpen(true);
           await clickWhenPresent('button[aria-label="Hide the file list"]');
         }
@@ -195,10 +194,7 @@ export function installCaptureNavigator(): void {
         projectStore.setTerminalLayout('stack');
         const term = [...terminalInstances.values()].find((t) => t.panels.some((p) => p.kind === 'plan'));
         const plan = term?.panels.find((p) => p.kind === 'plan');
-        if (term && plan) {
-          term.activatePanel(plan.id);
-          term.setPanelFullWidth(true);
-        }
+        if (term && plan) term.activatePanel(plan.id);
         break;
       }
       case 'canvas':

@@ -20,7 +20,7 @@ Free and open source. No account, no sign-in, no telemetry.
 
 <img src="website/public/assets/screenshots/kanban.png" alt="Kanban board" width="100%">
 
-<img src="website/public/assets/screenshots/terminal-stack.png" alt="Terminal stack" width="100%">
+<img src="website/public/assets/screenshots/markdown.png" alt="Terminal with a markdown plan panel" width="100%">
 
 <img src="website/public/assets/screenshots/settings.png" alt="Settings" width="100%">
 

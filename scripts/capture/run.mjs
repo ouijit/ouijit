@@ -144,7 +144,6 @@ function buildTerminalSeeds() {
 // machine's OS appearance and the output would flip between runs.
 const SCENES = [
   { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds(), theme: 'dark' },
-  { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true, theme: 'dark' },
   { scene: 'markdown', file: 'markdown.png', needsProject: true, theme: 'dark', settleMs: 1600 },
   { scene: 'palette', file: 'palette.png', needsProject: true, theme: 'dark' },
   { scene: 'diff', file: 'diff.png', needsProject: true, diffPtyId: 'capture-pty-1a', theme: 'dark' },
