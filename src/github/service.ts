@@ -16,6 +16,7 @@ import {
   getTaskByNumber,
   getProjectTasks,
   setTaskGithubPr,
+  claimTaskGithubPr,
   setTaskGithubIssue,
   getReviewDraft,
   getReviewDrafts,
@@ -27,6 +28,7 @@ import {
   createTask,
   getNextTaskNumber,
   type ReviewDraftRow,
+  type TaskMetadata,
 } from '../db';
 import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalFlags';
 import { pushBranch } from '../git';
@@ -43,6 +45,7 @@ import {
   fetchIssues,
   fetchIssue,
   findPullRequestForBranch,
+  fetchOpenPullRequestBranches,
   submitReview,
   replyToReviewComment,
   addIssueComment,
@@ -64,7 +67,7 @@ import type {
   CommentKind,
   ReviewDraft,
   ReviewEvent,
-  MergeMethod,
+  MergeOptions,
   RepoIdentity,
   InboxResult,
   PullRequestFilesResult,
@@ -101,12 +104,6 @@ function isGhAuthenticated(recheck: boolean): Promise<boolean> {
   return ghAuth;
 }
 
-/**
- * Whether the GitHub surface can run for a project, and why not when it can't.
- *
- * The panel stays hidden rather than showing a blank screen, and the reason is
- * surfaced wherever the feature would otherwise be missing without explanation.
- */
 export async function getAvailability(projectPath: string, recheck = false): Promise<GithubAvailability> {
   if (!(await isGithubEnabled(projectPath))) {
     return { available: false, reason: 'flag-off' };
@@ -169,6 +166,11 @@ async function requireIdentity(projectPath: string): Promise<RepoIdentity> {
   return availability.identity;
 }
 
+async function identityIfAvailable(projectPath: string): Promise<RepoIdentity | null> {
+  const availability = await getAvailability(projectPath);
+  return availability.available ? (availability.identity ?? null) : null;
+}
+
 // ── Reads ────────────────────────────────────────────────────────────
 
 export async function getInbox(projectPath: string): Promise<InboxResult> {
@@ -193,11 +195,8 @@ export async function getPullRequest(projectPath: string, number: number): Promi
 }
 
 /**
- * Whether a refresh would bring anything back, asked without fetching it.
- *
- * The caller compares this against what it has on screen: nothing here knows
- * what that is, and a check that answered "up to date" from main would have to
- * be told anyway.
+ * What GitHub has now, for the caller to compare against what is on screen.
+ * Main does not know what that is, so the comparison is not made here.
  */
 export async function getPullRequestFreshness(projectPath: string, number: number): Promise<PullRequestFreshness> {
   const identity = await requireIdentity(projectPath);
@@ -251,7 +250,6 @@ export async function getPullRequestFileDiff(
   return getPrFileDiff(projectPath, number, baseSha, headSha, filePath, contextLines, oldPath);
 }
 
-/** Both sides of a binary file, for the image viewer. */
 export async function getPullRequestFileVersions(
   projectPath: string,
   number: number,
@@ -277,13 +275,13 @@ export async function getIssue(projectPath: string, number: number): Promise<Iss
 // ── Task linking ─────────────────────────────────────────────────────
 
 /**
- * Attach a PR to a task, or detach with null. Detaching also prunes the fetched
- * refs so a long-lived project doesn't accumulate one per PR ever reviewed.
+ * Attach a PR to a task. Relinking prunes the refs fetched for the previous one,
+ * so a long-lived project doesn't accumulate a set per PR ever reviewed.
  */
 export async function linkTaskToPr(
   projectPath: string,
   taskNumber: number,
-  prNumber: number | null,
+  prNumber: number,
 ): Promise<{ success: boolean; error?: string }> {
   const previous = (await getTaskByNumber(projectPath, taskNumber))?.githubPrNumber;
   const result = await setTaskGithubPr(projectPath, taskNumber, prNumber);
@@ -302,26 +300,72 @@ export async function linkTaskToIssue(
 }
 
 /**
- * Look for an existing PR whose head is the task's branch, and link it.
- *
- * Called when a task loads, so a PR opened from a terminal (or by a teammate on
- * the same branch) shows up on the card without the user telling the app about
- * it. Silently does nothing when the feature is off or the task has no branch.
+ * Matches closed and merged pull requests too, which the project-wide sweep
+ * never sees. Reports only a pull request it linked itself, so a task that
+ * already had one costs the caller no refresh.
  */
 export async function detectPullRequestForTask(
   projectPath: string,
   taskNumber: number,
 ): Promise<{ prNumber: number | null }> {
   const task = await getTaskByNumber(projectPath, taskNumber);
-  if (!task?.branch) return { prNumber: null };
-  if (task.githubPrNumber != null) return { prNumber: task.githubPrNumber };
+  if (!task?.branch || task.githubPrNumber != null) return { prNumber: null };
 
-  const availability = await getAvailability(projectPath);
-  if (!availability.available || !availability.identity) return { prNumber: null };
+  const identity = await identityIfAvailable(projectPath);
+  if (!identity) return { prNumber: null };
 
-  const prNumber = await findPullRequestForBranch(availability.identity, task.branch, task.worktreePath);
-  if (prNumber != null) await setTaskGithubPr(projectPath, taskNumber, prNumber);
+  const prNumber = await findPullRequestForBranch(identity, task.branch, task.worktreePath);
+  if (prNumber == null) return { prNumber: null };
+  if (!(await claimTaskGithubPr(projectPath, taskNumber, prNumber))) return { prNumber: null };
   return { prNumber };
+}
+
+/**
+ * A sweep is only done once `gh` has answered or timed out, so without a gate
+ * repeat requests queue up and each takes a `gh` slot ahead of whatever the user
+ * asked for. The floor has to stay under the interval any poller runs at, or it
+ * refuses every other tick.
+ */
+const SWEEP_MIN_INTERVAL_MS = 20_000;
+const sweepsInFlight = new Map<string, Promise<{ linked: number }>>();
+const sweptAt = new Map<string, number>();
+
+export function detectPullRequestsForProject(projectPath: string): Promise<{ linked: number }> {
+  const inFlight = sweepsInFlight.get(projectPath);
+  if (inFlight) return inFlight;
+  const last = sweptAt.get(projectPath);
+  if (last != null && Date.now() - last < SWEEP_MIN_INTERVAL_MS) return Promise.resolve({ linked: 0 });
+
+  const sweep = sweepPullRequests(projectPath).finally(() => sweepsInFlight.delete(projectPath));
+  sweepsInFlight.set(projectPath, sweep);
+  sweptAt.set(projectPath, Date.now());
+  return sweep;
+}
+
+async function sweepPullRequests(projectPath: string): Promise<{ linked: number }> {
+  // Read first so a project with nothing unlinked returns before any subprocess.
+  const tasks = await getProjectTasks(projectPath);
+  const unlinkedByBranch = new Map<string, TaskMetadata>();
+  for (const task of tasks) {
+    if (task.githubPrNumber != null || !task.branch) continue;
+    const claimant = unlinkedByBranch.get(task.branch);
+    if (claimant == null || (claimant.status === 'done' && task.status !== 'done')) {
+      unlinkedByBranch.set(task.branch, task);
+    }
+  }
+  if (unlinkedByBranch.size === 0) return { linked: 0 };
+
+  const identity = await identityIfAvailable(projectPath);
+  if (!identity) return { linked: 0 };
+
+  const openPrs = await fetchOpenPullRequestBranches(identity, projectPath);
+  let linked = 0;
+  for (const pr of openPrs) {
+    const task = unlinkedByBranch.get(pr.headRefName);
+    if (task == null) continue;
+    if (await claimTaskGithubPr(projectPath, task.taskNumber, pr.number)) linked++;
+  }
+  return { linked };
 }
 
 // ── Review drafts ────────────────────────────────────────────────────
@@ -359,12 +403,10 @@ export async function listDrafts(projectPath: string, prNumber: number, head?: P
 }
 
 /**
- * Move drafts written against an earlier head onto the lines their code sits at
- * now, and leave the ones that are nowhere to be found.
- *
- * A left-behind draft keeps its old anchor and its old head, which is what
- * `toDraft` reads to call it unplaceable. Deleting it instead would throw away
- * writing over a force-push the author may well undo.
+ * Moves drafts written against an earlier head onto the lines their code sits
+ * at now. One that cannot be found keeps its old anchor and head, which is what
+ * `toDraft` reads to mark it unplaceable; deleting it would discard writing
+ * over a force-push that may yet be undone.
  */
 async function reanchorDrafts(
   projectPath: string,
@@ -398,10 +440,9 @@ async function reanchorDrafts(
 
 export async function saveDraft(projectPath: string, input: SaveDraftInput): Promise<ReviewDraft> {
   const existing = input.id ? await getReviewDraft(input.id) : null;
-  // A draft id is unique across every project, and the write below is an
-  // upsert, so an id belonging to somewhere else would not be rejected — it
-  // would be *moved* here, taking its body with it. The CLI and REST callers
-  // supply the id, so it is checked rather than trusted.
+  // The write below is an upsert on a globally unique id, so an id from another
+  // project would be moved here rather than rejected. CLI and REST callers
+  // supply the id, so it is checked.
   if (existing && (existing.project_path !== projectPath || existing.pr_number !== input.prNumber)) {
     throw new Error(`Draft ${input.id} belongs to another pull request`);
   }
@@ -420,8 +461,8 @@ export async function saveDraft(projectPath: string, input: SaveDraftInput): Pro
     reply_to_comment_id: input.replyToCommentId ?? null,
     // Preserve the original timestamp on edit so drafts keep their write order.
     created_at: existing?.created_at ?? new Date().toISOString(),
-    // An edit with no stated origin is a renderer edit, and rewriting the text
-    // makes you the author — provenance does not survive being overwritten.
+    // An edit with no stated origin came from the renderer, and rewriting the
+    // body makes that user the author.
     origin: input.origin ?? 'human',
   });
   return toDraft(row);
@@ -436,18 +477,14 @@ export async function discardDraft(draftId: string): Promise<{ success: boolean 
 // ── Writes ───────────────────────────────────────────────────────────
 
 /**
- * Send every batched draft up as one review.
+ * Sends every batched draft as one review. Replies to existing threads cannot
+ * ride inside the reviews payload, so they go first as individual calls; the
+ * rest travel in the single `POST /pulls/{n}/reviews`.
  *
- * Replies to existing threads can't ride inside the reviews payload, so those
- * go first as individual reply calls; whatever is left is a new-thread comment
- * and travels in the single `POST /pulls/{n}/reviews`.
- *
- * Each draft is dropped the moment its own write lands, rather than all of them
- * at the end. A failure part way through — one stale line anchor is enough for
- * a 422 — leaves the unsent writing intact but does not resurrect the replies
- * GitHub already has, which would otherwise be posted a second time on the
- * retry. Drafts are also deleted by id: a batch submit is seconds of network,
- * and anything written during it is not part of what was sent.
+ * Each draft is deleted as its own write lands, and by id. A failure part way
+ * through — one stale anchor is enough for a 422 — then keeps the unsent
+ * writing without re-posting replies GitHub already has, and leaves anything
+ * written during the submit alone.
  */
 export async function submitPullRequestReview(
   projectPath: string,
@@ -502,11 +539,8 @@ export async function commentOnPullRequest(
 }
 
 /**
- * Delete one comment on GitHub.
- *
- * Whether the viewer is allowed to is GitHub's call, not ours — the detail
- * query asks for `viewerCanDelete` per comment and the UI only offers this
- * where that is true, so a refusal here means the answer changed underneath us.
+ * The detail query asks `viewerCanDelete` per comment and the UI only offers
+ * this where it is true, so a refusal here means the answer has changed.
  */
 export async function deleteComment(
   projectPath: string,
@@ -560,12 +594,10 @@ export interface CreatePrFromTaskResult {
 }
 
 /**
- * Task to PR: push the task's branch, then open a pull request for it.
- *
- * Hung off the same seam `shipWorktree` uses, and routed through `gh pr create`
- * rather than the raw API so the repo's PR template and closing keywords
- * (`Fixes #123`) behave the way they would from GitHub's own UI. A task created
- * from an issue gets that closing keyword appended automatically.
+ * Pushes the task's branch and opens a pull request for it, through
+ * `gh pr create` so the repo's PR template and closing keywords (`Fixes #123`)
+ * behave as they would from GitHub's UI. A task made from an issue gets that
+ * keyword appended.
  */
 export async function createPullRequestForTask(
   projectPath: string,
@@ -614,12 +646,11 @@ function buildPrBody(body: string, issueNumber?: number): string {
 export async function mergePr(
   projectPath: string,
   prNumber: number,
-  method: MergeMethod,
-  deleteBranch: boolean,
+  options: MergeOptions,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const identity = await requireIdentity(projectPath);
-    await mergePullRequest(identity, prNumber, method, { deleteBranch, cwd: projectPath });
+    await mergePullRequest(identity, prNumber, { ...options, cwd: projectPath });
     // The refs were only ever there to render the diff; the PR is now history.
     await prunePrRefs(projectPath, prNumber);
     return { success: true };
@@ -631,8 +662,8 @@ export async function mergePr(
 // ── Issue to task, PR to task ────────────────────────────────────────
 
 /**
- * Issue to task: a todo carrying the issue body as its description, linked back
- * so a PR opened from it later closes the issue automatically.
+ * A todo carrying the issue body as its description, linked back so a PR opened
+ * from it later closes the issue.
  */
 export async function createTaskFromIssue(projectPath: string, issueNumber: number): Promise<TaskFromGithubResult> {
   // By number, not by searching the open list: a closed issue, or one past the
@@ -659,14 +690,12 @@ export async function createTaskFromIssue(projectPath: string, issueNumber: numb
 }
 
 /**
- * PR to task: the metadata half of promoting an ephemeral review session into a
- * checked-out task.
+ * The metadata half of turning a review session into a checked-out task; the
+ * caller creates the worktree at the PR head from the returned refs.
  *
- * The `mergeTarget` is set to the PR's base branch, which is worth being
- * explicit about: everywhere else `mergeTarget` means "whatever branch HEAD was
- * on when the task started", and for a teammate's PR that is almost never the
- * base you want to merge back into. The caller creates the worktree at the PR
- * head using the returned refs.
+ * `mergeTarget` is set to the PR's base branch. Everywhere else it means
+ * whatever branch HEAD was on when the task started, which for a teammate's PR
+ * is almost never the right base.
  */
 export async function prepareTaskFromPullRequest(projectPath: string, prNumber: number): Promise<PromoteToTaskResult> {
   let pr: PullRequestDetail;
@@ -681,9 +710,8 @@ export async function prepareTaskFromPullRequest(projectPath: string, prNumber: 
     return { success: false, error: `Task #${existing.taskNumber} is already linked to pull request #${prNumber}` };
   }
 
-  // Before the task exists, not after: a worktree can only be built at the PR
-  // head if the head is already here on a branch. Failing now leaves nothing
-  // half-made behind.
+  // Before the task exists: a worktree can only be built at the PR head once
+  // that head is on a local branch, and failing now leaves nothing half-made.
   const head = await createPrHeadBranch(projectPath, prNumber, pr.baseSha, pr.headSha, pr.headRefName);
   if (!head.success || !head.branch) {
     return { success: false, error: head.error ?? `Could not fetch pull request #${prNumber}` };

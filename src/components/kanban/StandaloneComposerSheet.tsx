@@ -6,11 +6,9 @@ import { useProjectStore } from '../../stores/projectStore';
 import { resolveAttachmentPath } from '../../utils/taskAttachments';
 
 /**
- * The composer sheet as its own surface, for ⌘N away from the board.
- *
- * When the board is up, its column composer owns the sheet instead, so exactly
- * one of the two renders it and both read the same draft. Creating from here
- * goes straight to the API, since there is no board to hand the task to.
+ * The composer sheet for ⌘N away from the board. When the board is up its
+ * column composer owns the sheet instead, so exactly one renders it and both
+ * read the same draft. Creating here goes straight to the API.
  */
 export function StandaloneComposerSheet({ projectPath }: { projectPath: string }) {
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
@@ -33,9 +31,8 @@ export function StandaloneComposerSheet({ projectPath }: { projectPath: string }
     const trimmedName = name.trim();
     if (!trimmedName) return;
     const trimmedDescription = description.trim();
-    // Close first so the sheet doesn't sit there through the round trip, but
-    // hold the draft until the task actually exists — losing a written prompt
-    // to a failed IPC call is the one outcome worth guarding against.
+    // Close first, but hold the draft until the task exists, or a failed IPC
+    // call loses what was written.
     useComposerStore.getState().closeSheet();
     try {
       const result = await window.api.task.create(projectPath, trimmedName, trimmedDescription || undefined);
@@ -64,8 +61,8 @@ export function StandaloneComposerSheet({ projectPath }: { projectPath: string }
       onDescriptionChange={useComposerStore.getState().setDescription}
       onAttachFile={resolveAttachmentPath}
       onSubmit={create}
-      // Nothing to hand a caret back to out here; the draft is kept either way
-      // and the column composer picks it up when you next open the board.
+      // No inline editor out here to hand the caret back to; the draft is kept
+      // and the column composer picks it up.
       onCollapse={() => useComposerStore.getState().closeSheet()}
       onDiscard={discard}
     />

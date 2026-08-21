@@ -11,7 +11,6 @@ function internalKind(kind: CliPanelKind): 'plan' | 'webPreview' {
   return kind === 'markdown' ? 'plan' : 'webPreview';
 }
 
-/** Snapshot the terminal's panels of one CLI kind for the reply. */
 function panelsForKind(instance: OuijitTerminal, kind: CliPanelKind): CliPanelInfo[] {
   const internal = internalKind(kind);
   const out: CliPanelInfo[] = [];

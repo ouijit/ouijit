@@ -3,14 +3,6 @@ import type { ChangedFile } from '../../types';
 import { Icon } from '../terminal/Icon';
 import { statusIcon, statusColorClass, badgeColorClass } from './diffStatus';
 
-/**
- * The changed-file sidebar, shared by the worktree diff panel and the pull
- * request files view.
- *
- * Callers can append their own footer — the PR view uses it for the "N files
- * not shown" cap notice.
- */
-
 interface TreeNode<T = ChangedFile> {
   name: string;
   fullPath: string;
@@ -19,11 +11,6 @@ interface TreeNode<T = ChangedFile> {
   children: TreeNode<T>[];
 }
 
-/**
- * Generic in the file: the order this produces is wanted for lists that are not
- * `ChangedFile`s, and standing in a fake one per file costs an allocation per
- * file per render.
- */
 export function buildTree<T extends { path: string }>(files: readonly T[]): TreeNode<T>[] {
   const root: TreeNode<T>[] = [];
 
@@ -45,10 +32,8 @@ export function buildTree<T extends { path: string }>(files: readonly T[]): Tree
     }
   }
 
-  // Sorted here rather than on the way to the screen: `treeFileOrder` walks
-  // this tree to give the document its order, so a sort applied at render is
-  // one the document never sees — leaving the rail and the document disagreeing
-  // about every directory with more than one thing in it.
+  // Sorted here, not at render: `treeFileOrder` walks this tree to order the
+  // document, so a sort applied later would leave the two disagreeing.
   function collapse(nodes: TreeNode<T>[]): TreeNode<T>[] {
     const collapsed = nodes.map((node) => {
       if (!node.isFile && node.children.length === 1 && !node.children[0].isFile) {
@@ -61,15 +46,13 @@ export function buildTree<T extends { path: string }>(files: readonly T[]): Tree
       }
       return { ...node, children: collapse(node.children) };
     });
-    // After collapsing, so a folded-up `src/github` sorts under the name it is
-    // shown as rather than the one it was built from.
+    // After collapsing, so a folded-up `src/github` sorts under its shown name.
     return sortTreeNodes(collapsed);
   }
 
   return collapse(root);
 }
 
-/** Directories first, then by name — one order, wherever the tree is read. */
 function sortTreeNodes<T>(nodes: TreeNode<T>[]): TreeNode<T>[] {
   return [...nodes].sort((a, b) => {
     if (a.isFile !== b.isFile) return a.isFile ? 1 : -1;
@@ -78,13 +61,8 @@ function sortTreeNodes<T>(nodes: TreeNode<T>[]): TreeNode<T>[] {
 }
 
 /**
- * The order the tree shows these files in.
- *
- * The document follows this order, or the rail cannot be used to keep a place
- * in it.
- *
- * Built by the same walk that builds the tree, rather than by sorting to the
- * same rule twice.
+ * The order the tree shows these files in. The document must follow it, or
+ * clicking a file in the rail is no way to find it in the diff.
  */
 export function treeFileOrder(files: readonly { path: string }[]): string[] {
   const order: string[] = [];
@@ -100,7 +78,6 @@ export function treeFileOrder(files: readonly { path: string }[]): string[] {
   return order;
 }
 
-/** Sorts anything with a path into the order the tree shows it in. */
 export function inTreeOrder<T extends { path: string }>(files: readonly T[]): T[] {
   const rank = new Map(treeFileOrder(files).map((path, index) => [path, index]));
   return [...files].sort((a, b) => (rank.get(a.path) ?? 0) - (rank.get(b.path) ?? 0));
@@ -113,12 +90,12 @@ export interface DiffFileTreeProps {
   renderFileTrailing?: (file: ChangedFile) => ReactNode;
   /** Content above the tree — the PR view puts the rest of its contents here. */
   header?: ReactNode;
-  /** Path currently in view, marked so the rail reports where the reader is. */
+  /** Path currently in view, highlighted in the rail. */
   activePath?: string | null;
   footer?: ReactNode;
 }
 
-/** Just the nodes, for somewhere that already owns its scrolling. */
+/** Just the nodes, for a caller that already owns its scrolling. */
 export function DiffFileTreeNodes({
   files,
   onFileClick,

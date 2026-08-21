@@ -3,18 +3,13 @@ import { useState } from 'react';
 interface AvatarProps {
   login: string;
   url?: string;
-  /** Rendered size in CSS pixels. */
   size?: number;
   className?: string;
 }
 
 /**
- * A person, as a round image.
- *
- * The image is requested from GitHub's CDN at twice the rendered size so it
- * stays sharp on a retina panel, and with no referrer — the CDN has no business
- * knowing which page asked. A missing or broken URL falls back to the initial
- * on a colour derived from the login.
+ * Requested from GitHub's CDN at twice the rendered size for retina, and with
+ * no referrer. A missing or broken URL falls back to the login's initial.
  */
 export function Avatar({ login, url, size = 20, className = '' }: AvatarProps) {
   const [failed, setFailed] = useState(false);

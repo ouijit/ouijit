@@ -1,15 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
+import { terminalInstances } from './terminalReact';
 
 const EMPTY_TAGS: string[] = [];
-import { terminalInstances } from './terminalReact';
 
 interface TagInputProps {
   ptyId: string;
   onClose: () => void;
 }
 
-/** Collect unique tags from all active terminal sessions */
 function getActiveSessionTags(): string[] {
   const seen = new Map<string, string>();
   const state = useTerminalStore.getState();

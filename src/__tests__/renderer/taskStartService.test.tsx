@@ -1,5 +1,11 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
+import { useProjectStore } from '../../stores/projectStore';
+import { useTerminalStore } from '../../stores/terminalStore';
+import { beginTransition } from '../../services/taskStartService';
+import { addProjectTerminal, closeProjectTerminal } from '../../components/terminal/terminalActions';
+import type { TaskWithWorkspace } from '../../types';
+
 // electron-log/renderer expects an Electron host to talk to via IPC. Stub it
 // to a no-op logger so the service module evaluates cleanly under jsdom.
 vi.mock('electron-log/renderer', () => ({
@@ -11,12 +17,6 @@ vi.mock('../../components/terminal/terminalActions', () => ({
   addProjectTerminal: vi.fn().mockResolvedValue(true),
   closeProjectTerminal: vi.fn(),
 }));
-
-import { useProjectStore } from '../../stores/projectStore';
-import { useTerminalStore } from '../../stores/terminalStore';
-import { beginTransition } from '../../services/taskStartService';
-import { addProjectTerminal, closeProjectTerminal } from '../../components/terminal/terminalActions';
-import type { TaskWithWorkspace } from '../../types';
 
 const PROJECT = '/project';
 
@@ -71,7 +71,6 @@ describe('taskStartService.beginTransition', () => {
     expect(useTerminalStore.getState().displayStates[slotId]?.isLoading).toBe(true);
     expect(useProjectStore.getState().startingTaskNumbers.has(7)).toBe(true);
 
-    // Wait for the lifecycle to spawn a terminal and clear the flag.
     await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
 
     // No hook → addProjectTerminal called once with replaceLoadingId for the slot.
@@ -109,7 +108,6 @@ describe('taskStartService.beginTransition', () => {
       task: makeTask(),
     });
 
-    // Wait for the dialog request to appear.
     await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
     const req = useProjectStore.getState().runHookQueue[0]!;
     expect(req.hookType).toBe('start');
@@ -220,9 +218,8 @@ describe('taskStartService.beginTransition', () => {
   });
 
   test('done transition: beginTransition is now a no-op for done — completeTask owns it', async () => {
-    // Done is no longer routed through beginTransition; the kanban and bulk
-    // paths call completeTask directly. beginTransition for done should not
-    // prompt for a hook or spawn any terminal.
+    // completeTask owns the done lifecycle, so beginTransition must not prompt
+    // for a hook or spawn a terminal for it.
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       done: { command: 'echo hey', name: 'Done', source: 'configured', priority: 0 },
     });

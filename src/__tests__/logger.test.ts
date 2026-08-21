@@ -106,7 +106,6 @@ describe('createConsoleLogger', () => {
 
 describe('setLogger / getLogger', () => {
   beforeEach(() => {
-    // Reset to default
     setLogger(createConsoleLogger());
   });
 

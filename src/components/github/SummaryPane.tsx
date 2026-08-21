@@ -18,7 +18,6 @@ interface SummaryPaneProps {
   onPromoteToTask: () => void;
 }
 
-/** What this change is, before you read a line of it. */
 export function SummaryPane({
   projectPath,
   detail,
@@ -41,8 +40,6 @@ export function SummaryPane({
           <Dot />
           <span>{since(detail.createdAt)}</span>
           <Dot />
-          {/* The number is what people paste and quote, so it doubles as the
-              way out to GitHub. */}
           <button
             type="button"
             className="flex items-center gap-1 hover:text-accent transition-colors duration-100"

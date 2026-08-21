@@ -1,10 +1,13 @@
 /**
- * Regression coverage for T-378: the home view was missing the
- * agentHooks.onStatus subscription, so its status dot never updated after
- * the initial seed.
+ * Every view rendering terminal cards must mount the agentHooks.onStatus
+ * subscription, or its status dots never move past the initial seed.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
+
+import { useHookStatusListener } from '../../hooks/useHookStatusListener';
+import { useTerminalStore } from '../../stores/terminalStore';
+import { terminalInstances } from '../../components/terminal/terminalReact';
 
 // The hook imports terminalInstances from terminalReact, which transitively
 // pulls in xterm and other browser-only modules. Stub the module surface we
@@ -12,10 +15,6 @@ import { renderHook } from '@testing-library/react';
 vi.mock('../../components/terminal/terminalReact', () => ({
   terminalInstances: new Map<string, { handleHookStatus: ReturnType<typeof vi.fn> }>(),
 }));
-
-import { useHookStatusListener } from '../../hooks/useHookStatusListener';
-import { useTerminalStore } from '../../stores/terminalStore';
-import { terminalInstances } from '../../components/terminal/terminalReact';
 
 type FakeTerminal = { handleHookStatus: ReturnType<typeof vi.fn> };
 

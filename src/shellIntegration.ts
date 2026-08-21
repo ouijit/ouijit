@@ -21,7 +21,6 @@ import * as path from 'node:path';
  * a new/exotic shell degrades instead of erroring.
  */
 
-/** Where shell integration scripts are written. */
 export function getShellIntegrationDir(): string {
   return path.join(os.homedir(), '.config', 'Ouijit', 'shell-integration');
 }
@@ -54,11 +53,8 @@ export interface ShellIntegration {
    * Drives the one-time "limited shell support" notice.
    */
   isIntegrated: boolean;
-  /** Whether this provider handles the given shell path. */
   matches(shell: string): boolean;
-  /** Write this shell's integration scripts into `integrationDir`. */
   installFiles(integrationDir: string): void;
-  /** Build the spawn recipe for this shell. */
   launch(ctx: ShellLaunchContext): ShellLaunch;
 }
 
@@ -367,7 +363,6 @@ export function resolveShellIntegration(shell: string): ShellIntegration {
   return SHELL_INTEGRATIONS.find((integration) => integration.matches(shell)) ?? posixFallbackIntegration;
 }
 
-/** Write every integrated shell's scripts into `integrationDir`. */
 export function installShellIntegration(integrationDir: string): void {
   fs.mkdirSync(integrationDir, { recursive: true });
   for (const integration of SHELL_INTEGRATIONS) {

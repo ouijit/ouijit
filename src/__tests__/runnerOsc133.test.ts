@@ -1,5 +1,9 @@
 import { describe, test, expect, vi } from 'vitest';
 
+import { updateRunnerStatusFromOsc133 } from '../components/terminal/terminalActions';
+import type { OuijitTerminal } from '../components/terminal/terminalReact';
+import type { RunnerStatus } from '../components/terminal/panelTypes';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
@@ -8,10 +12,6 @@ vi.mock('../components/terminal/terminalReact', () => ({
   OuijitTerminal: class {},
   terminalInstances: new Map(),
 }));
-
-import { updateRunnerStatusFromOsc133 } from '../components/terminal/terminalActions';
-import type { OuijitTerminal } from '../components/terminal/terminalReact';
-import type { RunnerStatus } from '../components/terminal/panelTypes';
 
 const PANEL_ID = 'panel-1';
 

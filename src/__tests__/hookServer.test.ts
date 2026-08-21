@@ -7,6 +7,28 @@ import { execFileSync } from 'node:child_process';
 import * as ts from 'typescript';
 import type { BrowserWindow } from 'electron';
 
+import {
+  startHookServer,
+  stopHookServer,
+  getApiPort,
+  installWrapper,
+  migrateFromSettingsHooks,
+  buildVmHookSettings,
+  buildVmCodexConfig,
+  buildVmCodexTrustState,
+  buildVmPiExtension,
+  buildVmOpencodePlugin,
+  CLAUDE_WRAPPER,
+  CODEX_WRAPPER,
+  PI_WRAPPER,
+  PI_EXTENSION,
+  OPENCODE_WRAPPER,
+  OPENCODE_PLUGIN,
+  NONO_SHIM,
+  CLI_REFERENCE,
+} from '../hookServer';
+import { issueToken, revokeAllTokens } from '../apiAuth';
+
 const hasZsh = (() => {
   try {
     execFileSync('which', ['zsh'], { stdio: 'ignore' });
@@ -38,28 +60,6 @@ vi.mock('../paths', async (importOriginal) => ({
 vi.mock('../ptyManager', () => ({
   isPtyActive: () => true,
 }));
-
-import {
-  startHookServer,
-  stopHookServer,
-  getApiPort,
-  installWrapper,
-  migrateFromSettingsHooks,
-  buildVmHookSettings,
-  buildVmCodexConfig,
-  buildVmCodexTrustState,
-  buildVmPiExtension,
-  buildVmOpencodePlugin,
-  CLAUDE_WRAPPER,
-  CODEX_WRAPPER,
-  PI_WRAPPER,
-  PI_EXTENSION,
-  OPENCODE_WRAPPER,
-  OPENCODE_PLUGIN,
-  NONO_SHIM,
-  CLI_REFERENCE,
-} from '../hookServer';
-import { issueToken, revokeAllTokens } from '../apiAuth';
 
 // ── Test helpers ─────────────────────────────────────────────────────
 

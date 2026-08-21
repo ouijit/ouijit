@@ -3,7 +3,7 @@
  * project plus a mix of tasks, hooks, and scripts so screenshots look real
  * without having to spawn PTYs.
  *
- * Only invoked from main.ts when `OUIJIT_CAPTURE_MODE=1` and the DB is empty.
+ * Only for `OUIJIT_CAPTURE_MODE=1` runs against an empty DB.
  */
 
 import * as fs from 'node:fs';

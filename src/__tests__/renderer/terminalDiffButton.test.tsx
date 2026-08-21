@@ -1,17 +1,17 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
+import { TerminalHeader } from '../../components/terminal/TerminalHeader';
+import { useTerminalStore } from '../../stores/terminalStore';
+import { DEFAULT_DISPLAY_STATE } from '../../stores/terminalDisplay';
+import type { GitFileStatus } from '../../types';
+
 // terminalReact pulls xterm in, which hangs under jsdom, and the header reaches
 // it (and terminalActions behind it) only for things this test does not touch.
 vi.mock('../../components/terminal/terminalReact', () => ({
   terminalInstances: new Map(),
   refreshTerminalGitStatus: vi.fn().mockResolvedValue(undefined),
 }));
-
-import { TerminalHeader } from '../../components/terminal/TerminalHeader';
-import { useTerminalStore } from '../../stores/terminalStore';
-import { DEFAULT_DISPLAY_STATE } from '../../stores/terminalDisplay';
-import type { GitFileStatus } from '../../types';
 
 const PTY = 'pty-1';
 

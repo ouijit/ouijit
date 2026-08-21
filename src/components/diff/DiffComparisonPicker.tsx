@@ -13,26 +13,20 @@ interface DiffComparisonPickerProps {
   ptyId: string;
   /** The worktree the diff is of — where the refs are read and fetched. */
   gitPath: string;
-  /** The ref the diff is currently taken against. */
   base: string | null;
-  /** What this branch merges into, which is the base until something else is picked. */
+  /** Used as the base until something else is picked. */
   defaultBase: string | null;
   mainBranch: string | null;
-  /** The branch the diff is of, which cannot also be what it is compared to. */
   branch: string | null;
 }
 
 const NO_BASES: DiffBases = { refs: [], upstream: null, defaultRemote: null, lastFetch: null };
 
 /**
- * What the panel is comparing, and the way to change it.
- *
- * Every entry answers the same question — what does this worktree have that the
- * chosen ref does not — so the uncommitted changes are one of the refs on offer
- * rather than a mode beside them.
- *
- * A remote-tracking ref is only as current as the last fetch, so choosing one
- * fetches it, and a base that is one carries how long ago that was beside it.
+ * Picks what the diff is taken against. Uncommitted changes are listed as one
+ * of the refs rather than as a separate mode, since every entry answers the
+ * same question. Choosing a remote-tracking ref fetches it first, since one is
+ * only as current as the last fetch.
  */
 export function DiffComparisonPicker({
   ptyId,
@@ -48,9 +42,8 @@ export function DiffComparisonPicker({
   const [query, setQuery] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Read while the panel is showing rather than only while the menu is open:
-  // whether the base is a remote-tracking ref, and how old it is, is part of
-  // the header. Four git subprocesses, on a panel the reader opened.
+  // Read while the panel is showing, not just while the menu is open: the
+  // header needs the base's remote-ness and fetch age.
   useEffect(() => {
     let live = true;
     void window.api.listDiffBases(gitPath).then((next) => live && setBases(next));
@@ -94,7 +87,6 @@ export function DiffComparisonPicker({
     [bases.refs, fetchBase, ptyId],
   );
 
-  /** Arrow keys walk the rows, from the field as well as from within them. */
   const walkRows = (event: React.KeyboardEvent) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     const rows = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
@@ -115,17 +107,10 @@ export function DiffComparisonPicker({
     </div>
   );
 
-  /**
-   * How current a remote base is, and the way to make it current.
-   *
-   * A remote-tracking ref is a local file that only moves when something
-   * fetches, so a comparison against one is a comparison against whatever was
-   * last pulled down — and nothing in the diff itself says how long ago that
-   * was.
-   */
+  // A remote-tracking ref only moves when something fetches, and nothing in
+  // the diff itself says how stale it is.
   const since = bases.lastFetch === null ? null : (Date.now() - bases.lastFetch) / 1000;
-  // `formatAge` reads as `now` under a minute, which is the right register for
-  // a branch age in a list and the wrong one for a label standing on its own.
+  // `formatAge` reads as `now` under a minute, too terse for a standalone label.
   const age = since === null ? 'never' : since < 60 ? 'just now' : formatAge(since);
   const fetched = since === null ? 'never fetched' : since < 60 ? 'fetched just now' : `fetched ${age} ago`;
 
@@ -138,8 +123,6 @@ export function DiffComparisonPicker({
         disabled={fetching}
         onClick={() => base && void fetchBase(base)}
       >
-        {/* The age stands while a fetch is in flight, since it is still the
-            answer until that one lands — the glyph is what says it is moving. */}
         <Icon name="arrows-clockwise" className={`w-3 h-3 ${fetching ? 'animate-spin' : ''}`} />
         {age}
       </button>
@@ -161,9 +144,8 @@ export function DiffComparisonPicker({
               className={`${segmentBase} min-w-0 ${open ? 'bg-background-tertiary text-text-primary' : segmentQuiet}`}
               onClick={() => setOpen(!open)}
             >
-              {/* The group clips what overflows it, so without `min-w-0` above
-                  a long ref holds the button at full width and the clipped edge
-                  falls on the caret rather than on the name. */}
+              {/* Without `min-w-0` above, a long ref holds the button at full
+                  width and the group clips the caret instead of the name. */}
               <span className="truncate max-w-[16rem]">{describeDiffComparison(base, branch)}</span>
               <Icon name="caret-down" className="w-3 h-3 shrink-0" />
             </button>
@@ -177,8 +159,8 @@ export function DiffComparisonPicker({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
-                // Escape clears the search it belongs to; only with nothing left
-                // to clear does it fall through to closing the menu.
+                // Escape clears the query first, and only then falls through
+                // to the menu's own close handler.
                 if (e.key === 'Escape' && query) {
                   e.preventDefault();
                   e.stopPropagation();

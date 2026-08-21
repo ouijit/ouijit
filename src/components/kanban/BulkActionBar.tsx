@@ -17,7 +17,7 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
 
   const selectedTasks = tasks.filter((t) => selectedTaskNumbers.has(t.taskNumber));
 
-  // Determine which statuses ALL selected tasks share (to hide that button)
+  // Statuses every selected task already has, whose buttons are hidden.
   const allSameStatus =
     selectedTasks.length > 0 && selectedTasks.every((t) => t.status === selectedTasks[0].status)
       ? selectedTasks[0].status

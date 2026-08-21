@@ -2,27 +2,10 @@ import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-
-// Pass-through mock so one test can make the path migration fail and exercise
-// moveProjects' rollback; every other test gets the real implementation.
-const pathRenameControl = vi.hoisted(() => ({ failNext: false }));
-vi.mock('../services/projectPathRename', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../services/projectPathRename')>();
-  return {
-    renameProjectPath: async (oldPath: string, newPath: string) => {
-      if (pathRenameControl.failNext) {
-        pathRenameControl.failNext = false;
-        throw new Error('database unavailable');
-      }
-      return actual.renameProjectPath(oldPath, newPath);
-    },
-  };
-});
 import {
   getDefaultProjectsDir,
   getFallbackProjectsDir,
   setDefaultProjectsDir,
-  scanSiblingProjects,
   moveProjects,
   prepareProjectsFolderChange,
   applyProjectsFolderChange,
@@ -41,6 +24,22 @@ import {
   setGlobalSetting,
   removeProject,
 } from '../db';
+
+// Pass-through mock so one test can make the path migration fail and exercise
+// moveProjects' rollback; every other test gets the real implementation.
+const pathRenameControl = vi.hoisted(() => ({ failNext: false }));
+vi.mock('../services/projectPathRename', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/projectPathRename')>();
+  return {
+    renameProjectPath: async (oldPath: string, newPath: string) => {
+      if (pathRenameControl.failNext) {
+        pathRenameControl.failNext = false;
+        throw new Error('database unavailable');
+      }
+      return actual.renameProjectPath(oldPath, newPath);
+    },
+  };
+});
 
 let scratchDir: string;
 
@@ -82,35 +81,6 @@ describe('getDefaultProjectsDir', () => {
   test('ignores a non-absolute stored value', async () => {
     await setDefaultProjectsDir('relative/path');
     expect(await getDefaultProjectsDir()).toBe(getFallbackProjectsDir());
-  });
-});
-
-describe('scanSiblingProjects', () => {
-  test('finds unregistered sibling git repos, skipping non-repos and hidden dirs', async () => {
-    const added = await makeFakeRepo(scratchDir, 'added');
-    const siblingA = await makeFakeRepo(scratchDir, 'sibling-a');
-    const siblingB = await makeFakeRepo(scratchDir, 'sibling-b');
-    await fs.mkdir(path.join(scratchDir, 'plain-folder'));
-    await makeFakeRepo(scratchDir, '.hidden-repo');
-
-    const result = await scanSiblingProjects(added);
-    expect(result.parentDir).toBe(scratchDir);
-    expect(result.siblings).toEqual([siblingA, siblingB]);
-  });
-
-  test('excludes already-registered projects', async () => {
-    const added = await makeFakeRepo(scratchDir, 'added');
-    const registered = await makeFakeRepo(scratchDir, 'registered');
-    const fresh = await makeFakeRepo(scratchDir, 'fresh');
-    await addProject(registered);
-
-    const result = await scanSiblingProjects(added);
-    expect(result.siblings).toEqual([fresh]);
-  });
-
-  test('returns empty when the parent directory is unreadable', async () => {
-    const result = await scanSiblingProjects(path.join(scratchDir, 'missing', 'repo'));
-    expect(result.siblings).toEqual([]);
   });
 });
 

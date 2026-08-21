@@ -14,7 +14,6 @@ interface AlignMenuProps {
 type AlignType = 'left' | 'center-h' | 'right' | 'top' | 'center-v' | 'bottom';
 type DistributeType = 'horizontal' | 'vertical';
 
-/** Context menu for aligning and distributing selected nodes. */
 export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClose }: AlignMenuProps) {
   const handleAlign = useCallback(
     (type: AlignType) => {
@@ -152,7 +151,6 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
     const cols = Math.ceil(Math.sqrt(selected.length));
     const sorted = [...selected].sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y);
 
-    // Compute column widths and row heights
     const colWidths: number[] = [];
     const rowHeights: number[] = [];
     for (let i = 0; i < sorted.length; i++) {
@@ -194,7 +192,6 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
     const hGap = 80;
     const vGap = 60;
 
-    // Build taskNumber → nodes lookup
     const taskToNodes = new Map<number, TerminalNode[]>();
     for (const node of canvas.nodes) {
       const display = displayStates[node.data.ptyId];
@@ -214,7 +211,6 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
     }
     if (chainTaskNumbers.size === 0) return;
 
-    // Find root tasks and build tree
     const roots: number[] = [];
     for (const taskNum of chainTaskNumbers) {
       const info = chainMap.get(taskNum);
@@ -229,7 +225,6 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
       const nodes = taskToNodes.get(taskNum) ?? [];
       if (nodes.length === 0 && (!info || info.childTaskNumbers.length === 0)) return 0;
 
-      // Place this task's terminals stacked vertically
       let nodeY = y;
       for (const node of nodes) {
         positions.set(node.id, { x, y: nodeY });
@@ -237,7 +232,6 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
       }
       const thisHeight = nodes.length > 0 ? nodeY - y - vGap : 0;
 
-      // Layout children to the right
       if (!info || info.childTaskNumbers.length === 0) return Math.max(thisHeight, 0);
 
       const maxNodeWidth = nodes.length > 0 ? Math.max(...nodes.map(getWidth)) : 0;
@@ -246,7 +240,6 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
       // Center children vertically relative to this task's nodes
       let totalChildHeight = 0;
       const childHeights: number[] = [];
-      // First pass: compute total height needed
       for (const childNum of info.childTaskNumbers) {
         if (!chainTaskNumbers.has(childNum)) continue;
         const h = estimateSubtreeHeight(childNum, chainMap, taskToNodes, getHeight, vGap);
@@ -319,7 +312,6 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
   return <ContextMenu x={position.x} y={position.y} items={items} onClose={onClose} />;
 });
 
-/** Estimate total height of a subtree without placing nodes. */
 function estimateSubtreeHeight(
   taskNum: number,
   chainMap: Map<number, TaskChainInfo>,

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 interface DeferredMountProps {
-  /** Height the placeholder holds open until the real content replaces it. */
   estimatedHeight: number;
   /** How far outside the viewport to start mounting. */
   rootMargin?: string;
@@ -11,13 +10,10 @@ interface DeferredMountProps {
 }
 
 /**
- * Holds a section's place until it is nearly on screen, then mounts it.
+ * Holds a section's place until it is nearly on screen, then mounts it, so a
+ * large pull request doesn't lay out and tokenize every file up front.
  *
- * A large pull request is thousands of diff lines, and mounting all of them
- * costs the same whether or not anyone scrolls that far: React builds the tree,
- * the browser lays it out, and every file asks to be tokenized at once.
- *
- * Mounting is one-way. Unmounting again would bound the DOM further, but a
+ * Mounting is one-way: unmounting again would bound the DOM further, but a
  * section can hold a half-written review comment.
  */
 export function DeferredMount({ estimatedHeight, rootMargin = '150%', dataPath, children }: DeferredMountProps) {
@@ -29,12 +25,8 @@ export function DeferredMount({ estimatedHeight, rootMargin = '150%', dataPath, 
     const element = ref.current;
     if (!element) return;
 
-    // Measured here rather than left to the observer's first callback, which is
-    // a frame away. Every placeholder measures against the same layout, so this
-    // costs one layout pass for the pane, not one per file.
-    //
-    // Under jsdom every rect is zero, so every section counts as in view and a
-    // test sees the whole diff.
+    // Measured here rather than waiting a frame for the observer's first
+    // callback. Under jsdom every rect is zero, so tests see the whole diff.
     const rect = element.getBoundingClientRect();
     const reach = window.innerHeight * 1.5;
     if (rect.top < window.innerHeight + reach && rect.bottom > -reach) {
@@ -56,8 +48,7 @@ export function DeferredMount({ estimatedHeight, rootMargin = '150%', dataPath, 
     <div
       ref={ref}
       data-path={dataPath}
-      // The gap the cards sit in, so a file scrolled to lands showing its own
-      // top edge rather than tucked under the header pinned above it.
+      // Clears the pinned header, so a file scrolled to shows its own top edge.
       style={{
         scrollMarginTop: '12px',
         ...(mounted ? null : { height: estimatedHeight }),

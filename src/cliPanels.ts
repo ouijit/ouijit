@@ -31,7 +31,6 @@ interface Pending {
 
 const pending = new Map<number, Pending>();
 
-/** Wire the bridge to the main window and register the renderer reply handler. */
 export function initCliPanels(window: BrowserWindow): void {
   mainWindow = window;
   ipcMain.handle('cli-panels:respond', (_event, requestId: number, response: CliPanelResponse) => {

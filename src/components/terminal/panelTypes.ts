@@ -48,7 +48,6 @@ export interface PlanPanel {
 
 export type TerminalPanel = RunnerPanel | WebPreviewPanel | PlanPanel;
 
-/** Phosphor icon name for a panel's tab/minicard. */
 export function panelIcon(panel: TerminalPanel): string {
   switch (panel.kind) {
     case 'runner':
@@ -69,7 +68,6 @@ function previewHostLabel(url: string): string {
   }
 }
 
-/** Human label for a panel's tab/minicard. */
 export function panelLabel(panel: TerminalPanel): string {
   switch (panel.kind) {
     case 'runner':

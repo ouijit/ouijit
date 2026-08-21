@@ -1,5 +1,9 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
+import { killExistingCommandInstances } from '../../components/terminal/terminalActions';
+import { terminalInstances, OuijitTerminal } from '../../components/terminal/terminalReact';
+import { useTerminalStore } from '../../stores/terminalStore';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
@@ -34,10 +38,6 @@ vi.mock('../../components/terminal/terminalReact', () => {
   }
   return { terminalInstances: new Map(), OuijitTerminal: FakeTerminal };
 });
-
-import { killExistingCommandInstances } from '../../components/terminal/terminalActions';
-import { terminalInstances, OuijitTerminal } from '../../components/terminal/terminalReact';
-import { useTerminalStore } from '../../stores/terminalStore';
 
 const PROJECT = '/project';
 const COMMAND = 'npm run dev';

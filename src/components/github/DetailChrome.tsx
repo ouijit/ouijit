@@ -7,33 +7,23 @@ import { Tooltip } from '../ui/Tooltip';
 
 interface DetailChromeProps {
   icon: string;
-  /** Text colour for the state glyph, from the caller's state map. */
   tone?: string;
   title: string;
-  /** Opened on GitHub by the external-link button. */
   url: string;
   tabs: ReactNode;
   /** Actions specific to what is open, placed before the standard three. */
   actions?: ReactNode;
   busy: boolean;
   onRefresh: () => void;
-  /**
-   * What refreshing would do, once something has checked. Plain "Refresh"
-   * where nothing has — an issue has no such check, and a pull request has
-   * none until the button is pointed at.
-   */
+  /** Defaults to plain "Refresh" until a caller has checked what is pending. */
   refreshTip?: string;
-  /** Pointed at: the moment to find out whether there is anything to pull. */
   onRefreshHover?: () => void;
   onClose: () => void;
 }
 
 /**
- * The bar above whatever is open: what it is on the left, the panes centred,
- * the actions on the right.
- *
- * Shared by pull requests and issues. The title doubles as the way back,
- * rather than a fourth button beside the other three.
+ * The bar above whatever is open. The title doubles as the way back, rather
+ * than a fourth button beside the other three.
  */
 export function DetailChrome({
   icon,
@@ -51,13 +41,12 @@ export function DetailChrome({
   const sidebarCollapsed = useGithubStore((s) => s.sidebarCollapsed);
 
   return (
-    // Raised: the cut is a shadow falling outside this box, and the first thing
-    // at that pixel in the code pane is a sticky file header with an opaque
-    // background, which would paint straight over it.
+    // Raised so the ledge shadow, which falls outside this box, is not painted
+    // over by the sticky file header below it.
     <header className="pane-ledge relative z-30 shrink-0 h-12 flex items-center gap-3 px-3">
-      {/* Here rather than on the divider itself: the panel frame gives every
-          one of its direct children the same stacking level, so anything
-          floating between two of them ends up under the later one. */}
+      {/* Here rather than on the divider: the panel frame's direct children all
+          share a stacking level, so anything between two lands under the later
+          one. */}
       <SidebarToggle
         collapsed={sidebarCollapsed}
         onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}
@@ -79,9 +68,8 @@ export function DetailChrome({
 
       <div className="flex items-center gap-1 shrink-0">
         {actions}
-        {/* The check runs when the tooltip opens rather than on the first
-            pixel of hover: the tooltip's own delay is the debounce, so a mouse
-            crossing the bar on its way somewhere else asks GitHub nothing. */}
+        {/* Fires on tooltip open, not on hover: the tooltip's delay debounces
+            it, so a mouse crossing the bar asks GitHub nothing. */}
         <Tooltip
           text={refreshTip ?? 'Refresh'}
           delay={250}

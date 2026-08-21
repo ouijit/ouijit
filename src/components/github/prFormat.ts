@@ -1,7 +1,4 @@
-/**
- * Presentation helpers for pull request state, checks, and reviews, read by
- * the list badge, the detail header, and the kanban card badge.
- */
+/** Presentation helpers for pull request state, checks, and reviews. */
 
 import type { PullRequestSummary } from '../../github/types';
 import { formatRelativeTime } from '../../utils/formatDate';
@@ -14,7 +11,7 @@ export function since(isoTimestamp: string): string {
 export interface StateBadge {
   label: string;
   icon: string;
-  /** Chip: a tinted background with matching text. */
+  /** Tinted background with matching text. */
   className: string;
   /** The same state as a bare glyph, where there is no chip to tint. */
   tone: string;
@@ -56,10 +53,8 @@ export function stateBadge(pr: Pick<PullRequestSummary, 'state' | 'isDraft'>): S
 export type CheckOutcome = 'running' | 'passing' | 'failing' | 'neutral' | 'unknown';
 
 /**
- * What one check amounts to, from GitHub's two overlapping fields.
- *
- * A check that has not finished has no conclusion worth reading, so status wins
- * over conclusion. The list's glyph and the summary's tally both ask this.
+ * Collapses GitHub's two overlapping fields into one state. Status wins over
+ * conclusion: an unfinished check has no conclusion worth reading.
  */
 export function checkOutcome(conclusion: string | null, status: string | null): CheckOutcome {
   if (status && status !== 'COMPLETED') return 'running';
@@ -91,7 +86,6 @@ const OUTCOME_APPEARANCE: Record<CheckOutcome, { icon: string; className: string
   unknown: { icon: 'circle', className: 'text-ink/35' },
 };
 
-/** Icon + color for one entry in the checks list. */
 export function checkRunAppearance(
   conclusion: string | null,
   status: string | null,
@@ -99,7 +93,6 @@ export function checkRunAppearance(
   return OUTCOME_APPEARANCE[checkOutcome(conclusion, status)];
 }
 
-/** How a review event reads in the timeline. */
 export function reviewStateLabel(state: string | undefined): string {
   switch (state) {
     case 'APPROVED':

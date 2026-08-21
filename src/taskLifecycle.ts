@@ -85,7 +85,6 @@ export async function beginTask(
   taskNumber: number,
   branchName?: string,
 ): Promise<TaskWorktreeResult> {
-  // Detect parent relationship to determine base branch
   let baseBranch: string | undefined;
   const task = await getTaskByNumber(projectPath, taskNumber);
   if (task?.parentTaskNumber) {
@@ -247,7 +246,6 @@ export async function trashTaskWithWorktree(
       return { success: false, error: `Failed to move worktree to trash: ${msg}` };
     }
 
-    // Delete the branch
     if (task?.branch) {
       try {
         await execFileAsync('git', ['branch', '-D', task.branch], { cwd: projectPath, encoding: 'utf8' });

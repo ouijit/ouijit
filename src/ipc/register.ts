@@ -51,9 +51,6 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   initCliPanels(mainWindow);
 }
 
-/**
- * Cleanup function to be called when app is quitting
- */
 export function cleanupIpc(): void {
   cleanupAllPtys();
   cleanupSandboxProviders();
