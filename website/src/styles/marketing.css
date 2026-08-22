@@ -1237,7 +1237,8 @@ body.marketing .home-agents-footnote a:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  height: 28px;
+  padding: 0 10px;
   font-family: inherit;
   font-size: 0.75rem;
   color: var(--color-text-secondary);
@@ -1254,7 +1255,7 @@ body.marketing .home-agents-footnote a:hover {
 
 .docs-actions-caret {
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  padding: 5px 7px;
+  padding: 0 8px;
 }
 
 .docs-actions-copy:hover,
