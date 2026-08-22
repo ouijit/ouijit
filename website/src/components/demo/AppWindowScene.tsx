@@ -30,9 +30,16 @@ const MIN_SCALE = 0.62;
 
 /** The titlebar's extruded view-toggle group, mirroring TitleBarReact. */
 const SEG_GROUP = 'flex items-center h-9 bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] overflow-hidden';
-const SEG_BTN =
-  'w-9 h-full flex items-center justify-center bg-transparent border-none text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5';
-const SEG_ACTIVE = ' text-text-primary bg-background-tertiary';
+// Active and resting styles are disjoint: appending overrides to one base
+// string leaves the winner to stylesheet order, not class order.
+const SEG_BTN_BASE =
+  'w-9 h-full flex items-center justify-center border-none transition-all duration-150 ease-out [&>svg]:w-5 [&>svg]:h-5';
+const segBtn = (active: boolean) =>
+  `${SEG_BTN_BASE} ${
+    active
+      ? 'text-text-primary bg-background-tertiary'
+      : 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary'
+  }`;
 const SQUARE_BTN =
   'w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary [&>svg]:w-5 [&>svg]:h-5';
 
@@ -122,21 +129,13 @@ export default function AppWindowScene() {
             </div>
             <div className="flex items-center gap-3">
               <div className={SEG_GROUP}>
-                <button
-                  className={`${SEG_BTN}${view === 'board' ? SEG_ACTIVE : ''}`}
-                  aria-label="Board view"
-                  onClick={() => setView('board')}
-                >
+                <button className={segBtn(view === 'board')} aria-label="Board view" onClick={() => setView('board')}>
                   <Icon name="kanban" />
                 </button>
-                <button
-                  className={`${SEG_BTN}${view === 'stack' ? SEG_ACTIVE : ''}`}
-                  aria-label="Terminal stack"
-                  onClick={() => setView('stack')}
-                >
+                <button className={segBtn(view === 'stack')} aria-label="Terminal stack" onClick={() => setView('stack')}>
                   <Icon name="cards-three" />
                 </button>
-                <span className={SEG_BTN}>
+                <span className={segBtn(false)}>
                   <Icon name="gear" />
                 </span>
               </div>
