@@ -38,8 +38,7 @@ export interface CaptureNavigatePayload {
   canvasViewport?: { x: number; y: number; zoom: number };
   /** Terminal whose diff takeover opens — only consumed by the diff scene */
   diffPtyId?: string;
-  /** Note composer opened on the diff line containing `lineText`, pre-filled
-   *  with `body` — only consumed by the diff scene */
+  /** Note composer opened on the diff line containing `lineText` — only consumed by the diff scene */
   diffNote?: { path: string; lineText: string; body: string };
   /** URL and terminal for the web preview panel — only consumed by the preview scene */
   previewUrl?: string;

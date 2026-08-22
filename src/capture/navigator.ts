@@ -65,7 +65,6 @@ function focusTerminal(projectPath: string, ptyId: string): void {
   if (index >= 0) useTerminalStore.getState().setActiveIndex(projectPath, index);
 }
 
-/** Poll for DOM that only exists after async state settles. */
 async function waitFor<T>(get: () => T | null | undefined, timeoutMs = 5000): Promise<T | null> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -83,13 +82,10 @@ async function clickWhenPresent(selector: string, timeoutMs = 5000): Promise<voi
 }
 
 /**
- * Open the diff panel's note composer on the line whose content contains
- * `lineText`, and type `body` into it.
- *
- * Drives the same hover → press → release path a reader takes: the plus
- * button is only built for the hovered line, and the composer only opens on
- * the window mouseup that ends the press. Dispatching those events is the
- * only way in — the composing state is internal to the panel.
+ * The composing state is internal to DiffPanel, so the only way to open the
+ * note composer is the reader's own gesture: the plus button is only built
+ * for the hovered line, and the composer only opens on the window mouseup
+ * that ends the press.
  */
 async function openDiffNoteComposer(note: { path: string; lineText: string; body: string }): Promise<void> {
   const row = await waitFor(() => {

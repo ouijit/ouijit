@@ -293,8 +293,6 @@ const SCENES = [
     needsProject: true,
     diffPtyId: 'capture-pty-1a',
     theme: 'dark',
-    // Anchored by content, not line number, so edits to the fixture file
-    // cannot silently move the note onto a different line.
     diffNote: {
       path: 'src/onboarding/Stepper.tsx',
       lineText: 'saveProgress(step + 1);',
