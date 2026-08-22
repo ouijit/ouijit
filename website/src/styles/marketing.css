@@ -1298,22 +1298,6 @@ body.marketing .home-agents-footnote a:hover {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.docs-callout {
-  display: flex;
-  gap: 12px;
-  margin: 32px 0;
-  padding: 14px 16px;
-  border: 1px solid var(--color-border);
-  border-left: 2px solid var(--marketing-accent);
-  border-radius: var(--radius-sm);
-}
-
-.docs-callout p {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-}
-
 .docs-pagenav {
   display: flex;
   justify-content: space-between;
