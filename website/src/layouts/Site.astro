@@ -10,12 +10,15 @@ interface Props {
   title?: string;
   description?: string;
   markdownUrl?: string;
+  /** Design experiments (e.g. /b/) stay out of search indexes. */
+  noindex?: boolean;
 }
 
 const {
   title = 'Ouijit · Integrated Divination Environment',
   description = 'A task and terminal manager for running coding agents like Claude Code in parallel, with per-task git worktrees, lifecycle hooks, per-terminal sandboxing, and a session-aware CLI.',
   markdownUrl,
+  noindex = false,
 } = Astro.props;
 
 const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://ouijit.com').toString();
@@ -28,6 +31,7 @@ const ogImage = new URL('/assets/og-image.png', Astro.site ?? 'https://ouijit.co
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{title}</title>
   <meta name="description" content={description} />
+  {noindex && <meta name="robots" content="noindex" />}
   <link rel="canonical" href={canonical} />
   {markdownUrl && <link rel="alternate" type="text/markdown" href={markdownUrl} title="Markdown" />}
 

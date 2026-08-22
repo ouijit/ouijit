@@ -7,6 +7,11 @@ import AgentStatesDemo from '../components/demo/AgentStatesDemo.tsx';
 import AutomationDemo from '../components/demo/AutomationDemo.tsx';
 import DiffNoteDemo from '../components/demo/DiffNoteDemo.tsx';
 import CliTypingDemo from '../components/demo/CliTypingDemo.tsx';
+import FloatNav from '../components/home/FloatNav.astro';
+import DownloadButtons from '../components/home/DownloadButtons.astro';
+import Bento from '../components/home/Bento.astro';
+import Harnesses from '../components/home/Harnesses.astro';
+import Cta from '../components/home/Cta.astro';
 
 const softwareSchema = {
   '@context': 'https://schema.org',
@@ -52,29 +57,15 @@ const softwareSchema = {
   <script is:inline>document.documentElement.classList.add('js');</script>
   <script type="application/ld+json" set:html={JSON.stringify(softwareSchema)} />
 
-  <div class="float-nav" aria-hidden="true">
-    <span class="float-nav-name">Ouijit</span>
-    <a class="float-nav-docs" href="/docs/">Docs</a>
-    <a class="float-nav-buy" href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.dmg">Download</a>
-  </div>
+  <FloatNav />
 
   <section class="hero">
     <h1 data-reveal>Command parallel coding agents, on your terms</h1>
     <p class="hero-subtitle" data-reveal style="--reveal-delay: 90ms">Run Claude, Codex, Pi, and OpenCode in parallel: by hand, with scripts, or through delegation.</p>
-    <div class="download-buttons" data-reveal style="--reveal-delay: 180ms">
-      <a
-        href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.dmg"
-        class="btn btn-primary">Download for macOS (Apple Silicon)</a>
-      <a
-        href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.dmg"
-        class="btn btn-secondary">macOS (Intel)</a>
-      <a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip" class="btn btn-secondary"
-        >Linux</a>
+    <div data-reveal style="--reveal-delay: 180ms">
+      <DownloadButtons />
     </div>
     <p class="hero-fine-print" data-reveal style="--reveal-delay: 260ms">Free and open source. No account, no sign-in, no telemetry.</p>
-    <div class="mobile-cta">
-      <div class="mobile-cta-note" role="note">View on desktop to download</div>
-    </div>
   </section>
 
   <section class="hero-scene">
@@ -92,25 +83,16 @@ const softwareSchema = {
     <a class="home-pitch-link" href="/docs/" data-reveal>Read the docs <span aria-hidden="true">→</span></a>
   </section>
 
-  <section class="home-statement" aria-label="Four agents. Four worktrees. Zero collisions.">
-    <p>
-      <span data-reveal>Four agents.</span>
-      <span data-reveal style="--reveal-delay: 160ms">Four worktrees.</span>
-      <span class="home-statement-accent" data-reveal style="--reveal-delay: 340ms">Zero collisions.</span>
-    </p>
-  </section>
-
   <section class="stage">
     <div class="stage-head">
-      <span class="eyebrow" data-reveal>Tasks and worktrees</span>
-      <h2 data-reveal style="--reveal-delay: 60ms">Every task gets its own copy of the repo.</h2>
-      <p class="stage-lead" data-reveal style="--reveal-delay: 120ms">
+      <h2 data-reveal>Every task gets its own copy of the repo.</h2>
+      <p class="stage-lead" data-reveal style="--reveal-delay: 80ms">
         Dragging a card to In Progress creates an isolated git worktree and opens a terminal in it, so parallel
         agents <strong>never trip over each other</strong>. Copy-on-write cloning means the worktree arrives
         instantly — <strong><code>node_modules</code> intact</strong>.
       </p>
     </div>
-    <div class="stage-card" data-reveal style="--reveal-delay: 160ms">
+    <div class="stage-card" data-reveal style="--reveal-delay: 140ms">
       <WorktreeSpawnDemo client:visible />
     </div>
     <div class="stage-foot" data-reveal>
@@ -119,53 +101,40 @@ const softwareSchema = {
     </div>
   </section>
 
-  <section class="highlights">
-    <div class="highlights-head">
-      <h2 data-reveal>Get the highlights.</h2>
+  <section class="stage">
+    <div class="stage-head">
+      <h2 data-reveal>Built for the whole loop.</h2>
     </div>
-    <div class="hl-track" data-reveal style="--reveal-delay: 100ms">
-      <div class="hl-card" style="--glow: #da77f2">
-        <p class="hl-caption"><strong>Terminals stack.</strong> Panels attach as tabs, so the plan opens beside the agent working from it.</p>
-        <div class="hl-demo"><StackDemo client:visible /></div>
+    <div class="demo-grid">
+      <div class="dg-card" data-reveal style="--glow: #da77f2">
+        <p class="dg-caption"><strong>Terminals stack.</strong> Panels attach as tabs, so the plan opens beside the agent working from it.</p>
+        <StackDemo client:visible />
       </div>
-      <div class="hl-card" style="--glow: #4ee82e">
-        <p class="hl-caption"><strong>Live status, no tab-hopping.</strong> Thinking, editing, running tests, waiting on you — and a notification when a turn ends.</p>
-        <div class="hl-demo"><AgentStatesDemo client:visible /></div>
+      <div class="dg-card" data-reveal style="--glow: #4ee82e; --reveal-delay: 80ms">
+        <p class="dg-caption"><strong>Live status, no tab-hopping.</strong> Thinking, editing, running tests — and a notification when a turn ends.</p>
+        <AgentStatesDemo client:visible />
       </div>
-      <div class="hl-card">
-        <p class="hl-caption"><strong>Five lifecycle hooks.</strong> Wire the start hook once and every card you drag starts an agent on its own copy of the repo.</p>
-        <div class="hl-demo"><AutomationDemo client:visible /></div>
+      <div class="dg-card" data-reveal>
+        <p class="dg-caption"><strong>Five lifecycle hooks.</strong> Wire the start hook once and every card you drag starts an agent.</p>
+        <AutomationDemo client:visible />
       </div>
-      <div class="hl-card" style="--glow: #bd93f9">
-        <p class="hl-caption"><strong>A CLI agents already know.</strong> File follow-up tasks, stage review comments, open panels, switch themes — by asking.</p>
-        <div class="hl-demo"><CliTypingDemo client:visible /></div>
+      <div class="dg-card" data-reveal style="--glow: #bd93f9; --reveal-delay: 80ms">
+        <p class="dg-caption"><strong>A CLI agents already know.</strong> File follow-up tasks, stage review comments, switch themes — by asking.</p>
+        <CliTypingDemo client:visible />
       </div>
-    </div>
-    <div class="hl-controls" data-reveal>
-      <div class="hl-progress" role="tablist" aria-label="Highlights">
-        <button class="hl-dot" aria-label="Terminals and panels"></button>
-        <button class="hl-dot" aria-label="Live status"></button>
-        <button class="hl-dot" aria-label="Lifecycle hooks"></button>
-        <button class="hl-dot" aria-label="The ouijit CLI"></button>
-      </div>
-      <button class="hl-pause" aria-label="Pause auto-advance">
-        <svg class="hl-icon-pause" width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1.5" y="1" width="3" height="10" rx="1"/><rect x="7.5" y="1" width="3" height="10" rx="1"/></svg>
-        <svg class="hl-icon-play" width="12" height="12" viewBox="0 0 12 12" fill="currentColor" style="display:none"><path d="M2.5 1.3a1 1 0 0 1 1.5-.87l7 4.7a1 1 0 0 1 0 1.74l-7 4.7a1 1 0 0 1-1.5-.87z"/></svg>
-      </button>
     </div>
   </section>
 
   <section class="stage" style="--glow: #3fb950">
     <div class="stage-head">
-      <span class="eyebrow" data-reveal>Diffs and pull requests</span>
-      <h2 data-reveal style="--reveal-delay: 60ms">Review the work where it happens.</h2>
-      <p class="stage-lead" data-reveal style="--reveal-delay: 120ms">
+      <h2 data-reveal>Review the work where it happens.</h2>
+      <p class="stage-lead" data-reveal style="--reveal-delay: 80ms">
         Every task terminal includes a diff of its worktree against its merge target, with word-level
         highlighting. Leave a note on a changed line and <strong>it goes to the agent working in that
         worktree</strong>, re-anchoring as the code moves.
       </p>
     </div>
-    <div class="stage-card stage-card--narrow" data-reveal style="--reveal-delay: 160ms">
+    <div class="stage-card stage-card--narrow" data-reveal style="--reveal-delay: 140ms">
       <DiffNoteDemo client:visible />
     </div>
     <div class="stage-foot" data-reveal>
@@ -177,222 +146,12 @@ const softwareSchema = {
     </div>
   </section>
 
-  <section class="details-section">
-    <div class="details-inner">
-      <h2 data-reveal>Also in the box.</h2>
-      <div class="details-grid bento">
-        <div class="detail detail-span-4" data-reveal>
-          <div class="detail-title">Everything is three keystrokes away.</div>
-          <p>
-            ⌘K jumps between terminals, projects, tasks, and pull requests, ranked by how often you return
-            to them.
-          </p>
-          <div class="bento-palette" aria-hidden="true">
-            <div class="bento-palette-input">
-              <span class="bento-palette-caret">❯</span>
-              <span>onboarding</span>
-              <span class="terminal-cursor terminal-cursor--dim"></span>
-              <kbd>⌘K</kbd>
-            </div>
-            <div class="bento-palette-row is-active"><span class="bento-palette-dot bento-dot-thinking"></span>claude — Rework onboarding flow</div>
-            <div class="bento-palette-row"><span class="bento-palette-dot"></span>npm run dev — live dev server</div>
-            <div class="bento-palette-row"><span class="bento-palette-kind">task</span>T-101 · Rework onboarding flow</div>
-          </div>
-        </div>
-        <div class="detail detail-span-2" data-reveal style="--reveal-delay: 80ms">
-          <div class="detail-title">Untrusted code, contained.</div>
-          <p>A Lima VM that mounts only the task's worktree, or Seatbelt/Landlock in place via nono.</p>
-          <div class="bento-sandbox" aria-hidden="true">
-            <span class="bento-sandbox-dot"></span>
-            <span class="bento-sandbox-label">claude (sandbox)</span>
-          </div>
-        </div>
-        <div class="detail detail-span-2" data-reveal>
-          <div class="detail-title">Your colors, everywhere.</div>
-          <p>System, light, dark, five presets, or your own design-token overrides.</p>
-          <div class="bento-themes" aria-hidden="true">
-            <span class="bento-swatch" style="--swatch-bg: #1c1c1e; --swatch-accent: #0a84ff"></span>
-            <span class="bento-swatch" style="--swatch-bg: #282a36; --swatch-accent: #bd93f9"></span>
-            <span class="bento-swatch" style="--swatch-bg: #f0e7d8; --swatch-accent: #8a6d3b"></span>
-            <span class="bento-swatch" style="--swatch-bg: #f5f5f7; --swatch-accent: #0a84ff"></span>
-          </div>
-        </div>
-        <div class="detail detail-span-2" data-reveal style="--reveal-delay: 80ms">
-          <div class="detail-title">Quit without losing the room.</div>
-          <p>The next launch brings the session's terminals back in their worktrees, panels included.</p>
-          <div class="bento-resume" aria-hidden="true">
-            <span>Last session · 4 terminals</span>
-            <span class="bento-resume-btn">Restore</span>
-          </div>
-        </div>
-        <div class="detail detail-span-2" data-reveal style="--reveal-delay: 160ms">
-          <div class="detail-title">Local by default.</div>
-          <p>Everything is stored in SQLite on your machine. No account, no sign-in, no telemetry.</p>
-          <div class="bento-local" aria-hidden="true">
-            <span class="bento-local-path">~/…/ouijit/ouijit.db</span>
-            <span class="bento-local-chip">SQLite</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="home-agents">
-    <h2 data-reveal>Supported harnesses</h2>
-    <ul class="home-agents-grid" data-reveal style="--reveal-delay: 100ms">
-      <li>
-        <a class="glass-bevel" href="https://claude.com/claude-code">
-          <img src="/assets/agents/claude-code.svg" alt="" width="40" height="40" />
-          <span class="home-agents-name">Claude Code</span>
-          <span class="home-agents-domain">claude.com/claude-code</span>
-        </a>
-      </li>
-      <li>
-        <a class="glass-bevel" href="https://github.com/openai/codex">
-          <img src="/assets/agents/codex.svg" alt="" width="40" height="40" />
-          <span class="home-agents-name">Codex</span>
-          <span class="home-agents-domain">github.com/openai/codex</span>
-        </a>
-      </li>
-      <li>
-        <a class="glass-bevel" href="https://pi.dev">
-          <img src="/assets/agents/pi.svg" alt="" width="40" height="40" />
-          <span class="home-agents-name">Pi</span>
-          <span class="home-agents-domain">pi.dev</span>
-        </a>
-      </li>
-      <li>
-        <a class="glass-bevel" href="https://opencode.ai">
-          <img src="/assets/agents/opencode.svg" alt="" width="40" height="40" />
-          <span class="home-agents-name">OpenCode</span>
-          <span class="home-agents-domain">opencode.ai</span>
-        </a>
-      </li>
-    </ul>
-    <p class="home-agents-footnote">
-      To request support for another harness,
-      <a href="https://github.com/ouijit/ouijit/issues/new">open an issue</a>.
-    </p>
-  </section>
-
-  <section class="cta-section">
-    <div class="cta-inner">
-      <h2 data-reveal>Put an agent on every task.</h2>
-      <p data-reveal style="--reveal-delay: 90ms">macOS 13+ (Apple Silicon or Intel) and Linux x64. Free and open source.</p>
-      <div class="download-buttons" data-reveal style="--reveal-delay: 180ms">
-        <a
-          href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.dmg"
-          class="btn btn-primary">Download for macOS (Apple Silicon)</a>
-        <a
-          href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.dmg"
-          class="btn btn-secondary">macOS (Intel)</a>
-        <a
-          href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip"
-          class="btn btn-secondary">Linux</a>
-      </div>
-      <div class="mobile-cta">
-        <div class="mobile-cta-note" role="note">View on desktop to download</div>
-      </div>
-    </div>
-  </section>
+  <Bento />
+  <Harnesses />
+  <Cta />
 
   <script>
-    // Scroll reveal — rect-based rather than IntersectionObserver, so it
-    // cannot strand content invisible in browsers that throttle observers.
-    let pending = [...document.querySelectorAll('[data-reveal]')];
-    const floatNav = document.querySelector('.float-nav');
-    const hero = document.querySelector('.hero');
-
-    const checkScroll = () => {
-      if (pending.length) {
-        const limit = window.innerHeight * 0.94;
-        pending = pending.filter((el) => {
-          const rect = el.getBoundingClientRect();
-          if (rect.top < limit && rect.bottom > 0) {
-            el.classList.add('is-revealed');
-            return false;
-          }
-          return true;
-        });
-      }
-      if (floatNav && hero) {
-        floatNav.classList.toggle('is-shown', hero.getBoundingClientRect().bottom < 64);
-      }
-    };
-    // Capture phase: the marketing body is its own scroll container, so
-    // scroll events may fire there rather than on the window.
-    document.addEventListener('scroll', checkScroll, { capture: true, passive: true });
-    window.addEventListener('resize', checkScroll, { passive: true });
-    checkScroll();
-
-    // Bento spotlight
-    document.querySelectorAll<HTMLElement>('.bento .detail').forEach((tile) => {
-      tile.addEventListener('pointermove', (event) => {
-        const rect = tile.getBoundingClientRect();
-        tile.style.setProperty('--mx', `${event.clientX - rect.left}px`);
-        tile.style.setProperty('--my', `${event.clientY - rect.top}px`);
-      });
-    });
-
-    // Highlights carousel
-    const track = document.querySelector<HTMLElement>('.hl-track');
-    const dots = [...document.querySelectorAll<HTMLButtonElement>('.hl-dot')];
-    const pauseBtn = document.querySelector<HTMLButtonElement>('.hl-pause');
-    if (track && dots.length && pauseBtn) {
-      const cards = [...track.querySelectorAll<HTMLElement>('.hl-card')];
-      let index = 0;
-      let paused = false;
-      let inView = false;
-      let timer = 0;
-
-      const setDots = () => dots.forEach((d, i) => d.classList.toggle('is-active', i === index));
-      const goTo = (i: number, smooth = true) => {
-        index = ((i % cards.length) + cards.length) % cards.length;
-        track.scrollTo({ left: cards[index].offsetLeft - track.offsetLeft, behavior: smooth ? 'smooth' : 'auto' });
-        setDots();
-      };
-      const schedule = () => {
-        window.clearInterval(timer);
-        if (!paused && inView && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-          timer = window.setInterval(() => goTo(index + 1), 9000);
-        }
-      };
-
-      dots.forEach((dot, i) => dot.addEventListener('click', () => { goTo(i); schedule(); }));
-      pauseBtn.addEventListener('click', () => {
-        paused = !paused;
-        pauseBtn.querySelector<SVGElement>('.hl-icon-pause')!.style.display = paused ? 'none' : '';
-        pauseBtn.querySelector<SVGElement>('.hl-icon-play')!.style.display = paused ? '' : 'none';
-        pauseBtn.setAttribute('aria-label', paused ? 'Resume auto-advance' : 'Pause auto-advance');
-        schedule();
-      });
-      track.addEventListener('scroll', () => {
-        const mid = track.scrollLeft + track.clientWidth / 2;
-        const nearest = cards.reduce(
-          (best, card, i) =>
-            Math.abs(card.offsetLeft + card.offsetWidth / 2 - mid) < best.d
-              ? { i, d: Math.abs(card.offsetLeft + card.offsetWidth / 2 - mid) }
-              : best,
-          { i: 0, d: Infinity },
-        );
-        if (nearest.i !== index) {
-          index = nearest.i;
-          setDots();
-        }
-        // Any scroll restarts the clock, so a card just swiped to gets its full stay.
-        schedule();
-      }, { passive: true });
-      const checkTrackVisible = () => {
-        const rect = track.getBoundingClientRect();
-        const nowVisible = rect.bottom > 0 && rect.top < window.innerHeight;
-        if (nowVisible !== inView) {
-          inView = nowVisible;
-          schedule();
-        }
-      };
-      document.addEventListener('scroll', checkTrackVisible, { capture: true, passive: true });
-      checkTrackVisible();
-      setDots();
-    }
+    import { initHomeChrome } from '../scripts/homeChrome';
+    initHomeChrome();
   </script>
 </Site>
