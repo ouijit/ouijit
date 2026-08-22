@@ -17,6 +17,12 @@ const CANVAS_WIDTH = 1240;
 const CANVAS_HEIGHT = 800;
 const MIN_SCALE = 0.62;
 
+/** The titlebar's extruded view-toggle group, mirroring TitleBarReact. */
+const SEG_GROUP = 'flex items-center h-9 bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] overflow-hidden';
+const SEG_BTN = 'w-9 h-full flex items-center justify-center text-text-secondary [&>svg]:w-5 [&>svg]:h-5';
+const SQUARE_BTN =
+  'w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary [&>svg]:w-5 [&>svg]:h-5';
+
 /**
  * The whole app in one window: titlebar, project sidebar, and the kanban
  * board, rendered from the same view components the app itself uses.
@@ -56,49 +62,76 @@ export default function AppWindowScene() {
               <span style={{ background: '#febc2e' }} />
               <span style={{ background: '#28c840' }} />
             </div>
-            <div className="app-window-project">
-              <span className="app-window-avatar">HO</span>
-              <span className="app-window-project-text">
-                <span className="app-window-project-name">horizon</span>
-                <span className="app-window-project-path">~/Code/horizon</span>
-              </span>
-            </div>
-            <div className="app-window-controls">
-              <div className="app-window-seg">
-                <span className="app-window-seg-btn" data-active>
-                  <Icon name="grid-four" />
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <ProjectAvatar size={32} />
+              <div className="flex flex-col gap-[2px] min-w-0">
+                <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
+                  horizon
                 </span>
-                <span className="app-window-seg-btn">
+                <span className="text-[11px] font-mono text-text-tertiary leading-[1.3] truncate">~/Code/horizon</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className={SEG_GROUP}>
+                <span className={`${SEG_BTN} text-text-primary bg-background-tertiary`}>
+                  <Icon name="kanban" />
+                </span>
+                <span className={SEG_BTN}>
                   <Icon name="cards-three" />
                 </span>
-                <span className="app-window-seg-btn">
+                <span className={SEG_BTN}>
                   <Icon name="gear" />
                 </span>
               </div>
-              <span className="app-window-round-btn">
+              <span className={SQUARE_BTN}>
                 <Icon name="terminal" />
               </span>
-              <span className="app-window-round-btn">
+              <span className={SQUARE_BTN}>
                 <Icon name="plus" />
               </span>
             </div>
           </div>
-          <div className="app-window-body">
-            <div className="app-window-sidebar">
-              <img src="/assets/ouijit-glyph.svg" alt="" width={26} height={29} />
-              <span className="app-window-sidebar-divider" />
-              <span className="app-window-sidebar-project" data-active>
-                <span className="app-window-avatar">HO</span>
-                <span className="app-window-sidebar-badge">5</span>
-              </span>
-              <span className="app-window-sidebar-add">
+          <div className="flex flex-1 min-h-0">
+            <div className="flex flex-col items-center shrink-0 w-[72px] pt-1 pb-4">
+              <div className="w-10 h-10">
+                <div className="app-window-logo-mask w-full h-full" />
+              </div>
+              <div className="mt-2 mb-1 shrink-0" style={{ width: 32, height: 1, background: 'var(--color-border)' }} />
+              <div className="relative flex items-center justify-center w-full h-12 mt-2">
+                <div className="absolute left-0 w-1 h-9 rounded-r-sm bg-ink" />
+                <ProjectAvatar size={40} />
+                <span
+                  className="absolute flex items-center justify-center font-bold text-accent-ink"
+                  style={{
+                    right: 8,
+                    bottom: 0,
+                    minWidth: 16,
+                    height: 16,
+                    fontSize: 10,
+                    lineHeight: 1,
+                    padding: '0 4px',
+                    borderRadius: 8,
+                    background: 'var(--color-accent)',
+                  }}
+                >
+                  5
+                </span>
+              </div>
+              <span className="mt-3 w-10 h-10 flex items-center justify-center relative glass-bevel overflow-hidden rounded-[12px] bg-background-secondary border border-bezel text-text-secondary [&>svg]:w-5 [&>svg]:h-5">
                 <Icon name="plus" />
               </span>
-              <span className="app-window-sidebar-foot">
+              <span className="mt-auto text-text-tertiary [&>svg]:w-5 [&>svg]:h-5">
                 <Icon name="sidebar-simple" />
               </span>
             </div>
-            <div className="app-window-board">
+            <div
+              className="glass-bevel relative flex flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"
+              style={{
+                margin: '0 16px 16px 0',
+                background: 'var(--color-terminal-bg)',
+                boxShadow: 'var(--shadow-panel)',
+              }}
+            >
               {COLUMNS.map(({ status, label, hooked }) => {
                 const tasksInColumn = featuresTasks.filter((t) => t.status === status);
                 return (
@@ -133,5 +166,22 @@ export default function AppWindowScene() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ProjectAvatar({ size }: { size: number }) {
+  return (
+    <span
+      className="flex items-center justify-center shrink-0 overflow-hidden rounded-md font-bold text-white"
+      style={{
+        width: size,
+        height: size,
+        fontSize: size >= 40 ? 14 : 12,
+        background: '#e9679f',
+        textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
+      }}
+    >
+      HO
+    </span>
   );
 }
