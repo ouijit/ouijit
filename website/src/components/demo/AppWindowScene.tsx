@@ -210,8 +210,13 @@ export default function AppWindowScene() {
                 })}
               </div>
             ) : (
-              <div className="flex-1 min-w-0 flex justify-center" style={{ padding: '0 16px 16px 0' }}>
-                <div className="relative w-full" style={{ maxWidth: 860, marginTop: 96 }}>
+              <div className="flex-1 min-w-0 relative">
+                {/* Mirrors the app's stack container: full content width, top
+                    pushed down 24px per back card so their peeks fit above. */}
+                <div
+                  className="absolute"
+                  style={{ left: 0, right: 16, bottom: 16, top: 18 + (STACK_TERMINALS.length - 1) * 24 }}
+                >
                   {STACK_TERMINALS.map((term) => {
                     const position = positionByPtyId.get(term.ptyId) ?? 0;
                     const isActive = position === 0;
