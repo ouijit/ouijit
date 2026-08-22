@@ -1,6 +1,10 @@
 ---
 import Site from '../layouts/Site.astro';
 import WorkspaceScene from '../components/demo/WorkspaceScene.tsx';
+import BoardDemo from '../components/demo/BoardDemo.tsx';
+import StackDemo from '../components/demo/StackDemo.tsx';
+import AgentStatesDemo from '../components/demo/AgentStatesDemo.tsx';
+import AutomationDemo from '../components/demo/AutomationDemo.tsx';
 
 const softwareSchema = {
   '@context': 'https://schema.org',
@@ -77,6 +81,190 @@ const softwareSchema = {
     <a class="home-pitch-link" href="/docs/">Read the docs <span aria-hidden="true">→</span></a>
   </section>
 
+  <section class="exposition">
+    <div class="exposition-inner">
+      <div class="exposition-copy">
+        <span class="eyebrow">Tasks and worktrees</span>
+        <h2>Every task gets its own copy of the repo</h2>
+        <p>
+          Tasks live on a kanban board. Dragging a card to In Progress creates an isolated git worktree and
+          opens a terminal in it, so parallel agents never trip over each other.
+        </p>
+        <p>
+          Copy-on-write cloning means the worktree arrives instantly, <code>node_modules</code> and other
+          gitignored files intact. Chain tasks off a parent branch, act on several cards at once, set a
+          per-task merge target.
+        </p>
+        <a class="exposition-link" href="/docs/worktrees/">Worktree docs <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="exposition-visual exposition-visual--center">
+        <BoardDemo client:visible />
+      </div>
+    </div>
+  </section>
+
+  <section class="exposition exposition-reverse">
+    <div class="exposition-inner">
+      <div class="exposition-copy">
+        <span class="eyebrow">Terminals and panels</span>
+        <h2>The agent, its plan, and the app it's building</h2>
+        <p>
+          Each terminal is a card in a stack. Panels attach as tabs — a runner for the dev server, a web
+          preview, and markdown files with Mermaid diagrams — so a plan opens beside the agent working
+          from it.
+        </p>
+        <p class="exposition-quiet">
+          Shells outside any task get their own strip on the board. Tag sessions to filter them.
+        </p>
+        <a class="exposition-link" href="/docs/panels/">Panel docs <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="exposition-visual">
+        <StackDemo client:visible />
+      </div>
+    </div>
+  </section>
+
+  <section class="exposition">
+    <div class="exposition-inner">
+      <div class="exposition-copy">
+        <span class="eyebrow">Live status</span>
+        <h2>Know what every agent is doing</h2>
+        <p>
+          Cards and terminals show each agent's state as it changes — thinking, editing a file, running
+          tests, waiting on you. A sound or OS notification fires when a turn ends, so you look over only
+          when it matters.
+        </p>
+        <p class="exposition-quiet">Works out of the box with Claude Code, Codex, Pi, and OpenCode.</p>
+        <a class="exposition-link" href="/docs/terminals/">Terminal docs <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="exposition-visual">
+        <AgentStatesDemo client:visible />
+      </div>
+    </div>
+  </section>
+
+  <section class="exposition exposition-reverse">
+    <div class="exposition-inner">
+      <div class="exposition-copy">
+        <span class="eyebrow">Diffs and pull requests</span>
+        <h2>Review the work where it happens</h2>
+        <p>
+          Every task terminal includes a diff of its worktree against its merge target, with word-level
+          highlighting. Leave a note on a changed line and it goes to the agent working in that worktree,
+          re-anchoring as the code moves.
+        </p>
+        <p class="exposition-quiet">
+          An experimental GitHub surface adds a pull request inbox, review comments staged locally until you
+          send them, and merging — <code>gh auth login</code> is the only setup.
+        </p>
+        <a class="exposition-link" href="/docs/diff/">Diff docs <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="exposition-visual">
+        <img
+          class="exposition-screenshot"
+          src="/assets/screenshots/diff.png"
+          alt="Worktree diff beside the agent terminal, with a note being written on a changed line"
+          loading="lazy"
+        />
+      </div>
+    </div>
+  </section>
+
+  <section class="exposition">
+    <div class="exposition-inner">
+      <div class="exposition-copy">
+        <span class="eyebrow">Hooks and scripts</span>
+        <h2>Hooks launch the agent for you</h2>
+        <p>
+          Five lifecycle hooks — start, continue, run, review, done — define how tasks launch and what runs
+          alongside them. Wire the start hook to your agent and every card you drag starts one on its own
+          copy of the repo.
+        </p>
+        <p class="exposition-quiet">Per-project scripts run in any of the project's terminals, one click.</p>
+        <a class="exposition-link" href="/docs/hooks/">Hook docs <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="exposition-visual">
+        <AutomationDemo client:visible />
+      </div>
+    </div>
+  </section>
+
+  <section class="exposition exposition-reverse">
+    <div class="exposition-inner">
+      <div class="exposition-copy">
+        <span class="eyebrow">The ouijit CLI</span>
+        <h2>Shape the app by asking your agent</h2>
+        <p>
+          Every terminal Ouijit opens has the <code>ouijit</code> command on PATH, and the supported
+          harnesses learn it automatically. Agents can file follow-up tasks, move their own card, stage
+          review comments, or open panels beside themselves.
+        </p>
+        <p class="exposition-quiet">It works from your shell too, with JSON output.</p>
+        <a class="exposition-link" href="/docs/cli/">CLI docs <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="exposition-visual">
+        <pre class="home-cli"><code><span class="home-cli-comment"># "file a task for the flaky login test"</span>
+<span class="home-cli-bin">ouijit</span> task create <span class="home-cli-arg">"Fix flaky login test"</span>
+
+<span class="home-cli-comment"># "move this task to review"</span>
+<span class="home-cli-bin">ouijit</span> task set-status 5 in_review
+
+<span class="home-cli-comment"># "run claude on every task I start"</span>
+<span class="home-cli-bin">ouijit</span> hook set start --command <span class="home-cli-arg">'claude "$OUIJIT_TASK_DESCRIPTION"'</span>
+
+<span class="home-cli-comment"># "leave a review comment on PR 116"</span>
+<span class="home-cli-bin">ouijit</span> pr draft add 116 --file src/api.ts --line 88
+
+<span class="home-cli-comment"># "open your plan next to you"</span>
+<span class="home-cli-bin">ouijit</span> markdown add ./plan.md
+
+<span class="home-cli-comment"># "switch to dracula"</span>
+<span class="home-cli-bin">ouijit</span> theme use dracula</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="details-section">
+    <div class="details-inner">
+      <h2>Also in the box</h2>
+      <div class="details-grid">
+        <div class="detail">
+          <div class="detail-title">Command palette</div>
+          <p>
+            ⌘K jumps between terminals, projects, tasks, and pull requests, ranked by how often you return
+            to them.
+          </p>
+        </div>
+        <div class="detail">
+          <div class="detail-title">Sandboxing</div>
+          <p>
+            Run any terminal in a Lima VM that mounts only the task's worktree, or in place under Seatbelt
+            and Landlock via nono.
+          </p>
+        </div>
+        <div class="detail">
+          <div class="detail-title">Session resume</div>
+          <p>
+            Quitting saves the session. The next launch offers to bring its terminals back in their
+            worktrees, panels included.
+          </p>
+        </div>
+        <div class="detail">
+          <div class="detail-title">Themes</div>
+          <p>System, light, dark, five presets, or your own theme as design-token overrides.</p>
+        </div>
+        <div class="detail">
+          <div class="detail-title">Multi-project home</div>
+          <p>Every project on one home view, with health checks for the agent CLIs.</p>
+        </div>
+        <div class="detail">
+          <div class="detail-title">Local by default</div>
+          <p>Everything is stored in SQLite on your machine. No account, no sign-in, no telemetry.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="home-agents">
     <h2>Supported harnesses</h2>
     <ul class="home-agents-grid">
@@ -113,5 +301,26 @@ const softwareSchema = {
       To request support for another harness,
       <a href="https://github.com/ouijit/ouijit/issues/new">open an issue</a>.
     </p>
+  </section>
+
+  <section class="cta-section">
+    <div class="cta-inner">
+      <h2>Put an agent on every task</h2>
+      <p>macOS 13+ (Apple Silicon or Intel) and Linux x64. Free and open source.</p>
+      <div class="download-buttons">
+        <a
+          href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.dmg"
+          class="btn btn-primary">Download for macOS (Apple Silicon)</a>
+        <a
+          href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.dmg"
+          class="btn btn-secondary">macOS (Intel)</a>
+        <a
+          href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip"
+          class="btn btn-secondary">Linux</a>
+      </div>
+      <div class="mobile-cta">
+        <div class="mobile-cta-note" role="note">View on desktop to download</div>
+      </div>
+    </div>
   </section>
 </Site>

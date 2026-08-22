@@ -12,9 +12,11 @@ import {
  * translate themselves upward via the depthBase styles.
  */
 export default function StackDemo() {
-  // Reserve top space for back cards (3 cards × 24px lift) + active height.
+  // The cards are absolute inset-0, so the container height is the active
+  // card's height; the margin keeps the back cards' upward lift from
+  // overlapping whatever sits above.
   return (
-    <div style={{ position: 'relative', height: 540, paddingTop: 96 }}>
+    <div style={{ position: 'relative', height: 400, marginTop: 88 }}>
       {/* Back card 3 */}
       <TerminalCardView backDepth={3}>
         <TerminalHeaderView
@@ -61,7 +63,7 @@ export default function StackDemo() {
             </div>
           }
         />
-        <div className="flex-1 grid grid-cols-2 min-h-0">
+        <div className="flex-1 grid grid-cols-2 max-sm:grid-cols-1 min-h-0">
           <div className="p-4 font-mono text-[11px] leading-6 text-white/85 border-r border-white/[0.06] overflow-hidden">
             <div>
               <span className="text-white/40 mr-1">{'>'}</span> Split onboarding into a three-step stepper with saved
@@ -81,7 +83,7 @@ export default function StackDemo() {
             </div>
             <div className="mt-2 text-white/40">· Thinking...</div>
           </div>
-          <div className="p-4 bg-background-secondary text-white text-xs">
+          <div className="p-4 bg-background-secondary text-white text-xs max-sm:hidden">
             <div className="text-sm font-semibold mb-2">Rework onboarding flow</div>
             <div className="text-[11px] font-semibold mb-1 mt-3">Outcome</div>
             <p className="text-white/55 text-[11px] leading-relaxed">

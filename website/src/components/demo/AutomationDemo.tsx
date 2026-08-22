@@ -4,30 +4,34 @@ import { ScriptRowView } from '../../ouijit-ui/components/scripts/ScriptRowView'
 const HOOKS: { label: string; description: string; command?: string }[] = [
   {
     label: 'Start',
-    description: 'Runs when a task moves to In Progress',
-    command: 'claude --dangerously-skip-permissions "$OUIJIT_TASK_DESCRIPTION"',
+    description: 'Task moves from To Do to In Progress',
+    command: 'claude "$OUIJIT_TASK_DESCRIPTION"',
   },
   {
     label: 'Continue',
-    description: 'Runs when reopening an in-progress task',
+    description: 'Reopening a task already In Progress',
     command: 'claude --continue',
   },
   {
-    label: 'Review',
-    description: 'Runs when a task moves to In Review',
-    command: 'npm run check',
+    label: 'Run',
+    description: 'The Run button or a runner panel opens',
+    command: 'npm run dev',
   },
   {
-    label: 'Cleanup',
-    description: 'Runs when a task moves to Done',
+    label: 'Review',
+    description: 'Task moves to In Review',
+    command: 'gh pr create --fill',
+  },
+  {
+    label: 'Done',
+    description: 'Task moves to Done',
+    command: 'git push origin HEAD',
   },
 ];
 
 const SCRIPTS = [
-  { name: 'Run', command: 'npm run dev' },
   { name: 'Install deps', command: 'npm install' },
   { name: 'Reset DB', command: 'npm run db:reset' },
-  { name: 'Build CLI', command: 'npm run build:cli' },
   { name: 'Run tests', command: 'npm test' },
 ];
 

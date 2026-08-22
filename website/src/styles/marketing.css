@@ -381,7 +381,7 @@ body.marketing .home-pitch-link:hover span {
 .home-agents {
   max-width: 960px;
   margin: 0 auto;
-  padding: 0 var(--content-padding) 120px;
+  padding: 96px var(--content-padding) 48px;
   text-align: center;
 }
 
@@ -472,7 +472,7 @@ body.marketing .home-agents-footnote a:hover {
 
 @media (max-width: 600px) {
   .home-agents {
-    padding: 0 var(--content-padding) 80px;
+    padding: 56px var(--content-padding) 24px;
   }
   .home-agents-grid {
     grid-template-columns: 1fr;
@@ -828,11 +828,99 @@ body.marketing .home-agents-footnote a:hover {
   font-size: 1rem !important;
 }
 
+.exposition code {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.875em;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+body.marketing .exposition-link {
+  display: block;
+  width: fit-content;
+  margin-top: 24px;
+  font-size: 0.9375rem;
+  color: var(--color-text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+body.marketing .exposition-link span {
+  display: inline-block;
+  margin-left: 4px;
+  transition: transform var(--transition-fast);
+}
+
+body.marketing .exposition-link:hover {
+  color: #f5f5f7;
+}
+
+body.marketing .exposition-link:hover span {
+  transform: translateX(3px);
+}
+
+.exposition-visual {
+  min-width: 0;
+}
+
+.exposition-visual--center {
+  display: flex;
+  justify-content: center;
+}
+
+img.exposition-screenshot {
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.3),
+    0 24px 48px rgba(0, 0, 0, 0.35),
+    0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* --- Home CLI sample --- */
+.home-cli {
+  width: 100%;
+  margin: 0;
+  background: var(--color-terminal-bg, #171717);
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.3),
+    0 24px 48px rgba(0, 0, 0, 0.35),
+    0 6px 16px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.home-cli code {
+  display: block;
+  padding: 24px 28px;
+  overflow-x: auto;
+  font-family: 'Iosevka Term Extended', 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.8;
+  color: #f5f5f7;
+}
+
+.home-cli-comment {
+  color: var(--color-text-tertiary);
+}
+
+.home-cli-bin {
+  color: #fff;
+  font-weight: 500;
+}
+
+.home-cli-arg {
+  color: rgba(121, 184, 255, 0.95);
+}
+
 @media (max-width: 900px) {
   .exposition {
     padding: 56px 0 24px;
   }
-  .exposition-inner {
+  .exposition-inner,
+  .exposition-reverse .exposition-inner {
     grid-template-columns: 1fr;
     gap: 32px;
   }
