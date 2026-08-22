@@ -198,6 +198,13 @@ img {
   margin: 0 auto;
 }
 
+.hero--fill {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: calc(100svh - 64px); /* 64px: the site nav above it */
+}
+
 .hero h1 {
   font-size: clamp(2.5rem, 5.6vw, 3.75rem);
   margin-bottom: 18px;

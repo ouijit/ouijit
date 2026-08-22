@@ -154,8 +154,9 @@ const HEADLINE = 'Command parallel coding agents, on your terms';
   <Cta />
 
   <script>
-    import { initHomeChrome, scrollProgress } from '../../scripts/homeChrome';
+    import { initHomeChrome, initPitchIllumination, scrollProgress } from '../../scripts/homeChrome';
     initHomeChrome();
+    initPitchIllumination();
 
     const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -180,22 +181,6 @@ const HEADLINE = 'Command parallel coding agents, on your terms';
       window.setTimeout(type, 300);
     }
 
-    // Pitch illumination: words light up as the paragraph crosses the viewport.
-    const pitch = document.querySelector<HTMLElement>('.b-pitch-text');
-    let words: HTMLElement[] = [];
-    if (pitch && !reduceMotion) {
-      const text = (pitch.textContent ?? '').trim().replace(/\s+/g, ' ');
-      pitch.textContent = '';
-      for (const word of text.split(' ')) {
-        const span = document.createElement('span');
-        span.className = 'b-pitch-w';
-        span.textContent = word;
-        pitch.append(span, ' ');
-      }
-      words = [...pitch.querySelectorAll<HTMLElement>('.b-pitch-w')];
-      pitch.classList.add('is-live');
-    }
-
     // Lifecycle chapters: scroll position through the tall section picks the
     // active chapter; rows and panels follow.
     const lc = document.querySelector<HTMLElement>('.lc-scroll');
@@ -204,14 +189,6 @@ const HEADLINE = 'Command parallel coding agents, on your terms';
     let chapter = -1;
 
     const onScroll = () => {
-      if (words.length) {
-        const rect = pitch!.getBoundingClientRect();
-        const start = window.innerHeight * 0.9;
-        const end = window.innerHeight * 0.4;
-        const f = Math.min(1, Math.max(0, (start - rect.top) / (start - end)));
-        const lit = Math.round(f * words.length);
-        words.forEach((w, i) => w.classList.toggle('is-lit', i < lit));
-      }
       if (lc && panels.length && window.innerWidth > 900) {
         const idx = Math.min(panels.length - 1, Math.floor(scrollProgress(lc) * panels.length));
         if (idx !== chapter) {
