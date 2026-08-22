@@ -1,42 +1,39 @@
 ---
 import Site from '../../../layouts/Site.astro';
-import { ConceptStack, ConceptPalette, ConceptPills, ConceptScroll } from '../../../components/demo/PlanLab.tsx';
+import { ArrangeMosaic, ArrangeFlanked, ArrangeSeamed } from '../../../components/demo/PlanLab.tsx';
 ---
 <Site noindex>
   <div class="plan-lab">
     <header class="plan-lab-head">
       <h1>Plan section lab</h1>
-      <p>Four switcher mechanics around the same story: sources feed an accumulating To Do column.</p>
+      <p>
+        Everything on stage at once — no tabs. Cards land in the column on a staggered choreography;
+        the firing source glows while its card arrives. Reload to replay.
+      </p>
     </header>
 
-    <section class="plan-lab-concept" id="stack">
-      <h2>1 · Stacked sources</h2>
-      <p>The app's own terminal stack as the switcher — click a peek strip to bring that source forward.</p>
-      <ConceptStack client:visible />
+    <section class="plan-lab-concept" id="mosaic">
+      <h2>A · Mosaic</h2>
+      <p>Terminal tall on the left, issues and plan stacked beside it, column on the right.</p>
+      <ArrangeMosaic client:visible />
     </section>
 
-    <section class="plan-lab-concept" id="palette">
-      <h2>2 · Palette</h2>
-      <p>A command-palette list drives the stage beside it.</p>
-      <ConceptPalette client:visible />
+    <section class="plan-lab-concept" id="flanked">
+      <h2>B · Flanked</h2>
+      <p>The column dead-center; terminal and issues left, the plan right.</p>
+      <ArrangeFlanked client:visible />
     </section>
 
-    <section class="plan-lab-concept" id="pills">
-      <h2>3 · Pill tabs, one panel</h2>
-      <p>The terminal header's pill group switches a split pane; the column lives inside the same panel.</p>
-      <ConceptPills client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="scroll">
-      <h2>4 · Scroll-driven</h2>
-      <p>The scene pins and scroll steps through the sources.</p>
-      <ConceptScroll client:visible />
+    <section class="plan-lab-concept" id="seamed">
+      <h2>C · One seamed panel</h2>
+      <p>A single panel split by pane seams, the way the app splits terminals — column as the last pane.</p>
+      <ArrangeSeamed client:visible />
     </section>
   </div>
 
   <style is:global>
     .plan-lab {
-      max-width: 1120px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 64px var(--content-padding) 160px;
     }
@@ -44,9 +41,6 @@ import { ConceptStack, ConceptPalette, ConceptPills, ConceptScroll } from '../..
     .plan-lab-concept > p {
       color: #86868b;
       margin: 8px 0 0;
-    }
-    .plan-lab-head {
-      margin-bottom: 24px;
     }
     .plan-lab-concept {
       margin-top: 96px;
@@ -69,6 +63,17 @@ import { ConceptStack, ConceptPalette, ConceptPills, ConceptScroll } from '../..
         opacity: 1;
         transform: none;
       }
+    }
+    .plan-lab-firing {
+      box-shadow:
+        var(--shadow-panel),
+        0 0 0 1px color-mix(in srgb, var(--color-accent) 55%, transparent),
+        0 0 24px color-mix(in srgb, var(--color-accent) 18%, transparent) !important;
+      transition: box-shadow 300ms ease-out;
+    }
+    .plan-lab-firing-flat {
+      background: color-mix(in srgb, var(--color-accent) 5%, transparent);
+      transition: background 300ms ease-out;
     }
   </style>
 </Site>
