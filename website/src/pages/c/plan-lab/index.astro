@@ -1,49 +1,49 @@
 ---
 import Site from '../../../layouts/Site.astro';
 import {
-  VariantAnnotated,
-  VariantAnnotatedStaggered,
-  VariantAnnotatedCentered,
   VariantStory,
   VariantStoryCenter,
   VariantStoryLarge,
+  VariantStoryDesk,
+  VariantStoryWell,
+  VariantStoryOneDesk,
 } from '../../../components/demo/PlanLab.tsx';
 ---
 <Site noindex>
   <div class="plan-lab">
     <header class="plan-lab-head">
       <h1>Plan section lab</h1>
-      <p>Riffs on the diorama (1a–1c) and the story rows (3a–3c). All play their cards as you reach them.</p>
+      <p>The story-row family. 3a–3c vary the layout; 3d–3f put the mocks in visual containers of their own.</p>
     </header>
 
-    <section class="plan-lab-concept" id="v1a">
-      <div class="plan-lab-tag">1a · Diorama — captions above, column right</div>
-      <VariantAnnotated client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="v1b">
-      <div class="plan-lab-tag">1b · Diorama, staggered — offset heights, captions below</div>
-      <VariantAnnotatedStaggered client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="v1c">
-      <div class="plan-lab-tag">1c · Diorama, board centered — sources flank the column</div>
-      <VariantAnnotatedCentered client:visible />
-    </section>
-
     <section class="plan-lab-concept" id="v3a">
-      <div class="plan-lab-tag">3a · Story rows — copy beside each mock, column sticky right</div>
+      <div class="plan-lab-tag">3a · Baseline — copy beside each mock, column sticky right</div>
       <VariantStory client:visible />
     </section>
 
     <section class="plan-lab-concept" id="v3b">
-      <div class="plan-lab-tag">3b · Story rows, column center — rows land cards from both sides</div>
+      <div class="plan-lab-tag">3b · Column center — rows land cards from both sides</div>
       <VariantStoryCenter client:visible />
     </section>
 
     <section class="plan-lab-concept" id="v3c">
-      <div class="plan-lab-tag">3c · Story rows, column left — sub-section scale typography</div>
+      <div class="plan-lab-tag">3c · Column left — sub-section scale typography</div>
       <VariantStoryLarge client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="v3d">
+      <div class="plan-lab-tag">3d · Desktop cards — each mock on its own wallpaper backdrop, hue per row</div>
+      <VariantStoryDesk client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="v3e">
+      <div class="plan-lab-tag">3e · Inset wells — recessed containers, mocks cropped at the edge</div>
+      <VariantStoryWell client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="v3f">
+      <div class="plan-lab-tag">3f · One shared desktop — the whole stage on a single wallpaper container</div>
+      <VariantStoryOneDesk client:visible />
     </section>
   </div>
 
@@ -84,22 +84,6 @@ import {
       line-height: 1.5;
     }
 
-    /* Diorama figure captions */
-    .plan-v1-fig {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      margin: 0;
-    }
-    .plan-v1-fig > figcaption {
-      color: #86868b;
-      font-size: 14px;
-      padding: 0 2px 10px;
-    }
-    .plan-v1-fig.captions-below > figcaption {
-      padding: 12px 2px 0;
-    }
-
     /* Story rows */
     .plan-v3-row {
       display: flex;
@@ -135,6 +119,32 @@ import {
     .plan-v3c .plan-v3-copy p {
       font-size: 16px;
       max-width: 480px;
+    }
+
+    /* Containers separate from the surfaces */
+    .plan-desk {
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      padding: 40px;
+      overflow: hidden;
+      position: relative;
+    }
+    .plan-desk > .glass-bevel {
+      box-shadow:
+        var(--shadow-panel),
+        0 32px 64px -32px rgba(0, 0, 0, 0.75);
+    }
+    .plan-well {
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+      box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.4);
+      padding: 36px;
+      overflow: hidden;
+      position: relative;
+    }
+    .plan-well-crop {
+      padding: 40px 0 0 40px;
     }
 
     /* Choreography */

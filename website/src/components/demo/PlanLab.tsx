@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TaskWithWorkspace } from '../../ouijit-ui/types';
 import { KanbanColumnView } from '../../ouijit-ui/components/kanban/KanbanColumnView';
 import { KanbanCardView } from '../../ouijit-ui/components/kanban/KanbanCardView';
@@ -45,48 +45,6 @@ interface Choreo {
 
 function toTasks(added: SourceKey[]): TaskWithWorkspace[] {
   return [...added.map((key) => TASK_BY_SOURCE[key]).reverse(), SEED_TASK];
-}
-
-/** Plays the landing sequence once, the first time `ref` scrolls into view. */
-function useChoreoOnVisible(ref: RefObject<HTMLElement | null>): Choreo {
-  const [added, setAdded] = useState<SourceKey[]>([]);
-  const [firing, setFiring] = useState<SourceKey | null>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    let alive = true;
-    let started = false;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (started || !entries.some((e) => e.isIntersecting)) return;
-        started = true;
-        observer.disconnect();
-        void (async () => {
-          await sleep(500);
-          for (const key of SEQUENCE) {
-            if (!alive) return;
-            setFiring(key);
-            await sleep(450);
-            if (!alive) return;
-            setAdded((prev) => [...prev, key]);
-            await sleep(950);
-          }
-          setFiring(null);
-        })();
-      },
-      { threshold: 0.4 },
-    );
-    observer.observe(el);
-    return () => {
-      alive = false;
-      observer.disconnect();
-    };
-  }, [ref]);
-  return {
-    tasks: toTasks(added),
-    newest: added.length > 0 ? TASK_BY_SOURCE[added[added.length - 1]].taskNumber : null,
-    firing,
-  };
 }
 
 /** Per-row landings for the story variants: rows fire as they scroll in. */
@@ -278,133 +236,6 @@ const ledge = (icon: string, label: string, hint?: string) => (
     {hint && <span className="ml-auto font-mono text-[11px] text-ink/35">{hint}</span>}
   </>
 );
-
-/* ─── Variant 1: annotated diorama, plays once on view ────────────── */
-
-export function VariantAnnotated() {
-  const ref = useRef<HTMLDivElement>(null);
-  const choreo = useChoreoOnVisible(ref);
-  return (
-    <div ref={ref} className="plan-v1">
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <p className="plan-v-sub">
-        Agents, GitHub issues, and your own two hands all feed the same board — and every task carries its plan.
-      </p>
-      <div className="flex gap-5 items-stretch" style={{ height: 540, marginTop: 56 }}>
-        <figure className="plan-v1-fig" style={{ flex: '1.15 1 0' }}>
-          <figcaption>An agent breaks down the epic</figcaption>
-          <Panel firing={choreo.firing === 'agent'} className="flex-1" ledge={ledge('terminal', 'claude', 'ouijit task create')}>
-            <AgentPane />
-          </Panel>
-        </figure>
-        <div className="flex flex-col gap-5 min-w-0" style={{ flex: '1 1 0' }}>
-          <figure className="plan-v1-fig shrink-0">
-            <figcaption>Issues become tasks</figcaption>
-            <Panel firing={choreo.firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
-              <IssuePane />
-            </Panel>
-          </figure>
-          <figure className="plan-v1-fig flex-1 min-h-0">
-            <figcaption>The detail rides in plan.md</figcaption>
-            <Panel className="flex-1" ledge={ledge('file-text', 'plan.md')}>
-              <PlanPane short />
-            </Panel>
-          </figure>
-        </div>
-        <figure className="plan-v1-fig shrink-0" style={{ width: 300 }}>
-          <figcaption>…or type one straight in</figcaption>
-          <PlanColumn choreo={choreo} framed width={300} />
-        </figure>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Variant 1b: staggered diorama, captions below ───────────────── */
-
-export function VariantAnnotatedStaggered() {
-  const ref = useRef<HTMLDivElement>(null);
-  const choreo = useChoreoOnVisible(ref);
-  return (
-    <div ref={ref}>
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <p className="plan-v-sub">
-        Agents, GitHub issues, and your own two hands all feed the same board — and every task carries its plan.
-      </p>
-      <div className="flex gap-6 items-start" style={{ height: 660, marginTop: 64 }}>
-        <figure className="plan-v1-fig captions-below" style={{ flex: '1.15 1 0', marginTop: 48, height: 500 }}>
-          <Panel firing={choreo.firing === 'agent'} className="flex-1" ledge={ledge('terminal', 'claude', 'ouijit task create')}>
-            <AgentPane />
-          </Panel>
-          <figcaption>An agent breaks down the epic</figcaption>
-        </figure>
-        <div className="flex flex-col gap-6 min-w-0" style={{ flex: '1 1 0', marginTop: 110 }}>
-          <figure className="plan-v1-fig captions-below shrink-0">
-            <Panel firing={choreo.firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
-              <IssuePane />
-            </Panel>
-            <figcaption>Issues become tasks</figcaption>
-          </figure>
-          <figure className="plan-v1-fig captions-below shrink-0" style={{ height: 280 }}>
-            <Panel className="flex-1" ledge={ledge('file-text', 'plan.md')}>
-              <PlanPane short />
-            </Panel>
-            <figcaption>The detail rides in plan.md</figcaption>
-          </figure>
-        </div>
-        <figure className="plan-v1-fig captions-below shrink-0" style={{ width: 300, height: 560 }}>
-          <div className="flex flex-1 min-h-0">
-            <PlanColumn choreo={choreo} framed width={300} />
-          </div>
-          <figcaption>…or type one straight in</figcaption>
-        </figure>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Variant 1c: the board centered between its sources ──────────── */
-
-export function VariantAnnotatedCentered() {
-  const ref = useRef<HTMLDivElement>(null);
-  const choreo = useChoreoOnVisible(ref);
-  return (
-    <div ref={ref}>
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <p className="plan-v-sub">
-        Agents, GitHub issues, and your own two hands all feed the same board — and every task carries its plan.
-      </p>
-      <div className="flex gap-6 items-stretch" style={{ height: 540, marginTop: 56 }}>
-        <figure className="plan-v1-fig" style={{ flex: '1 1 0' }}>
-          <figcaption>An agent breaks down the epic</figcaption>
-          <Panel firing={choreo.firing === 'agent'} className="flex-1" ledge={ledge('terminal', 'claude', 'ouijit task create')}>
-            <AgentPane />
-          </Panel>
-        </figure>
-        <figure className="plan-v1-fig shrink-0" style={{ width: 300 }}>
-          <figcaption>Everything lands on the board</figcaption>
-          <div className="flex flex-1 min-h-0">
-            <PlanColumn choreo={choreo} framed width={300} />
-          </div>
-        </figure>
-        <div className="flex flex-col gap-6 min-w-0" style={{ flex: '1 1 0' }}>
-          <figure className="plan-v1-fig shrink-0">
-            <figcaption>Issues become tasks</figcaption>
-            <Panel firing={choreo.firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
-              <IssuePane />
-            </Panel>
-          </figure>
-          <figure className="plan-v1-fig flex-1 min-h-0">
-            <figcaption>The detail rides in plan.md</figcaption>
-            <Panel className="flex-1" ledge={ledge('file-text', 'plan.md')}>
-              <PlanPane short />
-            </Panel>
-          </figure>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ─── Variant 3: story rows beside a sticky column ────────────────── */
 
@@ -645,6 +476,228 @@ export function VariantStoryLarge() {
           </StoryCard>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── Containers: desktop backdrops and inset wells ───────────────── */
+
+const DESK_HUES = {
+  indigo:
+    'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.32), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.14), transparent 55%), linear-gradient(180deg, #191a2e, #121218)',
+  teal: 'radial-gradient(120% 140% at 85% 0%, rgba(45, 212, 191, 0.22), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(99, 102, 241, 0.16), transparent 55%), linear-gradient(180deg, #14201f, #101314)',
+  rose: 'radial-gradient(120% 140% at 20% 10%, rgba(233, 103, 159, 0.26), transparent 60%), radial-gradient(120% 130% at 100% 90%, rgba(168, 85, 247, 0.16), transparent 60%), linear-gradient(180deg, #221521, #131015)',
+  violet:
+    'radial-gradient(130% 120% at 80% 0%, rgba(168, 85, 247, 0.22), transparent 55%), radial-gradient(140% 120% at 0% 100%, rgba(59, 130, 246, 0.16), transparent 60%), linear-gradient(180deg, #1a1626, #111016)',
+  graphite: 'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%), linear-gradient(180deg, #1c1d23, #131318)',
+} as const;
+
+function Desk({
+  hue,
+  className = '',
+  style,
+  children,
+}: {
+  hue: keyof typeof DESK_HUES;
+  className?: string;
+  style?: React.CSSProperties;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`plan-desk ${className}`} style={{ backgroundImage: DESK_HUES[hue], ...style }}>
+      {children}
+    </div>
+  );
+}
+
+function Well({ className = '', crop = false, children }: { className?: string; crop?: boolean; children: ReactNode }) {
+  return (
+    <div className={`plan-well ${crop ? 'plan-well-crop' : ''} ${className}`}>
+      {crop ? <div style={{ marginRight: -56, marginBottom: -40 }}>{children}</div> : children}
+    </div>
+  );
+}
+
+/* ─── Variant 3d: each mock on its own desktop card ───────────────── */
+
+export function VariantStoryDesk() {
+  const { choreo, firing, land } = useStoryChoreo();
+  return (
+    <div>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <div className="flex gap-10 items-start" style={{ marginTop: 72 }}>
+        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
+          <StoryRow
+            title="Delegate the breakdown"
+            body="An agent splits the epic and files each task over the CLI, prompt and all."
+            onVisible={() => land('agent')}
+          >
+            <Desk hue="indigo">
+              <Panel firing={firing === 'agent'} style={{ height: 330 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
+                <AgentPane compact />
+              </Panel>
+            </Desk>
+          </StoryRow>
+          <StoryRow
+            title="Pull from GitHub"
+            body="An open issue becomes a task on the board with one click."
+            onVisible={() => land('issue')}
+          >
+            <Desk hue="teal">
+              <Panel firing={firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
+                <IssuePane />
+              </Panel>
+            </Desk>
+          </StoryRow>
+          <StoryRow
+            title="Or just type"
+            body="The composer sits at the bottom of the column, one ⌘N away."
+            onVisible={() => land('manual')}
+          >
+            <Desk hue="rose">
+              <Panel firing={firing === 'manual'}>
+                <div className="p-5">
+                  <ComposerFooter firing={false} />
+                </div>
+              </Panel>
+            </Desk>
+          </StoryRow>
+          <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
+            <Desk hue="violet">
+              <Panel ledge={ledge('file-text', 'plan.md')}>
+                <PlanPane short />
+              </Panel>
+            </Desk>
+          </StoryRow>
+        </div>
+        <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
+          <Desk hue="graphite" style={{ padding: 36 }}>
+            <div className="flex" style={{ height: 470 }}>
+              <PlanColumn choreo={choreo} framed width={300} composer={false} />
+            </div>
+          </Desk>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Variant 3e: inset wells, mocks cropped at the edge ──────────── */
+
+export function VariantStoryWell() {
+  const { choreo, firing, land } = useStoryChoreo();
+  return (
+    <div>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <div className="flex gap-10 items-start" style={{ marginTop: 72 }}>
+        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
+          <StoryRow
+            title="Delegate the breakdown"
+            body="An agent splits the epic and files each task over the CLI, prompt and all."
+            onVisible={() => land('agent')}
+          >
+            <Well crop>
+              <Panel firing={firing === 'agent'} style={{ height: 330 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
+                <AgentPane compact />
+              </Panel>
+            </Well>
+          </StoryRow>
+          <StoryRow
+            title="Pull from GitHub"
+            body="An open issue becomes a task on the board with one click."
+            onVisible={() => land('issue')}
+          >
+            <Well crop>
+              <Panel firing={firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
+                <IssuePane />
+              </Panel>
+            </Well>
+          </StoryRow>
+          <StoryRow
+            title="Or just type"
+            body="The composer sits at the bottom of the column, one ⌘N away."
+            onVisible={() => land('manual')}
+          >
+            <Well crop>
+              <Panel firing={firing === 'manual'}>
+                <div className="p-5">
+                  <ComposerFooter firing={false} />
+                </div>
+              </Panel>
+            </Well>
+          </StoryRow>
+          <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
+            <Well crop>
+              <Panel ledge={ledge('file-text', 'plan.md')}>
+                <PlanPane short />
+              </Panel>
+            </Well>
+          </StoryRow>
+        </div>
+        <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
+          <Well>
+            <div className="flex" style={{ height: 470 }}>
+              <PlanColumn choreo={choreo} framed width={300} composer={false} />
+            </div>
+          </Well>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Variant 3f: the whole stage on one shared desktop ───────────── */
+
+export function VariantStoryOneDesk() {
+  const { choreo, firing, land } = useStoryChoreo();
+  return (
+    <div>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <Desk hue="indigo" style={{ marginTop: 64, padding: '64px 56px' }}>
+        <div className="flex gap-10 items-start">
+          <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 130 }}>
+            <StoryRow
+              title="Delegate the breakdown"
+              body="An agent splits the epic and files each task over the CLI, prompt and all."
+              onVisible={() => land('agent')}
+            >
+              <Panel firing={firing === 'agent'} style={{ height: 330 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
+                <AgentPane compact />
+              </Panel>
+            </StoryRow>
+            <StoryRow
+              title="Pull from GitHub"
+              body="An open issue becomes a task on the board with one click."
+              onVisible={() => land('issue')}
+            >
+              <Panel firing={firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
+                <IssuePane />
+              </Panel>
+            </StoryRow>
+            <StoryRow
+              title="Or just type"
+              body="The composer sits at the bottom of the column, one ⌘N away."
+              onVisible={() => land('manual')}
+            >
+              <Panel firing={firing === 'manual'}>
+                <div className="p-5">
+                  <ComposerFooter firing={false} />
+                </div>
+              </Panel>
+            </StoryRow>
+            <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
+              <Panel ledge={ledge('file-text', 'plan.md')}>
+                <PlanPane short />
+              </Panel>
+            </StoryRow>
+          </div>
+          <div className="shrink-0 sticky" style={{ top: 120, width: 300 }}>
+            <div className="flex" style={{ height: 480 }}>
+              <PlanColumn choreo={choreo} framed width={300} composer={false} />
+            </div>
+          </div>
+        </div>
+      </Desk>
     </div>
   );
 }
