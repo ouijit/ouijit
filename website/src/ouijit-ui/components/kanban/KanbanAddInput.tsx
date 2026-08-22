@@ -12,10 +12,12 @@ interface KanbanAddInputProps {
 export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
   void onAdd;
   return (
-    <button type="button" className="kanban-add-rest" aria-label="New task">
-      <span className="kanban-add-rest-plus">+</span>
-      <span>New task</span>
-      <span className="kanban-add-button-hint kanban-add-button-hint-text">{isMac ? '⌘' : 'Ctrl+'}N</span>
-    </button>
+    <div className="kanban-add-form">
+      <button type="button" className="kanban-add-rest" aria-label="New task">
+        <span className="kanban-add-rest-plus">+</span>
+        <span>New task</span>
+        <span className="kanban-add-button-hint kanban-add-button-hint-text">{isMac ? '⌘' : 'Ctrl '}N</span>
+      </button>
+    </div>
   );
 }
