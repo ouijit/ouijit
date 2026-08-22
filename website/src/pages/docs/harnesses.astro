@@ -1,0 +1,34 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs slug="harnesses">
+  <h1>Harnesses</h1>
+  <p class="lead">
+    Claude Code, Codex, Pi, and OpenCode get live status indicators and learn the <code>ouijit</code> CLI
+    automatically. No configuration required.
+  </p>
+
+  <h2>What you get</h2>
+  <p>Run <code>claude</code>, <code>codex</code>, <code>pi</code>, or <code>opencode</code> in any Ouijit terminal and two things happen:</p>
+  <ul>
+    <li>
+      <strong>Live status</strong>. The terminal card shows whether the agent is thinking or idle, visible
+      across the whole stack. You can tell which sessions need attention without bringing each one forward.
+    </li>
+    <li>
+      <strong>CLI awareness</strong>. The agent knows the <a href="/docs/cli/"><code>ouijit</code> CLI</a>, so
+      it can create tasks, advance the board, stage review comments, and open panels from the shell. See
+      <a href="/docs/agents/">Agents</a>.
+    </li>
+  </ul>
+  <p>
+    This applies only in terminals Ouijit opens, including <a href="/docs/sandbox/">sandboxed</a> ones.
+    Everywhere else these tools behave as they always do.
+  </p>
+
+  <h2>Notifications</h2>
+  <p>
+    When an agent finishes a turn, Ouijit plays a sound. If the window isn't focused, you also get an OS
+    notification. Turn the sound off under <strong>App Settings &rarr; Sound</strong>.
+  </p>
+</Docs>

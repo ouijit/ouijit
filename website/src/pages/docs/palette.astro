@@ -1,0 +1,48 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs slug="palette">
+  <h1>Command palette</h1>
+  <p class="lead">
+    Press <code>⌘K</code> (<code>Ctrl+K</code> on Linux) to jump to any terminal, project, task, or pull
+    request.
+  </p>
+
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/palette.png"
+    alt="Command palette over the kanban board"
+    loading="lazy"
+  />
+
+  <h2>What Enter does</h2>
+  <p>A task is always one row. Its state decides the action:</p>
+  <table>
+    <thead>
+      <tr><th>Row</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Task with a live terminal</td><td><strong>Focus terminal</strong></td></tr>
+      <tr><td>Task with a worktree but no terminal</td><td><strong>Open worktree</strong>: opens a shell there</td></tr>
+      <tr><td>Unstarted task</td><td><strong>Start task</strong>: creates the branch and worktree, moves it to In Progress, opens a shell. No hook runs.</td></tr>
+      <tr><td>Terminal</td><td><strong>Focus terminal</strong>, switching project and view as needed</td></tr>
+      <tr><td>Project</td><td><strong>Switch project</strong></td></tr>
+      <tr><td>Pull request</td><td><strong>Open pull request</strong> in the <a href="/docs/pull-requests/">panel</a></td></tr>
+    </tbody>
+  </table>
+  <p>
+    A task's live terminals nest under its row, each selectable on its own. Pull requests appear for the active
+    project when the <a href="/docs/pull-requests/">GitHub surface</a> is on; a pull request already linked to a
+    task shows as that task instead.
+  </p>
+
+  <h2>Search by anything</h2>
+  <p>
+    Type any part of a name, a task number (<code>T-42</code> or <code>42</code>), a PR number, a branch, a tag,
+    or a project name. Items you open often rise toward the top.
+  </p>
+  <p>
+    With an empty query the palette shows a <strong>Recent</strong> group first, then terminals, projects,
+    tasks, and pull requests.
+  </p>
+</Docs>

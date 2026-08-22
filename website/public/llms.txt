@@ -1,19 +1,28 @@
 # Ouijit
 
-> Ouijit is a customizable task and terminal session manager for macOS and Linux that integrates with agent CLIs and TUIs like Claude Code via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic development like live agent status with notifications, automatic worktree management for parallel workstreams, and per-terminal sandboxing (Lima VM or Seatbelt/Landlock) for untrusted code.
+> Ouijit is a task and terminal manager for macOS and Linux for running coding agents (Claude Code, Codex, Pi, OpenCode) in parallel. Each task gets its own git worktree and terminal, lifecycle hooks launch the agent CLI with the right context, and a session-aware CLI lets agents drive the board back. Live status, notifications, diff review, an experimental GitHub pull request surface, and per-terminal sandboxing (Lima VM or Seatbelt/Landlock via nono) are built in.
 
 Free and open source under the AGPL-3.0 license. No account, no sign-in. Distributed as a downloadable desktop app for macOS 13+ and Linux x64.
 
+Every page below is also served as plain Markdown at https://ouijit.com/docs/<slug>.md (for example https://ouijit.com/docs/cli.md). The full docs in one file: https://ouijit.com/llms-full.txt
+
 ## Documentation
 
-- [Getting Started](https://ouijit.com/docs/#getting-started): Requirements, download links, building from source, and first launch.
-- [Worktree Isolation](https://ouijit.com/docs/#worktrees): Per-task git worktrees, Copy-on-Write cloning, Quick start vs Clean checkout creation modes.
-- [Kanban Board](https://ouijit.com/docs/#kanban): Four-column board (To Do / In Progress / In Review / Done) with drag-and-drop.
-- [Terminal Sessions](https://ouijit.com/docs/#terminals): Card stack UI, keyboard shortcuts, runner panel, diff panel, tags.
-- [Sandbox](https://ouijit.com/docs/#sandbox): Per-terminal sandbox backend chosen from a task's Open in menu. Lima: Linux VM, dual-worktree model with tracked-files-only mount, partial .git mount with hooks/config read-only. nono: in-place on the host worktree under kernel-level access limits (Seatbelt/Landlock), no VM, scoped to the worktree and git data; a lighter boundary than the VM.
-- [Hooks](https://ouijit.com/docs/#hooks): Lifecycle hooks (start, continue, review, done) and on-demand hooks (run, editor) configured per project.
-- [Harnesses](https://ouijit.com/docs/#harnesses): Status indicators and CLI awareness for Claude Code, Codex, Pi, and OpenCode via injected wrappers.
-- [CLI](https://ouijit.com/docs/#cli): The `ouijit` command auto-installed in every terminal, with subcommands for tasks, hooks, scripts, tags, pull requests, themes, panels, and projects.
+- [Getting started](https://ouijit.com/docs/): Requirements, download links, building from source, adding projects, the projects folder, environment checks, updates.
+- [Worktrees](https://ouijit.com/docs/worktrees/): Per-task git worktrees, task lifecycle, merge targets, copy-on-write cloning, Quick start vs Clean checkout creation modes.
+- [Kanban board](https://ouijit.com/docs/kanban/): Four-column board (To Do / In Progress / In Review / Done) with drag-and-drop, task prompts with image attachments, Open in menu.
+- [Terminals](https://ouijit.com/docs/terminals/): Card stack UI, keyboard shortcuts, the multi-project home view, tagging and tag filtering.
+- [Panels](https://ouijit.com/docs/panels/): Tabs on a terminal: runner (run hook and scripts), web preview (embedded browser), markdown with Mermaid and live reload. Multiple instances per kind; also opened via `ouijit markdown add` / `ouijit preview add`.
+- [Command palette](https://ouijit.com/docs/palette/): Mod+K jump to terminals, projects, tasks, and pull requests, with often-used items ranked first; opening an unstarted task creates its worktree.
+- [Diff review](https://ouijit.com/docs/diff/): Per-terminal worktree diff with a base picker (uncommitted, merge target, any branch), word-level highlighting, and notes that re-anchor as code moves and paste into the agent's prompt.
+- [Pull requests](https://ouijit.com/docs/pull-requests/): Experimental GitHub surface driven by the gh CLI: PR inbox, review comments staged locally until the user sends them, merging with optional admin bypass, task linking. Requires gh 2.48.0+ and `gh auth login`.
+- [Sandbox](https://ouijit.com/docs/sandbox/): Per-terminal sandbox backend chosen from a task's Open in menu. Lima: Linux VM, dual-worktree model with tracked-files-only mount, partial .git mount with hooks/config read-only. nono: in-place on the host worktree under kernel-level access limits (Seatbelt/Landlock), no VM, scoped to the worktree and git data; a lighter boundary than the VM.
+- [Session resume](https://ouijit.com/docs/resume/): Quitting saves the session; the next launch offers to reopen every terminal in its worktree, panels included. No hooks fire on resume.
+- [Themes](https://ouijit.com/docs/themes/): System/light/dark, five presets (dracula, tokyo-night, matrix, hot-pink, sepia), custom design-token themes, `ouijit theme` CLI. Global, applies live, restyles terminals including the ANSI palette.
+- [Hooks](https://ouijit.com/docs/hooks/): Five lifecycle hooks (start, continue, run, review, done) configured per project, plus the on-demand editor command. Hooks receive OUIJIT_TASK_* env vars.
+- [Harnesses](https://ouijit.com/docs/harnesses/): Status indicators and CLI awareness for Claude Code, Codex, Pi, and OpenCode via injected wrappers.
+- [Agents](https://ouijit.com/docs/agents/): The contract for agents driving Ouijit: injected CLI reference, environment variables, headless hook flags, panel commands, the staged PR review workflow, sandbox constraints.
+- [CLI](https://ouijit.com/docs/cli/): The `ouijit` command auto-installed in every terminal, with subcommands for tasks, hooks, scripts, tags, pull requests, themes, panels, and projects.
 
 ## Project
 
@@ -24,6 +33,9 @@ Free and open source under the AGPL-3.0 license. No account, no sign-in. Distrib
 
 ## Notable behavior for agents
 
-- The `ouijit` CLI is available in every Ouijit-spawned terminal and authenticated by a per-session bearer token. It writes JSON to stdout.
-- Inside the Lima VM sandbox, the `ouijit` binary is not installed and `/api/*` routes return 403 for sandbox-scoped tokens; only the `/hook` status endpoint is reachable. Under nono the terminal runs on the host, so the `ouijit` CLI shim stays on PATH with access scoped to the task's own data.
-- Claude Code, Codex, and Pi wrappers inject the CLI reference into the agent's system prompt, so agents can drive Ouijit (create tasks, flip statuses, manage hooks and scripts, open markdown and web preview panels) from the shell. OpenCode gets the same CLI reference, injected via the `OPENCODE_CONFIG_CONTENT` env var rather than a system-prompt flag.
+- The `ouijit` CLI is available in every Ouijit-spawned terminal and authenticated by a per-session bearer token. It writes JSON to stdout; errors are `{"error": "..."}` on stderr with a non-zero exit.
+- Every Ouijit terminal sets `OUIJIT_API_URL`, `OUIJIT_API_TOKEN`, and `OUIJIT_PTY_ID`. `ouijit task current` and the panel commands (`markdown`, `preview`) resolve the terminal through `OUIJIT_PTY_ID`. `OUIJIT_API_URL` is unset outside Ouijit terminals, so scripts can detect the environment.
+- Status changes open a hook dialog in the GUI by default. In headless runs, pass `--run-hook`, `--skip-hook`, or `--hook-command "<cmd>"` to `task start`, `task create-and-start`, `task set-status`, and `task bulk-set-status`.
+- For pull request reviews, agents must stage comments locally with `ouijit pr draft add` (with `--origin <name>` and `--body -` for multi-line text) instead of posting with `gh`; the user sends the review from the app. Reading with `gh pr diff` is fine. Anchor comments to lines that appear as added lines in the diff, by new-file line number: one bad anchor makes GitHub reject the whole review.
+- Inside the Lima VM sandbox, the `ouijit` binary is not installed and `/api/*` routes return 403 for sandbox-scoped tokens; only the `/hook` status endpoint is reachable. Under nono the terminal runs on the host, so the `ouijit` CLI shim stays on PATH with access scoped to the task's own data; PR drafts written from a sandbox are stamped with a `sandbox` origin.
+- Claude Code, Codex, and Pi wrappers inject the CLI reference into the agent's system prompt, so agents can drive Ouijit (create tasks, flip statuses, manage hooks and scripts, stage PR drafts, switch themes, open markdown and web preview panels) from the shell. OpenCode gets the same CLI reference, injected via the `OPENCODE_CONFIG_CONTENT` env var rather than a system-prompt flag.

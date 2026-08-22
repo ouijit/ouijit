@@ -1,0 +1,60 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs slug="hooks">
+  <h1>Hooks</h1>
+  <p class="lead">
+    Five lifecycle hooks define how tasks launch and what runs alongside them: <code>start</code>,
+    <code>continue</code>, <code>run</code>, <code>review</code>, and <code>done</code>. Configure them per
+    project.
+  </p>
+
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/settings.png"
+    alt="Project settings with hooks and scripts"
+    loading="lazy"
+  />
+
+  <h2>Lifecycle hooks</h2>
+  <p>Configure these from the kanban column headers or Project Settings.</p>
+  <table>
+    <thead>
+      <tr><th>Hook</th><th>When it runs</th><th>Example</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Start</strong></td><td>Task moves from To Do to In Progress</td><td><code>npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"</code></td></tr>
+      <tr><td><strong>Continue</strong></td><td>Reopening a task already In Progress</td><td><code>claude -c</code></td></tr>
+      <tr><td><strong>Run</strong></td><td>The Run button, <code>⌘P</code>, or a runner <a href="/docs/panels/">panel</a> opens</td><td><code>npm run dev</code></td></tr>
+      <tr><td><strong>Review</strong></td><td>Task moves to In Review</td><td><code>gh pr create --fill</code></td></tr>
+      <tr><td><strong>Done</strong></td><td>Task moves to Done</td><td><code>git push origin HEAD</code></td></tr>
+    </tbody>
+  </table>
+  <p>
+    The most common setup wires the start hook to an agent: <code>claude "$OUIJIT_TASK_DESCRIPTION"</code>
+    launches Claude Code with the task's prompt the moment the task starts.
+  </p>
+
+  <h2 id="hook-environment">Hook environment</h2>
+  <p>Hooks receive the task's context as environment variables:</p>
+  <pre class="glass-bevel"><code>OUIJIT_PROJECT_PATH=/path/to/my-project
+OUIJIT_WORKTREE_PATH=~/Ouijit/worktrees/my-project/T-42
+OUIJIT_TASK_BRANCH=T-42
+OUIJIT_TASK_NAME="Add user auth"
+OUIJIT_TASK_DESCRIPTION="implement oauth login"
+OUIJIT_HOOK_TYPE=start</code></pre>
+  <p>
+    These come on top of the variables every Ouijit terminal gets. See
+    <a href="/docs/cli/#environment-variables">CLI &rarr; Environment variables</a>.
+  </p>
+
+  <h2>Editor</h2>
+  <p>
+    The editor command opens a task's worktree in your editor, from <strong>Open in &rarr; Editor</strong> on a
+    task or terminal. It is configured like a hook (type <code>editor</code>, e.g. <code>code</code> or
+    <code>hx</code>) but is not part of the task lifecycle; it runs on demand. The command runs inside a task
+    terminal, so terminal editors like Helix and Vim get a real TTY, while GUI editors detach and leave a shell
+    behind. File links in <a href="/docs/panels/">markdown panels</a> use the same editor to open files at a
+    specific line.
+  </p>
+</Docs>

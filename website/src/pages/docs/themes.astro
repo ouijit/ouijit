@@ -1,0 +1,50 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs slug="themes">
+  <h1>Themes</h1>
+  <p class="lead">
+    Choose system, light, dark, or one of five presets, or define your own theme as design-token overrides.
+    Themes restyle the whole app, terminals and their ANSI palette included.
+  </p>
+
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/themes.png"
+    alt="The same board in dark, Dracula, Sepia, and light themes"
+    loading="lazy"
+  />
+
+  <h2>Pick a theme</h2>
+  <p>
+    Under <strong>App Settings &rarr; Appearance</strong>, choose <strong>System</strong> (follows the OS
+    appearance live), <strong>Light</strong>, <strong>Dark</strong>, or a theme. Hovering an option previews it
+    without saving. Five presets ship with the app:
+  </p>
+  <table>
+    <thead>
+      <tr><th>Preset</th><th>id</th><th>Base</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Dracula</td><td><code>dracula</code></td><td>dark</td></tr>
+      <tr><td>Tokyo Night</td><td><code>tokyo-night</code></td><td>dark</td></tr>
+      <tr><td>Matrix</td><td><code>matrix</code></td><td>dark</td></tr>
+      <tr><td>Hot Pink</td><td><code>hot-pink</code></td><td>dark</td></tr>
+      <tr><td>Sepia</td><td><code>sepia</code></td><td>light</td></tr>
+    </tbody>
+  </table>
+  <p>The theme is global, not per-project, and changes apply live.</p>
+
+  <h2>Write a custom theme</h2>
+  <p>
+    A theme is a set of design-token overrides on a <code>dark</code> or <code>light</code> base. Add one under
+    <strong>App Settings &rarr; Appearance &rarr; Custom themes</strong>, or from the shell:
+  </p>
+  <pre class="glass-bevel"><code>{`ouijit theme save '{"id":"my-theme","name":"My Theme","base":"dark","tokens":{"--color-accent":"#ff2d55"}}'
+ouijit theme use my-theme`}</code></pre>
+  <p>
+    Any token is overridable: surface and text colors, accent, the full 16-color ANSI palette, diff colors, and
+    shadows. The presets returned by <code>ouijit theme list</code> show the full token vocabulary; saving a
+    theme with a preset's id overrides that preset, and deleting your copy restores it.
+  </p>
+</Docs>

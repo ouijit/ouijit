@@ -1,0 +1,34 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs slug="resume">
+  <h1>Session resume</h1>
+  <p class="lead">Quitting saves the session. The next launch offers to bring its terminals back in their worktrees, panels included.</p>
+
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/resume.png"
+    alt="Resume banner listing the previous session's terminals"
+    loading="lazy"
+  />
+
+  <h2>What gets saved</h2>
+  <p>
+    Ouijit continuously snapshots your open terminals: their project, task, worktree, sandbox backend, order,
+    labels, and each terminal's panels (runner, previews with their URLs, markdown files), split sizes, and diff
+    panel state. Closing the last terminal clears the snapshot.
+  </p>
+
+  <h2>Resume</h2>
+  <p>
+    On the next launch, the home view shows a <strong>Resume last session</strong> banner summarizing what was
+    open, expandable to the full list. <strong>Resume</strong> reopens every terminal in its worktree with its
+    panels; <strong>Dismiss</strong> clears the snapshot. Terminals whose project or task no longer exists, or
+    whose task is Done, are skipped.
+  </p>
+  <p>
+    Restored terminals come back as plain shells. No hook fires, so resuming never launches a fresh agent
+    session on its own. To pick an agent conversation back up, use your harness's own resume (for example a
+    <code>continue</code> hook running <code>claude -c</code>).
+  </p>
+</Docs>

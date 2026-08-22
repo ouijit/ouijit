@@ -1,638 +1,131 @@
 ---
-import Site from '../../layouts/Site.astro';
-
-const sections = [
-  { id: 'getting-started', label: 'Getting Started' },
-  { id: 'worktrees', label: 'Worktree Isolation' },
-  { id: 'kanban', label: 'Kanban Board' },
-  { id: 'terminals', label: 'Terminal Sessions' },
-  { id: 'sandbox', label: 'Sandbox' },
-  { id: 'hooks', label: 'Hooks' },
-  { id: 'harnesses', label: 'Harnesses' },
-  { id: 'cli', label: 'CLI' },
-];
+import Docs from '../../layouts/Docs.astro';
 ---
-<Site title="Documentation · Ouijit" description="Ouijit documentation: getting started, worktrees, kanban, terminals, sandboxing, hooks, and agent harness integration.">
-  <div class="docs-layout">
-    <aside class="docs-sidebar">
-      <h4>Documentation</h4>
-      <ul>
-        {sections.map((s) => (
-          <li>
-            <a href={`#${s.id}`} data-doc-link={s.id}>{s.label}</a>
-          </li>
-        ))}
-      </ul>
-    </aside>
-    <main class="docs-content">
-      <section id="getting-started">
-        <h1>Getting Started</h1>
-        <p class="lead">Install Ouijit and launch your first project in under a minute.</p>
+<Docs slug="getting-started">
+  <h1>Getting started</h1>
+  <p class="lead">
+    Ouijit is a task and terminal manager for running coding agents in parallel. Each task gets its own git
+    worktree and terminal, lifecycle hooks launch your agent with the right context, and a session-aware CLI lets
+    agents drive the board back. From download to an agent working on your first task takes about a minute.
+  </p>
 
-        <h2>Requirements</h2>
-        <ul>
-          <li><strong>macOS</strong> 13+ (Ventura) or <strong>Linux</strong> (x64)</li>
-          <li><strong>Git</strong> 2.20+</li>
-        </ul>
+  <p>
+    Reading this from inside an Ouijit terminal? You're an agent with <code>ouijit</code> on
+    <code>PATH</code> and its reference in your system prompt. The <a href="/docs/agents/">Agents page</a> is
+    your contract, and every page here is plain Markdown at <code>/docs/&lt;slug&gt;.md</code>.
+  </p>
 
-        <h2>Download &amp; Install</h2>
-        <p>Download the latest release for your platform:</p>
-        <ul>
-          <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.dmg">macOS (Apple Silicon)</a></li>
-          <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.dmg">macOS (Intel)</a></li>
-          <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip">Linux (x64)</a></li>
-        </ul>
-        <p>
-          Open the DMG and drag <strong>Ouijit.app</strong> to your Applications folder (macOS) or unzip the archive and
-          extract the binary to a location on your PATH (Linux).
-        </p>
+  <h2>Requirements</h2>
+  <ul>
+    <li><strong>macOS</strong> 13+ (Apple Silicon or Intel) or <strong>Linux</strong> x64</li>
+    <li><strong>Git</strong> 2.20+ on <code>PATH</code></li>
+    <li>An agent CLI you already use: <code>claude</code>, <code>codex</code>, <code>pi</code>, or <code>opencode</code></li>
+  </ul>
+  <p>The downloads are self-contained. Nothing else is required to run the app.</p>
 
-        <h3>Building from source</h3>
-        <p>Requires Node.js 20+ and C/C++ build tools for native modules (better-sqlite3, node-pty, koffi):</p>
-        <ul>
-          <li><strong>macOS:</strong> <code>xcode-select --install</code></li>
-          <li><strong>Linux:</strong> <code>sudo apt install build-essential python3</code></li>
-        </ul>
-        <pre class="glass-bevel"><code>git clone https://github.com/ouijit/ouijit.git
+  <h2>Download and install</h2>
+  <ul>
+    <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.dmg">macOS (Apple Silicon)</a></li>
+    <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.dmg">macOS (Intel)</a></li>
+    <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip">Linux (x64)</a></li>
+  </ul>
+  <p>
+    On macOS, open the DMG and drag <strong>Ouijit.app</strong> to Applications. On Linux, unzip the archive and
+    put the binary somewhere on your <code>PATH</code>.
+  </p>
+
+  <h2>Your first agent task</h2>
+  <ol>
+    <li>
+      <strong>Add a project.</strong> Click the <strong>+</strong> button in the sidebar and select a folder. If
+      it isn't a git repository yet, Ouijit offers to run <code>git init</code> in place. You land on the
+      <a href="/docs/kanban/">kanban board</a>.
+    </li>
+    <li>
+      <strong>Describe the task.</strong> Press <code>⌘N</code> (<code>Ctrl+N</code> on Linux), give the task a
+      name, and write the prompt you'd give your agent. Paste in screenshots if you have them.
+    </li>
+    <li>
+      <strong>Drag the card to In Progress.</strong> Ouijit creates a branch and an isolated
+      <a href="/docs/worktrees/">worktree</a>, opens a terminal in it, and asks what to run. Enter:
+      <pre class="glass-bevel"><code>claude "$OUIJIT_TASK_DESCRIPTION"</code></pre>
+      <strong>Save</strong> remembers it as the project's <a href="/docs/hooks/">start hook</a>, so from now on
+      every card you drag starts an agent on its own copy of the repo.
+    </li>
+    <li>
+      <strong>Watch it work.</strong> The card shows whether the agent is thinking or waiting on you, and Ouijit
+      chimes when a turn ends. Press <code>⌘D</code> to <a href="/docs/diff/">review the diff</a>, leave notes on
+      changed lines, and drag the card to In Review when it's ready.
+    </li>
+  </ol>
+  <p>
+    Repeat from step two, in parallel: each task runs in its own worktree, so agents never trip over each other.
+  </p>
+
+  <h2>Where to go next</h2>
+  <ul>
+    <li><a href="/docs/palette/">Command palette</a>: jump between everything with <code>⌘K</code>.</li>
+    <li><a href="/docs/panels/">Panels</a>: put the agent's plan, its dev server, and a runner beside its terminal.</li>
+    <li><a href="/docs/sandbox/">Sandbox</a>: run a task in a Lima VM or under nono when you don't trust the code.</li>
+    <li><a href="/docs/pull-requests/">Pull requests</a>: review and merge without leaving Ouijit.</li>
+  </ul>
+
+  <h2>Build from source</h2>
+  <p>Building needs Node.js 20+ (the repo pins 22) and C/C++ build tools for the native modules (better-sqlite3, node-pty, koffi):</p>
+  <ul>
+    <li><strong>macOS:</strong> <code>xcode-select --install</code></li>
+    <li><strong>Linux:</strong> <code>sudo apt install build-essential python3</code> (Debian/Ubuntu)</li>
+  </ul>
+  <pre class="glass-bevel"><code>git clone https://github.com/ouijit/ouijit.git
 cd ouijit
 npm install
 npm start</code></pre>
 
-        <h2>First Launch</h2>
-        <p>
-          When you first open Ouijit you'll see the <strong>home view</strong> with a sidebar listing your projects on the
-          left. The main area shows terminal sessions grouped by project, empty on first launch until you add a project and
-          start working.
-        </p>
+  <h2>Projects folder</h2>
+  <p>
+    New projects are created in <code>~/Ouijit/projects</code> by default. Change it under
+    <strong>App Settings &rarr; Projects</strong>. If projects still live in the old folder, Ouijit asks whether
+    to move them (tasks, hooks, and settings stay attached), forget them (files stay on disk), or leave them
+    where they are.
+  </p>
 
-        <h3>Adding a project</h3>
-        <ol>
-          <li>Click the <strong>+</strong> button in the sidebar.</li>
-          <li>Select a folder. If it's a git repository, Ouijit adds it directly.</li>
-        </ol>
-        <p>
-          If the folder isn't a git repository yet, Ouijit offers to run <code>git init</code> on it in place, then adds the
-          project automatically.
-        </p>
+  <h2>Check your environment</h2>
+  <p>
+    Ouijit checks your environment at startup: git, the agent CLIs (<code>claude</code>, <code>codex</code>,
+    <code>pi</code>, <code>opencode</code>), and the tools behind optional features (<code>gh</code>, Lima,
+    nono). The <strong>Help &amp; setup</strong> dialog shows each result, and dialogs that need a missing tool
+    say so inline.
+  </p>
 
-        <h3>Opening a project</h3>
-        <p>Click any project to open it. You'll start on the kanban board, and opening a task launches its terminal.</p>
-      </section>
-
-      <section id="worktrees">
-        <h1>Worktree Isolation</h1>
-        <p class="lead">
-          Every task gets its own git worktree, so you can work on multiple features simultaneously without branch switching.
-        </p>
-
-        <h2>What are git worktrees?</h2>
-        <p>
-          Git worktrees let you check out multiple branches of the same repository into separate directories at the same
-          time. Each worktree has its own working directory with its own checked-out branch.
-        </p>
-        <p>Ouijit creates a worktree when you start a task, so each piece of work gets its own directory and branch.</p>
-
-        <h2>Task lifecycle</h2>
-        <p>A task has one of four statuses: <strong>To Do</strong>, <strong>In Progress</strong>, <strong>In Review</strong>, <strong>Done</strong>. Each event below changes the status and may run a <a href="#hooks">hook</a>.</p>
-        <table>
-          <thead>
-            <tr><th>Event</th><th>Status</th><th>What Ouijit does</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Create</strong></td>
-              <td>&rarr; To Do</td>
-              <td>Adds a task card to the To Do column.</td>
-            </tr>
-            <tr>
-              <td><strong>Start</strong></td>
-              <td>To Do &rarr; In Progress</td>
-              <td>Creates a branch (e.g. <code>T-42</code>) and a worktree at <code>~/Ouijit/worktrees/&lt;project&gt;/T-42</code>, opens a terminal in it, runs the <code>start</code> hook.</td>
-            </tr>
-            <tr>
-              <td><strong>Continue</strong></td>
-              <td>In Review or Done &rarr; In Progress</td>
-              <td>Opens a new terminal in the existing worktree, runs the <code>continue</code> hook.</td>
-            </tr>
-            <tr>
-              <td><strong>Review</strong></td>
-              <td>&rarr; In Review</td>
-              <td>Runs the <code>review</code> hook.</td>
-            </tr>
-            <tr>
-              <td><strong>Done</strong></td>
-              <td>&rarr; Done</td>
-              <td>Runs the <code>done</code> hook.</td>
-            </tr>
-            <tr>
-              <td><strong>Delete</strong></td>
-              <td>Task removed</td>
-              <td>Moves the worktree to the trash, deletes the branch.</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h2>Copy-on-Write cloning</h2>
-        <p>
-          Ouijit clones worktrees using <strong>Copy-on-Write (CoW)</strong> via the native file system (APFS on macOS,
-          reflinks on Linux with btrfs/XFS). Disk blocks are shared with the original until a file is modified.
-        </p>
-        <ul>
-          <li>Worktree creation is fast regardless of repo size.</li>
-          <li>Disk usage is proportional to your actual changes, not the full repo.</li>
-          <li>Gitignored files (dependencies, build caches) are cloned too, so the worktree is ready to run.</li>
-        </ul>
-
-        <h2>Creation modes</h2>
-        <p>Each project picks how new worktrees are populated. Set this in <strong>Project Settings &rarr; Worktree</strong>.</p>
-        <table>
-          <thead>
-            <tr><th>Mode</th><th>What lands in the worktree</th><th>When to pick it</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Quick start</strong> (default)</td>
-              <td>Tracked files plus a Copy-on-Write clone of every gitignored path (<code>node_modules</code>, <code>.env</code>, build caches).</td>
-              <td>You want a worktree that's ready to run immediately with no setup step.</td>
-            </tr>
-            <tr>
-              <td><strong>Clean checkout</strong></td>
-              <td>Just <code>git worktree add</code>. Only tracked files appear.</td>
-              <td>You want a reproducible setup driven by your <a href="#hooks">Start hook</a> (e.g. <code>npm ci</code>), or you don't want gitignored secrets copied across tasks.</td>
-            </tr>
-          </tbody>
-        </table>
-        <p>
-          Sandboxed tasks always use clean checkout, regardless of this setting. Provision the VM-side environment via the
-          <strong>Sandbox Setup</strong> hook.
-        </p>
-
-        <h2>Directory structure</h2>
-        <pre class="glass-bevel"><code>~/Ouijit/worktrees/
-  my-project/
-    T-42/                # Worktree for task 42
-    T-43/                # Worktree for task 43</code></pre>
-        <p>Worktrees live under <code>~/Ouijit/worktrees/</code>, organized by project name.</p>
-
-        <h2>Manual worktree operations</h2>
-        <p>
-          Ouijit manages worktrees for you, but they're standard git worktrees. You can inspect them with regular git
-          commands:
-        </p>
-        <pre class="glass-bevel"><code># List all worktrees
-git worktree list
-
-# From inside a worktree, check which branch it's on
-git branch --show-current</code></pre>
-      </section>
-
-      <section id="kanban">
-        <h1>Kanban Board</h1>
-        <p class="lead">A four-column board for organizing tasks with drag-and-drop.</p>
-
-        <h2>Columns</h2>
-        <p>The four columns map to the four task statuses: <strong>To Do</strong>, <strong>In Progress</strong>, <strong>In Review</strong>, <strong>Done</strong>. Dragging a card between columns changes its status, which can fire a <a href="#hooks">hook</a>. See <a href="#worktrees">Task lifecycle</a> for the mapping.</p>
-
-        <h2>Creating tasks</h2>
-        <p>Click the <strong>+</strong> button on any column header, or press <code>⌘N</code> (<code>Ctrl+N</code> on Linux) to create a new task. Give it a title and optional description.</p>
-        <p>Each task gets an auto-incrementing number (e.g. <code>T-1</code>, <code>T-2</code>) used for branch names and worktree directories.</p>
-
-        <h2>Drag and drop</h2>
-        <p>Drag task cards between columns to change their status. You can also reorder tasks within a column.</p>
-        <p>When dragging a task from <strong>To Do</strong> to <strong>In Progress</strong>, Ouijit automatically creates a git worktree and branch for the task.</p>
-
-        <h2>Task actions</h2>
-        <p>Right-click a task card to access its context menu:</p>
-        <ul>
-          <li><strong>Open in</strong>. A submenu: a terminal in the task's worktree, a <a href="#sandbox">sandboxed</a> terminal for each installed backend (<strong>Lima VM</strong> or <strong>nono</strong>), or the worktree in your configured editor.</li>
-          <li><strong>Rename</strong>. Edit the task's display name inline.</li>
-          <li><strong>Move to Done / Reopen</strong>. Complete an active task or reopen a finished one.</li>
-          <li><strong>Delete</strong>. Permanently remove the task.</li>
-        </ul>
-        <p>If a task already has running terminals, they'll appear at the top of the menu so you can jump straight to them.</p>
-      </section>
-
-      <section id="terminals">
-        <h1>Terminal Sessions</h1>
-        <p class="lead">Integrated terminal sessions with a card stack UI for multi-terminal workflows.</p>
-
-        <h2>Card stack</h2>
-        <p>Terminals are displayed as stacked cards. The active terminal is in front; background terminals peek out behind it so you can see what's running.</p>
-        <p>Each terminal is a full PTY session running your default shell, opened in the task's worktree directory.</p>
-
-        <h2>Opening terminals</h2>
-        <p>When you start a task (move it to In Progress), a terminal opens automatically in the task's worktree. You can open additional terminals for the same task: one for a dev server, one for an editor, one for an agent, or any combination you need.</p>
-
-        <h2>Keyboard shortcuts</h2>
-        <p>Click on a background terminal card to bring it to the front, or use keyboard shortcuts:</p>
-        <table>
-          <thead>
-            <tr><th>Shortcut</th><th>Action</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>⌘I</code> / <code>Ctrl+I</code></td><td>New terminal</td></tr>
-            <tr><td><code>⌘W</code> / <code>Ctrl+W</code></td><td>Close terminal</td></tr>
-            <tr><td><code>⌘1</code>–<code>⌘9</code> / <code>Ctrl+1</code>–<code>Ctrl+9</code></td><td>Select terminal by position</td></tr>
-            <tr><td><code>⌘⇧←</code> / <code>Ctrl+Shift+Left</code></td><td>Previous stack page</td></tr>
-            <tr><td><code>⌘⇧→</code> / <code>Ctrl+Shift+Right</code></td><td>Next stack page</td></tr>
-            <tr><td><code>⌘T</code> / <code>Ctrl+T</code></td><td>Toggle between kanban board and terminal stack</td></tr>
-            <tr><td><code>⌘N</code> / <code>Ctrl+N</code></td><td>Show kanban board and focus new task input</td></tr>
-            <tr><td><code>⌘P</code> / <code>Ctrl+P</code></td><td>Toggle runner panel</td></tr>
-            <tr><td><code>⌘D</code> / <code>Ctrl+D</code></td><td>Toggle diff panel</td></tr>
-          </tbody>
-        </table>
-        <h2>Runner panel</h2>
-        <p>A secondary terminal alongside the main stack, for long-running processes like dev servers. Toggle it with <code>⌘P</code> (<code>Ctrl+P</code> on Linux) or the Run button. The runner executes the project's <strong>run</strong> <a href="#hooks">hook</a> (e.g. <code>npm run dev</code>).</p>
-
-        <h2>Diff panel</h2>
-        <p>Shows what changed in the current worktree relative to the target branch. Files are listed with per-file diffs organized by hunk. Toggle it with <code>⌘D</code> (<code>Ctrl+D</code> on Linux).</p>
-
-        <h2>Tags</h2>
-        <p>Tag terminals to organize them. Tags appear on terminal cards, and the home view can group by tag.</p>
-
-        <h2>Working with harnesses</h2>
-        <p>Each terminal is a normal shell, so any CLI tool runs in it. <a href="#harnesses">Claude Code, Codex, Pi, and OpenCode</a> get live status indicators and can drive Ouijit through the <a href="#cli">CLI</a>.</p>
-      </section>
-
-      <section id="sandbox">
-        <h1>Sandbox</h1>
-        <p class="lead">Run a task's terminals and hooks inside a sandbox. Two backends are available: a Lima VM, or nono's kernel-level access limits.</p>
-
-        <h2>Choosing a backend</h2>
-        <p>Sandboxing is a per-terminal choice. Right-click a task and use <strong>Open in &rarr; Lima VM sandbox</strong> or <strong>Open in &rarr; nono sandbox</strong>; an entry appears for each backend installed on your system. Plain <strong>Open in &rarr; Terminal</strong> runs on the host, unsandboxed. Every terminal and <a href="#hooks">lifecycle hook</a> opened for that task then runs under the chosen backend. A sandboxed terminal carries an outlined status dot and a backend suffix on its label.</p>
-        <p>Each backend has its own config surface under <strong>Project Settings &rarr; Sandbox</strong>.</p>
-
-        <h2>Lima VM</h2>
-        <p>Lima-sandboxed terminals run inside a Linux VM, on a parallel git branch, in a worktree that contains only tracked files.</p>
-
-        <h3>What it does</h3>
-        <p>For a Lima-sandboxed task, Ouijit creates a second git worktree at <code>~/Ouijit/sandbox-views/&lt;project&gt;/T-N-sandbox</code> on a child branch <code>s/&lt;your-branch&gt;</code>. Because it's a plain <code>git worktree add</code>, only tracked files exist there: no <code>.env</code>, <code>node_modules</code>, build caches, or anything else gitignored. That sandbox-view directory is what gets mounted into a <a href="https://lima-vm.io" target="_blank" rel="noopener">Lima</a> VM as the agent's working directory. Your real worktree is never mounted.</p>
-        <p>When the agent commits inside the VM, the commit lands on <code>s/&lt;your-branch&gt;</code>. A host-side watcher fast-forwards your branch to match. If you committed in parallel on the host, the fast-forward fails and Ouijit surfaces a divergence affordance.</p>
-
-        <h3>How it works</h3>
-        <ol>
-          <li><strong>Open a Lima sandbox terminal</strong>. From a task's <strong>Open in &rarr; Lima VM sandbox</strong>. Every terminal and hook for that task then runs in the VM.</li>
-          <li><strong>First terminal</strong>. Ouijit lazily creates an Ubuntu 24.04 VM via Lima on the first sandboxed spawn for a project. One VM per project, reused across that project's sandboxed tasks.</li>
-          <li><strong>Spawn progress</strong>. The dialog shows each step: <em>Checking VM status, Creating / Starting, SSH connecting, Provisioning, Launching shell</em>. First boot takes 1-2 minutes; later spawns reuse the running VM.</li>
-          <li><strong>Shell sessions</strong>. Terminals run inside the VM via <code>limactl shell</code>, with cwd set to the sandbox-view path.</li>
-          <li><strong>VM lifecycle &amp; resources</strong>. Manage the VM from <strong>Project Settings &rarr; Sandbox &rarr; Lima VM</strong>: see status (Running / Stopped / Broken / Not created), create, start, stop, recreate, open a console, and edit the merged Lima YAML config (memory, CPU, disk, mounts). Resource changes prompt a recreate.</li>
-        </ol>
-
-        <h3>Mount surface</h3>
-        <p>Only two host paths are exposed to the VM:</p>
-        <table>
-          <thead>
-            <tr><th>Host path</th><th>In guest</th><th>Why</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>~/Ouijit/sandbox-views/&lt;proj&gt;/</code></td><td>Read/write</td><td>The agent's tracked-files-only worktree.</td></tr>
-            <tr><td><code>&lt;project&gt;/.git/</code></td><td>Read-only base, with read/write overlays at <code>objects/</code>, <code>refs/</code>, <code>logs/</code>, <code>worktrees/</code></td><td>Commits need to write packs, refs, and reflogs. <code>hooks/</code>, <code>config</code>, and <code>packed-refs</code> stay read-only.</td></tr>
-          </tbody>
-        </table>
-        <p>Your home directory, source tree, system binaries, and any other host paths are not mounted at all.</p>
-
-        <h3>Isolation properties</h3>
-        <ul>
-          <li><strong>Gitignored content is not in the mount</strong>. <code>.env</code>, <code>.npmrc</code>, <code>secrets/</code>, <code>node_modules</code>, and build artifacts never leave the host.</li>
-          <li><strong>Host toolchains stay separate</strong>. darwin-arm64 <code>node_modules</code>, Rust <code>target/</code>, and Python <code>.venv</code> don't collide with the Linux guest.</li>
-          <li><strong>Parallel sandboxed tasks</strong> on the same project share the VM but work in separate sandbox-view directories.</li>
-          <li><strong><code>.git/hooks/</code> and <code>.git/config</code> are read-only</strong> in the mount, so writes from the VM that would land there fail with <code>EROFS</code>.</li>
-          <li><strong>No <code>ouijit</code> CLI in the VM.</strong> The binary isn't installed; the <code>/api/*</code> routes return 403 for sandbox-scoped tokens. Only the <code>/hook</code> endpoint accepts them.</li>
-        </ul>
-
-        <h4>Caveats</h4>
-        <ul>
-          <li><strong>Committed files are always visible.</strong> The sandbox view is populated from the index, so anything you committed lives there regardless of <code>.gitignore</code>. To remove: <code>git rm --cached &lt;file&gt;</code> and rotate.</li>
-          <li><strong>Commits round-trip through fast-forward.</strong> Parallel commits on the host cause the ff-merge to fail; Ouijit surfaces a divergence affordance in that case.</li>
-          <li><strong>The VM has no git credentials.</strong> Pushes happen from the host. Commits staged inside the VM ride the next host-side push.</li>
-          <li><strong>The VM's $HOME is out of scope.</strong> The isolation described above applies to mounts. Files copied into the VM's home (<code>~/.netrc</code>, <code>~/.git-credentials</code>, etc.) aren't.</li>
-        </ul>
-
-        <h3>Customizing the VM</h3>
-        <p>VMs start from a clean Ubuntu 24.04 image with <code>bash</code>, <code>git</code>, <code>curl</code>, <code>wget</code>, <code>nodejs</code>, <code>npm</code>, <code>python3</code>, and <code>build-essential</code> pre-installed. Defaults are 4 GiB memory, 2 CPUs, 10 GiB disk.</p>
-        <p>Resource limits, extra packages, additional mounts, and provisioning scripts are controlled by the Lima YAML config in <strong>Project Settings &rarr; Sandbox &rarr; Lima VM</strong>. The editor shows the merged effective config and lets you write overrides; Ouijit prompts you to recreate the VM when changes require it.</p>
-        <p>See the <a href="https://lima-vm.io/docs/config/" target="_blank" rel="noopener">Lima configuration reference</a> for the available keys.</p>
-
-        <h3>Requirements</h3>
-        <p>Ouijit bundles <code>limactl</code>; nothing extra to install.</p>
-        <ul>
-          <li><strong>macOS</strong>. Apple's Virtualization.framework (vz) with vzNAT networking.</li>
-          <li><strong>Linux</strong>. QEMU with user-mode networking.</li>
-        </ul>
-
-        <h3>Limitations</h3>
-        <ul>
-          <li>First boot downloads an Ubuntu cloud image and provisions packages. Requires internet and takes 1-2 minutes.</li>
-          <li>GPU passthrough is not supported.</li>
-          <li>macOS-specific tooling (Xcode, Swift) is not available inside the Linux VM.</li>
-          <li>Docker-in-VM requires additional Lima configuration.</li>
-          <li>The VM home directory is ephemeral. Anything outside the mounted sandbox-views and <code>.git</code> overlays is lost on recreate.</li>
-        </ul>
-
-        <h2>nono</h2>
-        <p><a href="https://github.com/nolabs-ai/nono" target="_blank" rel="noopener">nono</a> runs a task's commands in place on the host worktree under kernel-level access limits (Seatbelt on macOS, Landlock on Linux). There is no VM and no file sync, so it starts instantly. Compared to the Lima VM it is a lighter boundary: a kernel access policy on a host process rather than a separate machine.</p>
-        <p>nono is currently experimental. Turn it on under <strong>Project Settings &rarr; Experimental</strong>; the <strong>nono sandbox</strong> entry then appears in a task's <strong>Open in</strong> menu.</p>
-
-        <h3>What it does</h3>
-        <p>Terminals and hooks run on the real worktree, wrapped by <code>nono</code>. Filesystem access is limited to the worktree and the repo's git data, with the same read/write overlays at <code>objects/</code>, <code>refs/</code>, <code>logs/</code>, <code>worktrees/</code> so commits land while <code>hooks/</code> and <code>config</code> stay read-only. Ouijit derives these grants from the task's worktree path at spawn time. Network is allowed by default; the local hook-server port stays reachable so agent status still reports back.</p>
-
-        <h3>Configuration</h3>
-        <p>Under <strong>Project Settings &rarr; Sandbox &rarr; nono</strong>:</p>
-        <ul>
-          <li><strong>Additional folders</strong>. Extra paths granted read/write beyond the worktree and git data, e.g. a shared cache or a monorepo sibling.</li>
-          <li><strong>Block outbound network</strong>. Deny outbound connections. The hook-server port stays open so agent status keeps working.</li>
-          <li><strong>Allowed ports</strong>. Extra localhost ports to keep reachable, e.g. a dev server on <code>3000</code>.</li>
-        </ul>
-
-        <h3>Requirements</h3>
-        <p>Ouijit bundles the <code>nono</code> binary and the agent packs it uses; nothing extra to install.</p>
-        <ul>
-          <li><strong>macOS</strong>. Seatbelt (<code>sandbox-exec</code>).</li>
-          <li><strong>Linux</strong>. Landlock, which needs kernel 5.13 or newer.</li>
-        </ul>
-      </section>
-
-      <section id="hooks">
-        <h1>Hooks</h1>
-        <p class="lead">Shell commands that run at key moments in a task's lifecycle. Configure per project.</p>
-
-        <h2>Lifecycle hooks</h2>
-        <p>These fire when a task changes status. Configure them from the kanban column headers.</p>
-        <table>
-          <thead>
-            <tr><th>Hook</th><th>When it runs</th><th>Example</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><strong>Start</strong></td><td>Task moves from To Do to In Progress</td><td><code>npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"</code></td></tr>
-            <tr><td><strong>Continue</strong></td><td>Reopening a task already In Progress</td><td><code>claude -c</code></td></tr>
-            <tr><td><strong>Review</strong></td><td>Task moves to In Review</td><td><code>gh pr create --fill</code></td></tr>
-            <tr><td><strong>Done</strong></td><td>Task moves to Done</td><td><code>git push origin HEAD</code></td></tr>
-          </tbody>
-        </table>
-
-        <h2>Other hooks</h2>
-        <p>These run on demand rather than on lifecycle transitions. Configure them from the header bar.</p>
-        <table>
-          <thead>
-            <tr><th>Hook</th><th>What it does</th><th>Example</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><strong>Run</strong></td><td>Command for the Run button (dev server, etc.)</td><td><code>npm run dev</code></td></tr>
-            <tr><td><strong>Editor</strong></td><td>Opens the worktree in your editor</td><td><code>open -a "Visual Studio Code"</code></td></tr>
-          </tbody>
-        </table>
-
-        <h2>Environment variables</h2>
-        <p>Hooks receive these env vars:</p>
-        <pre class="glass-bevel"><code>OUIJIT_PROJECT_PATH=/path/to/my-project
-OUIJIT_WORKTREE_PATH=~/Ouijit/worktrees/my-project/T-42
-OUIJIT_TASK_BRANCH=T-42
-OUIJIT_TASK_NAME="Add user auth"
-OUIJIT_TASK_DESCRIPTION="implement oauth login"
-OUIJIT_HOOK_TYPE=start</code></pre>
-        <p>A common pattern is wiring the start hook to an agent: <code>claude "$OUIJIT_TASK_DESCRIPTION"</code> launches Claude Code with the task description as its prompt the moment a task moves to In Progress.</p>
-      </section>
-
-      <section id="harnesses">
-        <h1>Harnesses</h1>
-        <p class="lead">Claude Code, Codex, Pi, and OpenCode get live status indicators and can drive Ouijit through its CLI. No configuration required.</p>
-
-        <h2>What you get</h2>
-        <p>Run <code>claude</code>, <code>codex</code>, <code>pi</code>, or <code>opencode</code> in any Ouijit terminal and two things happen automatically:</p>
-        <ul>
-          <li>
-            <strong>Live status</strong>. The terminal card shows whether the agent is thinking or idle, visible across the
-            entire terminal stack. You can tell which sessions need attention without bringing each one to the front.
-          </li>
-          <li>
-            <strong>CLI awareness</strong>. The <a href="#cli"><code>ouijit</code> CLI</a> reference is appended to the
-            agent's system prompt. The agent can create tasks, flip statuses, manage hooks and scripts, and open panels
-            from the shell, the same as you would.
-          </li>
-        </ul>
-
-        <h2>How it works</h2>
-        <p>
-          Ouijit installs a thin wrapper for each supported harness into the terminal's <code>PATH</code>. The wrapper
-          shadows the real binary, injects the CLI reference into the harness's system prompt, and wires status hooks
-          back to Ouijit. The mechanism differs per harness:
-        </p>
-        <table>
-          <thead>
-            <tr><th>Harness</th><th>Status wiring</th><th>System prompt</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Claude Code</strong></td>
-              <td><code>--settings</code> with <code>UserPromptSubmit</code> / <code>Stop</code> hooks</td>
-              <td><code>--append-system-prompt-file</code></td>
-            </tr>
-            <tr>
-              <td><strong>Codex</strong></td>
-              <td><code>-c hooks.&lt;Event&gt;=...</code> overrides, pre-trusted so they fire without <code>/hooks</code> approval</td>
-              <td><code>-c developer_instructions=...</code></td>
-            </tr>
-            <tr>
-              <td><strong>Pi</strong></td>
-              <td><code>--extension</code> loading a generated TypeScript extension that subscribes to <code>turn_start</code> / <code>turn_end</code></td>
-              <td><code>--append-system-prompt</code></td>
-            </tr>
-            <tr>
-              <td><strong>OpenCode</strong></td>
-              <td>Status plugin loaded from opencode's auto-load dir, reporting off the <code>session.status</code> event</td>
-              <td>CLI reference injected via <code>OPENCODE_CONFIG_CONTENT</code> (opencode has no system-prompt CLI flag)</td>
-            </tr>
-          </tbody>
-        </table>
-        <p>When <code>OUIJIT_API_URL</code> is unset (i.e. the harness runs outside an Ouijit terminal), the wrappers exec the real binary unmodified.</p>
-
-        <h2>Sandboxed terminals</h2>
-        <p>Status indicators work inside both <a href="#sandbox">sandbox backends</a>.</p>
-        <ul>
-          <li><strong>Lima VM</strong>. Claude settings, Codex config, the Pi extension, and the opencode plugin are written into the VM's home directory, and their hooks reach back over <code>host.lima.internal</code>. The <code>ouijit</code> CLI isn't installed in the VM, and the <code>/api/*</code> routes reject sandbox-scoped tokens.</li>
-          <li><strong>nono</strong>. Terminals run on the host, so the agent uses your real config and hooks reach the hook server over localhost. The <code>ouijit</code> CLI shim stays on <code>PATH</code> with access scoped to the task's own data.</li>
-        </ul>
-
-        <h2>Notifications</h2>
-        <p>When an agent finishes a turn, Ouijit plays a sound. If the window isn't focused, you also get an OS notification.</p>
-        <p>Turn the sound off under <strong>App Settings &rarr; Sound</strong> with the <strong>Play a sound when a task is ready</strong> toggle.</p>
-      </section>
-
-      <section id="cli">
-        <h1>CLI</h1>
-        <p class="lead">Drive Ouijit from inside any terminal it spawns. Create tasks, flip statuses, manage hooks, run scripts, all from the shell.</p>
-
-        <h2>Where it lives</h2>
-        <p>
-          The <code>ouijit</code> command is auto-installed into every terminal Ouijit opens, host and sandboxed alike. It
-          talks to the running app over a localhost API authenticated by a per-session token, so it only works from inside
-          an Ouijit terminal.
-        </p>
-
-        <h2>Output format</h2>
-        <p>
-          Every successful command writes a single JSON value to <code>stdout</code> and exits 0. Errors write
-          <code>{`{"error": "..."}`}</code> to <code>stderr</code> and exit non-zero. Pipe to <code>jq</code> for grepping
-          fields:
-        </p>
-        <pre class="glass-bevel"><code>ouijit task list | jq '.[] | select(.status == "in_progress") | .name'</code></pre>
-
-        <h2>Project detection</h2>
-        <p>
-          By default the CLI auto-detects the active project from your current directory by walking up to the nearest git
-          root. If you're inside a worktree it follows the <code>.git</code> file back to the main repo. Override with
-          <code>--project &lt;path&gt;</code>.
-        </p>
-
-        <h2>Tasks</h2>
-        <p>Statuses are <code>todo</code>, <code>in_progress</code>, <code>in_review</code>, and <code>done</code>.</p>
-        <pre class="glass-bevel"><code>ouijit task list                              # array of tasks
-ouijit task get 5                             # single task
-ouijit task current                           # task owning this terminal
-ouijit task create "Fix login bug"
-ouijit task create "Refactor auth" --prompt "Extract middleware"
-ouijit task start 5                           # creates worktree, sets in_progress
-ouijit task start 5 --branch custom-name
-ouijit task start 5 --run-hook                # run the configured start hook, no dialog
-ouijit task start 5 --skip-hook               # spawn the terminal, run no hook
-ouijit task start 5 --hook-command "claude"   # one-off command instead of the configured hook
-ouijit task create-and-start "Add 2FA"        # create + start in one step
-ouijit task create-and-start "Add 2FA" --prompt "..." --branch custom --skip-hook
-ouijit task spawn "Add 2FA"                   # alias for create-and-start
-ouijit task set-status 5 in_review            # fires the review hook (dialog by default)
-ouijit task set-status 5 in_review --run-hook # run the review hook, no dialog
-ouijit task set-status 5 in_review --skip-hook
-ouijit task set-status 5 done --hook-command "npm run deploy"
-ouijit task bulk-set-status done 5 6 7        # set status on many in parallel
-ouijit task set-name 5 "Better name"
-ouijit task set-description 5 "More detail"
-ouijit task set-merge-target 5 develop
-ouijit task delete 5</code></pre>
-        <p>
-          The <code>--run-hook</code>, <code>--skip-hook</code>, and <code>--hook-command</code> flags are mutually
-          exclusive. By default, a status change opens that column's hook dialog in the GUI, just like dragging a card on
-          the board; use these flags for headless runs where no human is at the keyboard to dismiss it. They apply to
-          <code>task start</code> and <code>create-and-start</code> (the start hook) and to <code>set-status</code> into
-          <code>in_progress</code>, <code>in_review</code>, or <code>done</code> (the continue, review, and done hooks
-          respectively). <code>bulk-set-status</code> takes the same flags for those three statuses. Setting status to
-          <code>todo</code> runs no hook and rejects these flags.
-        </p>
-        <p>
-          <code>ouijit task current</code> resolves the task owning the current terminal via the <code>OUIJIT_PTY_ID</code>
-          env var that Ouijit sets on every spawn. Useful inside agent scripts:
-        </p>
-        <pre class="glass-bevel"><code>TASK=$(ouijit task current | jq -r .taskNumber)
-ouijit task set-status "$TASK" in_review</code></pre>
-
-        <h2>Hooks</h2>
-        <p>
-          CRUD for the <a href="#hooks">lifecycle hooks</a>. Hook types are <code>start</code>, <code>continue</code>,
-          <code>run</code>, <code>review</code>, <code>done</code>, <code>editor</code>.
-        </p>
-        <pre class="glass-bevel"><code>ouijit hook list
-ouijit hook get start
-ouijit hook set start --name "Install &amp; agent" --command 'npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"'
-ouijit hook set start --name "Install &amp; agent" --command '...' --description "Boots the agent on a fresh worktree"
-ouijit hook delete done</code></pre>
-
-        <h2>Tags</h2>
-        <p>Tag tasks for organization in the home view.</p>
-        <pre class="glass-bevel"><code>ouijit tag list                               # all tags across projects
-ouijit tag list --task 5                      # tags on one task
-ouijit tag add 5 bug
-ouijit tag remove 5 bug
-ouijit tag set 5 bug priority urgent          # replace all tags</code></pre>
-
-        <h2>Scripts</h2>
-        <p>
-          Scripts are saved shell commands that show up in the runner panel. Set them once, then trigger from the UI or
-          the CLI. Unlike hooks, scripts are ad-hoc: they don't fire on lifecycle events.
-        </p>
-        <pre class="glass-bevel"><code>ouijit script list
-ouijit script set --name "Lint" --command "npm run lint"
-ouijit script set --name "Tests" --command "npm test"
-ouijit script run Lint                        # by name
-ouijit script run &lt;id&gt;                        # by id
-ouijit script run Tests --task 5              # run inside task 5's worktree
-ouijit script delete &lt;id&gt;</code></pre>
-        <p>
-          <code>script run</code> streams the command's output through your terminal and exits with the command's exit
-          code. <code>script set</code> upserts by name, so re-running with the same <code>--name</code> updates the
-          existing script's command.
-        </p>
-
-        <h2>Markdown panels</h2>
-        <p>
-          A terminal can open Markdown files as panels shown alongside it, so an agent and you can collaborate on a
-          shared TODO list or notes. A terminal can hold several at once.
-        </p>
-        <pre class="glass-bevel"><code>ouijit markdown add ./plan.md                 # uses current OUIJIT_PTY_ID
-ouijit markdown add ./plan.md pty_abc123      # explicit pty id
-ouijit markdown list
-ouijit markdown remove ./plan.md</code></pre>
-
-        <h2>Web preview panels</h2>
-        <p>
-          A terminal can open web preview panels pointed at a URL, so an agent that starts a dev server can surface it
-          inline. A terminal can hold several at once.
-        </p>
-        <pre class="glass-bevel"><code>ouijit preview add http://localhost:3000      # uses current OUIJIT_PTY_ID
-ouijit preview add http://localhost:3000 pty_abc123
-ouijit preview list
-ouijit preview remove http://localhost:3000</code></pre>
-
-        <h2>Projects</h2>
-        <p>List every project registered with the app.</p>
-        <pre class="glass-bevel"><code>ouijit project list</code></pre>
-
-        <h2>Environment variables</h2>
-        <p>Ouijit sets these on every terminal it spawns. Your scripts and agents can read them directly:</p>
-        <table>
-          <thead>
-            <tr><th>Variable</th><th>What it is</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>OUIJIT_API_URL</code></td><td>Base URL for the local REST API the CLI talks to.</td></tr>
-            <tr><td><code>OUIJIT_API_TOKEN</code></td><td>Bearer token scoped to this terminal session.</td></tr>
-            <tr><td><code>OUIJIT_PTY_ID</code></td><td>Unique id for this terminal session. Used by <code>task current</code> and the panel commands (<code>markdown</code>, <code>preview</code>).</td></tr>
-          </tbody>
-        </table>
-        <p>
-          Hooks get extra context on top of these. See <a href="#hooks">Hooks → Environment variables</a> for the full
-          list of <code>OUIJIT_TASK_*</code> variables available to start, continue, review, and done commands.
-        </p>
-      </section>
-    </main>
-  </div>
-</Site>
+  <h2>Update Ouijit</h2>
+  <p>
+    Ouijit checks for updates at launch and hourly. On macOS the update downloads in the background and a dialog
+    offers to restart when it is ready. On Linux a notice links to the release page. After an update, a
+    <strong>What's New</strong> dialog shows that version's release notes once. Turn automatic checks off under
+    <strong>App Settings &rarr; Updates</strong>.
+  </p>
+</Docs>
 
 <script>
-  const links = document.querySelectorAll<HTMLAnchorElement>('[data-doc-link]');
-  const linkById = new Map<string, HTMLAnchorElement>();
-  links.forEach((a) => {
-    const id = a.dataset.docLink;
-    if (id) linkById.set(id, a);
-  });
-  const sections = Array.from(linkById.keys())
-    .map((id) => document.getElementById(id))
-    .filter((el): el is HTMLElement => el !== null);
-
-  const setActive = (id: string) => {
-    linkById.forEach((link, key) => link.classList.toggle('active', key === id));
+  // The docs lived on this one page before they were split up, so links like
+  // /docs/#cli are still out in the wild. Forward them to the page that
+  // section became.
+  const LEGACY_SECTIONS: Record<string, string> = {
+    worktrees: 'worktrees',
+    kanban: 'kanban',
+    terminals: 'terminals',
+    panels: 'panels',
+    palette: 'palette',
+    diff: 'diff',
+    github: 'pull-requests',
+    sandbox: 'sandbox',
+    resume: 'resume',
+    themes: 'themes',
+    hooks: 'hooks',
+    harnesses: 'harnesses',
+    agents: 'agents',
+    cli: 'cli',
   };
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      const visible = entries
-        .filter((e) => e.isIntersecting)
-        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-      if (visible.length > 0) setActive(visible[0].target.id);
-    },
-    { rootMargin: '-20% 0px -70% 0px', threshold: 0 },
-  );
-  sections.forEach((s) => observer.observe(s));
-
-  // Initialize active state from current hash, or first section.
-  const initial = location.hash.replace('#', '') || sections[0]?.id;
-  if (initial) setActive(initial);
+  const target = LEGACY_SECTIONS[location.hash.replace('#', '')];
+  if (target) location.replace(`/docs/${target}/`);
 </script>

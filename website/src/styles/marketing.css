@@ -1218,6 +1218,120 @@ body.marketing .home-agents-footnote a:hover {
   }
 }
 
+.docs-content img.docs-screenshot {
+  width: 100%;
+  border-radius: 12px;
+  margin: 8px 0 24px;
+}
+
+.docs-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+  position: relative;
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+}
+
+/* The extruded knob treatment from the app: raised surface inside a dark
+   bezel, lit top edge, dark bottom edge, segments joined by a pane seam. */
+.docs-actions-copy,
+.docs-actions-caret {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-bezel);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.docs-actions-copy {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-right: none;
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset 1px 0 0 var(--bevel-side),
+    inset 0 -1px 0 var(--bevel-bottom);
+}
+
+.docs-actions-caret {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 0 8px;
+  border-left: 1px solid var(--seam-cut);
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset -1px 0 0 var(--bevel-side),
+    inset 1px 0 0 var(--seam-catch),
+    inset 0 -1px 0 var(--bevel-bottom);
+}
+
+.docs-actions-copy:hover,
+.docs-actions-caret:hover {
+  color: var(--color-text-primary);
+}
+
+.docs-actions-copy:active,
+.docs-actions-caret:active {
+  background: var(--color-surface);
+}
+
+.docs-actions-more {
+  position: relative;
+}
+
+.docs-actions-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 176px;
+  padding: 4px;
+  background: var(--color-background, #1c1c1e);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+}
+
+.docs-actions-menu a {
+  display: block;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.docs-actions-menu a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.docs-pagenav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.docs-pagenav a {
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.docs-pagenav a:hover {
+  color: #fff;
+}
+
 /* Hide scrollbars in demo components so the borders run edge-to-edge */
 .demo-frame .kanban-column-body {
   scrollbar-width: none;

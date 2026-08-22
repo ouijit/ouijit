@@ -1,0 +1,99 @@
+---
+import Site from './Site.astro';
+import { DOC_PAGES } from '../docsNav';
+
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+const index = DOC_PAGES.findIndex((p) => p.slug === slug);
+if (index === -1) throw new Error(`Unknown docs page: ${slug}`);
+const page = DOC_PAGES[index];
+const prev = DOC_PAGES[index - 1];
+const next = DOC_PAGES[index + 1];
+const title = slug === 'getting-started' ? 'Documentation · Ouijit' : `${page.label} · Ouijit Docs`;
+
+const markdownUrl = `https://ouijit.com/docs/${slug}.md`;
+const askPrompt = `Read ${markdownUrl} so you can answer questions about it.`;
+const claudeUrl = `https://claude.ai/new?q=${encodeURIComponent(askPrompt)}`;
+const chatgptUrl = `https://chatgpt.com/?q=${encodeURIComponent(askPrompt)}`;
+---
+<Site title={title} description={page.description} markdownUrl={markdownUrl}>
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <h4>Documentation</h4>
+      <ul>
+        {DOC_PAGES.map((p) => (
+          <li>
+            <a href={p.href} class={p.slug === slug ? 'active' : undefined}>{p.label}</a>
+          </li>
+        ))}
+      </ul>
+    </aside>
+    <main class="docs-content">
+      <div class="docs-actions">
+        <button class="docs-actions-copy" data-md-url={`/docs/${slug}.md`} type="button">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span>Copy page</span>
+        </button>
+        <div class="docs-actions-more">
+          <button class="docs-actions-caret" type="button" aria-label="Page actions" aria-expanded="false">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="docs-actions-menu" hidden>
+            <a href={`/docs/${slug}.md`}>View as Markdown</a>
+            <a href={claudeUrl} target="_blank" rel="noopener">Open in Claude</a>
+            <a href={chatgptUrl} target="_blank" rel="noopener">Open in ChatGPT</a>
+          </div>
+        </div>
+      </div>
+      <section>
+        <slot />
+      </section>
+      <nav class="docs-pagenav">
+        {prev ? <a href={prev.href}>&larr; {prev.label}</a> : <span />}
+        {next ? <a href={next.href}>{next.label} &rarr;</a> : <span />}
+      </nav>
+    </main>
+  </div>
+</Site>
+
+<script>
+  const copyButton = document.querySelector<HTMLButtonElement>('.docs-actions-copy');
+  copyButton?.addEventListener('click', async () => {
+    const label = copyButton.querySelector('span');
+    if (!label) return;
+    try {
+      const response = await fetch(copyButton.dataset.mdUrl ?? '');
+      if (!response.ok) throw new Error(String(response.status));
+      await navigator.clipboard.writeText(await response.text());
+      label.textContent = 'Copied';
+    } catch {
+      label.textContent = "Couldn't copy";
+    }
+    setTimeout(() => {
+      label.textContent = 'Copy page';
+    }, 1500);
+  });
+
+  const caret = document.querySelector<HTMLButtonElement>('.docs-actions-caret');
+  const menu = document.querySelector<HTMLElement>('.docs-actions-menu');
+  if (caret && menu) {
+    const close = () => {
+      menu.hidden = true;
+      caret.setAttribute('aria-expanded', 'false');
+    };
+    caret.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+      caret.setAttribute('aria-expanded', String(!menu.hidden));
+    });
+    document.addEventListener('click', (e) => {
+      if (!menu.hidden && !menu.contains(e.target as Node)) close();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') close();
+    });
+  }
+</script>
