@@ -46,7 +46,7 @@ Ouijit shadows the agent binaries on PATH to inject lifecycle hooks and a refere
 
 Every task terminal includes a diff of its worktree against its merge target, uncommitted changes, or any base you pick, with word-level highlighting. Leave a note on a diff line and it goes to the agent working in that worktree, re-anchoring as the code moves. An experimental GitHub surface adds a pull request inbox, review comments staged locally until you send them, and merging. It drives the `gh` CLI, so `gh auth login` is the only setup.
 
-<img src="website/public/assets/screenshots/diff.png" alt="Worktree diff beside the agent terminal" width="100%">
+<img src="website/public/assets/screenshots/diff.png" alt="Worktree diff beside the agent terminal, with a note being written on a changed line" width="100%">
 
 ## Sandboxing
 
