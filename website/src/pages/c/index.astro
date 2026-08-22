@@ -1,17 +1,22 @@
 ---
 import Site from '../../layouts/Site.astro';
 import DownloadButtons from '../../components/home/DownloadButtons.astro';
+import AppWindowScene from '../../components/demo/AppWindowScene.tsx';
 ---
 <Site noindex>
   <script is:inline>document.documentElement.classList.add('js');</script>
 
-  <section class="hero hero--fill">
+  <section class="hero">
     <h1 data-reveal>Command parallel coding agents, on your terms</h1>
     <p class="hero-subtitle" data-reveal style="--reveal-delay: 90ms">Run Claude, Codex, Pi, and OpenCode in parallel: by hand, with scripts, or through delegation.</p>
     <div data-reveal style="--reveal-delay: 180ms">
       <DownloadButtons />
     </div>
     <p class="hero-fine-print" data-reveal style="--reveal-delay: 260ms">Free and open source. No account, no sign-in, no telemetry.</p>
+  </section>
+
+  <section class="hero-scene">
+    <AppWindowScene client:visible />
   </section>
 
   <section class="home-pitch b-pitch">
