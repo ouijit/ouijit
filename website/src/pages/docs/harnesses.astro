@@ -16,22 +16,14 @@ import Docs from '../../layouts/Docs.astro';
       across the whole stack. You can tell which sessions need attention without bringing each one forward.
     </li>
     <li>
-      <strong>CLI awareness</strong>. The <a href="/docs/cli/"><code>ouijit</code> CLI</a> reference is appended
-      to the agent's system prompt, so the agent can create tasks, advance the board, stage review comments, and
-      open panels from the shell. See <a href="/docs/agents/">Agents</a>.
+      <strong>CLI awareness</strong>. The agent knows the <a href="/docs/cli/"><code>ouijit</code> CLI</a>, so
+      it can create tasks, advance the board, stage review comments, and open panels from the shell. See
+      <a href="/docs/agents/">Agents</a>.
     </li>
   </ul>
-
-  <h2>How it works</h2>
   <p>
-    Ouijit installs a thin wrapper for each supported harness into the terminal's <code>PATH</code>. The wrapper
-    shadows the real binary, appends the CLI reference to the agent's system prompt, and uses the harness's own
-    hook or plugin system to report status. Outside an Ouijit terminal the wrappers run the real binary
-    unmodified, so nothing changes about how you use these tools elsewhere.
-  </p>
-  <p>
-    Status also works inside both <a href="/docs/sandbox/">sandbox backends</a>: under Lima the wrapper setup is
-    written into the VM, under nono the agent runs on the host with your real config.
+    This applies only in terminals Ouijit opens, including <a href="/docs/sandbox/">sandboxed</a> ones.
+    Everywhere else these tools behave as they always do.
   </p>
 
   <h2>Notifications</h2>
