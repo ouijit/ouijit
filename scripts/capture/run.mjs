@@ -287,7 +287,21 @@ const SCENES = [
   { scene: 'markdown', file: 'markdown.png', needsProject: true, theme: 'dark', settleMs: 1600 },
   { scene: 'preview', file: 'preview.png', needsProject: true, previewPtyId: 'capture-pty-1a', theme: 'dark', settleMs: 2500 },
   { scene: 'palette', file: 'palette.png', needsProject: true, theme: 'dark' },
-  { scene: 'diff', file: 'diff.png', needsProject: true, diffPtyId: 'capture-pty-1a', theme: 'dark' },
+  {
+    scene: 'diff',
+    file: 'diff.png',
+    needsProject: true,
+    diffPtyId: 'capture-pty-1a',
+    theme: 'dark',
+    // Anchored by content, not line number, so edits to the fixture file
+    // cannot silently move the note onto a different line.
+    diffNote: {
+      path: 'src/onboarding/Stepper.tsx',
+      lineText: 'saveProgress(step + 1);',
+      body: 'Clear the saved step when onboarding completes, or the next run resumes on the last step.',
+    },
+    settleMs: 2500,
+  },
   { scene: 'settings', file: 'settings.png', needsProject: true, theme: 'dark' },
   // The resume banner lists one row per snapshot terminal; three rows reads as
   // an example, the full seed list reads as clutter.
@@ -457,6 +471,7 @@ async function main() {
       if (scene.seeds) payload.terminalSeeds = scene.seeds;
       if (scene.theme) payload.theme = scene.theme;
       if (scene.diffPtyId) payload.diffPtyId = scene.diffPtyId;
+      if (scene.diffNote) payload.diffNote = scene.diffNote;
       if (scene.previewPtyId) {
         payload.previewPtyId = scene.previewPtyId;
         payload.previewUrl = previewUrl;

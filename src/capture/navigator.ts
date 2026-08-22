@@ -65,18 +65,72 @@ function focusTerminal(projectPath: string, ptyId: string): void {
   if (index >= 0) useTerminalStore.getState().setActiveIndex(projectPath, index);
 }
 
-/** Click a control that only exists after async state settles, polling for it. */
-async function clickWhenPresent(selector: string, timeoutMs = 5000): Promise<void> {
+/** Poll for DOM that only exists after async state settles. */
+async function waitFor<T>(get: () => T | null | undefined, timeoutMs = 5000): Promise<T | null> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const button = document.querySelector<HTMLButtonElement>(selector);
-    if (button) {
-      button.click();
-      return;
-    }
+    const value = get();
+    if (value) return value;
     await new Promise((r) => setTimeout(r, 150));
   }
-  captureLog.warn('control never appeared', { selector });
+  return null;
+}
+
+async function clickWhenPresent(selector: string, timeoutMs = 5000): Promise<void> {
+  const button = await waitFor(() => document.querySelector<HTMLButtonElement>(selector), timeoutMs);
+  if (button) button.click();
+  else captureLog.warn('control never appeared', { selector });
+}
+
+/**
+ * Open the diff panel's note composer on the line whose content contains
+ * `lineText`, and type `body` into it.
+ *
+ * Drives the same hover → press → release path a reader takes: the plus
+ * button is only built for the hovered line, and the composer only opens on
+ * the window mouseup that ends the press. Dispatching those events is the
+ * only way in — the composing state is internal to the panel.
+ */
+async function openDiffNoteComposer(note: { path: string; lineText: string; body: string }): Promise<void> {
+  const row = await waitFor(() => {
+    const section = document.querySelector(`[data-path="${note.path}"]`);
+    if (!section) return null;
+    const rows = [...section.querySelectorAll<HTMLElement>('div.leading-normal')];
+    return rows.find((r) => r.textContent?.includes(note.lineText));
+  });
+  if (!row) {
+    captureLog.warn('diff line never appeared', { path: note.path, lineText: note.lineText });
+    return;
+  }
+
+  row.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  const button = await waitFor(() => row.querySelector<HTMLButtonElement>('button'));
+  if (!button) {
+    captureLog.warn('comment button never appeared', { path: note.path });
+    return;
+  }
+
+  // The mouseup listener is registered by an effect after the press renders,
+  // so release a beat later — and retry in case a release still fell between.
+  let textarea: HTMLTextAreaElement | null = null;
+  for (let attempt = 0; attempt < 3 && !textarea; attempt++) {
+    button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    await new Promise((r) => requestAnimationFrame(r));
+    window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    textarea = await waitFor(() => document.querySelector<HTMLTextAreaElement>('.diff-list textarea'), 1500);
+  }
+  if (!textarea) {
+    captureLog.warn('note composer never opened', { path: note.path });
+    return;
+  }
+
+  // React tracks the value through its own setter, so write through the
+  // prototype's and fire input for the change to register.
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(textarea, note.body);
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  textarea.scrollIntoView({ block: 'center' });
+  // Leave the line so the hover-only plus button is not in the shot.
+  row.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
 }
 
 async function waitForProject(projectPath: string, timeoutMs = 10_000): Promise<boolean> {
@@ -195,6 +249,7 @@ export function installCaptureNavigator(): void {
           focusTerminal(payload.projectPath, target);
           term.setDiffPanelOpen(true);
           await clickWhenPresent('button[aria-label="Hide the file list"]');
+          if (payload.diffNote) await openDiffNoteComposer(payload.diffNote);
         }
         break;
       }
