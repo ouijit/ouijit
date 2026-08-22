@@ -542,7 +542,15 @@ function rowMock(key: SourceKey, firing: boolean, setSource: (key: SourceKey) =>
 }
 
 /** The created card lifts out of the source and flies to its slot, scrubbed. */
-function HandoffGhosts({ flightP, geom }: { flightP: (k: SourceKey) => number; geom: ScrubGeom }) {
+function HandoffGhosts({
+  flightP,
+  geom,
+  hues = false,
+}: {
+  flightP: (k: SourceKey) => number;
+  geom: ScrubGeom;
+  hues?: boolean;
+}) {
   return (
     <>
       {SEQUENCE.map((k) => {
@@ -570,6 +578,7 @@ function HandoffGhosts({ flightP, geom }: { flightP: (k: SourceKey) => number; g
             }}
           >
             <KanbanCardView task={TASK_BY_SOURCE[k]} showBadge={false} />
+            {hues && <span className="absolute left-0 top-0 bottom-0" style={{ width: 2, background: HUE_ACCENT[k] }} />}
           </div>
         );
       })}
@@ -654,18 +663,20 @@ export function VariantScrubHandoff() {
 /* ─── Variant 4c: color pairing — hue links each source to its card ─── */
 
 export function VariantScrubHue() {
-  const { setRow, setSource, setSlot, progress } = useScrubStage();
-  const landed = past(progress, 0.6);
+  const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
+  const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
+  const open = past(progress, 0.55);
+  const landed = past(progress, 0.76);
   const deskHue: Record<SourceKey, keyof typeof DESK_HUES> = { agent: 'indigo', issue: 'teal', manual: 'rose' };
   return (
     <div>
       <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <div className="flex gap-10 items-start" style={{ marginTop: 72 }}>
+      <div ref={stageRef} className="relative flex gap-10 items-start" style={{ marginTop: 72 }}>
         <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
           {ROWS.map(({ key, title, body }) => (
             <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
               <Desk hue={deskHue[key]}>
-                {rowMock(key, progress[key] > 0.25 && progress[key] < 0.95, setSource, HUE_ACCENT[key])}
+                {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource, HUE_ACCENT[key])}
               </Desk>
             </ScrubRow>
           ))}
@@ -680,10 +691,11 @@ export function VariantScrubHue() {
         <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
           <Desk hue="graphite" style={{ padding: 36 }}>
             <div className="flex" style={{ minHeight: 470 }}>
-              <ScrubColumn open={landed} landed={landed} hues setSlot={setSlot} />
+              <ScrubColumn open={open} landed={landed} hues setSlot={setSlot} />
             </div>
           </Desk>
         </div>
+        {geom && <HandoffGhosts flightP={flightP} geom={geom} hues />}
       </div>
     </div>
   );
