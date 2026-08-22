@@ -1,0 +1,74 @@
+---
+import Site from '../../../layouts/Site.astro';
+import { ConceptStack, ConceptPalette, ConceptPills, ConceptScroll } from '../../../components/demo/PlanLab.tsx';
+---
+<Site noindex>
+  <div class="plan-lab">
+    <header class="plan-lab-head">
+      <h1>Plan section lab</h1>
+      <p>Four switcher mechanics around the same story: sources feed an accumulating To Do column.</p>
+    </header>
+
+    <section class="plan-lab-concept" id="stack">
+      <h2>1 · Stacked sources</h2>
+      <p>The app's own terminal stack as the switcher — click a peek strip to bring that source forward.</p>
+      <ConceptStack client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="palette">
+      <h2>2 · Palette</h2>
+      <p>A command-palette list drives the stage beside it.</p>
+      <ConceptPalette client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="pills">
+      <h2>3 · Pill tabs, one panel</h2>
+      <p>The terminal header's pill group switches a split pane; the column lives inside the same panel.</p>
+      <ConceptPills client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="scroll">
+      <h2>4 · Scroll-driven</h2>
+      <p>The scene pins and scroll steps through the sources.</p>
+      <ConceptScroll client:visible />
+    </section>
+  </div>
+
+  <style is:global>
+    .plan-lab {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 64px var(--content-padding) 160px;
+    }
+    .plan-lab-head p,
+    .plan-lab-concept > p {
+      color: #86868b;
+      margin: 8px 0 0;
+    }
+    .plan-lab-head {
+      margin-bottom: 24px;
+    }
+    .plan-lab-concept {
+      margin-top: 96px;
+    }
+    .plan-lab-concept > h2 {
+      font-size: 24px;
+    }
+    .plan-lab-concept > p {
+      margin-bottom: 28px;
+    }
+    .plan-lab-card-in {
+      animation: plan-lab-card-in 320ms ease-out;
+    }
+    @keyframes plan-lab-card-in {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+  </style>
+</Site>

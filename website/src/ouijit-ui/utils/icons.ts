@@ -25,7 +25,10 @@ import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
 import dotsSixVertical from '@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw';
 import caretLeft from '@phosphor-icons/core/assets/regular/caret-left.svg?raw';
 import caretRight from '@phosphor-icons/core/assets/regular/caret-right.svg?raw';
+import arrowElbowDownLeft from '@phosphor-icons/core/assets/regular/arrow-elbow-down-left.svg?raw';
 import arrowSquareOut from '@phosphor-icons/core/assets/regular/arrow-square-out.svg?raw';
+import circleDashed from '@phosphor-icons/core/assets/regular/circle-dashed.svg?raw';
+import command from '@phosphor-icons/core/assets/regular/command.svg?raw';
 import cardsThree from '@phosphor-icons/core/assets/regular/cards-three.svg?raw';
 import chatCircle from '@phosphor-icons/core/assets/regular/chat-circle.svg?raw';
 import check from '@phosphor-icons/core/assets/regular/check.svg?raw';
@@ -97,7 +100,10 @@ export const iconMap: Record<string, string> = {
   'dots-six-vertical': dotsSixVertical,
   'caret-left': caretLeft,
   'caret-right': caretRight,
+  'arrow-elbow-down-left': arrowElbowDownLeft,
   'arrow-square-out': arrowSquareOut,
+  'circle-dashed': circleDashed,
+  command: command,
   'cards-three': cardsThree,
   'chat-circle': chatCircle,
   check: check,
