@@ -50,7 +50,13 @@ export default function AppWindowScene() {
   const [scale, setScale] = useState(1);
 
   const [view, setView] = useState<'board' | 'stack'>('board');
-  const [stackOrder, setStackOrder] = useState<string[]>(() => STACK_TERMINALS.map((t) => t.ptyId));
+  // The diff-bearing terminal leads so the stack opens on the diff panel.
+  const [stackOrder, setStackOrder] = useState<string[]>([
+    'pty-103-test',
+    'pty-101-claude',
+    'pty-101-dev',
+    'pty-105-shell',
+  ]);
   // One of each key panel open in split view from the start, so browsing the
   // stack shows them all off without any toggling.
   const [openPanelByPty, setOpenPanelByPty] = useState<Record<string, PanelKind | null>>({

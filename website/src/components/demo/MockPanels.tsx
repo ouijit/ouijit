@@ -647,6 +647,54 @@ function HunkHeader({ header, first }: { header: string; first: boolean }) {
   );
 }
 
+/* The app tokenizes diffs with shiki's github-dark theme; loading shiki's
+   WASM for a handful of fixed fixture lines isn't worth it, so this colors
+   the same token classes with the same palette by regex. */
+const GITHUB_DARK = {
+  comment: '#8b949e',
+  string: '#a5d6ff',
+  constant: '#79c0ff',
+  tag: '#7ee787',
+  func: '#d2a8ff',
+  keyword: '#ff7b72',
+} as const;
+
+const TOKEN_RE = new RegExp(
+  [
+    /(?<comment>\/\/.*$)/.source,
+    /(?<string>'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/.source,
+    /(?<constant>\b(?:\d+(?:\.\d+)?|true|false|null|undefined)\b|\b[A-Za-z_$][\w$]*(?=\s*:))/.source,
+    /(?<tag><\/?[A-Z][A-Za-z0-9]*)/.source,
+    /(?<keyword>\b(?:import|export|from|const|let|var|function|return|new|type|interface|extends|async|await|if|else|for|of|in|void|typeof|class|default)\b)/.source,
+    /(?<func>\b[A-Za-z_$][\w$]*(?=\())/.source,
+  ].join('|'),
+  'gm',
+);
+
+function highlightTsx(content: string): ReactNode {
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  for (const match of content.matchAll(TOKEN_RE)) {
+    const index = match.index ?? 0;
+    if (index > cursor) parts.push(content.slice(cursor, index));
+    const kind = Object.entries(match.groups ?? {}).find(([, v]) => v != null)?.[0] as
+      | keyof typeof GITHUB_DARK
+      | undefined;
+    parts.push(
+      kind ? (
+        <span key={index} style={{ color: GITHUB_DARK[kind] }}>
+          {match[0]}
+        </span>
+      ) : (
+        match[0]
+      ),
+    );
+    cursor = index + match[0].length;
+  }
+  if (cursor < content.length) parts.push(content.slice(cursor));
+  return parts;
+}
+
 function DiffLineRow({ line }: { line: DiffLine }) {
   const lineBg =
     line.type === 'addition' ? 'bg-diff-added/10' : line.type === 'deletion' ? 'bg-diff-removed/[0.08]' : '';
@@ -668,7 +716,7 @@ function DiffLineRow({ line }: { line: DiffLine }) {
         <span className={`inline-block w-4 select-none ${prefixColor}`}>
           {line.type === 'context' ? ' ' : line.type === 'addition' ? '+' : '-'}
         </span>
-        <span className="text-diff-fg">{line.content}</span>
+        <span className="text-diff-fg">{highlightTsx(line.content)}</span>
       </span>
     </div>
   );
