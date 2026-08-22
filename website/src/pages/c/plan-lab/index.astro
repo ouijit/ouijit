@@ -1,27 +1,49 @@
 ---
 import Site from '../../../layouts/Site.astro';
-import { VariantAnnotated, VariantCollage, VariantStory } from '../../../components/demo/PlanLab.tsx';
+import {
+  VariantAnnotated,
+  VariantAnnotatedStaggered,
+  VariantAnnotatedCentered,
+  VariantStory,
+  VariantStoryCenter,
+  VariantStoryLarge,
+} from '../../../components/demo/PlanLab.tsx';
 ---
 <Site noindex>
   <div class="plan-lab">
     <header class="plan-lab-head">
       <h1>Plan section lab</h1>
-      <p>Three full section mockups: framing + motion together, headline in place. Scroll through at your own pace.</p>
+      <p>Riffs on the diorama (1a–1c) and the story rows (3a–3c). All play their cards as you reach them.</p>
     </header>
 
-    <section class="plan-lab-concept" id="annotated">
-      <div class="plan-lab-tag">1 · Annotated diorama — captions on each panel, plays once when it scrolls into view</div>
+    <section class="plan-lab-concept" id="v1a">
+      <div class="plan-lab-tag">1a · Diorama — captions above, column right</div>
       <VariantAnnotated client:visible />
     </section>
 
-    <section class="plan-lab-concept" id="collage">
-      <div class="plan-lab-tag">2 · Copy beside a collage — overlapping panels, loops forever</div>
-      <VariantCollage client:visible />
+    <section class="plan-lab-concept" id="v1b">
+      <div class="plan-lab-tag">1b · Diorama, staggered — offset heights, captions below</div>
+      <VariantAnnotatedStaggered client:visible />
     </section>
 
-    <section class="plan-lab-concept" id="story">
-      <div class="plan-lab-tag">3 · Story rows — each row lands its card as you reach it; the column rides along, sticky</div>
+    <section class="plan-lab-concept" id="v1c">
+      <div class="plan-lab-tag">1c · Diorama, board centered — sources flank the column</div>
+      <VariantAnnotatedCentered client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="v3a">
+      <div class="plan-lab-tag">3a · Story rows — copy beside each mock, column sticky right</div>
       <VariantStory client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="v3b">
+      <div class="plan-lab-tag">3b · Story rows, column center — rows land cards from both sides</div>
+      <VariantStoryCenter client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="v3c">
+      <div class="plan-lab-tag">3c · Story rows, column left — sub-section scale typography</div>
+      <VariantStoryLarge client:visible />
     </section>
   </div>
 
@@ -36,7 +58,7 @@ import { VariantAnnotated, VariantCollage, VariantStory } from '../../../compone
       margin: 8px 0 0;
     }
     .plan-lab-concept {
-      margin-top: 140px;
+      margin-top: 160px;
       padding-top: 40px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
@@ -62,7 +84,7 @@ import { VariantAnnotated, VariantCollage, VariantStory } from '../../../compone
       line-height: 1.5;
     }
 
-    /* V1: figure captions */
+    /* Diorama figure captions */
     .plan-v1-fig {
       display: flex;
       flex-direction: column;
@@ -74,31 +96,11 @@ import { VariantAnnotated, VariantCollage, VariantStory } from '../../../compone
       font-size: 14px;
       padding: 0 2px 10px;
     }
-
-    /* V2: source list beside the collage */
-    .plan-v2-list {
-      list-style: none;
-      margin: 28px 0 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-    .plan-v2-list li {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: #d5d5d7;
-      font-size: 15px;
-    }
-    .plan-v2-list li svg {
-      width: 17px;
-      height: 17px;
-      opacity: 0.55;
-      flex-shrink: 0;
+    .plan-v1-fig.captions-below > figcaption {
+      padding: 12px 2px 0;
     }
 
-    /* V3: story rows */
+    /* Story rows */
     .plan-v3-row {
       display: flex;
       align-items: center;
@@ -121,6 +123,18 @@ import { VariantAnnotated, VariantCollage, VariantStory } from '../../../compone
     .plan-v3-mock {
       flex: 1;
       min-width: 0;
+    }
+    .plan-v3-stacked {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .plan-v3c .plan-v3-copy h3 {
+      font-size: 30px;
+    }
+    .plan-v3c .plan-v3-copy p {
+      font-size: 16px;
+      max-width: 480px;
     }
 
     /* Choreography */

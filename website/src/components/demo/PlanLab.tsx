@@ -89,45 +89,21 @@ function useChoreoOnVisible(ref: RefObject<HTMLElement | null>): Choreo {
   };
 }
 
-/** Loops the landing sequence forever, emptying the column between passes. */
-function useChoreoLoop(): Choreo {
+/** Per-row landings for the story variants: rows fire as they scroll in. */
+function useStoryChoreo() {
   const [added, setAdded] = useState<SourceKey[]>([]);
   const [firing, setFiring] = useState<SourceKey | null>(null);
-  const [clearing, setClearing] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      await sleep(800);
-      while (alive) {
-        for (const key of SEQUENCE) {
-          if (!alive) return;
-          setFiring(key);
-          await sleep(450);
-          if (!alive) return;
-          setAdded((prev) => [...prev, key]);
-          await sleep(1100);
-        }
-        setFiring(null);
-        await sleep(2600);
-        if (!alive) return;
-        setClearing(true);
-        await sleep(400);
-        if (!alive) return;
-        setAdded([]);
-        setClearing(false);
-        await sleep(700);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-  return {
-    tasks: toTasks(added),
-    newest: clearing ? null : added.length > 0 ? TASK_BY_SOURCE[added[added.length - 1]].taskNumber : null,
-    firing,
-    clearing,
+  const land = (key: SourceKey) => {
+    setFiring(key);
+    setTimeout(() => setAdded((prev) => (prev.includes(key) ? prev : [...prev, key])), 450);
+    setTimeout(() => setFiring((f) => (f === key ? null : f)), 1400);
   };
+  const choreo: Choreo = {
+    tasks: toTasks(added),
+    newest: added.length > 0 ? TASK_BY_SOURCE[added[added.length - 1]].taskNumber : null,
+    firing,
+  };
+  return { choreo, firing, land };
 }
 
 /* ─── Shared mock pieces ──────────────────────────────────────────── */
@@ -344,63 +320,87 @@ export function VariantAnnotated() {
   );
 }
 
-/* ─── Variant 2: copy beside a collage, looping ───────────────────── */
+/* ─── Variant 1b: staggered diorama, captions below ───────────────── */
 
-export function VariantCollage() {
-  const choreo = useChoreoLoop();
+export function VariantAnnotatedStaggered() {
+  const ref = useRef<HTMLDivElement>(null);
+  const choreo = useChoreoOnVisible(ref);
   return (
-    <div className="plan-v2 flex items-center gap-16">
-      <div className="shrink-0" style={{ width: 360 }}>
-        <h2 className="plan-v-headline !text-left">Plan at scale, in detail</h2>
-        <p className="plan-v-sub !text-left !mx-0" style={{ marginTop: 16 }}>
-          Tasks come from wherever planning happens, and each one carries its plan.
-        </p>
-        <ul className="plan-v2-list">
-          <li>
-            <Icon name="terminal" />
-            An agent files them over the CLI
-          </li>
-          <li>
-            <Icon name="github-logo" />
-            GitHub issues check out as tasks
-          </li>
-          <li>
-            <Icon name="plus" />
-            The composer is one ⌘N away
-          </li>
-          <li>
-            <Icon name="file-text" />
-            plan.md holds the steps
-          </li>
-        </ul>
-      </div>
-      <div className="relative flex-1 min-w-0" style={{ height: 600 }}>
-        <Panel
-          firing={choreo.firing === 'agent'}
-          position="absolute"
-          style={{ left: 0, top: 16, width: '58%', height: 420, zIndex: 1 }}
-          ledge={ledge('terminal', 'claude', 'ouijit task create')}
-        >
-          <AgentPane compact />
-        </Panel>
-        <Panel
-          position="absolute"
-          style={{ right: 0, top: 0, width: 320, height: 300, zIndex: 0 }}
-          ledge={ledge('file-text', 'plan.md')}
-        >
-          <PlanPane short />
-        </Panel>
-        <div className="absolute flex" style={{ right: 32, top: 150, height: 430, zIndex: 2 }}>
-          <PlanColumn choreo={choreo} framed width={300} />
+    <div ref={ref}>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <p className="plan-v-sub">
+        Agents, GitHub issues, and your own two hands all feed the same board — and every task carries its plan.
+      </p>
+      <div className="flex gap-6 items-start" style={{ height: 660, marginTop: 64 }}>
+        <figure className="plan-v1-fig captions-below" style={{ flex: '1.15 1 0', marginTop: 48, height: 500 }}>
+          <Panel firing={choreo.firing === 'agent'} className="flex-1" ledge={ledge('terminal', 'claude', 'ouijit task create')}>
+            <AgentPane />
+          </Panel>
+          <figcaption>An agent breaks down the epic</figcaption>
+        </figure>
+        <div className="flex flex-col gap-6 min-w-0" style={{ flex: '1 1 0', marginTop: 110 }}>
+          <figure className="plan-v1-fig captions-below shrink-0">
+            <Panel firing={choreo.firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
+              <IssuePane />
+            </Panel>
+            <figcaption>Issues become tasks</figcaption>
+          </figure>
+          <figure className="plan-v1-fig captions-below shrink-0" style={{ height: 280 }}>
+            <Panel className="flex-1" ledge={ledge('file-text', 'plan.md')}>
+              <PlanPane short />
+            </Panel>
+            <figcaption>The detail rides in plan.md</figcaption>
+          </figure>
         </div>
-        <Panel
-          firing={choreo.firing === 'issue'}
-          position="absolute"
-          style={{ left: '24%', bottom: 20, width: 360, zIndex: 3 }}
-          ledge={ledge('github-logo', 'Issues')}
-        >
-          <IssuePane single />
-        </Panel>
+        <figure className="plan-v1-fig captions-below shrink-0" style={{ width: 300, height: 560 }}>
+          <div className="flex flex-1 min-h-0">
+            <PlanColumn choreo={choreo} framed width={300} />
+          </div>
+          <figcaption>…or type one straight in</figcaption>
+        </figure>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Variant 1c: the board centered between its sources ──────────── */
+
+export function VariantAnnotatedCentered() {
+  const ref = useRef<HTMLDivElement>(null);
+  const choreo = useChoreoOnVisible(ref);
+  return (
+    <div ref={ref}>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <p className="plan-v-sub">
+        Agents, GitHub issues, and your own two hands all feed the same board — and every task carries its plan.
+      </p>
+      <div className="flex gap-6 items-stretch" style={{ height: 540, marginTop: 56 }}>
+        <figure className="plan-v1-fig" style={{ flex: '1 1 0' }}>
+          <figcaption>An agent breaks down the epic</figcaption>
+          <Panel firing={choreo.firing === 'agent'} className="flex-1" ledge={ledge('terminal', 'claude', 'ouijit task create')}>
+            <AgentPane />
+          </Panel>
+        </figure>
+        <figure className="plan-v1-fig shrink-0" style={{ width: 300 }}>
+          <figcaption>Everything lands on the board</figcaption>
+          <div className="flex flex-1 min-h-0">
+            <PlanColumn choreo={choreo} framed width={300} />
+          </div>
+        </figure>
+        <div className="flex flex-col gap-6 min-w-0" style={{ flex: '1 1 0' }}>
+          <figure className="plan-v1-fig shrink-0">
+            <figcaption>Issues become tasks</figcaption>
+            <Panel firing={choreo.firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
+              <IssuePane />
+            </Panel>
+          </figure>
+          <figure className="plan-v1-fig flex-1 min-h-0">
+            <figcaption>The detail rides in plan.md</figcaption>
+            <Panel className="flex-1" ledge={ledge('file-text', 'plan.md')}>
+              <PlanPane short />
+            </Panel>
+          </figure>
+        </div>
       </div>
     </div>
   );
@@ -447,19 +447,48 @@ function StoryRow({
   );
 }
 
+/** Same trigger, copy stacked above the mock — for the narrower layouts. */
+function StoryCard({
+  title,
+  body,
+  onVisible,
+  children,
+}: {
+  title: string;
+  body: string;
+  onVisible?: () => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !onVisible) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          onVisible();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.6 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div ref={ref} className="plan-v3-stacked">
+      <div className="plan-v3-copy !w-auto">
+        <h3>{title}</h3>
+        <p>{body}</p>
+      </div>
+      <div className="plan-v3-mock">{children}</div>
+    </div>
+  );
+}
+
 export function VariantStory() {
-  const [added, setAdded] = useState<SourceKey[]>([]);
-  const [firing, setFiring] = useState<SourceKey | null>(null);
-  const land = (key: SourceKey) => {
-    setFiring(key);
-    setTimeout(() => setAdded((prev) => (prev.includes(key) ? prev : [...prev, key])), 450);
-    setTimeout(() => setFiring((f) => (f === key ? null : f)), 1400);
-  };
-  const choreo: Choreo = {
-    tasks: toTasks(added),
-    newest: added.length > 0 ? TASK_BY_SOURCE[added[added.length - 1]].taskNumber : null,
-    firing,
-  };
+  const { choreo, firing, land } = useStoryChoreo();
   return (
     <div className="plan-v3">
       <h2 className="plan-v-headline">Plan at scale, in detail</h2>
@@ -504,6 +533,116 @@ export function VariantStory() {
           <div className="flex" style={{ height: 480 }}>
             <PlanColumn choreo={choreo} framed width={300} composer={false} />
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Variant 3b: sticky column center, rows on both sides ────────── */
+
+export function VariantStoryCenter() {
+  const { choreo, firing, land } = useStoryChoreo();
+  return (
+    <div>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <div className="flex gap-10 items-start" style={{ marginTop: 72 }}>
+        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 200 }}>
+          <StoryCard
+            title="Delegate the breakdown"
+            body="An agent splits the epic and files each task over the CLI, prompt and all."
+            onVisible={() => land('agent')}
+          >
+            <Panel firing={firing === 'agent'} style={{ height: 300 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
+              <AgentPane compact />
+            </Panel>
+          </StoryCard>
+          <StoryCard
+            title="Or just type"
+            body="The composer sits at the bottom of the column, one ⌘N away."
+            onVisible={() => land('manual')}
+          >
+            <Panel firing={firing === 'manual'}>
+              <div className="p-5">
+                <ComposerFooter firing={false} />
+              </div>
+            </Panel>
+          </StoryCard>
+        </div>
+        <div className="shrink-0 sticky" style={{ top: 140, width: 300 }}>
+          <div className="flex" style={{ height: 480 }}>
+            <PlanColumn choreo={choreo} framed width={300} composer={false} />
+          </div>
+        </div>
+        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 200, paddingTop: 260 }}>
+          <StoryCard
+            title="Pull from GitHub"
+            body="An open issue becomes a task on the board with one click."
+            onVisible={() => land('issue')}
+          >
+            <Panel firing={firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
+              <IssuePane single />
+            </Panel>
+          </StoryCard>
+          <StoryCard title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
+            <Panel ledge={ledge('file-text', 'plan.md')}>
+              <PlanPane short />
+            </Panel>
+          </StoryCard>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Variant 3c: sticky column left, sub-section scale rows ──────── */
+
+export function VariantStoryLarge() {
+  const { choreo, firing, land } = useStoryChoreo();
+  return (
+    <div className="plan-v3c">
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <div className="flex gap-14 items-start" style={{ marginTop: 72 }}>
+        <div className="shrink-0 sticky" style={{ top: 140, width: 300 }}>
+          <div className="flex" style={{ height: 500 }}>
+            <PlanColumn choreo={choreo} framed width={300} composer={false} />
+          </div>
+        </div>
+        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 150 }}>
+          <StoryCard
+            title="Delegate the breakdown"
+            body="An agent splits the epic and files each task over the CLI, prompt and all."
+            onVisible={() => land('agent')}
+          >
+            <Panel firing={firing === 'agent'} style={{ height: 340 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
+              <AgentPane />
+            </Panel>
+          </StoryCard>
+          <StoryCard
+            title="Pull from GitHub"
+            body="An open issue becomes a task on the board with one click."
+            onVisible={() => land('issue')}
+          >
+            <Panel firing={firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
+              <IssuePane />
+            </Panel>
+          </StoryCard>
+          <StoryCard
+            title="Or just type"
+            body="The composer sits at the bottom of the column, one ⌘N away."
+            onVisible={() => land('manual')}
+          >
+            <Panel firing={firing === 'manual'}>
+              <div className="p-5 max-w-[420px]">
+                <ComposerFooter firing={false} />
+              </div>
+            </Panel>
+          </StoryCard>
+          <StoryCard title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
+            <Panel ledge={ledge('file-text', 'plan.md')}>
+              <PlanPane />
+            </Panel>
+          </StoryCard>
         </div>
       </div>
     </div>
