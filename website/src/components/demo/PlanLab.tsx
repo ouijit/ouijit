@@ -66,7 +66,7 @@ function useStoryChoreo() {
 
 /* ─── Shared mock pieces ──────────────────────────────────────────── */
 
-function ComposerFooter({ firing }: { firing: boolean }) {
+function ComposerFooter({ firing, anchorRef }: { firing: boolean; anchorRef?: (el: HTMLDivElement | null) => void }) {
   return (
     <div className={`kanban-add-form ${firing ? 'plan-lab-firing' : ''}`}>
       <input
@@ -75,7 +75,7 @@ function ComposerFooter({ firing }: { firing: boolean }) {
         className="kanban-add-input w-full text-[15px] text-text-primary bg-transparent px-3 py-3 outline-none border-none"
         style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
       />
-      <div className="flex flex-row-reverse items-center justify-start gap-2 px-2 py-1.5">
+      <div ref={anchorRef} className="flex flex-row-reverse items-center justify-start gap-2 px-2 py-1.5">
         <span className="kanban-add-button text-accent">
           Create
           <span className="kanban-add-button-hint">
@@ -126,7 +126,13 @@ function PlanColumn({
   );
 }
 
-function AgentPane({ compact = false }: { compact?: boolean }) {
+function AgentPane({
+  compact = false,
+  anchorRef,
+}: {
+  compact?: boolean;
+  anchorRef?: (el: HTMLDivElement | null) => void;
+}) {
   return (
     <div className={`${BODY_CLS} !p-5`}>
       <ClaudeUser>break the API hardening epic into tasks on the board</ClaudeUser>
@@ -135,17 +141,25 @@ function AgentPane({ compact = false }: { compact?: boolean }) {
         name="Bash"
         args={'ouijit task create "Add rate-limit headers to the public API"\n       --prompt "429 + Retry-After on every public route"'}
       />
-      <ToolResult>{'{"success": true, "task": {"taskNumber": 119}}'}</ToolResult>
+      <div ref={anchorRef}>
+        <ToolResult>{'{"success": true, "task": {"taskNumber": 119}}'}</ToolResult>
+      </div>
       {!compact && <AssistantSay>Created T-119. Two more to go.</AssistantSay>}
     </div>
   );
 }
 
-function IssuePane({ single = false }: { single?: boolean }) {
+function IssuePane({
+  single = false,
+  anchorRef,
+}: {
+  single?: boolean;
+  anchorRef?: (el: HTMLDivElement | null) => void;
+}) {
   return (
     <div className="w-full my-auto flex flex-col py-3">
       <div className="px-4 pb-1 text-[13px] text-text-tertiary">Open</div>
-      <div className="relative w-full px-4 py-2 flex flex-col gap-0.5 bg-ink/[0.07]">
+      <div ref={anchorRef} className="relative w-full px-4 py-2 flex flex-col gap-0.5 bg-ink/[0.07]">
         <span className="flex items-baseline gap-2">
           <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">Support SSO re-auth prompt</span>
           <span className="shrink-0 text-[13px] text-text-tertiary">2 days ago</span>
@@ -312,6 +326,407 @@ function Desk({
 
 function Well({ className = '', children }: { className?: string; children: ReactNode }) {
   return <div className={`plan-well ${className}`}>{children}</div>;
+}
+
+/* ─── Round four: scroll-scrubbed landings with explicit connections ─
+ *
+ * Progress per row is derived from its viewport position on every scroll
+ * frame, so every landing plays forward on the way down and reverses on the
+ * way back up — nothing is a one-shot.
+ */
+
+const HUE_ACCENT: Record<SourceKey, string> = {
+  agent: '#818cf8',
+  issue: '#2dd4bf',
+  manual: '#e9679f',
+};
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+
+interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface ScrubGeom {
+  source: Record<SourceKey, Box>;
+  slot: Record<SourceKey, Box>;
+}
+
+function useScrubStage() {
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const rowEls = useRef<Partial<Record<SourceKey, HTMLElement | null>>>({});
+  const sourceEls = useRef<Partial<Record<SourceKey, HTMLElement | null>>>({});
+  const slotEls = useRef<Partial<Record<SourceKey, HTMLElement | null>>>({});
+  const [progress, setProgress] = useState<Record<SourceKey, number>>({ agent: 0, issue: 0, manual: 0 });
+  const [geom, setGeom] = useState<ScrubGeom | null>(null);
+  const sig = useRef('');
+
+  useEffect(() => {
+    let raf = 0;
+    const update = () => {
+      const vh = window.innerHeight;
+      const nextP: Record<SourceKey, number> = { agent: 0, issue: 0, manual: 0 };
+      for (const key of SEQUENCE) {
+        const el = rowEls.current[key];
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        const center = rect.top + rect.height / 2;
+        nextP[key] = clamp01((vh * 0.92 - center) / (vh * 0.42));
+      }
+      let nextG: ScrubGeom | null = null;
+      const stage = stageRef.current;
+      if (stage) {
+        const s = stage.getBoundingClientRect();
+        const source = {} as ScrubGeom['source'];
+        const slot = {} as ScrubGeom['slot'];
+        let complete = true;
+        for (const key of SEQUENCE) {
+          const so = sourceEls.current[key];
+          const sl = slotEls.current[key];
+          if (!so || !sl) {
+            complete = false;
+            break;
+          }
+          const a = so.getBoundingClientRect();
+          const b = sl.getBoundingClientRect();
+          source[key] = { x: a.left - s.left, y: a.top - s.top, w: a.width, h: a.height };
+          slot[key] = { x: b.left - s.left, y: b.top - s.top, w: b.width, h: b.height };
+        }
+        if (complete) nextG = { source, slot };
+      }
+      const nextSig = JSON.stringify([
+        SEQUENCE.map((k) => Math.round(nextP[k] * 500)),
+        nextG &&
+          SEQUENCE.map((k) => [
+            Math.round(nextG!.source[k].x),
+            Math.round(nextG!.source[k].y),
+            Math.round(nextG!.slot[k].x),
+            Math.round(nextG!.slot[k].y),
+            Math.round(nextG!.slot[k].h),
+          ]),
+      ]);
+      if (nextSig !== sig.current) {
+        sig.current = nextSig;
+        setProgress(nextP);
+        setGeom(nextG);
+      }
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  const setRow = (key: SourceKey) => (el: HTMLDivElement | null) => void (rowEls.current[key] = el);
+  const setSource = (key: SourceKey) => (el: HTMLDivElement | null) => void (sourceEls.current[key] = el);
+  const setSlot = (key: SourceKey) => (el: HTMLDivElement | null) => void (slotEls.current[key] = el);
+  return { stageRef, setRow, setSource, setSlot, progress, geom };
+}
+
+function ScrubRow({
+  title,
+  body,
+  rowRef,
+  children,
+}: {
+  title: string;
+  body: string;
+  rowRef: (el: HTMLDivElement | null) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div ref={rowRef} className="plan-v3-row">
+      <div className="plan-v3-copy">
+        <h3>{title}</h3>
+        <p>{body}</p>
+      </div>
+      <div className="plan-v3-mock">{children}</div>
+    </div>
+  );
+}
+
+/** Column with a fixed slot per source; slots open and fill from scroll state. */
+function ScrubColumn({
+  open,
+  landed,
+  hues = false,
+  setSlot,
+}: {
+  open: Record<SourceKey, boolean>;
+  landed: Record<SourceKey, boolean>;
+  hues?: boolean;
+  setSlot: (key: SourceKey) => (el: HTMLDivElement | null) => void;
+}) {
+  const count = 1 + SEQUENCE.filter((k) => landed[k]).length;
+  return (
+    <div
+      className="glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel shrink-0"
+      style={{ width: 300, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
+    >
+      <KanbanColumnView status="todo" label="To Do" count={count}>
+        {[...SEQUENCE].reverse().map((k) => (
+          <div
+            key={k}
+            ref={setSlot(k)}
+            className={`plan-slot ${open[k] ? 'plan-slot-open' : ''} ${landed[k] ? 'plan-slot-in' : ''}`}
+          >
+            <div>
+              <KanbanCardView task={TASK_BY_SOURCE[k]} showBadge={false} />
+              {hues && (
+                <span
+                  className="absolute left-0 top-0 bottom-0"
+                  style={{
+                    width: 2,
+                    background: HUE_ACCENT[k],
+                    opacity: landed[k] ? 1 : 0,
+                    transition: 'opacity 300ms ease',
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        ))}
+        <KanbanCardView task={SEED_TASK} showBadge={false} />
+      </KanbanColumnView>
+    </div>
+  );
+}
+
+const past = (progress: Record<SourceKey, number>, t: number) =>
+  Object.fromEntries(SEQUENCE.map((k) => [k, progress[k] >= t])) as Record<SourceKey, boolean>;
+
+const ROWS: { key: SourceKey; title: string; body: string }[] = [
+  {
+    key: 'agent',
+    title: 'Delegate the breakdown',
+    body: 'An agent splits the epic and files each task over the CLI, prompt and all.',
+  },
+  { key: 'issue', title: 'Pull from GitHub', body: 'An open issue becomes a task on the board with one click.' },
+  { key: 'manual', title: 'Or just type', body: 'The composer sits at the bottom of the column, one ⌘N away.' },
+];
+
+function rowMock(key: SourceKey, firing: boolean, setSource: (key: SourceKey) => (el: HTMLDivElement | null) => void, fire?: string) {
+  const fireStyle = fire ? ({ '--plan-fire': fire } as React.CSSProperties) : undefined;
+  if (key === 'agent')
+    return (
+      <Panel firing={firing} style={{ height: 330, ...fireStyle }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
+        <AgentPane compact anchorRef={setSource('agent')} />
+      </Panel>
+    );
+  if (key === 'issue')
+    return (
+      <Panel firing={firing} style={fireStyle} ledge={ledge('github-logo', 'Issues')}>
+        <IssuePane anchorRef={setSource('issue')} />
+      </Panel>
+    );
+  return (
+    <Panel firing={firing} style={fireStyle}>
+      <div className="p-5">
+        <ComposerFooter firing={false} anchorRef={setSource('manual')} />
+      </div>
+    </Panel>
+  );
+}
+
+/* ─── Variant 4a: tether — a beam draws from the action to the column ─ */
+
+export function VariantScrubTether() {
+  const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
+  const drawP = (k: SourceKey) => clamp01((progress[k] - 0.12) / 0.55);
+  const landed = past(progress, 0.7);
+  const beamPath = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    const dx = Math.max(48, (b.x - a.x) * 0.4);
+    return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`;
+  };
+  return (
+    <div>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <Desk hue="indigo" style={{ marginTop: 64, padding: '64px 56px' }}>
+        <div ref={stageRef} className="relative flex gap-10 items-start">
+          <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 130 }}>
+            {ROWS.map(({ key, title, body }) => (
+              <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
+                {rowMock(key, progress[key] > 0.15 && progress[key] < 0.95, setSource)}
+              </ScrubRow>
+            ))}
+            <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
+              <Panel ledge={ledge('file-text', 'plan.md')}>
+                <PlanPane short />
+              </Panel>
+            </StoryRow>
+          </div>
+          <div className="shrink-0 sticky" style={{ top: 120, width: 300 }}>
+            <div className="flex" style={{ minHeight: 480 }}>
+              <ScrubColumn open={landed} landed={landed} setSlot={setSlot} />
+            </div>
+          </div>
+          {geom && (
+            <svg
+              className="absolute inset-0 pointer-events-none"
+              width="100%"
+              height="100%"
+              style={{ zIndex: 30, overflow: 'visible' }}
+            >
+              {SEQUENCE.map((k) => {
+                const d = drawP(k);
+                if (d <= 0) return null;
+                const src = geom.source[k];
+                const dst = geom.slot[k];
+                const a = { x: src.x + src.w, y: src.y + src.h / 2 };
+                const b = { x: dst.x, y: dst.y + Math.max(dst.h / 2, 14) };
+                const dim = 1 - 0.45 * clamp01((progress[k] - 0.7) / 0.3);
+                return (
+                  <g key={k}>
+                    <path
+                      d={beamPath(a, b)}
+                      pathLength={1}
+                      fill="none"
+                      stroke="var(--color-accent)"
+                      strokeWidth={5}
+                      strokeLinecap="round"
+                      strokeDasharray="1"
+                      strokeDashoffset={1 - d}
+                      opacity={0.12 * dim}
+                    />
+                    <path
+                      d={beamPath(a, b)}
+                      pathLength={1}
+                      fill="none"
+                      stroke="var(--color-accent)"
+                      strokeWidth={1.5}
+                      strokeLinecap="round"
+                      strokeDasharray="1"
+                      strokeDashoffset={1 - d}
+                      opacity={0.85 * dim}
+                    />
+                    <circle cx={a.x} cy={a.y} r={3} fill="var(--color-accent)" opacity={0.9 * dim} />
+                    <circle cx={b.x} cy={b.y} r={3} fill="var(--color-accent)" opacity={d >= 1 ? 0.9 * dim : 0} />
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+        </div>
+      </Desk>
+    </div>
+  );
+}
+
+/* ─── Variant 4b: handoff — the created card flies into the column ──── */
+
+export function VariantScrubHandoff() {
+  const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
+  const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
+  const open = past(progress, 0.55);
+  const landed = past(progress, 0.76);
+  return (
+    <div>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <div ref={stageRef} className="relative flex gap-10 items-start" style={{ marginTop: 72 }}>
+        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
+          {ROWS.map(({ key, title, body }) => (
+            <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
+              <Well>{rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}</Well>
+            </ScrubRow>
+          ))}
+          <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
+            <Well>
+              <Panel ledge={ledge('file-text', 'plan.md')}>
+                <PlanPane short />
+              </Panel>
+            </Well>
+          </StoryRow>
+        </div>
+        <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
+          <Well>
+            <div className="flex" style={{ minHeight: 470 }}>
+              <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
+            </div>
+          </Well>
+        </div>
+        {geom &&
+          SEQUENCE.map((k) => {
+            const f = flightP(k);
+            if (f <= 0 || f >= 1) return null;
+            const e = easeInOut(f);
+            const src = geom.source[k];
+            const dst = geom.slot[k];
+            const left = lerp(src.x, dst.x, e);
+            const top = lerp(src.y, dst.y, e) - 28 * Math.sin(Math.PI * e);
+            const width = lerp(src.w, dst.w, e);
+            const opacity = Math.min(1, f / 0.12) * (1 - clamp01((f - 0.85) / 0.15));
+            return (
+              <div
+                key={k}
+                className="absolute pointer-events-none glass-bevel rounded-[10px] overflow-hidden border border-bezel-panel"
+                style={{
+                  left,
+                  top,
+                  width,
+                  zIndex: 40,
+                  background: 'var(--color-terminal-bg)',
+                  boxShadow: 'var(--shadow-panel), 0 24px 48px -16px rgba(0, 0, 0, 0.6)',
+                  opacity,
+                }}
+              >
+                <KanbanCardView task={TASK_BY_SOURCE[k]} showBadge={false} />
+              </div>
+            );
+          })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Variant 4c: color pairing — hue links each source to its card ─── */
+
+export function VariantScrubHue() {
+  const { setRow, setSource, setSlot, progress } = useScrubStage();
+  const landed = past(progress, 0.6);
+  const deskHue: Record<SourceKey, keyof typeof DESK_HUES> = { agent: 'indigo', issue: 'teal', manual: 'rose' };
+  return (
+    <div>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <div className="flex gap-10 items-start" style={{ marginTop: 72 }}>
+        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
+          {ROWS.map(({ key, title, body }) => (
+            <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
+              <Desk hue={deskHue[key]}>
+                {rowMock(key, progress[key] > 0.25 && progress[key] < 0.95, setSource, HUE_ACCENT[key])}
+              </Desk>
+            </ScrubRow>
+          ))}
+          <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
+            <Desk hue="violet">
+              <Panel ledge={ledge('file-text', 'plan.md')}>
+                <PlanPane short />
+              </Panel>
+            </Desk>
+          </StoryRow>
+        </div>
+        <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
+          <Desk hue="graphite" style={{ padding: 36 }}>
+            <div className="flex" style={{ minHeight: 470 }}>
+              <ScrubColumn open={landed} landed={landed} hues setSlot={setSlot} />
+            </div>
+          </Desk>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ─── Variant 3d: each mock on its own desktop card ───────────────── */

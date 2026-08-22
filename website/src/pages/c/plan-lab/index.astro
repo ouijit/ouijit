@@ -1,13 +1,35 @@
 ---
 import Site from '../../../layouts/Site.astro';
-import { VariantStoryDesk, VariantStoryWell, VariantStoryOneDesk } from '../../../components/demo/PlanLab.tsx';
+import {
+  VariantStoryDesk,
+  VariantStoryWell,
+  VariantStoryOneDesk,
+  VariantScrubTether,
+  VariantScrubHandoff,
+  VariantScrubHue,
+} from '../../../components/demo/PlanLab.tsx';
 ---
 <Site noindex>
   <div class="plan-lab">
     <header class="plan-lab-head">
       <h1>Plan section lab</h1>
-      <p>Story rows in containers: desktop cards, inset wells, one shared desktop.</p>
+      <p>Round 4: scroll-scrubbed landings — every animation reverses when you scroll back up.</p>
     </header>
+
+    <section class="plan-lab-concept" id="v4a">
+      <div class="plan-lab-tag">4a · Tether — a beam draws from the action to the card as you scroll, on one shared desktop</div>
+      <VariantScrubTether client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="v4b">
+      <div class="plan-lab-tag">4b · Handoff — the created card lifts out of the source and flies into the column, scrubbed by scroll</div>
+      <VariantScrubHandoff client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="v4c">
+      <div class="plan-lab-tag">4c · Color pairing — each source's hue rings the mock and edges its card; the count ticks up</div>
+      <VariantScrubHue client:visible />
+    </section>
 
     <section class="plan-lab-concept" id="v3d">
       <div class="plan-lab-tag">3d · Desktop cards — each mock on its own wallpaper backdrop, hue per row</div>
@@ -111,6 +133,29 @@ import { VariantStoryDesk, VariantStoryWell, VariantStoryOneDesk } from '../../.
       overflow: hidden;
       position: relative;
     }
+    /* Scrubbed card slots: height opens via the 0fr→1fr grid trick so the
+       transition reverses cleanly when scroll direction flips. */
+    .plan-slot {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 340ms cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+    .plan-slot > div {
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity 300ms ease, transform 300ms ease;
+    }
+    .plan-slot-open {
+      grid-template-rows: 1fr;
+    }
+    .plan-slot-in > div {
+      opacity: 1;
+      transform: none;
+    }
+
     /* Choreography */
     .plan-lab-card-in {
       animation: plan-lab-card-in 320ms ease-out;
@@ -132,8 +177,8 @@ import { VariantStoryDesk, VariantStoryWell, VariantStoryOneDesk } from '../../.
     .plan-lab-firing {
       box-shadow:
         var(--shadow-panel),
-        0 0 0 1px color-mix(in srgb, var(--color-accent) 55%, transparent),
-        0 0 24px color-mix(in srgb, var(--color-accent) 18%, transparent) !important;
+        0 0 0 1px color-mix(in srgb, var(--plan-fire, var(--color-accent)) 55%, transparent),
+        0 0 24px color-mix(in srgb, var(--plan-fire, var(--color-accent)) 18%, transparent) !important;
       transition: box-shadow 300ms ease-out;
     }
   </style>
