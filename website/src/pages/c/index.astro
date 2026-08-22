@@ -2,6 +2,7 @@
 import Site from '../../layouts/Site.astro';
 import DownloadButtons from '../../components/home/DownloadButtons.astro';
 import AppWindowScene from '../../components/demo/AppWindowScene.tsx';
+import Harnesses from '../../components/home/Harnesses.astro';
 ---
 <Site noindex>
   <script is:inline>document.documentElement.classList.add('js');</script>
@@ -28,6 +29,8 @@ import AppWindowScene from '../../components/demo/AppWindowScene.tsx';
     </p>
     <a class="home-pitch-link" href="/docs/" data-reveal>Read the docs <span aria-hidden="true">→</span></a>
   </section>
+
+  <Harnesses />
 
   <script>
     import { initHomeChrome, initPitchIllumination } from '../../scripts/homeChrome';
