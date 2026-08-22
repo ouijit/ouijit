@@ -3,11 +3,13 @@ import type { TaskStatus } from '../../ouijit-ui/types';
 import { KanbanColumnView } from '../../ouijit-ui/components/kanban/KanbanColumnView';
 import { KanbanCardView } from '../../ouijit-ui/components/kanban/KanbanCardView';
 import { KanbanAddInput } from '../../ouijit-ui/components/kanban/KanbanAddInput';
+import { KanbanPrBadgeView } from '../../ouijit-ui/components/kanban/KanbanPrBadgeView';
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
 import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { featuresTasks, featuresTerminalsByTask } from './featuresFixtures';
 import { MockPlanPanel, MockPreviewPanel, MockDiffPanel } from './MockPanels';
+import { MockPullRequests } from './MockPullRequests';
 import {
   STACK_TERMINALS,
   type PanelKind,
@@ -23,6 +25,9 @@ const COLUMNS: { status: TaskStatus; label: string; hooked: boolean }[] = [
   { status: 'in_review', label: 'In Review', hooked: true },
   { status: 'done', label: 'Done', hooked: false },
 ];
+
+/** Tasks whose branch went up as a pull request; the chip opens the PR view. */
+const PR_BY_TASK: Record<number, number> = { 99: 486, 98: 482, 95: 479 };
 
 const CANVAS_WIDTH = 1240;
 const CANVAS_HEIGHT = 800;
@@ -56,7 +61,7 @@ export default function AppWindowScene() {
   // would mismatch the SSR inline style, which React leaves in the DOM.
   const [scale, setScale] = useState(1);
 
-  const [view, setView] = useState<'board' | 'stack'>('board');
+  const [view, setView] = useState<'board' | 'stack' | 'prs'>('board');
   // The diff-bearing terminal leads so the stack opens on the diff panel.
   const [stackOrder, setStackOrder] = useState<string[]>([
     'pty-103-test',
@@ -135,6 +140,9 @@ export default function AppWindowScene() {
                 <button className={segBtn(view === 'stack')} aria-label="Terminal stack" onClick={() => setView('stack')}>
                   <Icon name="cards-three" />
                 </button>
+                <button className={segBtn(view === 'prs')} aria-label="Pull requests" onClick={() => setView('prs')}>
+                  <Icon name="git-pull-request" />
+                </button>
                 <span className={segBtn(false)}>
                   <Icon name="gear" />
                 </span>
@@ -202,18 +210,37 @@ export default function AppWindowScene() {
                       onConfigureHook={status === 'todo' ? undefined : () => {}}
                       footer={status === 'todo' ? <KanbanAddInput onAdd={() => {}} /> : undefined}
                     >
-                      {tasksInColumn.map((task) => (
-                        <KanbanCardView
-                          key={task.taskNumber}
-                          task={task}
-                          connectedDisplays={featuresTerminalsByTask[task.taskNumber] ?? []}
-                          showBadge={false}
-                          onSwitchToTerminal={openTerminal}
-                        />
-                      ))}
+                      {tasksInColumn.map((task) => {
+                        const prNumber = PR_BY_TASK[task.taskNumber];
+                        return (
+                          <KanbanCardView
+                            key={task.taskNumber}
+                            task={task}
+                            connectedDisplays={featuresTerminalsByTask[task.taskNumber] ?? []}
+                            showBadge={false}
+                            onSwitchToTerminal={openTerminal}
+                            prBadge={
+                              prNumber != null ? (
+                                <KanbanPrBadgeView prNumber={prNumber} onClick={() => setView('prs')} />
+                              ) : undefined
+                            }
+                          />
+                        );
+                      })}
                     </KanbanColumnView>
                   );
                 })}
+              </div>
+            ) : view === 'prs' ? (
+              <div
+                className="glass-bevel relative flex flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"
+                style={{
+                  margin: '0 16px 16px 0',
+                  background: 'var(--color-terminal-bg)',
+                  boxShadow: 'var(--shadow-panel)',
+                }}
+              >
+                <MockPullRequests />
               </div>
             ) : (
               <div className="flex-1 min-w-0 relative">

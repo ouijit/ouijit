@@ -25,8 +25,12 @@ import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
 import dotsSixVertical from '@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw';
 import caretLeft from '@phosphor-icons/core/assets/regular/caret-left.svg?raw';
 import caretRight from '@phosphor-icons/core/assets/regular/caret-right.svg?raw';
+import arrowSquareOut from '@phosphor-icons/core/assets/regular/arrow-square-out.svg?raw';
 import cardsThree from '@phosphor-icons/core/assets/regular/cards-three.svg?raw';
+import chatCircle from '@phosphor-icons/core/assets/regular/chat-circle.svg?raw';
 import check from '@phosphor-icons/core/assets/regular/check.svg?raw';
+import checkCircle from '@phosphor-icons/core/assets/regular/check-circle.svg?raw';
+import clock from '@phosphor-icons/core/assets/regular/clock.svg?raw';
 import clipboardText from '@phosphor-icons/core/assets/regular/clipboard-text.svg?raw';
 import code from '@phosphor-icons/core/assets/regular/code.svg?raw';
 import copy from '@phosphor-icons/core/assets/regular/copy.svg?raw';
@@ -45,6 +49,8 @@ import gitFork from '@phosphor-icons/core/assets/regular/git-fork.svg?raw';
 import gridFour from '@phosphor-icons/core/assets/regular/grid-four.svg?raw';
 import gitDiff from '@phosphor-icons/core/assets/regular/git-diff.svg?raw';
 import gitMerge from '@phosphor-icons/core/assets/regular/git-merge.svg?raw';
+import gitPullRequest from '@phosphor-icons/core/assets/regular/git-pull-request.svg?raw';
+import githubLogo from '@phosphor-icons/core/assets/regular/github-logo.svg?raw';
 import info from '@phosphor-icons/core/assets/regular/info.svg?raw';
 import kanban from '@phosphor-icons/core/assets/regular/kanban.svg?raw';
 import listChecks from '@phosphor-icons/core/assets/regular/list-checks.svg?raw';
@@ -64,6 +70,8 @@ import terminal from '@phosphor-icons/core/assets/regular/terminal.svg?raw';
 import trash from '@phosphor-icons/core/assets/regular/trash.svg?raw';
 import treeStructure from '@phosphor-icons/core/assets/regular/tree-structure.svg?raw';
 import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
+import userCircle from '@phosphor-icons/core/assets/regular/user-circle.svg?raw';
+import xCircle from '@phosphor-icons/core/assets/regular/x-circle.svg?raw';
 import webhooksLogo from '@phosphor-icons/core/assets/regular/webhooks-logo.svg?raw';
 import x from '@phosphor-icons/core/assets/regular/x.svg?raw';
 
@@ -89,8 +97,12 @@ export const iconMap: Record<string, string> = {
   'dots-six-vertical': dotsSixVertical,
   'caret-left': caretLeft,
   'caret-right': caretRight,
+  'arrow-square-out': arrowSquareOut,
   'cards-three': cardsThree,
+  'chat-circle': chatCircle,
   check: check,
+  'check-circle': checkCircle,
+  clock: clock,
   'clipboard-text': clipboardText,
   code: code,
   copy: copy,
@@ -109,6 +121,8 @@ export const iconMap: Record<string, string> = {
   'git-fork': gitFork,
   'grid-four': gridFour,
   'git-merge': gitMerge,
+  'git-pull-request': gitPullRequest,
+  'github-logo': githubLogo,
   info: info,
   kanban: kanban,
   'list-checks': listChecks,
@@ -128,8 +142,10 @@ export const iconMap: Record<string, string> = {
   trash: trash,
   'tree-structure': treeStructure,
   upload: upload,
+  'user-circle': userCircle,
   'webhooks-logo': webhooksLogo,
   x: x,
+  'x-circle': xCircle,
 };
 
 /**

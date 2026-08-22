@@ -436,7 +436,7 @@ export function MockPlanPanel({ fixture, onClose }: { fixture: PlanFixture; onCl
         }
       />
       <div className="flex-1 overflow-y-auto px-6 py-4">
-        <div className="plan-markdown">{fixture.body}</div>
+        <div className="app-markdown plan-markdown">{fixture.body}</div>
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ export interface KanbanCardViewProps {
   isInvalidBadgeTarget?: boolean;
   showBadge?: boolean;
   badge?: ReactNode;
+  prBadge?: ReactNode;
   formattedDate?: string;
   onSelect?: (taskNumber: number, event: MouseEvent) => void;
   onPlainClick?: () => void;
@@ -60,6 +61,7 @@ export const KanbanCardView = memo(function KanbanCardView({
   isInvalidBadgeTarget = false,
   showBadge = false,
   badge,
+  prBadge,
   formattedDate,
   onSelect,
   onPlainClick,
@@ -216,7 +218,12 @@ export const KanbanCardView = memo(function KanbanCardView({
           <Icon name="caret-down" />
         </button>
       </div>
-      {showBadge && badge && <div className="mt-1">{badge}</div>}
+      {((showBadge && badge) || prBadge) && (
+        <div className="mt-1 flex items-center gap-1 flex-wrap">
+          {showBadge && badge}
+          {prBadge}
+        </div>
+      )}
 
       {(connectedDisplays.length > 0 || isSettingUp) && (
         <div className="flex flex-col" style={{ paddingTop: 3 }}>

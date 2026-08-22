@@ -329,6 +329,25 @@ body.marketing .btn-secondary:hover {
   }
 }
 
+/* The marketing heading face (body.marketing h1–h4) must not leak into
+   app-rendered markdown inside the UI mocks; restore the app's own styles,
+   which the equal-specificity marketing rules would otherwise beat. */
+body.marketing .app-markdown :is(h1, h2, h3, h4) {
+  font-family: inherit;
+  letter-spacing: normal;
+  line-height: inherit;
+}
+
+body.marketing .app-markdown :is(h1, h2, h3) {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+body.marketing .app-markdown h4 {
+  color: color-mix(in srgb, var(--color-ink) 90%, transparent);
+  font-weight: 500;
+}
+
 /* --- Full app window mock (concept C hero scene) --- */
 .app-window-frame {
   max-width: calc(1240px + 2 * var(--content-padding));
