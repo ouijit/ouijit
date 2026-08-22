@@ -310,12 +310,8 @@ function Desk({
   );
 }
 
-function Well({ className = '', crop = false, children }: { className?: string; crop?: boolean; children: ReactNode }) {
-  return (
-    <div className={`plan-well ${crop ? 'plan-well-crop' : ''} ${className}`}>
-      {crop ? <div style={{ marginRight: -56, marginBottom: -40 }}>{children}</div> : children}
-    </div>
-  );
+function Well({ className = '', children }: { className?: string; children: ReactNode }) {
+  return <div className={`plan-well ${className}`}>{children}</div>;
 }
 
 /* ─── Variant 3d: each mock on its own desktop card ───────────────── */
@@ -396,7 +392,7 @@ export function VariantStoryWell() {
             body="An agent splits the epic and files each task over the CLI, prompt and all."
             onVisible={() => land('agent')}
           >
-            <Well crop>
+            <Well>
               <Panel firing={firing === 'agent'} style={{ height: 330 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
                 <AgentPane compact />
               </Panel>
@@ -407,7 +403,7 @@ export function VariantStoryWell() {
             body="An open issue becomes a task on the board with one click."
             onVisible={() => land('issue')}
           >
-            <Well crop>
+            <Well>
               <Panel firing={firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
                 <IssuePane />
               </Panel>
@@ -418,7 +414,7 @@ export function VariantStoryWell() {
             body="The composer sits at the bottom of the column, one ⌘N away."
             onVisible={() => land('manual')}
           >
-            <Well crop>
+            <Well>
               <Panel firing={firing === 'manual'}>
                 <div className="p-5">
                   <ComposerFooter firing={false} />
@@ -427,7 +423,7 @@ export function VariantStoryWell() {
             </Well>
           </StoryRow>
           <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
-            <Well crop>
+            <Well>
               <Panel ledge={ledge('file-text', 'plan.md')}>
                 <PlanPane short />
               </Panel>
