@@ -14,7 +14,15 @@ interface Line {
 }
 
 const hl = (text: string, kind: 'add' | 'del') => (
-  <span className={kind === 'add' ? 'rounded-[3px] bg-[rgba(63,185,80,0.28)] px-[2px]' : 'rounded-[3px] bg-[rgba(248,81,73,0.25)] px-[2px]'}>
+  <span
+    className="rounded-[3px] px-[2px]"
+    style={{
+      backgroundColor:
+        kind === 'add'
+          ? 'color-mix(in srgb, var(--color-diff-added) 25%, transparent)'
+          : 'color-mix(in srgb, var(--color-diff-removed) 22%, transparent)',
+    }}
+  >
     {text}
   </span>
 );
@@ -78,21 +86,24 @@ export default function DiffNoteDemo() {
 
   return (
     <div ref={sceneRef} className="demo-frame diff-demo">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.06]">
-        <Icon name="git-branch" className="w-3.5 h-3.5 text-white/50 shrink-0" />
-        <span className="text-[13px] text-white/70 font-mono truncate">rework-onboarding</span>
-        <span className="text-[11px] text-white/40">1 file</span>
-        <span className="text-[11px] font-mono text-[#3fb950]">+3</span>
-        <span className="text-[11px] font-mono text-[#f85149]">-1</span>
+      <div className="pane-ledge over-well relative z-10 flex items-center gap-2 px-3 py-2 shrink-0">
+        <Icon name="git-branch" className="w-3.5 h-3.5 text-ink/45 shrink-0" />
+        <span className="text-[13px] text-ink/70 font-mono truncate">rework-onboarding</span>
+        <span className="ml-auto text-xs text-text-tertiary">1 file +3 -1</span>
       </div>
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-[#252525] border-b border-white/[0.06]">
-        <span className="flex-1 min-w-0 truncate text-[12px] text-white/90 font-mono">src/onboarding/Stepper.tsx</span>
-        <span className="shrink-0 text-[10px] px-1.5 py-px rounded font-medium bg-white/[0.06] text-white/55">
-          modified
+      <div className="pane-ledge relative z-[5] flex items-center gap-2 px-4 h-9 bg-terminal-surface">
+        <span className="flex-1 min-w-0 truncate font-mono text-[12px]">
+          <span className="text-ink/35">src/onboarding/</span>
+          <span className="text-ink/90">Stepper.tsx</span>
+        </span>
+        <span className="shrink-0 text-[10px] px-1 py-px rounded font-medium bg-ink/[0.06] text-ink/40">modified</span>
+        <span className="shrink-0 font-mono text-[11px]">
+          <span className="text-diff-added">+3</span> <span className="text-diff-removed">-1</span>
         </span>
       </div>
-      <div className="py-0.5 pr-3 pl-[86px] bg-[rgba(88,86,214,0.10)] text-[#8b8bcd] font-mono text-[11px] truncate">
-        @@ -4,5 +4,8 @@ export function Stepper
+      <div className="flex items-center gap-3 py-1 pr-3 pl-[86px] font-mono text-[11px]">
+        <span className="shrink-0 text-ink/25">@@ -4,5 +4,8 @@</span>
+        <span className="truncate text-ink/45">export function Stepper</span>
       </div>
       {LINES.map((line, i) => (
         <div key={i}>
@@ -125,31 +136,23 @@ export default function DiffNoteDemo() {
 
 function DiffLineRow({ line, noted }: { line: Line; noted?: boolean }) {
   const lineBg =
-    line.type === 'addition'
-      ? 'bg-[rgba(63,185,80,0.10)]'
-      : line.type === 'deletion'
-        ? 'bg-[rgba(248,81,73,0.08)]'
-        : '';
+    line.type === 'addition' ? 'bg-diff-added/10' : line.type === 'deletion' ? 'bg-diff-removed/[0.08]' : '';
   const gutterBg =
     line.type === 'addition'
-      ? 'bg-[rgba(63,185,80,0.12)]'
+      ? 'bg-diff-added/[0.12]'
       : line.type === 'deletion'
-        ? 'bg-[rgba(248,81,73,0.10)]'
-        : 'bg-[#141414]';
+        ? 'bg-diff-removed/10'
+        : 'bg-terminal-inset';
   const prefix = line.type === 'context' ? ' ' : line.type === 'addition' ? '+' : '-';
   const prefixColor =
-    line.type === 'addition' ? 'text-[#3fb950]' : line.type === 'deletion' ? 'text-[#f85149]' : 'text-transparent';
+    line.type === 'addition' ? 'text-diff-added' : line.type === 'deletion' ? 'text-diff-removed' : 'text-transparent';
   return (
     <div className={`flex font-mono text-[11px] leading-5 ${lineBg}`}>
-      <span className="flex shrink-0 select-none">
-        <span className={`w-[36px] px-1.5 text-right text-white/25 ${gutterBg} border-r border-white/5`}>
-          {line.oldNo ?? ''}
-        </span>
-        <span className={`w-[36px] px-1.5 text-right text-white/25 ${gutterBg} border-r border-white/5`}>
-          {line.newNo ?? ''}
-        </span>
+      <span className={`flex shrink-0 select-none ${gutterBg} border-r border-ink/[0.07]`}>
+        <span className="w-[36px] px-1.5 text-right text-ink/25">{line.oldNo ?? ''}</span>
+        <span className="w-[36px] px-1.5 text-right text-ink/25">{line.newNo ?? ''}</span>
       </span>
-      <span className="flex-1 pl-2 pr-2 whitespace-pre-wrap break-words text-[#e6edf3] min-w-0">
+      <span className="flex-1 pl-2 pr-2 whitespace-pre-wrap break-words text-diff-fg min-w-0">
         <span className={`inline-block w-3 select-none ${prefixColor}`}>{prefix}</span>
         {line.content}
         {noted && <span className="diff-demo-note-chip">✓ sent to claude</span>}

@@ -343,7 +343,13 @@ export default function WorkspaceScene() {
             {COLUMNS.map(({ status, label }) => {
               const tasksInColumn = tasks.filter((t) => t.status === status);
               return (
-                <KanbanColumnView key={status} status={status} label={label} count={tasksInColumn.length}>
+                <KanbanColumnView
+                  key={status}
+                  status={status}
+                  label={label}
+                  count={tasksInColumn.length}
+                  footer={status === 'todo' ? <KanbanAddInput onAdd={() => {}} /> : undefined}
+                >
                   {tasksInColumn.map((task) => {
                     const isDemoTask = task.taskNumber >= DEMO_TASK_NUMBER;
                     const taskTerminals = terminalsByTask[task.taskNumber] ?? [];
@@ -366,7 +372,6 @@ export default function WorkspaceScene() {
                     }
                     return <Fragment key={task.taskNumber}>{card}</Fragment>;
                   })}
-                  {status === 'todo' && <KanbanAddInput onAdd={() => {}} />}
                 </KanbanColumnView>
               );
             })}

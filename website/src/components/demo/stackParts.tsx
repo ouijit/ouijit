@@ -72,11 +72,12 @@ export function ActiveActions({
   openPanel: PanelKind | null;
   onToggle: (kind: PanelKind) => void;
 }) {
-  const base = 'h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium';
+  const base =
+    'h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium transition-colors duration-150 ease-out';
   const inactive = 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
-  const active = 'bg-accent text-white hover:bg-accent';
+  const active = 'bg-accent text-accent-ink hover:bg-accent';
   const cls = (kind: PanelKind) => `${base} ${openPanel === kind ? active : inactive}`;
-  const divider = <div aria-hidden className="w-px h-3 bg-white/10 self-center" />;
+  const divider = <div aria-hidden className="w-px h-3 shrink-0 bg-ink/10 self-center" />;
   const diff = fixtures.diff;
   const diffAdds = diff?.files.reduce((s, f) => s + f.additions, 0) ?? 0;
   const diffDels = diff?.files.reduce((s, f) => s + f.deletions, 0) ?? 0;
@@ -85,7 +86,7 @@ export function ActiveActions({
     onToggle(kind);
   };
   return (
-    <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-black/60 rounded-[12px] overflow-hidden">
+    <div className="flex items-center min-w-0 h-7 bg-background-secondary glass-bevel relative border border-bezel rounded-[12px] overflow-hidden">
       {fixtures.plan && (
         <>
           <button className={cls('plan')} onClick={handle('plan')}>
@@ -110,13 +111,13 @@ export function ActiveActions({
             <span>
               {diff.files.length} {diff.files.length === 1 ? 'file' : 'files'}
             </span>
-            {diffAdds > 0 && <span className="text-[#4ee82e]">+{diffAdds}</span>}
-            {diffDels > 0 && <span className="text-[#ff6b6b]">-{diffDels}</span>}
+            {diffAdds > 0 && <span className={openPanel === 'diff' ? '' : 'text-status-ready'}>+{diffAdds}</span>}
+            {diffDels > 0 && <span className={openPanel === 'diff' ? '' : 'text-ansi-red'}>-{diffDels}</span>}
           </button>
           {divider}
         </>
       )}
-      <button className={`${base} ${inactive} !px-2`} aria-label="Add panel">
+      <button className={`${base} ${inactive} shrink-0 !px-2`} aria-label="Add panel">
         <Icon name="plus" className="w-3.5 h-3.5" />
       </button>
     </div>

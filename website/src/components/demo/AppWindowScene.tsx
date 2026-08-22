@@ -189,6 +189,7 @@ export default function AppWindowScene() {
                       hookTypes={status === 'todo' ? [] : ['start']}
                       hasConfiguredHook={hooked}
                       onConfigureHook={status === 'todo' ? undefined : () => {}}
+                      footer={status === 'todo' ? <KanbanAddInput onAdd={() => {}} /> : undefined}
                     >
                       {tasksInColumn.map((task) => (
                         <KanbanCardView
@@ -199,12 +200,6 @@ export default function AppWindowScene() {
                           onSwitchToTerminal={openTerminal}
                         />
                       ))}
-                      {status === 'todo' && (
-                        <>
-                          <div style={{ flex: 1 }} />
-                          <KanbanAddInput onAdd={() => {}} />
-                        </>
-                      )}
                     </KanbanColumnView>
                   );
                 })}

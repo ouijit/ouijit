@@ -159,7 +159,7 @@ export const KanbanCardView = memo(function KanbanCardView({
               : 'var(--color-terminal-bg)',
         transition:
           'background 150ms ease-out, opacity 150ms ease-out, outline-color 150ms ease-out, box-shadow 150ms ease-out',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)',
         outline: isHoveredBadgeTarget
           ? '1px solid color-mix(in srgb, var(--color-accent) 60%, transparent)'
           : isValidBadgeTarget
@@ -167,7 +167,7 @@ export const KanbanCardView = memo(function KanbanCardView({
             : 'none',
         outlineOffset: -1,
         ...(isInvalidBadgeTarget && { opacity: 0.4 }),
-        ...(isSelected && { boxShadow: 'inset 2px 0 0 0 #0A84FF' }),
+        ...(isSelected && { boxShadow: 'inset 2px 0 0 0 var(--color-accent)' }),
       }}
       data-task-number={task.taskNumber}
       onMouseDown={(e) => {
@@ -190,23 +190,17 @@ export const KanbanCardView = memo(function KanbanCardView({
       }}
     >
       <div className="flex items-start gap-2">
-        {isSettingUp && (
-          <span
-            className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-white/30 border-t-white/80 shrink-0 mt-[5px]"
-            style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
-          />
-        )}
         {isRenamingTask ? (
           <textarea
             ref={nameInputRef}
-            className="flex-1 font-mono text-sm font-medium text-text-primary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 resize-none overflow-hidden [-webkit-app-region:no-drag] break-words"
+            className="flex-1 text-[15px] text-text-primary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 resize-none overflow-hidden [-webkit-app-region:no-drag] break-words"
             onBlur={commitRename}
             onKeyDown={handleNameKeyDown}
             rows={1}
           />
         ) : (
           <span
-            className={`kanban-card-name flex-1 font-mono text-sm font-medium min-w-0 break-words ${isDone ? 'line-through text-text-secondary' : 'text-text-primary'}`}
+            className={`kanban-card-name flex-1 text-[15px] min-w-0 break-words ${isDone ? 'line-through text-text-secondary' : 'text-text-primary'}`}
             onDoubleClick={onStartRenameTask}
           >
             {task.name}
@@ -224,10 +218,22 @@ export const KanbanCardView = memo(function KanbanCardView({
       </div>
       {showBadge && badge && <div className="mt-1">{badge}</div>}
 
-      {isSettingUp && <div className="font-mono text-xs text-white/40 mt-1">Setting up workspace{'…'}</div>}
-
-      {connectedDisplays.length > 0 && (
+      {(connectedDisplays.length > 0 || isSettingUp) && (
         <div className="flex flex-col" style={{ paddingTop: 3 }}>
+          {isSettingUp && connectedDisplays.length === 0 && (
+            <div className="flex flex-row items-center gap-1.5" style={{ padding: '3px 2px', borderRadius: 3 }}>
+              <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
+                └─
+              </span>
+              <span
+                className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-ink/30 border-t-ink/80 shrink-0"
+                style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
+              />
+              <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">
+                Setting up workspace{'…'}
+              </span>
+            </div>
+          )}
           {connectedDisplays.map((display, i) => {
             const isLast = i === connectedDisplays.length - 1;
             const isRenaming = renamingTerminalId === display.ptyId;
@@ -237,7 +243,7 @@ export const KanbanCardView = memo(function KanbanCardView({
             return (
               <div
                 key={display.ptyId}
-                className="flex flex-row items-center gap-1.5 hover:bg-white/[0.06] active:bg-white/[0.03]"
+                className="flex flex-row items-center gap-1.5 hover:bg-ink/[0.06] active:bg-ink/[0.03]"
                 style={{ padding: '3px 2px', borderRadius: 3, transition: 'background 0.1s ease' }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -277,7 +283,7 @@ export const KanbanCardView = memo(function KanbanCardView({
       )}
 
       {expanded && (
-        <div className="grid mt-2 pt-2 border-t border-white/[0.04] gap-2">
+        <div className="grid mt-2 pt-2 border-t border-ink/[0.04] gap-2">
           <div className="flex flex-col gap-1 text-sm">
             <span
               ref={descInputRef}

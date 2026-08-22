@@ -149,7 +149,7 @@ const CARDS: CardConfig[] = [
     summaryType: 'thinking',
     tags: ['onboarding', 'stepper'],
     actions: (
-      <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-black/60 rounded-[12px] overflow-hidden">
+      <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-bezel rounded-[12px] overflow-hidden">
         <button className="h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium bg-accent text-white">
           Plan
         </button>

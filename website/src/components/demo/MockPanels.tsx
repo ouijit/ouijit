@@ -356,10 +356,12 @@ export function getPanelFixtures(ptyId: string): PanelFixtures {
 
 /* ─── Shared chrome ───────────────────────────────────────────────── */
 
-// The active panel is an inset beveled card matching the app's terminal cards
-// (glass-bevel rim + crisp black outline + radius), not a flat divided section.
-const PANEL_CHROME =
-  'flex flex-col absolute inset-0 m-3 glass-bevel border border-black/60 rounded-[14px] overflow-hidden bg-[var(--color-terminal-bg,#171717)] shadow-[0_2px_10px_rgba(0,0,0,0.18)]';
+// Panels are flush panes: they fill the card body edge to edge and let the
+// card's own rounding clip their corners, exactly like the app's panel slot.
+const PANEL_CHROME = 'flex flex-col absolute inset-0 overflow-hidden bg-terminal-bg';
+
+const PANEL_HEADER_BUTTON =
+  'w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5';
 
 interface PanelHeaderProps {
   icon: string;
@@ -371,17 +373,17 @@ interface PanelHeaderProps {
 function PanelHeader({ icon, title, onClose, trailing }: PanelHeaderProps) {
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
-      <Icon name={icon} className="w-3.5 h-3.5 text-white/50 shrink-0" />
-      <span className="text-[13px] text-white/50 truncate flex-1 font-mono">{title}</span>
+      <Icon name={icon} className="w-3.5 h-3.5 text-ink/50 shrink-0" />
+      <span className="text-[13px] text-ink/50 truncate flex-1 font-mono">{title}</span>
       {trailing}
       <PanelHeaderButton aria-label="Split view">
-        <Icon name="square-split-horizontal" className="w-3.5 h-3.5" />
+        <Icon name="square-split-horizontal" />
       </PanelHeaderButton>
       <PanelHeaderButton aria-label="Minimize" onClick={onClose}>
-        <Icon name="minus" className="w-4 h-4" />
+        <Icon name="minus" className="!w-4 !h-4" />
       </PanelHeaderButton>
       <PanelHeaderButton aria-label="Close" onClick={onClose}>
-        <Icon name="x" className="w-3.5 h-3.5" />
+        <Icon name="x" />
       </PanelHeaderButton>
     </div>
   );
@@ -399,7 +401,7 @@ function PanelHeaderButton({
   return (
     <button
       {...rest}
-      className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90"
+      className={PANEL_HEADER_BUTTON}
       onClick={(e) => {
         e.stopPropagation();
         onClick?.();
@@ -429,10 +431,7 @@ export function MockPlanPanel({ fixture, onClose }: { fixture: PlanFixture; onCl
               window.setTimeout(() => setCopied(false), 1500);
             }}
           >
-            <Icon
-              name={copied ? 'check' : 'clipboard-text'}
-              className={`w-3.5 h-3.5 ${copied ? 'text-[#69db7c]' : ''}`}
-            />
+            <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-ansi-green' : ''} />
           </PanelHeaderButton>
         }
       />
@@ -448,25 +447,27 @@ export function MockPlanPanel({ fixture, onClose }: { fixture: PlanFixture; onCl
 export function MockPreviewPanel({ fixture, onClose }: { fixture: PreviewFixture; onClose: () => void }) {
   return (
     <div className={PANEL_CHROME}>
-      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
-        <Icon name="globe-simple" className="w-3.5 h-3.5 text-white/50 shrink-0" />
-        <div className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1 rounded-md bg-black/30 border border-white/10">
-          <span className="text-[11px] font-mono text-white/35">https://</span>
-          <span className="text-[11px] font-mono text-white/85 truncate">
-            {fixture.url.replace(/^https?:\/\//, '')}
-          </span>
-        </div>
+      <div className="flex items-center gap-1 px-2 py-1.5 shrink-0">
+        <span className={`${PANEL_HEADER_BUTTON} !text-ink/20`} aria-hidden="true">
+          <Icon name="arrow-left" />
+        </span>
+        <span className={`${PANEL_HEADER_BUTTON} !text-ink/20`} aria-hidden="true">
+          <Icon name="arrow-right" />
+        </span>
         <PanelHeaderButton aria-label="Reload">
-          <Icon name="arrow-clockwise" className="w-3.5 h-3.5" />
+          <Icon name="arrow-clockwise" />
         </PanelHeaderButton>
-        <PanelHeaderButton aria-label="Open externally">
-          <Icon name="arrow-square-out" className="w-3.5 h-3.5" />
+        <span className="text-[13px] text-ink/60 truncate flex-1 min-w-0 font-mono py-0.5 px-2">
+          {fixture.url.replace(/^https?:\/\//, '')}
+        </span>
+        <PanelHeaderButton aria-label="Split view">
+          <Icon name="square-split-horizontal" />
         </PanelHeaderButton>
         <PanelHeaderButton aria-label="Minimize" onClick={onClose}>
-          <Icon name="minus" className="w-4 h-4" />
+          <Icon name="minus" className="!w-4 !h-4" />
         </PanelHeaderButton>
         <PanelHeaderButton aria-label="Close" onClick={onClose}>
-          <Icon name="x" className="w-3.5 h-3.5" />
+          <Icon name="x" />
         </PanelHeaderButton>
       </div>
       <div className="flex-1 overflow-hidden bg-white">{fixture.page}</div>
@@ -516,93 +517,102 @@ function OnboardingPreviewPage() {
 export function MockDiffPanel({ fixture, onClose }: { fixture: DiffFixture; onClose: () => void }) {
   const totalAdds = fixture.files.reduce((s, f) => s + f.additions, 0);
   const totalDels = fixture.files.reduce((s, f) => s + f.deletions, 0);
+  const count = fixture.files.length;
+  let stats = `${count} file${count !== 1 ? 's' : ''}`;
+  if (totalAdds > 0) stats += ` +${totalAdds}`;
+  if (totalDels > 0) stats += ` -${totalDels}`;
 
   return (
-    <div className={PANEL_CHROME}>
-      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
-        <Icon name="git-branch" className="w-3.5 h-3.5 text-white/50 shrink-0" />
-        <span className="text-[13px] text-white/70 font-mono truncate">
-          {fixture.branchAhead ?? 'uncommitted changes'}
-        </span>
-        <span className="text-[11px] text-white/40">
-          {fixture.files.length} {fixture.files.length === 1 ? 'file' : 'files'}
-        </span>
-        {totalAdds > 0 && <span className="text-[11px] font-mono text-[#3fb950]">+{totalAdds}</span>}
-        {totalDels > 0 && <span className="text-[11px] font-mono text-[#f85149]">-{totalDels}</span>}
-        <div className="flex-1" />
-        <PanelHeaderButton aria-label="Minimize" onClick={onClose}>
-          <Icon name="minus" className="w-4 h-4" />
-        </PanelHeaderButton>
-        <PanelHeaderButton aria-label="Close" onClick={onClose}>
-          <Icon name="x" className="w-3.5 h-3.5" />
-        </PanelHeaderButton>
-      </div>
-      {fixture.files.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-white/40 text-[12px]">
-          No changes on this branch yet.
-        </div>
-      ) : (
-        <div className="flex-1 flex min-h-0 overflow-hidden">
-          <DiffFileList files={fixture.files} />
-          <div className="flex-1 overflow-auto min-w-0">
-            {fixture.files.map((file) => (
-              <DiffFileSection key={file.path} file={file} />
-            ))}
+    <div className={`${PANEL_CHROME} !flex-row`}>
+      {count > 0 && (
+        <>
+          <div className="shrink-0 overflow-y-auto py-2" style={{ width: 200 }}>
+            {fixture.files.map((file) => {
+              const name = file.path.split('/').pop() ?? file.path;
+              return (
+                <div
+                  key={file.path}
+                  className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] transition-colors duration-150 ease-out hover:bg-ink/5 text-text-secondary"
+                  title={file.path}
+                >
+                  <Icon name={statusIcon(file.status)} className={`w-4 h-4 ${statusColor(file.status)}`} />
+                  <span className="flex-1 min-w-0 truncate">{name}</span>
+                  <span className="shrink-0 font-mono text-[13px]">
+                    {file.additions > 0 && <span className="text-diff-added">+{file.additions}</span>}
+                    {file.additions > 0 && file.deletions > 0 && ' '}
+                    {file.deletions > 0 && <span className="text-diff-removed">-{file.deletions}</span>}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        </div>
+          <div className="pane-seam relative w-px shrink-0" />
+        </>
       )}
+      <div className="relative flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="pane-ledge over-well relative z-30 px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
+          <PanelHeaderButton aria-label="Hide the file list">
+            <Icon name="sidebar-simple" />
+          </PanelHeaderButton>
+          <span className="flex items-center gap-1 font-mono text-[13px] text-ink/70">
+            <Icon name="git-branch" className="w-3.5 h-3.5 text-ink/45" />
+            {fixture.branchAhead ?? 'main'}
+            <Icon name="caret-down" className="!w-3 !h-3 text-ink/40" />
+          </span>
+          <span className="ml-auto min-w-0 truncate text-xs text-text-tertiary">{stats}</span>
+          <PanelHeaderButton aria-label="Split view">
+            <Icon name="square-split-horizontal" />
+          </PanelHeaderButton>
+          <PanelHeaderButton aria-label="Close" onClick={onClose}>
+            <Icon name="x" />
+          </PanelHeaderButton>
+        </div>
+        <div className="diff-well diff-list flex-1 overflow-auto pb-3">
+          {count === 0 ? (
+            <div className="flex-1 h-full flex flex-col items-center justify-center text-text-tertiary gap-2">
+              No changes
+            </div>
+          ) : (
+            fixture.files.map((file) => <DiffFileCard key={file.path} file={file} />)
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-function DiffFileList({ files }: { files: DiffFile[] }) {
+function DiffFileCard({ file }: { file: DiffFile }) {
+  const cut = file.path.lastIndexOf('/');
+  const dir = cut === -1 ? '' : file.path.slice(0, cut + 1);
+  const base = cut === -1 ? file.path : file.path.slice(cut + 1);
   return (
-    <div className="w-[180px] border-r border-white/[0.06] shrink-0 overflow-y-auto py-1.5">
-      {files.map((file) => {
-        const name = file.path.split('/').pop() ?? file.path;
-        return (
-          <div
-            key={file.path}
-            className="flex items-center gap-1.5 py-1 pl-3 pr-2 text-[12px] text-white/75 hover:bg-white/5"
-          >
-            <Icon
-              name={statusIcon(file.status)}
-              className={`w-3.5 h-3.5 ${statusColor(file.status)}`}
-            />
-            <span className="flex-1 min-w-0 truncate" title={file.path}>
-              {name}
-            </span>
-            {file.additions > 0 && <span className="font-mono text-[11px] text-[#3fb950]">+{file.additions}</span>}
-            {file.deletions > 0 && <span className="font-mono text-[11px] text-[#f85149]">-{file.deletions}</span>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function DiffFileSection({ file }: { file: DiffFile }) {
-  return (
-    <div className="border-b border-white/[0.08] last:border-b-0">
-      <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-1.5 bg-[#252525] border-b border-white/[0.06]">
-        <span className="flex-1 min-w-0 truncate text-[12px] text-white/90 font-mono">{file.path}</span>
-        <span className={`shrink-0 text-[10px] px-1.5 py-px rounded font-medium ${statusBadge(file.status)}`}>
+    <div className="diff-card mx-6 rounded-[14px] border border-bezel bg-diff-card overflow-clip">
+      <div className="pane-ledge sticky top-0 z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface">
+        <span
+          className="shrink-0 w-4 h-4 rounded border border-ink/25 text-transparent flex items-center justify-center [&>svg]:w-3 [&>svg]:h-3"
+          aria-hidden="true"
+        >
+          <Icon name="check" />
+        </span>
+        <span className="flex-1 min-w-0 truncate font-mono text-[13px]" title={file.path}>
+          <span className="text-ink/35">{dir}</span>
+          <span className="text-ink/90">{base}</span>
+        </span>
+        <span className={`shrink-0 text-[10px] px-1 py-px rounded font-medium ${statusBadge(file.status)}`}>
           {statusLabel(file.status)}
         </span>
-        {file.additions > 0 && <span className="font-mono text-[11px] text-[#3fb950]">+{file.additions}</span>}
-        {file.deletions > 0 && <span className="font-mono text-[11px] text-[#f85149]">-{file.deletions}</span>}
+        <span className="shrink-0 font-mono text-[11px]">
+          {file.additions > 0 && <span className="text-diff-added">+{file.additions}</span>}
+          {file.additions > 0 && file.deletions > 0 && ' '}
+          {file.deletions > 0 && <span className="text-diff-removed">-{file.deletions}</span>}
+        </span>
       </div>
       {file.hunks.length === 0 ? (
-        <div className="px-3 py-3 text-[11px] text-white/35">File deleted</div>
+        <div className="px-4 py-6 text-center font-mono text-[11px] text-text-tertiary">File deleted</div>
       ) : (
         file.hunks.map((hunk, i) => (
           <div key={i}>
-            <div
-              className="py-0.5 pr-3 bg-[rgba(88,86,214,0.10)] text-[#8b8bcd] font-mono text-[11px] truncate"
-              style={{ paddingLeft: 86 }}
-            >
-              {hunk.header}
-            </div>
+            <HunkHeader header={hunk.header} first={i === 0} />
             {hunk.lines.map((line, j) => (
               <DiffLineRow key={j} line={line} />
             ))}
@@ -613,35 +623,43 @@ function DiffFileSection({ file }: { file: DiffFile }) {
   );
 }
 
+function HunkHeader({ header, first }: { header: string; first: boolean }) {
+  const match = /^(@@[^@]*@@)\s*(.*)$/.exec(header);
+  const range = match?.[1] ?? header;
+  const context = match?.[2] ?? '';
+  return (
+    <div
+      className={`flex items-center gap-3 py-1 pr-4 font-mono text-xs ${first ? '' : 'border-t border-ink/[0.06]'}`}
+      style={{ paddingLeft: '100px' }}
+    >
+      <span className="shrink-0 text-ink/25">{range}</span>
+      {context && <span className="truncate text-ink/45">{context}</span>}
+    </div>
+  );
+}
+
 function DiffLineRow({ line }: { line: DiffLine }) {
   const lineBg =
-    line.type === 'addition'
-      ? 'bg-[rgba(63,185,80,0.10)]'
-      : line.type === 'deletion'
-        ? 'bg-[rgba(248,81,73,0.08)]'
-        : '';
+    line.type === 'addition' ? 'bg-diff-added/10' : line.type === 'deletion' ? 'bg-diff-removed/[0.08]' : '';
   const gutterBg =
     line.type === 'addition'
-      ? 'bg-[rgba(63,185,80,0.12)]'
+      ? 'bg-diff-added/[0.12]'
       : line.type === 'deletion'
-        ? 'bg-[rgba(248,81,73,0.10)]'
-        : 'bg-[#141414]';
-  const prefix = line.type === 'context' ? ' ' : line.type === 'addition' ? '+' : '-';
+        ? 'bg-diff-removed/10'
+        : 'bg-terminal-inset';
   const prefixColor =
-    line.type === 'addition' ? 'text-[#3fb950]' : line.type === 'deletion' ? 'text-[#f85149]' : 'text-transparent';
+    line.type === 'addition' ? 'text-diff-added' : line.type === 'deletion' ? 'text-diff-removed' : 'text-transparent';
   return (
-    <div className={`flex font-mono text-[11px] leading-5 ${lineBg}`}>
-      <span className="flex shrink-0 select-none">
-        <span className={`w-[36px] px-1.5 text-right text-white/25 ${gutterBg} border-r border-white/5`}>
-          {line.oldNo ?? ''}
-        </span>
-        <span className={`w-[36px] px-1.5 text-right text-white/25 ${gutterBg} border-r border-white/5`}>
-          {line.newNo ?? ''}
-        </span>
+    <div className={`relative flex font-mono text-sm leading-normal ${lineBg}`}>
+      <span className={`flex shrink-0 select-none sticky left-0 z-[1] ${gutterBg} border-r border-ink/[0.07]`}>
+        <span className="w-[44px] px-2 text-right text-ink/25">{line.oldNo ?? ''}</span>
+        <span className="w-[44px] px-2 text-right text-ink/25">{line.newNo ?? ''}</span>
       </span>
-      <span className="flex-1 pl-2 pr-4 whitespace-pre-wrap break-words text-[#e6edf3]">
-        <span className={`inline-block w-3 select-none ${prefixColor}`}>{prefix}</span>
-        {line.content}
+      <span className="flex-1 pl-2 pr-12 whitespace-pre-wrap break-words">
+        <span className={`inline-block w-4 select-none ${prefixColor}`}>
+          {line.type === 'context' ? ' ' : line.type === 'addition' ? '+' : '-'}
+        </span>
+        <span className="text-diff-fg">{line.content}</span>
       </span>
     </div>
   );
@@ -664,30 +682,30 @@ function statusIcon(s: DiffFile['status']): string {
 function statusColor(s: DiffFile['status']): string {
   switch (s) {
     case 'A':
-      return 'text-[#34C759]';
+      return 'text-vcs-added';
     case 'D':
-      return 'text-[#FF3B30]';
+      return 'text-vcs-deleted';
     case 'R':
-      return 'text-[#5856D6]';
+      return 'text-vcs-renamed';
     case '?':
-      return 'text-[#FF9F0A]';
+      return 'text-vcs-modified';
     default:
-      return 'text-white/50';
+      return 'text-ink/50';
   }
 }
 
 function statusBadge(s: DiffFile['status']): string {
   switch (s) {
     case 'A':
-      return 'bg-[#34C759]/15 text-[#34C759]';
+      return 'bg-vcs-added/15 text-vcs-added';
     case 'D':
-      return 'bg-[#FF3B30]/15 text-[#FF3B30]';
+      return 'bg-vcs-deleted/15 text-vcs-deleted';
     case 'R':
-      return 'bg-[#5856D6]/15 text-[#5856D6]';
+      return 'bg-vcs-renamed/15 text-vcs-renamed';
     case '?':
-      return 'bg-[#FF9F0A]/15 text-[#FF9F0A]';
+      return 'bg-vcs-modified/15 text-vcs-modified';
     default:
-      return 'bg-white/[0.06] text-white/55';
+      return 'bg-ink/[0.06] text-ink/40';
   }
 }
 
