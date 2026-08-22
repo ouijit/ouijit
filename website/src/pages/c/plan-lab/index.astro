@@ -1,35 +1,13 @@
 ---
 import Site from '../../../layouts/Site.astro';
-import {
-  VariantStory,
-  VariantStoryCenter,
-  VariantStoryLarge,
-  VariantStoryDesk,
-  VariantStoryWell,
-  VariantStoryOneDesk,
-} from '../../../components/demo/PlanLab.tsx';
+import { VariantStoryDesk, VariantStoryWell, VariantStoryOneDesk } from '../../../components/demo/PlanLab.tsx';
 ---
 <Site noindex>
   <div class="plan-lab">
     <header class="plan-lab-head">
       <h1>Plan section lab</h1>
-      <p>The story-row family. 3a–3c vary the layout; 3d–3f put the mocks in visual containers of their own.</p>
+      <p>Story rows in containers: desktop cards, inset wells, one shared desktop.</p>
     </header>
-
-    <section class="plan-lab-concept" id="v3a">
-      <div class="plan-lab-tag">3a · Baseline — copy beside each mock, column sticky right</div>
-      <VariantStory client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="v3b">
-      <div class="plan-lab-tag">3b · Column center — rows land cards from both sides</div>
-      <VariantStoryCenter client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="v3c">
-      <div class="plan-lab-tag">3c · Column left — sub-section scale typography</div>
-      <VariantStoryLarge client:visible />
-    </section>
 
     <section class="plan-lab-concept" id="v3d">
       <div class="plan-lab-tag">3d · Desktop cards — each mock on its own wallpaper backdrop, hue per row</div>
@@ -107,18 +85,6 @@ import {
     .plan-v3-mock {
       flex: 1;
       min-width: 0;
-    }
-    .plan-v3-stacked {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .plan-v3c .plan-v3-copy h3 {
-      font-size: 30px;
-    }
-    .plan-v3c .plan-v3-copy p {
-      font-size: 16px;
-      max-width: 480px;
     }
 
     /* Containers separate from the surfaces */
