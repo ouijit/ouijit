@@ -1,10 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TaskStatus } from '../../ouijit-ui/types';
 import { KanbanColumnView } from '../../ouijit-ui/components/kanban/KanbanColumnView';
 import { KanbanCardView } from '../../ouijit-ui/components/kanban/KanbanCardView';
 import { KanbanAddInput } from '../../ouijit-ui/components/kanban/KanbanAddInput';
+import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
+import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { featuresTasks, featuresTerminalsByTask } from './featuresFixtures';
+import { MockPlanPanel, MockPreviewPanel, MockDiffPanel } from './MockPanels';
+import {
+  STACK_TERMINALS,
+  type PanelKind,
+  BranchLabel,
+  ActiveActions,
+  renderStaticBody,
+  getPanelFixtures,
+} from './stackParts';
 
 const COLUMNS: { status: TaskStatus; label: string; hooked: boolean }[] = [
   { status: 'todo', label: 'To Do', hooked: false },
@@ -19,7 +30,9 @@ const MIN_SCALE = 0.62;
 
 /** The titlebar's extruded view-toggle group, mirroring TitleBarReact. */
 const SEG_GROUP = 'flex items-center h-9 bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] overflow-hidden';
-const SEG_BTN = 'w-9 h-full flex items-center justify-center text-text-secondary [&>svg]:w-5 [&>svg]:h-5';
+const SEG_BTN =
+  'w-9 h-full flex items-center justify-center bg-transparent border-none text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5';
+const SEG_ACTIVE = ' text-text-primary bg-background-tertiary';
 const SQUARE_BTN =
   'w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary [&>svg]:w-5 [&>svg]:h-5';
 
@@ -35,6 +48,30 @@ export default function AppWindowScene() {
   // Starts at the server-rendered scale(1): hydrating with a different value
   // would mismatch the SSR inline style, which React leaves in the DOM.
   const [scale, setScale] = useState(1);
+
+  const [view, setView] = useState<'board' | 'stack'>('board');
+  const [stackOrder, setStackOrder] = useState<string[]>(() => STACK_TERMINALS.map((t) => t.ptyId));
+  const [openPanelByPty, setOpenPanelByPty] = useState<Record<string, PanelKind | null>>({});
+
+  const bringToFront = useCallback((ptyId: string) => {
+    setStackOrder((prev) => (prev[0] === ptyId ? prev : [ptyId, ...prev.filter((id) => id !== ptyId)]));
+  }, []);
+
+  const openTerminal = useCallback(
+    (ptyId: string) => {
+      bringToFront(ptyId);
+      setView('stack');
+    },
+    [bringToFront],
+  );
+
+  const togglePanel = useCallback((ptyId: string, kind: PanelKind) => {
+    setOpenPanelByPty((prev) => ({ ...prev, [ptyId]: prev[ptyId] === kind ? null : kind }));
+  }, []);
+
+  // Stable DOM order so reordering never re-attaches a card mid-transition;
+  // the visual stacking comes entirely from TerminalCardView's depth styles.
+  const positionByPtyId = useMemo(() => new Map(stackOrder.map((id, i) => [id, i])), [stackOrder]);
   useEffect(() => {
     const el = frameRef.current;
     if (!el) return;
@@ -73,12 +110,20 @@ export default function AppWindowScene() {
             </div>
             <div className="flex items-center gap-3">
               <div className={SEG_GROUP}>
-                <span className={`${SEG_BTN} text-text-primary bg-background-tertiary`}>
+                <button
+                  className={`${SEG_BTN}${view === 'board' ? SEG_ACTIVE : ''}`}
+                  aria-label="Board view"
+                  onClick={() => setView('board')}
+                >
                   <Icon name="kanban" />
-                </span>
-                <span className={SEG_BTN}>
+                </button>
+                <button
+                  className={`${SEG_BTN}${view === 'stack' ? SEG_ACTIVE : ''}`}
+                  aria-label="Terminal stack"
+                  onClick={() => setView('stack')}
+                >
                   <Icon name="cards-three" />
-                </span>
+                </button>
                 <span className={SEG_BTN}>
                   <Icon name="gear" />
                 </span>
@@ -124,44 +169,109 @@ export default function AppWindowScene() {
                 <Icon name="sidebar-simple" />
               </span>
             </div>
-            <div
-              className="glass-bevel relative flex flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"
-              style={{
-                margin: '0 16px 16px 0',
-                background: 'var(--color-terminal-bg)',
-                boxShadow: 'var(--shadow-panel)',
-              }}
-            >
-              {COLUMNS.map(({ status, label, hooked }) => {
-                const tasksInColumn = featuresTasks.filter((t) => t.status === status);
-                return (
-                  <KanbanColumnView
-                    key={status}
-                    status={status}
-                    label={label}
-                    count={tasksInColumn.length}
-                    hookTypes={status === 'todo' ? [] : ['start']}
-                    hasConfiguredHook={hooked}
-                    onConfigureHook={status === 'todo' ? undefined : () => {}}
-                  >
-                    {tasksInColumn.map((task) => (
-                      <KanbanCardView
-                        key={task.taskNumber}
-                        task={task}
-                        connectedDisplays={featuresTerminalsByTask[task.taskNumber] ?? []}
-                        showBadge={false}
-                      />
-                    ))}
-                    {status === 'todo' && (
-                      <>
-                        <div style={{ flex: 1 }} />
-                        <KanbanAddInput onAdd={() => {}} />
-                      </>
-                    )}
-                  </KanbanColumnView>
-                );
-              })}
-            </div>
+            {view === 'board' ? (
+              <div
+                className="glass-bevel relative flex flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"
+                style={{
+                  margin: '0 16px 16px 0',
+                  background: 'var(--color-terminal-bg)',
+                  boxShadow: 'var(--shadow-panel)',
+                }}
+              >
+                {COLUMNS.map(({ status, label, hooked }) => {
+                  const tasksInColumn = featuresTasks.filter((t) => t.status === status);
+                  return (
+                    <KanbanColumnView
+                      key={status}
+                      status={status}
+                      label={label}
+                      count={tasksInColumn.length}
+                      hookTypes={status === 'todo' ? [] : ['start']}
+                      hasConfiguredHook={hooked}
+                      onConfigureHook={status === 'todo' ? undefined : () => {}}
+                    >
+                      {tasksInColumn.map((task) => (
+                        <KanbanCardView
+                          key={task.taskNumber}
+                          task={task}
+                          connectedDisplays={featuresTerminalsByTask[task.taskNumber] ?? []}
+                          showBadge={false}
+                          onSwitchToTerminal={openTerminal}
+                        />
+                      ))}
+                      {status === 'todo' && (
+                        <>
+                          <div style={{ flex: 1 }} />
+                          <KanbanAddInput onAdd={() => {}} />
+                        </>
+                      )}
+                    </KanbanColumnView>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex-1 min-w-0 flex justify-center" style={{ padding: '0 16px 16px 0' }}>
+                <div className="relative w-full" style={{ maxWidth: 860, marginTop: 96 }}>
+                  {STACK_TERMINALS.map((term) => {
+                    const position = positionByPtyId.get(term.ptyId) ?? 0;
+                    const isActive = position === 0;
+                    const fixtures = getPanelFixtures(term.ptyId);
+                    const openPanel = openPanelByPty[term.ptyId] ?? null;
+                    return (
+                      <TerminalCardView
+                        key={term.ptyId}
+                        ptyId={term.ptyId}
+                        isActive={isActive}
+                        backDepth={isActive ? 0 : position}
+                        onClick={isActive ? undefined : () => bringToFront(term.ptyId)}
+                      >
+                        <TerminalHeaderView
+                          summaryType={term.summaryType}
+                          sandboxed={term.sandboxed}
+                          isActive={isActive}
+                          isBackCard={!isActive}
+                          stackPosition={isActive ? undefined : position}
+                          nameContent={<TerminalHeaderName label={term.label} lastOscTitle={term.lastOscTitle} />}
+                          branchContent={isActive && term.branch ? <BranchLabel branch={term.branch} /> : undefined}
+                          actions={
+                            isActive ? (
+                              <ActiveActions
+                                fixtures={fixtures}
+                                openPanel={openPanel}
+                                onToggle={(kind) => togglePanel(term.ptyId, kind)}
+                              />
+                            ) : undefined
+                          }
+                        />
+                        {isActive && (
+                          <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+                            {renderStaticBody(term.ptyId)}
+                            {openPanel === 'plan' && fixtures.plan && (
+                              <MockPlanPanel
+                                fixture={fixtures.plan}
+                                onClose={() => togglePanel(term.ptyId, 'plan')}
+                              />
+                            )}
+                            {openPanel === 'preview' && fixtures.preview && (
+                              <MockPreviewPanel
+                                fixture={fixtures.preview}
+                                onClose={() => togglePanel(term.ptyId, 'preview')}
+                              />
+                            )}
+                            {openPanel === 'diff' && fixtures.diff && (
+                              <MockDiffPanel
+                                fixture={fixtures.diff}
+                                onClose={() => togglePanel(term.ptyId, 'diff')}
+                              />
+                            )}
+                          </div>
+                        )}
+                      </TerminalCardView>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
