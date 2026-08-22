@@ -1,0 +1,50 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs slug="diff">
+  <h1>Diff review</h1>
+  <p class="lead">
+    Every task terminal carries a diff of its worktree, with word-level highlighting and notes that flow into
+    the agent's prompt. Review the work without leaving the terminal it happened in.
+  </p>
+
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/diff.png"
+    alt="Worktree diff beside the agent terminal, with a note being written on a changed line"
+    loading="lazy"
+  />
+
+  <h2>Open the diff</h2>
+  <p>
+    Click the <strong>Diff</strong> button in the terminal header (it shows the change size) or press
+    <code>⌘D</code>. The panel lists changed files in a tree, renders per-file diffs with syntax highlighting,
+    and marks the exact changed words within each line. Panel state survives app restarts via
+    <a href="/docs/resume/">session resume</a>.
+  </p>
+
+  <h2>Pick a base</h2>
+  <p>The comparison always ends at the working tree. The picker in the panel header chooses where it starts:</p>
+  <ul>
+    <li><strong>Uncommitted changes</strong>: everything since your last commit.</li>
+    <li><strong>The task's merge target</strong>, the repository's main branch, or the branch's upstream.</li>
+    <li><strong>Any local or remote branch</strong>, searchable by name. Picking a remote ref fetches it first, and a freshness button next to the picker shows the fetch age and refetches on click.</li>
+  </ul>
+  <p>
+    Branch comparisons use the merge base, so you see the task's own changes, not drift on the target. The
+    chosen base is remembered per worktree.
+  </p>
+
+  <h2>Leave notes for the agent</h2>
+  <p>
+    Hover a line and click <strong>+</strong>, or drag across several lines, and write a note. Notes are kept
+    with the worktree until you hand them over: the floating island at the bottom of the panel lists them, and
+    <strong>Send</strong> pastes them into the terminal's prompt as one block, quoted code and all, unsent. You
+    press Enter. <strong>Copy</strong> puts the same block on the clipboard for any other destination.
+  </p>
+  <p>
+    Notes anchor to the code, not the line number. As the agent edits, each note follows its text to its new
+    location; a note whose text is gone is dropped. A note outside the current comparison is kept and flagged
+    <strong>not in this comparison</strong>.
+  </p>
+</Docs>

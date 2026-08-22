@@ -1,0 +1,66 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs slug="panels">
+  <h1>Panels</h1>
+  <p class="lead">
+    Attach panels to a terminal as tabs: a runner for long-running commands, web previews, and rendered markdown
+    files. A plan can open right beside the agent working from it.
+  </p>
+
+  <h2>Open a panel</h2>
+  <p>
+    Click the <strong>+</strong> button in a terminal's header. The menu lists <strong>Run</strong> (when a
+    <a href="/docs/hooks/">run hook</a> is configured), each project script, <strong>Web Preview</strong>, and
+    <strong>Markdown File</strong>. Panels open as tabs; a terminal can hold several of each kind. Tabs shrink
+    like browser tabs when crowded, and clicking the active tab collapses the panel back to the bare terminal.
+    Each panel can split beside the terminal or go full width.
+  </p>
+  <p>
+    Agents and scripts open panels through the CLI: <code>ouijit markdown add</code> and
+    <code>ouijit preview add</code> target the current terminal via <code>OUIJIT_PTY_ID</code>. Adding a panel
+    that is already open activates it instead of duplicating it.
+  </p>
+
+  <h2>Runner</h2>
+  <p>
+    A runner is a child terminal that executes the project's run hook or a named script, with a status dot on
+    its tab (running, success, error). Kill leaves the tab in a stopped state with a Restart button; closing the
+    tab removes it. Press <code>⌘P</code> to jump to the runner, or start one if none is open.
+  </p>
+  <p>
+    By default, launching a runnable that is already running in the task focuses the existing instance. Check
+    <strong>Restart if it's already running in the task</strong> on a script or the run hook to kill and
+    relaunch instead. The restart is scoped to the task's worktree, so parallel tasks never evict each other's
+    runners.
+  </p>
+
+  <h2>Web preview</h2>
+  <p>
+    An embedded browser for the app you're building. It has back, forward, reload/stop, and an editable URL
+    field. Open one empty and type a URL, point it at a dev server the runner started, or let an agent surface
+    its work with <code>ouijit preview add http://localhost:3000</code>.
+  </p>
+
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/preview.png"
+    alt="Agent terminal beside a web preview of the app it is building"
+    loading="lazy"
+  />
+
+  <h2>Markdown</h2>
+  <p>
+    A read-only rendered view of a markdown file, for plans, notes, and TODO lists shared between you and an
+    agent. It re-renders when the file changes on disk, so a plan the agent edits updates live. Mermaid code
+    fences render as diagrams, code blocks get syntax highlighting, and file paths that exist in the worktree
+    become links that open in your <a href="/docs/hooks/">editor</a> at the right line.
+  </p>
+
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/markdown.png"
+    alt="Agent terminal beside a rendered markdown plan"
+    loading="lazy"
+  />
+</Docs>

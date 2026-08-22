@@ -1,0 +1,82 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs slug="agents">
+  <h1>Agents</h1>
+  <p class="lead">
+    Agents are first-class users of Ouijit. This page is the contract an agent can rely on inside an Ouijit
+    terminal, and the workflows it should use to drive the app.
+  </p>
+
+  <h2>What an agent receives</h2>
+  <p>
+    Every <a href="/docs/harnesses/">supported harness</a> gets the <code>ouijit</code> CLI reference appended to
+    its system prompt automatically, from <code>~/.config/Ouijit/ouijit-cli-reference.md</code>. It covers the
+    commands in these docs plus behavioral notes: JSON output on stdout, errors as
+    <code>{`{"error": "..."}`}</code> on stderr with a non-zero exit, and the flags for headless status changes.
+  </p>
+
+  <h2>Environment</h2>
+  <p>Every Ouijit terminal has these set. An agent can read them directly:</p>
+  <table>
+    <thead>
+      <tr><th>Variable</th><th>What it is</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>OUIJIT_API_URL</code></td><td>Base URL of the local REST API the CLI talks to. Unset outside Ouijit terminals, so scripts can detect the environment.</td></tr>
+      <tr><td><code>OUIJIT_API_TOKEN</code></td><td>Bearer token scoped to this terminal session.</td></tr>
+      <tr><td><code>OUIJIT_PTY_ID</code></td><td>This terminal's id. <code>ouijit task current</code> and the panel commands resolve through it.</td></tr>
+    </tbody>
+  </table>
+  <p><a href="/docs/hooks/#hook-environment">Hooks</a> additionally receive <code>OUIJIT_TASK_*</code> context.</p>
+
+  <h2>Drive the board</h2>
+  <p>An agent working a task should resolve its own task first, then advance it when the work is committed:</p>
+  <pre class="glass-bevel"><code>TASK=$(ouijit task current | jq -r .taskNumber)
+ouijit task set-status "$TASK" in_review --skip-hook</code></pre>
+  <p>
+    By default a status change opens that column's hook dialog in the GUI. When no human is at the keyboard,
+    pass <code>--run-hook</code> (run the configured hook immediately), <code>--skip-hook</code> (no hook), or
+    <code>--hook-command "&lt;cmd&gt;"</code> (a one-off command). The same flags apply to
+    <code>task start</code> and <code>task create-and-start</code>.
+  </p>
+
+  <h2>Open panels beside yourself</h2>
+  <p>
+    An agent can put its plan or its running app next to its own terminal. Both commands default to the current
+    terminal via <code>OUIJIT_PTY_ID</code>:
+  </p>
+  <pre class="glass-bevel"><code>ouijit markdown add ./plan.md
+ouijit preview add http://localhost:3000</code></pre>
+
+  <h2>Review without posting</h2>
+  <p>
+    For anything that belongs to a pull request review, agents must use <code>ouijit pr</code>, not
+    <code>gh</code>. <code>gh</code> posts to GitHub immediately under the user's name;
+    <code>ouijit pr draft</code> stages comments locally and the user sends the review themselves. Reading with
+    <code>gh pr diff</code> is fine; posting with <code>gh</code> is not.
+  </p>
+  <pre class="glass-bevel"><code>PR=$(ouijit task current | jq .githubPrNumber)
+gh pr diff $PR                                # read it
+ouijit pr draft add $PR --file src/api.ts --line 88 \
+  --origin claude --body "this can throw when the token is missing"</code></pre>
+  <p>
+    Pass <code>--origin</code> with your name so the user can tell agent comments apart before sending, and
+    <code>--body -</code> to read multi-line bodies from stdin. Anchor each comment to a line that appears as an
+    added line in the diff, by its new-file line number: GitHub rejects the whole review at submit time if any
+    comment points outside the diff.
+  </p>
+
+  <h2>Inside a sandbox</h2>
+  <p>The API surface shrinks under a <a href="/docs/sandbox/">sandbox</a>:</p>
+  <ul>
+    <li><strong>Lima VM</strong>. The <code>ouijit</code> binary is not installed in the VM, and the <code>/api/*</code> routes return 403 for sandbox-scoped tokens. Only the <code>/hook</code> status endpoint is reachable, so agent status still reports, but the CLI workflows above are host-only.</li>
+    <li><strong>nono</strong>. The terminal runs on the host, so <code>ouijit</code> stays on <code>PATH</code> with access scoped to the task's own data. Pull request drafts written from a sandbox are stamped with a <code>sandbox</code> origin the caller cannot forge.</li>
+  </ul>
+
+  <h2>Machine-readable summary</h2>
+  <p>
+    A condensed version of these docs for language models lives at
+    <a href="https://ouijit.com/llms.txt">ouijit.com/llms.txt</a>. It is kept in sync with these pages.
+  </p>
+</Docs>

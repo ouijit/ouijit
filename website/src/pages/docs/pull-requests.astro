@@ -1,0 +1,64 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs slug="pull-requests">
+  <h1>Pull requests</h1>
+  <p class="lead">
+    An experimental GitHub surface: a pull request inbox, review comments staged locally until you send them,
+    and merging. It drives the <code>gh</code> CLI, so <code>gh auth login</code> is the only setup.
+  </p>
+
+  <h2>Turn it on</h2>
+  <p>
+    Enable <strong>GitHub</strong> under <strong>Project Settings &rarr; Experimental</strong>. It needs the
+    <a href="https://cli.github.com" target="_blank" rel="noopener">GitHub CLI</a> 2.48.0 or newer on
+    <code>PATH</code>, signed in via <code>gh auth login</code>, and an <code>origin</code> remote on GitHub.
+    Ouijit never stores a token; every GitHub call goes through <code>gh</code> on the host, and sandboxed
+    terminals never see your credentials.
+  </p>
+
+  <h2>Work the inbox</h2>
+  <p>
+    The panel lists open pull requests in three groups: <strong>Needs your review</strong>,
+    <strong>Authored</strong>, and <strong>Everything else</strong>, with an issues tab beside them. A pull
+    request opens into <strong>Summary</strong>, <strong>Timeline</strong>, and <strong>Code</strong> tabs:
+    checks, review threads with resolve and reply, and per-file diffs with a <strong>Viewed</strong> state that
+    resets when the head changes. Diffs read from your local git object database, so browsing a PR checks
+    nothing out.
+  </p>
+
+  <h2>Stage a review</h2>
+  <p>
+    Review comments are drafts in Ouijit's local database. Nothing reaches GitHub until you press
+    <strong>Comment</strong>, <strong>Approve</strong>, or <strong>Request changes</strong>, which submits the
+    drafts as one review. Drafts re-anchor when the pull request's head moves; one that can no longer be placed
+    is flagged rather than deleted, and blocks submission until you discard or rewrite it, because GitHub would
+    reject the whole review.
+  </p>
+  <p>
+    Agents stage drafts through the CLI, and each draft shows its origin so you can tell who wrote what before
+    sending:
+  </p>
+  <pre class="glass-bevel"><code>ouijit pr draft add 42 --file src/api.ts --line 88 \
+  --origin claude --body "this can throw when the token is missing"</code></pre>
+  <p>See <a href="/docs/agents/">Agents</a> for the full agent review workflow.</p>
+
+  <h2>Merge</h2>
+  <p>
+    Open pull requests get a merge menu with <strong>Merge</strong>, <strong>Squash</strong>, and
+    <strong>Rebase</strong>, plus a delete-branch toggle. Unmet requirements are listed; when GitHub grants you
+    admin bypass, a separate <strong>Merge without meeting requirements</strong> entry maps to
+    <code>gh pr merge --admin</code>.
+  </p>
+
+  <h2>Connect pull requests and tasks</h2>
+  <p>
+    Ouijit links a task to the pull request on its branch automatically, at terminal spawn and on a periodic
+    sweep, so a PR the agent opened mid-session still shows up on the card. The other direction works too:
+  </p>
+  <ul>
+    <li><strong>Check out as task</strong> creates a task with a worktree at the pull request's head, with the PR body as its prompt and the PR's base branch as its merge target.</li>
+    <li><strong>Create pull request</strong> on a task card pushes the branch and runs <code>gh pr create</code>, so your repository's PR template applies.</li>
+    <li>A task created from an issue links back, and its pull request closes the issue.</li>
+  </ul>
+</Docs>

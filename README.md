@@ -102,7 +102,7 @@ ouijit markdown add ./plan.md
 ouijit preview add http://localhost:3000
 ```
 
-It works from your shell too, with JSON output. Full command list in the [docs](https://ouijit.com/docs/#cli).
+It works from your shell too, with JSON output. Full command list in the [docs](https://ouijit.com/docs/cli/).
 
 ## Setup
 

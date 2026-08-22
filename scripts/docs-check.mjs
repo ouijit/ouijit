@@ -3,15 +3,16 @@
  * Checks that the README's and the website docs' mechanical claims still match
  * the code, so drift fails CI instead of waiting for someone to notice:
  *
- *   1. Every local image the README references exists on disk.
- *   2. Every screenshot the README references is a scene `npm run capture`
- *      produces, so a stale image is one command away from fresh.
+ *   1. Every local image the README and the docs pages reference exists on
+ *      disk.
+ *   2. Every screenshot they reference is a scene `npm run capture` produces,
+ *      so a stale image is one command away from fresh.
  *   3. The "Supported harnesses" list matches the wrapper binaries the app
  *      installs (src/hookServer.ts).
  *   4. Every `ouijit` invocation in README and docs-page code fences is a real
  *      CLI command.
- *   5. Every CLI command is mentioned in the docs page's CLI section, so a new
- *      command cannot ship undocumented.
+ *   5. Every CLI command is mentioned in the docs pages, so a new command
+ *      cannot ship undocumented.
  *
  * Usage: node scripts/docs-check.mjs   (requires dist-cli to be built)
  */
@@ -23,20 +24,28 @@ import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const readme = fs.readFileSync(path.join(REPO_ROOT, 'README.md'), 'utf8');
-const DOCS_PAGE = 'website/src/pages/docs/index.astro';
-const docsPage = fs.readFileSync(path.join(REPO_ROOT, DOCS_PAGE), 'utf8');
+const DOCS_DIR = 'website/src/pages/docs';
+const docsPages = fs
+  .readdirSync(path.join(REPO_ROOT, DOCS_DIR))
+  .filter((f) => f.endsWith('.astro'))
+  .sort()
+  .map((f) => ({ name: `${DOCS_DIR}/${f}`, text: fs.readFileSync(path.join(REPO_ROOT, DOCS_DIR, f), 'utf8') }));
 
 const failures = [];
 const fail = (msg) => failures.push(msg);
 
-// 1. Referenced local images exist.
+// 1. Referenced local images exist. README paths are repo-relative; docs-page
+//    paths are site-absolute and resolve under website/public.
 const imageRefs = [
-  ...[...readme.matchAll(/<(?:img|source)[^>]*(?:src|srcset)="([^"]+)"/g)].map((m) => m[1]),
-  ...[...readme.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1]),
-].filter((src) => !/^https?:/.test(src));
+  ...[...readme.matchAll(/<(?:img|source)[^>]*(?:src|srcset)="([^"]+)"/g)].map((m) => [m[1], 'README']),
+  ...[...readme.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => [m[1], 'README']),
+  ...docsPages.flatMap((page) =>
+    [...page.text.matchAll(/<img[^>]*src="(\/[^"]+)"/g)].map((m) => [`website/public${m[1]}`, page.name]),
+  ),
+].filter(([src]) => !/^https?:/.test(src));
 
-for (const ref of imageRefs) {
-  if (!fs.existsSync(path.join(REPO_ROOT, ref))) fail(`README references missing file: ${ref}`);
+for (const [ref, source] of imageRefs) {
+  if (!fs.existsSync(path.join(REPO_ROOT, ref))) fail(`${source} references missing file: ${ref}`);
 }
 
 // 2. Referenced screenshots are ones the capture driver can regenerate.
@@ -44,12 +53,12 @@ const captureSource = fs.readFileSync(path.join(REPO_ROOT, 'scripts', 'capture',
 const capturedFiles = new Set([...captureSource.matchAll(/file: '([^']+)'/g)].map((m) => m[1]));
 const SCREENSHOT_DIR = 'website/public/assets/screenshots/';
 
-for (const ref of imageRefs) {
+for (const [ref, source] of imageRefs) {
   if (!ref.startsWith(SCREENSHOT_DIR)) continue;
   const file = ref.slice(SCREENSHOT_DIR.length);
   if (!capturedFiles.has(file)) {
     fail(
-      `README references ${ref}, but scripts/capture/run.mjs has no scene producing ${file} — ` +
+      `${source} references ${ref}, but scripts/capture/run.mjs has no scene producing ${file} — ` +
         `add a scene or drop the image, so every screenshot stays regenerable via \`npm run capture\`.`,
     );
   }
@@ -69,20 +78,16 @@ for (const wrapper of wrappers) {
 }
 
 // 4. Every `ouijit` command in README and docs-page code fences exists in the
-//    CLI, and (5) every CLI command appears in the docs page.
+//    CLI, and (5) every CLI command appears in the docs pages.
 const cliPath = path.join(REPO_ROOT, 'dist-cli', 'ouijit.js');
 if (!fs.existsSync(cliPath)) {
   fail('dist-cli/ouijit.js not built — run `npm run build:cli` first.');
 } else {
-  const readmeFences = [...readme.matchAll(/```(?:bash|sh|shell)?\n([\s\S]*?)```/g)].map((m) => m[1]);
-  const docsFences = [...docsPage.matchAll(/<pre[^>]*><code>([\s\S]*?)<\/code><\/pre>/g)].map((m) =>
-    m[1]
-      .replace(/^\{`/, '')
-      .replace(/`\}$/, '')
-      .replaceAll('&amp;', '&')
-      .replaceAll('&lt;', '<')
-      .replaceAll('&gt;', '>'),
-  );
+  const decodeEntities = (s) => s.replaceAll('&amp;', '&').replaceAll('&lt;', '<').replaceAll('&gt;', '>');
+  const fencesOf = (astro) =>
+    [...astro.matchAll(/<pre[^>]*><code>([\s\S]*?)<\/code><\/pre>/g)].map((m) =>
+      decodeEntities(m[1].replace(/^\{`/, '').replace(/`\}$/, '')),
+    );
 
   const helpCache = new Map();
   // Commander prints subcommands as "  name|alias <args>  description"; each
@@ -104,8 +109,8 @@ if (!fs.existsSync(cliPath)) {
   const isCommand = (groupPath, name) => commandsOf(groupPath).some((names) => names.includes(name));
 
   for (const [source, fences] of [
-    ['README', readmeFences],
-    [DOCS_PAGE, docsFences],
+    ['README', [...readme.matchAll(/```(?:bash|sh|shell)?\n([\s\S]*?)```/g)].map((m) => m[1])],
+    ...docsPages.map((page) => [page.name, fencesOf(page.text)]),
   ]) {
     const invocations = [...fences.join('\n').matchAll(/^ouijit\s+(\S+)(?:\s+(\S+))?/gm)];
     for (const [, group, sub] of invocations) {
@@ -117,8 +122,9 @@ if (!fs.existsSync(cliPath)) {
     }
   }
 
-  // 5. Coverage: walk the command tree; every leaf must be mentioned in the
+  // 5. Coverage: walk the command tree; every leaf must be mentioned in some
   //    docs page under one of its names.
+  const allDocsText = docsPages.map((p) => p.text).join('\n');
   const requireDocumented = (groupPath, aliasSets) => {
     for (const names of aliasSets) {
       const children = commandsOf([...groupPath, names[0]]);
@@ -127,10 +133,10 @@ if (!fs.existsSync(cliPath)) {
         continue;
       }
       const documented = names.some((name) =>
-        new RegExp(`ouijit\\s+${[...groupPath, name].join('\\s+')}\\b`).test(docsPage),
+        new RegExp(`ouijit\\s+${[...groupPath, name].join('\\s+')}\\b`).test(allDocsText),
       );
       if (!documented) {
-        fail(`CLI command \`ouijit ${[...groupPath, names[0]].join(' ')}\` is not documented in ${DOCS_PAGE}.`);
+        fail(`CLI command \`ouijit ${[...groupPath, names[0]].join(' ')}\` is not documented in ${DOCS_DIR}/.`);
       }
     }
   };

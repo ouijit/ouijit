@@ -1,0 +1,39 @@
+---
+import Site from './Site.astro';
+import { DOC_PAGES } from '../docsNav';
+
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+const index = DOC_PAGES.findIndex((p) => p.slug === slug);
+if (index === -1) throw new Error(`Unknown docs page: ${slug}`);
+const page = DOC_PAGES[index];
+const prev = DOC_PAGES[index - 1];
+const next = DOC_PAGES[index + 1];
+const title = slug === 'getting-started' ? 'Documentation · Ouijit' : `${page.label} · Ouijit Docs`;
+---
+<Site title={title} description={page.description}>
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <h4>Documentation</h4>
+      <ul>
+        {DOC_PAGES.map((p) => (
+          <li>
+            <a href={p.href} class={p.slug === slug ? 'active' : undefined}>{p.label}</a>
+          </li>
+        ))}
+      </ul>
+    </aside>
+    <main class="docs-content">
+      <section>
+        <slot />
+      </section>
+      <nav class="docs-pagenav">
+        {prev ? <a href={prev.href}>&larr; {prev.label}</a> : <span />}
+        {next ? <a href={next.href}>{next.label} &rarr;</a> : <span />}
+      </nav>
+    </main>
+  </div>
+</Site>

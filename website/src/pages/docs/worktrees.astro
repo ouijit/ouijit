@@ -1,0 +1,115 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs slug="worktrees">
+  <h1>Worktrees</h1>
+  <p class="lead">
+    Every task gets its own git worktree: an isolated directory on its own branch. Work on several tasks at once
+    without branch switching, stashing, or agents overwriting each other.
+  </p>
+
+  <h2>How tasks map to worktrees</h2>
+  <p>
+    Git worktrees let one repository check out several branches into separate directories at the same time.
+    Ouijit creates one per task when the task starts, so each piece of work has its own directory and branch.
+  </p>
+  <pre class="glass-bevel"><code>~/Ouijit/worktrees/
+  my-project/
+    T-42/                # Worktree for task 42
+    T-43/                # Worktree for task 43</code></pre>
+
+  <h2 id="task-lifecycle">Task lifecycle</h2>
+  <p>
+    A task has one of four statuses: <strong>To Do</strong>, <strong>In Progress</strong>,
+    <strong>In Review</strong>, <strong>Done</strong>. Each event below changes the status and can run a
+    <a href="/docs/hooks/">hook</a>.
+  </p>
+  <table>
+    <thead>
+      <tr><th>Event</th><th>Status</th><th>What Ouijit does</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Create</strong></td>
+        <td>&rarr; To Do</td>
+        <td>Adds a task card to the To Do column.</td>
+      </tr>
+      <tr>
+        <td><strong>Start</strong></td>
+        <td>To Do &rarr; In Progress</td>
+        <td>Creates a branch (e.g. <code>T-42</code>) and a worktree at <code>~/Ouijit/worktrees/&lt;project&gt;/T-42</code>, opens a terminal in it, runs the <code>start</code> hook.</td>
+      </tr>
+      <tr>
+        <td><strong>Continue</strong></td>
+        <td>In Review or Done &rarr; In Progress</td>
+        <td>Opens a new terminal in the existing worktree, runs the <code>continue</code> hook.</td>
+      </tr>
+      <tr>
+        <td><strong>Review</strong></td>
+        <td>&rarr; In Review</td>
+        <td>Runs the <code>review</code> hook.</td>
+      </tr>
+      <tr>
+        <td><strong>Done</strong></td>
+        <td>&rarr; Done</td>
+        <td>Runs the <code>done</code> hook.</td>
+      </tr>
+      <tr>
+        <td><strong>Delete</strong></td>
+        <td>Task removed</td>
+        <td>Moves the worktree to the trash, deletes the branch.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Merge targets</h2>
+  <p>
+    Each task has a merge target, the branch its work is destined for. It defaults to the repository's main
+    branch and drives the default <a href="/docs/diff/">diff base</a>. Set it per task to chain a task off a parent
+    branch:
+  </p>
+  <pre class="glass-bevel"><code>ouijit task set-merge-target 43 T-42</code></pre>
+
+  <h2>Copy-on-write cloning</h2>
+  <p>
+    Ouijit clones worktrees with copy-on-write via the native file system (APFS on macOS, reflinks on Linux with
+    btrfs/XFS). Disk blocks are shared with the original until a file changes.
+  </p>
+  <ul>
+    <li>Worktree creation is fast regardless of repository size.</li>
+    <li>Disk usage is proportional to your changes, not the full repository.</li>
+    <li>Gitignored files (dependencies, build caches) are cloned too, so the worktree is ready to run.</li>
+  </ul>
+
+  <h2>Choose a creation mode</h2>
+  <p>Each project picks how new worktrees are populated, under <strong>Project Settings &rarr; Worktree</strong>.</p>
+  <table>
+    <thead>
+      <tr><th>Mode</th><th>What lands in the worktree</th><th>When to pick it</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Quick start</strong> (default)</td>
+        <td>Tracked files plus a copy-on-write clone of every gitignored path (<code>node_modules</code>, <code>.env</code>, build caches).</td>
+        <td>You want a worktree that runs immediately, with no setup step.</td>
+      </tr>
+      <tr>
+        <td><strong>Clean checkout</strong></td>
+        <td>Just <code>git worktree add</code>. Only tracked files appear.</td>
+        <td>You want a reproducible setup driven by your <a href="/docs/hooks/">start hook</a> (e.g. <code>npm ci</code>), or you don't want gitignored secrets copied across tasks.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    Sandboxed tasks always use clean checkout, regardless of this setting. Provision the VM-side environment with
+    the sandbox setup hook.
+  </p>
+
+  <h2>Inspect worktrees manually</h2>
+  <p>Ouijit manages worktrees for you, but they are standard git worktrees:</p>
+  <pre class="glass-bevel"><code># List all worktrees
+git worktree list
+
+# From inside a worktree, check which branch it's on
+git branch --show-current</code></pre>
+</Docs>

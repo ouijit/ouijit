@@ -1,0 +1,53 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs slug="kanban">
+  <h1>Kanban board</h1>
+  <p class="lead">A four-column board for tasks. Dragging a card changes its status, creates worktrees, and fires hooks.</p>
+
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/kanban.png"
+    alt="Kanban board with agent terminals attached to task cards"
+    loading="lazy"
+  />
+
+  <h2>Columns</h2>
+  <p>
+    The four columns map to the four task statuses: <strong>To Do</strong>, <strong>In Progress</strong>,
+    <strong>In Review</strong>, <strong>Done</strong>. Dragging a card between columns changes its status, which
+    can fire a <a href="/docs/hooks/">hook</a>. Dragging from To Do to In Progress creates the task's branch and
+    worktree. See <a href="/docs/worktrees/#task-lifecycle">Task lifecycle</a> for the full mapping.
+  </p>
+
+  <h2>Create a task</h2>
+  <p>
+    Click the <strong>+</strong> button on a column header, or press <code>⌘N</code> (<code>Ctrl+N</code> on
+    Linux). A task takes a name and an optional prompt for the agent. Paste images into the prompt and Ouijit
+    saves them to disk and inserts their paths, so an agent CLI can read them when the task runs.
+  </p>
+  <p>
+    Each task gets an auto-incrementing number (<code>T-1</code>, <code>T-2</code>) used for branch names and
+    worktree directories.
+  </p>
+
+  <h2>Act on a task</h2>
+  <p>Right-click a task card for its context menu:</p>
+  <ul>
+    <li><strong>Open in</strong>. A terminal in the task's worktree, a <a href="/docs/sandbox/">sandboxed</a> terminal for each installed backend (<strong>Lima VM</strong> or <strong>nono</strong>), your editor, or the OS file manager.</li>
+    <li><strong>Rename</strong>. Edit the task's name inline.</li>
+    <li><strong>Move to Done / Reopen</strong>. Complete an active task or reopen a finished one.</li>
+    <li><strong>Delete</strong>. Remove the task, its worktree, and its branch.</li>
+  </ul>
+  <p>If a task has running terminals, they appear at the top of the menu so you can jump straight to them.</p>
+  <p>
+    With the <a href="/docs/pull-requests/">GitHub surface</a> enabled, cards show a badge for their linked pull
+    request, and the menu adds <strong>Create pull request</strong> or <strong>Pull request #N</strong>.
+  </p>
+
+  <h2>Shells outside tasks</h2>
+  <p>
+    Terminals that don't belong to a task (a plain project shell) get their own strip on the board, so nothing
+    you have running is hidden behind a card.
+  </p>
+</Docs>

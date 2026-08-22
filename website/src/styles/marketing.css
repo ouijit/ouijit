@@ -1218,6 +1218,33 @@ body.marketing .home-agents-footnote a:hover {
   }
 }
 
+.docs-content img.docs-screenshot {
+  width: 100%;
+  border-radius: 12px;
+  margin: 8px 0 24px;
+}
+
+.docs-pagenav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.docs-pagenav a {
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.docs-pagenav a:hover {
+  color: #fff;
+}
+
 /* Hide scrollbars in demo components so the borders run edge-to-edge */
 .demo-frame .kanban-column-body {
   scrollbar-width: none;
