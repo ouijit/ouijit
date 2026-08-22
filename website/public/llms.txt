@@ -4,6 +4,8 @@
 
 Free and open source under the AGPL-3.0 license. No account, no sign-in. Distributed as a downloadable desktop app for macOS 13+ and Linux x64.
 
+Every page below is also served as plain Markdown at https://ouijit.com/docs/<slug>.md (for example https://ouijit.com/docs/cli.md). The full docs in one file: https://ouijit.com/llms-full.txt
+
 ## Documentation
 
 - [Getting started](https://ouijit.com/docs/): Requirements, download links, building from source, adding projects, the projects folder, environment checks, updates.

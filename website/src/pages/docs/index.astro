@@ -6,13 +6,22 @@ import Docs from '../../layouts/Docs.astro';
   <p class="lead">
     Ouijit is a task and terminal manager for running coding agents in parallel. Each task gets its own git
     worktree and terminal, lifecycle hooks launch your agent with the right context, and a session-aware CLI lets
-    agents drive the board back. Install it and start your first task in a minute.
+    agents drive the board back. From download to an agent working on your first task takes about a minute.
   </p>
+
+  <div class="docs-callout">
+    <p>
+      Reading this from inside an Ouijit terminal? You're an agent with <code>ouijit</code> on
+      <code>PATH</code> and its reference in your system prompt. The <a href="/docs/agents/">Agents page</a> is
+      your contract, and every page here is plain Markdown at <code>/docs/&lt;slug&gt;.md</code>.
+    </p>
+  </div>
 
   <h2>Requirements</h2>
   <ul>
     <li><strong>macOS</strong> 13+ (Apple Silicon or Intel) or <strong>Linux</strong> x64</li>
     <li><strong>Git</strong> 2.20+ on <code>PATH</code></li>
+    <li>An agent CLI you already use: <code>claude</code>, <code>codex</code>, <code>pi</code>, or <code>opencode</code></li>
   </ul>
   <p>The downloads are self-contained. Nothing else is required to run the app.</p>
 
@@ -27,7 +36,43 @@ import Docs from '../../layouts/Docs.astro';
     put the binary somewhere on your <code>PATH</code>.
   </p>
 
-  <h3>Build from source</h3>
+  <h2>Your first agent task</h2>
+  <ol>
+    <li>
+      <strong>Add a project.</strong> Click the <strong>+</strong> button in the sidebar and select a folder. If
+      it isn't a git repository yet, Ouijit offers to run <code>git init</code> in place. You land on the
+      <a href="/docs/kanban/">kanban board</a>.
+    </li>
+    <li>
+      <strong>Describe the task.</strong> Press <code>⌘N</code> (<code>Ctrl+N</code> on Linux), give the task a
+      name, and write the prompt you'd give your agent. Paste in screenshots if you have them.
+    </li>
+    <li>
+      <strong>Drag the card to In Progress.</strong> Ouijit creates a branch and an isolated
+      <a href="/docs/worktrees/">worktree</a>, opens a terminal in it, and asks what to run. Enter:
+      <pre class="glass-bevel"><code>claude "$OUIJIT_TASK_DESCRIPTION"</code></pre>
+      <strong>Save</strong> remembers it as the project's <a href="/docs/hooks/">start hook</a>, so from now on
+      every card you drag starts an agent on its own copy of the repo.
+    </li>
+    <li>
+      <strong>Watch it work.</strong> The card shows whether the agent is thinking or waiting on you, and Ouijit
+      chimes when a turn ends. Press <code>⌘D</code> to <a href="/docs/diff/">review the diff</a>, leave notes on
+      changed lines, and drag the card to In Review when it's ready.
+    </li>
+  </ol>
+  <p>
+    Repeat from step two, in parallel: each task runs in its own worktree, so agents never trip over each other.
+  </p>
+
+  <h2>Where to go next</h2>
+  <ul>
+    <li><a href="/docs/palette/">Command palette</a>: jump between everything with <code>⌘K</code>.</li>
+    <li><a href="/docs/panels/">Panels</a>: put the agent's plan, its dev server, and a runner beside its terminal.</li>
+    <li><a href="/docs/sandbox/">Sandbox</a>: run a task in a Lima VM or under nono when you don't trust the code.</li>
+    <li><a href="/docs/pull-requests/">Pull requests</a>: review and merge without leaving Ouijit.</li>
+  </ul>
+
+  <h2>Build from source</h2>
   <p>Building needs Node.js 20+ (the repo pins 22) and C/C++ build tools for the native modules (better-sqlite3, node-pty, koffi):</p>
   <ul>
     <li><strong>macOS:</strong> <code>xcode-select --install</code></li>
@@ -38,43 +83,28 @@ cd ouijit
 npm install
 npm start</code></pre>
 
-  <h2>Add a project</h2>
+  <h2>Projects folder</h2>
   <p>
-    On first launch you land on the <a href="/docs/terminals/">home view</a>. Click the <strong>+</strong> button in the
-    sidebar and pick one of two options:
+    New projects are created in <code>~/Ouijit/projects</code> by default. Change it under
+    <strong>App Settings &rarr; Projects</strong>. If projects still live in the old folder, Ouijit asks whether
+    to move them (tasks, hooks, and settings stay attached), forget them (files stay on disk), or leave them
+    where they are.
   </p>
-  <ul>
-    <li><strong>Add existing</strong>. Select a folder that is already a git repository.</li>
-    <li><strong>Create new</strong>. Name a project and Ouijit creates the folder and runs <code>git init</code>.</li>
-  </ul>
-  <p>
-    If the folder you add is not a git repository yet, Ouijit offers to initialize one in place, with an optional
-    initial commit of the existing files.
-  </p>
-  <p>
-    New projects are created in your <strong>projects folder</strong>, <code>~/Ouijit/projects</code> by default.
-    Change it under <strong>App Settings &rarr; Projects</strong>. If projects still live in the old folder,
-    Ouijit asks whether to move them (tasks, hooks, and settings stay attached), forget them (files stay on
-    disk), or leave them where they are.
-  </p>
-  <p>Click a project in the sidebar to open it. You start on the <a href="/docs/kanban/">kanban board</a>.</p>
 
   <h2>Check your environment</h2>
   <p>
     Ouijit checks your environment at startup: git, the agent CLIs (<code>claude</code>, <code>codex</code>,
     <code>pi</code>, <code>opencode</code>), and the tools behind optional features (<code>gh</code>, Lima,
     nono). The <strong>Help &amp; setup</strong> dialog shows each result, and dialogs that need a missing tool
-    say so inline. Starting a task with no agent CLI on <code>PATH</code> surfaces a one-time notice.
+    say so inline.
   </p>
 
   <h2>Update Ouijit</h2>
   <p>
     Ouijit checks for updates at launch and hourly. On macOS the update downloads in the background and a dialog
     offers to restart when it is ready. On Linux a notice links to the release page. After an update, a
-    <strong>What's New</strong> dialog shows that version's release notes once.
-  </p>
-  <p>
-    Turn automatic checks off under <strong>App Settings &rarr; Updates</strong>.
+    <strong>What's New</strong> dialog shows that version's release notes once. Turn automatic checks off under
+    <strong>App Settings &rarr; Updates</strong>.
   </p>
 </Docs>
 
