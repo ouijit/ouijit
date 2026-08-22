@@ -455,7 +455,7 @@ export function MockPreviewPanel({ fixture, onClose }: { fixture: PreviewFixture
           <Icon name="arrow-right" />
         </span>
         <PanelHeaderButton aria-label="Reload">
-          <Icon name="arrow-clockwise" />
+          <Icon name="arrows-clockwise" />
         </PanelHeaderButton>
         <span className="text-[13px] text-ink/60 truncate flex-1 min-w-0 font-mono py-0.5 px-2">
           {fixture.url.replace(/^https?:\/\//, '')}
@@ -514,7 +514,16 @@ function OnboardingPreviewPage() {
 
 /* ─── Diff panel ──────────────────────────────────────────────────── */
 
-export function MockDiffPanel({ fixture, onClose }: { fixture: DiffFixture; onClose: () => void }) {
+export function MockDiffPanel({
+  fixture,
+  compact = false,
+  onClose,
+}: {
+  fixture: DiffFixture;
+  /** Split view: the file tree stays collapsed so the diff keeps its width. */
+  compact?: boolean;
+  onClose: () => void;
+}) {
   const totalAdds = fixture.files.reduce((s, f) => s + f.additions, 0);
   const totalDels = fixture.files.reduce((s, f) => s + f.deletions, 0);
   const count = fixture.files.length;
@@ -524,7 +533,7 @@ export function MockDiffPanel({ fixture, onClose }: { fixture: DiffFixture; onCl
 
   return (
     <div className={`${PANEL_CHROME} !flex-row`}>
-      {count > 0 && (
+      {count > 0 && !compact && (
         <>
           <div className="shrink-0 overflow-y-auto py-2" style={{ width: 200 }}>
             {fixture.files.map((file) => {

@@ -51,7 +51,13 @@ export default function AppWindowScene() {
 
   const [view, setView] = useState<'board' | 'stack'>('board');
   const [stackOrder, setStackOrder] = useState<string[]>(() => STACK_TERMINALS.map((t) => t.ptyId));
-  const [openPanelByPty, setOpenPanelByPty] = useState<Record<string, PanelKind | null>>({});
+  // One of each key panel open in split view from the start, so browsing the
+  // stack shows them all off without any toggling.
+  const [openPanelByPty, setOpenPanelByPty] = useState<Record<string, PanelKind | null>>({
+    'pty-101-claude': 'plan',
+    'pty-101-dev': 'preview',
+    'pty-103-test': 'diff',
+  });
 
   const bringToFront = useCallback((ptyId: string) => {
     setStackOrder((prev) => (prev[0] === ptyId ? prev : [ptyId, ...prev.filter((id) => id !== ptyId)]));
@@ -244,25 +250,33 @@ export default function AppWindowScene() {
                           }
                         />
                         {isActive && (
-                          <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
-                            {renderStaticBody(term.ptyId)}
-                            {openPanel === 'plan' && fixtures.plan && (
-                              <MockPlanPanel
-                                fixture={fixtures.plan}
-                                onClose={() => togglePanel(term.ptyId, 'plan')}
-                              />
-                            )}
-                            {openPanel === 'preview' && fixtures.preview && (
-                              <MockPreviewPanel
-                                fixture={fixtures.preview}
-                                onClose={() => togglePanel(term.ptyId, 'preview')}
-                              />
-                            )}
-                            {openPanel === 'diff' && fixtures.diff && (
-                              <MockDiffPanel
-                                fixture={fixtures.diff}
-                                onClose={() => togglePanel(term.ptyId, 'diff')}
-                              />
+                          <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
+                            <div className="flex-1 min-w-0 flex flex-col basis-1/2">{renderStaticBody(term.ptyId)}</div>
+                            {openPanel && (
+                              <>
+                                <div className="pane-seam relative w-px shrink-0" />
+                                <div className="relative min-h-0 basis-1/2 shrink-0 overflow-hidden">
+                                  {openPanel === 'plan' && fixtures.plan && (
+                                    <MockPlanPanel
+                                      fixture={fixtures.plan}
+                                      onClose={() => togglePanel(term.ptyId, 'plan')}
+                                    />
+                                  )}
+                                  {openPanel === 'preview' && fixtures.preview && (
+                                    <MockPreviewPanel
+                                      fixture={fixtures.preview}
+                                      onClose={() => togglePanel(term.ptyId, 'preview')}
+                                    />
+                                  )}
+                                  {openPanel === 'diff' && fixtures.diff && (
+                                    <MockDiffPanel
+                                      fixture={fixtures.diff}
+                                      compact
+                                      onClose={() => togglePanel(term.ptyId, 'diff')}
+                                    />
+                                  )}
+                                </div>
+                              </>
                             )}
                           </div>
                         )}
