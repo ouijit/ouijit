@@ -62,6 +62,9 @@ export default function AppWindowScene() {
   const [scale, setScale] = useState(1);
 
   const [view, setView] = useState<'board' | 'stack' | 'prs'>('board');
+  // Closed by default like the app, where the rail is a hover/pin overlay and
+  // the titlebar project icon toggles it.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   // The diff-bearing terminal leads so the stack opens on the diff panel.
   const [stackOrder, setStackOrder] = useState<string[]>([
     'pty-103-test',
@@ -92,6 +95,10 @@ export default function AppWindowScene() {
   const togglePanel = useCallback((ptyId: string, kind: PanelKind) => {
     setOpenPanelByPty((prev) => ({ ...prev, [ptyId]: prev[ptyId] === kind ? null : kind }));
   }, []);
+
+  // The rail supplies the content's left inset while open, the way the app's
+  // --sidebar-offset does; closed, the panels keep their own 16px.
+  const contentLeft = sidebarOpen ? 0 : 16;
 
   // Stable DOM order so reordering never re-attaches a card mid-transition;
   // the visual stacking comes entirely from TerminalCardView's depth styles.
@@ -124,13 +131,22 @@ export default function AppWindowScene() {
               <span style={{ background: '#28c840' }} />
             </div>
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <ProjectAvatar size={32} />
-              <div className="flex flex-col gap-[2px] min-w-0">
-                <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
-                  horizon
-                </span>
-                <span className="text-[11px] font-mono text-text-tertiary leading-[1.3] truncate">~/Code/horizon</span>
-              </div>
+              <button
+                type="button"
+                aria-label="Toggle projects"
+                className="flex items-center gap-3 min-w-0 bg-transparent border-none p-0 text-left"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+              >
+                <ProjectAvatar size={32} />
+                <div className="flex flex-col gap-[2px] min-w-0">
+                  <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
+                    horizon
+                  </span>
+                  <span className="text-[11px] font-mono text-text-tertiary leading-[1.3] truncate">
+                    ~/Code/horizon
+                  </span>
+                </div>
+              </button>
             </div>
             <div className="flex items-center gap-3">
               <div className={SEG_GROUP}>
@@ -156,6 +172,7 @@ export default function AppWindowScene() {
             </div>
           </div>
           <div className="flex flex-1 min-h-0">
+            {sidebarOpen && (
             <div className="flex flex-col items-center shrink-0 w-[72px] pt-1 pb-4">
               <div className="w-10 h-10">
                 <div className="app-window-logo-mask w-full h-full" />
@@ -188,11 +205,12 @@ export default function AppWindowScene() {
                 <Icon name="sidebar-simple" />
               </span>
             </div>
+            )}
             {view === 'board' ? (
               <div
                 className="glass-bevel relative flex flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"
                 style={{
-                  margin: '0 16px 16px 0',
+                  margin: `0 16px 16px ${contentLeft}px`,
                   background: 'var(--color-terminal-bg)',
                   boxShadow: 'var(--shadow-panel)',
                 }}
@@ -235,7 +253,7 @@ export default function AppWindowScene() {
               <div
                 className="glass-bevel relative flex flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"
                 style={{
-                  margin: '0 16px 16px 0',
+                  margin: `0 16px 16px ${contentLeft}px`,
                   background: 'var(--color-terminal-bg)',
                   boxShadow: 'var(--shadow-panel)',
                 }}
@@ -248,7 +266,7 @@ export default function AppWindowScene() {
                     pushed down 24px per back card so their peeks fit above. */}
                 <div
                   className="absolute"
-                  style={{ left: 0, right: 16, bottom: 16, top: 18 + (STACK_TERMINALS.length - 1) * 24 }}
+                  style={{ left: contentLeft, right: 16, bottom: 16, top: 18 + (STACK_TERMINALS.length - 1) * 24 }}
                 >
                   {STACK_TERMINALS.map((term) => {
                     const position = positionByPtyId.get(term.ptyId) ?? 0;
