@@ -41,6 +41,7 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     taskId: seed.taskId,
     sandboxProvider: legacySandboxProvider(seed.sandboxed),
     worktreeBranch: seed.worktreeBranch,
+    worktreePath: seed.worktreePath,
     ptyId: seed.ptyId,
     initialSummaryType: seed.summaryType ?? 'ready',
   });
@@ -174,7 +175,7 @@ export function installCaptureNavigator(): void {
               (seed, i): SnapshotTerminal => ({
                 projectPath,
                 taskNumber: seed.taskId,
-                worktreePath: null,
+                worktreePath: seed.worktreePath ?? null,
                 worktreeBranch: seed.worktreeBranch ?? null,
                 label: seed.label,
                 ordinalInProject: i,

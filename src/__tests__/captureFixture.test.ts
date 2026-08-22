@@ -57,14 +57,21 @@ describe('seedCaptureFixture', () => {
     expect(scripts.length).toBeGreaterThanOrEqual(3);
   });
 
-  test('stages uncommitted changes for the diff scene', () => {
+  test('creates worktrees on the task branches, with the diff scene staged in T-1', () => {
     const db = _initTestDatabase();
 
     const projectPath = path.join(tempRoot, 'horizon');
     seedCaptureFixture(db, { projectPath, projectName: 'horizon' });
 
-    const status = execFileSync('git', ['status', '--porcelain'], { cwd: projectPath, encoding: 'utf8' });
+    const worktree = path.join(tempRoot, 'horizon-worktrees', 'T-1');
+    const branch = execFileSync('git', ['branch', '--show-current'], { cwd: worktree, encoding: 'utf8' });
+    expect(branch.trim()).toBe('rework-onboarding-flow-124');
+
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: worktree, encoding: 'utf8' });
     expect(status).toContain(' M src/onboarding/Stepper.tsx');
     expect(status).toContain('?? src/onboarding/IntroCard.tsx');
+
+    const rootStatus = execFileSync('git', ['status', '--porcelain'], { cwd: projectPath, encoding: 'utf8' });
+    expect(rootStatus).toBe('');
   });
 });

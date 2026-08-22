@@ -17,6 +17,7 @@ export interface CaptureTerminalSeed {
   label: string;
   summaryType?: TerminalDisplayState['summaryType'];
   worktreeBranch?: string;
+  worktreePath?: string;
   sandboxed?: boolean;
   /** Optional canned ANSI content to write into the xterm on seed */
   content?: string;

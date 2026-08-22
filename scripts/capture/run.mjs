@@ -227,17 +227,21 @@ const SANDBOX_SCREEN = [
   '\x1b[38;5;75m╰──────────────────────────────────────────────╯\x1b[0m\r\n',
 ].join('');
 
+// Labels mirror what the app derives for a task terminal: the task's name.
+// The dev-server terminal keeps its command label, the way a shell's title
+// reports what is running in it.
 function buildTerminalSeeds() {
   return [
     {
       ptyId: 'capture-pty-1a',
       taskId: 1,
-      label: 'claude',
+      label: 'Rework onboarding flow',
       summary: 'Editing onboarding stepper\u2026',
       summaryType: 'thinking',
       worktreeBranch: 'rework-onboarding-flow-124',
+      worktreePath: path.join(worktreesPath, 'T-1'),
       content: CLAUDE_SCREEN,
-      planPath: path.join(os.homedir(), 'Code', 'horizon', 'plans', 'rework-onboarding-flow.md'),
+      planPath: path.join(worktreesPath, 'T-1', 'plans', 'rework-onboarding-flow.md'),
       planPanelOpen: true,
     },
     {
@@ -247,33 +251,37 @@ function buildTerminalSeeds() {
       summary: 'Vite dev server',
       summaryType: 'ready',
       worktreeBranch: 'rework-onboarding-flow-124',
+      worktreePath: path.join(worktreesPath, 'T-1'),
       content: VITE_SCREEN,
     },
     {
       ptyId: 'capture-pty-2',
       taskId: 2,
-      label: 'claude',
+      label: 'Add activity feed to dashboard',
       summary: 'Wiring the activity feed stream',
       summaryType: 'thinking',
       worktreeBranch: 'dashboard-activity-feed-120',
+      worktreePath: path.join(worktreesPath, 'T-2'),
       content: CLAUDE_SCREEN,
     },
     {
       ptyId: 'capture-pty-3',
       taskId: 3,
-      label: 'claude',
+      label: 'Polish invitation email template',
       summary: 'Invite email copy tightened',
       summaryType: 'ready',
       worktreeBranch: 'invite-email-polish-119',
+      worktreePath: path.join(worktreesPath, 'T-3'),
       content: CLAUDE_SCREEN,
     },
     {
       ptyId: 'capture-pty-4',
       taskId: 4,
-      label: 'claude',
+      label: 'Refine CTA button hover states',
       summary: 'Aligning hover states with design tokens',
       summaryType: 'thinking',
       worktreeBranch: 'cta-hover-states-121',
+      worktreePath: path.join(worktreesPath, 'T-4'),
       sandboxed: true,
       content: SANDBOX_SCREEN,
     },

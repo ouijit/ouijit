@@ -124,9 +124,20 @@ export function seedCaptureFixture(
       ['-c', 'user.email=capture@ouijit.dev', '-c', 'user.name=Ouijit Capture', 'commit', '-q', '-m', 'Initial commit'],
       { cwd: projectPath },
     );
+    // Real worktrees at the paths the task rows record, so a seeded terminal
+    // pointed at one reports the task branch rather than the project's main.
+    const worktreesDir = path.join(path.dirname(projectPath), `${projectName}-worktrees`);
+    for (let i = 0; i < TASK_SEEDS.length; i++) {
+      const seed = TASK_SEEDS[i];
+      if (!seed.branch || seed.status === 'done') continue;
+      execFileSync('git', ['worktree', 'add', '-q', '-b', seed.branch, path.join(worktreesDir, `T-${i + 1}`), 'main'], {
+        cwd: projectPath,
+      });
+    }
     // Left uncommitted on purpose: the diff scene screenshots these changes.
-    fs.writeFileSync(path.join(onboardingDir, 'Stepper.tsx'), STEPPER_MODIFIED);
-    fs.writeFileSync(path.join(onboardingDir, 'IntroCard.tsx'), INTRO_CARD);
+    const diffSceneDir = path.join(worktreesDir, 'T-1', 'src', 'onboarding');
+    fs.writeFileSync(path.join(diffSceneDir, 'Stepper.tsx'), STEPPER_MODIFIED);
+    fs.writeFileSync(path.join(diffSceneDir, 'IntroCard.tsx'), INTRO_CARD);
   } catch (err) {
     captureFixtureLog.warn('git init failed', { error: err instanceof Error ? err.message : String(err) });
   }
