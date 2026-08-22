@@ -71,14 +71,11 @@ import Docs from '../../layouts/Docs.astro';
   <pre class="glass-bevel"><code>ouijit task set-merge-target 43 T-42</code></pre>
 
   <h2>Copy-on-write cloning</h2>
-  <p>
-    Ouijit clones worktrees with copy-on-write via the native file system (APFS on macOS, reflinks on Linux with
-    btrfs/XFS). Disk blocks are shared with the original until a file changes.
-  </p>
+  <p>Ouijit clones worktrees with copy-on-write (APFS on macOS, btrfs/XFS reflinks on Linux):</p>
   <ul>
     <li>Worktree creation is fast regardless of repository size.</li>
     <li>Disk usage is proportional to your changes, not the full repository.</li>
-    <li>Gitignored files (dependencies, build caches) are cloned too, so the worktree is ready to run.</li>
+    <li>Gitignored files (dependencies, build caches) come along, so the worktree is ready to run.</li>
   </ul>
 
   <h2>Choose a creation mode</h2>

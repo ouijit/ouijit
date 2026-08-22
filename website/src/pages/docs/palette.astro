@@ -5,7 +5,7 @@ import Docs from '../../layouts/Docs.astro';
   <h1>Command palette</h1>
   <p class="lead">
     Press <code>⌘K</code> (<code>Ctrl+K</code> on Linux) to jump to any terminal, project, task, or pull
-    request. Results are ranked by match quality, then by how often you return to them.
+    request.
   </p>
 
   <img
@@ -36,12 +36,10 @@ import Docs from '../../layouts/Docs.astro';
     task shows as that task instead.
   </p>
 
-  <h2>Matching and ranking</h2>
+  <h2>Search by anything</h2>
   <p>
     Type any part of a name, a task number (<code>T-42</code> or <code>42</code>), a PR number, a branch, a tag,
-    or a project name. Exact and prefix matches beat substring and fuzzy matches, and a match on a name beats a
-    match on metadata. On top of that, items you open often and recently get a small boost that reorders
-    comparable matches but never lifts a weak match over a literal one.
+    or a project name. Items you open often rise toward the top.
   </p>
   <p>
     With an empty query the palette shows a <strong>Recent</strong> group first, then terminals, projects,

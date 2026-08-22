@@ -25,47 +25,14 @@ import Docs from '../../layouts/Docs.astro';
   <h2>How it works</h2>
   <p>
     Ouijit installs a thin wrapper for each supported harness into the terminal's <code>PATH</code>. The wrapper
-    shadows the real binary, injects the CLI reference into the harness's system prompt, and wires status hooks
-    back to Ouijit. The mechanism differs per harness:
+    shadows the real binary, appends the CLI reference to the agent's system prompt, and uses the harness's own
+    hook or plugin system to report status. Outside an Ouijit terminal the wrappers run the real binary
+    unmodified, so nothing changes about how you use these tools elsewhere.
   </p>
-  <table>
-    <thead>
-      <tr><th>Harness</th><th>Status wiring</th><th>System prompt</th></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Claude Code</strong></td>
-        <td><code>--settings</code> with <code>UserPromptSubmit</code> / <code>Stop</code> hooks</td>
-        <td><code>--append-system-prompt-file</code></td>
-      </tr>
-      <tr>
-        <td><strong>Codex</strong></td>
-        <td><code>-c hooks.&lt;Event&gt;=...</code> overrides, pre-trusted so they fire without <code>/hooks</code> approval</td>
-        <td><code>-c developer_instructions=...</code></td>
-      </tr>
-      <tr>
-        <td><strong>Pi</strong></td>
-        <td><code>--extension</code> loading a generated TypeScript extension that subscribes to <code>turn_start</code> / <code>turn_end</code></td>
-        <td><code>--append-system-prompt</code></td>
-      </tr>
-      <tr>
-        <td><strong>OpenCode</strong></td>
-        <td>Status plugin loaded from opencode's auto-load dir, reporting off the <code>session.status</code> event</td>
-        <td>CLI reference injected via <code>OPENCODE_CONFIG_CONTENT</code> (opencode has no system-prompt CLI flag)</td>
-      </tr>
-    </tbody>
-  </table>
   <p>
-    When <code>OUIJIT_API_URL</code> is unset, meaning the harness runs outside an Ouijit terminal, the wrappers
-    exec the real binary unmodified.
+    Status also works inside both <a href="/docs/sandbox/">sandbox backends</a>: under Lima the wrapper setup is
+    written into the VM, under nono the agent runs on the host with your real config.
   </p>
-
-  <h2>Sandboxed terminals</h2>
-  <p>Status indicators work inside both <a href="/docs/sandbox/">sandbox backends</a>.</p>
-  <ul>
-    <li><strong>Lima VM</strong>. Claude settings, Codex config, the Pi extension, and the opencode plugin are written into the VM's home directory, and their hooks reach back over <code>host.lima.internal</code>.</li>
-    <li><strong>nono</strong>. Terminals run on the host, so the agent uses your real config and hooks reach the hook server over localhost.</li>
-  </ul>
 
   <h2>Notifications</h2>
   <p>

@@ -23,13 +23,12 @@ import Docs from '../../layouts/Docs.astro';
     <strong>Authored</strong>, and <strong>Everything else</strong>, with an issues tab beside them. A pull
     request opens into <strong>Summary</strong>, <strong>Timeline</strong>, and <strong>Code</strong> tabs:
     checks, review threads with resolve and reply, and per-file diffs with a <strong>Viewed</strong> state that
-    resets when the head changes. Diffs read from your local git object database, so browsing a PR checks
-    nothing out.
+    resets when the head changes. Browsing a pull request never checks anything out.
   </p>
 
   <h2>Stage a review</h2>
   <p>
-    Review comments are drafts in Ouijit's local database. Nothing reaches GitHub until you press
+    Review comments start as local drafts. Nothing reaches GitHub until you press
     <strong>Comment</strong>, <strong>Approve</strong>, or <strong>Request changes</strong>, which submits the
     drafts as one review. Drafts re-anchor when the pull request's head moves; one that can no longer be placed
     is flagged rather than deleted, and blocks submission until you discard or rewrite it, because GitHub would
@@ -53,8 +52,8 @@ import Docs from '../../layouts/Docs.astro';
 
   <h2>Connect pull requests and tasks</h2>
   <p>
-    Ouijit links a task to the pull request on its branch automatically, at terminal spawn and on a periodic
-    sweep, so a PR the agent opened mid-session still shows up on the card. The other direction works too:
+    Ouijit links a task to the pull request on its branch automatically, so a PR the agent opened mid-session
+    still shows up on the card. The other direction works too:
   </p>
   <ul>
     <li><strong>Check out as task</strong> creates a task with a worktree at the pull request's head, with the PR body as its prompt and the PR's base branch as its merge target.</li>
