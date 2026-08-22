@@ -406,7 +406,7 @@ OUIJIT_HOOK_TYPE=start</code></pre>
           </li>
           <li>
             <strong>CLI awareness</strong>. The <a href="#cli"><code>ouijit</code> CLI</a> reference is appended to the
-            agent's system prompt. The agent can create tasks, flip statuses, manage hooks and scripts, and update plans
+            agent's system prompt. The agent can create tasks, flip statuses, manage hooks and scripts, and open panels
             from the shell, the same as you would.
           </li>
         </ul>
@@ -594,7 +594,7 @@ ouijit preview remove http://localhost:3000</code></pre>
           <tbody>
             <tr><td><code>OUIJIT_API_URL</code></td><td>Base URL for the local REST API the CLI talks to.</td></tr>
             <tr><td><code>OUIJIT_API_TOKEN</code></td><td>Bearer token scoped to this terminal session.</td></tr>
-            <tr><td><code>OUIJIT_PTY_ID</code></td><td>Unique id for this terminal session. Used by <code>task current</code> and <code>plan</code>.</td></tr>
+            <tr><td><code>OUIJIT_PTY_ID</code></td><td>Unique id for this terminal session. Used by <code>task current</code> and the panel commands (<code>markdown</code>, <code>preview</code>).</td></tr>
           </tbody>
         </table>
         <p>

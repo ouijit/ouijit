@@ -8,11 +8,17 @@ import log from 'electron-log/renderer';
 import { useAppStore } from '../../stores/appStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances, type OuijitTerminal } from './terminalReact';
-import type { LastSessionSnapshot, SnapshotPanel, SnapshotTerminal, SnapshotTerminalUi } from '../../types';
+import {
+  SNAPSHOT_KEY,
+  type LastSessionSnapshot,
+  type SnapshotPanel,
+  type SnapshotTerminal,
+  type SnapshotTerminalUi,
+} from '../../types';
 
 const sessionLog = log.scope('sessionSnapshot');
 
-export const SNAPSHOT_KEY = 'lastSession:snapshot';
+export { SNAPSHOT_KEY };
 
 // ── Gather ───────────────────────────────────────────────────────────
 

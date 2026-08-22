@@ -16,9 +16,11 @@
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
+import * as http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { decodePng, encodePng, composeDiagonalSlices } from './composite.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,16 +56,30 @@ if (fs.existsSync(projectPath)) {
 }
 fs.mkdirSync(CODE_DIR, { recursive: true });
 
+// Sized for the split panes (~66 cols); anything wider wraps and tears.
+const CLAUDE_RULE = '\x1b[38;5;240m' + '─'.repeat(64) + '\x1b[0m\r\n';
 const CLAUDE_SCREEN = [
-  '\x1b[38;5;245m> \x1b[0m\x1b[38;5;252mSplit the onboarding wizard into a stepper with saved progress, and move\r\n',
-  '  the welcome copy into a reusable intro component so the marketing site\r\n',
-  '  can embed it too.\x1b[0m\r\n\r\n',
-  '\x1b[38;5;245m⏺\x1b[0m \x1b[1mEdit(src/onboarding/Stepper.tsx)\x1b[0m\r\n',
-  '\x1b[38;5;244m  ⎿\x1b[0m  Added step-level progress persistence and a back affordance between\r\n',
-  '      each pair of screens.\r\n\r\n',
-  '\x1b[38;5;245m⏺\x1b[0m \x1b[1mBash(npm test onboarding)\x1b[0m\r\n',
-  '\x1b[38;5;244m  ⎿\x1b[0m  \x1b[38;5;108m✓\x1b[0m 14 passed, 0 failed\r\n\r\n',
-  '\x1b[38;5;212m✦\x1b[0m \x1b[2mThinking…\x1b[0m\r\n',
+  '\x1b[38;5;245m>\x1b[0m \x1b[38;5;252mSplit the onboarding wizard into a stepper with saved\r\n',
+  '  progress, and move the welcome copy into a reusable intro\r\n',
+  '  component so the marketing site can embed it too.\x1b[0m\r\n',
+  '\r\n',
+  "\x1b[38;5;252m⏺\x1b[0m I'll persist the step in localStorage first, then lift the\r\n",
+  '  welcome copy out into its own component.\r\n',
+  '\r\n',
+  '\x1b[38;5;114m⏺\x1b[0m \x1b[1mEdit(src/onboarding/Stepper.tsx)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Updated src/onboarding/Stepper.tsx with 15 additions and\x1b[0m\r\n',
+  '\x1b[38;5;244m     5 removals\x1b[0m\r\n',
+  '\r\n',
+  '\x1b[38;5;114m⏺\x1b[0m \x1b[1mBash(npm test -- onboarding)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Tests: 14 passed, 14 total\x1b[0m\r\n',
+  '\r\n',
+  '\x1b[38;5;204m✳\x1b[0m Sautéing… \x1b[38;5;244m(47s · ↓ 3.2k tokens)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Tip: Use /btw to ask a quick side question\x1b[0m\r\n',
+  '\r\n',
+  CLAUDE_RULE,
+  '\x1b[38;5;252m>\x1b[0m \x1b[7m \x1b[0m\r\n',
+  CLAUDE_RULE,
+  '  \x1b[38;5;179m⏵⏵ auto mode on\x1b[0m \x1b[38;5;244m(shift+tab to cycle) · esc to interrupt\x1b[0m\r\n',
 ].join('');
 
 const VITE_SCREEN = [
@@ -75,6 +91,131 @@ const VITE_SCREEN = [
   '\x1b[38;5;244m11:52:18 AM\x1b[0m [vite] hmr update \x1b[38;5;108m/src/onboarding/Stepper.tsx\x1b[0m\r\n',
   '\x1b[38;5;244m11:52:19 AM\x1b[0m [vite] page reload \x1b[38;5;108msrc/routes/dashboard.tsx\x1b[0m\r\n',
 ].join('');
+
+// What the preview scene's webview shows — the onboarding stepper the seeded
+// agent narrative is building, served by a throwaway local HTTP server.
+const PREVIEW_PAGE = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Workspace · horizon</title>
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { display: none; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: #0e0f12; color: #dddee3; min-height: 100vh; font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px; border-bottom: 1px solid #ffffff0f; font-size: 13px;
+  }
+  .mark {
+    width: 20px; height: 20px; border-radius: 5px; background: #2a2c33;
+    color: #e6e7eb; font-size: 11px; font-weight: 700;
+    display: grid; place-items: center;
+  }
+  .crumb { color: #83858e; }
+  .crumb b { color: #dddee3; font-weight: 550; }
+  .spacer { flex: 1; }
+  .avatars { display: flex; }
+  .avatar {
+    width: 22px; height: 22px; border-radius: 50%; margin-left: -6px;
+    border: 2px solid #0e0f12; background: #3b4252; color: #d5d8e0;
+    font-size: 9px; font-weight: 600; display: grid; place-items: center;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 40px 24px 24px; }
+  .step { font-size: 12px; color: #83858e; margin-bottom: 6px; }
+  .bar { height: 2px; background: #24262c; border-radius: 1px; margin-bottom: 28px; }
+  .bar i { display: block; height: 2px; width: 66%; background: #5f9bf5; border-radius: 1px; }
+  h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 6px; }
+  .sub { color: #9a9ca4; margin-bottom: 28px; line-height: 1.5; }
+  .field { margin-bottom: 18px; }
+  label { display: block; font-size: 12px; font-weight: 550; color: #b9bbc2; margin-bottom: 6px; }
+  input, .select {
+    width: 100%; padding: 8px 10px; border-radius: 7px; font-size: 14px;
+    border: 1px solid #ffffff1a; background: #131418; color: #dddee3;
+  }
+  .url { display: flex; align-items: center; }
+  .url input { border-radius: 7px 0 0 7px; border-right: none; text-align: right; padding-right: 2px; width: 40%; }
+  .url .suffix {
+    flex: 1; padding: 8px 10px 8px 2px; border: 1px solid #ffffff1a; border-left: none;
+    border-radius: 0 7px 7px 0; background: #131418; color: #6d6f78;
+  }
+  .select { display: flex; justify-content: space-between; color: #dddee3; }
+  .select span:last-child { color: #6d6f78; }
+  .hint { font-size: 12px; color: #6d6f78; margin-top: 6px; }
+  .row {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 0; margin-top: 6px; border-top: 1px solid #ffffff0f;
+  }
+  .row p { color: #9a9ca4; font-size: 12px; margin-top: 2px; }
+  .toggle { width: 34px; height: 20px; border-radius: 10px; background: #5f9bf5; position: relative; flex-shrink: 0; }
+  .toggle i { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+  .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; }
+  .back { color: #9a9ca4; background: none; border: none; font-size: 14px; }
+  .continue {
+    padding: 8px 18px; border: none; border-radius: 7px; font-size: 14px; font-weight: 600;
+    background: #5f9bf5; color: #0b1018;
+  }
+  footer { max-width: 560px; margin: 0 auto; padding: 0 24px 32px; font-size: 12px; color: #6d6f78; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="mark">h</div>
+    <span class="crumb">horizon / <b>Getting started</b></span>
+    <div class="spacer"></div>
+    <div class="avatars"><div class="avatar">MK</div><div class="avatar">JT</div><div class="avatar">+3</div></div>
+  </header>
+  <main>
+    <div class="step">Step 2 of 3 · Workspace</div>
+    <div class="bar"><i></i></div>
+    <h1>Set up your workspace</h1>
+    <div class="sub">This is where your team's projects and docs live. You can rename it any time.</div>
+    <div class="field">
+      <label for="name">Workspace name</label>
+      <input id="name" value="Horizon HQ">
+    </div>
+    <div class="field">
+      <label for="slug">Workspace URL</label>
+      <div class="url"><input id="slug" value="horizon-hq"><span class="suffix">.usehorizon.app</span></div>
+      <div class="hint">Lowercase letters, numbers, and dashes only.</div>
+    </div>
+    <div class="field">
+      <label>Data region</label>
+      <div class="select"><span>United States (us-east)</span><span>⌄</span></div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Allow email domain sign-up</label>
+        <p>Anyone with an @horizon.dev address can join without an invite.</p>
+      </div>
+      <div class="toggle"><i></i></div>
+    </div>
+    <div class="actions">
+      <button class="back">Back</button>
+      <button class="continue">Continue</button>
+    </div>
+  </main>
+  <footer>You can change these later in Settings → Workspace.</footer>
+</body>
+</html>
+`;
+
+function startPreviewServer(port) {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(PREVIEW_PAGE);
+    });
+    // The preferred port matches the seeded vite screen's printed URL; when
+    // something real is already listening there, any free port still works.
+    server.once('error', () => server.listen(0, '127.0.0.1', () => resolve(server)));
+    server.listen(port, '127.0.0.1', () => resolve(server));
+  });
+}
 
 const SANDBOX_SCREEN = [
   '\x1b[38;5;75m╭─ horizon\x1b[0m \x1b[2m(sandbox)\x1b[0m \x1b[38;5;75m──────────────────────────────╮\x1b[0m\r\n',
@@ -139,11 +280,34 @@ function buildTerminalSeeds() {
   ];
 }
 
+// Every scene pins its theme — an unpinned scene follows the capturing
+// machine's OS appearance and the output would flip between runs.
 const SCENES = [
-  { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds() },
-  { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true },
-  { scene: 'settings', file: 'settings.png', needsProject: true },
+  { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds(), theme: 'dark' },
+  { scene: 'markdown', file: 'markdown.png', needsProject: true, theme: 'dark', settleMs: 1600 },
+  { scene: 'preview', file: 'preview.png', needsProject: true, previewPtyId: 'capture-pty-1a', theme: 'dark', settleMs: 2500 },
+  { scene: 'palette', file: 'palette.png', needsProject: true, theme: 'dark' },
+  { scene: 'diff', file: 'diff.png', needsProject: true, diffPtyId: 'capture-pty-1a', theme: 'dark' },
+  { scene: 'settings', file: 'settings.png', needsProject: true, theme: 'dark' },
+  // The resume banner lists one row per snapshot terminal; three rows reads as
+  // an example, the full seed list reads as clutter.
+  {
+    scene: 'resume',
+    file: 'resume.png',
+    needsProject: true,
+    seeds: buildTerminalSeeds().slice(0, 3),
+    theme: 'dark',
+    settleMs: 2500,
+  },
 ];
+
+// One kanban shot per theme, joined into slanted bands — a single image that
+// shows theming instead of a second full screenshot per theme.
+const THEME_COMPOSITE = {
+  file: 'themes.png',
+  scene: 'kanban',
+  themes: ['dark', 'custom:dracula', 'custom:sepia', 'light'],
+};
 
 async function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -215,10 +379,12 @@ async function main() {
   });
 
   let electronPid = null;
+  let previewServer = null;
   let cleanedUp = false;
   const cleanup = async () => {
     if (cleanedUp) return;
     cleanedUp = true;
+    previewServer?.close();
     if (KEEP) {
       console.log('OUIJIT_CAPTURE_KEEP=1 — leaving app + temp dir in place.');
       console.log('temp dir:', tempRoot);
@@ -268,28 +434,55 @@ async function main() {
     // Let the renderer settle before the first navigate
     await sleep(1500);
 
+    previewServer = await startPreviewServer(5173);
+    const previewUrl = `http://localhost:${previewServer.address().port}/`;
+
     let mode = process.env.OUIJIT_CAPTURE_MODE_HINT ?? 'native';
+    const capture = async (payload, outPath, settleMs) => {
+      try {
+        const res = await postSnapshot(apiPort, payload, outPath, { mode, settleMs });
+        console.log(`   wrote ${path.relative(REPO_ROOT, outPath)} (${res.data.bytes} bytes, mode=${res.data.mode})`);
+      } catch (err) {
+        if (mode !== 'native') throw err;
+        console.warn(`   native capture failed (${err.message.split('\n')[0]}); falling back to content mode`);
+        mode = 'content';
+        const res = await postSnapshot(apiPort, payload, outPath, { mode, settleMs });
+        console.log(`   wrote ${path.relative(REPO_ROOT, outPath)} (${res.data.bytes} bytes, mode=${res.data.mode})`);
+      }
+    };
+
     for (const scene of SCENES) {
       const payload = { scene: scene.scene };
       if (scene.needsProject) payload.projectPath = projectPath;
       if (scene.seeds) payload.terminalSeeds = scene.seeds;
-
-      console.log(`→ ${scene.scene}`);
-      const outPath = path.join(OUT_DIR, scene.file);
-      try {
-        const res = await postSnapshot(apiPort, payload, outPath, { mode });
-        console.log(`   wrote ${path.relative(REPO_ROOT, outPath)} (${res.data.bytes} bytes, mode=${res.data.mode})`);
-      } catch (err) {
-        if (mode === 'native') {
-          console.warn(`   native capture failed (${err.message.split('\n')[0]}); falling back to content mode`);
-          mode = 'content';
-          const res = await postSnapshot(apiPort, payload, outPath, { mode });
-          console.log(`   wrote ${path.relative(REPO_ROOT, outPath)} (${res.data.bytes} bytes, mode=${res.data.mode})`);
-        } else {
-          throw err;
-        }
+      if (scene.theme) payload.theme = scene.theme;
+      if (scene.diffPtyId) payload.diffPtyId = scene.diffPtyId;
+      if (scene.previewPtyId) {
+        payload.previewPtyId = scene.previewPtyId;
+        payload.previewUrl = previewUrl;
       }
+
+      console.log(`→ ${scene.file}`);
+      await capture(payload, path.join(OUT_DIR, scene.file), scene.settleMs);
     }
+
+    console.log(`→ ${THEME_COMPOSITE.file}`);
+    const slicePaths = [];
+    for (const [i, theme] of THEME_COMPOSITE.themes.entries()) {
+      const slicePath = path.join(tempRoot, `theme-${i}.png`);
+      // Re-seed: the resume scene cleared the terminals, and the board reads
+      // better with agent chips on the cards.
+      await capture(
+        { scene: THEME_COMPOSITE.scene, projectPath, theme, terminalSeeds: buildTerminalSeeds() },
+        slicePath,
+        undefined,
+      );
+      slicePaths.push(slicePath);
+    }
+    const composed = composeDiagonalSlices(slicePaths.map((p) => decodePng(fs.readFileSync(p))));
+    const compositePath = path.join(OUT_DIR, THEME_COMPOSITE.file);
+    fs.writeFileSync(compositePath, encodePng(composed));
+    console.log(`   wrote ${path.relative(REPO_ROOT, compositePath)} (${fs.statSync(compositePath).size} bytes)`);
 
     console.log('Done.');
   } catch (err) {

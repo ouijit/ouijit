@@ -44,6 +44,60 @@ interface TaskSeed {
 
 const TASK_SEEDS = seedData.tasks as TaskSeed[];
 
+const STEPPER_COMMITTED = `import { useState } from 'react';
+import { WelcomeCopy } from './WelcomeCopy';
+
+const STEPS = ['profile', 'workspace', 'invite'] as const;
+
+export function OnboardingWizard() {
+  const [step, setStep] = useState(0);
+  return (
+    <div className="onboarding">
+      <WelcomeCopy />
+      <StepBody step={STEPS[step]} />
+      <button onClick={() => setStep((s) => s + 1)}>Continue</button>
+    </div>
+  );
+}
+`;
+
+const STEPPER_MODIFIED = `import { useState } from 'react';
+import { IntroCard } from './IntroCard';
+import { loadProgress, saveProgress } from './progress';
+
+const STEPS = ['profile', 'workspace', 'invite'] as const;
+
+export function OnboardingStepper() {
+  const [step, setStep] = useState(() => loadProgress());
+  const advance = () => {
+    saveProgress(step + 1);
+    setStep((s) => s + 1);
+  };
+  return (
+    <div className="onboarding">
+      <IntroCard />
+      <ol className="stepper">
+        {STEPS.map((name, i) => (
+          <li key={name} data-active={i === step}>{name}</li>
+        ))}
+      </ol>
+      <StepBody step={STEPS[step]} />
+      <button onClick={advance}>Continue</button>
+    </div>
+  );
+}
+`;
+
+const INTRO_CARD = `export function IntroCard() {
+  return (
+    <section className="intro-card">
+      <h2>Welcome aboard</h2>
+      <p>Three quick steps and your workspace is ready to share.</p>
+    </section>
+  );
+}
+`;
+
 export function seedCaptureFixture(
   db: Database.Database,
   { projectPath, projectName }: CaptureFixtureOptions,
@@ -56,12 +110,23 @@ export function seedCaptureFixture(
       path.join(projectPath, 'package.json'),
       `{\n  "name": "${projectName}",\n  "version": "1.0.0"\n}\n`,
     );
+    const onboardingDir = path.join(projectPath, 'src', 'onboarding');
+    fs.mkdirSync(onboardingDir, { recursive: true });
+    fs.writeFileSync(path.join(onboardingDir, 'Stepper.tsx'), STEPPER_COMMITTED);
+    // Committed rather than left untracked: the diff scene should lead with
+    // the code changes, not a page of plan markdown.
+    const plansDir = path.join(projectPath, 'plans');
+    fs.mkdirSync(plansDir, { recursive: true });
+    fs.writeFileSync(path.join(plansDir, seedData.onboardingPlanFilename), seedData.onboardingPlanMarkdown);
     execFileSync('git', ['add', '.'], { cwd: projectPath });
     execFileSync(
       'git',
       ['-c', 'user.email=capture@ouijit.dev', '-c', 'user.name=Ouijit Capture', 'commit', '-q', '-m', 'Initial commit'],
       { cwd: projectPath },
     );
+    // Left uncommitted on purpose: the diff scene screenshots these changes.
+    fs.writeFileSync(path.join(onboardingDir, 'Stepper.tsx'), STEPPER_MODIFIED);
+    fs.writeFileSync(path.join(onboardingDir, 'IntroCard.tsx'), INTRO_CARD);
   } catch (err) {
     captureFixtureLog.warn('git init failed', { error: err instanceof Error ? err.message : String(err) });
   }
@@ -105,10 +170,6 @@ export function seedCaptureFixture(
   for (const script of seedData.scripts) {
     scriptRepo.save(projectPath, script.name, script.command);
   }
-
-  const plansDir = path.join(projectPath, 'plans');
-  fs.mkdirSync(plansDir, { recursive: true });
-  fs.writeFileSync(path.join(plansDir, seedData.onboardingPlanFilename), seedData.onboardingPlanMarkdown);
 
   new GlobalSettingsRepo(db).set(`experimental:${projectPath}`, JSON.stringify({ canvas: false }));
 
