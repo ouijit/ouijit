@@ -580,14 +580,19 @@ export function VariantScrubTether() {
               height="100%"
               style={{ zIndex: 30, overflow: 'visible' }}
             >
-              {SEQUENCE.map((k) => {
+              {SEQUENCE.map((k, i) => {
                 const d = drawP(k);
                 if (d <= 0) return null;
+                const next = SEQUENCE[i + 1];
+                // One connection at a time: this beam fades away as the next
+                // one finishes drawing, and comes back when scrolled in reverse.
+                const fadeOut = next ? clamp01((drawP(next) - 0.7) / 0.3) : 0;
+                if (fadeOut >= 1) return null;
                 const src = geom.source[k];
                 const dst = geom.slot[k];
                 const a = { x: src.x + src.w, y: src.y + src.h / 2 };
                 const b = { x: dst.x, y: dst.y + Math.max(dst.h / 2, 14) };
-                const dim = 1 - 0.45 * clamp01((progress[k] - 0.7) / 0.3);
+                const dim = (1 - 0.45 * clamp01((progress[k] - 0.7) / 0.3)) * (1 - fadeOut);
                 return (
                   <g key={k}>
                     <path
