@@ -44,7 +44,7 @@ interface Choreo {
 }
 
 function toTasks(added: SourceKey[]): TaskWithWorkspace[] {
-  return [...added.map((key) => TASK_BY_SOURCE[key]).reverse(), SEED_TASK];
+  return [SEED_TASK, ...added.map((key) => TASK_BY_SOURCE[key])];
 }
 
 /** Per-row landings for the story variants: rows fire as they scroll in. */
@@ -477,7 +477,8 @@ function ScrubColumn({
       style={{ width: 300, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
     >
       <KanbanColumnView status="todo" label="To Do" count={count}>
-        {[...SEQUENCE].reverse().map((k) => (
+        <KanbanCardView task={SEED_TASK} showBadge={false} />
+        {SEQUENCE.map((k) => (
           <div
             key={k}
             ref={setSlot(k)}
@@ -499,7 +500,6 @@ function ScrubColumn({
             </div>
           </div>
         ))}
-        <KanbanCardView task={SEED_TASK} showBadge={false} />
       </KanbanColumnView>
     </div>
   );
