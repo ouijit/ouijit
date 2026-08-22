@@ -541,16 +541,49 @@ function rowMock(key: SourceKey, firing: boolean, setSource: (key: SourceKey) =>
   );
 }
 
-/* ─── Variant 4a: tether — a beam draws from the action to the column ─ */
+/** The created card lifts out of the source and flies to its slot, scrubbed. */
+function HandoffGhosts({ flightP, geom }: { flightP: (k: SourceKey) => number; geom: ScrubGeom }) {
+  return (
+    <>
+      {SEQUENCE.map((k) => {
+        const f = flightP(k);
+        if (f <= 0 || f >= 1) return null;
+        const e = easeInOut(f);
+        const src = geom.source[k];
+        const dst = geom.slot[k];
+        const left = lerp(src.x, dst.x, e);
+        const top = lerp(src.y, dst.y, e) - 28 * Math.sin(Math.PI * e);
+        const width = lerp(src.w, dst.w, e);
+        const opacity = Math.min(1, f / 0.12) * (1 - clamp01((f - 0.85) / 0.15));
+        return (
+          <div
+            key={k}
+            className="absolute pointer-events-none glass-bevel rounded-[10px] overflow-hidden border border-bezel-panel"
+            style={{
+              left,
+              top,
+              width,
+              zIndex: 40,
+              background: 'var(--color-terminal-bg)',
+              boxShadow: 'var(--shadow-panel), 0 24px 48px -16px rgba(0, 0, 0, 0.6)',
+              opacity,
+            }}
+          >
+            <KanbanCardView task={TASK_BY_SOURCE[k]} showBadge={false} />
+          </div>
+        );
+      })}
+    </>
+  );
+}
 
-export function VariantScrubTether() {
+/* ─── Variant 4a: handoff on the shared desktop ───────────────────── */
+
+export function VariantScrubHandoffDesk() {
   const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
-  const drawP = (k: SourceKey) => clamp01((progress[k] - 0.12) / 0.55);
-  const landed = past(progress, 0.7);
-  const beamPath = (a: { x: number; y: number }, b: { x: number; y: number }) => {
-    const dx = Math.max(48, (b.x - a.x) * 0.4);
-    return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`;
-  };
+  const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
+  const open = past(progress, 0.55);
+  const landed = past(progress, 0.76);
   return (
     <div>
       <h2 className="plan-v-headline">Plan at scale, in detail</h2>
@@ -559,7 +592,7 @@ export function VariantScrubTether() {
           <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 130 }}>
             {ROWS.map(({ key, title, body }) => (
               <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
-                {rowMock(key, progress[key] > 0.15 && progress[key] < 0.95, setSource)}
+                {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}
               </ScrubRow>
             ))}
             <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
@@ -570,60 +603,10 @@ export function VariantScrubTether() {
           </div>
           <div className="shrink-0 sticky" style={{ top: 120, width: 300 }}>
             <div className="flex" style={{ minHeight: 480 }}>
-              <ScrubColumn open={landed} landed={landed} setSlot={setSlot} />
+              <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
             </div>
           </div>
-          {geom && (
-            <svg
-              className="absolute inset-0 pointer-events-none"
-              width="100%"
-              height="100%"
-              style={{ zIndex: 30, overflow: 'visible' }}
-            >
-              {SEQUENCE.map((k, i) => {
-                const d = drawP(k);
-                if (d <= 0) return null;
-                const next = SEQUENCE[i + 1];
-                // One connection at a time: this beam fades away as the next
-                // one finishes drawing, and comes back when scrolled in reverse.
-                const fadeOut = next ? clamp01((drawP(next) - 0.7) / 0.3) : 0;
-                if (fadeOut >= 1) return null;
-                const src = geom.source[k];
-                const dst = geom.slot[k];
-                const a = { x: src.x + src.w, y: src.y + src.h / 2 };
-                const b = { x: dst.x, y: dst.y + Math.max(dst.h / 2, 14) };
-                const dim = (1 - 0.45 * clamp01((progress[k] - 0.7) / 0.3)) * (1 - fadeOut);
-                return (
-                  <g key={k}>
-                    <path
-                      d={beamPath(a, b)}
-                      pathLength={1}
-                      fill="none"
-                      stroke="var(--color-accent)"
-                      strokeWidth={5}
-                      strokeLinecap="round"
-                      strokeDasharray="1"
-                      strokeDashoffset={1 - d}
-                      opacity={0.12 * dim}
-                    />
-                    <path
-                      d={beamPath(a, b)}
-                      pathLength={1}
-                      fill="none"
-                      stroke="var(--color-accent)"
-                      strokeWidth={1.5}
-                      strokeLinecap="round"
-                      strokeDasharray="1"
-                      strokeDashoffset={1 - d}
-                      opacity={0.85 * dim}
-                    />
-                    <circle cx={a.x} cy={a.y} r={3} fill="var(--color-accent)" opacity={0.9 * dim} />
-                    <circle cx={b.x} cy={b.y} r={3} fill="var(--color-accent)" opacity={d >= 1 ? 0.9 * dim : 0} />
-                  </g>
-                );
-              })}
-            </svg>
-          )}
+          {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
         </div>
       </Desk>
     </div>
@@ -662,35 +645,7 @@ export function VariantScrubHandoff() {
             </div>
           </Well>
         </div>
-        {geom &&
-          SEQUENCE.map((k) => {
-            const f = flightP(k);
-            if (f <= 0 || f >= 1) return null;
-            const e = easeInOut(f);
-            const src = geom.source[k];
-            const dst = geom.slot[k];
-            const left = lerp(src.x, dst.x, e);
-            const top = lerp(src.y, dst.y, e) - 28 * Math.sin(Math.PI * e);
-            const width = lerp(src.w, dst.w, e);
-            const opacity = Math.min(1, f / 0.12) * (1 - clamp01((f - 0.85) / 0.15));
-            return (
-              <div
-                key={k}
-                className="absolute pointer-events-none glass-bevel rounded-[10px] overflow-hidden border border-bezel-panel"
-                style={{
-                  left,
-                  top,
-                  width,
-                  zIndex: 40,
-                  background: 'var(--color-terminal-bg)',
-                  boxShadow: 'var(--shadow-panel), 0 24px 48px -16px rgba(0, 0, 0, 0.6)',
-                  opacity,
-                }}
-              >
-                <KanbanCardView task={TASK_BY_SOURCE[k]} showBadge={false} />
-              </div>
-            );
-          })}
+        {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
       </div>
     </div>
   );
