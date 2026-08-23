@@ -660,7 +660,38 @@ export function VariantScrubHandoff() {
   );
 }
 
-/* ─── Variant 4c: color pairing — hue links each source to its card ─── */
+/* ─── Variant 4c: desk cards, the column desk charging up per landing ─ */
+
+/** One gradient layer per source, stacked onto the column desk as its card
+ * lands — the row hues, minus the dark linear base the desk already has. */
+const CHARGE_LAYERS: Record<SourceKey, string> = {
+  agent:
+    'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.35), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.16), transparent 55%)',
+  issue:
+    'radial-gradient(120% 140% at 85% 0%, rgba(45, 212, 191, 0.24), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(99, 102, 241, 0.14), transparent 55%)',
+  manual:
+    'radial-gradient(120% 140% at 20% 100%, rgba(233, 103, 159, 0.26), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(168, 85, 247, 0.16), transparent 60%)',
+};
+
+function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>; children: ReactNode }) {
+  return (
+    <div className="plan-desk" style={{ backgroundImage: DESK_HUES.graphite, padding: 36 }}>
+      {SEQUENCE.map((k) => (
+        <div
+          key={k}
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            borderRadius: 'inherit',
+            backgroundImage: CHARGE_LAYERS[k],
+            opacity: landed[k] ? 1 : 0,
+            transition: 'opacity 700ms ease',
+          }}
+        />
+      ))}
+      <div className="relative">{children}</div>
+    </div>
+  );
+}
 
 export function VariantScrubHue() {
   const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
@@ -689,11 +720,11 @@ export function VariantScrubHue() {
           </StoryRow>
         </div>
         <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
-          <Desk hue="graphite" style={{ padding: 36 }}>
+          <ChargingDesk landed={landed}>
             <div className="flex" style={{ minHeight: 470 }}>
               <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
             </div>
-          </Desk>
+          </ChargingDesk>
         </div>
         {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
       </div>
