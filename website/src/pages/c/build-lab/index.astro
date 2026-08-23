@@ -1,6 +1,6 @@
 ---
 import Site from '../../../layouts/Site.astro';
-import { VariantTheater, VariantFloat, VariantAnnotated, VariantReference } from '../../../components/demo/BuildLab.tsx';
+import { VariantTheater, VariantFloat, VariantReference } from '../../../components/demo/BuildLab.tsx';
 ---
 <Site noindex>
   <div class="build-lab">
@@ -17,11 +17,6 @@ import { VariantTheater, VariantFloat, VariantAnnotated, VariantReference } from
     <section class="build-lab-concept" id="v5b">
       <div class="build-lab-tag">5b · Float — no desk at all: the stack loose on the page with an ambient glow, copy at the side</div>
       <VariantFloat client:visible />
-    </section>
-
-    <section class="build-lab-concept" id="v5c">
-      <div class="build-lab-tag">5c · Annotated theater — centered stage, beat copy as callouts that point at the part in play</div>
-      <VariantAnnotated client:visible />
     </section>
 
     <section class="build-lab-concept" id="v5ref">
@@ -121,37 +116,6 @@ import { VariantTheater, VariantFloat, VariantAnnotated, VariantReference } from
       inset: -120px -100px -80px;
       background: radial-gradient(55% 55% at 50% 42%, rgba(99, 102, 241, 0.17), transparent 72%);
       pointer-events: none;
-    }
-
-    /* Annotated theater (5c) */
-    .bl-anno {
-      position: absolute;
-      width: 200px;
-      transition: opacity 260ms ease;
-      pointer-events: none;
-    }
-    .bl-anno h3 {
-      font-size: 17px;
-      margin: 0;
-    }
-    .bl-anno p {
-      color: #86868b;
-      font-size: 13px;
-      line-height: 1.5;
-      margin: 6px 0 0;
-    }
-    .bl-anno-line {
-      position: absolute;
-      top: 12px;
-      width: 14px;
-      height: 1px;
-      background: rgba(255, 255, 255, 0.25);
-    }
-    .bl-anno-line-r {
-      right: -16px;
-    }
-    .bl-anno-line-l {
-      left: -16px;
     }
   </style>
 </Site>
