@@ -1,0 +1,141 @@
+---
+import Site from '../../../layouts/Site.astro';
+import {
+  ReviewVariantRoundTrip,
+  ReviewVariantInbox,
+  ReviewVariantRows,
+  ReviewVariantStages,
+} from '../../../components/demo/ReviewLab.tsx';
+---
+<Site noindex>
+  <div class="review-lab">
+    <header class="review-lab-head">
+      <h1>Review section lab</h1>
+      <p>
+        Round 1: four stagings for the same three surfaces — notes on the diff that flow back to the agent, the
+        preview panel for QA, and the pull request inbox. Copy is placeholder.
+      </p>
+    </header>
+
+    <section class="review-lab-concept" id="r1a">
+      <div class="review-lab-tag">1a · Round-trip — pinned stage; the note's journey from diff line to agent prompt is the whole story</div>
+      <ReviewVariantRoundTrip client:visible />
+    </section>
+
+    <section class="review-lab-concept" id="r1b">
+      <div class="review-lab-tag">1b · Inbox — the pull request surface at full size as the hero, three captions under it</div>
+      <ReviewVariantInbox client:visible />
+    </section>
+
+    <section class="review-lab-concept" id="r1c">
+      <div class="review-lab-tag">1c · Rows — three surfaces in alternating static rows, no scroll choreography</div>
+      <ReviewVariantRows client:visible />
+    </section>
+
+    <section class="review-lab-concept" id="r1d">
+      <div class="review-lab-tag">1d · Stages — one desk, a segmented control swaps between the three surfaces</div>
+      <ReviewVariantStages client:visible />
+    </section>
+  </div>
+
+  <style is:global>
+    .review-lab {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 64px var(--content-padding) 240px;
+    }
+    .review-lab-head p {
+      color: #86868b;
+      margin: 8px 0 0;
+      max-width: 640px;
+    }
+    .review-lab-concept {
+      margin-top: 160px;
+      padding-top: 40px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .review-lab-tag {
+      font-family: 'Iosevka Extended', 'SF Mono', monospace;
+      font-size: 13px;
+      color: #86868b;
+      margin-bottom: 56px;
+    }
+
+    /* 1b: caption row under the hero window */
+    .rl-caption-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      margin-top: 40px;
+    }
+    .rl-caption-row h3 {
+      font-size: 17px;
+      margin: 0;
+    }
+    .rl-caption-row p {
+      color: #86868b;
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 8px 0 0;
+    }
+
+    /* 1c: alternating rows */
+    .rl-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 120px;
+    }
+    .rl-row {
+      display: flex;
+      gap: 48px;
+      align-items: center;
+    }
+    .rl-row--flip {
+      flex-direction: row-reverse;
+    }
+    .rl-row-copy {
+      width: 280px;
+      flex-shrink: 0;
+    }
+    .rl-row-copy h3 {
+      font-size: 21px;
+      margin: 0;
+    }
+    .rl-row-copy p {
+      color: #86868b;
+      font-size: 15px;
+      line-height: 1.5;
+      margin: 10px 0 0;
+    }
+    .rl-row-stage {
+      flex: 1;
+      min-width: 0;
+    }
+    .rl-row--wide {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 28px;
+    }
+    .rl-row--wide .rl-row-copy {
+      width: auto;
+      max-width: 560px;
+    }
+    .rl-row--wide .rl-row-stage {
+      width: 100%;
+    }
+
+    /* 1d: stage switcher */
+    .rl-stage-tabs {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+    .rl-stage-caption {
+      text-align: center;
+      color: #86868b;
+      font-size: 15px;
+      margin-top: 24px;
+      min-height: 24px;
+    }
+  </style>
+</Site>
