@@ -2799,37 +2799,3 @@ html.js .b-h1.is-typing .b-h1-typed {
   line-height: 1.45;
   margin: 6px 0 0;
 }
-.bl-strip {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 24px;
-  margin-top: 48px;
-  align-items: start;
-}
-.bl-strip-cell {
-  border-radius: 24px;
-  padding: 24px;
-  overflow: clip;
-  background:
-    radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%),
-    linear-gradient(180deg, #1c1d23, #131318);
-  position: relative;
-}
-.bl-strip-cell::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  pointer-events: none;
-}
-.bl-strip-cell h4 {
-  font-size: 16px;
-  margin: 0 0 4px;
-}
-.bl-strip-cell p {
-  color: #86868b;
-  font-size: 13px;
-  line-height: 1.5;
-  margin: 0 0 16px;
-}
