@@ -7,10 +7,70 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
     <header class="desk-lab-head">
       <h1>Desk background lab</h1>
       <p>
-        Round 6: rich, vibrant color — solid fields, gradient transitions, and grain layered together. No
-        line work anywhere. All prior rounds retired.
+        Round 7: vibrant single-color fields — one hue per desk, made rich with tonal depth, a luminous
+        same-hue glow, and grain. Round 6's multi-color fields kept below for comparison.
       </p>
     </header>
+
+    <section class="desk-lab-concept" id="r7a">
+      <div class="desk-lab-tag">7A · Indigo — electric indigo, lit from the top corner, sinking to near-black indigo</div>
+      <div class="plan-desk dl dl-mono dl-m-indigo">
+        <div class="dl-layer dl-mono-glow" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain--coarse" aria-hidden="true"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="r7b">
+      <div class="desk-lab-tag">7B · Magenta — hot fuchsia core over deep plum, all one hue</div>
+      <div class="plan-desk dl dl-mono dl-m-magenta">
+        <div class="dl-layer dl-mono-glow" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain--coarse" aria-hidden="true"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="r7c">
+      <div class="desk-lab-tag">7C · Cyan — luminous cyan burning down into deep sea teal</div>
+      <div class="plan-desk dl dl-mono dl-m-cyan">
+        <div class="dl-layer dl-mono-glow" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain--coarse" aria-hidden="true"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="r7d">
+      <div class="desk-lab-tag">7D · Crimson — ember red, bright at the source, banked dark at the edges</div>
+      <div class="plan-desk dl dl-mono dl-m-crimson">
+        <div class="dl-layer dl-mono-glow" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain--coarse" aria-hidden="true"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="r7e">
+      <div class="desk-lab-tag">7E · Emerald — saturated green light over forest-dark ground</div>
+      <div class="plan-desk dl dl-mono dl-m-emerald">
+        <div class="dl-layer dl-mono-glow" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain--coarse" aria-hidden="true"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="r7f">
+      <div class="desk-lab-tag">7F · Violet — bright violet bloom settling into deepest purple</div>
+      <div class="plan-desk dl dl-mono dl-m-violet">
+        <div class="dl-layer dl-mono-glow" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain--coarse" aria-hidden="true"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
 
     <section class="desk-lab-concept" id="r6a">
       <div class="desk-lab-tag">A · Rothko veil — two luminous solid fields, indigo over magenta, breathing through a wide soft boundary under heavy grain</div>
@@ -105,6 +165,60 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
       background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.32' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23m)'/></svg>");
       opacity: 0.22;
       mix-blend-mode: soft-light;
+    }
+
+    /* Round 7 · single-hue fields: one hue per desk, depth from tone alone.
+       Each variant only sets the five tones; the treatment is shared. */
+    .dl-mono {
+      background: linear-gradient(180deg, var(--m-top) 0%, var(--m-mid) 52%, var(--m-deep) 100%);
+    }
+    .dl-mono-glow {
+      background:
+        radial-gradient(110% 85% at 24% -8%, var(--m-glow), transparent 62%),
+        radial-gradient(85% 65% at 88% 104%, var(--m-glow2), transparent 58%);
+      mix-blend-mode: screen;
+    }
+    .dl-m-indigo {
+      --m-top: #6366f1;
+      --m-mid: #4338ca;
+      --m-deep: #1d1866;
+      --m-glow: rgba(165, 180, 252, 0.75);
+      --m-glow2: rgba(99, 102, 241, 0.55);
+    }
+    .dl-m-magenta {
+      --m-top: #e879f9;
+      --m-mid: #c026d3;
+      --m-deep: #530a5e;
+      --m-glow: rgba(245, 208, 254, 0.6);
+      --m-glow2: rgba(232, 121, 249, 0.5);
+    }
+    .dl-m-cyan {
+      --m-top: #22d3ee;
+      --m-mid: #0e7490;
+      --m-deep: #06333f;
+      --m-glow: rgba(165, 243, 252, 0.65);
+      --m-glow2: rgba(34, 211, 238, 0.5);
+    }
+    .dl-m-crimson {
+      --m-top: #f16363;
+      --m-mid: #d61f1f;
+      --m-deep: #4c0a0a;
+      --m-glow: rgba(254, 202, 202, 0.55);
+      --m-glow2: rgba(248, 113, 113, 0.5);
+    }
+    .dl-m-emerald {
+      --m-top: #34d399;
+      --m-mid: #069666;
+      --m-deep: #03301f;
+      --m-glow: rgba(167, 243, 208, 0.55);
+      --m-glow2: rgba(52, 211, 153, 0.5);
+    }
+    .dl-m-violet {
+      --m-top: #a78bfa;
+      --m-mid: #7c3aed;
+      --m-deep: #2b1163;
+      --m-glow: rgba(221, 214, 254, 0.65);
+      --m-glow2: rgba(167, 139, 250, 0.5);
     }
 
     /* A · Rothko veil */
