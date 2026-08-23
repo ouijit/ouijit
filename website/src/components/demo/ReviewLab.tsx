@@ -688,7 +688,7 @@ export function ReviewVariantTwoAct() {
             </div>
           </div>
         </div>
-        <div className="rl-beat-row">
+        <div className="beat-row">
           {TWO_ACT_BEATS.map((b, i) => (
             <div key={b.key} className={i === activeIdx ? 'is-active' : undefined}>
               <h3>{b.title}</h3>

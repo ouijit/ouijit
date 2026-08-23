@@ -423,28 +423,20 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
   );
 }
 
-/** Caption visibility: each beat's copy holds until the next beat takes
- * over, with the swap compressed into the first third of each ramp so two
- * captions never linger half-faded on top of each other. */
-const capOpacity = (p: (k: string) => number, i: number) => {
-  const cur = i === 0 ? 1 : p(BEAT_KEYS[i]);
-  const next = i + 1 < BEAT_KEYS.length ? p(BEAT_KEYS[i + 1]) : 0;
-  return clamp01(cur / 0.35) * (1 - clamp01(next / 0.35));
-};
-
-/* ═══ 5a · Theater — centered stage, one caption at a time below ═══ */
+/* ═══ 5a · Theater — centered stage, the beat captions in a row below ═══ */
 
 export function VariantTheater() {
   const { wrapRef, p } = useTheaterScrub(BEAT_KEYS);
+  const activeIdx = BEAT_KEYS.reduce((acc, k, i) => (p(k) > 0.35 ? i : acc), 0);
   return (
     <div ref={wrapRef} style={{ height: '500vh' }}>
       <div className="bl-theater-sticky">
         <div className="plan-desk" style={{ backgroundImage: DESK_INDIGO, padding: 32, paddingTop: 100, width: '100%' }}>
           <WorkbenchStack p={p} />
         </div>
-        <div className="bl-theater-captions">
+        <div className="beat-row">
           {BEATS.map((b, i) => (
-            <div key={b.key} className="bl-theater-cap" style={{ opacity: capOpacity(p, i) }}>
+            <div key={b.key} className={i === activeIdx ? 'is-active' : undefined}>
               <h3>{b.title}</h3>
               <p>{b.body}</p>
             </div>
