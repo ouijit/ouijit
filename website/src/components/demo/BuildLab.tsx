@@ -191,28 +191,28 @@ function DarkOnboardingPage() {
 const BEATS = [
   {
     key: 'term',
-    title: 'A terminal per task',
-    body: 'Every task runs in its own worktree; the start hook launches your agent with the task’s prompt.',
+    title: 'Start isolated',
+    body: 'Each task gets its own git worktree and terminal. The start hook launches your agent with the task’s prompt.',
   },
   {
     key: 'plan',
-    title: 'The plan rides along',
-    body: 'plan.md opens as a panel on the terminal. The agent keeps it current while it works.',
+    title: 'Dock the plan',
+    body: 'Any markdown file docks to a terminal as a live panel. For most tasks, that’s the plan.',
   },
   {
     key: 'preview',
-    title: 'See it running',
-    body: 'The dev server runs one ⌘-tap behind, with a preview panel pointed at it.',
+    title: 'Preview the app',
+    body: 'A preview panel points at any URL. Aim one at the dev server and watch the branch run.',
   },
   {
     key: 'diff',
-    title: 'Watch the diff grow',
-    body: 'Every change on the task’s branch, one tab over — hunk by hunk, as it happens.',
+    title: 'Follow the diff',
+    body: 'Every change on the branch appears one tab over, as it happens.',
   },
   {
     key: 'status',
-    title: 'Look away freely',
-    body: 'Statuses track every terminal, and a notification lands the moment one finishes.',
+    title: 'Track every session',
+    body: 'Statuses show what each terminal is doing, and a notification lands the moment one finishes.',
   },
 ] as const;
 

@@ -397,23 +397,23 @@ function RoundTripCard({ p }: { p: (k: string) => number }) {
 const LOOP_BEATS = [
   {
     key: 'read',
-    title: 'Review where the work happened',
-    body: 'The task lands in review with its diff one tab over — every change on the branch, against any base.',
+    title: 'Start from the diff',
+    body: 'The task lands in review with its diff one tab over, showing every change on the branch against any base.',
   },
   {
     key: 'note',
-    title: 'Leave notes on the lines',
+    title: 'Comment inline',
     body: 'Write what you want changed on the line that needs it. Notes anchor to the code and follow it as it moves.',
   },
   {
     key: 'send',
-    title: 'Send them to the agent',
-    body: 'Send pastes every note into the agent’s prompt, quoted code and all. Nothing goes until you press Enter.',
+    title: 'Send the notes',
+    body: 'Send pastes every note into the agent’s prompt, with the code each one quotes. Nothing goes until you press Enter.',
   },
   {
     key: 'fix',
-    title: 'The loop closes in place',
-    body: 'Same session, same worktree: the agent picks the notes up and the diff updates under you.',
+    title: 'Watch the fixes land',
+    body: 'The agent picks up the notes in the same session and worktree. The diff updates as it works.',
   },
 ] as const;
 
@@ -652,8 +652,8 @@ const TWO_ACT_BEATS = [
   ...LOOP_BEATS,
   {
     key: 'pr',
-    title: 'Ship it as one review',
-    body: 'The review hook opens the pull request. Drafts — yours and your agents’ — stay local until you send them, and it merges without leaving.',
+    title: 'Ship one review',
+    body: 'The review hook opens the pull request. Drafts stay local until you send them, and you merge from the same card.',
   },
 ] as const;
 
