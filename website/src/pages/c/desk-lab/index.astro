@@ -1,0 +1,192 @@
+---
+import Site from '../../../layouts/Site.astro';
+import { SampleCard } from '../../../components/demo/DeskLab.tsx';
+---
+<Site noindex>
+  <div class="desk-lab">
+    <header class="desk-lab-head">
+      <h1>Desk background lab</h1>
+      <p>
+        Six structurally different marketing backgrounds under the same terminal card. Colors are placeholder
+        — judge the type of treatment, not the exact hues.
+      </p>
+    </header>
+
+    <section class="desk-lab-concept" id="da">
+      <div class="desk-lab-tag">a · Mesh aurora — overlapping color fields from the app palette, blurred into each other</div>
+      <div class="plan-desk dl dl-a">
+        <div class="dl-layer dl-a-blobs"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="db">
+      <div class="desk-lab-tag">b · Aurora + grain — the same mesh under film grain, so the gradient stops reading as CSS</div>
+      <div class="plan-desk dl dl-b">
+        <div class="dl-layer dl-a-blobs"></div>
+        <div class="dl-layer dl-grain"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dc">
+      <div class="desk-lab-tag">c · Spotlight stage — near-black desk, one cold beam from above and a lit horizon behind the card</div>
+      <div class="plan-desk dl dl-c">
+        <div class="dl-layer dl-c-light"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dd">
+      <div class="desk-lab-tag">d · Beams — diagonal light shafts in three hues crossing a deep indigo field</div>
+      <div class="plan-desk dl dl-d">
+        <div class="dl-layer dl-layer--bleed dl-d-beams"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="de">
+      <div class="desk-lab-tag">e · Edge glow — the desk stays dark; a conic gradient runs the rim, blooming faintly inward</div>
+      <div class="plan-desk dl dl-e">
+        <div class="dl-layer dl-e-bloom"></div>
+        <div class="dl-edge"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="df">
+      <div class="desk-lab-tag">f · Chromatic horizon — dark sky above, a saturated sunset band burning under the card</div>
+      <div class="plan-desk dl dl-f">
+        <div class="dl-layer dl-layer--bleed dl-f-horizon"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+  </div>
+
+  <style is:global>
+    .desk-lab {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 64px var(--content-padding) 240px;
+    }
+    .desk-lab-head p {
+      color: #86868b;
+      margin: 8px 0 0;
+      max-width: 640px;
+    }
+    .desk-lab-concept {
+      margin-top: 120px;
+    }
+    .desk-lab-tag {
+      font-family: 'Iosevka Extended', 'SF Mono', monospace;
+      font-size: 13px;
+      color: #86868b;
+      margin-bottom: 32px;
+    }
+
+    .dl {
+      padding: 48px;
+    }
+    .dl-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .dl-layer--bleed {
+      inset: -60px;
+      filter: blur(32px);
+    }
+
+    /* a · mesh aurora */
+    .dl-a,
+    .dl-b {
+      background: #12132a;
+    }
+    .dl-a-blobs {
+      background:
+        radial-gradient(45% 55% at 12% 8%, rgba(99, 102, 241, 0.9), transparent 70%),
+        radial-gradient(40% 50% at 88% 10%, rgba(218, 119, 242, 0.6), transparent 70%),
+        radial-gradient(50% 60% at 86% 96%, rgba(34, 211, 238, 0.65), transparent 70%),
+        radial-gradient(45% 55% at 6% 94%, rgba(63, 185, 80, 0.45), transparent 70%),
+        radial-gradient(70% 80% at 50% 50%, rgba(59, 130, 246, 0.3), transparent 75%);
+      filter: saturate(1.35);
+    }
+
+    /* b · grain overlay */
+    .dl-grain {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+      opacity: 0.4;
+      mix-blend-mode: overlay;
+    }
+
+    /* c · spotlight stage */
+    .dl-c {
+      background: linear-gradient(180deg, #0b0c12, #0e1120);
+    }
+    .dl-c-light {
+      background:
+        radial-gradient(55% 42% at 50% -8%, rgba(170, 200, 255, 0.5), transparent 72%),
+        radial-gradient(75% 16% at 50% 82%, rgba(99, 102, 241, 0.75), transparent 75%),
+        radial-gradient(40% 10% at 50% 82%, rgba(140, 190, 255, 0.5), transparent 80%);
+    }
+
+    /* d · beams */
+    .dl-d {
+      background: #0f1129;
+    }
+    .dl-d-beams {
+      background:
+        linear-gradient(112deg, transparent 16%, rgba(99, 102, 241, 0.75) 27%, transparent 38%),
+        linear-gradient(112deg, transparent 42%, rgba(34, 211, 238, 0.55) 53%, transparent 63%),
+        linear-gradient(112deg, transparent 66%, rgba(218, 119, 242, 0.5) 77%, transparent 88%);
+    }
+
+    /* e · edge glow */
+    .dl-e {
+      background: linear-gradient(180deg, #14151d, #0e0f15);
+    }
+    .dl-edge {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      border-radius: inherit;
+      padding: 2px;
+      background: conic-gradient(
+        from 220deg,
+        #6366f1,
+        #22d3ee,
+        #3fb950,
+        #f8514966,
+        #da77f2,
+        #6366f1
+      );
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+    .dl-e-bloom {
+      background:
+        radial-gradient(50% 40% at 0% 0%, rgba(99, 102, 241, 0.28), transparent 70%),
+        radial-gradient(50% 40% at 100% 30%, rgba(34, 211, 238, 0.2), transparent 70%),
+        radial-gradient(60% 45% at 50% 105%, rgba(218, 119, 242, 0.22), transparent 70%);
+    }
+
+    /* f · chromatic horizon */
+    .dl-f {
+      background: linear-gradient(180deg, #0c0d18 20%, #131338 60%, #1c1030);
+    }
+    .dl-f-horizon {
+      background: linear-gradient(
+        180deg,
+        transparent 42%,
+        rgba(99, 102, 241, 0.5) 62%,
+        rgba(218, 119, 242, 0.6) 76%,
+        rgba(248, 113, 96, 0.55) 88%,
+        rgba(255, 190, 130, 0.45) 100%
+      );
+    }
+  </style>
+</Site>
