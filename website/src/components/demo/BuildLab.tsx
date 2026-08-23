@@ -103,6 +103,45 @@ function MacNotification({ body }: { body: string }) {
   );
 }
 
+/** The onboarding preview in dark mode — the shared white fixture glares
+ * against the marketing page, so the promoted preview shows this instead. */
+function DarkOnboardingPage() {
+  return (
+    <div className="w-full h-full flex flex-col bg-[#0f0f11] text-white/90 font-sans overflow-hidden">
+      <div className="px-6 py-3 border-b border-white/[0.08] flex items-center gap-3">
+        <div className="w-6 h-6 rounded-md bg-gradient-to-br from-accent to-[#9af0c0]" />
+        <span className="text-[12px] font-medium">Constellation</span>
+        <div className="ml-auto text-[11px] text-white/40">Step 2 of 3</div>
+      </div>
+      <div className="flex-1 flex flex-col items-center px-8 pt-6 pb-3 overflow-hidden min-h-0">
+        <div className="text-[15px] font-semibold mb-1">Pick a workspace name</div>
+        <div className="text-[11px] text-white/45 mb-4">You can change this later in settings.</div>
+        <div className="w-full max-w-[320px] flex flex-col gap-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">Workspace name</div>
+            <div className="px-2.5 py-1.5 rounded border border-accent/60 bg-white/[0.05] text-[12px] ring-[3px] ring-accent/15">
+              Northwind
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">Subdomain</div>
+            <div className="flex items-center px-2.5 py-1.5 rounded border border-white/15 bg-white/[0.04] text-[12px] gap-1">
+              <span className="text-white/85">northwind</span>
+              <span className="text-white/35">.constellation.app</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <button className="px-3 py-1.5 rounded text-[11px] text-white/60 bg-transparent border border-white/15">
+              Back
+            </button>
+            <button className="px-3 py-1.5 rounded text-[11px] text-accent-ink bg-accent border-none">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── The workbench ───────────────────────────────────────────────── */
 
 const BEATS = [
@@ -269,7 +308,10 @@ function Workbench() {
                   <DevServerBody />
                   {base.preview && (
                     <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
-                      <MockPreviewPanel fixture={base.preview} onClose={() => {}} />
+                      <MockPreviewPanel
+                        fixture={{ ...base.preview, page: <DarkOnboardingPage /> }}
+                        onClose={() => {}}
+                      />
                     </div>
                   )}
                 </div>
