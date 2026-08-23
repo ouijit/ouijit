@@ -105,27 +105,6 @@ function IssuePane({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null) => v
   );
 }
 
-function PlanPane({ noTitle = false }: { noTitle?: boolean }) {
-  return (
-    <div className="flex-1 min-h-0 overflow-hidden px-5 py-4">
-      <div className="app-markdown plan-markdown">
-        {!noTitle && <h1>Add rate-limit headers to the public API</h1>}
-        <h2>Steps</h2>
-        <ul>
-          <li>
-            <input type="checkbox" checked readOnly /> Pick the limiter — sliding window in{' '}
-            <code>src/api/rateLimit.ts</code>
-          </li>
-          <li>
-            <input type="checkbox" readOnly /> Send <code>429</code> with <code>Retry-After</code> on every public
-            route
-          </li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
 function Panel({
   firing = false,
   className = '',
@@ -167,8 +146,6 @@ const DESK_HUES = {
     'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.32), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.14), transparent 55%), linear-gradient(180deg, #191a2e, #121218)',
   teal: 'radial-gradient(120% 140% at 85% 0%, rgba(45, 212, 191, 0.22), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(99, 102, 241, 0.16), transparent 55%), linear-gradient(180deg, #14201f, #101314)',
   rose: 'radial-gradient(120% 140% at 20% 10%, rgba(233, 103, 159, 0.26), transparent 60%), radial-gradient(120% 130% at 100% 90%, rgba(168, 85, 247, 0.16), transparent 60%), linear-gradient(180deg, #221521, #131015)',
-  violet:
-    'radial-gradient(130% 120% at 80% 0%, rgba(168, 85, 247, 0.22), transparent 55%), radial-gradient(140% 120% at 0% 100%, rgba(59, 130, 246, 0.16), transparent 60%), linear-gradient(180deg, #1a1626, #111016)',
   graphite: 'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%), linear-gradient(180deg, #1c1d23, #131318)',
 } as const;
 
@@ -492,213 +469,14 @@ function CreateStage() {
   );
 }
 
-/* ─── Second beat: the detail as its own movement ─────────────────── */
 
-/** Scrubbed progress for a standalone block, same mapping as the rows. */
-function useBeatProgress() {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [p, setP] = useState(0);
-  useEffect(() => {
-    let raf = 0;
-    const update = () => {
-      const el = ref.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const center = r.top + r.height / 2;
-      setP((prev) => {
-        const next = clamp01((vh * 0.95 - center) / (vh * 0.45));
-        return Math.abs(next - prev) < 0.002 ? prev : next;
-      });
-    };
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
-  return { ref, p };
-}
+/* ─── The section ─────────────────────────────────────────────────── */
 
-function StaticColumn({ selected }: { selected?: number }) {
-  const tasks = [SEED_TASK, ...SEQUENCE.map((k) => TASK_BY_SOURCE[k])];
-  return (
-    <div
-      className="glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel shrink-0"
-      style={{ width: 300, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
-    >
-      <KanbanColumnView status="todo" label="To Do" count={tasks.length}>
-        {tasks.map((t) => (
-          <KanbanCardView key={t.taskNumber} task={t} showBadge={false} isSelected={t.taskNumber === selected} />
-        ))}
-      </KanbanColumnView>
-    </div>
-  );
-}
-
-/** 5a — a landed card opens: the plan.md unfolds out of the card itself. */
-function BeatUnfold() {
-  const { ref, p } = useBeatProgress();
-  const openP = easeInOut(clamp01((p - 0.2) / 0.55));
-  return (
-    <div ref={ref} style={{ marginTop: 150 }}>
-      <div className="plan-beat-head">
-        <h3>Keep the detail close</h3>
-        <p>Open any card and its plan.md is right there — steps, notes, and checkboxes beside the work.</p>
-      </div>
-      <Desk hue="violet" style={{ padding: '56px 40px' }}>
-        <div className="mx-auto" style={{ maxWidth: 460 }}>
-          <Panel>
-            <KanbanCardView task={TASK_BY_SOURCE.agent} showBadge={false} isSelected />
-            <div style={{ maxHeight: openP * 320, overflow: 'hidden' }}>
-              <div style={{ borderTop: '1px solid color-mix(in srgb, var(--color-ink) 8%, transparent)' }}>
-                <PlanPane noTitle />
-              </div>
-            </div>
-          </Panel>
-        </div>
-      </Desk>
-    </div>
-  );
-}
-
-/** 5b — mirrored composition: the column crosses to the left, the plan
- * fills the right, the created task selected as the through-line. */
-function BeatMirror() {
-  const { ref, p } = useBeatProgress();
-  const inP = easeInOut(clamp01((p - 0.15) / 0.5));
-  return (
-    <div ref={ref} style={{ marginTop: 150 }}>
-      <div className="plan-beat-head">
-        <h3>Keep the detail close</h3>
-        <p>Steps, notes, and checkboxes live in each task's plan.md.</p>
-      </div>
-      <Desk hue="violet" style={{ padding: '48px 44px' }}>
-        <div className="flex gap-10 items-stretch">
-          <StaticColumn selected={p > 0.4 ? TASK_BY_SOURCE.agent.taskNumber : undefined} />
-          <div
-            className="flex-1 min-w-0 flex"
-            style={{ opacity: inP, transform: `translateX(${(1 - inP) * 24}px)` }}
-          >
-            <Panel className="flex-1" ledge={ledge('file-text', 'plan.md', 'T-119')}>
-              <PlanPane />
-            </Panel>
-          </div>
-        </div>
-      </Desk>
-    </div>
-  );
-}
-
-/** 5c — the plan gets the hero treatment: one big centered panel, the
- * origin card docked above it. */
-function BeatHero() {
-  const { ref, p } = useBeatProgress();
-  const inP = easeInOut(clamp01((p - 0.15) / 0.5));
-  return (
-    <div ref={ref} style={{ marginTop: 150 }}>
-      <div className="plan-beat-head">
-        <h3>Keep the detail close</h3>
-        <p>Steps, notes, and checkboxes live in each task's plan.md.</p>
-      </div>
-      <Desk hue="violet" style={{ padding: '64px 56px' }}>
-        <div
-          className="mx-auto flex flex-col items-center gap-5"
-          style={{ maxWidth: 680, opacity: inP, transform: `translateY(${(1 - inP) * 20}px)` }}
-        >
-          <div style={{ width: 340 }}>
-            <div
-              className="glass-bevel relative rounded-[10px] overflow-hidden border border-bezel-panel"
-              style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
-            >
-              <KanbanCardView task={TASK_BY_SOURCE.agent} showBadge={false} isSelected />
-            </div>
-          </div>
-          <Panel className="w-full" ledge={ledge('file-text', 'plan.md', 'T-119')}>
-            <PlanPane />
-          </Panel>
-        </div>
-      </Desk>
-    </div>
-  );
-}
-
-/* ─── Sections ────────────────────────────────────────────────────── */
-
-export function VariantBeatUnfold() {
+export function PlanSection() {
   return (
     <div>
       <h2 className="plan-v-headline">Plan at scale, in detail</h2>
       <CreateStage />
-      <BeatUnfold />
-    </div>
-  );
-}
-
-export function VariantBeatMirror() {
-  return (
-    <div>
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <CreateStage />
-      <BeatMirror />
-    </div>
-  );
-}
-
-export function VariantBeatHero() {
-  return (
-    <div>
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <CreateStage />
-      <BeatHero />
-    </div>
-  );
-}
-
-/* ─── Baseline: the detail row in-stream (the thing being replaced) ── */
-
-export function VariantScrubHue() {
-  const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
-  const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
-  const open = past(progress, 0.55);
-  const landed = past(progress, 0.76);
-  const deskHue: Record<SourceKey, keyof typeof DESK_HUES> = DESK_HUE;
-  return (
-    <div>
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <div ref={stageRef} className="relative flex gap-10 items-start" style={{ marginTop: 72 }}>
-        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
-          {ROWS.map(({ key, title, body }) => (
-            <Row key={key} title={title} body={body} rowRef={setRow(key)}>
-              <Desk hue={deskHue[key]} drain={easeInOut(flightP(key))}>
-                {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}
-              </Desk>
-            </Row>
-          ))}
-          <Row title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
-            <Desk hue="violet">
-              <Panel ledge={ledge('file-text', 'plan.md')}>
-                <PlanPane />
-              </Panel>
-            </Desk>
-          </Row>
-        </div>
-        <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
-          <ChargingDesk landed={landed}>
-            <div className="flex" style={{ minHeight: 470 }}>
-              <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
-            </div>
-          </ChargingDesk>
-        </div>
-        {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
-      </div>
     </div>
   );
 }
