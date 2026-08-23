@@ -7,10 +7,60 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
     <header class="desk-lab-head">
       <h1>Desk background lab</h1>
       <p>
-        Round 7: flat solid color — one vibrant color per desk, no gradient anywhere, grain for texture.
-        Round 6's multi-color fields kept below for comparison.
+        Round 8: washes borrowed from the heckasick brand system — OKLCH hue sweeps that hold lightness
+        and chroma constant across every stop, so the color shifts without ever banding light or dark.
+        Pixelated grain overlaid inside the wash. Rounds 7 and 6 kept below.
       </p>
     </header>
+
+    <section class="desk-lab-concept" id="r8a">
+      <div class="desk-lab-tag">8A · Prism — six hues, violet through lime, all at one even lightness</div>
+      <div class="plan-desk dl dl-wash dl-w-prism">
+        <div class="dl-layer dl-wash-field" aria-hidden="true"><span class="dl-wash-grain"></span></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="r8b">
+      <div class="desk-lab-tag">8B · Iris — the cool arc: violet, azure, cyan, lime</div>
+      <div class="plan-desk dl dl-wash dl-w-iris">
+        <div class="dl-layer dl-wash-field" aria-hidden="true"><span class="dl-wash-grain"></span></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="r8c">
+      <div class="desk-lab-tag">8C · Volt — the loud tier: chroma at the gamut edge, banding on purpose</div>
+      <div class="plan-desk dl dl-wash dl-w-volt">
+        <div class="dl-layer dl-wash-field" aria-hidden="true"><span class="dl-wash-grain"></span></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="r8d">
+      <div class="desk-lab-tag">8D · Prism deep — the same six hues stepped down to a dark tier, still one even lightness</div>
+      <div class="plan-desk dl dl-wash dl-w-deep">
+        <div class="dl-layer dl-wash-field" aria-hidden="true"><span class="dl-wash-grain"></span></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="r8e">
+      <div class="desk-lab-tag">8E · Flush — the volt wash twice, the inset copy compositing darker, the margin revealing the fill behind</div>
+      <div class="plan-desk dl dl-wash dl-w-volt">
+        <div class="dl-layer dl-wash-field" aria-hidden="true"><span class="dl-wash-grain"></span></div>
+        <div class="dl-layer dl-wash-field dl-wash-inner" aria-hidden="true"><span class="dl-wash-grain"></span></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="r8f">
+      <div class="desk-lab-tag">8F · Haze — the quiet tier: the prism hues washed nearly white</div>
+      <div class="plan-desk dl dl-wash dl-w-haze">
+        <div class="dl-layer dl-wash-field" aria-hidden="true"><span class="dl-wash-grain"></span></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
 
     <section class="desk-lab-concept" id="r7a">
       <div class="desk-lab-tag">7A · Indigo — flat electric indigo</div>
@@ -159,6 +209,51 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
       background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.32' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23m)'/></svg>");
       opacity: 0.22;
       mix-blend-mode: soft-light;
+    }
+
+    /* Round 8 · heckasick washes. Every palette holds lightness and chroma
+       constant across its stops (volt excepted — its banding is the point),
+       so the sweep never bands light or dark. The grain sits inside the
+       wash layer: overlay against full-strength color computes to grey. */
+    .dl-wash {
+      background: #0f0f11;
+    }
+    .dl-wash-field {
+      background-image: linear-gradient(160deg, var(--w));
+      opacity: 0.9;
+    }
+    .dl-wash-grain {
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      image-rendering: pixelated;
+      mix-blend-mode: overlay;
+    }
+    .dl-wash-inner {
+      inset: 20px;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .dl-w-prism {
+      --w: oklch(80% 0.13 295), oklch(79% 0.13 330), oklch(78% 0.14 15),
+        oklch(79% 0.14 45), oklch(84% 0.13 80), oklch(86% 0.14 130);
+    }
+    .dl-w-iris {
+      --w: oklch(80% 0.13 295), oklch(78% 0.12 250), oklch(83% 0.11 190),
+        oklch(86% 0.14 130);
+    }
+    .dl-w-volt {
+      --w: oklch(62% 0.25 295), oklch(64% 0.26 340), oklch(70% 0.21 40),
+        oklch(85% 0.24 140), oklch(78% 0.16 195);
+    }
+    .dl-w-deep {
+      --w: oklch(45% 0.16 295), oklch(44% 0.16 330), oklch(43% 0.17 15),
+        oklch(44% 0.17 45), oklch(47% 0.15 80), oklch(48% 0.16 130);
+    }
+    .dl-w-haze {
+      --w: oklch(91% 0.06 295), oklch(90% 0.06 330), oklch(90% 0.06 15),
+        oklch(91% 0.06 45), oklch(93% 0.06 85), oklch(93% 0.06 130);
     }
 
     /* Round 7 · flat solid color: a single fill per desk, grain only. */
