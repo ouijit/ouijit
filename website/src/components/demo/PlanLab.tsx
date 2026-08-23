@@ -673,9 +673,20 @@ const CHARGE_LAYERS: Record<SourceKey, string> = {
     'radial-gradient(120% 140% at 20% 100%, rgba(233, 103, 159, 0.26), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(168, 85, 247, 0.16), transparent 60%)',
 };
 
-function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>; children: ReactNode }) {
+function ChargingShell({
+  landed,
+  well = false,
+  children,
+}: {
+  landed: Record<SourceKey, boolean>;
+  well?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <div className="plan-desk" style={{ backgroundImage: DESK_HUES.graphite, padding: 36 }}>
+    <div
+      className={well ? 'plan-well' : 'plan-desk'}
+      style={well ? undefined : { backgroundImage: DESK_HUES.graphite, padding: 36 }}
+    >
       {SEQUENCE.map((k) => (
         <div
           key={k}
@@ -720,11 +731,49 @@ export function VariantScrubHue() {
           </StoryRow>
         </div>
         <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
-          <ChargingDesk landed={landed}>
+          <ChargingShell landed={landed}>
             <div className="flex" style={{ minHeight: 470 }}>
               <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
             </div>
-          </ChargingDesk>
+          </ChargingShell>
+        </div>
+        {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Variant 4d: wells everywhere, the column well charging up ────── */
+
+export function VariantScrubWellCharge() {
+  const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
+  const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
+  const open = past(progress, 0.55);
+  const landed = past(progress, 0.76);
+  return (
+    <div>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <div ref={stageRef} className="relative flex gap-10 items-start" style={{ marginTop: 72 }}>
+        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
+          {ROWS.map(({ key, title, body }) => (
+            <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
+              <Well>{rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}</Well>
+            </ScrubRow>
+          ))}
+          <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
+            <Well>
+              <Panel ledge={ledge('file-text', 'plan.md')}>
+                <PlanPane short />
+              </Panel>
+            </Well>
+          </StoryRow>
+        </div>
+        <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
+          <ChargingShell landed={landed} well>
+            <div className="flex" style={{ minHeight: 470 }}>
+              <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
+            </div>
+          </ChargingShell>
         </div>
         {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
       </div>
