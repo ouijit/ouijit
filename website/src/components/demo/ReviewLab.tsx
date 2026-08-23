@@ -449,7 +449,7 @@ export function ReviewVariantRoundTrip() {
   return (
     <div ref={wrapRef} style={{ height: '400vh' }}>
       <div className="bl-theater-sticky">
-        <div className="plan-desk desk-wash desk-wash--volt" style={{ padding: 32, width: '100%' }}>
+        <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, width: '100%' }}>
           <DeskWash />
           <RoundTripCard p={p} />
         </div>
@@ -475,7 +475,7 @@ function PrWindow({ height }: { height: number }) {
 export function ReviewVariantInbox() {
   return (
     <div>
-      <div className="plan-desk desk-wash desk-wash--volt" style={{ padding: 32 }}>
+      <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32 }}>
           <DeskWash />
         <PrWindow height={640} />
       </div>
@@ -668,7 +668,7 @@ export function ReviewVariantTwoAct() {
   return (
     <div ref={wrapRef} style={{ height: '460vh' }}>
       <div className="bl-theater-sticky">
-        <div className="plan-desk desk-wash desk-wash--volt" style={{ padding: 32, paddingTop: 48, width: '100%' }}>
+        <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, paddingTop: 48, width: '100%' }}>
           <DeskWash />
           <div className="relative" style={{ height: 480 }}>
             <RoundTripTerminal p={p} receded={prOn} />
@@ -719,7 +719,7 @@ export function ReviewVariantLoopLedger() {
       <ReviewVariantRoundTrip />
       <div className="rl-ledger">
         <div className="rl-ledger-card">
-          <div className="plan-desk desk-wash desk-wash--volt h-full" style={{ padding: 24 }}>
+          <div className="plan-desk desk-wash desk-wash--prism h-full" style={{ padding: 24 }}>
           <DeskWash />
             <div style={{ height: 440 }}>
               <CondensedPrCard />
@@ -749,7 +749,7 @@ export function ReviewVariantLoopLedger() {
 export function ReviewVariantSplitHero() {
   return (
     <div>
-      <div className="plan-desk desk-wash desk-wash--volt" style={{ padding: 28 }}>
+      <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 28 }}>
           <DeskWash />
         <div className="flex gap-6" style={{ height: 480 }}>
           <div
