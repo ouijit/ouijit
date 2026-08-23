@@ -652,8 +652,8 @@ const TWO_ACT_BEATS = [
   ...LOOP_BEATS,
   {
     key: 'pr',
-    title: 'Ship one review',
-    body: 'The review hook opens the pull request. Drafts stay local until you send them, and you merge from the same card.',
+    title: 'Land the pull request',
+    body: 'Every open pull request is here — yours and your teammates’. Drafts stay local until you send them as one review, and you merge from the card.',
   },
 ] as const;
 
