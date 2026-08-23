@@ -1,97 +1,61 @@
 ---
 import Site from '../../../layouts/Site.astro';
 import { SampleCard } from '../../../components/demo/DeskLab.tsx';
-import stars from '../../../components/demo/desk-art/stars.svg?raw';
-import flow from '../../../components/demo/desk-art/flow.svg?raw';
-import topo from '../../../components/demo/desk-art/topo.svg?raw';
 ---
 <Site noindex>
   <div class="desk-lab">
     <header class="desk-lab-head">
       <h1>Desk background lab</h1>
       <p>
-        Round 5: generative and organic — a plotted star chart, a computed flow field, surveyed contours,
-        marbled ink, and aurora with real structure. All prior rounds retired.
+        Round 6: rich, vibrant color — solid fields, gradient transitions, and grain layered together. No
+        line work anywhere. All prior rounds retired.
       </p>
     </header>
 
-    <section class="desk-lab-concept" id="du">
-      <div class="desk-lab-tag">u · Star chart — a deep field with a faint galactic band, two plotted constellations, one flagged star</div>
-      <div class="plan-desk dl dl-u">
-        <div class="dl-layer" set:html={stars} />
+    <section class="desk-lab-concept" id="r6a">
+      <div class="desk-lab-tag">A · Rothko veil — two luminous solid fields, indigo over magenta, breathing through a wide soft boundary under heavy grain</div>
+      <div class="plan-desk dl dl-ra">
+        <div class="dl-layer dl-ra-glow" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain--coarse" aria-hidden="true"></div>
         <SampleCard client:visible />
       </div>
     </section>
 
-    <section class="desk-lab-concept" id="dv">
-      <div class="desk-lab-tag">v · Flow field — 150 computed streamlines following a noise field, a few carrying the accent</div>
-      <div class="plan-desk dl dl-v">
-        <div class="dl-layer" set:html={flow} />
+    <section class="desk-lab-concept" id="r6b">
+      <div class="desk-lab-tag">B · Sunset stack — banded color climbing from deep indigo to ember, each band solid at its heart, blended at its edges</div>
+      <div class="plan-desk dl dl-rb">
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
         <SampleCard client:visible />
       </div>
     </section>
 
-    <section class="desk-lab-concept" id="dw">
-      <div class="desk-lab-tag">w · Topography — surveyed contour lines around a peak just off the card's corner, index lines heavier, one accent contour</div>
-      <div class="plan-desk dl dl-w">
-        <div class="dl-layer" set:html={topo} />
+    <section class="desk-lab-concept" id="r6c">
+      <div class="desk-lab-tag">C · Airbrush — saturated cyan and magenta sprayed into a vivid indigo ground, dense spray grain on top</div>
+      <div class="plan-desk dl dl-rc">
+        <div class="dl-layer dl-rc-spray" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain--coarse" aria-hidden="true"></div>
         <SampleCard client:visible />
       </div>
     </section>
 
-    <section class="desk-lab-concept" id="dx">
-      <div class="desk-lab-tag">x · Marbled ink — straight strata displaced by fluid turbulence; three strands carry color</div>
-      <div class="plan-desk dl dl-x">
-        <svg class="dl-layer" viewBox="0 0 1200 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <defs>
-            <filter id="marbleF" x="-20%" y="-20%" width="140%" height="140%">
-              <feTurbulence type="fractalNoise" baseFrequency="0.011 0.042" numOctaves="3" seed="11" result="n" />
-              <feDisplacementMap in="SourceGraphic" in2="n" scale="110" xChannelSelector="R" yChannelSelector="G" />
-            </filter>
-          </defs>
-          <g filter="url(#marbleF)">
-            {Array.from({ length: 44 }, (_, i) => {
-              const y = -40 + i * 15;
-              const accent = i === 12 ? '#6366f1' : i === 25 ? '#da77f2' : i === 33 ? '#22d3ee' : null;
-              const stroke = accent ?? 'rgba(255,255,255,0.09)';
-              const width = accent ? 1.6 : 1;
-              const opacity = accent ? 0.55 : 1;
-              return <path d={`M-60,${y} H1260`} fill="none" stroke={stroke} stroke-width={width} opacity={opacity} />;
-            })}
-          </g>
-        </svg>
+    <section class="desk-lab-concept" id="r6d">
+      <div class="desk-lab-tag">D · Holographic foil — molten conic color, blurred and oversaturated, with one specular sweep and grain: liquid vinyl</div>
+      <div class="plan-desk dl dl-rd">
+        <div class="dl-layer dl-layer--bleed dl-rd-foil" aria-hidden="true"></div>
+        <div class="dl-layer dl-rd-sheen" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
         <SampleCard client:visible />
       </div>
     </section>
 
-    <section class="desk-lab-concept" id="dy">
-      <div class="desk-lab-tag">y · Aurora — curtains with real vertical structure, displaced and blurred, over a sparse star field</div>
-      <div class="plan-desk dl dl-y">
-        <svg class="dl-layer" viewBox="0 0 1200 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <defs>
-            <filter id="aurF" x="-30%" y="-30%" width="160%" height="160%">
-              <feTurbulence type="fractalNoise" baseFrequency="0.004 0.028" numOctaves="2" seed="5" result="n" />
-              <feDisplacementMap in="SourceGraphic" in2="n" scale="170" xChannelSelector="R" yChannelSelector="G" result="d" />
-              <feGaussianBlur in="d" stdDeviation="7 14" />
-            </filter>
-          </defs>
-          <g>
-            <circle cx="140" cy="80" r="1" fill="rgba(255,255,255,0.5)" />
-            <circle cx="360" cy="46" r="1.4" fill="rgba(255,255,255,0.4)" />
-            <circle cx="700" cy="70" r="1" fill="rgba(255,255,255,0.45)" />
-            <circle cx="1080" cy="52" r="1.2" fill="rgba(255,255,255,0.5)" />
-            <circle cx="920" cy="120" r="0.9" fill="rgba(255,255,255,0.35)" />
-            <circle cx="240" cy="500" r="1.1" fill="rgba(255,255,255,0.35)" />
-            <circle cx="1130" cy="480" r="1" fill="rgba(255,255,255,0.4)" />
-          </g>
-          <g filter="url(#aurF)" transform="skewX(-8)">
-            <rect x="180" y="-80" width="70" height="720" fill="rgba(63,185,80,0.20)" />
-            <rect x="290" y="-80" width="40" height="720" fill="rgba(34,211,238,0.14)" />
-            <rect x="620" y="-80" width="90" height="720" fill="rgba(63,185,80,0.13)" />
-            <rect x="760" y="-80" width="46" height="720" fill="rgba(218,119,242,0.12)" />
-            <rect x="1010" y="-80" width="70" height="720" fill="rgba(34,211,238,0.16)" />
-          </g>
-        </svg>
+    <section class="desk-lab-concept" id="r6e">
+      <div class="desk-lab-tag">E · Halftone dither — a hot magenta-to-indigo sweep whose midtones break into print dots; ink texture, not light</div>
+      <div class="plan-desk dl dl-re">
+        <div class="dl-layer dl-re-dots" aria-hidden="true"></div>
+        <div class="dl-layer dl-re-dots--light" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
         <SampleCard client:visible />
       </div>
     </section>
@@ -127,27 +91,104 @@ import topo from '../../../components/demo/desk-art/topo.svg?raw';
       z-index: 0;
       pointer-events: none;
     }
-    .dl-layer svg,
-    svg.dl-layer {
-      width: 100%;
-      height: 100%;
-      display: block;
+    .dl-layer--bleed {
+      inset: -90px;
     }
 
-    .dl-u {
-      background: #07070c;
+    /* Shared grain: fine film grain and a coarser spray, blended into the color. */
+    .dl-grain {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+      opacity: 0.34;
+      mix-blend-mode: overlay;
     }
-    .dl-v {
-      background: #0b0b10;
+    .dl-grain--coarse {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.32' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23m)'/></svg>");
+      opacity: 0.22;
+      mix-blend-mode: soft-light;
     }
-    .dl-w {
-      background: #0d0d11;
+
+    /* A · Rothko veil */
+    .dl-ra {
+      background: linear-gradient(
+        180deg,
+        #4f46e5 0%,
+        #4f46e5 34%,
+        #7c3aed 50%,
+        #a21caf 66%,
+        #9d174d 100%
+      );
     }
-    .dl-x {
-      background: #0a0a0e;
+    .dl-ra-glow {
+      background:
+        radial-gradient(130% 55% at 50% -6%, rgba(165, 180, 252, 0.6), transparent 62%),
+        radial-gradient(130% 50% at 50% 106%, rgba(244, 114, 182, 0.5), transparent 62%);
+      mix-blend-mode: screen;
     }
-    .dl-y {
-      background: #060809;
+
+    /* B · Sunset stack */
+    .dl-rb {
+      background: linear-gradient(
+        180deg,
+        #221d6e 0%,
+        #372f9e 16%,
+        #5b2bc9 30%,
+        #8b2fd0 44%,
+        #c02aae 58%,
+        #e2447a 72%,
+        #f56b4e 86%,
+        #f99347 100%
+      );
+    }
+
+    /* C · Airbrush */
+    .dl-rc {
+      background: #2b21a8;
+    }
+    .dl-rc-spray {
+      background:
+        radial-gradient(58% 72% at 6% 8%, rgba(34, 211, 238, 0.9), transparent 64%),
+        radial-gradient(64% 80% at 96% 90%, rgba(232, 121, 249, 0.85), transparent 64%),
+        radial-gradient(42% 52% at 84% 4%, rgba(250, 204, 21, 0.32), transparent 60%),
+        radial-gradient(46% 60% at 12% 96%, rgba(99, 102, 241, 0.8), transparent 62%);
+    }
+
+    /* D · Holographic foil */
+    .dl-rd {
+      background: #170f2a;
+    }
+    .dl-rd-foil {
+      background: conic-gradient(
+        from 215deg at 62% 38%,
+        #e879f9,
+        #f59e0b,
+        #22d3ee,
+        #6366f1,
+        #ec4899,
+        #e879f9
+      );
+      filter: blur(52px) saturate(1.55);
+    }
+    .dl-rd-sheen {
+      background: linear-gradient(112deg, transparent 38%, rgba(255, 255, 255, 0.22) 50%, transparent 62%);
+      mix-blend-mode: screen;
+    }
+
+    /* E · Halftone dither */
+    .dl-re {
+      background: linear-gradient(115deg, #ec1e8c 0%, #a02ad4 42%, #5b2bc9 68%, #2a2380 100%);
+    }
+    .dl-re-dots {
+      background-image: radial-gradient(circle, rgba(24, 12, 60, 0.6) 0 2.1px, transparent 2.7px);
+      background-size: 9px 9px;
+      -webkit-mask: linear-gradient(115deg, transparent 26%, #000 52%);
+      mask: linear-gradient(115deg, transparent 26%, #000 52%);
+    }
+    .dl-re-dots--light {
+      background-image: radial-gradient(circle, rgba(255, 214, 240, 0.5) 0 1.7px, transparent 2.2px);
+      background-size: 11px 11px;
+      background-position: 4px 5px;
+      -webkit-mask: linear-gradient(115deg, #000 18%, transparent 46%);
+      mask: linear-gradient(115deg, #000 18%, transparent 46%);
     }
   </style>
 </Site>
