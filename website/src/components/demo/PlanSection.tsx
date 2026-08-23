@@ -4,6 +4,7 @@ import { KanbanColumnView } from '../../ouijit-ui/components/kanban/KanbanColumn
 import { KanbanCardView } from '../../ouijit-ui/components/kanban/KanbanCardView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { ClaudeUser, AssistantSay, ToolCall, ToolResult, BODY_CLS } from './stackParts';
+import { DeskWash } from './DeskWash';
 
 /**
  * The Plan section: story rows on desk cards, scroll-scrubbed card flights
@@ -141,13 +142,12 @@ const ledge = (icon: string, label: string, hint?: string) => (
 
 /* ─── Desk containers ─────────────────────────────────────────────── */
 
-const DESK_HUES = {
-  indigo:
-    'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.85), transparent 64%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.48), transparent 60%), linear-gradient(180deg, #262b66, #171b3d)',
-  teal: 'radial-gradient(120% 140% at 85% 0%, rgba(45, 212, 191, 0.62), transparent 62%), radial-gradient(120% 120% at 0% 100%, rgba(99, 102, 241, 0.45), transparent 58%), linear-gradient(180deg, #1a4a41, #112622)',
-  rose: 'radial-gradient(120% 140% at 20% 10%, rgba(233, 103, 159, 0.68), transparent 62%), radial-gradient(120% 130% at 100% 90%, rgba(168, 85, 247, 0.46), transparent 60%), linear-gradient(180deg, #4a2745, #211527)',
-  graphite: 'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%), linear-gradient(180deg, #1c1d23, #131318)',
-} as const;
+const DESK_GRAPHITE =
+  'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%), linear-gradient(180deg, #1c1d23, #131318)';
+
+/* Every colored desk wears the prism wash; the sources differ only in the
+   angle it sweeps from. */
+const DESK_ANGLES = { indigo: '160deg', teal: '205deg', rose: '115deg' } as const;
 
 function Desk({
   hue,
@@ -156,19 +156,30 @@ function Desk({
   style,
   children,
 }: {
-  hue: keyof typeof DESK_HUES;
+  hue: keyof typeof DESK_ANGLES | 'graphite';
   /** 0..1 crossfade to graphite — the desk's color leaving with its card. */
   drain?: number;
   className?: string;
   style?: React.CSSProperties;
   children: ReactNode;
 }) {
+  if (hue === 'graphite') {
+    return (
+      <div className={`plan-desk ${className}`} style={{ backgroundImage: DESK_GRAPHITE, ...style }}>
+        {children}
+      </div>
+    );
+  }
   return (
-    <div className={`plan-desk ${className}`} style={{ backgroundImage: DESK_HUES[hue], ...style }}>
+    <div
+      className={`plan-desk desk-wash desk-wash--prism ${className}`}
+      style={{ '--wash-angle': DESK_ANGLES[hue], ...style } as React.CSSProperties}
+    >
+      <DeskWash />
       {drain > 0 && (
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ borderRadius: 'inherit', backgroundImage: DESK_HUES.graphite, opacity: drain }}
+          style={{ borderRadius: 'inherit', backgroundImage: DESK_GRAPHITE, opacity: drain }}
         />
       )}
       {children}
@@ -407,18 +418,17 @@ function HandoffGhosts({ flightP, geom }: { flightP: (k: SourceKey) => number; g
 
 /** One gradient layer per source, stacked onto the column desk as its card
  * lands — the row hues, minus the dark linear base the desk already has. */
+/* Each landing stacks another faint copy of the prism wash at its source's
+   sweep angle, so the column charges toward the desks' own color. */
 const CHARGE_LAYERS: Record<SourceKey, string> = {
-  agent:
-    'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.35), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.16), transparent 55%)',
-  issue:
-    'radial-gradient(120% 140% at 85% 0%, rgba(45, 212, 191, 0.24), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(99, 102, 241, 0.14), transparent 55%)',
-  manual:
-    'radial-gradient(120% 140% at 20% 100%, rgba(233, 103, 159, 0.26), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(168, 85, 247, 0.16), transparent 60%)',
+  agent: `linear-gradient(${DESK_ANGLES.indigo}, var(--wash-prism))`,
+  issue: `linear-gradient(${DESK_ANGLES.teal}, var(--wash-prism))`,
+  manual: `linear-gradient(${DESK_ANGLES.rose}, var(--wash-prism))`,
 };
 
 function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>; children: ReactNode }) {
   return (
-    <div className="plan-desk" style={{ backgroundImage: DESK_HUES.graphite, padding: 36 }}>
+    <div className="plan-desk" style={{ backgroundImage: DESK_GRAPHITE, padding: 36 }}>
       {SEQUENCE.map((k) => (
         <div
           key={k}
@@ -426,7 +436,7 @@ function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>
           style={{
             borderRadius: 'inherit',
             backgroundImage: CHARGE_LAYERS[k],
-            opacity: landed[k] ? 1 : 0,
+            opacity: landed[k] ? 0.14 : 0,
             transition: 'opacity 700ms ease',
           }}
         />
@@ -438,7 +448,7 @@ function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>
 
 /* ─── The stage: desk cards, charging column, card flights ────────── */
 
-const DESK_HUE: Record<SourceKey, keyof typeof DESK_HUES> = { agent: 'indigo', issue: 'teal', manual: 'rose' };
+const DESK_HUE: Record<SourceKey, keyof typeof DESK_ANGLES> = { agent: 'indigo', issue: 'teal', manual: 'rose' };
 
 /** Narrow viewports and reduced motion get the finished state with no
  * choreography: every card landed, the column charged, nothing in flight. */

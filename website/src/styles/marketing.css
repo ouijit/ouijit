@@ -2569,6 +2569,50 @@ html.js .b-h1.is-typing .b-h1-typed {
     var(--shadow-panel),
     0 32px 64px -32px rgba(0, 0, 0, 0.75);
 }
+/* Desk washes: OKLCH sweeps holding lightness and chroma constant across
+   every stop, so the hue shifts without banding light or dark. Volt is the
+   exception — its stops vary in lightness, and its banding is the point. */
+:root {
+  --wash-prism: oklch(80% 0.13 295), oklch(79% 0.13 330), oklch(78% 0.14 15),
+    oklch(79% 0.14 45), oklch(84% 0.13 80), oklch(86% 0.14 130);
+  --wash-iris: oklch(80% 0.13 295), oklch(78% 0.12 250), oklch(83% 0.11 190),
+    oklch(86% 0.14 130);
+  --wash-volt: oklch(62% 0.25 295), oklch(64% 0.26 340), oklch(70% 0.21 40),
+    oklch(85% 0.24 140), oklch(78% 0.16 195);
+}
+/* isolate keeps the field's negative z-index inside the desk, so it paints
+   over the desk's base color but under every in-flow child. */
+.desk-wash {
+  isolation: isolate;
+  background-color: #0f0f11;
+}
+.desk-wash--prism {
+  --wash: var(--wash-prism);
+}
+.desk-wash--iris {
+  --wash: var(--wash-iris);
+}
+.desk-wash--volt {
+  --wash: var(--wash-volt);
+}
+.desk-wash-field {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: linear-gradient(var(--wash-angle, 160deg), var(--wash));
+  opacity: 0.9;
+}
+/* Inside the field, not beside it: overlay against the composited desk
+   would grey out; against the field's own full-strength sweep it dithers. */
+.desk-wash-grain {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  image-rendering: pixelated;
+  mix-blend-mode: overlay;
+}
 /* Scrubbed card slots: height opens via the 0fr→1fr grid trick so the
    transition reverses cleanly when scroll direction flips. */
 .plan-slot {

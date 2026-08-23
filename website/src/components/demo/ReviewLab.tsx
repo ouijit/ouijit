@@ -16,6 +16,7 @@ import {
   ToolResult,
   BODY_CLS,
 } from './stackParts';
+import { DeskWash } from './DeskWash';
 
 /**
  * Review section lab — the loop back to the agent, then the pull request.
@@ -25,8 +26,6 @@ import {
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-const DESK_MAGENTA =
-  'radial-gradient(120% 140% at 15% 0%, rgba(218, 119, 242, 0.78), transparent 66%), radial-gradient(110% 120% at 100% 100%, rgba(248, 81, 73, 0.58), transparent 62%), radial-gradient(70% 80% at 86% 2%, rgba(63, 185, 80, 0.32), transparent 52%), linear-gradient(180deg, #47265c, #251536)';
 
 /** One tall wrapper drives all beats — same scrub as the Build theater. */
 function useTheaterScrub(keys: readonly string[]) {
@@ -450,7 +449,8 @@ export function ReviewVariantRoundTrip() {
   return (
     <div ref={wrapRef} style={{ height: '400vh' }}>
       <div className="bl-theater-sticky">
-        <div className="plan-desk" style={{ backgroundImage: DESK_MAGENTA, padding: 32, width: '100%' }}>
+        <div className="plan-desk desk-wash desk-wash--volt" style={{ padding: 32, width: '100%' }}>
+          <DeskWash />
           <RoundTripCard p={p} />
         </div>
         <TheaterCaps beats={LOOP_BEATS} p={p} />
@@ -475,7 +475,8 @@ function PrWindow({ height }: { height: number }) {
 export function ReviewVariantInbox() {
   return (
     <div>
-      <div className="plan-desk" style={{ backgroundImage: DESK_MAGENTA, padding: 32 }}>
+      <div className="plan-desk desk-wash desk-wash--volt" style={{ padding: 32 }}>
+          <DeskWash />
         <PrWindow height={640} />
       </div>
       <div className="rl-caption-row">
@@ -667,10 +668,8 @@ export function ReviewVariantTwoAct() {
   return (
     <div ref={wrapRef} style={{ height: '460vh' }}>
       <div className="bl-theater-sticky">
-        <div
-          className="plan-desk"
-          style={{ backgroundImage: DESK_MAGENTA, padding: 32, paddingTop: 48, width: '100%' }}
-        >
+        <div className="plan-desk desk-wash desk-wash--volt" style={{ padding: 32, paddingTop: 48, width: '100%' }}>
+          <DeskWash />
           <div className="relative" style={{ height: 480 }}>
             <RoundTripTerminal p={p} receded={prOn} />
             <div
@@ -720,7 +719,8 @@ export function ReviewVariantLoopLedger() {
       <ReviewVariantRoundTrip />
       <div className="rl-ledger">
         <div className="rl-ledger-card">
-          <div className="plan-desk h-full" style={{ backgroundImage: DESK_MAGENTA, padding: 24 }}>
+          <div className="plan-desk desk-wash desk-wash--volt h-full" style={{ padding: 24 }}>
+          <DeskWash />
             <div style={{ height: 440 }}>
               <CondensedPrCard />
             </div>
@@ -749,7 +749,8 @@ export function ReviewVariantLoopLedger() {
 export function ReviewVariantSplitHero() {
   return (
     <div>
-      <div className="plan-desk" style={{ backgroundImage: DESK_MAGENTA, padding: 28 }}>
+      <div className="plan-desk desk-wash desk-wash--volt" style={{ padding: 28 }}>
+          <DeskWash />
         <div className="flex gap-6" style={{ height: 480 }}>
           <div
             className="glass-bevel relative flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"

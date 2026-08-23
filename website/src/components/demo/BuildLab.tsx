@@ -21,6 +21,7 @@ import {
   TestBody,
   type PanelKind,
 } from './stackParts';
+import { DeskWash } from './DeskWash';
 
 /**
  * Build section lab, round 5 — same workbench, different stagings. The Plan
@@ -30,8 +31,6 @@ import {
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-const DESK_INDIGO =
-  'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.95), transparent 66%), radial-gradient(100% 120% at 100% 100%, rgba(34, 211, 238, 0.6), transparent 62%), radial-gradient(80% 90% at 88% 4%, rgba(63, 185, 80, 0.42), transparent 54%), linear-gradient(180deg, #272d6e, #181d45)';
 
 /* ─── Scrub sources ───────────────────────────────────────────────── */
 
@@ -431,7 +430,8 @@ export function VariantTheater() {
   return (
     <div ref={wrapRef} style={{ height: '500vh' }}>
       <div className="bl-theater-sticky">
-        <div className="plan-desk" style={{ backgroundImage: DESK_INDIGO, padding: 32, paddingTop: 100, width: '100%' }}>
+        <div className="plan-desk desk-wash desk-wash--iris" style={{ padding: 32, paddingTop: 100, width: '100%' }}>
+          <DeskWash />
           <WorkbenchStack p={p} />
         </div>
         <div className="beat-row">
@@ -581,7 +581,8 @@ export function VariantReference() {
         ))}
       </div>
       <div className="bl-rail" style={{ width: 780 }}>
-        <div className="plan-desk" style={{ backgroundImage: DESK_INDIGO, padding: 28, paddingTop: 104 }}>
+        <div className="plan-desk desk-wash desk-wash--iris" style={{ padding: 28, paddingTop: 104 }}>
+          <DeskWash />
           <WorkbenchStack p={p} />
         </div>
       </div>
