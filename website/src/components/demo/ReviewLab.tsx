@@ -705,7 +705,7 @@ export function ReviewVariantTwoAct() {
 export function ReviewSection() {
   return (
     <div>
-      <h2 className="plan-v-headline">Review in place</h2>
+      <h2 className="plan-v-headline">Review together</h2>
       <ReviewVariantTwoAct />
     </div>
   );
