@@ -1,49 +1,27 @@
 ---
 import Site from '../../../layouts/Site.astro';
-import {
-  VariantWorkbench,
-  VariantStages,
-  VariantBento,
-  VariantCarousel,
-  VariantScene,
-  VariantMonolith,
-} from '../../../components/demo/BuildLab.tsx';
+import { VariantDeep, VariantStrip, VariantCharged } from '../../../components/demo/BuildLab.tsx';
 ---
 <Site noindex>
   <div class="build-lab">
     <header class="build-lab-head">
       <h1>Build section lab</h1>
-      <p>Round 2: the features on their real surfaces — panels, statuses, sandbox, hooks, CLI — across six structures.</p>
+      <p>Round 3: the Workbench developed. Three candidates — how much of the pillar the one stack carries.</p>
     </header>
 
-    <section class="build-lab-concept" id="v2a">
-      <div class="build-lab-tag">2a · Workbench — one sticky terminal stack; scrolling opens plan.md, then the preview, then statuses light up</div>
-      <VariantWorkbench client:visible />
+    <section class="build-lab-concept" id="v3a">
+      <div class="build-lab-tag">3a · Deep workbench — five beats on one stack: start hook, plan.md, dev-terminal promotion with the preview, the agent's CLI handoff, statuses</div>
+      <VariantDeep client:visible />
     </section>
 
-    <section class="build-lab-concept" id="v2b">
-      <div class="build-lab-tag">2b · Feature stages — one full-width surface per feature, copy at the side</div>
-      <VariantStages client:visible />
+    <section class="build-lab-concept" id="v3b">
+      <div class="build-lab-tag">3b · Workbench + strip — the tight four-beat stack, with sandbox / hooks / CLI as a strip below</div>
+      <VariantStrip client:visible />
     </section>
 
-    <section class="build-lab-concept" id="v2c">
-      <div class="build-lab-tag">2c · Bento — every Build feature dense, in one grid</div>
-      <VariantBento client:visible />
-    </section>
-
-    <section class="build-lab-concept" id="v2d">
-      <div class="build-lab-tag">2d · Carousel — features as full-size cards on a horizontal rail (drag / scroll sideways)</div>
-      <VariantCarousel client:visible />
-    </section>
-
-    <section class="build-lab-concept" id="v2e">
-      <div class="build-lab-tag">2e · Annotated scene — one workspace at work, callouts naming its parts</div>
-      <VariantScene client:visible />
-    </section>
-
-    <section class="build-lab-concept" id="v2f">
-      <div class="build-lab-tag">2f · Monolith — full-bleed surfaces with one-line captions, no desks</div>
-      <VariantMonolith client:visible />
+    <section class="build-lab-concept" id="v3c">
+      <div class="build-lab-tag">3c · Charged workbench — same four beats, on a graphite desk that gains a hue per beat (the Plan section's color language)</div>
+      <VariantCharged client:visible />
     </section>
   </div>
 
@@ -69,7 +47,6 @@ import {
       margin-bottom: 56px;
     }
 
-    /* Copy steps beside a sticky stage (2a) */
     .bl-split {
       display: flex;
       gap: 48px;
@@ -99,86 +76,37 @@ import {
       flex-shrink: 0;
     }
 
-    /* Carousel (2d) */
-    .bl-carousel {
-      display: flex;
+    .bl-strip {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 24px;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      padding: 4px 4px 28px;
-      margin: 0 calc(-1 * var(--content-padding));
-      padding-left: var(--content-padding);
-      padding-right: var(--content-padding);
+      margin-top: 72px;
     }
-    .bl-carousel-card {
-      flex-shrink: 0;
-      flex-grow: 0;
-      scroll-snap-align: start;
+    .bl-strip-cell {
+      border-radius: 24px;
+      padding: 24px;
+      background:
+        radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%),
+        linear-gradient(180deg, #1c1d23, #131318);
+      position: relative;
     }
-    .bl-carousel-card .plan-desk {
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-    .bl-carousel-copy h3 {
-      font-size: 19px;
-      margin: 0;
-    }
-    .bl-carousel-copy p {
-      color: #86868b;
-      font-size: 14px;
-      line-height: 1.5;
-      margin: 6px 0 0;
-      max-width: 460px;
-    }
-
-    /* Annotated scene (2e) */
-    .bl-callout {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      z-index: 20;
+    .bl-strip-cell::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 1px solid rgba(255, 255, 255, 0.07);
       pointer-events: none;
     }
-    .bl-callout-label {
-      font-family: 'Iosevka Extended', 'SF Mono', monospace;
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.65);
-      white-space: nowrap;
+    .bl-strip-cell h4 {
+      font-size: 16px;
+      margin: 0 0 4px;
     }
-    .bl-callout-line {
-      display: block;
-      height: 1px;
-      background: rgba(255, 255, 255, 0.22);
-    }
-    .bl-callout-dot {
-      display: block;
-      width: 5px;
-      height: 5px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.55);
-      flex-shrink: 0;
-    }
-
-    /* Monolith (2f) */
-    .bl-mono-copy {
-      margin-bottom: 22px;
-    }
-    .bl-mono-copy h3 {
-      font-size: 21px;
-      margin: 0;
-    }
-    .bl-mono-copy p {
+    .bl-strip-cell p {
       color: #86868b;
-      font-size: 15px;
+      font-size: 13px;
       line-height: 1.5;
-      margin: 8px 0 0;
-    }
-    .bl-mono-pair {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 40px;
-      align-items: start;
+      margin: 0 0 16px;
     }
   </style>
 </Site>
