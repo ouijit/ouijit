@@ -45,10 +45,13 @@ export function useTheaterLoop(keys: readonly string[], beatMs = 4500) {
     };
   }, [keys.length, beatMs]);
 
+  /* The 0.08 lead pre-arms each beat's opening thresholds so, with their
+     CSS transitions, the visible change lands on the beat boundary instead
+     of trailing the dot bar. */
   const p = (k: string) => {
     const i = keys.indexOf(k);
     if (i < 0) return 0;
-    return clamp01((t - i) / 0.8);
+    return clamp01((t - i + 0.08) / 0.8);
   };
   /* Jump to the start of beat i; playback continues from there. Under
      reduced motion there is no playback, so land on the beat finished. */
