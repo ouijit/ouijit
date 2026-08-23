@@ -105,11 +105,11 @@ function IssuePane({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null) => v
   );
 }
 
-function PlanPane() {
+function PlanPane({ noTitle = false }: { noTitle?: boolean }) {
   return (
     <div className="flex-1 min-h-0 overflow-hidden px-5 py-4">
       <div className="app-markdown plan-markdown">
-        <h1>Add rate-limit headers to the public API</h1>
+        {!noTitle && <h1>Add rate-limit headers to the public API</h1>}
         <h2>Steps</h2>
         <ul>
           <li>
@@ -459,14 +459,217 @@ function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>
   );
 }
 
-/* ─── The section: desk cards, charging column, card flights ──────── */
+/* ─── First beat: desk cards, charging column, card flights ───────── */
+
+const DESK_HUE: Record<SourceKey, keyof typeof DESK_HUES> = { agent: 'indigo', issue: 'teal', manual: 'rose' };
+
+/** The three creation rows beside the charging column — no detail row. */
+function CreateStage() {
+  const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
+  const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
+  const open = past(progress, 0.55);
+  const landed = past(progress, 0.76);
+  return (
+    <div ref={stageRef} className="relative flex gap-10 items-start" style={{ marginTop: 72 }}>
+      <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
+        {ROWS.map(({ key, title, body }) => (
+          <Row key={key} title={title} body={body} rowRef={setRow(key)}>
+            <Desk hue={DESK_HUE[key]} drain={easeInOut(flightP(key))}>
+              {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}
+            </Desk>
+          </Row>
+        ))}
+      </div>
+      <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
+        <ChargingDesk landed={landed}>
+          <div className="flex" style={{ minHeight: 470 }}>
+            <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
+          </div>
+        </ChargingDesk>
+      </div>
+      {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
+    </div>
+  );
+}
+
+/* ─── Second beat: the detail as its own movement ─────────────────── */
+
+/** Scrubbed progress for a standalone block, same mapping as the rows. */
+function useBeatProgress() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [p, setP] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const update = () => {
+      const el = ref.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const center = r.top + r.height / 2;
+      setP((prev) => {
+        const next = clamp01((vh * 0.95 - center) / (vh * 0.45));
+        return Math.abs(next - prev) < 0.002 ? prev : next;
+      });
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+  return { ref, p };
+}
+
+function StaticColumn({ selected }: { selected?: number }) {
+  const tasks = [SEED_TASK, ...SEQUENCE.map((k) => TASK_BY_SOURCE[k])];
+  return (
+    <div
+      className="glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel shrink-0"
+      style={{ width: 300, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
+    >
+      <KanbanColumnView status="todo" label="To Do" count={tasks.length}>
+        {tasks.map((t) => (
+          <KanbanCardView key={t.taskNumber} task={t} showBadge={false} isSelected={t.taskNumber === selected} />
+        ))}
+      </KanbanColumnView>
+    </div>
+  );
+}
+
+/** 5a — a landed card opens: the plan.md unfolds out of the card itself. */
+function BeatUnfold() {
+  const { ref, p } = useBeatProgress();
+  const openP = easeInOut(clamp01((p - 0.2) / 0.55));
+  return (
+    <div ref={ref} style={{ marginTop: 150 }}>
+      <div className="plan-beat-head">
+        <h3>Keep the detail close</h3>
+        <p>Open any card and its plan.md is right there — steps, notes, and checkboxes beside the work.</p>
+      </div>
+      <Desk hue="violet" style={{ padding: '56px 40px' }}>
+        <div className="mx-auto" style={{ maxWidth: 460 }}>
+          <Panel>
+            <KanbanCardView task={TASK_BY_SOURCE.agent} showBadge={false} isSelected />
+            <div style={{ maxHeight: openP * 320, overflow: 'hidden' }}>
+              <div style={{ borderTop: '1px solid color-mix(in srgb, var(--color-ink) 8%, transparent)' }}>
+                <PlanPane noTitle />
+              </div>
+            </div>
+          </Panel>
+        </div>
+      </Desk>
+    </div>
+  );
+}
+
+/** 5b — mirrored composition: the column crosses to the left, the plan
+ * fills the right, the created task selected as the through-line. */
+function BeatMirror() {
+  const { ref, p } = useBeatProgress();
+  const inP = easeInOut(clamp01((p - 0.15) / 0.5));
+  return (
+    <div ref={ref} style={{ marginTop: 150 }}>
+      <div className="plan-beat-head">
+        <h3>Keep the detail close</h3>
+        <p>Steps, notes, and checkboxes live in each task's plan.md.</p>
+      </div>
+      <Desk hue="violet" style={{ padding: '48px 44px' }}>
+        <div className="flex gap-10 items-stretch">
+          <StaticColumn selected={p > 0.4 ? TASK_BY_SOURCE.agent.taskNumber : undefined} />
+          <div
+            className="flex-1 min-w-0 flex"
+            style={{ opacity: inP, transform: `translateX(${(1 - inP) * 24}px)` }}
+          >
+            <Panel className="flex-1" ledge={ledge('file-text', 'plan.md', 'T-119')}>
+              <PlanPane />
+            </Panel>
+          </div>
+        </div>
+      </Desk>
+    </div>
+  );
+}
+
+/** 5c — the plan gets the hero treatment: one big centered panel, the
+ * origin card docked above it. */
+function BeatHero() {
+  const { ref, p } = useBeatProgress();
+  const inP = easeInOut(clamp01((p - 0.15) / 0.5));
+  return (
+    <div ref={ref} style={{ marginTop: 150 }}>
+      <div className="plan-beat-head">
+        <h3>Keep the detail close</h3>
+        <p>Steps, notes, and checkboxes live in each task's plan.md.</p>
+      </div>
+      <Desk hue="violet" style={{ padding: '64px 56px' }}>
+        <div
+          className="mx-auto flex flex-col items-center gap-5"
+          style={{ maxWidth: 680, opacity: inP, transform: `translateY(${(1 - inP) * 20}px)` }}
+        >
+          <div style={{ width: 340 }}>
+            <div
+              className="glass-bevel relative rounded-[10px] overflow-hidden border border-bezel-panel"
+              style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
+            >
+              <KanbanCardView task={TASK_BY_SOURCE.agent} showBadge={false} isSelected />
+            </div>
+          </div>
+          <Panel className="w-full" ledge={ledge('file-text', 'plan.md', 'T-119')}>
+            <PlanPane />
+          </Panel>
+        </div>
+      </Desk>
+    </div>
+  );
+}
+
+/* ─── Sections ────────────────────────────────────────────────────── */
+
+export function VariantBeatUnfold() {
+  return (
+    <div>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <CreateStage />
+      <BeatUnfold />
+    </div>
+  );
+}
+
+export function VariantBeatMirror() {
+  return (
+    <div>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <CreateStage />
+      <BeatMirror />
+    </div>
+  );
+}
+
+export function VariantBeatHero() {
+  return (
+    <div>
+      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <CreateStage />
+      <BeatHero />
+    </div>
+  );
+}
+
+/* ─── Baseline: the detail row in-stream (the thing being replaced) ── */
 
 export function VariantScrubHue() {
   const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
   const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
   const open = past(progress, 0.55);
   const landed = past(progress, 0.76);
-  const deskHue: Record<SourceKey, keyof typeof DESK_HUES> = { agent: 'indigo', issue: 'teal', manual: 'rose' };
+  const deskHue: Record<SourceKey, keyof typeof DESK_HUES> = DESK_HUE;
   return (
     <div>
       <h2 className="plan-v-headline">Plan at scale, in detail</h2>

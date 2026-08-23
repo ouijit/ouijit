@@ -1,17 +1,37 @@
 ---
 import Site from '../../../layouts/Site.astro';
-import { VariantScrubHue } from '../../../components/demo/PlanLab.tsx';
+import {
+  VariantScrubHue,
+  VariantBeatUnfold,
+  VariantBeatMirror,
+  VariantBeatHero,
+} from '../../../components/demo/PlanLab.tsx';
 ---
 <Site noindex>
   <div class="plan-lab">
     <header class="plan-lab-head">
       <h1>Plan section lab</h1>
-      <p>The picked direction: desk cards, scroll-scrubbed card flights, charging column desk.</p>
+      <p>Round 5: the detail as a second beat, separate from the three ways to create.</p>
     </header>
 
     <section class="plan-lab-concept" id="v4c">
-      <div class="plan-lab-tag">4c · Desk cards — the column's desk charges up with each landing, stacking the row hues</div>
+      <div class="plan-lab-tag">4c · Baseline — the detail row still in-stream with the creation rows</div>
       <VariantScrubHue client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="v5a">
+      <div class="plan-lab-tag">5a · Unfold — after the landings, one landed card opens and its plan.md unfolds out of it</div>
+      <VariantBeatUnfold client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="v5b">
+      <div class="plan-lab-tag">5b · Mirror — the column crosses to the left, the created task selected, the plan filling the right</div>
+      <VariantBeatMirror client:visible />
+    </section>
+
+    <section class="plan-lab-concept" id="v5c">
+      <div class="plan-lab-tag">5c · Hero — the plan.md gets the big centered stage, its card docked above</div>
+      <VariantBeatHero client:visible />
     </section>
   </div>
 
@@ -67,6 +87,23 @@ import { VariantScrubHue } from '../../../components/demo/PlanLab.tsx';
     .plan-v3-mock {
       flex: 1;
       min-width: 0;
+    }
+
+    /* Second-beat framing */
+    .plan-beat-head {
+      text-align: center;
+      max-width: 520px;
+      margin: 0 auto 44px;
+    }
+    .plan-beat-head h3 {
+      font-size: 28px;
+      margin: 0;
+    }
+    .plan-beat-head p {
+      color: #86868b;
+      font-size: 15px;
+      line-height: 1.5;
+      margin: 10px 0 0;
     }
 
     /* Desk containers separate from the surfaces */
