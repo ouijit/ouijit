@@ -540,7 +540,6 @@ export function BuildSection() {
   return (
     <div>
       <h2 className="plan-v-headline">Build in parallel</h2>
-      <p className="bl-standfirst">Every task gets its own worktree, terminal, and agent. You keep the overview.</p>
       <VariantTheater />
       <Strip />
     </div>
