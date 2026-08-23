@@ -22,15 +22,17 @@ import {
 } from './stackParts';
 
 /**
- * Build section lab, round 4 — the 3b direction as a full section candidate:
- * headline, the four-beat workbench stack (with the dev-terminal promotion
- * carrying the preview), and the sandbox/hooks/CLI strip below.
+ * Build section lab, round 5 — same workbench, different stagings. The Plan
+ * section owns the side-copy + sticky-desk silhouette, so these variants try
+ * shapes it doesn't use.
  */
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 const DESK_INDIGO =
   'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.32), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.14), transparent 55%), linear-gradient(180deg, #191a2e, #121218)';
+
+/* ─── Scrub sources ───────────────────────────────────────────────── */
 
 function useScrubRows(keys: readonly string[]) {
   const rowEls = useRef<Record<string, HTMLElement | null>>({});
@@ -77,6 +79,49 @@ function useScrubRows(keys: readonly string[]) {
 
   const setRow = (key: string) => (el: HTMLElement | null) => void (rowEls.current[key] = el);
   return { setRow, progress };
+}
+
+/** One tall wrapper drives all beats: t is the wrapper's scroll fraction and
+ * each beat ramps inside its own staggered window, with plateaus between. */
+function useTheaterScrub(keys: readonly string[]) {
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [t, setT] = useState(0);
+  const last = useRef(-1);
+
+  useEffect(() => {
+    let raf = 0;
+    const update = () => {
+      const el = wrapRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const next = clamp01(-rect.top / (rect.height - vh));
+      const rounded = Math.round(next * 800);
+      if (rounded !== last.current) {
+        last.current = rounded;
+        setT(next);
+      }
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  const p = (k: string) => {
+    const i = keys.indexOf(k);
+    if (i < 0) return 0;
+    return clamp01((t - i * 0.22) / 0.14);
+  };
+  return { wrapRef, p };
 }
 
 /** A session line that fades in as its beat's progress passes `at`. */
@@ -142,7 +187,7 @@ function DarkOnboardingPage() {
   );
 }
 
-/* ─── The workbench ───────────────────────────────────────────────── */
+/* ─── The workbench stack ─────────────────────────────────────────── */
 
 const BEATS = [
   {
@@ -167,9 +212,9 @@ const BEATS = [
   },
 ] as const;
 
-/** The active claude session, growing across all four beats: opened by the
- * start hook, writing plan.md as the plan beat arrives, and still working
- * while the viewer is on the preview and status beats. */
+const BEAT_KEYS = BEATS.map((b) => b.key);
+
+/** The active claude session, growing across all four beats. */
 function WorkbenchSession({ p }: { p: (k: string) => number }) {
   return (
     <ClaudeShell busy>
@@ -221,11 +266,10 @@ function WorkbenchSession({ p }: { p: (k: string) => number }) {
   );
 }
 
-function Workbench() {
-  const keys = BEATS.map((b) => b.key);
-  const { setRow, progress } = useScrubRows(keys);
-  const p = (k: string) => progress[k] ?? 0;
-
+/** The stack and its notification, independent of any desk or layout. The
+ * host provides ~92px of headroom above for the back-card peeks and the
+ * notification. */
+function WorkbenchStack({ p }: { p: (k: string) => number }) {
   const planV = clamp01((p('plan') - 0.45) / 0.22) * (1 - clamp01((p('preview') - 0.35) / 0.22));
   const st = clamp01((p('status') - 0.45) / 0.25);
   const frontDev = p('preview') > 0.5 && p('status') < 0.5;
@@ -242,6 +286,172 @@ function Workbench() {
   const pos = (id: string) => order.indexOf(id);
 
   return (
+    <div className="relative" style={{ height: 480 }}>
+      {/* Stable DOM order; stacking comes from isActive/backDepth so the
+          depth transitions animate instead of remounting. */}
+      <TerminalCardView isActive={pos('claude') === 0} backDepth={pos('claude')}>
+        <TerminalHeaderView
+          summaryType="thinking"
+          isActive={pos('claude') === 0}
+          isBackCard={pos('claude') !== 0}
+          stackPosition={pos('claude') || undefined}
+          nameContent={
+            <TerminalHeaderName
+              label={pos('claude') === 0 ? 'claude' : 'Rework onboarding flow'}
+              lastOscTitle="Editing onboarding stepper..."
+            />
+          }
+          branchContent={pos('claude') === 0 ? <BranchLabel branch="rework-onboarding" /> : undefined}
+          actions={
+            pos('claude') === 0 && (claudeFixtures.plan || claudeFixtures.diff) ? (
+              <ActiveActions fixtures={claudeFixtures} openPanel={claudeOpenPanel} onToggle={() => {}} />
+            ) : undefined
+          }
+        />
+        {pos('claude') === 0 && (
+          <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+            <WorkbenchSession p={p} />
+            {planV > 0.02 && base.plan && (
+              <div className="absolute inset-0" style={{ opacity: planV, pointerEvents: 'none' }}>
+                <MockPlanPanel fixture={base.plan} onClose={() => {}} />
+              </div>
+            )}
+          </div>
+        )}
+      </TerminalCardView>
+      <TerminalCardView isActive={pos('dev') === 0} backDepth={pos('dev')}>
+        <TerminalHeaderView
+          summaryType="ready"
+          isActive={pos('dev') === 0}
+          isBackCard={pos('dev') !== 0}
+          stackPosition={pos('dev') || undefined}
+          nameContent={
+            <TerminalHeaderName label={pos('dev') === 0 ? 'dev' : 'Rework onboarding flow'} lastOscTitle="live dev server" />
+          }
+          branchContent={pos('dev') === 0 ? <BranchLabel branch="rework-onboarding" /> : undefined}
+          actions={
+            pos('dev') === 0 ? <ActiveActions fixtures={base} openPanel="preview" onToggle={() => {}} /> : undefined
+          }
+        />
+        {pos('dev') === 0 && (
+          <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+            <DevServerBody />
+            {base.preview && (
+              <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
+                <MockPreviewPanel fixture={{ ...base.preview, page: <DarkOnboardingPage /> }} onClose={() => {}} />
+              </div>
+            )}
+          </div>
+        )}
+      </TerminalCardView>
+      <TerminalCardView backDepth={pos('test')}>
+        <TerminalHeaderView
+          summaryType={testDone ? 'ready' : 'thinking'}
+          isBackCard
+          stackPosition={pos('test')}
+          nameContent={
+            <TerminalHeaderName
+              label="Polish invitation email"
+              lastOscTitle={testDone ? 'done · 14 passed' : 'Tightening brand tokens...'}
+            />
+          }
+        />
+      </TerminalCardView>
+      <TerminalCardView backDepth={pos('shell')}>
+        <TerminalHeaderView
+          summaryType="thinking"
+          sandboxed
+          isBackCard
+          stackPosition={pos('shell')}
+          nameContent={
+            <TerminalHeaderName label="Audit accessibility on settings dialog" lastOscTitle="running axe (lima)" />
+          }
+        />
+      </TerminalCardView>
+      <div
+        style={{
+          position: 'absolute',
+          top: -92,
+          right: -14,
+          width: 270,
+          zIndex: 30,
+          opacity: st,
+          transform: `translateY(${(1 - st) * 14}px)`,
+          transition: 'opacity 200ms ease, transform 200ms ease',
+          pointerEvents: 'none',
+        }}
+      >
+        <MacNotification body="Polish invitation email — done · 14 passed" />
+      </div>
+    </div>
+  );
+}
+
+/** Caption visibility: each beat's copy holds until the next beat takes
+ * over, with the swap compressed into the first third of each ramp so two
+ * captions never linger half-faded on top of each other. */
+const capOpacity = (p: (k: string) => number, i: number) => {
+  const cur = i === 0 ? 1 : p(BEAT_KEYS[i]);
+  const next = i + 1 < BEAT_KEYS.length ? p(BEAT_KEYS[i + 1]) : 0;
+  return clamp01(cur / 0.35) * (1 - clamp01(next / 0.35));
+};
+
+/* ═══ 5a · Theater — centered stage, one caption at a time below ═══ */
+
+export function VariantTheater() {
+  const { wrapRef, p } = useTheaterScrub(BEAT_KEYS);
+  return (
+    <div ref={wrapRef} style={{ height: '420vh' }}>
+      <div className="bl-theater-sticky">
+        <div className="plan-desk" style={{ backgroundImage: DESK_INDIGO, padding: 28, paddingTop: 100, width: 900 }}>
+          <WorkbenchStack p={p} />
+        </div>
+        <div className="bl-theater-captions">
+          {BEATS.map((b, i) => (
+            <div key={b.key} className="bl-theater-cap" style={{ opacity: capOpacity(p, i) }}>
+              <h3>{b.title}</h3>
+              <p>{b.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ 5b · Float — no desk: the stack loose on the page, side copy ═══ */
+
+export function VariantFloat() {
+  const { setRow, progress } = useScrubRows(BEAT_KEYS);
+  const p = (k: string) => progress[k] ?? 0;
+  return (
+    <div className="bl-split">
+      <div className="bl-steps">
+        {BEATS.map((b) => (
+          <div key={b.key} ref={setRow(b.key)} className="bl-step">
+            <h3>{b.title}</h3>
+            <p>{b.body}</p>
+          </div>
+        ))}
+      </div>
+      <div className="bl-rail" style={{ width: 780, paddingTop: 96 }}>
+        <div className="relative">
+          <div className="bl-float-glow" aria-hidden="true" />
+          <div className="relative">
+            <WorkbenchStack p={p} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ Reference — round 4's staging: side copy, desk ═══ */
+
+export function VariantReference() {
+  const { setRow, progress } = useScrubRows(BEAT_KEYS);
+  const p = (k: string) => progress[k] ?? 0;
+  return (
     <div className="bl-split">
       <div className="bl-steps">
         {BEATS.map((b) => (
@@ -253,204 +463,48 @@ function Workbench() {
       </div>
       <div className="bl-rail" style={{ width: 780 }}>
         <div className="plan-desk" style={{ backgroundImage: DESK_INDIGO, padding: 28, paddingTop: 104 }}>
-          <div className="relative" style={{ height: 480 }}>
-            {/* Stable DOM order; stacking comes from isActive/backDepth so the
-                depth transitions animate instead of remounting. */}
-            <TerminalCardView isActive={pos('claude') === 0} backDepth={pos('claude')}>
-              <TerminalHeaderView
-                summaryType="thinking"
-                isActive={pos('claude') === 0}
-                isBackCard={pos('claude') !== 0}
-                stackPosition={pos('claude') || undefined}
-                nameContent={
-                  <TerminalHeaderName
-                    label={pos('claude') === 0 ? 'claude' : 'Rework onboarding flow'}
-                    lastOscTitle="Editing onboarding stepper..."
-                  />
-                }
-                branchContent={pos('claude') === 0 ? <BranchLabel branch="rework-onboarding" /> : undefined}
-                actions={
-                  pos('claude') === 0 && (claudeFixtures.plan || claudeFixtures.diff) ? (
-                    <ActiveActions fixtures={claudeFixtures} openPanel={claudeOpenPanel} onToggle={() => {}} />
-                  ) : undefined
-                }
-              />
-              {pos('claude') === 0 && (
-                <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
-                  <WorkbenchSession p={p} />
-                  {planV > 0.02 && base.plan && (
-                    <div className="absolute inset-0" style={{ opacity: planV, pointerEvents: 'none' }}>
-                      <MockPlanPanel fixture={base.plan} onClose={() => {}} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </TerminalCardView>
-            <TerminalCardView isActive={pos('dev') === 0} backDepth={pos('dev')}>
-              <TerminalHeaderView
-                summaryType="ready"
-                isActive={pos('dev') === 0}
-                isBackCard={pos('dev') !== 0}
-                stackPosition={pos('dev') || undefined}
-                nameContent={
-                  <TerminalHeaderName
-                    label={pos('dev') === 0 ? 'dev' : 'Rework onboarding flow'}
-                    lastOscTitle="live dev server"
-                  />
-                }
-                branchContent={pos('dev') === 0 ? <BranchLabel branch="rework-onboarding" /> : undefined}
-                actions={
-                  pos('dev') === 0 ? <ActiveActions fixtures={base} openPanel="preview" onToggle={() => {}} /> : undefined
-                }
-              />
-              {pos('dev') === 0 && (
-                <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
-                  <DevServerBody />
-                  {base.preview && (
-                    <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
-                      <MockPreviewPanel
-                        fixture={{ ...base.preview, page: <DarkOnboardingPage /> }}
-                        onClose={() => {}}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            </TerminalCardView>
-            <TerminalCardView backDepth={pos('test')}>
-              <TerminalHeaderView
-                summaryType={testDone ? 'ready' : 'thinking'}
-                isBackCard
-                stackPosition={pos('test')}
-                nameContent={
-                  <TerminalHeaderName
-                    label="Polish invitation email"
-                    lastOscTitle={testDone ? 'done · 14 passed' : 'Tightening brand tokens...'}
-                  />
-                }
-              />
-            </TerminalCardView>
-            <TerminalCardView backDepth={pos('shell')}>
-              <TerminalHeaderView
-                summaryType="thinking"
-                sandboxed
-                isBackCard
-                stackPosition={pos('shell')}
-                nameContent={
-                  <TerminalHeaderName label="Audit accessibility on settings dialog" lastOscTitle="running axe (lima)" />
-                }
-              />
-            </TerminalCardView>
-          </div>
-          <div
-            style={{
-              position: 'absolute',
-              top: 14,
-              right: 14,
-              width: 270,
-              zIndex: 30,
-              opacity: st,
-              transform: `translateY(${(1 - st) * 14}px)`,
-              transition: 'opacity 200ms ease, transform 200ms ease',
-              pointerEvents: 'none',
-            }}
-          >
-            <MacNotification body="Polish invitation email — done · 14 passed" />
-          </div>
+          <WorkbenchStack p={p} />
         </div>
       </div>
     </div>
   );
 }
 
-/* ─── The strip ───────────────────────────────────────────────────── */
+/* ═══ 5c · Annotated theater — beat copy as callouts on the stage ═══ */
 
-const HOOKS = [
-  { label: 'Start', description: 'To Do → In Progress', command: 'claude "$OUIJIT_TASK_DESCRIPTION"' },
-  { label: 'Continue', description: 'Reopening a running task', command: 'claude --continue' },
-  { label: 'Run', description: 'The Run button', command: 'npm run dev' },
-  { label: 'Review', description: 'In Progress → In Review', command: 'gh pr create --fill' },
-  { label: 'Done', description: 'In Review → Done', command: 'git push origin HEAD' },
-];
+const ANNO_POS: Record<string, { side: 'left' | 'right'; top: number }> = {
+  term: { side: 'left', top: 128 },
+  plan: { side: 'right', top: 108 },
+  preview: { side: 'right', top: 158 },
+  status: { side: 'left', top: 34 },
+};
 
-function StripPanel({ children }: { children: ReactNode }) {
+export function VariantAnnotated() {
+  const { wrapRef, p } = useTheaterScrub(BEAT_KEYS);
   return (
-    <div
-      className="glass-bevel rounded-[12px] border border-bezel-panel overflow-hidden"
-      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function Strip() {
-  return (
-    <div className="bl-strip">
-      <div className="bl-strip-cell">
-        <h4>Contain untrusted code</h4>
-        <p>Run any terminal in a Lima VM or under nono. The ringed dot marks it.</p>
-        <StripPanel>
-          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/[0.06]">
-            <StatusDot summaryType="thinking" sandboxed />
-            <span className="font-mono text-xs font-medium text-ink/85 whitespace-nowrap">claude · lima</span>
-            <span className="font-mono text-xs text-ink/45 truncate">— npm install…</span>
+    <div ref={wrapRef} style={{ height: '420vh' }}>
+      <div className="bl-theater-sticky">
+        <div className="relative">
+          <div className="plan-desk" style={{ backgroundImage: DESK_INDIGO, padding: 28, paddingTop: 100, width: 740 }}>
+            <WorkbenchStack p={p} />
           </div>
-          <div className="px-3 pt-2 pb-1 text-[11px] text-text-tertiary">Open in</div>
-          <div className="pb-1 text-[13px]">
-            <div className="px-3 py-1.5 text-text-secondary">Terminal</div>
-            <div className="px-3 py-1.5 bg-accent text-accent-ink flex items-center justify-between">
-              <span>Lima VM sandbox</span>
-              <Icon name="check" className="w-3.5 h-3.5" />
-            </div>
-            <div className="px-3 py-1.5 text-text-secondary">nono sandbox</div>
-          </div>
-        </StripPanel>
+          {BEATS.map((b, i) => {
+            const { side, top } = ANNO_POS[b.key];
+            const o = capOpacity(p, i);
+            return (
+              <div
+                key={b.key}
+                className="bl-anno"
+                style={{ top, [side === 'left' ? 'right' : 'left']: '100%', opacity: o, [side === 'left' ? 'marginRight' : 'marginLeft']: 18 } as React.CSSProperties}
+              >
+                <div className={`bl-anno-line ${side === 'left' ? 'bl-anno-line-r' : 'bl-anno-line-l'}`} aria-hidden="true" />
+                <h3>{b.title}</h3>
+                <p>{b.body}</p>
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <div className="bl-strip-cell">
-        <h4>Hooks on every move</h4>
-        <p>Your commands run as tasks change status.</p>
-        <StripPanel>
-          <div className="divide-y divide-white/[0.06]">
-            {HOOKS.map((h) => (
-              <HookRowView key={h.label} label={h.label} description={h.description} command={h.command} actionLabel=" " />
-            ))}
-          </div>
-        </StripPanel>
-      </div>
-      <div className="bl-strip-cell">
-        <h4>Agents drive the board</h4>
-        <p>The session-aware CLI works from inside every terminal.</p>
-        <StripPanel>
-          <div className="px-3 py-2.5 font-mono text-[11px] leading-[1.8]">
-            <div className="text-white/80">
-              <span className="text-white/40">$</span> ouijit task create "Audit useTransition usages"
-            </div>
-            <div className="text-white/50">
-              Created task <span className="text-white/75">#144</span>
-            </div>
-            <div className="text-white/80 mt-1">
-              <span className="text-white/40">$</span> ouijit task set-status 142 in_review
-            </div>
-            <div className="text-white/50">
-              #142 <span className="text-white/65">in_progress → in_review</span>
-            </div>
-          </div>
-        </StripPanel>
-      </div>
-    </div>
-  );
-}
-
-/* ─── The section ─────────────────────────────────────────────────── */
-
-export function BuildSectionCandidate() {
-  return (
-    <div>
-      <h2 className="plan-v-headline">Build in parallel</h2>
-      <p className="bl-standfirst">Every task gets its own worktree, terminal, and agent. You keep the overview.</p>
-      <Workbench />
-      <Strip />
     </div>
   );
 }

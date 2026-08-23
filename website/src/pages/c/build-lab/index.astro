@@ -1,16 +1,32 @@
 ---
 import Site from '../../../layouts/Site.astro';
-import { BuildSectionCandidate } from '../../../components/demo/BuildLab.tsx';
+import { VariantTheater, VariantFloat, VariantAnnotated, VariantReference } from '../../../components/demo/BuildLab.tsx';
 ---
 <Site noindex>
   <div class="build-lab">
     <header class="build-lab-head">
       <h1>Build section lab</h1>
-      <p>Round 4: the 3b direction as a full section — headline, four-beat workbench with the dev-terminal promotion, and the strip.</p>
+      <p>Round 5: same workbench, different stagings — looking for a shape the Plan section doesn't already own. The strip is unchanged and omitted here.</p>
     </header>
 
-    <section class="build-lab-concept" id="v4">
-      <BuildSectionCandidate client:visible />
+    <section class="build-lab-concept" id="v5a">
+      <div class="build-lab-tag">5a · Theater — full-width centered stage pinned to the viewport; one caption at a time below it</div>
+      <VariantTheater client:visible />
+    </section>
+
+    <section class="build-lab-concept" id="v5b">
+      <div class="build-lab-tag">5b · Float — no desk at all: the stack loose on the page with an ambient glow, copy at the side</div>
+      <VariantFloat client:visible />
+    </section>
+
+    <section class="build-lab-concept" id="v5c">
+      <div class="build-lab-tag">5c · Annotated theater — centered stage, beat copy as callouts that point at the part in play</div>
+      <VariantAnnotated client:visible />
+    </section>
+
+    <section class="build-lab-concept" id="v5ref">
+      <div class="build-lab-tag">Reference · round 4's staging — side copy on a sticky desk (the Plan silhouette)</div>
+      <VariantReference client:visible />
     </section>
   </div>
 
@@ -25,24 +41,22 @@ import { BuildSectionCandidate } from '../../../components/demo/BuildLab.tsx';
       margin: 8px 0 0;
     }
     .build-lab-concept {
-      margin-top: 120px;
+      margin-top: 160px;
       padding-top: 40px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
-
-    .bl-standfirst {
+    .build-lab-tag {
+      font-family: 'Iosevka Extended', 'SF Mono', monospace;
+      font-size: 13px;
       color: #86868b;
-      font-size: 17px;
-      line-height: 1.5;
-      margin: 14px 0 0;
-      max-width: 560px;
+      margin-bottom: 56px;
     }
 
+    /* Side-copy layout (5b, reference) */
     .bl-split {
       display: flex;
       gap: 48px;
       align-items: flex-start;
-      margin-top: 24px;
     }
     .bl-steps {
       flex: 1;
@@ -68,39 +82,76 @@ import { BuildSectionCandidate } from '../../../components/demo/BuildLab.tsx';
       flex-shrink: 0;
     }
 
-    .bl-strip {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 24px;
-      margin-top: 48px;
-      align-items: start;
+    /* Theater (5a, 5c) */
+    .bl-theater-sticky {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
     }
-    .bl-strip-cell {
-      border-radius: 24px;
-      padding: 24px;
-      overflow: clip;
-      background:
-        radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%),
-        linear-gradient(180deg, #1c1d23, #131318);
+    .bl-theater-captions {
       position: relative;
+      width: 620px;
+      height: 92px;
+      text-align: center;
     }
-    .bl-strip-cell::after {
-      content: '';
+    .bl-theater-cap {
       position: absolute;
       inset: 0;
-      border-radius: inherit;
-      border: 1px solid rgba(255, 255, 255, 0.07);
+      transition: opacity 260ms ease;
+    }
+    .bl-theater-cap h3 {
+      font-size: 21px;
+      margin: 0;
+    }
+    .bl-theater-cap p {
+      color: #86868b;
+      font-size: 15px;
+      line-height: 1.5;
+      margin: 8px 0 0;
+    }
+
+    /* Float (5b) */
+    .bl-float-glow {
+      position: absolute;
+      inset: -120px -100px -80px;
+      background: radial-gradient(55% 55% at 50% 42%, rgba(99, 102, 241, 0.17), transparent 72%);
       pointer-events: none;
     }
-    .bl-strip-cell h4 {
-      font-size: 16px;
-      margin: 0 0 4px;
+
+    /* Annotated theater (5c) */
+    .bl-anno {
+      position: absolute;
+      width: 200px;
+      transition: opacity 260ms ease;
+      pointer-events: none;
     }
-    .bl-strip-cell p {
+    .bl-anno h3 {
+      font-size: 17px;
+      margin: 0;
+    }
+    .bl-anno p {
       color: #86868b;
       font-size: 13px;
       line-height: 1.5;
-      margin: 0 0 16px;
+      margin: 6px 0 0;
+    }
+    .bl-anno-line {
+      position: absolute;
+      top: 12px;
+      width: 14px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.25);
+    }
+    .bl-anno-line-r {
+      right: -16px;
+    }
+    .bl-anno-line-l {
+      left: -16px;
     }
   </style>
 </Site>
