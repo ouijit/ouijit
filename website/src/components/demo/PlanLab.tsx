@@ -174,17 +174,26 @@ const DESK_HUES = {
 
 function Desk({
   hue,
+  drain = 0,
   className = '',
   style,
   children,
 }: {
   hue: keyof typeof DESK_HUES;
+  /** 0..1 crossfade to graphite — the desk's color leaving with its card. */
+  drain?: number;
   className?: string;
   style?: React.CSSProperties;
   children: ReactNode;
 }) {
   return (
     <div className={`plan-desk ${className}`} style={{ backgroundImage: DESK_HUES[hue], ...style }}>
+      {drain > 0 && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ borderRadius: 'inherit', backgroundImage: DESK_HUES.graphite, opacity: drain }}
+        />
+      )}
       {children}
     </div>
   );
@@ -465,7 +474,9 @@ export function VariantScrubHue() {
         <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
           {ROWS.map(({ key, title, body }) => (
             <Row key={key} title={title} body={body} rowRef={setRow(key)}>
-              <Desk hue={deskHue[key]}>{rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}</Desk>
+              <Desk hue={deskHue[key]} drain={easeInOut(flightP(key))}>
+                {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}
+              </Desk>
             </Row>
           ))}
           <Row title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
