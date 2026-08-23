@@ -324,8 +324,31 @@ function Desk({
   );
 }
 
-function Well({ className = '', children }: { className?: string; children: ReactNode }) {
-  return <div className={`plan-well ${className}`}>{children}</div>;
+/** Radial-only hue washes for wells: color without the desks' opaque base, so
+ * the recessed texture stays visible underneath. */
+const WELL_HUES = {
+  indigo:
+    'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.35), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.16), transparent 55%)',
+  teal: 'radial-gradient(120% 140% at 85% 0%, rgba(45, 212, 191, 0.24), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(99, 102, 241, 0.14), transparent 55%)',
+  rose: 'radial-gradient(120% 140% at 20% 10%, rgba(233, 103, 159, 0.26), transparent 60%), radial-gradient(120% 130% at 100% 90%, rgba(168, 85, 247, 0.16), transparent 60%)',
+  violet:
+    'radial-gradient(130% 120% at 80% 0%, rgba(168, 85, 247, 0.20), transparent 55%), radial-gradient(140% 120% at 0% 100%, rgba(59, 130, 246, 0.14), transparent 60%)',
+} as const;
+
+function Well({
+  hue,
+  className = '',
+  children,
+}: {
+  hue?: keyof typeof WELL_HUES;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`plan-well ${className}`} style={hue ? { backgroundImage: WELL_HUES[hue] } : undefined}>
+      {children}
+    </div>
+  );
 }
 
 /* ─── Round four: scroll-scrubbed landings with explicit connections ─
@@ -665,10 +688,10 @@ export function VariantScrubHandoff() {
 /** One gradient layer per source, stacked onto the column desk as its card
  * lands — the row hues, minus the dark linear base the desk already has. */
 const CHARGE_LAYERS: Record<SourceKey, string> = {
-  agent:
-    'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.35), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.16), transparent 55%)',
-  issue:
-    'radial-gradient(120% 140% at 85% 0%, rgba(45, 212, 191, 0.24), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(99, 102, 241, 0.14), transparent 55%)',
+  agent: WELL_HUES.indigo,
+  issue: WELL_HUES.teal,
+  // Glows from the bottom, unlike the rose row wash — the last landing fills
+  // the desk from below the earlier two.
   manual:
     'radial-gradient(120% 140% at 20% 100%, rgba(233, 103, 159, 0.26), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(168, 85, 247, 0.16), transparent 60%)',
 };
@@ -750,6 +773,7 @@ export function VariantScrubWellCharge() {
   const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
   const open = past(progress, 0.55);
   const landed = past(progress, 0.76);
+  const wellHue: Record<SourceKey, keyof typeof WELL_HUES> = { agent: 'indigo', issue: 'teal', manual: 'rose' };
   return (
     <div>
       <h2 className="plan-v-headline">Plan at scale, in detail</h2>
@@ -757,11 +781,11 @@ export function VariantScrubWellCharge() {
         <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
           {ROWS.map(({ key, title, body }) => (
             <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
-              <Well>{rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}</Well>
+              <Well hue={wellHue[key]}>{rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}</Well>
             </ScrubRow>
           ))}
           <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
-            <Well>
+            <Well hue="violet">
               <Panel ledge={ledge('file-text', 'plan.md')}>
                 <PlanPane short />
               </Panel>
