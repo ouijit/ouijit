@@ -663,6 +663,7 @@ export function ReviewVariantTwoAct() {
   // Binary like the stack promotions, with the same animated depth change —
   // a scroll-driven crossfade would leave both surfaces half-faded.
   const prOn = p('pr') > 0.35;
+  const activeIdx = TWO_ACT_KEYS.reduce((acc, k, i) => (p(k) > 0.35 ? i : acc), 0);
   return (
     <div ref={wrapRef} style={{ height: '460vh' }}>
       <div className="bl-theater-sticky">
@@ -687,7 +688,14 @@ export function ReviewVariantTwoAct() {
             </div>
           </div>
         </div>
-        <TheaterCaps beats={TWO_ACT_BEATS} p={p} />
+        <div className="rl-beat-row">
+          {TWO_ACT_BEATS.map((b, i) => (
+            <div key={b.key} className={i === activeIdx ? 'is-active' : undefined}>
+              <h3>{b.title}</h3>
+              <p>{b.body}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
