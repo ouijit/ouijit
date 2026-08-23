@@ -7,10 +7,68 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
     <header class="desk-lab-head">
       <h1>Desk background lab</h1>
       <p>
-        Round 2: six treatments that are not gradients — drawn lines, type, patterns, flat color, and UI
-        collage. The gradient round is kept at the bottom for reference.
+        Round 3: environments, not decoration. Each concept is one idea about what the desk physically is —
+        a studio floor, the page's own material, an etched drawing, a wired trace — executed quietly.
+        Earlier rounds kept below for reference.
       </p>
     </header>
+
+    <section class="desk-lab-concept" id="dm">
+      <div class="desk-lab-tag">m · Dark room — the card as hardware on a black studio floor; the only ornament is its own reflection</div>
+      <div class="plan-desk dl dl-m">
+        <div class="dl-m-floor">
+          <SampleCard client:visible />
+        </div>
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dn">
+      <div class="desk-lab-tag">n · Machined recess — no color at all: the page's own surface with a pocket milled into it, the card floating above</div>
+      <div class="plan-desk dl dl-n">
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="do">
+      <div class="desk-lab-tag">o · Etched plan — the app window's floorplan engraved into the desk at hairline weight; the card sits inside its own drawing</div>
+      <div class="plan-desk dl dl-o">
+        <svg class="dl-layer" viewBox="0 0 1200 496" preserveAspectRatio="none" aria-hidden="true">
+          <rect x="18.5" y="14.5" width="1163" height="467" rx="14" fill="none" stroke="rgba(255,255,255,0.09)" />
+          <circle cx="40" cy="33" r="4" fill="rgba(255,255,255,0.10)" />
+          <circle cx="56" cy="33" r="4" fill="rgba(255,255,255,0.10)" />
+          <circle cx="72" cy="33" r="4" fill="rgba(255,255,255,0.10)" />
+          <path d="M262.5,14.5 V481.5" stroke="rgba(255,255,255,0.08)" />
+          <path d="M18.5,50.5 H1181.5" stroke="rgba(255,255,255,0.08)" />
+          <path d="M493.5,50.5 V481.5 M724.5,50.5 V481.5 M955.5,50.5 V481.5" stroke="rgba(255,255,255,0.07)" />
+          <rect x="40.5" y="72.5" width="180" height="26" rx="7" fill="none" stroke="rgba(255,255,255,0.07)" />
+          <rect x="40.5" y="110.5" width="180" height="26" rx="7" fill="none" stroke="rgba(255,255,255,0.07)" />
+          <rect x="40.5" y="434.5" width="180" height="26" rx="7" fill="none" stroke="rgba(255,255,255,0.07)" />
+          <rect x="286.5" y="434.5" width="184" height="40" rx="9" fill="none" stroke="rgba(255,255,255,0.07)" />
+          <rect x="517.5" y="434.5" width="184" height="40" rx="9" fill="none" stroke="rgba(255,255,255,0.07)" />
+          <rect x="979.5" y="72.5" width="180" height="26" rx="7" fill="none" stroke="rgba(255,255,255,0.07)" />
+        </svg>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dp">
+      <div class="desk-lab-tag">p · Trace — monochrome desk, one hairline of the section's accent routed around the card like a board trace</div>
+      <div class="plan-desk dl dl-p">
+        <svg class="dl-layer" viewBox="0 0 1200 496" preserveAspectRatio="none" aria-hidden="true">
+          <g fill="none" stroke="#6366f1" stroke-width="1.5" style="filter: drop-shadow(0 0 5px rgba(99,102,241,0.9))">
+            <path d="M0,24 H1128 Q1176,24 1176,72 V496" />
+          </g>
+          <g fill="none" stroke="rgba(34,211,238,0.9)" stroke-width="1.5" style="filter: drop-shadow(0 0 5px rgba(34,211,238,0.7))">
+            <path d="M1200,472 H72 Q24,472 24,424 V0" />
+          </g>
+          <circle cx="1176" cy="24" r="3.5" fill="#6366f1" style="filter: drop-shadow(0 0 5px rgba(99,102,241,0.9))" />
+          <circle cx="24" cy="472" r="3.5" fill="#22d3ee" style="filter: drop-shadow(0 0 5px rgba(34,211,238,0.8))" />
+        </svg>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <div class="desk-lab-round">Round 2 · patterns, for reference</div>
 
     <section class="desk-lab-concept" id="dg">
       <div class="desk-lab-tag">g · Git graph — branch lanes drawn around the card, curving at the corners, commits as dots</div>
@@ -178,6 +236,35 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
 
     .dl {
       padding: 48px;
+    }
+
+    /* m · dark room: flat black, the card mirrored on a gloss floor */
+    .dl-m {
+      background: #08080b;
+      padding-bottom: 120px;
+    }
+    .dl-m-floor {
+      -webkit-box-reflect: below 10px linear-gradient(rgba(0, 0, 0, 0.16), transparent 34%);
+    }
+
+    /* n · machined recess: translucent over the page's own surface,
+       lit as a pocket — dark upper lip, hairline lower rim */
+    .dl-n {
+      background: rgba(4, 4, 7, 0.55);
+      box-shadow:
+        inset 0 14px 28px -12px rgba(0, 0, 0, 0.9),
+        inset 0 1px 0 rgba(0, 0, 0, 0.7),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    /* o · etched plan */
+    .dl-o {
+      background: #0d0d12;
+    }
+
+    /* p · trace */
+    .dl-p {
+      background: #0b0b10;
     }
 
     /* g · git graph */
