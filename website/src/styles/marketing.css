@@ -2505,3 +2505,125 @@ html.js .b-h1.is-typing .b-h1-typed {
     margin-top: 64px;
   }
 }
+
+/* Plan section */
+.home-plan {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 140px var(--content-padding) 48px;
+}
+.plan-v-headline {
+  font-size: 44px;
+  text-align: center;
+  margin: 0;
+}
+.plan-v3-row {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+}
+.plan-v3-copy {
+  width: 240px;
+  flex-shrink: 0;
+}
+.plan-v3-copy h3 {
+  font-size: 21px;
+  margin: 0;
+}
+.plan-v3-copy p {
+  color: #86868b;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 10px 0 0;
+}
+.plan-v3-mock {
+  flex: 1;
+  min-width: 0;
+}
+.plan-column-rail {
+  position: sticky;
+  top: 110px;
+  width: 372px;
+}
+.plan-desk {
+  border-radius: 24px;
+  padding: 40px;
+  /* clip, not hidden: hidden makes the desk a scroll container, which
+     would pin a sticky descendant in place. */
+  overflow: clip;
+  position: relative;
+}
+/* The bevel is a ring on top rather than a border underneath: the drain
+   and charge overlays reach the edge, so the bevel blends with whatever
+   color the desk currently shows instead of the one it started with. */
+.plan-desk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+  z-index: 5;
+}
+.plan-desk > .glass-bevel {
+  box-shadow:
+    var(--shadow-panel),
+    0 32px 64px -32px rgba(0, 0, 0, 0.75);
+}
+/* Scrubbed card slots: height opens via the 0fr→1fr grid trick so the
+   transition reverses cleanly when scroll direction flips. */
+.plan-slot {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 340ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.plan-slot > div {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.plan-slot-open {
+  grid-template-rows: 1fr;
+}
+.plan-slot-in > div {
+  opacity: 1;
+  transform: none;
+}
+.plan-firing {
+  box-shadow:
+    var(--shadow-panel),
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 55%, transparent),
+    0 0 24px color-mix(in srgb, var(--color-accent) 18%, transparent) !important;
+  transition: box-shadow 300ms ease-out;
+}
+@media (max-width: 999px) {
+  .home-plan {
+    padding: 80px var(--content-padding) 24px;
+  }
+  .plan-v-headline {
+    font-size: 32px;
+  }
+  .plan-stage {
+    flex-direction: column;
+  }
+  .plan-v3-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+  }
+  .plan-v3-copy {
+    width: auto;
+  }
+  .plan-desk {
+    padding: 24px;
+  }
+  .plan-column-rail {
+    position: static;
+    width: auto;
+    align-self: center;
+    margin-top: 24px;
+  }
+}

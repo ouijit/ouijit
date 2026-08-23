@@ -6,9 +6,9 @@ import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { ClaudeUser, AssistantSay, ToolCall, ToolResult, BODY_CLS } from './stackParts';
 
 /**
- * Concept lab for the Plan section, reduced to the picked direction (4c):
- * story rows on desk cards, scroll-scrubbed card flights into a sticky To Do
- * column whose desk charges up per landing. Evaluated at /c/plan-lab/.
+ * The Plan section: story rows on desk cards, scroll-scrubbed card flights
+ * into a sticky To Do column whose desk charges up per landing. Styles live
+ * in marketing.css under "Plan section".
  */
 
 type SourceKey = 'agent' | 'issue' | 'manual';
@@ -121,7 +121,7 @@ function Panel({
   return (
     <div
       className={`glass-bevel relative flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel min-h-0 ${
-        firing ? 'plan-lab-firing' : ''
+        firing ? 'plan-firing' : ''
       } ${className}`}
       style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)', ...style }}
     >
@@ -341,9 +341,9 @@ const ROWS: { key: SourceKey; title: string; body: string }[] = [
   {
     key: 'agent',
     title: 'Delegate the breakdown',
-    body: 'An agent splits the epic and files each task over the CLI, prompt and all.',
+    body: 'Hand an agent the epic. It files each task over the CLI, prompt included.',
   },
-  { key: 'issue', title: 'Pull from GitHub', body: 'An open issue becomes a task on the board with one click.' },
+  { key: 'issue', title: 'Pull from GitHub', body: 'Turn any open issue into a task on the board with one click.' },
   { key: 'manual', title: 'Or just type', body: 'The composer sits at the bottom of the column, one ⌘N away.' },
 ];
 
@@ -436,35 +436,51 @@ function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>
   );
 }
 
-/* ─── First beat: desk cards, charging column, card flights ───────── */
+/* ─── The stage: desk cards, charging column, card flights ────────── */
 
 const DESK_HUE: Record<SourceKey, keyof typeof DESK_HUES> = { agent: 'indigo', issue: 'teal', manual: 'rose' };
 
-/** The three creation rows beside the charging column — no detail row. */
+/** Narrow viewports and reduced motion get the finished state with no
+ * choreography: every card landed, the column charged, nothing in flight. */
+function useStaticMode() {
+  const [staticMode, setStaticMode] = useState(false);
+  useEffect(() => {
+    const queries = [window.matchMedia('(max-width: 999px)'), window.matchMedia('(prefers-reduced-motion: reduce)')];
+    const update = () => setStaticMode(queries.some((q) => q.matches));
+    update();
+    queries.forEach((q) => q.addEventListener('change', update));
+    return () => queries.forEach((q) => q.removeEventListener('change', update));
+  }, []);
+  return staticMode;
+}
+
+const ALL_LANDED: Record<SourceKey, boolean> = { agent: true, issue: true, manual: true };
+
 function CreateStage() {
+  const staticMode = useStaticMode();
   const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
   const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
-  const open = past(progress, 0.55);
-  const landed = past(progress, 0.76);
+  const open = staticMode ? ALL_LANDED : past(progress, 0.55);
+  const landed = staticMode ? ALL_LANDED : past(progress, 0.76);
   return (
-    <div ref={stageRef} className="relative flex gap-10 items-start" style={{ marginTop: 72 }}>
+    <div ref={stageRef} className="relative flex gap-10 items-start plan-stage" style={{ marginTop: 72 }}>
       <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
         {ROWS.map(({ key, title, body }) => (
           <Row key={key} title={title} body={body} rowRef={setRow(key)}>
-            <Desk hue={DESK_HUE[key]} drain={easeInOut(flightP(key))}>
-              {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}
+            <Desk hue={DESK_HUE[key]} drain={staticMode ? 0 : easeInOut(flightP(key))}>
+              {rowMock(key, !staticMode && progress[key] > 0.15 && progress[key] < 0.55, setSource)}
             </Desk>
           </Row>
         ))}
       </div>
-      <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
+      <div className="plan-column-rail shrink-0">
         <ChargingDesk landed={landed}>
           <div className="flex" style={{ minHeight: 470 }}>
             <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
           </div>
         </ChargingDesk>
       </div>
-      {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
+      {!staticMode && geom && <HandoffGhosts flightP={flightP} geom={geom} />}
     </div>
   );
 }

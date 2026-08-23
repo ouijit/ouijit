@@ -3,6 +3,7 @@ import Site from '../../layouts/Site.astro';
 import DownloadButtons from '../../components/home/DownloadButtons.astro';
 import AppWindowScene from '../../components/demo/AppWindowScene.tsx';
 import Harnesses from '../../components/home/Harnesses.astro';
+import Plan from '../../components/home/Plan.astro';
 ---
 <Site noindex>
   <script is:inline>document.documentElement.classList.add('js');</script>
@@ -31,6 +32,8 @@ import Harnesses from '../../components/home/Harnesses.astro';
   </section>
 
   <Harnesses />
+
+  <Plan />
 
   <script>
     import { initHomeChrome, initPitchIllumination } from '../../scripts/homeChrome';
