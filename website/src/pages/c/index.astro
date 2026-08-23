@@ -4,6 +4,7 @@ import DownloadButtons from '../../components/home/DownloadButtons.astro';
 import AppWindowScene from '../../components/demo/AppWindowScene.tsx';
 import Harnesses from '../../components/home/Harnesses.astro';
 import Plan from '../../components/home/Plan.astro';
+import Build from '../../components/home/Build.astro';
 ---
 <Site noindex>
   <script is:inline>document.documentElement.classList.add('js');</script>
@@ -31,9 +32,11 @@ import Plan from '../../components/home/Plan.astro';
     <a class="home-pitch-link" href="/docs/" data-reveal>Read the docs <span aria-hidden="true">→</span></a>
   </section>
 
-  <Harnesses />
-
   <Plan />
+
+  <Build />
+
+  <Harnesses />
 
   <script>
     import { initHomeChrome, initPitchIllumination } from '../../scripts/homeChrome';

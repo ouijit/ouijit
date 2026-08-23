@@ -455,6 +455,98 @@ export function VariantTheater() {
   );
 }
 
+/* ─── The strip ───────────────────────────────────────────────────── */
+
+const HOOKS = [
+  { label: 'Start', description: 'To Do → In Progress', command: 'claude "$OUIJIT_TASK_DESCRIPTION"' },
+  { label: 'Continue', description: 'Reopening a running task', command: 'claude --continue' },
+  { label: 'Run', description: 'The Run button', command: 'npm run dev' },
+  { label: 'Review', description: 'In Progress → In Review', command: 'gh pr create --fill' },
+  { label: 'Done', description: 'In Review → Done', command: 'git push origin HEAD' },
+];
+
+function StripPanel({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="glass-bevel rounded-[12px] border border-bezel-panel overflow-hidden"
+      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Strip() {
+  return (
+    <div className="bl-strip">
+      <div className="bl-strip-cell">
+        <h4>Contain untrusted code</h4>
+        <p>Run any terminal in a Lima VM or under nono. The ringed dot marks it.</p>
+        <StripPanel>
+          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/[0.06]">
+            <StatusDot summaryType="thinking" sandboxed />
+            <span className="font-mono text-xs font-medium text-ink/85 whitespace-nowrap">claude · lima</span>
+            <span className="font-mono text-xs text-ink/45 truncate">— npm install…</span>
+          </div>
+          <div className="px-3 pt-2 pb-1 text-[11px] text-text-tertiary">Open in</div>
+          <div className="pb-1 text-[13px]">
+            <div className="px-3 py-1.5 text-text-secondary">Terminal</div>
+            <div className="px-3 py-1.5 bg-accent text-accent-ink flex items-center justify-between">
+              <span>Lima VM sandbox</span>
+              <Icon name="check" className="w-3.5 h-3.5" />
+            </div>
+            <div className="px-3 py-1.5 text-text-secondary">nono sandbox</div>
+          </div>
+        </StripPanel>
+      </div>
+      <div className="bl-strip-cell">
+        <h4>Hooks on every move</h4>
+        <p>Your commands run as tasks change status.</p>
+        <StripPanel>
+          <div className="divide-y divide-white/[0.06]">
+            {HOOKS.map((h) => (
+              <HookRowView key={h.label} label={h.label} description={h.description} command={h.command} actionLabel=" " />
+            ))}
+          </div>
+        </StripPanel>
+      </div>
+      <div className="bl-strip-cell">
+        <h4>Agents drive the board</h4>
+        <p>The session-aware CLI works from inside every terminal.</p>
+        <StripPanel>
+          <div className="px-3 py-2.5 font-mono text-[11px] leading-[1.8]">
+            <div className="text-white/80">
+              <span className="text-white/40">$</span> ouijit task create "Audit useTransition usages"
+            </div>
+            <div className="text-white/50">
+              Created task <span className="text-white/75">#144</span>
+            </div>
+            <div className="text-white/80 mt-1">
+              <span className="text-white/40">$</span> ouijit task set-status 142 in_review
+            </div>
+            <div className="text-white/50">
+              #142 <span className="text-white/65">in_progress → in_review</span>
+            </div>
+          </div>
+        </StripPanel>
+      </div>
+    </div>
+  );
+}
+
+/* ─── The section, as shipped on the c page ───────────────────────── */
+
+export function BuildSection() {
+  return (
+    <div>
+      <h2 className="plan-v-headline">Build in parallel</h2>
+      <p className="bl-standfirst">Every task gets its own worktree, terminal, and agent. You keep the overview.</p>
+      <VariantTheater />
+      <Strip />
+    </div>
+  );
+}
+
 /* ═══ 5b · Float — no desk: the stack loose on the page, side copy ═══ */
 
 export function VariantFloat() {
