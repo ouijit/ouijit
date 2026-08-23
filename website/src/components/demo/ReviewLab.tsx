@@ -313,10 +313,10 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
   const fixing = p('fix') > 0.06;
   return (
     <ReviewShell busy={fixing} pending={pending ? <PendingNotes /> : undefined}>
-      <Line p={p('read')} at={0}>
+      <Line p={p('note')} at={0}>
         <AssistantSay>Done — stepper shell, saved progress, and WelcomeIntro retired.</AssistantSay>
       </Line>
-      <Line p={p('read')} at={0.3}>
+      <Line p={p('note')} at={0.08}>
         <ToolCall name="Bash" args="ouijit task set-status 101 in_review" />
         <ToolResult>
           #101 <span className="text-white/65">in_progress → in_review</span>
@@ -396,11 +396,6 @@ function RoundTripCard({ p }: { p: (k: string) => number }) {
 /* ─── 1a · Round-trip — pinned stage, the note loop as the story ───── */
 
 const LOOP_BEATS = [
-  {
-    key: 'read',
-    title: 'Start from the diff',
-    body: 'The task lands in review with its diff one tab over, showing every change on the branch against any base.',
-  },
   {
     key: 'note',
     title: 'Comment inline',
@@ -553,9 +548,129 @@ function DraftRow({ path, line, origin, body }: { path: string; line: number; or
   );
 }
 
+/* ─── The Code tab: file rail, the diff, a draft being collected ──── */
+
+const CODE_NOTE = 'fall back to 0 when preferences are missing';
+
+const CODE_FILES = [
+  { name: 'Stepper.tsx', icon: 'file-dashed', color: 'text-ink/50', add: 92, del: 14 },
+  { name: 'WelcomeIntro.tsx', icon: 'file-minus', color: 'text-vcs-deleted', add: 0, del: 64 },
+  { name: 'useOnboardingProgress.ts', icon: 'file-plus', color: 'text-vcs-added', add: 38, del: 0, active: true },
+];
+
+const HOOK_LINES = [
+  "import { useEffect, useState } from 'react';",
+  "import { readPreference, writePreference } from '../account/preferences';",
+  '',
+  'export function useOnboardingProgress(accountId: string) {',
+  '  const key = `onboarding:${accountId}`;',
+  '  const stored = readPreference(key);',
+  '  const [step, setStep] = useState(stored.step);',
+  '',
+  '  useEffect(() => writePreference(key, { step }), [key, step]);',
+  '  return { step, setStep };',
+];
+
+function PrCodePane({ p }: { p: number }) {
+  const typed = Math.round(clamp01((p - 0.18) / 0.45) * CODE_NOTE.length);
+  const composing = p > 0.1 && p <= 0.75;
+  const saved = p > 0.75;
+  return (
+    <div className="h-full flex">
+      <div className="shrink-0 flex flex-col overflow-hidden py-2" style={{ width: 248 }}>
+        <div className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-ink/50">
+          <Icon name="caret-down" className="!w-3 !h-3" />
+          <span className="flex-1 min-w-0 truncate">src/onboarding</span>
+        </div>
+        <div className="pl-3">
+          {CODE_FILES.map((f) => (
+            <div
+              key={f.name}
+              className={`flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] ${
+                f.active ? 'bg-ink/[0.07] text-ink/90' : 'text-ink/70'
+              }`}
+            >
+              <Icon name={f.icon} className={`w-4 h-4 ${f.color}`} />
+              <span className="flex-1 min-w-0 truncate">{f.name}</span>
+              <span className="shrink-0 font-mono text-[12px]">
+                {f.add > 0 && <span className="text-diff-added">+{f.add}</span>}
+                {f.add > 0 && f.del > 0 && ' '}
+                {f.del > 0 && <span className="text-diff-removed">-{f.del}</span>}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="pane-seam relative w-px shrink-0" />
+      <div className="diff-well diff-list relative flex-1 min-w-0 overflow-hidden pb-3">
+        <div className="diff-card mx-4 mt-3 rounded-[14px] border border-bezel bg-diff-card overflow-clip">
+          <div className="pane-ledge sticky top-0 z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface">
+            <span
+              className="shrink-0 w-4 h-4 rounded border border-ink/25 text-transparent flex items-center justify-center [&>svg]:w-3 [&>svg]:h-3"
+              aria-hidden="true"
+            >
+              <Icon name="check" />
+            </span>
+            <span className="flex-1 min-w-0 truncate font-mono text-[13px]">
+              <span className="text-ink/35">src/onboarding/</span>
+              <span className="text-ink/90">useOnboardingProgress.ts</span>
+            </span>
+            <span className="shrink-0 text-[10px] px-1 py-px rounded font-medium bg-vcs-added/15 text-vcs-added">
+              added
+            </span>
+            <span className="shrink-0 font-mono text-[11px]">
+              <span className="text-diff-added">+38</span>
+            </span>
+          </div>
+          {HOOK_LINES.map((content, i) => (
+            <div key={i}>
+              <NotedDiffLineRow line={{ type: 'addition', newNo: i + 1, content }} />
+              {i === 6 && composing && (
+                <div className="glass-bevel relative mx-[80px] my-1.5 px-3 py-2.5 bg-terminal-surface border border-bezel rounded-[12px]">
+                  <div className="text-sm text-text-primary min-h-5">
+                    {CODE_NOTE.slice(0, typed)}
+                    <span className="terminal-cursor" />
+                  </div>
+                  <div className="flex items-center gap-3 mt-2">
+                    <span
+                      className={`inline-flex items-center h-6 px-2.5 rounded-[8px] text-[13px] font-medium transition-colors duration-150 ${
+                        typed >= CODE_NOTE.length ? 'bg-accent text-accent-ink' : 'bg-ink/[0.08] text-text-secondary'
+                      }`}
+                    >
+                      Save comment
+                    </span>
+                    <span className="text-[13px] text-text-tertiary">Cancel</span>
+                  </div>
+                  <p className="text-[11px] text-text-tertiary mt-1.5">Saved locally until you submit the review.</p>
+                </div>
+              )}
+              {i === 6 && saved && (
+                <div className="glass-bevel relative mx-[80px] my-1.5 px-3 py-2 bg-terminal-surface border border-bezel rounded-[12px]">
+                  <span className="block text-[11px] text-accent mb-0.5">Unsent comment · Line 7</span>
+                  <div className="text-sm text-text-secondary">{CODE_NOTE}</div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** The pull request surface reduced to its review essentials: the header
- * segment, the facts, and the staged drafts. Same task, one commit later. */
-function CondensedPrCard({ compact = false }: { compact?: boolean }) {
+ * segment, the facts, and the staged drafts. Same task, one commit later.
+ * `pane` switches to the Code tab; `pCode` plays the draft being written. */
+function CondensedPrCard({
+  compact = false,
+  pane = 'summary',
+  pCode = 0,
+}: {
+  compact?: boolean;
+  pane?: 'summary' | 'code';
+  pCode?: number;
+}) {
+  const unsent = pCode > 0.75 ? 2 : 1;
   return (
     <div
       className="glass-bevel relative h-full flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
@@ -568,13 +683,21 @@ function CondensedPrCard({ compact = false }: { compact?: boolean }) {
         </span>
         {!compact && (
           <nav className="flex items-center gap-4 mx-auto shrink-0 self-stretch">
-            <span className="flex items-center px-0.5 border-b-2 -mb-px border-accent text-[13px] font-medium text-text-primary">
+            <span
+              className={`flex items-center px-0.5 border-b-2 -mb-px text-[13px] font-medium transition-colors duration-150 ${
+                pane === 'summary' ? 'border-accent text-text-primary' : 'border-transparent text-text-tertiary'
+              }`}
+            >
               Summary
             </span>
             <span className="flex items-center px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
               Timeline
             </span>
-            <span className="flex items-center gap-1.5 px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
+            <span
+              className={`flex items-center gap-1.5 px-0.5 border-b-2 -mb-px text-[13px] font-medium transition-colors duration-150 ${
+                pane === 'code' ? 'border-accent text-text-primary' : 'border-transparent text-text-tertiary'
+              }`}
+            >
               Code <span className="opacity-50 tabular-nums">3</span>
             </span>
           </nav>
@@ -585,7 +708,8 @@ function CondensedPrCard({ compact = false }: { compact?: boolean }) {
             style={{ background: '#212126' }}
           >
             <span className={`${SEG} text-text-secondary`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-accent" />2 unsent
+              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+              {unsent} unsent
             </span>
             {SEG_DIVIDER}
             <span className={`${SEG} text-text-secondary`}>Review</span>
@@ -595,6 +719,9 @@ function CondensedPrCard({ compact = false }: { compact?: boolean }) {
         </div>
       </header>
       <div className="flex-1 min-h-0 overflow-hidden">
+        {pane === 'code' ? (
+          <PrCodePane p={pCode} />
+        ) : (
         <div className={`h-full ${compact ? '' : 'w-full max-w-3xl mx-auto'} px-6 py-5 flex flex-col gap-4`}>
           <header className="flex flex-col gap-2">
             <div className="text-[21px] leading-tight font-medium text-text-primary">Rework onboarding flow</div>
@@ -631,7 +758,7 @@ function CondensedPrCard({ compact = false }: { compact?: boolean }) {
           <section className="flex flex-col gap-3 min-h-0">
             <div className="flex items-center gap-2 pb-2 border-b border-ink/[0.08]">
               <span className="text-[17px] font-medium text-text-primary">Review</span>
-              <span className="text-[14px] text-text-tertiary">2 drafts</span>
+              <span className="text-[14px] text-text-tertiary">1 draft</span>
             </div>
             <DraftRow
               path="src/onboarding/Stepper.tsx"
@@ -639,9 +766,9 @@ function CondensedPrCard({ compact = false }: { compact?: boolean }) {
               origin="claude"
               body="prefetch preferences before the first step renders — the stepper flashes step 0 on slow accounts"
             />
-            <DraftRow path="src/onboarding/useOnboardingProgress.ts" line={9} body="fall back to 0 when preferences are missing" />
           </section>
         </div>
+        )}
       </div>
     </div>
   );
@@ -654,7 +781,12 @@ const TWO_ACT_BEATS = [
   {
     key: 'pr',
     title: 'Land the pull request',
-    body: 'Every open pull request is here — yours and your teammates’. Drafts stay local until you send them as one review, and you merge without opening GitHub.',
+    body: 'Every open pull request is here — yours and your teammates’. Checks, threads, and the merge menu, without opening GitHub.',
+  },
+  {
+    key: 'code',
+    title: 'Draft the review',
+    body: 'The Code tab walks the diff file by file. Comments stage as drafts — yours beside your agents’ — and nothing reaches GitHub until you send them as one review.',
   },
 ] as const;
 
@@ -683,7 +815,7 @@ export function ReviewVariantTwoAct() {
                 pointerEvents: 'none',
               }}
             >
-              <CondensedPrCard />
+              <CondensedPrCard pane={p('code') > 0.05 ? 'code' : 'summary'} pCode={p('code')} />
             </div>
           </div>
         </div>
