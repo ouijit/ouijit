@@ -18,6 +18,7 @@ import {
   ToolResult,
   Continuation,
   DevServerBody,
+  TestBody,
   type PanelKind,
 } from './stackParts';
 
@@ -339,8 +340,14 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
           }
         />
         {pos('test') === 0 && (
-          <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
-            {invitation.plan && <MockPlanPanel fixture={invitation.plan} onClose={() => {}} />}
+          <div className="flex-1 min-h-0 flex">
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+              <TestBody />
+            </div>
+            <div className="pane-seam relative w-px shrink-0" />
+            <div className="relative shrink-0" style={{ width: '46%' }}>
+              {invitation.plan && <MockPlanPanel fixture={invitation.plan} onClose={() => {}} />}
+            </div>
           </div>
         )}
       </TerminalCardView>
@@ -359,13 +366,16 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
           }
         />
         {pos('dev') === 0 && (
-          <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
-            <DevServerBody />
-            {onboarding.preview && (
-              <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
+          <div className="flex-1 min-h-0 flex">
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+              <DevServerBody />
+            </div>
+            <div className="pane-seam relative w-px shrink-0" />
+            <div className="relative shrink-0" style={{ width: '46%' }}>
+              {onboarding.preview && (
                 <MockPreviewPanel fixture={{ ...onboarding.preview, page: <DarkOnboardingPage /> }} onClose={() => {}} />
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </TerminalCardView>
