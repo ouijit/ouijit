@@ -143,9 +143,9 @@ const ledge = (icon: string, label: string, hint?: string) => (
 
 const DESK_HUES = {
   indigo:
-    'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.32), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.14), transparent 55%), linear-gradient(180deg, #191a2e, #121218)',
-  teal: 'radial-gradient(120% 140% at 85% 0%, rgba(45, 212, 191, 0.22), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(99, 102, 241, 0.16), transparent 55%), linear-gradient(180deg, #14201f, #101314)',
-  rose: 'radial-gradient(120% 140% at 20% 10%, rgba(233, 103, 159, 0.26), transparent 60%), radial-gradient(120% 130% at 100% 90%, rgba(168, 85, 247, 0.16), transparent 60%), linear-gradient(180deg, #221521, #131015)',
+    'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.62), transparent 62%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.3), transparent 58%), linear-gradient(180deg, #20254c, #14182e)',
+  teal: 'radial-gradient(120% 140% at 85% 0%, rgba(45, 212, 191, 0.4), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(99, 102, 241, 0.3), transparent 55%), linear-gradient(180deg, #17332f, #101b1c)',
+  rose: 'radial-gradient(120% 140% at 20% 10%, rgba(233, 103, 159, 0.46), transparent 60%), radial-gradient(120% 130% at 100% 90%, rgba(168, 85, 247, 0.3), transparent 60%), linear-gradient(180deg, #331d30, #18121d)',
   graphite: 'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%), linear-gradient(180deg, #1c1d23, #131318)',
 } as const;
 

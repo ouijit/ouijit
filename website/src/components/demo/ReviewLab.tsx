@@ -26,7 +26,7 @@ import {
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 const DESK_MAGENTA =
-  'radial-gradient(120% 140% at 15% 0%, rgba(218, 119, 242, 0.24), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(251, 113, 133, 0.12), transparent 55%), linear-gradient(180deg, #211627, #141117)';
+  'radial-gradient(120% 140% at 15% 0%, rgba(218, 119, 242, 0.55), transparent 64%), radial-gradient(110% 120% at 100% 100%, rgba(248, 81, 73, 0.38), transparent 60%), radial-gradient(70% 80% at 86% 2%, rgba(63, 185, 80, 0.22), transparent 50%), linear-gradient(180deg, #331d3e, #1c1327)';
 
 /** One tall wrapper drives all beats — same scrub as the Build theater. */
 function useTheaterScrub(keys: readonly string[]) {
