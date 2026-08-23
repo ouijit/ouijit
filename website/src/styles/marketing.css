@@ -2753,6 +2753,7 @@ html.js .b-h1.is-typing .b-h1-typed {
   flex-direction: column;
   align-items: center;
   gap: 36px;
+  margin-top: 48px;
 }
 .beat-dots {
   width: 100%;
