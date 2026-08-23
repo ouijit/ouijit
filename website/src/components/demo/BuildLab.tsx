@@ -232,7 +232,7 @@ function WorkbenchSession({ p }: { p: (k: string) => number }) {
  * up the invitation task's terminal with its plan open, the preview beat
  * the dev terminal, and the finale returns to claude with more output. */
 function WorkbenchStack({ p }: { p: (k: string) => number }) {
-  const st = clamp01((p('status') - 0.45) / 0.25);
+  const st = clamp01((p('status') - 0.06) / 0.3);
   const testDone = st > 0.3;
 
   const onboarding = getPanelFixtures('pty-101-dev');
@@ -242,8 +242,8 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
     diff: p('preview') > 0.35 ? onboarding.diff : undefined,
   };
 
-  const diffOpen = p('diff') > 0.5;
-  const front = diffOpen ? 'claude' : p('preview') > 0.5 ? 'dev' : p('plan') > 0.5 ? 'test' : 'claude';
+  const diffOpen = p('diff') > 0.08;
+  const front = diffOpen ? 'claude' : p('preview') > 0.08 ? 'dev' : 'claude';
   const order = [front, ...['claude', 'test', 'dev', 'audit'].filter((id) => id !== front)];
   const pos = (id: string) => order.indexOf(id);
 

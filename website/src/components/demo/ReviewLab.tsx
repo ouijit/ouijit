@@ -199,9 +199,9 @@ function NotesIsland({ count, flash }: { count: number; flash?: boolean }) {
  * `pNote` types the note, `pSend` sends it, `pFix` is the agent's follow-up. */
 function NotedDiffPane({ pNote, pSend, pFix }: { pNote: number; pSend: number; pFix: number }) {
   const typed = Math.round(clamp01((pNote - 0.25) / 0.6) * NOTE_TEXT.length);
-  const composing = pNote > 0.18 && pSend <= 0.3;
-  const sent = pSend > 0.3;
-  const flash = pSend > 0.3 && pSend < 0.75;
+  const composing = pNote > 0.18 && pSend <= 0.12;
+  const sent = pSend > 0.12;
+  const flash = pSend > 0.12 && pSend < 0.55;
 
   return (
     <div className="flex flex-col absolute inset-0 overflow-hidden bg-terminal-bg">
@@ -309,8 +309,8 @@ function PendingNotes() {
 }
 
 function ReviewSession({ p }: { p: (k: string) => number }) {
-  const pending = p('send') > 0.5 && p('fix') <= 0.2;
-  const fixing = p('fix') > 0.2;
+  const pending = p('send') > 0.2 && p('fix') <= 0.06;
+  const fixing = p('fix') > 0.06;
   return (
     <ReviewShell busy={fixing} pending={pending ? <PendingNotes /> : undefined}>
       <Line p={p('read')} at={0}>
@@ -322,23 +322,23 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
           #101 <span className="text-white/65">in_progress → in_review</span>
         </ToolResult>
       </Line>
-      <Line p={p('fix')} at={0.2}>
+      <Line p={p('fix')} at={0.08}>
         <div className="mt-2">
           <ClaudeUser>1 note on rework-onboarding vs main.</ClaudeUser>
           <div className="pl-4 text-white/40 truncate">src/onboarding/Stepper.tsx:6 · does this survive sign-out? add a test</div>
         </div>
       </Line>
-      <Line p={p('fix')} at={0.42}>
+      <Line p={p('fix')} at={0.32}>
         <AssistantSay>Good catch — progress resets on sign-out. Covering it with a test.</AssistantSay>
       </Line>
-      <Line p={p('fix')} at={0.62}>
+      <Line p={p('fix')} at={0.55}>
         <ToolCall name="Edit" args="src/onboarding/onboarding.test.tsx" />
         <ToolResult>
           <span className="text-[#3fb950]">+18</span>
           <span className="ml-2 text-white/55">lines</span>
         </ToolResult>
       </Line>
-      <Line p={p('fix')} at={0.82}>
+      <Line p={p('fix')} at={0.78}>
         <ToolCall name="Bash" args="npm test -- onboarding" />
         <ToolResult>
           <span className="text-[#3fb950]">PASS</span>
@@ -353,7 +353,7 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
  * the stack's back-card treatment for while another surface holds the front. */
 function RoundTripTerminal({ p, receded = false }: { p: (k: string) => number; receded?: boolean }) {
   const fixtures = getPanelFixtures('pty-101-dev');
-  const fixing = p('fix') > 0.2;
+  const fixing = p('fix') > 0.06;
   return (
     <TerminalCardView isActive={!receded} backDepth={receded ? 1 : 0}>
       <TerminalHeaderView
@@ -664,7 +664,7 @@ export function ReviewVariantTwoAct() {
   const { rootRef, p, progress, active, seek } = useTheaterLoop(TWO_ACT_KEYS);
   // Binary like the stack promotions, with the same animated depth change —
   // a crossfade tied to the loop would leave both surfaces half-faded.
-  const prOn = p('pr') > 0.35;
+  const prOn = p('pr') > 0.05;
   
   return (
     <div ref={rootRef} className="bl-theater">
