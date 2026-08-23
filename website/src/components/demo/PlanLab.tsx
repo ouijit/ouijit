@@ -675,37 +675,59 @@ const CHARGE_LAYERS: Record<SourceKey, string> = {
 
 function ChargingDesk({
   landed,
-  charges,
+  cw,
   children,
 }: {
   landed: Record<SourceKey, boolean>;
-  charges: Record<SourceKey, string>;
+  cw: Colorway;
   children: ReactNode;
 }) {
+  const count = SEQUENCE.filter((k) => landed[k]).length;
   return (
-    <div className="plan-desk" style={{ backgroundImage: DESK_HUES.graphite, padding: 36 }}>
-      {SEQUENCE.map((k) => (
+    <div
+      className="plan-desk"
+      style={{
+        backgroundImage: cw.columnDesk ?? DESK_HUES.graphite,
+        padding: 36,
+        ...(cw.border && { borderColor: cw.border }),
+      }}
+    >
+      {cw.fill ? (
         <div
-          key={k}
-          className="absolute inset-0 pointer-events-none"
+          className="absolute left-0 right-0 bottom-0 pointer-events-none"
           style={{
-            borderRadius: 'inherit',
-            backgroundImage: charges[k],
-            opacity: landed[k] ? 1 : 0,
-            transition: 'opacity 700ms ease',
+            height: `${(count / 3) * 100}%`,
+            backgroundImage: cw.fill,
+            transition: 'height 700ms ease',
           }}
         />
-      ))}
+      ) : (
+        SEQUENCE.map((k) => (
+          <div
+            key={k}
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              borderRadius: 'inherit',
+              backgroundImage: cw.charges?.[k],
+              opacity: landed[k] ? 1 : 0,
+              transition: 'opacity 700ms ease',
+            }}
+          />
+        ))
+      )}
       <div className="relative">{children}</div>
     </div>
   );
 }
 
-/** A colorway: one desk wallpaper per row (agent, issue, manual, plan) and the
- * charge layer each landing stacks onto the column desk. */
+/** A colorway: one desk wallpaper per row (agent, issue, manual, plan) and how
+ * the column desk charges — stacked layers per landing, or a rising fill. */
 interface Colorway {
   desks: [string, string, string, string];
-  charges: Record<SourceKey, string>;
+  columnDesk?: string;
+  border?: string;
+  charges?: Record<SourceKey, string>;
+  fill?: string;
 }
 
 const COLORWAYS: Record<string, Colorway> = {
@@ -713,41 +735,50 @@ const COLORWAYS: Record<string, Colorway> = {
     desks: [DESK_HUES.indigo, DESK_HUES.teal, DESK_HUES.rose, DESK_HUES.violet],
     charges: CHARGE_LAYERS,
   },
-  ocean: {
+  aurora: {
     desks: [
-      'radial-gradient(120% 140% at 15% 0%, rgba(59, 130, 246, 0.32), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.15), transparent 55%), linear-gradient(180deg, #16203a, #101420)',
-      'radial-gradient(120% 140% at 85% 0%, rgba(56, 189, 248, 0.26), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(37, 99, 235, 0.18), transparent 55%), linear-gradient(180deg, #122030, #0f1218)',
-      'radial-gradient(120% 140% at 20% 10%, rgba(103, 232, 249, 0.20), transparent 60%), radial-gradient(120% 130% at 100% 90%, rgba(59, 130, 246, 0.18), transparent 60%), linear-gradient(180deg, #101c2c, #0e1116)',
-      'radial-gradient(130% 120% at 80% 0%, rgba(96, 165, 250, 0.24), transparent 55%), radial-gradient(140% 120% at 0% 100%, rgba(45, 212, 191, 0.14), transparent 60%), linear-gradient(180deg, #131c2e, #0f1218)',
+      'radial-gradient(90% 90% at 20% 0%, rgba(139, 92, 246, 0.65), transparent 60%), radial-gradient(90% 90% at 95% 15%, rgba(59, 130, 246, 0.5), transparent 55%), radial-gradient(110% 110% at 60% 115%, rgba(236, 72, 153, 0.45), transparent 60%), linear-gradient(180deg, #17102a, #0f0d18)',
+      'radial-gradient(90% 90% at 15% 0%, rgba(16, 185, 129, 0.55), transparent 55%), radial-gradient(90% 90% at 95% 25%, rgba(34, 211, 238, 0.45), transparent 55%), radial-gradient(110% 110% at 50% 120%, rgba(59, 130, 246, 0.4), transparent 60%), linear-gradient(180deg, #0a1f1c, #0b1116)',
+      'radial-gradient(90% 90% at 15% 10%, rgba(244, 63, 94, 0.55), transparent 55%), radial-gradient(90% 90% at 90% 5%, rgba(251, 146, 60, 0.45), transparent 55%), radial-gradient(110% 110% at 60% 115%, rgba(168, 85, 247, 0.45), transparent 60%), linear-gradient(180deg, #230f1c, #120d14)',
+      'radial-gradient(90% 90% at 80% 0%, rgba(99, 102, 241, 0.6), transparent 55%), radial-gradient(90% 90% at 10% 30%, rgba(34, 211, 238, 0.4), transparent 55%), radial-gradient(110% 110% at 50% 120%, rgba(168, 85, 247, 0.45), transparent 60%), linear-gradient(180deg, #131230, #0e0d18)',
     ],
+    columnDesk: 'linear-gradient(180deg, #14131f, #0e0d15)',
     charges: {
       agent:
-        'radial-gradient(120% 140% at 15% 0%, rgba(59, 130, 246, 0.34), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(37, 99, 235, 0.14), transparent 55%)',
+        'radial-gradient(90% 90% at 20% 0%, rgba(139, 92, 246, 0.6), transparent 60%), radial-gradient(100% 100% at 100% 100%, rgba(59, 130, 246, 0.3), transparent 55%)',
       issue:
-        'radial-gradient(120% 140% at 85% 0%, rgba(56, 189, 248, 0.24), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(59, 130, 246, 0.14), transparent 55%)',
+        'radial-gradient(90% 90% at 90% 10%, rgba(16, 185, 129, 0.45), transparent 55%), radial-gradient(100% 100% at 0% 100%, rgba(34, 211, 238, 0.3), transparent 55%)',
       manual:
-        'radial-gradient(120% 140% at 20% 100%, rgba(103, 232, 249, 0.20), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(45, 212, 191, 0.14), transparent 60%)',
+        'radial-gradient(100% 100% at 30% 110%, rgba(236, 72, 153, 0.5), transparent 60%), radial-gradient(100% 100% at 100% 40%, rgba(251, 146, 60, 0.25), transparent 55%)',
     },
   },
-  sunset: {
+  paper: {
     desks: [
-      'radial-gradient(120% 140% at 15% 0%, rgba(251, 191, 36, 0.26), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(249, 115, 22, 0.14), transparent 55%), linear-gradient(180deg, #241c10, #141110)',
-      'radial-gradient(120% 140% at 85% 0%, rgba(251, 113, 133, 0.24), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(249, 115, 22, 0.16), transparent 55%), linear-gradient(180deg, #261414, #131011)',
-      'radial-gradient(120% 140% at 20% 10%, rgba(244, 63, 94, 0.24), transparent 60%), radial-gradient(120% 130% at 100% 90%, rgba(217, 70, 239, 0.14), transparent 60%), linear-gradient(180deg, #241019, #120f13)',
-      'radial-gradient(130% 120% at 80% 0%, rgba(192, 132, 252, 0.20), transparent 55%), radial-gradient(140% 120% at 0% 100%, rgba(244, 114, 182, 0.14), transparent 60%), linear-gradient(180deg, #1f1424, #111016)',
+      'radial-gradient(120% 140% at 20% 0%, rgba(255, 255, 255, 0.9), transparent 60%), linear-gradient(180deg, #efece5, #dcd8cf)',
+      'radial-gradient(120% 140% at 80% 0%, rgba(255, 255, 255, 0.85), transparent 60%), linear-gradient(180deg, #e8ecea, #d4dad6)',
+      'radial-gradient(120% 140% at 20% 10%, rgba(255, 255, 255, 0.85), transparent 60%), linear-gradient(180deg, #efe7e6, #ded2d0)',
+      'radial-gradient(120% 140% at 80% 0%, rgba(255, 255, 255, 0.85), transparent 60%), linear-gradient(180deg, #e9e8ef, #d6d4de)',
     ],
+    columnDesk: 'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.9), transparent 60%), linear-gradient(180deg, #ece9e2, #d7d3ca)',
+    border: 'rgba(0, 0, 0, 0.12)',
     charges: {
       agent:
-        'radial-gradient(120% 140% at 15% 0%, rgba(251, 191, 36, 0.28), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(249, 115, 22, 0.14), transparent 55%)',
+        'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.30), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.18), transparent 55%)',
       issue:
-        'radial-gradient(120% 140% at 85% 0%, rgba(251, 113, 133, 0.24), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(249, 115, 22, 0.12), transparent 55%)',
+        'radial-gradient(120% 140% at 85% 0%, rgba(45, 212, 191, 0.28), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(99, 102, 241, 0.16), transparent 55%)',
       manual:
-        'radial-gradient(120% 140% at 20% 100%, rgba(244, 63, 94, 0.24), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(217, 70, 239, 0.14), transparent 60%)',
+        'radial-gradient(120% 140% at 20% 100%, rgba(233, 103, 159, 0.28), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(168, 85, 247, 0.18), transparent 60%)',
     },
   },
-  noir: {
-    desks: [DESK_HUES.graphite, DESK_HUES.graphite, DESK_HUES.graphite, DESK_HUES.graphite],
-    charges: CHARGE_LAYERS,
+  poster: {
+    desks: [
+      'linear-gradient(180deg, #4338ca, #3730a3)',
+      'linear-gradient(180deg, #0f766e, #115e59)',
+      'linear-gradient(180deg, #be185d, #9d174d)',
+      'linear-gradient(180deg, #6d28d9, #5b21b6)',
+    ],
+    columnDesk: 'linear-gradient(180deg, #1a1a1e, #131316)',
+    fill: 'linear-gradient(15deg, #4338ca, #be185d)',
   },
 };
 
@@ -764,13 +795,13 @@ export function VariantScrubHue({ colorway = 'spectrum' }: { colorway?: keyof ty
         <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
           {ROWS.map(({ key, title, body }, i) => (
             <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
-              <Desk hue="graphite" style={{ backgroundImage: cw.desks[i] }}>
+              <Desk hue="graphite" style={{ backgroundImage: cw.desks[i], ...(cw.border && { borderColor: cw.border }) }}>
                 {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}
               </Desk>
             </ScrubRow>
           ))}
           <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
-            <Desk hue="graphite" style={{ backgroundImage: cw.desks[3] }}>
+            <Desk hue="graphite" style={{ backgroundImage: cw.desks[3], ...(cw.border && { borderColor: cw.border }) }}>
               <Panel ledge={ledge('file-text', 'plan.md')}>
                 <PlanPane short />
               </Panel>
@@ -778,7 +809,7 @@ export function VariantScrubHue({ colorway = 'spectrum' }: { colorway?: keyof ty
           </StoryRow>
         </div>
         <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
-          <ChargingDesk landed={landed} charges={cw.charges}>
+          <ChargingDesk landed={landed} cw={cw}>
             <div className="flex" style={{ minHeight: 470 }}>
               <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
             </div>
