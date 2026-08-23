@@ -661,11 +661,11 @@ const TWO_ACT_BEATS = [
 const TWO_ACT_KEYS = TWO_ACT_BEATS.map((b) => b.key);
 
 export function ReviewVariantTwoAct() {
-  const { rootRef, p, progress, seek } = useTheaterLoop(TWO_ACT_KEYS);
+  const { rootRef, p, progress, active, seek } = useTheaterLoop(TWO_ACT_KEYS);
   // Binary like the stack promotions, with the same animated depth change —
   // a crossfade tied to the loop would leave both surfaces half-faded.
   const prOn = p('pr') > 0.35;
-  const activeIdx = TWO_ACT_KEYS.reduce((acc, k, i) => (p(k) > 0.35 ? i : acc), 0);
+  
   return (
     <div ref={rootRef} className="bl-theater">
       <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, paddingTop: 48, width: '100%' }}>
@@ -689,7 +689,7 @@ export function ReviewVariantTwoAct() {
         </div>
       <div className="beat-row">
         {TWO_ACT_BEATS.map((b, i) => (
-          <button type="button" key={b.key} className={i === activeIdx ? 'is-active' : undefined} onClick={() => seek(i)}>
+          <button type="button" key={b.key} className={i === active ? 'is-active' : undefined} onClick={() => seek(i)}>
             <h3>{b.title}</h3>
             <p>{b.body}</p>
           </button>

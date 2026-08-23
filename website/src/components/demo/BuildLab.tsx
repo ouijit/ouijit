@@ -380,8 +380,8 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
 /* ═══ 5a · Theater — centered stage, the beat captions in a row below ═══ */
 
 export function VariantTheater() {
-  const { rootRef, p, progress, seek } = useTheaterLoop(BEAT_KEYS);
-  const activeIdx = BEAT_KEYS.reduce((acc, k, i) => (p(k) > 0.35 ? i : acc), 0);
+  const { rootRef, p, progress, active, seek } = useTheaterLoop(BEAT_KEYS);
+  
   return (
     <div ref={rootRef} className="bl-theater">
       <div className="plan-desk desk-wash desk-wash--iris" style={{ padding: 32, paddingTop: 100, width: '100%' }}>
@@ -390,7 +390,7 @@ export function VariantTheater() {
       </div>
       <div className="beat-row">
         {BEATS.map((b, i) => (
-          <button type="button" key={b.key} className={i === activeIdx ? 'is-active' : undefined} onClick={() => seek(i)}>
+          <button type="button" key={b.key} className={i === active ? 'is-active' : undefined} onClick={() => seek(i)}>
             <h3>{b.title}</h3>
             <p>{b.body}</p>
           </button>

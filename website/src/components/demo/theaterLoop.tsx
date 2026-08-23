@@ -60,7 +60,15 @@ export function useTheaterLoop(keys: readonly string[], beatMs = 4500) {
     accRef.current = i;
     setT(i);
   };
-  return { rootRef, p, progress: clamp01(t / keys.length), seek };
+  return {
+    rootRef,
+    p,
+    progress: clamp01(t / keys.length),
+    /* floor(t), so a beat is active from the instant it starts — a seek
+       lights its column immediately instead of after the ramp threshold. */
+    active: Math.min(Math.floor(t), keys.length - 1),
+    seek,
+  };
 }
 
 /** The loop's position, as a full-width row of dots filling left to right. */
