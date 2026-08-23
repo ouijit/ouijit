@@ -1,43 +1,34 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { TaskWithWorkspace } from '../../ouijit-ui/types';
-import { KanbanColumnView } from '../../ouijit-ui/components/kanban/KanbanColumnView';
-import { KanbanCardView } from '../../ouijit-ui/components/kanban/KanbanCardView';
-import { Icon } from '../../ouijit-ui/components/terminal/Icon';
-import { StatusDot } from '../../ouijit-ui/components/terminal/StatusDot';
+import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
 import {
+  TerminalHeaderView,
+  TerminalHeaderName,
+} from '../../ouijit-ui/components/terminal/TerminalHeaderView';
+import { StatusDot } from '../../ouijit-ui/components/terminal/StatusDot';
+import { Icon } from '../../ouijit-ui/components/terminal/Icon';
+import { HookRowView } from '../../ouijit-ui/components/scripts/HookRowView';
+import { MockPlanPanel, MockPreviewPanel, getPanelFixtures } from './MockPanels';
+import {
+  ActiveActions,
+  BranchLabel,
+  ClaudeBody,
+  ClaudeShell,
   ClaudeUser,
   AssistantSay,
   ToolCall,
   ToolResult,
-  Continuation,
-  BranchLabel,
-  ClaudeShell,
-  BODY_CLS,
-  DevServerBody,
+  type PanelKind,
 } from './stackParts';
+import AgentStatesDemo from './AgentStatesDemo';
+import AutomationDemo from './AutomationDemo';
 
 /**
- * Build section lab, round 1 — four concepts for the Build pillar (worktrees,
- * start hook, statuses, sandbox, the plan panel, the session-aware CLI).
- * All choreography is scroll-scrubbed and reverses on the way back up.
+ * Build section lab, round 2 — the features on their real surfaces, at full
+ * size: panels on the terminal, live statuses, sandboxed terminals, lifecycle
+ * hooks, the session-aware CLI.
  */
 
-/* ─── Shared fixtures ─────────────────────────────────────────────── */
-
-function task(taskNumber: number, name: string, branch: string, status = 'todo'): TaskWithWorkspace {
-  return {
-    taskNumber,
-    name,
-    status,
-    branch,
-    worktreePath: `/demo/horizon/.ouijit/worktrees/T-${taskNumber}`,
-    createdAt: '2026-05-08T09:00:00Z',
-  };
-}
-
-const T119 = task(119, 'Add rate-limit headers to the public API', 'api-rate-limit-headers');
-const T119_REVIEW = task(119, 'Add rate-limit headers to the public API', 'api-rate-limit-headers', 'in_review');
-const T116_REVIEW = task(116, 'Bump deps for security advisory', 'bump-deps-advisory', 'in_review');
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 const DESK_HUES = {
   indigo:
@@ -64,38 +55,6 @@ function Desk({
     </div>
   );
 }
-
-function Panel({
-  firing = false,
-  className = '',
-  style,
-  ledge,
-  children,
-}: {
-  firing?: boolean;
-  className?: string;
-  style?: React.CSSProperties;
-  ledge?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className={`glass-bevel relative flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel min-h-0 ${
-        firing ? 'plan-firing' : ''
-      } ${className}`}
-      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)', ...style }}
-    >
-      {ledge && <div className="pane-ledge relative z-[5] shrink-0 h-9 flex items-center gap-2 px-4">{ledge}</div>}
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</div>
-    </div>
-  );
-}
-
-/* ─── Scrub plumbing ──────────────────────────────────────────────── */
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
 function useScrubRows<K extends string>(keys: readonly K[]) {
   const rowEls = useRef<Partial<Record<K, HTMLElement | null>>>({});
@@ -144,659 +103,661 @@ function useScrubRows<K extends string>(keys: readonly K[]) {
   return { setRow, progress };
 }
 
-/** A body line that fades in as its beat's progress passes `at`. */
-function Line({ p, at, children }: { p: number; at: number; children: ReactNode }) {
-  const v = clamp01((p - at) / 0.08);
-  return <div style={{ opacity: v, transform: `translateY(${(1 - v) * 4}px)` }}>{children}</div>;
-}
-
-type HookState = 'idle' | 'running' | 'done' | 'live';
-
-function HookBar({ label, command, state }: { label: string; command: string; state: HookState }) {
+function MacNotification({ body }: { body: string }) {
   return (
-    <div
-      className={`glass-bevel relative flex items-center gap-3 rounded-[12px] border border-bezel-panel px-4 h-11 ${
-        state === 'running' ? 'plan-firing' : ''
-      }`}
-      style={{
-        background: 'var(--color-terminal-bg)',
-        boxShadow: 'var(--shadow-panel)',
-        opacity: state === 'idle' ? 0.55 : 1,
-        transition: 'opacity 300ms ease',
-      }}
-    >
-      <Icon name="play" className="w-3.5 h-3.5 text-ink/50" />
-      <span className="text-[13px] font-medium text-ink/85 shrink-0">{label}</span>
-      <span className="font-mono text-[12px] text-ink/50 truncate">{command}</span>
-      <span className="ml-auto shrink-0 flex items-center">
-        {state === 'running' && (
-          <span
-            className="block w-3 h-3 rounded-full bg-transparent border-[1.5px] border-white/30 border-t-white/80"
-            style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
-          />
-        )}
-        {state === 'done' && <Icon name="check" className="w-3.5 h-3.5 text-status-ready" />}
-        {state === 'live' && (
-          <span className="flex items-center gap-1.5 font-mono text-[10px] text-white/55">
-            <span
-              className="block w-[6px] h-[6px] rounded-full bg-status-ready"
-              style={{ animation: 'terminal-status-pulse 1.6s ease-in-out infinite' }}
-            />
-            live
+    <div className="macos-notif">
+      <img src="/assets/ouijit-app-icon.png" alt="" width={36} height={36} style={{ flexShrink: 0, display: 'block' }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.95)', letterSpacing: 0.1 }}>
+            Ouijit
           </span>
-        )}
-      </span>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', flexShrink: 0 }}>now</span>
+        </div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2, lineHeight: 1.3 }}>{body}</div>
+      </div>
     </div>
   );
 }
 
-function CardFrame({ t, className = '', style }: { t: TaskWithWorkspace; className?: string; style?: React.CSSProperties }) {
-  return (
-    <div
-      className={`glass-bevel rounded-[10px] overflow-hidden border border-bezel-panel ${className}`}
-      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)', ...style }}
-    >
-      <KanbanCardView task={t} showBadge={false} />
-    </div>
-  );
-}
+/* ═══ 2a · Workbench — one real terminal stack, beats open its panels ═══ */
 
-/* ═══ 1a · Ignition — the task becomes a terminal ═════════════════ */
-
-const IGNITION_STEPS = [
-  { key: 'move', title: 'Drag it to In Progress', body: 'Starting a task is one move on the board. Everything else follows from it.' },
-  { key: 'tree', title: 'A worktree of its own', body: 'The task gets an isolated branch and directory. Parallel agents never collide.' },
-  { key: 'hook', title: 'The start hook takes over', body: 'Your agent launches in the new worktree with the task’s prompt in hand.' },
+const WORKBENCH_STEPS = [
+  { key: 'term', title: 'A terminal per task', body: 'Every task runs in its own worktree, with its own terminals stacked behind one another.' },
+  { key: 'plan', title: 'The plan rides along', body: 'plan.md opens as a panel on the terminal. The agent keeps it current while it works.' },
+  { key: 'preview', title: 'See it running', body: 'Point a preview panel at the dev server without leaving the task.' },
+  { key: 'status', title: 'Look away freely', body: 'Statuses track every agent, and a notification lands the moment one finishes.' },
 ] as const;
 
-type IgnitionKey = (typeof IGNITION_STEPS)[number]['key'];
+type WorkbenchKey = (typeof WORKBENCH_STEPS)[number]['key'];
 
-function MiniBoard({ p }: { p: number }) {
-  const e = easeInOut(p);
-  const moved = e > 0.5;
+interface BackCard {
+  ptyId: string;
+  label: string;
+  oscTitle: string;
+  summaryType: string;
+  doneTitle?: string;
+  sandboxed?: boolean;
+}
+
+const WORKBENCH_BACK: BackCard[] = [
+  {
+    ptyId: 'pty-103-test',
+    label: 'Polish invitation email',
+    oscTitle: 'Tightening brand tokens...',
+    summaryType: 'thinking',
+    doneTitle: 'done · 14 passed',
+  },
+  {
+    ptyId: 'pty-105-shell',
+    label: 'Audit accessibility on settings dialog',
+    oscTitle: 'Investigating contrast at SettingsDialog:121',
+    summaryType: 'thinking',
+    sandboxed: true,
+  },
+  {
+    ptyId: 'pty-101-dev',
+    label: 'Rework onboarding flow',
+    oscTitle: 'live dev server',
+    summaryType: 'ready',
+  },
+];
+
+export function VariantWorkbench() {
+  const { setRow, progress } = useScrubRows(WORKBENCH_STEPS.map((s) => s.key) as readonly WorkbenchKey[]);
+  const fixtures = getPanelFixtures('pty-101-dev');
+
+  const planV = clamp01((progress.plan - 0.45) / 0.22) * (1 - clamp01((progress.preview - 0.35) / 0.22));
+  const previewV = clamp01((progress.preview - 0.45) / 0.22) * (1 - clamp01((progress.status - 0.35) / 0.22));
+  const st = clamp01((progress.status - 0.45) / 0.25);
+  const openPanel: PanelKind | null = previewV > 0.5 ? 'preview' : planV > 0.5 ? 'plan' : null;
+
   return (
-    <div
-      className="glass-bevel relative rounded-[14px] border border-bezel-panel overflow-hidden"
-      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)', height: 128 }}
-    >
-      <div className="flex h-full">
-        {(['To Do', 'In Progress'] as const).map((label, i) => (
-          <div key={label} className={`flex-1 min-w-0 px-4 py-3 ${i === 0 ? 'border-r border-ink/[0.06]' : ''}`}>
-            <div className="flex items-center gap-2 text-[13px] text-text-tertiary">
-              <span>{label}</span>
-              <span className="font-mono text-[11px] text-ink/35">{i === 0 ? (moved ? 0 : 1) : moved ? 1 : 0}</span>
-            </div>
+    <div className="bl-split">
+      <div className="bl-steps">
+        {WORKBENCH_STEPS.map((s) => (
+          <div key={s.key} ref={setRow(s.key)} className="bl-step">
+            <h3>{s.title}</h3>
+            <p>{s.body}</p>
           </div>
         ))}
       </div>
-      {/* Inline position: the vendored `.glass-bevel > *` rule overrides the
-          Tailwind `absolute` utility on direct children. */}
+      <div className="bl-rail" style={{ width: 780 }}>
+        <Desk hue="indigo" style={{ padding: 28, paddingTop: 104 }}>
+          <div className="relative" style={{ height: 480 }}>
+            {WORKBENCH_BACK.map((card, i) => {
+              const finished = card.doneTitle && st > 0.3;
+              return (
+                <TerminalCardView key={card.ptyId} backDepth={i + 1}>
+                  <TerminalHeaderView
+                    summaryType={finished ? 'ready' : card.summaryType}
+                    sandboxed={card.sandboxed}
+                    isBackCard
+                    stackPosition={i + 1}
+                    nameContent={
+                      <TerminalHeaderName label={card.label} lastOscTitle={finished ? card.doneTitle : card.oscTitle} />
+                    }
+                  />
+                </TerminalCardView>
+              );
+            })}
+            <TerminalCardView isActive>
+              <TerminalHeaderView
+                isActive
+                summaryType="thinking"
+                nameContent={<TerminalHeaderName label="claude" lastOscTitle="Editing onboarding stepper..." />}
+                branchContent={<BranchLabel branch="rework-onboarding" />}
+                actions={<ActiveActions fixtures={fixtures} openPanel={openPanel} onToggle={() => {}} />}
+              />
+              <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+                <ClaudeBody />
+                {planV > 0.02 && fixtures.plan && (
+                  <div className="absolute inset-0" style={{ opacity: planV, pointerEvents: 'none' }}>
+                    <MockPlanPanel fixture={fixtures.plan} onClose={() => {}} />
+                  </div>
+                )}
+                {previewV > 0.02 && fixtures.preview && (
+                  <div className="absolute inset-0" style={{ opacity: previewV, pointerEvents: 'none' }}>
+                    <MockPreviewPanel fixture={fixtures.preview} onClose={() => {}} />
+                  </div>
+                )}
+              </div>
+            </TerminalCardView>
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              top: 14,
+              right: 14,
+              width: 270,
+              zIndex: 30,
+              opacity: st,
+              transform: `translateY(${(1 - st) * 14}px)`,
+              transition: 'opacity 200ms ease, transform 200ms ease',
+              pointerEvents: 'none',
+            }}
+          >
+            <MacNotification body="Polish invitation email — done · 14 passed" />
+          </div>
+        </Desk>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ 2b · Feature stages — one full-width real surface per feature ═══ */
+
+function StageRow({
+  title,
+  body,
+  children,
+}: {
+  title: string;
+  body: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="plan-v3-row">
+      <div className="plan-v3-copy">
+        <h3>{title}</h3>
+        <p>{body}</p>
+      </div>
+      <div className="plan-v3-mock">{children}</div>
+    </div>
+  );
+}
+
+/** The app's split view: the session on the left, plan.md open beside it. */
+function SplitViewMock() {
+  const fixtures = getPanelFixtures('pty-101-claude');
+  return (
+    <div
+      className="glass-bevel relative flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
+      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)', height: 480 }}
+    >
+      <TerminalHeaderView
+        isActive
+        summaryType="thinking"
+        nameContent={<TerminalHeaderName label="claude" lastOscTitle="Editing onboarding stepper..." />}
+        branchContent={<BranchLabel branch="rework-onboarding" />}
+        actions={<ActiveActions fixtures={fixtures} openPanel="plan" onToggle={() => {}} />}
+      />
+      <div className="flex-1 min-h-0 flex">
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          <ClaudeBody />
+        </div>
+        <div className="pane-seam relative w-px shrink-0" />
+        <div className="relative shrink-0" style={{ width: '44%' }}>
+          {fixtures.plan && <MockPlanPanel fixture={fixtures.plan} onClose={() => {}} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** A terminal opened in the Lima sandbox, with the Open in menu beside it. */
+function SandboxMock() {
+  return (
+    <div className="relative">
       <div
+        className="glass-bevel relative flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
+        style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)', height: 400 }}
+      >
+        <TerminalHeaderView
+          isActive
+          summaryType="thinking"
+          sandboxed
+          nameContent={<TerminalHeaderName label="claude (lima)" lastOscTitle="Running the reproduction..." />}
+          branchContent={<BranchLabel branch="debug-issue-502" />}
+        />
+        <ClaudeShell busy>
+          <ClaudeUser>Reproduce the crash from issue #502 — the report includes a script, run it and find the cause.</ClaudeUser>
+          <AssistantSay>Running it in this sandbox first, then reading the stack.</AssistantSay>
+          <ToolCall name="Bash" args="npm install && node repro-502.js" />
+          <ToolResult>
+            <span className="text-white/55">added 412 packages</span>
+            <span className="mx-1.5 text-white/30">·</span>
+            <span className="text-[#f85149]">TypeError: Cannot read properties of null</span>
+          </ToolResult>
+          <ToolCall name="Read" args="src/export/csvWriter.ts" />
+          <ToolResult>Read 96 lines</ToolResult>
+          <AssistantSay>
+            <span className="italic text-white/55">The stream closes before flush — checking the writer&hellip;</span>
+          </AssistantSay>
+        </ClaudeShell>
+      </div>
+      <div
+        className="glass-bevel rounded-[12px] border border-bezel-panel overflow-hidden"
         style={{
           position: 'absolute',
-          left: `calc(${lerp(1.5, 51.5, e)}% + 10px)`,
-          top: 44,
-          width: 'calc(48.5% - 20px)',
-          zIndex: 2,
+          top: 52,
+          right: -36,
+          width: 210,
+          zIndex: 10,
+          background: '#212126',
+          boxShadow: 'var(--shadow-panel), 0 24px 48px -12px rgba(0,0,0,0.65)',
         }}
       >
-        <CardFrame t={T119} />
+        <div className="px-3 pt-2 pb-1 text-[11px] text-text-tertiary">Open in</div>
+        <div className="pb-1.5 text-[13px]">
+          <div className="px-3 py-1.5 text-text-secondary">Terminal</div>
+          <div className="px-3 py-1.5 bg-accent text-accent-ink flex items-center justify-between">
+            <span>Lima VM sandbox</span>
+            <Icon name="check" className="w-3.5 h-3.5" />
+          </div>
+          <div className="px-3 py-1.5 text-text-secondary">nono sandbox</div>
+        </div>
       </div>
     </div>
   );
 }
 
-export function VariantIgnition() {
-  const { setRow, progress } = useScrubRows(IGNITION_STEPS.map((s) => s.key) as readonly IgnitionKey[]);
-  const pMove = progress.move;
-  const pTree = progress.tree;
-  const pHook = progress.hook;
-  const appear = clamp01((pTree - 0.12) / 0.3);
-  const hookState: HookState = pHook < 0.12 ? 'idle' : pHook < 0.5 ? 'running' : 'done';
-  const summaryType = pHook > 0.6 ? 'thinking' : 'ready';
+/** The agent files subtasks and moves its own task over the session CLI. */
+function CliMock() {
   return (
-    <div className="bl-split">
-      <div className="bl-steps">
-        {IGNITION_STEPS.map((s) => (
-          <div key={s.key} ref={setRow(s.key)} className="bl-step">
-            <h3>{s.title}</h3>
-            <p>{s.body}</p>
-          </div>
+    <div
+      className="glass-bevel relative flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
+      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)', height: 420 }}
+    >
+      <TerminalHeaderView
+        isActive
+        summaryType="ready"
+        nameContent={<TerminalHeaderName label="claude" lastOscTitle="Ready for review" />}
+        branchContent={<BranchLabel branch="migrate-react-19" />}
+      />
+      <ClaudeShell pendingText="merge it once CI is green">
+        <ClaudeUser>Split the remaining migration work into subtasks, then send this one to review.</ClaudeUser>
+        <ToolCall name="Bash" args={'ouijit task create "Update Suspense boundaries"'} />
+        <ToolResult>
+          Created task <span className="text-white/85">#143</span>
+        </ToolResult>
+        <ToolCall name="Bash" args={'ouijit task create "Audit useTransition usages"'} />
+        <ToolResult>
+          Created task <span className="text-white/85">#144</span>
+        </ToolResult>
+        <ToolCall name="Bash" args="ouijit task set-status 142 in_review" />
+        <ToolResult>
+          #142 <span className="text-white/65">in_progress → in_review</span>
+        </ToolResult>
+        <AssistantSay>
+          <span>Ready for review.</span>
+          <span className="ml-1 text-white/55">Two subtasks queued for the next agents.</span>
+        </AssistantSay>
+      </ClaudeShell>
+    </div>
+  );
+}
+
+const HOOKS = [
+  { label: 'Start', description: 'Task moves from To Do to In Progress', command: 'claude "$OUIJIT_TASK_DESCRIPTION"' },
+  { label: 'Continue', description: 'Reopening a task already In Progress', command: 'claude --continue' },
+  { label: 'Run', description: 'The Run button or a runner panel opens', command: 'npm run dev' },
+  { label: 'Review', description: 'Task moves to In Review', command: 'gh pr create --fill' },
+  { label: 'Done', description: 'Task moves to Done', command: 'git push origin HEAD' },
+];
+
+function HooksMock() {
+  return (
+    <div
+      className="glass-bevel relative flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
+      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
+    >
+      <div className="pane-ledge relative z-[5] shrink-0 h-9 flex items-center gap-2 px-4">
+        <Icon name="webhooks-logo" className="w-4 h-4 text-ink/50" />
+        <span className="text-[13px] text-ink/70">Hooks</span>
+        <span className="ml-auto font-mono text-[11px] text-ink/35">Project Settings</span>
+      </div>
+      <div className="divide-y divide-white/[0.06] py-1">
+        {HOOKS.map((h) => (
+          <HookRowView key={h.label} label={h.label} description={h.description} command={h.command} />
         ))}
       </div>
-      <div className="bl-rail" style={{ width: 620 }}>
-        <Desk hue="indigo" style={{ padding: 32 }}>
-          <MiniBoard p={pMove} />
-          <div style={{ marginTop: 16, opacity: appear }}>
-            <HookBar label="Start" command={'claude "$OUIJIT_TASK_DESCRIPTION"'} state={hookState} />
-          </div>
-          <div style={{ marginTop: 16, opacity: appear, transform: `translateY(${(1 - easeInOut(appear)) * 20}px)` }}>
-            <Panel
-              ledge={
-                <>
-                  <StatusDot summaryType={summaryType} />
-                  <span className="font-mono text-xs font-medium text-ink/85">claude</span>
-                  <span className="ml-auto">
-                    <BranchLabel branch="api-rate-limit-headers" />
-                  </span>
-                </>
-              }
-            >
-              <div className={BODY_CLS} style={{ height: 264 }}>
-                <Line p={pTree} at={0.3}>
-                  <span className="text-white/40">$</span> git worktree add .ouijit/worktrees/T-119 -b
-                  api-rate-limit-headers
-                </Line>
-                <Line p={pTree} at={0.44}>
-                  <span className="text-white/50">Preparing worktree (new branch 'api-rate-limit-headers')</span>
-                </Line>
-                <Line p={pTree} at={0.52}>
-                  <span className="text-white/50">HEAD is now at 4c9a1f2 Merge queue hardening</span>
-                </Line>
-                <div className="h-3" />
-                <Line p={pHook} at={0.3}>
-                  <span className="text-white/40">$</span> claude "$OUIJIT_TASK_DESCRIPTION"
-                </Line>
-                <Line p={pHook} at={0.48}>
-                  <ClaudeUser>Add rate-limit headers to the public API — 429 + Retry-After on every public route</ClaudeUser>
-                </Line>
-                <Line p={pHook} at={0.6}>
-                  <AssistantSay>Middleware first, then the router wiring.</AssistantSay>
-                </Line>
-                <Line p={pHook} at={0.72}>
-                  <ToolCall name="Write" args="src/api/middleware/rateLimit.ts" />
-                </Line>
-                <Line p={pHook} at={0.8}>
-                  <ToolResult>
-                    <span className="text-[#3fb950]">+64</span>
-                    <span className="ml-2 text-white/55">lines (new)</span>
-                  </ToolResult>
-                </Line>
-              </div>
-            </Panel>
-          </div>
-        </Desk>
-      </div>
     </div>
   );
 }
 
-/* ═══ 1b · Stations — statuses as stations, hooks fire per stop ═══ */
-
-const STATION_STATUSES = ['To Do', 'In Progress', 'In Review', 'Done'];
-
-const STATION_ROWS = [
-  {
-    key: 'start',
-    title: 'Every move fires a hook',
-    body: 'Drop a task into In Progress and the start hook launches your agent.',
-    hue: 'indigo' as const,
-  },
-  {
-    key: 'run',
-    title: 'Run means run',
-    body: 'One button starts the dev server, in the task’s own worktree.',
-    hue: 'teal' as const,
-  },
-  {
-    key: 'review',
-    title: 'Review is a hook too',
-    body: 'Move the task to In Review and the pull request is already up.',
-    hue: 'rose' as const,
-  },
-] as const;
-
-type StationKey = (typeof STATION_ROWS)[number]['key'];
-
-function StationChip({ pos }: { pos: number }) {
+export function VariantStages() {
   return (
-    <div className="relative h-12 mt-4">
-      <div className="absolute inset-x-[8%] top-1/2 h-px bg-white/10" />
-      {[0, 1, 2, 3].map((i) => (
-        <span
-          key={i}
-          className="absolute top-1/2 w-1.5 h-1.5 rounded-full"
-          style={{
-            left: `calc(${12.5 + i * 25}% - 3px)`,
-            transform: 'translateY(-50%)',
-            background: Math.abs(pos - i) < 0.5 ? 'var(--color-accent)' : 'rgba(255,255,255,0.18)',
-            transition: 'background 300ms ease',
-          }}
-        />
-      ))}
-      <div
-        className="absolute top-1/2"
-        style={{ left: `${12.5 + pos * 25}%`, transform: 'translate(-50%, -50%)' }}
+    <div className="flex flex-col" style={{ gap: 140 }}>
+      <StageRow
+        title="Terminal and plan, side by side"
+        body="plan.md opens as a panel on the terminal — split the view and the agent's plan stays in sight while it works."
       >
-        <span
-          className="glass-bevel flex items-center gap-2 rounded-full border border-bezel-panel pl-2.5 pr-3 py-1 whitespace-nowrap"
-          style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
-        >
-          <span className="font-mono text-[11px] text-ink/45">T-119</span>
-          <span className="text-[12px] text-ink/85">Add rate-limit headers</span>
-        </span>
-      </div>
+        <Desk hue="indigo" style={{ padding: 32 }}>
+          <SplitViewMock />
+        </Desk>
+      </StageRow>
+      <StageRow
+        title="Every agent, at a glance"
+        body="Thinking, ready, waiting on you — the status column reads live, and a notification lands when a turn ends."
+      >
+        <Desk hue="teal" style={{ padding: 32 }}>
+          <AgentStatesDemo />
+        </Desk>
+      </StageRow>
+      <StageRow
+        title="Contain untrusted code"
+        body="Open any terminal in a Lima VM or under nono. The outlined dot marks the ones that are contained."
+      >
+        <Desk hue="rose" style={{ padding: 32, paddingRight: 60, overflow: 'visible' }}>
+          <SandboxMock />
+        </Desk>
+      </StageRow>
+      <StageRow
+        title="Hooks on every move"
+        body="Five lifecycle hooks run your commands as tasks change status — launch the agent, boot the dev server, file the PR."
+      >
+        <Desk hue="graphite" style={{ padding: 32 }}>
+          <AutomationDemo />
+        </Desk>
+      </StageRow>
+      <StageRow
+        title="Agents drive the board"
+        body="The CLI is session-aware: agents file subtasks and move their own task, no extra setup."
+      >
+        <Desk hue="indigo" style={{ padding: 32 }}>
+          <CliMock />
+        </Desk>
+      </StageRow>
     </div>
   );
 }
 
-const hookStateAt = (p: number): HookState => (p < 0.35 ? 'idle' : p < 0.62 ? 'running' : 'done');
+/* ═══ 2c · Bento — every Build feature dense, in one grid ═══ */
 
-function stationMock(key: StationKey, p: number) {
-  if (key === 'start')
-    return (
-      <>
-        <HookBar label="Start" command={'claude "$OUIJIT_TASK_DESCRIPTION"'} state={hookStateAt(p)} />
-        <Panel className="mt-4">
-          <div className={BODY_CLS} style={{ height: 190 }}>
-            <Line p={p} at={0.62}>
-              <ClaudeUser>Add rate-limit headers to the public API — 429 + Retry-After on every public route</ClaudeUser>
-            </Line>
-            <Line p={p} at={0.72}>
-              <AssistantSay>Middleware first, then the router wiring.</AssistantSay>
-            </Line>
-            <Line p={p} at={0.8}>
-              <ToolCall name="Read" args="src/api/router.ts" />
-            </Line>
-            <Line p={p} at={0.86}>
-              <ToolResult>Read 88 lines</ToolResult>
-            </Line>
-          </div>
-        </Panel>
-      </>
-    );
-  if (key === 'run') {
-    const state = hookStateAt(p);
-    return (
-      <>
-        <HookBar label="Run" command="npm run dev" state={state === 'done' ? 'live' : state} />
-        <Panel className="mt-4" style={{ opacity: p > 0.55 ? 1 : 0.35, transition: 'opacity 400ms ease' }}>
-          <div style={{ height: 210, overflow: 'hidden', display: 'flex' }}>
-            <DevServerBody />
-          </div>
-        </Panel>
-      </>
-    );
-  }
+function BentoStatusList() {
+  const rows = [
+    { label: 'claude', summary: 'thinking…', type: 'thinking' },
+    { label: 'codex', summary: 'awaiting input', type: 'ready' },
+    { label: 'claude (sandbox)', summary: 'editing files', type: 'thinking', sandboxed: true },
+    { label: 'pi', summary: 'done · lint clean', type: 'ready' },
+  ];
   return (
-    <>
-      <HookBar label="Review" command="gh pr create --fill" state={hookStateAt(p)} />
-      <Panel className="mt-4">
-        <div className={BODY_CLS} style={{ height: 140 }}>
-          <Line p={p} at={0.62}>
-            <span className="text-white/40">$</span> gh pr create --fill
-          </Line>
-          <Line p={p} at={0.74}>
-            <span className="text-white/50">Creating pull request for api-rate-limit-headers into main</span>
-          </Line>
-          <Line p={p} at={0.84}>
-            <span className="text-[#79b8ff]">https://github.com/horizon/api/pull/212</span>
-          </Line>
+    <div className="divide-y divide-white/[0.06] rounded-[12px] border border-bezel-panel overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
+      {rows.map((r) => (
+        <div key={r.label} className="flex items-center gap-2 px-3 py-2">
+          <StatusDot summaryType={r.type} sandboxed={r.sandboxed} />
+          <span className="font-mono text-xs font-medium text-ink/85">{r.label}</span>
+          <span className="font-mono text-xs text-ink/45 truncate">— {r.summary}</span>
         </div>
-      </Panel>
-    </>
+      ))}
+    </div>
   );
 }
 
-export function VariantStations() {
-  const { setRow, progress } = useScrubRows(STATION_ROWS.map((r) => r.key) as readonly StationKey[]);
-  const pos =
-    easeInOut(clamp01(progress.start / 0.5)) + easeInOut(clamp01(progress.review / 0.5));
+export function VariantBento() {
+  const fixtures = getPanelFixtures('pty-101-claude');
   return (
-    <div>
-      <div className="bl-stations-rail">
-        <Desk hue="graphite" style={{ padding: '20px 28px 16px' }}>
-          <div className="flex">
-            {STATION_STATUSES.map((label, i) => (
-              <div
-                key={label}
-                className="flex-1 text-center text-[13px]"
-                style={{
-                  color: Math.abs(pos - i) < 0.5 ? 'var(--color-ink)' : '#86868b',
-                  transition: 'color 300ms ease',
-                }}
-              >
-                {label}
-              </div>
+    <div className="details-grid bento">
+      <div className="detail detail-span-4">
+        <div className="detail-title">The loaded terminal.</div>
+        <p>plan.md, the live preview, and the diff ride the terminal as panels.</p>
+        <div
+          className="glass-bevel relative flex flex-col rounded-[12px] overflow-hidden border border-bezel-panel mt-3"
+          style={{ background: 'var(--color-terminal-bg)', height: 300 }}
+        >
+          <TerminalHeaderView
+            isActive
+            summaryType="thinking"
+            nameContent={<TerminalHeaderName label="claude" />}
+            actions={<ActiveActions fixtures={fixtures} openPanel="plan" onToggle={() => {}} />}
+          />
+          <div className="flex-1 min-h-0 flex">
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+              <ClaudeBody />
+            </div>
+            <div className="pane-seam relative w-px shrink-0" />
+            <div className="relative shrink-0" style={{ width: '46%' }}>
+              {fixtures.plan && <MockPlanPanel fixture={fixtures.plan} onClose={() => {}} />}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="detail detail-span-2">
+        <div className="detail-title">Every agent, at a glance.</div>
+        <p>Statuses read live across all terminals.</p>
+        <div className="mt-3">
+          <BentoStatusList />
+        </div>
+      </div>
+      <div className="detail detail-span-2">
+        <div className="detail-title">Untrusted code, contained.</div>
+        <p>A Lima VM mounting only the task's files, or nono in place.</p>
+        <div className="mt-3 rounded-[12px] border border-bezel-panel overflow-hidden text-[13px]" style={{ background: 'var(--color-terminal-bg)' }}>
+          <div className="px-3 pt-2 pb-1 text-[11px] text-text-tertiary">Open in</div>
+          <div className="pb-1">
+            <div className="px-3 py-1.5 text-text-secondary">Terminal</div>
+            <div className="px-3 py-1.5 bg-accent text-accent-ink flex items-center justify-between">
+              <span>Lima VM sandbox</span>
+              <Icon name="check" className="w-3.5 h-3.5" />
+            </div>
+            <div className="px-3 py-1.5 text-text-secondary">nono sandbox</div>
+          </div>
+        </div>
+      </div>
+      <div className="detail detail-span-2">
+        <div className="detail-title">Hooks on every move.</div>
+        <p>Lifecycle hooks run your commands as tasks change status.</p>
+        <div className="mt-3 rounded-[12px] border border-bezel-panel overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
+          <div className="divide-y divide-white/[0.06]">
+            {HOOKS.slice(0, 3).map((h) => (
+              <HookRowView key={h.label} label={h.label} description="" command={h.command} actionLabel=" " />
             ))}
           </div>
-          <StationChip pos={pos} />
-        </Desk>
-      </div>
-      <div className="flex flex-col" style={{ gap: 140, marginTop: 96 }}>
-        {STATION_ROWS.map(({ key, title, body, hue }) => (
-          <div key={key} ref={setRow(key)} className="plan-v3-row">
-            <div className="plan-v3-copy">
-              <h3>{title}</h3>
-              <p>{body}</p>
-            </div>
-            <div className="plan-v3-mock">
-              <Desk hue={hue} style={{ padding: 32 }}>{stationMock(key, progress[key])}</Desk>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ═══ 1c · Anatomy — one loaded terminal, annotated part by part ══ */
-
-const ANATOMY_STEPS = [
-  { key: 'status', title: 'Status at a glance', body: 'Every terminal reports what its agent is doing: thinking, ready, waiting on you.' },
-  { key: 'sandbox', title: 'Sandbox the risky ones', body: 'Run a terminal in a Lima VM or under nono. The outlined dot marks it.' },
-  { key: 'panel', title: 'The plan stays open', body: 'Any markdown file rides the terminal as a panel. The agent updates it as it works.' },
-  { key: 'cli', title: 'The agent hands it back', body: 'The CLI is session-aware — the task moves to In Review from inside the session.' },
-] as const;
-
-type AnatomyKey = (typeof ANATOMY_STEPS)[number]['key'];
-
-const RATE_LIMIT_PLAN = (
-  <>
-    <h1>Add rate-limit headers</h1>
-    <p>
-      Public routes get <code>429</code> + <code>Retry-After</code>. Limits ride the existing Redis token bucket.
-    </p>
-    <h2>Steps</h2>
-    <ul>
-      <li>
-        <input type="checkbox" checked readOnly /> Middleware in <code>src/api/middleware/rateLimit.ts</code>
-      </li>
-      <li>
-        <input type="checkbox" checked readOnly /> Wire into the public router
-      </li>
-      <li>
-        <input type="checkbox" readOnly /> Headers on the 2xx path too (<code>X-RateLimit-Remaining</code>)
-      </li>
-      <li>
-        <input type="checkbox" readOnly /> Tests: burst, sustained, per-key
-      </li>
-    </ul>
-  </>
-);
-
-function Lit({ on, className = '', children }: { on: boolean; className?: string; children: ReactNode }) {
-  return (
-    <span className={`bl-lit ${className}`} data-on={on || undefined}>
-      {children}
-    </span>
-  );
-}
-
-function AnatomyTabs({ planActive, lit }: { planActive: boolean; lit: boolean }) {
-  const base = 'h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium whitespace-nowrap shrink-0';
-  const inactive = 'bg-transparent text-text-secondary';
-  const active = 'bg-accent text-accent-ink';
-  const divider = <div aria-hidden className="w-px h-3 shrink-0 bg-ink/10 self-center" />;
-  return (
-    <Lit on={lit} className="block rounded-[12px]">
-      <div className="flex items-center min-w-0 h-7 bg-background-secondary glass-bevel relative border border-bezel rounded-[12px] overflow-hidden">
-        <span className={`${base} ${planActive ? active : inactive}`}>
-          <Icon name="file-text" className="w-3.5 h-3.5" />
-          <span>plan.md</span>
-        </span>
-        {divider}
-        <span className={`${base} ${inactive}`}>
-          <span>2 files</span>
-          <span className="text-status-ready">+73</span>
-          <span className="text-ansi-red">-1</span>
-        </span>
-        {divider}
-        <span className={`${base} ${inactive} shrink-0 !px-2`}>
-          <Icon name="plus" className="w-3.5 h-3.5" />
-        </span>
-      </div>
-    </Lit>
-  );
-}
-
-export function VariantAnatomy() {
-  const { setRow, progress } = useScrubRows(ANATOMY_STEPS.map((s) => s.key) as readonly AnatomyKey[]);
-  let active: AnatomyKey | null = null;
-  for (const s of ANATOMY_STEPS) if (progress[s.key] > 0.5) active = s.key;
-  const panelV =
-    clamp01((progress.panel - 0.4) / 0.3) * (1 - clamp01((progress.cli - 0.15) / 0.3));
-  const cliDone = progress.cli > 0.6;
-  return (
-    <div className="bl-split">
-      <div className="bl-steps">
-        {ANATOMY_STEPS.map((s) => (
-          <div key={s.key} ref={setRow(s.key)} className="bl-step">
-            <h3>{s.title}</h3>
-            <p>{s.body}</p>
-          </div>
-        ))}
-      </div>
-      <div className="bl-rail" style={{ width: 640 }}>
-        <Desk hue="graphite" style={{ padding: 32 }}>
-          <div
-            className="glass-bevel relative flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
-            style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)', height: 520 }}
-          >
-            <div className="pane-ledge relative z-[5] shrink-0 flex items-start justify-between px-3 py-2 gap-3">
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Lit on={active === 'sandbox'} className="flex items-center p-1.5 -m-1.5 rounded-full">
-                    <StatusDot summaryType={cliDone ? 'ready' : 'thinking'} sandboxed />
-                  </Lit>
-                  <Lit on={active === 'status'} className="flex items-center gap-2 min-w-0 px-1.5 py-0.5 -my-0.5 -mx-1.5">
-                    <span className="font-mono text-xs font-medium text-ink/85 shrink-0">claude · lima</span>
-                    <span className="font-mono text-xs text-ink/45 min-w-0 truncate">
-                      — {cliDone ? 'done · moved to In Review' : 'Editing rateLimit.ts…'}
-                    </span>
-                  </Lit>
-                </div>
-                <BranchLabel branch="api-rate-limit-headers" />
-              </div>
-              <AnatomyTabs planActive={panelV > 0.05} lit={active === 'panel'} />
-            </div>
-            <div className="relative flex-1 min-h-0">
-              <div className="absolute inset-0 flex flex-col">
-                <ClaudeShell busy={!cliDone}>
-                <ClaudeUser>Add rate-limit headers to the public API — 429 + Retry-After on every public route</ClaudeUser>
-                <AssistantSay>Middleware first, then the router wiring.</AssistantSay>
-                <ToolCall name="Write" args="src/api/middleware/rateLimit.ts" />
-                <ToolResult>
-                  <span className="text-[#3fb950]">+64</span>
-                  <span className="ml-2 text-white/55">lines (new)</span>
-                </ToolResult>
-                <ToolCall name="Edit" args="src/api/router.ts" />
-                <ToolResult>
-                  <span className="text-[#3fb950]">+9</span>
-                  <span className="mx-1 text-white/30">/</span>
-                  <span className="text-[#f85149]">−1</span>
-                  <span className="ml-2 text-white/55">lines</span>
-                </ToolResult>
-                <Continuation>limiter on every /api/public route, Retry-After from the bucket</Continuation>
-                <ToolCall name="Bash" args="npm test -- rateLimit" />
-                <ToolResult>
-                  <span className="text-[#3fb950]">PASS</span>
-                  <span className="ml-2 text-white/65">6 tests</span>
-                  <span className="ml-2 text-white/35">in 0.8s</span>
-                </ToolResult>
-                <div className="mt-2">
-                  <Lit on={active === 'cli'} className="block px-2 py-1 -mx-2">
-                    <ToolCall name="Bash" args="ouijit task set-status 119 in_review" />
-                    <ToolResult>{'{"success": true, "task": {"status": "in_review"}}'}</ToolResult>
-                  </Lit>
-                </div>
-                </ClaudeShell>
-              </div>
-              <div
-                className="absolute inset-0 overflow-hidden"
-                style={{
-                  background: 'var(--color-terminal-bg)',
-                  opacity: panelV,
-                  transform: `translateY(${(1 - easeInOut(panelV)) * 14}px)`,
-                  pointerEvents: 'none',
-                }}
-              >
-                <div className="flex items-center gap-2 px-4 py-1.5">
-                  <Icon name="file-text" className="w-3.5 h-3.5 text-ink/50 shrink-0" />
-                  <span className="text-[13px] text-ink/50 font-mono">plan.md</span>
-                </div>
-                <div className="px-6 py-2">
-                  <div className="app-markdown plan-markdown">{RATE_LIMIT_PLAN}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Desk>
-      </div>
-    </div>
-  );
-}
-
-/* ═══ 1d · Round trip — the agent moves its own card to review ════ */
-
-interface Box {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-function useSceneScrub() {
-  const sceneRef = useRef<HTMLDivElement | null>(null);
-  const stageRef = useRef<HTMLDivElement | null>(null);
-  const srcRef = useRef<HTMLDivElement | null>(null);
-  const dstRef = useRef<HTMLDivElement | null>(null);
-  const [p, setP] = useState(0);
-  const [boxes, setBoxes] = useState<{ src: Box; dst: Box } | null>(null);
-  const sig = useRef('');
-
-  useEffect(() => {
-    let raf = 0;
-    const update = () => {
-      const vh = window.innerHeight;
-      const scene = sceneRef.current;
-      if (!scene) return;
-      const rect = scene.getBoundingClientRect();
-      const center = rect.top + rect.height / 2;
-      const nextP = clamp01((vh * 0.95 - center) / (vh * 0.55));
-      let next: { src: Box; dst: Box } | null = null;
-      const stage = stageRef.current;
-      const so = srcRef.current;
-      const dst = dstRef.current;
-      if (stage && so && dst) {
-        const s = stage.getBoundingClientRect();
-        const a = so.getBoundingClientRect();
-        const b = dst.getBoundingClientRect();
-        next = {
-          src: { x: a.left - s.left, y: a.top - s.top, w: a.width, h: a.height },
-          dst: { x: b.left - s.left, y: b.top - s.top, w: b.width, h: b.height },
-        };
-      }
-      const nextSig = JSON.stringify([
-        Math.round(nextP * 500),
-        next && [Math.round(next.src.x), Math.round(next.src.y), Math.round(next.dst.x), Math.round(next.dst.y), Math.round(next.dst.h)],
-      ]);
-      if (nextSig !== sig.current) {
-        sig.current = nextSig;
-        setP(nextP);
-        setBoxes(next);
-      }
-    };
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
-
-  return { sceneRef, stageRef, srcRef, dstRef, p, boxes };
-}
-
-export function VariantRoundTrip() {
-  const { sceneRef, stageRef, srcRef, dstRef, p, boxes } = useSceneScrub();
-  const firing = p > 0.24 && p < 0.48;
-  const fp = clamp01((p - 0.42) / 0.45);
-  const open = fp > 0.35;
-  const landed = fp >= 0.85;
-  const ghost = fp > 0 && fp < 1 && boxes;
-  const e = easeInOut(fp);
-  return (
-    <div ref={sceneRef}>
-      <div className="bl-trip-copy">
-        <h3>The agent hands it back</h3>
-        <p>One session-aware CLI call moves the task to In Review. The board follows, live.</p>
-      </div>
-      <Desk hue="teal" style={{ padding: 36 }}>
-        <div ref={stageRef} className="relative flex gap-8 items-stretch">
-          <Panel
-            firing={firing}
-            className="flex-1 min-w-0"
-            style={{ minHeight: 320 }}
-            ledge={
-              <>
-                <StatusDot summaryType={landed ? 'ready' : 'thinking'} />
-                <span className="font-mono text-xs font-medium text-ink/85">claude</span>
-                <span className="ml-auto">
-                  <BranchLabel branch="api-rate-limit-headers" />
-                </span>
-              </>
-            }
-          >
-            <ClaudeShell busy={!landed}>
-              <Line p={p} at={0.04}>
-                <ToolCall name="Bash" args="npm test -- rateLimit" />
-              </Line>
-              <Line p={p} at={0.1}>
-                <ToolResult>
-                  <span className="text-[#3fb950]">PASS</span>
-                  <span className="ml-2 text-white/65">6 tests</span>
-                  <span className="ml-2 text-white/35">in 0.8s</span>
-                </ToolResult>
-              </Line>
-              <Line p={p} at={0.17}>
-                <AssistantSay>Tests pass. Sending it to review.</AssistantSay>
-              </Line>
-              <Line p={p} at={0.26}>
-                <ToolCall name="Bash" args="ouijit task set-status 119 in_review" />
-              </Line>
-              <Line p={p} at={0.34}>
-                <div ref={srcRef}>
-                  <ToolResult>{'{"success": true, "task": {"status": "in_review"}}'}</ToolResult>
-                </div>
-              </Line>
-            </ClaudeShell>
-          </Panel>
-          <div
-            className="glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel shrink-0"
-            style={{ width: 280, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
-          >
-            <KanbanColumnView status="in_review" label="In Review" count={landed ? 2 : 1}>
-              <KanbanCardView task={T116_REVIEW} showBadge={false} />
-              <div ref={dstRef} className={`plan-slot ${open ? 'plan-slot-open' : ''} ${landed ? 'plan-slot-in' : ''}`}>
-                <div>
-                  <KanbanCardView task={T119_REVIEW} showBadge={false} />
-                </div>
-              </div>
-            </KanbanColumnView>
-          </div>
-          {ghost && (
-            <div
-              className="absolute pointer-events-none"
-              style={{
-                left: lerp(boxes!.src.x, boxes!.dst.x, e),
-                top: lerp(boxes!.src.y, boxes!.dst.y, e) - 24 * Math.sin(Math.PI * e),
-                width: lerp(boxes!.src.w * 0.45, boxes!.dst.w, e),
-                zIndex: 40,
-                opacity: Math.min(1, fp / 0.12) * (1 - clamp01((fp - 0.85) / 0.15)),
-              }}
-            >
-              <CardFrame t={T119_REVIEW} style={{ boxShadow: 'var(--shadow-panel), 0 24px 48px -16px rgba(0,0,0,0.6)' }} />
-            </div>
-          )}
         </div>
+      </div>
+      <div className="detail detail-span-2">
+        <div className="detail-title">Agents drive the board.</div>
+        <p>The CLI is session-aware inside every terminal.</p>
+        <div className="mt-3 rounded-[12px] border border-bezel-panel px-3 py-2.5 font-mono text-[11px] leading-[1.8]" style={{ background: 'var(--color-terminal-bg)' }}>
+          <div className="text-white/80">
+            <span className="text-white/40">$</span> ouijit task set-status 142 in_review
+          </div>
+          <div className="text-white/50">
+            #142 <span className="text-white/65">in_progress → in_review</span>
+          </div>
+        </div>
+      </div>
+      <div className="detail detail-span-2">
+        <div className="detail-title">Know when it's done.</div>
+        <p>A notification lands when an agent's turn ends.</p>
+        <div className="mt-3">
+          <MacNotification body="Rework onboarding flow — done · 14 passed" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ 2d · Carousel — features as full-size cards on a horizontal rail ═══ */
+
+function CarouselCard({
+  hue,
+  title,
+  body,
+  wide = false,
+  children,
+}: {
+  hue: keyof typeof DESK_HUES;
+  title: string;
+  body: string;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="bl-carousel-card" style={{ flexBasis: wide ? 860 : 700 }}>
+      <Desk hue={hue} style={{ padding: 32, height: '100%' }}>
+        <div className="bl-carousel-copy">
+          <h3>{title}</h3>
+          <p>{body}</p>
+        </div>
+        {children}
       </Desk>
+    </div>
+  );
+}
+
+export function VariantCarousel() {
+  return (
+    <div className="bl-carousel">
+      <CarouselCard
+        hue="indigo"
+        wide
+        title="Terminal and plan, side by side"
+        body="plan.md rides the terminal as a panel; the agent keeps it current."
+      >
+        <SplitViewMock />
+      </CarouselCard>
+      <CarouselCard
+        hue="teal"
+        title="Every agent, at a glance"
+        body="Statuses read live, and a notification lands when a turn ends."
+      >
+        <AgentStatesDemo />
+      </CarouselCard>
+      <CarouselCard
+        hue="rose"
+        title="Contain untrusted code"
+        body="Open any terminal in a Lima VM or under nono."
+      >
+        <SandboxMock />
+      </CarouselCard>
+      <CarouselCard
+        hue="graphite"
+        title="Hooks on every move"
+        body="Lifecycle hooks run your commands as tasks change status."
+      >
+        <AutomationDemo />
+      </CarouselCard>
+      <CarouselCard
+        hue="indigo"
+        title="Agents drive the board"
+        body="The session-aware CLI files subtasks and statuses from inside the work."
+      >
+        <CliMock />
+      </CarouselCard>
+    </div>
+  );
+}
+
+/* ═══ 2e · Annotated scene — one workspace, callouts naming its parts ═══ */
+
+function Callout({
+  top,
+  side,
+  reach,
+  label,
+}: {
+  top: number;
+  side: 'left' | 'right';
+  /** Length of the connector line toward the target. */
+  reach: number;
+  label: string;
+}) {
+  return (
+    <div
+      className="bl-callout"
+      style={{ position: 'absolute', top, [side]: 0, flexDirection: side === 'left' ? 'row' : 'row-reverse' }}
+    >
+      <span className="bl-callout-label">{label}</span>
+      <span className="bl-callout-line" style={{ width: reach }} />
+      <span className="bl-callout-dot" />
+    </div>
+  );
+}
+
+export function VariantScene() {
+  const fixtures = getPanelFixtures('pty-101-claude');
+  return (
+    <Desk hue="graphite" style={{ padding: '96px 0 48px', overflow: 'visible' }}>
+      <div className="relative mx-auto" style={{ width: 720, height: 500 }}>
+        <TerminalCardView backDepth={2}>
+          <TerminalHeaderView
+            summaryType="ready"
+            isBackCard
+            stackPosition={2}
+            nameContent={<TerminalHeaderName label="Polish invitation email" lastOscTitle="done · 14 passed" />}
+          />
+        </TerminalCardView>
+        <TerminalCardView backDepth={1}>
+          <TerminalHeaderView
+            summaryType="thinking"
+            sandboxed
+            isBackCard
+            stackPosition={1}
+            nameContent={
+              <TerminalHeaderName label="Audit accessibility on settings dialog" lastOscTitle="running axe (lima)" />
+            }
+          />
+        </TerminalCardView>
+        <TerminalCardView isActive>
+          <TerminalHeaderView
+            isActive
+            summaryType="thinking"
+            nameContent={<TerminalHeaderName label="claude" lastOscTitle="Editing onboarding stepper..." />}
+            branchContent={<BranchLabel branch="rework-onboarding" />}
+            actions={<ActiveActions fixtures={fixtures} openPanel="plan" onToggle={() => {}} />}
+          />
+          <div className="flex-1 min-h-0 flex">
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+              <ClaudeBody />
+            </div>
+            <div className="pane-seam relative w-px shrink-0" />
+            <div className="relative shrink-0" style={{ width: '42%' }}>
+              {fixtures.plan && <MockPlanPanel fixture={fixtures.plan} onClose={() => {}} />}
+            </div>
+          </div>
+        </TerminalCardView>
+      </div>
+      <Callout top={118} side="left" reach={120} label="Live status per agent" />
+      <Callout top={330} side="left" reach={96} label="The agent's session" />
+      <Callout top={80} side="left" reach={116} label="A sandboxed terminal" />
+      <Callout top={118} side="right" reach={26} label="Panels on the terminal" />
+      <Callout top={300} side="right" reach={26} label="plan.md, kept current" />
+    </Desk>
+  );
+}
+
+/* ═══ 2f · Monolith — full-bleed surfaces, one-line captions ═══ */
+
+function MonoBlock({ title, body, children }: { title: string; body: string; children: ReactNode }) {
+  return (
+    <div className="bl-mono-block">
+      <div className="bl-mono-copy">
+        <h3>{title}</h3>
+        <p>{body}</p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function VariantMonolith() {
+  return (
+    <div className="flex flex-col" style={{ gap: 120 }}>
+      <MonoBlock
+        title="The plan stays in sight"
+        body="plan.md opens as a panel on the terminal, split beside the session."
+      >
+        <SplitViewMock />
+      </MonoBlock>
+      <MonoBlock title="Every agent, at a glance" body="Statuses read live across the whole stack.">
+        <AgentStatesDemo />
+      </MonoBlock>
+      <MonoBlock
+        title="Contain untrusted code"
+        body="A Lima VM that mounts only the task's files, or nono in place."
+      >
+        <SandboxMock />
+      </MonoBlock>
+      <div className="bl-mono-pair">
+        <MonoBlock title="Hooks on every move" body="Your commands run as tasks change status.">
+          <HooksMock />
+        </MonoBlock>
+        <MonoBlock title="Agents drive the board" body="The CLI is session-aware in every terminal.">
+          <CliMock />
+        </MonoBlock>
+      </div>
     </div>
   );
 }

@@ -1,32 +1,49 @@
 ---
 import Site from '../../../layouts/Site.astro';
-import { VariantIgnition, VariantStations, VariantAnatomy, VariantRoundTrip } from '../../../components/demo/BuildLab.tsx';
+import {
+  VariantWorkbench,
+  VariantStages,
+  VariantBento,
+  VariantCarousel,
+  VariantScene,
+  VariantMonolith,
+} from '../../../components/demo/BuildLab.tsx';
 ---
 <Site noindex>
   <div class="build-lab">
     <header class="build-lab-head">
       <h1>Build section lab</h1>
-      <p>Round 1: four structures for the Build pillar — worktrees, hooks, statuses, sandbox, the plan panel, the CLI. Everything scrubs with scroll.</p>
+      <p>Round 2: the features on their real surfaces — panels, statuses, sandbox, hooks, CLI — across six structures.</p>
     </header>
 
-    <section class="build-lab-concept" id="v1a">
-      <div class="build-lab-tag">1a · Ignition — one sticky stage: the card moves, the worktree spawns, the start hook launches the agent</div>
-      <VariantIgnition client:visible />
+    <section class="build-lab-concept" id="v2a">
+      <div class="build-lab-tag">2a · Workbench — one sticky terminal stack; scrolling opens plan.md, then the preview, then statuses light up</div>
+      <VariantWorkbench client:visible />
     </section>
 
-    <section class="build-lab-concept" id="v1b">
-      <div class="build-lab-tag">1b · Stations — the task rides the status rail up top while each move's hook fires in its own row</div>
-      <VariantStations client:visible />
+    <section class="build-lab-concept" id="v2b">
+      <div class="build-lab-tag">2b · Feature stages — one full-width surface per feature, copy at the side</div>
+      <VariantStages client:visible />
     </section>
 
-    <section class="build-lab-concept" id="v1c">
-      <div class="build-lab-tag">1c · Anatomy — one loaded terminal, each part lit as its beat scrolls past: status, sandbox ring, plan panel, CLI</div>
-      <VariantAnatomy client:visible />
+    <section class="build-lab-concept" id="v2c">
+      <div class="build-lab-tag">2c · Bento — every Build feature dense, in one grid</div>
+      <VariantBento client:visible />
     </section>
 
-    <section class="build-lab-concept" id="v1d">
-      <div class="build-lab-tag">1d · Round trip — the agent's own CLI call flies the card into In Review</div>
-      <VariantRoundTrip client:visible />
+    <section class="build-lab-concept" id="v2d">
+      <div class="build-lab-tag">2d · Carousel — features as full-size cards on a horizontal rail (drag / scroll sideways)</div>
+      <VariantCarousel client:visible />
+    </section>
+
+    <section class="build-lab-concept" id="v2e">
+      <div class="build-lab-tag">2e · Annotated scene — one workspace at work, callouts naming its parts</div>
+      <VariantScene client:visible />
+    </section>
+
+    <section class="build-lab-concept" id="v2f">
+      <div class="build-lab-tag">2f · Monolith — full-bleed surfaces with one-line captions, no desks</div>
+      <VariantMonolith client:visible />
     </section>
   </div>
 
@@ -52,10 +69,10 @@ import { VariantIgnition, VariantStations, VariantAnatomy, VariantRoundTrip } fr
       margin-bottom: 56px;
     }
 
-    /* Copy steps beside a sticky stage */
+    /* Copy steps beside a sticky stage (2a) */
     .bl-split {
       display: flex;
-      gap: 56px;
+      gap: 48px;
       align-items: flex-start;
     }
     .bl-steps {
@@ -82,40 +99,86 @@ import { VariantIgnition, VariantStations, VariantAnatomy, VariantRoundTrip } fr
       flex-shrink: 0;
     }
 
-    /* Anatomy spotlight */
-    .bl-lit {
-      position: relative;
-      border-radius: 8px;
-      transition: box-shadow 300ms ease, background 300ms ease;
+    /* Carousel (2d) */
+    .bl-carousel {
+      display: flex;
+      gap: 24px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      padding: 4px 4px 28px;
+      margin: 0 calc(-1 * var(--content-padding));
+      padding-left: var(--content-padding);
+      padding-right: var(--content-padding);
     }
-    .bl-lit[data-on] {
-      box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--color-accent) 60%, transparent),
-        0 0 20px color-mix(in srgb, var(--color-accent) 16%, transparent);
-      background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+    .bl-carousel-card {
+      flex-shrink: 0;
+      flex-grow: 0;
+      scroll-snap-align: start;
+    }
+    .bl-carousel-card .plan-desk {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .bl-carousel-copy h3 {
+      font-size: 19px;
+      margin: 0;
+    }
+    .bl-carousel-copy p {
+      color: #86868b;
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 6px 0 0;
+      max-width: 460px;
     }
 
-    /* Stations rail */
-    .bl-stations-rail {
-      position: sticky;
-      top: 70px;
-      z-index: 30;
+    /* Annotated scene (2e) */
+    .bl-callout {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .bl-callout-label {
+      font-family: 'Iosevka Extended', 'SF Mono', monospace;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.65);
+      white-space: nowrap;
+    }
+    .bl-callout-line {
+      display: block;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.22);
+    }
+    .bl-callout-dot {
+      display: block;
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.55);
+      flex-shrink: 0;
     }
 
-    /* Round trip */
-    .bl-trip-copy {
-      max-width: 560px;
-      margin-bottom: 40px;
+    /* Monolith (2f) */
+    .bl-mono-copy {
+      margin-bottom: 22px;
     }
-    .bl-trip-copy h3 {
+    .bl-mono-copy h3 {
       font-size: 21px;
       margin: 0;
     }
-    .bl-trip-copy p {
+    .bl-mono-copy p {
       color: #86868b;
       font-size: 15px;
       line-height: 1.5;
-      margin: 10px 0 0;
+      margin: 8px 0 0;
+    }
+    .bl-mono-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: start;
     }
   </style>
 </Site>
