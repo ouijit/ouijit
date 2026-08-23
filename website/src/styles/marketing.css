@@ -1812,6 +1812,51 @@ body.marketing .float-nav-buy:hover {
   color: rgba(245, 245, 247, 0.7);
 }
 
+.bento-tabs {
+  margin-top: auto;
+  padding-top: 20px;
+  display: flex;
+  gap: 6px;
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 11px;
+}
+
+.bento-tab {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(245, 245, 247, 0.7);
+}
+
+.bento-tab.is-active {
+  background: var(--color-accent);
+  border-color: transparent;
+  color: var(--color-accent-ink);
+}
+
+.bento-tab-add {
+  color: var(--color-text-tertiary);
+}
+
+.bento-notify {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 11px;
+  color: rgba(245, 245, 247, 0.85);
+}
+
+.bento-notify-time {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+}
+
 .cta-section {
   padding: 80px var(--content-padding) 96px;
   text-align: center;
