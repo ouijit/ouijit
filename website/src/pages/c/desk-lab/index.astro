@@ -7,10 +7,93 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
     <header class="desk-lab-head">
       <h1>Desk background lab</h1>
       <p>
-        Six structurally different marketing backgrounds under the same terminal card. Colors are placeholder
-        — judge the type of treatment, not the exact hues.
+        Round 2: six treatments that are not gradients — drawn lines, type, patterns, flat color, and UI
+        collage. The gradient round is kept at the bottom for reference.
       </p>
     </header>
+
+    <section class="desk-lab-concept" id="dg">
+      <div class="desk-lab-tag">g · Git graph — branch lanes drawn around the card, curving at the corners, commits as dots</div>
+      <div class="plan-desk dl dl-g">
+        <svg class="dl-layer" viewBox="0 0 1200 496" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0,22 H1200" stroke="#6366f1" stroke-width="2" fill="none" opacity="0.7" />
+          <path d="M0,22 C 40,22 40,60 80,60 H240 C 300,60 300,22 360,22" stroke="#22d3ee" stroke-width="2" fill="none" opacity="0.8" />
+          <path d="M820,22 C 880,22 880,60 940,60 H1200" stroke="#3fb950" stroke-width="2" fill="none" opacity="0.7" />
+          <path d="M0,474 H1200" stroke="#6366f1" stroke-width="2" fill="none" opacity="0.7" />
+          <path d="M180,474 C 240,474 240,438 300,438 H560 C 620,438 620,474 680,474" stroke="#da77f2" stroke-width="2" fill="none" opacity="0.8" />
+          <path d="M900,474 C 950,474 950,438 1000,438 H1200" stroke="#22d3ee" stroke-width="2" fill="none" opacity="0.7" />
+          <circle cx="80" cy="60" r="5" fill="#22d3ee" />
+          <circle cx="360" cy="22" r="5" fill="#6366f1" />
+          <circle cx="620" cy="22" r="5" fill="#6366f1" />
+          <circle cx="940" cy="60" r="5" fill="#3fb950" />
+          <circle cx="300" cy="438" r="5" fill="#da77f2" />
+          <circle cx="680" cy="474" r="5" fill="#6366f1" />
+          <circle cx="1000" cy="438" r="5" fill="#22d3ee" />
+        </svg>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dh">
+      <div class="desk-lab-tag">h · Diff marks — oversized +/− and hunk glyphs stamped around the frame like watermarks</div>
+      <div class="plan-desk dl dl-h">
+        <div class="dl-layer dl-h-marks" aria-hidden="true">
+          <span class="dl-mark dl-mark--add" style="top: -46px; left: 3%; font-size: 150px">+</span>
+          <span class="dl-mark dl-mark--del" style="top: -30px; right: 12%; font-size: 110px">−</span>
+          <span class="dl-mark dl-mark--hunk" style="top: 6px; left: 38%; font-size: 40px">@@</span>
+          <span class="dl-mark dl-mark--add" style="bottom: -50px; right: 2%; font-size: 170px">+</span>
+          <span class="dl-mark dl-mark--del" style="bottom: -34px; left: 16%; font-size: 120px">−</span>
+          <span class="dl-mark dl-mark--hunk" style="bottom: 4px; right: 34%; font-size: 40px">@@</span>
+          <span class="dl-mark dl-mark--add" style="top: 40%; left: -10px; font-size: 90px">+</span>
+          <span class="dl-mark dl-mark--del" style="top: 34%; right: -6px; font-size: 90px">−</span>
+        </div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="di">
+      <div class="desk-lab-tag">i · Blueprint — graph-paper grid with a dashed plot frame behind the card, corner ticks</div>
+      <div class="plan-desk dl dl-i">
+        <div class="dl-layer dl-i-grid" aria-hidden="true"></div>
+        <div class="dl-layer dl-i-plot" aria-hidden="true"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dj">
+      <div class="desk-lab-tag">j · Flat block — one bold solid color, a hard-edged darker band at the foot, nothing soft</div>
+      <div class="plan-desk dl dl-j">
+        <div class="dl-layer dl-j-band" aria-hidden="true"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dk">
+      <div class="desk-lab-tag">k · Diagonal stripes — wide hard-stop bands in two close tones, one accent band cutting through</div>
+      <div class="plan-desk dl dl-k">
+        <div class="dl-layer dl-k-accent" aria-hidden="true"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dl-frag">
+      <div class="desk-lab-tag">l · UI collage — real product atoms (branch chip, stats, status dots, keycap) scattered on flat dark</div>
+      <div class="plan-desk dl dl-l">
+        <div class="dl-layer" aria-hidden="true">
+          <span class="dl-chip" style="top: 18px; left: 4%; transform: rotate(-4deg)">⎇ rework-onboarding</span>
+          <span class="dl-chip dl-chip--stat" style="top: 22px; right: 6%; transform: rotate(3deg)"><em>+92</em> <s>−14</s></span>
+          <span class="dl-chip dl-chip--dots" style="top: 26px; left: 44%">
+            <i style="background: #3fb950"></i><i style="background: #da77f2"></i><i class="dl-dot-ring"></i>
+          </span>
+          <span class="dl-chip dl-chip--key" style="bottom: 20px; left: 10%; transform: rotate(2deg)">⌘D</span>
+          <span class="dl-chip" style="bottom: 22px; right: 12%; transform: rotate(-2deg)">ouijit task create</span>
+          <span class="dl-chip dl-chip--pr" style="bottom: 18px; left: 42%; transform: rotate(1deg)">#501 · 2 unsent</span>
+        </div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <div class="desk-lab-round">Round 1 · gradients, for reference</div>
 
     <section class="desk-lab-concept" id="da">
       <div class="desk-lab-tag">a · Mesh aurora — overlapping color fields from the app palette, blurred into each other</div>
@@ -84,8 +167,135 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
       margin-bottom: 32px;
     }
 
+    .desk-lab-round {
+      margin-top: 160px;
+      padding-top: 40px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-family: 'Iosevka Extended', 'SF Mono', monospace;
+      font-size: 13px;
+      color: #86868b;
+    }
+
     .dl {
       padding: 48px;
+    }
+
+    /* g · git graph */
+    .dl-g {
+      background: #0f1017;
+    }
+    svg.dl-layer {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* h · diff marks */
+    .dl-h {
+      background: #101116;
+    }
+    .dl-h-marks {
+      overflow: hidden;
+      border-radius: inherit;
+    }
+    .dl-mark {
+      position: absolute;
+      font-family: 'Iosevka Extended', 'SF Mono', monospace;
+      font-weight: 700;
+      line-height: 1;
+      user-select: none;
+    }
+    .dl-mark--add {
+      color: rgba(63, 185, 80, 0.4);
+    }
+    .dl-mark--del {
+      color: rgba(248, 81, 73, 0.38);
+    }
+    .dl-mark--hunk {
+      color: rgba(99, 102, 241, 0.45);
+    }
+
+    /* i · blueprint */
+    .dl-i {
+      background: #0e1120;
+    }
+    .dl-i-grid {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='112' height='112'><g stroke='rgb(130,160,255)' stroke-opacity='0.13' stroke-width='1'><path d='M28.5 0V112 M56.5 0V112 M84.5 0V112 M0 28.5H112 M0 56.5H112 M0 84.5H112'/></g><g stroke='rgb(150,180,255)' stroke-opacity='0.4' stroke-width='1.5'><path d='M0.75 0V112 M0 0.75H112'/></g></svg>");
+    }
+    .dl-i-plot {
+      inset: 30px;
+      border: 1.5px dashed rgba(99, 102, 241, 0.75);
+      border-radius: 18px;
+    }
+
+    /* j · flat block */
+    .dl-j {
+      background: #4c50e6;
+    }
+    .dl-j-band {
+      top: auto;
+      height: 88px;
+      background: #3a3ec9;
+    }
+
+    /* k · diagonal stripes */
+    .dl-k {
+      background: repeating-linear-gradient(45deg, #14152e 0 44px, #1a1c3d 44px 88px);
+    }
+    .dl-k-accent {
+      inset: -80px auto -80px 62%;
+      width: 88px;
+      background: #4c50e6;
+      transform: rotate(45deg);
+    }
+
+    /* l · UI collage */
+    .dl-l {
+      background: #101018;
+    }
+    .dl-chip {
+      position: absolute;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.04);
+      font-family: 'Iosevka Extended', 'SF Mono', monospace;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.55);
+      white-space: nowrap;
+    }
+    .dl-chip--stat em {
+      font-style: normal;
+      color: rgba(63, 185, 80, 0.9);
+    }
+    .dl-chip--stat s {
+      text-decoration: none;
+      color: rgba(248, 81, 73, 0.85);
+    }
+    .dl-chip--dots {
+      gap: 6px;
+      padding: 8px 12px;
+    }
+    .dl-chip--dots i {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+    .dl-dot-ring {
+      background: transparent;
+      box-shadow: inset 0 0 0 1.5px #e3b341;
+    }
+    .dl-chip--key {
+      border-radius: 8px;
+      padding: 6px 10px;
+      border-color: rgba(255, 255, 255, 0.22);
+      box-shadow: 0 2px 0 rgba(255, 255, 255, 0.1);
+    }
+    .dl-chip--pr {
+      color: rgba(140, 180, 255, 0.75);
     }
     .dl-layer {
       position: absolute;
