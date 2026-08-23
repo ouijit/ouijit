@@ -61,7 +61,7 @@ function ComposerFooter({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null)
 function AgentPane({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null) => void }) {
   return (
     <div className={`${BODY_CLS} !p-5`}>
-      <ClaudeUser>break the API hardening epic into tasks on the board</ClaudeUser>
+      <ClaudeUser>break the API hardening work into tasks on the board</ClaudeUser>
       <AssistantSay>Rate limiting first — it blocks the other two. Creating it.</AssistantSay>
       <ToolCall
         name="Bash"
@@ -341,7 +341,7 @@ const ROWS: { key: SourceKey; title: string; body: string }[] = [
   {
     key: 'agent',
     title: 'Delegate the breakdown',
-    body: 'Hand an agent the epic. It files each task over the CLI, prompt included.',
+    body: 'Hand an agent the work. It files each task over the CLI, prompt included.',
   },
   { key: 'issue', title: 'Pull from GitHub', body: 'Turn any open issue into a task on the board with one click.' },
   { key: 'manual', title: 'Or just type', body: 'The composer sits at the bottom of the column, one ⌘N away.' },
