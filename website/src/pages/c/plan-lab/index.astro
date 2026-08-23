@@ -72,12 +72,23 @@ import { VariantScrubHue } from '../../../components/demo/PlanLab.tsx';
     /* Desk containers separate from the surfaces */
     .plan-desk {
       border-radius: 24px;
-      border: 1px solid rgba(255, 255, 255, 0.07);
       padding: 40px;
       /* clip, not hidden: hidden makes the desk a scroll container, which
          would pin a sticky descendant in place. */
       overflow: clip;
       position: relative;
+    }
+    /* The bevel is a ring on top rather than a border underneath: the drain
+       and charge overlays reach the edge, so the bevel blends with whatever
+       color the desk currently shows instead of the one it started with. */
+    .plan-desk::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      pointer-events: none;
+      z-index: 5;
     }
     .plan-desk > .glass-bevel {
       box-shadow:
