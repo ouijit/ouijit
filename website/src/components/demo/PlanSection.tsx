@@ -145,36 +145,26 @@ const ledge = (icon: string, label: string, hint?: string) => (
 const DESK_GRAPHITE =
   'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%), linear-gradient(180deg, #1c1d23, #131318)';
 
-/* Every colored desk wears the prism wash; the sources differ only in the
-   angle it sweeps from. */
-const DESK_ANGLES = { indigo: '160deg', teal: '205deg', rose: '115deg' } as const;
+/* Each source desk carries one third of the prism; the To Do column
+   reassembles the full sweep from the thirds whose cards have landed. */
+const DESK_SLICE = { agent: 'a', issue: 'b', manual: 'c' } as const;
 
 function Desk({
-  hue,
+  slice,
   drain = 0,
   className = '',
   style,
   children,
 }: {
-  hue: keyof typeof DESK_ANGLES | 'graphite';
+  slice: (typeof DESK_SLICE)[SourceKey];
   /** 0..1 crossfade to graphite — the desk's color leaving with its card. */
   drain?: number;
   className?: string;
   style?: React.CSSProperties;
   children: ReactNode;
 }) {
-  if (hue === 'graphite') {
-    return (
-      <div className={`plan-desk ${className}`} style={{ backgroundImage: DESK_GRAPHITE, ...style }}>
-        {children}
-      </div>
-    );
-  }
   return (
-    <div
-      className={`plan-desk desk-wash desk-wash--prism ${className}`}
-      style={{ '--wash-angle': DESK_ANGLES[hue], ...style } as React.CSSProperties}
-    >
+    <div className={`plan-desk desk-wash desk-wash--prism-${slice} ${className}`} style={style}>
       <DeskWash />
       {drain > 0 && (
         <div
@@ -418,16 +408,38 @@ function HandoffGhosts({ flightP, geom }: { flightP: (k: SourceKey) => number; g
 
 /** One gradient layer per source, stacked onto the column desk as its card
  * lands — the row hues, minus the dark linear base the desk already has. */
-/* Each landing steps the wash a third of the way up, so a fully charged
-   column matches the source desks' strength exactly. */
+const SLICE_STOPS: Record<SourceKey, string> = {
+  agent: 'oklch(80% 0.13 295), oklch(79% 0.13 330)',
+  issue: 'oklch(78% 0.14 15), oklch(79% 0.14 45)',
+  manual: 'oklch(84% 0.13 80), oklch(86% 0.14 130)',
+};
+
+/* The landed slices always span the full desk: one slice alone fills it,
+   the next landing redistributes the stops rather than claiming a band, so
+   no charge level leaves a graphite gap. Cards land in SEQUENCE order, so
+   each step's gradient extends the previous one and the layers crossfade. */
+const CHARGE_STEPS = SEQUENCE.map((_, i) =>
+  SEQUENCE.slice(0, i + 1)
+    .map((k) => SLICE_STOPS[k])
+    .join(', ')
+);
+
 function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>; children: ReactNode }) {
-  const charge = SEQUENCE.filter((k) => landed[k]).length / SEQUENCE.length;
+  const count = SEQUENCE.filter((k) => landed[k]).length;
   return (
-    <div
-      className="plan-desk desk-wash desk-wash--prism"
-      style={{ backgroundImage: DESK_GRAPHITE, padding: 36 }}
-    >
-      <DeskWash style={{ opacity: 0.9 * charge, transition: 'opacity 700ms ease' }} />
+    <div className="plan-desk desk-wash" style={{ backgroundImage: DESK_GRAPHITE, padding: 36 }}>
+      {CHARGE_STEPS.map((stops, i) => (
+        <DeskWash
+          key={i}
+          style={
+            {
+              opacity: count > i ? 0.9 : 0,
+              transition: 'opacity 700ms ease',
+              '--wash': stops,
+            } as React.CSSProperties
+          }
+        />
+      ))}
       <div className="relative">{children}</div>
     </div>
   );
@@ -435,7 +447,6 @@ function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>
 
 /* ─── The stage: desk cards, charging column, card flights ────────── */
 
-const DESK_HUE: Record<SourceKey, keyof typeof DESK_ANGLES> = { agent: 'indigo', issue: 'teal', manual: 'rose' };
 
 /** Narrow viewports and reduced motion get the finished state with no
  * choreography: every card landed, the column charged, nothing in flight. */
@@ -464,7 +475,7 @@ function CreateStage() {
       <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
         {ROWS.map(({ key, title, body }) => (
           <Row key={key} title={title} body={body} rowRef={setRow(key)}>
-            <Desk hue={DESK_HUE[key]} drain={staticMode ? 0 : easeInOut(flightP(key))}>
+            <Desk slice={DESK_SLICE[key]} drain={staticMode ? 0 : easeInOut(flightP(key))}>
               {rowMock(key, !staticMode && progress[key] > 0.15 && progress[key] < 0.55, setSource)}
             </Desk>
           </Row>
