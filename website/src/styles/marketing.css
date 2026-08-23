@@ -2747,6 +2747,28 @@ html.js .b-h1.is-typing .b-h1-typed {
   padding-top: 72px;
   gap: 36px;
 }
+/* The looped theater sits in normal flow — no tall wrapper, no sticky. */
+.bl-theater {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+}
+.beat-dots {
+  width: 100%;
+  height: 4px;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.14) 0 1.5px, transparent 2px);
+  background-size: 12px 4px;
+  background-position: 0 50%;
+  background-repeat: repeat-x;
+}
+.beat-dots-fill {
+  height: 100%;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.85) 0 1.5px, transparent 2px);
+  background-size: 12px 4px;
+  background-position: 0 50%;
+  background-repeat: repeat-x;
+}
 .bl-theater-captions {
   position: relative;
   width: 620px;

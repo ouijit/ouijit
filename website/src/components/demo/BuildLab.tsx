@@ -20,6 +20,7 @@ import {
   type PanelKind,
 } from './stackParts';
 import { DeskWash } from './DeskWash';
+import { useTheaterLoop, BeatDots } from './theaterLoop';
 
 /**
  * Build section lab, round 5 — same workbench, different stagings. The Plan
@@ -77,50 +78,6 @@ function useScrubRows(keys: readonly string[]) {
 
   const setRow = (key: string) => (el: HTMLElement | null) => void (rowEls.current[key] = el);
   return { setRow, progress };
-}
-
-/** One tall wrapper drives all beats: t is the wrapper's scroll fraction and
- * each beat ramps inside its own staggered window, with plateaus between. */
-function useTheaterScrub(keys: readonly string[]) {
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const [t, setT] = useState(0);
-  const last = useRef(-1);
-
-  useEffect(() => {
-    let raf = 0;
-    const update = () => {
-      const el = wrapRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const next = clamp01(-rect.top / (rect.height - vh));
-      const rounded = Math.round(next * 800);
-      if (rounded !== last.current) {
-        last.current = rounded;
-        setT(next);
-      }
-    };
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
-
-  const step = 0.78 / (keys.length - 1);
-  const p = (k: string) => {
-    const i = keys.indexOf(k);
-    if (i < 0) return 0;
-    return clamp01((t - i * step) / (step * 0.64));
-  };
-  return { wrapRef, p };
 }
 
 /** A session line that fades in as its beat's progress passes `at`. */
@@ -423,24 +380,23 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
 /* ═══ 5a · Theater — centered stage, the beat captions in a row below ═══ */
 
 export function VariantTheater() {
-  const { wrapRef, p } = useTheaterScrub(BEAT_KEYS);
+  const { rootRef, p, progress } = useTheaterLoop(BEAT_KEYS);
   const activeIdx = BEAT_KEYS.reduce((acc, k, i) => (p(k) > 0.35 ? i : acc), 0);
   return (
-    <div ref={wrapRef} style={{ height: '500vh' }}>
-      <div className="bl-theater-sticky">
-        <div className="plan-desk desk-wash desk-wash--iris" style={{ padding: 32, paddingTop: 100, width: '100%' }}>
-          <DeskWash />
-          <WorkbenchStack p={p} />
-        </div>
-        <div className="beat-row">
-          {BEATS.map((b, i) => (
-            <div key={b.key} className={i === activeIdx ? 'is-active' : undefined}>
-              <h3>{b.title}</h3>
-              <p>{b.body}</p>
-            </div>
-          ))}
-        </div>
+    <div ref={rootRef} className="bl-theater">
+      <div className="plan-desk desk-wash desk-wash--iris" style={{ padding: 32, paddingTop: 100, width: '100%' }}>
+        <DeskWash />
+        <WorkbenchStack p={p} />
       </div>
+      <div className="beat-row">
+        {BEATS.map((b, i) => (
+          <div key={b.key} className={i === activeIdx ? 'is-active' : undefined}>
+            <h3>{b.title}</h3>
+            <p>{b.body}</p>
+          </div>
+        ))}
+      </div>
+      <BeatDots progress={progress} />
     </div>
   );
 }

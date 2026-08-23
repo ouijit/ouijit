@@ -17,6 +17,7 @@ import {
   BODY_CLS,
 } from './stackParts';
 import { DeskWash } from './DeskWash';
+import { useTheaterLoop, BeatDots } from './theaterLoop';
 
 /**
  * Review section lab — the loop back to the agent, then the pull request.
@@ -660,15 +661,14 @@ const TWO_ACT_BEATS = [
 const TWO_ACT_KEYS = TWO_ACT_BEATS.map((b) => b.key);
 
 export function ReviewVariantTwoAct() {
-  const { wrapRef, p } = useTheaterScrub(TWO_ACT_KEYS);
+  const { rootRef, p, progress } = useTheaterLoop(TWO_ACT_KEYS);
   // Binary like the stack promotions, with the same animated depth change —
-  // a scroll-driven crossfade would leave both surfaces half-faded.
+  // a crossfade tied to the loop would leave both surfaces half-faded.
   const prOn = p('pr') > 0.35;
   const activeIdx = TWO_ACT_KEYS.reduce((acc, k, i) => (p(k) > 0.35 ? i : acc), 0);
   return (
-    <div ref={wrapRef} style={{ height: '460vh' }}>
-      <div className="bl-theater-sticky">
-        <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, paddingTop: 48, width: '100%' }}>
+    <div ref={rootRef} className="bl-theater">
+      <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, paddingTop: 48, width: '100%' }}>
           <DeskWash />
           <div className="relative" style={{ height: 480 }}>
             <RoundTripTerminal p={p} receded={prOn} />
@@ -687,15 +687,15 @@ export function ReviewVariantTwoAct() {
             </div>
           </div>
         </div>
-        <div className="beat-row">
-          {TWO_ACT_BEATS.map((b, i) => (
-            <div key={b.key} className={i === activeIdx ? 'is-active' : undefined}>
-              <h3>{b.title}</h3>
-              <p>{b.body}</p>
-            </div>
-          ))}
-        </div>
+      <div className="beat-row">
+        {TWO_ACT_BEATS.map((b, i) => (
+          <div key={b.key} className={i === activeIdx ? 'is-active' : undefined}>
+            <h3>{b.title}</h3>
+            <p>{b.body}</p>
+          </div>
+        ))}
       </div>
+      <BeatDots progress={progress} />
     </div>
   );
 }
