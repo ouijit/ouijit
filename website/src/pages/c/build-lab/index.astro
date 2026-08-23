@@ -1,27 +1,16 @@
 ---
 import Site from '../../../layouts/Site.astro';
-import { VariantDeep, VariantStrip, VariantCharged } from '../../../components/demo/BuildLab.tsx';
+import { BuildSectionCandidate } from '../../../components/demo/BuildLab.tsx';
 ---
 <Site noindex>
   <div class="build-lab">
     <header class="build-lab-head">
       <h1>Build section lab</h1>
-      <p>Round 3: the Workbench developed. Three candidates — how much of the pillar the one stack carries.</p>
+      <p>Round 4: the 3b direction as a full section — headline, four-beat workbench with the dev-terminal promotion, and the strip.</p>
     </header>
 
-    <section class="build-lab-concept" id="v3a">
-      <div class="build-lab-tag">3a · Deep workbench — five beats on one stack: start hook, plan.md, dev-terminal promotion with the preview, the agent's CLI handoff, statuses</div>
-      <VariantDeep client:visible />
-    </section>
-
-    <section class="build-lab-concept" id="v3b">
-      <div class="build-lab-tag">3b · Workbench + strip — the tight four-beat stack, with sandbox / hooks / CLI as a strip below</div>
-      <VariantStrip client:visible />
-    </section>
-
-    <section class="build-lab-concept" id="v3c">
-      <div class="build-lab-tag">3c · Charged workbench — same four beats, on a graphite desk that gains a hue per beat (the Plan section's color language)</div>
-      <VariantCharged client:visible />
+    <section class="build-lab-concept" id="v4">
+      <BuildSectionCandidate client:visible />
     </section>
   </div>
 
@@ -36,21 +25,24 @@ import { VariantDeep, VariantStrip, VariantCharged } from '../../../components/d
       margin: 8px 0 0;
     }
     .build-lab-concept {
-      margin-top: 160px;
+      margin-top: 120px;
       padding-top: 40px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
-    .build-lab-tag {
-      font-family: 'Iosevka Extended', 'SF Mono', monospace;
-      font-size: 13px;
+
+    .bl-standfirst {
       color: #86868b;
-      margin-bottom: 56px;
+      font-size: 17px;
+      line-height: 1.5;
+      margin: 14px 0 0;
+      max-width: 560px;
     }
 
     .bl-split {
       display: flex;
       gap: 48px;
       align-items: flex-start;
+      margin-top: 24px;
     }
     .bl-steps {
       flex: 1;
@@ -58,7 +50,7 @@ import { VariantDeep, VariantStrip, VariantCharged } from '../../../components/d
       display: flex;
       flex-direction: column;
       gap: 260px;
-      padding: 16vh 0 30vh;
+      padding: 14vh 0 26vh;
     }
     .bl-step h3 {
       font-size: 21px;
@@ -80,7 +72,8 @@ import { VariantDeep, VariantStrip, VariantCharged } from '../../../components/d
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
       gap: 24px;
-      margin-top: 72px;
+      margin-top: 48px;
+      align-items: start;
     }
     .bl-strip-cell {
       border-radius: 24px;
