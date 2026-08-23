@@ -1,282 +1,97 @@
 ---
 import Site from '../../../layouts/Site.astro';
 import { SampleCard } from '../../../components/demo/DeskLab.tsx';
+import stars from '../../../components/demo/desk-art/stars.svg?raw';
+import flow from '../../../components/demo/desk-art/flow.svg?raw';
+import topo from '../../../components/demo/desk-art/topo.svg?raw';
 ---
 <Site noindex>
   <div class="desk-lab">
     <header class="desk-lab-head">
       <h1>Desk background lab</h1>
       <p>
-        Round 4: texture, pattern, and depth at full fidelity — machined metal, an isometric worktree
-        diorama, a true-perspective stage, frosted glass with real refraction. Earlier rounds kept below.
+        Round 5: generative and organic — a plotted star chart, a computed flow field, surveyed contours,
+        marbled ink, and aurora with real structure. All prior rounds retired.
       </p>
     </header>
 
-    <section class="desk-lab-concept" id="dq">
-      <div class="desk-lab-tag">q · Machined plate — anodized metal: brushed micro-texture, a CNC perforation field, one specular sweep</div>
-      <div class="plan-desk dl dl-q">
-        <div class="dl-layer dl-q-perf" aria-hidden="true"></div>
-        <div class="dl-layer dl-q-brush" aria-hidden="true"></div>
-        <div class="dl-layer dl-q-sheen" aria-hidden="true"></div>
-        <div class="dl-layer dl-grain" aria-hidden="true"></div>
+    <section class="desk-lab-concept" id="du">
+      <div class="desk-lab-tag">u · Star chart — a deep field with a faint galactic band, two plotted constellations, one flagged star</div>
+      <div class="plan-desk dl dl-u">
+        <div class="dl-layer" set:html={stars} />
         <SampleCard client:visible />
       </div>
     </section>
 
-    <section class="desk-lab-concept" id="dr">
-      <div class="desk-lab-tag">r · Worktree diorama — isometric slabs floating around the terminal, each a worktree with its own edge light</div>
-      <div class="plan-desk dl dl-r">
-        <svg class="dl-layer" viewBox="0 0 1200 660" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <section class="desk-lab-concept" id="dv">
+      <div class="desk-lab-tag">v · Flow field — 150 computed streamlines following a noise field, a few carrying the accent</div>
+      <div class="plan-desk dl dl-v">
+        <div class="dl-layer" set:html={flow} />
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dw">
+      <div class="desk-lab-tag">w · Topography — surveyed contour lines around a peak just off the card's corner, index lines heavier, one accent contour</div>
+      <div class="plan-desk dl dl-w">
+        <div class="dl-layer" set:html={topo} />
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dx">
+      <div class="desk-lab-tag">x · Marbled ink — straight strata displaced by fluid turbulence; three strands carry color</div>
+      <div class="plan-desk dl dl-x">
+        <svg class="dl-layer" viewBox="0 0 1200 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <defs>
-            <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="9" /></filter>
+            <filter id="marbleF" x="-20%" y="-20%" width="140%" height="140%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.011 0.042" numOctaves="3" seed="11" result="n" />
+              <feDisplacementMap in="SourceGraphic" in2="n" scale="110" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
           </defs>
-          <ellipse cx="240" cy="238" rx="150" ry="40" fill="#000" opacity="0.5" filter="url(#soft)" />
-          <ellipse cx="1046" cy="392" rx="112" ry="30" fill="#000" opacity="0.5" filter="url(#soft)" />
-          <ellipse cx="196" cy="622" rx="130" ry="34" fill="#000" opacity="0.45" filter="url(#soft)" />
-          <path d="M80,120 L240,200 L240,222 L80,142 Z" fill="#12121b" />
-          <path d="M240,200 L400,120 L400,142 L240,222 Z" fill="#0d0d14" />
-          <path d="M80,120 L240,40 L400,120 L240,200 Z" fill="#1d1e2b" stroke="rgba(255,255,255,0.06)" />
-          <path d="M80,120 L240,40" stroke="#6366f1" stroke-width="1.5" opacity="0.9" />
-          <path d="M126,120 L240,63 L354,120 L240,177 Z" fill="#15161f" stroke="rgba(255,255,255,0.05)" />
-          <circle cx="168" cy="114" r="3" fill="rgba(218,119,242,0.8)" />
-          <circle cx="182" cy="107" r="3" fill="rgba(63,185,80,0.8)" />
-          <path d="M930,330 L1050,390 L1050,406 L930,346 Z" fill="#12121b" />
-          <path d="M1050,390 L1170,330 L1170,346 L1050,406 Z" fill="#0d0d14" />
-          <path d="M930,330 L1050,270 L1170,330 L1050,390 Z" fill="#1b1c28" stroke="rgba(255,255,255,0.06)" />
-          <path d="M1050,270 L1170,330" stroke="#22d3ee" stroke-width="1.5" opacity="0.9" />
-          <path d="M966,330 L1050,288 L1134,330 L1050,372 Z" fill="#14151e" stroke="rgba(255,255,255,0.05)" />
-          <path d="M60,548 L196,616 L196,634 L60,566 Z" fill="#12121b" />
-          <path d="M196,616 L332,548 L332,566 L196,634 Z" fill="#0d0d14" />
-          <path d="M60,548 L196,480 L332,548 L196,616 Z" fill="#1c1d29" stroke="rgba(255,255,255,0.06)" />
-          <path d="M60,548 L196,480" stroke="#da77f2" stroke-width="1.5" opacity="0.85" />
-          <path d="M400,120 H560 V300" stroke="rgba(255,255,255,0.14)" fill="none" />
-          <circle cx="560" cy="300" r="3" fill="rgba(255,255,255,0.3)" />
-          <path d="M930,330 H820" stroke="rgba(255,255,255,0.14)" fill="none" />
-          <circle cx="820" cy="330" r="3" fill="rgba(255,255,255,0.3)" />
-          <path d="M332,548 H480" stroke="rgba(255,255,255,0.12)" fill="none" />
-          <circle cx="480" cy="548" r="3" fill="rgba(255,255,255,0.28)" />
-        </svg>
-        <div style="max-width: 780px; margin: 0 auto">
-          <SampleCard client:visible />
-        </div>
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="ds">
-      <div class="desk-lab-tag">s · Perspective stage — a true 3D floor receding to a horizon, the card standing on it with a contact shadow</div>
-      <div class="plan-desk dl dl-s">
-        <div class="dl-s-floor" aria-hidden="true"></div>
-        <div style="position: relative; max-width: 880px; margin: 0 auto">
-          <SampleCard client:visible />
-          <div class="dl-s-shadow" aria-hidden="true"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="dt">
-      <div class="desk-lab-tag">t · Frosted glass — flat color shapes behind real frosted acrylic, sharp only through two polished lenses</div>
-      <div class="plan-desk dl dl-t">
-        <div class="dl-layer dl-t-shapes" aria-hidden="true">
-          <span class="dl-t-circle"></span>
-          <span class="dl-t-square"></span>
-          <span class="dl-t-tri"></span>
-        </div>
-        <div class="dl-layer dl-t-glass" aria-hidden="true"></div>
-        <span class="dl-t-lens" style="left: 44px; top: 22px; width: 168px; height: 168px" aria-hidden="true"></span>
-        <span class="dl-t-lens" style="right: 52px; bottom: 20px; width: 148px; height: 148px" aria-hidden="true"></span>
-        <div class="dl-layer dl-grain" aria-hidden="true"></div>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <div class="desk-lab-round">Round 3 · environments, for reference</div>
-
-    <section class="desk-lab-concept" id="dm">
-      <div class="desk-lab-tag">m · Dark room — the card as hardware on a black studio floor; the only ornament is its own reflection</div>
-      <div class="plan-desk dl dl-m">
-        <div class="dl-m-floor">
-          <SampleCard client:visible />
-        </div>
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="dn">
-      <div class="desk-lab-tag">n · Machined recess — no color at all: the page's own surface with a pocket milled into it, the card floating above</div>
-      <div class="plan-desk dl dl-n">
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="do">
-      <div class="desk-lab-tag">o · Etched plan — the app window's floorplan engraved into the desk at hairline weight; the card sits inside its own drawing</div>
-      <div class="plan-desk dl dl-o">
-        <svg class="dl-layer" viewBox="0 0 1200 496" preserveAspectRatio="none" aria-hidden="true">
-          <rect x="18.5" y="14.5" width="1163" height="467" rx="14" fill="none" stroke="rgba(255,255,255,0.09)" />
-          <circle cx="40" cy="33" r="4" fill="rgba(255,255,255,0.10)" />
-          <circle cx="56" cy="33" r="4" fill="rgba(255,255,255,0.10)" />
-          <circle cx="72" cy="33" r="4" fill="rgba(255,255,255,0.10)" />
-          <path d="M262.5,14.5 V481.5" stroke="rgba(255,255,255,0.08)" />
-          <path d="M18.5,50.5 H1181.5" stroke="rgba(255,255,255,0.08)" />
-          <path d="M493.5,50.5 V481.5 M724.5,50.5 V481.5 M955.5,50.5 V481.5" stroke="rgba(255,255,255,0.07)" />
-          <rect x="40.5" y="72.5" width="180" height="26" rx="7" fill="none" stroke="rgba(255,255,255,0.07)" />
-          <rect x="40.5" y="110.5" width="180" height="26" rx="7" fill="none" stroke="rgba(255,255,255,0.07)" />
-          <rect x="40.5" y="434.5" width="180" height="26" rx="7" fill="none" stroke="rgba(255,255,255,0.07)" />
-          <rect x="286.5" y="434.5" width="184" height="40" rx="9" fill="none" stroke="rgba(255,255,255,0.07)" />
-          <rect x="517.5" y="434.5" width="184" height="40" rx="9" fill="none" stroke="rgba(255,255,255,0.07)" />
-          <rect x="979.5" y="72.5" width="180" height="26" rx="7" fill="none" stroke="rgba(255,255,255,0.07)" />
-        </svg>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="dp">
-      <div class="desk-lab-tag">p · Trace — monochrome desk, one hairline of the section's accent routed around the card like a board trace</div>
-      <div class="plan-desk dl dl-p">
-        <svg class="dl-layer" viewBox="0 0 1200 496" preserveAspectRatio="none" aria-hidden="true">
-          <g fill="none" stroke="#6366f1" stroke-width="1.5" style="filter: drop-shadow(0 0 5px rgba(99,102,241,0.9))">
-            <path d="M0,24 H1128 Q1176,24 1176,72 V496" />
+          <g filter="url(#marbleF)">
+            {Array.from({ length: 44 }, (_, i) => {
+              const y = -40 + i * 15;
+              const accent = i === 12 ? '#6366f1' : i === 25 ? '#da77f2' : i === 33 ? '#22d3ee' : null;
+              const stroke = accent ?? 'rgba(255,255,255,0.09)';
+              const width = accent ? 1.6 : 1;
+              const opacity = accent ? 0.55 : 1;
+              return <path d={`M-60,${y} H1260`} fill="none" stroke={stroke} stroke-width={width} opacity={opacity} />;
+            })}
           </g>
-          <g fill="none" stroke="rgba(34,211,238,0.9)" stroke-width="1.5" style="filter: drop-shadow(0 0 5px rgba(34,211,238,0.7))">
-            <path d="M1200,472 H72 Q24,472 24,424 V0" />
+        </svg>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dy">
+      <div class="desk-lab-tag">y · Aurora — curtains with real vertical structure, displaced and blurred, over a sparse star field</div>
+      <div class="plan-desk dl dl-y">
+        <svg class="dl-layer" viewBox="0 0 1200 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs>
+            <filter id="aurF" x="-30%" y="-30%" width="160%" height="160%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.004 0.028" numOctaves="2" seed="5" result="n" />
+              <feDisplacementMap in="SourceGraphic" in2="n" scale="170" xChannelSelector="R" yChannelSelector="G" result="d" />
+              <feGaussianBlur in="d" stdDeviation="7 14" />
+            </filter>
+          </defs>
+          <g>
+            <circle cx="140" cy="80" r="1" fill="rgba(255,255,255,0.5)" />
+            <circle cx="360" cy="46" r="1.4" fill="rgba(255,255,255,0.4)" />
+            <circle cx="700" cy="70" r="1" fill="rgba(255,255,255,0.45)" />
+            <circle cx="1080" cy="52" r="1.2" fill="rgba(255,255,255,0.5)" />
+            <circle cx="920" cy="120" r="0.9" fill="rgba(255,255,255,0.35)" />
+            <circle cx="240" cy="500" r="1.1" fill="rgba(255,255,255,0.35)" />
+            <circle cx="1130" cy="480" r="1" fill="rgba(255,255,255,0.4)" />
           </g>
-          <circle cx="1176" cy="24" r="3.5" fill="#6366f1" style="filter: drop-shadow(0 0 5px rgba(99,102,241,0.9))" />
-          <circle cx="24" cy="472" r="3.5" fill="#22d3ee" style="filter: drop-shadow(0 0 5px rgba(34,211,238,0.8))" />
+          <g filter="url(#aurF)" transform="skewX(-8)">
+            <rect x="180" y="-80" width="70" height="720" fill="rgba(63,185,80,0.20)" />
+            <rect x="290" y="-80" width="40" height="720" fill="rgba(34,211,238,0.14)" />
+            <rect x="620" y="-80" width="90" height="720" fill="rgba(63,185,80,0.13)" />
+            <rect x="760" y="-80" width="46" height="720" fill="rgba(218,119,242,0.12)" />
+            <rect x="1010" y="-80" width="70" height="720" fill="rgba(34,211,238,0.16)" />
+          </g>
         </svg>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <div class="desk-lab-round">Round 2 · patterns, for reference</div>
-
-    <section class="desk-lab-concept" id="dg">
-      <div class="desk-lab-tag">g · Git graph — branch lanes drawn around the card, curving at the corners, commits as dots</div>
-      <div class="plan-desk dl dl-g">
-        <svg class="dl-layer" viewBox="0 0 1200 496" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M0,22 H1200" stroke="#6366f1" stroke-width="2" fill="none" opacity="0.7" />
-          <path d="M0,22 C 40,22 40,60 80,60 H240 C 300,60 300,22 360,22" stroke="#22d3ee" stroke-width="2" fill="none" opacity="0.8" />
-          <path d="M820,22 C 880,22 880,60 940,60 H1200" stroke="#3fb950" stroke-width="2" fill="none" opacity="0.7" />
-          <path d="M0,474 H1200" stroke="#6366f1" stroke-width="2" fill="none" opacity="0.7" />
-          <path d="M180,474 C 240,474 240,438 300,438 H560 C 620,438 620,474 680,474" stroke="#da77f2" stroke-width="2" fill="none" opacity="0.8" />
-          <path d="M900,474 C 950,474 950,438 1000,438 H1200" stroke="#22d3ee" stroke-width="2" fill="none" opacity="0.7" />
-          <circle cx="80" cy="60" r="5" fill="#22d3ee" />
-          <circle cx="360" cy="22" r="5" fill="#6366f1" />
-          <circle cx="620" cy="22" r="5" fill="#6366f1" />
-          <circle cx="940" cy="60" r="5" fill="#3fb950" />
-          <circle cx="300" cy="438" r="5" fill="#da77f2" />
-          <circle cx="680" cy="474" r="5" fill="#6366f1" />
-          <circle cx="1000" cy="438" r="5" fill="#22d3ee" />
-        </svg>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="dh">
-      <div class="desk-lab-tag">h · Diff marks — oversized +/− and hunk glyphs stamped around the frame like watermarks</div>
-      <div class="plan-desk dl dl-h">
-        <div class="dl-layer dl-h-marks" aria-hidden="true">
-          <span class="dl-mark dl-mark--add" style="top: -46px; left: 3%; font-size: 150px">+</span>
-          <span class="dl-mark dl-mark--del" style="top: -30px; right: 12%; font-size: 110px">−</span>
-          <span class="dl-mark dl-mark--hunk" style="top: 6px; left: 38%; font-size: 40px">@@</span>
-          <span class="dl-mark dl-mark--add" style="bottom: -50px; right: 2%; font-size: 170px">+</span>
-          <span class="dl-mark dl-mark--del" style="bottom: -34px; left: 16%; font-size: 120px">−</span>
-          <span class="dl-mark dl-mark--hunk" style="bottom: 4px; right: 34%; font-size: 40px">@@</span>
-          <span class="dl-mark dl-mark--add" style="top: 40%; left: -10px; font-size: 90px">+</span>
-          <span class="dl-mark dl-mark--del" style="top: 34%; right: -6px; font-size: 90px">−</span>
-        </div>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="di">
-      <div class="desk-lab-tag">i · Blueprint — graph-paper grid with a dashed plot frame behind the card, corner ticks</div>
-      <div class="plan-desk dl dl-i">
-        <div class="dl-layer dl-i-grid" aria-hidden="true"></div>
-        <div class="dl-layer dl-i-plot" aria-hidden="true"></div>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="dj">
-      <div class="desk-lab-tag">j · Flat block — one bold solid color, a hard-edged darker band at the foot, nothing soft</div>
-      <div class="plan-desk dl dl-j">
-        <div class="dl-layer dl-j-band" aria-hidden="true"></div>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="dk">
-      <div class="desk-lab-tag">k · Diagonal stripes — wide hard-stop bands in two close tones, one accent band cutting through</div>
-      <div class="plan-desk dl dl-k">
-        <div class="dl-layer dl-k-accent" aria-hidden="true"></div>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="dl-frag">
-      <div class="desk-lab-tag">l · UI collage — real product atoms (branch chip, stats, status dots, keycap) scattered on flat dark</div>
-      <div class="plan-desk dl dl-l">
-        <div class="dl-layer" aria-hidden="true">
-          <span class="dl-chip" style="top: 18px; left: 4%; transform: rotate(-4deg)">⎇ rework-onboarding</span>
-          <span class="dl-chip dl-chip--stat" style="top: 22px; right: 6%; transform: rotate(3deg)"><em>+92</em> <s>−14</s></span>
-          <span class="dl-chip dl-chip--dots" style="top: 26px; left: 44%">
-            <i style="background: #3fb950"></i><i style="background: #da77f2"></i><i class="dl-dot-ring"></i>
-          </span>
-          <span class="dl-chip dl-chip--key" style="bottom: 20px; left: 10%; transform: rotate(2deg)">⌘D</span>
-          <span class="dl-chip" style="bottom: 22px; right: 12%; transform: rotate(-2deg)">ouijit task create</span>
-          <span class="dl-chip dl-chip--pr" style="bottom: 18px; left: 42%; transform: rotate(1deg)">#501 · 2 unsent</span>
-        </div>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <div class="desk-lab-round">Round 1 · gradients, for reference</div>
-
-    <section class="desk-lab-concept" id="da">
-      <div class="desk-lab-tag">a · Mesh aurora — overlapping color fields from the app palette, blurred into each other</div>
-      <div class="plan-desk dl dl-a">
-        <div class="dl-layer dl-a-blobs"></div>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="db">
-      <div class="desk-lab-tag">b · Aurora + grain — the same mesh under film grain, so the gradient stops reading as CSS</div>
-      <div class="plan-desk dl dl-b">
-        <div class="dl-layer dl-a-blobs"></div>
-        <div class="dl-layer dl-grain"></div>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="dc">
-      <div class="desk-lab-tag">c · Spotlight stage — near-black desk, one cold beam from above and a lit horizon behind the card</div>
-      <div class="plan-desk dl dl-c">
-        <div class="dl-layer dl-c-light"></div>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="dd">
-      <div class="desk-lab-tag">d · Beams — diagonal light shafts in three hues crossing a deep indigo field</div>
-      <div class="plan-desk dl dl-d">
-        <div class="dl-layer dl-layer--bleed dl-d-beams"></div>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="de">
-      <div class="desk-lab-tag">e · Edge glow — the desk stays dark; a conic gradient runs the rim, blooming faintly inward</div>
-      <div class="plan-desk dl dl-e">
-        <div class="dl-layer dl-e-bloom"></div>
-        <div class="dl-edge"></div>
-        <SampleCard client:visible />
-      </div>
-    </section>
-
-    <section class="desk-lab-concept" id="df">
-      <div class="desk-lab-tag">f · Chromatic horizon — dark sky above, a saturated sunset band burning under the card</div>
-      <div class="plan-desk dl dl-f">
-        <div class="dl-layer dl-layer--bleed dl-f-horizon"></div>
         <SampleCard client:visible />
       </div>
     </section>
@@ -303,282 +118,8 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
       margin-bottom: 32px;
     }
 
-    .desk-lab-round {
-      margin-top: 160px;
-      padding-top: 40px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      font-family: 'Iosevka Extended', 'SF Mono', monospace;
-      font-size: 13px;
-      color: #86868b;
-    }
-
     .dl {
-      padding: 48px;
-    }
-
-    /* q · machined plate */
-    .dl-q {
-      background-color: #101114;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.09),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.8);
-    }
-    .dl-q-brush {
-      background-image:
-        repeating-linear-gradient(91deg, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 3px),
-        repeating-linear-gradient(89deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 4px);
-    }
-    .dl-q-perf {
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18'><circle cx='9' cy='9' r='3.2' fill='%230a0a0d'/><path d='M5.9 10.2 a3.2 3.2 0 0 0 6.2 0' stroke='rgba(255,255,255,0.09)' stroke-width='1' fill='none'/></svg>");
-      -webkit-mask: linear-gradient(78deg, transparent 42%, #000 58%);
-      mask: linear-gradient(78deg, transparent 42%, #000 58%);
-    }
-    .dl-q-sheen {
-      background: linear-gradient(115deg, transparent 34%, rgba(255, 255, 255, 0.05) 46%, transparent 58%);
-    }
-
-    /* r · worktree diorama */
-    .dl-r {
-      background: #0d0e16;
-      padding: 130px 110px;
-    }
-
-    /* s · perspective stage */
-    .dl-s {
-      background: #0a0a10;
-      padding: 100px 110px 170px;
-      perspective: 900px;
-      perspective-origin: 50% 30%;
-    }
-    .dl-s-floor {
-      position: absolute;
-      left: -18%;
-      right: -18%;
-      bottom: -260px;
-      height: 480px;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><path d='M63.5 0V64 M0 63.5H64' stroke='rgba(160,175,255,0.13)' stroke-width='1'/></svg>");
-      transform: rotateX(58deg);
-      transform-origin: 50% 0%;
-      -webkit-mask: linear-gradient(180deg, transparent 0, rgba(0, 0, 0, 0.85) 24%, #000 55%);
-      mask: linear-gradient(180deg, transparent 0, rgba(0, 0, 0, 0.85) 24%, #000 55%);
-      pointer-events: none;
-    }
-    .dl-s-shadow {
-      position: absolute;
-      left: 6%;
-      right: 6%;
-      bottom: -34px;
-      height: 30px;
-      background: #000;
-      filter: blur(20px);
-      opacity: 0.6;
-      pointer-events: none;
-    }
-
-    /* t · frosted glass */
-    .dl-t {
-      background: #0c0c12;
-      padding: 130px 88px;
-    }
-    .dl-t-shapes span {
-      position: absolute;
-      display: block;
-    }
-    .dl-t-circle {
-      left: 2%;
-      top: -8%;
-      width: 320px;
-      height: 320px;
-      border-radius: 999px;
-      background: #4c50e6;
-    }
-    .dl-t-square {
-      right: 1%;
-      bottom: -10%;
-      width: 280px;
-      height: 280px;
-      background: #c13be6;
-      transform: rotate(24deg);
-    }
-    .dl-t-tri {
-      left: 46%;
-      top: -10%;
-      width: 240px;
-      height: 220px;
-      background: #14b8cf;
-      clip-path: polygon(50% 0, 100% 100%, 0 100%);
-      transform: rotate(-10deg);
-    }
-    .dl-t-glass {
-      backdrop-filter: blur(42px) saturate(1.45);
-      -webkit-backdrop-filter: blur(42px) saturate(1.45);
-      background: rgba(13, 13, 19, 0.36);
-      mask-image:
-        radial-gradient(circle 84px at 128px 106px, transparent 0 82px, #000 85px),
-        radial-gradient(circle 74px at calc(100% - 126px) calc(100% - 94px), transparent 0 72px, #000 75px);
-      mask-composite: intersect;
-      -webkit-mask-image:
-        radial-gradient(circle 84px at 128px 106px, transparent 0 82px, #000 85px),
-        radial-gradient(circle 74px at calc(100% - 126px) calc(100% - 94px), transparent 0 72px, #000 75px);
-      -webkit-mask-composite: source-in;
-    }
-    .dl-t-lens {
-      position: absolute;
-      display: block;
-      border-radius: 999px;
-      border: 1.5px solid rgba(255, 255, 255, 0.35);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.18),
-        0 0 24px rgba(0, 0, 0, 0.5);
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    /* m · dark room: flat black, the card mirrored on a gloss floor */
-    .dl-m {
-      background: #08080b;
-      padding-bottom: 120px;
-    }
-    .dl-m-floor {
-      -webkit-box-reflect: below 10px linear-gradient(rgba(0, 0, 0, 0.16), transparent 34%);
-    }
-
-    /* n · machined recess: translucent over the page's own surface,
-       lit as a pocket — dark upper lip, hairline lower rim */
-    .dl-n {
-      background: rgba(4, 4, 7, 0.55);
-      box-shadow:
-        inset 0 14px 28px -12px rgba(0, 0, 0, 0.9),
-        inset 0 1px 0 rgba(0, 0, 0, 0.7),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.06);
-    }
-
-    /* o · etched plan */
-    .dl-o {
-      background: #0d0d12;
-    }
-
-    /* p · trace */
-    .dl-p {
-      background: #0b0b10;
-    }
-
-    /* g · git graph */
-    .dl-g {
-      background: #0f1017;
-    }
-    svg.dl-layer {
-      width: 100%;
-      height: 100%;
-    }
-
-    /* h · diff marks */
-    .dl-h {
-      background: #101116;
-    }
-    .dl-h-marks {
-      overflow: hidden;
-      border-radius: inherit;
-    }
-    .dl-mark {
-      position: absolute;
-      font-family: 'Iosevka Extended', 'SF Mono', monospace;
-      font-weight: 700;
-      line-height: 1;
-      user-select: none;
-    }
-    .dl-mark--add {
-      color: rgba(63, 185, 80, 0.4);
-    }
-    .dl-mark--del {
-      color: rgba(248, 81, 73, 0.38);
-    }
-    .dl-mark--hunk {
-      color: rgba(99, 102, 241, 0.45);
-    }
-
-    /* i · blueprint */
-    .dl-i {
-      background: #0e1120;
-    }
-    .dl-i-grid {
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='112' height='112'><g stroke='rgb(130,160,255)' stroke-opacity='0.13' stroke-width='1'><path d='M28.5 0V112 M56.5 0V112 M84.5 0V112 M0 28.5H112 M0 56.5H112 M0 84.5H112'/></g><g stroke='rgb(150,180,255)' stroke-opacity='0.4' stroke-width='1.5'><path d='M0.75 0V112 M0 0.75H112'/></g></svg>");
-    }
-    .dl-i-plot {
-      inset: 30px;
-      border: 1.5px dashed rgba(99, 102, 241, 0.75);
-      border-radius: 18px;
-    }
-
-    /* j · flat block */
-    .dl-j {
-      background: #4c50e6;
-    }
-    .dl-j-band {
-      top: auto;
-      height: 88px;
-      background: #3a3ec9;
-    }
-
-    /* k · diagonal stripes */
-    .dl-k {
-      background: repeating-linear-gradient(45deg, #14152e 0 44px, #1a1c3d 44px 88px);
-    }
-    .dl-k-accent {
-      inset: -80px auto -80px 62%;
-      width: 88px;
-      background: #4c50e6;
-      transform: rotate(45deg);
-    }
-
-    /* l · UI collage */
-    .dl-l {
-      background: #101018;
-    }
-    .dl-chip {
-      position: absolute;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(255, 255, 255, 0.04);
-      font-family: 'Iosevka Extended', 'SF Mono', monospace;
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.55);
-      white-space: nowrap;
-    }
-    .dl-chip--stat em {
-      font-style: normal;
-      color: rgba(63, 185, 80, 0.9);
-    }
-    .dl-chip--stat s {
-      text-decoration: none;
-      color: rgba(248, 81, 73, 0.85);
-    }
-    .dl-chip--dots {
-      gap: 6px;
-      padding: 8px 12px;
-    }
-    .dl-chip--dots i {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      display: inline-block;
-    }
-    .dl-dot-ring {
-      background: transparent;
-      box-shadow: inset 0 0 0 1.5px #e3b341;
-    }
-    .dl-chip--key {
-      border-radius: 8px;
-      padding: 6px 10px;
-      border-color: rgba(255, 255, 255, 0.22);
-      box-shadow: 0 2px 0 rgba(255, 255, 255, 0.1);
-    }
-    .dl-chip--pr {
-      color: rgba(140, 180, 255, 0.75);
+      padding: 80px 64px;
     }
     .dl-layer {
       position: absolute;
@@ -586,100 +127,27 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
       z-index: 0;
       pointer-events: none;
     }
-    .dl-layer--bleed {
-      inset: -60px;
-      filter: blur(32px);
+    .dl-layer svg,
+    svg.dl-layer {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
 
-    /* a · mesh aurora */
-    .dl-a,
-    .dl-b {
-      background: #12132a;
+    .dl-u {
+      background: #07070c;
     }
-    .dl-a-blobs {
-      background:
-        radial-gradient(45% 55% at 12% 8%, rgba(99, 102, 241, 0.9), transparent 70%),
-        radial-gradient(40% 50% at 88% 10%, rgba(218, 119, 242, 0.6), transparent 70%),
-        radial-gradient(50% 60% at 86% 96%, rgba(34, 211, 238, 0.65), transparent 70%),
-        radial-gradient(45% 55% at 6% 94%, rgba(63, 185, 80, 0.45), transparent 70%),
-        radial-gradient(70% 80% at 50% 50%, rgba(59, 130, 246, 0.3), transparent 75%);
-      filter: saturate(1.35);
+    .dl-v {
+      background: #0b0b10;
     }
-
-    /* b · grain overlay */
-    .dl-grain {
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-      opacity: 0.4;
-      mix-blend-mode: overlay;
+    .dl-w {
+      background: #0d0d11;
     }
-
-    /* c · spotlight stage */
-    .dl-c {
-      background: linear-gradient(180deg, #0b0c12, #0e1120);
+    .dl-x {
+      background: #0a0a0e;
     }
-    .dl-c-light {
-      background:
-        radial-gradient(55% 42% at 50% -8%, rgba(170, 200, 255, 0.5), transparent 72%),
-        radial-gradient(75% 16% at 50% 82%, rgba(99, 102, 241, 0.75), transparent 75%),
-        radial-gradient(40% 10% at 50% 82%, rgba(140, 190, 255, 0.5), transparent 80%);
-    }
-
-    /* d · beams */
-    .dl-d {
-      background: #0f1129;
-    }
-    .dl-d-beams {
-      background:
-        linear-gradient(112deg, transparent 16%, rgba(99, 102, 241, 0.75) 27%, transparent 38%),
-        linear-gradient(112deg, transparent 42%, rgba(34, 211, 238, 0.55) 53%, transparent 63%),
-        linear-gradient(112deg, transparent 66%, rgba(218, 119, 242, 0.5) 77%, transparent 88%);
-    }
-
-    /* e · edge glow */
-    .dl-e {
-      background: linear-gradient(180deg, #14151d, #0e0f15);
-    }
-    .dl-edge {
-      position: absolute;
-      inset: 0;
-      z-index: 2;
-      border-radius: inherit;
-      padding: 2px;
-      background: conic-gradient(
-        from 220deg,
-        #6366f1,
-        #22d3ee,
-        #3fb950,
-        #f8514966,
-        #da77f2,
-        #6366f1
-      );
-      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor;
-      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      mask-composite: exclude;
-      pointer-events: none;
-    }
-    .dl-e-bloom {
-      background:
-        radial-gradient(50% 40% at 0% 0%, rgba(99, 102, 241, 0.28), transparent 70%),
-        radial-gradient(50% 40% at 100% 30%, rgba(34, 211, 238, 0.2), transparent 70%),
-        radial-gradient(60% 45% at 50% 105%, rgba(218, 119, 242, 0.22), transparent 70%);
-    }
-
-    /* f · chromatic horizon */
-    .dl-f {
-      background: linear-gradient(180deg, #0c0d18 20%, #131338 60%, #1c1030);
-    }
-    .dl-f-horizon {
-      background: linear-gradient(
-        180deg,
-        transparent 42%,
-        rgba(99, 102, 241, 0.5) 62%,
-        rgba(218, 119, 242, 0.6) 76%,
-        rgba(248, 113, 96, 0.55) 88%,
-        rgba(255, 190, 130, 0.45) 100%
-      );
+    .dl-y {
+      background: #060809;
     }
   </style>
 </Site>
