@@ -326,7 +326,7 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
             {diffOpen && onboarding.diff && (
               <>
                 <div className="pane-seam relative w-px shrink-0" />
-                <div className="relative shrink-0" style={{ width: '54%' }}>
+                <div className="relative shrink-0" style={{ width: '50%' }}>
                   <MockDiffPanel fixture={onboarding.diff} compact onClose={() => {}} />
                 </div>
               </>
@@ -359,7 +359,7 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
               <TestBody />
             </div>
             <div className="pane-seam relative w-px shrink-0" />
-            <div className="relative shrink-0" style={{ width: '46%' }}>
+            <div className="relative shrink-0" style={{ width: '50%' }}>
               {invitation.plan && <MockPlanPanel fixture={invitation.plan} onClose={() => {}} />}
             </div>
           </div>
@@ -385,7 +385,7 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
               <DevServerBody />
             </div>
             <div className="pane-seam relative w-px shrink-0" />
-            <div className="relative shrink-0" style={{ width: '46%' }}>
+            <div className="relative shrink-0" style={{ width: '50%' }}>
               {onboarding.preview && (
                 <MockPreviewPanel fixture={{ ...onboarding.preview, page: <DarkOnboardingPage /> }} onClose={() => {}} />
               )}
