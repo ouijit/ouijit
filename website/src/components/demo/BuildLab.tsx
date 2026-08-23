@@ -366,7 +366,7 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
           width: 270,
           zIndex: 30,
           opacity: notifOn ? 1 : 0,
-          transform: `translateX(${notifOn ? 0 : 24}px)`,
+          transform: `translateY(${notifOn ? 0 : 14}px)`,
           transition: 'opacity 300ms ease-out, transform 380ms cubic-bezier(0.16, 1, 0.3, 1)',
           pointerEvents: 'none',
         }}
