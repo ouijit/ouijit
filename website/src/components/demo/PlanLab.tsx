@@ -676,7 +676,7 @@ export function VariantScrubHue() {
           {ROWS.map(({ key, title, body }) => (
             <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
               <Desk hue={deskHue[key]}>
-                {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource, HUE_ACCENT[key])}
+                {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}
               </Desk>
             </ScrubRow>
           ))}
@@ -691,11 +691,11 @@ export function VariantScrubHue() {
         <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
           <Desk hue="graphite" style={{ padding: 36 }}>
             <div className="flex" style={{ minHeight: 470 }}>
-              <ScrubColumn open={open} landed={landed} hues setSlot={setSlot} />
+              <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
             </div>
           </Desk>
         </div>
-        {geom && <HandoffGhosts flightP={flightP} geom={geom} hues />}
+        {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
       </div>
     </div>
   );
