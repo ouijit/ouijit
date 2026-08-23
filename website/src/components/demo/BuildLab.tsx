@@ -437,9 +437,7 @@ const capOpacity = (p: (k: string) => number, i: number) => {
 export function VariantTheater() {
   const { wrapRef, p } = useTheaterScrub(BEAT_KEYS);
   return (
-    // Negative margins absorb the sticky viewport-box's centering leftover
-    // ((100vh − stage) / 2 of dead air) at both junctions.
-    <div ref={wrapRef} style={{ height: '500vh', margin: '-48px 0 -64px' }}>
+    <div ref={wrapRef} style={{ height: '500vh' }}>
       <div className="bl-theater-sticky">
         <div className="plan-desk" style={{ backgroundImage: DESK_INDIGO, padding: 32, paddingTop: 100, width: '100%' }}>
           <WorkbenchStack p={p} />

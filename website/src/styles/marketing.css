@@ -2633,6 +2633,8 @@ html.js .b-h1.is-typing .b-h1-typed {
   margin: 0 auto;
   padding: 140px var(--content-padding) 48px;
 }
+/* Top-anchored, not centered: centering makes the gap under the headline
+   vary with viewport height (and overlap it once the leftover shrinks). */
 .bl-theater-sticky {
   position: sticky;
   top: 0;
@@ -2640,8 +2642,9 @@ html.js .b-h1.is-typing .b-h1-typed {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 40px;
+  justify-content: flex-start;
+  padding-top: 72px;
+  gap: 36px;
 }
 .bl-theater-captions {
   position: relative;
