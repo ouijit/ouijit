@@ -232,8 +232,8 @@ function WorkbenchSession({ p }: { p: (k: string) => number }) {
  * up the invitation task's terminal with its plan open, the preview beat
  * the dev terminal, and the finale returns to claude with more output. */
 function WorkbenchStack({ p }: { p: (k: string) => number }) {
-  const st = clamp01((p('status') - 0.06) / 0.3);
-  const testDone = st > 0.3;
+  const testDone = p('status') > 0.05;
+  const notifOn = p('status') > 0.1;
 
   const onboarding = getPanelFixtures('pty-101-dev');
   const invitation = getPanelFixtures('pty-103-test');
@@ -365,9 +365,9 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
           right: -14,
           width: 270,
           zIndex: 30,
-          opacity: st,
-          transform: `translateY(${(1 - st) * 14}px)`,
-          transition: 'opacity 200ms ease, transform 200ms ease',
+          opacity: notifOn ? 1 : 0,
+          transform: `translateX(${notifOn ? 0 : 24}px)`,
+          transition: 'opacity 300ms ease-out, transform 380ms cubic-bezier(0.16, 1, 0.3, 1)',
           pointerEvents: 'none',
         }}
       >
