@@ -7,7 +7,7 @@ import {
 import { StatusDot } from '../../ouijit-ui/components/terminal/StatusDot';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { HookRowView } from '../../ouijit-ui/components/scripts/HookRowView';
-import { MockPlanPanel, MockPreviewPanel, getPanelFixtures, type PanelFixtures } from './MockPanels';
+import { MockPlanPanel, MockPreviewPanel, MockDiffPanel, getPanelFixtures, type PanelFixtures } from './MockPanels';
 import {
   ActiveActions,
   BranchLabel,
@@ -117,10 +117,11 @@ function useTheaterScrub(keys: readonly string[]) {
     };
   }, []);
 
+  const step = 0.78 / (keys.length - 1);
   const p = (k: string) => {
     const i = keys.indexOf(k);
     if (i < 0) return 0;
-    return clamp01((t - i * 0.22) / 0.14);
+    return clamp01((t - i * step) / (step * 0.64));
   };
   return { wrapRef, p };
 }
@@ -207,6 +208,11 @@ const BEATS = [
     body: 'The dev server runs one ⌘-tap behind, with a preview panel pointed at it.',
   },
   {
+    key: 'diff',
+    title: 'Watch the diff grow',
+    body: 'Every change on the task’s branch, one tab over — hunk by hunk, as it happens.',
+  },
+  {
     key: 'status',
     title: 'Look away freely',
     body: 'Statuses track every terminal, and a notification lands the moment one finishes.',
@@ -251,17 +257,13 @@ function WorkbenchSession({ p }: { p: (k: string) => number }) {
           <span className="ml-2 text-white/55">lines</span>
         </ToolResult>
       </Line>
-      <Line p={p('status')} at={0.2}>
+      <Line p={p('diff')} at={0.3}>
         <ToolCall name="Bash" args="npm test -- onboarding" />
         <ToolResult>
           <span className="text-[#3fb950]">PASS</span>
           <span className="ml-2 text-white/65">14 tests</span>
           <span className="ml-2 text-white/35">in 2.1s</span>
         </ToolResult>
-      </Line>
-      <Line p={p('status')} at={0.55}>
-        <ToolCall name="Edit" args="src/onboarding/WelcomeIntro.tsx" />
-        <ToolResult dim>retiring the old screen&hellip;</ToolResult>
       </Line>
     </ClaudeShell>
   );
@@ -286,8 +288,8 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
     diff: p('preview') > 0.35 ? onboarding.diff : undefined,
   };
 
-  const front =
-    p('status') > 0.5 ? 'claude' : p('preview') > 0.5 ? 'dev' : p('plan') > 0.5 ? 'test' : 'claude';
+  const diffOpen = p('diff') > 0.5;
+  const front = diffOpen ? 'claude' : p('preview') > 0.5 ? 'dev' : p('plan') > 0.5 ? 'test' : 'claude';
   const order = [front, ...['claude', 'test', 'dev', 'audit'].filter((id) => id !== front)];
   const pos = (id: string) => order.indexOf(id);
 
@@ -310,13 +312,25 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
           branchContent={pos('claude') === 0 ? <BranchLabel branch="rework-onboarding" /> : undefined}
           actions={
             pos('claude') === 0 && (claudeFixtures.plan || claudeFixtures.diff) ? (
-              <ActiveActions fixtures={claudeFixtures} openPanel={null} onToggle={() => {}} />
+              <ActiveActions fixtures={claudeFixtures} openPanel={diffOpen ? 'diff' : null} onToggle={() => {}} />
             ) : undefined
           }
         />
         {pos('claude') === 0 && (
-          <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
-            <WorkbenchSession p={p} />
+          <div className="flex-1 min-h-0 flex">
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+              <WorkbenchSession p={p} />
+            </div>
+            {/* Opened while the card was backgrounded — it returns to the
+                front already split, so nothing transitions in view. */}
+            {diffOpen && onboarding.diff && (
+              <>
+                <div className="pane-seam relative w-px shrink-0" />
+                <div className="relative shrink-0" style={{ width: '54%' }}>
+                  <MockDiffPanel fixture={onboarding.diff} compact onClose={() => {}} />
+                </div>
+              </>
+            )}
           </div>
         )}
       </TerminalCardView>
@@ -423,9 +437,9 @@ const capOpacity = (p: (k: string) => number, i: number) => {
 export function VariantTheater() {
   const { wrapRef, p } = useTheaterScrub(BEAT_KEYS);
   return (
-    <div ref={wrapRef} style={{ height: '420vh' }}>
+    <div ref={wrapRef} style={{ height: '500vh' }}>
       <div className="bl-theater-sticky">
-        <div className="plan-desk" style={{ backgroundImage: DESK_INDIGO, padding: 28, paddingTop: 100, width: 900 }}>
+        <div className="plan-desk" style={{ backgroundImage: DESK_INDIGO, padding: 32, paddingTop: 100, width: '100%' }}>
           <WorkbenchStack p={p} />
         </div>
         <div className="bl-theater-captions">
