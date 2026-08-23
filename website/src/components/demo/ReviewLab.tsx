@@ -6,7 +6,7 @@ import {
 } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { MockPullRequests } from './MockPullRequests';
-import { MockPreviewPanel, getPanelFixtures } from './MockPanels';
+import { getPanelFixtures } from './MockPanels';
 import {
   ActiveActions,
   BranchLabel,
@@ -15,13 +15,12 @@ import {
   ToolCall,
   ToolResult,
   BODY_CLS,
-  DevServerBody,
 } from './stackParts';
 
 /**
- * Review section lab, round 1 — the loop back to the agent. Three surfaces:
- * notes on the diff that land in the agent's prompt, the preview panel for
- * QA, and the pull request inbox with locally staged reviews.
+ * Review section lab — the loop back to the agent, then the pull request.
+ * Notes on the diff land in the agent's prompt; drafts on the pull request
+ * stage locally and send as one review.
  */
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -350,36 +349,46 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
   );
 }
 
-/** The review card: the task's terminal, diff split open, at whatever point
- * of the round-trip `p` describes. */
-function RoundTripCard({ p }: { p: (k: string) => number }) {
+/** The review terminal: session left, noted diff split right. `receded` is
+ * the stack's back-card treatment for while another surface holds the front. */
+function RoundTripTerminal({ p, receded = false }: { p: (k: string) => number; receded?: boolean }) {
   const fixtures = getPanelFixtures('pty-101-dev');
   const fixing = p('fix') > 0.2;
   return (
-    <div className="relative" style={{ height: 480 }}>
-      <TerminalCardView isActive>
-        <TerminalHeaderView
-          summaryType={fixing ? 'thinking' : 'ready'}
-          isActive
-          nameContent={
-            <TerminalHeaderName
-              label="claude"
-              lastOscTitle={fixing ? 'Adding sign-out test...' : 'done · in review'}
-            />
-          }
-          branchContent={<BranchLabel branch="rework-onboarding" />}
-          actions={<ActiveActions fixtures={fixtures} openPanel="diff" onToggle={() => {}} />}
-        />
-        <div className="flex-1 min-h-0 flex">
-          <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-            <ReviewSession p={p} />
-          </div>
-          <div className="pane-seam relative w-px shrink-0" />
-          <div className="relative shrink-0" style={{ width: '50%' }}>
-            <NotedDiffPane pNote={p('note')} pSend={p('send')} pFix={p('fix')} />
-          </div>
+    <TerminalCardView isActive={!receded} backDepth={receded ? 1 : 0}>
+      <TerminalHeaderView
+        summaryType={fixing && !receded ? 'thinking' : 'ready'}
+        isActive={!receded}
+        isBackCard={receded}
+        stackPosition={receded ? 1 : undefined}
+        nameContent={
+          <TerminalHeaderName
+            label={receded ? 'Rework onboarding flow' : 'claude'}
+            lastOscTitle={receded ? 'done · 15 passed' : fixing ? 'Adding sign-out test...' : 'done · in review'}
+          />
+        }
+        branchContent={receded ? undefined : <BranchLabel branch="rework-onboarding" />}
+        actions={receded ? undefined : <ActiveActions fixtures={fixtures} openPanel="diff" onToggle={() => {}} />}
+      />
+      <div className="flex-1 min-h-0 flex">
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          <ReviewSession p={p} />
         </div>
-      </TerminalCardView>
+        <div className="pane-seam relative w-px shrink-0" />
+        <div className="relative shrink-0" style={{ width: '50%' }}>
+          <NotedDiffPane pNote={p('note')} pSend={p('send')} pFix={p('fix')} />
+        </div>
+      </div>
+    </TerminalCardView>
+  );
+}
+
+/** The review card: the task's terminal, diff split open, at whatever point
+ * of the round-trip `p` describes. */
+function RoundTripCard({ p }: { p: (k: string) => number }) {
+  return (
+    <div className="relative" style={{ height: 480 }}>
+      <RoundTripTerminal p={p} />
     </div>
   );
 }
@@ -411,11 +420,30 @@ const LOOP_BEATS = [
 
 const LOOP_KEYS = LOOP_BEATS.map((b) => b.key);
 
-const capOpacity = (p: (k: string) => number, i: number) => {
-  const cur = i === 0 ? 1 : p(LOOP_KEYS[i]);
-  const next = i + 1 < LOOP_KEYS.length ? p(LOOP_KEYS[i + 1]) : 0;
+interface Beat {
+  key: string;
+  title: string;
+  body: string;
+}
+
+const capOpacity = (beats: readonly Beat[], p: (k: string) => number, i: number) => {
+  const cur = i === 0 ? 1 : p(beats[i].key);
+  const next = i + 1 < beats.length ? p(beats[i + 1].key) : 0;
   return clamp01(cur / 0.35) * (1 - clamp01(next / 0.35));
 };
+
+function TheaterCaps({ beats, p }: { beats: readonly Beat[]; p: (k: string) => number }) {
+  return (
+    <div className="bl-theater-captions">
+      {beats.map((b, i) => (
+        <div key={b.key} className="bl-theater-cap" style={{ opacity: capOpacity(beats, p, i) }}>
+          <h3>{b.title}</h3>
+          <p>{b.body}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function ReviewVariantRoundTrip() {
   const { wrapRef, p } = useTheaterScrub(LOOP_KEYS);
@@ -425,14 +453,7 @@ export function ReviewVariantRoundTrip() {
         <div className="plan-desk" style={{ backgroundImage: DESK_MAGENTA, padding: 32, width: '100%' }}>
           <RoundTripCard p={p} />
         </div>
-        <div className="bl-theater-captions">
-          {LOOP_BEATS.map((b, i) => (
-            <div key={b.key} className="bl-theater-cap" style={{ opacity: capOpacity(p, i) }}>
-              <h3>{b.title}</h3>
-              <p>{b.body}</p>
-            </div>
-          ))}
-        </div>
+        <TheaterCaps beats={LOOP_BEATS} p={p} />
       </div>
     </div>
   );
@@ -475,146 +496,267 @@ export function ReviewVariantInbox() {
   );
 }
 
-/* ─── 1c · Rows — three surfaces, alternating sides, no scrub ──────── */
+/* ─── The condensed pull request ──────────────────────────────────── */
 
-function StaticDeskCard({ children }: { children: ReactNode }) {
+function MiniAvatar({ login, size }: { login: string; size: number }) {
+  let hash = 0;
+  for (let i = 0; i < login.length; i++) hash = (hash * 31 + login.charCodeAt(i)) % 360;
   return (
-    <div className="plan-desk" style={{ backgroundImage: DESK_MAGENTA, padding: 24 }}>
-      <div className="relative" style={{ height: 440 }}>{children}</div>
+    <span
+      className="inline-flex shrink-0 items-center justify-center rounded-full select-none"
+      style={{ width: size, height: size, background: `color-mix(in srgb, hsl(${hash} 55% 55%) 30%, transparent)` }}
+    >
+      <span
+        aria-hidden
+        className="font-sans font-medium leading-none text-ink/70"
+        style={{ fontSize: Math.max(9, Math.round(size * 0.45)) }}
+      >
+        {login[0].toUpperCase()}
+      </span>
+    </span>
+  );
+}
+
+const SEG = 'h-full px-2.5 flex items-center gap-1.5 font-sans text-[13px] font-medium';
+const SEG_DIVIDER = <span aria-hidden className="w-px h-3 bg-ink/10 self-center" />;
+
+function PrFact({ icon, label, children }: { icon: string; label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex items-center gap-2 w-[110px] shrink-0 text-[14px] text-text-tertiary">
+        <Icon name={icon} className="w-4 h-4 shrink-0 opacity-70" />
+        {label}
+      </span>
+      <span className="flex items-center gap-1.5 min-w-0 text-[14px] text-text-primary">{children}</span>
     </div>
   );
 }
 
-function PreviewQaCard() {
-  const fixtures = getPanelFixtures('pty-101-dev');
+function DraftRow({ path, line, origin, body }: { path: string; line: number; origin?: string; body: string }) {
+  const cut = path.lastIndexOf('/');
   return (
-    <TerminalCardView isActive>
-      <TerminalHeaderView
-        summaryType="ready"
-        isActive
-        nameContent={<TerminalHeaderName label="dev" lastOscTitle="live dev server" />}
-        branchContent={<BranchLabel branch="rework-onboarding" />}
-        actions={<ActiveActions fixtures={fixtures} openPanel="preview" onToggle={() => {}} />}
-      />
-      <div className="flex-1 min-h-0 flex">
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-          <DevServerBody />
-        </div>
-        <div className="pane-seam relative w-px shrink-0" />
-        <div className="relative shrink-0" style={{ width: '50%' }}>
-          {fixtures.preview && <MockPreviewPanel fixture={fixtures.preview} onClose={() => {}} />}
-        </div>
+    <div className="rounded-[10px] border border-bezel bg-ink/[0.03] px-3.5 py-2.5 flex flex-col gap-1">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="min-w-0 truncate font-mono text-[12px] text-text-tertiary">
+          {path.slice(0, cut + 1)}
+          <span className="text-text-secondary">{path.slice(cut + 1)}</span>:{line}
+        </span>
+        <span className="ml-auto shrink-0 flex items-center gap-1.5 text-[12px] text-accent">
+          <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+          {origin ? `${origin} · unsent` : 'unsent'}
+        </span>
       </div>
-    </TerminalCardView>
+      <div className="text-sm text-text-primary leading-relaxed">{body}</div>
+    </div>
   );
 }
 
-const STATIC_LOOP = (k: string) => ({ read: 1, note: 1, send: 1, fix: 0.7 })[k] ?? 0;
-
-export function ReviewVariantRows() {
+/** The pull request surface reduced to its review essentials: the header
+ * segment, the facts, and the staged drafts. Same task, one commit later. */
+function CondensedPrCard({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="rl-rows">
-      <div className="rl-row">
-        <div className="rl-row-copy">
-          <h3>Mark up the diff, not a doc</h3>
-          <p>
-            Notes on changed lines flow straight into the agent&rsquo;s prompt — quoted code and all. The fix lands in
-            the same worktree you&rsquo;re looking at.
-          </p>
-        </div>
-        <div className="rl-row-stage">
-          <div className="plan-desk" style={{ backgroundImage: DESK_MAGENTA, padding: 24 }}>
-            <RoundTripCard p={STATIC_LOOP} />
+    <div
+      className="glass-bevel relative h-full flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
+      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
+    >
+      <header className="pane-ledge relative z-30 shrink-0 h-12 flex items-center gap-3 px-3">
+        <span className="flex items-center gap-2 min-w-0 text-text-secondary">
+          <Icon name="git-pull-request" className="w-4 h-4 shrink-0 text-vcs-added" />
+          <span className="truncate text-[15px]">Rework onboarding flow</span>
+        </span>
+        {!compact && (
+          <nav className="flex items-center gap-4 mx-auto shrink-0 self-stretch">
+            <span className="flex items-center px-0.5 border-b-2 -mb-px border-accent text-[13px] font-medium text-text-primary">
+              Summary
+            </span>
+            <span className="flex items-center px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
+              Timeline
+            </span>
+            <span className="flex items-center gap-1.5 px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
+              Code <span className="opacity-50 tabular-nums">3</span>
+            </span>
+          </nav>
+        )}
+        <div className={`flex items-center gap-1 shrink-0 ${compact ? 'ml-auto' : ''}`}>
+          <div
+            className="inline-flex items-center h-7 glass-bevel relative border border-bezel rounded-[12px] overflow-hidden"
+            style={{ background: '#212126' }}
+          >
+            <span className={`${SEG} text-text-secondary`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-accent" />2 unsent
+            </span>
+            {SEG_DIVIDER}
+            <span className={`${SEG} text-text-secondary`}>Review</span>
+            {SEG_DIVIDER}
+            <span className={`${SEG} bg-accent text-accent-ink`}>Merge</span>
           </div>
         </div>
-      </div>
-      <div className="rl-row rl-row--flip">
-        <div className="rl-row-copy">
-          <h3>Click through what they built</h3>
-          <p>The preview panel points at the task&rsquo;s dev server. QA the change live before it merges.</p>
-        </div>
-        <div className="rl-row-stage">
-          <StaticDeskCard>
-            <PreviewQaCard />
-          </StaticDeskCard>
-        </div>
-      </div>
-      <div className="rl-row rl-row--wide">
-        <div className="rl-row-copy">
-          <h3>Pull requests, same window</h3>
-          <p>
-            An inbox grouped by what needs you. Drafts — yours and your agents&rsquo; — stay local until you send them
-            as one review.
-          </p>
-        </div>
-        <div className="rl-row-stage">
-          <div className="plan-desk" style={{ backgroundImage: DESK_MAGENTA, padding: 32 }}>
-            <PrWindow height={560} />
-          </div>
+      </header>
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <div className={`h-full ${compact ? '' : 'w-full max-w-3xl mx-auto'} px-6 py-5 flex flex-col gap-4`}>
+          <header className="flex flex-col gap-2">
+            <div className="text-[21px] leading-tight font-medium text-text-primary">Rework onboarding flow</div>
+            <div className="flex items-center gap-2 text-[13px] text-text-secondary">
+              <MiniAvatar login="prentice" size={18} />
+              <span className="text-text-primary">prentice</span>
+              <span className="text-text-tertiary opacity-60">·</span>
+              <span>just now</span>
+              <span className="text-text-tertiary opacity-60">·</span>
+              <span className="flex items-center gap-1">
+                #501
+                <Icon name="arrow-square-out" className="w-3.5 h-3.5 opacity-60" />
+              </span>
+              <span className="text-text-tertiary opacity-60">·</span>
+              <span>Ready for review</span>
+            </div>
+          </header>
+          <dl className="flex flex-col gap-2">
+            <PrFact icon="git-branch" label="Branch">
+              <span className="font-mono text-[13px]">rework-onboarding</span>
+              <Icon name="caret-right" className="w-3 h-3 text-text-tertiary" />
+              <span className="font-mono text-[13px]">main</span>
+              <span className="font-mono text-[13px] tabular-nums ml-1">
+                <span className="text-diff-added">+130</span> <span className="text-diff-removed">-78</span>
+              </span>
+            </PrFact>
+            <PrFact icon="user-circle" label="Task">
+              <span className="font-mono text-[13px]">T-101</span>
+              <span className="text-text-tertiary">In review</span>
+              <Icon name="arrow-right" className="w-3.5 h-3.5 opacity-60" />
+            </PrFact>
+            <PrFact icon="clock" label="Checks">6 passing</PrFact>
+          </dl>
+          <section className="flex flex-col gap-3 min-h-0">
+            <div className="flex items-center gap-2 pb-2 border-b border-ink/[0.08]">
+              <span className="text-[17px] font-medium text-text-primary">Review</span>
+              <span className="text-[14px] text-text-tertiary">2 drafts</span>
+            </div>
+            <DraftRow
+              path="src/onboarding/Stepper.tsx"
+              line={6}
+              origin="claude"
+              body="prefetch preferences before the first step renders — the stepper flashes step 0 on slow accounts"
+            />
+            <DraftRow path="src/onboarding/useOnboardingProgress.ts" line={9} body="fall back to 0 when preferences are missing" />
+          </section>
         </div>
       </div>
     </div>
   );
 }
 
-/* ─── 1d · Stages — one desk, a segmented control swaps the surface ── */
+/* ─── 2a · Two acts — the loop, then the pull request takes the front ─ */
 
-const STAGES = [
-  { key: 'notes', label: 'Notes on the diff', caption: 'Notes on changed lines land in the agent’s prompt. You press Enter.' },
-  { key: 'preview', label: 'Live preview', caption: 'QA the change against the task’s own dev server.' },
-  { key: 'prs', label: 'Pull requests', caption: 'Drafts stage locally — yours and your agents’ — and send as one review.' },
+const TWO_ACT_BEATS = [
+  ...LOOP_BEATS,
+  {
+    key: 'pr',
+    title: 'Ship it as one review',
+    body: 'The review hook opens the pull request. Drafts — yours and your agents’ — stay local until you send them, and it merges without leaving.',
+  },
 ] as const;
 
-export function ReviewVariantStages() {
-  const [stage, setStage] = useState<(typeof STAGES)[number]['key']>('notes');
+const TWO_ACT_KEYS = TWO_ACT_BEATS.map((b) => b.key);
+
+export function ReviewVariantTwoAct() {
+  const { wrapRef, p } = useTheaterScrub(TWO_ACT_KEYS);
+  // Binary like the stack promotions, with the same animated depth change —
+  // a scroll-driven crossfade would leave both surfaces half-faded.
+  const prOn = p('pr') > 0.35;
+  return (
+    <div ref={wrapRef} style={{ height: '460vh' }}>
+      <div className="bl-theater-sticky">
+        <div
+          className="plan-desk"
+          style={{ backgroundImage: DESK_MAGENTA, padding: 32, paddingTop: 48, width: '100%' }}
+        >
+          <div className="relative" style={{ height: 480 }}>
+            <RoundTripTerminal p={p} receded={prOn} />
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 20,
+                opacity: prOn ? 1 : 0,
+                transform: `translateY(${prOn ? 0 : 48}px)`,
+                transition: 'opacity 0.25s ease, transform 0.25s ease',
+                pointerEvents: 'none',
+              }}
+            >
+              <CondensedPrCard />
+            </div>
+          </div>
+        </div>
+        <TheaterCaps beats={TWO_ACT_BEATS} p={p} />
+      </div>
+    </div>
+  );
+}
+
+/* ─── 2b · Loop + ledger — the theater, then a static pull request band ─ */
+
+export function ReviewVariantLoopLedger() {
   return (
     <div>
-      <div className="rl-stage-tabs">
-        <div
-          className="inline-flex items-center h-8 glass-bevel relative border border-bezel rounded-[12px] overflow-hidden"
-          style={{ background: '#212126' }}
-        >
-          {STAGES.map((s, i) => (
-            <span key={s.key} className="inline-flex h-full">
-              {i > 0 && <span aria-hidden className="w-px h-3 bg-ink/10 self-center" />}
-              <button
-                className={`h-full px-3 border-none font-sans text-[13px] font-medium transition-colors duration-150 ${
-                  stage === s.key
-                    ? 'bg-accent text-accent-ink'
-                    : 'bg-transparent text-text-secondary hover:text-text-primary'
-                }`}
-                onClick={() => setStage(s.key)}
-              >
-                {s.label}
-              </button>
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="plan-desk" style={{ backgroundImage: DESK_MAGENTA, padding: 32 }}>
-        <div className="relative" style={{ height: 520 }}>
-          {STAGES.map((s) => (
-            <div
-              key={s.key}
-              className="absolute inset-0 transition-opacity duration-300"
-              style={{ opacity: stage === s.key ? 1 : 0, pointerEvents: stage === s.key ? 'auto' : 'none' }}
-            >
-              {s.key === 'notes' && (
-                <div style={{ paddingTop: 20 }}>
-                  <RoundTripCard p={STATIC_LOOP} />
-                </div>
-              )}
-              {s.key === 'preview' && (
-                <div className="relative" style={{ height: 480, marginTop: 20 }}>
-                  <PreviewQaCard />
-                </div>
-              )}
-              {s.key === 'prs' && <PrWindow height={520} />}
+      <ReviewVariantRoundTrip />
+      <div className="rl-ledger">
+        <div className="rl-ledger-card">
+          <div className="plan-desk h-full" style={{ backgroundImage: DESK_MAGENTA, padding: 24 }}>
+            <div style={{ height: 440 }}>
+              <CondensedPrCard />
             </div>
-          ))}
+          </div>
+        </div>
+        <div className="rl-ledger-copy">
+          <div>
+            <h3>Then, the pull request</h3>
+            <p>
+              The review hook opens it when the task hits review. Drafts — yours and your agents&rsquo; — stay
+              local until you send them as one review.
+            </p>
+          </div>
+          <div>
+            <h3>Merge from here</h3>
+            <p>Checks, threads, and the merge menu, driven by gh.</p>
+          </div>
         </div>
       </div>
-      <div className="rl-stage-caption">{STAGES.find((s) => s.key === stage)?.caption}</div>
+    </div>
+  );
+}
+
+/* ─── 2c · Split hero — one screen, no scrub: noted diff + pull request ─ */
+
+export function ReviewVariantSplitHero() {
+  return (
+    <div>
+      <div className="plan-desk" style={{ backgroundImage: DESK_MAGENTA, padding: 28 }}>
+        <div className="flex gap-6" style={{ height: 480 }}>
+          <div
+            className="glass-bevel relative flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"
+            style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
+          >
+            <NotedDiffPane pNote={1} pSend={1} pFix={1} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <CondensedPrCard compact />
+          </div>
+        </div>
+      </div>
+      <div className="rl-caption-row">
+        <div>
+          <h3>Notes go back to the agent</h3>
+          <p>Write on the changed line; Send pastes every note into the agent&rsquo;s prompt, quoted code and all.</p>
+        </div>
+        <div>
+          <h3>Drafts stay local</h3>
+          <p>Pull request comments — yours and your agents&rsquo; — stage locally and send as one review.</p>
+        </div>
+        <div>
+          <h3>Merge from here</h3>
+          <p>Checks, threads, and the merge menu, driven by gh.</p>
+        </div>
+      </div>
     </div>
   );
 }
