@@ -243,7 +243,7 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
   };
 
   const diffOpen = p('diff') > 0.08;
-  const front = diffOpen ? 'claude' : p('preview') > 0.08 ? 'dev' : 'claude';
+  const front = diffOpen ? 'claude' : p('preview') > 0.08 ? 'dev' : p('plan') > 0.08 ? 'test' : 'claude';
   const order = [front, ...['claude', 'test', 'dev', 'audit'].filter((id) => id !== front)];
   const pos = (id: string) => order.indexOf(id);
 
