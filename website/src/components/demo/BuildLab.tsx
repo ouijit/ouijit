@@ -268,21 +268,26 @@ function WorkbenchSession({ p }: { p: (k: string) => number }) {
 
 /** The stack and its notification, independent of any desk or layout. The
  * host provides ~92px of headroom above for the back-card peeks and the
- * notification. */
+ * notification.
+ *
+ * Nothing transitions inside a terminal: each beat is a different terminal
+ * promoted to the front, already showing its panel — the plan beat brings
+ * up the invitation task's terminal with its plan open, the preview beat
+ * the dev terminal, and the finale returns to claude with more output. */
 function WorkbenchStack({ p }: { p: (k: string) => number }) {
-  const planV = clamp01((p('plan') - 0.45) / 0.22) * (1 - clamp01((p('preview') - 0.35) / 0.22));
   const st = clamp01((p('status') - 0.45) / 0.25);
-  const frontDev = p('preview') > 0.5 && p('status') < 0.5;
   const testDone = st > 0.3;
 
-  const base = getPanelFixtures('pty-101-dev');
+  const onboarding = getPanelFixtures('pty-101-dev');
+  const invitation = getPanelFixtures('pty-103-test');
   const claudeFixtures: PanelFixtures = {
-    plan: p('plan') > 0.2 ? base.plan : undefined,
-    diff: p('preview') > 0.35 ? base.diff : undefined,
+    plan: p('plan') > 0.12 ? onboarding.plan : undefined,
+    diff: p('preview') > 0.35 ? onboarding.diff : undefined,
   };
-  const claudeOpenPanel: PanelKind | null = planV > 0.5 ? 'plan' : null;
 
-  const order = frontDev ? ['dev', 'claude', 'test', 'shell'] : ['claude', 'test', 'shell', 'dev'];
+  const front =
+    p('status') > 0.5 ? 'claude' : p('preview') > 0.5 ? 'dev' : p('plan') > 0.5 ? 'test' : 'claude';
+  const order = [front, ...['claude', 'test', 'dev', 'audit'].filter((id) => id !== front)];
   const pos = (id: string) => order.indexOf(id);
 
   return (
@@ -304,18 +309,38 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
           branchContent={pos('claude') === 0 ? <BranchLabel branch="rework-onboarding" /> : undefined}
           actions={
             pos('claude') === 0 && (claudeFixtures.plan || claudeFixtures.diff) ? (
-              <ActiveActions fixtures={claudeFixtures} openPanel={claudeOpenPanel} onToggle={() => {}} />
+              <ActiveActions fixtures={claudeFixtures} openPanel={null} onToggle={() => {}} />
             ) : undefined
           }
         />
         {pos('claude') === 0 && (
           <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
             <WorkbenchSession p={p} />
-            {planV > 0.02 && base.plan && (
-              <div className="absolute inset-0" style={{ opacity: planV, pointerEvents: 'none' }}>
-                <MockPlanPanel fixture={base.plan} onClose={() => {}} />
-              </div>
-            )}
+          </div>
+        )}
+      </TerminalCardView>
+      <TerminalCardView isActive={pos('test') === 0} backDepth={pos('test')}>
+        <TerminalHeaderView
+          summaryType={testDone ? 'ready' : 'thinking'}
+          isActive={pos('test') === 0}
+          isBackCard={pos('test') !== 0}
+          stackPosition={pos('test') || undefined}
+          nameContent={
+            <TerminalHeaderName
+              label={pos('test') === 0 ? 'claude' : 'Polish invitation email'}
+              lastOscTitle={testDone ? 'done · 14 passed' : 'Tightening brand tokens...'}
+            />
+          }
+          branchContent={pos('test') === 0 ? <BranchLabel branch="polish-invitation-email" /> : undefined}
+          actions={
+            pos('test') === 0 ? (
+              <ActiveActions fixtures={invitation} openPanel="plan" onToggle={() => {}} />
+            ) : undefined
+          }
+        />
+        {pos('test') === 0 && (
+          <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+            {invitation.plan && <MockPlanPanel fixture={invitation.plan} onClose={() => {}} />}
           </div>
         )}
       </TerminalCardView>
@@ -330,39 +355,26 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
           }
           branchContent={pos('dev') === 0 ? <BranchLabel branch="rework-onboarding" /> : undefined}
           actions={
-            pos('dev') === 0 ? <ActiveActions fixtures={base} openPanel="preview" onToggle={() => {}} /> : undefined
+            pos('dev') === 0 ? <ActiveActions fixtures={onboarding} openPanel="preview" onToggle={() => {}} /> : undefined
           }
         />
         {pos('dev') === 0 && (
           <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
             <DevServerBody />
-            {base.preview && (
+            {onboarding.preview && (
               <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
-                <MockPreviewPanel fixture={{ ...base.preview, page: <DarkOnboardingPage /> }} onClose={() => {}} />
+                <MockPreviewPanel fixture={{ ...onboarding.preview, page: <DarkOnboardingPage /> }} onClose={() => {}} />
               </div>
             )}
           </div>
         )}
       </TerminalCardView>
-      <TerminalCardView backDepth={pos('test')}>
-        <TerminalHeaderView
-          summaryType={testDone ? 'ready' : 'thinking'}
-          isBackCard
-          stackPosition={pos('test')}
-          nameContent={
-            <TerminalHeaderName
-              label="Polish invitation email"
-              lastOscTitle={testDone ? 'done · 14 passed' : 'Tightening brand tokens...'}
-            />
-          }
-        />
-      </TerminalCardView>
-      <TerminalCardView backDepth={pos('shell')}>
+      <TerminalCardView backDepth={pos('audit')}>
         <TerminalHeaderView
           summaryType="thinking"
           sandboxed
           isBackCard
-          stackPosition={pos('shell')}
+          stackPosition={pos('audit')}
           nameContent={
             <TerminalHeaderName label="Audit accessibility on settings dialog" lastOscTitle="running axe (lima)" />
           }
