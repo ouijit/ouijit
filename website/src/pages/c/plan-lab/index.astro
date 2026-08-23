@@ -1,64 +1,17 @@
 ---
 import Site from '../../../layouts/Site.astro';
-import {
-  VariantStoryDesk,
-  VariantStoryWell,
-  VariantStoryOneDesk,
-  VariantScrubHandoffDesk,
-  VariantScrubHandoff,
-  VariantScrubHue,
-} from '../../../components/demo/PlanLab.tsx';
+import { VariantScrubHue } from '../../../components/demo/PlanLab.tsx';
 ---
 <Site noindex>
   <div class="plan-lab">
     <header class="plan-lab-head">
       <h1>Plan section lab</h1>
-      <p>Round 4: scroll-scrubbed landings — every animation reverses when you scroll back up.</p>
+      <p>The picked direction: desk cards, scroll-scrubbed card flights, charging column desk.</p>
     </header>
 
-    <section class="plan-lab-concept" id="v4a">
-      <div class="plan-lab-tag">4a · Handoff on one shared desktop — the created card flies from the source into the column</div>
-      <VariantScrubHandoffDesk client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="v4b">
-      <div class="plan-lab-tag">4b · Handoff — the created card lifts out of the source and flies into the column, scrubbed by scroll</div>
-      <VariantScrubHandoff client:visible />
-    </section>
-
     <section class="plan-lab-concept" id="v4c">
-      <div class="plan-lab-tag">4c · Spectrum — indigo, teal, rose; the column desk charges with each landing</div>
+      <div class="plan-lab-tag">4c · Desk cards — the column's desk charges up with each landing, stacking the row hues</div>
       <VariantScrubHue client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="v4c-aurora">
-      <div class="plan-lab-tag">4c-aurora · Saturated mesh wallpapers — vivid multi-hue desks, bold charge</div>
-      <VariantScrubHue colorway="aurora" client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="v4c-paper">
-      <div class="plan-lab-tag">4c-paper · Light inversion — dark panels on warm paper desks; the charge tints the paper</div>
-      <VariantScrubHue colorway="paper" client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="v4c-poster">
-      <div class="plan-lab-tag">4c-poster · Flat color blocks — solid saturated desks; the column fills like a meter, one third per landing</div>
-      <VariantScrubHue colorway="poster" client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="v3d">
-      <div class="plan-lab-tag">3d · Desktop cards — each mock on its own wallpaper backdrop, hue per row</div>
-      <VariantStoryDesk client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="v3e">
-      <div class="plan-lab-tag">3e · Inset wells — recessed containers, mocks cropped at the edge</div>
-      <VariantStoryWell client:visible />
-    </section>
-
-    <section class="plan-lab-concept" id="v3f">
-      <div class="plan-lab-tag">3f · One shared desktop — the whole stage on a single wallpaper container</div>
-      <VariantStoryOneDesk client:visible />
     </section>
   </div>
 
@@ -90,14 +43,6 @@ import {
       text-align: center;
       margin: 0;
     }
-    .plan-v-sub {
-      color: #86868b;
-      font-size: 17px;
-      text-align: center;
-      max-width: 560px;
-      margin: 14px auto 0;
-      line-height: 1.5;
-    }
 
     /* Story rows */
     .plan-v3-row {
@@ -124,13 +69,13 @@ import {
       min-width: 0;
     }
 
-    /* Containers separate from the surfaces */
+    /* Desk containers separate from the surfaces */
     .plan-desk {
       border-radius: 24px;
       border: 1px solid rgba(255, 255, 255, 0.07);
       padding: 40px;
       /* clip, not hidden: hidden makes the desk a scroll container, which
-         pins the shared-desktop variant's sticky column in place. */
+         would pin a sticky descendant in place. */
       overflow: clip;
       position: relative;
     }
@@ -139,15 +84,7 @@ import {
         var(--shadow-panel),
         0 32px 64px -32px rgba(0, 0, 0, 0.75);
     }
-    .plan-well {
-      border-radius: 24px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      background: color-mix(in srgb, var(--color-ink) 4%, transparent);
-      box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.4);
-      padding: 36px;
-      overflow: hidden;
-      position: relative;
-    }
+
     /* Scrubbed card slots: height opens via the 0fr→1fr grid trick so the
        transition reverses cleanly when scroll direction flips. */
     .plan-slot {
@@ -171,29 +108,11 @@ import {
       transform: none;
     }
 
-    /* Choreography */
-    .plan-lab-card-in {
-      animation: plan-lab-card-in 320ms ease-out;
-    }
-    @keyframes plan-lab-card-in {
-      from {
-        opacity: 0;
-        transform: translateY(-8px);
-      }
-      to {
-        opacity: 1;
-        transform: none;
-      }
-    }
-    .plan-lab-clearing {
-      opacity: 0;
-      transition: opacity 350ms ease-out;
-    }
     .plan-lab-firing {
       box-shadow:
         var(--shadow-panel),
-        0 0 0 1px color-mix(in srgb, var(--plan-fire, var(--color-accent)) 55%, transparent),
-        0 0 24px color-mix(in srgb, var(--plan-fire, var(--color-accent)) 18%, transparent) !important;
+        0 0 0 1px color-mix(in srgb, var(--color-accent) 55%, transparent),
+        0 0 24px color-mix(in srgb, var(--color-accent) 18%, transparent) !important;
       transition: box-shadow 300ms ease-out;
     }
   </style>

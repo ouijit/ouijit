@@ -6,9 +6,9 @@ import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { ClaudeUser, AssistantSay, ToolCall, ToolResult, BODY_CLS } from './stackParts';
 
 /**
- * Concept lab for the Plan section, round three: full section mockups — the
- * headline, marketing framing around the mock UI, and a distinct motion
- * treatment per variant. Evaluated at /c/plan-lab/.
+ * Concept lab for the Plan section, reduced to the picked direction (4c):
+ * story rows on desk cards, scroll-scrubbed card flights into a sticky To Do
+ * column whose desk charges up per landing. Evaluated at /c/plan-lab/.
  */
 
 type SourceKey = 'agent' | 'issue' | 'manual';
@@ -34,41 +34,11 @@ const TASK_BY_SOURCE: Record<SourceKey, TaskWithWorkspace> = {
 
 const SEQUENCE: SourceKey[] = ['agent', 'issue', 'manual'];
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/* ─── Mock pieces ─────────────────────────────────────────────────── */
 
-interface Choreo {
-  tasks: TaskWithWorkspace[];
-  newest: number | null;
-  firing: SourceKey | null;
-  clearing?: boolean;
-}
-
-function toTasks(added: SourceKey[]): TaskWithWorkspace[] {
-  return [SEED_TASK, ...added.map((key) => TASK_BY_SOURCE[key])];
-}
-
-/** Per-row landings for the story variants: rows fire as they scroll in. */
-function useStoryChoreo() {
-  const [added, setAdded] = useState<SourceKey[]>([]);
-  const [firing, setFiring] = useState<SourceKey | null>(null);
-  const land = (key: SourceKey) => {
-    setFiring(key);
-    setTimeout(() => setAdded((prev) => (prev.includes(key) ? prev : [...prev, key])), 450);
-    setTimeout(() => setFiring((f) => (f === key ? null : f)), 1400);
-  };
-  const choreo: Choreo = {
-    tasks: toTasks(added),
-    newest: added.length > 0 ? TASK_BY_SOURCE[added[added.length - 1]].taskNumber : null,
-    firing,
-  };
-  return { choreo, firing, land };
-}
-
-/* ─── Shared mock pieces ──────────────────────────────────────────── */
-
-function ComposerFooter({ firing, anchorRef }: { firing: boolean; anchorRef?: (el: HTMLDivElement | null) => void }) {
+function ComposerFooter({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null) => void }) {
   return (
-    <div className={`kanban-add-form ${firing ? 'plan-lab-firing' : ''}`}>
+    <div className="kanban-add-form">
       <input
         readOnly
         value="Fix flaky signup e2e"
@@ -88,51 +58,7 @@ function ComposerFooter({ firing, anchorRef }: { firing: boolean; anchorRef?: (e
   );
 }
 
-function PlanColumn({
-  choreo,
-  framed = true,
-  width = 300,
-  composer = true,
-}: {
-  choreo: Choreo;
-  framed?: boolean;
-  width?: number;
-  composer?: boolean;
-}) {
-  const column = (
-    <KanbanColumnView
-      status="todo"
-      label="To Do"
-      count={choreo.tasks.length}
-      footer={composer ? <ComposerFooter firing={choreo.firing === 'manual'} /> : undefined}
-    >
-      <div className={choreo.clearing ? 'plan-lab-clearing' : undefined}>
-        {choreo.tasks.map((t) => (
-          <div key={t.taskNumber} className={t.taskNumber === choreo.newest ? 'plan-lab-card-in' : undefined}>
-            <KanbanCardView task={t} showBadge={false} />
-          </div>
-        ))}
-      </div>
-    </KanbanColumnView>
-  );
-  if (!framed) return column;
-  return (
-    <div
-      className="glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel shrink-0"
-      style={{ width, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
-    >
-      {column}
-    </div>
-  );
-}
-
-function AgentPane({
-  compact = false,
-  anchorRef,
-}: {
-  compact?: boolean;
-  anchorRef?: (el: HTMLDivElement | null) => void;
-}) {
+function AgentPane({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null) => void }) {
   return (
     <div className={`${BODY_CLS} !p-5`}>
       <ClaudeUser>break the API hardening epic into tasks on the board</ClaudeUser>
@@ -144,18 +70,11 @@ function AgentPane({
       <div ref={anchorRef}>
         <ToolResult>{'{"success": true, "task": {"taskNumber": 119}}'}</ToolResult>
       </div>
-      {!compact && <AssistantSay>Created T-119. Two more to go.</AssistantSay>}
     </div>
   );
 }
 
-function IssuePane({
-  single = false,
-  anchorRef,
-}: {
-  single?: boolean;
-  anchorRef?: (el: HTMLDivElement | null) => void;
-}) {
+function IssuePane({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null) => void }) {
   return (
     <div className="w-full my-auto flex flex-col py-3">
       <div className="px-4 pb-1 text-[13px] text-text-tertiary">Open</div>
@@ -171,24 +90,22 @@ function IssuePane({
           <span className="shrink-0 text-[13px] text-accent">Create task</span>
         </span>
       </div>
-      {!single && (
-        <div className="relative w-full px-4 py-2 flex flex-col gap-0.5 opacity-50">
-          <span className="flex items-baseline gap-2">
-            <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">Export audit log as CSV</span>
-            <span className="shrink-0 text-[13px] text-text-tertiary">4 days ago</span>
-          </span>
-          <span className="flex items-center gap-2 min-w-0 text-[13px] text-text-tertiary">
-            <Icon name="circle-dashed" className="w-3.5 h-3.5 shrink-0 text-vcs-added" />
-            <span className="shrink-0">mara-oduya</span>
-            <span className="flex-1 min-w-0 truncate font-mono text-[12px]">#488</span>
-          </span>
-        </div>
-      )}
+      <div className="relative w-full px-4 py-2 flex flex-col gap-0.5 opacity-50">
+        <span className="flex items-baseline gap-2">
+          <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">Export audit log as CSV</span>
+          <span className="shrink-0 text-[13px] text-text-tertiary">4 days ago</span>
+        </span>
+        <span className="flex items-center gap-2 min-w-0 text-[13px] text-text-tertiary">
+          <Icon name="circle-dashed" className="w-3.5 h-3.5 shrink-0 text-vcs-added" />
+          <span className="shrink-0">mara-oduya</span>
+          <span className="flex-1 min-w-0 truncate font-mono text-[12px]">#488</span>
+        </span>
+      </div>
     </div>
   );
 }
 
-function PlanPane({ short = false }: { short?: boolean }) {
+function PlanPane() {
   return (
     <div className="flex-1 min-h-0 overflow-hidden px-5 py-4">
       <div className="app-markdown plan-markdown">
@@ -203,11 +120,6 @@ function PlanPane({ short = false }: { short?: boolean }) {
             <input type="checkbox" readOnly /> Send <code>429</code> with <code>Retry-After</code> on every public
             route
           </li>
-          {!short && (
-            <li>
-              <input type="checkbox" readOnly /> Document the limits in <code>docs/api.md</code>
-            </li>
-          )}
         </ul>
       </div>
     </div>
@@ -219,20 +131,17 @@ function Panel({
   className = '',
   style,
   ledge,
-  position = 'relative',
   children,
 }: {
   firing?: boolean;
   className?: string;
   style?: React.CSSProperties;
   ledge?: ReactNode;
-  /** glass-bevel's pseudo-elements need a positioned box either way. */
-  position?: 'relative' | 'absolute';
   children: ReactNode;
 }) {
   return (
     <div
-      className={`glass-bevel ${position} flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel min-h-0 ${
+      className={`glass-bevel relative flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel min-h-0 ${
         firing ? 'plan-lab-firing' : ''
       } ${className}`}
       style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)', ...style }}
@@ -251,50 +160,7 @@ const ledge = (icon: string, label: string, hint?: string) => (
   </>
 );
 
-/* ─── Variant 3: story rows beside a sticky column ────────────────── */
-
-function StoryRow({
-  title,
-  body,
-  onVisible,
-  children,
-}: {
-  title: string;
-  body: string;
-  onVisible?: () => void;
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || !onVisible) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          onVisible();
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.6 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return (
-    <div ref={ref} className="plan-v3-row">
-      <div className="plan-v3-copy">
-        <h3>{title}</h3>
-        <p>{body}</p>
-      </div>
-      <div className="plan-v3-mock">{children}</div>
-    </div>
-  );
-}
-
-
-
-/* ─── Containers: desktop backdrops and inset wells ───────────────── */
+/* ─── Desk containers ─────────────────────────────────────────────── */
 
 const DESK_HUES = {
   indigo:
@@ -324,22 +190,7 @@ function Desk({
   );
 }
 
-function Well({ className = '', children }: { className?: string; children: ReactNode }) {
-  return <div className={`plan-well ${className}`}>{children}</div>;
-}
-
-/* ─── Round four: scroll-scrubbed landings with explicit connections ─
- *
- * Progress per row is derived from its viewport position on every scroll
- * frame, so every landing plays forward on the way down and reverses on the
- * way back up — nothing is a one-shot.
- */
-
-const HUE_ACCENT: Record<SourceKey, string> = {
-  agent: '#818cf8',
-  issue: '#2dd4bf',
-  manual: '#e9679f',
-};
+/* ─── Scroll-scrubbed choreography ────────────────────────────────── */
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -357,6 +208,11 @@ interface ScrubGeom {
   slot: Record<SourceKey, Box>;
 }
 
+/**
+ * Progress per row is derived from its viewport position on every scroll
+ * frame, so every landing plays forward on the way down and reverses on the
+ * way back up — nothing is a one-shot.
+ */
 function useScrubStage() {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const rowEls = useRef<Partial<Record<SourceKey, HTMLElement | null>>>({});
@@ -436,7 +292,7 @@ function useScrubStage() {
   return { stageRef, setRow, setSource, setSlot, progress, geom };
 }
 
-function ScrubRow({
+function Row({
   title,
   body,
   rowRef,
@@ -444,7 +300,7 @@ function ScrubRow({
 }: {
   title: string;
   body: string;
-  rowRef: (el: HTMLDivElement | null) => void;
+  rowRef?: (el: HTMLDivElement | null) => void;
   children: ReactNode;
 }) {
   return (
@@ -462,12 +318,10 @@ function ScrubRow({
 function ScrubColumn({
   open,
   landed,
-  hues = false,
   setSlot,
 }: {
   open: Record<SourceKey, boolean>;
   landed: Record<SourceKey, boolean>;
-  hues?: boolean;
   setSlot: (key: SourceKey) => (el: HTMLDivElement | null) => void;
 }) {
   const count = 1 + SEQUENCE.filter((k) => landed[k]).length;
@@ -486,17 +340,6 @@ function ScrubColumn({
           >
             <div>
               <KanbanCardView task={TASK_BY_SOURCE[k]} showBadge={false} />
-              {hues && (
-                <span
-                  className="absolute left-0 top-0 bottom-0"
-                  style={{
-                    width: 2,
-                    background: HUE_ACCENT[k],
-                    opacity: landed[k] ? 1 : 0,
-                    transition: 'opacity 300ms ease',
-                  }}
-                />
-              )}
             </div>
           </div>
         ))}
@@ -518,39 +361,30 @@ const ROWS: { key: SourceKey; title: string; body: string }[] = [
   { key: 'manual', title: 'Or just type', body: 'The composer sits at the bottom of the column, one ⌘N away.' },
 ];
 
-function rowMock(key: SourceKey, firing: boolean, setSource: (key: SourceKey) => (el: HTMLDivElement | null) => void, fire?: string) {
-  const fireStyle = fire ? ({ '--plan-fire': fire } as React.CSSProperties) : undefined;
+function rowMock(key: SourceKey, firing: boolean, setSource: (key: SourceKey) => (el: HTMLDivElement | null) => void) {
   if (key === 'agent')
     return (
-      <Panel firing={firing} style={{ height: 330, ...fireStyle }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
-        <AgentPane compact anchorRef={setSource('agent')} />
+      <Panel firing={firing} style={{ height: 330 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
+        <AgentPane anchorRef={setSource('agent')} />
       </Panel>
     );
   if (key === 'issue')
     return (
-      <Panel firing={firing} style={fireStyle} ledge={ledge('github-logo', 'Issues')}>
+      <Panel firing={firing} ledge={ledge('github-logo', 'Issues')}>
         <IssuePane anchorRef={setSource('issue')} />
       </Panel>
     );
   return (
-    <Panel firing={firing} style={fireStyle}>
+    <Panel firing={firing}>
       <div className="p-5">
-        <ComposerFooter firing={false} anchorRef={setSource('manual')} />
+        <ComposerFooter anchorRef={setSource('manual')} />
       </div>
     </Panel>
   );
 }
 
 /** The created card lifts out of the source and flies to its slot, scrubbed. */
-function HandoffGhosts({
-  flightP,
-  geom,
-  hues = false,
-}: {
-  flightP: (k: SourceKey) => number;
-  geom: ScrubGeom;
-  hues?: boolean;
-}) {
+function HandoffGhosts({ flightP, geom }: { flightP: (k: SourceKey) => number; geom: ScrubGeom }) {
   return (
     <>
       {SEQUENCE.map((k) => {
@@ -578,89 +412,12 @@ function HandoffGhosts({
             }}
           >
             <KanbanCardView task={TASK_BY_SOURCE[k]} showBadge={false} />
-            {hues && <span className="absolute left-0 top-0 bottom-0" style={{ width: 2, background: HUE_ACCENT[k] }} />}
           </div>
         );
       })}
     </>
   );
 }
-
-/* ─── Variant 4a: handoff on the shared desktop ───────────────────── */
-
-export function VariantScrubHandoffDesk() {
-  const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
-  const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
-  const open = past(progress, 0.55);
-  const landed = past(progress, 0.76);
-  return (
-    <div>
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <Desk hue="indigo" style={{ marginTop: 64, padding: '64px 56px' }}>
-        <div ref={stageRef} className="relative flex gap-10 items-start">
-          <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 130 }}>
-            {ROWS.map(({ key, title, body }) => (
-              <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
-                {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}
-              </ScrubRow>
-            ))}
-            <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
-              <Panel ledge={ledge('file-text', 'plan.md')}>
-                <PlanPane short />
-              </Panel>
-            </StoryRow>
-          </div>
-          <div className="shrink-0 sticky" style={{ top: 120, width: 300 }}>
-            <div className="flex" style={{ minHeight: 480 }}>
-              <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
-            </div>
-          </div>
-          {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
-        </div>
-      </Desk>
-    </div>
-  );
-}
-
-/* ─── Variant 4b: handoff — the created card flies into the column ──── */
-
-export function VariantScrubHandoff() {
-  const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
-  const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
-  const open = past(progress, 0.55);
-  const landed = past(progress, 0.76);
-  return (
-    <div>
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <div ref={stageRef} className="relative flex gap-10 items-start" style={{ marginTop: 72 }}>
-        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
-          {ROWS.map(({ key, title, body }) => (
-            <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
-              <Well>{rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}</Well>
-            </ScrubRow>
-          ))}
-          <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
-            <Well>
-              <Panel ledge={ledge('file-text', 'plan.md')}>
-                <PlanPane short />
-              </Panel>
-            </Well>
-          </StoryRow>
-        </div>
-        <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
-          <Well>
-            <div className="flex" style={{ minHeight: 470 }}>
-              <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
-            </div>
-          </Well>
-        </div>
-        {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Variant 4c: desk cards, the column desk charging up per landing ─ */
 
 /** One gradient layer per source, stacked onto the column desk as its card
  * lands — the row hues, minus the dark linear base the desk already has. */
@@ -673,143 +430,54 @@ const CHARGE_LAYERS: Record<SourceKey, string> = {
     'radial-gradient(120% 140% at 20% 100%, rgba(233, 103, 159, 0.26), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(168, 85, 247, 0.16), transparent 60%)',
 };
 
-function ChargingDesk({
-  landed,
-  cw,
-  children,
-}: {
-  landed: Record<SourceKey, boolean>;
-  cw: Colorway;
-  children: ReactNode;
-}) {
-  const count = SEQUENCE.filter((k) => landed[k]).length;
+function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>; children: ReactNode }) {
   return (
-    <div
-      className="plan-desk"
-      style={{
-        backgroundImage: cw.columnDesk ?? DESK_HUES.graphite,
-        padding: 36,
-        ...(cw.border && { borderColor: cw.border }),
-      }}
-    >
-      {cw.fill ? (
+    <div className="plan-desk" style={{ backgroundImage: DESK_HUES.graphite, padding: 36 }}>
+      {SEQUENCE.map((k) => (
         <div
-          className="absolute left-0 right-0 bottom-0 pointer-events-none"
+          key={k}
+          className="absolute inset-0 pointer-events-none"
           style={{
-            height: `${(count / 3) * 100}%`,
-            backgroundImage: cw.fill,
-            transition: 'height 700ms ease',
+            borderRadius: 'inherit',
+            backgroundImage: CHARGE_LAYERS[k],
+            opacity: landed[k] ? 1 : 0,
+            transition: 'opacity 700ms ease',
           }}
         />
-      ) : (
-        SEQUENCE.map((k) => (
-          <div
-            key={k}
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              borderRadius: 'inherit',
-              backgroundImage: cw.charges?.[k],
-              opacity: landed[k] ? 1 : 0,
-              transition: 'opacity 700ms ease',
-            }}
-          />
-        ))
-      )}
+      ))}
       <div className="relative">{children}</div>
     </div>
   );
 }
 
-/** A colorway: one desk wallpaper per row (agent, issue, manual, plan) and how
- * the column desk charges — stacked layers per landing, or a rising fill. */
-interface Colorway {
-  desks: [string, string, string, string];
-  columnDesk?: string;
-  border?: string;
-  charges?: Record<SourceKey, string>;
-  fill?: string;
-}
+/* ─── The section: desk cards, charging column, card flights ──────── */
 
-const COLORWAYS: Record<string, Colorway> = {
-  spectrum: {
-    desks: [DESK_HUES.indigo, DESK_HUES.teal, DESK_HUES.rose, DESK_HUES.violet],
-    charges: CHARGE_LAYERS,
-  },
-  aurora: {
-    desks: [
-      'radial-gradient(90% 90% at 20% 0%, rgba(139, 92, 246, 0.65), transparent 60%), radial-gradient(90% 90% at 95% 15%, rgba(59, 130, 246, 0.5), transparent 55%), radial-gradient(110% 110% at 60% 115%, rgba(236, 72, 153, 0.45), transparent 60%), linear-gradient(180deg, #17102a, #0f0d18)',
-      'radial-gradient(90% 90% at 15% 0%, rgba(16, 185, 129, 0.55), transparent 55%), radial-gradient(90% 90% at 95% 25%, rgba(34, 211, 238, 0.45), transparent 55%), radial-gradient(110% 110% at 50% 120%, rgba(59, 130, 246, 0.4), transparent 60%), linear-gradient(180deg, #0a1f1c, #0b1116)',
-      'radial-gradient(90% 90% at 15% 10%, rgba(244, 63, 94, 0.55), transparent 55%), radial-gradient(90% 90% at 90% 5%, rgba(251, 146, 60, 0.45), transparent 55%), radial-gradient(110% 110% at 60% 115%, rgba(168, 85, 247, 0.45), transparent 60%), linear-gradient(180deg, #230f1c, #120d14)',
-      'radial-gradient(90% 90% at 80% 0%, rgba(99, 102, 241, 0.6), transparent 55%), radial-gradient(90% 90% at 10% 30%, rgba(34, 211, 238, 0.4), transparent 55%), radial-gradient(110% 110% at 50% 120%, rgba(168, 85, 247, 0.45), transparent 60%), linear-gradient(180deg, #131230, #0e0d18)',
-    ],
-    columnDesk: 'linear-gradient(180deg, #14131f, #0e0d15)',
-    charges: {
-      agent:
-        'radial-gradient(90% 90% at 20% 0%, rgba(139, 92, 246, 0.6), transparent 60%), radial-gradient(100% 100% at 100% 100%, rgba(59, 130, 246, 0.3), transparent 55%)',
-      issue:
-        'radial-gradient(90% 90% at 90% 10%, rgba(16, 185, 129, 0.45), transparent 55%), radial-gradient(100% 100% at 0% 100%, rgba(34, 211, 238, 0.3), transparent 55%)',
-      manual:
-        'radial-gradient(100% 100% at 30% 110%, rgba(236, 72, 153, 0.5), transparent 60%), radial-gradient(100% 100% at 100% 40%, rgba(251, 146, 60, 0.25), transparent 55%)',
-    },
-  },
-  paper: {
-    desks: [
-      'radial-gradient(120% 140% at 20% 0%, rgba(255, 255, 255, 0.9), transparent 60%), linear-gradient(180deg, #efece5, #dcd8cf)',
-      'radial-gradient(120% 140% at 80% 0%, rgba(255, 255, 255, 0.85), transparent 60%), linear-gradient(180deg, #e8ecea, #d4dad6)',
-      'radial-gradient(120% 140% at 20% 10%, rgba(255, 255, 255, 0.85), transparent 60%), linear-gradient(180deg, #efe7e6, #ded2d0)',
-      'radial-gradient(120% 140% at 80% 0%, rgba(255, 255, 255, 0.85), transparent 60%), linear-gradient(180deg, #e9e8ef, #d6d4de)',
-    ],
-    columnDesk: 'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.9), transparent 60%), linear-gradient(180deg, #ece9e2, #d7d3ca)',
-    border: 'rgba(0, 0, 0, 0.12)',
-    charges: {
-      agent:
-        'radial-gradient(120% 140% at 15% 0%, rgba(99, 102, 241, 0.30), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.18), transparent 55%)',
-      issue:
-        'radial-gradient(120% 140% at 85% 0%, rgba(45, 212, 191, 0.28), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(99, 102, 241, 0.16), transparent 55%)',
-      manual:
-        'radial-gradient(120% 140% at 20% 100%, rgba(233, 103, 159, 0.28), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(168, 85, 247, 0.18), transparent 60%)',
-    },
-  },
-  poster: {
-    desks: [
-      'linear-gradient(180deg, #4338ca, #3730a3)',
-      'linear-gradient(180deg, #0f766e, #115e59)',
-      'linear-gradient(180deg, #be185d, #9d174d)',
-      'linear-gradient(180deg, #6d28d9, #5b21b6)',
-    ],
-    columnDesk: 'linear-gradient(180deg, #1a1a1e, #131316)',
-    fill: 'linear-gradient(15deg, #4338ca, #be185d)',
-  },
-};
-
-export function VariantScrubHue({ colorway = 'spectrum' }: { colorway?: keyof typeof COLORWAYS }) {
+export function VariantScrubHue() {
   const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
   const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
   const open = past(progress, 0.55);
   const landed = past(progress, 0.76);
-  const cw = COLORWAYS[colorway];
+  const deskHue: Record<SourceKey, keyof typeof DESK_HUES> = { agent: 'indigo', issue: 'teal', manual: 'rose' };
   return (
     <div>
       <h2 className="plan-v-headline">Plan at scale, in detail</h2>
       <div ref={stageRef} className="relative flex gap-10 items-start" style={{ marginTop: 72 }}>
         <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
-          {ROWS.map(({ key, title, body }, i) => (
-            <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
-              <Desk hue="graphite" style={{ backgroundImage: cw.desks[i], ...(cw.border && { borderColor: cw.border }) }}>
-                {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}
-              </Desk>
-            </ScrubRow>
+          {ROWS.map(({ key, title, body }) => (
+            <Row key={key} title={title} body={body} rowRef={setRow(key)}>
+              <Desk hue={deskHue[key]}>{rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}</Desk>
+            </Row>
           ))}
-          <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
-            <Desk hue="graphite" style={{ backgroundImage: cw.desks[3], ...(cw.border && { borderColor: cw.border }) }}>
+          <Row title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
+            <Desk hue="violet">
               <Panel ledge={ledge('file-text', 'plan.md')}>
-                <PlanPane short />
+                <PlanPane />
               </Panel>
             </Desk>
-          </StoryRow>
+          </Row>
         </div>
         <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
-          <ChargingDesk landed={landed} cw={cw}>
+          <ChargingDesk landed={landed}>
             <div className="flex" style={{ minHeight: 470 }}>
               <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
             </div>
@@ -817,190 +485,6 @@ export function VariantScrubHue({ colorway = 'spectrum' }: { colorway?: keyof ty
         </div>
         {geom && <HandoffGhosts flightP={flightP} geom={geom} />}
       </div>
-    </div>
-  );
-}
-
-/* ─── Variant 3d: each mock on its own desktop card ───────────────── */
-
-export function VariantStoryDesk() {
-  const { choreo, firing, land } = useStoryChoreo();
-  return (
-    <div>
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <div className="flex gap-10 items-start" style={{ marginTop: 72 }}>
-        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
-          <StoryRow
-            title="Delegate the breakdown"
-            body="An agent splits the epic and files each task over the CLI, prompt and all."
-            onVisible={() => land('agent')}
-          >
-            <Desk hue="indigo">
-              <Panel firing={firing === 'agent'} style={{ height: 330 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
-                <AgentPane compact />
-              </Panel>
-            </Desk>
-          </StoryRow>
-          <StoryRow
-            title="Pull from GitHub"
-            body="An open issue becomes a task on the board with one click."
-            onVisible={() => land('issue')}
-          >
-            <Desk hue="teal">
-              <Panel firing={firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
-                <IssuePane />
-              </Panel>
-            </Desk>
-          </StoryRow>
-          <StoryRow
-            title="Or just type"
-            body="The composer sits at the bottom of the column, one ⌘N away."
-            onVisible={() => land('manual')}
-          >
-            <Desk hue="rose">
-              <Panel firing={firing === 'manual'}>
-                <div className="p-5">
-                  <ComposerFooter firing={false} />
-                </div>
-              </Panel>
-            </Desk>
-          </StoryRow>
-          <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
-            <Desk hue="violet">
-              <Panel ledge={ledge('file-text', 'plan.md')}>
-                <PlanPane short />
-              </Panel>
-            </Desk>
-          </StoryRow>
-        </div>
-        <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
-          <Desk hue="graphite" style={{ padding: 36 }}>
-            <div className="flex" style={{ height: 470 }}>
-              <PlanColumn choreo={choreo} framed width={300} composer={false} />
-            </div>
-          </Desk>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Variant 3e: inset wells, mocks cropped at the edge ──────────── */
-
-export function VariantStoryWell() {
-  const { choreo, firing, land } = useStoryChoreo();
-  return (
-    <div>
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <div className="flex gap-10 items-start" style={{ marginTop: 72 }}>
-        <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
-          <StoryRow
-            title="Delegate the breakdown"
-            body="An agent splits the epic and files each task over the CLI, prompt and all."
-            onVisible={() => land('agent')}
-          >
-            <Well>
-              <Panel firing={firing === 'agent'} style={{ height: 330 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
-                <AgentPane compact />
-              </Panel>
-            </Well>
-          </StoryRow>
-          <StoryRow
-            title="Pull from GitHub"
-            body="An open issue becomes a task on the board with one click."
-            onVisible={() => land('issue')}
-          >
-            <Well>
-              <Panel firing={firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
-                <IssuePane />
-              </Panel>
-            </Well>
-          </StoryRow>
-          <StoryRow
-            title="Or just type"
-            body="The composer sits at the bottom of the column, one ⌘N away."
-            onVisible={() => land('manual')}
-          >
-            <Well>
-              <Panel firing={firing === 'manual'}>
-                <div className="p-5">
-                  <ComposerFooter firing={false} />
-                </div>
-              </Panel>
-            </Well>
-          </StoryRow>
-          <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
-            <Well>
-              <Panel ledge={ledge('file-text', 'plan.md')}>
-                <PlanPane short />
-              </Panel>
-            </Well>
-          </StoryRow>
-        </div>
-        <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
-          <Well>
-            <div className="flex" style={{ height: 470 }}>
-              <PlanColumn choreo={choreo} framed width={300} composer={false} />
-            </div>
-          </Well>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Variant 3f: the whole stage on one shared desktop ───────────── */
-
-export function VariantStoryOneDesk() {
-  const { choreo, firing, land } = useStoryChoreo();
-  return (
-    <div>
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
-      <Desk hue="indigo" style={{ marginTop: 64, padding: '64px 56px' }}>
-        <div className="flex gap-10 items-start">
-          <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 130 }}>
-            <StoryRow
-              title="Delegate the breakdown"
-              body="An agent splits the epic and files each task over the CLI, prompt and all."
-              onVisible={() => land('agent')}
-            >
-              <Panel firing={firing === 'agent'} style={{ height: 330 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
-                <AgentPane compact />
-              </Panel>
-            </StoryRow>
-            <StoryRow
-              title="Pull from GitHub"
-              body="An open issue becomes a task on the board with one click."
-              onVisible={() => land('issue')}
-            >
-              <Panel firing={firing === 'issue'} ledge={ledge('github-logo', 'Issues')}>
-                <IssuePane />
-              </Panel>
-            </StoryRow>
-            <StoryRow
-              title="Or just type"
-              body="The composer sits at the bottom of the column, one ⌘N away."
-              onVisible={() => land('manual')}
-            >
-              <Panel firing={firing === 'manual'}>
-                <div className="p-5">
-                  <ComposerFooter firing={false} />
-                </div>
-              </Panel>
-            </StoryRow>
-            <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
-              <Panel ledge={ledge('file-text', 'plan.md')}>
-                <PlanPane short />
-              </Panel>
-            </StoryRow>
-          </div>
-          <div className="shrink-0 sticky" style={{ top: 120, width: 300 }}>
-            <div className="flex" style={{ height: 480 }}>
-              <PlanColumn choreo={choreo} framed width={300} composer={false} />
-            </div>
-          </div>
-        </div>
-      </Desk>
     </div>
   );
 }
