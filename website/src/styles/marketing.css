@@ -2755,6 +2755,17 @@ html.js .b-h1.is-typing .b-h1-typed {
   gap: 36px;
   margin-top: 48px;
 }
+/* Beat columns double as seek targets, so they render as bare buttons. */
+.beat-row button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 .beat-dots {
   width: 100%;
   height: 4px;
@@ -2805,11 +2816,11 @@ html.js .b-h1.is-typing .b-h1-typed {
   gap: 28px;
   width: 100%;
 }
-.beat-row > div {
+.beat-row > * {
   opacity: 0.35;
   transition: opacity 300ms ease;
 }
-.beat-row > div.is-active {
+.beat-row > .is-active {
   opacity: 1;
 }
 .beat-row h3 {

@@ -9,9 +9,12 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 export function useTheaterLoop(keys: readonly string[], beatMs = 4500) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [t, setT] = useState(0);
+  const accRef = useRef(0);
+  const reducedRef = useRef(false);
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      reducedRef.current = true;
       setT(keys.length);
       return;
     }
@@ -21,17 +24,16 @@ export function useTheaterLoop(keys: readonly string[], beatMs = 4500) {
     if (rootRef.current) io.observe(rootRef.current);
     let raf = 0;
     let last = performance.now();
-    let acc = 0;
     let shown = -1;
     const tick = (now: number) => {
       const dt = Math.min(now - last, 100);
       last = now;
       if (visible) {
-        acc = (acc + dt / beatMs) % cycle;
-        const rounded = Math.round(acc * 240);
+        accRef.current = (accRef.current + dt / beatMs) % cycle;
+        const rounded = Math.round(accRef.current * 240);
         if (rounded !== shown) {
           shown = rounded;
-          setT(acc);
+          setT(accRef.current);
         }
       }
       raf = requestAnimationFrame(tick);
@@ -48,7 +50,17 @@ export function useTheaterLoop(keys: readonly string[], beatMs = 4500) {
     if (i < 0) return 0;
     return clamp01((t - i) / 0.8);
   };
-  return { rootRef, p, progress: clamp01(t / keys.length) };
+  /* Jump to the start of beat i; playback continues from there. Under
+     reduced motion there is no playback, so land on the beat finished. */
+  const seek = (i: number) => {
+    if (reducedRef.current) {
+      setT(i + 0.8);
+      return;
+    }
+    accRef.current = i;
+    setT(i);
+  };
+  return { rootRef, p, progress: clamp01(t / keys.length), seek };
 }
 
 /** The loop's position, as a full-width row of dots filling left to right. */
