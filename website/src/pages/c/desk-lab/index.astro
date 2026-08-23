@@ -7,11 +7,89 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
     <header class="desk-lab-head">
       <h1>Desk background lab</h1>
       <p>
-        Round 3: environments, not decoration. Each concept is one idea about what the desk physically is —
-        a studio floor, the page's own material, an etched drawing, a wired trace — executed quietly.
-        Earlier rounds kept below for reference.
+        Round 4: texture, pattern, and depth at full fidelity — machined metal, an isometric worktree
+        diorama, a true-perspective stage, frosted glass with real refraction. Earlier rounds kept below.
       </p>
     </header>
+
+    <section class="desk-lab-concept" id="dq">
+      <div class="desk-lab-tag">q · Machined plate — anodized metal: brushed micro-texture, a CNC perforation field, one specular sweep</div>
+      <div class="plan-desk dl dl-q">
+        <div class="dl-layer dl-q-perf" aria-hidden="true"></div>
+        <div class="dl-layer dl-q-brush" aria-hidden="true"></div>
+        <div class="dl-layer dl-q-sheen" aria-hidden="true"></div>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dr">
+      <div class="desk-lab-tag">r · Worktree diorama — isometric slabs floating around the terminal, each a worktree with its own edge light</div>
+      <div class="plan-desk dl dl-r">
+        <svg class="dl-layer" viewBox="0 0 1200 660" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs>
+            <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="9" /></filter>
+          </defs>
+          <ellipse cx="240" cy="238" rx="150" ry="40" fill="#000" opacity="0.5" filter="url(#soft)" />
+          <ellipse cx="1046" cy="392" rx="112" ry="30" fill="#000" opacity="0.5" filter="url(#soft)" />
+          <ellipse cx="196" cy="622" rx="130" ry="34" fill="#000" opacity="0.45" filter="url(#soft)" />
+          <path d="M80,120 L240,200 L240,222 L80,142 Z" fill="#12121b" />
+          <path d="M240,200 L400,120 L400,142 L240,222 Z" fill="#0d0d14" />
+          <path d="M80,120 L240,40 L400,120 L240,200 Z" fill="#1d1e2b" stroke="rgba(255,255,255,0.06)" />
+          <path d="M80,120 L240,40" stroke="#6366f1" stroke-width="1.5" opacity="0.9" />
+          <path d="M126,120 L240,63 L354,120 L240,177 Z" fill="#15161f" stroke="rgba(255,255,255,0.05)" />
+          <circle cx="168" cy="114" r="3" fill="rgba(218,119,242,0.8)" />
+          <circle cx="182" cy="107" r="3" fill="rgba(63,185,80,0.8)" />
+          <path d="M930,330 L1050,390 L1050,406 L930,346 Z" fill="#12121b" />
+          <path d="M1050,390 L1170,330 L1170,346 L1050,406 Z" fill="#0d0d14" />
+          <path d="M930,330 L1050,270 L1170,330 L1050,390 Z" fill="#1b1c28" stroke="rgba(255,255,255,0.06)" />
+          <path d="M1050,270 L1170,330" stroke="#22d3ee" stroke-width="1.5" opacity="0.9" />
+          <path d="M966,330 L1050,288 L1134,330 L1050,372 Z" fill="#14151e" stroke="rgba(255,255,255,0.05)" />
+          <path d="M60,548 L196,616 L196,634 L60,566 Z" fill="#12121b" />
+          <path d="M196,616 L332,548 L332,566 L196,634 Z" fill="#0d0d14" />
+          <path d="M60,548 L196,480 L332,548 L196,616 Z" fill="#1c1d29" stroke="rgba(255,255,255,0.06)" />
+          <path d="M60,548 L196,480" stroke="#da77f2" stroke-width="1.5" opacity="0.85" />
+          <path d="M400,120 H560 V300" stroke="rgba(255,255,255,0.14)" fill="none" />
+          <circle cx="560" cy="300" r="3" fill="rgba(255,255,255,0.3)" />
+          <path d="M930,330 H820" stroke="rgba(255,255,255,0.14)" fill="none" />
+          <circle cx="820" cy="330" r="3" fill="rgba(255,255,255,0.3)" />
+          <path d="M332,548 H480" stroke="rgba(255,255,255,0.12)" fill="none" />
+          <circle cx="480" cy="548" r="3" fill="rgba(255,255,255,0.28)" />
+        </svg>
+        <div style="max-width: 780px; margin: 0 auto">
+          <SampleCard client:visible />
+        </div>
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="ds">
+      <div class="desk-lab-tag">s · Perspective stage — a true 3D floor receding to a horizon, the card standing on it with a contact shadow</div>
+      <div class="plan-desk dl dl-s">
+        <div class="dl-s-floor" aria-hidden="true"></div>
+        <div style="position: relative; max-width: 880px; margin: 0 auto">
+          <SampleCard client:visible />
+          <div class="dl-s-shadow" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="desk-lab-concept" id="dt">
+      <div class="desk-lab-tag">t · Frosted glass — flat color shapes behind real frosted acrylic, sharp only through two polished lenses</div>
+      <div class="plan-desk dl dl-t">
+        <div class="dl-layer dl-t-shapes" aria-hidden="true">
+          <span class="dl-t-circle"></span>
+          <span class="dl-t-square"></span>
+          <span class="dl-t-tri"></span>
+        </div>
+        <div class="dl-layer dl-t-glass" aria-hidden="true"></div>
+        <span class="dl-t-lens" style="left: 44px; top: 22px; width: 168px; height: 168px" aria-hidden="true"></span>
+        <span class="dl-t-lens" style="right: 52px; bottom: 20px; width: 148px; height: 148px" aria-hidden="true"></span>
+        <div class="dl-layer dl-grain" aria-hidden="true"></div>
+        <SampleCard client:visible />
+      </div>
+    </section>
+
+    <div class="desk-lab-round">Round 3 · environments, for reference</div>
 
     <section class="desk-lab-concept" id="dm">
       <div class="desk-lab-tag">m · Dark room — the card as hardware on a black studio floor; the only ornament is its own reflection</div>
@@ -236,6 +314,124 @@ import { SampleCard } from '../../../components/demo/DeskLab.tsx';
 
     .dl {
       padding: 48px;
+    }
+
+    /* q · machined plate */
+    .dl-q {
+      background-color: #101114;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.09),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.8);
+    }
+    .dl-q-brush {
+      background-image:
+        repeating-linear-gradient(91deg, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 3px),
+        repeating-linear-gradient(89deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 4px);
+    }
+    .dl-q-perf {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18'><circle cx='9' cy='9' r='3.2' fill='%230a0a0d'/><path d='M5.9 10.2 a3.2 3.2 0 0 0 6.2 0' stroke='rgba(255,255,255,0.09)' stroke-width='1' fill='none'/></svg>");
+      -webkit-mask: linear-gradient(78deg, transparent 42%, #000 58%);
+      mask: linear-gradient(78deg, transparent 42%, #000 58%);
+    }
+    .dl-q-sheen {
+      background: linear-gradient(115deg, transparent 34%, rgba(255, 255, 255, 0.05) 46%, transparent 58%);
+    }
+
+    /* r · worktree diorama */
+    .dl-r {
+      background: #0d0e16;
+      padding: 130px 110px;
+    }
+
+    /* s · perspective stage */
+    .dl-s {
+      background: #0a0a10;
+      padding: 100px 110px 170px;
+      perspective: 900px;
+      perspective-origin: 50% 30%;
+    }
+    .dl-s-floor {
+      position: absolute;
+      left: -18%;
+      right: -18%;
+      bottom: -260px;
+      height: 480px;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><path d='M63.5 0V64 M0 63.5H64' stroke='rgba(160,175,255,0.13)' stroke-width='1'/></svg>");
+      transform: rotateX(58deg);
+      transform-origin: 50% 0%;
+      -webkit-mask: linear-gradient(180deg, transparent 0, rgba(0, 0, 0, 0.85) 24%, #000 55%);
+      mask: linear-gradient(180deg, transparent 0, rgba(0, 0, 0, 0.85) 24%, #000 55%);
+      pointer-events: none;
+    }
+    .dl-s-shadow {
+      position: absolute;
+      left: 6%;
+      right: 6%;
+      bottom: -34px;
+      height: 30px;
+      background: #000;
+      filter: blur(20px);
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    /* t · frosted glass */
+    .dl-t {
+      background: #0c0c12;
+      padding: 130px 88px;
+    }
+    .dl-t-shapes span {
+      position: absolute;
+      display: block;
+    }
+    .dl-t-circle {
+      left: 2%;
+      top: -8%;
+      width: 320px;
+      height: 320px;
+      border-radius: 999px;
+      background: #4c50e6;
+    }
+    .dl-t-square {
+      right: 1%;
+      bottom: -10%;
+      width: 280px;
+      height: 280px;
+      background: #c13be6;
+      transform: rotate(24deg);
+    }
+    .dl-t-tri {
+      left: 46%;
+      top: -10%;
+      width: 240px;
+      height: 220px;
+      background: #14b8cf;
+      clip-path: polygon(50% 0, 100% 100%, 0 100%);
+      transform: rotate(-10deg);
+    }
+    .dl-t-glass {
+      backdrop-filter: blur(42px) saturate(1.45);
+      -webkit-backdrop-filter: blur(42px) saturate(1.45);
+      background: rgba(13, 13, 19, 0.36);
+      mask-image:
+        radial-gradient(circle 84px at 128px 106px, transparent 0 82px, #000 85px),
+        radial-gradient(circle 74px at calc(100% - 126px) calc(100% - 94px), transparent 0 72px, #000 75px);
+      mask-composite: intersect;
+      -webkit-mask-image:
+        radial-gradient(circle 84px at 128px 106px, transparent 0 82px, #000 85px),
+        radial-gradient(circle 74px at calc(100% - 126px) calc(100% - 94px), transparent 0 72px, #000 75px);
+      -webkit-mask-composite: source-in;
+    }
+    .dl-t-lens {
+      position: absolute;
+      display: block;
+      border-radius: 999px;
+      border: 1.5px solid rgba(255, 255, 255, 0.35);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 0 24px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+      z-index: 1;
     }
 
     /* m · dark room: flat black, the card mirrored on a gloss floor */
