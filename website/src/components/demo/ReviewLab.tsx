@@ -701,6 +701,17 @@ export function ReviewVariantTwoAct() {
   );
 }
 
+/* ─── The section, as shipped on the c page ───────────────────────── */
+
+export function ReviewSection() {
+  return (
+    <div>
+      <h2 className="plan-v-headline">Review in place</h2>
+      <ReviewVariantTwoAct />
+    </div>
+  );
+}
+
 /* ─── 2b · Loop + ledger — the theater, then a static pull request band ─ */
 
 export function ReviewVariantLoopLedger() {

@@ -2667,6 +2667,36 @@ html.js .b-h1.is-typing .b-h1-typed {
   line-height: 1.5;
   margin: 8px 0 0;
 }
+/* Review section */
+.home-review {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 140px var(--content-padding) 48px;
+}
+/* All five beat captions stay in view under the stage; the active one lit. */
+.rl-beat-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 28px;
+  width: 100%;
+}
+.rl-beat-row > div {
+  opacity: 0.35;
+  transition: opacity 300ms ease;
+}
+.rl-beat-row > div.is-active {
+  opacity: 1;
+}
+.rl-beat-row h3 {
+  font-size: 15px;
+  margin: 0;
+}
+.rl-beat-row p {
+  color: #86868b;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 6px 0 0;
+}
 .bl-strip {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
