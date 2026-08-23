@@ -673,7 +673,15 @@ const CHARGE_LAYERS: Record<SourceKey, string> = {
     'radial-gradient(120% 140% at 20% 100%, rgba(233, 103, 159, 0.26), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(168, 85, 247, 0.16), transparent 60%)',
 };
 
-function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>; children: ReactNode }) {
+function ChargingDesk({
+  landed,
+  charges,
+  children,
+}: {
+  landed: Record<SourceKey, boolean>;
+  charges: Record<SourceKey, string>;
+  children: ReactNode;
+}) {
   return (
     <div className="plan-desk" style={{ backgroundImage: DESK_HUES.graphite, padding: 36 }}>
       {SEQUENCE.map((k) => (
@@ -682,7 +690,7 @@ function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>
           className="absolute inset-0 pointer-events-none"
           style={{
             borderRadius: 'inherit',
-            backgroundImage: CHARGE_LAYERS[k],
+            backgroundImage: charges[k],
             opacity: landed[k] ? 1 : 0,
             transition: 'opacity 700ms ease',
           }}
@@ -693,26 +701,76 @@ function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>
   );
 }
 
-export function VariantScrubHue() {
+/** A colorway: one desk wallpaper per row (agent, issue, manual, plan) and the
+ * charge layer each landing stacks onto the column desk. */
+interface Colorway {
+  desks: [string, string, string, string];
+  charges: Record<SourceKey, string>;
+}
+
+const COLORWAYS: Record<string, Colorway> = {
+  spectrum: {
+    desks: [DESK_HUES.indigo, DESK_HUES.teal, DESK_HUES.rose, DESK_HUES.violet],
+    charges: CHARGE_LAYERS,
+  },
+  ocean: {
+    desks: [
+      'radial-gradient(120% 140% at 15% 0%, rgba(59, 130, 246, 0.32), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(56, 189, 248, 0.15), transparent 55%), linear-gradient(180deg, #16203a, #101420)',
+      'radial-gradient(120% 140% at 85% 0%, rgba(56, 189, 248, 0.26), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(37, 99, 235, 0.18), transparent 55%), linear-gradient(180deg, #122030, #0f1218)',
+      'radial-gradient(120% 140% at 20% 10%, rgba(103, 232, 249, 0.20), transparent 60%), radial-gradient(120% 130% at 100% 90%, rgba(59, 130, 246, 0.18), transparent 60%), linear-gradient(180deg, #101c2c, #0e1116)',
+      'radial-gradient(130% 120% at 80% 0%, rgba(96, 165, 250, 0.24), transparent 55%), radial-gradient(140% 120% at 0% 100%, rgba(45, 212, 191, 0.14), transparent 60%), linear-gradient(180deg, #131c2e, #0f1218)',
+    ],
+    charges: {
+      agent:
+        'radial-gradient(120% 140% at 15% 0%, rgba(59, 130, 246, 0.34), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(37, 99, 235, 0.14), transparent 55%)',
+      issue:
+        'radial-gradient(120% 140% at 85% 0%, rgba(56, 189, 248, 0.24), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(59, 130, 246, 0.14), transparent 55%)',
+      manual:
+        'radial-gradient(120% 140% at 20% 100%, rgba(103, 232, 249, 0.20), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(45, 212, 191, 0.14), transparent 60%)',
+    },
+  },
+  sunset: {
+    desks: [
+      'radial-gradient(120% 140% at 15% 0%, rgba(251, 191, 36, 0.26), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(249, 115, 22, 0.14), transparent 55%), linear-gradient(180deg, #241c10, #141110)',
+      'radial-gradient(120% 140% at 85% 0%, rgba(251, 113, 133, 0.24), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(249, 115, 22, 0.16), transparent 55%), linear-gradient(180deg, #261414, #131011)',
+      'radial-gradient(120% 140% at 20% 10%, rgba(244, 63, 94, 0.24), transparent 60%), radial-gradient(120% 130% at 100% 90%, rgba(217, 70, 239, 0.14), transparent 60%), linear-gradient(180deg, #241019, #120f13)',
+      'radial-gradient(130% 120% at 80% 0%, rgba(192, 132, 252, 0.20), transparent 55%), radial-gradient(140% 120% at 0% 100%, rgba(244, 114, 182, 0.14), transparent 60%), linear-gradient(180deg, #1f1424, #111016)',
+    ],
+    charges: {
+      agent:
+        'radial-gradient(120% 140% at 15% 0%, rgba(251, 191, 36, 0.28), transparent 60%), radial-gradient(130% 130% at 100% 100%, rgba(249, 115, 22, 0.14), transparent 55%)',
+      issue:
+        'radial-gradient(120% 140% at 85% 0%, rgba(251, 113, 133, 0.24), transparent 60%), radial-gradient(120% 120% at 0% 100%, rgba(249, 115, 22, 0.12), transparent 55%)',
+      manual:
+        'radial-gradient(120% 140% at 20% 100%, rgba(244, 63, 94, 0.24), transparent 60%), radial-gradient(120% 130% at 100% 20%, rgba(217, 70, 239, 0.14), transparent 60%)',
+    },
+  },
+  noir: {
+    desks: [DESK_HUES.graphite, DESK_HUES.graphite, DESK_HUES.graphite, DESK_HUES.graphite],
+    charges: CHARGE_LAYERS,
+  },
+};
+
+export function VariantScrubHue({ colorway = 'spectrum' }: { colorway?: keyof typeof COLORWAYS }) {
   const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
   const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
   const open = past(progress, 0.55);
   const landed = past(progress, 0.76);
-  const deskHue: Record<SourceKey, keyof typeof DESK_HUES> = { agent: 'indigo', issue: 'teal', manual: 'rose' };
+  const cw = COLORWAYS[colorway];
   return (
     <div>
       <h2 className="plan-v-headline">Plan at scale, in detail</h2>
       <div ref={stageRef} className="relative flex gap-10 items-start" style={{ marginTop: 72 }}>
         <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
-          {ROWS.map(({ key, title, body }) => (
+          {ROWS.map(({ key, title, body }, i) => (
             <ScrubRow key={key} title={title} body={body} rowRef={setRow(key)}>
-              <Desk hue={deskHue[key]}>
+              <Desk hue="graphite" style={{ backgroundImage: cw.desks[i] }}>
                 {rowMock(key, progress[key] > 0.15 && progress[key] < 0.55, setSource)}
               </Desk>
             </ScrubRow>
           ))}
           <StoryRow title="Keep the detail close" body="Steps, notes, and checkboxes live in each task's plan.md.">
-            <Desk hue="violet">
+            <Desk hue="graphite" style={{ backgroundImage: cw.desks[3] }}>
               <Panel ledge={ledge('file-text', 'plan.md')}>
                 <PlanPane short />
               </Panel>
@@ -720,7 +778,7 @@ export function VariantScrubHue() {
           </StoryRow>
         </div>
         <div className="shrink-0 sticky" style={{ top: 110, width: 372 }}>
-          <ChargingDesk landed={landed}>
+          <ChargingDesk landed={landed} charges={cw.charges}>
             <div className="flex" style={{ minHeight: 470 }}>
               <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
             </div>
