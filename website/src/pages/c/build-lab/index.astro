@@ -1,0 +1,121 @@
+---
+import Site from '../../../layouts/Site.astro';
+import { VariantIgnition, VariantStations, VariantAnatomy, VariantRoundTrip } from '../../../components/demo/BuildLab.tsx';
+---
+<Site noindex>
+  <div class="build-lab">
+    <header class="build-lab-head">
+      <h1>Build section lab</h1>
+      <p>Round 1: four structures for the Build pillar — worktrees, hooks, statuses, sandbox, the plan panel, the CLI. Everything scrubs with scroll.</p>
+    </header>
+
+    <section class="build-lab-concept" id="v1a">
+      <div class="build-lab-tag">1a · Ignition — one sticky stage: the card moves, the worktree spawns, the start hook launches the agent</div>
+      <VariantIgnition client:visible />
+    </section>
+
+    <section class="build-lab-concept" id="v1b">
+      <div class="build-lab-tag">1b · Stations — the task rides the status rail up top while each move's hook fires in its own row</div>
+      <VariantStations client:visible />
+    </section>
+
+    <section class="build-lab-concept" id="v1c">
+      <div class="build-lab-tag">1c · Anatomy — one loaded terminal, each part lit as its beat scrolls past: status, sandbox ring, plan panel, CLI</div>
+      <VariantAnatomy client:visible />
+    </section>
+
+    <section class="build-lab-concept" id="v1d">
+      <div class="build-lab-tag">1d · Round trip — the agent's own CLI call flies the card into In Review</div>
+      <VariantRoundTrip client:visible />
+    </section>
+  </div>
+
+  <style is:global>
+    .build-lab {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 64px var(--content-padding) 240px;
+    }
+    .build-lab-head p {
+      color: #86868b;
+      margin: 8px 0 0;
+    }
+    .build-lab-concept {
+      margin-top: 160px;
+      padding-top: 40px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .build-lab-tag {
+      font-family: 'Iosevka Extended', 'SF Mono', monospace;
+      font-size: 13px;
+      color: #86868b;
+      margin-bottom: 56px;
+    }
+
+    /* Copy steps beside a sticky stage */
+    .bl-split {
+      display: flex;
+      gap: 56px;
+      align-items: flex-start;
+    }
+    .bl-steps {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 260px;
+      padding: 16vh 0 30vh;
+    }
+    .bl-step h3 {
+      font-size: 21px;
+      margin: 0;
+    }
+    .bl-step p {
+      color: #86868b;
+      font-size: 15px;
+      line-height: 1.5;
+      margin: 10px 0 0;
+    }
+    .bl-rail {
+      position: sticky;
+      top: 90px;
+      flex-shrink: 0;
+    }
+
+    /* Anatomy spotlight */
+    .bl-lit {
+      position: relative;
+      border-radius: 8px;
+      transition: box-shadow 300ms ease, background 300ms ease;
+    }
+    .bl-lit[data-on] {
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--color-accent) 60%, transparent),
+        0 0 20px color-mix(in srgb, var(--color-accent) 16%, transparent);
+      background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+    }
+
+    /* Stations rail */
+    .bl-stations-rail {
+      position: sticky;
+      top: 70px;
+      z-index: 30;
+    }
+
+    /* Round trip */
+    .bl-trip-copy {
+      max-width: 560px;
+      margin-bottom: 40px;
+    }
+    .bl-trip-copy h3 {
+      font-size: 21px;
+      margin: 0;
+    }
+    .bl-trip-copy p {
+      color: #86868b;
+      font-size: 15px;
+      line-height: 1.5;
+      margin: 10px 0 0;
+    }
+  </style>
+</Site>
