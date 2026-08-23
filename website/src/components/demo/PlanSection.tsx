@@ -491,7 +491,7 @@ function CreateStage() {
 export function PlanSection() {
   return (
     <div>
-      <h2 className="plan-v-headline">Plan at scale, in detail</h2>
+      <h2 className="plan-v-headline">Plan at scale</h2>
       <CreateStage />
     </div>
   );
