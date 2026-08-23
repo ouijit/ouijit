@@ -418,29 +418,16 @@ function HandoffGhosts({ flightP, geom }: { flightP: (k: SourceKey) => number; g
 
 /** One gradient layer per source, stacked onto the column desk as its card
  * lands — the row hues, minus the dark linear base the desk already has. */
-/* Each landing stacks another faint copy of the prism wash at its source's
-   sweep angle, so the column charges toward the desks' own color. */
-const CHARGE_LAYERS: Record<SourceKey, string> = {
-  agent: `linear-gradient(${DESK_ANGLES.indigo}, var(--wash-prism))`,
-  issue: `linear-gradient(${DESK_ANGLES.teal}, var(--wash-prism))`,
-  manual: `linear-gradient(${DESK_ANGLES.rose}, var(--wash-prism))`,
-};
-
+/* Each landing steps the wash a third of the way up, so a fully charged
+   column matches the source desks' strength exactly. */
 function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>; children: ReactNode }) {
+  const charge = SEQUENCE.filter((k) => landed[k]).length / SEQUENCE.length;
   return (
-    <div className="plan-desk" style={{ backgroundImage: DESK_GRAPHITE, padding: 36 }}>
-      {SEQUENCE.map((k) => (
-        <div
-          key={k}
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            borderRadius: 'inherit',
-            backgroundImage: CHARGE_LAYERS[k],
-            opacity: landed[k] ? 0.14 : 0,
-            transition: 'opacity 700ms ease',
-          }}
-        />
-      ))}
+    <div
+      className="plan-desk desk-wash desk-wash--prism"
+      style={{ backgroundImage: DESK_GRAPHITE, padding: 36 }}
+    >
+      <DeskWash style={{ opacity: 0.9 * charge, transition: 'opacity 700ms ease' }} />
       <div className="relative">{children}</div>
     </div>
   );
