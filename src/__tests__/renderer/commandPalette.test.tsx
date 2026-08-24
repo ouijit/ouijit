@@ -402,8 +402,6 @@ describe('command palette navigation', () => {
   });
 
   test('leads the Recent group with what has been visited, whatever surface did it', async () => {
-    // Visits are recorded by `visitTracker` off the view, not by the palette,
-    // so the palette's job here is only to rank what it is handed.
     window.api.globalSettings.get = vi.fn(async (key: string) =>
       key === 'ui:palette-frecency'
         ? JSON.stringify({

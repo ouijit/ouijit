@@ -31,10 +31,7 @@ export async function ensureWorktree(projectPath: string, task: TaskWithWorkspac
 
   recoveryLog.warn('worktree missing', { taskNumber: task.taskNumber, branchExists: check.branchExists });
 
-  const action = await new Promise<'recover' | null>((resolve) => {
-    useUIStore.getState().setMissingWorktree({ task, branchExists: check.branchExists, resolve });
-  });
-  useUIStore.getState().setMissingWorktree(null);
+  const action = await useUIStore.getState().requestMissingWorktree({ task, branchExists: check.branchExists });
 
   if (action !== 'recover') {
     recoveryLog.info('user cancelled worktree recovery', { taskNumber: task.taskNumber });

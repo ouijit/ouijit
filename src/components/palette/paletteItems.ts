@@ -236,9 +236,10 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
     // this form too — the match's ranges index the string the row renders, so
     // scoring the full path here would highlight the wrong characters.
     const displayPath = project.path.replace(/^\/Users\/[^/]+/, '~');
+    const key = projectKey(project.path);
     push({
-      id: projectKey(project.path),
-      key: projectKey(project.path),
+      id: key,
+      key,
       kind: 'project',
       title: project.name,
       context: displayPath,
@@ -321,9 +322,10 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
 
     for (const pr of input.pullRequests) {
       if (pullTaskNumber(projectPath, pr.number, input.taskCacheByProject) != null) continue;
+      const key = pullKey(projectPath, pr.number);
       push({
-        id: pullKey(projectPath, pr.number),
-        key: pullKey(projectPath, pr.number),
+        id: key,
+        key,
         kind: 'pull',
         title: pr.title,
         context: project?.name ?? projectPath,

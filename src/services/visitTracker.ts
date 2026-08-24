@@ -10,10 +10,17 @@
 
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { useTerminalStore } from '../stores/terminalStore';
+import { getActivePtyId, useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { useGithubStore } from '../stores/githubStore';
-import { projectKey, pullFrecencyKey, recordVisit, terminalFrecencyKey } from '../utils/paletteFrecency';
+import {
+  projectKey,
+  pullFrecencyKey,
+  pullKey,
+  recordVisit,
+  terminalFrecencyKey,
+  terminalKey,
+} from '../utils/paletteFrecency';
 
 /** Passing through a view on the way somewhere else is not a visit. */
 const DWELL_MS = 1200;
@@ -24,11 +31,7 @@ type View =
   | { kind: 'project'; projectPath: string }
   | null;
 
-/**
- * What the user is looking at. The one place that decides; both the cheap
- * change-detection identity and the frecency key derive from it, so they cannot
- * disagree about which of two stacked surfaces is on top.
- */
+/** What the user is looking at. */
 function currentView(): View {
   const { activeView, activeProjectPath } = useAppStore.getState();
   if (activeView === 'home') {
@@ -47,9 +50,7 @@ function currentView(): View {
       return { kind: 'pull', projectPath: activeProjectPath, prNumber: github.activeNumber };
     }
   } else if (project.activePanel === 'terminals') {
-    const store = useTerminalStore.getState();
-    const ptyIds = store.terminalsByProject[activeProjectPath] ?? [];
-    const ptyId = ptyIds[store.activeIndices[activeProjectPath] ?? 0];
+    const ptyId = getActivePtyId(activeProjectPath);
     if (ptyId) return { kind: 'terminal', ptyId };
   }
   return { kind: 'project', projectPath: activeProjectPath };
@@ -58,9 +59,9 @@ function currentView(): View {
 /** Compared on every store change, so it must not resolve task identity. */
 function identity(view: View): string | null {
   if (!view) return null;
-  if (view.kind === 'terminal') return `terminal:${view.ptyId}`;
-  if (view.kind === 'pull') return `pull:${view.projectPath}#${view.prNumber}`;
-  return `project:${view.projectPath}`;
+  if (view.kind === 'terminal') return terminalKey(view.ptyId);
+  if (view.kind === 'pull') return pullKey(view.projectPath, view.prNumber);
+  return projectKey(view.projectPath);
 }
 
 /**

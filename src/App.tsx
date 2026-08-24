@@ -328,7 +328,14 @@ export function App() {
 }
 
 function GlobalMissingWorktreeDialog() {
-  const request = useUIStore((s) => s.missingWorktree);
+  const request = useUIStore((s) => s.missingWorktreeQueue[0]);
   if (!request) return null;
-  return <MissingWorktreeDialog task={request.task} branchExists={request.branchExists} onClose={request.resolve} />;
+  return (
+    <MissingWorktreeDialog
+      key={request.id}
+      task={request.task}
+      branchExists={request.branchExists}
+      onClose={(action) => useUIStore.getState().resolveMissingWorktree(request.id, action)}
+    />
+  );
 }

@@ -12,7 +12,7 @@
 import type { Project, SandboxProviderId, TaskWithWorkspace } from '../types';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
+import { useTerminalStore, setActiveTerminal, terminalMatchesTag } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
@@ -58,13 +58,6 @@ export function selectHome(): void {
   state.navigateHome({ direction: 'up' });
   void state.loadHomeRecents();
   window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
-}
-
-/** Bring a shell to the front of its project's stack, by id rather than index. */
-export function activateProjectTerminal(projectPath: string, ptyId: string): void {
-  const index = useTerminalStore.getState().terminalsByProject[projectPath]?.indexOf(ptyId) ?? -1;
-  if (index < 0) return;
-  useTerminalStore.getState().setActiveIndex(projectPath, index);
 }
 
 /** Fit and focus a terminal's xterm once React has had a frame to mount it. */
@@ -124,7 +117,7 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
       useCanvasStore.getState().loadCanvas(ownerPath, { ...canvas, nodes });
     }
   } else {
-    activateProjectTerminal(ownerPath, ptyId);
+    setActiveTerminal(ownerPath, ptyId);
   }
 
   focusXterm(ptyId);
@@ -158,7 +151,7 @@ export async function openTaskShell(
   options: OpenTaskShellOptions,
 ): Promise<boolean> {
   let worktree: { path: string; branch: string; createdAt: string };
-  let skipAutoHook = options.mode === 'shell';
+  const skipAutoHook = options.mode === 'shell' || !task.branch;
 
   if (task.branch) {
     const ensured = await ensureWorktree(projectPath, task);
@@ -173,7 +166,6 @@ export async function openTaskShell(
     surfaceStartWarnings(result.warnings);
     void useProjectStore.getState().loadTasksIfActive(projectPath);
     worktree = { path: result.worktreePath, branch: result.task?.branch || '', createdAt: task.createdAt };
-    skipAutoHook = true;
   }
 
   const added = await addProjectTerminal(projectPath, undefined, {
@@ -186,10 +178,17 @@ export async function openTaskShell(
   return added;
 }
 
-/** Open several tasks at once and land on the first one's project. */
+/**
+ * Lands on the first task's project; shells for the rest appear when the user
+ * switches to theirs. Navigating on a spawn that never happened would land on an
+ * empty terminals panel, which is the state the project view's force-show of the
+ * kanban exists to avoid.
+ */
 export async function openTasks(tasks: { project: Project; task: TaskWithWorkspace }[]): Promise<void> {
-  if (tasks.length === 0) return;
-  await Promise.all(tasks.map(({ project, task }) => openTaskShell(project.path, task, { mode: 'resume' })));
+  const opened = await Promise.all(
+    tasks.map(({ project, task }) => openTaskShell(project.path, task, { mode: 'resume' })),
+  );
+  if (!opened.some(Boolean)) return;
   const { project } = tasks[0];
   await showProjectTerminals(project.path, project);
 }

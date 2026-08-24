@@ -10,6 +10,8 @@ import type { Project, TaskWithWorkspace } from '../../types';
 
 /** Past the tracker's dwell window, so a settled view counts as visited. */
 const DWELL = 1200;
+/** Past the frecency module's coalescing window, so the visit reaches the setting. */
+const FLUSH = 3100;
 
 const projectA: Project = { path: '/work/alpha', name: 'Alpha' };
 const projectB: Project = { path: '/work/bravo', name: 'Bravo' };
@@ -69,7 +71,7 @@ afterEach(() => {
 /** Let the dwell elapse and the deferred write flush. */
 async function settle(): Promise<void> {
   await vi.advanceTimersByTimeAsync(DWELL);
-  await vi.advanceTimersByTimeAsync(500);
+  await vi.advanceTimersByTimeAsync(FLUSH);
 }
 
 describe('visitTracker', () => {

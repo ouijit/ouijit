@@ -254,7 +254,9 @@ export function HomeView() {
           (i): i is Extract<StackItem, { type: 'terminal' }> => i.type === 'terminal',
         );
         const reversed = [...termItems].reverse();
-        if (num <= reversed.length) setActivePtyId(reversed[num - 1].ptyId);
+        if (num <= reversed.length) {
+          setActivePtyId(reversed[num - 1].ptyId);
+        }
       }
     };
     document.addEventListener('keydown', handler, true);
@@ -448,7 +450,9 @@ export function HomeView() {
               }}
               onClick={() => {
                 const group = orderedGroups.find((g) => g.key === item.key);
-                if (group && group.ptyIds.length > 0) setActivePtyId(group.ptyIds[0]);
+                if (group && group.ptyIds.length > 0) {
+                  setActivePtyId(group.ptyIds[0]);
+                }
               }}
             >
               <div className="absolute inset-0 flex items-center" style={{ gap: 6, padding: '0 12px 0 8px' }}>

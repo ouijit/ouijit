@@ -38,10 +38,8 @@ export const pullKey = (projectPath: string, prNumber: number): string => `pull:
 
 /**
  * A shell and a pull request each borrow the identity of the task that claims
- * it, because the palette lists no row of their own in that case. The row
- * builder skips on these and the jump recorder keys on them, so the two cannot
- * disagree about what carries a row: a key recorded against no row would take
- * its boost nowhere.
+ * it, because the palette lists no row of their own in that case. A key
+ * recorded against no row would take its boost nowhere.
  */
 export function terminalTaskNumber(
   terminal: { projectPath: string; taskId?: number | null },
@@ -118,8 +116,11 @@ async function loadFrecency(): Promise<FrecencyMap> {
   }
 }
 
-/** How long a burst of visits coalesces before one write. */
-const FLUSH_DELAY_MS = 300;
+/**
+ * How long a burst of visits coalesces before one write. Longer than
+ * `visitTracker`'s dwell, or every settled view would be its own write.
+ */
+const FLUSH_DELAY_MS = 3000;
 
 let cached: Promise<FrecencyMap> | null = null;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;

@@ -3,7 +3,7 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { openTaskShell } from '../../components/navigation';
 import { addProjectTerminal } from '../../components/terminal/terminalActions';
 import { useProjectStore } from '../../stores/projectStore';
-import { useUIStore } from '../../stores/uiStore';
+import { useUIStore, type MissingWorktreeRequest } from '../../stores/uiStore';
 import type { TaskWithWorkspace } from '../../types';
 
 vi.mock('electron-log/renderer', () => ({
@@ -38,11 +38,16 @@ const neverStarted: TaskWithWorkspace = {
 
 /** Resolve the prompt the moment it is raised, as a user clicking the dialog would. */
 function answerPrompt(action: 'recover' | null): Promise<void> {
+  const answer = (pending: MissingWorktreeRequest | undefined): boolean => {
+    if (!pending) return false;
+    useUIStore.getState().resolveMissingWorktree(pending.id, action);
+    return true;
+  };
   return new Promise((settled) => {
+    if (answer(useUIStore.getState().missingWorktreeQueue[0])) return settled();
     const stop = useUIStore.subscribe((state) => {
-      if (!state.missingWorktree) return;
+      if (!answer(state.missingWorktreeQueue[0])) return;
       stop();
-      state.missingWorktree.resolve(action);
       settled();
     });
   });
@@ -51,7 +56,7 @@ function answerPrompt(action: 'recover' | null): Promise<void> {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(addProjectTerminal).mockResolvedValue(true);
-  useUIStore.setState({ missingWorktree: null });
+  useUIStore.setState({ missingWorktreeQueue: [] });
   useProjectStore.setState({ toasts: [] });
   window.api.task.checkWorktree = vi.fn().mockResolvedValue({ exists: true, branchExists: true });
   window.api.task.recover = vi.fn();
@@ -78,7 +83,7 @@ describe('openTaskShell', () => {
       undefined,
       expect.objectContaining({ skipAutoHook: true }),
     );
-    expect(useUIStore.getState().missingWorktree).toBeNull();
+    expect(useUIStore.getState().missingWorktreeQueue).toEqual([]);
   });
 
   test('recovers a worktree that is gone from disk, and spawns into the new path', async () => {
@@ -100,9 +105,7 @@ describe('openTaskShell', () => {
       undefined,
       expect.objectContaining({ existingWorktree: expect.objectContaining({ path: '/work/alpha-4-new' }) }),
     );
-    // The prompt is cleared whichever way it went, or the next open would find
-    // a stale request already on screen.
-    expect(useUIStore.getState().missingWorktree).toBeNull();
+    expect(useUIStore.getState().missingWorktreeQueue).toEqual([]);
   });
 
   test('declining recovery opens nothing and says nothing more', async () => {
@@ -116,7 +119,21 @@ describe('openTaskShell', () => {
     expect(addProjectTerminal).not.toHaveBeenCalled();
     expect(window.api.task.recover).not.toHaveBeenCalled();
     expect(useProjectStore.getState().toasts).toEqual([]);
-    expect(useUIStore.getState().missingWorktree).toBeNull();
+    expect(useUIStore.getState().missingWorktreeQueue).toEqual([]);
+  });
+
+  test('two tasks missing their worktrees are prompted one at a time, and both settle', async () => {
+    window.api.task.checkWorktree = vi.fn().mockResolvedValue({ exists: false, branchExists: true });
+
+    const both = Promise.all([
+      openTaskShell(PROJECT, started, { mode: 'shell' }),
+      openTaskShell(PROJECT, { ...started, taskNumber: 5 } as TaskWithWorkspace, { mode: 'shell' }),
+    ]);
+    await answerPrompt(null);
+    await answerPrompt(null);
+
+    expect(await both).toEqual([false, false]);
+    expect(useUIStore.getState().missingWorktreeQueue).toEqual([]);
   });
 
   test('a task with no branch is started first, and lands as a plain shell', async () => {

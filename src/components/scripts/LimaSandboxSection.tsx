@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { useTerminalStore } from '../../stores/terminalStore';
+import { useTerminalStore, setActiveTerminal } from '../../stores/terminalStore';
 import { addProjectTerminal } from '../terminal/terminalActions';
-import { activateProjectTerminal } from '../navigation';
 import { isActiveSandbox } from '../../types';
 
 const VM_STATUS_LABELS: Record<string, string> = {
@@ -166,12 +165,12 @@ export function LimaSandboxSection({ projectPath }: LimaSandboxSectionProps) {
   const handleConsole = useCallback(() => {
     const termStore = useTerminalStore.getState();
     const ptyIds = termStore.terminalsByProject[projectPath] ?? [];
-    const existingIndex = ptyIds.findIndex((id) => {
+    const existing = ptyIds.find((id) => {
       const display = termStore.displayStates[id];
       return isActiveSandbox(display?.sandboxProvider) && display?.label === 'VM Console';
     });
-    if (existingIndex !== -1) {
-      activateProjectTerminal(projectPath, ptyIds[existingIndex]);
+    if (existing) {
+      setActiveTerminal(projectPath, existing);
     } else {
       addProjectTerminal(
         projectPath,

@@ -12,7 +12,6 @@ import { PullRequestsPanel } from './github/PullRequestsPanel';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { RunHookDialog } from './dialogs/RunHookDialog';
 import { openTaskComposer } from '../utils/openTaskComposer';
-import { activateProjectTerminal } from './navigation';
 import {
   addProjectTerminal,
   closeProjectTerminal,
@@ -197,8 +196,7 @@ export function ProjectView() {
         } else {
           // Stack mode: switch by stack position
           const targetIndex = getTerminalIndexByStackPosition(projectPath, num);
-          const targetPtyId = useTerminalStore.getState().terminalsByProject[projectPath]?.[targetIndex];
-          if (targetPtyId) activateProjectTerminal(projectPath, targetPtyId);
+          if (targetIndex !== -1) useTerminalStore.getState().setActiveIndex(projectPath, targetIndex);
         }
         return;
       }
@@ -217,8 +215,7 @@ export function ProjectView() {
           const direction = key === 'arrowleft' ? -1 : 1;
           const targetPage = currentPage + direction;
           if (targetPage >= 0 && targetPage < totalPages) {
-            const targetPtyId = terms[targetPage * STACK_PAGE_SIZE];
-            if (targetPtyId) activateProjectTerminal(projectPath, targetPtyId);
+            store.setActiveIndex(projectPath, targetPage * STACK_PAGE_SIZE);
           }
         }
       }

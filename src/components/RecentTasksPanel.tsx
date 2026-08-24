@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAppStore, type HomeRecentTask } from '../stores/appStore';
-import { openTaskShell, openTasks, showProjectTerminals } from './navigation';
+import { openTasks } from './navigation';
 import { taskKey } from '../utils/paletteFrecency';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { formatRelativeTime } from '../utils/formatDate';
@@ -60,15 +60,10 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
 
   const clearSelection = () => setSelected(new Set());
 
-  const openAndNavigate = async (task: RecentTask) => {
-    await openTaskShell(task.project.path, task, { mode: 'resume' });
-    await showProjectTerminals(task.project.path, task.project);
-  };
+  const openAndNavigate = (task: RecentTask) => openTasks([{ project: task.project, task }]);
 
   const openSelection = async () => {
     const tasks = recents.filter((t) => selected.has(selectionKey(t)));
-    // Lands in the first selected task's project (the most recent). Terminals
-    // for tasks in other projects appear when the user switches to those.
     await openTasks(tasks.map((task) => ({ project: task.project, task })));
     clearSelection();
   };

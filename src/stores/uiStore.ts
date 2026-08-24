@@ -3,12 +3,17 @@ import type { TaskWithWorkspace } from '../types';
 
 export type HomeGroupMode = 'project' | 'tag';
 
+export type MissingWorktreeAction = 'recover' | null;
+
 /** A pending "this worktree is gone" prompt. `resolve` settles the waiting `ensureWorktree`. */
 export interface MissingWorktreeRequest {
+  id: number;
   task: TaskWithWorkspace;
   branchExists: boolean;
-  resolve: (action: 'recover' | null) => void;
+  resolve: (action: MissingWorktreeAction) => void;
 }
+
+let missingWorktreeCounter = 0;
 
 interface UIStoreState {
   sidebarVisible: boolean;
@@ -29,7 +34,12 @@ interface UIStoreState {
   homeActivePtyId: string | null;
   /** Command palette (mod+K) visibility. Session-only. */
   paletteOpen: boolean;
-  missingWorktree: MissingWorktreeRequest | null;
+  /**
+   * Opening several tasks at once can find more than one worktree missing, so
+   * these queue and are answered one at a time rather than the newest evicting
+   * the prior one — whose awaiting `ensureWorktree` would never settle.
+   */
+  missingWorktreeQueue: MissingWorktreeRequest[];
 }
 
 interface UIStoreActions {
@@ -44,7 +54,8 @@ interface UIStoreActions {
   setHomeActivePtyId: (ptyId: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
   togglePalette: () => void;
-  setMissingWorktree: (request: MissingWorktreeRequest | null) => void;
+  requestMissingWorktree: (req: Omit<MissingWorktreeRequest, 'id' | 'resolve'>) => Promise<MissingWorktreeAction>;
+  resolveMissingWorktree: (id: number, action: MissingWorktreeAction) => void;
 }
 
 type UIStore = UIStoreState & UIStoreActions;
@@ -57,7 +68,7 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   homeTagFilter: null,
   homeActivePtyId: null,
   paletteOpen: false,
-  missingWorktree: null,
+  missingWorktreeQueue: [],
 
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
 
@@ -88,5 +99,16 @@ export const useUIStore = create<UIStore>()((set, get) => ({
 
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
 
-  setMissingWorktree: (request) => set({ missingWorktree: request }),
+  requestMissingWorktree: (req) =>
+    new Promise<MissingWorktreeAction>((resolve) => {
+      const id = ++missingWorktreeCounter;
+      set((s) => ({ missingWorktreeQueue: [...s.missingWorktreeQueue, { ...req, id, resolve }] }));
+    }),
+
+  resolveMissingWorktree: (id, action) => {
+    const target = get().missingWorktreeQueue.find((r) => r.id === id);
+    if (!target) return;
+    set((s) => ({ missingWorktreeQueue: s.missingWorktreeQueue.filter((r) => r.id !== id) }));
+    target.resolve(action);
+  },
 }));
