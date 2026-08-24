@@ -36,6 +36,26 @@ never touched, in a hotspot, deserves a closer read.
 of the same pass. Age is a stability signal: old untouched code is usually
 fine; a hotspot's recency is what makes it hot.
 
+**Directory rollups.** The same numbers for every ancestor directory of every
+touched path, so a subtree can be read without walking its files. A commit
+counts once per directory however many of its files it touched, which keeps a
+directory's commits comparable to the project's. Directory-to-directory
+coupling comes from the directories files sit in, and is what shows a module
+boundary that isn't real.
+
+**Trend.** Commits in the last three months against the nine before, per file
+and per directory: `new`, `rising`, `steady`, `cooling`. Change frequency is a
+rate, and a rate read over a whole year hides which way it is going — a
+cooling hotspot and a rising one want opposite decisions.
+
+**Rules of thumb.** Each signal argues for one move: a large file that keeps
+changing wants splitting, deep nesting wants flattening, churn far above the
+file's size wants a settled interface, one author at 80% is a knowledge risk,
+many authors with no majority is an ownership gap, a partner that travels with
+it every time is a seam. A cooling file argues against all of them. Nothing
+fires for a quiet file, and a file whose numbers say nothing gets no advice
+rather than filler.
+
 Deferred (see "Later"): complexity trends over a file's history, function-level
 X-Ray, and any treemap/enclosure visualization.
 
@@ -93,10 +113,13 @@ So the model lives in the main process, one entry per project path:
 ```
 ProjectAnalysis {
   ref, lastSha, analyzedAt, commitCount
-  files:     Map<path, { commits, added, deleted, firstAt, lastAt,
-                         loc?, indentTotal?, indentMax? }>
-  authors:   Map<path, Map<email, { name, commits, added }>>
-  couplings: Map<pairKey, shared>        // only pairs ≥ 3 shared commits
+  files:        Map<path, { commits, added, deleted, firstAt, lastAt, byMonth,
+                            loc?, indentTotal?, indentMax? }>
+  dirs:         Map<dir, same shape>     // every ancestor of every path
+  authors:      Map<path, Map<email, { name, commits, added }>>
+  couplings:    Map<pairKey, shared>     // only pairs ≥ 3 shared commits
+  dirCouplings: Map<pairKey, shared>     // over the dirs files sit in
+  commitsByMonth: Map<month, commits>
 }
 ```
 
@@ -119,6 +142,10 @@ New directory `src/analysis/` (main process):
   complexity; hotspot score = geometric mean of the two ranks; tiers
   (`quiet` / `warm` / `hot`) at fixed rank cutoffs so the UI shows discrete
   chips, not raw numbers.
+- `trend.ts` — direction of travel from a monthly commit series.
+- `advice.ts` — the rules of thumb, as the one move each argues for, and the
+  numbers they argue from. Pure and renderer-safe, so the panel and the diff
+  tooltip read the same rules rather than each phrasing their own.
 - `service.ts` — orchestration: cheap-gate refresh with the rate-limit +
   in-flight-dedupe scaffold from `src/github/service.ts:326` (`MIN_INTERVAL`,
   `inFlight` map), reads for the IPC handlers.
@@ -143,8 +170,10 @@ Contract entries in `src/ipc/contract.ts`, handlers in
   — everything the diff and PR surfaces need for one file list, in one call.
   Coupling rows are returned for pairs where at least one side is in `paths`;
   the caller decides what "partner missing from this diff" means.
-- `analysis:overview (projectPath) → { hotspots, couplings, owners }` — top-N
-  lists for the panel phase.
+- `analysis:overview (projectPath) → { hotspots, modules, couplings,`
+  `  moduleCouplings, owners, monthly, trend }` — top-N lists plus the
+  directory tree for the panel phase. Each hotspot carries its strongest
+  coupled partner, which is what a seam suggestion reads.
 
 Renderer state: `src/stores/analysisStore.ts` modelled on `githubStore` —
 signals cached per `projectPath + diffShape(files)` fingerprint, `{data,
@@ -220,6 +249,12 @@ Per the house style: few comprehensive tests, real boundaries.
    hotspot list with inline CSS bars, coupling pairs, ownership. There is no
    charting dependency and none gets added; bars and sparklines are CSS/SVG
    against the theme tokens (`--color-vcs-*`, ANSI palette).
+5. **Reading the panel** — a ranked list answers "where do I look first" but
+   not why, at what altitude, which way it is heading, or what to do. So each
+   hotspot row expands into the ranks and numbers behind its score and the
+   moves they argue for; a Modules tree carries the same numbers up the
+   directory structure; coupled directories sit beside coupled files; and
+   every row carries its trend.
 
 ## Later
 

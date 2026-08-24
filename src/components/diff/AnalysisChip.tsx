@@ -1,6 +1,7 @@
 import { memo } from 'react';
-import type { DiffSignals, FileComplexitySignal, FileSignal } from '../../analysis/types';
+import type { DiffSignals, FileSignal } from '../../analysis/types';
 import { ANALYSIS_WINDOW_MONTHS } from '../../analysis/types';
+import { describeComplexity, leversFor } from '../../analysis/advice';
 import { Tooltip } from '../ui/Tooltip';
 import { Icon } from '../terminal/Icon';
 
@@ -22,6 +23,7 @@ export function missingPartners(signals: DiffSignals, path: string, present: Rea
 export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { signal: FileSignal; missing: string[] }) {
   if (signal.tier === 'quiet' && missing.length === 0) return null;
 
+  const levers = leversFor(signal);
   const detail = (
     <div className="w-60 whitespace-normal py-1 flex flex-col gap-3 font-normal">
       <div>
@@ -49,6 +51,16 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { si
           {missing.map((partner) => (
             <span key={partner} className="text-[11px] leading-snug text-text-secondary">
               Usually changes with <span className="font-mono text-[10px]">{partner}</span> — not in this diff
+            </span>
+          ))}
+        </div>
+      )}
+
+      {levers.length > 0 && (
+        <div className="pt-2 border-t border-ink/10 flex flex-col gap-1">
+          {levers.map((lever) => (
+            <span key={lever.id} className="text-[11px] leading-snug text-text-secondary">
+              {lever.text}
             </span>
           ))}
         </div>
@@ -87,10 +99,10 @@ export function Sparkline({ monthly, className = 'mt-1.5 h-6' }: { monthly: numb
 }
 
 /** A percentile as a filled track — the two of these are the hotspot score. */
-function MeterRow({ label, rank }: { label: string; rank: number }) {
+export function MeterRow({ label, rank }: { label: string; rank: number }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="w-[86px] shrink-0 text-[10px] text-text-tertiary">{label}</span>
+      <span className="w-[100px] shrink-0 text-[10px] text-text-tertiary">{label}</span>
       <span className="flex-1 h-1 rounded-full bg-ink/10 overflow-hidden">
         <span className="block h-full rounded-full bg-git/80" style={{ width: `${Math.round(rank * 100)}%` }} />
       </span>
@@ -102,7 +114,7 @@ function MeterRow({ label, rank }: { label: string; rank: number }) {
 }
 
 /** Identity is carried by the ordered caption; color only separates segments. */
-function OwnershipBar({ topAuthors }: { topAuthors: Array<{ name: string; share: number }> }) {
+export function OwnershipBar({ topAuthors }: { topAuthors: Array<{ name: string; share: number }> }) {
   const SEGMENT = ['bg-git/90', 'bg-git/55', 'bg-git/30'];
   const rest = Math.max(0, 1 - topAuthors.reduce((sum, a) => sum + a.share, 0));
   return (
@@ -123,12 +135,6 @@ function OwnershipBar({ topAuthors }: { topAuthors: Array<{ name: string; share:
       </div>
     </div>
   );
-}
-
-/** The complexity half of the score, in the units it was measured in. */
-function describeComplexity(cx: FileComplexitySignal): string {
-  const avg = cx.loc > 0 ? cx.indentTotal / cx.loc : 0;
-  return `${cx.loc} lines · average nesting ${avg.toFixed(1)} · deepest ${cx.indentMax}`;
 }
 
 /** Rail counterpart: a dot on hot files, so the tree shows the diff's shape. */
