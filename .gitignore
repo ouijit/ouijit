@@ -104,8 +104,9 @@ e2e/results/
 test-results/
 
 # Docs (generated/internal)
-/docs/
+/docs/*
 !/docs/building-linux.md
+!/docs/plans/
 
 # Claude Code local state
 .claude/
