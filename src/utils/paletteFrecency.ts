@@ -1,7 +1,10 @@
 /**
- * What the mod+K switcher remembers about where the user goes. A jump records
- * its target's key, which boosts that target's score and fills the "Recent"
- * group on an empty query.
+ * What the mod+K switcher remembers about where the user goes. Every surface
+ * that jumps somewhere — the switcher, the sidebar, the board, the card
+ * stacks — records its target's key here, which boosts that target's score
+ * and fills the "Recent" group on an empty query. Recorded only through the
+ * switcher, the group would show where the switcher had been rather than
+ * where the user has been.
  *
  * Keys must outlive what they describe: a task keeps one key across every
  * worktree shell it spawns. Loose terminals key on their ptyId instead and are
@@ -30,6 +33,11 @@ export interface FrecencyEntry {
 }
 
 export type FrecencyMap = Record<string, FrecencyEntry>;
+
+export const projectKey = (path: string): string => `project:${path}`;
+export const taskKey = (projectPath: string, taskNumber: number): string => `task:${projectPath}#${taskNumber}`;
+export const terminalKey = (ptyId: string): string => `terminal:${ptyId}`;
+export const pullKey = (projectPath: string, prNumber: number): string => `pull:${projectPath}#${prNumber}`;
 
 /** 0..MAX_BOOST, added to a row's match score. */
 export function frecencyBoost(entry: FrecencyEntry | undefined, now: number): number {
@@ -71,7 +79,18 @@ export async function loadFrecency(): Promise<FrecencyMap> {
   }
 }
 
-/** Fire-and-forget: a lost write costs ranking quality, never correctness. */
-export function persistFrecency(map: FrecencyMap): void {
-  void window.api.globalSettings.set(SETTINGS_KEY, JSON.stringify(map));
+let lastJump: Promise<void> = Promise.resolve();
+
+/**
+ * Record a jump to `key`. Chained rather than fired off: concurrent jumps —
+ * the home panel's bulk open — would each read the same base map and lose all
+ * but the last write. A failed write costs ranking quality, never correctness.
+ */
+export function recordJump(key: string): void {
+  lastJump = lastJump
+    .then(async () => {
+      const map = await loadFrecency();
+      await window.api.globalSettings.set(SETTINGS_KEY, JSON.stringify(recordUse(map, key, Date.now())));
+    })
+    .catch(() => {});
 }

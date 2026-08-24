@@ -32,6 +32,8 @@ import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
 import { MissingWorktreeDialog } from '../dialogs/MissingWorktreeDialog';
 import { Icon } from '../terminal/Icon';
 import { buildChainMap, isDescendantOf } from '../../utils/taskChain';
+import { recordTerminalJump } from '../navigation';
+import { recordJump, taskKey } from '../../utils/paletteFrecency';
 import log from 'electron-log/renderer';
 
 const kanbanLog = log.scope('kanban');
@@ -552,6 +554,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const handleOpenTerminal = useCallback(
     async (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => {
+      recordJump(taskKey(projectPath, task.taskNumber));
       // The backend is scoped to this terminal — passed straight through to the
       // spawn, never persisted on the task.
       if (task.worktreePath && task.branch) {
@@ -601,6 +604,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       const terminals = store.terminalsByProject[projectPath] ?? [];
       const index = terminals.indexOf(ptyId);
       if (index !== -1) {
+        recordTerminalJump(ptyId);
         store.setActiveIndex(projectPath, index);
       }
       onHide();

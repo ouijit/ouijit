@@ -23,6 +23,7 @@ import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 import { activateTask, focusTerminal, selectProject, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
+import { projectKey, pullKey, taskKey, terminalKey } from '../../utils/paletteFrecency';
 
 export type PaletteKind = 'terminal' | 'project' | 'task' | 'pull';
 
@@ -214,7 +215,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
 
     push({
       id: `terminal:${terminal.ptyId}`,
-      key: `terminal:${terminal.ptyId}`,
+      key: terminalKey(terminal.ptyId),
       kind: 'terminal',
       title: terminal.label,
       context: project?.name ?? terminal.projectPath,
@@ -239,7 +240,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
     const displayPath = project.path.replace(/^\/Users\/[^/]+/, '~');
     push({
       id: `project:${project.path}`,
-      key: `project:${project.path}`,
+      key: projectKey(project.path),
       kind: 'project',
       title: project.name,
       context: displayPath,
@@ -267,7 +268,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
     const first = live[0];
     const openable = task.worktreePath && task.branch;
     const status = STATUS_LABELS[task.status] ?? task.status;
-    const taskId = `task:${project.path}#${task.taskNumber}`;
+    const taskId = taskKey(project.path, task.taskNumber);
 
     push({
       id: taskId,
@@ -327,7 +328,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
       if (linkedPrNumbers.has(pr.number)) continue;
       push({
         id: `pull:${projectPath}#${pr.number}`,
-        key: `pull:${projectPath}#${pr.number}`,
+        key: pullKey(projectPath, pr.number),
         kind: 'pull',
         title: pr.title,
         context: project?.name ?? projectPath,

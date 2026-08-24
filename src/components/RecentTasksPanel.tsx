@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { useAppStore, type HomeRecentTask } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { addProjectTerminal } from './terminal/terminalActions';
+import { recordJump, taskKey as frecencyTaskKey } from '../utils/paletteFrecency';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { formatRelativeTime } from '../utils/formatDate';
 import type { Project } from '../types';
@@ -26,6 +27,7 @@ function taskKey(task: RecentTask): string {
 }
 
 async function openTaskTerminal(task: RecentTask): Promise<void> {
+  recordJump(frecencyTaskKey(task.project.path, task.taskNumber));
   if (task.worktreePath && task.branch) {
     await addProjectTerminal(task.project.path, undefined, {
       existingWorktree: { path: task.worktreePath, branch: task.branch, createdAt: task.createdAt },

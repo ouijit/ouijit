@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/re
 import { CommandPalette } from '../../components/CommandPalette';
 import { usePaletteShortcut } from '../../hooks/usePaletteShortcut';
 import { addProjectTerminal, reconnectOrphanedSessions } from '../../components/terminal/terminalActions';
+import { recordTerminalJump, selectProject } from '../../components/navigation';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore, DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from '../../stores/terminalStore';
@@ -406,8 +407,13 @@ describe('command palette navigation', () => {
     await waitFor(() => expect(rowLabels()[0]).toContain('Nine'));
     fireEvent.keyDown(input, { key: 'Enter' });
 
+    // The record lands via the navigation action, after the palette has closed.
+    await waitFor(() =>
+      expect(
+        vi.mocked(window.api.globalSettings.set).mock.calls.find(([key]) => key === 'ui:palette-frecency'),
+      ).toBeTruthy(),
+    );
     const write = vi.mocked(window.api.globalSettings.set).mock.calls.find(([key]) => key === 'ui:palette-frecency');
-    expect(write).toBeTruthy();
     const stored = JSON.parse(write?.[1] as string);
     // Keyed on the task, not the pty — the shell it just opened will not
     // outlive the worktree, but what we learned about the task should.
@@ -422,6 +428,31 @@ describe('command palette navigation', () => {
     await openPalette();
     await waitFor(() => expect(screen.getByText('Recent')).toBeTruthy());
     expect(rowLabels()[0]).toContain('Nine');
+  });
+
+  test('jumps made outside the palette lead the Recent group', async () => {
+    // Back the settings store, so successive records read each other's writes.
+    const stored: Record<string, string> = {};
+    window.api.globalSettings.set = vi.fn(async (key: string, value: string) => {
+      stored[key] = value;
+      return { success: true };
+    });
+    window.api.globalSettings.get = vi.fn(async (key: string) => stored[key]);
+
+    // A sidebar project switch and a card-stack click — the palette never saw
+    // either, but it has to reflect them.
+    await selectProject(projectB.path, projectB);
+    recordTerminalJump('alpha-7');
+    await waitFor(() => {
+      const map = JSON.parse(stored['ui:palette-frecency'] ?? '{}');
+      expect(Object.keys(map).sort()).toEqual([`project:${projectB.path}`, `task:${projectA.path}#7`]);
+    });
+
+    await openPalette();
+    await waitFor(() => expect(screen.getByText('Recent')).toBeTruthy());
+    const top = rowLabels().slice(0, 3).join(' ');
+    expect(top).toContain('/work/bravo');
+    expect(top).toContain('T-7');
   });
 
   test('selecting a project loads its tasks, navigates, and persists the view', async () => {

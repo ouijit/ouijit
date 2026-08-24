@@ -3,6 +3,11 @@
  * command palette. The sequences are order-sensitive: tasks are pre-fetched
  * before navigating so the kanban paints through the view-transition snapshot,
  * and the terminal card stack reverts an active index a tag filter hides.
+ *
+ * Frecency records the target the user chose, once per gesture: a project jump
+ * records the project, while landing in a project on the way to its task or
+ * shell records only the task or shell. Internal navigation goes through
+ * `showProject`, which stays silent.
  */
 
 import type { Project, TaskWithWorkspace } from '../types';
@@ -14,12 +19,18 @@ import { useUIStore } from '../stores/uiStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalReact';
+import { projectKey, recordJump, taskKey, terminalKey } from '../utils/paletteFrecency';
 
 /**
  * Navigates to a project, transitioning in the direction of its position in the
  * sidebar. Tasks load first, so the project view's first paint has content.
  */
 export async function selectProject(path: string, project: Project): Promise<void> {
+  recordJump(projectKey(path));
+  await showProject(path, project);
+}
+
+async function showProject(path: string, project: Project): Promise<void> {
   const state = useAppStore.getState();
   if (state.activeProjectPath === path) return;
   const orderedPaths = state.projects.map((p) => p.path);
@@ -41,6 +52,24 @@ export function selectHome(): void {
   state.navigateHome({ direction: 'up' });
   void state.loadHomeRecents();
   window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
+}
+
+/**
+ * Records a jump to a shell under its palette row's identity: a task's shell
+ * shares the task's key, so jumping to either feeds the same entry. Card-stack
+ * and board switches call this too — they are jumps the switcher never sees.
+ */
+export function recordTerminalJump(ptyId: string): void {
+  const display = useTerminalStore.getState().displayStates[ptyId];
+  if (!display) return;
+  if (display.taskId != null) {
+    const tasks = useAppStore.getState().taskCacheByProject[display.projectPath] ?? [];
+    if (tasks.some((t) => t.taskNumber === display.taskId)) {
+      recordJump(taskKey(display.projectPath, display.taskId));
+      return;
+    }
+  }
+  recordJump(terminalKey(ptyId));
 }
 
 /** Fit and focus a terminal's xterm once React has had a frame to mount it. */
@@ -68,6 +97,8 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
     if (!display) return;
   }
 
+  recordTerminalJump(ptyId);
+
   const ownerPath = display.projectPath;
   const project = useAppStore.getState().projects.find((p) => p.path === ownerPath);
 
@@ -91,7 +122,7 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
     projectStore.setTagFilter(null);
   }
 
-  await selectProject(ownerPath, project);
+  await showProject(ownerPath, project);
 
   const store = useProjectStore.getState();
   store.setActivePanel('terminals');
@@ -140,7 +171,7 @@ export async function openTaskWorktree(target: TaskWorktreeTarget): Promise<void
   });
   if (!added) return;
 
-  await selectProject(target.project.path, target.project);
+  await showProject(target.project.path, target.project);
   const store = useProjectStore.getState();
   store.setActivePanel('terminals');
   store.setKanbanVisible(false);
@@ -182,7 +213,7 @@ export async function startTaskWorktree(
   try {
     // Navigate with the slot already registered: the project view force-shows
     // the kanban when it mounts with no terminals for the project.
-    await selectProject(project.path, project);
+    await showProject(project.path, project);
     const store = useProjectStore.getState();
     store.setActivePanel('terminals');
     store.setKanbanVisible(false);
@@ -257,9 +288,11 @@ export function taskOpenAction(projectPath: string, task: TaskWithWorkspace): Ta
 export async function activateTask(project: Project, task: TaskWithWorkspace, knownPtyId?: string): Promise<void> {
   const ptyId = knownPtyId ?? liveTerminalForTask(project.path, task.taskNumber);
   if (ptyId) {
+    // focusTerminal records this jump under the task's key.
     await focusTerminal(ptyId, project.path);
     return;
   }
+  recordJump(taskKey(project.path, task.taskNumber));
   if (task.worktreePath && task.branch) {
     await openTaskWorktree({
       project,

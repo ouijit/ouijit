@@ -4,6 +4,7 @@ import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
 import { reconnectOrphanedSessions, addProjectTerminal, closeProjectTerminal } from './terminal/terminalActions';
+import { recordTerminalJump } from './navigation';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { TerminalBody } from './terminal/TerminalBody';
 import { XTermContainer } from './terminal/XTermContainer';
@@ -386,7 +387,11 @@ export function HomeView() {
                   }
                 : {}),
             }}
-            onClick={() => !isActive && setActivePtyId(ptyId)}
+            onClick={() => {
+              if (isActive) return;
+              recordTerminalJump(ptyId);
+              setActivePtyId(ptyId);
+            }}
           >
             <TerminalHeader ptyId={ptyId} isActive={isActive} compact={!isActive} onClose={() => handleClose(ptyId)} />
             {isActive ? (
