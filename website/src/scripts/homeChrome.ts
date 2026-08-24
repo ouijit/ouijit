@@ -31,6 +31,47 @@ export function initHomeChrome() {
   window.addEventListener('resize', checkScroll, { passive: true });
   checkScroll();
 
+  initBentoVolt();
+}
+
+/** Walks the volt tier across the bento, one card at a time; hovering a card
+ * takes the light, and the walk resumes from there when the cursor leaves. */
+function initBentoVolt() {
+  const tiles = [...document.querySelectorAll<HTMLElement>('.bento .detail')];
+  if (!tiles.some((tile) => tile.querySelector('.bento-volt-field'))) return;
+
+  let index = 0;
+  let hovered: number | null = null;
+  const apply = () => {
+    const lit = hovered ?? index;
+    tiles.forEach((tile, i) => tile.classList.toggle('is-volt', i === lit));
+  };
+
+  tiles.forEach((tile, i) => {
+    tile.addEventListener('pointerenter', () => {
+      hovered = i;
+      apply();
+    });
+    tile.addEventListener('pointerleave', () => {
+      hovered = null;
+      index = i;
+      apply();
+    });
+  });
+  apply();
+
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  let visible = false;
+  const io = new IntersectionObserver(([entry]) => void (visible = entry.isIntersecting), { threshold: 0.15 });
+  const grid = tiles[0]?.parentElement;
+  if (grid) io.observe(grid);
+
+  setInterval(() => {
+    if (!visible || hovered !== null) return;
+    index = (index + 1) % tiles.length;
+    apply();
+  }, 2800);
 }
 
 /** Splits `.b-pitch-text` into word spans that light up as it crosses the viewport. */

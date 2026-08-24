@@ -1625,10 +1625,33 @@ body.marketing .float-nav-buy:hover {
 
 .bento .detail-title {
   color: oklch(97% 0.004 285);
+  transition: color 700ms ease;
 }
 
 .bento .detail p {
   color: oklch(85% 0.008 285);
+  transition: color 700ms ease;
+}
+
+/* One card at a time carries the volt tier: its field crossfades in over the
+   graphite, and the copy flips to on-spectrum ink. The page script walks it
+   across the grid; the cursor steals it. */
+.desk-wash-field.bento-volt-field {
+  background-image: linear-gradient(var(--wash-angle, 160deg), var(--wash-volt));
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+
+.bento .detail.is-volt .bento-volt-field {
+  opacity: 0.9;
+}
+
+.bento .detail.is-volt .detail-title {
+  color: oklch(12% 0.008 285);
+}
+
+.bento .detail.is-volt p {
+  color: oklch(22% 0.011 285);
 }
 
 .detail-span-4 {
