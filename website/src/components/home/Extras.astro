@@ -29,24 +29,45 @@
         </div>
       </div>
       <div class="detail detail-span-2" data-reveal>
-        <div class="detail-title">Docs and previews, docked.</div>
-        <p>Markdown files and live URLs open as tabs on the terminal they belong to.</p>
-        <div class="bento-tabs" aria-hidden="true">
-          <span class="bento-tab is-active">plan.md</span>
-          <span class="bento-tab">localhost:5173</span>
-          <span class="bento-tab bento-tab-add">+</span>
+        <div class="detail-title">The commands you always run.</div>
+        <p>Scripts save with the project and run from a panel — in the repo or any task's worktree.</p>
+        <div class="bento-stack" aria-hidden="true">
+          <div class="bento-script"><span>npm run dev</span><span class="bento-local-chip">Run</span></div>
+          <div class="bento-script"><span>npm test</span><span class="bento-local-chip">Run</span></div>
         </div>
       </div>
       <div class="detail detail-span-2" data-reveal style="--reveal-delay: 80ms">
-        <div class="detail-title">Know when an agent needs you.</div>
-        <p>A notification when a session finishes or blocks on input.</p>
-        <div class="bento-notify" aria-hidden="true">
-          <span class="bento-palette-dot"></span>
-          <span class="bento-notify-text">claude — done · 15 passed</span>
-          <span class="bento-notify-time">now</span>
+        <div class="detail-title">Hooks for every stage.</div>
+        <p>Start, continue, run, review, done — each stage runs a command you choose, with the task's context.</p>
+        <div class="bento-tabs" style="flex-wrap: wrap" aria-hidden="true">
+          <span class="bento-tab is-active">start</span>
+          <span class="bento-tab">continue</span>
+          <span class="bento-tab">run</span>
+          <span class="bento-tab">review</span>
+          <span class="bento-tab">done</span>
         </div>
       </div>
       <div class="detail detail-span-2" data-reveal style="--reveal-delay: 160ms">
+        <div class="detail-title">Theme every token.</div>
+        <p>Dark or light base, presets to start from, and every color yours to override — down to the ANSI palette.</p>
+        <div class="bento-swatches" aria-hidden="true">
+          <span style="background: var(--color-accent)"></span>
+          <span style="background: #c026d3"></span>
+          <span style="background: #0ca678"></span>
+          <span style="background: #ff9f0a"></span>
+          <span style="background: #f5f5f7"></span>
+        </div>
+      </div>
+      <div class="detail detail-span-3" data-reveal>
+        <div class="detail-title">Filter by tag.</div>
+        <p>Tag terminals, then scope the stack to one tag or group the home view by them.</p>
+        <div class="bento-tabs" aria-hidden="true">
+          <span class="bento-tab is-active">frontend</span>
+          <span class="bento-tab">api</span>
+          <span class="bento-tab">infra</span>
+        </div>
+      </div>
+      <div class="detail detail-span-3" data-reveal style="--reveal-delay: 80ms">
         <div class="detail-title">Quit without losing the room.</div>
         <p>The next launch brings the session's terminals back in their worktrees, panels included.</p>
         <div class="bento-resume" aria-hidden="true">
