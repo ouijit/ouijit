@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { DiffSignals, FileSignal } from '../../analysis/types';
+import type { DiffSignals, FileComplexitySignal, FileSignal } from '../../analysis/types';
 import { ANALYSIS_WINDOW_MONTHS } from '../../analysis/types';
 import { Tooltip } from '../ui/Tooltip';
 import { Icon } from '../terminal/Icon';
@@ -27,6 +27,7 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { si
       <span>
         {signal.commits} {signal.commits === 1 ? 'commit' : 'commits'} in the last {ANALYSIS_WINDOW_MONTHS} months
       </span>
+      {signal.complexity && <span>{describeComplexity(signal.complexity)}</span>}
       {signal.mainAuthor && signal.ownership >= 0.5 && <span>Most edits by {signal.mainAuthor}</span>}
       {missing.map((partner) => (
         <span key={partner}>Usually changes with {partner} — not in this diff</span>
@@ -47,6 +48,12 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { si
     </Tooltip>
   );
 });
+
+/** The complexity half of the score, in the units it was measured in. */
+function describeComplexity(cx: FileComplexitySignal): string {
+  const avg = cx.loc > 0 ? cx.indentTotal / cx.loc : 0;
+  return `${cx.loc} lines · average nesting ${avg.toFixed(1)} · deepest ${cx.indentMax}`;
+}
 
 /** Rail counterpart: a dot on hot files, so the tree shows the diff's shape. */
 export function AnalysisRailDot({ signal }: { signal: FileSignal | undefined }) {

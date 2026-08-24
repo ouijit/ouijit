@@ -26,6 +26,16 @@ export interface FileSignal {
   ownership: number;
   /** Distinct authors in the window. */
   authors: number;
+  /** Null when the file was not read for complexity (and so cannot be hot). */
+  complexity: FileComplexitySignal | null;
+}
+
+export interface FileComplexitySignal {
+  /** Non-blank lines. */
+  loc: number;
+  /** Sum of logical indentation depth over non-blank lines. */
+  indentTotal: number;
+  indentMax: number;
 }
 
 export interface CouplingSignal {

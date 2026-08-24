@@ -1,10 +1,4 @@
-export interface FileComplexity {
-  /** Non-blank lines. */
-  loc: number;
-  /** Sum of logical indentation depth over non-blank lines. */
-  indentTotal: number;
-  indentMax: number;
-}
+import type { FileComplexitySignal } from './types';
 
 const SPACES_PER_STEP = 4;
 
@@ -13,7 +7,7 @@ const SPACES_PER_STEP = 4;
  * read from leading whitespace alone. A tab counts as one step, four spaces
  * as one step.
  */
-export function complexityOf(text: string): FileComplexity {
+export function complexityOf(text: string): FileComplexitySignal {
   let loc = 0;
   let indentTotal = 0;
   let indentMax = 0;

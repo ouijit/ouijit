@@ -1,6 +1,5 @@
 import type { AnalysisModel } from './accumulate';
-import type { FileComplexity } from './complexity';
-import type { HotspotTier } from './types';
+import type { FileComplexitySignal, HotspotTier } from './types';
 
 export interface FileScore {
   score: number;
@@ -22,7 +21,7 @@ const WARM_MIN_COMMITS = 3;
  */
 export function scoreFiles(
   model: AnalysisModel,
-  complexity: ReadonlyMap<string, FileComplexity>,
+  complexity: ReadonlyMap<string, FileComplexitySignal>,
 ): Map<string, FileScore> {
   const freqRank = percentileRanks([...model.files].map(([path, stats]) => [path, stats.commits]));
   const cxRank = percentileRanks([...complexity].map(([path, cx]) => [path, cx.indentTotal]));

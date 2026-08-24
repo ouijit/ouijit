@@ -7,9 +7,9 @@ import { getLogger } from '../logger';
 import { describeError } from '../utils/describeError';
 import { readLog } from './gitLog';
 import { emptyModel, foldCommits, splitPairKey, COUPLING_MIN_SHARED, type AnalysisModel } from './accumulate';
-import { complexityOf, type FileComplexity } from './complexity';
+import { complexityOf } from './complexity';
 import { scoreFiles, type FileScore } from './score';
-import type { AnalysisStatus, CouplingSignal, DiffSignals, FileSignal } from './types';
+import type { AnalysisStatus, CouplingSignal, DiffSignals, FileComplexitySignal, FileSignal } from './types';
 
 const analysisLog = getLogger().scope('analysis');
 
@@ -18,7 +18,7 @@ export interface ProjectAnalysis {
   lastSha: string;
   analyzedAt: number;
   model: AnalysisModel;
-  complexity: Map<string, FileComplexity>;
+  complexity: Map<string, FileComplexitySignal>;
   scores: Map<string, FileScore>;
 }
 
@@ -100,6 +100,7 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
       mainAuthor,
       ownership: stats.commits > 0 ? mainCommits / stats.commits : 0,
       authors: byEmail?.size ?? 0,
+      complexity: analysis.complexity.get(p) ?? null,
     };
   }
 
@@ -204,14 +205,14 @@ const MACHINE_WRITTEN = new Set([
   'go.sum',
 ]);
 
-async function readComplexity(projectPath: string, model: AnalysisModel): Promise<Map<string, FileComplexity>> {
+async function readComplexity(projectPath: string, model: AnalysisModel): Promise<Map<string, FileComplexitySignal>> {
   const candidates = [...model.files.entries()]
     .filter(([p]) => !MACHINE_WRITTEN.has(p.slice(p.lastIndexOf('/') + 1)))
     .sort((a, b) => b[1].commits - a[1].commits)
     .slice(0, COMPLEXITY_FILE_LIMIT)
     .map(([p]) => p);
 
-  const out = new Map<string, FileComplexity>();
+  const out = new Map<string, FileComplexitySignal>();
   for (let i = 0; i < candidates.length; i += COMPLEXITY_READ_BATCH) {
     await Promise.all(
       candidates.slice(i, i + COMPLEXITY_READ_BATCH).map(async (rel) => {
