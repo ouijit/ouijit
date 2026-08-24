@@ -77,13 +77,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     | { mode: 'combined'; start?: any; continue?: any }
     | null
   >(null);
-  const ensureWorktreeExists = useCallback(
-    async (task: TaskWithWorkspace): Promise<string | null> => {
-      const ensured = await ensureWorktree(projectPath, task);
-      return ensured?.path ?? null;
-    },
-    [projectPath],
-  );
 
   // projectStore owns the config: loaded per project by ProjectViewReact and
   // refreshed by HookList and this board's hook-dialog close handler.
@@ -436,12 +429,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // the CLI all funnel through completeTask so they behave identically.
       if (newStatus === 'done' && origStatus && origStatus !== newStatus) {
         if (draggedTask.worktreePath) {
-          const wtPath = await ensureWorktreeExists(draggedTask);
-          if (!wtPath) {
+          const ensured = await ensureWorktree(projectPath, draggedTask);
+          if (!ensured) {
             setActiveTask(null);
             return;
           }
-          draggedTask = { ...draggedTask, worktreePath: wtPath };
+          draggedTask = { ...draggedTask, worktreePath: ensured.path };
         }
         // Plain drop prompts with the Done dialog (like every other column);
         // shift-drag skips the hook outright.
@@ -464,9 +457,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // A worktree may have been deleted outside the app; recover it before
       // starting a transition that assumes it exists.
       if (draggedTask.worktreePath) {
-        const wtPath = await ensureWorktreeExists(draggedTask);
-        if (!wtPath) return;
-        draggedTask = { ...draggedTask, worktreePath: wtPath };
+        const ensured = await ensureWorktree(projectPath, draggedTask);
+        if (!ensured) return;
+        draggedTask = { ...draggedTask, worktreePath: ensured.path };
       }
 
       // The service runs worktree creation, the hook prompt and the terminal
@@ -482,7 +475,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         onForegroundOpen: onHide,
       });
     },
-    [activeTask, chainMap, storeTasks, items, findContainer, projectPath, ensureWorktreeExists, onHide],
+    [activeTask, chainMap, storeTasks, items, findContainer, projectPath, onHide],
   );
 
   // Task CRUD

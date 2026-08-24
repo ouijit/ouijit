@@ -12,7 +12,7 @@ import { PullRequestsPanel } from './github/PullRequestsPanel';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { RunHookDialog } from './dialogs/RunHookDialog';
 import { openTaskComposer } from '../utils/openTaskComposer';
-import { recordTerminalJump } from './navigation';
+import { activateProjectTerminal } from './navigation';
 import {
   addProjectTerminal,
   closeProjectTerminal,
@@ -189,7 +189,6 @@ export function ProjectView() {
               }));
               useCanvasStore.getState().loadCanvas(projectPath, { ...canvas, nodes: updatedNodes });
             }
-            recordTerminalJump(targetPtyId);
             const inst = terminalInstances.get(targetPtyId);
             if (inst) {
               requestAnimationFrame(() => inst.xterm.focus());
@@ -198,12 +197,8 @@ export function ProjectView() {
         } else {
           // Stack mode: switch by stack position
           const targetIndex = getTerminalIndexByStackPosition(projectPath, num);
-          if (targetIndex !== -1) {
-            const store = useTerminalStore.getState();
-            const targetPtyId = store.terminalsByProject[projectPath]?.[targetIndex];
-            if (targetPtyId) recordTerminalJump(targetPtyId);
-            store.setActiveIndex(projectPath, targetIndex);
-          }
+          const targetPtyId = useTerminalStore.getState().terminalsByProject[projectPath]?.[targetIndex];
+          if (targetPtyId) activateProjectTerminal(projectPath, targetPtyId);
         }
         return;
       }
@@ -222,10 +217,8 @@ export function ProjectView() {
           const direction = key === 'arrowleft' ? -1 : 1;
           const targetPage = currentPage + direction;
           if (targetPage >= 0 && targetPage < totalPages) {
-            const targetIndex = targetPage * STACK_PAGE_SIZE;
-            const targetPtyId = terms[targetIndex];
-            if (targetPtyId) recordTerminalJump(targetPtyId);
-            store.setActiveIndex(projectPath, targetIndex);
+            const targetPtyId = terms[targetPage * STACK_PAGE_SIZE];
+            if (targetPtyId) activateProjectTerminal(projectPath, targetPtyId);
           }
         }
       }

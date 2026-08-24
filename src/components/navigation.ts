@@ -5,10 +5,8 @@
  * view-transition snapshot, and the terminal card stack reverts an active
  * index a tag filter hides.
  *
- * Frecency records the target the user chose, once per gesture: a project jump
- * records the project, while landing in a project on the way to its task or
- * shell records only the task or shell. Internal navigation goes through
- * `showProject`, which stays silent.
+ * Nothing here feeds palette frecency. What the user ends up looking at is a
+ * visit, and `visitTracker` reads that off the view itself.
  */
 
 import type { Project, SandboxProviderId, TaskWithWorkspace } from '../types';
@@ -20,7 +18,6 @@ import { useUIStore } from '../stores/uiStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalReact';
-import { projectKey, recordJump, taskKey, terminalFrecencyKey } from '../utils/paletteFrecency';
 import { ensureWorktree } from '../services/worktreeRecovery';
 
 /**
@@ -28,12 +25,8 @@ import { ensureWorktree } from '../services/worktreeRecovery';
  * sidebar. Tasks load first, so the project view's first paint has content.
  */
 export async function selectProject(path: string, project: Project): Promise<void> {
-  if (await showProject(path, project)) recordJump(projectKey(path));
-}
-
-async function showProject(path: string, project: Project): Promise<boolean> {
   const state = useAppStore.getState();
-  if (state.activeProjectPath === path) return false;
+  if (state.activeProjectPath === path) return;
   const orderedPaths = state.projects.map((p) => p.path);
   const oldIndex = state.activeView === 'home' ? -1 : orderedPaths.indexOf(state.activeProjectPath ?? '');
   const newIndex = orderedPaths.indexOf(path);
@@ -41,7 +34,6 @@ async function showProject(path: string, project: Project): Promise<boolean> {
   await useProjectStore.getState().loadTasks(path);
   state.navigateToProject(path, project, { direction });
   window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
-  return true;
 }
 
 /**
@@ -50,7 +42,7 @@ async function showProject(path: string, project: Project): Promise<boolean> {
  * none registered.
  */
 export async function showProjectTerminals(path: string, project: Project): Promise<void> {
-  await showProject(path, project);
+  await selectProject(path, project);
   const store = useProjectStore.getState();
   store.setActivePanel('terminals');
   store.setKanbanVisible(false);
@@ -68,14 +60,11 @@ export function selectHome(): void {
   window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
 }
 
-/**
- * Records a jump to a shell under its palette row's identity: a task's shell
- * shares the task's key, so jumping to either feeds the same entry.
- */
-export function recordTerminalJump(ptyId: string): void {
-  const display = useTerminalStore.getState().displayStates[ptyId];
-  if (!display) return;
-  recordJump(terminalFrecencyKey(ptyId, display, useAppStore.getState().taskCacheByProject));
+/** Bring a shell to the front of its project's stack, by id rather than index. */
+export function activateProjectTerminal(projectPath: string, ptyId: string): void {
+  const index = useTerminalStore.getState().terminalsByProject[projectPath]?.indexOf(ptyId) ?? -1;
+  if (index < 0) return;
+  useTerminalStore.getState().setActiveIndex(projectPath, index);
 }
 
 /** Fit and focus a terminal's xterm once React has had a frame to mount it. */
@@ -113,7 +102,6 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
     if (ui.homeTagFilter && !terminalMatchesTag(display, ui.homeTagFilter)) {
       ui.setHomeTagFilter(null);
     }
-    recordTerminalJump(ptyId);
     ui.setHomeActivePtyId(ptyId);
     selectHome();
     focusXterm(ptyId);
@@ -129,10 +117,6 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
 
   await showProjectTerminals(ownerPath, project);
 
-  // After navigating, not before: the key a shell answers to depends on the
-  // project's task cache, which this navigation loads.
-  recordTerminalJump(ptyId);
-
   if (useProjectStore.getState().terminalLayout === 'canvas') {
     const canvas = useCanvasStore.getState().canvasByProject[ownerPath];
     if (canvas) {
@@ -140,9 +124,7 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
       useCanvasStore.getState().loadCanvas(ownerPath, { ...canvas, nodes });
     }
   } else {
-    const terminals = useTerminalStore.getState().terminalsByProject[ownerPath] ?? [];
-    const index = terminals.indexOf(ptyId);
-    if (index >= 0) useTerminalStore.getState().setActiveIndex(ownerPath, index);
+    activateProjectTerminal(ownerPath, ptyId);
   }
 
   focusXterm(ptyId);
@@ -158,11 +140,6 @@ export interface OpenTaskShellOptions {
   /** Never persisted on the task — passed straight to the spawn. */
   sandboxProvider?: SandboxProviderId;
   replaceLoadingId?: string;
-  /**
-   * Record the jump. False when this open is one of a batch — the batch records
-   * its single destination instead of filling Recent with every task in it.
-   */
-  record?: boolean;
 }
 
 /**
@@ -180,7 +157,7 @@ export async function openTaskShell(
   task: TaskWithWorkspace,
   options: OpenTaskShellOptions,
 ): Promise<boolean> {
-  let worktree: { path: string; branch: string; createdAt: string } | null = null;
+  let worktree: { path: string; branch: string; createdAt: string };
   let skipAutoHook = options.mode === 'shell';
 
   if (task.branch) {
@@ -206,10 +183,15 @@ export async function openTaskShell(
     sandboxProvider: options.sandboxProvider,
     replaceLoadingId: options.replaceLoadingId,
   });
-  // Only on success: a failed start or a stale spawn would otherwise climb the
-  // Recent group without the user ever reaching the task.
-  if (added && options.record !== false) recordJump(taskKey(projectPath, task.taskNumber));
   return added;
+}
+
+/** Open several tasks at once and land on the first one's project. */
+export async function openTasks(tasks: { project: Project; task: TaskWithWorkspace }[]): Promise<void> {
+  if (tasks.length === 0) return;
+  await Promise.all(tasks.map(({ project, task }) => openTaskShell(project.path, task, { mode: 'resume' })));
+  const { project } = tasks[0];
+  await showProjectTerminals(project.path, project);
 }
 
 /**

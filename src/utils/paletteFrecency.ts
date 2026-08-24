@@ -1,7 +1,7 @@
 /**
- * What the mod+K switcher remembers about where the user goes. A jump records
- * its target's key, which boosts that target's score and fills the "Recent"
- * group on an empty query.
+ * What the mod+K switcher remembers about where the user spends time. A visit
+ * records its subject's key, which boosts that subject's score and fills the
+ * "Recent" group on an empty query. `visitTracker` decides what counts as one.
  *
  * Keys must outlive what they describe: a task keeps one key across every
  * worktree shell it spawns. Loose terminals key on their ptyId instead and are
@@ -37,35 +37,45 @@ export const terminalKey = (ptyId: string): string => `terminal:${ptyId}`;
 export const pullKey = (projectPath: string, prNumber: number): string => `pull:${projectPath}#${prNumber}`;
 
 /**
- * The key a live shell answers to: its task's, so every worktree shell feeds
- * the task's entry, or its own ptyId when no cached task claims it. The jump
- * recorder and the palette's row builder both resolve through here — the
- * recorded key must be one a row carries, or the boost lands nowhere.
+ * A shell and a pull request each borrow the identity of the task that claims
+ * it, because the palette lists no row of their own in that case. The row
+ * builder skips on these and the jump recorder keys on them, so the two cannot
+ * disagree about what carries a row: a key recorded against no row would take
+ * its boost nowhere.
  */
+export function terminalTaskNumber(
+  terminal: { projectPath: string; taskId?: number | null },
+  taskCacheByProject: Record<string, readonly { taskNumber: number }[] | undefined>,
+): number | null {
+  const { projectPath, taskId } = terminal;
+  if (taskId == null) return null;
+  return (taskCacheByProject[projectPath] ?? []).some((t) => t.taskNumber === taskId) ? taskId : null;
+}
+
+export function pullTaskNumber(
+  projectPath: string,
+  prNumber: number,
+  taskCacheByProject: Record<string, readonly { taskNumber: number; githubPrNumber?: number | null }[] | undefined>,
+): number | null {
+  return (taskCacheByProject[projectPath] ?? []).find((t) => t.githubPrNumber === prNumber)?.taskNumber ?? null;
+}
+
 export function terminalFrecencyKey(
   ptyId: string,
   terminal: { projectPath: string; taskId?: number | null },
   taskCacheByProject: Record<string, readonly { taskNumber: number }[] | undefined>,
 ): string {
-  const { projectPath, taskId } = terminal;
-  if (taskId != null && (taskCacheByProject[projectPath] ?? []).some((t) => t.taskNumber === taskId)) {
-    return taskKey(projectPath, taskId);
-  }
-  return terminalKey(ptyId);
+  const taskNumber = terminalTaskNumber(terminal, taskCacheByProject);
+  return taskNumber == null ? terminalKey(ptyId) : taskKey(terminal.projectPath, taskNumber);
 }
 
-/**
- * The key a pull request answers to: the key of the task that has it checked
- * out, since the palette lists no separate row for a linked PR. Same invariant
- * as `terminalFrecencyKey` — the recorded key must be one a row carries.
- */
 export function pullFrecencyKey(
   projectPath: string,
   prNumber: number,
   taskCacheByProject: Record<string, readonly { taskNumber: number; githubPrNumber?: number | null }[] | undefined>,
 ): string {
-  const linked = (taskCacheByProject[projectPath] ?? []).find((t) => t.githubPrNumber === prNumber);
-  return linked ? taskKey(projectPath, linked.taskNumber) : pullKey(projectPath, prNumber);
+  const taskNumber = pullTaskNumber(projectPath, prNumber, taskCacheByProject);
+  return taskNumber == null ? pullKey(projectPath, prNumber) : taskKey(projectPath, taskNumber);
 }
 
 /** 0..MAX_BOOST, added to a row's match score. */
@@ -77,7 +87,7 @@ export function frecencyBoost(entry: FrecencyEntry | undefined, now: number): nu
   return MAX_BOOST * (RECENCY_SHARE * recency + (1 - RECENCY_SHARE) * frequency);
 }
 
-/** Record a jump, returning the next map. Pure — the caller persists it. */
+/** Record a visit, returning the next map. Pure — the caller persists it. */
 export function recordUse(map: FrecencyMap, key: string, now: number): FrecencyMap {
   const previous = map[key];
   const next: FrecencyMap = { ...map, [key]: { at: now, n: (previous?.n ?? 0) + 1 } };
@@ -108,7 +118,7 @@ async function loadFrecency(): Promise<FrecencyMap> {
   }
 }
 
-/** How long a burst of jumps coalesces before one write. */
+/** How long a burst of visits coalesces before one write. */
 const FLUSH_DELAY_MS = 300;
 
 let cached: Promise<FrecencyMap> | null = null;
@@ -116,8 +126,8 @@ let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * The live map. Nothing outside this module writes the setting, so the first
- * read is the only one: jumps are applied in memory from there on, and the
- * palette ranks against a map that already has the jump that opened it.
+ * read is the only one: visits are applied in memory from there on, and the
+ * palette ranks against a map that already has the visit that preceded it.
  */
 export function frecencyMap(): Promise<FrecencyMap> {
   cached ??= loadFrecency();
@@ -132,11 +142,11 @@ export function resetFrecency(): void {
 }
 
 /**
- * Record a jump to `key`. Persisting is deferred and coalesced, so a burst
- * costs one write; a jump made in the last `FLUSH_DELAY_MS` before a hard quit
+ * Record a visit to `key`. Persisting is deferred and coalesced, so a burst
+ * costs one write; a visit made in the last `FLUSH_DELAY_MS` before a hard quit
  * is lost, which costs ranking quality and never correctness.
  */
-export function recordJump(key: string): void {
+export function recordVisit(key: string): void {
   const now = Date.now();
   cached = frecencyMap().then((map) => recordUse(map, key, now));
   if (flushTimer) clearTimeout(flushTimer);

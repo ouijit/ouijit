@@ -21,6 +21,7 @@ import { installCaptureNavigator } from './capture/navigator';
 import { hydrateTerminalFont } from './components/terminal/terminalReact';
 import { hydrateNotificationSettings } from './utils/notifications';
 import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
+import { installVisitTracker } from './services/visitTracker';
 import { useUIStore } from './stores/uiStore';
 import log from 'electron-log/renderer';
 import type { Project } from './types';
@@ -121,6 +122,8 @@ export function App() {
   useEffect(() => {
     installSessionAutoSave();
   }, []);
+
+  useEffect(() => installVisitTracker(), []);
 
   // First-run marker — set so other surfaces can know whether the user has
   // launched before. The actual welcome UI lives inline in the empty home view.
@@ -324,11 +327,6 @@ export function App() {
   );
 }
 
-/**
- * Rendered here rather than by the board, because a task can be opened from the
- * switcher and the home recents panel too. `ensureWorktree` waits on the action
- * this passes back.
- */
 function GlobalMissingWorktreeDialog() {
   const request = useUIStore((s) => s.missingWorktree);
   if (!request) return null;

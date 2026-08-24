@@ -1,10 +1,9 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 import { CommandPalette } from '../../components/CommandPalette';
 import { usePaletteShortcut } from '../../hooks/usePaletteShortcut';
 import { addProjectTerminal, reconnectOrphanedSessions } from '../../components/terminal/terminalActions';
-import { recordTerminalJump, selectProject } from '../../components/navigation';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore, DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from '../../stores/terminalStore';
@@ -402,57 +401,36 @@ describe('command palette navigation', () => {
     expect(useProjectStore.getState().startingTaskNumbers.has(11)).toBe(false);
   });
 
-  test('remembers where you jumped and leads with it next time', async () => {
-    await openPalette();
-    const input = screen.getByLabelText('Search terminals, projects and tasks');
-    fireEvent.change(input, { target: { value: 'Nine' } });
-    await waitFor(() => expect(rowLabels()[0]).toContain('Nine'));
-    fireEvent.keyDown(input, { key: 'Enter' });
-
-    // The record lands via the navigation action, after the palette has closed.
-    const frecencyWrite = () =>
-      vi.mocked(window.api.globalSettings.set).mock.calls.find(([key]) => key === 'ui:palette-frecency');
-    await waitFor(() => expect(frecencyWrite()).toBeTruthy());
-    const write = frecencyWrite();
-    const stored = JSON.parse(write?.[1] as string);
-    // Keyed on the task, not the pty — the shell it just opened will not
-    // outlive the worktree, but what we learned about the task should.
-    expect(Object.keys(stored)).toEqual([`task:${projectA.path}#9`]);
-
-    // Reopen with that history in place: the jump leads the empty-query list.
-    cleanup();
+  test('leads the Recent group with what has been visited, whatever surface did it', async () => {
+    // Visits are recorded by `visitTracker` off the view, not by the palette,
+    // so the palette's job here is only to rank what it is handed.
     window.api.globalSettings.get = vi.fn(async (key: string) =>
-      key === 'ui:palette-frecency' ? JSON.stringify(stored) : undefined,
+      key === 'ui:palette-frecency'
+        ? JSON.stringify({
+            [`task:${projectA.path}#7`]: { at: Date.now(), n: 4 },
+            [`project:${projectB.path}`]: { at: Date.now(), n: 3 },
+          })
+        : undefined,
     );
-    useUIStore.setState({ paletteOpen: true });
-    await openPalette();
-    await waitFor(() => expect(screen.getByText('Recent')).toBeTruthy());
-    expect(rowLabels()[0]).toContain('Nine');
-  });
-
-  test('jumps made outside the palette lead the Recent group', async () => {
-    // Back the settings store, so successive records read each other's writes.
-    const stored: Record<string, string> = {};
-    window.api.globalSettings.set = vi.fn(async (key: string, value: string) => {
-      stored[key] = value;
-      return { success: true };
-    });
-    window.api.globalSettings.get = vi.fn(async (key: string) => stored[key]);
-
-    // A sidebar project switch and a card-stack click — the palette never saw
-    // either, but it has to reflect them.
-    await selectProject(projectB.path, projectB);
-    recordTerminalJump('alpha-7');
-    await waitFor(() => {
-      const map = JSON.parse(stored['ui:palette-frecency'] ?? '{}');
-      expect(Object.keys(map).sort()).toEqual([`project:${projectB.path}`, `task:${projectA.path}#7`]);
-    });
 
     await openPalette();
     await waitFor(() => expect(screen.getByText('Recent')).toBeTruthy());
     const top = rowLabels().slice(0, 3).join(' ');
     expect(top).toContain('/work/bravo');
     expect(top).toContain('T-7');
+  });
+
+  test('activating a row does not itself record a visit', async () => {
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    fireEvent.change(input, { target: { value: 'Nine' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Nine'));
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(vi.mocked(addProjectTerminal)).toHaveBeenCalled());
+    expect(
+      vi.mocked(window.api.globalSettings.set).mock.calls.some(([key]) => key === 'ui:palette-frecency'),
+    ).toBe(false);
   });
 
   test('selecting a project loads its tasks, navigates, and persists the view', async () => {

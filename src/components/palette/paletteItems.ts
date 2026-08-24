@@ -23,7 +23,7 @@ import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 import { activateTask, focusTerminal, selectProject, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
-import { projectKey, pullKey, taskKey, terminalFrecencyKey, terminalKey } from '../../utils/paletteFrecency';
+import { projectKey, pullKey, pullTaskNumber, taskKey, terminalKey, terminalTaskNumber } from '../../utils/paletteFrecency';
 
 export type PaletteKind = 'terminal' | 'project' | 'task' | 'pull';
 
@@ -208,8 +208,8 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   // running shell): without this it would vanish entirely.
   for (const terminal of terminals) {
     const project = projectByPath.get(terminal.projectPath);
-    const key = terminalFrecencyKey(terminal.ptyId, terminal, input.taskCacheByProject);
-    if (key !== terminalKey(terminal.ptyId)) continue;
+    if (terminalTaskNumber(terminal, input.taskCacheByProject) != null) continue;
+    const key = terminalKey(terminal.ptyId);
 
     push({
       id: key,
@@ -318,12 +318,9 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   if (input.activeProjectPath && input.pullRequests?.length) {
     const project = projectByPath.get(input.activeProjectPath);
     const projectPath = input.activeProjectPath;
-    const linkedPrNumbers = new Set(
-      (input.taskCacheByProject[projectPath] ?? []).map((t) => t.githubPrNumber).filter((n): n is number => n != null),
-    );
 
     for (const pr of input.pullRequests) {
-      if (linkedPrNumbers.has(pr.number)) continue;
+      if (pullTaskNumber(projectPath, pr.number, input.taskCacheByProject) != null) continue;
       push({
         id: pullKey(projectPath, pr.number),
         key: pullKey(projectPath, pr.number),

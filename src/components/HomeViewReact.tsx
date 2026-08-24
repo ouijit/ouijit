@@ -4,7 +4,6 @@ import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
 import { reconnectOrphanedSessions, addProjectTerminal, closeProjectTerminal } from './terminal/terminalActions';
-import { recordTerminalJump } from './navigation';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { TerminalBody } from './terminal/TerminalBody';
 import { XTermContainer } from './terminal/XTermContainer';
@@ -255,10 +254,7 @@ export function HomeView() {
           (i): i is Extract<StackItem, { type: 'terminal' }> => i.type === 'terminal',
         );
         const reversed = [...termItems].reverse();
-        if (num <= reversed.length) {
-          recordTerminalJump(reversed[num - 1].ptyId);
-          setActivePtyId(reversed[num - 1].ptyId);
-        }
+        if (num <= reversed.length) setActivePtyId(reversed[num - 1].ptyId);
       }
     };
     document.addEventListener('keydown', handler, true);
@@ -388,11 +384,7 @@ export function HomeView() {
                   }
                 : {}),
             }}
-            onClick={() => {
-              if (isActive) return;
-              recordTerminalJump(ptyId);
-              setActivePtyId(ptyId);
-            }}
+            onClick={() => !isActive && setActivePtyId(ptyId)}
           >
             <TerminalHeader ptyId={ptyId} isActive={isActive} compact={!isActive} onClose={() => handleClose(ptyId)} />
             {isActive ? (
@@ -456,10 +448,7 @@ export function HomeView() {
               }}
               onClick={() => {
                 const group = orderedGroups.find((g) => g.key === item.key);
-                if (group && group.ptyIds.length > 0) {
-                  recordTerminalJump(group.ptyIds[0]);
-                  setActivePtyId(group.ptyIds[0]);
-                }
+                if (group && group.ptyIds.length > 0) setActivePtyId(group.ptyIds[0]);
               }}
             >
               <div className="absolute inset-0 flex items-center" style={{ gap: 6, padding: '0 12px 0 8px' }}>

@@ -7,8 +7,8 @@
 
 import { useEffect, useState } from 'react';
 import { useAppStore, type HomeRecentTask } from '../stores/appStore';
-import { openTaskShell, showProjectTerminals } from './navigation';
-import { projectKey, recordJump } from '../utils/paletteFrecency';
+import { openTaskShell, openTasks, showProjectTerminals } from './navigation';
+import { taskKey } from '../utils/paletteFrecency';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { formatRelativeTime } from '../utils/formatDate';
 import type { Project } from '../types';
@@ -21,9 +21,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 type RecentTask = HomeRecentTask;
 
-function selectionKey(task: RecentTask): string {
-  return `${task.project.path}#${task.taskNumber}`;
-}
+const selectionKey = (task: RecentTask): string => taskKey(task.project.path, task.taskNumber);
 
 interface RecentTasksPanelProps {
   projects: Project[];
@@ -69,12 +67,9 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
 
   const openSelection = async () => {
     const tasks = recents.filter((t) => selected.has(selectionKey(t)));
-    if (tasks.length === 0) return;
-    await Promise.all(tasks.map((t) => openTaskShell(t.project.path, t, { mode: 'resume', record: false })));
-    // Navigate to the first selected task's project (most recent). Terminals
+    // Lands in the first selected task's project (the most recent). Terminals
     // for tasks in other projects appear when the user switches to those.
-    recordJump(projectKey(tasks[0].project.path));
-    await showProjectTerminals(tasks[0].project.path, tasks[0].project);
+    await openTasks(tasks.map((task) => ({ project: task.project, task })));
     clearSelection();
   };
 

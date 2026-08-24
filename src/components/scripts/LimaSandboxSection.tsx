@@ -3,7 +3,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { addProjectTerminal } from '../terminal/terminalActions';
-import { recordTerminalJump } from '../navigation';
+import { activateProjectTerminal } from '../navigation';
 import { isActiveSandbox } from '../../types';
 
 const VM_STATUS_LABELS: Record<string, string> = {
@@ -171,8 +171,7 @@ export function LimaSandboxSection({ projectPath }: LimaSandboxSectionProps) {
       return isActiveSandbox(display?.sandboxProvider) && display?.label === 'VM Console';
     });
     if (existingIndex !== -1) {
-      recordTerminalJump(ptyIds[existingIndex]);
-      termStore.setActiveIndex(projectPath, existingIndex);
+      activateProjectTerminal(projectPath, ptyIds[existingIndex]);
     } else {
       addProjectTerminal(
         projectPath,
