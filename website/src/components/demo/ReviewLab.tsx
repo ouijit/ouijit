@@ -79,6 +79,50 @@ function Line({ p, at, children }: { p: number; at: number; children: ReactNode 
 
 /* ─── The noted diff pane ─────────────────────────────────────────── */
 
+/* Static copies of the app's InlineCommentCard and InlineCommentBox —
+   the same classes, with the typing animation in place of the textarea. */
+
+function MockCommentCard({ label, body }: { label: string; body: ReactNode }) {
+  return (
+    <div className="relative glass-bevel block w-[calc(100%-176px)] mx-[88px] my-1.5 text-left px-3 py-2 bg-terminal-surface border border-bezel rounded-[12px] text-sm text-text-secondary">
+      <span className="block text-[11px] text-accent mb-0.5">{label}</span>
+      {body}
+    </div>
+  );
+}
+
+function MockCommentBox({
+  text,
+  placeholder,
+  saveLabel,
+  hint,
+}: {
+  text: string;
+  placeholder: string;
+  saveLabel: string;
+  hint: string;
+}) {
+  return (
+    <div className="relative glass-bevel mx-[88px] my-1.5 px-3 py-2.5 bg-terminal-surface border border-bezel rounded-[12px]">
+      <div className="field resize-y border-accent ring-3 ring-accent-light" style={{ minHeight: 76 }}>
+        {text ? (
+          <>
+            {text}
+            <span className="terminal-cursor" />
+          </>
+        ) : (
+          <span className="text-text-tertiary">{placeholder}</span>
+        )}
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <span className={`btn-primary btn-compact ${text ? '' : 'opacity-50'}`}>{saveLabel}</span>
+        <span className="btn-secondary btn-compact">Cancel</span>
+      </div>
+      <p className="text-[11px] text-text-tertiary mt-1.5">{hint}</p>
+    </div>
+  );
+}
+
 const NOTE_TEXT = 'does this survive sign-out? add a test';
 
 const hl = (text: string, kind: 'add' | 'del') => (
@@ -104,13 +148,11 @@ interface NotedLine {
 }
 
 const NOTED_LINES: NotedLine[] = [
-  { type: 'context', oldNo: 2, newNo: 2, content: "import { Step } from './Step';" },
   {
     type: 'addition',
     newNo: 3,
     content: <>import {'{ useOnboardingProgress }'} from {hl("'./useOnboardingProgress'", 'add')};</>,
   },
-  { type: 'context', oldNo: 3, newNo: 4, content: '' },
   { type: 'deletion', oldNo: 4, content: 'export function Stepper() {' },
   {
     type: 'addition',
@@ -133,7 +175,7 @@ const NOTED_LINES: NotedLine[] = [
   { type: 'context', oldNo: 8, newNo: 9, content: '  return (' },
 ];
 
-function NotedDiffLineRow({ line, noted }: { line: NotedLine; noted?: boolean }) {
+function NotedDiffLineRow({ line }: { line: NotedLine }) {
   const lineBg =
     line.type === 'addition' ? 'bg-diff-added/10' : line.type === 'deletion' ? 'bg-diff-removed/[0.08]' : '';
   const gutterBg =
@@ -154,7 +196,6 @@ function NotedDiffLineRow({ line, noted }: { line: NotedLine; noted?: boolean })
       <span className="flex-1 pl-2 pr-2 whitespace-pre-wrap break-words text-diff-fg min-w-0">
         <span className={`inline-block w-3 select-none ${prefixColor}`}>{prefix}</span>
         {line.content}
-        {noted && <span className="diff-demo-note-chip">✓ sent to claude</span>}
       </span>
     </div>
   );
@@ -198,9 +239,9 @@ function NotesIsland({ count, flash }: { count: number; flash?: boolean }) {
  * a changed line, and the island that hands the notes to the agent.
  * `pNote` types the note, `pSend` sends it, `pFix` is the agent's follow-up. */
 function NotedDiffPane({ pNote, pSend, pFix }: { pNote: number; pSend: number; pFix: number }) {
-  const typed = Math.round(clamp01((pNote - 0.25) / 0.6) * NOTE_TEXT.length);
-  const composing = pNote > 0.18 && pSend <= 0.12;
-  const sent = pSend > 0.12;
+  const typed = Math.round(clamp01((pNote - 0.25) / 0.55) * NOTE_TEXT.length);
+  const saved = pNote > 0.92 || pSend > 0.05;
+  const composing = pNote > 0.18 && !saved;
   const flash = pSend > 0.12 && pSend < 0.55;
 
   return (
@@ -248,23 +289,20 @@ function NotedDiffPane({ pNote, pSend, pFix }: { pNote: number; pSend: number; p
           </div>
           {NOTED_LINES.map((line, i) => (
             <div key={i}>
-              <NotedDiffLineRow line={line} noted={line.noteTarget && sent} />
+              <NotedDiffLineRow line={line} />
               {line.noteTarget && composing && (
-                <div className="diff-demo-composer">
-                  <div className="diff-demo-composer-text">
-                    {NOTE_TEXT.slice(0, typed)}
-                    <span className="terminal-cursor" />
-                  </div>
-                  <div className="diff-demo-composer-foot">
-                    <span className="diff-demo-composer-hint">↵ to save</span>
-                    <span className="diff-demo-composer-send">Save note</span>
-                  </div>
-                </div>
+                <MockCommentBox
+                  text={NOTE_TEXT.slice(0, typed)}
+                  placeholder="Note for the agent…"
+                  saveLabel="Add note"
+                  hint="Kept with this worktree until you hand it to the agent."
+                />
               )}
+              {line.noteTarget && saved && <MockCommentCard label="Note · 6" body={NOTE_TEXT} />}
             </div>
           ))}
         </div>
-        {(sent || typed >= NOTE_TEXT.length) && <NotesIsland count={1} flash={flash} />}
+        {saved && <NotesIsland count={1} flash={flash} />}
       </div>
     </div>
   );
@@ -626,30 +664,14 @@ function PrCodePane({ p }: { p: number }) {
             <div key={i}>
               <NotedDiffLineRow line={{ type: 'addition', newNo: i + 1, content }} />
               {i === 6 && composing && (
-                <div className="glass-bevel relative mx-[80px] my-1.5 px-3 py-2.5 bg-terminal-surface border border-bezel rounded-[12px]">
-                  <div className="text-sm text-text-primary min-h-5">
-                    {CODE_NOTE.slice(0, typed)}
-                    <span className="terminal-cursor" />
-                  </div>
-                  <div className="flex items-center gap-3 mt-2">
-                    <span
-                      className={`inline-flex items-center h-6 px-2.5 rounded-[8px] text-[13px] font-medium transition-colors duration-150 ${
-                        typed >= CODE_NOTE.length ? 'bg-accent text-accent-ink' : 'bg-ink/[0.08] text-text-secondary'
-                      }`}
-                    >
-                      Save comment
-                    </span>
-                    <span className="text-[13px] text-text-tertiary">Cancel</span>
-                  </div>
-                  <p className="text-[11px] text-text-tertiary mt-1.5">Saved locally until you submit the review.</p>
-                </div>
+                <MockCommentBox
+                  text={CODE_NOTE.slice(0, typed)}
+                  placeholder="Leave a comment…"
+                  saveLabel="Add comment"
+                  hint="Saved locally until you submit the review."
+                />
               )}
-              {i === 6 && saved && (
-                <div className="glass-bevel relative mx-[80px] my-1.5 px-3 py-2 bg-terminal-surface border border-bezel rounded-[12px]">
-                  <span className="block text-[11px] text-accent mb-0.5">Unsent comment · Line 7</span>
-                  <div className="text-sm text-text-secondary">{CODE_NOTE}</div>
-                </div>
-              )}
+              {i === 6 && saved && <MockCommentCard label="Unsent comment · 7" body={CODE_NOTE} />}
             </div>
           ))}
         </div>
