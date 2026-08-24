@@ -2813,6 +2813,7 @@ html.js .b-h1.is-typing .b-h1-typed {
 .beat-row {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
+  align-items: start;
   gap: 28px;
   width: 100%;
 }
