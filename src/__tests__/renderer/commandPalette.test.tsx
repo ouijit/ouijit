@@ -402,10 +402,10 @@ describe('command palette navigation', () => {
 
   test('leads the Recent group with what has been visited, whatever surface did it', async () => {
     window.api.globalSettings.get = vi.fn(async (key: string) =>
-      key === 'ui:palette-frecency'
+      key === 'ui:palette-visits'
         ? JSON.stringify({
-            [`task:${projectA.path}#7`]: { at: Date.now(), n: 4 },
-            [`project:${projectB.path}`]: { at: Date.now(), n: 3 },
+            [`task:${projectA.path}#7`]: { visitedAtMs: Date.now(), visits: 4 },
+            [`project:${projectB.path}`]: { visitedAtMs: Date.now(), visits: 3 },
           })
         : undefined,
     );
@@ -425,7 +425,7 @@ describe('command palette navigation', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(vi.mocked(addProjectTerminal)).toHaveBeenCalled());
-    expect(vi.mocked(window.api.globalSettings.set).mock.calls.some(([key]) => key === 'ui:palette-frecency')).toBe(
+    expect(vi.mocked(window.api.globalSettings.set).mock.calls.some(([key]) => key === 'ui:palette-visits')).toBe(
       false,
     );
   });

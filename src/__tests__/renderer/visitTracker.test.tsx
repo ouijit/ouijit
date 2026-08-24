@@ -31,7 +31,7 @@ let stop: () => void;
 
 /** Every visit the tracker has persisted, in order. */
 function written(): string[] {
-  const calls = vi.mocked(window.api.globalSettings.set).mock.calls.filter(([k]) => k === 'ui:palette-frecency');
+  const calls = vi.mocked(window.api.globalSettings.set).mock.calls.filter(([k]) => k === 'ui:palette-visits');
   const last = calls[calls.length - 1];
   return last ? Object.keys(JSON.parse(last[1] as string)) : [];
 }
@@ -111,7 +111,7 @@ describe('visitTracker', () => {
     await settle();
     useTerminalStore.setState({ displayStates: { ...useTerminalStore.getState().displayStates } });
     await settle();
-    const calls = vi.mocked(window.api.globalSettings.set).mock.calls.filter(([k]) => k === 'ui:palette-frecency');
-    expect(JSON.parse(calls[calls.length - 1][1] as string)[`project:${projectA.path}`].n).toBe(1);
+    const calls = vi.mocked(window.api.globalSettings.set).mock.calls.filter(([k]) => k === 'ui:palette-visits');
+    expect(JSON.parse(calls[calls.length - 1][1] as string)[`project:${projectA.path}`].visits).toBe(1);
   });
 });

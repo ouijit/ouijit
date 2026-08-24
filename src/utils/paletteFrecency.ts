@@ -8,7 +8,9 @@
  * pruned once the session is gone.
  */
 
-const SETTINGS_KEY = 'ui:palette-frecency';
+// Its own key, not the one the click-counting version wrote: those entries
+// count a different thing, and this is the only reader of either.
+const SETTINGS_KEY = 'ui:palette-visits';
 
 /** Recency halves every three days. */
 const HALF_LIFE_MS = 3 * 24 * 60 * 60 * 1000;
@@ -23,10 +25,8 @@ const RECENCY_SHARE = 0.7;
 const MAX_ENTRIES = 200;
 
 export interface FrecencyEntry {
-  /** Epoch ms of the most recent visit. */
-  at: number;
-  /** Total visits. */
-  n: number;
+  visitedAtMs: number;
+  visits: number;
 }
 
 export type FrecencyMap = Record<string, FrecencyEntry>;
@@ -79,38 +79,29 @@ export function pullFrecencyKey(
 /** 0..MAX_BOOST, added to a row's match score. */
 export function frecencyBoost(entry: FrecencyEntry | undefined, now: number): number {
   if (!entry) return 0;
-  const age = Math.max(0, now - entry.at);
+  const age = Math.max(0, now - entry.visitedAtMs);
   const recency = Math.pow(0.5, age / HALF_LIFE_MS);
-  const frequency = Math.min(1, Math.log2(1 + entry.n) / COUNT_SATURATION);
+  const frequency = Math.min(1, Math.log2(1 + entry.visits) / COUNT_SATURATION);
   return MAX_BOOST * (RECENCY_SHARE * recency + (1 - RECENCY_SHARE) * frequency);
 }
 
-/** Record a visit, returning the next map. Pure — the caller persists it. */
+/** Pure — `recordVisit` is what persists. */
 export function recordUse(map: FrecencyMap, key: string, now: number): FrecencyMap {
   const previous = map[key];
-  const next: FrecencyMap = { ...map, [key]: { at: now, n: (previous?.n ?? 0) + 1 } };
+  const next: FrecencyMap = { ...map, [key]: { visitedAtMs: now, visits: (previous?.visits ?? 0) + 1 } };
   const keys = Object.keys(next);
   if (keys.length <= MAX_ENTRIES) return next;
   // Drop the least recently used. Dead ptyIds accumulate here otherwise.
-  keys.sort((a, b) => next[b].at - next[a].at);
+  keys.sort((a, b) => next[b].visitedAtMs - next[a].visitedAtMs);
   const pruned: FrecencyMap = {};
   for (const k of keys.slice(0, MAX_ENTRIES)) pruned[k] = next[k];
   return pruned;
 }
 
-/** Reads the persisted map; an unreadable or malformed value is simply empty. */
 async function loadFrecency(): Promise<FrecencyMap> {
   try {
     const raw = await window.api.globalSettings.get(SETTINGS_KEY);
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    const map: FrecencyMap = {};
-    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-      const entry = value as Partial<FrecencyEntry>;
-      if (typeof entry?.at === 'number' && typeof entry?.n === 'number') map[key] = { at: entry.at, n: entry.n };
-    }
-    return map;
+    return raw ? (JSON.parse(raw) as FrecencyMap) : {};
   } catch {
     return {};
   }
@@ -135,8 +126,7 @@ export function frecencyMap(): Promise<FrecencyMap> {
   return cached;
 }
 
-/** Drops the cache so the next read hits the setting. For tests. */
-export function resetFrecency(): void {
+export function resetFrecencyForTests(): void {
   if (flushTimer) clearTimeout(flushTimer);
   flushTimer = null;
   cached = null;

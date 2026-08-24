@@ -66,9 +66,9 @@ describe('palette field scoring', () => {
 describe('palette frecency', () => {
   test('recency and repetition both count, and the boost stays under one tier', () => {
     const now = 10 * DAY;
-    const justNow = frecencyBoost({ at: now - HOUR, n: 1 }, now);
-    const lastWeek = frecencyBoost({ at: now - 7 * DAY, n: 1 }, now);
-    const habitual = frecencyBoost({ at: now - 7 * DAY, n: 20 }, now);
+    const justNow = frecencyBoost({ visitedAtMs: now - HOUR, visits: 1 }, now);
+    const lastWeek = frecencyBoost({ visitedAtMs: now - 7 * DAY, visits: 1 }, now);
+    const habitual = frecencyBoost({ visitedAtMs: now - 7 * DAY, visits: 20 }, now);
 
     expect(justNow).toBeGreaterThan(lastWeek);
     expect(habitual).toBeGreaterThan(lastWeek);
@@ -76,12 +76,12 @@ describe('palette frecency', () => {
 
     // TIER_STEP is 10: frecency reorders comparable matches, it never lifts a
     // weak match above a literal one.
-    expect(frecencyBoost({ at: now, n: 1000 }, now)).toBeLessThan(10);
+    expect(frecencyBoost({ visitedAtMs: now, visits: 1000 }, now)).toBeLessThan(10);
   });
 
-  test('a repeat jump accumulates rather than resetting', () => {
+  test('a repeat visit accumulates rather than resetting', () => {
     const first = recordUse({}, 'task:/p#1', 1000);
     const second = recordUse(first, 'task:/p#1', 2000);
-    expect(second['task:/p#1']).toEqual({ at: 2000, n: 2 });
+    expect(second['task:/p#1']).toEqual({ visitedAtMs: 2000, visits: 2 });
   });
 });
