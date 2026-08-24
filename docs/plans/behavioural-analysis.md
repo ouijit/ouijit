@@ -63,43 +63,46 @@ git log <range> --no-merges --numstat --date=unix \
 - **Coupling cap.** Commits touching more than 50 files are counted for
   frequency but excluded from coupling — bulk renames and format-everything
   commits would otherwise couple the whole repo (standard crime-scene
-  practice). Only pairs with ≥ 3 shared commits are persisted.
+  practice). Only pairs with ≥ 3 shared commits are kept.
 - **Complexity pass.** After the log pass, read the working tree for the top
   ~200 files by frequency (batch of 16, like the untracked-file reads at
   `src/git.ts:984`) and compute LOC + indentation complexity. Everything else
   gets frequency-only scores.
-- **Incremental refresh.** `analysis_state` stores the last analyzed SHA.
-  A refresh scans `last..HEAD` and folds the new commits in. If `last` is no
-  longer reachable (rebase, force-push, history rewrite), fall back to a full
-  rescan. The cheap gate — `rev-parse` on the merge target vs stored SHA — is
-  what the periodic poll actually runs; the log pass only fires when the SHA
-  moved.
+- **Incremental refresh.** The cache keeps the last analyzed SHA. A refresh
+  scans `last..HEAD` and folds the new commits in. If `last` is no longer
+  reachable (rebase, force-push, history rewrite), fall back to a full rescan.
+  The cheap gate — `rev-parse` on the merge target vs cached SHA — is what the
+  periodic poll actually runs; the log pass only fires when the SHA moved.
 
-Identity is author email; display name stored alongside.
+Identity is author email; display name kept alongside.
 
-## Storage
+## Caching, not storage
 
-Migration `015-behavioural-analysis.ts`, following the shape of
-`014-github-diff-and-notes.ts`. All tables keyed on `project_path REFERENCES
-projects(path) ON DELETE CASCADE` — analysis belongs to the project repo, and
-worktrees share it because diff paths are repo-relative.
+Nothing is persisted. The result is a pure derivation of git history — a
+cache, not a source of truth — and rebuilding it is one git spawn: this
+repo's full 12-month window is 513 commits, 3,774 numstat rows, 730 unique
+paths, ~145KB of log output, well under a second end to end. Persisting it
+would cost a migration, repos, seed updates, and staleness-vs-repo edge cases
+to buy back a sub-second scan per project per app launch.
+
+So the model lives in the main process, one entry per project path:
 
 ```
-analysis_state    (project_path PK, ref, last_sha, analyzed_at, commit_count)
-analysis_file     (project_path, path, commits, added, deleted,
-                   first_at, last_at, loc, indent_total, indent_max,
-                   PK (project_path, path))
-analysis_author   (project_path, path, author_email, author_name,
-                   commits, added,  PK (project_path, path, author_email))
-analysis_coupling (project_path, path_a, path_b, shared,
-                   PK (project_path, path_a, path_b))   -- path_a < path_b
+ProjectAnalysis {
+  ref, lastSha, analyzedAt, commitCount
+  files:     Map<path, { commits, added, deleted, firstAt, lastAt,
+                         loc?, indentTotal?, indentMax? }>
+  authors:   Map<path, Map<email, { name, commits, added }>>
+  couplings: Map<pairKey, shared>        // only pairs ≥ 3 shared commits
+}
 ```
 
-Repos in `src/db/repos/analysisRepo.ts` (better-sqlite3, synchronous, one
-class), async wrappers in `src/db/index.ts`. A rescan replaces a project's
-rows in one transaction. Per the project rules: update `seedData.json` and
-`scripts/dev-db.mjs` with the schema change and run `db:seed`; no tests under
-`src/db/migrations`.
+Held in `src/analysis/service.ts` with the memo + in-flight-dedupe shape of
+`getMainBranchAsync` (`src/git.ts:301-329`): computed lazily on the first
+signals request, refreshed incrementally behind the SHA gate, dropped when
+the project is removed. A restart just rescans. If a pathological monorepo
+ever makes the scan hurt, persistence can be added behind the same IPC
+surface — nothing above it would change.
 
 ## Analysis engine
 
@@ -179,7 +182,7 @@ The PR view composes the same diff primitives, so the header chip and rail dot
 come for free once `FilesSection` and `PullRequestRail` pass the same slots
 (`FilesSection.tsx:122`, `PullRequestRail.tsx:29`). PR file paths are
 repo-relative and diffed from local refs (`prDiff.ts`), so they hit the same
-analysis tables.
+analysis cache.
 
 PR-specific additions:
 
@@ -198,7 +201,7 @@ Per the house style: few comprehensive tests, real boundaries.
 - Unit: the log parser (rename forms, binary numstat, `%x01` framing),
   `accumulate` (coupling caps, rename carry-forward), `score` (ranks, tiers).
 - Integration (`src/__tests__/integration/`, temp-repo pattern from
-  `diffAgainstBase.test.ts`): scripted commits → full scan → table contents;
+  `diffAgainstBase.test.ts`): scripted commits → full scan → expected model;
   one more commit → incremental fold matches a fresh full scan; rebase →
   full-rescan fallback.
 - Renderer: chip + missing-partner rendering through the existing
@@ -206,8 +209,8 @@ Per the house style: few comprehensive tests, real boundaries.
 
 ## Phases
 
-1. **Engine + storage** — `src/analysis/`, migration 015, repos, IPC,
-   store, experimental flag. Ship dark. (The bulk of the work.)
+1. **Engine** — `src/analysis/` with its in-memory cache, IPC, store,
+   experimental flag. Ship dark. (The bulk of the work.)
 2. **Diff panel** — header chips, rail dots, missing-partner hint.
 3. **PR viewer** — slots wired, Risk section in the summary.
 4. **Analysis panel** — a project-level view (`analysis:overview`): ranked
