@@ -80,20 +80,17 @@ describe('visitTracker', () => {
     expect(written()).toEqual([`project:${projectA.path}`]);
   });
 
-  test('a foregrounded shell is a visit to the task that owns it', async () => {
-    useProjectStore.setState({ kanbanVisible: false });
-    useTerminalStore.setState({ activeIndices: { [projectA.path]: 1 } });
-    await settle();
-    // Keyed on the task, not the pty: the shell will not outlive the worktree,
-    // but what this says about the task should.
-    expect(written()).toEqual([`task:${projectA.path}#7`]);
-  });
-
-  test('a shell no task claims is a visit to the shell itself', async () => {
+  test('a foregrounded shell is a visit to the task that owns it, or to the shell if none does', async () => {
     useProjectStore.setState({ kanbanVisible: false });
     useTerminalStore.setState({ activeIndices: { [projectA.path]: 0 } });
     await settle();
     expect(written()).toEqual(['terminal:alpha-1']);
+
+    useTerminalStore.setState({ activeIndices: { [projectA.path]: 1 } });
+    await settle();
+    // Keyed on the task, not the pty: the shell will not outlive the worktree,
+    // but what this says about the task should.
+    expect(written()).toEqual(['terminal:alpha-1', `task:${projectA.path}#7`]);
   });
 
   test('a pull request open in the panel is a visit to the task holding it', async () => {

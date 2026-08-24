@@ -23,9 +23,9 @@ const RECENCY_SHARE = 0.7;
 const MAX_ENTRIES = 200;
 
 export interface FrecencyEntry {
-  /** Epoch ms of the most recent jump. */
+  /** Epoch ms of the most recent visit. */
   at: number;
-  /** Total jumps. */
+  /** Total visits. */
   n: number;
 }
 

@@ -31,7 +31,6 @@ type View =
   | { kind: 'project'; projectPath: string }
   | null;
 
-/** What the user is looking at. */
 function currentView(): View {
   const { activeView, activeProjectPath } = useAppStore.getState();
   if (activeView === 'home') {

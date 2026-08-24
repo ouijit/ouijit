@@ -108,31 +108,24 @@ describe('openTaskShell', () => {
     expect(useUIStore.getState().missingWorktreeQueue).toEqual([]);
   });
 
-  test('declining recovery opens nothing and says nothing more', async () => {
-    window.api.task.checkWorktree = vi.fn().mockResolvedValue({ exists: false, branchExists: true });
-
-    const answered = answerPrompt(null);
-    const opened = openTaskShell(PROJECT, started, { mode: 'shell' });
-    await answered;
-
-    expect(await opened).toBe(false);
-    expect(addProjectTerminal).not.toHaveBeenCalled();
-    expect(window.api.task.recover).not.toHaveBeenCalled();
-    expect(useProjectStore.getState().toasts).toEqual([]);
-    expect(useUIStore.getState().missingWorktreeQueue).toEqual([]);
-  });
-
-  test('two tasks missing their worktrees are prompted one at a time, and both settle', async () => {
+  test('declining opens nothing and says nothing more, once per task and never in parallel', async () => {
     window.api.task.checkWorktree = vi.fn().mockResolvedValue({ exists: false, branchExists: true });
 
     const both = Promise.all([
       openTaskShell(PROJECT, started, { mode: 'shell' }),
       openTaskShell(PROJECT, { ...started, taskNumber: 5 } as TaskWithWorkspace, { mode: 'shell' }),
     ]);
+    // Both wait their turn: a second request that evicted the first would leave
+    // the first's `ensureWorktree` hanging, and the `Promise.all` with it.
+    await vi.waitFor(() => expect(useUIStore.getState().missingWorktreeQueue).toHaveLength(2));
     await answerPrompt(null);
     await answerPrompt(null);
 
     expect(await both).toEqual([false, false]);
+    expect(addProjectTerminal).not.toHaveBeenCalled();
+    expect(window.api.task.recover).not.toHaveBeenCalled();
+    // The dialog already said why; a toast on top would say it twice.
+    expect(useProjectStore.getState().toasts).toEqual([]);
     expect(useUIStore.getState().missingWorktreeQueue).toEqual([]);
   });
 
@@ -156,20 +149,18 @@ describe('openTaskShell', () => {
     );
   });
 
-  test('a worktree check that throws toasts and opens nothing', async () => {
+  test('a gate that fails toasts and opens nothing, whether it rejects or reports', async () => {
     window.api.task.checkWorktree = vi.fn().mockRejectedValue(new Error('database is locked'));
-
-    expect(await openTaskShell(PROJECT, started, { mode: 'shell' })).toBe(false);
-    expect(addProjectTerminal).not.toHaveBeenCalled();
-    expect(useUIStore.getState().missingWorktreeQueue).toEqual([]);
-    expect(useProjectStore.getState().toasts[0]?.message).toBe('Failed to check worktree');
-  });
-
-  test('a failed start toasts and opens nothing', async () => {
     window.api.task.start = vi.fn().mockResolvedValue({ success: false, error: 'branch exists' });
 
+    expect(await openTaskShell(PROJECT, started, { mode: 'shell' })).toBe(false);
     expect(await openTaskShell(PROJECT, neverStarted, { mode: 'shell' })).toBe(false);
+
     expect(addProjectTerminal).not.toHaveBeenCalled();
-    expect(useProjectStore.getState().toasts[0]?.message).toBe('branch exists');
+    expect(useUIStore.getState().missingWorktreeQueue).toEqual([]);
+    expect(useProjectStore.getState().toasts.map((t) => t.message)).toEqual([
+      'Failed to check worktree',
+      'branch exists',
+    ]);
   });
 });

@@ -181,9 +181,7 @@ export async function openTaskShell(
 
 /**
  * Lands on the first task that actually opened; shells for the rest appear when
- * the user switches to their projects. Navigating on a spawn that never happened
- * would land on an empty terminals panel, which is the state the project view's
- * force-show of the kanban exists to avoid.
+ * the user switches to their projects.
  */
 export async function openTasks(tasks: { project: Project; task: TaskWithWorkspace }[]): Promise<void> {
   const opened = await Promise.all(
