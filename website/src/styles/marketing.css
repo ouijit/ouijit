@@ -236,6 +236,39 @@ img {
   }
 }
 
+/* Left-aligned hero (concept C): the whole page below it ranges left on the
+   nav's column, so the hero does too. */
+.hero--left {
+  text-align: left;
+  padding: 96px var(--content-padding) 72px;
+}
+
+.hero--left h1 {
+  background: none;
+  color: var(--color-text-primary);
+  font-size: clamp(2.2rem, 4.2vw, 3rem);
+  margin-bottom: 22px;
+}
+
+.hero--left .hero-dim {
+  display: block;
+  color: rgba(245, 245, 247, 0.45);
+}
+
+.hero--left .hero-subtitle {
+  margin: 0 0 40px;
+  max-width: 46ch;
+  font-size: 1.1875rem;
+}
+
+.hero--left .download-buttons {
+  justify-content: flex-start;
+}
+
+.hero--left .hero-fine-print {
+  text-align: left;
+}
+
 .mobile-cta {
   display: none;
 }
