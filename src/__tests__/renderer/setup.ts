@@ -113,7 +113,8 @@ const mockApi = {
     setName: vi.fn().mockResolvedValue({ success: true }),
     setDescription: vi.fn().mockResolvedValue({ success: true }),
     reorder: vi.fn().mockResolvedValue({ success: true }),
-    checkWorktree: vi.fn().mockResolvedValue({ exists: true }),
+    // A test that spawns into the path this returns should mock it itself.
+    checkWorktree: vi.fn().mockResolvedValue({ status: 'present', worktreePath: '/stub/worktree' }),
     recover: vi.fn().mockResolvedValue({ success: true }),
   },
   hooks: {

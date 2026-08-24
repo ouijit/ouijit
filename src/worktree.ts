@@ -827,10 +827,16 @@ export async function listWorktrees(projectPath: string): Promise<WorktreeInfo[]
   }
 }
 
-export interface CheckWorktreeResult {
-  exists: boolean;
-  branchExists: boolean;
-}
+/**
+ * The branch check costs a `git` process and only the recovery prompt reads
+ * the answer, so it rides on the missing case, where that prompt is raised.
+ *
+ * Discriminated on a string, not a boolean: `strictNullChecks` is off, and
+ * without it TypeScript does not narrow a union by a boolean literal.
+ */
+export type CheckWorktreeResult =
+  | { status: 'present'; worktreePath: string }
+  | { status: 'missing'; branchExists: boolean };
 
 /**
  * Check if a task's worktree directory and branch still exist
@@ -839,24 +845,27 @@ export async function checkTaskWorktree(projectPath: string, taskNumber: number)
   const task = await getTaskByNumber(projectPath, taskNumber);
   if (!task || !task.worktreePath) {
     worktreeLog.info('check: no task or no worktreePath', { taskNumber });
-    return { exists: false, branchExists: false };
+    return { status: 'missing', branchExists: false };
   }
 
-  const [exists, branchExists] = await Promise.all([
-    fs.access(task.worktreePath).then(
-      () => true,
-      () => false,
-    ),
-    task.branch
-      ? execAsync(`git rev-parse --verify refs/heads/${shellEscape(task.branch)}`, { cwd: projectPath }).then(
-          () => true,
-          () => false,
-        )
-      : Promise.resolve(false),
-  ]);
+  const exists = await fs.access(task.worktreePath).then(
+    () => true,
+    () => false,
+  );
+  if (exists) {
+    worktreeLog.info('check', { taskNumber, status: 'present', path: task.worktreePath });
+    return { status: 'present', worktreePath: task.worktreePath };
+  }
 
-  worktreeLog.info('check', { taskNumber, exists, branchExists, path: task.worktreePath });
-  return { exists, branchExists };
+  const branchExists = task.branch
+    ? await execAsync(`git rev-parse --verify refs/heads/${shellEscape(task.branch)}`, { cwd: projectPath }).then(
+        () => true,
+        () => false,
+      )
+    : false;
+
+  worktreeLog.info('check', { taskNumber, status: 'missing', branchExists, path: task.worktreePath });
+  return { status: 'missing', branchExists };
 }
 
 /**

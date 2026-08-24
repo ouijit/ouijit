@@ -58,7 +58,7 @@ beforeEach(() => {
   vi.mocked(addProjectTerminal).mockResolvedValue(true);
   useUIStore.setState({ missingWorktreeQueue: [] });
   useProjectStore.setState({ toasts: [] });
-  window.api.task.checkWorktree = vi.fn().mockResolvedValue({ exists: true, branchExists: true });
+  window.api.task.checkWorktree = vi.fn().mockResolvedValue({ status: 'present', worktreePath: '/work/alpha-4' });
   window.api.task.recover = vi.fn();
   window.api.task.start = vi.fn();
   window.api.task.getAll = vi.fn().mockResolvedValue([]);
@@ -87,7 +87,7 @@ describe('openTaskShell', () => {
   });
 
   test('recovers a worktree that is gone from disk, and spawns into the new path', async () => {
-    window.api.task.checkWorktree = vi.fn().mockResolvedValue({ exists: false, branchExists: true });
+    window.api.task.checkWorktree = vi.fn().mockResolvedValue({ status: 'missing', branchExists: true });
     window.api.task.recover = vi.fn().mockResolvedValue({
       success: true,
       worktreePath: '/work/alpha-4-new',
@@ -109,7 +109,7 @@ describe('openTaskShell', () => {
   });
 
   test('declining opens nothing and says nothing more, once per task and never in parallel', async () => {
-    window.api.task.checkWorktree = vi.fn().mockResolvedValue({ exists: false, branchExists: true });
+    window.api.task.checkWorktree = vi.fn().mockResolvedValue({ status: 'missing', branchExists: true });
 
     const both = Promise.all([
       openTaskShell(PROJECT, started, { mode: 'shell' }),

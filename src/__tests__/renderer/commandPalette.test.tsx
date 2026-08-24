@@ -111,6 +111,14 @@ beforeEach(() => {
   window.api.task.getAll = vi.fn(async (path: string) => TASKS[path] ?? []);
   window.api.globalSettings.set = vi.fn().mockResolvedValue({ success: true });
   window.api.globalSettings.get = vi.fn().mockResolvedValue(undefined);
+  // Answers from the same fixture the palette lists, so a task opens into the
+  // worktree its row describes.
+  window.api.task.checkWorktree = vi.fn(async (path: string, taskNumber: number) => {
+    const worktreePath = (TASKS[path] ?? []).find((t) => t.taskNumber === taskNumber)?.worktreePath;
+    return worktreePath
+      ? ({ status: 'present', worktreePath } as const)
+      : ({ status: 'missing', branchExists: false } as const);
+  });
   vi.mocked(addProjectTerminal).mockResolvedValue(true);
   vi.mocked(reconnectOrphanedSessions).mockResolvedValue(undefined);
   seed();

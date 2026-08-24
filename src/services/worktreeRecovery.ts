@@ -9,7 +9,7 @@
  */
 
 import log from 'electron-log/renderer';
-import type { CheckWorktreeResult, TaskWithWorkspace } from '../types';
+import type { TaskWithWorkspace } from '../types';
 import { useProjectStore } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
 
@@ -26,15 +26,13 @@ export interface EnsuredWorktree {
  * nothing to open and should not report an error of its own.
  */
 export async function ensureWorktree(projectPath: string, task: TaskWithWorkspace): Promise<EnsuredWorktree | null> {
-  let check: CheckWorktreeResult;
-  try {
-    check = await window.api.task.checkWorktree(projectPath, task.taskNumber);
-  } catch (err) {
+  const check = await window.api.task.checkWorktree(projectPath, task.taskNumber).catch((err: unknown): null => {
     recoveryLog.error('worktree check failed', { taskNumber: task.taskNumber, error: String(err) });
     useProjectStore.getState().addToast('Failed to check worktree', 'error');
     return null;
-  }
-  if (check.exists && task.worktreePath) return { path: task.worktreePath, branch: task.branch ?? '' };
+  });
+  if (!check) return null;
+  if (check.status === 'present') return { path: check.worktreePath, branch: task.branch ?? '' };
 
   recoveryLog.warn('worktree missing', { taskNumber: task.taskNumber, branchExists: check.branchExists });
 

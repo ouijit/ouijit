@@ -1,19 +1,17 @@
 import { create } from 'zustand';
 import type { TaskWithWorkspace } from '../types';
+import { queuePrompt, settlePrompt, type Pending } from './promptQueue';
 
 export type HomeGroupMode = 'project' | 'tag';
 
 export type MissingWorktreeAction = 'recover' | null;
 
-/** A pending "this worktree is gone" prompt. `resolve` settles the waiting `ensureWorktree`. */
-export interface MissingWorktreeRequest {
-  id: number;
+export interface MissingWorktreeInput {
   task: TaskWithWorkspace;
   branchExists: boolean;
-  resolve: (action: MissingWorktreeAction) => void;
 }
 
-let missingWorktreeCounter = 0;
+export type MissingWorktreeRequest = MissingWorktreeInput & Pending<MissingWorktreeAction>;
 
 interface UIStoreState {
   sidebarVisible: boolean;
@@ -34,11 +32,7 @@ interface UIStoreState {
   homeActivePtyId: string | null;
   /** Command palette (mod+K) visibility. Session-only. */
   paletteOpen: boolean;
-  /**
-   * Opening several tasks at once can find more than one worktree missing, so
-   * these queue and are answered one at a time rather than the newest evicting
-   * the prior one — whose awaiting `ensureWorktree` would never settle.
-   */
+  /** Opening several tasks at once can find more than one worktree missing. */
   missingWorktreeQueue: MissingWorktreeRequest[];
 }
 
@@ -54,7 +48,7 @@ interface UIStoreActions {
   setHomeActivePtyId: (ptyId: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
   togglePalette: () => void;
-  requestMissingWorktree: (req: Omit<MissingWorktreeRequest, 'id' | 'resolve'>) => Promise<MissingWorktreeAction>;
+  requestMissingWorktree: (req: MissingWorktreeInput) => Promise<MissingWorktreeAction>;
   resolveMissingWorktree: (id: number, action: MissingWorktreeAction) => void;
 }
 
@@ -100,15 +94,12 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
 
   requestMissingWorktree: (req) =>
-    new Promise<MissingWorktreeAction>((resolve) => {
-      const id = ++missingWorktreeCounter;
-      set((s) => ({ missingWorktreeQueue: [...s.missingWorktreeQueue, { ...req, id, resolve }] }));
-    }),
+    queuePrompt<MissingWorktreeInput, MissingWorktreeAction>(req, (entry) =>
+      set((s) => ({ missingWorktreeQueue: [...s.missingWorktreeQueue, entry] })),
+    ),
 
   resolveMissingWorktree: (id, action) => {
-    const target = get().missingWorktreeQueue.find((r) => r.id === id);
-    if (!target) return;
-    set((s) => ({ missingWorktreeQueue: s.missingWorktreeQueue.filter((r) => r.id !== id) }));
-    target.resolve(action);
+    const next = settlePrompt(get().missingWorktreeQueue, id, action);
+    if (next) set({ missingWorktreeQueue: next });
   },
 }));
