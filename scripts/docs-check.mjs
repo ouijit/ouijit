@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Checks that the README's and the website docs' mechanical claims still match
- * the code, so drift fails CI instead of waiting for someone to notice:
+ * Checks that the mechanical claims in the README, the website docs and the
+ * reference agents are given still match the code, so drift fails CI instead
+ * of waiting for someone to notice:
  *
  *   1. Every local image the README and the docs pages reference exists on
  *      disk.
@@ -12,9 +13,8 @@
  *   4. Every `ouijit` invocation in README, docs-page code fences and the
  *      agent CLI reference (src/hookServer.ts) is a real CLI command.
  *   5. Every CLI command is mentioned in the docs pages and in the agent
- *      reference, so a new command cannot ship undocumented or unusable by
- *      an agent — a command an agent is never told about is one it will not
- *      use.
+ *      reference, so a new command cannot ship undocumented; an agent will
+ *      not use a command it was never told about.
  *
  * Usage: node scripts/docs-check.mjs   (requires dist-cli to be built)
  */
