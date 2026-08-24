@@ -1633,13 +1633,22 @@ body.marketing .float-nav-buy:hover {
   transition: color 700ms ease;
 }
 
-/* One card at a time carries the iris tier: its field crossfades in over the
-   graphite, and the copy flips to on-spectrum ink. The page script walks it
-   across the grid; the cursor steals it. */
+/* One card at a time carries a spectrum tier: its field crossfades in over
+   the graphite, and the copy flips to on-spectrum ink. The page script walks
+   it across the grid; the cursor steals it. Cards alternate between the two
+   arcs, so the walk swings warm and cool instead of repeating one. */
 .desk-wash-field.bento-lit-field {
-  background-image: linear-gradient(var(--wash-angle, 160deg), var(--wash-iris));
+  background-image: linear-gradient(var(--wash-angle, 160deg), var(--lit-wash, var(--wash-iris)));
   opacity: 0;
   transition: opacity 700ms ease;
+}
+
+.bento .detail:nth-child(odd) {
+  --lit-wash: var(--wash-prism);
+}
+
+.bento .detail:nth-child(even) {
+  --lit-wash: var(--wash-iris);
 }
 
 .bento .detail.is-lit .bento-lit-field {
