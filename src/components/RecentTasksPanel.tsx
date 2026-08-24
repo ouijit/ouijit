@@ -8,7 +8,6 @@
 import { useEffect, useState } from 'react';
 import { useAppStore, type HomeRecentTask } from '../stores/appStore';
 import { openTasks } from './navigation';
-import { taskKey } from '../utils/paletteFrecency';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { formatRelativeTime } from '../utils/formatDate';
 import type { Project } from '../types';
@@ -21,7 +20,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 type RecentTask = HomeRecentTask;
 
-const selectionKey = (task: RecentTask): string => taskKey(task.project.path, task.taskNumber);
+const selectionKey = (task: RecentTask): string => `${task.project.path}#${task.taskNumber}`;
 
 interface RecentTasksPanelProps {
   projects: Project[];

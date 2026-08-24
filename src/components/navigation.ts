@@ -169,24 +169,24 @@ export async function openTaskShell(
     worktree = { path: result.worktreePath, branch: result.task?.branch || '', createdAt: task.createdAt };
   }
 
-  const added = await addProjectTerminal(projectPath, undefined, {
+  return addProjectTerminal(projectPath, undefined, {
     existingWorktree: worktree,
     taskId: task.taskNumber,
     skipAutoHook,
     sandboxProvider: options.sandboxProvider,
     replaceLoadingId: options.replaceLoadingId,
   });
-  return added;
 }
 
 /**
  * Lands on the first task that actually opened; shells for the rest appear when
  * the user switches to their projects.
  */
-export async function openTasks(tasks: { project: Project; task: TaskWithWorkspace }[]): Promise<void> {
-  const opened = await Promise.all(
-    tasks.map(({ project, task }) => openTaskShell(project.path, task, { mode: 'resume' })),
-  );
+export async function openTasks(
+  tasks: { project: Project; task: TaskWithWorkspace }[],
+  mode: OpenTaskShellOptions['mode'] = 'resume',
+): Promise<void> {
+  const opened = await Promise.all(tasks.map(({ project, task }) => openTaskShell(project.path, task, { mode })));
   const landing = tasks[opened.indexOf(true)];
   if (!landing) return;
   await showProjectTerminals(landing.project.path, landing.project);
@@ -271,8 +271,7 @@ export async function activateTask(project: Project, task: TaskWithWorkspace, kn
     return;
   }
   if (task.worktreePath && task.branch) {
-    const added = await openTaskShell(project.path, task, { mode: 'shell' });
-    if (added) await showProjectTerminals(project.path, project);
+    await openTasks([{ project, task }], 'shell');
     return;
   }
   await startTaskWorktree(project, task);

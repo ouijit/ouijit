@@ -8,8 +8,6 @@
  * pruned once the session is gone.
  */
 
-// Its own key, not the one the click-counting version wrote: those entries
-// count a different thing, and this is the only reader of either.
 const SETTINGS_KEY = 'ui:palette-visits';
 
 /** Recency halves every three days. */
@@ -56,24 +54,6 @@ export function pullTaskNumber(
   taskCacheByProject: Record<string, readonly { taskNumber: number; githubPrNumber?: number | null }[] | undefined>,
 ): number | null {
   return (taskCacheByProject[projectPath] ?? []).find((t) => t.githubPrNumber === prNumber)?.taskNumber ?? null;
-}
-
-export function terminalFrecencyKey(
-  ptyId: string,
-  terminal: { projectPath: string; taskId?: number | null },
-  taskCacheByProject: Record<string, readonly { taskNumber: number }[] | undefined>,
-): string {
-  const taskNumber = terminalTaskNumber(terminal, taskCacheByProject);
-  return taskNumber == null ? terminalKey(ptyId) : taskKey(terminal.projectPath, taskNumber);
-}
-
-export function pullFrecencyKey(
-  projectPath: string,
-  prNumber: number,
-  taskCacheByProject: Record<string, readonly { taskNumber: number; githubPrNumber?: number | null }[] | undefined>,
-): string {
-  const taskNumber = pullTaskNumber(projectPath, prNumber, taskCacheByProject);
-  return taskNumber == null ? pullKey(projectPath, prNumber) : taskKey(projectPath, taskNumber);
 }
 
 /** 0..MAX_BOOST, added to a row's match score. */

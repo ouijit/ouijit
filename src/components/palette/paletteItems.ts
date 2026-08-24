@@ -23,14 +23,7 @@ import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 import { activateTask, focusTerminal, selectProject, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
-import {
-  projectKey,
-  pullKey,
-  pullTaskNumber,
-  taskKey,
-  terminalKey,
-  terminalTaskNumber,
-} from '../../utils/paletteFrecency';
+import { projectKey, pullKey, taskKey, terminalKey, terminalTaskNumber } from '../../utils/paletteFrecency';
 
 export type PaletteKind = 'terminal' | 'project' | 'task' | 'pull';
 
@@ -200,7 +193,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   const liveByTask = new Map<string, LiveTerminal[]>();
   for (const terminal of terminals) {
     if (terminal.taskId == null) continue;
-    const key = `${terminal.projectPath}#${terminal.taskId}`;
+    const key = taskKey(terminal.projectPath, terminal.taskId);
     const existing = liveByTask.get(key);
     if (existing) existing.push(terminal);
     else liveByTask.set(key, [terminal]);
@@ -270,11 +263,11 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   taskRows.sort((a, b) => b.task.createdAt.localeCompare(a.task.createdAt));
 
   for (const { task, project } of taskRows) {
-    const live = liveByTask.get(`${project.path}#${task.taskNumber}`) ?? [];
+    const taskId = taskKey(project.path, task.taskNumber);
+    const live = liveByTask.get(taskId) ?? [];
     const first = live[0];
     const openable = task.worktreePath && task.branch;
     const status = STATUS_LABELS[task.status] ?? task.status;
-    const taskId = taskKey(project.path, task.taskNumber);
 
     push({
       id: taskId,
@@ -326,9 +319,12 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   if (input.activeProjectPath && input.pullRequests?.length) {
     const project = projectByPath.get(input.activeProjectPath);
     const projectPath = input.activeProjectPath;
+    const claimedPrNumbers = new Set(
+      (input.taskCacheByProject[projectPath] ?? []).map((t) => t.githubPrNumber).filter((n) => n != null),
+    );
 
     for (const pr of input.pullRequests) {
-      if (pullTaskNumber(projectPath, pr.number, input.taskCacheByProject) != null) continue;
+      if (claimedPrNumbers.has(pr.number)) continue;
       const key = pullKey(projectPath, pr.number);
       push({
         id: key,

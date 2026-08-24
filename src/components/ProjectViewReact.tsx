@@ -196,7 +196,9 @@ export function ProjectView() {
         } else {
           // Stack mode: switch by stack position
           const targetIndex = getTerminalIndexByStackPosition(projectPath, num);
-          if (targetIndex !== -1) useTerminalStore.getState().setActiveIndex(projectPath, targetIndex);
+          if (targetIndex !== -1) {
+            useTerminalStore.getState().setActiveIndex(projectPath, targetIndex);
+          }
         }
         return;
       }

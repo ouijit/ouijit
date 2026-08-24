@@ -10,16 +10,18 @@
 
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
+import { isBoardMounted } from '../stores/composerStore';
 import { getActivePtyId, useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { useGithubStore } from '../stores/githubStore';
 import {
   projectKey,
-  pullFrecencyKey,
   pullKey,
+  pullTaskNumber,
   recordVisit,
-  terminalFrecencyKey,
+  taskKey,
   terminalKey,
+  terminalTaskNumber,
 } from '../utils/paletteFrecency';
 
 /** Passing through a view on the way somewhere else is not a visit. */
@@ -40,8 +42,9 @@ function currentView(): View {
   if (!activeProjectPath) return null;
 
   const project = useProjectStore.getState();
-  // The board covers whichever panel is selected behind it.
-  if (project.kanbanVisible) return { kind: 'project', projectPath: activeProjectPath };
+  if (isBoardMounted(project.activePanel, project.kanbanVisible)) {
+    return { kind: 'project', projectPath: activeProjectPath };
+  }
 
   if (project.activePanel === 'pull-requests') {
     const github = useGithubStore.getState();
@@ -72,37 +75,40 @@ function identity(view: View): string | null {
 function visitKey(view: View): string | null {
   if (!view) return null;
   const { taskCacheByProject } = useAppStore.getState();
-  if (view.kind === 'pull') return pullFrecencyKey(view.projectPath, view.prNumber, taskCacheByProject);
   if (view.kind === 'project') return projectKey(view.projectPath);
+  if (view.kind === 'pull') {
+    const owner = pullTaskNumber(view.projectPath, view.prNumber, taskCacheByProject);
+    return owner == null ? pullKey(view.projectPath, view.prNumber) : taskKey(view.projectPath, owner);
+  }
   const display = useTerminalStore.getState().displayStates[view.ptyId];
-  return display ? terminalFrecencyKey(view.ptyId, display, taskCacheByProject) : null;
-}
-
-let lastIdentity: string | null = null;
-let dwellTimer: ReturnType<typeof setTimeout> | null = null;
-
-function onViewChanged(): void {
-  const next = identity(currentView());
-  if (next === lastIdentity) return;
-  lastIdentity = next;
-  if (dwellTimer) clearTimeout(dwellTimer);
-  dwellTimer = null;
-  if (!next) return;
-  dwellTimer = setTimeout(() => {
-    dwellTimer = null;
-    const key = visitKey(currentView());
-    if (key) recordVisit(key);
-  }, DWELL_MS);
+  if (!display) return null;
+  const owner = terminalTaskNumber(display, taskCacheByProject);
+  return owner == null ? terminalKey(view.ptyId) : taskKey(display.projectPath, owner);
 }
 
 export function installVisitTracker(): () => void {
+  let lastIdentity: string | null = null;
+  let dwellTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const onViewChanged = () => {
+    const next = identity(currentView());
+    if (next === lastIdentity) return;
+    lastIdentity = next;
+    if (dwellTimer) clearTimeout(dwellTimer);
+    dwellTimer = null;
+    if (!next) return;
+    dwellTimer = setTimeout(() => {
+      dwellTimer = null;
+      const key = visitKey(currentView());
+      if (key) recordVisit(key);
+    }, DWELL_MS);
+  };
+
   const stores = [useAppStore, useProjectStore, useTerminalStore, useUIStore, useGithubStore];
   const unsubscribes = stores.map((store) => store.subscribe(onViewChanged));
   onViewChanged();
   return () => {
     unsubscribes.forEach((off) => off());
     if (dwellTimer) clearTimeout(dwellTimer);
-    dwellTimer = null;
-    lastIdentity = null;
   };
 }
