@@ -15,7 +15,7 @@ import type {
   SandboxProviderId,
 } from '../../types';
 import { legacySandboxProvider } from '../../types';
-import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
+import { useTerminalStore, setActiveTerminal, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
@@ -879,12 +879,7 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
   const focusProjects = projectPath ? [projectPath] : [...new Set(mainSessions.map((s) => s.projectPath))];
   for (const pp of focusProjects) {
     const activeEntry = (snapshot?.terminals ?? []).find((t) => t.projectPath === pp && t.isActiveInProject && t.ptyId);
-    const idx = activeEntry ? (store.terminalsByProject[pp] ?? []).indexOf(activeEntry.ptyId as string) : -1;
-    if (idx >= 0) {
-      store.setActiveIndex(pp, idx);
-    } else {
-      store.activateLast(pp);
-    }
+    if (!activeEntry?.ptyId || !setActiveTerminal(pp, activeEntry.ptyId)) store.activateLast(pp);
   }
 
   // Reconnect runners to their parent terminals

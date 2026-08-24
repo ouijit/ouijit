@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 import { CommandPalette } from '../../components/CommandPalette';
 import { usePaletteShortcut } from '../../hooks/usePaletteShortcut';
@@ -110,6 +110,15 @@ beforeEach(() => {
   // has to agree with the seeded cache or it would wipe it.
   window.api.task.getAll = vi.fn(async (path: string) => TASKS[path] ?? []);
   window.api.globalSettings.set = vi.fn().mockResolvedValue({ success: true });
+  window.api.globalSettings.get = vi.fn().mockResolvedValue(undefined);
+  // Answers from the same fixture the palette lists, so a task opens into the
+  // worktree its row describes.
+  window.api.task.checkWorktree = vi.fn(async (path: string, taskNumber: number) => {
+    const worktreePath = (TASKS[path] ?? []).find((t) => t.taskNumber === taskNumber)?.worktreePath;
+    return worktreePath
+      ? ({ status: 'present', worktreePath } as const)
+      : ({ status: 'missing', branchExists: false } as const);
+  });
   vi.mocked(addProjectTerminal).mockResolvedValue(true);
   vi.mocked(reconnectOrphanedSessions).mockResolvedValue(undefined);
   seed();
@@ -399,29 +408,34 @@ describe('command palette navigation', () => {
     expect(useProjectStore.getState().startingTaskNumbers.has(11)).toBe(false);
   });
 
-  test('remembers where you jumped and leads with it next time', async () => {
+  test('leads the Recent group with what has been visited, whatever surface did it', async () => {
+    window.api.globalSettings.get = vi.fn(async (key: string) =>
+      key === 'ui:palette-visits'
+        ? JSON.stringify({
+            [`task:${projectA.path}#7`]: { visitedAtMs: Date.now(), visits: 4 },
+            [`project:${projectB.path}`]: { visitedAtMs: Date.now(), visits: 3 },
+          })
+        : undefined,
+    );
+
+    await openPalette();
+    await waitFor(() => expect(screen.getByText('Recent')).toBeTruthy());
+    const top = rowLabels().slice(0, 3).join(' ');
+    expect(top).toContain('/work/bravo');
+    expect(top).toContain('T-7');
+  });
+
+  test('activating a row does not itself record a visit', async () => {
     await openPalette();
     const input = screen.getByLabelText('Search terminals, projects and tasks');
     fireEvent.change(input, { target: { value: 'Nine' } });
     await waitFor(() => expect(rowLabels()[0]).toContain('Nine'));
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    const write = vi.mocked(window.api.globalSettings.set).mock.calls.find(([key]) => key === 'ui:palette-frecency');
-    expect(write).toBeTruthy();
-    const stored = JSON.parse(write?.[1] as string);
-    // Keyed on the task, not the pty — the shell it just opened will not
-    // outlive the worktree, but what we learned about the task should.
-    expect(Object.keys(stored)).toEqual([`task:${projectA.path}#9`]);
-
-    // Reopen with that history in place: the jump leads the empty-query list.
-    cleanup();
-    window.api.globalSettings.get = vi.fn(async (key: string) =>
-      key === 'ui:palette-frecency' ? JSON.stringify(stored) : undefined,
+    await waitFor(() => expect(vi.mocked(addProjectTerminal)).toHaveBeenCalled());
+    expect(vi.mocked(window.api.globalSettings.set).mock.calls.some(([key]) => key === 'ui:palette-visits')).toBe(
+      false,
     );
-    useUIStore.setState({ paletteOpen: true });
-    await openPalette();
-    await waitFor(() => expect(screen.getByText('Recent')).toBeTruthy());
-    expect(rowLabels()[0]).toContain('Nine');
   });
 
   test('selecting a project loads its tasks, navigates, and persists the view', async () => {

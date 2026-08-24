@@ -23,6 +23,7 @@ import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 import { activateTask, focusTerminal, selectProject, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
+import { projectKey, pullKey, taskKey, terminalKey, terminalTaskNumber } from '../../utils/paletteFrecency';
 
 export type PaletteKind = 'terminal' | 'project' | 'task' | 'pull';
 
@@ -192,7 +193,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   const liveByTask = new Map<string, LiveTerminal[]>();
   for (const terminal of terminals) {
     if (terminal.taskId == null) continue;
-    const key = `${terminal.projectPath}#${terminal.taskId}`;
+    const key = taskKey(terminal.projectPath, terminal.taskId);
     const existing = liveByTask.get(key);
     if (existing) existing.push(terminal);
     else liveByTask.set(key, [terminal]);
@@ -207,14 +208,12 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   // running shell): without this it would vanish entirely.
   for (const terminal of terminals) {
     const project = projectByPath.get(terminal.projectPath);
-    const taskExists =
-      terminal.taskId != null &&
-      (input.taskCacheByProject[terminal.projectPath] ?? []).some((t) => t.taskNumber === terminal.taskId);
-    if (taskExists) continue;
+    if (terminalTaskNumber(terminal, input.taskCacheByProject) != null) continue;
+    const key = terminalKey(terminal.ptyId);
 
     push({
-      id: `terminal:${terminal.ptyId}`,
-      key: `terminal:${terminal.ptyId}`,
+      id: key,
+      key,
       kind: 'terminal',
       title: terminal.label,
       context: project?.name ?? terminal.projectPath,
@@ -237,9 +236,10 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
     // this form too — the match's ranges index the string the row renders, so
     // scoring the full path here would highlight the wrong characters.
     const displayPath = project.path.replace(/^\/Users\/[^/]+/, '~');
+    const key = projectKey(project.path);
     push({
-      id: `project:${project.path}`,
-      key: `project:${project.path}`,
+      id: key,
+      key,
       kind: 'project',
       title: project.name,
       context: displayPath,
@@ -263,11 +263,11 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   taskRows.sort((a, b) => b.task.createdAt.localeCompare(a.task.createdAt));
 
   for (const { task, project } of taskRows) {
-    const live = liveByTask.get(`${project.path}#${task.taskNumber}`) ?? [];
+    const taskId = taskKey(project.path, task.taskNumber);
+    const live = liveByTask.get(taskId) ?? [];
     const first = live[0];
     const openable = task.worktreePath && task.branch;
     const status = STATUS_LABELS[task.status] ?? task.status;
-    const taskId = `task:${project.path}#${task.taskNumber}`;
 
     push({
       id: taskId,
@@ -294,7 +294,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
     // navigable rather than collapsing to whichever one sorted first.
     live.forEach((terminal, i) => {
       push({
-        id: `terminal:${terminal.ptyId}`,
+        id: terminalKey(terminal.ptyId),
         key: taskId,
         kind: 'terminal',
         title: terminal.label,
@@ -319,15 +319,16 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   if (input.activeProjectPath && input.pullRequests?.length) {
     const project = projectByPath.get(input.activeProjectPath);
     const projectPath = input.activeProjectPath;
-    const linkedPrNumbers = new Set(
-      (input.taskCacheByProject[projectPath] ?? []).map((t) => t.githubPrNumber).filter((n): n is number => n != null),
+    const claimedPrNumbers = new Set(
+      (input.taskCacheByProject[projectPath] ?? []).map((t) => t.githubPrNumber).filter((n) => n != null),
     );
 
     for (const pr of input.pullRequests) {
-      if (linkedPrNumbers.has(pr.number)) continue;
+      if (claimedPrNumbers.has(pr.number)) continue;
+      const key = pullKey(projectPath, pr.number);
       push({
-        id: `pull:${projectPath}#${pr.number}`,
-        key: `pull:${projectPath}#${pr.number}`,
+        id: key,
+        key,
         kind: 'pull',
         title: pr.title,
         context: project?.name ?? projectPath,
