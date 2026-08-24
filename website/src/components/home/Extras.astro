@@ -1,3 +1,16 @@
+---
+import {
+  PaletteMock,
+  SandboxMock,
+  ScriptsMock,
+  HooksMock,
+  ThemeMock,
+  TagsMock,
+  ResumeMock,
+  CliMock,
+} from '../demo/ExtrasMocks';
+---
+
 <section class="details-section">
   <div class="details-inner">
     <h2 data-reveal>Also in the box.</h2>
@@ -8,74 +21,37 @@
           ⌘K searches terminals, projects, tasks, and pull requests, ranked by how often you come back to
           them.
         </p>
-        <div class="bento-palette" aria-hidden="true">
-          <div class="bento-palette-input">
-            <span class="bento-palette-caret">❯</span>
-            <span>onboarding</span>
-            <span class="terminal-cursor terminal-cursor--dim"></span>
-            <kbd>⌘K</kbd>
-          </div>
-          <div class="bento-palette-row is-active"><span class="bento-palette-dot bento-dot-thinking"></span>claude — Rework onboarding flow</div>
-          <div class="bento-palette-row"><span class="bento-palette-dot"></span>npm run dev — live dev server</div>
-          <div class="bento-palette-row"><span class="bento-palette-kind">task</span>T-101 · Rework onboarding flow</div>
-        </div>
+        <div class="bento-stack" aria-hidden="true"><PaletteMock /></div>
       </div>
       <div class="detail glass-bevel detail-span-2" data-reveal style="--reveal-delay: 80ms">
         <div class="detail-title">Untrusted code, contained.</div>
         <p>Agents run in a Lima VM that mounts only the task's worktree — or sandboxed in place with Seatbelt and Landlock, via nono.</p>
-        <div class="bento-stack" aria-hidden="true">
-          <div class="bento-strip">
-            <span class="bento-sandbox-dot"></span>
-            <span>claude</span>
-            <span class="bento-local-chip">lima</span>
-          </div>
-        </div>
+        <div class="bento-stack" aria-hidden="true"><SandboxMock /></div>
       </div>
       <div class="detail glass-bevel detail-span-2" data-reveal>
         <div class="detail-title">The commands you always run.</div>
         <p>Dev server, tests, release — save them with the project and run them in any task's worktree.</p>
-        <div class="bento-stack" aria-hidden="true">
-          <div class="bento-strip"><span>npm run dev</span><span class="bento-local-chip">Run</span></div>
-          <div class="bento-strip"><span>npm test</span><span class="bento-local-chip">Run</span></div>
-        </div>
+        <div class="bento-stack" aria-hidden="true"><ScriptsMock /></div>
       </div>
       <div class="detail glass-bevel detail-span-2" data-reveal style="--reveal-delay: 80ms">
         <div class="detail-title">Hooks for every stage.</div>
         <p>Start, continue, run, review, done: each stage runs the command you give it, task context included.</p>
-        <div class="bento-tabs" style="flex-wrap: wrap" aria-hidden="true">
-          <span class="bento-tab is-active">start</span>
-          <span class="bento-tab">continue</span>
-          <span class="bento-tab">run</span>
-          <span class="bento-tab">review</span>
-          <span class="bento-tab">done</span>
-        </div>
+        <div class="bento-stack" aria-hidden="true"><HooksMock /></div>
       </div>
       <div class="detail glass-bevel detail-span-2" data-reveal style="--reveal-delay: 160ms">
         <div class="detail-title">Theme every token.</div>
         <p>Start from a preset or build your own — dark or light base, every color overridable, down to the ANSI palette.</p>
-        <div class="bento-swatches" aria-hidden="true">
-          <span style="background: var(--color-accent)"></span>
-          <span style="background: #c026d3"></span>
-          <span style="background: #0ca678"></span>
-          <span style="background: #ff9f0a"></span>
-          <span style="background: #f5f5f7"></span>
-        </div>
+        <div class="bento-stack" aria-hidden="true"><ThemeMock /></div>
       </div>
       <div class="detail glass-bevel detail-span-3" data-reveal>
         <div class="detail-title">Filter by tag.</div>
         <p>Tag terminals, then cut the stack to one tag — or group the home view by them.</p>
-        <div class="bento-tabs" aria-hidden="true">
-          <span class="bento-tab is-active">frontend</span>
-          <span class="bento-tab">api</span>
-          <span class="bento-tab">infra</span>
-        </div>
+        <div class="bento-stack" aria-hidden="true"><TagsMock /></div>
       </div>
       <div class="detail glass-bevel detail-span-3" data-reveal style="--reveal-delay: 80ms">
         <div class="detail-title">Quit without losing the room.</div>
         <p>The next launch brings the session's terminals back in their worktrees, panels included.</p>
-        <div class="bento-stack" aria-hidden="true">
-          <div class="bento-strip"><span>Last session · 4 terminals</span><span class="bento-resume-btn">Restore</span></div>
-        </div>
+        <div class="bento-stack" aria-hidden="true"><ResumeMock /></div>
       </div>
       <div class="detail glass-bevel detail-span-6" data-reveal>
         <div class="detail-title">Your agent can drive all of it.</div>
@@ -84,13 +60,7 @@
           to install. Tasks, tags, hooks, scripts, drafts, themes: everything on this page, as commands with
           JSON out.
         </p>
-        <div class="bento-palette" aria-hidden="true">
-          <div class="bento-palette-input">
-            <span class="bento-palette-caret">❯</span>
-            <span>ouijit task spawn "Fix flaky auth test" --hook-command claude</span>
-          </div>
-          <div class="bento-palette-row">{`{"success": true, "task": {"taskNumber": 12, "branch": "fix-flaky-auth-test-12"}}`}</div>
-        </div>
+        <div class="bento-stack" aria-hidden="true"><CliMock /></div>
       </div>
     </div>
   </div>

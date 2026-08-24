@@ -1815,70 +1815,12 @@ body.marketing .float-nav-buy:hover {
   color: rgba(245, 245, 247, 0.7);
 }
 
-.bento-tabs {
-  margin-top: auto;
-  padding-top: 20px;
-  display: flex;
-  gap: 6px;
-  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
-  font-size: 11px;
-}
-
-.bento-tab {
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(245, 245, 247, 0.7);
-}
-
-.bento-tab.is-active {
-  background: var(--color-accent);
-  border-color: transparent;
-  color: var(--color-accent-ink);
-}
-
-.bento-tab-add {
-  color: var(--color-text-tertiary);
-}
-
 .bento-stack {
   margin-top: auto;
   padding-top: 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-/* One row of app chrome — a script, the sandbox status, the resume bar. */
-.bento-strip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(0, 0, 0, 0.35);
-  border-radius: 10px;
-  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
-  font-size: 11px;
-  color: rgba(245, 245, 247, 0.75);
-}
-
-.bento-strip > :last-child:not(:only-child) {
-  margin-left: auto;
-}
-
-.bento-swatches {
-  margin-top: auto;
-  padding-top: 20px;
-  display: flex;
-  gap: 10px;
-}
-
-.bento-swatches span {
-  width: 20px;
-  height: 20px;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 

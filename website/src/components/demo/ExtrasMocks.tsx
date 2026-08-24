@@ -1,0 +1,217 @@
+import type { ReactNode } from 'react';
+import { Icon } from '../../ouijit-ui/components/terminal/Icon';
+import { StatusDot } from '../../ouijit-ui/components/terminal/StatusDot';
+import { ScriptRowView } from '../../ouijit-ui/components/scripts/ScriptRowView';
+import { HookRowView } from '../../ouijit-ui/components/scripts/HookRowView';
+
+/**
+ * Static renders of app chrome for the "Also in the box." bento. Each mock
+ * copies its component's real classes — palette, settings rows, terminal
+ * header fragments — so the tiles show the product, not an illustration.
+ */
+
+const METADATA_CHIP =
+  'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-ink/55 bg-ink/[0.05] rounded-full px-2 py-0.5 shrink-0';
+
+/** Floating panel treatment — the palette and banner are windows in the app. */
+function FloatingPanel({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="glass-bevel relative flex flex-col rounded-[14px] border border-bezel-panel overflow-hidden w-full"
+      style={{ background: 'var(--color-terminal-bg)', boxShadow: '0 18px 40px rgba(0, 0, 0, 0.45)' }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Inset list treatment — settings panels render rows on an ink wash. */
+function InsetList({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-[12px] border border-bezel bg-ink/[0.03] overflow-hidden divide-y divide-ink/[0.06] w-full">
+      {children}
+    </div>
+  );
+}
+
+function KeyHint({ keys, label }: { keys: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5 min-w-0">
+      <kbd className="font-mono text-[10px] leading-none px-1.5 py-1 rounded bg-ink/[0.06] text-text-tertiary">
+        {keys}
+      </kbd>
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
+function PaletteRow({
+  leading,
+  title,
+  context,
+  meta,
+  selected = false,
+}: {
+  leading: ReactNode;
+  title: string;
+  context: string;
+  meta?: string;
+  selected?: boolean;
+}) {
+  return (
+    <div
+      className="flex items-center gap-2.5 px-3 h-9"
+      style={
+        selected
+          ? {
+              background: 'color-mix(in srgb, var(--color-accent) 14%, transparent)',
+              boxShadow: 'inset 2px 0 0 0 var(--color-accent)',
+            }
+          : undefined
+      }
+    >
+      <span className="w-12 shrink-0 flex items-center">{leading}</span>
+      <span className="flex-1 min-w-0 flex items-center gap-2">
+        <span className="text-[13px] truncate text-text-primary">{title}</span>
+      </span>
+      <span className="w-32 shrink-0 text-[11px] text-text-tertiary truncate">{context}</span>
+      <span className="w-28 shrink-0 text-right text-[11px] text-text-tertiary truncate">{meta}</span>
+    </div>
+  );
+}
+
+export function PaletteMock() {
+  return (
+    <FloatingPanel>
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-ink/[0.06] shrink-0">
+        <span className="shrink-0 text-text-tertiary [&>svg]:w-4 [&>svg]:h-4">
+          <Icon name="magnifying-glass" />
+        </span>
+        <span className="flex-1 min-w-0 text-sm text-text-primary">
+          onboarding
+          <span className="terminal-cursor terminal-cursor--dim" />
+        </span>
+      </div>
+      <div className="px-3 pt-2 pb-1 text-[11px] text-ink/40">Terminals</div>
+      <PaletteRow
+        selected
+        leading={<StatusDot summaryType="thinking" />}
+        title="claude"
+        context="Rework onboarding flow"
+      />
+      <PaletteRow leading={<StatusDot summaryType="ready" />} title="npm run dev" context="Rework onboarding flow" />
+      <div className="px-3 pt-2 pb-1 text-[11px] text-ink/40">Tasks</div>
+      <PaletteRow
+        leading={<span className="font-mono text-[11px] text-text-tertiary tabular-nums">T-101</span>}
+        title="Rework onboarding flow"
+        context="ouijit"
+        meta="in review · 2h"
+      />
+      <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-ink/[0.06] text-[11px] text-ink/40">
+        <KeyHint keys="↑↓" label="Navigate" />
+        <KeyHint keys="↵" label="Focus terminal" />
+        <span className="flex-1" />
+        <KeyHint keys="esc" label="Close" />
+      </div>
+    </FloatingPanel>
+  );
+}
+
+export function SandboxMock() {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-[12px] border border-bezel bg-ink/[0.03] w-full">
+      <StatusDot summaryType="thinking" sandboxed />
+      <span className="font-mono text-xs font-medium text-ink/85 shrink-0">claude</span>
+      <span className="font-mono text-xs text-ink/40 min-w-0 truncate">Running npm test…</span>
+      <span className={`${METADATA_CHIP} ml-auto`}>lima</span>
+    </div>
+  );
+}
+
+export function ScriptsMock() {
+  return (
+    <InsetList>
+      <ScriptRowView name="Dev server" command="npm run dev" />
+      <ScriptRowView name="Test suite" command="npm test" />
+    </InsetList>
+  );
+}
+
+export function HooksMock() {
+  return (
+    <InsetList>
+      <HookRowView
+        label="Start"
+        description="Task moves to In Progress"
+        command={'claude "$OUIJIT_TASK_DESCRIPTION"'}
+      />
+      <HookRowView label="Review" description="Task moves to In Review" command="gh pr create --fill" />
+    </InsetList>
+  );
+}
+
+export function ThemeMock() {
+  return (
+    <div className="rounded-[12px] border border-bezel bg-ink/[0.03] overflow-hidden w-full">
+      <div className="flex items-center gap-4 px-4 py-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-sm text-text-primary">Theme</div>
+          <div className="text-xs text-text-tertiary mt-0.5">System follows the OS appearance.</div>
+        </div>
+        <span className="w-[8.5rem] shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 text-sm bg-ink/[0.04] border border-ink/10 rounded-md text-text-primary">
+          <span className="truncate">Dracula</span>
+          <Icon name="caret-down" className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function TagsMock() {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-[12px] border border-bezel bg-ink/[0.03] w-full">
+      <StatusDot summaryType="ready" />
+      <span className="font-mono text-xs font-medium text-ink/85 shrink-0">claude</span>
+      <span className="inline-flex items-center gap-1 min-w-0">
+        <span className={METADATA_CHIP}>frontend</span>
+        <span className={METADATA_CHIP}>api</span>
+      </span>
+    </div>
+  );
+}
+
+export function ResumeMock() {
+  return (
+    <FloatingPanel>
+      <div className="flex items-center gap-3 px-5 py-3">
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-sm text-text-primary leading-tight">Resume last session</span>
+          <span className="inline-flex items-center gap-1 mt-0.5 text-[11px] text-text-tertiary">
+            4 terminals across 2 tasks and 1 project
+            <Icon name="caret-down" className="w-2.5 h-2.5 -rotate-90" />
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="px-3 py-1.5 text-xs text-text-secondary rounded-full">Dismiss</span>
+          <span className="px-4 py-1.5 text-xs font-medium text-accent-ink bg-accent rounded-full">Resume</span>
+        </div>
+      </div>
+    </FloatingPanel>
+  );
+}
+
+export function CliMock() {
+  return (
+    <FloatingPanel>
+      <div className="px-4 py-3 font-mono text-[12px] leading-relaxed">
+        <div className="text-ink/85">
+          <span className="text-accent">❯</span> ouijit task spawn &quot;Fix flaky auth test&quot; --hook-command
+          claude
+        </div>
+        <div className="text-ink/45 truncate">
+          {'{"success": true, "task": {"taskNumber": 12, "branch": "fix-flaky-auth-test-12"}}'}
+        </div>
+      </div>
+    </FloatingPanel>
+  );
+}
