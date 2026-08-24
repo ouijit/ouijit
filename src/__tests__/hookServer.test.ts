@@ -136,11 +136,18 @@ describe('CLI_REFERENCE', () => {
     expect(CLI_REFERENCE).toContain('ouijit task current | jq .githubPrNumber');
   });
 
-  test('says what must not be done with gh, and why', () => {
+  test('defaults away from gh writes, and says why', () => {
     // Drafts are staged so the human sends them, and an agent with an
     // authenticated gh will post directly unless told not to.
-    expect(CLI_REFERENCE).toMatch(/not.*`gh`|nothing should be posted with/i);
     expect(CLI_REFERENCE).toContain('user sends the review themselves');
+    expect(CLI_REFERENCE).toMatch(/under the user's own account/i);
+  });
+
+  test('lets the user authorize a gh write anyway', () => {
+    // A blanket ban gets an agent refusing `gh pr create` when the user asked
+    // for it by name. The default is ours; the exception is theirs.
+    expect(CLI_REFERENCE).toContain('gh pr create');
+    expect(CLI_REFERENCE).toMatch(/explicitly asks/i);
   });
 
   test('states the anchoring rule that a whole review fails on', () => {
