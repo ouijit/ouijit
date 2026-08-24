@@ -31,20 +31,20 @@ export function initHomeChrome() {
   window.addEventListener('resize', checkScroll, { passive: true });
   checkScroll();
 
-  initBentoVolt();
+  initBentoSpotlight();
 }
 
-/** Walks the volt tier across the bento, one card at a time; hovering a card
+/** Walks the iris tier across the bento, one card at a time; hovering a card
  * takes the light, and the walk resumes from there when the cursor leaves. */
-function initBentoVolt() {
+function initBentoSpotlight() {
   const tiles = [...document.querySelectorAll<HTMLElement>('.bento .detail')];
-  if (!tiles.some((tile) => tile.querySelector('.bento-volt-field'))) return;
+  if (!tiles.some((tile) => tile.querySelector('.bento-lit-field'))) return;
 
   let index = 0;
   let hovered: number | null = null;
   const apply = () => {
     const lit = hovered ?? index;
-    tiles.forEach((tile, i) => tile.classList.toggle('is-volt', i === lit));
+    tiles.forEach((tile, i) => tile.classList.toggle('is-lit', i === lit));
   };
 
   tiles.forEach((tile, i) => {
