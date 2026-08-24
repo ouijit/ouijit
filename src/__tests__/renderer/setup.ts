@@ -4,6 +4,7 @@
  */
 import { vi, afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { resetFrecency } from '../../utils/paletteFrecency';
 
 /**
  * Importing the renderer logger under jsdom hangs — no error, no timeout, it
@@ -19,6 +20,7 @@ vi.mock('electron-log/renderer', () => ({
 // Cleanup React DOM after each test
 afterEach(() => {
   cleanup();
+  resetFrecency();
 });
 
 // jsdom doesn't implement matchMedia; the theme manager queries the OS

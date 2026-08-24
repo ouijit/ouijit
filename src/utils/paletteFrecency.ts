@@ -1,10 +1,7 @@
 /**
- * What the mod+K switcher remembers about where the user goes. Every surface
- * that jumps somewhere — the switcher, the sidebar, the board, the card
- * stacks — records its target's key here, which boosts that target's score
- * and fills the "Recent" group on an empty query. Recorded only through the
- * switcher, the group would show where the switcher had been rather than
- * where the user has been.
+ * What the mod+K switcher remembers about where the user goes. A jump records
+ * its target's key, which boosts that target's score and fills the "Recent"
+ * group on an empty query.
  *
  * Keys must outlive what they describe: a task keeps one key across every
  * worktree shell it spawns. Loose terminals key on their ptyId instead and are
@@ -57,6 +54,20 @@ export function terminalFrecencyKey(
   return terminalKey(ptyId);
 }
 
+/**
+ * The key a pull request answers to: the key of the task that has it checked
+ * out, since the palette lists no separate row for a linked PR. Same invariant
+ * as `terminalFrecencyKey` — the recorded key must be one a row carries.
+ */
+export function pullFrecencyKey(
+  projectPath: string,
+  prNumber: number,
+  taskCacheByProject: Record<string, readonly { taskNumber: number; githubPrNumber?: number | null }[] | undefined>,
+): string {
+  const linked = (taskCacheByProject[projectPath] ?? []).find((t) => t.githubPrNumber === prNumber);
+  return linked ? taskKey(projectPath, linked.taskNumber) : pullKey(projectPath, prNumber);
+}
+
 /** 0..MAX_BOOST, added to a row's match score. */
 export function frecencyBoost(entry: FrecencyEntry | undefined, now: number): number {
   if (!entry) return 0;
@@ -80,7 +91,7 @@ export function recordUse(map: FrecencyMap, key: string, now: number): FrecencyM
 }
 
 /** Reads the persisted map; an unreadable or malformed value is simply empty. */
-export async function loadFrecency(): Promise<FrecencyMap> {
+async function loadFrecency(): Promise<FrecencyMap> {
   try {
     const raw = await window.api.globalSettings.get(SETTINGS_KEY);
     if (!raw) return {};
@@ -97,18 +108,42 @@ export async function loadFrecency(): Promise<FrecencyMap> {
   }
 }
 
-let lastJump: Promise<void> = Promise.resolve();
+/** How long a burst of jumps coalesces before one write. */
+const FLUSH_DELAY_MS = 300;
+
+let cached: Promise<FrecencyMap> | null = null;
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
- * Record a jump to `key`. Chained rather than fired off: concurrent jumps —
- * the home panel's bulk open — would each read the same base map and lose all
- * but the last write. A failed write costs ranking quality, never correctness.
+ * The live map. Nothing outside this module writes the setting, so the first
+ * read is the only one: jumps are applied in memory from there on, and the
+ * palette ranks against a map that already has the jump that opened it.
+ */
+export function frecencyMap(): Promise<FrecencyMap> {
+  cached ??= loadFrecency();
+  return cached;
+}
+
+/** Drops the cache so the next read hits the setting. For tests. */
+export function resetFrecency(): void {
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = null;
+  cached = null;
+}
+
+/**
+ * Record a jump to `key`. Persisting is deferred and coalesced, so a burst
+ * costs one write; a jump made in the last `FLUSH_DELAY_MS` before a hard quit
+ * is lost, which costs ranking quality and never correctness.
  */
 export function recordJump(key: string): void {
-  lastJump = lastJump
-    .then(async () => {
-      const map = await loadFrecency();
-      await window.api.globalSettings.set(SETTINGS_KEY, JSON.stringify(recordUse(map, key, Date.now())));
-    })
-    .catch(() => {});
+  const now = Date.now();
+  cached = frecencyMap().then((map) => recordUse(map, key, now));
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    void frecencyMap()
+      .then((map) => window.api.globalSettings.set(SETTINGS_KEY, JSON.stringify(map)))
+      .catch(() => {});
+  }, FLUSH_DELAY_MS);
 }

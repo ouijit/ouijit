@@ -7,8 +7,8 @@
 
 import { useEffect, useState } from 'react';
 import { useAppStore, type HomeRecentTask } from '../stores/appStore';
-import { useProjectStore } from '../stores/projectStore';
-import { openTaskShell } from './navigation';
+import { openTaskShell, showProjectTerminals } from './navigation';
+import { projectKey, recordJump } from '../utils/paletteFrecency';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { formatRelativeTime } from '../utils/formatDate';
 import type { Project } from '../types';
@@ -21,7 +21,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 type RecentTask = HomeRecentTask;
 
-function taskKey(task: RecentTask): string {
+function selectionKey(task: RecentTask): string {
   return `${task.project.path}#${task.taskNumber}`;
 }
 
@@ -57,34 +57,24 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
 
   const toggleAll = () => {
     if (allSelected) setSelected(new Set());
-    else setSelected(new Set(recents.map(taskKey)));
+    else setSelected(new Set(recents.map(selectionKey)));
   };
 
   const clearSelection = () => setSelected(new Set());
 
-  // Spawn terminal(s) first so they're registered in the store before
-  // ProjectViewReact mounts. That view runs reconnectOrphanedSessions on
-  // projectPath change and force-shows the kanban if no terminals are
-  // registered yet — which would defeat our kanban-hidden navigation.
-  const navigateToProjectTerminals = (project: Project) => {
-    useAppStore.getState().navigateToProject(project.path, project);
-    const store = useProjectStore.getState();
-    store.setActivePanel('terminals');
-    store.setKanbanVisible(false);
-  };
-
   const openAndNavigate = async (task: RecentTask) => {
-    await openTaskShell(task.project.path, task);
-    navigateToProjectTerminals(task.project);
+    await openTaskShell(task.project.path, task, { mode: 'resume' });
+    await showProjectTerminals(task.project.path, task.project);
   };
 
   const openSelection = async () => {
-    const tasks = recents.filter((t) => selected.has(taskKey(t)));
+    const tasks = recents.filter((t) => selected.has(selectionKey(t)));
     if (tasks.length === 0) return;
-    await Promise.all(tasks.map((t) => openTaskShell(t.project.path, t)));
+    await Promise.all(tasks.map((t) => openTaskShell(t.project.path, t, { mode: 'resume', record: false })));
     // Navigate to the first selected task's project (most recent). Terminals
     // for tasks in other projects appear when the user switches to those.
-    navigateToProjectTerminals(tasks[0].project);
+    recordJump(projectKey(tasks[0].project.path));
+    await showProjectTerminals(tasks[0].project.path, tasks[0].project);
     clearSelection();
   };
 
@@ -108,7 +98,7 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
       </div>
       <ul className="flex flex-col overflow-y-auto min-h-0 settings-scrollable divide-y divide-ink/[0.04]">
         {recents.map((task) => {
-          const key = taskKey(task);
+          const key = selectionKey(task);
           return (
             <RecentTaskRow
               key={key}

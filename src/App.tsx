@@ -14,6 +14,7 @@ import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
+import { MissingWorktreeDialog } from './components/dialogs/MissingWorktreeDialog';
 import { CommandPalette } from './components/CommandPalette';
 import { selectProject, selectHome } from './components/navigation';
 import { installCaptureNavigator } from './capture/navigator';
@@ -317,7 +318,19 @@ export function App() {
         />
       )}
       {helpDialogOpen && <HelpDialog onClose={() => useAppStore.getState().setHelpDialogOpen(false)} />}
+      <GlobalMissingWorktreeDialog />
       <CommandPalette />
     </div>
   );
+}
+
+/**
+ * Rendered here rather than by the board, because a task can be opened from the
+ * switcher and the home recents panel too. `ensureWorktree` waits on the action
+ * this passes back.
+ */
+function GlobalMissingWorktreeDialog() {
+  const request = useUIStore((s) => s.missingWorktree);
+  if (!request) return null;
+  return <MissingWorktreeDialog task={request.task} branchExists={request.branchExists} onClose={request.resolve} />;
 }

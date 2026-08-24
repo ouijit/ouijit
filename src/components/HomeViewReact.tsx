@@ -256,6 +256,7 @@ export function HomeView() {
         );
         const reversed = [...termItems].reverse();
         if (num <= reversed.length) {
+          recordTerminalJump(reversed[num - 1].ptyId);
           setActivePtyId(reversed[num - 1].ptyId);
         }
       }
@@ -456,6 +457,7 @@ export function HomeView() {
               onClick={() => {
                 const group = orderedGroups.find((g) => g.key === item.key);
                 if (group && group.ptyIds.length > 0) {
+                  recordTerminalJump(group.ptyIds[0]);
                   setActivePtyId(group.ptyIds[0]);
                 }
               }}

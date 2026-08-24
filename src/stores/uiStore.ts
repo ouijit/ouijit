@@ -1,6 +1,14 @@
 import { create } from 'zustand';
+import type { TaskWithWorkspace } from '../types';
 
 export type HomeGroupMode = 'project' | 'tag';
+
+/** A pending "this worktree is gone" prompt. `resolve` settles the waiting `ensureWorktree`. */
+export interface MissingWorktreeRequest {
+  task: TaskWithWorkspace;
+  branchExists: boolean;
+  resolve: (action: 'recover' | null) => void;
+}
 
 interface UIStoreState {
   sidebarVisible: boolean;
@@ -21,6 +29,7 @@ interface UIStoreState {
   homeActivePtyId: string | null;
   /** Command palette (mod+K) visibility. Session-only. */
   paletteOpen: boolean;
+  missingWorktree: MissingWorktreeRequest | null;
 }
 
 interface UIStoreActions {
@@ -35,6 +44,7 @@ interface UIStoreActions {
   setHomeActivePtyId: (ptyId: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
   togglePalette: () => void;
+  setMissingWorktree: (request: MissingWorktreeRequest | null) => void;
 }
 
 type UIStore = UIStoreState & UIStoreActions;
@@ -47,6 +57,7 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   homeTagFilter: null,
   homeActivePtyId: null,
   paletteOpen: false,
+  missingWorktree: null,
 
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
 
@@ -76,4 +87,6 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   setPaletteOpen: (open) => set({ paletteOpen: open }),
 
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
+
+  setMissingWorktree: (request) => set({ missingWorktree: request }),
 }));

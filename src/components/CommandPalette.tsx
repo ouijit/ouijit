@@ -25,7 +25,7 @@ import { useGithubStore } from '../stores/githubStore';
 import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
 import { scoreFields, type FieldMatch } from '../utils/paletteScore';
-import { frecencyBoost, loadFrecency, type FrecencyMap } from '../utils/paletteFrecency';
+import { frecencyBoost, frecencyMap, type FrecencyMap } from '../utils/paletteFrecency';
 import { buildPaletteItems, KIND_LABEL, type PaletteItem, type PaletteKind } from './palette/paletteItems';
 import { PaletteRow } from './palette/PaletteRow';
 import { Icon } from './terminal/Icon';
@@ -135,7 +135,7 @@ function PaletteBody({ visible }: { visible: boolean }) {
       .catch(() => {
         /* store-backed terminals still list */
       });
-    void loadFrecency().then((map) => {
+    void frecencyMap().then((map) => {
       if (!cancelled) setFrecency(map);
     });
     void useAppStore.getState().loadHomeRecents();

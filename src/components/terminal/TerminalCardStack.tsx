@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useTerminalStore, STACK_PAGE_SIZE, terminalMatchesTag } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { recordTerminalJump } from '../navigation';
 import { TerminalCard } from './TerminalCard';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -148,7 +149,10 @@ function Pagination({
       const ptyId = visible[targetPage * STACK_PAGE_SIZE];
       if (!ptyId) return;
       const fullIdx = useTerminalStore.getState().terminalsByProject[projectPath]?.indexOf(ptyId) ?? -1;
-      if (fullIdx >= 0) useTerminalStore.getState().setActiveIndex(projectPath, fullIdx);
+      if (fullIdx >= 0) {
+        recordTerminalJump(ptyId);
+        useTerminalStore.getState().setActiveIndex(projectPath, fullIdx);
+      }
     },
     [page, totalPages, visible, projectPath],
   );

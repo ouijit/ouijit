@@ -11,15 +11,16 @@
 import log from 'electron-log/renderer';
 import type { TaskWithWorkspace } from '../types';
 import { describeError } from '../utils/describeError';
+import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useGithubStore } from '../stores/githubStore';
-import { pullKey, recordJump } from '../utils/paletteFrecency';
+import { pullFrecencyKey, recordJump } from '../utils/paletteFrecency';
 
 const actionLog = log.scope('github:task');
 
 /** Open a pull request in the project panel, switching to it if needed. */
 export function openPullRequestInPanel(projectPath: string, prNumber: number): void {
-  recordJump(pullKey(projectPath, prNumber));
+  recordJump(pullFrecencyKey(projectPath, prNumber, useAppStore.getState().taskCacheByProject));
   useProjectStore.getState().setActivePanel('pull-requests');
   useProjectStore.getState().setKanbanVisible(false);
   const store = useGithubStore.getState();

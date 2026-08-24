@@ -111,6 +111,8 @@ beforeEach(() => {
   // has to agree with the seeded cache or it would wipe it.
   window.api.task.getAll = vi.fn(async (path: string) => TASKS[path] ?? []);
   window.api.globalSettings.set = vi.fn().mockResolvedValue({ success: true });
+  // Tests that back the settings store leave a stateful reader behind.
+  window.api.globalSettings.get = vi.fn().mockResolvedValue(undefined);
   vi.mocked(addProjectTerminal).mockResolvedValue(true);
   vi.mocked(reconnectOrphanedSessions).mockResolvedValue(undefined);
   seed();
