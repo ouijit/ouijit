@@ -20,6 +20,9 @@ import {
 } from '../analysis/accumulate';
 import { complexityOf } from '../analysis/complexity';
 import { scoreFiles } from '../analysis/score';
+import { trendOf } from '../analysis/trend';
+import { leversFor } from '../analysis/advice';
+import { ANALYSIS_WINDOW_MONTHS, type FileSignal } from '../analysis/types';
 
 const MARK = '\u0001';
 const SEP = '\u0002';
@@ -130,6 +133,130 @@ describe('foldCommits', () => {
   test('pair keys survive paths with spaces', () => {
     const key = pairKey('a b.ts', 'c d.ts');
     expect(splitPairKey(key)).toEqual(['a b.ts', 'c d.ts']);
+  });
+
+  test('directories roll up whole subtrees, counting a commit once each', () => {
+    const model = emptyModel();
+    foldCommits(model, [
+      commit('a', 100, 'a@x', 'Alice', [
+        { path: 'src/ui/one.ts', added: 10, deleted: 1 },
+        { path: 'src/ui/two.ts', added: 5, deleted: 0 },
+        { path: 'src/db/three.ts', added: 2, deleted: 0 },
+      ]),
+      commit('b', 200, 'a@x', 'Alice', [{ path: 'src/ui/one.ts', added: 1, deleted: 0 }]),
+      commit('c', 300, 'a@x', 'Alice', [{ path: 'README.md', added: 1, deleted: 0 }]),
+    ]);
+
+    // Two files in src/ui on one commit is one commit for src/ui, and for src.
+    expect(model.dirs.get('src/ui')).toMatchObject({ commits: 2, added: 16, deleted: 1 });
+    expect(model.dirs.get('src')).toMatchObject({ commits: 2, added: 18, deleted: 1 });
+    expect(model.dirs.get('src/db')?.commits).toBe(1);
+    // A file at the repo root belongs to no directory.
+    expect(model.dirs.has('')).toBe(false);
+
+    // Coupling is between the directories files sit in, not their ancestors.
+    expect(model.dirCouplings.get(pairKey('src/ui', 'src/db'))).toBe(1);
+    expect(model.dirCouplings.get(pairKey('src', 'src/ui'))).toBeUndefined();
+
+    expect(model.commitsByMonth.get(monthIndex(100))).toBe(3);
+  });
+});
+
+describe('trendOf', () => {
+  const months = (...counts: number[]) => {
+    const monthly = new Array<number>(ANALYSIS_WINDOW_MONTHS).fill(0);
+    counts.forEach((n, i) => (monthly[monthly.length - counts.length + i] = n));
+    return monthly;
+  };
+
+  test('reads direction from the recent months against the rest', () => {
+    // Nine quiet months, then a burst: rising.
+    expect(trendOf(months(0, 0, 0, 0, 0, 0, 1, 1, 1, 6, 6, 6)).direction).toBe('rising');
+    // The mirror image: a busy start that has stopped.
+    expect(trendOf(months(6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0, 1)).direction).toBe('cooling');
+    // Nothing before the recent window at all.
+    expect(trendOf(months(0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 1))).toMatchObject({
+      direction: 'new',
+      recent: 6,
+      total: 6,
+    });
+    // An even spread is neither.
+    expect(trendOf(months(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)).direction).toBe('steady');
+  });
+
+  test('too few commits to read is steady, whatever the shape', () => {
+    expect(trendOf(months(0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2)).direction).toBe('steady');
+  });
+});
+
+describe('leversFor', () => {
+  function signal(over: Partial<FileSignal> = {}): FileSignal {
+    return {
+      commits: 20,
+      added: 200,
+      deleted: 100,
+      firstAt: 100,
+      lastAt: 200,
+      score: 0.9,
+      tier: 'hot',
+      freqRank: 0.98,
+      cxRank: 0.95,
+      monthly: new Array<number>(ANALYSIS_WINDOW_MONTHS).fill(1),
+      trend: { direction: 'rising', recent: 12, total: 20 },
+      topAuthors: [{ name: 'Alice', share: 0.5 }],
+      authorCount: 2,
+      complexity: { loc: 800, indentTotal: 1600, indentMax: 8 },
+      ...over,
+    };
+  }
+
+  test('names the moves the numbers argue for, at most three', () => {
+    const levers = leversFor(
+      signal({ added: 4000, deleted: 1000, topAuthors: [{ name: 'Alice', share: 0.95 }] }),
+      { path: 'src/other.ts', degree: 0.9 },
+    );
+    expect(levers.map((l) => l.id)).toEqual(['split', 'flatten', 'churn']);
+    expect(levers[0].text).toContain('800 lines');
+  });
+
+  test('a cooling file argues against every other move', () => {
+    const levers = leversFor(signal({ trend: { direction: 'cooling', recent: 1, total: 20 } }));
+    expect(levers.map((l) => l.id)).toEqual(['cooling']);
+  });
+
+  test('a quiet file gets nothing, and neither does an unremarkable hot one', () => {
+    expect(leversFor(signal({ tier: 'quiet' }))).toEqual([]);
+    expect(
+      leversFor(
+        signal({
+          added: 20,
+          deleted: 10,
+          complexity: { loc: 90, indentTotal: 90, indentMax: 3 },
+          authorCount: 2,
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  test('ownership reads as concentration or as fragmentation, never both', () => {
+    const small = { loc: 90, indentTotal: 90, indentMax: 3 };
+    const held = leversFor(signal({ added: 20, deleted: 5, complexity: small, topAuthors: [{ name: 'Alice', share: 0.9 }] }));
+    expect(held.map((l) => l.id)).toEqual(['held']);
+    expect(held[0].text).toContain('Alice wrote 90%');
+
+    const spread = leversFor(
+      signal({ added: 20, deleted: 5, complexity: small, authorCount: 6, topAuthors: [{ name: 'Alice', share: 0.2 }] }),
+    );
+    expect(spread.map((l) => l.id)).toEqual(['fragmented']);
+  });
+
+  test('a partner that always travels with it points at the seam', () => {
+    const levers = leversFor(
+      signal({ added: 20, deleted: 5, complexity: { loc: 90, indentTotal: 90, indentMax: 3 } }),
+      { path: 'src/deep/other.ts', degree: 0.85 },
+    );
+    expect(levers.map((l) => l.id)).toEqual(['seam']);
+    expect(levers[0].text).toBe('Moves with other.ts 85% of the time. Check the seam.');
   });
 });
 

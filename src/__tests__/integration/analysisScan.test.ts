@@ -4,7 +4,9 @@
  * The cache is the part a unit test can't reach: a scan must survive the
  * app's lifetime — fold only the new commits when the tip advances, and
  * start over when history is rewritten under it — and both paths must land
- * on the same model a cold scan produces.
+ * on the same model a cold scan produces. The overview is here too, because
+ * what the panel renders is the whole pipeline — log, rollup, score, tree —
+ * and only a real repo exercises all of it at once.
  */
 
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
@@ -12,8 +14,10 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { scanProject, invalidateAnalysis, type ProjectAnalysis } from '../../analysis/service';
+import { scanProject, invalidateAnalysis, getAnalysisOverview, type ProjectAnalysis } from '../../analysis/service';
 import { pairKey } from '../../analysis/accumulate';
+import { setGlobalSetting, _resetCacheForTesting } from '../../db';
+import { experimentalStorageKey } from '../../experimentalFlags';
 import { invalidateMainBranchCache } from '../../git';
 
 let tmpDir: string;
@@ -125,3 +129,62 @@ describe('scanProject', () => {
     expect(after?.model.authors.get('a.ts')?.has('bob@x')).toBe(false);
   });
 });
+
+describe('getAnalysisOverview', () => {
+  // The flag gate reads globalSettings, so the reads need a database behind them.
+  beforeEach(async () => {
+    _resetCacheForTesting();
+    await setGlobalSetting(experimentalStorageKey(repoDir), JSON.stringify({ analysis: true }));
+  });
+
+  test('reads the project as hotspots, modules and coupled pairs', async () => {
+    // Hotspot tiers are percentile ranks, so a handful of files is not a
+    // population: these give the ranked ones something to be ranked against.
+    for (let i = 0; i < 12; i++) await write(`misc/f${i}.ts`, `export const f = ${i};\n`);
+    await commitAll('filler');
+
+    // A directory deep enough to prove the tree rolls up, and busy enough to
+    // rank: one file changed on every commit, its neighbour on most of them.
+    for (let i = 0; i < 8; i++) {
+      await write('src/core/engine.ts', nested(i, 40));
+      if (i % 2 === 0) await write('src/core/helper.ts', `export const h = ${i};\n`);
+      if (i % 3 === 0) await write('src/ui/view.ts', `export const v = ${i};\n`);
+      await commitAll(`work ${i}`);
+    }
+    invalidateAnalysis(repoDir);
+
+    const overview = await getAnalysisOverview(repoDir);
+    expect(overview).not.toBeNull();
+
+    const engine = overview!.hotspots.find((h) => h.path === 'src/core/engine.ts');
+    expect(engine?.signal.tier).toBe('hot');
+    expect(engine?.signal.commits).toBe(8);
+    expect(engine?.signal.authorCount).toBe(1);
+    // Everything landed this month, so the whole window sits in the tail.
+    expect(engine?.signal.trend.recent).toBe(8);
+    expect(engine?.partner?.path).toBe('src/core/helper.ts');
+
+    const src = overview!.modules.find((m) => m.path === 'src');
+    expect(src?.commits).toBe(8);
+    expect(src?.children.map((c) => c.path).sort()).toEqual(['src/core', 'src/ui']);
+    expect(src?.children.find((c) => c.path === 'src/core')?.hotspots).toBeGreaterThan(0);
+    // A commit touching two files in one directory counts once for it.
+    expect(src?.children.find((c) => c.path === 'src/ui')?.commits).toBe(3);
+
+    expect(overview!.moduleCouplings.some((p) => p.a === 'src/core' && p.b === 'src/ui')).toBe(true);
+    expect(overview!.couplings.some((p) => p.a === 'src/core/engine.ts' && p.b === 'src/core/helper.ts')).toBe(true);
+    expect(overview!.monthly.reduce((a, b) => a + b, 0)).toBe(overview!.status.commitCount);
+  });
+
+  test('the flag being off is indistinguishable from having no analysis', async () => {
+    await setGlobalSetting(experimentalStorageKey(repoDir), JSON.stringify({ analysis: false }));
+    expect(await getAnalysisOverview(repoDir)).toBeNull();
+  });
+});
+
+/** A file whose nesting makes it complex enough to rank as a hotspot. */
+function nested(seed: number, lines: number): string {
+  let text = `export function run${seed}() {\n`;
+  for (let i = 0; i < lines; i++) text += ' '.repeat(4 * (2 + (i % 4))) + `step(${i});\n`;
+  return text + '}\n';
+}

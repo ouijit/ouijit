@@ -24,10 +24,21 @@ export interface AuthorStats {
 
 export interface AnalysisModel {
   files: Map<string, FileStats>;
+  /**
+   * Every ancestor directory of every touched path, so a subtree can be read
+   * off directly. A commit counts once per directory however many of its
+   * files it touched, which is what makes these numbers comparable to the
+   * project's commit count.
+   */
+  dirs: Map<string, FileStats>;
   /** path → author email → stats. Email is the identity; name is for display. */
   authors: Map<string, Map<string, AuthorStats>>;
   /** pairKey(a, b) → commits that touched both. */
   couplings: Map<string, number>;
+  /** The same, over the directories files sit in directly. */
+  dirCouplings: Map<string, number>;
+  /** monthIndex(at) → commits, for the project's own activity series. */
+  commitsByMonth: Map<number, number>;
   commitCount: number;
 }
 
@@ -43,16 +54,42 @@ export const COUPLING_COMMIT_FILE_CAP = 50;
 const COUPLING_COMPACT_LIMIT = 500_000;
 
 export function emptyModel(): AnalysisModel {
-  return { files: new Map(), authors: new Map(), couplings: new Map(), commitCount: 0 };
+  return {
+    files: new Map(),
+    dirs: new Map(),
+    authors: new Map(),
+    couplings: new Map(),
+    dirCouplings: new Map(),
+    commitsByMonth: new Map(),
+    commitCount: 0,
+  };
 }
+
+/** The directory a file sits in directly; '' for a file at the repo root. */
+export function dirOf(path: string): string {
+  const cut = path.lastIndexOf('/');
+  return cut === -1 ? '' : path.slice(0, cut);
+}
+
+/** Every directory above a path, outermost first. Empty for a root file. */
+export function ancestorDirs(path: string): string[] {
+  const dirs: string[] = [];
+  for (let i = path.indexOf('/'); i !== -1; i = path.indexOf('/', i + 1)) {
+    dirs.push(path.slice(0, i));
+  }
+  return dirs;
+}
+
+/** A path can contain any byte but this one, so no side can hide a separator. */
+const PAIR_SEP = '\u0000';
 
 /** Sorted, so (a, b) and (b, a) are the same pair. */
 export function pairKey(a: string, b: string): string {
-  return a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
+  return a < b ? a + PAIR_SEP + b : b + PAIR_SEP + a;
 }
 
 export function splitPairKey(key: string): [string, string] {
-  const cut = key.indexOf('\u0000');
+  const cut = key.indexOf(PAIR_SEP);
   return [key.slice(0, cut), key.slice(cut + 1)];
 }
 
@@ -65,29 +102,15 @@ export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[])
   for (const commit of commits) {
     model.commitCount++;
     const paths: string[] = [];
+    const dirChurn = new Map<string, { added: number; deleted: number }>();
 
     const month = monthIndex(commit.at);
+    model.commitsByMonth.set(month, (model.commitsByMonth.get(month) ?? 0) + 1);
+
     for (const change of commit.files) {
       if (change.oldPath && change.oldPath !== change.path) migrate(model, change.oldPath, change.path);
 
-      const stats = model.files.get(change.path);
-      if (stats) {
-        stats.commits++;
-        stats.added += change.added;
-        stats.deleted += change.deleted;
-        stats.firstAt = Math.min(stats.firstAt, commit.at);
-        stats.lastAt = Math.max(stats.lastAt, commit.at);
-        stats.byMonth.set(month, (stats.byMonth.get(month) ?? 0) + 1);
-      } else {
-        model.files.set(change.path, {
-          commits: 1,
-          added: change.added,
-          deleted: change.deleted,
-          firstAt: commit.at,
-          lastAt: commit.at,
-          byMonth: new Map([[month, 1]]),
-        });
-      }
+      bump(model.files, change.path, commit.at, month, change.added, change.deleted);
 
       let byEmail = model.authors.get(change.path);
       if (!byEmail) model.authors.set(change.path, (byEmail = new Map()));
@@ -100,7 +123,21 @@ export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[])
         byEmail.set(commit.email, { name: commit.name, commits: 1, added: change.added });
       }
 
+      for (const dir of ancestorDirs(change.path)) {
+        const churn = dirChurn.get(dir);
+        if (churn) {
+          churn.added += change.added;
+          churn.deleted += change.deleted;
+        } else {
+          dirChurn.set(dir, { added: change.added, deleted: change.deleted });
+        }
+      }
+
       paths.push(change.path);
+    }
+
+    for (const [dir, churn] of dirChurn) {
+      bump(model.dirs, dir, commit.at, month, churn.added, churn.deleted);
     }
 
     if (paths.length >= 2 && paths.length <= COUPLING_COMMIT_FILE_CAP) {
@@ -110,12 +147,45 @@ export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[])
           model.couplings.set(key, (model.couplings.get(key) ?? 0) + 1);
         }
       }
-      if (model.couplings.size > COUPLING_COMPACT_LIMIT) compact(model);
+      if (model.couplings.size > COUPLING_COMPACT_LIMIT) compact(model.couplings);
+
+      const dirs = [...new Set(paths.map(dirOf))].filter((dir) => dir !== '');
+      for (let i = 0; i < dirs.length; i++) {
+        for (let j = i + 1; j < dirs.length; j++) {
+          const key = pairKey(dirs[i], dirs[j]);
+          model.dirCouplings.set(key, (model.dirCouplings.get(key) ?? 0) + 1);
+        }
+      }
     }
   }
 }
 
-/** Carries a renamed file's history forward under its new path. */
+function bump(
+  into: Map<string, FileStats>,
+  key: string,
+  at: number,
+  month: number,
+  added: number,
+  deleted: number,
+): void {
+  const stats = into.get(key);
+  if (stats) {
+    stats.commits++;
+    stats.added += added;
+    stats.deleted += deleted;
+    stats.firstAt = Math.min(stats.firstAt, at);
+    stats.lastAt = Math.max(stats.lastAt, at);
+    stats.byMonth.set(month, (stats.byMonth.get(month) ?? 0) + 1);
+  } else {
+    into.set(key, { commits: 1, added, deleted, firstAt: at, lastAt: at, byMonth: new Map([[month, 1]]) });
+  }
+}
+
+/**
+ * Carries a renamed file's history forward under its new path. Directory
+ * stats are left alone: they record where the file lived when each commit
+ * landed, which a move between directories should not rewrite.
+ */
 function migrate(model: AnalysisModel, oldPath: string, newPath: string): void {
   const prev = model.files.get(oldPath);
   if (!prev) return;
@@ -164,8 +234,8 @@ function migrate(model: AnalysisModel, oldPath: string, newPath: string): void {
   }
 }
 
-function compact(model: AnalysisModel): void {
-  for (const [key, shared] of model.couplings) {
-    if (shared < COUPLING_MIN_SHARED) model.couplings.delete(key);
+function compact(couplings: Map<string, number>): void {
+  for (const [key, shared] of couplings) {
+    if (shared < COUPLING_MIN_SHARED) couplings.delete(key);
   }
 }

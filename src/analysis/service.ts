@@ -7,15 +7,19 @@ import { getLogger } from '../logger';
 import { describeError } from '../utils/describeError';
 import { readLog } from './gitLog';
 import {
+  ancestorDirs,
+  dirOf,
   emptyModel,
   foldCommits,
   monthIndex,
   splitPairKey,
   COUPLING_MIN_SHARED,
   type AnalysisModel,
+  type FileStats,
 } from './accumulate';
 import { complexityOf } from './complexity';
 import { scoreFiles, type FileScore } from './score';
+import { trendOf } from './trend';
 import {
   ANALYSIS_WINDOW_MONTHS,
   type AnalysisOverview,
@@ -24,6 +28,9 @@ import {
   type DiffSignals,
   type FileComplexitySignal,
   type FileSignal,
+  type HotspotRow,
+  type ModuleNode,
+  type PairSignal,
 } from './types';
 
 const analysisLog = getLogger().scope('analysis');
@@ -101,8 +108,7 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
     const inA = asked.has(a);
     const inB = asked.has(b);
     if (!inA && !inB) continue;
-    const degree =
-      shared / Math.max(analysis.model.files.get(a)?.commits ?? shared, analysis.model.files.get(b)?.commits ?? shared);
+    const degree = pairDegree(analysis.model.files, a, b, shared);
     if (inA) couplings.push({ path: a, partner: b, shared, degree });
     if (inB) couplings.push({ path: b, partner: a, shared, degree });
   }
@@ -112,33 +118,27 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
 
 const OVERVIEW_ROWS = 30;
 const OVERVIEW_OWNERS = 8;
+const MODULE_MAX_DEPTH = 4;
+const MODULE_MAX_CHILDREN = 12;
 
-/** The project-level view — top hotspots, strongest couplings, ownership. */
+/** The project-level view — hotspots, modules, coupling, ownership. */
 export async function getAnalysisOverview(projectPath: string): Promise<AnalysisOverview | null> {
   if (!(await isAnalysisEnabled(projectPath))) return null;
   const analysis = cache.get(projectPath) ?? (await scanProject(projectPath));
   if (!analysis) return null;
   const thisMonth = monthIndex(Date.now() / 1000);
 
-  const hotspots = [...analysis.scores.entries()]
+  const couplings = rankPairs(analysis.model.couplings, analysis.model.files);
+  const strongest = strongestPartners(couplings);
+
+  const hotspots: HotspotRow[] = [...analysis.scores.entries()]
     .filter(([, score]) => score.score > 0)
     .sort((x, y) => y[1].score - x[1].score)
     .slice(0, OVERVIEW_ROWS)
     .flatMap(([p]) => {
       const signal = toFileSignal(analysis, p, thisMonth);
-      return signal ? [{ path: p, signal }] : [];
+      return signal ? [{ path: p, signal, partner: strongest.get(p) ?? null }] : [];
     });
-
-  const couplings: AnalysisOverview['couplings'] = [];
-  for (const [key, shared] of analysis.model.couplings) {
-    if (shared < COUPLING_MIN_SHARED) continue;
-    const [a, b] = splitPairKey(key);
-    const degree =
-      shared / Math.max(analysis.model.files.get(a)?.commits ?? shared, analysis.model.files.get(b)?.commits ?? shared);
-    couplings.push({ a, b, shared, degree });
-  }
-  couplings.sort((x, y) => y.degree - x.degree || y.shared - x.shared);
-  couplings.length = Math.min(couplings.length, OVERVIEW_ROWS);
 
   const byEmail = new Map<string, { name: string; mainOf: number }>();
   for (const authors of analysis.model.authors.values()) {
@@ -159,13 +159,126 @@ export async function getAnalysisOverview(projectPath: string): Promise<Analysis
   }
   const owners = [...byEmail.values()].sort((x, y) => y.mainOf - x.mainOf).slice(0, OVERVIEW_OWNERS);
 
+  const monthly = toMonthly(analysis.model.commitsByMonth, thisMonth);
+
   return {
     status: toStatus(analysis),
     fileCount: analysis.model.files.size,
+    monthly,
+    trend: trendOf(monthly),
     hotspots,
-    couplings,
+    modules: buildModules(analysis, thisMonth),
+    moduleCouplings: rankPairs(analysis.model.dirCouplings, analysis.model.dirs).slice(0, OVERVIEW_ROWS),
+    couplings: couplings.slice(0, OVERVIEW_ROWS),
     owners,
   };
+}
+
+function pairDegree(stats: ReadonlyMap<string, FileStats>, a: string, b: string, shared: number): number {
+  return shared / Math.max(stats.get(a)?.commits ?? shared, stats.get(b)?.commits ?? shared);
+}
+
+/**
+ * Strongest first. Degree alone puts three commits that happened to coincide
+ * above a pair that has moved together seventy times, so the sort shrinks it
+ * towards zero by how much evidence there is; the reported degree is the real
+ * one.
+ */
+const COUPLING_EVIDENCE_HALF = 5;
+
+function rankPairs(pairs: ReadonlyMap<string, number>, stats: ReadonlyMap<string, FileStats>): PairSignal[] {
+  const ranked: PairSignal[] = [];
+  for (const [key, shared] of pairs) {
+    if (shared < COUPLING_MIN_SHARED) continue;
+    const [a, b] = splitPairKey(key);
+    ranked.push({ a, b, shared, degree: pairDegree(stats, a, b, shared) });
+  }
+  const weight = (pair: PairSignal) => (pair.degree * pair.shared) / (pair.shared + COUPLING_EVIDENCE_HALF);
+  ranked.sort((x, y) => weight(y) - weight(x));
+  return ranked;
+}
+
+/** Takes rankPairs' order, so a thin coincidence cannot outrank a real pair. */
+function strongestPartners(ranked: readonly PairSignal[]): Map<string, { path: string; degree: number }> {
+  const best = new Map<string, { path: string; degree: number }>();
+  for (const pair of ranked) {
+    if (!best.has(pair.a)) best.set(pair.a, { path: pair.b, degree: pair.degree });
+    if (!best.has(pair.b)) best.set(pair.b, { path: pair.a, degree: pair.degree });
+  }
+  return best;
+}
+
+/**
+ * The directory tree, each node holding everything beneath it. Depth and
+ * breadth are capped: past those a monorepo turns this into a file browser,
+ * and the point of the section is the shape of the project.
+ */
+function buildModules(analysis: ProjectAnalysis, thisMonth: number): ModuleNode[] {
+  const filesUnder = new Map<string, number>();
+  const hotUnder = new Map<string, number>();
+  for (const [p, score] of analysis.scores) {
+    for (const dir of ancestorDirs(p)) {
+      filesUnder.set(dir, (filesUnder.get(dir) ?? 0) + 1);
+      if (score.tier === 'hot') hotUnder.set(dir, (hotUnder.get(dir) ?? 0) + 1);
+    }
+  }
+
+  const total = analysis.model.commitCount;
+  const nodes = new Map<string, ModuleNode>();
+  for (const [dir, stats] of analysis.model.dirs) {
+    if (depthOf(dir) > MODULE_MAX_DEPTH) continue;
+    const monthly = toMonthly(stats.byMonth, thisMonth);
+    nodes.set(dir, {
+      path: dir,
+      commits: stats.commits,
+      // Replaced with the share of its parent once the tree is linked.
+      share: total > 0 ? stats.commits / total : 0,
+      added: stats.added,
+      deleted: stats.deleted,
+      files: filesUnder.get(dir) ?? 0,
+      hotspots: hotUnder.get(dir) ?? 0,
+      monthly,
+      trend: trendOf(monthly),
+      children: [],
+    });
+  }
+
+  const roots: ModuleNode[] = [];
+  for (const node of nodes.values()) {
+    const parent = nodes.get(dirOf(node.path));
+    if (parent) {
+      parent.children.push(node);
+      // Against the parent rather than the project: three levels down, every
+      // share of the whole rounds to nothing and the bars stop saying anything.
+      node.share = parent.commits > 0 ? node.commits / parent.commits : 0;
+    } else {
+      roots.push(node);
+    }
+  }
+
+  const rank = (list: ModuleNode[]) => {
+    list.sort((a, b) => b.hotspots - a.hotspots || b.commits - a.commits);
+    list.length = Math.min(list.length, MODULE_MAX_CHILDREN);
+    for (const node of list) rank(node.children);
+  };
+  rank(roots);
+  return roots;
+}
+
+function depthOf(dir: string): number {
+  let depth = 1;
+  for (let i = dir.indexOf('/'); i !== -1; i = dir.indexOf('/', i + 1)) depth++;
+  return depth;
+}
+
+/** A month map spread over the window, oldest month first. */
+function toMonthly(byMonth: ReadonlyMap<number, number>, thisMonth: number): number[] {
+  const monthly = new Array<number>(ANALYSIS_WINDOW_MONTHS).fill(0);
+  for (const [month, n] of byMonth) {
+    const i = ANALYSIS_WINDOW_MONTHS - 1 - (thisMonth - month);
+    if (i >= 0 && i < ANALYSIS_WINDOW_MONTHS) monthly[i] += n;
+  }
+  return monthly;
 }
 
 function toFileSignal(analysis: ProjectAnalysis, p: string, thisMonth: number): FileSignal | null {
@@ -180,12 +293,7 @@ function toFileSignal(analysis: ProjectAnalysis, p: string, thisMonth: number): 
         .map((a) => ({ name: a.name, share: stats.commits > 0 ? a.commits / stats.commits : 0 }))
     : [];
 
-  const monthly = new Array<number>(ANALYSIS_WINDOW_MONTHS).fill(0);
-  for (const [month, n] of stats.byMonth) {
-    const i = ANALYSIS_WINDOW_MONTHS - 1 - (thisMonth - month);
-    if (i >= 0 && i < ANALYSIS_WINDOW_MONTHS) monthly[i] += n;
-  }
-
+  const monthly = toMonthly(stats.byMonth, thisMonth);
   const score = analysis.scores.get(p);
   return {
     commits: stats.commits,
@@ -198,7 +306,9 @@ function toFileSignal(analysis: ProjectAnalysis, p: string, thisMonth: number): 
     freqRank: score?.freqRank ?? 0,
     cxRank: score?.cxRank ?? null,
     monthly,
+    trend: trendOf(monthly),
     topAuthors,
+    authorCount: byEmail?.size ?? 0,
     complexity: analysis.complexity.get(p) ?? null,
   };
 }
