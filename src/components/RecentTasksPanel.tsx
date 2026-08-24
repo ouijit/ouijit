@@ -8,8 +8,7 @@
 import { useEffect, useState } from 'react';
 import { useAppStore, type HomeRecentTask } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { addProjectTerminal } from './terminal/terminalActions';
-import { recordJump, taskKey as frecencyTaskKey } from '../utils/paletteFrecency';
+import { openTaskShell } from './navigation';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { formatRelativeTime } from '../utils/formatDate';
 import type { Project } from '../types';
@@ -24,33 +23,6 @@ type RecentTask = HomeRecentTask;
 
 function taskKey(task: RecentTask): string {
   return `${task.project.path}#${task.taskNumber}`;
-}
-
-async function openTaskTerminal(task: RecentTask): Promise<void> {
-  recordJump(frecencyTaskKey(task.project.path, task.taskNumber));
-  if (task.worktreePath && task.branch) {
-    await addProjectTerminal(task.project.path, undefined, {
-      existingWorktree: { path: task.worktreePath, branch: task.branch, createdAt: task.createdAt },
-      taskId: task.taskNumber,
-    });
-    return;
-  }
-
-  // No worktree yet — start the task (creates worktree, flips to in_progress).
-  const result = await window.api.task.start(task.project.path, task.taskNumber);
-  if (!result.success || !result.worktreePath) {
-    useProjectStore.getState().addToast(result.error || `Failed to open T-${task.taskNumber}`, 'error');
-    return;
-  }
-  await addProjectTerminal(task.project.path, undefined, {
-    existingWorktree: {
-      path: result.worktreePath,
-      branch: result.task?.branch || '',
-      createdAt: task.createdAt,
-    },
-    taskId: task.taskNumber,
-    skipAutoHook: true,
-  });
 }
 
 interface RecentTasksPanelProps {
@@ -102,14 +74,14 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
   };
 
   const openAndNavigate = async (task: RecentTask) => {
-    await openTaskTerminal(task);
+    await openTaskShell(task.project.path, task);
     navigateToProjectTerminals(task.project);
   };
 
   const openSelection = async () => {
     const tasks = recents.filter((t) => selected.has(taskKey(t)));
     if (tasks.length === 0) return;
-    await Promise.all(tasks.map((t) => openTaskTerminal(t)));
+    await Promise.all(tasks.map((t) => openTaskShell(t.project.path, t)));
     // Navigate to the first selected task's project (most recent). Terminals
     // for tasks in other projects appear when the user switches to those.
     navigateToProjectTerminals(tasks[0].project);

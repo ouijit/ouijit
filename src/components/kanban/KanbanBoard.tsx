@@ -15,10 +15,8 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectStore } from '../../stores/projectStore';
-import { useTerminalStore } from '../../stores/terminalStore';
 import type { TaskWithWorkspace, TaskStatus, HookType, SandboxProviderId } from '../../types';
-import { addProjectTerminal } from '../terminal/terminalActions';
-import { beginTransition, bulkTransitionTasks, surfaceStartWarnings } from '../../services/taskStartService';
+import { beginTransition, bulkTransitionTasks } from '../../services/taskStartService';
 import { completeTask } from '../../services/taskCompletion';
 import { KanbanColumn } from './KanbanColumn';
 import { BulkActionBar } from './BulkActionBar';
@@ -32,8 +30,7 @@ import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
 import { MissingWorktreeDialog } from '../dialogs/MissingWorktreeDialog';
 import { Icon } from '../terminal/Icon';
 import { buildChainMap, isDescendantOf } from '../../utils/taskChain';
-import { recordTerminalJump } from '../navigation';
-import { recordJump, taskKey } from '../../utils/paletteFrecency';
+import { focusTerminal, openTaskShell } from '../navigation';
 import log from 'electron-log/renderer';
 
 const kanbanLog = log.scope('kanban');
@@ -554,59 +551,16 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const handleOpenTerminal = useCallback(
     async (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => {
-      recordJump(taskKey(projectPath, task.taskNumber));
-      // The backend is scoped to this terminal — passed straight through to the
-      // spawn, never persisted on the task.
-      if (task.worktreePath && task.branch) {
-        const wtPath = await ensureWorktreeExists(task);
-        if (!wtPath) return;
-        await addProjectTerminal(projectPath, undefined, {
-          existingWorktree: { path: wtPath, branch: task.branch, createdAt: task.createdAt },
-          taskId: task.taskNumber,
-          sandboxProvider,
-        });
-      } else if (task.branch) {
-        // Has a branch but lost its worktree — recover via dialog
-        const wtPath = await ensureWorktreeExists(task);
-        if (!wtPath) return;
-        await addProjectTerminal(projectPath, undefined, {
-          existingWorktree: { path: wtPath, branch: task.branch, createdAt: task.createdAt },
-          taskId: task.taskNumber,
-          sandboxProvider,
-        });
-      } else {
-        // No worktree or branch yet — beginTask creates worktree + sets in_progress
-        const startResult = await window.api.task.start(projectPath, task.taskNumber);
-        if (!startResult.success || !startResult.worktreePath) {
-          useProjectStore.getState().addToast(startResult.error || 'Failed to start task', 'error');
-          return;
-        }
-        surfaceStartWarnings(startResult.warnings);
-        useProjectStore.getState().loadTasks(projectPath);
-        await addProjectTerminal(projectPath, undefined, {
-          existingWorktree: {
-            path: startResult.worktreePath,
-            branch: startResult.task?.branch || '',
-            createdAt: task.createdAt,
-          },
-          taskId: task.taskNumber,
-          skipAutoHook: true,
-        });
-      }
-      onHide();
+      // A recovered worktree lands on `task` itself, so the spawn below sees it.
+      if (task.branch && !(await ensureWorktreeExists(task))) return;
+      if (await openTaskShell(projectPath, task, { sandboxProvider })) onHide();
     },
     [projectPath, onHide, ensureWorktreeExists],
   );
 
   const handleSwitchToTerminal = useCallback(
     (ptyId: string) => {
-      const store = useTerminalStore.getState();
-      const terminals = store.terminalsByProject[projectPath] ?? [];
-      const index = terminals.indexOf(ptyId);
-      if (index !== -1) {
-        recordTerminalJump(ptyId);
-        store.setActiveIndex(projectPath, index);
-      }
+      void focusTerminal(ptyId, projectPath);
       onHide();
     },
     [projectPath, onHide],
