@@ -1,19 +1,24 @@
 /**
- * Shared navigation actions for the sidebar, the app-init restore and the
- * command palette. The sequences are order-sensitive: tasks are pre-fetched
- * before navigating so the kanban paints through the view-transition snapshot,
- * and the terminal card stack reverts an active index a tag filter hides.
+ * Shared navigation actions for the sidebar, the command palette, the board
+ * and the home recents panel. The sequences are order-sensitive: tasks are
+ * pre-fetched before navigating so the kanban paints through the
+ * view-transition snapshot, and the terminal card stack reverts an active
+ * index a tag filter hides.
+ *
+ * Nothing here feeds palette frecency. What the user ends up looking at is a
+ * visit, and `visitTracker` reads that off the view itself.
  */
 
-import type { Project, TaskWithWorkspace } from '../types';
+import type { Project, SandboxProviderId, TaskWithWorkspace } from '../types';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
+import { useTerminalStore, setActiveTerminal, terminalMatchesTag } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalReact';
+import { ensureWorktree } from '../services/worktreeRecovery';
 
 /**
  * Navigates to a project, transitioning in the direction of its position in the
@@ -29,6 +34,18 @@ export async function selectProject(path: string, project: Project): Promise<voi
   await useProjectStore.getState().loadTasks(path);
   state.navigateToProject(path, project, { direction });
   window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
+}
+
+/**
+ * Navigate to a project and land on its terminals. Callers spawn or stage a
+ * terminal first: the project view force-shows the kanban when it mounts with
+ * none registered.
+ */
+export async function showProjectTerminals(path: string, project: Project): Promise<void> {
+  await selectProject(path, project);
+  const store = useProjectStore.getState();
+  store.setActivePanel('terminals');
+  store.setKanbanVisible(false);
 }
 
 /**
@@ -91,71 +108,91 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
     projectStore.setTagFilter(null);
   }
 
-  await selectProject(ownerPath, project);
+  await showProjectTerminals(ownerPath, project);
 
-  const store = useProjectStore.getState();
-  store.setActivePanel('terminals');
-  store.setKanbanVisible(false);
-
-  if (store.terminalLayout === 'canvas') {
+  if (useProjectStore.getState().terminalLayout === 'canvas') {
     const canvas = useCanvasStore.getState().canvasByProject[ownerPath];
     if (canvas) {
       const nodes = canvas.nodes.map((node) => ({ ...node, selected: node.id === ptyId }));
       useCanvasStore.getState().loadCanvas(ownerPath, { ...canvas, nodes });
     }
   } else {
-    const terminals = useTerminalStore.getState().terminalsByProject[ownerPath] ?? [];
-    const index = terminals.indexOf(ptyId);
-    if (index >= 0) useTerminalStore.getState().setActiveIndex(ownerPath, index);
+    setActiveTerminal(ownerPath, ptyId);
   }
 
   focusXterm(ptyId);
 }
 
-export interface TaskWorktreeTarget {
-  project: Project;
-  taskNumber: number;
-  worktreePath: string;
-  branch: string;
-  createdAt: string;
+export interface OpenTaskShellOptions {
+  /**
+   * `resume` relaunches the project's continue hook in the worktree — picking
+   * the agent session back up. `shell` opens a plain shell. A task that has
+   * never been started lands as a plain shell either way: `task.start` leaves
+   * nothing to resume.
+   */
+  mode: 'resume' | 'shell';
+  /** Never persisted on the task — passed straight to the spawn. */
+  sandboxProvider?: SandboxProviderId;
+  replaceLoadingId?: string;
 }
 
 /**
- * Opens a plain shell in an existing task worktree. `skipAutoHook` is required:
- * without it `addProjectTerminal` substitutes the project's continue hook and
- * relaunches the agent.
+ * Spawn a shell in a task's worktree, recreating a worktree that has gone
+ * missing and creating one for a task that has never been started. `beginTask`
+ * behind `task.start` creates the branch and worktree and moves a todo task to
+ * in_progress; it runs no hook.
  *
- * Spawns before navigating, since the project view force-shows the kanban when
- * it mounts with no terminals registered.
+ * Navigating to the result is the caller's concern. Returns false when nothing
+ * spawned — including when the user declined to recover a missing worktree, in
+ * which case they have already been told why.
  */
-export async function openTaskWorktree(target: TaskWorktreeTarget): Promise<void> {
-  const added = await addProjectTerminal(target.project.path, undefined, {
-    existingWorktree: {
-      path: target.worktreePath,
-      branch: target.branch,
-      createdAt: target.createdAt,
-    },
-    taskId: target.taskNumber,
-    skipAutoHook: true,
-  });
-  if (!added) return;
+export async function openTaskShell(
+  projectPath: string,
+  task: TaskWithWorkspace,
+  options: OpenTaskShellOptions,
+): Promise<boolean> {
+  let worktree: { path: string; branch: string; createdAt: string };
+  const skipAutoHook = options.mode === 'shell' || !task.branch;
 
-  await selectProject(target.project.path, target.project);
-  const store = useProjectStore.getState();
-  store.setActivePanel('terminals');
-  store.setKanbanVisible(false);
+  if (task.branch) {
+    const ensured = await ensureWorktree(projectPath, task);
+    if (!ensured) return false;
+    worktree = { path: ensured.path, branch: ensured.branch, createdAt: task.createdAt };
+  } else {
+    const result = await window.api.task.start(projectPath, task.taskNumber);
+    if (!result.success || !result.worktreePath) {
+      useProjectStore.getState().addToast(result.error || `Failed to open T-${task.taskNumber}`, 'error');
+      return false;
+    }
+    surfaceStartWarnings(result.warnings);
+    void useProjectStore.getState().loadTasksIfActive(projectPath);
+    worktree = { path: result.worktreePath, branch: result.task?.branch || '', createdAt: task.createdAt };
+  }
+
+  return addProjectTerminal(projectPath, undefined, {
+    existingWorktree: worktree,
+    taskId: task.taskNumber,
+    skipAutoHook,
+    sandboxProvider: options.sandboxProvider,
+    replaceLoadingId: options.replaceLoadingId,
+  });
 }
 
 /**
- * Create a task's worktree, then open a shell in it.
- *
- * The path for a task that has never been started. `beginTask` behind
- * `task.start` creates the branch and worktree and moves a todo task to
- * in_progress; it runs no hook, and the spawn skips the continue hook, so what
- * lands is a plain shell in a new worktree. Same sequence the board's "open in
- * terminal" and the home recents panel already use for a task with no
- * worktree.
- *
+ * Lands on the first task that actually opened; shells for the rest appear when
+ * the user switches to their projects.
+ */
+export async function openTasks(
+  tasks: { project: Project; task: TaskWithWorkspace }[],
+  mode: OpenTaskShellOptions['mode'] = 'resume',
+): Promise<void> {
+  const opened = await Promise.all(tasks.map(({ project, task }) => openTaskShell(project.path, task, { mode })));
+  const landing = tasks[opened.indexOf(true)];
+  if (!landing) return;
+  await showProjectTerminals(landing.project.path, landing.project);
+}
+
+/**
  * Creating a worktree takes long enough to see, so this borrows the kanban
  * drop's staging rather than awaiting it behind a closed palette: a loading slot
  * goes into the stack first and the view moves to it immediately, so the card is
@@ -163,51 +200,24 @@ export async function openTaskWorktree(target: TaskWorktreeTarget): Promise<void
  * terminal then takes that slot's place via `replaceLoadingId` instead of
  * appearing from nowhere once everything is ready.
  */
-export async function startTaskWorktree(
-  project: Project,
-  taskNumber: number,
-  createdAt: string,
-  taskName: string,
-): Promise<void> {
+async function startTaskWorktree(project: Project, task: TaskWithWorkspace): Promise<void> {
   // A second Enter on a row whose start is still in flight would stage a
   // duplicate slot and race the first spawn.
-  if (useProjectStore.getState().startingTaskNumbers.has(taskNumber)) return;
+  if (useProjectStore.getState().startingTaskNumbers.has(task.taskNumber)) return;
 
-  const slotId = makePlaceholderId(taskNumber);
-  useProjectStore.getState().markTaskStarting(taskNumber);
+  const slotId = makePlaceholderId(task.taskNumber);
+  useProjectStore.getState().markTaskStarting(task.taskNumber);
   useTerminalStore
     .getState()
-    .addTerminal(project.path, slotId, { label: taskName, taskId: taskNumber, isLoading: true });
+    .addTerminal(project.path, slotId, { label: task.name || 'Untitled', taskId: task.taskNumber, isLoading: true });
 
   try {
-    // Navigate with the slot already registered: the project view force-shows
-    // the kanban when it mounts with no terminals for the project.
-    await selectProject(project.path, project);
-    const store = useProjectStore.getState();
-    store.setActivePanel('terminals');
-    store.setKanbanVisible(false);
+    await showProjectTerminals(project.path, project);
     useTerminalStore.getState().activateLast(project.path);
 
-    const result = await window.api.task.start(project.path, taskNumber);
-    if (!result.success || !result.worktreePath) {
-      useProjectStore.getState().addToast(result.error || `Failed to open T-${taskNumber}`, 'error');
-      return;
-    }
-    surfaceStartWarnings(result.warnings);
-    void useProjectStore.getState().loadTasks(project.path);
-
-    await addProjectTerminal(project.path, undefined, {
-      existingWorktree: {
-        path: result.worktreePath,
-        branch: result.task?.branch || '',
-        createdAt,
-      },
-      taskId: taskNumber,
-      skipAutoHook: true,
-      replaceLoadingId: slotId,
-    });
+    await openTaskShell(project.path, task, { mode: 'shell', replaceLoadingId: slotId });
   } finally {
-    useProjectStore.getState().markTaskStartingDone(taskNumber);
+    useProjectStore.getState().markTaskStartingDone(task.taskNumber);
     // A successful spawn swapped the slot for the real ptyId; anything else
     // leaves it behind as a card that would never resolve.
     if (useTerminalStore.getState().terminalsByProject[project.path]?.includes(slotId)) {
@@ -261,14 +271,8 @@ export async function activateTask(project: Project, task: TaskWithWorkspace, kn
     return;
   }
   if (task.worktreePath && task.branch) {
-    await openTaskWorktree({
-      project,
-      taskNumber: task.taskNumber,
-      worktreePath: task.worktreePath,
-      branch: task.branch,
-      createdAt: task.createdAt,
-    });
+    await openTasks([{ project, task }], 'shell');
     return;
   }
-  await startTaskWorktree(project, task.taskNumber, task.createdAt, task.name || 'Untitled');
+  await startTaskWorktree(project, task);
 }

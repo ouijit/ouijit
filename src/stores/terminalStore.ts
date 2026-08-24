@@ -208,6 +208,14 @@ export function getActivePtyId(projectPath: string): string | undefined {
   return terminals[index];
 }
 
+/** Bring a shell to the front of its project's stack. False if it is not registered there. */
+export function setActiveTerminal(projectPath: string, ptyId: string): boolean {
+  const index = useTerminalStore.getState().terminalsByProject[projectPath]?.indexOf(ptyId) ?? -1;
+  if (index < 0) return false;
+  useTerminalStore.getState().setActiveIndex(projectPath, index);
+  return true;
+}
+
 export function getStackPage(projectPath: string): number {
   const state = useTerminalStore.getState();
   const index = state.activeIndices[projectPath] ?? 0;

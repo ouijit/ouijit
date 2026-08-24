@@ -9,18 +9,19 @@ import type {
   SandboxProviderId,
 } from '../types';
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
+import { queuePrompt, settlePrompt, settleAllPrompts, type Pending } from './promptQueue';
 import { useAppStore } from './appStore';
 
 export type TerminalLayout = 'stack' | 'canvas';
 
-export interface RunHookRequest {
-  id: number;
+export interface RunHookInput {
   projectPath: string;
   hookType: HookType;
   hook: ScriptHook;
   task: TaskWithWorkspace;
-  resolve: (result: RunHookResult | null) => void;
 }
+
+export type RunHookRequest = RunHookInput & Pending<RunHookResult | null>;
 
 export interface PendingCliStart {
   taskNumber: number;
@@ -179,7 +180,7 @@ interface ProjectStoreActions {
   markTaskStartingDone: (taskNumber: number) => void;
 
   /** Enqueue a hook-prompt dialog and return a promise that resolves with the user's choice. */
-  requestRunHook: (req: Omit<RunHookRequest, 'id' | 'resolve'>) => Promise<RunHookResult | null>;
+  requestRunHook: (req: RunHookInput) => Promise<RunHookResult | null>;
   /** Resolve one queued hook prompt with a result (or null for skip/cancel). */
   resolveRunHookRequest: (id: number, result: RunHookResult | null) => void;
   /** Resolve the head prompt with `headResult`, then run every remaining queued hook with its default command. */
@@ -207,7 +208,6 @@ type ProjectStore = ProjectStoreState & ProjectStoreActions;
 
 let toastCounter = 0;
 let moveCounter = 0;
-let runHookRequestCounter = 0;
 let configLoadVersion = 0;
 
 let scriptsLoadVersion = 0;
@@ -315,8 +315,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   },
 
   resetForProject: () => {
-    // Unblock any services awaiting a hook prompt before we drop the queue.
-    for (const pending of get().runHookQueue) pending.resolve(null);
+    settleAllPrompts(get().runHookQueue, (): RunHookResult | null => null);
     set({
       tasks: [],
       kanbanVisible: false,
@@ -504,44 +503,38 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   },
 
   requestRunHook: (req) =>
-    new Promise<RunHookResult | null>((resolve) => {
-      // Concurrent transitions (CLI / multi-select batch starts) each append a
-      // request. They are presented one at a time as a stepper instead of the
-      // newest evicting the prior one, so no start hook is silently dropped.
-      const id = ++runHookRequestCounter;
+    // What arrives concurrently: CLI starts and multi-select batch starts.
+    queuePrompt<RunHookInput, RunHookResult | null>(req, (entry) =>
       set((s) => ({
-        runHookQueue: [...s.runHookQueue, { ...req, id, resolve }],
+        runHookQueue: [...s.runHookQueue, entry],
         runHookQueueTotal: s.runHookQueueTotal + 1,
-      }));
-    }),
+      })),
+    ),
 
   resolveRunHookRequest: (id, result) => {
-    const queue = get().runHookQueue;
-    const target = queue.find((r) => r.id === id);
-    if (!target) return;
-    const next = queue.filter((r) => r.id !== id);
+    const next = settlePrompt(get().runHookQueue, id, result);
+    if (!next) return;
     set({ runHookQueue: next, runHookQueueTotal: next.length === 0 ? 0 : get().runHookQueueTotal });
-    target.resolve(result);
   },
 
   runAllRunHookRequests: (headResult) => {
     const queue = get().runHookQueue;
     if (queue.length === 0) return;
-    const [head, ...rest] = queue;
-    set({ runHookQueue: [], runHookQueueTotal: 0 });
-    head.resolve(headResult);
-    // Remaining hooks run with their default command in the background — the
-    // user opted into a bulk action rather than reviewing each one.
-    for (const req of rest) {
-      req.resolve({ command: req.hook.command, sandboxed: false, foreground: false });
-    }
+    // Everything behind the head runs with its default command in the
+    // background — the user opted into a bulk action rather than reviewing
+    // each one.
+    set({
+      runHookQueue: settleAllPrompts(queue, (req, index) =>
+        index === 0 ? headResult : { command: req.hook.command, sandboxed: false, foreground: false },
+      ),
+      runHookQueueTotal: 0,
+    });
   },
 
   skipAllRunHookRequests: () => {
     const queue = get().runHookQueue;
     if (queue.length === 0) return;
-    set({ runHookQueue: [], runHookQueueTotal: 0 });
-    for (const req of queue) req.resolve(null);
+    set({ runHookQueue: settleAllPrompts(queue, (): RunHookResult | null => null), runHookQueueTotal: 0 });
   },
 
   enqueueCliStart: (projectPath, start) => {

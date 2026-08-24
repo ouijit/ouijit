@@ -147,7 +147,7 @@ const createWindow = (): BrowserWindow => {
     useContentSize: captureMode,
     // macOS: hidden title bar with inset traffic lights
     // Linux/Windows: use default frame (has native window controls)
-    ...(isMac && { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 16 } }),
+    ...(isMac && { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 27 } }),
     // Linux needs explicit icon (macOS uses .icns from app bundle)
     ...(isLinux && { icon: path.join(__dirname, '..', '..', 'icon.png') }),
     backgroundColor,

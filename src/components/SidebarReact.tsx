@@ -19,7 +19,6 @@ import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
-import { Icon } from './terminal/Icon';
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
 interface SidebarProps {
@@ -313,36 +312,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
                     <path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z" />
                   </svg>
                 </button>
-              </div>
-            )}
-          </SidebarTooltipWrapper>
-
-          {/* Pin toggle — same active-state treatment as the home/project
-              items (white left-bar indicator on hover/active). */}
-          <SidebarTooltipWrapper label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar open'}>
-            {(tipRef, tipProps) => (
-              <div
-                ref={tipRef}
-                {...tipProps}
-                className="group relative flex items-center justify-center shrink-0 [-webkit-app-region:no-drag]"
-                style={{ width: 'var(--sidebar-width)', height: 40 }}
-                onClick={() => useUIStore.getState().toggleSidebarPinned()}
-                role="button"
-                tabIndex={0}
-                aria-pressed={sidebarPinned}
-                aria-label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar open'}
-              >
-                <div
-                  className={`absolute left-0 w-1 rounded-r-sm bg-ink transition-all duration-200 ease-out ${
-                    sidebarPinned ? 'h-7 opacity-100' : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-50'
-                  }`}
-                />
-                <Icon
-                  name="sidebar-simple"
-                  className={`w-5 h-5 transition-colors duration-150 ${
-                    sidebarPinned ? 'text-text-primary' : 'text-text-tertiary group-hover:text-text-secondary'
-                  }`}
-                />
               </div>
             )}
           </SidebarTooltipWrapper>

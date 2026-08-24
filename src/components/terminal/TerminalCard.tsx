@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { useTerminalStore, STACK_PAGE_SIZE } from '../../stores/terminalStore';
+import { useTerminalStore, setActiveTerminal, STACK_PAGE_SIZE } from '../../stores/terminalStore';
 import { terminalInstances } from './terminalReact';
 import { TerminalHeader } from './TerminalHeader';
 import { TerminalBody } from './TerminalBody';
@@ -58,10 +58,7 @@ export const TerminalCard = memo(function TerminalCard({
   }, [index, activeIndex, pageStart, pageEnd, pageSize, isActive]);
 
   const handleClick = useCallback(() => {
-    if (!isActive) {
-      const fullIdx = useTerminalStore.getState().terminalsByProject[projectPath]?.indexOf(ptyId) ?? -1;
-      if (fullIdx >= 0) useTerminalStore.getState().setActiveIndex(projectPath, fullIdx);
-    }
+    if (!isActive) setActiveTerminal(projectPath, ptyId);
   }, [isActive, projectPath, ptyId]);
 
   const handleClose = useCallback(() => {

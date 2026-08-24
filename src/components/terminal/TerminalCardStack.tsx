@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { useTerminalStore, STACK_PAGE_SIZE, terminalMatchesTag } from '../../stores/terminalStore';
+import { useTerminalStore, setActiveTerminal, STACK_PAGE_SIZE, terminalMatchesTag } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { TerminalCard } from './TerminalCard';
 
@@ -28,9 +28,8 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
   useEffect(() => {
     if (!tagFilter || visible.length === 0) return;
     if (activeFullPtyId && visible.includes(activeFullPtyId)) return;
-    const fullIdx = terminals.indexOf(visible[0]);
-    if (fullIdx >= 0) useTerminalStore.getState().setActiveIndex(projectPath, fullIdx);
-  }, [tagFilter, visible, activeFullPtyId, terminals, projectPath]);
+    setActiveTerminal(projectPath, visible[0]);
+  }, [tagFilter, visible, activeFullPtyId, projectPath]);
 
   const activeVisibleIndex = Math.max(activeId ? visible.indexOf(activeId) : 0, 0);
   const page = Math.floor(activeVisibleIndex / STACK_PAGE_SIZE);
@@ -146,9 +145,7 @@ function Pagination({
       const targetPage = page + direction;
       if (targetPage < 0 || targetPage >= totalPages) return;
       const ptyId = visible[targetPage * STACK_PAGE_SIZE];
-      if (!ptyId) return;
-      const fullIdx = useTerminalStore.getState().terminalsByProject[projectPath]?.indexOf(ptyId) ?? -1;
-      if (fullIdx >= 0) useTerminalStore.getState().setActiveIndex(projectPath, fullIdx);
+      if (ptyId) setActiveTerminal(projectPath, ptyId);
     },
     [page, totalPages, visible, projectPath],
   );
