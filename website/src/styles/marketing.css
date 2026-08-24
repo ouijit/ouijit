@@ -1711,10 +1711,17 @@ body.marketing .float-nav-buy:hover {
   grid-column: span 2;
 }
 
+.detail-rows-2 {
+  grid-row: span 2;
+}
+
 @media (max-width: 900px) {
   .detail-span-4,
   .detail-span-2 {
     grid-column: span 3;
+  }
+  .detail-rows-2 {
+    grid-row: auto;
   }
 }
 

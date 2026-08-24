@@ -16,7 +16,7 @@ import {
   <div class="details-inner">
     <h2 data-reveal>Power tools included</h2>
     <div class="details-grid bento">
-      <div class="detail desk-wash desk-wash--graphite detail-span-4" data-reveal>
+      <div class="detail desk-wash desk-wash--graphite detail-span-4 detail-rows-2" data-reveal>
         <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
         <div class="desk-wash-field bento-lit-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
         <div class="detail-title">Everything is three keystrokes away.</div>
@@ -32,6 +32,13 @@ import {
         <div class="detail-title">Untrusted code, contained.</div>
         <p>Agents run in a Lima VM that mounts only the task's worktree — or sandboxed in place with Seatbelt and Landlock, via nono.</p>
         <div class="bento-stack" aria-hidden="true"><SandboxMock /></div>
+      </div>
+      <div class="detail desk-wash desk-wash--graphite detail-span-2" data-reveal style="--reveal-delay: 160ms">
+        <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
+        <div class="desk-wash-field bento-lit-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
+        <div class="detail-title">No pointer required.</div>
+        <p>⌘1 through ⌘9 land on any terminal in the stack; the board, a new task, and a fresh terminal are each one chord away.</p>
+        <div class="bento-stack" aria-hidden="true"><ShortcutsMock /></div>
       </div>
       <div class="detail desk-wash desk-wash--graphite detail-span-2" data-reveal>
         <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
@@ -54,21 +61,14 @@ import {
         <p>Start from a preset or build your own — dark or light base, every color overridable, down to the ANSI palette.</p>
         <div class="bento-stack" aria-hidden="true"><ThemeMock /></div>
       </div>
-      <div class="detail desk-wash desk-wash--graphite detail-span-2" data-reveal>
+      <div class="detail desk-wash desk-wash--graphite detail-span-3" data-reveal>
         <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
         <div class="desk-wash-field bento-lit-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
         <div class="detail-title">Filter by tag.</div>
         <p>Tag terminals, then cut the stack to one tag — or group the home view by them.</p>
         <div class="bento-stack" aria-hidden="true"><TagsMock /></div>
       </div>
-      <div class="detail desk-wash desk-wash--graphite detail-span-2" data-reveal style="--reveal-delay: 80ms">
-        <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
-        <div class="desk-wash-field bento-lit-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
-        <div class="detail-title">No pointer required.</div>
-        <p>⌘1 through ⌘9 land on any terminal in the stack; the board, a new task, and a fresh terminal are each one chord away.</p>
-        <div class="bento-stack" aria-hidden="true"><ShortcutsMock /></div>
-      </div>
-      <div class="detail desk-wash desk-wash--graphite detail-span-2" data-reveal style="--reveal-delay: 160ms">
+      <div class="detail desk-wash desk-wash--graphite detail-span-3" data-reveal style="--reveal-delay: 80ms">
         <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
         <div class="desk-wash-field bento-lit-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
         <div class="detail-title">Quit without losing the room.</div>
