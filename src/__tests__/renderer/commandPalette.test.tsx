@@ -408,12 +408,10 @@ describe('command palette navigation', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     // The record lands via the navigation action, after the palette has closed.
-    await waitFor(() =>
-      expect(
-        vi.mocked(window.api.globalSettings.set).mock.calls.find(([key]) => key === 'ui:palette-frecency'),
-      ).toBeTruthy(),
-    );
-    const write = vi.mocked(window.api.globalSettings.set).mock.calls.find(([key]) => key === 'ui:palette-frecency');
+    const frecencyWrite = () =>
+      vi.mocked(window.api.globalSettings.set).mock.calls.find(([key]) => key === 'ui:palette-frecency');
+    await waitFor(() => expect(frecencyWrite()).toBeTruthy());
+    const write = frecencyWrite();
     const stored = JSON.parse(write?.[1] as string);
     // Keyed on the task, not the pty — the shell it just opened will not
     // outlive the worktree, but what we learned about the task should.

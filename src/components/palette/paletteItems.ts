@@ -23,7 +23,7 @@ import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 import { activateTask, focusTerminal, selectProject, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
-import { projectKey, pullKey, taskKey, terminalKey } from '../../utils/paletteFrecency';
+import { projectKey, pullKey, taskKey, terminalFrecencyKey, terminalKey } from '../../utils/paletteFrecency';
 
 export type PaletteKind = 'terminal' | 'project' | 'task' | 'pull';
 
@@ -208,14 +208,12 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   // running shell): without this it would vanish entirely.
   for (const terminal of terminals) {
     const project = projectByPath.get(terminal.projectPath);
-    const taskExists =
-      terminal.taskId != null &&
-      (input.taskCacheByProject[terminal.projectPath] ?? []).some((t) => t.taskNumber === terminal.taskId);
-    if (taskExists) continue;
+    const key = terminalFrecencyKey(terminal.ptyId, terminal, input.taskCacheByProject);
+    if (key !== terminalKey(terminal.ptyId)) continue;
 
     push({
-      id: `terminal:${terminal.ptyId}`,
-      key: terminalKey(terminal.ptyId),
+      id: key,
+      key,
       kind: 'terminal',
       title: terminal.label,
       context: project?.name ?? terminal.projectPath,
@@ -239,7 +237,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
     // scoring the full path here would highlight the wrong characters.
     const displayPath = project.path.replace(/^\/Users\/[^/]+/, '~');
     push({
-      id: `project:${project.path}`,
+      id: projectKey(project.path),
       key: projectKey(project.path),
       kind: 'project',
       title: project.name,
@@ -295,7 +293,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
     // navigable rather than collapsing to whichever one sorted first.
     live.forEach((terminal, i) => {
       push({
-        id: `terminal:${terminal.ptyId}`,
+        id: terminalKey(terminal.ptyId),
         key: taskId,
         kind: 'terminal',
         title: terminal.label,
@@ -327,7 +325,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
     for (const pr of input.pullRequests) {
       if (linkedPrNumbers.has(pr.number)) continue;
       push({
-        id: `pull:${projectPath}#${pr.number}`,
+        id: pullKey(projectPath, pr.number),
         key: pullKey(projectPath, pr.number),
         kind: 'pull',
         title: pr.title,

@@ -39,6 +39,24 @@ export const taskKey = (projectPath: string, taskNumber: number): string => `tas
 export const terminalKey = (ptyId: string): string => `terminal:${ptyId}`;
 export const pullKey = (projectPath: string, prNumber: number): string => `pull:${projectPath}#${prNumber}`;
 
+/**
+ * The key a live shell answers to: its task's, so every worktree shell feeds
+ * the task's entry, or its own ptyId when no cached task claims it. The jump
+ * recorder and the palette's row builder both resolve through here — the
+ * recorded key must be one a row carries, or the boost lands nowhere.
+ */
+export function terminalFrecencyKey(
+  ptyId: string,
+  terminal: { projectPath: string; taskId?: number | null },
+  taskCacheByProject: Record<string, readonly { taskNumber: number }[] | undefined>,
+): string {
+  const { projectPath, taskId } = terminal;
+  if (taskId != null && (taskCacheByProject[projectPath] ?? []).some((t) => t.taskNumber === taskId)) {
+    return taskKey(projectPath, taskId);
+  }
+  return terminalKey(ptyId);
+}
+
 /** 0..MAX_BOOST, added to a row's match score. */
 export function frecencyBoost(entry: FrecencyEntry | undefined, now: number): number {
   if (!entry) return 0;

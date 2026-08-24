@@ -20,7 +20,7 @@ import { useUIStore } from '../stores/uiStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalReact';
-import { projectKey, recordJump, taskKey, terminalKey } from '../utils/paletteFrecency';
+import { projectKey, recordJump, taskKey, terminalFrecencyKey } from '../utils/paletteFrecency';
 
 /**
  * Navigates to a project, transitioning in the direction of its position in the
@@ -44,6 +44,18 @@ async function showProject(path: string, project: Project): Promise<void> {
 }
 
 /**
+ * Navigate to a project and land on its terminals. Callers spawn or stage a
+ * terminal first: the project view force-shows the kanban when it mounts with
+ * none registered.
+ */
+async function showProjectTerminals(path: string, project: Project): Promise<void> {
+  await showProject(path, project);
+  const store = useProjectStore.getState();
+  store.setActivePanel('terminals');
+  store.setKanbanVisible(false);
+}
+
+/**
  * Navigate home. Navigates immediately — the cached `homeRecents` paints during
  * the view transition — and reconciles with a background refresh.
  */
@@ -63,14 +75,7 @@ export function selectHome(): void {
 export function recordTerminalJump(ptyId: string): void {
   const display = useTerminalStore.getState().displayStates[ptyId];
   if (!display) return;
-  if (display.taskId != null) {
-    const tasks = useAppStore.getState().taskCacheByProject[display.projectPath] ?? [];
-    if (tasks.some((t) => t.taskNumber === display.taskId)) {
-      recordJump(taskKey(display.projectPath, display.taskId));
-      return;
-    }
-  }
-  recordJump(terminalKey(ptyId));
+  recordJump(terminalFrecencyKey(ptyId, display, useAppStore.getState().taskCacheByProject));
 }
 
 /** Fit and focus a terminal's xterm once React has had a frame to mount it. */
@@ -123,13 +128,9 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
     projectStore.setTagFilter(null);
   }
 
-  await showProject(ownerPath, project);
+  await showProjectTerminals(ownerPath, project);
 
-  const store = useProjectStore.getState();
-  store.setActivePanel('terminals');
-  store.setKanbanVisible(false);
-
-  if (store.terminalLayout === 'canvas') {
+  if (useProjectStore.getState().terminalLayout === 'canvas') {
     const canvas = useCanvasStore.getState().canvasByProject[ownerPath];
     if (canvas) {
       const nodes = canvas.nodes.map((node) => ({ ...node, selected: node.id === ptyId }));
@@ -177,28 +178,28 @@ export async function openTaskShell(
 ): Promise<boolean> {
   recordJump(taskKey(projectPath, task.taskNumber));
 
-  if (task.worktreePath && task.branch) {
-    return addProjectTerminal(projectPath, undefined, {
-      existingWorktree: { path: task.worktreePath, branch: task.branch, createdAt: task.createdAt },
-      taskId: task.taskNumber,
-      skipAutoHook: options?.skipAutoHook,
-      sandboxProvider: options?.sandboxProvider,
-      replaceLoadingId: options?.replaceLoadingId,
-    });
-  }
+  let worktree =
+    task.worktreePath && task.branch
+      ? { path: task.worktreePath, branch: task.branch, createdAt: task.createdAt }
+      : null;
+  let skipAutoHook = options?.skipAutoHook;
 
-  const result = await window.api.task.start(projectPath, task.taskNumber);
-  if (!result.success || !result.worktreePath) {
-    useProjectStore.getState().addToast(result.error || `Failed to open T-${task.taskNumber}`, 'error');
-    return false;
+  if (!worktree) {
+    const result = await window.api.task.start(projectPath, task.taskNumber);
+    if (!result.success || !result.worktreePath) {
+      useProjectStore.getState().addToast(result.error || `Failed to open T-${task.taskNumber}`, 'error');
+      return false;
+    }
+    surfaceStartWarnings(result.warnings);
+    void useProjectStore.getState().loadTasks(projectPath);
+    worktree = { path: result.worktreePath, branch: result.task?.branch || '', createdAt: task.createdAt };
+    skipAutoHook = true;
   }
-  surfaceStartWarnings(result.warnings);
-  void useProjectStore.getState().loadTasks(projectPath);
 
   return addProjectTerminal(projectPath, undefined, {
-    existingWorktree: { path: result.worktreePath, branch: result.task?.branch || '', createdAt: task.createdAt },
+    existingWorktree: worktree,
     taskId: task.taskNumber,
-    skipAutoHook: true,
+    skipAutoHook,
     sandboxProvider: options?.sandboxProvider,
     replaceLoadingId: options?.replaceLoadingId,
   });
@@ -224,12 +225,7 @@ async function startTaskWorktree(project: Project, task: TaskWithWorkspace): Pro
     .addTerminal(project.path, slotId, { label: task.name || 'Untitled', taskId: task.taskNumber, isLoading: true });
 
   try {
-    // Navigate with the slot already registered: the project view force-shows
-    // the kanban when it mounts with no terminals for the project.
-    await showProject(project.path, project);
-    const store = useProjectStore.getState();
-    store.setActivePanel('terminals');
-    store.setKanbanVisible(false);
+    await showProjectTerminals(project.path, project);
     useTerminalStore.getState().activateLast(project.path);
 
     await openTaskShell(project.path, task, { replaceLoadingId: slotId });
@@ -288,14 +284,8 @@ export async function activateTask(project: Project, task: TaskWithWorkspace, kn
     return;
   }
   if (task.worktreePath && task.branch) {
-    // Spawns before navigating, since the project view force-shows the kanban
-    // when it mounts with no terminals registered.
     const added = await openTaskShell(project.path, task, { skipAutoHook: true });
-    if (!added) return;
-    await showProject(project.path, project);
-    const store = useProjectStore.getState();
-    store.setActivePanel('terminals');
-    store.setKanbanVisible(false);
+    if (added) await showProjectTerminals(project.path, project);
     return;
   }
   await startTaskWorktree(project, task);

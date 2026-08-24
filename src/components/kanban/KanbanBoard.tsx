@@ -551,8 +551,11 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const handleOpenTerminal = useCallback(
     async (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => {
-      // A recovered worktree lands on `task` itself, so the spawn below sees it.
-      if (task.branch && !(await ensureWorktreeExists(task))) return;
+      if (task.branch) {
+        const wtPath = await ensureWorktreeExists(task);
+        if (!wtPath) return;
+        task = { ...task, worktreePath: wtPath };
+      }
       if (await openTaskShell(projectPath, task, { sandboxProvider })) onHide();
     },
     [projectPath, onHide, ensureWorktreeExists],
