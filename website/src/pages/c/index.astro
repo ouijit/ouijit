@@ -7,6 +7,7 @@ import Plan from '../../components/home/Plan.astro';
 import Build from '../../components/home/Build.astro';
 import Review from '../../components/home/Review.astro';
 import Extras from '../../components/home/Extras.astro';
+import Cta from '../../components/home/Cta.astro';
 ---
 <Site noindex>
   <script is:inline>document.documentElement.classList.add('js');</script>
@@ -42,6 +43,8 @@ import Extras from '../../components/home/Extras.astro';
   <Extras />
 
   <Harnesses />
+
+  <Cta plain />
 
   <script>
     import { initHomeChrome, initPitchIllumination } from '../../scripts/homeChrome';

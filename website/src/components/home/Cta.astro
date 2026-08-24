@@ -1,7 +1,8 @@
 ---
 import DownloadButtons from './DownloadButtons.astro';
+const { plain = false } = Astro.props;
 ---
-<section class="cta-section">
+<section class={`cta-section${plain ? ' cta-section--plain' : ''}`}>
   <div class="cta-inner">
     <h2 data-reveal>Put an agent on every task.</h2>
     <p data-reveal style="--reveal-delay: 90ms">macOS 13+ (Apple Silicon or Intel) and Linux x64. Free and open source.</p>

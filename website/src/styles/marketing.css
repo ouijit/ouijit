@@ -1937,6 +1937,12 @@ body.marketing .float-nav-buy:hover {
   }
 }
 
+.cta-section--plain h2 {
+  background: none;
+  color: var(--color-text-primary);
+  text-wrap: balance;
+}
+
 /* --- Footer --- */
 .site-footer {
   border-top: 1px solid var(--color-border);
