@@ -387,4 +387,9 @@ contextBridge.exposeInMainWorld('api', {
     discard: (id: string) => typedInvoke('diff-notes:discard', id),
     clear: (worktreePath: string) => typedInvoke('diff-notes:clear', worktreePath),
   },
+
+  analysis: {
+    refresh: (projectPath: string) => typedInvoke('analysis:refresh', projectPath),
+    diffSignals: (projectPath: string, paths: string[]) => typedInvoke('analysis:diff-signals', projectPath, paths),
+  },
 });

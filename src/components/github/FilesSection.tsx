@@ -24,6 +24,9 @@ import { ReviewThreadView } from './ReviewThreadView';
 import { InlineCommentBox, InlineCommentCard } from '../diff/InlineCommentBox';
 import { inTreeOrder } from '../diff/DiffFileTree';
 import { useThreadActions } from './useThreadActions';
+import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
+import { AnalysisChip, missingPartners } from '../diff/AnalysisChip';
+import type { FileSignal } from '../../analysis/types';
 
 import { Loading } from './Loading';
 
@@ -42,6 +45,11 @@ export interface FilesSectionHandle {
   editDraft: (draftId: string) => void;
 }
 
+interface FileAnalysis {
+  signal: FileSignal;
+  missing: string[];
+}
+
 interface FileSectionProps {
   file: PullRequestFile;
   diff: FileDiff | null | undefined;
@@ -52,6 +60,7 @@ interface FileSectionProps {
   onAddComment: (path: string, anchor: DiffLineAnchor) => void;
   renderBelowLine?: (path: string, anchor: DiffLineAnchor) => ReactNode;
   markLine?: (path: string, anchor: DiffLineAnchor) => boolean;
+  analysis?: FileAnalysis;
   viewed: boolean;
   onViewedChange: (path: string, viewed: boolean) => void;
 }
@@ -72,6 +81,7 @@ const FileSection = memo(function FileSection({
   onAddComment,
   renderBelowLine,
   markLine,
+  analysis,
   viewed,
   onViewedChange,
 }: FileSectionProps) {
@@ -90,15 +100,20 @@ const FileSection = memo(function FileSection({
 
   const headerRight = useMemo(
     () =>
-      file.oldPath ? (
-        <span
-          className="shrink-0 font-mono text-[11px] text-text-tertiary truncate"
-          title={`Renamed from ${file.oldPath}`}
-        >
-          from {file.oldPath}
-        </span>
+      file.oldPath || analysis ? (
+        <>
+          {file.oldPath && (
+            <span
+              className="shrink-0 font-mono text-[11px] text-text-tertiary truncate"
+              title={`Renamed from ${file.oldPath}`}
+            >
+              from {file.oldPath}
+            </span>
+          )}
+          {analysis && <AnalysisChip signal={analysis.signal} missing={analysis.missing} />}
+        </>
       ) : null,
-    [file.oldPath],
+    [file.oldPath, analysis],
   );
 
   return (
@@ -159,6 +174,25 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   // path and line count identical, and the loader would then keep the old
   // head's hunks while every review anchor points at the new one.
   const filesFingerprint = useMemo(() => `${detail.headSha}\n${diffShape(files)}`, [files, detail.headSha]);
+
+  const signals = useAnalysisSignals(
+    projectPath,
+    filesFingerprint,
+    files.map((f) => f.path),
+  );
+
+  // Data per path rather than elements: FileSection is memoized and builds
+  // its own header, so its props have to keep their identity between renders.
+  const analysisByPath = useMemo(() => {
+    if (!signals) return null;
+    const present = new Set(files.map((f) => f.path));
+    const map = new Map<string, FileAnalysis>();
+    for (const file of files) {
+      const signal = signals.files[file.path];
+      if (signal) map.set(file.path, { signal, missing: missingPartners(signals, file.path, present) });
+    }
+    return map;
+  }, [signals, files]);
 
   useBatchedDiffs(
     files,
@@ -371,6 +405,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       onAddComment={startComment}
       renderBelowLine={renderBelowLine}
       markLine={spans.length > 0 ? markLine : undefined}
+      analysis={analysisByPath?.get(file.path)}
       viewed={viewed.has(file.path)}
       onViewedChange={setViewed}
     />

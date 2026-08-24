@@ -6,6 +6,7 @@ import { ChecksSection } from './ChecksSection';
 import { Markdown } from './Markdown';
 import { CommentComposer } from './CommentComposer';
 import { Dot, Fact, Section, TaskFact } from './Sections';
+import { RiskSection } from './RiskSection';
 import { TimelineEntries } from './TimelineEntries';
 import { checkOutcome, since } from './prFormat';
 
@@ -101,6 +102,8 @@ export function SummaryPane({
       <Section label="Checks" count={detail.checks.length}>
         <ChecksSection checks={detail.checks} />
       </Section>
+
+      <RiskSection projectPath={projectPath} detail={detail} />
 
       <Section label="Comments" count={comments.length} defaultOpen>
         <div className="flex flex-col gap-5">

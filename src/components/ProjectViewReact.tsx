@@ -59,6 +59,9 @@ export function ProjectView() {
   const githubEnabled = useExperimentalStore((s) =>
     projectPath ? (s.flagsByProject[projectPath]?.github ?? false) : false,
   );
+  const analysisEnabled = useExperimentalStore((s) =>
+    projectPath ? (s.flagsByProject[projectPath]?.analysis ?? false) : false,
+  );
 
   const activeIndex = useTerminalStore((s) => (projectPath ? (s.activeIndices[projectPath] ?? 0) : 0));
   const terminalList = useTerminalStore((s) => (projectPath ? s.terminalsByProject[projectPath] : undefined));
@@ -280,14 +283,21 @@ export function ProjectView() {
     const sweepPullRequests = () => {
       if (githubEnabled) void detectPullRequestsForProject(projectPath);
     };
+    const refreshAnalysis = () => {
+      // Rate-limited and rev-parse-gated in the main process; a tick where
+      // nothing moved costs one subprocess.
+      if (analysisEnabled) void window.api.analysis.refresh(projectPath);
+    };
     const start = () => {
       if (interval != null || document.hidden) return;
       // Catches a pull request opened while the window was hidden; the service
       // rate-limits, so an alt-tab back costs nothing.
       sweepPullRequests();
+      refreshAnalysis();
       interval = setInterval(() => {
         refreshAllTerminalGitStatus(projectPath);
         sweepPullRequests();
+        refreshAnalysis();
       }, PROJECT_REFRESH_INTERVAL);
     };
     const stop = () => {
@@ -303,7 +313,7 @@ export function ProjectView() {
       document.removeEventListener('visibilitychange', onVisibility);
       stop();
     };
-  }, [projectPath, githubEnabled]);
+  }, [projectPath, githubEnabled, analysisEnabled]);
 
   // Hook status: register ongoing listener + seed existing terminals
   useHookStatusListener(projectPath);

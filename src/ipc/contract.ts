@@ -62,6 +62,7 @@ import type {
   PrFileVersions,
 } from '../github/types';
 import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
+import type { AnalysisStatus, DiffSignals } from '../analysis/types';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
@@ -296,6 +297,12 @@ export interface IpcInvokeContract {
   'diff-notes:save': { args: [input: SaveDiffNoteInput]; return: { success: boolean } };
   'diff-notes:discard': { args: [id: string]; return: { success: boolean } };
   'diff-notes:clear': { args: [worktreePath: string]; return: { success: boolean } };
+
+  // ── Behavioural analysis ───────────────────────────────────────────
+  // Signals mined from the project repo's git history. Null whenever the
+  // experimental flag is off, so callers need no gate of their own.
+  'analysis:refresh': { args: [projectPath: string]; return: AnalysisStatus | null };
+  'analysis:diff-signals': { args: [projectPath: string, paths: string[]]; return: DiffSignals | null };
 
   'github:drafts': { args: [projectPath: string, prNumber: number, head?: PrHead]; return: ReviewDraft[] };
   'github:save-draft': { args: [projectPath: string, input: SaveDraftInput]; return: ReviewDraft };

@@ -10,6 +10,7 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
   const canvasEnabled = flags?.canvas ?? false;
   const nonoEnabled = flags?.nono ?? false;
   const githubEnabled = flags?.github ?? false;
+  const analysisEnabled = flags?.analysis ?? false;
 
   const handleToggleCanvas = async () => {
     const next = !canvasEnabled;
@@ -55,6 +56,12 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
         description="Pull request inbox and review, powered by the GitHub CLI. Requires gh on PATH and signed in."
         checked={githubEnabled}
         onChange={handleToggleGithub}
+      />
+      <ToggleRow
+        label="Behavioural analysis"
+        description="Hotspot, coupling, and ownership signals from git history, shown on the diff and pull request views."
+        checked={analysisEnabled}
+        onChange={() => void useExperimentalStore.getState().setFlag(projectPath, 'analysis', !analysisEnabled)}
       />
     </div>
   );

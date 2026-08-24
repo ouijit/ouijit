@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import type { FileDiff } from '../../types';
+import { useEffect, useState, useCallback, useRef, useMemo, type ReactNode } from 'react';
+import type { ChangedFile, FileDiff } from '../../types';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
 import { DiffFileTree, inTreeOrder } from './DiffFileTree';
@@ -18,6 +18,8 @@ import { useDiffNotes } from './useDiffNotes';
 import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type DiffLineAnchor } from '../../diffAnchor';
 import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
 import { toggleIn } from '../../utils/toggleIn';
+import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
+import { AnalysisChip, AnalysisRailDot, missingPartners } from './AnalysisChip';
 
 interface DiffPanelProps {
   ptyId: string;
@@ -75,6 +77,37 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   // Keyed by worktree, not by panel or session, so notes survive the panel
   // being closed and reopened mid-review.
   const notes = useDiffNotes(gitPath, filesFingerprint);
+
+  // Against the project repo, not the worktree: the history is shared, and
+  // diff paths are repo-relative either way.
+  const analysisSignals = useAnalysisSignals(
+    projectPath,
+    filesFingerprint,
+    files.map((f) => f.path),
+  );
+
+  // Elements held in a map so their identity survives re-renders — a fresh
+  // element per render would defeat every DiffFileSection's memo.
+  const analysisChips = useMemo(() => {
+    if (!analysisSignals) return null;
+    const present = new Set(files.map((f) => f.path));
+    const chips = new Map<string, ReactNode>();
+    for (const file of files) {
+      const signal = analysisSignals.files[file.path];
+      if (signal) {
+        chips.set(
+          file.path,
+          <AnalysisChip signal={signal} missing={missingPartners(analysisSignals, file.path, present)} />,
+        );
+      }
+    }
+    return chips;
+  }, [analysisSignals, files]);
+
+  const railTrailing = useCallback(
+    (file: ChangedFile) => <AnalysisRailDot signal={analysisSignals?.files[file.path]} />,
+    [analysisSignals],
+  );
 
   useEffect(() => {
     const inst = terminalInstances.get(ptyId);
@@ -234,6 +267,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
         // and changes identity whenever the notes do.
         renderBelowLine={hasNotes ? renderBelowLine : undefined}
         markLine={spans.length > 0 ? markLine : undefined}
+        headerRight={analysisChips?.get(file.path)}
         collapsed={folded.has(file.path)}
         onCollapsedChange={toggleFolded}
       />
@@ -244,7 +278,11 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
       {!sidebarCollapsed && (
         <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: sidebarWidth }}>
-          <DiffFileTree files={files} onFileClick={scrollToFile} />
+          <DiffFileTree
+            files={files}
+            onFileClick={scrollToFile}
+            renderFileTrailing={analysisSignals ? railTrailing : undefined}
+          />
         </div>
       )}
       {!sidebarCollapsed && (

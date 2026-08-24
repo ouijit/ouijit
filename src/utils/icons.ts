@@ -39,6 +39,7 @@ import fileDashed from '@phosphor-icons/core/assets/regular/file-dashed.svg?raw'
 import fileMinus from '@phosphor-icons/core/assets/regular/file-minus.svg?raw';
 import filePlus from '@phosphor-icons/core/assets/regular/file-plus.svg?raw';
 import fileText from '@phosphor-icons/core/assets/regular/file-text.svg?raw';
+import flame from '@phosphor-icons/core/assets/regular/flame.svg?raw';
 import folderOpen from '@phosphor-icons/core/assets/regular/folder-open.svg?raw';
 import folderPlus from '@phosphor-icons/core/assets/regular/folder-plus.svg?raw';
 import gear from '@phosphor-icons/core/assets/regular/gear.svg?raw';
@@ -128,6 +129,7 @@ export const iconMap: Record<string, string> = {
   'file-minus': fileMinus,
   'file-plus': filePlus,
   'file-text': fileText,
+  flame: flame,
   'folder-open': folderOpen,
   'folder-plus': folderPlus,
   gear: gear,

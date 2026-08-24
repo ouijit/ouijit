@@ -9,6 +9,7 @@ import type {
   DiffBases,
 } from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
+import type { AnalysisStatus, DiffSignals } from './analysis/types';
 import type {
   GithubAvailability,
   PullRequestDetail,
@@ -567,6 +568,19 @@ export interface ElectronAPI {
   github: GithubAPI;
   /** Notes written on a worktree's own diff */
   diffNotes: DiffNotesAPI;
+  /** Hotspot, coupling, and ownership signals mined from git history */
+  analysis: AnalysisAPI;
+}
+
+/**
+ * All null while the behavioural-analysis flag is off, so callers need no
+ * gate of their own. The underlying model is a per-project in-memory cache
+ * in the main process, rebuilt from `git log` on demand.
+ */
+export interface AnalysisAPI {
+  /** Cheap when nothing moved: a `rev-parse` gates the log pass. */
+  refresh(projectPath: string): Promise<AnalysisStatus | null>;
+  diffSignals(projectPath: string, paths: string[]): Promise<DiffSignals | null>;
 }
 
 /**

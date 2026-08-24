@@ -66,8 +66,11 @@ git log <range> --no-merges --numstat --date=unix \
   practice). Only pairs with ≥ 3 shared commits are kept.
 - **Complexity pass.** After the log pass, read the working tree for the top
   ~200 files by frequency (batch of 16, like the untracked-file reads at
-  `src/git.ts:984`) and compute LOC + indentation complexity. Everything else
-  gets frequency-only scores.
+  `src/git.ts:984`) and compute LOC + indentation complexity. Files without a
+  complexity read stay quiet — a hotspot must be frequent AND complicated.
+  Machine-written files (lockfiles) are skipped here so they can't top the
+  hotspot list, but keep their coupling: "usually changes with
+  package-lock.json" is a real reminder.
 - **Incremental refresh.** The cache keeps the last analyzed SHA. A refresh
   scans `last..HEAD` and folds the new commits in. If `last` is no longer
   reachable (rebase, force-push, history rewrite), fall back to a full rescan.
@@ -132,8 +135,8 @@ Contract entries in `src/ipc/contract.ts`, handlers in
 `src/ipc/register.ts`, an `analysis:` namespace on `window.api` in
 `src/preload.ts` + `ElectronAPI` in `src/types.ts`:
 
-- `analysis:status (projectPath) → { analyzedAt, commitCount, lastSha } | null`
-- `analysis:refresh (projectPath) → same` — dedup/rate-limit inside.
+- `analysis:refresh (projectPath) → { analyzedAt, commitCount, lastSha } | null`
+  — dedup/rate-limit inside.
 - `analysis:diff-signals (projectPath, paths[]) →`
   `{ files: Record<path, { tier, score, commits, mainAuthor, ownership }>,`
   `  couplings: Array<{ path, partner, shared, degree }> }`
