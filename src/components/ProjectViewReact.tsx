@@ -9,6 +9,7 @@ import { TerminalCanvas, syncCanvasWithTerminals } from './canvas/TerminalCanvas
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
 import { PullRequestsPanel } from './github/PullRequestsPanel';
+import { AnalysisPanel } from './analysis/AnalysisPanel';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { RunHookDialog } from './dialogs/RunHookDialog';
 import { openTaskComposer } from '../utils/openTaskComposer';
@@ -246,6 +247,12 @@ export function ProjectView() {
   }, [githubEnabled, activePanel]);
 
   useEffect(() => {
+    if (!analysisEnabled && activePanel === 'analysis') {
+      useProjectStore.getState().setActivePanel('terminals');
+    }
+  }, [analysisEnabled, activePanel]);
+
+  useEffect(() => {
     if (!projectPath) return;
     const existing = useTerminalStore.getState().terminalsByProject[projectPath];
     if (existing && existing.length > 0) {
@@ -356,6 +363,8 @@ export function ProjectView() {
         <ProjectSettingsPanel projectPath={projectPath} />
       ) : activePanel === 'pull-requests' ? (
         <PullRequestsPanel projectPath={projectPath} />
+      ) : activePanel === 'analysis' ? (
+        <AnalysisPanel projectPath={projectPath} />
       ) : (
         <>
           {kanbanVisible && <KanbanBoard projectPath={projectPath} onHide={handleHideKanban} />}

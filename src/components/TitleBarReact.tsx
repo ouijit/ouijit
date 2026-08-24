@@ -33,6 +33,9 @@ export function TitleBar({ mode }: TitleBarProps) {
   const githubEnabled = useExperimentalStore((s) =>
     activeProjectPath ? (s.flagsByProject[activeProjectPath]?.github ?? false) : false,
   );
+  const analysisEnabled = useExperimentalStore((s) =>
+    activeProjectPath ? (s.flagsByProject[activeProjectPath]?.analysis ?? false) : false,
+  );
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const tagFilter = useProjectStore((s) => s.tagFilter);
   const homeTagFilter = useUIStore((s) => s.homeTagFilter);
@@ -60,19 +63,22 @@ export function TitleBar({ mode }: TitleBarProps) {
     });
   }, [activeProjectPath]);
 
-  const handleToggleView = useCallback((view: 'board' | 'stack' | 'canvas' | 'settings' | 'pull-requests') => {
-    const store = useProjectStore.getState();
-    if (view === 'settings' || view === 'pull-requests') {
-      store.setActivePanel(view);
-    } else if (view === 'board') {
-      store.setActivePanel('terminals');
-      store.setKanbanVisible(true);
-    } else {
-      store.setActivePanel('terminals');
-      store.setKanbanVisible(false);
-      store.setTerminalLayout(view as TerminalLayout);
-    }
-  }, []);
+  const handleToggleView = useCallback(
+    (view: 'board' | 'stack' | 'canvas' | 'settings' | 'pull-requests' | 'analysis') => {
+      const store = useProjectStore.getState();
+      if (view === 'settings' || view === 'pull-requests' || view === 'analysis') {
+        store.setActivePanel(view);
+      } else if (view === 'board') {
+        store.setActivePanel('terminals');
+        store.setKanbanVisible(true);
+      } else {
+        store.setActivePanel('terminals');
+        store.setKanbanVisible(false);
+        store.setTerminalLayout(view as TerminalLayout);
+      }
+    },
+    [],
+  );
 
   const handleNewTerminal = useCallback(() => {
     if (activeProjectPath) {
@@ -164,6 +170,15 @@ export function TitleBar({ mode }: TitleBarProps) {
                   onClick={() => handleToggleView('pull-requests')}
                 >
                   <Icon name="git-pull-request" />
+                </TooltipButton>
+              )}
+              {analysisEnabled && (
+                <TooltipButton
+                  text="Behavioural analysis"
+                  className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'analysis' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                  onClick={() => handleToggleView('analysis')}
+                >
+                  <Icon name="flame" />
                 </TooltipButton>
               )}
               <TooltipButton

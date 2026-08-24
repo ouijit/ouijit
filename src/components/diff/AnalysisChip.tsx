@@ -71,10 +71,10 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { si
 });
 
 /** One bar per month; quiet months keep a stub so the timeline stays whole. */
-function Sparkline({ monthly }: { monthly: number[] }) {
+export function Sparkline({ monthly, className = 'mt-1.5 h-6' }: { monthly: number[]; className?: string }) {
   const max = Math.max(...monthly, 1);
   return (
-    <div className="mt-1.5 flex items-end gap-[2px] h-6" aria-hidden>
+    <div className={`flex items-end gap-[2px] ${className}`} aria-hidden>
       {monthly.map((n, i) => (
         <span
           key={i}

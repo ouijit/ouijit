@@ -18,6 +18,7 @@ import { complexityOf } from './complexity';
 import { scoreFiles, type FileScore } from './score';
 import {
   ANALYSIS_WINDOW_MONTHS,
+  type AnalysisOverview,
   type AnalysisStatus,
   type CouplingSignal,
   type DiffSignals,
@@ -88,38 +89,8 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
   const thisMonth = monthIndex(Date.now() / 1000);
   const files: Record<string, FileSignal> = {};
   for (const p of paths) {
-    const stats = analysis.model.files.get(p);
-    if (!stats) continue;
-
-    const byEmail = analysis.model.authors.get(p);
-    const topAuthors = byEmail
-      ? [...byEmail.values()]
-          .sort((a, b) => b.commits - a.commits)
-          .slice(0, 3)
-          .map((a) => ({ name: a.name, share: stats.commits > 0 ? a.commits / stats.commits : 0 }))
-      : [];
-
-    const monthly = new Array<number>(ANALYSIS_WINDOW_MONTHS).fill(0);
-    for (const [month, n] of stats.byMonth) {
-      const i = ANALYSIS_WINDOW_MONTHS - 1 - (thisMonth - month);
-      if (i >= 0 && i < ANALYSIS_WINDOW_MONTHS) monthly[i] += n;
-    }
-
-    const score = analysis.scores.get(p);
-    files[p] = {
-      commits: stats.commits,
-      added: stats.added,
-      deleted: stats.deleted,
-      firstAt: stats.firstAt,
-      lastAt: stats.lastAt,
-      score: score?.score ?? 0,
-      tier: score?.tier ?? 'quiet',
-      freqRank: score?.freqRank ?? 0,
-      cxRank: score?.cxRank ?? null,
-      monthly,
-      topAuthors,
-      complexity: analysis.complexity.get(p) ?? null,
-    };
+    const signal = toFileSignal(analysis, p, thisMonth);
+    if (signal) files[p] = signal;
   }
 
   const asked = new Set(paths);
@@ -137,6 +108,99 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
   }
 
   return { files, couplings };
+}
+
+const OVERVIEW_ROWS = 30;
+const OVERVIEW_OWNERS = 8;
+
+/** The project-level view — top hotspots, strongest couplings, ownership. */
+export async function getAnalysisOverview(projectPath: string): Promise<AnalysisOverview | null> {
+  if (!(await isAnalysisEnabled(projectPath))) return null;
+  const analysis = cache.get(projectPath) ?? (await scanProject(projectPath));
+  if (!analysis) return null;
+  const thisMonth = monthIndex(Date.now() / 1000);
+
+  const hotspots = [...analysis.scores.entries()]
+    .filter(([, score]) => score.score > 0)
+    .sort((x, y) => y[1].score - x[1].score)
+    .slice(0, OVERVIEW_ROWS)
+    .flatMap(([p]) => {
+      const signal = toFileSignal(analysis, p, thisMonth);
+      return signal ? [{ path: p, signal }] : [];
+    });
+
+  const couplings: AnalysisOverview['couplings'] = [];
+  for (const [key, shared] of analysis.model.couplings) {
+    if (shared < COUPLING_MIN_SHARED) continue;
+    const [a, b] = splitPairKey(key);
+    const degree =
+      shared / Math.max(analysis.model.files.get(a)?.commits ?? shared, analysis.model.files.get(b)?.commits ?? shared);
+    couplings.push({ a, b, shared, degree });
+  }
+  couplings.sort((x, y) => y.degree - x.degree || y.shared - x.shared);
+  couplings.length = Math.min(couplings.length, OVERVIEW_ROWS);
+
+  const byEmail = new Map<string, { name: string; mainOf: number }>();
+  for (const authors of analysis.model.authors.values()) {
+    let topEmail: string | null = null;
+    let topName = '';
+    let top = 0;
+    for (const [email, author] of authors) {
+      if (author.commits > top) {
+        top = author.commits;
+        topEmail = email;
+        topName = author.name;
+      }
+    }
+    if (topEmail == null) continue;
+    const entry = byEmail.get(topEmail);
+    if (entry) entry.mainOf++;
+    else byEmail.set(topEmail, { name: topName, mainOf: 1 });
+  }
+  const owners = [...byEmail.values()].sort((x, y) => y.mainOf - x.mainOf).slice(0, OVERVIEW_OWNERS);
+
+  return {
+    status: toStatus(analysis),
+    fileCount: analysis.model.files.size,
+    hotspots,
+    couplings,
+    owners,
+  };
+}
+
+function toFileSignal(analysis: ProjectAnalysis, p: string, thisMonth: number): FileSignal | null {
+  const stats = analysis.model.files.get(p);
+  if (!stats) return null;
+
+  const byEmail = analysis.model.authors.get(p);
+  const topAuthors = byEmail
+    ? [...byEmail.values()]
+        .sort((a, b) => b.commits - a.commits)
+        .slice(0, 3)
+        .map((a) => ({ name: a.name, share: stats.commits > 0 ? a.commits / stats.commits : 0 }))
+    : [];
+
+  const monthly = new Array<number>(ANALYSIS_WINDOW_MONTHS).fill(0);
+  for (const [month, n] of stats.byMonth) {
+    const i = ANALYSIS_WINDOW_MONTHS - 1 - (thisMonth - month);
+    if (i >= 0 && i < ANALYSIS_WINDOW_MONTHS) monthly[i] += n;
+  }
+
+  const score = analysis.scores.get(p);
+  return {
+    commits: stats.commits,
+    added: stats.added,
+    deleted: stats.deleted,
+    firstAt: stats.firstAt,
+    lastAt: stats.lastAt,
+    score: score?.score ?? 0,
+    tier: score?.tier ?? 'quiet',
+    freqRank: score?.freqRank ?? 0,
+    cxRank: score?.cxRank ?? null,
+    monthly,
+    topAuthors,
+    complexity: analysis.complexity.get(p) ?? null,
+  };
 }
 
 /**

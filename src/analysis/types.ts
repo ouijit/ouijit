@@ -63,3 +63,16 @@ export interface AnalysisStatus {
   analyzedAt: number;
   commitCount: number;
 }
+
+/** The project-level view: what the analysis panel renders. */
+export interface AnalysisOverview {
+  status: AnalysisStatus;
+  /** Files touched in the window. */
+  fileCount: number;
+  /** Top files by hotspot score, descending. */
+  hotspots: Array<{ path: string; signal: FileSignal }>;
+  /** Strongest change couplings, by degree then shared commits. */
+  couplings: Array<{ a: string; b: string; shared: number; degree: number }>;
+  /** Who holds the code: authors by the number of files mainly theirs. */
+  owners: Array<{ name: string; mainOf: number }>;
+}

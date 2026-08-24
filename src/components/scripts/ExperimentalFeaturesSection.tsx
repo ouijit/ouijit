@@ -27,6 +27,14 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
     await useProjectStore.getState().loadProjectConfig(projectPath);
   };
 
+  const handleToggleAnalysis = async () => {
+    const next = !analysisEnabled;
+    await useExperimentalStore.getState().setFlag(projectPath, 'analysis', next);
+    if (!next && useProjectStore.getState().activePanel === 'analysis') {
+      useProjectStore.getState().setActivePanel('terminals');
+    }
+  };
+
   const handleToggleGithub = async () => {
     const next = !githubEnabled;
     await useExperimentalStore.getState().setFlag(projectPath, 'github', next);
@@ -59,9 +67,9 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
       />
       <ToggleRow
         label="Behavioural analysis"
-        description="Hotspot, coupling, and ownership signals from git history, shown on the diff and pull request views."
+        description="Hotspot, coupling, and ownership signals from git history, on the diff and pull request views and a project panel."
         checked={analysisEnabled}
-        onChange={() => void useExperimentalStore.getState().setFlag(projectPath, 'analysis', !analysisEnabled)}
+        onChange={handleToggleAnalysis}
       />
     </div>
   );

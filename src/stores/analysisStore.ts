@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { DiffSignals } from '../analysis/types';
+import type { AnalysisOverview, DiffSignals } from '../analysis/types';
+import { describeError } from '../utils/describeError';
 
 /**
  * Signals cached per (project, file-list fingerprint), so the status polls
@@ -15,16 +16,50 @@ export function signalsKey(projectPath: string, fingerprint: string): string {
 interface AnalysisStoreState {
   /** Insertion-ordered; the oldest entry is evicted past MAX_CACHED. */
   signalsByKey: Map<string, DiffSignals | null>;
+
+  overviewProject: string | null;
+  overview: AnalysisOverview | null;
+  overviewLoading: boolean;
+  overviewError: string | null;
 }
 
 interface AnalysisStoreActions {
   load: (projectPath: string, key: string, paths: string[]) => Promise<void>;
+  /** `refresh` forces a rescan first; otherwise the cached model answers. */
+  loadOverview: (projectPath: string, opts?: { refresh?: boolean }) => Promise<void>;
 }
 
 const inflight = new Set<string>();
 
+/** Bumped per load so a stale response can't land over a fresher one. */
+let overviewVersion = 0;
+
 export const useAnalysisStore = create<AnalysisStoreState & AnalysisStoreActions>()((set, get) => ({
   signalsByKey: new Map(),
+  overviewProject: null,
+  overview: null,
+  overviewLoading: false,
+  overviewError: null,
+
+  loadOverview: async (projectPath, opts) => {
+    const version = ++overviewVersion;
+    const switching = get().overviewProject !== projectPath;
+    set({
+      overviewLoading: true,
+      overviewError: null,
+      overviewProject: projectPath,
+      ...(switching ? { overview: null } : {}),
+    });
+    try {
+      if (opts?.refresh) await window.api.analysis.refresh(projectPath);
+      const overview = await window.api.analysis.overview(projectPath);
+      if (version !== overviewVersion) return;
+      set({ overview, overviewLoading: false });
+    } catch (error) {
+      if (version !== overviewVersion) return;
+      set({ overviewLoading: false, overviewError: describeError(error) });
+    }
+  },
 
   load: async (projectPath, key, paths) => {
     if (get().signalsByKey.has(key) || inflight.has(key)) return;

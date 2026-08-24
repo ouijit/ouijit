@@ -9,7 +9,7 @@ import type {
   DiffBases,
 } from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
-import type { AnalysisStatus, DiffSignals } from './analysis/types';
+import type { AnalysisOverview, AnalysisStatus, DiffSignals } from './analysis/types';
 import type {
   GithubAvailability,
   PullRequestDetail,
@@ -581,6 +581,7 @@ export interface AnalysisAPI {
   /** Cheap when nothing moved: a `rev-parse` gates the log pass. */
   refresh(projectPath: string): Promise<AnalysisStatus | null>;
   diffSignals(projectPath: string, paths: string[]): Promise<DiffSignals | null>;
+  overview(projectPath: string): Promise<AnalysisOverview | null>;
 }
 
 /**
