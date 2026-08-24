@@ -31,13 +31,6 @@ export function initHomeChrome() {
   window.addEventListener('resize', checkScroll, { passive: true });
   checkScroll();
 
-  document.querySelectorAll<HTMLElement>('.bento .detail').forEach((tile) => {
-    tile.addEventListener('pointermove', (event) => {
-      const rect = tile.getBoundingClientRect();
-      tile.style.setProperty('--mx', `${event.clientX - rect.left}px`);
-      tile.style.setProperty('--my', `${event.clientY - rect.top}px`);
-    });
-  });
 }
 
 /** Splits `.b-pitch-text` into word spans that light up as it crosses the viewport. */

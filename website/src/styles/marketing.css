@@ -1610,21 +1610,15 @@ body.marketing .float-nav-buy:hover {
   padding: 24px;
   display: flex;
   flex-direction: column;
+  background: var(--color-terminal-bg, #171717);
+  border: 1px solid var(--color-bezel-panel, rgba(255, 255, 255, 0.09));
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
-/* Cursor spotlight — coordinates come from the page script. */
-.bento .detail::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 0.35s ease;
-  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.08), transparent 65%);
-  pointer-events: none;
-}
-
-.bento .detail:hover::after {
-  opacity: 1;
+.bento .detail:hover {
+  background: var(--color-terminal-bg, #171717);
+  border-color: var(--color-bezel-panel, rgba(255, 255, 255, 0.09));
 }
 
 .detail-span-4 {
@@ -1660,8 +1654,8 @@ body.marketing .float-nav-buy:hover {
 
 .bento-palette {
   margin-top: 18px;
-  border: 1px solid rgba(0, 0, 0, 0.5);
-  background: var(--color-terminal-bg, #171717);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.35);
   border-radius: 12px;
   overflow: hidden;
   font-family: 'Iosevka Term Extended', 'SF Mono', Monaco, Menlo, monospace;
@@ -1855,14 +1849,22 @@ body.marketing .float-nav-buy:hover {
   gap: 8px;
 }
 
-.bento-script {
+/* One row of app chrome — a script, the sandbox status, the resume bar. */
+.bento-strip {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
   font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
   font-size: 11px;
-  color: rgba(245, 245, 247, 0.7);
+  color: rgba(245, 245, 247, 0.75);
+}
+
+.bento-strip > :last-child:not(:only-child) {
+  margin-left: auto;
 }
 
 .bento-swatches {
