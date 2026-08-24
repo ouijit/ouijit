@@ -10,7 +10,14 @@
 
 import { describe, test, expect } from 'vitest';
 import { parseLog, parseRenamePath, type LogCommit } from '../analysis/gitLog';
-import { emptyModel, foldCommits, pairKey, splitPairKey, COUPLING_COMMIT_FILE_CAP } from '../analysis/accumulate';
+import {
+  emptyModel,
+  foldCommits,
+  monthIndex,
+  pairKey,
+  splitPairKey,
+  COUPLING_COMMIT_FILE_CAP,
+} from '../analysis/accumulate';
 import { complexityOf } from '../analysis/complexity';
 import { scoreFiles } from '../analysis/score';
 
@@ -72,7 +79,14 @@ describe('foldCommits', () => {
     ]);
 
     expect(model.commitCount).toBe(3);
-    expect(model.files.get('x.ts')).toEqual({ commits: 3, added: 13, deleted: 2, firstAt: 100, lastAt: 300 });
+    expect(model.files.get('x.ts')).toEqual({
+      commits: 3,
+      added: 13,
+      deleted: 2,
+      firstAt: 100,
+      lastAt: 300,
+      byMonth: new Map([[monthIndex(100), 3]]),
+    });
     expect(model.authors.get('x.ts')?.get('a@x')).toEqual({ name: 'Alice', commits: 2, added: 11 });
     expect(model.couplings.get(pairKey('x.ts', 'y.ts'))).toBe(2);
   });
@@ -93,7 +107,8 @@ describe('foldCommits', () => {
     ]);
 
     expect(model.files.has('old.ts')).toBe(false);
-    expect(model.files.get('new.ts')).toEqual({ commits: 4, added: 15, deleted: 1, firstAt: 100, lastAt: 400 });
+    expect(model.files.get('new.ts')).toMatchObject({ commits: 4, added: 15, deleted: 1, firstAt: 100, lastAt: 400 });
+    expect(model.files.get('new.ts')?.byMonth.get(monthIndex(100))).toBe(4);
     expect(model.authors.get('new.ts')?.get('a@x')?.commits).toBe(2);
     expect(model.couplings.get(pairKey('new.ts', 'other.ts'))).toBe(2);
     expect(model.couplings.get(pairKey('old.ts', 'other.ts'))).toBeUndefined();
@@ -153,6 +168,7 @@ describe('scoreFiles', () => {
     expect(scores.get('hot.ts')?.tier).toBe('hot');
     expect(scores.get('quiet0.ts')?.tier).toBe('quiet');
     // Never read for complexity: cannot be a hotspot no matter the frequency.
-    expect(scores.get('unread.ts')).toEqual({ score: 0, tier: 'quiet' });
+    expect(scores.get('unread.ts')).toMatchObject({ score: 0, tier: 'quiet', cxRank: null });
+    expect(scores.get('unread.ts')?.freqRank).toBeGreaterThan(0.8);
   });
 });

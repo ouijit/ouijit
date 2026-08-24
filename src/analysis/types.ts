@@ -21,11 +21,14 @@ export interface FileSignal {
   /** Hotspot score, 0..1 — see scoreFiles for the formula. */
   score: number;
   tier: HotspotTier;
-  mainAuthor: string | null;
-  /** The main author's share of the file's commits, 0..1. */
-  ownership: number;
-  /** Distinct authors in the window. */
-  authors: number;
+  /** Percentile rank by commit count, among every file in the window. */
+  freqRank: number;
+  /** Percentile rank by indentation, among the files read; null when unread. */
+  cxRank: number | null;
+  /** Commits per month, oldest first, one entry per month of the window. */
+  monthly: number[];
+  /** Up to three, by commits, descending. Share is of the file's commits. */
+  topAuthors: Array<{ name: string; share: number }>;
   /** Null when the file was not read for complexity (and so cannot be hot). */
   complexity: FileComplexitySignal | null;
 }

@@ -6,10 +6,24 @@ import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalF
 import { getLogger } from '../logger';
 import { describeError } from '../utils/describeError';
 import { readLog } from './gitLog';
-import { emptyModel, foldCommits, splitPairKey, COUPLING_MIN_SHARED, type AnalysisModel } from './accumulate';
+import {
+  emptyModel,
+  foldCommits,
+  monthIndex,
+  splitPairKey,
+  COUPLING_MIN_SHARED,
+  type AnalysisModel,
+} from './accumulate';
 import { complexityOf } from './complexity';
 import { scoreFiles, type FileScore } from './score';
-import type { AnalysisStatus, CouplingSignal, DiffSignals, FileComplexitySignal, FileSignal } from './types';
+import {
+  ANALYSIS_WINDOW_MONTHS,
+  type AnalysisStatus,
+  type CouplingSignal,
+  type DiffSignals,
+  type FileComplexitySignal,
+  type FileSignal,
+} from './types';
 
 const analysisLog = getLogger().scope('analysis');
 
@@ -71,21 +85,24 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
   const analysis = cache.get(projectPath) ?? (await scanProject(projectPath));
   if (!analysis) return null;
 
+  const thisMonth = monthIndex(Date.now() / 1000);
   const files: Record<string, FileSignal> = {};
   for (const p of paths) {
     const stats = analysis.model.files.get(p);
     if (!stats) continue;
 
     const byEmail = analysis.model.authors.get(p);
-    let mainAuthor: string | null = null;
-    let mainCommits = 0;
-    if (byEmail) {
-      for (const author of byEmail.values()) {
-        if (author.commits > mainCommits) {
-          mainCommits = author.commits;
-          mainAuthor = author.name;
-        }
-      }
+    const topAuthors = byEmail
+      ? [...byEmail.values()]
+          .sort((a, b) => b.commits - a.commits)
+          .slice(0, 3)
+          .map((a) => ({ name: a.name, share: stats.commits > 0 ? a.commits / stats.commits : 0 }))
+      : [];
+
+    const monthly = new Array<number>(ANALYSIS_WINDOW_MONTHS).fill(0);
+    for (const [month, n] of stats.byMonth) {
+      const i = ANALYSIS_WINDOW_MONTHS - 1 - (thisMonth - month);
+      if (i >= 0 && i < ANALYSIS_WINDOW_MONTHS) monthly[i] += n;
     }
 
     const score = analysis.scores.get(p);
@@ -97,9 +114,10 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
       lastAt: stats.lastAt,
       score: score?.score ?? 0,
       tier: score?.tier ?? 'quiet',
-      mainAuthor,
-      ownership: stats.commits > 0 ? mainCommits / stats.commits : 0,
-      authors: byEmail?.size ?? 0,
+      freqRank: score?.freqRank ?? 0,
+      cxRank: score?.cxRank ?? null,
+      monthly,
+      topAuthors,
       complexity: analysis.complexity.get(p) ?? null,
     };
   }

@@ -6,6 +6,14 @@ export interface FileStats {
   deleted: number;
   firstAt: number;
   lastAt: number;
+  /** monthIndex(at) → commits, for the activity sparkline. */
+  byMonth: Map<number, number>;
+}
+
+/** Calendar month as a single integer, so month arithmetic is subtraction. */
+export function monthIndex(atSeconds: number): number {
+  const d = new Date(atSeconds * 1000);
+  return d.getUTCFullYear() * 12 + d.getUTCMonth();
 }
 
 export interface AuthorStats {
@@ -58,6 +66,7 @@ export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[])
     model.commitCount++;
     const paths: string[] = [];
 
+    const month = monthIndex(commit.at);
     for (const change of commit.files) {
       if (change.oldPath && change.oldPath !== change.path) migrate(model, change.oldPath, change.path);
 
@@ -68,6 +77,7 @@ export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[])
         stats.deleted += change.deleted;
         stats.firstAt = Math.min(stats.firstAt, commit.at);
         stats.lastAt = Math.max(stats.lastAt, commit.at);
+        stats.byMonth.set(month, (stats.byMonth.get(month) ?? 0) + 1);
       } else {
         model.files.set(change.path, {
           commits: 1,
@@ -75,6 +85,7 @@ export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[])
           deleted: change.deleted,
           firstAt: commit.at,
           lastAt: commit.at,
+          byMonth: new Map([[month, 1]]),
         });
       }
 
@@ -117,6 +128,7 @@ function migrate(model: AnalysisModel, oldPath: string, newPath: string): void {
     current.deleted += prev.deleted;
     current.firstAt = Math.min(current.firstAt, prev.firstAt);
     current.lastAt = Math.max(current.lastAt, prev.lastAt);
+    for (const [month, n] of prev.byMonth) current.byMonth.set(month, (current.byMonth.get(month) ?? 0) + n);
   } else {
     model.files.set(newPath, prev);
   }

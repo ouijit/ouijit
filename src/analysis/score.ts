@@ -4,6 +4,10 @@ import type { FileComplexitySignal, HotspotTier } from './types';
 export interface FileScore {
   score: number;
   tier: HotspotTier;
+  /** Percentile rank by commit count, among every file in the window. */
+  freqRank: number;
+  /** Percentile rank by indentation, among the files read; null when unread. */
+  cxRank: number | null;
 }
 
 const HOT_SCORE = 0.85;
@@ -28,12 +32,13 @@ export function scoreFiles(
 
   const scores = new Map<string, FileScore>();
   for (const [path, stats] of model.files) {
-    const cr = cxRank.get(path);
-    const score = cr == null ? 0 : Math.sqrt((freqRank.get(path) ?? 0) * cr);
+    const fr = freqRank.get(path) ?? 0;
+    const cr = cxRank.get(path) ?? null;
+    const score = cr == null ? 0 : Math.sqrt(fr * cr);
     let tier: HotspotTier = 'quiet';
     if (score >= HOT_SCORE && stats.commits >= HOT_MIN_COMMITS) tier = 'hot';
     else if (score >= WARM_SCORE && stats.commits >= WARM_MIN_COMMITS) tier = 'warm';
-    scores.set(path, { score, tier });
+    scores.set(path, { score, tier, freqRank: fr, cxRank: cr });
   }
   return scores;
 }

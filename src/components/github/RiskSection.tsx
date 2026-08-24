@@ -31,7 +31,8 @@ function riskRows(signals: DiffSignals, paths: readonly string[]): RiskRow[] {
 
 function hotText(signal: FileSignal): string {
   const commits = `${signal.commits} commits in the last ${ANALYSIS_WINDOW_MONTHS} months`;
-  return signal.mainAuthor && signal.ownership >= 0.5 ? `${commits} · most edits by ${signal.mainAuthor}` : commits;
+  const main = signal.topAuthors[0];
+  return main && main.share >= 0.5 ? `${commits} · most edits by ${main.name}` : commits;
 }
 
 /**
