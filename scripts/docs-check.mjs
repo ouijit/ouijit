@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Checks that the README's and the website docs' mechanical claims still match
- * the code, so drift fails CI instead of waiting for someone to notice:
+ * Checks that the mechanical claims in the README, the website docs and the
+ * reference agents are given still match the code, so drift fails CI instead
+ * of waiting for someone to notice:
  *
  *   1. Every local image the README and the docs pages reference exists on
  *      disk.
@@ -9,10 +10,11 @@
  *      so a stale image is one command away from fresh.
  *   3. The "Supported harnesses" list matches the wrapper binaries the app
  *      installs (src/hookServer.ts).
- *   4. Every `ouijit` invocation in README and docs-page code fences is a real
- *      CLI command.
- *   5. Every CLI command is mentioned in the docs pages, so a new command
- *      cannot ship undocumented.
+ *   4. Every `ouijit` invocation in README, docs-page code fences and the
+ *      agent CLI reference (src/hookServer.ts) is a real CLI command.
+ *   5. Every CLI command is mentioned in the docs pages and in the agent
+ *      reference, so a new command cannot ship undocumented; an agent will
+ *      not use a command it was never told about.
  *
  * Usage: node scripts/docs-check.mjs   (requires dist-cli to be built)
  */
@@ -67,6 +69,8 @@ for (const [ref, source] of imageRefs) {
 // 3. Harness list matches the wrappers the app installs.
 const hookServer = fs.readFileSync(path.join(REPO_ROOT, 'src', 'hookServer.ts'), 'utf8');
 const wrappers = [...hookServer.matchAll(/export const (\w+)_WRAPPER\b/g)].map((m) => m[1].toLowerCase());
+const cliReference = hookServer.match(/export const CLI_REFERENCE = `([\s\S]*?)\n`;/)?.[1] ?? '';
+if (!cliReference) fail('Could not extract CLI_REFERENCE from src/hookServer.ts — this check is not running.');
 const harnessSection = readme.match(/## Supported harnesses\n([\s\S]*?)(?=\n## |$)/)?.[1] ?? '';
 
 for (const wrapper of wrappers) {
@@ -111,6 +115,7 @@ if (!fs.existsSync(cliPath)) {
   for (const [source, fences] of [
     ['README', [...readme.matchAll(/```(?:bash|sh|shell)?\n([\s\S]*?)```/g)].map((m) => m[1])],
     ...docsPages.map((page) => [page.name, fencesOf(page.text)]),
+    ['CLI_REFERENCE', [cliReference]],
   ]) {
     const invocations = [...fences.join('\n').matchAll(/^ouijit\s+(\S+)(?:\s+(\S+))?/gm)];
     for (const [, group, sub] of invocations) {
@@ -122,9 +127,12 @@ if (!fs.existsSync(cliPath)) {
     }
   }
 
-  // 5. Coverage: walk the command tree; every leaf must be mentioned in some
-  //    docs page under one of its names.
-  const allDocsText = docsPages.map((p) => p.text).join('\n');
+  // 5. Coverage: walk the command tree; every leaf must be mentioned in the
+  //    docs pages and in the agent reference, under one of its names.
+  const coverageTargets = [
+    { text: docsPages.map((p) => p.text).join('\n'), where: `${DOCS_DIR}/` },
+    { text: cliReference, where: 'the agent CLI reference (CLI_REFERENCE in src/hookServer.ts)' },
+  ];
   const requireDocumented = (groupPath, aliasSets) => {
     for (const names of aliasSets) {
       const children = commandsOf([...groupPath, names[0]]);
@@ -132,11 +140,13 @@ if (!fs.existsSync(cliPath)) {
         requireDocumented([...groupPath, names[0]], children);
         continue;
       }
-      const documented = names.some((name) =>
-        new RegExp(`ouijit\\s+${[...groupPath, name].join('\\s+')}\\b`).test(allDocsText),
-      );
-      if (!documented) {
-        fail(`CLI command \`ouijit ${[...groupPath, names[0]].join(' ')}\` is not documented in ${DOCS_DIR}/.`);
+      for (const { text, where } of coverageTargets) {
+        const documented = names.some((name) =>
+          new RegExp(`ouijit\\s+${[...groupPath, name].join('\\s+')}\\b`).test(text),
+        );
+        if (!documented) {
+          fail(`CLI command \`ouijit ${[...groupPath, names[0]].join(' ')}\` is not documented in ${where}.`);
+        }
       }
     }
   };

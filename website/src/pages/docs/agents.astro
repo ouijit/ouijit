@@ -51,10 +51,11 @@ ouijit preview add http://localhost:3000</code></pre>
 
   <h2>Review without posting</h2>
   <p>
-    For anything that belongs to a pull request review, agents must use <code>ouijit pr</code>, not
-    <code>gh</code>. <code>gh</code> posts to GitHub immediately under the user's name;
+    For anything that belongs to a pull request review, agents default to <code>ouijit pr</code> over
+    <code>gh</code>. <code>gh</code> posts to GitHub the moment it runs, under the user's own account;
     <code>ouijit pr draft</code> stages comments locally and the user sends the review themselves. Reading with
-    <code>gh pr diff</code> is fine; posting with <code>gh</code> is not.
+    <code>gh pr diff</code> is always fine, and a <code>gh</code> write the user asks for by name &mdash;
+    <code>gh pr create</code>, say &mdash; still goes through, as them.
   </p>
   <pre class="glass-bevel"><code>PR=$(ouijit task current | jq .githubPrNumber)
 gh pr diff $PR                                # read it
