@@ -156,6 +156,15 @@ describe('openTaskShell', () => {
     );
   });
 
+  test('a worktree check that throws toasts and opens nothing', async () => {
+    window.api.task.checkWorktree = vi.fn().mockRejectedValue(new Error('database is locked'));
+
+    expect(await openTaskShell(PROJECT, started, { mode: 'shell' })).toBe(false);
+    expect(addProjectTerminal).not.toHaveBeenCalled();
+    expect(useUIStore.getState().missingWorktreeQueue).toEqual([]);
+    expect(useProjectStore.getState().toasts[0]?.message).toBe('Failed to check worktree');
+  });
+
   test('a failed start toasts and opens nothing', async () => {
     window.api.task.start = vi.fn().mockResolvedValue({ success: false, error: 'branch exists' });
 
