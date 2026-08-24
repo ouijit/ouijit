@@ -313,6 +313,7 @@ ouijit hook delete <type>
 ## Script Commands (ad-hoc project scripts)
 ouijit script list                            # → [{id, name, command, sortOrder}]
 ouijit script set --name "<name>" --command "<cmd>"
+ouijit script delete <id>
 ouijit script run <id-or-name>                # executes and streams output
 ouijit script run <id-or-name> --task <number> # run in task's worktree dir
 

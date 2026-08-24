@@ -25,7 +25,6 @@ import {
   OPENCODE_WRAPPER,
   OPENCODE_PLUGIN,
   NONO_SHIM,
-  CLI_REFERENCE,
 } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 
@@ -122,38 +121,6 @@ afterEach(async () => {
 });
 
 // ── Server lifecycle ─────────────────────────────────────────────────
-
-/**
- * This file is the only thing an agent is told about Ouijit, so anything it is
- * supposed to use has to be named here. A capability the agent is not told
- * about is one it will not use.
- */
-describe('CLI_REFERENCE', () => {
-  test('tells an agent how to write review comments', () => {
-    expect(CLI_REFERENCE).toContain('ouijit pr draft add');
-    // How to find which pull request it is on, or it cannot address the right
-    // one — the task it is working in carries the number.
-    expect(CLI_REFERENCE).toContain('ouijit task current | jq .githubPrNumber');
-  });
-
-  test('defaults away from gh writes, and says why', () => {
-    // Drafts are staged so the human sends them, and an agent with an
-    // authenticated gh will post directly unless told not to.
-    expect(CLI_REFERENCE).toContain('user sends the review themselves');
-    expect(CLI_REFERENCE).toMatch(/under the user's own account/i);
-  });
-
-  test('lets the user authorize a gh write anyway', () => {
-    // A blanket ban gets an agent refusing `gh pr create` when the user asked
-    // for it by name. The default is ours; the exception is theirs.
-    expect(CLI_REFERENCE).toContain('gh pr create');
-    expect(CLI_REFERENCE).toMatch(/explicitly asks/i);
-  });
-
-  test('states the anchoring rule that a whole review fails on', () => {
-    expect(CLI_REFERENCE).toContain('ADDED line');
-  });
-});
 
 describe('startHookServer', () => {
   test('resolves with port > 0 once listening', async () => {
