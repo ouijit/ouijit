@@ -1604,21 +1604,31 @@ body.marketing .float-nav-buy:hover {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+/* Foil-washed cards: the silent tier of the desk washes above them, so dark
+   glass panels sit on silver the way terminals sit on the spectrum desks. */
 .bento .detail {
   position: relative;
   overflow: hidden;
   padding: 24px;
   display: flex;
   flex-direction: column;
-  background: var(--color-terminal-bg, #171717);
-  border: 1px solid var(--color-bezel-panel, rgba(255, 255, 255, 0.09));
+  background: #0f0f11;
+  border: none;
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .bento .detail:hover {
-  background: var(--color-terminal-bg, #171717);
-  border-color: var(--color-bezel-panel, rgba(255, 255, 255, 0.09));
+  background: #0f0f11;
+  border: none;
+}
+
+.bento .detail-title {
+  color: oklch(12% 0.008 285);
+}
+
+.bento .detail p {
+  color: oklch(26% 0.011 285);
 }
 
 .detail-span-4 {
@@ -2591,6 +2601,9 @@ html.js .b-h1.is-typing .b-h1-typed {
     oklch(86% 0.14 130);
   --wash-volt: oklch(62% 0.25 295), oklch(64% 0.26 340), oklch(70% 0.21 40),
     oklch(85% 0.24 140), oklch(78% 0.16 195);
+  /* Three neutral steps, middle darkest — the sheen line. The silent tier of
+     the same system as prism and iris. */
+  --wash-foil: oklch(92.5% 0.006 285), oklch(70.5% 0.012 285), oklch(96.5% 0.004 285);
 }
 /* isolate keeps the field's negative z-index inside the desk, so it paints
    over the desk's base color but under every in-flow child. */
@@ -2618,6 +2631,9 @@ html.js .b-h1.is-typing .b-h1-typed {
 }
 .desk-wash--volt {
   --wash: var(--wash-volt);
+}
+.desk-wash--foil {
+  --wash: var(--wash-foil);
 }
 .desk-wash-field {
   position: absolute;

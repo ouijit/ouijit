@@ -13,22 +13,16 @@ import { HookRowView } from '../../ouijit-ui/components/scripts/HookRowView';
 const METADATA_CHIP =
   'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-ink/55 bg-ink/[0.05] rounded-full px-2 py-0.5 shrink-0';
 
-/** Floating panel treatment — the palette and banner are windows in the app. */
-function FloatingPanel({ children }: { children: ReactNode }) {
+/** Every mock is a window: the app renders the palette, settings sections,
+ * and banners as bevelled glass panels on terminal-bg. */
+function FloatingPanel({ children, divided = false }: { children: ReactNode; divided?: boolean }) {
   return (
     <div
-      className="glass-bevel relative flex flex-col rounded-[14px] border border-bezel-panel overflow-hidden w-full"
+      className={`glass-bevel relative flex flex-col rounded-[14px] border border-bezel-panel overflow-hidden w-full ${
+        divided ? 'divide-y divide-ink/[0.06]' : ''
+      }`}
       style={{ background: 'var(--color-terminal-bg)', boxShadow: '0 18px 40px rgba(0, 0, 0, 0.45)' }}
     >
-      {children}
-    </div>
-  );
-}
-
-/** Inset list treatment — settings panels render rows on an ink wash. */
-function InsetList({ children }: { children: ReactNode }) {
-  return (
-    <div className="rounded-[12px] border border-bezel bg-ink/[0.03] overflow-hidden divide-y divide-ink/[0.06] w-full">
       {children}
     </div>
   );
@@ -119,40 +113,42 @@ export function PaletteMock() {
 
 export function SandboxMock() {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-[12px] border border-bezel bg-ink/[0.03] w-full">
-      <StatusDot summaryType="thinking" sandboxed />
-      <span className="font-mono text-xs font-medium text-ink/85 shrink-0">claude</span>
-      <span className="font-mono text-xs text-ink/40 min-w-0 truncate">Running npm test…</span>
-      <span className={`${METADATA_CHIP} ml-auto`}>lima</span>
-    </div>
+    <FloatingPanel>
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <StatusDot summaryType="thinking" sandboxed />
+        <span className="font-mono text-xs font-medium text-ink/85 shrink-0">claude</span>
+        <span className="font-mono text-xs text-ink/40 min-w-0 truncate">Running npm test…</span>
+        <span className={`${METADATA_CHIP} ml-auto`}>lima</span>
+      </div>
+    </FloatingPanel>
   );
 }
 
 export function ScriptsMock() {
   return (
-    <InsetList>
+    <FloatingPanel divided>
       <ScriptRowView name="Dev server" command="npm run dev" />
       <ScriptRowView name="Test suite" command="npm test" />
-    </InsetList>
+    </FloatingPanel>
   );
 }
 
 export function HooksMock() {
   return (
-    <InsetList>
+    <FloatingPanel divided>
       <HookRowView
         label="Start"
         description="Task moves to In Progress"
         command={'claude "$OUIJIT_TASK_DESCRIPTION"'}
       />
       <HookRowView label="Review" description="Task moves to In Review" command="gh pr create --fill" />
-    </InsetList>
+    </FloatingPanel>
   );
 }
 
 export function ThemeMock() {
   return (
-    <div className="rounded-[12px] border border-bezel bg-ink/[0.03] overflow-hidden w-full">
+    <FloatingPanel>
       <div className="flex items-center gap-4 px-4 py-3">
         <div className="flex-1 min-w-0">
           <div className="text-sm text-text-primary">Theme</div>
@@ -163,20 +159,22 @@ export function ThemeMock() {
           <Icon name="caret-down" className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
         </span>
       </div>
-    </div>
+    </FloatingPanel>
   );
 }
 
 export function TagsMock() {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-[12px] border border-bezel bg-ink/[0.03] w-full">
-      <StatusDot summaryType="ready" />
-      <span className="font-mono text-xs font-medium text-ink/85 shrink-0">claude</span>
-      <span className="inline-flex items-center gap-1 min-w-0">
-        <span className={METADATA_CHIP}>frontend</span>
-        <span className={METADATA_CHIP}>api</span>
-      </span>
-    </div>
+    <FloatingPanel>
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <StatusDot summaryType="ready" />
+        <span className="font-mono text-xs font-medium text-ink/85 shrink-0">claude</span>
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <span className={METADATA_CHIP}>frontend</span>
+          <span className={METADATA_CHIP}>api</span>
+        </span>
+      </div>
+    </FloatingPanel>
   );
 }
 
