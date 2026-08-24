@@ -1624,11 +1624,11 @@ body.marketing .float-nav-buy:hover {
 }
 
 .bento .detail-title {
-  color: oklch(12% 0.008 285);
+  color: oklch(97% 0.004 285);
 }
 
 .bento .detail p {
-  color: oklch(26% 0.011 285);
+  color: oklch(85% 0.008 285);
 }
 
 .detail-span-4 {
@@ -2604,6 +2604,9 @@ html.js .b-h1.is-typing .b-h1-typed {
   /* Three neutral steps, middle darkest — the sheen line. The silent tier of
      the same system as prism and iris. */
   --wash-foil: oklch(92.5% 0.006 285), oklch(70.5% 0.012 285), oklch(96.5% 0.004 285);
+  /* Foil's dark twin: the same three-step sheen, lightness inverted so the
+     middle stop is the highlight. */
+  --wash-graphite: oklch(30% 0.011 285), oklch(46% 0.013 285), oklch(24% 0.01 285);
 }
 /* isolate keeps the field's negative z-index inside the desk, so it paints
    over the desk's base color but under every in-flow child. */
@@ -2634,6 +2637,9 @@ html.js .b-h1.is-typing .b-h1-typed {
 }
 .desk-wash--foil {
   --wash: var(--wash-foil);
+}
+.desk-wash--graphite {
+  --wash: var(--wash-graphite);
 }
 .desk-wash-field {
   position: absolute;
