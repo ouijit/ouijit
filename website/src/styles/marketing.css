@@ -247,7 +247,7 @@ img {
   background: none;
   color: var(--color-text-primary);
   font-size: clamp(2.2rem, 4.2vw, 3rem);
-  margin-bottom: 22px;
+  margin-bottom: 40px;
 }
 
 .hero--left .hero-dim {
