@@ -1940,7 +1940,8 @@ body.marketing .float-nav-buy:hover {
 .cta-section--plain h2 {
   background: none;
   color: var(--color-text-primary);
-  text-wrap: balance;
+  white-space: nowrap;
+  margin-bottom: 32px;
 }
 
 /* --- Footer --- */
