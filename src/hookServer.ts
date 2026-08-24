@@ -313,14 +313,19 @@ ouijit hook delete <type>
 ## Script Commands (ad-hoc project scripts)
 ouijit script list                            # → [{id, name, command, sortOrder}]
 ouijit script set --name "<name>" --command "<cmd>"
+ouijit script delete <id>
 ouijit script run <id-or-name>                # executes and streams output
 ouijit script run <id-or-name> --task <number> # run in task's worktree dir
 
 ## Pull Requests
-Use these, not \`gh\`, for anything that belongs to a review. \`gh\` reaches
-GitHub directly and posts under the user's name; these write locally, and the
-user sends the review themselves. Reading the diff with \`gh pr diff <n>\` is
-fine — there is no Ouijit equivalent — but nothing should be posted with \`gh\`.
+Default to these for anything that belongs to a review. They write locally, so
+the user sends the review themselves; \`gh\` reaches GitHub the moment it runs,
+and whatever it writes lands under the user's own account. Reading with \`gh\`
+is always fine — \`gh pr diff <n>\` has no Ouijit equivalent.
+
+A \`gh\` write the user explicitly asks for — \`gh pr create\`, \`gh pr comment\`,
+\`gh pr merge\` — is theirs to make: do it, and say it will appear as them. The
+default above covers work you decided to do on your own.
 
 A task made from a pull request carries its number:
 ouijit task current | jq .githubPrNumber
