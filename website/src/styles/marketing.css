@@ -1387,6 +1387,22 @@ body.marketing::after {
   --wash: var(--wash-prism);
 }
 
+/* Thirds of the prism, in gradient order. The Plan section's source desks
+   each carry one (built as `desk-wash--prism-${slice}`, invisible to a
+   class-usage grep), and its To Do column reassembles the full sweep from
+   the thirds whose cards have landed. */
+.desk-wash--prism-a {
+  --wash: oklch(80% 0.13 295), oklch(79% 0.13 330);
+}
+
+.desk-wash--prism-b {
+  --wash: oklch(78% 0.14 15), oklch(79% 0.14 45);
+}
+
+.desk-wash--prism-c {
+  --wash: oklch(84% 0.13 80), oklch(86% 0.14 130);
+}
+
 .desk-wash--iris {
   --wash: var(--wash-iris);
 }
