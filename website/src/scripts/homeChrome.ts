@@ -1,13 +1,10 @@
 /**
- * Shared behavior for the homepage concepts: scroll reveal, the floating
- * sub-nav pill, and the bento cursor spotlight. Reveal is rect-based rather
- * than IntersectionObserver so it cannot strand content invisible in
- * browsers that throttle observers.
+ * Shared behavior for the homepage: scroll reveal and the bento spotlight.
+ * Reveal is rect-based rather than IntersectionObserver so it cannot strand
+ * content invisible in browsers that throttle observers.
  */
 export function initHomeChrome() {
   let pending = [...document.querySelectorAll('[data-reveal]')];
-  const floatNav = document.querySelector('.float-nav');
-  const hero = document.querySelector('.hero');
 
   const checkScroll = () => {
     if (pending.length) {
@@ -20,9 +17,6 @@ export function initHomeChrome() {
         }
         return true;
       });
-    }
-    if (floatNav && hero) {
-      floatNav.classList.toggle('is-shown', hero.getBoundingClientRect().bottom < 64);
     }
   };
   // Capture phase: the marketing body is its own scroll container, so

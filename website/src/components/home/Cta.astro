@@ -1,14 +1,10 @@
 ---
 import DownloadButtons from './DownloadButtons.astro';
-const { plain = false } = Astro.props;
 ---
-<section class={`cta-section${plain ? ' cta-section--plain' : ''}`}>
+<section class="cta-section">
   <div class="cta-inner">
-    <h2 data-reveal>{plain ? 'Start commanding.' : 'Put an agent on every task.'}</h2>
-    {!plain && (
-      <p data-reveal style="--reveal-delay: 90ms">macOS 13+ (Apple Silicon or Intel) and Linux x64. Free and open source.</p>
-    )}
-    <div data-reveal style="--reveal-delay: 180ms">
+    <h2 data-reveal>Start commanding.</h2>
+    <div data-reveal style="--reveal-delay: 90ms">
       <DownloadButtons />
     </div>
   </div>
