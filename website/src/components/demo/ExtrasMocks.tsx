@@ -178,6 +178,19 @@ export function TagsMock() {
   );
 }
 
+export function ShortcutsMock() {
+  return (
+    <FloatingPanel>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-[11px] text-ink/40">
+        <KeyHint keys="⌘1–9" label="Jump to a terminal" />
+        <KeyHint keys="⌘T" label="Board" />
+        <KeyHint keys="⌘N" label="New task" />
+        <KeyHint keys="⌘I" label="New terminal" />
+      </div>
+    </FloatingPanel>
+  );
+}
+
 export function ResumeMock() {
   return (
     <FloatingPanel>
