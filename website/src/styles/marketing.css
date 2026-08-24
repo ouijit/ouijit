@@ -1631,6 +1631,10 @@ body.marketing .float-nav-buy:hover {
   grid-column: span 4;
 }
 
+.detail-span-6 {
+  grid-column: span 6;
+}
+
 .detail-span-3 {
   grid-column: span 3;
 }
