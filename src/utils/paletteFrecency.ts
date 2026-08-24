@@ -150,7 +150,9 @@ export function resetFrecency(): void {
 export function recordVisit(key: string): void {
   const now = Date.now();
   cached = frecencyMap().then((map) => recordUse(map, key, now));
-  if (flushTimer) clearTimeout(flushTimer);
+  // The window runs from the first visit of a burst, not the last: restarting
+  // it per visit lets a steady stream of them postpone the write indefinitely.
+  if (flushTimer) return;
   flushTimer = setTimeout(() => {
     flushTimer = null;
     void frecencyMap()

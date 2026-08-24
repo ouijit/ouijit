@@ -126,8 +126,9 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
 export interface OpenTaskShellOptions {
   /**
    * `resume` relaunches the project's continue hook in the worktree — picking
-   * the agent session back up. `shell` opens a plain shell. A worktree created
-   * by this call is always a plain shell, whichever is asked for.
+   * the agent session back up. `shell` opens a plain shell. A task that has
+   * never been started lands as a plain shell either way: `task.start` leaves
+   * nothing to resume.
    */
   mode: 'resume' | 'shell';
   /** Never persisted on the task — passed straight to the spawn. */
@@ -179,18 +180,18 @@ export async function openTaskShell(
 }
 
 /**
- * Lands on the first task's project; shells for the rest appear when the user
- * switches to theirs. Navigating on a spawn that never happened would land on an
- * empty terminals panel, which is the state the project view's force-show of the
- * kanban exists to avoid.
+ * Lands on the first task that actually opened; shells for the rest appear when
+ * the user switches to their projects. Navigating on a spawn that never happened
+ * would land on an empty terminals panel, which is the state the project view's
+ * force-show of the kanban exists to avoid.
  */
 export async function openTasks(tasks: { project: Project; task: TaskWithWorkspace }[]): Promise<void> {
   const opened = await Promise.all(
     tasks.map(({ project, task }) => openTaskShell(project.path, task, { mode: 'resume' })),
   );
-  if (!opened.some(Boolean)) return;
-  const { project } = tasks[0];
-  await showProjectTerminals(project.path, project);
+  const landing = tasks[opened.indexOf(true)];
+  if (!landing) return;
+  await showProjectTerminals(landing.project.path, landing.project);
 }
 
 /**

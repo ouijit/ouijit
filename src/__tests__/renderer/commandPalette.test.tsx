@@ -426,9 +426,9 @@ describe('command palette navigation', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(vi.mocked(addProjectTerminal)).toHaveBeenCalled());
-    expect(
-      vi.mocked(window.api.globalSettings.set).mock.calls.some(([key]) => key === 'ui:palette-frecency'),
-    ).toBe(false);
+    expect(vi.mocked(window.api.globalSettings.set).mock.calls.some(([key]) => key === 'ui:palette-frecency')).toBe(
+      false,
+    );
   });
 
   test('selecting a project loads its tasks, navigates, and persists the view', async () => {

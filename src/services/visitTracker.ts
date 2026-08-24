@@ -49,7 +49,9 @@ function currentView(): View {
     if (github.projectPath === activeProjectPath && github.activeNumber != null) {
       return { kind: 'pull', projectPath: activeProjectPath, prNumber: github.activeNumber };
     }
-  } else if (project.activePanel === 'terminals') {
+  } else if (project.activePanel === 'terminals' && project.terminalLayout !== 'canvas') {
+    // The canvas has no single foreground card, and `activeIndices` is not
+    // maintained while it is up — reading one there names an arbitrary shell.
     const ptyId = getActivePtyId(activeProjectPath);
     if (ptyId) return { kind: 'terminal', ptyId };
   }

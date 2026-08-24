@@ -23,7 +23,14 @@ import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 import { activateTask, focusTerminal, selectProject, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
-import { projectKey, pullKey, pullTaskNumber, taskKey, terminalKey, terminalTaskNumber } from '../../utils/paletteFrecency';
+import {
+  projectKey,
+  pullKey,
+  pullTaskNumber,
+  taskKey,
+  terminalKey,
+  terminalTaskNumber,
+} from '../../utils/paletteFrecency';
 
 export type PaletteKind = 'terminal' | 'project' | 'task' | 'pull';
 
