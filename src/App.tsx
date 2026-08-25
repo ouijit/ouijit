@@ -10,8 +10,7 @@ import { HomeView } from './components/HomeViewReact';
 import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
-import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
-import { CloneFromGithubDialog } from './components/dialogs/CloneFromGithubDialog';
+import { AddProjectDialog, type AddProjectResult } from './components/dialogs/AddProjectDialog';
 import { CloningProjectView } from './components/CloningProjectView';
 import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
@@ -75,8 +74,7 @@ export function App() {
   const whatsNew = useAppStore((s) => s.whatsNew);
   const helpDialogOpen = useAppStore((s) => s.helpDialogOpen);
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
-  const [showNewProject, setShowNewProject] = useState(false);
-  const [showCloneProject, setShowCloneProject] = useState(false);
+  const [addProjectStep, setAddProjectStep] = useState<'choose' | 'create' | 'clone' | null>(null);
   const activeClone = useAppStore((s) =>
     s.activeProjectPath ? s.cloneJobs.find((job) => job.projectPath === s.activeProjectPath) : undefined,
   );
@@ -253,13 +251,9 @@ export function App() {
     [gitInitPath, finalizeAddedProject],
   );
 
-  const handleCreateNew = useCallback(() => {
-    setShowNewProject(true);
-  }, []);
-
-  const handleCloneFromGithub = useCallback(() => {
-    setShowCloneProject(true);
-  }, []);
+  const handleCreateNew = useCallback(() => setAddProjectStep('create'), []);
+  const handleCloneFromGithub = useCallback(() => setAddProjectStep('clone'), []);
+  const handleAddProject = useCallback(() => setAddProjectStep('choose'), []);
 
   // A clone has no project row to navigate to yet, so one is stood up from the
   // job. It is replaced by the real project the moment the clone lands.
@@ -311,28 +305,15 @@ export function App() {
     };
   }, [handleAddExisting, handleCreateNew, handleCloneFromGithub]);
 
-  const handleCloneProjectClose = useCallback(
-    (result: { projectPath: string } | null) => {
-      setShowCloneProject(false);
-      if (result) handleCloneSelect(result.projectPath);
+  const handleAddProjectClose = useCallback(
+    async (result: AddProjectResult | null) => {
+      setAddProjectStep(null);
+      if (!result) return;
+      if (result.kind === 'add-existing') await handleAddExisting();
+      else if (result.kind === 'created') await finalizeAddedProject(result.projectPath);
+      else handleCloneSelect(result.projectPath);
     },
-    [handleCloneSelect],
-  );
-
-  const handleNewProjectClose = useCallback(
-    async (result: { created: boolean; projectName?: string; projectPath?: string } | null) => {
-      setShowNewProject(false);
-      if (result?.created && result.projectPath) {
-        const projects = await window.api.refreshProjects();
-        useAppStore.getState().setProjects(projects);
-        // Navigate to the new project
-        const project = projects.find((p) => p.path === result.projectPath);
-        if (project) {
-          useAppStore.getState().navigateToProject(result.projectPath, project);
-        }
-      }
-    },
-    [],
+    [handleAddExisting, finalizeAddedProject, handleCloneSelect],
   );
 
   if (!initialized) {
@@ -344,9 +325,7 @@ export function App() {
       <Sidebar
         onProjectSelect={handleProjectSelect}
         onHomeSelect={handleHomeSelect}
-        onAddExisting={handleAddExisting}
-        onCreateNew={handleCreateNew}
-        onCloneFromGithub={handleCloneFromGithub}
+        onAddProject={handleAddProject}
         onCloneSelect={handleCloneSelect}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -366,8 +345,7 @@ export function App() {
         </main>
       </div>
       <ToastContainer />
-      {showNewProject && <NewProjectDialog onClose={handleNewProjectClose} />}
-      {showCloneProject && <CloneFromGithubDialog onClose={handleCloneProjectClose} />}
+      {addProjectStep && <AddProjectDialog initialStep={addProjectStep} onClose={handleAddProjectClose} />}
       {gitInitPath && <InitGitRepoDialog folderPath={gitInitPath} onClose={handleGitInitClose} />}
       {whatsNew && (
         <WhatsNewDialog

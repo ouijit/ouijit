@@ -1,18 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { DialogOverlay } from './DialogOverlay';
 import { useAppStore } from '../../stores/appStore';
 
-interface NewProjectDialogProps {
-  onClose: (result: { created: boolean; projectName?: string; projectPath?: string } | null) => void;
+interface NewProjectFormProps {
+  onCancel: () => void;
+  onCreated: (projectPath: string) => void;
 }
 
 const NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/;
 
-export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
+/** Body and footer only — the add-project dialog owns the overlay and header. */
+export function NewProjectForm({ onCancel, onCreated }: NewProjectFormProps) {
   const [name, setName] = useState('');
   const [location, setLocation] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [visible, setVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const health = useAppStore((s) => s.health);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -21,7 +21,6 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
   const isValid = NAME_REGEX.test(name) && !gitMissing && location !== null;
 
   useEffect(() => {
-    requestAnimationFrame(() => setVisible(true));
     inputRef.current?.focus();
   }, []);
 
@@ -42,14 +41,6 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
     };
   }, []);
 
-  const dismiss = useCallback(
-    (result: { created: boolean; projectName?: string; projectPath?: string } | null) => {
-      setVisible(false);
-      setTimeout(() => onClose(result), 200);
-    },
-    [onClose],
-  );
-
   const handleChooseLocation = useCallback(async () => {
     const result = await window.api.showFolderPicker({
       title: 'Choose Projects Folder',
@@ -68,12 +59,12 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
 
     const result = await window.api.createProject({ name: name.trim(), parentDir: location ?? undefined });
     if (result.success && result.projectPath) {
-      dismiss({ created: true, projectName: name.trim(), projectPath: result.projectPath });
+      onCreated(result.projectPath);
     } else {
       setError(result.error ?? 'Could not create project.');
       setCreating(false);
     }
-  }, [name, location, isValid, creating, dismiss]);
+  }, [name, location, isValid, creating, onCreated]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -86,8 +77,7 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
   );
 
   return (
-    <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
-      <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">New Project</h2>
+    <>
       {gitMissing && (
         <div
           className="mb-4 px-3 py-2 rounded-md text-xs text-text-primary"
@@ -132,13 +122,13 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
         {error && <p className="text-xs text-error">{error}</p>}
       </div>
       <div className="flex gap-2 justify-end mt-4 items-center">
-        <button className="btn-secondary" onClick={() => dismiss(null)} disabled={creating}>
+        <button className="btn-secondary" onClick={onCancel} disabled={creating}>
           Cancel
         </button>
         <button className="btn-primary" onClick={handleCreate} disabled={!isValid || creating}>
           {creating ? 'Creating…' : 'Create'}
         </button>
       </div>
-    </DialogOverlay>
+    </>
   );
 }

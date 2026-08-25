@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { DialogOverlay } from './DialogOverlay';
 import { Icon } from '../terminal/Icon';
 import { cloneUrl, isDotCom, parseRepoInput } from '../../github/repoUrl';
 import { repoSlug } from '../../github/types';
 import type { GithubRepoSummary, ResolvedRepo } from '../../types';
 
-interface CloneFromGithubDialogProps {
+interface CloneFromGithubFormProps {
+  onCancel: () => void;
   /** `projectPath` is where the clone will land, not where it already is. */
-  onClose: (result: { projectPath: string } | null) => void;
+  onStarted: (projectPath: string) => void;
 }
 
 interface RepoChoice extends GithubRepoSummary {
@@ -22,7 +22,8 @@ function matchesNeedle(repo: GithubRepoSummary, needle: string): boolean {
   return repo.slug.toLowerCase().includes(needle) || (repo.description?.toLowerCase().includes(needle) ?? false);
 }
 
-export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
+/** Body and footer only — the add-project dialog owns the overlay and header. */
+export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubFormProps) {
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState<string | null>(null);
   const [repos, setRepos] = useState<GithubRepoSummary[]>([]);
@@ -34,13 +35,11 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
     status: 'unknown',
     checking: false,
   });
-  const [visible, setVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    requestAnimationFrame(() => setVisible(true));
     inputRef.current?.focus();
   }, []);
 
@@ -141,14 +140,6 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
     listRef.current?.children[highlight]?.scrollIntoView({ block: 'nearest' });
   }, [highlight]);
 
-  const dismiss = useCallback(
-    (result: { projectPath: string } | null) => {
-      setVisible(false);
-      setTimeout(() => onClose(result), 200);
-    },
-    [onClose],
-  );
-
   const handleChooseLocation = useCallback(async () => {
     const result = await window.api.showFolderPicker({
       title: 'Choose Projects Folder',
@@ -170,13 +161,13 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
       setCloning(true);
       const result = await window.api.startClone({ repo, parentDir: location ?? undefined });
       if (result.success && result.projectPath) {
-        dismiss({ projectPath: result.projectPath });
+        onStarted(result.projectPath);
       } else {
         setError(result.error ?? 'Could not start the clone.');
         setCloning(false);
       }
     },
-    [location, cloning, dismiss],
+    [location, cloning, onStarted],
   );
 
   const handleKeyDown = useCallback(
@@ -196,8 +187,7 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
   );
 
   return (
-    <DialogOverlay visible={visible} onDismiss={() => dismiss(null)} maxWidth={480}>
-      <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">Clone from GitHub</h2>
+    <>
       <div className="mb-6 flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-text-secondary" htmlFor="clone-repo">
@@ -273,7 +263,7 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
         {error && <p className="text-xs text-error">{error}</p>}
       </div>
       <div className="flex gap-2 justify-end mt-4 items-center">
-        <button className="btn-secondary" onClick={() => dismiss(null)} disabled={cloning}>
+        <button className="btn-secondary" onClick={onCancel} disabled={cloning}>
           Cancel
         </button>
         <button
@@ -285,6 +275,6 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
           {cloning ? 'Starting…' : 'Clone'}
         </button>
       </div>
-    </DialogOverlay>
+    </>
   );
 }

@@ -25,20 +25,11 @@ const isMac = navigator.platform.toLowerCase().includes('mac');
 interface SidebarProps {
   onProjectSelect: (path: string, project: Project) => void;
   onHomeSelect: () => void;
-  onAddExisting: () => void;
-  onCreateNew: () => void;
-  onCloneFromGithub: () => void;
+  onAddProject: () => void;
   onCloneSelect: (projectPath: string) => void;
 }
 
-export function Sidebar({
-  onProjectSelect,
-  onHomeSelect,
-  onAddExisting,
-  onCreateNew,
-  onCloneFromGithub,
-  onCloneSelect,
-}: SidebarProps) {
+export function Sidebar({ onProjectSelect, onHomeSelect, onAddProject, onCloneSelect }: SidebarProps) {
   const projects = useAppStore((s) => s.projects);
   const cloneJobs = useAppStore((s) => s.cloneJobs);
   const activeView = useAppStore((s) => s.activeView);
@@ -56,7 +47,6 @@ export function Sidebar({
   const effectiveVisible = visible || sidebarPinned;
 
   const addBtnRef = useRef<HTMLButtonElement>(null);
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; project: Project } | null>(null);
 
   // Ordered project paths for @dnd-kit
@@ -93,7 +83,6 @@ export function Sidebar({
   }, []);
 
   const hideSidebar = useCallback(() => {
-    if (addMenuOpen) return;
     if (sidebarPinned) return;
     // Keep the sidebar pinned open until the user has at least one project —
     // otherwise the only entry point for "add project" disappears on hover-out.
@@ -107,7 +96,7 @@ export function Sidebar({
 
       document.documentElement.style.setProperty('--sidebar-offset', '0px');
     }, 300);
-  }, [addMenuOpen, noProjects, sidebarPinned]);
+  }, [noProjects, sidebarPinned]);
 
   useEffect(() => {
     const handler = () => showSidebar();
@@ -144,15 +133,6 @@ export function Sidebar({
     document.documentElement.style.setProperty('--sidebar-offset', 'var(--sidebar-width)');
   }, []);
 
-  useEffect(() => {
-    const handler = () => {
-      showSidebar();
-      setAddMenuOpen(true);
-    };
-    document.addEventListener('open-add-menu', handler);
-    return () => document.removeEventListener('open-add-menu', handler);
-  }, [showSidebar]);
-
   // Pin the sidebar open whenever there are no projects so the add-project
   // button stays visible (otherwise it auto-hides on mouse-out).
   useEffect(() => {
@@ -185,20 +165,6 @@ export function Sidebar({
       document.removeEventListener('mousedown', dismiss);
     };
   }, [contextMenu]);
-
-  useEffect(() => {
-    if (!addMenuOpen) return;
-    const dismiss = (e: MouseEvent) => {
-      const menu = document.querySelector('.sidebar-add-menu-react');
-      if (menu?.contains(e.target as Node)) return;
-      setAddMenuOpen(false);
-    };
-    const timer = setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', dismiss);
-    };
-  }, [addMenuOpen]);
 
   const handleRemoveProject = useCallback(async (project: Project) => {
     setContextMenu(null);
@@ -312,7 +278,7 @@ export function Sidebar({
           ))}
 
           {/* Add button */}
-          <SidebarTooltipWrapper label="Add project" disabled={addMenuOpen}>
+          <SidebarTooltipWrapper label="Add project">
             {(tipRef, tipProps) => (
               <div
                 ref={tipRef}
@@ -325,7 +291,7 @@ export function Sidebar({
                   className="w-10 h-10 flex items-center justify-center relative glass-bevel overflow-hidden rounded-[12px] bg-background-secondary border border-bezel text-text-secondary transition-colors duration-200 ease-out [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setAddMenuOpen(!addMenuOpen);
+                    onAddProject();
                   }}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -339,15 +305,6 @@ export function Sidebar({
       </aside>
 
       {/* Add menu (portal-like, absolute positioned) */}
-      {addMenuOpen && (
-        <AddMenu
-          anchorRef={addBtnRef}
-          onAddExisting={onAddExisting}
-          onCreateNew={onCreateNew}
-          onCloneFromGithub={onCloneFromGithub}
-          onClose={() => setAddMenuOpen(false)}
-        />
-      )}
 
       {/* Context menu */}
       {contextMenu && (
@@ -528,77 +485,5 @@ function SidebarTooltipWrapper({
           document.body,
         )}
     </>
-  );
-}
-
-// ── Add menu ─────────────────────────────────────────────────────────
-
-interface AddMenuProps {
-  anchorRef: React.RefObject<HTMLButtonElement | null>;
-  onAddExisting: () => void;
-  onCreateNew: () => void;
-  onCloneFromGithub: () => void;
-  onClose: () => void;
-}
-
-function AddMenu({ anchorRef, onAddExisting, onCreateNew, onCloneFromGithub, onClose }: AddMenuProps) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node) && !anchorRef.current?.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    setTimeout(() => document.addEventListener('mousedown', handler), 0);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose, anchorRef]);
-
-  // Position relative to anchor button
-  const rect = anchorRef.current?.getBoundingClientRect();
-  const left = (rect?.right ?? 76) + 8;
-  const bottom = rect ? window.innerHeight - rect.bottom : 16;
-
-  return createPortal(
-    <div
-      ref={ref}
-      className="sidebar-add-menu-react fixed z-[10002] flex flex-col p-1 glass-bevel border border-bezel rounded-[12px] overflow-hidden"
-      style={{
-        left,
-        bottom,
-        top: 'auto',
-        background: 'var(--color-terminal-bg)',
-        boxShadow: 'var(--shadow-menu)',
-      }}
-    >
-      <button
-        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-ink/[0.08]"
-        onClick={() => {
-          onClose();
-          onAddExisting();
-        }}
-      >
-        Add existing
-      </button>
-      <button
-        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-ink/[0.08]"
-        onClick={() => {
-          onClose();
-          onCreateNew();
-        }}
-      >
-        Create new
-      </button>
-      <button
-        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-ink/[0.08]"
-        onClick={() => {
-          onClose();
-          onCloneFromGithub();
-        }}
-      >
-        Clone from GitHub
-      </button>
-    </div>,
-    document.body,
   );
 }

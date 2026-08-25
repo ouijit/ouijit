@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { ProjectSourceList } from './projectSources';
 import { useAppStore } from '../stores/appStore';
 import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
@@ -320,26 +321,19 @@ export function HomeView() {
                 <div className="px-5 py-3">
                   <span className="text-sm text-text-primary leading-tight">Start a project</span>
                 </div>
-                <div className="border-t border-ink/[0.06] divide-y divide-ink/[0.04]">
-                  <EmptyStateChoice
-                    verb="Open"
-                    noun="a folder you already have"
-                    detail="Brings an existing folder into Ouijit as a project."
-                    onClick={() => document.dispatchEvent(new Event('add-existing-project'))}
-                  />
-                  <EmptyStateChoice
-                    verb="Create"
-                    noun="a new project"
-                    detail="Creates a new folder, initialized as a git repo."
-                    onClick={() => document.dispatchEvent(new Event('create-new-project'))}
-                  />
-                  <EmptyStateChoice
-                    verb="Clone"
-                    noun="a repository from GitHub"
-                    detail="Clones it into your projects folder and opens it here."
-                    onClick={() => document.dispatchEvent(new Event('clone-github-project'))}
-                  />
-                </div>
+                <ProjectSourceList
+                  onChoose={(kind) =>
+                    document.dispatchEvent(
+                      new Event(
+                        kind === 'add-existing'
+                          ? 'add-existing-project'
+                          : kind === 'create'
+                            ? 'create-new-project'
+                            : 'clone-github-project',
+                      ),
+                    )
+                  }
+                />
               </div>
             </div>
           </div>
@@ -514,32 +508,5 @@ export function HomeView() {
         );
       })}
     </div>
-  );
-}
-
-interface EmptyStateChoiceProps {
-  verb: string;
-  noun: string;
-  detail: string;
-  onClick: () => void;
-}
-
-function EmptyStateChoice({ verb, noun, detail, onClick }: EmptyStateChoiceProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex items-baseline gap-3 w-full text-left px-5 py-3 hover:bg-ink/[0.04] transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-light outline-none [-webkit-app-region:no-drag]"
-    >
-      <span className="text-[15px] text-text-tertiary group-hover:text-text-primary transition-colors w-3 shrink-0">
-        →
-      </span>
-      <span className="flex-1 min-w-0">
-        <span className="text-[14px] text-text-primary">
-          <span className="font-semibold">{verb}</span> <span className="text-text-secondary">{noun}.</span>
-        </span>
-        <span className="block text-[12px] text-text-tertiary mt-0.5 leading-relaxed">{detail}</span>
-      </span>
-    </button>
   );
 }
