@@ -7,9 +7,9 @@ import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
-import { projectIconColor, getInitials } from '../utils/projectIcon';
+import { projectIconColor } from '../utils/projectIcon';
 import { CloningProjectIcon } from './CloningProjectIcon';
-import { SidebarTooltipWrapper } from './SidebarTooltip';
+import { SidebarTooltipWrapper, SidebarTile } from './SidebarTooltip';
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
 interface SidebarProps {
@@ -357,36 +357,25 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
           onClick={onClick}
           onContextMenu={onContextMenu}
         >
-          <div
-            className={`absolute left-0 w-1 rounded-r-sm bg-ink transition-all duration-200 ease-out ${
-              isActive ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
-            }`}
-          />
-          <div className="w-10 h-10 overflow-hidden rounded-md">
-            <div
-              className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
-              style={{ backgroundColor: projectIconColor(project), textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
-            >
-              {getInitials(project.name)}
-            </div>
-          </div>
-          {terminalCount > 0 && (
-            <span
-              className="absolute bottom-0 right-2 flex items-center justify-center text-accent-ink font-bold"
-              style={{
-                minWidth: 16,
-                height: 16,
-                fontSize: 10,
-                lineHeight: 1,
-                padding: '0 4px',
-                borderRadius: 8,
-                background: 'var(--color-accent)',
-                border: '2px solid var(--color-background)',
-              }}
-            >
-              {terminalCount}
-            </span>
-          )}
+          <SidebarTile name={project.name} color={projectIconColor(project)} isActive={isActive}>
+            {terminalCount > 0 && (
+              <span
+                className="absolute bottom-0 right-2 flex items-center justify-center text-accent-ink font-bold"
+                style={{
+                  minWidth: 16,
+                  height: 16,
+                  fontSize: 10,
+                  lineHeight: 1,
+                  padding: '0 4px',
+                  borderRadius: 8,
+                  background: 'var(--color-accent)',
+                  border: '2px solid var(--color-background)',
+                }}
+              >
+                {terminalCount}
+              </span>
+            )}
+          </SidebarTile>
         </div>
       )}
     </SidebarTooltipWrapper>

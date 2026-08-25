@@ -6,7 +6,7 @@
  * an approximation that disagrees with it.
  */
 
-import type { RepoIdentity } from './types';
+import { repoSlug, type RepoIdentity } from './types';
 
 /** Where gh sends a request that names no host of its own. */
 export const DEFAULT_GH_HOST = 'github.com';
@@ -93,6 +93,14 @@ export function parseRepoInput(input: string): RepoIdentity | null {
     /* not a URL either */
   }
   return null;
+}
+
+/**
+ * The inverse of `parseRepoInput`: the shortest text that parses back to this
+ * repo. A GHES repo keeps its host, because the bare slug would not.
+ */
+export function repoRef(identity: RepoIdentity): string {
+  return isDotCom(identity) ? repoSlug(identity) : `https://${identity.host}/${identity.owner}/${identity.repo}`;
 }
 
 export function cloneUrl(identity: RepoIdentity): string {

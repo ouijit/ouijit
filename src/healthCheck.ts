@@ -117,3 +117,8 @@ export function getCachedHealth(): HealthStatus | null {
 export async function refreshHealth(): Promise<HealthStatus> {
   return checkHealth();
 }
+
+/** What health is right now, probing only if nothing has yet. */
+export async function currentHealth(): Promise<HealthStatus> {
+  return getCachedHealth() ?? (await checkHealth());
+}

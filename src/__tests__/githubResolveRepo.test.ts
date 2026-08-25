@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { resolveRepo } from '../github/service';
 import { fetchRepo as rawFetchRepo } from '../github/api';
-import { checkHealth as rawCheckHealth, getCachedHealth as rawGetCachedHealth } from '../healthCheck';
+import { currentHealth as rawCurrentHealth, getCachedHealth as rawGetCachedHealth } from '../healthCheck';
 import { GithubError, type GithubErrorKind } from '../github/client';
 import type { HealthStatus } from '../healthCheck';
 
@@ -14,7 +14,7 @@ vi.mock('../github/api', async () => ({
 vi.mock('../healthCheck', async () => ({
   ...(await vi.importActual<typeof import('../healthCheck')>('../healthCheck')),
   getCachedHealth: vi.fn(),
-  checkHealth: vi.fn(),
+  currentHealth: vi.fn(),
 }));
 vi.mock('../github/client', async () => ({
   ...(await vi.importActual<typeof import('../github/client')>('../github/client')),
@@ -22,15 +22,20 @@ vi.mock('../github/client', async () => ({
 }));
 
 const fetchRepo = vi.mocked(rawFetchRepo);
-const checkHealth = vi.mocked(rawCheckHealth);
+const currentHealth = vi.mocked(rawCurrentHealth);
 const getCachedHealth = vi.mocked(rawGetCachedHealth);
 
 const HEALTHY = { gh: true, ghVersionOk: true } as HealthStatus;
-const REPO = { slug: 'macro-inc/macro', description: 'A workspace', isPrivate: false };
+const REPO = {
+  identity: { host: 'github.com', owner: 'macro-inc', repo: 'macro' },
+  description: 'A workspace',
+  isPrivate: false,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
   getCachedHealth.mockReturnValue(HEALTHY);
+  currentHealth.mockResolvedValue(HEALTHY);
 });
 
 describe('resolveRepo', () => {
@@ -64,7 +69,7 @@ describe('resolveRepo', () => {
 
   test('answers unknown without probing when gh is not installed', async () => {
     getCachedHealth.mockReturnValue(null);
-    checkHealth.mockResolvedValue({ ...HEALTHY, gh: false });
+    currentHealth.mockResolvedValue({ ...HEALTHY, gh: false });
 
     await expect(resolveRepo({ host: 'github.com', owner: 'macro-inc', repo: 'macro' })).resolves.toEqual({
       status: 'unknown',

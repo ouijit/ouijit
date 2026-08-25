@@ -209,19 +209,12 @@ export function App() {
     selectHome();
   }, []);
 
-  const refreshProjects = useCallback(async (): Promise<Project[]> => {
+  const finalizeAddedProject = useCallback(async (addedPath: string) => {
     const projects = await window.api.refreshProjects();
     useAppStore.getState().setProjects(projects);
-    return projects;
+    const project = projects.find((p) => p.path === addedPath);
+    if (project) useAppStore.getState().navigateToProject(addedPath, project);
   }, []);
-
-  const finalizeAddedProject = useCallback(
-    async (addedPath: string) => {
-      const project = (await refreshProjects()).find((p) => p.path === addedPath);
-      if (project) useAppStore.getState().navigateToProject(addedPath, project);
-    },
-    [refreshProjects],
-  );
 
   const handleAddExisting = useCallback(async () => {
     const result = await window.api.showFolderPicker();
@@ -262,25 +255,6 @@ export function App() {
     const job = useAppStore.getState().cloneJobs.find((entry) => entry.projectPath === projectPath);
     if (job) useAppStore.getState().navigateToProject(projectPath, { name: job.name, path: projectPath });
   }, []);
-
-  // Clone progress arrives as pushes; the list is fetched once so a reload
-  // mid-clone still shows what is in flight.
-  useEffect(() => {
-    void window.api.listClones().then((jobs) => useAppStore.getState().setCloneJobs(jobs));
-    const stopChanged = window.api.onClonesChanged((jobs) => useAppStore.getState().setCloneJobs(jobs));
-    const stopLanded = window.api.onCloneLanded(async (projectPath) => {
-      const project = (await refreshProjects()).find((p) => p.path === projectPath);
-      // Settle in place for whoever is watching, but never pull someone back to
-      // a project they navigated away from while it downloaded.
-      if (project && useAppStore.getState().activeProjectPath === projectPath) {
-        useAppStore.getState().navigateToProject(projectPath, project);
-      }
-    });
-    return () => {
-      stopChanged();
-      stopLanded();
-    };
-  }, [refreshProjects]);
 
   const chooseProjectSource = useCallback(
     (kind: ProjectSourceKind) => {

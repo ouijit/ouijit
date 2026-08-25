@@ -11,7 +11,7 @@ export function openAddProject(kind: ProjectSourceKind): void {
   document.dispatchEvent(new CustomEvent<ProjectSourceKind>(ADD_PROJECT_EVENT, { detail: kind }));
 }
 
-export interface ProjectSource {
+interface ProjectSource {
   kind: ProjectSourceKind;
   icon: string;
   verb: string;
@@ -19,7 +19,7 @@ export interface ProjectSource {
   detail: string;
 }
 
-export const PROJECT_SOURCES: ProjectSource[] = [
+const PROJECT_SOURCES: ProjectSource[] = [
   {
     kind: 'add-existing',
     icon: 'folder-open',

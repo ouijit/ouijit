@@ -488,14 +488,11 @@ export interface ElectronAPI {
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Start cloning a GitHub repo; resolves once it is under way, not once it lands */
   startClone(options: CloneProjectOptions): Promise<StartCloneResult>;
-  /** Clones currently in flight */
   listClones(): Promise<CloneJob[]>;
   /** Stop a clone and drop what it had written, or clear one that failed */
   cancelClone(projectPath: string): Promise<void>;
-  /** Run a failed clone again, into the same place */
   retryClone(projectPath: string): Promise<StartCloneResult>;
   onClonesChanged(callback: (jobs: CloneJob[]) => void): () => void;
-  /** A clone finished and the project is now real */
   onCloneLanded(callback: (projectPath: string) => void): () => void;
   /** Repos the signed-in `gh` user can clone, for the import dialog's list */
   listGithubRepos(): Promise<UserReposResult>;

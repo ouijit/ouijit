@@ -785,7 +785,6 @@ export async function fetchUserRepos(): Promise<GithubRepoSummary[]> {
   const raw = await ghRest<RawRepo[]>(
     `user/repos?per_page=${USER_REPO_LIMIT}&sort=pushed&affiliation=owner,collaborator,organization_member`,
   );
-  // No identity was passed, so gh answered from its default host.
   return raw.map((repo) => toRepoSummary(repo, DEFAULT_GH_HOST));
 }
 

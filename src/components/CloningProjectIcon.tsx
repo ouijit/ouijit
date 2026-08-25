@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { projectIconColor, getInitials } from '../utils/projectIcon';
-import { SidebarTooltipWrapper } from './SidebarTooltip';
+import { projectIconColor } from '../utils/projectIcon';
+import { SidebarTooltipWrapper, SidebarTile } from './SidebarTooltip';
 import { useAppStore, selectCloneJob } from '../stores/appStore';
 import type { CloneJob } from '../types';
 
@@ -32,24 +32,14 @@ export function CloningProjectIcon({
           style={{ width: 'var(--sidebar-width)', height: 48 }}
           onClick={onClick}
         >
-          <div
-            className={`absolute left-0 w-1 rounded-r-sm bg-ink transition-all duration-200 ease-out ${
-              isActive ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
-            }`}
-          />
-          <div className="w-10 h-10 overflow-hidden rounded-md">
-            <div
-              className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
-              style={{
-                backgroundColor: projectIconColor({ name: job.name }),
-                textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-                opacity: failed ? 0.35 : 0.5,
-              }}
-            >
-              {getInitials(job.name)}
-            </div>
-          </div>
-          <CloneRing percent={job.percent} failed={failed} />
+          <SidebarTile
+            name={job.name}
+            color={projectIconColor({ name: job.name })}
+            isActive={isActive}
+            opacity={failed ? 0.35 : 0.5}
+          >
+            <CloneRing percent={job.percent} failed={failed} />
+          </SidebarTile>
         </div>
       )}
     </SidebarTooltipWrapper>

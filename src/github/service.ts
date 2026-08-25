@@ -11,7 +11,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { getCachedHealth, checkHealth, refreshHealth } from '../healthCheck';
+import { getCachedHealth, refreshHealth, currentHealth } from '../healthCheck';
 import {
   getTaskByNumber,
   getProjectTasks,
@@ -35,7 +35,7 @@ import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
 import { repoSlug } from './types';
-import { GithubError, MIN_GH_VERSION, probeGhAuth } from './client';
+import { GithubError, MIN_GH_VERSION, probeGh, probeGhAuth } from './client';
 import { reviewSubmitProblem } from './reviewRules';
 import { describeError } from '../utils/describeError';
 import {
@@ -119,7 +119,7 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
   // before `git remote add origin` reads "no remote" until the app restarts,
   // and a gh installed after launch stays missing.
   if (recheck) invalidateRepoIdentity(projectPath);
-  const health = recheck ? await refreshHealth() : (getCachedHealth() ?? (await checkHealth()));
+  const health = recheck ? await refreshHealth() : await currentHealth();
 
   if (!health.gh) {
     return {
@@ -155,17 +155,17 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
   return { available: true, identity };
 }
 
+let userRepos: Promise<UserReposResult> | null = null;
+
 /**
  * The repos the import dialog offers. Deliberately outside `getAvailability`:
  * that gate is per-project, and importing is what happens before there is a
  * project to hold a flag or a remote.
+ *
+ * Kept for the life of the process, except a result reporting a fixable
+ * problem — so reopening the dialog is enough to see `gh auth login` land.
  */
-let userRepos: Promise<UserReposResult> | null = null;
-
 export function listUserRepos(): Promise<UserReposResult> {
-  // The dialog is opened and closed repeatedly, and this list changes on the
-  // order of days. A result that reports a fixable problem is not kept, so
-  // reopening the dialog is enough to see `gh auth login` take effect.
   if (!userRepos) {
     userRepos = loadUserRepos().then((result) => {
       if (result.message) userRepos = null;
@@ -176,13 +176,10 @@ export function listUserRepos(): Promise<UserReposResult> {
 }
 
 async function loadUserRepos(): Promise<UserReposResult> {
-  // A cached negative is re-probed rather than trusted: the message tells the
-  // user to go install or sign in, and reopening the dialog has to be enough
-  // to see that work. `listUserRepos` drops its memo on any message, so the
-  // reopen gets here.
-  const cached = getCachedHealth();
-  const health = cached?.gh ? cached : await refreshHealth();
-  if (!health.gh) {
+  // A cached negative is re-probed rather than trusted, since the message
+  // below tells the user to go install it.
+  const gh = getCachedHealth()?.gh || (await probeGh()).installed;
+  if (!gh) {
     return { repos: [], message: 'Install the GitHub CLI from cli.github.com to browse your repositories.' };
   }
   if (!(await isGhAuthenticated(true))) {
@@ -204,7 +201,7 @@ async function loadUserRepos(): Promise<UserReposResult> {
  * connection must not stand between the user and a repo that is really there.
  */
 export async function resolveRepo(identity: RepoIdentity): Promise<ResolvedRepo> {
-  const health = getCachedHealth() ?? (await checkHealth());
+  const health = await currentHealth();
   if (!health.gh || !(await isGhAuthenticated(false))) return { status: 'unknown' };
 
   try {

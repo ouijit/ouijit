@@ -16,7 +16,7 @@ import * as path from 'node:path';
 import { ghEnv } from './github/client';
 import { cloneUrl } from './github/repoUrl';
 import { repoSlug, type RepoIdentity } from './github/types';
-import { getCachedHealth, checkHealth } from './healthCheck';
+import { currentHealth } from './healthCheck';
 import { resolveNewProjectPath, type NewProjectPathFailure } from './projectCreator';
 import { getLogger } from './logger';
 import type { CloneProgress, CloneProjectOptions } from './types';
@@ -76,16 +76,21 @@ export type CloneOutcome = { status: 'landed' } | { status: 'canceled' } | { sta
 
 export type ResolvedCloneTarget = { ok: true; target: CloneTarget } | { ok: false; error: string };
 
-const CLONE_PATH_ERRORS: Record<NewProjectPathFailure, (name: string) => string> = {
-  'relative-parent': () => 'The project location must be an absolute path',
-  'escapes-parent': () => 'Invalid repository name',
-  taken: (name) => `A folder named ${name} already exists in that location`,
-};
+function clonePathError(reason: NewProjectPathFailure, name: string): string {
+  switch (reason) {
+    case 'relative-parent':
+      return 'The project location must be an absolute path';
+    case 'escapes-parent':
+      return 'Invalid repository name';
+    case 'taken':
+      return `A folder named ${name} already exists in that location`;
+  }
+}
 
 export async function resolveCloneTarget(options: CloneProjectOptions): Promise<ResolvedCloneTarget> {
   const { repo: identity } = options;
   const resolved = await resolveNewProjectPath(identity.repo, options.parentDir);
-  if (resolved.ok === false) return { ok: false, error: CLONE_PATH_ERRORS[resolved.reason](identity.repo) };
+  if (resolved.ok === false) return { ok: false, error: clonePathError(resolved.reason, identity.repo) };
 
   const { parentDir, projectPath } = resolved;
   return {
@@ -159,7 +164,7 @@ export function runClone(target: CloneTarget, onProgress: (progress: CloneProgre
     await fs.mkdir(path.dirname(target.stagingPath), { recursive: true });
     if (canceled) return { status: 'canceled' };
 
-    const gh = getCachedHealth()?.gh ?? (await checkHealth()).gh;
+    const { gh } = await currentHealth();
     const [command, args] = gh
       ? (['gh', ['repo', 'clone', repoSlug(target.identity), target.stagingPath, '--', '--progress']] as const)
       : (['git', ['clone', '--progress', cloneUrl(target.identity), target.stagingPath]] as const);

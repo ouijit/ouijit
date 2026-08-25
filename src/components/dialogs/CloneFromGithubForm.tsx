@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Icon } from '../terminal/Icon';
-import { parseRepoInput } from '../../github/repoUrl';
+import { parseRepoInput, repoRef } from '../../github/repoUrl';
 import { repoSlug } from '../../github/types';
-import { fuzzyMatch } from '../../utils/fuzzyMatch';
+import { scoreFields } from '../../utils/paletteScore';
 import { DIALOG_INPUT_CLASS, ProjectLocationField, useProjectLocation } from './ProjectLocationField';
 import type { GithubRepoSummary, RepoIdentity, ResolvedRepo } from '../../types';
 
@@ -14,8 +14,6 @@ interface CloneFromGithubFormProps {
 
 interface RepoChoice extends GithubRepoSummary {
   slug: string;
-  /** What picking this row puts in the input, so it parses back to `identity`. */
-  ref: string;
 }
 
 /** Long enough that typing a name out does not fork a `gh` process per keystroke. */
@@ -23,12 +21,13 @@ const RESOLVE_DEBOUNCE_MS = 400;
 
 const UNKNOWN: ResolvedRepo = { status: 'unknown' };
 
-/** Best score across the slug and the description, or null for no match. */
-function scoreRepo(slug: string, description: string | null, needle: string): number | null {
-  const onSlug = fuzzyMatch(needle, slug)?.score ?? -Infinity;
-  const onDescription = description ? (fuzzyMatch(needle, description)?.score ?? -Infinity) : -Infinity;
-  const best = Math.max(onSlug, onDescription);
-  return best === -Infinity ? null : best;
+function scoreRepo(repo: RepoChoice, needle: string): number | null {
+  return (
+    scoreFields(needle, [
+      { key: 'slug', text: repo.slug, weight: 1 },
+      { key: 'description', text: repo.description ?? '', weight: 0.5 },
+    ])?.score ?? null
+  );
 }
 
 export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubFormProps) {
@@ -72,7 +71,7 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
   const resolvedSlug = resolved && repoSlug(resolved);
 
   const choices = useMemo(
-    (): RepoChoice[] => repos.map((repo) => ({ ...repo, slug: repoSlug(repo.identity), ref: repoSlug(repo.identity) })),
+    (): RepoChoice[] => repos.map((repo) => ({ ...repo, slug: repoSlug(repo.identity) })),
     [repos],
   );
 
@@ -84,15 +83,25 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
     : undefined;
 
   // A repo already in the list is known to exist; anything else is checked
-  // against GitHub.
+  // against GitHub. Answers are kept because every form of the same repo — the
+  // URL, the slug, the `.git` suffix — asks the same question, and each miss
+  // forks `gh`.
+  const resolvedBefore = useRef(new Map<string, ResolvedRepo>());
   useEffect(() => {
     if (!resolved || listedMatch) return;
+    const key = repoSlug(resolved);
+    const remembered = resolvedBefore.current.get(key);
+    if (remembered) {
+      setRemote(remembered);
+      return;
+    }
     setRemote((current) => (current.status === 'unknown' ? current : UNKNOWN));
     let cancelled = false;
     const timer = setTimeout(() => {
       window.api
         .resolveGithubRepo(resolved)
         .then((result) => {
+          resolvedBefore.current.set(key, result);
           if (!cancelled) setRemote(result);
         })
         .catch(() => {
@@ -115,7 +124,7 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
     const listed = needle
       ? choices
           .flatMap((repo) => {
-            const score = scoreRepo(repo.slug, repo.description, needle);
+            const score = scoreRepo(repo, needle);
             return score === null ? [] : [{ repo, score }];
           })
           .sort((a, b) => b.score - a.score)
@@ -128,7 +137,6 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
         {
           slug: resolvedSlug,
           identity: resolved,
-          ref: query.trim(),
           description: found?.description ?? null,
           isPrivate: found?.isPrivate ?? false,
         },
@@ -222,7 +230,7 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
               <button
                 key={repo.slug}
                 className={`w-full flex items-baseline gap-2 px-3 py-2 text-left border-none transition-colors duration-100 ease-out ${index === highlight ? 'bg-ink/[0.08]' : 'bg-transparent hover:bg-ink/[0.05]'}`}
-                onClick={() => setQuery(repo.ref)}
+                onClick={() => setQuery(repoRef(repo.identity))}
                 disabled={cloning}
               >
                 {repo.slug === resolvedSlug && (
