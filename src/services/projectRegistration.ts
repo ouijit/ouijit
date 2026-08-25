@@ -2,8 +2,6 @@
  * Registration orchestration shared by the add-existing, create-new and
  * clone-from-GitHub flows. The latter two are "produce the folder, then run
  * the exact add-existing pipeline", so there is one registration codepath.
- * The clone's own flow lives in `cloneRegistry`, which calls in here once the
- * repo has landed.
  * Kept out of the IPC handlers so the wiring is unit-testable.
  */
 

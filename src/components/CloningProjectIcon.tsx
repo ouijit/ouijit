@@ -6,8 +6,7 @@ import type { CloneJob } from '../types';
 
 /**
  * A project that is still arriving. Inert by design — no drag, no context
- * menu, nothing that acts on a directory which is not there yet. Clicking it
- * opens the clone's own view, which is where cancelling lives.
+ * menu, nothing that acts on a directory which is not there yet.
  */
 export function CloningProjectIcon({
   projectPath,
@@ -66,7 +65,6 @@ const RING_RADIUS = TILE_RADIUS + RING_GAP;
 const RING_BOX = RING_SIZE + RING_STROKE;
 
 /**
- * Traces the tile's own silhouette rather than ringing it with a circle.
  * `pathLength` renormalizes the perimeter to 1, so the dash offset is the
  * fraction remaining whatever the geometry works out to, and the sweep runs at
  * a constant speed along the edge instead of accelerating down the sides.

@@ -5,7 +5,7 @@ import * as os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { parseCloneProgress, resolveCloneTarget, runClone } from '../repoCloner';
-import { startClone, listCloneJobs, retryClone, setCloneListeners } from '../services/cloneRegistry';
+import { startClone, listCloneJobs, retryClone, cancelAllClones, setCloneListeners } from '../services/cloneRegistry';
 import { getDefaultProjectsDir } from '../projectsFolder';
 import { getAllProjects, getGlobalSetting } from '../db';
 import { ONBOARDING_STATE_KEY } from '../onboardingState';
@@ -25,6 +25,9 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  // A clone left running would keep publishing into the next test's listener,
+  // and its `sleep` would outlive the run.
+  cancelAllClones();
   process.env.PATH = originalPath;
   await fs.rm(scratchDir, { recursive: true, force: true });
 });
@@ -218,13 +221,23 @@ describe('runClone', () => {
 });
 
 describe('clone registry', () => {
-  /** Resolves once the registry stops reporting the job as in flight. */
+  // The registry is module state that outlives a test, so every assertion
+  // here names the job it is about rather than the whole list.
+  const jobFor = (projectPath: string) => listCloneJobs().find((job) => job.projectPath === projectPath);
+
+  /**
+   * Resolves once this job has appeared and then either failed or been
+   * dropped. Waiting for it to appear first matters: the registry publishes
+   * the whole list, so the first push may be some other job's.
+   */
   function settled(projectPath: string): Promise<CloneJob[]> {
+    let appeared = false;
     return new Promise((resolve) => {
       setCloneListeners({
         onChanged: (jobs) => {
           const job = jobs.find((entry) => entry.projectPath === projectPath);
-          if (!job || job.status === 'failed') resolve(jobs);
+          appeared ||= job !== undefined;
+          if (job?.status === 'failed' || (appeared && !job)) resolve(jobs);
         },
         onLanded: () => {},
       });
@@ -242,10 +255,10 @@ describe('clone registry', () => {
       const started = await startClone({ repo: OUIJIT, parentDir });
       expect(started).toEqual({ success: true, projectPath });
       // Visible immediately: the caller navigates to it before anything downloads.
-      expect(listCloneJobs()).toMatchObject([{ projectPath, identity: OUIJIT, status: 'cloning' }]);
+      expect(jobFor(projectPath)).toMatchObject({ identity: OUIJIT, status: 'cloning' });
 
       await done;
-      expect(listCloneJobs()).toEqual([]);
+      expect(jobFor(projectPath)).toBeUndefined();
       expect((await getAllProjects()).map((p) => p.path)).toContain(projectPath);
       expect(await getDefaultProjectsDir()).toBe(parentDir);
       expect(JSON.parse((await getGlobalSetting(ONBOARDING_STATE_KEY))!)).toMatchObject({ source: 'cloned' });
@@ -258,15 +271,18 @@ describe('clone registry', () => {
     async () => {
       await fakeGh();
       const parentDir = path.join(scratchDir, 'projects');
-      const done = settled(path.join(parentDir, 'missing'));
+      const projectPath = path.join(parentDir, 'missing');
+      const done = settled(projectPath);
 
       await startClone({ repo: { ...OUIJIT, repo: 'missing' }, parentDir });
 
       await done;
-      expect(listCloneJobs()).toMatchObject([
-        { status: 'failed', error: expect.stringMatching(/was not found/), output: expect.stringContaining('remote:') },
-      ]);
-      expect(await getAllProjects()).toEqual([]);
+      expect(jobFor(projectPath)).toMatchObject({
+        status: 'failed',
+        error: expect.stringMatching(/was not found/),
+        output: expect.stringContaining('remote:'),
+      });
+      expect((await getAllProjects()).map((p) => p.path)).not.toContain(projectPath);
     },
     SUBPROCESS_TIMEOUT,
   );
@@ -278,12 +294,11 @@ describe('clone registry', () => {
       const parentDir = path.join(scratchDir, 'projects');
       const enterprise = { host: 'ghe.corp.example', owner: 'team', repo: 'tools' };
       const projectPath = path.join(parentDir, 'tools');
-      const jobFor = () => listCloneJobs().find((job) => job.projectPath === projectPath);
       const hasFailed = () =>
         new Promise<void>((resolve) => {
           setCloneListeners({
             onChanged: () => {
-              if (jobFor()?.status === 'failed') resolve();
+              if (jobFor(projectPath)?.status === 'failed') resolve();
             },
             onLanded: () => {},
           });
@@ -292,13 +307,13 @@ describe('clone registry', () => {
       const failed = hasFailed();
       await startClone({ repo: enterprise, parentDir });
       await failed;
-      expect(jobFor()).toMatchObject({ identity: enterprise, status: 'failed' });
+      expect(jobFor(projectPath)).toMatchObject({ identity: enterprise, status: 'failed' });
 
       const failedAgain = hasFailed();
       expect(await retryClone(projectPath)).toEqual({ success: true, projectPath });
       await failedAgain;
       // The host survives the round trip; a slug alone would retarget github.com.
-      expect(jobFor()).toMatchObject({ identity: enterprise, status: 'failed' });
+      expect(jobFor(projectPath)).toMatchObject({ identity: enterprise, status: 'failed' });
     },
     SUBPROCESS_TIMEOUT,
   );

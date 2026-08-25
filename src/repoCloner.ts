@@ -29,7 +29,6 @@ const STDERR_TAIL = 8 * 1024;
 /** How long the last of stderr gets to arrive after the process is gone. */
 const EXIT_GRACE_MS = 250;
 
-/** How long a signalled process group gets before it is killed outright. */
 const KILL_GRACE_MS = 2_000;
 
 const MEASURED = /^(?:remote:\s*)?([A-Za-z][A-Za-z ]*?):\s+(\d+)%\s+\(\d+\/\d+\)(.*)$/;
@@ -60,7 +59,6 @@ export function parseCloneProgress(line: string): CloneProgress | null {
   return null;
 }
 
-/** Where a clone will land, and where it runs while it is still arriving. */
 export interface CloneTarget {
   identity: RepoIdentity;
   projectPath: string;

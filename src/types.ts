@@ -494,9 +494,9 @@ export interface ElectronAPI {
   retryClone(projectPath: string): Promise<StartCloneResult>;
   onClonesChanged(callback: (jobs: CloneJob[]) => void): () => void;
   onCloneLanded(callback: (projectPath: string) => void): () => void;
-  /** Repos the signed-in `gh` user can clone, for the import dialog's list */
+  /** Repos the signed-in `gh` user can clone */
   listGithubRepos(): Promise<UserReposResult>;
-  /** Whether a named repo exists, so the import dialog can confirm before cloning */
+  /** Whether a named repo exists */
   resolveGithubRepo(identity: RepoIdentity): Promise<ResolvedRepo>;
   showFolderPicker(options?: FolderPickerOptions): Promise<{ canceled: boolean; filePaths: string[] }>;
   /** Get the folder new projects are created in (setting or built-in default) */
@@ -837,7 +837,6 @@ export interface CloneProjectOptions {
   parentDir?: string;
 }
 
-/** One step of git's clone progress. */
 export interface CloneProgress {
   /** git's own name for the step — "Receiving objects", "Resolving deltas". */
   phase: string;
@@ -848,9 +847,8 @@ export interface CloneProgress {
 }
 
 /**
- * A clone in flight, as the sidebar and project view show it. It occupies the
- * path its project will have, so it can stand in that project's place before
- * the project exists.
+ * A clone in flight. It occupies the path its project will have, so it can
+ * stand in that project's place before the project exists.
  */
 interface CloneJobBase extends CloneProgress {
   projectPath: string;

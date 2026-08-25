@@ -1,5 +1,3 @@
-/** The three ways a project arrives, and the panel that offers them. */
-
 import { Icon } from './terminal/Icon';
 
 export type ProjectSourceKind = 'add-existing' | 'create' | 'clone';

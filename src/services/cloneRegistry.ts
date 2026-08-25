@@ -161,7 +161,7 @@ export async function retryClone(projectPath: string): Promise<StartCloneResult>
   return startClone({ repo: entry.job.identity, parentDir: path.dirname(projectPath) }, projectPath);
 }
 
-/** Cancel everything in flight — the app is going away and cannot finish them. */
+/** Cancel everything in flight, dropping what each had written. */
 export function cancelAllClones(): void {
   for (const projectPath of [...entries.keys()]) cancelClone(projectPath);
 }

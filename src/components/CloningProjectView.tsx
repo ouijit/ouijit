@@ -110,9 +110,9 @@ function CloneFailure({ job }: { job: FailedCloneJob }) {
 }
 
 /**
- * The one signal that always works. Progress can sit still for a long time —
- * `Enumerating objects` runs on GitHub's side, before a single byte arrives —
- * and a stalled percentage is indistinguishable from a hang without this.
+ * Progress can sit still for a long time — `Enumerating objects` runs on
+ * GitHub's side, before a single byte arrives — and a stalled percentage is
+ * indistinguishable from a hang without this.
  */
 function Elapsed({ since }: { since: number }) {
   const [now, setNow] = useState(() => Date.now());
