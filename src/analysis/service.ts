@@ -6,36 +6,34 @@ import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalF
 import { getLogger } from '../logger';
 import { describeError } from '../utils/describeError';
 import { readLog } from './gitLog';
-import {
-  emptyModel,
-  foldCommits,
-  splitPairKey,
-  COUPLING_MIN_SHARED,
-  type AnalysisModel,
-  type FileStats,
-} from './accumulate';
+import { emptyModel, foldCommits, splitPairKey, type AnalysisModel, type FileStats } from './accumulate';
 import { ancestorDirs, basename, depthOf, dirOf } from './paths';
 import { complexityOf } from './complexity';
-import { scoreFiles, type FileScore } from './score';
+import { scoreFiles } from './score';
 import { trendOf } from './trend';
 import {
   ANALYSIS_WINDOW_MONTHS,
   COUPLING_MIN_DEGREE,
+  COUPLING_MIN_SHARED,
   monthIndex,
   type AnalysisOverview,
   type CouplingSignal,
   type DiffSignals,
   type FileComplexitySignal,
+  type FileScore,
   type FileSignal,
   type HotspotRow,
   type ModuleNode,
   type PairSignal,
+  type Partner,
 } from './types';
 
 const analysisLog = getLogger().scope('analysis');
 
 export interface ProjectAnalysis {
   lastSha: string;
+  /** The month it was built in — see scan, which starts over on a new one. */
+  builtInMonth: number;
   model: AnalysisModel;
   complexity: Map<string, FileComplexitySignal>;
   scores: Map<string, FileScore>;
@@ -80,10 +78,14 @@ export async function refreshAnalysis(projectPath: string): Promise<void> {
   await scanProject(projectPath);
 }
 
+async function readAnalysis(projectPath: string): Promise<ProjectAnalysis | null> {
+  if (!(await isAnalysisEnabled(projectPath))) return null;
+  return cache.get(projectPath) ?? (await scanProject(projectPath));
+}
+
 /** Signals for one file list — what the diff and PR surfaces render from. */
 export async function getDiffSignals(projectPath: string, paths: string[]): Promise<DiffSignals | null> {
-  if (!(await isAnalysisEnabled(projectPath))) return null;
-  const analysis = cache.get(projectPath) ?? (await scanProject(projectPath));
+  const analysis = await readAnalysis(projectPath);
   if (!analysis) return null;
 
   const thisMonth = monthIndex(Date.now() / 1000);
@@ -93,15 +95,20 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
     if (signal) files[p] = signal;
   }
 
+  // A partner that is in the diff too is not news, and the surfaces would all
+  // have to drop it again — so it never leaves here.
+  const asked = new Set(paths);
   const couplings: CouplingSignal[] = [];
   for (const p of paths) {
     for (const key of analysis.model.pairsByPath.get(p) ?? []) {
       const shared = analysis.model.couplings.get(key) ?? 0;
       if (shared < COUPLING_MIN_SHARED) continue;
       const [a, b] = splitPairKey(key);
+      const partner = a === p ? b : a;
+      if (asked.has(partner)) continue;
       const degree = pairDegree(analysis.model.files, a, b, shared);
       if (degree < COUPLING_MIN_DEGREE) continue;
-      couplings.push({ path: p, partner: a === p ? b : a, shared, degree });
+      couplings.push({ path: p, partner, shared, degree });
     }
   }
 
@@ -115,8 +122,7 @@ const MODULE_MAX_CHILDREN = 12;
 
 /** The project-level view — hotspots, modules, coupling, ownership. */
 export async function getAnalysisOverview(projectPath: string): Promise<AnalysisOverview | null> {
-  if (!(await isAnalysisEnabled(projectPath))) return null;
-  const analysis = cache.get(projectPath) ?? (await scanProject(projectPath));
+  const analysis = await readAnalysis(projectPath);
   if (!analysis) return null;
   if (analysis.overview) return analysis.overview;
 
@@ -158,6 +164,7 @@ export async function getAnalysisOverview(projectPath: string): Promise<Analysis
   analysis.overview = {
     commitCount: analysis.model.commitCount,
     fileCount: analysis.model.files.size,
+    endMonth: thisMonth,
     monthly,
     trend: trendOf(monthly),
     hotspots,
@@ -182,20 +189,20 @@ function pairDegree(stats: ReadonlyMap<string, FileStats>, a: string, b: string,
 const COUPLING_EVIDENCE_HALF = 5;
 
 function rankPairs(pairs: ReadonlyMap<string, number>, stats: ReadonlyMap<string, FileStats>): PairSignal[] {
-  const ranked: PairSignal[] = [];
+  const weighted: Array<{ pair: PairSignal; weight: number }> = [];
   for (const [key, shared] of pairs) {
     if (shared < COUPLING_MIN_SHARED) continue;
     const [a, b] = splitPairKey(key);
-    ranked.push({ a, b, shared, degree: pairDegree(stats, a, b, shared) });
+    const degree = pairDegree(stats, a, b, shared);
+    weighted.push({ pair: { a, b, shared, degree }, weight: (degree * shared) / (shared + COUPLING_EVIDENCE_HALF) });
   }
-  const weight = (pair: PairSignal) => (pair.degree * pair.shared) / (pair.shared + COUPLING_EVIDENCE_HALF);
-  ranked.sort((x, y) => weight(y) - weight(x));
-  return ranked;
+  weighted.sort((x, y) => y.weight - x.weight);
+  return weighted.map((w) => w.pair);
 }
 
 /** Takes rankPairs' order, so a thin coincidence cannot outrank a real pair. */
-function strongestPartners(ranked: readonly PairSignal[]): Map<string, { path: string; degree: number }> {
-  const best = new Map<string, { path: string; degree: number }>();
+function strongestPartners(ranked: readonly PairSignal[]): Map<string, Partner> {
+  const best = new Map<string, Partner>();
   for (const pair of ranked) {
     if (pair.degree < COUPLING_MIN_DEGREE) continue;
     if (!best.has(pair.a)) best.set(pair.a, { path: pair.b, degree: pair.degree });
@@ -286,15 +293,10 @@ function toFileSignal(analysis: ProjectAnalysis, p: string, thisMonth: number): 
 
   const monthly = toMonthly(stats.byMonth, thisMonth);
   return {
+    ...score,
     commits: stats.commits,
     added: stats.added,
     deleted: stats.deleted,
-    firstAt: stats.firstAt,
-    lastAt: stats.lastAt,
-    score: score.score,
-    tier: score.tier,
-    freqRank: score.freqRank,
-    cxRank: score.cxRank,
     monthly,
     trend: trendOf(monthly),
     topAuthors,
@@ -322,6 +324,7 @@ export function scanProject(projectPath: string): Promise<ProjectAnalysis | null
   return run;
 }
 
+/** Exported for the integration tests; the app's cache is sha-driven. */
 export function invalidateAnalysis(projectPath?: string): void {
   if (projectPath == null) {
     cache.clear();
@@ -337,7 +340,11 @@ async function scan(projectPath: string): Promise<ProjectAnalysis | null> {
   const sha = await gitAsync(['rev-parse', '--verify', `${ref}^{commit}`], projectPath).catch((): null => null);
   if (!sha) return null;
 
-  const prev = cache.get(projectPath);
+  const thisMonth = monthIndex(Date.now() / 1000);
+  const cached = cache.get(projectPath);
+  // Folding only ever adds, so a model carried across a month boundary still
+  // covers the window it was built for. Start over rather than let it drift.
+  const prev = cached?.builtInMonth === thisMonth ? cached : undefined;
   if (prev && prev.lastSha === sha) return prev;
 
   let analysis: ProjectAnalysis;
@@ -349,10 +356,10 @@ async function scan(projectPath: string): Promise<ProjectAnalysis | null> {
     foldCommits(prev.model, commits);
     analysis = prev;
   } else {
-    // First scan, or history was rewritten under the old tip.
+    // Nothing to fold onto: a first scan, a rewritten history, or a new month.
     const model = emptyModel();
     foldCommits(model, (await readLog(projectPath, sha)).reverse());
-    analysis = { lastSha: sha, model, complexity: new Map(), scores: new Map() };
+    analysis = { lastSha: sha, builtInMonth: thisMonth, model, complexity: new Map(), scores: new Map() };
   }
 
   analysis.lastSha = sha;

@@ -10,9 +10,14 @@ const RISING_RATIO = 1.5;
  */
 const COOLING_RATIO = 0.5;
 
+/** Index the recent tail of a monthly series starts at. */
+export function recentCut(months: number): number {
+  return Math.max(0, months - TREND_RECENT_MONTHS);
+}
+
 /** Direction of travel from a monthly commit series, oldest month first. */
 export function trendOf(monthly: readonly number[]): Trend {
-  const cut = Math.max(0, monthly.length - TREND_RECENT_MONTHS);
+  const cut = recentCut(monthly.length);
   const recent = sum(monthly.slice(cut));
   const prior = sum(monthly.slice(0, cut));
   const total = recent + prior;

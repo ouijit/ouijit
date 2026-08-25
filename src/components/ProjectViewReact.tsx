@@ -238,19 +238,14 @@ export function ProjectView() {
     }
   }, [canvasEnabled, terminalLayout]);
 
-  // Same guard for the GitHub panel — turning the flag off must not leave the
+  // Same guard for the flagged panels — turning a flag off must not leave the
   // user stranded on a panel whose toggle has just disappeared.
   useEffect(() => {
-    if (!githubEnabled && activePanel === 'pull-requests') {
+    const gone = !githubEnabled && activePanel === 'pull-requests';
+    if (gone || (!analysisEnabled && activePanel === 'analysis')) {
       useProjectStore.getState().setActivePanel('terminals');
     }
-  }, [githubEnabled, activePanel]);
-
-  useEffect(() => {
-    if (!analysisEnabled && activePanel === 'analysis') {
-      useProjectStore.getState().setActivePanel('terminals');
-    }
-  }, [analysisEnabled, activePanel]);
+  }, [githubEnabled, analysisEnabled, activePanel]);
 
   useEffect(() => {
     if (!projectPath) return;

@@ -32,24 +32,17 @@ export function PullRequestRail({ detail, files, onSelect, width }: PullRequestR
 
   const trailing = (path: string) => {
     const count = unresolvedByPath.get(path);
-    // Viewed state shows here too, so review progress is readable without
-    // scrolling the document.
-    const done = viewed.has(path) ? <Icon name="check" className="shrink-0 w-3 h-3 text-accent/70" /> : null;
-    const dot = <AnalysisRailDot signal={signals?.files[path]} />;
-    if (!count)
-      return (
-        <>
-          {dot}
-          {done}
-        </>
-      );
     return (
       <>
-        {dot}
-        <span className="shrink-0 font-mono text-[10px] text-accent" title="Unresolved threads">
-          {count}
-        </span>
-        {done}
+        <AnalysisRailDot signal={signals?.get(path)?.signal} />
+        {count ? (
+          <span className="shrink-0 font-mono text-[10px] text-accent" title="Unresolved threads">
+            {count}
+          </span>
+        ) : null}
+        {/* Viewed state shows here too, so review progress is readable without
+            scrolling the document. */}
+        {viewed.has(path) && <Icon name="check" className="shrink-0 w-3 h-3 text-accent/70" />}
       </>
     );
   };

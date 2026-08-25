@@ -1,14 +1,5 @@
 import type { AnalysisModel } from './accumulate';
-import type { FileComplexitySignal, HotspotTier } from './types';
-
-export interface FileScore {
-  score: number;
-  tier: HotspotTier;
-  /** Percentile rank by commit count, among every file in the window. */
-  freqRank: number;
-  /** Percentile rank by indentation, among the files read; null when unread. */
-  cxRank: number | null;
-}
+import type { FileComplexitySignal, FileScore, HotspotTier } from './types';
 
 const HOT_SCORE = 0.85;
 const WARM_SCORE = 0.65;

@@ -1,6 +1,14 @@
 import type { LeverId } from '../../analysis/advice';
+import type { HotspotTier } from '../../analysis/types';
 
 /** The visual vocabulary the diff chip and the project panel both read from. */
+
+/** How hot a file runs, as a colour. */
+export const TIER_COLOR: Record<HotspotTier, string> = {
+  hot: 'text-git',
+  warm: 'text-git/50',
+  quiet: 'text-ink/25',
+};
 
 /** What each rule of thumb is about, so a lever reads before it is read. */
 export const LEVER_ICON: Record<LeverId, string> = {
@@ -18,55 +26,90 @@ export function topPercent(rank: number): string {
   return `top ${Math.max(1, Math.round((1 - rank) * 100))}%`;
 }
 
-/** One bar per month; quiet months keep a stub so the timeline stays whole. */
-export function Sparkline({ monthly, className = 'mt-1.5 h-6' }: { monthly: number[]; className?: string }) {
+/**
+ * One bar per month, scaled to the busiest. A quiet month keeps a stub rather
+ * than vanishing, so the timeline reads as a whole span either way.
+ */
+export function BarSeries({
+  monthly,
+  className,
+  barClassName,
+  title,
+}: {
+  monthly: number[];
+  className: string;
+  barClassName: (n: number, i: number) => string;
+  title?: (n: number, i: number) => string;
+}) {
   const max = Math.max(...monthly, 1);
   return (
     <div className={`flex items-end gap-[2px] ${className}`} aria-hidden>
       {monthly.map((n, i) => (
         <span
           key={i}
-          className={`flex-1 rounded-[1px] ${n > 0 ? 'bg-git/75' : 'bg-ink/15'}`}
-          style={{ height: barHeight(n, max) }}
+          title={title?.(n, i)}
+          className={barClassName(n, i)}
+          style={{ height: n > 0 ? `${Math.max(MIN_BAR_PERCENT, (n / max) * 100)}%` : '2px' }}
         />
       ))}
     </div>
   );
 }
 
-/** A stub rather than nothing for a quiet month, and a floor so one is legible. */
-export function barHeight(n: number, max: number): string {
-  return n > 0 ? `${Math.max(MIN_BAR_PERCENT, (n / max) * 100)}%` : '2px';
-}
-
 const MIN_BAR_PERCENT = 10;
 
-/** A 0..1 value as a filled track. */
-export function Track({
-  value,
-  className,
-  trackClassName = 'bg-ink/10',
-  fillClassName = 'bg-git/80',
-}: {
-  value: number;
-  className: string;
-  trackClassName?: string;
-  fillClassName?: string;
-}) {
+export function Sparkline({ monthly, className = 'mt-1.5 h-6' }: { monthly: number[]; className?: string }) {
   return (
-    <span className={`rounded-full overflow-hidden ${trackClassName} ${className}`} aria-hidden>
-      <span className={`block h-full rounded-full ${fillClassName}`} style={{ width: `${Math.round(value * 100)}%` }} />
+    <BarSeries
+      monthly={monthly}
+      className={className}
+      barClassName={(n) => `flex-1 rounded-[1px] ${n > 0 ? 'bg-git/75' : 'bg-ink/15'}`}
+    />
+  );
+}
+
+/** A 0..1 value as a filled track. */
+export function Track({ value, className }: { value: number; className: string }) {
+  return (
+    <span className={`rounded-full overflow-hidden bg-ink/10 ${className}`} aria-hidden>
+      <span className="block h-full rounded-full bg-git/80" style={{ width: `${Math.round(value * 100)}%` }} />
     </span>
   );
 }
 
-/** A percentile as a filled track — the two of these are the hotspot score. */
+/**
+ * A percentile as a filled track, in the scored hue rather than the neutral
+ * one `Track` uses — the two of these are the hotspot score.
+ */
+function ScoreTrack({ rank, className }: { rank: number; className: string }) {
+  return (
+    <span className={`block rounded-full overflow-hidden bg-git-light ${className}`} aria-hidden>
+      <span className="block h-full rounded-full bg-git" style={{ width: `${Math.round(rank * 100)}%` }} />
+    </span>
+  );
+}
+
+/** Compact enough for a tooltip: label, track and percentile on one line. */
 export function MeterRow({ label, rank }: { label: string; rank: number }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-[100px] shrink-0 text-[10px] text-text-tertiary">{label}</span>
-      <Track value={rank} className="flex-1 h-1" trackClassName="bg-git-light" fillClassName="bg-git" />
-      <span className="w-10 shrink-0 text-right text-[10px] tabular-nums text-text-secondary">{topPercent(rank)}</span>
+    <div className="flex items-center gap-2 text-[10px]">
+      <span className="w-[100px] shrink-0 text-text-tertiary">{label}</span>
+      <ScoreTrack rank={rank} className="flex-1 h-1" />
+      <span className="w-10 shrink-0 text-right tabular-nums text-text-secondary">{topPercent(rank)}</span>
+    </div>
+  );
+}
+
+/** The same, stacked, over the measurement the percentile is read from. */
+export function ScoreMeter({ label, rank, detail }: { label: string; rank: number; detail: string }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2 text-[11px]">
+        <span className="text-text-secondary">{label}</span>
+        <span className="tabular-nums text-text-primary">{topPercent(rank)}</span>
+      </div>
+      <ScoreTrack rank={rank} className="mt-1.5 h-[5px]" />
+      <p className="mt-1.5 text-[10px] text-text-tertiary">{detail}</p>
     </div>
   );
 }

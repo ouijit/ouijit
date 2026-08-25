@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import type { FileSignal } from '../../analysis/types';
 import { ANALYSIS_WINDOW_MONTHS } from '../../analysis/types';
-import { describeNesting, leversFor } from '../../analysis/advice';
+import { PARTNER_PREFIX, count, describeNesting, leversFor } from '../../analysis/advice';
 import { LEVER_ICON, MeterRow, OwnershipBar, Sparkline } from '../analysis/Signals';
 import { Tooltip } from '../ui/Tooltip';
 import { Icon } from '../terminal/Icon';
@@ -19,9 +19,7 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { si
     <div className="w-60 whitespace-normal py-1 flex flex-col gap-3 font-normal">
       <div>
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[12px] text-text-primary">
-            {signal.commits} {signal.commits === 1 ? 'commit' : 'commits'}
-          </span>
+          <span className="text-[12px] text-text-primary">{count(signal.commits, 'commit')}</span>
           <span className="text-[10px] text-text-tertiary">last {ANALYSIS_WINDOW_MONTHS} months</span>
         </div>
         <Sparkline monthly={signal.monthly} />
@@ -41,7 +39,7 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { si
         <div className="flex flex-col gap-1">
           {missing.map((partner) => (
             <span key={partner} className="text-[11px] leading-snug text-text-secondary">
-              Usually changes with <span className="font-mono text-[10px]">{partner}</span> — not in this diff
+              {PARTNER_PREFIX} <span className="font-mono text-[10px]">{partner}</span> — not in this diff
             </span>
           ))}
         </div>

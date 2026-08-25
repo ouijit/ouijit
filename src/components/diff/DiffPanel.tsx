@@ -25,7 +25,6 @@ import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type Diff
 import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
 import { toggleIn } from '../../utils/toggleIn';
 import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
-import { analysisByPath } from '../../analysis/signals';
 import { AnalysisChip, AnalysisRailDot } from './AnalysisChip';
 
 interface DiffPanelProps {
@@ -86,28 +85,22 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
 
   // Against the project repo, not the worktree: the history is shared, and
   // diff paths are repo-relative either way.
-  const analysisSignals = useAnalysisSignals(
-    projectPath,
-    filesFingerprint,
-    files.map((f) => f.path),
-  );
+  const analysisPaths = useMemo(() => files.map((f) => f.path), [files]);
+  const analysisSignals = useAnalysisSignals(projectPath, filesFingerprint, analysisPaths);
 
   // Elements held in a map so their identity survives re-renders — a fresh
   // element per render would defeat every DiffFileSection's memo.
   const analysisChips = useMemo(() => {
     if (!analysisSignals) return null;
     const chips = new Map<string, ReactNode>();
-    for (const [path, { signal, missing }] of analysisByPath(
-      analysisSignals,
-      files.map((f) => f.path),
-    )) {
+    for (const [path, { signal, missing }] of analysisSignals) {
       chips.set(path, <AnalysisChip signal={signal} missing={missing} />);
     }
     return chips;
-  }, [analysisSignals, files]);
+  }, [analysisSignals]);
 
   const railTrailing = useCallback(
-    (file: ChangedFile) => <AnalysisRailDot signal={analysisSignals?.files[file.path]} />,
+    (file: ChangedFile) => <AnalysisRailDot signal={analysisSignals?.get(file.path)?.signal} />,
     [analysisSignals],
   );
 

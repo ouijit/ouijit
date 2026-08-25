@@ -26,7 +26,7 @@ import { inTreeOrder } from '../diff/DiffFileTree';
 import { useThreadActions } from './useThreadActions';
 import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { AnalysisChip } from '../diff/AnalysisChip';
-import { analysisByPath, type FileAnalysis } from '../../analysis/signals';
+import type { FileAnalysis } from '../../analysis/signals';
 
 import { Loading } from './Loading';
 
@@ -170,20 +170,9 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   // head's hunks while every review anchor points at the new one.
   const filesFingerprint = useMemo(() => prFilesFingerprint(detail.headSha, files), [files, detail.headSha]);
 
-  const signals = usePullRequestSignals(detail.headSha, files);
-
   // Data per path rather than elements: FileSection is memoized and builds
   // its own header, so its props have to keep their identity between renders.
-  const analysis = useMemo(
-    () =>
-      signals
-        ? analysisByPath(
-            signals,
-            files.map((f) => f.path),
-          )
-        : null,
-    [signals, files],
-  );
+  const analysis = usePullRequestSignals(detail.headSha, files);
 
   useBatchedDiffs(
     files,

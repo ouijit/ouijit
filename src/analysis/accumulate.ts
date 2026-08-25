@@ -1,6 +1,6 @@
 import type { LogCommit } from './gitLog';
 import { ancestorDirs, dirOf } from './paths';
-import { monthIndex } from './types';
+import { COUPLING_MIN_SHARED, monthIndex } from './types';
 
 export interface FileStats {
   commits: number;
@@ -44,8 +44,6 @@ export interface AnalysisModel {
   commitCount: number;
 }
 
-/** Pairs below this are noise; reads skip them and compaction drops them. */
-export const COUPLING_MIN_SHARED = 3;
 /**
  * A commit touching more files than this counts for frequency but not
  * coupling — bulk renames and format-everything commits would otherwise

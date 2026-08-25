@@ -1,5 +1,12 @@
 import { basename } from './paths';
-import { ANALYSIS_WINDOW_MONTHS, type FileComplexitySignal, type FileSignal } from './types';
+import {
+  ANALYSIS_WINDOW_MONTHS,
+  TREND_RECENT_MONTHS,
+  type FileComplexitySignal,
+  type FileSignal,
+  type Trend,
+  type TrendDirection,
+} from './types';
 
 /** Named so a surface rendering levers can map every one to an icon. */
 export type LeverId = 'cooling' | 'split' | 'flatten' | 'churn' | 'held' | 'fragmented' | 'seam';
@@ -56,10 +63,37 @@ export function leversFor(signal: FileSignal, partner?: { path: string; degree: 
   }
 
   if (partner && partner.degree >= SEAM_DEGREE) {
-    levers.push({ id: 'seam', text: `Usually changes with ${basename(partner.path)} · worth checking the seam` });
+    levers.push({ id: 'seam', text: `${describePartner(basename(partner.path))} · worth checking the seam` });
   }
 
   return levers.slice(0, MAX_LEVERS);
+}
+
+/**
+ * How every surface opens the sentence about a coupled pair. A prefix rather
+ * than a whole sentence because the diff chip sets the partner in mono.
+ */
+export const PARTNER_PREFIX = 'Usually changes with';
+
+export function describePartner(partner: string): string {
+  return `${PARTNER_PREFIX} ${partner}`;
+}
+
+/** So a single commit is not "1 commits". */
+export function count(n: number, noun: string): string {
+  return `${n.toLocaleString()} ${noun}${n === 1 ? '' : 's'}`;
+}
+
+const TREND_WORD: Record<TrendDirection, string> = {
+  new: 'All new',
+  rising: 'Rising',
+  steady: 'Steady',
+  cooling: 'Cooling',
+};
+
+export function describeTrend(trend: Trend): string {
+  const share = `${trend.recent} of ${count(trend.total, 'commit')} in the last ${TREND_RECENT_MONTHS} months`;
+  return `${TREND_WORD[trend.direction]} · ${share}`;
 }
 
 export function describeNesting(cx: FileComplexitySignal): string {
@@ -68,7 +102,7 @@ export function describeNesting(cx: FileComplexitySignal): string {
 }
 
 export function describeFrequency(signal: FileSignal): string {
-  return `${signal.commits} ${signal.commits === 1 ? 'commit' : 'commits'} in ${ANALYSIS_WINDOW_MONTHS} months`;
+  return `${count(signal.commits, 'commit')} in ${ANALYSIS_WINDOW_MONTHS} months`;
 }
 
 /** The author to ask about a file, if any one person holds enough of it. */

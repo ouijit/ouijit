@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { HotspotRow, ModuleNode, PairSignal, Trend, TrendDirection } from '../../analysis/types';
-import { ANALYSIS_WINDOW_MONTHS, TREND_RECENT_MONTHS, monthIndex } from '../../analysis/types';
-import { describeFrequency, describeNesting, leversFor, mainAuthorOf } from '../../analysis/advice';
+import { ANALYSIS_WINDOW_MONTHS } from '../../analysis/types';
+import { count, describeFrequency, describeNesting, describeTrend, leversFor, mainAuthorOf } from '../../analysis/advice';
+import { recentCut } from '../../analysis/trend';
 import { basename, dirname } from '../../analysis/paths';
 import { useAnalysisStore } from '../../stores/analysisStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -10,7 +11,7 @@ import { Section } from '../github/Sections';
 import { PanelFrame } from '../ui/PanelFrame';
 import { RefreshButton } from '../github/RefreshButton';
 import { Loading } from '../github/Loading';
-import { LEVER_ICON, OwnershipBar, Sparkline, Track, barHeight, topPercent } from './Signals';
+import { BarSeries, LEVER_ICON, OwnershipBar, ScoreMeter, Sparkline, TIER_COLOR, Track } from './Signals';
 
 interface AnalysisPanelProps {
   projectPath: string;
@@ -71,13 +72,13 @@ export function AnalysisPanel({ projectPath }: AnalysisPanelProps) {
                 <span className="w-40 shrink-0">
                   <Sparkline monthly={overview.monthly} className="h-6" />
                 </span>
-                <span className="text-[12px] text-text-secondary">{describeTrend(overview.trend, 'commits')}</span>
+                <span className="text-[12px] text-text-secondary">{describeTrend(overview.trend)}</span>
               </div>
 
               <Section label="Hotspots" count={overview.hotspots.length} defaultOpen>
                 <RowList empty="Nothing runs hot — no file is both frequently changed and complicated.">
                   {overview.hotspots.map((row) => (
-                    <HotspotEntry key={row.path} projectPath={projectPath} row={row} />
+                    <HotspotEntry key={row.path} projectPath={projectPath} row={row} endMonth={overview.endMonth} />
                   ))}
                 </RowList>
               </Section>
@@ -122,7 +123,7 @@ export function AnalysisPanel({ projectPath }: AnalysisPanelProps) {
 }
 
 /** A hotspot, and on demand the numbers and the moves they argue for. */
-function HotspotEntry({ projectPath, row }: { projectPath: string; row: HotspotRow }) {
+function HotspotEntry({ projectPath, row, endMonth }: { projectPath: string; row: HotspotRow; endMonth: number }) {
   const [open, setOpen] = useState(false);
   const { path, signal } = row;
 
@@ -140,7 +141,7 @@ function HotspotEntry({ projectPath, row }: { projectPath: string; row: HotspotR
           name="caret-right"
           className={`w-3 h-3 shrink-0 text-text-tertiary transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
         />
-        <Icon name="flame" className={`w-3.5 h-3.5 shrink-0 ${tierColor(signal.tier)}`} />
+        <Icon name="flame" className={`w-3.5 h-3.5 shrink-0 ${TIER_COLOR[signal.tier]}`} />
         <span className="flex-1 min-w-0 truncate font-mono text-[12px]">
           <PathName path={path} />
         </span>
@@ -149,20 +150,20 @@ function HotspotEntry({ projectPath, row }: { projectPath: string; row: HotspotR
         </span>
         <TrendMark trend={signal.trend} />
         <span className="w-20 shrink-0 text-right font-mono text-[10px] tabular-nums text-text-tertiary">
-          {signal.commits} commits
+          {count(signal.commits, 'commit')}
         </span>
         <span className="w-24 shrink-0 truncate text-right text-[10px] text-text-tertiary">
           {mainAuthorOf(signal) ?? ''}
         </span>
       </button>
 
-      {open && <HotspotDetail projectPath={projectPath} row={row} />}
+      {open && <HotspotDetail projectPath={projectPath} row={row} endMonth={endMonth} />}
     </div>
   );
 }
 
 /** Why the file is hot, and the moves its numbers argue for. */
-function HotspotDetail({ projectPath, row }: { projectPath: string; row: HotspotRow }) {
+function HotspotDetail({ projectPath, row, endMonth }: { projectPath: string; row: HotspotRow; endMonth: number }) {
   const { signal } = row;
   const levers = leversFor(signal, row.partner);
 
@@ -170,8 +171,8 @@ function HotspotDetail({ projectPath, row }: { projectPath: string; row: Hotspot
     <div className="analysis-detail-enter ml-8 mr-2 mb-2.5 pl-4 pt-3.5 pb-2.5 border-l border-ink/[0.09] flex flex-col gap-4">
       <div className="flex items-start gap-10">
         <div className="flex-1 min-w-0">
-          <HistoryChart monthly={signal.monthly} />
-          <p className="mt-2.5 text-[11px] text-text-secondary">{describeTrend(signal.trend, 'commits')}</p>
+          <HistoryChart monthly={signal.monthly} endMonth={endMonth} />
+          <p className="mt-2.5 text-[11px] text-text-secondary">{describeTrend(signal.trend)}</p>
           <div className="mt-4 flex gap-7">
             {signal.complexity && <Measure value={signal.complexity.loc} label="lines" />}
             <Measure value={signal.added + signal.deleted} label="lines changed" />
@@ -237,23 +238,18 @@ function Measure({ value, label }: { value: number; label: string }) {
  * Bars are capped rather than stretched, so the block ends up as wide as the
  * data and the two axis labels land on the first and last month.
  */
-function HistoryChart({ monthly }: { monthly: number[] }) {
-  const max = Math.max(...monthly, 1);
-  const labels = monthLabels(monthly.length);
-  const cut = monthly.length - TREND_RECENT_MONTHS;
+function HistoryChart({ monthly, endMonth }: { monthly: number[]; endMonth: number }) {
+  const labels = monthLabels(monthly.length, endMonth);
+  const cut = recentCut(monthly.length);
 
   return (
     <div className="w-fit">
-      <div className="flex items-end gap-[2px] h-16">
-        {monthly.map((n, i) => (
-          <span
-            key={i}
-            title={`${labels[i]} — ${n} ${n === 1 ? 'commit' : 'commits'}`}
-            className={`w-6 rounded-t-[4px] ${n === 0 ? 'bg-ink/[0.09]' : i >= cut ? 'bg-git' : 'bg-git/40'}`}
-            style={{ height: barHeight(n, max) }}
-          />
-        ))}
-      </div>
+      <BarSeries
+        monthly={monthly}
+        className="h-16"
+        title={(n, i) => `${labels[i]} — ${count(n, 'commit')}`}
+        barClassName={(n, i) => `w-6 rounded-t-[4px] ${n === 0 ? 'bg-ink/[0.09]' : i >= cut ? 'bg-git' : 'bg-git/40'}`}
+      />
       <div className="mt-1.5 flex justify-between text-[10px] text-text-tertiary">
         <span>{labels[0]}</span>
         <span>{labels[labels.length - 1]}</span>
@@ -262,36 +258,16 @@ function HistoryChart({ monthly }: { monthly: number[] }) {
   );
 }
 
-/** The series ends at the calendar month in progress, and buckets are UTC. */
-function monthLabels(count: number): string[] {
-  const end = monthIndex(Date.now() / 1000);
-  return Array.from({ length: count }, (_, i) => {
-    const month = end - (count - 1 - i);
+/** Buckets are UTC months, so the labels have to be read in UTC as well. */
+function monthLabels(months: number, endMonth: number): string[] {
+  return Array.from({ length: months }, (_, i) => {
+    const month = endMonth - (months - 1 - i);
     return new Date(Date.UTC(Math.floor(month / 12), month % 12, 1)).toLocaleDateString(undefined, {
       month: 'short',
       year: 'numeric',
       timeZone: 'UTC',
     });
   });
-}
-
-/** One half of the score: the percentile, over the measurement behind it. */
-function ScoreMeter({ label, rank, detail }: { label: string; rank: number; detail: string }) {
-  return (
-    <div>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] text-text-secondary">{label}</span>
-        <span className="text-[11px] tabular-nums text-text-primary">{topPercent(rank)}</span>
-      </div>
-      <Track
-        value={rank}
-        className="mt-1.5 h-[5px]"
-        trackClassName="bg-git-light"
-        fillClassName="bg-git"
-      />
-      <p className="mt-1.5 text-[10px] text-text-tertiary">{detail}</p>
-    </div>
-  );
 }
 
 function ModuleRow({ node, depth, defaultOpen = false }: { node: ModuleNode; depth: number; defaultOpen?: boolean }) {
@@ -332,7 +308,7 @@ function ModuleRow({ node, depth, defaultOpen = false }: { node: ModuleNode; dep
         </span>
         <TrendMark trend={node.trend} />
         <span className="w-20 shrink-0 text-right font-mono text-[10px] tabular-nums text-text-tertiary">
-          {node.commits} commits
+          {count(node.commits, 'commit')}
         </span>
       </button>
 
@@ -352,7 +328,7 @@ function CouplingRow({ pair, directories = false }: { pair: PairSignal; director
       </span>
       <Track value={pair.degree} className="w-16 shrink-0 h-1" />
       <span className="w-24 shrink-0 text-right font-mono text-[10px] tabular-nums text-text-tertiary">
-        {Math.round(pair.degree * 100)}% · {pair.shared} commits
+        {Math.round(pair.degree * 100)}% · {count(pair.shared, 'commit')}
       </span>
     </div>
   );
@@ -364,7 +340,7 @@ function OwnerRow({ name, mainOf, fileCount }: { name: string; mainOf: number; f
       <span className="w-44 shrink-0 truncate text-[12px] text-text-secondary">{name}</span>
       <Track value={fileCount > 0 ? mainOf / fileCount : 0} className="flex-1 h-1" />
       <span className="w-36 shrink-0 text-right font-mono text-[10px] tabular-nums text-text-tertiary">
-        main author of {mainOf} {mainOf === 1 ? 'file' : 'files'}
+        main author of {count(mainOf, 'file')}
       </span>
     </div>
   );
@@ -377,27 +353,16 @@ const TREND_GLYPH: Record<TrendDirection, string> = {
   cooling: '↓',
 };
 
-const TREND_WORD: Record<TrendDirection, string> = {
-  new: 'All new',
-  rising: 'Rising',
-  steady: 'Steady',
-  cooling: 'Cooling',
-};
-
 function TrendMark({ trend }: { trend: Trend }) {
   const muted = trend.direction === 'steady' || trend.direction === 'cooling';
   return (
     <span
       className={`w-4 shrink-0 text-center text-[11px] ${muted ? 'text-text-tertiary' : 'text-git'}`}
-      title={describeTrend(trend, 'commits')}
+      title={describeTrend(trend)}
     >
       {TREND_GLYPH[trend.direction]}
     </span>
   );
-}
-
-function describeTrend(trend: Trend, unit: string): string {
-  return `${TREND_WORD[trend.direction]} · ${trend.recent} of ${trend.total} ${unit} in the last ${TREND_RECENT_MONTHS} months`;
 }
 
 function RowList({ empty, children }: { empty: string; children: ReactNode[] }) {
@@ -405,10 +370,6 @@ function RowList({ empty, children }: { empty: string; children: ReactNode[] }) 
     return <p className="px-2 py-2 font-mono text-[11px] text-text-tertiary">{empty}</p>;
   }
   return <div className="flex flex-col">{children}</div>;
-}
-
-function tierColor(tier: HotspotRow['signal']['tier']): string {
-  return tier === 'hot' ? 'text-git' : tier === 'warm' ? 'text-git/50' : 'text-ink/25';
 }
 
 function pairId(pair: PairSignal): string {
