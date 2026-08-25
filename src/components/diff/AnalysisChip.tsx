@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import type { DiffSignals, FileSignal } from '../../analysis/types';
 import { ANALYSIS_WINDOW_MONTHS } from '../../analysis/types';
-import { describeComplexity, leversFor } from '../../analysis/advice';
+import { describeNesting, leversFor, type LeverId } from '../../analysis/advice';
 import { Tooltip } from '../ui/Tooltip';
 import { Icon } from '../terminal/Icon';
 
@@ -40,7 +40,7 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { si
         <MeterRow label="Change frequency" rank={signal.freqRank} />
         {signal.cxRank != null && <MeterRow label="Nesting" rank={signal.cxRank} />}
         {signal.complexity && (
-          <div className="text-[10px] text-text-tertiary">{describeComplexity(signal.complexity)}</div>
+          <div className="text-[10px] text-text-tertiary">{describeNesting(signal.complexity)}</div>
         )}
       </div>
 
@@ -59,7 +59,8 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { si
       {levers.length > 0 && (
         <div className="pt-2 border-t border-ink/10 flex flex-col gap-1">
           {levers.map((lever) => (
-            <span key={lever.id} className="text-[11px] leading-snug text-text-secondary">
+            <span key={lever.id} className="flex gap-1.5 text-[11px] leading-snug text-text-secondary">
+              <Icon name={LEVER_ICON[lever.id]} className="w-3 h-3 shrink-0 mt-px text-ink/40" />
               {lever.text}
             </span>
           ))}
@@ -98,24 +99,44 @@ export function Sparkline({ monthly, className = 'mt-1.5 h-6' }: { monthly: numb
   );
 }
 
+/** What each rule of thumb is about, so a lever reads before it is read. */
+export const LEVER_ICON: Record<LeverId, string> = {
+  cooling: 'minus-circle',
+  split: 'square-split-horizontal',
+  flatten: 'tree-structure',
+  churn: 'arrows-clockwise',
+  held: 'user-circle',
+  fragmented: 'circle-dashed',
+  seam: 'git-fork',
+};
+
+/** Rank as a percentile: 1 is the top of the project, 0 the bottom. */
+export function topPercent(rank: number): string {
+  return `top ${Math.max(1, Math.round((1 - rank) * 100))}%`;
+}
+
 /** A percentile as a filled track — the two of these are the hotspot score. */
 export function MeterRow({ label, rank }: { label: string; rank: number }) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-[100px] shrink-0 text-[10px] text-text-tertiary">{label}</span>
-      <span className="flex-1 h-1 rounded-full bg-ink/10 overflow-hidden">
-        <span className="block h-full rounded-full bg-git/80" style={{ width: `${Math.round(rank * 100)}%` }} />
+      <span className="flex-1 h-1 rounded-full overflow-hidden bg-git-light">
+        <span className="block h-full rounded-full bg-git" style={{ width: `${Math.round(rank * 100)}%` }} />
       </span>
-      <span className="w-10 shrink-0 text-right text-[10px] tabular-nums text-text-secondary">
-        top {Math.max(1, Math.round((1 - rank) * 100))}%
-      </span>
+      <span className="w-10 shrink-0 text-right text-[10px] tabular-nums text-text-secondary">{topPercent(rank)}</span>
     </div>
   );
 }
 
-/** Identity is carried by the ordered caption; color only separates segments. */
+/**
+ * People, not a third measure: neutral steps ordered by share, so the two
+ * scored hues stay the only colors carrying a number. The legend swatch is
+ * what ties a name to its segment — order alone would make the reader count.
+ */
+const OWNER_SEGMENT = ['bg-ink/70', 'bg-ink/40', 'bg-ink/22'];
+const OWNER_REST = 'bg-ink/12';
+
 export function OwnershipBar({ topAuthors }: { topAuthors: Array<{ name: string; share: number }> }) {
-  const SEGMENT = ['bg-git/90', 'bg-git/55', 'bg-git/30'];
   const rest = Math.max(0, 1 - topAuthors.reduce((sum, a) => sum + a.share, 0));
   return (
     <div>
@@ -123,15 +144,26 @@ export function OwnershipBar({ topAuthors }: { topAuthors: Array<{ name: string;
         {topAuthors.map((author, i) => (
           <span
             key={author.name}
-            className={`rounded-full ${SEGMENT[i]}`}
+            className={`rounded-full ${OWNER_SEGMENT[i]}`}
             style={{ width: `${author.share * 100}%` }}
           />
         ))}
-        {rest > 0.02 && <span className="rounded-full bg-ink/15" style={{ width: `${rest * 100}%` }} />}
+        {rest > 0.02 && <span className={`rounded-full ${OWNER_REST}`} style={{ width: `${rest * 100}%` }} />}
       </div>
-      <div className="mt-1 text-[10px] text-text-tertiary truncate">
-        {topAuthors.map((author) => `${author.name} ${Math.round(author.share * 100)}%`).join(' · ')}
-        {rest > 0.02 ? ' · others' : ''}
+      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-tertiary">
+        {topAuthors.map((author, i) => (
+          <span key={author.name} className="flex items-center gap-1.5 min-w-0">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${OWNER_SEGMENT[i]}`} />
+            <span className="truncate">{author.name}</span>
+            <span className="tabular-nums">{Math.round(author.share * 100)}%</span>
+          </span>
+        ))}
+        {rest > 0.02 && (
+          <span className="flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${OWNER_REST}`} />
+            others
+          </span>
+        )}
       </div>
     </div>
   );

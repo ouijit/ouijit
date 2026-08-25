@@ -211,12 +211,11 @@ describe('leversFor', () => {
   }
 
   test('names the moves the numbers argue for, at most three', () => {
-    const levers = leversFor(
-      signal({ added: 4000, deleted: 1000, topAuthors: [{ name: 'Alice', share: 0.95 }] }),
-      { path: 'src/other.ts', degree: 0.9 },
-    );
+    const levers = leversFor(signal({ added: 4000, deleted: 1000, topAuthors: [{ name: 'Alice', share: 0.95 }] }), {
+      path: 'src/other.ts',
+      degree: 0.9,
+    });
     expect(levers.map((l) => l.id)).toEqual(['split', 'flatten', 'churn']);
-    expect(levers[0].text).toContain('800 lines');
   });
 
   test('a cooling file argues against every other move', () => {
@@ -240,9 +239,10 @@ describe('leversFor', () => {
 
   test('ownership reads as concentration or as fragmentation, never both', () => {
     const small = { loc: 90, indentTotal: 90, indentMax: 3 };
-    const held = leversFor(signal({ added: 20, deleted: 5, complexity: small, topAuthors: [{ name: 'Alice', share: 0.9 }] }));
+    const held = leversFor(
+      signal({ added: 20, deleted: 5, complexity: small, topAuthors: [{ name: 'Alice', share: 0.9 }] }),
+    );
     expect(held.map((l) => l.id)).toEqual(['held']);
-    expect(held[0].text).toContain('Alice wrote 90%');
 
     const spread = leversFor(
       signal({ added: 20, deleted: 5, complexity: small, authorCount: 6, topAuthors: [{ name: 'Alice', share: 0.2 }] }),
@@ -256,7 +256,8 @@ describe('leversFor', () => {
       { path: 'src/deep/other.ts', degree: 0.85 },
     );
     expect(levers.map((l) => l.id)).toEqual(['seam']);
-    expect(levers[0].text).toBe('Moves with other.ts 85% of the time. Check the seam.');
+    expect(levers[0].text).toContain('other.ts');
+    expect(levers[0].text).not.toContain('src/deep');
   });
 });
 

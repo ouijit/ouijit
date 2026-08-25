@@ -1,7 +1,10 @@
-import { TREND_RECENT_MONTHS, type FileComplexitySignal, type FileSignal } from './types';
+import { ANALYSIS_WINDOW_MONTHS, type FileComplexitySignal, type FileSignal } from './types';
+
+/** Named so a surface rendering levers can map every one to an icon. */
+export type LeverId = 'cooling' | 'split' | 'flatten' | 'churn' | 'held' | 'fragmented' | 'seam';
 
 export interface Lever {
-  id: string;
+  id: LeverId;
   text: string;
 }
 
@@ -26,56 +29,58 @@ export function leversFor(signal: FileSignal, partner?: { path: string; degree: 
   // Every other lever pays its cost now against changes that are no longer
   // coming, so a file that has stopped moving argues against all of them.
   if (signal.trend.direction === 'cooling') {
-    return [{ id: 'cooling', text: 'Cooling off. Leave it alone.' }];
+    return [{ id: 'cooling', text: 'Cooling off — probably best left alone' }];
   }
 
   const levers: Lever[] = [];
   const cx = signal.complexity;
 
   if (cx && cx.loc >= LARGE_LOC) {
-    levers.push({ id: 'split', text: `${cx.loc} lines and still changing. Split it.` });
+    levers.push({ id: 'split', text: 'Large and still changing — worth splitting' });
   }
   if (cx && cx.indentMax >= DEEP_NESTING) {
-    levers.push({ id: 'flatten', text: `Nests ${cx.indentMax} deep. Flatten the worst path.` });
+    levers.push({ id: 'flatten', text: 'Nests deeply — worth flattening the worst path' });
   }
   if (cx && cx.loc > 0 && signal.added + signal.deleted >= cx.loc * REWRITE_RATIO) {
-    const times = Math.round((signal.added + signal.deleted) / cx.loc);
-    levers.push({ id: 'churn', text: `Rewritten ${times}× over. Settle the interface.` });
+    levers.push({ id: 'churn', text: 'Rewritten many times over — the interface may not have settled' });
   }
 
   const top = signal.topAuthors[0];
   if (top && top.share >= HELD_SHARE) {
-    levers.push({ id: 'held', text: `${top.name} wrote ${pct(top.share)}%. Spread the read.` });
+    levers.push({ id: 'held', text: 'Held by one author — worth a second reader' });
   } else if (signal.authorCount >= FRAGMENTED_AUTHORS && (!top || top.share < FRAGMENTED_SHARE)) {
-    levers.push({ id: 'fragmented', text: `${signal.authorCount} authors, none dominant. Give it an owner.` });
+    levers.push({ id: 'fragmented', text: 'No dominant author — worth giving it an owner' });
   }
 
   if (partner && partner.degree >= SEAM_DEGREE) {
-    levers.push({ id: 'seam', text: `Moves with ${basename(partner.path)} ${pct(partner.degree)}% of the time. Check the seam.` });
+    levers.push({ id: 'seam', text: `Usually changes with ${basename(partner.path)} — worth checking the seam` });
   }
 
   return levers.slice(0, MAX_LEVERS);
 }
 
-/** The complexity half of the score, in the units it was measured in. */
-export function describeComplexity(cx: FileComplexitySignal): string {
+export function describeNesting(cx: FileComplexitySignal): string {
   const avg = cx.loc > 0 ? cx.indentTotal / cx.loc : 0;
-  return `${cx.loc} lines · average nesting ${avg.toFixed(1)} · deepest ${cx.indentMax}`;
+  return `nests ${cx.indentMax} deep, ${avg.toFixed(1)} on average`;
 }
 
-/** The numbers a lever list is arguing from, in the order they are read. */
-export function evidenceFor(signal: FileSignal): string[] {
-  const lines: string[] = [];
-  if (signal.complexity) lines.push(describeComplexity(signal.complexity));
-  lines.push(`${signal.added + signal.deleted} lines written and removed`);
-  lines.push(
-    `${signal.trend.recent} of ${signal.trend.total} commits in the last ${TREND_RECENT_MONTHS} months`,
-  );
-  return lines;
+export function describeFrequency(signal: FileSignal): string {
+  return `${signal.commits} ${signal.commits === 1 ? 'commit' : 'commits'} in ${ANALYSIS_WINDOW_MONTHS} months`;
 }
 
-function pct(share: number): number {
-  return Math.round(share * 100);
+export interface Measure {
+  value: string;
+  label: string;
+}
+
+/** How big the file is and how much of it has moved, as figures rather than a sentence. */
+export function measuresFor(signal: FileSignal): Measure[] {
+  const churn: Measure = {
+    value: (signal.added + signal.deleted).toLocaleString(),
+    label: 'lines changed',
+  };
+  if (!signal.complexity) return [churn];
+  return [{ value: signal.complexity.loc.toLocaleString(), label: 'lines' }, churn];
 }
 
 function basename(path: string): string {

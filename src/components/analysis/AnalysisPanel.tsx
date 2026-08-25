@@ -1,14 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { HotspotRow, ModuleNode, PairSignal, Trend } from '../../analysis/types';
 import { ANALYSIS_WINDOW_MONTHS, TREND_RECENT_MONTHS } from '../../analysis/types';
-import { evidenceFor, leversFor } from '../../analysis/advice';
+import { describeFrequency, describeNesting, leversFor, measuresFor } from '../../analysis/advice';
 import { useAnalysisStore } from '../../stores/analysisStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { Section } from '../github/Sections';
 import { RefreshButton } from '../github/RefreshButton';
 import { Loading } from '../github/Loading';
-import { MeterRow, OwnershipBar, Sparkline } from '../diff/AnalysisChip';
+import { LEVER_ICON, OwnershipBar, Sparkline, topPercent } from '../diff/AnalysisChip';
 
 interface AnalysisPanelProps {
   projectPath: string;
@@ -130,7 +130,9 @@ function HotspotEntry({ projectPath, row }: { projectPath: string; row: HotspotR
       <button
         type="button"
         aria-expanded={open}
-        className="w-full flex items-center gap-2.5 px-2 py-1 rounded-md text-left hover:bg-ink/5 transition-colors duration-100"
+        className={`w-full flex items-center gap-2.5 px-2 py-1 rounded-md text-left transition-colors duration-100 ${
+          open ? 'bg-ink/[0.045]' : 'hover:bg-ink/5'
+        }`}
         onClick={() => setOpen(!open)}
       >
         <Icon
@@ -158,54 +160,128 @@ function HotspotEntry({ projectPath, row }: { projectPath: string; row: HotspotR
   );
 }
 
+/** Why the file is hot, and the moves its numbers argue for. */
 function HotspotDetail({ projectPath, row }: { projectPath: string; row: HotspotRow }) {
   const { signal } = row;
   const levers = leversFor(signal, row.partner);
 
   return (
-    <div className="ml-8 mr-2 mb-2 pl-3 border-l border-ink/10 flex flex-col gap-2.5 py-2">
-      <div className="w-72 flex flex-col gap-1.5">
-        <MeterRow label="Change frequency" rank={signal.freqRank} />
-        {signal.cxRank != null && <MeterRow label="Nesting" rank={signal.cxRank} />}
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        {evidenceFor(signal).map((line) => (
-          <span key={line} className="text-[11px] text-text-tertiary">
-            {line}
-          </span>
-        ))}
-        {row.partner && (
-          <span className="text-[11px] text-text-tertiary">
-            moves with <span className="font-mono text-[10px]">{row.partner.path}</span>{' '}
-            {Math.round(row.partner.degree * 100)}% of the time
-          </span>
-        )}
-      </div>
-
-      {signal.topAuthors.length > 0 && (
-        <div className="w-72">
-          <OwnershipBar topAuthors={signal.topAuthors} />
+    <div className="analysis-detail-enter ml-8 mr-2 mb-2.5 pl-4 pt-3.5 pb-2.5 border-l border-ink/[0.09] flex flex-col gap-4">
+      <div className="flex items-start gap-10">
+        <div className="flex-1 min-w-0">
+          <HistoryChart monthly={signal.monthly} />
+          <p className="mt-2.5 text-[11px] text-text-secondary">{describeTrend(signal.trend, 'commits')}</p>
+          <div className="mt-4 flex gap-7">
+            {measuresFor(signal).map((measure) => (
+              <div key={measure.label}>
+                <div className="text-[17px] leading-none tracking-[-0.01em] text-text-primary">{measure.value}</div>
+                <div className="mt-1.5 text-[10px] text-text-tertiary">{measure.label}</div>
+              </div>
+            ))}
+          </div>
+          {signal.topAuthors.length > 0 && (
+            <div className="mt-5">
+              <p className="mb-1.5 text-[11px] text-text-secondary">Ownership</p>
+              <OwnershipBar topAuthors={signal.topAuthors} />
+            </div>
+          )}
         </div>
-      )}
 
-      {levers.length > 0 && (
-        <div className="pt-2 border-t border-ink/10 flex flex-col gap-0.5">
+        <div className="w-60 shrink-0 flex flex-col gap-3.5">
+          <ScoreMeter label="Change frequency" rank={signal.freqRank} detail={describeFrequency(signal)} />
+          {signal.cxRank != null && signal.complexity && (
+            <ScoreMeter label="Nesting" rank={signal.cxRank} detail={describeNesting(signal.complexity)} />
+          )}
+          {row.partner && (
+            <div className="flex items-center gap-2 text-[10px] text-text-tertiary" title={row.partner.path}>
+              <Icon name="git-fork" className="w-3 h-3 shrink-0 text-ink/30" />
+              <span className="min-w-0 truncate">
+                Moves with <span className="font-mono text-text-secondary">{basename(row.partner.path)}</span>{' '}
+                {Math.round(row.partner.degree * 100)}% of the time
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="pt-3.5 border-t border-ink/[0.09] flex items-end justify-between gap-6">
+        <ul className="flex flex-col gap-1.5 max-w-[58ch]">
           {levers.map((lever) => (
-            <span key={lever.id} className="text-[12px] text-text-secondary">
-              {lever.text}
-            </span>
+            <li key={lever.id} className="flex gap-2.5 text-[12.5px] leading-relaxed text-text-primary">
+              <Icon name={LEVER_ICON[lever.id]} className="w-3.5 h-3.5 shrink-0 mt-[3px] text-ink/35" />
+              <span>{lever.text}</span>
+            </li>
           ))}
-        </div>
-      )}
+        </ul>
+        <button
+          type="button"
+          className="shrink-0 flex items-center gap-1.5 text-[11px] text-text-tertiary hover:text-accent transition-colors duration-100"
+          onClick={() => void window.api.openFileInEditor(projectPath, projectPath, row.path)}
+        >
+          Open in editor
+          <Icon name="arrow-square-out" className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
-      <button
-        type="button"
-        className="self-start text-[11px] text-text-tertiary hover:text-accent transition-colors duration-100"
-        onClick={() => void window.api.openFileInEditor(projectPath, projectPath, row.path)}
-      >
-        Open in editor
-      </button>
+/**
+ * The file's months, with the tail the trend is read from at full strength.
+ * Bars are capped rather than stretched, so the block ends up as wide as the
+ * data and the two axis labels land on the first and last month.
+ */
+function HistoryChart({ monthly }: { monthly: number[] }) {
+  const max = Math.max(...monthly, 1);
+  const labels = monthLabels(monthly.length);
+  const cut = monthly.length - TREND_RECENT_MONTHS;
+
+  return (
+    <div className="w-fit">
+      <div className="flex items-end gap-[2px] h-16">
+        {monthly.map((n, i) => (
+          <span
+            key={i}
+            title={`${labels[i]} — ${n} ${n === 1 ? 'commit' : 'commits'}`}
+            className={`w-6 rounded-t-[4px] ${n === 0 ? 'bg-ink/[0.09]' : i >= cut ? 'bg-git' : 'bg-git/40'}`}
+            style={{ height: n > 0 ? `${Math.max(9, (n / max) * 100)}%` : '2px' }}
+          />
+        ))}
+      </div>
+      <div className="mt-1.5 flex justify-between text-[10px] text-text-tertiary">
+        <span>{labels[0]}</span>
+        <span>{labels[labels.length - 1]}</span>
+      </div>
+    </div>
+  );
+}
+
+/** The series ends at the calendar month in progress, and buckets are UTC. */
+function monthLabels(count: number): string[] {
+  const now = new Date();
+  const end = now.getUTCFullYear() * 12 + now.getUTCMonth();
+  return Array.from({ length: count }, (_, i) => {
+    const month = end - (count - 1 - i);
+    return new Date(Date.UTC(Math.floor(month / 12), month % 12, 1)).toLocaleDateString(undefined, {
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+  });
+}
+
+/** One half of the score: the percentile, over the measurement behind it. */
+function ScoreMeter({ label, rank, detail }: { label: string; rank: number; detail: string }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] text-text-secondary">{label}</span>
+        <span className="text-[11px] tabular-nums text-text-primary">{topPercent(rank)}</span>
+      </div>
+      <div className="mt-1.5 h-[5px] rounded-full overflow-hidden bg-git-light">
+        <span className="block h-full rounded-full bg-git" style={{ width: `${Math.round(rank * 100)}%` }} />
+      </div>
+      <p className="mt-1.5 text-[10px] text-text-tertiary">{detail}</p>
     </div>
   );
 }
@@ -241,7 +317,9 @@ function ModuleRow({ node, depth, defaultOpen = false }: { node: ModuleNode; dep
         >
           {Math.round(node.share * 100)}%
         </span>
-        <span className={`w-14 shrink-0 text-right font-mono text-[10px] tabular-nums ${node.hotspots > 0 ? 'text-git' : 'text-text-tertiary'}`}>
+        <span
+          className={`w-14 shrink-0 text-right font-mono text-[10px] tabular-nums ${node.hotspots > 0 ? 'text-git' : 'text-text-tertiary'}`}
+        >
           {node.hotspots > 0 ? `${node.hotspots} hot` : `${node.files} files`}
         </span>
         <TrendMark trend={node.trend} />

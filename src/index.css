@@ -344,6 +344,21 @@ textarea,
   }
 }
 
+@keyframes analysis-detail-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.analysis-detail-enter {
+  animation: analysis-detail-enter 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
 .onboarding-stage-enter {
   animation: onboarding-block-enter 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
