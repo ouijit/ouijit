@@ -25,7 +25,7 @@ import { InlineCommentBox, InlineCommentCard } from '../diff/InlineCommentBox';
 import { inTreeOrder } from '../diff/DiffFileTree';
 import { useThreadActions } from './useThreadActions';
 import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
-import { AnalysisChip } from '../diff/AnalysisChip';
+import { AnalysisChip, worthAChip } from '../diff/AnalysisChip';
 import type { FileAnalysis } from '../../analysis/types';
 
 import { Loading } from './Loading';
@@ -34,6 +34,11 @@ import { Loading } from './Loading';
 const DRAFT_HINT = 'Saved locally until you submit the review.';
 
 const UNPLACEABLE_HINT = 'The code this was written on is not in the diff any more. Sending will fail the review.';
+
+/** Passes the analysis through unchanged, so `FileSection`'s memo still holds. */
+function chipworthy(analysis: FileAnalysis | undefined): FileAnalysis | undefined {
+  return analysis && worthAChip(analysis) ? analysis : undefined;
+}
 
 interface FilesSectionProps {
   projectPath: string;
@@ -385,7 +390,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       onAddComment={startComment}
       renderBelowLine={renderBelowLine}
       markLine={spans.length > 0 ? markLine : undefined}
-      analysis={analysis?.[file.path]}
+      analysis={chipworthy(analysis?.[file.path])}
       viewed={viewed.has(file.path)}
       onViewedChange={setViewed}
     />

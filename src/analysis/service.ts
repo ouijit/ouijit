@@ -367,15 +367,16 @@ async function scan(projectPath: string): Promise<ProjectAnalysis | null> {
   let analysis: ProjectAnalysis;
   let touched: ReadonlySet<string> | undefined;
   if (prev && (await isAncestor(projectPath, prev.lastSha, sha))) {
-    const commits = (await readLog(projectPath, `${prev.lastSha}..${sha}`)).reverse();
+    // readLog hands them back oldest first, which foldCommits requires: a
+    // rename migrates a path's history forward in time.
+    const commits = await readLog(projectPath, `${prev.lastSha}..${sha}`);
     touched = new Set(commits.flatMap((c) => c.files.map((f) => f.path)));
-    // Oldest first: renames migrate a path's history forward in time.
     foldCommits(prev.model, commits);
     analysis = prev;
   } else {
     // Nothing to fold onto: a first scan, a rewritten history, or a new month.
     const model = emptyModel();
-    foldCommits(model, (await readLog(projectPath, sha)).reverse());
+    foldCommits(model, await readLog(projectPath, sha));
     analysis = { lastSha: sha, builtInMonth: thisMonth, model, complexity: new Map(), scores: new Map() };
   }
 

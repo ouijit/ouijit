@@ -109,8 +109,8 @@ export function AnalysisPanel({ projectPath }: AnalysisPanelProps) {
 
               <Section label="Knowledge" count={overview.owners.length}>
                 <RowList empty="No commits in the window.">
-                  {overview.owners.map((owner) => (
-                    <OwnerRow key={owner.name} {...owner} />
+                  {overview.owners.map((owner, i) => (
+                    <OwnerRow key={i} {...owner} />
                   ))}
                 </RowList>
               </Section>

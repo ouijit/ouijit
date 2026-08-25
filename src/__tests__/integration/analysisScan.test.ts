@@ -44,6 +44,16 @@ async function commitAll(message: string, author = 'Alice <alice@x>'): Promise<v
   git('commit', '-m', message, `--author=${author}`);
 }
 
+/** A rebased commit: committed now, but written long before the window. */
+async function commitAllDatedLongAgo(message: string): Promise<void> {
+  git('add', '-A');
+  execFileSync('git', ['commit', '-m', message, '--author=Alice <alice@x>'], {
+    cwd: repoDir,
+    encoding: 'utf8',
+    env: { ...process.env, GIT_AUTHOR_DATE: '2015-06-01T00:00:00Z' },
+  });
+}
+
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ouijit-analysis-'));
   repoDir = path.join(tmpDir, 'project');
@@ -195,6 +205,18 @@ describe('getAnalysisOverview', () => {
     expect(overview!.moduleCouplings.some((p) => p.a === 'src/core' && p.b === 'src/ui')).toBe(true);
     expect(overview!.couplings.some((p) => p.a === 'src/core/engine.ts' && p.b === 'src/core/helper.ts')).toBe(true);
     expect(overview!.monthly.reduce((a, b) => a + b, 0)).toBe(overview!.commitCount);
+  });
+
+  test('a commit written outside the window is left out, however recently it landed', async () => {
+    await write('ancient.ts', 'let old = 1;\n');
+    await commitAllDatedLongAgo('rebased from long ago');
+    invalidateAnalysis(repoDir);
+
+    const overview = await getAnalysisOverview(repoDir);
+    expect(overview!.commitCount).toBe(3);
+    // What counts has to be what plots, or the totals disagree with the chart.
+    expect(overview!.monthly.reduce((a, b) => a + b, 0)).toBe(overview!.commitCount);
+    expect(await getDiffSignals(repoDir, ['ancient.ts'])).toEqual({});
   });
 
   test('the flag being off is indistinguishable from having no analysis', async () => {

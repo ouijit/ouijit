@@ -1,5 +1,5 @@
 import { gitAsync } from '../git';
-import { ANALYSIS_WINDOW_MONTHS } from './types';
+import { ANALYSIS_WINDOW_MONTHS, monthIndex } from './types';
 
 interface LogFileChange {
   path: string;
@@ -30,8 +30,13 @@ const LOG_FORMAT = '--format=%x01%H%x02%at%x02%aE%x02%aN';
 
 /**
  * One pass over history for a range (`sha`, or `last..sha` for an
- * incremental fold). Merges are skipped: their numstat repeats the work of
- * the commits they merge.
+ * incremental fold), oldest first. Merges are skipped: their numstat repeats
+ * the work of the commits they merge.
+ *
+ * Only commits inside the plotted window come back: `--since` cuts on
+ * committer date, mid-month, so the log reaches past the calendar months a
+ * monthly series covers, and a rebase can carry an author date outside them
+ * either way. A commit that counts has to be a commit that plots.
  */
 export async function readLog(projectPath: string, range: string): Promise<LogCommit[]> {
   const output = await gitAsync(
@@ -50,7 +55,15 @@ export async function readLog(projectPath: string, range: string): Promise<LogCo
     projectPath,
     LOG_MAX_BUFFER,
   );
-  return parseLog(output);
+
+  const newest = monthIndex(Date.now() / 1000);
+  const oldest = newest - (ANALYSIS_WINDOW_MONTHS - 1);
+  return parseLog(output)
+    .reverse()
+    .filter((commit) => {
+      const month = monthIndex(commit.at);
+      return month >= oldest && month <= newest;
+    });
 }
 
 /** Newest first, as git prints it. */
