@@ -4,6 +4,7 @@
  */
 import { vi, afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { resetFrecencyForTests } from '../../utils/paletteFrecency';
 
 /**
  * Importing the renderer logger under jsdom hangs — no error, no timeout, it
@@ -19,6 +20,7 @@ vi.mock('electron-log/renderer', () => ({
 // Cleanup React DOM after each test
 afterEach(() => {
   cleanup();
+  resetFrecencyForTests();
 });
 
 // jsdom doesn't implement matchMedia; the theme manager queries the OS
@@ -111,7 +113,8 @@ const mockApi = {
     setName: vi.fn().mockResolvedValue({ success: true }),
     setDescription: vi.fn().mockResolvedValue({ success: true }),
     reorder: vi.fn().mockResolvedValue({ success: true }),
-    checkWorktree: vi.fn().mockResolvedValue({ exists: true }),
+    // A test that spawns into the path this returns should mock it itself.
+    checkWorktree: vi.fn().mockResolvedValue({ status: 'present', worktreePath: '/stub/worktree' }),
     recover: vi.fn().mockResolvedValue({ success: true }),
   },
   hooks: {

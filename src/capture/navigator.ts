@@ -10,7 +10,7 @@
 import log from 'electron-log/renderer';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { useTerminalStore, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
+import { useTerminalStore, setActiveTerminal, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
 import { previewTheme } from '../theme/themeManager';
@@ -57,13 +57,6 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     // would sit after the last written character, outside the mock input.
     term.xterm.write(seed.content + '\x1b[?25l');
   }
-}
-
-/** Bring one terminal to the front of the stack so its body actually renders. */
-function focusTerminal(projectPath: string, ptyId: string): void {
-  const ptyIds = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
-  const index = ptyIds.indexOf(ptyId);
-  if (index >= 0) useTerminalStore.getState().setActiveIndex(projectPath, index);
 }
 
 async function waitFor<T>(get: () => T | null | undefined, timeoutMs = 5000): Promise<T | null> {
@@ -243,7 +236,7 @@ export function installCaptureNavigator(): void {
         const target = payload.diffPtyId ?? payload.terminalSeeds?.[0]?.ptyId;
         const term = target ? terminalInstances.get(target) : undefined;
         if (term && target) {
-          focusTerminal(payload.projectPath, target);
+          setActiveTerminal(payload.projectPath, target);
           term.setDiffPanelOpen(true);
           await clickWhenPresent('button[aria-label="Hide the file list"]');
           if (payload.diffNote) await openDiffNoteComposer(payload.diffNote);
@@ -257,7 +250,7 @@ export function installCaptureNavigator(): void {
         const target = payload.previewPtyId ?? payload.terminalSeeds?.[0]?.ptyId;
         const term = target ? terminalInstances.get(target) : undefined;
         if (term && target && payload.previewUrl) {
-          focusTerminal(payload.projectPath, target);
+          setActiveTerminal(payload.projectPath, target);
           if (!term.panels.some((p) => p.kind === 'webPreview')) {
             term.addWebPreviewPanel(payload.previewUrl, { activate: true });
           }
@@ -271,7 +264,7 @@ export function installCaptureNavigator(): void {
         const term = [...terminalInstances.values()].find((t) => t.panels.some((p) => p.kind === 'plan'));
         const plan = term?.panels.find((p) => p.kind === 'plan');
         if (term && plan) {
-          focusTerminal(payload.projectPath, term.ptyId);
+          setActiveTerminal(payload.projectPath, term.ptyId);
           term.activatePanel(plan.id);
         }
         break;

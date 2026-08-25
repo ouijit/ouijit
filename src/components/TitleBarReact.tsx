@@ -34,6 +34,8 @@ export function TitleBar({ mode }: TitleBarProps) {
     activeProjectPath ? (s.flagsByProject[activeProjectPath]?.github ?? false) : false,
   );
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
+  const sidebarPinned = useUIStore((s) => s.sidebarPinned);
+  const paletteOpen = useUIStore((s) => s.paletteOpen);
   const tagFilter = useProjectStore((s) => s.tagFilter);
   const homeTagFilter = useUIStore((s) => s.homeTagFilter);
   const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
@@ -105,25 +107,45 @@ export function TitleBar({ mode }: TitleBarProps) {
             ? `max-w-none px-0 pt-4 pb-2 ${mode === 'home' ? 'justify-start' : 'justify-center'}`
             : 'max-w-[var(--content-max-width)] px-6 py-4 justify-center'
         }`}
-        style={{ paddingLeft: needsTrafficLightPad ? 80 : 16 }}
+        style={{ paddingLeft: needsTrafficLightPad ? 88 : 16 }}
       >
-        {activeView === 'project' && activeProjectData && activeProjectPath ? (
-          <div key="project-header" className="flex items-center gap-3 flex-1 pl-2 pr-4 min-w-0">
-            <button
-              className="w-8 h-8 shrink-0 overflow-hidden rounded-md [-webkit-app-region:no-drag] transition-opacity duration-150 ease-out hover:opacity-70 active:opacity-50"
-              aria-label="Toggle sidebar"
-              onClick={() => document.dispatchEvent(new CustomEvent('toggle-sidebar'))}
-            >
-              <div
-                className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
-                style={{
-                  backgroundColor: projectIconColor(activeProjectData),
-                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-                }}
+        {isProjectOrHome && (
+          <div className="flex items-center h-9 shrink-0 [-webkit-app-region:no-drag]">
+            <Tooltip text={sidebarPinned ? 'Hide sidebar' : 'Show sidebar'} placement="bottom-start">
+              <button
+                type="button"
+                className={`w-9 h-9 flex items-center justify-center rounded-[10px] transition-colors duration-150 hover:bg-background-secondary [&>svg]:w-5 [&>svg]:h-5 ${sidebarPinned ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
+                aria-label={sidebarPinned ? 'Hide sidebar' : 'Show sidebar'}
+                aria-expanded={sidebarPinned}
+                onClick={() => document.dispatchEvent(new CustomEvent('toggle-sidebar'))}
               >
-                {getInitials(activeProjectData.name)}
-              </div>
-            </button>
+                <Icon name="sidebar-simple" />
+              </button>
+            </Tooltip>
+            <Tooltip text="Search" placement="bottom-start">
+              <button
+                type="button"
+                className={`w-9 h-9 flex items-center justify-center rounded-[10px] text-text-secondary transition-colors duration-150 hover:bg-background-secondary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5${paletteOpen ? ' bg-background-secondary text-text-primary' : ''}`}
+                aria-label="Toggle search"
+                aria-expanded={paletteOpen}
+                onClick={() => useUIStore.getState().togglePalette()}
+              >
+                <Icon name="magnifying-glass" />
+              </button>
+            </Tooltip>
+          </div>
+        )}
+        {activeView === 'project' && activeProjectData && activeProjectPath ? (
+          <div key="project-header" className="flex items-center gap-3 flex-1 pr-4 min-w-0">
+            <div
+              className="w-8 h-8 shrink-0 overflow-hidden rounded-md flex items-center justify-center text-xs font-bold text-white"
+              style={{
+                backgroundColor: projectIconColor(activeProjectData),
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
+              }}
+            >
+              {getInitials(activeProjectData.name)}
+            </div>
             <div className="flex flex-col gap-[2px] min-w-0">
               <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
                 {activeProjectData.name}
@@ -200,7 +222,7 @@ export function TitleBar({ mode }: TitleBarProps) {
             </Tooltip>
           </div>
         ) : activeView === 'home' ? (
-          <div key="home-header" className="flex items-center gap-3 flex-1 px-4">
+          <div key="home-header" className="flex items-center gap-3 flex-1 pr-4">
             <div style={{ flex: 1 }} />
             <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton

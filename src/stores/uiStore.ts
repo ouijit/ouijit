@@ -1,6 +1,17 @@
 import { create } from 'zustand';
+import type { TaskWithWorkspace } from '../types';
+import { queuePrompt, settlePrompt, type Pending } from './promptQueue';
 
 export type HomeGroupMode = 'project' | 'tag';
+
+export type MissingWorktreeAction = 'recover' | null;
+
+export interface MissingWorktreeInput {
+  task: TaskWithWorkspace;
+  branchExists: boolean;
+}
+
+export type MissingWorktreeRequest = MissingWorktreeInput & Pending<MissingWorktreeAction>;
 
 interface UIStoreState {
   sidebarVisible: boolean;
@@ -21,6 +32,8 @@ interface UIStoreState {
   homeActivePtyId: string | null;
   /** Command palette (mod+K) visibility. Session-only. */
   paletteOpen: boolean;
+  /** Opening several tasks at once can find more than one worktree missing. */
+  missingWorktreeQueue: MissingWorktreeRequest[];
 }
 
 interface UIStoreActions {
@@ -35,6 +48,8 @@ interface UIStoreActions {
   setHomeActivePtyId: (ptyId: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
   togglePalette: () => void;
+  requestMissingWorktree: (req: MissingWorktreeInput) => Promise<MissingWorktreeAction>;
+  resolveMissingWorktree: (id: number, action: MissingWorktreeAction) => void;
 }
 
 type UIStore = UIStoreState & UIStoreActions;
@@ -47,6 +62,7 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   homeTagFilter: null,
   homeActivePtyId: null,
   paletteOpen: false,
+  missingWorktreeQueue: [],
 
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
 
@@ -76,4 +92,14 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   setPaletteOpen: (open) => set({ paletteOpen: open }),
 
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
+
+  requestMissingWorktree: (req) =>
+    queuePrompt<MissingWorktreeInput, MissingWorktreeAction>(req, (entry) =>
+      set((s) => ({ missingWorktreeQueue: [...s.missingWorktreeQueue, entry] })),
+    ),
+
+  resolveMissingWorktree: (id, action) => {
+    const next = settlePrompt(get().missingWorktreeQueue, id, action);
+    if (next) set({ missingWorktreeQueue: next });
+  },
 }));

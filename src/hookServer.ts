@@ -313,14 +313,19 @@ ouijit hook delete <type>
 ## Script Commands (ad-hoc project scripts)
 ouijit script list                            # → [{id, name, command, sortOrder}]
 ouijit script set --name "<name>" --command "<cmd>"
+ouijit script delete <id>
 ouijit script run <id-or-name>                # executes and streams output
 ouijit script run <id-or-name> --task <number> # run in task's worktree dir
 
 ## Pull Requests
-Use these, not \`gh\`, for anything that belongs to a review. \`gh\` reaches
-GitHub directly and posts under the user's name; these write locally, and the
-user sends the review themselves. Reading the diff with \`gh pr diff <n>\` is
-fine — there is no Ouijit equivalent — but nothing should be posted with \`gh\`.
+Default to these for anything that belongs to a review. They write locally, so
+the user sends the review themselves; \`gh\` reaches GitHub the moment it runs,
+and whatever it writes lands under the user's own account. Reading with \`gh\`
+is always fine — \`gh pr diff <n>\` has no Ouijit equivalent.
+
+A \`gh\` write the user explicitly asks for — \`gh pr create\`, \`gh pr comment\`,
+\`gh pr merge\` — is theirs to make: do it, and say it will appear as them. The
+default above covers work you decided to do on your own.
 
 A task made from a pull request carries its number:
 ouijit task current | jq .githubPrNumber
@@ -498,14 +503,18 @@ export const CLAUDE_WRAPPER = [
 //     `developer` role message (appends; does NOT replace base instructions
 //     like model_instructions_file would). The markdown isn't valid TOML, so
 //     it's kept as a string — exactly the type this key wants.
-//   • hooks.{UserPromptSubmit,PostToolUse,Stop,PermissionRequest} — Codex's
-//     lifecycle-hook engine (stable, on by default). UserPromptSubmit /
-//     PostToolUse → thinking; Stop / PermissionRequest → ready. Same status
-//     mapping as the claude wrapper. The values are TOML arrays of inline
-//     tables; commands run via the user's shell, so $HOME stays literal.
-//     (We can't mark these `async = true` — Codex skips async hooks with a
-//     warning today. ouijit-hook itself backgrounds its `curl` and exits in
-//     milliseconds, so sync is fine.)
+//   • hooks.{UserPromptSubmit,PostToolUse,Stop} — Codex's lifecycle-hook
+//     engine (stable, on by default). UserPromptSubmit / PostToolUse →
+//     thinking; Stop → ready, and codex-rs runs Stop only once a turn has no
+//     follow-up left. PermissionRequest is deliberately absent: it reads like
+//     the counterpart to claude's `Notification` permission prompt, but
+//     codex-rs runs it for every approval check, ahead of the guardian and of
+//     any user prompt, so it fires mid-turn on work the user is never asked
+//     about. Codex has no event for "the user is being asked".
+//     The values are TOML arrays of inline tables; commands run via the user's
+//     shell, so $HOME stays literal. (We can't mark these `async = true` —
+//     Codex skips async hooks with a warning today. ouijit-hook itself
+//     backgrounds its `curl` and exits in milliseconds, so sync is fine.)
 //   • notify — Codex's older, always-on turn-complete notifier; also mapped
 //     to status=ready (a harmless fallback if the hooks engine is disabled).
 //     Codex runs `notify[0] notify[1..] <json>` with no shell, so we wrap it
@@ -534,7 +543,6 @@ const CODEX_STATUS_HOOKS: ReadonlyArray<readonly [event: string, status: 'thinki
   ['UserPromptSubmit', 'thinking', 'user_prompt_submit'],
   ['PostToolUse', 'thinking', 'post_tool_use'],
   ['Stop', 'ready', 'stop'],
-  ['PermissionRequest', 'ready', 'permission_request'],
 ];
 
 function codexHookCommand(hookPath: string, status: 'thinking' | 'ready'): string {

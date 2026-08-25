@@ -25,7 +25,7 @@ import { useGithubStore } from '../stores/githubStore';
 import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
 import { scoreFields, type FieldMatch } from '../utils/paletteScore';
-import { frecencyBoost, loadFrecency, persistFrecency, recordUse, type FrecencyMap } from '../utils/paletteFrecency';
+import { frecencyBoost, frecencyMap, type FrecencyMap } from '../utils/paletteFrecency';
 import { buildPaletteItems, KIND_LABEL, type PaletteItem, type PaletteKind } from './palette/paletteItems';
 import { PaletteRow } from './palette/PaletteRow';
 import { Icon } from './terminal/Icon';
@@ -117,9 +117,6 @@ function PaletteBody({ visible }: { visible: boolean }) {
   const [expanded, setExpanded] = useState<GroupKey[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<HTMLDivElement>(null);
-  // Written on jump, so the update doesn't have to survive a re-render that
-  // won't happen — the palette is closing.
-  const frecencyRef = useRef<FrecencyMap>({});
   // One timestamp per palette session: decay must not shift while it's open.
   const openedAt = useRef(Date.now()).current;
 
@@ -138,10 +135,8 @@ function PaletteBody({ visible }: { visible: boolean }) {
       .catch(() => {
         /* store-backed terminals still list */
       });
-    void loadFrecency().then((map) => {
-      if (cancelled) return;
-      frecencyRef.current = map;
-      setFrecency(map);
+    void frecencyMap().then((map) => {
+      if (!cancelled) setFrecency(map);
     });
     void useAppStore.getState().loadHomeRecents();
     // Same background-refresh idea as the task cache: paint from whatever is
@@ -297,9 +292,6 @@ function PaletteBody({ visible }: { visible: boolean }) {
   const activate = useCallback(
     (entry: RankedItem | undefined) => {
       if (!entry) return;
-      const next = recordUse(frecencyRef.current, entry.item.key, Date.now());
-      frecencyRef.current = next;
-      persistFrecency(next);
       close();
       requestAnimationFrame(() => entry.item.run());
     },
