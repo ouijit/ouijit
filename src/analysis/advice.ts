@@ -29,31 +29,31 @@ export function leversFor(signal: FileSignal, partner?: { path: string; degree: 
   // Every other lever pays its cost now against changes that are no longer
   // coming, so a file that has stopped moving argues against all of them.
   if (signal.trend.direction === 'cooling') {
-    return [{ id: 'cooling', text: 'Cooling off — probably best left alone' }];
+    return [{ id: 'cooling', text: 'Cooling off · probably best left alone' }];
   }
 
   const levers: Lever[] = [];
   const cx = signal.complexity;
 
   if (cx && cx.loc >= LARGE_LOC) {
-    levers.push({ id: 'split', text: 'Large and still changing — worth splitting' });
+    levers.push({ id: 'split', text: 'Large and still changing · worth splitting' });
   }
   if (cx && cx.indentMax >= DEEP_NESTING) {
-    levers.push({ id: 'flatten', text: 'Nests deeply — worth flattening the worst path' });
+    levers.push({ id: 'flatten', text: 'Nests deeply · worth flattening the worst path' });
   }
   if (cx && cx.loc > 0 && signal.added + signal.deleted >= cx.loc * REWRITE_RATIO) {
-    levers.push({ id: 'churn', text: 'Rewritten many times over — the interface may not have settled' });
+    levers.push({ id: 'churn', text: 'Rewritten many times over · the interface may not have settled' });
   }
 
   const top = signal.topAuthors[0];
   if (top && top.share >= HELD_SHARE) {
-    levers.push({ id: 'held', text: 'Held by one author — worth a second reader' });
+    levers.push({ id: 'held', text: 'Held by one author · worth a second reader' });
   } else if (signal.authorCount >= FRAGMENTED_AUTHORS && (!top || top.share < FRAGMENTED_SHARE)) {
-    levers.push({ id: 'fragmented', text: 'No dominant author — worth giving it an owner' });
+    levers.push({ id: 'fragmented', text: 'No dominant author · worth giving it an owner' });
   }
 
   if (partner && partner.degree >= SEAM_DEGREE) {
-    levers.push({ id: 'seam', text: `Usually changes with ${basename(partner.path)} — worth checking the seam` });
+    levers.push({ id: 'seam', text: `Usually changes with ${basename(partner.path)} · worth checking the seam` });
   }
 
   return levers.slice(0, MAX_LEVERS);
