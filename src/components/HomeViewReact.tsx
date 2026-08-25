@@ -333,6 +333,12 @@ export function HomeView() {
                     detail="Creates a new folder, initialized as a git repo."
                     onClick={() => document.dispatchEvent(new Event('create-new-project'))}
                   />
+                  <EmptyStateChoice
+                    verb="Clone"
+                    noun="a repository from GitHub"
+                    detail="Clones it into your projects folder and opens it here."
+                    onClick={() => document.dispatchEvent(new Event('clone-github-project'))}
+                  />
                 </div>
               </div>
             </div>

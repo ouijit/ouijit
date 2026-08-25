@@ -1,0 +1,205 @@
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { DialogOverlay } from './DialogOverlay';
+import { Icon } from '../terminal/Icon';
+import type { GithubRepoSummary } from '../../types';
+
+interface CloneFromGithubDialogProps {
+  onClose: (result: { projectPath: string } | null) => void;
+}
+
+export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
+  const [query, setQuery] = useState('');
+  const [location, setLocation] = useState<string | null>(null);
+  const [repos, setRepos] = useState<GithubRepoSummary[]>([]);
+  const [listNote, setListNote] = useState<string | null>(null);
+  const [listLoading, setListLoading] = useState(true);
+  const [highlight, setHighlight] = useState(-1);
+  const [cloning, setCloning] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setVisible(true));
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    window.api
+      .getDefaultProjectsFolder()
+      .then((folder) => {
+        if (!cancelled) setLocation(folder);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Could not load the projects folder. Choose a location.');
+      });
+    window.api
+      .listGithubRepos()
+      .then((result) => {
+        if (cancelled) return;
+        setRepos(result.repos);
+        setListNote(result.message ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setListNote('Could not load your repositories.');
+      })
+      .finally(() => {
+        if (!cancelled) setListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const matches = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return repos;
+    return repos.filter(
+      (repo) => repo.slug.toLowerCase().includes(needle) || repo.description?.toLowerCase().includes(needle),
+    );
+  }, [repos, query]);
+
+  // The typed value is what gets cloned unless a listed repo is highlighted,
+  // so a pasted URL — which matches nothing in the list — still works.
+  const target = (matches[highlight]?.slug ?? query).trim();
+
+  useEffect(() => {
+    listRef.current?.children[highlight]?.scrollIntoView({ block: 'nearest' });
+  }, [highlight]);
+
+  const dismiss = useCallback(
+    (result: { projectPath: string } | null) => {
+      setVisible(false);
+      setTimeout(() => onClose(result), 200);
+    },
+    [onClose],
+  );
+
+  const handleChooseLocation = useCallback(async () => {
+    const result = await window.api.showFolderPicker({
+      title: 'Choose Projects Folder',
+      buttonLabel: 'Choose',
+      defaultPath: location ?? undefined,
+    });
+    if (!result.canceled && result.filePaths.length > 0) {
+      setLocation(result.filePaths[0]);
+    }
+  }, [location]);
+
+  const handleClone = useCallback(
+    async (repo: string) => {
+      if (!repo || cloning) return;
+      setError(null);
+      setCloning(true);
+      const result = await window.api.cloneProject({ repo, parentDir: location ?? undefined });
+      if (result.success && result.projectPath) {
+        dismiss({ projectPath: result.projectPath });
+      } else {
+        setError(result.error ?? 'Could not clone the repository.');
+        setCloning(false);
+      }
+    },
+    [location, cloning, dismiss],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlight((h) => Math.min(h + 1, matches.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlight((h) => Math.max(h - 1, -1));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleClone(target);
+      }
+    },
+    [matches.length, target, handleClone],
+  );
+
+  return (
+    <DialogOverlay visible={visible} onDismiss={() => dismiss(null)} maxWidth={480}>
+      <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">Clone from GitHub</h2>
+      <div className="mb-6 flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-text-secondary" htmlFor="clone-repo">
+            Repository
+          </label>
+          <input
+            ref={inputRef}
+            id="clone-repo"
+            className="w-full h-9 px-4 font-sans text-sm text-text-primary bg-background border border-border rounded-md outline-none transition-all duration-150 ease-out focus:border-accent focus:ring-3 focus:ring-accent-light placeholder:text-text-tertiary"
+            type="text"
+            placeholder="owner/name or a GitHub URL"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setHighlight(-1);
+            }}
+            onKeyDown={handleKeyDown}
+            disabled={cloning}
+          />
+        </div>
+
+        <div ref={listRef} className="max-h-56 overflow-y-auto rounded-md border border-border bg-background">
+          {listLoading ? (
+            <p className="px-3 py-2 text-xs text-text-tertiary">Loading your repositories…</p>
+          ) : listNote ? (
+            <p className="px-3 py-2 text-xs text-text-tertiary">{listNote}</p>
+          ) : matches.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-text-tertiary">
+              {query.trim() ? `No repository matches “${query.trim()}”.` : 'No repositories found.'}
+            </p>
+          ) : (
+            matches.map((repo, index) => (
+              <button
+                key={repo.slug}
+                className={`w-full flex items-baseline gap-2 px-3 py-2 text-left border-none transition-colors duration-100 ease-out ${index === highlight ? 'bg-ink/[0.08]' : 'bg-transparent hover:bg-ink/[0.05]'}`}
+                onClick={() => setQuery(repo.slug)}
+                disabled={cloning}
+              >
+                <span className="text-xs text-text-primary shrink-0">{repo.slug}</span>
+                {repo.isPrivate && <span className="text-[10px] text-text-tertiary shrink-0">Private</span>}
+                {repo.description && (
+                  <span className="text-[11px] text-text-tertiary truncate">{repo.description}</span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-text-secondary">Location</span>
+          <div className="flex items-center gap-2">
+            <div
+              className="flex-1 min-w-0 h-9 px-4 flex items-center text-xs font-mono text-text-secondary bg-background border border-border rounded-md truncate"
+              title={location ?? undefined}
+            >
+              <span className="truncate">{location ?? '…'}</span>
+            </div>
+            <button className="btn-secondary shrink-0" onClick={handleChooseLocation} disabled={cloning}>
+              Choose…
+            </button>
+          </div>
+        </div>
+        {error && <p className="text-xs text-error">{error}</p>}
+      </div>
+      <div className="flex gap-2 justify-end mt-4 items-center">
+        <button className="btn-secondary" onClick={() => dismiss(null)} disabled={cloning}>
+          Cancel
+        </button>
+        <button
+          className="btn-primary flex items-center gap-1.5"
+          onClick={() => handleClone(target)}
+          disabled={!target || cloning}
+        >
+          <Icon name="github-logo" className="w-3.5 h-3.5" />
+          {cloning ? 'Cloning…' : 'Clone'}
+        </button>
+      </div>
+    </DialogOverlay>
+  );
+}

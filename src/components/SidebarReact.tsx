@@ -26,9 +26,16 @@ interface SidebarProps {
   onHomeSelect: () => void;
   onAddExisting: () => void;
   onCreateNew: () => void;
+  onCloneFromGithub: () => void;
 }
 
-export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreateNew }: SidebarProps) {
+export function Sidebar({
+  onProjectSelect,
+  onHomeSelect,
+  onAddExisting,
+  onCreateNew,
+  onCloneFromGithub,
+}: SidebarProps) {
   const projects = useAppStore((s) => s.projects);
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -324,6 +331,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
           anchorRef={addBtnRef}
           onAddExisting={onAddExisting}
           onCreateNew={onCreateNew}
+          onCloneFromGithub={onCloneFromGithub}
           onClose={() => setAddMenuOpen(false)}
         />
       )}
@@ -516,10 +524,11 @@ interface AddMenuProps {
   anchorRef: React.RefObject<HTMLButtonElement | null>;
   onAddExisting: () => void;
   onCreateNew: () => void;
+  onCloneFromGithub: () => void;
   onClose: () => void;
 }
 
-function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProps) {
+function AddMenu({ anchorRef, onAddExisting, onCreateNew, onCloneFromGithub, onClose }: AddMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -566,6 +575,15 @@ function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProp
         }}
       >
         Create new
+      </button>
+      <button
+        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-ink/[0.08]"
+        onClick={() => {
+          onClose();
+          onCloneFromGithub();
+        }}
+      >
+        Clone from GitHub
       </button>
     </div>,
     document.body,

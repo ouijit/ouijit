@@ -143,7 +143,7 @@ interface ExecOptions {
  * `GH_NO_UPDATE_NOTIFIER` stop it blocking on a TTY prompt or writing an
  * upgrade banner into the stdout we parse as JSON.
  */
-function ghEnv(identity?: RepoIdentity): NodeJS.ProcessEnv {
+export function ghEnv(identity?: RepoIdentity): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     GH_PROMPT_DISABLED: '1',

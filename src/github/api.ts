@@ -20,6 +20,7 @@ import {
 } from './queries';
 import type {
   RepoIdentity,
+  GithubRepoSummary,
   PullRequestSummary,
   PullRequestDetail,
   PullRequestFreshness,
@@ -754,4 +755,19 @@ export function mergeArgs(identity: RepoIdentity, number: number, options: Merge
   // gh's name for the bypass GitHub offers admins on a protected branch.
   if (options.bypass) args.push('--admin');
   return args;
+}
+
+/** No pagination: one page of the most recently pushed is what an import is looking for. */
+const USER_REPO_LIMIT = 100;
+
+/** Repos the signed-in user can clone, most recently pushed first. */
+export async function fetchUserRepos(): Promise<GithubRepoSummary[]> {
+  const raw = await ghRest<Array<{ full_name: string; description: string | null; private: boolean }>>(
+    `user/repos?per_page=${USER_REPO_LIMIT}&sort=pushed&affiliation=owner,collaborator,organization_member`,
+  );
+  return raw.map((repo) => ({
+    slug: repo.full_name,
+    description: repo.description,
+    isPrivate: repo.private,
+  }));
 }

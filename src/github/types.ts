@@ -24,6 +24,21 @@ export function repoSlug(identity: RepoIdentity): string {
   return `${identity.owner}/${identity.repo}`;
 }
 
+/** A repo the signed-in user can clone, as the import dialog lists it. */
+export interface GithubRepoSummary {
+  /** `owner/name` — what the clone input takes. */
+  slug: string;
+  description: string | null;
+  isPrivate: boolean;
+}
+
+/** The import dialog's repo list, or why it is empty. */
+export interface UserReposResult {
+  repos: GithubRepoSummary[];
+  /** Set when the list could not be loaded at all, rather than being empty. */
+  message?: string;
+}
+
 export type GithubUnavailableReason =
   | 'flag-off'
   | 'gh-missing'

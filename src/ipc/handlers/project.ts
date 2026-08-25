@@ -5,7 +5,11 @@ import { getProjectList } from '../../projectList';
 import { removeProject, reorderProjects, setProjectIconColor } from '../../db';
 import { initGitRepo } from '../../projectCreator';
 import { getDefaultProjectsDir, prepareProjectsFolderChange, applyProjectsFolderChange } from '../../projectsFolder';
-import { addExistingProject, createAndRegisterProject } from '../../services/projectRegistration';
+import {
+  addExistingProject,
+  cloneAndRegisterProject,
+  createAndRegisterProject,
+} from '../../services/projectRegistration';
 import { seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
@@ -64,6 +68,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   });
 
   typedHandle('create-project', (options) => createAndRegisterProject(options));
+  typedHandle('clone-project', (options) => cloneAndRegisterProject(options));
 
   typedHandle('show-folder-picker', async (options) => {
     try {

@@ -13,6 +13,7 @@ import type {
   GithubAvailability,
   PullRequestDetail,
   PullRequestFreshness,
+  UserReposResult,
   GithubIssue,
   IssueDetail,
   CommentKind,
@@ -68,6 +69,8 @@ export type { HookStatus, HookStatusEntry } from './hookServer';
 export type {
   RepoIdentity,
   GithubAvailability,
+  GithubRepoSummary,
+  UserReposResult,
   PullRequestSummary,
   PullRequestDetail,
   PullRequestFreshness,
@@ -480,6 +483,10 @@ export interface ElectronAPI {
     untracked: boolean,
   ): Promise<FileDiff | null>;
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
+  /** Clone a GitHub repo into the projects folder and register it as a project */
+  cloneProject(options: CloneProjectOptions): Promise<CreateProjectResult>;
+  /** Repos the signed-in `gh` user can clone, for the import dialog's list */
+  listGithubRepos(): Promise<UserReposResult>;
   showFolderPicker(options?: FolderPickerOptions): Promise<{ canceled: boolean; filePaths: string[] }>;
   /** Get the folder new projects are created in (setting or built-in default) */
   getDefaultProjectsFolder(): Promise<string>;
@@ -673,10 +680,14 @@ export interface OnboardingAPI {
 }
 
 /**
- * Whether the user's first project was created fresh or added from an
- * existing folder. Used to vary the intro stage lead.
+ * How the user's first project arrived — created fresh, added from an existing
+ * folder, or cloned from GitHub. Used to vary the intro stage lead.
+ *
+ * Declared as an array because the value is persisted, and what comes back has
+ * to be checked against the list at runtime.
  */
-export type FirstProjectSource = 'created' | 'added';
+export const FIRST_PROJECT_SOURCES = ['created', 'added', 'cloned'] as const;
+export type FirstProjectSource = (typeof FIRST_PROJECT_SOURCES)[number];
 
 /**
  * All first-run onboarding state, stored as a single JSON blob under the
@@ -806,6 +817,13 @@ export interface GlobalSettingsAPI {
 export interface CreateProjectOptions {
   name: string;
   /** Directory the project folder is created in. Defaults to the projects folder setting. */
+  parentDir?: string;
+}
+
+export interface CloneProjectOptions {
+  /** `owner/name`, or any GitHub URL — see `parseRepoInput`. */
+  repo: string;
+  /** Directory the clone is created in. Defaults to the projects folder setting. */
   parentDir?: string;
 }
 

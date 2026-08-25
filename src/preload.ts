@@ -6,6 +6,7 @@ import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/
 import type {
   PtyId,
   PtySpawnOptions,
+  CloneProjectOptions,
   CreateProjectOptions,
   FolderPickerOptions,
   ProjectsFolderChangeAction,
@@ -67,6 +68,8 @@ contextBridge.exposeInMainWorld('api', {
   openExternal: (url: string) => typedInvoke('open-external', url),
   refreshProjects: () => typedInvoke('refresh-projects'),
   createProject: (options: CreateProjectOptions) => typedInvoke('create-project', options),
+  cloneProject: (options: CloneProjectOptions) => typedInvoke('clone-project', options),
+  listGithubRepos: () => typedInvoke('github:user-repos'),
   showFolderPicker: (options?: FolderPickerOptions) => typedInvoke('show-folder-picker', options),
   getDefaultProjectsFolder: () => typedInvoke('projects:get-default-folder'),
   prepareProjectsFolderChange: (newFolder: string) => typedInvoke('projects:prepare-folder-change', newFolder),

@@ -11,6 +11,7 @@ import type {
   PtySpawnResult,
   PtyReconnectResult,
   ActiveSession,
+  CloneProjectOptions,
   CreateProjectOptions,
   CreateProjectResult,
   ProjectSettings,
@@ -45,6 +46,7 @@ import type {
 import type { LimaStatus } from '../lima/types';
 import type {
   GithubAvailability,
+  UserReposResult,
   PullRequestDetail,
   PullRequestFreshness,
   GithubIssue,
@@ -85,6 +87,7 @@ export interface IpcInvokeContract {
   'open-external': { args: [url: string]; return: void };
   'refresh-projects': { args: []; return: Project[] };
   'create-project': { args: [options: CreateProjectOptions]; return: CreateProjectResult };
+  'clone-project': { args: [options: CloneProjectOptions]; return: CreateProjectResult };
   'show-folder-picker': { args: [options?: FolderPickerOptions]; return: { canceled: boolean; filePaths: string[] } };
   'projects:get-default-folder': { args: []; return: string };
   'projects:prepare-folder-change': { args: [newFolder: string]; return: ProjectsFolderChangePlan };
@@ -279,6 +282,7 @@ export interface IpcInvokeContract {
     args: [projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean];
     return: string[];
   };
+  'github:user-repos': { args: []; return: UserReposResult };
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 

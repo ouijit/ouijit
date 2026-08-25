@@ -11,6 +11,7 @@ import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
+import { CloneFromGithubDialog } from './components/dialogs/CloneFromGithubDialog';
 import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
@@ -74,6 +75,7 @@ export function App() {
   const helpDialogOpen = useAppStore((s) => s.helpDialogOpen);
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [showCloneProject, setShowCloneProject] = useState(false);
   const [gitInitPath, setGitInitPath] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
@@ -251,16 +253,31 @@ export function App() {
     setShowNewProject(true);
   }, []);
 
+  const handleCloneFromGithub = useCallback(() => {
+    setShowCloneProject(true);
+  }, []);
+
   useEffect(() => {
     const onAddExisting = () => handleAddExisting();
     const onCreateNew = () => handleCreateNew();
+    const onCloneFromGithub = () => handleCloneFromGithub();
     document.addEventListener('add-existing-project', onAddExisting);
     document.addEventListener('create-new-project', onCreateNew);
+    document.addEventListener('clone-github-project', onCloneFromGithub);
     return () => {
       document.removeEventListener('add-existing-project', onAddExisting);
       document.removeEventListener('create-new-project', onCreateNew);
+      document.removeEventListener('clone-github-project', onCloneFromGithub);
     };
-  }, [handleAddExisting, handleCreateNew]);
+  }, [handleAddExisting, handleCreateNew, handleCloneFromGithub]);
+
+  const handleCloneProjectClose = useCallback(
+    async (result: { projectPath: string } | null) => {
+      setShowCloneProject(false);
+      if (result) await finalizeAddedProject(result.projectPath);
+    },
+    [finalizeAddedProject],
+  );
 
   const handleNewProjectClose = useCallback(
     async (result: { created: boolean; projectName?: string; projectPath?: string } | null) => {
@@ -289,6 +306,7 @@ export function App() {
         onHomeSelect={handleHomeSelect}
         onAddExisting={handleAddExisting}
         onCreateNew={handleCreateNew}
+        onCloneFromGithub={handleCloneFromGithub}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <TitleBar mode={activeView} />
@@ -308,6 +326,7 @@ export function App() {
       </div>
       <ToastContainer />
       {showNewProject && <NewProjectDialog onClose={handleNewProjectClose} />}
+      {showCloneProject && <CloneFromGithubDialog onClose={handleCloneProjectClose} />}
       {gitInitPath && <InitGitRepoDialog folderPath={gitInitPath} onClose={handleGitInitClose} />}
       {whatsNew && (
         <WhatsNewDialog

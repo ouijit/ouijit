@@ -44,6 +44,7 @@ import {
   fetchPullRequestFiles,
   fetchIssues,
   fetchIssue,
+  fetchUserRepos,
   findPullRequestForBranch,
   fetchOpenPullRequestBranches,
   submitReview,
@@ -76,6 +77,7 @@ import type {
   TaskFromGithubResult,
   PromoteToTaskResult,
   PrFileVersions,
+  UserReposResult,
 } from './types';
 import type { FileDiff, ChangedFile } from '../types';
 import { locateInHunks } from '../snippetAnchor';
@@ -148,6 +150,30 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
   }
 
   return { available: true, identity };
+}
+
+/**
+ * The repos the import dialog offers. Deliberately outside `getAvailability`:
+ * that gate is per-project, and importing is what happens before there is a
+ * project to hold a flag or a remote.
+ */
+export async function listUserRepos(): Promise<UserReposResult> {
+  // Both probes are cached for the life of the process, and both messages ask
+  // the user to go fix the thing they probed. A negative is re-probed so
+  // reopening the dialog is enough to see that work.
+  const health = getCachedHealth() ?? (await checkHealth());
+  if (!health.gh && !(await refreshHealth()).gh) {
+    return { repos: [], message: 'Install the GitHub CLI from cli.github.com to browse your repositories.' };
+  }
+  if (!(await isGhAuthenticated(false)) && !(await isGhAuthenticated(true))) {
+    return { repos: [], message: 'Run `gh auth login` in a terminal to browse your repositories.' };
+  }
+  try {
+    return { repos: await fetchUserRepos() };
+  } catch (error) {
+    ghLog.warn('user repo list failed', { error: describeError(error) });
+    return { repos: [], message: describeError(error) };
+  }
 }
 
 /**
