@@ -34,6 +34,8 @@ interface UIStoreState {
   paletteOpen: boolean;
   /** Opening several tasks at once can find more than one worktree missing. */
   missingWorktreeQueue: MissingWorktreeRequest[];
+  diffFileListCollapsed: boolean;
+  diffFileListWidth: number;
 }
 
 interface UIStoreActions {
@@ -50,9 +52,19 @@ interface UIStoreActions {
   togglePalette: () => void;
   requestMissingWorktree: (req: MissingWorktreeInput) => Promise<MissingWorktreeAction>;
   resolveMissingWorktree: (id: number, action: MissingWorktreeAction) => void;
+  setDiffFileListCollapsed: (collapsed: boolean) => void;
+  setDiffFileListWidth: (width: number) => void;
 }
 
 type UIStore = UIStoreState & UIStoreActions;
+
+export const DIFF_FILE_LIST_DEFAULT_WIDTH = 220;
+export const DIFF_FILE_LIST_MIN_WIDTH = 120;
+export const DIFF_FILE_LIST_MAX_WIDTH = 500;
+
+function clampFileListWidth(width: number): number {
+  return Math.max(DIFF_FILE_LIST_MIN_WIDTH, Math.min(DIFF_FILE_LIST_MAX_WIDTH, Math.round(width)));
+}
 
 export const useUIStore = create<UIStore>()((set, get) => ({
   sidebarVisible: false,
@@ -63,6 +75,8 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   homeActivePtyId: null,
   paletteOpen: false,
   missingWorktreeQueue: [],
+  diffFileListCollapsed: false,
+  diffFileListWidth: DIFF_FILE_LIST_DEFAULT_WIDTH,
 
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
 
@@ -102,4 +116,31 @@ export const useUIStore = create<UIStore>()((set, get) => ({
     const next = settlePrompt(get().missingWorktreeQueue, id, action);
     if (next) set({ missingWorktreeQueue: next });
   },
+
+  setDiffFileListCollapsed: (collapsed) => {
+    set({ diffFileListCollapsed: collapsed });
+    void window.api.globalSettings.set('ui:diff-file-list-collapsed', collapsed ? '1' : '0');
+  },
+
+  setDiffFileListWidth: (width) => {
+    const clamped = clampFileListWidth(width);
+    set({ diffFileListWidth: clamped });
+    void window.api.globalSettings.set('ui:diff-file-list-width', String(clamped));
+  },
 }));
+
+export async function hydrateUIPreferences(): Promise<void> {
+  const [pinned, collapsed, width] = await Promise.all([
+    window.api.globalSettings.get('ui:sidebar-pinned'),
+    window.api.globalSettings.get('ui:diff-file-list-collapsed'),
+    window.api.globalSettings.get('ui:diff-file-list-width'),
+  ]);
+
+  const next: Partial<UIStoreState> = {};
+  if (pinned === '0') next.sidebarPinned = false;
+  if (collapsed === '0' || collapsed === '1') next.diffFileListCollapsed = collapsed === '1';
+  const parsedWidth = Number(width);
+  if (width && Number.isFinite(parsedWidth)) next.diffFileListWidth = clampFileListWidth(parsedWidth);
+
+  useUIStore.setState(next);
+}

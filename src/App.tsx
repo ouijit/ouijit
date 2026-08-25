@@ -22,7 +22,7 @@ import { hydrateTerminalFont } from './components/terminal/terminalReact';
 import { hydrateNotificationSettings } from './utils/notifications';
 import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
 import { installVisitTracker } from './services/visitTracker';
-import { useUIStore } from './stores/uiStore';
+import { useUIStore, hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
 import type { Project } from './types';
 
@@ -109,12 +109,8 @@ export function App() {
     hydrateNotificationSettings();
   }, []);
 
-  // Hydrate persisted sidebar-pinned preference. Defaults to pinned (see the
-  // store initial state) — only an explicit '0' from a prior session unpins it.
   useEffect(() => {
-    window.api.globalSettings.get('ui:sidebar-pinned').then((value) => {
-      if (value === '0') useUIStore.setState({ sidebarPinned: false });
-    });
+    void hydrateUIPreferences();
   }, []);
 
   // Subscribe to terminal store changes so the cross-launch session snapshot
