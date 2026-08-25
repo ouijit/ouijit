@@ -3,7 +3,7 @@ import type { FileDiff } from '../../types';
 import type { PullRequestDetail, PullRequestFile, ReviewDraft } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { diffShape } from '../../diffSource';
+import { prFilesFingerprint } from '../../diffSource';
 import { describeError } from '../../utils/describeError';
 import { BinaryFileView } from '../diff/BinaryFileView';
 import { DeferredMount } from '../diff/DeferredMount';
@@ -24,9 +24,9 @@ import { ReviewThreadView } from './ReviewThreadView';
 import { InlineCommentBox, InlineCommentCard } from '../diff/InlineCommentBox';
 import { inTreeOrder } from '../diff/DiffFileTree';
 import { useThreadActions } from './useThreadActions';
-import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
-import { AnalysisChip, missingPartners } from '../diff/AnalysisChip';
-import type { FileSignal } from '../../analysis/types';
+import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
+import { AnalysisChip } from '../diff/AnalysisChip';
+import { analysisByPath, type FileAnalysis } from '../../analysis/signals';
 
 import { Loading } from './Loading';
 
@@ -43,11 +43,6 @@ interface FilesSectionProps {
 export interface FilesSectionHandle {
   /** Open a pending comment for editing — the action bar jumps to one. */
   editDraft: (draftId: string) => void;
-}
-
-interface FileAnalysis {
-  signal: FileSignal;
-  missing: string[];
 }
 
 interface FileSectionProps {
@@ -173,26 +168,22 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   // The head is part of the fingerprint: an amend or reorder can leave every
   // path and line count identical, and the loader would then keep the old
   // head's hunks while every review anchor points at the new one.
-  const filesFingerprint = useMemo(() => `${detail.headSha}\n${diffShape(files)}`, [files, detail.headSha]);
+  const filesFingerprint = useMemo(() => prFilesFingerprint(detail.headSha, files), [files, detail.headSha]);
 
-  const signals = useAnalysisSignals(
-    projectPath,
-    filesFingerprint,
-    files.map((f) => f.path),
-  );
+  const signals = usePullRequestSignals(detail.headSha, files);
 
   // Data per path rather than elements: FileSection is memoized and builds
   // its own header, so its props have to keep their identity between renders.
-  const analysisByPath = useMemo(() => {
-    if (!signals) return null;
-    const present = new Set(files.map((f) => f.path));
-    const map = new Map<string, FileAnalysis>();
-    for (const file of files) {
-      const signal = signals.files[file.path];
-      if (signal) map.set(file.path, { signal, missing: missingPartners(signals, file.path, present) });
-    }
-    return map;
-  }, [signals, files]);
+  const analysis = useMemo(
+    () =>
+      signals
+        ? analysisByPath(
+            signals,
+            files.map((f) => f.path),
+          )
+        : null,
+    [signals, files],
+  );
 
   useBatchedDiffs(
     files,
@@ -405,7 +396,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       onAddComment={startComment}
       renderBelowLine={renderBelowLine}
       markLine={spans.length > 0 ? markLine : undefined}
-      analysis={analysisByPath?.get(file.path)}
+      analysis={analysis?.get(file.path)}
       viewed={viewed.has(file.path)}
       onViewedChange={setViewed}
     />

@@ -62,7 +62,7 @@ import type {
   PrFileVersions,
 } from '../github/types';
 import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
-import type { AnalysisOverview, AnalysisStatus, DiffSignals } from '../analysis/types';
+import type { AnalysisOverview, DiffSignals } from '../analysis/types';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
@@ -301,7 +301,7 @@ export interface IpcInvokeContract {
   // ── Behavioural analysis ───────────────────────────────────────────
   // Signals mined from the project repo's git history. Null whenever the
   // experimental flag is off, so callers need no gate of their own.
-  'analysis:refresh': { args: [projectPath: string]; return: AnalysisStatus | null };
+  'analysis:refresh': { args: [projectPath: string]; return: void };
   'analysis:diff-signals': { args: [projectPath: string, paths: string[]]; return: DiffSignals | null };
   'analysis:overview': { args: [projectPath: string]; return: AnalysisOverview | null };
 

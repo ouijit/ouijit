@@ -1,9 +1,10 @@
+import { basename } from './paths';
 import { ANALYSIS_WINDOW_MONTHS, type FileComplexitySignal, type FileSignal } from './types';
 
 /** Named so a surface rendering levers can map every one to an icon. */
 export type LeverId = 'cooling' | 'split' | 'flatten' | 'churn' | 'held' | 'fragmented' | 'seam';
 
-export interface Lever {
+interface Lever {
   id: LeverId;
   text: string;
 }
@@ -13,6 +14,8 @@ const DEEP_NESTING = 6;
 /** Lines written and removed, over the file's current size. */
 const REWRITE_RATIO = 5;
 const HELD_SHARE = 0.8;
+/** Enough of a file's commits to name someone as the person to ask about it. */
+const MAIN_AUTHOR_SHARE = 0.5;
 const FRAGMENTED_SHARE = 0.35;
 const FRAGMENTED_AUTHORS = 4;
 const SEAM_DEGREE = 0.7;
@@ -68,21 +71,8 @@ export function describeFrequency(signal: FileSignal): string {
   return `${signal.commits} ${signal.commits === 1 ? 'commit' : 'commits'} in ${ANALYSIS_WINDOW_MONTHS} months`;
 }
 
-export interface Measure {
-  value: string;
-  label: string;
-}
-
-/** How big the file is and how much of it has moved, as figures rather than a sentence. */
-export function measuresFor(signal: FileSignal): Measure[] {
-  const churn: Measure = {
-    value: (signal.added + signal.deleted).toLocaleString(),
-    label: 'lines changed',
-  };
-  if (!signal.complexity) return [churn];
-  return [{ value: signal.complexity.loc.toLocaleString(), label: 'lines' }, churn];
-}
-
-function basename(path: string): string {
-  return path.slice(path.lastIndexOf('/') + 1);
+/** The author to ask about a file, if any one person holds enough of it. */
+export function mainAuthorOf(signal: FileSignal): string | null {
+  const top = signal.topAuthors[0];
+  return top && top.share >= MAIN_AUTHOR_SHARE ? top.name : null;
 }

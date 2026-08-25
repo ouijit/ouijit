@@ -11,6 +11,19 @@ export const ANALYSIS_WINDOW_MONTHS = 12;
 /** The tail of the window a trend reads as "recent". */
 export const TREND_RECENT_MONTHS = 3;
 
+/**
+ * Below this a pair changes together too loosely to be worth reporting. The
+ * only degree floor there is: reads apply it before anything leaves the model,
+ * so no surface has to decide for itself what counts as coupled.
+ */
+export const COUPLING_MIN_DEGREE = 0.5;
+
+/** Calendar month as a single integer, so month arithmetic is subtraction. */
+export function monthIndex(atSeconds: number): number {
+  const d = new Date(atSeconds * 1000);
+  return d.getUTCFullYear() * 12 + d.getUTCMonth();
+}
+
 export type HotspotTier = 'quiet' | 'warm' | 'hot';
 
 export type TrendDirection = 'new' | 'rising' | 'steady' | 'cooling';
@@ -73,13 +86,6 @@ export interface DiffSignals {
   couplings: CouplingSignal[];
 }
 
-export interface AnalysisStatus {
-  ref: string;
-  lastSha: string;
-  analyzedAt: number;
-  commitCount: number;
-}
-
 /** A directory, with everything under it folded in. */
 export interface ModuleNode {
   /** Repo-relative, no trailing slash. */
@@ -115,7 +121,7 @@ export interface HotspotRow {
 
 /** The project-level view: what the analysis panel renders. */
 export interface AnalysisOverview {
-  status: AnalysisStatus;
+  commitCount: number;
   /** Files touched in the window. */
   fileCount: number;
   /** Commits per month across the project, oldest first. */

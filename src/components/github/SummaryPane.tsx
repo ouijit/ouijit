@@ -103,7 +103,7 @@ export function SummaryPane({
         <ChecksSection checks={detail.checks} />
       </Section>
 
-      <RiskSection projectPath={projectPath} detail={detail} />
+      <RiskSection detail={detail} />
 
       <Section label="Comments" count={comments.length} defaultOpen>
         <div className="flex flex-col gap-5">

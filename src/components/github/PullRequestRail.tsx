@@ -3,8 +3,7 @@ import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import { DiffFileTree } from '../diff/DiffFileTree';
 import { useGithubStore } from '../../stores/githubStore';
 import { Icon } from '../terminal/Icon';
-import { diffShape } from '../../diffSource';
-import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
+import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { AnalysisRailDot } from '../diff/AnalysisChip';
 
 interface PullRequestRailProps {
@@ -20,14 +19,7 @@ export function PullRequestRail({ detail, files, onSelect, width }: PullRequestR
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
   const activePath = useGithubStore((s) => s.activePath);
 
-  // The same key FilesSection loads under, so the store answers both from one fetch.
-  const projectPath = useGithubStore((s) => s.projectPath);
-  const fingerprint = useMemo(() => `${detail.headSha}\n${diffShape(files)}`, [files, detail.headSha]);
-  const signals = useAnalysisSignals(
-    projectPath ?? '',
-    fingerprint,
-    files.map((f) => f.path),
-  );
+  const signals = usePullRequestSignals(detail.headSha, files);
 
   const unresolvedByPath = useMemo(() => {
     const counts = new Map<string, number>();

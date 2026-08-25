@@ -25,7 +25,8 @@ import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type Diff
 import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
 import { toggleIn } from '../../utils/toggleIn';
 import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
-import { AnalysisChip, AnalysisRailDot, missingPartners } from './AnalysisChip';
+import { analysisByPath } from '../../analysis/signals';
+import { AnalysisChip, AnalysisRailDot } from './AnalysisChip';
 
 interface DiffPanelProps {
   ptyId: string;
@@ -95,16 +96,12 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   // element per render would defeat every DiffFileSection's memo.
   const analysisChips = useMemo(() => {
     if (!analysisSignals) return null;
-    const present = new Set(files.map((f) => f.path));
     const chips = new Map<string, ReactNode>();
-    for (const file of files) {
-      const signal = analysisSignals.files[file.path];
-      if (signal) {
-        chips.set(
-          file.path,
-          <AnalysisChip signal={signal} missing={missingPartners(analysisSignals, file.path, present)} />,
-        );
-      }
+    for (const [path, { signal, missing }] of analysisByPath(
+      analysisSignals,
+      files.map((f) => f.path),
+    )) {
+      chips.set(path, <AnalysisChip signal={signal} missing={missing} />);
     }
     return chips;
   }, [analysisSignals, files]);

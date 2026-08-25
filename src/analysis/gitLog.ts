@@ -1,7 +1,7 @@
 import { gitAsync } from '../git';
 import { ANALYSIS_WINDOW_MONTHS } from './types';
 
-export interface LogFileChange {
+interface LogFileChange {
   path: string;
   /** Set when this commit renamed the file — stats under oldPath move to path. */
   oldPath?: string;
@@ -72,9 +72,25 @@ export function parseLog(output: string): LogCommit[] {
       files.push({ ...parseRenamePath(parts.slice(2).join('\t')), added, deleted });
     }
 
-    commits.push({ sha, at: parseInt(at, 10) || 0, email: email ?? '', name: name ?? '', files });
+    commits.push({
+      sha,
+      at: parseInt(at, 10) || 0,
+      email: detach(email ?? ''),
+      name: detach(name ?? ''),
+      files,
+    });
   }
   return commits;
+}
+
+/**
+ * V8 keeps a substring as a view onto the string it came from. Paths and
+ * author identities become the model's long-lived keys, so left as views they
+ * would pin the whole multi-megabyte log output for the life of the process;
+ * concatenating forces a copy of just the value.
+ */
+function detach(text: string): string {
+  return (' ' + text).slice(1);
 }
 
 /**
@@ -86,11 +102,11 @@ export function parseRenamePath(raw: string): { path: string; oldPath?: string }
   const braced = /^(.*)\{(.*) => (.*)\}(.*)$/.exec(raw);
   if (braced) {
     const [, pre, oldMid, newMid, post] = braced;
-    return { path: collapse(pre + newMid + post), oldPath: collapse(pre + oldMid + post) };
+    return { path: detach(collapse(pre + newMid + post)), oldPath: detach(collapse(pre + oldMid + post)) };
   }
   const arrow = raw.indexOf(' => ');
-  if (arrow !== -1) return { path: raw.slice(arrow + 4), oldPath: raw.slice(0, arrow) };
-  return { path: raw };
+  if (arrow !== -1) return { path: detach(raw.slice(arrow + 4)), oldPath: detach(raw.slice(0, arrow)) };
+  return { path: detach(raw) };
 }
 
 function collapse(path: string): string {

@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import { gitAsync, getMainBranchAsync } from '../git';
 import { getGlobalSetting } from '../db';
@@ -7,23 +7,22 @@ import { getLogger } from '../logger';
 import { describeError } from '../utils/describeError';
 import { readLog } from './gitLog';
 import {
-  ancestorDirs,
-  dirOf,
   emptyModel,
   foldCommits,
-  monthIndex,
   splitPairKey,
   COUPLING_MIN_SHARED,
   type AnalysisModel,
   type FileStats,
 } from './accumulate';
+import { ancestorDirs, basename, depthOf, dirOf } from './paths';
 import { complexityOf } from './complexity';
 import { scoreFiles, type FileScore } from './score';
 import { trendOf } from './trend';
 import {
   ANALYSIS_WINDOW_MONTHS,
+  COUPLING_MIN_DEGREE,
+  monthIndex,
   type AnalysisOverview,
-  type AnalysisStatus,
   type CouplingSignal,
   type DiffSignals,
   type FileComplexitySignal,
@@ -36,12 +35,12 @@ import {
 const analysisLog = getLogger().scope('analysis');
 
 export interface ProjectAnalysis {
-  ref: string;
   lastSha: string;
-  analyzedAt: number;
   model: AnalysisModel;
   complexity: Map<string, FileComplexitySignal>;
   scores: Map<string, FileScore>;
+  /** Derived on first read and held until the next scan replaces it. */
+  overview?: AnalysisOverview;
 }
 
 /**
@@ -53,7 +52,7 @@ const cache = new Map<string, ProjectAnalysis>();
 const inflight = new Map<string, Promise<ProjectAnalysis | null>>();
 const attemptedAt = new Map<string, number>();
 
-/** Refreshes are driven by a 30s renderer poll; the floor must stay under it. */
+/** How stale the model is allowed to get, however often a poll asks. */
 const REFRESH_MIN_INTERVAL_MS = 25_000;
 /** Complexity is read from the working tree for the most-changed files only. */
 const COMPLEXITY_FILE_LIMIT = 200;
@@ -70,21 +69,15 @@ async function isAnalysisEnabled(projectPath: string): Promise<boolean> {
  * log pass only runs when it did. Rate-limited and deduped so the poll can
  * call it blindly.
  */
-export async function refreshAnalysis(projectPath: string): Promise<AnalysisStatus | null> {
-  if (!(await isAnalysisEnabled(projectPath))) return null;
-
-  const pending = inflight.get(projectPath);
-  if (pending) return pending.then((analysis) => (analysis ? toStatus(analysis) : null));
+export async function refreshAnalysis(projectPath: string): Promise<void> {
+  if (!(await isAnalysisEnabled(projectPath))) return;
+  if (inflight.has(projectPath)) return;
 
   const last = attemptedAt.get(projectPath);
-  if (last != null && Date.now() - last < REFRESH_MIN_INTERVAL_MS) {
-    const analysis = cache.get(projectPath);
-    return analysis ? toStatus(analysis) : null;
-  }
+  if (last != null && Date.now() - last < REFRESH_MIN_INTERVAL_MS) return;
   attemptedAt.set(projectPath, Date.now());
 
-  const analysis = await scanProject(projectPath);
-  return analysis ? toStatus(analysis) : null;
+  await scanProject(projectPath);
 }
 
 /** Signals for one file list — what the diff and PR surfaces render from. */
@@ -100,17 +93,16 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
     if (signal) files[p] = signal;
   }
 
-  const asked = new Set(paths);
   const couplings: CouplingSignal[] = [];
-  for (const [key, shared] of analysis.model.couplings) {
-    if (shared < COUPLING_MIN_SHARED) continue;
-    const [a, b] = splitPairKey(key);
-    const inA = asked.has(a);
-    const inB = asked.has(b);
-    if (!inA && !inB) continue;
-    const degree = pairDegree(analysis.model.files, a, b, shared);
-    if (inA) couplings.push({ path: a, partner: b, shared, degree });
-    if (inB) couplings.push({ path: b, partner: a, shared, degree });
+  for (const p of paths) {
+    for (const key of analysis.model.pairsByPath.get(p) ?? []) {
+      const shared = analysis.model.couplings.get(key) ?? 0;
+      if (shared < COUPLING_MIN_SHARED) continue;
+      const [a, b] = splitPairKey(key);
+      const degree = pairDegree(analysis.model.files, a, b, shared);
+      if (degree < COUPLING_MIN_DEGREE) continue;
+      couplings.push({ path: p, partner: a === p ? b : a, shared, degree });
+    }
   }
 
   return { files, couplings };
@@ -126,6 +118,8 @@ export async function getAnalysisOverview(projectPath: string): Promise<Analysis
   if (!(await isAnalysisEnabled(projectPath))) return null;
   const analysis = cache.get(projectPath) ?? (await scanProject(projectPath));
   if (!analysis) return null;
+  if (analysis.overview) return analysis.overview;
+
   const thisMonth = monthIndex(Date.now() / 1000);
 
   const couplings = rankPairs(analysis.model.couplings, analysis.model.files);
@@ -161,8 +155,8 @@ export async function getAnalysisOverview(projectPath: string): Promise<Analysis
 
   const monthly = toMonthly(analysis.model.commitsByMonth, thisMonth);
 
-  return {
-    status: toStatus(analysis),
+  analysis.overview = {
+    commitCount: analysis.model.commitCount,
     fileCount: analysis.model.files.size,
     monthly,
     trend: trendOf(monthly),
@@ -172,6 +166,7 @@ export async function getAnalysisOverview(projectPath: string): Promise<Analysis
     couplings: couplings.slice(0, OVERVIEW_ROWS),
     owners,
   };
+  return analysis.overview;
 }
 
 function pairDegree(stats: ReadonlyMap<string, FileStats>, a: string, b: string, shared: number): number {
@@ -202,6 +197,7 @@ function rankPairs(pairs: ReadonlyMap<string, number>, stats: ReadonlyMap<string
 function strongestPartners(ranked: readonly PairSignal[]): Map<string, { path: string; degree: number }> {
   const best = new Map<string, { path: string; degree: number }>();
   for (const pair of ranked) {
+    if (pair.degree < COUPLING_MIN_DEGREE) continue;
     if (!best.has(pair.a)) best.set(pair.a, { path: pair.b, degree: pair.degree });
     if (!best.has(pair.b)) best.set(pair.b, { path: pair.a, degree: pair.degree });
   }
@@ -265,12 +261,6 @@ function buildModules(analysis: ProjectAnalysis, thisMonth: number): ModuleNode[
   return roots;
 }
 
-function depthOf(dir: string): number {
-  let depth = 1;
-  for (let i = dir.indexOf('/'); i !== -1; i = dir.indexOf('/', i + 1)) depth++;
-  return depth;
-}
-
 /** A month map spread over the window, oldest month first. */
 function toMonthly(byMonth: ReadonlyMap<number, number>, thisMonth: number): number[] {
   const monthly = new Array<number>(ANALYSIS_WINDOW_MONTHS).fill(0);
@@ -283,7 +273,8 @@ function toMonthly(byMonth: ReadonlyMap<number, number>, thisMonth: number): num
 
 function toFileSignal(analysis: ProjectAnalysis, p: string, thisMonth: number): FileSignal | null {
   const stats = analysis.model.files.get(p);
-  if (!stats) return null;
+  const score = analysis.scores.get(p);
+  if (!stats || !score) return null;
 
   const byEmail = analysis.model.authors.get(p);
   const topAuthors = byEmail
@@ -294,17 +285,16 @@ function toFileSignal(analysis: ProjectAnalysis, p: string, thisMonth: number): 
     : [];
 
   const monthly = toMonthly(stats.byMonth, thisMonth);
-  const score = analysis.scores.get(p);
   return {
     commits: stats.commits,
     added: stats.added,
     deleted: stats.deleted,
     firstAt: stats.firstAt,
     lastAt: stats.lastAt,
-    score: score?.score ?? 0,
-    tier: score?.tier ?? 'quiet',
-    freqRank: score?.freqRank ?? 0,
-    cxRank: score?.cxRank ?? null,
+    score: score.score,
+    tier: score.tier,
+    freqRank: score.freqRank,
+    cxRank: score.cxRank,
     monthly,
     trend: trendOf(monthly),
     topAuthors,
@@ -351,22 +341,24 @@ async function scan(projectPath: string): Promise<ProjectAnalysis | null> {
   if (prev && prev.lastSha === sha) return prev;
 
   let analysis: ProjectAnalysis;
+  let touched: ReadonlySet<string> | undefined;
   if (prev && (await isAncestor(projectPath, prev.lastSha, sha))) {
+    const commits = (await readLog(projectPath, `${prev.lastSha}..${sha}`)).reverse();
+    touched = new Set(commits.flatMap((c) => c.files.map((f) => f.path)));
     // Oldest first: renames migrate a path's history forward in time.
-    foldCommits(prev.model, (await readLog(projectPath, `${prev.lastSha}..${sha}`)).reverse());
+    foldCommits(prev.model, commits);
     analysis = prev;
   } else {
     // First scan, or history was rewritten under the old tip.
     const model = emptyModel();
     foldCommits(model, (await readLog(projectPath, sha)).reverse());
-    analysis = { ref, lastSha: sha, analyzedAt: 0, model, complexity: new Map(), scores: new Map() };
+    analysis = { lastSha: sha, model, complexity: new Map(), scores: new Map() };
   }
 
-  analysis.ref = ref;
   analysis.lastSha = sha;
-  analysis.analyzedAt = Date.now();
-  analysis.complexity = await readComplexity(projectPath, analysis.model);
+  analysis.complexity = await readComplexity(projectPath, analysis.model, analysis.complexity, touched);
   analysis.scores = scoreFiles(analysis.model, analysis.complexity);
+  analysis.overview = undefined;
   cache.set(projectPath, analysis);
   return analysis;
 }
@@ -397,20 +389,35 @@ const MACHINE_WRITTEN = new Set([
   'go.sum',
 ]);
 
-async function readComplexity(projectPath: string, model: AnalysisModel): Promise<Map<string, FileComplexitySignal>> {
-  const candidates = [...model.files.entries()]
-    .filter(([p]) => !MACHINE_WRITTEN.has(p.slice(p.lastIndexOf('/') + 1)))
-    .sort((a, b) => b[1].commits - a[1].commits)
-    .slice(0, COMPLEXITY_FILE_LIMIT)
-    .map(([p]) => p);
-
+/**
+ * Reads the most-changed files from the working tree. `touched` names the
+ * paths the fold just moved; anything else still holds whatever the last scan
+ * read for it. Undefined means read everything, for a scan with nothing
+ * behind it. The candidate list is rebuilt either way — the ranking shifts
+ * even where the files do not.
+ */
+async function readComplexity(
+  projectPath: string,
+  model: AnalysisModel,
+  known: ReadonlyMap<string, FileComplexitySignal>,
+  touched: ReadonlySet<string> | undefined,
+): Promise<Map<string, FileComplexitySignal>> {
   const out = new Map<string, FileComplexitySignal>();
-  for (let i = 0; i < candidates.length; i += COMPLEXITY_READ_BATCH) {
+  const toRead: string[] = [];
+  for (const p of rankedCandidates(model)) {
+    const unchanged = touched != null && !touched.has(p);
+    const cached = unchanged ? known.get(p) : undefined;
+    if (cached) out.set(p, cached);
+    else toRead.push(p);
+  }
+
+  for (let i = 0; i < toRead.length; i += COMPLEXITY_READ_BATCH) {
     await Promise.all(
-      candidates.slice(i, i + COMPLEXITY_READ_BATCH).map(async (rel) => {
+      toRead.slice(i, i + COMPLEXITY_READ_BATCH).map(async (rel) => {
+        const full = path.join(projectPath, rel);
         try {
-          const text = await readFile(path.join(projectPath, rel), 'utf8');
-          if (text.length <= COMPLEXITY_MAX_BYTES) out.set(rel, complexityOf(text));
+          if ((await stat(full)).size > COMPLEXITY_MAX_BYTES) return;
+          out.set(rel, complexityOf(await readFile(full, 'utf8')));
         } catch {
           // Deleted since, or unreadable: no complexity, so it stays quiet.
         }
@@ -420,11 +427,11 @@ async function readComplexity(projectPath: string, model: AnalysisModel): Promis
   return out;
 }
 
-function toStatus(analysis: ProjectAnalysis): AnalysisStatus {
-  return {
-    ref: analysis.ref,
-    lastSha: analysis.lastSha,
-    analyzedAt: analysis.analyzedAt,
-    commitCount: analysis.model.commitCount,
-  };
+function rankedCandidates(model: AnalysisModel): string[] {
+  return [...model.files.entries()]
+    .filter(([p]) => !MACHINE_WRITTEN.has(basename(p)))
+    .sort((a, b) => b[1].commits - a[1].commits)
+    .slice(0, COMPLEXITY_FILE_LIMIT)
+    .map(([p]) => p);
 }
+

@@ -75,7 +75,6 @@ describe('scanProject', () => {
   test('builds the model from history and reads complexity from the tree', async () => {
     const analysis = await freshScan();
 
-    expect(analysis.ref).toBe('main');
     expect(analysis.lastSha).toBe(git('rev-parse', 'main'));
     expect(analysis.model.commitCount).toBe(3);
 
@@ -173,7 +172,7 @@ describe('getAnalysisOverview', () => {
 
     expect(overview!.moduleCouplings.some((p) => p.a === 'src/core' && p.b === 'src/ui')).toBe(true);
     expect(overview!.couplings.some((p) => p.a === 'src/core/engine.ts' && p.b === 'src/core/helper.ts')).toBe(true);
-    expect(overview!.monthly.reduce((a, b) => a + b, 0)).toBe(overview!.status.commitCount);
+    expect(overview!.monthly.reduce((a, b) => a + b, 0)).toBe(overview!.commitCount);
   });
 
   test('the flag being off is indistinguishable from having no analysis', async () => {

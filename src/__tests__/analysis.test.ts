@@ -10,19 +10,12 @@
 
 import { describe, test, expect } from 'vitest';
 import { parseLog, parseRenamePath, type LogCommit } from '../analysis/gitLog';
-import {
-  emptyModel,
-  foldCommits,
-  monthIndex,
-  pairKey,
-  splitPairKey,
-  COUPLING_COMMIT_FILE_CAP,
-} from '../analysis/accumulate';
+import { emptyModel, foldCommits, pairKey, splitPairKey, COUPLING_COMMIT_FILE_CAP } from '../analysis/accumulate';
 import { complexityOf } from '../analysis/complexity';
 import { scoreFiles } from '../analysis/score';
 import { trendOf } from '../analysis/trend';
 import { leversFor } from '../analysis/advice';
-import { ANALYSIS_WINDOW_MONTHS, type FileSignal } from '../analysis/types';
+import { ANALYSIS_WINDOW_MONTHS, monthIndex, type FileSignal } from '../analysis/types';
 
 const MARK = '\u0001';
 const SEP = '\u0002';

@@ -28,11 +28,7 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
   };
 
   const handleToggleAnalysis = async () => {
-    const next = !analysisEnabled;
-    await useExperimentalStore.getState().setFlag(projectPath, 'analysis', next);
-    if (!next && useProjectStore.getState().activePanel === 'analysis') {
-      useProjectStore.getState().setActivePanel('terminals');
-    }
+    await useExperimentalStore.getState().setFlag(projectPath, 'analysis', !analysisEnabled);
   };
 
   const handleToggleGithub = async () => {

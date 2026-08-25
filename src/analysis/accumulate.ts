@@ -1,4 +1,6 @@
 import type { LogCommit } from './gitLog';
+import { ancestorDirs, dirOf } from './paths';
+import { monthIndex } from './types';
 
 export interface FileStats {
   commits: number;
@@ -8,12 +10,6 @@ export interface FileStats {
   lastAt: number;
   /** monthIndex(at) → commits, for the activity sparkline. */
   byMonth: Map<number, number>;
-}
-
-/** Calendar month as a single integer, so month arithmetic is subtraction. */
-export function monthIndex(atSeconds: number): number {
-  const d = new Date(atSeconds * 1000);
-  return d.getUTCFullYear() * 12 + d.getUTCMonth();
 }
 
 export interface AuthorStats {
@@ -37,6 +33,12 @@ export interface AnalysisModel {
   couplings: Map<string, number>;
   /** The same, over the directories files sit in directly. */
   dirCouplings: Map<string, number>;
+  /**
+   * path → the coupling keys it appears in. Kept in step with `couplings` so
+   * a read or a rename touches one file's pairs rather than every pair in the
+   * repo; a bulk rename is otherwise quadratic in the coupling map's size.
+   */
+  pairsByPath: Map<string, Set<string>>;
   /** monthIndex(at) → commits, for the project's own activity series. */
   commitsByMonth: Map<number, number>;
   commitCount: number;
@@ -60,24 +62,10 @@ export function emptyModel(): AnalysisModel {
     authors: new Map(),
     couplings: new Map(),
     dirCouplings: new Map(),
+    pairsByPath: new Map(),
     commitsByMonth: new Map(),
     commitCount: 0,
   };
-}
-
-/** The directory a file sits in directly; '' for a file at the repo root. */
-export function dirOf(path: string): string {
-  const cut = path.lastIndexOf('/');
-  return cut === -1 ? '' : path.slice(0, cut);
-}
-
-/** Every directory above a path, outermost first. Empty for a root file. */
-export function ancestorDirs(path: string): string[] {
-  const dirs: string[] = [];
-  for (let i = path.indexOf('/'); i !== -1; i = path.indexOf('/', i + 1)) {
-    dirs.push(path.slice(0, i));
-  }
-  return dirs;
 }
 
 /** A path can contain any byte but this one, so no side can hide a separator. */
@@ -144,10 +132,14 @@ export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[])
       for (let i = 0; i < paths.length; i++) {
         for (let j = i + 1; j < paths.length; j++) {
           const key = pairKey(paths[i], paths[j]);
+          if (!model.couplings.has(key)) {
+            index(model, paths[i], key);
+            index(model, paths[j], key);
+          }
           model.couplings.set(key, (model.couplings.get(key) ?? 0) + 1);
         }
       }
-      if (model.couplings.size > COUPLING_COMPACT_LIMIT) compact(model.couplings);
+      if (model.couplings.size > COUPLING_COMPACT_LIMIT) compact(model);
 
       const dirs = [...new Set(paths.map(dirOf))].filter((dir) => dir !== '');
       for (let i = 0; i < dirs.length; i++) {
@@ -158,6 +150,19 @@ export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[])
       }
     }
   }
+}
+
+function index(model: AnalysisModel, path: string, key: string): void {
+  const keys = model.pairsByPath.get(path);
+  if (keys) keys.add(key);
+  else model.pairsByPath.set(path, new Set([key]));
+}
+
+function unindex(model: AnalysisModel, path: string, key: string): void {
+  const keys = model.pairsByPath.get(path);
+  if (!keys) return;
+  keys.delete(key);
+  if (keys.size === 0) model.pairsByPath.delete(path);
 }
 
 function bump(
@@ -222,20 +227,32 @@ function migrate(model: AnalysisModel, oldPath: string, newPath: string): void {
     }
   }
 
-  // A full scan per rename, but renames are rare next to commits.
-  for (const [key, shared] of [...model.couplings]) {
-    const [a, b] = splitPairKey(key);
-    if (a !== oldPath && b !== oldPath) continue;
+  const keys = model.pairsByPath.get(oldPath);
+  if (!keys) return;
+  model.pairsByPath.delete(oldPath);
+  for (const key of keys) {
+    const shared = model.couplings.get(key);
+    if (shared == null) continue;
     model.couplings.delete(key);
+    const [a, b] = splitPairKey(key);
     const other = a === oldPath ? b : a;
+    unindex(model, other, key);
     if (other === newPath) continue;
     const moved = pairKey(newPath, other);
+    if (!model.couplings.has(moved)) {
+      index(model, newPath, moved);
+      index(model, other, moved);
+    }
     model.couplings.set(moved, (model.couplings.get(moved) ?? 0) + shared);
   }
 }
 
-function compact(couplings: Map<string, number>): void {
-  for (const [key, shared] of couplings) {
-    if (shared < COUPLING_MIN_SHARED) couplings.delete(key);
+function compact(model: AnalysisModel): void {
+  for (const [key, shared] of model.couplings) {
+    if (shared >= COUPLING_MIN_SHARED) continue;
+    model.couplings.delete(key);
+    const [a, b] = splitPairKey(key);
+    unindex(model, a, key);
+    unindex(model, b, key);
   }
 }
