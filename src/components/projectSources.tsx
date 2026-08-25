@@ -49,12 +49,9 @@ function ProjectSourceChoice({ source, onClick }: { source: ProjectSource; onCli
       onClick={onClick}
       className="group flex items-baseline gap-3 w-full text-left px-5 py-3 hover:bg-ink/[0.04] transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-light outline-none [-webkit-app-region:no-drag]"
     >
-      {/* The same extruded tile the sidebar's own add button is, so the three
-          options carry equal weight and read as things rather than list rows. */}
-      <span
-        className="shrink-0 self-center w-8 h-8 rounded-[10px] flex items-center justify-center bg-ink/[0.05] text-text-secondary group-hover:text-text-primary transition-colors"
-        style={{ border: '1px solid var(--color-bezel)' }}
-      >
+      {/* No border: in here that reads as a floating control, and this is a
+          backdrop inside a row that is itself the button. */}
+      <span className="shrink-0 self-center w-8 h-8 rounded-md flex items-center justify-center bg-ink/[0.06] text-text-secondary transition-colors duration-150 group-hover:bg-ink/10 group-hover:text-text-primary">
         <Icon name={source.icon} className="w-[18px] h-[18px]" />
       </span>
       <span className="flex-1 min-w-0">
