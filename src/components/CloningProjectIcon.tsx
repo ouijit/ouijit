@@ -102,24 +102,48 @@ export function cloneSummary(job: CloneJob): string {
 }
 
 /**
- * Traces the tile's own rounded square rather than ringing it with a circle.
- * `pathLength` renormalizes the perimeter to 1 so the dash offset is the
- * fraction remaining, whatever the actual geometry works out to.
+ * The sidebar tile is 40px across with a 12px corner radius. Offsetting a
+ * rounded rect outward by d adds d to its radius — that is what keeps the two
+ * curves concentric, and getting it wrong is immediately visible as a ring
+ * whose corners do not follow the icon's.
+ */
+const TILE_SIZE = 40;
+const TILE_RADIUS = 12;
+const RING_GAP = 2;
+const RING_STROKE = 2;
+const RING_SIZE = TILE_SIZE + RING_GAP * 2;
+const RING_RADIUS = TILE_RADIUS + RING_GAP;
+const RING_BOX = RING_SIZE + RING_STROKE;
+
+/**
+ * Traces the tile's own silhouette rather than ringing it with a circle.
+ * `pathLength` renormalizes the perimeter to 1, so the dash offset is the
+ * fraction remaining whatever the geometry works out to, and the sweep runs at
+ * a constant speed along the edge instead of accelerating down the sides.
  */
 function CloneRing({ percent, failed }: { percent: number | null; failed: boolean }) {
   const indeterminate = percent === null && !failed;
+  const shape = {
+    x: RING_STROKE / 2,
+    y: RING_STROKE / 2,
+    width: RING_SIZE,
+    height: RING_SIZE,
+    rx: RING_RADIUS,
+    pathLength: 1,
+    strokeWidth: RING_STROKE,
+  };
   return (
-    <svg className="absolute pointer-events-none" width={44} height={44} viewBox="0 0 44 44" fill="none">
-      <rect x={2} y={2} width={40} height={40} rx={8} pathLength={1} stroke="var(--color-border)" strokeWidth={2} />
+    <svg
+      className="absolute pointer-events-none"
+      width={RING_BOX}
+      height={RING_BOX}
+      viewBox={`0 0 ${RING_BOX} ${RING_BOX}`}
+      fill="none"
+    >
+      <rect {...shape} stroke="var(--color-border)" />
       <rect
-        x={2}
-        y={2}
-        width={40}
-        height={40}
-        rx={8}
-        pathLength={1}
+        {...shape}
         stroke={failed ? 'var(--color-error)' : 'var(--color-accent)'}
-        strokeWidth={2}
         strokeLinecap="round"
         strokeDasharray={indeterminate ? '0.25 0.75' : '1'}
         strokeDashoffset={indeterminate ? undefined : 1 - (failed ? 1 : (percent ?? 0)) / 100}
