@@ -38,6 +38,12 @@ const PANEL_STYLE = {
   boxShadow: 'var(--shadow-menu)',
 } as const;
 
+/**
+ * Without it only a dead-sideways path reaches a flyout: a diagonal one leaves
+ * the row over the rows below, and the flyout goes with it.
+ */
+const SUBMENU_CLOSE_DELAY = 300;
+
 function MenuList({
   items,
   onSelect,
@@ -47,6 +53,23 @@ function MenuList({
   onSelect: (onClick: () => void) => void;
   openLeft: boolean;
 }) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelClose = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  };
+  const openSubmenu = (index: number) => {
+    cancelClose();
+    setOpenIndex(index);
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpenIndex(null), SUBMENU_CLOSE_DELAY);
+  };
+  useEffect(() => cancelClose, []);
+
   return (
     <>
       {items.map((item, i) => {
@@ -54,21 +77,25 @@ function MenuList({
           return <div key={`sep-${i}`} className="border-t border-ink/10 mx-1 my-1" />;
         }
         if ('submenu' in item) {
+          const open = openIndex === i;
           return (
-            <div key={i} className="relative group/sub">
-              <button type="button" className={`${ITEM_CLASS} justify-between`}>
+            <div key={i} className="relative" onMouseEnter={() => openSubmenu(i)} onMouseLeave={scheduleClose}>
+              <button type="button" className={`${ITEM_CLASS} justify-between ${open ? 'bg-ink/[0.08]' : ''}`}>
                 <span className="flex items-center gap-1.5">
                   {item.icon && <Icon name={item.icon} />}
                   {item.label}
                 </span>
                 <Icon name="caret-right" />
               </button>
-              <div
-                className={`absolute top-0 ${openLeft ? 'right-full mr-0.5' : 'left-full ml-0.5'} z-10 hidden min-w-[180px] group-hover/sub:block ${PANEL_CLASS}`}
-                style={PANEL_STYLE}
-              >
-                <MenuList items={item.submenu} onSelect={onSelect} openLeft={openLeft} />
-              </div>
+              {/* Nested in the row, so moving into it fires no mouseleave, and the
+                  padding around it covers the gap between the two panels. */}
+              {open && (
+                <div className={`absolute -top-2 ${openLeft ? 'right-full pr-1.5' : 'left-full pl-1.5'} py-2 z-10`}>
+                  <div className={`min-w-[180px] ${PANEL_CLASS}`} style={PANEL_STYLE}>
+                    <MenuList items={item.submenu} onSelect={onSelect} openLeft={openLeft} />
+                  </div>
+                </div>
+              )}
             </div>
           );
         }
