@@ -1,13 +1,38 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { getRemoteUrl as rawGetRemoteUrl } from '../git';
-import { parseRemoteUrl, isDotCom, getRepoIdentity, invalidateRepoIdentity } from '../github/repoIdentity';
+import { getRepoIdentity, invalidateRepoIdentity } from '../github/repoIdentity';
+import { parseRemoteUrl, isDotCom, parseRepoInput, cloneUrl } from '../github/repoUrl';
 
 // vi.mock is hoisted above the imports, so the factory can't close over a
 // top-level const. Reach the spy through the mocked module instead.
 vi.mock('../git', () => ({ getRemoteUrl: vi.fn() }));
 
 const getRemoteUrl = vi.mocked(rawGetRemoteUrl);
+
+describe('parseRepoInput', () => {
+  test.each([
+    ['pbjer/ouijit', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
+    ['https://github.com/pbjer/ouijit', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
+    ['https://github.com/pbjer/ouijit.git', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
+    ['git@github.com:pbjer/ouijit.git', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
+    ['ssh://git@github.com/pbjer/ouijit.git', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
+    ['  https://github.com/pbjer/ouijit/  ', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
+    ['https://github.com/pbjer/ouijit/tree/main', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
+    ['https://github.com/pbjer/ouijit/pull/12', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
+    ['https://ghe.corp.example/team/tools', { host: 'ghe.corp.example', owner: 'team', repo: 'tools' }],
+  ])('resolves %s', (input, expected) => {
+    expect(parseRepoInput(input)).toEqual(expected);
+  });
+
+  test.each(['', '   ', 'ouijit', 'https://github.com/pbjer', 'not a repo at all'])('rejects %j', (input) => {
+    expect(parseRepoInput(input)).toBeNull();
+  });
+
+  test('builds an HTTPS clone URL from any input form', () => {
+    expect(cloneUrl(parseRepoInput('git@github.com:pbjer/ouijit.git')!)).toBe('https://github.com/pbjer/ouijit.git');
+  });
+});
 
 describe('parseRemoteUrl', () => {
   test.each([

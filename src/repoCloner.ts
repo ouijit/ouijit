@@ -11,7 +11,7 @@ import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { ghEnv, probeGh } from './github/client';
-import { parseRemoteUrl } from './github/repoIdentity';
+import { cloneUrl, parseRepoInput } from './github/repoUrl';
 import { repoSlug, type RepoIdentity } from './github/types';
 import { getDefaultProjectsDir } from './projectsFolder';
 import { getLogger } from './logger';
@@ -20,37 +20,6 @@ import type { CloneProjectOptions, CreateProjectResult } from './types';
 const execFileAsync = promisify(execFile);
 
 const cloneLog = getLogger().scope('repoCloner');
-
-/** `owner/name` with no scheme — the shorthand `gh` itself accepts. */
-const SHORTHAND = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/;
-
-/**
- * Resolve what a person typed into a repo. Accepts the `owner/name` shorthand
- * and every URL form `parseRemoteUrl` handles, plus the URL a browser is
- * showing when they copy it — which carries a page path (`/tree/main`,
- * `/pull/12`) past `owner/name` that `parseRemoteUrl` alone rejects.
- */
-export function parseRepoInput(input: string): RepoIdentity | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  if (SHORTHAND.test(trimmed)) return parseRemoteUrl(`https://github.com/${trimmed}`);
-
-  const direct = parseRemoteUrl(trimmed);
-  if (direct) return direct;
-
-  try {
-    const url = new URL(trimmed);
-    const [owner, repo] = url.pathname.replace(/^\/+/, '').split('/');
-    if (owner && repo) return parseRemoteUrl(`${url.protocol}//${url.host}/${owner}/${repo}`);
-  } catch {
-    /* not a URL either */
-  }
-  return null;
-}
-
-export function cloneUrl(identity: RepoIdentity): string {
-  return `https://${identity.host}/${identity.owner}/${identity.repo}.git`;
-}
 
 /**
  * git blocks on a credential or SSH passphrase prompt when nothing is on the

@@ -1,10 +1,21 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { DialogOverlay } from './DialogOverlay';
 import { Icon } from '../terminal/Icon';
+import { cloneUrl, isDotCom, parseRepoInput } from '../../github/repoUrl';
+import { repoSlug } from '../../github/types';
 import type { GithubRepoSummary } from '../../types';
 
 interface CloneFromGithubDialogProps {
   onClose: (result: { projectPath: string } | null) => void;
+}
+
+interface RepoChoice extends GithubRepoSummary {
+  /** What the clone is handed for this row — the slug, or a URL for Enterprise. */
+  ref: string;
+}
+
+function matchesNeedle(repo: GithubRepoSummary, needle: string): boolean {
+  return repo.slug.toLowerCase().includes(needle) || (repo.description?.toLowerCase().includes(needle) ?? false);
 }
 
 export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
@@ -53,17 +64,29 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
     };
   }, []);
 
-  const matches = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return repos;
-    return repos.filter(
-      (repo) => repo.slug.toLowerCase().includes(needle) || repo.description?.toLowerCase().includes(needle),
-    );
-  }, [repos, query]);
+  const resolved = useMemo(() => parseRepoInput(query), [query]);
+  const resolvedSlug = resolved && repoSlug(resolved);
+  // A GitHub Enterprise repo has to keep its host: the bare slug parses back as
+  // github.com on the way to the clone, which is a different repo entirely.
+  const resolvedRef = resolved && (isDotCom(resolved) ? repoSlug(resolved) : cloneUrl(resolved));
 
-  // The typed value is what gets cloned unless a listed repo is highlighted,
-  // so a pasted URL — which matches nothing in the list — still works.
-  const target = (matches[highlight]?.slug ?? query).trim();
+  // A pasted URL is filtered on as the `owner/name` it resolves to, so it can
+  // match a listed repo, and is offered as its own row when it matches none —
+  // the list is only the user's own repos, and any repo is fair game to clone.
+  const matches = useMemo((): RepoChoice[] => {
+    const needle = (resolvedSlug || query).trim().toLowerCase();
+    const listed = (needle ? repos.filter((repo) => matchesNeedle(repo, needle)) : repos).map((repo) => ({
+      ...repo,
+      ref: repo.slug,
+    }));
+    if (resolvedSlug && resolvedRef && !listed.some((repo) => repo.slug.toLowerCase() === needle)) {
+      return [{ slug: resolvedSlug, ref: resolvedRef, description: null, isPrivate: false }, ...listed];
+    }
+    return listed;
+  }, [repos, query, resolvedSlug, resolvedRef]);
+
+  const target = (matches[highlight]?.ref || resolvedRef || query).trim();
+  const canClone = parseRepoInput(target) !== null;
 
   useEffect(() => {
     listRef.current?.children[highlight]?.scrollIntoView({ block: 'nearest' });
@@ -90,7 +113,7 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
 
   const handleClone = useCallback(
     async (repo: string) => {
-      if (!repo || cloning) return;
+      if (!repo || !parseRepoInput(repo) || cloning) return;
       setError(null);
       setCloning(true);
       const result = await window.api.cloneProject({ repo, parentDir: location ?? undefined });
@@ -158,7 +181,7 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
               <button
                 key={repo.slug}
                 className={`w-full flex items-baseline gap-2 px-3 py-2 text-left border-none transition-colors duration-100 ease-out ${index === highlight ? 'bg-ink/[0.08]' : 'bg-transparent hover:bg-ink/[0.05]'}`}
-                onClick={() => setQuery(repo.slug)}
+                onClick={() => setQuery(repo.ref)}
                 disabled={cloning}
               >
                 <span className="text-xs text-text-primary shrink-0">{repo.slug}</span>
@@ -194,7 +217,7 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
         <button
           className="btn-primary flex items-center gap-1.5"
           onClick={() => handleClone(target)}
-          disabled={!target || cloning}
+          disabled={!canClone || cloning}
         >
           <Icon name="github-logo" className="w-3.5 h-3.5" />
           {cloning ? 'Cloning…' : 'Clone'}

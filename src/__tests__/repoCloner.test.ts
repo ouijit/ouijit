@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { parseRepoInput, cloneUrl, cloneRepository } from '../repoCloner';
+import { cloneRepository } from '../repoCloner';
 import { cloneAndRegisterProject } from '../services/projectRegistration';
 import { getDefaultProjectsDir } from '../projectsFolder';
 import { getAllProjects, getGlobalSetting } from '../db';
@@ -62,30 +62,6 @@ async function sourceRepo(): Promise<string> {
   );
   return repoPath;
 }
-
-describe('parseRepoInput', () => {
-  test.each([
-    ['pbjer/ouijit', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
-    ['https://github.com/pbjer/ouijit', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
-    ['https://github.com/pbjer/ouijit.git', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
-    ['git@github.com:pbjer/ouijit.git', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
-    ['ssh://git@github.com/pbjer/ouijit.git', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
-    ['  https://github.com/pbjer/ouijit/  ', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
-    ['https://github.com/pbjer/ouijit/tree/main', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
-    ['https://github.com/pbjer/ouijit/pull/12', { host: 'github.com', owner: 'pbjer', repo: 'ouijit' }],
-    ['https://ghe.corp.example/team/tools', { host: 'ghe.corp.example', owner: 'team', repo: 'tools' }],
-  ])('resolves %s', (input, expected) => {
-    expect(parseRepoInput(input)).toEqual(expected);
-  });
-
-  test.each(['', '   ', 'ouijit', 'https://github.com/pbjer', 'not a repo at all'])('rejects %j', (input) => {
-    expect(parseRepoInput(input)).toBeNull();
-  });
-
-  test('builds an HTTPS clone URL from any input form', () => {
-    expect(cloneUrl(parseRepoInput('git@github.com:pbjer/ouijit.git')!)).toBe('https://github.com/pbjer/ouijit.git');
-  });
-});
 
 describe('cloneRepository', () => {
   test('refuses input that is not a repository', async () => {

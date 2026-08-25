@@ -11,7 +11,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { getLogger } from '../logger';
 import { versionAtLeast } from '../utils/semver';
-import { isDotCom } from './repoIdentity';
+import { isDotCom } from './repoUrl';
 import type { RepoIdentity } from './types';
 
 const execFileAsync = promisify(execFile);
