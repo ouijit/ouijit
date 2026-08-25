@@ -389,7 +389,7 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   analysis: {
-    refresh: (projectPath: string) => typedInvoke('analysis:refresh', projectPath),
+    refresh: (projectPath: string, force?: boolean) => typedInvoke('analysis:refresh', projectPath, force),
     diffSignals: (projectPath: string, paths: string[]) => typedInvoke('analysis:diff-signals', projectPath, paths),
     overview: (projectPath: string) => typedInvoke('analysis:overview', projectPath),
   },

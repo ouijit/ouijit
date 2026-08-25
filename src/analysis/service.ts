@@ -6,7 +6,7 @@ import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalF
 import { getLogger } from '../logger';
 import { describeError } from '../utils/describeError';
 import { readLog } from './gitLog';
-import { emptyModel, foldCommits, splitPairKey, type AnalysisModel, type FileStats } from './accumulate';
+import { emptyModel, foldCommits, splitPairKey, type Activity, type AnalysisModel } from './accumulate';
 import { ancestorDirs, basename, depthOf, dirOf } from './paths';
 import { complexityOf } from './complexity';
 import { scoreFiles } from './score';
@@ -17,13 +17,13 @@ import {
   COUPLING_MIN_SHARED,
   monthIndex,
   type AnalysisOverview,
-  type CouplingSignal,
   type DiffSignals,
   type FileComplexitySignal,
   type FileScore,
   type FileSignal,
   type HotspotRow,
   type ModuleNode,
+  type Owner,
   type PairSignal,
   type Partner,
 } from './types';
@@ -67,12 +67,18 @@ async function isAnalysisEnabled(projectPath: string): Promise<boolean> {
  * log pass only runs when it did. Rate-limited and deduped so the poll can
  * call it blindly.
  */
-export async function refreshAnalysis(projectPath: string): Promise<void> {
+export async function refreshAnalysis(projectPath: string, force = false): Promise<void> {
   if (!(await isAnalysisEnabled(projectPath))) return;
-  if (inflight.has(projectPath)) return;
+
+  const pending = inflight.get(projectPath);
+  if (pending) {
+    // Someone asking outright waits for the answer; the poll does not care.
+    if (force) await pending;
+    return;
+  }
 
   const last = attemptedAt.get(projectPath);
-  if (last != null && Date.now() - last < REFRESH_MIN_INTERVAL_MS) return;
+  if (!force && last != null && Date.now() - last < REFRESH_MIN_INTERVAL_MS) return;
   attemptedAt.set(projectPath, Date.now());
 
   await scanProject(projectPath);
@@ -89,30 +95,39 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
   if (!analysis) return null;
 
   const thisMonth = monthIndex(Date.now() / 1000);
-  const files: Record<string, FileSignal> = {};
+  const asked = new Set(paths);
+  const signals: DiffSignals = {};
   for (const p of paths) {
     const signal = toFileSignal(analysis, p, thisMonth);
-    if (signal) files[p] = signal;
+    if (signal) signals[p] = { signal, missing: missingPartners(analysis.model, p, asked) };
   }
+  return signals;
+}
 
-  // A partner that is in the diff too is not news, and the surfaces would all
-  // have to drop it again — so it never leaves here.
-  const asked = new Set(paths);
-  const couplings: CouplingSignal[] = [];
-  for (const p of paths) {
-    for (const key of analysis.model.pairsByPath.get(p) ?? []) {
-      const shared = analysis.model.couplings.get(key) ?? 0;
-      if (shared < COUPLING_MIN_SHARED) continue;
-      const [a, b] = splitPairKey(key);
-      const partner = a === p ? b : a;
-      if (asked.has(partner)) continue;
-      const degree = pairDegree(analysis.model.files, a, b, shared);
-      if (degree < COUPLING_MIN_DEGREE) continue;
-      couplings.push({ path: p, partner, shared, degree });
-    }
+/** As many absent partners as a reader will take in, strongest first. */
+const MISSING_PARTNER_LIMIT = 3;
+
+/**
+ * Files `p` usually changes with that the diff leaves out. A partner that is
+ * in the diff too is not news, so it never leaves here — and the list is
+ * ranked and cut here rather than by whichever surface renders it.
+ */
+function missingPartners(model: AnalysisModel, p: string, asked: ReadonlySet<string>): string[] {
+  const ranked: Array<{ partner: string; degree: number }> = [];
+  for (const key of model.pairsByPath.get(p) ?? []) {
+    const shared = model.couplings.get(key) ?? 0;
+    if (shared < COUPLING_MIN_SHARED) continue;
+    const [a, b] = splitPairKey(key);
+    const partner = a === p ? b : a;
+    if (asked.has(partner)) continue;
+    const degree = pairDegree(model.files, a, b, shared);
+    if (degree < COUPLING_MIN_DEGREE) continue;
+    ranked.push({ partner, degree });
   }
-
-  return { files, couplings };
+  return ranked
+    .sort((x, y) => y.degree - x.degree)
+    .slice(0, MISSING_PARTNER_LIMIT)
+    .map((r) => r.partner);
 }
 
 const OVERVIEW_ROWS = 30;
@@ -157,13 +172,17 @@ export async function getAnalysisOverview(projectPath: string): Promise<Analysis
     if (entry) entry.mainOf++;
     else byEmail.set(topEmail, { name: topName, mainOf: 1 });
   }
-  const owners = [...byEmail.values()].sort((x, y) => y.mainOf - x.mainOf).slice(0, OVERVIEW_OWNERS);
+  const fileCount = analysis.model.files.size;
+  const owners: Owner[] = [...byEmail.values()]
+    .sort((x, y) => y.mainOf - x.mainOf)
+    .slice(0, OVERVIEW_OWNERS)
+    .map((owner) => ({ ...owner, share: fileCount > 0 ? owner.mainOf / fileCount : 0 }));
 
   const monthly = toMonthly(analysis.model.commitsByMonth, thisMonth);
 
   analysis.overview = {
     commitCount: analysis.model.commitCount,
-    fileCount: analysis.model.files.size,
+    fileCount,
     endMonth: thisMonth,
     monthly,
     trend: trendOf(monthly),
@@ -176,7 +195,7 @@ export async function getAnalysisOverview(projectPath: string): Promise<Analysis
   return analysis.overview;
 }
 
-function pairDegree(stats: ReadonlyMap<string, FileStats>, a: string, b: string, shared: number): number {
+function pairDegree(stats: ReadonlyMap<string, Activity>, a: string, b: string, shared: number): number {
   return shared / Math.max(stats.get(a)?.commits ?? shared, stats.get(b)?.commits ?? shared);
 }
 
@@ -188,7 +207,7 @@ function pairDegree(stats: ReadonlyMap<string, FileStats>, a: string, b: string,
  */
 const COUPLING_EVIDENCE_HALF = 5;
 
-function rankPairs(pairs: ReadonlyMap<string, number>, stats: ReadonlyMap<string, FileStats>): PairSignal[] {
+function rankPairs(pairs: ReadonlyMap<string, number>, stats: ReadonlyMap<string, Activity>): PairSignal[] {
   const weighted: Array<{ pair: PairSignal; weight: number }> = [];
   for (const [key, shared] of pairs) {
     if (shared < COUPLING_MIN_SHARED) continue;
@@ -236,8 +255,6 @@ function buildModules(analysis: ProjectAnalysis, thisMonth: number): ModuleNode[
       commits: stats.commits,
       // Replaced with the share of its parent once the tree is linked.
       share: total > 0 ? stats.commits / total : 0,
-      added: stats.added,
-      deleted: stats.deleted,
       files: filesUnder.get(dir) ?? 0,
       hotspots: hotUnder.get(dir) ?? 0,
       monthly,

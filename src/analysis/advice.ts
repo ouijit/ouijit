@@ -4,6 +4,7 @@ import {
   TREND_RECENT_MONTHS,
   type FileComplexitySignal,
   type FileSignal,
+  type Partner,
   type Trend,
   type TrendDirection,
 } from './types';
@@ -33,7 +34,7 @@ const MAX_LEVERS = 3;
  * Nothing fires for a quiet file, and a file whose numbers say nothing in
  * particular gets no levers rather than a filler one.
  */
-export function leversFor(signal: FileSignal, partner?: { path: string; degree: number } | null): Lever[] {
+export function leversFor(signal: FileSignal, partner?: Partner | null): Lever[] {
   if (signal.tier === 'quiet') return [];
 
   // Every other lever pays its cost now against changes that are no longer

@@ -3,11 +3,14 @@ import type { HotspotTier } from '../../analysis/types';
 
 /** The visual vocabulary the diff chip and the project panel both read from. */
 
-/** How hot a file runs, as a colour. */
-export const TIER_COLOR: Record<HotspotTier, string> = {
-  hot: 'text-git',
-  warm: 'text-git/50',
-  quiet: 'text-ink/25',
+/**
+ * How hot a file runs, as a colour. `chip` tints a filled badge, `glyph` a
+ * bare icon — the same distinction the pull request state badges draw.
+ */
+export const TIER_COLOR: Record<HotspotTier, { chip: string; glyph: string }> = {
+  hot: { chip: 'bg-git-light text-git', glyph: 'text-git' },
+  warm: { chip: 'text-git/50', glyph: 'text-git/50' },
+  quiet: { chip: 'text-ink/45', glyph: 'text-ink/25' },
 };
 
 /** What each rule of thumb is about, so a lever reads before it is read. */
@@ -22,7 +25,7 @@ export const LEVER_ICON: Record<LeverId, string> = {
 };
 
 /** Rank as a percentile: 1 is the top of the project, 0 the bottom. */
-export function topPercent(rank: number): string {
+function topPercent(rank: number): string {
   return `top ${Math.max(1, Math.round((1 - rank) * 100))}%`;
 }
 

@@ -25,6 +25,11 @@ export function monthIndex(atSeconds: number): number {
   return d.getUTCFullYear() * 12 + d.getUTCMonth();
 }
 
+/** Its inverse, for naming a month. Buckets are UTC, so this reads UTC. */
+export function monthStart(month: number): Date {
+  return new Date(Date.UTC(Math.floor(month / 12), month % 12, 1));
+}
+
 export type HotspotTier = 'quiet' | 'warm' | 'hot';
 
 /** Where a file sits against the rest of the project, and what that makes it. */
@@ -42,6 +47,13 @@ export interface FileScore {
 export interface Partner {
   path: string;
   degree: number;
+}
+
+export interface Owner {
+  name: string;
+  /** Files this author has made most of the commits to, and their share. */
+  mainOf: number;
+  share: number;
 }
 
 export type TrendDirection = 'new' | 'rising' | 'steady' | 'cooling';
@@ -78,21 +90,18 @@ export interface FileComplexitySignal {
   indentMax: number;
 }
 
-export interface CouplingSignal {
-  path: string;
-  partner: string;
-  /** Commits that touched both files. */
-  shared: number;
-  /** shared / max(commits(path), commits(partner)), 0..1. */
-  degree: number;
+/** One file of a diff, as the surfaces showing it need it. */
+export interface FileAnalysis {
+  signal: FileSignal;
+  /**
+   * Files it usually changes with that this diff leaves out, strongest first
+   * and capped — already filtered, so a surface renders the list as given.
+   */
+  missing: string[];
 }
 
-/** Everything the diff and PR surfaces need for one file list. */
-export interface DiffSignals {
-  files: Record<string, FileSignal>;
-  /** Partners of an asked path that the asked paths do not contain. */
-  couplings: CouplingSignal[];
-}
+/** Everything the diff and PR surfaces need for one file list, by path. */
+export type DiffSignals = Record<string, FileAnalysis>;
 
 /** A directory, with everything under it folded in. */
 export interface ModuleNode {
@@ -102,8 +111,6 @@ export interface ModuleNode {
   commits: number;
   /** Of its parent's commits, or of the project's for a top-level directory. */
   share: number;
-  added: number;
-  deleted: number;
   files: number;
   /** Files under it scoring `hot`. */
   hotspots: number;
@@ -150,5 +157,5 @@ export interface AnalysisOverview {
   /** Strongest file-to-file couplings. */
   couplings: PairSignal[];
   /** Who holds the code: authors by the number of files mainly theirs. */
-  owners: Array<{ name: string; mainOf: number }>;
+  owners: Owner[];
 }

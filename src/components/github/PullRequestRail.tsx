@@ -34,7 +34,7 @@ export function PullRequestRail({ detail, files, onSelect, width }: PullRequestR
     const count = unresolvedByPath.get(path);
     return (
       <>
-        <AnalysisRailDot signal={signals?.get(path)?.signal} />
+        <AnalysisRailDot signal={signals?.[path]?.signal} />
         {count ? (
           <span className="shrink-0 font-mono text-[10px] text-accent" title="Unresolved threads">
             {count}

@@ -26,7 +26,7 @@ import { inTreeOrder } from '../diff/DiffFileTree';
 import { useThreadActions } from './useThreadActions';
 import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { AnalysisChip } from '../diff/AnalysisChip';
-import type { FileAnalysis } from '../../analysis/signals';
+import type { FileAnalysis } from '../../analysis/types';
 
 import { Loading } from './Loading';
 
@@ -385,7 +385,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       onAddComment={startComment}
       renderBelowLine={renderBelowLine}
       markLine={spans.length > 0 ? markLine : undefined}
-      analysis={analysis?.get(file.path)}
+      analysis={analysis?.[file.path]}
       viewed={viewed.has(file.path)}
       onViewedChange={setViewed}
     />

@@ -2,20 +2,22 @@ import type { LogCommit } from './gitLog';
 import { ancestorDirs, dirOf } from './paths';
 import { COUPLING_MIN_SHARED, monthIndex } from './types';
 
-export interface FileStats {
+/** What a directory accumulates: how often it changed, and when. */
+export interface Activity {
   commits: number;
-  added: number;
-  deleted: number;
-  firstAt: number;
-  lastAt: number;
   /** monthIndex(at) → commits, for the activity sparkline. */
   byMonth: Map<number, number>;
 }
 
-export interface AuthorStats {
+/** A file also accumulates churn, which the hotspot rules read. */
+export interface FileStats extends Activity {
+  added: number;
+  deleted: number;
+}
+
+interface AuthorStats {
   name: string;
   commits: number;
-  added: number;
 }
 
 export interface AnalysisModel {
@@ -26,7 +28,7 @@ export interface AnalysisModel {
    * files it touched, which is what makes these numbers comparable to the
    * project's commit count.
    */
-  dirs: Map<string, FileStats>;
+  dirs: Map<string, Activity>;
   /** path → author email → stats. Email is the identity; name is for display. */
   authors: Map<string, Map<string, AuthorStats>>;
   /** pairKey(a, b) → commits that touched both. */
@@ -88,7 +90,7 @@ export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[])
   for (const commit of commits) {
     model.commitCount++;
     const paths: string[] = [];
-    const dirChurn = new Map<string, { added: number; deleted: number }>();
+    const dirs = new Set<string>();
 
     const month = monthIndex(commit.at);
     model.commitsByMonth.set(month, (model.commitsByMonth.get(month) ?? 0) + 1);
@@ -96,35 +98,24 @@ export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[])
     for (const change of commit.files) {
       if (change.oldPath && change.oldPath !== change.path) migrate(model, change.oldPath, change.path);
 
-      bump(model.files, change.path, commit.at, month, change.added, change.deleted);
+      bumpFile(model.files, change.path, month, change.added, change.deleted);
 
       let byEmail = model.authors.get(change.path);
       if (!byEmail) model.authors.set(change.path, (byEmail = new Map()));
       const author = byEmail.get(commit.email);
       if (author) {
         author.commits++;
-        author.added += change.added;
         author.name = commit.name;
       } else {
-        byEmail.set(commit.email, { name: commit.name, commits: 1, added: change.added });
+        byEmail.set(commit.email, { name: commit.name, commits: 1 });
       }
 
-      for (const dir of ancestorDirs(change.path)) {
-        const churn = dirChurn.get(dir);
-        if (churn) {
-          churn.added += change.added;
-          churn.deleted += change.deleted;
-        } else {
-          dirChurn.set(dir, { added: change.added, deleted: change.deleted });
-        }
-      }
-
+      for (const dir of ancestorDirs(change.path)) dirs.add(dir);
       paths.push(change.path);
     }
 
-    for (const [dir, churn] of dirChurn) {
-      bump(model.dirs, dir, commit.at, month, churn.added, churn.deleted);
-    }
+    // A commit counts once for a directory however many of its files it touched.
+    for (const dir of dirs) bump(model.dirs, dir, month);
 
     if (paths.length >= 2 && paths.length <= COUPLING_COMMIT_FILE_CAP) {
       for (let i = 0; i < paths.length; i++) {
@@ -163,24 +154,25 @@ function unindex(model: AnalysisModel, path: string, key: string): void {
   if (keys.size === 0) model.pairsByPath.delete(path);
 }
 
-function bump(
-  into: Map<string, FileStats>,
-  key: string,
-  at: number,
-  month: number,
-  added: number,
-  deleted: number,
-): void {
+function bump(into: Map<string, Activity>, key: string, month: number): void {
+  const stats = into.get(key);
+  if (stats) {
+    stats.commits++;
+    stats.byMonth.set(month, (stats.byMonth.get(month) ?? 0) + 1);
+  } else {
+    into.set(key, { commits: 1, byMonth: new Map([[month, 1]]) });
+  }
+}
+
+function bumpFile(into: Map<string, FileStats>, key: string, month: number, added: number, deleted: number): void {
   const stats = into.get(key);
   if (stats) {
     stats.commits++;
     stats.added += added;
     stats.deleted += deleted;
-    stats.firstAt = Math.min(stats.firstAt, at);
-    stats.lastAt = Math.max(stats.lastAt, at);
     stats.byMonth.set(month, (stats.byMonth.get(month) ?? 0) + 1);
   } else {
-    into.set(key, { commits: 1, added, deleted, firstAt: at, lastAt: at, byMonth: new Map([[month, 1]]) });
+    into.set(key, { commits: 1, added, deleted, byMonth: new Map([[month, 1]]) });
   }
 }
 
@@ -199,8 +191,6 @@ function migrate(model: AnalysisModel, oldPath: string, newPath: string): void {
     current.commits += prev.commits;
     current.added += prev.added;
     current.deleted += prev.deleted;
-    current.firstAt = Math.min(current.firstAt, prev.firstAt);
-    current.lastAt = Math.max(current.lastAt, prev.lastAt);
     for (const [month, n] of prev.byMonth) current.byMonth.set(month, (current.byMonth.get(month) ?? 0) + n);
   } else {
     model.files.set(newPath, prev);
@@ -215,7 +205,6 @@ function migrate(model: AnalysisModel, oldPath: string, newPath: string): void {
         const existing = currentAuthors.get(email);
         if (existing) {
           existing.commits += stats.commits;
-          existing.added += stats.added;
         } else {
           currentAuthors.set(email, stats);
         }

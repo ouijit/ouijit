@@ -25,7 +25,9 @@ interface AnalysisStoreState {
 
 interface AnalysisStoreActions {
   load: (projectPath: string, key: string, paths: string[]) => Promise<void>;
-  /** `refresh` forces a rescan first; otherwise the cached model answers. */
+  /** For the project poll: rate-limited in the main process, so call blindly. */
+  refresh: (projectPath: string) => Promise<void>;
+  /** `refresh` rescans first, past the rate limit; otherwise the model answers. */
   loadOverview: (projectPath: string, opts?: { refresh?: boolean }) => Promise<void>;
 }
 
@@ -41,6 +43,10 @@ export const useAnalysisStore = create<AnalysisStoreState & AnalysisStoreActions
   overviewLoading: false,
   overviewError: null,
 
+  refresh: async (projectPath) => {
+    await window.api.analysis.refresh(projectPath);
+  },
+
   loadOverview: async (projectPath, opts) => {
     const version = ++overviewVersion;
     const switching = get().overviewProject !== projectPath;
@@ -51,7 +57,7 @@ export const useAnalysisStore = create<AnalysisStoreState & AnalysisStoreActions
       ...(switching ? { overview: null } : {}),
     });
     try {
-      if (opts?.refresh) await window.api.analysis.refresh(projectPath);
+      if (opts?.refresh) await window.api.analysis.refresh(projectPath, true);
       const overview = await window.api.analysis.overview(projectPath);
       if (version !== overviewVersion) return;
       set({ overview, overviewLoading: false });

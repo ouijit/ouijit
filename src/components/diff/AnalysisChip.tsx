@@ -1,8 +1,7 @@
 import { memo } from 'react';
-import type { FileSignal } from '../../analysis/types';
-import { ANALYSIS_WINDOW_MONTHS } from '../../analysis/types';
+import { ANALYSIS_WINDOW_MONTHS, type FileAnalysis, type HotspotTier } from '../../analysis/types';
 import { PARTNER_PREFIX, count, describeNesting, leversFor } from '../../analysis/advice';
-import { LEVER_ICON, MeterRow, OwnershipBar, Sparkline } from '../analysis/Signals';
+import { LEVER_ICON, MeterRow, OwnershipBar, Sparkline, TIER_COLOR } from '../analysis/Signals';
 import { Tooltip } from '../ui/Tooltip';
 import { Icon } from '../terminal/Icon';
 
@@ -11,9 +10,11 @@ import { Icon } from '../terminal/Icon';
  * for a file whose usual companion is absent. The evidence lives in the
  * tooltip; most files show nothing at all.
  */
-export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { signal: FileSignal; missing: string[] }) {
-  if (signal.tier === 'quiet' && missing.length === 0) return null;
+export function worthAChip({ signal, missing }: FileAnalysis): boolean {
+  return signal.tier !== 'quiet' || missing.length > 0;
+}
 
+export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: FileAnalysis) {
   const levers = leversFor(signal);
   const detail = (
     <div className="w-60 whitespace-normal py-1 flex flex-col gap-3 font-normal">
@@ -60,11 +61,7 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { si
 
   return (
     <Tooltip text={detail} referenceClassName="shrink-0 inline-flex">
-      <span
-        className={`flex items-center gap-1 text-[10px] px-1 py-px rounded font-medium ${
-          signal.tier === 'hot' ? 'bg-git-light text-git' : 'text-ink/45'
-        }`}
-      >
+      <span className={`flex items-center gap-1 text-[10px] px-1 py-px rounded font-medium ${TIER_COLOR[signal.tier].chip}`}>
         <Icon name={signal.tier === 'quiet' ? 'git-fork' : 'flame'} className="!w-3 !h-3" />
         {signal.tier === 'hot' && 'hotspot'}
       </span>
@@ -73,7 +70,7 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: { si
 });
 
 /** Rail counterpart: a dot on hot files, so the tree shows the diff's shape. */
-export function AnalysisRailDot({ signal }: { signal: FileSignal | undefined }) {
+export function AnalysisRailDot({ signal }: { signal: { tier: HotspotTier } | undefined }) {
   if (signal?.tier !== 'hot') return null;
   return <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-git/80" title="Hotspot" />;
 }

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { ChangedFile } from '../types';
-import type { FileAnalysis } from '../analysis/signals';
+import type { DiffSignals } from '../analysis/types';
 import { prFilesFingerprint } from '../diffSource';
 import { useGithubStore } from '../stores/githubStore';
 import { useAnalysisSignals } from './useAnalysisSignals';
@@ -10,10 +10,7 @@ import { useAnalysisSignals } from './useAnalysisSignals';
  * list and the summary all render from one fetch, which holds only while they
  * ask under the same key — so the key is built here rather than at each of them.
  */
-export function usePullRequestSignals(
-  headSha: string,
-  files: readonly ChangedFile[],
-): Map<string, FileAnalysis> | null {
+export function usePullRequestSignals(headSha: string, files: readonly ChangedFile[]): DiffSignals | null {
   const projectPath = useGithubStore((s) => s.projectPath);
   const fingerprint = useMemo(() => prFilesFingerprint(headSha, files), [headSha, files]);
   const paths = useMemo(() => files.map((f) => f.path), [files]);

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import type { HotspotRow, ModuleNode, PairSignal, Trend, TrendDirection } from '../../analysis/types';
-import { ANALYSIS_WINDOW_MONTHS } from '../../analysis/types';
+import type { HotspotRow, ModuleNode, Owner, PairSignal, Trend, TrendDirection } from '../../analysis/types';
+import { ANALYSIS_WINDOW_MONTHS, monthStart } from '../../analysis/types';
 import { count, describeFrequency, describeNesting, describeTrend, leversFor, mainAuthorOf } from '../../analysis/advice';
 import { recentCut } from '../../analysis/trend';
 import { basename, dirname } from '../../analysis/paths';
@@ -110,7 +110,7 @@ export function AnalysisPanel({ projectPath }: AnalysisPanelProps) {
               <Section label="Knowledge" count={overview.owners.length}>
                 <RowList empty="No commits in the window.">
                   {overview.owners.map((owner) => (
-                    <OwnerRow key={owner.name} {...owner} fileCount={overview.fileCount} />
+                    <OwnerRow key={owner.name} {...owner} />
                   ))}
                 </RowList>
               </Section>
@@ -141,7 +141,7 @@ function HotspotEntry({ projectPath, row, endMonth }: { projectPath: string; row
           name="caret-right"
           className={`w-3 h-3 shrink-0 text-text-tertiary transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
         />
-        <Icon name="flame" className={`w-3.5 h-3.5 shrink-0 ${TIER_COLOR[signal.tier]}`} />
+        <Icon name="flame" className={`w-3.5 h-3.5 shrink-0 ${TIER_COLOR[signal.tier].glyph}`} />
         <span className="flex-1 min-w-0 truncate font-mono text-[12px]">
           <PathName path={path} />
         </span>
@@ -258,16 +258,14 @@ function HistoryChart({ monthly, endMonth }: { monthly: number[]; endMonth: numb
   );
 }
 
-/** Buckets are UTC months, so the labels have to be read in UTC as well. */
 function monthLabels(months: number, endMonth: number): string[] {
-  return Array.from({ length: months }, (_, i) => {
-    const month = endMonth - (months - 1 - i);
-    return new Date(Date.UTC(Math.floor(month / 12), month % 12, 1)).toLocaleDateString(undefined, {
+  return Array.from({ length: months }, (_, i) =>
+    monthStart(endMonth - (months - 1 - i)).toLocaleDateString(undefined, {
       month: 'short',
       year: 'numeric',
       timeZone: 'UTC',
-    });
-  });
+    }),
+  );
 }
 
 function ModuleRow({ node, depth, defaultOpen = false }: { node: ModuleNode; depth: number; defaultOpen?: boolean }) {
@@ -334,11 +332,11 @@ function CouplingRow({ pair, directories = false }: { pair: PairSignal; director
   );
 }
 
-function OwnerRow({ name, mainOf, fileCount }: { name: string; mainOf: number; fileCount: number }) {
+function OwnerRow({ name, mainOf, share }: Owner) {
   return (
     <div className="flex items-center gap-2.5 px-2 py-1">
       <span className="w-44 shrink-0 truncate text-[12px] text-text-secondary">{name}</span>
-      <Track value={fileCount > 0 ? mainOf / fileCount : 0} className="flex-1 h-1" />
+      <Track value={share} className="flex-1 h-1" />
       <span className="w-36 shrink-0 text-right font-mono text-[10px] tabular-nums text-text-tertiary">
         main author of {count(mainOf, 'file')}
       </span>

@@ -25,7 +25,7 @@ import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type Diff
 import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
 import { toggleIn } from '../../utils/toggleIn';
 import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
-import { AnalysisChip, AnalysisRailDot } from './AnalysisChip';
+import { AnalysisChip, AnalysisRailDot, worthAChip } from './AnalysisChip';
 
 interface DiffPanelProps {
   ptyId: string;
@@ -93,14 +93,14 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   const analysisChips = useMemo(() => {
     if (!analysisSignals) return null;
     const chips = new Map<string, ReactNode>();
-    for (const [path, { signal, missing }] of analysisSignals) {
-      chips.set(path, <AnalysisChip signal={signal} missing={missing} />);
+    for (const [path, analysis] of Object.entries(analysisSignals)) {
+      if (worthAChip(analysis)) chips.set(path, <AnalysisChip {...analysis} />);
     }
     return chips;
   }, [analysisSignals]);
 
   const railTrailing = useCallback(
-    (file: ChangedFile) => <AnalysisRailDot signal={analysisSignals?.get(file.path)?.signal} />,
+    (file: ChangedFile) => <AnalysisRailDot signal={analysisSignals?.[file.path]?.signal} />,
     [analysisSignals],
   );
 

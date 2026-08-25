@@ -579,7 +579,7 @@ export interface ElectronAPI {
  */
 export interface AnalysisAPI {
   /** Cheap when nothing moved: a `rev-parse` gates the log pass. */
-  refresh(projectPath: string): Promise<void>;
+  refresh(projectPath: string, force?: boolean): Promise<void>;
   diffSignals(projectPath: string, paths: string[]): Promise<DiffSignals | null>;
   overview(projectPath: string): Promise<AnalysisOverview | null>;
 }

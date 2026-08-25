@@ -79,11 +79,9 @@ describe('foldCommits', () => {
       commits: 3,
       added: 13,
       deleted: 2,
-      firstAt: 100,
-      lastAt: 300,
       byMonth: new Map([[monthIndex(100), 3]]),
     });
-    expect(model.authors.get('x.ts')?.get('a@x')).toEqual({ name: 'Alice', commits: 2, added: 11 });
+    expect(model.authors.get('x.ts')?.get('a@x')).toEqual({ name: 'Alice', commits: 2 });
     expect(model.couplings.get(pairKey('x.ts', 'y.ts'))).toBe(2);
   });
 
@@ -103,7 +101,7 @@ describe('foldCommits', () => {
     ]);
 
     expect(model.files.has('old.ts')).toBe(false);
-    expect(model.files.get('new.ts')).toMatchObject({ commits: 4, added: 15, deleted: 1, firstAt: 100, lastAt: 400 });
+    expect(model.files.get('new.ts')).toMatchObject({ commits: 4, added: 15, deleted: 1 });
     expect(model.files.get('new.ts')?.byMonth.get(monthIndex(100))).toBe(4);
     expect(model.authors.get('new.ts')?.get('a@x')?.commits).toBe(2);
     expect(model.couplings.get(pairKey('new.ts', 'other.ts'))).toBe(2);
@@ -141,8 +139,8 @@ describe('foldCommits', () => {
     ]);
 
     // Two files in src/ui on one commit is one commit for src/ui, and for src.
-    expect(model.dirs.get('src/ui')).toMatchObject({ commits: 2, added: 16, deleted: 1 });
-    expect(model.dirs.get('src')).toMatchObject({ commits: 2, added: 18, deleted: 1 });
+    expect(model.dirs.get('src/ui')?.commits).toBe(2);
+    expect(model.dirs.get('src')?.commits).toBe(2);
     expect(model.dirs.get('src/db')?.commits).toBe(1);
     // A file at the repo root belongs to no directory.
     expect(model.dirs.has('')).toBe(false);
@@ -188,8 +186,6 @@ describe('leversFor', () => {
       commits: 20,
       added: 200,
       deleted: 100,
-      firstAt: 100,
-      lastAt: 200,
       score: 0.9,
       tier: 'hot',
       freqRank: 0.98,

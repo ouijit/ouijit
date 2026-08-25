@@ -10,6 +10,7 @@ import { KanbanBoard } from './kanban/KanbanBoard';
 import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
 import { PullRequestsPanel } from './github/PullRequestsPanel';
 import { AnalysisPanel } from './analysis/AnalysisPanel';
+import { useAnalysisStore } from '../stores/analysisStore';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { RunHookDialog } from './dialogs/RunHookDialog';
 import { openTaskComposer } from '../utils/openTaskComposer';
@@ -288,7 +289,7 @@ export function ProjectView() {
     const refreshAnalysis = () => {
       // Rate-limited and rev-parse-gated in the main process; a tick where
       // nothing moved costs one subprocess.
-      if (analysisEnabled) void window.api.analysis.refresh(projectPath);
+      if (analysisEnabled) void useAnalysisStore.getState().refresh(projectPath);
     };
     const start = () => {
       if (interval != null || document.hidden) return;

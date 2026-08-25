@@ -14,8 +14,15 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { scanProject, invalidateAnalysis, getAnalysisOverview, type ProjectAnalysis } from '../../analysis/service';
+import {
+  scanProject,
+  invalidateAnalysis,
+  getAnalysisOverview,
+  getDiffSignals,
+  type ProjectAnalysis,
+} from '../../analysis/service';
 import { pairKey } from '../../analysis/accumulate';
+import { monthIndex } from '../../analysis/types';
 import { setGlobalSetting, _resetCacheForTesting } from '../../db';
 import { experimentalStorageKey } from '../../experimentalFlags';
 import { invalidateMainBranchCache } from '../../git';
@@ -112,6 +119,21 @@ describe('scanProject', () => {
     expect([...incremental!.model.couplings.entries()].sort()).toEqual([...cold.model.couplings.entries()].sort());
   });
 
+  test('a model built in an earlier month is rebuilt rather than folded onto', async () => {
+    const before = await scanProject(repoDir);
+    // Folding only ever adds, so a model carried across a month boundary could
+    // never lose the months that had left the window.
+    before!.builtInMonth -= 1;
+
+    await write('c.ts', 'let c = 1;\n');
+    await commitAll('later');
+
+    const after = await scanProject(repoDir);
+    expect(after).not.toBe(before);
+    expect(after?.builtInMonth).toBe(monthIndex(Date.now() / 1000));
+    expect(after?.model.commitCount).toBe(4);
+  });
+
   test('a rewritten history falls back to a full rescan', async () => {
     const before = await scanProject(repoDir);
     expect(before?.model.commitCount).toBe(3);
@@ -178,6 +200,38 @@ describe('getAnalysisOverview', () => {
   test('the flag being off is indistinguishable from having no analysis', async () => {
     await setGlobalSetting(experimentalStorageKey(repoDir), JSON.stringify({ analysis: false }));
     expect(await getAnalysisOverview(repoDir)).toBeNull();
+    expect(await getDiffSignals(repoDir, ['a.ts'])).toBeNull();
+  });
+});
+
+describe('getDiffSignals', () => {
+  beforeEach(async () => {
+    _resetCacheForTesting();
+    await setGlobalSetting(experimentalStorageKey(repoDir), JSON.stringify({ analysis: true }));
+
+    // a.ts and b.ts move together often enough to couple; c.ts stays apart.
+    for (let i = 0; i < 4; i++) {
+      await write('a.ts', `let a = ${i};\n`);
+      await write('b.ts', `let b = ${i};\n`);
+      await commitAll(`pair ${i}`);
+    }
+    await write('c.ts', 'let c = 1;\n');
+    await commitAll('alone');
+    invalidateAnalysis(repoDir);
+  });
+
+  test('names a coupled file the diff leaves out, and stays quiet once it is in', async () => {
+    const without = await getDiffSignals(repoDir, ['a.ts']);
+    expect(without?.['a.ts'].missing).toEqual(['b.ts']);
+    expect(without?.['a.ts'].signal.commits).toBe(7);
+
+    // Both sides on screen: the reader can see the pair for themselves.
+    const withBoth = await getDiffSignals(repoDir, ['a.ts', 'b.ts']);
+    expect(withBoth?.['a.ts'].missing).toEqual([]);
+    expect(withBoth?.['b.ts'].missing).toEqual([]);
+
+    // A path with no history in the window is absent rather than empty.
+    expect(await getDiffSignals(repoDir, ['nothing.ts'])).toEqual({});
   });
 });
 

@@ -3,7 +3,7 @@ import type { PullRequestDetail } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { describeFrequency, describePartner, mainAuthorOf } from '../../analysis/advice';
-import type { FileAnalysis } from '../../analysis/signals';
+import type { DiffSignals } from '../../analysis/types';
 import { Icon } from '../terminal/Icon';
 import { Section } from './Sections';
 
@@ -19,10 +19,10 @@ const RISK_ICON: Record<RiskRow['kind'], string> = {
   uncoupled: 'git-fork',
 };
 
-function riskRows(byPath: ReadonlyMap<string, FileAnalysis>): RiskRow[] {
+function riskRows(signals: DiffSignals): RiskRow[] {
   const hotspots: RiskRow[] = [];
   const uncoupled: RiskRow[] = [];
-  for (const [path, { signal, missing }] of byPath) {
+  for (const [path, { signal, missing }] of Object.entries(signals)) {
     if (signal.tier === 'hot') {
       const author = mainAuthorOf(signal);
       const frequency = describeFrequency(signal);

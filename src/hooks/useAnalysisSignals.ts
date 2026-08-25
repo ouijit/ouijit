@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useAnalysisStore, signalsKey } from '../stores/analysisStore';
 import { useExperimentalStore } from '../stores/experimentalStore';
-import { analysisByPath, type FileAnalysis } from '../analysis/signals';
+import type { DiffSignals } from '../analysis/types';
 
 /**
  * Behavioural-analysis signals for one file list, by path. Null until they
@@ -15,16 +15,19 @@ export function useAnalysisSignals(
   projectPath: string,
   fingerprint: string,
   paths: readonly string[],
-): Map<string, FileAnalysis> | null {
+): DiffSignals | null {
   const enabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.analysis ?? false);
   const key = signalsKey(projectPath, fingerprint);
+  // Presence, not the value: the store evicts, and a view still on screen has
+  // to ask again rather than sit on the null that eviction leaves behind.
+  const held = useAnalysisStore((s) => s.signalsByKey.has(key));
   const signals = useAnalysisStore((s) => (enabled ? (s.signalsByKey.get(key) ?? null) : null));
 
   useEffect(() => {
-    if (!enabled || paths.length === 0) return;
+    if (!enabled || held || paths.length === 0) return;
     void useAnalysisStore.getState().load(projectPath, key, [...paths]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the key is the fingerprint's stable proxy for the path list
-  }, [enabled, projectPath, key]);
+  }, [enabled, held, projectPath, key]);
 
-  return useMemo(() => (signals ? analysisByPath(signals) : null), [signals]);
+  return signals;
 }
