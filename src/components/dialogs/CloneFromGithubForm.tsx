@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Icon } from '../terminal/Icon';
 import { parseRepoInput } from '../../github/repoUrl';
 import { repoSlug } from '../../github/types';
+import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import { DIALOG_INPUT_CLASS, ProjectLocationField, useProjectLocation } from './ProjectLocationField';
 import type { GithubRepoSummary, RepoIdentity, ResolvedRepo } from '../../types';
 
@@ -12,7 +13,7 @@ interface CloneFromGithubFormProps {
 }
 
 interface RepoChoice extends GithubRepoSummary {
-  identity: RepoIdentity;
+  slug: string;
   /** What picking this row puts in the input, so it parses back to `identity`. */
   ref: string;
 }
@@ -20,11 +21,16 @@ interface RepoChoice extends GithubRepoSummary {
 /** Long enough that typing a name out does not fork a `gh` process per keystroke. */
 const RESOLVE_DEBOUNCE_MS = 400;
 
-function matchesNeedle(repo: GithubRepoSummary, needle: string): boolean {
-  return repo.slug.toLowerCase().includes(needle) || (repo.description?.toLowerCase().includes(needle) ?? false);
+const UNKNOWN: ResolvedRepo = { status: 'unknown' };
+
+/** Best score across the slug and the description, or null for no match. */
+function scoreRepo(slug: string, description: string | null, needle: string): number | null {
+  const onSlug = fuzzyMatch(needle, slug)?.score ?? -Infinity;
+  const onDescription = description ? (fuzzyMatch(needle, description)?.score ?? -Infinity) : -Infinity;
+  const best = Math.max(onSlug, onDescription);
+  return best === -Infinity ? null : best;
 }
 
-/** Body and footer only — the add-project dialog owns the overlay and header. */
 export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubFormProps) {
   const [query, setQuery] = useState('');
   const { location, loadError, chooseLocation } = useProjectLocation();
@@ -33,7 +39,7 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
   const [listLoading, setListLoading] = useState(true);
   const [highlight, setHighlight] = useState(-1);
   const [cloning, setCloning] = useState(false);
-  const [remote, setRemote] = useState<ResolvedRepo>({ status: 'unknown' });
+  const [remote, setRemote] = useState<ResolvedRepo>(UNKNOWN);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -65,18 +71,23 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
   const resolved = useMemo(() => parseRepoInput(query), [query]);
   const resolvedSlug = resolved && repoSlug(resolved);
 
+  const choices = useMemo(
+    (): RepoChoice[] => repos.map((repo) => ({ ...repo, slug: repoSlug(repo.identity), ref: repoSlug(repo.identity) })),
+    [repos],
+  );
+
   // A pasted URL is filtered on as the `owner/name` it resolves to, so it can
   // match a listed repo, and is offered as its own row when it matches none —
   // the list is only the user's own repos, and any repo is fair game to clone.
   const listedMatch = resolvedSlug
-    ? repos.find((repo) => repo.slug.toLowerCase() === resolvedSlug.toLowerCase())
+    ? choices.find((repo) => repo.slug.toLowerCase() === resolvedSlug.toLowerCase())
     : undefined;
 
   // A repo already in the list is known to exist; anything else is checked
   // against GitHub.
   useEffect(() => {
     if (!resolved || listedMatch) return;
-    setRemote({ status: 'unknown' });
+    setRemote((current) => (current.status === 'unknown' ? current : UNKNOWN));
     let cancelled = false;
     const timer = setTimeout(() => {
       window.api
@@ -85,7 +96,7 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
           if (!cancelled) setRemote(result);
         })
         .catch(() => {
-          if (!cancelled) setRemote({ status: 'unknown' });
+          if (!cancelled) setRemote(UNKNOWN);
         });
     }, RESOLVE_DEBOUNCE_MS);
     return () => {
@@ -96,16 +107,21 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
 
   const resolution = useMemo<ResolvedRepo>(() => {
     if (listedMatch) return { status: 'found', repo: listedMatch };
-    return resolved ? remote : { status: 'unknown' };
+    return resolved ? remote : UNKNOWN;
   }, [listedMatch, resolved, remote]);
 
   const matches = useMemo((): RepoChoice[] => {
-    const needle = (resolvedSlug || query).trim().toLowerCase();
-    const listed = (needle ? repos.filter((repo) => matchesNeedle(repo, needle)) : repos).flatMap((repo) => {
-      const identity = parseRepoInput(repo.slug);
-      return identity ? [{ ...repo, identity, ref: repo.slug }] : [];
-    });
-    const unlisted = resolved && resolvedSlug && !listed.some((repo) => repo.slug.toLowerCase() === needle);
+    const needle = (resolvedSlug || query).trim();
+    const listed = needle
+      ? choices
+          .flatMap((repo) => {
+            const score = scoreRepo(repo.slug, repo.description, needle);
+            return score === null ? [] : [{ repo, score }];
+          })
+          .sort((a, b) => b.score - a.score)
+          .map(({ repo }) => repo)
+      : choices;
+    const unlisted = resolved && resolvedSlug && !listedMatch;
     if (unlisted && resolution.status !== 'not-found') {
       const found = resolution.status === 'found' ? resolution.repo : undefined;
       return [
@@ -120,7 +136,7 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
       ];
     }
     return listed;
-  }, [repos, query, resolved, resolvedSlug, resolution]);
+  }, [choices, query, resolved, resolvedSlug, listedMatch, resolution]);
 
   const target = matches[highlight]?.identity ?? resolved;
   // `unknown` never blocks — see `resolveRepo`. Only a definite 404 does.
@@ -139,11 +155,11 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
       setError(null);
       setCloning(true);
       const result = await window.api.startClone({ repo, parentDir: location ?? undefined });
-      if (result.success && result.projectPath) {
-        onStarted(result.projectPath);
-      } else {
-        setError(result.error ?? 'Could not start the clone.');
+      if (result.success === false) {
+        setError(result.error);
         setCloning(false);
+      } else {
+        onStarted(result.projectPath);
       }
     },
     [location, cloning, onStarted],

@@ -1,7 +1,7 @@
 import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { usePaletteShortcut } from './hooks/usePaletteShortcut';
-import { useAppStore, selectActiveClone } from './stores/appStore';
+import { useAppStore, selectIsCloning } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
 import { useExperimentalStore } from './stores/experimentalStore';
 import { TitleBar } from './components/TitleBarReact';
@@ -76,15 +76,15 @@ export function App() {
   const helpDialogOpen = useAppStore((s) => s.helpDialogOpen);
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const [addProjectStep, setAddProjectStep] = useState<AddProjectStep | null>(null);
-  const activeClone = useAppStore(selectActiveClone);
+  const cloning = useAppStore(selectIsCloning);
   const [gitInitPath, setGitInitPath] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (activeProjectPath && !activeClone) {
+    if (activeProjectPath && !cloning) {
       useExperimentalStore.getState().loadFor(activeProjectPath);
     }
-  }, [activeProjectPath, activeClone]);
+  }, [activeProjectPath, cloning]);
 
   // Prevent Electron drag/drop navigation
   useEffect(() => {
@@ -209,20 +209,19 @@ export function App() {
     selectHome();
   }, []);
 
-  /**
-   * Refresh the project list and navigate to the folder that just became a
-   * project. `onlyIfActive` is for a project that arrived on its own time: it
-   * settles in place for whoever is watching, and never pulls someone back to
-   * a project they navigated away from while it was still arriving.
-   */
-  const finalizeAddedProject = useCallback(async (addedPath: string, onlyIfActive = false) => {
+  const refreshProjects = useCallback(async (): Promise<Project[]> => {
     const projects = await window.api.refreshProjects();
     useAppStore.getState().setProjects(projects);
-    const project = projects.find((p) => p.path === addedPath);
-    if (!project) return;
-    if (onlyIfActive && useAppStore.getState().activeProjectPath !== addedPath) return;
-    useAppStore.getState().navigateToProject(addedPath, project);
+    return projects;
   }, []);
+
+  const finalizeAddedProject = useCallback(
+    async (addedPath: string) => {
+      const project = (await refreshProjects()).find((p) => p.path === addedPath);
+      if (project) useAppStore.getState().navigateToProject(addedPath, project);
+    },
+    [refreshProjects],
+  );
 
   const handleAddExisting = useCallback(async () => {
     const result = await window.api.showFolderPicker();
@@ -269,12 +268,19 @@ export function App() {
   useEffect(() => {
     void window.api.listClones().then((jobs) => useAppStore.getState().setCloneJobs(jobs));
     const stopChanged = window.api.onClonesChanged((jobs) => useAppStore.getState().setCloneJobs(jobs));
-    const stopLanded = window.api.onCloneLanded((projectPath) => void finalizeAddedProject(projectPath, true));
+    const stopLanded = window.api.onCloneLanded(async (projectPath) => {
+      const project = (await refreshProjects()).find((p) => p.path === projectPath);
+      // Settle in place for whoever is watching, but never pull someone back to
+      // a project they navigated away from while it downloaded.
+      if (project && useAppStore.getState().activeProjectPath === projectPath) {
+        useAppStore.getState().navigateToProject(projectPath, project);
+      }
+    });
     return () => {
       stopChanged();
       stopLanded();
     };
-  }, [finalizeAddedProject]);
+  }, [refreshProjects]);
 
   const chooseProjectSource = useCallback(
     (kind: ProjectSourceKind) => {
@@ -325,7 +331,7 @@ export function App() {
         >
           <ViewErrorBoundary>
             {activeView === 'home' && (homeActivePanel === 'settings' ? <GlobalSettingsPanel /> : <HomeView />)}
-            {activeView === 'project' && (activeClone ? <CloningProjectView job={activeClone} /> : <ProjectView />)}
+            {activeView === 'project' && (cloning ? <CloningProjectView /> : <ProjectView />)}
           </ViewErrorBoundary>
         </main>
       </div>

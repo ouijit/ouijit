@@ -18,6 +18,7 @@ import {
   RESOLVE_THREAD_MUTATION,
   UNRESOLVE_THREAD_MUTATION,
 } from './queries';
+import { DEFAULT_GH_HOST } from './repoUrl';
 import type {
   RepoIdentity,
   GithubRepoSummary,
@@ -766,8 +767,17 @@ interface RawRepo {
   private: boolean;
 }
 
-function toRepoSummary(raw: RawRepo): GithubRepoSummary {
-  return { slug: raw.full_name, description: raw.description, isPrivate: raw.private };
+/**
+ * `full_name` is `owner/name` with no host, so the host has to come from
+ * whichever one the request was answered by.
+ */
+function toRepoSummary(raw: RawRepo, host: string): GithubRepoSummary {
+  const [owner, repo] = raw.full_name.split('/');
+  return {
+    identity: { host, owner, repo },
+    description: raw.description,
+    isPrivate: raw.private,
+  };
 }
 
 /** Repos the signed-in user can clone, most recently pushed first. */
@@ -775,10 +785,11 @@ export async function fetchUserRepos(): Promise<GithubRepoSummary[]> {
   const raw = await ghRest<RawRepo[]>(
     `user/repos?per_page=${USER_REPO_LIMIT}&sort=pushed&affiliation=owner,collaborator,organization_member`,
   );
-  return raw.map(toRepoSummary);
+  // No identity was passed, so gh answered from its default host.
+  return raw.map((repo) => toRepoSummary(repo, DEFAULT_GH_HOST));
 }
 
 /** One repo by identity — the existence check the import dialog runs. */
 export async function fetchRepo(identity: RepoIdentity): Promise<GithubRepoSummary> {
-  return toRepoSummary(await ghRest<RawRepo>(`repos/${repoSlug(identity)}`, { identity }));
+  return toRepoSummary(await ghRest<RawRepo>(`repos/${repoSlug(identity)}`, { identity }), identity.host);
 }

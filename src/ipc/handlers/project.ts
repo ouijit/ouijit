@@ -71,10 +71,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   });
   typedHandle('clone:start', (options) => startClone(options));
   typedHandle('clone:list', () => listCloneJobs());
-  typedHandle('clone:cancel', (projectPath) => {
-    cancelClone(projectPath);
-    return { success: true };
-  });
+  typedHandle('clone:cancel', (projectPath) => cancelClone(projectPath));
   typedHandle('clone:retry', (projectPath) => retryClone(projectPath));
 
   typedHandle('show-folder-picker', async (options) => {

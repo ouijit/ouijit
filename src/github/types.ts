@@ -26,8 +26,7 @@ export function repoSlug(identity: RepoIdentity): string {
 
 /** A repo the signed-in user can clone, as the import dialog lists it. */
 export interface GithubRepoSummary {
-  /** `owner/name` — what the clone input takes. */
-  slug: string;
+  identity: RepoIdentity;
   description: string | null;
   isPrivate: boolean;
 }

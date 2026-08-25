@@ -93,7 +93,7 @@ export interface IpcInvokeContract {
   'create-project': { args: [options: CreateProjectOptions]; return: CreateProjectResult };
   'clone:start': { args: [options: CloneProjectOptions]; return: StartCloneResult };
   'clone:list': { args: []; return: CloneJob[] };
-  'clone:cancel': { args: [projectPath: string]; return: { success: boolean } };
+  'clone:cancel': { args: [projectPath: string]; return: void };
   'clone:retry': { args: [projectPath: string]; return: StartCloneResult };
   'show-folder-picker': { args: [options?: FolderPickerOptions]; return: { canceled: boolean; filePaths: string[] } };
   'projects:get-default-folder': { args: []; return: string };

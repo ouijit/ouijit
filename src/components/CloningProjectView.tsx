@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './terminal/Icon';
 import { repoSlug } from '../github/types';
-import { useAppStore } from '../stores/appStore';
-import type { CloneJob } from '../types';
+import { useAppStore, selectActiveClone } from '../stores/appStore';
+import type { CloneJob, FailedCloneJob } from '../types';
 
 /**
  * Where a clone is watched. Stands in for the whole project view, so none of
  * the project machinery — git status polling, terminal reconnection, task
  * loading — ever runs against a directory that is not there yet.
  */
-export function CloningProjectView({ job }: { job: CloneJob }) {
+export function CloningProjectView() {
+  const job = useAppStore(selectActiveClone);
   const [busy, setBusy] = useState(false);
+  if (!job) return null;
   const failed = job.status === 'failed';
 
   const dismiss = async () => {
@@ -33,7 +35,7 @@ export function CloningProjectView({ job }: { job: CloneJob }) {
           <span className="font-mono text-xs text-text-secondary">{repoSlug(job.identity)}</span>
         </div>
 
-        {failed ? <CloneFailure job={job} /> : <CloneProgressBar job={job} />}
+        {job.status === 'failed' ? <CloneFailure job={job} /> : <CloneProgressBar job={job} />}
 
         <div className="flex gap-2">
           {failed ? (
@@ -80,7 +82,7 @@ function CloneProgressBar({ job }: { job: CloneJob }) {
   );
 }
 
-function CloneFailure({ job }: { job: CloneJob }) {
+function CloneFailure({ job }: { job: FailedCloneJob }) {
   const [showOutput, setShowOutput] = useState(false);
   return (
     <>

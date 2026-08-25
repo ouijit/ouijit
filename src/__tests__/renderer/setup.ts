@@ -67,7 +67,6 @@ const mockApi = {
   getFileDiff: vi.fn().mockResolvedValue(null),
   createProject: vi.fn().mockResolvedValue({ success: true }),
   showFolderPicker: vi.fn().mockResolvedValue({ canceled: true, filePaths: [] }),
-  cloneProject: vi.fn().mockResolvedValue({ success: true }),
   listGithubRepos: vi.fn().mockResolvedValue({ repos: [] }),
   resolveGithubRepo: vi.fn().mockResolvedValue({ status: 'unknown' }),
   addProject: vi.fn().mockResolvedValue({ success: true }),

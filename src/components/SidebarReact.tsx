@@ -2,19 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import {
-  useFloating,
-  useHover,
-  useDismiss,
-  useRole,
-  useInteractions,
-  autoUpdate,
-  offset,
-  flip,
-  shift,
-} from '@floating-ui/react';
-import { createPortal } from 'react-dom';
 import type { Project } from '../types';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
@@ -32,7 +21,9 @@ interface SidebarProps {
 
 export function Sidebar({ onProjectSelect, onHomeSelect, onAddProject, onCloneSelect }: SidebarProps) {
   const projects = useAppStore((s) => s.projects);
-  const cloneJobs = useAppStore((s) => s.cloneJobs);
+  // The paths, not the jobs: a job is replaced on every progress line, and
+  // re-rendering the drag context to animate one ring is not worth it.
+  const cloningPaths = useAppStore(useShallow((s) => s.cloneJobs.map((job) => job.projectPath)));
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const fullscreen = useAppStore((s) => s.fullscreen);
@@ -268,12 +259,12 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddProject, onCloneSe
             </SortableContext>
           </DndContext>
 
-          {cloneJobs.map((job) => (
+          {cloningPaths.map((projectPath) => (
             <CloningProjectIcon
-              key={job.projectPath}
-              job={job}
-              isActive={activeView === 'project' && activeProjectPath === job.projectPath}
-              onClick={() => onCloneSelect(job.projectPath)}
+              key={projectPath}
+              projectPath={projectPath}
+              isActive={activeView === 'project' && activeProjectPath === projectPath}
+              onClick={() => onCloneSelect(projectPath)}
             />
           ))}
 
@@ -343,29 +334,6 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
     id: project.path,
   });
 
-  // Tooltip via floating-ui hooks (no wrapper element needed)
-  const [tipOpen, setTipOpen] = useState(false);
-  const {
-    refs: tipRefs,
-    floatingStyles: tipStyles,
-    context: tipContext,
-  } = useFloating({
-    open: tipOpen,
-    onOpenChange: setTipOpen,
-    placement: 'right',
-    strategy: 'fixed',
-    middleware: [offset(-4), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-  const tipHover = useHover(tipContext, { move: false, delay: { open: 100 } });
-  const tipDismiss = useDismiss(tipContext);
-  const tipRole = useRole(tipContext, { role: 'tooltip' });
-  const { getReferenceProps: getTipRefProps, getFloatingProps: getTipFloatProps } = useInteractions([
-    tipHover,
-    tipDismiss,
-    tipRole,
-  ]);
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -373,67 +341,54 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
   };
 
   return (
-    <>
-      <div
-        ref={(node) => {
-          setNodeRef(node);
-          tipRefs.setReference(node);
-        }}
-        {...attributes}
-        {...getTipRefProps()}
-        {...listeners}
-        className="group relative flex items-center justify-center shrink-0 [-webkit-app-region:no-drag]"
-        style={{ ...style, width: 'var(--sidebar-width)', height: 48 }}
-        data-project-path={project.path}
-        onClick={onClick}
-        onContextMenu={onContextMenu}
-      >
+    <SidebarTooltipWrapper label={project.name} disabled={isDragging}>
+      {(tipRef, tipProps) => (
         <div
-          className={`absolute left-0 w-1 rounded-r-sm bg-ink transition-all duration-200 ease-out ${
-            isActive ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
-          }`}
-        />
-        <div className="w-10 h-10 overflow-hidden rounded-md">
+          ref={(node) => {
+            setNodeRef(node);
+            tipRef(node);
+          }}
+          {...attributes}
+          {...tipProps}
+          {...listeners}
+          className="group relative flex items-center justify-center shrink-0 [-webkit-app-region:no-drag]"
+          style={{ ...style, width: 'var(--sidebar-width)', height: 48 }}
+          data-project-path={project.path}
+          onClick={onClick}
+          onContextMenu={onContextMenu}
+        >
           <div
-            className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
-            style={{ backgroundColor: projectIconColor(project), textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
-          >
-            {getInitials(project.name)}
-          </div>
-        </div>
-        {terminalCount > 0 && (
-          <span
-            className="absolute bottom-0 right-2 flex items-center justify-center text-accent-ink font-bold"
-            style={{
-              minWidth: 16,
-              height: 16,
-              fontSize: 10,
-              lineHeight: 1,
-              padding: '0 4px',
-              borderRadius: 8,
-              background: 'var(--color-accent)',
-              border: '2px solid var(--color-background)',
-            }}
-          >
-            {terminalCount}
-          </span>
-        )}
-      </div>
-      {tipOpen &&
-        !isDragging &&
-        createPortal(
-          <div
-            ref={tipRefs.setFloating}
-            className="fixed z-[10002] pointer-events-none"
-            style={tipStyles}
-            {...getTipFloatProps()}
-          >
-            <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip whitespace-nowrap animate-tooltip-pop">
-              {project.name}
+            className={`absolute left-0 w-1 rounded-r-sm bg-ink transition-all duration-200 ease-out ${
+              isActive ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
+            }`}
+          />
+          <div className="w-10 h-10 overflow-hidden rounded-md">
+            <div
+              className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
+              style={{ backgroundColor: projectIconColor(project), textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
+            >
+              {getInitials(project.name)}
             </div>
-          </div>,
-          document.body,
-        )}
-    </>
+          </div>
+          {terminalCount > 0 && (
+            <span
+              className="absolute bottom-0 right-2 flex items-center justify-center text-accent-ink font-bold"
+              style={{
+                minWidth: 16,
+                height: 16,
+                fontSize: 10,
+                lineHeight: 1,
+                padding: '0 4px',
+                borderRadius: 8,
+                background: 'var(--color-accent)',
+                border: '2px solid var(--color-background)',
+              }}
+            >
+              {terminalCount}
+            </span>
+          )}
+        </div>
+      )}
+    </SidebarTooltipWrapper>
   );
 }

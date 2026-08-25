@@ -8,6 +8,9 @@
 
 import type { RepoIdentity } from './types';
 
+/** Where gh sends a request that names no host of its own. */
+export const DEFAULT_GH_HOST = 'github.com';
+
 /**
  * Parse a git remote URL into `{host, owner, repo}`.
  *
@@ -56,14 +59,13 @@ function fromHostAndPath(host: string, rawPath: string): RepoIdentity | null {
  */
 function normalizeHost(host: string): string {
   const lower = host.toLowerCase();
-  if (lower === 'ssh.github.com') return 'github.com';
-  if (lower === 'www.github.com') return 'github.com';
+  if (lower === 'ssh.github.com' || lower === 'www.github.com') return DEFAULT_GH_HOST;
   return lower;
 }
 
 /** True for github.com itself; anything else with a GitHub remote is GHES. */
 export function isDotCom(identity: RepoIdentity): boolean {
-  return identity.host === 'github.com';
+  return identity.host === DEFAULT_GH_HOST;
 }
 
 /** `owner/name` with no scheme — the shorthand `gh` itself accepts. */
@@ -78,7 +80,7 @@ const SHORTHAND = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/;
 export function parseRepoInput(input: string): RepoIdentity | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
-  if (SHORTHAND.test(trimmed)) return parseRemoteUrl(`https://github.com/${trimmed}`);
+  if (SHORTHAND.test(trimmed)) return parseRemoteUrl(`https://${DEFAULT_GH_HOST}/${trimmed}`);
 
   const direct = parseRemoteUrl(trimmed);
   if (direct) return direct;

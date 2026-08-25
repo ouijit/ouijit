@@ -176,14 +176,16 @@ export function listUserRepos(): Promise<UserReposResult> {
 }
 
 async function loadUserRepos(): Promise<UserReposResult> {
-  // Both probes are cached for the life of the process, and both messages ask
-  // the user to go fix the thing they probed. A negative is re-probed so
-  // reopening the dialog is enough to see that work.
-  const health = getCachedHealth() ?? (await checkHealth());
-  if (!health.gh && !(await refreshHealth()).gh) {
+  // A cached negative is re-probed rather than trusted: the message tells the
+  // user to go install or sign in, and reopening the dialog has to be enough
+  // to see that work. `listUserRepos` drops its memo on any message, so the
+  // reopen gets here.
+  const cached = getCachedHealth();
+  const health = cached?.gh ? cached : await refreshHealth();
+  if (!health.gh) {
     return { repos: [], message: 'Install the GitHub CLI from cli.github.com to browse your repositories.' };
   }
-  if (!(await isGhAuthenticated(false)) && !(await isGhAuthenticated(true))) {
+  if (!(await isGhAuthenticated(true))) {
     return { repos: [], message: 'Run `gh auth login` in a terminal to browse your repositories.' };
   }
   try {

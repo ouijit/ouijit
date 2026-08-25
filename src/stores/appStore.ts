@@ -89,9 +89,22 @@ function deriveHomeRecents(projects: Project[], cache: Record<string, TaskWithWo
 
 type AppStore = AppStoreState & AppStoreActions;
 
-/** The clone standing in for the active project, when the project is not real yet. */
+/**
+ * The clone standing in for the active project, when the project is not real
+ * yet. The job object is replaced on every progress line, so anything that
+ * only needs to know a clone is there should subscribe to `selectIsCloning`
+ * instead of re-rendering with it.
+ */
 export function selectActiveClone(s: AppStoreState): CloneJob | undefined {
   return s.activeProjectPath ? s.cloneJobs.find((job) => job.projectPath === s.activeProjectPath) : undefined;
+}
+
+export function selectIsCloning(s: AppStoreState): boolean {
+  return selectActiveClone(s) !== undefined;
+}
+
+export function selectCloneJob(projectPath: string) {
+  return (s: AppStoreState): CloneJob | undefined => s.cloneJobs.find((job) => job.projectPath === projectPath);
 }
 
 export const useAppStore = create<AppStore>()((set, get) => ({

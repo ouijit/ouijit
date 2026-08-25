@@ -17,7 +17,7 @@ import { ghEnv } from './github/client';
 import { cloneUrl } from './github/repoUrl';
 import { repoSlug, type RepoIdentity } from './github/types';
 import { getCachedHealth, checkHealth } from './healthCheck';
-import { resolveNewProjectPath } from './projectCreator';
+import { resolveNewProjectPath, type NewProjectPathFailure } from './projectCreator';
 import { getLogger } from './logger';
 import type { CloneProgress, CloneProjectOptions } from './types';
 
@@ -76,13 +76,16 @@ export type CloneOutcome = { status: 'landed' } | { status: 'canceled' } | { sta
 
 export type ResolvedCloneTarget = { ok: true; target: CloneTarget } | { ok: false; error: string };
 
+const CLONE_PATH_ERRORS: Record<NewProjectPathFailure, (name: string) => string> = {
+  'relative-parent': () => 'The project location must be an absolute path',
+  'escapes-parent': () => 'Invalid repository name',
+  taken: (name) => `A folder named ${name} already exists in that location`,
+};
+
 export async function resolveCloneTarget(options: CloneProjectOptions): Promise<ResolvedCloneTarget> {
   const { repo: identity } = options;
-  const resolved = await resolveNewProjectPath(identity.repo, options.parentDir, {
-    noun: 'repository',
-    taken: (name) => `A folder named ${name} already exists in that location`,
-  });
-  if (resolved.ok === false) return resolved;
+  const resolved = await resolveNewProjectPath(identity.repo, options.parentDir);
+  if (resolved.ok === false) return { ok: false, error: CLONE_PATH_ERRORS[resolved.reason](identity.repo) };
 
   const { parentDir, projectPath } = resolved;
   return {

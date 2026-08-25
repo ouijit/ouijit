@@ -16,7 +16,7 @@ import * as path from 'node:path';
 import { resolveCloneTarget, runClone, type RunningClone } from '../repoCloner';
 import { registerProducedProject } from './projectRegistration';
 import { getLogger } from '../logger';
-import type { CloneJob, CloneProjectOptions, StartCloneResult } from '../types';
+import type { CloneJob, CloneProgress, CloneProjectOptions, StartCloneResult } from '../types';
 
 const registryLog = getLogger().scope('cloneRegistry');
 
@@ -47,14 +47,21 @@ function publish(): void {
   notify(listCloneJobs());
 }
 
-function update(projectPath: string, patch: Partial<CloneJob>): void {
+function reportProgress(projectPath: string, progress: CloneProgress): void {
   const entry = entries.get(projectPath);
   if (!entry) return;
   // git redraws the same percentage repeatedly; each publish re-renders the
-  // whole sidebar, so an unchanged patch must not become one.
-  const changed = Object.entries(patch).some(([key, value]) => entry.job[key as keyof CloneJob] !== value);
-  if (!changed) return;
-  entry.job = { ...entry.job, ...patch };
+  // sidebar, so a line carrying nothing new must not become one.
+  const { phase, percent, detail } = entry.job;
+  if (progress.phase === phase && progress.percent === percent && progress.detail === detail) return;
+  entry.job = { ...entry.job, ...progress };
+  publish();
+}
+
+function fail(projectPath: string, error: string, output?: string): void {
+  const entry = entries.get(projectPath);
+  if (!entry) return;
+  entry.job = { ...entry.job, status: 'failed', error, output };
   publish();
 }
 
@@ -87,7 +94,7 @@ export async function startClone(options: CloneProjectOptions): Promise<StartClo
   entries.set(target.projectPath, entry);
   publish();
 
-  entry.running = runClone(target, (progress) => update(target.projectPath, progress));
+  entry.running = runClone(target, (progress) => reportProgress(target.projectPath, progress));
 
   void entry.running.done.then(async (outcome) => {
     if (outcome.status === 'canceled') {
@@ -96,13 +103,13 @@ export async function startClone(options: CloneProjectOptions): Promise<StartClo
       return;
     }
     if (outcome.status === 'failed') {
-      update(target.projectPath, { status: 'failed', error: outcome.error, output: entry.running?.output() });
+      fail(target.projectPath, outcome.error, entry.running?.output());
       return;
     }
 
     const registered = await registerProducedProject(target.projectPath, 'cloned');
     if (registered.success === false) {
-      update(target.projectPath, { status: 'failed', error: registered.error });
+      fail(target.projectPath, registered.error);
       return;
     }
 

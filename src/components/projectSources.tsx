@@ -1,10 +1,4 @@
-/**
- * The three ways a project arrives, and the panel that offers them.
- *
- * Shared by the home empty state and the add-project dialog so the wording and
- * the treatment a first-time user meets are the ones the sidebar gives back
- * later.
- */
+/** The three ways a project arrives, and the panel that offers them. */
 
 import { Icon } from './terminal/Icon';
 

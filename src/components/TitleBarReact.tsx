@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { useAppStore, selectActiveClone } from '../stores/appStore';
+import { useAppStore, selectIsCloning } from '../stores/appStore';
 import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { useExperimentalStore } from '../stores/experimentalStore';
@@ -23,7 +23,7 @@ export function TitleBar({ mode }: TitleBarProps) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeView = useAppStore((s) => s.activeView);
   // A cloning project has no directory yet, so nothing here may act on its path.
-  const cloning = useAppStore(selectActiveClone) !== undefined;
+  const cloning = useAppStore(selectIsCloning);
   const fullscreen = useAppStore((s) => s.fullscreen);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const terminalLayout = useProjectStore((s) => s.terminalLayout);

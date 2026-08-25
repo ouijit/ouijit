@@ -9,7 +9,6 @@ interface NewProjectFormProps {
 
 const NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/;
 
-/** Body and footer only — the add-project dialog owns the overlay and header. */
 export function NewProjectForm({ onCancel, onCreated }: NewProjectFormProps) {
   const [name, setName] = useState('');
   const { location, loadError, chooseLocation } = useProjectLocation();

@@ -24,7 +24,6 @@ const TITLES: Record<AddProjectStep, string> = {
   clone: 'Clone from GitHub',
 };
 
-/** One dialog for every way a project arrives. */
 export function AddProjectDialog({
   initialStep = 'choose',
   onClose,

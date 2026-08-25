@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { SidebarTooltipWrapper } from './SidebarTooltip';
+import { useAppStore, selectCloneJob } from '../stores/appStore';
 import type { CloneJob } from '../types';
 
 /**
@@ -8,14 +10,16 @@ import type { CloneJob } from '../types';
  * opens the clone's own view, which is where cancelling lives.
  */
 export function CloningProjectIcon({
-  job,
+  projectPath,
   isActive,
   onClick,
 }: {
-  job: CloneJob;
+  projectPath: string;
   isActive: boolean;
   onClick: () => void;
 }) {
+  const job = useAppStore(useMemo(() => selectCloneJob(projectPath), [projectPath]));
+  if (!job) return null;
   const failed = job.status === 'failed';
 
   return (
@@ -26,7 +30,6 @@ export function CloningProjectIcon({
           {...tipProps}
           className="group relative flex items-center justify-center shrink-0 [-webkit-app-region:no-drag]"
           style={{ width: 'var(--sidebar-width)', height: 48 }}
-          data-cloning-path={job.projectPath}
           onClick={onClick}
         >
           <div

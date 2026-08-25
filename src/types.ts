@@ -491,7 +491,7 @@ export interface ElectronAPI {
   /** Clones currently in flight */
   listClones(): Promise<CloneJob[]>;
   /** Stop a clone and drop what it had written, or clear one that failed */
-  cancelClone(projectPath: string): Promise<{ success: boolean }>;
+  cancelClone(projectPath: string): Promise<void>;
   /** Run a failed clone again, into the same place */
   retryClone(projectPath: string): Promise<StartCloneResult>;
   onClonesChanged(callback: (jobs: CloneJob[]) => void): () => void;
@@ -697,8 +697,8 @@ export interface OnboardingAPI {
  * How the user's first project arrived — created fresh, added from an existing
  * folder, or cloned from GitHub. Used to vary the intro stage lead.
  *
- * Declared as an array because the value is persisted, and what comes back has
- * to be checked against the list at runtime.
+ * An array because the value is persisted, so what comes back has to be
+ * checked against the list at runtime.
  */
 export const FIRST_PROJECT_SOURCES = ['created', 'added', 'cloned'] as const;
 export type FirstProjectSource = (typeof FIRST_PROJECT_SOURCES)[number];
@@ -855,26 +855,29 @@ export interface CloneProgress {
  * path its project will have, so it can stand in that project's place before
  * the project exists.
  */
-export interface CloneJob extends CloneProgress {
+interface CloneJobBase extends CloneProgress {
   projectPath: string;
   /** Folder name, which is what the project will be called. */
   name: string;
   identity: RepoIdentity;
-  status: 'cloning' | 'failed';
   /** Epoch ms, so the view can count elapsed time without a ticking push. */
   startedAt: number;
-  error?: string;
-  /** git's stderr, kept for a failure the message alone does not explain. */
+}
+
+export interface FailedCloneJob extends CloneJobBase {
+  status: 'failed';
+  error: string;
+  /** git's stderr, for a failure the message alone does not explain. */
   output?: string;
 }
 
-/** Whether the clone got under way — not whether it finished. */
-export interface StartCloneResult {
-  success: boolean;
-  /** Where the project will be, so the caller can navigate there at once. */
-  projectPath?: string;
-  error?: string;
-}
+export type CloneJob = (CloneJobBase & { status: 'cloning' }) | FailedCloneJob;
+
+/**
+ * Whether the clone got under way — not whether it finished. `projectPath` is
+ * where the project will be, so the caller can navigate there at once.
+ */
+export type StartCloneResult = { success: true; projectPath: string } | { success: false; error: string };
 
 export interface FolderPickerOptions {
   title?: string;
