@@ -146,9 +146,11 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
     return listed;
   }, [choices, query, resolved, resolvedSlug, listedMatch, resolution]);
 
-  const target = matches[highlight]?.identity ?? resolved;
-  // `unknown` never blocks — see `resolveRepo`. Only a definite 404 does.
-  const canClone = target !== null && resolution.status !== 'not-found';
+  const picked = matches[highlight]?.identity ?? null;
+  const target = picked ?? resolved;
+  // `unknown` never blocks — see `resolveRepo`. Only a definite 404 does, and
+  // only for what was typed: a repo picked out of the list is known to exist.
+  const canClone = target !== null && (picked !== null || resolution.status !== 'not-found');
 
   useEffect(() => {
     listRef.current?.children[highlight]?.scrollIntoView({ block: 'nearest' });
@@ -183,10 +185,10 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
         setHighlight((h) => Math.max(h - 1, -1));
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        handleClone(target);
+        if (canClone) handleClone(target);
       }
     },
-    [matches.length, target, handleClone],
+    [matches.length, target, canClone, handleClone],
   );
 
   return (

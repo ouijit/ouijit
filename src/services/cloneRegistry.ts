@@ -47,9 +47,13 @@ function publish(): void {
   notify(listCloneJobs());
 }
 
-function reportProgress(projectPath: string, progress: CloneProgress): void {
-  const entry = entries.get(projectPath);
-  if (!entry) return;
+/** False once a retry has replaced this entry: a superseded run must not write to the list. */
+function isCurrent(entry: Entry): boolean {
+  return entries.get(entry.job.projectPath) === entry;
+}
+
+function reportProgress(entry: Entry, progress: CloneProgress): void {
+  if (!isCurrent(entry)) return;
   // git redraws the same percentage repeatedly; each publish re-renders the
   // sidebar, so a line carrying nothing new must not become one.
   const { phase, percent, detail } = entry.job;
@@ -58,10 +62,15 @@ function reportProgress(projectPath: string, progress: CloneProgress): void {
   publish();
 }
 
-function fail(projectPath: string, error: string, output?: string): void {
-  const entry = entries.get(projectPath);
-  if (!entry) return;
+function fail(entry: Entry, error: string, output?: string): void {
+  if (!isCurrent(entry)) return;
   entry.job = { ...entry.job, status: 'failed', error, output };
+  publish();
+}
+
+function forget(entry: Entry): void {
+  if (!isCurrent(entry)) return;
+  entries.delete(entry.job.projectPath);
   publish();
 }
 
@@ -69,13 +78,17 @@ function fail(projectPath: string, error: string, output?: string): void {
  * Begin a clone and return as soon as it is under way. The caller gets the
  * path the project will occupy so it can navigate there immediately; the
  * outcome arrives over the change and landed notifications.
+ *
+ * `replacing` names the path a retry is taking over, which keeps its place in
+ * the list until this one is ready: a path that is briefly neither a clone nor
+ * a project puts the project view on a directory that is not there.
  */
-export async function startClone(options: CloneProjectOptions): Promise<StartCloneResult> {
+export async function startClone(options: CloneProjectOptions, replacing?: string): Promise<StartCloneResult> {
   const resolved = await resolveCloneTarget(options);
   if (resolved.ok === false) return { success: false, error: resolved.error };
 
   const { target } = resolved;
-  if (entries.has(target.projectPath)) {
+  if (entries.has(target.projectPath) && target.projectPath !== replacing) {
     return { success: false, error: `${path.basename(target.projectPath)} is already being cloned` };
   }
 
@@ -94,30 +107,29 @@ export async function startClone(options: CloneProjectOptions): Promise<StartClo
   entries.set(target.projectPath, entry);
   publish();
 
-  entry.running = runClone(target, (progress) => reportProgress(target.projectPath, progress));
+  entry.running = runClone(target, (progress) => reportProgress(entry, progress));
 
   void entry.running.done.then(async (outcome) => {
     if (outcome.status === 'canceled') {
-      entries.delete(target.projectPath);
-      publish();
+      forget(entry);
       return;
     }
     if (outcome.status === 'failed') {
-      fail(target.projectPath, outcome.error, entry.running?.output());
+      fail(entry, outcome.error, entry.running?.output());
       return;
     }
 
     const registered = await registerProducedProject(target.projectPath, 'cloned');
     if (registered.success === false) {
-      fail(target.projectPath, registered.error);
+      fail(entry, registered.error);
       return;
     }
 
+    if (!isCurrent(entry)) return;
     // Announced before the entry goes, so the renderer never sees a path with
     // neither a clone standing in for it nor a project row yet.
     announceLanded(target.projectPath);
-    entries.delete(target.projectPath);
-    publish();
+    forget(entry);
   });
 
   return { success: true, projectPath: target.projectPath };
@@ -131,22 +143,22 @@ export function cancelClone(projectPath: string): void {
   entry.running?.cancel();
   // A clone that already failed has no process left to signal, so nothing
   // would remove its entry.
-  if (entry.job.status === 'failed') {
-    entries.delete(projectPath);
-    publish();
-  }
+  if (entry.job.status === 'failed') forget(entry);
 }
 
 /**
  * Run a failed clone again, into the place it was already headed. The entry
- * holds everything that takes, so the renderer does not have to reassemble it.
+ * holds everything that takes, so the renderer does not have to reassemble it,
+ * and it stays listed until the new one replaces it.
  */
 export async function retryClone(projectPath: string): Promise<StartCloneResult> {
   const entry = entries.get(projectPath);
   if (!entry) return { success: false, error: 'That clone is no longer listed' };
-  const { identity } = entry.job;
-  cancelClone(projectPath);
-  return startClone({ repo: identity, parentDir: path.dirname(projectPath) });
+  // Only a finished run can be replaced. Cancelling a live one settles its
+  // `done` on its own schedule, which could drop the entry out from under the
+  // run taking its place.
+  if (entry.job.status !== 'failed') return { success: false, error: 'That clone is still running' };
+  return startClone({ repo: entry.job.identity, parentDir: path.dirname(projectPath) }, projectPath);
 }
 
 /** Cancel everything in flight — the app is going away and cannot finish them. */

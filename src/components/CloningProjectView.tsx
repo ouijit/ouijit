@@ -12,18 +12,23 @@ import type { CloneJob, FailedCloneJob } from '../types';
 export function CloningProjectView() {
   const job = useAppStore(selectActiveClone);
   const [busy, setBusy] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   if (!job) return null;
   const failed = job.status === 'failed';
 
-  const dismiss = async () => {
+  const dismiss = () => {
     setBusy(true);
-    await window.api.cancelClone(job.projectPath);
+    // Home before the cancel, not after it: dropping the job while its path is
+    // still the active one puts the project view on a folder that is not there.
     useAppStore.getState().navigateHome();
+    void window.api.cancelClone(job.projectPath);
   };
 
   const retry = async () => {
     setBusy(true);
-    await window.api.retryClone(job.projectPath);
+    setRetryError(null);
+    const result = await window.api.retryClone(job.projectPath);
+    if (result.success === false) setRetryError(result.error);
     setBusy(false);
   };
 
@@ -36,6 +41,7 @@ export function CloningProjectView() {
         </div>
 
         {job.status === 'failed' ? <CloneFailure job={job} /> : <CloneProgressBar job={job} />}
+        {retryError && <p className="text-xs text-error">{retryError}</p>}
 
         <div className="flex gap-2">
           {failed ? (

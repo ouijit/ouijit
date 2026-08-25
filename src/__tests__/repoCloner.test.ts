@@ -309,10 +309,15 @@ describe('clone registry', () => {
       await fakeGh({ stall: true });
       const parentDir = path.join(scratchDir, 'projects');
 
-      await startClone({ repo: OUIJIT, parentDir });
+      const started = await startClone({ repo: OUIJIT, parentDir });
       const second = await startClone({ repo: OUIJIT, parentDir });
 
       expect(second).toMatchObject({ success: false, error: expect.stringMatching(/already being cloned/) });
+      // Retry replaces a job in place, so it may only take over a finished one.
+      expect(started.success && (await retryClone(started.projectPath))).toMatchObject({
+        success: false,
+        error: expect.stringMatching(/still running/),
+      });
     },
     SUBPROCESS_TIMEOUT,
   );

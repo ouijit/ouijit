@@ -170,6 +170,13 @@ export function runClone(target: CloneTarget, onProgress: (progress: CloneProgre
       : (['git', ['clone', '--progress', cloneUrl(target.identity), target.stagingPath]] as const);
 
     const code = await new Promise<number | null>((resolve, reject) => {
+      // `cancel` has nothing to signal until there is a process, and the health
+      // probe above can take seconds — without this, a cancel landing in that
+      // window would let the whole repo download before it took effect.
+      if (canceled) {
+        resolve(null);
+        return;
+      }
       child = spawn(command, [...args], { env: cloneEnv(target.identity), detached: true });
       let carry = '';
       child.stderr?.setEncoding('utf8');
