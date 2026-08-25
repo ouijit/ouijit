@@ -10,7 +10,6 @@ const RISING_RATIO = 1.5;
  */
 const COOLING_RATIO = 0.5;
 
-/** Index the recent tail of a monthly series starts at. */
 export function recentCut(months: number): number {
   return Math.max(0, months - TREND_RECENT_MONTHS);
 }

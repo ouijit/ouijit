@@ -1,12 +1,6 @@
 /**
- * The analysis scan against a real git repo.
- *
- * The cache is the part a unit test can't reach: a scan must survive the
- * app's lifetime — fold only the new commits when the tip advances, and
- * start over when history is rewritten under it — and both paths must land
- * on the same model a cold scan produces. The overview is here too, because
- * what the panel renders is the whole pipeline — log, rollup, score, tree —
- * and only a real repo exercises all of it at once.
+ * The analysis scan against a real git repo: the cache is the part a unit test
+ * can't reach, and the overview is the whole pipeline at once.
  */
 
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
@@ -88,7 +82,7 @@ async function freshScan(): Promise<ProjectAnalysis> {
   return analysis!;
 }
 
-describe('scanProject', () => {
+describe('the analysis cache across scans', () => {
   test('builds the model from history and reads complexity from the tree', async () => {
     const analysis = await freshScan();
 
@@ -123,10 +117,17 @@ describe('scanProject', () => {
     expect(incremental).toBe(before); // same object, folded in place
     const cold = await freshScan();
 
+    const byPath = <T,>(entries: Iterable<[string, T]>) =>
+      [...entries].sort((a, b) => a[0].localeCompare(b[0]));
+
     expect(incremental!.lastSha).toBe(cold.lastSha);
     expect(incremental!.model.commitCount).toBe(cold.model.commitCount);
-    expect([...incremental!.model.files.entries()].sort()).toEqual([...cold.model.files.entries()].sort());
-    expect([...incremental!.model.couplings.entries()].sort()).toEqual([...cold.model.couplings.entries()].sort());
+    expect(byPath(incremental!.model.files)).toEqual(byPath(cold.model.files));
+    expect(byPath(incremental!.model.couplings)).toEqual(byPath(cold.model.couplings));
+    // Complexity is carried forward for files the fold did not touch, so an
+    // edited file holding a stale reading would show up only here.
+    expect(byPath(incremental!.complexity)).toEqual(byPath(cold.complexity));
+    expect(byPath(incremental!.scores)).toEqual(byPath(cold.scores));
   });
 
   test('a model built in an earlier month is rebuilt rather than folded onto', async () => {
@@ -161,7 +162,7 @@ describe('scanProject', () => {
   });
 });
 
-describe('getAnalysisOverview', () => {
+describe('the project read as a whole', () => {
   // The flag gate reads globalSettings, so the reads need a database behind them.
   beforeEach(async () => {
     _resetCacheForTesting();
@@ -174,8 +175,7 @@ describe('getAnalysisOverview', () => {
     for (let i = 0; i < 12; i++) await write(`misc/f${i}.ts`, `export const f = ${i};\n`);
     await commitAll('filler');
 
-    // A directory deep enough to prove the tree rolls up, and busy enough to
-    // rank: one file changed on every commit, its neighbour on most of them.
+    // A directory deep enough to prove the tree rolls up, and busy enough to rank.
     for (let i = 0; i < 8; i++) {
       await write('src/core/engine.ts', nested(i, 40));
       if (i % 2 === 0) await write('src/core/helper.ts', `export const h = ${i};\n`);
@@ -199,7 +199,6 @@ describe('getAnalysisOverview', () => {
     expect(src?.commits).toBe(8);
     expect(src?.children.map((c) => c.path).sort()).toEqual(['src/core', 'src/ui']);
     expect(src?.children.find((c) => c.path === 'src/core')?.hotspots).toBeGreaterThan(0);
-    // A commit touching two files in one directory counts once for it.
     expect(src?.children.find((c) => c.path === 'src/ui')?.commits).toBe(3);
 
     expect(overview!.moduleCouplings.some((p) => p.a === 'src/core' && p.b === 'src/ui')).toBe(true);
@@ -219,6 +218,23 @@ describe('getAnalysisOverview', () => {
     expect(await getDiffSignals(repoDir, ['ancient.ts'])).toEqual({});
   });
 
+  test('a lockfile never runs hot, but is still named as a file left behind', async () => {
+    for (let i = 0; i < 6; i++) {
+      await write('package.json', `{ "version": "0.0.${i}" }\n`);
+      await write('package-lock.json', nested(i, 60));
+      await commitAll(`bump ${i}`);
+    }
+    invalidateAnalysis(repoDir);
+
+    const signals = await getDiffSignals(repoDir, ['package.json']);
+    // Deeply nested and changed constantly, so complexity alone would rank it
+    // top; it is left unread instead, which is what keeps it quiet.
+    const lock = await getDiffSignals(repoDir, ['package-lock.json']);
+    expect(lock!['package-lock.json'].signal).toMatchObject({ tier: 'quiet', cxRank: null });
+    // Coupling still sees it: "you changed the manifest but not the lockfile".
+    expect(signals!['package.json'].missing).toEqual(['package-lock.json']);
+  });
+
   test('the flag being off is indistinguishable from having no analysis', async () => {
     await setGlobalSetting(experimentalStorageKey(repoDir), JSON.stringify({ analysis: false }));
     expect(await getAnalysisOverview(repoDir)).toBeNull();
@@ -226,7 +242,7 @@ describe('getAnalysisOverview', () => {
   });
 });
 
-describe('getDiffSignals', () => {
+describe('signals for one diff', () => {
   beforeEach(async () => {
     _resetCacheForTesting();
     await setGlobalSetting(experimentalStorageKey(repoDir), JSON.stringify({ analysis: true }));

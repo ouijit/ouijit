@@ -22,18 +22,13 @@ const DEEP_NESTING = 6;
 /** Lines written and removed, over the file's current size. */
 const REWRITE_RATIO = 5;
 const HELD_SHARE = 0.8;
-/** Enough of a file's commits to name someone as the person to ask about it. */
 const MAIN_AUTHOR_SHARE = 0.5;
 const FRAGMENTED_SHARE = 0.35;
 const FRAGMENTED_AUTHORS = 4;
 const SEAM_DEGREE = 0.7;
 const MAX_LEVERS = 3;
 
-/**
- * The rules of thumb behind a hotspot, as the one move each argues for.
- * Nothing fires for a quiet file, and a file whose numbers say nothing in
- * particular gets no levers rather than a filler one.
- */
+/** The rules of thumb behind a hotspot, as the one move each argues for. */
 export function leversFor(signal: FileSignal, partner?: Partner | null): Lever[] {
   if (signal.tier === 'quiet') return [];
 
@@ -80,7 +75,6 @@ export function describePartner(partner: string): string {
   return `${PARTNER_PREFIX} ${partner}`;
 }
 
-/** So a single commit is not "1 commits". */
 export function count(n: number, noun: string): string {
   return `${n.toLocaleString()} ${noun}${n === 1 ? '' : 's'}`;
 }

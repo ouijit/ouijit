@@ -5,8 +5,7 @@ import type { DiffSignals } from '../analysis/types';
 
 /**
  * Behavioural-analysis signals for one file list, by path. Null until they
- * arrive, and always null while the project's analysis flag is off — the diff
- * renders identically either way, just without the chips.
+ * arrive, and always null while the project's analysis flag is off.
  *
  * Keyed on the caller's file-list fingerprint (the same one that gates its
  * diff loads), so status polls handing back fresh arrays don't refetch.

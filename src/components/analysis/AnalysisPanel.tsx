@@ -17,11 +17,6 @@ interface AnalysisPanelProps {
   projectPath: string;
 }
 
-/**
- * The project's history read as a whole: where the hotspots are, what each
- * one is made of, how the modules are shaped, which files travel together,
- * and who holds the code. Same model the diff chips read.
- */
 export function AnalysisPanel({ projectPath }: AnalysisPanelProps) {
   const overview = useAnalysisStore((s) => s.overview);
   const loading = useAnalysisStore((s) => s.overviewLoading);
@@ -31,7 +26,6 @@ export function AnalysisPanel({ projectPath }: AnalysisPanelProps) {
     void useAnalysisStore.getState().loadOverview(projectPath);
   }, [projectPath]);
 
-  // Escape leaves the panel, as the settings and GitHub panels do.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
@@ -122,7 +116,6 @@ export function AnalysisPanel({ projectPath }: AnalysisPanelProps) {
   );
 }
 
-/** A hotspot, and on demand the numbers and the moves they argue for. */
 function HotspotEntry({ projectPath, row, endMonth }: { projectPath: string; row: HotspotRow; endMonth: number }) {
   const [open, setOpen] = useState(false);
   const { path, signal } = row;
@@ -162,7 +155,6 @@ function HotspotEntry({ projectPath, row, endMonth }: { projectPath: string; row
   );
 }
 
-/** Why the file is hot, and the moves its numbers argue for. */
 function HotspotDetail({ projectPath, row, endMonth }: { projectPath: string; row: HotspotRow; endMonth: number }) {
   const { signal } = row;
   const levers = leversFor(signal, row.partner);
@@ -234,8 +226,7 @@ function Measure({ value, label }: { value: number; label: string }) {
 }
 
 /**
- * The file's months, with the tail the trend is read from at full strength.
- * Bars are capped rather than stretched, so the block ends up as wide as the
+ * Bars are capped rather than stretched, so the block ends up as wide as its
  * data and the two axis labels land on the first and last month.
  */
 function HistoryChart({ monthly, endMonth }: { monthly: number[]; endMonth: number }) {

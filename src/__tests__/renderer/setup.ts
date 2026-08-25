@@ -183,6 +183,11 @@ const mockApi = {
     }),
     onUpdate: vi.fn().mockReturnValue(() => {}),
   },
+  analysis: {
+    refresh: vi.fn().mockResolvedValue(undefined),
+    diffSignals: vi.fn().mockResolvedValue(null),
+    overview: vi.fn().mockResolvedValue(null),
+  },
   diffNotes: {
     list: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),

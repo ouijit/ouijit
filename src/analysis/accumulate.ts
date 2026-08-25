@@ -2,14 +2,12 @@ import type { LogCommit } from './gitLog';
 import { ancestorDirs, dirOf } from './paths';
 import { COUPLING_MIN_SHARED, monthIndex } from './types';
 
-/** What a directory accumulates: how often it changed, and when. */
 export interface Activity {
   commits: number;
-  /** monthIndex(at) → commits, for the activity sparkline. */
+  /** monthIndex(at) → commits. */
   byMonth: Map<number, number>;
 }
 
-/** A file also accumulates churn, which the hotspot rules read. */
 export interface FileStats extends Activity {
   added: number;
   deleted: number;
@@ -41,7 +39,7 @@ export interface AnalysisModel {
    * repo; a bulk rename is otherwise quadratic in the coupling map's size.
    */
   pairsByPath: Map<string, Set<string>>;
-  /** monthIndex(at) → commits, for the project's own activity series. */
+  /** monthIndex(at) → commits across the project. */
   commitsByMonth: Map<number, number>;
   commitCount: number;
 }
@@ -82,9 +80,9 @@ export function splitPairKey(key: string): [string, string] {
 }
 
 /**
- * Folds commits into the model. Commits must arrive oldest first: a rename
- * migrates what its old path has accumulated so far, which is only right when
- * the commits before it have already been folded.
+ * Commits must arrive oldest first: a rename migrates what its old path has
+ * accumulated so far, which is only right when the commits before it have
+ * already been folded.
  */
 export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[]): void {
   for (const commit of commits) {
@@ -114,7 +112,6 @@ export function foldCommits(model: AnalysisModel, commits: readonly LogCommit[])
       paths.push(change.path);
     }
 
-    // A commit counts once for a directory however many of its files it touched.
     for (const dir of dirs) bump(model.dirs, dir, month);
 
     if (paths.length >= 2 && paths.length <= COUPLING_COMMIT_FILE_CAP) {

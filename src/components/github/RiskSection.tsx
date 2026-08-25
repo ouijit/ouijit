@@ -45,11 +45,7 @@ function riskRows(signals: DiffSignals): RiskRow[] {
   return [...hotspots, ...uncoupled];
 }
 
-/**
- * What this pull request's history says about it: hotspot files it touches,
- * and coupled files it leaves out. Facts only — absent entirely when the
- * analysis flag is off or the history is unremarkable.
- */
+/** Hotspot files this pull request touches, and coupled files it leaves out. */
 export function RiskSection({ detail }: { detail: PullRequestDetail }) {
   const files = useGithubStore((s) => s.files);
   const signals = usePullRequestSignals(detail.headSha, files);

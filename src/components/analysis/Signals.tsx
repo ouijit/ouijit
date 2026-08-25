@@ -1,19 +1,13 @@
 import type { LeverId } from '../../analysis/advice';
 import type { HotspotTier } from '../../analysis/types';
 
-/** The visual vocabulary the diff chip and the project panel both read from. */
-
-/**
- * How hot a file runs, as a colour. `chip` tints a filled badge, `glyph` a
- * bare icon — the same distinction the pull request state badges draw.
- */
+/** How hot a file runs, as a colour: `chip` tints a filled badge, `glyph` a bare icon. */
 export const TIER_COLOR: Record<HotspotTier, { chip: string; glyph: string }> = {
   hot: { chip: 'bg-git-light text-git', glyph: 'text-git' },
   warm: { chip: 'text-git/50', glyph: 'text-git/50' },
   quiet: { chip: 'text-ink/45', glyph: 'text-ink/25' },
 };
 
-/** What each rule of thumb is about, so a lever reads before it is read. */
 export const LEVER_ICON: Record<LeverId, string> = {
   cooling: 'minus-circle',
   split: 'square-split-horizontal',
@@ -80,10 +74,7 @@ export function Track({ value, className }: { value: number; className: string }
   );
 }
 
-/**
- * A percentile as a filled track, in the scored hue rather than the neutral
- * one `Track` uses — the two of these are the hotspot score.
- */
+/** A percentile as a filled track, in the scored hue rather than the neutral one `Track` uses. */
 function ScoreTrack({ rank, className }: { rank: number; className: string }) {
   return (
     <span className={`block rounded-full overflow-hidden bg-git-light ${className}`} aria-hidden>
@@ -92,7 +83,6 @@ function ScoreTrack({ rank, className }: { rank: number; className: string }) {
   );
 }
 
-/** Compact enough for a tooltip: label, track and percentile on one line. */
 export function MeterRow({ label, rank }: { label: string; rank: number }) {
   return (
     <div className="flex items-center gap-2 text-[10px]">
@@ -103,7 +93,6 @@ export function MeterRow({ label, rank }: { label: string; rank: number }) {
   );
 }
 
-/** The same, stacked, over the measurement the percentile is read from. */
 export function ScoreMeter({ label, rank, detail }: { label: string; rank: number; detail: string }) {
   return (
     <div>
@@ -118,9 +107,8 @@ export function ScoreMeter({ label, rank, detail }: { label: string; rank: numbe
 }
 
 /**
- * People, not a third measure: neutral steps ordered by share, so the two
- * scored hues stay the only colors carrying a number. The legend swatch is
- * what ties a name to its segment — order alone would make the reader count.
+ * People, not a third measure: neutral steps, so the two scored hues stay the
+ * only colours carrying a number.
  */
 const OWNER_SEGMENT = ['bg-ink/70', 'bg-ink/40', 'bg-ink/22'];
 const OWNER_REST = 'bg-ink/12';

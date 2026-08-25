@@ -41,11 +41,7 @@ export interface ProjectAnalysis {
   overview?: AnalysisOverview;
 }
 
-/**
- * The whole result is a derivation of git history, so nothing is persisted:
- * one entry per project, rebuilt in under a second on the first request after
- * a restart. See docs/plans/behavioural-analysis.md.
- */
+/** The whole result is a derivation of git history, so nothing is persisted. */
 const cache = new Map<string, ProjectAnalysis>();
 const inflight = new Map<string, Promise<ProjectAnalysis | null>>();
 const attemptedAt = new Map<string, number>();
@@ -89,7 +85,6 @@ async function readAnalysis(projectPath: string): Promise<ProjectAnalysis | null
   return cache.get(projectPath) ?? (await scanProject(projectPath));
 }
 
-/** Signals for one file list — what the diff and PR surfaces render from. */
 export async function getDiffSignals(projectPath: string, paths: string[]): Promise<DiffSignals | null> {
   const analysis = await readAnalysis(projectPath);
   if (!analysis) return null;
@@ -104,14 +99,9 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
   return signals;
 }
 
-/** As many absent partners as a reader will take in, strongest first. */
 const MISSING_PARTNER_LIMIT = 3;
 
-/**
- * Files `p` usually changes with that the diff leaves out. A partner that is
- * in the diff too is not news, so it never leaves here — and the list is
- * ranked and cut here rather than by whichever surface renders it.
- */
+/** Files `p` usually changes with that the diff leaves out. */
 function missingPartners(model: AnalysisModel, p: string, asked: ReadonlySet<string>): string[] {
   const ranked: Array<{ partner: string; degree: number }> = [];
   for (const key of model.pairsByPath.get(p) ?? []) {
@@ -135,7 +125,6 @@ const OVERVIEW_OWNERS = 8;
 const MODULE_MAX_DEPTH = 4;
 const MODULE_MAX_CHILDREN = 12;
 
-/** The project-level view — hotspots, modules, coupling, ownership. */
 export async function getAnalysisOverview(projectPath: string): Promise<AnalysisOverview | null> {
   const analysis = await readAnalysis(projectPath);
   if (!analysis) return null;
@@ -367,8 +356,6 @@ async function scan(projectPath: string): Promise<ProjectAnalysis | null> {
   let analysis: ProjectAnalysis;
   let touched: ReadonlySet<string> | undefined;
   if (prev && (await isAncestor(projectPath, prev.lastSha, sha))) {
-    // readLog hands them back oldest first, which foldCommits requires: a
-    // rename migrates a path's history forward in time.
     const commits = await readLog(projectPath, `${prev.lastSha}..${sha}`);
     touched = new Set(commits.flatMap((c) => c.files.map((f) => f.path)));
     foldCommits(prev.model, commits);

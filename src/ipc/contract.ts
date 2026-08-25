@@ -299,8 +299,6 @@ export interface IpcInvokeContract {
   'diff-notes:clear': { args: [worktreePath: string]; return: { success: boolean } };
 
   // ── Behavioural analysis ───────────────────────────────────────────
-  // Signals mined from the project repo's git history. Null whenever the
-  // experimental flag is off, so callers need no gate of their own.
   'analysis:refresh': { args: [projectPath: string, force?: boolean]; return: void };
   'analysis:diff-signals': { args: [projectPath: string, paths: string[]]; return: DiffSignals | null };
   'analysis:overview': { args: [projectPath: string]; return: AnalysisOverview | null };

@@ -287,8 +287,6 @@ export function ProjectView() {
       if (githubEnabled) void detectPullRequestsForProject(projectPath);
     };
     const refreshAnalysis = () => {
-      // Rate-limited and rev-parse-gated in the main process; a tick where
-      // nothing moved costs one subprocess.
       if (analysisEnabled) void useAnalysisStore.getState().refresh(projectPath);
     };
     const start = () => {

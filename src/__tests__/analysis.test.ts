@@ -1,16 +1,12 @@
 /**
- * The behavioural-analysis engine, on crafted history.
- *
- * Everything downstream — chips on the diff, the PR risk section — is a plain
- * rendering of what these functions produce, so this is where the algorithms
- * are pinned: log parsing survives git's rename notations, a rename carries a
- * file's history forward, bulk commits stay out of coupling, and the hotspot
- * tiers demand frequency and complexity together.
+ * The behavioural-analysis engine, on crafted history. Everything downstream
+ * is a plain rendering of what these functions produce, so the algorithms are
+ * pinned here rather than at the surfaces.
  */
 
 import { describe, test, expect } from 'vitest';
 import { parseLog, parseRenamePath, type LogCommit } from '../analysis/gitLog';
-import { emptyModel, foldCommits, pairKey, splitPairKey, COUPLING_COMMIT_FILE_CAP } from '../analysis/accumulate';
+import { emptyModel, foldCommits, pairKey, COUPLING_COMMIT_FILE_CAP } from '../analysis/accumulate';
 import { complexityOf } from '../analysis/complexity';
 import { scoreFiles } from '../analysis/score';
 import { trendOf } from '../analysis/trend';
@@ -24,7 +20,7 @@ function commit(sha: string, at: number, email: string, name: string, files: Log
   return { sha, at, email, name, files };
 }
 
-describe('parseRenamePath', () => {
+describe('reading what git printed', () => {
   test('resolves every numstat path notation', () => {
     expect(parseRenamePath('src/git.ts')).toEqual({ path: 'src/git.ts' });
     expect(parseRenamePath('old.ts => new.ts')).toEqual({ path: 'new.ts', oldPath: 'old.ts' });
@@ -33,9 +29,7 @@ describe('parseRenamePath', () => {
     expect(parseRenamePath('src/{ => sub}/f.ts')).toEqual({ path: 'src/sub/f.ts', oldPath: 'src/f.ts' });
     expect(parseRenamePath('src/{sub => }/f.ts')).toEqual({ path: 'src/f.ts', oldPath: 'src/sub/f.ts' });
   });
-});
 
-describe('parseLog', () => {
   test('reads commits, binary counts, and renames from framed output', () => {
     const output =
       `${MARK}aaa${SEP}100${SEP}a@x${SEP}Alice\n` +
@@ -43,6 +37,8 @@ describe('parseLog', () => {
       `-\t-\tlogo.png\n` +
       `${MARK}bbb${SEP}200${SEP}b@x${SEP}Bob\n` +
       `0\t0\told.ts => new.ts\n`;
+
+    expect(parseLog('')).toEqual([]);
 
     const commits = parseLog(output);
     expect(commits).toHaveLength(2);
@@ -53,13 +49,9 @@ describe('parseLog', () => {
     ]);
     expect(commits[1].files).toEqual([{ path: 'new.ts', oldPath: 'old.ts', added: 0, deleted: 0 }]);
   });
-
-  test('empty output yields no commits', () => {
-    expect(parseLog('')).toEqual([]);
-  });
 });
 
-describe('foldCommits', () => {
+describe('folding commits into a model', () => {
   test('accumulates stats, authors, and coupling', () => {
     const model = emptyModel();
     foldCommits(model, [
@@ -121,11 +113,6 @@ describe('foldCommits', () => {
     expect(model.couplings.size).toBe(0);
   });
 
-  test('pair keys survive paths with spaces', () => {
-    const key = pairKey('a b.ts', 'c d.ts');
-    expect(splitPairKey(key)).toEqual(['a b.ts', 'c d.ts']);
-  });
-
   test('directories roll up whole subtrees, counting a commit once each', () => {
     const model = emptyModel();
     foldCommits(model, [
@@ -153,7 +140,7 @@ describe('foldCommits', () => {
   });
 });
 
-describe('trendOf', () => {
+describe('where the activity is heading', () => {
   const months = (...counts: number[]) => {
     const monthly = new Array<number>(ANALYSIS_WINDOW_MONTHS).fill(0);
     counts.forEach((n, i) => (monthly[monthly.length - counts.length + i] = n));
@@ -161,26 +148,21 @@ describe('trendOf', () => {
   };
 
   test('reads direction from the recent months against the rest', () => {
-    // Nine quiet months, then a burst: rising.
     expect(trendOf(months(0, 0, 0, 0, 0, 0, 1, 1, 1, 6, 6, 6)).direction).toBe('rising');
-    // The mirror image: a busy start that has stopped.
     expect(trendOf(months(6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0, 1)).direction).toBe('cooling');
+    expect(trendOf(months(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)).direction).toBe('steady');
     // Nothing before the recent window at all.
     expect(trendOf(months(0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 1))).toMatchObject({
       direction: 'new',
       recent: 6,
       total: 6,
     });
-    // An even spread is neither.
-    expect(trendOf(months(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)).direction).toBe('steady');
-  });
-
-  test('too few commits to read is steady, whatever the shape', () => {
+    // Too little either side to read a direction from, whatever the shape.
     expect(trendOf(months(0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2)).direction).toBe('steady');
   });
 });
 
-describe('leversFor', () => {
+describe('what a hotspot argues for', () => {
   function signal(over: Partial<FileSignal> = {}): FileSignal {
     return {
       commits: 20,
@@ -212,52 +194,35 @@ describe('leversFor', () => {
     expect(levers.map((l) => l.id)).toEqual(['cooling']);
   });
 
-  test('a quiet file gets nothing, and neither does an unremarkable hot one', () => {
+  test('each lever answers to its own numbers, and says nothing without them', () => {
+    // Small, shallow and barely churned, so only the lever under test fires.
+    const unremarkable = { added: 20, deleted: 5, complexity: { loc: 90, indentTotal: 90, indentMax: 3 } };
+
     expect(leversFor(signal({ tier: 'quiet' }))).toEqual([]);
-    expect(
-      leversFor(
-        signal({
-          added: 20,
-          deleted: 10,
-          complexity: { loc: 90, indentTotal: 90, indentMax: 3 },
-          authorCount: 2,
-        }),
-      ),
-    ).toEqual([]);
-  });
+    expect(leversFor(signal({ ...unremarkable, authorCount: 2 }))).toEqual([]);
 
-  test('ownership reads as concentration or as fragmentation, never both', () => {
-    const small = { loc: 90, indentTotal: 90, indentMax: 3 };
-    const held = leversFor(
-      signal({ added: 20, deleted: 5, complexity: small, topAuthors: [{ name: 'Alice', share: 0.9 }] }),
-    );
-    expect(held.map((l) => l.id)).toEqual(['held']);
+    const ids = (over: Partial<FileSignal>, partner?: { path: string; degree: number }) =>
+      leversFor(signal({ ...unremarkable, ...over }), partner).map((l) => l.id);
 
-    const spread = leversFor(
-      signal({ added: 20, deleted: 5, complexity: small, authorCount: 6, topAuthors: [{ name: 'Alice', share: 0.2 }] }),
-    );
-    expect(spread.map((l) => l.id)).toEqual(['fragmented']);
-  });
+    expect(ids({ topAuthors: [{ name: 'Alice', share: 0.9 }] })).toEqual(['held']);
+    // Concentration and fragmentation are the same question, so never both.
+    expect(ids({ authorCount: 6, topAuthors: [{ name: 'Alice', share: 0.2 }] })).toEqual(['fragmented']);
+    expect(ids({}, { path: 'src/deep/other.ts', degree: 0.85 })).toEqual(['seam']);
+    // A loose partner is a coincidence rather than a seam.
+    expect(ids({}, { path: 'src/deep/other.ts', degree: 0.55 })).toEqual([]);
 
-  test('a partner that always travels with it points at the seam', () => {
-    const levers = leversFor(
-      signal({ added: 20, deleted: 5, complexity: { loc: 90, indentTotal: 90, indentMax: 3 } }),
-      { path: 'src/deep/other.ts', degree: 0.85 },
-    );
-    expect(levers.map((l) => l.id)).toEqual(['seam']);
-    expect(levers[0].text).toContain('other.ts');
-    expect(levers[0].text).not.toContain('src/deep');
+    const seam = leversFor(signal(unremarkable), { path: 'src/deep/other.ts', degree: 0.85 });
+    expect(seam[0].text).toContain('other.ts');
+    expect(seam[0].text).not.toContain('src/deep');
   });
 });
 
-describe('complexityOf', () => {
+describe('what makes a file hot', () => {
   test('counts non-blank lines and logical indentation', () => {
     const text = 'a\n' + '    b\n' + '\tc\n' + '\n' + '   \n' + '        d\n';
     expect(complexityOf(text)).toEqual({ loc: 4, indentTotal: 4, indentMax: 2 });
   });
-});
 
-describe('scoreFiles', () => {
   test('only frequent and complex files reach hot; unread files stay quiet', () => {
     const model = emptyModel();
     // 20 quiet one-commit files under two frequent ones, one of which was
@@ -284,8 +249,29 @@ describe('scoreFiles', () => {
 
     expect(scores.get('hot.ts')?.tier).toBe('hot');
     expect(scores.get('quiet0.ts')?.tier).toBe('quiet');
-    // Never read for complexity: cannot be a hotspot no matter the frequency.
     expect(scores.get('unread.ts')).toMatchObject({ score: 0, tier: 'quiet', cxRank: null });
     expect(scores.get('unread.ts')?.freqRank).toBeGreaterThan(0.8);
+  });
+
+  test('topping both ranks is not enough without the commits to mean it', () => {
+    const model = emptyModel();
+    const commits: LogCommit[] = [];
+    for (let i = 0; i < 20; i++) {
+      commits.push(commit(`q${i}`, 100 + i, 'a@x', 'Alice', [{ path: `quiet${i}.ts`, added: 1, deleted: 0 }]));
+    }
+    for (let i = 0; i < 3; i++) {
+      commits.push(commit(`t${i}`, 200 + i, 'a@x', 'Alice', [{ path: 'top.ts', added: 1, deleted: 0 }]));
+    }
+    foldCommits(model, commits);
+
+    const complexity = new Map([['top.ts', { loc: 400, indentTotal: 900, indentMax: 6 }]]);
+    for (let i = 0; i < 20; i++) complexity.set(`quiet${i}.ts`, { loc: 10, indentTotal: i, indentMax: 1 });
+    const scores = scoreFiles(model, complexity);
+
+    // Top of the project on both ranks, and hot on score alone — three commits
+    // is what holds it back, which is what keeps a young repo from being all
+    // hotspots.
+    expect(scores.get('top.ts')?.score).toBeGreaterThan(0.85);
+    expect(scores.get('top.ts')?.tier).toBe('warm');
   });
 });

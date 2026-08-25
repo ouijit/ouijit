@@ -5,11 +5,6 @@ import { LEVER_ICON, MeterRow, OwnershipBar, Sparkline, TIER_COLOR } from '../an
 import { Tooltip } from '../ui/Tooltip';
 import { Icon } from '../terminal/Icon';
 
-/**
- * Per-file history signal for a diff header — a flame for a hotspot, a fork
- * for a file whose usual companion is absent. The evidence lives in the
- * tooltip; most files show nothing at all.
- */
 export function worthAChip({ signal, missing }: FileAnalysis): boolean {
   return signal.tier !== 'quiet' || missing.length > 0;
 }
@@ -69,7 +64,6 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: File
   );
 });
 
-/** Rail counterpart: a dot on hot files, so the tree shows the diff's shape. */
 export function AnalysisRailDot({ signal }: { signal: { tier: HotspotTier } | undefined }) {
   if (signal?.tier !== 'hot') return null;
   return <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-git/80" title="Hotspot" />;

@@ -4,8 +4,7 @@ const SPACES_PER_STEP = 4;
 
 /**
  * Tornhill's language-neutral complexity proxy: how deeply the code nests,
- * read from leading whitespace alone. A tab counts as one step, four spaces
- * as one step.
+ * read from leading whitespace alone.
  */
 export function complexityOf(text: string): FileComplexitySignal {
   let loc = 0;

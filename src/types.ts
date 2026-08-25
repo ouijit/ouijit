@@ -578,7 +578,6 @@ export interface ElectronAPI {
  * cache in the main process, rebuilt from `git log` on demand.
  */
 export interface AnalysisAPI {
-  /** Cheap when nothing moved: a `rev-parse` gates the log pass. */
   refresh(projectPath: string, force?: boolean): Promise<void>;
   diffSignals(projectPath: string, paths: string[]): Promise<DiffSignals | null>;
   overview(projectPath: string): Promise<AnalysisOverview | null>;

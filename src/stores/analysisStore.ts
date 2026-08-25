@@ -2,11 +2,6 @@ import { create } from 'zustand';
 import type { AnalysisOverview, DiffSignals } from '../analysis/types';
 import { describeError } from '../utils/describeError';
 
-/**
- * Signals cached per (project, file-list fingerprint), so the status polls
- * that hand the diff views fresh arrays every few seconds never refetch.
- */
-
 const MAX_CACHED = 20;
 
 export function signalsKey(projectPath: string, fingerprint: string): string {

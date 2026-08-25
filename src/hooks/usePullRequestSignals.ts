@@ -6,9 +6,9 @@ import { useGithubStore } from '../stores/githubStore';
 import { useAnalysisSignals } from './useAnalysisSignals';
 
 /**
- * Behavioural-analysis signals for a pull request's files. The rail, the file
- * list and the summary all render from one fetch, which holds only while they
- * ask under the same key — so the key is built here rather than at each of them.
+ * Behavioural-analysis signals for a pull request's files. Surfaces share one
+ * fetch only while they ask under the same key, so the key is built here
+ * rather than at each of them.
  */
 export function usePullRequestSignals(headSha: string, files: readonly ChangedFile[]): DiffSignals | null {
   const projectPath = useGithubStore((s) => s.projectPath);

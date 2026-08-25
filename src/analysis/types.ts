@@ -5,7 +5,7 @@
  * here would drag main-process code into the renderer bundle.
  */
 
-/** How far back the log pass reaches. Here so the UI can name the window. */
+/** How far back the log pass reaches. */
 export const ANALYSIS_WINDOW_MONTHS = 12;
 
 /** The tail of the window a trend reads as "recent". */
@@ -32,7 +32,6 @@ export function monthStart(month: number): Date {
 
 export type HotspotTier = 'quiet' | 'warm' | 'hot';
 
-/** Where a file sits against the rest of the project, and what that makes it. */
 export interface FileScore {
   /** Hotspot score, 0..1 — see scoreFiles for the formula. */
   score: number;
@@ -43,7 +42,6 @@ export interface FileScore {
   cxRank: number | null;
 }
 
-/** A file's strongest coupled partner. */
 export interface Partner {
   path: string;
   degree: number;
@@ -58,7 +56,6 @@ export interface Owner {
 
 export type TrendDirection = 'new' | 'rising' | 'steady' | 'cooling';
 
-/** Where the activity is heading, read from the monthly counts alone. */
 export interface Trend {
   direction: TrendDirection;
   /** Commits in the recent months, and across the whole window. */
@@ -90,7 +87,6 @@ export interface FileComplexitySignal {
   indentMax: number;
 }
 
-/** One file of a diff, as the surfaces showing it need it. */
 export interface FileAnalysis {
   signal: FileSignal;
   /**
@@ -100,7 +96,7 @@ export interface FileAnalysis {
   missing: string[];
 }
 
-/** Everything the diff and PR surfaces need for one file list, by path. */
+/** One file list's analysis, by path. */
 export type DiffSignals = Record<string, FileAnalysis>;
 
 /** A directory, with everything under it folded in. */
@@ -126,7 +122,6 @@ export interface PairSignal {
   degree: number;
 }
 
-/** One entry of the ranked hotspot list. */
 export interface HotspotRow {
   path: string;
   signal: FileSignal;
@@ -134,7 +129,6 @@ export interface HotspotRow {
   partner: Partner | null;
 }
 
-/** The project-level view: what the analysis panel renders. */
 export interface AnalysisOverview {
   commitCount: number;
   /** Files touched in the window. */

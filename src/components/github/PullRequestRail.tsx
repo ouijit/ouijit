@@ -40,8 +40,6 @@ export function PullRequestRail({ detail, files, onSelect, width }: PullRequestR
             {count}
           </span>
         ) : null}
-        {/* Viewed state shows here too, so review progress is readable without
-            scrolling the document. */}
         {viewed.has(path) && <Icon name="check" className="shrink-0 w-3 h-3 text-accent/70" />}
       </>
     );
