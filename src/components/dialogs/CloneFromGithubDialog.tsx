@@ -6,6 +6,7 @@ import { repoSlug } from '../../github/types';
 import type { GithubRepoSummary, ResolvedRepo } from '../../types';
 
 interface CloneFromGithubDialogProps {
+  /** `projectPath` is where the clone will land, not where it already is. */
   onClose: (result: { projectPath: string } | null) => void;
 }
 
@@ -159,16 +160,19 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
     }
   }, [location]);
 
+  // The dialog's job ends once the repo is chosen. Starting the clone only
+  // waits on validation, so what follows — minutes of it, for a large repo —
+  // is watched from the project's own place in the sidebar.
   const handleClone = useCallback(
     async (repo: string) => {
       if (!repo || !parseRepoInput(repo) || cloning) return;
       setError(null);
       setCloning(true);
-      const result = await window.api.cloneProject({ repo, parentDir: location ?? undefined });
+      const result = await window.api.startClone({ repo, parentDir: location ?? undefined });
       if (result.success && result.projectPath) {
         dismiss({ projectPath: result.projectPath });
       } else {
-        setError(result.error ?? 'Could not clone the repository.');
+        setError(result.error ?? 'Could not start the clone.');
         setCloning(false);
       }
     },
@@ -278,7 +282,7 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
           disabled={!canClone || cloning}
         >
           <Icon name="github-logo" className="w-3.5 h-3.5" />
-          {cloning ? 'Cloning…' : 'Clone'}
+          {cloning ? 'Starting…' : 'Clone'}
         </button>
       </div>
     </DialogOverlay>

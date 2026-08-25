@@ -2,17 +2,17 @@
  * Registration orchestration shared by the add-existing, create-new and
  * clone-from-GitHub flows. The latter two are "produce the folder, then run
  * the exact add-existing pipeline", so there is one registration codepath.
+ * The clone's own flow lives in `cloneRegistry`, which calls in here once the
+ * repo has landed.
  * Kept out of the IPC handlers so the wiring is unit-testable.
  */
 
 import * as path from 'node:path';
 import { addProject } from '../db';
 import { createProject, validateProjectFolder } from '../projectCreator';
-import { cloneRepository } from '../repoCloner';
 import { setDefaultProjectsDir } from '../projectsFolder';
 import { recordFirstProjectIfNeeded } from '../onboarding';
 import type {
-  CloneProjectOptions,
   CreateProjectOptions,
   CreateProjectResult,
   FirstProjectSource,
@@ -54,22 +54,6 @@ export async function createAndRegisterProject(options: CreateProjectOptions): P
     };
   }
   // The folder this project was created in becomes the default for the next one.
-  await setDefaultProjectsDir(path.dirname(result.projectPath));
-  return result;
-}
-
-/** Clone a GitHub repo, then register it through the add-existing pipeline. */
-export async function cloneAndRegisterProject(options: CloneProjectOptions): Promise<CreateProjectResult> {
-  const result = await cloneRepository(options);
-  if (!result.success || !result.projectPath) return result;
-
-  const added = await addExistingProject(result.projectPath, 'cloned');
-  if (!added.success) {
-    return {
-      success: false,
-      error: `Repository cloned to ${result.projectPath}, but registering it failed: ${added.error}`,
-    };
-  }
   await setDefaultProjectsDir(path.dirname(result.projectPath));
   return result;
 }

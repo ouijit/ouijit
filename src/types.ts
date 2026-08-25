@@ -485,8 +485,15 @@ export interface ElectronAPI {
     untracked: boolean,
   ): Promise<FileDiff | null>;
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
-  /** Clone a GitHub repo into the projects folder and register it as a project */
-  cloneProject(options: CloneProjectOptions): Promise<CreateProjectResult>;
+  /** Start cloning a GitHub repo; resolves once it is under way, not once it lands */
+  startClone(options: CloneProjectOptions): Promise<StartCloneResult>;
+  /** Clones currently in flight */
+  listClones(): Promise<CloneJob[]>;
+  /** Stop a clone and drop what it had written, or clear one that failed */
+  cancelClone(projectPath: string): Promise<{ success: boolean }>;
+  onClonesChanged(callback: (jobs: CloneJob[]) => void): () => void;
+  /** A clone finished and the project is now real */
+  onCloneLanded(callback: (projectPath: string) => void): () => void;
   /** Repos the signed-in `gh` user can clone, for the import dialog's list */
   listGithubRepos(): Promise<UserReposResult>;
   /** Whether a named repo exists, so the import dialog can confirm before cloning */
@@ -829,6 +836,45 @@ export interface CloneProjectOptions {
   repo: string;
   /** Directory the clone is created in. Defaults to the projects folder setting. */
   parentDir?: string;
+}
+
+/** One step of git's clone progress. */
+export interface CloneProgress {
+  /** git's own name for the step — "Receiving objects", "Resolving deltas". */
+  phase: string;
+  /** Null while the step has no total to measure against. */
+  percent: number | null;
+  /** Whatever git appends past the counts — "178.22 MiB | 11.40 MiB/s". */
+  detail: string | null;
+}
+
+/**
+ * A clone in flight, as the sidebar and project view show it. It occupies the
+ * path its project will have, so it can stand in that project's place before
+ * the project exists.
+ */
+export interface CloneJob extends CloneProgress {
+  projectPath: string;
+  /** Folder name, which is what the project will be called. */
+  name: string;
+  /** `owner/name`, for the detail view and for retrying. */
+  slug: string;
+  /** The folder it is being cloned into, so a retry lands in the same place. */
+  parentDir: string;
+  status: 'cloning' | 'failed';
+  /** Epoch ms, so the view can count elapsed time without a ticking push. */
+  startedAt: number;
+  error?: string;
+  /** git's stderr, kept for a failure the message alone does not explain. */
+  output?: string;
+}
+
+/** Whether the clone got under way — not whether it finished. */
+export interface StartCloneResult {
+  success: boolean;
+  /** Where the project will be, so the caller can navigate there at once. */
+  projectPath?: string;
+  error?: string;
 }
 
 export interface FolderPickerOptions {

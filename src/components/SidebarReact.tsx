@@ -19,6 +19,7 @@ import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
+import { CloningProjectIcon } from './CloningProjectIcon';
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
 interface SidebarProps {
@@ -27,6 +28,7 @@ interface SidebarProps {
   onAddExisting: () => void;
   onCreateNew: () => void;
   onCloneFromGithub: () => void;
+  onCloneSelect: (projectPath: string) => void;
 }
 
 export function Sidebar({
@@ -35,8 +37,10 @@ export function Sidebar({
   onAddExisting,
   onCreateNew,
   onCloneFromGithub,
+  onCloneSelect,
 }: SidebarProps) {
   const projects = useAppStore((s) => s.projects);
+  const cloneJobs = useAppStore((s) => s.cloneJobs);
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const fullscreen = useAppStore((s) => s.fullscreen);
@@ -297,6 +301,15 @@ export function Sidebar({
               })}
             </SortableContext>
           </DndContext>
+
+          {cloneJobs.map((job) => (
+            <CloningProjectIcon
+              key={job.projectPath}
+              job={job}
+              isActive={activeView === 'project' && activeProjectPath === job.projectPath}
+              onClick={() => onCloneSelect(job.projectPath)}
+            />
+          ))}
 
           {/* Add button */}
           <SidebarTooltipWrapper label="Add project" disabled={addMenuOpen}>

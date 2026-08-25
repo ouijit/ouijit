@@ -12,6 +12,8 @@ import type {
   PtyReconnectResult,
   ActiveSession,
   CloneProjectOptions,
+  CloneJob,
+  StartCloneResult,
   CreateProjectOptions,
   CreateProjectResult,
   ProjectSettings,
@@ -88,7 +90,9 @@ export interface IpcInvokeContract {
   'open-external': { args: [url: string]; return: void };
   'refresh-projects': { args: []; return: Project[] };
   'create-project': { args: [options: CreateProjectOptions]; return: CreateProjectResult };
-  'clone-project': { args: [options: CloneProjectOptions]; return: CreateProjectResult };
+  'clone:start': { args: [options: CloneProjectOptions]; return: StartCloneResult };
+  'clone:list': { args: []; return: CloneJob[] };
+  'clone:cancel': { args: [projectPath: string]; return: { success: boolean } };
   'show-folder-picker': { args: [options?: FolderPickerOptions]; return: { canceled: boolean; filePaths: string[] } };
   'projects:get-default-folder': { args: []; return: string };
   'projects:prepare-folder-change': { args: [newFolder: string]; return: ProjectsFolderChangePlan };
@@ -386,6 +390,8 @@ export interface IpcPushContract {
   health: { args: [status: HealthStatus] };
   'update-available': { args: [info: { version: string; url: string }] };
   'shell-unsupported': { args: [info: { shell: string }] };
+  'clone:changed': { args: [jobs: CloneJob[]] };
+  'clone:landed': { args: [projectPath: string] };
   'whats-new': { args: [info: { version: string; notes: string }] };
   'cli-change': {
     args: [

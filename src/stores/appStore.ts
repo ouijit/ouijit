@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Project, TaskWithWorkspace } from '../types';
+import type { CloneJob, Project, TaskWithWorkspace } from '../types';
 import type { HealthStatus } from '../healthCheck';
 import { withViewTransition, type ViewTransitionDirection } from '../utils/viewTransition';
 
@@ -16,6 +16,8 @@ interface AppStoreState {
   fullscreen: boolean;
   platform: 'darwin' | 'other';
   projects: Project[];
+  /** Clones in flight, standing in for the projects they will become. */
+  cloneJobs: CloneJob[];
   sandboxAvailable: boolean;
   sandboxVmStatus: string;
   sandboxStarting: boolean;
@@ -50,6 +52,7 @@ interface AppStoreState {
 
 interface AppStoreActions {
   setProjects: (projects: Project[]) => void;
+  setCloneJobs: (jobs: CloneJob[]) => void;
   setFullscreen: (fullscreen: boolean) => void;
   setSandboxStatus: (available: boolean, vmStatus: string) => void;
   setSandboxStarting: (starting: boolean) => void;
@@ -93,6 +96,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   fullscreen: false,
   platform: navigator.platform.toLowerCase().includes('mac') ? 'darwin' : 'other',
   projects: [],
+  cloneJobs: [],
   sandboxAvailable: false,
   sandboxVmStatus: '',
   sandboxStarting: false,
@@ -108,6 +112,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   _version: 0,
 
   setProjects: (projects) => set({ projects }),
+  setCloneJobs: (cloneJobs) => set({ cloneJobs }),
 
   setFullscreen: (fullscreen) => set({ fullscreen }),
 

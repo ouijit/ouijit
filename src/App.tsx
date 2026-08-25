@@ -12,6 +12,7 @@ import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { CloneFromGithubDialog } from './components/dialogs/CloneFromGithubDialog';
+import { CloningProjectView } from './components/CloningProjectView';
 import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
@@ -76,6 +77,9 @@ export function App() {
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const [showNewProject, setShowNewProject] = useState(false);
   const [showCloneProject, setShowCloneProject] = useState(false);
+  const activeClone = useAppStore((s) =>
+    s.activeProjectPath ? s.cloneJobs.find((job) => job.projectPath === s.activeProjectPath) : undefined,
+  );
   const [gitInitPath, setGitInitPath] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
@@ -257,6 +261,42 @@ export function App() {
     setShowCloneProject(true);
   }, []);
 
+  // A clone has no project row to navigate to yet, so one is stood up from the
+  // job. It is replaced by the real project the moment the clone lands.
+  const handleCloneSelect = useCallback((projectPath: string) => {
+    const job = useAppStore.getState().cloneJobs.find((entry) => entry.projectPath === projectPath);
+    if (job) useAppStore.getState().navigateToProject(projectPath, { name: job.name, path: projectPath });
+  }, []);
+
+  // Clone progress arrives as pushes; the list is fetched once so a reload
+  // mid-clone still shows what is in flight.
+  useEffect(() => {
+    void window.api.listClones().then((jobs) => useAppStore.getState().setCloneJobs(jobs));
+    const stopChanged = window.api.onClonesChanged((jobs) => useAppStore.getState().setCloneJobs(jobs));
+    const stopLanded = window.api.onCloneLanded(async (projectPath) => {
+      const projects = await window.api.refreshProjects();
+      useAppStore.getState().setProjects(projects);
+      // Settle in place for whoever is watching, but never pull someone back
+      // to a project they navigated away from while it downloaded.
+      const project = projects.find((p) => p.path === projectPath);
+      if (project && useAppStore.getState().activeProjectPath === projectPath) {
+        useAppStore.getState().navigateToProject(projectPath, project);
+      }
+    });
+    return () => {
+      stopChanged();
+      stopLanded();
+    };
+  }, []);
+
+  // A cancelled or dismissed clone leaves nothing to look at.
+  useEffect(() => {
+    if (activeView === 'project' && activeProjectPath && !activeClone) {
+      const isProject = useAppStore.getState().projects.some((p) => p.path === activeProjectPath);
+      if (!isProject) useAppStore.getState().navigateHome();
+    }
+  }, [activeView, activeProjectPath, activeClone]);
+
   useEffect(() => {
     const onAddExisting = () => handleAddExisting();
     const onCreateNew = () => handleCreateNew();
@@ -272,11 +312,11 @@ export function App() {
   }, [handleAddExisting, handleCreateNew, handleCloneFromGithub]);
 
   const handleCloneProjectClose = useCallback(
-    async (result: { projectPath: string } | null) => {
+    (result: { projectPath: string } | null) => {
       setShowCloneProject(false);
-      if (result) await finalizeAddedProject(result.projectPath);
+      if (result) handleCloneSelect(result.projectPath);
     },
-    [finalizeAddedProject],
+    [handleCloneSelect],
   );
 
   const handleNewProjectClose = useCallback(
@@ -307,9 +347,10 @@ export function App() {
         onAddExisting={handleAddExisting}
         onCreateNew={handleCreateNew}
         onCloneFromGithub={handleCloneFromGithub}
+        onCloneSelect={handleCloneSelect}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TitleBar mode={activeView} />
+        <TitleBar mode={activeView} cloning={activeClone !== undefined} />
         <main
           className="app-content-main flex-1 min-h-0"
           style={
@@ -320,7 +361,7 @@ export function App() {
         >
           <ViewErrorBoundary>
             {activeView === 'home' && (homeActivePanel === 'settings' ? <GlobalSettingsPanel /> : <HomeView />)}
-            {activeView === 'project' && <ProjectView />}
+            {activeView === 'project' && (activeClone ? <CloningProjectView job={activeClone} /> : <ProjectView />)}
           </ViewErrorBoundary>
         </main>
       </div>
