@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppStore } from '../../stores/appStore';
+import { DIALOG_INPUT_CLASS, ProjectLocationField, useProjectLocation } from './ProjectLocationField';
 
 interface NewProjectFormProps {
   onCancel: () => void;
@@ -11,7 +12,7 @@ const NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/;
 /** Body and footer only — the add-project dialog owns the overlay and header. */
 export function NewProjectForm({ onCancel, onCreated }: NewProjectFormProps) {
   const [name, setName] = useState('');
-  const [location, setLocation] = useState<string | null>(null);
+  const { location, loadError, chooseLocation } = useProjectLocation();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const health = useAppStore((s) => s.health);
@@ -23,34 +24,6 @@ export function NewProjectForm({ onCancel, onCreated }: NewProjectFormProps) {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
-  // The current default projects folder — whatever folder the project ends up
-  // created in is persisted as the new default by the main process.
-  useEffect(() => {
-    let cancelled = false;
-    window.api
-      .getDefaultProjectsFolder()
-      .then((folder) => {
-        if (!cancelled) setLocation(folder);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Could not load the projects folder. Choose a location.');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleChooseLocation = useCallback(async () => {
-    const result = await window.api.showFolderPicker({
-      title: 'Choose Projects Folder',
-      buttonLabel: 'Choose',
-      defaultPath: location ?? undefined,
-    });
-    if (!result.canceled && result.filePaths.length > 0) {
-      setLocation(result.filePaths[0]);
-    }
-  }, [location]);
 
   const handleCreate = useCallback(async () => {
     if (!isValid || creating) return;
@@ -96,7 +69,7 @@ export function NewProjectForm({ onCancel, onCreated }: NewProjectFormProps) {
           <input
             ref={inputRef}
             id="project-name"
-            className="w-full h-9 px-4 font-sans text-sm text-text-primary bg-background border border-border rounded-md outline-none transition-all duration-150 ease-out focus:border-accent focus:ring-3 focus:ring-accent-light placeholder:text-text-tertiary"
+            className={DIALOG_INPUT_CLASS}
             type="text"
             placeholder="My Project"
             value={name}
@@ -105,21 +78,8 @@ export function NewProjectForm({ onCancel, onCreated }: NewProjectFormProps) {
             disabled={creating || gitMissing}
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-text-secondary">Location</span>
-          <div className="flex items-center gap-2">
-            <div
-              className="flex-1 min-w-0 h-9 px-4 flex items-center text-xs font-mono text-text-secondary bg-background border border-border rounded-md truncate"
-              title={location ?? undefined}
-            >
-              <span className="truncate">{location ?? '…'}</span>
-            </div>
-            <button className="btn-secondary shrink-0" onClick={handleChooseLocation} disabled={creating}>
-              Choose…
-            </button>
-          </div>
-        </div>
-        {error && <p className="text-xs text-error">{error}</p>}
+        <ProjectLocationField location={location} onChoose={chooseLocation} disabled={creating} />
+        {(error ?? loadError) && <p className="text-xs text-error">{error ?? loadError}</p>}
       </div>
       <div className="flex gap-2 justify-end mt-4 items-center">
         <button className="btn-secondary" onClick={onCancel} disabled={creating}>

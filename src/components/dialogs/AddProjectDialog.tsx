@@ -16,28 +16,23 @@ export type AddProjectResult =
   | { kind: 'cloning'; projectPath: string };
 
 /** Opening a folder never becomes a step — it leaves the dialog immediately. */
-type Step = 'choose' | 'create' | 'clone';
+export type AddProjectStep = 'choose' | 'create' | 'clone';
 
-const TITLES: Record<Step, string> = {
+const TITLES: Record<AddProjectStep, string> = {
   choose: 'Add a project',
   create: 'New project',
   clone: 'Clone from GitHub',
 };
 
-/**
- * One dialog for every way a project arrives. The choice and the form that
- * follows it live in the same window so picking one does not close a dialog to
- * open another, and so each option can carry the description that tells them
- * apart.
- */
+/** One dialog for every way a project arrives. */
 export function AddProjectDialog({
   initialStep = 'choose',
   onClose,
 }: {
-  initialStep?: Step;
+  initialStep?: AddProjectStep;
   onClose: (result: AddProjectResult | null) => void;
 }) {
-  const [step, setStep] = useState<Step>(initialStep);
+  const [step, setStep] = useState<AddProjectStep>(initialStep);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {

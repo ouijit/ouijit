@@ -13,10 +13,11 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { ghEnv, probeGh } from './github/client';
-import { cloneUrl, parseRepoInput } from './github/repoUrl';
+import { ghEnv } from './github/client';
+import { cloneUrl } from './github/repoUrl';
 import { repoSlug, type RepoIdentity } from './github/types';
-import { getDefaultProjectsDir } from './projectsFolder';
+import { getCachedHealth, checkHealth } from './healthCheck';
+import { resolveNewProjectPath } from './projectCreator';
 import { getLogger } from './logger';
 import type { CloneProgress, CloneProjectOptions } from './types';
 
@@ -76,25 +77,14 @@ export type CloneOutcome = { status: 'landed' } | { status: 'canceled' } | { sta
 export type ResolvedCloneTarget = { ok: true; target: CloneTarget } | { ok: false; error: string };
 
 export async function resolveCloneTarget(options: CloneProjectOptions): Promise<ResolvedCloneTarget> {
-  const identity = parseRepoInput(options.repo);
-  if (!identity) return { ok: false, error: 'Enter a repository as owner/name, or paste its GitHub URL' };
+  const { repo: identity } = options;
+  const resolved = await resolveNewProjectPath(identity.repo, options.parentDir, {
+    noun: 'repository',
+    taken: (name) => `A folder named ${name} already exists in that location`,
+  });
+  if (resolved.ok === false) return resolved;
 
-  const parentDir = options.parentDir ?? (await getDefaultProjectsDir());
-  if (!path.isAbsolute(parentDir)) {
-    return { ok: false, error: 'The project location must be an absolute path' };
-  }
-  const projectPath = path.join(parentDir, identity.repo);
-  if (!path.resolve(projectPath).startsWith(path.resolve(parentDir) + path.sep)) {
-    return { ok: false, error: 'Invalid repository name' };
-  }
-
-  try {
-    await fs.access(projectPath);
-    return { ok: false, error: `A folder named ${identity.repo} already exists in that location` };
-  } catch {
-    // Nothing there, which is what we want.
-  }
-
+  const { parentDir, projectPath } = resolved;
   return {
     ok: true,
     target: { identity, projectPath, stagingPath: path.join(parentDir, `.${identity.repo}.cloning`) },
@@ -166,13 +156,12 @@ export function runClone(target: CloneTarget, onProgress: (progress: CloneProgre
     await fs.mkdir(path.dirname(target.stagingPath), { recursive: true });
     if (canceled) return { status: 'canceled' };
 
-    const { installed } = await probeGh();
-    const [command, args] = installed
+    const gh = getCachedHealth()?.gh ?? (await checkHealth()).gh;
+    const [command, args] = gh
       ? (['gh', ['repo', 'clone', repoSlug(target.identity), target.stagingPath, '--', '--progress']] as const)
       : (['git', ['clone', '--progress', cloneUrl(target.identity), target.stagingPath]] as const);
 
     const code = await new Promise<number | null>((resolve, reject) => {
-      // Detached so cancel can signal the whole process group.
       child = spawn(command, [...args], { env: cloneEnv(target.identity), detached: true });
       let carry = '';
       child.stderr?.setEncoding('utf8');
@@ -240,8 +229,7 @@ export function runClone(target: CloneTarget, onProgress: (progress: CloneProgre
       }
     };
     signal('SIGTERM');
-    // A helper mid-transfer does not always take the hint, and every second it
-    // stays up is bandwidth spent on a repo nobody is waiting for any more.
+    // A helper mid-transfer does not always take the hint.
     setTimeout(() => signal('SIGKILL'), KILL_GRACE_MS).unref();
   };
 

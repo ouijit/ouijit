@@ -10,6 +10,7 @@ import type {
 } from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 import type {
+  RepoIdentity,
   GithubAvailability,
   PullRequestDetail,
   PullRequestFreshness,
@@ -491,13 +492,15 @@ export interface ElectronAPI {
   listClones(): Promise<CloneJob[]>;
   /** Stop a clone and drop what it had written, or clear one that failed */
   cancelClone(projectPath: string): Promise<{ success: boolean }>;
+  /** Run a failed clone again, into the same place */
+  retryClone(projectPath: string): Promise<StartCloneResult>;
   onClonesChanged(callback: (jobs: CloneJob[]) => void): () => void;
   /** A clone finished and the project is now real */
   onCloneLanded(callback: (projectPath: string) => void): () => void;
   /** Repos the signed-in `gh` user can clone, for the import dialog's list */
   listGithubRepos(): Promise<UserReposResult>;
   /** Whether a named repo exists, so the import dialog can confirm before cloning */
-  resolveGithubRepo(ref: string): Promise<ResolvedRepo>;
+  resolveGithubRepo(identity: RepoIdentity): Promise<ResolvedRepo>;
   showFolderPicker(options?: FolderPickerOptions): Promise<{ canceled: boolean; filePaths: string[] }>;
   /** Get the folder new projects are created in (setting or built-in default) */
   getDefaultProjectsFolder(): Promise<string>;
@@ -832,8 +835,7 @@ export interface CreateProjectOptions {
 }
 
 export interface CloneProjectOptions {
-  /** `owner/name`, or any GitHub URL — see `parseRepoInput`. */
-  repo: string;
+  repo: RepoIdentity;
   /** Directory the clone is created in. Defaults to the projects folder setting. */
   parentDir?: string;
 }
@@ -857,10 +859,7 @@ export interface CloneJob extends CloneProgress {
   projectPath: string;
   /** Folder name, which is what the project will be called. */
   name: string;
-  /** `owner/name`, for the detail view and for retrying. */
-  slug: string;
-  /** The folder it is being cloned into, so a retry lands in the same place. */
-  parentDir: string;
+  identity: RepoIdentity;
   status: 'cloning' | 'failed';
   /** Epoch ms, so the view can count elapsed time without a ticking push. */
   startedAt: number;

@@ -89,6 +89,11 @@ function deriveHomeRecents(projects: Project[], cache: Record<string, TaskWithWo
 
 type AppStore = AppStoreState & AppStoreActions;
 
+/** The clone standing in for the active project, when the project is not real yet. */
+export function selectActiveClone(s: AppStoreState): CloneJob | undefined {
+  return s.activeProjectPath ? s.cloneJobs.find((job) => job.projectPath === s.activeProjectPath) : undefined;
+}
+
 export const useAppStore = create<AppStore>()((set, get) => ({
   activeView: 'home',
   activeProjectPath: null,

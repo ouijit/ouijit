@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { ProjectSourceList } from './projectSources';
+import { ProjectSourceList, openAddProject } from './projectSources';
 import { useAppStore } from '../stores/appStore';
 import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
@@ -311,20 +311,7 @@ export function HomeView() {
         {noProjects ? (
           <div className="absolute inset-0 flex items-center justify-center overflow-hidden p-6">
             <div className="w-full max-w-[36rem]">
-              <ProjectSourceList
-                title="Start a project"
-                onChoose={(kind) =>
-                  document.dispatchEvent(
-                    new Event(
-                      kind === 'add-existing'
-                        ? 'add-existing-project'
-                        : kind === 'create'
-                          ? 'create-new-project'
-                          : 'clone-github-project',
-                    ),
-                  )
-                }
-              />
+              <ProjectSourceList title="Start a project" onChoose={openAddProject} />
             </div>
           </div>
         ) : noRecents ? (

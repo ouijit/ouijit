@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Icon } from '../terminal/Icon';
-import { cloneUrl, isDotCom, parseRepoInput } from '../../github/repoUrl';
+import { parseRepoInput } from '../../github/repoUrl';
 import { repoSlug } from '../../github/types';
-import type { GithubRepoSummary, ResolvedRepo } from '../../types';
+import { DIALOG_INPUT_CLASS, ProjectLocationField, useProjectLocation } from './ProjectLocationField';
+import type { GithubRepoSummary, RepoIdentity, ResolvedRepo } from '../../types';
 
 interface CloneFromGithubFormProps {
   onCancel: () => void;
@@ -11,7 +12,8 @@ interface CloneFromGithubFormProps {
 }
 
 interface RepoChoice extends GithubRepoSummary {
-  /** What the clone is handed for this row — the slug, or a URL for Enterprise. */
+  identity: RepoIdentity;
+  /** What picking this row puts in the input, so it parses back to `identity`. */
   ref: string;
 }
 
@@ -25,16 +27,13 @@ function matchesNeedle(repo: GithubRepoSummary, needle: string): boolean {
 /** Body and footer only — the add-project dialog owns the overlay and header. */
 export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubFormProps) {
   const [query, setQuery] = useState('');
-  const [location, setLocation] = useState<string | null>(null);
+  const { location, loadError, chooseLocation } = useProjectLocation();
   const [repos, setRepos] = useState<GithubRepoSummary[]>([]);
   const [listNote, setListNote] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(true);
   const [highlight, setHighlight] = useState(-1);
   const [cloning, setCloning] = useState(false);
-  const [resolution, setResolution] = useState<ResolvedRepo & { checking: boolean }>({
-    status: 'unknown',
-    checking: false,
-  });
+  const [remote, setRemote] = useState<ResolvedRepo>({ status: 'unknown' });
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -45,14 +44,6 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
 
   useEffect(() => {
     let cancelled = false;
-    window.api
-      .getDefaultProjectsFolder()
-      .then((folder) => {
-        if (!cancelled) setLocation(folder);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Could not load the projects folder. Choose a location.');
-      });
     window.api
       .listGithubRepos()
       .then((result) => {
@@ -73,9 +64,6 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
 
   const resolved = useMemo(() => parseRepoInput(query), [query]);
   const resolvedSlug = resolved && repoSlug(resolved);
-  // A GitHub Enterprise repo has to keep its host: the bare slug parses back as
-  // github.com on the way to the clone, which is a different repo entirely.
-  const resolvedRef = resolved && (isDotCom(resolved) ? repoSlug(resolved) : cloneUrl(resolved));
 
   // A pasted URL is filtered on as the `owner/name` it resolves to, so it can
   // match a listed repo, and is offered as its own row when it matches none —
@@ -84,19 +72,47 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
     ? repos.find((repo) => repo.slug.toLowerCase() === resolvedSlug.toLowerCase())
     : undefined;
 
+  // A repo already in the list is known to exist; anything else is checked
+  // against GitHub.
+  useEffect(() => {
+    if (!resolved || listedMatch) return;
+    setRemote({ status: 'unknown' });
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      window.api
+        .resolveGithubRepo(resolved)
+        .then((result) => {
+          if (!cancelled) setRemote(result);
+        })
+        .catch(() => {
+          if (!cancelled) setRemote({ status: 'unknown' });
+        });
+    }, RESOLVE_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [resolved, listedMatch]);
+
+  const resolution = useMemo<ResolvedRepo>(() => {
+    if (listedMatch) return { status: 'found', repo: listedMatch };
+    return resolved ? remote : { status: 'unknown' };
+  }, [listedMatch, resolved, remote]);
+
   const matches = useMemo((): RepoChoice[] => {
     const needle = (resolvedSlug || query).trim().toLowerCase();
-    const listed = (needle ? repos.filter((repo) => matchesNeedle(repo, needle)) : repos).map((repo) => ({
-      ...repo,
-      ref: repo.slug,
-    }));
-    const unlisted = resolvedSlug && resolvedRef && !listed.some((repo) => repo.slug.toLowerCase() === needle);
+    const listed = (needle ? repos.filter((repo) => matchesNeedle(repo, needle)) : repos).flatMap((repo) => {
+      const identity = parseRepoInput(repo.slug);
+      return identity ? [{ ...repo, identity, ref: repo.slug }] : [];
+    });
+    const unlisted = resolved && resolvedSlug && !listed.some((repo) => repo.slug.toLowerCase() === needle);
     if (unlisted && resolution.status !== 'not-found') {
       const found = resolution.status === 'found' ? resolution.repo : undefined;
       return [
         {
           slug: resolvedSlug,
-          ref: resolvedRef,
+          identity: resolved,
+          ref: query.trim(),
           description: found?.description ?? null,
           isPrivate: found?.isPrivate ?? false,
         },
@@ -104,59 +120,22 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
       ];
     }
     return listed;
-  }, [repos, query, resolvedSlug, resolvedRef, resolution]);
+  }, [repos, query, resolved, resolvedSlug, resolution]);
 
-  // A repo already in the list is known to exist; anything else is checked
-  // against GitHub so the confirmation below is earned rather than a restatement
-  // of what was typed.
-  useEffect(() => {
-    if (!resolvedRef || listedMatch) {
-      setResolution({ status: listedMatch ? 'found' : 'unknown', repo: listedMatch, checking: false });
-      return;
-    }
-    setResolution({ status: 'unknown', checking: true });
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      window.api
-        .resolveGithubRepo(resolvedRef)
-        .then((result) => {
-          if (!cancelled) setResolution({ ...result, checking: false });
-        })
-        .catch(() => {
-          if (!cancelled) setResolution({ status: 'unknown', checking: false });
-        });
-    }, RESOLVE_DEBOUNCE_MS);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [resolvedRef, listedMatch]);
-
-  const target = (matches[highlight]?.ref || resolvedRef || query).trim();
+  const target = matches[highlight]?.identity ?? resolved;
   // `unknown` never blocks — see `resolveRepo`. Only a definite 404 does.
-  const canClone = parseRepoInput(target) !== null && resolution.status !== 'not-found';
+  const canClone = target !== null && resolution.status !== 'not-found';
 
   useEffect(() => {
     listRef.current?.children[highlight]?.scrollIntoView({ block: 'nearest' });
   }, [highlight]);
 
-  const handleChooseLocation = useCallback(async () => {
-    const result = await window.api.showFolderPicker({
-      title: 'Choose Projects Folder',
-      buttonLabel: 'Choose',
-      defaultPath: location ?? undefined,
-    });
-    if (!result.canceled && result.filePaths.length > 0) {
-      setLocation(result.filePaths[0]);
-    }
-  }, [location]);
-
   // The dialog's job ends once the repo is chosen. Starting the clone only
   // waits on validation, so what follows — minutes of it, for a large repo —
   // is watched from the project's own place in the sidebar.
   const handleClone = useCallback(
-    async (repo: string) => {
-      if (!repo || !parseRepoInput(repo) || cloning) return;
+    async (repo: RepoIdentity | null) => {
+      if (!repo || cloning) return;
       setError(null);
       setCloning(true);
       const result = await window.api.startClone({ repo, parentDir: location ?? undefined });
@@ -196,7 +175,7 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
           <input
             ref={inputRef}
             id="clone-repo"
-            className="w-full h-9 px-4 font-sans text-sm text-text-primary bg-background border border-border rounded-md outline-none transition-all duration-150 ease-out focus:border-accent focus:ring-3 focus:ring-accent-light placeholder:text-text-tertiary"
+            className={DIALOG_INPUT_CLASS}
             type="text"
             placeholder="owner/name or a GitHub URL"
             value={query}
@@ -246,21 +225,8 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
           )}
         </div>
 
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-text-secondary">Location</span>
-          <div className="flex items-center gap-2">
-            <div
-              className="flex-1 min-w-0 h-9 px-4 flex items-center text-xs font-mono text-text-secondary bg-background border border-border rounded-md truncate"
-              title={location ?? undefined}
-            >
-              <span className="truncate">{location ?? '…'}</span>
-            </div>
-            <button className="btn-secondary shrink-0" onClick={handleChooseLocation} disabled={cloning}>
-              Choose…
-            </button>
-          </div>
-        </div>
-        {error && <p className="text-xs text-error">{error}</p>}
+        <ProjectLocationField location={location} onChoose={chooseLocation} disabled={cloning} />
+        {(error ?? loadError) && <p className="text-xs text-error">{error ?? loadError}</p>}
       </div>
       <div className="flex gap-2 justify-end mt-4 items-center">
         <button className="btn-secondary" onClick={onCancel} disabled={cloning}>

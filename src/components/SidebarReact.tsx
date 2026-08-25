@@ -20,6 +20,7 @@ import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { CloningProjectIcon } from './CloningProjectIcon';
+import { SidebarTooltipWrapper } from './SidebarTooltip';
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
 interface SidebarProps {
@@ -46,7 +47,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddProject, onCloneSe
   const [visible, setVisible] = useState(true);
   const effectiveVisible = visible || sidebarPinned;
 
-  const addBtnRef = useRef<HTMLButtonElement>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; project: Project } | null>(null);
 
   // Ordered project paths for @dnd-kit
@@ -287,7 +287,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddProject, onCloneSe
                 style={{ width: 'var(--sidebar-width)', height: 40 }}
               >
                 <button
-                  ref={addBtnRef}
                   className="w-10 h-10 flex items-center justify-center relative glass-bevel overflow-hidden rounded-[12px] bg-background-secondary border border-bezel text-text-secondary transition-colors duration-200 ease-out [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -303,8 +302,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddProject, onCloneSe
           </SidebarTooltipWrapper>
         </div>
       </aside>
-
-      {/* Add menu (portal-like, absolute positioned) */}
 
       {/* Context menu */}
       {contextMenu && (
@@ -433,53 +430,6 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
           >
             <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip whitespace-nowrap animate-tooltip-pop">
               {project.name}
-            </div>
-          </div>,
-          document.body,
-        )}
-    </>
-  );
-}
-
-// ── Sidebar tooltip wrapper ─────────────────────────────────────────
-
-function SidebarTooltipWrapper({
-  label,
-  children,
-  disabled,
-}: {
-  label: string;
-  children: (ref: (node: HTMLElement | null) => void, props: Record<string, unknown>) => React.ReactNode;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const { refs, floatingStyles, context } = useFloating({
-    open: open && !disabled,
-    onOpenChange: setOpen,
-    placement: 'right',
-    strategy: 'fixed',
-    middleware: [offset(-4), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-  const hover = useHover(context, { move: false, delay: { open: 100 } });
-  const dismiss = useDismiss(context);
-  const role = useRole(context, { role: 'tooltip' });
-  const { getReferenceProps, getFloatingProps } = useInteractions([hover, dismiss, role]);
-
-  return (
-    <>
-      {children(refs.setReference as (node: HTMLElement | null) => void, getReferenceProps())}
-      {open &&
-        !disabled &&
-        createPortal(
-          <div
-            ref={refs.setFloating}
-            className="fixed z-[10002] pointer-events-none"
-            style={floatingStyles}
-            {...getFloatingProps()}
-          >
-            <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip whitespace-nowrap animate-tooltip-pop">
-              {label}
             </div>
           </div>,
           document.body,

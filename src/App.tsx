@@ -1,7 +1,7 @@
 import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { usePaletteShortcut } from './hooks/usePaletteShortcut';
-import { useAppStore } from './stores/appStore';
+import { useAppStore, selectActiveClone } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
 import { useExperimentalStore } from './stores/experimentalStore';
 import { TitleBar } from './components/TitleBarReact';
@@ -10,8 +10,9 @@ import { HomeView } from './components/HomeViewReact';
 import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
-import { AddProjectDialog, type AddProjectResult } from './components/dialogs/AddProjectDialog';
+import { AddProjectDialog, type AddProjectResult, type AddProjectStep } from './components/dialogs/AddProjectDialog';
 import { CloningProjectView } from './components/CloningProjectView';
+import { ADD_PROJECT_EVENT, type ProjectSourceKind } from './components/projectSources';
 import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
@@ -74,18 +75,16 @@ export function App() {
   const whatsNew = useAppStore((s) => s.whatsNew);
   const helpDialogOpen = useAppStore((s) => s.helpDialogOpen);
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
-  const [addProjectStep, setAddProjectStep] = useState<'choose' | 'create' | 'clone' | null>(null);
-  const activeClone = useAppStore((s) =>
-    s.activeProjectPath ? s.cloneJobs.find((job) => job.projectPath === s.activeProjectPath) : undefined,
-  );
+  const [addProjectStep, setAddProjectStep] = useState<AddProjectStep | null>(null);
+  const activeClone = useAppStore(selectActiveClone);
   const [gitInitPath, setGitInitPath] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (activeProjectPath) {
+    if (activeProjectPath && !activeClone) {
       useExperimentalStore.getState().loadFor(activeProjectPath);
     }
-  }, [activeProjectPath]);
+  }, [activeProjectPath, activeClone]);
 
   // Prevent Electron drag/drop navigation
   useEffect(() => {
@@ -210,14 +209,19 @@ export function App() {
     selectHome();
   }, []);
 
-  // Register the added folder, refresh the project list, and navigate to it.
-  const finalizeAddedProject = useCallback(async (addedPath: string) => {
+  /**
+   * Refresh the project list and navigate to the folder that just became a
+   * project. `onlyIfActive` is for a project that arrived on its own time: it
+   * settles in place for whoever is watching, and never pulls someone back to
+   * a project they navigated away from while it was still arriving.
+   */
+  const finalizeAddedProject = useCallback(async (addedPath: string, onlyIfActive = false) => {
     const projects = await window.api.refreshProjects();
     useAppStore.getState().setProjects(projects);
     const project = projects.find((p) => p.path === addedPath);
-    if (project) {
-      useAppStore.getState().navigateToProject(addedPath, project);
-    }
+    if (!project) return;
+    if (onlyIfActive && useAppStore.getState().activeProjectPath !== addedPath) return;
+    useAppStore.getState().navigateToProject(addedPath, project);
   }, []);
 
   const handleAddExisting = useCallback(async () => {
@@ -251,8 +255,6 @@ export function App() {
     [gitInitPath, finalizeAddedProject],
   );
 
-  const handleCreateNew = useCallback(() => setAddProjectStep('create'), []);
-  const handleCloneFromGithub = useCallback(() => setAddProjectStep('clone'), []);
   const handleAddProject = useCallback(() => setAddProjectStep('choose'), []);
 
   // A clone has no project row to navigate to yet, so one is stood up from the
@@ -267,43 +269,26 @@ export function App() {
   useEffect(() => {
     void window.api.listClones().then((jobs) => useAppStore.getState().setCloneJobs(jobs));
     const stopChanged = window.api.onClonesChanged((jobs) => useAppStore.getState().setCloneJobs(jobs));
-    const stopLanded = window.api.onCloneLanded(async (projectPath) => {
-      const projects = await window.api.refreshProjects();
-      useAppStore.getState().setProjects(projects);
-      // Settle in place for whoever is watching, but never pull someone back
-      // to a project they navigated away from while it downloaded.
-      const project = projects.find((p) => p.path === projectPath);
-      if (project && useAppStore.getState().activeProjectPath === projectPath) {
-        useAppStore.getState().navigateToProject(projectPath, project);
-      }
-    });
+    const stopLanded = window.api.onCloneLanded((projectPath) => void finalizeAddedProject(projectPath, true));
     return () => {
       stopChanged();
       stopLanded();
     };
-  }, []);
+  }, [finalizeAddedProject]);
 
-  // A cancelled or dismissed clone leaves nothing to look at.
-  useEffect(() => {
-    if (activeView === 'project' && activeProjectPath && !activeClone) {
-      const isProject = useAppStore.getState().projects.some((p) => p.path === activeProjectPath);
-      if (!isProject) useAppStore.getState().navigateHome();
-    }
-  }, [activeView, activeProjectPath, activeClone]);
+  const chooseProjectSource = useCallback(
+    (kind: ProjectSourceKind) => {
+      if (kind === 'add-existing') void handleAddExisting();
+      else setAddProjectStep(kind);
+    },
+    [handleAddExisting],
+  );
 
   useEffect(() => {
-    const onAddExisting = () => handleAddExisting();
-    const onCreateNew = () => handleCreateNew();
-    const onCloneFromGithub = () => handleCloneFromGithub();
-    document.addEventListener('add-existing-project', onAddExisting);
-    document.addEventListener('create-new-project', onCreateNew);
-    document.addEventListener('clone-github-project', onCloneFromGithub);
-    return () => {
-      document.removeEventListener('add-existing-project', onAddExisting);
-      document.removeEventListener('create-new-project', onCreateNew);
-      document.removeEventListener('clone-github-project', onCloneFromGithub);
-    };
-  }, [handleAddExisting, handleCreateNew, handleCloneFromGithub]);
+    const onAddProject = (e: Event) => chooseProjectSource((e as CustomEvent<ProjectSourceKind>).detail);
+    document.addEventListener(ADD_PROJECT_EVENT, onAddProject);
+    return () => document.removeEventListener(ADD_PROJECT_EVENT, onAddProject);
+  }, [chooseProjectSource]);
 
   const handleAddProjectClose = useCallback(
     async (result: AddProjectResult | null) => {
@@ -329,7 +314,7 @@ export function App() {
         onCloneSelect={handleCloneSelect}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TitleBar mode={activeView} cloning={activeClone !== undefined} />
+        <TitleBar mode={activeView} />
         <main
           className="app-content-main flex-1 min-h-0"
           style={

@@ -5,11 +5,13 @@ import * as os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { parseCloneProgress, resolveCloneTarget, runClone } from '../repoCloner';
-import { startClone, listCloneJobs, setCloneListeners } from '../services/cloneRegistry';
+import { startClone, listCloneJobs, retryClone, setCloneListeners } from '../services/cloneRegistry';
 import { getDefaultProjectsDir } from '../projectsFolder';
 import { getAllProjects, getGlobalSetting } from '../db';
 import { ONBOARDING_STATE_KEY } from '../onboardingState';
-import type { CloneJob, CloneProgress } from '../types';
+import type { CloneJob, CloneProgress, RepoIdentity } from '../types';
+
+const OUIJIT: RepoIdentity = { host: 'github.com', owner: 'pbjer', repo: 'ouijit' };
 
 const execFileAsync = promisify(execFile);
 
@@ -73,7 +75,7 @@ async function sourceRepo(): Promise<string> {
   return repoPath;
 }
 
-async function target(parentDir: string, repo = 'pbjer/ouijit') {
+async function target(parentDir: string, repo: RepoIdentity = OUIJIT) {
   const resolved = await resolveCloneTarget({ repo, parentDir });
   if (resolved.ok === false) throw new Error(resolved.error);
   return resolved.target;
@@ -115,28 +117,25 @@ describe('parseCloneProgress', () => {
 
 describe('resolveCloneTarget', () => {
   test('stages the clone beside where it will land, so the rename cannot cross a filesystem', async () => {
-    const resolved = await resolveCloneTarget({ repo: 'pbjer/ouijit', parentDir: scratchDir });
+    const resolved = await resolveCloneTarget({ repo: OUIJIT, parentDir: scratchDir });
 
     expect(resolved).toEqual({
       ok: true,
       target: {
-        identity: { host: 'github.com', owner: 'pbjer', repo: 'ouijit' },
+        identity: OUIJIT,
         projectPath: path.join(scratchDir, 'ouijit'),
         stagingPath: path.join(scratchDir, '.ouijit.cloning'),
       },
     });
   });
 
-  test.each([
-    ['nonsense', /owner\/name/],
-    ['git@github.com:owner/..', /Invalid repository name/],
-  ])('refuses %s', async (repo, message) => {
-    const resolved = await resolveCloneTarget({ repo, parentDir: scratchDir });
-    expect(resolved).toMatchObject({ ok: false, error: expect.stringMatching(message) });
+  test('refuses a name that would escape the projects folder', async () => {
+    const resolved = await resolveCloneTarget({ repo: { ...OUIJIT, repo: '..' }, parentDir: scratchDir });
+    expect(resolved).toMatchObject({ ok: false, error: 'Invalid repository name' });
   });
 
   test('refuses a relative location', async () => {
-    expect(await resolveCloneTarget({ repo: 'pbjer/ouijit', parentDir: 'relative/projects' })).toEqual({
+    expect(await resolveCloneTarget({ repo: OUIJIT, parentDir: 'relative/projects' })).toEqual({
       ok: false,
       error: 'The project location must be an absolute path',
     });
@@ -144,7 +143,7 @@ describe('resolveCloneTarget', () => {
 
   test('refuses to clone over an existing folder', async () => {
     await fs.mkdir(path.join(scratchDir, 'ouijit'));
-    expect(await resolveCloneTarget({ repo: 'pbjer/ouijit', parentDir: scratchDir })).toMatchObject({
+    expect(await resolveCloneTarget({ repo: OUIJIT, parentDir: scratchDir })).toMatchObject({
       ok: false,
       error: expect.stringMatching(/already exists/),
     });
@@ -173,7 +172,7 @@ describe('runClone', () => {
     'leaves neither the destination nor the staging directory behind on failure',
     async () => {
       await fakeGh();
-      const spot = await target(path.join(scratchDir, 'projects'), 'pbjer/missing');
+      const spot = await target(path.join(scratchDir, 'projects'), { ...OUIJIT, repo: 'missing' });
 
       const outcome = await runClone(spot, () => {}).done;
 
@@ -240,10 +239,10 @@ describe('clone registry', () => {
       const projectPath = path.join(parentDir, 'ouijit');
       const done = settled(projectPath);
 
-      const started = await startClone({ repo: 'https://github.com/pbjer/ouijit', parentDir });
+      const started = await startClone({ repo: OUIJIT, parentDir });
       expect(started).toEqual({ success: true, projectPath });
       // Visible immediately: the caller navigates to it before anything downloads.
-      expect(listCloneJobs()).toMatchObject([{ projectPath, slug: 'pbjer/ouijit', status: 'cloning' }]);
+      expect(listCloneJobs()).toMatchObject([{ projectPath, identity: OUIJIT, status: 'cloning' }]);
 
       await done;
       expect(listCloneJobs()).toEqual([]);
@@ -261,7 +260,7 @@ describe('clone registry', () => {
       const parentDir = path.join(scratchDir, 'projects');
       const done = settled(path.join(parentDir, 'missing'));
 
-      await startClone({ repo: 'pbjer/missing', parentDir });
+      await startClone({ repo: { ...OUIJIT, repo: 'missing' }, parentDir });
 
       await done;
       expect(listCloneJobs()).toMatchObject([
@@ -273,13 +272,45 @@ describe('clone registry', () => {
   );
 
   test(
+    'retries a failed clone against the same repo, host included',
+    async () => {
+      await fakeGh();
+      const parentDir = path.join(scratchDir, 'projects');
+      const enterprise = { host: 'ghe.corp.example', owner: 'team', repo: 'tools' };
+      const projectPath = path.join(parentDir, 'tools');
+      const jobFor = () => listCloneJobs().find((job) => job.projectPath === projectPath);
+      const hasFailed = () =>
+        new Promise<void>((resolve) => {
+          setCloneListeners({
+            onChanged: () => {
+              if (jobFor()?.status === 'failed') resolve();
+            },
+            onLanded: () => {},
+          });
+        });
+
+      const failed = hasFailed();
+      await startClone({ repo: enterprise, parentDir });
+      await failed;
+      expect(jobFor()).toMatchObject({ identity: enterprise, status: 'failed' });
+
+      const failedAgain = hasFailed();
+      expect(await retryClone(projectPath)).toEqual({ success: true, projectPath });
+      await failedAgain;
+      // The host survives the round trip; a slug alone would retarget github.com.
+      expect(jobFor()).toMatchObject({ identity: enterprise, status: 'failed' });
+    },
+    SUBPROCESS_TIMEOUT,
+  );
+
+  test(
     'refuses a second clone of a destination already in flight',
     async () => {
       await fakeGh({ stall: true });
       const parentDir = path.join(scratchDir, 'projects');
 
-      await startClone({ repo: 'pbjer/ouijit', parentDir });
-      const second = await startClone({ repo: 'pbjer/ouijit', parentDir });
+      await startClone({ repo: OUIJIT, parentDir });
+      const second = await startClone({ repo: OUIJIT, parentDir });
 
       expect(second).toMatchObject({ success: false, error: expect.stringMatching(/already being cloned/) });
     },

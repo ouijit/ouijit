@@ -38,10 +38,10 @@ export interface GithubRepoSummary {
  * `unknown` is the "could not tell" case — no gh, not signed in, offline, rate
  * limited. It must never block the clone: the answer is missing, not negative.
  */
-export interface ResolvedRepo {
-  status: 'found' | 'not-found' | 'unknown';
-  repo?: GithubRepoSummary;
-}
+export type ResolvedRepo =
+  | { status: 'found'; repo: GithubRepoSummary }
+  | { status: 'not-found' }
+  | { status: 'unknown' };
 
 /** The import dialog's repo list, or why it is empty. */
 export interface UserReposResult {

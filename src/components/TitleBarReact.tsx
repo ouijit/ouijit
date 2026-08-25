@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { useAppStore } from '../stores/appStore';
+import { useAppStore, selectActiveClone } from '../stores/appStore';
 import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { useExperimentalStore } from '../stores/experimentalStore';
@@ -16,14 +16,14 @@ const isMac = navigator.platform.toLowerCase().includes('mac');
 
 interface TitleBarProps {
   mode: string;
-  /** The project is still being cloned — it has nothing to act on yet. */
-  cloning?: boolean;
 }
 
-export function TitleBar({ mode, cloning = false }: TitleBarProps) {
+export function TitleBar({ mode }: TitleBarProps) {
   const activeProjectData = useAppStore((s) => s.activeProjectData);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeView = useAppStore((s) => s.activeView);
+  // A cloning project has no directory yet, so nothing here may act on its path.
+  const cloning = useAppStore(selectActiveClone) !== undefined;
   const fullscreen = useAppStore((s) => s.fullscreen);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
@@ -55,14 +55,14 @@ export function TitleBar({ mode, cloning = false }: TitleBarProps) {
 
   // Fetch sandbox availability when switching projects
   useEffect(() => {
-    if (!activeProjectPath) {
+    if (!activeProjectPath || cloning) {
       useAppStore.getState().setSandboxStatus(false, '');
       return;
     }
     window.api.lima.status(activeProjectPath).then((s) => {
       useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
     });
-  }, [activeProjectPath]);
+  }, [activeProjectPath, cloning]);
 
   const handleToggleView = useCallback((view: 'board' | 'stack' | 'canvas' | 'settings' | 'pull-requests') => {
     const store = useProjectStore.getState();

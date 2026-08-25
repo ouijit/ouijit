@@ -760,23 +760,25 @@ export function mergeArgs(identity: RepoIdentity, number: number, options: Merge
 /** No pagination: one page of the most recently pushed is what an import is looking for. */
 const USER_REPO_LIMIT = 100;
 
+interface RawRepo {
+  full_name: string;
+  description: string | null;
+  private: boolean;
+}
+
+function toRepoSummary(raw: RawRepo): GithubRepoSummary {
+  return { slug: raw.full_name, description: raw.description, isPrivate: raw.private };
+}
+
 /** Repos the signed-in user can clone, most recently pushed first. */
 export async function fetchUserRepos(): Promise<GithubRepoSummary[]> {
-  const raw = await ghRest<Array<{ full_name: string; description: string | null; private: boolean }>>(
+  const raw = await ghRest<RawRepo[]>(
     `user/repos?per_page=${USER_REPO_LIMIT}&sort=pushed&affiliation=owner,collaborator,organization_member`,
   );
-  return raw.map((repo) => ({
-    slug: repo.full_name,
-    description: repo.description,
-    isPrivate: repo.private,
-  }));
+  return raw.map(toRepoSummary);
 }
 
 /** One repo by identity — the existence check the import dialog runs. */
 export async function fetchRepo(identity: RepoIdentity): Promise<GithubRepoSummary> {
-  const raw = await ghRest<{ full_name: string; description: string | null; private: boolean }>(
-    `repos/${repoSlug(identity)}`,
-    { identity },
-  );
-  return { slug: raw.full_name, description: raw.description, isPrivate: raw.private };
+  return toRepoSummary(await ghRest<RawRepo>(`repos/${repoSlug(identity)}`, { identity }));
 }

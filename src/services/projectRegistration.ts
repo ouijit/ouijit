@@ -41,19 +41,31 @@ export async function addExistingProject(
   return { success: true };
 }
 
+/**
+ * Register a folder some flow has just produced, and make the folder it landed
+ * in the default for the next one.
+ */
+export async function registerProducedProject(
+  projectPath: string,
+  source: FirstProjectSource,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const added = await addExistingProject(projectPath, source);
+  if (!added.success) {
+    return {
+      success: false,
+      error: `${projectPath} is on disk, but registering it as a project failed: ${added.error}`,
+    };
+  }
+  await setDefaultProjectsDir(path.dirname(projectPath));
+  return { success: true };
+}
+
 /** Scaffold a new project folder, then register it through the add-existing pipeline. */
 export async function createAndRegisterProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   const result = await createProject(options);
   if (!result.success || !result.projectPath) return result;
 
-  const added = await addExistingProject(result.projectPath, 'created');
-  if (!added.success) {
-    return {
-      success: false,
-      error: `Project folder created at ${result.projectPath}, but registering it failed: ${added.error}`,
-    };
-  }
-  // The folder this project was created in becomes the default for the next one.
-  await setDefaultProjectsDir(path.dirname(result.projectPath));
+  const registered = await registerProducedProject(result.projectPath, 'created');
+  if (registered.success === false) return registered;
   return result;
 }

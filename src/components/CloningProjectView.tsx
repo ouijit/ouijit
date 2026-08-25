@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './terminal/Icon';
+import { repoSlug } from '../github/types';
+import { useAppStore } from '../stores/appStore';
 import type { CloneJob } from '../types';
 
 /**
@@ -14,14 +16,13 @@ export function CloningProjectView({ job }: { job: CloneJob }) {
   const dismiss = async () => {
     setBusy(true);
     await window.api.cancelClone(job.projectPath);
+    useAppStore.getState().navigateHome();
   };
 
   const retry = async () => {
     setBusy(true);
-    // The failed entry holds this project's path; it has to go before a new
-    // clone can claim the same one.
-    await window.api.cancelClone(job.projectPath);
-    await window.api.startClone({ repo: job.slug, parentDir: job.parentDir });
+    await window.api.retryClone(job.projectPath);
+    setBusy(false);
   };
 
   return (
@@ -29,7 +30,7 @@ export function CloningProjectView({ job }: { job: CloneJob }) {
       <div className="w-full max-w-[32rem] flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <span className="text-sm text-text-primary">{failed ? 'Could not clone' : 'Cloning'}</span>
-          <span className="font-mono text-xs text-text-secondary">{job.slug}</span>
+          <span className="font-mono text-xs text-text-secondary">{repoSlug(job.identity)}</span>
         </div>
 
         {failed ? <CloneFailure job={job} /> : <CloneProgressBar job={job} />}

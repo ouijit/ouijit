@@ -1,17 +1,5 @@
-import { useState } from 'react';
-import { createPortal } from 'react-dom';
-import {
-  useFloating,
-  offset,
-  flip,
-  shift,
-  autoUpdate,
-  useHover,
-  useDismiss,
-  useRole,
-  useInteractions,
-} from '@floating-ui/react';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
+import { SidebarTooltipWrapper } from './SidebarTooltip';
 import type { CloneJob } from '../types';
 
 /**
@@ -28,75 +16,44 @@ export function CloningProjectIcon({
   isActive: boolean;
   onClick: () => void;
 }) {
-  const [tipOpen, setTipOpen] = useState(false);
-  const {
-    refs: tipRefs,
-    floatingStyles: tipStyles,
-    context: tipContext,
-  } = useFloating({
-    open: tipOpen,
-    onOpenChange: setTipOpen,
-    placement: 'right',
-    strategy: 'fixed',
-    middleware: [offset(-4), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-  const { getReferenceProps, getFloatingProps } = useInteractions([
-    useHover(tipContext, { move: false, delay: { open: 100 } }),
-    useDismiss(tipContext),
-    useRole(tipContext, { role: 'tooltip' }),
-  ]);
-
   const failed = job.status === 'failed';
 
   return (
-    <>
-      <div
-        ref={tipRefs.setReference}
-        {...getReferenceProps()}
-        className="group relative flex items-center justify-center shrink-0 [-webkit-app-region:no-drag]"
-        style={{ width: 'var(--sidebar-width)', height: 48 }}
-        data-cloning-path={job.projectPath}
-        onClick={onClick}
-      >
+    <SidebarTooltipWrapper label={`${job.name} — ${cloneSummary(job)}`}>
+      {(tipRef, tipProps) => (
         <div
-          className={`absolute left-0 w-1 rounded-r-sm bg-ink transition-all duration-200 ease-out ${
-            isActive ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
-          }`}
-        />
-        <div className="w-10 h-10 overflow-hidden rounded-md">
+          ref={tipRef}
+          {...tipProps}
+          className="group relative flex items-center justify-center shrink-0 [-webkit-app-region:no-drag]"
+          style={{ width: 'var(--sidebar-width)', height: 48 }}
+          data-cloning-path={job.projectPath}
+          onClick={onClick}
+        >
           <div
-            className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
-            style={{
-              backgroundColor: projectIconColor({ name: job.name }),
-              textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-              // Held back until it is real, so a full-strength tile always
-              // means a project you can open.
-              opacity: failed ? 0.35 : 0.5,
-            }}
-          >
-            {getInitials(job.name)}
+            className={`absolute left-0 w-1 rounded-r-sm bg-ink transition-all duration-200 ease-out ${
+              isActive ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
+            }`}
+          />
+          <div className="w-10 h-10 overflow-hidden rounded-md">
+            <div
+              className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
+              style={{
+                backgroundColor: projectIconColor({ name: job.name }),
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
+                opacity: failed ? 0.35 : 0.5,
+              }}
+            >
+              {getInitials(job.name)}
+            </div>
           </div>
+          <CloneRing percent={job.percent} failed={failed} />
         </div>
-        <CloneRing percent={job.percent} failed={failed} />
-      </div>
-      {tipOpen &&
-        createPortal(
-          <div
-            ref={tipRefs.setFloating}
-            style={tipStyles}
-            {...getFloatingProps()}
-            className="z-[10003] px-2 py-1 rounded-md text-xs text-text-primary glass-bevel border border-bezel pointer-events-none"
-          >
-            {failed ? `${job.name} — clone failed` : `${job.name} — ${cloneSummary(job)}`}
-          </div>,
-          document.body,
-        )}
-    </>
+      )}
+    </SidebarTooltipWrapper>
   );
 }
 
-export function cloneSummary(job: CloneJob): string {
+function cloneSummary(job: CloneJob): string {
   if (job.status === 'failed') return 'Clone failed';
   return job.percent === null ? `${job.phase}…` : `${job.phase} ${job.percent}%`;
 }
@@ -146,7 +103,7 @@ function CloneRing({ percent, failed }: { percent: number | null; failed: boolea
         stroke={failed ? 'var(--color-error)' : 'var(--color-accent)'}
         strokeLinecap="round"
         strokeDasharray={indeterminate ? '0.25 0.75' : '1'}
-        strokeDashoffset={indeterminate ? undefined : 1 - (failed ? 1 : (percent ?? 0)) / 100}
+        strokeDashoffset={indeterminate || failed ? undefined : 1 - (percent ?? 0) / 100}
         style={{
           transition: indeterminate ? undefined : 'stroke-dashoffset 200ms linear',
           animation: indeterminate ? 'clone-ring-sweep 1.4s linear infinite' : undefined,

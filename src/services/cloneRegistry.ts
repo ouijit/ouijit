@@ -14,9 +14,7 @@
 
 import * as path from 'node:path';
 import { resolveCloneTarget, runClone, type RunningClone } from '../repoCloner';
-import { addExistingProject } from './projectRegistration';
-import { setDefaultProjectsDir } from '../projectsFolder';
-import { repoSlug } from '../github/types';
+import { registerProducedProject } from './projectRegistration';
 import { getLogger } from '../logger';
 import type { CloneJob, CloneProjectOptions, StartCloneResult } from '../types';
 
@@ -52,6 +50,10 @@ function publish(): void {
 function update(projectPath: string, patch: Partial<CloneJob>): void {
   const entry = entries.get(projectPath);
   if (!entry) return;
+  // git redraws the same percentage repeatedly; each publish re-renders the
+  // whole sidebar, so an unchanged patch must not become one.
+  const changed = Object.entries(patch).some(([key, value]) => entry.job[key as keyof CloneJob] !== value);
+  if (!changed) return;
   entry.job = { ...entry.job, ...patch };
   publish();
 }
@@ -74,8 +76,7 @@ export async function startClone(options: CloneProjectOptions): Promise<StartClo
     job: {
       projectPath: target.projectPath,
       name: target.identity.repo,
-      slug: repoSlug(target.identity),
-      parentDir: path.dirname(target.projectPath),
+      identity: target.identity,
       status: 'cloning',
       phase: 'Connecting',
       percent: null,
@@ -99,20 +100,17 @@ export async function startClone(options: CloneProjectOptions): Promise<StartClo
       return;
     }
 
-    const added = await addExistingProject(target.projectPath, 'cloned');
-    if (!added.success) {
-      update(target.projectPath, {
-        status: 'failed',
-        error: `Cloned to ${target.projectPath}, but registering it failed: ${added.error}`,
-      });
+    const registered = await registerProducedProject(target.projectPath, 'cloned');
+    if (registered.success === false) {
+      update(target.projectPath, { status: 'failed', error: registered.error });
       return;
     }
-    // The folder this one landed in becomes the default for the next.
-    await setDefaultProjectsDir(path.dirname(target.projectPath));
 
+    // Announced before the entry goes, so the renderer never sees a path with
+    // neither a clone standing in for it nor a project row yet.
+    announceLanded(target.projectPath);
     entries.delete(target.projectPath);
     publish();
-    announceLanded(target.projectPath);
   });
 
   return { success: true, projectPath: target.projectPath };
@@ -130,6 +128,18 @@ export function cancelClone(projectPath: string): void {
     entries.delete(projectPath);
     publish();
   }
+}
+
+/**
+ * Run a failed clone again, into the place it was already headed. The entry
+ * holds everything that takes, so the renderer does not have to reassemble it.
+ */
+export async function retryClone(projectPath: string): Promise<StartCloneResult> {
+  const entry = entries.get(projectPath);
+  if (!entry) return { success: false, error: 'That clone is no longer listed' };
+  const { identity } = entry.job;
+  cancelClone(projectPath);
+  return startClone({ repo: identity, parentDir: path.dirname(projectPath) });
 }
 
 /** Cancel everything in flight — the app is going away and cannot finish them. */

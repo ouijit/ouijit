@@ -10,6 +10,13 @@ import { Icon } from './terminal/Icon';
 
 export type ProjectSourceKind = 'add-existing' | 'create' | 'clone';
 
+/** How a surface with no route to `App` asks for the add-project flow. */
+export const ADD_PROJECT_EVENT = 'add-project';
+
+export function openAddProject(kind: ProjectSourceKind): void {
+  document.dispatchEvent(new CustomEvent<ProjectSourceKind>(ADD_PROJECT_EVENT, { detail: kind }));
+}
+
 export interface ProjectSource {
   kind: ProjectSourceKind;
   icon: string;
@@ -49,8 +56,6 @@ function ProjectSourceChoice({ source, onClick }: { source: ProjectSource; onCli
       onClick={onClick}
       className="group flex items-baseline gap-3 w-full text-left px-5 py-3 hover:bg-ink/[0.04] transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-light outline-none [-webkit-app-region:no-drag]"
     >
-      {/* No border: in here that reads as a floating control, and this is a
-          backdrop inside a row that is itself the button. */}
       <span className="shrink-0 self-center w-8 h-8 rounded-md flex items-center justify-center bg-ink/[0.06] text-text-secondary transition-colors duration-150 group-hover:bg-ink/10 group-hover:text-text-primary">
         <Icon name={source.icon} className="w-[18px] h-[18px]" />
       </span>
@@ -68,10 +73,6 @@ function ProjectSourceChoice({ source, onClick }: { source: ProjectSource; onCli
   );
 }
 
-/**
- * The panel the choices sit in — the same extruded card the home empty state
- * has always drawn, so the dialog is not a flat list on a plain surface.
- */
 export function ProjectSourceList({
   title,
   onChoose,

@@ -6,7 +6,7 @@ import { removeProject, reorderProjects, setProjectIconColor } from '../../db';
 import { initGitRepo } from '../../projectCreator';
 import { getDefaultProjectsDir, prepareProjectsFolderChange, applyProjectsFolderChange } from '../../projectsFolder';
 import { addExistingProject, createAndRegisterProject } from '../../services/projectRegistration';
-import { cancelClone, listCloneJobs, setCloneListeners, startClone } from '../../services/cloneRegistry';
+import { cancelClone, listCloneJobs, retryClone, setCloneListeners, startClone } from '../../services/cloneRegistry';
 import { seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
@@ -75,6 +75,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     cancelClone(projectPath);
     return { success: true };
   });
+  typedHandle('clone:retry', (projectPath) => retryClone(projectPath));
 
   typedHandle('show-folder-picker', async (options) => {
     try {

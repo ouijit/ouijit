@@ -47,6 +47,7 @@ import type {
 } from '../types';
 import type { LimaStatus } from '../lima/types';
 import type {
+  RepoIdentity,
   GithubAvailability,
   UserReposResult,
   ResolvedRepo,
@@ -93,6 +94,7 @@ export interface IpcInvokeContract {
   'clone:start': { args: [options: CloneProjectOptions]; return: StartCloneResult };
   'clone:list': { args: []; return: CloneJob[] };
   'clone:cancel': { args: [projectPath: string]; return: { success: boolean } };
+  'clone:retry': { args: [projectPath: string]; return: StartCloneResult };
   'show-folder-picker': { args: [options?: FolderPickerOptions]; return: { canceled: boolean; filePaths: string[] } };
   'projects:get-default-folder': { args: []; return: string };
   'projects:prepare-folder-change': { args: [newFolder: string]; return: ProjectsFolderChangePlan };
@@ -288,7 +290,7 @@ export interface IpcInvokeContract {
     return: string[];
   };
   'github:user-repos': { args: []; return: UserReposResult };
-  'github:resolve-repo': { args: [ref: string]; return: ResolvedRepo };
+  'github:resolve-repo': { args: [identity: RepoIdentity]; return: ResolvedRepo };
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 

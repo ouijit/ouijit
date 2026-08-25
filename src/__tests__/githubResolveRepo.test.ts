@@ -37,7 +37,7 @@ describe('resolveRepo', () => {
   test('confirms a repo GitHub returns, carrying its details', async () => {
     fetchRepo.mockResolvedValue(REPO);
 
-    await expect(resolveRepo('https://github.com/macro-inc/macro')).resolves.toEqual({
+    await expect(resolveRepo({ host: 'github.com', owner: 'macro-inc', repo: 'macro' })).resolves.toEqual({
       status: 'found',
       repo: REPO,
     });
@@ -46,7 +46,9 @@ describe('resolveRepo', () => {
 
   test('reports a 404 as not-found, which is the only answer that blocks a clone', async () => {
     fetchRepo.mockRejectedValue(new GithubError('not-found', 'nope'));
-    await expect(resolveRepo('macro-inc/marco')).resolves.toEqual({ status: 'not-found' });
+    await expect(resolveRepo({ host: 'github.com', owner: 'macro-inc', repo: 'marco' })).resolves.toEqual({
+      status: 'not-found',
+    });
   });
 
   // A missing answer is not a negative one: these all leave the clone enabled.
@@ -54,7 +56,9 @@ describe('resolveRepo', () => {
     'answers unknown rather than not-found when gh fails with %s',
     async (kind) => {
       fetchRepo.mockRejectedValue(new GithubError(kind, 'boom'));
-      await expect(resolveRepo('macro-inc/macro')).resolves.toEqual({ status: 'unknown' });
+      await expect(resolveRepo({ host: 'github.com', owner: 'macro-inc', repo: 'macro' })).resolves.toEqual({
+        status: 'unknown',
+      });
     },
   );
 
@@ -62,12 +66,9 @@ describe('resolveRepo', () => {
     getCachedHealth.mockReturnValue(null);
     checkHealth.mockResolvedValue({ ...HEALTHY, gh: false });
 
-    await expect(resolveRepo('macro-inc/macro')).resolves.toEqual({ status: 'unknown' });
-    expect(fetchRepo).not.toHaveBeenCalled();
-  });
-
-  test('answers unknown for input that is not a repository', async () => {
-    await expect(resolveRepo('not a repo')).resolves.toEqual({ status: 'unknown' });
+    await expect(resolveRepo({ host: 'github.com', owner: 'macro-inc', repo: 'macro' })).resolves.toEqual({
+      status: 'unknown',
+    });
     expect(fetchRepo).not.toHaveBeenCalled();
   });
 });

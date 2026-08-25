@@ -34,7 +34,7 @@ import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalF
 import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
-import { parseRepoInput } from './repoUrl';
+import { repoSlug } from './types';
 import { GithubError, MIN_GH_VERSION, probeGhAuth } from './client';
 import { reviewSubmitProblem } from './reviewRules';
 import { describeError } from '../utils/describeError';
@@ -160,7 +160,22 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
  * that gate is per-project, and importing is what happens before there is a
  * project to hold a flag or a remote.
  */
-export async function listUserRepos(): Promise<UserReposResult> {
+let userRepos: Promise<UserReposResult> | null = null;
+
+export function listUserRepos(): Promise<UserReposResult> {
+  // The dialog is opened and closed repeatedly, and this list changes on the
+  // order of days. A result that reports a fixable problem is not kept, so
+  // reopening the dialog is enough to see `gh auth login` take effect.
+  if (!userRepos) {
+    userRepos = loadUserRepos().then((result) => {
+      if (result.message) userRepos = null;
+      return result;
+    });
+  }
+  return userRepos;
+}
+
+async function loadUserRepos(): Promise<UserReposResult> {
   // Both probes are cached for the life of the process, and both messages ask
   // the user to go fix the thing they probed. A negative is re-probed so
   // reopening the dialog is enough to see that work.
@@ -186,10 +201,7 @@ export async function listUserRepos(): Promise<UserReposResult> {
  * `not-found`: this gates the clone button, and a rate limit or a dropped
  * connection must not stand between the user and a repo that is really there.
  */
-export async function resolveRepo(ref: string): Promise<ResolvedRepo> {
-  const identity = parseRepoInput(ref);
-  if (!identity) return { status: 'unknown' };
-
+export async function resolveRepo(identity: RepoIdentity): Promise<ResolvedRepo> {
   const health = getCachedHealth() ?? (await checkHealth());
   if (!health.gh || !(await isGhAuthenticated(false))) return { status: 'unknown' };
 
@@ -197,7 +209,7 @@ export async function resolveRepo(ref: string): Promise<ResolvedRepo> {
     return { status: 'found', repo: await fetchRepo(identity) };
   } catch (error) {
     if (error instanceof GithubError && error.kind === 'not-found') return { status: 'not-found' };
-    ghLog.warn('repo resolve failed', { ref, error: describeError(error) });
+    ghLog.warn('repo resolve failed', { repo: repoSlug(identity), error: describeError(error) });
     return { status: 'unknown' };
   }
 }
