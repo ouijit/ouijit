@@ -1338,7 +1338,7 @@ body.marketing::after {
 
 .plan-desk {
   border-radius: 24px;
-  padding: 40px;
+  padding: 32px;
   /* clip, not hidden: hidden makes the desk a scroll container, which
      would pin a sticky descendant in place. */
   overflow: clip;

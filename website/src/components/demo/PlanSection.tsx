@@ -351,7 +351,7 @@ const ROWS: { key: SourceKey; title: string; body: string }[] = [
 function rowMock(key: SourceKey, firing: boolean, setSource: (key: SourceKey) => (el: HTMLDivElement | null) => void) {
   if (key === 'agent')
     return (
-      <Panel firing={firing} style={{ height: 330 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
+      <Panel firing={firing} style={{ height: 250 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
         <AgentPane anchorRef={setSource('agent')} />
       </Panel>
     );
@@ -472,7 +472,7 @@ function CreateStage() {
   const landed = staticMode ? ALL_LANDED : past(progress, 0.76);
   return (
     <div ref={stageRef} className="relative flex gap-10 items-start plan-stage" style={{ marginTop: 72 }}>
-      <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 110 }}>
+      <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 40 }}>
         {ROWS.map(({ key, title, body }) => (
           <Row key={key} title={title} body={body} rowRef={setRow(key)}>
             <Desk slice={DESK_SLICE[key]} drain={staticMode ? 0 : easeInOut(flightP(key))}>
