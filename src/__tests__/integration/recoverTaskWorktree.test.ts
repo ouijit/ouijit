@@ -32,55 +32,32 @@ afterEach(async () => {
 });
 
 describe('checkTaskWorktree', () => {
-  test('returns exists: true when worktree directory is present', async () => {
+  test('a present worktree reports its path, and says nothing about the branch', async () => {
     const wtPath = path.join(tmpDir, 'wt-1');
     execSync(`git worktree add -b feat-1 "${wtPath}"`, { cwd: repoDir });
+    await createTask(repoDir, 1, 'Has worktree', { branch: 'feat-1', worktreePath: wtPath });
 
-    await createTask(repoDir, 1, 'Has worktree', {
-      branch: 'feat-1',
-      worktreePath: wtPath,
-    });
-
-    const result = await checkTaskWorktree(repoDir, 1);
-    expect(result.exists).toBe(true);
-    expect(result.branchExists).toBe(true);
+    // Exact shape: no `branchExists`, so no `git rev-parse` ran.
+    expect(await checkTaskWorktree(repoDir, 1)).toEqual({ status: 'present', worktreePath: wtPath });
   });
 
-  test('detects missing directory but surviving branch', async () => {
-    const wtPath = path.join(tmpDir, 'wt-2');
-    execSync(`git worktree add -b feat-2 "${wtPath}"`, { cwd: repoDir });
-    await fs.rm(wtPath, { recursive: true, force: true });
+  test('a missing directory reports whether a branch survived to recreate from', async () => {
+    const surviving = path.join(tmpDir, 'wt-2');
+    execSync(`git worktree add -b feat-2 "${surviving}"`, { cwd: repoDir });
+    await fs.rm(surviving, { recursive: true, force: true });
+    await createTask(repoDir, 1, 'Dir gone', { branch: 'feat-2', worktreePath: surviving });
 
-    await createTask(repoDir, 1, 'Dir gone', {
-      branch: 'feat-2',
-      worktreePath: wtPath,
-    });
+    expect(await checkTaskWorktree(repoDir, 1)).toEqual({ status: 'missing', branchExists: true });
 
-    const result = await checkTaskWorktree(repoDir, 1);
-    expect(result.exists).toBe(false);
-    expect(result.branchExists).toBe(true);
-  });
-
-  test('detects both directory and branch missing', async () => {
-    const wtPath = path.join(tmpDir, 'wt-3');
-    execSync(`git worktree add -b feat-3 "${wtPath}"`, { cwd: repoDir });
-    await fs.rm(wtPath, { recursive: true, force: true });
+    const pruned = path.join(tmpDir, 'wt-3');
+    execSync(`git worktree add -b feat-3 "${pruned}"`, { cwd: repoDir });
+    await fs.rm(pruned, { recursive: true, force: true });
     execSync('git worktree prune', { cwd: repoDir });
     execSync('git branch -D feat-3', { cwd: repoDir });
+    await createTask(repoDir, 2, 'Both gone', { branch: 'feat-3', worktreePath: pruned });
 
-    await createTask(repoDir, 1, 'Both gone', {
-      branch: 'feat-3',
-      worktreePath: wtPath,
-    });
-
-    const result = await checkTaskWorktree(repoDir, 1);
-    expect(result.exists).toBe(false);
-    expect(result.branchExists).toBe(false);
-  });
-
-  test('returns both false for non-existent task', async () => {
-    const result = await checkTaskWorktree(repoDir, 99);
-    expect(result).toEqual({ exists: false, branchExists: false });
+    expect(await checkTaskWorktree(repoDir, 2)).toEqual({ status: 'missing', branchExists: false });
+    expect(await checkTaskWorktree(repoDir, 99)).toEqual({ status: 'missing', branchExists: false });
   });
 });
 

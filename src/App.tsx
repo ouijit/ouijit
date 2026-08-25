@@ -14,13 +14,15 @@ import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
+import { MissingWorktreeDialog } from './components/dialogs/MissingWorktreeDialog';
 import { CommandPalette } from './components/CommandPalette';
 import { selectProject, selectHome } from './components/navigation';
 import { installCaptureNavigator } from './capture/navigator';
 import { hydrateTerminalFont } from './components/terminal/terminalReact';
 import { hydrateNotificationSettings } from './utils/notifications';
 import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
-import { useUIStore } from './stores/uiStore';
+import { installVisitTracker } from './services/visitTracker';
+import { useUIStore, hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
 import type { Project } from './types';
 
@@ -107,12 +109,8 @@ export function App() {
     hydrateNotificationSettings();
   }, []);
 
-  // Hydrate persisted sidebar-pinned preference. Defaults to pinned (see the
-  // store initial state) — only an explicit '0' from a prior session unpins it.
   useEffect(() => {
-    window.api.globalSettings.get('ui:sidebar-pinned').then((value) => {
-      if (value === '0') useUIStore.setState({ sidebarPinned: false });
-    });
+    void hydrateUIPreferences();
   }, []);
 
   // Subscribe to terminal store changes so the cross-launch session snapshot
@@ -120,6 +118,8 @@ export function App() {
   useEffect(() => {
     installSessionAutoSave();
   }, []);
+
+  useEffect(() => installVisitTracker(), []);
 
   // First-run marker — set so other surfaces can know whether the user has
   // launched before. The actual welcome UI lives inline in the empty home view.
@@ -317,7 +317,21 @@ export function App() {
         />
       )}
       {helpDialogOpen && <HelpDialog onClose={() => useAppStore.getState().setHelpDialogOpen(false)} />}
+      <GlobalMissingWorktreeDialog />
       <CommandPalette />
     </div>
+  );
+}
+
+function GlobalMissingWorktreeDialog() {
+  const request = useUIStore((s) => s.missingWorktreeQueue[0]);
+  if (!request) return null;
+  return (
+    <MissingWorktreeDialog
+      key={request.id}
+      task={request.task}
+      branchExists={request.branchExists}
+      onClose={(action) => useUIStore.getState().resolveMissingWorktree(request.id, action)}
+    />
   );
 }

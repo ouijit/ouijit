@@ -7,8 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAppStore, type HomeRecentTask } from '../stores/appStore';
-import { useProjectStore } from '../stores/projectStore';
-import { addProjectTerminal } from './terminal/terminalActions';
+import { openTasks } from './navigation';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { formatRelativeTime } from '../utils/formatDate';
 import type { Project } from '../types';
@@ -21,35 +20,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 type RecentTask = HomeRecentTask;
 
-function taskKey(task: RecentTask): string {
-  return `${task.project.path}#${task.taskNumber}`;
-}
-
-async function openTaskTerminal(task: RecentTask): Promise<void> {
-  if (task.worktreePath && task.branch) {
-    await addProjectTerminal(task.project.path, undefined, {
-      existingWorktree: { path: task.worktreePath, branch: task.branch, createdAt: task.createdAt },
-      taskId: task.taskNumber,
-    });
-    return;
-  }
-
-  // No worktree yet — start the task (creates worktree, flips to in_progress).
-  const result = await window.api.task.start(task.project.path, task.taskNumber);
-  if (!result.success || !result.worktreePath) {
-    useProjectStore.getState().addToast(result.error || `Failed to open T-${task.taskNumber}`, 'error');
-    return;
-  }
-  await addProjectTerminal(task.project.path, undefined, {
-    existingWorktree: {
-      path: result.worktreePath,
-      branch: result.task?.branch || '',
-      createdAt: task.createdAt,
-    },
-    taskId: task.taskNumber,
-    skipAutoHook: true,
-  });
-}
+const selectionKey = (task: RecentTask): string => `${task.project.path}#${task.taskNumber}`;
 
 interface RecentTasksPanelProps {
   projects: Project[];
@@ -83,34 +54,16 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
 
   const toggleAll = () => {
     if (allSelected) setSelected(new Set());
-    else setSelected(new Set(recents.map(taskKey)));
+    else setSelected(new Set(recents.map(selectionKey)));
   };
 
   const clearSelection = () => setSelected(new Set());
 
-  // Spawn terminal(s) first so they're registered in the store before
-  // ProjectViewReact mounts. That view runs reconnectOrphanedSessions on
-  // projectPath change and force-shows the kanban if no terminals are
-  // registered yet — which would defeat our kanban-hidden navigation.
-  const navigateToProjectTerminals = (project: Project) => {
-    useAppStore.getState().navigateToProject(project.path, project);
-    const store = useProjectStore.getState();
-    store.setActivePanel('terminals');
-    store.setKanbanVisible(false);
-  };
-
-  const openAndNavigate = async (task: RecentTask) => {
-    await openTaskTerminal(task);
-    navigateToProjectTerminals(task.project);
-  };
+  const openAndNavigate = (task: RecentTask) => openTasks([{ project: task.project, task }]);
 
   const openSelection = async () => {
-    const tasks = recents.filter((t) => selected.has(taskKey(t)));
-    if (tasks.length === 0) return;
-    await Promise.all(tasks.map((t) => openTaskTerminal(t)));
-    // Navigate to the first selected task's project (most recent). Terminals
-    // for tasks in other projects appear when the user switches to those.
-    navigateToProjectTerminals(tasks[0].project);
+    const tasks = recents.filter((t) => selected.has(selectionKey(t)));
+    await openTasks(tasks.map((task) => ({ project: task.project, task })));
     clearSelection();
   };
 
@@ -134,7 +87,7 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
       </div>
       <ul className="flex flex-col overflow-y-auto min-h-0 settings-scrollable divide-y divide-ink/[0.04]">
         {recents.map((task) => {
-          const key = taskKey(task);
+          const key = selectionKey(task);
           return (
             <RecentTaskRow
               key={key}

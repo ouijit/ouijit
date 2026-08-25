@@ -15,10 +15,8 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectStore } from '../../stores/projectStore';
-import { useTerminalStore } from '../../stores/terminalStore';
 import type { TaskWithWorkspace, TaskStatus, HookType, SandboxProviderId } from '../../types';
-import { addProjectTerminal } from '../terminal/terminalActions';
-import { beginTransition, bulkTransitionTasks, surfaceStartWarnings } from '../../services/taskStartService';
+import { beginTransition, bulkTransitionTasks } from '../../services/taskStartService';
 import { completeTask } from '../../services/taskCompletion';
 import { KanbanColumn } from './KanbanColumn';
 import { BulkActionBar } from './BulkActionBar';
@@ -27,14 +25,13 @@ import { KanbanShellBar } from './KanbanShellBar';
 import { focusKanbanAddInput } from './KanbanAddInput';
 import { STATUS_LABELS } from './taskMenu';
 import { useAppStore } from '../../stores/appStore';
+import { useUIStore } from '../../stores/uiStore';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
-import { MissingWorktreeDialog } from '../dialogs/MissingWorktreeDialog';
+import { ensureWorktree } from '../../services/worktreeRecovery';
 import { Icon } from '../terminal/Icon';
 import { buildChainMap, isDescendantOf } from '../../utils/taskChain';
-import log from 'electron-log/renderer';
-
-const kanbanLog = log.scope('kanban');
+import { focusTerminal, openTaskShell } from '../navigation';
 
 const COLUMN_ORDER: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done'];
 const COLUMNS: { status: TaskStatus; label: string }[] = COLUMN_ORDER.map((status) => ({
@@ -80,51 +77,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     | { mode: 'combined'; start?: any; continue?: any }
     | null
   >(null);
-  const [missingWorktreeDialog, setMissingWorktreeDialog] = useState<{
-    task: TaskWithWorkspace;
-    branchExists: boolean;
-    resolve: (action: 'recover' | null) => void;
-  } | null>(null);
-
-  /**
-   * Prompts to recover the worktree when it is missing from disk. Returns the
-   * (possibly new) path, or null if cancelled or failed.
-   */
-  const ensureWorktreeExists = useCallback(
-    async (task: TaskWithWorkspace): Promise<string | null> => {
-      const check = await window.api.task.checkWorktree(projectPath, task.taskNumber);
-      if (check.exists && task.worktreePath) return task.worktreePath;
-
-      kanbanLog.warn('worktree missing', { taskNumber: task.taskNumber, branchExists: check.branchExists });
-
-      const action = await new Promise<'recover' | null>((resolve) => {
-        setMissingWorktreeDialog({ task, branchExists: check.branchExists, resolve });
-      });
-      setMissingWorktreeDialog(null);
-
-      if (action !== 'recover') {
-        kanbanLog.info('user cancelled worktree recovery', { taskNumber: task.taskNumber });
-        return null;
-      }
-
-      const result = await window.api.task.recover(projectPath, task.taskNumber);
-      if (!result.success || !result.worktreePath) {
-        kanbanLog.error('worktree recovery failed', {
-          taskNumber: task.taskNumber,
-          error: result.error,
-        });
-        useProjectStore.getState().addToast(result.error || 'Failed to recover worktree', 'error');
-        return null;
-      }
-
-      kanbanLog.info('worktree recovered', { taskNumber: task.taskNumber, worktreePath: result.worktreePath });
-      if (result.task?.branch) task.branch = result.task.branch;
-      task.worktreePath = result.worktreePath;
-      useProjectStore.getState().loadTasks(projectPath);
-      return result.worktreePath;
-    },
-    [projectPath],
-  );
 
   // projectStore owns the config: loaded per project by ProjectViewReact and
   // refreshed by HookList and this board's hook-dialog close handler.
@@ -172,7 +124,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   // Hotkeys
   const runHookActive = useProjectStore((s) => s.runHookQueue.length > 0);
   const composerSheetOpen = useAppStore((s) => s.composerSheetCount > 0);
-  const hasOpenDialog = !!(runHookActive || hookDialog || missingWorktreeDialog || composerSheetOpen);
+  const missingWorktree = useUIStore((s) => s.missingWorktreeQueue.length > 0);
+  const hasOpenDialog = !!(runHookActive || hookDialog || missingWorktree || composerSheetOpen);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -476,12 +429,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // the CLI all funnel through completeTask so they behave identically.
       if (newStatus === 'done' && origStatus && origStatus !== newStatus) {
         if (draggedTask.worktreePath) {
-          const wtPath = await ensureWorktreeExists(draggedTask);
-          if (!wtPath) {
+          const ensured = await ensureWorktree(projectPath, draggedTask);
+          if (!ensured) {
             setActiveTask(null);
             return;
           }
-          draggedTask = { ...draggedTask, worktreePath: wtPath };
+          draggedTask = { ...draggedTask, worktreePath: ensured.path };
         }
         // Plain drop prompts with the Done dialog (like every other column);
         // shift-drag skips the hook outright.
@@ -504,9 +457,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // A worktree may have been deleted outside the app; recover it before
       // starting a transition that assumes it exists.
       if (draggedTask.worktreePath) {
-        const wtPath = await ensureWorktreeExists(draggedTask);
-        if (!wtPath) return;
-        draggedTask = { ...draggedTask, worktreePath: wtPath };
+        const ensured = await ensureWorktree(projectPath, draggedTask);
+        if (!ensured) return;
+        draggedTask = { ...draggedTask, worktreePath: ensured.path };
       }
 
       // The service runs worktree creation, the hook prompt and the terminal
@@ -522,7 +475,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         onForegroundOpen: onHide,
       });
     },
-    [activeTask, chainMap, storeTasks, items, findContainer, projectPath, ensureWorktreeExists, onHide],
+    [activeTask, chainMap, storeTasks, items, findContainer, projectPath, onHide],
   );
 
   // Task CRUD
@@ -552,60 +505,19 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const handleOpenTerminal = useCallback(
     async (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => {
-      // The backend is scoped to this terminal — passed straight through to the
-      // spawn, never persisted on the task.
-      if (task.worktreePath && task.branch) {
-        const wtPath = await ensureWorktreeExists(task);
-        if (!wtPath) return;
-        await addProjectTerminal(projectPath, undefined, {
-          existingWorktree: { path: wtPath, branch: task.branch, createdAt: task.createdAt },
-          taskId: task.taskNumber,
-          sandboxProvider,
-        });
-      } else if (task.branch) {
-        // Has a branch but lost its worktree — recover via dialog
-        const wtPath = await ensureWorktreeExists(task);
-        if (!wtPath) return;
-        await addProjectTerminal(projectPath, undefined, {
-          existingWorktree: { path: wtPath, branch: task.branch, createdAt: task.createdAt },
-          taskId: task.taskNumber,
-          sandboxProvider,
-        });
-      } else {
-        // No worktree or branch yet — beginTask creates worktree + sets in_progress
-        const startResult = await window.api.task.start(projectPath, task.taskNumber);
-        if (!startResult.success || !startResult.worktreePath) {
-          useProjectStore.getState().addToast(startResult.error || 'Failed to start task', 'error');
-          return;
-        }
-        surfaceStartWarnings(startResult.warnings);
-        useProjectStore.getState().loadTasks(projectPath);
-        await addProjectTerminal(projectPath, undefined, {
-          existingWorktree: {
-            path: startResult.worktreePath,
-            branch: startResult.task?.branch || '',
-            createdAt: task.createdAt,
-          },
-          taskId: task.taskNumber,
-          skipAutoHook: true,
-        });
-      }
-      onHide();
-    },
-    [projectPath, onHide, ensureWorktreeExists],
-  );
-
-  const handleSwitchToTerminal = useCallback(
-    (ptyId: string) => {
-      const store = useTerminalStore.getState();
-      const terminals = store.terminalsByProject[projectPath] ?? [];
-      const index = terminals.indexOf(ptyId);
-      if (index !== -1) {
-        store.setActiveIndex(projectPath, index);
-      }
-      onHide();
+      if (await openTaskShell(projectPath, task, { mode: 'resume', sandboxProvider })) onHide();
     },
     [projectPath, onHide],
+  );
+
+  // No `onHide`: `focusTerminal` hides the kanban itself. Hiding here happens a
+  // microtask earlier, which mounts the stack on the terminal the switch is
+  // about to replace.
+  const handleSwitchToTerminal = useCallback(
+    (ptyId: string) => {
+      void focusTerminal(ptyId, projectPath);
+    },
+    [projectPath],
   );
 
   const handleCardSelect = useCallback(
@@ -672,13 +584,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           boxShadow: 'var(--shadow-panel)',
         }}
       >
-        {missingWorktreeDialog && (
-          <MissingWorktreeDialog
-            task={missingWorktreeDialog.task}
-            branchExists={missingWorktreeDialog.branchExists}
-            onClose={missingWorktreeDialog.resolve}
-          />
-        )}
         {hookDialog?.mode === 'single' && (
           <HookConfigDialog
             projectPath={projectPath}

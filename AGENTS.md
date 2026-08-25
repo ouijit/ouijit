@@ -45,3 +45,59 @@ Not that:
 
 Delete a comment rather than rewrite a weak one. Shortening a comment that
 should not exist still leaves a comment that should not exist.
+
+## Tests
+
+Few and comprehensive beats many and narrow. One test that walks a behaviour
+end to end is easier to read, and easier to keep true, than a wall of
+one-assertion tests. Fold related cases together, and name a test after the
+behaviour it pins rather than the function it calls.
+
+Avoid mocks. The `integration` project runs against real git repos and real
+databases under a tmpdir, and most of what is worth testing can be reached that
+way — try it before reaching for `vi.mock`. A mocked module is code the suite
+stops checking, so mocking one of ours means a regression inside it still
+passes.
+
+Where something genuinely cannot run — the network, a spawned agent CLI, the
+clock — mock at that boundary and no further in, and make the fake honour the
+real contract (`gh pr list --json` returning only the fields asked for), which
+catches what a `mockResolvedValue` cannot.
+
+Under jsdom that includes the terminal: `renderer` tests stub `terminalActions`
+and `terminalReact` because xterm cannot construct there, and
+`electron-log/renderer` because importing it hangs. Those are boundaries rather
+than licence to mock our own modules, and they are why a renderer test can pass
+while the spawn it stubbed is broken — behaviour that only shows up in a real
+window belongs in `e2e/`.
+
+Treat the mocks already in the suite as debt rather than as precedent. The
+direction is cassettes — record a real interaction once and replay it, so the
+fixture cannot drift from the contract the way a hand-written fake does. None
+exist yet; adding a mock is a step away from that, so it should be the option
+left after the others fail.
+
+Assert on behaviour, not on the shape it is stored in. A test that reads the
+persisted JSON or a private key format fails when those change and passes when
+the behaviour breaks.
+
+Imports go at the top of the file, above `vi.mock` and `vi.hoisted` — vitest
+hoists those itself, so nothing has to move to accommodate them.
+
+Don't test `src/db/migrations/*` — not for a new column, not for
+re-runnability. A test that chains the earlier migrations to rebuild the prior
+schema duplicates that schema and drifts from it, and the runner exercises the
+real thing on every launch. Cover migration-backed behaviour where it is used,
+if it needs covering at all.
+
+Where a test goes, per `vitest.config.ts`:
+
+- `src/__tests__/*.test.ts` — `unit`, node environment.
+- `src/__tests__/integration/**` — `integration`, real git repos and databases
+  under a tmpdir.
+- `src/__tests__/renderer/**/*.test.tsx` — `renderer`, jsdom.
+- `e2e/*.test.ts` — Playwright, driving a real Electron window.
+
+`npm test` and `npm run test:e2e` each rebuild better-sqlite3 for their own ABI
+in a pre-hook, so run them separately. `npm run test:full` chains the two
+without a rebuild between and cannot pass both halves.

@@ -25,7 +25,6 @@ import {
   OPENCODE_WRAPPER,
   OPENCODE_PLUGIN,
   NONO_SHIM,
-  CLI_REFERENCE,
 } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 
@@ -122,31 +121,6 @@ afterEach(async () => {
 });
 
 // ── Server lifecycle ─────────────────────────────────────────────────
-
-/**
- * This file is the only thing an agent is told about Ouijit, so anything it is
- * supposed to use has to be named here. A capability the agent is not told
- * about is one it will not use.
- */
-describe('CLI_REFERENCE', () => {
-  test('tells an agent how to write review comments', () => {
-    expect(CLI_REFERENCE).toContain('ouijit pr draft add');
-    // How to find which pull request it is on, or it cannot address the right
-    // one — the task it is working in carries the number.
-    expect(CLI_REFERENCE).toContain('ouijit task current | jq .githubPrNumber');
-  });
-
-  test('says what must not be done with gh, and why', () => {
-    // Drafts are staged so the human sends them, and an agent with an
-    // authenticated gh will post directly unless told not to.
-    expect(CLI_REFERENCE).toMatch(/not.*`gh`|nothing should be posted with/i);
-    expect(CLI_REFERENCE).toContain('user sends the review themselves');
-  });
-
-  test('states the anchoring rule that a whole review fails on', () => {
-    expect(CLI_REFERENCE).toContain('ADDED line');
-  });
-});
 
 describe('startHookServer', () => {
   test('resolves with port > 0 once listening', async () => {
@@ -420,9 +394,8 @@ describe('installWrapper', () => {
     expect(wrapper).toContain("-c 'hooks.UserPromptSubmit=");
     expect(wrapper).toContain("-c 'hooks.PostToolUse=");
     expect(wrapper).toContain("-c 'hooks.Stop=");
-    expect(wrapper).toContain("-c 'hooks.PermissionRequest=");
     expect(wrapper).toContain('-c \'hooks.state."/<session-flags>/config.toml:user_prompt_submit:0:0".trusted_hash=');
-    expect(wrapper).toContain('-c \'hooks.state."/<session-flags>/config.toml:permission_request:0:0".trusted_hash=');
+    expect(wrapper).toContain('-c \'hooks.state."/<session-flags>/config.toml:stop:0:0".trusted_hash=');
     expect(wrapper).toContain("-c 'notify=");
     // No-API fallthrough still passes developer_instructions
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
@@ -777,29 +750,25 @@ describe('CODEX_WRAPPER', () => {
     expect(notify[2]).toBe('$HOME/.config/Ouijit/bin/ouijit-hook status status=ready');
   });
 
-  test('injects the four status hooks as TOML arrays of inline tables (must NOT be JSON)', () => {
-    // Each hooks.<Event> override is a TOML array. Codex parses -c values as
-    // TOML; a JSON object would fail parse and degrade to a string, failing
-    // typed deserialization. Asserting TOML inline-table syntax (`{k=v}`).
-    const expected: Array<[string, 'thinking' | 'ready']> = [
-      ['UserPromptSubmit', 'thinking'],
-      ['PostToolUse', 'thinking'],
-      ['Stop', 'ready'],
-      ['PermissionRequest', 'ready'],
-    ];
-    for (const [event, status] of expected) {
-      const re = new RegExp(
-        `-c 'hooks\\.${event}=(\\[\\{hooks=\\[\\{type="command",command="[^"]+"\\}\\]\\}\\])' \\\\`,
-      );
-      const match = CODEX_WRAPPER.match(re);
-      expect(match, `hooks.${event} override should be a TOML array of inline tables`).not.toBeNull();
-      // Pull the command out and check the status mapping
-      const cmdMatch = match![1].match(/command="([^"]+)"/);
-      expect(cmdMatch![1]).toBe(`$HOME/.config/Ouijit/bin/ouijit-hook status status=${status}`);
-      // Must be TOML, not JSON: no `"key":value` syntax
-      expect(match![1]).not.toMatch(/"[A-Za-z_]+":/);
+  test('maps thinking to the events that start work and ready to turn end alone', () => {
+    const tables = [...CODEX_WRAPPER.matchAll(/-c 'hooks\.(\w+)=(\[\{hooks=\[\{[^']+\}\]\}\])' \\/g)];
+
+    // Exhaustive on purpose: PermissionRequest reads like a ready signal and
+    // codex-rs fires it mid-turn, so a second ready event is the regression
+    // this pins.
+    expect(tables.map(([, event, table]) => `${event}=${table.match(/status=(\w+)"/)![1]}`)).toEqual([
+      'UserPromptSubmit=thinking',
+      'PostToolUse=thinking',
+      'Stop=ready',
+    ]);
+
+    for (const [, event, table] of tables) {
+      // Codex parses -c values as TOML; a JSON object fails to parse, degrades
+      // to a string, and then fails typed deserialization.
+      expect(table, `hooks.${event} must be a TOML inline table, not JSON`).not.toMatch(/"[A-Za-z_]+":/);
       // Codex skips async hooks today ("async hooks are not supported yet")
-      expect(match![1]).not.toContain('async');
+      expect(table, `hooks.${event} must not be async`).not.toContain('async');
+      expect(table).toContain('command="$HOME/.config/Ouijit/bin/ouijit-hook status status=');
     }
   });
 
@@ -820,7 +789,6 @@ describe('CODEX_WRAPPER', () => {
       'user_prompt_submit:0:0': 'sha256:f5cd19bf6ce12a88c683852526d77e2553778f51f15d92b0d7f18c1773161245',
       'post_tool_use:0:0': 'sha256:bba7cb97708e558b3d7746468ec196312d9c1a6cb685467177da4e99cca85115',
       'stop:0:0': 'sha256:bd8907212bcda4a71b2e580355c07c837a9f34ac96d01a037526921bdf435ffd',
-      'permission_request:0:0': 'sha256:cb24d6656dd4fef6523820ae479cec67acfeae414590e837a926a7aa0daae1e5',
     };
     for (const [keySuffix, hash] of Object.entries(expected)) {
       const re = new RegExp(
@@ -1247,7 +1215,7 @@ describe('buildVmHookSettings', () => {
 // ── buildVmCodexConfig ───────────────────────────────────────────────
 
 describe('buildVmCodexConfig', () => {
-  test('wires notify + the four status hooks via $HOME/ouijit-hook and omits the CLI reference', () => {
+  test('wires notify + the status hooks via $HOME/ouijit-hook and omits the CLI reference', () => {
     const toml = buildVmCodexConfig();
     expect(toml).toContain('notify = ["bash", "-c", "$HOME/ouijit-hook status status=ready"]');
     expect(toml).toMatch(
@@ -1255,7 +1223,8 @@ describe('buildVmCodexConfig', () => {
     );
     expect(toml).toMatch(/hooks\.PostToolUse = .+status=thinking/);
     expect(toml).toMatch(/hooks\.Stop = .+status=ready/);
-    expect(toml).toMatch(/hooks\.PermissionRequest = .+status=ready/);
+    // Exhaustive for the same reason as the wrapper: ready belongs to Stop alone.
+    expect(toml.match(/hooks\.\w+ =/g)).toEqual(['hooks.UserPromptSubmit =', 'hooks.PostToolUse =', 'hooks.Stop =']);
     // Codex skips async hooks today ("async hooks are not supported yet")
     expect(toml).not.toContain('async');
     // Sandbox must not get the ouijit CLI reference (lateral-movement concern)
@@ -1277,12 +1246,12 @@ describe('buildVmCodexTrustState', () => {
   test('emits a trusted_hash line per event keyed off the VM config path with $HOME literal', () => {
     const toml = buildVmCodexTrustState();
     // $HOME stays literal — the unquoted heredoc in lima/spawn expands it at write time.
-    for (const event of ['user_prompt_submit', 'post_tool_use', 'stop', 'permission_request']) {
-      const re = new RegExp(
-        `hooks\\.state\\."\\$HOME/\\.codex/config\\.toml:${event}:0:0"\\.trusted_hash = "sha256:[0-9a-f]{64}"`,
-      );
-      expect(toml).toMatch(re);
-    }
+    const trusted = [
+      ...toml.matchAll(
+        /hooks\.state\."\$HOME\/\.codex\/config\.toml:(\w+):0:0"\.trusted_hash = "sha256:[0-9a-f]{64}"/g,
+      ),
+    ];
+    expect(trusted.map(([, event]) => event)).toEqual(['user_prompt_submit', 'post_tool_use', 'stop']);
   });
 });
 
