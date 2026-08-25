@@ -311,30 +311,20 @@ export function HomeView() {
         {noProjects ? (
           <div className="absolute inset-0 flex items-center justify-center overflow-hidden p-6">
             <div className="w-full max-w-[36rem]">
-              <div
-                className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden"
-                style={{
-                  background: 'var(--color-terminal-bg)',
-                  boxShadow: 'var(--shadow-panel)',
-                }}
-              >
-                <div className="px-5 py-3">
-                  <span className="text-sm text-text-primary leading-tight">Start a project</span>
-                </div>
-                <ProjectSourceList
-                  onChoose={(kind) =>
-                    document.dispatchEvent(
-                      new Event(
-                        kind === 'add-existing'
-                          ? 'add-existing-project'
-                          : kind === 'create'
-                            ? 'create-new-project'
-                            : 'clone-github-project',
-                      ),
-                    )
-                  }
-                />
-              </div>
+              <ProjectSourceList
+                title="Start a project"
+                onChoose={(kind) =>
+                  document.dispatchEvent(
+                    new Event(
+                      kind === 'add-existing'
+                        ? 'add-existing-project'
+                        : kind === 'create'
+                          ? 'create-new-project'
+                          : 'clone-github-project',
+                    ),
+                  )
+                }
+              />
             </div>
           </div>
         ) : noRecents ? (

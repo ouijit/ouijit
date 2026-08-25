@@ -1,14 +1,18 @@
 /**
- * The three ways a project arrives, and the row that offers one.
+ * The three ways a project arrives, and the panel that offers them.
  *
- * Shared by the home empty state and the add-project dialog so the wording a
- * first-time user reads is the wording they get back from the sidebar later.
+ * Shared by the home empty state and the add-project dialog so the wording and
+ * the treatment a first-time user meets are the ones the sidebar gives back
+ * later.
  */
+
+import { Icon } from './terminal/Icon';
 
 export type ProjectSourceKind = 'add-existing' | 'create' | 'clone';
 
 export interface ProjectSource {
   kind: ProjectSourceKind;
+  icon: string;
   verb: string;
   noun: string;
   detail: string;
@@ -17,60 +21,82 @@ export interface ProjectSource {
 export const PROJECT_SOURCES: ProjectSource[] = [
   {
     kind: 'add-existing',
+    icon: 'folder-open',
     verb: 'Open',
     noun: 'a folder you already have',
     detail: 'Brings an existing folder into Ouijit as a project.',
   },
   {
     kind: 'create',
+    icon: 'folder-plus',
     verb: 'Create',
     noun: 'a new project',
     detail: 'Creates a new folder, initialized as a git repo.',
   },
   {
     kind: 'clone',
+    icon: 'github-logo',
     verb: 'Clone',
     noun: 'a repository from GitHub',
     detail: 'Clones it into your projects folder and opens it here.',
   },
 ];
 
-export function ProjectSourceChoice({
-  verb,
-  noun,
-  detail,
-  onClick,
-}: {
-  verb: string;
-  noun: string;
-  detail: string;
-  onClick: () => void;
-}) {
+function ProjectSourceChoice({ source, onClick }: { source: ProjectSource; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="group flex items-baseline gap-3 w-full text-left px-5 py-3 hover:bg-ink/[0.04] transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-light outline-none [-webkit-app-region:no-drag]"
     >
-      <span className="text-[15px] text-text-tertiary group-hover:text-text-primary transition-colors w-3 shrink-0">
-        →
+      {/* The same extruded tile the sidebar's own add button is, so the three
+          options carry equal weight and read as things rather than list rows. */}
+      <span
+        className="shrink-0 self-center w-8 h-8 rounded-[10px] flex items-center justify-center bg-ink/[0.05] text-text-secondary group-hover:text-text-primary transition-colors"
+        style={{ border: '1px solid var(--color-bezel)' }}
+      >
+        <Icon name={source.icon} className="w-[18px] h-[18px]" />
       </span>
       <span className="flex-1 min-w-0">
         <span className="text-[14px] text-text-primary">
-          <span className="font-semibold">{verb}</span> <span className="text-text-secondary">{noun}.</span>
+          <span className="font-semibold">{source.verb}</span>{' '}
+          <span className="text-text-secondary">{source.noun}.</span>
         </span>
-        <span className="block text-[12px] text-text-tertiary mt-0.5 leading-relaxed">{detail}</span>
+        <span className="block text-[12px] text-text-tertiary mt-0.5 leading-relaxed">{source.detail}</span>
+      </span>
+      <span className="shrink-0 self-center text-[15px] text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        →
       </span>
     </button>
   );
 }
 
-export function ProjectSourceList({ onChoose }: { onChoose: (kind: ProjectSourceKind) => void }) {
+/**
+ * The panel the choices sit in — the same extruded card the home empty state
+ * has always drawn, so the dialog is not a flat list on a plain surface.
+ */
+export function ProjectSourceList({
+  title,
+  onChoose,
+}: {
+  title?: string;
+  onChoose: (kind: ProjectSourceKind) => void;
+}) {
   return (
-    <div className="border-t border-ink/[0.06] divide-y divide-ink/[0.04]">
-      {PROJECT_SOURCES.map((source) => (
-        <ProjectSourceChoice key={source.kind} {...source} onClick={() => onChoose(source.kind)} />
-      ))}
+    <div
+      className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden"
+      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
+    >
+      {title && (
+        <div className="px-5 py-3">
+          <span className="text-sm text-text-primary leading-tight">{title}</span>
+        </div>
+      )}
+      <div className={`${title ? 'border-t border-ink/[0.06] ' : ''}divide-y divide-ink/[0.04]`}>
+        {PROJECT_SOURCES.map((source) => (
+          <ProjectSourceChoice key={source.kind} source={source} onClick={() => onChoose(source.kind)} />
+        ))}
+      </div>
     </div>
   );
 }
