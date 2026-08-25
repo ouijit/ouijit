@@ -14,6 +14,7 @@ import type {
   PullRequestDetail,
   PullRequestFreshness,
   UserReposResult,
+  ResolvedRepo,
   GithubIssue,
   IssueDetail,
   CommentKind,
@@ -71,6 +72,7 @@ export type {
   GithubAvailability,
   GithubRepoSummary,
   UserReposResult,
+  ResolvedRepo,
   PullRequestSummary,
   PullRequestDetail,
   PullRequestFreshness,
@@ -487,6 +489,8 @@ export interface ElectronAPI {
   cloneProject(options: CloneProjectOptions): Promise<CreateProjectResult>;
   /** Repos the signed-in `gh` user can clone, for the import dialog's list */
   listGithubRepos(): Promise<UserReposResult>;
+  /** Whether a named repo exists, so the import dialog can confirm before cloning */
+  resolveGithubRepo(ref: string): Promise<ResolvedRepo>;
   showFolderPicker(options?: FolderPickerOptions): Promise<{ canceled: boolean; filePaths: string[] }>;
   /** Get the folder new projects are created in (setting or built-in default) */
   getDefaultProjectsFolder(): Promise<string>;

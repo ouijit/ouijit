@@ -47,6 +47,7 @@ import type { LimaStatus } from '../lima/types';
 import type {
   GithubAvailability,
   UserReposResult,
+  ResolvedRepo,
   PullRequestDetail,
   PullRequestFreshness,
   GithubIssue,
@@ -283,6 +284,7 @@ export interface IpcInvokeContract {
     return: string[];
   };
   'github:user-repos': { args: []; return: UserReposResult };
+  'github:resolve-repo': { args: [ref: string]; return: ResolvedRepo };
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 

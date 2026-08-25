@@ -32,6 +32,17 @@ export interface GithubRepoSummary {
   isPrivate: boolean;
 }
 
+/**
+ * Whether a repo the user named actually exists.
+ *
+ * `unknown` is the "could not tell" case — no gh, not signed in, offline, rate
+ * limited. It must never block the clone: the answer is missing, not negative.
+ */
+export interface ResolvedRepo {
+  status: 'found' | 'not-found' | 'unknown';
+  repo?: GithubRepoSummary;
+}
+
 /** The import dialog's repo list, or why it is empty. */
 export interface UserReposResult {
   repos: GithubRepoSummary[];

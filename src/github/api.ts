@@ -771,3 +771,12 @@ export async function fetchUserRepos(): Promise<GithubRepoSummary[]> {
     isPrivate: repo.private,
   }));
 }
+
+/** One repo by identity — the existence check the import dialog runs. */
+export async function fetchRepo(identity: RepoIdentity): Promise<GithubRepoSummary> {
+  const raw = await ghRest<{ full_name: string; description: string | null; private: boolean }>(
+    `repos/${repoSlug(identity)}`,
+    { identity },
+  );
+  return { slug: raw.full_name, description: raw.description, isPrivate: raw.private };
+}

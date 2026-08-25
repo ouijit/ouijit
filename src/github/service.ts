@@ -34,6 +34,7 @@ import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalF
 import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
+import { parseRepoInput } from './repoUrl';
 import { GithubError, MIN_GH_VERSION, probeGhAuth } from './client';
 import { reviewSubmitProblem } from './reviewRules';
 import { describeError } from '../utils/describeError';
@@ -45,6 +46,7 @@ import {
   fetchIssues,
   fetchIssue,
   fetchUserRepos,
+  fetchRepo,
   findPullRequestForBranch,
   fetchOpenPullRequestBranches,
   submitReview,
@@ -78,6 +80,7 @@ import type {
   PromoteToTaskResult,
   PrFileVersions,
   UserReposResult,
+  ResolvedRepo,
 } from './types';
 import type { FileDiff, ChangedFile } from '../types';
 import { locateInHunks } from '../snippetAnchor';
@@ -173,6 +176,29 @@ export async function listUserRepos(): Promise<UserReposResult> {
   } catch (error) {
     ghLog.warn('user repo list failed', { error: describeError(error) });
     return { repos: [], message: describeError(error) };
+  }
+}
+
+/**
+ * Whether a repo the import dialog is about to clone exists.
+ *
+ * Every failure that is not a definite 404 answers `unknown` rather than
+ * `not-found`: this gates the clone button, and a rate limit or a dropped
+ * connection must not stand between the user and a repo that is really there.
+ */
+export async function resolveRepo(ref: string): Promise<ResolvedRepo> {
+  const identity = parseRepoInput(ref);
+  if (!identity) return { status: 'unknown' };
+
+  const health = getCachedHealth() ?? (await checkHealth());
+  if (!health.gh || !(await isGhAuthenticated(false))) return { status: 'unknown' };
+
+  try {
+    return { status: 'found', repo: await fetchRepo(identity) };
+  } catch (error) {
+    if (error instanceof GithubError && error.kind === 'not-found') return { status: 'not-found' };
+    ghLog.warn('repo resolve failed', { ref, error: describeError(error) });
+    return { status: 'unknown' };
   }
 }
 

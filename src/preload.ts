@@ -70,6 +70,7 @@ contextBridge.exposeInMainWorld('api', {
   createProject: (options: CreateProjectOptions) => typedInvoke('create-project', options),
   cloneProject: (options: CloneProjectOptions) => typedInvoke('clone-project', options),
   listGithubRepos: () => typedInvoke('github:user-repos'),
+  resolveGithubRepo: (ref: string) => typedInvoke('github:resolve-repo', ref),
   showFolderPicker: (options?: FolderPickerOptions) => typedInvoke('show-folder-picker', options),
   getDefaultProjectsFolder: () => typedInvoke('projects:get-default-folder'),
   prepareProjectsFolderChange: (newFolder: string) => typedInvoke('projects:prepare-folder-change', newFolder),

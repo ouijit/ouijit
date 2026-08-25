@@ -3,7 +3,7 @@ import { DialogOverlay } from './DialogOverlay';
 import { Icon } from '../terminal/Icon';
 import { cloneUrl, isDotCom, parseRepoInput } from '../../github/repoUrl';
 import { repoSlug } from '../../github/types';
-import type { GithubRepoSummary } from '../../types';
+import type { GithubRepoSummary, ResolvedRepo } from '../../types';
 
 interface CloneFromGithubDialogProps {
   onClose: (result: { projectPath: string } | null) => void;
@@ -13,6 +13,9 @@ interface RepoChoice extends GithubRepoSummary {
   /** What the clone is handed for this row — the slug, or a URL for Enterprise. */
   ref: string;
 }
+
+/** Long enough that typing a name out does not fork a `gh` process per keystroke. */
+const RESOLVE_DEBOUNCE_MS = 400;
 
 function matchesNeedle(repo: GithubRepoSummary, needle: string): boolean {
   return repo.slug.toLowerCase().includes(needle) || (repo.description?.toLowerCase().includes(needle) ?? false);
@@ -26,6 +29,10 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
   const [listLoading, setListLoading] = useState(true);
   const [highlight, setHighlight] = useState(-1);
   const [cloning, setCloning] = useState(false);
+  const [resolution, setResolution] = useState<ResolvedRepo & { checking: boolean }>({
+    status: 'unknown',
+    checking: false,
+  });
   const [visible, setVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -73,20 +80,61 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
   // A pasted URL is filtered on as the `owner/name` it resolves to, so it can
   // match a listed repo, and is offered as its own row when it matches none —
   // the list is only the user's own repos, and any repo is fair game to clone.
+  const listedMatch = resolvedSlug
+    ? repos.find((repo) => repo.slug.toLowerCase() === resolvedSlug.toLowerCase())
+    : undefined;
+
   const matches = useMemo((): RepoChoice[] => {
     const needle = (resolvedSlug || query).trim().toLowerCase();
     const listed = (needle ? repos.filter((repo) => matchesNeedle(repo, needle)) : repos).map((repo) => ({
       ...repo,
       ref: repo.slug,
     }));
-    if (resolvedSlug && resolvedRef && !listed.some((repo) => repo.slug.toLowerCase() === needle)) {
-      return [{ slug: resolvedSlug, ref: resolvedRef, description: null, isPrivate: false }, ...listed];
+    const unlisted = resolvedSlug && resolvedRef && !listed.some((repo) => repo.slug.toLowerCase() === needle);
+    if (unlisted && resolution.status !== 'not-found') {
+      const found = resolution.status === 'found' ? resolution.repo : undefined;
+      return [
+        {
+          slug: resolvedSlug,
+          ref: resolvedRef,
+          description: found?.description ?? null,
+          isPrivate: found?.isPrivate ?? false,
+        },
+        ...listed,
+      ];
     }
     return listed;
-  }, [repos, query, resolvedSlug, resolvedRef]);
+  }, [repos, query, resolvedSlug, resolvedRef, resolution]);
+
+  // A repo already in the list is known to exist; anything else is checked
+  // against GitHub so the confirmation below is earned rather than a restatement
+  // of what was typed.
+  useEffect(() => {
+    if (!resolvedRef || listedMatch) {
+      setResolution({ status: listedMatch ? 'found' : 'unknown', repo: listedMatch, checking: false });
+      return;
+    }
+    setResolution({ status: 'unknown', checking: true });
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      window.api
+        .resolveGithubRepo(resolvedRef)
+        .then((result) => {
+          if (!cancelled) setResolution({ ...result, checking: false });
+        })
+        .catch(() => {
+          if (!cancelled) setResolution({ status: 'unknown', checking: false });
+        });
+    }, RESOLVE_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [resolvedRef, listedMatch]);
 
   const target = (matches[highlight]?.ref || resolvedRef || query).trim();
-  const canClone = parseRepoInput(target) !== null;
+  // `unknown` never blocks — see `resolveRepo`. Only a definite 404 does.
+  const canClone = parseRepoInput(target) !== null && resolution.status !== 'not-found';
 
   useEffect(() => {
     listRef.current?.children[highlight]?.scrollIntoView({ block: 'nearest' });
@@ -174,7 +222,11 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
             <p className="px-3 py-2 text-xs text-text-tertiary">{listNote}</p>
           ) : matches.length === 0 ? (
             <p className="px-3 py-2 text-xs text-text-tertiary">
-              {query.trim() ? `No repository matches “${query.trim()}”.` : 'No repositories found.'}
+              {resolution.status === 'not-found'
+                ? `${resolvedSlug} was not found on GitHub.`
+                : query.trim()
+                  ? `No repository matches “${query.trim()}”.`
+                  : 'No repositories found.'}
             </p>
           ) : (
             matches.map((repo, index) => (
@@ -184,6 +236,12 @@ export function CloneFromGithubDialog({ onClose }: CloneFromGithubDialogProps) {
                 onClick={() => setQuery(repo.ref)}
                 disabled={cloning}
               >
+                {repo.slug === resolvedSlug && (
+                  <Icon
+                    name="check"
+                    className={`w-3 h-3 shrink-0 self-center ${resolution.status === 'found' ? 'text-success' : 'text-transparent'}`}
+                  />
+                )}
                 <span className="text-xs text-text-primary shrink-0">{repo.slug}</span>
                 {repo.isPrivate && <span className="text-[10px] text-text-tertiary shrink-0">Private</span>}
                 {repo.description && (
