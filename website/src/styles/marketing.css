@@ -822,10 +822,11 @@ html.js [data-reveal].is-revealed {
 .tools-flow .detail {
   flex: none;
   width: var(--w);
-  /* Copy sets the height, up to the point where one card would tower over the
-     band and drag the row's box up with it. The palette's mock is the only one
-     past this, and it crops. */
-  max-height: 300px;
+  /* Copy sets the height, up to a shade over the tallest card that fits its
+     own content. Only the palette's mock runs past this, and a row's box takes
+     its tallest card — so left uncapped it lifts the whole row's top edge away
+     from the heading, and pokes above the rest of the band on its own. */
+  max-height: 264px;
   top: var(--shift, 0px);
 }
 

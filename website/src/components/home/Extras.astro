@@ -33,8 +33,11 @@ import {
  * row's top edge on its own, leaving the rest of the band further from the
  * heading than it is; moving one down and everything up closes that without
  * moving the palette at all.
+ *
+ * At most the smallest top offset any other card has, or the lift pulls that
+ * card up past the palette and into the heading.
  */
-const LEAD_DROP = 40;
+const LEAD_DROP = 20;
 
 const TOP = [
   {
