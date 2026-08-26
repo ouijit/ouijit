@@ -192,7 +192,7 @@ export function MockCommandPalette({ onClose }: { onClose: () => void }) {
       }}
     >
       <div
-        className="glass-bevel w-full max-w-[40rem] max-h-full flex flex-col rounded-[14px] border border-bezel-panel overflow-hidden"
+        className="glass-bevel relative w-full max-w-[40rem] max-h-full flex flex-col rounded-[14px] border border-bezel-panel overflow-hidden"
         style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
         onKeyDown={(e) => {
           if (e.key === 'Escape') return onClose();

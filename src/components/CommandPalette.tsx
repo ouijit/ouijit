@@ -331,7 +331,7 @@ function PaletteBody({ visible }: { visible: boolean }) {
       }}
     >
       <div
-        className={`glass-bevel w-full max-w-[40rem] max-h-full flex flex-col rounded-[14px] border border-bezel-panel overflow-hidden ${
+        className={`glass-bevel relative w-full max-w-[40rem] max-h-full flex flex-col rounded-[14px] border border-bezel-panel overflow-hidden ${
           visible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2'
         }`}
         style={{
