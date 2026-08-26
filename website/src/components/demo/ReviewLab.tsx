@@ -15,6 +15,8 @@ import {
   ToolCall,
   ToolResult,
   TuiStatus,
+  EditDiff,
+  WorkingLine,
   BODY_CLS,
 } from './stackParts';
 import { DeskWash } from './DeskWash';
@@ -355,11 +357,14 @@ function PendingNotes() {
   );
 }
 
+const FIXED_AT = 0.92;
+
 function ReviewSession({ p }: { p: (k: string) => number }) {
   const pending = p('send') > 0.2 && p('fix') <= 0.06;
   const fixing = p('fix') > 0.06;
+  const fixed = p('fix') > FIXED_AT;
   return (
-    <ReviewShell busy={fixing} pending={pending ? <PendingNotes /> : undefined}>
+    <ReviewShell busy={fixing && !fixed} pending={pending ? <PendingNotes /> : undefined}>
       <Line p={p('note')} at={0}>
         <AssistantSay>Done — stepper shell, saved progress, and WelcomeIntro retired.</AssistantSay>
       </Line>
@@ -378,18 +383,34 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
       <Line p={p('fix')} at={0.32}>
         <AssistantSay>Good catch — progress resets on sign-out. Covering it with a test.</AssistantSay>
       </Line>
-      <Line p={p('fix')} at={0.55}>
+      <Line p={p('fix')} at={0.48}>
+        <ToolCall name="Read" args="src/onboarding/useOnboardingProgress.ts" />
+        <ToolResult>Read 38 lines</ToolResult>
+      </Line>
+      <Line p={p('fix')} at={0.62}>
         <ToolCall name="Edit" args="src/onboarding/onboarding.test.tsx" />
         <ToolResult>
           <span className="text-[#3fb950]">+18</span>
           <span className="ml-2 text-white/55">lines</span>
         </ToolResult>
+        <EditDiff
+          rows={[
+            [42, '+', "it('keeps progress across sign-out', async () => {"],
+            [43, '+', '  await signIn(user); await advanceTo(2);'],
+            [44, '+', '  await signOut(); await signIn(user);'],
+            [45, '+', '  expect(await currentStep()).toBe(2);'],
+          ]}
+        />
       </Line>
-      <Line p={p('fix')} at={0.78}>
+      <Line p={p('fix')} at={0.8}>
         <ToolCall name="Bash" args="npm test -- onboarding" />
+      </Line>
+      {fixing && !fixed && <WorkingLine verb="Verifying" elapsed="1m 12s" tokens="4.3k" />}
+      <Line p={p('fix')} at={0.92}>
         <ToolResult>
           <span className="text-[#3fb950]">PASS</span>
           <span className="ml-2 text-white/65">15 tests</span>
+          <span className="ml-2 text-white/35">in 1.4s</span>
         </ToolResult>
       </Line>
     </ReviewShell>
@@ -401,17 +422,23 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
 function RoundTripTerminal({ p, receded = false }: { p: (k: string) => number; receded?: boolean }) {
   const fixtures = getPanelFixtures('pty-101-dev');
   const fixing = p('fix') > 0.06;
+  /* The beat ends with the fix landed, so the card stops reading as busy
+     before the pull request takes the stage. FIXED_AT is shared with the
+     session body, which drops its working line on the same frame. */
+  const fixed = p('fix') > FIXED_AT;
   return (
     <TerminalCardView isActive={!receded} backDepth={receded ? 1 : 0}>
       <TerminalHeaderView
-        summaryType={fixing && !receded ? 'thinking' : 'ready'}
+        summaryType={fixing && !fixed && !receded ? 'thinking' : 'ready'}
         isActive={!receded}
         isBackCard={receded}
         stackPosition={receded ? 1 : undefined}
         nameContent={
           <TerminalHeaderName
             label="Rework onboarding flow"
-            lastOscTitle={receded ? 'done · 15 passed' : fixing ? 'Adding sign-out test...' : 'done · in review'}
+            lastOscTitle={
+              receded || fixed ? 'done · 15 passed' : fixing ? 'Adding sign-out test...' : 'done · in review'
+            }
           />
         }
         branchContent={receded ? undefined : <BranchLabel branch="rework-onboarding" />}
@@ -434,7 +461,7 @@ function RoundTripTerminal({ p, receded = false }: { p: (k: string) => number; r
  * of the round-trip `p` describes. */
 function RoundTripCard({ p }: { p: (k: string) => number }) {
   return (
-    <div className="relative" style={{ height: 480 }}>
+    <div className="relative" style={{ height: 520 }}>
       <RoundTripTerminal p={p} />
     </div>
   );
@@ -860,7 +887,7 @@ export function ReviewVariantTwoAct() {
     <div ref={rootRef} className="bl-theater">
       <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, paddingTop: 48, width: '100%' }}>
           <DeskWash />
-          <div className="relative" style={{ height: 480 }}>
+          <div className="relative" style={{ height: 520 }}>
             <RoundTripTerminal p={p} receded={prOn} />
             <div
               style={{
