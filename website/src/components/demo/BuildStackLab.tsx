@@ -27,8 +27,9 @@ const N = SESSIONS.length;
  *  and how much it narrows. The app caps its depth ramp at four cards, so a
  *  ten-deep stack supplies its own rather than repeating the fourth. */
 const PEEK = 24;
-/** Headroom above the deepest card, so the stack never touches the desk. */
-const TOP_PAD = 76;
+/** Clearance above the deepest card. A shade over the desk's 36px padding,
+ *  since the back cards narrow and read lighter than the front one. */
+const TOP_PAD = 44;
 const NARROW = 0.014;
 
 function useStageScrub() {
