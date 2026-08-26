@@ -1,4 +1,5 @@
-import type { FirstProjectSource, OnboardingState } from './types';
+import { FIRST_PROJECT_SOURCES } from './types';
+import type { OnboardingState } from './types';
 
 export const ONBOARDING_STATE_KEY = 'onboarding:state';
 export const ONBOARDING_STATE_VERSION = 1;
@@ -28,8 +29,7 @@ export function normalizeOnboardingState(raw: string | undefined | null): Onboar
   }
   if (!parsed || typeof parsed !== 'object') return null;
   const obj = parsed as Record<string, unknown>;
-  const source: FirstProjectSource =
-    obj.source === 'created' || obj.source === 'added' ? obj.source : DEFAULT_STATE.source;
+  const source = FIRST_PROJECT_SOURCES.find((known) => known === obj.source) ?? DEFAULT_STATE.source;
   return {
     version: ONBOARDING_STATE_VERSION,
     firstProjectPath: typeof obj.firstProjectPath === 'string' ? obj.firstProjectPath : DEFAULT_STATE.firstProjectPath,

@@ -9,6 +9,7 @@ import {
   serializeOnboardingState,
   type OnboardingStorageIO,
 } from '../onboardingState';
+import { FIRST_PROJECT_SOURCES } from '../types';
 import type { OnboardingState } from '../types';
 
 const VALID_STATE: OnboardingState = {
@@ -48,9 +49,11 @@ describe('normalizeOnboardingState', () => {
     });
   });
 
-  it('coerces an invalid source to the default', () => {
-    const result = normalizeOnboardingState(JSON.stringify({ source: 'garbage' }));
-    expect(result?.source).toBe('added');
+  it('keeps every declared source and coerces anything else to the default', () => {
+    for (const source of FIRST_PROJECT_SOURCES) {
+      expect(normalizeOnboardingState(JSON.stringify({ source }))?.source).toBe(source);
+    }
+    expect(normalizeOnboardingState(JSON.stringify({ source: 'garbage' }))?.source).toBe('added');
   });
 
   it('coerces a non-number seededTaskNumber to null', () => {

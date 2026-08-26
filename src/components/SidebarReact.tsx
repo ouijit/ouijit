@@ -2,34 +2,26 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import {
-  useFloating,
-  useHover,
-  useDismiss,
-  useRole,
-  useInteractions,
-  autoUpdate,
-  offset,
-  flip,
-  shift,
-} from '@floating-ui/react';
-import { createPortal } from 'react-dom';
 import type { Project } from '../types';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
-import { projectIconColor, getInitials } from '../utils/projectIcon';
+import { projectIconColor } from '../utils/projectIcon';
+import { CloningProjectIcon } from './CloningProjectIcon';
+import { SidebarTooltipWrapper, SidebarTile } from './SidebarTooltip';
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
 interface SidebarProps {
   onProjectSelect: (path: string, project: Project) => void;
   onHomeSelect: () => void;
-  onAddExisting: () => void;
-  onCreateNew: () => void;
+  onAddProject: () => void;
+  onCloneSelect: (projectPath: string) => void;
 }
 
-export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreateNew }: SidebarProps) {
+export function Sidebar({ onProjectSelect, onHomeSelect, onAddProject, onCloneSelect }: SidebarProps) {
   const projects = useAppStore((s) => s.projects);
+  const cloningPaths = useAppStore(useShallow((s) => s.cloneJobs.map((job) => job.projectPath)));
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const fullscreen = useAppStore((s) => s.fullscreen);
@@ -44,8 +36,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
   const [visible, setVisible] = useState(true);
   const effectiveVisible = visible || sidebarPinned;
 
-  const addBtnRef = useRef<HTMLButtonElement>(null);
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; project: Project } | null>(null);
 
   // Ordered project paths for @dnd-kit
@@ -82,7 +72,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
   }, []);
 
   const hideSidebar = useCallback(() => {
-    if (addMenuOpen) return;
     if (sidebarPinned) return;
     // Keep the sidebar pinned open until the user has at least one project —
     // otherwise the only entry point for "add project" disappears on hover-out.
@@ -96,7 +85,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
 
       document.documentElement.style.setProperty('--sidebar-offset', '0px');
     }, 300);
-  }, [addMenuOpen, noProjects, sidebarPinned]);
+  }, [noProjects, sidebarPinned]);
 
   useEffect(() => {
     const handler = () => showSidebar();
@@ -133,15 +122,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
     document.documentElement.style.setProperty('--sidebar-offset', 'var(--sidebar-width)');
   }, []);
 
-  useEffect(() => {
-    const handler = () => {
-      showSidebar();
-      setAddMenuOpen(true);
-    };
-    document.addEventListener('open-add-menu', handler);
-    return () => document.removeEventListener('open-add-menu', handler);
-  }, [showSidebar]);
-
   // Pin the sidebar open whenever there are no projects so the add-project
   // button stays visible (otherwise it auto-hides on mouse-out).
   useEffect(() => {
@@ -174,20 +154,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
       document.removeEventListener('mousedown', dismiss);
     };
   }, [contextMenu]);
-
-  useEffect(() => {
-    if (!addMenuOpen) return;
-    const dismiss = (e: MouseEvent) => {
-      const menu = document.querySelector('.sidebar-add-menu-react');
-      if (menu?.contains(e.target as Node)) return;
-      setAddMenuOpen(false);
-    };
-    const timer = setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', dismiss);
-    };
-  }, [addMenuOpen]);
 
   const handleRemoveProject = useCallback(async (project: Project) => {
     setContextMenu(null);
@@ -291,8 +257,17 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
             </SortableContext>
           </DndContext>
 
+          {cloningPaths.map((projectPath) => (
+            <CloningProjectIcon
+              key={projectPath}
+              projectPath={projectPath}
+              isActive={activeView === 'project' && activeProjectPath === projectPath}
+              onClick={() => onCloneSelect(projectPath)}
+            />
+          ))}
+
           {/* Add button */}
-          <SidebarTooltipWrapper label="Add project" disabled={addMenuOpen}>
+          <SidebarTooltipWrapper label="Add project">
             {(tipRef, tipProps) => (
               <div
                 ref={tipRef}
@@ -301,11 +276,10 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
                 style={{ width: 'var(--sidebar-width)', height: 40 }}
               >
                 <button
-                  ref={addBtnRef}
                   className="w-10 h-10 flex items-center justify-center relative glass-bevel overflow-hidden rounded-[12px] bg-background-secondary border border-bezel text-text-secondary transition-colors duration-200 ease-out [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setAddMenuOpen(!addMenuOpen);
+                    onAddProject();
                   }}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -317,16 +291,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
           </SidebarTooltipWrapper>
         </div>
       </aside>
-
-      {/* Add menu (portal-like, absolute positioned) */}
-      {addMenuOpen && (
-        <AddMenu
-          anchorRef={addBtnRef}
-          onAddExisting={onAddExisting}
-          onCreateNew={onCreateNew}
-          onClose={() => setAddMenuOpen(false)}
-        />
-      )}
 
       {/* Context menu */}
       {contextMenu && (
@@ -368,29 +332,6 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
     id: project.path,
   });
 
-  // Tooltip via floating-ui hooks (no wrapper element needed)
-  const [tipOpen, setTipOpen] = useState(false);
-  const {
-    refs: tipRefs,
-    floatingStyles: tipStyles,
-    context: tipContext,
-  } = useFloating({
-    open: tipOpen,
-    onOpenChange: setTipOpen,
-    placement: 'right',
-    strategy: 'fixed',
-    middleware: [offset(-4), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-  const tipHover = useHover(tipContext, { move: false, delay: { open: 100 } });
-  const tipDismiss = useDismiss(tipContext);
-  const tipRole = useRole(tipContext, { role: 'tooltip' });
-  const { getReferenceProps: getTipRefProps, getFloatingProps: getTipFloatProps } = useInteractions([
-    tipHover,
-    tipDismiss,
-    tipRole,
-  ]);
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -398,176 +339,43 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
   };
 
   return (
-    <>
-      <div
-        ref={(node) => {
-          setNodeRef(node);
-          tipRefs.setReference(node);
-        }}
-        {...attributes}
-        {...getTipRefProps()}
-        {...listeners}
-        className="group relative flex items-center justify-center shrink-0 [-webkit-app-region:no-drag]"
-        style={{ ...style, width: 'var(--sidebar-width)', height: 48 }}
-        data-project-path={project.path}
-        onClick={onClick}
-        onContextMenu={onContextMenu}
-      >
+    <SidebarTooltipWrapper label={project.name} disabled={isDragging}>
+      {(tipRef, tipProps) => (
         <div
-          className={`absolute left-0 w-1 rounded-r-sm bg-ink transition-all duration-200 ease-out ${
-            isActive ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
-          }`}
-        />
-        <div className="w-10 h-10 overflow-hidden rounded-md">
-          <div
-            className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
-            style={{ backgroundColor: projectIconColor(project), textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
-          >
-            {getInitials(project.name)}
-          </div>
+          ref={(node) => {
+            setNodeRef(node);
+            tipRef(node);
+          }}
+          {...attributes}
+          {...tipProps}
+          {...listeners}
+          className="group relative flex items-center justify-center shrink-0 [-webkit-app-region:no-drag]"
+          style={{ ...style, width: 'var(--sidebar-width)', height: 48 }}
+          data-project-path={project.path}
+          onClick={onClick}
+          onContextMenu={onContextMenu}
+        >
+          <SidebarTile name={project.name} color={projectIconColor(project)} isActive={isActive}>
+            {terminalCount > 0 && (
+              <span
+                className="absolute bottom-0 right-2 flex items-center justify-center text-accent-ink font-bold"
+                style={{
+                  minWidth: 16,
+                  height: 16,
+                  fontSize: 10,
+                  lineHeight: 1,
+                  padding: '0 4px',
+                  borderRadius: 8,
+                  background: 'var(--color-accent)',
+                  border: '2px solid var(--color-background)',
+                }}
+              >
+                {terminalCount}
+              </span>
+            )}
+          </SidebarTile>
         </div>
-        {terminalCount > 0 && (
-          <span
-            className="absolute bottom-0 right-2 flex items-center justify-center text-accent-ink font-bold"
-            style={{
-              minWidth: 16,
-              height: 16,
-              fontSize: 10,
-              lineHeight: 1,
-              padding: '0 4px',
-              borderRadius: 8,
-              background: 'var(--color-accent)',
-              border: '2px solid var(--color-background)',
-            }}
-          >
-            {terminalCount}
-          </span>
-        )}
-      </div>
-      {tipOpen &&
-        !isDragging &&
-        createPortal(
-          <div
-            ref={tipRefs.setFloating}
-            className="fixed z-[10002] pointer-events-none"
-            style={tipStyles}
-            {...getTipFloatProps()}
-          >
-            <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip whitespace-nowrap animate-tooltip-pop">
-              {project.name}
-            </div>
-          </div>,
-          document.body,
-        )}
-    </>
-  );
-}
-
-// ── Sidebar tooltip wrapper ─────────────────────────────────────────
-
-function SidebarTooltipWrapper({
-  label,
-  children,
-  disabled,
-}: {
-  label: string;
-  children: (ref: (node: HTMLElement | null) => void, props: Record<string, unknown>) => React.ReactNode;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const { refs, floatingStyles, context } = useFloating({
-    open: open && !disabled,
-    onOpenChange: setOpen,
-    placement: 'right',
-    strategy: 'fixed',
-    middleware: [offset(-4), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-  const hover = useHover(context, { move: false, delay: { open: 100 } });
-  const dismiss = useDismiss(context);
-  const role = useRole(context, { role: 'tooltip' });
-  const { getReferenceProps, getFloatingProps } = useInteractions([hover, dismiss, role]);
-
-  return (
-    <>
-      {children(refs.setReference as (node: HTMLElement | null) => void, getReferenceProps())}
-      {open &&
-        !disabled &&
-        createPortal(
-          <div
-            ref={refs.setFloating}
-            className="fixed z-[10002] pointer-events-none"
-            style={floatingStyles}
-            {...getFloatingProps()}
-          >
-            <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip whitespace-nowrap animate-tooltip-pop">
-              {label}
-            </div>
-          </div>,
-          document.body,
-        )}
-    </>
-  );
-}
-
-// ── Add menu ─────────────────────────────────────────────────────────
-
-interface AddMenuProps {
-  anchorRef: React.RefObject<HTMLButtonElement | null>;
-  onAddExisting: () => void;
-  onCreateNew: () => void;
-  onClose: () => void;
-}
-
-function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProps) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node) && !anchorRef.current?.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    setTimeout(() => document.addEventListener('mousedown', handler), 0);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose, anchorRef]);
-
-  // Position relative to anchor button
-  const rect = anchorRef.current?.getBoundingClientRect();
-  const left = (rect?.right ?? 76) + 8;
-  const bottom = rect ? window.innerHeight - rect.bottom : 16;
-
-  return createPortal(
-    <div
-      ref={ref}
-      className="sidebar-add-menu-react fixed z-[10002] flex flex-col p-1 glass-bevel border border-bezel rounded-[12px] overflow-hidden"
-      style={{
-        left,
-        bottom,
-        top: 'auto',
-        background: 'var(--color-terminal-bg)',
-        boxShadow: 'var(--shadow-menu)',
-      }}
-    >
-      <button
-        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-ink/[0.08]"
-        onClick={() => {
-          onClose();
-          onAddExisting();
-        }}
-      >
-        Add existing
-      </button>
-      <button
-        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-ink/[0.08]"
-        onClick={() => {
-          onClose();
-          onCreateNew();
-        }}
-      >
-        Create new
-      </button>
-    </div>,
-    document.body,
+      )}
+    </SidebarTooltipWrapper>
   );
 }

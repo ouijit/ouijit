@@ -11,7 +11,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { getCachedHealth, checkHealth, refreshHealth } from '../healthCheck';
+import { getCachedHealth, refreshHealth, currentHealth } from '../healthCheck';
 import {
   getTaskByNumber,
   getProjectTasks,
@@ -34,7 +34,8 @@ import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalF
 import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
-import { GithubError, MIN_GH_VERSION, probeGhAuth } from './client';
+import { repoSlug } from './types';
+import { GithubError, MIN_GH_VERSION, probeGh, probeGhAuth } from './client';
 import { reviewSubmitProblem } from './reviewRules';
 import { describeError } from '../utils/describeError';
 import {
@@ -44,6 +45,8 @@ import {
   fetchPullRequestFiles,
   fetchIssues,
   fetchIssue,
+  fetchUserRepos,
+  fetchRepo,
   findPullRequestForBranch,
   fetchOpenPullRequestBranches,
   submitReview,
@@ -76,6 +79,8 @@ import type {
   TaskFromGithubResult,
   PromoteToTaskResult,
   PrFileVersions,
+  UserReposResult,
+  ResolvedRepo,
 } from './types';
 import type { FileDiff, ChangedFile } from '../types';
 import { locateInHunks } from '../snippetAnchor';
@@ -114,7 +119,7 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
   // before `git remote add origin` reads "no remote" until the app restarts,
   // and a gh installed after launch stays missing.
   if (recheck) invalidateRepoIdentity(projectPath);
-  const health = recheck ? await refreshHealth() : (getCachedHealth() ?? (await checkHealth()));
+  const health = recheck ? await refreshHealth() : await currentHealth();
 
   if (!health.gh) {
     return {
@@ -148,6 +153,64 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
   }
 
   return { available: true, identity };
+}
+
+let userRepos: Promise<UserReposResult> | null = null;
+
+/**
+ * The repos the import dialog offers. Deliberately outside `getAvailability`:
+ * that gate is per-project, and importing is what happens before there is a
+ * project to hold a flag or a remote.
+ *
+ * Kept for the life of the process, except a result reporting a fixable
+ * problem — so reopening the dialog is enough to see `gh auth login` land.
+ */
+export function listUserRepos(): Promise<UserReposResult> {
+  if (!userRepos) {
+    userRepos = loadUserRepos().then((result) => {
+      if (result.message) userRepos = null;
+      return result;
+    });
+  }
+  return userRepos;
+}
+
+async function loadUserRepos(): Promise<UserReposResult> {
+  // A cached negative is re-probed rather than trusted, since the message
+  // below tells the user to go install it.
+  const gh = getCachedHealth()?.gh || (await probeGh()).installed;
+  if (!gh) {
+    return { repos: [], message: 'Install the GitHub CLI from cli.github.com to browse your repositories.' };
+  }
+  if (!(await isGhAuthenticated(true))) {
+    return { repos: [], message: 'Run `gh auth login` in a terminal to browse your repositories.' };
+  }
+  try {
+    return { repos: await fetchUserRepos() };
+  } catch (error) {
+    ghLog.warn('user repo list failed', { error: describeError(error) });
+    return { repos: [], message: describeError(error) };
+  }
+}
+
+/**
+ * Whether a repo the import dialog is about to clone exists.
+ *
+ * Every failure that is not a definite 404 answers `unknown` rather than
+ * `not-found`: this gates the clone button, and a rate limit or a dropped
+ * connection must not stand between the user and a repo that is really there.
+ */
+export async function resolveRepo(identity: RepoIdentity): Promise<ResolvedRepo> {
+  const health = await currentHealth();
+  if (!health.gh || !(await isGhAuthenticated(false))) return { status: 'unknown' };
+
+  try {
+    return { status: 'found', repo: await fetchRepo(identity) };
+  } catch (error) {
+    if (error instanceof GithubError && error.kind === 'not-found') return { status: 'not-found' };
+    ghLog.warn('repo resolve failed', { repo: repoSlug(identity), error: describeError(error) });
+    return { status: 'unknown' };
+  }
 }
 
 /**

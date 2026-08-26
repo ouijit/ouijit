@@ -120,26 +120,46 @@ export async function initGitRepo(
   return { success: true };
 }
 
+export type NewProjectPathFailure = 'relative-parent' | 'escapes-parent' | 'taken';
+
+export type ResolvedProjectPath =
+  | { ok: true; parentDir: string; projectPath: string }
+  | { ok: false; reason: NewProjectPathFailure };
+
+/**
+ * Where a project folder named `name` will go, refusing anything that is
+ * already occupied or that escapes `parentDir`. Shared by every flow that
+ * produces a folder, so the traversal guard has one implementation. The caller
+ * words the failure, since only it knows what it is producing.
+ */
+export async function resolveNewProjectPath(name: string, parentDir: string | undefined): Promise<ResolvedProjectPath> {
+  const resolvedParent = parentDir ?? (await getDefaultProjectsDir());
+  // A relative parentDir would resolve against the process cwd ('/' when packaged).
+  if (!path.isAbsolute(resolvedParent)) return { ok: false, reason: 'relative-parent' };
+
+  const projectPath = path.join(resolvedParent, name);
+  if (!path.resolve(projectPath).startsWith(path.resolve(resolvedParent) + path.sep)) {
+    return { ok: false, reason: 'escapes-parent' };
+  }
+  try {
+    await fs.access(projectPath);
+    return { ok: false, reason: 'taken' };
+  } catch {
+    return { ok: true, parentDir: resolvedParent, projectPath };
+  }
+}
+
+const CREATE_PATH_ERRORS: Record<NewProjectPathFailure, string> = {
+  'relative-parent': 'The project location must be an absolute path',
+  'escapes-parent': 'Invalid project name',
+  taken: 'A project with this name already exists',
+};
+
 export async function createProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   try {
-    const projectsDir = options.parentDir ?? (await getDefaultProjectsDir());
-    // A relative parentDir would resolve against the process cwd ('/' when packaged).
-    if (!path.isAbsolute(projectsDir)) {
-      return { success: false, error: 'The project location must be an absolute path' };
-    }
-    const projectPath = path.join(projectsDir, options.name);
-
-    // Validate name doesn't escape the projects directory (e.g. via ../)
-    if (!path.resolve(projectPath).startsWith(path.resolve(projectsDir) + path.sep)) {
-      return { success: false, error: 'Invalid project name' };
-    }
-
-    try {
-      await fs.access(projectPath);
-      return { success: false, error: 'A project with this name already exists' };
-    } catch {
-      // Directory doesn't exist, which is what we want
-    }
+    const resolved = await resolveNewProjectPath(options.name, options.parentDir);
+    if (resolved.ok === false) return { success: false, error: CREATE_PATH_ERRORS[resolved.reason] };
+    const { parentDir: projectsDir, projectPath } = resolved;
 
     await fs.mkdir(projectsDir, { recursive: true });
 

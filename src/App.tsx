@@ -1,7 +1,7 @@
 import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { usePaletteShortcut } from './hooks/usePaletteShortcut';
-import { useAppStore } from './stores/appStore';
+import { useAppStore, selectIsCloning } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
 import { useExperimentalStore } from './stores/experimentalStore';
 import { TitleBar } from './components/TitleBarReact';
@@ -10,7 +10,9 @@ import { HomeView } from './components/HomeViewReact';
 import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
-import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
+import { AddProjectDialog, type AddProjectResult, type AddProjectStep } from './components/dialogs/AddProjectDialog';
+import { CloningProjectView } from './components/CloningProjectView';
+import { ADD_PROJECT_EVENT, type ProjectSourceKind } from './components/projectSources';
 import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
@@ -73,15 +75,16 @@ export function App() {
   const whatsNew = useAppStore((s) => s.whatsNew);
   const helpDialogOpen = useAppStore((s) => s.helpDialogOpen);
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
-  const [showNewProject, setShowNewProject] = useState(false);
+  const [addProjectStep, setAddProjectStep] = useState<AddProjectStep | null>(null);
+  const cloning = useAppStore(selectIsCloning);
   const [gitInitPath, setGitInitPath] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (activeProjectPath) {
+    if (activeProjectPath && !cloning) {
       useExperimentalStore.getState().loadFor(activeProjectPath);
     }
-  }, [activeProjectPath]);
+  }, [activeProjectPath, cloning]);
 
   // Prevent Electron drag/drop navigation
   useEffect(() => {
@@ -206,14 +209,11 @@ export function App() {
     selectHome();
   }, []);
 
-  // Register the added folder, refresh the project list, and navigate to it.
   const finalizeAddedProject = useCallback(async (addedPath: string) => {
     const projects = await window.api.refreshProjects();
     useAppStore.getState().setProjects(projects);
     const project = projects.find((p) => p.path === addedPath);
-    if (project) {
-      useAppStore.getState().navigateToProject(addedPath, project);
-    }
+    if (project) useAppStore.getState().navigateToProject(addedPath, project);
   }, []);
 
   const handleAddExisting = useCallback(async () => {
@@ -247,35 +247,38 @@ export function App() {
     [gitInitPath, finalizeAddedProject],
   );
 
-  const handleCreateNew = useCallback(() => {
-    setShowNewProject(true);
+  const handleAddProject = useCallback(() => setAddProjectStep('choose'), []);
+
+  // A clone has no project row to navigate to yet, so one is stood up from the
+  // job. It is replaced by the real project the moment the clone lands.
+  const handleCloneSelect = useCallback((projectPath: string) => {
+    const job = useAppStore.getState().cloneJobs.find((entry) => entry.projectPath === projectPath);
+    if (job) useAppStore.getState().navigateToProject(projectPath, { name: job.name, path: projectPath });
   }, []);
 
-  useEffect(() => {
-    const onAddExisting = () => handleAddExisting();
-    const onCreateNew = () => handleCreateNew();
-    document.addEventListener('add-existing-project', onAddExisting);
-    document.addEventListener('create-new-project', onCreateNew);
-    return () => {
-      document.removeEventListener('add-existing-project', onAddExisting);
-      document.removeEventListener('create-new-project', onCreateNew);
-    };
-  }, [handleAddExisting, handleCreateNew]);
-
-  const handleNewProjectClose = useCallback(
-    async (result: { created: boolean; projectName?: string; projectPath?: string } | null) => {
-      setShowNewProject(false);
-      if (result?.created && result.projectPath) {
-        const projects = await window.api.refreshProjects();
-        useAppStore.getState().setProjects(projects);
-        // Navigate to the new project
-        const project = projects.find((p) => p.path === result.projectPath);
-        if (project) {
-          useAppStore.getState().navigateToProject(result.projectPath, project);
-        }
-      }
+  const chooseProjectSource = useCallback(
+    (kind: ProjectSourceKind) => {
+      if (kind === 'add-existing') void handleAddExisting();
+      else setAddProjectStep(kind);
     },
-    [],
+    [handleAddExisting],
+  );
+
+  useEffect(() => {
+    const onAddProject = (e: Event) => chooseProjectSource((e as CustomEvent<ProjectSourceKind>).detail);
+    document.addEventListener(ADD_PROJECT_EVENT, onAddProject);
+    return () => document.removeEventListener(ADD_PROJECT_EVENT, onAddProject);
+  }, [chooseProjectSource]);
+
+  const handleAddProjectClose = useCallback(
+    async (result: AddProjectResult | null) => {
+      setAddProjectStep(null);
+      if (!result) return;
+      if (result.kind === 'add-existing') await handleAddExisting();
+      else if (result.kind === 'created') await finalizeAddedProject(result.projectPath);
+      else handleCloneSelect(result.projectPath);
+    },
+    [handleAddExisting, finalizeAddedProject, handleCloneSelect],
   );
 
   if (!initialized) {
@@ -287,8 +290,8 @@ export function App() {
       <Sidebar
         onProjectSelect={handleProjectSelect}
         onHomeSelect={handleHomeSelect}
-        onAddExisting={handleAddExisting}
-        onCreateNew={handleCreateNew}
+        onAddProject={handleAddProject}
+        onCloneSelect={handleCloneSelect}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <TitleBar mode={activeView} />
@@ -302,12 +305,12 @@ export function App() {
         >
           <ViewErrorBoundary>
             {activeView === 'home' && (homeActivePanel === 'settings' ? <GlobalSettingsPanel /> : <HomeView />)}
-            {activeView === 'project' && <ProjectView />}
+            {activeView === 'project' && (cloning ? <CloningProjectView /> : <ProjectView />)}
           </ViewErrorBoundary>
         </main>
       </div>
       <ToastContainer />
-      {showNewProject && <NewProjectDialog onClose={handleNewProjectClose} />}
+      {addProjectStep && <AddProjectDialog initialStep={addProjectStep} onClose={handleAddProjectClose} />}
       {gitInitPath && <InitGitRepoDialog folderPath={gitInitPath} onClose={handleGitInitClose} />}
       {whatsNew && (
         <WhatsNewDialog

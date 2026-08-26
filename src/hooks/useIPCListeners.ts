@@ -348,6 +348,23 @@ export function useIPCListeners() {
       }),
     );
 
+    // Clone progress arrives as pushes; the list is fetched once so a reload
+    // mid-clone still shows what is in flight.
+    void window.api.listClones().then((jobs) => useAppStore.getState().setCloneJobs(jobs));
+    cleanups.push(window.api.onClonesChanged((jobs) => useAppStore.getState().setCloneJobs(jobs)));
+    cleanups.push(
+      window.api.onCloneLanded(async (projectPath) => {
+        const projects = await window.api.refreshProjects();
+        useAppStore.getState().setProjects(projects);
+        // Settle in place for whoever is watching, but never pull someone back
+        // to a project they navigated away from while it downloaded.
+        const project = projects.find((p) => p.path === projectPath);
+        if (project && useAppStore.getState().activeProjectPath === projectPath) {
+          useAppStore.getState().navigateToProject(projectPath, project);
+        }
+      }),
+    );
+
     return () => {
       for (const cleanup of cleanups) {
         cleanup();

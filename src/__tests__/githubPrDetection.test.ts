@@ -9,6 +9,7 @@ const { runGh } = vi.hoisted(() => ({
 
 vi.mock('../healthCheck', () => ({
   getCachedHealth: () => ({ gh: true, ghVersionOk: true }),
+  currentHealth: async () => ({ gh: true, ghVersionOk: true }),
 }));
 vi.mock('../git', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../git')>()),

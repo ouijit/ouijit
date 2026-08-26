@@ -24,6 +24,31 @@ export function repoSlug(identity: RepoIdentity): string {
   return `${identity.owner}/${identity.repo}`;
 }
 
+/** A repo the signed-in user can clone, as the import dialog lists it. */
+export interface GithubRepoSummary {
+  identity: RepoIdentity;
+  description: string | null;
+  isPrivate: boolean;
+}
+
+/**
+ * Whether a repo the user named actually exists.
+ *
+ * `unknown` is the "could not tell" case — no gh, not signed in, offline, rate
+ * limited. It must never block the clone: the answer is missing, not negative.
+ */
+export type ResolvedRepo =
+  | { status: 'found'; repo: GithubRepoSummary }
+  | { status: 'not-found' }
+  | { status: 'unknown' };
+
+/** The import dialog's repo list, or why it is empty. */
+export interface UserReposResult {
+  repos: GithubRepoSummary[];
+  /** Set when the list could not be loaded at all, rather than being empty. */
+  message?: string;
+}
+
 export type GithubUnavailableReason =
   | 'flag-off'
   | 'gh-missing'
