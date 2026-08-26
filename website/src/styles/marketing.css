@@ -2492,15 +2492,19 @@ body.marketing::after {
   margin: 0 auto;
 }
 
-.hx-column {
-  width: 300px;
+/* Plan's column rail, held: same width, same side, so the column does not
+   move when one section hands over to the next. */
+.hx-rail {
+  width: 372px;
   flex-shrink: 0;
-  display: flex;
-  align-items: flex-start;
 }
 
-.hx-column > div {
-  width: 100%;
+.hx-todo-desk {
+  padding: 36px;
+}
+
+.hx-column {
+  width: 300px;
   background: var(--color-terminal-bg);
   box-shadow: var(--shadow-panel);
 }
@@ -2527,6 +2531,7 @@ body.marketing::after {
     gap: 28px;
   }
 
+  .hx-rail,
   .hx-column {
     width: 100%;
   }
