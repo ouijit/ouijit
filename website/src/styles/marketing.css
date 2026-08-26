@@ -770,7 +770,7 @@ html.js [data-reveal].is-revealed {
   flex-direction: column;
   gap: 22px;
   overflow: hidden;
-  padding: 28px 0;
+  padding: 44px 0;
 }
 
 .tools-ribbon {
@@ -810,10 +810,13 @@ html.js [data-reveal].is-revealed {
   animation-play-state: paused;
 }
 
+ /* `top` rather than a transform: [data-reveal] animates transform and
+   resets it to none when the section lands, taking the offset with it. */
 .tools-flow .detail {
   flex: none;
   width: var(--w);
   height: var(--h);
+  top: var(--shift, 0px);
 }
 
 /* The palette's mock is taller than the card, so it hangs from the copy and
@@ -839,15 +842,6 @@ html.js [data-reveal].is-revealed {
 .bento .detail:hover {
   background: #0f0f11;
   border: none;
-}
-
-/* Each card sits a little above or below its band so the cluster's top and
-   bottom edges curve instead of ruling straight across. `top` rather than a
-   transform: [data-reveal] animates transform and resets it to none, which
-   would take the offset with it. Cards sharing a column drift the same way,
-   so a lift never closes the gap on the card beneath it. */
-.bento .detail {
-  top: var(--lift, 0px);
 }
 
 .bento .detail-title {

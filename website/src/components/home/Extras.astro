@@ -13,18 +13,22 @@ import {
 
 /**
  * Two ribbons of cards, wider than the window and drifting together. `w` and
- * `h` give each card its slot; the contour comes from the heights, not from
- * offsetting the cards, which would leave a hole wherever one moved off its
- * line. The rows meet on a flat seam and grow away from it — the top row
- * upward, the bottom row down — so a card can never reach across the gutter
- * however far the two have drifted out of step.
+ * `h` give each card its slot; the outer contour comes from the heights, not
+ * from offsetting the cards, which would leave a hole wherever one moved off
+ * its line.
  *
- * The rows hold different totals, so they come back round out of phase with
- * each other rather than travelling as one block.
+ * The seam between the rows is broken by `shift`, which moves a card and the
+ * one across from it together, gutter intact. That only works while the two
+ * stay in register, so the rows are built to the same run width — the check
+ * below fails the build if an edit breaks it — and the last three cards of
+ * each row are matched in width to give the shifts a column to move in. The
+ * bottom row opens with one card as wide as the top row's first two, which is
+ * what buys those columns out of four cards against five.
  */
 const TOP = [
   {
     id: 'palette',
+    shift: 0,
     w: 540,
     h: 350,
     title: 'Everything is three keystrokes away.',
@@ -33,6 +37,7 @@ const TOP = [
   },
   {
     id: 'sandbox',
+    shift: 0,
     w: 470,
     h: 292,
     title: 'Untrusted code, contained.',
@@ -41,6 +46,7 @@ const TOP = [
   },
   {
     id: 'shortcuts',
+    shift: 26,
     w: 390,
     h: 322,
     title: 'No pointer required.',
@@ -49,6 +55,7 @@ const TOP = [
   },
   {
     id: 'scripts',
+    shift: -22,
     w: 410,
     h: 276,
     title: 'The commands you always run.',
@@ -57,6 +64,7 @@ const TOP = [
   },
   {
     id: 'hooks',
+    shift: 30,
     w: 430,
     h: 336,
     title: 'Hooks for every stage.',
@@ -68,32 +76,36 @@ const TOP = [
 const BOTTOM = [
   {
     id: 'cli',
-    w: 560,
-    h: 330,
+    shift: 0,
+    w: 1028,
+    h: 300,
     title: 'Your agent can drive all of it.',
     body: 'The <code>ouijit</code> CLI lands in every terminal the app opens — sandboxed ones included, nothing to install. Tasks, tags, hooks, scripts, drafts, themes: everything on this page, as commands with JSON out.',
     Mock: CliMock,
   },
   {
     id: 'theme',
-    w: 400,
-    h: 286,
+    shift: 26,
+    w: 390,
+    h: 300,
     title: 'Theme every token.',
     body: 'Start from a preset or build your own — dark or light base, every color overridable, down to the ANSI palette.',
     Mock: ThemeMock,
   },
   {
     id: 'tags',
-    w: 440,
-    h: 312,
+    shift: -22,
+    w: 410,
+    h: 268,
     title: 'Filter by tag.',
     body: 'Tag terminals, then cut the stack to one tag — or group the home view by them.',
     Mock: TagsMock,
   },
   {
     id: 'resume',
-    w: 480,
-    h: 268,
+    shift: 30,
+    w: 430,
+    h: 322,
     title: 'Quit without losing the room.',
     body: "The next launch brings the session's terminals back in their worktrees, panels included.",
     Mock: ResumeMock,
@@ -105,6 +117,12 @@ const GAP = 18;
  *  together; their differing widths only change how long each takes round. */
 const DRIFT_PX_PER_S = 22;
 const runWidth = (row: typeof TOP) => row.reduce((sum, c) => sum + c.w + GAP, 0);
+
+if (runWidth(TOP) !== runWidth(BOTTOM)) {
+  throw new Error(
+    `Power tools rows must be the same width to stay in register: top ${runWidth(TOP)}, bottom ${runWidth(BOTTOM)}`,
+  );
+}
 ---
 
 <section class="details-section">
@@ -126,7 +144,7 @@ const runWidth = (row: typeof TOP) => row.reduce((sum, c) => sum + c.w + GAP, 0)
                   <article
                     class="detail desk-wash desk-wash--graphite"
                     data-tool={card.id}
-                    style={`--w: ${card.w}px; --h: ${card.h}px`}
+                    style={`--w: ${card.w}px; --h: ${card.h}px; --shift: ${card.shift}px`}
                   >
                     <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain" /></div>
                     <div class="desk-wash-field bento-lit-field" aria-hidden="true"><span class="desk-wash-grain" /></div>
