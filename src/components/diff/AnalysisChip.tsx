@@ -10,9 +10,8 @@ export function worthAChip({ signal, missing }: FileAnalysis): boolean {
 }
 
 export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: FileAnalysis) {
-  // The strongest absent partner, so the chip reaches the same seam lever the
-  // project panel shows for this file.
-  const levers = leversFor(signal, missing[0]);
+  // No partner: the missing list below is this surface's seam advice already.
+  const levers = leversFor(signal);
   const detail = (
     <div className="w-60 whitespace-normal py-1 flex flex-col gap-3 font-normal">
       <div>
