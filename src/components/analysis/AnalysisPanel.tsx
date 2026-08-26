@@ -41,7 +41,7 @@ export function AnalysisPanel({ projectPath }: AnalysisPanelProps) {
       <div className="flex-1 min-w-0 min-h-0 flex flex-col">
         <div className="pane-ledge relative z-30 shrink-0 h-12 flex items-center gap-2 px-4">
           <Icon name="binoculars" className="w-4 h-4 text-git/80" />
-          <span className="text-[13px] font-medium text-text-primary">Behavioural analysis</span>
+          <span className="text-[13px] font-medium text-text-primary">Analysis</span>
           <span className="ml-auto text-[11px] text-text-tertiary truncate">
             {overview &&
               `${overview.commitCount} commits · ${overview.fileCount} files · last ${ANALYSIS_WINDOW_MONTHS} months`}

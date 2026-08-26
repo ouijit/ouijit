@@ -200,7 +200,7 @@ export function TitleBar({ mode }: TitleBarProps) {
                   )}
                   {analysisEnabled && (
                     <TooltipButton
-                      text="Behavioural analysis"
+                      text="Analysis"
                       className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'analysis' ? ' text-text-primary bg-background-tertiary' : ''}`}
                       onClick={() => handleToggleView('analysis')}
                     >

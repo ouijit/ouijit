@@ -56,7 +56,7 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
         onChange={handleToggleGithub}
       />
       <ToggleRow
-        label="Behavioural analysis"
+        label="Analysis"
         description="Hotspot, coupling, and ownership signals from git history, on the diff and pull request views and a project panel."
         checked={analysisEnabled}
         onChange={handleToggleAnalysis}

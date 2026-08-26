@@ -310,7 +310,7 @@ export interface IpcInvokeContract {
   'diff-notes:discard': { args: [id: string]; return: { success: boolean } };
   'diff-notes:clear': { args: [worktreePath: string]; return: { success: boolean } };
 
-  // ── Behavioural analysis ───────────────────────────────────────────
+  // ── Analysis ───────────────────────────────────────────────────────
   'analysis:refresh': { args: [projectPath: string, force?: boolean]; return: void };
   'analysis:diff-signals': { args: [projectPath: string, paths: string[]]; return: DiffSignals | null };
   'analysis:overview': { args: [projectPath: string]; return: AnalysisOverview | null };

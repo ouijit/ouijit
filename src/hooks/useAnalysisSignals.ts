@@ -4,7 +4,7 @@ import { useExperimentalStore } from '../stores/experimentalStore';
 import type { DiffSignals } from '../analysis/types';
 
 /**
- * Behavioural-analysis signals for one file list, by path. Null until they
+ * Analysis signals for one file list, by path. Null until they
  * arrive, and always null while the project's analysis flag is off.
  *
  * Keyed on the caller's file-list fingerprint (the same one that gates its

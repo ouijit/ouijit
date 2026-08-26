@@ -6,7 +6,7 @@ import { useGithubStore } from '../stores/githubStore';
 import { useAnalysisSignals } from './useAnalysisSignals';
 
 /**
- * Behavioural-analysis signals for a pull request's files. Surfaces share one
+ * Analysis signals for a pull request's files. Surfaces share one
  * fetch only while they ask under the same key, so the key is built here
  * rather than at each of them.
  */

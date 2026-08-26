@@ -1,5 +1,5 @@
 /**
- * The behavioural-analysis engine, on crafted history. Everything downstream
+ * The analysis engine, on crafted history. Everything downstream
  * is a plain rendering of what these functions produce, so the algorithms are
  * pinned here rather than at the surfaces.
  */

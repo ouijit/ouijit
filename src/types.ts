@@ -591,7 +591,7 @@ export interface ElectronAPI {
 }
 
 /**
- * The reads answer null while the behavioural-analysis flag is off, so callers
+ * The reads answer null while the analysis flag is off, so callers
  * need no gate of their own. The underlying model is a per-project in-memory
  * cache in the main process, rebuilt from `git log` on demand.
  */

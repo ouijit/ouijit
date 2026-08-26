@@ -1,5 +1,5 @@
 /**
- * Behavioural-analysis signal shapes, shared across the IPC boundary.
+ * Analysis signal shapes, shared across the IPC boundary.
  *
  * Runtime leaf: renderer components import these types, so a value import
  * here would drag main-process code into the renderer bundle.
