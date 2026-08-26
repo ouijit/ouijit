@@ -26,10 +26,20 @@ import {
  * bottom row opens with one card as wide as the top row's first two, which is
  * what buys those columns out of four cards against five.
  */
+/**
+ * The lead column — the palette, the card beside it, and the wide CLI card
+ * under both — drops by this much, and the whole band is pulled up by the
+ * same amount. The palette is the tallest card in its row and so sits at the
+ * row's top edge on its own, leaving the rest of the band further from the
+ * heading than it is; moving one down and everything up closes that without
+ * moving the palette at all.
+ */
+const LEAD_DROP = 40;
+
 const TOP = [
   {
     id: 'palette',
-    shift: 0,
+    shift: LEAD_DROP,
     w: 540,
     title: 'Everything is three keystrokes away.',
     body: '⌘K searches terminals, projects, tasks, and pull requests, ranked by how often you come back to them.',
@@ -37,7 +47,7 @@ const TOP = [
   },
   {
     id: 'sandbox',
-    shift: 0,
+    shift: LEAD_DROP,
     w: 470,
     title: 'Untrusted code, contained.',
     body: "Agents run in a Lima VM that mounts only the task's worktree — or sandboxed in place with Seatbelt and Landlock, via nono.",
@@ -72,7 +82,7 @@ const TOP = [
 const BOTTOM = [
   {
     id: 'cli',
-    shift: 0,
+    shift: LEAD_DROP,
     w: 1028,
     title: 'Your agent can drive all of it.',
     body: 'The <code>ouijit</code> CLI lands in every terminal the app opens — sandboxed ones included, nothing to install. Tasks, tags, hooks, scripts, drafts, themes: everything on this page, as commands with JSON out.',
@@ -105,6 +115,7 @@ const BOTTOM = [
 ];
 
 const GAP = 18;
+
 /** Pixels a ribbon travels per second. Both ribbons take it, so they move
  *  together; their differing widths only change how long each takes round. */
 const DRIFT_PX_PER_S = 22;
@@ -121,7 +132,7 @@ if (runWidth(TOP) !== runWidth(BOTTOM)) {
   <div class="details-head">
     <h2 data-reveal>Power tools included</h2>
   </div>
-  <div class="tools-flow bento" data-reveal>
+  <div class="tools-flow bento" data-reveal style={`--lead-drop: ${LEAD_DROP}px`}>
     {
       [
         { row: TOP, cls: 'tools-ribbon--top' },

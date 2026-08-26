@@ -775,6 +775,9 @@ html.js [data-reveal].is-revealed {
   /* No headroom needed above: the tallest card in a row sets the row's box and
      nothing shifts past it. Below, the bottom row's cards shift into this. */
   padding: 0 0 44px;
+  /* The lead column is pushed down by this much, so the band comes up by it —
+     the palette lands where it already was and everything else rises. */
+  margin-top: calc(-1 * var(--lead-drop, 0px));
 }
 
 .tools-ribbon {
