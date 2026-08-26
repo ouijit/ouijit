@@ -251,7 +251,10 @@ function NotesIsland({ count, flash }: { count: number; flash?: boolean }) {
  * a changed line, and the island that hands the notes to the agent.
  * `pNote` types the note, `pSend` sends it, `pFix` is the agent's follow-up. */
 function NotedDiffPane({ pNote, pSend, pFix }: { pNote: number; pSend: number; pFix: number }) {
-  const typed = Math.round(clamp01((pNote - 0.25) / 0.55) * NOTE_TEXT.length);
+  /* Typing takes as much of the beat as it can get: it starts as soon as the
+     box opens and finishes just before the note is saved. The beat is short,
+     and idling at either end of it is what makes the note look pasted. */
+  const typed = Math.round(clamp01((pNote - 0.15) / 0.72) * NOTE_TEXT.length);
   const saved = pNote > 0.92 || pSend > 0.05;
   const composing = pNote > 0.18 && !saved;
   const flash = pSend > 0.12 && pSend < 0.55;
@@ -890,7 +893,7 @@ const TWO_ACT_CAPTIONS: { keys: readonly string[]; title: string; body: string }
 const CAPTION_SPANS = TWO_ACT_CAPTIONS.map((c) => c.keys.length);
 
 /** Every caption gets this long, whatever it spans. */
-const CAPTION_MS = 7000;
+const CAPTION_MS = 5000;
 
 /* A beat inside an n-beat caption runs n times as fast, so the caption still
    takes CAPTION_MS. The trailing entry is the hold before the loop restarts,
