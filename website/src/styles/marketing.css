@@ -696,9 +696,11 @@ html.js [data-reveal].is-revealed {
   padding: 150px 0 32px;
 }
 
-/* The heading keeps the page's column; only the cards break out. */
+/* The heading keeps the page's column; only the cards break out. 1200 rather
+   than --content-max-width, which is the 1100 the page's narrower blocks use
+   — this heading has to line up with Plan, Build and Review above it. */
 .details-head {
-  max-width: var(--content-max-width);
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 var(--content-padding);
 }
@@ -770,7 +772,9 @@ html.js [data-reveal].is-revealed {
   flex-direction: column;
   gap: 22px;
   overflow: hidden;
-  padding: 44px 0;
+  /* No headroom needed above: the tallest card in a row sets the row's box and
+     nothing shifts past it. Below, the bottom row's cards shift into this. */
+  padding: 0 0 44px;
 }
 
 .tools-ribbon {
@@ -815,14 +819,17 @@ html.js [data-reveal].is-revealed {
 .tools-flow .detail {
   flex: none;
   width: var(--w);
-  height: var(--h);
+  /* Copy sets the height, up to the point where one card would tower over the
+     band and drag the row's box up with it. The palette's mock is the only one
+     past this, and it crops. */
+  max-height: 300px;
   top: var(--shift, 0px);
 }
 
-/* The palette's mock is taller than the card, so it hangs from the copy and
-   runs off the bottom edge; every other mock still sits on it. */
-.tools-flow .detail[data-tool='palette'] .bento-stack {
-  margin-top: 16px;
+/* The grid pinned each mock to the bottom of a card sized by its row, which
+   opened a hole under short copy. Here the card ends where its mock does. */
+.tools-flow .bento-stack {
+  margin-top: 0;
 }
 
 /* Foil-washed cards: the silent tier of the desk washes above them, so dark
@@ -905,9 +912,11 @@ html.js [data-reveal].is-revealed {
     display: none;
   }
 
+  /* The cap is there to stop one card dragging a ribbon's height up; stacked
+     in one column there is no ribbon, and copy runs longer at this width. */
   .tools-flow .detail {
     width: auto;
-    height: auto;
+    max-height: none;
   }
 
 }

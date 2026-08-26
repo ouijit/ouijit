@@ -12,10 +12,11 @@ import {
 } from '../demo/ExtrasMocks';
 
 /**
- * Two ribbons of cards, wider than the window and drifting together. `w` and
- * `h` give each card its slot; the outer contour comes from the heights, not
- * from offsetting the cards, which would leave a hole wherever one moved off
- * its line.
+ * Two ribbons of cards, wider than the window and drifting together. `w` sets
+ * a card's slot; its height is whatever its copy and mock come to, and the
+ * differences between them are what give the band its outer contour. The rows
+ * meet on the seam and grow away from it, so a shorter card takes its height
+ * off the outside rather than opening a gap in the middle.
  *
  * The seam between the rows is broken by `shift`, which moves a card and the
  * one across from it together, gutter intact. That only works while the two
@@ -30,7 +31,6 @@ const TOP = [
     id: 'palette',
     shift: 0,
     w: 540,
-    h: 350,
     title: 'Everything is three keystrokes away.',
     body: '⌘K searches terminals, projects, tasks, and pull requests, ranked by how often you come back to them.',
     Mock: PaletteMock,
@@ -39,7 +39,6 @@ const TOP = [
     id: 'sandbox',
     shift: 0,
     w: 470,
-    h: 292,
     title: 'Untrusted code, contained.',
     body: "Agents run in a Lima VM that mounts only the task's worktree — or sandboxed in place with Seatbelt and Landlock, via nono.",
     Mock: SandboxMock,
@@ -48,7 +47,6 @@ const TOP = [
     id: 'shortcuts',
     shift: 26,
     w: 390,
-    h: 322,
     title: 'No pointer required.',
     body: '⌘1 through ⌘9 land on any terminal in the stack; the board, a new task, and a fresh terminal are each one chord away.',
     Mock: ShortcutsMock,
@@ -57,7 +55,6 @@ const TOP = [
     id: 'scripts',
     shift: -22,
     w: 410,
-    h: 276,
     title: 'The commands you always run.',
     body: "Dev server, tests, release — save them with the project and run them in any task's worktree.",
     Mock: ScriptsMock,
@@ -66,7 +63,6 @@ const TOP = [
     id: 'hooks',
     shift: 30,
     w: 430,
-    h: 336,
     title: 'Hooks for every stage.',
     body: 'Start, continue, run, review, done: each stage runs the command you give it, task context included.',
     Mock: HooksMock,
@@ -78,7 +74,6 @@ const BOTTOM = [
     id: 'cli',
     shift: 0,
     w: 1028,
-    h: 300,
     title: 'Your agent can drive all of it.',
     body: 'The <code>ouijit</code> CLI lands in every terminal the app opens — sandboxed ones included, nothing to install. Tasks, tags, hooks, scripts, drafts, themes: everything on this page, as commands with JSON out.',
     Mock: CliMock,
@@ -87,7 +82,6 @@ const BOTTOM = [
     id: 'theme',
     shift: 26,
     w: 390,
-    h: 300,
     title: 'Theme every token.',
     body: 'Start from a preset or build your own — dark or light base, every color overridable, down to the ANSI palette.',
     Mock: ThemeMock,
@@ -96,7 +90,6 @@ const BOTTOM = [
     id: 'tags',
     shift: -22,
     w: 410,
-    h: 268,
     title: 'Filter by tag.',
     body: 'Tag terminals, then cut the stack to one tag — or group the home view by them.',
     Mock: TagsMock,
@@ -105,7 +98,6 @@ const BOTTOM = [
     id: 'resume',
     shift: 30,
     w: 430,
-    h: 322,
     title: 'Quit without losing the room.',
     body: "The next launch brings the session's terminals back in their worktrees, panels included.",
     Mock: ResumeMock,
@@ -144,7 +136,7 @@ if (runWidth(TOP) !== runWidth(BOTTOM)) {
                   <article
                     class="detail desk-wash desk-wash--graphite"
                     data-tool={card.id}
-                    style={`--w: ${card.w}px; --h: ${card.h}px; --shift: ${card.shift}px`}
+                    style={`--w: ${card.w}px; --shift: ${card.shift}px`}
                   >
                     <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain" /></div>
                     <div class="desk-wash-field bento-lit-field" aria-hidden="true"><span class="desk-wash-grain" /></div>
