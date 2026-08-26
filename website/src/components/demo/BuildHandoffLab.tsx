@@ -40,10 +40,16 @@ const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 
  * reader scrubs through at whatever pace they scroll. The section costs its
  * own height in scroll and holds nothing above it in place.
  */
-const STEP_MS = 1100;
+const STEP_MS = 600;
 
 /** The stage settles in view before the first card leaves the column. */
-const LEAD_MS = 400;
+const LEAD_MS = 200;
+
+/** Leaving winds the run back, so coming to the section again plays it again
+ *  rather than arriving at a stack that is already full. Quicker than it ran
+ *  forward: most of it happens off screen, and a reader who turns straight
+ *  back should not catch it half wound. */
+const REWIND = 2.5;
 
 /** The flight is done a little before its step is, so the terminal lands
  *  rather than appearing mid-air. */
@@ -73,11 +79,13 @@ interface Box {
   h: number;
 }
 
+const RUN_MS = N * STEP_MS;
+
 /**
  * How far the run has got, in tasks, plus the rectangles a flight interpolates
- * between, measured against the stage. The clock only advances while the stage
- * is on screen, so the run always plays where it can be seen, and it stops for
- * good once the last session has landed.
+ * between, measured against the stage. The clock runs forward while the stage
+ * is on screen and back when it is not, so the run always plays where it can
+ * be seen and is wound back and ready by the time it is looked at again.
  */
 function useHandoffRun() {
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -89,19 +97,20 @@ function useHandoffRun() {
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    let visible = false;
-    const io = new IntersectionObserver(([e]) => void (visible = e.isIntersecting), { threshold: 0.3 });
-    io.observe(stage);
 
     let raf = 0;
+    let visible = false;
     let last = performance.now();
     let elapsed = -LEAD_MS;
     let shownGone = -1;
     let sig = '';
+
     const tick = (now: number) => {
       const dt = Math.min(now - last, 100);
       last = now;
-      if (visible) elapsed = Math.min(N * STEP_MS, elapsed + dt);
+      elapsed = visible
+        ? Math.min(RUN_MS, elapsed + dt)
+        : Math.max(-LEAD_MS, elapsed - dt * REWIND);
 
       const rect = stage.getBoundingClientRect();
       const rel = (el: Element): Box => {
@@ -120,17 +129,34 @@ function useHandoffRun() {
         }
       }
 
-      const next = clamp01(elapsed / (N * STEP_MS)) * N;
+      const next = clamp01(elapsed / RUN_MS) * N;
       const rounded = Math.round(next * 240);
       if (rounded !== shownGone) {
         shownGone = rounded;
         setGone(next);
       }
-      /* The stack is a finished state, not a loop: once it is full there is
-         nothing left to measure or advance. */
-      if (next < N) raf = requestAnimationFrame(tick);
+
+      /* Nothing to animate at either end of the run, so the frame loop stops
+         until the observer says the stage has changed sides. */
+      const resting = visible ? elapsed >= RUN_MS : elapsed <= -LEAD_MS;
+      raf = resting ? 0 : requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
+
+    const wake = () => {
+      if (raf) return;
+      last = performance.now();
+      raf = requestAnimationFrame(tick);
+    };
+    const io = new IntersectionObserver(
+      ([e]) => {
+        visible = e.isIntersecting;
+        wake();
+      },
+      { threshold: 0.3 },
+    );
+    io.observe(stage);
+    wake();
+
     return () => {
       cancelAnimationFrame(raf);
       io.disconnect();
