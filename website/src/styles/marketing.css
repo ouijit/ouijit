@@ -2466,3 +2466,74 @@ body.marketing::after {
     bottom: 20px;
   }
 }
+
+/* ── Build handoff lab: the To Do column emptying into the stack ───── */
+
+.hx-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  padding: 56px var(--content-padding);
+}
+
+/* The flights are absolutely positioned against this, so it is the frame
+   both the slots and the stack are measured in. */
+.hx-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 56px;
+  width: 100%;
+  max-width: 1320px;
+  height: 74vh;
+  max-height: 720px;
+  margin: 0 auto;
+}
+
+.hx-column {
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+.hx-column > div {
+  width: 100%;
+  background: var(--color-terminal-bg);
+  box-shadow: var(--shadow-panel);
+}
+
+.hx-desk {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 36px;
+}
+
+@media (max-width: 999px) {
+  .hx-sticky {
+    position: static;
+    height: auto;
+    padding: 32px var(--content-padding);
+  }
+
+  .hx-stage {
+    flex-direction: column;
+    height: auto;
+    max-height: none;
+    gap: 28px;
+  }
+
+  .hx-column {
+    width: 100%;
+  }
+
+  .hx-desk {
+    width: 100%;
+    height: 520px;
+    padding: 20px;
+  }
+}

@@ -1,0 +1,16 @@
+---
+import Site from '../../layouts/Site.astro';
+import { VariantHandoff } from '../../components/demo/BuildHandoffLab.tsx';
+---
+<Site title="Lab · The column empties into the stack" noindex>
+  <section class="home-build">
+    <h1 class="plan-v-headline">Plan hands off to Build</h1>
+    <p style="color: #86868b; max-width: 62ch; margin: 16px 0 0;">
+      The Plan section's handoff, run backwards. There, cards fly from source desks into the To Do column and
+      charge it. Here the column arrives full, each task flies out into the terminal stack, and the column
+      drains as it empties.
+    </p>
+  </section>
+
+  <VariantHandoff client:visible />
+</Site>

@@ -31,7 +31,7 @@ function Lines({ added, removed, note }: { added: number; removed?: number; note
   );
 }
 
-const SESSIONS = [
+export const SESSIONS = [
   {
     task: 'T-101',
     label: 'Rework onboarding flow',
@@ -129,16 +129,16 @@ const SESSIONS = [
   },
 ];
 
-const N = SESSIONS.length;
+export const N = SESSIONS.length;
 
 /** The stack's own geometry: what a back card peeks above the one in front,
  *  and how much it narrows. The app caps its depth ramp at four cards, so a
  *  deeper stack supplies its own rather than repeating the fourth. */
-const PEEK = 24;
+export const PEEK = 24;
 /** Clearance above the deepest card. A shade over the desk's 36px padding,
  *  since the back cards narrow and read lighter than the front one. */
-const TOP_PAD = 44;
-const NARROW = 0.014;
+export const TOP_PAD = 44;
+export const NARROW = 0.014;
 
 /** What one arrival costs in scroll. The run is a viewport for the sticky
  *  hold, that per card, and a tail so the finished stack sits for a moment. */
