@@ -58,3 +58,12 @@ export function diffBaseSettingKey(gitPath: string): string {
 export function diffShape(files: readonly ChangedFile[]): string {
   return files.map((f) => `${f.status}:${f.path}:${f.additions}:${f.deletions}`).join('\n');
 }
+
+/**
+ * The same, for a pull request, where the head sha tells two pushes apart even
+ * when the shape survives them. Every surface reading a PR's files keys its
+ * caches on this, so they only share a fetch while they all say it the same way.
+ */
+export function prFilesFingerprint(headSha: string, files: readonly ChangedFile[]): string {
+  return `${headSha}\n${diffShape(files)}`;
+}

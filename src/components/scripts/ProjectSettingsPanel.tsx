@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useEscape } from '../../hooks/useEscape';
 import { ScriptList } from './ScriptList';
 import { HookList } from './HookList';
 import type { HookEntry } from './HookList';
@@ -35,16 +36,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
     void useWorktreeSettingsStore.getState().loadFor(projectPath);
   }, [projectPath]);
 
-  // Escape key returns to terminals
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        useProjectStore.getState().setActivePanel('terminals');
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, []);
+  useEscape(useCallback(() => useProjectStore.getState().setActivePanel('terminals'), []));
 
   return (
     <div

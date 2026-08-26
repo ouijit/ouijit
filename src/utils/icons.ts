@@ -20,6 +20,7 @@ import arrowsIn from '@phosphor-icons/core/assets/regular/arrows-in.svg?raw';
 import arrowsOut from '@phosphor-icons/core/assets/regular/arrows-out.svg?raw';
 import arrowsOutLineHorizontal from '@phosphor-icons/core/assets/regular/arrows-out-line-horizontal.svg?raw';
 import arrowsOutLineVertical from '@phosphor-icons/core/assets/regular/arrows-out-line-vertical.svg?raw';
+import binoculars from '@phosphor-icons/core/assets/regular/binoculars.svg?raw';
 import bug from '@phosphor-icons/core/assets/regular/bug.svg?raw';
 import arrowElbowDownLeft from '@phosphor-icons/core/assets/regular/arrow-elbow-down-left.svg?raw';
 import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
@@ -39,6 +40,7 @@ import fileDashed from '@phosphor-icons/core/assets/regular/file-dashed.svg?raw'
 import fileMinus from '@phosphor-icons/core/assets/regular/file-minus.svg?raw';
 import filePlus from '@phosphor-icons/core/assets/regular/file-plus.svg?raw';
 import fileText from '@phosphor-icons/core/assets/regular/file-text.svg?raw';
+import flame from '@phosphor-icons/core/assets/regular/flame.svg?raw';
 import folderOpen from '@phosphor-icons/core/assets/regular/folder-open.svg?raw';
 import folderPlus from '@phosphor-icons/core/assets/regular/folder-plus.svg?raw';
 import gear from '@phosphor-icons/core/assets/regular/gear.svg?raw';
@@ -109,6 +111,7 @@ export const iconMap: Record<string, string> = {
   'arrows-out': arrowsOut,
   'arrows-out-line-horizontal': arrowsOutLineHorizontal,
   'arrows-out-line-vertical': arrowsOutLineVertical,
+  binoculars: binoculars,
   bug: bug,
   'arrow-elbow-down-left': arrowElbowDownLeft,
   'caret-down': caretDown,
@@ -128,6 +131,7 @@ export const iconMap: Record<string, string> = {
   'file-minus': fileMinus,
   'file-plus': filePlus,
   'file-text': fileText,
+  flame: flame,
   'folder-open': folderOpen,
   'folder-plus': folderPlus,
   gear: gear,

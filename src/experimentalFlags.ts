@@ -13,12 +13,15 @@ export interface ExperimentalFlags {
   nono: boolean;
   /** GitHub pull request inbox and review surface. Panel and polling stay dark until on. */
   github: boolean;
+  /** Hotspot and change-coupling signals from git history, on the diff and PR views. */
+  analysis: boolean;
 }
 
 export const DEFAULT_EXPERIMENTAL_FLAGS: ExperimentalFlags = {
   canvas: false,
   nono: false,
   github: false,
+  analysis: false,
 };
 
 /** globalSettings key holding a project's experimental flags JSON. */
