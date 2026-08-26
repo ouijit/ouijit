@@ -158,7 +158,7 @@ function useStaticMode() {
  */
 function TaskGhost({ task, from, to, p }: { task: TaskWithWorkspace; from: Box; to: Box; p: number }) {
   const e = easeInOut(p);
-  const land = { x: to.x + (to.w - from.w) / 2, y: to.y + 12 };
+  const land = { x: to.x + (to.w - from.w) / 2, y: to.y };
   return (
     <div
       className="glass-bevel absolute rounded-[10px] overflow-hidden border border-bezel-panel pointer-events-none"
@@ -170,7 +170,9 @@ function TaskGhost({ task, from, to, p }: { task: TaskWithWorkspace; from: Box; 
         zIndex: 60,
         background: 'var(--color-terminal-bg)',
         boxShadow: 'var(--shadow-panel), 0 24px 48px -16px rgba(0, 0, 0, 0.6)',
-        opacity: Math.min(1, p / 0.1) * (1 - clamp01((p - 0.9) / 0.1)),
+        // No fade out: the session takes its place on the frame it leaves, so
+        // fading it early left a beat with neither on the stage.
+        opacity: Math.min(1, p / 0.12),
       }}
     >
       <KanbanCardView task={task} showBadge={false} />
@@ -187,10 +189,17 @@ export function VariantHandoff() {
   const gone = staticMode ? N : clamp01(t / GROW_SPAN) * N;
   const flying = Math.min(N - 1, Math.floor(gone));
   const f = staticMode ? 1 : clamp01(gone - flying);
-  const landed = staticMode ? N : Math.floor(gone) + (f >= LAND_AT ? 1 : 0);
-
-  const frontIndex = landed - 1;
-  const backCards = Math.max(0, frontIndex - 1 + clamp01(f / LAND_AT));
+  /*
+   * One value drives the stack, so nothing steps while something else eases.
+   * `filled` is how many sessions have landed, fractionally: it rises with the
+   * flight and reaches the next whole number exactly as the card touches down,
+   * which is the same moment the count of landed sessions goes up.
+   */
+  const filled = staticMode ? N : Math.floor(gone) + clamp01(f / LAND_AT);
+  const onStack = Math.floor(filled);
+  const shove = filled - onStack;
+  const frontIndex = onStack - 1;
+  const backCards = Math.max(0, frontIndex + shove);
 
   return (
     <div ref={wrapRef} style={{ height: staticMode ? 'auto' : `${RUN_VH}vh` }}>
@@ -225,13 +234,15 @@ export function VariantHandoff() {
                 if (i > frontIndex) return null;
                 const front = i === frontIndex;
                 const rank = i + 1;
-                const depth = front ? 0 : frontIndex - 1 - i + clamp01(f / LAND_AT);
+                // Every card gives up `shove` of a peek as the next one flies
+                // in, so the front card is only at depth 0 between landings.
+                const depth = frontIndex - i + shove;
                 return (
                   <div
                     key={session.task}
                     className="stk-card"
                     style={{
-                      zIndex: front ? 10 : 10 - Math.max(1, Math.ceil(depth)),
+                      zIndex: front ? 10 : 10 - Math.max(1, Math.round(depth)),
                       transform: `translateY(${-depth * PEEK}px) scaleX(${1 - depth * NARROW})`,
                     }}
                   >
@@ -261,7 +272,7 @@ export function VariantHandoff() {
             </div>
           </div>
 
-          {!staticMode && geom && f > 0 && f < 1 && flying < N && (
+          {!staticMode && geom && f > 0 && f < LAND_AT && flying < N && (
             <TaskGhost task={TASKS[flying]} from={geom.slots[flying]} to={geom.dest} p={clamp01(f / LAND_AT)} />
           )}
         </div>
