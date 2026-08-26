@@ -886,8 +886,12 @@ const TWO_ACT_CAPTIONS: { keys: readonly string[]; title: string; body: string }
   },
 ];
 
+/* The round trip is three beats behind one caption, so it plays quick; the
+   two that follow each carry a paragraph and hold at full length. */
+const TWO_ACT_SPEEDS = [1.55, 1.55, 1.55, 1, 1] as const;
+
 export function ReviewVariantTwoAct() {
-  const { rootRef, p, progress, active, seek } = useTheaterLoop(TWO_ACT_KEYS);
+  const { rootRef, p, progress, active, seek } = useTheaterLoop(TWO_ACT_KEYS, 4500, TWO_ACT_SPEEDS);
   // Binary like the stack promotions, with the same animated depth change —
   // a crossfade tied to the loop would leave both surfaces half-faded.
   const prOn = p('pr') > 0.05;

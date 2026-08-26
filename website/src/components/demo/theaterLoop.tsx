@@ -5,8 +5,13 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 /** Timed replacement for the scroll-scrubbed theater: t advances one unit
  * per beat while the section is on screen, holds briefly after the last
  * beat, then loops from the top. Off-screen the loop pauses where it is;
- * reduced motion gets the finished state, frozen. */
-export function useTheaterLoop(keys: readonly string[], beatMs = 4500) {
+ * reduced motion gets the finished state, frozen.
+ *
+ * `speeds` scales how long a beat takes without changing what a beat is —
+ * t stays in beat units, so p, active and seek are untouched. Above 1 is
+ * faster. Beats a caption shares can run quick while one carrying a
+ * paragraph of its own holds long enough to read. */
+export function useTheaterLoop(keys: readonly string[], beatMs = 4500, speeds?: readonly number[]) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [t, setT] = useState(0);
   const accRef = useRef(0);
@@ -29,7 +34,8 @@ export function useTheaterLoop(keys: readonly string[], beatMs = 4500) {
       const dt = Math.min(now - last, 100);
       last = now;
       if (visible) {
-        accRef.current = (accRef.current + dt / beatMs) % cycle;
+        const speed = speeds?.[Math.floor(accRef.current)] ?? 1;
+        accRef.current = (accRef.current + (dt * speed) / beatMs) % cycle;
         const rounded = Math.round(accRef.current * 240);
         if (rounded !== shown) {
           shown = rounded;
@@ -43,7 +49,7 @@ export function useTheaterLoop(keys: readonly string[], beatMs = 4500) {
       cancelAnimationFrame(raf);
       io.disconnect();
     };
-  }, [keys.length, beatMs]);
+  }, [keys.length, beatMs, speeds]);
 
   /* The 0.08 lead pre-arms each beat's opening thresholds so, with their
      CSS transitions, the visible change lands on the beat boundary instead
