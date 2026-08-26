@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
 import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
-import { ClaudeShell, ClaudeUser, AssistantSay, ToolCall, ToolResult, Continuation } from './stackParts';
+import { ClaudeShell, ClaudeUser, AssistantSay, ToolCall, ToolResult, Continuation, EditDiff } from './stackParts';
 import { DeskWash } from './DeskWash';
 
 /**
@@ -31,6 +31,8 @@ function Lines({ added, removed, note }: { added: number; removed?: number; note
   );
 }
 
+/** Each session ends mid-action, and its OSC title is that action: the card and
+ *  the board row it came from are the same terminal, so they cannot disagree. */
 export const SESSIONS = [
   {
     task: 'T-116',
@@ -42,9 +44,28 @@ export const SESSIONS = [
         <ClaudeUser>Bump the flagged deps and make sure nothing downstream breaks.</ClaudeUser>
         <AssistantSay>Three advisories, all transitive. Taking the minimum bump that clears them.</AssistantSay>
         <ToolCall name="Bash" args="npm audit --json" />
-        <ToolResult>3 advisories · 2 high</ToolResult>
+        <ToolResult>3 advisories · 2 high · 1 moderate</ToolResult>
+        <Continuation>tar &lt;6.2.1 · ws &lt;8.17.1 · postcss &lt;8.4.31</Continuation>
+        <ToolCall name="Bash" args="npm ls tar ws postcss" />
+        <ToolResult>all three reached through @vendor/cli@4 · no direct dependents</ToolResult>
         <ToolCall name="Edit" args="package.json" />
         <Lines added={6} removed={6} />
+        <EditDiff
+          rows={[
+            [41, '-', '"tar": "^6.1.11",'],
+            [41, '+', '"tar": "^6.2.1",'],
+            [52, '-', '"ws": "^8.14.2",'],
+            [52, '+', '"ws": "^8.17.1",'],
+          ]}
+        />
+        <ToolCall name="Bash" args="npm install" />
+        <ToolResult>4 packages changed · 0 added · in 6.2s</ToolResult>
+        <ToolCall name="Bash" args="npm run build" />
+        <ToolResult>
+          <span className={GREEN}>built in 11.4s</span>
+          <span className="ml-2 text-white/55">no type errors</span>
+        </ToolResult>
+        <AssistantSay>Re-running the audit to confirm all three are cleared.</AssistantSay>
       </ClaudeShell>
     ),
   },
@@ -59,9 +80,27 @@ export const SESSIONS = [
         <AssistantSay>The limiter already tracks the window; it just never writes the headers.</AssistantSay>
         <ToolCall name="Read" args="src/api/rateLimit.ts" />
         <ToolResult>Read 214 lines</ToolResult>
+        <ToolCall name="Grep" args="res.setHeader · src/api" />
+        <ToolResult>12 matches in 4 files</ToolResult>
         <ToolCall name="Edit" args="src/api/middleware.ts" />
         <Lines added={38} removed={4} />
-        <Continuation>sets X-RateLimit-Remaining and Retry-After on every public route</Continuation>
+        <EditDiff
+          rows={[
+            [88, '+', "res.setHeader('X-RateLimit-Limit', quota.max);"],
+            [89, '+', "res.setHeader('X-RateLimit-Remaining', quota.left);"],
+            [90, '+', 'if (quota.left === 0) {'],
+            [91, '+', "  res.setHeader('Retry-After', quota.resetIn);"],
+            [92, '+', '}'],
+          ]}
+        />
+        <ToolCall name="Bash" args="npm test -- api/rateLimit" />
+        <ToolResult>
+          <span className={GREEN}>PASS</span>
+          <span className="ml-2 text-white/65">22 tests</span>
+          <span className="ml-2 text-white/35">in 1.8s</span>
+        </ToolResult>
+        <Continuation>covers the 429 body, the reset clock, and the burst allowance</Continuation>
+        <AssistantSay>Wiring the same headers into the streaming routes.</AssistantSay>
       </ClaudeShell>
     ),
   },
@@ -69,15 +108,29 @@ export const SESSIONS = [
     task: 'T-121',
     label: 'Support SSO re-auth prompt',
     branch: 'sso-reauth-prompt',
-    osc: 'Reading session.ts…',
+    osc: 'Adding the freshness guard…',
     body: (
       <ClaudeShell busy>
         <ClaudeUser>Re-prompt for SSO when the session is older than the tenant's limit.</ClaudeUser>
         <AssistantSay>Reading how the session age is tracked before I add the check.</AssistantSay>
         <ToolCall name="Read" args="src/account/session.ts" />
         <ToolResult>Read 388 lines</ToolResult>
+        <ToolCall name="Grep" args="maxSessionAge · src" />
+        <ToolResult>4 matches · all in the tenant schema</ToolResult>
+        <AssistantSay>maxSessionAge is on the tenant, not the session — the check belongs in the guard.</AssistantSay>
         <ToolCall name="Write" args="src/account/reauth.ts" />
         <Lines added={52} note="lines (new)" />
+        <EditDiff
+          rows={[
+            [12, '+', 'export function requireFreshSession(req, tenant) {'],
+            [13, '+', '  const age = Date.now() - req.session.authAt;'],
+            [14, '+', '  if (age < tenant.maxSessionAge) return null;'],
+            [15, '+', '  return reauthRedirect(tenant.idp, req.url);'],
+          ]}
+        />
+        <ToolCall name="Edit" args="src/account/guard.ts" />
+        <Lines added={9} removed={1} />
+        <Continuation>calls requireFreshSession ahead of every authenticated handler</Continuation>
       </ClaudeShell>
     ),
   },
@@ -89,9 +142,27 @@ export const SESSIONS = [
     body: (
       <ClaudeShell busy>
         <ClaudeUser>The signup e2e fails about one run in five. Find out why.</ClaudeUser>
+        <AssistantSay>Running it in a loop first, so I can see how it fails rather than guess.</AssistantSay>
+        <ToolCall name="Bash" args="npm run test:e2e -- signup --repeat 10" />
+        <ToolResult>
+          <span className={GREEN}>8 passed</span>
+          <span className="mx-1.5 text-white/30">·</span>
+          <span className={RED}>2 failed</span>
+          <span className="ml-2 text-white/55">both on the same assertion</span>
+        </ToolResult>
+        <Continuation>expected "Check your inbox" · received ""</Continuation>
+        <ToolCall name="Read" args="e2e/signup.test.ts" />
+        <ToolResult>Read 96 lines</ToolResult>
         <AssistantSay>It asserts on the toast before the redirect settles. Waiting on the route instead.</AssistantSay>
         <ToolCall name="Edit" args="e2e/signup.test.ts" />
         <Lines added={14} removed={9} />
+        <EditDiff
+          rows={[
+            [34, '-', "await expect(page.getByRole('status')).toHaveText("],
+            [34, '+', "await page.waitForURL('**/signup/check-email');"],
+            [35, '+', "await expect(page.getByRole('status')).toHaveText("],
+          ]}
+        />
         <ToolCall name="Bash" args="npm run test:e2e -- signup --repeat 20" />
       </ClaudeShell>
     ),

@@ -147,6 +147,31 @@ export function Continuation({ children, dim = true }: { children: ReactNode; di
   return <div className={`pl-7 ${dim ? 'text-white/40' : 'text-white/55'}`}>{children}</div>;
 }
 
+/** A changed line as Claude Code prints it under an edit: number, sign, source.
+ *  Shares the diff panel's tokens so the two surfaces agree on what an addition
+ *  looks like. */
+export type EditDiffRow = [number, '+' | '-' | ' ', string];
+
+export function EditDiff({ rows }: { rows: EditDiffRow[] }) {
+  const tone = (sign: EditDiffRow[1]) =>
+    sign === '+'
+      ? 'bg-diff-added/10 text-diff-added'
+      : sign === '-'
+        ? 'bg-diff-removed/[0.08] text-diff-removed'
+        : 'text-white/40';
+  return (
+    <div className="pl-7 mt-0.5">
+      {rows.map(([no, sign, content], i) => (
+        <div key={i} className={`flex ${tone(sign)}`}>
+          <span className="w-7 shrink-0 pr-2 text-right text-white/20 select-none">{no}</span>
+          <span className="w-3 shrink-0 select-none">{sign === ' ' ? '' : sign}</span>
+          <span className="truncate">{content}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function AssistantSay({ children }: { children: ReactNode }) {
   return (
     <div className="mt-2 text-white/85">
@@ -172,7 +197,7 @@ function ClaudeTuiInput({ busy = false, pendingText }: { busy?: boolean; pending
       </div>
       <div className="border-t border-white/15" />
       <div className="mt-1 text-white/35 text-[10px]">
-        Opus 4.7 {busy ? '· esc to interrupt' : '· ⏎ to send'} · ↓ to manage
+        Opus 5 {busy ? '· esc to interrupt' : '· ⏎ to send'} · ↓ to manage
       </div>
     </div>
   );

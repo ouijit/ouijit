@@ -338,7 +338,7 @@ function ReviewShell({ children, busy, pending }: { children: ReactNode; busy?: 
         </div>
         <div className="border-t border-white/15" />
         <div className="mt-1 text-white/35 text-[10px]">
-          Opus 4.7 {busy ? '· esc to interrupt' : '· ⏎ to send'} · ↓ to manage
+          Opus 5 {busy ? '· esc to interrupt' : '· ⏎ to send'} · ↓ to manage
         </div>
       </div>
     </div>

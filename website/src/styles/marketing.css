@@ -2513,8 +2513,10 @@ body.marketing::after {
   width: 100%;
   max-width: 1200px;
   padding: 0 var(--content-padding);
-  height: 74vh;
-  max-height: 720px;
+  /* Sized to the transcripts, not to the window. The cards divide a fixed
+     height, so a viewport-relative stage makes the deepest card clip its
+     newest line on a short screen and open a void on a tall one. */
+  height: 640px;
   margin: 0 auto;
 }
 
