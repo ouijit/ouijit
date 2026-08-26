@@ -1,55 +1,47 @@
 ---
 import Site from '../../layouts/Site.astro';
 import {
-  VariantPop,
-  VariantBloom,
-  VariantMitosis,
-  VariantDock,
+  VariantTimeline,
+  VariantFleet,
+  VariantStreams,
   VariantWall,
 } from '../../components/demo/BuildFleetLab.tsx';
 ---
-<Site title="Lab · Build in parallel, as a fleet" noindex>
+<Site title="Lab · Build in parallel" noindex>
   <section class="home-build">
-    <h1 class="plan-v-headline">Build in parallel — fleet concepts</h1>
+    <h1 class="plan-v-headline">Build in parallel — concepts</h1>
     <p style="color: #86868b; max-width: 62ch; margin: 16px 0 0;">
-      Scroll-scrubbed stages: each pins the viewport and grows the fleet with the wheel. The first two hold
-      every tile still once it lands; the last three move them.
+      Scroll-scrubbed stages. The first three show the work rather than the window — when sessions overlap,
+      how many are running, and what they emit — so none of them depend on repeating the same mock chrome.
     </p>
   </section>
 
   <section class="home-build" style="padding-bottom: 0;">
-    <h2 class="plan-v-headline">7d · Pop</h2>
+    <h2 class="plan-v-headline">8a · Timeline</h2>
     <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
-      Nothing reflows. Every tile lands at the size and slot it keeps for the rest of the section, scaling up
-      from its own centre. The board is the finished board from the first frame — tiles only become visible.
+      One lane per task over a shared clock. Lanes accumulate as you scroll and visibly overlap; the hatched
+      tail is the branch waiting on a person. Ends on the number that matters — wall clock against agent time.
     </p>
   </section>
-  <VariantPop client:visible />
+  <VariantTimeline client:visible />
 
   <section class="home-build" style="padding-bottom: 0;">
-    <h2 class="plan-v-headline">7e · Bloom</h2>
+    <h2 class="plan-v-headline">8c · Fleet</h2>
     <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
-      The same no-reflow rule, arranged five-on-a-die: the lead terminal holds the centre and the rest pop in
-      around it, so the fleet reads as having grown out of the middle without anything moving.
+      The app's own status dots, at a scale you read as a field rather than as windows: 1 session to 96.
+      Exactly one piece of real UI on the stage — point at any dot to load that session into it.
     </p>
   </section>
-  <VariantBloom client:visible />
+  <VariantFleet client:visible />
 
   <section class="home-build" style="padding-bottom: 0;">
-    <h2 class="plan-v-headline">7a · Mitosis</h2>
+    <h2 class="plan-v-headline">8d · Streams</h2>
     <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
-      For contrast — the reflowing one. Seams open from nothing and every tile shrinks to make room.
+      One terminal at full size, every session's output through it, each line tagged and coloured by its task.
+      The interleaving thickens as agents join, and results come back out of order.
     </p>
   </section>
-  <VariantMitosis client:visible />
-
-  <section class="home-build" style="padding-bottom: 0;">
-    <h2 class="plan-v-headline">7b · Dock</h2>
-    <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
-      The lead tile settles from centre into its slot while the rest fly in from off stage.
-    </p>
-  </section>
-  <VariantDock client:visible />
+  <VariantStreams client:visible />
 
   <section class="home-build" style="padding-bottom: 0;">
     <h2 class="plan-v-headline">7c · Wall</h2>

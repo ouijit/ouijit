@@ -1713,6 +1713,317 @@ body.marketing::after {
   background: rgba(255, 255, 255, 0.7);
 }
 
+/* Timeline: one lane per task, drawn over a shared clock. */
+.fleet-field--flat {
+  display: flex;
+  align-items: center;
+}
+
+.tl-chart {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tl-lane {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: opacity 400ms ease;
+}
+
+.tl-label {
+  width: 210px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.tl-task {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.tl-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.tl-track {
+  position: relative;
+  flex: 1;
+  height: 26px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.tl-bar {
+  position: absolute;
+  top: 5px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.tl-bar--work {
+  background: linear-gradient(90deg, oklch(78% 0.12 250), oklch(83% 0.11 190));
+}
+
+/* Waiting on a person, not on a machine — deliberately the duller half. */
+.tl-bar--wait {
+  background: repeating-linear-gradient(
+    -45deg,
+    oklch(80% 0.13 80 / 0.55) 0 4px,
+    oklch(80% 0.13 80 / 0.2) 4px 8px
+  );
+}
+
+.tl-done {
+  position: absolute;
+  top: 6px;
+  margin-left: 8px;
+  color: var(--color-ansi-green);
+  opacity: 0.8;
+}
+
+.tl-done svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tl-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-left: 230px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.tl-summary {
+  display: flex;
+  gap: 56px;
+  margin: 20px 0 0 230px;
+  transition: opacity 500ms ease;
+}
+
+.tl-summary strong {
+  display: block;
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.tl-summary span {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #86868b;
+}
+
+/* Fleet: the app's status dots, at a scale you read as a field. */
+.fleet-field--split {
+  display: flex;
+  align-items: center;
+  gap: 56px;
+}
+
+.fleet-pips {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(16, 14px);
+  justify-content: center;
+  align-content: center;
+  gap: 13px;
+}
+
+.fleet-pip {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  transform: scale(0.6);
+  opacity: 0;
+  transition:
+    opacity 320ms ease,
+    transform 320ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    box-shadow 200ms ease;
+}
+
+.fleet-pip.is-on {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.fleet-pip--busy.is-on {
+  background: var(--color-accent);
+  animation: fleet-breathe 2.4s ease-in-out infinite;
+}
+
+.fleet-pip--wait.is-on {
+  background: oklch(80% 0.13 80);
+}
+
+.fleet-pip--done.is-on {
+  background: var(--color-ansi-green);
+  opacity: 0.55;
+}
+
+.fleet-pip.is-picked {
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.16);
+}
+
+.fleet-pip--inline {
+  width: 7px;
+  height: 7px;
+  transform: none;
+}
+
+@keyframes fleet-breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.fleet-side {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fleet-count strong {
+  font-size: 52px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+
+.fleet-count span {
+  margin-left: 10px;
+  font-size: 13px;
+  color: #86868b;
+}
+
+.fleet-card {
+  position: relative;
+  height: 230px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--color-bezel-panel);
+  background: var(--color-terminal-bg);
+  box-shadow: var(--shadow-panel);
+}
+
+/* Streams: every session's output through one surface, tagged by task. */
+.fleet-field--flat .st-shell {
+  position: relative;
+  --st-0: oklch(80% 0.13 295);
+  --st-1: oklch(79% 0.14 45);
+  --st-2: oklch(86% 0.14 130);
+  --st-3: oklch(78% 0.12 250);
+  --st-4: oklch(79% 0.13 330);
+  width: 100%;
+  height: 100%;
+  max-height: 560px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--color-bezel-panel);
+  background: var(--color-terminal-bg);
+  box-shadow: var(--shadow-panel);
+}
+
+.st-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.28);
+  opacity: 0.4;
+  transition: opacity 300ms ease;
+}
+
+.st-chip.is-on {
+  opacity: 1;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.st-swatch {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+}
+
+.st-log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 3px;
+  padding: 16px 20px;
+  overflow: hidden;
+}
+
+.st-line {
+  display: flex;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  animation: st-arrive 260ms ease both;
+}
+
+.st-tag {
+  flex-shrink: 0;
+  width: 46px;
+  color: var(--st-line);
+}
+
+.st-text {
+  min-width: 0;
+  flex: 1;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+@keyframes st-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.st-foot {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.st-foot strong {
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
+}
+
 @media (max-width: 860px) {
   .fleet-sticky {
     position: static;
@@ -1733,5 +2044,40 @@ body.marketing::after {
 
   .fleet-caption-item {
     position: static;
+  }
+
+  .fleet-field--split {
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .fleet-pips {
+    grid-template-columns: repeat(12, 12px);
+    gap: 9px;
+  }
+
+  .fleet-side {
+    width: 100%;
+  }
+
+  .tl-label {
+    width: 96px;
+  }
+
+  .tl-name {
+    display: none;
+  }
+
+  .tl-axis,
+  .tl-summary {
+    margin-left: 116px;
+  }
+
+  .tl-summary {
+    gap: 24px;
+  }
+
+  .tl-summary strong {
+    font-size: 22px;
   }
 }
