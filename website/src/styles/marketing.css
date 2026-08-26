@@ -2553,17 +2553,18 @@ body.marketing::after {
   margin-top: 80px;
 }
 
+/* Scrolls away like any heading. Pinning it put it under the desk, which
+   pins below it and paints over it on the way up. */
 .plan-build-title {
-  position: sticky;
-  top: 110px;
-  margin: 0 0 24px;
+  margin: 0 0 44px;
 }
 
+/* Same offset as the column rail, so the two pin to one line. */
 .plan-build-pin {
   position: sticky;
-  top: 178px;
-  height: 68vh;
-  max-height: 660px;
+  top: 110px;
+  height: 56vh;
+  max-height: 540px;
 }
 
 .plan-build-desk {
@@ -2577,13 +2578,12 @@ body.marketing::after {
     height: auto;
   }
 
-  .plan-build-title,
   .plan-build-pin {
     position: static;
   }
 
   .plan-build-pin {
-    height: 520px;
+    height: 460px;
   }
 
   .plan-build-desk {
