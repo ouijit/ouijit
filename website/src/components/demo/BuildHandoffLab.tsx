@@ -44,8 +44,8 @@ const GROW_SPAN = (N * PER_CARD_VH) / (RUN_VH - 100);
  *  rather than appearing mid-air. */
 const LAND_AT = 0.88;
 
-/** The column the Plan section hands over, not a lookalike of it. */
-const TASKS = TODO_COLUMN;
+/** The column the Plan section hands over, working now rather than waiting. */
+const TASKS = TODO_COLUMN.map((t) => ({ ...t, status: 'in_progress' as const }));
 
 const DESK_GRAPHITE =
   'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%), linear-gradient(180deg, #1c1d23, #131318)';
@@ -214,7 +214,7 @@ export function VariantHandoff() {
                 style={{ '--wash': 'var(--wash-prism)', opacity: 0.9 * (1 - drain) } as React.CSSProperties}
               />
               <div className="hx-column glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel">
-                <KanbanColumnView status="todo" label="To Do" count={N}>
+                <KanbanColumnView status="in_progress" label="In Progress" count={N}>
                   {TASKS.map((task, i) => {
                     // The row appears as the flight lands, so the card gains
                     // its terminal at the moment the stack does.
