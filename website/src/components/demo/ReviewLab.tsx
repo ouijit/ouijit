@@ -6,6 +6,7 @@ import {
 } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { MockPullRequests } from './MockPullRequests';
+import { MockAnalysis, HotspotTip } from './MockAnalysis';
 import { getPanelFixtures } from './MockPanels';
 import {
   ActiveActions,
@@ -187,6 +188,22 @@ function HotspotChip() {
   );
 }
 
+/**
+ * The tooltip the chip carries in the app, opened where a hover would open
+ * it. It sits in the well rather than the card, which clips its own overflow
+ * to round the diff rows — so it repeats the card's box (inset-x-4 top-3) and
+ * clears the file header (pt-9) to land under the row the chip is on.
+ */
+function HotspotTipOverlay() {
+  return (
+    <div className="absolute inset-x-4 top-3 z-40 pt-9 pr-4 flex justify-end pointer-events-none">
+      <span className="mt-1.5 animate-tooltip-pop">
+        <HotspotTip path="src/onboarding/Stepper.tsx" />
+      </span>
+    </div>
+  );
+}
+
 function NotedDiffLineRow({ line }: { line: NotedLine }) {
   const lineBg =
     line.type === 'addition' ? 'bg-diff-added/10' : line.type === 'deletion' ? 'bg-diff-removed/[0.08]' : '';
@@ -250,7 +267,17 @@ function NotesIsland({ count, flash }: { count: number; flash?: boolean }) {
 /** The diff panel mid-review: word-level highlights, a note being written on
  * a changed line, and the island that hands the notes to the agent.
  * `pNote` types the note, `pSend` sends it, `pFix` is the agent's follow-up. */
-function NotedDiffPane({ pNote, pSend, pFix }: { pNote: number; pSend: number; pFix: number }) {
+function NotedDiffPane({
+  pNote,
+  pSend,
+  pFix,
+  tip,
+}: {
+  pNote: number;
+  pSend: number;
+  pFix: number;
+  tip?: boolean;
+}) {
   /* Typing takes as much of the beat as it can get: it starts as soon as the
      box opens and finishes just before the note is saved. The beat is short,
      and idling at either end of it is what makes the note look pasted. */
@@ -279,6 +306,7 @@ function NotedDiffPane({ pNote, pSend, pFix }: { pNote: number; pSend: number; p
         </span>
       </div>
       <div className="diff-well diff-list relative flex-1 overflow-hidden pb-3">
+        {tip && <HotspotTipOverlay />}
         <div className="diff-card mx-4 mt-3 rounded-[14px] border border-bezel bg-diff-card overflow-clip">
           <div className="pane-ledge sticky top-0 z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface">
             <span
@@ -368,10 +396,10 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
   const fixed = p('fix') > FIXED_AT;
   return (
     <ReviewShell busy={fixing && !fixed} pending={pending ? <PendingNotes /> : undefined}>
-      <Line p={p('note')} at={0}>
+      <Line p={p('scan')} at={0}>
         <AssistantSay>Done — stepper shell, saved progress, and WelcomeIntro retired.</AssistantSay>
       </Line>
-      <Line p={p('note')} at={0.08}>
+      <Line p={p('scan')} at={0.08}>
         <ToolCall name="Bash" args="ouijit task set-status 101 in_review" />
         <ToolResult>
           #101 <span className="text-white/65">in_progress → in_review</span>
@@ -422,7 +450,15 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
 
 /** The review terminal: session left, noted diff split right. `receded` is
  * the stack's back-card treatment for while another surface holds the front. */
-function RoundTripTerminal({ p, receded = false }: { p: (k: string) => number; receded?: boolean }) {
+function RoundTripTerminal({
+  p,
+  receded = false,
+  tip,
+}: {
+  p: (k: string) => number;
+  receded?: boolean;
+  tip?: boolean;
+}) {
   const fixtures = getPanelFixtures('pty-101-dev');
   const fixing = p('fix') > 0.06;
   /* The beat ends with the fix landed, so the card stops reading as busy
@@ -439,9 +475,7 @@ function RoundTripTerminal({ p, receded = false }: { p: (k: string) => number; r
         nameContent={
           <TerminalHeaderName
             label="Rework onboarding flow"
-            lastOscTitle={
-              receded || fixed ? 'done · 15 passed' : fixing ? 'Adding sign-out test...' : 'done · in review'
-            }
+            lastOscTitle={fixed ? 'done · 15 passed' : fixing ? 'Adding sign-out test...' : 'done · in review'}
           />
         }
         branchContent={receded ? undefined : <BranchLabel branch="rework-onboarding" />}
@@ -453,7 +487,7 @@ function RoundTripTerminal({ p, receded = false }: { p: (k: string) => number; r
         </div>
         <div className="pane-seam relative w-px shrink-0" />
         <div className="relative shrink-0" style={{ width: '50%' }}>
-          <NotedDiffPane pNote={p('note')} pSend={p('send')} pFix={p('fix')} />
+          <NotedDiffPane pNote={p('note')} pSend={p('send')} pFix={p('fix')} tip={tip} />
         </div>
       </div>
     </TerminalCardView>
@@ -625,101 +659,6 @@ function DraftRow({ path, line, origin, body }: { path: string; line: number; or
   );
 }
 
-/* ─── The Code tab: file rail, the diff, a draft being collected ──── */
-
-const CODE_NOTE = 'fall back to 0 when preferences are missing';
-
-const CODE_FILES = [
-  { name: 'Stepper.tsx', icon: 'file-dashed', color: 'text-ink/50', add: 92, del: 14, hot: true },
-  { name: 'WelcomeIntro.tsx', icon: 'file-minus', color: 'text-vcs-deleted', add: 0, del: 64 },
-  { name: 'useOnboardingProgress.ts', icon: 'file-plus', color: 'text-vcs-added', add: 38, del: 0, active: true },
-];
-
-const HOOK_LINES = [
-  "import { useEffect, useState } from 'react';",
-  "import { readPreference, writePreference } from '../account/preferences';",
-  '',
-  'export function useOnboardingProgress(accountId: string) {',
-  '  const key = `onboarding:${accountId}`;',
-  '  const stored = readPreference(key);',
-  '  const [step, setStep] = useState(stored.step);',
-  '',
-  '  useEffect(() => writePreference(key, { step }), [key, step]);',
-  '  return { step, setStep };',
-];
-
-function PrCodePane({ p }: { p: number }) {
-  const typed = Math.round(clamp01((p - 0.18) / 0.45) * CODE_NOTE.length);
-  const composing = p > 0.1 && p <= 0.75;
-  const saved = p > 0.75;
-  return (
-    <div className="h-full flex">
-      <div className="shrink-0 flex flex-col overflow-hidden py-2" style={{ width: 248 }}>
-        <div className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-ink/50">
-          <Icon name="caret-down" className="!w-3 !h-3" />
-          <span className="flex-1 min-w-0 truncate">src/onboarding</span>
-        </div>
-        <div className="pl-3">
-          {CODE_FILES.map((f) => (
-            <div
-              key={f.name}
-              className={`flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] ${
-                f.active ? 'bg-ink/[0.07] text-ink/90' : 'text-ink/70'
-              }`}
-            >
-              <Icon name={f.icon} className={`w-4 h-4 ${f.color}`} />
-              <span className="flex-1 min-w-0 truncate">{f.name}</span>
-              {f.hot && <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-git/80" />}
-              <span className="shrink-0 font-mono text-[12px]">
-                {f.add > 0 && <span className="text-diff-added">+{f.add}</span>}
-                {f.add > 0 && f.del > 0 && ' '}
-                {f.del > 0 && <span className="text-diff-removed">-{f.del}</span>}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="pane-seam relative w-px shrink-0" />
-      <div className="diff-well diff-list relative flex-1 min-w-0 overflow-hidden pb-3">
-        <div className="diff-card mx-4 mt-3 rounded-[14px] border border-bezel bg-diff-card overflow-clip">
-          <div className="pane-ledge sticky top-0 z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface">
-            <span
-              className="shrink-0 w-4 h-4 rounded border border-ink/25 text-transparent flex items-center justify-center [&>svg]:w-3 [&>svg]:h-3"
-              aria-hidden="true"
-            >
-              <Icon name="check" />
-            </span>
-            <span className="flex-1 min-w-0 truncate font-mono text-[13px]">
-              <span className="text-ink/35">src/onboarding/</span>
-              <span className="text-ink/90">useOnboardingProgress.ts</span>
-            </span>
-            <span className="shrink-0 text-[10px] px-1 py-px rounded font-medium bg-vcs-added/15 text-vcs-added">
-              added
-            </span>
-            <span className="shrink-0 font-mono text-[11px]">
-              <span className="text-diff-added">+38</span>
-            </span>
-          </div>
-          {HOOK_LINES.map((content, i) => (
-            <div key={i}>
-              <NotedDiffLineRow line={{ type: 'addition', newNo: i + 1, content }} />
-              {i === 6 && composing && (
-                <MockCommentBox
-                  text={CODE_NOTE.slice(0, typed)}
-                  placeholder="Leave a comment…"
-                  saveLabel="Add comment"
-                  hint="Saved locally until you submit the review."
-                />
-              )}
-              {i === 6 && saved && <MockCommentCard label="Unsent comment · 7" body={CODE_NOTE} />}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const RISK_ROWS = [
   {
     icon: 'flame',
@@ -734,18 +673,8 @@ const RISK_ROWS = [
 ];
 
 /** The pull request surface reduced to its review essentials: the header
- * segment, the facts, and the staged drafts. Same task, one commit later.
- * `pane` switches to the Code tab; `pCode` plays the draft being written. */
-function CondensedPrCard({
-  compact = false,
-  pane = 'summary',
-  pCode = 0,
-}: {
-  compact?: boolean;
-  pane?: 'summary' | 'code';
-  pCode?: number;
-}) {
-  const unsent = pCode > 0.75 ? 2 : 1;
+ * segment, the facts, and the staged drafts. Same task, one commit later. */
+function CondensedPrCard({ compact = false }: { compact?: boolean }) {
   return (
     <div
       className="glass-bevel relative h-full flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
@@ -758,21 +687,13 @@ function CondensedPrCard({
         </span>
         {!compact && (
           <nav className="flex items-center gap-4 mx-auto shrink-0 self-stretch">
-            <span
-              className={`flex items-center px-0.5 border-b-2 -mb-px text-[13px] font-medium transition-colors duration-150 ${
-                pane === 'summary' ? 'border-accent text-text-primary' : 'border-transparent text-text-tertiary'
-              }`}
-            >
+            <span className="flex items-center px-0.5 border-b-2 -mb-px border-accent text-[13px] font-medium text-text-primary">
               Summary
             </span>
             <span className="flex items-center px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
               Timeline
             </span>
-            <span
-              className={`flex items-center gap-1.5 px-0.5 border-b-2 -mb-px text-[13px] font-medium transition-colors duration-150 ${
-                pane === 'code' ? 'border-accent text-text-primary' : 'border-transparent text-text-tertiary'
-              }`}
-            >
+            <span className="flex items-center gap-1.5 px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
               Code <span className="opacity-50 tabular-nums">3</span>
             </span>
           </nav>
@@ -783,8 +704,7 @@ function CondensedPrCard({
             style={{ background: '#212126' }}
           >
             <span className={`${SEG} text-text-secondary`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-              {unsent} unsent
+              <span className="w-1.5 h-1.5 rounded-full bg-accent" />1 unsent
             </span>
             {SEG_DIVIDER}
             <span className={`${SEG} text-text-secondary`}>Review</span>
@@ -794,9 +714,6 @@ function CondensedPrCard({
         </div>
       </header>
       <div className="flex-1 min-h-0 overflow-hidden">
-        {pane === 'code' ? (
-          <PrCodePane p={pCode} />
-        ) : (
         <div className={`h-full ${compact ? '' : 'w-full max-w-3xl mx-auto'} px-6 py-5 flex flex-col gap-4`}>
           <header className="flex flex-col gap-2">
             <div className="text-[21px] leading-tight font-medium text-text-primary">Rework onboarding flow</div>
@@ -856,22 +773,41 @@ function CondensedPrCard({
             />
           </section>
         </div>
-        )}
       </div>
     </div>
   );
 }
 
-/* ─── 2a · Two acts — the loop, then the pull request takes the front ─ */
+/** The Analysis panel as a panel of its own, framed like the pull request card
+ *  it shares the stage with. */
+function AnalysisCard() {
+  return (
+    <div
+      className="glass-bevel relative h-full flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
+      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
+    >
+      <MockAnalysis showAdvice />
+    </div>
+  );
+}
 
-const TWO_ACT_KEYS = [...LOOP_KEYS, 'pr', 'code'] as const;
+/* ─── 2a · Three acts — what the history says, the loop, the pull request ─ */
+
+const ANALYSIS_KEYS = ['scan', 'chip'] as const;
+const TWO_ACT_KEYS = [...ANALYSIS_KEYS, ...LOOP_KEYS, 'pr'] as const;
 
 /**
- * The captions under the stage. The round trip is one of them and three
- * beats long: note, send and fix are phases of a single story, and a caption
- * swapping twice while it plays reads as three unrelated features.
+ * The captions under the stage. Analysis and the round trip are one caption
+ * each and several beats long: the panel and the chip are one reading shown
+ * twice, and note, send and fix are phases of a single story. A caption
+ * swapping mid-play reads as unrelated features.
  */
 const TWO_ACT_CAPTIONS: { keys: readonly string[]; title: string; body: string }[] = [
+  {
+    keys: ANALYSIS_KEYS,
+    title: 'Read the history before the diff',
+    body: 'Analysis ranks every file by how often it changes and how tangled it is, from the git log alone. The same reading rides along in the diff: what a file moves with, and who holds it.',
+  },
   {
     keys: LOOP_KEYS,
     title: 'Send notes back to the agent',
@@ -880,12 +816,7 @@ const TWO_ACT_CAPTIONS: { keys: readonly string[]; title: string; body: string }
   {
     keys: ['pr'],
     title: 'Land the pull request',
-    body: 'Review every open pull request without opening GitHub — checks, threads, and the merge menu. Risk names the hot files it touches and the coupled ones it leaves out.',
-  },
-  {
-    keys: ['code'],
-    title: 'Draft the review',
-    body: 'The Code tab walks the diff file by file. Comments stage as drafts — yours beside your agents’ — and nothing reaches GitHub until you send them as one review.',
+    body: 'Review every open pull request without opening GitHub — checks, threads, and the merge menu. Drafts, yours beside your agents’, stay local until you send them as one review.',
   },
 ];
 
@@ -917,13 +848,17 @@ export function ReviewVariantTwoAct() {
   // Binary like the stack promotions, with the same animated depth change —
   // a crossfade tied to the loop would leave both surfaces half-faded.
   const prOn = p('pr') > 0.05;
-  
+  const scanOn = p('chip') < 0.05;
+  const chipOn = p('chip') > 0.05 && p('note') < 0.05;
+  /* Analysis holds the front first and leaves the way the pull request
+     arrives, so the terminal starts as the back card and is promoted once. */
+
   return (
     <div ref={rootRef} className="bl-theater">
       <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, paddingTop: 48, width: '100%' }}>
           <DeskWash />
           <div className="relative" style={{ height: 520 }}>
-            <RoundTripTerminal p={p} receded={prOn} />
+            <RoundTripTerminal p={p} receded={prOn || scanOn} tip={chipOn} />
             <div
               style={{
                 position: 'absolute',
@@ -935,7 +870,20 @@ export function ReviewVariantTwoAct() {
                 pointerEvents: 'none',
               }}
             >
-              <CondensedPrCard pane={p('code') > 0.05 ? 'code' : 'summary'} pCode={p('code')} />
+              <CondensedPrCard />
+            </div>
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 30,
+                opacity: scanOn ? 1 : 0,
+                transform: `translateY(${scanOn ? 0 : 48}px)`,
+                transition: 'opacity 0.25s ease, transform 0.25s ease',
+                pointerEvents: 'none',
+              }}
+            >
+              <AnalysisCard />
             </div>
           </div>
         </div>

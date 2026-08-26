@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 
 /**
@@ -151,7 +151,22 @@ const count = (n: number, noun: string) => `${n.toLocaleString()} ${noun}${n ===
 const basename = (path: string) => path.slice(path.lastIndexOf('/') + 1);
 const dirname = (path: string) => path.slice(0, path.lastIndexOf('/') + 1);
 
-export function MockAnalysis() {
+/**
+ * The panel runs taller than the frames it appears in. `showAdvice` opens it
+ * already scrolled to the foot of the expanded hotspot, where its
+ * recommendations are, rather than at the top of the list. Measured rather
+ * than given, since that entry is as tall as its own history.
+ */
+export function MockAnalysis({ showAdvice }: { showAdvice?: boolean } = {}) {
+  const scroller = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const pane = scroller.current;
+    const detail = pane?.querySelector<HTMLElement>('[data-hotspot-detail]');
+    if (!showAdvice || !pane || !detail) return;
+    pane.scrollTop += detail.getBoundingClientRect().bottom - pane.getBoundingClientRect().bottom;
+  }, [showAdvice]);
+
   return (
     <div className="flex-1 min-w-0 min-h-0 flex flex-col">
       <div className="pane-ledge relative z-30 shrink-0 h-12 flex items-center gap-2 px-4">
@@ -165,7 +180,7 @@ export function MockAnalysis() {
         </span>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div ref={scroller} className="flex-1 min-h-0 overflow-y-auto">
         <div className="w-full max-w-3xl mx-auto px-8 py-7 flex flex-col gap-7">
           <div className="flex items-center gap-3">
             <span className="w-40 shrink-0">
@@ -203,6 +218,55 @@ export function MockAnalysis() {
               <OwnerRow key={owner.name} {...owner} />
             ))}
           </Section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The chip's tooltip from the app's diff panel — the same reading the Analysis
+ * panel gives a file, on the file itself. Tooltip chrome included, since the
+ * demo has no hover to open it with.
+ */
+export function HotspotTip({ path }: { path: string }) {
+  const signal = HOTSPOTS.find((s) => s.path === path) ?? HOTSPOTS[0];
+  /* The seam advice is the partner line below, so the lever repeating it goes.
+     The app drops it by handing the chip no partner. */
+  const levers = signal.levers.filter((lever) => lever.icon !== 'git-fork');
+  return (
+    <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip">
+      <div className="w-60 whitespace-normal py-1 flex flex-col gap-3 font-normal">
+        <div>
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[12px] text-text-primary">{count(signal.commits, 'commit')}</span>
+            <span className="text-[10px] text-text-tertiary">last 12 months</span>
+          </div>
+          <Sparkline monthly={signal.monthly} />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <MeterRow label="Change frequency" rank={signal.freqRank} />
+          <MeterRow label="Nesting" rank={signal.cxRank} />
+          <div className="text-[10px] text-text-tertiary">{signal.nesting}</div>
+        </div>
+
+        <OwnershipBar authors={signal.authors} />
+
+        {signal.partner && (
+          <span className="text-[11px] leading-snug text-text-secondary">
+            Usually changes with <span className="font-mono text-[10px]">{signal.partner.path}</span> — not in this
+            diff
+          </span>
+        )}
+
+        <div className="pt-2 border-t border-ink/10 flex flex-col gap-1">
+          {levers.map((lever) => (
+            <span key={lever.text} className="flex gap-1.5 text-[11px] leading-snug text-text-secondary">
+              <Icon name={lever.icon} className="w-3 h-3 shrink-0 mt-px text-ink/40" />
+              {lever.text}
+            </span>
+          ))}
         </div>
       </div>
     </div>
@@ -278,7 +342,10 @@ function HotspotEntry({ signal, defaultOpen = false }: { signal: Signal; default
 
 function HotspotDetail({ signal }: { signal: Signal }) {
   return (
-    <div className="ml-8 mr-2 mb-2.5 pl-4 pt-3.5 pb-2.5 border-l border-ink/[0.09] flex flex-col gap-4">
+    <div
+      data-hotspot-detail
+      className="ml-8 mr-2 mb-2.5 pl-4 pt-3.5 pb-2.5 border-l border-ink/[0.09] flex flex-col gap-4"
+    >
       <div className="flex items-start gap-10">
         <div className="flex-1 min-w-0">
           <HistoryChart monthly={signal.monthly} />
@@ -470,6 +537,16 @@ function ScoreTrack({ rank, className }: { rank: number; className: string }) {
     <span className={`block rounded-full overflow-hidden bg-git-light ${className}`} aria-hidden>
       <span className="block h-full rounded-full bg-git" style={{ width: `${Math.round(rank * 100)}%` }} />
     </span>
+  );
+}
+
+function MeterRow({ label, rank }: { label: string; rank: number }) {
+  return (
+    <div className="flex items-center gap-2 text-[10px]">
+      <span className="w-[100px] shrink-0 text-text-tertiary">{label}</span>
+      <ScoreTrack rank={rank} className="flex-1 h-1" />
+      <span className="w-10 shrink-0 text-right tabular-nums text-text-secondary">{topPercent(rank)}</span>
+    </div>
   );
 }
 
