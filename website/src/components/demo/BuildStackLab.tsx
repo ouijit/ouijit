@@ -2,7 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
 import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
-import { ClaudeShell, ClaudeUser, AssistantSay, ToolCall, ToolResult, Continuation, EditDiff } from './stackParts';
+import {
+  ClaudeShell,
+  ClaudeUser,
+  AssistantSay,
+  ToolCall,
+  ToolResult,
+  Continuation,
+  EditDiff,
+  WorkingLine,
+} from './stackParts';
 import { DeskWash } from './DeskWash';
 
 /**
@@ -66,6 +75,7 @@ export const SESSIONS = [
           <span className="ml-2 text-white/55">no type errors</span>
         </ToolResult>
         <AssistantSay>Re-running the audit to confirm all three are cleared.</AssistantSay>
+        <WorkingLine verb="Percolating" elapsed="2m 14s" tokens="8.1k" />
       </ClaudeShell>
     ),
   },
@@ -101,6 +111,7 @@ export const SESSIONS = [
         </ToolResult>
         <Continuation>covers the 429 body, the reset clock, and the burst allowance</Continuation>
         <AssistantSay>Wiring the same headers into the streaming routes.</AssistantSay>
+        <WorkingLine verb="Finagling" elapsed="6m 02s" tokens="21.4k" />
       </ClaudeShell>
     ),
   },
@@ -131,6 +142,7 @@ export const SESSIONS = [
         <ToolCall name="Edit" args="src/account/guard.ts" />
         <Lines added={9} removed={1} />
         <Continuation>calls requireFreshSession ahead of every authenticated handler</Continuation>
+        <WorkingLine verb="Cogitating" elapsed="4m 37s" tokens="15.9k" />
       </ClaudeShell>
     ),
   },
@@ -164,6 +176,7 @@ export const SESSIONS = [
           ]}
         />
         <ToolCall name="Bash" args="npm run test:e2e -- signup --repeat 20" />
+        <WorkingLine verb="Wrangling" elapsed="11m 08s" tokens="34.2k" />
       </ClaudeShell>
     ),
   },

@@ -14,6 +14,7 @@ import {
   AssistantSay,
   ToolCall,
   ToolResult,
+  TuiStatus,
   BODY_CLS,
 } from './stackParts';
 import { DeskWash } from './DeskWash';
@@ -337,9 +338,7 @@ function ReviewShell({ children, busy, pending }: { children: ReactNode; busy?: 
           )}
         </div>
         <div className="border-t border-white/15" />
-        <div className="mt-1 text-white/35 text-[10px]">
-          Opus 5 {busy ? '· esc to interrupt' : '· ⏎ to send'} · ↓ to manage
-        </div>
+        <TuiStatus busy={busy} />
       </div>
     </div>
   );

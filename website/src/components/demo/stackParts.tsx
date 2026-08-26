@@ -181,6 +181,39 @@ export function AssistantSay({ children }: { children: ReactNode }) {
   );
 }
 
+/** The line Claude Code prints while a turn is still running. A busy card ends
+ *  on this rather than on its last output, which reads as a session that has
+ *  stopped rather than one mid-thought. */
+export function WorkingLine({ verb, elapsed, tokens }: { verb: string; elapsed: string; tokens: string }) {
+  return (
+    <div className="mt-2 text-[#ff8c69]">
+      <span className="tui-spinner mr-1.5" aria-hidden>
+        <span>✻</span>
+        <span>✽</span>
+        <span>✳</span>
+        <span>✶</span>
+      </span>
+      {verb}&hellip;
+      <span className="ml-1.5 text-white/35">
+        ({elapsed} · ↓ {tokens} tokens · esc to interrupt)
+      </span>
+    </div>
+  );
+}
+
+/** The mode line and status row under the composer. Both shells on the site
+ *  render this one, so the mode a mock advertises cannot differ by section. */
+export function TuiStatus({ busy }: { busy?: boolean }) {
+  return (
+    <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+      <span className="text-[#e3b341]">⏵⏵ auto mode on</span>
+      {/* esc to interrupt lives in the working line while a turn is running,
+          which is where the real TUI puts it. */}
+      <span className="text-white/35">· Opus 5 {busy ? '' : '· ⏎ to send '}· ↓ to manage</span>
+    </div>
+  );
+}
+
 /** Claude Code-style TUI input pinned to the bottom of the body. Two
  * horizontal rules with a `❯` prompt between them, followed by a status
  * line. The status line surfaces busy state inline ("esc to interrupt")
@@ -196,9 +229,7 @@ function ClaudeTuiInput({ busy = false, pendingText }: { busy?: boolean; pending
         </span>
       </div>
       <div className="border-t border-white/15" />
-      <div className="mt-1 text-white/35 text-[10px]">
-        Opus 5 {busy ? '· esc to interrupt' : '· ⏎ to send'} · ↓ to manage
-      </div>
+      <TuiStatus busy={busy} />
     </div>
   );
 }
@@ -244,6 +275,7 @@ export function ClaudeBody() {
         <span className="ml-2 text-white/65">14 tests</span>
         <span className="ml-2 text-white/35">in 2.1s</span>
       </ToolResult>
+      <WorkingLine verb="Prestidigitating" elapsed="3m 41s" tokens="12.6k" />
     </ClaudeShell>
   );
 }
@@ -360,6 +392,7 @@ export function ShellBody() {
       <AssistantSay>
         <span className="italic text-white/55">Investigating the contrast issue at line 121&hellip;</span>
       </AssistantSay>
+      <WorkingLine verb="Puzzling" elapsed="5m 09s" tokens="18.3k" />
     </ClaudeShell>
   );
 }

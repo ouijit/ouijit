@@ -2516,7 +2516,7 @@ body.marketing::after {
   /* Sized to the transcripts, not to the window. The cards divide a fixed
      height, so a viewport-relative stage makes the deepest card clip its
      newest line on a short screen and open a void on a tall one. */
-  height: 640px;
+  height: 676px;
   margin: 0 auto;
 }
 
@@ -2566,5 +2566,57 @@ body.marketing::after {
     width: 100%;
     height: 520px;
     padding: 20px;
+  }
+}
+
+/* Claude Code's working glyph: four stars, one lit at a time. Stacked and
+   swapped by opacity rather than animating `content`, which is a discrete
+   property that not every browser animates. */
+.tui-spinner {
+  position: relative;
+  display: inline-block;
+  width: 1ch;
+  height: 1em;
+}
+
+.tui-spinner > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  animation: tui-spinner 1.2s steps(1, end) infinite;
+}
+
+.tui-spinner > span:nth-child(2) {
+  animation-delay: -0.9s;
+}
+
+.tui-spinner > span:nth-child(3) {
+  animation-delay: -0.6s;
+}
+
+.tui-spinner > span:nth-child(4) {
+  animation-delay: -0.3s;
+}
+
+@keyframes tui-spinner {
+  0%,
+  25% {
+    opacity: 1;
+  }
+
+  25.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tui-spinner > span {
+    animation: none;
+  }
+
+  .tui-spinner > span:first-child {
+    opacity: 1;
   }
 }
