@@ -1,0 +1,15 @@
+---
+import Site from '../../layouts/Site.astro';
+import { VariantStack } from '../../components/demo/BuildStackLab.tsx';
+---
+<Site title="Lab · Build in parallel, as a stack" noindex>
+  <section class="home-build">
+    <h1 class="plan-v-headline">Build in parallel — one to five</h1>
+    <p style="color: #86868b; max-width: 62ch; margin: 16px 0 0;">
+      The app's own terminal stack on an iris desk, growing from a single session to five as you scroll. The
+      card chrome, the header, and the peek above each back card are the ones the product already draws.
+    </p>
+  </section>
+
+  <VariantStack client:visible />
+</Site>
