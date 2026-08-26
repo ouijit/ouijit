@@ -187,21 +187,16 @@ export function VariantHandoff() {
   const flying = Math.min(N - 1, Math.floor(gone));
   const f = staticMode ? 1 : clamp01(gone - flying);
   /*
-   * One value drives the stack, so nothing steps while something else eases.
-   * `filled` is how many sessions have landed, fractionally: it rises with the
-   * flight and reaches the next whole number exactly as the card touches down,
-   * which is the same moment the count of landed sessions goes up.
+   * Scroll says how many sessions are on the stack and nothing else. The
+   * depths move on their own transitions from there, so a card settles at its
+   * own pace instead of being dragged back a fraction of a peek at a time by
+   * whatever is still in the air.
    */
-  // Clamped: once `gone` reaches N the floor and the flight term both count
-  // the last task, which pushed the front index past the last session and
-  // left every card drawing as a peek.
-  const filled = staticMode ? N : Math.min(N, Math.floor(gone) + clamp01(f / LAND_AT));
-  const onStack = Math.floor(filled);
-  const shove = filled - onStack;
+  const onStack = staticMode ? N : Math.min(N, Math.floor(gone) + (f >= LAND_AT ? 1 : 0));
   const frontIndex = onStack - 1;
-  const backCards = Math.max(0, frontIndex + shove);
+  const backCards = Math.max(0, frontIndex);
   /** The column arrived charged; it gives that up as its work becomes sessions. */
-  const drain = clamp01(filled / N);
+  const drain = onStack / N;
 
   return (
     <div className="hx-frame">
@@ -212,7 +207,13 @@ export function VariantHandoff() {
               the column instead of to a source pane. */}
           <div className="plan-desk desk-wash hx-todo-desk" style={{ backgroundImage: DESK_GRAPHITE }}>
             <DeskWash
-              style={{ '--wash': 'var(--wash-prism)', opacity: 0.9 * (1 - drain) } as React.CSSProperties}
+              style={
+                {
+                  '--wash': 'var(--wash-prism)',
+                  opacity: 0.9 * (1 - drain),
+                  transition: 'opacity 0.4s ease',
+                } as React.CSSProperties
+              }
             />
             <div className="hx-column glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel">
               <KanbanColumnView status="in_progress" label="In Progress" count={N}>
@@ -237,21 +238,23 @@ export function VariantHandoff() {
         </div>
 
         <div className="plan-desk desk-wash hx-desk" style={{ backgroundImage: DESK_GRAPHITE }}>
-          <DeskWash style={{ '--wash': 'var(--wash-iris)', opacity: 0.9 * drain } as React.CSSProperties} />
+          <DeskWash
+            style={
+              { '--wash': 'var(--wash-iris)', opacity: 0.9 * drain, transition: 'opacity 0.4s ease' } as React.CSSProperties
+            }
+          />
           <div ref={destRef} className="stk-well" style={{ top: TOP_PAD + backCards * PEEK }}>
             {SESSIONS.map((session, i) => {
               if (i > frontIndex) return null;
               const front = i === frontIndex;
               const rank = i + 1;
-              // Every card gives up `shove` of a peek as the next one flies
-              // in, so the front card is only at depth 0 between landings.
-              const depth = frontIndex - i + shove;
+              const depth = frontIndex - i;
               return (
                 <div
                   key={session.task}
                   className="stk-card"
                   style={{
-                    zIndex: front ? 10 : 10 - Math.max(1, Math.round(depth)),
+                    zIndex: 10 - depth,
                     transform: `translateY(${-depth * PEEK}px) scaleX(${1 - depth * NARROW})`,
                   }}
                 >
