@@ -117,8 +117,7 @@ describe('the analysis cache across scans', () => {
     expect(incremental).toBe(before); // same object, folded in place
     const cold = await freshScan();
 
-    const byPath = <T,>(entries: Iterable<[string, T]>) =>
-      [...entries].sort((a, b) => a[0].localeCompare(b[0]));
+    const byPath = <T>(entries: Iterable<[string, T]>) => [...entries].sort((a, b) => a[0].localeCompare(b[0]));
 
     expect(incremental!.lastSha).toBe(cold.lastSha);
     expect(incremental!.model.commitCount).toBe(cold.model.commitCount);

@@ -457,4 +457,3 @@ function rankedCandidates(model: AnalysisModel): string[] {
     .slice(0, COMPLEXITY_FILE_LIMIT)
     .map(([p]) => p);
 }
-

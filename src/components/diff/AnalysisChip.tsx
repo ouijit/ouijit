@@ -57,7 +57,9 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: File
 
   return (
     <Tooltip text={detail} referenceClassName="shrink-0 inline-flex">
-      <span className={`flex items-center gap-1 text-[10px] px-1 py-px rounded font-medium ${TIER_COLOR[signal.tier].chip}`}>
+      <span
+        className={`flex items-center gap-1 text-[10px] px-1 py-px rounded font-medium ${TIER_COLOR[signal.tier].chip}`}
+      >
         <Icon name={signal.tier === 'quiet' ? 'git-fork' : 'flame'} className="!w-3 !h-3" />
         {signal.tier === 'hot' && 'hotspot'}
       </span>

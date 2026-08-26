@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { HotspotRow, ModuleNode, Owner, PairSignal, Trend, TrendDirection } from '../../analysis/types';
 import { ANALYSIS_WINDOW_MONTHS, monthStart } from '../../analysis/types';
-import { count, describeFrequency, describeNesting, describeTrend, leversFor, mainAuthorOf } from '../../analysis/advice';
+import {
+  count,
+  describeFrequency,
+  describeNesting,
+  describeTrend,
+  leversFor,
+  mainAuthorOf,
+} from '../../analysis/advice';
 import { recentCut } from '../../analysis/trend';
 import { basename, dirname } from '../../analysis/paths';
 import { useAnalysisStore } from '../../stores/analysisStore';
@@ -370,4 +377,3 @@ function PathName({ path, suffix = '' }: { path: string; suffix?: string }) {
     </>
   );
 }
-

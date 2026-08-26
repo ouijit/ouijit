@@ -121,11 +121,7 @@ export function OwnershipBar({ topAuthors }: { topAuthors: Array<{ name: string;
     <div>
       <div className="flex gap-[2px] h-1.5" aria-hidden>
         {topAuthors.map((author, i) => (
-          <span
-            key={i}
-            className={`rounded-full ${OWNER_SEGMENT[i]}`}
-            style={{ width: `${author.share * 100}%` }}
-          />
+          <span key={i} className={`rounded-full ${OWNER_SEGMENT[i]}`} style={{ width: `${author.share * 100}%` }} />
         ))}
         {rest > OWNER_REST_MIN && <span className={`rounded-full ${OWNER_REST}`} style={{ width: `${rest * 100}%` }} />}
       </div>

@@ -93,7 +93,9 @@ describe('which files are worth a chip', () => {
   test('a hotspot or an absent companion, and nothing else', () => {
     expect(worthAChip({ signal: signal(), missing: [] })).toBe(true);
     expect(worthAChip({ signal: signal({ tier: 'warm' }), missing: [] })).toBe(true);
-    expect(worthAChip({ signal: signal({ tier: 'quiet' }), missing: [{ path: 'src/other.ts', degree: 0.8 }] })).toBe(true);
+    expect(worthAChip({ signal: signal({ tier: 'quiet' }), missing: [{ path: 'src/other.ts', degree: 0.8 }] })).toBe(
+      true,
+    );
     expect(worthAChip({ signal: signal({ tier: 'quiet' }), missing: [] })).toBe(false);
   });
 });
