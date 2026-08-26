@@ -8,6 +8,7 @@ import { setLogger, type Logger } from './logger';
 import { setUserDataPath, getDbPath, setCliPath, setDevResourcesRoot } from './paths';
 import { setTrashItem } from './platform';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
+import { cancelAllClones } from './services/cloneRegistry';
 import { getApiPort } from './hookServer';
 import { getActiveSessionCount } from './ptyManager';
 import { typedPush } from './ipc/helpers';
@@ -383,6 +384,9 @@ app.on('before-quit', (e) => {
 
 app.on('will-quit', () => {
   appLog.info('app quitting');
+  // The clone subprocess is detached, so quitting does not take it with us.
+  // A half-cloned repo is worth nothing on the next launch anyway.
+  cancelAllClones();
   cleanupUpdater();
   cleanupIpc();
   closeDatabase();

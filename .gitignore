@@ -96,6 +96,9 @@ resources/share/
 # CLI build output
 dist-cli/
 
+# Renderer build output (`vite build`)
+dist/
+
 # Electron-Forge
 out/
 

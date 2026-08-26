@@ -1,7 +1,7 @@
 /**
- * Registration orchestration shared by the create-new and add-existing
- * project flows. Creating a project is "scaffold the folder, then run the
- * exact add-existing pipeline", so there is one registration codepath.
+ * Registration orchestration shared by the add-existing, create-new and
+ * clone-from-GitHub flows. The latter two are "produce the folder, then run
+ * the exact add-existing pipeline", so there is one registration codepath.
  * Kept out of the IPC handlers so the wiring is unit-testable.
  */
 
@@ -39,19 +39,27 @@ export async function addExistingProject(
   return { success: true };
 }
 
+export async function registerProducedProject(
+  projectPath: string,
+  source: FirstProjectSource,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const added = await addExistingProject(projectPath, source);
+  if (!added.success) {
+    return {
+      success: false,
+      error: `${projectPath} is on disk, but registering it as a project failed: ${added.error}`,
+    };
+  }
+  await setDefaultProjectsDir(path.dirname(projectPath));
+  return { success: true };
+}
+
 /** Scaffold a new project folder, then register it through the add-existing pipeline. */
 export async function createAndRegisterProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   const result = await createProject(options);
   if (!result.success || !result.projectPath) return result;
 
-  const added = await addExistingProject(result.projectPath, 'created');
-  if (!added.success) {
-    return {
-      success: false,
-      error: `Project folder created at ${result.projectPath}, but registering it failed: ${added.error}`,
-    };
-  }
-  // The folder this project was created in becomes the default for the next one.
-  await setDefaultProjectsDir(path.dirname(result.projectPath));
+  const registered = await registerProducedProject(result.projectPath, 'created');
+  if (registered.success === false) return registered;
   return result;
 }

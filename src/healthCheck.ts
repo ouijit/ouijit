@@ -117,3 +117,7 @@ export function getCachedHealth(): HealthStatus | null {
 export async function refreshHealth(): Promise<HealthStatus> {
   return checkHealth();
 }
+
+export async function currentHealth(): Promise<HealthStatus> {
+  return getCachedHealth() ?? (await checkHealth());
+}
