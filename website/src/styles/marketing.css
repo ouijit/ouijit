@@ -691,13 +691,16 @@ html.js [data-reveal].is-revealed {
 }
 
 /* --- Details + CTA --- */
+/* No side padding: the ribbons run to the window's edges and past them. */
 .details-section {
-  padding: 150px var(--content-padding) 32px;
+  padding: 150px 0 32px;
 }
 
-.details-inner {
+/* The heading keeps the page's column; only the cards break out. */
+.details-head {
   max-width: var(--content-max-width);
   margin: 0 auto;
+  padding: 0 var(--content-padding);
 }
 
 .details-section h2 {
@@ -760,8 +763,58 @@ html.js [data-reveal].is-revealed {
 }
 
 /* --- Bento variant of the details grid --- */
-.details-grid.bento {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+/* Two ribbons, each holding its cards twice and sliding by exactly one copy,
+   so the seam never arrives. The padding is headroom for the lifts, which
+   would otherwise be clipped by the overflow that hides the seam. */
+.tools-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  overflow: hidden;
+  padding: 52px 0;
+}
+
+.tools-ribbon {
+  display: flex;
+  gap: 18px;
+  width: max-content;
+  animation: tools-drift var(--drift, 90s) linear infinite;
+}
+
+.tools-ribbon--rev {
+  animation-direction: reverse;
+}
+
+.tools-run {
+  display: flex;
+  gap: 18px;
+}
+
+/* Half the ribbon is one copy less half the gap between the two, so the extra
+   nine puts the second copy exactly where the first began. */
+@keyframes tools-drift {
+  to {
+    transform: translateX(calc(-50% - 9px));
+  }
+}
+
+.tools-flow:hover .tools-ribbon {
+  animation-play-state: paused;
+}
+
+/* One height for every card, so the band stays shallow and a card with a tall
+   mock crops it rather than setting the depth for all the others. */
+.tools-flow .detail {
+  flex: none;
+  width: var(--w);
+  height: 296px;
+  top: var(--lift, 0px);
+}
+
+/* The palette's mock is taller than the card, so it hangs from the copy and
+   runs off the bottom edge; every other mock still sits on it. */
+.tools-flow .detail[data-tool='palette'] .bento-stack {
+  margin-top: 16px;
 }
 
 /* Foil-washed cards: the silent tier of the desk washes above them, so dark
@@ -781,6 +834,15 @@ html.js [data-reveal].is-revealed {
 .bento .detail:hover {
   background: #0f0f11;
   border: none;
+}
+
+/* Each card sits a little above or below its band so the cluster's top and
+   bottom edges curve instead of ruling straight across. `top` rather than a
+   transform: [data-reveal] animates transform and resets it to none, which
+   would take the offset with it. Cards sharing a column drift the same way,
+   so a lift never closes the gap on the card beneath it. */
+.bento .detail {
+  top: var(--lift, 0px);
 }
 
 .bento .detail-title {
@@ -823,43 +885,42 @@ html.js [data-reveal].is-revealed {
   color: oklch(22% 0.011 285);
 }
 
-.detail-span-4 {
-  grid-column: span 4;
-}
-
-.detail-span-6 {
-  grid-column: span 6;
-}
-
-.detail-span-3 {
-  grid-column: span 3;
-}
-
-.detail-span-2 {
-  grid-column: span 2;
-}
-
-.detail-rows-2 {
-  grid-row: span 2;
-}
-
-@media (max-width: 900px) {
-  .detail-span-4,
-.detail-span-2 {
-    grid-column: span 3;
+/* Narrow enough that a ribbon would be mostly off-screen: stack the cards,
+   flat, and let the section scroll like the rest of the page. */
+@media (max-width: 720px) {
+  .tools-flow {
+    padding: 24px var(--content-padding);
   }
 
-  .detail-rows-2 {
-    grid-row: auto;
+  .tools-ribbon,
+  .tools-run {
+    display: contents;
+  }
+
+  .tools-flow {
+    display: grid;
+    gap: 16px;
+  }
+
+  .tools-flow .tools-run[aria-hidden] {
+    display: none;
+  }
+
+  .tools-flow .detail {
+    width: auto;
+    height: auto;
+    top: 0;
   }
 
 }
 
-@media (max-width: 600px) {
-  .detail-span-4,
-.detail-span-3,
-.detail-span-2 {
-    grid-column: span 6;
+@media (prefers-reduced-motion: reduce) {
+  .tools-ribbon {
+    animation: none;
+  }
+
+  .tools-flow {
+    overflow-x: auto;
   }
 
 }

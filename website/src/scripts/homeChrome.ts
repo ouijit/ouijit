@@ -34,21 +34,27 @@ function initBentoSpotlight() {
   const tiles = [...document.querySelectorAll<HTMLElement>('.bento .detail')];
   if (!tiles.some((tile) => tile.querySelector('.bento-lit-field'))) return;
 
+  /* A ribbon holds every card twice so it can loop, and both copies are on
+     screen at once. Lighting one id rather than one element keeps a card and
+     its double in step, instead of the light appearing to skip. */
+  const ids = [...new Set(tiles.map((tile) => tile.dataset.tool ?? ''))];
+
   let index = 0;
-  let hovered: number | null = null;
+  let hovered: string | null = null;
   const apply = () => {
-    const lit = hovered ?? index;
-    tiles.forEach((tile, i) => tile.classList.toggle('is-lit', i === lit));
+    const lit = hovered ?? ids[index];
+    tiles.forEach((tile) => tile.classList.toggle('is-lit', (tile.dataset.tool ?? '') === lit));
   };
 
-  tiles.forEach((tile, i) => {
+  tiles.forEach((tile) => {
+    const id = tile.dataset.tool ?? '';
     tile.addEventListener('pointerenter', () => {
-      hovered = i;
+      hovered = id;
       apply();
     });
     tile.addEventListener('pointerleave', () => {
       hovered = null;
-      index = i;
+      index = Math.max(0, ids.indexOf(id));
       apply();
     });
   });
@@ -58,12 +64,12 @@ function initBentoSpotlight() {
 
   let visible = false;
   const io = new IntersectionObserver(([entry]) => void (visible = entry.isIntersecting), { threshold: 0.15 });
-  const grid = tiles[0]?.parentElement;
-  if (grid) io.observe(grid);
+  const flow = tiles[0]?.closest('.bento');
+  if (flow) io.observe(flow);
 
   setInterval(() => {
     if (!visible || hovered !== null) return;
-    index = (index + 1) % tiles.length;
+    index = (index + 1) % ids.length;
     apply();
   }, 2800);
 }
