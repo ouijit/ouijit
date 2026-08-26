@@ -886,12 +886,31 @@ const TWO_ACT_CAPTIONS: { keys: readonly string[]; title: string; body: string }
   },
 ];
 
-/* The round trip is three beats behind one caption, so it plays quick; the
-   two that follow each carry a paragraph and hold at full length. */
-const TWO_ACT_SPEEDS = [1.55, 1.55, 1.55, 1, 1] as const;
+/** How many beats each caption spans, in caption order. */
+const CAPTION_SPANS = TWO_ACT_CAPTIONS.map((c) => c.keys.length);
+
+/** Every caption gets this long, whatever it spans. */
+const CAPTION_MS = 7000;
+
+/* A beat inside an n-beat caption runs n times as fast, so the caption still
+   takes CAPTION_MS. The trailing entry is the hold before the loop restarts,
+   which would otherwise sit a full caption's length at the end. */
+const TWO_ACT_SPEEDS = [...CAPTION_SPANS.flatMap((n) => Array<number>(n).fill(n)), 2];
+
+/** Where the dot bar sits: a caption owns an equal share of it, so the bar
+ *  and the lit caption agree however many beats that caption spans. */
+function captionProgress(t: number): number {
+  let start = 0;
+  for (let i = 0; i < CAPTION_SPANS.length; i++) {
+    const span = CAPTION_SPANS[i];
+    if (t < start + span) return (i + (t - start) / span) / CAPTION_SPANS.length;
+    start += span;
+  }
+  return 1;
+}
 
 export function ReviewVariantTwoAct() {
-  const { rootRef, p, progress, active, seek } = useTheaterLoop(TWO_ACT_KEYS, 4500, TWO_ACT_SPEEDS);
+  const { rootRef, p, t, active, seek } = useTheaterLoop(TWO_ACT_KEYS, CAPTION_MS, TWO_ACT_SPEEDS);
   // Binary like the stack promotions, with the same animated depth change —
   // a crossfade tied to the loop would leave both surfaces half-faded.
   const prOn = p('pr') > 0.05;
@@ -930,7 +949,7 @@ export function ReviewVariantTwoAct() {
           </button>
         ))}
       </div>
-      <BeatDots progress={progress} />
+      <BeatDots progress={captionProgress(t)} />
     </div>
   );
 }

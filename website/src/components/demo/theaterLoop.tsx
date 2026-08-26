@@ -9,8 +9,9 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
  *
  * `speeds` scales how long a beat takes without changing what a beat is —
  * t stays in beat units, so p, active and seek are untouched. Above 1 is
- * faster. Beats a caption shares can run quick while one carrying a
- * paragraph of its own holds long enough to read. */
+ * faster. One entry per beat, plus an optional last one for the hold before
+ * the loop restarts. A caller whose captions span several beats each uses
+ * this to give every caption the same time on screen. */
 export function useTheaterLoop(keys: readonly string[], beatMs = 4500, speeds?: readonly number[]) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [t, setT] = useState(0);
@@ -72,6 +73,10 @@ export function useTheaterLoop(keys: readonly string[], beatMs = 4500, speeds?: 
   return {
     rootRef,
     p,
+    /* Raw beat position, for a caller that draws its own progress: with
+       captions spanning uneven numbers of beats, t/keys.length puts the bar
+       somewhere its captions do not agree with. */
+    t,
     progress: clamp01(t / keys.length),
     /* floor(t), so a beat is active from the instant it starts — a seek
        lights its column immediately instead of after the ramp threshold. */
