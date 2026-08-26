@@ -344,8 +344,10 @@ function StepBadge({ done, number }: { done: boolean; number: number }) {
   );
 }
 
+const LEAD_VERBS: Record<FirstProjectSource, string> = { created: 'Created', added: 'Added', cloned: 'Cloned' };
+
 function IntroStage({ source }: { source: FirstProjectSource | undefined }) {
-  const leadVerb = source === 'created' ? 'Created' : 'Added';
+  const leadVerb = LEAD_VERBS[source ?? 'added'];
   return (
     <>
       <div className="flex items-center gap-2 mb-4">

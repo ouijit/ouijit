@@ -1,11 +1,13 @@
 import os from 'os';
 import { shell, BrowserWindow, dialog } from 'electron';
-import { typedHandle } from '../helpers';
+import { typedHandle, typedPush } from '../helpers';
 import { getProjectList } from '../../projectList';
 import { removeProject, reorderProjects, setProjectIconColor } from '../../db';
+import { invalidateAnalysis } from '../../analysis/service';
 import { initGitRepo } from '../../projectCreator';
 import { getDefaultProjectsDir, prepareProjectsFolderChange, applyProjectsFolderChange } from '../../projectsFolder';
 import { addExistingProject, createAndRegisterProject } from '../../services/projectRegistration';
+import { cancelClone, listCloneJobs, retryClone, setCloneListeners, startClone } from '../../services/cloneRegistry';
 import { seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
@@ -39,6 +41,7 @@ async function revealPath(targetPath: string): Promise<{ success: boolean; error
 async function removeProjectWithCleanup(folderPath: string): Promise<void> {
   await deleteWithCleanup(folderPath).catch(() => {});
   await deleteConfig(folderPath).catch(() => {});
+  invalidateAnalysis(folderPath);
   await removeProject(folderPath);
 }
 
@@ -64,6 +67,14 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   });
 
   typedHandle('create-project', (options) => createAndRegisterProject(options));
+  setCloneListeners({
+    onChanged: (jobs) => typedPush(mainWindow, 'clone:changed', jobs),
+    onLanded: (projectPath) => typedPush(mainWindow, 'clone:landed', projectPath),
+  });
+  typedHandle('clone:start', (options) => startClone(options));
+  typedHandle('clone:list', () => listCloneJobs());
+  typedHandle('clone:cancel', (projectPath) => cancelClone(projectPath));
+  typedHandle('clone:retry', (projectPath) => retryClone(projectPath));
 
   typedHandle('show-folder-picker', async (options) => {
     try {

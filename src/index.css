@@ -186,6 +186,25 @@ textarea,
   }
 }
 
+@keyframes clone-bar-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+.clone-bar-sweep {
+  animation: clone-bar-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes clone-ring-sweep {
+  to {
+    stroke-dashoffset: -1;
+  }
+}
+
 @keyframes sandbox-icon-pulse {
   0%,
   100% {
@@ -342,6 +361,21 @@ textarea,
   100% {
     transform: scale(1);
   }
+}
+
+@keyframes analysis-detail-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.analysis-detail-enter {
+  animation: analysis-detail-enter 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 .onboarding-stage-enter {

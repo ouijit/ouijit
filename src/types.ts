@@ -9,10 +9,14 @@ import type {
   DiffBases,
 } from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
+import type { AnalysisOverview, DiffSignals } from './analysis/types';
 import type {
+  RepoIdentity,
   GithubAvailability,
   PullRequestDetail,
   PullRequestFreshness,
+  UserReposResult,
+  ResolvedRepo,
   GithubIssue,
   IssueDetail,
   CommentKind,
@@ -68,6 +72,9 @@ export type { HookStatus, HookStatusEntry } from './hookServer';
 export type {
   RepoIdentity,
   GithubAvailability,
+  GithubRepoSummary,
+  UserReposResult,
+  ResolvedRepo,
   PullRequestSummary,
   PullRequestDetail,
   PullRequestFreshness,
@@ -480,6 +487,18 @@ export interface ElectronAPI {
     untracked: boolean,
   ): Promise<FileDiff | null>;
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
+  /** Start cloning a GitHub repo; resolves once it is under way, not once it lands */
+  startClone(options: CloneProjectOptions): Promise<StartCloneResult>;
+  listClones(): Promise<CloneJob[]>;
+  /** Stop a clone and drop what it had written, or clear one that failed */
+  cancelClone(projectPath: string): Promise<void>;
+  retryClone(projectPath: string): Promise<StartCloneResult>;
+  onClonesChanged(callback: (jobs: CloneJob[]) => void): () => void;
+  onCloneLanded(callback: (projectPath: string) => void): () => void;
+  /** Repos the signed-in `gh` user can clone */
+  listGithubRepos(): Promise<UserReposResult>;
+  /** Whether a named repo exists */
+  resolveGithubRepo(identity: RepoIdentity): Promise<ResolvedRepo>;
   showFolderPicker(options?: FolderPickerOptions): Promise<{ canceled: boolean; filePaths: string[] }>;
   /** Get the folder new projects are created in (setting or built-in default) */
   getDefaultProjectsFolder(): Promise<string>;
@@ -567,6 +586,19 @@ export interface ElectronAPI {
   github: GithubAPI;
   /** Notes written on a worktree's own diff */
   diffNotes: DiffNotesAPI;
+  /** Hotspot, coupling, and ownership signals mined from git history */
+  analysis: AnalysisAPI;
+}
+
+/**
+ * The reads answer null while the analysis flag is off, so callers
+ * need no gate of their own. The underlying model is a per-project in-memory
+ * cache in the main process, rebuilt from `git log` on demand.
+ */
+export interface AnalysisAPI {
+  refresh(projectPath: string, force?: boolean): Promise<void>;
+  diffSignals(projectPath: string, paths: string[]): Promise<DiffSignals | null>;
+  overview(projectPath: string): Promise<AnalysisOverview | null>;
 }
 
 /**
@@ -673,10 +705,14 @@ export interface OnboardingAPI {
 }
 
 /**
- * Whether the user's first project was created fresh or added from an
- * existing folder. Used to vary the intro stage lead.
+ * How the user's first project arrived — created fresh, added from an existing
+ * folder, or cloned from GitHub. Used to vary the intro stage lead.
+ *
+ * An array because the value is persisted, so what comes back has to be
+ * checked against the list at runtime.
  */
-export type FirstProjectSource = 'created' | 'added';
+export const FIRST_PROJECT_SOURCES = ['created', 'added', 'cloned'] as const;
+export type FirstProjectSource = (typeof FIRST_PROJECT_SOURCES)[number];
 
 /**
  * All first-run onboarding state, stored as a single JSON blob under the
@@ -808,6 +844,47 @@ export interface CreateProjectOptions {
   /** Directory the project folder is created in. Defaults to the projects folder setting. */
   parentDir?: string;
 }
+
+export interface CloneProjectOptions {
+  repo: RepoIdentity;
+  /** Directory the clone is created in. Defaults to the projects folder setting. */
+  parentDir?: string;
+}
+
+export interface CloneProgress {
+  /** git's own name for the step — "Receiving objects", "Resolving deltas". */
+  phase: string;
+  /** Null while the step has no total to measure against. */
+  percent: number | null;
+  /** Whatever git appends past the counts — "178.22 MiB | 11.40 MiB/s". */
+  detail: string | null;
+}
+
+/**
+ * A clone in flight. It occupies the path its project will have, so it can
+ * stand in that project's place before the project exists.
+ */
+interface CloneJobBase extends CloneProgress {
+  projectPath: string;
+  name: string;
+  identity: RepoIdentity;
+  /** Epoch ms, so the view can count elapsed time without a ticking push. */
+  startedAt: number;
+}
+
+export interface FailedCloneJob extends CloneJobBase {
+  status: 'failed';
+  error: string;
+  /** git's stderr, for a failure the message alone does not explain. */
+  output?: string;
+}
+
+export type CloneJob = (CloneJobBase & { status: 'cloning' }) | FailedCloneJob;
+
+/**
+ * Whether the clone got under way — not whether it finished.
+ */
+export type StartCloneResult = { success: true; projectPath: string } | { success: false; error: string };
 
 export interface FolderPickerOptions {
   title?: string;

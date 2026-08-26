@@ -67,6 +67,11 @@ const mockApi = {
   getFileDiff: vi.fn().mockResolvedValue(null),
   createProject: vi.fn().mockResolvedValue({ success: true }),
   showFolderPicker: vi.fn().mockResolvedValue({ canceled: true, filePaths: [] }),
+  listClones: vi.fn().mockResolvedValue([]),
+  onClonesChanged: vi.fn().mockReturnValue(() => {}),
+  onCloneLanded: vi.fn().mockReturnValue(() => {}),
+  listGithubRepos: vi.fn().mockResolvedValue({ repos: [] }),
+  resolveGithubRepo: vi.fn().mockResolvedValue({ status: 'unknown' }),
   addProject: vi.fn().mockResolvedValue({ success: true }),
   initGitRepo: vi.fn().mockResolvedValue({ success: true }),
   removeProject: vi.fn().mockResolvedValue({ success: true }),
@@ -182,6 +187,11 @@ const mockApi = {
       ghVersionOk: true,
     }),
     onUpdate: vi.fn().mockReturnValue(() => {}),
+  },
+  analysis: {
+    refresh: vi.fn().mockResolvedValue(undefined),
+    diffSignals: vi.fn().mockResolvedValue(null),
+    overview: vi.fn().mockResolvedValue(null),
   },
   diffNotes: {
     list: vi.fn().mockResolvedValue([]),

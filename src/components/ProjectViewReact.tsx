@@ -9,6 +9,8 @@ import { TerminalCanvas, syncCanvasWithTerminals } from './canvas/TerminalCanvas
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
 import { PullRequestsPanel } from './github/PullRequestsPanel';
+import { AnalysisPanel } from './analysis/AnalysisPanel';
+import { useAnalysisStore } from '../stores/analysisStore';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { RunHookDialog } from './dialogs/RunHookDialog';
 import { openTaskComposer } from '../utils/openTaskComposer';
@@ -58,6 +60,9 @@ export function ProjectView() {
   );
   const githubEnabled = useExperimentalStore((s) =>
     projectPath ? (s.flagsByProject[projectPath]?.github ?? false) : false,
+  );
+  const analysisEnabled = useExperimentalStore((s) =>
+    projectPath ? (s.flagsByProject[projectPath]?.analysis ?? false) : false,
   );
 
   const activeIndex = useTerminalStore((s) => (projectPath ? (s.activeIndices[projectPath] ?? 0) : 0));
@@ -234,13 +239,14 @@ export function ProjectView() {
     }
   }, [canvasEnabled, terminalLayout]);
 
-  // Same guard for the GitHub panel — turning the flag off must not leave the
+  // Same guard for the flagged panels — turning a flag off must not leave the
   // user stranded on a panel whose toggle has just disappeared.
   useEffect(() => {
-    if (!githubEnabled && activePanel === 'pull-requests') {
+    const gone = !githubEnabled && activePanel === 'pull-requests';
+    if (gone || (!analysisEnabled && activePanel === 'analysis')) {
       useProjectStore.getState().setActivePanel('terminals');
     }
-  }, [githubEnabled, activePanel]);
+  }, [githubEnabled, analysisEnabled, activePanel]);
 
   useEffect(() => {
     if (!projectPath) return;
@@ -280,14 +286,19 @@ export function ProjectView() {
     const sweepPullRequests = () => {
       if (githubEnabled) void detectPullRequestsForProject(projectPath);
     };
+    const refreshAnalysis = () => {
+      if (analysisEnabled) void useAnalysisStore.getState().refresh(projectPath);
+    };
     const start = () => {
       if (interval != null || document.hidden) return;
       // Catches a pull request opened while the window was hidden; the service
       // rate-limits, so an alt-tab back costs nothing.
       sweepPullRequests();
+      refreshAnalysis();
       interval = setInterval(() => {
         refreshAllTerminalGitStatus(projectPath);
         sweepPullRequests();
+        refreshAnalysis();
       }, PROJECT_REFRESH_INTERVAL);
     };
     const stop = () => {
@@ -303,7 +314,7 @@ export function ProjectView() {
       document.removeEventListener('visibilitychange', onVisibility);
       stop();
     };
-  }, [projectPath, githubEnabled]);
+  }, [projectPath, githubEnabled, analysisEnabled]);
 
   // Hook status: register ongoing listener + seed existing terminals
   useHookStatusListener(projectPath);
@@ -346,6 +357,8 @@ export function ProjectView() {
         <ProjectSettingsPanel projectPath={projectPath} />
       ) : activePanel === 'pull-requests' ? (
         <PullRequestsPanel projectPath={projectPath} />
+      ) : activePanel === 'analysis' ? (
+        <AnalysisPanel projectPath={projectPath} />
       ) : (
         <>
           {kanbanVisible && <KanbanBoard projectPath={projectPath} onHide={handleHideKanban} />}

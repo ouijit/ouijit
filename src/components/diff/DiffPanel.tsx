@@ -1,6 +1,12 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import type { FileDiff } from '../../types';
+import { useEffect, useState, useCallback, useRef, useMemo, type ReactNode } from 'react';
+import type { ChangedFile, FileDiff } from '../../types';
 import { useTerminalStore } from '../../stores/terminalStore';
+import {
+  useUIStore,
+  DIFF_FILE_LIST_DEFAULT_WIDTH,
+  DIFF_FILE_LIST_MIN_WIDTH,
+  DIFF_FILE_LIST_MAX_WIDTH,
+} from '../../stores/uiStore';
 import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
 import { DiffFileTree, inTreeOrder } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
@@ -18,6 +24,8 @@ import { useDiffNotes } from './useDiffNotes';
 import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type DiffLineAnchor } from '../../diffAnchor';
 import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
 import { toggleIn } from '../../utils/toggleIn';
+import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
+import { AnalysisChip, AnalysisRailDot, worthAChip } from './AnalysisChip';
 
 interface DiffPanelProps {
   ptyId: string;
@@ -29,14 +37,13 @@ interface DiffPanelProps {
 }
 
 const NOTE_HINT = 'Kept with this worktree until you hand it to the agent.';
-const DEFAULT_SIDEBAR_WIDTH = 220;
 
 /** Uncommitted and branch diffs for a terminal's worktree. */
 export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, onClose }: DiffPanelProps) {
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const sidebarCollapsed = useUIStore((s) => s.diffFileListCollapsed);
+  const sidebarWidth = useUIStore((s) => s.diffFileListWidth);
   // Local, and gone when the panel closes: folding here is scroll management,
   // not review state that has to survive.
   const [folded, setFolded] = useState<Set<string>>(new Set());
@@ -75,6 +82,27 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   // Keyed by worktree, not by panel or session, so notes survive the panel
   // being closed and reopened mid-review.
   const notes = useDiffNotes(gitPath, filesFingerprint);
+
+  // Against the project repo, not the worktree: the history is shared, and
+  // diff paths are repo-relative either way.
+  const analysisPaths = useMemo(() => files.map((f) => f.path), [files]);
+  const analysisSignals = useAnalysisSignals(projectPath, filesFingerprint, analysisPaths);
+
+  // Elements held in a map so their identity survives re-renders — a fresh
+  // element per render would defeat every DiffFileSection's memo.
+  const analysisChips = useMemo(() => {
+    if (!analysisSignals) return null;
+    const chips = new Map<string, ReactNode>();
+    for (const [path, analysis] of Object.entries(analysisSignals)) {
+      if (worthAChip(analysis)) chips.set(path, <AnalysisChip {...analysis} />);
+    }
+    return chips;
+  }, [analysisSignals]);
+
+  const railTrailing = useCallback(
+    (file: ChangedFile) => <AnalysisRailDot signal={analysisSignals?.[file.path]?.signal} />,
+    [analysisSignals],
+  );
 
   useEffect(() => {
     const inst = terminalInstances.get(ptyId);
@@ -234,6 +262,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
         // and changes identity whenever the notes do.
         renderBelowLine={hasNotes ? renderBelowLine : undefined}
         markLine={spans.length > 0 ? markLine : undefined}
+        headerRight={analysisChips?.get(file.path)}
         collapsed={folded.has(file.path)}
         onCollapsedChange={toggleFolded}
       />
@@ -244,14 +273,20 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
       {!sidebarCollapsed && (
         <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: sidebarWidth }}>
-          <DiffFileTree files={files} onFileClick={scrollToFile} />
+          <DiffFileTree
+            files={files}
+            onFileClick={scrollToFile}
+            renderFileTrailing={analysisSignals ? railTrailing : undefined}
+          />
         </div>
       )}
       {!sidebarCollapsed && (
         <ResizeHandle
           width={sidebarWidth}
-          onWidth={setSidebarWidth}
-          defaultWidth={DEFAULT_SIDEBAR_WIDTH}
+          onWidth={(width) => useUIStore.getState().setDiffFileListWidth(width)}
+          min={DIFF_FILE_LIST_MIN_WIDTH}
+          max={DIFF_FILE_LIST_MAX_WIDTH}
+          defaultWidth={DIFF_FILE_LIST_DEFAULT_WIDTH}
           label="Resize the file list"
         />
       )}
@@ -260,7 +295,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
         <div className="pane-ledge over-well relative z-30 px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
           <SidebarToggle
             collapsed={sidebarCollapsed}
-            onCollapsedChange={setSidebarCollapsed}
+            onCollapsedChange={(collapsed) => useUIStore.getState().setDiffFileListCollapsed(collapsed)}
             hideLabel="Hide the file list"
             showLabel="Show the file list"
           />

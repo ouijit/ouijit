@@ -11,7 +11,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { getLogger } from '../logger';
 import { versionAtLeast } from '../utils/semver';
-import { isDotCom } from './repoIdentity';
+import { isDotCom } from './repoUrl';
 import type { RepoIdentity } from './types';
 
 const execFileAsync = promisify(execFile);
@@ -143,7 +143,7 @@ interface ExecOptions {
  * `GH_NO_UPDATE_NOTIFIER` stop it blocking on a TTY prompt or writing an
  * upgrade banner into the stdout we parse as JSON.
  */
-function ghEnv(identity?: RepoIdentity): NodeJS.ProcessEnv {
+export function ghEnv(identity?: RepoIdentity): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     GH_PROMPT_DISABLED: '1',

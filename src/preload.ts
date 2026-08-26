@@ -6,6 +6,9 @@ import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/
 import type {
   PtyId,
   PtySpawnOptions,
+  RepoIdentity,
+  CloneProjectOptions,
+  CloneJob,
   CreateProjectOptions,
   FolderPickerOptions,
   ProjectsFolderChangeAction,
@@ -67,6 +70,14 @@ contextBridge.exposeInMainWorld('api', {
   openExternal: (url: string) => typedInvoke('open-external', url),
   refreshProjects: () => typedInvoke('refresh-projects'),
   createProject: (options: CreateProjectOptions) => typedInvoke('create-project', options),
+  startClone: (options: CloneProjectOptions) => typedInvoke('clone:start', options),
+  listClones: () => typedInvoke('clone:list'),
+  cancelClone: (projectPath: string) => typedInvoke('clone:cancel', projectPath),
+  retryClone: (projectPath: string) => typedInvoke('clone:retry', projectPath),
+  onClonesChanged: (callback: (jobs: CloneJob[]) => void) => typedListen('clone:changed', callback),
+  onCloneLanded: (callback: (projectPath: string) => void) => typedListen('clone:landed', callback),
+  listGithubRepos: () => typedInvoke('github:user-repos'),
+  resolveGithubRepo: (identity: RepoIdentity) => typedInvoke('github:resolve-repo', identity),
   showFolderPicker: (options?: FolderPickerOptions) => typedInvoke('show-folder-picker', options),
   getDefaultProjectsFolder: () => typedInvoke('projects:get-default-folder'),
   prepareProjectsFolderChange: (newFolder: string) => typedInvoke('projects:prepare-folder-change', newFolder),
@@ -386,5 +397,11 @@ contextBridge.exposeInMainWorld('api', {
     save: (input: SaveDiffNoteInput) => typedInvoke('diff-notes:save', input),
     discard: (id: string) => typedInvoke('diff-notes:discard', id),
     clear: (worktreePath: string) => typedInvoke('diff-notes:clear', worktreePath),
+  },
+
+  analysis: {
+    refresh: (projectPath: string, force?: boolean) => typedInvoke('analysis:refresh', projectPath, force),
+    diffSignals: (projectPath: string, paths: string[]) => typedInvoke('analysis:diff-signals', projectPath, paths),
+    overview: (projectPath: string) => typedInvoke('analysis:overview', projectPath),
   },
 });

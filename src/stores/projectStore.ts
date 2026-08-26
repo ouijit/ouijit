@@ -70,7 +70,7 @@ interface ProjectStoreState {
   tasks: TaskWithWorkspace[];
   kanbanVisible: boolean;
   terminalLayout: TerminalLayout;
-  activePanel: 'terminals' | 'settings' | 'pull-requests';
+  activePanel: 'terminals' | 'settings' | 'pull-requests' | 'analysis';
   /** When set, the terminal stack and canvas show only sessions whose task has this tag. */
   tagFilter: string | null;
   scripts: Script[];
@@ -152,7 +152,7 @@ interface ProjectStoreActions {
   resetBadgeDragState: () => void;
   setTerminalLayout: (layout: TerminalLayout) => void;
   toggleTerminalLayout: () => void;
-  setActivePanel: (panel: 'terminals' | 'settings' | 'pull-requests') => void;
+  setActivePanel: (panel: 'terminals' | 'settings' | 'pull-requests' | 'analysis') => void;
   setTagFilter: (tag: string | null) => void;
   resetForProject: () => void;
 

@@ -3,7 +3,7 @@ import type { FileDiff } from '../../types';
 import type { PullRequestDetail, PullRequestFile, ReviewDraft } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { diffShape } from '../../diffSource';
+import { prFilesFingerprint } from '../../diffSource';
 import { describeError } from '../../utils/describeError';
 import { BinaryFileView } from '../diff/BinaryFileView';
 import { DeferredMount } from '../diff/DeferredMount';
@@ -24,6 +24,9 @@ import { ReviewThreadView } from './ReviewThreadView';
 import { InlineCommentBox, InlineCommentCard } from '../diff/InlineCommentBox';
 import { inTreeOrder } from '../diff/DiffFileTree';
 import { useThreadActions } from './useThreadActions';
+import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
+import { AnalysisChip, worthAChip } from '../diff/AnalysisChip';
+import type { FileAnalysis } from '../../analysis/types';
 
 import { Loading } from './Loading';
 
@@ -31,6 +34,11 @@ import { Loading } from './Loading';
 const DRAFT_HINT = 'Saved locally until you submit the review.';
 
 const UNPLACEABLE_HINT = 'The code this was written on is not in the diff any more. Sending will fail the review.';
+
+/** Passes the analysis through unchanged, so `FileSection`'s memo still holds. */
+function chipworthy(analysis: FileAnalysis | undefined): FileAnalysis | undefined {
+  return analysis && worthAChip(analysis) ? analysis : undefined;
+}
 
 interface FilesSectionProps {
   projectPath: string;
@@ -52,6 +60,7 @@ interface FileSectionProps {
   onAddComment: (path: string, anchor: DiffLineAnchor) => void;
   renderBelowLine?: (path: string, anchor: DiffLineAnchor) => ReactNode;
   markLine?: (path: string, anchor: DiffLineAnchor) => boolean;
+  analysis?: FileAnalysis;
   viewed: boolean;
   onViewedChange: (path: string, viewed: boolean) => void;
 }
@@ -72,6 +81,7 @@ const FileSection = memo(function FileSection({
   onAddComment,
   renderBelowLine,
   markLine,
+  analysis,
   viewed,
   onViewedChange,
 }: FileSectionProps) {
@@ -90,15 +100,20 @@ const FileSection = memo(function FileSection({
 
   const headerRight = useMemo(
     () =>
-      file.oldPath ? (
-        <span
-          className="shrink-0 font-mono text-[11px] text-text-tertiary truncate"
-          title={`Renamed from ${file.oldPath}`}
-        >
-          from {file.oldPath}
-        </span>
+      file.oldPath || analysis ? (
+        <>
+          {file.oldPath && (
+            <span
+              className="shrink-0 font-mono text-[11px] text-text-tertiary truncate"
+              title={`Renamed from ${file.oldPath}`}
+            >
+              from {file.oldPath}
+            </span>
+          )}
+          {analysis && <AnalysisChip signal={analysis.signal} missing={analysis.missing} />}
+        </>
       ) : null,
-    [file.oldPath],
+    [file.oldPath, analysis],
   );
 
   return (
@@ -158,7 +173,11 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   // The head is part of the fingerprint: an amend or reorder can leave every
   // path and line count identical, and the loader would then keep the old
   // head's hunks while every review anchor points at the new one.
-  const filesFingerprint = useMemo(() => `${detail.headSha}\n${diffShape(files)}`, [files, detail.headSha]);
+  const filesFingerprint = useMemo(() => prFilesFingerprint(detail.headSha, files), [files, detail.headSha]);
+
+  // Data per path rather than elements: FileSection is memoized and builds
+  // its own header, so its props have to keep their identity between renders.
+  const analysis = usePullRequestSignals(detail.headSha, files);
 
   useBatchedDiffs(
     files,
@@ -371,6 +390,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       onAddComment={startComment}
       renderBelowLine={renderBelowLine}
       markLine={spans.length > 0 ? markLine : undefined}
+      analysis={chipworthy(analysis?.[file.path])}
       viewed={viewed.has(file.path)}
       onViewedChange={setViewed}
     />

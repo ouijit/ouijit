@@ -10,6 +10,8 @@ import {
   getPullRequestFileVersions,
   getIssues,
   getIssue,
+  listUserRepos,
+  resolveRepo,
   linkTaskToIssue,
   detectPullRequestForTask,
   detectPullRequestsForProject,
@@ -48,6 +50,8 @@ export function registerGithubHandlers(): void {
   typedHandle('github:pull-request-file-versions', (projectPath, number, baseSha, headSha, filePath, oldPath) =>
     getPullRequestFileVersions(projectPath, number, baseSha, headSha, filePath, oldPath),
   );
+  typedHandle('github:user-repos', () => listUserRepos());
+  typedHandle('github:resolve-repo', (ref) => resolveRepo(ref));
   typedHandle('github:issues', (projectPath) => getIssues(projectPath));
   typedHandle('github:issue', (projectPath, number) => getIssue(projectPath, number));
 

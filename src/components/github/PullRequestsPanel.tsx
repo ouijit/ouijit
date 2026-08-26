@@ -10,6 +10,8 @@ import { PullRequestSidebar } from './PullRequestSidebar';
 import { PullRequestDetailView } from './PullRequestDetailView';
 import { IssueDetailView } from './IssueDetailView';
 import type { TaskWithWorkspace } from '../../types';
+import { PanelFrame } from '../ui/PanelFrame';
+import { useEscape } from '../../hooks/useEscape';
 import { RefreshButton } from './RefreshButton';
 import { Loading } from './Loading';
 
@@ -83,24 +85,17 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     });
   }, [available, projectPath]);
 
-  // Escape closes what is open, then leaves the panel, as the settings panel
-  // does.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      // A comment box, menu or search field claims Escape first; without this
-      // the keypress that cancelled a comment also closed the pull request.
-      if (e.defaultPrevented) return;
+  // Closes what is open before leaving the panel behind it.
+  useEscape(
+    useCallback(() => {
       const store = useGithubStore.getState();
       if (store.activeNumber != null || store.activeIssue != null) {
         store.closeDetail();
         return;
       }
       useProjectStore.getState().setActivePanel('terminals');
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, []);
+    }, []),
+  );
 
   // The maps are built in a memo, not the selector: a selector returning a
   // fresh object never equals the last one and re-renders forever.
@@ -185,21 +180,21 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 
   if (availability && !available) {
     return (
-      <Frame>
+      <PanelFrame>
         <UnavailableNotice message={availability.message} reason={availability.reason} />
-      </Frame>
+      </PanelFrame>
     );
   }
 
   // The availability probe is `gh --version` plus an auth check: a few hundred
   // milliseconds, too short to warrant a spinner.
-  if (!availability) return <Frame />;
+  if (!availability) return <PanelFrame />;
 
   const showing = view === 'detail' ? listView : view;
   const error = showing === 'issues' ? issuesError : inboxError;
 
   return (
-    <Frame>
+    <PanelFrame>
       {!sidebarCollapsed && (
         <PullRequestSidebar
           needsReview={inbox?.needsReview ?? []}
@@ -305,28 +300,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
           </Centred>
         )}
       </div>
-    </Frame>
-  );
-}
-
-/**
- * Pinned exactly where the kanban board is, so the title bar toggle moves what
- * is inside the frame rather than the frame.
- */
-function Frame({ children }: { children?: ReactNode }) {
-  return (
-    <div
-      className="glass-bevel fixed top-[82px] bottom-4 z-[140] flex rounded-[14px] overflow-hidden border border-bezel-panel"
-      style={{
-        left: 'calc(var(--sidebar-offset, 0px) + 16px)',
-        right: 16,
-        transition: 'left 0.2s ease-out',
-        background: 'var(--color-terminal-bg)',
-        boxShadow: 'var(--shadow-panel)',
-      }}
-    >
-      {children}
-    </div>
+    </PanelFrame>
   );
 }
 

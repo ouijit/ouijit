@@ -3,6 +3,8 @@ import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import { DiffFileTree } from '../diff/DiffFileTree';
 import { useGithubStore } from '../../stores/githubStore';
 import { Icon } from '../terminal/Icon';
+import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
+import { AnalysisRailDot } from '../diff/AnalysisChip';
 
 interface PullRequestRailProps {
   detail: PullRequestDetail;
@@ -17,6 +19,8 @@ export function PullRequestRail({ detail, files, onSelect, width }: PullRequestR
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
   const activePath = useGithubStore((s) => s.activePath);
 
+  const signals = usePullRequestSignals(detail.headSha, files);
+
   const unresolvedByPath = useMemo(() => {
     const counts = new Map<string, number>();
     for (const thread of detail.threads) {
@@ -28,16 +32,15 @@ export function PullRequestRail({ detail, files, onSelect, width }: PullRequestR
 
   const trailing = (path: string) => {
     const count = unresolvedByPath.get(path);
-    // Viewed state shows here too, so review progress is readable without
-    // scrolling the document.
-    const done = viewed.has(path) ? <Icon name="check" className="shrink-0 w-3 h-3 text-accent/70" /> : null;
-    if (!count) return done;
     return (
       <>
-        <span className="shrink-0 font-mono text-[10px] text-accent" title="Unresolved threads">
-          {count}
-        </span>
-        {done}
+        <AnalysisRailDot signal={signals?.[path]?.signal} />
+        {count ? (
+          <span className="shrink-0 font-mono text-[10px] text-accent" title="Unresolved threads">
+            {count}
+          </span>
+        ) : null}
+        {viewed.has(path) && <Icon name="check" className="shrink-0 w-3 h-3 text-accent/70" />}
       </>
     );
   };
