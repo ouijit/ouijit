@@ -134,6 +134,19 @@ const NOTED_LINES: NotedLine[] = [
   { type: 'context', oldNo: 8, newNo: 9, content: '  return (' },
 ];
 
+const HOOK_LINES = [
+  "import { useEffect, useState } from 'react';",
+  "import { readPreference, writePreference } from '../account/preferences';",
+  '',
+  'export function useOnboardingProgress(accountId: string) {',
+  '  const key = `onboarding:${accountId}`;',
+  '  const stored = readPreference(key);',
+  '  const [step, setStep] = useState(stored.step);',
+  '',
+  '  useEffect(() => writePreference(key, { step }), [key, step]);',
+  '  return { step, setStep };',
+];
+
 function HotspotChip() {
   return (
     <span className="shrink-0 flex items-center gap-1 text-[10px] px-1 py-px rounded font-medium bg-git-light text-git">
@@ -301,6 +314,29 @@ function NotedDiffPane({
             </div>
           ))}
         </div>
+        {/* The second of the diff's three files. Split against the session it
+            falls below the fold; on its own card it is the rest of the well. */}
+        <div className="diff-card mx-4 mt-3 rounded-[14px] border border-bezel bg-diff-card overflow-clip">
+          <div className="pane-ledge sticky top-0 z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface">
+            <span
+              className="shrink-0 w-4 h-4 rounded border border-ink/25 text-transparent flex items-center justify-center [&>svg]:w-3 [&>svg]:h-3"
+              aria-hidden="true"
+            >
+              <Icon name="check" />
+            </span>
+            <span className="flex-1 min-w-0 truncate font-mono text-[13px]">
+              <span className="text-ink/35">src/onboarding/</span>
+              <span className="text-ink/90">useOnboardingProgress.ts</span>
+            </span>
+            <span className="shrink-0 text-[10px] px-1 py-px rounded font-medium bg-vcs-added/15 text-vcs-added">
+              added
+            </span>
+            <span className="shrink-0 font-mono text-[11px] text-diff-added">+38</span>
+          </div>
+          {HOOK_LINES.map((content, i) => (
+            <NotedDiffLineRow key={i} line={{ type: 'addition', newNo: i + 1, content }} />
+          ))}
+        </div>
         {saved && <NotesIsland count={1} flash={flash} />}
       </div>
     </div>
@@ -403,30 +439,23 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
   );
 }
 
-/** The review terminal: session left, noted diff split right. `receded` is
- * the stack's back-card treatment for while another surface holds the front. */
-function RoundTripTerminal({
-  p,
-  receded = false,
-  tip,
-}: {
-  p: (k: string) => number;
-  receded?: boolean;
-  tip?: boolean;
-}) {
+/** The review terminal: session left, noted diff split right. `depth` is its
+ * place in the stack — 0 while it holds the front, higher once it does not. */
+function RoundTripTerminal({ p, depth }: { p: (k: string) => number; depth: number }) {
   const fixtures = getPanelFixtures('pty-101-dev');
+  const receded = depth > 0;
   const fixing = p('fix') > 0.06;
   /* The beat ends with the fix landed, so the card stops reading as busy
      before the pull request takes the stage. FIXED_AT is shared with the
      session body, which drops its working line on the same frame. */
   const fixed = p('fix') > FIXED_AT;
   return (
-    <TerminalCardView isActive={!receded} backDepth={receded ? 1 : 0}>
+    <>
       <TerminalHeaderView
         summaryType={fixing && !fixed && !receded ? 'thinking' : 'ready'}
         isActive={!receded}
         isBackCard={receded}
-        stackPosition={receded ? 1 : undefined}
+        stackPosition={receded ? depth : undefined}
         nameContent={
           <TerminalHeaderName
             label="Rework onboarding flow"
@@ -442,10 +471,10 @@ function RoundTripTerminal({
         </div>
         <div className="pane-seam relative w-px shrink-0" />
         <div className="relative shrink-0" style={{ width: '50%' }}>
-          <NotedDiffPane pNote={p('note')} pSend={p('send')} pFix={p('fix')} tip={tip} />
+          <NotedDiffPane pNote={p('note')} pSend={p('send')} pFix={p('fix')} />
         </div>
       </div>
-    </TerminalCardView>
+    </>
   );
 }
 
@@ -521,19 +550,15 @@ const RISK_ROWS = [
 
 /** The pull request surface reduced to its review essentials: the header
  * segment, the facts, and the staged drafts. Same task, one commit later. */
-function CondensedPrCard({ compact = false }: { compact?: boolean }) {
+function CondensedPrCard() {
   return (
-    <div
-      className="glass-bevel relative h-full flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
-      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
-    >
+    <>
       <header className="pane-ledge relative z-30 shrink-0 h-12 flex items-center gap-3 px-3">
         <span className="flex items-center gap-2 min-w-0 text-text-secondary">
           <Icon name="git-pull-request" className="w-4 h-4 shrink-0 text-vcs-added" />
           <span className="truncate text-[15px]">Rework onboarding flow</span>
         </span>
-        {!compact && (
-          <nav className="flex items-center gap-4 mx-auto shrink-0 self-stretch">
+        <nav className="flex items-center gap-4 mx-auto shrink-0 self-stretch">
             <span className="flex items-center px-0.5 border-b-2 -mb-px border-accent text-[13px] font-medium text-text-primary">
               Summary
             </span>
@@ -541,11 +566,10 @@ function CondensedPrCard({ compact = false }: { compact?: boolean }) {
               Timeline
             </span>
             <span className="flex items-center gap-1.5 px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
-              Code <span className="opacity-50 tabular-nums">3</span>
-            </span>
-          </nav>
-        )}
-        <div className={`flex items-center gap-1 shrink-0 ${compact ? 'ml-auto' : ''}`}>
+            Code <span className="opacity-50 tabular-nums">3</span>
+          </span>
+        </nav>
+        <div className="flex items-center gap-1 shrink-0">
           <div
             className="inline-flex items-center h-7 glass-bevel relative border border-bezel rounded-[12px] overflow-hidden"
             style={{ background: '#212126' }}
@@ -561,7 +585,7 @@ function CondensedPrCard({ compact = false }: { compact?: boolean }) {
         </div>
       </header>
       <div className="flex-1 min-h-0 overflow-hidden">
-        <div className={`h-full ${compact ? '' : 'w-full max-w-3xl mx-auto'} px-6 py-5 flex flex-col gap-4`}>
+        <div className="h-full w-full max-w-3xl mx-auto px-6 py-5 flex flex-col gap-4">
           <header className="flex flex-col gap-2">
             <div className="text-[21px] leading-tight font-medium text-text-primary">Rework onboarding flow</div>
             <div className="flex items-center gap-2 text-[13px] text-text-secondary">
@@ -621,27 +645,14 @@ function CondensedPrCard({ compact = false }: { compact?: boolean }) {
           </section>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
-/** The Analysis panel as a panel of its own, framed like the pull request card
- *  it shares the stage with. */
-function AnalysisCard() {
-  return (
-    <div
-      className="glass-bevel relative h-full flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
-      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
-    >
-      <MockAnalysis showAdvice />
-    </div>
-  );
-}
-
-/* ─── 2a · Three acts — what the history says, the loop, the pull request ─ */
+/* ─── The section: what the history says, the loop, the pull request ─ */
 
 const ANALYSIS_KEYS = ['scan', 'chip'] as const;
-const TWO_ACT_KEYS = [...ANALYSIS_KEYS, ...LOOP_KEYS, 'pr'] as const;
+const BEAT_KEYS = [...ANALYSIS_KEYS, ...LOOP_KEYS, 'pr'] as const;
 
 /**
  * The captions under the stage. Analysis and the round trip are one caption
@@ -649,7 +660,7 @@ const TWO_ACT_KEYS = [...ANALYSIS_KEYS, ...LOOP_KEYS, 'pr'] as const;
  * twice, and note, send and fix are phases of a single story. A caption
  * swapping mid-play reads as unrelated features.
  */
-const TWO_ACT_CAPTIONS: { keys: readonly string[]; title: string; body: string }[] = [
+const CAPTIONS: { keys: readonly string[]; title: string; body: string }[] = [
   {
     keys: ANALYSIS_KEYS,
     title: 'Read the history before the diff',
@@ -668,7 +679,7 @@ const TWO_ACT_CAPTIONS: { keys: readonly string[]; title: string; body: string }
 ];
 
 /** How many beats each caption spans, in caption order. */
-const CAPTION_SPANS = TWO_ACT_CAPTIONS.map((c) => c.keys.length);
+const CAPTION_SPANS = CAPTIONS.map((c) => c.keys.length);
 
 /** Every caption gets this long, whatever it spans. */
 const CAPTION_MS = 5000;
@@ -676,7 +687,7 @@ const CAPTION_MS = 5000;
 /* A beat inside an n-beat caption runs n times as fast, so the caption still
    takes CAPTION_MS. The trailing entry is the hold before the loop restarts,
    which would otherwise sit a full caption's length at the end. */
-const TWO_ACT_SPEEDS = [...CAPTION_SPANS.flatMap((n) => Array<number>(n).fill(n)), 2];
+const BEAT_SPEEDS = [...CAPTION_SPANS.flatMap((n) => Array<number>(n).fill(n)), 2];
 
 /** Where the dot bar sits: a caption owns an equal share of it, so the bar
  *  and the lit caption agree however many beats that caption spans. */
@@ -690,57 +701,111 @@ function captionProgress(t: number): number {
   return 1;
 }
 
-export function ReviewVariantTwoAct() {
-  const { rootRef, p, t, active, seek } = useTheaterLoop(TWO_ACT_KEYS, CAPTION_MS, TWO_ACT_SPEEDS);
-  // Binary like the stack promotions, with the same animated depth change —
-  // a crossfade tied to the loop would leave both surfaces half-faded.
-  const prOn = p('pr') > 0.05;
-  const scanOn = p('chip') < 0.05;
-  const chipOn = p('chip') > 0.05 && p('note') < 0.05;
-  /* Analysis holds the front first and leaves the way the pull request
-     arrives, so the terminal starts as the back card and is promoted once. */
+/**
+ * A surface's place in the stack: 0 is the front, higher is further back, and
+ * a card the run has not reached yet waits below the front, where the promoted
+ * one rises from. TerminalCardView draws the depth; this only has to say which
+ * one, and get the paint order to agree with it.
+ */
+function StackCard({ depth, back, children }: { depth: number | null; back?: ReactNode; children: ReactNode }) {
+  const waiting = depth === null;
+  return (
+    <div
+      className="absolute inset-0 pointer-events-none"
+      style={{
+        zIndex: 10 - (depth ?? 0),
+        opacity: waiting ? 0 : 1,
+        transform: `translateY(${waiting ? 48 : 0}px)`,
+        transition: 'opacity 0.25s ease, transform 0.25s ease',
+      }}
+    >
+      <TerminalCardView isActive={depth === 0} backDepth={depth ?? 0}>
+        {/* Positioned inline: `.glass-bevel > *` pins every direct child to
+            position relative, so the utility classes would leave the strip in
+            flow, taking its height off the card's own content. */}
+        {back && (
+          <div
+            className="bg-terminal-bg transition-opacity duration-200"
+            style={{
+              position: 'absolute',
+              insetInline: 0,
+              top: 0,
+              zIndex: 40,
+              opacity: !waiting && depth > 0 ? 1 : 0,
+            }}
+          >
+            {back}
+          </div>
+        )}
+        {children}
+      </TerminalCardView>
+    </div>
+  );
+}
+
+/**
+ * A panel's back-card row. A card behind another shows 24px of itself, and a
+ * panel's own header centres its content in twice that — so the strip repeats
+ * the identity at the back-card's metrics, over the header it hides.
+ */
+function BackStrip({ icon, label, detail }: { icon: string; label: string; detail: string }) {
+  return (
+    <div className="flex items-center gap-2 pl-3 pr-3 pt-0.5 pb-1 min-h-9">
+      <Icon name={icon} className="w-4 h-4 shrink-0 text-ink/45" />
+      <span className="shrink-0 text-[13px] text-text-secondary">{label}</span>
+      <span className="min-w-0 truncate font-mono text-[11px] text-text-tertiary">{detail}</span>
+    </div>
+  );
+}
+
+/** The four surfaces, in the order the run promotes them. */
+const STACK = ['scan', 'chip', 'note', 'pr'] as const;
+
+export function ReviewSection() {
+  const { rootRef, p, t, active, seek } = useTheaterLoop(BEAT_KEYS, CAPTION_MS, BEAT_SPEEDS);
+  /* Which surface holds the front, taken as a step rather than a ramp: the
+     depth change is the app's own animation, and a crossfade tied to the loop
+     would leave two cards half-faded on top of each other. */
+  const front = STACK.reduce((n, key, i) => (i > 0 && p(key) > 0.05 ? i : n), 0);
+  const depth = (i: number) => (i <= front ? front - i : null);
 
   return (
     <div ref={rootRef} className="bl-theater">
-      <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, paddingTop: 48, width: '100%' }}>
-          <DeskWash />
-          <div className="relative" style={{ height: 520 }}>
-            <RoundTripTerminal p={p} receded={prOn || scanOn} tip={chipOn} />
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                zIndex: 20,
-                opacity: prOn ? 1 : 0,
-                transform: `translateY(${prOn ? 0 : 48}px)`,
-                transition: 'opacity 0.25s ease, transform 0.25s ease',
-                pointerEvents: 'none',
-              }}
-            >
-              <CondensedPrCard />
+      <h2 className="plan-v-headline">Review in depth</h2>
+      {/* The desk clears the deepest card: four cards is 72px of lift, plus
+          enough for the header it peels back to show. */}
+      <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, paddingTop: 96, width: '100%' }}>
+        <DeskWash />
+        <div className="relative" style={{ height: 520 }}>
+          <StackCard
+            depth={depth(0)}
+            back={<BackStrip icon="binoculars" label="Analysis" detail="850 commits · 318 files" />}
+          >
+            <MockAnalysis showAdvice />
+          </StackCard>
+          <StackCard
+            depth={depth(1)}
+            back={<BackStrip icon="git-branch" label="main" detail="3 files +130 -78" />}
+          >
+            <div className="relative flex-1 min-h-0">
+              <NotedDiffPane pNote={0} pSend={0} pFix={0} tip={front === 1} />
             </div>
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                zIndex: 30,
-                opacity: scanOn ? 1 : 0,
-                transform: `translateY(${scanOn ? 0 : 48}px)`,
-                transition: 'opacity 0.25s ease, transform 0.25s ease',
-                pointerEvents: 'none',
-              }}
-            >
-              <AnalysisCard />
-            </div>
-          </div>
+          </StackCard>
+          <StackCard depth={depth(2)}>
+            <RoundTripTerminal p={p} depth={depth(2) ?? 0} />
+          </StackCard>
+          <StackCard depth={depth(3)}>
+            <CondensedPrCard />
+          </StackCard>
         </div>
+      </div>
       <div className="beat-row">
-        {TWO_ACT_CAPTIONS.map((c) => (
+        {CAPTIONS.map((c) => (
           <button
             type="button"
             key={c.title}
-            className={c.keys.includes(TWO_ACT_KEYS[active]) ? 'is-active' : undefined}
-            onClick={() => seek(TWO_ACT_KEYS.indexOf(c.keys[0] as (typeof TWO_ACT_KEYS)[number]))}
+            className={c.keys.includes(BEAT_KEYS[active]) ? 'is-active' : undefined}
+            onClick={() => seek(BEAT_KEYS.indexOf(c.keys[0] as (typeof BEAT_KEYS)[number]))}
           >
             <h3>{c.title}</h3>
             <p>{c.body}</p>
@@ -748,17 +813,6 @@ export function ReviewVariantTwoAct() {
         ))}
       </div>
       <BeatDots progress={captionProgress(t)} />
-    </div>
-  );
-}
-
-/* ─── The section, as shipped on the c page ───────────────────────── */
-
-export function ReviewSection() {
-  return (
-    <div>
-      <h2 className="plan-v-headline">Review in depth</h2>
-      <ReviewVariantTwoAct />
     </div>
   );
 }
