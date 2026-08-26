@@ -48,6 +48,9 @@ const segBtn = (active: boolean) =>
   }`;
 const SQUARE_BTN =
   'w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary [&>svg]:w-5 [&>svg]:h-5';
+/** The sidebar and search pair left of the project name: no bevel and no
+ *  border, so they read as titlebar chrome rather than as controls. */
+const PLAIN_BTN = 'w-9 h-9 flex items-center justify-center rounded-[10px] [&>svg]:w-5 [&>svg]:h-5';
 
 /**
  * The whole app in one window: titlebar, project sidebar, and the kanban
@@ -131,13 +134,24 @@ export default function AppWindowScene() {
               <span style={{ background: '#febc2e' }} />
               <span style={{ background: '#28c840' }} />
             </div>
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <button
-                type="button"
-                aria-label="Toggle projects"
-                className="flex items-center gap-3 min-w-0 bg-transparent border-none p-0 text-left"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-              >
+            {/* One wrapper so the pair sits the titlebar's own 8px from the
+                project name; the 18px gap is between the lights and the pair. */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="flex items-center h-9 shrink-0">
+                <button
+                  type="button"
+                  aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+                  aria-expanded={sidebarOpen}
+                  className={`${PLAIN_BTN} ${sidebarOpen ? 'text-text-primary bg-background-secondary' : 'text-text-secondary'}`}
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                >
+                  <Icon name="sidebar-simple" />
+                </button>
+                <span className={`${PLAIN_BTN} text-text-secondary`}>
+                  <Icon name="magnifying-glass" />
+                </span>
+              </div>
+              <div className="flex items-center gap-3 min-w-0">
                 <ProjectAvatar size={32} />
                 <div className="flex flex-col gap-[2px] min-w-0">
                   <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
@@ -147,7 +161,7 @@ export default function AppWindowScene() {
                     ~/Code/horizon
                   </span>
                 </div>
-              </button>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <div className={SEG_GROUP}>
@@ -208,9 +222,6 @@ export default function AppWindowScene() {
               </div>
               <span className="mt-3 w-10 h-10 flex items-center justify-center relative glass-bevel overflow-hidden rounded-[12px] bg-background-secondary border border-bezel text-text-secondary [&>svg]:w-5 [&>svg]:h-5">
                 <Icon name="plus" />
-              </span>
-              <span className="mt-auto text-text-tertiary [&>svg]:w-5 [&>svg]:h-5">
-                <Icon name="sidebar-simple" />
               </span>
             </div>
             )}
