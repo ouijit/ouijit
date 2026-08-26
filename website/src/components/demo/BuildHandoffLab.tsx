@@ -35,10 +35,14 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
-const PER_CARD_VH = 30;
-const TAIL_VH = 26;
-const RUN_VH = 100 + N * PER_CARD_VH + TAIL_VH;
-const GROW_SPAN = (N * PER_CARD_VH) / (RUN_VH - 100);
+/**
+ * The run is scrubbed off the stage's own travel rather than off a tall
+ * wrapper holding the viewport still: it opens as the stage crosses the fold
+ * and closes as its top reaches the top of the window, so the last session
+ * lands with the whole stage in view and the section costs no more scroll
+ * than its own height. This is the deal the Plan section makes.
+ */
+const OPEN_AT = 0.9;
 
 /** The flight is done a little before the window is, so the terminal lands
  *  rather than appearing mid-air. */
@@ -74,7 +78,6 @@ interface Box {
  * the Plan section's scrub.
  */
 function useHandoffStage() {
-  const wrapRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const slotEls = useRef<Array<HTMLElement | null>>([]);
   const destRef = useRef<HTMLDivElement | null>(null);
@@ -85,17 +88,16 @@ function useHandoffStage() {
   useEffect(() => {
     let raf = 0;
     const update = () => {
-      const wrap = wrapRef.current;
       const stage = stageRef.current;
-      if (!wrap) return;
+      if (!stage) return;
 
-      const rect = wrap.getBoundingClientRect();
-      const span = rect.height - window.innerHeight;
-      const nextT = span > 0 ? clamp01(-rect.top / span) : 0;
+      const vh = window.innerHeight;
+      const rect = stage.getBoundingClientRect();
+      const nextT = clamp01(1 - rect.top / (vh * OPEN_AT));
 
       let nextG: { slots: Box[]; dest: Box } | null = null;
-      if (stage && destRef.current) {
-        const s = stage.getBoundingClientRect();
+      if (destRef.current) {
+        const s = rect;
         const rel = (el: Element): Box => {
           const b = el.getBoundingClientRect();
           return { x: b.left - s.left, y: b.top - s.top, w: b.width, h: b.height };
@@ -131,7 +133,7 @@ function useHandoffStage() {
   }, []);
 
   const setSlot = (i: number) => (el: HTMLDivElement | null) => void (slotEls.current[i] = el);
-  return { wrapRef, stageRef, destRef, setSlot, t, geom };
+  return { stageRef, destRef, setSlot, t, geom };
 }
 
 function useStaticMode() {
@@ -176,12 +178,12 @@ function TaskGhost({ task, from, to, p }: { task: TaskWithWorkspace; from: Box; 
 }
 
 export function VariantHandoff() {
-  const { wrapRef, stageRef, destRef, setSlot, t, geom } = useHandoffStage();
+  const { stageRef, destRef, setSlot, t, geom } = useHandoffStage();
   const staticMode = useStaticMode();
 
   // One window per task: the card leaves its slot, flies, and lands as a
   // session. `gone` counts the tasks that have left the column.
-  const gone = staticMode ? N : clamp01(t / GROW_SPAN) * N;
+  const gone = staticMode ? N : t * N;
   const flying = Math.min(N - 1, Math.floor(gone));
   const f = staticMode ? 1 : clamp01(gone - flying);
   /*
@@ -202,88 +204,86 @@ export function VariantHandoff() {
   const drain = clamp01(filled / N);
 
   return (
-    <div ref={wrapRef} style={{ height: staticMode ? 'auto' : `${RUN_VH}vh` }}>
-      <div className="hx-sticky">
-        <div ref={stageRef} className="hx-stage">
-          <div className="hx-rail">
-            {/* The desk the column was charged in, draining as the work in it
-                turns into sessions — the Plan section's own drain, applied to
-                the column instead of to a source pane. */}
-            <div className="plan-desk desk-wash hx-todo-desk" style={{ backgroundImage: DESK_GRAPHITE }}>
-              <DeskWash
-                style={{ '--wash': 'var(--wash-prism)', opacity: 0.9 * (1 - drain) } as React.CSSProperties}
-              />
-              <div className="hx-column glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel">
-                <KanbanColumnView status="in_progress" label="In Progress" count={N}>
-                  {TASKS.map((task, i) => {
-                    // The row appears as the flight lands, so the card gains
-                    // its terminal at the moment the stack does.
-                    const connected = staticMode || i < Math.floor(gone) || (i === flying && f >= LAND_AT);
-                    return (
-                      <div key={task.taskNumber} ref={setSlot(i)}>
-                        <KanbanCardView
-                          task={task}
-                          connectedDisplays={connected ? [CONNECTED[i]] : []}
-                          isSettingUp={!connected && i === flying && f > 0.04}
-                          showBadge={false}
-                        />
-                      </div>
-                    );
-                  })}
-                </KanbanColumnView>
-              </div>
-            </div>
-          </div>
-
-          <div className="plan-desk desk-wash hx-desk" style={{ backgroundImage: DESK_GRAPHITE }}>
-            <DeskWash style={{ '--wash': 'var(--wash-iris)', opacity: 0.9 * drain } as React.CSSProperties} />
-            <div ref={destRef} className="stk-well" style={{ top: TOP_PAD + backCards * PEEK }}>
-              {SESSIONS.map((session, i) => {
-                if (i > frontIndex) return null;
-                const front = i === frontIndex;
-                const rank = i + 1;
-                // Every card gives up `shove` of a peek as the next one flies
-                // in, so the front card is only at depth 0 between landings.
-                const depth = frontIndex - i + shove;
-                return (
-                  <div
-                    key={session.task}
-                    className="stk-card"
-                    style={{
-                      zIndex: front ? 10 : 10 - Math.max(1, Math.round(depth)),
-                      transform: `translateY(${-depth * PEEK}px) scaleX(${1 - depth * NARROW})`,
-                    }}
-                  >
-                    <TerminalCardView isActive={front}>
-                      <TerminalHeaderView
-                        summaryType="thinking"
-                        isActive={front}
-                        isBackCard={!front}
-                        stackPosition={front ? undefined : rank}
-                        nameContent={
-                          <TerminalHeaderName label={front ? 'claude' : session.label} lastOscTitle={session.osc} />
-                        }
-                        branchContent={
-                          front ? (
-                            <span className="flex items-center gap-1.5 font-mono text-[11px] text-ink/45">
-                              <Icon name="git-branch" className="w-3 h-3" />
-                              {session.branch}
-                            </span>
-                          ) : undefined
-                        }
+    <div className="hx-frame">
+      <div ref={stageRef} className="hx-stage">
+        <div className="hx-rail">
+          {/* The desk the column was charged in, draining as the work in it
+              turns into sessions — the Plan section's own drain, applied to
+              the column instead of to a source pane. */}
+          <div className="plan-desk desk-wash hx-todo-desk" style={{ backgroundImage: DESK_GRAPHITE }}>
+            <DeskWash
+              style={{ '--wash': 'var(--wash-prism)', opacity: 0.9 * (1 - drain) } as React.CSSProperties}
+            />
+            <div className="hx-column glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel">
+              <KanbanColumnView status="in_progress" label="In Progress" count={N}>
+                {TASKS.map((task, i) => {
+                  // The row appears as the flight lands, so the card gains
+                  // its terminal at the moment the stack does.
+                  const connected = staticMode || i < Math.floor(gone) || (i === flying && f >= LAND_AT);
+                  return (
+                    <div key={task.taskNumber} ref={setSlot(i)}>
+                      <KanbanCardView
+                        task={task}
+                        connectedDisplays={connected ? [CONNECTED[i]] : []}
+                        isSettingUp={!connected && i === flying && f > 0.04}
+                        showBadge={false}
                       />
-                      {front && session.body}
-                    </TerminalCardView>
-                  </div>
-                );
-              })}
+                    </div>
+                  );
+                })}
+              </KanbanColumnView>
             </div>
           </div>
-
-          {!staticMode && geom && f > 0 && f < LAND_AT && flying < N && (
-            <TaskGhost task={TASKS[flying]} from={geom.slots[flying]} to={geom.dest} p={clamp01(f / LAND_AT)} />
-          )}
         </div>
+
+        <div className="plan-desk desk-wash hx-desk" style={{ backgroundImage: DESK_GRAPHITE }}>
+          <DeskWash style={{ '--wash': 'var(--wash-iris)', opacity: 0.9 * drain } as React.CSSProperties} />
+          <div ref={destRef} className="stk-well" style={{ top: TOP_PAD + backCards * PEEK }}>
+            {SESSIONS.map((session, i) => {
+              if (i > frontIndex) return null;
+              const front = i === frontIndex;
+              const rank = i + 1;
+              // Every card gives up `shove` of a peek as the next one flies
+              // in, so the front card is only at depth 0 between landings.
+              const depth = frontIndex - i + shove;
+              return (
+                <div
+                  key={session.task}
+                  className="stk-card"
+                  style={{
+                    zIndex: front ? 10 : 10 - Math.max(1, Math.round(depth)),
+                    transform: `translateY(${-depth * PEEK}px) scaleX(${1 - depth * NARROW})`,
+                  }}
+                >
+                  <TerminalCardView isActive={front}>
+                    <TerminalHeaderView
+                      summaryType="thinking"
+                      isActive={front}
+                      isBackCard={!front}
+                      stackPosition={front ? undefined : rank}
+                      nameContent={
+                        <TerminalHeaderName label={front ? 'claude' : session.label} lastOscTitle={session.osc} />
+                      }
+                      branchContent={
+                        front ? (
+                          <span className="flex items-center gap-1.5 font-mono text-[11px] text-ink/45">
+                            <Icon name="git-branch" className="w-3 h-3" />
+                            {session.branch}
+                          </span>
+                        ) : undefined
+                      }
+                    />
+                    {front && session.body}
+                  </TerminalCardView>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {!staticMode && geom && f > 0 && f < LAND_AT && flying < N && (
+          <TaskGhost task={TASKS[flying]} from={geom.slots[flying]} to={geom.dest} p={clamp01(f / LAND_AT)} />
+        )}
       </div>
     </div>
   );

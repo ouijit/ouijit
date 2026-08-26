@@ -2469,13 +2469,13 @@ body.marketing::after {
 
 /* ── Build handoff lab: the To Do column emptying into the stack ───── */
 
-.hx-sticky {
-  position: sticky;
-  top: 0;
-  height: 100vh;
+/* Normal flow, no tall wrapper: the run is scrubbed off the stage's own
+   travel up the viewport, so the section costs its own height in scroll and
+   nothing above it is held in place. */
+.hx-frame {
   display: flex;
   align-items: center;
-  padding: 56px var(--content-padding);
+  padding: 40px var(--content-padding) 96px;
 }
 
 /* The flights are absolutely positioned against this, so it is the frame
@@ -2519,9 +2519,7 @@ body.marketing::after {
 }
 
 @media (max-width: 999px) {
-  .hx-sticky {
-    position: static;
-    height: auto;
+  .hx-frame {
     padding: 32px var(--content-padding);
   }
 
