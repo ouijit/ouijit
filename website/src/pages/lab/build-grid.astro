@@ -1,21 +1,44 @@
 ---
 import Site from '../../layouts/Site.astro';
-import { VariantMitosis, VariantDock, VariantWall } from '../../components/demo/BuildFleetLab.tsx';
+import {
+  VariantPop,
+  VariantBloom,
+  VariantMitosis,
+  VariantDock,
+  VariantWall,
+} from '../../components/demo/BuildFleetLab.tsx';
 ---
 <Site title="Lab · Build in parallel, as a fleet" noindex>
   <section class="home-build">
     <h1 class="plan-v-headline">Build in parallel — fleet concepts</h1>
     <p style="color: #86868b; max-width: 62ch; margin: 16px 0 0;">
-      Three scroll-scrubbed stages. Each pins the viewport and grows the fleet with the wheel — no desk, no
-      beat row, one caption at a time. Scroll slowly; every frame is scrubbed, not stepped.
+      Scroll-scrubbed stages: each pins the viewport and grows the fleet with the wheel. The first two hold
+      every tile still once it lands; the last three move them.
     </p>
   </section>
 
   <section class="home-build" style="padding-bottom: 0;">
+    <h2 class="plan-v-headline">7d · Pop</h2>
+    <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
+      Nothing reflows. Every tile lands at the size and slot it keeps for the rest of the section, scaling up
+      from its own centre. The board is the finished board from the first frame — tiles only become visible.
+    </p>
+  </section>
+  <VariantPop client:visible />
+
+  <section class="home-build" style="padding-bottom: 0;">
+    <h2 class="plan-v-headline">7e · Bloom</h2>
+    <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
+      The same no-reflow rule, arranged five-on-a-die: the lead terminal holds the centre and the rest pop in
+      around it, so the fleet reads as having grown out of the middle without anything moving.
+    </p>
+  </section>
+  <VariantBloom client:visible />
+
+  <section class="home-build" style="padding-bottom: 0;">
     <h2 class="plan-v-headline">7a · Mitosis</h2>
     <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
-      One surface divides. Seams open from nothing and every tile shrinks to make room, so the fleet is the
-      first terminal splitting rather than tiles arriving beside it.
+      For contrast — the reflowing one. Seams open from nothing and every tile shrinks to make room.
     </p>
   </section>
   <VariantMitosis client:visible />
@@ -23,8 +46,7 @@ import { VariantMitosis, VariantDock, VariantWall } from '../../components/demo/
   <section class="home-build" style="padding-bottom: 0;">
     <h2 class="plan-v-headline">7b · Dock</h2>
     <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
-      The lead tile settles from centre into its slot while the rest fly in from off stage and lock to the
-      grid around it.
+      The lead tile settles from centre into its slot while the rest fly in from off stage.
     </p>
   </section>
   <VariantDock client:visible />
@@ -32,8 +54,7 @@ import { VariantMitosis, VariantDock, VariantWall } from '../../components/demo/
   <section class="home-build" style="padding-bottom: 0;">
     <h2 class="plan-v-headline">7c · Wall</h2>
     <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
-      The camera opens inside the lead terminal and retreats until nine are in frame — the fleet as scale
-      rather than as steps.
+      The camera opens inside the lead terminal and retreats until nine are in frame.
     </p>
   </section>
   <VariantWall client:visible />

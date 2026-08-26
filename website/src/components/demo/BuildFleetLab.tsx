@@ -325,7 +325,7 @@ function Stage({
   children: ReactNode;
 }) {
   return (
-    <div ref={wrapRef} style={{ height: staticMode ? 'auto' : `${N * 90}vh` }}>
+    <div ref={wrapRef} style={{ height: staticMode ? 'auto' : `${N * 70}vh` }}>
       <div className="fleet-sticky">{children}</div>
     </div>
   );
@@ -454,6 +454,87 @@ export function VariantWall() {
             </div>
           ))}
         </div>
+      </div>
+      <StageCaption pos={pos} align="center" />
+      <ProgressRail pos={pos} />
+    </Stage>
+  );
+}
+
+/* ═══ 7d · Pop — nothing reflows; each tile lands where it stays ═══ */
+
+/** A pop with a little overshoot, so arrival reads as landing rather than
+ *  fading up. */
+const easeOutBack = (t: number) => 1 + 2.1 * (t - 1) ** 3 + 1.1 * (t - 1) ** 2;
+
+/** How present tile `i` is at a fractional fleet size. */
+const popAt = (pos: number, i: number) => clamp01((pos - (i - 0.7)) / 0.7);
+
+function PopTile({ tile, rect, at, lead }: { tile: Tile; rect: Rect; at: number; lead: boolean }) {
+  if (at <= 0) return null;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: `${rect.x}%`,
+        top: `${rect.y}%`,
+        width: `${rect.w}%`,
+        height: `${rect.h}%`,
+        // Scaled about its own centre, so the slot it grows into is the slot
+        // it keeps. Nothing here depends on how many others have arrived.
+        transform: `scale(${lerp(0.84, 1, easeOutBack(at))})`,
+        opacity: clamp01(at * 2.4),
+        zIndex: lead ? 2 : 1,
+      }}
+    >
+      <FeatureTile tile={tile} lead={lead} />
+    </div>
+  );
+}
+
+/** The finished board, from the first frame — tiles only become visible. */
+const BOARD = layoutFor(N);
+
+export function VariantPop() {
+  const { wrapRef, t } = useStageScrub();
+  const staticMode = useStaticMode();
+  const pos = staticMode ? N - 1 : t * (N - 1);
+  return (
+    <Stage wrapRef={wrapRef} staticMode={staticMode}>
+      <div className="fleet-field">
+        {TILES.map((tile, i) => (
+          <PopTile key={tile.key} tile={tile} rect={BOARD[i]} at={popAt(pos, i)} lead={i === 0} />
+        ))}
+      </div>
+      <StageCaption pos={pos} />
+      <ProgressRail pos={pos} />
+    </Stage>
+  );
+}
+
+/* ═══ 7e · Bloom — the first tile holds the centre, the rest ring it ═══ */
+
+/**
+ * Five on a die: the lead terminal dead centre and one in each corner, so the
+ * fleet reads as having grown out of the middle without anything moving.
+ */
+const BLOOM: Rect[] = (() => {
+  const gap = 2.6;
+  const size = (96 - gap * 2) / 3;
+  const at = (col: number, row: number) => ({ x: 2 + col * (size + gap), y: 2 + row * (size + gap), w: size, h: size });
+  return [at(1, 1), at(2, 0), at(2, 2), at(0, 2), at(0, 0)];
+})();
+
+export function VariantBloom() {
+  const { wrapRef, t } = useStageScrub();
+  const staticMode = useStaticMode();
+  const pos = staticMode ? N - 1 : t * (N - 1);
+  return (
+    <Stage wrapRef={wrapRef} staticMode={staticMode}>
+      <div className="fleet-field">
+        {TILES.map((tile, i) => (
+          <PopTile key={tile.key} tile={tile} rect={BLOOM[i]} at={popAt(pos, i)} lead={i === 0} />
+        ))}
       </div>
       <StageCaption pos={pos} align="center" />
       <ProgressRail pos={pos} />
