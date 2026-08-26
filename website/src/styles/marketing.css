@@ -2543,3 +2543,50 @@ body.marketing::after {
     padding: 20px;
   }
 }
+
+/* The Build act, inside the Plan stage's left lane: it scrolls up under the
+   rows while the column rail beside it stays stuck, so one column instance
+   carries both acts instead of each section owning its own. */
+.plan-build-act {
+  position: relative;
+  height: 240vh;
+  margin-top: 80px;
+}
+
+.plan-build-title {
+  position: sticky;
+  top: 110px;
+  margin: 0 0 24px;
+}
+
+.plan-build-pin {
+  position: sticky;
+  top: 178px;
+  height: 68vh;
+  max-height: 660px;
+}
+
+.plan-build-desk {
+  position: relative;
+  height: 100%;
+  padding: 36px;
+}
+
+@media (max-width: 999px) {
+  .plan-build-act {
+    height: auto;
+  }
+
+  .plan-build-title,
+  .plan-build-pin {
+    position: static;
+  }
+
+  .plan-build-pin {
+    height: 520px;
+  }
+
+  .plan-build-desk {
+    padding: 20px;
+  }
+}

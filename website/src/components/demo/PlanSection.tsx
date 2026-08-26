@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TaskWithWorkspace } from '../../ouijit-ui/types';
+import type { TerminalDisplayState } from '../../ouijit-ui/terminalDisplay';
+import { DEFAULT_DISPLAY_STATE } from '../../ouijit-ui/terminalDisplay';
 import { KanbanColumnView } from '../../ouijit-ui/components/kanban/KanbanColumnView';
 import { KanbanCardView } from '../../ouijit-ui/components/kanban/KanbanCardView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
+import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
+import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { ClaudeUser, AssistantSay, ToolCall, ToolResult, BODY_CLS } from './stackParts';
+import { SESSIONS, N as SESSION_COUNT, PEEK, TOP_PAD, NARROW } from './BuildStackLab';
 import { DeskWash } from './DeskWash';
 
 /**
@@ -38,6 +43,21 @@ const SEQUENCE: SourceKey[] = ['agent', 'issue', 'manual'];
 /** The column exactly as the Plan section leaves it. The Build section opens
  *  with this so the two are one list rather than two that look alike. */
 export const TODO_COLUMN: TaskWithWorkspace[] = [SEED_TASK, ...SEQUENCE.map((k) => TASK_BY_SOURCE[k])];
+
+/**
+ * The session each task grows once it has one. Defined here rather than
+ * imported: the Build lab reads TODO_COLUMN from this file, so taking it back
+ * the other way made the two modules circular and neither rendered.
+ */
+export const CONNECTED: TerminalDisplayState[] = TODO_COLUMN.map((t, i) => ({
+  ...DEFAULT_DISPLAY_STATE,
+  projectPath: '/demo/horizon',
+  ptyId: `pty-${t.taskNumber}-claude`,
+  label: 'claude',
+  summaryType: 'thinking' as const,
+  lastOscTitle: SESSIONS[i].osc,
+  taskId: t.taskNumber,
+}));
 
 /* ─── Mock pieces ─────────────────────────────────────────────────── */
 
@@ -197,6 +217,9 @@ interface Box {
 interface ScrubGeom {
   source: Record<SourceKey, Box>;
   slot: Record<SourceKey, Box>;
+  /** The seed card's row, and the stack the Build act fills from the column. */
+  seed: Box;
+  dest: Box;
 }
 
 /**
@@ -209,6 +232,10 @@ function useScrubStage() {
   const rowEls = useRef<Partial<Record<SourceKey, HTMLElement | null>>>({});
   const sourceEls = useRef<Partial<Record<SourceKey, HTMLElement | null>>>({});
   const slotEls = useRef<Partial<Record<SourceKey, HTMLElement | null>>>({});
+  const seedSlot = useRef<HTMLElement | null>(null);
+  const buildEl = useRef<HTMLElement | null>(null);
+  const destEl = useRef<HTMLElement | null>(null);
+  const [buildP, setBuildP] = useState(0);
   const [progress, setProgress] = useState<Record<SourceKey, number>>({ agent: 0, issue: 0, manual: 0 });
   const [geom, setGeom] = useState<ScrubGeom | null>(null);
   const sig = useRef('');
@@ -225,6 +252,14 @@ function useScrubStage() {
         const center = rect.top + rect.height / 2;
         nextP[key] = clamp01((vh * 0.92 - center) / (vh * 0.42));
       }
+      let nextB = 0;
+      const bEl = buildEl.current;
+      if (bEl) {
+        const r = bEl.getBoundingClientRect();
+        const span = r.height - vh * 0.7;
+        if (span > 0) nextB = clamp01((vh * 0.7 - r.top) / span);
+      }
+
       let nextG: ScrubGeom | null = null;
       const stage = stageRef.current;
       if (stage) {
@@ -244,10 +279,17 @@ function useScrubStage() {
           source[key] = { x: a.left - s.left, y: a.top - s.top, w: a.width, h: a.height };
           slot[key] = { x: b.left - s.left, y: b.top - s.top, w: b.width, h: b.height };
         }
-        if (complete) nextG = { source, slot };
+        if (complete && seedSlot.current && destEl.current) {
+          const rel = (el: Element) => {
+            const b = el.getBoundingClientRect();
+            return { x: b.left - s.left, y: b.top - s.top, w: b.width, h: b.height };
+          };
+          nextG = { source, slot, seed: rel(seedSlot.current), dest: rel(destEl.current) };
+        }
       }
       const nextSig = JSON.stringify([
         SEQUENCE.map((k) => Math.round(nextP[k] * 500)),
+        Math.round(nextB * 600),
         nextG &&
           SEQUENCE.map((k) => [
             Math.round(nextG!.source[k].x),
@@ -260,6 +302,7 @@ function useScrubStage() {
       if (nextSig !== sig.current) {
         sig.current = nextSig;
         setProgress(nextP);
+        setBuildP(nextB);
         setGeom(nextG);
       }
     };
@@ -280,7 +323,10 @@ function useScrubStage() {
   const setRow = (key: SourceKey) => (el: HTMLDivElement | null) => void (rowEls.current[key] = el);
   const setSource = (key: SourceKey) => (el: HTMLDivElement | null) => void (sourceEls.current[key] = el);
   const setSlot = (key: SourceKey) => (el: HTMLDivElement | null) => void (slotEls.current[key] = el);
-  return { stageRef, setRow, setSource, setSlot, progress, geom };
+  const setSeedSlot = (el: HTMLDivElement | null) => void (seedSlot.current = el);
+  const setBuild = (el: HTMLDivElement | null) => void (buildEl.current = el);
+  const setDest = (el: HTMLDivElement | null) => void (destEl.current = el);
+  return { stageRef, setRow, setSource, setSlot, setSeedSlot, setBuild, setDest, progress, buildP, geom };
 }
 
 function Row({
@@ -310,10 +356,17 @@ function ScrubColumn({
   open,
   landed,
   setSlot,
+  setSeedSlot,
+  spawned,
+  spawning,
 }: {
   open: Record<SourceKey, boolean>;
   landed: Record<SourceKey, boolean>;
   setSlot: (key: SourceKey) => (el: HTMLDivElement | null) => void;
+  setSeedSlot: (el: HTMLDivElement | null) => void;
+  /** How many of the column's tasks have a session running. */
+  spawned: number;
+  spawning: boolean;
 }) {
   const count = 1 + SEQUENCE.filter((k) => landed[k]).length;
   return (
@@ -322,15 +375,27 @@ function ScrubColumn({
       style={{ width: 300, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
     >
       <KanbanColumnView status="todo" label="To Do" count={count}>
-        <KanbanCardView task={SEED_TASK} showBadge={false} />
-        {SEQUENCE.map((k) => (
+        <div ref={setSeedSlot}>
+          <KanbanCardView
+            task={SEED_TASK}
+            connectedDisplays={spawned > 0 ? [CONNECTED[0]] : []}
+            isSettingUp={spawned === 0 && spawning}
+            showBadge={false}
+          />
+        </div>
+        {SEQUENCE.map((k, i) => (
           <div
             key={k}
             ref={setSlot(k)}
             className={`plan-slot ${open[k] ? 'plan-slot-open' : ''} ${landed[k] ? 'plan-slot-in' : ''}`}
           >
             <div>
-              <KanbanCardView task={TASK_BY_SOURCE[k]} showBadge={false} />
+              <KanbanCardView
+                task={TASK_BY_SOURCE[k]}
+                connectedDisplays={spawned > i + 1 ? [CONNECTED[i + 1]] : []}
+                isSettingUp={spawned === i + 1 && spawning}
+                showBadge={false}
+              />
             </div>
           </div>
         ))}
@@ -468,12 +533,29 @@ function useStaticMode() {
 
 const ALL_LANDED: Record<SourceKey, boolean> = { agent: true, issue: true, manual: true };
 
+/** What the flight out of the column costs, and when the session lands. */
+const SPAWN_LAND_AT = 0.86;
+
 function CreateStage() {
   const staticMode = useStaticMode();
-  const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
+  const { stageRef, setRow, setSource, setSlot, setSeedSlot, setBuild, setDest, progress, buildP, geom } =
+    useScrubStage();
   const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
   const open = staticMode ? ALL_LANDED : past(progress, 0.55);
   const landed = staticMode ? ALL_LANDED : past(progress, 0.76);
+
+  // The Build act, on the same scrub: each task in the column spawns a session
+  // that flies to the stack. `filled` is how many have landed, fractionally.
+  const gone = staticMode ? SESSION_COUNT : clamp01(buildP) * SESSION_COUNT;
+  const flying = Math.min(SESSION_COUNT - 1, Math.floor(gone));
+  const f = staticMode ? 1 : clamp01(gone - flying);
+  const filled = staticMode
+    ? SESSION_COUNT
+    : Math.min(SESSION_COUNT, Math.floor(gone) + clamp01(f / SPAWN_LAND_AT));
+  const onStack = Math.floor(filled);
+  const shove = filled - onStack;
+  const frontIndex = onStack - 1;
+
   return (
     <div ref={stageRef} className="relative flex gap-10 items-start plan-stage" style={{ marginTop: 72 }}>
       <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 40 }}>
@@ -484,15 +566,109 @@ function CreateStage() {
             </Desk>
           </Row>
         ))}
+
+        {/* The Build act scrolls up under the rows while the rail above stays
+            stuck, so the column carries across without ever unmounting. */}
+        <div ref={setBuild} className="plan-build-act">
+          <h2 className="plan-v-headline plan-build-title">Build in parallel</h2>
+          <div className="plan-build-pin">
+            <div className="plan-desk desk-wash plan-build-desk" style={{ backgroundImage: DESK_GRAPHITE }}>
+              <DeskWash
+                style={{ '--wash': 'var(--wash-iris)', opacity: 0.9 * clamp01(filled / SESSION_COUNT) } as React.CSSProperties}
+              />
+              <div ref={setDest} className="stk-well" style={{ top: TOP_PAD + Math.max(0, frontIndex + shove) * PEEK }}>
+                {SESSIONS.map((session, i) => {
+                  if (i > frontIndex) return null;
+                  const front = i === frontIndex;
+                  const depth = frontIndex - i + shove;
+                  return (
+                    <div
+                      key={session.task}
+                      className="stk-card"
+                      style={{
+                        zIndex: front ? 10 : 10 - Math.max(1, Math.round(depth)),
+                        transform: `translateY(${-depth * PEEK}px) scaleX(${1 - depth * NARROW})`,
+                      }}
+                    >
+                      <TerminalCardView isActive={front}>
+                        <TerminalHeaderView
+                          summaryType="thinking"
+                          isActive={front}
+                          isBackCard={!front}
+                          stackPosition={front ? undefined : i + 1}
+                          nameContent={
+                            <TerminalHeaderName
+                              label={front ? 'claude' : session.label}
+                              lastOscTitle={session.osc}
+                            />
+                          }
+                          branchContent={
+                            front ? (
+                              <span className="flex items-center gap-1.5 font-mono text-[11px] text-ink/45">
+                                <Icon name="git-branch" className="w-3 h-3" />
+                                {session.branch}
+                              </span>
+                            ) : undefined
+                          }
+                        />
+                        {front && session.body}
+                      </TerminalCardView>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
       <div className="plan-column-rail shrink-0">
         <ChargingDesk landed={landed}>
           <div className="flex" style={{ minHeight: 470 }}>
-            <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
+            <ScrubColumn
+              open={open}
+              landed={landed}
+              setSlot={setSlot}
+              setSeedSlot={setSeedSlot}
+              spawned={onStack}
+              spawning={!staticMode && f > 0.04 && flying < SESSION_COUNT}
+            />
           </div>
         </ChargingDesk>
       </div>
+
       {!staticMode && geom && <HandoffGhosts flightP={flightP} geom={geom} />}
+      {!staticMode && geom && f > 0 && f < SPAWN_LAND_AT && (
+        <SpawnGhost
+          index={flying}
+          from={flying === 0 ? geom.seed : geom.slot[SEQUENCE[flying - 1]]}
+          to={geom.dest}
+          p={clamp01(f / SPAWN_LAND_AT)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** A task leaving the column for the stack — the inbound flight, reversed. */
+function SpawnGhost({ index, from, to, p }: { index: number; from: Box; to: Box; p: number }) {
+  const e = easeInOut(p);
+  const land = { x: to.x + (to.w - from.w) / 2, y: to.y };
+  const task = index === 0 ? SEED_TASK : TASK_BY_SOURCE[SEQUENCE[index - 1]];
+  return (
+    <div
+      className="absolute pointer-events-none glass-bevel rounded-[10px] overflow-hidden border border-bezel-panel"
+      style={{
+        left: lerp(from.x, land.x, e),
+        top: lerp(from.y, land.y, e) - 34 * Math.sin(Math.PI * e),
+        width: from.w,
+        zIndex: 40,
+        background: 'var(--color-terminal-bg)',
+        boxShadow: 'var(--shadow-panel), 0 24px 48px -16px rgba(0, 0, 0, 0.6)',
+        opacity: Math.min(1, p / 0.12),
+      }}
+    >
+      <KanbanCardView task={task} showBadge={false} />
     </div>
   );
 }
