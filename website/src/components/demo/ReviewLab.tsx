@@ -861,21 +861,30 @@ function CondensedPrCard({
 
 /* ─── 2a · Two acts — the loop, then the pull request takes the front ─ */
 
-const TWO_ACT_BEATS = [
-  ...LOOP_BEATS,
+const TWO_ACT_KEYS = [...LOOP_KEYS, 'pr', 'code'] as const;
+
+/**
+ * The captions under the stage. The round trip is one of them and three
+ * beats long: note, send and fix are phases of a single story, and a caption
+ * swapping twice while it plays reads as three unrelated features.
+ */
+const TWO_ACT_CAPTIONS: { keys: readonly string[]; title: string; body: string }[] = [
   {
-    key: 'pr',
+    keys: LOOP_KEYS,
+    title: 'Send notes back to the agent',
+    body: 'Write what you want changed on the line that needs it. Send pastes every note into the agent’s prompt, quoted code and all, and the fix lands in the same session and worktree.',
+  },
+  {
+    keys: ['pr'],
     title: 'Land the pull request',
     body: 'Review every open pull request without opening GitHub — checks, threads, and the merge menu. Risk names the hot files it touches and the coupled ones it leaves out.',
   },
   {
-    key: 'code',
+    keys: ['code'],
     title: 'Draft the review',
     body: 'The Code tab walks the diff file by file. Comments stage as drafts — yours beside your agents’ — and nothing reaches GitHub until you send them as one review.',
   },
-] as const;
-
-const TWO_ACT_KEYS = TWO_ACT_BEATS.map((b) => b.key);
+];
 
 export function ReviewVariantTwoAct() {
   const { rootRef, p, progress, active, seek } = useTheaterLoop(TWO_ACT_KEYS);
@@ -905,10 +914,15 @@ export function ReviewVariantTwoAct() {
           </div>
         </div>
       <div className="beat-row">
-        {TWO_ACT_BEATS.map((b, i) => (
-          <button type="button" key={b.key} className={i === active ? 'is-active' : undefined} onClick={() => seek(i)}>
-            <h3>{b.title}</h3>
-            <p>{b.body}</p>
+        {TWO_ACT_CAPTIONS.map((c) => (
+          <button
+            type="button"
+            key={c.title}
+            className={c.keys.includes(TWO_ACT_KEYS[active]) ? 'is-active' : undefined}
+            onClick={() => seek(TWO_ACT_KEYS.indexOf(c.keys[0] as (typeof TWO_ACT_KEYS)[number]))}
+          >
+            <h3>{c.title}</h3>
+            <p>{c.body}</p>
           </button>
         ))}
       </div>

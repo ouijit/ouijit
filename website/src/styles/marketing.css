@@ -1617,11 +1617,14 @@ body.marketing::after {
   padding: 140px var(--content-padding) 48px;
 }
 
-/* Both theaters' captions: all beats stay in view under the stage in one
-   row; the active one lit. */
+/* Both theaters' captions: all of them stay in view under the stage in one
+   row, the active one lit. Auto columns rather than a count — the two
+   theaters have different numbers of captions, and one caption can stand
+   for more than one beat. */
 .beat-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   align-items: start;
   gap: 28px;
   width: 100%;
