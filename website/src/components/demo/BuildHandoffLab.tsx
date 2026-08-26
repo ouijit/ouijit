@@ -8,6 +8,7 @@ import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCa
 import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { SESSIONS, N, PEEK, TOP_PAD, NARROW } from './BuildStackLab';
+import { TODO_COLUMN } from './PlanSection';
 import { DeskWash } from './DeskWash';
 
 /**
@@ -43,24 +44,8 @@ const GROW_SPAN = (N * PER_CARD_VH) / (RUN_VH - 100);
  *  rather than appearing mid-air. */
 const LAND_AT = 0.88;
 
-function task(taskNumber: number, name: string, branch: string): TaskWithWorkspace {
-  return {
-    taskNumber,
-    name,
-    status: 'todo',
-    branch,
-    worktreePath: `/demo/horizon/.ouijit/worktrees/T-${taskNumber}`,
-    createdAt: '2026-05-08T09:00:00Z',
-  };
-}
-
-const TASKS: TaskWithWorkspace[] = [
-  task(101, 'Rework onboarding flow', 'rework-onboarding'),
-  task(102, 'Wire payment retries to dunning queue', 'billing-retries'),
-  task(103, 'Polish invitation email', 'polish-invitation-email'),
-  task(104, 'Speed up search index build', 'speed-search-index'),
-  task(105, 'Add CSV export to invoices', 'invoices-csv-export'),
-];
+/** The column the Plan section hands over, not a lookalike of it. */
+const TASKS = TODO_COLUMN;
 
 const DESK_GRAPHITE =
   'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%), linear-gradient(180deg, #1c1d23, #131318)';
@@ -69,11 +54,11 @@ const DESK_GRAPHITE =
 const CONNECTED: TerminalDisplayState[] = SESSIONS.map((session, i) => ({
   ...DEFAULT_DISPLAY_STATE,
   projectPath: '/demo/horizon',
-  ptyId: `pty-${101 + i}-claude`,
+  ptyId: `pty-${TODO_COLUMN[i].taskNumber}-claude`,
   label: 'claude',
   summaryType: 'thinking',
   lastOscTitle: session.osc,
-  taskId: 101 + i,
+  taskId: TODO_COLUMN[i].taskNumber,
 }));
 
 interface Box {

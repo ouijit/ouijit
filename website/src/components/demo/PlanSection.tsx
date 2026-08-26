@@ -25,15 +25,19 @@ function task(taskNumber: number, name: string, branch: string): TaskWithWorkspa
   };
 }
 
-const SEED_TASK = task(116, 'Bump deps for security advisory', 'bump-deps-advisory');
+export const SEED_TASK = task(116, 'Bump deps for security advisory', 'bump-deps-advisory');
 
-const TASK_BY_SOURCE: Record<SourceKey, TaskWithWorkspace> = {
+export const TASK_BY_SOURCE: Record<SourceKey, TaskWithWorkspace> = {
   agent: task(119, 'Add rate-limit headers to the public API', 'api-rate-limit-headers'),
   issue: task(121, 'Support SSO re-auth prompt', 'sso-reauth-prompt'),
   manual: task(120, 'Fix flaky signup e2e', 'fix-signup-e2e'),
 };
 
 const SEQUENCE: SourceKey[] = ['agent', 'issue', 'manual'];
+
+/** The column exactly as the Plan section leaves it. The Build section opens
+ *  with this so the two are one list rather than two that look alike. */
+export const TODO_COLUMN: TaskWithWorkspace[] = [SEED_TASK, ...SEQUENCE.map((k) => TASK_BY_SOURCE[k])];
 
 /* ─── Mock pieces ─────────────────────────────────────────────────── */
 

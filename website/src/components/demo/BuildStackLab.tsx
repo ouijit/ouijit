@@ -33,88 +33,66 @@ function Lines({ added, removed, note }: { added: number; removed?: number; note
 
 export const SESSIONS = [
   {
-    task: 'T-101',
-    label: 'Rework onboarding flow',
-    branch: 'rework-onboarding',
-    osc: 'Editing onboarding stepper…',
+    task: 'T-116',
+    label: 'Bump deps for security advisory',
+    branch: 'bump-deps-advisory',
+    osc: 'Running npm audit…',
     body: (
       <ClaudeShell busy>
-        <ClaudeUser>Split onboarding into a three-step stepper with saved progress.</ClaudeUser>
-        <AssistantSay>I&rsquo;ll read the existing component first, then split it.</AssistantSay>
-        <ToolCall name="Read" args="src/onboarding/Stepper.tsx" />
-        <ToolResult>Read 142 lines</ToolResult>
-        <ToolCall name="Edit" args="src/onboarding/Stepper.tsx" />
-        <Lines added={92} removed={14} />
-        <Continuation>persists progress, adds a back affordance, retires WelcomeIntro</Continuation>
-        <ToolCall name="Write" args="src/onboarding/useOnboardingProgress.ts" />
-        <Lines added={38} note="lines (new)" />
+        <ClaudeUser>Bump the flagged deps and make sure nothing downstream breaks.</ClaudeUser>
+        <AssistantSay>Three advisories, all transitive. Taking the minimum bump that clears them.</AssistantSay>
+        <ToolCall name="Bash" args="npm audit --json" />
+        <ToolResult>3 advisories · 2 high</ToolResult>
+        <ToolCall name="Edit" args="package.json" />
+        <Lines added={6} removed={6} />
       </ClaudeShell>
     ),
   },
   {
-    task: 'T-102',
-    label: 'Wire payment retries',
-    branch: 'billing-retries',
-    osc: 'Reading dunningQueue.ts…',
+    task: 'T-119',
+    label: 'Add rate-limit headers to the public API',
+    branch: 'api-rate-limit-headers',
+    osc: 'Editing the route middleware…',
     body: (
       <ClaudeShell busy>
-        <ClaudeUser>Retry failed charges through the dunning queue instead of failing the invoice.</ClaudeUser>
-        <AssistantSay>Reading the router to see where a charge currently gives up.</AssistantSay>
-        <ToolCall name="Read" args="src/billing/webhookRouter.ts" />
-        <ToolResult>Read 612 lines</ToolResult>
-        <ToolCall name="Edit" args="src/billing/dunningQueue.ts" />
-        <Lines added={18} removed={4} />
-        <Continuation>backs off 1h, 6h, 24h before marking the invoice past due</Continuation>
+        <ClaudeUser>429 and Retry-After on every public route.</ClaudeUser>
+        <AssistantSay>The limiter already tracks the window; it just never writes the headers.</AssistantSay>
+        <ToolCall name="Read" args="src/api/rateLimit.ts" />
+        <ToolResult>Read 214 lines</ToolResult>
+        <ToolCall name="Edit" args="src/api/middleware.ts" />
+        <Lines added={38} removed={4} />
+        <Continuation>sets X-RateLimit-Remaining and Retry-After on every public route</Continuation>
       </ClaudeShell>
     ),
   },
   {
-    task: 'T-103',
-    label: 'Polish invitation email',
-    branch: 'polish-invitation-email',
-    osc: 'Building the mail templates…',
+    task: 'T-121',
+    label: 'Support SSO re-auth prompt',
+    branch: 'sso-reauth-prompt',
+    osc: 'Reading session.ts…',
     body: (
       <ClaudeShell busy>
-        <ClaudeUser>Match the invitation email to the new brand tokens.</ClaudeUser>
-        <ToolCall name="Write" args="app/mailers/templates/invitation.tsx" />
-        <Lines added={34} removed={2} />
-        <Continuation>header and CTA now read from the shared tokens</Continuation>
-        <ToolCall name="Bash" args="npm run build:mail" />
+        <ClaudeUser>Re-prompt for SSO when the session is older than the tenant's limit.</ClaudeUser>
+        <AssistantSay>Reading how the session age is tracked before I add the check.</AssistantSay>
+        <ToolCall name="Read" args="src/account/session.ts" />
+        <ToolResult>Read 388 lines</ToolResult>
+        <ToolCall name="Write" args="src/account/reauth.ts" />
+        <Lines added={52} note="lines (new)" />
       </ClaudeShell>
     ),
   },
   {
-    task: 'T-104',
-    label: 'Speed up search index',
-    branch: 'speed-search-index',
-    osc: 'Running npm test…',
+    task: 'T-120',
+    label: 'Fix flaky signup e2e',
+    branch: 'fix-signup-e2e',
+    osc: 'Running the suite…',
     body: (
       <ClaudeShell busy>
-        <ClaudeUser>The index build takes four minutes on a cold cache. Find out why.</ClaudeUser>
-        <AssistantSay>The tokenizer re-reads every document per field. Batching it first.</AssistantSay>
-        <ToolCall name="Edit" args="src/search/tokenizer.ts" />
-        <Lines added={40} removed={12} />
-        <ToolCall name="Bash" args="npm run bench:index" />
-        <ToolResult>
-          <span className={GREEN}>2.1× faster</span>
-          <span className="ml-2 text-white/35">114s → 54s</span>
-        </ToolResult>
-      </ClaudeShell>
-    ),
-  },
-  {
-    task: 'T-105',
-    label: 'Add CSV export',
-    branch: 'invoices-csv-export',
-    osc: 'Writing toCsv.ts…',
-    body: (
-      <ClaudeShell busy>
-        <ClaudeUser>Add a CSV export to the invoices table, respecting the current filters.</ClaudeUser>
-        <AssistantSay>I&rsquo;ll put the serialiser beside the table so the columns stay in one place.</AssistantSay>
-        <ToolCall name="Write" args="src/invoices/toCsv.ts" />
-        <Lines added={64} note="lines (new)" />
-        <ToolCall name="Edit" args="src/invoices/InvoicesTable.tsx" />
-        <Lines added={47} removed={6} />
+        <ClaudeUser>The signup e2e fails about one run in five. Find out why.</ClaudeUser>
+        <AssistantSay>It asserts on the toast before the redirect settles. Waiting on the route instead.</AssistantSay>
+        <ToolCall name="Edit" args="e2e/signup.test.ts" />
+        <Lines added={14} removed={9} />
+        <ToolCall name="Bash" args="npm run test:e2e -- signup --repeat 20" />
       </ClaudeShell>
     ),
   },

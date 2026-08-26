@@ -2486,7 +2486,8 @@ body.marketing::after {
   align-items: center;
   gap: 56px;
   width: 100%;
-  max-width: 1320px;
+  max-width: 1200px;
+  padding: 0 var(--content-padding);
   height: 74vh;
   max-height: 720px;
   margin: 0 auto;
