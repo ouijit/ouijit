@@ -12,9 +12,11 @@ import {
 } from '../demo/ExtrasMocks';
 
 /**
- * Two ribbons of cards, wider than the window and drifting opposite ways.
+ * Two ribbons of cards, wider than the window and drifting together.
  * `w` is the card's width and `lift` how far it sits off its ribbon's line —
- * together they give the band a contour instead of a straight edge.
+ * together they give the band a contour instead of a straight edge. The rows
+ * hold different totals, so they come back round out of phase with each other
+ * rather than travelling as one block.
  */
 const TOP = [
   {
@@ -95,8 +97,8 @@ const BOTTOM = [
 ];
 
 const GAP = 18;
-/** Pixels a ribbon travels per second — the same for both, so a wider one
- *  simply takes longer round rather than looking hurried. */
+/** Pixels a ribbon travels per second. Both ribbons take it, so they move
+ *  together; their differing widths only change how long each takes round. */
 const DRIFT_PX_PER_S = 22;
 const runWidth = (row: typeof TOP) => row.reduce((sum, c) => sum + c.w + GAP, 0);
 ---
@@ -107,14 +109,8 @@ const runWidth = (row: typeof TOP) => row.reduce((sum, c) => sum + c.w + GAP, 0)
   </div>
   <div class="tools-flow bento" data-reveal>
     {
-      [
-        { row: TOP, rev: false },
-        { row: BOTTOM, rev: true },
-      ].map(({ row, rev }) => (
-        <div
-          class:list={['tools-ribbon', rev && 'tools-ribbon--rev']}
-          style={`--drift: ${(runWidth(row) / DRIFT_PX_PER_S).toFixed(1)}s`}
-        >
+      [TOP, BOTTOM].map((row) => (
+        <div class="tools-ribbon" style={`--drift: ${(runWidth(row) / DRIFT_PX_PER_S).toFixed(1)}s`}>
           {[0, 1].map((copy) => (
             <div class="tools-run" aria-hidden={copy === 1 ? 'true' : undefined}>
               {row.map((card) => {

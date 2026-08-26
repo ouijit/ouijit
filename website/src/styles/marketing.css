@@ -781,10 +781,6 @@ html.js [data-reveal].is-revealed {
   animation: tools-drift var(--drift, 90s) linear infinite;
 }
 
-.tools-ribbon--rev {
-  animation-direction: reverse;
-}
-
 .tools-run {
   display: flex;
   gap: 18px;
