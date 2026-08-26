@@ -2567,9 +2567,9 @@ body.marketing::after {
 
 /* ── Build handoff lab: the To Do column emptying into the stack ───── */
 
-/* Normal flow, no tall wrapper: the run is scrubbed off the stage's own
-   travel up the viewport, so the section costs its own height in scroll and
-   nothing above it is held in place. */
+/* Normal flow, no tall wrapper: the run plays on its own clock once the stage
+   is in view, so the section costs its own height in scroll and nothing above
+   it is held in place. */
 .hx-frame {
   display: flex;
   align-items: center;

@@ -27,8 +27,7 @@ import { DeskWash } from './DeskWash';
  * The stack keeps the app's behaviour (see BuildStackLab): the arriving
  * session takes the front, everything already on it goes one peek further
  * back, and ⌘1 is the deepest card. The one difference is when the terminal
- * appears — it materialises as the flight lands, filling the place the stack
- * has been opening.
+ * appears — it materialises as the flight lands.
  */
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -36,15 +35,17 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
 /**
- * The run is scrubbed off the stage's own travel rather than off a tall
- * wrapper holding the viewport still: it opens as the stage crosses the fold
- * and closes as its top reaches the top of the window, so the last session
- * lands with the whole stage in view and the section costs no more scroll
- * than its own height. This is the deal the Plan section makes.
+ * Scroll brings the run into view and nothing more: the four handoffs are one
+ * sequence on its own clock, offset a step apart, rather than four windows a
+ * reader scrubs through at whatever pace they scroll. The section costs its
+ * own height in scroll and holds nothing above it in place.
  */
-const OPEN_AT = 0.9;
+const STEP_MS = 1100;
 
-/** The flight is done a little before the window is, so the terminal lands
+/** The stage settles in view before the first card leaves the column. */
+const LEAD_MS = 400;
+
+/** The flight is done a little before its step is, so the terminal lands
  *  rather than appearing mid-air. */
 const LAND_AT = 0.88;
 
@@ -73,67 +74,71 @@ interface Box {
 }
 
 /**
- * Progress across the run, plus the rectangles a flight interpolates between,
- * both measured against the stage on every scroll frame — the same shape as
- * the Plan section's scrub.
+ * How far the run has got, in tasks, plus the rectangles a flight interpolates
+ * between, measured against the stage. The clock only advances while the stage
+ * is on screen, so the run always plays where it can be seen, and it stops for
+ * good once the last session has landed.
  */
-function useHandoffStage() {
+function useHandoffRun() {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const slotEls = useRef<Array<HTMLElement | null>>([]);
   const destRef = useRef<HTMLDivElement | null>(null);
-  const [t, setT] = useState(0);
+  const [gone, setGone] = useState(0);
   const [geom, setGeom] = useState<{ slots: Box[]; dest: Box } | null>(null);
-  const sig = useRef('');
 
   useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    let visible = false;
+    const io = new IntersectionObserver(([e]) => void (visible = e.isIntersecting), { threshold: 0.3 });
+    io.observe(stage);
+
     let raf = 0;
-    const update = () => {
-      const stage = stageRef.current;
-      if (!stage) return;
+    let last = performance.now();
+    let elapsed = -LEAD_MS;
+    let shownGone = -1;
+    let sig = '';
+    const tick = (now: number) => {
+      const dt = Math.min(now - last, 100);
+      last = now;
+      if (visible) elapsed = Math.min(N * STEP_MS, elapsed + dt);
 
-      const vh = window.innerHeight;
       const rect = stage.getBoundingClientRect();
-      const nextT = clamp01(1 - rect.top / (vh * OPEN_AT));
-
-      let nextG: { slots: Box[]; dest: Box } | null = null;
-      if (destRef.current) {
-        const s = rect;
-        const rel = (el: Element): Box => {
-          const b = el.getBoundingClientRect();
-          return { x: b.left - s.left, y: b.top - s.top, w: b.width, h: b.height };
-        };
-        const slots = slotEls.current.map((el) => (el ? rel(el) : null));
-        if (slots.every(Boolean) && slots.length === N) {
-          nextG = { slots: slots as Box[], dest: rel(destRef.current) };
+      const rel = (el: Element): Box => {
+        const b = el.getBoundingClientRect();
+        return { x: b.left - rect.left, y: b.top - rect.top, w: b.width, h: b.height };
+      };
+      const slots = slotEls.current.map((el) => (el ? rel(el) : null));
+      if (destRef.current && slots.length === N && slots.every(Boolean)) {
+        const next = { slots: slots as Box[], dest: rel(destRef.current) };
+        const nextSig = JSON.stringify(
+          [next.dest.x, next.dest.y, next.dest.w, next.slots.map((b) => [b.x, b.y, b.w])].flat(3).map(Math.round),
+        );
+        if (nextSig !== sig) {
+          sig = nextSig;
+          setGeom(next);
         }
       }
 
-      const nextSig = JSON.stringify([
-        Math.round(nextT * 800),
-        nextG && [nextG.dest.x, nextG.dest.y, nextG.dest.w, nextG.slots.map((b) => [b.x, b.y, b.w])].flat(3).map(Math.round),
-      ]);
-      if (nextSig !== sig.current) {
-        sig.current = nextSig;
-        setT(nextT);
-        setGeom(nextG);
+      const next = clamp01(elapsed / (N * STEP_MS)) * N;
+      const rounded = Math.round(next * 240);
+      if (rounded !== shownGone) {
+        shownGone = rounded;
+        setGone(next);
       }
+      /* The stack is a finished state, not a loop: once it is full there is
+         nothing left to measure or advance. */
+      if (next < N) raf = requestAnimationFrame(tick);
     };
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
+    raf = requestAnimationFrame(tick);
     return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
       cancelAnimationFrame(raf);
+      io.disconnect();
     };
   }, []);
 
   const setSlot = (i: number) => (el: HTMLDivElement | null) => void (slotEls.current[i] = el);
-  return { stageRef, destRef, setSlot, t, geom };
+  return { stageRef, destRef, setSlot, gone, geom };
 }
 
 function useStaticMode() {
@@ -178,16 +183,16 @@ function TaskGhost({ task, from, to, p }: { task: TaskWithWorkspace; from: Box; 
 }
 
 export function VariantHandoff() {
-  const { stageRef, destRef, setSlot, t, geom } = useHandoffStage();
+  const { stageRef, destRef, setSlot, gone: ran, geom } = useHandoffRun();
   const staticMode = useStaticMode();
 
-  // One window per task: the card leaves its slot, flies, and lands as a
+  // One step per task: the card leaves its slot, flies, and lands as a
   // session. `gone` counts the tasks that have left the column.
-  const gone = staticMode ? N : t * N;
+  const gone = staticMode ? N : ran;
   const flying = Math.min(N - 1, Math.floor(gone));
   const f = staticMode ? 1 : clamp01(gone - flying);
   /*
-   * Scroll says how many sessions are on the stack and nothing else. The
+   * The run says how many sessions are on the stack and nothing else. The
    * depths move on their own transitions from there, so a card settles at its
    * own pace instead of being dragged back a fraction of a peek at a time by
    * whatever is still in the air.
