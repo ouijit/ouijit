@@ -119,9 +119,9 @@ const BOTTOM = [
 
 const GAP = 18;
 
-/** Pixels a ribbon travels per second. Both ribbons take it, so they move
- *  together; their differing widths only change how long each takes round. */
-const DRIFT_PX_PER_S = 22;
+/** One copy of a row, gaps included — how far the script slides a ribbon
+ *  before it is back where it started. Speed and direction live in the
+ *  script, since they follow the pointer. */
 const runWidth = (row: typeof TOP) => row.reduce((sum, c) => sum + c.w + GAP, 0);
 
 if (runWidth(TOP) !== runWidth(BOTTOM)) {
@@ -141,7 +141,7 @@ if (runWidth(TOP) !== runWidth(BOTTOM)) {
         { row: TOP, cls: 'tools-ribbon--top' },
         { row: BOTTOM, cls: 'tools-ribbon--btm' },
       ].map(({ row, cls }) => (
-        <div class:list={['tools-ribbon', cls]} style={`--drift: ${(runWidth(row) / DRIFT_PX_PER_S).toFixed(1)}s`}>
+        <div class:list={['tools-ribbon', cls]}>
           {[0, 1].map((copy) => (
             <div class="tools-run" aria-hidden={copy === 1 ? 'true' : undefined}>
               {row.map((card) => {

@@ -780,11 +780,13 @@ html.js [data-reveal].is-revealed {
   margin-top: calc(-1 * var(--lead-drop, 0px));
 }
 
+/* Moved by script — see initToolsRibbons. A keyframe cannot take its speed
+   and direction from where the pointer is, and an animation would win over
+   the inline transform anyway. */
 .tools-ribbon {
   display: flex;
   gap: 18px;
   width: max-content;
-  animation: tools-drift var(--drift, 90s) linear infinite;
 }
 
 .tools-run {
@@ -803,18 +805,6 @@ html.js [data-reveal].is-revealed {
 
 .tools-ribbon--btm .tools-run {
   align-items: flex-start;
-}
-
-/* Half the ribbon is one copy less half the gap between the two, so the extra
-   nine puts the second copy exactly where the first began. */
-@keyframes tools-drift {
-  to {
-    transform: translateX(calc(-50% - 9px));
-  }
-}
-
-.tools-flow:hover .tools-ribbon {
-  animation-play-state: paused;
 }
 
  /* `top` rather than a transform: [data-reveal] animates transform and
@@ -925,11 +915,8 @@ html.js [data-reveal].is-revealed {
 
 }
 
+/* The script leaves the ribbons where they are, so give them a way to be read. */
 @media (prefers-reduced-motion: reduce) {
-  .tools-ribbon {
-    animation: none;
-  }
-
   .tools-flow {
     overflow-x: auto;
   }
