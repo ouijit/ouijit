@@ -2483,7 +2483,7 @@ body.marketing::after {
 .hx-stage {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 56px;
   width: 100%;
   max-width: 1200px;
