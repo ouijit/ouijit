@@ -21,8 +21,6 @@ interface SidebarProps {
 
 export function Sidebar({ onProjectSelect, onHomeSelect, onAddProject, onCloneSelect }: SidebarProps) {
   const projects = useAppStore((s) => s.projects);
-  // The paths, not the jobs: a job is replaced on every progress line, and
-  // re-rendering the drag context to animate one ring is not worth it.
   const cloningPaths = useAppStore(useShallow((s) => s.cloneJobs.map((job) => job.projectPath)));
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);

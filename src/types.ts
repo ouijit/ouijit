@@ -852,7 +852,6 @@ export interface CloneProgress {
  */
 interface CloneJobBase extends CloneProgress {
   projectPath: string;
-  /** Folder name, which is what the project will be called. */
   name: string;
   identity: RepoIdentity;
   /** Epoch ms, so the view can count elapsed time without a ticking push. */
@@ -869,8 +868,7 @@ export interface FailedCloneJob extends CloneJobBase {
 export type CloneJob = (CloneJobBase & { status: 'cloning' }) | FailedCloneJob;
 
 /**
- * Whether the clone got under way — not whether it finished. `projectPath` is
- * where the project will be, so the caller can navigate there at once.
+ * Whether the clone got under way — not whether it finished.
  */
 export type StartCloneResult = { success: true; projectPath: string } | { success: false; error: string };
 

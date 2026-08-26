@@ -156,8 +156,6 @@ export function CloneFromGithubForm({ onCancel, onStarted }: CloneFromGithubForm
     listRef.current?.children[highlight]?.scrollIntoView({ block: 'nearest' });
   }, [highlight]);
 
-  // Resolves once the clone is under way, not once it lands, so the dialog
-  // closes without waiting on the download.
   const handleClone = useCallback(
     async (repo: RepoIdentity | null) => {
       if (!repo || cloning) return;

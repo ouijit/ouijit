@@ -39,10 +39,6 @@ export async function addExistingProject(
   return { success: true };
 }
 
-/**
- * Register a folder some flow has just produced, and make the folder it landed
- * in the default for the next one.
- */
 export async function registerProducedProject(
   projectPath: string,
   source: FirstProjectSource,

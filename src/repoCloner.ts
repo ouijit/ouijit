@@ -1,13 +1,7 @@
 /**
- * Cloning a GitHub repository into the projects folder.
- *
  * `gh repo clone` when the CLI is there — it carries gh's credentials, so a
  * private repo works without the app touching a token — and plain `git clone`
- * over HTTPS otherwise, which covers public repos on a machine without gh.
- *
- * The clone streams rather than resolving once: a large repo takes minutes, so
- * the caller has to be able to show progress and cancel instead of blocking on
- * a subprocess.
+ * over HTTPS otherwise.
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -23,7 +17,6 @@ import type { CloneProgress, CloneProjectOptions } from './types';
 
 const cloneLog = getLogger().scope('repoCloner');
 
-/** Enough of git's stderr to diagnose a failure, without holding a whole log. */
 const STDERR_TAIL = 8 * 1024;
 
 /** How long the last of stderr gets to arrive after the process is gone. */
@@ -35,8 +28,6 @@ const MEASURED = /^(?:remote:\s*)?([A-Za-z][A-Za-z ]*?):\s+(\d+)%\s+\(\d+\/\d+\)
 const UNMEASURED = /^(?:remote:\s*)?([A-Za-z][A-Za-z ]*?):\s+\d+(?:$|,)/;
 
 /**
- * One line of git's progress, or null for a line that carries none.
- *
  * git only writes progress to a non-TTY when asked with `--progress`, and
  * redraws each step in place with a carriage return rather than a newline, so
  * the reader has to split on `\r` as well as `\n` to see the updates.
@@ -64,8 +55,7 @@ export interface CloneTarget {
   projectPath: string;
   /**
    * A sibling of `projectPath`, so the rename into place stays within one
-   * filesystem and is therefore atomic. The destination never exists
-   * half-cloned, and abandoning a clone is one directory removal.
+   * filesystem and is therefore atomic.
    */
   stagingPath: string;
 }
@@ -139,11 +129,9 @@ function cloneErrorMessage(stderr: string, identity: RepoIdentity): string {
 export interface RunningClone {
   done: Promise<CloneOutcome>;
   cancel: () => void;
-  /** git's stderr, for a failure the message alone does not explain. */
   output: () => string;
 }
 
-/** Clone into the staging directory, then rename it into place. */
 export function runClone(target: CloneTarget, onProgress: (progress: CloneProgress) => void): RunningClone {
   let child: ChildProcess | null = null;
   let canceled = false;

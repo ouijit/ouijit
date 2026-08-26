@@ -1,12 +1,7 @@
 /**
  * The clones currently in flight, held in memory rather than in the projects
- * table.
- *
- * A cloning project is not a project yet: it has no worktree, no tasks and no
- * git. Giving the table a status column would make every consumer — task
- * creation, hooks, the CLI, the REST API — handle a state that lasts a minute
- * and must not survive a restart, and a crash would leave a row stuck in it.
- * Here, a crash leaves only a staging directory, which the next clone removes.
+ * table. A crash therefore leaves only a staging directory, which the next
+ * clone removes.
  *
  * Keyed by the path the project will occupy, which is unique because a clone
  * refuses to start when something already sits there.
@@ -30,7 +25,6 @@ const entries = new Map<string, Entry>();
 let notify: (jobs: CloneJob[]) => void = () => {};
 let announceLanded: (projectPath: string) => void = () => {};
 
-/** Wired by the IPC layer so the registry has no BrowserWindow of its own. */
 export function setCloneListeners(listeners: {
   onChanged: (jobs: CloneJob[]) => void;
   onLanded: (projectPath: string) => void;
@@ -75,10 +69,6 @@ function forget(entry: Entry): void {
 }
 
 /**
- * Begin a clone and return as soon as it is under way. The caller gets the
- * path the project will occupy so it can navigate there immediately; the
- * outcome arrives over the change and landed notifications.
- *
  * `replacing` names the path a retry is taking over, which keeps its place in
  * the list until this one is ready: a path that is briefly neither a clone nor
  * a project puts the project view on a directory that is not there.
@@ -135,7 +125,6 @@ export async function startClone(options: CloneProjectOptions, replacing?: strin
   return { success: true, projectPath: target.projectPath };
 }
 
-/** Stop a clone and drop everything it had written. */
 export function cancelClone(projectPath: string): void {
   const entry = entries.get(projectPath);
   if (!entry) return;
@@ -146,11 +135,6 @@ export function cancelClone(projectPath: string): void {
   if (entry.job.status === 'failed') forget(entry);
 }
 
-/**
- * Run a failed clone again, into the place it was already headed. The entry
- * holds everything that takes, so the renderer does not have to reassemble it,
- * and it stays listed until the new one replaces it.
- */
 export async function retryClone(projectPath: string): Promise<StartCloneResult> {
   const entry = entries.get(projectPath);
   if (!entry) return { success: false, error: 'That clone is no longer listed' };
@@ -161,7 +145,6 @@ export async function retryClone(projectPath: string): Promise<StartCloneResult>
   return startClone({ repo: entry.job.identity, parentDir: path.dirname(projectPath) }, projectPath);
 }
 
-/** Cancel everything in flight, dropping what each had written. */
 export function cancelAllClones(): void {
   for (const projectPath of [...entries.keys()]) cancelClone(projectPath);
 }

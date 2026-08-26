@@ -788,7 +788,6 @@ export async function fetchUserRepos(): Promise<GithubRepoSummary[]> {
   return raw.map((repo) => toRepoSummary(repo, DEFAULT_GH_HOST));
 }
 
-/** One repo by identity. */
 export async function fetchRepo(identity: RepoIdentity): Promise<GithubRepoSummary> {
   return toRepoSummary(await ghRest<RawRepo>(`repos/${repoSlug(identity)}`, { identity }), identity.host);
 }

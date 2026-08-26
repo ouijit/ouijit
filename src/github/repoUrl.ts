@@ -8,7 +8,6 @@
 
 import { repoSlug, type RepoIdentity } from './types';
 
-/** Where gh sends a request that names no host of its own. */
 export const DEFAULT_GH_HOST = 'github.com';
 
 /**

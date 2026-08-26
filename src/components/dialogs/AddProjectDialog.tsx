@@ -15,7 +15,6 @@ export type AddProjectResult =
   | { kind: 'created'; projectPath: string }
   | { kind: 'cloning'; projectPath: string };
 
-/** Opening a folder never becomes a step — it leaves the dialog immediately. */
 export type AddProjectStep = 'choose' | 'create' | 'clone';
 
 const TITLES: Record<AddProjectStep, string> = {

@@ -4,10 +4,7 @@ import { SidebarTooltipWrapper, SidebarTile } from './SidebarTooltip';
 import { useAppStore, selectCloneJob } from '../stores/appStore';
 import type { CloneJob } from '../types';
 
-/**
- * A project that is still arriving. Inert by design — no drag, no context
- * menu, nothing that acts on a directory which is not there yet.
- */
+/** A project that is still arriving: no drag and no context menu. */
 export function CloningProjectIcon({
   projectPath,
   isActive,
