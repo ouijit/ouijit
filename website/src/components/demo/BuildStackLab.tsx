@@ -140,6 +140,14 @@ const PEEK = 24;
 const TOP_PAD = 44;
 const NARROW = 0.014;
 
+/** What one arrival costs in scroll. The run is a viewport for the sticky
+ *  hold, that per card, and a tail so the finished stack sits for a moment. */
+const PER_CARD_VH = 26;
+const TAIL_VH = 24;
+const RUN_VH = 100 + (N - 1) * PER_CARD_VH + TAIL_VH;
+/** The share of the scrub the arrivals take, leaving the tail to hold. */
+const GROW_SPAN = ((N - 1) * PER_CARD_VH) / (RUN_VH - 100);
+
 function useStageScrub() {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [t, setT] = useState(0);
@@ -193,7 +201,7 @@ function useStaticMode() {
 export function VariantStack() {
   const { wrapRef, t } = useStageScrub();
   const staticMode = useStaticMode();
-  const grown = staticMode ? N : 1 + clamp01(t / 0.92) * (N - 1);
+  const grown = staticMode ? N : 1 + clamp01(t / GROW_SPAN) * (N - 1);
   /*
    * TerminalCardStack: a new session is appended and becomes active, every
    * other card's backDepth goes up by one, and the container's top drops a
@@ -205,7 +213,7 @@ export function VariantStack() {
   const backCards = frontIndex - 1 + f;
 
   return (
-    <div ref={wrapRef} style={{ height: staticMode ? 'auto' : '340vh' }}>
+    <div ref={wrapRef} style={{ height: staticMode ? 'auto' : `${RUN_VH}vh` }}>
       <div className="stk-sticky">
         <div className="plan-desk desk-wash desk-wash--iris stk-desk">
           <DeskWash />
