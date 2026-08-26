@@ -1,48 +1,40 @@
 ---
 import Site from '../../layouts/Site.astro';
-import { VariantMitosis, VariantBoardFill, VariantPullBack } from '../../components/demo/BuildGridLab.tsx';
-
-const VARIANTS = [
-  {
-    id: '6a',
-    name: 'Mitosis',
-    note: 'One tile at full width. Each beat the grid reflows and every tile shrinks to make room — the split is the message.',
-  },
-  {
-    id: '6b',
-    name: 'Board fill',
-    note: 'Fixed 3-up slots. Tiles land in reading order and never move once placed; the empty slot keeps the headroom visible.',
-  },
-  {
-    id: '6c',
-    name: 'Pull back',
-    note: 'The camera retreats. One tile fills the frame, then the fleet comes into view around it as the grid scales down.',
-  },
-];
+import { VariantMitosis, VariantDock, VariantWall } from '../../components/demo/BuildFleetLab.tsx';
 ---
-<Site title="Lab · Build in parallel, as a grid" noindex>
+<Site title="Lab · Build in parallel, as a fleet" noindex>
   <section class="home-build">
-    <h1 class="plan-v-headline">Build in parallel — grid concepts</h1>
+    <h1 class="plan-v-headline">Build in parallel — fleet concepts</h1>
     <p style="color: #86868b; max-width: 62ch; margin: 16px 0 0;">
-      Three stagings of the same five tiles. Scroll each theater, or click a caption to seek.
+      Three scroll-scrubbed stages. Each pins the viewport and grows the fleet with the wheel — no desk, no
+      beat row, one caption at a time. Scroll slowly; every frame is scrubbed, not stepped.
     </p>
   </section>
 
-  <section class="home-build">
-    <h2 class="plan-v-headline">6a · {VARIANTS[0].name}</h2>
-    <p style="color: #86868b; max-width: 62ch; margin: 12px 0 32px;">{VARIANTS[0].note}</p>
-    <VariantMitosis client:visible />
+  <section class="home-build" style="padding-bottom: 0;">
+    <h2 class="plan-v-headline">7a · Mitosis</h2>
+    <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
+      One surface divides. Seams open from nothing and every tile shrinks to make room, so the fleet is the
+      first terminal splitting rather than tiles arriving beside it.
+    </p>
   </section>
+  <VariantMitosis client:visible />
 
-  <section class="home-build">
-    <h2 class="plan-v-headline">6b · {VARIANTS[1].name}</h2>
-    <p style="color: #86868b; max-width: 62ch; margin: 12px 0 32px;">{VARIANTS[1].note}</p>
-    <VariantBoardFill client:visible />
+  <section class="home-build" style="padding-bottom: 0;">
+    <h2 class="plan-v-headline">7b · Dock</h2>
+    <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
+      The lead tile settles from centre into its slot while the rest fly in from off stage and lock to the
+      grid around it.
+    </p>
   </section>
+  <VariantDock client:visible />
 
-  <section class="home-build">
-    <h2 class="plan-v-headline">6c · {VARIANTS[2].name}</h2>
-    <p style="color: #86868b; max-width: 62ch; margin: 12px 0 32px;">{VARIANTS[2].note}</p>
-    <VariantPullBack client:visible />
+  <section class="home-build" style="padding-bottom: 0;">
+    <h2 class="plan-v-headline">7c · Wall</h2>
+    <p style="color: #86868b; max-width: 62ch; margin: 12px 0 0;">
+      The camera opens inside the lead terminal and retreats until nine are in frame — the fleet as scale
+      rather than as steps.
+    </p>
   </section>
+  <VariantWall client:visible />
 </Site>

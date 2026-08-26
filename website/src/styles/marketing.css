@@ -1624,14 +1624,114 @@ body.marketing::after {
 }
 
 
-/* Build grid lab: a tile arriving in a slot that was empty a beat ago. */
-.grid-tile-in {
-  animation: grid-tile-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+/* Build fleet lab: a scroll-scrubbed stage that pins while the fleet grows.
+   No desk — the tiles sit on the page, so the field is only a frame. */
+.fleet-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 40px;
+  padding: 72px var(--content-padding) 48px;
 }
 
-@keyframes grid-tile-in {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
+.fleet-field {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.fleet-field--wall {
+  overflow: clip;
+}
+
+.fleet-wall {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  gap: 1.6%;
+}
+
+/* Captions stack in one place and crossfade, so no width has to hold five
+   columns side by side. */
+.fleet-caption {
+  position: relative;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  height: 92px;
+  flex-shrink: 0;
+}
+
+.fleet-caption-item {
+  position: absolute;
+  inset: 0;
+  max-width: 52ch;
+}
+
+.fleet-caption--center .fleet-caption-item {
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.fleet-caption h3 {
+  font-size: 21px;
+  margin: 0;
+}
+
+.fleet-caption p {
+  color: #86868b;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
+
+.fleet-rail {
+  display: flex;
+  gap: 6px;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+.fleet-rail span {
+  height: 2px;
+  flex: 1;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  transition: background 300ms ease;
+}
+
+.fleet-rail span.is-on {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+@media (max-width: 860px) {
+  .fleet-sticky {
+    position: static;
+    height: auto;
+    padding-top: 32px;
+  }
+
+  /* flex-basis: 0 would beat this height and collapse the field to nothing,
+     since every tile in it is absolutely positioned. */
+  .fleet-field {
+    flex: none;
+    height: 520px;
+  }
+
+  .fleet-caption {
+    height: auto;
+  }
+
+  .fleet-caption-item {
+    position: static;
   }
 }
