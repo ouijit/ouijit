@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
 import {
   TerminalHeaderView,
   TerminalHeaderName,
 } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
-import { MockPullRequests } from './MockPullRequests';
 import { MockAnalysis, HotspotTip } from './MockAnalysis';
 import { getPanelFixtures } from './MockPanels';
 import {
@@ -24,56 +23,12 @@ import { DeskWash } from './DeskWash';
 import { useTheaterLoop, BeatDots } from './theaterLoop';
 
 /**
- * Review section lab — the loop back to the agent, then the pull request.
- * Notes on the diff land in the agent's prompt; drafts on the pull request
- * stage locally and send as one review.
+ * The review section: what the history says about the diff, the loop back to
+ * the agent, then the pull request. Notes on the diff land in the agent's
+ * prompt; drafts on the pull request stage locally and send as one review.
  */
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-
-
-/** One tall wrapper drives all beats — same scrub as the Build theater. */
-function useTheaterScrub(keys: readonly string[]) {
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const [t, setT] = useState(0);
-  const last = useRef(-1);
-
-  useEffect(() => {
-    let raf = 0;
-    const update = () => {
-      const el = wrapRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const next = clamp01(-rect.top / (rect.height - vh));
-      const rounded = Math.round(next * 800);
-      if (rounded !== last.current) {
-        last.current = rounded;
-        setT(next);
-      }
-    };
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
-
-  const step = 0.78 / (keys.length - 1);
-  const p = (k: string) => {
-    const i = keys.indexOf(k);
-    if (i < 0) return 0;
-    return clamp01((t - i * step) / (step * 0.64));
-  };
-  return { wrapRef, p };
-}
 
 function Line({ p, at, children }: { p: number; at: number; children: ReactNode }) {
   const v = clamp01((p - at) / 0.08);
@@ -494,115 +449,7 @@ function RoundTripTerminal({
   );
 }
 
-/** The review card: the task's terminal, diff split open, at whatever point
- * of the round-trip `p` describes. */
-function RoundTripCard({ p }: { p: (k: string) => number }) {
-  return (
-    <div className="relative" style={{ height: 520 }}>
-      <RoundTripTerminal p={p} />
-    </div>
-  );
-}
-
-/* ─── 1a · Round-trip — pinned stage, the note loop as the story ───── */
-
-const LOOP_BEATS = [
-  {
-    key: 'note',
-    title: 'Comment inline',
-    body: 'Write what you want changed on the line that needs it. Notes anchor to the code and follow it as it moves.',
-  },
-  {
-    key: 'send',
-    title: 'Send the notes',
-    body: 'Send pastes every note into the agent’s prompt, with the code each one quotes. Nothing goes until you press Enter.',
-  },
-  {
-    key: 'fix',
-    title: 'Watch the fixes land',
-    body: 'The agent picks up the notes in the same session and worktree. The diff updates as it works.',
-  },
-] as const;
-
-const LOOP_KEYS = LOOP_BEATS.map((b) => b.key);
-
-interface Beat {
-  key: string;
-  title: string;
-  body: string;
-}
-
-const capOpacity = (beats: readonly Beat[], p: (k: string) => number, i: number) => {
-  const cur = i === 0 ? 1 : p(beats[i].key);
-  const next = i + 1 < beats.length ? p(beats[i + 1].key) : 0;
-  return clamp01(cur / 0.35) * (1 - clamp01(next / 0.35));
-};
-
-function TheaterCaps({ beats, p }: { beats: readonly Beat[]; p: (k: string) => number }) {
-  return (
-    <div className="bl-theater-captions">
-      {beats.map((b, i) => (
-        <div key={b.key} className="bl-theater-cap" style={{ opacity: capOpacity(beats, p, i) }}>
-          <h3>{b.title}</h3>
-          <p>{b.body}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function ReviewVariantRoundTrip() {
-  const { wrapRef, p } = useTheaterScrub(LOOP_KEYS);
-  return (
-    <div ref={wrapRef} style={{ height: '400vh' }}>
-      <div className="bl-theater-sticky">
-        <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, width: '100%' }}>
-          <DeskWash />
-          <RoundTripCard p={p} />
-        </div>
-        <TheaterCaps beats={LOOP_BEATS} p={p} />
-      </div>
-    </div>
-  );
-}
-
-/* ─── 1b · Inbox — the pull request surface as the hero ────────────── */
-
-function PrWindow({ height }: { height: number }) {
-  return (
-    <div
-      className="glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel"
-      style={{ height, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
-    >
-      <MockPullRequests />
-    </div>
-  );
-}
-
-export function ReviewVariantInbox() {
-  return (
-    <div>
-      <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32 }}>
-          <DeskWash />
-        <PrWindow height={640} />
-      </div>
-      <div className="rl-caption-row">
-        <div>
-          <h3>Grouped by what needs you</h3>
-          <p>Needs your review, authored, everything else. Browsing a pull request never checks anything out.</p>
-        </div>
-        <div>
-          <h3>Drafts stay local</h3>
-          <p>Agents stage review comments with their origin attached. Nothing reaches GitHub until you send them as one review.</p>
-        </div>
-        <div>
-          <h3>Merge from here</h3>
-          <p>Checks, threads, and the merge menu, driven by gh. Any pull request checks out as a task.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+const LOOP_KEYS = ['note', 'send', 'fix'] as const;
 
 /* ─── The condensed pull request ──────────────────────────────────── */
 
@@ -912,76 +759,6 @@ export function ReviewSection() {
     <div>
       <h2 className="plan-v-headline">Review in depth</h2>
       <ReviewVariantTwoAct />
-    </div>
-  );
-}
-
-/* ─── 2b · Loop + ledger — the theater, then a static pull request band ─ */
-
-export function ReviewVariantLoopLedger() {
-  return (
-    <div>
-      <ReviewVariantRoundTrip />
-      <div className="rl-ledger">
-        <div className="rl-ledger-card">
-          <div className="plan-desk desk-wash desk-wash--prism h-full" style={{ padding: 24 }}>
-          <DeskWash />
-            <div style={{ height: 440 }}>
-              <CondensedPrCard />
-            </div>
-          </div>
-        </div>
-        <div className="rl-ledger-copy">
-          <div>
-            <h3>Then, the pull request</h3>
-            <p>
-              The review hook opens it when the task hits review. Drafts — yours and your agents&rsquo; — stay
-              local until you send them as one review.
-            </p>
-          </div>
-          <div>
-            <h3>Merge from here</h3>
-            <p>Checks, threads, and the merge menu, driven by gh.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── 2c · Split hero — one screen, no scrub: noted diff + pull request ─ */
-
-export function ReviewVariantSplitHero() {
-  return (
-    <div>
-      <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 28 }}>
-          <DeskWash />
-        <div className="flex gap-6" style={{ height: 480 }}>
-          <div
-            className="glass-bevel relative flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"
-            style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
-          >
-            <NotedDiffPane pNote={1} pSend={1} pFix={1} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <CondensedPrCard compact />
-          </div>
-        </div>
-      </div>
-      <div className="rl-caption-row">
-        <div>
-          <h3>Notes go back to the agent</h3>
-          <p>Write on the changed line; Send pastes every note into the agent&rsquo;s prompt, quoted code and all.</p>
-        </div>
-        <div>
-          <h3>Drafts stay local</h3>
-          <p>Pull request comments — yours and your agents&rsquo; — stage locally and send as one review.</p>
-        </div>
-        <div>
-          <h3>Merge from here</h3>
-          <p>Checks, threads, and the merge menu, driven by gh.</p>
-        </div>
-      </div>
     </div>
   );
 }
