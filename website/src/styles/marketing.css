@@ -764,14 +764,13 @@ html.js [data-reveal].is-revealed {
 
 /* --- Bento variant of the details grid --- */
 /* Two ribbons, each holding its cards twice and sliding by exactly one copy,
-   so the seam never arrives. The padding is headroom for the lifts, which
-   would otherwise be clipped by the overflow that hides the seam. */
+   so the seam never arrives. */
 .tools-flow {
   display: flex;
   flex-direction: column;
   gap: 22px;
   overflow: hidden;
-  padding: 52px 0;
+  padding: 28px 0;
 }
 
 .tools-ribbon {
@@ -786,6 +785,19 @@ html.js [data-reveal].is-revealed {
   gap: 18px;
 }
 
+/* The rows share a flat seam and take their contour from the outside: the top
+   row's cards hang from the seam and grow up, the bottom row's stand on it and
+   grow down. The two ribbons drift independently, so any card can end up over
+   any other — growing away from the gutter is what keeps them off each other,
+   and it fills each slot rather than leaving a gap where a card moved. */
+.tools-ribbon--top .tools-run {
+  align-items: flex-end;
+}
+
+.tools-ribbon--btm .tools-run {
+  align-items: flex-start;
+}
+
 /* Half the ribbon is one copy less half the gap between the two, so the extra
    nine puts the second copy exactly where the first began. */
 @keyframes tools-drift {
@@ -798,13 +810,10 @@ html.js [data-reveal].is-revealed {
   animation-play-state: paused;
 }
 
-/* One height for every card, so the band stays shallow and a card with a tall
-   mock crops it rather than setting the depth for all the others. */
 .tools-flow .detail {
   flex: none;
   width: var(--w);
-  height: 296px;
-  top: var(--lift, 0px);
+  height: var(--h);
 }
 
 /* The palette's mock is taller than the card, so it hangs from the copy and
@@ -905,7 +914,6 @@ html.js [data-reveal].is-revealed {
   .tools-flow .detail {
     width: auto;
     height: auto;
-    top: 0;
   }
 
 }
