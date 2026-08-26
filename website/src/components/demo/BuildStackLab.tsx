@@ -194,16 +194,15 @@ export function VariantStack() {
   const { wrapRef, t } = useStageScrub();
   const staticMode = useStaticMode();
   const grown = staticMode ? N : 1 + clamp01(t / 0.92) * (N - 1);
-  const settled = Math.min(N, Math.floor(grown));
-  const toward = Math.min(1, grown - settled);
   /*
-   * The stack clears a place before the next card takes it. Landing the card
-   * at the same moment the others start moving put it and the one it displaces
-   * at the same depth, so the outgoing front sat hidden underneath it.
+   * TerminalCardStack: a new session is appended and becomes active, every
+   * other card's backDepth goes up by one, and the container's top drops a
+   * peek — all of it over the same 0.2s. Here the scroll is that clock, so
+   * `f` is how far through the current arrival we are.
    */
-  const room = settled < N ? clamp01(toward / 0.5) : 0;
-  const landed = settled < N && toward >= 0.5;
-  const frontIndex = landed ? settled : settled - 1;
+  const frontIndex = staticMode ? N - 1 : Math.min(N - 1, Math.ceil(grown) - 1);
+  const f = staticMode ? 1 : clamp01(grown - frontIndex);
+  const backCards = frontIndex - 1 + f;
 
   return (
     <div ref={wrapRef} style={{ height: staticMode ? 'auto' : '340vh' }}>
@@ -213,25 +212,23 @@ export function VariantStack() {
           {/* The well starts one peek lower per back card and the cards fill
               what is left, so the front card gives up height as the stack
               deepens — the same trade the app's stack container makes. */}
-          <div className="stk-well" style={{ top: TOP_PAD + (settled - 1 + room) * PEEK }}>
+          <div className="stk-well" style={{ top: TOP_PAD + Math.max(0, backCards) * PEEK }}>
             {SESSIONS.map((session, i) => {
-              if (i > settled || (i === settled && !landed)) return null;
-              // Position is a rank, not a rounded depth: rounding put the card
-              // leaving the front and the one behind it both at ⌘1.
-              const rank = frontIndex - i;
+              if (i > frontIndex) return null;
               const front = i === frontIndex;
-              // A landing card takes the cleared place; everything already on
-              // the stack is one peek further back than it was.
-              const depth = i === settled ? 0 : settled - 1 - i + room;
+              // The app sorts back cards by distance descending before
+              // numbering them, so ⌘1 is the deepest card, not the nearest.
+              const rank = i + 1;
+              const depth = front ? 0 : frontIndex - 1 - i + f;
               return (
                 <div
                   key={session.task}
                   className="stk-card"
                   style={{
-                    zIndex: N - rank,
+                    // Depth, not rank — DEPTH_STYLES runs 9 down to 6 behind
+                    // the active card's 10, and ⌘1 is the deepest of them.
+                    zIndex: front ? 10 : 10 - Math.max(1, Math.ceil(depth)),
                     opacity: 1,
-                    // A card opens at full size; the only motion in the stack
-                    // is the ones behind it giving up their place.
                     transform: `translateY(${-depth * PEEK}px) scaleX(${1 - depth * NARROW})`,
                   }}
                 >
