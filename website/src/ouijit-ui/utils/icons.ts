@@ -20,6 +20,7 @@ import arrowsIn from '@phosphor-icons/core/assets/regular/arrows-in.svg?raw';
 import arrowsOut from '@phosphor-icons/core/assets/regular/arrows-out.svg?raw';
 import arrowsOutLineHorizontal from '@phosphor-icons/core/assets/regular/arrows-out-line-horizontal.svg?raw';
 import arrowsOutLineVertical from '@phosphor-icons/core/assets/regular/arrows-out-line-vertical.svg?raw';
+import binoculars from '@phosphor-icons/core/assets/regular/binoculars.svg?raw';
 import bug from '@phosphor-icons/core/assets/regular/bug.svg?raw';
 import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
 import dotsSixVertical from '@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw';
@@ -43,6 +44,7 @@ import fileDashed from '@phosphor-icons/core/assets/regular/file-dashed.svg?raw'
 import fileMinus from '@phosphor-icons/core/assets/regular/file-minus.svg?raw';
 import filePlus from '@phosphor-icons/core/assets/regular/file-plus.svg?raw';
 import fileText from '@phosphor-icons/core/assets/regular/file-text.svg?raw';
+import flame from '@phosphor-icons/core/assets/regular/flame.svg?raw';
 import folderOpen from '@phosphor-icons/core/assets/regular/folder-open.svg?raw';
 import folderPlus from '@phosphor-icons/core/assets/regular/folder-plus.svg?raw';
 import gear from '@phosphor-icons/core/assets/regular/gear.svg?raw';
@@ -59,6 +61,7 @@ import kanban from '@phosphor-icons/core/assets/regular/kanban.svg?raw';
 import listChecks from '@phosphor-icons/core/assets/regular/list-checks.svg?raw';
 import magnifyingGlass from '@phosphor-icons/core/assets/regular/magnifying-glass.svg?raw';
 import minus from '@phosphor-icons/core/assets/regular/minus.svg?raw';
+import minusCircle from '@phosphor-icons/core/assets/regular/minus-circle.svg?raw';
 import pencilSimple from '@phosphor-icons/core/assets/regular/pencil-simple.svg?raw';
 import play from '@phosphor-icons/core/assets/regular/play.svg?raw';
 import plus from '@phosphor-icons/core/assets/regular/plus.svg?raw';
@@ -95,6 +98,7 @@ export const iconMap: Record<string, string> = {
   'arrows-out': arrowsOut,
   'arrows-out-line-horizontal': arrowsOutLineHorizontal,
   'arrows-out-line-vertical': arrowsOutLineVertical,
+  binoculars: binoculars,
   bug: bug,
   'caret-down': caretDown,
   'dots-six-vertical': dotsSixVertical,
@@ -118,6 +122,7 @@ export const iconMap: Record<string, string> = {
   'file-minus': fileMinus,
   'file-plus': filePlus,
   'file-text': fileText,
+  flame: flame,
   'folder-open': folderOpen,
   'folder-plus': folderPlus,
   gear: gear,
@@ -134,6 +139,7 @@ export const iconMap: Record<string, string> = {
   'list-checks': listChecks,
   'magnifying-glass': magnifyingGlass,
   minus: minus,
+  'minus-circle': minusCircle,
   'pencil-simple': pencilSimple,
   play: play,
   plus: plus,

@@ -10,6 +10,7 @@ import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { featuresTasks, featuresTerminalsByTask } from './featuresFixtures';
 import { MockPlanPanel, MockPreviewPanel, MockDiffPanel } from './MockPanels';
 import { MockPullRequests } from './MockPullRequests';
+import { MockAnalysis } from './MockAnalysis';
 import {
   STACK_TERMINALS,
   type PanelKind,
@@ -61,7 +62,7 @@ export default function AppWindowScene() {
   // would mismatch the SSR inline style, which React leaves in the DOM.
   const [scale, setScale] = useState(1);
 
-  const [view, setView] = useState<'board' | 'stack' | 'prs'>('board');
+  const [view, setView] = useState<'board' | 'stack' | 'prs' | 'analysis'>('board');
   // Closed by default like the app, where the rail is a hover/pin overlay and
   // the titlebar project icon toggles it.
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -159,6 +160,13 @@ export default function AppWindowScene() {
                 <button className={segBtn(view === 'prs')} aria-label="Pull requests" onClick={() => setView('prs')}>
                   <Icon name="git-pull-request" />
                 </button>
+                <button
+                  className={segBtn(view === 'analysis')}
+                  aria-label="Analysis"
+                  onClick={() => setView('analysis')}
+                >
+                  <Icon name="binoculars" />
+                </button>
                 <span className={segBtn(false)}>
                   <Icon name="gear" />
                 </span>
@@ -249,7 +257,7 @@ export default function AppWindowScene() {
                   );
                 })}
               </div>
-            ) : view === 'prs' ? (
+            ) : view === 'prs' || view === 'analysis' ? (
               <div
                 className="glass-bevel relative flex flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"
                 style={{
@@ -258,7 +266,7 @@ export default function AppWindowScene() {
                   boxShadow: 'var(--shadow-panel)',
                 }}
               >
-                <MockPullRequests />
+                {view === 'prs' ? <MockPullRequests /> : <MockAnalysis />}
               </div>
             ) : (
               <div className="flex-1 min-w-0 relative">

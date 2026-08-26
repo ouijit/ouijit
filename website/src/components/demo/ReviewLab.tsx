@@ -175,6 +175,15 @@ const NOTED_LINES: NotedLine[] = [
   { type: 'context', oldNo: 8, newNo: 9, content: '  return (' },
 ];
 
+function HotspotChip() {
+  return (
+    <span className="shrink-0 flex items-center gap-1 text-[10px] px-1 py-px rounded font-medium bg-git-light text-git">
+      <Icon name="flame" className="!w-3 !h-3" />
+      hotspot
+    </span>
+  );
+}
+
 function NotedDiffLineRow({ line }: { line: NotedLine }) {
   const lineBg =
     line.type === 'addition' ? 'bg-diff-added/10' : line.type === 'deletion' ? 'bg-diff-removed/[0.08]' : '';
@@ -279,6 +288,7 @@ function NotedDiffPane({ pNote, pSend, pFix }: { pNote: number; pSend: number; p
             <span className="shrink-0 text-[10px] px-1 py-px rounded font-medium bg-ink/[0.06] text-ink/40">
               modified
             </span>
+            <HotspotChip />
             <span className="shrink-0 font-mono text-[11px]">
               <span className="text-diff-added">+92</span> <span className="text-diff-removed">-14</span>
             </span>
@@ -591,7 +601,7 @@ function DraftRow({ path, line, origin, body }: { path: string; line: number; or
 const CODE_NOTE = 'fall back to 0 when preferences are missing';
 
 const CODE_FILES = [
-  { name: 'Stepper.tsx', icon: 'file-dashed', color: 'text-ink/50', add: 92, del: 14 },
+  { name: 'Stepper.tsx', icon: 'file-dashed', color: 'text-ink/50', add: 92, del: 14, hot: true },
   { name: 'WelcomeIntro.tsx', icon: 'file-minus', color: 'text-vcs-deleted', add: 0, del: 64 },
   { name: 'useOnboardingProgress.ts', icon: 'file-plus', color: 'text-vcs-added', add: 38, del: 0, active: true },
 ];
@@ -630,6 +640,7 @@ function PrCodePane({ p }: { p: number }) {
             >
               <Icon name={f.icon} className={`w-4 h-4 ${f.color}`} />
               <span className="flex-1 min-w-0 truncate">{f.name}</span>
+              {f.hot && <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-git/80" />}
               <span className="shrink-0 font-mono text-[12px]">
                 {f.add > 0 && <span className="text-diff-added">+{f.add}</span>}
                 {f.add > 0 && f.del > 0 && ' '}
@@ -679,6 +690,19 @@ function PrCodePane({ p }: { p: number }) {
     </div>
   );
 }
+
+const RISK_ROWS = [
+  {
+    icon: 'flame',
+    path: 'src/onboarding/Stepper.tsx',
+    text: '34 commits in 12 months · most edits by prentice',
+  },
+  {
+    icon: 'git-fork',
+    path: 'src/onboarding/Stepper.tsx',
+    text: 'Usually changes with src/account/preferences.ts — not in this pull request',
+  },
+];
 
 /** The pull request surface reduced to its review essentials: the header
  * segment, the facts, and the staged drafts. Same task, one commit later.
@@ -777,6 +801,19 @@ function CondensedPrCard({
             </PrFact>
             <PrFact icon="clock" label="Checks">6 passing</PrFact>
           </dl>
+          <section className="flex flex-col gap-2 min-h-0">
+            <div className="flex items-center gap-2 pb-2 border-b border-ink/[0.08]">
+              <span className="text-[17px] font-medium text-text-primary">Risk</span>
+              <span className="text-[14px] text-text-tertiary">{RISK_ROWS.length}</span>
+            </div>
+            {RISK_ROWS.map((row) => (
+              <div key={row.text} className="flex items-center gap-2.5 py-1">
+                <Icon name={row.icon} className="w-3.5 h-3.5 shrink-0 text-git/80" />
+                <span className="shrink-0 font-mono text-[12px] text-text-secondary">{row.path}</span>
+                <span className="min-w-0 truncate font-mono text-[10px] text-text-tertiary">{row.text}</span>
+              </div>
+            ))}
+          </section>
           <section className="flex flex-col gap-3 min-h-0">
             <div className="flex items-center gap-2 pb-2 border-b border-ink/[0.08]">
               <span className="text-[17px] font-medium text-text-primary">Review</span>
@@ -803,7 +840,7 @@ const TWO_ACT_BEATS = [
   {
     key: 'pr',
     title: 'Land the pull request',
-    body: 'Every open pull request is here — yours and your teammates’. Checks, threads, and the merge menu, without opening GitHub.',
+    body: 'Review every open pull request without opening GitHub — checks, threads, and the merge menu. Risk names the hot files it touches and the coupled ones it leaves out.',
   },
   {
     key: 'code',
