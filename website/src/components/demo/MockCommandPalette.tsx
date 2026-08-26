@@ -78,9 +78,12 @@ const ITEMS: Item[] = [
       meta: `${STATUS_LABEL[task.status]} · 2h`,
       action: 'Open task',
       leading: <span className="font-mono text-[11px] text-text-tertiary tabular-nums">T-{task.taskNumber}</span>,
+      /* What the shell is doing, not its name: the name is the task's own,
+         so a row that showed it would repeat the line above it. This is the
+         rule the kanban card's connected rows already follow. */
       children: (featuresTerminalsByTask[task.taskNumber] ?? []).map((t) => ({
         key: t.ptyId,
-        title: t.label ?? t.ptyId,
+        title: t.lastOscTitle || t.label,
         summaryType: t.summaryType,
       })),
     }),

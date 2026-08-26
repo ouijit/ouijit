@@ -217,7 +217,7 @@ export function VariantStack() {
                       stackPosition={front ? undefined : rank}
                       nameContent={
                         <TerminalHeaderName
-                          label={front ? 'claude' : session.label}
+                          label={session.label}
                           lastOscTitle={session.osc}
                         />
                       }

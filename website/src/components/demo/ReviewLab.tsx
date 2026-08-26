@@ -411,7 +411,7 @@ function RoundTripTerminal({ p, receded = false }: { p: (k: string) => number; r
         stackPosition={receded ? 1 : undefined}
         nameContent={
           <TerminalHeaderName
-            label={receded ? 'Rework onboarding flow' : 'claude'}
+            label="Rework onboarding flow"
             lastOscTitle={receded ? 'done · 15 passed' : fixing ? 'Adding sign-out test...' : 'done · in review'}
           />
         }

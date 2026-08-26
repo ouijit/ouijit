@@ -3,7 +3,7 @@ import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { StatusDot } from '../../ouijit-ui/components/terminal/StatusDot';
 import { ScriptRowView } from '../../ouijit-ui/components/scripts/ScriptRowView';
 import { HookRowView } from '../../ouijit-ui/components/scripts/HookRowView';
-import { KeyHint, PaletteHeader, PaletteRow } from './paletteParts';
+import { KeyHint, PaletteFooter, PaletteHeader, PaletteRow } from './paletteParts';
 
 /**
  * Static renders of app chrome for the "Also in the box." bento. Each mock
@@ -37,10 +37,10 @@ export function PaletteMock() {
       <PaletteRow
         selected
         leading={<StatusDot summaryType="thinking" />}
-        title="claude"
-        context="Rework onboarding flow"
+        title="Rework onboarding flow"
+        context="ouijit"
       />
-      <PaletteRow leading={<StatusDot summaryType="ready" />} title="npm run dev" context="Rework onboarding flow" />
+      <PaletteRow leading={<StatusDot summaryType="ready" />} title="npm run dev" context="ouijit" />
       <div className="px-3 pt-2 pb-1 text-[11px] text-ink/40">Tasks</div>
       <PaletteRow
         leading={<span className="font-mono text-[11px] text-text-tertiary tabular-nums">T-101</span>}
@@ -48,12 +48,7 @@ export function PaletteMock() {
         context="ouijit"
         meta="in review · 2h"
       />
-      <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-ink/[0.06] text-[11px] text-ink/40">
-        <KeyHint keys="↑↓" label="Navigate" />
-        <KeyHint keys="↵" label="Focus terminal" />
-        <span className="flex-1" />
-        <KeyHint keys="esc" label="Close" />
-      </div>
+      <PaletteFooter action="Focus terminal" />
     </FloatingPanel>
   );
 }
@@ -63,7 +58,7 @@ export function SandboxMock() {
     <FloatingPanel>
       <div className="flex items-center gap-2 px-3 py-2.5">
         <StatusDot summaryType="thinking" sandboxed />
-        <span className="font-mono text-xs font-medium text-ink/85 shrink-0">claude</span>
+        <span className="font-mono text-xs font-medium text-ink/85 shrink-0">Refine CTA button hover states</span>
         <span className="font-mono text-xs text-ink/40 min-w-0 truncate">Running npm test…</span>
         <span className={`${METADATA_CHIP} ml-auto`}>lima</span>
       </div>
@@ -115,7 +110,7 @@ export function TagsMock() {
     <FloatingPanel>
       <div className="flex items-center gap-2 px-3 py-2.5">
         <StatusDot summaryType="ready" />
-        <span className="font-mono text-xs font-medium text-ink/85 shrink-0">claude</span>
+        <span className="font-mono text-xs font-medium text-ink/85 shrink-0">Refactor billing webhook router</span>
         <span className="inline-flex items-center gap-1 min-w-0">
           <span className={METADATA_CHIP}>frontend</span>
           <span className={METADATA_CHIP}>api</span>

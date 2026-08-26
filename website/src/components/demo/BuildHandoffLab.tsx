@@ -59,7 +59,7 @@ const CONNECTED: TerminalDisplayState[] = SESSIONS.map((session, i) => ({
   ...DEFAULT_DISPLAY_STATE,
   projectPath: '/demo/horizon',
   ptyId: `pty-${TODO_COLUMN[i].taskNumber}-claude`,
-  label: 'claude',
+  label: session.label,
   summaryType: 'thinking',
   lastOscTitle: session.osc,
   taskId: TODO_COLUMN[i].taskNumber,
@@ -262,7 +262,7 @@ export function VariantHandoff() {
                       isBackCard={!front}
                       stackPosition={front ? undefined : rank}
                       nameContent={
-                        <TerminalHeaderName label={front ? 'claude' : session.label} lastOscTitle={session.osc} />
+                        <TerminalHeaderName label={session.label} lastOscTitle={session.osc} />
                       }
                       branchContent={
                         front ? (

@@ -259,7 +259,7 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
           stackPosition={pos('claude') || undefined}
           nameContent={
             <TerminalHeaderName
-              label={pos('claude') === 0 ? 'claude' : 'Rework onboarding flow'}
+              label="Rework onboarding flow"
               lastOscTitle="Editing onboarding stepper..."
             />
           }
@@ -296,7 +296,7 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
           stackPosition={pos('test') || undefined}
           nameContent={
             <TerminalHeaderName
-              label={pos('test') === 0 ? 'claude' : 'Polish invitation email'}
+              label="Polish invitation email"
               lastOscTitle={testDone ? 'done · 14 passed' : 'Tightening brand tokens...'}
             />
           }
@@ -326,7 +326,7 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
           isBackCard={pos('dev') !== 0}
           stackPosition={pos('dev') || undefined}
           nameContent={
-            <TerminalHeaderName label={pos('dev') === 0 ? 'dev' : 'Rework onboarding flow'} lastOscTitle="live dev server" />
+            <TerminalHeaderName label="npm run dev" lastOscTitle="live dev server" />
           }
           branchContent={pos('dev') === 0 ? <BranchLabel branch="rework-onboarding" /> : undefined}
           actions={

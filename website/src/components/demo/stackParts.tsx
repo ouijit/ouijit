@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { getPanelFixtures, type PanelFixtures } from './MockPanels';
+import { FEATURES_BRANCHES, featuresTerminalsByTask } from './featuresFixtures';
 
 /**
  * The static pieces of a terminal stack — card contents, panel tabs, and the
  * fixture terminals — shared by the workspace scene and the app window mock.
+ * The terminals themselves come from featuresFixtures, which the board rows
+ * and the palette also read, so a card and its row cannot say different things.
  */
 
 export type PanelKind = 'plan' | 'preview' | 'diff';
@@ -19,35 +22,15 @@ export interface StackTerminal {
   tags?: string[];
 }
 
-export const STACK_TERMINALS: StackTerminal[] = [
-  {
-    ptyId: 'pty-101-claude',
-    label: 'Rework onboarding flow',
-    summaryType: 'thinking',
-    lastOscTitle: 'Editing onboarding stepper...',
-    branch: 'rework-onboarding',
-  },
-  {
-    ptyId: 'pty-101-dev',
-    label: 'Rework onboarding flow',
-    summaryType: 'ready',
-    lastOscTitle: 'live dev server',
-    branch: 'rework-onboarding',
-  },
-  {
-    ptyId: 'pty-103-test',
-    label: 'Polish invitation email',
-    summaryType: 'ready',
-    lastOscTitle: 'Tightened subject and brand tokens',
-    branch: 'polish-invitation-email',
-  },
-  {
-    ptyId: 'pty-105-shell',
-    label: 'Audit accessibility on settings dialog',
-    summaryType: 'thinking',
-    lastOscTitle: 'Investigating contrast at SettingsDialog:121',
-  },
-];
+export const STACK_TERMINALS: StackTerminal[] = Object.values(featuresTerminalsByTask)
+  .flat()
+  .map((t) => ({
+    ptyId: t.ptyId,
+    label: t.label,
+    summaryType: t.summaryType,
+    lastOscTitle: t.lastOscTitle ?? '',
+    branch: FEATURES_BRANCHES[t.ptyId],
+  }));
 
 /** Static branch chip mimicking the in-app BranchCopy without the interactive copy state. */
 export function BranchLabel({ branch }: { branch: string }) {
