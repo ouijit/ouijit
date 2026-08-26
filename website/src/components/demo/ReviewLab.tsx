@@ -720,9 +720,11 @@ function StackCard({ depth, back, children }: { depth: number | null; back?: Rea
       }}
     >
       <TerminalCardView isActive={depth === 0} backDepth={depth ?? 0}>
-        {/* Positioned inline: `.glass-bevel > *` pins every direct child to
-            position relative, so the utility classes would leave the strip in
-            flow, taking its height off the card's own content. */}
+        {children}
+        {/* Last and unstacked, so it covers the header it replaces but stays
+            under the bevel, which `.glass-bevel::before` draws at z-index 1.
+            Positioned inline because `.glass-bevel > *` pins every direct
+            child to position relative, and would leave the strip in flow. */}
         {back && (
           <div
             className="bg-terminal-bg transition-opacity duration-200"
@@ -730,14 +732,12 @@ function StackCard({ depth, back, children }: { depth: number | null; back?: Rea
               position: 'absolute',
               insetInline: 0,
               top: 0,
-              zIndex: 40,
               opacity: !waiting && depth > 0 ? 1 : 0,
             }}
           >
             {back}
           </div>
         )}
-        {children}
       </TerminalCardView>
     </div>
   );
@@ -761,6 +761,13 @@ function BackStrip({ icon, label, detail }: { icon: string; label: string; detai
 /** The four surfaces, in the order the run promotes them. */
 const STACK = ['scan', 'chip', 'note', 'pr'] as const;
 
+/** TerminalCardView's lift between one depth and the next. */
+const DEPTH_STEP = 24;
+
+/** The stage, and so the front card once the stack is at its deepest. */
+const FRONT_HEIGHT = 520;
+const STAGE_HEIGHT = FRONT_HEIGHT + (STACK.length - 1) * DEPTH_STEP;
+
 export function ReviewSection() {
   const { rootRef, p, t, active, seek } = useTheaterLoop(BEAT_KEYS, CAPTION_MS, BEAT_SPEEDS);
   /* Which surface holds the front, taken as a step rather than a ramp: the
@@ -772,31 +779,37 @@ export function ReviewSection() {
   return (
     <div ref={rootRef} className="bl-theater">
       <h2 className="plan-v-headline">Review in depth</h2>
-      {/* The desk clears the deepest card: four cards is 72px of lift, plus
-          enough for the header it peels back to show. */}
-      <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, paddingTop: 96, width: '100%' }}>
+      <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, width: '100%' }}>
         <DeskWash />
-        <div className="relative" style={{ height: 520 }}>
-          <StackCard
-            depth={depth(0)}
-            back={<BackStrip icon="binoculars" label="Analysis" detail="850 commits · 318 files" />}
+        {/* The cards fill the stage whatever their number: the deepest one
+            starts at its top edge, so the box the rest share gives up a step
+            of height for every card that has arrived. */}
+        <div className="relative" style={{ height: STAGE_HEIGHT }}>
+          <div
+            className="absolute inset-x-0 bottom-0"
+            style={{ top: front * DEPTH_STEP, transition: 'top 0.25s ease' }}
           >
-            <MockAnalysis showAdvice />
-          </StackCard>
-          <StackCard
-            depth={depth(1)}
-            back={<BackStrip icon="git-branch" label="main" detail="3 files +130 -78" />}
-          >
-            <div className="relative flex-1 min-h-0">
-              <NotedDiffPane pNote={0} pSend={0} pFix={0} tip={front === 1} />
-            </div>
-          </StackCard>
-          <StackCard depth={depth(2)}>
-            <RoundTripTerminal p={p} depth={depth(2) ?? 0} />
-          </StackCard>
-          <StackCard depth={depth(3)}>
-            <CondensedPrCard />
-          </StackCard>
+            <StackCard
+              depth={depth(0)}
+              back={<BackStrip icon="binoculars" label="Analysis" detail="850 commits · 318 files" />}
+            >
+              <MockAnalysis showAdvice />
+            </StackCard>
+            <StackCard
+              depth={depth(1)}
+              back={<BackStrip icon="git-branch" label="main" detail="3 files +130 -78" />}
+            >
+              <div className="relative flex-1 min-h-0">
+                <NotedDiffPane pNote={0} pSend={0} pFix={0} tip={front === 1} />
+              </div>
+            </StackCard>
+            <StackCard depth={depth(2)}>
+              <RoundTripTerminal p={p} depth={depth(2) ?? 0} />
+            </StackCard>
+            <StackCard depth={depth(3)}>
+              <CondensedPrCard />
+            </StackCard>
+          </div>
         </div>
       </div>
       <div className="beat-row">

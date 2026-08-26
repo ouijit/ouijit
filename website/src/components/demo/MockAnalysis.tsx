@@ -162,9 +162,16 @@ export function MockAnalysis({ showAdvice }: { showAdvice?: boolean } = {}) {
 
   useLayoutEffect(() => {
     const pane = scroller.current;
-    const detail = pane?.querySelector<HTMLElement>('[data-hotspot-detail]');
-    if (!showAdvice || !pane || !detail) return;
-    pane.scrollTop += detail.getBoundingClientRect().bottom - pane.getBoundingClientRect().bottom;
+    if (!showAdvice || !pane) return;
+    const pin = () => {
+      const detail = pane.querySelector<HTMLElement>('[data-hotspot-detail]');
+      if (detail) pane.scrollTop += detail.getBoundingClientRect().bottom - pane.getBoundingClientRect().bottom;
+    };
+    /* Again on every resize: the browser clamps scrollTop when the pane
+       shrinks, and does not put it back when the pane grows again. */
+    const observer = new ResizeObserver(pin);
+    observer.observe(pane);
+    return () => observer.disconnect();
   }, [showAdvice]);
 
   return (
