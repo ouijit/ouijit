@@ -2493,8 +2493,8 @@ body.marketing::after {
   margin: 0 auto;
 }
 
-/* Plan's column rail, held: same width, same side, so the column does not
-   move when one section hands over to the next. */
+/* Plan's rail width, mirrored to the other side: the column crosses the seam
+   from the right edge to the left, and the stack takes the space it left. */
 .hx-rail {
   width: 372px;
   flex-shrink: 0;
@@ -2540,53 +2540,6 @@ body.marketing::after {
   .hx-desk {
     width: 100%;
     height: 520px;
-    padding: 20px;
-  }
-}
-
-/* The Build act, inside the Plan stage's left lane: it scrolls up under the
-   rows while the column rail beside it stays stuck, so one column instance
-   carries both acts instead of each section owning its own. */
-.plan-build-act {
-  position: relative;
-  height: 240vh;
-  margin-top: 80px;
-}
-
-/* Scrolls away like any heading. Pinning it put it under the desk, which
-   pins below it and paints over it on the way up. */
-.plan-build-title {
-  margin: 0 0 44px;
-}
-
-/* Same offset as the column rail, so the two pin to one line. */
-.plan-build-pin {
-  position: sticky;
-  top: 110px;
-  height: 56vh;
-  max-height: 540px;
-}
-
-.plan-build-desk {
-  position: relative;
-  height: 100%;
-  padding: 36px;
-}
-
-@media (max-width: 999px) {
-  .plan-build-act {
-    height: auto;
-  }
-
-  .plan-build-pin {
-    position: static;
-  }
-
-  .plan-build-pin {
-    height: 460px;
-  }
-
-  .plan-build-desk {
     padding: 20px;
   }
 }

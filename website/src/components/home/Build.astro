@@ -1,6 +1,7 @@
 ---
-/*
- * The Build act lives inside the Plan stage now: one To Do column carries both,
- * so it cannot be a section of its own without unmounting and remounting it.
- */
+import { VariantHandoff } from '../demo/BuildHandoffLab.tsx';
 ---
+<section class="home-build" style="padding-bottom: 0;">
+  <h2 class="plan-v-headline">Build in parallel</h2>
+</section>
+<VariantHandoff client:visible />

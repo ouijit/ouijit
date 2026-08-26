@@ -8,17 +8,17 @@ import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCa
 import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { SESSIONS, N, PEEK, TOP_PAD, NARROW } from './BuildStackLab';
-import { TODO_COLUMN, CONNECTED } from './PlanSection';
+import { TODO_COLUMN } from './PlanSection';
 import { DeskWash } from './DeskWash';
 
 /**
  * Build section lab, round 11 — the Plan section's handoff, carried on.
  *
- * The silhouette is Plan's, held: the To Do column stays on the right at the
- * same 372px rail, in the same graphite desk it was charged in, and the wide
- * desk on the left is now the terminal stack rather than the source panes.
- * The traffic is what reverses — cards flew right into the column there, and
- * sessions spawn left out of it here, draining the charge it arrived with.
+ * The silhouette mirrors Plan's: the column moves to the left rail, in the
+ * desk it was charged in, and the wide desk on the right is the terminal
+ * stack rather than Plan's source panes. The traffic mirrors with it — cards
+ * flew right into the column there, sessions spawn right out of it here,
+ * draining the charge it arrived with.
  * There, cards fly from source desks into the To Do column. Here the column
  * arrives full and stays full: starting a task does not take it off the board,
  * it gives it a terminal. Each task grows the connected-terminal row the
@@ -50,6 +50,16 @@ const TASKS = TODO_COLUMN;
 const DESK_GRAPHITE =
   'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%), linear-gradient(180deg, #1c1d23, #131318)';
 
+/** Every task on the board is mid-run; none of them shows a finished dot. */
+const CONNECTED: TerminalDisplayState[] = SESSIONS.map((session, i) => ({
+  ...DEFAULT_DISPLAY_STATE,
+  projectPath: '/demo/horizon',
+  ptyId: `pty-${TODO_COLUMN[i].taskNumber}-claude`,
+  label: 'claude',
+  summaryType: 'thinking',
+  lastOscTitle: session.osc,
+  taskId: TODO_COLUMN[i].taskNumber,
+}));
 
 interface Box {
   x: number;
@@ -195,6 +205,36 @@ export function VariantHandoff() {
     <div ref={wrapRef} style={{ height: staticMode ? 'auto' : `${RUN_VH}vh` }}>
       <div className="hx-sticky">
         <div ref={stageRef} className="hx-stage">
+          <div className="hx-rail">
+            {/* The desk the column was charged in, draining as the work in it
+                turns into sessions — the Plan section's own drain, applied to
+                the column instead of to a source pane. */}
+            <div className="plan-desk desk-wash hx-todo-desk" style={{ backgroundImage: DESK_GRAPHITE }}>
+              <DeskWash
+                style={{ '--wash': 'var(--wash-prism)', opacity: 0.9 * (1 - drain) } as React.CSSProperties}
+              />
+              <div className="hx-column glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel">
+                <KanbanColumnView status="todo" label="To Do" count={N}>
+                  {TASKS.map((task, i) => {
+                    // The row appears as the flight lands, so the card gains
+                    // its terminal at the moment the stack does.
+                    const connected = staticMode || i < Math.floor(gone) || (i === flying && f >= LAND_AT);
+                    return (
+                      <div key={task.taskNumber} ref={setSlot(i)}>
+                        <KanbanCardView
+                          task={task}
+                          connectedDisplays={connected ? [CONNECTED[i]] : []}
+                          isSettingUp={!connected && i === flying && f > 0.04}
+                          showBadge={false}
+                        />
+                      </div>
+                    );
+                  })}
+                </KanbanColumnView>
+              </div>
+            </div>
+          </div>
+
           <div className="plan-desk desk-wash hx-desk" style={{ backgroundImage: DESK_GRAPHITE }}>
             <DeskWash style={{ '--wash': 'var(--wash-iris)', opacity: 0.9 * drain } as React.CSSProperties} />
             <div ref={destRef} className="stk-well" style={{ top: TOP_PAD + backCards * PEEK }}>
@@ -237,36 +277,6 @@ export function VariantHandoff() {
                   </div>
                 );
               })}
-            </div>
-          </div>
-
-          <div className="hx-rail">
-            {/* The desk the column was charged in, draining as the work in it
-                turns into sessions — the Plan section's own drain, applied to
-                the column instead of to a source pane. */}
-            <div className="plan-desk desk-wash hx-todo-desk" style={{ backgroundImage: DESK_GRAPHITE }}>
-              <DeskWash
-                style={{ '--wash': 'var(--wash-prism)', opacity: 0.9 * (1 - drain) } as React.CSSProperties}
-              />
-              <div className="hx-column glass-bevel relative flex rounded-[14px] overflow-hidden border border-bezel-panel">
-                <KanbanColumnView status="todo" label="To Do" count={N}>
-                  {TASKS.map((task, i) => {
-                    // The row appears as the flight lands, so the card gains
-                    // its terminal at the moment the stack does.
-                    const connected = staticMode || i < Math.floor(gone) || (i === flying && f >= LAND_AT);
-                    return (
-                      <div key={task.taskNumber} ref={setSlot(i)}>
-                        <KanbanCardView
-                          task={task}
-                          connectedDisplays={connected ? [CONNECTED[i]] : []}
-                          isSettingUp={!connected && i === flying && f > 0.04}
-                          showBadge={false}
-                        />
-                      </div>
-                    );
-                  })}
-                </KanbanColumnView>
-              </div>
             </div>
           </div>
 
