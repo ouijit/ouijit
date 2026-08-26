@@ -227,9 +227,10 @@ const SANDBOX_SCREEN = [
   '\x1b[38;5;75m╰──────────────────────────────────────────────╯\x1b[0m\r\n',
 ].join('');
 
-// Labels mirror what the app derives for a task terminal: the task's name.
-// The dev-server terminal keeps its command label, the way a shell's title
-// reports what is running in it.
+// Labels mirror resolveTerminalLabel: a task's name if it has one, then its
+// branch, then a script's name. The task name wins before anything else is
+// consulted, so both of T-1's terminals carry it and their summaries are what
+// tell them apart.
 function buildTerminalSeeds() {
   return [
     {
@@ -247,7 +248,7 @@ function buildTerminalSeeds() {
     {
       ptyId: 'capture-pty-1b',
       taskId: 1,
-      label: 'npm run dev',
+      label: 'Rework onboarding flow',
       summary: 'Vite dev server',
       summaryType: 'ready',
       worktreeBranch: 'rework-onboarding-flow-124',

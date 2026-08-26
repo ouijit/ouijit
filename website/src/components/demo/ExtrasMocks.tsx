@@ -3,7 +3,7 @@ import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { StatusDot } from '../../ouijit-ui/components/terminal/StatusDot';
 import { ScriptRowView } from '../../ouijit-ui/components/scripts/ScriptRowView';
 import { HookRowView } from '../../ouijit-ui/components/scripts/HookRowView';
-import { KeyHint, PaletteFooter, PaletteHeader, PaletteRow } from './paletteParts';
+import { KeyHint, PaletteBranchRow, PaletteFooter, PaletteHeader, PaletteRow } from './paletteParts';
 
 /**
  * Static renders of app chrome for the "Also in the box." bento. Each mock
@@ -40,7 +40,6 @@ export function PaletteMock() {
         title="Rework onboarding flow"
         context="ouijit"
       />
-      <PaletteRow leading={<StatusDot summaryType="ready" />} title="npm run dev" context="ouijit" />
       <div className="px-3 pt-2 pb-1 text-[11px] text-ink/40">Tasks</div>
       <PaletteRow
         leading={<span className="font-mono text-[11px] text-text-tertiary tabular-nums">T-101</span>}
@@ -48,6 +47,8 @@ export function PaletteMock() {
         context="ouijit"
         meta="in review · 2h"
       />
+      <PaletteBranchRow title="Editing onboarding stepper…" summaryType="thinking" last={false} />
+      <PaletteBranchRow title="live dev server" summaryType="ready" last />
       <PaletteFooter action="Focus terminal" />
     </FloatingPanel>
   );

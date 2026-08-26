@@ -58,6 +58,8 @@ export function PaletteFooter({ action }: { action?: string }) {
 export interface PaletteRowProps {
   leading: ReactNode;
   title: ReactNode;
+  /** Dim detail beside the title, in PaletteRow's own hint slot. */
+  hint?: ReactNode;
   context: ReactNode;
   meta?: ReactNode;
   selected?: boolean;
@@ -65,7 +67,7 @@ export interface PaletteRowProps {
   onHover?: () => void;
 }
 
-export function PaletteRow({ leading, title, context, meta, selected = false, rowRef, onHover }: PaletteRowProps) {
+export function PaletteRow({ leading, title, hint, context, meta, selected = false, rowRef, onHover }: PaletteRowProps) {
   return (
     <div
       ref={rowRef}
@@ -83,6 +85,7 @@ export function PaletteRow({ leading, title, context, meta, selected = false, ro
       <span className="w-12 shrink-0 flex items-center">{leading}</span>
       <span className="flex-1 min-w-0 flex items-center gap-2">
         <span className="text-[13px] truncate text-text-primary">{title}</span>
+        {hint && <span className="text-[11px] text-text-tertiary truncate shrink-0 max-w-[9rem]">{hint}</span>}
       </span>
       <span className="w-32 shrink-0 text-[11px] text-text-tertiary truncate">{context}</span>
       <span className="w-28 shrink-0 text-right text-[11px] text-text-tertiary truncate">{meta}</span>

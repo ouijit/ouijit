@@ -326,7 +326,7 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
           isBackCard={pos('dev') !== 0}
           stackPosition={pos('dev') || undefined}
           nameContent={
-            <TerminalHeaderName label="npm run dev" lastOscTitle="live dev server" />
+            <TerminalHeaderName label="Rework onboarding flow" lastOscTitle="live dev server" />
           }
           branchContent={pos('dev') === 0 ? <BranchLabel branch="rework-onboarding" /> : undefined}
           actions={

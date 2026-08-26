@@ -40,6 +40,7 @@ interface Item {
   context: string;
   meta?: string;
   action: string;
+  hint?: string;
   leading: ReactNode;
   children?: { key: string; title: string; summaryType: string }[];
 }
@@ -52,6 +53,9 @@ const ITEMS: Item[] = [
       key: t.ptyId,
       kind: 'terminal',
       title: t.label ?? t.ptyId,
+      /* Two terminals in one task carry the same name, so the name alone
+         cannot tell them apart. What each is doing can. */
+      hint: t.lastOscTitle ?? undefined,
       context: PROJECT.name,
       action: 'Focus terminal',
       leading: <StatusDot summaryType={t.summaryType} />,
@@ -250,6 +254,7 @@ export function MockCommandPalette({ onClose }: { onClose: () => void }) {
                       key={row.key}
                       leading={row.item.leading}
                       title={highlight(row.item.title, row.ranges)}
+                      hint={row.item.hint}
                       context={row.item.context}
                       meta={row.item.meta}
                       selected={on}

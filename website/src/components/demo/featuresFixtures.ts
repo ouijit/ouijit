@@ -131,9 +131,10 @@ export const featuresChainMap: Map<number, TaskChainInfo> = buildChainMap(featur
  * terminals: the stack, the board rows and the palette all read them from
  * here, so one pty reads the same on every surface.
  *
- * Labels follow what the app derives (see scripts/capture/run.mjs): a task's
- * agent terminal takes the task's name, and a terminal opened to run
- * something keeps its command.
+ * Labels are what resolveTerminalLabel would return: a task's name if it has
+ * one, then its branch, then a script's name, then 'Shell'. A task name wins
+ * before anything else is consulted, so every terminal opened inside a task
+ * carries it — the dev server included, however it was started.
  */
 export const featuresTerminalsByTask: Record<number, TerminalDisplayState[]> = {
   101: [
@@ -146,7 +147,7 @@ export const featuresTerminalsByTask: Record<number, TerminalDisplayState[]> = {
     }),
     term({
       ptyId: 'pty-101-dev',
-      label: 'npm run dev',
+      label: 'Rework onboarding flow',
       summaryType: 'ready',
       lastOscTitle: 'live dev server',
       taskId: 101,
