@@ -367,6 +367,7 @@ body.marketing .app-markdown h4 {
 }
 
 .app-window {
+  position: relative;
   flex-shrink: 0;
   transform-origin: top center;
   display: flex;
@@ -396,13 +397,37 @@ body.marketing .app-markdown h4 {
   align-items: center;
   gap: 18px;
   height: 64px;
-  padding: 0 20px;
+  /* The app reserves this much for the traffic lights rather than laying them
+     out: macOS draws them itself. */
+  padding: 0 20px 0 88px;
   flex-shrink: 0;
 }
 
+/* Out of the titlebar and above the overlay, because the lights they stand in
+   for are native chrome — the window's own blur never reaches them. */
 .app-window-lights {
+  position: absolute;
+  top: 26px;
+  left: 20px;
+  z-index: 400;
   display: flex;
   gap: 8px;
+}
+
+/* Covers the window, titlebar included, the way the app's palette covers the
+   frame it portals into. `.glass-bevel > *` pins every child to relative and
+   z-index 0 from an unlayered rule, so both have to be set here — a utility
+   would lose whatever its specificity. */
+.app-window-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  justify-content: center;
+  padding: 110px 24px 40px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .app-window-lights span {

@@ -11,6 +11,7 @@ import { featuresTasks, featuresTerminalsByTask } from './featuresFixtures';
 import { MockPlanPanel, MockPreviewPanel, MockDiffPanel } from './MockPanels';
 import { MockPullRequests } from './MockPullRequests';
 import { MockAnalysis } from './MockAnalysis';
+import { MockCommandPalette } from './MockCommandPalette';
 import {
   STACK_TERMINALS,
   type PanelKind,
@@ -69,6 +70,7 @@ export default function AppWindowScene() {
   // Closed by default like the app, where the rail is a hover/pin overlay and
   // the titlebar project icon toggles it.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   // The diff-bearing terminal leads so the stack opens on the diff panel.
   const [stackOrder, setStackOrder] = useState<string[]>([
     'pty-103-test',
@@ -128,12 +130,12 @@ export default function AppWindowScene() {
             transform: `scale(${scale})`,
           }}
         >
+          <div className="app-window-lights" aria-hidden="true">
+            <span style={{ background: '#ff5f57' }} />
+            <span style={{ background: '#febc2e' }} />
+            <span style={{ background: '#28c840' }} />
+          </div>
           <div className="app-window-titlebar">
-            <div className="app-window-lights" aria-hidden="true">
-              <span style={{ background: '#ff5f57' }} />
-              <span style={{ background: '#febc2e' }} />
-              <span style={{ background: '#28c840' }} />
-            </div>
             {/* One wrapper so the pair sits the titlebar's own 8px from the
                 project name; the 18px gap is between the lights and the pair. */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -147,9 +149,15 @@ export default function AppWindowScene() {
                 >
                   <Icon name="sidebar-simple" />
                 </button>
-                <span className={`${PLAIN_BTN} text-text-secondary`}>
+                <button
+                  type="button"
+                  aria-label="Toggle search"
+                  aria-expanded={paletteOpen}
+                  className={`${PLAIN_BTN} ${paletteOpen ? 'text-text-primary bg-background-secondary' : 'text-text-secondary'}`}
+                  onClick={() => setPaletteOpen(!paletteOpen)}
+                >
                   <Icon name="magnifying-glass" />
-                </span>
+                </button>
               </div>
               <div className="flex items-center gap-3 min-w-0">
                 <ProjectAvatar size={32} />
@@ -356,6 +364,7 @@ export default function AppWindowScene() {
               </div>
             )}
           </div>
+          {paletteOpen && <MockCommandPalette onClose={() => setPaletteOpen(false)} />}
         </div>
       </div>
     </div>

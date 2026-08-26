@@ -3,6 +3,7 @@ import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { StatusDot } from '../../ouijit-ui/components/terminal/StatusDot';
 import { ScriptRowView } from '../../ouijit-ui/components/scripts/ScriptRowView';
 import { HookRowView } from '../../ouijit-ui/components/scripts/HookRowView';
+import { KeyHint, PaletteHeader, PaletteRow } from './paletteParts';
 
 /**
  * Static renders of app chrome for the "Also in the box." bento. Each mock
@@ -28,64 +29,10 @@ function FloatingPanel({ children, divided = false }: { children: ReactNode; div
   );
 }
 
-function KeyHint({ keys, label }: { keys: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5 min-w-0">
-      <kbd className="font-mono text-[10px] leading-none px-1.5 py-1 rounded bg-ink/[0.06] text-text-tertiary">
-        {keys}
-      </kbd>
-      <span className="truncate">{label}</span>
-    </span>
-  );
-}
-
-function PaletteRow({
-  leading,
-  title,
-  context,
-  meta,
-  selected = false,
-}: {
-  leading: ReactNode;
-  title: string;
-  context: string;
-  meta?: string;
-  selected?: boolean;
-}) {
-  return (
-    <div
-      className="flex items-center gap-2.5 px-3 h-9"
-      style={
-        selected
-          ? {
-              background: 'color-mix(in srgb, var(--color-accent) 14%, transparent)',
-              boxShadow: 'inset 2px 0 0 0 var(--color-accent)',
-            }
-          : undefined
-      }
-    >
-      <span className="w-12 shrink-0 flex items-center">{leading}</span>
-      <span className="flex-1 min-w-0 flex items-center gap-2">
-        <span className="text-[13px] truncate text-text-primary">{title}</span>
-      </span>
-      <span className="w-32 shrink-0 text-[11px] text-text-tertiary truncate">{context}</span>
-      <span className="w-28 shrink-0 text-right text-[11px] text-text-tertiary truncate">{meta}</span>
-    </div>
-  );
-}
-
 export function PaletteMock() {
   return (
     <FloatingPanel>
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-ink/[0.06] shrink-0">
-        <span className="shrink-0 text-text-tertiary [&>svg]:w-4 [&>svg]:h-4">
-          <Icon name="magnifying-glass" />
-        </span>
-        <span className="flex-1 min-w-0 text-sm text-text-primary">
-          onboarding
-          <span className="terminal-cursor terminal-cursor--dim" />
-        </span>
-      </div>
+      <PaletteHeader query="onboarding" />
       <div className="px-3 pt-2 pb-1 text-[11px] text-ink/40">Terminals</div>
       <PaletteRow
         selected
