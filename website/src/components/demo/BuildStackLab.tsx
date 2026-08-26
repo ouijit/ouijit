@@ -37,7 +37,6 @@ export const SESSIONS = [
     label: 'Rework onboarding flow',
     branch: 'rework-onboarding',
     osc: 'Editing onboarding stepper…',
-    state: 'thinking',
     body: (
       <ClaudeShell busy>
         <ClaudeUser>Split onboarding into a three-step stepper with saved progress.</ClaudeUser>
@@ -57,7 +56,6 @@ export const SESSIONS = [
     label: 'Wire payment retries',
     branch: 'billing-retries',
     osc: 'Reading dunningQueue.ts…',
-    state: 'thinking',
     body: (
       <ClaudeShell busy>
         <ClaudeUser>Retry failed charges through the dunning queue instead of failing the invoice.</ClaudeUser>
@@ -74,19 +72,14 @@ export const SESSIONS = [
     task: 'T-103',
     label: 'Polish invitation email',
     branch: 'polish-invitation-email',
-    osc: 'done · 14 passed',
-    state: 'ready',
+    osc: 'Building the mail templates…',
     body: (
-      <ClaudeShell>
+      <ClaudeShell busy>
         <ClaudeUser>Match the invitation email to the new brand tokens.</ClaudeUser>
         <ToolCall name="Write" args="app/mailers/templates/invitation.tsx" />
         <Lines added={34} removed={2} />
+        <Continuation>header and CTA now read from the shared tokens</Continuation>
         <ToolCall name="Bash" args="npm run build:mail" />
-        <ToolResult>
-          <span className={GREEN}>ok</span>
-          <span className="ml-2 text-white/35">in 3.4s</span>
-        </ToolResult>
-        <AssistantSay>Done — the header and CTA now read from the shared tokens.</AssistantSay>
       </ClaudeShell>
     ),
   },
@@ -95,7 +88,6 @@ export const SESSIONS = [
     label: 'Speed up search index',
     branch: 'speed-search-index',
     osc: 'Running npm test…',
-    state: 'thinking',
     body: (
       <ClaudeShell busy>
         <ClaudeUser>The index build takes four minutes on a cold cache. Find out why.</ClaudeUser>
@@ -115,7 +107,6 @@ export const SESSIONS = [
     label: 'Add CSV export',
     branch: 'invoices-csv-export',
     osc: 'Writing toCsv.ts…',
-    state: 'thinking',
     body: (
       <ClaudeShell busy>
         <ClaudeUser>Add a CSV export to the invoices table, respecting the current filters.</ClaudeUser>
@@ -242,7 +233,7 @@ export function VariantStack() {
                 >
                   <TerminalCardView isActive={front}>
                     <TerminalHeaderView
-                      summaryType={session.state}
+                      summaryType="thinking"
                       isActive={front}
                       isBackCard={!front}
                       stackPosition={front ? undefined : rank}

@@ -65,12 +65,13 @@ const TASKS: TaskWithWorkspace[] = [
 const DESK_GRAPHITE =
   'radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%), linear-gradient(180deg, #1c1d23, #131318)';
 
+/** Every task on the board is mid-run; none of them shows a finished dot. */
 const CONNECTED: TerminalDisplayState[] = SESSIONS.map((session, i) => ({
   ...DEFAULT_DISPLAY_STATE,
   projectPath: '/demo/horizon',
   ptyId: `pty-${101 + i}-claude`,
   label: 'claude',
-  summaryType: session.state === 'ready' ? 'ready' : 'thinking',
+  summaryType: 'thinking',
   lastOscTitle: session.osc,
   taskId: 101 + i,
 }));
@@ -204,7 +205,10 @@ export function VariantHandoff() {
    * flight and reaches the next whole number exactly as the card touches down,
    * which is the same moment the count of landed sessions goes up.
    */
-  const filled = staticMode ? N : Math.floor(gone) + clamp01(f / LAND_AT);
+  // Clamped: once `gone` reaches N the floor and the flight term both count
+  // the last task, which pushed the front index past the last session and
+  // left every card drawing as a peek.
+  const filled = staticMode ? N : Math.min(N, Math.floor(gone) + clamp01(f / LAND_AT));
   const onStack = Math.floor(filled);
   const shove = filled - onStack;
   const frontIndex = onStack - 1;
@@ -237,7 +241,7 @@ export function VariantHandoff() {
                   >
                     <TerminalCardView isActive={front}>
                       <TerminalHeaderView
-                        summaryType={session.state}
+                        summaryType="thinking"
                         isActive={front}
                         isBackCard={!front}
                         stackPosition={front ? undefined : rank}

@@ -1,0 +1,17 @@
+---
+import Site from '../../layouts/Site.astro';
+import { BuildSection } from '../../components/demo/BuildLab.tsx';
+---
+<Site title="Lab · Build in parallel, the shipped theater" noindex>
+  <section class="home-build">
+    <h1 class="plan-v-headline">Build — the beat theater</h1>
+    <p style="color: #86868b; max-width: 62ch; margin: 16px 0 0;">
+      What the homepage ran before the Plan handoff took the section. Kept reachable so the workbench stack
+      and its five beats are not lost to git history.
+    </p>
+  </section>
+
+  <section class="home-build">
+    <BuildSection client:visible />
+  </section>
+</Site>
