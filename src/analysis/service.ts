@@ -46,6 +46,13 @@ const cache = new Map<string, ProjectAnalysis>();
 const inflight = new Map<string, Promise<ProjectAnalysis | null>>();
 const attemptedAt = new Map<string, number>();
 
+/**
+ * A model runs to tens of megabytes on a large repo, so the app does not hold
+ * one for every project the window has ever shown. Re-entering an evicted
+ * project costs one scan.
+ */
+const MAX_CACHED_PROJECTS = 4;
+
 /** How stale the model is allowed to get, however often a poll asks. */
 const REFRESH_MIN_INTERVAL_MS = 25_000;
 /** Complexity is read from the working tree for the most-changed files only. */
@@ -55,7 +62,11 @@ const COMPLEXITY_MAX_BYTES = 2 * 1024 * 1024;
 
 async function isAnalysisEnabled(projectPath: string): Promise<boolean> {
   const raw = await getGlobalSetting(experimentalStorageKey(projectPath));
-  return parseExperimentalFlags(raw).analysis;
+  const enabled = parseExperimentalFlags(raw).analysis;
+  // Turning the flag off is the user saying they are done with this: holding
+  // the model against them turning it back on would be the expensive guess.
+  if (!enabled) invalidateAnalysis(projectPath);
+  return enabled;
 }
 
 /**
@@ -102,8 +113,8 @@ export async function getDiffSignals(projectPath: string, paths: string[]): Prom
 const MISSING_PARTNER_LIMIT = 3;
 
 /** Files `p` usually changes with that the diff leaves out. */
-function missingPartners(model: AnalysisModel, p: string, asked: ReadonlySet<string>): string[] {
-  const ranked: Array<{ partner: string; degree: number }> = [];
+function missingPartners(model: AnalysisModel, p: string, asked: ReadonlySet<string>): Partner[] {
+  const ranked: Partner[] = [];
   for (const key of model.pairsByPath.get(p) ?? []) {
     const shared = model.couplings.get(key) ?? 0;
     if (shared < COUPLING_MIN_SHARED) continue;
@@ -112,12 +123,9 @@ function missingPartners(model: AnalysisModel, p: string, asked: ReadonlySet<str
     if (asked.has(partner)) continue;
     const degree = pairDegree(model.files, a, b, shared);
     if (degree < COUPLING_MIN_DEGREE) continue;
-    ranked.push({ partner, degree });
+    ranked.push({ path: partner, degree });
   }
-  return ranked
-    .sort((x, y) => y.degree - x.degree)
-    .slice(0, MISSING_PARTNER_LIMIT)
-    .map((r) => r.partner);
+  return ranked.sort((x, y) => y.degree - x.degree).slice(0, MISSING_PARTNER_LIMIT);
 }
 
 const OVERVIEW_ROWS = 30;
@@ -330,7 +338,7 @@ export function scanProject(projectPath: string): Promise<ProjectAnalysis | null
   return run;
 }
 
-/** Exported for the integration tests; the app's cache is sha-driven. */
+/** Drops a project's model: it is removed, or its flag has just gone off. */
 export function invalidateAnalysis(projectPath?: string): void {
   if (projectPath == null) {
     cache.clear();
@@ -371,7 +379,10 @@ async function scan(projectPath: string): Promise<ProjectAnalysis | null> {
   analysis.complexity = await readComplexity(projectPath, analysis.model, analysis.complexity, touched);
   analysis.scores = scoreFiles(analysis.model, analysis.complexity);
   analysis.overview = undefined;
+  // Re-inserted, so the map's insertion order is least-recently-scanned first.
+  cache.delete(projectPath);
   cache.set(projectPath, analysis);
+  while (cache.size > MAX_CACHED_PROJECTS) invalidateAnalysis(cache.keys().next().value!);
   return analysis;
 }
 

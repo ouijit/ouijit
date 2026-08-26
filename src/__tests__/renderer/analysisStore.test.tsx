@@ -26,7 +26,7 @@ function signal(over: Partial<FileSignal> = {}): FileSignal {
   };
 }
 
-const signals: DiffSignals = { 'a.ts': { signal: signal(), missing: ['b.ts'] } };
+const signals: DiffSignals = { 'a.ts': { signal: signal(), missing: [{ path: 'b.ts', degree: 0.8 }] } };
 
 function overview(commitCount: number): AnalysisOverview {
   return {

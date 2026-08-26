@@ -3,6 +3,7 @@ import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getProjectList } from '../../projectList';
 import { removeProject, reorderProjects, setProjectIconColor } from '../../db';
+import { invalidateAnalysis } from '../../analysis/service';
 import { initGitRepo } from '../../projectCreator';
 import { getDefaultProjectsDir, prepareProjectsFolderChange, applyProjectsFolderChange } from '../../projectsFolder';
 import { addExistingProject, createAndRegisterProject } from '../../services/projectRegistration';
@@ -39,6 +40,7 @@ async function revealPath(targetPath: string): Promise<{ success: boolean; error
 async function removeProjectWithCleanup(folderPath: string): Promise<void> {
   await deleteWithCleanup(folderPath).catch(() => {});
   await deleteConfig(folderPath).catch(() => {});
+  invalidateAnalysis(folderPath);
   await removeProject(folderPath);
 }
 

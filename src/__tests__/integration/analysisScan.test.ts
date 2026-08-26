@@ -232,13 +232,20 @@ describe('the project read as a whole', () => {
     const lock = await getDiffSignals(repoDir, ['package-lock.json']);
     expect(lock!['package-lock.json'].signal).toMatchObject({ tier: 'quiet', cxRank: null });
     // Coupling still sees it: "you changed the manifest but not the lockfile".
-    expect(signals!['package.json'].missing).toEqual(['package-lock.json']);
+    expect(signals!['package.json'].missing.map((m) => m.path)).toEqual(['package-lock.json']);
   });
 
-  test('the flag being off is indistinguishable from having no analysis', async () => {
+  test('the flag being off is indistinguishable from having no analysis, and lets the model go', async () => {
+    const held = await scanProject(repoDir);
+    expect(held).not.toBeNull();
+
     await setGlobalSetting(experimentalStorageKey(repoDir), JSON.stringify({ analysis: false }));
     expect(await getAnalysisOverview(repoDir)).toBeNull();
     expect(await getDiffSignals(repoDir, ['a.ts'])).toBeNull();
+
+    // Turning it back on rebuilds rather than handing back what was dropped.
+    await setGlobalSetting(experimentalStorageKey(repoDir), JSON.stringify({ analysis: true }));
+    expect(await scanProject(repoDir)).not.toBe(held);
   });
 });
 
@@ -260,7 +267,7 @@ describe('signals for one diff', () => {
 
   test('names a coupled file the diff leaves out, and stays quiet once it is in', async () => {
     const without = await getDiffSignals(repoDir, ['a.ts']);
-    expect(without?.['a.ts'].missing).toEqual(['b.ts']);
+    expect(without?.['a.ts'].missing.map((m) => m.path)).toEqual(['b.ts']);
     expect(without?.['a.ts'].signal.commits).toBe(7);
 
     // Both sides on screen: the reader can see the pair for themselves.

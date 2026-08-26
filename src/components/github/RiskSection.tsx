@@ -35,10 +35,10 @@ function riskRows(signals: DiffSignals): RiskRow[] {
     }
     for (const partner of missing) {
       uncoupled.push({
-        key: `${path}\u0000${partner}`,
+        key: `${path}\u0000${partner.path}`,
         path,
         kind: 'uncoupled',
-        text: `${describePartner(partner)} — not in this pull request`,
+        text: `${describePartner(partner.path)} — not in this pull request`,
       });
     }
   }

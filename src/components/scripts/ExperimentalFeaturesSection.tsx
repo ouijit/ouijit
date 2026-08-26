@@ -32,13 +32,7 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
   };
 
   const handleToggleGithub = async () => {
-    const next = !githubEnabled;
-    await useExperimentalStore.getState().setFlag(projectPath, 'github', next);
-    // The panel is a projectStore value, so leaving it selected after the
-    // toggle disappears would strand the user on a panel they can't get back to.
-    if (!next && useProjectStore.getState().activePanel === 'pull-requests') {
-      useProjectStore.getState().setActivePanel('terminals');
-    }
+    await useExperimentalStore.getState().setFlag(projectPath, 'github', !githubEnabled);
   };
 
   return (

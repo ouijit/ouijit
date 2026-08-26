@@ -93,7 +93,7 @@ export interface FileAnalysis {
    * Files it usually changes with that this diff leaves out, strongest first
    * and capped — already filtered, so a surface renders the list as given.
    */
-  missing: string[];
+  missing: Partner[];
 }
 
 /** One file list's analysis, by path. */

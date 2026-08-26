@@ -53,7 +53,7 @@ beforeEach(() => {
 describe('what a pull request’s history says about it', () => {
   test('names the hotspots it touches and the files it leaves behind', async () => {
     const signals: DiffSignals = {
-      'src/engine.ts': { signal: signal(), missing: ['src/absent.ts'] },
+      'src/engine.ts': { signal: signal(), missing: [{ path: 'src/absent.ts', degree: 0.8 }] },
       'src/calm.ts': { signal: signal({ tier: 'quiet', commits: 2 }), missing: [] },
     };
     vi.mocked(window.api.analysis.diffSignals).mockResolvedValue(signals);
@@ -93,7 +93,7 @@ describe('which files are worth a chip', () => {
   test('a hotspot or an absent companion, and nothing else', () => {
     expect(worthAChip({ signal: signal(), missing: [] })).toBe(true);
     expect(worthAChip({ signal: signal({ tier: 'warm' }), missing: [] })).toBe(true);
-    expect(worthAChip({ signal: signal({ tier: 'quiet' }), missing: ['src/other.ts'] })).toBe(true);
+    expect(worthAChip({ signal: signal({ tier: 'quiet' }), missing: [{ path: 'src/other.ts', degree: 0.8 }] })).toBe(true);
     expect(worthAChip({ signal: signal({ tier: 'quiet' }), missing: [] })).toBe(false);
   });
 });

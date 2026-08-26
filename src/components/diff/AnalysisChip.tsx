@@ -10,7 +10,9 @@ export function worthAChip({ signal, missing }: FileAnalysis): boolean {
 }
 
 export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: FileAnalysis) {
-  const levers = leversFor(signal);
+  // The strongest absent partner, so the chip reaches the same seam lever the
+  // project panel shows for this file.
+  const levers = leversFor(signal, missing[0]);
   const detail = (
     <div className="w-60 whitespace-normal py-1 flex flex-col gap-3 font-normal">
       <div>
@@ -34,8 +36,8 @@ export const AnalysisChip = memo(function AnalysisChip({ signal, missing }: File
       {missing.length > 0 && (
         <div className="flex flex-col gap-1">
           {missing.map((partner) => (
-            <span key={partner} className="text-[11px] leading-snug text-text-secondary">
-              {PARTNER_PREFIX} <span className="font-mono text-[10px]">{partner}</span> — not in this diff
+            <span key={partner.path} className="text-[11px] leading-snug text-text-secondary">
+              {PARTNER_PREFIX} <span className="font-mono text-[10px]">{partner.path}</span> — not in this diff
             </span>
           ))}
         </div>

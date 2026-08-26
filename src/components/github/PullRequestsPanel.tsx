@@ -11,6 +11,7 @@ import { PullRequestDetailView } from './PullRequestDetailView';
 import { IssueDetailView } from './IssueDetailView';
 import type { TaskWithWorkspace } from '../../types';
 import { PanelFrame } from '../ui/PanelFrame';
+import { useEscape } from '../../hooks/useEscape';
 import { RefreshButton } from './RefreshButton';
 import { Loading } from './Loading';
 
@@ -84,24 +85,17 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     });
   }, [available, projectPath]);
 
-  // Escape closes what is open, then leaves the panel, as the settings panel
-  // does.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      // A comment box, menu or search field claims Escape first; without this
-      // the keypress that cancelled a comment also closed the pull request.
-      if (e.defaultPrevented) return;
+  // Closes what is open before leaving the panel behind it.
+  useEscape(
+    useCallback(() => {
       const store = useGithubStore.getState();
       if (store.activeNumber != null || store.activeIssue != null) {
         store.closeDetail();
         return;
       }
       useProjectStore.getState().setActivePanel('terminals');
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, []);
+    }, []),
+  );
 
   // The maps are built in a memo, not the selector: a selector returning a
   // fresh object never equals the last one and re-renders forever.
