@@ -223,11 +223,14 @@ function LensRow({
     // Nothing about the row is pressable except the two buttons, and both say
     // what they are. Running costs an agent and editing does not, so a press
     // that could be either is a press nobody can make on purpose.
+    //
+    // No glyph at the head of the line, the same as the picker's rows: an
+    // aperture beside every entry of a list of lenses, under a heading that
+    // says Lenses beside one, is a word repeated until it stops being read.
     <div className="flex items-center gap-3 px-4 py-3">
-      <Icon name="aperture" className={`shrink-0 w-4 h-4 ${writing ? 'text-accent' : 'text-accent/60'}`} />
       <span className="flex-1 min-w-0">
         <span className="block text-[13px] text-text-primary truncate">{lens.name}</span>
-        <span className="block text-[11px] text-text-tertiary font-mono truncate">
+        <span className={`block text-[11px] font-mono truncate ${writing ? 'text-accent' : 'text-text-tertiary'}`}>
           {writing ? 'Writing…' : lens.instruction}
         </span>
       </span>
