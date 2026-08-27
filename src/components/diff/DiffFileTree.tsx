@@ -176,7 +176,7 @@ export function DiffFileTreeChapters<T extends ChangedFile>({
             <button
               type="button"
               aria-expanded={!folded}
-              className="flex items-center gap-1.5 h-9 px-3 text-[11px] font-medium text-ink/55 text-left transition-colors duration-150 ease-out hover:bg-ink/5 hover:text-ink/75"
+              className="flex items-center gap-1.5 h-9 px-3 text-[12px] font-medium text-ink/90 text-left transition-colors duration-150 ease-out hover:bg-ink/5"
               title={group.summary}
               onClick={() => onCollapsedChange(group.title, !folded)}
             >
