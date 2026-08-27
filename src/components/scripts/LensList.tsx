@@ -240,7 +240,7 @@ function LensForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="e.g. Narrative, What the tests miss"
+          placeholder="Narrative"
         />
         {collides && <div className="mt-1 text-[11px] text-error">A lens called “{name.trim()}” already exists</div>}
       </div>
@@ -249,7 +249,12 @@ function LensForm({
         <label className="block text-[11px] text-text-tertiary mb-1">How to group it</label>
         {/* Prose, not a command. The title, the description and the diff are
             put in front of the agent by Ouijit; this is the only part that is
-            the reader's to say. */}
+            the reader's to say.
+
+            The placeholder is one sample instruction and nothing else — what
+            the field is for is the label's job, and what is sent with it is
+            the line underneath. An instruction written in here reads as a
+            value already filled in. */}
         <textarea
           ref={commandRef}
           rows={3}
@@ -261,10 +266,10 @@ function LensForm({
           }}
           onInput={autoResize}
           onKeyDown={onKeyDown}
-          placeholder="Group by the parts of the change and order them so each one makes sense given the last — data model first, then the code that uses it, then the UI."
+          placeholder="Data model first, then the code that uses it, then the UI."
         />
         <p className="mt-2 text-[11px] text-text-tertiary leading-relaxed">
-          The pull request&rsquo;s title, description, and full diff are sent with this instruction.
+          Ouijit sends the diff, its title, and its description with this.
         </p>
       </div>
 
