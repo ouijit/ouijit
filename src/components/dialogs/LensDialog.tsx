@@ -58,7 +58,22 @@ export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogP
           </Tooltip>
         </h2>
 
-        <LensList projectPath={projectPath} onRun={onRun} running={running} />
+        {/* Making one closes this: whoever opened it from a diff came to read
+            that diff, and a list is not what they came for. Pressing a lens
+            already in the list leaves it open — that is browsing, and the row
+            says so itself while the run is in flight. */}
+        <LensList
+          projectPath={projectPath}
+          onRun={onRun}
+          onCreated={
+            onRun &&
+            ((lens) => {
+              onRun(lens);
+              dismiss();
+            })
+          }
+          running={running}
+        />
 
         <div className="flex justify-end">
           <button

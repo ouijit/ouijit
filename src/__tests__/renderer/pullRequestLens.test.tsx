@@ -293,6 +293,42 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   /**
+   * Nobody opens this from a diff to end up looking at a list. Making a lens is
+   * the thing they came for, so it reads the change and the dialog leaves.
+   */
+  test('a lens made in the dialog reads the change and gets out of the way', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.lens).mockResolvedValue(null);
+    vi.mocked(window.api.lens.save).mockResolvedValue({ success: true });
+    vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    await openPicker();
+    pick('Add a lens…');
+
+    fireEvent.click(await screen.findByText('Risk first'));
+
+    await waitFor(() =>
+      expect(window.api.lens.save).toHaveBeenCalledWith(
+        PROJECT,
+        'Risk first',
+        'The riskiest changes first, then everything that follows from them.',
+        undefined,
+      ),
+    );
+    await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalledWith(PROJECT, 5, 'Risk first'));
+    await waitFor(() => expect(screen.queryByTestId('dialog-overlay')).toBeNull());
+
+    // And the change it is being read for is what is on screen, saying so.
+    expect(await screen.findByText('Writing Risk first…')).toBeTruthy();
+  });
+
+  /**
    * What a lens is, said once and out of the way.
    *
    * Whoever opened this dialog mostly knows already; a standing paragraph is

@@ -58,6 +58,42 @@ describe('LensList', () => {
     );
   });
 
+  /**
+   * Where there is a diff to read, making a lens is what reads it — the reason
+   * anyone opens this from a diff. Editing one already in the list is not, so
+   * it hands nothing back.
+   */
+  test('a lens made here is handed back to be read; an edited one is not', async () => {
+    const created = vi.fn();
+    vi.mocked(window.api.lens.list).mockResolvedValue([]);
+    render(<LensList projectPath={PROJECT} onRun={vi.fn()} onCreated={created} />);
+
+    fireEvent.click(await screen.findByText('Add a lens'));
+    // The button says what it will do, rather than leaving the run to surprise.
+    expect(screen.getByText('Save and read')).toBeTruthy();
+
+    fireEvent.change(screen.getByPlaceholderText('By layer'), { target: { value: 'Narrative' } });
+    fireEvent.change(screen.getByPlaceholderText(/Data model first/), { target: { value: 'group by story' } });
+    fireEvent.click(screen.getByText('Save and read'));
+
+    await waitFor(() => expect(created).toHaveBeenCalledWith({ name: 'Narrative', instruction: 'group by story' }));
+
+    cleanup();
+    created.mockClear();
+    vi.mocked(window.api.lens.list).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
+    render(<LensList projectPath={PROJECT} onRun={vi.fn()} onCreated={created} />);
+
+    fireEvent.click(await screen.findByLabelText('Edit Narrative'));
+    expect(screen.getByText('Save')).toBeTruthy();
+    fireEvent.change(screen.getByDisplayValue('group by story'), { target: { value: 'group by risk' } });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() =>
+      expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, 'Narrative', 'group by risk', 'Narrative'),
+    );
+    expect(created).not.toHaveBeenCalled();
+  });
+
   /** A standing list of suggestions under a list you have curated is clutter. */
   test('with a lens of your own the suggestions are gone', async () => {
     vi.mocked(window.api.lens.list).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);

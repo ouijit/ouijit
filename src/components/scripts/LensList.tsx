@@ -12,6 +12,11 @@ interface LensListProps {
   projectPath: string;
   /** Offered per row when there is a pull request to run one against. */
   onRun?: (lens: LensSummary) => void;
+  /**
+   * What to do with a lens the reader has just made, where making one was the
+   * point of opening this. Absent in settings, where there is no diff to read.
+   */
+  onCreated?: (lens: LensSummary) => void;
   /** Name of the lens currently being written, if any. */
   running?: string | null;
 }
@@ -45,7 +50,7 @@ const SUGGESTED_LENSES: LensSummary[] = [
   { name: 'Setup and payoff', instruction: 'The groundwork that had to happen first, then the change it was for.' },
 ];
 
-export function LensList({ projectPath, onRun, running }: LensListProps) {
+export function LensList({ projectPath, onRun, onCreated, running }: LensListProps) {
   const { lenses, reload } = useProjectLenses(projectPath);
   const [expandedName, setExpandedName] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
@@ -67,8 +72,12 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       await reload();
       setExpandedName(null);
       setAddingNew(false);
+      // Nobody opens this from a diff to end up looking at a list. A lens made
+      // here is one somebody wants used, so making it is what uses it; an edit
+      // to one that already exists is not, and passes a previous name.
+      if (!previousName) onCreated?.(lens);
     },
-    [projectPath, reload],
+    [projectPath, reload, onCreated],
   );
 
   const remove = useCallback(
@@ -109,6 +118,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
             key={lens.name}
             initial={lens}
             sendsHotspots={sendsHotspots}
+            submitLabel="Save"
             onSave={(next) => void save(next, lens.name)}
             onCancel={() => setExpandedName(null)}
             onDelete={() => void remove(lens.name)}
@@ -136,6 +146,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
         <LensForm
           existingNames={lenses.map((l) => l.name)}
           sendsHotspots={sendsHotspots}
+          submitLabel={onCreated ? 'Save and read' : 'Save'}
           onSave={(next) => void save(next)}
           onCancel={() => setAddingNew(false)}
         />
@@ -222,6 +233,7 @@ function LensForm({
   initial,
   existingNames,
   sendsHotspots,
+  submitLabel,
   onSave,
   onCancel,
   onDelete,
@@ -230,6 +242,8 @@ function LensForm({
   existingNames?: string[];
   /** Whether the prompt will carry the history section as well as the diff. */
   sendsHotspots: boolean;
+  /** What saving does, which differs between making a lens and editing one. */
+  submitLabel: string;
   onSave: (lens: LensSummary) => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -340,7 +354,7 @@ function LensForm({
           disabled={!isValid}
           onClick={submit}
         >
-          Save
+          {submitLabel}
         </button>
       </div>
     </div>
