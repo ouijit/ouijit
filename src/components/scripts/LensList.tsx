@@ -10,13 +10,13 @@ import { useProjectLenses } from '../diff/useProjectLenses';
 interface LensListProps {
   projectPath: string;
   /**
-   * What to do with a lens the reader has just made, where making one was the
-   * point of opening this. Absent in settings, where there is no diff to read.
+   * Reads a change through a lens just saved. Absent in settings, where there
+   * is no diff to read one against.
    *
-   * The only path here that spends a run. A lens already in the list opens for
-   * editing; nothing in the list reads a diff.
+   * Where it is given, every form offers to save and run as well as to save,
+   * and those two buttons are the only things here that spend a run.
    */
-  onCreated?: (lens: LensSummary) => void;
+  onRun?: (lens: LensSummary) => void;
   /** Id of the lens currently being written, if any. */
   running?: string | null;
 }
@@ -75,7 +75,7 @@ const SUGGESTED_LENSES: LensInput[] = [
   },
 ];
 
-export function LensList({ projectPath, onCreated, running }: LensListProps) {
+export function LensList({ projectPath, onRun, running }: LensListProps) {
   const { lenses, reload } = useProjectLenses(projectPath);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   /** The new lens being written, filled in from a suggestion or blank. */
@@ -86,7 +86,7 @@ export function LensList({ projectPath, onCreated, running }: LensListProps) {
   const sendsHotspots = useExperimentalStore((s) => s.flagsByProject[projectPath]?.analysis ?? false);
 
   const save = useCallback(
-    async (input: LensInput) => {
+    async (input: LensInput, run: boolean) => {
       let saved: LensSummary;
       try {
         saved = await window.api.lens.save(projectPath, input);
@@ -98,12 +98,9 @@ export function LensList({ projectPath, onCreated, running }: LensListProps) {
       setExpandedId(null);
       setAddingNew(false);
       setDraft(null);
-      // Nobody opens this from a diff to end up looking at a list. A lens made
-      // here is one somebody wants used, so making it is what uses it; an edit
-      // to one that already exists is not, and arrives with an id.
-      if (!input.id) onCreated?.(saved);
+      if (run) onRun?.(saved);
     },
-    [projectPath, reload, onCreated],
+    [projectPath, reload, onRun],
   );
 
   const remove = useCallback(
@@ -147,8 +144,8 @@ export function LensList({ projectPath, onCreated, running }: LensListProps) {
             key={lens.id}
             initial={lens}
             sendsHotspots={sendsHotspots}
-            submitLabel="Save"
-            onSave={(next) => void save({ ...next, id: lens.id })}
+            onSave={(next) => void save({ ...next, id: lens.id }, false)}
+            onSaveAndRun={onRun && ((next) => void save({ ...next, id: lens.id }, true))}
             onCancel={() => setExpandedId(null)}
             onDelete={() => void remove(lens)}
           />
@@ -171,8 +168,8 @@ export function LensList({ projectPath, onCreated, running }: LensListProps) {
           initial={draft ?? undefined}
           existingNames={lenses.map((l) => l.name)}
           sendsHotspots={sendsHotspots}
-          submitLabel={onCreated ? 'Save and read' : 'Save'}
-          onSave={(next) => void save(next)}
+          onSave={(next) => void save(next, false)}
+          onSaveAndRun={onRun && ((next) => void save(next, true))}
           onCancel={() => {
             setAddingNew(false);
             setDraft(null);
@@ -238,12 +235,21 @@ function LensRow({ lens, onEdit, writing }: { lens: LensSummary; onEdit: () => v
 
 // ── Inline edit form ────────────────────────────────────────────────
 
+const QUIET_BUTTON =
+  'px-3 py-1.5 text-xs font-medium rounded-md text-text-secondary hover:bg-ink/[0.06] transition-colors duration-150 disabled:opacity-40';
+
+function primaryButton(isValid: boolean): string {
+  return `px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 ${
+    isValid ? 'text-accent-ink bg-accent hover:bg-accent-hover' : 'text-text-tertiary bg-background-tertiary'
+  }`;
+}
+
 function LensForm({
   initial,
   existingNames,
   sendsHotspots,
-  submitLabel,
   onSave,
+  onSaveAndRun,
   onCancel,
   onDelete,
 }: {
@@ -251,9 +257,13 @@ function LensForm({
   existingNames?: string[];
   /** Whether the prompt will carry the history section as well as the diff. */
   sendsHotspots: boolean;
-  /** What saving does, which differs between making a lens and editing one. */
-  submitLabel: string;
   onSave: (lens: { name: string; instruction: string }) => void;
+  /**
+   * Offered where there is a diff to read. Beside saving rather than instead of
+   * it: wanting to keep a lens and wanting to spend a run on it now are two
+   * different wants, and a form that only offers the second answers neither.
+   */
+  onSaveAndRun?: (lens: { name: string; instruction: string }) => void;
   onCancel: () => void;
   onDelete?: () => void;
 }) {
@@ -279,14 +289,22 @@ function LensForm({
   const collides = !initial?.id && existingNames?.includes(name.trim());
   const isValid = Boolean(name.trim()) && Boolean(instruction.trim()) && !collides;
 
-  const submit = useCallback(() => {
-    if (!name.trim() || !instruction.trim() || collides) return;
-    onSave({ name: name.trim(), instruction: instruction.trim() });
-  }, [name, instruction, collides, onSave]);
+  const submit = useCallback(
+    (run: boolean) => {
+      if (!name.trim() || !instruction.trim() || collides) return;
+      const lens = { name: name.trim(), instruction: instruction.trim() };
+      if (run && onSaveAndRun) onSaveAndRun(lens);
+      else onSave(lens);
+    },
+    [name, instruction, collides, onSave, onSaveAndRun],
+  );
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit();
+      // Saves and stops, where a shortcut usually takes the primary button.
+      // The other one spends an agent run, which nothing should do because a
+      // key was held down over a text box.
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(false);
       if (e.key === 'Escape') onCancel();
     },
     [submit, onCancel],
@@ -350,21 +368,24 @@ function LensForm({
           </button>
         )}
         <div className="flex-1" />
-        <button
-          className="px-3 py-1.5 text-xs font-medium rounded-md text-text-secondary hover:bg-ink/[0.06] transition-colors duration-150"
-          onClick={onCancel}
-        >
+        <button className={QUIET_BUTTON} onClick={onCancel}>
           Cancel
         </button>
+        {/* Whichever of the two is on the right is the one being urged. Where
+            there is a diff to read, that is the run — but keeping the lens has
+            to be a press of its own, not a thing you get to by not running. */}
         <button
-          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 ${
-            isValid ? 'text-accent-ink bg-accent hover:bg-accent-hover' : 'text-text-tertiary bg-background-tertiary'
-          }`}
+          className={onSaveAndRun ? QUIET_BUTTON : primaryButton(isValid)}
           disabled={!isValid}
-          onClick={submit}
+          onClick={() => submit(false)}
         >
-          {submitLabel}
+          Save
         </button>
+        {onSaveAndRun && (
+          <button className={primaryButton(isValid)} disabled={!isValid} onClick={() => submit(true)}>
+            Save and run
+          </button>
+        )}
       </div>
     </div>
   );

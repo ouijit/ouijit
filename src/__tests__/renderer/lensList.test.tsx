@@ -65,40 +65,36 @@ describe('LensList', () => {
   });
 
   /**
-   * Where there is a diff to read, making a lens is what reads it — the reason
-   * anyone opens this from a diff, and the button says so. It is also the only
-   * press here that costs a run: a lens already in the list opens for editing,
-   * the same as it does in settings.
+   * Keeping a lens and spending a run on it now are two different wants, and
+   * only the second costs anything — so they are two buttons, both of them
+   * saying which they are. Nothing else here reads a diff: a lens already in
+   * the list opens for editing, the same as it does in settings.
    */
-  test('a lens made here is handed back to be read; pressing one already in the list edits it', async () => {
-    const created = vi.fn();
+  test('saving and running are two buttons, and only one of them reads the diff', async () => {
+    const run = vi.fn();
     vi.mocked(window.api.lens.list).mockResolvedValue([]);
-    render(<LensList projectPath={PROJECT} onCreated={created} />);
+    render(<LensList projectPath={PROJECT} onRun={run} />);
 
     fireEvent.click(await screen.findByText('Add a lens'));
-    // The button says what it will do, rather than leaving the run to surprise.
-    expect(screen.getByText('Save and read')).toBeTruthy();
-
     fireEvent.change(screen.getByPlaceholderText('By layer'), { target: { value: 'Narrative' } });
     fireEvent.change(screen.getByPlaceholderText(/One part per layer/), { target: { value: 'group by story' } });
-    fireEvent.click(screen.getByText('Save and read'));
+    fireEvent.click(screen.getByText('Save and run'));
 
     // Handed back as saved, with the id a run needs.
     await waitFor(() =>
-      expect(created).toHaveBeenCalledWith({ id: 'made', name: 'Narrative', instruction: 'group by story' }),
+      expect(run).toHaveBeenCalledWith({ id: 'made', name: 'Narrative', instruction: 'group by story' }),
     );
 
     cleanup();
-    created.mockClear();
+    run.mockClear();
     vi.mocked(window.api.lens.list).mockResolvedValue([
       { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
     ]);
-    render(<LensList projectPath={PROJECT} onCreated={created} />);
+    render(<LensList projectPath={PROJECT} onRun={run} />);
 
     // The row itself, not the pencil beside it — the press a reader makes
     // without meaning anything by it.
     fireEvent.click(await screen.findByText('Narrative'));
-    expect(screen.getByText('Save')).toBeTruthy();
     fireEvent.change(screen.getByDisplayValue('group by story'), { target: { value: 'group by risk' } });
     fireEvent.click(screen.getByText('Save'));
 
@@ -109,7 +105,8 @@ describe('LensList', () => {
         instruction: 'group by risk',
       }),
     );
-    expect(created).not.toHaveBeenCalled();
+    // Kept, and nothing spent on it.
+    expect(run).not.toHaveBeenCalled();
   });
 
   /** A standing list of suggestions under a list you have curated is clutter. */

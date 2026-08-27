@@ -9,10 +9,10 @@ import { DialogOverlay } from './DialogOverlay';
 interface LensDialogProps {
   projectPath: string;
   /**
-   * Reads the change through a lens just made here. Omitted, there is nothing
-   * to read one against and making one only saves it.
+   * Reads the change through a lens just saved here. Omitted, there is nothing
+   * to read one against and saving is all a form can do.
    */
-  onCreated?: (lens: LensSummary) => void;
+  onRun?: (lens: LensSummary) => void;
   running?: string | null;
   onClose: () => void;
 }
@@ -28,12 +28,13 @@ interface LensDialogProps {
  * opened this mostly knows already, and a standing paragraph is read once and
  * then in the way every time after.
  *
- * One press here spends a run, and it is a button that says it will. Rows edit,
- * suggestions fill the form in, and reading a change through a lens that
- * already exists stays with the picker beside the diff. A list where some
- * presses cost an agent run and others do not is one nobody can press.
+ * Nothing here spends a run except a button that says it will, and saving is
+ * always offered beside it. Rows edit, suggestions fill the form in, and
+ * reading a change through a lens that already exists stays with the picker
+ * beside the diff. A list where some presses cost an agent run and others do
+ * not is one nobody can press.
  */
-export function LensDialog({ projectPath, onCreated, running, onClose }: LensDialogProps) {
+export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -67,14 +68,15 @@ export function LensDialog({ projectPath, onCreated, running, onClose }: LensDia
           </Tooltip>
         </h2>
 
-        {/* Making one closes this: whoever opened it from a diff came to read
-            that diff, and a list is not what they came for. */}
+        {/* Running one closes this: whoever asked for a change to be read came
+            to read it, and a list is not what they came for. Saving alone
+            leaves it open, which is the whole difference between the two. */}
         <LensList
           projectPath={projectPath}
-          onCreated={
-            onCreated &&
+          onRun={
+            onRun &&
             ((lens) => {
-              onCreated(lens);
+              onRun(lens);
               dismiss();
             })
           }

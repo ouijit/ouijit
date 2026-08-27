@@ -394,8 +394,9 @@ describe('PullRequestsPanel — lens', () => {
    * Nobody opens this from a diff to end up looking at a list. Making a lens is
    * the thing they came for, so it reads the change and the dialog leaves.
    *
-   * One press, one meaning: a suggestion fills the form in and nothing is spent
-   * until the button that says it will read the change is pressed.
+   * One press, one meaning: a suggestion fills the form in, and nothing is
+   * spent until the button that says it will run is pressed. Save, beside it,
+   * keeps the lens and leaves the dialog where it is.
    */
   test('a lens made in the dialog reads the change and gets out of the way', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
@@ -416,7 +417,7 @@ describe('PullRequestsPanel — lens', () => {
     expect(window.api.lens.save).not.toHaveBeenCalled();
     expect(screen.getByDisplayValue(/what could break in production/)).toBeTruthy();
 
-    fireEvent.click(screen.getByText('Save and read'));
+    fireEvent.click(screen.getByText('Save and run'));
     await waitFor(() =>
       expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, {
         name: 'Risk first',

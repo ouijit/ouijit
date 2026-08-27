@@ -312,7 +312,7 @@ export function PullRequestDetailView({
       {lensesOpen && (
         <LensDialog
           projectPath={projectPath}
-          onCreated={runLens}
+          onRun={runLens}
           running={lens.writing?.id ?? null}
           onClose={() => setLensesOpen(false)}
         />

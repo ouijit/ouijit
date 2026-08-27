@@ -75,6 +75,7 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
       <MenuPopover
         open={open}
         onOpenChange={setOpen}
+        placement="bottom-start"
         className="w-64 max-h-[22rem]"
         trigger={(ref) => (
           <button

@@ -426,7 +426,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
         {lensesOpen && (
           <LensDialog
             projectPath={projectPath}
-            onCreated={(picked) => void lens.run(picked)}
+            onRun={(picked) => void lens.run(picked)}
             running={lens.writing?.id ?? null}
             onClose={() => setLensesOpen(false)}
           />
