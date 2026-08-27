@@ -2562,7 +2562,7 @@ body.marketing::after {
 }
 
 .hx-todo-desk {
-  padding: 36px;
+  padding: 28px;
 }
 
 /* Under the column rather than under the whole stage: the rail is the width
@@ -2572,7 +2572,7 @@ body.marketing::after {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 7px 36px 0;
+  padding: 23px 28px 0;
 }
 
 .hx-column {
