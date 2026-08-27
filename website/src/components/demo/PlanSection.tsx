@@ -406,7 +406,7 @@ const ROWS: { key: SourceKey; title: string; body: string }[] = [
     body: 'Agents know how to use Ouijit out of the box.',
   },
   { key: 'issue', title: 'Pull from GitHub', body: 'Turn any open issue into a task on the board with one click.' },
-  { key: 'manual', title: 'Or just type', body: 'The composer sits at the bottom of the column, one ⌘N away.' },
+  { key: 'manual', title: 'On the fly', body: '⌘N opens the composer from anywhere in the app.' },
 ];
 
 function rowMock(
