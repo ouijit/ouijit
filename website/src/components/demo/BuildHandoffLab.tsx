@@ -68,7 +68,7 @@ const CAPTIONS = [
   },
   {
     title: 'Run agents full auto',
-    body: 'A sandboxed agent reaches its own worktree and nothing else — a Lima VM, or Seatbelt and Landlock in place.',
+    body: 'Use a sandbox to skip permission checks with peace of mind.',
   },
 ];
 
