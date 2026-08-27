@@ -25,6 +25,11 @@ function installed(over: Partial<typeof HEALTH>) {
   window.api.health.check = vi.fn().mockResolvedValue({ ...HEALTH, ...over });
 }
 
+/**
+ * Both agents come back with the same shape through the same isolation, so who
+ * wrote a lens is only a question when there is more than one to ask. The rule
+ * this pins is that the row appears exactly when it can be acted on.
+ */
 describe('which agent writes a lens', () => {
   beforeEach(() => {
     cleanup();
@@ -34,26 +39,7 @@ describe('which agent writes a lens', () => {
     window.api.lens.setAgent = vi.fn().mockResolvedValue({ success: true });
   });
 
-  test('says which command it will run, not just which agent', async () => {
-    render(<LensAgentRow projectPath={PROJECT} />);
-
-    // The preset is somebody else's flags; what we do with them is the thing
-    // worth showing — including that the repository's own config does not load.
-    expect(await screen.findByText(/claude -p --safe-mode/)).toBeTruthy();
-    expect(screen.getByText('Automatic')).toBeTruthy();
-  });
-
-  test('with nothing installed it says so rather than naming a binary', async () => {
-    // Which agent wins when both are installed is `resolveLensAgent`'s, and is
-    // settled in lensPrompt.test.ts. What is left here is the one answer it
-    // gives that has no command to render.
-    installed({ claude: false, codex: false });
-    render(<LensAgentRow projectPath={PROJECT} />);
-
-    expect(await screen.findByText(/No supported agent installed/)).toBeTruthy();
-  });
-
-  test('picking one stores it, and it outranks what is merely installed', async () => {
+  test('with both installed, picking one stores it and outranks what is merely installed', async () => {
     render(<LensAgentRow projectPath={PROJECT} />);
     await screen.findByText('Automatic');
 
@@ -64,21 +50,35 @@ describe('which agent writes a lens', () => {
       expect(window.api.lens.setAgent).toHaveBeenCalledWith(PROJECT, { agentId: 'codex' });
     });
     // Claude Code is installed and comes first, but a choice was made.
-    expect(await screen.findByText(/codex exec -/)).toBeTruthy();
+    expect(await screen.findByText('Codex')).toBeTruthy();
   });
 
-  test('an agent that is not here cannot be chosen, but is still listed', async () => {
+  test('one agent is no decision, so nothing is drawn', async () => {
     installed({ codex: false });
+    const { container } = render(<LensAgentRow projectPath={PROJECT} />);
+
+    await waitFor(() => expect(window.api.health.check).toHaveBeenCalled());
+    await waitFor(() => expect(container.textContent).toBe(''));
+  });
+
+  test('with neither installed it says so, rather than offering a choice of nothing', async () => {
+    // Said here rather than left for the run to fail with: a lens written
+    // against no agent is a form filled in for nobody.
+    installed({ claude: false, codex: false });
+    render(<LensAgentRow projectPath={PROJECT} />);
+
+    expect(await screen.findByText(/Lenses need Claude Code or Codex installed/)).toBeTruthy();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  test('the flags are not put in front of the reader', async () => {
     render(<LensAgentRow projectPath={PROJECT} />);
     await screen.findByText('Automatic');
 
-    fireEvent.click(screen.getByRole('button', { name: /Automatic/ }));
-    const row = await screen.findByRole('menuitem', { name: /Codex/ });
-
-    // Named rather than hidden: which of these this machine has is worth
-    // knowing here.
-    expect((row as HTMLButtonElement).disabled).toBe(true);
-    expect(row.textContent).toContain('not installed');
+    // A preset nobody can edit is a command line there is nothing to do with.
+    // The runner logs the invocation for anyone who needs it.
+    expect(screen.queryByText(/--safe-mode/)).toBeNull();
+    expect(screen.queryByText(/claude -p/)).toBeNull();
   });
 
   /**

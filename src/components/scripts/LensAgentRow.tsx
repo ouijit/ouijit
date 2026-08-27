@@ -5,16 +5,17 @@ import { Icon } from '../terminal/Icon';
 import { MenuPopover, MenuItem, MenuDivider } from '../ui/Menu';
 
 /**
- * Which agent writes this project's lenses.
+ * Which agent writes this project's lenses, where that is still a question.
  *
- * Left to itself it is the first one installed, which is right on a machine
- * with only one and reasonable everywhere else. What it must not be is a
- * decision nobody can see or overturn: the harnesses are not interchangeable,
- * and either of them can be logged out or out of quota.
+ * Both agents are held to the same schema and isolated from the repository the
+ * same way, so which one wrote a lens does not change what comes back. What it
+ * changes is whose quota paid for it, and either can be logged out — so the
+ * choice is offered where there is one to make, and nothing is drawn where
+ * there is not.
  *
- * The line underneath is the command as it will actually be spawned. A preset
- * is somebody else's flags, so what this row owes the reader is what is about
- * to be done with them.
+ * The flags are not shown. They were worth showing while a custom command made
+ * them editable; a preset nobody can change is a command line the reader can do
+ * nothing with, and the runner logs the invocation for anyone who needs it.
  */
 export function LensAgentRow({ projectPath }: { projectPath: string }) {
   const [choice, setChoice] = useState<LensAgentChoice | null>(null);
@@ -39,75 +40,76 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
     [projectPath],
   );
 
+  // Nothing at all until the probe answers, rather than a row that says it is
+  // looking and then changes its mind about whether it belongs here.
+  if (!health) return null;
+
   const installed = installedAgents(health);
+  const here = LENS_AGENTS.filter((agent) => installed[agent.id]);
+
+  // Nothing can write a lens, which is the only thing worth saying — and it is
+  // said here rather than left for the run to fail with.
+  if (here.length === 0) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 text-[13px] text-text-tertiary">
+        <Icon name="command" className="shrink-0 w-4 h-4" />
+        <span>Lenses need Claude Code or Codex installed.</span>
+      </div>
+    );
+  }
+
+  // One agent is no decision. Naming it would be a row that cannot be acted on.
+  if (here.length === 1) return null;
+
   const resolved = resolveLensAgent(choice, installed);
   const auto = !choice?.agentId;
-
   const label = choice?.agentId ? (lensAgent(choice.agentId)?.label ?? choice.agentId) : 'Automatic';
 
-  const detail = !health
-    ? 'Looking for an agent…'
-    : resolved
-      ? `${resolved.command} ${resolved.args.join(' ')}`.trim()
-      : 'No supported agent installed — Claude Code or Codex can write one';
-
   return (
-    <div className="px-4 py-3">
-      <div className="flex items-center gap-3">
-        <Icon name="command" className="shrink-0 w-4 h-4 text-text-tertiary" />
-        <span className="flex-1 min-w-0">
-          <span className="block text-[13px] text-text-primary">Written by</span>
-          <span className="block text-[11px] text-text-tertiary font-mono truncate" title={detail}>
-            {detail}
-          </span>
-        </span>
+    <div className="flex items-center gap-3 px-4 py-2.5">
+      <Icon name="command" className="shrink-0 w-4 h-4 text-text-tertiary" />
+      <span className="flex-1 min-w-0 text-[13px] text-text-primary">Written by</span>
 
-        <MenuPopover
-          open={open}
-          onOpenChange={setOpen}
-          className="w-64 max-h-[22rem]"
-          trigger={(ref) => (
-            <button
-              ref={ref}
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={open}
-              className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md text-text-secondary hover:bg-ink/[0.08] hover:text-text-primary transition-colors duration-150"
-              onClick={() => setOpen(!open)}
-            >
-              {label}
-              <Icon name="caret-down" className="w-3 h-3 opacity-60" />
-            </button>
-          )}
-        >
+      <MenuPopover
+        open={open}
+        onOpenChange={setOpen}
+        className="w-64 max-h-[22rem]"
+        trigger={(ref) => (
+          <button
+            ref={ref}
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md text-text-secondary hover:bg-ink/[0.08] hover:text-text-primary transition-colors duration-150"
+            onClick={() => setOpen(!open)}
+          >
+            {label}
+            <Icon name="caret-down" className="w-3 h-3 opacity-60" />
+          </button>
+        )}
+      >
+        <MenuItem
+          label="Automatic"
+          hint={resolved && auto ? resolved.label : undefined}
+          selected={auto}
+          onClick={() => {
+            setOpen(false);
+            void save({ agentId: null });
+          }}
+        />
+        <MenuDivider />
+        {here.map((agent) => (
           <MenuItem
-            label="Automatic"
-            hint={resolved && auto ? resolved.label : undefined}
-            selected={auto}
+            key={agent.id}
+            label={agent.label}
+            selected={choice?.agentId === agent.id}
             onClick={() => {
               setOpen(false);
-              void save({ agentId: null });
+              void save({ agentId: agent.id });
             }}
           />
-          <MenuDivider />
-          {LENS_AGENTS.map((agent) => (
-            <MenuItem
-              key={agent.id}
-              label={agent.label}
-              // Named rather than hidden: which of these this machine has is
-              // worth knowing here, where the answer decides what a lens costs
-              // to write.
-              hint={installed[agent.id] ? undefined : 'not installed'}
-              disabled={!installed[agent.id]}
-              selected={choice?.agentId === agent.id}
-              onClick={() => {
-                setOpen(false);
-                void save({ agentId: agent.id });
-              }}
-            />
-          ))}
-        </MenuPopover>
-      </div>
+        ))}
+      </MenuPopover>
     </div>
   );
 }

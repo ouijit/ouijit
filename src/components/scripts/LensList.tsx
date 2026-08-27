@@ -65,10 +65,6 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06]"
       style={{ background: 'var(--color-terminal-bg)' }}
     >
-      {/* Above the lenses because it is true of all of them: a lens is a
-          prompt, and this is who gets asked. */}
-      <LensAgentRow projectPath={projectPath} />
-
       {lenses.length === 0 && !addingNew && (
         <div className="px-4 py-8 text-center text-xs text-text-tertiary">
           No lenses yet. Add one to review by change, not by file.
@@ -123,6 +119,10 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
           Add a lens
         </button>
       )}
+
+      {/* Under the lenses, not over them. It is a setting about all of them,
+          and it draws nothing at all unless there is a choice to be made. */}
+      <LensAgentRow projectPath={projectPath} />
     </div>
   );
 }
