@@ -2557,7 +2557,7 @@ body.marketing::after {
 /* Plan's rail width, mirrored to the other side: the column crosses the seam
    from the right edge to the left, and the stack takes the space it left. */
 .hx-rail {
-  width: 372px;
+  width: 412px;
   flex-shrink: 0;
 }
 
@@ -2576,7 +2576,7 @@ body.marketing::after {
 }
 
 .hx-column {
-  width: 316px;
+  width: 356px;
   background: var(--color-terminal-bg);
   box-shadow: var(--shadow-panel);
 }
