@@ -312,9 +312,12 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
         <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: sidebarWidth }}>
           {/* Above the list it reorders and outside its scroll, where the pull
               request rail keeps its own. "All files" is one of the options, so
-              the file list and the lenses are a single choice. */}
+              the file list and the lenses are a single choice.
+
+              `h-11` is the toolbar across the seam — `py-2` around an `h-7`
+              control — so the rule under the two ledges is one line. */}
           {lensTarget && (
-            <div className="pane-ledge shrink-0 flex flex-col">
+            <div className="pane-ledge shrink-0 flex flex-col h-11">
               <LensPicker
                 lenses={lens.lenses}
                 onFile={lens.lens}

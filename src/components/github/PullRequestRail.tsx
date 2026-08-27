@@ -102,7 +102,11 @@ export function PullRequestRail({
           reads in. A lens is one answer to that, written for this change and no
           other — and the flat file list is the answer you get when nothing has
           been written, so the two are one choice made in one place. */}
-      <div className="pane-ledge shrink-0 flex flex-col">
+      {/* `h-9` is a file card's header. This pane has no toolbar over it, so
+          what the ledge meets across the seam is a header stuck to the top of
+          the well — which is where one sits for as long as the diff is being
+          read, the well's opening gap notwithstanding. */}
+      <div className="pane-ledge shrink-0 flex flex-col h-9">
         <LensPicker
           lenses={lenses}
           onFile={onFile}
