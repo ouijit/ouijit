@@ -146,7 +146,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     setDiffs,
   );
 
-  const lens = useDiffLens(lensTarget, diffs, order);
+  const lens = useDiffLens(lensTarget, diffs, order, filesFingerprint);
   const [lensesOpen, setLensesOpen] = useState(false);
 
   const scrollToFile = useCallback((path: string) => {

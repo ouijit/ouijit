@@ -115,6 +115,9 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
   const [chosen, setChosen] = useState<boolean | null>(null);
   const lensOn = chosen ?? true;
 
+  /** Which diff the state below belongs to, so a re-read can tell the two apart. */
+  const readFor = useRef<string | null>(null);
+
   const writing = useSyncExternalStore<LensRun | null>(subscribeToRuns, () => (key ? (runs.get(key) ?? null) : null));
 
   const refresh = useCallback(async (apply: boolean): Promise<void> => {
@@ -140,9 +143,18 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
   }, []);
 
   useEffect(() => {
-    setLens(null);
-    setChosen(null);
-    void refresh(true);
+    // A different diff: nothing held here describes it, so it goes, and a lens
+    // that turns up for it comes up applied. A diff that has only moved — the
+    // working tree on every save, a pull request on a push — is the same diff
+    // read again: clearing would blank the grouping and redraw it on every
+    // poll, and applying would snap the reader back after they chose All files.
+    const elsewhere = readFor.current !== key;
+    readFor.current = key;
+    if (elsewhere) {
+      setLens(null);
+      setChosen(null);
+    }
+    void refresh(elsewhere);
   }, [key, revision, refresh]);
 
   useEffect(() => {

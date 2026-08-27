@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 
 import { DiffPanel } from '../../components/diff/DiffPanel';
 import { useUIStore, DIFF_FILE_LIST_DEFAULT_WIDTH } from '../../stores/uiStore';
@@ -39,6 +39,19 @@ const LENS = {
     },
   ],
 };
+
+/** A save under the reader: the same files, one of them a different size. */
+function edit({ additions }: { additions: number }): void {
+  const display = useTerminalStore.getState().displayStates['pty-1'];
+  useTerminalStore.setState({
+    displayStates: {
+      'pty-1': {
+        ...display,
+        gitFileStatus: { ...display.gitFileStatus!, changedFiles: [{ ...FILES[0], additions }, ...FILES.slice(1)] },
+      },
+    },
+  });
+}
 
 /**
  * A worktree diff read through a lens.
@@ -103,6 +116,42 @@ describe('the diff panel, read through a lens', () => {
       expect(screen.queryByText('The table and the rows that go in it')).toBeNull();
     });
     expect(screen.getAllByText('Where it is stored').length).toBe(2);
+  });
+
+  /**
+   * A working tree moves on every save, and the panel re-reads the lens each
+   * time — so how it re-reads is the difference between a badge that tells the
+   * truth and a pane that flickers and argues with the reader.
+   */
+  test('the diff moving re-reads the lens in place, without blanking it or overriding the reader', async () => {
+    render(<DiffPanel {...PROPS} />);
+    await screen.findAllByText('Where it is stored');
+
+    // Held open, so what is on screen mid-read is what this asserts on.
+    let land = (): void => {};
+    vi.mocked(window.api.diffLens.get).mockReturnValue(
+      new Promise((resolve) => {
+        land = () => resolve(LENS);
+      }),
+    );
+
+    await act(async () => edit({ additions: 9 }));
+    await waitFor(() => expect(window.api.diffLens.get).toHaveBeenCalledTimes(2));
+    // Still the reading it already has. Dropping it first would blank the pane
+    // and redraw it on every save.
+    expect(screen.getAllByText('Where it is stored').length).toBe(2);
+    await act(async () => land());
+    expect(screen.getAllByText('Where it is stored').length).toBe(2);
+
+    // And a reader who asked for the flat list keeps it. Applying an arriving
+    // lens is for a diff they have just opened, not one they are editing.
+    fireEvent.click(screen.getByTitle(/^(How to read|Reading) this change/));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^All files/ }));
+    expect(screen.queryByText('Where it is stored')).toBeNull();
+
+    await act(async () => edit({ additions: 11 }));
+    await waitFor(() => expect(window.api.diffLens.get).toHaveBeenCalledTimes(3));
+    expect(screen.queryByText('Where it is stored')).toBeNull();
   });
 
   test('All files goes back to the flat list without writing a second lens', async () => {

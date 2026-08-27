@@ -25,6 +25,8 @@ export function useDiffLens(
   target: DiffLensTarget | null,
   diffs: Map<string, FileDiff | null>,
   order: string[],
+  /** The panel's fingerprint of the change, which moves on every save. */
+  revision: string,
 ): DiffLens {
   const { lenses } = useProjectLenses(target?.projectPath ?? '');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -36,6 +38,7 @@ export function useDiffLens(
   const session = useLensSession(
     {
       key,
+      revision,
       read: () => (target ? window.api.diffLens.get(target) : Promise.resolve(null)),
       write: (lensId) => (target ? window.api.diffLens.run(target, lensId) : Promise.resolve({ success: false })),
     },

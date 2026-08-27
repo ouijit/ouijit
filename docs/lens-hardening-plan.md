@@ -98,42 +98,43 @@ old name.
 
 Two bugs, one symptom: the badge reports fresh when it is not.
 
-- [ ] **The pin ignores the working tree.** `pinFor`
+- [x] **The pin ignores the working tree.** `pinFor`
       (`src/lens/worktreeSubject.ts:50`) returns committed revisions for a ref
       base, while the panel shows uncommitted changes. Combine them:
       `<revisions>+shape:<…>`, so both branches of the pin read the working tree.
-- [ ] **Staleness is computed once per mount.** `useDiffLens` passes no
+- [x] **Staleness is computed once per mount.** `useDiffLens` passes no
       `revision` to `useLensSession`. `filesFingerprint` already exists at
       `DiffPanel.tsx:76` and every other consumer keys off it — notes, analysis
       signals, the batched loader. The lens is the one holdout.
 
-**Cost to weigh on the pin.** `readLens` calls `subject.pin()` on every read,
-and a shape needs a full `getGitFileStatus` including `countUntracked`, which
-reads every untracked file. Today the ref-base path is two cheap git calls. The
-alternative is passing the panel's `filesFingerprint` down through
+**Cost taken on the pin.** `readLens` calls `subject.pin()` on every read, and
+a shape needs a full `getGitFileStatus` including `countUntracked`, which reads
+every untracked file — so the ref-base path went from two cheap git calls to
+that. The alternative is passing the panel's `filesFingerprint` down through
 `DiffLensTarget` so main compares against what is on screen instead of
-re-polling — cheaper and more correct, but the renderer truncates to
-`MAX_DIFF_FILES` and main does not, so the two shapes must be made to agree or
-the pin never matches. Take the simple version first.
+re-polling, but the renderer truncates to `MAX_DIFF_FILES` and main does not, so
+a lens over a change larger than that would pin one shape and be compared
+against another and never come back fresh. Left as it is.
 
-**Two traps in the `revision` change.** The effect at `useLensSession.ts:131`
-does `setLens(null); setChosen(null)` before refreshing. Firing that on every
-diff change would snap the reader back to the lens after they chose All files,
-and would blank the grouping and redraw it on every keystroke-driven poll. The
-reset belongs to `key` changes only; `revision` needs a second effect that
-re-reads without clearing. It also wants throttling — every save moves the
-fingerprint, and each re-read spawns `merge-base`, `rev-parse` and a status poll.
+**No throttle.** `filesFingerprint` moves only when the shape of the file list
+moves, so the re-read rate is already bounded by the status poll it is derived
+from. A timer on top would delay the badge without removing a poll.
+
+**The reset.** One effect on `key` and `revision`, with the clearing behind
+`key` alone. A diff that has only moved is the same diff read again: clearing
+would blank the grouping and redraw it on every save, and applying would snap
+the reader back to the lens after they chose All files.
 
 **Tests**
 
-- [ ] integration, new file — real repo, real database. Write a lens against a
+- [x] integration, new file — real repo, real database. Write a lens against a
       ref base, then: edit a tracked file and read back stale; commit and read
       back stale; land an unrelated commit on the base and read back **fresh**.
       That last case is the one that pins `--merge-base` semantics, so a later
       change to how the diff is taken cannot silently break the model.
-- [ ] renderer — a revision change re-reads without discarding an explicit
+- [x] renderer — a revision change re-reads without discarding an explicit
       All-files choice, and without blanking the grouping in between.
-- [ ] `readLens.test.ts` keeps its job: the `whenStale` contract, `drop` versus
+- [x] `readLens.test.ts` keeps its job: the `whenStale` contract, `drop` versus
       `render`. It is no longer the only thing covering the pin.
 
 **Files** `lens/worktreeSubject.ts`, `components/diff/useLensSession.ts`,

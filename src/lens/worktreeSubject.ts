@@ -39,23 +39,31 @@ function subjectKey(target: DiffLensTarget): string {
 /**
  * What the lens was written against, for comparing later.
  *
- * A diff against another ref is `base...HEAD`, so two SHAs fix it exactly. The
- * uncommitted changes have no revision to name, so they are fingerprinted by
- * the shape of the change — approximate, since an edit that preserves line
- * counts will not register as drift, but cheap enough to compute on a poll.
+ * The shape of the change is in it either way, because the panel shows the
+ * working tree either way: `git diff --merge-base <base>` runs through to
+ * uncommitted edits, so two SHAs alone would call a lens fresh while the reader
+ * is typing under it. Approximate, since an edit that preserves line counts
+ * will not register as drift, but cheap enough to compute on a poll.
  *
- * `files` is a thunk because the pinned case never reads it, and producing it
- * costs a full status poll — including a read of every untracked file.
+ * Against another ref the revisions go in front of it. They are what
+ * distinguishes a commit from an edit of the same lines, and what makes the
+ * base advancing a non-event: both sides read `merge-base(base, branch)`, which
+ * an unrelated commit on the base does not move.
+ *
+ * `files` is a thunk so a caller that has just listed them does not pay for a
+ * second status poll — which includes a read of every untracked file.
  */
 async function pinFor(target: DiffLensTarget, files: () => Promise<ChangedFile[]>): Promise<string> {
-  if (target.branch && !isUncommittedBase(target.base, target.branch)) {
-    const revisions = await getBranchDiffPin(target.projectPath, target.branch, target.base ?? target.mergeTarget);
-    if (revisions) return revisions;
-  }
-  return `shape:${createHash('sha256')
+  const shape = `shape:${createHash('sha256')
     .update(diffShape(await files()))
     .digest('hex')
     .slice(0, 16)}`;
+
+  if (target.branch && !isUncommittedBase(target.base, target.branch)) {
+    const revisions = await getBranchDiffPin(target.projectPath, target.branch, target.base ?? target.mergeTarget);
+    if (revisions) return `${revisions}+${shape}`;
+  }
+  return shape;
 }
 
 /** Every file the panel would show, read the way the panel reads them. */
