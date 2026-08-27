@@ -51,8 +51,9 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const sidebarCollapsed = useUIStore((s) => s.diffFileListCollapsed);
   const sidebarWidth = useUIStore((s) => s.diffFileListWidth);
-  // Local, and gone when the panel closes: folding here is scroll management,
-  // not review state that has to survive.
+  // By section, not by path: a lens can put one file in three parts, and each
+  // is folded on its own. Local, and gone when the panel closes — folding here
+  // is scroll management, not review state that has to survive.
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   // Through a ref so callbacks survive each batch of diffs arriving.
@@ -254,14 +255,14 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     [notes.notes, diffs],
   );
 
-  const toggleFolded = useCallback((path: string, next: boolean) => {
-    setFolded((prev) => toggleIn(prev, path, next));
+  const toggleFolded = useCallback((section: string, next: boolean) => {
+    setFolded((prev) => toggleIn(prev, section, next));
   }, []);
 
   const { setCollapsed } = lens;
   const toggleGroup = useCallback(
-    (title: string, next: boolean) => {
-      setCollapsed((prev) => toggleIn(prev, title, next));
+    (id: string, next: boolean) => {
+      setCollapsed((prev) => toggleIn(prev, id, next));
     },
     [setCollapsed],
   );
@@ -282,6 +283,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   // The key is the caller's to give: a lens can name the same file in more than
   // one part, and React would otherwise keep only the second copy.
   const renderFile = (file: (typeof files)[number], key?: string, slice?: ResolvedSlice) => {
+    const section = key ?? file.path;
     const diff = lens.sliceFor(file.path, diffs.get(file.path), slice?.hunks);
     const changes = slice?.changes ?? file;
 
@@ -289,9 +291,9 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
       // `data-path` on the wrapper, so the tree can jump to a file that has not
       // mounted yet.
       <DeferredMount
-        key={key ?? file.path}
+        key={section}
         dataPath={file.path}
-        estimatedHeight={estimateFileHeight(diff, changes.additions + changes.deletions, 1, folded.has(file.path))}
+        estimatedHeight={estimateFileHeight(diff, changes.additions + changes.deletions, 1, folded.has(section))}
       >
         <DiffFileSection
           path={file.path}
@@ -305,7 +307,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           renderBelowLine={hasNotes ? renderBelowLine : undefined}
           markLine={spans.length > 0 ? markLine : undefined}
           headerRight={analysisChips?.get(file.path)}
-          collapsed={folded.has(file.path)}
+          collapsed={folded.has(section)}
+          sectionId={section}
           onCollapsedChange={toggleFolded}
         />
       </DeferredMount>

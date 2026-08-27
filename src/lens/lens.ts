@@ -49,9 +49,25 @@ export interface ResolvedSlice {
 }
 
 export interface ResolvedGroup {
+  /**
+   * What everything about this part is keyed by: its fold, and the copy of a
+   * file it holds. Its place in the lens and what it is called, together —
+   * two parts may carry the same title, and the place alone would hand one
+   * part's folds and marks to whatever the next lens writes in its slot.
+   */
+  id: string;
   title: string;
   summary?: string;
   slices: ResolvedSlice[];
+}
+
+/**
+ * One file inside one part — the unit a card, a rail row, a fold and the mark
+ * on the file being read all belong to. Without a lens a file is only in one
+ * place, and the path is the whole of it.
+ */
+export function sectionKey(groupId: string | null | undefined, path: string): string {
+  return groupId ? `${groupId}:${path}` : path;
 }
 
 /**
@@ -98,6 +114,22 @@ function changesIn(diff: FileDiff, hunks: number[]): Pick<ResolvedSlice, 'change
   return { changes: { additions, deletions } };
 }
 
+/**
+ * Which part of the change holds a line of a file. Undefined when no lens is
+ * showing, or when the line is in no hunk of it.
+ */
+export function partHolding(
+  groups: ResolvedGroup[] | null,
+  diff: FileDiff | null | undefined,
+  path: string,
+  line: number,
+): string | undefined {
+  if (!groups || !diff) return undefined;
+  const [hunk] = hunksInRanges(diff, [[line, line]]);
+  if (hunk === undefined) return undefined;
+  return groups.find((group) => group.slices.some((slice) => slice.path === path && slice.hunks.includes(hunk)))?.id;
+}
+
 function parseGroups(raw: unknown): LensGroup[] {
   if (typeof raw !== 'object' || raw === null) return [];
   const groups = (raw as { groups?: unknown }).groups;
@@ -142,6 +174,7 @@ export function parseLens(body: string): LensGroup[] | null {
 
 /** The trailing part, holding whatever the lens did not account for. */
 export const UNGROUPED_TITLE = 'Not in this lens';
+const UNGROUPED_ID = 'rest';
 
 export interface LensCoverage {
   /** Parts the lens named, not counting whatever it left out. */
@@ -158,7 +191,7 @@ export interface LensCoverage {
  * of this change however the agent listed it.
  */
 export function lensCoverage(resolved: ResolvedGroup[]): LensCoverage {
-  const rest = resolved.find((group) => group.title === UNGROUPED_TITLE);
+  const rest = resolved.find((group) => group.id === UNGROUPED_ID);
   return { parts: resolved.length - (rest ? 1 : 0), ungrouped: rest?.slices.length ?? 0 };
 }
 
@@ -192,31 +225,44 @@ export function resolveLens(
   };
 
   const resolved: ResolvedGroup[] = [];
-  for (const group of groups) {
-    const slices: ResolvedSlice[] = [];
+  // Numbered against the lens as stored, not against what survives binding: a
+  // part with nothing left to claim drops out, and an id that shifted when it
+  // did would hand one part's folds to another as the diff loads.
+  groups.forEach((group, at) => {
+    // A lens naming one file twice in one part means one card, not two. Left
+    // apart they would answer to the same name, which is the whole of how a
+    // fold or a mark ends up on the wrong copy.
+    const claimedHere = new Map<string, number[]>();
     for (const slice of group.slices) {
       const diff = diffs.get(slice.path);
       // A file with no text diff — binary, or still loading — can still be
       // named by a lens; it just has no hunks to claim.
       if (!diff) {
-        if (rank.has(slice.path) && take(slice.path, -1)) slices.push({ path: slice.path, hunks: [] });
+        if (rank.has(slice.path) && take(slice.path, -1)) claimedHere.set(slice.path, []);
         continue;
       }
       const hunks = hunksInRanges(diff, slice.ranges).filter((index) => take(slice.path, index));
-      if (hunks.length > 0) slices.push({ path: slice.path, hunks, ...changesIn(diff, hunks) });
+      if (hunks.length > 0) claimedHere.set(slice.path, [...(claimedHere.get(slice.path) ?? []), ...hunks]);
     }
+    if (claimedHere.size === 0) return;
+
+    const slices = [...claimedHere].map(([path, hunks]): ResolvedSlice => {
+      const diff = diffs.get(path);
+      hunks.sort((a, b) => a - b);
+      return { path, hunks, ...(diff ? changesIn(diff, hunks) : {}) };
+    });
     // In the order the rail will show them, not the order the lens listed them.
     // The rail draws each part as a tree, because which directories a part
     // touches is most of what says what kind of change it is — and a tree sorts.
     // Keeping the lens's order here left the two reading differently inside
     // every part, which is the same disagreement in a smaller place.
-    if (slices.length > 0)
-      resolved.push({
-        title: group.title,
-        ...(group.summary ? { summary: group.summary } : {}),
-        slices: slices.sort((a, b) => rank.get(a.path)! - rank.get(b.path)!),
-      });
-  }
+    resolved.push({
+      id: `${at}:${group.title}`,
+      title: group.title,
+      ...(group.summary ? { summary: group.summary } : {}),
+      slices: slices.sort((a, b) => rank.get(a.path)! - rank.get(b.path)!),
+    });
+  });
 
   // Whatever the lens did not account for, in the diff's own order.
   const rest: ResolvedSlice[] = [];
@@ -229,7 +275,7 @@ export function resolveLens(
     const hunks = diff.hunks.map((_, i) => i).filter((index) => take(path, index));
     if (hunks.length > 0) rest.push({ path, hunks, ...changesIn(diff, hunks) });
   }
-  if (rest.length > 0) resolved.push({ title: UNGROUPED_TITLE, slices: rest });
+  if (rest.length > 0) resolved.push({ id: UNGROUPED_ID, title: UNGROUPED_TITLE, slices: rest });
 
   return resolved;
 }

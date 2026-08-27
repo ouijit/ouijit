@@ -241,12 +241,14 @@ describe('the diff panel, read through a lens', () => {
   });
 
   /**
-   * A file can belong to three parts of a change, and every copy of it answers
-   * to the same `data-path`. Both the jump and the count have to say which
-   * copy they mean, or the rail lands on the wrong one and each copy claims
-   * the whole file's changes as its own.
+   * A file can belong to three parts of a change, and the path names all three.
+   * Everything about one copy — where a click lands, what it counts, whether
+   * it is folded — has to be said in terms of the part, or it belongs to every
+   * copy at once.
+   *
+   * A part is identified by its place in the lens as written and its title.
    */
-  test('a file split across two parts is navigated and counted a part at a time', async () => {
+  test('a file split across two parts is navigated, counted and folded a part at a time', async () => {
     vi.mocked(window.api.diffLens.get).mockResolvedValue(SPLIT_LENS);
     vi.mocked(window.api.worktree.getFileDiff).mockImplementation((_path, _base, file) =>
       Promise.resolve(file === 'src/db/repo.ts' ? REPO_DIFF : null),
@@ -260,10 +262,10 @@ describe('the diff panel, read through a lens', () => {
 
     const { container } = render(<DiffPanel {...PROPS} />);
     await screen.findAllByText('What reads it');
-    await waitFor(() => expect(container.querySelector('[data-group="What reads it"] .diff-card')).toBeTruthy());
+    await waitFor(() => expect(container.querySelector('[data-group="1:What reads it"] .diff-card')).toBeTruthy());
 
-    const stored = container.querySelector('[data-group="Where it is stored"] .diff-card')!;
-    const read = container.querySelector('[data-group="What reads it"] .diff-card')!;
+    const stored = container.querySelector('[data-group="0:Where it is stored"] .diff-card')!;
+    const read = container.querySelector('[data-group="1:What reads it"] .diff-card')!;
     expect(stored.textContent).toContain('+5');
     expect(read.textContent).toContain('+1');
     expect(read.textContent).toContain('-1');
@@ -275,7 +277,14 @@ describe('the diff panel, read through a lens', () => {
     expect(chapter.textContent).toContain('+1');
 
     fireEvent.click(chapter.querySelector('[data-path="src/db/repo.ts"]')!);
-    expect(landed[0].closest('[data-group]')?.getAttribute('data-group')).toBe('What reads it');
+    expect(landed[0].closest('[data-group]')?.getAttribute('data-group')).toBe('1:What reads it');
+
+    // Folding one copy leaves the other open: they are two parts of a reading,
+    // not two views of one file.
+    fireEvent.click(read.querySelector('button[aria-label="Collapse"]')!);
+    expect(read.querySelector('button[aria-pressed="true"]')).toBeTruthy();
+    expect(stored.querySelector('button[aria-pressed="true"]')).toBeNull();
+    expect(stored.textContent).toContain('+5');
   });
 
   test('All files goes back to the flat list without writing a second lens', async () => {

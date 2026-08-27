@@ -19,7 +19,8 @@ import {
   type DiffLineAnchor,
 } from '../../diffAnchor';
 import { describeLines } from '../../diffAnchor';
-import type { ResolvedGroup, ResolvedSlice } from '../../lens/lens';
+import { sectionKey, type ResolvedGroup, type ResolvedSlice } from '../../lens/lens';
+import { isSectionViewed, markSection } from '../../github/viewedSections';
 import { unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
@@ -56,6 +57,8 @@ export interface FilesSectionHandle {
 
 interface FileSectionProps {
   file: PullRequestFile;
+  /** Which part of the change this copy of the file sits in. */
+  sectionId: string;
   diff: FileDiff | null | undefined;
   /** What the hunks on screen come to, which under a lens is not the file's own count. */
   additions: number;
@@ -69,7 +72,7 @@ interface FileSectionProps {
   markLine?: (path: string, anchor: DiffLineAnchor) => boolean;
   analysis?: FileAnalysis;
   viewed: boolean;
-  onViewedChange: (path: string, viewed: boolean) => void;
+  onViewedChange: (sectionId: string, viewed: boolean) => void;
 }
 
 /**
@@ -80,6 +83,7 @@ interface FileSectionProps {
  */
 const FileSection = memo(function FileSection({
   file,
+  sectionId,
   diff,
   additions,
   deletions,
@@ -141,6 +145,7 @@ const FileSection = memo(function FileSection({
         binaryView={binaryView}
         headerRight={headerRight}
         collapsed={viewed}
+        sectionId={sectionId}
         onCollapsedChange={onViewedChange}
         collapseLabel="Viewed"
       />
@@ -167,6 +172,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const diffs = useGithubStore((s) => s.diffs);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
+  const viewedSections = useGithubStore((s) => s.viewedSections);
   const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const setDiffs = useGithubStore((s) => s.setDiffs);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
@@ -379,24 +385,53 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   // slice meaningless.
   const sliceFor = useDiffSlices(groups ?? detail.number);
 
-  // A Set so a hundred file sections do not each scan the list.
-  const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
   const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
 
+  /**
+   * The parts each file is on screen in, and the file each part belongs to.
+   * Marking one part read is a claim about that part until they have all been
+   * marked, so it has to know what the others are; the claim that is written
+   * down is about the file.
+   */
+  const parts = useMemo(() => {
+    const byFile = new Map<string, string[]>();
+    const pathOf = new Map<string, string>();
+    for (const group of groups ?? []) {
+      for (const slice of group.slices) {
+        const section = sectionKey(group.id, slice.path);
+        pathOf.set(section, slice.path);
+        byFile.set(slice.path, [...(byFile.get(slice.path) ?? []), section]);
+      }
+    }
+    return { byFile, pathOf };
+  }, [groups]);
+
   const setViewed = useCallback(
-    (path: string, next: boolean) => {
-      useGithubStore.getState().setFileViewed(projectPath, detail.number, detail.headSha, path, next);
+    (section: string, next: boolean) => {
+      const store = useGithubStore.getState();
+      const path = parts.pathOf.get(section) ?? section;
+      const change = markSection(
+        store.viewedPaths,
+        store.viewedSections,
+        parts.byFile.get(path) ?? [path],
+        section,
+        path,
+        next,
+      );
+      store.setViewedSections(change.sections);
+      if (change.file !== undefined) store.setFileViewed(projectPath, detail.number, detail.headSha, path, change.file);
     },
-    [projectPath, detail.number, detail.headSha],
+    [projectPath, detail.number, detail.headSha, parts],
   );
 
-  const setGroupCollapsed = useCallback((title: string, next: boolean) => {
-    useGithubStore.getState().setGroupCollapsed(title, next);
+  const setGroupCollapsed = useCallback((id: string, next: boolean) => {
+    useGithubStore.getState().setGroupCollapsed(id, next);
   }, []);
 
   const renderFile = (file: PullRequestFile, key?: string, slice?: ResolvedSlice) => (
     <FileSection
       key={key ?? file.path}
+      sectionId={key ?? file.path}
       file={file}
       diff={sliceFor(file.path, diffs.get(file.path), slice?.hunks)}
       additions={slice?.changes?.additions ?? file.additions}
@@ -409,7 +444,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       renderBelowLine={renderBelowLine}
       markLine={spans.length > 0 ? markLine : undefined}
       analysis={chipworthy(analysis?.[file.path])}
-      viewed={viewed.has(file.path)}
+      viewed={isSectionViewed(viewedPaths, viewedSections, key ?? file.path, file.path)}
       onViewedChange={setViewed}
     />
   );

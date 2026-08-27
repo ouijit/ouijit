@@ -76,7 +76,18 @@ interface GithubStoreState {
   viewedPaths: string[];
 
   /**
-   * Parts of the lens folded away in the document, by title.
+   * Parts of a file the reviewer has finished with, where a lens has split one
+   * across several parts of the change. A file is read in pieces and only
+   * claimed whole once every piece of it has been, at which point the claim
+   * moves to `viewedPaths` and is written down.
+   *
+   * Not kept on disk, unlike the claim it rolls up into: these name the parts
+   * of one lens, and the next lens over this change cuts it somewhere else.
+   */
+  viewedSections: string[];
+
+  /**
+   * Parts of the lens folded away in the document, by id.
    *
    * Beside `viewedPaths` for the same reason: it is a claim about how far
    * through a reading you are, and going to look at the timeline and coming
@@ -86,11 +97,12 @@ interface GithubStoreState {
   collapsedGroups: string[];
 
   /**
-   * The file the reader is on, for the rail to mark. Here rather than in the
+   * The section the reader is on, for the rail to mark — one part of one file,
+   * which under a lens is not the same as the file. Here rather than in the
    * detail view: it changes on every scroll frame, and view state would
    * re-render the whole diff each time.
    */
-  activePath: string | null;
+  activeSection: string | null;
 
   drafts: ReviewDraft[];
   /** Anchor the user is currently composing a new comment on. */
@@ -115,10 +127,11 @@ interface GithubStoreActions {
 
   loadDrafts: (projectPath: string, prNumber: number) => Promise<void>;
   setDiffs: (diffs: Map<string, FileDiff | null>) => void;
-  setGroupCollapsed: (title: string, collapsed: boolean) => void;
-  setActivePath: (path: string | null) => void;
+  setGroupCollapsed: (id: string, collapsed: boolean) => void;
+  setActiveSection: (section: string | null) => void;
   loadViewed: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) => void;
+  setViewedSections: (sections: string[]) => void;
   setComposingAt: (anchor: GithubStoreState['composingAt']) => void;
   setSubmitting: (submitting: boolean) => void;
   setSidebarWidth: (width: number) => void;
@@ -168,8 +181,9 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
   filesError: null,
   filesFromGit: false,
   viewedPaths: [],
+  viewedSections: [],
   collapsedGroups: [],
-  activePath: null,
+  activeSection: null,
   drafts: [],
   composingAt: null,
   submitting: false,
@@ -177,12 +191,13 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
 
 /**
  * Where the reader is in one pull request at one head. Cleared when either
- * changes: both fields name specific hunks, which a new head invalidates.
+ * changes: these name specific hunks, which a new head invalidates.
  */
-const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'collapsedGroups' | 'activePath'> = {
+const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'viewedSections' | 'collapsedGroups' | 'activeSection'> = {
   viewedPaths: [],
+  viewedSections: [],
   collapsedGroups: [],
-  activePath: null,
+  activeSection: null,
 };
 
 /**
@@ -440,13 +455,15 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
   setDiffs: (diffs) => set({ diffs }),
 
-  setActivePath: (path) => {
-    if (get().activePath !== path) set({ activePath: path });
+  setActiveSection: (section) => {
+    if (get().activeSection !== section) set({ activeSection: section });
   },
 
-  setGroupCollapsed: (title, collapsed) => {
-    set({ collapsedGroups: toggleInList(get().collapsedGroups, title, collapsed) });
+  setGroupCollapsed: (id, collapsed) => {
+    set({ collapsedGroups: toggleInList(get().collapsedGroups, id, collapsed) });
   },
+
+  setViewedSections: (viewedSections) => set({ viewedSections }),
 
   loadViewed: async (projectPath, prNumber, headSha) => {
     const paths = await window.api.github.viewedFiles(projectPath, prNumber, headSha);

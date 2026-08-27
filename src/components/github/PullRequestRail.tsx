@@ -5,6 +5,7 @@ import type { StoredLens } from '../../lens/readLens';
 import type { LensSummary } from '../../lens/config';
 import { DiffFileTree, DiffFileTreeChapters } from '../diff/DiffFileTree';
 import { useGithubStore } from '../../stores/githubStore';
+import { isSectionViewed } from '../../github/viewedSections';
 import { Icon } from '../terminal/Icon';
 import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { AnalysisRailDot } from '../diff/AnalysisChip';
@@ -58,8 +59,8 @@ export function PullRequestRail({
 }: PullRequestRailProps) {
   const byPath = useMemo(() => new Map(files.map((file) => [file.path, file])), [files]);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
-  const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
-  const activePath = useGithubStore((s) => s.activePath);
+  const viewedSections = useGithubStore((s) => s.viewedSections);
+  const activeSection = useGithubStore((s) => s.activeSection);
   const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
 
@@ -76,7 +77,7 @@ export function PullRequestRail({
     return counts;
   }, [detail.threads]);
 
-  const trailing = (path: string, hunks?: number) => {
+  const trailing = (path: string, hunks?: number, section = path) => {
     const count = unresolvedByPath.get(path);
     // How much of a file a part of the change claims, when it is not all of it.
     const share =
@@ -94,7 +95,9 @@ export function PullRequestRail({
             {count}
           </span>
         ) : null}
-        {viewed.has(path) && <Icon name="check" className="shrink-0 w-3 h-3 text-accent/70" />}
+        {isSectionViewed(viewedPaths, viewedSections, section, path) && (
+          <Icon name="check" className="shrink-0 w-3 h-3 text-accent/70" />
+        )}
       </>
     );
   };
@@ -116,7 +119,7 @@ export function PullRequestRail({
           onFile={onFile}
           lensOn={lensOn}
           changedFiles={detail.changedFiles}
-          viewed={viewed.size}
+          viewed={viewedPaths.length}
           resolved={groups}
           promptChars={promptChars}
           writing={lensWriting}
@@ -141,16 +144,16 @@ export function PullRequestRail({
             groups={groups}
             byPath={byPath}
             collapsed={collapsed}
-            onCollapsedChange={(title, next) => useGithubStore.getState().setGroupCollapsed(title, next)}
+            onCollapsedChange={(id, next) => useGithubStore.getState().setGroupCollapsed(id, next)}
             onFileClick={onSelect}
-            renderFileTrailing={(file, hunks) => trailing(file.path, hunks)}
-            activePath={activePath}
+            renderFileTrailing={(file, hunks, section) => trailing(file.path, hunks, section)}
+            activeSection={activeSection}
           />
         </div>
       ) : (
         <DiffFileTree
           files={files}
-          activePath={activePath}
+          activeSection={activeSection}
           onFileClick={onSelect}
           renderFileTrailing={(file) => trailing(file.path)}
         />

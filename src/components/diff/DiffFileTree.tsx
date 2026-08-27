@@ -1,8 +1,14 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { ChangedFile } from '../../types';
-import type { ResolvedGroup } from '../../lens/lens';
+import { sectionKey, type ResolvedGroup } from '../../lens/lens';
 import { Icon } from '../terminal/Icon';
 import { statusIcon, statusColorClass, badgeColorClass } from './diffStatus';
+
+/**
+ * Trailing content for one row. Under a lens the row is one part of a file, so
+ * anything about how far through it the reader is takes `section`, not `file`.
+ */
+type FileTrailing<T> = (file: T, hunks?: number, section?: string) => ReactNode;
 
 interface TreeNode<T = ChangedFile> {
   name: string;
@@ -91,13 +97,13 @@ export interface DiffFileTreeProps {
   groups?: ResolvedGroup[] | null;
   /** Parts folded away, by title. */
   collapsed?: ReadonlySet<string>;
-  onCollapsedChange?: (title: string, next: boolean) => void;
+  onCollapsedChange?: (id: string, next: boolean) => void;
   /** Per-file trailing content — the PR view puts unresolved-thread counts here. */
-  renderFileTrailing?: (file: ChangedFile) => ReactNode;
+  renderFileTrailing?: FileTrailing<ChangedFile>;
   /** Content above the tree — the PR view puts the rest of its contents here. */
   header?: ReactNode;
-  /** Path currently in view, highlighted in the rail. */
-  activePath?: string | null;
+  /** The section in view, marked in the rail — the path itself when no lens splits it. */
+  activeSection?: string | null;
   footer?: ReactNode;
 }
 
@@ -111,6 +117,7 @@ export function DiffFileTreeNodes<T extends ChangedFile>({
   files: readonly T[];
   onFileClick: (path: string) => void;
   renderFileTrailing?: (file: T) => ReactNode;
+  /** The file being read, or null when it is not one of these. */
   activePath?: string | null;
 }) {
   const tree = useMemo(() => buildTree(files), [files]);
@@ -145,20 +152,21 @@ export function DiffFileTreeChapters<T extends ChangedFile>({
   onCollapsedChange,
   onFileClick,
   renderFileTrailing,
-  activePath,
+  activeSection,
 }: {
   groups: ResolvedGroup[];
   byPath: Map<string, T>;
   collapsed: ReadonlySet<string>;
-  onCollapsedChange: (title: string, next: boolean) => void;
+  onCollapsedChange: (id: string, next: boolean) => void;
   onFileClick: (path: string, group: string) => void;
-  renderFileTrailing?: (file: T, hunks?: number) => ReactNode;
-  activePath?: string | null;
+  renderFileTrailing?: FileTrailing<T>;
+  /** The section being read, which belongs to one part and not to the others. */
+  activeSection?: string | null;
 }) {
   return (
     <>
-      {groups.map((group, at) => {
-        const folded = collapsed.has(group.title);
+      {groups.map((group) => {
+        const folded = collapsed.has(group.id);
         // Counted as the part claims them, so the rail and the card it scrolls
         // to do not report a file split across three parts three times over.
         const files = group.slices.flatMap((slice) => {
@@ -166,10 +174,12 @@ export function DiffFileTreeChapters<T extends ChangedFile>({
           if (!file) return [];
           return [slice.changes ? { ...file, ...slice.changes } : file];
         });
+        // The mark is on one copy of a file; the other parts that name it are
+        // not where the reader is.
+        const here = `${group.id}:`;
+        const activePath = activeSection?.startsWith(here) ? activeSection.slice(here.length) : null;
         return (
-          // Indexed: two parts of a lens may carry the same title, and a key
-          // that is only the title keeps one of them.
-          <div key={`${at}:${group.title}`} className="flex flex-col">
+          <div key={group.id} className="flex flex-col">
             {/* Set as the lens wrote it. Uppercasing a title shouts, and
                 algorithmic title case would spell GitHub "Github".
 
@@ -184,7 +194,7 @@ export function DiffFileTreeChapters<T extends ChangedFile>({
               aria-expanded={!folded}
               className="flex items-center gap-1.5 h-9 px-3 text-[12px] font-medium text-ink/90 text-left transition-colors duration-150 ease-out hover:bg-ink/5"
               title={group.summary}
-              onClick={() => onCollapsedChange(group.title, !folded)}
+              onClick={() => onCollapsedChange(group.id, !folded)}
             >
               <span className="min-w-0 flex-1 truncate">{group.title}</span>
               <Icon name={folded ? 'plus' : 'minus'} className="shrink-0 !w-3 !h-3 opacity-50" />
@@ -193,9 +203,11 @@ export function DiffFileTreeChapters<T extends ChangedFile>({
               <DiffFileTreeNodes
                 files={files}
                 activePath={activePath}
-                onFileClick={(path) => onFileClick(path, group.title)}
+                onFileClick={(path) => onFileClick(path, group.id)}
                 renderFileTrailing={
-                  renderFileTrailing ? (file) => renderFileTrailing(file, hunksOf(group, file.path)) : undefined
+                  renderFileTrailing
+                    ? (file) => renderFileTrailing(file, hunksOf(group, file.path), sectionKey(group.id, file.path))
+                    : undefined
                 }
               />
             )}
@@ -219,7 +231,7 @@ export function DiffFileTree({
   onCollapsedChange,
   renderFileTrailing,
   header,
-  activePath,
+  activeSection,
   footer,
 }: DiffFileTreeProps) {
   const byPath = useMemo(() => new Map(files.map((file) => [file.path, file])), [files]);
@@ -239,14 +251,14 @@ export function DiffFileTree({
           onCollapsedChange={onCollapsedChange}
           onFileClick={onFileClick}
           renderFileTrailing={renderFileTrailing}
-          activePath={activePath}
+          activeSection={activeSection}
         />
       ) : (
         <DiffFileTreeNodes
           files={files}
           onFileClick={onFileClick}
           renderFileTrailing={renderFileTrailing}
-          activePath={activePath}
+          activePath={activeSection}
         />
       )}
       {footer}

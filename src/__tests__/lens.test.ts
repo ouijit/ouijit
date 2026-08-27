@@ -1,5 +1,13 @@
 import { describe, test, expect } from 'vitest';
-import { hunksInRanges, lensCoverage, parseLens, resolveLens, type LensGroup } from '../lens/lens';
+import {
+  hunksInRanges,
+  lensCoverage,
+  parseLens,
+  partHolding,
+  resolveLens,
+  sectionKey,
+  type LensGroup,
+} from '../lens/lens';
 import type { FileDiff } from '../types';
 
 /** A file whose hunks cover the given new-file line spans, one hunk each. */
@@ -117,6 +125,52 @@ describe('resolveLens', () => {
     // of its own, since git's is the better one there.
     expect(resolved[2].title).toBe('Not in this lens');
     expect(resolved[2].slices).toEqual([{ path: 'b.ts', hunks: [0] }]);
+  });
+
+  test('a part is identified by its place in the lens, not by its title', () => {
+    const groups: LensGroup[] = [
+      { title: 'Storage', slices: [{ path: 'a.ts', ranges: [[1, 10]] }] },
+      // Nothing stops a lens naming two parts the same. Keyed by title, a fold
+      // or a mark on either of them would land on both.
+      { title: 'Storage', slices: [{ path: 'a.ts', ranges: [[50, 60]] }] },
+    ];
+    const resolved = resolveLens(groups, diffs, order);
+
+    expect(resolved.map((g) => g.id)).toEqual(['0:Storage', '1:Storage', 'rest']);
+    expect(sectionKey(resolved[0].id, 'a.ts')).not.toBe(sectionKey(resolved[1].id, 'a.ts'));
+  });
+
+  test('one file named twice in one part is one section, holding both claims', () => {
+    const groups: LensGroup[] = [
+      {
+        title: 'All of a.ts',
+        slices: [
+          { path: 'a.ts', ranges: [[50, 60]] },
+          { path: 'a.ts', ranges: [[1, 10]] },
+        ],
+      },
+    ];
+    const resolved = resolveLens(groups, diffs, order);
+
+    // One card, in the diff's own order — two would answer to the same name.
+    expect(resolved[0].slices).toEqual([{ path: 'a.ts', hunks: [0, 1] }]);
+  });
+
+  test('a line belongs to the one part that holds its hunk', () => {
+    const groups: LensGroup[] = [
+      { title: 'First half', slices: [{ path: 'a.ts', ranges: [[1, 10]] }] },
+      { title: 'Second half', slices: [{ path: 'a.ts', ranges: [[50, 60]] }] },
+    ];
+    const resolved = resolveLens(groups, diffs, order);
+    const file = diffs.get('a.ts')!;
+
+    // Where a comment on line 55 has to be taken to — not the first copy of
+    // a.ts, which does not have that line in it.
+    expect(partHolding(resolved, file, 'a.ts', 55)).toBe('1:Second half');
+    expect(partHolding(resolved, file, 'a.ts', 5)).toBe('0:First half');
+    // A line in no hunk, and a diff read with no lens on it.
+    expect(partHolding(resolved, file, 'a.ts', 500)).toBeUndefined();
+    expect(partHolding(null, file, 'a.ts', 55)).toBeUndefined();
   });
 
   test('a hunk claimed twice renders in the first group that claimed it', () => {

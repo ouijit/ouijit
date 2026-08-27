@@ -2,16 +2,16 @@ import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { LensGroupSection } from './LensGroupSection';
 import { inTreeOrder } from './DiffFileTree';
-import type { ResolvedGroup, ResolvedSlice } from '../../lens/lens';
+import { sectionKey, type ResolvedGroup, type ResolvedSlice } from '../../lens/lens';
 
 export interface LensedFileListProps<T extends { path: string }> {
   files: readonly T[];
   /** The lens's groups, or null to run the files flat in tree order. */
   groups: ResolvedGroup[] | null;
   /**
-   * One file's section. `key` is given rather than derived because a lens may
-   * name the same file in more than one group, and React would otherwise keep
-   * only the last copy; `slice` says which part of the file this copy is.
+   * One file's section. `key` is this copy's identity — a lens may name the
+   * same file in three parts, and what is folded, marked read or scrolled to
+   * is one part of one file, not the file. `slice` is the part of it shown.
    */
   renderFile: (file: T, key?: string, slice?: ResolvedSlice) => ReactNode;
   collapsed: ReadonlySet<string>;
@@ -42,18 +42,16 @@ export function LensedFileList<T extends { path: string }>({
 
   return (
     <>
-      {groups.map((group, at) => (
+      {groups.map((group) => (
         <LensGroupSection
-          // Indexed, because nothing stops a lens naming two parts the same and
-          // React would then keep only one of them.
-          key={`${at}:${group.title}`}
+          key={group.id}
           group={group}
-          collapsed={collapsed.has(group.title)}
-          onCollapsedChange={(next) => onCollapsedChange(group.title, next)}
+          collapsed={collapsed.has(group.id)}
+          onCollapsedChange={(next) => onCollapsedChange(group.id, next)}
         >
           {group.slices.map((slice) => {
             const file = byPath.get(slice.path);
-            return file ? renderFile(file, `${group.title}:${slice.path}`, slice) : null;
+            return file ? renderFile(file, sectionKey(group.id, slice.path), slice) : null;
           })}
         </LensGroupSection>
       ))}

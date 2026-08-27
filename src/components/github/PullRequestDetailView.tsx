@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
 import type { LensSummary } from '../../lens/config';
+import { partHolding, sectionKey } from '../../lens/lens';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore, RAIL_DEFAULT_WIDTH, RAIL_MIN_WIDTH, RAIL_MAX_WIDTH } from '../../stores/githubStore';
 import { LensDialog } from '../dialogs/LensDialog';
@@ -69,7 +70,7 @@ export function PullRequestDetailView({
       if (container) container.scrollTop = 0;
       return;
     }
-    useGithubStore.getState().setActivePath(path);
+    useGithubStore.getState().setActiveSection(sectionKey(group, path));
     scrollToSection(container, fileSelector(path, group));
   }, []);
 
@@ -111,19 +112,12 @@ export function PullRequestDetailView({
   // Jumping to a draft means the code pane, but the jump is usually made from
   // Summary or Timeline where `FilesSection` is unmounted and the ref is null.
   // Remember the draft and open it once that pane exists.
-  const [pendingDraft, setPendingDraft] = useState<{ id: string; path: string } | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<{ id: string; path: string; line: number } | null>(null);
 
   const jumpToDraft = useCallback((draft: ReviewDraft) => {
     setPane('code');
-    setPendingDraft({ id: draft.id, path: draft.path });
+    setPendingDraft({ id: draft.id, path: draft.path, line: draft.line });
   }, []);
-
-  useEffect(() => {
-    if (pane !== 'code' || !pendingDraft) return;
-    scrollToFile(pendingDraft.path);
-    filesRef.current?.editDraft(pendingDraft.id);
-    setPendingDraft(null);
-  }, [pane, pendingDraft, scrollToFile]);
 
   const [lensesOpen, setLensesOpen] = useState(false);
 
@@ -168,6 +162,18 @@ export function PullRequestDetailView({
 
   const resolved = lens.resolved;
   const lensOn = lens.lensOn;
+  const shown = lens.shown;
+
+  useEffect(() => {
+    if (pane !== 'code' || !pendingDraft) return;
+    // To the copy of the file that holds the line it is anchored to. A lens can
+    // put that file in three parts, and only one of them is where the comment
+    // is.
+    const part = partHolding(shown, diffs.get(pendingDraft.path), pendingDraft.path, pendingDraft.line);
+    scrollToFile(pendingDraft.path, part);
+    filesRef.current?.editDraft(pendingDraft.id);
+    setPendingDraft(null);
+  }, [pane, pendingDraft, scrollToFile, shown, diffs]);
 
   /**
    * Changes only when the anchors do. `resolved` is a fresh array every time a
@@ -176,7 +182,7 @@ export function PullRequestDetailView({
    */
   const anchorShape = useMemo(() => {
     if (lensOn && resolved) {
-      return resolved.map((group) => `${group.title}\t${group.slices.map((s) => s.path).join(',')}`).join('\n');
+      return resolved.map((group) => `${group.id}\t${group.slices.map((s) => s.path).join(',')}`).join('\n');
     }
     return fileOrder.join('\n');
   }, [lensOn, resolved, fileOrder]);
@@ -215,7 +221,12 @@ export function PullRequestDetailView({
             topmost = anchor;
           }
         }
-        if (topmost?.dataset.path) useGithubStore.getState().setActivePath(topmost.dataset.path);
+        // Which part of the change it sits in, not just which file: the same
+        // file three parts down is a different place in the reading.
+        if (topmost?.dataset.path) {
+          const group = topmost.closest<HTMLElement>('[data-group]')?.dataset.group;
+          useGithubStore.getState().setActiveSection(sectionKey(group, topmost.dataset.path));
+        }
       },
       // Only the top band of the pane counts, or the last file of a long scroll
       // claims the mark from the bottom of the screen.

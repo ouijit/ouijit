@@ -217,7 +217,61 @@ describe('PullRequestsPanel — lens', () => {
     expect(anchors()).toEqual(['src/api.ts', 'src/ui.tsx']);
 
     // And the rail marks the one you were taken to.
-    await waitFor(() => expect(useGithubStore.getState().activePath).toBe('src/ui.tsx'));
+    await waitFor(() => expect(useGithubStore.getState().activeSection).toBe('src/ui.tsx'));
+  });
+
+  /**
+   * A file read in pieces is finished with in pieces. The claim that is written
+   * down is still about the file — the flat list and the next lens over this
+   * change both read it — so it is made only once every piece has been marked,
+   * and withdrawn as soon as one of them is not.
+   */
+  test('a file split across parts is marked read a part at a time', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 1, headSha: 'head1' }));
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
+      files: [{ path: 'src/api.ts', status: 'M', additions: 2, deletions: 0 }],
+      fromGit: false,
+    });
+    vi.mocked(window.api.github.pullRequestFileDiff).mockResolvedValue({
+      path: 'src/api.ts',
+      hunks: [
+        { header: '@@ -1,1 +1,2 @@', lines: [{ type: 'addition', content: 'a', newLineNo: 1 }] },
+        { header: '@@ -9,1 +10,2 @@', lines: [{ type: 'addition', content: 'b', newLineNo: 10 }] },
+      ],
+    });
+    vi.mocked(window.api.github.lens).mockResolvedValue({
+      lensId: null,
+      lensName: null,
+      stale: false,
+      groups: [
+        { title: 'The contract', slices: [{ path: 'src/api.ts', ranges: [[1, 1]] }] },
+        { title: 'What follows', slices: [{ path: 'src/api.ts', ranges: [[10, 10]] }] },
+      ],
+    });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+
+    const marks = async () => (await screen.findAllByLabelText('Viewed')).map((m) => m.getAttribute('aria-pressed'));
+    await waitFor(async () => expect(await marks()).toHaveLength(2));
+
+    fireEvent.click((await screen.findAllByLabelText('Viewed'))[0]);
+    // One part read is not the file read.
+    expect(await marks()).toEqual(['true', 'false']);
+    expect(window.api.github.setFileViewed).not.toHaveBeenCalled();
+
+    fireEvent.click((await screen.findAllByLabelText('Viewed'))[1]);
+    expect(await marks()).toEqual(['true', 'true']);
+    expect(window.api.github.setFileViewed).toHaveBeenCalledWith(PROJECT, 5, 'head1', 'src/api.ts', true);
+
+    // And not all of it is read any more, though the other part still is.
+    fireEvent.click((await screen.findAllByLabelText('Viewed'))[1]);
+    expect(await marks()).toEqual(['true', 'false']);
+    expect(window.api.github.setFileViewed).toHaveBeenLastCalledWith(PROJECT, 5, 'head1', 'src/api.ts', false);
   });
 
   /**

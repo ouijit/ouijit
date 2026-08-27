@@ -49,10 +49,10 @@ export function LensGroupSection({
   }, [group.title, group.summary]);
 
   return (
-    // Named, because one file can belong to three parts and the rail has to be
-    // able to say which copy of it a click meant.
+    // Identified, because one file can belong to three parts and the rail has
+    // to be able to say which copy of it a click meant.
     <div
-      data-group={group.title}
+      data-group={group.id}
       data-collapsed={collapsed ? '' : undefined}
       className="lens-part diff-list flex flex-col"
       style={{ '--diff-sticky-offset': `${headerHeight}px` } as CSSProperties}

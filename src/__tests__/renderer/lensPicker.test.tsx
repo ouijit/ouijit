@@ -133,9 +133,10 @@ describe('picking how to read a diff', () => {
    */
   test('the applied row says how much of the change the lens accounts for', () => {
     const resolved: ResolvedGroup[] = [
-      { title: 'Part 0', slices: [{ path: 'a.ts', hunks: [0] }] },
-      { title: 'Part 1', slices: [{ path: 'b.ts', hunks: [0] }] },
+      { id: '0', title: 'Part 0', slices: [{ path: 'a.ts', hunks: [0] }] },
+      { id: '1', title: 'Part 1', slices: [{ path: 'b.ts', hunks: [0] }] },
       {
+        id: 'rest',
         title: 'Not in this lens',
         slices: [
           { path: 'c.ts', hunks: [0] },
