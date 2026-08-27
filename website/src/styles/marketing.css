@@ -2505,21 +2505,21 @@ body.marketing::after {
 /* Anchored to the desk floor with its top pushed down one peek per back
    card, so the cards divide a fixed height rather than growing past it. */
 /* The run says how many cards are on the stack; the depths get there on these.
-   Shorter than TerminalCardView's 0.2s for the same move, since the sessions
-   land closer together here than a person opens terminals. */
+   Longer than the run's own step, so the cards overlap into one cascade
+   rather than four moves taken in turn. */
 .stk-well {
   position: absolute;
   left: 36px;
   right: 36px;
   bottom: 36px;
-  transition: top 0.13s ease;
+  transition: top 0.14s ease;
 }
 
 .stk-card {
   position: absolute;
   inset: 0;
   transform-origin: 50% 100%;
-  transition: transform 0.13s ease;
+  transition: transform 0.14s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -40,10 +40,10 @@ const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 
  * reader scrubs through at whatever pace they scroll. The section costs its
  * own height in scroll and holds nothing above it in place.
  */
-const STEP_MS = 180;
+const STEP_MS = 130;
 
 /** The stage settles in view before the first card leaves the column. */
-const LEAD_MS = 40;
+const LEAD_MS = 30;
 
 /** Leaving winds the run back, so coming to the section again plays it again
  *  rather than arriving at a stack that is already full. Quicker than it ran
