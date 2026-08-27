@@ -220,7 +220,10 @@ export function DiffFileTree({
   const chaptered = groups && collapsed && onCollapsedChange;
 
   return (
-    <div className="flex-1 overflow-y-auto py-2">
+    // Chaptered, the list opens with a part's bar, which is level with the one
+    // the document opens with across the seam. Padding above it would drop the
+    // rail's half of that band by the height of the padding.
+    <div className={`flex-1 overflow-y-auto pb-2 ${chaptered ? '' : 'pt-2'}`}>
       {header}
       {chaptered ? (
         <DiffFileTreeChapters
