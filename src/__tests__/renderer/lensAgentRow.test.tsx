@@ -39,18 +39,24 @@ describe('which agent writes a lens', () => {
     window.api.lens.setAgent = vi.fn().mockResolvedValue({ success: true });
   });
 
-  test('with both installed, picking one stores it and outranks what is merely installed', async () => {
+  test('the control names what will run, and picking one outranks what is merely installed', async () => {
     render(<LensAgentRow projectPath={PROJECT} />);
-    await screen.findByText('Automatic');
 
-    fireEvent.click(screen.getByRole('button', { name: /Automatic/ }));
+    // Nobody has chosen, so this is automatic — which is how the answer was
+    // arrived at, not the answer. Claude Code is what a run would spawn.
+    const control = await screen.findByRole('button', { name: /Claude Code/ });
+    expect(screen.queryByRole('button', { name: /Automatic/ })).toBeNull();
+
+    fireEvent.click(control);
+    // Offered as a choice, where it is one, and saying what it comes to.
+    expect(screen.getByRole('menuitem', { name: /^Automatic/ }).textContent).toContain('Claude Code');
     fireEvent.click(await screen.findByRole('menuitem', { name: /^Codex/ }));
 
     await waitFor(() => {
       expect(window.api.lens.setAgent).toHaveBeenCalledWith(PROJECT, { agentId: 'codex' });
     });
     // Claude Code is installed and comes first, but a choice was made.
-    expect(await screen.findByText('Codex')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /Codex/ })).toBeTruthy();
   });
 
   test('one agent is no decision, so nothing is drawn', async () => {
@@ -73,7 +79,7 @@ describe('which agent writes a lens', () => {
 
   test('the flags are not put in front of the reader', async () => {
     render(<LensAgentRow projectPath={PROJECT} />);
-    await screen.findByText('Automatic');
+    await screen.findByRole('button', { name: /Claude Code/ });
 
     // A preset nobody can edit is a command line there is nothing to do with.
     // The runner logs the invocation for anyone who needs it.
@@ -88,9 +94,8 @@ describe('which agent writes a lens', () => {
    */
   test('only the agents that can be held to a schema are offered', async () => {
     render(<LensAgentRow projectPath={PROJECT} />);
-    await screen.findByText('Automatic');
 
-    fireEvent.click(screen.getByRole('button', { name: /Automatic/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Claude Code/ }));
     await screen.findByRole('menuitem', { name: /^Claude Code/ });
 
     expect(screen.queryByRole('menuitem', { name: /^Pi/ })).toBeNull();

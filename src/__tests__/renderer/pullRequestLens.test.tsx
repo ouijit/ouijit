@@ -471,7 +471,7 @@ describe('PullRequestsPanel — lens', () => {
     await openPicker();
     pick('Add a lens…');
 
-    fireEvent.click(await screen.findByRole('button', { name: /Automatic/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Claude Code/ }));
     expect(await screen.findByRole('menuitem', { name: /^Codex/ })).toBeTruthy();
 
     fireEvent.keyDown(document.body, { key: 'Escape' });

@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { HealthStatus } from '../../healthCheck';
-import { LENS_AGENTS, installedAgents, lensAgent, resolveLensAgent, type LensAgentChoice } from '../../lens/lensAgents';
+import {
+  LENS_AGENTS,
+  installedAgents,
+  pickLensAgent,
+  resolveLensAgent,
+  type LensAgentChoice,
+} from '../../lens/lensAgents';
 import { Icon } from '../terminal/Icon';
 import { MenuPopover, MenuItem, MenuDivider } from '../ui/Menu';
 
@@ -50,26 +56,22 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
   // Nothing can write a lens, which is the only thing worth saying — and it is
   // said here rather than left for the run to fail with.
   if (here.length === 0) {
-    return (
-      <div className="flex items-center gap-3 px-4 py-3 text-[13px] text-text-tertiary">
-        <Icon name="command" className="shrink-0 w-4 h-4" />
-        <span>Lenses need Claude Code or Codex installed.</span>
-      </div>
-    );
+    return <div className="px-4 py-3 text-[13px] text-text-tertiary">Lenses need Claude Code or Codex installed.</div>;
   }
 
   // One agent is no decision. Naming it would be a row that cannot be acted on.
   if (here.length === 1) return null;
 
-  const resolved = resolveLensAgent(choice, installed);
+  const automatic = pickLensAgent(installed);
   const auto = !choice?.agentId;
-  const label = choice?.agentId ? (lensAgent(choice.agentId)?.label ?? choice.agentId) : 'Automatic';
+  // What will run, never how it was decided. Nothing has been chosen to begin
+  // with, and a control reading "Automatic" leaves the reader to open it to
+  // find out what that means when the answer is one word long.
+  const showing = resolveLensAgent(choice, installed) ?? here[0];
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5">
-      <Icon name="command" className="shrink-0 w-4 h-4 text-text-tertiary" />
-      <span className="flex-1 min-w-0 text-[13px] text-text-primary">Written by</span>
-
+    // The button's own padding puts its text where the rows above start theirs.
+    <div className="flex items-center px-1.5 py-1.5">
       <MenuPopover
         open={open}
         onOpenChange={setOpen}
@@ -80,17 +82,18 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
             type="button"
             aria-haspopup="menu"
             aria-expanded={open}
+            title="Which agent reads a change and writes the grouping"
             className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md text-text-secondary hover:bg-ink/[0.08] hover:text-text-primary transition-colors duration-150"
             onClick={() => setOpen(!open)}
           >
-            {label}
+            {showing.label}
             <Icon name="caret-down" className="w-3 h-3 opacity-60" />
           </button>
         )}
       >
         <MenuItem
           label="Automatic"
-          hint={resolved && auto ? resolved.label : undefined}
+          hint={automatic?.label}
           selected={auto}
           onClick={() => {
             setOpen(false);
