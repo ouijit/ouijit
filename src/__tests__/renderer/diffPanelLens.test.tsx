@@ -6,6 +6,7 @@ import { useUIStore, DIFF_FILE_LIST_DEFAULT_WIDTH } from '../../stores/uiStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { DEFAULT_DISPLAY_STATE } from '../../stores/terminalDisplay';
 import { _resetLensRunsForTesting } from '../../components/diff/useLensSession';
+import { NARRATIVE, hunk, lensOnFile } from '../lensFixtures';
 
 // terminalReact pulls xterm in, which hangs under jsdom.
 vi.mock('../../components/terminal/terminalReact', () => ({
@@ -27,19 +28,18 @@ const FILES = [
   { path: 'src/ui/Panel.tsx', status: 'M' as const, additions: 3, deletions: 3 },
 ];
 
-const LENS = {
-  lensId: 'narrative',
-  lensName: 'Narrative',
-  stale: false,
-  running: null,
-  groups: [
+const WROTE = { lensId: NARRATIVE.id, lensName: NARRATIVE.name };
+
+const LENS = lensOnFile(
+  [
     {
       title: 'Where it is stored',
       summary: 'The table and the rows that go in it',
       slices: [{ path: 'src/db/schema.ts' }, { path: 'src/db/repo.ts' }],
     },
   ],
-};
+  WROTE,
+);
 
 /**
  * `repo.ts` in two pieces: one addition and one deletion up top, five additions
@@ -56,25 +56,18 @@ const REPO_DIFF = {
         { type: 'deletion' as const, content: 'b', oldLineNo: 1 },
       ],
     },
-    {
-      header: '@@ -20,1 +20,6 @@',
-      lines: Array.from({ length: 5 }, (_, i) => ({
-        type: 'addition' as const,
-        content: `line ${20 + i}`,
-        newLineNo: 20 + i,
-      })),
-    },
+    hunk(20, 5),
   ],
 };
 
 /** The same file in two parts of the story, a hunk each. */
-const SPLIT_LENS = {
-  ...LENS,
-  groups: [
+const SPLIT_LENS = lensOnFile(
+  [
     { title: 'Where it is stored', slices: [{ path: 'src/db/repo.ts', ranges: [[20, 24]] }] },
     { title: 'What reads it', slices: [{ path: 'src/db/repo.ts', ranges: [[1, 1]] }] },
   ],
-};
+  WROTE,
+);
 
 /** A save under the reader: the same files, one of them a different size. */
 function edit({ additions }: { additions: number }): void {
@@ -120,9 +113,7 @@ describe('the diff panel, read through a lens', () => {
       },
     });
     vi.mocked(window.api.diffLens.get).mockResolvedValue(LENS);
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
+    vi.mocked(window.api.lens.list).mockResolvedValue([NARRATIVE]);
     vi.mocked(window.api.getFileDiff).mockResolvedValue(null);
     vi.mocked(window.api.worktree.getFileDiff).mockResolvedValue(null);
   });
@@ -196,13 +187,9 @@ describe('the diff panel, read through a lens', () => {
    * left watching a diff with no sign that anything was coming.
    */
   test('a run this pane never started shows as running, and is let go when it ends', async () => {
-    vi.mocked(window.api.diffLens.get).mockResolvedValue({
-      groups: null,
-      lensId: null,
-      lensName: null,
-      stale: false,
-      running: { lensId: 'narrative', lensName: 'Narrative', since: null, live: true },
-    });
+    vi.mocked(window.api.diffLens.get).mockResolvedValue(
+      lensOnFile(null, { running: { ...WROTE, since: null, live: true } }),
+    );
     render(<DiffPanel {...PROPS} />);
 
     expect(await screen.findByText('Writing Narrative…')).toBeTruthy();
@@ -222,13 +209,9 @@ describe('the diff panel, read through a lens', () => {
    */
   test('a run the app was closed out from under is offered again', async () => {
     const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
-    vi.mocked(window.api.diffLens.get).mockResolvedValue({
-      groups: null,
-      lensId: null,
-      lensName: null,
-      stale: false,
-      running: { lensId: 'narrative', lensName: 'Narrative', since, live: false },
-    });
+    vi.mocked(window.api.diffLens.get).mockResolvedValue(
+      lensOnFile(null, { running: { ...WROTE, since, live: false } }),
+    );
     render(<DiffPanel {...PROPS} />);
 
     fireEvent.click(await screen.findByTitle(/“Narrative” did not finish/));

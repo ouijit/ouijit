@@ -6,13 +6,52 @@ import { useAppStore } from '../../stores/appStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { _resetLensRunsForTesting } from '../../components/diff/useLensSession';
-import { pr, inbox, detail } from './githubFixtures';
+import { NARRATIVE, lensOnFile } from '../lensFixtures';
+import { pr, inbox, detail, changed } from './githubFixtures';
+import type { PullRequestFile } from '../../github/types';
+import type { StoredLens } from '../../lens/readLens';
+import type { LensSummary } from '../../lens/config';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
 
 const PROJECT = '/work/alpha';
+
+/**
+ * One pull request's Code pane, open and ready to read.
+ *
+ * Every test here arrives the same way, so what any one of them is about is
+ * what it passes: the files in the change, the grouping already on file, the
+ * lenses the project keeps. `changedFiles` is separate from `files` because the
+ * picker reports GitHub's count, which a truncated file list does not match.
+ */
+async function openCodePane(
+  set: {
+    files?: PullRequestFile[];
+    lens?: StoredLens | null;
+    lenses?: LensSummary[];
+    changedFiles?: number;
+    headSha?: string;
+  } = {},
+): Promise<void> {
+  vi.mocked(window.api.github.inbox).mockResolvedValue(
+    inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+  );
+  vi.mocked(window.api.github.pullRequest).mockResolvedValue(
+    detail({
+      changedFiles: set.changedFiles ?? set.files?.length ?? 1,
+      ...(set.headSha ? { headSha: set.headSha } : {}),
+    }),
+  );
+  if (set.files) vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({ files: set.files, fromGit: false });
+  if (set.lens !== undefined) vi.mocked(window.api.github.lens).mockResolvedValue(set.lens);
+  if (set.lenses) vi.mocked(window.api.lens.list).mockResolvedValue(set.lenses);
+
+  render(<PullRequestsPanel projectPath={PROJECT} />);
+  fireEvent.click(await screen.findByText('Please look'));
+  fireEvent.click(await screen.findByText('Code'));
+}
 
 /** The rail's one control: how this change is being read. */
 async function openPicker() {
@@ -63,30 +102,14 @@ describe('PullRequestsPanel — lens', () => {
    * of an agent run behind a control they would have to know to press.
    */
   test('a lens on file groups the diff, and All files goes back', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 2 }));
-    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
-      files: [
-        { path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 },
-        { path: 'src/ui.tsx', status: 'M', additions: 1, deletions: 1 },
-      ],
-      fromGit: false,
+    await openCodePane({
+      files: [changed('src/api.ts'), changed('src/ui.tsx')],
+      lens: lensOnFile([{ title: 'Transport', summary: 'How it talks', slices: [{ path: 'src/api.ts' }] }], {
+        lensId: NARRATIVE.id,
+        lensName: NARRATIVE.name,
+      }),
+      lenses: [NARRATIVE],
     });
-    vi.mocked(window.api.github.lens).mockResolvedValue({
-      lensId: 'narrative',
-      lensName: 'Narrative',
-      stale: false,
-      groups: [{ title: 'Transport', summary: 'How it talks', slices: [{ path: 'src/api.ts' }] }],
-    });
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
 
     // Read for this head, and applied without asking — the control says which
     // lens is doing the reading, not merely that one is.
@@ -113,19 +136,11 @@ describe('PullRequestsPanel — lens', () => {
    * a row in the same list rather than a control of its own.
    */
   test('the picker offers All files and the project lenses together', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 3 }));
-    vi.mocked(window.api.github.lens).mockResolvedValue(null);
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-      { id: 'risk', name: 'What the tests miss', instruction: 'group by risk' },
-    ]);
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
+    await openCodePane({
+      changedFiles: 3,
+      lens: null,
+      lenses: [NARRATIVE, { id: 'risk', name: 'What the tests miss', instruction: 'group by risk' }],
+    });
     await openPicker();
 
     const rows = screen.getAllByRole('menuitem').map((row) => row.textContent);
@@ -141,32 +156,12 @@ describe('PullRequestsPanel — lens', () => {
    * reviewer what kind of change they are looking at.
    */
   test('a group keeps the directories its files sit in', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 2 }));
-    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
-      files: [
-        { path: 'src/github/api.ts', status: 'M', additions: 1, deletions: 1 },
-        { path: 'src/github/client.ts', status: 'M', additions: 1, deletions: 1 },
-      ],
-      fromGit: false,
+    await openCodePane({
+      files: [changed('src/github/api.ts'), changed('src/github/client.ts')],
+      lens: lensOnFile([
+        { title: 'Talking to GitHub', slices: [{ path: 'src/github/api.ts' }, { path: 'src/github/client.ts' }] },
+      ]),
     });
-    vi.mocked(window.api.github.lens).mockResolvedValue({
-      lensId: null,
-      lensName: null,
-      stale: false,
-      groups: [
-        {
-          title: 'Talking to GitHub',
-          slices: [{ path: 'src/github/api.ts' }, { path: 'src/github/client.ts' }],
-        },
-      ],
-    });
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
 
     // The shared directory is collapsed to one node above the two files, the
     // same as the flat tree does it.
@@ -186,21 +181,7 @@ describe('PullRequestsPanel — lens', () => {
    * unreachable without going back to the list.
    */
   test('clicking a file in the rail takes you to it, leaving the rest in place', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 2 }));
-    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
-      files: [
-        { path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 },
-        { path: 'src/ui.tsx', status: 'M', additions: 1, deletions: 1 },
-      ],
-      fromGit: false,
-    });
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
+    await openCodePane({ files: [changed('src/api.ts'), changed('src/ui.tsx')] });
 
     await waitFor(() => expect(screen.getAllByText('api.ts').length).toBeGreaterThan(0));
 
@@ -227,14 +208,6 @@ describe('PullRequestsPanel — lens', () => {
    * and withdrawn as soon as one of them is not.
    */
   test('a file split across parts is marked read a part at a time', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 1, headSha: 'head1' }));
-    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
-      files: [{ path: 'src/api.ts', status: 'M', additions: 2, deletions: 0 }],
-      fromGit: false,
-    });
     vi.mocked(window.api.github.pullRequestFileDiff).mockResolvedValue({
       path: 'src/api.ts',
       hunks: [
@@ -242,19 +215,14 @@ describe('PullRequestsPanel — lens', () => {
         { header: '@@ -9,1 +10,2 @@', lines: [{ type: 'addition', content: 'b', newLineNo: 10 }] },
       ],
     });
-    vi.mocked(window.api.github.lens).mockResolvedValue({
-      lensId: null,
-      lensName: null,
-      stale: false,
-      groups: [
+    await openCodePane({
+      headSha: 'head1',
+      files: [changed('src/api.ts', { additions: 2, deletions: 0 })],
+      lens: lensOnFile([
         { title: 'The contract', slices: [{ path: 'src/api.ts', ranges: [[1, 1]] }] },
         { title: 'What follows', slices: [{ path: 'src/api.ts', ranges: [[10, 10]] }] },
-      ],
+      ]),
     });
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
 
     const marks = async () => (await screen.findAllByLabelText('Viewed')).map((m) => m.getAttribute('aria-pressed'));
     await waitFor(async () => expect(await marks()).toHaveLength(2));
@@ -280,30 +248,16 @@ describe('PullRequestsPanel — lens', () => {
    * document are showing the same part.
    */
   test('a part of the change folds away, and stays folded', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 2 }));
-    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
-      files: [
-        { path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 },
-        { path: 'src/ui.tsx', status: 'M', additions: 1, deletions: 1 },
-      ],
-      fromGit: false,
+    await openCodePane({
+      files: [changed('src/api.ts'), changed('src/ui.tsx')],
+      lens: lensOnFile(
+        [
+          { title: 'Transport', slices: [{ path: 'src/api.ts' }] },
+          { title: 'Screens', slices: [{ path: 'src/ui.tsx' }] },
+        ],
+        { lensId: NARRATIVE.id, lensName: NARRATIVE.name },
+      ),
     });
-    vi.mocked(window.api.github.lens).mockResolvedValue({
-      lensId: 'narrative',
-      lensName: 'Narrative',
-      stale: false,
-      groups: [
-        { title: 'Transport', slices: [{ path: 'src/api.ts' }] },
-        { title: 'Screens', slices: [{ path: 'src/ui.tsx' }] },
-      ],
-    });
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
 
     expect((await screen.findAllByText('Transport')).length).toBeGreaterThan(0);
     await waitFor(() => expect(document.querySelectorAll('[data-path="src/api.ts"]').length).toBeGreaterThan(0));
@@ -331,15 +285,7 @@ describe('PullRequestsPanel — lens', () => {
    * it would appear, not behind the settings panel.
    */
   test('with no lenses the picker offers to add one', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.lens).mockResolvedValue(null);
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
+    await openCodePane({ lens: null });
 
     expect(await screen.findByTitle('How to read this change')).toBeTruthy();
     await openPicker();
@@ -358,35 +304,26 @@ describe('PullRequestsPanel — lens', () => {
    * the last time it happened to be mounted.
    */
   test('the picker follows lenses added and deleted elsewhere', async () => {
-    let changed: ((projectPath: string) => void) | null = null;
+    let changedList: ((projectPath: string) => void) | null = null;
     vi.mocked(window.api.lens.onListChanged).mockImplementation((cb) => {
-      changed = cb;
+      changedList = cb;
       return () => {};
     });
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.lens).mockResolvedValue(null);
+    await openCodePane({ lens: null });
 
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
     await openPicker();
     expect(screen.queryByRole('menuitem', { name: 'Narrative' })).toBeNull();
 
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
-    await act(async () => changed?.(PROJECT));
+    vi.mocked(window.api.lens.list).mockResolvedValue([NARRATIVE]);
+    await act(async () => changedList?.(PROJECT));
     expect(await screen.findByRole('menuitem', { name: 'Narrative' })).toBeTruthy();
 
     // And a project that is not this one is not this picker's business.
     vi.mocked(window.api.lens.list).mockResolvedValue([]);
-    await act(async () => changed?.('/work/beta'));
+    await act(async () => changedList?.('/work/beta'));
     expect(screen.getByRole('menuitem', { name: 'Narrative' })).toBeTruthy();
 
-    await act(async () => changed?.(PROJECT));
+    await act(async () => changedList?.(PROJECT));
     await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Narrative' })).toBeNull());
   });
 
@@ -399,17 +336,10 @@ describe('PullRequestsPanel — lens', () => {
    * keeps the lens and leaves the dialog where it is.
    */
   test('a lens made in the dialog reads the change and gets out of the way', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.lens).mockResolvedValue(null);
     vi.mocked(window.api.lens.save).mockImplementation(async (_project, input) => ({ id: 'made', ...input }));
     vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
+    await openCodePane({ lens: null });
 
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
     await openPicker();
     pick('Add a lens…');
 
@@ -440,14 +370,7 @@ describe('PullRequestsPanel — lens', () => {
    * phrase appearing twice a hundred pixels apart.
    */
   test('the explanation is behind the info mark, not standing in the body', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
+    await openCodePane();
     await openPicker();
     pick('Add a lens…');
 
@@ -467,14 +390,7 @@ describe('PullRequestsPanel — lens', () => {
    * this — and the dialog was listening first.
    */
   test('escape closes a menu inside the lens dialog, not the dialog', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
+    await openCodePane();
     await openPicker();
     pick('Add a lens…');
 
@@ -492,19 +408,9 @@ describe('PullRequestsPanel — lens', () => {
    * is no verb to learn, and no dialog between wanting one and having it.
    */
   test('picking a lens writes it against the pull request', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.lens).mockResolvedValue(null);
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
     vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
+    await openCodePane({ lens: null, lenses: [NARRATIVE] });
 
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
     await openPicker();
     pick('Narrative');
 
@@ -520,26 +426,6 @@ describe('PullRequestsPanel — lens', () => {
    * and there is no second announcement for the picker to have missed.
    */
   test('renaming a lens renames the reading it has already done', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 1 }));
-    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
-      files: [{ path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 }],
-      fromGit: false,
-    });
-    // Deliberately never re-mocked: the stored grouping still says "Narrative",
-    // and the picker has to get the new name from the list instead.
-    vi.mocked(window.api.github.lens).mockResolvedValue({
-      lensId: 'narrative',
-      lensName: 'Narrative',
-      stale: false,
-      groups: [{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }],
-    });
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
-
     // A broadcast reaches every surface holding a list, not just the last one
     // to subscribe — the dialog and the picker behind it are both holding one.
     const listChanged = new Set<(projectPath: string) => void>();
@@ -554,9 +440,17 @@ describe('PullRequestsPanel — lens', () => {
       return saved;
     });
 
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
+    await openCodePane({
+      files: [changed('src/api.ts')],
+      // Deliberately never re-mocked: the stored grouping still says
+      // "Narrative", and the picker has to get the new name from the list.
+      lens: lensOnFile([{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }], {
+        lensId: NARRATIVE.id,
+        lensName: NARRATIVE.name,
+      }),
+      lenses: [NARRATIVE],
+    });
+
     await openPicker();
     pick('Manage lenses…');
 
@@ -583,18 +477,8 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   test('a lens can be edited without running it', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.lens).mockResolvedValue(null);
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
+    await openCodePane({ lens: null, lenses: [NARRATIVE] });
 
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
     await openPicker();
     pick('Manage lenses…');
 
@@ -610,31 +494,17 @@ describe('PullRequestsPanel — lens', () => {
    * rail spins for ever.
    */
   test('a finished run shows its lens and stops saying it is writing', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 1 }));
-    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
-      files: [{ path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 }],
-      fromGit: false,
-    });
-    vi.mocked(window.api.github.lens).mockResolvedValue(null);
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
     vi.mocked(window.api.github.runLens).mockImplementation(async () => {
-      vi.mocked(window.api.github.lens).mockResolvedValue({
-        lensId: 'narrative',
-        lensName: 'Narrative',
-        stale: false,
-        groups: [{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }],
-      });
+      vi.mocked(window.api.github.lens).mockResolvedValue(
+        lensOnFile([{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }], {
+          lensId: NARRATIVE.id,
+          lensName: NARRATIVE.name,
+        }),
+      );
       return { success: true };
     });
+    await openCodePane({ files: [changed('src/api.ts')], lens: null, lenses: [NARRATIVE] });
 
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
     await openPicker();
     pick('Narrative');
 
@@ -643,23 +513,13 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   /**
-   * A run that fails has to stop too. Clearing only on success is the same
-   * bug wearing a different hat.
+   * A run that fails has to stop too. Clearing only on success is the same bug
+   * wearing a different hat.
    */
   test('a failed run says so and stops spinning', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.lens).mockResolvedValue(null);
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
     vi.mocked(window.api.github.runLens).mockResolvedValue({ success: false, error: 'claude is not on PATH' });
+    await openCodePane({ lens: null, lenses: [NARRATIVE] });
 
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
     await openPicker();
     pick('Narrative');
 
@@ -673,19 +533,9 @@ describe('PullRequestsPanel — lens', () => {
    * shows no sign of the agent still working.
    */
   test('the run survives closing the pull request', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.lens).mockResolvedValue(null);
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
     vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
+    await openCodePane({ lens: null, lenses: [NARRATIVE] });
 
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
     await openPicker();
     pick('Narrative');
 
@@ -707,35 +557,20 @@ describe('PullRequestsPanel — lens', () => {
    * the lens is already on disk.
    */
   test('a lens written elsewhere arrives without asking', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 1 }));
-    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
-      files: [{ path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 }],
-      fromGit: false,
-    });
-    vi.mocked(window.api.github.lens).mockResolvedValue(null);
-
     let notify: ((payload: { projectPath: string; prNumber: number }) => void) | null = null;
     vi.mocked(window.api.github.onLensChanged).mockImplementation((cb) => {
       notify = cb;
       return () => {};
     });
+    await openCodePane({ files: [changed('src/api.ts')], lens: null });
 
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
     expect(await screen.findByTitle('How to read this change')).toBeTruthy();
 
     // Written by an agent over the CLI: no lens of the project's produced it,
     // so it is named for what it is rather than borrowing one of their names.
-    vi.mocked(window.api.github.lens).mockResolvedValue({
-      lensId: null,
-      lensName: null,
-      stale: false,
-      groups: [{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }],
-    });
+    vi.mocked(window.api.github.lens).mockResolvedValue(
+      lensOnFile([{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }]),
+    );
     notify?.({ projectPath: PROJECT, prNumber: 5 });
 
     expect(await screen.findByTitle('Reading this change through a lens written for it')).toBeTruthy();
@@ -750,15 +585,7 @@ describe('PullRequestsPanel — lens', () => {
    * the flat list rather than a confident description of code that moved.
    */
   test('a lens for an older head is not applied', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.lens).mockResolvedValue({ lensId: null, lensName: null, groups: null, stale: true });
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
+    await openCodePane({ lens: lensOnFile(null, { stale: true }) });
 
     expect(await screen.findByTitle('How to read this change')).toBeTruthy();
     expect(screen.getByText('All files')).toBeTruthy();
@@ -771,24 +598,11 @@ describe('PullRequestsPanel — lens', () => {
    * and pressing it writes it again.
    */
   test('a stale lens says so and offers to be written again', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.lens).mockResolvedValue({
-      lensId: 'narrative',
-      lensName: 'Narrative',
-      groups: null,
-      stale: true,
-    });
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
     vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
+    await openCodePane({
+      lens: lensOnFile(null, { stale: true, lensId: NARRATIVE.id, lensName: NARRATIVE.name }),
+      lenses: [NARRATIVE],
+    });
 
     // Said on the control itself, for a reader who never opens it.
     expect(
@@ -808,23 +622,10 @@ describe('PullRequestsPanel — lens', () => {
    * notice with no cure is a nag, so nothing is said.
    */
   test('a stale lens the project cannot run again is left unsaid', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.lens).mockResolvedValue({
-      lensId: 'gone',
-      lensName: 'Gone',
-      groups: null,
-      stale: true,
+    await openCodePane({
+      lens: lensOnFile(null, { stale: true, lensId: 'gone', lensName: 'Gone' }),
+      lenses: [NARRATIVE],
     });
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
 
     expect(await screen.findByTitle('How to read this change')).toBeTruthy();
     await openPicker();

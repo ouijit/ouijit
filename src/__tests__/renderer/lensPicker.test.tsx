@@ -5,6 +5,7 @@ import { LensPicker } from '../../components/diff/LensPicker';
 import type { StoredLens } from '../../lens/readLens';
 import type { LensRun } from '../../components/diff/useLensSession';
 import type { ResolvedGroup } from '../../lens/lens';
+import { NARRATIVE } from '../lensFixtures';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -22,8 +23,7 @@ function onFile(lens: { id: string; name: string } | null, groups: number | null
   };
 }
 
-const LENSES = [{ id: 'narrative', name: 'Narrative', instruction: 'group by story' }];
-const NARRATIVE = { id: 'narrative', name: 'Narrative' };
+const LENSES = [NARRATIVE];
 
 function open(
   lens: StoredLens | null,
@@ -91,7 +91,7 @@ describe('picking how to read a diff', () => {
    * branch, the one lens a reader can see has drifted is the one they cannot
    * re-run.
    */
-  test('a lens that is on screen and out of date offers to be written again', () => {
+  test('an out-of-date lens offers to be written again, drawn or dropped', () => {
     const { onRun, onShowLens, row } = open(onFile(NARRATIVE, 3, true));
 
     expect(row().textContent).toContain('3 parts');
@@ -100,23 +100,21 @@ describe('picking how to read a diff', () => {
     fireEvent.click(row());
     expect(onRun).toHaveBeenCalledWith(LENSES[0]);
     expect(onShowLens).not.toHaveBeenCalled();
-  });
 
-  test('a lens dropped for being out of date is named and offered again', () => {
     // What a pull request does with one: after a force-push the hunks it points
     // at are gone, so nothing is rendered and only the name survives.
-    const { onRun, row } = open(onFile(NARRATIVE, null, true));
+    cleanup();
+    const dropped = open(onFile(NARRATIVE, null, true));
+    expect(dropped.row().textContent).toContain('out of date');
+    expect(dropped.row().textContent).not.toContain('parts');
+    fireEvent.click(dropped.row());
+    expect(dropped.onRun).toHaveBeenCalledWith(LENSES[0]);
 
-    expect(row().textContent).toContain('out of date');
-    expect(row().textContent).not.toContain('parts');
-
-    fireEvent.click(row());
-    expect(onRun).toHaveBeenCalledWith(LENSES[0]);
-  });
-
-  test('one run at a time — a stale lens cannot be started while another is writing', () => {
-    const { row } = open(onFile(NARRATIVE, 3, true), { writing: { id: 'other', name: 'Other' } });
-    expect(row().hasAttribute('disabled')).toBe(true);
+    // But not while something else is already writing: there is one run at a
+    // time, and the row it would start says so by refusing the press.
+    cleanup();
+    const busy = open(onFile(NARRATIVE, 3, true), { writing: { id: 'other', name: 'Other' } });
+    expect(busy.row().hasAttribute('disabled')).toBe(true);
   });
 
   test('a lens the project no longer has is named but not offered to run', () => {

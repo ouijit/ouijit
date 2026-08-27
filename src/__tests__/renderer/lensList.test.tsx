@@ -62,6 +62,17 @@ describe('LensList', () => {
     await waitFor(() =>
       expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, { name: 'Setup and payoff', instruction: SETUP }),
     );
+
+    // And they are gone once there is a list of your own: a standing rack of
+    // suggestions under one you have curated is clutter.
+    cleanup();
+    vi.mocked(window.api.lens.list).mockResolvedValue([
+      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
+    ]);
+    render(<LensList projectPath={PROJECT} />);
+    expect(await screen.findByText('Narrative')).toBeTruthy();
+    expect(screen.queryByText('No lenses yet.')).toBeNull();
+    expect(screen.queryByText('By layer')).toBeNull();
   });
 
   /**
@@ -113,18 +124,6 @@ describe('LensList', () => {
     );
     // Kept, and nothing spent on it.
     expect(run).not.toHaveBeenCalled();
-  });
-
-  /** A standing list of suggestions under a list you have curated is clutter. */
-  test('with a lens of your own the suggestions are gone', async () => {
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
-    render(<LensList projectPath={PROJECT} />);
-
-    expect(await screen.findByText('Narrative')).toBeTruthy();
-    expect(screen.queryByText('No lenses yet.')).toBeNull();
-    expect(screen.queryByText('By layer')).toBeNull();
   });
 
   /**

@@ -59,32 +59,21 @@ describe('which agent writes a lens', () => {
     expect(await screen.findByRole('button', { name: /Codex/ })).toBeTruthy();
   });
 
-  test('one agent is no decision, so nothing is drawn', async () => {
+  test('the row appears exactly where there is a decision to make', async () => {
+    // One installed is no decision. Naming it would be a row nothing can be
+    // done with, so nothing is drawn at all.
     installed({ codex: false });
     const { container } = render(<LensAgentRow projectPath={PROJECT} />);
-
     await waitFor(() => expect(window.api.health.check).toHaveBeenCalled());
     await waitFor(() => expect(container.textContent).toBe(''));
-  });
 
-  test('with neither installed it says so, rather than offering a choice of nothing', async () => {
-    // Said here rather than left for the run to fail with: a lens written
-    // against no agent is a form filled in for nobody.
+    // Neither installed is not a choice of nothing — it is the one thing worth
+    // saying, and it is said here rather than left for the run to fail with.
+    cleanup();
     installed({ claude: false, codex: false });
     render(<LensAgentRow projectPath={PROJECT} />);
-
     expect(await screen.findByText(/Lenses need Claude Code or Codex installed/)).toBeTruthy();
     expect(screen.queryByRole('button')).toBeNull();
-  });
-
-  test('the flags are not put in front of the reader', async () => {
-    render(<LensAgentRow projectPath={PROJECT} />);
-    await screen.findByRole('button', { name: /Claude Code/ });
-
-    // A preset nobody can edit is a command line there is nothing to do with.
-    // The runner logs the invocation for anyone who needs it.
-    expect(screen.queryByText(/--safe-mode/)).toBeNull();
-    expect(screen.queryByText(/claude -p/)).toBeNull();
   });
 
   /**
@@ -92,7 +81,7 @@ describe('which agent writes a lens', () => {
    * expect them here. Neither CLI can be held to a JSON schema, and a grouping
    * that is merely hoped for is not one this pane can stand behind.
    */
-  test('only the agents that can be held to a schema are offered', async () => {
+  test('only what can be held to a schema is offered, and never its flags', async () => {
     render(<LensAgentRow projectPath={PROJECT} />);
 
     fireEvent.click(await screen.findByRole('button', { name: /Claude Code/ }));
@@ -101,5 +90,10 @@ describe('which agent writes a lens', () => {
     expect(screen.queryByRole('menuitem', { name: /^Pi/ })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /opencode/ })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /Custom command/ })).toBeNull();
+
+    // A preset nobody can edit is a command line there is nothing to do with.
+    // The runner logs the invocation for anyone who needs it.
+    expect(screen.queryByText(/--safe-mode/)).toBeNull();
+    expect(screen.queryByText(/claude -p/)).toBeNull();
   });
 });
