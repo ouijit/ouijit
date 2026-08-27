@@ -63,8 +63,8 @@ const CAPTIONS = [
     body: 'Starting a task cuts it a git worktree and a branch, keeping work separate and moving forward.',
   },
   {
-    title: 'Every task opens the same way',
-    body: 'A start hook opens each worktree with the command you always type, already running.',
+    title: 'Create reusable workflows with hooks',
+    body: 'Save the command that opens a task with the project, and every task you start runs it in its own worktree.',
   },
   {
     title: 'Agents run without the prompts',
