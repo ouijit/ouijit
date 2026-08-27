@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent, act } from '@testing-library/react';
 
 import { PullRequestsPanel } from '../../components/github/PullRequestsPanel';
 import { useAppStore } from '../../stores/appStore';
@@ -293,6 +293,43 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   /**
+   * Every surface showing lenses holds its own copy of the list, and the one a
+   * lens was added in is rarely the only one open — settings and a diff at the
+   * same time is the ordinary case. The picker follows the project rather than
+   * the last time it happened to be mounted.
+   */
+  test('the picker follows lenses added and deleted elsewhere', async () => {
+    let changed: ((projectPath: string) => void) | null = null;
+    vi.mocked(window.api.lens.onListChanged).mockImplementation((cb) => {
+      changed = cb;
+      return () => {};
+    });
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.lens).mockResolvedValue(null);
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    await openPicker();
+    expect(screen.queryByRole('menuitem', { name: 'Narrative' })).toBeNull();
+
+    vi.mocked(window.api.lens.list).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
+    await act(async () => changed?.(PROJECT));
+    expect(await screen.findByRole('menuitem', { name: 'Narrative' })).toBeTruthy();
+
+    // And a project that is not this one is not this picker's business.
+    vi.mocked(window.api.lens.list).mockResolvedValue([]);
+    await act(async () => changed?.('/work/beta'));
+    expect(screen.getByRole('menuitem', { name: 'Narrative' })).toBeTruthy();
+
+    await act(async () => changed?.(PROJECT));
+    await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Narrative' })).toBeNull());
+  });
+
+  /**
    * Nobody opens this from a diff to end up looking at a list. Making a lens is
    * the thing they came for, so it reads the change and the dialog leaves.
    */
@@ -431,9 +468,16 @@ describe('PullRequestsPanel — lens', () => {
     // Main renames the lens and the groupings it wrote in the one call, then
     // says so. Nothing in the renderer patches a name it is holding.
     let renamed: ((payload: { projectPath: string; from: string; to: string }) => void) | null = null;
+    // A broadcast reaches every surface holding a list, not just the last one
+    // to subscribe — the dialog and the picker behind it are both holding one.
+    const listChanged = new Set<(projectPath: string) => void>();
     vi.mocked(window.api.lens.onRenamed).mockImplementation((cb) => {
       renamed = cb;
       return () => {};
+    });
+    vi.mocked(window.api.lens.onListChanged).mockImplementation((cb) => {
+      listChanged.add(cb);
+      return () => listChanged.delete(cb);
     });
     vi.mocked(window.api.lens.save).mockImplementation(async (project, name, instruction, previousName) => {
       vi.mocked(window.api.lens.list).mockResolvedValue([{ name, instruction }]);
@@ -443,6 +487,7 @@ describe('PullRequestsPanel — lens', () => {
         groups: [{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }],
       });
       if (previousName) renamed?.({ projectPath: project, from: previousName, to: name });
+      for (const notify of listChanged) notify(project);
       return { name, instruction };
     });
 

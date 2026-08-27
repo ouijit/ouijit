@@ -26,9 +26,14 @@ export function registerDiffPanelHandlers(mainWindow: BrowserWindow): void {
     if (previousName && previousName !== lens.name) {
       typedPush(mainWindow, 'lens:renamed', { projectPath, from: previousName, to: lens.name });
     }
+    typedPush(mainWindow, 'lens:list-changed', projectPath);
     return lens;
   });
-  typedHandle('lens:delete', (projectPath, name) => deleteLens(projectPath, name));
+  typedHandle('lens:delete', async (projectPath, name) => {
+    const result = await deleteLens(projectPath, name);
+    typedPush(mainWindow, 'lens:list-changed', projectPath);
+    return result;
+  });
   typedHandle('lens:agent', (projectPath) => getLensAgentChoice(projectPath));
   typedHandle('lens:set-agent', (projectPath, choice) => setLensAgentChoice(projectPath, choice));
 }

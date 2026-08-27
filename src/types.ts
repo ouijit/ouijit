@@ -619,6 +619,8 @@ export interface LensAPI {
   setAgent(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }>;
   /** A lens was renamed, so anything naming one is showing the old name. */
   onRenamed(callback: (payload: LensRenamedPayload) => void): () => void;
+  /** A lens was added or deleted, so any list of them is one short or one over. */
+  onListChanged(callback: (projectPath: string) => void): () => void;
 }
 
 /** The pull request equivalent is `github.lens` / `runLens`. */

@@ -129,7 +129,7 @@ export function PullRequestDetailView({
 
   // Read here rather than in the rail so the dialog that edits them can hand
   // back an up-to-date list on the way out.
-  const { lenses, reload: loadLenses } = useProjectLenses(projectPath);
+  const { lenses } = useProjectLenses(projectPath);
 
   // Ordered from the file list, not the diffs, so arriving batches do not
   // rebuild it.
@@ -314,12 +314,7 @@ export function PullRequestDetailView({
           projectPath={projectPath}
           onRun={runLens}
           running={lens.writing}
-          onClose={() => {
-            setLensesOpen(false);
-            // Whatever was added, renamed or deleted in there is what the
-            // picker should offer next time it is opened.
-            loadLenses();
-          }}
+          onClose={() => setLensesOpen(false)}
         />
       )}
     </div>

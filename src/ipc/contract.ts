@@ -507,4 +507,12 @@ export interface IpcPushContract {
    * pane the rename was typed into.
    */
   'lens:renamed': { args: [payload: LensRenamedPayload] };
+  /**
+   * A project's lenses were added to or deleted from.
+   *
+   * Every picker and list holds its own copy of `lens:list`, and the pane a
+   * lens was added in is rarely the only one showing them — settings and an
+   * open diff are the ordinary case. Broadcast so each reads its own again.
+   */
+  'lens:list-changed': { args: [projectPath: string] };
 }

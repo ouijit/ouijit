@@ -2,12 +2,18 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import type { BrowserWindow } from 'electron';
 
 /**
- * Renaming a lens is told, not reached for.
+ * A lens changing is told, not reached for.
  *
- * The rename happens in one call — the lens list and every grouping it wrote —
- * so whatever is showing one is a single local row out of date. Patching that
- * in from the settings panel instead would mean knowing every surface currently
- * displaying a lens, which is a list that only grows.
+ * Two different things get told. `lens:list-changed` says the project has one
+ * more or one fewer, which every picker and list holds its own copy of.
+ * `lens:renamed` says a lens still there is now called something else, which
+ * only matters to whatever is showing a grouping it wrote — and the rename
+ * happens in one call, list and groupings together, so that is a single local
+ * row out of date rather than anything to go and fix.
+ *
+ * Both are broadcast rather than patched in by the pane the change was typed
+ * into, which would have to know every surface currently showing a lens — a
+ * list that only grows.
  */
 
 const typedHandlers = new Map<string, (...args: never[]) => unknown>();
@@ -41,6 +47,11 @@ const { registerDiffPanelHandlers } = await import('../ipc/handlers/diffPanel');
 const WINDOW = {} as BrowserWindow;
 const PROJECT = '/work/alpha';
 
+function remove(name: string): Promise<unknown> {
+  const handler = typedHandlers.get('lens:delete') as (project: string, name: string) => Promise<unknown>;
+  return handler(PROJECT, name);
+}
+
 function save(name: string, previousName?: string): Promise<unknown> {
   const handler = typedHandlers.get('lens:save') as (
     project: string,
@@ -51,7 +62,7 @@ function save(name: string, previousName?: string): Promise<unknown> {
   return handler(PROJECT, name, 'group by story', previousName);
 }
 
-describe('renaming a lens', () => {
+describe('what a lens change tells the renderer', () => {
   beforeEach(() => {
     typedHandlers.clear();
     typedPushMock.mockClear();
@@ -68,15 +79,27 @@ describe('renaming a lens', () => {
     });
   });
 
-  test('an edit that keeps the name says nothing — nothing is out of date', async () => {
+  test('a new lens is not a rename, and neither is an edit that keeps its name', async () => {
+    await save('Narrative');
     await save('Narrative', 'Narrative');
 
-    expect(typedPushMock).not.toHaveBeenCalled();
+    // No grouping can be reading through a name that has not moved, so there
+    // is nothing for the rename channel to say.
+    const renames = typedPushMock.mock.calls.filter(([, channel]) => channel === 'lens:renamed');
+    expect(renames).toEqual([]);
   });
 
-  test('a new lens says nothing either: no grouping can be reading through it yet', async () => {
+  test('the list is broadcast whichever way it changed', async () => {
     await save('Narrative');
+    await save('Narrative v2', 'Narrative');
+    await remove('Narrative v2');
 
-    expect(typedPushMock).not.toHaveBeenCalled();
+    // A delete has no rename to report and would otherwise say nothing at all,
+    // which is how a picker ends up offering a lens the project has dropped.
+    expect(typedPushMock.mock.calls.filter(([, channel]) => channel === 'lens:list-changed')).toEqual([
+      [WINDOW, 'lens:list-changed', PROJECT],
+      [WINDOW, 'lens:list-changed', PROJECT],
+      [WINDOW, 'lens:list-changed', PROJECT],
+    ]);
   });
 });

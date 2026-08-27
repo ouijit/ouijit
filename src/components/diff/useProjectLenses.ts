@@ -11,6 +11,10 @@ import type { LensSummary } from '../../lens/config';
  * An empty list on failure. Every caller offers these alongside a flat file
  * list that works without them, so not being able to read them costs the offer
  * rather than the diff.
+ *
+ * Reads itself again whenever the project's lenses change. There is one of
+ * these per surface showing lenses, and the one a lens was added in is rarely
+ * the only one open.
  */
 export function useProjectLenses(projectPath: string): { lenses: LensSummary[]; reload: () => Promise<void> } {
   const [lenses, setLenses] = useState<LensSummary[]>([]);
@@ -25,7 +29,10 @@ export function useProjectLenses(projectPath: string): { lenses: LensSummary[]; 
 
   useEffect(() => {
     void reload();
-  }, [reload]);
+    return window.api.lens.onListChanged((changed) => {
+      if (changed === projectPath) void reload();
+    });
+  }, [projectPath, reload]);
 
   return { lenses, reload };
 }

@@ -429,5 +429,6 @@ contextBridge.exposeInMainWorld('api', {
     agent: (projectPath: string) => typedInvoke('lens:agent', projectPath),
     setAgent: (projectPath: string, choice: LensAgentChoice) => typedInvoke('lens:set-agent', projectPath, choice),
     onRenamed: (callback: (payload: LensRenamedPayload) => void) => typedListen('lens:renamed', callback),
+    onListChanged: (callback: (projectPath: string) => void) => typedListen('lens:list-changed', callback),
   },
 });

@@ -206,6 +206,7 @@ const mockApi = {
     agent: vi.fn().mockResolvedValue({ agentId: null }),
     setAgent: vi.fn().mockResolvedValue({ success: true }),
     onRenamed: vi.fn().mockReturnValue(() => {}),
+    onListChanged: vi.fn().mockReturnValue(() => {}),
   },
   diffNotes: {
     list: vi.fn().mockResolvedValue([]),
