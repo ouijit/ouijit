@@ -2540,7 +2540,7 @@ body.marketing::after {
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 56px;
+  gap: 40px;
   width: 100%;
   max-width: 1200px;
   padding: 0 var(--content-padding);
