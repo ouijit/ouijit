@@ -4,6 +4,7 @@ import { KanbanColumnView } from '../../ouijit-ui/components/kanban/KanbanColumn
 import { KanbanCardView } from '../../ouijit-ui/components/kanban/KanbanCardView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { ClaudeUser, AssistantSay, ToolCall, ToolResult, BODY_CLS } from './stackParts';
+import { KeyHint } from './paletteParts';
 import { DeskWash } from './DeskWash';
 
 /**
@@ -41,29 +42,70 @@ export const TODO_COLUMN: TaskWithWorkspace[] = [SEED_TASK, ...SEQUENCE.map((k) 
 
 /* ─── Mock pieces ─────────────────────────────────────────────────── */
 
-function ComposerFooter({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null) => void }) {
+/** Both states share one grid cell, so a source crossfading to what it looks
+ *  like after the task exists cannot resize the pane it sits in. */
+function Swap({ from, to, on }: { from: ReactNode; to: ReactNode; on: boolean }) {
   return (
-    <div className="kanban-add-form">
-      <input
-        readOnly
-        value="Fix flaky signup e2e"
-        className="kanban-add-input w-full text-[15px] text-text-primary bg-transparent px-3 py-3 outline-none border-none"
-        style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
-      />
-      <div ref={anchorRef} className="flex flex-row-reverse items-center justify-start gap-2 px-2 py-1.5">
-        <span className="kanban-add-button text-accent">
-          Create
-          <span className="kanban-add-button-hint">
-            <Icon name="arrow-elbow-down-left" className="kanban-add-button-hint-icon" />
-          </span>
+    <span className="grid">
+      <span className="[grid-area:1/1] transition-opacity duration-300" style={{ opacity: on ? 0 : 1 }}>
+        {from}
+      </span>
+      <span className="[grid-area:1/1] transition-opacity duration-300" style={{ opacity: on ? 1 : 0 }}>
+        {to}
+      </span>
+    </span>
+  );
+}
+
+const DRAFT = {
+  name: 'Fix flaky signup e2e',
+  /** The prompt the Build section's fourth session is working from. */
+  description: 'The signup e2e fails about one run in five. Find out why.',
+};
+
+function ComposerSheet({ created, anchorRef }: { created: boolean; anchorRef?: (el: HTMLDivElement | null) => void }) {
+  return (
+    <div className="flex flex-col">
+      <div className="flex items-center gap-2 px-3 py-1.5">
+        <Icon name="file-plus" className="w-3.5 h-3.5 text-ink/50" />
+        <span className="flex-1 text-[13px] text-ink/50">New task</span>
+        <span className="text-[13px] text-ink/35">To Do</span>
+      </div>
+      {/* px-10 on a 396px panel holds the app sheet's proportions, where the
+          margins are 11% of a 44rem page. */}
+      <div className="px-10 pt-6 pb-8">
+        <div ref={anchorRef} className="text-lg font-semibold leading-snug">
+          <Swap
+            on={created}
+            from={<span className="text-text-primary">{DRAFT.name}</span>}
+            to={<span className="font-normal text-text-tertiary">Task name</span>}
+          />
+        </div>
+        <div className="mt-3 text-sm leading-relaxed">
+          <Swap
+            on={created}
+            from={<span className="text-ink/80">{DRAFT.description}</span>}
+            to={<span className="text-text-tertiary">Describe the task, or write the prompt to start from&hellip;</span>}
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-3 px-3 py-2 border-t border-ink/[0.06] text-[11px] text-ink/40">
+        <KeyHint keys="esc" label="Draft is kept" />
+        <span className="flex-1" />
+        <span className="btn-secondary btn-compact shrink-0 whitespace-nowrap">Discard</span>
+        <span
+          className="btn-primary btn-compact shrink-0 whitespace-nowrap"
+          style={{ opacity: created ? 0.5 : 1, transition: 'opacity 300ms ease' }}
+        >
+          Create task
+          <span className="opacity-60">⌘↵</span>
         </span>
-        <span className="kanban-add-button text-text-tertiary">Discard</span>
       </div>
     </div>
   );
 }
 
-function AgentPane({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null) => void }) {
+function AgentPane({ created, anchorRef }: { created: boolean; anchorRef?: (el: HTMLDivElement | null) => void }) {
   return (
     <div className={`${BODY_CLS} !p-5`}>
       <ClaudeUser>break the API hardening work into tasks on the board</ClaudeUser>
@@ -72,14 +114,16 @@ function AgentPane({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null) => v
         name="Bash"
         args={'ouijit task create "Add rate-limit headers to the public API"\n       --prompt "429 + Retry-After on every public route"'}
       />
-      <div ref={anchorRef}>
+      {/* Rendered from the first frame either way: the result appearing must
+          not move the anchor the flight leaves from. */}
+      <div ref={anchorRef} className="transition-opacity duration-300" style={{ opacity: created ? 1 : 0 }}>
         <ToolResult>{'{"success": true, "task": {"taskNumber": 119}}'}</ToolResult>
       </div>
     </div>
   );
 }
 
-function IssuePane({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null) => void }) {
+function IssuePane({ created, anchorRef }: { created: boolean; anchorRef?: (el: HTMLDivElement | null) => void }) {
   return (
     <div className="w-full my-auto flex flex-col py-3">
       <div className="px-4 pb-1 text-[13px] text-text-tertiary">Open</div>
@@ -92,7 +136,19 @@ function IssuePane({ anchorRef }: { anchorRef?: (el: HTMLDivElement | null) => v
           <Icon name="circle-dashed" className="w-3.5 h-3.5 shrink-0 text-vcs-added" />
           <span className="shrink-0">jkataja</span>
           <span className="flex-1 min-w-0 truncate font-mono text-[12px]">#491</span>
-          <span className="shrink-0 text-[13px] text-accent">Create task</span>
+          <span className="shrink-0 text-[13px]">
+            <Swap
+              on={created}
+              from={<span className="text-accent">Create task</span>}
+              to={
+                <span className="flex items-center gap-1.5 text-text-primary">
+                  <span className="font-mono text-[12px]">T-{TASK_BY_SOURCE.issue.taskNumber}</span>
+                  <span className="text-text-tertiary">To Do</span>
+                  <Icon name="arrow-right" className="w-3.5 h-3.5 opacity-60" />
+                </span>
+              }
+            />
+          </span>
         </span>
       </div>
       <div className="relative w-full px-4 py-2 flex flex-col gap-0.5 opacity-50">
@@ -352,24 +408,27 @@ const ROWS: { key: SourceKey; title: string; body: string }[] = [
   { key: 'manual', title: 'Or just type', body: 'The composer sits at the bottom of the column, one ⌘N away.' },
 ];
 
-function rowMock(key: SourceKey, firing: boolean, setSource: (key: SourceKey) => (el: HTMLDivElement | null) => void) {
+function rowMock(
+  key: SourceKey,
+  firing: boolean,
+  created: boolean,
+  setSource: (key: SourceKey) => (el: HTMLDivElement | null) => void
+) {
   if (key === 'agent')
     return (
       <Panel firing={firing} style={{ height: 250 }} ledge={ledge('terminal', 'claude', 'ouijit task create')}>
-        <AgentPane anchorRef={setSource('agent')} />
+        <AgentPane created={created} anchorRef={setSource('agent')} />
       </Panel>
     );
   if (key === 'issue')
     return (
       <Panel firing={firing} ledge={ledge('github-logo', 'Issues')}>
-        <IssuePane anchorRef={setSource('issue')} />
+        <IssuePane created={created} anchorRef={setSource('issue')} />
       </Panel>
     );
   return (
     <Panel firing={firing}>
-      <div className="p-5">
-        <ComposerFooter anchorRef={setSource('manual')} />
-      </div>
+      <ComposerSheet created={created} anchorRef={setSource('manual')} />
     </Panel>
   );
 }
@@ -472,6 +531,9 @@ function CreateStage() {
   const staticMode = useStaticMode();
   const { stageRef, setRow, setSource, setSlot, progress, geom } = useScrubStage();
   const flightP = (k: SourceKey) => clamp01((progress[k] - 0.35) / 0.48);
+  /** Just after the card lifts rather than as it does, so the source is not
+   *  emptied while the card that left it is still fading in. */
+  const created = (k: SourceKey) => staticMode || flightP(k) > 0.08;
   const open = staticMode ? ALL_LANDED : past(progress, 0.55);
   const landed = staticMode ? ALL_LANDED : past(progress, 0.76);
   return (
@@ -480,7 +542,7 @@ function CreateStage() {
         {ROWS.map(({ key, title, body }) => (
           <Row key={key} title={title} body={body} rowRef={setRow(key)}>
             <Desk slice={DESK_SLICE[key]} drain={staticMode ? 0 : easeInOut(flightP(key))}>
-              {rowMock(key, !staticMode && progress[key] > 0.15 && progress[key] < 0.55, setSource)}
+              {rowMock(key, !staticMode && progress[key] > 0.15 && progress[key] < 0.55, created(key), setSource)}
             </Desk>
           </Row>
         ))}
