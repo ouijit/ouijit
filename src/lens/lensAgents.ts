@@ -71,7 +71,7 @@ export const LENS_AGENTS: LensAgent[] = [
   },
 ];
 
-export function lensAgent(id: string): LensAgent | undefined {
+function lensAgent(id: string): LensAgent | undefined {
   return LENS_AGENTS.find((agent) => agent.id === id);
 }
 

@@ -3,7 +3,6 @@ import type { HealthStatus } from '../../healthCheck';
 import {
   LENS_AGENTS,
   installedAgents,
-  pickLensAgent,
   resolveLensAgent,
   type LensAgentChoice,
 } from '../../lens/lensAgents';
@@ -54,11 +53,13 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
   // One agent is no decision. Naming it would be a row that cannot be acted on.
   if (here.length === 1) return null;
 
-  const automatic = pickLensAgent(installed);
+  // `here` is the installed agents in preference order, so its first is what a
+  // run with nothing chosen will use.
+  const automatic = here[0];
   const auto = !choice?.agentId;
   // What will run, never how it was decided: nothing has been chosen to begin
   // with, and "Automatic" makes the reader open it to find out what that means.
-  const showing = resolveLensAgent(choice, installed) ?? here[0];
+  const showing = resolveLensAgent(choice, installed) ?? automatic;
 
   return (
     // Its own padding puts the text where the rows above start theirs.
@@ -85,7 +86,7 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
       >
         <MenuItem
           label="Automatic"
-          hint={automatic?.label}
+          hint={automatic.label}
           selected={auto}
           onClick={() => {
             setOpen(false);

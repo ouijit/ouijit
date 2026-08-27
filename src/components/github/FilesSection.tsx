@@ -74,7 +74,7 @@ interface FileSectionProps {
   markLine?: (path: string, anchor: DiffLineAnchor) => boolean;
   analysis?: FileAnalysis;
   viewed: boolean;
-  onViewedChange: (sectionId: string, viewed: boolean) => void;
+  onViewedChange: (sectionId: string, path: string, viewed: boolean) => void;
 }
 
 /**
@@ -113,6 +113,11 @@ const FileSection = memo(function FileSection({
     [projectPath, prNumber, baseSha, headSha, file.path, file.oldPath],
   );
 
+  const setViewed = useCallback(
+    (section: string, next: boolean) => onViewedChange(section, file.path, next),
+    [onViewedChange, file.path],
+  );
+
   const headerRight = useMemo(
     () =>
       file.oldPath || analysis ? (
@@ -148,7 +153,7 @@ const FileSection = memo(function FileSection({
         headerRight={headerRight}
         collapsed={viewed}
         sectionId={sectionId}
-        onCollapsedChange={onViewedChange}
+        onCollapsedChange={setViewed}
         collapseLabel="Viewed"
       />
     </DeferredMount>
@@ -383,38 +388,33 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const renderBelowLine =
     threadsByAnchor.size > 0 || draftsByAnchor.size > 0 || composingWhere ? renderComments : undefined;
 
-  // A new pull request, or a new grouping of this one, makes every cached
-  // slice meaningless.
-  const sliceFor = useDiffSlices(groups ?? detail.number);
+  const sliceFor = useDiffSlices();
 
   const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
+  const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
+  const viewedParts = useMemo(() => new Set(viewedSections), [viewedSections]);
 
   /**
-   * The parts each file is on screen in, and the file each part belongs to.
-   * Marking one part read has to know what the others are, since the claim that
-   * gets written down is about the file.
+   * The parts each file is on screen in. Marking one part read has to know what
+   * the others are, since the claim that gets written down is about the file.
    */
-  const parts = useMemo(() => {
+  const partsOf = useMemo(() => {
     const byFile = new Map<string, string[]>();
-    const pathOf = new Map<string, string>();
     for (const group of groups ?? []) {
       for (const slice of group.slices) {
-        const section = sectionKey(group.id, slice.path);
-        pathOf.set(section, slice.path);
-        byFile.set(slice.path, [...(byFile.get(slice.path) ?? []), section]);
+        byFile.set(slice.path, [...(byFile.get(slice.path) ?? []), sectionKey(group.id, slice.path)]);
       }
     }
-    return { byFile, pathOf };
+    return byFile;
   }, [groups]);
 
   const setViewed = useCallback(
-    (section: string, next: boolean) => {
+    (section: string, path: string, next: boolean) => {
       const store = useGithubStore.getState();
-      const path = parts.pathOf.get(section) ?? section;
       const change = markSection(
         store.viewedPaths,
         store.viewedSections,
-        parts.byFile.get(path) ?? [path],
+        partsOf.get(path) ?? [path],
         section,
         path,
         next,
@@ -422,7 +422,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       store.setViewedSections(change.sections);
       if (change.file !== undefined) store.setFileViewed(projectPath, detail.number, detail.headSha, path, change.file);
     },
-    [projectPath, detail.number, detail.headSha, parts],
+    [projectPath, detail.number, detail.headSha, partsOf],
   );
 
   const setGroupCollapsed = useCallback((id: string, next: boolean) => {
@@ -445,7 +445,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       renderBelowLine={renderBelowLine}
       markLine={spans.length > 0 ? markLine : undefined}
       analysis={chipworthy(analysis?.[file.path])}
-      viewed={isSectionViewed(viewedPaths, viewedSections, key ?? file.path, file.path)}
+      viewed={isSectionViewed(viewed, viewedParts, key ?? file.path, file.path)}
       onViewedChange={setViewed}
     />
   );

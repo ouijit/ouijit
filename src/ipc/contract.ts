@@ -302,7 +302,6 @@ export interface IpcInvokeContract {
   };
   'github:user-repos': { args: []; return: UserReposResult };
   'github:resolve-repo': { args: [identity: RepoIdentity]; return: ResolvedRepo };
-  'github:clear-lens': { args: [projectPath: string, prNumber: number]; return: { success: boolean } };
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import type { FileDiff } from '../../types';
 
 function sliceDiff(diff: FileDiff | null | undefined, hunks?: number[]): FileDiff | null | undefined {
@@ -11,15 +11,11 @@ function sliceDiff(diff: FileDiff | null | undefined, hunks?: number[]): FileDif
  * file builds a new `FileDiff`, which the tokenizer reads as a different file —
  * so slicing in the render re-highlights the whole diff every time.
  *
- * `resetKey` is whatever makes every cached slice meaningless: the diff it was
- * cut from, and the grouping that decided where.
+ * Never cleared: an entry is keyed by the hunks it was cut with and holds the
+ * diff it was cut from, so a new grouping and a reloaded file both miss it.
  */
-export function useDiffSlices(resetKey: unknown) {
+export function useDiffSlices() {
   const cache = useRef(new Map<string, { source: FileDiff | null | undefined; result: FileDiff | null | undefined }>());
-
-  useEffect(() => {
-    cache.current.clear();
-  }, [resetKey]);
 
   return useCallback((path: string, source: FileDiff | null | undefined, hunks?: number[]) => {
     if (!source || !hunks) return source;

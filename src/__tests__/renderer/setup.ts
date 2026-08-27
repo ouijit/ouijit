@@ -233,7 +233,6 @@ const mockApi = {
     detectProjectPrs: vi.fn().mockResolvedValue({ linked: 0 }),
     drafts: vi.fn().mockResolvedValue([]),
     lens: vi.fn().mockResolvedValue(null),
-    clearLens: vi.fn().mockResolvedValue({ success: true }),
     runLens: vi.fn().mockResolvedValue({ success: true }),
     viewedFiles: vi.fn().mockResolvedValue([]),
     setFileViewed: vi.fn().mockResolvedValue([]),

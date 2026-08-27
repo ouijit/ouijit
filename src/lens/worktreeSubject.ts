@@ -10,6 +10,7 @@ import {
 import { diffShape, diffSubject, filesInDiff, isUncommittedBase } from '../diffSource';
 import type { LensFile, LensSubject } from './lensPrompt';
 import type { DiffSubject } from './subject';
+import { worktreeSubjectKey } from './subjectKeys';
 import { readLens, type StoredLens } from './readLens';
 import { writeLens } from './writeLens';
 
@@ -24,14 +25,6 @@ export interface DiffLensTarget {
   /** Whatever names the change for the agent — usually the task. */
   title?: string;
   description?: string;
-}
-
-/**
- * The base is part of the key: two comparisons of the same worktree list
- * different changes, and a lens written over one does not describe the other.
- */
-export function diffLensKey(target: DiffLensTarget): string {
-  return `wt:${target.worktreePath}:${target.base ?? 'HEAD'}`;
 }
 
 /**
@@ -84,7 +77,7 @@ class WorktreeSubject implements DiffSubject {
 
   constructor(private target: DiffLensTarget) {
     this.projectPath = target.projectPath;
-    this.key = diffLensKey(target);
+    this.key = worktreeSubjectKey(target.worktreePath, target.base);
     this.label = { base: target.base ?? 'HEAD' };
   }
 

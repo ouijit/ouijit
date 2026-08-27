@@ -6,7 +6,6 @@ import type { LensSummary } from '../../lens/config';
 import { resolveLens, type ResolvedGroup } from '../../lens/lens';
 import { useProjectStore } from '../../stores/projectStore';
 import { describeError } from '../../utils/describeError';
-import { useDiffSlices } from './diffSlice';
 
 const lensLog = log.scope('lens');
 
@@ -78,6 +77,11 @@ function syncRun(key: string, running: StoredLens['running']): void {
   }
 }
 
+/** A run this pane started, as against one it picked up already going. */
+function startedHere(key: string): boolean {
+  return runs.has(key) && !adopted.has(key);
+}
+
 export function _resetLensRunsForTesting(): void {
   runs.clear();
   adopted.clear();
@@ -100,8 +104,6 @@ export interface LensSession {
    */
   landed: number;
   run: (pick: LensSummary) => Promise<void>;
-  /** One file's diff narrowed to the hunks a group claims. */
-  sliceFor: ReturnType<typeof useDiffSlices>;
 }
 
 export function useLensSession(source: LensSource, diffs: Map<string, FileDiff | null>, order: string[]): LensSession {
@@ -125,8 +127,8 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
   const readFor = useRef<string | null>(null);
 
   const [landed, setLanded] = useState(0);
-  /** The lens on screen, and whether a read for this diff has come back at all. */
-  const held = useRef<{ lens: StoredLens | null; read: boolean }>({ lens: null, read: false });
+  /** Whether a read for this diff has come back at all, and what it found. */
+  const held = useRef({ grouped: false, read: false });
 
   const writing = useSyncExternalStore<LensRun | null>(subscribeToRuns, () => (key ? (runs.get(key) ?? null) : null));
 
@@ -145,8 +147,8 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
 
     // Their own run finishing, or a grouping written elsewhere arriving — as
     // against the first read for a diff, which is how they found it.
-    const arriving = Boolean(next?.groups) && held.current.read && (runs.has(at) || !held.current.lens?.groups);
-    held.current = { lens: next, read: true };
+    const arriving = Boolean(next?.groups) && held.current.read && (runs.has(at) || !held.current.grouped);
+    held.current = { grouped: Boolean(next?.groups), read: true };
 
     setLens(next);
     if (arriving) setLanded((n) => n + 1);
@@ -164,14 +166,19 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
     if (elsewhere) {
       setLens(null);
       setChosen(null);
-      held.current = { lens: null, read: false };
+      held.current = { grouped: false, read: false };
     }
     void refresh(elsewhere);
   }, [key, revision, refresh]);
 
   useEffect(() => {
     if (!key) return;
-    return sourceRef.current.subscribe?.((apply) => void refresh(apply));
+    // A run started here reads back for itself when the call returns, and main
+    // pushes before that call resolves — so answering the push as well would
+    // read twice and lay the arriving grouping in twice over.
+    return sourceRef.current.subscribe?.((apply) => {
+      if (!startedHere(key)) void refresh(apply);
+    });
   }, [key, refresh]);
 
   const run = useCallback(
@@ -203,11 +210,6 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
     [lens, diffs, order],
   );
 
-  // A different diff, or a different grouping of it, makes every cached slice
-  // meaningless. The key stands in where there is no lens, so moving between
-  // two ungrouped diffs still clears them.
-  const sliceFor = useDiffSlices(lens ?? key);
-
   return {
     lens,
     resolved,
@@ -217,6 +219,5 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
     writing,
     landed,
     run,
-    sliceFor,
   };
 }

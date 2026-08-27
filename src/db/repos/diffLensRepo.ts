@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { worktreeKeyPrefix } from '../../lens/subjectKeys';
 
 export interface DiffLensRow {
   project_path: string;
@@ -95,7 +96,7 @@ export class DiffLensRepo {
    * an underscore would trip.
    */
   deleteForWorktree(projectPath: string, worktreePath: string): void {
-    const prefix = `wt:${worktreePath}:`;
+    const prefix = worktreeKeyPrefix(worktreePath);
     this.db
       .prepare('DELETE FROM diff_lenses WHERE project_path = ? AND substr(subject_key, 1, ?) = ?')
       .run(projectPath, prefix.length, prefix);

@@ -7,10 +7,10 @@ import { useGithubStore, RAIL_DEFAULT_WIDTH, RAIL_MIN_WIDTH, RAIL_MAX_WIDTH } fr
 import { LensDialog } from '../dialogs/LensDialog';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { treeFileOrder } from '../diff/DiffFileTree';
+import { prSubjectKey } from '../../lens/subjectKeys';
 import { useProjectLenses } from '../diff/useProjectLenses';
 import { useLensSession } from '../diff/useLensSession';
 import { useLensReveal } from '../diff/lensReveal';
-import { useReadingAnchor } from '../diff/readingAnchor';
 import { scrollToSection, fileSelector } from '../diff/scrollToSection';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
@@ -123,9 +123,7 @@ export function PullRequestDetailView({
 
   const [lensesOpen, setLensesOpen] = useState(false);
 
-  // Read here rather than in the rail so the dialog that edits them can hand
-  // back an up-to-date list on the way out.
-  const { lenses } = useProjectLenses(projectPath);
+  const lenses = useProjectLenses(projectPath);
 
   // Ordered from the file list, not the diffs, so arriving batches do not
   // rebuild it.
@@ -138,7 +136,7 @@ export function PullRequestDetailView({
    */
   const lens = useLensSession(
     {
-      key: `pr:${detail.number}`,
+      key: prSubjectKey(detail.number),
       revision: detail.headSha,
       read: () => window.api.github.lens(projectPath, detail.number, detail.headSha),
       write: (lensId) => window.api.github.runLens(projectPath, detail.number, lensId),
@@ -164,13 +162,7 @@ export function PullRequestDetailView({
   const lensOn = lens.lensOn;
   const shown = lens.shown;
 
-  const revealing = useLensReveal(lens.landed);
-  const keepPlace = useReadingAnchor(paneRef);
-  const { landed } = lens;
-
-  useEffect(() => {
-    if (landed) keepPlace();
-  }, [landed, keepPlace]);
+  const revealing = useLensReveal(lens.landed, paneRef);
 
   useEffect(() => {
     if (pane !== 'code' || !pendingDraft) return;

@@ -3,7 +3,7 @@ import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import type { ResolvedGroup } from '../../lens/lens';
 import type { StoredLens } from '../../lens/readLens';
 import type { LensSummary } from '../../lens/config';
-import { DiffFileTree, DiffFileTreeChapters } from '../diff/DiffFileTree';
+import { DiffFileTree } from '../diff/DiffFileTree';
 import { useGithubStore } from '../../stores/githubStore';
 import { isSectionViewed } from '../../github/viewedSections';
 import { Icon } from '../terminal/Icon';
@@ -58,12 +58,13 @@ export function PullRequestRail({
   revealing,
   width,
 }: PullRequestRailProps) {
-  const byPath = useMemo(() => new Map(files.map((file) => [file.path, file])), [files]);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
   const viewedSections = useGithubStore((s) => s.viewedSections);
   const activeSection = useGithubStore((s) => s.activeSection);
   const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
+  const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
+  const viewedParts = useMemo(() => new Set(viewedSections), [viewedSections]);
 
   const signals = usePullRequestSignals(detail.headSha, files);
   // What a lens run would send, so the picker can say so before one is started.
@@ -96,7 +97,7 @@ export function PullRequestRail({
             {count}
           </span>
         ) : null}
-        {isSectionViewed(viewedPaths, viewedSections, section, path) && (
+        {isSectionViewed(viewed, viewedParts, section, path) && (
           <Icon name="check" className="shrink-0 w-3 h-3 text-accent/70" />
         )}
       </>
@@ -134,29 +135,16 @@ export function PullRequestRail({
         />
       </div>
 
-      {lensOn && groups ? (
-        <div className="flex-1 min-h-0 overflow-y-auto py-1">
-          <DiffFileTreeChapters
-            groups={groups}
-            byPath={byPath}
-            collapsed={collapsed}
-            onCollapsedChange={(id, next) => useGithubStore.getState().setGroupCollapsed(id, next)}
-            onFileClick={onSelect}
-            renderFileTrailing={(file, hunks, section) => trailing(file.path, hunks, section)}
-            activeSection={activeSection}
-            revealing={revealing}
-          />
-        </div>
-      ) : (
-        <DiffFileTree
-          files={files}
-          activeSection={activeSection}
-          onFileClick={onSelect}
-          renderFileTrailing={(file) => trailing(file.path)}
-        />
-      )}
+      <DiffFileTree
+        files={files}
+        groups={lensOn ? groups : null}
+        collapsed={collapsed}
+        onCollapsedChange={(id, next) => useGithubStore.getState().setGroupCollapsed(id, next)}
+        onFileClick={onSelect}
+        renderFileTrailing={(file, hunks, section) => trailing(file.path, hunks, section)}
+        activeSection={activeSection}
+        revealing={revealing}
+      />
     </div>
   );
 }
-
-/** The files one part of the change claims, in the order the lens put them. */

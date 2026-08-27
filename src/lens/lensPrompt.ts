@@ -1,5 +1,6 @@
 import type { ChangedFile, FileDiff, DiffHunk } from '../types';
 import type { DiffSignals } from '../analysis/types';
+import { hunkSpan } from './lens';
 
 /**
  * Everything an agent needs to group a diff, assembled up front so it reads no
@@ -46,18 +47,6 @@ export interface LensPromptInput {
   /** Hotspot and coupling signals, when the analysis flag is on. */
   signals?: DiffSignals | null;
   budget?: number;
-}
-
-/** The new-file lines a hunk covers — the vocabulary a lens answers in. */
-export function hunkSpan(hunk: DiffHunk): [number, number] | null {
-  let low: number | null = null;
-  let high: number | null = null;
-  for (const line of hunk.lines) {
-    if (line.newLineNo == null) continue;
-    if (low === null || line.newLineNo < low) low = line.newLineNo;
-    if (high === null || line.newLineNo > high) high = line.newLineNo;
-  }
-  return low === null || high === null ? null : [low, high];
 }
 
 /** `@@ -12,7 +12,10 @@ export function readToken()` → `export function readToken()`. */

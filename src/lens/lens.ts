@@ -4,7 +4,7 @@
  * whatever wrote the lens, almost always an agent that has read the diff.
  */
 
-import type { FileDiff } from '../types';
+import type { DiffHunk, FileDiff } from '../types';
 
 /** A contiguous run of new-file lines, as a pair. Both ends inclusive. */
 export type LineRange = [start: number, end: number];
@@ -50,6 +50,53 @@ export function sectionKey(groupId: string | null | undefined, path: string): st
   return groupId ? `${groupId}:${path}` : path;
 }
 
+interface HunkFacts {
+  /** Null when the hunk only deletes, so it covers no new-file line. */
+  span: LineRange | null;
+  additions: number;
+  deletions: number;
+}
+
+const facts = new WeakMap<DiffHunk, HunkFacts>();
+
+/**
+ * What one hunk holds, worked out once. Binding a lens asks this of every hunk
+ * of every file each time a batch of diffs lands, and a hunk's lines do not
+ * change after it is parsed.
+ */
+function hunkFacts(hunk: DiffHunk): HunkFacts {
+  const known = facts.get(hunk);
+  if (known) return known;
+
+  let low: number | null = null;
+  let high: number | null = null;
+  let additions = 0;
+  let deletions = 0;
+  // Compared one at a time rather than spread into Math.min/max: a whole
+  // untracked file arrives as a single hunk, and spreading tens of thousands of
+  // arguments overflows the call stack.
+  for (const line of hunk.lines) {
+    if (line.type === 'addition') additions++;
+    else if (line.type === 'deletion') deletions++;
+    if (line.newLineNo == null) continue;
+    if (low === null || line.newLineNo < low) low = line.newLineNo;
+    if (high === null || line.newLineNo > high) high = line.newLineNo;
+  }
+
+  const fresh: HunkFacts = {
+    span: low === null || high === null ? null : [low, high],
+    additions,
+    deletions,
+  };
+  facts.set(hunk, fresh);
+  return fresh;
+}
+
+/** The new-file lines a hunk covers — the vocabulary a lens answers in. */
+export function hunkSpan(hunk: DiffHunk): LineRange | null {
+  return hunkFacts(hunk).span;
+}
+
 /**
  * Which hunks a range list selects. A range that touches any line of a hunk
  * takes the hunk entire: cutting one in half strips the context lines that make
@@ -60,17 +107,9 @@ export function hunksInRanges(diff: FileDiff, ranges?: LineRange[]): number[] {
 
   const selected: number[] = [];
   diff.hunks.forEach((hunk, index) => {
-    // One pass rather than mapping the numbers out and spreading them into
-    // Math.min/max: a whole untracked file arrives as a single hunk, and
-    // spreading tens of thousands of arguments overflows the call stack.
-    let first = Infinity;
-    let last = -Infinity;
-    for (const line of hunk.lines) {
-      if (line.newLineNo == null) continue;
-      if (line.newLineNo < first) first = line.newLineNo;
-      if (line.newLineNo > last) last = line.newLineNo;
-    }
-    if (first === Infinity) return;
+    const span = hunkSpan(hunk);
+    if (!span) return;
+    const [first, last] = span;
     if (ranges.some(([start, end]) => start <= last && end >= first)) selected.push(index);
   });
   return selected;
@@ -82,10 +121,9 @@ function changesIn(diff: FileDiff, hunks: number[]): Pick<ResolvedSlice, 'change
   let additions = 0;
   let deletions = 0;
   for (const index of hunks) {
-    for (const line of diff.hunks[index].lines) {
-      if (line.type === 'addition') additions++;
-      else if (line.type === 'deletion') deletions++;
-    }
+    const hunk = hunkFacts(diff.hunks[index]);
+    additions += hunk.additions;
+    deletions += hunk.deletions;
   }
   return { changes: { additions, deletions } };
 }
@@ -143,7 +181,7 @@ export function parseLens(body: string): LensGroup[] | null {
   }
 }
 
-export const UNGROUPED_TITLE = 'Not in this lens';
+const UNGROUPED_TITLE = 'Not in this lens';
 const UNGROUPED_ID = 'rest';
 
 export interface LensCoverage {

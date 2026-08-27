@@ -6,7 +6,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { _resetLensRunsForTesting } from '../../components/diff/useLensSession';
-import { NARRATIVE, lensOnFile } from '../lensFixtures';
+import { NARRATIVE, hunk, lensOnFile } from '../lensFixtures';
 import { pr, inbox, detail, changed } from './githubFixtures';
 import type { PullRequestFile } from '../../github/types';
 import type { StoredLens } from '../../lens/readLens';
@@ -171,10 +171,7 @@ describe('PullRequestsPanel — lens', () => {
   test('a file split across parts is marked read a part at a time', async () => {
     vi.mocked(window.api.github.pullRequestFileDiff).mockResolvedValue({
       path: 'src/api.ts',
-      hunks: [
-        { header: '@@ -1,1 +1,2 @@', lines: [{ type: 'addition', content: 'a', newLineNo: 1 }] },
-        { header: '@@ -9,1 +10,2 @@', lines: [{ type: 'addition', content: 'b', newLineNo: 10 }] },
-      ],
+      hunks: [hunk(1, 1), hunk(10, 1)],
     });
     await openCodePane({
       headSha: 'head1',

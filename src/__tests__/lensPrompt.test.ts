@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest';
-import { buildLensPrompt, hunkSpan } from '../lens/lensPrompt';
+import { buildLensPrompt } from '../lens/lensPrompt';
+import { hunkSpan } from '../lens/lens';
 import type { FileDiff } from '../types';
 import type { PullRequestDetail, PullRequestFile } from '../github/types';
 import type { DiffSignals, FileAnalysis } from '../analysis/types';

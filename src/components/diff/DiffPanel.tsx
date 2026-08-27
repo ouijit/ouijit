@@ -13,7 +13,7 @@ import { DiffFileSection } from './DiffFileSection';
 import { DeferredMount } from './DeferredMount';
 import { scrollToSection, fileSelector } from './scrollToSection';
 import { useLensReveal } from './lensReveal';
-import { useReadingAnchor } from './readingAnchor';
+import { useDiffSlices } from './diffSlice';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { SidebarToggle } from '../common/SidebarToggle';
 import { FullWidthToggle, PanelCloseButton } from '../terminal/FullWidthToggle';
@@ -257,13 +257,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     [notes.notes, diffs],
   );
 
-  const revealing = useLensReveal(lens.landed);
-  const keepPlace = useReadingAnchor(contentRef);
-  const { landed } = lens;
-
-  useEffect(() => {
-    if (landed) keepPlace();
-  }, [landed, keepPlace]);
+  const revealing = useLensReveal(lens.landed, contentRef);
+  const sliceFor = useDiffSlices();
 
   const toggleFolded = useCallback((section: string, next: boolean) => {
     setFolded((prev) => toggleIn(prev, section, next));
@@ -294,7 +289,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   // one part, and React would otherwise keep only the second copy.
   const renderFile = (file: (typeof files)[number], key?: string, slice?: ResolvedSlice) => {
     const section = key ?? file.path;
-    const diff = lens.sliceFor(file.path, diffs.get(file.path), slice?.hunks);
+    const diff = sliceFor(file.path, diffs.get(file.path), slice?.hunks);
     const changes = slice?.changes ?? file;
 
     return (

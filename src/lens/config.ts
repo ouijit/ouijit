@@ -67,7 +67,7 @@ export async function listLenses(projectPath: string): Promise<LensSummary[]> {
   return withIds;
 }
 
-export async function writeLenses(projectPath: string, lenses: LensSummary[]): Promise<void> {
+async function writeLenses(projectPath: string, lenses: LensSummary[]): Promise<void> {
   await setGlobalSetting(lensesKey(projectPath), JSON.stringify(lenses));
 }
 
@@ -98,7 +98,7 @@ export async function deleteLens(projectPath: string, id: string): Promise<{ suc
   return { success: true };
 }
 
-export function lensAgentKey(projectPath: string): string {
+function lensAgentKey(projectPath: string): string {
   return 'github:lens-agent:' + projectPath;
 }
 
@@ -118,7 +118,7 @@ export async function getLensAgentChoice(projectPath: string): Promise<LensAgent
  * is gathered, so a machine with no agent is told so rather than spending a
  * minute reading a change to fail at the spawn.
  */
-export async function resolveLensAgentFor(projectPath: string): Promise<LensAgent | null> {
+async function resolveLensAgentFor(projectPath: string): Promise<LensAgent | null> {
   const health = getCachedHealth() ?? (await checkHealth());
   return resolveLensAgent(await getLensAgentChoice(projectPath), installedAgents(health));
 }

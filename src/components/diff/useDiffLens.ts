@@ -1,6 +1,7 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import type { FileDiff } from '../../types';
 import type { DiffLensTarget } from '../../lens/worktreeSubject';
+import { worktreeSubjectKey } from '../../lens/subjectKeys';
 import type { LensSummary } from '../../lens/config';
 import { useProjectLenses } from './useProjectLenses';
 import { useLensSession, type LensSession } from './useLensSession';
@@ -23,12 +24,12 @@ export function useDiffLens(
   /** The panel's fingerprint of the change, which moves on every save. */
   revision: string,
 ): DiffLens {
-  const { lenses } = useProjectLenses(target?.projectPath ?? '');
+  const lenses = useProjectLenses(target?.projectPath ?? '');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   // A string rather than the target object, which is rebuilt on every render
   // and would have the session reloading forever.
-  const key = target ? `wt:${target.worktreePath}:${target.base ?? 'HEAD'}` : null;
+  const key = target ? worktreeSubjectKey(target.worktreePath, target.base) : null;
 
   const session = useLensSession(
     {

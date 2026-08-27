@@ -39,6 +39,7 @@ import { repoSlug } from './types';
 import { writeLens } from '../lens/writeLens';
 import { readLens, clearLens as clearStoredLens, type StoredLens } from '../lens/readLens';
 import type { DiffSubject } from '../lens/subject';
+import { prSubjectKey } from '../lens/subjectKeys';
 import type { LensFile, LensSubject } from '../lens/lensPrompt';
 import { GithubError, MIN_GH_VERSION, probeGh, probeGhAuth } from './client';
 import { reviewSubmitProblem } from './reviewRules';
@@ -544,11 +545,6 @@ export async function discardDraft(draftId: string): Promise<{ success: boolean 
 }
 
 // ── Lenses ────────────────────────────────────────────────────────
-
-/** One pull request, within its project. */
-function prSubjectKey(prNumber: number): string {
-  return `pr:${prNumber}`;
-}
 
 /**
  * A pull request as something a lens can be written over. The procedure around

@@ -51,7 +51,7 @@ const SUGGESTED_LENSES: LensInput[] = [
 ];
 
 export function LensList({ projectPath, onRun, running }: LensListProps) {
-  const { lenses, reload } = useProjectLenses(projectPath);
+  const lenses = useProjectLenses(projectPath);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<LensInput | null>(null);
   const [addingNew, setAddingNew] = useState(false);
@@ -68,23 +68,21 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
         useProjectStore.getState().addToast(describeError(error), 'error');
         return;
       }
-      await reload();
       setExpandedId(null);
       setAddingNew(false);
       setDraft(null);
       if (run) onRun?.(saved);
     },
-    [projectPath, reload, onRun],
+    [projectPath, onRun],
   );
 
   const remove = useCallback(
     async (lens: LensSummary) => {
       await window.api.lens.delete(projectPath, lens.id);
-      await reload();
       setExpandedId(null);
       useProjectStore.getState().addToast(`Deleted “${lens.name}”`, 'success');
     },
-    [projectPath, reload],
+    [projectPath],
   );
 
   return (

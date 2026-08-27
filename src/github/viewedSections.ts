@@ -5,14 +5,18 @@
  * of its file has been marked, at which point the file itself is.
  */
 
-/** Whether one part has been read, on its own or with the whole file. */
+/**
+ * Whether one part has been read, on its own or with the whole file. Sets rather
+ * than the stored lists: this is asked once per row of the rail and once per
+ * file of the document, on every render.
+ */
 export function isSectionViewed(
-  viewedPaths: readonly string[],
-  viewedSections: readonly string[],
+  viewedPaths: ReadonlySet<string>,
+  viewedSections: ReadonlySet<string>,
   section: string,
   path: string,
 ): boolean {
-  return viewedPaths.includes(path) || viewedSections.includes(section);
+  return viewedPaths.has(path) || viewedSections.has(section);
 }
 
 export interface ViewedChange {

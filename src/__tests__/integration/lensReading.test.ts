@@ -19,7 +19,6 @@ function subject(whenStale: 'drop' | 'render', pin = 'head-1'): DiffSubject {
   return {
     projectPath: PROJECT,
     key: KEY,
-    cwd: PROJECT,
     label: {},
     whenStale,
     pin: () => Promise.resolve(pin),

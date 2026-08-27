@@ -356,7 +356,6 @@ contextBridge.exposeInMainWorld('api', {
     ) => typedInvoke('github:pull-request-file-versions', projectPath, number, baseSha, headSha, filePath, oldPath),
     lens: (projectPath: string, prNumber: number, headSha: string) =>
       typedInvoke('github:lens', projectPath, prNumber, headSha),
-    clearLens: (projectPath: string, prNumber: number) => typedInvoke('github:clear-lens', projectPath, prNumber),
     runLens: (projectPath: string, prNumber: number, lensId: string) =>
       typedInvoke('github:run-lens', projectPath, prNumber, lensId),
     viewedFiles: (projectPath: string, prNumber: number, headSha: string) =>

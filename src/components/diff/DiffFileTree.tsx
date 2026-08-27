@@ -19,7 +19,7 @@ interface TreeNode<T = ChangedFile> {
   children: TreeNode<T>[];
 }
 
-export function buildTree<T extends { path: string }>(files: readonly T[]): TreeNode<T>[] {
+function buildTree<T extends { path: string }>(files: readonly T[]): TreeNode<T>[] {
   const root: TreeNode<T>[] = [];
 
   for (const file of files) {
@@ -146,7 +146,7 @@ export function DiffFileTreeNodes<T extends ChangedFile>({
  * The tree is kept inside every part rather than flattened to basenames: which
  * directories a part touches is most of what says what kind of change it is.
  */
-export function DiffFileTreeChapters<T extends ChangedFile>({
+function DiffFileTreeChapters<T extends ChangedFile>({
   groups,
   byPath,
   collapsed,
@@ -221,7 +221,7 @@ export function DiffFileTreeChapters<T extends ChangedFile>({
 }
 
 /** How many hunks of a file one part of the change claims. */
-export function hunksOf(group: ResolvedGroup, path: string): number | undefined {
+function hunksOf(group: ResolvedGroup, path: string): number | undefined {
   return group.slices.find((slice) => slice.path === path)?.hunks.length;
 }
 

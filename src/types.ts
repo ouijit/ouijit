@@ -108,9 +108,6 @@ export type {
   PrFileVersions,
 } from './github/types';
 
-/**
- * Persisted last active view for session recovery
- */
 export type LastActiveView = { type: 'home' } | { type: 'project'; path: string };
 
 /**
@@ -721,7 +718,6 @@ export interface GithubAPI {
   taskFromPr(projectPath: string, prNumber: number): Promise<PromoteToTaskResult>;
 
   lens(projectPath: string, prNumber: number, headSha: string): Promise<StoredLens | null>;
-  clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }>;
   runLens(projectPath: string, prNumber: number, lensId: string): Promise<{ success: boolean; error?: string }>;
   viewedFiles(projectPath: string, prNumber: number, headSha: string): Promise<string[]>;
   setFileViewed(

@@ -27,7 +27,6 @@ import {
   createPullRequestForTask,
   mergePr,
   getLens,
-  clearLens,
   writeLensWithAgent,
   createTaskFromIssue,
   prepareTaskFromPullRequest,
@@ -98,8 +97,6 @@ export function registerGithubHandlers(mainWindow: BrowserWindow): void {
   typedHandle('github:set-file-viewed', (projectPath, prNumber, headSha, path, viewed) =>
     setFileViewed(projectPath, prNumber, headSha, path, viewed),
   );
-  typedHandle('github:clear-lens', (projectPath, prNumber) => clearLens(projectPath, prNumber));
-
   typedHandle('github:merge-pr', (projectPath, prNumber, options) => mergePr(projectPath, prNumber, options));
   typedHandle('github:task-from-issue', (projectPath, issueNumber) => createTaskFromIssue(projectPath, issueNumber));
   typedHandle('github:task-from-pr', (projectPath, prNumber) => prepareTaskFromPullRequest(projectPath, prNumber));

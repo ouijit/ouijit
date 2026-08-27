@@ -1,7 +1,8 @@
 import type { BrowserWindow } from 'electron';
 import { typedHandle, typedPush } from '../helpers';
 import { liveNotes, saveNote, discardNote, clearNotes } from '../../diffNotesService';
-import { readDiffLens, writeDiffLens, diffLensKey } from '../../lens/worktreeSubject';
+import { readDiffLens, writeDiffLens } from '../../lens/worktreeSubject';
+import { worktreeSubjectKey } from '../../lens/subjectKeys';
 import { listLenses, saveLens, deleteLens, getLensAgentChoice, setLensAgentChoice } from '../../lens/config';
 
 export function registerDiffPanelHandlers(mainWindow: BrowserWindow): void {
@@ -15,7 +16,7 @@ export function registerDiffPanelHandlers(mainWindow: BrowserWindow): void {
     try {
       return await writeDiffLens(target, lensId);
     } finally {
-      typedPush(mainWindow, 'diff-lens:changed', diffLensKey(target));
+      typedPush(mainWindow, 'diff-lens:changed', worktreeSubjectKey(target.worktreePath, target.base));
     }
   });
 

@@ -2,15 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 import type { LensSummary } from '../../lens/config';
 
 /**
- * The lenses a project keeps, and a way to ask again after editing them. Local
- * rather than in the github store: that store's loaders are guarded against the
- * panel's active project, which settings never sets, and a worktree diff reads
- * this list with no pull request open at all.
+ * The lenses a project keeps. Local rather than in the github store: that
+ * store's loaders are guarded against the panel's active project, which settings
+ * never sets, and a worktree diff reads this list with no pull request open at
+ * all.
+ *
+ * Nothing has to ask again after editing one — saving and deleting both push
+ * `lens:list-changed`, which is also how a picker hears about an edit made
+ * somewhere else.
  *
  * An empty list on failure, since every caller offers these alongside a flat
  * file list that works without them.
  */
-export function useProjectLenses(projectPath: string): { lenses: LensSummary[]; reload: () => Promise<void> } {
+export function useProjectLenses(projectPath: string): LensSummary[] {
   const [lenses, setLenses] = useState<LensSummary[]>([]);
 
   const reload = useCallback(async () => {
@@ -28,5 +32,5 @@ export function useProjectLenses(projectPath: string): { lenses: LensSummary[]; 
     });
   }, [projectPath, reload]);
 
-  return { lenses, reload };
+  return lenses;
 }
