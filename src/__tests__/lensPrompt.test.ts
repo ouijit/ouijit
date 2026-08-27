@@ -80,6 +80,23 @@ describe('buildLensPrompt', () => {
     expect(text).toContain('fn go()');
     expect(text).toContain('line 1');
     expect(text).toContain('group it by story');
+
+    // What a lens instruction never has to say for itself, and could not say
+    // once for every lens even if it tried.
+    expect(text).toContain('cannot give every');
+    expect(text).toContain('Mechanical work goes last');
+    expect(text).toContain('A title names the part');
+  });
+
+  /**
+   * The guide is prose in the prompt like anything else, so it has to be
+   * charged for. Left out of the sum, a change close to the budget would send
+   * the guide and lose the hunks it is meant to describe.
+   */
+  test('the guidance is paid for out of the budget, not added on top', () => {
+    const diffs = new Map<string, FileDiff | null>([['src/a.ts', { path: 'src/a.ts', hunks: [hunk(1, 200)] }]]);
+
+    expect(prompt([file('src/a.ts')], diffs, 3_000).length).toBeLessThan(3_000);
   });
 
   test('states the line spans a lens has to answer in', () => {

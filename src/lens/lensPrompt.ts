@@ -197,6 +197,37 @@ function hotspots(files: LensFile[], signals: DiffSignals | null | undefined): s
 }
 
 /**
+ * What a good grouping is, which no instruction should have to repeat.
+ *
+ * A lens instruction says how to divide one change. Everything true of every
+ * grouping belongs here instead: an instruction that had to carry it would be
+ * the same paragraph written three times, and a reader who writes their own
+ * lens would get none of it.
+ *
+ * The reviewer it describes is the one the feature is for — someone reading
+ * more changes in a day than they can give equal attention to. Without this
+ * the whole of the guidance was the word "sensible" in the opening line, and a
+ * lens asking for the riskiest part first had nothing to resolve "riskiest"
+ * against.
+ */
+const GROUPING_GUIDE = `# What makes a good grouping
+
+You are grouping this for someone who reviews all day and cannot give every
+file the same attention.
+
+- Lead with the part the rest follows from — the decision, the contract, the
+  schema. If they read one part, that is the one.
+- One idea per part. A part a reviewer has to hold two things in mind for is
+  two parts.
+- Mechanical work goes last: renames, generated files, formatting, churn that
+  follows from a decision made elsewhere.
+- Three to six parts for an ordinary change. Fewer says nothing; more is a file
+  list with headings on it. Go past six only when the change really is that big.
+- A title names the part, it does not describe it — "The link mark", not "Link
+  mark renders target/rel". What it does is the summary's job. It is shown in a
+  narrow column, so keep it under about 35 characters.`;
+
+/**
  * What the schema cannot say.
  *
  * The CLI holds the reply to `LENS_SCHEMA`, so nothing here asks for JSON or
@@ -211,7 +242,9 @@ const OUTPUT_CONTRACT = `# The grouping
 - Use null for "ranges" to claim an entire file, and null for "summary" to leave it unsaid.
 - Every group needs a title and at least one slice.
 - Only use paths from the list above. Invented paths are dropped.
-- You do not need to cover every file; whatever is left over is shown at the end.`;
+- A file that belongs with nothing is better left out than gathered into a group
+  of odds and ends. Whatever no group claims is shown at the end under its own
+  heading.`;
 
 /**
  * Characters the prompt for this change will run to, near enough.
@@ -241,7 +274,13 @@ export function buildLensPrompt({ subject, files, diffs, instruction, signals, b
   // take whatever is left.
   const remaining = Math.max(
     0,
-    limit - structure.length - callouts.length - instruction.length - OUTPUT_CONTRACT.length - 2_000,
+    limit -
+      structure.length -
+      callouts.length -
+      instruction.length -
+      GROUPING_GUIDE.length -
+      OUTPUT_CONTRACT.length -
+      2_000,
   );
   const { text: hunks, omitted } = bodies(files, diffs, remaining);
 
@@ -263,6 +302,11 @@ export function buildLensPrompt({ subject, files, diffs, instruction, signals, b
     '',
     hunks,
     '',
+    GROUPING_GUIDE,
+    '',
+    // The reader's own words, between what is true of every grouping and the
+    // mechanics of writing one down. Theirs is the part that decides how this
+    // change in particular divides, so it is not buried in either.
     '# How to group it',
     '',
     instruction,

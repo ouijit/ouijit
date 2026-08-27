@@ -360,7 +360,7 @@ describe('PullRequestsPanel — lens', () => {
     await waitFor(() =>
       expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, {
         name: 'Risk first',
-        instruction: 'The riskiest changes first, then everything that follows from them.',
+        instruction: expect.stringContaining('what could break in production'),
       }),
     );
     // Run by the id it was just given, which is the only thing that names it.

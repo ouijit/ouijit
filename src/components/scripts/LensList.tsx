@@ -37,17 +37,40 @@ interface LensListProps {
  * Where a project's first lens comes from.
  *
  * The instruction is the whole feature, and a blank prose box under a label
- * teaches nothing about what belongs in one. These three ask different
- * questions rather than sorting the same way three times — by structure, by
- * judgement, and by the shape of the change.
+ * teaches nothing about what belongs in one. These four ask different questions
+ * rather than sorting the same way four times — by structure, by judgement, by
+ * the shape of the change, and by how much attention each part is worth.
+ *
+ * Each one has to give the agent a test it can apply to any diff. "The riskiest
+ * changes first" names a sort key and never says how to compute it, which on a
+ * change with no obvious risk leaves it to invent one. What belongs in every
+ * lens rather than this one — leading with what the rest follows from, keeping
+ * mechanical churn last, how a title is written — is in the prompt itself.
  *
  * Offered rather than seeded. Writing them into the project on first open would
- * give everyone three lenses they did not write and have to delete.
+ * give everyone four lenses they did not write and have to delete.
  */
 const SUGGESTED_LENSES: LensInput[] = [
-  { name: 'By layer', instruction: 'Data model first, then the code that uses it, then the UI.' },
-  { name: 'Risk first', instruction: 'The riskiest changes first, then everything that follows from them.' },
-  { name: 'Setup and payoff', instruction: 'The groundwork that had to happen first, then the change it was for.' },
+  {
+    name: 'By layer',
+    instruction:
+      'One part per layer the change touches, from the data outwards: what stores it, what uses it, what shows it. A file that spans two layers goes in the one it changes most.',
+  },
+  {
+    name: 'Risk first',
+    instruction:
+      'Lead with what could break in production: contracts, migrations, anything with callers you cannot see from here. Then the parts that follow from it. Anything that can only fail a test goes last.',
+  },
+  {
+    name: 'Setup and payoff',
+    instruction:
+      'One part for the groundwork that had to land first, one for the change it was laid for. If the groundwork is large, split it by what depends on what.',
+  },
+  {
+    name: 'Read then skim',
+    instruction:
+      'Split by how much attention each part deserves. Lead with what a reviewer has to read line by line and could reject the change over, then what merely follows from it. Mechanical churn goes last, named so it can be skipped.',
+  },
 ];
 
 export function LensList({ projectPath, onRun, onCreated, running }: LensListProps) {
@@ -320,7 +343,7 @@ function LensForm({
           }}
           onInput={autoResize}
           onKeyDown={onKeyDown}
-          placeholder="Data model first, then the code that uses it, then the UI."
+          placeholder="One part per layer the change touches, from the data outwards: what stores it, what uses it, what shows it."
         />
         <p className="mt-2 text-[11px] text-text-tertiary leading-relaxed">
           {sendsHotspots

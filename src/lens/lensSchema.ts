@@ -18,7 +18,10 @@ export const LENS_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          title: { type: 'string', description: 'Short name for this part of the change' },
+          title: {
+            type: 'string',
+            description: 'Names this part of the change — a noun phrase, not a sentence. Under about 35 characters.',
+          },
           summary: { type: ['string', 'null'], description: 'One line on why these belong together' },
           slices: {
             type: 'array',

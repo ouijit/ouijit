@@ -10,6 +10,8 @@ vi.mock('electron-log/renderer', () => ({
 }));
 
 const PROJECT = '/work/alpha';
+const SETUP =
+  'One part for the groundwork that had to land first, one for the change it was laid for. If the groundwork is large, split it by what depends on what.';
 
 function analysis(on: boolean) {
   useExperimentalStore.setState({
@@ -33,14 +35,14 @@ describe('LensList', () => {
 
   /**
    * The instruction is the whole feature, so a project with no lenses is shown
-   * three rather than a blank box. They are offered, not seeded: pressing one
-   * is what puts it in the project, and it lands as an ordinary lens.
+   * four rather than a blank box. They are offered, not seeded: pressing one is
+   * what puts it in the project, and it lands as an ordinary lens.
    */
-  test('a project with no lenses is offered three, and pressing one adds it as written', async () => {
+  test('a project with no lenses is offered four, and pressing one adds it as written', async () => {
     render(<LensList projectPath={PROJECT} />);
 
     expect(await screen.findByText('No lenses yet.')).toBeTruthy();
-    for (const name of ['By layer', 'Risk first', 'Setup and payoff']) {
+    for (const name of ['By layer', 'Risk first', 'Setup and payoff', 'Read then skim']) {
       expect(screen.getByText(name)).toBeTruthy();
     }
     // Nothing was written by drawing them.
@@ -48,14 +50,11 @@ describe('LensList', () => {
 
     // The name is all the pill carries; what it will add is on hovering it.
     const pill = screen.getByText('Setup and payoff');
-    expect(pill.getAttribute('title')).toBe('The groundwork that had to happen first, then the change it was for.');
+    expect(pill.getAttribute('title')).toBe(SETUP);
     fireEvent.click(pill);
 
     await waitFor(() =>
-      expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, {
-        name: 'Setup and payoff',
-        instruction: 'The groundwork that had to happen first, then the change it was for.',
-      }),
+      expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, { name: 'Setup and payoff', instruction: SETUP }),
     );
   });
 
@@ -74,7 +73,7 @@ describe('LensList', () => {
     expect(screen.getByText('Save and read')).toBeTruthy();
 
     fireEvent.change(screen.getByPlaceholderText('By layer'), { target: { value: 'Narrative' } });
-    fireEvent.change(screen.getByPlaceholderText(/Data model first/), { target: { value: 'group by story' } });
+    fireEvent.change(screen.getByPlaceholderText(/One part per layer/), { target: { value: 'group by story' } });
     fireEvent.click(screen.getByText('Save and read'));
 
     // Handed back as saved, with the id a run needs.
