@@ -86,8 +86,8 @@ function subscribeToRuns(listener: () => void): () => void {
 /**
  * A run main knows about, taken up or put down.
  *
- * The spinner belongs to the run, not to the pane that asked for it: a reload
- * mid-run used to lose it, because the only record was renderer memory.
+ * The spinner belongs to the run rather than to the pane that asked for it, and
+ * the run happens in another process — so main is where it is read from.
  */
 function syncRun(key: string, running: StoredLens['running']): void {
   if (running?.live) {

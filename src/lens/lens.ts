@@ -119,13 +119,7 @@ export function parseLens(body: string): LensGroup[] | null {
   }
 }
 
-/**
- * The trailing part, holding whatever the lens did not account for.
- *
- * Named rather than inlined because the coverage count below has to tell it
- * from a part the lens wrote, and a reader comparing two string literals in
- * different files is how those come apart.
- */
+/** The trailing part, holding whatever the lens did not account for. */
 export const UNGROUPED_TITLE = 'Not in this lens';
 
 export interface LensCoverage {
@@ -138,9 +132,9 @@ export interface LensCoverage {
 /**
  * How much of the diff the lens actually accounts for.
  *
- * Free, because `resolveLens` has already bound the groups to the diff on
- * screen — and worth saying, because a lens that claims four parts of a change
- * and leaves six files out has described something other than this change.
+ * Over the bound groups rather than the stored ones: a part whose hunks were
+ * all claimed by an earlier part, or whose ranges match nothing, is not a part
+ * of this change however the agent listed it.
  */
 export function lensCoverage(resolved: ResolvedGroup[]): LensCoverage {
   const rest = resolved.find((group) => group.title === UNGROUPED_TITLE);

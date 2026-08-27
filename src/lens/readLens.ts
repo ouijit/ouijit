@@ -39,9 +39,9 @@ export interface StoredLens {
   /**
    * A run recorded against this diff, if the lens it names still exists.
    *
-   * `live` says an agent is writing it now. Not live means the process that
-   * started it ended first — a quit, a crash, a reload — and the reader is owed
-   * the offer to ask again rather than a run that silently never happened.
+   * `live` says an agent is writing it now, which only the process that started
+   * one can answer. Not live means that process ended first — a quit, a crash,
+   * a reload — and the run is there to be offered again.
    */
   running: { lensId: string; lensName: string; since: string | null; live: boolean } | null;
 }

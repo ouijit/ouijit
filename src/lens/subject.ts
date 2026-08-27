@@ -11,7 +11,7 @@ import type { LensFile, LensSubject } from './lensPrompt';
  * and `readLens`, and there is one of each.
  */
 export interface DiffSubject {
-  /** Whose lens list this reads, and the scope a rename covers. */
+  /** Whose lens list and lens agent this reads. */
   projectPath: string;
   /**
    * Where the written lens is stored, unique within the project.

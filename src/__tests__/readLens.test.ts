@@ -13,7 +13,10 @@ import type { DiffSubject } from '../lens/subject';
 
 const rows = new Map<string, DiffLensRow>();
 
+// `readLens` names a run's lens out of the project's list, which reads settings.
 vi.mock('../db', () => ({
+  getGlobalSetting: vi.fn(async () => null),
+  setGlobalSetting: vi.fn(async () => {}),
   getDiffLens: vi.fn(async (projectPath: string, subjectKey: string) => rows.get(`${projectPath}\0${subjectKey}`)),
   deleteDiffLens: vi.fn(async (projectPath: string, subjectKey: string) => {
     rows.delete(`${projectPath}\0${subjectKey}`);

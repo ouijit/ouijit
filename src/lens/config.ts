@@ -22,9 +22,8 @@ export interface LensSummary {
   /**
    * Stable across every edit, including a rename.
    *
-   * A grouping records the lens that wrote it, and a name is what the reader
-   * changes their mind about. Keyed by name, renaming one orphaned everything
-   * it had already grouped and had to be chased through the database.
+   * A stored grouping records the lens that wrote it, so what that lens is
+   * called has to be free to move without the record following it.
    */
   id: string;
   name: string;

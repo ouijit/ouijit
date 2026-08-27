@@ -68,8 +68,7 @@ export class DiffLensRepo {
    *
    * Written rather than held in memory because the process it happens in can
    * end: a quit, a crash or a reload mid-run is otherwise indistinguishable
-   * from never having asked, and the reader is left with nothing to say a run
-   * they waited for went missing.
+   * from never having asked.
    */
   startRun(projectPath: string, subjectKey: string, lensId: string): void {
     this.db
