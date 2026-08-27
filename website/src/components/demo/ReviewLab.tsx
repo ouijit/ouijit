@@ -777,55 +777,58 @@ export function ReviewSection() {
   const depth = (i: number) => (i <= front ? front - i : null);
 
   return (
-    <div ref={rootRef} className="bl-theater">
+    /* The headline sits outside the theater, which centres what it holds. */
+    <div>
       <h2 className="plan-v-headline">Review in depth</h2>
-      <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, width: '100%' }}>
-        <DeskWash />
-        {/* The cards fill the stage whatever their number: the deepest one
-            starts at its top edge, so the box the rest share gives up a step
-            of height for every card that has arrived. */}
-        <div className="relative" style={{ height: STAGE_HEIGHT }}>
-          <div
-            className="absolute inset-x-0 bottom-0"
-            style={{ top: front * DEPTH_STEP, transition: 'top 0.25s ease' }}
-          >
-            <StackCard
-              depth={depth(0)}
-              back={<BackStrip icon="binoculars" label="Analysis" detail="850 commits · 318 files" />}
+      <div ref={rootRef} className="bl-theater">
+        <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, width: '100%' }}>
+          <DeskWash />
+          {/* The cards fill the stage whatever their number: the deepest one
+              starts at its top edge, so the box the rest share gives up a step
+              of height for every card that has arrived. */}
+          <div className="relative" style={{ height: STAGE_HEIGHT }}>
+            <div
+              className="absolute inset-x-0 bottom-0"
+              style={{ top: front * DEPTH_STEP, transition: 'top 0.25s ease' }}
             >
-              <MockAnalysis showAdvice />
-            </StackCard>
-            <StackCard
-              depth={depth(1)}
-              back={<BackStrip icon="git-branch" label="main" detail="3 files +130 -78" />}
-            >
-              <div className="relative flex-1 min-h-0">
-                <NotedDiffPane pNote={0} pSend={0} pFix={0} tip={front === 1} />
-              </div>
-            </StackCard>
-            <StackCard depth={depth(2)}>
-              <RoundTripTerminal p={p} depth={depth(2) ?? 0} />
-            </StackCard>
-            <StackCard depth={depth(3)}>
-              <CondensedPrCard />
-            </StackCard>
+              <StackCard
+                depth={depth(0)}
+                back={<BackStrip icon="binoculars" label="Analysis" detail="850 commits · 318 files" />}
+              >
+                <MockAnalysis showAdvice />
+              </StackCard>
+              <StackCard
+                depth={depth(1)}
+                back={<BackStrip icon="git-branch" label="main" detail="3 files +130 -78" />}
+              >
+                <div className="relative flex-1 min-h-0">
+                  <NotedDiffPane pNote={0} pSend={0} pFix={0} tip={front === 1} />
+                </div>
+              </StackCard>
+              <StackCard depth={depth(2)}>
+                <RoundTripTerminal p={p} depth={depth(2) ?? 0} />
+              </StackCard>
+              <StackCard depth={depth(3)}>
+                <CondensedPrCard />
+              </StackCard>
+            </div>
           </div>
         </div>
+        <div className="beat-row">
+          {CAPTIONS.map((c) => (
+            <button
+              type="button"
+              key={c.title}
+              className={c.keys.includes(BEAT_KEYS[active]) ? 'is-active' : undefined}
+              onClick={() => seek(BEAT_KEYS.indexOf(c.keys[0] as (typeof BEAT_KEYS)[number]))}
+            >
+              <h3>{c.title}</h3>
+              <p>{c.body}</p>
+            </button>
+          ))}
+        </div>
+        <BeatDots progress={captionProgress(t)} />
       </div>
-      <div className="beat-row">
-        {CAPTIONS.map((c) => (
-          <button
-            type="button"
-            key={c.title}
-            className={c.keys.includes(BEAT_KEYS[active]) ? 'is-active' : undefined}
-            onClick={() => seek(BEAT_KEYS.indexOf(c.keys[0] as (typeof BEAT_KEYS)[number]))}
-          >
-            <h3>{c.title}</h3>
-            <p>{c.body}</p>
-          </button>
-        ))}
-      </div>
-      <BeatDots progress={captionProgress(t)} />
     </div>
   );
 }
