@@ -64,7 +64,7 @@ const CAPTIONS = [
   },
   {
     title: 'Reuse workflows with hooks',
-    body: 'Run custom scripts and agent prompts automatically as a task starts, continues, moves to review, or finishes.',
+    body: 'Run custom scripts and agent prompts automatically as a task changes status.',
   },
   {
     title: 'Run agents full auto',
