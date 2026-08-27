@@ -60,15 +60,15 @@ const LAND_AT = 0.88;
 const CAPTIONS = [
   {
     title: 'Every agent works in isolation',
-    body: 'Starting a task cuts a git worktree and a branch for it. Four agents at once are four checkouts, so nothing one does lands in another’s tree.',
+    body: 'Starting a task cuts it a git worktree and a branch. Four agents, four checkouts, one tree each.',
   },
   {
     title: 'Every task opens the same way',
-    body: 'A start hook opens each one with the command you always type — the agent, the dev server, the test watcher — already running in the worktree.',
+    body: 'A start hook opens each worktree with the command you always type, already running.',
   },
   {
     title: 'Agents run without the prompts',
-    body: 'Sandboxed, an agent reaches its own worktree and nothing else: a Lima VM, or Seatbelt and Landlock in place. Auto mode without approving every step.',
+    body: 'A sandboxed agent reaches its own worktree and nothing else — a Lima VM, or Seatbelt and Landlock in place.',
   },
 ];
 
