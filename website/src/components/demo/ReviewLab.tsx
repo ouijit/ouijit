@@ -664,7 +664,7 @@ const CAPTIONS: { keys: readonly string[]; title: string; body: string; ms: numb
   {
     keys: [...ANALYSIS_KEYS, ...LOOP_KEYS],
     title: 'Visualize code health issues',
-    body: 'Hotspots help you identify and manage complexity, churn, and ownership risk.',
+    body: 'Hotspots help you identify complexity, churn, and ownership risk when it’s most actionable.',
     ms: 9000,
   },
   {
