@@ -664,7 +664,7 @@ const CAPTIONS: { keys: readonly string[]; title: string; body: string; ms: numb
   {
     keys: [...ANALYSIS_KEYS, ...LOOP_KEYS],
     title: 'Manage tech debt',
-    body: 'The cheapest time to fix a file is while you are already changing it. Analysis ranks which ones are worth it, and a note on the line sends the work back to the agent.',
+    body: 'Use predictive analysis to keep tabs on tech debt and make progress on it whenever that code is being touched.',
     ms: 9000,
   },
   {
