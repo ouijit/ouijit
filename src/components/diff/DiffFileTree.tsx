@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { ChangedFile } from '../../types';
+import type { ResolvedGroup } from '../../lens/lens';
 import { Icon } from '../terminal/Icon';
 import { statusIcon, statusColorClass, badgeColorClass } from './diffStatus';
 
@@ -85,7 +86,12 @@ export function inTreeOrder<T extends { path: string }>(files: readonly T[]): T[
 
 export interface DiffFileTreeProps {
   files: ChangedFile[];
-  onFileClick: (path: string) => void;
+  onFileClick: (path: string, group?: string) => void;
+  /** The lens as bound to this diff. Null runs the flat tree. */
+  groups?: ResolvedGroup[] | null;
+  /** Parts folded away, by title. */
+  collapsed?: ReadonlySet<string>;
+  onCollapsedChange?: (title: string, next: boolean) => void;
   /** Per-file trailing content — the PR view puts unresolved-thread counts here. */
   renderFileTrailing?: (file: ChangedFile) => ReactNode;
   /** Content above the tree — the PR view puts the rest of its contents here. */
@@ -96,12 +102,17 @@ export interface DiffFileTreeProps {
 }
 
 /** Just the nodes, for a caller that already owns its scrolling. */
-export function DiffFileTreeNodes({
+export function DiffFileTreeNodes<T extends ChangedFile>({
   files,
   onFileClick,
   renderFileTrailing,
   activePath,
-}: Pick<DiffFileTreeProps, 'files' | 'onFileClick' | 'renderFileTrailing' | 'activePath'>) {
+}: {
+  files: readonly T[];
+  onFileClick: (path: string) => void;
+  renderFileTrailing?: (file: T) => ReactNode;
+  activePath?: string | null;
+}) {
   const tree = useMemo(() => buildTree(files), [files]);
 
   return (
@@ -119,37 +130,130 @@ export function DiffFileTreeNodes({
   );
 }
 
+/**
+ * The same files under the lens's headings, each part folding like a folder.
+ *
+ * The tree is kept inside every part rather than flattened to basenames: which
+ * directories a part of the change touches is most of what says what kind of
+ * change it is, so a grouping that hides them answered the easy half of the
+ * question.
+ */
+export function DiffFileTreeChapters<T extends ChangedFile>({
+  groups,
+  byPath,
+  collapsed,
+  onCollapsedChange,
+  onFileClick,
+  renderFileTrailing,
+  activePath,
+}: {
+  groups: ResolvedGroup[];
+  byPath: Map<string, T>;
+  collapsed: ReadonlySet<string>;
+  onCollapsedChange: (title: string, next: boolean) => void;
+  onFileClick: (path: string, group: string) => void;
+  renderFileTrailing?: (file: T, hunks?: number) => ReactNode;
+  activePath?: string | null;
+}) {
+  return (
+    <>
+      {groups.map((group, at) => {
+        const folded = collapsed.has(group.title);
+        const files = group.slices.map((slice) => byPath.get(slice.path)).filter((file): file is T => Boolean(file));
+        return (
+          // Indexed: two parts of a lens may carry the same title, and a key
+          // that is only the title keeps one of them.
+          <div key={`${at}:${group.title}`} className="flex flex-col">
+            {/* Set as the lens wrote it. Uppercasing a title shouts, and
+                algorithmic title case would spell GitHub "Github".
+
+                No caret at the head of the line, where every directory below
+                already has one: a part of the change and a folder of files are
+                different kinds of thing, and giving them the same mark in the
+                same column made the list read as one tree. The toggle sits at
+                the far end instead, and says plus or minus rather than
+                pointing. */}
+            <button
+              type="button"
+              aria-expanded={!folded}
+              className="flex items-center gap-1.5 h-9 px-3 text-[11px] font-medium text-ink/55 text-left transition-colors duration-150 ease-out hover:bg-ink/5 hover:text-ink/75"
+              title={group.summary}
+              onClick={() => onCollapsedChange(group.title, !folded)}
+            >
+              <span className="min-w-0 flex-1 truncate">{group.title}</span>
+              <Icon name={folded ? 'plus' : 'minus'} className="shrink-0 !w-3 !h-3 opacity-50" />
+            </button>
+            {!folded && (
+              <DiffFileTreeNodes
+                files={files}
+                activePath={activePath}
+                onFileClick={(path) => onFileClick(path, group.title)}
+                renderFileTrailing={
+                  renderFileTrailing ? (file) => renderFileTrailing(file, hunksOf(group, file.path)) : undefined
+                }
+              />
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/** How many hunks of a file one part of the change claims. */
+export function hunksOf(group: ResolvedGroup, path: string): number | undefined {
+  return group.slices.find((slice) => slice.path === path)?.hunks.length;
+}
+
 export function DiffFileTree({
   files,
   onFileClick,
+  groups,
+  collapsed,
+  onCollapsedChange,
   renderFileTrailing,
   header,
   activePath,
   footer,
 }: DiffFileTreeProps) {
+  const byPath = useMemo(() => new Map(files.map((file) => [file.path, file])), [files]);
+  const chaptered = groups && collapsed && onCollapsedChange;
+
   return (
     <div className="flex-1 overflow-y-auto py-2">
       {header}
-      <DiffFileTreeNodes
-        files={files}
-        onFileClick={onFileClick}
-        renderFileTrailing={renderFileTrailing}
-        activePath={activePath}
-      />
+      {chaptered ? (
+        <DiffFileTreeChapters
+          groups={groups}
+          byPath={byPath}
+          collapsed={collapsed}
+          onCollapsedChange={onCollapsedChange}
+          onFileClick={onFileClick}
+          renderFileTrailing={renderFileTrailing}
+          activePath={activePath}
+        />
+      ) : (
+        <DiffFileTreeNodes
+          files={files}
+          onFileClick={onFileClick}
+          renderFileTrailing={renderFileTrailing}
+          activePath={activePath}
+        />
+      )}
       {footer}
     </div>
   );
 }
 
-function TreeNodeView({
+function TreeNodeView<T extends ChangedFile>({
   node,
   onFileClick,
   renderFileTrailing,
   activePath,
 }: {
-  node: TreeNode;
+  node: TreeNode<T>;
   onFileClick: (path: string) => void;
-  renderFileTrailing?: (file: ChangedFile) => ReactNode;
+  renderFileTrailing?: (file: T) => ReactNode;
   activePath?: string | null;
 }) {
   const [expanded, setExpanded] = useState(true);

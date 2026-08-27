@@ -25,6 +25,7 @@ import {
   OPENCODE_WRAPPER,
   OPENCODE_PLUGIN,
   NONO_SHIM,
+  CLI_REFERENCE,
 } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 
@@ -121,6 +122,35 @@ afterEach(async () => {
 });
 
 // ── Server lifecycle ─────────────────────────────────────────────────
+
+/**
+ * This file is the only thing an agent is told about Ouijit, so anything it is
+ * supposed to use has to be named here.
+ *
+ * Written after an agent opened on a pull request went straight to `gh` — not
+ * unreasonably, since nothing had told it there was another way. A capability
+ * the agent cannot know about is one that does not exist.
+ */
+describe('CLI_REFERENCE', () => {
+  test('tells an agent how to write review comments and a reading order', () => {
+    expect(CLI_REFERENCE).toContain('ouijit pr draft add');
+    expect(CLI_REFERENCE).toContain('ouijit pr lens set');
+    // How to find which pull request it is on, or it cannot address the right
+    // one — the task it is working in carries the number.
+    expect(CLI_REFERENCE).toContain('ouijit task current | jq .githubPrNumber');
+  });
+
+  test('says why a review is staged rather than posted', () => {
+    // The whole point of staging drafts is that the human sends them. An agent
+    // with an authenticated gh will post directly unless told otherwise.
+    expect(CLI_REFERENCE).toContain('user sends the review themselves');
+    expect(CLI_REFERENCE).toContain('reaches GitHub the moment it runs');
+  });
+
+  test('states the anchoring rule that a whole review fails on', () => {
+    expect(CLI_REFERENCE).toContain('ADDED line');
+  });
+});
 
 describe('startHookServer', () => {
   test('resolves with port > 0 once listening', async () => {

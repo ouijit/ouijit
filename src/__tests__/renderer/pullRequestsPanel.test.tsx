@@ -36,9 +36,11 @@ describe('PullRequestsPanel', () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(inbox());
     vi.mocked(window.api.github.issues).mockResolvedValue([]);
     vi.mocked(window.api.github.onDraftsChanged).mockReturnValue(() => {});
+    vi.mocked(window.api.github.onLensChanged).mockReturnValue(() => {});
     // clearAllMocks resets call records but keeps implementations, so a test
     // that stubs these leaves its stub behind for every test after it.
     vi.mocked(window.api.github.drafts).mockResolvedValue([]);
+    vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
     vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({ files: [], fromGit: false });
   });
 

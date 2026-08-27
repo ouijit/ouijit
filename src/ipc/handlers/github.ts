@@ -25,6 +25,9 @@ import {
   resolveThread,
   createPullRequestForTask,
   mergePr,
+  getLens,
+  clearLens,
+  writeLensWithAgent,
   createTaskFromIssue,
   prepareTaskFromPullRequest,
 } from '../../github/service';
@@ -78,12 +81,18 @@ export function registerGithubHandlers(): void {
   typedHandle('github:create-pr', (projectPath, taskNumber, options) =>
     createPullRequestForTask(projectPath, taskNumber, options),
   );
+  typedHandle('github:lens', (projectPath, prNumber, headSha) => getLens(projectPath, prNumber, headSha));
+  typedHandle('github:run-lens', (projectPath, prNumber, lensName) =>
+    writeLensWithAgent(projectPath, prNumber, lensName),
+  );
   typedHandle('github:viewed-files', (projectPath, prNumber, headSha) =>
     getViewedFiles(projectPath, prNumber, headSha),
   );
   typedHandle('github:set-file-viewed', (projectPath, prNumber, headSha, path, viewed) =>
     setFileViewed(projectPath, prNumber, headSha, path, viewed),
   );
+  typedHandle('github:clear-lens', (projectPath, prNumber) => clearLens(projectPath, prNumber));
+
   typedHandle('github:merge-pr', (projectPath, prNumber, options) => mergePr(projectPath, prNumber, options));
   typedHandle('github:task-from-issue', (projectPath, issueNumber) => createTaskFromIssue(projectPath, issueNumber));
   typedHandle('github:task-from-pr', (projectPath, prNumber) => prepareTaskFromPullRequest(projectPath, prNumber));

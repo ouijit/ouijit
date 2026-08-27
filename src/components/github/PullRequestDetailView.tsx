@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
+import type { LensSummary } from '../../lens/config';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore, RAIL_DEFAULT_WIDTH, RAIL_MIN_WIDTH, RAIL_MAX_WIDTH } from '../../stores/githubStore';
+import { LensDialog } from '../dialogs/LensDialog';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { treeFileOrder } from '../diff/DiffFileTree';
+import { useProjectLenses } from '../diff/useProjectLenses';
+import { useLensSession } from '../diff/useLensSession';
 import { scrollToSection, fileSelector } from '../diff/scrollToSection';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
@@ -45,7 +49,9 @@ export function PullRequestDetailView({
 }: PullRequestDetailViewProps) {
   const detailLoading = useGithubStore((s) => s.detailLoading);
   const files = useGithubStore((s) => s.files);
+  const diffs = useGithubStore((s) => s.diffs);
   const railWidth = useGithubStore((s) => s.railWidth);
+  const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const badge = stateBadge(detail);
 
   const filesRef = useRef<FilesSectionHandle>(null);
@@ -57,14 +63,14 @@ export function PullRequestDetailView({
   }, [pane]);
 
   /** The rail navigates the document; it never filters it. */
-  const scrollToFile = useCallback((path: string | null) => {
+  const scrollToFile = useCallback((path: string | null, group?: string) => {
     const container = paneRef.current;
     if (!path) {
       if (container) container.scrollTop = 0;
       return;
     }
     useGithubStore.getState().setActivePath(path);
-    scrollToSection(container, fileSelector(path));
+    scrollToSection(container, fileSelector(path, group));
   }, []);
 
   /**
@@ -119,16 +125,71 @@ export function PullRequestDetailView({
     setPendingDraft(null);
   }, [pane, pendingDraft, scrollToFile]);
 
+  const [lensesOpen, setLensesOpen] = useState(false);
+
+  // Read here rather than in the rail so the dialog that edits them can hand
+  // back an up-to-date list on the way out.
+  const { lenses, reload: loadLenses } = useProjectLenses(projectPath);
+
   // Ordered from the file list, not the diffs, so arriving batches do not
   // rebuild it.
   const fileOrder = useMemo(() => treeFileOrder(files), [files]);
 
   /**
-   * Changes only when the anchors do. Keying the observer effect on the file
-   * list instead rebuilds it over every anchor each time a batch of diffs
-   * lands.
+   * This pull request's lens, bound once where both the rail and the document
+   * read the same result. Keyed to the pull request rather than the head, so a
+   * run outlives closing the pane to go and look at something else.
    */
-  const anchorShape = useMemo(() => fileOrder.join('\n'), [fileOrder]);
+  const lens = useLensSession(
+    {
+      key: `pr:${detail.number}`,
+      revision: detail.headSha,
+      read: () => window.api.github.lens(projectPath, detail.number, detail.headSha),
+      write: (lensName) => window.api.github.runLens(projectPath, detail.number, lensName),
+      subscribe: (refresh) => {
+        // A lens written by an agent over the CLI, in another process, that
+        // nothing here can otherwise see — shown as soon as it lands, since
+        // someone paid for the run.
+        const written = window.api.github.onLensChanged((payload) => {
+          if (payload.projectPath === projectPath && payload.prNumber === detail.number) refresh(true);
+        });
+        // A rename changes what it is called and nothing about what the reader
+        // chose to look at.
+        const renamed = window.api.lens.onRenamed((payload) => {
+          if (payload.projectPath === projectPath) refresh(false);
+        });
+        return () => {
+          written();
+          renamed();
+        };
+      },
+    },
+    diffs,
+    fileOrder,
+  );
+
+  const runLens = useCallback(
+    (picked: LensSummary) => {
+      setLensesOpen(false);
+      void lens.run(picked.name);
+    },
+    [lens],
+  );
+
+  const resolved = lens.resolved;
+  const lensOn = lens.lensOn;
+
+  /**
+   * Changes only when the anchors do. `resolved` is a fresh array every time a
+   * batch of diffs lands, and keying the observer effect on it rebuilds it over
+   * every anchor in the pane each time.
+   */
+  const anchorShape = useMemo(() => {
+    if (lensOn && resolved) {
+      return resolved.map((group) => `${group.title}\t${group.slices.map((s) => s.path).join(',')}`).join('\n');
+    }
+    return fileOrder.join('\n');
+  }, [lensOn, resolved, fileOrder]);
 
   /**
    * Marks where the reader is in the rail. Written straight to the store: this
@@ -172,7 +233,7 @@ export function PullRequestDetailView({
     );
     for (const anchor of anchors) observer.observe(anchor);
     return () => observer.disconnect();
-  }, [pane, anchorShape]);
+  }, [pane, anchorShape, collapsedGroups]);
 
   return (
     <div className="flex flex-col flex-1 min-w-0 min-h-0">
@@ -206,7 +267,20 @@ export function PullRequestDetailView({
       <div className="flex flex-1 min-h-0">
         {pane === 'code' && (
           <>
-            <PullRequestRail width={railWidth} detail={detail} files={files} onSelect={scrollToFile} />
+            <PullRequestRail
+              width={railWidth}
+              detail={detail}
+              files={files}
+              onSelect={scrollToFile}
+              groups={resolved}
+              onFile={lens.lens}
+              lensOn={lensOn}
+              onLensOn={lens.setLensOn}
+              lenses={lenses}
+              onRunLens={runLens}
+              onOpenLenses={() => setLensesOpen(true)}
+              lensWriting={lens.writing}
+            />
             <ResizeHandle
               width={railWidth}
               onWidth={(width) => useGithubStore.getState().setRailWidth(width)}
@@ -230,10 +304,24 @@ export function PullRequestDetailView({
           ) : pane === 'timeline' ? (
             <DiscussionSection projectPath={projectPath} detail={detail} />
           ) : (
-            <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} />
+            <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} groups={lens.shown} />
           )}
         </div>
       </div>
+
+      {lensesOpen && (
+        <LensDialog
+          projectPath={projectPath}
+          onRun={runLens}
+          running={lens.writing}
+          onClose={() => {
+            setLensesOpen(false);
+            // Whatever was added, renamed or deleted in there is what the
+            // picker should offer next time it is opened.
+            loadLenses();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -24,6 +24,7 @@ import {
   reanchorReviewDraft,
   deleteReviewDraft,
   getReviewDraftCounts,
+  saveDiffLens,
   getGlobalSetting,
   createTask,
   getNextTaskNumber,
@@ -35,6 +36,10 @@ import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
 import { repoSlug } from './types';
+import { writeLens } from '../lens/writeLens';
+import { readLens, clearLens as clearStoredLens, type StoredLens } from '../lens/readLens';
+import type { DiffSubject } from '../lens/subject';
+import type { LensFile, LensSubject } from '../lens/lensPrompt';
 import { GithubError, MIN_GH_VERSION, probeGh, probeGhAuth } from './client';
 import { reviewSubmitProblem } from './reviewRules';
 import { describeError } from '../utils/describeError';
@@ -59,6 +64,7 @@ import {
   type DraftReviewComment,
 } from './api';
 import { getPrFileDiff, getPrFileVersions, getPrDiffFiles, createPrHeadBranch, prunePrRefs } from './prDiff';
+import { parseLens, type LensGroup } from '../lens/lens';
 import type {
   PrHead,
   GithubAvailability,
@@ -535,6 +541,128 @@ export async function saveDraft(projectPath: string, input: SaveDraftInput): Pro
 export async function discardDraft(draftId: string): Promise<{ success: boolean }> {
   await deleteReviewDraft(draftId);
   return { success: true };
+}
+
+// ── Lenses ────────────────────────────────────────────────────────
+
+/** One pull request, within its project. */
+function prSubjectKey(prNumber: number): string {
+  return `pr:${prNumber}`;
+}
+
+/**
+ * A pull request as something a lens can be written over.
+ *
+ * Everything the agent needs is gathered here — the description, the file list
+ * and the diff — so that what it is asked to do is the one thing it is for.
+ * The procedure around it is `writeLens`, shared with the worktree diff.
+ */
+class PullRequestSubject implements DiffSubject {
+  readonly key: string;
+  readonly label: Record<string, unknown>;
+  /** A force-push takes the hunks a lens points at with it. */
+  readonly whenStale = 'drop' as const;
+  /** Resolved by `listFiles`, which every later step of a write runs after. */
+  private detail: PullRequestDetail | null = null;
+
+  constructor(
+    readonly projectPath: string,
+    private prNumber: number,
+    /** The head the caller is looking at. Reads have one; writes fetch their own. */
+    private headSha?: string,
+  ) {
+    this.key = prSubjectKey(prNumber);
+    this.label = { prNumber };
+  }
+
+  /** The agent runs in the project, since that is where the checkout is. */
+  get cwd(): string {
+    return this.projectPath;
+  }
+
+  async listFiles(): Promise<{ files: LensFile[]; error?: string; emptyMessage: string }> {
+    const empty = { files: [] as LensFile[], emptyMessage: 'This pull request has no files to group' };
+
+    this.detail = await getPullRequest(this.projectPath, this.prNumber);
+    if (!this.detail) return { ...empty, error: 'Could not read the pull request' };
+
+    const listed = await getPullRequestFiles(this.projectPath, this.prNumber, this.detail.baseSha, this.detail.headSha);
+    return { ...empty, files: listed.files, error: listed.error };
+  }
+
+  diffFor(file: LensFile): Promise<FileDiff | null> {
+    const detail = this.require();
+    return getPullRequestFileDiff(
+      this.projectPath,
+      this.prNumber,
+      detail.baseSha,
+      detail.headSha,
+      file.path,
+      undefined,
+      file.oldPath,
+    );
+  }
+
+  /**
+   * The head the lens describes. A force-push moves it, and the hunks the lens
+   * points at go with it.
+   *
+   * The freshly fetched head wins where there is one — a write pins to what it
+   * actually read, not to what the pane happened to be showing when it started.
+   */
+  pin(): Promise<string> {
+    const headSha = this.detail?.headSha ?? this.headSha;
+    if (!headSha) throw new Error('The pull request has not been read yet');
+    return Promise.resolve(headSha);
+  }
+
+  describe(): LensSubject {
+    const detail = this.require();
+    return {
+      lead: 'You are grouping the changes in a pull request so a reviewer can read them in a sensible order.',
+      heading: `# Pull request #${detail.number}: ${detail.title}`,
+      body: detail.body,
+    };
+  }
+
+  private require(): PullRequestDetail {
+    if (!this.detail) throw new Error('The pull request has not been read yet');
+    return this.detail;
+  }
+}
+
+export function writeLensWithAgent(
+  projectPath: string,
+  prNumber: number,
+  lensName: string,
+): Promise<{ success: boolean; error?: string }> {
+  return writeLens(new PullRequestSubject(projectPath, prNumber), lensName);
+}
+
+/** The lens stored for a pull request, if it still describes this head. */
+export function getLens(projectPath: string, prNumber: number, headSha: string): Promise<StoredLens | null> {
+  return readLens(new PullRequestSubject(projectPath, prNumber, headSha));
+}
+
+/** A lens posted over the CLI, by an agent that read the diff itself. */
+export async function setLens(
+  projectPath: string,
+  prNumber: number,
+  headSha: string,
+  body: string,
+): Promise<{ success: boolean; error?: string; groups?: LensGroup[] }> {
+  const groups = parseLens(body);
+  if (!groups) {
+    return { success: false, error: 'Expected {"groups":[{"title","slices":[{"path","ranges"}]}]}' };
+  }
+  // No name: nothing here went through one of the project's lenses, and
+  // borrowing a name from whichever ran last would be a lie about what wrote it.
+  await saveDiffLens(projectPath, prSubjectKey(prNumber), headSha, JSON.stringify({ groups }), null);
+  return { success: true, groups };
+}
+
+export function clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {
+  return clearStoredLens(new PullRequestSubject(projectPath, prNumber));
 }
 
 // ── Writes ───────────────────────────────────────────────────────────

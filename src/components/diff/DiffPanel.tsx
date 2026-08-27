@@ -8,7 +8,7 @@ import {
   DIFF_FILE_LIST_MAX_WIDTH,
 } from '../../stores/uiStore';
 import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
-import { DiffFileTree, inTreeOrder } from './DiffFileTree';
+import { DiffFileTree, treeFileOrder } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
 import { DeferredMount } from './DeferredMount';
 import { scrollToSection, fileSelector } from './scrollToSection';
@@ -21,8 +21,13 @@ import { InlineCommentBox, InlineCommentCard } from './InlineCommentBox';
 import { DiffNotesIsland } from './DiffNotesIsland';
 import { DiffComparisonPicker } from './DiffComparisonPicker';
 import { useDiffNotes } from './useDiffNotes';
+import { useDiffLens } from './useDiffLens';
+import { LensPicker } from './LensPicker';
+import { LensedFileList } from './LensedFileList';
+import { LensDialog } from '../dialogs/LensDialog';
 import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type DiffLineAnchor } from '../../diffAnchor';
 import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
+import type { DiffLensTarget } from '../../lens/worktreeSubject';
 import { toggleIn } from '../../utils/toggleIn';
 import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
 import { AnalysisChip, AnalysisRailDot, worthAChip } from './AnalysisChip';
@@ -64,18 +69,19 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
 
   const totalFileCount = storeFiles.length;
 
-  // Status polls hand back a fresh object every few seconds, so the tree walk
-  // and per-file loader below key off this fingerprint instead. The base is
-  // part of it: two comparisons can list the same files with different hunks.
+  // Status polls hand back a fresh object every few seconds, so the tree walk,
+  // the lens resolution and the per-file loader below key off this fingerprint
+  // instead. The base is part of it: two comparisons can list the same files
+  // with different hunks.
   const filesFingerprint = useMemo(
     () => `${base ?? ''}\n${diffShape(storeFiles.slice(0, MAX_DIFF_FILES))}`,
     [storeFiles, base],
   );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
   const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [filesFingerprint]);
-  // The document must run in the tree's order, or clicking a file in the rail
-  // is no way to find it here.
-  const ordered = useMemo(() => inTreeOrder(files), [files]);
+  // The order a lens's groups are sorted into. `LensedFileList` runs the
+  // document in the same one, so the two never disagree about where a file sits.
+  const order = useMemo(() => treeFileOrder(files), [files]);
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
 
@@ -104,6 +110,24 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     [analysisSignals],
   );
 
+  // What a lens over this diff is written against. Null only when there is no
+  // path to key one to.
+  const lensTarget = useMemo<DiffLensTarget | null>(
+    () =>
+      gitPath
+        ? {
+            projectPath,
+            worktreePath: gitPath,
+            base,
+            branch,
+            mergeTarget: instance?.mergeTarget,
+            title: instance?.label,
+            description: instance?.taskPrompt,
+          }
+        : null,
+    [gitPath, projectPath, base, branch, instance?.mergeTarget, instance?.label, instance?.taskPrompt],
+  );
+
   useEffect(() => {
     const inst = terminalInstances.get(ptyId);
     if (inst) refreshTerminalGitStatus(inst);
@@ -121,6 +145,9 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     },
     setDiffs,
   );
+
+  const lens = useDiffLens(lensTarget, diffs, order);
+  const [lensesOpen, setLensesOpen] = useState(false);
 
   const scrollToFile = useCallback((path: string) => {
     scrollToSection(contentRef.current, fileSelector(path));
@@ -225,6 +252,14 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     setFolded((prev) => toggleIn(prev, path, next));
   }, []);
 
+  const { setCollapsed } = lens;
+  const toggleGroup = useCallback(
+    (title: string, next: boolean) => {
+      setCollapsed((prev) => toggleIn(prev, title, next));
+    },
+    [setCollapsed],
+  );
+
   const stats = useMemo(() => {
     const displayed = files.length;
     const untracked = files.filter((f) => f.status === '?').length;
@@ -238,11 +273,13 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     return text;
   }, [files, truncated, totalFileCount]);
 
-  const renderFile = (file: (typeof files)[number]) => (
+  // The key is the caller's to give: a lens can name the same file in more than
+  // one part, and React would otherwise keep only the second copy.
+  const renderFile = (file: (typeof files)[number], key?: string, hunks?: number[]) => (
     // `data-path` on the wrapper, so the tree can jump to a file that has not
     // mounted yet.
     <DeferredMount
-      key={file.path}
+      key={key ?? file.path}
       dataPath={file.path}
       estimatedHeight={estimateFileHeight(
         diffs.get(file.path),
@@ -256,7 +293,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
         status={file.status}
         additions={file.additions}
         deletions={file.deletions}
-        diff={diffs.get(file.path)}
+        diff={lens.sliceFor(file.path, diffs.get(file.path), hunks)}
         onAddComment={startNote}
         // Withheld until there is something to draw: it runs once per diff line
         // and changes identity whenever the notes do.
@@ -273,9 +310,30 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
       {!sidebarCollapsed && (
         <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: sidebarWidth }}>
+          {/* Above the list it reorders and outside its scroll, where the pull
+              request rail keeps its own. "All files" is one of the options, so
+              the file list and the lenses are a single choice. */}
+          {lensTarget && (
+            <div className="pane-ledge shrink-0 flex flex-col">
+              <LensPicker
+                lenses={lens.lenses}
+                onFile={lens.lens}
+                lensOn={lens.lensOn}
+                changedFiles={files.length}
+                writing={lens.writing}
+                onAllFiles={() => lens.setLensOn(false)}
+                onShowLens={() => lens.setLensOn(true)}
+                onRun={(picked) => void lens.run(picked.name)}
+                onManage={() => setLensesOpen(true)}
+              />
+            </div>
+          )}
           <DiffFileTree
             files={files}
+            groups={lens.shown}
             onFileClick={scrollToFile}
+            collapsed={lens.collapsed}
+            onCollapsedChange={toggleGroup}
             renderFileTrailing={analysisSignals ? railTrailing : undefined}
           />
         </div>
@@ -327,8 +385,15 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           {!loading && files.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">No changes</div>
           )}
-          {!loading && ordered.map((file) => renderFile(file))}
-
+          {!loading && (
+            <LensedFileList
+              files={files}
+              groups={lens.shown}
+              renderFile={renderFile}
+              collapsed={lens.collapsed}
+              onCollapsedChange={toggleGroup}
+            />
+          )}
           {!loading && truncated && (
             <div className="mx-6 px-4 py-3 text-xs text-ink/40 text-center">
               Showing {files.length} of {totalFileCount} changed files
@@ -344,6 +409,14 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           onDiscard={notes.discard}
           onClear={notes.clear}
         />
+        {lensesOpen && (
+          <LensDialog
+            projectPath={projectPath}
+            onRun={(picked) => void lens.run(picked.name)}
+            running={lens.writing}
+            onClose={() => setLensesOpen(false)}
+          />
+        )}
       </div>
     </div>
   );

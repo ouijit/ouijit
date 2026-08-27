@@ -9,6 +9,7 @@ import { BinaryFileView } from '../diff/BinaryFileView';
 import { DeferredMount } from '../diff/DeferredMount';
 import { DiffFileSection } from '../diff/DiffFileSection';
 import { estimateFileHeight } from '../diff/diffMetrics';
+import { useDiffSlices } from '../diff/diffSlice';
 import { useBatchedDiffs } from '../diff/useBatchedDiffs';
 import {
   anchorKey,
@@ -18,11 +19,12 @@ import {
   type DiffLineAnchor,
 } from '../../diffAnchor';
 import { describeLines } from '../../diffAnchor';
+import type { ResolvedGroup } from '../../lens/lens';
 import { unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
 import { InlineCommentBox, InlineCommentCard } from '../diff/InlineCommentBox';
-import { inTreeOrder } from '../diff/DiffFileTree';
+import { LensedFileList } from '../diff/LensedFileList';
 import { useThreadActions } from './useThreadActions';
 import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { AnalysisChip, worthAChip } from '../diff/AnalysisChip';
@@ -43,6 +45,8 @@ function chipworthy(analysis: FileAnalysis | undefined): FileAnalysis | undefine
 interface FilesSectionProps {
   projectPath: string;
   detail: PullRequestDetail;
+  /** The lens bound to this diff, when the reader has it on. */
+  groups?: ResolvedGroup[] | null;
 }
 
 export interface FilesSectionHandle {
@@ -149,7 +153,7 @@ const FileSection = memo(function FileSection({
  * capped at what a patch would carry.
  */
 export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(function FilesSection(
-  { projectPath, detail },
+  { projectPath, detail, groups },
   ref,
 ) {
   const files = useGithubStore((s) => s.files);
@@ -161,6 +165,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const diffs = useGithubStore((s) => s.diffs);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
+  const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const setDiffs = useGithubStore((s) => s.setDiffs);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
@@ -368,8 +373,13 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const renderBelowLine =
     threadsByAnchor.size > 0 || draftsByAnchor.size > 0 || composingWhere ? renderComments : undefined;
 
+  // A new pull request, or a new grouping of this one, makes every cached
+  // slice meaningless.
+  const sliceFor = useDiffSlices(groups ?? detail.number);
+
   // A Set so a hundred file sections do not each scan the list.
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
+  const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
 
   const setViewed = useCallback(
     (path: string, next: boolean) => {
@@ -378,11 +388,15 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     [projectPath, detail.number, detail.headSha],
   );
 
-  const renderFile = (file: PullRequestFile) => (
+  const setGroupCollapsed = useCallback((title: string, next: boolean) => {
+    useGithubStore.getState().setGroupCollapsed(title, next);
+  }, []);
+
+  const renderFile = (file: PullRequestFile, key?: string, hunks?: number[]) => (
     <FileSection
-      key={file.path}
+      key={key ?? file.path}
       file={file}
-      diff={diffs.get(file.path)}
+      diff={sliceFor(file.path, diffs.get(file.path), hunks)}
       projectPath={projectPath}
       prNumber={detail.number}
       baseSha={detail.baseSha}
@@ -411,7 +425,15 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         </div>
       )}
 
-      <div className="diff-list pb-3">{inTreeOrder(files).map((file) => renderFile(file))}</div>
+      <div className="diff-list pb-3">
+        <LensedFileList
+          files={files}
+          groups={groups ?? null}
+          renderFile={renderFile}
+          collapsed={collapsed}
+          onCollapsedChange={setGroupCollapsed}
+        />
+      </div>
 
       {orphanThreads.length > 0 && (
         <>

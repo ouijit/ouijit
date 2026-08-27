@@ -15,6 +15,7 @@ import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
+import { DiffLensRepo, type DiffLensRow } from './repos/diffLensRepo';
 import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import { getLogger } from '../logger';
@@ -51,6 +52,7 @@ let tagRepo: TagRepo | null = null;
 let globalSettingsRepo: GlobalSettingsRepo | null = null;
 let scriptRepo: ScriptRepo | null = null;
 let reviewDraftRepo: ReviewDraftRepo | null = null;
+let diffLensRepo: DiffLensRepo | null = null;
 let diffNoteRepo: DiffNoteRepo | null = null;
 
 function repos() {
@@ -63,6 +65,7 @@ function repos() {
     globalSettingsRepo = new GlobalSettingsRepo(db);
     scriptRepo = new ScriptRepo(db);
     reviewDraftRepo = new ReviewDraftRepo(db);
+    diffLensRepo = new DiffLensRepo(db);
     diffNoteRepo = new DiffNoteRepo(db);
   }
   return {
@@ -73,6 +76,7 @@ function repos() {
     globalSettingsRepo: globalSettingsRepo!,
     scriptRepo: scriptRepo!,
     reviewDraftRepo: reviewDraftRepo!,
+    diffLensRepo: diffLensRepo!,
     diffNoteRepo: diffNoteRepo!,
   };
 }
@@ -88,6 +92,7 @@ export function _resetCacheForTesting(): void {
   globalSettingsRepo = new GlobalSettingsRepo(db);
   scriptRepo = new ScriptRepo(db);
   reviewDraftRepo = new ReviewDraftRepo(db);
+  diffLensRepo = new DiffLensRepo(db);
   diffNoteRepo = new DiffNoteRepo(db);
 }
 
@@ -440,6 +445,37 @@ export async function moveDiffNote(id: string, startLine: number, line: number):
 export async function clearDiffNotes(worktreePath: string): Promise<void> {
   const { diffNoteRepo: dr } = repos();
   dr.deleteForWorktree(worktreePath);
+}
+
+// ── Lenses ───────────────────────────────────────────────────────────
+
+export type { DiffLensRow } from './repos/diffLensRepo';
+
+export async function getDiffLens(projectPath: string, subjectKey: string): Promise<DiffLensRow | undefined> {
+  const { diffLensRepo: dl } = repos();
+  return dl.get(projectPath, subjectKey);
+}
+
+export async function saveDiffLens(
+  projectPath: string,
+  subjectKey: string,
+  pin: string,
+  groups: string,
+  lensName: string | null,
+): Promise<void> {
+  const { diffLensRepo: dl } = repos();
+  dl.save(projectPath, subjectKey, pin, groups, lensName);
+}
+
+export async function renameDiffLens(projectPath: string, from: string, to: string): Promise<void> {
+  const { diffLensRepo: dl } = repos();
+  dl.rename(projectPath, from, to);
+}
+
+export async function deleteDiffLens(projectPath: string, subjectKey: string): Promise<{ success: boolean }> {
+  const { diffLensRepo: dl } = repos();
+  dl.delete(projectPath, subjectKey);
+  return { success: true };
 }
 
 export async function deleteTaskByNumber(

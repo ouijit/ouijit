@@ -25,6 +25,8 @@ import type {
   ReviewEvent,
   MergeOptions,
   GithubDraftsChangedPayload,
+  GithubLensChangedPayload,
+  LensRenamedPayload,
   InboxResult,
   PullRequestFilesResult,
   SaveDraftInput,
@@ -32,6 +34,10 @@ import type {
   PrFileVersions,
 } from './github/types';
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
+import type { DiffLensTarget } from './lens/worktreeSubject';
+import type { LensAgentChoice } from './lens/lensAgents';
+import type { LensSummary } from './lens/config';
+import type { StoredLens } from './lens/readLens';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
@@ -91,6 +97,8 @@ export type {
   IssueDetail,
   CommentKind,
   GithubDraftsChangedPayload,
+  GithubLensChangedPayload,
+  LensRenamedPayload,
   CheckRun,
   TimelineItem,
   InboxResult,
@@ -102,6 +110,9 @@ export type {
   PrFileVersions,
 } from './github/types';
 
+/**
+ * Persisted last active view for session recovery
+ */
 export type LastActiveView = { type: 'home' } | { type: 'project'; path: string };
 
 /**
@@ -588,6 +599,32 @@ export interface ElectronAPI {
   diffNotes: DiffNotesAPI;
   /** Hotspot, coupling, and ownership signals mined from git history */
   analysis: AnalysisAPI;
+  /** Agent-written grouping over a worktree's own diff */
+  diffLens: DiffLensAPI;
+  /** The project's named lenses and the agent that runs them */
+  lens: LensAPI;
+}
+
+/**
+ * The project's lenses: named instructions, and which agent runs them.
+ *
+ * Not part of `github` — a worktree diff reads through these with no remote in
+ * sight, and nothing behind them touches GitHub.
+ */
+export interface LensAPI {
+  list(projectPath: string): Promise<LensSummary[]>;
+  save(projectPath: string, name: string, instruction: string, previousName?: string): Promise<LensSummary>;
+  delete(projectPath: string, name: string): Promise<{ success: boolean }>;
+  agent(projectPath: string): Promise<LensAgentChoice>;
+  setAgent(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }>;
+  /** A lens was renamed, so anything naming one is showing the old name. */
+  onRenamed(callback: (payload: LensRenamedPayload) => void): () => void;
+}
+
+/** The pull request equivalent is `github.lens` / `runLens`. */
+export interface DiffLensAPI {
+  get(target: DiffLensTarget): Promise<StoredLens | null>;
+  run(target: DiffLensTarget, lensName: string): Promise<{ success: boolean; error?: string }>;
 }
 
 /**
@@ -683,6 +720,9 @@ export interface GithubAPI {
   taskFromIssue(projectPath: string, issueNumber: number): Promise<GithubActionResult & { taskNumber?: number }>;
   taskFromPr(projectPath: string, prNumber: number): Promise<PromoteToTaskResult>;
 
+  lens(projectPath: string, prNumber: number, headSha: string): Promise<StoredLens | null>;
+  clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }>;
+  runLens(projectPath: string, prNumber: number, lensName: string): Promise<{ success: boolean; error?: string }>;
   viewedFiles(projectPath: string, prNumber: number, headSha: string): Promise<string[]>;
   setFileViewed(
     projectPath: string,
@@ -693,6 +733,7 @@ export interface GithubAPI {
   ): Promise<string[]>;
 
   onDraftsChanged(callback: (payload: GithubDraftsChangedPayload) => void): () => void;
+  onLensChanged(callback: (payload: GithubLensChangedPayload) => void): () => void;
 }
 
 export interface GithubActionResult {
