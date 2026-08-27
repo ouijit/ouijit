@@ -1667,6 +1667,12 @@ body.marketing::after {
   margin: 6px 0 0;
 }
 
+/* The row's columns are the desk's width over however many captions there
+   are, which at two is far past a readable measure. */
+.beat-row p {
+  max-width: 56ch;
+}
+
 
 /* Build fleet lab: a scroll-scrubbed stage that pins while the fleet grows.
    No desk — the tiles sit on the page, so the field is only a frame. */

@@ -441,7 +441,7 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
 
 /** The review terminal: session left, noted diff split right. `depth` is its
  * place in the stack — 0 while it holds the front, higher once it does not. */
-function RoundTripTerminal({ p, depth }: { p: (k: string) => number; depth: number }) {
+function RoundTripTerminal({ p, depth, tip }: { p: (k: string) => number; depth: number; tip?: boolean }) {
   const fixtures = getPanelFixtures('pty-101-dev');
   const receded = depth > 0;
   const fixing = p('fix') > 0.06;
@@ -471,7 +471,7 @@ function RoundTripTerminal({ p, depth }: { p: (k: string) => number; depth: numb
         </div>
         <div className="pane-seam relative w-px shrink-0" />
         <div className="relative shrink-0" style={{ width: '50%' }}>
-          <NotedDiffPane pNote={p('note')} pSend={p('send')} pFix={p('fix')} />
+          <NotedDiffPane pNote={p('note')} pSend={p('send')} pFix={p('fix')} tip={tip} />
         </div>
       </div>
     </>
@@ -655,48 +655,51 @@ const ANALYSIS_KEYS = ['scan', 'chip'] as const;
 const BEAT_KEYS = [...ANALYSIS_KEYS, ...LOOP_KEYS, 'pr'] as const;
 
 /**
- * The captions under the stage. Analysis and the round trip are one caption
- * each and several beats long: the panel and the chip are one reading shown
- * twice, and note, send and fix are phases of a single story. A caption
- * swapping mid-play reads as unrelated features.
+ * The captions under the stage. What analysis reads and what you do about it
+ * are one caption: the panel, the same reading inside the diff, and the note
+ * that goes back to the agent are one story, and a caption swapping mid-play
+ * reads as unrelated features.
  */
-const CAPTIONS: { keys: readonly string[]; title: string; body: string }[] = [
+const CAPTIONS: { keys: readonly string[]; title: string; body: string; ms: number }[] = [
   {
-    keys: ANALYSIS_KEYS,
-    title: 'Read the history before the diff',
-    body: 'Analysis ranks every file by how often it changes and how tangled it is, from the git log alone. The same reading rides along in the diff: what a file moves with, and who holds it.',
-  },
-  {
-    keys: LOOP_KEYS,
-    title: 'Send notes back to the agent',
-    body: 'Write what you want changed on the line that needs it. Send pastes every note into the agent’s prompt, quoted code and all, and the fix lands in the same session and worktree.',
+    keys: [...ANALYSIS_KEYS, ...LOOP_KEYS],
+    title: 'Manage tech debt',
+    body: 'Analysis ranks every file by how often it changes and how tangled it is, from the git log alone. The reading rides along in the diff, where a note on a hot line goes straight back to the agent and the fix lands in the same worktree.',
+    ms: 9000,
   },
   {
     keys: ['pr'],
     title: 'Land the pull request',
     body: 'Review every open pull request without opening GitHub — checks, threads, and the merge menu. Drafts, yours beside your agents’, stay local until you send them as one review.',
+    ms: 5000,
   },
 ];
 
-/** How many beats each caption spans, in caption order. */
-const CAPTION_SPANS = CAPTIONS.map((c) => c.keys.length);
+/** The loop's unit. A beat's real length is this over its speed. */
+const BEAT_MS = 5000;
 
-/** Every caption gets this long, whatever it spans. */
-const CAPTION_MS = 5000;
+/* Every beat inside a caption takes an equal share of that caption's time, so
+   a caption spanning five beats gets more of them rather than the same time
+   cut finer. The trailing entry is the hold before the loop restarts, which
+   would otherwise sit a full beat at the end. */
+const BEAT_SPEEDS = [
+  ...CAPTIONS.flatMap((c) => Array<number>(c.keys.length).fill((BEAT_MS * c.keys.length) / c.ms)),
+  2,
+];
 
-/* A beat inside an n-beat caption runs n times as fast, so the caption still
-   takes CAPTION_MS. The trailing entry is the hold before the loop restarts,
-   which would otherwise sit a full caption's length at the end. */
-const BEAT_SPEEDS = [...CAPTION_SPANS.flatMap((n) => Array<number>(n).fill(n)), 2];
+const TOTAL_MS = CAPTIONS.reduce((sum, c) => sum + c.ms, 0);
 
-/** Where the dot bar sits: a caption owns an equal share of it, so the bar
- *  and the lit caption agree however many beats that caption spans. */
+/** Where the dot bar sits: a caption owns the share of the bar its time on
+ *  screen is worth, so the bar keeps one pace and still turns over exactly
+ *  when the lit caption does. */
 function captionProgress(t: number): number {
-  let start = 0;
-  for (let i = 0; i < CAPTION_SPANS.length; i++) {
-    const span = CAPTION_SPANS[i];
-    if (t < start + span) return (i + (t - start) / span) / CAPTION_SPANS.length;
-    start += span;
+  let beat = 0;
+  let ms = 0;
+  for (const c of CAPTIONS) {
+    const span = c.keys.length;
+    if (t < beat + span) return (ms + ((t - beat) / span) * c.ms) / TOTAL_MS;
+    beat += span;
+    ms += c.ms;
   }
   return 1;
 }
@@ -758,8 +761,10 @@ function BackStrip({ icon, label, detail }: { icon: string; label: string; detai
   );
 }
 
-/** The four surfaces, in the order the run promotes them. */
-const STACK = ['scan', 'chip', 'note', 'pr'] as const;
+/** The surfaces, in the order the run promotes them. The chip and the note
+ *  are one surface: the reading opens in the split the note is written in, so
+ *  the layout does not change under the reader between the two. */
+const STACK = ['scan', 'chip', 'pr'] as const;
 
 /** TerminalCardView's lift between one depth and the next. */
 const DEPTH_STEP = 24;
@@ -769,12 +774,15 @@ const FRONT_HEIGHT = 520;
 const STAGE_HEIGHT = FRONT_HEIGHT + (STACK.length - 1) * DEPTH_STEP;
 
 export function ReviewSection() {
-  const { rootRef, p, t, active, seek } = useTheaterLoop(BEAT_KEYS, CAPTION_MS, BEAT_SPEEDS);
+  const { rootRef, p, t, active, seek } = useTheaterLoop(BEAT_KEYS, BEAT_MS, BEAT_SPEEDS);
   /* Which surface holds the front, taken as a step rather than a ramp: the
      depth change is the app's own animation, and a crossfade tied to the loop
      would leave two cards half-faded on top of each other. */
   const front = STACK.reduce((n, key, i) => (i > 0 && p(key) > 0.05 ? i : n), 0);
   const depth = (i: number) => (i <= front ? front - i : null);
+  /* The tooltip is what the chip beat has to say; the note beat needs the
+     line it covers. */
+  const tip = front === 1 && p('note') < 0.05;
 
   return (
     /* The headline sits outside the theater, which centres what it holds. */
@@ -797,18 +805,10 @@ export function ReviewSection() {
               >
                 <MockAnalysis showAdvice />
               </StackCard>
-              <StackCard
-                depth={depth(1)}
-                back={<BackStrip icon="git-branch" label="main" detail="3 files +130 -78" />}
-              >
-                <div className="relative flex-1 min-h-0">
-                  <NotedDiffPane pNote={0} pSend={0} pFix={0} tip={front === 1} />
-                </div>
+              <StackCard depth={depth(1)}>
+                <RoundTripTerminal p={p} depth={depth(1) ?? 0} tip={tip} />
               </StackCard>
               <StackCard depth={depth(2)}>
-                <RoundTripTerminal p={p} depth={depth(2) ?? 0} />
-              </StackCard>
-              <StackCard depth={depth(3)}>
                 <CondensedPrCard />
               </StackCard>
             </div>
