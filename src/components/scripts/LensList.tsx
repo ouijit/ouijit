@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
+import { useExperimentalStore } from '../../stores/experimentalStore';
 import type { LensSummary } from '../../lens/config';
 import { describeError } from '../../utils/describeError';
 import { Icon } from '../terminal/Icon';
@@ -27,10 +28,33 @@ interface LensListProps {
  * Rendered both in settings and inside the dialog the Code pane opens, so that
  * adding a lens is possible from the place you wanted one.
  */
+/**
+ * Where a project's first lens comes from.
+ *
+ * The instruction is the whole feature, and a blank prose box under a label
+ * teaches nothing about what belongs in one. These three differ by axis rather
+ * than by wording — by structure, by judgement, and by a question the file tree
+ * cannot answer — so reading them is what says how wide the field is.
+ *
+ * Offered rather than seeded. Writing them into the project on first open would
+ * give everyone three lenses they did not write and have to delete.
+ */
+const SUGGESTED_LENSES: LensSummary[] = [
+  { name: 'By layer', instruction: 'Data model first, then the code that uses it, then the UI.' },
+  { name: 'Risk first', instruction: 'The riskiest changes first, then everything that follows from them.' },
+  {
+    name: 'What the tests miss',
+    instruction: 'Group by behaviour changed. Put the parts with no matching test change first.',
+  },
+];
+
 export function LensList({ projectPath, onRun, running }: LensListProps) {
   const { lenses, reload } = useProjectLenses(projectPath);
   const [expandedName, setExpandedName] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
+  // What `buildLensPrompt` will actually carry: the hotspot section is written
+  // only when `getDiffSignals` answers, and it answers only with this flag on.
+  const sendsHotspots = useExperimentalStore((s) => s.flagsByProject[projectPath]?.analysis ?? false);
 
   const save = useCallback(
     async (lens: LensSummary, previousName?: string) => {
@@ -66,7 +90,12 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       style={{ background: 'var(--color-terminal-bg)' }}
     >
       {lenses.length === 0 && !addingNew && (
-        <div className="px-4 py-8 text-center text-xs text-text-tertiary">No lenses yet.</div>
+        <>
+          <div className="px-4 pt-4 pb-3 text-[11px] text-text-tertiary">No lenses yet.</div>
+          {SUGGESTED_LENSES.map((suggested) => (
+            <SuggestedLens key={suggested.name} lens={suggested} onAdd={() => void save(suggested)} />
+          ))}
+        </>
       )}
 
       {lenses.map((lens) =>
@@ -74,6 +103,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
           <LensForm
             key={lens.name}
             initial={lens}
+            sendsHotspots={sendsHotspots}
             onSave={(next) => void save(next, lens.name)}
             onCancel={() => setExpandedName(null)}
             onDelete={() => void remove(lens.name)}
@@ -100,6 +130,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       {addingNew && (
         <LensForm
           existingNames={lenses.map((l) => l.name)}
+          sendsHotspots={sendsHotspots}
           onSave={(next) => void save(next)}
           onCancel={() => setAddingNew(false)}
         />
@@ -180,17 +211,47 @@ function LensRow({
   );
 }
 
+/**
+ * One lens on offer, added by pressing it.
+ *
+ * The instruction is on the row rather than behind the press, so what gets
+ * added is read before it is added rather than after — and it is editable and
+ * deletable like any other lens once it is there.
+ */
+function SuggestedLens({ lens, onAdd }: { lens: LensSummary; onAdd: () => void }) {
+  return (
+    <button
+      type="button"
+      title={`Add \u201C${lens.name}\u201D`}
+      className="group/suggest w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-ink/[0.04] transition-colors duration-100"
+      onClick={onAdd}
+    >
+      <Icon
+        name="plus"
+        className="shrink-0 w-3.5 h-3.5 text-text-tertiary group-hover/suggest:text-text-primary transition-colors duration-100"
+      />
+      <span className="flex-1 min-w-0">
+        <span className="block text-[13px] text-text-secondary truncate">{lens.name}</span>
+        <span className="block text-[11px] text-text-tertiary font-mono truncate">{lens.instruction}</span>
+      </span>
+    </button>
+  );
+}
+
 // ── Inline edit form ────────────────────────────────────────────────
 
 function LensForm({
   initial,
   existingNames,
+  sendsHotspots,
   onSave,
   onCancel,
   onDelete,
 }: {
   initial?: LensSummary;
   existingNames?: string[];
+  /** Whether the prompt will carry the history section as well as the diff. */
+  sendsHotspots: boolean;
   onSave: (lens: LensSummary) => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -272,7 +333,9 @@ function LensForm({
           placeholder="Data model first, then the code that uses it, then the UI."
         />
         <p className="mt-2 text-[11px] text-text-tertiary leading-relaxed">
-          Ouijit sends the diff, its title, and its description with this.
+          {sendsHotspots
+            ? 'Ouijit sends the diff, its title, its description, and the hotspots on these files.'
+            : 'Ouijit sends the diff, its title, and its description with this.'}
         </p>
       </div>
 
