@@ -41,6 +41,13 @@ export function useDiffLens(
       revision,
       read: () => (target ? window.api.diffLens.get(target) : Promise.resolve(null)),
       write: (lensId) => (target ? window.api.diffLens.run(target, lensId) : Promise.resolve({ success: false })),
+      // A lens written by an agent over the CLI, or by a run this pane started
+      // before it reloaded — shown as soon as it lands, since someone paid for
+      // the run either way.
+      subscribe: (refresh) =>
+        window.api.diffLens.onChanged((changed) => {
+          if (changed === key) refresh(true);
+        }),
     },
     diffs,
     order,

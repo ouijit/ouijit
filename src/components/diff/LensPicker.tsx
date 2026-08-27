@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { LensSummary } from '../../lens/config';
 import type { StoredLens } from '../../lens/readLens';
 import type { LensRun } from './useLensSession';
+import { formatRelativeTime } from '../../utils/formatDate';
 import { Icon } from '../terminal/Icon';
 import { MenuDivider, MenuItem, MenuPopover } from '../ui/Menu';
 
@@ -41,6 +42,7 @@ function triggerTitle({
   onFile,
   label,
   staleOffered,
+  interrupted,
 }: {
   writing: LensRun | null;
   showingLens: boolean;
@@ -49,8 +51,11 @@ function triggerTitle({
   label: string;
   /** Whether that lens is stale and still there to be run again. */
   staleOffered: boolean;
+  /** A run that never finished, from a session that ended before it did. */
+  interrupted: StoredLens['running'];
 }): string {
   if (writing) return `${writing.name} is running. The lens appears here when it writes one.`;
+  if (interrupted) return `How to read this change — “${interrupted.lensName}” did not finish`;
   if (!showingLens) {
     return staleOffered
       ? `How to read this change — “${label}” was written for earlier commits`
@@ -61,21 +66,30 @@ function triggerTitle({
   return 'Reading this change through a lens written for it';
 }
 
+interface RowState {
+  isApplied: boolean;
+  isStale: boolean;
+  /** This lens was being written when the session it was running in ended. */
+  isInterrupted: boolean;
+  writing: LensRun | null;
+  parts: number | null;
+}
+
 function rowHint(
   lens: LensSummary,
-  {
-    isApplied,
-    isStale,
-    writing,
-    parts,
-  }: { isApplied: boolean; isStale: boolean; writing: LensRun | null; parts: number | null },
+  { isApplied, isStale, isInterrupted, writing, parts }: RowState,
 ): string | undefined {
   if (writing?.id === lens.id) return 'Writing…';
+  if (isInterrupted) return 'did not finish';
   if (isApplied) return isStale ? `${parts} parts · out of date` : `${parts} parts`;
   return isStale ? 'out of date' : undefined;
 }
 
-function rowTitle(lens: LensSummary, isApplied: boolean, isStale: boolean): string {
+function rowTitle(lens: LensSummary, { isApplied, isStale, isInterrupted }: RowState, since: string | null): string {
+  if (isInterrupted) {
+    const started = since ? `Started ${formatRelativeTime(new Date(since))}` : 'Started';
+    return `${started} and never finished — read this change through “${lens.name}” again`;
+  }
   if (isApplied) {
     return isStale
       ? `Written for an earlier version of this change — read it again through “${lens.name}”`
@@ -128,6 +142,9 @@ export function LensPicker({
   // has — deleted, or never one of its own — has no row to carry the notice and
   // nothing to offer, so it is left unsaid.
   const staleOffered = Boolean(onFile?.stale && wrote);
+  // A run the app was killed out from under. The mark outlives the process that
+  // made it, which is the whole of how one is told from a run still going.
+  const interrupted = onFile?.running && !onFile.running.live ? onFile.running : null;
 
   const label = writing ? `Writing ${writing.name}…` : showingLens ? appliedLabel : 'All files';
   const note = showingLens ? `${parts}` : viewed ? `${viewed}/${changedFiles}` : `${changedFiles}`;
@@ -146,7 +163,7 @@ export function LensPicker({
           type="button"
           aria-haspopup="menu"
           aria-expanded={open}
-          title={triggerTitle({ writing, showingLens, onFile, label: appliedLabel, staleOffered })}
+          title={triggerTitle({ writing, showingLens, onFile, label: appliedLabel, staleOffered, interrupted })}
           // Fills the ledge it is given rather than setting its own height:
           // what it has to be level with sits across the seam, and the two
           // surfaces that draw this put a different thing there.
@@ -160,7 +177,9 @@ export function LensPicker({
           {/* Something is waiting behind a control nobody has to open. Without
               it, a reader who never opens the picker never learns that the run
               they paid for describes commits that are no longer here. */}
-          {staleOffered && !writing && <span aria-hidden className="shrink-0 w-1.5 h-1.5 rounded-full bg-accent" />}
+          {(staleOffered || interrupted) && !writing && (
+            <span aria-hidden className="shrink-0 w-1.5 h-1.5 rounded-full bg-accent" />
+          )}
           {!writing && <span className="shrink-0 font-mono text-[11px] text-ink/35">{note}</span>}
           {writing ? (
             <Icon
@@ -214,19 +233,21 @@ export function LensPicker({
         // when it is rendered the reader is already looking at it, and the
         // notice they want acting on is that it describes an older change.
         const isStale = staleOffered && wrote?.id === lens.id;
+        const isInterrupted = interrupted?.lensId === lens.id;
+        const state = { isApplied, isStale, isInterrupted, writing, parts };
         return (
           <MenuItem
             key={lens.id}
             label={lens.name}
-            hint={rowHint(lens, { isApplied, isStale, writing, parts })}
+            hint={rowHint(lens, state)}
             selected={isApplied && lensOn}
             // One run at a time. The lens already written and still current is
             // a view to switch to rather than a run to start, so it stays live.
             disabled={Boolean(writing) && (isStale || !isApplied)}
-            title={rowTitle(lens, isApplied, isStale)}
+            title={rowTitle(lens, state, interrupted?.since ?? null)}
             onClick={() => {
               setOpen(false);
-              if (isApplied && !isStale) onShowLens();
+              if (isApplied && !isStale && !isInterrupted) onShowLens();
               else onRun(lens);
             }}
           />

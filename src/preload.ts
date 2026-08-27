@@ -419,6 +419,7 @@ contextBridge.exposeInMainWorld('api', {
   diffLens: {
     get: (target: DiffLensTarget) => typedInvoke('diff-lens:get', target),
     run: (target: DiffLensTarget, lensId: string) => typedInvoke('diff-lens:run', target, lensId),
+    onChanged: (callback: (subjectKey: string) => void) => typedListen('diff-lens:changed', callback),
   },
 
   lens: {

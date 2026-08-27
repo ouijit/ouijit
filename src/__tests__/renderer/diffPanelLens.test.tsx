@@ -31,6 +31,7 @@ const LENS = {
   lensId: 'narrative',
   lensName: 'Narrative',
   stale: false,
+  running: null,
   groups: [
     {
       title: 'Where it is stored',
@@ -152,6 +153,56 @@ describe('the diff panel, read through a lens', () => {
     await act(async () => edit({ additions: 11 }));
     await waitFor(() => expect(window.api.diffLens.get).toHaveBeenCalledTimes(3));
     expect(screen.queryByText('Where it is stored')).toBeNull();
+  });
+
+  /**
+   * A run happens in the main process and outlives the pane that asked for it.
+   * Held only in renderer memory, a reload lost the spinner and the reader was
+   * left watching a diff with no sign that anything was coming.
+   */
+  test('a run this pane never started shows as running, and is let go when it ends', async () => {
+    vi.mocked(window.api.diffLens.get).mockResolvedValue({
+      groups: null,
+      lensId: null,
+      lensName: null,
+      stale: false,
+      running: { lensId: 'narrative', lensName: 'Narrative', since: null, live: true },
+    });
+    render(<DiffPanel {...PROPS} />);
+
+    expect(await screen.findByText('Writing Narrative…')).toBeTruthy();
+
+    // It ended in main, which nothing here was told directly. Reading the lens
+    // again is what puts the spinner down.
+    vi.mocked(window.api.diffLens.get).mockResolvedValue(LENS);
+    await act(async () => edit({ additions: 9 }));
+    await waitFor(() => expect(screen.queryByText('Writing Narrative…')).toBeNull());
+    expect((await screen.findAllByText('Where it is stored')).length).toBe(2);
+  });
+
+  /**
+   * The mark outlives the process that made it, which is the whole of how an
+   * interrupted run is told from a live one. Offered again rather than cleared
+   * quietly: the reader waited for something that never arrived.
+   */
+  test('a run the app was closed out from under is offered again', async () => {
+    const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    vi.mocked(window.api.diffLens.get).mockResolvedValue({
+      groups: null,
+      lensId: null,
+      lensName: null,
+      stale: false,
+      running: { lensId: 'narrative', lensName: 'Narrative', since, live: false },
+    });
+    render(<DiffPanel {...PROPS} />);
+
+    fireEvent.click(await screen.findByTitle(/“Narrative” did not finish/));
+    const row = screen.getByRole('menuitem', { name: /^Narrative/ });
+    expect(row.textContent).toContain('did not finish');
+    expect(row.getAttribute('title')).toContain('Started 3 hours ago');
+
+    fireEvent.click(row);
+    await waitFor(() => expect(window.api.diffLens.run).toHaveBeenCalledWith(expect.anything(), 'narrative'));
   });
 
   test('All files goes back to the flat list without writing a second lens', async () => {

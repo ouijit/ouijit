@@ -22,7 +22,11 @@ import { readDiffLens, writeDiffLens, type DiffLensTarget } from '../../lens/wor
 
 const GROUPS = vi.hoisted(() => JSON.stringify({ groups: [{ title: 'Transport', slices: [{ path: 'a.ts' }] }] }));
 
-vi.mock('../../lens/runLens', () => ({ runLens: vi.fn(async () => ({ success: true, body: GROUPS })) }));
+/** The agent, which is a spawned CLI: what it answers, and how long it takes. */
+const agent = vi.hoisted(() => ({
+  answer: async (): Promise<{ success: boolean; body?: string; error?: string }> => ({ success: true, body: GROUPS }),
+}));
+vi.mock('../../lens/runLens', () => ({ runLens: () => agent.answer() }));
 vi.mock('../../healthCheck', () => {
   const health = { claude: true, codex: false };
   return { getCachedHealth: () => health, checkHealth: async () => health };
@@ -50,6 +54,7 @@ async function readThroughLens(): Promise<void> {
 }
 
 beforeEach(async () => {
+  agent.answer = async () => ({ success: true, body: GROUPS });
   _resetCacheForTesting();
   repo = await fs.mkdtemp(path.join(os.tmpdir(), 'ouijit-lens-freshness-'));
   invalidateMainBranchCache(repo);
@@ -106,5 +111,52 @@ describe('whether a lens still describes the diff', () => {
     const lens = await readDiffLens(target());
     expect(lens?.stale).toBe(false);
     expect(lens?.groups?.map((group) => group.title)).toEqual(['Transport']);
+  });
+});
+
+/**
+ * Nothing was written until the agent answered, so a quit or a crash mid-run
+ * was indistinguishable from never having asked — and the only record that one
+ * was going lived in renderer memory, which a reload throws away.
+ */
+describe('a run that has not answered yet', () => {
+  test('is on the row while it runs, and gone once it is', async () => {
+    let answer = (): void => {};
+    let asked = (): void => {};
+    const spawned = new Promise<void>((resolve) => {
+      asked = resolve;
+    });
+    agent.answer = () =>
+      new Promise((resolve) => {
+        answer = () => resolve({ success: true, body: GROUPS });
+        asked();
+      });
+
+    const run = writeDiffLens(target(), lensId);
+    await spawned;
+
+    // Live, because this is the process that started it. The same mark found by
+    // a process that did not start it is an interrupted run.
+    const running = (await readDiffLens(target()))?.running;
+    expect(running?.lensName).toBe('Narrative');
+    expect(running?.live).toBe(true);
+
+    answer();
+    await run;
+    expect((await readDiffLens(target()))?.running).toBeNull();
+  });
+
+  test('a failed run leaves the grouping that was already there', async () => {
+    await readThroughLens();
+
+    agent.answer = async () => ({ success: false, error: 'claude is not on PATH' });
+    expect(await writeDiffLens(target(), lensId)).toEqual({ success: false, error: 'claude is not on PATH' });
+
+    // Recorded beside the groups rather than over them, so the run that failed
+    // costs the reader nothing they already had.
+    const lens = await readDiffLens(target());
+    expect(lens?.running).toBeNull();
+    expect(lens?.groups?.map((group) => group.title)).toEqual(['Transport']);
+    expect(lens?.stale).toBe(false);
   });
 });

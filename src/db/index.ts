@@ -467,6 +467,16 @@ export async function saveDiffLens(
   dl.save(projectPath, subjectKey, pin, groups, lens);
 }
 
+export async function startDiffLensRun(projectPath: string, subjectKey: string, lensId: string): Promise<void> {
+  const { diffLensRepo: dl } = repos();
+  dl.startRun(projectPath, subjectKey, lensId);
+}
+
+export async function endDiffLensRun(projectPath: string, subjectKey: string): Promise<void> {
+  const { diffLensRepo: dl } = repos();
+  dl.endRun(projectPath, subjectKey);
+}
+
 export async function deleteDiffLens(projectPath: string, subjectKey: string): Promise<{ success: boolean }> {
   const { diffLensRepo: dl } = repos();
   dl.delete(projectPath, subjectKey);

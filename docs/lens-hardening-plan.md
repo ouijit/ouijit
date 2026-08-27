@@ -148,23 +148,25 @@ Nothing is written until the agent returns, so a quit, a crash or a renderer
 reload mid-run is indistinguishable from never having tried. The in-flight map
 is renderer memory.
 
-- [ ] Record the attempt before spawning, in `running_lens_id` /
+- [x] Record the attempt before spawning, in `running_lens_id` /
       `running_since` — beside the groups, not over them,
-      so an interrupted run does not destroy a good existing lens.
-- [ ] Report in-flight runs from main, so `useLensSession` seeds its map from
+      so an interrupted run does not destroy a good existing lens. `pin` and
+      `groups` become nullable: a row is what is known about a diff's lens, and
+      an attempt is known before a grouping is.
+- [x] Report in-flight runs from main, so `useLensSession` seeds its map from
       the truth rather than from renderer memory. A reload stops losing the
       spinner.
-- [ ] Treat a row still marked running at startup as interrupted: a picker row
+- [x] Treat a row still marked running at startup as interrupted: a picker row
       that says so and offers to run it again.
-- [ ] Kill the child on `will-quit` (`src/main.ts:385`) rather than orphan it.
+- [x] Kill the child on `will-quit` (`src/main.ts:385`) rather than orphan it.
 
 **Tests**
 
-- [ ] integration — `writeLens` marks the row running before the agent answers
+- [x] integration — `writeLens` marks the row running before the agent answers
       and clears it after, and a run that fails leaves the previous grouping
       intact. The agent is the one thing stubbed, at the spawn boundary.
-- [ ] renderer — the interrupted row appears for a stored run marker and
-      re-running clears it.
+- [x] renderer — the interrupted row appears for a stored run marker, and a
+      run this pane never started is picked up and put down again.
 
 **Files** `db/repos/diffLensRepo.ts`, `lens/writeLens.ts`, `lens/runLens.ts`,
 `ipc/handlers/diffPanel.ts`, `useLensSession.ts`, `LensPicker.tsx`, `main.ts`.
@@ -190,10 +192,10 @@ fresh it is.
       tooltip, beside the instruction. Output is bounded by the schema and is
       not worth estimating. When the change will not fit the budget the row
       itself says so: that is the part that changes what the reader would do.
-- [ ] **Push when a worktree lens lands.** `diff-lens:run` pushes nothing, and
-      after Stage 1 `useDiffLens.subscribe` listens for nothing at all. A
-      CLI-written lens or a post-reload landing is invisible until remount.
-      Mirror `github:lens-changed`.
+- [x] **Push when a run ends.** Done in Stage 3, which needs it: a pane that
+      reloaded mid-run holds a spinner with nothing left to clear it.
+      `diff-lens:changed` carries the subject key; `github:run-lens` pushes
+      `github:lens-changed` the same way.
 
 **Tests**
 
@@ -201,7 +203,8 @@ fresh it is.
       range matching none. Pure function over resolved groups, so no fixtures.
 - [ ] renderer — the tooltip carries the size, and the row says too-big when the
       estimate is over `LENS_PROMPT_BUDGET`.
-- [ ] renderer — a lens landing from outside the pane appears without a remount.
+- [x] renderer — a lens landing from outside the pane appears without a remount.
+      Covered by the run this pane never started, above.
 
 **Files** `lens/lens.ts`, `LensPicker.tsx`, `DiffPanel.tsx`, `lens/lensPrompt.ts`,
 `ipc/contract.ts`, `ipc/handlers/diffPanel.ts`, `useDiffLens.ts`.

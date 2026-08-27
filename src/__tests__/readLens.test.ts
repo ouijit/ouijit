@@ -38,6 +38,8 @@ function store(
     groups,
     lens_id: lens?.id ?? null,
     lens_name: lens?.name ?? null,
+    running_lens_id: null,
+    running_since: null,
     created_at: '2026-08-01T00:00:00.000Z',
   });
 }
@@ -84,7 +86,7 @@ describe('reading the lens on file', () => {
     store('older-sha');
 
     const lens = await readLens(subject('drop'));
-    expect(lens).toEqual({ groups: null, lensId: 'lens-1', lensName: 'Narrative', stale: true });
+    expect(lens).toEqual({ groups: null, lensId: 'lens-1', lensName: 'Narrative', stale: true, running: null });
   });
 
   /**

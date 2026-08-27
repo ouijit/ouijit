@@ -623,6 +623,8 @@ export interface LensAPI {
 export interface DiffLensAPI {
   get(target: DiffLensTarget): Promise<StoredLens | null>;
   run(target: DiffLensTarget, lensId: string): Promise<{ success: boolean; error?: string }>;
+  /** A run over this worktree diff ended, in a pane that may not be this one. */
+  onChanged(callback: (subjectKey: string) => void): () => void;
 }
 
 /**

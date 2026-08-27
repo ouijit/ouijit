@@ -198,6 +198,7 @@ const mockApi = {
   diffLens: {
     get: vi.fn().mockResolvedValue(null),
     run: vi.fn().mockResolvedValue({ success: true }),
+    onChanged: vi.fn().mockReturnValue(() => {}),
   },
   lens: {
     list: vi.fn().mockResolvedValue([]),

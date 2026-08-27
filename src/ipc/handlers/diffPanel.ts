@@ -1,7 +1,7 @@
 import type { BrowserWindow } from 'electron';
 import { typedHandle, typedPush } from '../helpers';
 import { liveNotes, saveNote, discardNote, clearNotes } from '../../diffNotesService';
-import { readDiffLens, writeDiffLens } from '../../lens/worktreeSubject';
+import { readDiffLens, writeDiffLens, diffLensKey } from '../../lens/worktreeSubject';
 import { listLenses, saveLens, deleteLens, getLensAgentChoice, setLensAgentChoice } from '../../lens/config';
 
 export function registerDiffPanelHandlers(mainWindow: BrowserWindow): void {
@@ -11,7 +11,13 @@ export function registerDiffPanelHandlers(mainWindow: BrowserWindow): void {
   typedHandle('diff-notes:clear', (worktreePath) => clearNotes(worktreePath));
 
   typedHandle('diff-lens:get', (target) => readDiffLens(target));
-  typedHandle('diff-lens:run', (target, lensId) => writeDiffLens(target, lensId));
+  typedHandle('diff-lens:run', async (target, lensId) => {
+    try {
+      return await writeDiffLens(target, lensId);
+    } finally {
+      typedPush(mainWindow, 'diff-lens:changed', diffLensKey(target));
+    }
+  });
 
   // The project's lens list and agent, which both diffs read. Registered here
   // rather than among the GitHub handlers, which all require a repo identity

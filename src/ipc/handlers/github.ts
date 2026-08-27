@@ -1,5 +1,6 @@
 import { getViewedFiles, setFileViewed } from '../../github/viewedFiles';
-import { typedHandle } from '../helpers';
+import type { BrowserWindow } from 'electron';
+import { typedHandle, typedPush } from '../helpers';
 import {
   getAvailability,
   getInbox,
@@ -37,7 +38,7 @@ import {
  * gating (experimental flag, `gh` presence, auth, remote) lives in the service
  * so the REST router gets the same guarantees without duplicating them.
  */
-export function registerGithubHandlers(): void {
+export function registerGithubHandlers(mainWindow: BrowserWindow): void {
   typedHandle('github:availability', (projectPath, recheck) => getAvailability(projectPath, recheck));
   typedHandle('github:inbox', (projectPath) => getInbox(projectPath));
   typedHandle('github:pull-request', (projectPath, number) => getPullRequest(projectPath, number));
@@ -82,7 +83,15 @@ export function registerGithubHandlers(): void {
     createPullRequestForTask(projectPath, taskNumber, options),
   );
   typedHandle('github:lens', (projectPath, prNumber, headSha) => getLens(projectPath, prNumber, headSha));
-  typedHandle('github:run-lens', (projectPath, prNumber, lensId) => writeLensWithAgent(projectPath, prNumber, lensId));
+  typedHandle('github:run-lens', async (projectPath, prNumber, lensId) => {
+    try {
+      return await writeLensWithAgent(projectPath, prNumber, lensId);
+    } finally {
+      // For a pane that did not start this one: a renderer reloaded mid-run
+      // holds a spinner with nothing else left to clear it.
+      typedPush(mainWindow, 'github:lens-changed', { projectPath, prNumber });
+    }
+  });
   typedHandle('github:viewed-files', (projectPath, prNumber, headSha) =>
     getViewedFiles(projectPath, prNumber, headSha),
   );

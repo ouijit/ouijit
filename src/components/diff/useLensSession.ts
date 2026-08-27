@@ -61,6 +61,15 @@ export interface LensRun {
  * two diffs can be read at once and each only claims its own.
  */
 const runs = new Map<string, LensRun>();
+/**
+ * Keys whose spinner was adopted from main rather than started here.
+ *
+ * A run this pane started clears itself when the call returns. One it found
+ * already going has nobody to do that, so reading the lens again is what ends
+ * it — and only for the ones it picked up, or a read that lands in the gap
+ * between starting a run and main recording it would kill a live spinner.
+ */
+const adopted = new Set<string>();
 const listeners = new Set<() => void>();
 
 function setRun(key: string, run: LensRun | null): void {
@@ -74,9 +83,26 @@ function subscribeToRuns(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/**
+ * A run main knows about, taken up or put down.
+ *
+ * The spinner belongs to the run, not to the pane that asked for it: a reload
+ * mid-run used to lose it, because the only record was renderer memory.
+ */
+function syncRun(key: string, running: StoredLens['running']): void {
+  if (running?.live) {
+    if (runs.has(key)) return;
+    adopted.add(key);
+    setRun(key, { id: running.lensId, name: running.lensName });
+  } else if (adopted.delete(key)) {
+    setRun(key, null);
+  }
+}
+
 /** Test seam — module state outlives a render, which is the point of it. */
 export function _resetLensRunsForTesting(): void {
   runs.clear();
+  adopted.clear();
   listeners.clear();
 }
 
@@ -136,6 +162,7 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
     if (sourceRef.current.key !== at) return;
 
     setLens(next);
+    syncRun(at, next?.running ?? null);
     // Someone went to the trouble of having an agent describe this change;
     // showing the flat list anyway would hide that behind a control they would
     // have to know to press.

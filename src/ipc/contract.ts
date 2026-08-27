@@ -502,4 +502,13 @@ export interface IpcPushContract {
    * open diff are the ordinary case. Broadcast so each reads its own again.
    */
   'lens:list-changed': { args: [projectPath: string] };
+  /**
+   * A run over a worktree diff ended, however it ended.
+   *
+   * The pane that started one reads the result back itself. This is for a pane
+   * that did not: a renderer reloaded while a run was going, holding a spinner
+   * with nothing left to clear it, or an agent writing over the CLI. Carries the
+   * subject key rather than the target, which is what a pane matches on.
+   */
+  'diff-lens:changed': { args: [subjectKey: string] };
 }

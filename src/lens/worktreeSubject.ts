@@ -32,7 +32,7 @@ export interface DiffLensTarget {
  * The base is part of the key: two comparisons of the same worktree list
  * different changes, and a lens written over one does not describe the other.
  */
-function subjectKey(target: DiffLensTarget): string {
+export function diffLensKey(target: DiffLensTarget): string {
   return `wt:${target.worktreePath}:${target.base ?? 'HEAD'}`;
 }
 
@@ -88,7 +88,7 @@ class WorktreeSubject implements DiffSubject {
 
   constructor(private target: DiffLensTarget) {
     this.projectPath = target.projectPath;
-    this.key = subjectKey(target);
+    this.key = diffLensKey(target);
     this.cwd = target.worktreePath;
     this.label = { base: target.base ?? 'HEAD' };
   }
