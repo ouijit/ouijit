@@ -267,14 +267,17 @@ export function VariantHandoff() {
               <KanbanColumnView status="in_progress" label="In Progress" count={N}>
                 {TASKS.map((task, i) => {
                   // The row appears as the flight lands, so the card gains
-                  // its terminal at the moment the stack does.
+                  // its terminal at the moment the stack does. Before that it
+                  // holds the setting-up row, which is the same height: a card
+                  // that changed height here would grow the column, and the
+                  // column carries the section's own.
                   const connected = staticMode || i < Math.floor(gone) || (i === flying && f >= LAND_AT);
                   return (
                     <div key={task.taskNumber} ref={setSlot(i)}>
                       <KanbanCardView
                         task={task}
                         connectedDisplays={connected ? [CONNECTED[i]] : []}
-                        isSettingUp={!connected && i === flying && f > 0.04}
+                        isSettingUp={!connected}
                         showBadge={false}
                       />
                     </div>

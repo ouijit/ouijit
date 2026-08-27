@@ -2571,8 +2571,8 @@ body.marketing::after {
 .hx-captions {
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding: 28px 36px 0;
+  gap: 12px;
+  padding: 7px 36px 0;
 }
 
 .hx-column {
