@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { LensGroupSection } from './LensGroupSection';
+import { partDelay } from './lensReveal';
 import { inTreeOrder } from './DiffFileTree';
 import { sectionKey, type ResolvedGroup, type ResolvedSlice } from '../../lens/lens';
 
@@ -16,6 +17,8 @@ export interface LensedFileListProps<T extends { path: string }> {
   renderFile: (file: T, key?: string, slice?: ResolvedSlice) => ReactNode;
   collapsed: ReadonlySet<string>;
   onCollapsedChange: (title: string, next: boolean) => void;
+  /** The grouping has just arrived, so its parts lay themselves in. */
+  revealing?: boolean;
 }
 
 /**
@@ -32,6 +35,7 @@ export function LensedFileList<T extends { path: string }>({
   renderFile,
   collapsed,
   onCollapsedChange,
+  revealing,
 }: LensedFileListProps<T>) {
   const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
   // The tree groups by directory; the document has to run in the same order or
@@ -42,12 +46,13 @@ export function LensedFileList<T extends { path: string }>({
 
   return (
     <>
-      {groups.map((group) => (
+      {groups.map((group, at) => (
         <LensGroupSection
           key={group.id}
           group={group}
           collapsed={collapsed.has(group.id)}
           onCollapsedChange={(next) => onCollapsedChange(group.id, next)}
+          revealDelay={revealing ? partDelay(at) : undefined}
         >
           {group.slices.map((slice) => {
             const file = byPath.get(slice.path);

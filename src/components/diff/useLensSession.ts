@@ -117,6 +117,14 @@ export interface LensSession {
   setLensOn: (on: boolean) => void;
   /** The lens being written for this diff, if one is running. */
   writing: LensRun | null;
+  /**
+   * Bumped when a grouping arrives in a pane that was showing something else.
+   *
+   * Not on every read: a poll that finds the same lens, and a pane opened on a
+   * diff that already had one, changed nothing under the reader. What this
+   * marks is the moment the document rearranges itself unasked.
+   */
+  landed: number;
   run: (pick: LensSummary) => Promise<void>;
   /** One file's diff narrowed to the hunks a group claims. */
   sliceFor: ReturnType<typeof useDiffSlices>;
@@ -144,6 +152,10 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
   /** Which diff the state below belongs to, so a re-read can tell the two apart. */
   const readFor = useRef<string | null>(null);
 
+  const [landed, setLanded] = useState(0);
+  /** The lens on screen, and whether a read for this diff has come back at all. */
+  const held = useRef<{ lens: StoredLens | null; read: boolean }>({ lens: null, read: false });
+
   const writing = useSyncExternalStore<LensRun | null>(subscribeToRuns, () => (key ? (runs.get(key) ?? null) : null));
 
   const refresh = useCallback(async (apply: boolean): Promise<void> => {
@@ -161,7 +173,13 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
     // The pane may have moved on while that was in flight.
     if (sourceRef.current.key !== at) return;
 
+    // Their own run finishing, or a grouping written elsewhere arriving — as
+    // against the first read for a diff, which is how they found it.
+    const arriving = Boolean(next?.groups) && held.current.read && (runs.has(at) || !held.current.lens?.groups);
+    held.current = { lens: next, read: true };
+
     setLens(next);
+    if (arriving) setLanded((n) => n + 1);
     syncRun(at, next?.running ?? null);
     // Someone went to the trouble of having an agent describe this change;
     // showing the flat list anyway would hide that behind a control they would
@@ -180,6 +198,7 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
     if (elsewhere) {
       setLens(null);
       setChosen(null);
+      held.current = { lens: null, read: false };
     }
     void refresh(elsewhere);
   }, [key, revision, refresh]);
@@ -236,6 +255,7 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
     lensOn,
     setLensOn: setChosen,
     writing,
+    landed,
     run,
     sliceFor,
   };

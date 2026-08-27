@@ -48,6 +48,8 @@ interface FilesSectionProps {
   detail: PullRequestDetail;
   /** The lens bound to this diff, when the reader has it on. */
   groups?: ResolvedGroup[] | null;
+  /** The grouping has just arrived, so its parts lay themselves in. */
+  revealing?: boolean;
 }
 
 export interface FilesSectionHandle {
@@ -160,7 +162,7 @@ const FileSection = memo(function FileSection({
  * capped at what a patch would carry.
  */
 export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(function FilesSection(
-  { projectPath, detail, groups },
+  { projectPath, detail, groups, revealing },
   ref,
 ) {
   const files = useGithubStore((s) => s.files);
@@ -471,6 +473,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
           renderFile={renderFile}
           collapsed={collapsed}
           onCollapsedChange={setGroupCollapsed}
+          revealing={revealing}
         />
       </div>
 

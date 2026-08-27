@@ -32,6 +32,8 @@ interface PullRequestRailProps {
   onOpenLenses: () => void;
   /** The lens being written, if one is running. */
   lensWriting: LensRun | null;
+  /** The grouping has just arrived, so its parts lay themselves in. */
+  revealing?: boolean;
   /** Set by dragging the seam beside this. */
   width: number;
 }
@@ -55,6 +57,7 @@ export function PullRequestRail({
   onRunLens,
   onOpenLenses,
   lensWriting,
+  revealing,
   width,
 }: PullRequestRailProps) {
   const byPath = useMemo(() => new Map(files.map((file) => [file.path, file])), [files]);
@@ -148,6 +151,7 @@ export function PullRequestRail({
             onFileClick={onSelect}
             renderFileTrailing={(file, hunks, section) => trailing(file.path, hunks, section)}
             activeSection={activeSection}
+            revealing={revealing}
           />
         </div>
       ) : (

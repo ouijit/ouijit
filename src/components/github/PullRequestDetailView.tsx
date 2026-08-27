@@ -9,6 +9,8 @@ import { ResizeHandle } from '../common/ResizeHandle';
 import { treeFileOrder } from '../diff/DiffFileTree';
 import { useProjectLenses } from '../diff/useProjectLenses';
 import { useLensSession } from '../diff/useLensSession';
+import { useLensReveal } from '../diff/lensReveal';
+import { useReadingAnchor } from '../diff/readingAnchor';
 import { scrollToSection, fileSelector } from '../diff/scrollToSection';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
@@ -163,6 +165,14 @@ export function PullRequestDetailView({
   const lensOn = lens.lensOn;
   const shown = lens.shown;
 
+  const revealing = useLensReveal(lens.landed);
+  const keepPlace = useReadingAnchor(paneRef);
+  const { landed } = lens;
+
+  useEffect(() => {
+    if (landed) keepPlace();
+  }, [landed, keepPlace]);
+
   useEffect(() => {
     if (pane !== 'code' || !pendingDraft) return;
     // To the copy of the file that holds the line it is anchored to. A lens can
@@ -280,6 +290,7 @@ export function PullRequestDetailView({
               onRunLens={runLens}
               onOpenLenses={() => setLensesOpen(true)}
               lensWriting={lens.writing}
+              revealing={revealing}
             />
             <ResizeHandle
               width={railWidth}
@@ -304,7 +315,13 @@ export function PullRequestDetailView({
           ) : pane === 'timeline' ? (
             <DiscussionSection projectPath={projectPath} detail={detail} />
           ) : (
-            <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} groups={lens.shown} />
+            <FilesSection
+              ref={filesRef}
+              projectPath={projectPath}
+              detail={detail}
+              groups={lens.shown}
+              revealing={revealing}
+            />
           )}
         </div>
       </div>

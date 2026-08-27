@@ -24,12 +24,15 @@ export function LensGroupSection({
   group,
   collapsed,
   onCollapsedChange,
+  revealDelay,
   children,
 }: {
   group: ResolvedGroup;
   /** Folded to its header alone, the way a file folds to its own. */
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
+  /** Laying itself in this long after the first part. Absent when it is not. */
+  revealDelay?: number;
   children: ReactNode;
 }) {
   const headerRef = useRef<HTMLDivElement>(null);
@@ -54,8 +57,13 @@ export function LensGroupSection({
     <div
       data-group={group.id}
       data-collapsed={collapsed ? '' : undefined}
-      className="lens-part diff-list flex flex-col"
-      style={{ '--diff-sticky-offset': `${headerHeight}px` } as CSSProperties}
+      className={`lens-part diff-list flex flex-col ${revealDelay === undefined ? '' : 'lens-part-enter'}`}
+      style={
+        {
+          '--diff-sticky-offset': `${headerHeight}px`,
+          ...(revealDelay === undefined ? null : { animationDelay: `${revealDelay}ms` }),
+        } as CSSProperties
+      }
     >
       {/* One line, at the height of a file header: the two pin one above the
           other, and the rail beside them lists its actions on the same unit,

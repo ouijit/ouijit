@@ -3,6 +3,7 @@ import type { ChangedFile } from '../../types';
 import { sectionKey, type ResolvedGroup } from '../../lens/lens';
 import { Icon } from '../terminal/Icon';
 import { statusIcon, statusColorClass, badgeColorClass } from './diffStatus';
+import { partDelay } from './lensReveal';
 
 /**
  * Trailing content for one row. Under a lens the row is one part of a file, so
@@ -104,6 +105,8 @@ export interface DiffFileTreeProps {
   header?: ReactNode;
   /** The section in view, marked in the rail — the path itself when no lens splits it. */
   activeSection?: string | null;
+  /** The grouping has just arrived, so its parts lay themselves in. */
+  revealing?: boolean;
   footer?: ReactNode;
 }
 
@@ -153,6 +156,7 @@ export function DiffFileTreeChapters<T extends ChangedFile>({
   onFileClick,
   renderFileTrailing,
   activeSection,
+  revealing,
 }: {
   groups: ResolvedGroup[];
   byPath: Map<string, T>;
@@ -162,10 +166,12 @@ export function DiffFileTreeChapters<T extends ChangedFile>({
   renderFileTrailing?: FileTrailing<T>;
   /** The section being read, which belongs to one part and not to the others. */
   activeSection?: string | null;
+  /** The grouping has just arrived, so its parts lay themselves in. */
+  revealing?: boolean;
 }) {
   return (
     <>
-      {groups.map((group) => {
+      {groups.map((group, at) => {
         const folded = collapsed.has(group.id);
         // Counted as the part claims them, so the rail and the card it scrolls
         // to do not report a file split across three parts three times over.
@@ -179,7 +185,11 @@ export function DiffFileTreeChapters<T extends ChangedFile>({
         const here = `${group.id}:`;
         const activePath = activeSection?.startsWith(here) ? activeSection.slice(here.length) : null;
         return (
-          <div key={group.id} className="flex flex-col">
+          <div
+            key={group.id}
+            className={`flex flex-col ${revealing ? 'lens-part-enter' : ''}`}
+            style={revealing ? { animationDelay: `${partDelay(at)}ms` } : undefined}
+          >
             {/* Set as the lens wrote it. Uppercasing a title shouts, and
                 algorithmic title case would spell GitHub "Github".
 
@@ -232,6 +242,7 @@ export function DiffFileTree({
   renderFileTrailing,
   header,
   activeSection,
+  revealing,
   footer,
 }: DiffFileTreeProps) {
   const byPath = useMemo(() => new Map(files.map((file) => [file.path, file])), [files]);
@@ -252,6 +263,7 @@ export function DiffFileTree({
           onFileClick={onFileClick}
           renderFileTrailing={renderFileTrailing}
           activeSection={activeSection}
+          revealing={revealing}
         />
       ) : (
         <DiffFileTreeNodes

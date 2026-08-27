@@ -1234,3 +1234,22 @@ textarea,
 .description-attachment-chip::before {
   content: '[Img #' counter(img-counter) ']';
 }
+
+@keyframes lens-part-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A grouping lands over a document the reader is already in, so its parts lay
+   themselves down in reading order rather than all at once. The fade is also
+   cover for the reflow: `useReadingAnchor` puts the reader back on the file
+   they were on while the parts are still transparent. */
+.lens-part-enter {
+  animation: lens-part-enter 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}

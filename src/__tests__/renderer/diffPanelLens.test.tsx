@@ -287,6 +287,44 @@ describe('the diff panel, read through a lens', () => {
     expect(stored.textContent).toContain('+5');
   });
 
+  /**
+   * A grouping lands over a document the reader is already in: every card is
+   * rebuilt under a new key, in a new order, between two frames. So the parts
+   * lay themselves in, in reading order, rather than replacing what was there.
+   *
+   * Only where something arrived. How a pane looked when it was opened is not
+   * an arrival, and marking it would be motion for having drawn a page.
+   */
+  test('a grouping that arrives lays its parts in; one the pane opened on does not', async () => {
+    vi.mocked(window.api.diffLens.get).mockResolvedValue(SPLIT_LENS);
+    vi.mocked(window.api.worktree.getFileDiff).mockImplementation((_path, _base, file) =>
+      Promise.resolve(file === 'src/db/repo.ts' ? REPO_DIFF : null),
+    );
+    const opened = render(<DiffPanel {...PROPS} />);
+
+    await screen.findAllByText('What reads it');
+    expect(opened.container.querySelectorAll('.lens-part-enter').length).toBe(0);
+
+    cleanup();
+    _resetLensRunsForTesting();
+    // Nothing written for this diff, so the reader is on the flat file list.
+    vi.mocked(window.api.diffLens.get).mockResolvedValue(null);
+    vi.mocked(window.api.diffLens.run).mockResolvedValue({ success: true });
+    const reading = render(<DiffPanel {...PROPS} />);
+    await waitFor(() => expect(window.api.diffLens.get).toHaveBeenCalled());
+    expect(screen.queryByText('What reads it')).toBeNull();
+
+    vi.mocked(window.api.diffLens.get).mockResolvedValue(SPLIT_LENS);
+    fireEvent.click(screen.getByTitle(/^(How to read|Reading) this change/));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Narrative/ }));
+    await screen.findAllByText('What reads it');
+
+    // Both sides of the seam, so the rail and the document settle together.
+    const parts = [...reading.container.querySelectorAll<HTMLElement>('.lens-part-enter')];
+    const delays = parts.map((part) => part.style.animationDelay);
+    expect(delays).toEqual(['0ms', '55ms', '110ms', '0ms', '55ms', '110ms']);
+  });
+
   test('All files goes back to the flat list without writing a second lens', async () => {
     render(<DiffPanel {...PROPS} />);
     await screen.findAllByText('Where it is stored');
