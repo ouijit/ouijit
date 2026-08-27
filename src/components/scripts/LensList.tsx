@@ -204,32 +204,30 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
  */
 function LensRow({ lens, onEdit, writing }: { lens: LensSummary; onEdit: () => void; writing: boolean }) {
   return (
-    <div className="group/lens flex items-center gap-3 pl-4 pr-2">
-      <button
-        type="button"
-        title={`Edit “${lens.name}”`}
-        className="flex-1 min-w-0 flex items-center gap-3 py-3 text-left"
-        onClick={onEdit}
-      >
-        <Icon name="aperture" className={`shrink-0 w-4 h-4 ${writing ? 'text-accent' : 'text-accent/60'}`} />
-        <span className="flex-1 min-w-0">
-          <span className="block text-[13px] text-text-primary truncate">{lens.name}</span>
-          <span className="block text-[11px] text-text-tertiary font-mono truncate">
-            {writing ? 'Writing…' : lens.instruction}
-          </span>
+    // One target and one meaning. A pencil beside a row that also pressed did
+    // the same thing twice, and left the row itself saying nothing about what
+    // pressing it was for.
+    <button
+      type="button"
+      aria-label={`Edit “${lens.name}”`}
+      className="group/lens w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-ink/[0.04] transition-colors duration-100"
+      onClick={onEdit}
+    >
+      <Icon name="aperture" className={`shrink-0 w-4 h-4 ${writing ? 'text-accent' : 'text-accent/60'}`} />
+      <span className="flex-1 min-w-0">
+        <span className="block text-[13px] text-text-primary truncate">{lens.name}</span>
+        <span className="block text-[11px] text-text-tertiary font-mono truncate">
+          {writing ? 'Writing…' : lens.instruction}
         </span>
-      </button>
-
-      <button
-        type="button"
-        title={`Edit ${lens.name}`}
-        aria-label={`Edit ${lens.name}`}
-        className="shrink-0 w-7 h-7 rounded-md text-text-tertiary flex items-center justify-center opacity-0 group-hover/lens:opacity-100 focus-visible:opacity-100 hover:bg-ink/[0.08] hover:text-text-primary transition-all duration-150"
-        onClick={onEdit}
-      >
-        <Icon name="pencil-simple" className="w-4 h-4" />
-      </button>
-    </div>
+      </span>
+      {/* Said where the press is about to happen. Reading a change costs an
+          agent run and editing a lens does not, so which one a row is has to
+          be answerable before it is pressed rather than after. */}
+      <span className="shrink-0 flex items-center gap-1.5 text-[11px] text-text-tertiary opacity-0 group-hover/lens:opacity-100 group-focus-visible/lens:opacity-100 transition-opacity duration-150">
+        <Icon name="pencil-simple" className="w-3.5 h-3.5" />
+        Edit
+      </span>
+    </button>
   );
 }
 

@@ -560,7 +560,7 @@ describe('PullRequestsPanel — lens', () => {
     await openPicker();
     pick('Manage lenses…');
 
-    fireEvent.click(await screen.findByLabelText('Edit Narrative'));
+    fireEvent.click(await screen.findByLabelText('Edit “Narrative”'));
     fireEvent.change(await screen.findByDisplayValue('Narrative'), { target: { value: 'Narrative v2' } });
     fireEvent.click(screen.getByText('Save'));
 
@@ -598,7 +598,7 @@ describe('PullRequestsPanel — lens', () => {
     await openPicker();
     pick('Manage lenses…');
 
-    fireEvent.click(await screen.findByLabelText('Edit Narrative'));
+    fireEvent.click(await screen.findByLabelText('Edit “Narrative”'));
     expect(await screen.findByDisplayValue('group by story')).toBeTruthy();
     expect(window.api.github.runLens).not.toHaveBeenCalled();
   });
