@@ -1698,12 +1698,14 @@ body.marketing::after {
   opacity: 1;
 }
 
-.beat-row h3 {
+.beat-row h3,
+.hx-captions h3 {
   font-size: 15px;
   margin: 0;
 }
 
-.beat-row p {
+.beat-row p,
+.hx-captions p {
   color: #86868b;
   font-size: 13px;
   line-height: 1.45;
@@ -2589,8 +2591,11 @@ body.marketing::after {
   padding: 0 var(--content-padding);
   /* Sized to the transcripts, not to the window. The cards divide a fixed
      height, so a viewport-relative stage makes the deepest card clip its
-     newest line on a short screen and open a void on a tall one. */
-  height: 676px;
+     newest line on a short screen and open a void on a tall one. The stage
+     itself only holds that as a floor: the rail runs past it when its copy
+     does, and the desk keeps its own height either way. */
+  --desk-h: 676px;
+  min-height: var(--desk-h);
   margin: 0 auto;
 }
 
@@ -2605,6 +2610,16 @@ body.marketing::after {
   padding: 36px;
 }
 
+/* Under the column rather than under the whole stage: the rail is the width
+   of a paragraph, and the copy explains what the column is doing. Inset to
+   the desk's own padding, so it reads off the column's left edge. */
+.hx-captions {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 28px 36px 0;
+}
+
 .hx-column {
   width: 300px;
   background: var(--color-terminal-bg);
@@ -2615,7 +2630,7 @@ body.marketing::after {
   position: relative;
   flex: 1;
   min-width: 0;
-  height: 100%;
+  height: var(--desk-h);
   padding: 36px;
 }
 
@@ -2626,8 +2641,7 @@ body.marketing::after {
 
   .hx-stage {
     flex-direction: column;
-    height: auto;
-    max-height: none;
+    min-height: 0;
     gap: 28px;
   }
 
@@ -2636,9 +2650,12 @@ body.marketing::after {
     width: 100%;
   }
 
+  /* `flex: none` because the stage stacks here: in a column, flex-basis is
+     the height, and it would take the desk's own away. */
   .hx-desk {
     width: 100%;
-    height: 520px;
+    flex: none;
+    --desk-h: 520px;
     padding: 20px;
   }
 }
