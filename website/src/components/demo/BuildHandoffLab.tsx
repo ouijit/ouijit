@@ -67,7 +67,7 @@ const CAPTIONS = [
     body: 'Save the command that opens a task with the project, and every task you start runs it in its own worktree.',
   },
   {
-    title: 'Agents run without the prompts',
+    title: 'Run agents full auto',
     body: 'A sandboxed agent reaches its own worktree and nothing else — a Lima VM, or Seatbelt and Landlock in place.',
   },
 ];
