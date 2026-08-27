@@ -663,8 +663,8 @@ const BEAT_KEYS = [...ANALYSIS_KEYS, ...LOOP_KEYS, 'pr'] as const;
 const CAPTIONS: { keys: readonly string[]; title: string; body: string; ms: number }[] = [
   {
     keys: [...ANALYSIS_KEYS, ...LOOP_KEYS],
-    title: 'Manage tech debt',
-    body: 'Use predictive analysis to keep tabs on tech debt and make progress on it whenever that code is being touched.',
+    title: 'Visualize code health issues',
+    body: 'Hotspots help you identify and manage complexity, churn, and ownership risk.',
     ms: 9000,
   },
   {
