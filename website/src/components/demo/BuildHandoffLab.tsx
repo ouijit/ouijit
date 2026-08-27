@@ -59,15 +59,15 @@ const LAND_AT = 0.88;
  *  what opens each one, and what keeps them from asking. */
 const CAPTIONS = [
   {
-    title: 'Give each agent its own worktree',
+    title: 'Every agent works in isolation',
     body: 'Starting a task cuts a git worktree and a branch for it. Four agents at once are four checkouts, so nothing one does lands in another’s tree.',
   },
   {
-    title: 'Start every task the same way',
+    title: 'Every task opens the same way',
     body: 'A start hook opens each one with the command you always type — the agent, the dev server, the test watcher — already running in the worktree.',
   },
   {
-    title: 'Let them run without the prompts',
+    title: 'Agents run without the prompts',
     body: 'Sandboxed, an agent reaches its own worktree and nothing else: a Lima VM, or Seatbelt and Landlock in place. Auto mode without approving every step.',
   },
 ];
