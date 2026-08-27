@@ -43,7 +43,12 @@ describe('LensList', () => {
     // Nothing was written by drawing them.
     expect(window.api.lens.save).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByTitle('Add “What the tests miss”'));
+    // The name is all the pill carries; what it will add is on hovering it.
+    const pill = screen.getByText('What the tests miss');
+    expect(pill.getAttribute('title')).toBe(
+      'Group by behaviour changed. Put the parts with no matching test change first.',
+    );
+    fireEvent.click(pill);
 
     await waitFor(() =>
       expect(window.api.lens.save).toHaveBeenCalledWith(

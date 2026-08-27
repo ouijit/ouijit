@@ -34,7 +34,7 @@ interface LensListProps {
  * The instruction is the whole feature, and a blank prose box under a label
  * teaches nothing about what belongs in one. These three differ by axis rather
  * than by wording — by structure, by judgement, and by a question the file tree
- * cannot answer — so reading them is what says how wide the field is.
+ * cannot answer.
  *
  * Offered rather than seeded. Writing them into the project on first open would
  * give everyone three lenses they did not write and have to delete.
@@ -90,12 +90,20 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       style={{ background: 'var(--color-terminal-bg)' }}
     >
       {lenses.length === 0 && !addingNew && (
-        <>
-          <div className="px-4 pt-4 pb-3 text-[11px] text-text-tertiary">No lenses yet.</div>
+        <div className="px-4 py-4 flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-[11px] text-text-tertiary">No lenses yet.</span>
           {SUGGESTED_LENSES.map((suggested) => (
-            <SuggestedLens key={suggested.name} lens={suggested} onAdd={() => void save(suggested)} />
+            <button
+              key={suggested.name}
+              type="button"
+              title={suggested.instruction}
+              className="px-2.5 py-1 text-[11px] text-text-secondary bg-ink/[0.05] rounded-full hover:bg-ink/[0.09] hover:text-text-primary transition-colors duration-150"
+              onClick={() => void save(suggested)}
+            >
+              {suggested.name}
+            </button>
           ))}
-        </>
+        </div>
       )}
 
       {lenses.map((lens) =>
@@ -208,33 +216,6 @@ function LensRow({
         <Icon name="pencil-simple" className="w-4 h-4" />
       </button>
     </div>
-  );
-}
-
-/**
- * One lens on offer, added by pressing it.
- *
- * The instruction is on the row rather than behind the press, so what gets
- * added is read before it is added rather than after — and it is editable and
- * deletable like any other lens once it is there.
- */
-function SuggestedLens({ lens, onAdd }: { lens: LensSummary; onAdd: () => void }) {
-  return (
-    <button
-      type="button"
-      title={`Add \u201C${lens.name}\u201D`}
-      className="group/suggest w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-ink/[0.04] transition-colors duration-100"
-      onClick={onAdd}
-    >
-      <Icon
-        name="plus"
-        className="shrink-0 w-3.5 h-3.5 text-text-tertiary group-hover/suggest:text-text-primary transition-colors duration-100"
-      />
-      <span className="flex-1 min-w-0">
-        <span className="block text-[13px] text-text-secondary truncate">{lens.name}</span>
-        <span className="block text-[11px] text-text-tertiary font-mono truncate">{lens.instruction}</span>
-      </span>
-    </button>
   );
 }
 
