@@ -63,7 +63,7 @@ const CAPTIONS = [
     body: 'Starting a task cuts it a git worktree and a branch, keeping work separate and moving forward.',
   },
   {
-    title: 'Create reusable workflows with hooks',
+    title: 'Reuse workflows with hooks',
     body: 'Save the command that opens a task with the project, and every task you start runs it in its own worktree.',
   },
   {
