@@ -11,6 +11,7 @@ import { WorktreeSection } from './WorktreeSection';
 import { IconColorSection } from './IconColorSection';
 import { Icon } from '../terminal/Icon';
 import { LensList } from './LensList';
+import { LensAgentRow } from './LensAgentRow';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
 
@@ -112,6 +113,11 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
                 change are, so the Code pane can show them in that order instead of a list of files.
               </p>
               <LensList projectPath={projectPath} />
+              {/* Under the list, not in it: it is a setting about all of them,
+                  and it draws nothing unless there is a choice to be made. */}
+              <div className="mt-3 -ml-2.5">
+                <LensAgentRow projectPath={projectPath} />
+              </div>
             </section>
           )}
           <section>

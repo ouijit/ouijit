@@ -5,16 +5,16 @@ import type { LensInput, LensSummary } from '../../lens/config';
 import { describeError } from '../../utils/describeError';
 import { Icon } from '../terminal/Icon';
 import { useAutoResize } from '../../hooks/useAutoResize';
-import { LensAgentRow } from './LensAgentRow';
 import { useProjectLenses } from '../diff/useProjectLenses';
 
 interface LensListProps {
   projectPath: string;
-  /** Offered per row when there is a pull request to run one against. */
-  onRun?: (lens: LensSummary) => void;
   /**
    * What to do with a lens the reader has just made, where making one was the
    * point of opening this. Absent in settings, where there is no diff to read.
+   *
+   * The only path here that spends a run. A lens already in the list opens for
+   * editing; nothing in the list reads a diff.
    */
   onCreated?: (lens: LensSummary) => void;
   /** Id of the lens currently being written, if any. */
@@ -48,7 +48,9 @@ interface LensListProps {
  * mechanical churn last, how a title is written — is in the prompt itself.
  *
  * Offered rather than seeded. Writing them into the project on first open would
- * give everyone four lenses they did not write and have to delete.
+ * give everyone four lenses they did not write and have to delete — and
+ * pressing one fills the form in rather than saving, so what is being added is
+ * read before it is kept.
  */
 const SUGGESTED_LENSES: LensInput[] = [
   {
@@ -73,9 +75,11 @@ const SUGGESTED_LENSES: LensInput[] = [
   },
 ];
 
-export function LensList({ projectPath, onRun, onCreated, running }: LensListProps) {
+export function LensList({ projectPath, onCreated, running }: LensListProps) {
   const { lenses, reload } = useProjectLenses(projectPath);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  /** The new lens being written, filled in from a suggestion or blank. */
+  const [draft, setDraft] = useState<LensInput | null>(null);
   const [addingNew, setAddingNew] = useState(false);
   // What `buildLensPrompt` will actually carry: the hotspot section is written
   // only when `getDiffSignals` answers, and it answers only with this flag on.
@@ -93,6 +97,7 @@ export function LensList({ projectPath, onRun, onCreated, running }: LensListPro
       await reload();
       setExpandedId(null);
       setAddingNew(false);
+      setDraft(null);
       // Nobody opens this from a diff to end up looking at a list. A lens made
       // here is one somebody wants used, so making it is what uses it; an edit
       // to one that already exists is not, and arrives with an id.
@@ -125,7 +130,10 @@ export function LensList({ projectPath, onRun, onCreated, running }: LensListPro
               type="button"
               title={suggested.instruction}
               className="px-2.5 py-1 text-[11px] text-text-secondary bg-ink/[0.05] rounded-full hover:bg-ink/[0.09] hover:text-text-primary transition-colors duration-150"
-              onClick={() => void save(suggested)}
+              onClick={() => {
+                setDraft(suggested);
+                setAddingNew(true);
+              }}
             >
               {suggested.name}
             </button>
@@ -148,28 +156,27 @@ export function LensList({ projectPath, onRun, onCreated, running }: LensListPro
           <LensRow
             key={lens.id}
             lens={lens}
-            // In the dialog the row is the lens: pressing it reads the pull
-            // request through it. In settings there is nothing to read, so the
-            // row opens itself for editing instead.
-            onPress={() => (onRun ? onRun(lens) : setExpandedId(lens.id))}
-            pressHint={onRun ? `Read this diff through “${lens.name}”` : `Edit ${lens.name}`}
             onEdit={() => {
               setExpandedId(lens.id);
               setAddingNew(false);
+              setDraft(null);
             }}
             writing={running === lens.id}
-            busy={Boolean(running)}
           />
         ),
       )}
 
       {addingNew && (
         <LensForm
+          initial={draft ?? undefined}
           existingNames={lenses.map((l) => l.name)}
           sendsHotspots={sendsHotspots}
           submitLabel={onCreated ? 'Save and read' : 'Save'}
           onSave={(next) => void save(next)}
-          onCancel={() => setAddingNew(false)}
+          onCancel={() => {
+            setAddingNew(false);
+            setDraft(null);
+          }}
         />
       )}
 
@@ -178,6 +185,7 @@ export function LensList({ projectPath, onRun, onCreated, running }: LensListPro
           type="button"
           className="w-full flex items-center gap-2 px-4 py-3 text-xs text-text-tertiary hover:text-text-primary hover:bg-ink/[0.04] transition-colors duration-100"
           onClick={() => {
+            setDraft(null);
             setAddingNew(true);
             setExpandedId(null);
           }}
@@ -186,10 +194,6 @@ export function LensList({ projectPath, onRun, onCreated, running }: LensListPro
           Add a lens
         </button>
       )}
-
-      {/* Under the lenses, not over them. It is a setting about all of them,
-          and it draws nothing at all unless there is a choice to be made. */}
-      <LensAgentRow projectPath={projectPath} />
     </div>
   );
 }
@@ -201,30 +205,14 @@ export function LensList({ projectPath, onRun, onCreated, running }: LensListPro
  * one, as the script rows do, left a truncated prompt fighting a truncated name
  * for the same width — and a lens command is a sentence, not a binary name.
  */
-function LensRow({
-  lens,
-  onPress,
-  pressHint,
-  onEdit,
-  writing,
-  busy,
-}: {
-  lens: LensSummary;
-  onPress: () => void;
-  /** What pressing the row does, which differs between the dialog and settings. */
-  pressHint: string;
-  onEdit: () => void;
-  writing: boolean;
-  busy: boolean;
-}) {
+function LensRow({ lens, onEdit, writing }: { lens: LensSummary; onEdit: () => void; writing: boolean }) {
   return (
     <div className="group/lens flex items-center gap-3 pl-4 pr-2">
       <button
         type="button"
-        title={pressHint}
-        className="flex-1 min-w-0 flex items-center gap-3 py-3 text-left disabled:opacity-50"
-        disabled={busy}
-        onClick={onPress}
+        title={`Edit “${lens.name}”`}
+        className="flex-1 min-w-0 flex items-center gap-3 py-3 text-left"
+        onClick={onEdit}
       >
         <Icon name="aperture" className={`shrink-0 w-4 h-4 ${writing ? 'text-accent' : 'text-accent/60'}`} />
         <span className="flex-1 min-w-0">
@@ -276,7 +264,7 @@ function LensForm({
   const autoResize = useAutoResize();
 
   useEffect(() => {
-    if (!initial) nameRef.current?.focus();
+    if (!initial?.name) nameRef.current?.focus();
     // Grown to what is already in it, or an edited lens opens with its command
     // clipped to two lines.
     const box = commandRef.current;
@@ -288,7 +276,7 @@ function LensForm({
 
   // Nothing breaks if two lenses share a name, but the picker names what is on
   // screen and two identical rows say nothing. Said before the save, not after.
-  const collides = !initial && existingNames?.includes(name.trim());
+  const collides = !initial?.id && existingNames?.includes(name.trim());
   const isValid = Boolean(name.trim()) && Boolean(instruction.trim()) && !collides;
 
   const submit = useCallback(() => {

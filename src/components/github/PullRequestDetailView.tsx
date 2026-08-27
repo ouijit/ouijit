@@ -154,7 +154,6 @@ export function PullRequestDetailView({
 
   const runLens = useCallback(
     (picked: LensSummary) => {
-      setLensesOpen(false);
       void lens.run(picked);
     },
     [lens],
@@ -313,7 +312,7 @@ export function PullRequestDetailView({
       {lensesOpen && (
         <LensDialog
           projectPath={projectPath}
-          onRun={runLens}
+          onCreated={runLens}
           running={lens.writing?.id ?? null}
           onClose={() => setLensesOpen(false)}
         />

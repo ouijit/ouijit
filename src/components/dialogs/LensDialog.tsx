@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
 import type { LensSummary } from '../../lens/config';
 import { LensList } from '../scripts/LensList';
+import { LensAgentRow } from '../scripts/LensAgentRow';
 import { Icon } from '../terminal/Icon';
 import { Tooltip } from '../ui/Tooltip';
 import { DialogOverlay } from './DialogOverlay';
 
 interface LensDialogProps {
   projectPath: string;
-  /** Omitted, the dialog only manages lenses — nothing to write one against. */
-  onRun?: (lens: LensSummary) => void;
+  /**
+   * Reads the change through a lens just made here. Omitted, there is nothing
+   * to read one against and making one only saves it.
+   */
+  onCreated?: (lens: LensSummary) => void;
   running?: string | null;
   onClose: () => void;
 }
@@ -23,8 +27,13 @@ interface LensDialogProps {
  * What a lens is sits behind the info mark rather than above the list. Whoever
  * opened this mostly knows already, and a standing paragraph is read once and
  * then in the way every time after.
+ *
+ * One press here spends a run, and it is a button that says it will. Rows edit,
+ * suggestions fill the form in, and reading a change through a lens that
+ * already exists stays with the picker beside the diff. A list where some
+ * presses cost an agent run and others do not is one nobody can press.
  */
-export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogProps) {
+export function LensDialog({ projectPath, onCreated, running, onClose }: LensDialogProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -59,23 +68,24 @@ export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogP
         </h2>
 
         {/* Making one closes this: whoever opened it from a diff came to read
-            that diff, and a list is not what they came for. Pressing a lens
-            already in the list leaves it open — that is browsing, and the row
-            says so itself while the run is in flight. */}
+            that diff, and a list is not what they came for. */}
         <LensList
           projectPath={projectPath}
-          onRun={onRun}
           onCreated={
-            onRun &&
+            onCreated &&
             ((lens) => {
-              onRun(lens);
+              onCreated(lens);
               dismiss();
             })
           }
           running={running}
         />
 
-        <div className="flex justify-end">
+        {/* Beside Done rather than among the lenses: it is not one of them, and
+            what writes them is the last thing worth saying about them. */}
+        <div className="flex items-center gap-2">
+          <LensAgentRow projectPath={projectPath} />
+          <div className="flex-1" />
           <button
             className="px-3 py-1.5 text-xs font-medium rounded-md text-text-secondary hover:bg-ink/[0.06] transition-colors duration-150"
             onClick={dismiss}

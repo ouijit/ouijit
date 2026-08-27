@@ -35,10 +35,11 @@ describe('LensList', () => {
 
   /**
    * The instruction is the whole feature, so a project with no lenses is shown
-   * four rather than a blank box. They are offered, not seeded: pressing one is
-   * what puts it in the project, and it lands as an ordinary lens.
+   * four rather than a blank box. They are offered, not seeded — and pressing
+   * one fills the form in rather than saving, so what is about to be added is
+   * read, and edited, before it is kept.
    */
-  test('a project with no lenses is offered four, and pressing one adds it as written', async () => {
+  test('a project with no lenses is offered four, and pressing one fills the form in', async () => {
     render(<LensList projectPath={PROJECT} />);
 
     expect(await screen.findByText('No lenses yet.')).toBeTruthy();
@@ -53,6 +54,11 @@ describe('LensList', () => {
     expect(pill.getAttribute('title')).toBe(SETUP);
     fireEvent.click(pill);
 
+    expect(screen.getByDisplayValue('Setup and payoff')).toBeTruthy();
+    expect(screen.getByDisplayValue(SETUP)).toBeTruthy();
+    expect(window.api.lens.save).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Save'));
     await waitFor(() =>
       expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, { name: 'Setup and payoff', instruction: SETUP }),
     );
@@ -60,13 +66,14 @@ describe('LensList', () => {
 
   /**
    * Where there is a diff to read, making a lens is what reads it — the reason
-   * anyone opens this from a diff. Editing one already in the list is not, so
-   * it hands nothing back.
+   * anyone opens this from a diff, and the button says so. It is also the only
+   * press here that costs a run: a lens already in the list opens for editing,
+   * the same as it does in settings.
    */
-  test('a lens made here is handed back to be read; an edited one is not', async () => {
+  test('a lens made here is handed back to be read; pressing one already in the list edits it', async () => {
     const created = vi.fn();
     vi.mocked(window.api.lens.list).mockResolvedValue([]);
-    render(<LensList projectPath={PROJECT} onRun={vi.fn()} onCreated={created} />);
+    render(<LensList projectPath={PROJECT} onCreated={created} />);
 
     fireEvent.click(await screen.findByText('Add a lens'));
     // The button says what it will do, rather than leaving the run to surprise.
@@ -86,9 +93,11 @@ describe('LensList', () => {
     vi.mocked(window.api.lens.list).mockResolvedValue([
       { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
     ]);
-    render(<LensList projectPath={PROJECT} onRun={vi.fn()} onCreated={created} />);
+    render(<LensList projectPath={PROJECT} onCreated={created} />);
 
-    fireEvent.click(await screen.findByLabelText('Edit Narrative'));
+    // The row itself, not the pencil beside it — the press a reader makes
+    // without meaning anything by it.
+    fireEvent.click(await screen.findByText('Narrative'));
     expect(screen.getByText('Save')).toBeTruthy();
     fireEvent.change(screen.getByDisplayValue('group by story'), { target: { value: 'group by risk' } });
     fireEvent.click(screen.getByText('Save'));
