@@ -1,12 +1,15 @@
 # Lenses: production readiness
 
-Follow-up work for `feat(diffs): lenses` (T-560), landing on this branch.
+Remaining work for `feat(diffs): lenses` (T-560), landing on this branch.
 
 The feature works. What follows is what stands between "works when you watch
-it" and "works". Four stages, each independently shippable and testable,
-ordered so the correctness bugs land before the reporting built on top of them
-— a coverage figure computed over a lying freshness flag is worse than no
-figure at all.
+it" and "works". Nothing here has shipped, so there is no stored data to
+preserve and no contract to keep compatible: the schema this PR introduces
+should be the one we want, and there is **one migration** — 015, amended in
+place — rather than a stack of them.
+
+Five stages. Identity comes first because the later ones add columns, and there
+is no sense building them onto a shape that is about to change.
 
 ## What is stored, and how staleness is decided
 
@@ -32,7 +35,49 @@ the mismatch is caught.
 
 ---
 
-## Stage 1 — Freshness stops lying
+## Stage 1 — A lens is an id, not a name
+
+A lens is currently keyed by the label the reader typed. Everything below
+exists only to compensate for that, and all of it goes:
+
+- the `lens:renamed` push and its contract entry
+- `DiffLensRepo.rename` and `renameDiffLens`
+- `previousName` threaded through `saveLens` and the IPC signature
+- the rename handler in `useDiffLens.subscribe`
+- half the picker's orphan handling, which is renamed-lens handling
+
+With an id, a rename is an ordinary edit and the name on screen is looked up
+fresh every time, so it is right the moment it changes with nothing broadcast.
+It also closes the race where renaming a lens mid-run saves the finished
+grouping under the name it used to have.
+
+- [ ] `LensSummary` gains `id`. Lenses live as a JSON array in `global_settings`
+      under `github:lenses:<path>`, so there is no schema for the list —
+      `parseLenses` backfills an id for any entry without one and writes back,
+      which covers the dev databases that already have lenses in them.
+- [ ] `lens:save` takes a lens whose absent id means create; `lens:delete` takes
+      an id. `resolveLensRun`, `writeLens` and `github:run-lens` follow.
+- [ ] `diff_lenses` stores **both** `lens_id` and `lens_name`. Not two
+      identities: the id is the key, the name is a snapshot for display when the
+      lens has since been deleted and there is nothing left to look up. The
+      picker prefers the current name by id and falls back to the snapshot.
+- [ ] `previousName` currently doubles as the create-vs-edit signal for
+      `onCreated`. That becomes "did it arrive with an id".
+- [ ] Amend migration 015 in place: `lens_id`, `lens_name`, and the run columns
+      from Stage 3. Do not add a 016.
+
+**Files** `lens/config.ts`, `lens/writeLens.ts`, `lens/readLens.ts`,
+`db/repos/diffLensRepo.ts`, `db/migrations/015-diff-lenses.ts`, `db/database.ts`,
+`ipc/contract.ts`, `ipc/handlers/diffPanel.ts`, `github/service.ts`, `preload.ts`,
+`types.ts`, `LensPicker.tsx`, `LensList.tsx`, `useDiffLens.ts`, `useLensSession.ts`.
+
+**Tests** the rename test becomes a test that renaming changes the name on
+screen and breaks nothing, with no push involved. `lens:list-changed` stays and
+still covers add and delete.
+
+---
+
+## Stage 2 — Freshness stops lying
 
 Two bugs, one symptom: the badge reports fresh when it is not.
 
@@ -71,15 +116,15 @@ explicit All-files choice.
 
 ---
 
-## Stage 2 — A run is never lost
+## Stage 3 — A run is never lost
 
 Nothing is written until the agent returns, so a quit, a crash or a renderer
 reload mid-run is indistinguishable from never having tried. The in-flight map
 is renderer memory.
 
-- [ ] Record the attempt before spawning — as `running_lens` / `running_since`
-      columns beside the groups (migration 016), not by overwriting the row,
-      which would destroy a good existing lens.
+- [ ] Record the attempt before spawning, in the `running_lens_id` /
+      `running_since` columns added in Stage 1 — beside the groups, not over
+      them, so an interrupted run does not destroy a good existing lens.
 - [ ] Report in-flight runs from main, so `useLensSession` seeds its map from
       the truth rather than from renderer memory. A reload stops losing the
       spinner.
@@ -87,16 +132,15 @@ is renderer memory.
       row that says so and offers to run it again.
 - [ ] Kill the child on `will-quit` (`src/main.ts:385`) rather than orphan it.
 
-**Files** new migration, `db/repos/diffLensRepo.ts`, `lens/writeLens.ts`,
-`lens/runLens.ts`, `ipc/handlers/diffPanel.ts`, `useLensSession.ts`,
-`LensPicker.tsx`, `main.ts`.
+**Files** `db/repos/diffLensRepo.ts`, `lens/writeLens.ts`, `lens/runLens.ts`,
+`ipc/handlers/diffPanel.ts`, `useLensSession.ts`, `LensPicker.tsx`, `main.ts`.
 
 **Tests** unit on the repo — a run marker does not clobber the stored grouping.
 Renderer — the interrupted row appears and re-runs.
 
 ---
 
-## Stage 3 — Say what happened
+## Stage 4 — Say what happened
 
 All of it lands on the picker row, which is already the one control that says
 what is on screen and how fresh it is.
@@ -109,24 +153,26 @@ what is on screen and how fresh it is.
       stamp — that is true for one instant and then becomes the same class of
       bug as the pin.
 - [ ] **Truncation.** `buildLensPrompt` already computes `omitted`; it tells the
-      agent and not the reader. Store it with the lens and show it. A lens
-      grouped from line spans instead of code should say so rather than merely
-      seeming mediocre.
-- [ ] **Token estimate before a run.** Cheap and renderer-side, from the
-      `additions`/`deletions` the status poll already returns — no git spawns.
+      agent and not the reader. Store it with the lens and show it on the row. A
+      lens grouped from line spans instead of code should say so rather than
+      merely seeming mediocre.
+- [ ] **Size before a run.** Estimated from the `additions`/`deletions` the
+      status poll already returns — no git spawns. Shown as `~26k tk` in the
+      row's tooltip, beside the instruction, rather than taking width on the row.
       Output is bounded by the schema to a few hundred tokens and is not worth
-      estimating. Lead with what the number implies (`too big to send whole`).
+      estimating. When the change will not fit the budget, the row itself says
+      so: that is the part that changes what the reader would do.
 - [ ] **Push when a worktree lens lands.** `diff-lens:run` pushes nothing and
-      `useDiffLens.subscribe` listens only for renames, so a CLI-written lens or
-      a post-reload landing is invisible until remount. Mirror
-      `github:lens-changed`.
+      `useDiffLens.subscribe` listens only for renames — and after Stage 1 it
+      listens for nothing at all. A CLI-written lens or a post-reload landing is
+      invisible until remount. Mirror `github:lens-changed`.
 
 **Files** `lens/lens.ts`, `LensPicker.tsx`, `DiffPanel.tsx`, `lens/lensPrompt.ts`,
 `ipc/contract.ts`, `ipc/handlers/diffPanel.ts`, `useDiffLens.ts`.
 
 ---
 
-## Stage 4 — Housekeeping
+## Stage 5 — Housekeeping
 
 - [ ] **Collect rows.** `worktree:remove` (`src/ipc/handlers/worktree.ts:23`)
       should drop the `wt:<path>:*` rows. Not merely tidiness: a reused worktree
@@ -135,25 +181,13 @@ what is on screen and how fresh it is.
 - [ ] **Detached HEAD.** `getBranchDiffPin` runs `rev-parse <branch>` in the
       project checkout, so a detached worktree pins the main checkout's HEAD.
       Run it against the worktree with `HEAD`.
-- [ ] **Rename during a run** loses the new name for that row: `writeLens`
-      captures the name at the start and saves it after. The honest fix is a
-      stable lens id rather than a name as the key, which is a larger change
-      than the race deserves. Left open on purpose.
 
 ---
-
-## Open decisions
-
-- **Raw token count on the row, or only the too-big warning?** There is a real
-  argument for the number that is not about cost — how much of the repository is
-  about to leave the machine — but on a subscription a bare token count reads as
-  a price, which is the confusion already removed once.
-- **Is the rename race worth a lens id?**
 
 ## Not covered here
 
 None of the visual work on this branch has been seen in a real window; the
 renderer tests run under jsdom, which has no layout engine. Driving e2e to the
 Lenses dialog needs a project with a PR or a worktree diff, and the e2e fixtures
-create a bare repo. Stage 3 adds the most to the picker, so the scaffolding
+create a bare repo. Stage 4 adds the most to the picker, so the scaffolding
 belongs there if it is wanted.
