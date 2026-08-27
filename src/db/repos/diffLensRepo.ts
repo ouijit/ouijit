@@ -11,6 +11,8 @@ export interface DiffLensRow {
   lens_id: string | null;
   /** What that lens was called when it ran, for once it no longer exists. */
   lens_name: string | null;
+  /** Hunks listed to the agent but not quoted, because the change was too large. */
+  omitted: number;
   /** The lens an agent is writing right now, or was when this process last ran. */
   running_lens_id: string | null;
   /** An ISO instant, unlike `created_at` — this one is read and formatted. */
@@ -42,21 +44,23 @@ export class DiffLensRepo {
     pin: string,
     groups: string,
     lens: { id: string; name: string } | null,
+    omitted = 0,
   ): void {
     this.db
       .prepare(
-        `INSERT INTO diff_lenses (project_path, subject_key, pin, groups, lens_id, lens_name, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+        `INSERT INTO diff_lenses (project_path, subject_key, pin, groups, lens_id, lens_name, omitted, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(project_path, subject_key) DO UPDATE SET
            pin = excluded.pin,
            groups = excluded.groups,
            lens_id = excluded.lens_id,
            lens_name = excluded.lens_name,
+           omitted = excluded.omitted,
            running_lens_id = NULL,
            running_since = NULL,
            created_at = excluded.created_at`,
       )
-      .run(projectPath, subjectKey, pin, groups, lens?.id ?? null, lens?.name ?? null);
+      .run(projectPath, subjectKey, pin, groups, lens?.id ?? null, lens?.name ?? null, omitted);
   }
 
   /**

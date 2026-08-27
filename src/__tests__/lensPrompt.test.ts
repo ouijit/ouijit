@@ -41,7 +41,7 @@ function prompt(
   budget?: number,
   signals?: DiffSignals | null,
 ) {
-  return buildLensPrompt({ subject, files, diffs, instruction: 'group it by story', budget, signals });
+  return buildLensPrompt({ subject, files, diffs, instruction: 'group it by story', budget, signals }).prompt;
 }
 
 /** One path's analysis, filled out enough for the prompt to read it. */

@@ -50,12 +50,18 @@ export interface RunLensResult {
   success: boolean;
   /** The parsed lens, ready to store. */
   body?: string;
+  /**
+   * Hunks the change was too large to quote, so the agent grouped them from
+   * their line spans. Stored with the lens: it is what a grouping that reads
+   * oddly on a huge diff is explained by.
+   */
+  omitted?: number;
   error?: string;
 }
 
 export async function runLens(input: RunLensInput): Promise<RunLensResult> {
   const agent = input.agent;
-  const prompt = buildLensPrompt({
+  const { prompt, omitted } = buildLensPrompt({
     subject: input.subject,
     files: input.files,
     diffs: input.diffs,
@@ -114,7 +120,7 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
       slices: groups.reduce((total, group) => total + group.slices.length, 0),
       listPriceUsd: answer.listPriceUsd,
     });
-    return { success: true, body: JSON.stringify({ groups }) };
+    return { success: true, body: JSON.stringify({ groups }), omitted };
   } catch (error) {
     const message = describeError(error);
     log.warn('lens run failed to complete', { command: agent.command, ms: Date.now() - started, error: message });

@@ -462,9 +462,10 @@ export async function saveDiffLens(
   pin: string,
   groups: string,
   lens: { id: string; name: string } | null,
+  omitted?: number,
 ): Promise<void> {
   const { diffLensRepo: dl } = repos();
-  dl.save(projectPath, subjectKey, pin, groups, lens);
+  dl.save(projectPath, subjectKey, pin, groups, lens, omitted);
 }
 
 export async function startDiffLensRun(projectPath: string, subjectKey: string, lensId: string): Promise<void> {

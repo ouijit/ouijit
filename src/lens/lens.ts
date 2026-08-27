@@ -120,6 +120,34 @@ export function parseLens(body: string): LensGroup[] | null {
 }
 
 /**
+ * The trailing part, holding whatever the lens did not account for.
+ *
+ * Named rather than inlined because the coverage count below has to tell it
+ * from a part the lens wrote, and a reader comparing two string literals in
+ * different files is how those come apart.
+ */
+export const UNGROUPED_TITLE = 'Not in this lens';
+
+export interface LensCoverage {
+  /** Parts the lens named, not counting whatever it left out. */
+  parts: number;
+  /** Changed files no part claimed. Zero when the lens accounted for all of it. */
+  ungrouped: number;
+}
+
+/**
+ * How much of the diff the lens actually accounts for.
+ *
+ * Free, because `resolveLens` has already bound the groups to the diff on
+ * screen — and worth saying, because a lens that claims four parts of a change
+ * and leaves six files out has described something other than this change.
+ */
+export function lensCoverage(resolved: ResolvedGroup[]): LensCoverage {
+  const rest = resolved.find((group) => group.title === UNGROUPED_TITLE);
+  return { parts: resolved.length - (rest ? 1 : 0), ungrouped: rest?.slices.length ?? 0 };
+}
+
+/**
  * Bind a lens to the diff it claims to describe.
  *
  * The invariant the whole feature rests on: **every hunk is shown exactly
@@ -186,7 +214,7 @@ export function resolveLens(
     const hunks = diff.hunks.map((_, i) => i).filter((index) => take(path, index));
     if (hunks.length > 0) rest.push({ path, hunks });
   }
-  if (rest.length > 0) resolved.push({ title: 'Not in this lens', slices: rest });
+  if (rest.length > 0) resolved.push({ title: UNGROUPED_TITLE, slices: rest });
 
   return resolved;
 }

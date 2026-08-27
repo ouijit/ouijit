@@ -66,7 +66,14 @@ export async function writeLens(subject: DiffSubject, lensId: string): Promise<{
     // `runLens` has already parsed what the agent said and re-serialised it.
     // Saving clears the mark, so a failure is the only path that needs the
     // clearing below — and it leaves whatever was already grouped alone.
-    await saveDiffLens(subject.projectPath, subject.key, pin, result.body, { id: lens.id, name: lens.name });
+    await saveDiffLens(
+      subject.projectPath,
+      subject.key,
+      pin,
+      result.body,
+      { id: lens.id, name: lens.name },
+      result.omitted,
+    );
     return { success: true };
   } finally {
     endRun(subject.projectPath, subject.key);

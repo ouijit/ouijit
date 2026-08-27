@@ -31,6 +31,12 @@ export interface StoredLens {
   /** Written against a different diff than the one on screen. */
   stale: boolean;
   /**
+   * Hunks the agent was given a line span for rather than the code, because
+   * the change did not fit one prompt. A grouping that reads oddly over a huge
+   * diff is explained by this rather than by the lens being wrong.
+   */
+  omitted: number;
+  /**
    * A run recorded against this diff, if the lens it names still exists.
    *
    * `live` says an agent is writing it now. Not live means the process that
@@ -74,12 +80,12 @@ export async function readLens(subject: DiffSubject): Promise<StoredLens | null>
   // A run that has not answered yet. Nothing has been written for this diff, so
   // there is no pin to take and nothing to compare it against.
   if (row.groups === null || row.pin === null) {
-    return { groups: null, lensId: null, lensName: null, stale: false, running };
+    return { groups: null, lensId: null, lensName: null, stale: false, omitted: 0, running };
   }
 
   const stale = (await subject.pin()) !== row.pin;
   const groups = stale && subject.whenStale === 'drop' ? null : parseLens(row.groups);
-  return { groups, lensId: row.lens_id, lensName: row.lens_name, stale, running };
+  return { groups, lensId: row.lens_id, lensName: row.lens_name, stale, omitted: row.omitted, running };
 }
 
 /** Forget the lens written for a diff. */

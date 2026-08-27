@@ -22,6 +22,9 @@ export function up(db: Database.Database): void {
       -- names has been deleted and there is nothing left to look up.
       lens_id TEXT,
       lens_name TEXT,
+      -- Hunks the change was too large to quote, so the agent grouped them
+      -- from their line spans. What a grouping that reads oddly is explained by.
+      omitted INTEGER NOT NULL DEFAULT 0,
       -- The run in flight. Beside the groups rather than over them, so a run
       -- that fails or is interrupted leaves the lens already on the row alone.
       -- Whether it is still going is only knowable in the process that started

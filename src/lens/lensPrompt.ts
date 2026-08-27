@@ -213,7 +213,26 @@ const OUTPUT_CONTRACT = `# The grouping
 - Only use paths from the list above. Invented paths are dropped.
 - You do not need to cover every file; whatever is left over is shown at the end.`;
 
-export function buildLensPrompt({ subject, files, diffs, instruction, signals, budget }: LensPromptInput): string {
+/**
+ * Characters the prompt for this change will run to, near enough.
+ *
+ * From the additions and deletions a status poll already returns, so asking
+ * costs nothing and spawns no git. Answered in characters because that is what
+ * `LENS_PROMPT_BUDGET` counts; whoever shows it can divide for tokens.
+ */
+export function estimateLensPromptChars(files: { additions: number; deletions: number }[]): number {
+  // Per file: a heading and a hunk header or two. Per changed line: its text
+  // and a marker. Both are averages, for a number shown with a tilde in front.
+  return files.reduce((chars, file) => chars + 120 + (file.additions + file.deletions) * 40, 0);
+}
+
+export interface LensPrompt {
+  prompt: string;
+  /** Hunks listed but not quoted, because the change did not fit the budget. */
+  omitted: number;
+}
+
+export function buildLensPrompt({ subject, files, diffs, instruction, signals, budget }: LensPromptInput): LensPrompt {
   const limit = budget ?? LENS_PROMPT_BUDGET;
   const structure = skeleton(files, diffs);
   const callouts = hotspots(files, signals);
@@ -226,7 +245,7 @@ export function buildLensPrompt({ subject, files, diffs, instruction, signals, b
   );
   const { text: hunks, omitted } = bodies(files, diffs, remaining);
 
-  return [
+  const prompt = [
     subject.lead,
     '',
     subject.heading,
@@ -250,4 +269,6 @@ export function buildLensPrompt({ subject, files, diffs, instruction, signals, b
     '',
     OUTPUT_CONTRACT,
   ].join('\n');
+
+  return { prompt, omitted };
 }

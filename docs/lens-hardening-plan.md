@@ -178,16 +178,16 @@ is renderer memory.
 All of it lands on the picker row, which already says what is on screen and how
 fresh it is.
 
-- [ ] **Coverage.** `resolveLens` binds the stored groups to the diff whenever
+- [x] **Coverage.** `resolveLens` binds the stored groups to the diff whenever
       either moves, so the facts are free: hunks claimed, hunks claimed twice
       (breaking the show-once invariant), files claimed by nobody, ranges
       matching no hunk. Surface as `4 parts · 2 files not grouped`. Not a
       post-run verification stamp — that is true for one instant and then
       becomes the same class of bug as the pin.
-- [ ] **Truncation.** `buildLensPrompt` computes `omitted` and tells the agent,
+- [x] **Truncation.** `buildLensPrompt` computes `omitted` and tells the agent,
       not the reader. Store it with the lens and show it on the row, so a lens
       grouped from line spans instead of code says so.
-- [ ] **Size before a run.** Estimated from the `additions`/`deletions` the
+- [x] **Size before a run.** Estimated from the `additions`/`deletions` the
       status poll already returns — no git spawns. `~26k tk` in the row's
       tooltip, beside the instruction. Output is bounded by the schema and is
       not worth estimating. When the change will not fit the budget the row
@@ -199,9 +199,9 @@ fresh it is.
 
 **Tests**
 
-- [ ] unit — the coverage counts, including a hunk claimed by two groups and a
+- [x] unit — the coverage counts, including a hunk claimed by two groups and a
       range matching none. Pure function over resolved groups, so no fixtures.
-- [ ] renderer — the tooltip carries the size, and the row says too-big when the
+- [x] renderer — the tooltip carries the size, and the row says too-big when the
       estimate is over `LENS_PROMPT_BUDGET`.
 - [x] renderer — a lens landing from outside the pane appears without a remount.
       Covered by the run this pane never started, above.

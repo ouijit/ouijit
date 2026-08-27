@@ -22,6 +22,7 @@ import { DiffNotesIsland } from './DiffNotesIsland';
 import { DiffComparisonPicker } from './DiffComparisonPicker';
 import { useDiffNotes } from './useDiffNotes';
 import { useDiffLens } from './useDiffLens';
+import { estimateLensPromptChars } from '../../lens/lensPrompt';
 import { LensPicker } from './LensPicker';
 import { LensedFileList } from './LensedFileList';
 import { LensDialog } from '../dialogs/LensDialog';
@@ -82,6 +83,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   // The order a lens's groups are sorted into. `LensedFileList` runs the
   // document in the same one, so the two never disagree about where a file sits.
   const order = useMemo(() => treeFileOrder(files), [files]);
+  // What a lens run would send, so the picker can say so before one is started.
+  const promptChars = useMemo(() => estimateLensPromptChars(files), [files]);
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
 
@@ -321,8 +324,10 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
               <LensPicker
                 lenses={lens.lenses}
                 onFile={lens.lens}
+                resolved={lens.resolved}
                 lensOn={lens.lensOn}
                 changedFiles={files.length}
+                promptChars={promptChars}
                 writing={lens.writing}
                 onAllFiles={() => lens.setLensOn(false)}
                 onShowLens={() => lens.setLensOn(true)}

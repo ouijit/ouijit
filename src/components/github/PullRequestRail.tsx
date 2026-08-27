@@ -9,6 +9,7 @@ import { Icon } from '../terminal/Icon';
 import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { AnalysisRailDot } from '../diff/AnalysisChip';
 import { LensPicker } from '../diff/LensPicker';
+import { estimateLensPromptChars } from '../../lens/lensPrompt';
 import type { LensRun } from '../diff/useLensSession';
 
 interface PullRequestRailProps {
@@ -63,6 +64,8 @@ export function PullRequestRail({
   const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
 
   const signals = usePullRequestSignals(detail.headSha, files);
+  // What a lens run would send, so the picker can say so before one is started.
+  const promptChars = useMemo(() => estimateLensPromptChars(files), [files]);
 
   const unresolvedByPath = useMemo(() => {
     const counts = new Map<string, number>();
@@ -114,6 +117,8 @@ export function PullRequestRail({
           lensOn={lensOn}
           changedFiles={detail.changedFiles}
           viewed={viewed.size}
+          resolved={groups}
+          promptChars={promptChars}
           writing={lensWriting}
           onAllFiles={() => {
             // Mode first, then the scroll back to the top: what the reader

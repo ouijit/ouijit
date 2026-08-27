@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { hunksInRanges, parseLens, resolveLens, type LensGroup } from '../lens/lens';
+import { hunksInRanges, lensCoverage, parseLens, resolveLens, type LensGroup } from '../lens/lens';
 import type { FileDiff } from '../types';
 
 /** A file whose hunks cover the given new-file line spans, one hunk each. */
@@ -156,5 +156,46 @@ describe('resolveLens', () => {
     const seen = resolved.flatMap((g) => g.slices.flatMap((s) => s.hunks.map((h) => `${s.path}#${h}`)));
     expect(seen).toEqual(['a.ts#0', 'a.ts#1', 'b.ts#0']);
     expect(new Set(seen).size).toBe(seen.length);
+  });
+});
+
+/**
+ * What the picker says a lens covers. Read off the binding rather than the
+ * stored groups, because the two disagree exactly where it matters: a part
+ * whose files have all been claimed elsewhere, or whose ranges match nothing,
+ * is not a part of this change however the agent listed it.
+ */
+describe('lensCoverage', () => {
+  const diffs = new Map<string, FileDiff | null>([
+    [
+      'a.ts',
+      diff('a.ts', [
+        [1, 10],
+        [50, 60],
+      ]),
+    ],
+    ['b.ts', diff('b.ts', [[1, 5]])],
+  ]);
+  const order = ['a.ts', 'b.ts'];
+
+  test('counts the parts that survived binding, and what none of them claimed', () => {
+    const groups: LensGroup[] = [
+      { title: 'The change', slices: [{ path: 'a.ts' }] },
+      // Every hunk of a.ts is already spoken for, so this claims nothing.
+      { title: 'Again', slices: [{ path: 'a.ts' }] },
+      // And this points at lines the file does not have.
+      { title: 'Elsewhere', slices: [{ path: 'a.ts', ranges: [[900, 950]] }] },
+    ];
+
+    expect(lensCoverage(resolveLens(groups, diffs, order))).toEqual({ parts: 1, ungrouped: 1 });
+  });
+
+  test('a lens that accounts for the whole change leaves nothing to report', () => {
+    const groups: LensGroup[] = [
+      { title: 'One', slices: [{ path: 'a.ts' }] },
+      { title: 'Two', slices: [{ path: 'b.ts' }] },
+    ];
+
+    expect(lensCoverage(resolveLens(groups, diffs, order))).toEqual({ parts: 2, ungrouped: 0 });
   });
 });
