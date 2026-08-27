@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { LensGroupSection } from './LensGroupSection';
 import { inTreeOrder } from './DiffFileTree';
-import type { ResolvedGroup } from '../../lens/lens';
+import type { ResolvedGroup, ResolvedSlice } from '../../lens/lens';
 
 export interface LensedFileListProps<T extends { path: string }> {
   files: readonly T[];
@@ -11,9 +11,9 @@ export interface LensedFileListProps<T extends { path: string }> {
   /**
    * One file's section. `key` is given rather than derived because a lens may
    * name the same file in more than one group, and React would otherwise keep
-   * only the last copy; `hunks` narrows the diff to that group's slice.
+   * only the last copy; `slice` says which part of the file this copy is.
    */
-  renderFile: (file: T, key?: string, hunks?: number[]) => ReactNode;
+  renderFile: (file: T, key?: string, slice?: ResolvedSlice) => ReactNode;
   collapsed: ReadonlySet<string>;
   onCollapsedChange: (title: string, next: boolean) => void;
 }
@@ -53,7 +53,7 @@ export function LensedFileList<T extends { path: string }>({
         >
           {group.slices.map((slice) => {
             const file = byPath.get(slice.path);
-            return file ? renderFile(file, `${group.title}:${slice.path}`, slice.hunks) : null;
+            return file ? renderFile(file, `${group.title}:${slice.path}`, slice) : null;
           })}
         </LensGroupSection>
       ))}

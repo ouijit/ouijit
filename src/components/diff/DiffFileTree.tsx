@@ -159,7 +159,13 @@ export function DiffFileTreeChapters<T extends ChangedFile>({
     <>
       {groups.map((group, at) => {
         const folded = collapsed.has(group.title);
-        const files = group.slices.map((slice) => byPath.get(slice.path)).filter((file): file is T => Boolean(file));
+        // Counted as the part claims them, so the rail and the card it scrolls
+        // to do not report a file split across three parts three times over.
+        const files = group.slices.flatMap((slice) => {
+          const file = byPath.get(slice.path);
+          if (!file) return [];
+          return [slice.changes ? { ...file, ...slice.changes } : file];
+        });
         return (
           // Indexed: two parts of a lens may carry the same title, and a key
           // that is only the title keeps one of them.

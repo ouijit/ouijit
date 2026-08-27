@@ -109,9 +109,12 @@ describe('resolveLens', () => {
     ];
     const resolved = resolveLens(groups, diffs, order);
 
-    expect(resolved[0].slices).toEqual([{ path: 'a.ts', hunks: [0] }]);
-    expect(resolved[1].slices).toEqual([{ path: 'a.ts', hunks: [1] }]);
-    // b.ts was never claimed, so it is still shown.
+    // Each part counts what it claims. A file split three ways that reported
+    // the whole file's total in each place would be wrong in all three.
+    expect(resolved[0].slices).toEqual([{ path: 'a.ts', hunks: [0], changes: { additions: 10, deletions: 0 } }]);
+    expect(resolved[1].slices).toEqual([{ path: 'a.ts', hunks: [1], changes: { additions: 11, deletions: 0 } }]);
+    // b.ts was never claimed, so it is still shown — whole, and with no count
+    // of its own, since git's is the better one there.
     expect(resolved[2].title).toBe('Not in this lens');
     expect(resolved[2].slices).toEqual([{ path: 'b.ts', hunks: [0] }]);
   });

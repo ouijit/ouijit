@@ -19,7 +19,7 @@ import {
   type DiffLineAnchor,
 } from '../../diffAnchor';
 import { describeLines } from '../../diffAnchor';
-import type { ResolvedGroup } from '../../lens/lens';
+import type { ResolvedGroup, ResolvedSlice } from '../../lens/lens';
 import { unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
@@ -57,6 +57,9 @@ export interface FilesSectionHandle {
 interface FileSectionProps {
   file: PullRequestFile;
   diff: FileDiff | null | undefined;
+  /** What the hunks on screen come to, which under a lens is not the file's own count. */
+  additions: number;
+  deletions: number;
   projectPath: string;
   prNumber: number;
   baseSha: string;
@@ -78,6 +81,8 @@ interface FileSectionProps {
 const FileSection = memo(function FileSection({
   file,
   diff,
+  additions,
+  deletions,
   projectPath,
   prNumber,
   baseSha,
@@ -123,15 +128,12 @@ const FileSection = memo(function FileSection({
   return (
     // On the wrapper as well as the section, so the rail can scroll to a file
     // that is still a placeholder.
-    <DeferredMount
-      dataPath={file.path}
-      estimatedHeight={estimateFileHeight(diff, file.additions + file.deletions, 1, viewed)}
-    >
+    <DeferredMount dataPath={file.path} estimatedHeight={estimateFileHeight(diff, additions + deletions, 1, viewed)}>
       <DiffFileSection
         path={file.path}
         status={file.status}
-        additions={file.additions}
-        deletions={file.deletions}
+        additions={additions}
+        deletions={deletions}
         diff={diff}
         onAddComment={onAddComment}
         renderBelowLine={renderBelowLine}
@@ -392,11 +394,13 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     useGithubStore.getState().setGroupCollapsed(title, next);
   }, []);
 
-  const renderFile = (file: PullRequestFile, key?: string, hunks?: number[]) => (
+  const renderFile = (file: PullRequestFile, key?: string, slice?: ResolvedSlice) => (
     <FileSection
       key={key ?? file.path}
       file={file}
-      diff={sliceFor(file.path, diffs.get(file.path), hunks)}
+      diff={sliceFor(file.path, diffs.get(file.path), slice?.hunks)}
+      additions={slice?.changes?.additions ?? file.additions}
+      deletions={slice?.changes?.deletions ?? file.deletions}
       projectPath={projectPath}
       prNumber={detail.number}
       baseSha={detail.baseSha}

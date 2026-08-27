@@ -22,7 +22,7 @@ const PROPS = {
 };
 
 const FILES = [
-  { path: 'src/db/repo.ts', status: 'M' as const, additions: 4, deletions: 1 },
+  { path: 'src/db/repo.ts', status: 'M' as const, additions: 6, deletions: 1 },
   { path: 'src/db/schema.ts', status: 'M' as const, additions: 2, deletions: 0 },
   { path: 'src/ui/Panel.tsx', status: 'M' as const, additions: 3, deletions: 3 },
 ];
@@ -38,6 +38,41 @@ const LENS = {
       summary: 'The table and the rows that go in it',
       slices: [{ path: 'src/db/schema.ts' }, { path: 'src/db/repo.ts' }],
     },
+  ],
+};
+
+/**
+ * `repo.ts` in two pieces: one addition and one deletion up top, five additions
+ * further down. Nothing else in `FILES` adds one or five, so a count on screen
+ * says which piece it belongs to.
+ */
+const REPO_DIFF = {
+  path: 'src/db/repo.ts',
+  hunks: [
+    {
+      header: '@@ -1,2 +1,2 @@',
+      lines: [
+        { type: 'addition' as const, content: 'a', newLineNo: 1 },
+        { type: 'deletion' as const, content: 'b', oldLineNo: 1 },
+      ],
+    },
+    {
+      header: '@@ -20,1 +20,6 @@',
+      lines: Array.from({ length: 5 }, (_, i) => ({
+        type: 'addition' as const,
+        content: `line ${20 + i}`,
+        newLineNo: 20 + i,
+      })),
+    },
+  ],
+};
+
+/** The same file in two parts of the story, a hunk each. */
+const SPLIT_LENS = {
+  ...LENS,
+  groups: [
+    { title: 'Where it is stored', slices: [{ path: 'src/db/repo.ts', ranges: [[20, 24]] }] },
+    { title: 'What reads it', slices: [{ path: 'src/db/repo.ts', ranges: [[1, 1]] }] },
   ],
 };
 
@@ -203,6 +238,44 @@ describe('the diff panel, read through a lens', () => {
 
     fireEvent.click(row);
     await waitFor(() => expect(window.api.diffLens.run).toHaveBeenCalledWith(expect.anything(), 'narrative'));
+  });
+
+  /**
+   * A file can belong to three parts of a change, and every copy of it answers
+   * to the same `data-path`. Both the jump and the count have to say which
+   * copy they mean, or the rail lands on the wrong one and each copy claims
+   * the whole file's changes as its own.
+   */
+  test('a file split across two parts is navigated and counted a part at a time', async () => {
+    vi.mocked(window.api.diffLens.get).mockResolvedValue(SPLIT_LENS);
+    vi.mocked(window.api.worktree.getFileDiff).mockImplementation((_path, _base, file) =>
+      Promise.resolve(file === 'src/db/repo.ts' ? REPO_DIFF : null),
+    );
+    // jsdom has no layout, so the jump is only observable as the element it
+    // was asked to bring into view.
+    const landed: Element[] = [];
+    Element.prototype.scrollIntoView = function scrollIntoView() {
+      landed.push(this);
+    };
+
+    const { container } = render(<DiffPanel {...PROPS} />);
+    await screen.findAllByText('What reads it');
+    await waitFor(() => expect(container.querySelector('[data-group="What reads it"] .diff-card')).toBeTruthy());
+
+    const stored = container.querySelector('[data-group="Where it is stored"] .diff-card')!;
+    const read = container.querySelector('[data-group="What reads it"] .diff-card')!;
+    expect(stored.textContent).toContain('+5');
+    expect(read.textContent).toContain('+1');
+    expect(read.textContent).toContain('-1');
+    // The whole file's own count belongs to no part of it.
+    expect(screen.queryByText('+6')).toBeNull();
+
+    // The rail is the sidebar, which the panel renders before the document.
+    const chapter = screen.getAllByRole('button', { name: /What reads it/ })[0].parentElement!;
+    expect(chapter.textContent).toContain('+1');
+
+    fireEvent.click(chapter.querySelector('[data-path="src/db/repo.ts"]')!);
+    expect(landed[0].closest('[data-group]')?.getAttribute('data-group')).toBe('What reads it');
   });
 
   test('All files goes back to the flat list without writing a second lens', async () => {

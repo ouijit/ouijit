@@ -40,6 +40,12 @@ export interface ResolvedSlice {
   path: string;
   /** Indices into `FileDiff.hunks`. Empty means the file has no text diff. */
   hunks: number[];
+  /**
+   * What these hunks alone add and remove. Absent when the part claims the
+   * whole file, where git's own count is the better one: it covers a binary
+   * file and a diff that has not loaded yet, which counting hunks cannot.
+   */
+  changes?: { additions: number; deletions: number };
 }
 
 export interface ResolvedGroup {
@@ -75,6 +81,21 @@ export function hunksInRanges(diff: FileDiff, ranges?: LineRange[]): number[] {
     if (ranges.some(([start, end]) => start <= last && end >= first)) selected.push(index);
   });
   return selected;
+}
+
+/** What part of a file's diff comes to, when it is not all of it. */
+function changesIn(diff: FileDiff, hunks: number[]): Pick<ResolvedSlice, 'changes'> {
+  if (hunks.length === diff.hunks.length) return {};
+
+  let additions = 0;
+  let deletions = 0;
+  for (const index of hunks) {
+    for (const line of diff.hunks[index].lines) {
+      if (line.type === 'addition') additions++;
+      else if (line.type === 'deletion') deletions++;
+    }
+  }
+  return { changes: { additions, deletions } };
 }
 
 function parseGroups(raw: unknown): LensGroup[] {
@@ -182,7 +203,7 @@ export function resolveLens(
         continue;
       }
       const hunks = hunksInRanges(diff, slice.ranges).filter((index) => take(slice.path, index));
-      if (hunks.length > 0) slices.push({ path: slice.path, hunks });
+      if (hunks.length > 0) slices.push({ path: slice.path, hunks, ...changesIn(diff, hunks) });
     }
     // In the order the rail will show them, not the order the lens listed them.
     // The rail draws each part as a tree, because which directories a part
@@ -206,7 +227,7 @@ export function resolveLens(
       continue;
     }
     const hunks = diff.hunks.map((_, i) => i).filter((index) => take(path, index));
-    if (hunks.length > 0) rest.push({ path, hunks });
+    if (hunks.length > 0) rest.push({ path, hunks, ...changesIn(diff, hunks) });
   }
   if (rest.length > 0) resolved.push({ title: UNGROUPED_TITLE, slices: rest });
 

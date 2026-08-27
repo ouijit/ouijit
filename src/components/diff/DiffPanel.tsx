@@ -28,6 +28,7 @@ import { LensedFileList } from './LensedFileList';
 import { LensDialog } from '../dialogs/LensDialog';
 import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type DiffLineAnchor } from '../../diffAnchor';
 import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
+import type { ResolvedSlice } from '../../lens/lens';
 import type { DiffLensTarget } from '../../lens/worktreeSubject';
 import { toggleIn } from '../../utils/toggleIn';
 import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
@@ -152,8 +153,10 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   const lens = useDiffLens(lensTarget, diffs, order, filesFingerprint);
   const [lensesOpen, setLensesOpen] = useState(false);
 
-  const scrollToFile = useCallback((path: string) => {
-    scrollToSection(contentRef.current, fileSelector(path));
+  // With the group, not just the path: a lens can name the same file in three
+  // parts, and every copy of it answers to `[data-path]`.
+  const scrollToFile = useCallback((path: string, group?: string) => {
+    scrollToSection(contentRef.current, fileSelector(path, group));
   }, []);
 
   const { setComposingAt, setEditingId } = notes;
@@ -278,36 +281,36 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
 
   // The key is the caller's to give: a lens can name the same file in more than
   // one part, and React would otherwise keep only the second copy.
-  const renderFile = (file: (typeof files)[number], key?: string, hunks?: number[]) => (
-    // `data-path` on the wrapper, so the tree can jump to a file that has not
-    // mounted yet.
-    <DeferredMount
-      key={key ?? file.path}
-      dataPath={file.path}
-      estimatedHeight={estimateFileHeight(
-        diffs.get(file.path),
-        file.additions + file.deletions,
-        1,
-        folded.has(file.path),
-      )}
-    >
-      <DiffFileSection
-        path={file.path}
-        status={file.status}
-        additions={file.additions}
-        deletions={file.deletions}
-        diff={lens.sliceFor(file.path, diffs.get(file.path), hunks)}
-        onAddComment={startNote}
-        // Withheld until there is something to draw: it runs once per diff line
-        // and changes identity whenever the notes do.
-        renderBelowLine={hasNotes ? renderBelowLine : undefined}
-        markLine={spans.length > 0 ? markLine : undefined}
-        headerRight={analysisChips?.get(file.path)}
-        collapsed={folded.has(file.path)}
-        onCollapsedChange={toggleFolded}
-      />
-    </DeferredMount>
-  );
+  const renderFile = (file: (typeof files)[number], key?: string, slice?: ResolvedSlice) => {
+    const diff = lens.sliceFor(file.path, diffs.get(file.path), slice?.hunks);
+    const changes = slice?.changes ?? file;
+
+    return (
+      // `data-path` on the wrapper, so the tree can jump to a file that has not
+      // mounted yet.
+      <DeferredMount
+        key={key ?? file.path}
+        dataPath={file.path}
+        estimatedHeight={estimateFileHeight(diff, changes.additions + changes.deletions, 1, folded.has(file.path))}
+      >
+        <DiffFileSection
+          path={file.path}
+          status={file.status}
+          additions={changes.additions}
+          deletions={changes.deletions}
+          diff={diff}
+          onAddComment={startNote}
+          // Withheld until there is something to draw: it runs once per diff
+          // line and changes identity whenever the notes do.
+          renderBelowLine={hasNotes ? renderBelowLine : undefined}
+          markLine={spans.length > 0 ? markLine : undefined}
+          headerRight={analysisChips?.get(file.path)}
+          collapsed={folded.has(file.path)}
+          onCollapsedChange={toggleFolded}
+        />
+      </DeferredMount>
+    );
+  };
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
