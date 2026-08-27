@@ -9,6 +9,7 @@ import { Icon } from '../terminal/Icon';
 import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { AnalysisRailDot } from '../diff/AnalysisChip';
 import { LensPicker } from '../diff/LensPicker';
+import type { LensRun } from '../diff/useLensSession';
 
 interface PullRequestRailProps {
   detail: PullRequestDetail;
@@ -27,8 +28,8 @@ interface PullRequestRailProps {
   onRunLens: (lens: LensSummary) => void;
   /** Opens the project's lenses, to add or edit one. */
   onOpenLenses: () => void;
-  /** Name of the lens being written, if one is running. */
-  lensWriting: string | null;
+  /** The lens being written, if one is running. */
+  lensWriting: LensRun | null;
   /** Set by dragging the seam beside this. */
   width: number;
 }

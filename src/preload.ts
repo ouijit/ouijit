@@ -29,11 +29,11 @@ import type {
   MergeOptions,
   GithubDraftsChangedPayload,
   GithubLensChangedPayload,
-  LensRenamedPayload,
   SaveDraftInput,
   PrHead,
 } from './github/types';
 import type { LensAgentChoice } from './lens/lensAgents';
+import type { LensInput } from './lens/config';
 import type { SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
 
@@ -357,8 +357,8 @@ contextBridge.exposeInMainWorld('api', {
     lens: (projectPath: string, prNumber: number, headSha: string) =>
       typedInvoke('github:lens', projectPath, prNumber, headSha),
     clearLens: (projectPath: string, prNumber: number) => typedInvoke('github:clear-lens', projectPath, prNumber),
-    runLens: (projectPath: string, prNumber: number, lensName: string) =>
-      typedInvoke('github:run-lens', projectPath, prNumber, lensName),
+    runLens: (projectPath: string, prNumber: number, lensId: string) =>
+      typedInvoke('github:run-lens', projectPath, prNumber, lensId),
     viewedFiles: (projectPath: string, prNumber: number, headSha: string) =>
       typedInvoke('github:viewed-files', projectPath, prNumber, headSha),
     setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) =>
@@ -418,17 +418,15 @@ contextBridge.exposeInMainWorld('api', {
 
   diffLens: {
     get: (target: DiffLensTarget) => typedInvoke('diff-lens:get', target),
-    run: (target: DiffLensTarget, lensName: string) => typedInvoke('diff-lens:run', target, lensName),
+    run: (target: DiffLensTarget, lensId: string) => typedInvoke('diff-lens:run', target, lensId),
   },
 
   lens: {
     list: (projectPath: string) => typedInvoke('lens:list', projectPath),
-    save: (projectPath: string, name: string, instruction: string, previousName?: string) =>
-      typedInvoke('lens:save', projectPath, name, instruction, previousName),
-    delete: (projectPath: string, name: string) => typedInvoke('lens:delete', projectPath, name),
+    save: (projectPath: string, lens: LensInput) => typedInvoke('lens:save', projectPath, lens),
+    delete: (projectPath: string, lensId: string) => typedInvoke('lens:delete', projectPath, lensId),
     agent: (projectPath: string) => typedInvoke('lens:agent', projectPath),
     setAgent: (projectPath: string, choice: LensAgentChoice) => typedInvoke('lens:set-agent', projectPath, choice),
-    onRenamed: (callback: (payload: LensRenamedPayload) => void) => typedListen('lens:renamed', callback),
     onListChanged: (callback: (projectPath: string) => void) => typedListen('lens:list-changed', callback),
   },
 });

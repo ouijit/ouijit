@@ -119,6 +119,6 @@ export function readDiffLens(target: DiffLensTarget): Promise<StoredLens | null>
   return readLens(new WorktreeSubject(target));
 }
 
-export function writeDiffLens(target: DiffLensTarget, lensName: string): Promise<{ success: boolean; error?: string }> {
-  return writeLens(new WorktreeSubject(target), lensName);
+export function writeDiffLens(target: DiffLensTarget, lensId: string): Promise<{ success: boolean; error?: string }> {
+  return writeLens(new WorktreeSubject(target), lensId);
 }

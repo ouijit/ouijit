@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { LensSummary } from '../../lens/config';
 import type { StoredLens } from '../../lens/readLens';
+import type { LensRun } from './useLensSession';
 import { Icon } from '../terminal/Icon';
 import { MenuDivider, MenuItem, MenuPopover } from '../ui/Menu';
 
@@ -23,8 +24,8 @@ interface LensPickerProps {
   changedFiles: number;
   /** Files marked read. A worktree diff has no such mark, and passes nothing. */
   viewed?: number;
-  /** Name of the lens being written, if a run is in flight for this pull request. */
-  writing: string | null;
+  /** The lens being written, if a run is in flight for this pull request. */
+  writing: LensRun | null;
   onAllFiles: () => void;
   /** Show the lens already written, without writing it again. */
   onShowLens: () => void;
@@ -38,24 +39,25 @@ function triggerTitle({
   writing,
   showingLens,
   onFile,
-  staleName,
+  label,
+  staleOffered,
 }: {
-  writing: string | null;
+  writing: LensRun | null;
   showingLens: boolean;
   onFile: StoredLens | null;
-  /** The stale lens, when it is one the project still has and can run again. */
-  staleName: string | null;
+  /** What the lens on file is called now, which a rename moves. */
+  label: string;
+  /** Whether that lens is stale and still there to be run again. */
+  staleOffered: boolean;
 }): string {
-  if (writing) return `${writing} is running. The lens appears here when it writes one.`;
+  if (writing) return `${writing.name} is running. The lens appears here when it writes one.`;
   if (!showingLens) {
-    return staleName
-      ? `How to read this change — “${staleName}” was written for earlier commits`
+    return staleOffered
+      ? `How to read this change — “${label}” was written for earlier commits`
       : 'How to read this change';
   }
-  if (onFile?.stale) {
-    return `Reading this change through “${onFile.lensName ?? 'Lens'}”, written for an earlier version of it`;
-  }
-  if (onFile?.lensName) return `Reading this change through “${onFile.lensName}”`;
+  if (onFile?.stale) return `Reading this change through “${label}”, written for an earlier version of it`;
+  if (onFile?.lensId) return `Reading this change through “${label}”`;
   return 'Reading this change through a lens written for it';
 }
 
@@ -66,9 +68,9 @@ function rowHint(
     isStale,
     writing,
     parts,
-  }: { isApplied: boolean; isStale: boolean; writing: string | null; parts: number | null },
+  }: { isApplied: boolean; isStale: boolean; writing: LensRun | null; parts: number | null },
 ): string | undefined {
-  if (writing === lens.name) return 'Writing…';
+  if (writing?.id === lens.id) return 'Writing…';
   if (isApplied) return isStale ? `${parts} parts · out of date` : `${parts} parts`;
   return isStale ? 'out of date' : undefined;
 }
@@ -113,18 +115,21 @@ export function LensPicker({
   const rendered = onFile?.groups != null;
   const parts = onFile?.groups?.length ?? null;
   const showingLens = lensOn && rendered;
-  const appliedLabel = onFile?.lensName ?? 'Lens';
-  // A lens written by the CLI, or by one since renamed or deleted, has no row
-  // of its own in the list below — it gets one here so what is on screen can
-  // always be named and gone back to.
-  const orphan = rendered && !lenses.some((lens) => lens.name === onFile?.lensName);
+  // The lens that wrote what is on screen, if the project still has it. Looked
+  // up rather than read off the row: the stored name is what it was called when
+  // it ran, and a rename since then moves the one below and not that.
+  const wrote = onFile?.lensId ? lenses.find((lens) => lens.id === onFile.lensId) : undefined;
+  const appliedLabel = wrote?.name ?? onFile?.lensName ?? 'Lens';
+  // A lens written by the CLI, or by one since deleted, has no row of its own
+  // in the list below — it gets one here so what is on screen can always be
+  // named and gone back to.
+  const orphan = rendered && !wrote;
   // Marked only where it can be acted on. A stale lens the project no longer
-  // has — renamed, deleted, or never one of its own — has no row to carry the
-  // notice and nothing to offer, so it is left unsaid.
-  const staleName = onFile?.stale ? onFile.lensName : null;
-  const staleOffered = staleName !== null && lenses.some((lens) => lens.name === staleName);
+  // has — deleted, or never one of its own — has no row to carry the notice and
+  // nothing to offer, so it is left unsaid.
+  const staleOffered = Boolean(onFile?.stale && wrote);
 
-  const label = writing ? `Writing ${writing}…` : showingLens ? appliedLabel : 'All files';
+  const label = writing ? `Writing ${writing.name}…` : showingLens ? appliedLabel : 'All files';
   const note = showingLens ? `${parts}` : viewed ? `${viewed}/${changedFiles}` : `${changedFiles}`;
 
   return (
@@ -141,7 +146,7 @@ export function LensPicker({
           type="button"
           aria-haspopup="menu"
           aria-expanded={open}
-          title={triggerTitle({ writing, showingLens, onFile, staleName: staleOffered ? staleName : null })}
+          title={triggerTitle({ writing, showingLens, onFile, label: appliedLabel, staleOffered })}
           // Fills the ledge it is given rather than setting its own height:
           // what it has to be level with sits across the seam, and the two
           // surfaces that draw this put a different thing there.
@@ -203,15 +208,15 @@ export function LensPicker({
       )}
 
       {lenses.map((lens) => {
-        const isApplied = rendered && onFile?.lensName === lens.name;
+        const isApplied = rendered && wrote?.id === lens.id;
         // A lens that has drifted is a run to start again, whether or not it is
         // the one on screen. Showing it is not an option that leads anywhere:
         // when it is rendered the reader is already looking at it, and the
         // notice they want acting on is that it describes an older change.
-        const isStale = staleOffered && staleName === lens.name;
+        const isStale = staleOffered && wrote?.id === lens.id;
         return (
           <MenuItem
-            key={lens.name}
+            key={lens.id}
             label={lens.name}
             hint={rowHint(lens, { isApplied, isStale, writing, parts })}
             selected={isApplied && lensOn}

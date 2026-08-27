@@ -28,6 +28,7 @@ const FILES = [
 ];
 
 const LENS = {
+  lensId: 'narrative',
   lensName: 'Narrative',
   stale: false,
   groups: [
@@ -70,7 +71,9 @@ describe('the diff panel, read through a lens', () => {
       },
     });
     vi.mocked(window.api.diffLens.get).mockResolvedValue(LENS);
-    vi.mocked(window.api.lens.list).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
+    vi.mocked(window.api.lens.list).mockResolvedValue([
+      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
+    ]);
     vi.mocked(window.api.getFileDiff).mockResolvedValue(null);
     vi.mocked(window.api.worktree.getFileDiff).mockResolvedValue(null);
   });

@@ -326,7 +326,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
                 writing={lens.writing}
                 onAllFiles={() => lens.setLensOn(false)}
                 onShowLens={() => lens.setLensOn(true)}
-                onRun={(picked) => void lens.run(picked.name)}
+                onRun={(picked) => void lens.run(picked)}
                 onManage={() => setLensesOpen(true)}
               />
             </div>
@@ -415,8 +415,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
         {lensesOpen && (
           <LensDialog
             projectPath={projectPath}
-            onRun={(picked) => void lens.run(picked.name)}
-            running={lens.writing}
+            onRun={(picked) => void lens.run(picked)}
+            running={lens.writing?.id ?? null}
             onClose={() => setLensesOpen(false)}
           />
         )}

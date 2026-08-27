@@ -23,7 +23,10 @@ describe('LensList', () => {
     vi.clearAllMocks();
     analysis(false);
     vi.mocked(window.api.lens.list).mockResolvedValue([]);
-    vi.mocked(window.api.lens.save).mockResolvedValue({ success: true });
+    vi.mocked(window.api.lens.save).mockImplementation(async (_project, input) => ({
+      id: input.id ?? 'made',
+      ...input,
+    }));
     vi.mocked(window.api.lens.agent).mockResolvedValue({ agentId: null });
     window.api.health.check = vi.fn().mockResolvedValue({ claude: true, codex: false });
   });
@@ -49,12 +52,10 @@ describe('LensList', () => {
     fireEvent.click(pill);
 
     await waitFor(() =>
-      expect(window.api.lens.save).toHaveBeenCalledWith(
-        PROJECT,
-        'Setup and payoff',
-        'The groundwork that had to happen first, then the change it was for.',
-        undefined,
-      ),
+      expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, {
+        name: 'Setup and payoff',
+        instruction: 'The groundwork that had to happen first, then the change it was for.',
+      }),
     );
   });
 
@@ -76,11 +77,16 @@ describe('LensList', () => {
     fireEvent.change(screen.getByPlaceholderText(/Data model first/), { target: { value: 'group by story' } });
     fireEvent.click(screen.getByText('Save and read'));
 
-    await waitFor(() => expect(created).toHaveBeenCalledWith({ name: 'Narrative', instruction: 'group by story' }));
+    // Handed back as saved, with the id a run needs.
+    await waitFor(() =>
+      expect(created).toHaveBeenCalledWith({ id: 'made', name: 'Narrative', instruction: 'group by story' }),
+    );
 
     cleanup();
     created.mockClear();
-    vi.mocked(window.api.lens.list).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
+    vi.mocked(window.api.lens.list).mockResolvedValue([
+      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
+    ]);
     render(<LensList projectPath={PROJECT} onRun={vi.fn()} onCreated={created} />);
 
     fireEvent.click(await screen.findByLabelText('Edit Narrative'));
@@ -89,14 +95,20 @@ describe('LensList', () => {
     fireEvent.click(screen.getByText('Save'));
 
     await waitFor(() =>
-      expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, 'Narrative', 'group by risk', 'Narrative'),
+      expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, {
+        id: 'narrative',
+        name: 'Narrative',
+        instruction: 'group by risk',
+      }),
     );
     expect(created).not.toHaveBeenCalled();
   });
 
   /** A standing list of suggestions under a list you have curated is clutter. */
   test('with a lens of your own the suggestions are gone', async () => {
-    vi.mocked(window.api.lens.list).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
+    vi.mocked(window.api.lens.list).mockResolvedValue([
+      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
+    ]);
     render(<LensList projectPath={PROJECT} />);
 
     expect(await screen.findByText('Narrative')).toBeTruthy();

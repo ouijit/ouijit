@@ -634,9 +634,9 @@ class PullRequestSubject implements DiffSubject {
 export function writeLensWithAgent(
   projectPath: string,
   prNumber: number,
-  lensName: string,
+  lensId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  return writeLens(new PullRequestSubject(projectPath, prNumber), lensName);
+  return writeLens(new PullRequestSubject(projectPath, prNumber), lensId);
 }
 
 /** The lens stored for a pull request, if it still describes this head. */

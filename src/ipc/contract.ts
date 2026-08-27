@@ -62,7 +62,6 @@ import type {
   MergeOptions,
   GithubDraftsChangedPayload,
   GithubLensChangedPayload,
-  LensRenamedPayload,
   InboxResult,
   PullRequestFilesResult,
   SaveDraftInput,
@@ -70,7 +69,7 @@ import type {
   PrFileVersions,
 } from '../github/types';
 import type { LensAgentChoice } from '../lens/lensAgents';
-import type { LensSummary } from '../lens/config';
+import type { LensInput, LensSummary } from '../lens/config';
 import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
 import type { AnalysisOverview, DiffSignals } from '../analysis/types';
 import type { DiffLensTarget } from '../lens/worktreeSubject';
@@ -293,7 +292,7 @@ export interface IpcInvokeContract {
   };
   'github:lens': { args: [projectPath: string, prNumber: number, headSha: string]; return: StoredLens | null };
   'github:run-lens': {
-    args: [projectPath: string, prNumber: number, lensName: string];
+    args: [projectPath: string, prNumber: number, lensId: string];
     return: { success: boolean; error?: string };
   };
   'github:viewed-files': { args: [projectPath: string, prNumber: number, headSha: string]; return: string[] };
@@ -319,18 +318,15 @@ export interface IpcInvokeContract {
   // `github:` — a worktree with no remote reads its own diff through these,
   // and nothing behind them touches GitHub.
   'lens:list': { args: [projectPath: string]; return: LensSummary[] };
-  'lens:save': {
-    args: [projectPath: string, name: string, command: string, previousName?: string];
-    return: LensSummary;
-  };
-  'lens:delete': { args: [projectPath: string, name: string]; return: { success: boolean } };
+  'lens:save': { args: [projectPath: string, lens: LensInput]; return: LensSummary };
+  'lens:delete': { args: [projectPath: string, lensId: string]; return: { success: boolean } };
   'lens:agent': { args: [projectPath: string]; return: LensAgentChoice };
   'lens:set-agent': { args: [projectPath: string, choice: LensAgentChoice]; return: { success: boolean } };
 
   // A lens over a worktree's own diff, written by the same agent and stored
   // under the same named instructions as a pull request's.
   'diff-lens:get': { args: [target: DiffLensTarget]; return: StoredLens | null };
-  'diff-lens:run': { args: [target: DiffLensTarget, lensName: string]; return: { success: boolean; error?: string } };
+  'diff-lens:run': { args: [target: DiffLensTarget, lensId: string]; return: { success: boolean; error?: string } };
 
   // ── Diff notes ─────────────────────────────────────────────────────
   // Notes on a worktree's own diff, keyed by the worktree rather than by a pull
@@ -498,15 +494,6 @@ export interface IpcPushContract {
   /** A review draft was written or discarded outside the renderer (the CLI). */
   'github:drafts-changed': { args: [payload: GithubDraftsChangedPayload] };
   'github:lens-changed': { args: [payload: GithubLensChangedPayload] };
-  /**
-   * A lens was renamed in project settings.
-   *
-   * The stored groupings are renamed with it in the same call, so anything
-   * showing one only has to read its row again. Broadcast rather than returned
-   * from `lens:save`, because the pane that would have to be told is never the
-   * pane the rename was typed into.
-   */
-  'lens:renamed': { args: [payload: LensRenamedPayload] };
   /**
    * A project's lenses were added to or deleted from.
    *

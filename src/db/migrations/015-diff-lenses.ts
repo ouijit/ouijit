@@ -12,6 +12,11 @@ export function up(db: Database.Database): void {
       subject_key TEXT NOT NULL,
       pin TEXT NOT NULL,
       groups TEXT NOT NULL,
+      -- Which lens wrote it, and what that lens was called at the time. Both
+      -- null for a grouping an agent posted over the CLI, which went through
+      -- no lens at all; the name is a snapshot, read only once the lens it
+      -- names has been deleted and there is nothing left to look up.
+      lens_id TEXT,
       lens_name TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (project_path, subject_key)

@@ -26,13 +26,18 @@ const { readLens, clearLens } = await import('../lens/readLens');
 const PROJECT = '/work/alpha';
 const GROUPS = JSON.stringify({ groups: [{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }] });
 
-function store(pin: string, groups = GROUPS, lensName: string | null = 'Narrative'): void {
+function store(
+  pin: string,
+  groups = GROUPS,
+  lens: { id: string; name: string } | null = { id: 'lens-1', name: 'Narrative' },
+): void {
   rows.set(`${PROJECT}\0subject`, {
     project_path: PROJECT,
     subject_key: 'subject',
     pin,
     groups,
-    lens_name: lensName,
+    lens_id: lens?.id ?? null,
+    lens_name: lens?.name ?? null,
     created_at: '2026-08-01T00:00:00.000Z',
   });
 }
@@ -65,7 +70,7 @@ describe('reading the lens on file', () => {
     for (const whenStale of ['drop', 'render'] as const) {
       const lens = await readLens(subject(whenStale));
       expect(lens?.stale).toBe(false);
-      expect(lens?.lensName).toBe('Narrative');
+      expect(lens?.lensId).toBe('lens-1');
       expect(lens?.groups?.map((g) => g.title)).toEqual(['Transport']);
     }
   });
@@ -79,7 +84,7 @@ describe('reading the lens on file', () => {
     store('older-sha');
 
     const lens = await readLens(subject('drop'));
-    expect(lens).toEqual({ groups: null, lensName: 'Narrative', stale: true });
+    expect(lens).toEqual({ groups: null, lensId: 'lens-1', lensName: 'Narrative', stale: true });
   });
 
   /**
@@ -95,10 +100,12 @@ describe('reading the lens on file', () => {
     expect(lens?.groups?.map((g) => g.title)).toEqual(['Transport']);
   });
 
-  test('a lens posted over the CLI has no name to offer', async () => {
+  test('a lens posted over the CLI has no lens to offer', async () => {
     store('head-1', GROUPS, null);
 
-    expect((await readLens(subject('render')))?.lensName).toBeNull();
+    const lens = await readLens(subject('render'));
+    expect(lens?.lensId).toBeNull();
+    expect(lens?.lensName).toBeNull();
   });
 
   test('a row that will not parse leaves nothing to draw', async () => {

@@ -82,9 +82,7 @@ export function registerGithubHandlers(): void {
     createPullRequestForTask(projectPath, taskNumber, options),
   );
   typedHandle('github:lens', (projectPath, prNumber, headSha) => getLens(projectPath, prNumber, headSha));
-  typedHandle('github:run-lens', (projectPath, prNumber, lensName) =>
-    writeLensWithAgent(projectPath, prNumber, lensName),
-  );
+  typedHandle('github:run-lens', (projectPath, prNumber, lensId) => writeLensWithAgent(projectPath, prNumber, lensId));
   typedHandle('github:viewed-files', (projectPath, prNumber, headSha) =>
     getViewedFiles(projectPath, prNumber, headSha),
   );

@@ -1,19 +1,17 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import type { BrowserWindow } from 'electron';
+import type { LensInput } from '../lens/config';
 
 /**
- * A lens changing is told, not reached for.
+ * A lens list changing is told, not reached for.
  *
- * Two different things get told. `lens:list-changed` says the project has one
- * more or one fewer, which every picker and list holds its own copy of.
- * `lens:renamed` says a lens still there is now called something else, which
- * only matters to whatever is showing a grouping it wrote — and the rename
- * happens in one call, list and groupings together, so that is a single local
- * row out of date rather than anything to go and fix.
+ * Every picker and list holds its own copy of `lens:list`, and the pane a lens
+ * was added in is rarely the only one open. Broadcast rather than patched in by
+ * that pane, which would have to know every surface currently showing a lens —
+ * a list that only grows.
  *
- * Both are broadcast rather than patched in by the pane the change was typed
- * into, which would have to know every surface currently showing a lens — a
- * list that only grows.
+ * A rename is not a separate announcement: a lens is keyed by its id and its
+ * name is looked up fresh, so re-reading the list is the whole of it.
  */
 
 const typedHandlers = new Map<string, (...args: never[]) => unknown>();
@@ -24,10 +22,10 @@ vi.mock('../ipc/helpers', () => ({
   typedPush: (...args: unknown[]) => typedPushMock(...args),
 }));
 
-const saveLensMock = vi.fn(async (_project: string, name: string, instruction: string) => ({ name, instruction }));
+const saveLensMock = vi.fn(async (_project: string, input: LensInput) => ({ id: input.id ?? 'made', ...input }));
 vi.mock('../lens/config', () => ({
   listLenses: vi.fn(async () => []),
-  saveLens: (...args: [string, string, string, string | undefined]) => saveLensMock(...args),
+  saveLens: (...args: [string, LensInput]) => saveLensMock(...args),
   deleteLens: vi.fn(async () => ({ success: true })),
   getLensAgentChoice: vi.fn(async () => ({ agentId: null })),
   setLensAgentChoice: vi.fn(async () => ({ success: true })),
@@ -47,19 +45,14 @@ const { registerDiffPanelHandlers } = await import('../ipc/handlers/diffPanel');
 const WINDOW = {} as BrowserWindow;
 const PROJECT = '/work/alpha';
 
-function remove(name: string): Promise<unknown> {
-  const handler = typedHandlers.get('lens:delete') as (project: string, name: string) => Promise<unknown>;
-  return handler(PROJECT, name);
+function remove(id: string): Promise<unknown> {
+  const handler = typedHandlers.get('lens:delete') as (project: string, id: string) => Promise<unknown>;
+  return handler(PROJECT, id);
 }
 
-function save(name: string, previousName?: string): Promise<unknown> {
-  const handler = typedHandlers.get('lens:save') as (
-    project: string,
-    name: string,
-    instruction: string,
-    previousName?: string,
-  ) => Promise<unknown>;
-  return handler(PROJECT, name, 'group by story', previousName);
+function save(input: LensInput): Promise<unknown> {
+  const handler = typedHandlers.get('lens:save') as (project: string, input: LensInput) => Promise<unknown>;
+  return handler(PROJECT, input);
 }
 
 describe('what a lens change tells the renderer', () => {
@@ -69,34 +62,14 @@ describe('what a lens change tells the renderer', () => {
     registerDiffPanelHandlers(WINDOW);
   });
 
-  test('says so, naming both the old name and the new', async () => {
-    await save('Narrative v2', 'Narrative');
-
-    expect(typedPushMock).toHaveBeenCalledWith(WINDOW, 'lens:renamed', {
-      projectPath: PROJECT,
-      from: 'Narrative',
-      to: 'Narrative v2',
-    });
-  });
-
-  test('a new lens is not a rename, and neither is an edit that keeps its name', async () => {
-    await save('Narrative');
-    await save('Narrative', 'Narrative');
-
-    // No grouping can be reading through a name that has not moved, so there
-    // is nothing for the rename channel to say.
-    const renames = typedPushMock.mock.calls.filter(([, channel]) => channel === 'lens:renamed');
-    expect(renames).toEqual([]);
-  });
-
   test('the list is broadcast whichever way it changed', async () => {
-    await save('Narrative');
-    await save('Narrative v2', 'Narrative');
-    await remove('Narrative v2');
+    await save({ name: 'Narrative', instruction: 'group by story' });
+    await save({ id: 'made', name: 'Narrative v2', instruction: 'group by story' });
+    await remove('made');
 
-    // A delete has no rename to report and would otherwise say nothing at all,
-    // which is how a picker ends up offering a lens the project has dropped.
-    expect(typedPushMock.mock.calls.filter(([, channel]) => channel === 'lens:list-changed')).toEqual([
+    // A delete would otherwise say nothing at all, which is how a picker ends
+    // up offering a lens the project has dropped.
+    expect(typedPushMock.mock.calls).toEqual([
       [WINDOW, 'lens:list-changed', PROJECT],
       [WINDOW, 'lens:list-changed', PROJECT],
       [WINDOW, 'lens:list-changed', PROJECT],

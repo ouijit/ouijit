@@ -20,8 +20,8 @@ const DIFF_BATCH_SIZE = 10;
  * the lens and its agent, refusing an empty change, pinning before the run
  * rather than after, batching the reads — is one thing written once.
  */
-export async function writeLens(subject: DiffSubject, lensName: string): Promise<{ success: boolean; error?: string }> {
-  const resolved = await resolveLensRun(subject.projectPath, lensName);
+export async function writeLens(subject: DiffSubject, lensId: string): Promise<{ success: boolean; error?: string }> {
+  const resolved = await resolveLensRun(subject.projectPath, lensId);
   if ('error' in resolved) return { success: false, error: resolved.error };
   const { lens, agent } = resolved;
 
@@ -33,7 +33,7 @@ export async function writeLens(subject: DiffSubject, lensName: string): Promise
   // move — pinning to the later state would call a stale lens fresh.
   const pin = await subject.pin(listed.files);
 
-  log.info('gathering context for a lens', { ...subject.label, files: listed.files.length, lens: lensName });
+  log.info('gathering context for a lens', { ...subject.label, files: listed.files.length, lens: lens.name });
   const [diffs, signals] = await Promise.all([
     gather(subject, listed.files),
     // Null unless the project has the analysis flag on, which is what leaves
@@ -55,7 +55,7 @@ export async function writeLens(subject: DiffSubject, lensName: string): Promise
   if (!result.success || !result.body) return { success: false, error: result.error };
 
   // `runLens` has already parsed what the agent said and re-serialised it.
-  await saveDiffLens(subject.projectPath, subject.key, pin, result.body, lens.name);
+  await saveDiffLens(subject.projectPath, subject.key, pin, result.body, { id: lens.id, name: lens.name });
   return { success: true };
 }
 

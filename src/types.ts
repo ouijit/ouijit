@@ -26,7 +26,6 @@ import type {
   MergeOptions,
   GithubDraftsChangedPayload,
   GithubLensChangedPayload,
-  LensRenamedPayload,
   InboxResult,
   PullRequestFilesResult,
   SaveDraftInput,
@@ -36,7 +35,7 @@ import type {
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
 import type { LensAgentChoice } from './lens/lensAgents';
-import type { LensSummary } from './lens/config';
+import type { LensInput, LensSummary } from './lens/config';
 import type { StoredLens } from './lens/readLens';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
@@ -98,7 +97,6 @@ export type {
   CommentKind,
   GithubDraftsChangedPayload,
   GithubLensChangedPayload,
-  LensRenamedPayload,
   CheckRun,
   TimelineItem,
   InboxResult,
@@ -613,12 +611,10 @@ export interface ElectronAPI {
  */
 export interface LensAPI {
   list(projectPath: string): Promise<LensSummary[]>;
-  save(projectPath: string, name: string, instruction: string, previousName?: string): Promise<LensSummary>;
-  delete(projectPath: string, name: string): Promise<{ success: boolean }>;
+  save(projectPath: string, lens: LensInput): Promise<LensSummary>;
+  delete(projectPath: string, lensId: string): Promise<{ success: boolean }>;
   agent(projectPath: string): Promise<LensAgentChoice>;
   setAgent(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }>;
-  /** A lens was renamed, so anything naming one is showing the old name. */
-  onRenamed(callback: (payload: LensRenamedPayload) => void): () => void;
   /** A lens was added or deleted, so any list of them is one short or one over. */
   onListChanged(callback: (projectPath: string) => void): () => void;
 }
@@ -626,7 +622,7 @@ export interface LensAPI {
 /** The pull request equivalent is `github.lens` / `runLens`. */
 export interface DiffLensAPI {
   get(target: DiffLensTarget): Promise<StoredLens | null>;
-  run(target: DiffLensTarget, lensName: string): Promise<{ success: boolean; error?: string }>;
+  run(target: DiffLensTarget, lensId: string): Promise<{ success: boolean; error?: string }>;
 }
 
 /**
@@ -724,7 +720,7 @@ export interface GithubAPI {
 
   lens(projectPath: string, prNumber: number, headSha: string): Promise<StoredLens | null>;
   clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }>;
-  runLens(projectPath: string, prNumber: number, lensName: string): Promise<{ success: boolean; error?: string }>;
+  runLens(projectPath: string, prNumber: number, lensId: string): Promise<{ success: boolean; error?: string }>;
   viewedFiles(projectPath: string, prNumber: number, headSha: string): Promise<string[]>;
   setFileViewed(
     projectPath: string,

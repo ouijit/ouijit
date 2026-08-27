@@ -17,6 +17,14 @@ export interface StoredLens {
    */
   groups: LensGroup[] | null;
   /** Which lens wrote it. Null when an agent posted groups directly. */
+  lensId: string | null;
+  /**
+   * What that lens was called when it ran.
+   *
+   * A display fallback, not the identity: whoever is showing this has the
+   * project's lenses and should prefer the current name by id. This is what is
+   * left to call the grouping once that lens has been deleted.
+   */
   lensName: string | null;
   /** Written against a different diff than the one on screen. */
   stale: boolean;
@@ -36,7 +44,7 @@ export async function readLens(subject: DiffSubject): Promise<StoredLens | null>
 
   const stale = (await subject.pin()) !== row.pin;
   const groups = stale && subject.whenStale === 'drop' ? null : parseLens(row.groups);
-  return { groups, lensName: row.lens_name, stale };
+  return { groups, lensId: row.lens_id, lensName: row.lens_name, stale };
 }
 
 /** Forget the lens written for a diff. */

@@ -11,26 +11,19 @@ export function registerDiffPanelHandlers(mainWindow: BrowserWindow): void {
   typedHandle('diff-notes:clear', (worktreePath) => clearNotes(worktreePath));
 
   typedHandle('diff-lens:get', (target) => readDiffLens(target));
-  typedHandle('diff-lens:run', (target, lensName) => writeDiffLens(target, lensName));
+  typedHandle('diff-lens:run', (target, lensId) => writeDiffLens(target, lensId));
 
   // The project's lens list and agent, which both diffs read. Registered here
   // rather than among the GitHub handlers, which all require a repo identity
   // this does not need.
   typedHandle('lens:list', (projectPath) => listLenses(projectPath));
-  typedHandle('lens:save', async (projectPath, name, command, previousName) => {
-    const lens = await saveLens(projectPath, name, command, previousName);
-    // `saveLens` follows the rename through the stored groupings, so anything
-    // showing one is a single local row out of date. Broadcast rather than
-    // patched in by the settings panel, which would have to know every surface
-    // currently displaying a lens.
-    if (previousName && previousName !== lens.name) {
-      typedPush(mainWindow, 'lens:renamed', { projectPath, from: previousName, to: lens.name });
-    }
+  typedHandle('lens:save', async (projectPath, input) => {
+    const lens = await saveLens(projectPath, input);
     typedPush(mainWindow, 'lens:list-changed', projectPath);
     return lens;
   });
-  typedHandle('lens:delete', async (projectPath, name) => {
-    const result = await deleteLens(projectPath, name);
+  typedHandle('lens:delete', async (projectPath, lensId) => {
+    const result = await deleteLens(projectPath, lensId);
     typedPush(mainWindow, 'lens:list-changed', projectPath);
     return result;
   });

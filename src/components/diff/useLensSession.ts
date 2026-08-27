@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import log from 'electron-log/renderer';
 import type { FileDiff } from '../../types';
 import type { StoredLens } from '../../lens/readLens';
+import type { LensSummary } from '../../lens/config';
 import { resolveLens, type ResolvedGroup } from '../../lens/lens';
 import { useProjectStore } from '../../stores/projectStore';
 import { describeError } from '../../utils/describeError';
@@ -30,15 +31,25 @@ export interface LensSource {
   /** Changes when the diff itself moves, so the stored lens is read again. */
   revision?: string;
   read: () => Promise<StoredLens | null>;
-  write: (lensName: string) => Promise<{ success: boolean; error?: string }>;
+  write: (lensId: string) => Promise<{ success: boolean; error?: string }>;
   /**
-   * Something outside this pane touched the lens.
+   * Something outside this pane wrote or cleared the lens.
    *
-   * `apply` says whether it is the kind of change worth showing unasked: an
-   * agent writing a lens is, a lens being renamed in settings is not — that
-   * changes what it is called and nothing about what the reader chose to see.
+   * `apply` says whether it is worth showing unasked: a grouping that has just
+   * landed is, one that has only been cleared is not.
    */
   subscribe?: (refresh: (apply: boolean) => void) => () => void;
+}
+
+/**
+ * A run in flight: which lens, and what it was called when it started.
+ *
+ * The name rides along so a spinner can be labelled without looking anything
+ * up, which matters for a lens deleted while its run is still going.
+ */
+export interface LensRun {
+  id: string;
+  name: string;
 }
 
 /**
@@ -49,11 +60,11 @@ export interface LensSource {
  * is not a reason to stop being told about it. Keyed rather than singular so
  * two diffs can be read at once and each only claims its own.
  */
-const runs = new Map<string, string>();
+const runs = new Map<string, LensRun>();
 const listeners = new Set<() => void>();
 
-function setRun(key: string, name: string | null): void {
-  if (name) runs.set(key, name);
+function setRun(key: string, run: LensRun | null): void {
+  if (run) runs.set(key, run);
   else runs.delete(key);
   for (const listener of listeners) listener();
 }
@@ -78,9 +89,9 @@ export interface LensSession {
   shown: ResolvedGroup[] | null;
   lensOn: boolean;
   setLensOn: (on: boolean) => void;
-  /** Name of the lens being written for this diff, if one is running. */
-  writing: string | null;
-  run: (lensName: string) => Promise<void>;
+  /** The lens being written for this diff, if one is running. */
+  writing: LensRun | null;
+  run: (pick: LensSummary) => Promise<void>;
   /** One file's diff narrowed to the hunks a group claims. */
   sliceFor: ReturnType<typeof useDiffSlices>;
 }
@@ -104,7 +115,7 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
   const [chosen, setChosen] = useState<boolean | null>(null);
   const lensOn = chosen ?? true;
 
-  const writing = useSyncExternalStore<string | null>(subscribeToRuns, () => (key ? (runs.get(key) ?? null) : null));
+  const writing = useSyncExternalStore<LensRun | null>(subscribeToRuns, () => (key ? (runs.get(key) ?? null) : null));
 
   const refresh = useCallback(async (apply: boolean): Promise<void> => {
     const at = sourceRef.current.key;
@@ -140,15 +151,15 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
   }, [key, refresh]);
 
   const run = useCallback(
-    async (lensName: string): Promise<void> => {
+    async (pick: LensSummary): Promise<void> => {
       const at = sourceRef.current.key;
       if (!at || runs.has(at)) return;
 
-      setRun(at, lensName);
+      setRun(at, { id: pick.id, name: pick.name });
       try {
-        const result = await sourceRef.current.write(lensName);
+        const result = await sourceRef.current.write(pick.id);
         if (!result.success) {
-          useProjectStore.getState().addToast(result.error ?? `“${lensName}” could not read this change`, 'error');
+          useProjectStore.getState().addToast(result.error ?? `“${pick.name}” could not read this change`, 'error');
           return;
         }
         // Read back here rather than waited for: this call knows it finished,

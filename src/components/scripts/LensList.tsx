@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import { useExperimentalStore } from '../../stores/experimentalStore';
-import type { LensSummary } from '../../lens/config';
+import type { LensInput, LensSummary } from '../../lens/config';
 import { describeError } from '../../utils/describeError';
 import { Icon } from '../terminal/Icon';
 import { useAutoResize } from '../../hooks/useAutoResize';
@@ -17,7 +17,7 @@ interface LensListProps {
    * point of opening this. Absent in settings, where there is no diff to read.
    */
   onCreated?: (lens: LensSummary) => void;
-  /** Name of the lens currently being written, if any. */
+  /** Id of the lens currently being written, if any. */
   running?: string | null;
 }
 
@@ -44,7 +44,7 @@ interface LensListProps {
  * Offered rather than seeded. Writing them into the project on first open would
  * give everyone three lenses they did not write and have to delete.
  */
-const SUGGESTED_LENSES: LensSummary[] = [
+const SUGGESTED_LENSES: LensInput[] = [
   { name: 'By layer', instruction: 'Data model first, then the code that uses it, then the UI.' },
   { name: 'Risk first', instruction: 'The riskiest changes first, then everything that follows from them.' },
   { name: 'Setup and payoff', instruction: 'The groundwork that had to happen first, then the change it was for.' },
@@ -52,40 +52,38 @@ const SUGGESTED_LENSES: LensSummary[] = [
 
 export function LensList({ projectPath, onRun, onCreated, running }: LensListProps) {
   const { lenses, reload } = useProjectLenses(projectPath);
-  const [expandedName, setExpandedName] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
   // What `buildLensPrompt` will actually carry: the hotspot section is written
   // only when `getDiffSignals` answers, and it answers only with this flag on.
   const sendsHotspots = useExperimentalStore((s) => s.flagsByProject[projectPath]?.analysis ?? false);
 
   const save = useCallback(
-    async (lens: LensSummary, previousName?: string) => {
+    async (input: LensInput) => {
+      let saved: LensSummary;
       try {
-        await window.api.lens.save(projectPath, lens.name, lens.instruction, previousName);
+        saved = await window.api.lens.save(projectPath, input);
       } catch (error) {
         useProjectStore.getState().addToast(describeError(error), 'error');
         return;
       }
-      // Anything reading through this one is told by `lens:renamed`, which main
-      // pushes from the same call — this component does not need to know which
-      // surfaces are currently showing a lens, and that list only ever grew.
       await reload();
-      setExpandedName(null);
+      setExpandedId(null);
       setAddingNew(false);
       // Nobody opens this from a diff to end up looking at a list. A lens made
       // here is one somebody wants used, so making it is what uses it; an edit
-      // to one that already exists is not, and passes a previous name.
-      if (!previousName) onCreated?.(lens);
+      // to one that already exists is not, and arrives with an id.
+      if (!input.id) onCreated?.(saved);
     },
     [projectPath, reload, onCreated],
   );
 
   const remove = useCallback(
-    async (name: string) => {
-      await window.api.lens.delete(projectPath, name);
+    async (lens: LensSummary) => {
+      await window.api.lens.delete(projectPath, lens.id);
       await reload();
-      setExpandedName(null);
-      useProjectStore.getState().addToast(`Deleted “${name}”`, 'success');
+      setExpandedId(null);
+      useProjectStore.getState().addToast(`Deleted “${lens.name}”`, 'success');
     },
     [projectPath, reload],
   );
@@ -113,30 +111,30 @@ export function LensList({ projectPath, onRun, onCreated, running }: LensListPro
       )}
 
       {lenses.map((lens) =>
-        expandedName === lens.name ? (
+        expandedId === lens.id ? (
           <LensForm
-            key={lens.name}
+            key={lens.id}
             initial={lens}
             sendsHotspots={sendsHotspots}
             submitLabel="Save"
-            onSave={(next) => void save(next, lens.name)}
-            onCancel={() => setExpandedName(null)}
-            onDelete={() => void remove(lens.name)}
+            onSave={(next) => void save({ ...next, id: lens.id })}
+            onCancel={() => setExpandedId(null)}
+            onDelete={() => void remove(lens)}
           />
         ) : (
           <LensRow
-            key={lens.name}
+            key={lens.id}
             lens={lens}
             // In the dialog the row is the lens: pressing it reads the pull
             // request through it. In settings there is nothing to read, so the
             // row opens itself for editing instead.
-            onPress={() => (onRun ? onRun(lens) : setExpandedName(lens.name))}
+            onPress={() => (onRun ? onRun(lens) : setExpandedId(lens.id))}
             pressHint={onRun ? `Read this diff through “${lens.name}”` : `Edit ${lens.name}`}
             onEdit={() => {
-              setExpandedName(lens.name);
+              setExpandedId(lens.id);
               setAddingNew(false);
             }}
-            writing={running === lens.name}
+            writing={running === lens.id}
             busy={Boolean(running)}
           />
         ),
@@ -158,7 +156,7 @@ export function LensList({ projectPath, onRun, onCreated, running }: LensListPro
           className="w-full flex items-center gap-2 px-4 py-3 text-xs text-text-tertiary hover:text-text-primary hover:bg-ink/[0.04] transition-colors duration-100"
           onClick={() => {
             setAddingNew(true);
-            setExpandedName(null);
+            setExpandedId(null);
           }}
         >
           <Icon name="plus" className="w-3.5 h-3.5" />
@@ -238,13 +236,13 @@ function LensForm({
   onCancel,
   onDelete,
 }: {
-  initial?: LensSummary;
+  initial?: LensInput;
   existingNames?: string[];
   /** Whether the prompt will carry the history section as well as the diff. */
   sendsHotspots: boolean;
   /** What saving does, which differs between making a lens and editing one. */
   submitLabel: string;
-  onSave: (lens: LensSummary) => void;
+  onSave: (lens: { name: string; instruction: string }) => void;
   onCancel: () => void;
   onDelete?: () => void;
 }) {
@@ -265,8 +263,8 @@ function LensForm({
     }
   }, [initial]);
 
-  // Names are the key, so a new one colliding would silently overwrite the
-  // lens already using it. Said before the save, not after.
+  // Nothing breaks if two lenses share a name, but the picker names what is on
+  // screen and two identical rows say nothing. Said before the save, not after.
   const collides = !initial && existingNames?.includes(name.trim());
   const isValid = Boolean(name.trim()) && Boolean(instruction.trim()) && !collides;
 

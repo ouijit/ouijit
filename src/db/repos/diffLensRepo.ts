@@ -8,6 +8,8 @@ export interface DiffLensRow {
   /** JSON: the groups, as written. Parsed and reconciled on the way out. */
   groups: string;
   /** The lens that wrote it, or null when an agent posted groups directly. */
+  lens_id: string | null;
+  /** What that lens was called when it ran, for once it no longer exists. */
   lens_name: string | null;
   created_at: string;
 }
@@ -30,32 +32,25 @@ export class DiffLensRepo {
       .get(projectPath, subjectKey) as DiffLensRow | undefined;
   }
 
-  save(projectPath: string, subjectKey: string, pin: string, groups: string, lensName: string | null): void {
+  save(
+    projectPath: string,
+    subjectKey: string,
+    pin: string,
+    groups: string,
+    lens: { id: string; name: string } | null,
+  ): void {
     this.db
       .prepare(
-        `INSERT INTO diff_lenses (project_path, subject_key, pin, groups, lens_name, created_at)
-         VALUES (?, ?, ?, ?, ?, datetime('now'))
+        `INSERT INTO diff_lenses (project_path, subject_key, pin, groups, lens_id, lens_name, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(project_path, subject_key) DO UPDATE SET
            pin = excluded.pin,
            groups = excluded.groups,
+           lens_id = excluded.lens_id,
            lens_name = excluded.lens_name,
            created_at = excluded.created_at`,
       )
-      .run(projectPath, subjectKey, pin, groups, lensName);
-  }
-
-  /**
-   * Follow a lens that has been renamed.
-   *
-   * The stored grouping records which lens wrote it, and that record is a name.
-   * Left behind, a renamed lens turns what is already on screen into something
-   * the project no longer has — listed a second time, under the name it used
-   * to have.
-   */
-  rename(projectPath: string, from: string, to: string): void {
-    this.db
-      .prepare('UPDATE diff_lenses SET lens_name = ? WHERE project_path = ? AND lens_name = ?')
-      .run(to, projectPath, from);
+      .run(projectPath, subjectKey, pin, groups, lens?.id ?? null, lens?.name ?? null);
   }
 
   delete(projectPath: string, subjectKey: string): void {

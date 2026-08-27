@@ -461,15 +461,10 @@ export async function saveDiffLens(
   subjectKey: string,
   pin: string,
   groups: string,
-  lensName: string | null,
+  lens: { id: string; name: string } | null,
 ): Promise<void> {
   const { diffLensRepo: dl } = repos();
-  dl.save(projectPath, subjectKey, pin, groups, lensName);
-}
-
-export async function renameDiffLens(projectPath: string, from: string, to: string): Promise<void> {
-  const { diffLensRepo: dl } = repos();
-  dl.rename(projectPath, from, to);
+  dl.save(projectPath, subjectKey, pin, groups, lens);
 }
 
 export async function deleteDiffLens(projectPath: string, subjectKey: string): Promise<{ success: boolean }> {

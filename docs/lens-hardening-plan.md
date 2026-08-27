@@ -60,30 +60,31 @@ fresh, so it is right the moment it changes with nothing broadcast. It also
 closes the race where renaming mid-run saves the finished grouping under the
 old name.
 
-- [ ] `LensSummary` gains `id`. Lenses are a JSON array in `global_settings`
+- [x] `LensSummary` gains `id`. Lenses are a JSON array in `global_settings`
       under `github:lenses:<path>`, so there is no schema for the list —
       `parseLenses` backfills an id for any entry without one and writes back,
       which covers dev databases that already hold lenses.
-- [ ] `lens:save` takes a lens whose absent id means create; `lens:delete` takes
+- [x] `lens:save` takes a lens whose absent id means create; `lens:delete` takes
       an id. `resolveLensRun`, `writeLens` and `github:run-lens` follow.
-- [ ] `diff_lenses` stores both `lens_id` and `lens_name`. The id is the key;
+- [x] `diff_lenses` stores both `lens_id` and `lens_name`. The id is the key;
       the name is a snapshot for display when the lens has since been deleted
       and there is nothing left to look up. The picker prefers the current name
       by id and falls back to the snapshot. Both stay nullable — a grouping
       posted by an agent through the CLI has neither.
-- [ ] `previousName` currently doubles as the create-vs-edit signal for
+- [x] `previousName` currently doubles as the create-vs-edit signal for
       `onCreated`. That becomes "did it arrive with an id".
-- [ ] Amend migration 015: `lens_id`, `lens_name`, and Stage 3's run columns.
+- [x] Amend migration 015 in place: `lens_id` and `lens_name` here, the run
+      columns when Stage 3 needs them. One migration either way.
 
 **Tests**
 
-- [ ] integration — `saveLens` backfills ids for stored entries that lack one,
+- [x] integration — `saveLens` backfills ids for stored entries that lack one,
       and a rename keeps both the id and the lens's place in the list. Real
       database under a tmpdir, since this is `global_settings` round-tripping.
-- [ ] renderer — renaming a lens changes the name shown against a grouping it
+- [x] renderer — renaming a lens changes the name shown against a grouping it
       already wrote, with no push involved. This replaces `pullRequestLens`'s
       "renaming a lens carries the reading it has already done".
-- [ ] `lensBroadcasts.test.ts` loses its `lens:renamed` cases and keeps
+- [x] `lensBroadcasts.test.ts` loses its `lens:renamed` cases and keeps
       `lens:list-changed`, which still covers add and delete.
 
 **Files** `lens/config.ts`, `lens/writeLens.ts`, `lens/readLens.ts`,
@@ -146,8 +147,8 @@ Nothing is written until the agent returns, so a quit, a crash or a renderer
 reload mid-run is indistinguishable from never having tried. The in-flight map
 is renderer memory.
 
-- [ ] Record the attempt before spawning, in the `running_lens_id` /
-      `running_since` columns from Stage 1 — beside the groups, not over them,
+- [ ] Record the attempt before spawning, in `running_lens_id` /
+      `running_since` — beside the groups, not over them,
       so an interrupted run does not destroy a good existing lens.
 - [ ] Report in-flight runs from main, so `useLensSession` seeds its map from
       the truth rather than from renderer memory. A reload stops losing the

@@ -37,13 +37,7 @@ export function useDiffLens(
     {
       key,
       read: () => (target ? window.api.diffLens.get(target) : Promise.resolve(null)),
-      write: (lensName) => (target ? window.api.diffLens.run(target, lensName) : Promise.resolve({ success: false })),
-      // Renaming a lens does not change what it grouped, so its name is read
-      // again and nothing else about the reading changes.
-      subscribe: (refresh) =>
-        window.api.lens.onRenamed((payload) => {
-          if (payload.projectPath === target?.projectPath) refresh(false);
-        }),
+      write: (lensId) => (target ? window.api.diffLens.run(target, lensId) : Promise.resolve({ success: false })),
     },
     diffs,
     order,

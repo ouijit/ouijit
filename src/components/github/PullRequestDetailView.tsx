@@ -145,24 +145,14 @@ export function PullRequestDetailView({
       key: `pr:${detail.number}`,
       revision: detail.headSha,
       read: () => window.api.github.lens(projectPath, detail.number, detail.headSha),
-      write: (lensName) => window.api.github.runLens(projectPath, detail.number, lensName),
-      subscribe: (refresh) => {
-        // A lens written by an agent over the CLI, in another process, that
-        // nothing here can otherwise see — shown as soon as it lands, since
-        // someone paid for the run.
-        const written = window.api.github.onLensChanged((payload) => {
+      write: (lensId) => window.api.github.runLens(projectPath, detail.number, lensId),
+      // A lens written by an agent over the CLI, in another process, that
+      // nothing here can otherwise see — shown as soon as it lands, since
+      // someone paid for the run.
+      subscribe: (refresh) =>
+        window.api.github.onLensChanged((payload) => {
           if (payload.projectPath === projectPath && payload.prNumber === detail.number) refresh(true);
-        });
-        // A rename changes what it is called and nothing about what the reader
-        // chose to look at.
-        const renamed = window.api.lens.onRenamed((payload) => {
-          if (payload.projectPath === projectPath) refresh(false);
-        });
-        return () => {
-          written();
-          renamed();
-        };
-      },
+        }),
     },
     diffs,
     fileOrder,
@@ -171,7 +161,7 @@ export function PullRequestDetailView({
   const runLens = useCallback(
     (picked: LensSummary) => {
       setLensesOpen(false);
-      void lens.run(picked.name);
+      void lens.run(picked);
     },
     [lens],
   );
@@ -313,7 +303,7 @@ export function PullRequestDetailView({
         <LensDialog
           projectPath={projectPath}
           onRun={runLens}
-          running={lens.writing}
+          running={lens.writing?.id ?? null}
           onClose={() => setLensesOpen(false)}
         />
       )}

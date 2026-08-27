@@ -13,13 +13,29 @@
  * would mean migrating what every project has already stored.
  */
 
-import { getGlobalSetting, setGlobalSetting, renameDiffLens } from '../db';
+import { randomUUID } from 'node:crypto';
+import { getGlobalSetting, setGlobalSetting } from '../db';
 import { getCachedHealth, checkHealth } from '../healthCheck';
 import { installedAgents, resolveLensAgent, type LensAgent, type LensAgentChoice } from './lensAgents';
 
 export interface LensSummary {
+  /**
+   * Stable across every edit, including a rename.
+   *
+   * A grouping records the lens that wrote it, and a name is what the reader
+   * changes their mind about. Keyed by name, renaming one orphaned everything
+   * it had already grouped and had to be chased through the database.
+   */
+  id: string;
   name: string;
   /** What the reader wants, in prose. The context is ours to supply. */
+  instruction: string;
+}
+
+/** A lens on its way in. No id yet means there is no lens yet. */
+export interface LensInput {
+  id?: string;
+  name: string;
   instruction: string;
 }
 
@@ -27,70 +43,70 @@ export function lensesKey(projectPath: string): string {
   return 'github:lenses:' + projectPath;
 }
 
-function parseLenses(raw: string | null | undefined): LensSummary[] | null {
+/** Entries as stored, which for a lens written before ids have no id. */
+function parseLenses(raw: string | null | undefined): LensInput[] | null {
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return null;
     return parsed
       .filter(
-        (entry): entry is LensSummary =>
+        (entry): entry is LensInput =>
           typeof entry === 'object' &&
           entry !== null &&
-          typeof (entry as LensSummary).name === 'string' &&
-          typeof (entry as LensSummary).instruction === 'string',
+          typeof (entry as LensInput).name === 'string' &&
+          typeof (entry as LensInput).instruction === 'string',
       )
-      .map((entry) => ({ name: entry.name, instruction: entry.instruction }));
+      .map((entry) => ({
+        ...(typeof entry.id === 'string' && entry.id ? { id: entry.id } : {}),
+        name: entry.name,
+        instruction: entry.instruction,
+      }));
   } catch {
     return null;
   }
 }
 
 export async function listLenses(projectPath: string): Promise<LensSummary[]> {
-  return parseLenses(await getGlobalSetting(lensesKey(projectPath))) ?? [];
+  const stored = parseLenses(await getGlobalSetting(lensesKey(projectPath))) ?? [];
+  if (stored.every((lens) => lens.id)) return stored as LensSummary[];
+
+  // The list is JSON in settings, so there is no schema to migrate. An id
+  // minted per read would key nothing, so the backfill is written back the
+  // first time a project's lenses are asked for.
+  const withIds = stored.map((lens) => ({ ...lens, id: lens.id ?? randomUUID() }));
+  await writeLenses(projectPath, withIds);
+  return withIds;
 }
 
 export async function writeLenses(projectPath: string, lenses: LensSummary[]): Promise<void> {
   await setGlobalSetting(lensesKey(projectPath), JSON.stringify(lenses));
 }
 
-/**
- * Create or rename a lens.
- *
- * Keyed by name, so an edit that changes the name would otherwise leave the old
- * one behind as a duplicate — the caller passes what it was called and the
- * rename happens here, in one call.
- */
-export async function saveLens(
-  projectPath: string,
-  name: string,
-  instruction: string,
-  previousName?: string,
-): Promise<LensSummary> {
-  const lens: LensSummary = { name: name.trim(), instruction: instruction.trim() };
+/** Create a lens, or edit one in place. An input with no id is a new lens. */
+export async function saveLens(projectPath: string, input: LensInput): Promise<LensSummary> {
+  const lens: LensSummary = {
+    id: input.id ?? randomUUID(),
+    name: input.name.trim(),
+    instruction: input.instruction.trim(),
+  };
   const lenses = await listLenses(projectPath);
-  const without = lenses.filter((l) => l.name !== lens.name && l.name !== previousName);
-  const at = previousName ? lenses.findIndex((l) => l.name === previousName) : -1;
+  const at = lenses.findIndex((l) => l.id === lens.id);
 
-  // A rename keeps its place in the list. Sending it to the bottom would make
+  // An edit keeps its place in the list. Sending it to the bottom would make
   // renaming feel like deleting and adding, which is what it must not be.
-  if (at >= 0) without.splice(Math.min(at, without.length), 0, lens);
-  else without.push(lens);
+  if (at >= 0) lenses[at] = lens;
+  else lenses.push(lens);
 
-  await writeLenses(projectPath, without);
-
-  // Anything already read through it is still being read through it, whatever
-  // it is now called — on both diffs a lens can be applied to.
-  if (previousName && previousName !== lens.name) await renameDiffLens(projectPath, previousName, lens.name);
-
+  await writeLenses(projectPath, lenses);
   return lens;
 }
 
-export async function deleteLens(projectPath: string, name: string): Promise<{ success: boolean }> {
+export async function deleteLens(projectPath: string, id: string): Promise<{ success: boolean }> {
   const lenses = await listLenses(projectPath);
   await writeLenses(
     projectPath,
-    lenses.filter((lens) => lens.name !== name),
+    lenses.filter((lens) => lens.id !== id),
   );
   return { success: true };
 }
@@ -135,10 +151,10 @@ export async function setLensAgentChoice(projectPath: string, choice: LensAgentC
  */
 export async function resolveLensRun(
   projectPath: string,
-  lensName: string,
+  lensId: string,
 ): Promise<{ lens: LensSummary; agent: LensAgent } | { error: string }> {
-  const lens = (await listLenses(projectPath)).find((l) => l.name === lensName);
-  if (!lens) return { error: `No lens called “${lensName}”` };
+  const lens = (await listLenses(projectPath)).find((l) => l.id === lensId);
+  if (!lens) return { error: 'That lens is no longer part of this project' };
 
   const agent = await resolveLensAgentFor(projectPath);
   if (!agent) {
