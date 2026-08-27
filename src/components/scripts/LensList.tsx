@@ -32,9 +32,9 @@ interface LensListProps {
  * Where a project's first lens comes from.
  *
  * The instruction is the whole feature, and a blank prose box under a label
- * teaches nothing about what belongs in one. These three differ by axis rather
- * than by wording — by structure, by judgement, and by a question the file tree
- * cannot answer.
+ * teaches nothing about what belongs in one. These three ask different
+ * questions rather than sorting the same way three times — by structure, by
+ * judgement, and by the shape of the change.
  *
  * Offered rather than seeded. Writing them into the project on first open would
  * give everyone three lenses they did not write and have to delete.
@@ -42,10 +42,7 @@ interface LensListProps {
 const SUGGESTED_LENSES: LensSummary[] = [
   { name: 'By layer', instruction: 'Data model first, then the code that uses it, then the UI.' },
   { name: 'Risk first', instruction: 'The riskiest changes first, then everything that follows from them.' },
-  {
-    name: 'What the tests miss',
-    instruction: 'Group by behaviour changed. Put the parts with no matching test change first.',
-  },
+  { name: 'Setup and payoff', instruction: 'The groundwork that had to happen first, then the change it was for.' },
 ];
 
 export function LensList({ projectPath, onRun, running }: LensListProps) {

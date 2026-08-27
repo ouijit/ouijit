@@ -37,24 +37,22 @@ describe('LensList', () => {
     render(<LensList projectPath={PROJECT} />);
 
     expect(await screen.findByText('No lenses yet.')).toBeTruthy();
-    for (const name of ['By layer', 'Risk first', 'What the tests miss']) {
+    for (const name of ['By layer', 'Risk first', 'Setup and payoff']) {
       expect(screen.getByText(name)).toBeTruthy();
     }
     // Nothing was written by drawing them.
     expect(window.api.lens.save).not.toHaveBeenCalled();
 
     // The name is all the pill carries; what it will add is on hovering it.
-    const pill = screen.getByText('What the tests miss');
-    expect(pill.getAttribute('title')).toBe(
-      'Group by behaviour changed. Put the parts with no matching test change first.',
-    );
+    const pill = screen.getByText('Setup and payoff');
+    expect(pill.getAttribute('title')).toBe('The groundwork that had to happen first, then the change it was for.');
     fireEvent.click(pill);
 
     await waitFor(() =>
       expect(window.api.lens.save).toHaveBeenCalledWith(
         PROJECT,
-        'What the tests miss',
-        'Group by behaviour changed. Put the parts with no matching test change first.',
+        'Setup and payoff',
+        'The groundwork that had to happen first, then the change it was for.',
         undefined,
       ),
     );
