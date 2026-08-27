@@ -60,7 +60,7 @@ const LAND_AT = 0.88;
 const CAPTIONS = [
   {
     title: 'Every agent works in isolation',
-    body: 'Starting a task cuts it a git worktree and a branch, so four agents are four checkouts.',
+    body: 'Starting a task cuts it a git worktree and a branch, keeping work separate and moving forward.',
   },
   {
     title: 'Every task opens the same way',
