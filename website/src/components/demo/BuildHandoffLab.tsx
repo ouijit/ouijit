@@ -59,7 +59,7 @@ const LAND_AT = 0.88;
  *  what opens each one, and what keeps them from asking. */
 const CAPTIONS = [
   {
-    title: 'Every agent works in isolation',
+    title: 'Keep work isolated',
     body: 'Starting a task cuts it a git worktree and a branch, keeping work separate and moving forward.',
   },
   {
