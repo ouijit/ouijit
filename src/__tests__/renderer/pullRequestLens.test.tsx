@@ -293,6 +293,35 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   /**
+   * What a lens is, said once and out of the way.
+   *
+   * Whoever opened this dialog mostly knows already; a standing paragraph is
+   * read once and then in the way every time after. It also stops the same
+   * phrase appearing twice a hundred pixels apart.
+   */
+  test('the explanation is behind the info mark, not standing in the body', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    await openPicker();
+    pick('Add a lens…');
+
+    const explained = /group a diff into named parts/i;
+    expect(await screen.findByText('No lenses yet.')).toBeTruthy();
+    expect(screen.queryByText(explained)).toBeNull();
+
+    // Focused rather than hovered: the mark is tabbable, so the explanation is
+    // reachable without a pointer — and hover carries an open delay.
+    fireEvent.focus(screen.getByLabelText('What a lens is'));
+    expect(await screen.findByText(explained)).toBeTruthy();
+  });
+
+  /**
    * Escape belongs to the innermost thing that is open. A menu opened inside
    * the dialog is portaled out of it, so nothing but the handlers decides
    * this — and the dialog was listening first.

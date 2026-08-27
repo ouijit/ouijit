@@ -66,9 +66,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       style={{ background: 'var(--color-terminal-bg)' }}
     >
       {lenses.length === 0 && !addingNew && (
-        <div className="px-4 py-8 text-center text-xs text-text-tertiary">
-          No lenses yet. Add one to review by change, not by file.
-        </div>
+        <div className="px-4 py-8 text-center text-xs text-text-tertiary">No lenses yet.</div>
       )}
 
       {lenses.map((lens) =>
@@ -88,6 +86,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
             // request through it. In settings there is nothing to read, so the
             // row opens itself for editing instead.
             onPress={() => (onRun ? onRun(lens) : setExpandedName(lens.name))}
+            pressHint={onRun ? `Read this diff through “${lens.name}”` : `Edit ${lens.name}`}
             onEdit={() => {
               setExpandedName(lens.name);
               setAddingNew(false);
@@ -137,12 +136,15 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
 function LensRow({
   lens,
   onPress,
+  pressHint,
   onEdit,
   writing,
   busy,
 }: {
   lens: LensSummary;
   onPress: () => void;
+  /** What pressing the row does, which differs between the dialog and settings. */
+  pressHint: string;
   onEdit: () => void;
   writing: boolean;
   busy: boolean;
@@ -151,6 +153,7 @@ function LensRow({
     <div className="group/lens flex items-center gap-3 pl-4 pr-2">
       <button
         type="button"
+        title={pressHint}
         className="flex-1 min-w-0 flex items-center gap-3 py-3 text-left disabled:opacity-50"
         disabled={busy}
         onClick={onPress}

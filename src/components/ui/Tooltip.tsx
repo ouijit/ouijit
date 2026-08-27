@@ -23,6 +23,13 @@ interface TooltipProps {
   referenceClassName?: string;
   referenceStyle?: React.CSSProperties;
   onHoverChange?: (hovering: boolean) => void;
+  /**
+   * Let the text wrap, to this many pixels.
+   *
+   * A tooltip is a label by default and stays on one line; a sentence needs
+   * somewhere to break, and left to itself it would run off the window.
+   */
+  wrapAt?: number;
   children: ReactNode;
 }
 
@@ -35,6 +42,7 @@ export function Tooltip({
   referenceClassName,
   referenceStyle,
   onHoverChange,
+  wrapAt,
   children,
 }: TooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -77,7 +85,12 @@ export function Tooltip({
             style={floatingStyles}
             {...getFloatingProps()}
           >
-            <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip whitespace-nowrap animate-tooltip-pop">
+            <div
+              className={`px-3 py-1.5 text-[13px] text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip animate-tooltip-pop ${
+                wrapAt ? 'leading-relaxed' : 'font-medium whitespace-nowrap'
+              }`}
+              style={wrapAt ? { maxWidth: wrapAt } : undefined}
+            >
               {text}
             </div>
           </div>,
