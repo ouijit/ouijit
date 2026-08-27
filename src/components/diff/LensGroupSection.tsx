@@ -54,7 +54,7 @@ export function LensGroupSection({
     <div
       data-group={group.title}
       data-collapsed={collapsed ? '' : undefined}
-      className="diff-list flex flex-col"
+      className="lens-part diff-list flex flex-col"
       style={{ '--diff-sticky-offset': `${headerHeight}px` } as CSSProperties}
     >
       {/* One line, at the height of a file header: the two pin one above the
@@ -64,7 +64,7 @@ export function LensGroupSection({
           The whole line folds it. A part of a change is read and finished with
           the same way a file is, and nothing else in this header competes for
           the press. */}
-      <div ref={headerRef} className="pane-ledge-raised over-well sticky top-0 z-20 bg-surface">
+      <div ref={headerRef} className="pane-ledge-raised sticky top-0 z-20 bg-surface">
         <button
           type="button"
           aria-expanded={!collapsed}

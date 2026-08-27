@@ -541,6 +541,18 @@ textarea,
   margin-top: 12px;
 }
 
+/* A part of a lens opens with a bar that pins to the top of the pane. The gap
+   above belongs between one part and the next, not between a part and its own
+   bar, and not above the first — which has the ledge above it to sit against.
+
+   A folded part is only its bar, so the gap after one would be a strip of well
+   between two bars that should stack. */
+.lens-part > *:first-child,
+.diff-list > .lens-part:first-child,
+.lens-part[data-collapsed] + .lens-part {
+  margin-top: 0;
+}
+
 /* ===================================
    Pane ledge — a header the content scrolls under
    =================================== */
@@ -558,6 +570,22 @@ textarea,
    catch. */
 .pane-ledge.over-well {
   box-shadow: 0 1px 0 var(--seam-cut);
+}
+
+/* A ledge with surface above it as well as below: the bar a lens's part opens
+   with sits mid-document, where the well shows on both sides of it. So it is
+   bevelled like a card rather than cut like a pane ledge — a raised slab, not
+   a boundary between two panes.
+
+   The edges are inset, which is what lets folded parts stack: their bars are
+   siblings, and an outer shadow would be painted over by the next one. Only
+   the catch is outside, where the well is there to take it. */
+.pane-ledge-raised {
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset 0 -1px 0 var(--bevel-bottom),
+    inset 0 2px 6px -3px var(--bevel-glow),
+    0 1px 0 var(--seam-catch);
 }
 
 /* The same ledge inverted, for a strip pinned under the content. */
