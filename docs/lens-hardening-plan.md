@@ -127,7 +127,7 @@ the reader back to the lens after they chose All files.
 
 **Tests**
 
-- [x] integration, new file — real repo, real database. Write a lens against a
+- [x] integration, `lensLifetime.test.ts` — real repo, real database. Write a lens against a
       ref base, then: edit a tracked file and read back stale; commit and read
       back stale; land an unrelated commit on the base and read back **fresh**.
       That last case is the one that pins `--merge-base` semantics, so a later
@@ -213,17 +213,17 @@ fresh it is.
 
 ## Stage 5 — Housekeeping
 
-- [ ] **Collect rows.** `worktree:remove` (`src/ipc/handlers/worktree.ts:23`)
+- [x] **Collect rows.** `worktree:remove` (`src/ipc/handlers/worktree.ts:23`)
       should drop the `wt:<path>:*` rows. A reused worktree path otherwise
       inherits a grouping written for a different change, and worktree staleness
       renders rather than drops, so it will draw it.
-- [ ] **Detached HEAD.** `getBranchDiffPin` runs `rev-parse <branch>` in the
+- [x] **Detached HEAD.** `getBranchDiffPin` runs `rev-parse <branch>` in the
       project checkout, so a detached worktree pins the main checkout's HEAD.
       Run it against the worktree with `HEAD`.
 
 **Tests**
 
-- [ ] integration — removing a worktree drops its lens rows and leaves other
+- [x] integration — removing a worktree drops its lens rows and leaves other
       subjects alone; a detached worktree pins its own HEAD.
 
 ---

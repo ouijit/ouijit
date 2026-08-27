@@ -60,7 +60,9 @@ async function pinFor(target: DiffLensTarget, files: () => Promise<ChangedFile[]
     .slice(0, 16)}`;
 
   if (target.branch && !isUncommittedBase(target.base, target.branch)) {
-    const revisions = await getBranchDiffPin(target.projectPath, target.branch, target.base ?? target.mergeTarget);
+    // In the worktree, against its own HEAD: run in the project checkout with a
+    // branch name, a detached worktree pins whatever the main checkout is on.
+    const revisions = await getBranchDiffPin(target.worktreePath, 'HEAD', target.base ?? target.mergeTarget);
     if (revisions) return `${revisions}+${shape}`;
   }
   return shape;

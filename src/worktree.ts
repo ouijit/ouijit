@@ -21,6 +21,7 @@ import {
   setTaskMergeTarget,
   getGlobalSetting,
   clearDiffNotes,
+  deleteWorktreeDiffLenses,
   type TaskMetadata,
 } from './db';
 import { mergeWorktreeBranch } from './git';
@@ -759,10 +760,11 @@ export async function removeTaskWorktree(
       }
     }
 
-    // Notes are keyed by worktree path, and this path is handed out again the
-    // next time this task is started — without this they would come back with
-    // it, pointing into a tree that has been rebuilt since.
+    // Notes and lenses are keyed by worktree path, and this path is handed out
+    // again the next time this task is started — without this they would come
+    // back with it, describing a tree that has been rebuilt since.
     await clearDiffNotes(worktreePath);
+    await deleteWorktreeDiffLenses(projectPath, worktreePath);
 
     // Delete task metadata
     if (!Number.isNaN(taskNumber)) {

@@ -93,6 +93,23 @@ export class DiffLensRepo {
       .run(projectPath, subjectKey);
   }
 
+  /**
+   * Forget every lens written over one worktree, whatever it was compared to.
+   *
+   * A worktree path is handed out again the next time that task is started, and
+   * a worktree lens renders when it has drifted rather than dropping — so a row
+   * left behind would be drawn over a change it was never written for.
+   *
+   * Matched by prefix length rather than LIKE, whose wildcards a path
+   * containing an underscore would trip.
+   */
+  deleteForWorktree(projectPath: string, worktreePath: string): void {
+    const prefix = `wt:${worktreePath}:`;
+    this.db
+      .prepare('DELETE FROM diff_lenses WHERE project_path = ? AND substr(subject_key, 1, ?) = ?')
+      .run(projectPath, prefix.length, prefix);
+  }
+
   delete(projectPath: string, subjectKey: string): void {
     this.db.prepare('DELETE FROM diff_lenses WHERE project_path = ? AND subject_key = ?').run(projectPath, subjectKey);
   }

@@ -1,7 +1,7 @@
 /**
- * Whether a lens still describes the diff, against a real repository.
+ * A lens over a real repository: written, gone stale, interrupted, collected.
  *
- * The pin is the whole of it, and until now nothing ran it against real refs —
+ * The pin is most of it, and until now nothing ran it against real refs —
  * `readLens.test.ts` hands the reader a fake subject, which is how a pin that
  * ignored the working tree survived a suite that covers lenses nine files deep.
  *
@@ -15,7 +15,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { _resetCacheForTesting } from '../../db';
+import { _resetCacheForTesting, deleteWorktreeDiffLenses } from '../../db';
 import { invalidateMainBranchCache } from '../../git';
 import { saveLens } from '../../lens/config';
 import { readDiffLens, writeDiffLens, type DiffLensTarget } from '../../lens/worktreeSubject';
@@ -158,5 +158,50 @@ describe('a run that has not answered yet', () => {
     expect(lens?.running).toBeNull();
     expect(lens?.groups?.map((group) => group.title)).toEqual(['Transport']);
     expect(lens?.stale).toBe(false);
+  });
+});
+
+describe('housekeeping', () => {
+  test('a worktree pins its own HEAD, even detached', async () => {
+    const tree = await fs.mkdtemp(path.join(os.tmpdir(), 'ouijit-lens-detached-'));
+    const worktree = path.join(tree, 'detached');
+    git('worktree', 'add', '--detach', worktree, 'feature');
+    const detached: DiffLensTarget = {
+      projectPath: repo,
+      worktreePath: worktree,
+      base: 'main',
+      // What `rev-parse --abbrev-ref HEAD` answers with no branch checked out.
+      branch: 'HEAD',
+    };
+
+    expect(await writeDiffLens(detached, lensId)).toEqual({ success: true });
+    expect((await readDiffLens(detached))?.stale).toBe(false);
+
+    // The project checkout moves on. Pinned there rather than in the worktree,
+    // a detached worktree reads someone else's HEAD and goes stale for it.
+    git('checkout', 'main');
+    await write('c.ts', 'export const other = true;\n');
+    git('add', '-A');
+    git('commit', '-m', 'in the project checkout');
+
+    expect((await readDiffLens(detached))?.stale).toBe(false);
+  });
+
+  test('removing a worktree takes its lenses with it, and only its own', async () => {
+    await readThroughLens();
+
+    const tree = await fs.mkdtemp(path.join(os.tmpdir(), 'ouijit-lens-other-'));
+    const other = path.join(tree, 'other');
+    git('worktree', 'add', '--detach', other, 'feature');
+    const elsewhere: DiffLensTarget = { ...target(), worktreePath: other, branch: 'HEAD' };
+    expect(await writeDiffLens(elsewhere, lensId)).toEqual({ success: true });
+
+    // The path is handed out again the next time the task is started, and a
+    // worktree lens renders when it has drifted rather than dropping — so a row
+    // left behind would be drawn over a change it was never written for.
+    await deleteWorktreeDiffLenses(repo, repo);
+
+    expect(await readDiffLens(target())).toBeNull();
+    expect((await readDiffLens(elsewhere))?.groups).not.toBeNull();
   });
 });

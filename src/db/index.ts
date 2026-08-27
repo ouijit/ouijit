@@ -468,6 +468,11 @@ export async function saveDiffLens(
   dl.save(projectPath, subjectKey, pin, groups, lens, omitted);
 }
 
+export async function deleteWorktreeDiffLenses(projectPath: string, worktreePath: string): Promise<void> {
+  const { diffLensRepo: dl } = repos();
+  dl.deleteForWorktree(projectPath, worktreePath);
+}
+
 export async function startDiffLensRun(projectPath: string, subjectKey: string, lensId: string): Promise<void> {
   const { diffLensRepo: dl } = repos();
   dl.startRun(projectPath, subjectKey, lensId);

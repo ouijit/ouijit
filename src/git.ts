@@ -907,16 +907,12 @@ export function getFileDiff(
  * put while the commits under them move, so they cannot say whether a diff has
  * changed. Null when either end cannot be resolved.
  */
-export async function getBranchDiffPin(
-  projectPath: string,
-  branch: string,
-  targetBranch?: string,
-): Promise<string | null> {
+export async function getBranchDiffPin(cwd: string, rev: string, targetBranch?: string): Promise<string | null> {
   try {
-    const base = targetBranch || (await getMainBranchAsync(projectPath));
+    const base = targetBranch || (await getMainBranchAsync(cwd));
     const [mergeBase, head] = await Promise.all([
-      gitAsync(['merge-base', base, branch], projectPath),
-      gitAsync(['rev-parse', branch], projectPath),
+      gitAsync(['merge-base', base, rev], cwd),
+      gitAsync(['rev-parse', rev], cwd),
     ]);
     if (!mergeBase || !head) return null;
     return `${mergeBase}..${head}`;
