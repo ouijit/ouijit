@@ -51,8 +51,6 @@ export interface RunLensResult {
   /** The parsed lens, ready to store. */
   body?: string;
   error?: string;
-  /** What the run cost, where the agent says. */
-  costUsd?: number;
 }
 
 export async function runLens(input: RunLensInput): Promise<RunLensResult> {
@@ -93,7 +91,7 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
     const answer =
       agent.schemaVia === 'inline'
         ? fromEnvelope(output)
-        : { json: await readAnswerFile(answerFile), costUsd: undefined };
+        : { json: await readAnswerFile(answerFile), listPriceUsd: undefined };
 
     log.info('lens agent replied', { command: agent.command, ms: Date.now() - started, bytes: output.length });
 
@@ -114,9 +112,9 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
       ms: Date.now() - started,
       groups: groups.length,
       slices: groups.reduce((total, group) => total + group.slices.length, 0),
-      costUsd: answer.costUsd,
+      listPriceUsd: answer.listPriceUsd,
     });
-    return { success: true, body: JSON.stringify({ groups }), costUsd: answer.costUsd };
+    return { success: true, body: JSON.stringify({ groups }) };
   } catch (error) {
     const message = describeError(error);
     log.warn('lens run failed to complete', { command: agent.command, ms: Date.now() - started, error: message });
@@ -130,11 +128,17 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
  * The answer out of a `--output-format json` envelope.
  *
  * `structured_output` is the schema-checked object itself, so there is nothing
- * to parse out of prose. `permission_denials` is read for the log alone: the
- * run is told it has no tools, so anything in there means the isolation is not
- * holding and the next person to look at this should know.
+ * to parse out of prose.
+ *
+ * Two fields are read for the log and nothing else. `permission_denials`,
+ * because the run is told it has no tools and anything in there means the
+ * isolation is not holding. And `total_cost_usd`, which is what the tokens
+ * would price at on API billing (the envelope calls this `costBasis: "list"`)
+ * — a subscription login is not charged it, and Codex reports nothing
+ * comparable, so it is a number for diagnosing an expensive lens and never one
+ * to put in front of a user.
  */
-function fromEnvelope(output: string): { json: string | null; costUsd?: number } {
+function fromEnvelope(output: string): { json: string | null; listPriceUsd?: number } {
   try {
     const envelope = JSON.parse(output.trim()) as {
       structured_output?: unknown;
@@ -146,9 +150,10 @@ function fromEnvelope(output: string): { json: string | null; costUsd?: number }
     if (envelope.permission_denials?.length) {
       log.warn('lens run asked for a tool', { denials: envelope.permission_denials.length });
     }
-    if (envelope.is_error || envelope.structured_output == null)
-      return { json: null, costUsd: envelope.total_cost_usd };
-    return { json: JSON.stringify(envelope.structured_output), costUsd: envelope.total_cost_usd };
+    if (envelope.is_error || envelope.structured_output == null) {
+      return { json: null, listPriceUsd: envelope.total_cost_usd };
+    }
+    return { json: JSON.stringify(envelope.structured_output), listPriceUsd: envelope.total_cost_usd };
   } catch {
     return { json: null };
   }
