@@ -60,7 +60,7 @@ const LAND_AT = 0.88;
 const CAPTIONS = [
   {
     title: 'Keep work isolated',
-    body: 'Starting a task cuts it a git worktree and a branch, keeping work separate and moving forward.',
+    body: 'Starting a task cuts it a git worktree and a branch, keeping work safe and moving forward.',
   },
   {
     title: 'Reuse workflows with hooks',
