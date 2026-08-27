@@ -44,9 +44,9 @@ export const TODO_COLUMN: TaskWithWorkspace[] = [SEED_TASK, ...SEQUENCE.map((k) 
 
 /** Both states share one grid cell, so a source crossfading to what it looks
  *  like after the task exists cannot resize the pane it sits in. */
-function Swap({ from, to, on }: { from: ReactNode; to: ReactNode; on: boolean }) {
+function Swap({ from, to, on, className = '' }: { from: ReactNode; to: ReactNode; on: boolean; className?: string }) {
   return (
-    <span className="grid">
+    <span className={`grid ${className}`}>
       <span className="[grid-area:1/1] transition-opacity duration-300" style={{ opacity: on ? 0 : 1 }}>
         {from}
       </span>
@@ -139,6 +139,7 @@ function IssuePane({ created, anchorRef }: { created: boolean; anchorRef?: (el: 
           <span className="shrink-0 text-[13px]">
             <Swap
               on={created}
+              className="justify-items-end"
               from={<span className="text-accent">Create task</span>}
               to={
                 <span className="flex items-center gap-1.5 text-text-primary">
@@ -401,8 +402,8 @@ const past = (progress: Record<SourceKey, number>, t: number) =>
 const ROWS: { key: SourceKey; title: string; body: string }[] = [
   {
     key: 'agent',
-    title: 'Delegate the breakdown',
-    body: 'Hand an agent the work. It files each task over the CLI, prompt included.',
+    title: 'Agent assisted',
+    body: 'Agents know how to use Ouijit out of the box.',
   },
   { key: 'issue', title: 'Pull from GitHub', body: 'Turn any open issue into a task on the board with one click.' },
   { key: 'manual', title: 'Or just type', body: 'The composer sits at the bottom of the column, one ⌘N away.' },
