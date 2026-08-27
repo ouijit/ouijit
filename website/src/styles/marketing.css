@@ -1655,22 +1655,22 @@ body.marketing::after {
 
 .beat-row h3,
 .hx-captions h3 {
-  font-size: 15px;
+  font-size: 19px;
   margin: 0;
 }
 
 .beat-row p,
 .hx-captions p {
   color: #86868b;
-  font-size: 13px;
-  line-height: 1.45;
-  margin: 6px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 8px 0 0;
 }
 
 /* The row's columns are the desk's width over however many captions there
    are, which at two is far past a readable measure. */
 .beat-row p {
-  max-width: 56ch;
+  max-width: 48ch;
 }
 
 
