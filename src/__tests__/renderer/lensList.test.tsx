@@ -65,12 +65,12 @@ describe('LensList', () => {
   });
 
   /**
-   * Keeping a lens and spending a run on it now are two different wants, and
-   * only the second costs anything — so they are two buttons, both of them
-   * saying which they are. Nothing else here reads a diff: a lens already in
-   * the list opens for editing, the same as it does in settings.
+   * Keeping a lens and spending a run on it are two different wants, and only
+   * the second costs anything — so everywhere the two are offered they are two
+   * named buttons. Nothing else is pressable: a row that read a change because
+   * it happened to be clicked is the whole of what this pins against.
    */
-  test('saving and running are two buttons, and only one of them reads the diff', async () => {
+  test('running is always its own named button, beside saving and beside editing', async () => {
     const run = vi.fn();
     vi.mocked(window.api.lens.list).mockResolvedValue([]);
     render(<LensList projectPath={PROJECT} onRun={run} />);
@@ -87,14 +87,20 @@ describe('LensList', () => {
 
     cleanup();
     run.mockClear();
+    vi.mocked(window.api.lens.save).mockClear();
     vi.mocked(window.api.lens.list).mockResolvedValue([
       { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
     ]);
     render(<LensList projectPath={PROJECT} onRun={run} />);
 
-    // The row itself, not the pencil beside it — the press a reader makes
-    // without meaning anything by it.
-    fireEvent.click(await screen.findByText('Narrative'));
+    // The row carries both, standing rather than waiting to be hovered.
+    fireEvent.click(await screen.findByLabelText('Run “Narrative”'));
+    expect(run).toHaveBeenCalledWith({ id: 'narrative', name: 'Narrative', instruction: 'group by story' });
+    // Reading a change is not a reason to write anything down.
+    expect(window.api.lens.save).not.toHaveBeenCalled();
+
+    run.mockClear();
+    fireEvent.click(screen.getByLabelText('Edit “Narrative”'));
     fireEvent.change(screen.getByDisplayValue('group by story'), { target: { value: 'group by risk' } });
     fireEvent.click(screen.getByText('Save'));
 

@@ -10,11 +10,11 @@ import { useProjectLenses } from '../diff/useProjectLenses';
 interface LensListProps {
   projectPath: string;
   /**
-   * Reads a change through a lens just saved. Absent in settings, where there
-   * is no diff to read one against.
+   * Reads a change through a lens — one from the list, or one just saved.
+   * Absent in settings, where there is no diff to read one against.
    *
-   * Where it is given, every form offers to save and run as well as to save,
-   * and those two buttons are the only things here that spend a run.
+   * Where it is given, every row carries Run and every form offers to save and
+   * run. Those are the only things here that spend a run, and each says so.
    */
   onRun?: (lens: LensSummary) => void;
   /** Id of the lens currently being written, if any. */
@@ -158,7 +158,9 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
               setAddingNew(false);
               setDraft(null);
             }}
+            onRun={onRun && (() => onRun(lens))}
             writing={running === lens.id}
+            busy={Boolean(running)}
           />
         ),
       )}
@@ -202,17 +204,26 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
  * one, as the script rows do, left a truncated prompt fighting a truncated name
  * for the same width — and a lens command is a sentence, not a binary name.
  */
-function LensRow({ lens, onEdit, writing }: { lens: LensSummary; onEdit: () => void; writing: boolean }) {
+function LensRow({
+  lens,
+  onEdit,
+  onRun,
+  writing,
+  busy,
+}: {
+  lens: LensSummary;
+  onEdit: () => void;
+  /** Offered where there is a diff to read. Absent in settings. */
+  onRun?: () => void;
+  writing: boolean;
+  /** A run is already in flight, and there is one at a time. */
+  busy: boolean;
+}) {
   return (
-    // One target and one meaning. A pencil beside a row that also pressed did
-    // the same thing twice, and left the row itself saying nothing about what
-    // pressing it was for.
-    <button
-      type="button"
-      aria-label={`Edit “${lens.name}”`}
-      className="group/lens w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-ink/[0.04] transition-colors duration-100"
-      onClick={onEdit}
-    >
+    // Nothing about the row is pressable except the two buttons, and both say
+    // what they are. Running costs an agent and editing does not, so a press
+    // that could be either is a press nobody can make on purpose.
+    <div className="flex items-center gap-3 px-4 py-3">
       <Icon name="aperture" className={`shrink-0 w-4 h-4 ${writing ? 'text-accent' : 'text-accent/60'}`} />
       <span className="flex-1 min-w-0">
         <span className="block text-[13px] text-text-primary truncate">{lens.name}</span>
@@ -220,14 +231,32 @@ function LensRow({ lens, onEdit, writing }: { lens: LensSummary; onEdit: () => v
           {writing ? 'Writing…' : lens.instruction}
         </span>
       </span>
-      {/* Said where the press is about to happen. Reading a change costs an
-          agent run and editing a lens does not, so which one a row is has to
-          be answerable before it is pressed rather than after. */}
-      <span className="shrink-0 flex items-center gap-1.5 text-[11px] text-text-tertiary opacity-0 group-hover/lens:opacity-100 group-focus-visible/lens:opacity-100 transition-opacity duration-150">
+
+      {/* Standing, not waiting for a hover. How to read a change through a lens
+          you already have is the question this list is opened with. */}
+      <button
+        type="button"
+        aria-label={`Edit “${lens.name}”`}
+        className="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] text-text-tertiary hover:bg-ink/[0.08] hover:text-text-primary transition-colors duration-150"
+        onClick={onEdit}
+      >
         <Icon name="pencil-simple" className="w-3.5 h-3.5" />
         Edit
-      </span>
-    </button>
+      </button>
+      {onRun && (
+        <button
+          type="button"
+          aria-label={`Run “${lens.name}”`}
+          title={`Read this change through “${lens.name}”`}
+          disabled={busy}
+          className="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] text-text-secondary hover:bg-ink/[0.08] hover:text-text-primary disabled:opacity-40 disabled:hover:bg-transparent transition-colors duration-150"
+          onClick={onRun}
+        >
+          <Icon name="play" className="w-3.5 h-3.5" />
+          Run
+        </button>
+      )}
+    </div>
   );
 }
 

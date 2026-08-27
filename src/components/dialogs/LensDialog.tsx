@@ -28,11 +28,10 @@ interface LensDialogProps {
  * opened this mostly knows already, and a standing paragraph is read once and
  * then in the way every time after.
  *
- * Nothing here spends a run except a button that says it will, and saving is
- * always offered beside it. Rows edit, suggestions fill the form in, and
- * reading a change through a lens that already exists stays with the picker
- * beside the diff. A list where some presses cost an agent run and others do
- * not is one nobody can press.
+ * Nothing here spends a run except a button that says Run, and saving is
+ * always offered beside one. A list where some presses cost an agent run and
+ * others do not is a list nobody can press, so every press in it is a named
+ * button and the rows themselves are inert.
  */
 export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogProps) {
   const [visible, setVisible] = useState(false);
@@ -69,8 +68,8 @@ export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogP
         </h2>
 
         {/* Running one closes this: whoever asked for a change to be read came
-            to read it, and a list is not what they came for. Saving alone
-            leaves it open, which is the whole difference between the two. */}
+            to read it, and a list is not what they came for. Saving and editing
+            leave it open, which is the difference worth drawing. */}
         <LensList
           projectPath={projectPath}
           onRun={
