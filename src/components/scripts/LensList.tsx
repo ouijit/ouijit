@@ -240,7 +240,7 @@ function LensForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Narrative"
+          placeholder="By layer"
         />
         {collides && <div className="mt-1 text-[11px] text-error">A lens called “{name.trim()}” already exists</div>}
       </div>
@@ -254,7 +254,10 @@ function LensForm({
             The placeholder is one sample instruction and nothing else — what
             the field is for is the label's job, and what is sent with it is
             the line underneath. An instruction written in here reads as a
-            value already filled in. */}
+            value already filled in.
+
+            It names the same lens the field above does. Two placeholders
+            describing different lenses is an example that teaches nothing. */}
         <textarea
           ref={commandRef}
           rows={3}
