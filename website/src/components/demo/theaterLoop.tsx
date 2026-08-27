@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -102,15 +102,16 @@ export function useTheaterLoop(keys: readonly string[], beatMs = 4500, speeds?: 
   };
 }
 
-/** The dots keep their spacing at any width, so the bar reads the same and a
- *  dot stays big enough to aim at. */
-const DOT_PITCH = 12;
+/** The dots keep their spacing at any width, so the bar reads the same
+ *  everywhere and a dot stays big enough to aim at. */
+const DOT_PITCH = 18;
 
-/**
- * The loop's position, as a full-width row of dots filling left to right, and
- * its transport: a dot under the pointer offers to stop the run there, and the
- * one it is stopped at offers to start it again.
- */
+/** How far the pointer's pull reaches, in dots, and how much bigger a dot
+ *  right under it gets. Size only — a dot that also moved would take its
+ *  target with it. */
+const SWELL_REACH = 2.2;
+const SWELL_MAX = 1.9;
+
 export function BeatDots({
   progress,
   paused,
@@ -125,6 +126,14 @@ export function BeatDots({
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [count, setCount] = useState(0);
+  const [near, setNear] = useState(-1);
+  /** Pointer position in dot units, or null once it has left the row. Held in
+   *  a ref: the bend is written to the DOM rather than rendered. */
+  const centerRef = useRef<number | null>(null);
+  /** Where the row stays pulled with no pointer on it, so the dot the run is
+   *  stopped at keeps the emphasis the pointer gave it. */
+  const restRef = useRef<number | null>(null);
+  const nearRef = useRef(-1);
 
   useEffect(() => {
     const el = ref.current;
@@ -134,25 +143,78 @@ export function BeatDots({
     return () => ro.disconnect();
   }, []);
 
+  const swell = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const h = centerRef.current ?? restRef.current;
+    const dots = el.children;
+    for (let i = 0; i < dots.length; i++) {
+      const mark = (dots[i] as HTMLElement).firstElementChild as HTMLElement;
+      if (h === null) {
+        mark.style.transform = '';
+        continue;
+      }
+      const u = (i - h) / SWELL_REACH;
+      mark.style.transform = `scale(${(1 + (SWELL_MAX - 1) * Math.exp(-u * u)).toFixed(3)})`;
+    }
+    const best = h === null ? -1 : Math.min(dots.length - 1, Math.max(0, Math.round(h)));
+    if (best !== nearRef.current) {
+      nearRef.current = best;
+      setNear(best);
+    }
+  }, []);
+
+  const track = useCallback(
+    (clientX: number, el: HTMLElement) => {
+      const rect = el.getBoundingClientRect();
+      centerRef.current = ((clientX - rect.left) / rect.width) * el.children.length - 0.5;
+      swell();
+    },
+    [swell]
+  );
+
   const head = Math.round(clamp01(progress) * (count - 1));
+
+  useEffect(() => {
+    restRef.current = paused ? head : null;
+    if (centerRef.current === null) swell();
+  }, [paused, head, count, swell]);
+
   /* A pointer affordance and nothing more: a stop per dot would put a hundred
      of them in the tab order and read a hundred labels out. The captions above
      are the keyboard way to the same beats. */
+  /* The row takes the pointer, not the dots: a dot is 3px of a cell that is
+     six times that, and only the row knows where its cells fall. */
   return (
-    <div ref={ref} className="beat-dots" aria-hidden="true">
+    <div
+      ref={ref}
+      className="beat-dots"
+      aria-hidden="true"
+      onPointerMove={(e) => track(e.clientX, e.currentTarget)}
+      onPointerLeave={() => {
+        centerRef.current = null;
+        swell();
+      }}
+      onClick={(e) => {
+        track(e.clientX, e.currentTarget);
+        const i = nearRef.current;
+        if (i < 0) return;
+        if (paused && i === head) onPlay();
+        else onPauseAt(i / (count - 1));
+      }}
+    >
       {Array.from({ length: count }, (_, i) => {
         const atHead = paused && i === head;
         return (
-          <button
+          <span
             key={i}
-            type="button"
-            tabIndex={-1}
-            className={`beat-dot${i <= head ? ' is-lit' : ''}${atHead ? ' is-head' : ''}`}
-            onClick={() => (atHead ? onPlay() : onPauseAt(i / (count - 1)))}
+            className={`beat-dot${i <= head ? ' is-lit' : ''}${atHead ? ' is-head' : ''}${
+              i === near ? ' is-near' : ''
+            }`}
           >
             <span className="beat-dot-mark" />
             <Icon name={atHead ? 'play-fill' : 'pause-fill'} className="beat-dot-icon" />
-          </button>
+          </span>
         );
       })}
     </div>
