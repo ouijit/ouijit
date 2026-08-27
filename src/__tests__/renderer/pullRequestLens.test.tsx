@@ -518,7 +518,7 @@ describe('PullRequestsPanel — lens', () => {
 
     await openPicker();
     const rows = screen.getAllByRole('menuitem').map((row) => row.textContent);
-    expect(rows.filter((row) => row?.startsWith('Narrative'))).toEqual(['Narrative v21 parts']);
+    expect(rows.filter((row) => row?.startsWith('Narrative'))).toEqual(['Narrative v21 part']);
   });
 
   test('a lens can be edited without running it', async () => {

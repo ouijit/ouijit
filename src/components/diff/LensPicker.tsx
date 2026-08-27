@@ -75,6 +75,10 @@ function triggerTitle({
   return 'Reading this change through a lens written for it';
 }
 
+function plural(count: number, noun: string): string {
+  return `${count} ${count === 1 ? noun : `${noun}s`}`;
+}
+
 /** Roughly four characters to a token — close enough for a number with a tilde. */
 function tokenLabel(chars: number): string {
   const tokens = Math.round(chars / 4);
@@ -99,8 +103,10 @@ function rowHint(lens: LensSummary, state: RowState): string | undefined {
   if (writing?.id === lens.id) return 'Writing…';
   if (isInterrupted) return 'did not finish';
   if (isApplied) {
-    if (isStale) return `${parts} parts · out of date`;
-    return ungrouped > 0 ? `${parts} parts · ${ungrouped} files not grouped` : `${parts} parts`;
+    if (isStale) return `${plural(parts ?? 0, 'part')} · out of date`;
+    return ungrouped > 0
+      ? `${plural(parts ?? 0, 'part')} · ${plural(ungrouped, 'file')} not grouped`
+      : plural(parts ?? 0, 'part');
   }
   if (isStale) return 'out of date';
   // Only where the row is a plain offer to run: what it changes is whether you
@@ -252,7 +258,7 @@ export function LensPicker({
       {orphan && onFile && (
         <MenuItem
           label={appliedLabel}
-          hint={onFile.stale ? `${parts} parts · out of date` : `${parts} parts`}
+          hint={onFile.stale ? `${plural(parts ?? 0, 'part')} · out of date` : plural(parts ?? 0, 'part')}
           selected={showingLens}
           // No offer to write it again: the project has no lens by this name to
           // run. What it can still do is name what is on screen and go back to it.

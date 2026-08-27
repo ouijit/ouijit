@@ -230,13 +230,21 @@ fresh it is.
 
 ## Validating the parts tests cannot reach
 
-Nothing on this branch has been seen in a real window. The renderer tests run
-under jsdom, which has no layout engine, so the picker's ledge alignment, the
-suggestion pills and the tooltip are unverified.
+The renderer tests run under jsdom, which has no layout engine, so the picker's
+ledge alignment and a chaptered rail beside a chaptered document could not be
+seen there.
 
-- [ ] e2e — seed a `diff_lenses` row in the fixture's userData database and
-      assert the diff renders chaptered, with the rail and document agreeing.
-      This covers the visual half without spawning an agent, which e2e cannot do.
-- [ ] `createTestRepo` (`e2e/fixtures.ts:11`) makes a repo with a single commit
-      on the default branch. A lens needs a second branch with divergence from a
-      base, so the fixture needs extending before the above is possible.
+- [x] e2e, `lens.test.ts` — a project with uncommitted changes, a lens of its
+      own, and a grouping seeded into the database the running app reads. The
+      panel opens, the rail and the document chapter together, the unclaimed
+      file is still in the diff, and the picker names what it covers and what a
+      run would send.
+- [x] `createTestRepo` needed no extending after all: a lens over uncommitted
+      changes has a diff to group, so the fixture's single commit is enough.
+- [x] Seeding goes through `node:sqlite` from the test process. The app's own
+      better-sqlite3 is built for Electron's ABI and will not load there, and
+      neither `require` nor dynamic `import` is available inside
+      `electronApp.evaluate`.
+
+Writing a lens still needs an agent, which e2e cannot spawn, so the run itself
+is covered by the integration tests with the spawn stubbed.
