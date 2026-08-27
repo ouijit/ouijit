@@ -664,7 +664,7 @@ const CAPTIONS: { keys: readonly string[]; title: string; body: string; ms: numb
   {
     keys: [...ANALYSIS_KEYS, ...LOOP_KEYS],
     title: 'Manage tech debt',
-    body: 'Analysis ranks every file by how often it changes and how tangled it is, from the git log alone. The reading rides along in the diff, where a note on a hot line goes straight back to the agent and the fix lands in the same worktree.',
+    body: 'The cheapest time to fix a file is while you are already changing it. Analysis ranks which ones are worth it, and a note on the line sends the work back to the agent.',
     ms: 9000,
   },
   {
