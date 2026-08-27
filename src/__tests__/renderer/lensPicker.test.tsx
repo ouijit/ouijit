@@ -67,6 +67,25 @@ describe('picking how to read a diff', () => {
   });
 
   /**
+   * Deleting a lens and writing it again mints a new id, and the grouping on
+   * file still names the old one. Two rows with one name in them — one saying
+   * it had been written, one offering to write it — is a choice nobody can
+   * make.
+   */
+  test('a lens written again under the same name is one row, not two', () => {
+    const { onRun, onShowLens } = open(onFile({ id: 'gone', name: 'Narrative' }, 3, false));
+
+    const rows = screen.getAllByRole('menuitem', { name: /^Narrative/ });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('3 parts');
+
+    // And it is the row it looks like: the lens on screen, not a run to start.
+    fireEvent.click(rows[0]);
+    expect(onShowLens).toHaveBeenCalled();
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
+  /**
    * A lens on screen *and* out of date is the worktree diff's ordinary
    * condition, since that diff moves on every save. If being applied wins the
    * branch, the one lens a reader can see has drifted is the one they cannot

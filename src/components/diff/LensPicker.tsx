@@ -173,10 +173,17 @@ export function LensPicker({
   const parts = coverage?.parts ?? onFile?.groups?.length ?? null;
   const tooBig = promptChars > LENS_PROMPT_BUDGET;
   const showingLens = lensOn && rendered;
-  // The lens that wrote what is on screen, if the project still has it. Looked
-  // up rather than read off the row: the stored name is what it was called when
-  // it ran, and a rename since then moves the one below and not that.
-  const wrote = onFile?.lensId ? lenses.find((lens) => lens.id === onFile.lensId) : undefined;
+  // The lens that wrote what is on screen, if the project still has it.
+  //
+  // By id first, and looked up rather than read off the row: the stored name is
+  // what it was called when it ran, and a rename since then moves the row below
+  // and not that. By name after, because deleting a lens and writing it again
+  // mints a new id for what the reader means by the same lens — and the grouping
+  // still naming the old one put both in the menu, one row saying it was written
+  // and another offering to write it.
+  const wrote = onFile
+    ? (lenses.find((lens) => lens.id === onFile.lensId) ?? lenses.find((lens) => lens.name === onFile.lensName))
+    : undefined;
   const appliedLabel = wrote?.name ?? onFile?.lensName ?? 'Lens';
   // A lens written by the CLI, or by one since deleted, has no row of its own
   // in the list below — it gets one here so what is on screen can always be
