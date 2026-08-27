@@ -21,6 +21,8 @@ import arrowsOut from '@phosphor-icons/core/assets/regular/arrows-out.svg?raw';
 import arrowsOutLineHorizontal from '@phosphor-icons/core/assets/regular/arrows-out-line-horizontal.svg?raw';
 import arrowsOutLineVertical from '@phosphor-icons/core/assets/regular/arrows-out-line-vertical.svg?raw';
 import binoculars from '@phosphor-icons/core/assets/regular/binoculars.svg?raw';
+import pauseFill from '@phosphor-icons/core/assets/fill/pause-fill.svg?raw';
+import playFill from '@phosphor-icons/core/assets/fill/play-fill.svg?raw';
 import bug from '@phosphor-icons/core/assets/regular/bug.svg?raw';
 import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
 import dotsSixVertical from '@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw';
@@ -90,6 +92,8 @@ export const iconMap: Record<string, string> = {
   'align-right': alignRight,
   'align-top': alignTop,
   archive: archive,
+  'pause-fill': pauseFill,
+  'play-fill': playFill,
   'arrow-counter-clockwise': arrowCounterClockwise,
   'arrow-left': arrowLeft,
   'arrow-right': arrowRight,

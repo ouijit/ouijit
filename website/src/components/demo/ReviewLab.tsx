@@ -704,6 +704,19 @@ function captionProgress(t: number): number {
   return 1;
 }
 
+/** captionProgress inverted, for a reader who picks a spot on the bar. */
+function progressToT(fraction: number): number {
+  const target = clamp01(fraction) * TOTAL_MS;
+  let beat = 0;
+  let ms = 0;
+  for (const c of CAPTIONS) {
+    if (target < ms + c.ms) return beat + ((target - ms) / c.ms) * c.keys.length;
+    beat += c.keys.length;
+    ms += c.ms;
+  }
+  return BEAT_KEYS.length;
+}
+
 /**
  * A surface's place in the stack: 0 is the front, higher is further back, and
  * a card the run has not reached yet waits below the front, where the promoted
@@ -774,7 +787,7 @@ const FRONT_HEIGHT = 520;
 const STAGE_HEIGHT = FRONT_HEIGHT + (STACK.length - 1) * DEPTH_STEP;
 
 export function ReviewSection() {
-  const { rootRef, p, t, active, seek } = useTheaterLoop(BEAT_KEYS, BEAT_MS, BEAT_SPEEDS);
+  const { rootRef, p, t, active, seek, paused, pauseAt, play } = useTheaterLoop(BEAT_KEYS, BEAT_MS, BEAT_SPEEDS);
   /* Which surface holds the front, taken as a step rather than a ramp: the
      depth change is the app's own animation, and a crossfade tied to the loop
      would leave two cards half-faded on top of each other. */
@@ -827,7 +840,12 @@ export function ReviewSection() {
             </button>
           ))}
         </div>
-        <BeatDots progress={captionProgress(t)} />
+        <BeatDots
+          progress={captionProgress(t)}
+          paused={paused}
+          onPauseAt={(f) => pauseAt(progressToT(f))}
+          onPlay={play}
+        />
       </div>
     </div>
   );

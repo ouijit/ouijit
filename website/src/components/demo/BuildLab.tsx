@@ -380,7 +380,7 @@ function WorkbenchStack({ p }: { p: (k: string) => number }) {
 /* ═══ 5a · Theater — centered stage, the beat captions in a row below ═══ */
 
 export function VariantTheater() {
-  const { rootRef, p, progress, active, seek } = useTheaterLoop(BEAT_KEYS);
+  const { rootRef, p, progress, active, seek, paused, pauseAt, play } = useTheaterLoop(BEAT_KEYS);
   
   return (
     <div ref={rootRef} className="bl-theater">
@@ -396,7 +396,12 @@ export function VariantTheater() {
           </button>
         ))}
       </div>
-      <BeatDots progress={progress} />
+      <BeatDots
+        progress={progress}
+        paused={paused}
+        onPauseAt={(f) => pauseAt(f * BEATS.length)}
+        onPlay={play}
+      />
     </div>
   );
 }
