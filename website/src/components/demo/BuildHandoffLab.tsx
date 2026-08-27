@@ -64,7 +64,7 @@ const CAPTIONS = [
   },
   {
     title: 'Reuse workflows with hooks',
-    body: 'Save the command that opens a task with the project, and every task you start runs it in its own worktree.',
+    body: 'Run custom scripts and agent prompts automatically as a task starts, continues, moves to review, or finishes.',
   },
   {
     title: 'Run agents full auto',
