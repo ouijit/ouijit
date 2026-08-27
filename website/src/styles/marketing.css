@@ -2512,14 +2512,14 @@ body.marketing::after {
   left: 36px;
   right: 36px;
   bottom: 36px;
-  transition: top 0.16s ease;
+  transition: top 0.13s ease;
 }
 
 .stk-card {
   position: absolute;
   inset: 0;
   transform-origin: 50% 100%;
-  transition: transform 0.16s ease;
+  transition: transform 0.13s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
