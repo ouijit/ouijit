@@ -19,12 +19,9 @@ vi.mock('electron-log/renderer', () => ({
 const PROJECT = '/work/alpha';
 
 /**
- * One pull request's Code pane, open and ready to read.
- *
- * Every test here arrives the same way, so what any one of them is about is
- * what it passes: the files in the change, the grouping already on file, the
- * lenses the project keeps. `changedFiles` is separate from `files` because the
- * picker reports GitHub's count, which a truncated file list does not match.
+ * One pull request's Code pane, open and ready to read. `changedFiles` is
+ * separate from `files` because the picker reports GitHub's count, which a
+ * truncated file list does not match.
  */
 async function openCodePane(
   set: {
@@ -58,25 +55,22 @@ async function openPicker() {
   fireEvent.click(await screen.findByTitle(/^(How to read|Reading) this change/));
 }
 
-/** A row in the open picker — All files and the lenses are the same kind of thing. */
+/** A row in the open picker. All files is one of them. */
 function pick(label: string | RegExp) {
   fireEvent.click(screen.getByRole('menuitem', { name: label }));
 }
 
 /**
- * The Code pane, read through a lens.
- *
  * Their own file rather than alongside the rest of the panel: these mount the
  * whole panel and drive it into the code pane, and sharing a file with twenty
- * other renders of the same component made which tree a query matched depend on
- * what ran before it.
+ * other renders made which tree a query matched depend on what ran before it.
  */
 describe('PullRequestsPanel — lens', () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
-    // A run in flight outlives the pane it started in, which is the point of
-    // it — and would otherwise outlive the test that started it too.
+    // A run in flight outlives the pane it started in, and would otherwise
+    // outlive the test that started it too.
     _resetLensRunsForTesting();
     useGithubStore.getState().reset();
     useGithubStore.setState({ projectPath: null });
@@ -96,11 +90,6 @@ describe('PullRequestsPanel — lens', () => {
     vi.mocked(window.api.lens.list).mockResolvedValue([]);
   });
 
-  /**
-   * A lens is written for one change by something that has read it, so the
-   * reader gets it as soon as it exists — the alternative is hiding the result
-   * of an agent run behind a control they would have to know to press.
-   */
   test('a lens on file groups the diff, and All files goes back', async () => {
     await openCodePane({
       files: [changed('src/api.ts'), changed('src/ui.tsx')],
@@ -111,8 +100,6 @@ describe('PullRequestsPanel — lens', () => {
       lenses: [NARRATIVE],
     });
 
-    // Read for this head, and applied without asking — the control says which
-    // lens is doing the reading, not merely that one is.
     await waitFor(() => expect(window.api.github.lens).toHaveBeenCalledWith(PROJECT, 5, 'bbb'));
     expect(await screen.findByTitle('Reading this change through “Narrative”')).toBeTruthy();
     expect((await screen.findAllByText('Transport')).length).toBeGreaterThan(0);
@@ -124,17 +111,12 @@ describe('PullRequestsPanel — lens', () => {
     pick(/^All files/);
     expect(screen.queryByText('Transport')).toBeNull();
 
-    // And back again from the same list, without writing it a second time.
     await openPicker();
     pick(/^Narrative/);
     expect((await screen.findAllByText('Transport')).length).toBeGreaterThan(0);
     expect(window.api.github.runLens).not.toHaveBeenCalled();
   });
 
-  /**
-   * All files is a lens like the rest — the one that groups nothing — so it is
-   * a row in the same list rather than a control of its own.
-   */
   test('the picker offers All files and the project lenses together', async () => {
     await openCodePane({
       changedFiles: 3,
@@ -150,11 +132,6 @@ describe('PullRequestsPanel — lens', () => {
     expect(rows[3]).toBe('Manage lenses…');
   });
 
-  /**
-   * A grouping that hides the directories has answered the easy half of the
-   * question. Which layer a part of the change touches is most of what tells a
-   * reviewer what kind of change they are looking at.
-   */
   test('a group keeps the directories its files sit in', async () => {
     await openCodePane({
       files: [changed('src/github/api.ts'), changed('src/github/client.ts')],
@@ -163,23 +140,15 @@ describe('PullRequestsPanel — lens', () => {
       ]),
     });
 
-    // The shared directory is collapsed to one node above the two files, the
-    // same as the flat tree does it.
+    // Collapsed to one node above the two files, as the flat tree does it.
     expect(await screen.findByText('src/github')).toBeTruthy();
     expect(screen.getAllByText('api.ts').length).toBeGreaterThan(0);
 
-    // And the title is set as the lens wrote it, not shouted at the reader —
-    // in the rail and in the document, which both show it.
     const headings = screen.getAllByText('Talking to GitHub');
     expect(headings.length).toBeGreaterThan(0);
     for (const heading of headings) expect(heading.className).not.toContain('uppercase');
   });
 
-  /**
-   * The rail is a way through the document, not a filter on it. Leaving the
-   * clicked file alone on screen makes the one before it and the one after it
-   * unreachable without going back to the list.
-   */
   test('clicking a file in the rail takes you to it, leaving the rest in place', async () => {
     await openCodePane({ files: [changed('src/api.ts'), changed('src/ui.tsx')] });
 
@@ -192,21 +161,13 @@ describe('PullRequestsPanel — lens', () => {
         .filter((el) => !el.parentElement?.closest('[data-path]'))
         .map((el) => el.dataset.path);
 
-    // Both files are in the document before the click, and both after it.
     expect(anchors()).toEqual(['src/api.ts', 'src/ui.tsx']);
     fireEvent.click(screen.getAllByText('ui.tsx')[0]);
     expect(anchors()).toEqual(['src/api.ts', 'src/ui.tsx']);
 
-    // And the rail marks the one you were taken to.
     await waitFor(() => expect(useGithubStore.getState().activeSection).toBe('src/ui.tsx'));
   });
 
-  /**
-   * A file read in pieces is finished with in pieces. The claim that is written
-   * down is still about the file — the flat list and the next lens over this
-   * change both read it — so it is made only once every piece has been marked,
-   * and withdrawn as soon as one of them is not.
-   */
   test('a file split across parts is marked read a part at a time', async () => {
     vi.mocked(window.api.github.pullRequestFileDiff).mockResolvedValue({
       path: 'src/api.ts',
@@ -236,17 +197,11 @@ describe('PullRequestsPanel — lens', () => {
     expect(await marks()).toEqual(['true', 'true']);
     expect(window.api.github.setFileViewed).toHaveBeenCalledWith(PROJECT, 5, 'head1', 'src/api.ts', true);
 
-    // And not all of it is read any more, though the other part still is.
     fireEvent.click((await screen.findAllByLabelText('Viewed'))[1]);
     expect(await marks()).toEqual(['true', 'false']);
     expect(window.api.github.setFileViewed).toHaveBeenLastCalledWith(PROJECT, 5, 'head1', 'src/api.ts', false);
   });
 
-  /**
-   * A part of a change is read and finished with the way a file is, so it folds
-   * the way a file does — and on both sides of the seam, since the rail and the
-   * document are showing the same part.
-   */
   test('a part of the change folds away, and stays folded', async () => {
     await openCodePane({
       files: [changed('src/api.ts'), changed('src/ui.tsx')],
@@ -264,8 +219,7 @@ describe('PullRequestsPanel — lens', () => {
 
     fireEvent.click(screen.getByTitle('Fold Transport away'));
 
-    // Gone from the document and from the rail, while the part it belongs to
-    // stays where it was — and the rest of the change is untouched.
+    // Gone from the document and the rail, while the part it belongs to stays.
     expect(document.querySelectorAll('[data-path="src/api.ts"]').length).toBe(0);
     expect(document.querySelectorAll('[data-path="src/ui.tsx"]').length).toBeGreaterThan(0);
     expect(screen.getByTitle('Transport — click to unfold')).toBeTruthy();
@@ -280,29 +234,17 @@ describe('PullRequestsPanel — lens', () => {
     await waitFor(() => expect(document.querySelectorAll('[data-path="src/api.ts"]').length).toBeGreaterThan(0));
   });
 
-  /**
-   * With none written, the way to get one lives in the same list — beside where
-   * it would appear, not behind the settings panel.
-   */
   test('with no lenses the picker offers to add one', async () => {
     await openCodePane({ lens: null });
 
     expect(await screen.findByTitle('How to read this change')).toBeTruthy();
     await openPicker();
 
-    // The dialog opens here rather than sending the reader to settings and
-    // leaving them to find their way back.
     pick('Add a lens…');
     expect(await screen.findByText(/No lenses yet/)).toBeTruthy();
     expect(useProjectStore.getState().activePanel).not.toBe('settings');
   });
 
-  /**
-   * Every surface showing lenses holds its own copy of the list, and the one a
-   * lens was added in is rarely the only one open — settings and a diff at the
-   * same time is the ordinary case. The picker follows the project rather than
-   * the last time it happened to be mounted.
-   */
   test('the picker follows lenses added and deleted elsewhere', async () => {
     let changedList: ((projectPath: string) => void) | null = null;
     vi.mocked(window.api.lens.onListChanged).mockImplementation((cb) => {
@@ -318,7 +260,6 @@ describe('PullRequestsPanel — lens', () => {
     await act(async () => changedList?.(PROJECT));
     expect(await screen.findByRole('menuitem', { name: 'Narrative' })).toBeTruthy();
 
-    // And a project that is not this one is not this picker's business.
     vi.mocked(window.api.lens.list).mockResolvedValue([]);
     await act(async () => changedList?.('/work/beta'));
     expect(screen.getByRole('menuitem', { name: 'Narrative' })).toBeTruthy();
@@ -327,14 +268,6 @@ describe('PullRequestsPanel — lens', () => {
     await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Narrative' })).toBeNull());
   });
 
-  /**
-   * Nobody opens this from a diff to end up looking at a list. Making a lens is
-   * the thing they came for, so it reads the change and the dialog leaves.
-   *
-   * One press, one meaning: a suggestion fills the form in, and nothing is
-   * spent until the button that says it will run is pressed. Save, beside it,
-   * keeps the lens and leaves the dialog where it is.
-   */
   test('a lens made in the dialog reads the change and gets out of the way', async () => {
     vi.mocked(window.api.lens.save).mockImplementation(async (_project, input) => ({ id: 'made', ...input }));
     vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
@@ -354,21 +287,12 @@ describe('PullRequestsPanel — lens', () => {
         instruction: expect.stringContaining('what could break in production'),
       }),
     );
-    // Run by the id it was just given, which is the only thing that names it.
     await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalledWith(PROJECT, 5, 'made'));
     await waitFor(() => expect(screen.queryByTestId('dialog-overlay')).toBeNull());
 
-    // And the change it is being read for is what is on screen, saying so.
     expect(await screen.findByText('Writing Risk first…')).toBeTruthy();
   });
 
-  /**
-   * What a lens is, said once and out of the way.
-   *
-   * Whoever opened this dialog mostly knows already; a standing paragraph is
-   * read once and then in the way every time after. It also stops the same
-   * phrase appearing twice a hundred pixels apart.
-   */
   test('the explanation is behind the info mark, not standing in the body', async () => {
     await openCodePane();
     await openPicker();
@@ -378,17 +302,11 @@ describe('PullRequestsPanel — lens', () => {
     expect(await screen.findByText('No lenses yet.')).toBeTruthy();
     expect(screen.queryByText(explained)).toBeNull();
 
-    // Focused rather than hovered: the mark is tabbable, so the explanation is
-    // reachable without a pointer — and hover carries an open delay.
+    // Focused rather than hovered: hover carries an open delay.
     fireEvent.focus(screen.getByLabelText('What a lens is'));
     expect(await screen.findByText(explained)).toBeTruthy();
   });
 
-  /**
-   * Escape belongs to the innermost thing that is open. A menu opened inside
-   * the dialog is portaled out of it, so nothing but the handlers decides
-   * this — and the dialog was listening first.
-   */
   test('escape closes a menu inside the lens dialog, not the dialog', async () => {
     await openCodePane();
     await openPicker();
@@ -403,10 +321,6 @@ describe('PullRequestsPanel — lens', () => {
     expect(screen.getByTestId('dialog-overlay').dataset.visible).toBe('true');
   });
 
-  /**
-   * The row is the lens: picking one reads the pull request through it. There
-   * is no verb to learn, and no dialog between wanting one and having it.
-   */
   test('picking a lens writes it against the pull request', async () => {
     vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
     await openCodePane({ lens: null, lenses: [NARRATIVE] });
@@ -415,19 +329,10 @@ describe('PullRequestsPanel — lens', () => {
     pick('Narrative');
 
     await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalledWith(PROJECT, 5, 'narrative'));
-    // And says so where the choice was made, rather than somewhere else.
     expect(await screen.findByText('Writing Narrative…')).toBeTruthy();
   });
 
-  /**
-   * A lens is keyed by its id, and the grouping it wrote records that id. The
-   * name against it is looked up in the project's list, so a rename is right
-   * the moment the list is read again — nothing chases the stored groupings,
-   * and there is no second announcement for the picker to have missed.
-   */
   test('renaming a lens renames the reading it has already done', async () => {
-    // A broadcast reaches every surface holding a list, not just the last one
-    // to subscribe — the dialog and the picker behind it are both holding one.
     const listChanged = new Set<(projectPath: string) => void>();
     vi.mocked(window.api.lens.onListChanged).mockImplementation((cb) => {
       listChanged.add(cb);
@@ -442,8 +347,8 @@ describe('PullRequestsPanel — lens', () => {
 
     await openCodePane({
       files: [changed('src/api.ts')],
-      // Deliberately never re-mocked: the stored grouping still says
-      // "Narrative", and the picker has to get the new name from the list.
+      // Never re-mocked: the stored grouping still says "Narrative", so the
+      // picker has to get the new name from the list.
       lens: lensOnFile([{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }], {
         lensId: NARRATIVE.id,
         lensName: NARRATIVE.name,
@@ -465,7 +370,6 @@ describe('PullRequestsPanel — lens', () => {
         instruction: 'group by story',
       }),
     );
-    // What is on screen is still what it was, under the name just typed.
     expect(await screen.findByTitle('Reading this change through “Narrative v2”')).toBeTruthy();
 
     fireEvent.click(screen.getByText('Done'));
@@ -487,12 +391,6 @@ describe('PullRequestsPanel — lens', () => {
     expect(window.api.github.runLens).not.toHaveBeenCalled();
   });
 
-  /**
-   * The call that starts a run is the one that knows it finished, so it clears
-   * "writing" itself. Leaving that to the push from the REST router strands
-   * this path, which does not go through it: the lens lands on disk and the
-   * rail spins for ever.
-   */
   test('a finished run shows its lens and stops saying it is writing', async () => {
     vi.mocked(window.api.github.runLens).mockImplementation(async () => {
       vi.mocked(window.api.github.lens).mockResolvedValue(
@@ -512,10 +410,6 @@ describe('PullRequestsPanel — lens', () => {
     expect(screen.queryByText(/Writing/)).toBeNull();
   });
 
-  /**
-   * A run that fails has to stop too. Clearing only on success is the same bug
-   * wearing a different hat.
-   */
   test('a failed run says so and stops spinning', async () => {
     vi.mocked(window.api.github.runLens).mockResolvedValue({ success: false, error: 'claude is not on PATH' });
     await openCodePane({ lens: null, lenses: [NARRATIVE] });
@@ -527,11 +421,6 @@ describe('PullRequestsPanel — lens', () => {
     expect(useProjectStore.getState().toasts.some((t) => t.message.includes('not on PATH'))).toBe(true);
   });
 
-  /**
-   * The run happens in main, so leaving the pull request is not a reason to
-   * forget it. Held in component state it dies with the pane, and reopening
-   * shows no sign of the agent still working.
-   */
   test('the run survives closing the pull request', async () => {
     vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
     await openCodePane({ lens: null, lenses: [NARRATIVE] });
@@ -544,18 +433,11 @@ describe('PullRequestsPanel — lens', () => {
     useGithubStore.getState().closeDetail();
     await waitFor(() => expect(screen.queryByText('Writing Narrative…')).toBeNull());
 
-    // Reopened, it is still going: the run belongs to the pull request, not to
-    // the pane that happened to be showing it.
     fireEvent.click(await screen.findByText('Please look'));
     fireEvent.click(await screen.findByText('Code'));
     expect(await screen.findByText('Writing Narrative…')).toBeTruthy();
   });
 
-  /**
-   * The command runs in a terminal the panel cannot see the end of, so the
-   * write is what tells it. Without this the rail says "writing" forever while
-   * the lens is already on disk.
-   */
   test('a lens written elsewhere arrives without asking', async () => {
     let notify: ((payload: { projectPath: string; prNumber: number }) => void) | null = null;
     vi.mocked(window.api.github.onLensChanged).mockImplementation((cb) => {
@@ -566,8 +448,7 @@ describe('PullRequestsPanel — lens', () => {
 
     expect(await screen.findByTitle('How to read this change')).toBeTruthy();
 
-    // Written by an agent over the CLI: no lens of the project's produced it,
-    // so it is named for what it is rather than borrowing one of their names.
+    // Written over the CLI, so no lens of the project's is named against it.
     vi.mocked(window.api.github.lens).mockResolvedValue(
       lensOnFile([{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }]),
     );
@@ -579,11 +460,6 @@ describe('PullRequestsPanel — lens', () => {
     expect(window.api.github.pullRequest).toHaveBeenCalledTimes(1);
   });
 
-  /**
-   * A lens points at specific hunks. After a force-push those hunks are gone,
-   * so the service reports it as describing another head and the reader gets
-   * the flat list rather than a confident description of code that moved.
-   */
   test('a lens for an older head is not applied', async () => {
     await openCodePane({ lens: lensOnFile(null, { stale: true }) });
 
@@ -591,12 +467,6 @@ describe('PullRequestsPanel — lens', () => {
     expect(screen.getByText('All files')).toBeTruthy();
   });
 
-  /**
-   * An agent run that has gone stale is still a thing the reader paid for.
-   * Dropping to the file list without a word is how they lose it without ever
-   * learning it happened — so the lens that wrote it says it is out of date,
-   * and pressing it writes it again.
-   */
   test('a stale lens says so and offers to be written again', async () => {
     vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
     await openCodePane({
@@ -604,7 +474,6 @@ describe('PullRequestsPanel — lens', () => {
       lenses: [NARRATIVE],
     });
 
-    // Said on the control itself, for a reader who never opens it.
     expect(
       await screen.findByTitle('How to read this change — “Narrative” was written for earlier commits'),
     ).toBeTruthy();
@@ -616,11 +485,6 @@ describe('PullRequestsPanel — lens', () => {
     await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalledWith(PROJECT, 5, 'narrative'));
   });
 
-  /**
-   * A lens posted over the CLI cannot be written again from here, and one the
-   * project has since renamed or deleted has no row to carry the notice. A
-   * notice with no cure is a nag, so nothing is said.
-   */
   test('a stale lens the project cannot run again is left unsaid', async () => {
     await openCodePane({
       lens: lensOnFile(null, { stale: true, lensId: 'gone', lensName: 'Gone' }),

@@ -24,11 +24,11 @@ interface PullRequestRailProps {
   onFile: StoredLens | null;
   lensOn: boolean;
   onLensOn: (on: boolean) => void;
-  /** The lenses the project keeps, for the picker to offer. */
+  /** The lenses the project keeps. */
   lenses: LensSummary[];
-  /** Read this pull request through one — an agent run. */
+  /** Reads this pull request through one, which is an agent run. */
   onRunLens: (lens: LensSummary) => void;
-  /** Opens the project's lenses, to add or edit one. */
+  /** Opens the project's lenses to add or edit one. */
   onOpenLenses: () => void;
   /** The lens being written, if one is running. */
   lensWriting: LensRun | null;
@@ -39,11 +39,9 @@ interface PullRequestRailProps {
 }
 
 /**
- * The changed files, for the code pane only.
- *
- * With a lens on, the same rail lists the parts of the change instead — and a
- * file that belongs to three parts appears in all three, because that is the
- * point of it.
+ * The changed files, for the code pane only. With a lens on, the same rail lists
+ * the parts of the change instead, and a file belonging to three parts appears
+ * in all three.
  */
 export function PullRequestRail({
   detail,
@@ -108,14 +106,9 @@ export function PullRequestRail({
   return (
     // No right border: the seam beside this is the boundary.
     <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
-      {/* A diff arrives in the order the change was stored, not the order it
-          reads in. A lens is one answer to that, written for this change and no
-          other — and the flat file list is the answer you get when nothing has
-          been written, so the two are one choice made in one place. */}
       {/* `h-9` is a file card's header. This pane has no toolbar over it, so
           what the ledge meets across the seam is a header stuck to the top of
-          the well — which is where one sits for as long as the diff is being
-          read, the well's opening gap notwithstanding. */}
+          the well. */}
       <div className="pane-ledge shrink-0 flex flex-col h-9">
         <LensPicker
           lenses={lenses}

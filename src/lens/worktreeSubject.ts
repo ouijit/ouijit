@@ -27,8 +27,6 @@ export interface DiffLensTarget {
 }
 
 /**
- * One worktree's diff, against one base.
- *
  * The base is part of the key: two comparisons of the same worktree list
  * different changes, and a lens written over one does not describe the other.
  */
@@ -42,16 +40,15 @@ export function diffLensKey(target: DiffLensTarget): string {
  * The shape of the change is in it either way, because the panel shows the
  * working tree either way: `git diff --merge-base <base>` runs through to
  * uncommitted edits, so two SHAs alone would call a lens fresh while the reader
- * is typing under it. Approximate, since an edit that preserves line counts
- * will not register as drift, but cheap enough to compute on a poll.
+ * is typing under it. Approximate — an edit preserving line counts does not
+ * register as drift — but cheap enough to compute on a poll.
  *
- * Against another ref the revisions go in front of it. They are what
- * distinguishes a commit from an edit of the same lines, and what makes the
- * base advancing a non-event: both sides read `merge-base(base, branch)`, which
- * an unrelated commit on the base does not move.
+ * Against another ref the revisions go in front. They distinguish a commit from
+ * an edit of the same lines, and make the base advancing a non-event: both sides
+ * read `merge-base(base, branch)`, which an unrelated commit does not move.
  *
  * `files` is a thunk so a caller that has just listed them does not pay for a
- * second status poll — which includes a read of every untracked file.
+ * second status poll, which includes a read of every untracked file.
  */
 async function pinFor(target: DiffLensTarget, files: () => Promise<ChangedFile[]>): Promise<string> {
   const shape = `shape:${createHash('sha256')
@@ -75,15 +72,12 @@ async function filesFor(target: DiffLensTarget): Promise<ChangedFile[]> {
 }
 
 /**
- * A worktree's own diff, as something a lens can be written over.
- *
- * The other implementation of `DiffSubject` is a pull request's, and it lives
- * in `github/service.ts` beside the rest of what talks to GitHub.
+ * The other implementation of `DiffSubject` is a pull request's, in
+ * `github/service.ts` beside the rest of what talks to GitHub.
  */
 class WorktreeSubject implements DiffSubject {
   readonly projectPath: string;
   readonly key: string;
-  readonly cwd: string;
   readonly label: Record<string, unknown>;
   /** A working tree moves on every save, so a drifted lens still groups most of it. */
   readonly whenStale = 'render' as const;
@@ -91,7 +85,6 @@ class WorktreeSubject implements DiffSubject {
   constructor(private target: DiffLensTarget) {
     this.projectPath = target.projectPath;
     this.key = diffLensKey(target);
-    this.cwd = target.worktreePath;
     this.label = { base: target.base ?? 'HEAD' };
   }
 
@@ -101,10 +94,9 @@ class WorktreeSubject implements DiffSubject {
 
   diffFor(file: LensFile): Promise<FileDiff | null> {
     const { worktreePath, base } = this.target;
-    // An untracked file is in no revision, so no comparison can produce it.
-    // Elsewhere the status says which of the two a tracked file is, so neither
-    // call has to work it out — `getFileDiff` would list every untracked path
-    // in the repo once per file.
+    // An untracked file is in no revision, so no comparison can produce it. The
+    // status has already said which a file is, and `getFileDiff` would work it
+    // out again by listing every untracked path in the repo, once per file.
     if (file.status === '?') return getUntrackedFileDiff(worktreePath, file.path);
     if (!base) return getTrackedFileDiff(worktreePath, file.path);
     return getWorktreeFileDiff(worktreePath, base, file.path, file.oldPath);
@@ -124,7 +116,6 @@ class WorktreeSubject implements DiffSubject {
   }
 }
 
-/** The stored lens, if there is one, with whether it still matches the diff. */
 export function readDiffLens(target: DiffLensTarget): Promise<StoredLens | null> {
   return readLens(new WorktreeSubject(target));
 }

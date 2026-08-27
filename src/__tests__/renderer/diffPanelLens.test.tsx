@@ -42,9 +42,8 @@ const LENS = lensOnFile(
 );
 
 /**
- * `repo.ts` in two pieces: one addition and one deletion up top, five additions
- * further down. Nothing else in `FILES` adds one or five, so a count on screen
- * says which piece it belongs to.
+ * `repo.ts` in two pieces. Nothing else in `FILES` adds one or five lines, so a
+ * count on screen says which piece it belongs to.
  */
 const REPO_DIFF = {
   path: 'src/db/repo.ts',
@@ -83,11 +82,9 @@ function edit({ additions }: { additions: number }): void {
 }
 
 /**
- * A worktree diff read through a lens.
- *
- * The engine is shared with the pull request pane and covered there; what is
- * only true here is that the panel's own rail chapters, and that the reader can
- * fold a part away on either side of the seam.
+ * A worktree diff read through a lens. The engine is shared with the pull
+ * request pane and covered there; what is only true here is the panel's own
+ * chaptered rail, and folding a part away on either side of the seam.
  */
 describe('the diff panel, read through a lens', () => {
   beforeEach(() => {
@@ -121,23 +118,16 @@ describe('the diff panel, read through a lens', () => {
   test('the rail chapters, keeping the directories, and a part folds on both sides at once', async () => {
     render(<DiffPanel {...PROPS} />);
 
-    // Read for this worktree and applied without asking, the same as the pull
-    // request pane does it.
     await waitFor(() => expect(window.api.diffLens.get).toHaveBeenCalled());
     expect((await screen.findAllByText('Where it is stored')).length).toBe(2);
 
-    // Which layer a part touches is most of what says what kind of change it
-    // is, so the tree inside a chapter is the same tree the flat list draws.
+    // The tree inside a chapter is the tree the flat list draws.
     expect(await screen.findByText('src/db')).toBeTruthy();
-    // The summary sits in the document, under the title and above the files.
     expect(screen.getByText('The table and the rows that go in it')).toBeTruthy();
 
-    // A file no part claimed is still in the diff — a lens reorders and splits,
-    // and never hides.
+    // A file no part claimed is still in the diff: a lens never hides.
     expect(screen.getAllByText('Not in this lens').length).toBeGreaterThan(0);
 
-    // One part of the change is one thing: folding it in the rail puts it away
-    // in the document too.
     fireEvent.click(screen.getAllByRole('button', { expanded: true, name: /Where it is stored/ })[0]);
     await waitFor(() => {
       expect(screen.queryByText('The table and the rows that go in it')).toBeNull();
@@ -145,11 +135,6 @@ describe('the diff panel, read through a lens', () => {
     expect(screen.getAllByText('Where it is stored').length).toBe(2);
   });
 
-  /**
-   * A working tree moves on every save, and the panel re-reads the lens each
-   * time — so how it re-reads is the difference between a badge that tells the
-   * truth and a pane that flickers and argues with the reader.
-   */
   test('the diff moving re-reads the lens in place, without blanking it or overriding the reader', async () => {
     render(<DiffPanel {...PROPS} />);
     await screen.findAllByText('Where it is stored');
@@ -164,14 +149,12 @@ describe('the diff panel, read through a lens', () => {
 
     await act(async () => edit({ additions: 9 }));
     await waitFor(() => expect(window.api.diffLens.get).toHaveBeenCalledTimes(2));
-    // Still the reading it already has. Dropping it first would blank the pane
-    // and redraw it on every save.
+    // Dropping it first would blank the pane and redraw it on every save.
     expect(screen.getAllByText('Where it is stored').length).toBe(2);
     await act(async () => land());
     expect(screen.getAllByText('Where it is stored').length).toBe(2);
 
-    // And a reader who asked for the flat list keeps it. Applying an arriving
-    // lens is for a diff they have just opened, not one they are editing.
+    // Applying an arriving lens is for a diff just opened, not one being edited.
     fireEvent.click(screen.getByTitle(/^(How to read|Reading) this change/));
     fireEvent.click(screen.getByRole('menuitem', { name: /^All files/ }));
     expect(screen.queryByText('Where it is stored')).toBeNull();
@@ -181,11 +164,6 @@ describe('the diff panel, read through a lens', () => {
     expect(screen.queryByText('Where it is stored')).toBeNull();
   });
 
-  /**
-   * A run happens in the main process and outlives the pane that asked for it.
-   * Held only in renderer memory, a reload lost the spinner and the reader was
-   * left watching a diff with no sign that anything was coming.
-   */
   test('a run this pane never started shows as running, and is let go when it ends', async () => {
     vi.mocked(window.api.diffLens.get).mockResolvedValue(
       lensOnFile(null, { running: { ...WROTE, since: null, live: true } }),
@@ -194,19 +172,14 @@ describe('the diff panel, read through a lens', () => {
 
     expect(await screen.findByText('Writing Narrative…')).toBeTruthy();
 
-    // It ended in main, which nothing here was told directly. Reading the lens
-    // again is what puts the spinner down.
+    // It ended in main, which nothing here was told: the next read is what puts
+    // the spinner down.
     vi.mocked(window.api.diffLens.get).mockResolvedValue(LENS);
     await act(async () => edit({ additions: 9 }));
     await waitFor(() => expect(screen.queryByText('Writing Narrative…')).toBeNull());
     expect((await screen.findAllByText('Where it is stored')).length).toBe(2);
   });
 
-  /**
-   * The mark outlives the process that made it, which is the whole of how an
-   * interrupted run is told from a live one. Offered again rather than cleared
-   * quietly: the reader waited for something that never arrived.
-   */
   test('a run the app was closed out from under is offered again', async () => {
     const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
     vi.mocked(window.api.diffLens.get).mockResolvedValue(
@@ -223,14 +196,6 @@ describe('the diff panel, read through a lens', () => {
     await waitFor(() => expect(window.api.diffLens.run).toHaveBeenCalledWith(expect.anything(), 'narrative'));
   });
 
-  /**
-   * A file can belong to three parts of a change, and the path names all three.
-   * Everything about one copy — where a click lands, what it counts, whether
-   * it is folded — has to be said in terms of the part, or it belongs to every
-   * copy at once.
-   *
-   * A part is identified by its place in the lens as written and its title.
-   */
   test('a file split across two parts is navigated, counted and folded a part at a time', async () => {
     vi.mocked(window.api.diffLens.get).mockResolvedValue(SPLIT_LENS);
     vi.mocked(window.api.worktree.getFileDiff).mockImplementation((_path, _base, file) =>
@@ -252,7 +217,6 @@ describe('the diff panel, read through a lens', () => {
     expect(stored.textContent).toContain('+5');
     expect(read.textContent).toContain('+1');
     expect(read.textContent).toContain('-1');
-    // The whole file's own count belongs to no part of it.
     expect(screen.queryByText('+6')).toBeNull();
 
     // The rail is the sidebar, which the panel renders before the document.
@@ -262,22 +226,13 @@ describe('the diff panel, read through a lens', () => {
     fireEvent.click(chapter.querySelector('[data-path="src/db/repo.ts"]')!);
     expect(landed[0].closest('[data-group]')?.getAttribute('data-group')).toBe('1:What reads it');
 
-    // Folding one copy leaves the other open: they are two parts of a reading,
-    // not two views of one file.
+    // Folding one copy leaves the other open.
     fireEvent.click(read.querySelector('button[aria-label="Collapse"]')!);
     expect(read.querySelector('button[aria-pressed="true"]')).toBeTruthy();
     expect(stored.querySelector('button[aria-pressed="true"]')).toBeNull();
     expect(stored.textContent).toContain('+5');
   });
 
-  /**
-   * A grouping lands over a document the reader is already in: every card is
-   * rebuilt under a new key, in a new order, between two frames. So the parts
-   * lay themselves in, in reading order, rather than replacing what was there.
-   *
-   * Only where something arrived. How a pane looked when it was opened is not
-   * an arrival, and marking it would be motion for having drawn a page.
-   */
   test('a grouping that arrives lays its parts in; one the pane opened on does not', async () => {
     vi.mocked(window.api.diffLens.get).mockResolvedValue(SPLIT_LENS);
     vi.mocked(window.api.worktree.getFileDiff).mockImplementation((_path, _base, file) =>
@@ -290,7 +245,6 @@ describe('the diff panel, read through a lens', () => {
 
     cleanup();
     _resetLensRunsForTesting();
-    // Nothing written for this diff, so the reader is on the flat file list.
     vi.mocked(window.api.diffLens.get).mockResolvedValue(null);
     vi.mocked(window.api.diffLens.run).mockResolvedValue({ success: true });
     const reading = render(<DiffPanel {...PROPS} />);

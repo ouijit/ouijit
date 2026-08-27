@@ -58,9 +58,8 @@ interface GithubStoreState {
 
   files: PullRequestFile[];
   /**
-   * Parsed diffs per path. Held here rather than in the document so the rail
-   * can bind a lens to the same hunks the document renders — two resolutions of
-   * one lens would be two chances to disagree.
+   * Parsed diffs per path, held here so the rail binds a lens to the same hunks
+   * the document renders.
    */
   diffs: Map<string, FileDiff | null>;
   filesLoading: boolean;
@@ -77,22 +76,18 @@ interface GithubStoreState {
 
   /**
    * Parts of a file the reviewer has finished with, where a lens has split one
-   * across several parts of the change. A file is read in pieces and only
-   * claimed whole once every piece of it has been, at which point the claim
-   * moves to `viewedPaths` and is written down.
+   * across several parts. The file is claimed whole once every piece of it has
+   * been, at which point the claim moves to `viewedPaths` and is written down.
    *
-   * Not kept on disk, unlike the claim it rolls up into: these name the parts
-   * of one lens, and the next lens over this change cuts it somewhere else.
+   * Not kept on disk, unlike that claim: these name the parts of one lens, and
+   * the next lens over this change cuts it somewhere else.
    */
   viewedSections: string[];
 
   /**
-   * Parts of the lens folded away in the document, by id.
-   *
-   * Beside `viewedPaths` for the same reason: it is a claim about how far
-   * through a reading you are, and going to look at the timeline and coming
-   * back is not a decision to unfold everything again. Not kept on disk — a
-   * fold is where you are in a document, not what you think of it.
+   * Parts of the lens folded away in the document, by id. Survives leaving the
+   * pane and coming back; not kept on disk, since a fold is where you are in a
+   * document rather than what you think of it.
    */
   collapsedGroups: string[];
 
@@ -374,9 +369,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     try {
       const detail = await window.api.github.pullRequest(projectPath, number);
       if (version !== detailVersion || get().projectPath !== projectPath) return;
-      // A lens grouped the files at one head. After a force-push those groups
-      // describe a diff that no longer exists, so they go rather than quietly
-      // becoming wrong.
+      // A lens grouped the files at one head, and after a force-push those
+      // groups describe a diff that no longer exists.
       const staleLens = get().detail?.headSha !== detail.headSha;
       set({ detail, detailLoading: false, ...(staleLens ? CLEAR_FOR_HEAD : {}) });
 

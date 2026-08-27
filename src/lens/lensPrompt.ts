@@ -2,31 +2,23 @@ import type { ChangedFile, FileDiff, DiffHunk } from '../types';
 import type { DiffSignals } from '../analysis/types';
 
 /**
- * Everything an agent needs to group a diff, assembled here.
- *
- * The agent is asked one question with the answer material already in front of
- * it: it reads no files, calls no tools, and needs no approval for anything. A
- * headless session cannot approve a tool call, so anything it has to go and
- * fetch is somewhere the run can stall.
- *
- * A user writes only the instruction. Everything else on the way in, and the
- * shape expected on the way out, is ours to get right once.
+ * Everything an agent needs to group a diff, assembled up front so it reads no
+ * files and calls no tools: a headless session cannot approve a tool call, so
+ * anything it has to go and fetch is somewhere the run can stall.
  */
 
 /** Characters of assembled prompt, kept well inside a single request. */
 export const LENS_PROMPT_BUDGET = 120_000;
 
-/** Above this a single hunk is summarised rather than quoted, so one enormous
- *  generated file cannot crowd out every other file in the change. */
+/** Above this a hunk is truncated, so one generated file cannot crowd out the
+ *  rest of the change. */
 const MAX_HUNK_CHARS = 6_000;
 
 const MAX_BODY_CHARS = 4_000;
 
 /**
- * A changed file, as much of one as the prompt needs.
- *
- * Structural rather than either concrete type, since a pull request's files
- * and a worktree's are the same list to a lens.
+ * Structural rather than either concrete type, since a pull request's files and
+ * a worktree's are the same list to a lens.
  */
 export interface LensFile {
   path: string;
@@ -38,7 +30,7 @@ export interface LensFile {
 
 /** What is being grouped, in the words the prompt opens with. */
 export interface LensSubject {
-  /** First line: what kind of thing this is. */
+  /** What kind of thing this is. */
   lead: string;
   /** Markdown heading naming it — a PR number and title, or a branch. */
   heading: string;
@@ -56,7 +48,7 @@ export interface LensPromptInput {
   budget?: number;
 }
 
-/** The new-file lines a hunk covers, which is the vocabulary a lens answers in. */
+/** The new-file lines a hunk covers — the vocabulary a lens answers in. */
 export function hunkSpan(hunk: DiffHunk): [number, number] | null {
   let low: number | null = null;
   let high: number | null = null;
@@ -87,11 +79,9 @@ function truncate(text: string, max: number): string {
 }
 
 /**
- * The skeleton of the change: every file, every hunk, and where each one sits.
- *
- * Sent whole, always. It is bounded by how many hunks a change has rather than
- * how large they are, and a grouping that has not been told a file exists can
- * only leave it out — which is the one thing a lens must never do.
+ * Every file, every hunk, and where each one sits. Sent whole, always: it is
+ * bounded by how many hunks a change has rather than how large they are, and a
+ * grouping never told a file exists can only leave it out.
  */
 function skeleton(files: LensFile[], diffs: Map<string, FileDiff | null>): string {
   const out: string[] = [];
@@ -122,11 +112,9 @@ function skeleton(files: LensFile[], diffs: Map<string, FileDiff | null>): strin
 }
 
 /**
- * Hunk bodies, in file order, until the budget runs out.
- *
- * Truncating here rather than dropping files means the grouping degrades from
- * "read the code" to "read the shape" for the tail of a very large change,
- * instead of pretending the tail is not there.
+ * Hunk bodies, in file order, until the budget runs out. Truncating here rather
+ * than dropping files degrades the tail of a very large change from "read the
+ * code" to "read the shape", instead of pretending it is not there.
  */
 function bodies(
   files: LensFile[],
@@ -164,14 +152,8 @@ const HOTSPOT_SCORE = 0.6;
 
 /**
  * What git history says about the files being changed, where it says anything.
- *
- * A grouping is a judgement about which parts of a change matter, and a file
- * that half the repo moves with is a different kind of thing to touch than one
- * nothing depends on. Only the files that stand out are listed: a score for
- * every path is a table nobody reads, and the ones left out are the ordinary
- * ones.
- *
- * Empty when the analysis flag is off, which is the usual case.
+ * Only the files that stand out: a score for every path is a table nobody
+ * reads, and the ones left out are the ordinary ones.
  */
 function hotspots(files: LensFile[], signals: DiffSignals | null | undefined): string {
   if (!signals) return '';
@@ -197,18 +179,9 @@ function hotspots(files: LensFile[], signals: DiffSignals | null | undefined): s
 }
 
 /**
- * What a good grouping is, which no instruction should have to repeat.
- *
- * A lens instruction says how to divide one change. Everything true of every
- * grouping belongs here instead: an instruction that had to carry it would be
- * the same paragraph written three times, and a reader who writes their own
- * lens would get none of it.
- *
- * The reviewer it describes is the one the feature is for — someone reading
- * more changes in a day than they can give equal attention to. Without this
- * the whole of the guidance was the word "sensible" in the opening line, and a
- * lens asking for the riskiest part first had nothing to resolve "riskiest"
- * against.
+ * A lens instruction says how to divide one change; everything true of every
+ * grouping belongs here instead, so that a lens a user writes themselves still
+ * gets it.
  */
 const GROUPING_GUIDE = `# What makes a good grouping
 
@@ -228,12 +201,8 @@ file the same attention.
   narrow column, so keep it under about 35 characters.`;
 
 /**
- * What the schema cannot say.
- *
  * The CLI holds the reply to `LENS_SCHEMA`, so nothing here asks for JSON or
- * describes the fields' types. What is left is what the field names mean —
- * that `ranges` are new-file line numbers, and that binding is by whole hunk,
- * so an agent that is roughly right is exactly right.
+ * describes the fields' types. What is left is what the field names mean.
  */
 const OUTPUT_CONTRACT = `# The grouping
 
@@ -247,15 +216,12 @@ const OUTPUT_CONTRACT = `# The grouping
   heading.`;
 
 /**
- * Characters the prompt for this change will run to, near enough.
- *
- * From the additions and deletions a status poll already returns, so asking
- * costs nothing and spawns no git. Answered in characters because that is what
- * `LENS_PROMPT_BUDGET` counts; whoever shows it can divide for tokens.
+ * Near enough, from the additions and deletions a status poll already returns,
+ * so asking costs nothing and spawns no git.
  */
 export function estimateLensPromptChars(files: { additions: number; deletions: number }[]): number {
-  // Per file: a heading and a hunk header or two. Per changed line: its text
-  // and a marker. Both are averages, for a number shown with a tilde in front.
+  // Averages, for a number shown with a tilde in front: a heading and a hunk
+  // header or two per file, a marker and its text per changed line.
   return files.reduce((chars, file) => chars + 120 + (file.additions + file.deletions) * 40, 0);
 }
 
@@ -270,8 +236,8 @@ export function buildLensPrompt({ subject, files, diffs, instruction, signals, b
   const structure = skeleton(files, diffs);
   const callouts = hotspots(files, signals);
 
-  // The skeleton and the framing come first and are never trimmed; the bodies
-  // take whatever is left.
+  // The skeleton and the framing are never trimmed; the bodies take what is
+  // left, less slack for the headings joined around all of it.
   const remaining = Math.max(
     0,
     limit -
@@ -304,9 +270,8 @@ export function buildLensPrompt({ subject, files, diffs, instruction, signals, b
     '',
     GROUPING_GUIDE,
     '',
-    // The reader's own words, between what is true of every grouping and the
-    // mechanics of writing one down. Theirs is the part that decides how this
-    // change in particular divides, so it is not buried in either.
+    // Between the general guidance and the mechanics: theirs is the part that
+    // decides how this change in particular divides.
     '# How to group it',
     '',
     instruction,

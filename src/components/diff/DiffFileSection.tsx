@@ -49,7 +49,7 @@ export interface DiffFileSectionProps {
    * it and the others must stay as they were.
    */
   sectionId?: string;
-  /** Enables the fold control. Takes the section for the same reason `renderBelowLine` takes the path. */
+  /** Enables the fold control, on this copy of the file alone. */
   onCollapsedChange?: (sectionId: string, collapsed: boolean) => void;
   /** Wording for the fold control — "Viewed" in a review, "Collapse" outside one. */
   collapseLabel?: string;
@@ -91,9 +91,9 @@ export const DiffFileSection = memo(function DiffFileSection({
     /* `clip`, not `hidden`: `hidden` makes a scroll container, which strands
        the sticky header inside this box instead of pinning it to the pane. */
     <div className="diff-card mx-6 rounded-[14px] border border-bezel bg-diff-card overflow-clip" data-path={path}>
-      {/* Pins below whatever else has claimed the top of the pane — a lens
-          publishes the height of the part header above it — and to the top
-          itself when nothing has, which is every other diff in the app. */}
+      {/* Pins below whatever claimed the top of the pane — under a lens that is
+          the part header, which publishes its height — and to the top itself
+          when nothing has. */}
       <div
         className="pane-ledge sticky z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface"
         style={{ top: 'var(--diff-sticky-offset, 0px)' }}

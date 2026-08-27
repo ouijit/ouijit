@@ -10,47 +10,22 @@ import { useProjectLenses } from '../diff/useProjectLenses';
 interface LensListProps {
   projectPath: string;
   /**
-   * Reads a change through a lens — one from the list, or one just saved.
-   * Absent in settings, where there is no diff to read one against.
-   *
-   * Where it is given, every row carries Run and every form offers to save and
-   * run. Those are the only things here that spend a run, and each says so.
+   * Reads a change through a lens — one from the list, or one just saved. Absent
+   * in settings, where there is no diff to read one against.
    */
   onRun?: (lens: LensSummary) => void;
-  /** Id of the lens currently being written, if any. */
   running?: string | null;
 }
 
 /**
- * The lenses a project has, as rows you can add and edit.
+ * Where a project's first lens comes from. Each has to give the agent a test it
+ * can apply to any diff: "the riskiest changes first" names a sort key without
+ * saying how to compute it, so a change with no obvious risk leaves it to invent
+ * one. What belongs in every lens instead — leading with what the rest follows
+ * from, mechanical churn last, how a title is written — is in `GROUPING_GUIDE`.
  *
- * A lens is a way of reading a pull request: a command that reads the diff and
- * says what the parts of the change are. The prompt is what is worth keeping —
- * one for a refactor, one for a feature, one that goes looking for what the
- * tests miss — while the grouping it writes belongs to a single pull request
- * and is never reused.
- *
- * Rendered both in settings and inside the dialog the Code pane opens, so that
- * adding a lens is possible from the place you wanted one.
- */
-/**
- * Where a project's first lens comes from.
- *
- * The instruction is the whole feature, and a blank prose box under a label
- * teaches nothing about what belongs in one. These four ask different questions
- * rather than sorting the same way four times — by structure, by judgement, by
- * the shape of the change, and by how much attention each part is worth.
- *
- * Each one has to give the agent a test it can apply to any diff. "The riskiest
- * changes first" names a sort key and never says how to compute it, which on a
- * change with no obvious risk leaves it to invent one. What belongs in every
- * lens rather than this one — leading with what the rest follows from, keeping
- * mechanical churn last, how a title is written — is in the prompt itself.
- *
- * Offered rather than seeded. Writing them into the project on first open would
- * give everyone four lenses they did not write and have to delete — and
- * pressing one fills the form in rather than saving, so what is being added is
- * read before it is kept.
+ * Offered rather than seeded: pressing one fills the form in, so what is being
+ * added is read before it is kept.
  */
 const SUGGESTED_LENSES: LensInput[] = [
   {
@@ -78,7 +53,6 @@ const SUGGESTED_LENSES: LensInput[] = [
 export function LensList({ projectPath, onRun, running }: LensListProps) {
   const { lenses, reload } = useProjectLenses(projectPath);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  /** The new lens being written, filled in from a suggestion or blank. */
   const [draft, setDraft] = useState<LensInput | null>(null);
   const [addingNew, setAddingNew] = useState(false);
   // What `buildLensPrompt` will actually carry: the hotspot section is written
@@ -197,13 +171,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
   );
 }
 
-/**
- * One lens, given room to be read.
- *
- * The name and the command are two different things and get two lines. Sharing
- * one, as the script rows do, left a truncated prompt fighting a truncated name
- * for the same width — and a lens command is a sentence, not a binary name.
- */
+/** One lens: a name, and the instruction under it. */
 function LensRow({
   lens,
   onEdit,
@@ -220,13 +188,9 @@ function LensRow({
   busy: boolean;
 }) {
   return (
-    // Nothing about the row is pressable except the two buttons, and both say
-    // what they are. Running costs an agent and editing does not, so a press
-    // that could be either is a press nobody can make on purpose.
-    //
-    // No glyph at the head of the line, the same as the picker's rows: an
-    // aperture beside every entry of a list of lenses, under a heading that
-    // says Lenses beside one, is a word repeated until it stops being read.
+    // Nothing about the row is pressable except the two buttons: running costs
+    // an agent and editing does not, so a press that could be either is a press
+    // nobody can make on purpose.
     <div className="flex items-center gap-3 px-4 py-3">
       <span className="flex-1 min-w-0">
         <span className="block text-[13px] text-text-primary truncate">{lens.name}</span>
@@ -235,8 +199,6 @@ function LensRow({
         </span>
       </span>
 
-      {/* Standing, not waiting for a hover. How to read a change through a lens
-          you already have is the question this list is opened with. */}
       <button
         type="button"
         aria-label={`Edit “${lens.name}”`}
@@ -288,11 +250,7 @@ function LensForm({
   /** Whether the prompt will carry the history section as well as the diff. */
   sendsHotspots: boolean;
   onSave: (lens: { name: string; instruction: string }) => void;
-  /**
-   * Offered where there is a diff to read. Beside saving rather than instead of
-   * it: wanting to keep a lens and wanting to spend a run on it now are two
-   * different wants, and a form that only offers the second answers neither.
-   */
+  /** Offered where there is a diff to read, beside saving rather than instead. */
   onSaveAndRun?: (lens: { name: string; instruction: string }) => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -315,7 +273,7 @@ function LensForm({
   }, [initial]);
 
   // Nothing breaks if two lenses share a name, but the picker names what is on
-  // screen and two identical rows say nothing. Said before the save, not after.
+  // screen by it. Said before the save rather than after.
   const collides = !initial?.id && existingNames?.includes(name.trim());
   const isValid = Boolean(name.trim()) && Boolean(instruction.trim()) && !collides;
 
@@ -331,9 +289,8 @@ function LensForm({
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Saves and stops, where a shortcut usually takes the primary button.
-      // The other one spends an agent run, which nothing should do because a
-      // key was held down over a text box.
+      // Saves and stops, where a shortcut usually takes the primary button: the
+      // other one spends an agent run, which no held-down key should.
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(false);
       if (e.key === 'Escape') onCancel();
     },
@@ -357,17 +314,8 @@ function LensForm({
 
       <div>
         <label className="block text-[11px] text-text-tertiary mb-1">How to group it</label>
-        {/* Prose, not a command. The title, the description and the diff are
-            put in front of the agent by Ouijit; this is the only part that is
-            the reader's to say.
-
-            The placeholder is one sample instruction and nothing else — what
-            the field is for is the label's job, and what is sent with it is
-            the line underneath. An instruction written in here reads as a
-            value already filled in.
-
-            It names the same lens the field above does. Two placeholders
-            describing different lenses is an example that teaches nothing. */}
+        {/* Prose, not a command: the title, the description and the diff are put
+            in front of the agent by Ouijit, and this is the reader's part. */}
         <textarea
           ref={commandRef}
           rows={3}
@@ -401,9 +349,6 @@ function LensForm({
         <button className={QUIET_BUTTON} onClick={onCancel}>
           Cancel
         </button>
-        {/* Whichever of the two is on the right is the one being urged. Where
-            there is a diff to read, that is the run — but keeping the lens has
-            to be a press of its own, not a thing you get to by not running. */}
         <button
           className={onSaveAndRun ? QUIET_BUTTON : primaryButton(isValid)}
           disabled={!isValid}

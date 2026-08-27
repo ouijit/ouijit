@@ -11,7 +11,7 @@ vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
 
-/** A lens as it comes back from main: whose it is, and how many groups it claims. */
+/** A lens as it comes back from main. */
 function onFile(lens: { id: string; name: string } | null, groups: number | null, stale: boolean): StoredLens {
   return {
     lensId: lens?.id ?? null,
@@ -66,12 +66,6 @@ describe('picking how to read a diff', () => {
     expect(onRun).not.toHaveBeenCalled();
   });
 
-  /**
-   * Deleting a lens and writing it again mints a new id, and the grouping on
-   * file still names the old one. Two rows with one name in them — one saying
-   * it had been written, one offering to write it — is a choice nobody can
-   * make.
-   */
   test('a lens written again under the same name is one row, not two', () => {
     const { onRun, onShowLens } = open(onFile({ id: 'gone', name: 'Narrative' }, 3, false));
 
@@ -79,18 +73,11 @@ describe('picking how to read a diff', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].textContent).toContain('3 parts');
 
-    // And it is the row it looks like: the lens on screen, not a run to start.
     fireEvent.click(rows[0]);
     expect(onShowLens).toHaveBeenCalled();
     expect(onRun).not.toHaveBeenCalled();
   });
 
-  /**
-   * A lens on screen *and* out of date is the worktree diff's ordinary
-   * condition, since that diff moves on every save. If being applied wins the
-   * branch, the one lens a reader can see has drifted is the one they cannot
-   * re-run.
-   */
   test('an out-of-date lens offers to be written again, drawn or dropped', () => {
     const { onRun, onShowLens, row } = open(onFile(NARRATIVE, 3, true));
 
@@ -101,8 +88,7 @@ describe('picking how to read a diff', () => {
     expect(onRun).toHaveBeenCalledWith(LENSES[0]);
     expect(onShowLens).not.toHaveBeenCalled();
 
-    // What a pull request does with one: after a force-push the hunks it points
-    // at are gone, so nothing is rendered and only the name survives.
+    // A pull request drops the groups after a force-push: only the name survives.
     cleanup();
     const dropped = open(onFile(NARRATIVE, null, true));
     expect(dropped.row().textContent).toContain('out of date');
@@ -110,16 +96,15 @@ describe('picking how to read a diff', () => {
     fireEvent.click(dropped.row());
     expect(dropped.onRun).toHaveBeenCalledWith(LENSES[0]);
 
-    // But not while something else is already writing: there is one run at a
-    // time, and the row it would start says so by refusing the press.
+    // But not while something else is writing: one run at a time.
     cleanup();
     const busy = open(onFile(NARRATIVE, 3, true), { writing: { id: 'other', name: 'Other' } });
     expect(busy.row().hasAttribute('disabled')).toBe(true);
   });
 
   test('a lens the project no longer has is named but not offered to run', () => {
-    // Deleted, or posted over the CLI: there is no row in the list to start it
-    // from, so the picker gives it one that only goes back to it.
+    // Deleted, or posted over the CLI: no row in the list to start it from, so
+    // the picker gives it one that only goes back to it.
     const { onRun, onShowLens } = open(onFile({ id: 'gone', name: 'Gone' }, 2, true));
 
     const orphan = screen.getByRole('menuitem', { name: /^Gone/ });
@@ -129,25 +114,16 @@ describe('picking how to read a diff', () => {
     expect(onRun).not.toHaveBeenCalled();
   });
 
-  /**
-   * A run costs a request and a wait. What the row can say before one starts is
-   * how much of the change is going into it, and whether all of it will fit.
-   */
   test('a row says what running it would send, and when it will not fit', () => {
     open(null, { promptChars: 104_000 });
     expect(screen.getByRole('menuitem', { name: /^Narrative/ }).getAttribute('title')).toContain('~26k tk');
 
     cleanup();
     const { row } = open(null, { promptChars: 400_000 });
-    // Not a refusal — the change still runs, with the hunks that did not fit
-    // sent as line spans instead of code.
+    // Not a refusal: the hunks that did not fit go as line spans, not code.
     expect(row().textContent).toContain('too big to send whole');
   });
 
-  /**
-   * From the binding, not from the stored groups: a lens that names four parts
-   * of a change and leaves six files out has described something else.
-   */
   test('the applied row says how much of the change the lens accounts for', () => {
     const resolved: ResolvedGroup[] = [
       { id: '0', title: 'Part 0', slices: [{ path: 'a.ts', hunks: [0] }] },

@@ -67,11 +67,6 @@ describe('what a lens claims of a file', () => {
   });
 });
 
-/**
- * The invariant the feature rests on. A lens is written by something that read
- * the diff and may have misread it, so binding it to the real hunks has to be
- * unable to lose code.
- */
 describe('binding a lens to the diff it was written for', () => {
   test('one file split across two parts, each counting what it holds', () => {
     const resolved = resolveLens(
@@ -83,20 +78,16 @@ describe('binding a lens to the diff it was written for', () => {
       order,
     );
 
-    // A file split three ways that reported the whole file's total in each
-    // place would be wrong in all three.
     expect(resolved[0].slices).toEqual([{ path: 'a.ts', hunks: [0], changes: { additions: 10, deletions: 0 } }]);
     expect(resolved[1].slices).toEqual([{ path: 'a.ts', hunks: [1], changes: { additions: 11, deletions: 0 } }]);
-    // b.ts was never claimed, so it is still shown — whole, and with no count
-    // of its own, since git's is the better one there.
+    // Never claimed, so still shown — whole, and with git's own count.
     expect(resolved[2].title).toBe('Not in this lens');
     expect(resolved[2].slices).toEqual([{ path: 'b.ts', hunks: [0] }]);
   });
 
   test('a part is its place in the lens, and one file inside it is one section', () => {
-    // Nothing stops a lens naming two parts the same, or naming one file twice
-    // in a part. Keyed by title, a fold or a mark on either part would land on
-    // both; left unmerged, two cards would answer to the same name.
+    // Nothing stops a lens naming two parts the same, or one file twice in a
+    // part. Keyed by title, a fold on either would land on both.
     const resolved = resolveLens(
       [
         { title: 'Storage', slices: [{ path: 'a.ts', ranges: [[1, 10]] }] },
@@ -128,8 +119,7 @@ describe('binding a lens to the diff it was written for', () => {
     );
     const file = diffs.get('a.ts')!;
 
-    // Where a comment on line 55 has to be taken to — not the first copy of
-    // a.ts, which does not have that line in it.
+    // Where a comment on line 55 goes — not the first copy of a.ts.
     expect(partHolding(resolved, file, 'a.ts', 55)).toBe('1:Second half');
     expect(partHolding(resolved, file, 'a.ts', 5)).toBe('0:First half');
     // A line in no hunk, and a diff read with no lens on it.
@@ -153,7 +143,6 @@ describe('binding a lens to the diff it was written for', () => {
     expect(new Set(seen).size).toBe(seen.length);
     expect(resolved.map((group) => group.title)).toEqual(['Overlapping', 'Not in this lens']);
 
-    // And a lens that does account for the whole change has nothing trailing.
     const complete = resolveLens([{ title: 'All of it', slices: [{ path: 'a.ts' }, { path: 'b.ts' }] }], diffs, order);
     expect(complete).toHaveLength(1);
     expect(complete[0].slices).toEqual([
@@ -164,9 +153,8 @@ describe('binding a lens to the diff it was written for', () => {
 });
 
 test('what the picker says a lens covers is read off the binding, not the lens', () => {
-  // The two disagree exactly where it matters: a part whose files have all been
-  // claimed elsewhere, or whose ranges match nothing, is not a part of this
-  // change however the agent listed it.
+  // A part whose files were all claimed elsewhere, or whose ranges match
+  // nothing, is not a part of this change however the agent listed it.
   const overreaching: LensGroup[] = [
     { title: 'The change', slices: [{ path: 'a.ts' }] },
     { title: 'Again', slices: [{ path: 'a.ts' }] },

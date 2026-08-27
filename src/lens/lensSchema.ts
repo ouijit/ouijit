@@ -1,14 +1,11 @@
 /**
- * The shape a lens run is held to, as JSON Schema.
- *
  * Handed to the agent CLI rather than described in the prompt, so a reply is
- * either this or a failed run. What the prompt still has to say is what the
- * fields *mean* — a schema can say `ranges` is a pair of numbers and cannot say
- * they are new-file line numbers.
+ * either this or a failed run. What the fields *mean* is still the prompt's job:
+ * a schema can say `ranges` is a pair of numbers, not that they are new-file
+ * line numbers.
  *
- * Every field is required and every optional one is nullable, which is what
- * Codex's strict mode demands; `parseLens` reads a null as an absent field, so
- * the two agree without either being bent to suit the other.
+ * Every field is required and every optional one nullable, which is what Codex's
+ * strict mode demands; `parseLens` reads a null as an absent field.
  */
 export const LENS_SCHEMA = {
   type: 'object',

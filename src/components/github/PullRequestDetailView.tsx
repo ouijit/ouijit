@@ -142,9 +142,8 @@ export function PullRequestDetailView({
       revision: detail.headSha,
       read: () => window.api.github.lens(projectPath, detail.number, detail.headSha),
       write: (lensId) => window.api.github.runLens(projectPath, detail.number, lensId),
-      // A lens written by an agent over the CLI, in another process, that
-      // nothing here can otherwise see — shown as soon as it lands, since
-      // someone paid for the run.
+      // A lens written by an agent over the CLI, in a process this cannot see.
+      // Shown as soon as it lands, since someone paid for the run.
       subscribe: (refresh) =>
         window.api.github.onLensChanged((payload) => {
           if (payload.projectPath === projectPath && payload.prNumber === detail.number) refresh(true);
@@ -175,9 +174,8 @@ export function PullRequestDetailView({
 
   useEffect(() => {
     if (pane !== 'code' || !pendingDraft) return;
-    // To the copy of the file that holds the line it is anchored to. A lens can
-    // put that file in three parts, and only one of them is where the comment
-    // is.
+    // To the copy of the file that holds the line it is anchored to: a lens can
+    // put that file in three parts, and only one is where the comment is.
     const part = partHolding(shown, diffs.get(pendingDraft.path), pendingDraft.path, pendingDraft.line);
     scrollToFile(pendingDraft.path, part);
     filesRef.current?.editDraft(pendingDraft.id);

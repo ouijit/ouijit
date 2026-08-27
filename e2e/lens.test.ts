@@ -7,13 +7,10 @@ import { DatabaseSync } from 'node:sqlite';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 /**
- * A lens in a real window.
- *
- * The renderer tests run under jsdom, which has no layout engine — so the
- * picker sitting in the ledge beside the file list, the suggestion pills, and a
- * chaptered rail beside a chaptered document are all unverified there. Writing
- * a lens needs an agent, which e2e cannot spawn, so the grouping is seeded into
- * the database the app is already running against.
+ * A lens in a real window. The renderer tests run under jsdom, which has no
+ * layout engine, so the picker in the ledge and a chaptered rail beside a
+ * chaptered document are unverified there. Writing a lens needs an agent, which
+ * e2e cannot spawn, so the grouping is seeded into the running app's database.
  */
 
 /** The one thing this has to know about storage: how a worktree diff is keyed. */
@@ -67,7 +64,6 @@ test('the diff panel reads a change through a lens', async ({ appPage, userDataD
     await appPage.keyboard.press(`${modifier}+i`);
     await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 10_000 });
 
-    // A lens of the project's own, made the way the dialog makes one.
     const lens = await appPage.evaluate(
       (rp: string) => window.api.lens.save(rp, { name: 'By layer', instruction: 'data model first' }),
       repo.repoPath,
@@ -96,13 +92,11 @@ test('the diff panel reads a change through a lens', async ({ appPage, userDataD
 
     // The rail and the document both chapter, and agree on the part's name.
     await expect(appPage.getByText('Where it is stored')).toHaveCount(2, { timeout: 15_000 });
-    // A lens reorders and splits, and never hides: README.md was claimed by no
-    // part and is still in the diff.
+    // README.md was claimed by no part and is still in the diff.
     await expect(appPage.getByText('Not in this lens').first()).toBeVisible();
     expect(await appPage.getByText('The table and the rows in it').count()).toBeGreaterThan(0);
 
-    // The picker sits in the ledge above the file list, naming what is on
-    // screen and saying what it would cost to ask for another.
+    // The picker sits in the ledge above the file list.
     const picker = appPage.getByTitle(/Reading this change through “By layer”/);
     await expect(picker).toBeVisible();
     await picker.click();
@@ -110,7 +104,7 @@ test('the diff panel reads a change through a lens', async ({ appPage, userDataD
     // Seeded against a pin nothing matches, which is what a lens written before
     // the last save looks like: still drawn, and offering to be written again.
     await expect(row).toContainText('1 part · out of date');
-    // And what asking for another would send, before anyone asks for one.
+    // What asking for another would send, before anyone asks for one.
     expect(await row.getAttribute('title')).toMatch(/~\d+k? tk$/);
   } finally {
     repo.cleanup();

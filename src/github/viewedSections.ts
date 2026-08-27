@@ -1,14 +1,11 @@
 /**
- * How far through a pull request the reviewer is, when a lens has split it.
- *
- * A lens can put one file in three parts of a change, and each is read on its
- * own. What survives is still a claim about the file — `viewedFiles` writes
- * paths down, and the flat list and the next lens over this change both read
- * them. A part is held apart from that only until every part of its file has
- * been marked, at which point the file itself is.
+ * How far through a pull request the reviewer is, when a lens has split it. A
+ * lens can put one file in three parts and each is read on its own, but what
+ * survives is a claim about the file: a part is held apart only until every part
+ * of its file has been marked, at which point the file itself is.
  */
 
-/** Whether one part of one file has been read, either on its own or with the whole file. */
+/** Whether one part has been read, on its own or with the whole file. */
 export function isSectionViewed(
   viewedPaths: readonly string[],
   viewedSections: readonly string[],
@@ -26,10 +23,8 @@ export interface ViewedChange {
 }
 
 /**
- * Marking one part read, or unread.
- *
- * `siblings` is every part of that file on screen, including this one. Without
- * a lens a file is its own only part, and this reduces to marking the file.
+ * `siblings` is every part of that file on screen, including this one. Without a
+ * lens a file is its own only part, and this reduces to marking the file.
  */
 export function markSection(
   viewedPaths: readonly string[],

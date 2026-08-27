@@ -11,17 +11,10 @@ import { Icon } from '../terminal/Icon';
 import { MenuPopover, MenuItem, MenuDivider } from '../ui/Menu';
 
 /**
- * Which agent writes this project's lenses, where that is still a question.
- *
- * Both agents are held to the same schema and isolated from the repository the
- * same way, so which one wrote a lens does not change what comes back. What it
- * changes is whose quota paid for it, and either can be logged out — so the
- * choice is offered where there is one to make, and nothing is drawn where
- * there is not.
- *
- * The flags are not shown. They were worth showing while a custom command made
- * them editable; a preset nobody can change is a command line the reader can do
- * nothing with, and the runner logs the invocation for anyone who needs it.
+ * Which agent writes this project's lenses, where that is still a question. Both
+ * are held to the same schema and isolated the same way, so the choice is about
+ * whose quota pays and which one is logged in — and nothing is drawn where there
+ * is no choice to make.
  */
 export function LensAgentRow({ projectPath }: { projectPath: string }) {
   const [choice, setChoice] = useState<LensAgentChoice | null>(null);
@@ -46,15 +39,14 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
     [projectPath],
   );
 
-  // Nothing at all until the probe answers, rather than a row that says it is
-  // looking and then changes its mind about whether it belongs here.
+  // Nothing at all until the probe answers, rather than a row that appears and
+  // then decides it does not belong here.
   if (!health) return null;
 
   const installed = installedAgents(health);
   const here = LENS_AGENTS.filter((agent) => installed[agent.id]);
 
-  // Nothing can write a lens, which is the only thing worth saying — and it is
-  // said here rather than left for the run to fail with.
+  // Nothing can write a lens, said here rather than left for a run to fail on.
   if (here.length === 0) {
     return <div className="px-4 py-3 text-[13px] text-text-tertiary">Lenses need Claude Code or Codex installed.</div>;
   }
@@ -64,13 +56,12 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
 
   const automatic = pickLensAgent(installed);
   const auto = !choice?.agentId;
-  // What will run, never how it was decided. Nothing has been chosen to begin
-  // with, and a control reading "Automatic" leaves the reader to open it to
-  // find out what that means when the answer is one word long.
+  // What will run, never how it was decided: nothing has been chosen to begin
+  // with, and "Automatic" makes the reader open it to find out what that means.
   const showing = resolveLensAgent(choice, installed) ?? here[0];
 
   return (
-    // The button's own padding puts its text where the rows above start theirs.
+    // Its own padding puts the text where the rows above start theirs.
     <div className="flex items-center px-1.5 py-1.5">
       <MenuPopover
         open={open}

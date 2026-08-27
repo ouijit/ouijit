@@ -6,20 +6,15 @@ import { useProjectLenses } from './useProjectLenses';
 import { useLensSession, type LensSession } from './useLensSession';
 
 export interface DiffLens extends LensSession {
-  /** The project's lenses, for the picker to offer. */
   lenses: LensSummary[];
-  /** Parts of the lens folded away in the document, by title. */
+  /** Parts of the lens folded away in the document, by group id. */
   collapsed: Set<string>;
   setCollapsed: Dispatch<SetStateAction<Set<string>>>;
 }
 
 /**
- * The lens over a worktree diff.
- *
- * The session — reading it, running one, what a failed run leaves behind — is
- * `useLensSession`, shared with the pull request pane. What is here is only
- * what a worktree diff knows and a pull request does not: how to name itself,
- * and where its folds live.
+ * The lens over a worktree diff. Everything both panes do is `useLensSession`;
+ * what is here is what a worktree knows and a pull request does not.
  */
 export function useDiffLens(
   target: DiffLensTarget | null,
@@ -42,8 +37,7 @@ export function useDiffLens(
       read: () => (target ? window.api.diffLens.get(target) : Promise.resolve(null)),
       write: (lensId) => (target ? window.api.diffLens.run(target, lensId) : Promise.resolve({ success: false })),
       // A lens written by an agent over the CLI, or by a run this pane started
-      // before it reloaded — shown as soon as it lands, since someone paid for
-      // the run either way.
+      // before it reloaded. Shown as soon as it lands either way.
       subscribe: (refresh) =>
         window.api.diffLens.onChanged((changed) => {
           if (changed === key) refresh(true);

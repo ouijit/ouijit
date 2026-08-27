@@ -1,18 +1,11 @@
 /**
- * A lens list changing is told, not reached for.
- *
- * Every picker and list holds its own copy of `lens:list`, and the pane a lens
- * was added in is rarely the only one open. Broadcast rather than patched in by
- * that pane, which would have to know every surface currently showing a lens —
- * a list that only grows.
- *
- * A rename is not a separate announcement: a lens is keyed by its id and its
- * name is looked up fresh, so re-reading the list is the whole of it.
+ * A lens list changing is told, not reached for: every picker holds its own copy
+ * of `lens:list`, and a rename is not a separate announcement because a lens is
+ * keyed by id and its name looked up fresh.
  *
  * Electron is the only thing stubbed. The handlers, the helpers that register
- * them and the store they write to are the real ones, so what this pins is that
- * a lens really is saved and the renderer really is told, rather than that two
- * fakes were called.
+ * them and the store they write to are real, so what this pins is that a lens is
+ * saved and the renderer told — not that two fakes were called.
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';

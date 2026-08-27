@@ -551,11 +551,8 @@ function prSubjectKey(prNumber: number): string {
 }
 
 /**
- * A pull request as something a lens can be written over.
- *
- * Everything the agent needs is gathered here — the description, the file list
- * and the diff — so that what it is asked to do is the one thing it is for.
- * The procedure around it is `writeLens`, shared with the worktree diff.
+ * A pull request as something a lens can be written over. The procedure around
+ * it is `writeLens`, shared with the worktree diff.
  */
 class PullRequestSubject implements DiffSubject {
   readonly key: string;
@@ -573,11 +570,6 @@ class PullRequestSubject implements DiffSubject {
   ) {
     this.key = prSubjectKey(prNumber);
     this.label = { prNumber };
-  }
-
-  /** The agent runs in the project, since that is where the checkout is. */
-  get cwd(): string {
-    return this.projectPath;
   }
 
   async listFiles(): Promise<{ files: LensFile[]; error?: string; emptyMessage: string }> {
@@ -604,11 +596,9 @@ class PullRequestSubject implements DiffSubject {
   }
 
   /**
-   * The head the lens describes. A force-push moves it, and the hunks the lens
-   * points at go with it.
-   *
-   * The freshly fetched head wins where there is one — a write pins to what it
-   * actually read, not to what the pane happened to be showing when it started.
+   * The head the lens describes: a force-push moves it, and the hunks the lens
+   * points at go with it. The freshly fetched head wins where there is one, so a
+   * write pins to what it read rather than to what the pane was showing.
    */
   pin(): Promise<string> {
     const headSha = this.detail?.headSha ?? this.headSha;
@@ -655,8 +645,7 @@ export async function setLens(
   if (!groups) {
     return { success: false, error: 'Expected {"groups":[{"title","slices":[{"path","ranges"}]}]}' };
   }
-  // No name: nothing here went through one of the project's lenses, and
-  // borrowing a name from whichever ran last would be a lie about what wrote it.
+  // No name: nothing here went through one of the project's lenses.
   await saveDiffLens(projectPath, prSubjectKey(prNumber), headSha, JSON.stringify({ groups }), null);
   return { success: true, groups };
 }

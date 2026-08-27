@@ -573,13 +573,10 @@ textarea,
 }
 
 /* A ledge with surface above it as well as below: the bar a lens's part opens
-   with sits mid-document, where the well shows on both sides of it. So it is
-   bevelled like a card rather than cut like a pane ledge — a raised slab, not
-   a boundary between two panes.
-
-   The edges are inset, which is what lets folded parts stack: their bars are
-   siblings, and an outer shadow would be painted over by the next one. Only
-   the catch is outside, where the well is there to take it. */
+   with sits mid-document, so it is bevelled like a card rather than cut like a
+   pane ledge. The edges are inset, which is what lets folded parts stack —
+   their bars are siblings, and an outer shadow would be painted over by the
+   next one. Only the catch is outside, where the well is there to take it. */
 .pane-ledge-raised {
   box-shadow:
     inset 0 1px 0 var(--bevel-top),
@@ -1246,10 +1243,8 @@ textarea,
   }
 }
 
-/* A grouping lands over a document the reader is already in, so its parts lay
-   themselves down in reading order rather than all at once. The fade is also
-   cover for the reflow: `useReadingAnchor` puts the reader back on the file
-   they were on while the parts are still transparent. */
+/* The fade is also cover for the reflow: `useReadingAnchor` puts the reader
+   back on the file they were on while the parts are still transparent. */
 .lens-part-enter {
   animation: lens-part-enter 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }

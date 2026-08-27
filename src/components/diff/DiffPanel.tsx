@@ -54,8 +54,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   const sidebarCollapsed = useUIStore((s) => s.diffFileListCollapsed);
   const sidebarWidth = useUIStore((s) => s.diffFileListWidth);
   // By section, not by path: a lens can put one file in three parts, and each
-  // is folded on its own. Local, and gone when the panel closes — folding here
-  // is scroll management, not review state that has to survive.
+  // is folded on its own. Gone when the panel closes, unlike the pull request
+  // pane's, since folding here is scroll management rather than review state.
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   // Through a ref so callbacks survive each batch of diffs arriving.
@@ -329,11 +329,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
       {!sidebarCollapsed && (
         <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: sidebarWidth }}>
-          {/* Above the list it reorders and outside its scroll, where the pull
-              request rail keeps its own. "All files" is one of the options, so
-              the file list and the lenses are a single choice.
-
-              `h-11` is the toolbar across the seam — `py-2` around an `h-7`
+          {/* `h-11` is the toolbar across the seam — `py-2` around an `h-7`
               control — so the rule under the two ledges is one line. */}
           {lensTarget && (
             <div className="pane-ledge shrink-0 flex flex-col h-11">

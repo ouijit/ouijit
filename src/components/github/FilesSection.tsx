@@ -62,7 +62,7 @@ interface FileSectionProps {
   /** Which part of the change this copy of the file sits in. */
   sectionId: string;
   diff: FileDiff | null | undefined;
-  /** What the hunks on screen come to, which under a lens is not the file's own count. */
+  /** What the hunks on screen come to, which under a lens is not the file's. */
   additions: number;
   deletions: number;
   projectPath: string;
@@ -391,9 +391,8 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   /**
    * The parts each file is on screen in, and the file each part belongs to.
-   * Marking one part read is a claim about that part until they have all been
-   * marked, so it has to know what the others are; the claim that is written
-   * down is about the file.
+   * Marking one part read has to know what the others are, since the claim that
+   * gets written down is about the file.
    */
   const parts = useMemo(() => {
     const byFile = new Map<string, string[]>();

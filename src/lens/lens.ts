@@ -1,17 +1,7 @@
 /**
- * A lens on a pull request.
- *
- * A diff arrives as files in alphabetical order, which is the order the change
- * was stored in, not the order it reads in. A lens names the parts of the
- * change and points each one at the hunks that make it up — so `service.ts`
- * appearing in three different parts of the story is three entries, not one
- * file you have to read three times looking for the relevant half.
- *
- * Nothing here decides what the parts are. That judgement belongs to whatever
- * wrote the lens — almost always an agent that has read the diff, since a
- * grouping worth having is specific to one change and cannot be configured in
- * advance. What is fixed here is the shape, and the rule that a lens may
- * reorder and split but may never hide.
+ * A lens names the parts of a change and points each one at the hunks that make
+ * it up. Nothing here decides what the parts are — that judgement belongs to
+ * whatever wrote the lens, almost always an agent that has read the diff.
  */
 
 import type { FileDiff } from '../types';
@@ -21,11 +11,7 @@ export type LineRange = [start: number, end: number];
 
 export interface LensSlice {
   path: string;
-  /**
-   * New-file line ranges this part of the story covers. Omitted claims the
-   * whole file, which is what a coarse grouping wants and what keeps a simple
-   * lens simple to write.
-   */
+  /** New-file line ranges this part covers. Omitted claims the whole file. */
   ranges?: LineRange[];
 }
 
@@ -35,25 +21,23 @@ export interface LensGroup {
   slices: LensSlice[];
 }
 
-/** Hunk indices within one file, in the order they appear in the diff. */
 export interface ResolvedSlice {
   path: string;
   /** Indices into `FileDiff.hunks`. Empty means the file has no text diff. */
   hunks: number[];
   /**
    * What these hunks alone add and remove. Absent when the part claims the
-   * whole file, where git's own count is the better one: it covers a binary
-   * file and a diff that has not loaded yet, which counting hunks cannot.
+   * whole file, where git's own count covers what counting hunks cannot: a
+   * binary file, and a diff that has not loaded yet.
    */
   changes?: { additions: number; deletions: number };
 }
 
 export interface ResolvedGroup {
   /**
-   * What everything about this part is keyed by: its fold, and the copy of a
-   * file it holds. Its place in the lens and what it is called, together —
-   * two parts may carry the same title, and the place alone would hand one
-   * part's folds and marks to whatever the next lens writes in its slot.
+   * Its place in the lens and its title, together. Two parts may carry the same
+   * title, and the place alone would hand one part's folds and marks to
+   * whatever the next lens writes in its slot.
    */
   id: string;
   title: string;
@@ -61,22 +45,15 @@ export interface ResolvedGroup {
   slices: ResolvedSlice[];
 }
 
-/**
- * One file inside one part — the unit a card, a rail row, a fold and the mark
- * on the file being read all belong to. Without a lens a file is only in one
- * place, and the path is the whole of it.
- */
+/** One file inside one part. Without a lens a file is only in one place. */
 export function sectionKey(groupId: string | null | undefined, path: string): string {
   return groupId ? `${groupId}:${path}` : path;
 }
 
 /**
- * Which hunks a range list selects.
- *
- * Selection is by whole hunk: a range that touches any line of a hunk takes the
- * hunk entire. Cutting one in half would strip the context lines that make a
- * diff legible, and a hunk is already the smallest piece of a change that reads
- * on its own.
+ * Which hunks a range list selects. A range that touches any line of a hunk
+ * takes the hunk entire: cutting one in half strips the context lines that make
+ * a diff legible.
  */
 export function hunksInRanges(diff: FileDiff, ranges?: LineRange[]): number[] {
   if (!ranges || ranges.length === 0) return diff.hunks.map((_, i) => i);
@@ -99,7 +76,6 @@ export function hunksInRanges(diff: FileDiff, ranges?: LineRange[]): number[] {
   return selected;
 }
 
-/** What part of a file's diff comes to, when it is not all of it. */
 function changesIn(diff: FileDiff, hunks: number[]): Pick<ResolvedSlice, 'changes'> {
   if (hunks.length === diff.hunks.length) return {};
 
@@ -114,10 +90,6 @@ function changesIn(diff: FileDiff, hunks: number[]): Pick<ResolvedSlice, 'change
   return { changes: { additions, deletions } };
 }
 
-/**
- * Which part of the change holds a line of a file. Undefined when no lens is
- * showing, or when the line is in no hunk of it.
- */
 export function partHolding(
   groups: ResolvedGroup[] | null,
   diff: FileDiff | null | undefined,
@@ -162,7 +134,6 @@ function parseGroups(raw: unknown): LensGroup[] {
   return clean;
 }
 
-/** Parse a stored or submitted lens body. Returns null when unusable. */
 export function parseLens(body: string): LensGroup[] | null {
   try {
     const groups = parseGroups(JSON.parse(body));
@@ -172,23 +143,20 @@ export function parseLens(body: string): LensGroup[] | null {
   }
 }
 
-/** The trailing part, holding whatever the lens did not account for. */
 export const UNGROUPED_TITLE = 'Not in this lens';
 const UNGROUPED_ID = 'rest';
 
 export interface LensCoverage {
-  /** Parts the lens named, not counting whatever it left out. */
+  /** Parts the lens named, not counting the trailing one it did not. */
   parts: number;
-  /** Changed files no part claimed. Zero when the lens accounted for all of it. */
+  /** Changed files no part claimed. */
   ungrouped: number;
 }
 
 /**
- * How much of the diff the lens actually accounts for.
- *
- * Over the bound groups rather than the stored ones: a part whose hunks were
- * all claimed by an earlier part, or whose ranges match nothing, is not a part
- * of this change however the agent listed it.
+ * Read off the bound groups, not the stored ones: a part whose hunks were all
+ * claimed by an earlier part, or whose ranges match nothing, is not a part of
+ * this change however the agent listed it.
  */
 export function lensCoverage(resolved: ResolvedGroup[]): LensCoverage {
   const rest = resolved.find((group) => group.id === UNGROUPED_ID);
@@ -196,23 +164,18 @@ export function lensCoverage(resolved: ResolvedGroup[]): LensCoverage {
 }
 
 /**
- * Bind a lens to the diff it claims to describe.
- *
- * The invariant the whole feature rests on: **every hunk is shown exactly
- * once.** A lens is written by something that read the diff and may have
- * misread it, so a hunk it forgot appears in a trailing group, a hunk it
- * claimed twice appears in the first group that claimed it, and a file it
- * invented is dropped. A reader must never miss a change because a description
- * of the change left it out.
+ * Bind a lens to the diff it claims to describe, so that every hunk is shown
+ * exactly once. A lens is written by something that may have misread the diff:
+ * a hunk it forgot appears in a trailing group, a hunk it claimed twice appears
+ * in the first group that claimed it, and a file it invented is dropped.
  */
 export function resolveLens(
   groups: LensGroup[],
   diffs: Map<string, FileDiff | null | undefined>,
   order: string[],
 ): ResolvedGroup[] {
-  // Where each file sits in the rail's order. A lens over a long diff asks
-  // this once per slice and again inside every sort comparator, and scanning
-  // the list for each answer is what makes that quadratic.
+  // Asked once per slice and again inside every sort comparator below, which
+  // scanning `order` for each answer would make quadratic.
   const rank = new Map(order.map((path, index) => [path, index]));
 
   const claimed = new Map<string, Set<number>>();
@@ -229,14 +192,13 @@ export function resolveLens(
   // part with nothing left to claim drops out, and an id that shifted when it
   // did would hand one part's folds to another as the diff loads.
   groups.forEach((group, at) => {
-    // A lens naming one file twice in one part means one card, not two. Left
-    // apart they would answer to the same name, which is the whole of how a
-    // fold or a mark ends up on the wrong copy.
+    // One file named twice in one part is one card: two would share a section
+    // key, and a fold or a mark would land on whichever drew last.
     const claimedHere = new Map<string, number[]>();
     for (const slice of group.slices) {
       const diff = diffs.get(slice.path);
-      // A file with no text diff — binary, or still loading — can still be
-      // named by a lens; it just has no hunks to claim.
+      // A file with no text diff — binary, or still loading — has no hunks to
+      // claim, so -1 stands for the file itself.
       if (!diff) {
         if (rank.has(slice.path) && take(slice.path, -1)) claimedHere.set(slice.path, []);
         continue;
@@ -251,11 +213,9 @@ export function resolveLens(
       hunks.sort((a, b) => a - b);
       return { path, hunks, ...(diff ? changesIn(diff, hunks) : {}) };
     });
-    // In the order the rail will show them, not the order the lens listed them.
-    // The rail draws each part as a tree, because which directories a part
-    // touches is most of what says what kind of change it is — and a tree sorts.
-    // Keeping the lens's order here left the two reading differently inside
-    // every part, which is the same disagreement in a smaller place.
+    // In the rail's order, not the lens's. The rail draws each part as a tree
+    // and a tree sorts, so a part read in the lens's order would disagree with
+    // the rail beside it.
     resolved.push({
       id: `${at}:${group.title}`,
       title: group.title,
@@ -264,7 +224,6 @@ export function resolveLens(
     });
   });
 
-  // Whatever the lens did not account for, in the diff's own order.
   const rest: ResolvedSlice[] = [];
   for (const path of order) {
     const diff = diffs.get(path);

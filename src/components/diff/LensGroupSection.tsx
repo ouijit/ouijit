@@ -5,20 +5,11 @@ import { Icon } from '../terminal/Icon';
 /**
  * One part of a lens, with the files that make it up.
  *
- * Shared by the pull request files view and the worktree diff panel, which read
- * the same grouping through the same `resolveLens`.
- *
- * Two things pin themselves to the top of the pane — which part of the change
- * you are in, and which file you are in — and they are a hierarchy, not rivals
- * for the same line. Pinning both to `top: 0` puts the file header over the
- * part it belongs to, hiding the lens exactly while it is being used.
- *
- * The part header measures itself and publishes its height, and file headers
- * pin below it. Measured rather than hard-coded to the one line it is set to:
- * the number this has to agree with is a rendered height, and text that grows
- * with the platform's font size would leave a fixed offset behind. Nothing
- * publishes it without a lens, and the fallback of `0px` is what every other
- * diff in the app already does.
+ * Two things pin to the top of the pane — which part you are in and which file
+ * — and they are a hierarchy, not rivals for the same line. So this header
+ * measures itself and publishes `--diff-sticky-offset`, which file headers pin
+ * below. Measured rather than hard-coded because text grows with the platform's
+ * font size; without a lens nothing publishes it and the fallback is `0px`.
  */
 export function LensGroupSection({
   group,
@@ -28,7 +19,6 @@ export function LensGroupSection({
   children,
 }: {
   group: ResolvedGroup;
-  /** Folded to its header alone, the way a file folds to its own. */
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   /** Laying itself in this long after the first part. Absent when it is not. */
@@ -52,8 +42,8 @@ export function LensGroupSection({
   }, [group.title, group.summary]);
 
   return (
-    // Identified, because one file can belong to three parts and the rail has
-    // to be able to say which copy of it a click meant.
+    // Identified, because one file can belong to three parts and the rail has to
+    // say which copy of it a click meant.
     <div
       data-group={group.id}
       data-collapsed={collapsed ? '' : undefined}
@@ -65,13 +55,6 @@ export function LensGroupSection({
         } as CSSProperties
       }
     >
-      {/* One line, at the height of a file header: the two pin one above the
-          other, and the rail beside them lists its actions on the same unit,
-          so the whole band across the seam is level.
-
-          The whole line folds it. A part of a change is read and finished with
-          the same way a file is, and nothing else in this header competes for
-          the press. */}
       <div ref={headerRef} className="pane-ledge-raised sticky top-0 z-20 bg-surface">
         <button
           type="button"
@@ -88,8 +71,6 @@ export function LensGroupSection({
           >
             {group.title}
           </span>
-          {/* Folded, the part has to say what is inside it — otherwise the only
-              way to know what you skipped is to unfold it again. */}
           {collapsed && (
             <span className="shrink-0 font-mono text-[11px] text-ink/35">
               {group.slices.length} {group.slices.length === 1 ? 'file' : 'files'}
@@ -98,16 +79,6 @@ export function LensGroupSection({
         </button>
       </div>
 
-      {/* What the part is, said in full.
-       *
-       * In the document rather than in the bar above it: a summary is prose
-       * about the change, and prose in a one-line sticky header is prose with
-       * its end cut off. Down here it wraps, it can be selected, and it costs
-       * the header none of its height.
-       *
-       * Plain text on the well — no card of its own, because it is not one of
-       * the files, and it goes away with them: folding a part puts the whole
-       * part away, and a description left behind is the part still talking. */}
       {group.summary && !collapsed && (
         <p className="mx-6 max-w-[76ch] text-[12px] leading-relaxed text-ink/50">{group.summary}</p>
       )}

@@ -9,23 +9,13 @@ import { Icon } from '../terminal/Icon';
 import { MenuDivider, MenuItem, MenuPopover } from '../ui/Menu';
 
 interface LensPickerProps {
-  /** The lenses the project keeps, in the order it keeps them. */
   lenses: LensSummary[];
   /**
-   * The lens this diff has on file, exactly as it was read.
-   *
-   * Freshness rides with it rather than beside it, because the two diffs
-   * disagree about what a lens that has drifted means and a separate flag could
-   * only describe one of them. A pull request drops a stale one — its hunks are
-   * gone after a force-push — so it arrives named with no groups. A worktree
-   * keeps rendering one, so it arrives with both. Either way the row for it
-   * offers to write it again, which is the thing two flags could not say.
+   * The lens this diff has on file. A pull request drops a stale one — its hunks
+   * are gone after a force-push — so it arrives named with no groups; a worktree
+   * keeps rendering one, so it arrives with both.
    */
   onFile: StoredLens | null;
-  /**
-   * Its groups bound to the diff on screen, which is where what it covers can
-   * be counted — the stored groups only say what the agent claimed.
-   */
   resolved: ResolvedGroup[] | null;
   /** Whether the lens on file is the one on screen. */
   lensOn: boolean;
@@ -34,17 +24,14 @@ interface LensPickerProps {
   promptChars: number;
   /** Files marked read. A worktree diff has no such mark, and passes nothing. */
   viewed?: number;
-  /** The lens being written, if a run is in flight for this pull request. */
   writing: LensRun | null;
   onAllFiles: () => void;
   /** Show the lens already written, without writing it again. */
   onShowLens: () => void;
   onRun: (lens: LensSummary) => void;
-  /** Add, edit and delete the project's lenses. */
   onManage: () => void;
 }
 
-/** What the control says it will do, which depends on what it is showing. */
 function triggerTitle({
   writing,
   showingLens,
@@ -58,9 +45,8 @@ function triggerTitle({
   onFile: StoredLens | null;
   /** What the lens on file is called now, which a rename moves. */
   label: string;
-  /** Whether that lens is stale and still there to be run again. */
   staleOffered: boolean;
-  /** A run that never finished, from a session that ended before it did. */
+  /** A run from a session that ended before it finished. */
   interrupted: StoredLens['running'];
 }): string {
   if (writing) return `${writing.name} is running. The lens appears here when it writes one.`;
@@ -94,7 +80,7 @@ interface RowState {
   parts: number | null;
   /** Changed files the lens on screen claimed none of. */
   ungrouped: number;
-  /** The change will not fit one prompt, so some of it goes as line spans. */
+  /** The change will not fit one prompt, so some of it goes as line spans only. */
   tooBig: boolean;
 }
 
@@ -109,8 +95,6 @@ function rowHint(lens: LensSummary, state: RowState): string | undefined {
       : plural(parts ?? 0, 'part');
   }
   if (isStale) return 'out of date';
-  // Only where the row is a plain offer to run: what it changes is whether you
-  // start one, and the rows above have something more pressing to say.
   return tooBig ? 'too big to send whole' : undefined;
 }
 
@@ -119,8 +103,6 @@ function rowTitle(
   { isApplied, isStale, isInterrupted }: RowState,
   { since, promptChars, omitted }: { since: string | null; promptChars: number; omitted: number },
 ): string {
-  // What starting this row would cost, wherever starting it is what the row
-  // does — which is every row but the one already showing a lens that fits.
   const size = ` — ${tokenLabel(promptChars)}`;
 
   if (isInterrupted) {
@@ -139,16 +121,9 @@ function rowTitle(
 }
 
 /**
- * How to read the diff, as one choice.
- *
- * All files is a lens like any other — the one that groups nothing and takes
- * the order the diff arrived in — so it sits in the same list rather than in a
- * control of its own. Two controls would say the file list and a lens are
- * different kinds of thing, and hide the rest of the lenses behind one of them.
- *
- * Picking a lens that has not been written for this head writes it: a lens is
- * an agent run, and the reader asking to read this change through one is the
- * only reason to start it.
+ * How to read the diff, as one choice — All files is a row in the same list.
+ * Picking a lens that has not been written for this head writes it: a lens is an
+ * agent run, and asking to read the change through one is what starts it.
  */
 export function LensPicker({
   lenses,
@@ -167,34 +142,26 @@ export function LensPicker({
   const [open, setOpen] = useState(false);
 
   const rendered = onFile?.groups != null;
-  // From the binding rather than the stored groups: a part whose files have all
-  // moved on drops out, and the count a reader can see is the bound one.
   const coverage = resolved ? lensCoverage(resolved) : null;
   const parts = coverage?.parts ?? onFile?.groups?.length ?? null;
   const tooBig = promptChars > LENS_PROMPT_BUDGET;
   const showingLens = lensOn && rendered;
-  // The lens that wrote what is on screen, if the project still has it.
-  //
-  // By id first, and looked up rather than read off the row: the stored name is
-  // what it was called when it ran, and a rename since then moves the row below
-  // and not that. By name after, because deleting a lens and writing it again
-  // mints a new id for what the reader means by the same lens — and the grouping
-  // still naming the old one put both in the menu, one row saying it was written
-  // and another offering to write it.
+  // The lens that wrote what is on screen, if the project still has it. By id
+  // first, since a rename moves the row and not the stored name; by name after,
+  // since deleting a lens and writing it again mints a new id for what the
+  // reader means by the same lens.
   const wrote = onFile
     ? (lenses.find((lens) => lens.id === onFile.lensId) ?? lenses.find((lens) => lens.name === onFile.lensName))
     : undefined;
   const appliedLabel = wrote?.name ?? onFile?.lensName ?? 'Lens';
-  // A lens written by the CLI, or by one since deleted, has no row of its own
-  // in the list below — it gets one here so what is on screen can always be
-  // named and gone back to.
+  // A lens written by the CLI, or by one since deleted, has no row of its own in
+  // the list below, so it gets one here.
   const orphan = rendered && !wrote;
-  // Marked only where it can be acted on. A stale lens the project no longer
-  // has — deleted, or never one of its own — has no row to carry the notice and
-  // nothing to offer, so it is left unsaid.
+  // Only where it can be acted on: a stale lens the project no longer has offers
+  // nothing to run, so the notice would lead nowhere.
   const staleOffered = Boolean(onFile?.stale && wrote);
   // A run the app was killed out from under. The mark outlives the process that
-  // made it, which is the whole of how one is told from a run still going.
+  // made it, which is how one is told from a run still going.
   const interrupted = onFile?.running && !onFile.running.live ? onFile.running : null;
 
   const label = writing ? `Writing ${writing.name}…` : showingLens ? appliedLabel : 'All files';
@@ -205,8 +172,7 @@ export function LensPicker({
       open={open}
       onOpenChange={setOpen}
       placement="bottom-start"
-      // Wider than the rail can be dragged narrow, so a lens name has room to
-      // be read even when the file list beside it does not.
+      // Wider than the rail can be dragged, so a lens name has room to be read.
       className="w-[17rem] max-h-[22rem]"
       trigger={(ref) => (
         <button
@@ -216,8 +182,8 @@ export function LensPicker({
           aria-expanded={open}
           title={triggerTitle({ writing, showingLens, onFile, label: appliedLabel, staleOffered, interrupted })}
           // Fills the ledge it is given rather than setting its own height:
-          // what it has to be level with sits across the seam, and the two
-          // surfaces that draw this put a different thing there.
+          // what it lines up with sits across the seam, and the two surfaces
+          // that draw this put a different thing there.
           className={`w-full h-full shrink-0 flex items-center gap-1.5 pl-3 pr-3 text-[13px] text-left transition-colors duration-150 ease-out hover:bg-ink/5 ${
             open ? 'bg-ink/[0.07] text-ink' : writing ? 'text-ink/45' : 'text-ink/70'
           }`}
@@ -225,9 +191,6 @@ export function LensPicker({
         >
           <Icon name={showingLens ? 'aperture' : 'tree-structure'} className="shrink-0 w-4 h-4 opacity-70" />
           <span className="flex-1 min-w-0 truncate">{label}</span>
-          {/* Something is waiting behind a control nobody has to open. Without
-              it, a reader who never opens the picker never learns that the run
-              they paid for describes commits that are no longer here. */}
           {(staleOffered || interrupted) && !writing && (
             <span aria-hidden className="shrink-0 w-1.5 h-1.5 rounded-full bg-accent" />
           )}
@@ -244,10 +207,6 @@ export function LensPicker({
         </button>
       )}
     >
-      {/* No glyphs down the rows: what they are is said by the one on the
-          control above and by the divider between the file list and the
-          lenses, and an aperture beside every line of a menu of lenses is a
-          word repeated until it stops being read. */}
       <MenuItem
         label="All files"
         hint={viewed ? `${viewed}/${changedFiles} read` : `${changedFiles}`}
@@ -258,8 +217,6 @@ export function LensPicker({
         }}
       />
 
-      {/* Only when there is a list to divide off. With no lens written yet the
-          menu is two rows, and a rule between them separates nothing. */}
       {(lenses.length > 0 || (orphan && onFile)) && <MenuDivider />}
 
       {orphan && onFile && (
@@ -267,8 +224,7 @@ export function LensPicker({
           label={appliedLabel}
           hint={onFile.stale ? `${plural(parts ?? 0, 'part')} · out of date` : plural(parts ?? 0, 'part')}
           selected={showingLens}
-          // No offer to write it again: the project has no lens by this name to
-          // run. What it can still do is name what is on screen and go back to it.
+          // No offer to write it again: the project has no lens by this name.
           title={onFile.stale ? 'Written for an earlier version of this change' : 'Written for this change'}
           onClick={() => {
             setOpen(false);
@@ -279,10 +235,8 @@ export function LensPicker({
 
       {lenses.map((lens) => {
         const isApplied = rendered && wrote?.id === lens.id;
-        // A lens that has drifted is a run to start again, whether or not it is
-        // the one on screen. Showing it is not an option that leads anywhere:
-        // when it is rendered the reader is already looking at it, and the
-        // notice they want acting on is that it describes an older change.
+        // A drifted lens is a run to start again, whether or not it is the one
+        // on screen: showing it only shows the older change again.
         const isStale = staleOffered && wrote?.id === lens.id;
         const isInterrupted = interrupted?.lensId === lens.id;
         const state = {
@@ -300,8 +254,8 @@ export function LensPicker({
             label={lens.name}
             hint={rowHint(lens, state)}
             selected={isApplied && lensOn}
-            // One run at a time. The lens already written and still current is
-            // a view to switch to rather than a run to start, so it stays live.
+            // One run at a time. The lens already written and still current is a
+            // view to switch to rather than a run to start, so it stays live.
             disabled={Boolean(writing) && (isStale || !isApplied)}
             title={rowTitle(lens, state, {
               since: interrupted?.since ?? null,

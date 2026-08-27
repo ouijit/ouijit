@@ -5,7 +5,7 @@ export interface DiffLensRow {
   subject_key: string;
   /** What the lens was written against. Compared, never parsed. Null until one is written. */
   pin: string | null;
-  /** JSON: the groups, as written. Parsed and reconciled on the way out. */
+  /** JSON: the groups, as the agent wrote them. */
   groups: string | null;
   /** The lens that wrote it, or null when an agent posted groups directly. */
   lens_id: string | null;
@@ -21,13 +21,9 @@ export interface DiffLensRow {
 }
 
 /**
- * One lens per thing a lens can be written over.
- *
- * A pull request and a worktree diff are the same row: both are a diff, both
- * are grouped by the same agent under the same named instruction, and both
- * have at most one — a second lens for the same change is a correction, not an
- * addition. What tells them apart is the subject key, and what tells a lens
- * that no longer fits is the pin, whose meaning belongs to whoever wrote it.
+ * One lens per thing a lens can be written over. A pull request and a worktree
+ * diff are the same row, told apart by the subject key, and both have at most
+ * one: a second lens for the same change is a correction, not an addition.
  */
 export class DiffLensRepo {
   constructor(private db: Database.Database) {}
@@ -64,11 +60,8 @@ export class DiffLensRepo {
   }
 
   /**
-   * Record an attempt before the agent is spawned.
-   *
-   * Written rather than held in memory because the process it happens in can
-   * end: a quit, a crash or a reload mid-run is otherwise indistinguishable
-   * from never having asked.
+   * Written rather than held in memory because the process the run happens in
+   * can end, and a crash mid-run is otherwise the same as never having asked.
    */
   startRun(projectPath: string, subjectKey: string, lensId: string): void {
     this.db
@@ -93,14 +86,13 @@ export class DiffLensRepo {
   }
 
   /**
-   * Forget every lens written over one worktree, whatever it was compared to.
-   *
-   * A worktree path is handed out again the next time that task is started, and
-   * a worktree lens renders when it has drifted rather than dropping — so a row
+   * Every lens written over one worktree, whatever it was compared to. A
+   * worktree path is handed out again the next time that task is started, and a
+   * worktree lens renders when it has drifted rather than dropping — so a row
    * left behind would be drawn over a change it was never written for.
    *
-   * Matched by prefix length rather than LIKE, whose wildcards a path
-   * containing an underscore would trip.
+   * Matched by prefix length rather than LIKE, whose wildcards a path containing
+   * an underscore would trip.
    */
   deleteForWorktree(projectPath: string, worktreePath: string): void {
     const prefix = `wt:${worktreePath}:`;

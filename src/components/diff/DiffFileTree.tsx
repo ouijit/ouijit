@@ -96,7 +96,7 @@ export interface DiffFileTreeProps {
   onFileClick: (path: string, group?: string) => void;
   /** The lens as bound to this diff. Null runs the flat tree. */
   groups?: ResolvedGroup[] | null;
-  /** Parts folded away, by title. */
+  /** Parts folded away, by group id. */
   collapsed?: ReadonlySet<string>;
   onCollapsedChange?: (id: string, next: boolean) => void;
   /** Per-file trailing content — the PR view puts unresolved-thread counts here. */
@@ -144,9 +144,7 @@ export function DiffFileTreeNodes<T extends ChangedFile>({
  * The same files under the lens's headings, each part folding like a folder.
  *
  * The tree is kept inside every part rather than flattened to basenames: which
- * directories a part of the change touches is most of what says what kind of
- * change it is, so a grouping that hides them answered the easy half of the
- * question.
+ * directories a part touches is most of what says what kind of change it is.
  */
 export function DiffFileTreeChapters<T extends ChangedFile>({
   groups,
@@ -190,15 +188,9 @@ export function DiffFileTreeChapters<T extends ChangedFile>({
             className={`flex flex-col ${revealing ? 'lens-part-enter' : ''}`}
             style={revealing ? { animationDelay: `${partDelay(at)}ms` } : undefined}
           >
-            {/* Set as the lens wrote it. Uppercasing a title shouts, and
-                algorithmic title case would spell GitHub "Github".
-
-                No caret at the head of the line, where every directory below
-                already has one: a part of the change and a folder of files are
-                different kinds of thing, and giving them the same mark in the
-                same column made the list read as one tree. The toggle sits at
-                the far end instead, and says plus or minus rather than
-                pointing. */}
+            {/* No caret at the head of the line, where every directory below
+                already has one: the same mark in the same column made a part and
+                a folder read as one tree. The toggle sits at the far end. */}
             <button
               type="button"
               aria-expanded={!folded}
@@ -249,9 +241,9 @@ export function DiffFileTree({
   const chaptered = groups && collapsed && onCollapsedChange;
 
   return (
-    // Chaptered, the list opens with a part's bar, which is level with the one
-    // the document opens with across the seam. Padding above it would drop the
-    // rail's half of that band by the height of the padding.
+    // Chaptered, the list opens with a part's bar, level with the one the
+    // document opens with across the seam. Padding above would drop the rail's
+    // half of that band by its height.
     <div className={`flex-1 overflow-y-auto pb-2 ${chaptered ? '' : 'pt-2'}`}>
       {header}
       {chaptered ? (

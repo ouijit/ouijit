@@ -10,9 +10,9 @@ export interface LensedFileListProps<T extends { path: string }> {
   /** The lens's groups, or null to run the files flat in tree order. */
   groups: ResolvedGroup[] | null;
   /**
-   * One file's section. `key` is this copy's identity — a lens may name the
-   * same file in three parts, and what is folded, marked read or scrolled to
-   * is one part of one file, not the file. `slice` is the part of it shown.
+   * One file's section. `key` is this copy's identity: a lens may name the same
+   * file in three parts, and what is folded, marked read or scrolled to is one
+   * part of one file. `slice` is the part of it shown.
    */
   renderFile: (file: T, key?: string, slice?: ResolvedSlice) => ReactNode;
   collapsed: ReadonlySet<string>;
@@ -22,12 +22,8 @@ export interface LensedFileListProps<T extends { path: string }> {
 }
 
 /**
- * A diff's files, either grouped by a lens or flat.
- *
- * Both diffs render this — the pull request's and the worktree's — so the two
- * agree on the order files run in, on the key a lens's repeated file gets, and
- * on what happens to a slice naming a file the diff no longer has (it is
- * dropped, rather than rendering an empty section).
+ * A diff's files, either grouped by a lens or flat. A slice naming a file the
+ * diff no longer has is dropped rather than drawn empty.
  */
 export function LensedFileList<T extends { path: string }>({
   files,

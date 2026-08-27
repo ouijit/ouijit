@@ -14,16 +14,9 @@ import { buildLensPrompt, type LensFile, type LensSubject } from './lensPrompt';
 const log = getLogger().scope('lens');
 
 /**
- * One question, one answer, no session.
- *
- * The context arrives with the question, leaving a single completion — the only
- * part an agent is needed for. Anything it has to go and fetch is a tool call,
- * every tool call can want approving, and a headless run has nobody to approve
- * it; the usual outcome is an agent that talks itself out of the task.
- *
- * The run happens outside the repository, in a temporary directory. The flags
- * in `lensAgents` already stop a repository's own configuration loading, but
- * `cwd` is the part that holds however those flags are renamed next: with no
+ * The run happens outside the repository, in a temporary directory. The flags in
+ * `lensAgents` already stop a repository's own configuration loading, but `cwd`
+ * is the part that holds however those flags are renamed next: with no
  * repository under it there is nothing for an agent to discover, and the prompt
  * carries the whole diff anyway.
  */
@@ -31,7 +24,7 @@ const log = getLogger().scope('lens');
 /** Long enough for a large diff on a slow model, short enough to give up on a hang. */
 const TIMEOUT_MS = 5 * 60 * 1000;
 
-/** Beyond this the reply is not an answer that went slightly wrong. */
+/** Beyond this the reply is not an answer, so the rest is dropped unread. */
 const MAX_OUTPUT_BYTES = 2_000_000;
 
 export interface RunLensInput {
@@ -41,19 +34,18 @@ export interface RunLensInput {
   instruction: string;
   /** Hotspot and coupling signals, when the analysis flag is on. */
   signals?: DiffSignals | null;
-  /** Already resolved: which binary, with which flags, and how it is fed. */
+  /** Already resolved — nothing here picks one. */
   agent: LensAgent;
   signal?: AbortSignal;
 }
 
 export interface RunLensResult {
   success: boolean;
-  /** The parsed lens, ready to store. */
   body?: string;
   /**
    * Hunks the change was too large to quote, so the agent grouped them from
-   * their line spans. Stored with the lens: it is what a grouping that reads
-   * oddly on a huge diff is explained by.
+   * their line spans alone. Stored with the lens, since it is what explains a
+   * grouping that reads oddly on a huge diff.
    */
   omitted?: number;
   error?: string;
@@ -84,8 +76,6 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
       args.push('--output-schema', schemaFile, '-o', answerFile);
     }
 
-    // Enough to answer "what is it doing" without reading the code: which
-    // binary, with which flags, how much was sent and how much it covers.
     log.info('lens run starting', {
       lens: input.instruction.slice(0, 60),
       command: `${agent.command} ${agent.args.join(' ')}`.trim(),
@@ -102,8 +92,7 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
     log.info('lens agent replied', { command: agent.command, ms: Date.now() - started, bytes: output.length });
 
     if (!answer.json) {
-      // The tail rather than the head: what went wrong is usually the last
-      // thing said, and the first thing is usually a banner.
+      // The tail rather than the head: the first thing said is usually a banner.
       log.warn('lens reply carried no lens', { reply: tail(output) });
       return { success: false, error: `No grouping in the reply. It ended: ${tail(output)}` };
     }
@@ -131,18 +120,14 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
 }
 
 /**
- * The answer out of a `--output-format json` envelope.
+ * The answer out of a `--output-format json` envelope, where `structured_output`
+ * is the schema-checked object itself.
  *
- * `structured_output` is the schema-checked object itself, so there is nothing
- * to parse out of prose.
- *
- * Two fields are read for the log and nothing else. `permission_denials`,
- * because the run is told it has no tools and anything in there means the
- * isolation is not holding. And `total_cost_usd`, which is what the tokens
- * would price at on API billing (the envelope calls this `costBasis: "list"`)
- * — a subscription login is not charged it, and Codex reports nothing
- * comparable, so it is a number for diagnosing an expensive lens and never one
- * to put in front of a user.
+ * Two fields go to the log and nowhere else. `permission_denials`, because the
+ * run is told it has no tools and anything in there means the isolation is not
+ * holding. And `total_cost_usd`, which is what the tokens would price at on API
+ * billing — a subscription login is not charged it and Codex reports nothing
+ * comparable, so it is never a number to put in front of a user.
  */
 function fromEnvelope(output: string): { json: string | null; listPriceUsd?: number } {
   try {
@@ -180,11 +165,8 @@ function tail(output: string): string {
 }
 
 /**
- * Run it and collect what it says.
- *
- * `shell: false`, so the command is a binary and its arguments are arguments —
- * the prompt contains a whole diff, and a diff through a shell is a diff full
- * of things a shell would like to interpret.
+ * `shell: false`, so the command is a binary and its arguments are arguments:
+ * the prompt is a whole diff, which is full of things a shell would interpret.
  */
 function capture(command: string, args: string[], stdin: string, cwd: string, signal?: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -209,8 +191,8 @@ function capture(command: string, args: string[], stdin: string, cwd: string, si
 
     const kill = () => {
       child.kill('SIGTERM');
-      // The same escalation the hook runner uses: an agent that ignores SIGTERM
-      // would otherwise outlive the window that asked for it.
+      // As in the hook runner: an agent that ignores SIGTERM would otherwise
+      // outlive the window that asked for it.
       setTimeout(() => child.kill('SIGKILL'), 2000).unref?.();
     };
 

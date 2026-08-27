@@ -25,11 +25,7 @@ function installed(over: Partial<typeof HEALTH>) {
   window.api.health.check = vi.fn().mockResolvedValue({ ...HEALTH, ...over });
 }
 
-/**
- * Both agents come back with the same shape through the same isolation, so who
- * wrote a lens is only a question when there is more than one to ask. The rule
- * this pins is that the row appears exactly when it can be acted on.
- */
+/** The row appears exactly when there is a choice to act on. */
 describe('which agent writes a lens', () => {
   beforeEach(() => {
     cleanup();
@@ -42,13 +38,11 @@ describe('which agent writes a lens', () => {
   test('the control names what will run, and picking one outranks what is merely installed', async () => {
     render(<LensAgentRow projectPath={PROJECT} />);
 
-    // Nobody has chosen, so this is automatic — which is how the answer was
-    // arrived at, not the answer. Claude Code is what a run would spawn.
+    // Nobody has chosen, and Claude Code is what a run would spawn.
     const control = await screen.findByRole('button', { name: /Claude Code/ });
     expect(screen.queryByRole('button', { name: /Automatic/ })).toBeNull();
 
     fireEvent.click(control);
-    // Offered as a choice, where it is one, and saying what it comes to.
     expect(screen.getByRole('menuitem', { name: /^Automatic/ }).textContent).toContain('Claude Code');
     fireEvent.click(await screen.findByRole('menuitem', { name: /^Codex/ }));
 
@@ -60,15 +54,13 @@ describe('which agent writes a lens', () => {
   });
 
   test('the row appears exactly where there is a decision to make', async () => {
-    // One installed is no decision. Naming it would be a row nothing can be
-    // done with, so nothing is drawn at all.
+    // One installed is no decision, so nothing is drawn at all.
     installed({ codex: false });
     const { container } = render(<LensAgentRow projectPath={PROJECT} />);
     await waitFor(() => expect(window.api.health.check).toHaveBeenCalled());
     await waitFor(() => expect(container.textContent).toBe(''));
 
-    // Neither installed is not a choice of nothing — it is the one thing worth
-    // saying, and it is said here rather than left for the run to fail with.
+    // Said here rather than left for the run to fail with.
     cleanup();
     installed({ claude: false, codex: false });
     render(<LensAgentRow projectPath={PROJECT} />);
@@ -76,11 +68,6 @@ describe('which agent writes a lens', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  /**
-   * Pi and opencode run terminals in this app, so a reader could reasonably
-   * expect them here. Neither CLI can be held to a JSON schema, and a grouping
-   * that is merely hoped for is not one this pane can stand behind.
-   */
   test('only what can be held to a schema is offered, and never its flags', async () => {
     render(<LensAgentRow projectPath={PROJECT} />);
 
@@ -91,8 +78,8 @@ describe('which agent writes a lens', () => {
     expect(screen.queryByRole('menuitem', { name: /opencode/ })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /Custom command/ })).toBeNull();
 
-    // A preset nobody can edit is a command line there is nothing to do with.
-    // The runner logs the invocation for anyone who needs it.
+    // A preset nobody can edit is a command line there is nothing to do with;
+    // the runner logs the invocation for anyone who needs it.
     expect(screen.queryByText(/--safe-mode/)).toBeNull();
     expect(screen.queryByText(/claude -p/)).toBeNull();
   });

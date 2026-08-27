@@ -61,7 +61,6 @@ describe('the prompt a lens run is given', () => {
     ]);
     const text = prompt([file('src/a.ts')], diffs);
 
-    // The whole point: no tool call can be needed for any of this.
     expect(text).toContain('#264');
     expect(text).toContain('Agent-composable review');
     expect(text).toContain('why this change exists');
@@ -70,24 +69,16 @@ describe('the prompt a lens run is given', () => {
     expect(text).toContain('line 1');
     expect(text).toContain('group it by story');
 
-    // Including the spans the answer has to be given in, since a lens claims
-    // new-file lines and nothing else here says what those are.
+    // The spans the answer has to be given in: nothing else says what they are.
     expect(text).toContain('[0] lines 1-3');
     expect(text).toContain('[1] lines 50-53');
 
-    // What a lens instruction never has to say for itself, and could not say
-    // once for every lens even if it tried.
+    // What a lens instruction never has to say for itself.
     expect(text).toContain('cannot give every');
     expect(text).toContain('Mechanical work goes last');
     expect(text).toContain('A title names the part');
   });
 
-  /**
-   * The rule the budget exists to protect. A grouping that was never told a
-   * file exists can only leave it out, and leaving a file out of a review is
-   * the one failure a lens must not have — so the file list is written first
-   * and whole, and the hunks take what is left.
-   */
   test('the budget is a ceiling, and every file is named under it', () => {
     const diffs = new Map<string, FileDiff | null>();
     const files: PullRequestFile[] = [];
@@ -101,7 +92,6 @@ describe('the prompt a lens run is given', () => {
 
     expect(text.length).toBeLessThan(4_000);
     for (const f of files) expect(text).toContain(f.path);
-    // And it says so, rather than quietly implying it read everything.
     expect(text).toMatch(/hunks? below the budget/);
   });
 
@@ -132,12 +122,6 @@ describe('the prompt a lens run is given', () => {
   });
 });
 
-/**
- * What git history says about the files being changed, which is a different
- * kind of fact from the diff itself: a grouping is a judgement about which
- * parts matter, and a file half the repo moves with is a different thing to
- * touch than one nothing depends on.
- */
 describe('what the history says', () => {
   const files = [file('src/hot.ts'), file('src/quiet.ts')];
   const diffs = new Map<string, FileDiff | null>([
@@ -154,7 +138,6 @@ describe('what the history says', () => {
     const said = prompt(files, diffs, undefined, signals).split('# What the history says')[1].split('\n# ')[0];
     expect(said).toContain('src/hot.ts — changed often and deeply nested (42 commits)');
     expect(said).toContain('changing more lately than it used to');
-    // The coupling worth naming is the partner this change leaves out.
     expect(said).toContain('usually changes with src/migrations/014.ts, absent here');
     // A score for every path is a table nobody reads.
     expect(said).not.toContain('src/quiet.ts');

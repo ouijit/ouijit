@@ -916,10 +916,9 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
         });
       }
 
-      // Same shape, same rule, for the other thing an agent writes on its own:
-      // a lens is written by a command the pane started and then has no way to
-      // know finished. Without this the pane sits on "writing" while the lens
-      // is already on disk. Its handler reads one local row and nothing else.
+      // Same rule, for the other thing an agent writes on its own: without this
+      // the pane sits on "writing" while the lens is already on disk. The
+      // handler reads one local row and nothing else.
       if (segments[0] === 'pulls' && segments[2] === 'lens') {
         typedPush(window, 'github:lens-changed', {
           projectPath: project,

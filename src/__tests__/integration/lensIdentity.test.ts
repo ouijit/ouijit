@@ -1,9 +1,7 @@
 /**
- * What a lens is keyed by, against a real database.
- *
- * The list is a JSON array in `global_settings` rather than a table, so there
- * is no schema to migrate and nothing but this to catch an id that fails to
- * survive a round trip. A grouping records the id, so the name is free to move.
+ * What a lens is keyed by, against a real database. The list is a JSON array in
+ * `global_settings` rather than a table, so there is no schema to migrate and
+ * nothing but this to catch an id that fails to survive a round trip.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -59,8 +57,7 @@ describe('a lens is its id', () => {
     const after = await listLenses(PROJECT);
     expect(after.map((lens) => lens.name)).toEqual(['By layer', 'Risk, then the rest', 'Setup and payoff']);
 
-    // Nothing chased the grouping: it points at the lens, not at what it was
-    // called, so there was nothing left behind to fix.
+    // Nothing chased the grouping: it points at the lens, not at its name.
     expect((await getDiffLens(PROJECT, 'pr:5'))?.lens_id).toBe(risk.id);
   });
 

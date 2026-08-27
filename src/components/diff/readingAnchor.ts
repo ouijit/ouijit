@@ -8,16 +8,13 @@ interface Anchor {
 }
 
 /**
- * Holds the reader's place across a relayout of the whole pane.
+ * Holds the reader's place across a relayout of the whole pane. A lens landing
+ * rebuilds every card — they are keyed by the part that holds them, so React
+ * keeps none of them — and the scroll offset the browser keeps through that is
+ * by then a count of pixels into a different file.
  *
- * A lens landing rebuilds every card in the document: they are keyed by the
- * part that holds them, so React keeps none of them, and they come back in a
- * different order. The browser keeps the scroll offset through that, which by
- * then is a count of pixels into a different file.
- *
- * Only where the reader had scrolled. Someone at the top of a diff is at the
- * top of the grouping too, and holding them to the first file would put the
- * part that file belongs to above the fold on arrival.
+ * Only where the reader had scrolled: holding someone at the top to the first
+ * file would put the part that file belongs to above the fold on arrival.
  */
 export function useReadingAnchor(container: RefObject<HTMLElement | null>): () => void {
   const at = useRef<Anchor | null>(null);
@@ -54,8 +51,7 @@ export function useReadingAnchor(container: RefObject<HTMLElement | null>): () =
 
     land();
     // Sections mounted by that scroll trade their estimated height for their
-    // real one, which moves the file it landed on. `scrollToSection` lands
-    // twice for the same reason.
+    // real one, moving the file it landed on. `scrollToSection` lands twice too.
     requestAnimationFrame(() => requestAnimationFrame(land));
   }, [container]);
 }

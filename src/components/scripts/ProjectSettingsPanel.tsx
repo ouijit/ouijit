@@ -113,8 +113,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
                 change are, so the Code pane can show them in that order instead of a list of files.
               </p>
               <LensList projectPath={projectPath} />
-              {/* Under the list, not in it: it is a setting about all of them,
-                  and it draws nothing unless there is a choice to be made. */}
+              {/* Under the list, not in it: a setting about all of them. */}
               <div className="mt-3 -ml-2.5">
                 <LensAgentRow projectPath={projectPath} />
               </div>

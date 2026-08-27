@@ -2,24 +2,20 @@ import { describe, test, expect } from 'vitest';
 import { isSectionViewed, markSection } from '../github/viewedSections';
 
 /**
- * A file split across parts of a lens is read a part at a time, but what is
- * written down is still the file. The two have to agree in both directions:
- * finishing the last part finishes the file, and unfinishing any part
- * unfinishes it without losing the parts that were done.
+ * A file split across parts is read a part at a time, but what is written down
+ * is the file. The two have to agree in both directions.
  */
 describe('marking a file read a part at a time', () => {
   const parts = ['0:a.ts', '2:a.ts'];
 
   test('a file is claimed once every part of it has been, and let go when one is unread', () => {
     const first = markSection([], [], parts, '0:a.ts', 'a.ts', true);
-    // One part read is a claim about that part alone.
     expect(first).toEqual({ sections: ['0:a.ts'] });
     expect(isSectionViewed([], first.sections, '0:a.ts', 'a.ts')).toBe(true);
     expect(isSectionViewed([], first.sections, '2:a.ts', 'a.ts')).toBe(false);
 
     const second = markSection([], first.sections, parts, '2:a.ts', 'a.ts', true);
-    // The last part rolls up: the claim moves to the file, and the parts it
-    // was made of stop being tracked on their own.
+    // The last part rolls up, and the parts it was made of stop being tracked.
     expect(second).toEqual({ sections: [], file: true });
     expect(isSectionViewed(['a.ts'], second.sections, '0:a.ts', 'a.ts')).toBe(true);
 

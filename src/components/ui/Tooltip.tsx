@@ -23,12 +23,7 @@ interface TooltipProps {
   referenceClassName?: string;
   referenceStyle?: React.CSSProperties;
   onHoverChange?: (hovering: boolean) => void;
-  /**
-   * Let the text wrap, to this many pixels.
-   *
-   * A tooltip is a label by default and stays on one line; a sentence needs
-   * somewhere to break, and left to itself it would run off the window.
-   */
+  /** Let the text wrap, to this many pixels. One line by default. */
   wrapAt?: number;
   children: ReactNode;
 }

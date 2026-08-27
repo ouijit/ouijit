@@ -1,13 +1,10 @@
 /**
  * A lens over a real repository: written, gone stale, interrupted, collected.
+ * The pin is most of it, and only real refs exercise it — `lensReading` runs the
+ * same reader against a stub subject, where the pin can only be told to be wrong.
  *
- * The pin is most of it, and until now nothing ran it against real refs —
- * `readLens.test.ts` hands the reader a fake subject, which is how a pin that
- * ignored the working tree survived a suite that covers lenses nine files deep.
- *
- * Two boundaries are stubbed and no more: the agent, which is a spawned CLI,
- * and the health check, which asks the machine what is installed. Everything
- * between them is the real thing over a real git repository.
+ * Two boundaries are stubbed and no more: the agent, which is a spawned CLI, and
+ * the health check, which asks the machine what is installed.
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
@@ -74,31 +71,19 @@ beforeEach(async () => {
 });
 
 describe('whether a lens still describes the diff', () => {
-  /**
-   * The panel takes its diff with `--merge-base`, which runs through to
-   * uncommitted edits — so a pin of committed revisions alone reports fresh
-   * while the reader is typing under a grouping that no longer fits.
-   */
   test('the change moving makes it stale, whether it was committed or not', async () => {
     await readThroughLens();
 
     await write('a.ts', 'export const one = 1;\nexport const two = 2;\nexport const three = 3;\n');
     expect((await readDiffLens(target()))?.stale).toBe(true);
 
-    // And committing that edit is still the change moving, not a return to what
-    // the lens was written over.
+    // Committing that edit is still the change moving.
     await readThroughLens();
     await write('a.ts', 'export const one = 1;\nexport const two = 2;\nexport const four = 4;\n');
     git('commit', '-am', 'third');
     expect((await readDiffLens(target()))?.stale).toBe(true);
   });
 
-  /**
-   * Both the diff and the pin read `merge-base(main, feature)`, which a commit
-   * landing elsewhere on main does not move. Nothing the reader is looking at
-   * changed, so nothing should say it did — and pinning this stops a later
-   * change to how the diff is taken from breaking the model quietly.
-   */
   test('the base advancing is not the change moving', async () => {
     await readThroughLens();
 
@@ -115,9 +100,8 @@ describe('whether a lens still describes the diff', () => {
 });
 
 /**
- * Nothing was written until the agent answered, so a quit or a crash mid-run
- * was indistinguishable from never having asked — and the only record that one
- * was going lived in renderer memory, which a reload throws away.
+ * A run is recorded before the agent is spawned, so a quit mid-run is told from
+ * never having asked.
  */
 describe('a run that has not answered yet', () => {
   test('is on the row while it runs, and gone once it is', async () => {
@@ -152,8 +136,8 @@ describe('a run that has not answered yet', () => {
     agent.answer = async () => ({ success: false, error: 'claude is not on PATH' });
     expect(await writeDiffLens(target(), lensId)).toEqual({ success: false, error: 'claude is not on PATH' });
 
-    // Recorded beside the groups rather than over them, so the run that failed
-    // costs the reader nothing they already had.
+    // Beside the groups rather than over them, so a failed run costs the reader
+    // nothing they already had.
     const lens = await readDiffLens(target());
     expect(lens?.running).toBeNull();
     expect(lens?.groups?.map((group) => group.title)).toEqual(['Transport']);
@@ -177,8 +161,8 @@ describe('housekeeping', () => {
     expect(await writeDiffLens(detached, lensId)).toEqual({ success: true });
     expect((await readDiffLens(detached))?.stale).toBe(false);
 
-    // The project checkout moves on. Pinned there rather than in the worktree,
-    // a detached worktree reads someone else's HEAD and goes stale for it.
+    // Pinned in the worktree rather than the project checkout: a detached
+    // worktree would otherwise read someone else's HEAD and go stale for it.
     git('checkout', 'main');
     await write('c.ts', 'export const other = true;\n');
     git('add', '-A');

@@ -18,20 +18,9 @@ interface LensDialogProps {
 }
 
 /**
- * The project's lenses, opened from wherever one is wanted.
- *
- * The same list the settings panel shows, plus a way to run one against the
- * pull request already open — so answering "what would this change look like
- * grouped" does not cost leaving it and finding your way back.
- *
- * What a lens is sits behind the info mark rather than above the list. Whoever
- * opened this mostly knows already, and a standing paragraph is read once and
- * then in the way every time after.
- *
- * Nothing here spends a run except a button that says Run, and saving is
- * always offered beside one. A list where some presses cost an agent run and
- * others do not is a list nobody can press, so every press in it is a named
- * button and the rows themselves are inert.
+ * The same list the settings panel shows, plus a way to run one against the diff
+ * already open. Nothing here spends a run except a button that says Run: the
+ * rows themselves are inert, so no press costs an agent run by surprise.
  */
 export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogProps) {
   const [visible, setVisible] = useState(false);
@@ -67,9 +56,7 @@ export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogP
           </Tooltip>
         </h2>
 
-        {/* Running one closes this: whoever asked for a change to be read came
-            to read it, and a list is not what they came for. Saving and editing
-            leave it open, which is the difference worth drawing. */}
+        {/* Running one closes this; saving and editing leave it open. */}
         <LensList
           projectPath={projectPath}
           onRun={
@@ -82,8 +69,7 @@ export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogP
           running={running}
         />
 
-        {/* Beside Done rather than among the lenses: it is not one of them, and
-            what writes them is the last thing worth saying about them. */}
+        {/* Beside Done rather than among the lenses: it is not one of them. */}
         <div className="flex items-center gap-2">
           <LensAgentRow projectPath={projectPath} />
           <div className="flex-1" />
