@@ -139,40 +139,6 @@ function initBentoSpotlight() {
   }, 2800);
 }
 
-/** Splits `.b-pitch-text` into word spans that light up as it crosses the viewport. */
-export function initPitchIllumination() {
-  const pitch = document.querySelector<HTMLElement>('.b-pitch-text');
-  if (!pitch || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-  const text = (pitch.textContent ?? '').trim().replace(/\s+/g, ' ');
-  pitch.textContent = '';
-  for (const word of text.split(' ')) {
-    const span = document.createElement('span');
-    span.className = 'b-pitch-w';
-    span.textContent = word;
-    pitch.append(span, ' ');
-  }
-  const words = [...pitch.querySelectorAll<HTMLElement>('.b-pitch-w')];
-  pitch.classList.add('is-live');
-
-  const scroller = document.scrollingElement ?? document.documentElement;
-
-  const onScroll = () => {
-    const rect = pitch.getBoundingClientRect();
-    const start = window.innerHeight * 0.9;
-    // If the page ends soon after the pitch, the paragraph can't climb to the
-    // usual finish line — move the line down to the highest reachable point.
-    const remaining = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
-    const end = Math.min(start - 1, Math.max(window.innerHeight * 0.4, rect.top - remaining));
-    const f = Math.min(1, Math.max(0, (start - rect.top) / (start - end)));
-    const lit = Math.round(f * words.length);
-    words.forEach((w, i) => w.classList.toggle('is-lit', i < lit));
-  };
-  document.addEventListener('scroll', onScroll, { capture: true, passive: true });
-  window.addEventListener('resize', onScroll, { passive: true });
-  onScroll();
-}
-
 /** Progress of the viewport through an element, clamped to [0, 1]. */
 export function scrollProgress(el: HTMLElement): number {
   const rect = el.getBoundingClientRect();

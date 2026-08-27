@@ -451,30 +451,7 @@ body.marketing .app-markdown h4 {
 }
 
 /* --- Home pitch (display paragraph below the workspace scene) --- */
-.home-pitch {
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 40px var(--content-padding) 60px;
-}
-
-.home-pitch p {
-  font-size: clamp(1.375rem, 2.3vw, 1.75rem);
-  line-height: 1.4;
-  letter-spacing: -0.015em;
-  color: rgba(245, 245, 247, 0.45);
-  margin-bottom: 24px;
-}
-
-.home-pitch p strong {
-  color: #f5f5f7;
-  font-weight: 600;
-}
-
-.home-pitch p:last-child {
-  margin-bottom: 0;
-}
-
-body.marketing .home-pitch-link {
+body.marketing .cta-docs-link {
   display: block;
   width: fit-content;
   margin: 40px auto 0;
@@ -483,30 +460,18 @@ body.marketing .home-pitch-link {
   transition: color var(--transition-fast);
 }
 
-body.marketing .home-pitch-link span {
+body.marketing .cta-docs-link span {
   display: inline-block;
   margin-left: 4px;
   transition: transform var(--transition-fast);
 }
 
-body.marketing .home-pitch-link:hover {
+body.marketing .cta-docs-link:hover {
   color: #f5f5f7;
 }
 
-body.marketing .home-pitch-link:hover span {
+body.marketing .cta-docs-link:hover span {
   transform: translateX(3px);
-}
-
-@media (max-width: 600px) {
-  .home-pitch {
-    padding: 24px var(--content-padding) 80px;
-  }
-
-  .home-pitch p {
-    font-size: 1.25rem;
-    line-height: 1.5;
-  }
-
 }
 
 /* --- Supported agents --- */
@@ -1357,16 +1322,6 @@ body.marketing::after {
         rgba(0, 0, 255, 0.08) 2px 3px
       ),
     /* tube vignette */ radial-gradient(120% 120% at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
-}
-
-/* Pitch illumination: dim words, lit by scroll position. */
-.b-pitch-text.is-live .b-pitch-w {
-  color: rgba(245, 245, 247, 0.22);
-  transition: color 0.25s ease;
-}
-
-.b-pitch-text.is-live .b-pitch-w.is-lit {
-  color: #f5f5f7;
 }
 
 /* --- Lifecycle chapters --- */
