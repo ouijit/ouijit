@@ -11,6 +11,7 @@ import alignCenterVertical from '@phosphor-icons/core/assets/regular/align-cente
 import alignLeft from '@phosphor-icons/core/assets/regular/align-left.svg?raw';
 import alignRight from '@phosphor-icons/core/assets/regular/align-right.svg?raw';
 import alignTop from '@phosphor-icons/core/assets/regular/align-top.svg?raw';
+import aperture from '@phosphor-icons/core/assets/regular/aperture.svg?raw';
 import archive from '@phosphor-icons/core/assets/regular/archive.svg?raw';
 import arrowCounterClockwise from '@phosphor-icons/core/assets/regular/arrow-counter-clockwise.svg?raw';
 import arrowLeft from '@phosphor-icons/core/assets/regular/arrow-left.svg?raw';
@@ -20,13 +21,23 @@ import arrowsIn from '@phosphor-icons/core/assets/regular/arrows-in.svg?raw';
 import arrowsOut from '@phosphor-icons/core/assets/regular/arrows-out.svg?raw';
 import arrowsOutLineHorizontal from '@phosphor-icons/core/assets/regular/arrows-out-line-horizontal.svg?raw';
 import arrowsOutLineVertical from '@phosphor-icons/core/assets/regular/arrows-out-line-vertical.svg?raw';
+import binoculars from '@phosphor-icons/core/assets/regular/binoculars.svg?raw';
+import pauseFill from '@phosphor-icons/core/assets/fill/pause-fill.svg?raw';
+import playFill from '@phosphor-icons/core/assets/fill/play-fill.svg?raw';
 import bug from '@phosphor-icons/core/assets/regular/bug.svg?raw';
 import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
 import dotsSixVertical from '@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw';
 import caretLeft from '@phosphor-icons/core/assets/regular/caret-left.svg?raw';
 import caretRight from '@phosphor-icons/core/assets/regular/caret-right.svg?raw';
+import arrowElbowDownLeft from '@phosphor-icons/core/assets/regular/arrow-elbow-down-left.svg?raw';
+import arrowSquareOut from '@phosphor-icons/core/assets/regular/arrow-square-out.svg?raw';
+import circleDashed from '@phosphor-icons/core/assets/regular/circle-dashed.svg?raw';
+import command from '@phosphor-icons/core/assets/regular/command.svg?raw';
 import cardsThree from '@phosphor-icons/core/assets/regular/cards-three.svg?raw';
+import chatCircle from '@phosphor-icons/core/assets/regular/chat-circle.svg?raw';
 import check from '@phosphor-icons/core/assets/regular/check.svg?raw';
+import checkCircle from '@phosphor-icons/core/assets/regular/check-circle.svg?raw';
+import clock from '@phosphor-icons/core/assets/regular/clock.svg?raw';
 import clipboardText from '@phosphor-icons/core/assets/regular/clipboard-text.svg?raw';
 import code from '@phosphor-icons/core/assets/regular/code.svg?raw';
 import copy from '@phosphor-icons/core/assets/regular/copy.svg?raw';
@@ -36,6 +47,7 @@ import fileDashed from '@phosphor-icons/core/assets/regular/file-dashed.svg?raw'
 import fileMinus from '@phosphor-icons/core/assets/regular/file-minus.svg?raw';
 import filePlus from '@phosphor-icons/core/assets/regular/file-plus.svg?raw';
 import fileText from '@phosphor-icons/core/assets/regular/file-text.svg?raw';
+import flame from '@phosphor-icons/core/assets/regular/flame.svg?raw';
 import folderOpen from '@phosphor-icons/core/assets/regular/folder-open.svg?raw';
 import folderPlus from '@phosphor-icons/core/assets/regular/folder-plus.svg?raw';
 import gear from '@phosphor-icons/core/assets/regular/gear.svg?raw';
@@ -45,11 +57,14 @@ import gitFork from '@phosphor-icons/core/assets/regular/git-fork.svg?raw';
 import gridFour from '@phosphor-icons/core/assets/regular/grid-four.svg?raw';
 import gitDiff from '@phosphor-icons/core/assets/regular/git-diff.svg?raw';
 import gitMerge from '@phosphor-icons/core/assets/regular/git-merge.svg?raw';
+import gitPullRequest from '@phosphor-icons/core/assets/regular/git-pull-request.svg?raw';
+import githubLogo from '@phosphor-icons/core/assets/regular/github-logo.svg?raw';
 import info from '@phosphor-icons/core/assets/regular/info.svg?raw';
 import kanban from '@phosphor-icons/core/assets/regular/kanban.svg?raw';
 import listChecks from '@phosphor-icons/core/assets/regular/list-checks.svg?raw';
 import magnifyingGlass from '@phosphor-icons/core/assets/regular/magnifying-glass.svg?raw';
 import minus from '@phosphor-icons/core/assets/regular/minus.svg?raw';
+import minusCircle from '@phosphor-icons/core/assets/regular/minus-circle.svg?raw';
 import pencilSimple from '@phosphor-icons/core/assets/regular/pencil-simple.svg?raw';
 import play from '@phosphor-icons/core/assets/regular/play.svg?raw';
 import plus from '@phosphor-icons/core/assets/regular/plus.svg?raw';
@@ -64,6 +79,8 @@ import terminal from '@phosphor-icons/core/assets/regular/terminal.svg?raw';
 import trash from '@phosphor-icons/core/assets/regular/trash.svg?raw';
 import treeStructure from '@phosphor-icons/core/assets/regular/tree-structure.svg?raw';
 import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
+import userCircle from '@phosphor-icons/core/assets/regular/user-circle.svg?raw';
+import xCircle from '@phosphor-icons/core/assets/regular/x-circle.svg?raw';
 import webhooksLogo from '@phosphor-icons/core/assets/regular/webhooks-logo.svg?raw';
 import x from '@phosphor-icons/core/assets/regular/x.svg?raw';
 
@@ -75,7 +92,10 @@ export const iconMap: Record<string, string> = {
   'align-left': alignLeft,
   'align-right': alignRight,
   'align-top': alignTop,
+  aperture: aperture,
   archive: archive,
+  'pause-fill': pauseFill,
+  'play-fill': playFill,
   'arrow-counter-clockwise': arrowCounterClockwise,
   'arrow-left': arrowLeft,
   'arrow-right': arrowRight,
@@ -84,13 +104,21 @@ export const iconMap: Record<string, string> = {
   'arrows-out': arrowsOut,
   'arrows-out-line-horizontal': arrowsOutLineHorizontal,
   'arrows-out-line-vertical': arrowsOutLineVertical,
+  binoculars: binoculars,
   bug: bug,
   'caret-down': caretDown,
   'dots-six-vertical': dotsSixVertical,
   'caret-left': caretLeft,
   'caret-right': caretRight,
+  'arrow-elbow-down-left': arrowElbowDownLeft,
+  'arrow-square-out': arrowSquareOut,
+  'circle-dashed': circleDashed,
+  command: command,
   'cards-three': cardsThree,
+  'chat-circle': chatCircle,
   check: check,
+  'check-circle': checkCircle,
+  clock: clock,
   'clipboard-text': clipboardText,
   code: code,
   copy: copy,
@@ -100,6 +128,7 @@ export const iconMap: Record<string, string> = {
   'file-minus': fileMinus,
   'file-plus': filePlus,
   'file-text': fileText,
+  flame: flame,
   'folder-open': folderOpen,
   'folder-plus': folderPlus,
   gear: gear,
@@ -109,11 +138,14 @@ export const iconMap: Record<string, string> = {
   'git-fork': gitFork,
   'grid-four': gridFour,
   'git-merge': gitMerge,
+  'git-pull-request': gitPullRequest,
+  'github-logo': githubLogo,
   info: info,
   kanban: kanban,
   'list-checks': listChecks,
   'magnifying-glass': magnifyingGlass,
   minus: minus,
+  'minus-circle': minusCircle,
   'pencil-simple': pencilSimple,
   play: play,
   plus: plus,
@@ -128,8 +160,10 @@ export const iconMap: Record<string, string> = {
   trash: trash,
   'tree-structure': treeStructure,
   upload: upload,
+  'user-circle': userCircle,
   'webhooks-logo': webhooksLogo,
   x: x,
+  'x-circle': xCircle,
 };
 
 /**

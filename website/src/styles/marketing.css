@@ -40,16 +40,14 @@ body.marketing a {
 }
 
 /* Inline prose links inside docs content keep an underline */
-body.marketing .docs-content a,
-body.marketing .callout a {
+body.marketing .docs-content a {
   text-decoration: underline;
   text-decoration-color: rgba(255, 255, 255, 0.4);
   text-underline-offset: 2px;
   transition: text-decoration-color var(--transition-fast);
 }
 
-body.marketing .docs-content a:hover,
-body.marketing .callout a:hover {
+body.marketing .docs-content a:hover {
   text-decoration-color: rgba(255, 255, 255, 0.8);
 }
 
@@ -82,6 +80,7 @@ img {
       );
     background-attachment: fixed;
   }
+
 }
 
 .nav-inner {
@@ -185,31 +184,30 @@ img {
   .nav-links {
     display: none;
   }
+
   .nav-hamburger {
     display: block;
   }
+
 }
 
-/* --- Hero --- */
+/* --- Hero: left-aligned on the nav's column, like the whole page below. --- */
 .hero {
-  padding: 80px var(--content-padding);
-  text-align: center;
+  padding: 96px var(--content-padding) 72px;
+  text-align: left;
   max-width: var(--content-max-width);
   margin: 0 auto;
 }
 
 .hero h1 {
-  font-size: 3rem;
-  margin-bottom: 16px;
-  letter-spacing: -0.025em;
+  font-size: clamp(2.2rem, 4.2vw, 3rem);
+  margin-bottom: 40px;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
 
-.hero-subtitle {
-  font-size: 1.25rem;
-  color: var(--color-text-secondary);
-  margin: 0 auto 40px;
-  text-wrap: balance;
+.hero-dim {
+  color: rgba(245, 245, 247, 0.45);
 }
 
 .download-buttons {
@@ -219,11 +217,14 @@ img {
   flex-wrap: wrap;
 }
 
+.hero .download-buttons {
+  justify-content: flex-start;
+}
+
 .hero-fine-print {
   margin-top: 16px;
   font-size: 0.875rem;
   color: var(--color-text-tertiary);
-  text-align: center;
 }
 
 @media (hover: none) and (pointer: coarse) {
@@ -255,9 +256,11 @@ img {
   .download-buttons {
     display: none;
   }
+
   .mobile-cta {
     display: block;
   }
+
 }
 
 /* Ouijit button system — flat accent-blue pills, white label. Driven by the
@@ -323,28 +326,137 @@ body.marketing .btn-secondary:hover {
   .hero-scene {
     padding: 0 0 72px;
   }
+
+}
+
+/* The marketing heading face (body.marketing h1–h4) must not leak into
+   app-rendered markdown inside the UI mocks; restore the app's own styles,
+   which the equal-specificity marketing rules would otherwise beat. */
+body.marketing .app-markdown :is(h1,
+h2,
+h3,
+h4) {
+  font-family: inherit;
+  letter-spacing: normal;
+  line-height: inherit;
+}
+
+body.marketing .app-markdown :is(h1,
+h2,
+h3) {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+body.marketing .app-markdown h4 {
+  color: color-mix(in srgb, var(--color-ink) 90%, transparent);
+  font-weight: 500;
+}
+
+/* --- Full app window mock (hero scene) --- */
+.app-window-frame {
+  max-width: calc(1240px + 2 * var(--content-padding));
+  margin: 0 auto;
+  padding: 0 var(--content-padding);
+}
+
+.app-window-clip {
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.app-window {
+  position: relative;
+  flex-shrink: 0;
+  transform-origin: top center;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background);
+  border: 1px solid var(--color-bezel-panel);
+  border-radius: 18px;
+  box-shadow: 0 40px 120px -30px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+
+/* Narrow viewports clip the window's right side instead of both edges, so
+   the titlebar, sidebar, and busiest columns stay in frame. */
+@media (max-width: 700px) {
+  .app-window-clip {
+    justify-content: flex-start;
+  }
+
+  .app-window {
+    transform-origin: top left;
+  }
+
+  /* Off the edge of the page, not a hard cut with a gutter after it. */
+  .app-window-frame {
+    padding-right: 0;
+  }
+
+}
+
+.app-window-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 64px;
+  /* The app reserves this much for the traffic lights rather than laying them
+     out: macOS draws them itself. */
+  padding: 0 20px 0 88px;
+  flex-shrink: 0;
+}
+
+/* Out of the titlebar and above the overlay, because the lights they stand in
+   for are native chrome — the window's own blur never reaches them. */
+.app-window-lights {
+  position: absolute;
+  top: 26px;
+  left: 20px;
+  z-index: 400;
+  display: flex;
+  gap: 8px;
+}
+
+/* Covers the window, titlebar included, the way the app's palette covers the
+   frame it portals into. `.glass-bevel > *` pins every child to relative and
+   z-index 0 from an unlayered rule, so both have to be set here — a utility
+   would lose whatever its specificity. */
+.app-window-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  justify-content: center;
+  padding: 110px 24px 40px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.app-window-lights span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+/* Same treatment as the app's .sidebar-home-logo-mask, pointed at the site's
+   copy of the logomark. */
+.app-window-logo-mask {
+  background-color: var(--color-text-secondary);
+  -webkit-mask-image: url('/assets/ouijit-logomark.svg');
+  mask-image: url('/assets/ouijit-logomark.svg');
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
 }
 
 /* --- Home pitch (display paragraph below the workspace scene) --- */
-.home-pitch {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 40px var(--content-padding) 120px;
-}
-
-.home-pitch p {
-  font-size: 1.5rem;
-  line-height: 1.45;
-  letter-spacing: -0.01em;
-  color: #f5f5f7;
-  margin-bottom: 24px;
-}
-
-.home-pitch p:last-child {
-  margin-bottom: 0;
-}
-
-body.marketing .home-pitch-link {
+body.marketing .cta-docs-link {
   display: block;
   width: fit-content;
   margin: 40px auto 0;
@@ -353,35 +465,25 @@ body.marketing .home-pitch-link {
   transition: color var(--transition-fast);
 }
 
-body.marketing .home-pitch-link span {
+body.marketing .cta-docs-link span {
   display: inline-block;
   margin-left: 4px;
   transition: transform var(--transition-fast);
 }
 
-body.marketing .home-pitch-link:hover {
+body.marketing .cta-docs-link:hover {
   color: #f5f5f7;
 }
 
-body.marketing .home-pitch-link:hover span {
+body.marketing .cta-docs-link:hover span {
   transform: translateX(3px);
-}
-
-@media (max-width: 600px) {
-  .home-pitch {
-    padding: 24px var(--content-padding) 80px;
-  }
-  .home-pitch p {
-    font-size: 1.25rem;
-    line-height: 1.5;
-  }
 }
 
 /* --- Supported agents --- */
 .home-agents {
   max-width: 960px;
   margin: 0 auto;
-  padding: 0 var(--content-padding) 120px;
+  padding: 96px var(--content-padding) 48px;
   text-align: center;
 }
 
@@ -398,6 +500,7 @@ body.marketing .home-pitch-link:hover span {
     font-size: 1.25rem;
     margin-bottom: 24px;
   }
+
 }
 
 .home-agents-grid {
@@ -468,253 +571,22 @@ body.marketing .home-agents-footnote a:hover {
   .home-agents-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
 }
 
 @media (max-width: 600px) {
   .home-agents {
-    padding: 0 var(--content-padding) 80px;
+    padding: 56px var(--content-padding) 24px;
   }
+
   .home-agents-grid {
     grid-template-columns: 1fr;
   }
+
   body.marketing .home-agents-grid a {
     padding: 24px 20px;
   }
-}
 
-/* Three-layer wrapper for the responsive workspace scene.
-   .workspace-scene-frame: holds the scaled canvas + the CLI prompt below.
-   .workspace-scene-clip: full viewport-width container that clips the
-     1160-px-wide canvas when viewport is smaller than the canvas's min
-     scaled width. Also short-circuits the canvas's intrinsic height down
-     to its scaled visual height so there's no empty gutter below.
-   .workspace-scene: the canvas — fixed 1160×630 with absolute children.
-   The canvas is scaled with transform; layout dimensions stay the same so
-   children's pixel positions remain coherent.
-*/
-.workspace-scene-frame {
-  position: relative;
-}
-
-.workspace-scene-clip {
-  position: relative;
-  width: 100%;
-  /* Clip the 1160px canvas horizontally, but let it overflow vertically so
-     the cards' drop shadows aren't cut at the scaled-height bottom edge.
-     (clip + visible is the one mixed combo that doesn't force a scrollbar.) */
-  overflow-x: clip;
-  overflow-y: visible;
-  display: flex;
-  justify-content: center;
-  padding-top: 12px;
-  box-sizing: content-box;
-}
-
-.workspace-scene-notification-row {
-  display: flex;
-  justify-content: stretch;
-  padding: 0 var(--content-padding);
-  margin-top: -8px;
-}
-
-.workspace-scene-notification-row > * {
-  width: 100%;
-}
-
-.workspace-scene-cli-row {
-  display: flex;
-  justify-content: center;
-  padding: 0 var(--content-padding);
-  margin-top: 28px;
-}
-
-/* When the prompt is rendered below the scene (small screens), center the
-   Run button under the command and give it a comfier tap target. */
-.workspace-scene-cli-row .cli-prompt-bubble__run {
-  align-self: center;
-  padding: 14px 28px 14px 26px;
-  font-size: 15px;
-}
-
-/* --- macOS notification banner inside the workspace scene --- */
-.macos-notif {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  padding: 11px 12px;
-  background: rgba(46, 46, 48, 0.92);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border-radius: 17px;
-  box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.45),
-    0 6px 14px rgba(0, 0, 0, 0.3),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.18);
-  color: white;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
-}
-
-.macos-notif-replay {
-  position: absolute;
-  top: -8px;
-  left: -8px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  background: rgba(60, 60, 62, 0.95);
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.4),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transform: scale(0.8);
-  transition:
-    opacity 120ms ease,
-    transform 120ms ease,
-    background 120ms ease;
-}
-
-.macos-notif:hover .macos-notif-replay,
-.macos-notif-replay:focus-visible {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.macos-notif-replay:hover {
-  background: rgba(80, 80, 82, 0.98);
-}
-
-/* --- CLI prompt + Run button stacked in the workspace scene corner.
-   The page background acts as the "terminal," so no chrome on the prompt
-   itself — just naked mono text with a blinking cursor and a prominent
-   Run button below. --- */
-.cli-prompt-bubble {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  font-family: 'Iosevka Term Extended', 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
-  font-size: 14px;
-  line-height: 1;
-  color: rgba(255, 255, 255, 0.92);
-  white-space: nowrap;
-  text-align: left;
-  cursor: pointer;
-  transition: opacity 150ms ease-out;
-}
-
-.cli-prompt-bubble:focus-visible {
-  outline: none;
-}
-
-.cli-prompt-bubble:focus-visible .cli-prompt-bubble__run {
-  box-shadow: 0 0 0 3px var(--color-accent-light);
-}
-
-.cli-prompt-bubble.is-played {
-  cursor: default;
-}
-
-.cli-prompt-bubble__line {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  /* Room for descenders (j/g tails) so they aren't clipped by the
-     __cmd overflow, and a stable box height so the $, command, and
-     caret all share one baseline. */
-  line-height: 1.4;
-}
-
-.cli-prompt-bubble__cmd {
-  display: inline;
-  white-space: pre;
-}
-
-.cli-prompt-bubble__ghost {
-  color: rgba(255, 255, 255, 0.3);
-  white-space: pre;
-}
-
-.cli-prompt-bubble__run {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-end;
-  gap: 8px;
-  padding: 11px 22px 11px 20px;
-  border-radius: 9999px;
-  background-color: var(--color-accent);
-  color: var(--color-accent-ink);
-  font-family:
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'SF Pro Text',
-    'Helvetica Neue',
-    sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  flex-shrink: 0;
-  transition:
-    background 150ms ease-out,
-    transform 150ms ease-out;
-}
-
-.cli-prompt-bubble:hover:not(:disabled) .cli-prompt-bubble__run {
-  background-color: var(--color-accent-hover);
-  transform: translateY(-1px);
-}
-
-.cli-prompt-bubble:active:not(:disabled) .cli-prompt-bubble__run {
-  transform: translateY(0);
-}
-
-.cli-prompt-bubble__run svg {
-  display: block;
-  margin-left: -2px;
-}
-
-.cli-prompt-bubble__prompt {
-  color: color-mix(in srgb, var(--color-accent) 90%, transparent);
-  flex-shrink: 0;
-}
-
-.cli-prompt-bubble__cmd {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cli-prompt-bubble__bin {
-  color: #fff;
-  font-weight: 500;
-}
-
-.cli-prompt-bubble__arg {
-  color: rgba(121, 184, 255, 0.95);
-}
-
-.cli-prompt-bubble__cursor {
-  display: inline-block;
-  width: 8px;
-  height: 14px;
-  background: rgba(245, 245, 247, 0.85);
-  border-radius: 1px;
-  flex-shrink: 0;
-  /* Center the caret on the text rather than baseline-aligning it,
-     which otherwise leaves it sitting a touch high. */
-  vertical-align: middle;
-  animation: cli-cursor-blink 1.05s steps(2, end) infinite;
 }
 
 @keyframes cli-cursor-blink {
@@ -738,143 +610,60 @@ body.marketing .home-agents-footnote a:hover {
   margin-left: 2px;
   animation: cli-cursor-blink 1.05s steps(2, end) infinite;
 }
+
 .terminal-cursor--dim {
   background: rgba(245, 245, 247, 0.55);
 }
 
-/* --- Highlight pulse on a kanban card freshly added by the demo --- */
-.workspace-scene-task-pulse {
-  border-radius: 9px;
-  animation: workspace-scene-task-pulse 1.6s ease-out;
+/* --- Scroll reveal ---
+   Hidden state only applies once the page script tags <html> with .js, so
+   content is never lost without JavaScript. */
+html.js [data-reveal] {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
 }
 
-@keyframes workspace-scene-task-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent);
+html.js [data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.js [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
-  60% {
-    box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-accent) 0%, transparent);
-  }
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 0%, transparent);
-  }
-}
 
-/* --- Compare slider --- */
-.compare-section {
-  padding: 0 var(--content-padding) 80px;
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-}
-
-/* --- Exposition sections (copy + visual side by side) --- */
-.exposition {
-  padding: 96px 0 32px;
-  position: relative;
-}
-
-.exposition-inner {
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-  padding: 0 var(--content-padding);
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: 56px;
-  align-items: center;
-}
-
-.exposition-reverse .exposition-inner {
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-}
-
-.exposition-reverse .exposition-copy {
-  order: 2;
-}
-
-.exposition-reverse .exposition-visual {
-  order: 1;
-}
-
-.exposition-copy {
-  max-width: 460px;
-}
-
-.eyebrow {
-  display: inline-block;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--marketing-accent);
-  margin-bottom: 16px;
-}
-
-.exposition h2 {
-  font-size: 2rem;
-  line-height: 1.15;
-  margin-bottom: 20px;
-  letter-spacing: -0.02em;
-}
-
-.exposition p {
-  font-size: 1.0625rem;
-  color: var(--color-text-secondary);
-  line-height: 1.55;
-  margin-bottom: 14px;
-}
-
-.exposition-quiet {
-  color: var(--color-text-tertiary) !important;
-  font-size: 1rem !important;
-}
-
-@media (max-width: 900px) {
-  .exposition {
-    padding: 56px 0 24px;
-  }
-  .exposition-inner {
-    grid-template-columns: 1fr;
-    gap: 32px;
-  }
-  .exposition-reverse .exposition-copy {
-    order: 1;
-  }
-  .exposition-reverse .exposition-visual {
-    order: 2;
-  }
-  .exposition h2 {
-    font-size: 1.625rem;
-  }
 }
 
 /* --- Details + CTA --- */
+/* No side padding: the ribbons run to the window's edges and past them. */
 .details-section {
-  padding: 96px var(--content-padding) 32px;
+  padding: 150px 0 32px;
 }
 
-.details-inner {
-  max-width: var(--content-max-width);
+/* The heading keeps the page's column; only the cards break out. 1200 rather
+   than --content-max-width, which is the 1100 the page's narrower blocks use
+   — this heading has to line up with Plan, Build and Review above it. */
+.details-head {
+  max-width: 1200px;
   margin: 0 auto;
+  padding: 0 var(--content-padding);
 }
 
 .details-section h2 {
-  font-size: 1.875rem;
-  margin-bottom: 8px;
-  text-align: center;
-  letter-spacing: -0.02em;
-}
-
-.details-lead {
-  text-align: center;
-  font-size: 1.0625rem;
-  color: var(--color-text-secondary);
-  margin-bottom: 40px;
-}
-
-.details-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  font-size: clamp(1.875rem, 3.4vw, 2.75rem);
+  margin-bottom: 36px;
+  letter-spacing: -0.035em;
+  background: linear-gradient(180deg, #ffffff 30%, rgba(245, 245, 247, 0.55));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .detail {
@@ -906,16 +695,174 @@ body.marketing .home-agents-footnote a:hover {
   margin: 0;
 }
 
-@media (max-width: 900px) {
-  .details-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+/* --- Bento variant of the details grid --- */
+/* Two ribbons, each holding its cards twice and sliding by exactly one copy,
+   so the seam never arrives. */
+.tools-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  overflow: hidden;
+  /* No headroom needed above: the tallest card in a row sets the row's box and
+     nothing shifts past it. Below, the bottom row's cards shift into this. */
+  padding: 0 0 44px;
+  /* The lead column is pushed down by this much, so the band comes up by it —
+     the palette lands where it already was and everything else rises. */
+  margin-top: calc(-1 * var(--lead-drop, 0px));
 }
 
-@media (max-width: 600px) {
-  .details-grid {
-    grid-template-columns: 1fr;
+/* Moved by script — see initToolsRibbons. A keyframe cannot take its speed
+   and direction from where the pointer is, and an animation would win over
+   the inline transform anyway. */
+.tools-ribbon {
+  display: flex;
+  gap: 18px;
+  width: max-content;
+}
+
+.tools-run {
+  display: flex;
+  gap: 18px;
+}
+
+/* The rows share a flat seam and take their contour from the outside: the top
+   row's cards hang from the seam and grow up, the bottom row's stand on it and
+   grow down. The two ribbons drift independently, so any card can end up over
+   any other — growing away from the gutter is what keeps them off each other,
+   and it fills each slot rather than leaving a gap where a card moved. */
+.tools-ribbon--top .tools-run {
+  align-items: flex-end;
+}
+
+.tools-ribbon--btm .tools-run {
+  align-items: flex-start;
+}
+
+ /* `top` rather than a transform: [data-reveal] animates transform and
+   resets it to none when the section lands, taking the offset with it. */
+.tools-flow .detail {
+  flex: none;
+  width: var(--w);
+  /* Copy sets the height, up to a shade over the tallest card that fits its
+     own content. Only the palette's mock runs past this, and a row's box takes
+     its tallest card — so left uncapped it lifts the whole row's top edge away
+     from the heading, and pokes above the rest of the band on its own. */
+  max-height: 264px;
+  top: var(--shift, 0px);
+}
+
+/* The grid pinned each mock to the bottom of a card sized by its row, which
+   opened a hole under short copy. Here the card ends where its mock does. */
+.tools-flow .bento-stack {
+  margin-top: 0;
+}
+
+/* Foil-washed cards: the silent tier of the desk washes above them, so dark
+   glass panels sit on silver the way terminals sit on the spectrum desks. */
+.bento .detail {
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  background: #0f0f11;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.bento .detail:hover {
+  background: #0f0f11;
+  border: none;
+}
+
+.bento .detail-title {
+  color: oklch(97% 0.004 285);
+  transition: color 700ms ease;
+}
+
+.bento .detail p {
+  color: oklch(85% 0.008 285);
+  transition: color 700ms ease;
+}
+
+/* One card at a time carries a spectrum tier: its field crossfades in over
+   the graphite, and the copy flips to on-spectrum ink. The page script walks
+   it across the grid; the cursor steals it. Cards alternate between the two
+   arcs, so the walk swings warm and cool instead of repeating one. */
+.desk-wash-field.bento-lit-field {
+  background-image: linear-gradient(var(--wash-angle, 160deg), var(--lit-wash, var(--wash-iris)));
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+
+.bento .detail:nth-child(odd) {
+  --lit-wash: var(--wash-prism);
+}
+
+.bento .detail:nth-child(even) {
+  --lit-wash: var(--wash-iris);
+}
+
+.bento .detail.is-lit .bento-lit-field {
+  opacity: 0.9;
+}
+
+.bento .detail.is-lit .detail-title {
+  color: oklch(12% 0.008 285);
+}
+
+.bento .detail.is-lit p {
+  color: oklch(22% 0.011 285);
+}
+
+/* Narrow enough that a ribbon would be mostly off-screen: stack the cards,
+   flat, and let the section scroll like the rest of the page. */
+@media (max-width: 720px) {
+  .tools-flow {
+    padding: 24px var(--content-padding);
   }
+
+  .tools-ribbon,
+  .tools-run {
+    display: contents;
+  }
+
+  .tools-flow {
+    display: grid;
+    gap: 16px;
+  }
+
+  .tools-flow .tools-run[aria-hidden] {
+    display: none;
+  }
+
+  /* The cap is there to stop one card dragging a ribbon's height up; stacked
+     in one column there is no ribbon, and copy runs longer at this width.
+     The shift breaks the seam between two rows, and in one column it only
+     drops a card onto the one below it. */
+  .tools-flow .detail {
+    width: auto;
+    max-height: none;
+    top: 0;
+  }
+
+}
+
+/* The script leaves the ribbons where they are, so give them a way to be read. */
+@media (prefers-reduced-motion: reduce) {
+  .tools-flow {
+    overflow-x: auto;
+  }
+
+}
+
+.bento-stack {
+  margin-top: auto;
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .cta-section {
@@ -929,15 +876,10 @@ body.marketing .home-agents-footnote a:hover {
 }
 
 .cta-section h2 {
-  font-size: 2.25rem;
-  margin-bottom: 12px;
-  letter-spacing: -0.02em;
-}
-
-.cta-section p {
-  color: var(--color-text-secondary);
-  font-size: 1.125rem;
-  margin-bottom: 28px;
+  font-size: clamp(2rem, 4.2vw, 3rem);
+  margin-bottom: 32px;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
 }
 
 @media (max-width: 600px) {
@@ -984,13 +926,16 @@ body.marketing .home-agents-footnote a:hover {
     gap: 16px;
     text-align: center;
   }
+
   .download-buttons {
     flex-direction: column;
   }
+
   .btn {
     width: 100%;
     justify-content: center;
   }
+
 }
 
 /* --- Docs --- */
@@ -1188,26 +1133,20 @@ body.marketing .home-agents-footnote a:hover {
   color: var(--color-text-secondary);
 }
 
-.callout {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 16px 20px;
-  margin-bottom: 20px;
-  font-size: 0.9375rem;
-}
-
-.callout p {
-  color: #fff;
-  margin-bottom: 0;
-}
-
 @media (max-width: 768px) {
+  /* The one block on a docs page that cannot reflow: it scrolls itself here
+     rather than taking the page sideways with it. */
+  .docs-content table {
+    display: block;
+    overflow-x: auto;
+  }
+
   .docs-layout {
     flex-direction: column;
     gap: 24px;
     padding-top: 16px;
   }
+
   .docs-sidebar {
     width: 100%;
     position: static;
@@ -1216,6 +1155,7 @@ body.marketing .home-agents-footnote a:hover {
     padding-bottom: 16px;
     margin-bottom: 8px;
   }
+
 }
 
 .docs-content img.docs-screenshot {
@@ -1332,36 +1272,8 @@ body.marketing .home-agents-footnote a:hover {
   color: #fff;
 }
 
-/* Hide scrollbars in demo components so the borders run edge-to-edge */
-.demo-frame .kanban-column-body {
-  scrollbar-width: none;
-}
-.demo-frame .kanban-column-body::-webkit-scrollbar {
-  display: none;
-}
-
-/* --- Component island wrappers --- */
-.demo-frame {
-  border-radius: 14px;
-  background: var(--color-background, #1c1c1e);
-  border: 1px solid rgba(0, 0, 0, 0.5);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.3),
-    0 24px 48px rgba(0, 0, 0, 0.35),
-    0 6px 16px rgba(0, 0, 0, 0.25);
-  overflow: hidden;
-}
-
 body.marketing {
   overflow-x: clip;
-}
-
-/* The board is a static mock — hide scrollbars so the columns read clean. */
-.workspace-scene .kanban-column-body {
-  scrollbar-width: none;
-}
-.workspace-scene .kanban-column-body::-webkit-scrollbar {
-  display: none;
 }
 
 /* ===================================
@@ -1386,4 +1298,561 @@ body.marketing::after {
         rgba(0, 0, 255, 0.08) 2px 3px
       ),
     /* tube vignette */ radial-gradient(120% 120% at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+/* --- Lifecycle chapters --- */
+.lc {
+  padding-top: 150px;
+}
+
+/* Plan section */
+.home-plan {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 140px var(--content-padding) 48px;
+}
+
+.plan-v-headline {
+  font-size: 44px;
+  margin: 0;
+}
+
+.plan-v3-row {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+}
+
+.plan-v3-copy {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.plan-v3-copy h3 {
+  font-size: 21px;
+  margin: 0;
+}
+
+.plan-v3-copy p {
+  color: #86868b;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 10px 0 0;
+}
+
+.plan-v3-mock {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-column-rail {
+  position: sticky;
+  top: 110px;
+  width: 372px;
+}
+
+.plan-desk {
+  border-radius: 24px;
+  padding: 32px;
+  /* clip, not hidden: hidden makes the desk a scroll container, which
+     would pin a sticky descendant in place. */
+  overflow: clip;
+  position: relative;
+}
+
+/* The bevel is a ring on top rather than a border underneath: the drain
+   and charge overlays reach the edge, so the bevel blends with whatever
+   color the desk currently shows instead of the one it started with. */
+.plan-desk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.plan-desk > .glass-bevel {
+  box-shadow:
+    var(--shadow-panel),
+    0 32px 64px -32px rgba(0, 0, 0, 0.75);
+}
+
+/* Desk washes: OKLCH sweeps holding lightness and chroma constant across
+   every stop, so the hue shifts without banding light or dark. */
+:root {
+  --wash-prism: oklch(80% 0.13 295), oklch(79% 0.13 330), oklch(78% 0.14 15),
+    oklch(79% 0.14 45), oklch(84% 0.13 80), oklch(86% 0.14 130);
+  --wash-iris: oklch(80% 0.13 295), oklch(78% 0.12 250), oklch(83% 0.11 190),
+    oklch(86% 0.14 130);
+  /* The neutral tier of the same system as prism and iris: a three-step
+     sheen, middle stop the highlight. */
+  --wash-graphite: oklch(30% 0.011 285), oklch(46% 0.013 285), oklch(24% 0.01 285);
+}
+
+/* isolate keeps the field's negative z-index inside the desk, so it paints
+   over the desk's base color but under every in-flow child. */
+.desk-wash {
+  isolation: isolate;
+  background-color: #0f0f11;
+}
+
+.desk-wash--prism {
+  --wash: var(--wash-prism);
+}
+
+/* Thirds of the prism, in gradient order. The Plan section's source desks
+   each carry one (built as `desk-wash--prism-${slice}`, invisible to a
+   class-usage grep), and its To Do column reassembles the full sweep from
+   the thirds whose cards have landed. */
+.desk-wash--prism-a {
+  --wash: oklch(80% 0.13 295), oklch(79% 0.13 330);
+}
+
+.desk-wash--prism-b {
+  --wash: oklch(78% 0.14 15), oklch(79% 0.14 45);
+}
+
+.desk-wash--prism-c {
+  --wash: oklch(84% 0.13 80), oklch(86% 0.14 130);
+}
+
+.desk-wash--graphite {
+  --wash: var(--wash-graphite);
+}
+
+.desk-wash-field {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: linear-gradient(var(--wash-angle, 160deg), var(--wash));
+  opacity: 0.9;
+}
+
+/* Inside the field, not beside it: overlay against the composited desk
+   would grey out; against the field's own full-strength sweep it dithers. */
+.desk-wash-grain {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  image-rendering: pixelated;
+  mix-blend-mode: overlay;
+}
+
+/* Scrubbed card slots: height opens via the 0fr→1fr grid trick so the
+   transition reverses cleanly when scroll direction flips. */
+.plan-slot {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 340ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.plan-slot > div {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+.plan-slot-open {
+  grid-template-rows: 1fr;
+}
+
+.plan-slot-in > div {
+  opacity: 1;
+  transform: none;
+}
+
+.plan-firing {
+  box-shadow:
+    var(--shadow-panel),
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 55%, transparent),
+    0 0 24px color-mix(in srgb, var(--color-accent) 18%, transparent) !important;
+  transition: box-shadow 300ms ease-out;
+}
+
+@media (max-width: 999px) {
+  .home-plan {
+    padding: 80px var(--content-padding) 24px;
+  }
+
+  .plan-v-headline {
+    font-size: 32px;
+  }
+
+  .plan-stage {
+    flex-direction: column;
+    /* Stretch, not the start alignment the two-column stage wants: stacked,
+       a row that shrinks to its copy leaves its desk half the page wide. */
+    align-items: stretch;
+  }
+
+  .plan-v3-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+  }
+
+  .plan-v3-copy {
+    width: auto;
+  }
+
+  .plan-desk {
+    padding: 24px;
+  }
+
+  /* The column is where the flights land, and stacked there are no flights:
+     it arrives already full, under three rows that have each shown their card
+     being made. Nothing left for it to say. */
+  .plan-column-rail {
+    display: none;
+  }
+
+}
+
+/* Build section */
+.home-build {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 140px var(--content-padding) 48px;
+}
+
+/* Beat columns double as seek targets, so they render as bare buttons. */
+.beat-row button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Dots are seek targets, so each is its own button on a 12px pitch — wide
+   enough to aim at, and enough room for the transport glyph that replaces the
+   dot under the pointer. */
+.beat-dots {
+  width: 100%;
+  height: 24px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: center;
+  cursor: pointer;
+}
+
+.beat-dot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.85);
+  /* The row owns the pointer — see BeatDots. */
+  pointer-events: none;
+}
+
+.beat-dot-mark {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  transition:
+    background 200ms ease,
+    opacity 120ms ease,
+    transform 160ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.beat-dot.is-lit .beat-dot-mark {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.beat-dot-icon {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 120ms ease,
+    transform 140ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.beat-dot.is-near .beat-dot-mark,
+.beat-dot.is-head .beat-dot-mark {
+  opacity: 0;
+}
+
+.beat-dot.is-near .beat-dot-icon,
+.beat-dot.is-head .beat-dot-icon {
+  opacity: 1;
+  transform: none;
+}
+
+/* Review section */
+.home-review {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 140px var(--content-padding) 48px;
+}
+
+/* The looped theater sits in normal flow — no tall wrapper, no sticky. */
+.review-theater {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+  margin-top: 48px;
+}
+
+/* Both theaters' captions: all of them stay in view under the stage in one
+   row, the active one lit. Auto columns rather than a count — the two
+   theaters have different numbers of captions, and one caption can stand
+   for more than one beat. */
+.beat-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: start;
+  gap: 28px;
+  width: 100%;
+}
+
+.beat-row > * {
+  opacity: 0.35;
+  transition: opacity 300ms ease;
+}
+
+.beat-row > .is-active {
+  opacity: 1;
+}
+
+.beat-row h3,
+.hx-captions h3 {
+  font-size: 19px;
+  margin: 0;
+}
+
+.beat-row p,
+.hx-captions p {
+  color: #86868b;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
+
+/* The row's columns are the desk's width over however many captions there
+   are, which at two is far past a readable measure. */
+.beat-row p {
+  max-width: 48ch;
+}
+
+@media (max-width: 999px) {
+  .home-review {
+    padding: 80px var(--content-padding) 24px;
+  }
+
+  .details-section {
+    padding-top: 80px;
+  }
+
+  .review-theater {
+    gap: 24px;
+    margin-top: 32px;
+  }
+
+  /* Side by side these are two narrow columns of small type. Stacked they
+     read as a list, with the caption the run is on lit. */
+  .beat-row {
+    grid-auto-flow: row;
+    gap: 20px;
+  }
+
+  .beat-row p {
+    max-width: none;
+  }
+}
+
+/* A transport for a pointer that swells the dot it is nearest, on a screen
+   with no pointer and no room for the dots to be tapped. */
+@media (hover: none) and (pointer: coarse) {
+  .beat-dots {
+    display: none;
+  }
+}
+
+/* ── Build section: the To Do column emptying into the stack ───────── */
+
+/* Anchored to the desk floor with its top pushed down one peek per back card,
+   so the cards divide a fixed height rather than growing past it. */
+.hx-well {
+  position: absolute;
+  left: 36px;
+  right: 36px;
+  bottom: 36px;
+  transition: top 0.14s ease;
+}
+
+.hx-card {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+  transition: transform 0.14s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hx-well,
+  .hx-card {
+    transition: none;
+  }
+}
+
+/* Normal flow, no tall wrapper: the run plays on its own clock once the stage
+   is in view, so the section costs its own height in scroll and nothing above
+   it is held in place. */
+.hx-frame {
+  display: flex;
+  align-items: center;
+  padding: 40px var(--content-padding) 96px;
+}
+
+/* The flights are absolutely positioned against this, so it is the frame
+   both the slots and the stack are measured in. */
+.hx-stage {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 40px;
+  width: 100%;
+  max-width: 1200px;
+  padding: 0 var(--content-padding);
+  /* Sized to the transcripts, not to the window. The cards divide a fixed
+     height, so a viewport-relative stage makes the deepest card clip its
+     newest line on a short screen and open a void on a tall one. The stage
+     itself only holds that as a floor: the rail runs past it when its copy
+     does, and the desk keeps its own height either way. */
+  --desk-h: 676px;
+  min-height: var(--desk-h);
+  margin: 0 auto;
+}
+
+/* Plan's rail width, mirrored to the other side: the column crosses the seam
+   from the right edge to the left, and the stack takes the space it left. */
+.hx-rail {
+  width: 388px;
+  flex-shrink: 0;
+}
+
+.hx-todo-desk {
+  padding: 28px;
+}
+
+/* Under the column rather than under the whole stage: the rail is the width
+   of a paragraph, and the copy explains what the column is doing. Inset to
+   the desk's own padding, so it reads off the column's left edge. */
+.hx-captions {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 28px 28px 0;
+}
+
+.hx-column {
+  width: 332px;
+  background: var(--color-terminal-bg);
+  box-shadow: var(--shadow-panel);
+}
+
+.hx-desk {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: var(--desk-h);
+  padding: 36px;
+}
+
+@media (max-width: 999px) {
+  .home-build {
+    padding: 80px var(--content-padding) 24px;
+  }
+
+  .hx-frame {
+    padding: 32px var(--content-padding);
+  }
+
+  .hx-stage {
+    flex-direction: column;
+    min-height: 0;
+    gap: 28px;
+  }
+
+  .hx-rail,
+  .hx-column {
+    width: 100%;
+  }
+
+  /* The stack is five terminals at once, and this is a screen with room for
+     one. The column carries the section on its own: every task in flight has
+     a session under it, named on the card. */
+  .hx-desk {
+    display: none;
+  }
+}
+
+/* Claude Code's working glyph: four stars, one lit at a time. Stacked and
+   swapped by opacity rather than animating `content`, which is a discrete
+   property that not every browser animates. */
+.tui-spinner {
+  position: relative;
+  display: inline-block;
+  width: 1ch;
+  height: 1em;
+}
+
+.tui-spinner > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  animation: tui-spinner 1.2s steps(1, end) infinite;
+}
+
+.tui-spinner > span:nth-child(2) {
+  animation-delay: -0.9s;
+}
+
+.tui-spinner > span:nth-child(3) {
+  animation-delay: -0.6s;
+}
+
+.tui-spinner > span:nth-child(4) {
+  animation-delay: -0.3s;
+}
+
+@keyframes tui-spinner {
+  0%,
+  25% {
+    opacity: 1;
+  }
+
+  25.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tui-spinner > span {
+    animation: none;
+  }
+
+  .tui-spinner > span:first-child {
+    opacity: 1;
+  }
 }

@@ -57,7 +57,7 @@ describe('seedCaptureFixture', () => {
     expect(scripts.length).toBeGreaterThanOrEqual(3);
   });
 
-  test('creates worktrees on the task branches, with the diff scene staged in T-1', () => {
+  test('creates worktrees on the task branches, with the diff and lens scenes staged', () => {
     const db = _initTestDatabase();
 
     const projectPath = path.join(tempRoot, 'horizon');
@@ -70,6 +70,28 @@ describe('seedCaptureFixture', () => {
     const status = execFileSync('git', ['status', '--porcelain'], { cwd: worktree, encoding: 'utf8' });
     expect(status).toContain(' M src/onboarding/Stepper.tsx');
     expect(status).toContain('?? src/onboarding/IntroCard.tsx');
+
+    // The paths the lens scene's groups name, and the two hunks it splits
+    // Dashboard.tsx across. A rename here empties a group rather than failing
+    // anything, so the shot would come out with a heading over nothing.
+    const lensTree = path.join(tempRoot, 'horizon-worktrees', 'T-2');
+    // `-uall` because that is what the panel lists: without it git collapses a
+    // wholly untracked directory to the directory, and two of the parts name
+    // files inside one.
+    const lensStatus = execFileSync('git', ['status', '--porcelain', '-uall'], { cwd: lensTree, encoding: 'utf8' });
+    expect(lensStatus).toContain(' M src/dashboard/Dashboard.tsx');
+    expect(lensStatus).toContain('?? src/api/activity.ts');
+    expect(lensStatus).toContain('?? src/dashboard/ActivityFeed.tsx');
+    expect(lensStatus).toContain('?? src/dashboard/activity.css');
+    expect(lensStatus).toContain('?? src/api/__tests__/activity.test.ts');
+
+    const hunks = execFileSync('git', ['diff', '--unified=3', '--', 'src/dashboard/Dashboard.tsx'], {
+      cwd: lensTree,
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter((line) => line.startsWith('@@'));
+    expect(hunks).toHaveLength(2);
 
     const rootStatus = execFileSync('git', ['status', '--porcelain'], { cwd: projectPath, encoding: 'utf8' });
     expect(rootStatus).toBe('');

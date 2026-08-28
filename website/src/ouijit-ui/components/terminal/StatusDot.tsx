@@ -2,9 +2,18 @@ import type { CSSProperties } from 'react';
 
 interface StatusDotProps {
   summaryType: string;
+  /** Draws the sandbox ring. The app derives this from its sandbox provider;
+   *  the site's demos only need the boolean. */
   sandboxed?: boolean;
   size?: number;
 }
+
+const COLORS: Record<string, string> = {
+  thinking: 'var(--color-status-thinking)',
+  ready: 'var(--color-status-ready)',
+  success: 'var(--color-status-ready)',
+  error: 'var(--color-error)',
+};
 
 function ThinkingGrid({ color }: { color: string }) {
   return (
@@ -19,7 +28,7 @@ function ThinkingGrid({ color }: { color: string }) {
 
 export function StatusDot({ summaryType, sandboxed = false, size = 6 }: StatusDotProps) {
   const isThinking = summaryType === 'thinking';
-  const background = isThinking ? '#da77f2' : '#4ee82e';
+  const background = COLORS[summaryType] ?? COLORS.ready;
   return (
     <span
       className="status-dot inline-flex items-center justify-center shrink-0"
@@ -27,7 +36,9 @@ export function StatusDot({ summaryType, sandboxed = false, size = 6 }: StatusDo
       style={
         {
           '--status-dot-size': `${size}px`,
-          ...(sandboxed ? { '--status-ring-color': 'rgba(116, 192, 252, 0.6)' } : {}),
+          ...(sandboxed
+            ? { '--status-ring-color': 'color-mix(in srgb, var(--color-ansi-blue) 60%, transparent)' }
+            : {}),
         } as CSSProperties
       }
     >

@@ -1,0 +1,175 @@
+---
+import {
+  PaletteMock,
+  SandboxMock,
+  ScriptsMock,
+  HooksMock,
+  ThemeMock,
+  TagsMock,
+  ShortcutsMock,
+  ResumeMock,
+  CliMock,
+} from '../demo/ExtrasMocks';
+
+/**
+ * Two ribbons of cards, wider than the window and drifting together. `w` sets
+ * a card's slot; its height is whatever its copy and mock come to, and the
+ * differences between them are what give the band its outer contour. The rows
+ * meet on the seam and grow away from it, so a shorter card takes its height
+ * off the outside rather than opening a gap in the middle.
+ *
+ * The seam between the rows is broken by `shift`, which moves a card and the
+ * one across from it together, gutter intact. That only works while the two
+ * stay in register, so the rows are built to the same run width — the check
+ * below fails the build if an edit breaks it — and the last three cards of
+ * each row are matched in width to give the shifts a column to move in. The
+ * bottom row opens with one card as wide as the top row's first two, which is
+ * what buys those columns out of four cards against five.
+ */
+/**
+ * The lead column — the palette, the card beside it, and the wide CLI card
+ * under both — drops by this much, and the whole band is pulled up by the
+ * same amount. The palette is the tallest card in its row and so sits at the
+ * row's top edge on its own, leaving the rest of the band further from the
+ * heading than it is; moving one down and everything up closes that without
+ * moving the palette at all.
+ *
+ * At most the smallest top offset any other card has, or the lift pulls that
+ * card up past the palette and into the heading.
+ */
+const LEAD_DROP = 20;
+
+interface Tool {
+  id: string;
+  shift: number;
+  w: number;
+  title: string;
+  body?: string;
+  Mock: typeof PaletteMock;
+}
+
+const TOP: Tool[] = [
+  {
+    id: 'palette',
+    shift: LEAD_DROP,
+    w: 540,
+    title: 'Find anything with ⌘K',
+    body: 'Terminals, projects, tasks, and pull requests, ranked by how often you come back to them.',
+    Mock: PaletteMock,
+  },
+  {
+    id: 'sandbox',
+    shift: LEAD_DROP,
+    w: 470,
+    title: 'Agents, sandboxed',
+    body: "A Lima VM mounts only the task's worktree — or sandbox in place with Seatbelt and Landlock, via nono.",
+    Mock: SandboxMock,
+  },
+  {
+    id: 'shortcuts',
+    shift: 26,
+    w: 390,
+    title: 'Jump anywhere from the keyboard',
+    Mock: ShortcutsMock,
+  },
+  {
+    id: 'scripts',
+    shift: -22,
+    w: 410,
+    title: 'The commands you always run',
+    body: "Saved with the project, run in any task's worktree.",
+    Mock: ScriptsMock,
+  },
+  {
+    id: 'hooks',
+    shift: 30,
+    w: 430,
+    title: 'Start, continue, review, done',
+    body: 'Each runs the command you give it, task context included.',
+    Mock: HooksMock,
+  },
+];
+
+const BOTTOM: Tool[] = [
+  {
+    id: 'cli',
+    shift: LEAD_DROP,
+    w: 1028,
+    title: 'Drive the app with the CLI',
+    body: 'The <code>ouijit</code> CLI is on the PATH in every terminal the app opens, sandboxed ones included. Tasks, tags, hooks, scripts, drafts, themes: everything on this page, as commands with JSON out.',
+    Mock: CliMock,
+  },
+  {
+    id: 'theme',
+    shift: 26,
+    w: 390,
+    title: 'Every color, down to the ANSI palette',
+    Mock: ThemeMock,
+  },
+  {
+    id: 'tags',
+    shift: -22,
+    w: 410,
+    title: 'Tag a terminal, filter the stack',
+    Mock: TagsMock,
+  },
+  {
+    id: 'resume',
+    shift: 30,
+    w: 430,
+    title: 'Reopen where you left off',
+    body: 'Terminals come back in their worktrees, panels included.',
+    Mock: ResumeMock,
+  },
+];
+
+const GAP = 18;
+
+/** One copy of a row, gaps included — how far the script slides a ribbon
+ *  before it is back where it started. Speed and direction live in the
+ *  script, since they follow the pointer. */
+const runWidth = (row: Tool[]) => row.reduce((sum, c) => sum + c.w + GAP, 0);
+
+if (runWidth(TOP) !== runWidth(BOTTOM)) {
+  throw new Error(
+    `Power tools rows must be the same width to stay in register: top ${runWidth(TOP)}, bottom ${runWidth(BOTTOM)}`,
+  );
+}
+---
+
+<section class="details-section">
+  <div class="details-head">
+    <h2 data-reveal>Power tools included</h2>
+  </div>
+  <div class="tools-flow bento" data-reveal style={`--lead-drop: ${LEAD_DROP}px`}>
+    {
+      [
+        { row: TOP, cls: 'tools-ribbon--top' },
+        { row: BOTTOM, cls: 'tools-ribbon--btm' },
+      ].map(({ row, cls }) => (
+        <div class:list={['tools-ribbon', cls]}>
+          {[0, 1].map((copy) => (
+            <div class="tools-run" aria-hidden={copy === 1 ? 'true' : undefined}>
+              {row.map((card) => {
+                const Mock = card.Mock;
+                return (
+                  <article
+                    class="detail desk-wash desk-wash--graphite"
+                    data-tool={card.id}
+                    style={`--w: ${card.w}px; --shift: ${card.shift}px`}
+                  >
+                    <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain" /></div>
+                    <div class="desk-wash-field bento-lit-field" aria-hidden="true"><span class="desk-wash-grain" /></div>
+                    <div class="detail-title">{card.title}</div>
+                    {card.body && <p set:html={card.body} />}
+                    <div class="bento-stack" aria-hidden="true"><Mock /></div>
+                  </article>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      ))
+    }
+  </div>
+</section>

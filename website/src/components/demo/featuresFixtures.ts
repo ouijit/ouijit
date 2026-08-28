@@ -1,8 +1,6 @@
 import type { TaskWithWorkspace } from '../../ouijit-ui/types';
 import type { TerminalDisplayState } from '../../ouijit-ui/terminalDisplay';
 import { DEFAULT_DISPLAY_STATE } from '../../ouijit-ui/terminalDisplay';
-import type { TaskChainInfo } from '../../ouijit-ui/utils/taskChain';
-import { buildChainMap } from '../../ouijit-ui/utils/taskChain';
 
 const PROJECT_PATH = '/demo/horizon';
 
@@ -124,24 +122,28 @@ export const featuresTasks: TaskWithWorkspace[] = [
   },
 ];
 
-export const featuresChainMap: Map<number, TaskChainInfo> = buildChainMap(featuresTasks);
-
-/** Connected terminals per task. The four terminals from the stack are
- * distributed 2/1/1 across the in_progress column so the board never shows
- * a card with more than two open terminals. Each task title, status and OSC
- * title still corresponds 1:1 to a card in the stack. */
+/**
+ * Connected terminals per task, and the single source for the four fixture
+ * terminals: the stack, the board rows and the palette all read them from
+ * here, so one pty reads the same on every surface.
+ *
+ * Labels are what resolveTerminalLabel would return: a task's name if it has
+ * one, then its branch, then a script's name, then 'Shell'. A task name wins
+ * before anything else is consulted, so every terminal opened inside a task
+ * carries it — the dev server included, however it was started.
+ */
 export const featuresTerminalsByTask: Record<number, TerminalDisplayState[]> = {
   101: [
     term({
       ptyId: 'pty-101-claude',
-      label: 'claude',
+      label: 'Rework onboarding flow',
       summaryType: 'thinking',
       lastOscTitle: 'Editing onboarding stepper...',
       taskId: 101,
     }),
     term({
       ptyId: 'pty-101-dev',
-      label: 'npm run dev',
+      label: 'Rework onboarding flow',
       summaryType: 'ready',
       lastOscTitle: 'live dev server',
       taskId: 101,
@@ -150,21 +152,26 @@ export const featuresTerminalsByTask: Record<number, TerminalDisplayState[]> = {
   103: [
     term({
       ptyId: 'pty-103-test',
-      label: 'npm test',
+      label: 'Polish invitation email',
       summaryType: 'ready',
-      lastOscTitle: '14 passed',
+      lastOscTitle: 'Tightened subject and brand tokens',
       taskId: 103,
     }),
   ],
   105: [
     term({
       ptyId: 'pty-105-shell',
-      label: 'shell',
-      summaryType: 'ready',
-      lastOscTitle: 'axe-core --tags wcag2a',
+      label: 'Audit accessibility on settings dialog',
+      summaryType: 'thinking',
+      lastOscTitle: 'Investigating contrast at SettingsDialog:121',
       taskId: 105,
     }),
   ],
 };
 
-export const FEATURES_PROJECT_PATH = PROJECT_PATH;
+/** Branches for the terminals the stack draws; the board rows don't show one. */
+export const FEATURES_BRANCHES: Record<string, string> = {
+  'pty-101-claude': 'rework-onboarding',
+  'pty-101-dev': 'rework-onboarding',
+  'pty-103-test': 'polish-invitation-email',
+};
