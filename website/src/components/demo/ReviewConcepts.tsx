@@ -3,7 +3,7 @@ import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCa
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { MockAnalysis } from './MockAnalysis';
 import { DeskWash } from './DeskWash';
-import { NotedDiffPane, LensedDiffCard } from './ReviewLab';
+import { RoundTripTerminal, LensedDiffCard } from './ReviewLab';
 import { useTheaterLoop, BeatDots } from './theaterLoop';
 
 /**
@@ -60,12 +60,16 @@ const HEALTH_BEATS = ['advice', 'tip', 'note', 'send'] as const;
 
 /**
  * What the history says and what you do about it, in one frame: the panel's
- * reading of a file, then the same reading on the file's own row in a diff, the
- * note written under it, and the note handed to the agent. Answering a hotspot
- * is the point of finding one, so the two are never apart.
+ * reading of a file, then the same reading on the file's own row in the diff
+ * split against the session, the note written under it, and the note landing in
+ * the agent's prompt. Answering a hotspot is the point of finding one, so the
+ * two are never apart.
  */
 function HealthRun({ p }: { p: (k: string) => number }) {
   const answering = p('tip') > 0.02;
+  /* The session is already up when the diff opens beside it, and the run ends
+     with the note in the prompt rather than following the agent's fix. */
+  const beat = (k: string) => (k === 'scan' ? 1 : k === 'fix' ? 0 : p(k));
   /* Both fill the frame and cross over in it. Positioned inline because
      `.glass-bevel > *` pins every direct child to position relative. */
   const layer = (shown: boolean) => ({
@@ -79,8 +83,8 @@ function HealthRun({ p }: { p: (k: string) => number }) {
       <div className="flex flex-col" style={layer(!answering)}>
         <MockAnalysis showAdvice />
       </div>
-      <div style={layer(answering)}>
-        <NotedDiffPane tip={p('tip') < 1} pNote={p('note')} pSend={p('send')} />
+      <div className="flex flex-col" style={layer(answering)}>
+        <RoundTripTerminal p={beat} depth={0} tip={p('tip') < 1} diffShare="62%" />
       </div>
     </>
   );

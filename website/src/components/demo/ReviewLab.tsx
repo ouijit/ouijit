@@ -438,8 +438,20 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
 }
 
 /** The review terminal: session left, noted diff split right. `depth` is its
- * place in the stack — 0 while it holds the front, higher once it does not. */
-export function RoundTripTerminal({ p, depth, tip }: { p: (k: string) => number; depth: number; tip?: boolean }) {
+ * place in the stack — 0 while it holds the front, higher once it does not.
+ * `diffShare` is where the seam sits, which the reader drags in the app; a
+ * narrower card gives the diff more of itself so its lines still fit. */
+export function RoundTripTerminal({
+  p,
+  depth,
+  tip,
+  diffShare = '50%',
+}: {
+  p: (k: string) => number;
+  depth: number;
+  tip?: boolean;
+  diffShare?: string;
+}) {
   const fixtures = getPanelFixtures('pty-101-dev');
   const receded = depth > 0;
   const fixing = p('fix') > 0.06;
@@ -468,7 +480,7 @@ export function RoundTripTerminal({ p, depth, tip }: { p: (k: string) => number;
           <ReviewSession p={p} />
         </div>
         <div className="pane-seam relative w-px shrink-0" />
-        <div className="relative shrink-0" style={{ width: '50%' }}>
+        <div className="relative shrink-0" style={{ width: diffShare }}>
           <NotedDiffPane pNote={p('note')} pSend={p('send')} tip={tip} />
         </div>
       </div>
