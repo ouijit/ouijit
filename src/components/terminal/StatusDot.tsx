@@ -63,10 +63,7 @@ export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotP
         {isThinking ? (
           <ThinkingGrid color={background} />
         ) : (
-          <span
-            className="status-dot-fill rounded-full transition-all duration-200 ease-out"
-            style={{ background }}
-          />
+          <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />
         )}
       </span>
     </Tooltip>
