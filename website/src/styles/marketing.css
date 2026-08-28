@@ -2719,20 +2719,63 @@ body.marketing::after {
 
 /* Review concepts (lab only): two compositions of the review material that
    do not run on a timeline. `rv-` is shared by both. */
-.rv-bento {
+.rv-strip-head {
   display: flex;
-  flex-direction: column;
-  gap: 56px;
-  max-width: 1360px;
-  margin: 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
 }
 
-/* A tile can hold more than one desk: what the history says and what you do
-   about it in the diff are one caption. */
-.rv-tile {
+.rv-arrows {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  gap: 8px;
+}
+
+.rv-arrows button {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d6d6d8;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.rv-arrows button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.rv-arrows svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* The strip runs past the section on both sides, so the card after the one
+   being read shows an edge of itself and the row reads as more than it holds.
+   Padded back in by the same amount, or the first card starts off-screen. */
+.rv-strip {
+  display: flex;
+  gap: 28px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  margin-inline: calc(-1 * var(--content-padding));
+  padding: 0 var(--content-padding) 8px;
+  scrollbar-width: none;
+}
+
+.rv-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.rv-card {
+  flex: 0 0 auto;
+  width: 940px;
+  scroll-snap-align: start;
 }
 
 .rv-desk {
@@ -2740,9 +2783,8 @@ body.marketing::after {
   border-radius: 20px;
 }
 
-/* The window a panel is shown through: the panel inside is drawn at the app's
-   own size, so the window clips rather than the layout reflowing something the
-   app never draws. */
+/* The frame a panel is drawn in. The panel fills it and clips its own panes,
+   which is what the app does with a window this size. */
 .rv-crop {
   background: var(--color-terminal-bg);
   box-shadow: var(--shadow-panel);
@@ -2767,9 +2809,12 @@ body.marketing::after {
   max-width: 52ch;
 }
 
-/* Wider than the theater's 1200: a band spends a third of its width on the
-   copy, and the panels beside it reflow rather than scale — below about 900
-   the diff splits into two columns too narrow to read. */
+@media (max-width: 999px) {
+  .rv-card {
+    width: 86vw;
+  }
+}
+
 .rv-chapters {
   display: flex;
   flex-direction: column;

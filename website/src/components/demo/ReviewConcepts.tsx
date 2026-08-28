@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
+import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { MockAnalysis } from './MockAnalysis';
 import { DeskWash } from './DeskWash';
 import { NotedDiffPane, LensedDiffCard } from './ReviewLab';
@@ -113,58 +114,85 @@ const COPY = {
   },
 };
 
-/* ─── A: three tiles, no time axis ────────────────────────────────── */
+/* ─── A: a strip you push through ────────────────────────────────── */
+
+/** One height for every card, so the captions line up as the strip moves. Tall
+ *  enough for the two panels that need it: the analysis panel opens scrolled to
+ *  the foot of an expanded hotspot, and the chip's tooltip runs 330px down the
+ *  well. */
+const CARD_HEIGHT = 520;
+
+/** A card in the strip: one panel at the width the app draws it, and the copy
+ *  for it under the card rather than beside. */
+function StripCard({
+  title,
+  body,
+  wash,
+  onRef,
+  children,
+}: {
+  title: string;
+  body: string;
+  wash: string;
+  onRef?: (el: HTMLDivElement | null) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rv-card" ref={onRef}>
+      <div className={`rv-desk plan-desk desk-wash ${wash}`}>
+        <DeskWash />
+        <Fit height={CARD_HEIGHT}>
+          <TerminalCardView isActive backDepth={0}>
+            {children}
+          </TerminalCardView>
+        </Fit>
+      </div>
+      <Caption title={title} body={body} />
+    </div>
+  );
+}
 
 /**
- * Everything at once. Nothing is sequenced and nothing is cropped: a panel is
- * drawn at the width its row gives it, and the row is as wide as the panel
- * needs. The tiles carry the prism in gradient order, so the column still
- * reads as one sweep broken into panels.
+ * One card at a time, side by side. The section is a viewport tall whatever it
+ * holds, the panels keep the width the app draws them at, and the reader pushes
+ * through them — no timeline, and nothing playing on its own.
  */
-export function ReviewBento() {
+export function ReviewStrip() {
   const [respondRef, pRespond] = useEnterProgress(5200);
   const [lensRef, pLens] = useEnterProgress(2600);
+  const strip = useRef<HTMLDivElement | null>(null);
+
+  /* By a card and its gutter, so a push always lands on the next snap point. */
+  const push = (dir: number) => {
+    const el = strip.current;
+    if (!el) return;
+    const card = el.firstElementChild as HTMLElement | null;
+    el.scrollBy({ left: dir * ((card?.offsetWidth ?? 0) + 28), behavior: 'smooth' });
+  };
 
   return (
     <div>
-      <h2 className="plan-v-headline">Review in depth</h2>
-      <div className="rv-bento">
-        <div className="rv-tile" ref={respondRef}>
-          <div className="rv-desk plan-desk desk-wash desk-wash--prism-a">
-              <DeskWash />
-            {/* Tall enough for the whole expanded hotspot: `showAdvice` opens
-                the panel scrolled to the foot of it, and a shorter frame cuts
-                the head of the entry off. */}
-            <Fit height={520}>
-              <TerminalCardView isActive backDepth={0}>
-                <MockAnalysis showAdvice />
-              </TerminalCardView>
-            </Fit>
-          </div>
-          <div className="rv-desk plan-desk desk-wash desk-wash--prism-b">
-            <DeskWash />
-            {/* The chip's tooltip opens into the well and runs 330px down it,
-                so a shorter frame cuts the foot of the reading off. */}
-            <Fit height={500}>
-              <TerminalCardView isActive backDepth={0}>
-                <RespondingDiff progress={pRespond} />
-              </TerminalCardView>
-            </Fit>
-          </div>
-          <Caption {...COPY.health} />
+      <div className="rv-strip-head">
+        <h2 className="plan-v-headline">Review in depth</h2>
+        <div className="rv-arrows">
+          <button type="button" aria-label="Previous" onClick={() => push(-1)}>
+            <Icon name="caret-left" />
+          </button>
+          <button type="button" aria-label="Next" onClick={() => push(1)}>
+            <Icon name="caret-right" />
+          </button>
         </div>
-
-        <div className="rv-tile" ref={lensRef}>
-          <div className="rv-desk plan-desk desk-wash desk-wash--prism-c">
-            <DeskWash />
-            <Fit height={480}>
-              <TerminalCardView isActive backDepth={0}>
-                <LensedDiffCard pPick={1} pParts={pLens} />
-              </TerminalCardView>
-            </Fit>
-          </div>
-          <Caption {...COPY.lens} />
-        </div>
+      </div>
+      <div className="rv-strip" ref={strip}>
+        <StripCard {...COPY.health} wash="desk-wash--prism-a">
+          <MockAnalysis showAdvice />
+        </StripCard>
+        <StripCard {...COPY.notes} wash="desk-wash--prism-b" onRef={respondRef}>
+          <RespondingDiff progress={pRespond} />
+        </StripCard>
+        <StripCard {...COPY.lens} wash="desk-wash--prism-c" onRef={lensRef}>
+          <LensedDiffCard pPick={1} pParts={pLens} />
+        </StripCard>
       </div>
     </div>
   );
