@@ -12,10 +12,9 @@ import {
 
 const cliPanelsLog = log.scope('cliPanels');
 
-/** Internal panel kind backing each CLI-facing kind. */
 const INTERNAL_KIND = { markdown: 'plan', preview: 'webPreview' } as const;
 
-/** The path or URL a CLI op addresses the panel by. */
+/** The panel's own spelling of `CliPanelOp.value`. */
 function panelValue(panel: TerminalPanel): string | undefined {
   if (panel.kind === 'plan') return panel.planPath;
   if (panel.kind === 'webPreview') return panel.url ?? undefined;
@@ -39,7 +38,6 @@ function panelsForKind(instance: OuijitTerminal, kind: CliPanelKind): CliPanelIn
   }));
 }
 
-/** Add the panel, or surface the existing one if its path/url already matches. */
 function addOrActivate(instance: OuijitTerminal, kind: CliPanelKind, value: string): void {
   const existing = findPanel(instance, kind, value);
   if (existing) instance.activatePanel(existing.id);
@@ -47,7 +45,6 @@ function addOrActivate(instance: OuijitTerminal, kind: CliPanelKind, value: stri
   else instance.addWebPreviewPanel(value, { activate: true });
 }
 
-/** Close the first panel of the kind whose path/url matches. Returns false if none. */
 function removeMatching(instance: OuijitTerminal, kind: CliPanelKind, value: string | undefined): boolean {
   const match = value ? findPanel(instance, kind, value) : undefined;
   if (!match) return false;
@@ -96,8 +93,7 @@ async function handleOp(op: CliPanelOp): Promise<void> {
 /**
  * Handle CLI-driven panel ops (`ouijit markdown` / `ouijit preview`).
  *
- * Installed once for the life of the renderer; ops address a terminal by ptyId
- * through the global registry.
+ * Install once for the life of the renderer.
  */
 export function installCliPanelListener(): () => void {
   return window.api.cliPanels.onOp((op) => void handleOp(op));

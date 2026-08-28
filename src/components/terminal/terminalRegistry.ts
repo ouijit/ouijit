@@ -43,8 +43,7 @@ export async function restoreTerminalOnce(ptyId: string, restore: () => Promise<
  * Being in `terminalInstances` is not enough: a reconnecting terminal lands
  * there at `bind` and only then restores its snapshot, and that restore
  * replaces `panels` wholesale — so a panel added in between is silently
- * dropped. Both conditions have to hold for a change that arrives mid
- * renderer-reload to survive.
+ * dropped.
  */
 export async function whenTerminalReady(ptyId: string, timeoutMs: number): Promise<OuijitTerminal | null> {
   const deadline = Date.now() + timeoutMs;

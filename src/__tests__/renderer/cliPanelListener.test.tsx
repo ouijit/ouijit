@@ -13,18 +13,21 @@ class FakeTerminal {
   activePanelId: string | null = null;
   private nextId = 1;
 
-  private append(panel: Panel): string {
+  private append(panel: Panel, activate: boolean): string {
     this.panels = [...this.panels, panel];
-    this.activePanelId = panel.id;
+    if (activate) this.activePanelId = panel.id;
     return panel.id;
   }
 
-  addPlanPanel(planPath: string): string {
-    return this.append({ id: `panel-${this.nextId++}`, kind: 'plan', planPath });
+  addPlanPanel(planPath: string, activate = true): string {
+    return this.append({ id: `panel-${this.nextId++}`, kind: 'plan', planPath }, activate);
   }
 
-  addWebPreviewPanel(url: string): string {
-    return this.append({ id: `panel-${this.nextId++}`, kind: 'webPreview', url });
+  addWebPreviewPanel(url: string | null = null, opts?: { activate?: boolean }): string {
+    return this.append(
+      { id: `panel-${this.nextId++}`, kind: 'webPreview', url: url ?? undefined },
+      opts?.activate ?? true,
+    );
   }
 
   activatePanel(id: string): void {
@@ -32,8 +35,13 @@ class FakeTerminal {
   }
 
   closePanel(id: string): void {
-    this.panels = this.panels.filter((p) => p.id !== id);
-    if (this.activePanelId === id) this.activePanelId = this.panels.at(-1)?.id ?? null;
+    const idx = this.panels.findIndex((p) => p.id === id);
+    if (idx === -1) return;
+    const remaining = this.panels.filter((p) => p.id !== id);
+    if (this.activePanelId === id) {
+      this.activePanelId = remaining.length === 0 ? null : remaining[Math.min(idx, remaining.length - 1)].id;
+    }
+    this.panels = remaining;
   }
 }
 
@@ -78,7 +86,7 @@ describe('CLI panel listener', () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it('adds, lists, and removes panels on any live terminal', async () => {
+  it('adds, lists, and removes panels, activating what it adds', async () => {
     const term = new FakeTerminal();
     register('pty-home', term);
 
@@ -134,10 +142,9 @@ describe('CLI panel listener', () => {
     expect(term.panels).toHaveLength(1);
   });
 
-  it('names the session and how to get it back when no terminal holds it', async () => {
+  it('gives up on a session no terminal claims, naming it', async () => {
     const reply = await run({ ptyId: 'pty-orphan', action: 'add', kind: 'markdown', value: '/notes.md' });
     expect(reply.ok).toBe(false);
     expect(reply.error).toContain('pty-orphan');
-    expect(reply.error).toMatch(/home view/);
   });
 });

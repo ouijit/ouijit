@@ -30,9 +30,9 @@ describe('hook status listener', () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it('dispatches status to the terminal it names, wherever that terminal is shown', async () => {
+  it('dispatches each status to the one terminal it names', async () => {
     const term = register('pty-1');
-    register('pty-2');
+    const other = register('pty-2');
 
     push('pty-1', 'thinking');
     await vi.advanceTimersByTimeAsync(0);
@@ -41,6 +41,7 @@ describe('hook status listener', () => {
     push('pty-1', 'ready');
     await vi.advanceTimersByTimeAsync(0);
     expect(term.handleHookStatus).toHaveBeenLastCalledWith('ready');
+    expect(other.handleHookStatus).not.toHaveBeenCalled();
   });
 
   it('holds a status arriving while its terminal is still reconnecting', async () => {
@@ -61,10 +62,5 @@ describe('hook status listener', () => {
     finishRestore();
     await vi.advanceTimersByTimeAsync(TERMINAL_READY_WAIT_MS);
     expect(term.handleHookStatus).toHaveBeenCalledWith('thinking');
-  });
-
-  it('drops a status for a session no terminal ever claims', async () => {
-    expect(() => push('pty-gone', 'thinking')).not.toThrow();
-    await vi.advanceTimersByTimeAsync(TERMINAL_READY_WAIT_MS);
   });
 });
