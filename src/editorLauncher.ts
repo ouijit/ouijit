@@ -8,10 +8,10 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import launchEditor from 'launch-editor';
-import guessEditor from 'launch-editor/guess';
 import { getHook } from './db';
+import type { EditorOpenResult } from './types';
 import { getLogger } from './logger';
 
 const editorLog = getLogger().scope('editor');
@@ -74,40 +74,46 @@ function ensureEditorPath(): void {
 /**
  * Opens a file at a specific line in the user's editor.
  *
- * Always runs the editor hook first (ensures the editor is running), then
- * uses launch-editor to open the file at the correct line. If no hook is
- * configured, returns 'no-editor' so the renderer can show the setup dialog.
+ * The registered command is handed to launch-editor as the editor to use.
+ * Letting it detect one instead would open the file in whatever editor happens
+ * to be running, which is not the one the user registered. Every way this can
+ * fail is named in the result.
  */
 export async function openFileInEditor(
   projectPath: string,
   workspaceRoot: string,
   filePath: string,
   line?: number,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<EditorOpenResult> {
   ensureEditorPath();
 
   const fullPath = path.resolve(workspaceRoot, filePath);
 
-  // 1. Run the editor hook to ensure the editor is running
   const hook = await getHook(projectPath, 'editor');
-  if (!hook?.command) return { success: false, error: 'no-editor' };
+  if (!hook?.command) return { success: false, reason: 'no-editor' };
 
-  spawn(hook.command, [fullPath], { detached: true, stdio: 'ignore', shell: true }).unref();
+  // launch-editor returns without calling back when the file is gone, so the
+  // check has to happen here or the failure has no way to surface.
+  if (!fs.existsSync(fullPath)) return { success: false, reason: 'missing-file' };
 
-  // 2. Use launch-editor to open file at the correct line
-  const [detectedEditor] = guessEditor();
-  editorLog.info('opening file', { filePath, line, detectedEditor });
+  const editor = path.basename(hook.command.split(' ')[0]);
   const target = line ? `${fullPath}:${line}` : fullPath;
-  await tryLaunchEditor(target);
+  editorLog.info('opening file', { filePath, line, editor });
 
+  const failure = await tryLaunchEditor(target, hook.command);
+  if (failure) {
+    editorLog.warn('editor launch failed', { target, editor, failure });
+    return { success: false, reason: 'launch-failed', editor };
+  }
   return { success: true };
 }
 
 /**
- * Wraps launch-editor in a Promise. Returns null on success, error string on failure.
- * Suppresses launch-editor's console.log output by temporarily replacing it.
+ * Runs `editor` against `target`, resolving null on success and the failure on
+ * anything else. Suppresses launch-editor's console.log output by temporarily
+ * replacing it.
  */
-function tryLaunchEditor(target: string): Promise<string | null> {
+function tryLaunchEditor(target: string, editor: string): Promise<string | null> {
   return new Promise((resolve) => {
     let errorMsg: string | null = null;
 
@@ -124,8 +130,8 @@ function tryLaunchEditor(target: string): Promise<string | null> {
       origSpawn(cmd, args, { ...opts, stdio: 'ignore' });
 
     try {
-      launchEditor(target, undefined, (_fileName, msg) => {
-        errorMsg = msg ?? 'No editor detected';
+      launchEditor(target, editor, (_fileName, msg) => {
+        errorMsg = msg ?? 'no editor detected';
       });
     } finally {
       console.log = origLog;
@@ -137,7 +143,7 @@ function tryLaunchEditor(target: string): Promise<string | null> {
     if (errorMsg) {
       resolve(errorMsg);
     } else {
-      setTimeout(() => resolve(null), 150);
+      setTimeout(() => resolve(errorMsg), 150);
     }
   });
 }

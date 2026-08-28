@@ -30,8 +30,8 @@ export interface TaskMenuActions {
 
 /**
  * "Open in ▸" — a host Terminal, one entry per installed sandbox backend,
- * Editor, and the OS file manager. The file manager entry needs a worktree on
- * disk, so it only appears once the task has one.
+ * Editor, and the OS file manager. Terminal and Editor create the worktree a
+ * task has never had; the rest need one already on disk.
  */
 export function openInEntry(
   sandboxProviders: SandboxProviderId[],
