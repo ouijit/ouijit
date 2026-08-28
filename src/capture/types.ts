@@ -1,4 +1,5 @@
 import type { TerminalDisplayState } from '../stores/terminalStore';
+import type { LensGroup } from '../lens/lens';
 
 export type CaptureScene =
   | 'kanban'
@@ -7,6 +8,7 @@ export type CaptureScene =
   | 'canvas'
   | 'palette'
   | 'diff'
+  | 'lens'
   | 'markdown'
   | 'preview'
   | 'resume';
@@ -41,6 +43,20 @@ export interface CaptureNavigatePayload {
   diffPtyId?: string;
   /** Note composer opened on the diff line containing `lineText` — only consumed by the diff scene */
   diffNote?: { path: string; lineText: string; body: string };
+  /**
+   * A lens saved over the worktree's change before the pane opens — only
+   * consumed by the lens scene. The screenshots cannot spawn the agent that
+   * would normally write one, so the grouping is handed over ready-made.
+   */
+  diffLens?: {
+    name: string;
+    instruction: string;
+    worktreePath: string;
+    /** What the pane compares against, or the key will not be the one it reads. */
+    base: string | null;
+    branch: string | null;
+    groups: LensGroup[];
+  };
   /** URL and terminal for the web preview panel — only consumed by the preview scene */
   previewUrl?: string;
   previewPtyId?: string;

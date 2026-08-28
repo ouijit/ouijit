@@ -76,9 +76,13 @@ async function composePrompt(subject: DiffSubject, files: LensFile[], instructio
 }
 
 /** A lens written over the CLI, pinned to what the subject would have pinned it to. */
-export async function postLens(subject: DiffSubject, groups: LensGroup[]): Promise<void> {
-  // No name: nothing here went through one of the project's lenses.
-  await saveDiffLens(subject.projectPath, subject.key, await subject.pin(), JSON.stringify({ groups }), null);
+export async function postLens(
+  subject: DiffSubject,
+  groups: LensGroup[],
+  /** Which lens to credit. Null where the groups went through none of the project's. */
+  lens: { id: string; name: string } | null = null,
+): Promise<void> {
+  await saveDiffLens(subject.projectPath, subject.key, await subject.pin(), JSON.stringify({ groups }), lens);
   announceLensChanged(subject);
 }
 

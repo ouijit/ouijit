@@ -229,7 +229,12 @@ export function installCaptureNavigator(): void {
         projectStore.setKanbanVisible(true);
         useUIStore.getState().setPaletteOpen(true);
         break;
-      case 'diff': {
+      // The lens scene opens the same pane: a stored lens draws grouped until a
+      // reader asks for the flat list, so nothing here has to turn it on. It
+      // keeps the file list the diff scene hides, which is where the parts are
+      // all named at once.
+      case 'diff':
+      case 'lens': {
         projectStore.setActivePanel('terminals');
         projectStore.setKanbanVisible(false);
         projectStore.setTerminalLayout('stack');
@@ -238,7 +243,13 @@ export function installCaptureNavigator(): void {
         if (term && target) {
           setActiveTerminal(payload.projectPath, target);
           term.setDiffPanelOpen(true);
-          await clickWhenPresent('button[aria-label="Hide the file list"]');
+          // The toggle outlives the pane, so each scene has to ask for the
+          // side it wants rather than assume the default.
+          await clickWhenPresent(
+            payload.scene === 'diff'
+              ? 'button[aria-label="Hide the file list"]'
+              : 'button[aria-label="Show the file list"]',
+          );
           if (payload.diffNote) await openDiffNoteComposer(payload.diffNote);
         }
         break;

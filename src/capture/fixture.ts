@@ -98,6 +98,139 @@ const INTRO_CARD = `export function IntroCard() {
 }
 `;
 
+const DASHBOARD_COMMITTED = `import { useState } from 'react';
+import { Header } from './Header';
+import { MetricGrid } from './MetricGrid';
+import { ProjectList } from './ProjectList';
+import { EmptyState } from './EmptyState';
+
+export function Dashboard({ workspaceId, projects }: DashboardProps) {
+  const [range, setRange] = useState('7d');
+
+  if (projects.length === 0) {
+    return <EmptyState workspaceId={workspaceId} />;
+  }
+
+  return (
+    <div className="dashboard">
+      <Header workspaceId={workspaceId} range={range} onRange={setRange} />
+      <MetricGrid workspaceId={workspaceId} range={range} />
+      <ProjectList workspaceId={workspaceId} projects={projects} />
+    </div>
+  );
+}
+`;
+
+/**
+ * Two hunks apart, and the lens scene puts each in a different part: the
+ * polling that can outlive the page with the query behind it, the mount with
+ * the feed it renders. A change small enough to land in one hunk would draw
+ * the same lines under every heading.
+ */
+const DASHBOARD_MODIFIED = `import { useEffect, useState } from 'react';
+import { Header } from './Header';
+import { MetricGrid } from './MetricGrid';
+import { ProjectList } from './ProjectList';
+import { EmptyState } from './EmptyState';
+import { ActivityFeed } from './ActivityFeed';
+import { fetchActivity } from '../api/activity';
+
+export function Dashboard({ workspaceId, projects }: DashboardProps) {
+  const [range, setRange] = useState('7d');
+  const [activity, setActivity] = useState<ActivityEvent[]>([]);
+
+  useEffect(() => {
+    const poll = setInterval(() => {
+      void fetchActivity(workspaceId).then(setActivity);
+    }, 5_000);
+    return () => clearInterval(poll);
+  }, [workspaceId]);
+
+  if (projects.length === 0) {
+    return <EmptyState workspaceId={workspaceId} />;
+  }
+
+  return (
+    <div className="dashboard">
+      <Header workspaceId={workspaceId} range={range} onRange={setRange} />
+      <MetricGrid workspaceId={workspaceId} range={range} />
+      <ActivityFeed events={activity} />
+      <ProjectList workspaceId={workspaceId} projects={projects} />
+    </div>
+  );
+}
+`;
+
+const ACTIVITY_FEED = `import type { ActivityEvent } from '../api/activity';
+
+export function ActivityFeed({ events }: { events: ActivityEvent[] }) {
+  if (events.length === 0) {
+    return <p className="activity-empty">Nothing has happened here yet.</p>;
+  }
+
+  return (
+    <ol className="activity-feed">
+      {events.map((event) => (
+        <li key={event.id}>
+          <span className="activity-actor">{event.actor}</span>
+          <span className="activity-verb">{event.verb}</span>
+          <time dateTime={event.at}>{event.at}</time>
+        </li>
+      ))}
+    </ol>
+  );
+}
+`;
+
+const ACTIVITY_API = `import { query } from './db';
+
+export interface ActivityEvent {
+  id: string;
+  actor: string;
+  verb: string;
+  at: string;
+}
+
+export async function fetchActivity(workspaceId: string): Promise<ActivityEvent[]> {
+  const rows = await query(
+    'select id, actor, verb, created_at from events where workspace_id = $1 order by created_at desc',
+    [workspaceId],
+  );
+  return rows.map((row) => ({ id: row.id, actor: row.actor, verb: row.verb, at: row.created_at }));
+}
+`;
+
+const ACTIVITY_CSS = `.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-feed li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.activity-empty {
+  color: var(--text-muted);
+}
+`;
+
+const ACTIVITY_TEST = `import { describe, expect, it } from 'vitest';
+import { fetchActivity } from '../activity';
+
+describe('fetchActivity', () => {
+  it('returns the workspace events newest first', async () => {
+    const events = await fetchActivity('ws-1');
+    expect(events.map((e) => e.id)).toEqual(['e-3', 'e-2', 'e-1']);
+  });
+});
+`;
+
 export function seedCaptureFixture(
   db: Database.Database,
   { projectPath, projectName }: CaptureFixtureOptions,
@@ -113,6 +246,9 @@ export function seedCaptureFixture(
     const onboardingDir = path.join(projectPath, 'src', 'onboarding');
     fs.mkdirSync(onboardingDir, { recursive: true });
     fs.writeFileSync(path.join(onboardingDir, 'Stepper.tsx'), STEPPER_COMMITTED);
+    const dashboardDir = path.join(projectPath, 'src', 'dashboard');
+    fs.mkdirSync(dashboardDir, { recursive: true });
+    fs.writeFileSync(path.join(dashboardDir, 'Dashboard.tsx'), DASHBOARD_COMMITTED);
     // Committed rather than left untracked: the diff scene should lead with
     // the code changes, not a page of plan markdown.
     const plansDir = path.join(projectPath, 'plans');
@@ -138,6 +274,16 @@ export function seedCaptureFixture(
     const diffSceneDir = path.join(worktreesDir, 'T-1', 'src', 'onboarding');
     fs.writeFileSync(path.join(diffSceneDir, 'Stepper.tsx'), STEPPER_MODIFIED);
     fs.writeFileSync(path.join(diffSceneDir, 'IntroCard.tsx'), INTRO_CARD);
+    // The lens scene reads T-2: six files over three concerns, which is the
+    // least a grouping can be drawn over and still look like one.
+    const lensDashboardDir = path.join(worktreesDir, 'T-2', 'src', 'dashboard');
+    const lensApiDir = path.join(worktreesDir, 'T-2', 'src', 'api');
+    fs.mkdirSync(path.join(lensApiDir, '__tests__'), { recursive: true });
+    fs.writeFileSync(path.join(lensDashboardDir, 'Dashboard.tsx'), DASHBOARD_MODIFIED);
+    fs.writeFileSync(path.join(lensDashboardDir, 'ActivityFeed.tsx'), ACTIVITY_FEED);
+    fs.writeFileSync(path.join(lensDashboardDir, 'activity.css'), ACTIVITY_CSS);
+    fs.writeFileSync(path.join(lensApiDir, 'activity.ts'), ACTIVITY_API);
+    fs.writeFileSync(path.join(lensApiDir, '__tests__', 'activity.test.ts'), ACTIVITY_TEST);
   } catch (err) {
     captureFixtureLog.warn('git init failed', { error: err instanceof Error ? err.message : String(err) });
   }

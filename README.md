@@ -48,6 +48,12 @@ Every task terminal includes a diff of its worktree against its merge target, un
 
 <img src="website/public/assets/screenshots/diff.png" alt="Worktree diff beside the agent terminal, with a note being written on a changed line" width="100%">
 
+## Lenses
+
+A lens is a named instruction you keep with the project, like "lead with what could break in production". An agent applies it to one change and answers with the parts of that change: a titled group, a line on why those files belong together, and the hunks that make it up. A file that spans two parts appears in both, and whatever no part claims is still shown under a heading at the end.
+
+<img src="website/public/assets/screenshots/lens.png" alt="A worktree diff regrouped into named parts, with one file appearing in two of them" width="100%">
+
 ## Sandboxing
 
 Run any terminal sandboxed: in a Lima VM that mounts only the task's worktree, or in place under Seatbelt/Landlock via nono (experimental).

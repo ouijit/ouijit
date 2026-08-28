@@ -204,6 +204,27 @@ const PREVIEW_PAGE = `<!doctype html>
 </html>
 `;
 
+const FEED_SCREEN = [
+  '\x1b[38;5;245m>\x1b[0m \x1b[38;5;252mAdd an activity feed to the dashboard, polling the events\r\n',
+  '  table so it keeps up while the page is open.\x1b[0m\r\n',
+  '\r\n',
+  "\x1b[38;5;252m⏺\x1b[0m I'll add the query first, then the component, then wire it\r\n",
+  '  into the dashboard.\r\n',
+  '\r\n',
+  '\x1b[38;5;114m⏺\x1b[0m \x1b[1mWrite(src/api/activity.ts)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Wrote src/api/activity.ts with 16 lines\x1b[0m\r\n',
+  '\r\n',
+  '\x1b[38;5;114m⏺\x1b[0m \x1b[1mEdit(src/dashboard/Dashboard.tsx)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Updated src/dashboard/Dashboard.tsx with 11 additions\x1b[0m\r\n',
+  '\r\n',
+  '\x1b[38;5;204m✳\x1b[0m Simmering… \x1b[38;5;244m(1m 12s · ↓ 5.4k tokens)\x1b[0m\r\n',
+  '\r\n',
+  CLAUDE_RULE,
+  '\x1b[38;5;252m>\x1b[0m \x1b[7m \x1b[0m\r\n',
+  CLAUDE_RULE,
+  '  \x1b[38;5;179m⏵⏵ auto mode on\x1b[0m \x1b[38;5;244m(shift+tab to cycle) · esc to interrupt\x1b[0m\r\n',
+].join('');
+
 function startPreviewServer(port) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
@@ -263,7 +284,7 @@ function buildTerminalSeeds() {
       summaryType: 'thinking',
       worktreeBranch: 'dashboard-activity-feed-120',
       worktreePath: path.join(worktreesPath, 'T-2'),
-      content: CLAUDE_SCREEN,
+      content: FEED_SCREEN,
     },
     {
       ptyId: 'capture-pty-3',
@@ -306,6 +327,43 @@ const SCENES = [
       path: 'src/onboarding/Stepper.tsx',
       lineText: 'saveProgress(step + 1);',
       body: 'Clear the saved step when onboarding completes, or the next run resumes on the last step.',
+    },
+    settleMs: 2500,
+  },
+  // Six files over two named parts, one of them Dashboard.tsx twice: what the
+  // flat file list cannot say. The test file is left out of the groups on
+  // purpose, so the trailing part a lens claimed nothing of is in the shot.
+  {
+    scene: 'lens',
+    file: 'lens.png',
+    needsProject: true,
+    diffPtyId: 'capture-pty-2',
+    theme: 'dark',
+    diffLens: {
+      name: 'Lead with what could break',
+      instruction: 'Lead with what could break in production, then the code that only shapes what it looks like.',
+      worktreePath: path.join(worktreesPath, 'T-2'),
+      base: 'main',
+      branch: 'dashboard-activity-feed-120',
+      groups: [
+        {
+          title: 'Polling that outlives the page',
+          summary: 'A five-second interval, and the unbounded query behind it.',
+          slices: [
+            { path: 'src/dashboard/Dashboard.tsx', ranges: [[13, 18]] },
+            { path: 'src/api/activity.ts' },
+          ],
+        },
+        {
+          title: 'The feed itself',
+          summary: 'Rendering, once the events are in hand.',
+          slices: [
+            { path: 'src/dashboard/ActivityFeed.tsx' },
+            { path: 'src/dashboard/Dashboard.tsx', ranges: [[28, 28]] },
+            { path: 'src/dashboard/activity.css' },
+          ],
+        },
+      ],
     },
     settleMs: 2500,
   },
@@ -478,6 +536,7 @@ async function main() {
       if (scene.seeds) payload.terminalSeeds = scene.seeds;
       if (scene.theme) payload.theme = scene.theme;
       if (scene.diffPtyId) payload.diffPtyId = scene.diffPtyId;
+      if (scene.diffLens) payload.diffLens = scene.diffLens;
       if (scene.diffNote) payload.diffNote = scene.diffNote;
       if (scene.previewPtyId) {
         payload.previewPtyId = scene.previewPtyId;

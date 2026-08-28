@@ -831,7 +831,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     try {
       let result: unknown;
       if (segments[1] === 'navigate') {
-        result = handleCaptureNavigate({ window, body });
+        result = await handleCaptureNavigate({ window, body });
       } else if (segments[1] === 'snapshot') {
         result = await handleCaptureSnapshot({ window, body });
       } else {
