@@ -134,12 +134,12 @@ describe('CLI_REFERENCE', () => {
     // How to find which pull request it is on: the task carries the number.
     expect(CLI_REFERENCE).toContain('ouijit task current | jq .githubPrNumber');
 
-    // An agent with an authenticated gh will post directly unless told not to.
-    expect(CLI_REFERENCE).toContain('user sends the review themselves');
-    expect(CLI_REFERENCE).toContain('reaches GitHub the moment it runs');
-
     // The anchoring rule a whole review fails on.
     expect(CLI_REFERENCE).toContain('ADDED line');
+  });
+
+  test('documents the ouijit CLI and no other tool', () => {
+    expect(CLI_REFERENCE).not.toMatch(/\bgh\b/);
   });
 });
 
