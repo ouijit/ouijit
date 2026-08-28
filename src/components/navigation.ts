@@ -137,16 +137,6 @@ export interface OpenTaskShellOptions {
 }
 
 /**
- * Spawn a shell in a task's worktree, recreating a worktree that has gone
- * missing and creating one for a task that has never been started. `beginTask`
- * behind `task.start` creates the branch and worktree and moves a todo task to
- * in_progress; it runs no hook.
- *
- * Navigating to the result is the caller's concern. Returns false when nothing
- * spawned — including when the user declined to recover a missing worktree, in
- * which case they have already been told why.
- */
-/**
  * The worktree a task's actions run in: recovered when it has gone missing,
  * created when the task has never been started. `beginTask` behind
  * `task.start` creates the branch and worktree and moves a todo task to
@@ -171,6 +161,7 @@ export async function ensureTaskWorktree(projectPath: string, task: TaskWithWork
   return { path: result.worktreePath, branch: result.task?.branch || '', createdAt: task.createdAt };
 }
 
+/** Navigating to the shell it spawns is the caller's concern. */
 export async function openTaskShell(
   projectPath: string,
   task: TaskWithWorkspace,

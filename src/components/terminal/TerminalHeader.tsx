@@ -17,7 +17,7 @@ import type { GitFileStatus, RunnerScript } from '../../types';
 import { openInEntry, moveToEntry, githubEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
-import { openWorktreeInEditor } from '../../services/openInEditor';
+import { openTaskInEditor, openWorktreeInEditor } from '../../services/openInEditor';
 import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { describeDiffComparison, filesInDiff } from '../../diffSource';
@@ -107,12 +107,17 @@ export const TerminalHeader = memo(function TerminalHeader({
             sandboxProvider: provider,
           });
         },
-        openEditor: () =>
-          void openWorktreeInEditor(
-            projectPath,
-            { path: instance.worktreePath!, branch: instance.worktreeBranch!, createdAt: '' },
-            taskId ?? undefined,
-          ),
+        openEditor: () => {
+          if (instance.worktreePath) {
+            void openWorktreeInEditor(
+              projectPath,
+              { path: instance.worktreePath, branch: instance.worktreeBranch ?? '', createdAt: '' },
+              taskId ?? undefined,
+            );
+          } else if (task) {
+            void openTaskInEditor(projectPath, task);
+          }
+        },
         openFolder: () => void revealInFileManager(instance.worktreePath!),
         setStatus: async (status) => {
           await window.api.task.setStatus(projectPath, taskId!, status);

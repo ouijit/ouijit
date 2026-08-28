@@ -11,10 +11,15 @@ import { ToastContainer } from '../../components/ui/ToastContainer';
 import { useAnalysisStore } from '../../stores/analysisStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useUIStore, type EditorHookRequest } from '../../stores/uiStore';
-import type { AnalysisOverview, ScriptHook } from '../../types';
+import { openTaskInEditor } from '../../services/openInEditor';
+import { openWorktreeEditor } from '../../components/terminal/terminalActions';
+import type { AnalysisOverview, ScriptHook, TaskWithWorkspace } from '../../types';
+
+vi.mock('../../components/terminal/terminalActions', () => ({ openWorktreeEditor: vi.fn() }));
 
 const PROJECT = '/work/alpha';
 const EDITOR: ScriptHook = { id: 'hook-editor', type: 'editor', name: 'Editor', command: 'code' };
+const NEVER_STARTED = { taskNumber: 7, name: 'Fresh', status: 'todo', createdAt: '2026-08-01' } as TaskWithWorkspace;
 
 const overview: AnalysisOverview = {
   commitCount: 40,
@@ -81,6 +86,8 @@ beforeEach(() => {
   useUIStore.setState({ editorHookQueue: [] });
   vi.mocked(window.api.analysis.overview).mockReset().mockResolvedValue(overview);
   vi.mocked(window.api.hooks.get).mockReset().mockResolvedValue({});
+  vi.mocked(openWorktreeEditor).mockReset();
+  window.api.task.start = vi.fn().mockResolvedValue({ success: true, worktreePath: '/work/alpha-7' });
 });
 
 describe('opening a file in the editor', () => {
@@ -126,5 +133,28 @@ describe('opening a file in the editor', () => {
     fireEvent.click(screen.getByRole('button', { name: /Open in editor/ }));
 
     expect(await screen.findByText('engine.ts no longer exists')).toBeTruthy();
+  });
+});
+
+describe('opening a task in the editor', () => {
+  test('creates the worktree only once there is an editor to open it with', async () => {
+    const backedOut = openTaskInEditor(PROJECT, NEVER_STARTED);
+    await answerEditorPrompt(null);
+    await backedOut;
+
+    expect(window.api.task.start).not.toHaveBeenCalled();
+    expect(openWorktreeEditor).not.toHaveBeenCalled();
+
+    const opened = openTaskInEditor(PROJECT, NEVER_STARTED);
+    await answerEditorPrompt(EDITOR);
+    await opened;
+
+    expect(window.api.task.start).toHaveBeenCalledWith(PROJECT, 7);
+    expect(openWorktreeEditor).toHaveBeenCalledWith(
+      PROJECT,
+      expect.objectContaining({ path: '/work/alpha-7' }),
+      7,
+      'code',
+    );
   });
 });

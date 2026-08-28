@@ -17,10 +17,21 @@ import { openWorktreeEditor } from '../components/terminal/terminalActions';
  * spawned, which shows the shell's own error.
  */
 
-/** The dialog answers with the hook it saved, or null if the user backed out. */
-async function registerEditor(projectPath: string, existingHook?: ScriptHook): Promise<boolean> {
+/** Asks for an editor. Null is the user backing out of the dialog. */
+async function requestEditor(projectPath: string, existingHook?: ScriptHook): Promise<string | null> {
   const saved = await useUIStore.getState().requestEditorHook({ projectPath, existingHook });
-  return !!saved?.command;
+  return saved?.command ?? null;
+}
+
+/**
+ * The command to open a worktree with, asked for when none is registered.
+ * Resolved before anything is created: a task the user backs out of opening
+ * should not have been started.
+ */
+async function editorCommand(projectPath: string): Promise<string | null> {
+  const { editor } = await window.api.hooks.get(projectPath);
+  if (editor?.command) return editor.command;
+  return requestEditor(projectPath);
 }
 
 export async function openFileInEditor(
@@ -35,7 +46,7 @@ export async function openFileInEditor(
   const { addToast } = useProjectStore.getState();
 
   if (result.reason === 'no-editor') {
-    if (await registerEditor(projectPath)) await openFileInEditor(projectPath, workspaceRoot, filePath, line);
+    if (await requestEditor(projectPath)) await openFileInEditor(projectPath, workspaceRoot, filePath, line);
     return;
   }
 
@@ -49,7 +60,7 @@ export async function openFileInEditor(
     actionLabel: 'Change editor',
     onAction: () => {
       void window.api.hooks.get(projectPath).then(async (hooks) => {
-        if (await registerEditor(projectPath, hooks.editor)) {
+        if (await requestEditor(projectPath, hooks.editor)) {
           await openFileInEditor(projectPath, workspaceRoot, filePath, line);
         }
       });
@@ -62,12 +73,15 @@ export async function openWorktreeInEditor(
   worktree: WorktreeInfo,
   taskId?: number,
 ): Promise<void> {
-  if (await openWorktreeEditor(projectPath, worktree, taskId)) return;
-  if (await registerEditor(projectPath)) await openWorktreeEditor(projectPath, worktree, taskId);
+  const command = await editorCommand(projectPath);
+  if (command) await openWorktreeEditor(projectPath, worktree, taskId, command);
 }
 
 /** Creates the task's worktree first, the way "Open in Terminal" does. */
 export async function openTaskInEditor(projectPath: string, task: TaskWithWorkspace): Promise<void> {
+  const command = await editorCommand(projectPath);
+  if (!command) return;
+
   const worktree = await ensureTaskWorktree(projectPath, task);
-  if (worktree) await openWorktreeInEditor(projectPath, worktree, task.taskNumber);
+  if (worktree) await openWorktreeEditor(projectPath, worktree, task.taskNumber, command);
 }
