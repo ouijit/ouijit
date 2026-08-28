@@ -1,9 +1,3 @@
-/**
- * The lenses a project keeps, and the agent that writes them. The keys say
- * `github:` because that is where lenses started, and renaming them would mean
- * migrating what every project has already stored.
- */
-
 import { randomUUID, type UUID } from 'node:crypto';
 import { getGlobalSetting, setGlobalSetting } from '../db';
 import { getCachedHealth, checkHealth } from '../healthCheck';
@@ -37,7 +31,7 @@ function isUUID(value: unknown): value is UUID {
 }
 
 export function lensesKey(projectPath: string): string {
-  return 'github:lenses:' + projectPath;
+  return 'lens:list:' + projectPath;
 }
 
 /** An unreadable id is dropped, which leaves it to the backfill in `listLenses`. */
@@ -106,7 +100,7 @@ export async function deleteLens(projectPath: string, id: string): Promise<{ suc
 }
 
 function lensAgentKey(projectPath: string): string {
-  return 'github:lens-agent:' + projectPath;
+  return 'lens:agent:' + projectPath;
 }
 
 export async function getLensAgentChoice(projectPath: string): Promise<LensAgentChoice> {
