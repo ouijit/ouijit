@@ -420,7 +420,7 @@ export function HomeView() {
                 borderBottom: 'none',
                 borderRadius: '12px 12px 0 0',
                 boxShadow:
-                  'inset 0 1px 0 var(--bevel-top), inset 1px 0 0 var(--bevel-side), inset -1px 0 0 var(--bevel-side), inset 0 2px 6px -3px var(--bevel-glow)',
+                  'inset 0 1px 0 var(--bevel-top), inset 1px 0 0 var(--bevel-side), inset -1px 0 0 var(--bevel-side), var(--bevel-cast)',
                 transform: `scale(${Math.max(0.92, 1 - item.depth * 0.015)})`,
                 transformOrigin: 'bottom left',
                 transition: 'transform 200ms ease-out',
