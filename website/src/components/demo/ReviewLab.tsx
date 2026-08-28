@@ -636,7 +636,7 @@ function LensRow({ label, hint, selected, aimed }: { label: string; hint?: strin
 function LensMenu({ aimed }: { aimed: boolean }) {
   return (
     <div
-      className="absolute left-2 top-[46px] z-50 w-[17rem] flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px] animate-tooltip-pop"
+      className="absolute left-2 top-[42px] z-50 w-[17rem] flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px] animate-tooltip-pop"
       style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-menu)' }}
     >
       <div className="p-1 flex flex-col">
@@ -662,7 +662,9 @@ function LensTrigger({ writing, on }: { writing: boolean; on: boolean }) {
       <span className="flex-1 min-w-0 truncate">
         {writing ? `Writing ${LENS_NAME}…` : on ? LENS_NAME : 'All files'}
       </span>
-      {!writing && <span className="shrink-0 font-mono text-[11px] text-ink/35">3</span>}
+      {/* A pull request marks what has been read, so the flat list counts the
+          reader through the files and a lens counts its parts. */}
+      {!writing && <span className="shrink-0 font-mono text-[11px] text-ink/35">{on ? '3' : '0/3'}</span>}
       {writing ? (
         <Icon
           name="arrows-clockwise"
@@ -726,60 +728,87 @@ function DocPart({ part, at }: { part: (typeof LENS_PARTS)[number]; at: number }
   );
 }
 
-/** The same three files, read through a lens instead of the tree: the picker
- *  over the rail, the parts an agent grouped the change into, and the document
- *  in that order. `pPick` opens the picker and spends the run, `pParts` lands
- *  the grouping. */
+const SEG = 'h-full px-2.5 flex items-center gap-1.5 font-sans text-[13px] font-medium';
+const SEG_DIVIDER = <span aria-hidden className="w-px h-3 bg-ink/10 self-center" />;
+
+/** The pull request's own chrome: what it is, its three panes, and the review
+ *  actions. The Code pane is the only one with a rail, which is where a lens is
+ *  picked. */
+function PrChrome() {
+  return (
+    <header className="pane-ledge relative z-30 shrink-0 h-12 flex items-center gap-3 px-3">
+      <span className="flex items-center gap-2 min-w-0 text-text-secondary">
+        <Icon name="git-pull-request" className="w-4 h-4 shrink-0 text-vcs-added" />
+        <span className="truncate text-[15px]">Rework onboarding flow</span>
+      </span>
+      <nav className="flex items-center gap-4 mx-auto shrink-0 self-stretch">
+        <span className="flex items-center px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
+          Summary
+        </span>
+        <span className="flex items-center px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
+          Timeline
+        </span>
+        <span className="flex items-center gap-1.5 px-0.5 border-b-2 -mb-px border-accent text-[13px] font-medium text-text-primary">
+          Code <span className="opacity-50 tabular-nums">3</span>
+        </span>
+      </nav>
+      <div
+        className="inline-flex items-center h-7 shrink-0 glass-bevel relative border border-bezel rounded-[12px] overflow-hidden"
+        style={{ background: '#212126' }}
+      >
+        <span className={`${SEG} text-text-secondary`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-accent" />1 unsent
+        </span>
+        {SEG_DIVIDER}
+        <span className={`${SEG} text-text-secondary`}>Review</span>
+        {SEG_DIVIDER}
+        <span className={`${SEG} bg-accent text-accent-ink`}>Merge</span>
+      </div>
+    </header>
+  );
+}
+
+/** A pull request open on its Code pane, read through a lens instead of the
+ *  file tree: the picker over the rail, the parts an agent grouped the change
+ *  into, and the document in that order. `pPick` opens the picker and spends
+ *  the run, `pParts` lands the grouping. */
 export function LensedDiffCard({ pPick, pParts }: { pPick: number; pParts: number }) {
   const written = pParts > 0.02;
   const menuOpen = pPick > 0.12 && pPick < 0.55;
   const writing = pPick >= 0.55 && !written;
 
   return (
-    <div className="flex absolute inset-0 overflow-hidden bg-terminal-bg">
-      <div className="shrink-0 flex flex-col overflow-hidden border-r border-bezel" style={{ width: RAIL_WIDTH }}>
-        <div className="pane-ledge shrink-0 h-11 flex flex-col">
-          <LensTrigger writing={writing} on={written} />
-        </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {written ? (
-            LENS_PARTS.map((part, at) => {
-              const enter = partEnter(at);
-              return (
-                <div key={part.title} className={`flex flex-col ${enter.className}`} style={enter.style}>
-                  <div className="flex items-center gap-1.5 h-9 px-3 text-[12px] font-medium text-ink/90">
-                    <span className="min-w-0 flex-1 truncate">{part.title}</span>
-                    <Icon name="minus" className="shrink-0 !w-3 !h-3 opacity-50" />
+    <div className="flex flex-col absolute inset-0 overflow-hidden bg-terminal-bg">
+      <PrChrome />
+      <div className="relative flex flex-1 min-h-0">
+        <div className="shrink-0 flex flex-col overflow-hidden border-r border-bezel" style={{ width: RAIL_WIDTH }}>
+          {/* `h-9` is a file card's header, which is what this ledge meets
+              across the seam — a pull request has no toolbar over its
+              document. */}
+          <div className="pane-ledge shrink-0 h-9 flex flex-col">
+            <LensTrigger writing={writing} on={written} />
+          </div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {written ? (
+              LENS_PARTS.map((part, at) => {
+                const enter = partEnter(at);
+                return (
+                  <div key={part.title} className={`flex flex-col ${enter.className}`} style={enter.style}>
+                    <div className="flex items-center gap-1.5 h-9 px-3 text-[12px] font-medium text-ink/90">
+                      <span className="min-w-0 flex-1 truncate">{part.title}</span>
+                      <Icon name="minus" className="shrink-0 !w-3 !h-3 opacity-50" />
+                    </div>
+                    <RailFiles files={part.files} />
                   </div>
-                  <RailFiles files={part.files} />
-                </div>
-              );
-            })
-          ) : (
-            <RailFiles files={FLAT_FILES} />
-          )}
+                );
+              })
+            ) : (
+              <RailFiles files={FLAT_FILES} />
+            )}
+          </div>
         </div>
-      </div>
-      {menuOpen && <LensMenu aimed={pPick > 0.34} />}
-      <div className="relative flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="pane-ledge over-well relative z-30 px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
-          <span className={PANEL_BUTTON}>
-            <Icon name="sidebar-simple" />
-          </span>
-          <span className="flex items-center gap-1 font-mono text-[13px] text-ink/70">
-            <Icon name="git-branch" className="w-3.5 h-3.5 text-ink/45" />
-            main
-            <Icon name="caret-down" className="!w-3 !h-3 text-ink/40" />
-          </span>
-          <span className="ml-auto min-w-0 truncate text-xs text-text-tertiary">3 files +130 -78</span>
-          <span className={PANEL_BUTTON}>
-            <Icon name="square-split-horizontal" />
-          </span>
-          <span className={PANEL_BUTTON}>
-            <Icon name="x" />
-          </span>
-        </div>
-        <div className="diff-well diff-list relative flex-1 overflow-hidden pb-3">
+        {menuOpen && <LensMenu aimed={pPick > 0.34} />}
+        <div className="diff-well diff-list relative flex-1 min-w-0 overflow-hidden pb-3">
           {written
             ? LENS_PARTS.map((part, at) => <DocPart key={part.title} part={part} at={at} />)
             : FLAT_FILES.map((file) => <DocFileCard key={file.name} file={file} />)}
