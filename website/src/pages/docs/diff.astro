@@ -35,6 +35,25 @@ import Docs from '../../layouts/Docs.astro';
     is remembered per worktree.
   </p>
 
+  <h2>Read it through a lens</h2>
+  <p>
+    A lens is a named instruction you keep with the project — "lead with what could break in production" — that
+    an agent applies to one change. Pick one from the picker above the file list and it reads the diff and
+    answers with the parts of the change: a titled group, a line on why those files belong together, and the
+    hunks that make it up. The file tree becomes one way of reading among several.
+  </p>
+  <p>
+    The rail and the document follow the same order, and each part folds like a folder. A file that spans two
+    parts appears in both, showing only the hunks that part claims. Whatever no part claims is still shown,
+    under a heading at the end: a lens reorders and splits a change, but never hides any of it.
+  </p>
+  <p>
+    A lens goes out of date when the change under it moves. The picker says so and offers to run it again, and
+    on a worktree diff the older grouping stays on screen until you do — anything it no longer accounts for
+    moves to that trailing group. Add and edit lenses under <strong>Lenses</strong> in project settings, or from
+    the picker itself. Writing one needs Claude Code or Codex installed; where both are, you choose which runs.
+  </p>
+
   <h2>Leave notes for the agent</h2>
   <p>
     Hover a line and click <strong>+</strong>, or drag across several lines, and write a note. Notes are kept

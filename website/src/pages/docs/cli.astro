@@ -121,11 +121,20 @@ ouijit pr draft list 42
 ouijit pr draft add 42 --file src/api.ts --line 88 --body "typo" --origin claude
 ouijit pr draft add 42 --file src/api.ts --line 88 --body -   # body from stdin
 ouijit pr draft add 42 --file src/api.ts --start-line 80 --line 88 --body "range"
-ouijit pr draft discard 42 &lt;draft-id&gt;</code></pre>
+ouijit pr draft discard 42 &lt;draft-id&gt;
+ouijit pr lens get 42                         # the lens shown in the Code pane
+ouijit pr lens set 42 --body -                # grouping as JSON on stdin
+ouijit pr lens clear 42</code></pre>
   <p>
     <code>--body -</code> reads the body from stdin, the safe path for multi-line text. <code>--origin</code>
     names the author shown beside the draft. <code>--side</code> defaults to <code>RIGHT</code> (the new file);
     anchor comments to lines that appear as added lines in the diff.
+  </p>
+  <p>
+    <code>pr lens set</code> takes a <a href="/docs/diff/">lens</a> an agent wrote itself: a head sha and the
+    parts of the change, each naming paths and new-file line ranges. A range touching any line of a hunk claims
+    the whole hunk, so approximate ranges are fine, and omitting a file's ranges claims all of it. Run
+    <code>ouijit pr lens set --help</code> for the shape.
   </p>
 
   <h2>Markdown panels</h2>
