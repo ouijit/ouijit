@@ -166,7 +166,7 @@ const COPY = {
     body: 'Hotspots help you identify complexity, churn, and ownership risk, then highlight those problems when they’re most actionable.',
   },
   lens: {
-    title: 'See diffs through a new lens',
+    title: 'View diffs through a new lens',
     body: 'Keep an instruction like ‘lead with the decision, mechanical churn last’, and an agent regroups any diff into named parts.',
   },
 };

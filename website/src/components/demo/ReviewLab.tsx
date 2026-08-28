@@ -810,7 +810,7 @@ const CAPTIONS: { keys: readonly string[]; title: string; body: string; ms: numb
   },
   {
     keys: [...LENS_KEYS],
-    title: 'See diffs through a new lens',
+    title: 'View diffs through a new lens',
     body: 'Keep an instruction like ‘lead with the decision, mechanical churn last’, and an agent regroups any diff into named parts.',
     ms: 7000,
   },
