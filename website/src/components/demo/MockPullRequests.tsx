@@ -53,6 +53,18 @@ const GROUPS: Array<{ label: string; rows: PrRowFixture[] }> = [
         task: 98,
       },
       {
+        number: 501,
+        title: 'Rework onboarding flow',
+        author: 'prentice',
+        branch: 'rework-onboarding',
+        updated: 'just now',
+        additions: 130,
+        deletions: 78,
+        state: 'open',
+        drafts: 1,
+        task: 101,
+      },
+      {
         number: 479,
         title: 'Restore login redirect after timeout',
         author: 'prentice',
@@ -98,9 +110,12 @@ export function MockPullRequests() {
   );
 }
 
-function Sidebar() {
+/** The inbox: which pull requests are waiting on you, which are yours, and how
+ *  far through them you are. `active` names the row the pane beside it is
+ *  showing. */
+export function Sidebar({ width = 320, active = ACTIVE }: { width?: number; active?: number } = {}) {
   return (
-    <div className="shrink-0 flex flex-col overflow-hidden" style={{ width: 320 }}>
+    <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
       <div className="shrink-0 flex flex-col">
         <nav className="flex items-stretch gap-4 pane-ledge h-12 px-3 items-center">
           <Tab active count={PULL_COUNT}>
@@ -123,7 +138,7 @@ function Sidebar() {
           <section key={label} className="pt-3">
             <div className="px-4 pb-1 text-[13px] text-text-tertiary">{label}</div>
             {rows.map((pr) => (
-              <PullRequestRow key={pr.number} pr={pr} active={pr.number === ACTIVE} />
+              <PullRequestRow key={pr.number} pr={pr} active={pr.number === active} />
             ))}
           </section>
         ))}

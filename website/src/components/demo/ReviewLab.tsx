@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react';
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
-import {
-  TerminalHeaderView,
-  TerminalHeaderName,
-} from '../../ouijit-ui/components/terminal/TerminalHeaderView';
+import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { MockAnalysis, HotspotTip } from './MockAnalysis';
+import { Sidebar as PullRequestSidebar } from './MockPullRequests';
 import { getPanelFixtures } from './MockPanels';
 import {
   ActiveActions,
@@ -110,23 +108,41 @@ const NOTED_LINES: NotedLine[] = [
   {
     type: 'addition',
     newNo: 3,
-    content: <>import {'{ useOnboardingProgress }'} from {hl("'./useOnboardingProgress'", 'add')};</>,
+    content: (
+      <>
+        import {'{ useOnboardingProgress }'} from {hl("'./useOnboardingProgress'", 'add')};
+      </>
+    ),
   },
   { type: 'deletion', oldNo: 4, content: 'export function Stepper() {' },
   {
     type: 'addition',
     newNo: 5,
-    content: <>export function Stepper({hl('{ accountId }: { accountId: string }', 'add')}) {'{'}</>,
+    content: (
+      <>
+        export function Stepper({hl('{ accountId }: { accountId: string }', 'add')}) {'{'}
+      </>
+    ),
   },
   {
     type: 'deletion',
     oldNo: 5,
-    content: <>{'  const [step, setStep] = '}{hl('useState(0)', 'del')};</>,
+    content: (
+      <>
+        {'  const [step, setStep] = '}
+        {hl('useState(0)', 'del')};
+      </>
+    ),
   },
   {
     type: 'addition',
     newNo: 6,
-    content: <>{'  const { step, setStep } = '}{hl('useOnboardingProgress(accountId)', 'add')};</>,
+    content: (
+      <>
+        {'  const { step, setStep } = '}
+        {hl('useOnboardingProgress(accountId)', 'add')};
+      </>
+    ),
     noteTarget: true,
   },
   { type: 'context', oldNo: 6, newNo: 7, content: '  const total = 3;' },
@@ -235,15 +251,7 @@ function NotesIsland({ count, flash }: { count: number; flash?: boolean }) {
 /** The diff panel mid-review: word-level highlights, a note being written on
  * a changed line, and the island that hands the notes to the agent.
  * `pNote` types the note, `pSend` hands it to the agent. */
-export function NotedDiffPane({
-  pNote,
-  pSend,
-  tip,
-}: {
-  pNote: number;
-  pSend: number;
-  tip?: boolean;
-}) {
+export function NotedDiffPane({ pNote, pSend, tip }: { pNote: number; pSend: number; tip?: boolean }) {
   /* Typing takes as much of the beat as it can get: it starts as soon as the
      box opens and finishes just before the note is saved. The beat is short,
      and idling at either end of it is what makes the note look pasted. */
@@ -397,7 +405,9 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
       <Line p={p('fix')} at={0.08}>
         <div className="mt-2">
           <ClaudeUser>1 note on rework-onboarding vs main.</ClaudeUser>
-          <div className="pl-4 text-white/40 truncate">src/onboarding/Stepper.tsx:6 · does this survive sign-out? add a test</div>
+          <div className="pl-4 text-white/40 truncate">
+            src/onboarding/Stepper.tsx:6 · does this survive sign-out? add a test
+          </div>
         </div>
       </Line>
       <Line p={p('fix')} at={0.32}>
@@ -494,9 +504,10 @@ const LOOP_KEYS = ['note', 'send', 'fix'] as const;
 
 const LENS_NAME = 'Decision first';
 
-/** Dragged wider than the 220px the rail opens at, which truncates the
- *  longest of these names. */
-const RAIL_WIDTH = 264;
+/** The 220px the rail opens at. Widening it to fit the longest of these names
+ *  costs the document more than the truncation does, now that the inbox has
+ *  the left of the pane. */
+const RAIL_WIDTH = 220;
 
 interface LensFile {
   name: string;
@@ -617,7 +628,17 @@ function RailFiles({ files }: { files: LensFile[] }) {
   );
 }
 
-function LensRow({ label, hint, selected, aimed }: { label: string; hint?: string; selected?: boolean; aimed?: boolean }) {
+function LensRow({
+  label,
+  hint,
+  selected,
+  aimed,
+}: {
+  label: string;
+  hint?: string;
+  selected?: boolean;
+  aimed?: boolean;
+}) {
   return (
     <span
       className={`w-full px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 transition-colors duration-100 ${
@@ -654,9 +675,7 @@ function LensMenu({ aimed }: { aimed: boolean }) {
 function LensTrigger({ writing, on }: { writing: boolean; on: boolean }) {
   return (
     <div
-      className={`w-full h-full flex items-center gap-1.5 px-3 text-[13px] ${
-        writing ? 'text-ink/45' : 'text-ink/70'
-      }`}
+      className={`w-full h-full flex items-center gap-1.5 px-3 text-[13px] ${writing ? 'text-ink/45' : 'text-ink/70'}`}
     >
       <Icon name={on ? 'aperture' : 'tree-structure'} className="shrink-0 w-4 h-4 opacity-70" />
       <span className="flex-1 min-w-0 truncate">
@@ -737,6 +756,9 @@ const SEG_DIVIDER = <span aria-hidden className="w-px h-3 bg-ink/10 self-center"
 function PrChrome() {
   return (
     <header className="pane-ledge relative z-30 shrink-0 h-12 flex items-center gap-3 px-3">
+      <span className="w-7 h-7 -ml-1 shrink-0 rounded-md flex items-center justify-center text-ink/60 [&>svg]:w-3.5 [&>svg]:h-3.5">
+        <Icon name="caret-left" />
+      </span>
       <span className="flex items-center gap-2 min-w-0 text-text-secondary">
         <Icon name="git-pull-request" className="w-4 h-4 shrink-0 text-vcs-added" />
         <span className="truncate text-[15px]">Rework onboarding flow</span>
@@ -778,40 +800,46 @@ export function LensedDiffCard({ pPick, pParts }: { pPick: number; pParts: numbe
   const writing = pPick >= 0.55 && !written;
 
   return (
-    <div className="flex flex-col absolute inset-0 overflow-hidden bg-terminal-bg">
-      <PrChrome />
-      <div className="relative flex flex-1 min-h-0">
-        <div className="shrink-0 flex flex-col overflow-hidden border-r border-bezel" style={{ width: RAIL_WIDTH }}>
-          {/* `h-9` is a file card's header, which is what this ledge meets
+    <div className="flex absolute inset-0 overflow-hidden bg-terminal-bg">
+      {/* The inbox stays open beside the request being read: which ones are
+          waiting on you is the reason this one is on screen. */}
+      <PullRequestSidebar width={300} active={501} />
+      <div className="pane-seam relative w-px shrink-0" />
+      <div className="flex flex-col flex-1 min-w-0">
+        <PrChrome />
+        <div className="relative flex flex-1 min-h-0">
+          <div className="shrink-0 flex flex-col overflow-hidden border-r border-bezel" style={{ width: RAIL_WIDTH }}>
+            {/* `h-9` is a file card's header, which is what this ledge meets
               across the seam — a pull request has no toolbar over its
               document. */}
-          <div className="pane-ledge shrink-0 h-9 flex flex-col">
-            <LensTrigger writing={writing} on={written} />
-          </div>
-          <div className="flex-1 min-h-0 overflow-hidden">
-            {written ? (
-              LENS_PARTS.map((part, at) => {
-                const enter = partEnter(at);
-                return (
-                  <div key={part.title} className={`flex flex-col ${enter.className}`} style={enter.style}>
-                    <div className="flex items-center gap-1.5 h-9 px-3 text-[12px] font-medium text-ink/90">
-                      <span className="min-w-0 flex-1 truncate">{part.title}</span>
-                      <Icon name="minus" className="shrink-0 !w-3 !h-3 opacity-50" />
+            <div className="pane-ledge shrink-0 h-9 flex flex-col">
+              <LensTrigger writing={writing} on={written} />
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              {written ? (
+                LENS_PARTS.map((part, at) => {
+                  const enter = partEnter(at);
+                  return (
+                    <div key={part.title} className={`flex flex-col ${enter.className}`} style={enter.style}>
+                      <div className="flex items-center gap-1.5 h-9 px-3 text-[12px] font-medium text-ink/90">
+                        <span className="min-w-0 flex-1 truncate">{part.title}</span>
+                        <Icon name="minus" className="shrink-0 !w-3 !h-3 opacity-50" />
+                      </div>
+                      <RailFiles files={part.files} />
                     </div>
-                    <RailFiles files={part.files} />
-                  </div>
-                );
-              })
-            ) : (
-              <RailFiles files={FLAT_FILES} />
-            )}
+                  );
+                })
+              ) : (
+                <RailFiles files={FLAT_FILES} />
+              )}
+            </div>
           </div>
-        </div>
-        {menuOpen && <LensMenu aimed={pPick > 0.34} />}
-        <div className="diff-well diff-list relative flex-1 min-w-0 overflow-hidden pb-3">
-          {written
-            ? LENS_PARTS.map((part, at) => <DocPart key={part.title} part={part} at={at} />)
-            : FLAT_FILES.map((file) => <DocFileCard key={file.name} file={file} />)}
+          {menuOpen && <LensMenu aimed={pPick > 0.34} />}
+          <div className="diff-well diff-list relative flex-1 min-w-0 overflow-hidden pb-3">
+            {written
+              ? LENS_PARTS.map((part, at) => <DocPart key={part.title} part={part} at={at} />)
+              : FLAT_FILES.map((file) => <DocFileCard key={file.name} file={file} />)}
+          </div>
         </div>
       </div>
     </div>
@@ -839,7 +867,7 @@ const CAPTIONS: { keys: readonly string[]; title: string; body: string; ms: numb
   },
   {
     keys: [...LENS_KEYS],
-    title: 'View diffs through a new lens',
+    title: 'View diffs and PRs through a new lens',
     body: 'Keep an instruction like ‘lead with the decision, mechanical churn last’, and an agent regroups any diff into named parts.',
     ms: 7000,
   },

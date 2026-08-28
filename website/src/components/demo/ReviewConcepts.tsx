@@ -166,7 +166,7 @@ const COPY = {
     body: 'Hotspots help you identify complexity, churn, and ownership risk, then highlight those problems when they’re most actionable.',
   },
   lens: {
-    title: 'View diffs through a new lens',
+    title: 'View diffs and PRs through a new lens',
     body: 'Keep an instruction like ‘lead with the decision, mechanical churn last’, and an agent regroups any diff into named parts.',
   },
 };
@@ -255,9 +255,9 @@ export function ReviewStrip() {
 /* ─── B: three bands, one topic at a time ─────────────────────────── */
 
 /** The width a band's panel is drawn at, whatever the column comes to. Wide
- *  enough for the split — the diff and the session either side of it — which
- *  is the panel here that needs the most. */
-const PANEL_WIDTH = 1000;
+ *  enough for the pull request — the inbox, the file rail and the document
+ *  across it — which is the panel here that needs the most. */
+const PANEL_WIDTH = 1100;
 
 /** A band: the surface drawn at a window's size and scaled into the column, the
  *  copy for it to the right, and that surface's own loop under the copy. Each
