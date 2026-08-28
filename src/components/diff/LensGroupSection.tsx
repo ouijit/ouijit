@@ -1,32 +1,32 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { partEnter } from './lensReveal';
 import type { ResolvedGroup } from '../../lens/lens';
+import { count } from '../../analysis/advice';
 import { Icon } from '../terminal/Icon';
 
 /**
- * One part of a lens, with the files that make it up.
- *
- * Two things pin to the top of the pane — which part you are in and which file
- * — and they are a hierarchy, not rivals for the same line. So this header
- * measures itself and publishes `--diff-sticky-offset`, which file headers pin
- * below. Measured rather than hard-coded because text grows with the platform's
- * font size; without a lens nothing publishes it and the fallback is `0px`.
+ * Two things pin to the top of the pane, and they are a hierarchy: this header
+ * publishes its own height as `--diff-sticky-offset`, which file headers pin
+ * below. Measured rather than fixed because text grows with the platform's font
+ * size; without a lens nothing publishes it and the fallback is `0px`.
  */
 export function LensGroupSection({
   group,
   collapsed,
   onCollapsedChange,
-  revealDelay,
+  revealIndex,
   children,
 }: {
   group: ResolvedGroup;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
-  /** Laying itself in this long after the first part. Absent when it is not. */
-  revealDelay?: number;
+  /** Its place in the stagger. Absent when the part is not entering. */
+  revealIndex?: number;
   children: ReactNode;
 }) {
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const enter = partEnter(revealIndex);
 
   useLayoutEffect(() => {
     const element = headerRef.current;
@@ -43,17 +43,12 @@ export function LensGroupSection({
 
   return (
     // Identified, because one file can belong to three parts and the rail has to
-    // say which copy of it a click meant.
+    // say which copy a click meant.
     <div
       data-group={group.id}
       data-collapsed={collapsed ? '' : undefined}
-      className={`lens-part diff-list flex flex-col ${revealDelay === undefined ? '' : 'lens-part-enter'}`}
-      style={
-        {
-          '--diff-sticky-offset': `${headerHeight}px`,
-          ...(revealDelay === undefined ? null : { animationDelay: `${revealDelay}ms` }),
-        } as CSSProperties
-      }
+      className={`lens-part diff-list flex flex-col ${enter.className}`}
+      style={{ '--diff-sticky-offset': `${headerHeight}px`, ...enter.style } as CSSProperties}
     >
       <div ref={headerRef} className="pane-ledge-raised sticky top-0 z-20 bg-surface">
         <button
@@ -72,9 +67,7 @@ export function LensGroupSection({
             {group.title}
           </span>
           {collapsed && (
-            <span className="shrink-0 font-mono text-[11px] text-ink/35">
-              {group.slices.length} {group.slices.length === 1 ? 'file' : 'files'}
-            </span>
+            <span className="shrink-0 font-mono text-[11px] text-ink/35">{count(group.slices.length, 'file')}</span>
           )}
         </button>
       </div>

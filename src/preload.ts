@@ -31,7 +31,6 @@ import type {
   SaveDraftInput,
   PrHead,
 } from './github/types';
-import type { LensAgentChoice } from './lens/lensAgents';
 import type { LensInput } from './lens/config';
 import type { SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
@@ -423,7 +422,7 @@ contextBridge.exposeInMainWorld('api', {
     save: (projectPath: string, lens: LensInput) => typedInvoke('lens:save', projectPath, lens),
     delete: (projectPath: string, lensId: string) => typedInvoke('lens:delete', projectPath, lensId),
     agent: (projectPath: string) => typedInvoke('lens:agent', projectPath),
-    setAgent: (projectPath: string, choice: LensAgentChoice) => typedInvoke('lens:set-agent', projectPath, choice),
+    setAgent: (projectPath: string, chosenId: string | null) => typedInvoke('lens:set-agent', projectPath, chosenId),
     onListChanged: (callback: (projectPath: string) => void) => typedListen('lens:list-changed', callback),
     onChanged: (callback: (payload: LensChangedPayload) => void) => typedListen('lens:changed', callback),
   },

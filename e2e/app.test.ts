@@ -1,31 +1,9 @@
-import { test, expect, createTestRepo } from './fixtures';
+import { test, expect, createTestRepo, enterProject } from './fixtures';
 import type { Page, Locator, ElectronApplication } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-
-/**
- * Helper: add a project and enter project mode.
- * Hovers the sidebar trigger zone to reveal the auto-hiding sidebar,
- * then clicks the project icon to navigate into project mode.
- */
-async function enterProject(appPage: Page, repoPath: string): Promise<void> {
-  // Add project and refresh the store so the sidebar item renders
-  await appPage.evaluate(async (rp: string) => {
-    await window.api.addProject(rp);
-    const projects = await window.api.refreshProjects();
-    (window as any).__appStore.getState().setProjects(projects);
-  }, repoPath);
-
-  // Hover the left edge to reveal the auto-hiding sidebar
-  await appPage.mouse.move(2, 200);
-  const sidebarItem = appPage.locator('[data-project-path]').first();
-  await expect(sidebarItem).toBeVisible({ timeout: 10_000 });
-  await sidebarItem.click();
-  // First entry shows kanban board (no existing terminals)
-  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
-}
 
 /**
  * Helper: navigate into an already-registered project by path. `enterProject`

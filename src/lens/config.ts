@@ -1,12 +1,12 @@
 import { randomUUID, type UUID } from 'node:crypto';
 import { getGlobalSetting, setGlobalSetting } from '../db';
-import { getCachedHealth, checkHealth } from '../healthCheck';
-import { installedAgents, resolveLensAgent, type LensAgent, type LensAgentChoice } from './lensAgents';
+import { currentHealth } from '../healthCheck';
+import { resolveLensAgent, type LensAgent } from './lensAgents';
 
 export interface LensSummary {
   /**
-   * Stable across every edit, including a rename: a stored grouping records the
-   * lens that wrote it, and the name has to be free to move without it.
+   * Stable across a rename: a stored grouping records the lens that wrote it, and
+   * the name has to be free to move without it.
    */
   id: UUID;
   name: string;
@@ -103,31 +103,19 @@ function lensAgentKey(projectPath: string): string {
   return 'lens:agent:' + projectPath;
 }
 
-export async function getLensAgentChoice(projectPath: string): Promise<LensAgentChoice> {
-  const raw = await getGlobalSetting(lensAgentKey(projectPath));
-  if (!raw) return { agentId: null };
-  try {
-    const parsed = JSON.parse(raw) as Partial<LensAgentChoice>;
-    return { agentId: typeof parsed.agentId === 'string' ? parsed.agentId : null };
-  } catch {
-    return { agentId: null };
-  }
+export async function getLensAgentChoice(projectPath: string): Promise<string | null> {
+  return (await getGlobalSetting(lensAgentKey(projectPath))) || null;
 }
 
 async function resolveLensAgentFor(projectPath: string): Promise<LensAgent | null> {
-  const health = getCachedHealth() ?? (await checkHealth());
-  return resolveLensAgent(await getLensAgentChoice(projectPath), installedAgents(health));
+  return resolveLensAgent(await getLensAgentChoice(projectPath), await currentHealth());
 }
 
-export async function setLensAgentChoice(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }> {
-  await setGlobalSetting(lensAgentKey(projectPath), JSON.stringify(choice));
+export async function setLensAgentChoice(projectPath: string, chosenId: string | null): Promise<{ success: boolean }> {
+  await setGlobalSetting(lensAgentKey(projectPath), chosenId ?? '');
   return { success: true };
 }
 
-/**
- * Both kinds of diff start here, so the wording a reader sees when a lens cannot
- * run is the same wherever they asked from.
- */
 export async function resolveLensRun(
   projectPath: string,
   lensId: string,

@@ -9,30 +9,22 @@ import { describeError } from '../../utils/describeError';
 
 const lensLog = log.scope('lens');
 
-/**
- * A diff a lens can be read for and written over, as the renderer sees it. The
- * mirror of main's `DiffSubject`: a pull request and a worktree's own changes
- * differ here and in nothing else.
- */
+/** The renderer's mirror of main's `DiffSubject`. */
 export interface LensSource {
-  /** Which project's announcements this pane is listening for. */
   projectPath: string;
   /**
-   * What a run belongs to. Not the head commit: a run in flight belongs to the
-   * pull request rather than to whatever was on top when it started, and a
-   * reopened pane matches against this to find the run it left going.
+   * Not the head commit: a run in flight belongs to the pull request rather than
+   * to whatever was on top when it started, and a reopened pane matches against
+   * this to find the run it left going.
    */
   key: string | null;
   /** Changes when the diff itself moves, so the stored lens is read again. */
-  revision?: string;
+  revision: string;
   read: () => Promise<StoredLens | null>;
   write: (lensId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
-/**
- * A run in flight. The name is carried rather than looked up, since the lens may
- * be deleted while its run is still going.
- */
+/** The name is carried, since the lens can be deleted while its run is going. */
 export interface LensRun {
   id: string;
   name: string;
@@ -209,14 +201,18 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
     [lens, diffs, order],
   );
 
-  return {
-    lens,
-    resolved,
-    shown: lensOn ? resolved : null,
-    lensOn,
-    setLensOn: setChosen,
-    writing,
-    landed,
-    run,
-  };
+  // One identity per change, so a pane holding the session can be memoised.
+  return useMemo(
+    () => ({
+      lens,
+      resolved,
+      shown: lensOn ? resolved : null,
+      lensOn,
+      setLensOn: setChosen,
+      writing,
+      landed,
+      run,
+    }),
+    [lens, resolved, lensOn, setChosen, writing, landed, run],
+  );
 }

@@ -1,8 +1,9 @@
-import { test, expect, createTestRepo } from './fixtures';
+import { test, expect, createTestRepo, enterProject } from './fixtures';
 import type { Page } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { worktreeSubjectKey } from '../src/lens/subjectKeys';
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
@@ -12,11 +13,6 @@ const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
  * chaptered document are unverified there. Writing a lens needs an agent, which
  * e2e cannot spawn, so the grouping is seeded into the running app's database.
  */
-
-/** The one thing this has to know about storage: how a worktree diff is keyed. */
-function subjectKey(worktreePath: string, base: string): string {
-  return `wt:${worktreePath}:${base}`;
-}
 
 async function seedLens(
   userDataDir: string,
@@ -36,18 +32,9 @@ async function seedLens(
   db.close();
 }
 
-async function enterProject(appPage: Page, repoPath: string): Promise<void> {
-  await appPage.evaluate(async (rp: string) => {
-    await window.api.addProject(rp);
-    const projects = await window.api.refreshProjects();
-    (window as any).__appStore.getState().setProjects(projects);
-  }, repoPath);
-
-  await appPage.mouse.move(2, 200);
-  const sidebarItem = appPage.locator('[data-project-path]').first();
-  await expect(sidebarItem).toBeVisible({ timeout: 10_000 });
-  await sidebarItem.click();
-  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
+/** Into the project, then into a terminal, which is where the diff panel lives. */
+async function enterProjectTerminal(appPage: Page, repoPath: string): Promise<void> {
+  await enterProject(appPage, repoPath);
   await appPage.keyboard.press(`${modifier}+t`);
   await expect(appPage.locator('.kanban-board')).toHaveCount(0, { timeout: 5_000 });
 }
@@ -60,7 +47,7 @@ test('the diff panel reads a change through a lens', async ({ appPage, userDataD
     fs.writeFileSync(path.join(repo.repoPath, 'README.md'), '# Test Project\n\nnow with more words\n');
     fs.writeFileSync(path.join(repo.repoPath, 'store.ts'), 'export const rows = [];\n');
 
-    await enterProject(appPage, repo.repoPath);
+    await enterProjectTerminal(appPage, repo.repoPath);
     await appPage.keyboard.press(`${modifier}+i`);
     await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 10_000 });
 
@@ -76,7 +63,7 @@ test('the diff panel reads a change through a lens', async ({ appPage, userDataD
 
     await seedLens(userDataDir, {
       projectPath: repo.repoPath,
-      subjectKey: subjectKey(repo.repoPath, base),
+      subjectKey: worktreeSubjectKey(repo.repoPath, base),
       lensId: lens.id,
       lensName: lens.name,
       groups: JSON.stringify({

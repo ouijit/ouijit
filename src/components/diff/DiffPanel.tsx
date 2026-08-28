@@ -23,13 +23,15 @@ import { InlineCommentBox, InlineCommentCard } from './InlineCommentBox';
 import { DiffNotesIsland } from './DiffNotesIsland';
 import { DiffComparisonPicker } from './DiffComparisonPicker';
 import { useDiffNotes } from './useDiffNotes';
-import { useDiffLens } from './useDiffLens';
+import { useProjectLenses } from './useProjectLenses';
+import { useLensSession } from './useLensSession';
+import { worktreeSubjectKey } from '../../lens/subjectKeys';
 import { estimateLensPromptChars } from '../../lens/lensPrompt';
 import { LensPicker } from './LensPicker';
 import { LensedFileList } from './LensedFileList';
 import { LensDialog } from '../dialogs/LensDialog';
 import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type DiffLineAnchor } from '../../diffAnchor';
-import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
+import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff, baseToReadAgainst } from '../../diffSource';
 import { partHolding, type ResolvedSlice } from '../../lens/lens';
 import type { DiffLensTarget } from '../../lens/worktreeSubject';
 import { toggleIn } from '../../utils/toggleIn';
@@ -53,10 +55,11 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const sidebarCollapsed = useUIStore((s) => s.diffFileListCollapsed);
   const sidebarWidth = useUIStore((s) => s.diffFileListWidth);
-  // By section, not by path: a lens can put one file in three parts, and each
-  // is folded on its own. Gone when the panel closes, unlike the pull request
-  // pane's, since folding here is scroll management rather than review state.
+  // By section, not by path: a lens can put one file in three parts, and each is
+  // folded on its own.
   const [folded, setFolded] = useState<Set<string>>(new Set());
+  /** Parts of the lens folded away in the document, by group id. */
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   // Through a ref so callbacks survive each batch of diffs arriving.
   const diffsRef = useRef(diffs);
@@ -143,16 +146,29 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     files,
     filesFingerprint,
     (file) => {
-      // An untracked file is in no revision, so no comparison can produce it;
-      // read it whole instead.
-      return file.status === '?' || !base
-        ? window.api.getFileDiff(gitPath, file.path, undefined, file.status === '?')
-        : window.api.worktree.getFileDiff(gitPath, base, file.path, file.oldPath);
+      const against = baseToReadAgainst(base, file.status);
+      return against
+        ? window.api.worktree.getFileDiff(gitPath, against, file.path, file.oldPath)
+        : window.api.getFileDiff(gitPath, file.path, undefined, file.status === '?');
     },
     setDiffs,
   );
 
-  const lens = useDiffLens(lensTarget, diffs, order, filesFingerprint);
+  const lenses = useProjectLenses(projectPath);
+  const lens = useLensSession(
+    {
+      projectPath,
+      // Not the target object, which is rebuilt on every render and would have
+      // the session reloading forever.
+      key: lensTarget ? worktreeSubjectKey(lensTarget.worktreePath, lensTarget.base) : null,
+      revision: filesFingerprint,
+      read: () => (lensTarget ? window.api.diffLens.get(lensTarget) : Promise.resolve(null)),
+      write: (lensId) =>
+        lensTarget ? window.api.diffLens.run(lensTarget, lensId) : Promise.resolve({ success: false }),
+    },
+    diffs,
+    order,
+  );
   const [lensesOpen, setLensesOpen] = useState(false);
 
   // With the group, not just the path: a lens can name the same file in three
@@ -263,13 +279,9 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     setFolded((prev) => toggleIn(prev, section, next));
   }, []);
 
-  const { setCollapsed } = lens;
-  const toggleGroup = useCallback(
-    (id: string, next: boolean) => {
-      setCollapsed((prev) => toggleIn(prev, id, next));
-    },
-    [setCollapsed],
-  );
+  const toggleGroup = useCallback((id: string, next: boolean) => {
+    setCollapsed((prev) => toggleIn(prev, id, next));
+  }, []);
 
   const stats = useMemo(() => {
     const displayed = files.length;
@@ -326,23 +338,18 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           {lensTarget && (
             <div className="pane-ledge shrink-0 flex flex-col h-11">
               <LensPicker
-                lenses={lens.lenses}
-                onFile={lens.lens}
-                resolved={lens.resolved}
-                lensOn={lens.lensOn}
+                session={lens}
+                lenses={lenses}
                 changedFiles={files.length}
                 promptChars={promptChars}
-                writing={lens.writing}
-                onAllFiles={() => lens.setLensOn(false)}
-                onShowLens={() => lens.setLensOn(true)}
-                onRun={(picked) => void lens.run(picked)}
+                onLensOn={lens.setLensOn}
                 onManage={() => setLensesOpen(true)}
               />
             </div>
           )}
           <DiffFileTree
             files={files}
-            lens={{ groups: lens.shown, collapsed: lens.collapsed, onCollapsedChange: toggleGroup }}
+            lens={{ groups: lens.shown, collapsed, onCollapsedChange: toggleGroup }}
             onFileClick={scrollToFile}
             renderFileTrailing={analysisSignals ? railTrailing : undefined}
             revealing={revealing}
@@ -402,7 +409,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
               order={order}
               groups={lens.shown}
               renderFile={renderFile}
-              collapsed={lens.collapsed}
+              collapsed={collapsed}
               onCollapsedChange={toggleGroup}
               revealing={revealing}
             />

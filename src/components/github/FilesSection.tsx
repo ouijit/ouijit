@@ -20,7 +20,7 @@ import {
 } from '../../diffAnchor';
 import { describeLines } from '../../diffAnchor';
 import { sectionKey, type ResolvedGroup, type ResolvedSlice } from '../../lens/lens';
-import { isSectionViewed, markSection } from '../../github/viewedSections';
+import { isSectionViewed } from '../../github/viewedSections';
 import { unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
@@ -49,7 +49,7 @@ interface FilesSectionProps {
   /** The order the rail shows these files in, which the document follows. */
   order: readonly string[];
   /** The lens bound to this diff, when the reader has it on. */
-  groups?: ResolvedGroup[] | null;
+  groups: ResolvedGroup[] | null;
   /** The grouping has just arrived, so its parts lay themselves in. */
   revealing?: boolean;
 }
@@ -410,24 +410,12 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const setViewed = useCallback(
     (section: string, path: string, next: boolean) => {
-      const store = useGithubStore.getState();
-      const change = markSection(
-        store.viewedPaths,
-        store.viewedSections,
-        partsOf.get(path) ?? [path],
-        section,
-        path,
-        next,
-      );
-      store.setViewedSections(change.sections);
-      if (change.file !== undefined) store.setFileViewed(projectPath, detail.number, detail.headSha, path, change.file);
+      useGithubStore.getState().markSectionViewed(path, section, partsOf.get(path) ?? [path], next);
     },
-    [projectPath, detail.number, detail.headSha, partsOf],
+    [partsOf],
   );
 
-  const setGroupCollapsed = useCallback((id: string, next: boolean) => {
-    useGithubStore.getState().setGroupCollapsed(id, next);
-  }, []);
+  const setGroupCollapsed = useGithubStore((s) => s.setGroupCollapsed);
 
   const renderFile = (file: PullRequestFile, key?: string, slice?: ResolvedSlice) => (
     <FileSection
@@ -469,7 +457,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         <LensedFileList
           files={files}
           order={order}
-          groups={groups ?? null}
+          groups={groups}
           renderFile={renderFile}
           collapsed={collapsed}
           onCollapsedChange={setGroupCollapsed}

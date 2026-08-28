@@ -12,6 +12,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { runLens } from '../../lens/runLens';
+import { buildLensPrompt } from '../../lens/lensPrompt';
 import type { LensAgent } from '../../lens/lensAgents';
 import { fileDiff, diffsByPath } from '../lensFixtures';
 
@@ -58,13 +59,13 @@ function agentFor(command: string, schemaVia: LensAgent['schemaVia']): LensAgent
 }
 
 function run(agent: LensAgent) {
-  return runLens({
+  const { prompt } = buildLensPrompt({
     subject: { lead: 'You are grouping the changes', heading: '# feature', body: 'why it changed' },
     files: [{ path: 'a.ts', status: 'M', additions: 3, deletions: 0 }],
     diffs: diffsByPath(fileDiff('a.ts', [[1, 3]])),
     instruction: 'group by story',
-    agent,
   });
+  return runLens({ prompt, agent });
 }
 
 beforeEach(async () => {

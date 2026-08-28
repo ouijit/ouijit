@@ -1,5 +1,4 @@
 import type Database from 'better-sqlite3';
-import { worktreeKeyPrefix } from '../../lens/subjectKeys';
 
 export interface DiffLensRow {
   project_path: string;
@@ -16,15 +15,13 @@ export interface DiffLensRow {
   omitted: number;
   /** The lens an agent is writing right now, or was when this process last ran. */
   running_lens_id: string | null;
-  /** An ISO instant, unlike `created_at` — this one is read and formatted. */
+  /** An ISO instant: this one is formatted for the reader, not only compared. */
   running_since: string | null;
-  created_at: string;
 }
 
 /**
- * One lens per thing a lens can be written over. A pull request and a worktree
- * diff are the same row, told apart by the subject key, and both have at most
- * one: a second lens for the same change is a correction, not an addition.
+ * A pull request and a worktree diff are the same row, told apart by the subject
+ * key. Both have at most one lens: a second is a correction, not an addition.
  */
 export class DiffLensRepo {
   constructor(private db: Database.Database) {}
@@ -45,8 +42,8 @@ export class DiffLensRepo {
   ): void {
     this.db
       .prepare(
-        `INSERT INTO diff_lenses (project_path, subject_key, pin, groups, lens_id, lens_name, omitted, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `INSERT INTO diff_lenses (project_path, subject_key, pin, groups, lens_id, lens_name, omitted)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(project_path, subject_key) DO UPDATE SET
            pin = excluded.pin,
            groups = excluded.groups,
@@ -54,8 +51,7 @@ export class DiffLensRepo {
            lens_name = excluded.lens_name,
            omitted = excluded.omitted,
            running_lens_id = NULL,
-           running_since = NULL,
-           created_at = excluded.created_at`,
+           running_since = NULL`,
       )
       .run(projectPath, subjectKey, pin, groups, lens?.id ?? null, lens?.name ?? null, omitted);
   }
@@ -67,8 +63,8 @@ export class DiffLensRepo {
   startRun(projectPath: string, subjectKey: string, lensId: string): void {
     this.db
       .prepare(
-        `INSERT INTO diff_lenses (project_path, subject_key, running_lens_id, running_since, created_at)
-         VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), datetime('now'))
+        `INSERT INTO diff_lenses (project_path, subject_key, running_lens_id, running_since)
+         VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
          ON CONFLICT(project_path, subject_key) DO UPDATE SET
            running_lens_id = excluded.running_lens_id,
            running_since = excluded.running_since`,
@@ -87,12 +83,10 @@ export class DiffLensRepo {
   }
 
   /**
-   * Every lens written over one worktree, whatever it was compared to. Matched
-   * by prefix length rather than LIKE, whose wildcards a path containing an
-   * underscore would trip.
+   * Matched by prefix length rather than LIKE, whose wildcards a path
+   * containing an underscore would trip.
    */
-  deleteForWorktree(projectPath: string, worktreePath: string): void {
-    const prefix = worktreeKeyPrefix(worktreePath);
+  deleteByKeyPrefix(projectPath: string, prefix: string): void {
     this.db
       .prepare('DELETE FROM diff_lenses WHERE project_path = ? AND substr(subject_key, 1, ?) = ?')
       .run(projectPath, prefix.length, prefix);

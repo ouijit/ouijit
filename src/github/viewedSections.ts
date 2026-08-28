@@ -26,23 +26,21 @@ export interface ViewedChange {
  * lens a file is its own only part, and this reduces to marking the file.
  */
 export function markSection(
-  viewedPaths: readonly string[],
   viewedSections: ReadonlySet<string>,
+  whole: boolean,
   siblings: readonly string[],
   section: string,
-  path: string,
   next: boolean,
 ): ViewedChange {
   const marks = new Set(viewedSections);
-  const whole = viewedPaths.includes(path);
 
   if (!next) {
     if (!whole) {
       marks.delete(section);
       return { sections: marks };
     }
-    // The file was claimed whole, so the parts it was rolled up from were let
-    // go. Unreading one hands the others back rather than losing them.
+    // The parts were let go when the file was claimed whole. Unreading one hands
+    // the others back rather than losing them.
     for (const sibling of siblings) if (sibling !== section) marks.add(sibling);
     marks.delete(section);
     return { sections: marks, file: false };

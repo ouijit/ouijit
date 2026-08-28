@@ -91,9 +91,8 @@ export const DiffFileSection = memo(function DiffFileSection({
     /* `clip`, not `hidden`: `hidden` makes a scroll container, which strands
        the sticky header inside this box instead of pinning it to the pane. */
     <div className="diff-card mx-6 rounded-[14px] border border-bezel bg-diff-card overflow-clip" data-path={path}>
-      {/* Pins below whatever claimed the top of the pane — under a lens that is
-          the part header, which publishes its height — and to the top itself
-          when nothing has. */}
+      {/* Pins below whichever header claimed the top of the pane, which under a
+          lens is the part's; `0px` when nothing has. */}
       <div
         className="pane-ledge sticky z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface"
         style={{ top: 'var(--diff-sticky-offset, 0px)' }}

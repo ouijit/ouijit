@@ -34,7 +34,7 @@ describe('LensList', () => {
         ? { ...NARRATIVE, name: input.name, instruction: input.instruction }
         : aLens(input.name, input.instruction),
     );
-    vi.mocked(window.api.lens.agent).mockResolvedValue({ agentId: null });
+    vi.mocked(window.api.lens.agent).mockResolvedValue(null);
     window.api.health.check = vi.fn().mockResolvedValue({ claude: true, codex: false });
   });
 

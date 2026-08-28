@@ -1,22 +1,24 @@
+import type { HealthStatus } from '../healthCheck';
+
 /**
- * How to ask an agent one question and get one answer: no session, no tools, no
- * approvals, prompt in and one object out. Three things every preset must
- * provide, and an agent that cannot is not here:
+ * Three things a preset must be able to do, and an agent that cannot is not here:
  *
  *   isolation  The repository's own configuration must not load. A headless run
  *              in a worktree otherwise executes whatever hooks, plugins and MCP
  *              servers that repository carries, which is a diff being read
  *              turning into code being run.
- *   no tools   The prompt carries the whole diff, and a headless run cannot
- *              answer an approval prompt, so a tool call is where one stalls.
+ *   no tools   A headless run cannot answer an approval prompt, so a tool call
+ *              is where one stalls.
  *   schema     The CLI holds the model to the shape. Recovering JSON from prose
  *              is a guess, not a contract.
  */
 
+export type LensAgentId = 'claude' | 'codex';
+
 export interface LensAgent {
-  id: string;
+  id: LensAgentId;
   label: string;
-  /** Binary to run. Resolved on PATH, so the Ouijit wrapper is picked up. */
+  /** Resolved on PATH, so the Ouijit wrapper is picked up. */
   command: string;
   args: string[];
   /**
@@ -71,37 +73,19 @@ function lensAgent(id: string): LensAgent | undefined {
   return LENS_AGENTS.find((agent) => agent.id === id);
 }
 
-/** Which agents are actually on this machine, keyed by the ids above. */
-export type InstalledAgents = Partial<Record<string, boolean>>;
-
-export function installedAgents(health: { claude: boolean; codex: boolean } | null | undefined): InstalledAgents {
-  if (!health) return {};
-  return { claude: health.claude, codex: health.codex };
-}
-
-/**
- * A null `agentId` is the ordinary case: nobody has chosen, so whatever is
- * installed decides. Never resolved and written back, or a machine that later
- * installs a second agent would be answered by a preference nobody expressed.
- */
-export interface LensAgentChoice {
-  agentId: string | null;
-}
+/** Typed off the ids, so a new preset does not compile without a probe. */
+export type InstalledAgents = Pick<HealthStatus, LensAgentId>;
 
 function pickLensAgent(installed: InstalledAgents): LensAgent | null {
   return LENS_AGENTS.find((agent) => installed[agent.id]) ?? null;
 }
 
 /**
- * Null when no choice was made and nothing is installed, which is what keeps the
- * failure "no supported agent is installed" rather than an ENOENT naming
- * whichever binary we assumed. There is no custom-command escape hatch: a binary
- * this app knows no flags for cannot be isolated or held to the schema.
+ * Null where nothing is installed, so the failure reads "no supported agent"
+ * rather than an ENOENT naming whichever binary we assumed. There is no
+ * custom-command escape hatch: a binary this app knows no flags for cannot be
+ * isolated or held to the schema.
  */
-export function resolveLensAgent(
-  choice: LensAgentChoice | null | undefined,
-  installed: InstalledAgents = {},
-): LensAgent | null {
-  const chosen = choice?.agentId ? lensAgent(choice.agentId) : null;
-  return chosen ?? pickLensAgent(installed);
+export function resolveLensAgent(chosenId: string | null, installed: InstalledAgents): LensAgent | null {
+  return (chosenId ? lensAgent(chosenId) : null) ?? pickLensAgent(installed);
 }

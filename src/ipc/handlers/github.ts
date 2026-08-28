@@ -1,6 +1,5 @@
 import { getViewedFiles, setFileViewed } from '../../github/viewedFiles';
-import type { BrowserWindow } from 'electron';
-import { typedHandle, typedPush } from '../helpers';
+import { typedHandle } from '../helpers';
 import {
   getAvailability,
   getInbox,
@@ -31,14 +30,12 @@ import {
   createTaskFromIssue,
   prepareTaskFromPullRequest,
 } from '../../github/service';
-import { prSubjectKey } from '../../lens/subjectKeys';
 
 /**
- * Thin delegations, matching every other handler module in here. All the
- * gating (experimental flag, `gh` presence, auth, remote) lives in the service
- * so the REST router gets the same guarantees without duplicating them.
+ * The gating — experimental flag, `gh` presence, auth, remote — lives in the
+ * service, so the REST router gets the same guarantees from the same code.
  */
-export function registerGithubHandlers(mainWindow: BrowserWindow): void {
+export function registerGithubHandlers(): void {
   typedHandle('github:availability', (projectPath, recheck) => getAvailability(projectPath, recheck));
   typedHandle('github:inbox', (projectPath) => getInbox(projectPath));
   typedHandle('github:pull-request', (projectPath, number) => getPullRequest(projectPath, number));
@@ -83,15 +80,7 @@ export function registerGithubHandlers(mainWindow: BrowserWindow): void {
     createPullRequestForTask(projectPath, taskNumber, options),
   );
   typedHandle('github:lens', (projectPath, prNumber, headSha) => getPullRequestLens(projectPath, prNumber, headSha));
-  typedHandle('github:run-lens', async (projectPath, prNumber, lensId) => {
-    try {
-      return await writeLensWithAgent(projectPath, prNumber, lensId);
-    } finally {
-      // For a pane that did not start this one: a renderer reloaded mid-run
-      // holds a spinner with nothing else left to clear it.
-      typedPush(mainWindow, 'lens:changed', { projectPath, subjectKey: prSubjectKey(prNumber) });
-    }
-  });
+  typedHandle('github:run-lens', (projectPath, prNumber, lensId) => writeLensWithAgent(projectPath, prNumber, lensId));
   typedHandle('github:viewed-files', (projectPath, prNumber, headSha) =>
     getViewedFiles(projectPath, prNumber, headSha),
   );

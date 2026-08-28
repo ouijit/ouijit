@@ -23,10 +23,19 @@ export function useReadingAnchor(container: RefObject<HTMLElement | null>): () =
     const pane = container.current;
     if (!pane) return;
 
+    // Re-queried when the document changes rather than on every scroll frame:
+    // under a lens a file is on screen once per part that claims it.
+    let cards: HTMLElement[] | null = null;
+    const relayout = new MutationObserver(() => {
+      cards = null;
+    });
+    relayout.observe(pane, { childList: true, subtree: true });
+
     let queued = false;
     const measure = () => {
       queued = false;
-      at.current = pane.scrollTop > 0 ? topFile(pane) : null;
+      cards ??= [...pane.querySelectorAll<HTMLElement>('[data-path]')];
+      at.current = pane.scrollTop > 0 ? topFile(pane, cards) : null;
     };
     const onScroll = () => {
       if (queued) return;
@@ -35,7 +44,10 @@ export function useReadingAnchor(container: RefObject<HTMLElement | null>): () =
     };
 
     pane.addEventListener('scroll', onScroll, { passive: true });
-    return () => pane.removeEventListener('scroll', onScroll);
+    return () => {
+      pane.removeEventListener('scroll', onScroll);
+      relayout.disconnect();
+    };
   }, [container]);
 
   return useCallback(() => {
@@ -50,21 +62,19 @@ export function useReadingAnchor(container: RefObject<HTMLElement | null>): () =
     };
 
     land();
-    // Sections mounted by that scroll trade their estimated height for their
-    // real one, moving the file it landed on. `scrollToSection` lands twice too.
+    // Sections mounted by that scroll trade their estimated height for their real
+    // one, moving the file it landed on.
     requestAnimationFrame(() => requestAnimationFrame(land));
   }, [container]);
 }
 
 /**
- * The first card reaching past the pane's top edge. Halved rather than scanned,
- * since this runs on every scroll frame: the cards are stacked down the pane and
- * each mounted one sits inside its own placeholder, so the test is false for a
- * run of them and then true for the rest.
+ * The first card reaching past the pane's top edge. Halving is sound because the
+ * cards are stacked down the pane, each inside its own placeholder: the test is
+ * false for a run of them and then true for the rest.
  */
-function topFile(pane: HTMLElement): Anchor | null {
+function topFile(pane: HTMLElement, cards: readonly HTMLElement[]): Anchor | null {
   const top = pane.getBoundingClientRect().top;
-  const cards = pane.querySelectorAll<HTMLElement>('[data-path]');
 
   let lo = 0;
   let hi = cards.length - 1;

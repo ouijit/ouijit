@@ -13,6 +13,7 @@ import type {
 import type { FileDiff } from '../types';
 import { describeError } from '../utils/describeError';
 import { toggleIn, toggleInList } from '../utils/toggleIn';
+import { markSection } from '../github/viewedSections';
 import type { DiffAnchor } from '../diffAnchor';
 
 const githubLog = log.scope('github');
@@ -128,7 +129,8 @@ interface GithubStoreActions {
   setActiveSection: (section: string | null) => void;
   loadViewed: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) => void;
-  setViewedSections: (sections: Set<string>) => void;
+  /** `siblings` is every part of that file on screen, so a part read can roll the file up. */
+  markSectionViewed: (path: string, section: string, siblings: readonly string[], next: boolean) => void;
   setComposingAt: (anchor: GithubStoreState['composingAt']) => void;
   setSubmitting: (submitting: boolean) => void;
   setSidebarWidth: (width: number) => void;
@@ -371,8 +373,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     try {
       const detail = await window.api.github.pullRequest(projectPath, number);
       if (version !== detailVersion || get().projectPath !== projectPath) return;
-      const staleLens = get().detail?.headSha !== detail.headSha;
-      set({ detail, detailLoading: false, ...(staleLens ? CLEAR_FOR_HEAD : {}) });
+      const newHead = get().detail?.headSha !== detail.headSha;
+      set({ detail, detailLoading: false, ...(newHead ? CLEAR_FOR_HEAD : {}) });
 
       void get().loadDrafts(projectPath, number);
       void get().loadViewed(projectPath, number, detail.headSha);
@@ -457,7 +459,13 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     set({ collapsedGroups: toggleIn(get().collapsedGroups, id, collapsed) });
   },
 
-  setViewedSections: (viewedSections) => set({ viewedSections }),
+  markSectionViewed: (path, section, siblings, next) => {
+    const { projectPath, activeNumber, detail, viewedPaths, viewedSections, setFileViewed } = get();
+    const change = markSection(viewedSections, viewedPaths.includes(path), siblings, section, next);
+    set({ viewedSections: change.sections });
+    if (change.file === undefined || !projectPath || activeNumber === null || !detail) return;
+    setFileViewed(projectPath, activeNumber, detail.headSha, path, change.file);
+  },
 
   loadViewed: async (projectPath, prNumber, headSha) => {
     const paths = await window.api.github.viewedFiles(projectPath, prNumber, headSha);

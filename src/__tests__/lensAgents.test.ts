@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { resolveLensAgent, installedAgents, LENS_AGENTS } from '../lens/lensAgents';
+import { resolveLensAgent, LENS_AGENTS } from '../lens/lensAgents';
 
 const BOTH = { claude: true, codex: true };
 
@@ -21,23 +21,16 @@ describe('which agent writes a lens', () => {
 
   test('a choice outranks the list, and no choice takes the first one installed', () => {
     expect(resolveLensAgent(null, BOTH)?.id).toBe('claude');
-    expect(resolveLensAgent(null, { codex: true })?.id).toBe('codex');
+    expect(resolveLensAgent(null, { claude: false, codex: true })?.id).toBe('codex');
 
     // Installing Claude Code does not silently take the lens off whoever was
     // asked for.
-    expect(resolveLensAgent({ agentId: 'codex' }, BOTH)?.id).toBe('codex');
+    expect(resolveLensAgent('codex', BOTH)?.id).toBe('codex');
     // A choice naming something gone falls back rather than failing to run.
-    expect(resolveLensAgent({ agentId: 'nonexistent' }, BOTH)?.command).toBe(LENS_AGENTS[0].command);
+    expect(resolveLensAgent('nonexistent', BOTH)?.command).toBe(LENS_AGENTS[0].command);
 
     // Answered here so the failure can say no supported agent is installed,
     // rather than arriving as an ENOENT for whichever binary we assumed.
-    expect(resolveLensAgent(null, {})).toBeNull();
-  });
-
-  test('the health probe maps onto the agent ids', () => {
-    // Pi and opencode are probed for terminals and are not lens agents: neither
-    // can be held to a schema.
-    expect(installedAgents({ claude: false, codex: true })).toEqual({ claude: false, codex: true });
-    expect(installedAgents(null)).toEqual({});
+    expect(resolveLensAgent(null, { claude: false, codex: false })).toBeNull();
   });
 });

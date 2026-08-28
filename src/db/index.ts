@@ -16,6 +16,7 @@ import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
 import { DiffLensRepo, type DiffLensRow } from './repos/diffLensRepo';
+import { worktreeKeyPrefix } from '../lens/subjectKeys';
 import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import { getLogger } from '../logger';
@@ -470,7 +471,7 @@ export async function saveDiffLens(
 
 export async function deleteWorktreeDiffLenses(projectPath: string, worktreePath: string): Promise<void> {
   const { diffLensRepo: dl } = repos();
-  dl.deleteForWorktree(projectPath, worktreePath);
+  dl.deleteByKeyPrefix(projectPath, worktreeKeyPrefix(worktreePath));
 }
 
 export async function startDiffLensRun(projectPath: string, subjectKey: string, lensId: string): Promise<void> {

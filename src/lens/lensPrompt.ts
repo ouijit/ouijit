@@ -1,26 +1,16 @@
 import type { ChangedFile, FileDiff, DiffHunk } from '../types';
 import type { DiffSignals } from '../analysis/types';
 import { hunkSpan } from './lens';
-
-/**
- * Everything an agent needs to group a diff, assembled up front so it reads no
- * files and calls no tools: a headless session cannot approve a tool call, so
- * anything it has to go and fetch is somewhere the run can stall.
- */
+import { count } from '../analysis/advice';
 
 /** Characters of assembled prompt, kept well inside a single request. */
 export const LENS_PROMPT_BUDGET = 120_000;
 
-/** Above this a hunk is truncated, so one generated file cannot crowd out the
- *  rest of the change. */
+/** Above this a hunk is truncated, so one generated file cannot crowd out the rest. */
 const MAX_HUNK_CHARS = 6_000;
 
 const MAX_BODY_CHARS = 4_000;
 
-/**
- * Structural rather than either concrete type, since a pull request's files and
- * a worktree's are the same list to a lens.
- */
 export interface LensFile {
   path: string;
   status: ChangedFile['status'];
@@ -250,15 +240,13 @@ export function buildLensPrompt({ subject, files, diffs, instruction, signals, b
     '',
     ...(callouts ? [callouts, ''] : []),
     omitted > 0
-      ? `# Code\n\nThe change is large, so ${omitted} hunk${omitted === 1 ? '' : 's'} below the budget are listed above but not quoted here. Group them from their line spans and enclosing declarations.`
+      ? `# Code\n\nThe change is large, so ${count(omitted, 'hunk')} below the budget are listed above but not quoted here. Group them from their line spans and enclosing declarations.`
       : '# Code',
     '',
     hunks,
     '',
     GROUPING_GUIDE,
     '',
-    // Between the general guidance and the mechanics: theirs is the part that
-    // decides how this change in particular divides.
     '# How to group it',
     '',
     instruction,

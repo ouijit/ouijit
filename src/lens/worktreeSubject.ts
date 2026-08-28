@@ -1,7 +1,14 @@
 import { createHash } from 'node:crypto';
 import type { ChangedFile, FileDiff } from '../git';
 import { getGitFileStatus, getFileDiff, getWorktreeFileDiff, getBranchDiffPin } from '../git';
-import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff, isUncommittedBase } from '../diffSource';
+import {
+  MAX_DIFF_FILES,
+  diffShape,
+  diffSubject,
+  filesInDiff,
+  isUncommittedBase,
+  baseToReadAgainst,
+} from '../diffSource';
 import type { LensFile, LensSubject } from './lensPrompt';
 import type { DiffSubject } from './subject';
 import { worktreeSubjectKey } from './subjectKeys';
@@ -59,42 +66,34 @@ async function pinFor(target: DiffLensTarget, files: () => Promise<ChangedFile[]
 }
 
 /**
- * The cap included, or a lens is written over files the pane cannot render and
- * `resolveLens` drops what it said about them. `getPullRequestFiles` cuts a pull
- * request to the same length.
+ * Capped like `getPullRequestFiles`, or a lens is written over files the pane
+ * cannot render and `resolveLens` drops what it said about them.
  */
 async function filesFor(target: DiffLensTarget): Promise<ChangedFile[]> {
   const status = await getGitFileStatus(target.worktreePath, target.base ?? undefined);
   return status ? filesInDiff(status).slice(0, MAX_DIFF_FILES) : [];
 }
 
-/**
- * The other implementation of `DiffSubject` is a pull request's, in
- * `github/service.ts` beside the rest of what talks to GitHub.
- */
 class WorktreeSubject implements DiffSubject {
   readonly projectPath: string;
   readonly key: string;
-  readonly label: Record<string, unknown>;
+  readonly emptyMessage = 'There are no changes to group';
   readonly whenStale = 'render' as const;
 
   constructor(private target: DiffLensTarget) {
     this.projectPath = target.projectPath;
     this.key = worktreeSubjectKey(target.worktreePath, target.base);
-    this.label = { base: target.base ?? 'HEAD' };
   }
 
   async listFiles() {
-    return { files: await filesFor(this.target), emptyMessage: 'There are no changes to group' };
+    return { files: await filesFor(this.target) };
   }
 
   diffFor(file: LensFile): Promise<FileDiff | null> {
     const { worktreePath, base } = this.target;
-    const untracked = file.status === '?';
-    // An untracked file is in no revision, so no comparison against one can
-    // produce it.
-    if (base && !untracked) return getWorktreeFileDiff(worktreePath, base, file.path, file.oldPath);
-    return getFileDiff(worktreePath, file.path, undefined, untracked);
+    const against = baseToReadAgainst(base, file.status);
+    if (against) return getWorktreeFileDiff(worktreePath, against, file.path, file.oldPath);
+    return getFileDiff(worktreePath, file.path, undefined, file.status === '?');
   }
 
   pin(files?: LensFile[]): Promise<string> {

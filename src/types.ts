@@ -34,7 +34,6 @@ import type {
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
 import type { LensChangedPayload } from './lens/subjectKeys';
-import type { LensAgentChoice } from './lens/lensAgents';
 import type { LensInput, LensSummary } from './lens/config';
 import type { StoredLens } from './lens/readLens';
 import type { TaskStatus, TagRow } from './db';
@@ -600,23 +599,17 @@ export interface ElectronAPI {
 }
 
 /**
- * The project's lenses: named instructions, and which agent runs them.
- *
- * Not part of `github` — a worktree diff reads through these with no remote in
+ * Not part of `github`: a worktree diff reads through these with no remote in
  * sight, and nothing behind them touches GitHub.
  */
 export interface LensAPI {
   list(projectPath: string): Promise<LensSummary[]>;
   save(projectPath: string, lens: LensInput): Promise<LensSummary>;
   delete(projectPath: string, lensId: string): Promise<{ success: boolean }>;
-  agent(projectPath: string): Promise<LensAgentChoice>;
-  setAgent(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }>;
-  /** A lens was added or deleted, so any list of them is one short or one over. */
+  agent(projectPath: string): Promise<string | null>;
+  setAgent(projectPath: string, chosenId: string | null): Promise<{ success: boolean }>;
   onListChanged(callback: (projectPath: string) => void): () => void;
-  /**
-   * A run over one diff ended somewhere this pane cannot see. Whichever kind of
-   * diff it was: the payload names it the way the pane names its own.
-   */
+  /** A run over one diff ended somewhere this pane cannot see, whichever kind it was. */
   onChanged(callback: (payload: LensChangedPayload) => void): () => void;
 }
 

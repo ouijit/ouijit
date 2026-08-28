@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
-import type { LensSummary } from '../../lens/config';
 import { partHolding, sectionKey } from '../../lens/lens';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore, RAIL_DEFAULT_WIDTH, RAIL_MIN_WIDTH, RAIL_MAX_WIDTH } from '../../stores/githubStore';
@@ -122,6 +121,7 @@ export function PullRequestDetailView({
   }, []);
 
   const [lensesOpen, setLensesOpen] = useState(false);
+  const openLenses = useCallback(() => setLensesOpen(true), []);
 
   const lenses = useProjectLenses(projectPath);
 
@@ -146,15 +146,6 @@ export function PullRequestDetailView({
     fileOrder,
   );
 
-  const runLens = useCallback(
-    (picked: LensSummary) => {
-      void lens.run(picked);
-    },
-    [lens],
-  );
-
-  const resolved = lens.resolved;
-  const lensOn = lens.lensOn;
   const shown = lens.shown;
 
   const revealing = useLensReveal(lens.landed, paneRef);
@@ -168,22 +159,21 @@ export function PullRequestDetailView({
   }, [pane, pendingDraft, scrollToFile, shown, diffs]);
 
   /**
-   * Changes only when the anchors do. `resolved` is a fresh array every time a
-   * batch of diffs lands, and keying the observer effect on it rebuilds it over
-   * every anchor in the pane each time.
+   * `shown` is a fresh array every time a batch of diffs lands, and keying the
+   * observer effect on it rebuilds it over every anchor in the pane each time.
    */
-  const anchorShape = useMemo(() => {
-    if (lensOn && resolved) {
-      return resolved.map((group) => `${group.id}\t${group.slices.map((s) => s.path).join(',')}`).join('\n');
-    }
-    return fileOrder.join('\n');
-  }, [lensOn, resolved, fileOrder]);
+  const anchorShape = useMemo(
+    () =>
+      shown
+        ? shown.map((group) => `${group.id}\t${group.slices.map((s) => s.path).join(',')}`).join('\n')
+        : fileOrder.join('\n'),
+    [shown, fileOrder],
+  );
 
   /**
-   * Marks where the reader is in the rail. Written straight to the store: this
-   * fires on scroll, and component state would re-render the whole diff to move
-   * a highlight. Observes the placeholder wrappers, which exist whether or not
-   * their file has mounted; the nested anchor on a mounted section is skipped.
+   * Written straight to the store: this fires on scroll, and component state would
+   * re-render the whole diff to move a highlight. Observes the placeholder
+   * wrappers, which exist whether or not their file has mounted.
    */
   useEffect(() => {
     const container = paneRef.current;
@@ -267,7 +257,7 @@ export function PullRequestDetailView({
               onSelect={scrollToFile}
               lens={lens}
               lenses={lenses}
-              onOpenLenses={() => setLensesOpen(true)}
+              onOpenLenses={openLenses}
               revealing={revealing}
             />
             <ResizeHandle
@@ -308,7 +298,7 @@ export function PullRequestDetailView({
       {lensesOpen && (
         <LensDialog
           projectPath={projectPath}
-          onRun={runLens}
+          onRun={(picked) => void lens.run(picked)}
           running={lens.writing?.id ?? null}
           onClose={() => setLensesOpen(false)}
         />

@@ -3,7 +3,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 import { LensPicker } from '../../components/diff/LensPicker';
 import type { StoredLens } from '../../lens/readLens';
-import type { LensRun } from '../../components/diff/useLensSession';
+import type { LensRun, LensSession } from '../../components/diff/useLensSession';
 import type { LensGroup, ResolvedGroup } from '../../lens/lens';
 import { NARRATIVE, lensOnFile } from '../lensFixtures';
 
@@ -26,25 +26,30 @@ function open(
   over: { lensOn?: boolean; writing?: LensRun | null; resolved?: ResolvedGroup[]; promptChars?: number } = {},
 ) {
   const onRun = vi.fn();
-  const onShowLens = vi.fn();
+  const onLensOn = vi.fn();
+  const session: LensSession = {
+    lens,
+    resolved: over.resolved ?? null,
+    shown: (over.lensOn ?? true) ? (over.resolved ?? null) : null,
+    lensOn: over.lensOn ?? true,
+    setLensOn: onLensOn,
+    writing: over.writing ?? null,
+    landed: 0,
+    run: async (pick) => onRun(pick),
+  };
   render(
     <LensPicker
+      session={session}
       lenses={LENSES}
-      onFile={lens}
-      resolved={over.resolved ?? null}
-      lensOn={over.lensOn ?? true}
       changedFiles={4}
       promptChars={over.promptChars ?? 4_000}
       viewed={0}
-      writing={over.writing ?? null}
-      onAllFiles={vi.fn()}
-      onShowLens={onShowLens}
-      onRun={onRun}
+      onLensOn={onLensOn}
       onManage={vi.fn()}
     />,
   );
   fireEvent.click(screen.getByRole('button', { expanded: false }));
-  return { onRun, onShowLens, row: () => screen.getByRole('menuitem', { name: /^Narrative/ }) };
+  return { onRun, onLensOn, row: () => screen.getByRole('menuitem', { name: /^Narrative/ }) };
 }
 
 describe('picking how to read a diff', () => {
@@ -54,35 +59,35 @@ describe('picking how to read a diff', () => {
   });
 
   test('a lens that still fits is a view to switch to, not a run to repeat', () => {
-    const { onRun, onShowLens, row } = open(onFile(NARRATIVE, 3, false), { lensOn: false });
+    const { onRun, onLensOn, row } = open(onFile(NARRATIVE, 3, false), { lensOn: false });
 
     expect(row().textContent).toContain('3 parts');
     fireEvent.click(row());
-    expect(onShowLens).toHaveBeenCalled();
+    expect(onLensOn).toHaveBeenCalledWith(true);
     expect(onRun).not.toHaveBeenCalled();
   });
 
   test('a lens written again under the same name is one row, not two', () => {
-    const { onRun, onShowLens } = open(onFile({ id: 'gone', name: 'Narrative' }, 3, false));
+    const { onRun, onLensOn } = open(onFile({ id: 'gone', name: 'Narrative' }, 3, false));
 
     const rows = screen.getAllByRole('menuitem', { name: /^Narrative/ });
     expect(rows).toHaveLength(1);
     expect(rows[0].textContent).toContain('3 parts');
 
     fireEvent.click(rows[0]);
-    expect(onShowLens).toHaveBeenCalled();
+    expect(onLensOn).toHaveBeenCalledWith(true);
     expect(onRun).not.toHaveBeenCalled();
   });
 
   test('an out-of-date lens offers to be written again, drawn or dropped', () => {
-    const { onRun, onShowLens, row } = open(onFile(NARRATIVE, 3, true));
+    const { onRun, onLensOn, row } = open(onFile(NARRATIVE, 3, true));
 
     expect(row().textContent).toContain('3 parts');
     expect(row().textContent).toContain('out of date');
 
     fireEvent.click(row());
     expect(onRun).toHaveBeenCalledWith(LENSES[0]);
-    expect(onShowLens).not.toHaveBeenCalled();
+    expect(onLensOn).not.toHaveBeenCalled();
 
     // A pull request drops the groups after a force-push: only the name survives.
     cleanup();
@@ -101,12 +106,12 @@ describe('picking how to read a diff', () => {
   test('a lens the project no longer has is named but not offered to run', () => {
     // Deleted, or posted over the CLI: no row in the list to start it from, so
     // the picker gives it one that only goes back to it.
-    const { onRun, onShowLens } = open(onFile({ id: 'gone', name: 'Gone' }, 2, true));
+    const { onRun, onLensOn } = open(onFile({ id: 'gone', name: 'Gone' }, 2, true));
 
     const orphan = screen.getByRole('menuitem', { name: /^Gone/ });
     expect(orphan.textContent).toContain('out of date');
     fireEvent.click(orphan);
-    expect(onShowLens).toHaveBeenCalled();
+    expect(onLensOn).toHaveBeenCalledWith(true);
     expect(onRun).not.toHaveBeenCalled();
   });
 

@@ -24,7 +24,6 @@ import {
   reanchorReviewDraft,
   deleteReviewDraft,
   getReviewDraftCounts,
-  saveDiffLens,
   getGlobalSetting,
   createTask,
   getNextTaskNumber,
@@ -36,7 +35,7 @@ import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
 import { repoSlug } from './types';
-import { writeLens } from '../lens/writeLens';
+import { postLens, writeLens } from '../lens/writeLens';
 import { readLens, clearLens, type StoredLens } from '../lens/readLens';
 import type { DiffSubject } from '../lens/subject';
 import { prSubjectKey } from '../lens/subjectKeys';
@@ -65,7 +64,7 @@ import {
   type DraftReviewComment,
 } from './api';
 import { getPrFileDiff, getPrFileVersions, getPrDiffFiles, createPrHeadBranch, prunePrRefs } from './prDiff';
-import { parseLens, type LensGroup } from '../lens/lens';
+import { parseLensGroups, type LensGroup } from '../lens/lens';
 import type {
   PrHead,
   GithubAvailability,
@@ -546,13 +545,9 @@ export async function discardDraft(draftId: string): Promise<{ success: boolean 
 
 // ── Lenses ────────────────────────────────────────────────────────
 
-/**
- * A pull request as something a lens can be written over. The procedure around
- * it is `writeLens`, shared with the worktree diff.
- */
 class PullRequestSubject implements DiffSubject {
   readonly key: string;
-  readonly label: Record<string, unknown>;
+  readonly emptyMessage = 'This pull request has no files to group';
   readonly whenStale = 'drop' as const;
   /** Resolved by `listFiles`, which every later step of a write runs after. */
   private detail: PullRequestDetail | null = null;
@@ -564,17 +559,13 @@ class PullRequestSubject implements DiffSubject {
     private headSha?: string,
   ) {
     this.key = prSubjectKey(prNumber);
-    this.label = { prNumber };
   }
 
-  async listFiles(): Promise<{ files: LensFile[]; error?: string; emptyMessage: string }> {
-    const empty = { files: [] as LensFile[], emptyMessage: 'This pull request has no files to group' };
-
+  async listFiles(): Promise<{ files: LensFile[]; error?: string }> {
     this.detail = await getPullRequest(this.projectPath, this.prNumber);
-    if (!this.detail) return { ...empty, error: 'Could not read the pull request' };
+    if (!this.detail) return { files: [], error: 'Could not read the pull request' };
 
-    const listed = await getPullRequestFiles(this.projectPath, this.prNumber, this.detail.baseSha, this.detail.headSha);
-    return { ...empty, files: listed.files, error: listed.error };
+    return getPullRequestFiles(this.projectPath, this.prNumber, this.detail.baseSha, this.detail.headSha);
   }
 
   diffFor(file: LensFile): Promise<FileDiff | null> {
@@ -634,14 +625,13 @@ export async function setPullRequestLens(
   projectPath: string,
   prNumber: number,
   headSha: string,
-  body: string,
+  body: unknown,
 ): Promise<{ success: boolean; error?: string; groups?: LensGroup[] }> {
-  const groups = parseLens(body);
+  const groups = parseLensGroups(body);
   if (!groups) {
     return { success: false, error: 'Expected {"groups":[{"title","slices":[{"path","ranges"}]}]}' };
   }
-  // No name: nothing here went through one of the project's lenses.
-  await saveDiffLens(projectPath, prSubjectKey(prNumber), headSha, JSON.stringify({ groups }), null);
+  await postLens(new PullRequestSubject(projectPath, prNumber, headSha), groups);
   return { success: true, groups };
 }
 

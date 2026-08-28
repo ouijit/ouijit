@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { LensSummary } from '../../lens/config';
-import { LensList } from '../scripts/LensList';
+import { LensList, QUIET_BUTTON } from '../scripts/LensList';
 import { LensAgentRow } from '../scripts/LensAgentRow';
 import { Icon } from '../terminal/Icon';
 import { Tooltip } from '../ui/Tooltip';
@@ -8,20 +8,12 @@ import { DialogOverlay } from './DialogOverlay';
 
 interface LensDialogProps {
   projectPath: string;
-  /**
-   * Reads the change through a lens just saved here. Omitted, there is nothing
-   * to read one against and saving is all a form can do.
-   */
-  onRun?: (lens: LensSummary) => void;
-  running?: string | null;
+  /** Reads the change through a lens just saved here. */
+  onRun: (lens: LensSummary) => void;
+  running: string | null;
   onClose: () => void;
 }
 
-/**
- * The same list the settings panel shows, plus a way to run one against the diff
- * already open. Nothing here spends a run except a button that says Run: the
- * rows themselves are inert, so no press costs an agent run by surprise.
- */
 export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogProps) {
   const [visible, setVisible] = useState(false);
 
@@ -58,23 +50,17 @@ export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogP
 
         <LensList
           projectPath={projectPath}
-          onRun={
-            onRun &&
-            ((lens) => {
-              onRun(lens);
-              dismiss();
-            })
-          }
+          onRun={(lens) => {
+            onRun(lens);
+            dismiss();
+          }}
           running={running}
         />
 
         <div className="flex items-center gap-2">
           <LensAgentRow projectPath={projectPath} />
           <div className="flex-1" />
-          <button
-            className="px-3 py-1.5 text-xs font-medium rounded-md text-text-secondary hover:bg-ink/[0.06] transition-colors duration-150"
-            onClick={dismiss}
-          >
+          <button className={QUIET_BUTTON} onClick={dismiss}>
             Done
           </button>
         </div>

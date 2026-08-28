@@ -67,7 +67,6 @@ import type {
   PromoteToTaskResult,
   PrFileVersions,
 } from '../github/types';
-import type { LensAgentChoice } from '../lens/lensAgents';
 import type { LensInput, LensSummary } from '../lens/config';
 import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
 import type { AnalysisOverview, DiffSignals } from '../analysis/types';
@@ -317,11 +316,10 @@ export interface IpcInvokeContract {
   'lens:list': { args: [projectPath: string]; return: LensSummary[] };
   'lens:save': { args: [projectPath: string, lens: LensInput]; return: LensSummary };
   'lens:delete': { args: [projectPath: string, lensId: string]; return: { success: boolean } };
-  'lens:agent': { args: [projectPath: string]; return: LensAgentChoice };
-  'lens:set-agent': { args: [projectPath: string, choice: LensAgentChoice]; return: { success: boolean } };
+  'lens:agent': { args: [projectPath: string]; return: string | null };
+  'lens:set-agent': { args: [projectPath: string, chosenId: string | null]; return: { success: boolean } };
 
-  // A lens over a worktree's own diff, written by the same agent and stored
-  // under the same named instructions as a pull request's.
+  // A lens over a worktree's own diff, from the same lenses as a pull request's.
   'diff-lens:get': { args: [target: DiffLensTarget]; return: StoredLens | null };
   'diff-lens:run': { args: [target: DiffLensTarget, lensId: string]; return: { success: boolean; error?: string } };
 

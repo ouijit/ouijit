@@ -203,7 +203,7 @@ const mockApi = {
     list: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue({ id: '', name: '', instruction: '' }),
     delete: vi.fn().mockResolvedValue({ success: true }),
-    agent: vi.fn().mockResolvedValue({ agentId: null }),
+    agent: vi.fn().mockResolvedValue(null),
     setAgent: vi.fn().mockResolvedValue({ success: true }),
     onListChanged: vi.fn().mockReturnValue(() => {}),
     onChanged: vi.fn().mockReturnValue(() => {}),

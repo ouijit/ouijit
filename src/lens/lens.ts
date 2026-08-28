@@ -45,9 +45,15 @@ export interface ResolvedGroup {
   slices: ResolvedSlice[];
 }
 
-/** One file inside one part. Without a lens a file is only in one place. */
+/** Without a lens a file is only in one place. */
 export function sectionKey(groupId: string | null | undefined, path: string): string {
   return groupId ? `${groupId}:${path}` : path;
+}
+
+/** Both halves can contain `:`, so only this end of the join is fixed. */
+export function sectionPath(section: string | null | undefined, groupId: string): string | null {
+  const here = `${groupId}:`;
+  return section?.startsWith(here) ? section.slice(here.length) : null;
 }
 
 interface HunkFacts {
@@ -143,7 +149,7 @@ export function partHolding(
   return groups.find((group) => group.slices.some((slice) => slice.path === path && slice.hunks.includes(hunk)))?.id;
 }
 
-function parseGroups(raw: unknown): LensGroup[] {
+function cleanGroups(raw: unknown): LensGroup[] {
   if (typeof raw !== 'object' || raw === null) return [];
   const groups = (raw as { groups?: unknown }).groups;
   if (!Array.isArray(groups)) return [];
@@ -175,10 +181,15 @@ function parseGroups(raw: unknown): LensGroup[] {
   return clean;
 }
 
+/** `{"groups":[…]}`, however it arrived, with everything unreadable dropped. */
+export function parseLensGroups(raw: unknown): LensGroup[] | null {
+  const groups = cleanGroups(raw);
+  return groups.length > 0 ? groups : null;
+}
+
 export function parseLens(body: string): LensGroup[] | null {
   try {
-    const groups = parseGroups(JSON.parse(body));
-    return groups.length > 0 ? groups : null;
+    return parseLensGroups(JSON.parse(body));
   } catch {
     return null;
   }
@@ -272,7 +283,7 @@ export function resolveLens(
       if (take(path, -1)) rest.push({ path, hunks: [] });
       continue;
     }
-    const hunks = diff.hunks.map((_, i) => i).filter((index) => take(path, index));
+    const hunks = hunksInRanges(diff).filter((index) => take(path, index));
     if (hunks.length > 0) rest.push({ path, hunks, ...changesIn(diff, hunks) });
   }
   if (rest.length > 0) resolved.push({ id: UNGROUPED_ID, title: UNGROUPED_TITLE, slices: rest });

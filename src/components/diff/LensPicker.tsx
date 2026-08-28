@@ -1,33 +1,23 @@
 import { useState } from 'react';
 import type { LensSummary } from '../../lens/config';
 import type { StoredLens } from '../../lens/readLens';
-import { lensCoverage, type ResolvedGroup } from '../../lens/lens';
+import { lensCoverage } from '../../lens/lens';
+import { count } from '../../analysis/advice';
 import { LENS_PROMPT_BUDGET } from '../../lens/lensPrompt';
-import type { LensRun } from './useLensSession';
+import type { LensRun, LensSession } from './useLensSession';
 import { formatRelativeTime } from '../../utils/formatDate';
 import { Icon } from '../terminal/Icon';
 import { MenuDivider, MenuItem, MenuPopover } from '../ui/Menu';
 
 interface LensPickerProps {
+  session: LensSession;
   lenses: LensSummary[];
-  /**
-   * The lens this diff has on file. A drifted one may arrive named with no
-   * groups, which is the subject's `whenStale` to decide.
-   */
-  onFile: StoredLens | null;
-  resolved: ResolvedGroup[] | null;
-  /** Whether the lens on file is the one on screen. */
-  lensOn: boolean;
   changedFiles: number;
-  /** Characters the prompt for this change would run to, estimated. */
   promptChars: number;
   /** Files marked read. A worktree diff has no such mark, and passes nothing. */
   viewed?: number;
-  writing: LensRun | null;
-  onAllFiles: () => void;
-  /** Show the lens already written, without writing it again. */
-  onShowLens: () => void;
-  onRun: (lens: LensSummary) => void;
+  /** Shows the lens on file, or the flat list. Never writes one. */
+  onLensOn: (on: boolean) => void;
   onManage: () => void;
 }
 
@@ -58,10 +48,6 @@ function triggerTitle({
   return 'Reading this change through a lens written for it';
 }
 
-function plural(count: number, noun: string): string {
-  return `${count} ${count === 1 ? noun : `${noun}s`}`;
-}
-
 /** Roughly four characters to a token — close enough for a number with a tilde. */
 function tokenLabel(chars: number): string {
   const tokens = Math.round(chars / 4);
@@ -72,22 +58,31 @@ interface RowState {
   isApplied: boolean;
   isStale: boolean;
   isInterrupted: boolean;
-  writing: LensRun | null;
-  parts: number | null;
-  /** Changed files the lens on screen claimed none of. */
-  ungrouped: number;
-  /** The change will not fit one prompt, so some of it goes as line spans only. */
-  tooBig: boolean;
 }
 
 function appliedHint(parts: number | null, ungrouped: number, isStale: boolean): string {
-  const count = plural(parts ?? 0, 'part');
-  if (isStale) return `${count} · out of date`;
-  return ungrouped > 0 ? `${count} · ${plural(ungrouped, 'file')} not grouped` : count;
+  const partCount = count(parts ?? 0, 'part');
+  if (isStale) return `${partCount} · out of date`;
+  return ungrouped > 0 ? `${partCount} · ${count(ungrouped, 'file')} not grouped` : partCount;
 }
 
-function rowHint(lens: LensSummary, state: RowState): string | undefined {
-  const { isApplied, isStale, isInterrupted, writing, parts, ungrouped, tooBig } = state;
+function rowHint(
+  lens: LensSummary,
+  { isApplied, isStale, isInterrupted }: RowState,
+  {
+    writing,
+    parts,
+    ungrouped,
+    tooBig,
+  }: {
+    writing: LensRun | null;
+    parts: number | null;
+    /** Changed files the lens on screen claimed none of. */
+    ungrouped: number;
+    /** The change will not fit one prompt, so some of it goes as line spans only. */
+    tooBig: boolean;
+  },
+): string | undefined {
   if (writing?.id === lens.id) return 'Writing…';
   if (isInterrupted) return 'did not finish';
   if (isApplied) return appliedHint(parts, ungrouped, isStale);
@@ -98,7 +93,15 @@ function rowHint(lens: LensSummary, state: RowState): string | undefined {
 function rowTitle(
   lens: LensSummary,
   { isApplied, isStale, isInterrupted }: RowState,
-  { since, promptChars, omitted }: { since: string | null; promptChars: number; omitted: number },
+  {
+    since,
+    promptChars,
+    omitted,
+  }: {
+    since: string | null;
+    promptChars: number;
+    omitted: number;
+  },
 ): string {
   const size = ` — ${tokenLabel(promptChars)}`;
 
@@ -109,7 +112,7 @@ function rowTitle(
   if (isApplied) {
     if (isStale) return `Written for an earlier version of this change — read it again through “${lens.name}”${size}`;
     return omitted > 0
-      ? `${lens.instruction} — ${omitted} hunk${omitted === 1 ? '' : 's'} were too large to quote and were grouped from their line spans`
+      ? `${lens.instruction} — ${count(omitted, 'hunk')} were too large to quote and were grouped from their line spans`
       : lens.instruction;
   }
   return isStale
@@ -118,34 +121,28 @@ function rowTitle(
 }
 
 /**
- * How to read the diff, as one choice — All files is a row in the same list.
- * Picking a lens that has not been written for this head writes it: a lens is an
- * agent run, and asking to read the change through one is what starts it.
+ * All files is a row in the same list. Picking a lens that has not been written
+ * for this head spends an agent run writing it.
  */
 export function LensPicker({
+  session,
   lenses,
-  onFile,
-  resolved,
-  lensOn,
   changedFiles,
   promptChars,
   viewed,
-  writing,
-  onAllFiles,
-  onShowLens,
-  onRun,
+  onLensOn,
   onManage,
 }: LensPickerProps) {
   const [open, setOpen] = useState(false);
+  const { lens: onFile, resolved, lensOn, writing } = session;
 
   const rendered = onFile?.groups != null;
   const coverage = resolved ? lensCoverage(resolved) : null;
   const parts = coverage?.parts ?? onFile?.groups?.length ?? null;
   const tooBig = promptChars > LENS_PROMPT_BUDGET;
   const showingLens = lensOn && rendered;
-  // The lens that wrote what is on screen, if the project still has it. By id
-  // first, since a rename moves the row and not the stored name; by name after,
-  // since deleting a lens and writing it again mints a new id for what the
+  // By id first, since a rename moves the row and not the stored name; by name
+  // after, since deleting a lens and writing it again mints a new id for what the
   // reader means by the same lens.
   const wrote = onFile
     ? (lenses.find((lens) => lens.id === onFile.lensId) ?? lenses.find((lens) => lens.name === onFile.lensName))
@@ -154,15 +151,22 @@ export function LensPicker({
   // A lens written by the CLI, or by one since deleted, has no row of its own in
   // the list below, so it gets one here.
   const orphan = rendered && !wrote;
-  // Only where it can be acted on: a stale lens the project no longer has offers
-  // nothing to run, so the notice would lead nowhere.
+  // Only where it can be acted on: a stale lens the project has since deleted
+  // offers nothing to run.
   const staleOffered = Boolean(onFile?.stale && wrote);
-  // A run the app was killed out from under. The mark outlives the process that
-  // made it, which is how one is told from a run still going.
+  // The mark outlives the process that made it, which is how a run the app was
+  // killed out from under is told from one still going.
   const interrupted = onFile?.running && !onFile.running.live ? onFile.running : null;
 
+  const ungrouped = coverage?.ungrouped ?? 0;
+  const hintFacts = { writing, parts, ungrouped, tooBig };
+  const titleFacts = { since: interrupted?.since ?? null, promptChars, omitted: onFile?.omitted ?? 0 };
+
   const label = writing ? `Writing ${writing.name}…` : showingLens ? appliedLabel : 'All files';
-  const note = showingLens ? `${parts}` : viewed ? `${viewed}/${changedFiles}` : `${changedFiles}`;
+  // A diff that tracks nothing read says how many files there are; one that does
+  // says how far through them the reader is, from the first file on.
+  const files = viewed === undefined ? `${changedFiles}` : `${viewed}/${changedFiles}`;
+  const note = showingLens ? `${parts}` : files;
 
   return (
     <MenuPopover
@@ -206,11 +210,11 @@ export function LensPicker({
     >
       <MenuItem
         label="All files"
-        hint={viewed ? `${viewed}/${changedFiles} read` : `${changedFiles}`}
+        hint={viewed === undefined ? files : `${files} read`}
         selected={!showingLens}
         onClick={() => {
           setOpen(false);
-          onAllFiles();
+          onLensOn(false);
         }}
       />
 
@@ -219,50 +223,38 @@ export function LensPicker({
       {orphan && onFile && (
         <MenuItem
           label={appliedLabel}
-          hint={appliedHint(parts, coverage?.ungrouped ?? 0, onFile.stale)}
+          hint={appliedHint(parts, ungrouped, onFile.stale)}
           selected={showingLens}
           // No offer to write it again: the project has no lens by this name.
           title={onFile.stale ? 'Written for an earlier version of this change' : 'Written for this change'}
           onClick={() => {
             setOpen(false);
-            onShowLens();
+            onLensOn(true);
           }}
         />
       )}
 
       {lenses.map((lens) => {
         const isApplied = rendered && wrote?.id === lens.id;
-        // A drifted lens is a run to start again, whether or not it is the one
-        // on screen: showing it only shows the older change again.
+        // A drifted lens is a run to start again even when it is the one on
+        // screen: showing it only shows the older change.
         const isStale = staleOffered && wrote?.id === lens.id;
         const isInterrupted = interrupted?.lensId === lens.id;
-        const state = {
-          isApplied,
-          isStale,
-          isInterrupted,
-          writing,
-          parts,
-          ungrouped: coverage?.ungrouped ?? 0,
-          tooBig,
-        };
+        const row = { isApplied, isStale, isInterrupted };
         return (
           <MenuItem
             key={lens.id}
             label={lens.name}
-            hint={rowHint(lens, state)}
+            hint={rowHint(lens, row, hintFacts)}
             selected={isApplied && lensOn}
-            // One run at a time. The lens already written and still current is a
-            // view to switch to rather than a run to start, so it stays live.
+            // One run at a time, except the lens already written and current:
+            // that row switches the view rather than starting a run.
             disabled={Boolean(writing) && (isStale || !isApplied)}
-            title={rowTitle(lens, state, {
-              since: interrupted?.since ?? null,
-              promptChars,
-              omitted: onFile?.omitted ?? 0,
-            })}
+            title={rowTitle(lens, row, titleFacts)}
             onClick={() => {
               setOpen(false);
-              if (isApplied && !isStale && !isInterrupted) onShowLens();
-              else onRun(lens);
+              if (isApplied && !isStale && !isInterrupted) onLensOn(true);
+              else void session.run(lens);
             }}
           />
         );

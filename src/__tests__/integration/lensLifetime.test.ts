@@ -26,10 +26,9 @@ const agent = vi.hoisted(() => ({
   answer: async (): Promise<{ success: boolean; body?: string; error?: string }> => ({ success: true, body: GROUPS }),
 }));
 vi.mock('../../lens/runLens', () => ({ runLens: () => agent.answer() }));
-vi.mock('../../healthCheck', () => {
-  const health = { claude: true, codex: false };
-  return { getCachedHealth: () => health, checkHealth: async () => health };
-});
+vi.mock('../../healthCheck', () => ({
+  currentHealth: async () => ({ claude: true, codex: false }),
+}));
 
 let repo: string;
 let lensId: string;

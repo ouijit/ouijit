@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import type { LensSummary } from '../../lens/config';
 import { DiffFileTree } from '../diff/DiffFileTree';
@@ -27,11 +27,10 @@ interface PullRequestRailProps {
 }
 
 /**
- * The changed files, for the code pane only. With a lens on, the same rail lists
- * the parts of the change instead, and a file belonging to three parts appears
- * in all three.
+ * Memoised because the pane above it re-renders on every batch of diffs that
+ * lands, and this draws a node per file and per directory of them.
  */
-export function PullRequestRail({
+export const PullRequestRail = memo(function PullRequestRail({
   detail,
   files,
   onSelect,
@@ -45,6 +44,7 @@ export function PullRequestRail({
   const viewedParts = useGithubStore((s) => s.viewedSections);
   const activeSection = useGithubStore((s) => s.activeSection);
   const collapsed = useGithubStore((s) => s.collapsedGroups);
+  const setGroupCollapsed = useGithubStore((s) => s.setGroupCollapsed);
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
 
   const signals = usePullRequestSignals(detail.headSha, files);
@@ -87,41 +87,28 @@ export function PullRequestRail({
   return (
     // No right border: the seam beside this is the boundary.
     <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
-      {/* `h-9` is a file card's header. This pane has no toolbar over it, so
-          what the ledge meets across the seam is a header stuck to the top of
-          the well. */}
+      {/* `h-9` is a file card's header, which is what this ledge meets across the
+          seam — there is no toolbar over this pane. */}
       <div className="pane-ledge shrink-0 flex flex-col h-9">
         <LensPicker
+          session={lens}
           lenses={lenses}
-          onFile={lens.lens}
-          lensOn={lens.lensOn}
           changedFiles={detail.changedFiles}
           viewed={viewedPaths.length}
-          resolved={lens.resolved}
           promptChars={promptChars}
-          writing={lens.writing}
-          onAllFiles={() => {
-            // Mode first, then the scroll back to the top: what the reader
-            // asked for must not depend on a scroll succeeding.
-            lens.setLensOn(false);
+          onLensOn={(on) => {
+            // Mode first: what the reader asked for must not depend on the
+            // scroll succeeding.
+            lens.setLensOn(on);
             onSelect(null);
           }}
-          onShowLens={() => {
-            lens.setLensOn(true);
-            onSelect(null);
-          }}
-          onRun={(picked) => void lens.run(picked)}
           onManage={onOpenLenses}
         />
       </div>
 
       <DiffFileTree
         files={files}
-        lens={{
-          groups: lens.shown,
-          collapsed,
-          onCollapsedChange: (id, next) => useGithubStore.getState().setGroupCollapsed(id, next),
-        }}
+        lens={{ groups: lens.shown, collapsed, onCollapsedChange: setGroupCollapsed }}
         onFileClick={onSelect}
         renderFileTrailing={(file, hunks, section) => trailing(file.path, hunks, section)}
         activeSection={activeSection}
@@ -129,4 +116,4 @@ export function PullRequestRail({
       />
     </div>
   );
-}
+});

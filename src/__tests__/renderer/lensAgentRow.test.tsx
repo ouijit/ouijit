@@ -31,7 +31,7 @@ describe('which agent writes a lens', () => {
     cleanup();
     vi.clearAllMocks();
     window.api.health.check = vi.fn().mockResolvedValue(HEALTH);
-    window.api.lens.agent = vi.fn().mockResolvedValue({ agentId: null });
+    window.api.lens.agent = vi.fn().mockResolvedValue(null);
     window.api.lens.setAgent = vi.fn().mockResolvedValue({ success: true });
   });
 
@@ -47,7 +47,7 @@ describe('which agent writes a lens', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: /^Codex/ }));
 
     await waitFor(() => {
-      expect(window.api.lens.setAgent).toHaveBeenCalledWith(PROJECT, { agentId: 'codex' });
+      expect(window.api.lens.setAgent).toHaveBeenCalledWith(PROJECT, 'codex');
     });
     // Claude Code is installed and comes first, but a choice was made.
     expect(await screen.findByRole('button', { name: /Codex/ })).toBeTruthy();

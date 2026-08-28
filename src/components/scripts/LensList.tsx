@@ -4,25 +4,21 @@ import { useExperimentalStore } from '../../stores/experimentalStore';
 import type { LensInput, LensSummary } from '../../lens/config';
 import { describeError } from '../../utils/describeError';
 import { Icon } from '../terminal/Icon';
-import { useAutoResize } from '../../hooks/useAutoResize';
+import { useAutoResize, growToFit } from '../../hooks/useAutoResize';
 import { useProjectLenses } from '../diff/useProjectLenses';
 
 interface LensListProps {
   projectPath: string;
-  /**
-   * Reads a change through a lens — one from the list, or one just saved. Absent
-   * in settings, where there is no diff to read one against.
-   */
+  /** Absent in settings, where there is no diff to read a lens against. */
   onRun?: (lens: LensSummary) => void;
   running?: string | null;
 }
 
 /**
- * Where a project's first lens comes from. Each has to give the agent a test it
- * can apply to any diff: "the riskiest changes first" names a sort key without
- * saying how to compute it, so a change with no obvious risk leaves it to invent
- * one. What belongs in every lens instead — leading with what the rest follows
- * from, mechanical churn last, how a title is written — is in `GROUPING_GUIDE`.
+ * Each has to give the agent a test it can apply to any diff: "the riskiest
+ * changes first" names a sort key without saying how to compute it, so a change
+ * with no obvious risk leaves the agent to invent one. What is true of every
+ * grouping belongs in `GROUPING_GUIDE` rather than here.
  */
 const SUGGESTED_LENSES: LensInput[] = [
   {
@@ -47,13 +43,15 @@ const SUGGESTED_LENSES: LensInput[] = [
   },
 ];
 
+type Editing = { id: string } | { draft: LensInput | null } | null;
+
 export function LensList({ projectPath, onRun, running }: LensListProps) {
   const lenses = useProjectLenses(projectPath);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<LensInput | null>(null);
-  const [addingNew, setAddingNew] = useState(false);
-  // What `buildLensPrompt` will actually carry: the hotspot section is written
-  // only when `getDiffSignals` answers, and it answers only with this flag on.
+  const [editing, setEditing] = useState<Editing>(null);
+  const adding = editing !== null && 'draft' in editing;
+  const editingId = editing !== null && 'id' in editing ? editing.id : null;
+  // The hotspot section of the prompt is written only when `getDiffSignals`
+  // answers, and it answers only with this flag on.
   const sendsHotspots = useExperimentalStore((s) => s.flagsByProject[projectPath]?.analysis ?? false);
 
   const save = useCallback(
@@ -65,9 +63,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
         useProjectStore.getState().addToast(describeError(error), 'error');
         return;
       }
-      setExpandedId(null);
-      setAddingNew(false);
-      setDraft(null);
+      setEditing(null);
       if (run) onRun?.(saved);
     },
     [projectPath, onRun],
@@ -76,7 +72,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
   const remove = useCallback(
     async (lens: LensSummary) => {
       await window.api.lens.delete(projectPath, lens.id);
-      setExpandedId(null);
+      setEditing(null);
       useProjectStore.getState().addToast(`Deleted “${lens.name}”`, 'success');
     },
     [projectPath],
@@ -87,7 +83,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06]"
       style={{ background: 'var(--color-terminal-bg)' }}
     >
-      {lenses.length === 0 && !addingNew && (
+      {lenses.length === 0 && !adding && (
         <div className="px-4 py-4 flex flex-wrap items-center gap-2">
           <span className="mr-1 text-[11px] text-text-tertiary">No lenses yet.</span>
           {SUGGESTED_LENSES.map((suggested) => (
@@ -96,10 +92,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
               type="button"
               title={suggested.instruction}
               className="px-2.5 py-1 text-[11px] text-text-secondary bg-ink/[0.05] rounded-full hover:bg-ink/[0.09] hover:text-text-primary transition-colors duration-150"
-              onClick={() => {
-                setDraft(suggested);
-                setAddingNew(true);
-              }}
+              onClick={() => setEditing({ draft: suggested })}
             >
               {suggested.name}
             </button>
@@ -108,25 +101,21 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       )}
 
       {lenses.map((lens) =>
-        expandedId === lens.id ? (
+        editingId === lens.id ? (
           <LensForm
             key={lens.id}
             initial={lens}
             sendsHotspots={sendsHotspots}
-            onSave={(next) => void save({ ...next, id: lens.id }, false)}
-            onSaveAndRun={onRun && ((next) => void save({ ...next, id: lens.id }, true))}
-            onCancel={() => setExpandedId(null)}
+            onSave={(next, run) => void save({ ...next, id: lens.id }, run)}
+            canRun={Boolean(onRun)}
+            onCancel={() => setEditing(null)}
             onDelete={() => void remove(lens)}
           />
         ) : (
           <LensRow
             key={lens.id}
             lens={lens}
-            onEdit={() => {
-              setExpandedId(lens.id);
-              setAddingNew(false);
-              setDraft(null);
-            }}
+            onEdit={() => setEditing({ id: lens.id })}
             onRun={onRun && (() => onRun(lens))}
             writing={running === lens.id}
             busy={Boolean(running)}
@@ -134,29 +123,22 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
         ),
       )}
 
-      {addingNew && (
+      {adding && (
         <LensForm
-          initial={draft ?? undefined}
+          initial={editing.draft ?? undefined}
           existingNames={lenses.map((l) => l.name)}
           sendsHotspots={sendsHotspots}
-          onSave={(next) => void save(next, false)}
-          onSaveAndRun={onRun && ((next) => void save(next, true))}
-          onCancel={() => {
-            setAddingNew(false);
-            setDraft(null);
-          }}
+          onSave={(next, run) => void save(next, run)}
+          canRun={Boolean(onRun)}
+          onCancel={() => setEditing(null)}
         />
       )}
 
-      {!addingNew && (
+      {!adding && (
         <button
           type="button"
           className="w-full flex items-center gap-2 px-4 py-3 text-xs text-text-tertiary hover:text-text-primary hover:bg-ink/[0.04] transition-colors duration-100"
-          onClick={() => {
-            setDraft(null);
-            setAddingNew(true);
-            setExpandedId(null);
-          }}
+          onClick={() => setEditing({ draft: null })}
         >
           <Icon name="plus" className="w-3.5 h-3.5" />
           Add a lens
@@ -220,7 +202,7 @@ function LensRow({
 
 // ── Inline edit form ────────────────────────────────────────────────
 
-const QUIET_BUTTON =
+export const QUIET_BUTTON =
   'px-3 py-1.5 text-xs font-medium rounded-md text-text-secondary hover:bg-ink/[0.06] transition-colors duration-150 disabled:opacity-40';
 
 function primaryButton(isValid: boolean): string {
@@ -234,7 +216,7 @@ function LensForm({
   existingNames,
   sendsHotspots,
   onSave,
-  onSaveAndRun,
+  canRun,
   onCancel,
   onDelete,
 }: {
@@ -242,9 +224,9 @@ function LensForm({
   existingNames?: string[];
   /** Whether the prompt will carry the history section as well as the diff. */
   sendsHotspots: boolean;
-  onSave: (lens: { name: string; instruction: string }) => void;
-  /** Beside saving rather than instead of it. */
-  onSaveAndRun?: (lens: { name: string; instruction: string }) => void;
+  onSave: (lens: { name: string; instruction: string }, run: boolean) => void;
+  /** Whether saving can also start a run, which is a second button beside it. */
+  canRun: boolean;
   onCancel: () => void;
   onDelete?: () => void;
 }) {
@@ -256,34 +238,27 @@ function LensForm({
 
   useEffect(() => {
     if (!initial?.name) nameRef.current?.focus();
-    // Grown to what is already in it, or an edited lens opens with its command
-    // clipped to two lines.
-    const box = commandRef.current;
-    if (box) {
-      box.style.height = 'auto';
-      box.style.height = `${box.scrollHeight}px`;
-    }
+    // Or an edited lens opens with its instruction clipped to two lines.
+    growToFit(commandRef.current);
   }, [initial]);
 
   // Nothing breaks if two lenses share a name, but the picker names what is on
-  // screen by it. Said before the save rather than after.
+  // screen by it.
   const collides = !initial?.id && existingNames?.includes(name.trim());
   const isValid = Boolean(name.trim()) && Boolean(instruction.trim()) && !collides;
 
   const submit = useCallback(
     (run: boolean) => {
-      if (!name.trim() || !instruction.trim() || collides) return;
-      const lens = { name: name.trim(), instruction: instruction.trim() };
-      if (run && onSaveAndRun) onSaveAndRun(lens);
-      else onSave(lens);
+      if (!isValid) return;
+      onSave({ name: name.trim(), instruction: instruction.trim() }, run);
     },
-    [name, instruction, collides, onSave, onSaveAndRun],
+    [name, instruction, isValid, onSave],
   );
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Saves and stops, where a shortcut usually takes the primary button: the
-      // other one spends an agent run, which no held-down key should.
+      // Saves without running, where a shortcut usually takes the primary button:
+      // the other one spends an agent run, which no held-down key should.
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(false);
       if (e.key === 'Escape') onCancel();
     },
@@ -318,7 +293,6 @@ function LensForm({
             setInstruction(e.target.value);
             autoResize(e);
           }}
-          onInput={autoResize}
           onKeyDown={onKeyDown}
           placeholder="One part per layer the change touches, from the data outwards: what stores it, what uses it, what shows it."
         />
@@ -343,13 +317,13 @@ function LensForm({
           Cancel
         </button>
         <button
-          className={onSaveAndRun ? QUIET_BUTTON : primaryButton(isValid)}
+          className={canRun ? QUIET_BUTTON : primaryButton(isValid)}
           disabled={!isValid}
           onClick={() => submit(false)}
         >
           Save
         </button>
-        {onSaveAndRun && (
+        {canRun && (
           <button className={primaryButton(isValid)} disabled={!isValid} onClick={() => submit(true)}>
             Save and run
           </button>

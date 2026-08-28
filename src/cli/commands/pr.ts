@@ -175,18 +175,14 @@ Examples:
     .action(async (number: string, options: { body: string }) => {
       const project = requireProject();
       const raw = await readBody(options.body);
-      let parsed: { headSha?: unknown; groups?: unknown };
+      let parsed: Record<string, unknown>;
       try {
-        parsed = JSON.parse(raw) as { headSha?: unknown; groups?: unknown };
+        parsed = JSON.parse(raw) as Record<string, unknown>;
       } catch {
         throw new Error('Body is not valid JSON');
       }
-      if (typeof parsed.headSha !== 'string') throw new Error('Body needs a headSha');
       printJson(
-        await put(`/api/pulls/${encodeURIComponent(number)}/lens?project=${encodeURIComponent(project)}`, {
-          headSha: parsed.headSha,
-          groups: parsed.groups,
-        }),
+        await put(`/api/pulls/${encodeURIComponent(number)}/lens?project=${encodeURIComponent(project)}`, parsed),
       );
     });
 

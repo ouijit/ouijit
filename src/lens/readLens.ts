@@ -2,12 +2,10 @@ import { getDiffLens, deleteDiffLens } from '../db';
 import { listLenses } from './config';
 import { parseLens, type LensGroup } from './lens';
 import { liveRun } from './runRegistry';
+import { announceLensChanged } from './announce';
 import type { DiffSubject } from './subject';
 
-/**
- * The lens stored for one diff, as everything that reads one sees it. Whether a
- * drifted lens is still worth drawing is the subject's `whenStale` to declare.
- */
+/** Whether a drifted lens is still worth drawing is the subject's `whenStale`. */
 export interface StoredLens {
   /**
    * The parts of the change, or null when there are none to draw: nothing
@@ -72,6 +70,8 @@ export async function readLens(subject: DiffSubject): Promise<StoredLens | null>
   return { groups, lensId: row.lens_id, lensName: row.lens_name, stale, omitted: row.omitted, running };
 }
 
-export function clearLens(subject: DiffSubject): Promise<{ success: boolean }> {
-  return deleteDiffLens(subject.projectPath, subject.key);
+export async function clearLens(subject: DiffSubject): Promise<{ success: boolean }> {
+  const result = await deleteDiffLens(subject.projectPath, subject.key);
+  announceLensChanged(subject);
+  return result;
 }

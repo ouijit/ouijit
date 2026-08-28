@@ -12,6 +12,8 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import type { BrowserWindow } from 'electron';
 import { _resetCacheForTesting } from '../../db';
 import { registerDiffPanelHandlers } from '../../ipc/handlers/diffPanel';
+import { typedPush } from '../../ipc/helpers';
+import { setLensAnnouncer } from '../../lens/announce';
 import type { LensInput, LensSummary } from '../../lens/config';
 import { worktreeSubjectKey } from '../../lens/subjectKeys';
 
@@ -50,6 +52,9 @@ describe('what a lens change tells the renderer', () => {
     handlers.clear();
     sent.length = 0;
     registerDiffPanelHandlers(window as unknown as BrowserWindow);
+    // The one wire `registerIpcHandlers` does that registering a handler does
+    // not: writing a lens announces itself from `src/lens`, not from a handler.
+    setLensAnnouncer((change) => typedPush(window as unknown as BrowserWindow, 'lens:changed', change));
   });
 
   test('the list is broadcast whichever way it changed, and says which project', async () => {

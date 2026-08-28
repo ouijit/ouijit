@@ -66,7 +66,6 @@ import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth
 import type { CliHookMode, CliPanelKind } from '../types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
-import { prSubjectKey } from '../lens/subjectKeys';
 
 const apiLog = getLogger().scope('api');
 
@@ -741,7 +740,7 @@ const routes: Route[] = [
       const headSha = r.body.headSha;
       const groups = r.body.groups;
       if (typeof headSha !== 'string' || !headSha) throw new HttpError(400, 'Missing headSha');
-      const result = await setPullRequestLens(project, prNumber(r), headSha, JSON.stringify({ groups }));
+      const result = await setPullRequestLens(project, prNumber(r), headSha, { groups });
       if (!result.success) throw new HttpError(400, result.error ?? 'Invalid lens');
       return result;
     },
@@ -920,16 +919,6 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
         typedPush(window, 'github:drafts-changed', {
           projectPath: project,
           prNumber: parseInt(segments[1], 10),
-        });
-      }
-
-      // Same rule, for the other thing an agent writes on its own: without this
-      // the pane sits on "writing" while the lens is already on disk. The
-      // handler reads one local row and nothing else.
-      if (segments[0] === 'pulls' && segments[2] === 'lens') {
-        typedPush(window, 'lens:changed', {
-          projectPath: project,
-          subjectKey: prSubjectKey(parseInt(segments[1], 10)),
         });
       }
 

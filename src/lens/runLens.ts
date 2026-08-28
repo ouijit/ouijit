@@ -2,39 +2,19 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
-import type { FileDiff } from '../types';
-import type { DiffSignals } from '../analysis/types';
 import { getLogger } from '../logger';
 import { describeError } from '../utils/describeError';
 import { parseLens } from './lens';
 import { LENS_SCHEMA } from './lensSchema';
 import type { LensAgent } from './lensAgents';
-import { buildLensPrompt, type LensFile, type LensSubject } from './lensPrompt';
 
 const log = getLogger().scope('lens');
 
-/**
- * The run happens outside the repository, in a temporary directory. The flags in
- * `lensAgents` already stop a repository's own configuration loading, but `cwd`
- * is the part that holds however those flags are renamed next: with no
- * repository under it there is nothing for an agent to discover, and the prompt
- * carries the whole diff anyway.
- */
-
-/** Long enough for a large diff on a slow model, short enough to give up on a hang. */
 const TIMEOUT_MS = 5 * 60 * 1000;
-
-/** Beyond this the reply is not an answer, so the rest is dropped unread. */
 const MAX_OUTPUT_BYTES = 2_000_000;
 
 export interface RunLensInput {
-  subject: LensSubject;
-  files: LensFile[];
-  diffs: Map<string, FileDiff | null>;
-  instruction: string;
-  /** Hotspot and coupling signals, when the analysis flag is on. */
-  signals?: DiffSignals | null;
-  /** Already resolved — nothing here picks one. */
+  prompt: string;
   agent: LensAgent;
   signal?: AbortSignal;
 }
@@ -42,26 +22,16 @@ export interface RunLensInput {
 export interface RunLensResult {
   success: boolean;
   body?: string;
-  /**
-   * Hunks the change was too large to quote, so the agent grouped them from
-   * their line spans alone. Stored with the lens, since it is what explains a
-   * grouping that reads oddly on a huge diff.
-   */
-  omitted?: number;
   error?: string;
 }
 
 export async function runLens(input: RunLensInput): Promise<RunLensResult> {
-  const agent = input.agent;
-  const { prompt, omitted } = buildLensPrompt({
-    subject: input.subject,
-    files: input.files,
-    diffs: input.diffs,
-    instruction: input.instruction,
-    signals: input.signals,
-  });
+  const { agent, prompt } = input;
 
   const started = Date.now();
+  // Outside any repository. The flags in `lensAgents` already stop one's own
+  // configuration loading, but `cwd` is what holds however those are renamed
+  // next: with no repository under it there is nothing to discover.
   const room = await mkdtemp(path.join(tmpdir(), 'ouijit-lens-'));
 
   try {
@@ -77,9 +47,7 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
     }
 
     log.info('lens run starting', {
-      lens: input.instruction.slice(0, 60),
       command: `${agent.command} ${agent.args.join(' ')}`.trim(),
-      files: input.files.length,
       promptChars: prompt.length,
     });
 
@@ -109,7 +77,7 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
       slices: groups.reduce((total, group) => total + group.slices.length, 0),
       listPriceUsd: answer.listPriceUsd,
     });
-    return { success: true, body: JSON.stringify({ groups }), omitted };
+    return { success: true, body: JSON.stringify({ groups }) };
   } catch (error) {
     const message = describeError(error);
     log.warn('lens run failed to complete', { command: agent.command, ms: Date.now() - started, error: message });
