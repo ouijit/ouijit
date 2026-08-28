@@ -109,13 +109,11 @@ export const TerminalHeader = memo(function TerminalHeader({
             sandboxProvider: provider,
           });
         },
-        openEditor: () => {
-          if (!instance.worktreePath) return;
+        openEditor: () =>
           openWorktree(
-            { path: instance.worktreePath, branch: instance.worktreeBranch ?? '', createdAt: '' },
+            { path: instance.worktreePath!, branch: instance.worktreeBranch!, createdAt: '' },
             taskId ?? undefined,
-          );
-        },
+          ),
         openFolder: () => void revealInFileManager(instance.worktreePath!),
         setStatus: async (status) => {
           await window.api.task.setStatus(projectPath, taskId!, status);

@@ -1,8 +1,9 @@
 /**
  * Opening a file at a line, against a real database and a real spawned editor.
  *
- * LAUNCH_EDITOR is launch-editor's own override, and the only way to keep the
- * test off whatever editor happens to be running on the machine.
+ * LAUNCH_EDITOR is launch-editor's own override, which the registered command
+ * has to beat: it sits above process-list detection in launch-editor's order,
+ * so a decoy there stands in for any editor already running on the machine.
  */
 
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -16,9 +17,10 @@ let tmpDir: string;
 let filePath: string;
 let markerFile: string;
 
-function fakeEditor(): string {
-  const script = path.join(tmpDir, 'fake-editor.sh');
-  fs.writeFileSync(script, `#!/bin/sh\nprintf '%s ' "$@" >> '${markerFile}'\n`);
+/** A stand-in editor that records the arguments it was launched with. */
+function fakeEditor(name: string): string {
+  const script = path.join(tmpDir, name);
+  fs.writeFileSync(script, `#!/bin/sh\necho "${name} $*" >> '${markerFile}'\n`);
   fs.chmodSync(script, 0o755);
   return script;
 }
@@ -45,9 +47,8 @@ describe('opening a file in the editor', () => {
   test('reports the missing pieces, and hands the file and line over once they are there', async () => {
     expect(await openFileInEditor(tmpDir, tmpDir, filePath, 12)).toEqual({ success: false, reason: 'no-editor' });
 
-    const editor = fakeEditor();
-    await registerEditor(editor);
-    process.env.LAUNCH_EDITOR = editor;
+    await registerEditor(fakeEditor('registered'));
+    process.env.LAUNCH_EDITOR = fakeEditor('decoy');
 
     expect(await openFileInEditor(tmpDir, tmpDir, 'src/gone.ts', 3)).toEqual({
       success: false,
@@ -55,12 +56,14 @@ describe('opening a file in the editor', () => {
     });
 
     expect(await openFileInEditor(tmpDir, tmpDir, filePath, 12)).toEqual({ success: true });
-    await vi.waitFor(() => expect(fs.readFileSync(markerFile, 'utf8')).toContain(`${path.join(tmpDir, filePath)} 12`));
+    await vi.waitFor(() =>
+      expect(fs.readFileSync(markerFile, 'utf8')).toContain(`registered ${path.join(tmpDir, filePath)} 12`),
+    );
+    expect(fs.readFileSync(markerFile, 'utf8')).not.toContain('decoy');
   });
 
   test('names the editor it tried when that editor is not on PATH', async () => {
     await registerEditor('ouijit-not-an-editor');
-    process.env.LAUNCH_EDITOR = 'ouijit-not-an-editor';
 
     expect(await openFileInEditor(tmpDir, tmpDir, filePath, 12)).toEqual({
       success: false,

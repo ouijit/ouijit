@@ -6,15 +6,12 @@ import { openWorktreeEditor } from '../components/terminal/terminalActions';
 import { HookConfigDialog } from '../components/dialogs/HookConfigDialog';
 
 interface OpenInEditor {
-  /** Open one file, at a line if there is one. */
   openFile: (filePath: string, line?: number) => void;
-  /** Open a task's whole worktree. */
   openWorktree: (worktree: WorktreeInfo, taskId?: number) => void;
   /** Render inside the caller's tree: the editor setup dialog, or null. */
   editorDialog: ReactNode;
 }
 
-/** What the click asked for, held while the editor behind it is sorted out. */
 interface PendingOpen {
   retry: () => void;
   /** The command that just failed, so the dialog opens on it rather than blank. */
@@ -26,10 +23,10 @@ interface PendingOpen {
  *
  * The two open differently — a file goes to launch-editor for the line jump, a
  * worktree runs the editor hook in a task terminal so Helix and Vim get a TTY —
- * but they fail the same way, so what happens next lives here. No editor
- * registered opens the setup dialog, a launch that fails names the editor it
- * tried and offers that command for editing, and either way the click is
- * carried out as soon as there is an editor that can carry it out.
+ * and both can find no editor registered, which is what lives here: the setup
+ * dialog, and the click carried out as soon as an editor is saved. Only a file
+ * open reports why a launch failed; a worktree open leaves that to the terminal
+ * it spawned, which shows the shell's own error.
  */
 export function useOpenInEditor(projectPath: string, workspaceRoot: string): OpenInEditor {
   const [pending, setPending] = useState<PendingOpen | null>(null);

@@ -451,7 +451,7 @@ export interface Project {
 /**
  * The result of "open in editor". `no-editor` is the setup case — nothing is
  * registered yet — and `launch-failed` carries the editor that was tried, so
- * the caller can offer to change it. The renderer writes what the user reads.
+ * the caller can offer to change it.
  *
  * The `undefined` members are what let a caller reach `reason` before it has
  * narrowed: this project does not run strictNullChecks, so a union discriminated

@@ -8,9 +8,8 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import launchEditor from 'launch-editor';
-import guessEditor from 'launch-editor/guess';
 import { getHook } from './db';
 import type { EditorOpenResult } from './types';
 import { getLogger } from './logger';
@@ -75,9 +74,10 @@ function ensureEditorPath(): void {
 /**
  * Opens a file at a specific line in the user's editor.
  *
- * Runs the editor hook first (which starts the editor if it isn't running),
- * then hands the file to launch-editor for the line jump. Every way this can
- * fail is named in the result — the renderer writes what the user reads.
+ * The registered command is handed to launch-editor as the editor to use.
+ * Letting it detect one instead would open the file in whatever editor happens
+ * to be running, which is not the one the user registered. Every way this can
+ * fail is named in the result.
  */
 export async function openFileInEditor(
   projectPath: string,
@@ -96,18 +96,11 @@ export async function openFileInEditor(
   // check has to happen here or the failure has no way to surface.
   if (!fs.existsSync(fullPath)) return { success: false, reason: 'missing-file' };
 
-  const hookProcess = spawn(hook.command, [fullPath], { detached: true, stdio: 'ignore', shell: true });
-  hookProcess.on('error', (err) => editorLog.warn('editor hook failed to spawn', { command: hook.command, err }));
-  hookProcess.unref();
-
-  // The hook may have just started the editor, so process-list detection can
-  // still come up empty; the registered command is the fallback editor.
-  const [detectedEditor] = guessEditor();
-  const editor = detectedEditor ? path.basename(detectedEditor) : hook.command.split(' ')[0];
-  editorLog.info('opening file', { filePath, line, editor });
+  const editor = path.basename(hook.command.split(' ')[0]);
   const target = line ? `${fullPath}:${line}` : fullPath;
-  const failure = await tryLaunchEditor(target, detectedEditor ? undefined : hook.command);
+  editorLog.info('opening file', { filePath, line, editor });
 
+  const failure = await tryLaunchEditor(target, hook.command);
   if (failure) {
     editorLog.warn('editor launch failed', { target, editor, failure });
     return { success: false, reason: 'launch-failed', editor };
@@ -116,10 +109,11 @@ export async function openFileInEditor(
 }
 
 /**
- * Wraps launch-editor in a Promise. Returns null on success, error string on failure.
- * Suppresses launch-editor's console.log output by temporarily replacing it.
+ * Runs `editor` against `target`, resolving null on success and the failure on
+ * anything else. Suppresses launch-editor's console.log output by temporarily
+ * replacing it.
  */
-function tryLaunchEditor(target: string, specifiedEditor?: string): Promise<string | null> {
+function tryLaunchEditor(target: string, editor: string): Promise<string | null> {
   return new Promise((resolve) => {
     let errorMsg: string | null = null;
 
@@ -136,7 +130,7 @@ function tryLaunchEditor(target: string, specifiedEditor?: string): Promise<stri
       origSpawn(cmd, args, { ...opts, stdio: 'ignore' });
 
     try {
-      launchEditor(target, specifiedEditor, (_fileName, msg) => {
+      launchEditor(target, editor, (_fileName, msg) => {
         errorMsg = msg ?? 'no editor detected';
       });
     } finally {

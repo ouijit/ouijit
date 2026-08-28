@@ -192,10 +192,8 @@ export const KanbanCard = memo(function KanbanCard({
 
     const actions: TaskMenuActions = {
       openTerminal: (provider) => onOpenTerminal(task, provider),
-      openEditor: () => {
-        if (!task.worktreePath || !task.branch) return;
-        openWorktree({ path: task.worktreePath, branch: task.branch, createdAt: task.createdAt }, task.taskNumber);
-      },
+      openEditor: () =>
+        openWorktree({ path: task.worktreePath!, branch: task.branch!, createdAt: task.createdAt }, task.taskNumber),
       openFolder: () => void revealInFileManager(task.worktreePath!),
       setStatus: async (status) => {
         await window.api.task.setStatus(projectPath, task.taskNumber, status);
