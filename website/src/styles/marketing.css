@@ -1658,13 +1658,8 @@ body.marketing::after {
     padding: 80px var(--content-padding) 24px;
   }
 
-  /* Past the scale floor the stage is a slice of a window rather than a whole
-     one, so the desk gives up its right edge and lets it run off the page —
-     the hero window's own treatment. */
-  .review-theater .plan-desk {
-    margin-right: calc(-1 * var(--content-padding));
-    padding-right: 0;
-    border-radius: 24px 0 0 24px;
+  .details-section {
+    padding-top: 80px;
   }
 
   .review-theater {

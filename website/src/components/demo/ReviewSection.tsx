@@ -796,7 +796,7 @@ function PrChrome() {
  *  file tree: the picker over the rail, the parts an agent grouped the change
  *  into, and the document in that order. `pPick` opens the picker and spends
  *  the run, `pParts` lands the grouping. `compact` drops the inbox, which is
- *  the first thing a cropped stage loses room for. */
+ *  the first thing a stage drawn small has no room to say anything with. */
 function LensedDiffCard({ pPick, pParts, compact }: { pPick: number; pParts: number; compact: boolean }) {
   const written = pParts > 0.02;
   const menuOpen = pPick > 0.12 && pPick < 0.55;
@@ -987,19 +987,19 @@ const STACK = ['scan', 'chip', 'pick'] as const;
 /** TerminalCardView's lift between one depth and the next. */
 const DEPTH_STEP = 24;
 
-/** Whether the stage is running past MockScale's floor, and so showing a
- *  slice of each card rather than the whole of it. The width is the section's
- *  own breakpoint: below it the desk gives up its right edge. */
-function useCropped(): boolean {
-  const [cropped, setCropped] = useState(false);
+/** Whether the stage is being scaled down to fit rather than drawn at its own
+ *  size. The width is the section's own breakpoint, where it stops being a
+ *  window and starts being a picture of one. */
+function useScaled(): boolean {
+  const [scaled, setScaled] = useState(false);
   useEffect(() => {
     const query = window.matchMedia('(max-width: 999px)');
-    const update = () => setCropped(query.matches);
+    const update = () => setScaled(query.matches);
     update();
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
   }, []);
-  return cropped;
+  return scaled;
 }
 
 /** What the stage gives the cards at full width. Below it they scale rather
@@ -1013,7 +1013,7 @@ const STAGE_HEIGHT = FRONT_HEIGHT + (STACK.length - 1) * DEPTH_STEP;
 
 export function ReviewSection() {
   const { rootRef, p, t, active, seek, paused, pauseAt, play } = useTheaterLoop(BEAT_KEYS, BEAT_MS, BEAT_SPEEDS);
-  const cropped = useCropped();
+  const scaled = useScaled();
   /* Which surface holds the front, taken as a step rather than a ramp: the
      depth change is the app's own animation, and a crossfade tied to the loop
      would leave two cards half-faded on top of each other. */
@@ -1033,7 +1033,7 @@ export function ReviewSection() {
           {/* The cards fill the stage whatever their number: the deepest one
               starts at its top edge, so the box the rest share gives up a step
               of height for every card that has arrived. */}
-          <MockScale width={STAGE_WIDTH} minScale={0.6}>
+          <MockScale width={STAGE_WIDTH}>
             <div className="relative" style={{ height: STAGE_HEIGHT }}>
               <div
                 className="absolute inset-x-0 bottom-0"
@@ -1049,7 +1049,7 @@ export function ReviewSection() {
                   <RoundTripTerminal p={p} depth={depth(1) ?? 0} tip={tip} />
                 </StackCard>
                 <StackCard depth={depth(2)}>
-                  <LensedDiffCard pPick={p('pick')} pParts={p('parts')} compact={cropped} />
+                  <LensedDiffCard pPick={p('pick')} pParts={p('parts')} compact={scaled} />
                 </StackCard>
               </div>
             </div>
