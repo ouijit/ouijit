@@ -2778,11 +2778,6 @@ body.marketing::after {
   scroll-snap-align: start;
 }
 
-.rv-desk {
-  padding: 20px;
-  border-radius: 20px;
-}
-
 /* The frame a panel is drawn in. The panel fills it and clips its own panes,
    which is what the app does with a window this size. */
 .rv-crop {
@@ -2826,7 +2821,7 @@ body.marketing::after {
 .rv-band {
   display: flex;
   align-items: center;
-  gap: 56px;
+  gap: 48px;
 }
 
 .rv-band-copy {
@@ -2837,7 +2832,6 @@ body.marketing::after {
 .rv-band-desk {
   flex: 1;
   min-width: 0;
-  padding: 28px;
 }
 
 /* Under the copy, not under the desk: each band runs its own loop, and a
