@@ -28,13 +28,12 @@ export interface ResolvedSlice {
 }
 
 export interface ResolvedGroup {
-  /**
-   * Two parts can carry the same title, and a place alone would hand one part's
-   * folds and marks to whatever the next lens writes in its slot.
-   */
+  /** Opaque, and no two writings of a lens share one. See `writingOf`. */
   id: string;
   title: string;
   summary?: string;
+  /** The trailing part, holding whatever the lens claimed none of. */
+  ungrouped?: true;
   slices: ResolvedSlice[];
 }
 
@@ -179,7 +178,28 @@ export function parseLens(body: string): LensGroup[] | null {
 }
 
 const UNGROUPED_TITLE = 'Not in this lens';
-const UNGROUPED_ID = 'rest';
+
+/**
+ * Parts belong to one writing of a lens. Folds and read marks are keyed by their
+ * ids and are cleared per head, not per writing, so a part of the lens written
+ * next would otherwise come up already folded and already ticked — and a stale
+ * mark standing in for a part nobody read is enough to roll a file up and write
+ * it to disk as read.
+ *
+ * Taken from the stored groups, so it holds still while the diff loads: an id
+ * that moved then would hand one part's marks to another.
+ */
+function writingOf(groups: LensGroup[]): string {
+  const body = JSON.stringify(groups);
+  let low = 0x811c9dc5;
+  let high = 0xc2b2ae35;
+  for (let i = 0; i < body.length; i++) {
+    const c = body.charCodeAt(i);
+    low = Math.imul(low ^ c, 0x01000193);
+    high = Math.imul(high ^ c, 0x85ebca6b);
+  }
+  return (low >>> 0).toString(36) + (high >>> 0).toString(36);
+}
 
 export interface LensCoverage {
   /** Parts the lens named, not counting the trailing one it did not. */
@@ -189,7 +209,7 @@ export interface LensCoverage {
 }
 
 export function lensCoverage(resolved: ResolvedGroup[]): LensCoverage {
-  const rest = resolved.find((group) => group.id === UNGROUPED_ID);
+  const rest = resolved.find((group) => group.ungrouped);
   return { parts: resolved.length - (rest ? 1 : 0), ungrouped: rest?.slices.length ?? 0 };
 }
 
@@ -204,6 +224,7 @@ export function resolveLens(
   diffs: Map<string, FileDiff | null | undefined>,
   order: string[],
 ): ResolvedGroup[] {
+  const writing = writingOf(groups);
   const rank = new Map(order.map((path, index) => [path, index]));
 
   const claimed = new Map<string, Set<number>>();
@@ -216,9 +237,6 @@ export function resolveLens(
   };
 
   const resolved: ResolvedGroup[] = [];
-  // Numbered against the lens as stored: a part with nothing left to claim drops
-  // out, and an id that shifted when it did would hand one part's folds to
-  // another as the diff loads.
   groups.forEach((group, at) => {
     // One file named twice in one part is one card: two would share a section
     // key, and a fold or a mark would land on whichever drew last.
@@ -244,7 +262,7 @@ export function resolveLens(
     // In the rail's order, not the lens's: the rail draws each part as a tree,
     // and a tree sorts.
     resolved.push({
-      id: `${at}:${group.title}`,
+      id: `${writing}:${at}`,
       title: group.title,
       ...(group.summary ? { summary: group.summary } : {}),
       slices: slices.sort((a, b) => rank.get(a.path)! - rank.get(b.path)!),
@@ -261,7 +279,9 @@ export function resolveLens(
     const hunks = hunksInRanges(diff).filter((index) => take(path, index));
     if (hunks.length > 0) rest.push({ path, hunks, ...changesIn(diff, hunks) });
   }
-  if (rest.length > 0) resolved.push({ id: UNGROUPED_ID, title: UNGROUPED_TITLE, slices: rest });
+  if (rest.length > 0) {
+    resolved.push({ id: `${writing}:rest`, title: UNGROUPED_TITLE, ungrouped: true, slices: rest });
+  }
 
   return resolved;
 }

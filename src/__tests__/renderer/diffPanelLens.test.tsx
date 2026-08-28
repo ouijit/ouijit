@@ -210,10 +210,18 @@ describe('the diff panel, read through a lens', () => {
 
     const { container } = render(<DiffPanel {...PROPS} />);
     await screen.findAllByText('What reads it');
-    await waitFor(() => expect(container.querySelector('[data-group="1:What reads it"] .diff-card')).toBeTruthy());
+    // Parts are found by their heading: an id belongs to one writing of a lens
+    // and says nothing a test can name.
+    const partNamed = (title: string) =>
+      [...container.querySelectorAll<HTMLElement>('[data-group]')].find((part) =>
+        part.querySelector('button')?.textContent?.includes(title),
+      )!;
+    const copyIn = (title: string) => partNamed(title).querySelector('.diff-card[data-path="src/db/repo.ts"]')!;
 
-    const stored = container.querySelector('[data-group="0:Where it is stored"] .diff-card')!;
-    const read = container.querySelector('[data-group="1:What reads it"] .diff-card')!;
+    await waitFor(() => expect(copyIn('What reads it')).toBeTruthy());
+
+    const stored = copyIn('Where it is stored');
+    const read = copyIn('What reads it');
     expect(stored.textContent).toContain('+5');
     expect(read.textContent).toContain('+1');
     expect(read.textContent).toContain('-1');
@@ -224,7 +232,7 @@ describe('the diff panel, read through a lens', () => {
     expect(chapter.textContent).toContain('+1');
 
     fireEvent.click(chapter.querySelector('[data-path="src/db/repo.ts"]')!);
-    expect(landed[0].closest('[data-group]')?.getAttribute('data-group')).toBe('1:What reads it');
+    expect(landed[0].closest('[data-group]')).toBe(partNamed('What reads it'));
 
     // Folding one copy leaves the other open.
     fireEvent.click(read.querySelector('button[aria-label="Collapse"]')!);

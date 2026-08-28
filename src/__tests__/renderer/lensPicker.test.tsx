@@ -132,6 +132,7 @@ describe('picking how to read a diff', () => {
       {
         id: 'rest',
         title: 'Not in this lens',
+        ungrouped: true,
         slices: [
           { path: 'c.ts', hunks: [0] },
           { path: 'd.ts', hunks: [0] },

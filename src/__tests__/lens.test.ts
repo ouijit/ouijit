@@ -7,8 +7,17 @@ import {
   resolveLens,
   sectionKey,
   type LensGroup,
+  type ResolvedGroup,
 } from '../lens/lens';
+import { markSection } from '../github/viewedSections';
 import { diffsByPath, fileDiff } from './lensFixtures';
+
+/** Every part one file is on screen in, as the panes work them out. */
+function partsOf(groups: ResolvedGroup[], path: string): string[] {
+  return groups
+    .filter((group) => group.slices.some((slice) => slice.path === path))
+    .map((group) => sectionKey(group.id, path));
+}
 
 /** `a.ts` in two hunks of 10 and 11 lines, `b.ts` in one of 5. */
 const diffs = diffsByPath(
@@ -103,9 +112,41 @@ describe('binding a lens to the diff it was written for', () => {
       order,
     );
 
-    expect(resolved.map((group) => group.id)).toEqual(['0:Storage', '1:Storage', 'rest']);
+    expect(new Set(resolved.map((group) => group.id)).size).toBe(3);
     expect(sectionKey(resolved[0].id, 'a.ts')).not.toBe(sectionKey(resolved[1].id, 'a.ts'));
     expect(resolved[1].slices).toEqual([{ path: 'a.ts', hunks: [1], changes: { additions: 11, deletions: 0 } }]);
+  });
+
+  test('a lens written again cannot pass its parts the marks of the one before', () => {
+    // Marks and folds are keyed by part and cleared per head, so the ids of one
+    // writing have to fall out of reach of the next. A part carrying a mark
+    // nobody made is enough to roll a file up and write it down as read.
+    const first = resolveLens(
+      [
+        { title: 'Storage', slices: [{ path: 'a.ts', ranges: [[1, 10]] }] },
+        { title: 'Reads', slices: [{ path: 'a.ts', ranges: [[50, 60]] }] },
+      ],
+      diffs,
+      order,
+    );
+    const read = markSection(new Set<string>(), false, partsOf(first, 'a.ts'), sectionKey(first[0].id, 'a.ts'), true);
+    expect(read.file).toBeUndefined();
+
+    // The same lens run again over the same head, grouping it differently.
+    const second = resolveLens(
+      [
+        { title: 'Storage', slices: [{ path: 'a.ts', ranges: [[1, 10]] }, { path: 'b.ts' }] },
+        { title: 'Reads', slices: [{ path: 'a.ts', ranges: [[50, 60]] }] },
+      ],
+      diffs,
+      order,
+    );
+    expect(second.filter((group) => first.some((was) => was.id === group.id))).toEqual([]);
+
+    // So marking one part of a.ts under the new grouping claims one part, and
+    // the file stays unread — the older mark is not one of its siblings.
+    const again = markSection(read.sections, false, partsOf(second, 'a.ts'), sectionKey(second[1].id, 'a.ts'), true);
+    expect(again.file).toBeUndefined();
   });
 
   test('a line belongs to the one part that holds its hunk', () => {
@@ -120,8 +161,8 @@ describe('binding a lens to the diff it was written for', () => {
     const file = diffs.get('a.ts')!;
 
     // Where a comment on line 55 goes — not the first copy of a.ts.
-    expect(partHolding(resolved, file, 'a.ts', 55)).toBe('1:Second half');
-    expect(partHolding(resolved, file, 'a.ts', 5)).toBe('0:First half');
+    expect(partHolding(resolved, file, 'a.ts', 55)).toBe(resolved[1].id);
+    expect(partHolding(resolved, file, 'a.ts', 5)).toBe(resolved[0].id);
     // A line in no hunk, and a diff read with no lens on it.
     expect(partHolding(resolved, file, 'a.ts', 500)).toBeUndefined();
     expect(partHolding(null, file, 'a.ts', 55)).toBeUndefined();
