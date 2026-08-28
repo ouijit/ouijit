@@ -37,7 +37,7 @@ import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
 import { repoSlug } from './types';
 import { writeLens } from '../lens/writeLens';
-import { readLens, clearLens as clearStoredLens, type StoredLens } from '../lens/readLens';
+import { readLens, clearLens, type StoredLens } from '../lens/readLens';
 import type { DiffSubject } from '../lens/subject';
 import { prSubjectKey } from '../lens/subjectKeys';
 import type { LensFile, LensSubject } from '../lens/lensPrompt';
@@ -625,12 +625,12 @@ export function writeLensWithAgent(
 }
 
 /** The lens stored for a pull request, if it still describes this head. */
-export function getLens(projectPath: string, prNumber: number, headSha: string): Promise<StoredLens | null> {
+export function getPullRequestLens(projectPath: string, prNumber: number, headSha: string): Promise<StoredLens | null> {
   return readLens(new PullRequestSubject(projectPath, prNumber, headSha));
 }
 
 /** A lens posted over the CLI, by an agent that read the diff itself. */
-export async function setLens(
+export async function setPullRequestLens(
   projectPath: string,
   prNumber: number,
   headSha: string,
@@ -645,8 +645,8 @@ export async function setLens(
   return { success: true, groups };
 }
 
-export function clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {
-  return clearStoredLens(new PullRequestSubject(projectPath, prNumber));
+export function clearPullRequestLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {
+  return clearLens(new PullRequestSubject(projectPath, prNumber));
 }
 
 // ── Writes ───────────────────────────────────────────────────────────

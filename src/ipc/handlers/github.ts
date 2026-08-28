@@ -26,7 +26,7 @@ import {
   resolveThread,
   createPullRequestForTask,
   mergePr,
-  getLens,
+  getPullRequestLens,
   writeLensWithAgent,
   createTaskFromIssue,
   prepareTaskFromPullRequest,
@@ -82,7 +82,7 @@ export function registerGithubHandlers(mainWindow: BrowserWindow): void {
   typedHandle('github:create-pr', (projectPath, taskNumber, options) =>
     createPullRequestForTask(projectPath, taskNumber, options),
   );
-  typedHandle('github:lens', (projectPath, prNumber, headSha) => getLens(projectPath, prNumber, headSha));
+  typedHandle('github:lens', (projectPath, prNumber, headSha) => getPullRequestLens(projectPath, prNumber, headSha));
   typedHandle('github:run-lens', async (projectPath, prNumber, lensId) => {
     try {
       return await writeLensWithAgent(projectPath, prNumber, lensId);

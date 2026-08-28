@@ -53,9 +53,9 @@ import {
   listDrafts,
   saveDraft,
   discardDraft,
-  getLens,
-  setLens,
-  clearLens,
+  getPullRequestLens,
+  setPullRequestLens,
+  clearPullRequestLens,
 } from '../github/service';
 import { getProjectList } from '../projectList';
 import { cliPanelRequest } from '../cliPanels';
@@ -727,7 +727,7 @@ const routes: Route[] = [
       const project = requireProject(r.query);
       const headSha = r.query.get('headSha');
       if (!headSha) throw new HttpError(400, 'Missing ?headSha=');
-      return getLens(project, prNumber(r), headSha);
+      return getPullRequestLens(project, prNumber(r), headSha);
     },
     false,
     'sandbox',
@@ -741,7 +741,7 @@ const routes: Route[] = [
       const headSha = r.body.headSha;
       const groups = r.body.groups;
       if (typeof headSha !== 'string' || !headSha) throw new HttpError(400, 'Missing headSha');
-      const result = await setLens(project, prNumber(r), headSha, JSON.stringify({ groups }));
+      const result = await setPullRequestLens(project, prNumber(r), headSha, JSON.stringify({ groups }));
       if (!result.success) throw new HttpError(400, result.error ?? 'Invalid lens');
       return result;
     },
@@ -749,7 +749,13 @@ const routes: Route[] = [
     'sandbox',
   ),
 
-  route('DELETE', 'pulls/:number/lens', async (r) => clearLens(requireProject(r.query), prNumber(r)), true, 'sandbox'),
+  route(
+    'DELETE',
+    'pulls/:number/lens',
+    async (r) => clearPullRequestLens(requireProject(r.query), prNumber(r)),
+    true,
+    'sandbox',
+  ),
 
   // ── Panels ────────────────────────────────────────────────────────
   // The two user-addressable panel kinds on a terminal: markdown files and
