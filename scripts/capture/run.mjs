@@ -204,25 +204,30 @@ const PREVIEW_PAGE = `<!doctype html>
 </html>
 `;
 
+/** Narrower than CLAUDE_RULE: the lens scene gives this terminal a third of
+ *  the split, and 64 columns wraps there. */
+const FEED_RULE = '\x1b[38;5;240m' + '─'.repeat(42) + '\x1b[0m\r\n';
+
+// Wrapped to the rule's width for the same reason.
 const FEED_SCREEN = [
-  '\x1b[38;5;245m>\x1b[0m \x1b[38;5;252mAdd an activity feed to the dashboard, polling the events\r\n',
-  '  table so it keeps up while the page is open.\x1b[0m\r\n',
+  '\x1b[38;5;245m>\x1b[0m \x1b[38;5;252mAdd an activity feed to the dashboard,\r\n',
+  '  polling the events table so it keeps up.\x1b[0m\r\n',
   '\r\n',
-  "\x1b[38;5;252m⏺\x1b[0m I'll add the query first, then the component, then wire it\r\n",
-  '  into the dashboard.\r\n',
+  "\x1b[38;5;252m⏺\x1b[0m I'll add the query first, then the\r\n",
+  '  component, then wire it in.\r\n',
   '\r\n',
   '\x1b[38;5;114m⏺\x1b[0m \x1b[1mWrite(src/api/activity.ts)\x1b[0m\r\n',
-  '\x1b[38;5;244m  ⎿  Wrote src/api/activity.ts with 16 lines\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Wrote 16 lines\x1b[0m\r\n',
   '\r\n',
   '\x1b[38;5;114m⏺\x1b[0m \x1b[1mEdit(src/dashboard/Dashboard.tsx)\x1b[0m\r\n',
-  '\x1b[38;5;244m  ⎿  Updated src/dashboard/Dashboard.tsx with 11 additions\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Updated with 11 additions\x1b[0m\r\n',
   '\r\n',
   '\x1b[38;5;204m✳\x1b[0m Simmering… \x1b[38;5;244m(1m 12s · ↓ 5.4k tokens)\x1b[0m\r\n',
   '\r\n',
-  CLAUDE_RULE,
+  FEED_RULE,
   '\x1b[38;5;252m>\x1b[0m \x1b[7m \x1b[0m\r\n',
-  CLAUDE_RULE,
-  '  \x1b[38;5;179m⏵⏵ auto mode on\x1b[0m \x1b[38;5;244m(shift+tab to cycle) · esc to interrupt\x1b[0m\r\n',
+  FEED_RULE,
+  '  \x1b[38;5;179m⏵⏵ auto mode on\x1b[0m \x1b[38;5;244m· esc to interrupt\x1b[0m\r\n',
 ].join('');
 
 function startPreviewServer(port) {
@@ -285,6 +290,10 @@ function buildTerminalSeeds() {
       worktreeBranch: 'dashboard-activity-feed-120',
       worktreePath: path.join(worktreesPath, 'T-2'),
       content: FEED_SCREEN,
+      // The lens scene reads this terminal, and its half of the split carries
+      // the parts rail and the document both. The transcript beside it is the
+      // same few lines whatever it is given.
+      panelSplitRatio: 0.64,
     },
     {
       ptyId: 'capture-pty-3',

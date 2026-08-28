@@ -46,6 +46,9 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     initialSummaryType: seed.summaryType ?? 'ready',
   });
   term.openTerminal();
+  // Before the body mounts: it reads the ratio once, for its initial state, and
+  // only a drag of the handle syncs it again.
+  if (seed.panelSplitRatio !== undefined) term.panelSplitRatio = seed.panelSplitRatio;
   if (seed.planPath) {
     term.panelFullWidth = false;
     term.addPlanPanel(seed.planPath, seed.planPanelOpen ?? false);

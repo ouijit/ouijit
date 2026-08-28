@@ -28,6 +28,8 @@ export interface CaptureTerminalSeed {
   /** Open the plan panel alongside the terminal when true */
   planPath?: string;
   planPanelOpen?: boolean;
+  /** How much of the split the panel takes, not the terminal. Default 0.5. */
+  panelSplitRatio?: number;
 }
 
 export interface CaptureNavigatePayload {
