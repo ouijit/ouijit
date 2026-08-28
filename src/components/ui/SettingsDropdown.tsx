@@ -150,5 +150,5 @@ export function SettingsDropdownOption({
 }
 
 export function SettingsDropdownDivider() {
-  return <div className="my-1 mx-1 border-t border-ink/[0.06]" />;
+  return <div className="my-1 mx-1 border-t border-separator" />;
 }

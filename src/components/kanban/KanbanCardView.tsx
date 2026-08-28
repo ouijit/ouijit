@@ -407,7 +407,7 @@ export const KanbanCardView = memo(function KanbanCardView({
 
       {expanded && (
         <div
-          className="grid mt-2 pt-2 border-t border-ink/[0.04] gap-2"
+          className="grid mt-2 pt-2 border-t border-separator gap-2"
           // Keep the card's drag activator (dnd-kit listeners on the wrapper)
           // out of the expanded area so selecting description text doesn't
           // start a card drag.
