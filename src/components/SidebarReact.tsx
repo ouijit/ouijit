@@ -31,9 +31,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddProject, onCloneSe
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noProjects = projects.length === 0;
-  // Start visible on every app open so the sidebar is always discoverable;
-  // the existing hideSidebar path (mouse-leave) collapses it from there.
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(false);
   const effectiveVisible = visible || sidebarPinned;
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; project: Project } | null>(null);
@@ -113,13 +111,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddProject, onCloneSe
     };
     document.addEventListener('toggle-sidebar', handler);
     return () => document.removeEventListener('toggle-sidebar', handler);
-  }, []);
-
-  // Sidebar starts visible (see initial useState above) — match the layout
-  // offset to that on mount so content doesn't render under the sidebar
-  // before the first show/hide tick.
-  useEffect(() => {
-    document.documentElement.style.setProperty('--sidebar-offset', 'var(--sidebar-width)');
   }, []);
 
   // Pin the sidebar open whenever there are no projects so the add-project
