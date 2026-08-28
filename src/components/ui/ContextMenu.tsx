@@ -32,6 +32,7 @@ interface ContextMenuProps {
 const ITEM_CLASS =
   'context-menu-item w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out flex items-center gap-1.5 whitespace-nowrap hover:bg-ink/[0.08] [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60';
 
+/** The bevel is an inset `::before`, so whatever wears this has to be positioned. */
 const PANEL_CLASS = 'p-1 glass-bevel border border-bezel rounded-[12px]';
 const PANEL_STYLE = {
   background: 'var(--color-terminal-bg)',
@@ -91,7 +92,7 @@ function MenuList({
                   padding around it covers the gap between the two panels. */}
               {open && (
                 <div className={`absolute -top-2 ${openLeft ? 'right-full pr-1.5' : 'left-full pl-1.5'} py-2 z-10`}>
-                  <div className={`min-w-[180px] ${PANEL_CLASS}`} style={PANEL_STYLE}>
+                  <div className={`relative min-w-[180px] ${PANEL_CLASS}`} style={PANEL_STYLE}>
                     <MenuList items={item.submenu} onSelect={onSelect} openLeft={openLeft} />
                   </div>
                 </div>

@@ -25,6 +25,7 @@ import {
   OPENCODE_WRAPPER,
   OPENCODE_PLUGIN,
   NONO_SHIM,
+  CLI_REFERENCE,
 } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 
@@ -121,6 +122,26 @@ afterEach(async () => {
 });
 
 // ── Server lifecycle ─────────────────────────────────────────────────
+
+/**
+ * This reference is the only thing an agent is told about Ouijit, so a
+ * capability it does not name is one the agent cannot know exists.
+ */
+describe('CLI_REFERENCE', () => {
+  test('names every capability an agent can only learn from it', () => {
+    expect(CLI_REFERENCE).toContain('ouijit pr draft add');
+    expect(CLI_REFERENCE).toContain('ouijit pr lens set');
+    // How to find which pull request it is on: the task carries the number.
+    expect(CLI_REFERENCE).toContain('ouijit task current | jq .githubPrNumber');
+
+    // An agent with an authenticated gh will post directly unless told not to.
+    expect(CLI_REFERENCE).toContain('user sends the review themselves');
+    expect(CLI_REFERENCE).toContain('reaches GitHub the moment it runs');
+
+    // The anchoring rule a whole review fails on.
+    expect(CLI_REFERENCE).toContain('ADDED line');
+  });
+});
 
 describe('startHookServer', () => {
   test('resolves with port > 0 once listening', async () => {

@@ -1,31 +1,9 @@
-import { test, expect, createTestRepo } from './fixtures';
+import { test, expect, createTestRepo, enterProject } from './fixtures';
 import type { Page, Locator, ElectronApplication } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-
-/**
- * Helper: add a project and enter project mode.
- * Hovers the sidebar trigger zone to reveal the auto-hiding sidebar,
- * then clicks the project icon to navigate into project mode.
- */
-async function enterProject(appPage: Page, repoPath: string): Promise<void> {
-  // Add project and refresh the store so the sidebar item renders
-  await appPage.evaluate(async (rp: string) => {
-    await window.api.addProject(rp);
-    const projects = await window.api.refreshProjects();
-    (window as any).__appStore.getState().setProjects(projects);
-  }, repoPath);
-
-  // Hover the left edge to reveal the auto-hiding sidebar
-  await appPage.mouse.move(2, 200);
-  const sidebarItem = appPage.locator('[data-project-path]').first();
-  await expect(sidebarItem).toBeVisible({ timeout: 10_000 });
-  await sidebarItem.click();
-  // First entry shows kanban board (no existing terminals)
-  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
-}
 
 /**
  * Helper: navigate into an already-registered project by path. `enterProject`
@@ -204,6 +182,22 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await contextMenu.getByRole('button', { name: 'Move to', exact: true }).hover();
   await expect(contextMenu.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
   await expect(contextMenu.locator('.context-menu-item--danger', { hasText: 'Trash' })).toBeVisible();
+
+  // The bevel is an inset `::before`, so it lands on whichever ancestor is
+  // positioned: a static flyout panel wears the surrounding wrapper's box
+  // instead, and the lit edge floats off the menu it belongs to.
+  const flyout = await appPage.evaluate(() => {
+    const panels = [...document.querySelectorAll('.context-menu .glass-bevel')] as HTMLElement[];
+    const panel = panels[panels.length - 1];
+    const bevel = getComputedStyle(panel, '::before');
+    const box = panel.getBoundingClientRect();
+    return {
+      width: Math.round(box.width) - Math.round(parseFloat(bevel.width)),
+      height: Math.round(box.height) - Math.round(parseFloat(bevel.height)),
+    };
+  });
+  // `inset: 0` against the panel's padding box: its border, on each side.
+  expect(flyout).toEqual({ width: 2, height: 2 });
 
   await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
 

@@ -68,8 +68,12 @@ import type {
   PromoteToTaskResult,
   PrFileVersions,
 } from '../github/types';
+import type { LensInput, LensSummary } from '../lens/config';
 import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
 import type { AnalysisOverview, DiffSignals } from '../analysis/types';
+import type { DiffLensTarget } from '../lens/worktreeSubject';
+import type { StoredLens } from '../lens/readLens';
+import type { LensChangedPayload } from '../lens/subjectKeys';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
@@ -286,6 +290,11 @@ export interface IpcInvokeContract {
     args: [projectPath: string, number: number, baseSha: string, headSha: string, filePath: string, oldPath?: string];
     return: PrFileVersions;
   };
+  'github:lens': { args: [projectPath: string, prNumber: number, headSha: string]; return: StoredLens | null };
+  'github:run-lens': {
+    args: [projectPath: string, prNumber: number, lensId: string];
+    return: { success: boolean; error?: string };
+  };
   'github:viewed-files': { args: [projectPath: string, prNumber: number, headSha: string]; return: string[] };
   'github:set-file-viewed': {
     args: [projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean];
@@ -302,6 +311,18 @@ export interface IpcInvokeContract {
   };
   'github:detect-task-pr': { args: [projectPath: string, taskNumber: number]; return: { prNumber: number | null } };
   'github:detect-project-prs': { args: [projectPath: string]; return: { linked: number } };
+
+  // ── Lenses ─────────────────────────────────────────────────────────
+  // The project's named instructions and the agent that runs them.
+  'lens:list': { args: [projectPath: string]; return: LensSummary[] };
+  'lens:save': { args: [projectPath: string, lens: LensInput]; return: LensSummary };
+  'lens:delete': { args: [projectPath: string, lensId: string]; return: { success: boolean } };
+  'lens:agent': { args: [projectPath: string]; return: string | null };
+  'lens:set-agent': { args: [projectPath: string, chosenId: string | null]; return: { success: boolean } };
+
+  // A lens over a worktree's own diff, from the same lenses as a pull request's.
+  'diff-lens:get': { args: [target: DiffLensTarget]; return: StoredLens | null };
+  'diff-lens:run': { args: [target: DiffLensTarget, lensId: string]; return: { success: boolean; error?: string } };
 
   // ── Diff notes ─────────────────────────────────────────────────────
   // Notes on a worktree's own diff, keyed by the worktree rather than by a pull
@@ -468,4 +489,12 @@ export interface IpcPushContract {
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };
   /** A review draft was written or discarded outside the renderer (the CLI). */
   'github:drafts-changed': { args: [payload: GithubDraftsChangedPayload] };
+  /** Every picker and list holds its own copy of `lens:list`, so each reads again. */
+  'lens:list-changed': { args: [projectPath: string] };
+  /**
+   * A run over one diff ended, for a pane that did not start it: a renderer
+   * reloaded mid-run, or an agent writing over the CLI. One channel for every
+   * kind of diff, the payload's key naming which.
+   */
+  'lens:changed': { args: [payload: LensChangedPayload] };
 }

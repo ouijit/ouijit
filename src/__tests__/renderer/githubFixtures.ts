@@ -1,5 +1,5 @@
 import type { GithubIssue, IssueDetail, PullRequestDetail, PullRequestSummary, TaskWithWorkspace } from '../../types';
-import type { InboxResult } from '../../github/types';
+import type { InboxResult, PullRequestFile } from '../../github/types';
 
 /** What the GitHub panel is handed, filled in enough to render. */
 
@@ -25,6 +25,11 @@ export function pr(over: Partial<PullRequestSummary> & { number: number }): Pull
     reviewRequested: false,
     ...over,
   };
+}
+
+/** One changed file, filled in enough for the rail and the document to draw it. */
+export function changed(path: string, over: Partial<PullRequestFile> = {}): PullRequestFile {
+  return { path, status: 'M', additions: 1, deletions: 1, ...over };
 }
 
 export function inbox(over: Partial<InboxResult> = {}): InboxResult {

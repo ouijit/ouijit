@@ -31,7 +31,10 @@ import type {
   SaveDraftInput,
   PrHead,
 } from './github/types';
+import type { LensInput } from './lens/config';
 import type { SaveDiffNoteInput } from './diffNotes';
+import type { DiffLensTarget } from './lens/worktreeSubject';
+import type { LensChangedPayload } from './lens/subjectKeys';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -350,6 +353,10 @@ contextBridge.exposeInMainWorld('api', {
       filePath: string,
       oldPath?: string,
     ) => typedInvoke('github:pull-request-file-versions', projectPath, number, baseSha, headSha, filePath, oldPath),
+    lens: (projectPath: string, prNumber: number, headSha: string) =>
+      typedInvoke('github:lens', projectPath, prNumber, headSha),
+    runLens: (projectPath: string, prNumber: number, lensId: string) =>
+      typedInvoke('github:run-lens', projectPath, prNumber, lensId),
     viewedFiles: (projectPath: string, prNumber: number, headSha: string) =>
       typedInvoke('github:viewed-files', projectPath, prNumber, headSha),
     setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) =>
@@ -403,5 +410,20 @@ contextBridge.exposeInMainWorld('api', {
     refresh: (projectPath: string, force?: boolean) => typedInvoke('analysis:refresh', projectPath, force),
     diffSignals: (projectPath: string, paths: string[]) => typedInvoke('analysis:diff-signals', projectPath, paths),
     overview: (projectPath: string) => typedInvoke('analysis:overview', projectPath),
+  },
+
+  diffLens: {
+    get: (target: DiffLensTarget) => typedInvoke('diff-lens:get', target),
+    run: (target: DiffLensTarget, lensId: string) => typedInvoke('diff-lens:run', target, lensId),
+  },
+
+  lens: {
+    list: (projectPath: string) => typedInvoke('lens:list', projectPath),
+    save: (projectPath: string, lens: LensInput) => typedInvoke('lens:save', projectPath, lens),
+    delete: (projectPath: string, lensId: string) => typedInvoke('lens:delete', projectPath, lensId),
+    agent: (projectPath: string) => typedInvoke('lens:agent', projectPath),
+    setAgent: (projectPath: string, chosenId: string | null) => typedInvoke('lens:set-agent', projectPath, chosenId),
+    onListChanged: (callback: (projectPath: string) => void) => typedListen('lens:list-changed', callback),
+    onChanged: (callback: (payload: LensChangedPayload) => void) => typedListen('lens:changed', callback),
   },
 });

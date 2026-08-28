@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
+import { partHolding, sectionKey } from '../../lens/lens';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore, RAIL_DEFAULT_WIDTH, RAIL_MIN_WIDTH, RAIL_MAX_WIDTH } from '../../stores/githubStore';
+import { LensDialog } from '../dialogs/LensDialog';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { treeFileOrder } from '../diff/DiffFileTree';
+import { prSubjectKey } from '../../lens/subjectKeys';
+import { useProjectLenses } from '../diff/useProjectLenses';
+import { useLensSession } from '../diff/useLensSession';
+import { useLensReveal } from '../diff/lensReveal';
 import { scrollToSection, fileSelector } from '../diff/scrollToSection';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
@@ -45,7 +51,9 @@ export function PullRequestDetailView({
 }: PullRequestDetailViewProps) {
   const detailLoading = useGithubStore((s) => s.detailLoading);
   const files = useGithubStore((s) => s.files);
+  const diffs = useGithubStore((s) => s.diffs);
   const railWidth = useGithubStore((s) => s.railWidth);
+  const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const badge = stateBadge(detail);
 
   const filesRef = useRef<FilesSectionHandle>(null);
@@ -57,14 +65,14 @@ export function PullRequestDetailView({
   }, [pane]);
 
   /** The rail navigates the document; it never filters it. */
-  const scrollToFile = useCallback((path: string | null) => {
+  const scrollToFile = useCallback((path: string | null, group?: string) => {
     const container = paneRef.current;
     if (!path) {
       if (container) container.scrollTop = 0;
       return;
     }
-    useGithubStore.getState().setActivePath(path);
-    scrollToSection(container, fileSelector(path));
+    useGithubStore.getState().setActiveSection(sectionKey(group, path));
+    scrollToSection(container, fileSelector(path, group));
   }, []);
 
   /**
@@ -105,36 +113,62 @@ export function PullRequestDetailView({
   // Jumping to a draft means the code pane, but the jump is usually made from
   // Summary or Timeline where `FilesSection` is unmounted and the ref is null.
   // Remember the draft and open it once that pane exists.
-  const [pendingDraft, setPendingDraft] = useState<{ id: string; path: string } | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<{ id: string; path: string; line: number } | null>(null);
 
   const jumpToDraft = useCallback((draft: ReviewDraft) => {
     setPane('code');
-    setPendingDraft({ id: draft.id, path: draft.path });
+    setPendingDraft({ id: draft.id, path: draft.path, line: draft.line });
   }, []);
 
-  useEffect(() => {
-    if (pane !== 'code' || !pendingDraft) return;
-    scrollToFile(pendingDraft.path);
-    filesRef.current?.editDraft(pendingDraft.id);
-    setPendingDraft(null);
-  }, [pane, pendingDraft, scrollToFile]);
+  const [lensesOpen, setLensesOpen] = useState(false);
+  const openLenses = useCallback(() => setLensesOpen(true), []);
+
+  const lenses = useProjectLenses(projectPath);
 
   // Ordered from the file list, not the diffs, so arriving batches do not
   // rebuild it.
   const fileOrder = useMemo(() => treeFileOrder(files), [files]);
 
-  /**
-   * Changes only when the anchors do. Keying the observer effect on the file
-   * list instead rebuilds it over every anchor each time a batch of diffs
-   * lands.
-   */
-  const anchorShape = useMemo(() => fileOrder.join('\n'), [fileOrder]);
+  const lens = useLensSession(
+    {
+      projectPath,
+      key: prSubjectKey(detail.number),
+      revision: detail.headSha,
+      read: () => window.api.github.lens(projectPath, detail.number, detail.headSha),
+      write: (lensId) => window.api.github.runLens(projectPath, detail.number, lensId),
+    },
+    diffs,
+    fileOrder,
+  );
+
+  const shown = lens.shown;
+
+  const revealing = useLensReveal(lens.landed, paneRef);
+
+  useEffect(() => {
+    if (pane !== 'code' || !pendingDraft) return;
+    const part = partHolding(shown, diffs.get(pendingDraft.path), pendingDraft.path, pendingDraft.line);
+    scrollToFile(pendingDraft.path, part);
+    filesRef.current?.editDraft(pendingDraft.id);
+    setPendingDraft(null);
+  }, [pane, pendingDraft, scrollToFile, shown, diffs]);
 
   /**
-   * Marks where the reader is in the rail. Written straight to the store: this
-   * fires on scroll, and component state would re-render the whole diff to move
-   * a highlight. Observes the placeholder wrappers, which exist whether or not
-   * their file has mounted; the nested anchor on a mounted section is skipped.
+   * `shown` is a fresh array every time a batch of diffs lands, and keying the
+   * observer effect on it rebuilds it over every anchor in the pane each time.
+   */
+  const anchorShape = useMemo(
+    () =>
+      shown
+        ? shown.map((group) => `${group.id}\t${group.slices.map((s) => s.path).join(',')}`).join('\n')
+        : fileOrder.join('\n'),
+    [shown, fileOrder],
+  );
+
+  /**
+   * Written straight to the store: this fires on scroll, and component state would
+   * re-render the whole diff to move a highlight. Observes the placeholder
+   * wrappers, which exist whether or not their file has mounted.
    */
   useEffect(() => {
     const container = paneRef.current;
@@ -164,7 +198,12 @@ export function PullRequestDetailView({
             topmost = anchor;
           }
         }
-        if (topmost?.dataset.path) useGithubStore.getState().setActivePath(topmost.dataset.path);
+        // The part it sits in, not just the file: the same file three parts down
+        // is a different place in the reading.
+        if (topmost?.dataset.path) {
+          const group = topmost.closest<HTMLElement>('[data-group]')?.dataset.group;
+          useGithubStore.getState().setActiveSection(sectionKey(group, topmost.dataset.path));
+        }
       },
       // Only the top band of the pane counts, or the last file of a long scroll
       // claims the mark from the bottom of the screen.
@@ -172,7 +211,7 @@ export function PullRequestDetailView({
     );
     for (const anchor of anchors) observer.observe(anchor);
     return () => observer.disconnect();
-  }, [pane, anchorShape]);
+  }, [pane, anchorShape, collapsedGroups]);
 
   return (
     <div className="flex flex-col flex-1 min-w-0 min-h-0">
@@ -206,7 +245,16 @@ export function PullRequestDetailView({
       <div className="flex flex-1 min-h-0">
         {pane === 'code' && (
           <>
-            <PullRequestRail width={railWidth} detail={detail} files={files} onSelect={scrollToFile} />
+            <PullRequestRail
+              width={railWidth}
+              detail={detail}
+              files={files}
+              onSelect={scrollToFile}
+              lens={lens}
+              lenses={lenses}
+              onOpenLenses={openLenses}
+              revealing={revealing}
+            />
             <ResizeHandle
               width={railWidth}
               onWidth={(width) => useGithubStore.getState().setRailWidth(width)}
@@ -230,10 +278,26 @@ export function PullRequestDetailView({
           ) : pane === 'timeline' ? (
             <DiscussionSection projectPath={projectPath} detail={detail} />
           ) : (
-            <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} />
+            <FilesSection
+              ref={filesRef}
+              projectPath={projectPath}
+              detail={detail}
+              order={fileOrder}
+              groups={lens.shown}
+              revealing={revealing}
+            />
           )}
         </div>
       </div>
+
+      {lensesOpen && (
+        <LensDialog
+          projectPath={projectPath}
+          onRun={(picked) => void lens.run(picked)}
+          running={lens.writing?.id ?? null}
+          onClose={() => setLensesOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -32,6 +32,10 @@ import type {
   PrFileVersions,
 } from './github/types';
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
+import type { DiffLensTarget } from './lens/worktreeSubject';
+import type { LensChangedPayload } from './lens/subjectKeys';
+import type { LensInput, LensSummary } from './lens/config';
+import type { StoredLens } from './lens/readLens';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
@@ -602,6 +606,31 @@ export interface ElectronAPI {
   diffNotes: DiffNotesAPI;
   /** Hotspot, coupling, and ownership signals mined from git history */
   analysis: AnalysisAPI;
+  /** Agent-written grouping over a worktree's own diff */
+  diffLens: DiffLensAPI;
+  /** The project's named lenses and the agent that runs them */
+  lens: LensAPI;
+}
+
+/**
+ * Not part of `github`: a worktree diff reads through these with no remote in
+ * sight, and nothing behind them touches GitHub.
+ */
+export interface LensAPI {
+  list(projectPath: string): Promise<LensSummary[]>;
+  save(projectPath: string, lens: LensInput): Promise<LensSummary>;
+  delete(projectPath: string, lensId: string): Promise<{ success: boolean }>;
+  agent(projectPath: string): Promise<string | null>;
+  setAgent(projectPath: string, chosenId: string | null): Promise<{ success: boolean }>;
+  onListChanged(callback: (projectPath: string) => void): () => void;
+  /** A run over one diff ended somewhere this pane cannot see, whichever kind it was. */
+  onChanged(callback: (payload: LensChangedPayload) => void): () => void;
+}
+
+/** The pull request equivalent is `github.lens` / `runLens`. */
+export interface DiffLensAPI {
+  get(target: DiffLensTarget): Promise<StoredLens | null>;
+  run(target: DiffLensTarget, lensId: string): Promise<{ success: boolean; error?: string }>;
 }
 
 /**
@@ -697,6 +726,8 @@ export interface GithubAPI {
   taskFromIssue(projectPath: string, issueNumber: number): Promise<GithubActionResult & { taskNumber?: number }>;
   taskFromPr(projectPath: string, prNumber: number): Promise<PromoteToTaskResult>;
 
+  lens(projectPath: string, prNumber: number, headSha: string): Promise<StoredLens | null>;
+  runLens(projectPath: string, prNumber: number, lensId: string): Promise<{ success: boolean; error?: string }>;
   viewedFiles(projectPath: string, prNumber: number, headSha: string): Promise<string[]>;
   setFileViewed(
     projectPath: string,

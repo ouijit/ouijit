@@ -414,7 +414,7 @@ export const KanbanCardView = memo(function KanbanCardView({
           onPointerDown={(e) => e.stopPropagation()}
         >
           <div
-            className={`kanban-add-description-wrap flex flex-col gap-1 text-sm${
+            className={`kanban-add-description-wrap flex flex-col gap-1 min-w-0 text-sm${
               editingDesc && metrics.overflowing ? ' is-capped' : ''
             }`}
             data-clip={editingDesc ? clip : 'none'}
