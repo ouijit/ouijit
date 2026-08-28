@@ -798,8 +798,8 @@ const CAPTIONS: { keys: readonly string[]; title: string; body: string; ms: numb
   },
   {
     keys: [...LENS_KEYS],
-    title: 'Read a diff in chapters',
-    body: 'A lens is a standing instruction your project keeps: lead with the decision, mechanical churn last. An agent applies it to any diff, in a worktree or a pull request, and regroups the change into named parts.',
+    title: 'See diffs through a new lens',
+    body: 'Keep an instruction like ‘lead with the decision, mechanical churn last’, and an agent regroups any diff into named parts.',
     ms: 7000,
   },
 ];
