@@ -59,7 +59,7 @@ export function SandboxMock() {
     <FloatingPanel>
       <div className="flex items-center gap-2 px-3 py-2.5">
         <StatusDot summaryType="thinking" sandboxed />
-        <span className="font-mono text-xs font-medium text-ink/85 shrink-0">Refine CTA button hover states</span>
+        <span className="font-mono text-xs font-medium text-ink/85 min-w-0 truncate">Refine CTA button hover states</span>
         <span className="font-mono text-xs text-ink/40 min-w-0 truncate">Running npm test…</span>
         <span className={`${METADATA_CHIP} ml-auto`}>lima</span>
       </div>
@@ -111,7 +111,7 @@ export function TagsMock() {
     <FloatingPanel>
       <div className="flex items-center gap-2 px-3 py-2.5">
         <StatusDot summaryType="ready" />
-        <span className="font-mono text-xs font-medium text-ink/85 shrink-0">Refactor billing webhook router</span>
+        <span className="font-mono text-xs font-medium text-ink/85 min-w-0 truncate">Refactor billing webhook router</span>
         <span className="inline-flex items-center gap-1 min-w-0">
           <span className={METADATA_CHIP}>frontend</span>
           <span className={METADATA_CHIP}>api</span>

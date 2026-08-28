@@ -390,6 +390,11 @@ body.marketing .app-markdown h4 {
     transform-origin: top left;
   }
 
+  /* Off the edge of the page, not a hard cut with a gutter after it. */
+  .app-window-frame {
+    padding-right: 0;
+  }
+
 }
 
 .app-window-titlebar {
@@ -833,10 +838,13 @@ html.js [data-reveal].is-revealed {
   }
 
   /* The cap is there to stop one card dragging a ribbon's height up; stacked
-     in one column there is no ribbon, and copy runs longer at this width. */
+     in one column there is no ribbon, and copy runs longer at this width.
+     The shift breaks the seam between two rows, and in one column it only
+     drops a card onto the one below it. */
   .tools-flow .detail {
     width: auto;
     max-height: none;
+    top: 0;
   }
 
 }
@@ -1126,6 +1134,13 @@ html.js [data-reveal].is-revealed {
 }
 
 @media (max-width: 768px) {
+  /* The one block on a docs page that cannot reflow: it scrolls itself here
+     rather than taking the page sideways with it. */
+  .docs-content table {
+    display: block;
+    overflow-x: auto;
+  }
+
   .docs-layout {
     flex-direction: column;
     gap: 24px;
@@ -1472,6 +1487,9 @@ body.marketing::after {
 
   .plan-stage {
     flex-direction: column;
+    /* Stretch, not the start alignment the two-column stage wants: stacked,
+       a row that shrinks to its copy leaves its desk half the page wide. */
+    align-items: stretch;
   }
 
   .plan-v3-row {
@@ -1635,6 +1653,45 @@ body.marketing::after {
   max-width: 48ch;
 }
 
+@media (max-width: 999px) {
+  .home-review {
+    padding: 80px var(--content-padding) 24px;
+  }
+
+  /* Past the scale floor the stage is a slice of a window rather than a whole
+     one, so the desk gives up its right edge and lets it run off the page —
+     the hero window's own treatment. */
+  .review-theater .plan-desk {
+    margin-right: calc(-1 * var(--content-padding));
+    padding-right: 0;
+    border-radius: 24px 0 0 24px;
+  }
+
+  .review-theater {
+    gap: 24px;
+    margin-top: 32px;
+  }
+
+  /* Side by side these are two narrow columns of small type. Stacked they
+     read as a list, with the caption the run is on lit. */
+  .beat-row {
+    grid-auto-flow: row;
+    gap: 20px;
+  }
+
+  .beat-row p {
+    max-width: none;
+  }
+}
+
+/* A transport for a pointer that swells the dot it is nearest, on a screen
+   with no pointer and no room for the dots to be tapped. */
+@media (hover: none) and (pointer: coarse) {
+  .beat-dots {
+    display: none;
+  }
+}
+
 /* ── Build section: the To Do column emptying into the stack ───────── */
 
 /* Anchored to the desk floor with its top pushed down one peek per back card,
@@ -1748,6 +1805,12 @@ body.marketing::after {
     flex: none;
     --desk-h: 520px;
     padding: 20px;
+  }
+
+  .hx-well {
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
   }
 }
 

@@ -46,7 +46,7 @@ export function PaletteGroupTitle({ children }: { children: ReactNode }) {
 
 export function PaletteFooter({ action }: { action?: string }) {
   return (
-    <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-ink/[0.06] text-[11px] text-ink/40">
+    <div className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 border-t border-ink/[0.06] text-[11px] text-ink/40">
       <KeyHint keys="↑↓" label="Navigate" />
       {action && <KeyHint keys="↵" label={action} />}
       <span className="flex-1" />
@@ -87,8 +87,10 @@ export function PaletteRow({ leading, title, hint, context, meta, selected = fal
         <span className="text-[13px] truncate text-text-primary">{title}</span>
         {hint && <span className="text-[11px] text-text-tertiary truncate shrink-0 max-w-[9rem]">{hint}</span>}
       </span>
-      <span className="w-32 shrink-0 text-[11px] text-text-tertiary truncate">{context}</span>
-      <span className="w-28 shrink-0 text-right text-[11px] text-text-tertiary truncate">{meta}</span>
+      {/* Sized, not fixed: the palette's own columns, but free to give way in
+          a tile narrower than the window the app draws them in. */}
+      <span className="w-32 min-w-0 text-[11px] text-text-tertiary truncate">{context}</span>
+      <span className="w-28 min-w-0 text-right text-[11px] text-text-tertiary truncate">{meta}</span>
     </div>
   );
 }

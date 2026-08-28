@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
 import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
@@ -19,6 +19,7 @@ import {
 } from './stackParts';
 import { DeskWash } from './DeskWash';
 import { useTheaterLoop, BeatDots } from './theaterLoop';
+import { MockScale } from './MockScale';
 
 /**
  * The review section: what the history says about the diff, the loop back to
@@ -794,8 +795,9 @@ function PrChrome() {
 /** A pull request open on its Code pane, read through a lens instead of the
  *  file tree: the picker over the rail, the parts an agent grouped the change
  *  into, and the document in that order. `pPick` opens the picker and spends
- *  the run, `pParts` lands the grouping. */
-function LensedDiffCard({ pPick, pParts }: { pPick: number; pParts: number }) {
+ *  the run, `pParts` lands the grouping. `compact` drops the inbox, which is
+ *  the first thing a cropped stage loses room for. */
+function LensedDiffCard({ pPick, pParts, compact }: { pPick: number; pParts: number; compact: boolean }) {
   const written = pParts > 0.02;
   const menuOpen = pPick > 0.12 && pPick < 0.55;
   const writing = pPick >= 0.55 && !written;
@@ -804,8 +806,12 @@ function LensedDiffCard({ pPick, pParts }: { pPick: number; pParts: number }) {
     <div className="flex absolute inset-0 overflow-hidden bg-terminal-bg">
       {/* The inbox stays open beside the request being read: which ones are
           waiting on you is the reason this one is on screen. */}
-      <PullRequestSidebar />
-      <div className="pane-seam relative w-px shrink-0" />
+      {!compact && (
+        <>
+          <PullRequestSidebar />
+          <div className="pane-seam relative w-px shrink-0" />
+        </>
+      )}
       <div className="flex flex-col flex-1 min-w-0">
         <PrChrome />
         <div className="relative flex flex-1 min-h-0">
@@ -981,12 +987,33 @@ const STACK = ['scan', 'chip', 'pick'] as const;
 /** TerminalCardView's lift between one depth and the next. */
 const DEPTH_STEP = 24;
 
+/** Whether the stage is running past MockScale's floor, and so showing a
+ *  slice of each card rather than the whole of it. The width is the section's
+ *  own breakpoint: below it the desk gives up its right edge. */
+function useCropped(): boolean {
+  const [cropped, setCropped] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 999px)');
+    const update = () => setCropped(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  return cropped;
+}
+
+/** What the stage gives the cards at full width. Below it they scale rather
+ *  than reflow: a diff pane starts wrapping its lines under 800px, and no
+ *  window this narrow has room for the 50/50 split the app draws. */
+const STAGE_WIDTH = 1088;
+
 /** The stage, and so the front card once the stack is at its deepest. */
 const FRONT_HEIGHT = 520;
 const STAGE_HEIGHT = FRONT_HEIGHT + (STACK.length - 1) * DEPTH_STEP;
 
 export function ReviewSection() {
   const { rootRef, p, t, active, seek, paused, pauseAt, play } = useTheaterLoop(BEAT_KEYS, BEAT_MS, BEAT_SPEEDS);
+  const cropped = useCropped();
   /* Which surface holds the front, taken as a step rather than a ramp: the
      depth change is the app's own animation, and a crossfade tied to the loop
      would leave two cards half-faded on top of each other. */
@@ -1001,30 +1028,32 @@ export function ReviewSection() {
     <div>
       <h2 className="plan-v-headline">Review in depth</h2>
       <div ref={rootRef} className="review-theater">
-        <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, width: '100%' }}>
+        <div className="plan-desk desk-wash desk-wash--prism" style={{ width: '100%' }}>
           <DeskWash />
           {/* The cards fill the stage whatever their number: the deepest one
               starts at its top edge, so the box the rest share gives up a step
               of height for every card that has arrived. */}
-          <div className="relative" style={{ height: STAGE_HEIGHT }}>
-            <div
-              className="absolute inset-x-0 bottom-0"
-              style={{ top: front * DEPTH_STEP, transition: 'top 0.25s ease' }}
-            >
-              <StackCard
-                depth={depth(0)}
-                back={<BackStrip icon="binoculars" label="Analysis" detail="850 commits · 318 files" />}
+          <MockScale width={STAGE_WIDTH} minScale={0.6}>
+            <div className="relative" style={{ height: STAGE_HEIGHT }}>
+              <div
+                className="absolute inset-x-0 bottom-0"
+                style={{ top: front * DEPTH_STEP, transition: 'top 0.25s ease' }}
               >
-                <MockAnalysis showAdvice />
-              </StackCard>
-              <StackCard depth={depth(1)}>
-                <RoundTripTerminal p={p} depth={depth(1) ?? 0} tip={tip} />
-              </StackCard>
-              <StackCard depth={depth(2)}>
-                <LensedDiffCard pPick={p('pick')} pParts={p('parts')} />
-              </StackCard>
+                <StackCard
+                  depth={depth(0)}
+                  back={<BackStrip icon="binoculars" label="Analysis" detail="850 commits · 318 files" />}
+                >
+                  <MockAnalysis showAdvice />
+                </StackCard>
+                <StackCard depth={depth(1)}>
+                  <RoundTripTerminal p={p} depth={depth(1) ?? 0} tip={tip} />
+                </StackCard>
+                <StackCard depth={depth(2)}>
+                  <LensedDiffCard pPick={p('pick')} pParts={p('parts')} compact={cropped} />
+                </StackCard>
+              </div>
             </div>
-          </div>
+          </MockScale>
         </div>
         <div className="beat-row">
           {CAPTIONS.map((c) => (

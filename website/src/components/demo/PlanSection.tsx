@@ -6,6 +6,7 @@ import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { ClaudeUser, AssistantSay, ToolCall, ToolResult, BODY_CLS } from './stackParts';
 import { KeyHint } from './paletteParts';
 import { DeskWash } from './DeskWash';
+import { MockScale } from './MockScale';
 
 /**
  * The Plan section: story rows on desk cards, scroll-scrubbed card flights
@@ -511,6 +512,12 @@ function ChargingDesk({ landed, children }: { landed: Record<SourceKey, boolean>
 
 /* ─── The stage: desk cards, charging column, card flights ────────── */
 
+/** What the desks give their mocks at full width. Below it a mock scales
+ *  rather than reflows: an issue row and a composer are app layouts with
+ *  min-widths of their own, not text. */
+const ROW_MOCK_WIDTH = 460;
+const COLUMN_WIDTH = 300;
+
 
 /** Narrow viewports and reduced motion get the finished state with no
  * choreography: every card landed, the column charged, nothing in flight. */
@@ -543,16 +550,20 @@ function CreateStage() {
         {ROWS.map(({ key, title, body }) => (
           <Row key={key} title={title} body={body} rowRef={setRow(key)}>
             <Desk slice={DESK_SLICE[key]} drain={staticMode ? 0 : easeInOut(flightP(key))}>
-              {rowMock(key, !staticMode && progress[key] > 0.15 && progress[key] < 0.55, created(key), setSource)}
+              <MockScale width={ROW_MOCK_WIDTH}>
+                {rowMock(key, !staticMode && progress[key] > 0.15 && progress[key] < 0.55, created(key), setSource)}
+              </MockScale>
             </Desk>
           </Row>
         ))}
       </div>
       <div className="plan-column-rail shrink-0">
         <ChargingDesk landed={landed}>
-          <div className="flex" style={{ minHeight: 470 }}>
-            <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
-          </div>
+          <MockScale width={COLUMN_WIDTH}>
+            <div className="flex" style={{ minHeight: 470 }}>
+              <ScrubColumn open={open} landed={landed} setSlot={setSlot} />
+            </div>
+          </MockScale>
         </ChargingDesk>
       </div>
       {!staticMode && geom && <HandoffGhosts flightP={flightP} geom={geom} />}
