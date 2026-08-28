@@ -3,7 +3,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useShallow } from 'zustand/react/shallow';
 import { terminalInstances } from './terminalReact';
-import { addProjectTerminal, openWorktreeEditor, renameTerminal, startRunner } from './terminalActions';
+import { addProjectTerminal, renameTerminal, startRunner } from './terminalActions';
 import { completeTask } from '../../services/taskCompletion';
 import { Icon } from './Icon';
 import { TagInput } from './TagInput';
@@ -11,13 +11,13 @@ import { TerminalHeaderView, TerminalHeaderName } from './TerminalHeaderView';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { Tooltip } from '../ui/Tooltip';
 import { AddPanelMenu } from './AddPanelMenu';
-import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
 import type { GitFileStatus, RunnerScript } from '../../types';
 import { openInEntry, moveToEntry, githubEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
+import { useOpenInEditor } from '../../hooks/useOpenInEditor';
 import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { describeDiffComparison, filesInDiff } from '../../diffSource';
@@ -76,7 +76,6 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [editorHookDialog, setEditorHookDialog] = useState(false);
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
   const [renameTarget, setRenameTarget] = useState<null | 'terminal' | 'task'>(null);
   const [branchFromDialog, setBranchFromDialog] = useState(false);
@@ -86,6 +85,8 @@ export const TerminalHeader = memo(function TerminalHeader({
   const instance = terminalInstances.get(ptyId);
   const projectPath = instance?.projectPath ?? '';
   const isTaskTerminal = taskId != null;
+
+  const { openWorktree, editorDialog } = useOpenInEditor(projectPath, instance?.worktreePath ?? projectPath);
 
   const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
   const task = useProjectStore((s) => (taskId != null ? s.tasks.find((t) => t.taskNumber === taskId) : undefined));
@@ -110,13 +111,10 @@ export const TerminalHeader = memo(function TerminalHeader({
         },
         openEditor: () => {
           if (!instance.worktreePath) return;
-          void openWorktreeEditor(
-            projectPath,
+          openWorktree(
             { path: instance.worktreePath, branch: instance.worktreeBranch ?? '', createdAt: '' },
             taskId ?? undefined,
-          ).then((opened) => {
-            if (!opened) setEditorHookDialog(true);
-          });
+          );
         },
         openFolder: () => void revealInFileManager(instance.worktreePath!),
         setStatus: async (status) => {
@@ -161,7 +159,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     });
 
     return items;
-  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, task, githubEnabled]);
+  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, openWorktree, task, githubEnabled]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -310,27 +308,7 @@ export const TerminalHeader = memo(function TerminalHeader({
       {branchFromDialog && task && (
         <BranchFromTaskDialog projectPath={projectPath} parentTask={task} onClose={() => setBranchFromDialog(false)} />
       )}
-      {editorHookDialog && (
-        <HookConfigDialog
-          projectPath={projectPath}
-          hookType="editor"
-          onClose={(result) => {
-            setEditorHookDialog(false);
-            if (result?.saved) {
-              useProjectStore.getState().markHookConfigured('editor');
-              // Open the editor straight away rather than making the user
-              // re-invoke "Open in Editor" after configuring it.
-              if (result.hook?.command && instance?.worktreePath) {
-                openWorktreeEditor(
-                  projectPath,
-                  { path: instance.worktreePath, branch: instance.worktreeBranch ?? '', createdAt: '' },
-                  taskId ?? undefined,
-                );
-              }
-            }
-          }}
-        />
-      )}
+      {editorDialog}
     </>
   );
 
