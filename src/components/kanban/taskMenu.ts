@@ -30,8 +30,8 @@ export interface TaskMenuActions {
 
 /**
  * "Open in ▸" — a host Terminal, one entry per installed sandbox backend,
- * Editor, and the OS file manager. Only the terminal creates the worktree the
- * rest of them open, so it is the only entry a task without one gets.
+ * Editor, and the OS file manager. Terminal and Editor create the worktree a
+ * task has never had; the rest need one already on disk.
  */
 export function openInEntry(
   sandboxProviders: SandboxProviderId[],
@@ -48,7 +48,9 @@ export function openInEntry(
         onClick: () => actions.openTerminal(provider),
       });
     }
-    submenu.push({ label: 'Editor', icon: 'code', onClick: actions.openEditor });
+  }
+  submenu.push({ label: 'Editor', icon: 'code', onClick: actions.openEditor });
+  if (hasWorktree) {
     submenu.push({ label: FILE_MANAGER_NAME, icon: 'folder-open', onClick: actions.openFolder });
   }
   return { label: 'Open in', submenu };

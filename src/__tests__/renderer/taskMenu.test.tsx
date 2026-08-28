@@ -24,12 +24,13 @@ function submenuOf(entry: ContextMenuEntry): ContextMenuItem[] {
 }
 
 describe('openInEntry', () => {
-  it('offers everything that needs a worktree only once the task has one', () => {
+  it('offers what needs a worktree on disk only once the task has one', () => {
     const withWorktree = submenuOf(openInEntry(['nono'], true, actions()));
     expect(withWorktree.map((i) => i.label)).toEqual(['Terminal', 'nono sandbox', 'Editor', FILE_MANAGER_NAME]);
 
+    // Terminal and Editor both create one, so they survive without it.
     const withoutWorktree = submenuOf(openInEntry(['nono'], false, actions()));
-    expect(withoutWorktree.map((i) => i.label)).toEqual(['Terminal']);
+    expect(withoutWorktree.map((i) => i.label)).toEqual(['Terminal', 'Editor']);
   });
 
   it('runs openFolder when the file manager entry is clicked', () => {

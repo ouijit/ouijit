@@ -439,11 +439,11 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
   expect(fs.existsSync(newWorktreePath)).toBe(true);
 });
 
-test('open in editor: asks for an editor when none is registered, then runs it in a task terminal', async ({
+test('open in editor: starts a never-started task, asks for an editor, and runs it in the worktree', async ({
   appPage,
   testRepo,
 }) => {
-  test.slow(); // spawns two terminals and polls for a side-effect file
+  test.slow(); // creates a worktree, spawns a terminal, polls for a side-effect file
   const repoPath = testRepo.repoPath;
 
   // A fake "editor" that records the directory argument it is launched with.
@@ -460,7 +460,8 @@ test('open in editor: asks for an editor when none is registered, then runs it i
 
   await enterProject(appPage, repoPath);
 
-  // Create a task and open it in a terminal (creates the worktree).
+  // A task that has never been started: "Editor" has to create the worktree
+  // the way "Terminal" does before it has anywhere to open.
   const input = await openColumnComposer(appPage);
   await input.fill('Editor task');
   await input.press('Enter');
@@ -468,15 +469,6 @@ test('open in editor: asks for an editor when none is registered, then runs it i
   const todoColumn = appPage.locator('.kanban-column[data-status="todo"]');
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
   await todoColumn.locator('.kanban-card').first().click({ button: 'right' });
-  await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
-  await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
-
-  // Reopen the kanban and launch the editor from the in-progress card.
-  await appPage.keyboard.press(`${modifier}+t`);
-  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 5_000 });
-  const ipCard = appPage.locator('.kanban-column[data-status="in_progress"] .kanban-card').first();
-  await ipCard.click({ button: 'right' });
-
   await chooseSubmenuItem(appPage, 'Open in', 'Editor');
 
   const command = appPage.locator('#hook-command');
@@ -484,9 +476,9 @@ test('open in editor: asks for an editor when none is registered, then runs it i
   await command.fill(fakeEditor);
   await appPage.getByRole('button', { name: 'Save' }).click();
 
-  // A second terminal card opens for the editor — the visible result the old
+  // A terminal card opens for the editor — the visible result the old
   // detached-spawn path never produced.
-  await expect(appPage.locator('.project-card')).toHaveCount(2, { timeout: 15_000 });
+  await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
 
   // The fake editor ran in the worktree and received the worktree path.
   const worktreePath = await appPage.evaluate(async (rp: string) => {

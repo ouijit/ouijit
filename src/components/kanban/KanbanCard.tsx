@@ -15,7 +15,7 @@ import { revealInFileManager } from '../../utils/fileManager';
 import { resolveAttachmentPath } from '../../utils/taskAttachments';
 import type { TaskChainInfo } from '../../utils/taskChain';
 import { isChainMember, isDescendantOf } from '../../utils/taskChain';
-import { useOpenInEditor } from '../../hooks/useOpenInEditor';
+import { openTaskInEditor } from '../../services/openInEditor';
 import { KanbanCardView } from './KanbanCardView';
 import { KanbanBadgeView } from './KanbanBadgeView';
 import { KanbanPrBadgeView } from './KanbanPrBadgeView';
@@ -54,7 +54,6 @@ export const KanbanCard = memo(function KanbanCard({
 }: KanbanCardProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [branchFromDialog, setBranchFromDialog] = useState(false);
-  const { openWorktree, editorDialog } = useOpenInEditor(projectPath, task.worktreePath ?? projectPath);
   const [terminalContextMenu, setTerminalContextMenu] = useState<{ x: number; y: number; ptyId: string } | null>(null);
   const [renamingTerminalId, setRenamingTerminalId] = useState<string | null>(null);
   const [initialRenamingLabel, setInitialRenamingLabel] = useState<string>('');
@@ -192,8 +191,7 @@ export const KanbanCard = memo(function KanbanCard({
 
     const actions: TaskMenuActions = {
       openTerminal: (provider) => onOpenTerminal(task, provider),
-      openEditor: () =>
-        openWorktree({ path: task.worktreePath!, branch: task.branch!, createdAt: task.createdAt }, task.taskNumber),
+      openEditor: () => void openTaskInEditor(projectPath, task),
       openFolder: () => void revealInFileManager(task.worktreePath!),
       setStatus: async (status) => {
         await window.api.task.setStatus(projectPath, task.taskNumber, status);
@@ -257,7 +255,6 @@ export const KanbanCard = memo(function KanbanCard({
     task,
     projectPath,
     availableSandboxProviders,
-    openWorktree,
     isSelected,
     selectedCount,
     githubEnabled,
@@ -323,7 +320,6 @@ export const KanbanCard = memo(function KanbanCard({
           onClose={() => setTerminalContextMenu(null)}
         />
       )}
-      {editorDialog}
       {branchFromDialog && (
         <BranchFromTaskDialog
           projectPath={projectPath}

@@ -5,7 +5,7 @@ import { terminalInstances } from '../terminal/terminalReact';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
 import { FullWidthToggle, MinimizeButton, PanelCloseButton } from '../terminal/FullWidthToggle';
-import { useOpenInEditor } from '../../hooks/useOpenInEditor';
+import { openFileInEditor } from '../../services/openInEditor';
 
 interface PlanPanelProps {
   ptyId: string;
@@ -153,10 +153,13 @@ export function PlanPanel({
     };
   }, [renderedHtml, ptyId]);
 
-  const instance = terminalInstances.get(ptyId);
-  const { openFile, editorDialog } = useOpenInEditor(
-    instance?.projectPath ?? '',
-    instance?.worktreePath || instance?.projectPath || '',
+  const openFile = useCallback(
+    (filePath: string, line?: number) => {
+      const inst = terminalInstances.get(ptyId);
+      if (!inst) return;
+      void openFileInEditor(inst.projectPath, inst.worktreePath || inst.projectPath, filePath, line);
+    },
+    [ptyId],
   );
 
   const handleClick = useCallback(
@@ -245,7 +248,6 @@ export function PlanPanel({
           />
         )}
       </div>
-      {editorDialog}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 /**
  * What "Open in editor" does when it cannot open anything. Driven through the
- * analysis panel's hotspots; the plan panel's file references go through the
- * same hook.
+ * analysis panel's hotspots; the plan panel's file references and the task
+ * menus reach the same service.
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
@@ -10,9 +10,11 @@ import { AnalysisPanel } from '../../components/analysis/AnalysisPanel';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { useAnalysisStore } from '../../stores/analysisStore';
 import { useProjectStore } from '../../stores/projectStore';
-import type { AnalysisOverview } from '../../analysis/types';
+import { useUIStore, type EditorHookRequest } from '../../stores/uiStore';
+import type { AnalysisOverview, ScriptHook } from '../../types';
 
 const PROJECT = '/work/alpha';
+const EDITOR: ScriptHook = { id: 'hook-editor', type: 'editor', name: 'Editor', command: 'code' };
 
 const overview: AnalysisOverview = {
   commitCount: 40,
@@ -46,6 +48,22 @@ const overview: AnalysisOverview = {
   owners: [],
 };
 
+/** Answer the editor-hook prompt the moment it is raised, as the dialog would. */
+function answerEditorPrompt(hook: ScriptHook | null): Promise<EditorHookRequest> {
+  return new Promise((settled) => {
+    const answer = (pending: EditorHookRequest | undefined): boolean => {
+      if (!pending) return false;
+      useUIStore.getState().resolveEditorHook(pending.id, hook);
+      settled(pending);
+      return true;
+    };
+    if (answer(useUIStore.getState().editorHookQueue[0])) return;
+    const stop = useUIStore.subscribe((state) => {
+      if (answer(state.editorHookQueue[0])) stop();
+    });
+  });
+}
+
 async function clickOpenInEditor() {
   render(
     <>
@@ -60,56 +78,53 @@ async function clickOpenInEditor() {
 beforeEach(() => {
   useAnalysisStore.setState({ overview: null, overviewProject: null, overviewLoading: false, overviewError: null });
   useProjectStore.setState({ toasts: [] });
+  useUIStore.setState({ editorHookQueue: [] });
   vi.mocked(window.api.analysis.overview).mockReset().mockResolvedValue(overview);
-  vi.mocked(window.api.hooks.save).mockClear();
   vi.mocked(window.api.hooks.get).mockReset().mockResolvedValue({});
 });
 
 describe('opening a file in the editor', () => {
-  test('offers the setup dialog when no editor is registered, then opens the file it was asked for', async () => {
+  test('asks for an editor when none is registered, then opens the file it was asked for', async () => {
     vi.mocked(window.api.openFileInEditor).mockReset().mockResolvedValue({ success: false, reason: 'no-editor' });
 
     await clickOpenInEditor();
+    const request = await answerEditorPrompt(EDITOR);
 
-    const command = await screen.findByLabelText('Command');
-    expect((command as HTMLTextAreaElement).value).toBe('');
-    fireEvent.change(command, { target: { value: 'code' } });
-    vi.mocked(window.api.openFileInEditor).mockResolvedValue({ success: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
+    expect(request.existingHook).toBeUndefined();
     await waitFor(() => expect(window.api.openFileInEditor).toHaveBeenCalledTimes(2));
     expect(window.api.openFileInEditor).toHaveBeenLastCalledWith(PROJECT, PROJECT, 'src/engine.ts', undefined);
   });
 
-  test('names the editor that failed and opens its command for editing', async () => {
+  test('names the editor that failed and offers its command for correcting', async () => {
     vi.mocked(window.api.openFileInEditor)
       .mockReset()
       .mockResolvedValue({ success: false, reason: 'launch-failed', editor: 'cursor' });
-    vi.mocked(window.api.hooks.get).mockResolvedValue({
-      editor: { id: 'hook-editor', type: 'editor', name: 'Editor', command: 'cursor' },
-    });
+    vi.mocked(window.api.hooks.get).mockResolvedValue({ editor: { ...EDITOR, command: 'cursor' } });
 
     await clickOpenInEditor();
 
     expect(await screen.findByText('cursor could not open engine.ts')).toBeTruthy();
+    expect(useUIStore.getState().editorHookQueue).toHaveLength(0);
+
     fireEvent.click(screen.getByRole('button', { name: 'Change editor' }));
+    const request = await answerEditorPrompt(EDITOR);
 
-    // The dialog opens on the command that failed, rather than on a blank field.
-    const command = await screen.findByLabelText('Command');
-    expect((command as HTMLTextAreaElement).value).toBe('cursor');
-    fireEvent.change(command, { target: { value: 'code' } });
-    vi.mocked(window.api.openFileInEditor).mockResolvedValue({ success: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
+    expect(request.existingHook?.command).toBe('cursor');
     await waitFor(() => expect(window.api.openFileInEditor).toHaveBeenCalledTimes(2));
   });
 
-  test('says when the file itself is gone', async () => {
-    vi.mocked(window.api.openFileInEditor).mockReset().mockResolvedValue({ success: false, reason: 'missing-file' });
+  test('backing out of the request opens nothing, and says when the file itself is gone', async () => {
+    vi.mocked(window.api.openFileInEditor).mockReset().mockResolvedValue({ success: false, reason: 'no-editor' });
 
     await clickOpenInEditor();
+    await answerEditorPrompt(null);
+
+    await waitFor(() => expect(useUIStore.getState().editorHookQueue).toHaveLength(0));
+    expect(window.api.openFileInEditor).toHaveBeenCalledTimes(1);
+
+    vi.mocked(window.api.openFileInEditor).mockResolvedValue({ success: false, reason: 'missing-file' });
+    fireEvent.click(screen.getByRole('button', { name: /Open in editor/ }));
 
     expect(await screen.findByText('engine.ts no longer exists')).toBeTruthy();
-    expect(screen.queryByLabelText('Command')).toBeNull();
   });
 });
