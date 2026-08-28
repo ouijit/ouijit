@@ -1,5 +1,4 @@
-import { whenTerminalReady } from '../components/terminal/terminalRegistry';
-import { TERMINAL_READY_WAIT_MS } from '../types';
+import { terminalInstances } from '../components/terminal/terminalRegistry';
 
 /**
  * Route agent hook status (claude / codex / pi / opencode) to the terminal it
@@ -9,13 +8,15 @@ import { TERMINAL_READY_WAIT_MS } from '../types';
  * installing component is unmounted is gone, and no view is mounted for the
  * whole time the app is open.
  *
- * A terminal's opening status comes from `reconnectTerminal`, which reads it
- * as the session reconnects; this listener only carries the changes after.
+ * Dispatch is synchronous. `handleHookStatus` counts the thinking events it
+ * sees and reads differently on the second one, so it needs them in the order
+ * they arrived — waiting for a terminal that is still reconnecting would let a
+ * later status overtake an earlier one and leave the dot on the wrong state.
+ * A status pushed during that window is lost instead, and `reconnectTerminal`
+ * seeds the session's status as it comes back.
  */
 export function installHookStatusListener(): () => void {
   return window.api.agentHooks.onStatus((ptyId, status) => {
-    void whenTerminalReady(ptyId, TERMINAL_READY_WAIT_MS).then((instance) =>
-      instance?.handleHookStatus(status as 'thinking' | 'ready'),
-    );
+    terminalInstances.get(ptyId)?.handleHookStatus(status as 'thinking' | 'ready');
   });
 }

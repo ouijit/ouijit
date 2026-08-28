@@ -44,23 +44,27 @@ describe('hook status listener', () => {
     expect(other.handleHookStatus).not.toHaveBeenCalled();
   });
 
-  it('holds a status arriving while its terminal is still reconnecting', async () => {
+  it('applies statuses in the order they were pushed, even mid-reconnect', async () => {
+    const seen: string[] = [];
+    const term = { handleHookStatus: (s: string) => seen.push(s) };
     let finishRestore!: () => void;
     const restored = new Promise<void>((resolve) => {
       finishRestore = resolve;
     });
-    let term!: FakeTerminal;
     void restoreTerminalOnce('pty-reloading', async () => {
-      term = register('pty-reloading');
+      terminalInstances.set('pty-reloading', term as unknown as OuijitTerminal);
       await restored;
     });
 
+    // `handleHookStatus` counts thinking events, so a status that overtakes an
+    // earlier one leaves the dot on the wrong state.
     push('pty-reloading', 'thinking');
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(term.handleHookStatus).not.toHaveBeenCalled();
-
+    await vi.advanceTimersByTimeAsync(120);
     finishRestore();
+    await vi.advanceTimersByTimeAsync(0);
+    push('pty-reloading', 'ready');
     await vi.advanceTimersByTimeAsync(TERMINAL_READY_WAIT_MS);
-    expect(term.handleHookStatus).toHaveBeenCalledWith('thinking');
+
+    expect(seen).toEqual(['thinking', 'ready']);
   });
 });
