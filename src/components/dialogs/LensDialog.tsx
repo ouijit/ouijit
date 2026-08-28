@@ -56,7 +56,6 @@ export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogP
           </Tooltip>
         </h2>
 
-        {/* Running one closes this; saving and editing leave it open. */}
         <LensList
           projectPath={projectPath}
           onRun={
@@ -69,7 +68,6 @@ export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogP
           running={running}
         />
 
-        {/* Beside Done rather than among the lenses: it is not one of them. */}
         <div className="flex items-center gap-2">
           <LensAgentRow projectPath={projectPath} />
           <div className="flex-1" />

@@ -7,10 +7,6 @@ import type { LensSummary } from '../../lens/config';
  * never sets, and a worktree diff reads this list with no pull request open at
  * all.
  *
- * Nothing has to ask again after editing one — saving and deleting both push
- * `lens:list-changed`, which is also how a picker hears about an edit made
- * somewhere else.
- *
  * An empty list on failure, since every caller offers these alongside a flat
  * file list that works without them.
  */

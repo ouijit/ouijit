@@ -18,9 +18,7 @@ interface PullRequestRailProps {
   onSelect: (path: string | null, group?: string) => void;
   /** This pull request's lens, the same session the document reads. */
   lens: LensSession;
-  /** The lenses the project keeps. */
   lenses: LensSummary[];
-  /** Opens the project's lenses to add or edit one. */
   onOpenLenses: () => void;
   /** The grouping has just arrived, so its parts lay themselves in. */
   revealing?: boolean;
@@ -50,7 +48,6 @@ export function PullRequestRail({
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
 
   const signals = usePullRequestSignals(detail.headSha, files);
-  // What a lens run would send, so the picker can say so before one is started.
   const promptChars = useMemo(() => estimateLensPromptChars(files), [files]);
 
   const unresolvedByPath = useMemo(() => {

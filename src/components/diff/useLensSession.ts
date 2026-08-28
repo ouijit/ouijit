@@ -75,7 +75,6 @@ function syncRun(key: string, running: StoredLens['running']): void {
   }
 }
 
-/** A run this pane started, as against one it picked up already going. */
 function startedHere(key: string): boolean {
   return runs.get(key)?.adopted === false;
 }

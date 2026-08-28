@@ -553,7 +553,6 @@ export async function discardDraft(draftId: string): Promise<{ success: boolean 
 class PullRequestSubject implements DiffSubject {
   readonly key: string;
   readonly label: Record<string, unknown>;
-  /** A force-push takes the hunks a lens points at with it. */
   readonly whenStale = 'drop' as const;
   /** Resolved by `listFiles`, which every later step of a write runs after. */
   private detail: PullRequestDetail | null = null;

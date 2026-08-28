@@ -9,12 +9,10 @@
 
 import { UNCOMMITTED_BASE } from '../diffSource';
 
-/** One pull request, within its project. */
 export function prSubjectKey(prNumber: number): string {
   return `pr:${prNumber}`;
 }
 
-/** What every lens over one worktree starts with, whatever it was compared to. */
 export function worktreeKeyPrefix(worktreePath: string): string {
   return `wt:${worktreePath}:`;
 }

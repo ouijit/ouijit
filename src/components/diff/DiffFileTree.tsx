@@ -98,9 +98,7 @@ export interface DiffFileTreeProps {
     collapsed: ReadonlySet<string>;
     onCollapsedChange: (id: string, next: boolean) => void;
   };
-  /** Per-file trailing content — the PR view puts unresolved-thread counts here. */
   renderFileTrailing?: FileTrailing<ChangedFile>;
-  /** Content above the tree — the PR view puts the rest of its contents here. */
   header?: ReactNode;
   /** The section in view, marked in the rail — the path itself when no lens splits it. */
   activeSection?: string | null;
@@ -161,9 +159,7 @@ function DiffFileTreeChapters<T extends ChangedFile>({
   onCollapsedChange: (id: string, next: boolean) => void;
   onFileClick: (path: string, group: string) => void;
   renderFileTrailing?: FileTrailing<T>;
-  /** The section being read, which belongs to one part and not to the others. */
   activeSection?: string | null;
-  /** The grouping has just arrived, so its parts lay themselves in. */
   revealing?: boolean;
 }) {
   // Held across renders because `DiffFileTreeNodes` memoises its tree on the

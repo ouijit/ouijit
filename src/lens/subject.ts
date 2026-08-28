@@ -7,21 +7,13 @@ import type { LensFile, LensSubject } from './lensPrompt';
  * `writeLens` and `readLens`, and there is one of each.
  */
 export interface DiffSubject {
-  /** Whose lens list and lens agent this reads. */
   projectPath: string;
-  /**
-   * Where the written lens is stored, unique within the project. Only ever
-   * compared, so the store holds it as an opaque string.
-   */
+  /** Unique within the project, and only ever compared: the store holds it as an opaque string. */
   key: string;
   /** For the log line, so a run says what it is grouping. */
   label: Record<string, unknown>;
 
-  /**
-   * Every file in the diff. `emptyMessage` is what to tell the reader when there
-   * are none, since "no files" means something different for a pull request than
-   * for a working tree.
-   */
+  /** `emptyMessage` because "no files" means something different for each kind of diff. */
   listFiles(): Promise<{ files: LensFile[]; error?: string; emptyMessage: string }>;
 
   /**
@@ -47,6 +39,5 @@ export interface DiffSubject {
    */
   whenStale: 'drop' | 'render';
 
-  /** How the prompt opens: what kind of thing this is, and which one. */
   describe(): LensSubject;
 }

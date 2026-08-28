@@ -7,7 +7,6 @@
 
 interface LiveRun {
   lensId: string;
-  /** Aborted on quit, so the agent is not left orphaned behind the app. */
   abort: AbortController;
 }
 
@@ -31,7 +30,10 @@ export function liveRun(projectPath: string, subjectKey: string): string | null 
   return live.get(keyFor(projectPath, subjectKey))?.lensId ?? null;
 }
 
-/** Quitting. The stored mark stays, so the next launch reports it interrupted. */
+/**
+ * Quitting. The agent is a child of this process and would outlive it; the
+ * stored mark stays, so the next launch reports the run interrupted.
+ */
 export function abortLensRuns(): void {
   for (const run of live.values()) run.abort.abort();
   live.clear();

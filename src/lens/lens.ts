@@ -92,7 +92,6 @@ function hunkFacts(hunk: DiffHunk): HunkFacts {
   return fresh;
 }
 
-/** The new-file lines a hunk covers — the vocabulary a lens answers in. */
 export function hunkSpan(hunk: DiffHunk): LineRange | null {
   return hunkFacts(hunk).span;
 }
@@ -128,6 +127,10 @@ function changesIn(diff: FileDiff, hunks: number[]): Pick<ResolvedSlice, 'change
   return { changes: { additions, deletions } };
 }
 
+/**
+ * Which part of the change holds one line of one file. A lens can put that file
+ * in three parts, so a path alone is no longer an address.
+ */
 export function partHolding(
   groups: ResolvedGroup[] | null,
   diff: FileDiff | null | undefined,

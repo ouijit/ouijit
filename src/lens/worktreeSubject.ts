@@ -10,7 +10,7 @@ import { writeLens } from './writeLens';
 
 export interface DiffLensTarget {
   projectPath: string;
-  /** The worktree the diff is of, and the key the lens is stored under. */
+  /** The worktree the diff is of. A lens is keyed to this and not to the project. */
   worktreePath: string;
   /** What the diff is taken against. Null or `HEAD` leaves the uncommitted changes. */
   base: string | null;
@@ -20,11 +20,9 @@ export interface DiffLensTarget {
   title?: string;
   description?: string;
   /**
-   * The files the pane is showing. Reading a lens has to pin the diff to say
-   * whether it has drifted, and working that out here costs a status poll — a
-   * read of every untracked file among it — that the caller has already paid
-   * for. A write ignores these and lists its own: what an agent is handed is
-   * what git says now, not what a pane last drew.
+   * The files the pane is showing, for the pin a read compares. A write ignores
+   * these and lists its own: what an agent is handed is what git says now, not
+   * what a pane last drew.
    */
   files?: ChangedFile[];
 }
@@ -61,10 +59,9 @@ async function pinFor(target: DiffLensTarget, files: () => Promise<ChangedFile[]
 }
 
 /**
- * Every file the panel would show, read the way the panel reads them — the cap
- * included, or a lens would be written over files the pane cannot render and
- * `resolveLens` would drop what it said about them. A pull request is cut to the
- * same length by `getPullRequestFiles`.
+ * The cap included, or a lens is written over files the pane cannot render and
+ * `resolveLens` drops what it said about them. `getPullRequestFiles` cuts a pull
+ * request to the same length.
  */
 async function filesFor(target: DiffLensTarget): Promise<ChangedFile[]> {
   const status = await getGitFileStatus(target.worktreePath, target.base ?? undefined);
@@ -79,7 +76,6 @@ class WorktreeSubject implements DiffSubject {
   readonly projectPath: string;
   readonly key: string;
   readonly label: Record<string, unknown>;
-  /** A working tree moves on every save, so a drifted lens still groups most of it. */
   readonly whenStale = 'render' as const;
 
   constructor(private target: DiffLensTarget) {

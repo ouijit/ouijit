@@ -31,7 +31,6 @@ export interface LensFile {
 
 /** What is being grouped, in the words the prompt opens with. */
 export interface LensSubject {
-  /** What kind of thing this is. */
   lead: string;
   /** Markdown heading naming it — a PR number and title, or a branch. */
   heading: string;
@@ -141,8 +140,7 @@ const HOTSPOT_SCORE = 0.6;
 
 /**
  * What git history says about the files being changed, where it says anything.
- * Only the files that stand out: a score for every path is a table nobody
- * reads, and the ones left out are the ordinary ones.
+ * Only the ones that stand out — those left out are the ordinary ones.
  */
 function hotspots(files: LensFile[], signals: DiffSignals | null | undefined): string {
   if (!signals) return '';

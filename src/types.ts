@@ -614,8 +614,7 @@ export interface LensAPI {
   /** A lens was added or deleted, so any list of them is one short or one over. */
   onListChanged(callback: (projectPath: string) => void): () => void;
   /**
-   * A run over one diff ended somewhere this pane cannot see — another pane, a
-   * renderer reloaded mid-run, an agent writing over the CLI. Whichever kind of
+   * A run over one diff ended somewhere this pane cannot see. Whichever kind of
    * diff it was: the payload names it the way the pane names its own.
    */
   onChanged(callback: (payload: LensChangedPayload) => void): () => void;

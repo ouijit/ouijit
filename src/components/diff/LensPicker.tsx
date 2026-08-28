@@ -11,9 +11,8 @@ import { MenuDivider, MenuItem, MenuPopover } from '../ui/Menu';
 interface LensPickerProps {
   lenses: LensSummary[];
   /**
-   * The lens this diff has on file. A pull request drops a stale one — its hunks
-   * are gone after a force-push — so it arrives named with no groups; a worktree
-   * keeps rendering one, so it arrives with both.
+   * The lens this diff has on file. A drifted one may arrive named with no
+   * groups, which is the subject's `whenStale` to decide.
    */
   onFile: StoredLens | null;
   resolved: ResolvedGroup[] | null;
@@ -43,10 +42,8 @@ function triggerTitle({
   writing: LensRun | null;
   showingLens: boolean;
   onFile: StoredLens | null;
-  /** What the lens on file is called now, which a rename moves. */
   label: string;
   staleOffered: boolean;
-  /** A run from a session that ended before it finished. */
   interrupted: StoredLens['running'];
 }): string {
   if (writing) return `${writing.name} is running. The lens appears here when it writes one.`;
@@ -74,7 +71,6 @@ function tokenLabel(chars: number): string {
 interface RowState {
   isApplied: boolean;
   isStale: boolean;
-  /** This lens was being written when the session it was running in ended. */
   isInterrupted: boolean;
   writing: LensRun | null;
   parts: number | null;
@@ -84,7 +80,6 @@ interface RowState {
   tooBig: boolean;
 }
 
-/** What a grouping already on screen comes to. */
 function appliedHint(parts: number | null, ungrouped: number, isStale: boolean): string {
   const count = plural(parts ?? 0, 'part');
   if (isStale) return `${count} · out of date`;

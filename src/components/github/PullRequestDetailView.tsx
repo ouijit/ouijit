@@ -161,8 +161,6 @@ export function PullRequestDetailView({
 
   useEffect(() => {
     if (pane !== 'code' || !pendingDraft) return;
-    // To the copy of the file that holds the line it is anchored to: a lens can
-    // put that file in three parts, and only one is where the comment is.
     const part = partHolding(shown, diffs.get(pendingDraft.path), pendingDraft.path, pendingDraft.line);
     scrollToFile(pendingDraft.path, part);
     filesRef.current?.editDraft(pendingDraft.id);

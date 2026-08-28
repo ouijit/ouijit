@@ -23,9 +23,6 @@ interface LensListProps {
  * saying how to compute it, so a change with no obvious risk leaves it to invent
  * one. What belongs in every lens instead — leading with what the rest follows
  * from, mechanical churn last, how a title is written — is in `GROUPING_GUIDE`.
- *
- * Offered rather than seeded: pressing one fills the form in, so what is being
- * added is read before it is kept.
  */
 const SUGGESTED_LENSES: LensInput[] = [
   {
@@ -169,7 +166,6 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
   );
 }
 
-/** One lens: a name, and the instruction under it. */
 function LensRow({
   lens,
   onEdit,
@@ -179,7 +175,6 @@ function LensRow({
 }: {
   lens: LensSummary;
   onEdit: () => void;
-  /** Offered where there is a diff to read. Absent in settings. */
   onRun?: () => void;
   writing: boolean;
   /** A run is already in flight, and there is one at a time. */
@@ -248,7 +243,7 @@ function LensForm({
   /** Whether the prompt will carry the history section as well as the diff. */
   sendsHotspots: boolean;
   onSave: (lens: { name: string; instruction: string }) => void;
-  /** Offered where there is a diff to read, beside saving rather than instead. */
+  /** Beside saving rather than instead of it. */
   onSaveAndRun?: (lens: { name: string; instruction: string }) => void;
   onCancel: () => void;
   onDelete?: () => void;

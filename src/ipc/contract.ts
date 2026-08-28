@@ -313,9 +313,7 @@ export interface IpcInvokeContract {
   'github:detect-project-prs': { args: [projectPath: string]; return: { linked: number } };
 
   // ── Lenses ─────────────────────────────────────────────────────────
-  // The project's named instructions and the agent that runs them. Not under
-  // `github:` — a worktree with no remote reads its own diff through these,
-  // and nothing behind them touches GitHub.
+  // The project's named instructions and the agent that runs them.
   'lens:list': { args: [projectPath: string]; return: LensSummary[] };
   'lens:save': { args: [projectPath: string, lens: LensInput]; return: LensSummary };
   'lens:delete': { args: [projectPath: string, lensId: string]; return: { success: boolean } };

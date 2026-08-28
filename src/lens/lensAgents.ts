@@ -11,9 +11,6 @@
  *              answer an approval prompt, so a tool call is where one stalls.
  *   schema     The CLI holds the model to the shape. Recovering JSON from prose
  *              is a guess, not a contract.
- *
- * Data rather than code because they are somebody else's flags, and agent CLIs
- * rename and reshuffle theirs faster than this app ships.
  */
 
 export interface LensAgent {
@@ -21,7 +18,6 @@ export interface LensAgent {
   label: string;
   /** Binary to run. Resolved on PATH, so the Ouijit wrapper is picked up. */
   command: string;
-  /** Arguments that put it in one-shot mode, isolated and with no tools. */
   args: string[];
   /**
    * `inline` writes the schema onto the command line and reads the object out of

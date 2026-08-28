@@ -87,13 +87,9 @@ export class DiffLensRepo {
   }
 
   /**
-   * Every lens written over one worktree, whatever it was compared to. A
-   * worktree path is handed out again the next time that task is started, and a
-   * worktree lens renders when it has drifted rather than dropping — so a row
-   * left behind would be drawn over a change it was never written for.
-   *
-   * Matched by prefix length rather than LIKE, whose wildcards a path containing
-   * an underscore would trip.
+   * Every lens written over one worktree, whatever it was compared to. Matched
+   * by prefix length rather than LIKE, whose wildcards a path containing an
+   * underscore would trip.
    */
   deleteForWorktree(projectPath: string, worktreePath: string): void {
     const prefix = worktreeKeyPrefix(worktreePath);

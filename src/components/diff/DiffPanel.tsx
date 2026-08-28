@@ -84,10 +84,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
   const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [filesFingerprint]);
-  // The order a lens's groups are sorted into. `LensedFileList` runs the
-  // document in the same one, so the two never disagree about where a file sits.
+  // The order a lens's groups are sorted into.
   const order = useMemo(() => treeFileOrder(files), [files]);
-  // What a lens run would send, so the picker can say so before one is started.
   const promptChars = useMemo(() => estimateLensPromptChars(files), [files]);
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
@@ -294,8 +292,6 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     const changes = slice?.changes ?? file;
 
     return (
-      // `data-path` on the wrapper, so the tree can jump to a file that has not
-      // mounted yet.
       <DeferredMount
         key={section}
         dataPath={file.path}
@@ -423,9 +419,6 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           subject={diffSubject(base, branch)}
           ptyId={ptyId}
           onJump={(note) =>
-            // To the copy of the file that holds the line it is anchored to: a
-            // lens can put that file in three parts, and only one is where the
-            // note is.
             scrollToFile(note.path, partHolding(lens.shown, diffsRef.current.get(note.path), note.path, note.line))
           }
           onDiscard={notes.discard}

@@ -388,8 +388,6 @@ app.on('will-quit', () => {
   // The clone subprocess is detached, so quitting does not take it with us.
   // A half-cloned repo is worth nothing on the next launch anyway.
   cancelAllClones();
-  // The agent writing a lens is a child of this process and would outlive it.
-  // The row it marked stays, so the next launch offers the run again.
   abortLensRuns();
   cleanupUpdater();
   cleanupIpc();

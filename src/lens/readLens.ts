@@ -5,9 +5,8 @@ import { liveRun } from './runRegistry';
 import type { DiffSubject } from './subject';
 
 /**
- * The lens stored for one diff, as everything that reads one sees it. One shape
- * for both: whether a drifted lens is still worth drawing is declared by the
- * subject as `whenStale`, not by a second result type.
+ * The lens stored for one diff, as everything that reads one sees it. Whether a
+ * drifted lens is still worth drawing is the subject's `whenStale` to declare.
  */
 export interface StoredLens {
   /**
@@ -18,9 +17,8 @@ export interface StoredLens {
   /** Which lens wrote it. Null when an agent posted groups directly. */
   lensId: string | null;
   /**
-   * What that lens was called when it ran — a display fallback, not the
-   * identity. Prefer the current name by id; this is what is left to call the
-   * grouping once that lens has been deleted.
+   * A display fallback, not the identity: prefer the current name by id. This is
+   * what is left to call the grouping once that lens has been deleted.
    */
   lensName: string | null;
   /** Written against a different diff than the one on screen. */

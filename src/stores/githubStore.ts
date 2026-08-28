@@ -81,8 +81,8 @@ interface GithubStoreState {
    *
    * Not kept on disk, unlike that claim: these name the parts of one lens, and
    * the next lens over this change cuts it somewhere else. A set rather than a
-   * list because nothing carries it anywhere — it is only ever asked about
-   * membership, once per row of the rail and once per file of the document.
+   * list because nothing carries it anywhere: it is only ever asked whether a
+   * part is in it.
    */
   viewedSections: Set<string>;
 
@@ -371,8 +371,6 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     try {
       const detail = await window.api.github.pullRequest(projectPath, number);
       if (version !== detailVersion || get().projectPath !== projectPath) return;
-      // A lens grouped the files at one head, and after a force-push those
-      // groups describe a diff that no longer exists.
       const staleLens = get().detail?.headSha !== detail.headSha;
       set({ detail, detailLoading: false, ...(staleLens ? CLEAR_FOR_HEAD : {}) });
 

@@ -1,6 +1,5 @@
 /**
- * The lenses a project keeps, and the agent that writes them. In settings rather
- * than a table, since a list of two fields does not earn a schema. The keys say
+ * The lenses a project keeps, and the agent that writes them. The keys say
  * `github:` because that is where lenses started, and renaming them would mean
  * migrating what every project has already stored.
  */
@@ -17,11 +16,9 @@ export interface LensSummary {
    */
   id: string;
   name: string;
-  /** What the reader wants, in prose. The context is ours to supply. */
   instruction: string;
 }
 
-/** A lens on its way in. No id yet means there is no lens yet. */
 export interface LensInput {
   id?: string;
   name: string;
@@ -71,7 +68,7 @@ async function writeLenses(projectPath: string, lenses: LensSummary[]): Promise<
   await setGlobalSetting(lensesKey(projectPath), JSON.stringify(lenses));
 }
 
-/** Create a lens, or edit one in place. An input with no id is a new lens. */
+/** An input with no id is a new lens; one with an id edits in place. */
 export async function saveLens(projectPath: string, input: LensInput): Promise<LensSummary> {
   const lens: LensSummary = {
     id: input.id ?? randomUUID(),
@@ -81,7 +78,6 @@ export async function saveLens(projectPath: string, input: LensInput): Promise<L
   const lenses = await listLenses(projectPath);
   const at = lenses.findIndex((l) => l.id === lens.id);
 
-  // An edit keeps its place in the list.
   if (at >= 0) lenses[at] = lens;
   else lenses.push(lens);
 
@@ -113,11 +109,6 @@ export async function getLensAgentChoice(projectPath: string): Promise<LensAgent
   }
 }
 
-/**
- * Null when nothing is chosen and nothing is installed. Answered before the diff
- * is gathered, so a machine with no agent is told so rather than spending a
- * minute reading a change to fail at the spawn.
- */
 async function resolveLensAgentFor(projectPath: string): Promise<LensAgent | null> {
   const health = getCachedHealth() ?? (await checkHealth());
   return resolveLensAgent(await getLensAgentChoice(projectPath), installedAgents(health));
@@ -129,7 +120,6 @@ export async function setLensAgentChoice(projectPath: string, choice: LensAgentC
 }
 
 /**
- * The named lens and the agent that will write it, or why neither can be had.
  * Both kinds of diff start here, so the wording a reader sees when a lens cannot
  * run is the same wherever they asked from.
  */

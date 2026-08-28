@@ -57,7 +57,6 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
   const showing = resolveLensAgent(choice, installed) ?? automatic;
 
   return (
-    // Its own padding puts the text where the rows above start theirs.
     <div className="flex items-center px-1.5 py-1.5">
       <MenuPopover
         open={open}
