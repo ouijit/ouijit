@@ -17,6 +17,7 @@ import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
 import { MissingWorktreeDialog } from './components/dialogs/MissingWorktreeDialog';
+import { HookConfigDialog } from './components/dialogs/HookConfigDialog';
 import { CommandPalette } from './components/CommandPalette';
 import { selectProject, selectHome } from './components/navigation';
 import { installCaptureNavigator } from './capture/navigator';
@@ -327,8 +328,23 @@ export function App() {
       )}
       {helpDialogOpen && <HelpDialog onClose={() => useAppStore.getState().setHelpDialogOpen(false)} />}
       <GlobalMissingWorktreeDialog />
+      <GlobalEditorHookDialog />
       <CommandPalette />
     </div>
+  );
+}
+
+function GlobalEditorHookDialog() {
+  const request = useUIStore((s) => s.editorHookQueue[0]);
+  if (!request) return null;
+  return (
+    <HookConfigDialog
+      key={request.id}
+      projectPath={request.projectPath}
+      hookType="editor"
+      existingHook={request.existingHook}
+      onClose={(result) => useUIStore.getState().resolveEditorHook(request.id, result?.hook ?? null)}
+    />
   );
 }
 

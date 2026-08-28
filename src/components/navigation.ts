@@ -9,7 +9,7 @@
  * visit, and `visitTracker` reads that off the view itself.
  */
 
-import type { Project, SandboxProviderId, TaskWithWorkspace } from '../types';
+import type { Project, SandboxProviderId, TaskWithWorkspace, WorktreeInfo } from '../types';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, setActiveTerminal, terminalMatchesTag } from '../stores/terminalStore';
@@ -137,37 +137,40 @@ export interface OpenTaskShellOptions {
 }
 
 /**
- * Spawn a shell in a task's worktree, recreating a worktree that has gone
- * missing and creating one for a task that has never been started. `beginTask`
- * behind `task.start` creates the branch and worktree and moves a todo task to
+ * The worktree a task's actions run in: recovered when it has gone missing,
+ * created when the task has never been started. `beginTask` behind
+ * `task.start` creates the branch and worktree and moves a todo task to
  * in_progress; it runs no hook.
  *
- * Navigating to the result is the caller's concern. Returns false when nothing
- * spawned — including when the user declined to recover a missing worktree, in
- * which case they have already been told why.
+ * Null means there is nothing to open — including when the user declined to
+ * recover a missing worktree, in which case they have already been told why.
  */
+export async function ensureTaskWorktree(projectPath: string, task: TaskWithWorkspace): Promise<WorktreeInfo | null> {
+  if (task.branch) {
+    const ensured = await ensureWorktree(projectPath, task);
+    return ensured && { path: ensured.path, branch: ensured.branch, createdAt: task.createdAt };
+  }
+
+  const result = await window.api.task.start(projectPath, task.taskNumber);
+  if (!result.success || !result.worktreePath) {
+    useProjectStore.getState().addToast(result.error || `Failed to open T-${task.taskNumber}`, 'error');
+    return null;
+  }
+  surfaceStartWarnings(result.warnings);
+  void useProjectStore.getState().loadTasksIfActive(projectPath);
+  return { path: result.worktreePath, branch: result.task?.branch || '', createdAt: task.createdAt };
+}
+
+/** Navigating to the shell it spawns is the caller's concern. */
 export async function openTaskShell(
   projectPath: string,
   task: TaskWithWorkspace,
   options: OpenTaskShellOptions,
 ): Promise<boolean> {
-  let worktree: { path: string; branch: string; createdAt: string };
   const skipAutoHook = options.mode === 'shell' || !task.branch;
 
-  if (task.branch) {
-    const ensured = await ensureWorktree(projectPath, task);
-    if (!ensured) return false;
-    worktree = { path: ensured.path, branch: ensured.branch, createdAt: task.createdAt };
-  } else {
-    const result = await window.api.task.start(projectPath, task.taskNumber);
-    if (!result.success || !result.worktreePath) {
-      useProjectStore.getState().addToast(result.error || `Failed to open T-${task.taskNumber}`, 'error');
-      return false;
-    }
-    surfaceStartWarnings(result.warnings);
-    void useProjectStore.getState().loadTasksIfActive(projectPath);
-    worktree = { path: result.worktreePath, branch: result.task?.branch || '', createdAt: task.createdAt };
-  }
+  const worktree = await ensureTaskWorktree(projectPath, task);
+  if (!worktree) return false;
 
   return addProjectTerminal(projectPath, undefined, {
     existingWorktree: worktree,

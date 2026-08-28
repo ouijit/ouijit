@@ -14,6 +14,7 @@ import { basename, dirname } from '../../analysis/paths';
 import { useAnalysisStore } from '../../stores/analysisStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEscape } from '../../hooks/useEscape';
+import { openFileInEditor } from '../../services/openInEditor';
 import { Icon } from '../terminal/Icon';
 import { Section } from '../github/Sections';
 import { PanelFrame } from '../ui/PanelFrame';
@@ -207,7 +208,7 @@ function HotspotDetail({ projectPath, row, endMonth }: { projectPath: string; ro
         <button
           type="button"
           className="shrink-0 flex items-center gap-1.5 text-[11px] text-text-tertiary hover:text-accent transition-colors duration-100"
-          onClick={() => void window.api.openFileInEditor(projectPath, projectPath, row.path)}
+          onClick={() => void openFileInEditor(projectPath, projectPath, row.path)}
         >
           Open in editor
           <Icon name="arrow-square-out" className="w-3 h-3" />

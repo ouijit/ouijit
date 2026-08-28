@@ -710,21 +710,17 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
  * (`stdio: 'ignore'`) never gives them one, which is why "Open in Editor" did
  * nothing for them on Linux. GUI editors (VS Code, etc.) work too: their
  * launcher returns immediately and the card drops into an interactive shell in
- * the worktree. Returns false when no editor hook is configured so the caller
- * can open the editor config dialog.
+ * the worktree.
  */
 export async function openWorktreeEditor(
   projectPath: string,
   worktree: WorktreeInfo,
   taskId: number | undefined,
-): Promise<boolean> {
-  const hooks = await window.api.hooks.get(projectPath);
-  const editor = hooks.editor;
-  if (!editor?.command) return false;
-
+  command: string,
+): Promise<void> {
   await addProjectTerminal(
     projectPath,
-    { name: 'Editor', command: buildEditorCommand(editor.command, worktree.path), source: 'custom', priority: 0 },
+    { name: 'Editor', command: buildEditorCommand(command, worktree.path), source: 'custom', priority: 0 },
     // A terminal editor only signals success once you quit it; a GUI editor's
     // launcher returns immediately. Either way the card tidies itself; a failed
     // launch exits non-zero and stays open.
@@ -733,7 +729,6 @@ export async function openWorktreeEditor(
   // Surface the editor terminal: when launched from the kanban, dismiss the
   // board so the new card is visible (mirrors "Open in Terminal").
   useProjectStore.getState().setKanbanVisible(false);
-  return true;
 }
 
 // ── Kill existing command instances ──────────────────────────────────
