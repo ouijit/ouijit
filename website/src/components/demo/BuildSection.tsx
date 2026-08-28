@@ -7,12 +7,12 @@ import { KanbanCardView } from '../../ouijit-ui/components/kanban/KanbanCardView
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
 import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
-import { SESSIONS, N, PEEK, TOP_PAD, NARROW } from './BuildStackLab';
+import { SESSIONS, N, PEEK, TOP_PAD, NARROW } from './buildSessions';
 import { TODO_COLUMN } from './PlanSection';
 import { DeskWash } from './DeskWash';
 
 /**
- * Build section lab, round 11 — the Plan section's handoff, carried on.
+ * Build in parallel — the Plan section's handoff, carried on.
  *
  * The silhouette mirrors Plan's: the column moves to the left rail, in the
  * desk it was charged in, and the wide desk on the right is the terminal
@@ -24,10 +24,10 @@ import { DeskWash } from './DeskWash';
  * it gives it a terminal. Each task grows the connected-terminal row the
  * kanban card already draws, and the session it spawned flies to the stack.
  *
- * The stack keeps the app's behaviour (see BuildStackLab): the arriving
- * session takes the front, everything already on it goes one peek further
- * back, and ⌘1 is the deepest card. The one difference is when the terminal
- * appears — it materialises as the flight lands.
+ * The stack keeps the app's behaviour: the arriving session takes the front,
+ * everything already on it goes one peek further back, and ⌘1 is the deepest
+ * card. The one difference is when the terminal appears — it materialises as
+ * the flight lands.
  */
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -225,7 +225,7 @@ function TaskGhost({ task, from, to, p }: { task: TaskWithWorkspace; from: Box; 
   );
 }
 
-export function VariantHandoff() {
+export function BuildSection() {
   const { stageRef, destRef, setSlot, gone: ran, geom } = useHandoffRun();
   const staticMode = useStaticMode();
 
@@ -302,7 +302,7 @@ export function VariantHandoff() {
               { '--wash': 'var(--wash-iris)', opacity: 0.9 * drain, transition: 'opacity 0.4s ease' } as React.CSSProperties
             }
           />
-          <div ref={destRef} className="stk-well" style={{ top: TOP_PAD + backCards * PEEK }}>
+          <div ref={destRef} className="hx-well" style={{ top: TOP_PAD + backCards * PEEK }}>
             {SESSIONS.map((session, i) => {
               if (i > frontIndex) return null;
               const front = i === frontIndex;
@@ -311,7 +311,7 @@ export function VariantHandoff() {
               return (
                 <div
                   key={session.task}
-                  className="stk-card"
+                  className="hx-card"
                   style={{
                     zIndex: 10 - depth,
                     transform: `translateY(${-depth * PEEK}px) scaleX(${1 - depth * NARROW})`,

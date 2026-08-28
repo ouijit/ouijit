@@ -89,9 +89,9 @@ export function MockPullRequests() {
 
 /** The inbox: which pull requests are waiting on you, which are yours, and how
  *  many notes are unsent on each. */
-export function Sidebar({ width = 320 }: { width?: number } = {}) {
+export function Sidebar() {
   return (
-    <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
+    <div className="w-[320px] shrink-0 flex flex-col overflow-hidden">
       <div className="shrink-0 flex flex-col">
         <nav className="flex items-stretch gap-4 pane-ledge h-12 px-3 items-center">
           <Tab active count={PULL_COUNT}>

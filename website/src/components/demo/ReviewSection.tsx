@@ -251,7 +251,7 @@ function NotesIsland({ count, flash }: { count: number; flash?: boolean }) {
 /** The diff panel mid-review: word-level highlights, a note being written on
  * a changed line, and the island that hands the notes to the agent.
  * `pNote` types the note, `pSend` hands it to the agent. */
-export function NotedDiffPane({ pNote, pSend, tip }: { pNote: number; pSend: number; tip?: boolean }) {
+function NotedDiffPane({ pNote, pSend, tip }: { pNote: number; pSend: number; tip?: boolean }) {
   /* Typing takes as much of the beat as it can get: it starts as soon as the
      box opens and finishes just before the note is saved. The beat is short,
      and idling at either end of it is what makes the note look pasted. */
@@ -448,20 +448,8 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
 }
 
 /** The review terminal: session left, noted diff split right. `depth` is its
- * place in the stack — 0 while it holds the front, higher once it does not.
- * `diffShare` is where the seam sits, which the reader drags in the app; a
- * narrower card gives the diff more of itself so its lines still fit. */
-export function RoundTripTerminal({
-  p,
-  depth,
-  tip,
-  diffShare = '50%',
-}: {
-  p: (k: string) => number;
-  depth: number;
-  tip?: boolean;
-  diffShare?: string;
-}) {
+ * place in the stack — 0 while it holds the front, higher once it does not. */
+function RoundTripTerminal({ p, depth, tip }: { p: (k: string) => number; depth: number; tip?: boolean }) {
   const fixtures = getPanelFixtures('pty-101-dev');
   const receded = depth > 0;
   const fixing = p('fix') > 0.06;
@@ -490,7 +478,7 @@ export function RoundTripTerminal({
           <ReviewSession p={p} />
         </div>
         <div className="pane-seam relative w-px shrink-0" />
-        <div className="relative shrink-0" style={{ width: diffShare }}>
+        <div className="relative w-1/2 shrink-0">
           <NotedDiffPane pNote={p('note')} pSend={p('send')} tip={tip} />
         </div>
       </div>
@@ -807,7 +795,7 @@ function PrChrome() {
  *  file tree: the picker over the rail, the parts an agent grouped the change
  *  into, and the document in that order. `pPick` opens the picker and spends
  *  the run, `pParts` lands the grouping. */
-export function LensedDiffCard({ pPick, pParts }: { pPick: number; pParts: number }) {
+function LensedDiffCard({ pPick, pParts }: { pPick: number; pParts: number }) {
   const written = pParts > 0.02;
   const menuOpen = pPick > 0.12 && pPick < 0.55;
   const writing = pPick >= 0.55 && !written;
@@ -1012,7 +1000,7 @@ export function ReviewSection() {
     /* The headline sits outside the theater, which centres what it holds. */
     <div>
       <h2 className="plan-v-headline">Review in depth</h2>
-      <div ref={rootRef} className="bl-theater">
+      <div ref={rootRef} className="review-theater">
         <div className="plan-desk desk-wash desk-wash--prism" style={{ padding: 32, width: '100%' }}>
           <DeskWash />
           {/* The cards fill the stage whatever their number: the deepest one

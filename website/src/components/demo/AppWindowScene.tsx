@@ -116,7 +116,6 @@ export default function AppWindowScene() {
     observer.observe(el);
     setScale(computeScale(el.getBoundingClientRect().width));
     return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
