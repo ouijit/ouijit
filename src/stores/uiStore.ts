@@ -15,10 +15,7 @@ export type MissingWorktreeRequest = MissingWorktreeInput & Pending<MissingWorkt
 
 interface UIStoreState {
   sidebarVisible: boolean;
-  /**
-   * When true, sidebar stays open regardless of hover. Persisted in global
-   * settings; defaults to pinned so the sidebar is discoverable on first launch.
-   */
+  /** When true, sidebar stays open regardless of hover. Persisted in global settings. */
   sidebarPinned: boolean;
   gitDropdownVisible: boolean;
   homeGroupMode: HomeGroupMode;
@@ -68,7 +65,7 @@ function clampFileListWidth(width: number): number {
 
 export const useUIStore = create<UIStore>()((set, get) => ({
   sidebarVisible: false,
-  sidebarPinned: true,
+  sidebarPinned: false,
   gitDropdownVisible: false,
   homeGroupMode: 'project',
   homeTagFilter: null,
@@ -137,7 +134,7 @@ export async function hydrateUIPreferences(): Promise<void> {
   ]);
 
   const next: Partial<UIStoreState> = {};
-  if (pinned === '0') next.sidebarPinned = false;
+  if (pinned === '0' || pinned === '1') next.sidebarPinned = pinned === '1';
   if (collapsed === '0' || collapsed === '1') next.diffFileListCollapsed = collapsed === '1';
   const parsedWidth = Number(width);
   if (width && Number.isFinite(parsedWidth)) next.diffFileListWidth = clampFileListWidth(parsedWidth);
