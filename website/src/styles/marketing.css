@@ -2821,11 +2821,14 @@ body.marketing::after {
 .rv-band {
   display: flex;
   align-items: center;
-  gap: 48px;
+  gap: 56px;
 }
 
+/* A third of the band, so the desk beside it keeps its share as the window
+   narrows rather than being squeezed until the panel inside it is unreadable. */
 .rv-band-copy {
-  width: 300px;
+  width: 34%;
+  max-width: 460px;
   flex-shrink: 0;
 }
 
@@ -2840,7 +2843,9 @@ body.marketing::after {
   margin-top: 26px;
 }
 
-@media (max-width: 999px) {
+/* Earlier than the rest of the page: two columns around a 1000px panel stop
+   working while there is still room for everything else. */
+@media (max-width: 1199px) {
   .rv-band {
     flex-direction: column;
     align-items: stretch;
@@ -2849,5 +2854,10 @@ body.marketing::after {
 
   .rv-band-copy {
     width: auto;
+    max-width: none;
   }
+}
+
+@media (max-width: 999px) {
+
 }

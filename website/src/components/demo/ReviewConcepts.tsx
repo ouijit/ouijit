@@ -84,7 +84,7 @@ function HealthRun({ p }: { p: (k: string) => number }) {
         <MockAnalysis showAdvice />
       </div>
       <div className="flex flex-col" style={layer(answering)}>
-        <RoundTripTerminal p={beat} depth={0} tip={p('tip') < 1} diffShare="62%" />
+        <RoundTripTerminal p={beat} depth={0} tip={p('tip') < 1} diffShare="56%" />
       </div>
     </>
   );
@@ -102,21 +102,49 @@ function healthBeats(progress: number): (k: string) => number {
           : span(progress, 0.84, 1);
 }
 
-/** The panel at the width the band gives it, not a window onto a wider one:
- *  these layouts reflow, so a narrower desk is a size the app can be rather
- *  than something to scale down or cut off. */
-function Fit({ height, children }: { height: number; children: ReactNode }) {
+/**
+ * The frame a panel is drawn in. Without `panelWidth` the panel takes the
+ * frame's own width — these layouts reflow, so a narrower desk is a size the
+ * app can be. With it, the panel is drawn at that width and the whole window
+ * is scaled into the frame, which is how a column narrower than the panel
+ * needs gets one that still reads: the type shrinks with everything else
+ * rather than the lines wrapping.
+ */
+function Fit({ height, panelWidth, children }: { height: number; panelWidth?: number; children: ReactNode }) {
+  const frame = useRef<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const el = frame.current;
+    if (!el || !panelWidth) return;
+    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [panelWidth]);
+
+  const scale = panelWidth && width ? width / panelWidth : 1;
+
   return (
     <div
+      ref={frame}
       className="rv-crop glass-bevel relative rounded-[14px] overflow-hidden border border-bezel-panel"
       style={{ height }}
     >
       {/* The panels scroll their own panes, and a wheel over one of them would
           be taken by the panel rather than the page. Nothing here is for
           clicking, so nothing here takes the pointer. */}
-      {/* Inline, because `.glass-bevel > *` pins every direct child to
-          position relative — which would collapse this to nothing. */}
-      <div className="flex flex-col pointer-events-none" style={{ position: 'absolute', inset: 0 }}>
+      <div
+        className="flex flex-col pointer-events-none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: panelWidth ?? '100%',
+          height: height / scale,
+          transform: scale === 1 ? undefined : `scale(${scale})`,
+          transformOrigin: 'top left',
+        }}
+      >
         {children}
       </div>
     </div>
@@ -226,9 +254,14 @@ export function ReviewStrip() {
 
 /* ─── B: three bands, one topic at a time ─────────────────────────── */
 
-/** A band: the surface at the size the app draws it, the copy for it in a
- *  column to its right, and that surface's own loop under the copy. Each band
- *  runs on its own clock — there is no order to read them in. */
+/** The width a band's panel is drawn at, whatever the column comes to. Wide
+ *  enough for the split — the diff and the session either side of it — which
+ *  is the panel here that needs the most. */
+const PANEL_WIDTH = 1000;
+
+/** A band: the surface drawn at a window's size and scaled into the column, the
+ *  copy for it to the right, and that surface's own loop under the copy. Each
+ *  band runs on its own clock — there is no order to read them in. */
 function Chapter({
   title,
   body,
@@ -250,7 +283,7 @@ function Chapter({
     <div className="rv-band" ref={rootRef}>
       <div className="rv-band-desk plan-desk desk-wash desk-wash--prism">
         <DeskWash />
-        <Fit height={height}>
+        <Fit height={height} panelWidth={PANEL_WIDTH}>
           <TerminalCardView isActive backDepth={0}>
             {surface(p)}
           </TerminalCardView>
