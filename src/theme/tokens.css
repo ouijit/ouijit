@@ -114,7 +114,9 @@
   --color-vcs-modified: #ff9f0a;
 
   /* ── Shadows ───────────────────────────────────────────────────── */
-  --shadow-well: inset 0 1px 2px rgba(0, 0, 0, 0.22);
+  /* Top and left, the two edges a recess catches: without the left one the
+     well's own edge is the rail beside it, which reads as a lit rim. */
+  --shadow-well: inset 0 1px 2px rgba(0, 0, 0, 0.22), inset 1px 0 2px -1px rgba(0, 0, 0, 0.18);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -277,7 +279,7 @@
   --color-diff-added: #1a7f37;
   --color-diff-removed: #cf222e;
   --color-diff-hunk: #6a6ac0;
-  --color-diff-well: color-mix(in srgb, var(--color-terminal-bg) 91%, #000);
+  --color-diff-well: var(--color-terminal-inset);
   --color-diff-card: var(--color-terminal-bg);
   --color-vcs-added: #248a3d;
   --color-vcs-deleted: #d70015;
@@ -286,7 +288,7 @@
 
   /* Three tight passes rather than one wide one: a single large blur at an
      alpha high enough to be seen reads as a grey cloud around the panel. */
-  --shadow-well: inset 0 1px 3px rgba(0, 0, 0, 0.09);
+  --shadow-well: inset 0 1px 3px rgba(0, 0, 0, 0.09), inset 1px 0 3px -1px rgba(0, 0, 0, 0.07);
   --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 1px 1px rgba(0, 0, 0, 0.04), 0 3px 6px rgba(0, 0, 0, 0.05), 0 6px 12px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 1px 1px rgba(0, 0, 0, 0.04), 0 4px 8px rgba(0, 0, 0, 0.05), 0 12px 24px rgba(0, 0, 0, 0.05);
