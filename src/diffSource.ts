@@ -20,6 +20,15 @@ export function isUncommittedBase(base: string | null, branch: string | null): b
   return !base || base === UNCOMMITTED_BASE || base === branch;
 }
 
+/**
+ * The base this file's diff is read against, or null where it is read whole: an
+ * untracked file is in no revision, so no comparison can produce it. The pane and
+ * the lens must agree, or an agent reads hunks the reader is not shown.
+ */
+export function baseToReadAgainst(base: string | null, status: ChangedFile['status']): string | null {
+  return base && status !== '?' ? base : null;
+}
+
 /** How a comparison reads in the panel's chip and on the terminal's diff button. */
 export function describeDiffComparison(base: string | null, branch: string | null): string {
   return isUncommittedBase(base, branch) ? 'Uncommitted changes' : `vs ${base}`;

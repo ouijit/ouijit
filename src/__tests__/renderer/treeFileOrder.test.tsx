@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-import { treeFileOrder, inTreeOrder, DiffFileTreeNodes } from '../../components/diff/DiffFileTree';
+import { treeFileOrder, DiffFileTreeNodes } from '../../components/diff/DiffFileTree';
 import type { ChangedFile } from '../../types';
 
 /**
@@ -28,13 +28,7 @@ describe('treeFileOrder', () => {
       'src/db.ts',
       'README.md',
     ]);
-    // inTreeOrder is the same order with the whole file carried along.
-    expect(inTreeOrder(arrived).map((f) => f.additions)).toEqual([2, 4, 3, 1, 5]);
-  });
-
-  test('an empty list is empty rather than a throw', () => {
     expect(treeFileOrder([])).toEqual([]);
-    expect(inTreeOrder([])).toEqual([]);
   });
 
   /**

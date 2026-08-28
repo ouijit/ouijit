@@ -43,8 +43,13 @@ export interface DiffFileSectionProps {
   emptyLabel?: string;
   failedLabel?: string;
   collapsed?: boolean;
-  /** Enables the fold control. Takes the path for the same reason `renderBelowLine` does. */
-  onCollapsedChange?: (path: string, collapsed: boolean) => void;
+  /**
+   * Which copy of the file this is, where a lens has put it in more than one part:
+   * fold one and the others must stay as they were.
+   */
+  sectionId?: string;
+  /** Enables the fold control, on this copy of the file alone. */
+  onCollapsedChange?: (sectionId: string, collapsed: boolean) => void;
   /** Wording for the fold control — "Viewed" in a review, "Collapse" outside one. */
   collapseLabel?: string;
 }
@@ -64,6 +69,7 @@ export const DiffFileSection = memo(function DiffFileSection({
   emptyLabel = 'No diff available',
   failedLabel = 'Could not read this file',
   collapsed,
+  sectionId,
   onCollapsedChange,
   collapseLabel = 'Collapse',
 }: DiffFileSectionProps) {
@@ -75,13 +81,21 @@ export const DiffFileSection = memo(function DiffFileSection({
   const addComment = useCallback((anchor: DiffLineAnchor) => onAddComment?.(path, anchor), [onAddComment, path]);
   const belowLine = useCallback((anchor: DiffLineAnchor) => renderBelowLine?.(path, anchor), [renderBelowLine, path]);
   const lineMarked = useCallback((anchor: DiffLineAnchor) => markLine?.(path, anchor) ?? false, [markLine, path]);
-  const setCollapsed = useCallback((next: boolean) => onCollapsedChange?.(path, next), [onCollapsedChange, path]);
+  const setCollapsed = useCallback(
+    (next: boolean) => onCollapsedChange?.(sectionId ?? path, next),
+    [onCollapsedChange, sectionId, path],
+  );
 
   return (
     /* `clip`, not `hidden`: `hidden` makes a scroll container, which strands
        the sticky header inside this box instead of pinning it to the pane. */
     <div className="diff-card mx-6 rounded-[14px] border border-bezel bg-diff-card overflow-clip" data-path={path}>
-      <div className="pane-ledge sticky top-0 z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface">
+      {/* Pins below whichever header claimed the top of the pane, which under a
+          lens is the part's; `0px` when nothing has. */}
+      <div
+        className="pane-ledge sticky z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface"
+        style={{ top: 'var(--diff-sticky-offset, 0px)' }}
+      >
         {onCollapsedChange && (
           <button
             type="button"

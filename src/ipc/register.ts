@@ -1,4 +1,5 @@
 import { BrowserWindow } from 'electron';
+import { typedPush } from './helpers';
 import { startHookServer, stopHookServer, installWrapper, migrateFromSettingsHooks } from '../hookServer';
 import { cleanupAllPtys } from '../ptyManager';
 import { registerSandboxProviders, cleanupSandboxProviders } from '../sandbox';
@@ -19,6 +20,7 @@ import { registerGithubHandlers } from './handlers/github';
 import { registerDiffPanelHandlers } from './handlers/diffPanel';
 import { registerAnalysisHandlers } from './handlers/analysis';
 import { initCliPanels } from '../cliPanels';
+import { setLensAnnouncer } from '../lens/announce';
 
 /**
  * Registers all IPC handlers for the main process.
@@ -48,9 +50,10 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerPlanHandlers(mainWindow);
   registerHealthHandlers();
   registerGithubHandlers();
-  registerDiffPanelHandlers();
+  registerDiffPanelHandlers(mainWindow);
   registerAnalysisHandlers();
   initCliPanels(mainWindow);
+  setLensAnnouncer((change) => typedPush(mainWindow, 'lens:changed', change));
 }
 
 export function cleanupIpc(): void {

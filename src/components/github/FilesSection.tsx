@@ -9,6 +9,7 @@ import { BinaryFileView } from '../diff/BinaryFileView';
 import { DeferredMount } from '../diff/DeferredMount';
 import { DiffFileSection } from '../diff/DiffFileSection';
 import { estimateFileHeight } from '../diff/diffMetrics';
+import { useDiffSlices } from '../diff/diffSlice';
 import { useBatchedDiffs } from '../diff/useBatchedDiffs';
 import {
   anchorKey,
@@ -18,11 +19,13 @@ import {
   type DiffLineAnchor,
 } from '../../diffAnchor';
 import { describeLines } from '../../diffAnchor';
+import { sectionKey, type ResolvedGroup, type ResolvedSlice } from '../../lens/lens';
+import { isSectionViewed } from '../../github/viewedSections';
 import { unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
 import { InlineCommentBox, InlineCommentCard } from '../diff/InlineCommentBox';
-import { inTreeOrder } from '../diff/DiffFileTree';
+import { LensedFileList } from '../diff/LensedFileList';
 import { useThreadActions } from './useThreadActions';
 import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { AnalysisChip, worthAChip } from '../diff/AnalysisChip';
@@ -43,6 +46,12 @@ function chipworthy(analysis: FileAnalysis | undefined): FileAnalysis | undefine
 interface FilesSectionProps {
   projectPath: string;
   detail: PullRequestDetail;
+  /** The order the rail shows these files in, which the document follows. */
+  order: readonly string[];
+  /** The lens bound to this diff, when the reader has it on. */
+  groups: ResolvedGroup[] | null;
+  /** The grouping has just arrived, so its parts lay themselves in. */
+  revealing?: boolean;
 }
 
 export interface FilesSectionHandle {
@@ -52,7 +61,12 @@ export interface FilesSectionHandle {
 
 interface FileSectionProps {
   file: PullRequestFile;
+  /** Which part of the change this copy of the file sits in. */
+  sectionId: string;
   diff: FileDiff | null | undefined;
+  /** What the hunks on screen come to, which under a lens is not the file's. */
+  additions: number;
+  deletions: number;
   projectPath: string;
   prNumber: number;
   baseSha: string;
@@ -62,7 +76,7 @@ interface FileSectionProps {
   markLine?: (path: string, anchor: DiffLineAnchor) => boolean;
   analysis?: FileAnalysis;
   viewed: boolean;
-  onViewedChange: (path: string, viewed: boolean) => void;
+  onViewedChange: (sectionId: string, path: string, viewed: boolean) => void;
 }
 
 /**
@@ -73,7 +87,10 @@ interface FileSectionProps {
  */
 const FileSection = memo(function FileSection({
   file,
+  sectionId,
   diff,
+  additions,
+  deletions,
   projectPath,
   prNumber,
   baseSha,
@@ -98,6 +115,11 @@ const FileSection = memo(function FileSection({
     [projectPath, prNumber, baseSha, headSha, file.path, file.oldPath],
   );
 
+  const setViewed = useCallback(
+    (section: string, next: boolean) => onViewedChange(section, file.path, next),
+    [onViewedChange, file.path],
+  );
+
   const headerRight = useMemo(
     () =>
       file.oldPath || analysis ? (
@@ -119,15 +141,12 @@ const FileSection = memo(function FileSection({
   return (
     // On the wrapper as well as the section, so the rail can scroll to a file
     // that is still a placeholder.
-    <DeferredMount
-      dataPath={file.path}
-      estimatedHeight={estimateFileHeight(diff, file.additions + file.deletions, 1, viewed)}
-    >
+    <DeferredMount dataPath={file.path} estimatedHeight={estimateFileHeight(diff, additions + deletions, 1, viewed)}>
       <DiffFileSection
         path={file.path}
         status={file.status}
-        additions={file.additions}
-        deletions={file.deletions}
+        additions={additions}
+        deletions={deletions}
         diff={diff}
         onAddComment={onAddComment}
         renderBelowLine={renderBelowLine}
@@ -135,7 +154,8 @@ const FileSection = memo(function FileSection({
         binaryView={binaryView}
         headerRight={headerRight}
         collapsed={viewed}
-        onCollapsedChange={onViewedChange}
+        sectionId={sectionId}
+        onCollapsedChange={setViewed}
         collapseLabel="Viewed"
       />
     </DeferredMount>
@@ -149,7 +169,7 @@ const FileSection = memo(function FileSection({
  * capped at what a patch would carry.
  */
 export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(function FilesSection(
-  { projectPath, detail },
+  { projectPath, detail, order, groups, revealing },
   ref,
 ) {
   const files = useGithubStore((s) => s.files);
@@ -161,6 +181,8 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const diffs = useGithubStore((s) => s.diffs);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
+  const viewedParts = useGithubStore((s) => s.viewedSections);
+  const collapsed = useGithubStore((s) => s.collapsedGroups);
   const setDiffs = useGithubStore((s) => s.setDiffs);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
@@ -368,21 +390,41 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const renderBelowLine =
     threadsByAnchor.size > 0 || draftsByAnchor.size > 0 || composingWhere ? renderComments : undefined;
 
-  // A Set so a hundred file sections do not each scan the list.
+  const sliceFor = useDiffSlices();
+
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
 
+  /**
+   * Marking one part read has to know what the others are, since the claim that
+   * gets written down is about the file.
+   */
+  const partsOf = useMemo(() => {
+    const byFile = new Map<string, string[]>();
+    for (const group of groups ?? []) {
+      for (const slice of group.slices) {
+        byFile.set(slice.path, [...(byFile.get(slice.path) ?? []), sectionKey(group.id, slice.path)]);
+      }
+    }
+    return byFile;
+  }, [groups]);
+
   const setViewed = useCallback(
-    (path: string, next: boolean) => {
-      useGithubStore.getState().setFileViewed(projectPath, detail.number, detail.headSha, path, next);
+    (section: string, path: string, next: boolean) => {
+      useGithubStore.getState().markSectionViewed(path, section, partsOf.get(path) ?? [path], next);
     },
-    [projectPath, detail.number, detail.headSha],
+    [partsOf],
   );
 
-  const renderFile = (file: PullRequestFile) => (
+  const setGroupCollapsed = useGithubStore((s) => s.setGroupCollapsed);
+
+  const renderFile = (file: PullRequestFile, key?: string, slice?: ResolvedSlice) => (
     <FileSection
-      key={file.path}
+      key={key ?? file.path}
+      sectionId={key ?? file.path}
       file={file}
-      diff={diffs.get(file.path)}
+      diff={sliceFor(file.path, diffs.get(file.path), slice?.hunks)}
+      additions={slice?.changes?.additions ?? file.additions}
+      deletions={slice?.changes?.deletions ?? file.deletions}
       projectPath={projectPath}
       prNumber={detail.number}
       baseSha={detail.baseSha}
@@ -391,7 +433,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       renderBelowLine={renderBelowLine}
       markLine={spans.length > 0 ? markLine : undefined}
       analysis={chipworthy(analysis?.[file.path])}
-      viewed={viewed.has(file.path)}
+      viewed={isSectionViewed(viewed, viewedParts, key ?? file.path, file.path)}
       onViewedChange={setViewed}
     />
   );
@@ -411,7 +453,17 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         </div>
       )}
 
-      <div className="diff-list pb-3">{inTreeOrder(files).map((file) => renderFile(file))}</div>
+      <div className="diff-list pb-3">
+        <LensedFileList
+          files={files}
+          order={order}
+          groups={groups}
+          renderFile={renderFile}
+          collapsed={collapsed}
+          onCollapsedChange={setGroupCollapsed}
+          revealing={revealing}
+        />
+      </div>
 
       {orphanThreads.length > 0 && (
         <>

@@ -50,7 +50,7 @@ export function DeferredMount({ estimatedHeight, rootMargin = '150%', dataPath, 
       data-path={dataPath}
       // Clears the pinned header, so a file scrolled to shows its own top edge.
       style={{
-        scrollMarginTop: '12px',
+        scrollMarginTop: 'calc(var(--diff-sticky-offset, 0px) + 12px)',
         ...(mounted ? null : { height: estimatedHeight }),
       }}
     >

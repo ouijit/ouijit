@@ -175,6 +175,8 @@ const mockApi = {
     set: vi.fn().mockResolvedValue({ success: true }),
   },
   health: {
+    // A machine with every agent on it, so a test that renders the lens
+    // settings is not also a test about what is installed.
     check: vi.fn().mockResolvedValue({
       git: true,
       claude: true,
@@ -192,6 +194,19 @@ const mockApi = {
     refresh: vi.fn().mockResolvedValue(undefined),
     diffSignals: vi.fn().mockResolvedValue(null),
     overview: vi.fn().mockResolvedValue(null),
+  },
+  diffLens: {
+    get: vi.fn().mockResolvedValue(null),
+    run: vi.fn().mockResolvedValue({ success: true }),
+  },
+  lens: {
+    list: vi.fn().mockResolvedValue([]),
+    save: vi.fn().mockResolvedValue({ id: '', name: '', instruction: '' }),
+    delete: vi.fn().mockResolvedValue({ success: true }),
+    agent: vi.fn().mockResolvedValue(null),
+    setAgent: vi.fn().mockResolvedValue({ success: true }),
+    onListChanged: vi.fn().mockReturnValue(() => {}),
+    onChanged: vi.fn().mockReturnValue(() => {}),
   },
   diffNotes: {
     list: vi.fn().mockResolvedValue([]),
@@ -217,6 +232,8 @@ const mockApi = {
     detectTaskPr: vi.fn().mockResolvedValue({ prNumber: null }),
     detectProjectPrs: vi.fn().mockResolvedValue({ linked: 0 }),
     drafts: vi.fn().mockResolvedValue([]),
+    lens: vi.fn().mockResolvedValue(null),
+    runLens: vi.fn().mockResolvedValue({ success: true }),
     viewedFiles: vi.fn().mockResolvedValue([]),
     setFileViewed: vi.fn().mockResolvedValue([]),
     saveDraft: vi.fn().mockResolvedValue({ id: 'draft-1' }),
