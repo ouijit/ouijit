@@ -252,13 +252,14 @@ export function BuildSection() {
         <div className="hx-rail">
           {/* The desk the column was charged in, draining as the work in it
               turns into sessions — the Plan section's own drain, applied to
-              the column instead of to a source pane. */}
+              the column instead of to a source pane. Stacked, the desk that
+              charge drains into is off the page, so it stays here. */}
           <div className="plan-desk desk-wash hx-todo-desk" style={{ backgroundImage: DESK_GRAPHITE }}>
             <DeskWash
               style={
                 {
                   '--wash': 'var(--wash-prism)',
-                  opacity: 0.9 * (1 - drain),
+                  opacity: 0.9 * (staticMode ? 1 : 1 - drain),
                   transition: 'opacity 0.4s ease',
                 } as React.CSSProperties
               }
