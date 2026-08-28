@@ -1,21 +1,32 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { ChangedFile } from '../../types';
+import { sectionKey, sectionPath, type ResolvedGroup } from '../../lens/lens';
 import { Icon } from '../terminal/Icon';
 import { statusIcon, statusColorClass, badgeColorClass } from './diffStatus';
+import { partEnter } from './lensReveal';
 
-interface TreeNode<T = ChangedFile> {
+/**
+ * Under a lens a row is one part of a file, so anything about how far through it
+ * the reader is takes `section`, not `file`.
+ */
+type FileTrailing<T> = (file: T, hunks?: number, section?: string) => ReactNode;
+
+/**
+ * Paths only: a file's status and line counts arrive in batches while the diff
+ * loads, and a tree holding those objects would be rebuilt on every batch.
+ */
+interface TreeNode {
   name: string;
   fullPath: string;
   isFile: boolean;
-  file?: T;
-  children: TreeNode<T>[];
+  children: TreeNode[];
 }
 
-export function buildTree<T extends { path: string }>(files: readonly T[]): TreeNode<T>[] {
-  const root: TreeNode<T>[] = [];
+function buildTree(paths: readonly string[]): TreeNode[] {
+  const root: TreeNode[] = [];
 
-  for (const file of files) {
-    const parts = file.path.split('/');
+  for (const path of paths) {
+    const parts = path.split('/');
     let current = root;
 
     for (let i = 0; i < parts.length; i++) {
@@ -25,7 +36,7 @@ export function buildTree<T extends { path: string }>(files: readonly T[]): Tree
 
       let existing = current.find((n) => n.name === name && n.isFile === isFile);
       if (!existing) {
-        existing = { name, fullPath, isFile, children: [], file: isFile ? file : undefined };
+        existing = { name, fullPath, isFile, children: [] };
         current.push(existing);
       }
       current = existing.children;
@@ -34,7 +45,7 @@ export function buildTree<T extends { path: string }>(files: readonly T[]): Tree
 
   // Sorted here, not at render: `treeFileOrder` walks this tree to order the
   // document, so a sort applied later would leave the two disagreeing.
-  function collapse(nodes: TreeNode<T>[]): TreeNode<T>[] {
+  function collapse(nodes: TreeNode[]): TreeNode[] {
     const collapsed = nodes.map((node) => {
       if (!node.isFile && node.children.length === 1 && !node.children[0].isFile) {
         const child = node.children[0];
@@ -53,7 +64,7 @@ export function buildTree<T extends { path: string }>(files: readonly T[]): Tree
   return collapse(root);
 }
 
-function sortTreeNodes<T>(nodes: TreeNode<T>[]): TreeNode<T>[] {
+function sortTreeNodes(nodes: TreeNode[]): TreeNode[] {
   return [...nodes].sort((a, b) => {
     if (a.isFile !== b.isFile) return a.isFile ? 1 : -1;
     return a.name.localeCompare(b.name);
@@ -67,42 +78,52 @@ function sortTreeNodes<T>(nodes: TreeNode<T>[]): TreeNode<T>[] {
 export function treeFileOrder(files: readonly { path: string }[]): string[] {
   const order: string[] = [];
 
-  const walk = (nodes: TreeNode<{ path: string }>[]) => {
+  const walk = (nodes: TreeNode[]) => {
     for (const node of nodes) {
-      if (node.isFile && node.file) order.push(node.file.path);
+      if (node.isFile) order.push(node.fullPath);
       else walk(node.children);
     }
   };
 
-  walk(buildTree(files));
+  walk(buildTree(files.map((file) => file.path)));
   return order;
-}
-
-export function inTreeOrder<T extends { path: string }>(files: readonly T[]): T[] {
-  const rank = new Map(treeFileOrder(files).map((path, index) => [path, index]));
-  return [...files].sort((a, b) => (rank.get(a.path) ?? 0) - (rank.get(b.path) ?? 0));
 }
 
 export interface DiffFileTreeProps {
   files: ChangedFile[];
-  onFileClick: (path: string) => void;
-  /** Per-file trailing content — the PR view puts unresolved-thread counts here. */
-  renderFileTrailing?: (file: ChangedFile) => ReactNode;
-  /** Content above the tree — the PR view puts the rest of its contents here. */
+  onFileClick: (path: string, group?: string) => void;
+  /** Absent, or with null groups, runs the flat tree. */
+  lens?: {
+    groups: ResolvedGroup[] | null;
+    collapsed: ReadonlySet<string>;
+    onCollapsedChange: (id: string, next: boolean) => void;
+  };
+  renderFileTrailing?: FileTrailing<ChangedFile>;
   header?: ReactNode;
-  /** Path currently in view, highlighted in the rail. */
-  activePath?: string | null;
+  /** The section in view, marked in the rail — the path itself when no lens splits it. */
+  activeSection?: string | null;
+  /** The grouping has just arrived, so its parts lay themselves in. */
+  revealing?: boolean;
   footer?: ReactNode;
 }
 
 /** Just the nodes, for a caller that already owns its scrolling. */
-export function DiffFileTreeNodes({
+export function DiffFileTreeNodes<T extends ChangedFile>({
   files,
   onFileClick,
   renderFileTrailing,
   activePath,
-}: Pick<DiffFileTreeProps, 'files' | 'onFileClick' | 'renderFileTrailing' | 'activePath'>) {
-  const tree = useMemo(() => buildTree(files), [files]);
+}: {
+  files: readonly T[];
+  onFileClick: (path: string) => void;
+  renderFileTrailing?: (file: T) => ReactNode;
+  /** The file being read, or null when it is not one of these. */
+  activePath?: string | null;
+}) {
+  const paths = useMemo(() => files.map((file) => file.path).join('\n'), [files]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
+  const tree = useMemo(() => buildTree(files.map((file) => file.path)), [paths]);
+  const byPath = useMemo(() => new Map(files.map((file) => [file.path, file])), [files]);
 
   return (
     <>
@@ -110,6 +131,7 @@ export function DiffFileTreeNodes({
         <TreeNodeView
           key={node.fullPath}
           node={node}
+          byPath={byPath}
           onFileClick={onFileClick}
           renderFileTrailing={renderFileTrailing}
           activePath={activePath}
@@ -119,43 +141,144 @@ export function DiffFileTreeNodes({
   );
 }
 
+function DiffFileTreeChapters<T extends ChangedFile>({
+  groups,
+  byPath,
+  collapsed,
+  onCollapsedChange,
+  onFileClick,
+  renderFileTrailing,
+  activeSection,
+  revealing,
+}: {
+  groups: ResolvedGroup[];
+  byPath: Map<string, T>;
+  collapsed: ReadonlySet<string>;
+  onCollapsedChange: (id: string, next: boolean) => void;
+  onFileClick: (path: string, group: string) => void;
+  renderFileTrailing?: FileTrailing<T>;
+  activeSection?: string | null;
+  revealing?: boolean;
+}) {
+  // `DiffFileTreeNodes` memoises its tree on the array it is handed, so rebuilding
+  // these in the render rebuilds every part's tree on every scroll. Counts are the
+  // part's own, or a file in three parts reports its whole diff in each.
+  const parts = useMemo(() => {
+    const built = new Map<string, { files: T[]; hunks: Map<string, number> }>();
+    for (const group of groups) {
+      const files: T[] = [];
+      const hunks = new Map<string, number>();
+      for (const slice of group.slices) {
+        const file = byPath.get(slice.path);
+        if (!file) continue;
+        files.push(slice.changes ? { ...file, ...slice.changes } : file);
+        hunks.set(slice.path, slice.hunks.length);
+      }
+      built.set(group.id, { files, hunks });
+    }
+    return built;
+  }, [groups, byPath]);
+
+  return (
+    <>
+      {groups.map((group, at) => {
+        const folded = collapsed.has(group.id);
+        const { files, hunks } = parts.get(group.id)!;
+        // The mark is on one copy of a file, not on every part that names it.
+        const activePath = sectionPath(activeSection, group.id);
+        const enter = partEnter(revealing ? at : undefined);
+        return (
+          <div key={group.id} className={`flex flex-col ${enter.className}`} style={enter.style}>
+            {/* The toggle is at the far end: a caret here, in the column every
+                directory below uses, made a part and a folder read as one tree. */}
+            <button
+              type="button"
+              aria-expanded={!folded}
+              className="flex items-center gap-1.5 h-9 px-3 text-[12px] font-medium text-ink/90 text-left transition-colors duration-150 ease-out hover:bg-ink/5"
+              title={group.summary}
+              onClick={() => onCollapsedChange(group.id, !folded)}
+            >
+              <span className="min-w-0 flex-1 truncate">{group.title}</span>
+              <Icon name={folded ? 'plus' : 'minus'} className="shrink-0 !w-3 !h-3 opacity-50" />
+            </button>
+            {!folded && (
+              <DiffFileTreeNodes
+                files={files}
+                activePath={activePath}
+                onFileClick={(path) => onFileClick(path, group.id)}
+                renderFileTrailing={
+                  renderFileTrailing
+                    ? (file) => renderFileTrailing(file, hunks.get(file.path), sectionKey(group.id, file.path))
+                    : undefined
+                }
+              />
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 export function DiffFileTree({
   files,
   onFileClick,
+  lens,
   renderFileTrailing,
   header,
-  activePath,
+  activeSection,
+  revealing,
   footer,
 }: DiffFileTreeProps) {
+  const byPath = useMemo(() => new Map(files.map((file) => [file.path, file])), [files]);
+  const chaptered = lens?.groups;
+
   return (
-    <div className="flex-1 overflow-y-auto py-2">
+    // Chaptered, the list opens with a part's bar, which has to sit level with the
+    // one the document opens with across the seam.
+    <div className={`flex-1 overflow-y-auto pb-2 ${chaptered ? '' : 'pt-2'}`}>
       {header}
-      <DiffFileTreeNodes
-        files={files}
-        onFileClick={onFileClick}
-        renderFileTrailing={renderFileTrailing}
-        activePath={activePath}
-      />
+      {chaptered ? (
+        <DiffFileTreeChapters
+          groups={chaptered}
+          byPath={byPath}
+          collapsed={lens.collapsed}
+          onCollapsedChange={lens.onCollapsedChange}
+          onFileClick={onFileClick}
+          renderFileTrailing={renderFileTrailing}
+          activeSection={activeSection}
+          revealing={revealing}
+        />
+      ) : (
+        <DiffFileTreeNodes
+          files={files}
+          onFileClick={onFileClick}
+          renderFileTrailing={renderFileTrailing}
+          activePath={activeSection}
+        />
+      )}
       {footer}
     </div>
   );
 }
 
-function TreeNodeView({
+function TreeNodeView<T extends ChangedFile>({
   node,
+  byPath,
   onFileClick,
   renderFileTrailing,
   activePath,
 }: {
   node: TreeNode;
+  byPath: Map<string, T>;
   onFileClick: (path: string) => void;
-  renderFileTrailing?: (file: ChangedFile) => ReactNode;
+  renderFileTrailing?: (file: T) => ReactNode;
   activePath?: string | null;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const file = node.isFile ? byPath.get(node.fullPath) : undefined;
 
-  if (node.isFile && node.file) {
-    const file = node.file;
+  if (file) {
     const isActive = activePath === file.path;
     return (
       <div
@@ -199,6 +322,7 @@ function TreeNodeView({
             <TreeNodeView
               key={child.fullPath}
               node={child}
+              byPath={byPath}
               onFileClick={onFileClick}
               renderFileTrailing={renderFileTrailing}
               activePath={activePath}

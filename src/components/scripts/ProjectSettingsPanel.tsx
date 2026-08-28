@@ -9,6 +9,9 @@ import { SandboxSection } from './SandboxSection';
 import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
 import { WorktreeSection } from './WorktreeSection';
 import { IconColorSection } from './IconColorSection';
+import { Icon } from '../terminal/Icon';
+import { LensList } from './LensList';
+import { LensAgentRow } from './LensAgentRow';
 import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
 
 const LIFECYCLE_HOOKS: HookEntry[] = [
@@ -95,6 +98,20 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
             >
               <HookList projectPath={projectPath} hooks={RUN_HOOK} bare />
               <ScriptList projectPath={projectPath} bare />
+            </div>
+          </section>
+          <section>
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary mb-2">
+              <Icon name="aperture" className="w-4 h-4 text-accent" />
+              Lenses
+            </h2>
+            <p className="text-xs text-text-tertiary mb-4">
+              Ways of reading a diff. Each is a command that reads the change and says what its parts are, so the diff
+              can be shown in that order instead of a list of files.
+            </p>
+            <LensList projectPath={projectPath} />
+            <div className="mt-3 -ml-2.5">
+              <LensAgentRow projectPath={projectPath} />
             </div>
           </section>
           <section>

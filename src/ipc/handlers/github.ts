@@ -25,14 +25,15 @@ import {
   resolveThread,
   createPullRequestForTask,
   mergePr,
+  getPullRequestLens,
+  writeLensWithAgent,
   createTaskFromIssue,
   prepareTaskFromPullRequest,
 } from '../../github/service';
 
 /**
- * Thin delegations, matching every other handler module in here. All the
- * gating (experimental flag, `gh` presence, auth, remote) lives in the service
- * so the REST router gets the same guarantees without duplicating them.
+ * The gating — experimental flag, `gh` presence, auth, remote — lives in the
+ * service, so the REST router gets the same guarantees from the same code.
  */
 export function registerGithubHandlers(): void {
   typedHandle('github:availability', (projectPath, recheck) => getAvailability(projectPath, recheck));
@@ -78,6 +79,8 @@ export function registerGithubHandlers(): void {
   typedHandle('github:create-pr', (projectPath, taskNumber, options) =>
     createPullRequestForTask(projectPath, taskNumber, options),
   );
+  typedHandle('github:lens', (projectPath, prNumber, headSha) => getPullRequestLens(projectPath, prNumber, headSha));
+  typedHandle('github:run-lens', (projectPath, prNumber, lensId) => writeLensWithAgent(projectPath, prNumber, lensId));
   typedHandle('github:viewed-files', (projectPath, prNumber, headSha) =>
     getViewedFiles(projectPath, prNumber, headSha),
   );

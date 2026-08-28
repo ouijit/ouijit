@@ -42,6 +42,19 @@ import Docs from '../../layouts/Docs.astro';
   --origin claude --body "this can throw when the token is missing"</code></pre>
   <p>See <a href="/docs/agents/">Agents</a> for the full agent review workflow.</p>
 
+  <h2>Read it through a lens</h2>
+  <p>
+    The Code pane takes the same <a href="/docs/diff/">lenses</a> the worktree diff does, from the picker above
+    the file list: an agent reads the change and answers with its parts, and the rail and the document both
+    follow that order instead of the file tree.
+  </p>
+  <p>
+    Read marks follow the parts. A file split across three of them is ticked a part at a time, and counts as
+    read once every part of it has been. A lens written for an earlier head is dropped rather than shown against
+    hunks a force-push has moved; the picker offers to run it again. An agent can write one itself with
+    <code>ouijit pr lens set</code>, described under <a href="/docs/cli/">the CLI</a>.
+  </p>
+
   <h2>Merge</h2>
   <p>
     Open pull requests get a merge menu with <strong>Merge</strong>, <strong>Squash</strong>, and
