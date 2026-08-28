@@ -12,7 +12,6 @@ import { IconColorSection } from './IconColorSection';
 import { Icon } from '../terminal/Icon';
 import { LensList } from './LensList';
 import { LensAgentRow } from './LensAgentRow';
-import { useExperimentalStore } from '../../stores/experimentalStore';
 import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
 
 const LIFECYCLE_HOOKS: HookEntry[] = [
@@ -34,7 +33,6 @@ interface ProjectSettingsPanelProps {
 
 export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps) {
   const sandboxAvailable = useProjectStore((s) => s.availableSandboxProviders.length > 0);
-  const githubEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.github ?? false);
 
   useEffect(() => {
     useProjectStore.getState().loadScripts(projectPath);
@@ -102,23 +100,21 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               <ScriptList projectPath={projectPath} bare />
             </div>
           </section>
-          {githubEnabled && (
-            <section>
-              <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary mb-2">
-                <Icon name="aperture" className="w-4 h-4 text-accent" />
-                Lenses
-              </h2>
-              <p className="text-xs text-text-tertiary mb-4">
-                Ways of reading a pull request. Each is a command that reads the diff and says what the parts of the
-                change are, so the Code pane can show them in that order instead of a list of files.
-              </p>
-              <LensList projectPath={projectPath} />
-              {/* Under the list, not in it: a setting about all of them. */}
-              <div className="mt-3 -ml-2.5">
-                <LensAgentRow projectPath={projectPath} />
-              </div>
-            </section>
-          )}
+          <section>
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary mb-2">
+              <Icon name="aperture" className="w-4 h-4 text-accent" />
+              Lenses
+            </h2>
+            <p className="text-xs text-text-tertiary mb-4">
+              Ways of reading a diff. Each is a command that reads the change and says what its parts are, so the diff
+              can be shown in that order instead of a list of files.
+            </p>
+            <LensList projectPath={projectPath} />
+            {/* Under the list, not in it: a setting about all of them. */}
+            <div className="mt-3 -ml-2.5">
+              <LensAgentRow projectPath={projectPath} />
+            </div>
+          </section>
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Editor</h2>
             <p className="text-xs text-text-tertiary mb-4">Command to open task worktrees in your editor.</p>
