@@ -11,6 +11,7 @@ import alignCenterVertical from '@phosphor-icons/core/assets/regular/align-cente
 import alignLeft from '@phosphor-icons/core/assets/regular/align-left.svg?raw';
 import alignRight from '@phosphor-icons/core/assets/regular/align-right.svg?raw';
 import alignTop from '@phosphor-icons/core/assets/regular/align-top.svg?raw';
+import aperture from '@phosphor-icons/core/assets/regular/aperture.svg?raw';
 import archive from '@phosphor-icons/core/assets/regular/archive.svg?raw';
 import arrowCounterClockwise from '@phosphor-icons/core/assets/regular/arrow-counter-clockwise.svg?raw';
 import arrowLeft from '@phosphor-icons/core/assets/regular/arrow-left.svg?raw';
@@ -91,6 +92,7 @@ export const iconMap: Record<string, string> = {
   'align-left': alignLeft,
   'align-right': alignRight,
   'align-top': alignTop,
+  aperture: aperture,
   archive: archive,
   'pause-fill': pauseFill,
   'play-fill': playFill,

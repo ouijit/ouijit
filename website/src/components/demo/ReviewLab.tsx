@@ -24,8 +24,8 @@ import { useTheaterLoop, BeatDots } from './theaterLoop';
 
 /**
  * The review section: what the history says about the diff, the loop back to
- * the agent, then the pull request. Notes on the diff land in the agent's
- * prompt; drafts on the pull request stage locally and send as one review.
+ * the agent, then the same diff read through a lens. Notes on the diff land in
+ * the agent's prompt; a lens regroups the change into the parts it is made of.
  */
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -234,16 +234,14 @@ function NotesIsland({ count, flash }: { count: number; flash?: boolean }) {
 
 /** The diff panel mid-review: word-level highlights, a note being written on
  * a changed line, and the island that hands the notes to the agent.
- * `pNote` types the note, `pSend` sends it, `pFix` is the agent's follow-up. */
+ * `pNote` types the note, `pSend` hands it to the agent. */
 function NotedDiffPane({
   pNote,
   pSend,
-  pFix,
   tip,
 }: {
   pNote: number;
   pSend: number;
-  pFix: number;
   tip?: boolean;
 }) {
   /* Typing takes as much of the beat as it can get: it starts as soon as the
@@ -471,7 +469,7 @@ function RoundTripTerminal({ p, depth, tip }: { p: (k: string) => number; depth:
         </div>
         <div className="pane-seam relative w-px shrink-0" />
         <div className="relative shrink-0" style={{ width: '50%' }}>
-          <NotedDiffPane pNote={p('note')} pSend={p('send')} pFix={p('fix')} tip={tip} />
+          <NotedDiffPane pNote={p('note')} pSend={p('send')} tip={tip} />
         </div>
       </div>
     </>
@@ -480,179 +478,310 @@ function RoundTripTerminal({ p, depth, tip }: { p: (k: string) => number; depth:
 
 const LOOP_KEYS = ['note', 'send', 'fix'] as const;
 
-/* ─── The condensed pull request ──────────────────────────────────── */
+/* ─── The diff read through a lens ────────────────────────────────── */
 
-function MiniAvatar({ login, size }: { login: string; size: number }) {
-  let hash = 0;
-  for (let i = 0; i < login.length; i++) hash = (hash * 31 + login.charCodeAt(i)) % 360;
+const LENS_NAME = 'Decision first';
+
+/** Dragged wider than the 220px the rail opens at, which truncates the
+ *  longest of these names. */
+const RAIL_WIDTH = 264;
+
+interface LensFile {
+  name: string;
+  status: 'A' | 'D' | 'M';
+  add?: number;
+  del?: number;
+  /** The hunk of it the document shows. */
+  hunk: { range: string; context: string; lines: NotedLine[] };
+}
+
+const STATUS: Record<LensFile['status'], { icon: string; color: string; badge: string; label: string }> = {
+  A: { icon: 'file-plus', color: 'text-vcs-added', badge: 'bg-vcs-added/15 text-vcs-added', label: 'added' },
+  D: { icon: 'file-minus', color: 'text-vcs-deleted', badge: 'bg-vcs-deleted/15 text-vcs-deleted', label: 'deleted' },
+  M: { icon: 'file-dashed', color: 'text-ink/50', badge: 'bg-ink/[0.06] text-ink/40', label: 'modified' },
+};
+
+const LENS_DIR = 'src/onboarding';
+
+const LEGACY_LINES = [
+  "import { useState } from 'react';",
+  '',
+  'const progress = new Map<string, number>();',
+  '',
+  'export function readProgress(accountId: string) {',
+  '  return progress.get(accountId) ?? 0;',
+  '}',
+];
+
+/** In tree order, which the document follows. */
+const FLAT_FILES: LensFile[] = [
+  {
+    name: 'legacyProgress.ts',
+    status: 'D',
+    del: 64,
+    hunk: {
+      range: '@@ -1,64 +0,0 @@',
+      context: 'legacyProgress',
+      lines: LEGACY_LINES.map((content, i) => ({ type: 'deletion', oldNo: i + 1, content })),
+    },
+  },
+  {
+    name: 'Stepper.tsx',
+    status: 'M',
+    add: 92,
+    del: 14,
+    hunk: { range: '@@ -1,8 +1,12 @@', context: 'Stepper container', lines: NOTED_LINES },
+  },
+  {
+    name: 'useOnboardingProgress.ts',
+    status: 'A',
+    add: 38,
+    hunk: {
+      range: '@@ -0,0 +1,38 @@',
+      context: 'useOnboardingProgress',
+      lines: HOOK_LINES.slice(0, 4).map((content, i) => ({ type: 'addition', newNo: i + 1, content })),
+    },
+  },
+];
+
+/** What the lens made of those same files. Stepper.tsx is in two parts: a
+ *  part claims line ranges rather than whole files. */
+const LENS_PARTS: { title: string; summary: string; files: LensFile[] }[] = [
+  {
+    title: 'The decision',
+    summary: 'Step progress moves out of component state and into the account, where a reload can find it.',
+    files: [FLAT_FILES[1], FLAT_FILES[2]],
+  },
+  {
+    title: 'What it replaces',
+    summary: 'The in-memory store the stepper kept, and the last call into it.',
+    files: [FLAT_FILES[0]],
+  },
+  {
+    title: 'Mechanical churn',
+    summary: 'Imports and prop names the move dragged along.',
+    files: [FLAT_FILES[1]],
+  },
+];
+
+/** The app's `partEnter`: 55ms a part, so a grouping lays itself in. */
+const partEnter = (i: number) => ({ className: 'lens-part-enter', style: { animationDelay: `${i * 55}ms` } });
+
+function FileCounts({ file, size }: { file: LensFile; size: string }) {
   return (
-    <span
-      className="inline-flex shrink-0 items-center justify-center rounded-full select-none"
-      style={{ width: size, height: size, background: `color-mix(in srgb, hsl(${hash} 55% 55%) 30%, transparent)` }}
-    >
-      <span
-        aria-hidden
-        className="font-sans font-medium leading-none text-ink/70"
-        style={{ fontSize: Math.max(9, Math.round(size * 0.45)) }}
-      >
-        {login[0].toUpperCase()}
-      </span>
+    <span className={`shrink-0 font-mono ${size}`}>
+      {file.add ? <span className="text-diff-added">+{file.add}</span> : null}
+      {file.add && file.del ? ' ' : null}
+      {file.del ? <span className="text-diff-removed">-{file.del}</span> : null}
     </span>
   );
 }
 
-const SEG = 'h-full px-2.5 flex items-center gap-1.5 font-sans text-[13px] font-medium';
-const SEG_DIVIDER = <span aria-hidden className="w-px h-3 bg-ink/10 self-center" />;
-
-function PrFact({ icon, label, children }: { icon: string; label: string; children: ReactNode }) {
+function RailFile({ file }: { file: LensFile }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="flex items-center gap-2 w-[110px] shrink-0 text-[14px] text-text-tertiary">
-        <Icon name={icon} className="w-4 h-4 shrink-0 opacity-70" />
-        {label}
-      </span>
-      <span className="flex items-center gap-1.5 min-w-0 text-[14px] text-text-primary">{children}</span>
+    <div className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-ink/70">
+      <Icon name={STATUS[file.status].icon} className={`w-4 h-4 shrink-0 ${STATUS[file.status].color}`} />
+      <span className="flex-1 min-w-0 truncate">{file.name}</span>
+      <FileCounts file={file} size="text-[13px]" />
     </div>
   );
 }
 
-function DraftRow({ path, line, origin, body }: { path: string; line: number; origin?: string; body: string }) {
-  const cut = path.lastIndexOf('/');
-  return (
-    <div className="rounded-[10px] border border-bezel bg-ink/[0.03] px-3.5 py-2.5 flex flex-col gap-1">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="min-w-0 truncate font-mono text-[12px] text-text-tertiary">
-          {path.slice(0, cut + 1)}
-          <span className="text-text-secondary">{path.slice(cut + 1)}</span>:{line}
-        </span>
-        <span className="ml-auto shrink-0 flex items-center gap-1.5 text-[12px] text-accent">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-          {origin ? `${origin} · unsent` : 'unsent'}
-        </span>
-      </div>
-      <div className="text-sm text-text-primary leading-relaxed">{body}</div>
-    </div>
-  );
-}
-
-const RISK_ROWS = [
-  {
-    icon: 'flame',
-    path: 'src/onboarding/Stepper.tsx',
-    text: '34 commits in 12 months · most edits by prentice',
-  },
-  {
-    icon: 'git-fork',
-    path: 'src/onboarding/Stepper.tsx',
-    text: 'Usually changes with src/account/preferences.ts — not in this pull request',
-  },
-];
-
-/** The pull request surface reduced to its review essentials: the header
- * segment, the facts, and the staged drafts. Same task, one commit later. */
-function CondensedPrCard() {
+/** A part keeps the directory tree inside it, so which directories it touches
+ *  still reads. */
+function RailFiles({ files }: { files: LensFile[] }) {
   return (
     <>
-      <header className="pane-ledge relative z-30 shrink-0 h-12 flex items-center gap-3 px-3">
-        <span className="flex items-center gap-2 min-w-0 text-text-secondary">
-          <Icon name="git-pull-request" className="w-4 h-4 shrink-0 text-vcs-added" />
-          <span className="truncate text-[15px]">Rework onboarding flow</span>
-        </span>
-        <nav className="flex items-center gap-4 mx-auto shrink-0 self-stretch">
-            <span className="flex items-center px-0.5 border-b-2 -mb-px border-accent text-[13px] font-medium text-text-primary">
-              Summary
-            </span>
-            <span className="flex items-center px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
-              Timeline
-            </span>
-            <span className="flex items-center gap-1.5 px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
-            Code <span className="opacity-50 tabular-nums">3</span>
-          </span>
-        </nav>
-        <div className="flex items-center gap-1 shrink-0">
-          <div
-            className="inline-flex items-center h-7 glass-bevel relative border border-bezel rounded-[12px] overflow-hidden"
-            style={{ background: '#212126' }}
-          >
-            <span className={`${SEG} text-text-secondary`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-accent" />1 unsent
-            </span>
-            {SEG_DIVIDER}
-            <span className={`${SEG} text-text-secondary`}>Review</span>
-            {SEG_DIVIDER}
-            <span className={`${SEG} bg-accent text-accent-ink`}>Merge</span>
-          </div>
-        </div>
-      </header>
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <div className="h-full w-full max-w-3xl mx-auto px-6 py-5 flex flex-col gap-4">
-          <header className="flex flex-col gap-2">
-            <div className="text-[21px] leading-tight font-medium text-text-primary">Rework onboarding flow</div>
-            <div className="flex items-center gap-2 text-[13px] text-text-secondary">
-              <MiniAvatar login="prentice" size={18} />
-              <span className="text-text-primary">prentice</span>
-              <span className="text-text-tertiary opacity-60">·</span>
-              <span>just now</span>
-              <span className="text-text-tertiary opacity-60">·</span>
-              <span className="flex items-center gap-1">
-                #501
-                <Icon name="arrow-square-out" className="w-3.5 h-3.5 opacity-60" />
-              </span>
-              <span className="text-text-tertiary opacity-60">·</span>
-              <span>Ready for review</span>
-            </div>
-          </header>
-          <dl className="flex flex-col gap-2">
-            <PrFact icon="git-branch" label="Branch">
-              <span className="font-mono text-[13px]">rework-onboarding</span>
-              <Icon name="caret-right" className="w-3 h-3 text-text-tertiary" />
-              <span className="font-mono text-[13px]">main</span>
-              <span className="font-mono text-[13px] tabular-nums ml-1">
-                <span className="text-diff-added">+130</span> <span className="text-diff-removed">-78</span>
-              </span>
-            </PrFact>
-            <PrFact icon="user-circle" label="Task">
-              <span className="font-mono text-[13px]">T-101</span>
-              <span className="text-text-tertiary">In review</span>
-              <Icon name="arrow-right" className="w-3.5 h-3.5 opacity-60" />
-            </PrFact>
-            <PrFact icon="clock" label="Checks">6 passing</PrFact>
-          </dl>
-          <section className="flex flex-col gap-2 min-h-0">
-            <div className="flex items-center gap-2 pb-2 border-b border-ink/[0.08]">
-              <span className="text-[17px] font-medium text-text-primary">Risk</span>
-              <span className="text-[14px] text-text-tertiary">{RISK_ROWS.length}</span>
-            </div>
-            {RISK_ROWS.map((row) => (
-              <div key={row.text} className="flex items-center gap-2.5 py-1">
-                <Icon name={row.icon} className="w-3.5 h-3.5 shrink-0 text-git/80" />
-                <span className="shrink-0 font-mono text-[12px] text-text-secondary">{row.path}</span>
-                <span className="min-w-0 truncate font-mono text-[10px] text-text-tertiary">{row.text}</span>
-              </div>
-            ))}
-          </section>
-          <section className="flex flex-col gap-3 min-h-0">
-            <div className="flex items-center gap-2 pb-2 border-b border-ink/[0.08]">
-              <span className="text-[17px] font-medium text-text-primary">Review</span>
-              <span className="text-[14px] text-text-tertiary">1 draft</span>
-            </div>
-            <DraftRow
-              path="src/onboarding/Stepper.tsx"
-              line={6}
-              origin="claude"
-              body="prefetch preferences before the first step renders — the stepper flashes step 0 on slow accounts"
-            />
-          </section>
-        </div>
+      <div className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-ink/50">
+        <Icon name="caret-down" className="!w-3 !h-3 shrink-0" />
+        <span className="flex-1 min-w-0 truncate">{LENS_DIR}</span>
+      </div>
+      <div className="pl-3">
+        {files.map((file) => (
+          <RailFile key={file.name} file={file} />
+        ))}
       </div>
     </>
   );
 }
 
-/* ─── The section: what the history says, the loop, the pull request ─ */
+function LensRow({ label, hint, selected, aimed }: { label: string; hint?: string; selected?: boolean; aimed?: boolean }) {
+  return (
+    <span
+      className={`w-full px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 transition-colors duration-100 ${
+        aimed ? 'bg-ink/[0.08] text-text-primary' : 'text-text-secondary'
+      }`}
+    >
+      <span className="flex-1 truncate">{label}</span>
+      {hint && <span className="text-[11px] text-text-tertiary shrink-0">{hint}</span>}
+      {selected && <Icon name="check" className="w-3.5 h-3.5 text-accent shrink-0" />}
+    </span>
+  );
+}
+
+/** The picker over the rail's ledge. Picking a lens that has not been written
+ *  for this diff spends an agent run writing it. */
+function LensMenu({ aimed }: { aimed: boolean }) {
+  return (
+    <div
+      className="absolute left-2 top-[46px] z-50 w-[17rem] flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px] animate-tooltip-pop"
+      style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-menu)' }}
+    >
+      <div className="p-1 flex flex-col">
+        <LensRow label="All files" hint="3" selected />
+        <div className="my-1 mx-1 border-t border-ink/[0.06]" />
+        <LensRow label={LENS_NAME} aimed={aimed} />
+        <LensRow label="Risk first" />
+        <div className="my-1 mx-1 border-t border-ink/[0.06]" />
+        <LensRow label="Manage lenses…" />
+      </div>
+    </div>
+  );
+}
+
+function LensTrigger({ writing, on }: { writing: boolean; on: boolean }) {
+  return (
+    <div
+      className={`w-full h-full flex items-center gap-1.5 px-3 text-[13px] ${
+        writing ? 'text-ink/45' : 'text-ink/70'
+      }`}
+    >
+      <Icon name={on ? 'aperture' : 'tree-structure'} className="shrink-0 w-4 h-4 opacity-70" />
+      <span className="flex-1 min-w-0 truncate">
+        {writing ? `Writing ${LENS_NAME}…` : on ? LENS_NAME : 'All files'}
+      </span>
+      {!writing && <span className="shrink-0 font-mono text-[11px] text-ink/35">3</span>}
+      {writing ? (
+        <Icon
+          name="arrows-clockwise"
+          className="shrink-0 w-3 h-3 text-accent"
+          style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
+        />
+      ) : (
+        <Icon name="caret-down" className="shrink-0 w-3 h-3 text-ink/40" />
+      )}
+    </div>
+  );
+}
+
+function DocFileCard({ file }: { file: LensFile }) {
+  return (
+    <div className="diff-card mx-4 mt-3 rounded-[14px] border border-bezel bg-diff-card overflow-clip">
+      <div className="pane-ledge sticky top-0 z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface">
+        <span
+          className="shrink-0 w-4 h-4 rounded border border-ink/25 text-transparent flex items-center justify-center [&>svg]:w-3 [&>svg]:h-3"
+          aria-hidden="true"
+        >
+          <Icon name="check" />
+        </span>
+        <span className="flex-1 min-w-0 truncate font-mono text-[13px]">
+          <span className="text-ink/35">{LENS_DIR}/</span>
+          <span className="text-ink/90">{file.name}</span>
+        </span>
+        <span className={`shrink-0 text-[10px] px-1 py-px rounded font-medium ${STATUS[file.status].badge}`}>
+          {STATUS[file.status].label}
+        </span>
+        <FileCounts file={file} size="text-[11px]" />
+      </div>
+      <div className="flex items-center gap-3 py-1 pr-4 font-mono text-xs" style={{ paddingLeft: '86px' }}>
+        <span className="shrink-0 text-ink/25">{file.hunk.range}</span>
+        <span className="truncate text-ink/45">{file.hunk.context}</span>
+      </div>
+      {file.hunk.lines.map((line, i) => (
+        <NotedDiffLineRow key={i} line={line} />
+      ))}
+    </div>
+  );
+}
+
+/** The document under a lens: a part's header pins over the files it claimed,
+ *  and the summary the agent wrote for it sits under that. */
+function DocPart({ part, at }: { part: (typeof LENS_PARTS)[number]; at: number }) {
+  const enter = partEnter(at);
+  return (
+    <div className={`lens-part diff-list flex flex-col ${enter.className}`} style={enter.style}>
+      <div className="pane-ledge-raised sticky top-0 z-20 bg-surface">
+        <div className="w-full flex items-center gap-2 h-9 px-3">
+          <Icon name="caret-down" className="shrink-0 !w-3 !h-3 text-ink/40" />
+          <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-text-primary">{part.title}</span>
+        </div>
+      </div>
+      <p className="mx-6 max-w-[76ch] text-[12px] leading-relaxed text-ink/50">{part.summary}</p>
+      {part.files.map((file) => (
+        <DocFileCard key={file.name} file={file} />
+      ))}
+    </div>
+  );
+}
+
+/** The same three files, read through a lens instead of the tree: the picker
+ *  over the rail, the parts an agent grouped the change into, and the document
+ *  in that order. `pPick` opens the picker and spends the run, `pParts` lands
+ *  the grouping. */
+function LensedDiffCard({ pPick, pParts }: { pPick: number; pParts: number }) {
+  const written = pParts > 0.02;
+  const menuOpen = pPick > 0.12 && pPick < 0.55;
+  const writing = pPick >= 0.55 && !written;
+
+  return (
+    <div className="flex absolute inset-0 overflow-hidden bg-terminal-bg">
+      <div className="shrink-0 flex flex-col overflow-hidden border-r border-bezel" style={{ width: RAIL_WIDTH }}>
+        <div className="pane-ledge shrink-0 h-11 flex flex-col">
+          <LensTrigger writing={writing} on={written} />
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {written ? (
+            LENS_PARTS.map((part, at) => {
+              const enter = partEnter(at);
+              return (
+                <div key={part.title} className={`flex flex-col ${enter.className}`} style={enter.style}>
+                  <div className="flex items-center gap-1.5 h-9 px-3 text-[12px] font-medium text-ink/90">
+                    <span className="min-w-0 flex-1 truncate">{part.title}</span>
+                    <Icon name="minus" className="shrink-0 !w-3 !h-3 opacity-50" />
+                  </div>
+                  <RailFiles files={part.files} />
+                </div>
+              );
+            })
+          ) : (
+            <RailFiles files={FLAT_FILES} />
+          )}
+        </div>
+      </div>
+      {menuOpen && <LensMenu aimed={pPick > 0.34} />}
+      <div className="relative flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="pane-ledge over-well relative z-30 px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
+          <span className={PANEL_BUTTON}>
+            <Icon name="sidebar-simple" />
+          </span>
+          <span className="flex items-center gap-1 font-mono text-[13px] text-ink/70">
+            <Icon name="git-branch" className="w-3.5 h-3.5 text-ink/45" />
+            main
+            <Icon name="caret-down" className="!w-3 !h-3 text-ink/40" />
+          </span>
+          <span className="ml-auto min-w-0 truncate text-xs text-text-tertiary">3 files +130 -78</span>
+          <span className={PANEL_BUTTON}>
+            <Icon name="square-split-horizontal" />
+          </span>
+          <span className={PANEL_BUTTON}>
+            <Icon name="x" />
+          </span>
+        </div>
+        <div className="diff-well diff-list relative flex-1 overflow-hidden pb-3">
+          {written
+            ? LENS_PARTS.map((part, at) => <DocPart key={part.title} part={part} at={at} />)
+            : FLAT_FILES.map((file) => <DocFileCard key={file.name} file={file} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── The section: what the history says, the loop, the lens ──────── */
 
 const ANALYSIS_KEYS = ['scan', 'chip'] as const;
-const BEAT_KEYS = [...ANALYSIS_KEYS, ...LOOP_KEYS, 'pr'] as const;
+const LENS_KEYS = ['pick', 'parts'] as const;
+const BEAT_KEYS = [...ANALYSIS_KEYS, ...LOOP_KEYS, ...LENS_KEYS] as const;
 
 /**
  * The captions under the stage. What analysis reads and what you do about it
@@ -668,10 +797,10 @@ const CAPTIONS: { keys: readonly string[]; title: string; body: string; ms: numb
     ms: 9000,
   },
   {
-    keys: ['pr'],
-    title: 'Land the pull request',
-    body: 'Review every open pull request without opening GitHub — checks, threads, and the merge menu. Drafts, yours beside your agents’, stay local until you send them as one review.',
-    ms: 5000,
+    keys: [...LENS_KEYS],
+    title: 'Read a diff in chapters',
+    body: 'A lens is a standing instruction your project keeps: lead with the decision, mechanical churn last. An agent applies it to any diff, in a worktree or a pull request, and regroups the change into named parts.',
+    ms: 7000,
   },
 ];
 
@@ -777,7 +906,7 @@ function BackStrip({ icon, label, detail }: { icon: string; label: string; detai
 /** The surfaces, in the order the run promotes them. The chip and the note
  *  are one surface: the reading opens in the split the note is written in, so
  *  the layout does not change under the reader between the two. */
-const STACK = ['scan', 'chip', 'pr'] as const;
+const STACK = ['scan', 'chip', 'pick'] as const;
 
 /** TerminalCardView's lift between one depth and the next. */
 const DEPTH_STEP = 24;
@@ -822,7 +951,7 @@ export function ReviewSection() {
                 <RoundTripTerminal p={p} depth={depth(1) ?? 0} tip={tip} />
               </StackCard>
               <StackCard depth={depth(2)}>
-                <CondensedPrCard />
+                <LensedDiffCard pPick={p('pick')} pParts={p('parts')} />
               </StackCard>
             </div>
           </div>
