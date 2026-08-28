@@ -205,6 +205,22 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await expect(contextMenu.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
   await expect(contextMenu.locator('.context-menu-item--danger', { hasText: 'Trash' })).toBeVisible();
 
+  // The bevel is an inset `::before`, so it lands on whichever ancestor is
+  // positioned: a static flyout panel wears the surrounding wrapper's box
+  // instead, and the lit edge floats off the menu it belongs to.
+  const flyout = await appPage.evaluate(() => {
+    const panels = [...document.querySelectorAll('.context-menu .glass-bevel')] as HTMLElement[];
+    const panel = panels[panels.length - 1];
+    const bevel = getComputedStyle(panel, '::before');
+    const box = panel.getBoundingClientRect();
+    return {
+      width: Math.round(box.width) - Math.round(parseFloat(bevel.width)),
+      height: Math.round(box.height) - Math.round(parseFloat(bevel.height)),
+    };
+  });
+  // `inset: 0` against the panel's padding box: its border, on each side.
+  expect(flyout).toEqual({ width: 2, height: 2 });
+
   await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
 
   await expect(appPage.locator('.kanban-board')).not.toBeVisible({ timeout: 5_000 });
