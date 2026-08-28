@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 
 /**
@@ -156,13 +156,25 @@ const dirname = (path: string) => path.slice(0, path.lastIndexOf('/') + 1);
  * already scrolled to the foot of the expanded hotspot, where its
  * recommendations are, rather than at the top of the list. Measured rather
  * than given, since that entry is as tall as its own history.
+ *
+ * `readingAt` names a section to bring to the top instead, for a caller walking
+ * the panel section by section.
  */
-export function MockAnalysis({ showAdvice }: { showAdvice?: boolean } = {}) {
+export function MockAnalysis({ showAdvice, readingAt }: { showAdvice?: boolean; readingAt?: string } = {}) {
   const scroller = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const pane = scroller.current;
+    if (!readingAt || !pane) return;
+    const section = pane.querySelector<HTMLElement>(`[data-section="${readingAt}"]`);
+    if (!section) return;
+    const top = section.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop;
+    pane.scrollTo({ top: Math.max(0, top - 12), behavior: 'smooth' });
+  }, [readingAt]);
 
   useLayoutEffect(() => {
     const pane = scroller.current;
-    if (!showAdvice || !pane) return;
+    if (!showAdvice || readingAt || !pane) return;
     const pin = () => {
       const detail = pane.querySelector<HTMLElement>('[data-hotspot-detail]');
       if (detail) pane.scrollTop += detail.getBoundingClientRect().bottom - pane.getBoundingClientRect().bottom;
@@ -172,7 +184,7 @@ export function MockAnalysis({ showAdvice }: { showAdvice?: boolean } = {}) {
     const observer = new ResizeObserver(pin);
     observer.observe(pane);
     return () => observer.disconnect();
-  }, [showAdvice]);
+  }, [showAdvice, readingAt]);
 
   return (
     <div className="flex-1 min-w-0 min-h-0 flex flex-col">
@@ -293,7 +305,7 @@ function Section({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="flex flex-col">
+    <section className="flex flex-col" data-section={label}>
       <button
         type="button"
         aria-expanded={open}

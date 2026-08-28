@@ -4,6 +4,7 @@ import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { MockAnalysis } from './MockAnalysis';
 import { DeskWash } from './DeskWash';
 import { NotedDiffPane, LensedDiffCard } from './ReviewLab';
+import { useTheaterLoop, BeatDots } from './theaterLoop';
 
 /**
  * Two compositions of the review section's material — the analysis panel, the
@@ -51,7 +52,9 @@ function useEnterProgress(ms: number): [(el: HTMLDivElement | null) => void, num
   return [setNode, progress];
 }
 
-const span = (progress: number, from: number, to: number) => Math.min(1, Math.max(0, (progress - from) / (to - from)));
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+
+const span = (progress: number, from: number, to: number) => clamp01((progress - from) / (to - from));
 
 /**
  * One run of progress spread over the diff's answer to a hotspot: the tooltip
@@ -200,56 +203,81 @@ export function ReviewStrip() {
 
 /* ─── B: three bands, one topic at a time ─────────────────────────── */
 
-/** A band: the surface at the size the app draws it, and the copy for it in a
- *  column to its right. */
+/** A band: the surface at the size the app draws it, the copy for it in a
+ *  column to its right, and that surface's own loop under the copy. Each band
+ *  runs on its own clock — there is no order to read them in. */
 function Chapter({
   title,
   body,
+  beats,
+  beatMs,
   height,
-  onRef,
-  children,
+  surface,
 }: {
   title: string;
   body: string;
+  beats: readonly string[];
+  beatMs: number;
   height: number;
-  onRef?: (el: HTMLDivElement | null) => void;
-  children: ReactNode;
+  surface: (p: (k: string) => number, at: number) => ReactNode;
 }) {
+  const { rootRef, p, t, active, paused, pauseAt, play } = useTheaterLoop(beats, beatMs);
+
   return (
-    <div className="rv-band" ref={onRef}>
+    <div className="rv-band" ref={rootRef}>
       <div className="rv-band-desk plan-desk desk-wash desk-wash--prism">
         <DeskWash />
         <Fit height={height}>
           <TerminalCardView isActive backDepth={0}>
-            {children}
+            {surface(p, active)}
           </TerminalCardView>
         </Fit>
       </div>
       <div className="rv-band-copy">
         <h3>{title}</h3>
         <p>{body}</p>
+        <div className="rv-band-dots">
+          <BeatDots
+            progress={clamp01(t / beats.length)}
+            paused={paused}
+            onPauseAt={(f) => pauseAt(f * beats.length)}
+            onPlay={play}
+          />
+        </div>
       </div>
     </div>
   );
 }
 
-export function ReviewChapters() {
-  const [respondRef, pRespond] = useEnterProgress(5200);
-  const [lensRef, pLens] = useEnterProgress(2600);
+/** The panel's own sections, in the order a reader works down it. */
+const READING = ['Hotspots', 'Modules', 'Coupled files', 'Knowledge'] as const;
 
+export function ReviewChapters() {
   return (
     <div>
       <h2 className="plan-v-headline">Review in depth</h2>
       <div className="rv-chapters">
-        <Chapter {...COPY.health} height={520}>
-          <MockAnalysis showAdvice />
-        </Chapter>
-        <Chapter {...COPY.notes} height={500} onRef={respondRef}>
-          <RespondingDiff progress={pRespond} />
-        </Chapter>
-        <Chapter {...COPY.lens} height={480} onRef={lensRef}>
-          <LensedDiffCard pPick={1} pParts={pLens} />
-        </Chapter>
+        <Chapter
+          {...COPY.health}
+          beats={READING}
+          beatMs={3600}
+          height={520}
+          surface={(_p, at) => <MockAnalysis showAdvice={at === 0} readingAt={at === 0 ? undefined : READING[at]} />}
+        />
+        <Chapter
+          {...COPY.notes}
+          beats={['tip', 'note', 'send']}
+          beatMs={3200}
+          height={500}
+          surface={(p) => <NotedDiffPane tip={p('tip') < 1} pNote={p('note')} pSend={p('send')} />}
+        />
+        <Chapter
+          {...COPY.lens}
+          beats={['pick', 'parts']}
+          beatMs={3600}
+          height={480}
+          surface={(p) => <LensedDiffCard pPick={p('pick')} pParts={p('parts')} />}
+        />
       </div>
     </div>
   );

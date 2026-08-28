@@ -2840,6 +2840,12 @@ body.marketing::after {
   padding: 28px;
 }
 
+/* Under the copy, not under the desk: each band runs its own loop, and a
+   transport across the page would read as one clock for all three. */
+.rv-band-dots {
+  margin-top: 26px;
+}
+
 @media (max-width: 999px) {
   .rv-band {
     flex-direction: column;
