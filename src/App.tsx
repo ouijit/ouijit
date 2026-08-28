@@ -24,6 +24,7 @@ import { hydrateTerminalFont } from './components/terminal/terminalReact';
 import { hydrateNotificationSettings } from './utils/notifications';
 import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
 import { installVisitTracker } from './services/visitTracker';
+import { installCliPanelListener } from './services/cliPanelListener';
 import { useUIStore, hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
 import type { Project } from './types';
@@ -123,6 +124,8 @@ export function App() {
   }, []);
 
   useEffect(() => installVisitTracker(), []);
+
+  useEffect(() => installCliPanelListener(), []);
 
   // First-run marker — set so other surfaces can know whether the user has
   // launched before. The actual welcome UI lives inline in the empty home view.

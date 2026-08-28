@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import log from 'electron-log/renderer';
 import { terminalInstances, type OuijitTerminal } from '../components/terminal/terminalReact';
 import { panelLabel } from '../components/terminal/panelTypes';
@@ -60,7 +59,10 @@ function handleOp(op: CliPanelOp): void {
 
   const instance = terminalInstances.get(op.ptyId);
   if (!instance) {
-    respond({ ok: false, error: `No open terminal for session ${op.ptyId}` });
+    respond({
+      ok: false,
+      error: `Session ${op.ptyId} has no terminal in this window — open its project or the home view to reconnect it`,
+    });
     return;
   }
 
@@ -89,10 +91,13 @@ function handleOp(op: CliPanelOp): void {
 }
 
 /**
- * Handle CLI-driven panel ops (`ouijit markdown` / `ouijit preview`). Mounted
- * once at the app root — ops can target any live terminal regardless of which
- * project view is on screen, so this listener is global rather than per-view.
+ * Handle CLI-driven panel ops (`ouijit markdown` / `ouijit preview`).
+ *
+ * Installed once for the life of the renderer. Ops address a terminal by ptyId
+ * and reach it through the global `terminalInstances` registry, which outlives
+ * any view — mounting this from a view instead drops every op aimed at a
+ * terminal shown somewhere else, and the CLI sees only the bridge's timeout.
  */
-export function useCliPanelListener(): void {
-  useEffect(() => window.api.cliPanels.onOp(handleOp), []);
+export function installCliPanelListener(): () => void {
+  return window.api.cliPanels.onOp(handleOp);
 }

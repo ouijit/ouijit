@@ -5,7 +5,10 @@
  * panels, which are owned by the renderer (`terminalInstances`). The main
  * process can't read or mutate them directly, so this module forwards each op
  * to the renderer over a `cli:panel-op` push and awaits the matching
- * `cli-panels:respond` reply, correlated by an incrementing request id.
+ * `cli-panels:respond` reply, correlated by an incrementing request id. The
+ * renderer answers from a listener installed for the life of the window, so a
+ * timeout here means the window itself is not answering — not that the target
+ * terminal is off screen.
  *
  * These ops are the only way a panel appears without a click, and they always
  * reflect what's on screen.
@@ -57,7 +60,7 @@ export function cliPanelRequest(op: Omit<CliPanelOp, 'requestId'>): Promise<CliP
     const timer = setTimeout(() => {
       pending.delete(requestId);
       cliPanelsLog.warn('panel op timed out', { requestId, ptyId: op.ptyId, action: op.action, kind: op.kind });
-      resolve({ ok: false, error: 'Terminal did not respond (is the panel still open?)' });
+      resolve({ ok: false, error: 'Ouijit window did not respond — try again in a moment' });
     }, REQUEST_TIMEOUT_MS);
 
     pending.set(requestId, { resolve, timer });

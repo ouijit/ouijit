@@ -144,6 +144,10 @@ const mockApi = {
     onStatus: vi.fn().mockReturnValue(() => {}),
     getStatus: vi.fn().mockResolvedValue(null),
   },
+  cliPanels: {
+    onOp: vi.fn().mockReturnValue(() => {}),
+    respond: vi.fn().mockResolvedValue(undefined),
+  },
   plan: {
     read: vi.fn().mockResolvedValue(null),
     watch: vi.fn().mockResolvedValue({ success: true }),
