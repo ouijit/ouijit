@@ -452,6 +452,20 @@ export interface Project {
   iconColor?: string;
 }
 
+/**
+ * The result of "open in editor". `no-editor` is the setup case — nothing is
+ * registered yet — and `launch-failed` carries the editor that was tried, so
+ * the caller can offer to change it.
+ *
+ * The `undefined` members are what let a caller reach `reason` before it has
+ * narrowed: this project does not run strictNullChecks, so a union discriminated
+ * on `success` alone does not narrow at all.
+ */
+export type EditorOpenResult =
+  | { success: true; reason?: undefined; editor?: undefined }
+  | { success: false; reason: 'no-editor' | 'missing-file'; editor?: undefined }
+  | { success: false; reason: 'launch-failed'; editor: string };
+
 export interface ElectronAPI {
   getProjects(): Promise<Project[]>;
   openProject(path: string): Promise<{ success: boolean; error?: string }>;
@@ -463,7 +477,7 @@ export interface ElectronAPI {
     workspaceRoot: string,
     filePath: string,
     line?: number,
-  ): Promise<{ success: boolean; error?: string }>;
+  ): Promise<EditorOpenResult>;
   openExternal(url: string): Promise<void>;
   pty: PtyAPI;
   worktree: WorktreeAPI;

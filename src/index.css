@@ -144,13 +144,14 @@ textarea,
   }
 }
 
-@keyframes terminal-status-pulse {
+@keyframes terminal-status-orbit {
   0%,
+  10% {
+    opacity: 0.15;
+  }
+  35%,
   100% {
     opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
   }
 }
 
@@ -446,7 +447,7 @@ textarea,
     inset 1px 0 0 var(--bevel-side),
     inset -1px 0 0 var(--bevel-side),
     inset 0 -1px 0 var(--bevel-bottom),
-    inset 0 2px 6px -3px var(--bevel-glow);
+    var(--bevel-cast);
   z-index: 1;
 }
 
@@ -526,7 +527,7 @@ textarea,
     inset 1px 0 0 var(--bevel-side),
     inset -1px 0 0 var(--bevel-side),
     inset 0 -1px 0 var(--bevel-bottom),
-    inset 0 2px 6px -3px var(--bevel-glow);
+    var(--bevel-cast);
   z-index: 20;
 }
 
@@ -558,11 +559,14 @@ textarea,
    =================================== */
 
 /* Bottom edge only: lighting the top face too would put a highlight in the
-   pixel the ledge above is cutting, and paint order would decide which wins. */
+   pixel the ledge above is cutting, and paint order would decide which wins.
+   The throw is what separates the two panes on a theme whose catch cannot be
+   brighter than the surface under it. */
 .pane-ledge {
   box-shadow:
     0 1px 0 var(--seam-cut),
-    0 2px 0 var(--seam-catch);
+    0 2px 0 var(--seam-catch),
+    0 6px 8px -7px var(--seam-shadow);
 }
 
 /* Only where the ledge borders the well along its whole length: one shadow
@@ -581,7 +585,7 @@ textarea,
   box-shadow:
     inset 0 1px 0 var(--bevel-top),
     inset 0 -1px 0 var(--bevel-bottom),
-    inset 0 2px 6px -3px var(--bevel-glow),
+    var(--bevel-cast),
     0 1px 0 var(--seam-catch);
 }
 
@@ -675,6 +679,13 @@ textarea,
   width: calc(var(--status-dot-size) + 2 * (var(--status-ring-width) + var(--status-ring-gap)));
   height: calc(var(--status-dot-size) + 2 * (var(--status-ring-width) + var(--status-ring-gap)));
   border: var(--status-ring-width) solid var(--status-ring-color, transparent);
+  border-radius: 999px;
+  transition: border-radius 200ms ease-out;
+}
+
+/* Thinking draws a square grid, so the ring squares off to keep an even gap. */
+.status-dot[data-status='thinking'] {
+  border-radius: calc(var(--status-dot-size) / 2);
 }
 
 @media (min-resolution: 2dppx) {
@@ -687,6 +698,39 @@ textarea,
 .status-dot-fill {
   width: var(--status-dot-size);
   height: var(--status-dot-size);
+}
+
+.status-dot-grid {
+  --status-orbit-duration: 0.9s;
+
+  display: grid;
+  grid-template: repeat(2, 1fr) / repeat(2, 1fr);
+  /* A pixel wider than the dot it replaces so the four cells land on whole
+     pixels; halving 6px leaves them straddling one and rendering uneven. */
+  gap: 1px;
+  width: calc(var(--status-dot-size) + 1px);
+  height: calc(var(--status-dot-size) + 1px);
+}
+
+.status-dot-grid > span {
+  border-radius: 1px;
+  background: var(--status-dot-color);
+  animation: terminal-status-orbit var(--status-orbit-duration) linear infinite;
+}
+
+/* Grid auto-placement fills row by row, so the children are top left, top
+   right, bottom left, bottom right. The bottom two are the reverse of the way
+   round the unlit cell travels, hence the delays out of document order. */
+.status-dot-grid > span:nth-child(2) {
+  animation-delay: calc(var(--status-orbit-duration) * -0.75);
+}
+
+.status-dot-grid > span:nth-child(4) {
+  animation-delay: calc(var(--status-orbit-duration) * -0.5);
+}
+
+.status-dot-grid > span:nth-child(3) {
+  animation-delay: calc(var(--status-orbit-duration) * -0.25);
 }
 
 /* ===================================
@@ -879,7 +923,7 @@ textarea,
 }
 
 .app-markdown td {
-  @apply px-3 py-1.5 text-sm border-b border-ink/[0.06];
+  @apply px-3 py-1.5 text-sm border-b border-separator;
 }
 
 /* Task list checkboxes */

@@ -26,6 +26,17 @@ const LABELS: Record<string, string> = {
   error: 'Failed',
 };
 
+function ThinkingGrid({ color }: { color: string }) {
+  return (
+    <span className="status-dot-grid" style={{ '--status-dot-color': color } as CSSProperties}>
+      <span />
+      <span />
+      <span />
+      <span />
+    </span>
+  );
+}
+
 export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotProps) {
   const isThinking = summaryType === 'thinking';
   const background = COLORS[summaryType] ?? COLORS.ready;
@@ -35,7 +46,7 @@ export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotP
   return (
     <Tooltip text={tooltipText} placement="top" delay={300}>
       <span
-        className="status-dot inline-flex items-center justify-center rounded-full shrink-0"
+        className="status-dot inline-flex items-center justify-center shrink-0"
         data-status={summaryType}
         style={
           {
@@ -46,13 +57,11 @@ export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotP
           } as CSSProperties
         }
       >
-        <span
-          className="status-dot-fill rounded-full transition-all duration-200 ease-out"
-          style={{
-            background,
-            ...(isThinking ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
-          }}
-        />
+        {isThinking ? (
+          <ThinkingGrid color={background} />
+        ) : (
+          <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />
+        )}
       </span>
     </Tooltip>
   );

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { TaskWithWorkspace } from '../types';
+import type { ScriptHook, TaskWithWorkspace } from '../types';
 import { queuePrompt, settlePrompt, type Pending } from './promptQueue';
 
 export type HomeGroupMode = 'project' | 'tag';
@@ -13,12 +13,17 @@ export interface MissingWorktreeInput {
 
 export type MissingWorktreeRequest = MissingWorktreeInput & Pending<MissingWorktreeAction>;
 
+export interface EditorHookInput {
+  projectPath: string;
+  /** The command that just failed, when the dialog is opened to correct it. */
+  existingHook?: ScriptHook;
+}
+
+export type EditorHookRequest = EditorHookInput & Pending<ScriptHook | null>;
+
 interface UIStoreState {
   sidebarVisible: boolean;
-  /**
-   * When true, sidebar stays open regardless of hover. Persisted in global
-   * settings; defaults to pinned so the sidebar is discoverable on first launch.
-   */
+  /** When true, sidebar stays open regardless of hover. Persisted in global settings. */
   sidebarPinned: boolean;
   gitDropdownVisible: boolean;
   homeGroupMode: HomeGroupMode;
@@ -34,6 +39,12 @@ interface UIStoreState {
   paletteOpen: boolean;
   /** Opening several tasks at once can find more than one worktree missing. */
   missingWorktreeQueue: MissingWorktreeRequest[];
+  /**
+   * Registering an editor, asked for by whatever tried to open one. It lives
+   * here because opening a task creates its worktree, which moves the card
+   * that asked to another column and unmounts it mid-request.
+   */
+  editorHookQueue: EditorHookRequest[];
   diffFileListCollapsed: boolean;
   diffFileListWidth: number;
 }
@@ -52,6 +63,8 @@ interface UIStoreActions {
   togglePalette: () => void;
   requestMissingWorktree: (req: MissingWorktreeInput) => Promise<MissingWorktreeAction>;
   resolveMissingWorktree: (id: number, action: MissingWorktreeAction) => void;
+  requestEditorHook: (req: EditorHookInput) => Promise<ScriptHook | null>;
+  resolveEditorHook: (id: number, hook: ScriptHook | null) => void;
   setDiffFileListCollapsed: (collapsed: boolean) => void;
   setDiffFileListWidth: (width: number) => void;
 }
@@ -68,13 +81,14 @@ function clampFileListWidth(width: number): number {
 
 export const useUIStore = create<UIStore>()((set, get) => ({
   sidebarVisible: false,
-  sidebarPinned: true,
+  sidebarPinned: false,
   gitDropdownVisible: false,
   homeGroupMode: 'project',
   homeTagFilter: null,
   homeActivePtyId: null,
   paletteOpen: false,
   missingWorktreeQueue: [],
+  editorHookQueue: [],
   diffFileListCollapsed: false,
   diffFileListWidth: DIFF_FILE_LIST_DEFAULT_WIDTH,
 
@@ -117,6 +131,16 @@ export const useUIStore = create<UIStore>()((set, get) => ({
     if (next) set({ missingWorktreeQueue: next });
   },
 
+  requestEditorHook: (req) =>
+    queuePrompt<EditorHookInput, ScriptHook | null>(req, (entry) =>
+      set((s) => ({ editorHookQueue: [...s.editorHookQueue, entry] })),
+    ),
+
+  resolveEditorHook: (id, hook) => {
+    const next = settlePrompt(get().editorHookQueue, id, hook);
+    if (next) set({ editorHookQueue: next });
+  },
+
   setDiffFileListCollapsed: (collapsed) => {
     set({ diffFileListCollapsed: collapsed });
     void window.api.globalSettings.set('ui:diff-file-list-collapsed', collapsed ? '1' : '0');
@@ -137,7 +161,7 @@ export async function hydrateUIPreferences(): Promise<void> {
   ]);
 
   const next: Partial<UIStoreState> = {};
-  if (pinned === '0') next.sidebarPinned = false;
+  if (pinned === '0' || pinned === '1') next.sidebarPinned = pinned === '1';
   if (collapsed === '0' || collapsed === '1') next.diffFileListCollapsed = collapsed === '1';
   const parsedWidth = Number(width);
   if (width && Number.isFinite(parsedWidth)) next.diffFileListWidth = clampFileListWidth(parsedWidth);

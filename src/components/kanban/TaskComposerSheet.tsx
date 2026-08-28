@@ -205,7 +205,7 @@ export function TaskComposerSheet({
           />
         </div>
 
-        <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-ink/[0.06] text-[11px] text-ink/40">
+        <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-separator text-[11px] text-ink/40">
           <KeyHint keys="esc" label={isCreate ? 'Draft stays in the column' : 'Back to the card'} />
           <span className="flex-1" />
           {onDiscard && (

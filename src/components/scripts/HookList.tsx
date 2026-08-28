@@ -72,7 +72,7 @@ export function HookList({ projectPath, hooks: hookEntries, bare }: HookListProp
         rows
       ) : (
         <div
-          className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06]"
+          className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-separator"
           style={{
             background: 'var(--color-terminal-bg)',
           }}
