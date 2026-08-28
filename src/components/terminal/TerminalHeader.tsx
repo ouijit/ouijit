@@ -2,7 +2,7 @@ import { Fragment, memo, useState, useCallback, useEffect, useMemo, useRef } fro
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useShallow } from 'zustand/react/shallow';
-import { terminalInstances } from './terminalReact';
+import { terminalInstances } from './terminalRegistry';
 import { addProjectTerminal, openWorktreeEditor, renameTerminal, startRunner } from './terminalActions';
 import { completeTask } from '../../services/taskCompletion';
 import { Icon } from './Icon';

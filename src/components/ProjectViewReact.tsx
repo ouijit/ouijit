@@ -20,7 +20,8 @@ import {
   reconnectOrphanedSessions,
   startRunner,
 } from './terminal/terminalActions';
-import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
+import { refreshAllTerminalGitStatus } from './terminal/terminalReact';
+import { terminalInstances } from './terminal/terminalRegistry';
 import { detectPullRequestsForProject } from '../services/githubTaskActions';
 import { useHookStatusListener } from '../hooks/useHookStatusListener';
 

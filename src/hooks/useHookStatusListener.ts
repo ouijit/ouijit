@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useTerminalStore } from '../stores/terminalStore';
-import { terminalInstances } from '../components/terminal/terminalReact';
+import { terminalInstances } from '../components/terminal/terminalRegistry';
 
 /**
  * Subscribes to CLI agent hook status events (claude / codex / pi / opencode) and dispatches

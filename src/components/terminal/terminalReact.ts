@@ -20,6 +20,7 @@ import { diffBaseSettingKey } from '../../diffSource';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
 import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
+import { terminalInstances, registerTerminalInstance, unregisterTerminalInstance } from './terminalRegistry';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
@@ -195,10 +196,6 @@ export function resolveTerminalLabel(
   if (worktreeBranch) return formatBranchNameForDisplay(worktreeBranch);
   return fallback || 'Shell';
 }
-
-// ── Terminal instance registry (outside React state) ─────────────────
-
-export const terminalInstances = new Map<string, OuijitTerminal>();
 
 // Re-skin every live terminal (including runner children not yet in the
 // registry) when the resolved theme changes — xterm repaints on assignment.
@@ -569,13 +566,13 @@ export class OuijitTerminal {
     const prevPtyId = this.ptyId;
     if (prevPtyId !== ptyId) {
       if (terminalInstances.get(prevPtyId) === this) {
-        terminalInstances.delete(prevPtyId);
+        unregisterTerminalInstance(prevPtyId);
       }
       useTerminalStore.getState().rekeyTerminal(prevPtyId, ptyId);
     }
     this.ptyId = ptyId;
     if (terminalInstances.get(ptyId) !== this) {
-      terminalInstances.set(ptyId, this);
+      registerTerminalInstance(ptyId, this);
     }
     this.bound = true;
 
@@ -748,7 +745,7 @@ export class OuijitTerminal {
 
     // Remove from instance registry
     if (this.ptyId) {
-      terminalInstances.delete(this.ptyId);
+      unregisterTerminalInstance(this.ptyId);
     }
 
     // Remove viewport element

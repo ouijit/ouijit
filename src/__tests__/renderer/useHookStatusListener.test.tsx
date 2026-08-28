@@ -7,7 +7,7 @@ import { renderHook } from '@testing-library/react';
 
 import { useHookStatusListener } from '../../hooks/useHookStatusListener';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { terminalInstances } from '../../components/terminal/terminalReact';
+import { terminalInstances } from '../../components/terminal/terminalRegistry';
 
 // The hook imports terminalInstances from terminalReact, which transitively
 // pulls in xterm and other browser-only modules. Stub the module surface we

@@ -19,7 +19,8 @@ import { useTerminalStore, setActiveTerminal, type TerminalDisplayState } from '
 import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
-import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
+import { OuijitTerminal, resolveTerminalLabel, type SummaryType } from './terminalReact';
+import { terminalInstances, registerTerminalInstance, restoreInFlight, trackRestore } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
 import { generateId } from '../../utils/ids';
 import { parseOsc133ExitCodes } from './osc133';
@@ -184,7 +185,7 @@ function registerTerminal(
 ): void {
   const ptyId = term.ptyId;
 
-  terminalInstances.set(ptyId, term);
+  registerTerminalInstance(ptyId, term);
 
   term.setProjectNameGetter(() => useAppStore.getState().activeProjectData?.name ?? 'Ouijit');
 
@@ -674,7 +675,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
       return;
     }
 
-    terminalInstances.set(result.ptyId, runner);
+    registerTerminalInstance(result.ptyId, runner);
 
     runner.bind(result.ptyId, {
       skipSideEffects: true,
@@ -788,37 +789,27 @@ export function killExistingCommandInstances(
 // ── Reconnect all orphaned sessions for a project ────────────────────
 
 /**
- * Reconnects currently in flight, keyed by PTY id. `terminalInstances` only
- * gains its entry after `pty.reconnect` resolves, so a bare `has(ptyId)` check
- * can't serialize the two callers: on a renderer reload the home view's
- * unscoped reconnect and the project view's scoped one overlap, both pass the
- * check for the same session, and each registers a card for it.
- */
-const reconnectsInFlight = new Map<string, Promise<unknown>>();
-
-/**
  * Restore `ptyId` at most once across concurrent callers. A caller that loses
  * the race awaits the winner rather than skipping ahead, so the terminal list
  * is final by the time it returns. ProjectViewReact reads that list to decide
  * whether reconnection produced anything or the kanban should open instead.
+ *
+ * `terminalInstances` only gains its entry partway through a restore, so a bare
+ * `has(ptyId)` check can't serialize the two callers: on a renderer reload the
+ * home view's unscoped reconnect and the project view's scoped one overlap,
+ * both pass the check for the same session, and each registers a card for it.
  */
 async function reconnectSessionOnce(ptyId: string, restore: () => Promise<unknown>): Promise<void> {
   if (terminalInstances.has(ptyId)) return;
 
-  const inFlight = reconnectsInFlight.get(ptyId);
+  const inFlight = restoreInFlight(ptyId);
   if (inFlight) {
     // The winner reports its own failure; the loser only needs it to be over.
     await inFlight.catch(() => {});
     return;
   }
 
-  const pending = restore();
-  reconnectsInFlight.set(ptyId, pending);
-  try {
-    await pending;
-  } finally {
-    reconnectsInFlight.delete(ptyId);
-  }
+  await trackRestore(ptyId, restore());
 }
 
 export async function reconnectOrphanedSessions(projectPath?: string): Promise<void> {
@@ -937,7 +928,7 @@ export async function reconnectRunnerToParent(session: ActiveSession): Promise<b
   }
 
   runner.replayBuffer(result.bufferedOutput, result.lastCols, result.isAltScreen);
-  terminalInstances.set(session.ptyId, runner);
+  registerTerminalInstance(session.ptyId, runner);
   runner.bind(session.ptyId, {
     skipSideEffects: true,
     onData: (data) => {

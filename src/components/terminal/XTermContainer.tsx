@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { terminalInstances } from './terminalReact';
+import { terminalInstances } from './terminalRegistry';
 
 interface XTermContainerProps {
   ptyId: string;

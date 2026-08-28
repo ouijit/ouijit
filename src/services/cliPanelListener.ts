@@ -1,5 +1,6 @@
 import log from 'electron-log/renderer';
-import { terminalInstances, type OuijitTerminal } from '../components/terminal/terminalReact';
+import type { OuijitTerminal } from '../components/terminal/terminalReact';
+import { whenTerminalReady } from '../components/terminal/terminalRegistry';
 import { panelLabel } from '../components/terminal/panelTypes';
 import type { CliPanelInfo, CliPanelKind, CliPanelOp, CliPanelResponse } from '../types';
 
@@ -52,12 +53,19 @@ function removeMatching(instance: OuijitTerminal, kind: CliPanelKind, value: str
   return true;
 }
 
-function handleOp(op: CliPanelOp): void {
+/**
+ * How long to wait for a terminal that is still reconnecting. Must stay under
+ * `REQUEST_TIMEOUT_MS` in `src/cliPanels.ts`, or the CLI sees the bridge's
+ * generic timeout instead of the reason below.
+ */
+const TERMINAL_WAIT_MS = 3000;
+
+async function handleOp(op: CliPanelOp): Promise<void> {
   const respond = (response: CliPanelResponse): void => {
     void window.api.cliPanels.respond(op.requestId, response);
   };
 
-  const instance = terminalInstances.get(op.ptyId);
+  const instance = await whenTerminalReady(op.ptyId, TERMINAL_WAIT_MS);
   if (!instance) {
     respond({
       ok: false,
@@ -94,10 +102,10 @@ function handleOp(op: CliPanelOp): void {
  * Handle CLI-driven panel ops (`ouijit markdown` / `ouijit preview`).
  *
  * Installed once for the life of the renderer. Ops address a terminal by ptyId
- * and reach it through the global `terminalInstances` registry, which outlives
- * any view — mounting this from a view instead drops every op aimed at a
- * terminal shown somewhere else, and the CLI sees only the bridge's timeout.
+ * and reach it through the global terminal registry, which outlives any view —
+ * mounting this from a view instead drops every op aimed at a terminal shown
+ * somewhere else, and the CLI sees only the bridge's timeout.
  */
 export function installCliPanelListener(): () => void {
-  return window.api.cliPanels.onOp(handleOp);
+  return window.api.cliPanels.onOp((op) => void handleOp(op));
 }

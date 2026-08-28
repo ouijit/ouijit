@@ -2,22 +2,22 @@
  * `ouijit markdown` / `ouijit preview` reach a terminal through the global
  * instance registry, so the panel listener is installed once for the window
  * rather than mounted by a view — a terminal shown on the home view answers
- * the same ops as one on its project view.
+ * the same ops as one on its project view, and one still reconnecting after a
+ * reload answers once it is back.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { installCliPanelListener } from '../../services/cliPanelListener';
-import { terminalInstances } from '../../components/terminal/terminalReact';
+import { terminalInstances, registerTerminalInstance, trackRestore } from '../../components/terminal/terminalRegistry';
+import type { OuijitTerminal } from '../../components/terminal/terminalReact';
 import type { CliPanelOp, CliPanelResponse } from '../../types';
 
-// terminalReact pulls in xterm, which cannot construct under jsdom.
-vi.mock('../../components/terminal/terminalReact', () => ({
-  terminalInstances: new Map(),
-}));
+/** Matches `TERMINAL_WAIT_MS` in the listener. */
+const TERMINAL_WAIT_MS = 3000;
 
 type Panel = { id: string; kind: 'plan' | 'webPreview'; planPath?: string; url?: string };
 
-/** The panel surface the listener drives, with the real activate/close semantics. */
+/** The slice of `OuijitTerminal`'s panel surface the listener drives. */
 class FakeTerminal {
   panels: Panel[] = [];
   activePanelId: string | null = null;
@@ -47,23 +47,34 @@ class FakeTerminal {
   }
 }
 
-const registry = terminalInstances as unknown as Map<string, FakeTerminal>;
+function register(ptyId: string, term: FakeTerminal): void {
+  registerTerminalInstance(ptyId, term as unknown as OuijitTerminal);
+}
 
 let sendOp: (op: CliPanelOp) => void;
 let requestId = 0;
 
-/** Fire an op at the installed listener and return the reply it sent back. */
-function run(op: Omit<CliPanelOp, 'requestId'>): CliPanelResponse {
-  sendOp({ requestId: ++requestId, ...op });
-  const calls = vi.mocked(window.api.cliPanels.respond).mock.calls;
-  const last = calls.at(-1);
-  expect(last?.[0]).toBe(requestId);
+/**
+ * Fire an op at the installed listener and return the reply it sent back.
+ * `during` runs while the op is in flight, before the wait for a terminal.
+ */
+async function run(
+  op: Omit<CliPanelOp, 'requestId'>,
+  during?: () => Promise<void> | void,
+): Promise<CliPanelResponse> {
+  const id = ++requestId;
+  sendOp({ requestId: id, ...op });
+  await during?.();
+  await vi.advanceTimersByTimeAsync(TERMINAL_WAIT_MS);
+  const last = vi.mocked(window.api.cliPanels.respond).mock.calls.at(-1);
+  expect(last?.[0]).toBe(id);
   return last![1];
 }
 
 describe('CLI panel listener', () => {
   beforeEach(() => {
-    registry.clear();
+    vi.useFakeTimers();
+    terminalInstances.clear();
     vi.mocked(window.api.cliPanels.respond).mockClear();
     vi.mocked(window.api.cliPanels.onOp)
       .mockReset()
@@ -74,41 +85,74 @@ describe('CLI panel listener', () => {
     installCliPanelListener();
   });
 
-  it('adds, lists, and removes panels on any live terminal', () => {
-    const term = new FakeTerminal();
-    registry.set('pty-home', term);
+  afterEach(() => vi.useRealTimers());
 
-    const added = run({ ptyId: 'pty-home', action: 'add', kind: 'markdown', value: '/notes.md' });
+  it('adds, lists, and removes panels on any live terminal', async () => {
+    const term = new FakeTerminal();
+    register('pty-home', term);
+
+    const added = await run({ ptyId: 'pty-home', action: 'add', kind: 'markdown', value: '/notes.md' });
     expect(added).toEqual({
       ok: true,
       panels: [{ kind: 'markdown', label: 'notes.md', path: '/notes.md', active: true }],
     });
 
     // A second add of the same file surfaces the panel it already has.
-    run({ ptyId: 'pty-home', action: 'add', kind: 'preview', value: 'http://localhost:3000' });
-    run({ ptyId: 'pty-home', action: 'add', kind: 'markdown', value: '/notes.md' });
+    await run({ ptyId: 'pty-home', action: 'add', kind: 'preview', value: 'http://localhost:3000' });
+    await run({ ptyId: 'pty-home', action: 'add', kind: 'markdown', value: '/notes.md' });
     expect(term.panels).toHaveLength(2);
     expect(term.activePanelId).toBe('panel-1');
 
     // Listing is scoped to the kind asked for.
-    const listed = run({ ptyId: 'pty-home', action: 'list', kind: 'preview' });
+    const listed = await run({ ptyId: 'pty-home', action: 'list', kind: 'preview' });
     expect(listed.panels).toEqual([
       { kind: 'preview', label: 'localhost:3000', url: 'http://localhost:3000', active: false },
     ]);
 
-    expect(run({ ptyId: 'pty-home', action: 'remove', kind: 'markdown', value: '/notes.md' })).toEqual({
+    expect(await run({ ptyId: 'pty-home', action: 'remove', kind: 'markdown', value: '/notes.md' })).toEqual({
       ok: true,
       panels: [],
     });
     expect(term.panels.map((p) => p.kind)).toEqual(['webPreview']);
 
-    const gone = run({ ptyId: 'pty-home', action: 'remove', kind: 'markdown', value: '/notes.md' });
+    const gone = await run({ ptyId: 'pty-home', action: 'remove', kind: 'markdown', value: '/notes.md' });
     expect(gone.ok).toBe(false);
     expect(gone.error).toContain('/notes.md');
   });
 
-  it('names the session and how to get it back when no terminal holds it', () => {
-    const reply = run({ ptyId: 'pty-orphan', action: 'add', kind: 'markdown', value: '/notes.md' });
+  it('holds an op until a reconnecting terminal has finished restoring', async () => {
+    const term = new FakeTerminal();
+    let finishRestore!: () => void;
+    trackRestore(
+      'pty-reloading',
+      new Promise<void>((resolve) => {
+        finishRestore = () => {
+          // The snapshot restore replaces panels wholesale, so an op applied
+          // before it lands would be thrown away.
+          term.panels = [];
+          resolve();
+        };
+      }),
+    );
+
+    const reply = await run(
+      { ptyId: 'pty-reloading', action: 'add', kind: 'markdown', value: '/notes.md' },
+      async () => {
+        register('pty-reloading', term);
+        await vi.advanceTimersByTimeAsync(0); // let the op get as far as it can
+        finishRestore();
+      },
+    );
+
+    expect(reply).toEqual({
+      ok: true,
+      panels: [{ kind: 'markdown', label: 'notes.md', path: '/notes.md', active: true }],
+    });
+    expect(term.panels).toHaveLength(1);
+  });
+
+  it('names the session and how to get it back when no terminal holds it', async () => {
+    const reply = await run({ ptyId: 'pty-orphan', action: 'add', kind: 'markdown', value: '/notes.md' });
     expect(reply.ok).toBe(false);
     expect(reply.error).toContain('pty-orphan');
     expect(reply.error).toMatch(/home view/);

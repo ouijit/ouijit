@@ -23,7 +23,6 @@ vi.mock('../../components/terminal/terminalActions', () => ({
   reconnectOrphanedSessions: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../components/terminal/terminalReact', () => ({
-  terminalInstances: new Map(),
 }));
 
 const projectA: Project = { path: '/work/alpha', name: 'Alpha' };

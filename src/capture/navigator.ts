@@ -15,7 +15,8 @@ import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
 import { previewTheme } from '../theme/themeManager';
 import { isThemePreference } from '../theme/themes';
-import { OuijitTerminal, terminalInstances } from '../components/terminal/terminalReact';
+import { OuijitTerminal } from '../components/terminal/terminalReact';
+import { terminalInstances, registerTerminalInstance } from '../components/terminal/terminalRegistry';
 import { SNAPSHOT_KEY, suspendSnapshotSaves } from '../components/terminal/sessionSnapshot';
 import { legacySandboxProvider, type LastSessionSnapshot, type SnapshotTerminal } from '../types';
 import type { CaptureNavigatePayload, CaptureTerminalSeed } from './types';
@@ -50,7 +51,7 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     term.panelFullWidth = false;
     term.addPlanPanel(seed.planPath, seed.planPanelOpen ?? false);
   }
-  terminalInstances.set(seed.ptyId, term);
+  registerTerminalInstance(seed.ptyId, term);
 
   if (seed.content) {
     // Hide xterm's own cursor: canned screens draw their own, and the real one

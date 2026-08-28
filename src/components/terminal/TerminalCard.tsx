@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { useTerminalStore, setActiveTerminal, STACK_PAGE_SIZE } from '../../stores/terminalStore';
-import { terminalInstances } from './terminalReact';
+import { terminalInstances } from './terminalRegistry';
 import { TerminalHeader } from './TerminalHeader';
 import { TerminalBody } from './TerminalBody';
 import { TerminalCardView } from './TerminalCardView';

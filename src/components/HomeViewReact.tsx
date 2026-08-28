@@ -3,7 +3,7 @@ import { ProjectSourceList, openAddProject } from './projectSources';
 import { useAppStore } from '../stores/appStore';
 import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
-import { terminalInstances } from './terminal/terminalReact';
+import { terminalInstances } from './terminal/terminalRegistry';
 import { reconnectOrphanedSessions, addProjectTerminal, closeProjectTerminal } from './terminal/terminalActions';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { TerminalBody } from './terminal/TerminalBody';

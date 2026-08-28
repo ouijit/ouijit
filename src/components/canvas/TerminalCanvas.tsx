@@ -21,7 +21,7 @@ import {
 } from '../../stores/canvasStore';
 import { useTerminalStore, terminalMatchesTag } from '../../stores/terminalStore';
 import { TerminalNode } from './TerminalNode';
-import { terminalInstances } from '../terminal/terminalReact';
+import { terminalInstances } from '../terminal/terminalRegistry';
 import { ChainEdge } from './ChainEdge';
 import { CanvasControls } from './CanvasControls';
 import { SmartGuideOverlay } from './SmartGuideOverlay';

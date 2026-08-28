@@ -17,7 +17,7 @@ import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
-import { terminalInstances } from './terminal/terminalReact';
+import { terminalInstances } from './terminal/terminalRegistry';
 import { ensureWorktree } from '../services/worktreeRecovery';
 
 /**

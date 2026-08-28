@@ -7,7 +7,8 @@ import {
   DIFF_FILE_LIST_MIN_WIDTH,
   DIFF_FILE_LIST_MAX_WIDTH,
 } from '../../stores/uiStore';
-import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
+import { refreshTerminalGitStatus } from '../terminal/terminalReact';
+import { terminalInstances } from '../terminal/terminalRegistry';
 import { DiffFileTree, treeFileOrder } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
 import { DeferredMount } from './DeferredMount';
