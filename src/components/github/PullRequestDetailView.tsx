@@ -136,16 +136,11 @@ export function PullRequestDetailView({
    */
   const lens = useLensSession(
     {
+      projectPath,
       key: prSubjectKey(detail.number),
       revision: detail.headSha,
       read: () => window.api.github.lens(projectPath, detail.number, detail.headSha),
       write: (lensId) => window.api.github.runLens(projectPath, detail.number, lensId),
-      // A lens written by an agent over the CLI, in a process this cannot see.
-      // Shown as soon as it lands, since someone paid for the run.
-      subscribe: (refresh) =>
-        window.api.github.onLensChanged((payload) => {
-          if (payload.projectPath === projectPath && payload.prNumber === detail.number) refresh(true);
-        }),
     },
     diffs,
     fileOrder,
@@ -272,14 +267,9 @@ export function PullRequestDetailView({
               detail={detail}
               files={files}
               onSelect={scrollToFile}
-              groups={resolved}
-              onFile={lens.lens}
-              lensOn={lensOn}
-              onLensOn={lens.setLensOn}
+              lens={lens}
               lenses={lenses}
-              onRunLens={runLens}
               onOpenLenses={() => setLensesOpen(true)}
-              lensWriting={lens.writing}
               revealing={revealing}
             />
             <ResizeHandle
@@ -309,6 +299,7 @@ export function PullRequestDetailView({
               ref={filesRef}
               projectPath={projectPath}
               detail={detail}
+              order={fileOrder}
               groups={lens.shown}
               revealing={revealing}
             />

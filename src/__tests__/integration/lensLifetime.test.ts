@@ -4,7 +4,9 @@
  * same reader against a stub subject, where the pin can only be told to be wrong.
  *
  * Two boundaries are stubbed and no more: the agent, which is a spawned CLI, and
- * the health check, which asks the machine what is installed.
+ * the health check, which asks the machine what is installed. The stub stands in
+ * one step further in than the spawn, so that the cases below cost no processes;
+ * what it stands in for is pinned against a real one in `runLens.test.ts`.
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';

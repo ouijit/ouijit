@@ -312,12 +312,6 @@ export interface GithubDraftsChangedPayload {
   prNumber: number;
 }
 
-/** A lens was written or cleared by something outside the renderer. */
-export interface GithubLensChangedPayload {
-  projectPath: string;
-  prNumber: number;
-}
-
 // ── What the service hands back ──────────────────────────────────────
 
 export interface InboxResult extends PullRequestInbox {

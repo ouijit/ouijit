@@ -84,16 +84,18 @@ interface RowState {
   tooBig: boolean;
 }
 
+/** What a grouping already on screen comes to. */
+function appliedHint(parts: number | null, ungrouped: number, isStale: boolean): string {
+  const count = plural(parts ?? 0, 'part');
+  if (isStale) return `${count} · out of date`;
+  return ungrouped > 0 ? `${count} · ${plural(ungrouped, 'file')} not grouped` : count;
+}
+
 function rowHint(lens: LensSummary, state: RowState): string | undefined {
   const { isApplied, isStale, isInterrupted, writing, parts, ungrouped, tooBig } = state;
   if (writing?.id === lens.id) return 'Writing…';
   if (isInterrupted) return 'did not finish';
-  if (isApplied) {
-    if (isStale) return `${plural(parts ?? 0, 'part')} · out of date`;
-    return ungrouped > 0
-      ? `${plural(parts ?? 0, 'part')} · ${plural(ungrouped, 'file')} not grouped`
-      : plural(parts ?? 0, 'part');
-  }
+  if (isApplied) return appliedHint(parts, ungrouped, isStale);
   if (isStale) return 'out of date';
   return tooBig ? 'too big to send whole' : undefined;
 }
@@ -222,7 +224,7 @@ export function LensPicker({
       {orphan && onFile && (
         <MenuItem
           label={appliedLabel}
-          hint={onFile.stale ? `${plural(parts ?? 0, 'part')} · out of date` : plural(parts ?? 0, 'part')}
+          hint={appliedHint(parts, coverage?.ungrouped ?? 0, onFile.stale)}
           selected={showingLens}
           // No offer to write it again: the project has no lens by this name.
           title={onFile.stale ? 'Written for an earlier version of this change' : 'Written for this change'}

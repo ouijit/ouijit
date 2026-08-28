@@ -12,7 +12,7 @@ import type {
 
 import type { FileDiff } from '../types';
 import { describeError } from '../utils/describeError';
-import { toggleInList } from '../utils/toggleIn';
+import { toggleIn, toggleInList } from '../utils/toggleIn';
 import type { DiffAnchor } from '../diffAnchor';
 
 const githubLog = log.scope('github');
@@ -80,16 +80,18 @@ interface GithubStoreState {
    * been, at which point the claim moves to `viewedPaths` and is written down.
    *
    * Not kept on disk, unlike that claim: these name the parts of one lens, and
-   * the next lens over this change cuts it somewhere else.
+   * the next lens over this change cuts it somewhere else. A set rather than a
+   * list because nothing carries it anywhere — it is only ever asked about
+   * membership, once per row of the rail and once per file of the document.
    */
-  viewedSections: string[];
+  viewedSections: Set<string>;
 
   /**
    * Parts of the lens folded away in the document, by id. Survives leaving the
    * pane and coming back; not kept on disk, since a fold is where you are in a
    * document rather than what you think of it.
    */
-  collapsedGroups: string[];
+  collapsedGroups: Set<string>;
 
   /**
    * The section the reader is on, for the rail to mark — one part of one file,
@@ -126,7 +128,7 @@ interface GithubStoreActions {
   setActiveSection: (section: string | null) => void;
   loadViewed: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) => void;
-  setViewedSections: (sections: string[]) => void;
+  setViewedSections: (sections: Set<string>) => void;
   setComposingAt: (anchor: GithubStoreState['composingAt']) => void;
   setSubmitting: (submitting: boolean) => void;
   setSidebarWidth: (width: number) => void;
@@ -176,8 +178,8 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
   filesError: null,
   filesFromGit: false,
   viewedPaths: [],
-  viewedSections: [],
-  collapsedGroups: [],
+  viewedSections: new Set(),
+  collapsedGroups: new Set(),
   activeSection: null,
   drafts: [],
   composingAt: null,
@@ -190,8 +192,8 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
  */
 const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'viewedSections' | 'collapsedGroups' | 'activeSection'> = {
   viewedPaths: [],
-  viewedSections: [],
-  collapsedGroups: [],
+  viewedSections: new Set(),
+  collapsedGroups: new Set(),
   activeSection: null,
 };
 
@@ -454,7 +456,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   },
 
   setGroupCollapsed: (id, collapsed) => {
-    set({ collapsedGroups: toggleInList(get().collapsedGroups, id, collapsed) });
+    set({ collapsedGroups: toggleIn(get().collapsedGroups, id, collapsed) });
   },
 
   setViewedSections: (viewedSections) => set({ viewedSections }),

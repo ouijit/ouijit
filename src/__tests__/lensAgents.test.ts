@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { resolveLensAgent, pickLensAgent, installedAgents, LENS_AGENTS } from '../lens/lensAgents';
+import { resolveLensAgent, installedAgents, LENS_AGENTS } from '../lens/lensAgents';
 
 const BOTH = { claude: true, codex: true };
 
@@ -20,8 +20,8 @@ describe('which agent writes a lens', () => {
   });
 
   test('a choice outranks the list, and no choice takes the first one installed', () => {
-    expect(pickLensAgent(BOTH)?.id).toBe('claude');
-    expect(pickLensAgent({ codex: true })?.id).toBe('codex');
+    expect(resolveLensAgent(null, BOTH)?.id).toBe('claude');
+    expect(resolveLensAgent(null, { codex: true })?.id).toBe('codex');
 
     // Installing Claude Code does not silently take the lens off whoever was
     // asked for.
@@ -32,7 +32,6 @@ describe('which agent writes a lens', () => {
     // Answered here so the failure can say no supported agent is installed,
     // rather than arriving as an ENOENT for whichever binary we assumed.
     expect(resolveLensAgent(null, {})).toBeNull();
-    expect(pickLensAgent({})).toBeNull();
   });
 
   test('the health probe maps onto the agent ids', () => {

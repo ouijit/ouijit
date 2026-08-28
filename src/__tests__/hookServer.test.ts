@@ -128,20 +128,17 @@ afterEach(async () => {
  * capability it does not name is one the agent cannot know exists.
  */
 describe('CLI_REFERENCE', () => {
-  test('tells an agent how to write review comments and a reading order', () => {
+  test('names every capability an agent can only learn from it', () => {
     expect(CLI_REFERENCE).toContain('ouijit pr draft add');
     expect(CLI_REFERENCE).toContain('ouijit pr lens set');
     // How to find which pull request it is on: the task carries the number.
     expect(CLI_REFERENCE).toContain('ouijit task current | jq .githubPrNumber');
-  });
 
-  test('says why a review is staged rather than posted', () => {
     // An agent with an authenticated gh will post directly unless told not to.
     expect(CLI_REFERENCE).toContain('user sends the review themselves');
     expect(CLI_REFERENCE).toContain('reaches GitHub the moment it runs');
-  });
 
-  test('states the anchoring rule that a whole review fails on', () => {
+    // The anchoring rule a whole review fails on.
     expect(CLI_REFERENCE).toContain('ADDED line');
   });
 });

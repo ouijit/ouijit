@@ -28,7 +28,6 @@ import type {
   ReviewEvent,
   MergeOptions,
   GithubDraftsChangedPayload,
-  GithubLensChangedPayload,
   SaveDraftInput,
   PrHead,
 } from './github/types';
@@ -36,6 +35,7 @@ import type { LensAgentChoice } from './lens/lensAgents';
 import type { LensInput } from './lens/config';
 import type { SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
+import type { LensChangedPayload } from './lens/subjectKeys';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -398,8 +398,6 @@ contextBridge.exposeInMainWorld('api', {
 
     onDraftsChanged: (callback: (payload: GithubDraftsChangedPayload) => void) =>
       typedListen('github:drafts-changed', callback),
-    onLensChanged: (callback: (payload: GithubLensChangedPayload) => void) =>
-      typedListen('github:lens-changed', callback),
   },
 
   diffNotes: {
@@ -418,7 +416,6 @@ contextBridge.exposeInMainWorld('api', {
   diffLens: {
     get: (target: DiffLensTarget) => typedInvoke('diff-lens:get', target),
     run: (target: DiffLensTarget, lensId: string) => typedInvoke('diff-lens:run', target, lensId),
-    onChanged: (callback: (subjectKey: string) => void) => typedListen('diff-lens:changed', callback),
   },
 
   lens: {
@@ -428,5 +425,6 @@ contextBridge.exposeInMainWorld('api', {
     agent: (projectPath: string) => typedInvoke('lens:agent', projectPath),
     setAgent: (projectPath: string, choice: LensAgentChoice) => typedInvoke('lens:set-agent', projectPath, choice),
     onListChanged: (callback: (projectPath: string) => void) => typedListen('lens:list-changed', callback),
+    onChanged: (callback: (payload: LensChangedPayload) => void) => typedListen('lens:changed', callback),
   },
 });

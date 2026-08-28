@@ -26,3 +26,13 @@ export function worktreeKeyPrefix(worktreePath: string): string {
 export function worktreeSubjectKey(worktreePath: string, base: string | null): string {
   return `${worktreeKeyPrefix(worktreePath)}${base ?? UNCOMMITTED_BASE}`;
 }
+
+/**
+ * What a push says when a lens is written or cleared by something outside the
+ * pane. One announcement for every kind of diff there is: a pane compares the
+ * key against the one it built itself.
+ */
+export interface LensChangedPayload {
+  projectPath: string;
+  subjectKey: string;
+}

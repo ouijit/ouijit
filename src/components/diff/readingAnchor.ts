@@ -56,11 +56,31 @@ export function useReadingAnchor(container: RefObject<HTMLElement | null>): () =
   }, [container]);
 }
 
+/**
+ * The first card reaching past the pane's top edge. Found by halving rather than
+ * by reading the rect of every card above it: this runs on every scroll frame,
+ * and a card three hundred files down would pay for all three hundred. The cards
+ * are stacked down the pane and each mounted one sits inside its own
+ * placeholder, so "reaches past the top edge" is false for a run of them and
+ * then true for the rest.
+ */
 function topFile(pane: HTMLElement): Anchor | null {
   const top = pane.getBoundingClientRect().top;
-  for (const card of pane.querySelectorAll<HTMLElement>('[data-path]')) {
-    const box = card.getBoundingClientRect();
-    if (box.bottom > top && card.dataset.path) return { path: card.dataset.path, offset: box.top - top };
+  const cards = pane.querySelectorAll<HTMLElement>('[data-path]');
+
+  let lo = 0;
+  let hi = cards.length - 1;
+  let found: HTMLElement | null = null;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (cards[mid].getBoundingClientRect().bottom > top) {
+      found = cards[mid];
+      hi = mid - 1;
+    } else {
+      lo = mid + 1;
+    }
   }
-  return null;
+
+  if (!found?.dataset.path) return null;
+  return { path: found.dataset.path, offset: found.getBoundingClientRect().top - top };
 }

@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 import type { PullRequestDetail, PullRequestFile } from '../../github/types';
-import type { ResolvedGroup } from '../../lens/lens';
-import type { StoredLens } from '../../lens/readLens';
 import type { LensSummary } from '../../lens/config';
 import { DiffFileTree } from '../diff/DiffFileTree';
 import { useGithubStore } from '../../stores/githubStore';
@@ -11,27 +9,19 @@ import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { AnalysisRailDot } from '../diff/AnalysisChip';
 import { LensPicker } from '../diff/LensPicker';
 import { estimateLensPromptChars } from '../../lens/lensPrompt';
-import type { LensRun } from '../diff/useLensSession';
+import type { LensSession } from '../diff/useLensSession';
 
 interface PullRequestRailProps {
   detail: PullRequestDetail;
   files: PullRequestFile[];
   /** Takes the document to a file, or with no path back to the top. */
   onSelect: (path: string | null, group?: string) => void;
-  /** The lens as bound to this diff, or null when none has been written. */
-  groups: ResolvedGroup[] | null;
-  /** The lens on file, exactly as it was read, for the picker to describe. */
-  onFile: StoredLens | null;
-  lensOn: boolean;
-  onLensOn: (on: boolean) => void;
+  /** This pull request's lens, the same session the document reads. */
+  lens: LensSession;
   /** The lenses the project keeps. */
   lenses: LensSummary[];
-  /** Reads this pull request through one, which is an agent run. */
-  onRunLens: (lens: LensSummary) => void;
   /** Opens the project's lenses to add or edit one. */
   onOpenLenses: () => void;
-  /** The lens being written, if one is running. */
-  lensWriting: LensRun | null;
   /** The grouping has just arrived, so its parts lay themselves in. */
   revealing?: boolean;
   /** Set by dragging the seam beside this. */
@@ -47,24 +37,17 @@ export function PullRequestRail({
   detail,
   files,
   onSelect,
-  groups,
-  onFile,
-  lensOn,
-  onLensOn,
+  lens,
   lenses,
-  onRunLens,
   onOpenLenses,
-  lensWriting,
   revealing,
   width,
 }: PullRequestRailProps) {
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
-  const viewedSections = useGithubStore((s) => s.viewedSections);
+  const viewedParts = useGithubStore((s) => s.viewedSections);
   const activeSection = useGithubStore((s) => s.activeSection);
-  const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
-  const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
+  const collapsed = useGithubStore((s) => s.collapsedGroups);
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
-  const viewedParts = useMemo(() => new Set(viewedSections), [viewedSections]);
 
   const signals = usePullRequestSignals(detail.headSha, files);
   // What a lens run would send, so the picker can say so before one is started.
@@ -113,33 +96,35 @@ export function PullRequestRail({
       <div className="pane-ledge shrink-0 flex flex-col h-9">
         <LensPicker
           lenses={lenses}
-          onFile={onFile}
-          lensOn={lensOn}
+          onFile={lens.lens}
+          lensOn={lens.lensOn}
           changedFiles={detail.changedFiles}
           viewed={viewedPaths.length}
-          resolved={groups}
+          resolved={lens.resolved}
           promptChars={promptChars}
-          writing={lensWriting}
+          writing={lens.writing}
           onAllFiles={() => {
             // Mode first, then the scroll back to the top: what the reader
             // asked for must not depend on a scroll succeeding.
-            onLensOn(false);
+            lens.setLensOn(false);
             onSelect(null);
           }}
           onShowLens={() => {
-            onLensOn(true);
+            lens.setLensOn(true);
             onSelect(null);
           }}
-          onRun={onRunLens}
+          onRun={(picked) => void lens.run(picked)}
           onManage={onOpenLenses}
         />
       </div>
 
       <DiffFileTree
         files={files}
-        groups={lensOn ? groups : null}
-        collapsed={collapsed}
-        onCollapsedChange={(id, next) => useGithubStore.getState().setGroupCollapsed(id, next)}
+        lens={{
+          groups: lens.shown,
+          collapsed,
+          onCollapsedChange: (id, next) => useGithubStore.getState().setGroupCollapsed(id, next),
+        }}
         onFileClick={onSelect}
         renderFileTrailing={(file, hunks, section) => trailing(file.path, hunks, section)}
         activeSection={activeSection}

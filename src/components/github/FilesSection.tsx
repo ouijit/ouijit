@@ -46,6 +46,8 @@ function chipworthy(analysis: FileAnalysis | undefined): FileAnalysis | undefine
 interface FilesSectionProps {
   projectPath: string;
   detail: PullRequestDetail;
+  /** The order the rail shows these files in, which the document follows. */
+  order: readonly string[];
   /** The lens bound to this diff, when the reader has it on. */
   groups?: ResolvedGroup[] | null;
   /** The grouping has just arrived, so its parts lay themselves in. */
@@ -167,7 +169,7 @@ const FileSection = memo(function FileSection({
  * capped at what a patch would carry.
  */
 export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(function FilesSection(
-  { projectPath, detail, groups, revealing },
+  { projectPath, detail, order, groups, revealing },
   ref,
 ) {
   const files = useGithubStore((s) => s.files);
@@ -179,8 +181,8 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const diffs = useGithubStore((s) => s.diffs);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
-  const viewedSections = useGithubStore((s) => s.viewedSections);
-  const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
+  const viewedParts = useGithubStore((s) => s.viewedSections);
+  const collapsed = useGithubStore((s) => s.collapsedGroups);
   const setDiffs = useGithubStore((s) => s.setDiffs);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
@@ -390,9 +392,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const sliceFor = useDiffSlices();
 
-  const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
-  const viewedParts = useMemo(() => new Set(viewedSections), [viewedSections]);
 
   /**
    * The parts each file is on screen in. Marking one part read has to know what
@@ -468,6 +468,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       <div className="diff-list pb-3">
         <LensedFileList
           files={files}
+          order={order}
           groups={groups ?? null}
           renderFile={renderFile}
           collapsed={collapsed}

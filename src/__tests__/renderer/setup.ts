@@ -198,7 +198,6 @@ const mockApi = {
   diffLens: {
     get: vi.fn().mockResolvedValue(null),
     run: vi.fn().mockResolvedValue({ success: true }),
-    onChanged: vi.fn().mockReturnValue(() => {}),
   },
   lens: {
     list: vi.fn().mockResolvedValue([]),
@@ -207,6 +206,7 @@ const mockApi = {
     agent: vi.fn().mockResolvedValue({ agentId: null }),
     setAgent: vi.fn().mockResolvedValue({ success: true }),
     onListChanged: vi.fn().mockReturnValue(() => {}),
+    onChanged: vi.fn().mockReturnValue(() => {}),
   },
   diffNotes: {
     list: vi.fn().mockResolvedValue([]),
@@ -248,7 +248,6 @@ const mockApi = {
     taskFromIssue: vi.fn().mockResolvedValue({ success: true }),
     taskFromPr: vi.fn().mockResolvedValue({ success: true }),
     onDraftsChanged: vi.fn().mockReturnValue(() => {}),
-    onLensChanged: vi.fn().mockReturnValue(() => {}),
   },
 };
 

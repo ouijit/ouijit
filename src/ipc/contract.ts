@@ -61,7 +61,6 @@ import type {
   ReviewEvent,
   MergeOptions,
   GithubDraftsChangedPayload,
-  GithubLensChangedPayload,
   InboxResult,
   PullRequestFilesResult,
   SaveDraftInput,
@@ -74,6 +73,7 @@ import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
 import type { AnalysisOverview, DiffSignals } from '../analysis/types';
 import type { DiffLensTarget } from '../lens/worktreeSubject';
 import type { StoredLens } from '../lens/readLens';
+import type { LensChangedPayload } from '../lens/subjectKeys';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
@@ -492,16 +492,16 @@ export interface IpcPushContract {
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };
   /** A review draft was written or discarded outside the renderer (the CLI). */
   'github:drafts-changed': { args: [payload: GithubDraftsChangedPayload] };
-  'github:lens-changed': { args: [payload: GithubLensChangedPayload] };
   /**
    * A project's lenses were added to or deleted from. Every picker and list
    * holds its own copy of `lens:list`, so each reads its own again.
    */
   'lens:list-changed': { args: [projectPath: string] };
   /**
-   * A run over a worktree diff ended, however it ended. For a pane that did not
-   * start it: a renderer reloaded mid-run, or an agent writing over the CLI.
-   * Carries the subject key, which is what a pane matches on.
+   * A run over one diff ended, however it ended, for a pane that did not start
+   * it: a renderer reloaded mid-run, or an agent writing over the CLI. One
+   * channel for every kind of diff — the payload names which, the way main and
+   * the renderer both name it.
    */
-  'diff-lens:changed': { args: [subjectKey: string] };
+  'lens:changed': { args: [payload: LensChangedPayload] };
 }

@@ -25,7 +25,6 @@ import type {
   ReviewEvent,
   MergeOptions,
   GithubDraftsChangedPayload,
-  GithubLensChangedPayload,
   InboxResult,
   PullRequestFilesResult,
   SaveDraftInput,
@@ -34,6 +33,7 @@ import type {
 } from './github/types';
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
+import type { LensChangedPayload } from './lens/subjectKeys';
 import type { LensAgentChoice } from './lens/lensAgents';
 import type { LensInput, LensSummary } from './lens/config';
 import type { StoredLens } from './lens/readLens';
@@ -96,7 +96,6 @@ export type {
   IssueDetail,
   CommentKind,
   GithubDraftsChangedPayload,
-  GithubLensChangedPayload,
   CheckRun,
   TimelineItem,
   InboxResult,
@@ -614,14 +613,18 @@ export interface LensAPI {
   setAgent(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }>;
   /** A lens was added or deleted, so any list of them is one short or one over. */
   onListChanged(callback: (projectPath: string) => void): () => void;
+  /**
+   * A run over one diff ended somewhere this pane cannot see — another pane, a
+   * renderer reloaded mid-run, an agent writing over the CLI. Whichever kind of
+   * diff it was: the payload names it the way the pane names its own.
+   */
+  onChanged(callback: (payload: LensChangedPayload) => void): () => void;
 }
 
 /** The pull request equivalent is `github.lens` / `runLens`. */
 export interface DiffLensAPI {
   get(target: DiffLensTarget): Promise<StoredLens | null>;
   run(target: DiffLensTarget, lensId: string): Promise<{ success: boolean; error?: string }>;
-  /** A run over this worktree diff ended, in a pane that may not be this one. */
-  onChanged(callback: (subjectKey: string) => void): () => void;
 }
 
 /**
@@ -729,7 +732,6 @@ export interface GithubAPI {
   ): Promise<string[]>;
 
   onDraftsChanged(callback: (payload: GithubDraftsChangedPayload) => void): () => void;
-  onLensChanged(callback: (payload: GithubLensChangedPayload) => void): () => void;
 }
 
 export interface GithubActionResult {

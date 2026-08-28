@@ -30,7 +30,7 @@ import { LensedFileList } from './LensedFileList';
 import { LensDialog } from '../dialogs/LensDialog';
 import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type DiffLineAnchor } from '../../diffAnchor';
 import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
-import type { ResolvedSlice } from '../../lens/lens';
+import { partHolding, type ResolvedSlice } from '../../lens/lens';
 import type { DiffLensTarget } from '../../lens/worktreeSubject';
 import { toggleIn } from '../../utils/toggleIn';
 import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
@@ -130,9 +130,10 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
             mergeTarget: instance?.mergeTarget,
             title: instance?.label,
             description: instance?.taskPrompt,
+            files,
           }
         : null,
-    [gitPath, projectPath, base, branch, instance?.mergeTarget, instance?.label, instance?.taskPrompt],
+    [gitPath, projectPath, base, branch, instance?.mergeTarget, instance?.label, instance?.taskPrompt, files],
   );
 
   useEffect(() => {
@@ -345,10 +346,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           )}
           <DiffFileTree
             files={files}
-            groups={lens.shown}
+            lens={{ groups: lens.shown, collapsed: lens.collapsed, onCollapsedChange: toggleGroup }}
             onFileClick={scrollToFile}
-            collapsed={lens.collapsed}
-            onCollapsedChange={toggleGroup}
             renderFileTrailing={analysisSignals ? railTrailing : undefined}
             revealing={revealing}
           />
@@ -404,6 +403,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           {!loading && (
             <LensedFileList
               files={files}
+              order={order}
               groups={lens.shown}
               renderFile={renderFile}
               collapsed={lens.collapsed}
@@ -422,7 +422,12 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           inView={inView}
           subject={diffSubject(base, branch)}
           ptyId={ptyId}
-          onJump={(note) => scrollToFile(note.path)}
+          onJump={(note) =>
+            // To the copy of the file that holds the line it is anchored to: a
+            // lens can put that file in three parts, and only one is where the
+            // note is.
+            scrollToFile(note.path, partHolding(lens.shown, diffsRef.current.get(note.path), note.path, note.line))
+          }
           onDiscard={notes.discard}
           onClear={notes.clear}
         />

@@ -1,13 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { ChangedFile, FileDiff } from '../git';
-import {
-  getGitFileStatus,
-  getUntrackedFileDiff,
-  getTrackedFileDiff,
-  getWorktreeFileDiff,
-  getBranchDiffPin,
-} from '../git';
-import { diffShape, diffSubject, filesInDiff, isUncommittedBase } from '../diffSource';
+import { getGitFileStatus, getFileDiff, getWorktreeFileDiff, getBranchDiffPin } from '../git';
+import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff, isUncommittedBase } from '../diffSource';
 import type { LensFile, LensSubject } from './lensPrompt';
 import type { DiffSubject } from './subject';
 import { worktreeSubjectKey } from './subjectKeys';
@@ -25,6 +19,14 @@ export interface DiffLensTarget {
   /** Whatever names the change for the agent — usually the task. */
   title?: string;
   description?: string;
+  /**
+   * The files the pane is showing. Reading a lens has to pin the diff to say
+   * whether it has drifted, and working that out here costs a status poll — a
+   * read of every untracked file among it — that the caller has already paid
+   * for. A write ignores these and lists its own: what an agent is handed is
+   * what git says now, not what a pane last drew.
+   */
+  files?: ChangedFile[];
 }
 
 /**
@@ -58,10 +60,15 @@ async function pinFor(target: DiffLensTarget, files: () => Promise<ChangedFile[]
   return shape;
 }
 
-/** Every file the panel would show, read the way the panel reads them. */
+/**
+ * Every file the panel would show, read the way the panel reads them — the cap
+ * included, or a lens would be written over files the pane cannot render and
+ * `resolveLens` would drop what it said about them. A pull request is cut to the
+ * same length by `getPullRequestFiles`.
+ */
 async function filesFor(target: DiffLensTarget): Promise<ChangedFile[]> {
   const status = await getGitFileStatus(target.worktreePath, target.base ?? undefined);
-  return status ? filesInDiff(status) : [];
+  return status ? filesInDiff(status).slice(0, MAX_DIFF_FILES) : [];
 }
 
 /**
@@ -87,16 +94,16 @@ class WorktreeSubject implements DiffSubject {
 
   diffFor(file: LensFile): Promise<FileDiff | null> {
     const { worktreePath, base } = this.target;
-    // An untracked file is in no revision, so no comparison can produce it. The
-    // status has already said which a file is, and `getFileDiff` would work it
-    // out again by listing every untracked path in the repo, once per file.
-    if (file.status === '?') return getUntrackedFileDiff(worktreePath, file.path);
-    if (!base) return getTrackedFileDiff(worktreePath, file.path);
-    return getWorktreeFileDiff(worktreePath, base, file.path, file.oldPath);
+    const untracked = file.status === '?';
+    // An untracked file is in no revision, so no comparison against one can
+    // produce it.
+    if (base && !untracked) return getWorktreeFileDiff(worktreePath, base, file.path, file.oldPath);
+    return getFileDiff(worktreePath, file.path, undefined, untracked);
   }
 
   pin(files?: LensFile[]): Promise<string> {
-    return pinFor(this.target, files ? () => Promise.resolve(files) : () => filesFor(this.target));
+    const known = files ?? this.target.files;
+    return pinFor(this.target, known ? () => Promise.resolve(known) : () => filesFor(this.target));
   }
 
   describe(): LensSubject {

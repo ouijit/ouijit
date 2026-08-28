@@ -15,6 +15,8 @@ const lensLog = log.scope('lens');
  * differ here and in nothing else.
  */
 export interface LensSource {
+  /** Which project's announcements this pane is listening for. */
+  projectPath: string;
   /**
    * What a run belongs to. Not the head commit: a run in flight belongs to the
    * pull request rather than to whatever was on top when it started, and a
@@ -25,12 +27,6 @@ export interface LensSource {
   revision?: string;
   read: () => Promise<StoredLens | null>;
   write: (lensId: string) => Promise<{ success: boolean; error?: string }>;
-  /**
-   * Something outside this pane wrote or cleared the lens. `apply` says whether
-   * it is worth showing unasked — a grouping that has landed is, one that has
-   * only been cleared is not.
-   */
-  subscribe?: (refresh: (apply: boolean) => void) => () => void;
 }
 
 /**
@@ -42,21 +38,24 @@ export interface LensRun {
   name: string;
 }
 
+interface TrackedRun extends LensRun {
+  /**
+   * Picked up from main rather than started here. A run this pane started clears
+   * itself when the call returns; one it found already going has only the next
+   * read to end it. Ending unadopted runs there too would kill a live spinner in
+   * the gap between starting a run and main recording it.
+   */
+  adopted: boolean;
+}
+
 /**
  * Outside React because a run happens in the main process and outlives the pane
  * that started it. By key so two diffs can be read at once.
  */
-const runs = new Map<string, LensRun>();
-/**
- * Keys whose spinner was adopted from main rather than started here. A run this
- * pane started clears itself when the call returns; one it picked up already
- * going has only the next read to end it. Ending unadopted runs there too would
- * kill a live spinner in the gap between starting a run and main recording it.
- */
-const adopted = new Set<string>();
+const runs = new Map<string, TrackedRun>();
 const listeners = new Set<() => void>();
 
-function setRun(key: string, run: LensRun | null): void {
+function setRun(key: string, run: TrackedRun | null): void {
   if (run) runs.set(key, run);
   else runs.delete(key);
   for (const listener of listeners) listener();
@@ -70,21 +69,19 @@ function subscribeToRuns(listener: () => void): () => void {
 function syncRun(key: string, running: StoredLens['running']): void {
   if (running?.live) {
     if (runs.has(key)) return;
-    adopted.add(key);
-    setRun(key, { id: running.lensId, name: running.lensName });
-  } else if (adopted.delete(key)) {
+    setRun(key, { id: running.lensId, name: running.lensName, adopted: true });
+  } else if (runs.get(key)?.adopted) {
     setRun(key, null);
   }
 }
 
 /** A run this pane started, as against one it picked up already going. */
 function startedHere(key: string): boolean {
-  return runs.has(key) && !adopted.has(key);
+  return runs.get(key)?.adopted === false;
 }
 
 export function _resetLensRunsForTesting(): void {
   runs.clear();
-  adopted.clear();
   listeners.clear();
 }
 
@@ -107,7 +104,7 @@ export interface LensSession {
 }
 
 export function useLensSession(source: LensSource, diffs: Map<string, FileDiff | null>, order: string[]): LensSession {
-  const { key, revision } = source;
+  const { projectPath, key, revision } = source;
 
   // The source is rebuilt on every render, so the effects below depend on its
   // key and revision and reach the current callbacks through here.
@@ -173,20 +170,23 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
 
   useEffect(() => {
     if (!key) return;
-    // A run started here reads back for itself when the call returns, and main
-    // pushes before that call resolves — so answering the push as well would
-    // read twice and lay the arriving grouping in twice over.
-    return sourceRef.current.subscribe?.((apply) => {
-      if (!startedHere(key)) void refresh(apply);
+    // A lens written elsewhere — another pane, a renderer reloaded mid-run, an
+    // agent over the CLI — shown as soon as it lands. Not one started here:
+    // that run reads back for itself when the call returns, and main pushes
+    // before the call resolves, so answering both would lay the arriving
+    // grouping in twice over.
+    return window.api.lens.onChanged((changed) => {
+      if (changed.projectPath !== projectPath || changed.subjectKey !== key) return;
+      if (!startedHere(key)) void refresh(true);
     });
-  }, [key, refresh]);
+  }, [projectPath, key, refresh]);
 
   const run = useCallback(
     async (pick: LensSummary): Promise<void> => {
       const at = sourceRef.current.key;
       if (!at || runs.has(at)) return;
 
-      setRun(at, { id: pick.id, name: pick.name });
+      setRun(at, { id: pick.id, name: pick.name, adopted: false });
       try {
         const result = await sourceRef.current.write(pick.id);
         if (!result.success) {

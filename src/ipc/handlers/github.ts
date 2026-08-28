@@ -31,6 +31,7 @@ import {
   createTaskFromIssue,
   prepareTaskFromPullRequest,
 } from '../../github/service';
+import { prSubjectKey } from '../../lens/subjectKeys';
 
 /**
  * Thin delegations, matching every other handler module in here. All the
@@ -88,7 +89,7 @@ export function registerGithubHandlers(mainWindow: BrowserWindow): void {
     } finally {
       // For a pane that did not start this one: a renderer reloaded mid-run
       // holds a spinner with nothing else left to clear it.
-      typedPush(mainWindow, 'github:lens-changed', { projectPath, prNumber });
+      typedPush(mainWindow, 'lens:changed', { projectPath, subjectKey: prSubjectKey(prNumber) });
     }
   });
   typedHandle('github:viewed-files', (projectPath, prNumber, headSha) =>

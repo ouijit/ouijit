@@ -21,7 +21,7 @@ export function isSectionViewed(
 
 export interface ViewedChange {
   /** Parts still marked on their own. */
-  sections: string[];
+  sections: Set<string>;
   /** Set only when the file's own claim moves — every part read, or one of them unread again. */
   file?: boolean;
 }
@@ -32,7 +32,7 @@ export interface ViewedChange {
  */
 export function markSection(
   viewedPaths: readonly string[],
-  viewedSections: readonly string[],
+  viewedSections: ReadonlySet<string>,
   siblings: readonly string[],
   section: string,
   path: string,
@@ -44,19 +44,19 @@ export function markSection(
   if (!next) {
     if (!whole) {
       marks.delete(section);
-      return { sections: [...marks] };
+      return { sections: marks };
     }
     // The file was claimed whole, so the parts it was rolled up from were let
     // go. Unreading one hands the others back rather than losing them.
     for (const sibling of siblings) if (sibling !== section) marks.add(sibling);
     marks.delete(section);
-    return { sections: [...marks], file: false };
+    return { sections: marks, file: false };
   }
 
-  if (whole) return { sections: [...marks] };
+  if (whole) return { sections: marks };
   marks.add(section);
-  if (!siblings.every((sibling) => marks.has(sibling))) return { sections: [...marks] };
+  if (!siblings.every((sibling) => marks.has(sibling))) return { sections: marks };
 
   for (const sibling of siblings) marks.delete(sibling);
-  return { sections: [...marks], file: true };
+  return { sections: marks, file: true };
 }

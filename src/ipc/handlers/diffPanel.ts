@@ -16,7 +16,10 @@ export function registerDiffPanelHandlers(mainWindow: BrowserWindow): void {
     try {
       return await writeDiffLens(target, lensId);
     } finally {
-      typedPush(mainWindow, 'diff-lens:changed', worktreeSubjectKey(target.worktreePath, target.base));
+      typedPush(mainWindow, 'lens:changed', {
+        projectPath: target.projectPath,
+        subjectKey: worktreeSubjectKey(target.worktreePath, target.base),
+      });
     }
   });
 

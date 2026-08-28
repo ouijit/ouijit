@@ -2,11 +2,15 @@ import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { LensGroupSection } from './LensGroupSection';
 import { partDelay } from './lensReveal';
-import { inTreeOrder } from './DiffFileTree';
 import { sectionKey, type ResolvedGroup, type ResolvedSlice } from '../../lens/lens';
 
 export interface LensedFileListProps<T extends { path: string }> {
   files: readonly T[];
+  /**
+   * The order the tree shows these files in. Taken rather than worked out again,
+   * so the document and the rail cannot disagree about where a file sits.
+   */
+  order: readonly string[];
   /** The lens's groups, or null to run the files flat in tree order. */
   groups: ResolvedGroup[] | null;
   /**
@@ -27,6 +31,7 @@ export interface LensedFileListProps<T extends { path: string }> {
  */
 export function LensedFileList<T extends { path: string }>({
   files,
+  order,
   groups,
   renderFile,
   collapsed,
@@ -34,9 +39,10 @@ export function LensedFileList<T extends { path: string }>({
   revealing,
 }: LensedFileListProps<T>) {
   const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
-  // The tree groups by directory; the document has to run in the same order or
-  // clicking a file in one is no way to find it in the other.
-  const ordered = useMemo(() => inTreeOrder(files), [files]);
+  const ordered = useMemo(() => {
+    const rank = new Map(order.map((path, at) => [path, at]));
+    return [...files].sort((a, b) => (rank.get(a.path) ?? 0) - (rank.get(b.path) ?? 0));
+  }, [files, order]);
 
   if (!groups) return <>{ordered.map((file) => renderFile(file))}</>;
 

@@ -5,22 +5,18 @@ import { LensPicker } from '../../components/diff/LensPicker';
 import type { StoredLens } from '../../lens/readLens';
 import type { LensRun } from '../../components/diff/useLensSession';
 import type { ResolvedGroup } from '../../lens/lens';
-import { NARRATIVE } from '../lensFixtures';
+import { NARRATIVE, lensOnFile } from '../lensFixtures';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
 
-/** A lens as it comes back from main. */
+/** A lens as it comes back from main, with `groups` placeholder parts. */
 function onFile(lens: { id: string; name: string } | null, groups: number | null, stale: boolean): StoredLens {
-  return {
-    lensId: lens?.id ?? null,
-    lensName: lens?.name ?? null,
-    groups: groups === null ? null : Array.from({ length: groups }, (_, i) => ({ title: `Part ${i}`, slices: [] })),
-    stale,
-    omitted: 0,
-    running: null,
-  };
+  return lensOnFile(
+    groups === null ? null : Array.from({ length: groups }, (_, i) => ({ title: `Part ${i}`, slices: [] })),
+    { lensId: lens?.id ?? null, lensName: lens?.name ?? null, stale },
+  );
 }
 
 const LENSES = [NARRATIVE];

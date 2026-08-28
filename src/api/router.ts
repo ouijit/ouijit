@@ -66,6 +66,7 @@ import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth
 import type { CliHookMode, CliPanelKind } from '../types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
+import { prSubjectKey } from '../lens/subjectKeys';
 
 const apiLog = getLogger().scope('api');
 
@@ -920,9 +921,9 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       // the pane sits on "writing" while the lens is already on disk. The
       // handler reads one local row and nothing else.
       if (segments[0] === 'pulls' && segments[2] === 'lens') {
-        typedPush(window, 'github:lens-changed', {
+        typedPush(window, 'lens:changed', {
           projectPath: project,
-          prNumber: parseInt(segments[1], 10),
+          subjectKey: prSubjectKey(parseInt(segments[1], 10)),
         });
       }
 

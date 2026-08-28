@@ -86,19 +86,18 @@ export function treeFileOrder(files: readonly { path: string }[]): string[] {
   return order;
 }
 
-export function inTreeOrder<T extends { path: string }>(files: readonly T[]): T[] {
-  const rank = new Map(treeFileOrder(files).map((path, index) => [path, index]));
-  return [...files].sort((a, b) => (rank.get(a.path) ?? 0) - (rank.get(b.path) ?? 0));
-}
-
 export interface DiffFileTreeProps {
   files: ChangedFile[];
   onFileClick: (path: string, group?: string) => void;
-  /** The lens as bound to this diff. Null runs the flat tree. */
-  groups?: ResolvedGroup[] | null;
-  /** Parts folded away, by group id. */
-  collapsed?: ReadonlySet<string>;
-  onCollapsedChange?: (id: string, next: boolean) => void;
+  /**
+   * The lens as bound to this diff, and which of its parts are folded away.
+   * Absent, or with null groups, runs the flat tree.
+   */
+  lens?: {
+    groups: ResolvedGroup[] | null;
+    collapsed: ReadonlySet<string>;
+    onCollapsedChange: (id: string, next: boolean) => void;
+  };
   /** Per-file trailing content — the PR view puts unresolved-thread counts here. */
   renderFileTrailing?: FileTrailing<ChangedFile>;
   /** Content above the tree — the PR view puts the rest of its contents here. */
@@ -167,17 +166,31 @@ function DiffFileTreeChapters<T extends ChangedFile>({
   /** The grouping has just arrived, so its parts lay themselves in. */
   revealing?: boolean;
 }) {
+  // Held across renders because `DiffFileTreeNodes` memoises its tree on the
+  // array it is handed: rebuilt in the render, every part's tree is rebuilt on
+  // every scroll. Counted as the part claims them, so the rail and the card it
+  // scrolls to do not report a file split across three parts three times over.
+  const parts = useMemo(() => {
+    const built = new Map<string, { files: T[]; hunks: Map<string, number> }>();
+    for (const group of groups) {
+      const files: T[] = [];
+      const hunks = new Map<string, number>();
+      for (const slice of group.slices) {
+        const file = byPath.get(slice.path);
+        if (!file) continue;
+        files.push(slice.changes ? { ...file, ...slice.changes } : file);
+        hunks.set(slice.path, slice.hunks.length);
+      }
+      built.set(group.id, { files, hunks });
+    }
+    return built;
+  }, [groups, byPath]);
+
   return (
     <>
       {groups.map((group, at) => {
         const folded = collapsed.has(group.id);
-        // Counted as the part claims them, so the rail and the card it scrolls
-        // to do not report a file split across three parts three times over.
-        const files = group.slices.flatMap((slice) => {
-          const file = byPath.get(slice.path);
-          if (!file) return [];
-          return [slice.changes ? { ...file, ...slice.changes } : file];
-        });
+        const { files, hunks } = parts.get(group.id)!;
         // The mark is on one copy of a file; the other parts that name it are
         // not where the reader is.
         const here = `${group.id}:`;
@@ -208,7 +221,7 @@ function DiffFileTreeChapters<T extends ChangedFile>({
                 onFileClick={(path) => onFileClick(path, group.id)}
                 renderFileTrailing={
                   renderFileTrailing
-                    ? (file) => renderFileTrailing(file, hunksOf(group, file.path), sectionKey(group.id, file.path))
+                    ? (file) => renderFileTrailing(file, hunks.get(file.path), sectionKey(group.id, file.path))
                     : undefined
                 }
               />
@@ -220,17 +233,10 @@ function DiffFileTreeChapters<T extends ChangedFile>({
   );
 }
 
-/** How many hunks of a file one part of the change claims. */
-function hunksOf(group: ResolvedGroup, path: string): number | undefined {
-  return group.slices.find((slice) => slice.path === path)?.hunks.length;
-}
-
 export function DiffFileTree({
   files,
   onFileClick,
-  groups,
-  collapsed,
-  onCollapsedChange,
+  lens,
   renderFileTrailing,
   header,
   activeSection,
@@ -238,7 +244,7 @@ export function DiffFileTree({
   footer,
 }: DiffFileTreeProps) {
   const byPath = useMemo(() => new Map(files.map((file) => [file.path, file])), [files]);
-  const chaptered = groups && collapsed && onCollapsedChange;
+  const chaptered = lens?.groups;
 
   return (
     // Chaptered, the list opens with a part's bar, level with the one the
@@ -248,10 +254,10 @@ export function DiffFileTree({
       {header}
       {chaptered ? (
         <DiffFileTreeChapters
-          groups={groups}
+          groups={chaptered}
           byPath={byPath}
-          collapsed={collapsed}
-          onCollapsedChange={onCollapsedChange}
+          collapsed={lens.collapsed}
+          onCollapsedChange={lens.onCollapsedChange}
           onFileClick={onFileClick}
           renderFileTrailing={renderFileTrailing}
           activeSection={activeSection}

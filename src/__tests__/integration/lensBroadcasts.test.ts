@@ -13,6 +13,7 @@ import type { BrowserWindow } from 'electron';
 import { _resetCacheForTesting } from '../../db';
 import { registerDiffPanelHandlers } from '../../ipc/handlers/diffPanel';
 import type { LensInput, LensSummary } from '../../lens/config';
+import { worktreeSubjectKey } from '../../lens/subjectKeys';
 
 type IpcHandler = (event: unknown, ...args: unknown[]) => unknown;
 
@@ -68,6 +69,21 @@ describe('what a lens change tells the renderer', () => {
       ['lens:list-changed', [PROJECT]],
       ['lens:list-changed', [PROJECT]],
       ['lens:list-changed', [PROJECT]],
+    ]);
+  });
+
+  /**
+   * One channel for every kind of diff, naming the subject the way the renderer
+   * names it: a pane matches the payload against the key it built itself, so a
+   * push that named a worktree any other way would never reach it.
+   */
+  test('a finished run says which diff it was over, however it finished', async () => {
+    // No such lens, so nothing is spawned — the announcement is in the `finally`
+    // either way, which is what a pane reloaded mid-run has left to clear it.
+    await call('diff-lens:run', { projectPath: PROJECT, worktreePath: '/work/alpha/wt', base: null }, 'gone');
+
+    expect(sent).toEqual([
+      ['lens:changed', [{ projectPath: PROJECT, subjectKey: worktreeSubjectKey('/work/alpha/wt', null) }]],
     ]);
   });
 });

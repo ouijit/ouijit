@@ -6,6 +6,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { _resetLensRunsForTesting } from '../../components/diff/useLensSession';
+import { prSubjectKey } from '../../lens/subjectKeys';
 import { NARRATIVE, hunk, lensOnFile } from '../lensFixtures';
 import { pr, inbox, detail, changed } from './githubFixtures';
 import type { PullRequestFile } from '../../github/types';
@@ -83,7 +84,7 @@ describe('PullRequestsPanel — lens', () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(inbox());
     vi.mocked(window.api.github.issues).mockResolvedValue([]);
     vi.mocked(window.api.github.onDraftsChanged).mockReturnValue(() => {});
-    vi.mocked(window.api.github.onLensChanged).mockReturnValue(() => {});
+    vi.mocked(window.api.lens.onChanged).mockReturnValue(() => {});
     vi.mocked(window.api.github.drafts).mockResolvedValue([]);
     vi.mocked(window.api.github.lens).mockResolvedValue(null);
     vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({ files: [], fromGit: false });
@@ -436,8 +437,8 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   test('a lens written elsewhere arrives without asking', async () => {
-    let notify: ((payload: { projectPath: string; prNumber: number }) => void) | null = null;
-    vi.mocked(window.api.github.onLensChanged).mockImplementation((cb) => {
+    let notify: ((payload: { projectPath: string; subjectKey: string }) => void) | null = null;
+    vi.mocked(window.api.lens.onChanged).mockImplementation((cb) => {
       notify = cb;
       return () => {};
     });
@@ -449,7 +450,7 @@ describe('PullRequestsPanel — lens', () => {
     vi.mocked(window.api.github.lens).mockResolvedValue(
       lensOnFile([{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }]),
     );
-    notify?.({ projectPath: PROJECT, prNumber: 5 });
+    notify?.({ projectPath: PROJECT, subjectKey: prSubjectKey(5) });
 
     expect(await screen.findByTitle('Reading this change through a lens written for it')).toBeTruthy();
     expect(screen.getByText('Lens')).toBeTruthy();

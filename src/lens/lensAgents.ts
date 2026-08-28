@@ -92,7 +92,7 @@ export interface LensAgentChoice {
   agentId: string | null;
 }
 
-export function pickLensAgent(installed: InstalledAgents): LensAgent | null {
+function pickLensAgent(installed: InstalledAgents): LensAgent | null {
   return LENS_AGENTS.find((agent) => installed[agent.id]) ?? null;
 }
 
