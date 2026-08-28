@@ -15,8 +15,7 @@ const POLL_MS = 50;
 /**
  * Restore `ptyId` at most once across concurrent callers. A caller that loses
  * the race awaits the winner rather than skipping ahead, so the terminal list
- * is final by the time it returns. ProjectViewReact reads that list to decide
- * whether reconnection produced anything or the kanban should open instead.
+ * is final by the time it returns.
  */
 export async function restoreTerminalOnce(ptyId: string, restore: () => Promise<unknown>): Promise<void> {
   if (terminalInstances.has(ptyId)) return;

@@ -814,8 +814,8 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
   const mainSessions = relevant.filter((s) => !s.isRunner);
   const runnerSessions = relevant.filter((s) => s.isRunner);
 
-  // Reconnect main terminals first (so runner parents exist before runners
-  // reattach). restoreTerminalOnce makes this idempotent across the two callers.
+  // Reconnect main terminals first, so runner parents exist before runners
+  // reattach.
   for (const session of mainSessions) {
     await restoreTerminalOnce(session.ptyId, async () => {
       let worktreeBranch: string | undefined;

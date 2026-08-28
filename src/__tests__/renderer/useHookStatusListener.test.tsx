@@ -9,13 +9,6 @@ import { useHookStatusListener } from '../../hooks/useHookStatusListener';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
 
-// The hook imports terminalInstances from terminalReact, which transitively
-// pulls in xterm and other browser-only modules. Stub the module surface we
-// actually use so the test stays focused on the hook's logic.
-vi.mock('../../components/terminal/terminalReact', () => ({
-  terminalInstances: new Map<string, { handleHookStatus: ReturnType<typeof vi.fn> }>(),
-}));
-
 type FakeTerminal = { handleHookStatus: ReturnType<typeof vi.fn> };
 
 function makeFakeTerminal(): FakeTerminal {

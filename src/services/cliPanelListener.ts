@@ -1,7 +1,7 @@
 import log from 'electron-log/renderer';
 import type { OuijitTerminal } from '../components/terminal/terminalReact';
 import { whenTerminalReady } from '../components/terminal/terminalRegistry';
-import { panelLabel } from '../components/terminal/panelTypes';
+import { panelLabel, type TerminalPanel } from '../components/terminal/panelTypes';
 import {
   CLI_PANEL_TERMINAL_WAIT_MS,
   type CliPanelInfo,
@@ -13,47 +13,43 @@ import {
 const cliPanelsLog = log.scope('cliPanels');
 
 /** Internal panel kind backing each CLI-facing kind. */
-function internalKind(kind: CliPanelKind): 'plan' | 'webPreview' {
-  return kind === 'markdown' ? 'plan' : 'webPreview';
+const INTERNAL_KIND = { markdown: 'plan', preview: 'webPreview' } as const;
+
+/** The path or URL a CLI op addresses the panel by. */
+function panelValue(panel: TerminalPanel): string | undefined {
+  if (panel.kind === 'plan') return panel.planPath;
+  if (panel.kind === 'webPreview') return panel.url ?? undefined;
+  return undefined;
+}
+
+function panelsOfKind(instance: OuijitTerminal, kind: CliPanelKind): TerminalPanel[] {
+  return instance.panels.filter((p) => p.kind === INTERNAL_KIND[kind]);
+}
+
+function findPanel(instance: OuijitTerminal, kind: CliPanelKind, value: string): TerminalPanel | undefined {
+  return panelsOfKind(instance, kind).find((p) => panelValue(p) === value);
 }
 
 function panelsForKind(instance: OuijitTerminal, kind: CliPanelKind): CliPanelInfo[] {
-  const internal = internalKind(kind);
-  const out: CliPanelInfo[] = [];
-  for (const p of instance.panels) {
-    if (p.kind !== internal) continue;
-    out.push({
-      kind,
-      label: panelLabel(p),
-      ...(p.kind === 'plan' ? { path: p.planPath } : {}),
-      ...(p.kind === 'webPreview' ? { url: p.url ?? undefined } : {}),
-      active: p.id === instance.activePanelId,
-    });
-  }
-  return out;
+  return panelsOfKind(instance, kind).map((p) => ({
+    kind,
+    label: panelLabel(p),
+    ...(kind === 'markdown' ? { path: panelValue(p) } : { url: panelValue(p) }),
+    active: p.id === instance.activePanelId,
+  }));
 }
 
 /** Add the panel, or surface the existing one if its path/url already matches. */
 function addOrActivate(instance: OuijitTerminal, kind: CliPanelKind, value: string): void {
-  if (kind === 'markdown') {
-    const existing = instance.panels.find((p) => p.kind === 'plan' && p.planPath === value);
-    if (existing) instance.activatePanel(existing.id);
-    else instance.addPlanPanel(value, true);
-  } else {
-    const existing = instance.panels.find((p) => p.kind === 'webPreview' && p.url === value);
-    if (existing) instance.activatePanel(existing.id);
-    else instance.addWebPreviewPanel(value, { activate: true });
-  }
+  const existing = findPanel(instance, kind, value);
+  if (existing) instance.activatePanel(existing.id);
+  else if (kind === 'markdown') instance.addPlanPanel(value, true);
+  else instance.addWebPreviewPanel(value, { activate: true });
 }
 
 /** Close the first panel of the kind whose path/url matches. Returns false if none. */
 function removeMatching(instance: OuijitTerminal, kind: CliPanelKind, value: string | undefined): boolean {
-  if (!value) return false;
-  const internal = internalKind(kind);
-  const match = instance.panels.find((p) => {
-    if (p.kind !== internal) return false;
-    return p.kind === 'plan' ? p.planPath === value : p.url === value;
-  });
+  const match = value ? findPanel(instance, kind, value) : undefined;
   if (!match) return false;
   instance.closePanel(match.id);
   return true;
@@ -100,8 +96,8 @@ async function handleOp(op: CliPanelOp): Promise<void> {
 /**
  * Handle CLI-driven panel ops (`ouijit markdown` / `ouijit preview`).
  *
- * Installed once for the life of the renderer: ops address a terminal by ptyId
- * through the global registry, which outlives any view.
+ * Installed once for the life of the renderer; ops address a terminal by ptyId
+ * through the global registry.
  */
 export function installCliPanelListener(): () => void {
   return window.api.cliPanels.onOp((op) => void handleOp(op));
