@@ -56,20 +56,46 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 const span = (progress: number, from: number, to: number) => clamp01((progress - from) / (to - from));
 
+const HEALTH_BEATS = ['advice', 'tip', 'note', 'send'] as const;
+
 /**
- * One run of progress spread over the diff's answer to a hotspot: the tooltip
- * the chip carries, the note written on the line it points at, and the note
- * going to the agent. The theater spent three beats on this; here it is one
- * pass with no way back to the start.
+ * What the history says and what you do about it, in one frame: the panel's
+ * reading of a file, then the same reading on the file's own row in a diff, the
+ * note written under it, and the note handed to the agent. Answering a hotspot
+ * is the point of finding one, so the two are never apart.
  */
-function RespondingDiff({ progress }: { progress: number }) {
+function HealthRun({ p }: { p: (k: string) => number }) {
+  const answering = p('tip') > 0.02;
+  /* Both fill the frame and cross over in it. Positioned inline because
+     `.glass-bevel > *` pins every direct child to position relative. */
+  const layer = (shown: boolean) => ({
+    position: 'absolute' as const,
+    inset: 0,
+    opacity: shown ? 1 : 0,
+    transition: 'opacity 300ms ease',
+  });
   return (
-    <NotedDiffPane
-      tip={progress < 0.3}
-      pNote={span(progress, 0.25, 0.78)}
-      pSend={span(progress, 0.82, 1)}
-    />
+    <>
+      <div className="flex flex-col" style={layer(!answering)}>
+        <MockAnalysis showAdvice />
+      </div>
+      <div style={layer(answering)}>
+        <NotedDiffPane tip={p('tip') < 1} pNote={p('note')} pSend={p('send')} />
+      </div>
+    </>
   );
+}
+
+/** The beats off one run of progress, for a frame that plays once. */
+function healthBeats(progress: number): (k: string) => number {
+  return (k) =>
+    k === 'advice'
+      ? span(progress, 0, 0.24)
+      : k === 'tip'
+        ? span(progress, 0.24, 0.44)
+        : k === 'note'
+          ? span(progress, 0.42, 0.82)
+          : span(progress, 0.84, 1);
 }
 
 /** The panel at the width the band gives it, not a window onto a wider one:
@@ -106,10 +132,6 @@ const COPY = {
   health: {
     title: 'See and respond to code health issues',
     body: 'Hotspots help you identify complexity, churn, and ownership risk, then highlight those problems when they’re most actionable.',
-  },
-  notes: {
-    title: 'Send notes back to the agent',
-    body: 'Leave a note on any changed line. They stay with the worktree until you hand the lot to the agent working in it.',
   },
   lens: {
     title: 'See diffs through a new lens',
@@ -161,7 +183,7 @@ function StripCard({
  * through them — no timeline, and nothing playing on its own.
  */
 export function ReviewStrip() {
-  const [respondRef, pRespond] = useEnterProgress(5200);
+  const [healthRef, pHealth] = useEnterProgress(9000);
   const [lensRef, pLens] = useEnterProgress(2600);
   const strip = useRef<HTMLDivElement | null>(null);
 
@@ -187,11 +209,8 @@ export function ReviewStrip() {
         </div>
       </div>
       <div className="rv-strip" ref={strip}>
-        <StripCard {...COPY.health} wash="desk-wash--prism-a">
-          <MockAnalysis showAdvice />
-        </StripCard>
-        <StripCard {...COPY.notes} wash="desk-wash--prism-b" onRef={respondRef}>
-          <RespondingDiff progress={pRespond} />
+        <StripCard {...COPY.health} wash="desk-wash--prism-a" onRef={healthRef}>
+          <HealthRun p={healthBeats(pHealth)} />
         </StripCard>
         <StripCard {...COPY.lens} wash="desk-wash--prism-c" onRef={lensRef}>
           <LensedDiffCard pPick={1} pParts={pLens} />
@@ -219,9 +238,9 @@ function Chapter({
   beats: readonly string[];
   beatMs: number;
   height: number;
-  surface: (p: (k: string) => number, at: number) => ReactNode;
+  surface: (p: (k: string) => number) => ReactNode;
 }) {
-  const { rootRef, p, t, active, paused, pauseAt, play } = useTheaterLoop(beats, beatMs);
+  const { rootRef, p, t, paused, pauseAt, play } = useTheaterLoop(beats, beatMs);
 
   return (
     <div className="rv-band" ref={rootRef}>
@@ -229,7 +248,7 @@ function Chapter({
         <DeskWash />
         <Fit height={height}>
           <TerminalCardView isActive backDepth={0}>
-            {surface(p, active)}
+            {surface(p)}
           </TerminalCardView>
         </Fit>
       </div>
@@ -249,9 +268,6 @@ function Chapter({
   );
 }
 
-/** The panel's own sections, in the order a reader works down it. */
-const READING = ['Hotspots', 'Modules', 'Coupled files', 'Knowledge'] as const;
-
 export function ReviewChapters() {
   return (
     <div>
@@ -259,17 +275,10 @@ export function ReviewChapters() {
       <div className="rv-chapters">
         <Chapter
           {...COPY.health}
-          beats={READING}
-          beatMs={3600}
-          height={520}
-          surface={(_p, at) => <MockAnalysis showAdvice={at === 0} readingAt={at === 0 ? undefined : READING[at]} />}
-        />
-        <Chapter
-          {...COPY.notes}
-          beats={['tip', 'note', 'send']}
+          beats={HEALTH_BEATS}
           beatMs={3200}
-          height={500}
-          surface={(p) => <NotedDiffPane tip={p('tip') < 1} pNote={p('note')} pSend={p('send')} />}
+          height={520}
+          surface={(p) => <HealthRun p={p} />}
         />
         <Chapter
           {...COPY.lens}
