@@ -39,20 +39,29 @@ import {
  */
 const LEAD_DROP = 20;
 
-const TOP = [
+interface Tool {
+  id: string;
+  shift: number;
+  w: number;
+  title: string;
+  body?: string;
+  Mock: typeof PaletteMock;
+}
+
+const TOP: Tool[] = [
   {
     id: 'palette',
     shift: LEAD_DROP,
     w: 540,
     title: 'Find anything with ⌘K',
-    body: '⌘K searches terminals, projects, tasks, and pull requests, ranked by how often you come back to them.',
+    body: 'Terminals, projects, tasks, and pull requests, ranked by how often you come back to them.',
     Mock: PaletteMock,
   },
   {
     id: 'sandbox',
     shift: LEAD_DROP,
     w: 470,
-    title: 'Secure agents in a sandbox',
+    title: 'Agents, sandboxed',
     body: "A Lima VM mounts only the task's worktree — or sandbox in place with Seatbelt and Landlock, via nono.",
     Mock: SandboxMock,
   },
@@ -61,50 +70,47 @@ const TOP = [
     shift: 26,
     w: 390,
     title: 'Jump anywhere from the keyboard',
-    body: '⌘1 through ⌘9 land on any terminal in the stack; the board, a new task, and a fresh terminal each have one too.',
     Mock: ShortcutsMock,
   },
   {
     id: 'scripts',
     shift: -22,
     w: 410,
-    title: 'Save the commands you always run',
-    body: "Dev server, tests, release — save them with the project and run them in any task's worktree.",
+    title: 'The commands you always run',
+    body: "Saved with the project, run in any task's worktree.",
     Mock: ScriptsMock,
   },
   {
     id: 'hooks',
     shift: 30,
     w: 430,
-    title: 'Run a command at every stage',
-    body: 'Start, continue, run, review, done: each stage runs the command you give it, task context included.',
+    title: 'Start, continue, review, done',
+    body: 'Each runs the command you give it, task context included.',
     Mock: HooksMock,
   },
 ];
 
-const BOTTOM = [
+const BOTTOM: Tool[] = [
   {
     id: 'cli',
     shift: LEAD_DROP,
     w: 1028,
     title: 'Drive the app with the CLI',
-    body: 'The <code>ouijit</code> CLI is on the PATH in every terminal the app opens — sandboxed ones included, nothing to install. Tasks, tags, hooks, scripts, drafts, themes: everything on this page, as commands with JSON out.',
+    body: 'The <code>ouijit</code> CLI is on the PATH in every terminal the app opens, sandboxed ones included. Tasks, tags, hooks, scripts, drafts, themes: everything on this page, as commands with JSON out.',
     Mock: CliMock,
   },
   {
     id: 'theme',
     shift: 26,
     w: 390,
-    title: 'Change any color',
-    body: 'Start from a preset or build your own — dark or light base, every color overridable, down to the ANSI palette.',
+    title: 'Every color, down to the ANSI palette',
     Mock: ThemeMock,
   },
   {
     id: 'tags',
     shift: -22,
     w: 410,
-    title: 'Filter by tag',
-    body: 'Tag terminals, then filter the stack to one tag — or group the home view by them.',
+    title: 'Tag a terminal, filter the stack',
     Mock: TagsMock,
   },
   {
@@ -112,7 +118,7 @@ const BOTTOM = [
     shift: 30,
     w: 430,
     title: 'Reopen where you left off',
-    body: "The next launch brings the session's terminals back in their worktrees, panels included.",
+    body: 'Terminals come back in their worktrees, panels included.',
     Mock: ResumeMock,
   },
 ];
@@ -122,7 +128,7 @@ const GAP = 18;
 /** One copy of a row, gaps included — how far the script slides a ribbon
  *  before it is back where it started. Speed and direction live in the
  *  script, since they follow the pointer. */
-const runWidth = (row: typeof TOP) => row.reduce((sum, c) => sum + c.w + GAP, 0);
+const runWidth = (row: Tool[]) => row.reduce((sum, c) => sum + c.w + GAP, 0);
 
 if (runWidth(TOP) !== runWidth(BOTTOM)) {
   throw new Error(
@@ -155,7 +161,7 @@ if (runWidth(TOP) !== runWidth(BOTTOM)) {
                     <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain" /></div>
                     <div class="desk-wash-field bento-lit-field" aria-hidden="true"><span class="desk-wash-grain" /></div>
                     <div class="detail-title">{card.title}</div>
-                    <p set:html={card.body} />
+                    {card.body && <p set:html={card.body} />}
                     <div class="bento-stack" aria-hidden="true"><Mock /></div>
                   </article>
                 );
