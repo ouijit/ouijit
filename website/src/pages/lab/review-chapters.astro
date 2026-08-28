@@ -1,0 +1,9 @@
+---
+import Site from '../../layouts/Site.astro';
+import { ReviewChapters } from '../../components/demo/ReviewConcepts.tsx';
+---
+<Site title="Lab · Review, the chapters" noindex>
+  <section class="home-review">
+    <ReviewChapters client:visible />
+  </section>
+</Site>

@@ -439,7 +439,7 @@ function ReviewSession({ p }: { p: (k: string) => number }) {
 
 /** The review terminal: session left, noted diff split right. `depth` is its
  * place in the stack — 0 while it holds the front, higher once it does not. */
-function RoundTripTerminal({ p, depth, tip }: { p: (k: string) => number; depth: number; tip?: boolean }) {
+export function RoundTripTerminal({ p, depth, tip }: { p: (k: string) => number; depth: number; tip?: boolean }) {
   const fixtures = getPanelFixtures('pty-101-dev');
   const receded = depth > 0;
   const fixing = p('fix') > 0.06;
@@ -718,7 +718,7 @@ function DocPart({ part, at }: { part: (typeof LENS_PARTS)[number]; at: number }
  *  over the rail, the parts an agent grouped the change into, and the document
  *  in that order. `pPick` opens the picker and spends the run, `pParts` lands
  *  the grouping. */
-function LensedDiffCard({ pPick, pParts }: { pPick: number; pParts: number }) {
+export function LensedDiffCard({ pPick, pParts }: { pPick: number; pParts: number }) {
   const written = pParts > 0.02;
   const menuOpen = pPick > 0.12 && pPick < 0.55;
   const writing = pPick >= 0.55 && !written;
