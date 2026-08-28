@@ -163,9 +163,6 @@ function LensRow({
   busy: boolean;
 }) {
   return (
-    // Nothing about the row is pressable except the two buttons: running costs
-    // an agent and editing does not, so a press that could be either is a press
-    // nobody can make on purpose.
     <div className="flex items-center gap-3 px-4 py-3">
       <span className="flex-1 min-w-0">
         <span className="block text-[13px] text-text-primary truncate">{lens.name}</span>
@@ -282,8 +279,6 @@ function LensForm({
 
       <div>
         <label className="block text-[11px] text-text-tertiary mb-1">How to group it</label>
-        {/* Prose, not a command: the title, the description and the diff are put
-            in front of the agent by Ouijit, and this is the reader's part. */}
         <textarea
           ref={commandRef}
           rows={3}

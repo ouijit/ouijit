@@ -761,8 +761,8 @@ export async function removeTaskWorktree(
     }
 
     // Notes and lenses are keyed by worktree path, and this path is handed out
-    // again the next time this task is started — without this they would come
-    // back with it, describing a tree that has been rebuilt since.
+    // again the next time the task starts: left here they would come back with
+    // it, describing a tree rebuilt since.
     await clearDiffNotes(worktreePath);
     await deleteWorktreeDiffLenses(projectPath, worktreePath);
 

@@ -129,11 +129,6 @@ export function PullRequestDetailView({
   // rebuild it.
   const fileOrder = useMemo(() => treeFileOrder(files), [files]);
 
-  /**
-   * This pull request's lens, bound once where both the rail and the document
-   * read the same result. Keyed to the pull request rather than the head, so a
-   * run outlives closing the pane to go and look at something else.
-   */
   const lens = useLensSession(
     {
       projectPath,
@@ -203,8 +198,8 @@ export function PullRequestDetailView({
             topmost = anchor;
           }
         }
-        // Which part of the change it sits in, not just which file: the same
-        // file three parts down is a different place in the reading.
+        // The part it sits in, not just the file: the same file three parts down
+        // is a different place in the reading.
         if (topmost?.dataset.path) {
           const group = topmost.closest<HTMLElement>('[data-group]')?.dataset.group;
           useGithubStore.getState().setActiveSection(sectionKey(group, topmost.dataset.path));

@@ -1,8 +1,7 @@
 /**
- * Handed to the agent CLI rather than described in the prompt, so a reply is
- * either this or a failed run. What the fields *mean* is still the prompt's job:
- * a schema can say `ranges` is a pair of numbers, not that they are new-file
- * line numbers.
+ * Handed to the agent CLI, so a reply is either this or a failed run. What the
+ * fields *mean* is still the prompt's job: a schema can say `ranges` is a pair of
+ * numbers, not that they are new-file line numbers.
  *
  * Every field is required and every optional one nullable, which is what Codex's
  * strict mode demands; `parseLens` reads a null as an absent field.

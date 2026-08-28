@@ -125,9 +125,6 @@ Examples:
     });
 
   // ── Lens ────────────────────────────────────────────────────────────
-  // A lens on one pull request: the parts of the change, and which hunks make up
-  // each part. Written by whatever has read the diff, since a grouping worth
-  // having is specific to one change.
   const lens = pr
     .command('lens')
     .description('Write the lens shown in the Code pane')

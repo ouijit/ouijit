@@ -16,7 +16,7 @@ interface PullRequestRailProps {
   files: PullRequestFile[];
   /** Takes the document to a file, or with no path back to the top. */
   onSelect: (path: string | null, group?: string) => void;
-  /** This pull request's lens, the same session the document reads. */
+  /** The same session the document reads. */
   lens: LensSession;
   lenses: LensSummary[];
   onOpenLenses: () => void;

@@ -88,14 +88,10 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
 }
 
 /**
- * The answer out of a `--output-format json` envelope, where `structured_output`
- * is the schema-checked object itself.
- *
- * Two fields go to the log and nowhere else. `permission_denials`, because the
- * run is told it has no tools and anything in there means the isolation is not
- * holding. And `total_cost_usd`, which is what the tokens would price at on API
- * billing — a subscription login is not charged it and Codex reports nothing
- * comparable, so it is never a number to put in front of a user.
+ * `structured_output` is the schema-checked object itself. Two fields go to the
+ * log and nowhere else: `permission_denials`, where anything at all means the
+ * isolation is not holding, and `total_cost_usd`, which is API list price — a
+ * subscription login is not charged it and Codex reports nothing comparable.
  */
 function fromEnvelope(output: string): { json: string | null; listPriceUsd?: number } {
   try {
@@ -159,8 +155,7 @@ function capture(command: string, args: string[], stdin: string, cwd: string, si
 
     const kill = () => {
       child.kill('SIGTERM');
-      // As in the hook runner: an agent that ignores SIGTERM would otherwise
-      // outlive the window that asked for it.
+      // An agent that ignores SIGTERM would outlive the window that asked for it.
       setTimeout(() => child.kill('SIGKILL'), 2000).unref?.();
     };
 

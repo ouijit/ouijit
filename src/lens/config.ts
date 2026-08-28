@@ -63,8 +63,7 @@ export async function listLenses(projectPath: string): Promise<LensSummary[]> {
   const minted = stored.some((lens) => !lens.id);
   const lenses = stored.map((lens) => ({ ...lens, id: lens.id ?? randomUUID() }));
 
-  // No schema to migrate, and an id minted per read would key nothing — so the
-  // backfill is written back the first time a project's lenses are asked for.
+  // Written back rather than minted per read, which would key nothing.
   if (minted) await writeLenses(projectPath, lenses);
   return lenses;
 }

@@ -395,8 +395,8 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
 
   /**
-   * The parts each file is on screen in. Marking one part read has to know what
-   * the others are, since the claim that gets written down is about the file.
+   * Marking one part read has to know what the others are, since the claim that
+   * gets written down is about the file.
    */
   const partsOf = useMemo(() => {
     const byFile = new Map<string, string[]>();

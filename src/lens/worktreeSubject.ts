@@ -17,34 +17,29 @@ import { writeLens } from './writeLens';
 
 export interface DiffLensTarget {
   projectPath: string;
-  /** The worktree the diff is of. A lens is keyed to this and not to the project. */
+  /** A lens is keyed to this and not to the project. */
   worktreePath: string;
   /** What the diff is taken against. Null or `HEAD` leaves the uncommitted changes. */
   base: string | null;
   branch: string | null;
   mergeTarget?: string;
-  /** Whatever names the change for the agent — usually the task. */
   title?: string;
   description?: string;
   /**
-   * The files the pane is showing, for the pin a read compares. A write ignores
-   * these and lists its own: what an agent is handed is what git says now, not
-   * what a pane last drew.
+   * The files the pane is showing, for the pin a read compares. A write lists its
+   * own: an agent is handed what git says now, not what a pane last drew.
    */
   files?: ChangedFile[];
 }
 
 /**
- * What the lens was written against, for comparing later.
+ * The shape of the change is in every pin, since `git diff --merge-base <base>`
+ * runs through to uncommitted edits: two SHAs alone would call a lens fresh while
+ * the reader types under it. Approximate — an edit preserving line counts does
+ * not register — but cheap enough to compute on a poll.
  *
- * The shape of the change is in it either way, because the panel shows the
- * working tree either way: `git diff --merge-base <base>` runs through to
- * uncommitted edits, so two SHAs alone would call a lens fresh while the reader
- * is typing under it. Approximate — an edit preserving line counts does not
- * register as drift — but cheap enough to compute on a poll.
- *
- * Against another ref the revisions go in front. They distinguish a commit from
- * an edit of the same lines, and make the base advancing a non-event: both sides
+ * Against another ref the revisions go in front, which tells a commit from an
+ * edit of the same lines and makes the base advancing a non-event: both sides
  * read `merge-base(base, branch)`, which an unrelated commit does not move.
  *
  * `files` is a thunk so a caller that has just listed them does not pay for a

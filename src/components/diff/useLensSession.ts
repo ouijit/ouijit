@@ -34,16 +34,13 @@ interface TrackedRun extends LensRun {
   /**
    * Picked up from main rather than started here. A run this pane started clears
    * itself when the call returns; one it found already going has only the next
-   * read to end it. Ending unadopted runs there too would kill a live spinner in
-   * the gap between starting a run and main recording it.
+   * read to end it. Ending both there would kill a live spinner in the gap
+   * between starting a run and main recording it.
    */
   adopted: boolean;
 }
 
-/**
- * Outside React because a run happens in the main process and outlives the pane
- * that started it. By key so two diffs can be read at once.
- */
+/** Outside React: a run happens in main and outlives the pane that started it. */
 const runs = new Map<string, TrackedRun>();
 const listeners = new Set<() => void>();
 
@@ -86,9 +83,8 @@ export interface LensSession {
   setLensOn: (on: boolean) => void;
   writing: LensRun | null;
   /**
-   * Bumped when the document rearranges itself unasked. Not on every read: a
-   * poll that finds the same lens, and a pane opened on a diff that already had
-   * one, changed nothing under the reader.
+   * Bumped when the document rearranges itself unasked. Not on every read: a poll
+   * finding the same lens changed nothing under the reader.
    */
   landed: number;
   run: (pick: LensSummary) => Promise<void>;
@@ -106,8 +102,8 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
 
   /**
    * Whether the reader has overridden the default, which is to show a lens once
-   * there is one. Null rather than a boolean so an arriving lens can return to
-   * the default without guessing what the reader last pressed.
+   * there is one. Null so an arriving lens can return to that default without
+   * guessing what the reader last pressed.
    */
   const [chosen, setChosen] = useState<boolean | null>(null);
   const lensOn = chosen ?? true;
@@ -133,8 +129,8 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
     }
     if (sourceRef.current.key !== at) return;
 
-    // Their own run finishing, or a grouping written elsewhere arriving — as
-    // against the first read for a diff, which is how they found it.
+    // Their own run finishing, or one written elsewhere arriving — as against the
+    // first read for a diff, which is how they found it.
     const arriving = Boolean(next?.groups) && held.current.read && (runs.has(at) || !held.current.grouped);
     held.current = { grouped: Boolean(next?.groups), read: true };
 
@@ -161,11 +157,9 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
 
   useEffect(() => {
     if (!key) return;
-    // A lens written elsewhere — another pane, a renderer reloaded mid-run, an
-    // agent over the CLI — shown as soon as it lands. Not one started here:
-    // that run reads back for itself when the call returns, and main pushes
-    // before the call resolves, so answering both would lay the arriving
-    // grouping in twice over.
+    // Not one started here: that run reads back for itself when the call returns,
+    // and main pushes before the call resolves, so answering both would lay the
+    // arriving grouping in twice over.
     return window.api.lens.onChanged((changed) => {
       if (changed.projectPath !== projectPath || changed.subjectKey !== key) return;
       if (!startedHere(key)) void refresh(true);
@@ -184,8 +178,8 @@ export function useLensSession(source: LensSource, diffs: Map<string, FileDiff |
           useProjectStore.getState().addToast(result.error ?? `“${pick.name}” could not read this change`, 'error');
           return;
         }
-        // Read back here rather than waited for on the push, which exists for
-        // the other writer: an agent using the CLI, in a process this cannot see.
+        // Read back here rather than waited for on the push, which exists for the
+        // other writer: an agent over the CLI, in a process this cannot see.
         if (sourceRef.current.key === at) await refresh(true);
       } catch (error) {
         useProjectStore.getState().addToast(`Could not write the lens: ${describeError(error)}`, 'error');

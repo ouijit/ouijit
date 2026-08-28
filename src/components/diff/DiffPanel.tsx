@@ -87,7 +87,6 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
   const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [filesFingerprint]);
-  // The order a lens's groups are sorted into.
   const order = useMemo(() => treeFileOrder(files), [files]);
   const promptChars = useMemo(() => estimateLensPromptChars(files), [files]);
   const truncated = totalFileCount > MAX_DIFF_FILES;
@@ -118,8 +117,6 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     [analysisSignals],
   );
 
-  // What a lens over this diff is written against. Null only when there is no
-  // path to key one to.
   const lensTarget = useMemo<DiffLensTarget | null>(
     () =>
       gitPath
@@ -297,7 +294,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   }, [files, truncated, totalFileCount]);
 
   // The key is the caller's to give: a lens can name the same file in more than
-  // one part, and React would otherwise keep only the second copy.
+  // one part, and React would keep only the last copy.
   const renderFile = (file: (typeof files)[number], key?: string, slice?: ResolvedSlice) => {
     const section = key ?? file.path;
     const diff = sliceFor(file.path, diffs.get(file.path), slice?.hunks);

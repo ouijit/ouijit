@@ -2,14 +2,12 @@ import { useCallback, useRef } from 'react';
 import type { FileDiff } from '../../types';
 
 /**
- * Sliced diffs, kept identical across renders while their source is. Narrowing a
- * file builds a new `FileDiff`, which the tokenizer reads as a different file —
- * so slicing in the render re-highlights the whole diff every time.
+ * Narrowing a file builds a new `FileDiff`, which the tokenizer reads as a
+ * different file — so slicing in the render re-highlights the whole diff every
+ * time.
  *
- * Held per path and dropped when the diff under them is replaced: keyed by hunks
- * alone, every reload of an edited file would leave its predecessor's full diff
- * behind. Several slices of one diff live at once, since a file split across
- * three parts is on screen three times.
+ * Keyed by path and dropped when the diff under it is replaced: keyed by hunks
+ * alone, every reload of an edited file would leave its predecessor behind.
  */
 export function useDiffSlices() {
   const cache = useRef(new Map<string, { source: FileDiff; slices: Map<string, FileDiff> }>());

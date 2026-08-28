@@ -716,9 +716,9 @@ const routes: Route[] = [
   ),
 
   // ── Lens ─────────────────────────────────────────────────────
-  // Sandbox-reachable for the same reason drafts are: this is where an agent
-  // that has read the diff writes down what it found, and the safest agent is
-  // the one running contained. It touches one local table and no credentials.
+  // Sandbox-reachable, like drafts: this is where an agent that has read the
+  // diff writes down what it found, and it touches one local table and no
+  // credentials.
   route(
     'GET',
     'pulls/:number/lens',

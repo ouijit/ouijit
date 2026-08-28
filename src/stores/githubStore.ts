@@ -58,10 +58,7 @@ interface GithubStoreState {
   detailError: string | null;
 
   files: PullRequestFile[];
-  /**
-   * Parsed diffs per path, held here so the rail binds a lens to the same hunks
-   * the document renders.
-   */
+  /** Parsed diffs per path. The rail binds a lens to these, as the document does. */
   diffs: Map<string, FileDiff | null>;
   filesLoading: boolean;
   filesError: string | null;
@@ -76,29 +73,25 @@ interface GithubStoreState {
   viewedPaths: string[];
 
   /**
-   * Parts of a file the reviewer has finished with, where a lens has split one
-   * across several parts. The file is claimed whole once every piece of it has
-   * been, at which point the claim moves to `viewedPaths` and is written down.
+   * Parts of a file the reviewer has finished with. The file is claimed whole once
+   * every piece of it has been, at which point the claim moves to `viewedPaths`
+   * and is written down.
    *
-   * Not kept on disk, unlike that claim: these name the parts of one lens, and
-   * the next lens over this change cuts it somewhere else. A set rather than a
-   * list because nothing carries it anywhere: it is only ever asked whether a
-   * part is in it.
+   * Not kept on disk, unlike that claim: these name the parts of one lens, and the
+   * next lens over this change cuts it somewhere else.
    */
   viewedSections: Set<string>;
 
   /**
-   * Parts of the lens folded away in the document, by id. Survives leaving the
-   * pane and coming back; not kept on disk, since a fold is where you are in a
-   * document rather than what you think of it.
+   * Parts of the lens folded away, by id. Survives leaving the pane; not kept on
+   * disk, since a fold is where you are in a document rather than a verdict on it.
    */
   collapsedGroups: Set<string>;
 
   /**
-   * The section the reader is on, for the rail to mark — one part of one file,
-   * which under a lens is not the same as the file. Here rather than in the
-   * detail view: it changes on every scroll frame, and view state would
-   * re-render the whole diff each time.
+   * The section the reader is on, for the rail to mark. Here rather than in the
+   * detail view: it changes on every scroll frame, and view state would re-render
+   * the whole diff each time.
    */
   activeSection: string | null;
 

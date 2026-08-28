@@ -141,12 +141,6 @@ export function DiffFileTreeNodes<T extends ChangedFile>({
   );
 }
 
-/**
- * The same files under the lens's headings, each part folding like a folder.
- *
- * The tree is kept inside every part rather than flattened to basenames: which
- * directories a part touches is most of what says what kind of change it is.
- */
 function DiffFileTreeChapters<T extends ChangedFile>({
   groups,
   byPath,
@@ -166,10 +160,9 @@ function DiffFileTreeChapters<T extends ChangedFile>({
   activeSection?: string | null;
   revealing?: boolean;
 }) {
-  // Held across renders because `DiffFileTreeNodes` memoises its tree on the
-  // array it is handed: rebuilt in the render, every part's tree is rebuilt on
-  // every scroll. Counted as the part claims them, so the rail and the card it
-  // scrolls to do not report a file split across three parts three times over.
+  // `DiffFileTreeNodes` memoises its tree on the array it is handed, so rebuilding
+  // these in the render rebuilds every part's tree on every scroll. Counts are the
+  // part's own, or a file in three parts reports its whole diff in each.
   const parts = useMemo(() => {
     const built = new Map<string, { files: T[]; hunks: Map<string, number> }>();
     for (const group of groups) {
@@ -241,9 +234,8 @@ export function DiffFileTree({
   const chaptered = lens?.groups;
 
   return (
-    // Chaptered, the list opens with a part's bar, level with the one the
-    // document opens with across the seam. Padding above would drop the rail's
-    // half of that band by its height.
+    // Chaptered, the list opens with a part's bar, which has to sit level with the
+    // one the document opens with across the seam.
     <div className={`flex-1 overflow-y-auto pb-2 ${chaptered ? '' : 'pt-2'}`}>
       {header}
       {chaptered ? (

@@ -1,10 +1,6 @@
 /**
- * How a lens names the diff it was written over. Main writes these keys, the
- * repo deletes a worktree's by their shared prefix, and the renderer compares
- * the key a broadcast carries against the one it built itself — so the format
- * cannot live in any of the three.
- *
- * Free of node and React, so all of them can import it.
+ * How a lens names the diff it was written over. Main, the repo and the renderer
+ * all build or match these, so the format lives here and free of node and React.
  */
 
 import { UNCOMMITTED_BASE } from '../diffSource';
@@ -25,11 +21,7 @@ export function worktreeSubjectKey(worktreePath: string, base: string | null): s
   return `${worktreeKeyPrefix(worktreePath)}${base ?? UNCOMMITTED_BASE}`;
 }
 
-/**
- * What a push says when a lens is written or cleared by something outside the
- * pane. One announcement for every kind of diff there is: a pane compares the
- * key against the one it built itself.
- */
+/** One announcement for every kind of diff: a pane matches on the key. */
 export interface LensChangedPayload {
   projectPath: string;
   subjectKey: string;

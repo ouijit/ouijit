@@ -30,18 +30,17 @@ export interface LensAgent {
 }
 
 /**
- * The presets, in the order a machine with both installed picks between them.
+ * In the order a machine with both installed picks between them. What the flags
+ * buy, since dropping one silently costs the isolation:
  *
- *   claude  `-p` reads the prompt from stdin. `--safe-mode` is the isolation:
- *           no repository hooks, skills, plugins, MCP servers or CLAUDE.md,
- *           while auth and the model still work normally. `--tools ""` leaves
- *           nothing to call, `--json-schema` holds the reply to the shape, and
- *           `--output-format json` carries it back under `structured_output`.
- *   codex   `exec -` reads the prompt from stdin. `--ignore-user-config` and
+ *   claude  `-p` reads the prompt from stdin, `--safe-mode` loads none of the
+ *           repository's hooks, skills, plugins, MCP servers or CLAUDE.md,
+ *           `--tools ""` leaves nothing to call, and `--output-format json`
+ *           carries the reply back under `structured_output`.
+ *   codex   `exec -` reads the prompt from stdin, `--ignore-user-config` and
  *           `--ignore-rules` drop the config and execpolicy files, `--ephemeral`
- *           leaves no session behind, `-s read-only` is the sandbox.
- *           `--output-schema` takes a file, and `-o` writes the final message to
- *           one — stdout is a banner and a progress log.
+ *           leaves no session behind, and `-s read-only` is the sandbox. `-o`
+ *           writes the final message to a file — stdout is a banner and a log.
  */
 export const LENS_AGENTS: LensAgent[] = [
   {

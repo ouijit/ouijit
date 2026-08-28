@@ -1,8 +1,7 @@
 /**
- * Lens runs happening in this process. A row in `diff_lenses` marked running
- * says an agent was started for that diff; whether it is still going is only
- * knowable here, and this does not survive a quit — which is how an interrupted
- * run is told from a live one on the next launch.
+ * A row in `diff_lenses` marked running says an agent was started for that diff.
+ * Whether it is still going is only knowable here, and this does not survive a
+ * quit — which is how an interrupted run is told from a live one.
  */
 
 interface LiveRun {
@@ -30,10 +29,7 @@ export function liveRun(projectPath: string, subjectKey: string): string | null 
   return live.get(keyFor(projectPath, subjectKey))?.lensId ?? null;
 }
 
-/**
- * Quitting. The agent is a child of this process and would outlive it; the
- * stored mark stays, so the next launch reports the run interrupted.
- */
+/** The stored mark is left, so the next launch reports the run interrupted. */
 export function abortLensRuns(): void {
   for (const run of live.values()) run.abort.abort();
   live.clear();

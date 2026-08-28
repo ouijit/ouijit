@@ -44,9 +44,8 @@ export interface DiffFileSectionProps {
   failedLabel?: string;
   collapsed?: boolean;
   /**
-   * Which copy of the file this is, when a lens has put it in more than one
-   * part. `path` names the file, which is not the same thing: fold one part of
-   * it and the others must stay as they were.
+   * Which copy of the file this is, where a lens has put it in more than one part:
+   * fold one and the others must stay as they were.
    */
   sectionId?: string;
   /** Enables the fold control, on this copy of the file alone. */

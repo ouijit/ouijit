@@ -582,9 +582,9 @@ class PullRequestSubject implements DiffSubject {
   }
 
   /**
-   * The head the lens describes: a force-push moves it, and the hunks the lens
-   * points at go with it. The freshly fetched head wins where there is one, so a
-   * write pins to what it read rather than to what the pane was showing.
+   * A force-push moves the head, and the hunks the lens points at go with it. The
+   * freshly fetched head wins, so a write pins to what it read rather than to
+   * what the pane was showing.
    */
   pin(): Promise<string> {
     const headSha = this.detail?.headSha ?? this.headSha;

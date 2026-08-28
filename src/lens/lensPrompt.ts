@@ -19,7 +19,6 @@ export interface LensFile {
   oldPath?: string;
 }
 
-/** What is being grouped, in the words the prompt opens with. */
 export interface LensSubject {
   lead: string;
   /** Markdown heading naming it — a PR number and title, or a branch. */
@@ -57,9 +56,9 @@ function truncate(text: string, max: number): string {
 }
 
 /**
- * Every file, every hunk, and where each one sits. Sent whole, always: it is
- * bounded by how many hunks a change has rather than how large they are, and a
- * grouping never told a file exists can only leave it out.
+ * Every file and every hunk, never trimmed: this is bounded by how many hunks a
+ * change has rather than how large they are, and a grouping never told a file
+ * exists can only leave it out.
  */
 function skeleton(files: LensFile[], diffs: Map<string, FileDiff | null>): string {
   const out: string[] = [];
@@ -90,9 +89,8 @@ function skeleton(files: LensFile[], diffs: Map<string, FileDiff | null>): strin
 }
 
 /**
- * Hunk bodies, in file order, until the budget runs out. Truncating here rather
- * than dropping files degrades the tail of a very large change from "read the
- * code" to "read the shape", instead of pretending it is not there.
+ * Hunk bodies until the budget runs out. Dropping the tail of a very large change
+ * from "read the code" to "read the shape" beats pretending it is not there.
  */
 function bodies(
   files: LensFile[],
@@ -128,10 +126,6 @@ function bodies(
 /** Above this a file is worth naming as one the change should be careful with. */
 const HOTSPOT_SCORE = 0.6;
 
-/**
- * What git history says about the files being changed, where it says anything.
- * Only the ones that stand out — those left out are the ordinary ones.
- */
 function hotspots(files: LensFile[], signals: DiffSignals | null | undefined): string {
   if (!signals) return '';
 
@@ -156,9 +150,8 @@ function hotspots(files: LensFile[], signals: DiffSignals | null | undefined): s
 }
 
 /**
- * A lens instruction says how to divide one change; everything true of every
- * grouping belongs here instead, so that a lens a user writes themselves still
- * gets it.
+ * A lens instruction says how to divide one change. Everything true of every
+ * grouping belongs here, so a lens a user writes themselves still gets it.
  */
 const GROUPING_GUIDE = `# What makes a good grouping
 
@@ -192,13 +185,10 @@ const OUTPUT_CONTRACT = `# The grouping
   of odds and ends. Whatever no group claims is shown at the end under its own
   heading.`;
 
-/**
- * Near enough, from the additions and deletions a status poll already returns,
- * so asking costs nothing and spawns no git.
- */
+/** From what a status poll already returns, so asking costs nothing and spawns no git. */
 export function estimateLensPromptChars(files: { additions: number; deletions: number }[]): number {
-  // Averages, for a number shown with a tilde in front: a heading and a hunk
-  // header or two per file, a marker and its text per changed line.
+  // Averages, for a number shown with a tilde: a heading and a hunk header or two
+  // per file, a marker and its text per changed line.
   return files.reduce((chars, file) => chars + 120 + (file.additions + file.deletions) * 40, 0);
 }
 

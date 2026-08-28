@@ -110,7 +110,6 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               can be shown in that order instead of a list of files.
             </p>
             <LensList projectPath={projectPath} />
-            {/* Under the list, not in it: a setting about all of them. */}
             <div className="mt-3 -ml-2.5">
               <LensAgentRow projectPath={projectPath} />
             </div>

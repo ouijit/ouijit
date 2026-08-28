@@ -1,8 +1,7 @@
 /**
- * How far through a pull request the reviewer is, when a lens has split it. A
- * lens can put one file in three parts and each is read on its own, but what
- * survives is a claim about the file: a part is held apart only until every part
- * of its file has been marked, at which point the file itself is.
+ * A lens can put one file in three parts and each is read on its own, but what
+ * survives is a claim about the file: parts are held apart only until every part
+ * of a file has been marked, at which point the file itself is.
  */
 
 export function isSectionViewed(
@@ -17,7 +16,7 @@ export function isSectionViewed(
 export interface ViewedChange {
   /** Parts still marked on their own. */
   sections: Set<string>;
-  /** Set only when the file's own claim moves — every part read, or one of them unread again. */
+  /** Set only when the file's own claim moves: every part read, or one unread again. */
   file?: boolean;
 }
 

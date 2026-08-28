@@ -15,8 +15,8 @@ export interface StoredLens {
   /** Which lens wrote it. Null when an agent posted groups directly. */
   lensId: string | null;
   /**
-   * A display fallback, not the identity: prefer the current name by id. This is
-   * what is left to call the grouping once that lens has been deleted.
+   * A display fallback, not the identity: prefer the current name by id. All that
+   * is left to call the grouping once that lens has been deleted.
    */
   lensName: string | null;
   /** Written against a different diff than the one on screen. */
@@ -27,17 +27,14 @@ export interface StoredLens {
    */
   omitted: number;
   /**
-   * A run recorded against this diff, if the lens it names still exists. `live`
-   * says an agent is writing it now, which only the process that started one can
-   * answer; not live means that process ended first and the run can be offered
-   * again.
+   * `live` says an agent is writing it now, which only the process that started
+   * one can answer. Not live means that process ended first, so the run can be
+   * offered again.
    */
   running: { lensId: string; lensName: string; since: string | null; live: boolean } | null;
 }
 
-/**
- * Null for a lens since deleted: nothing to run again and nothing to call it.
- */
+/** Null for a lens since deleted: nothing to run again and nothing to call it. */
 async function runningOn(subject: DiffSubject, row: { running_lens_id: string | null; running_since: string | null }) {
   if (!row.running_lens_id) return null;
   const lens = (await listLenses(subject.projectPath)).find((l) => l.id === row.running_lens_id);
@@ -52,8 +49,7 @@ async function runningOn(subject: DiffSubject, row: { running_lens_id: string | 
 
 /**
  * Null only when nothing has been written. A stale lens comes back named even
- * where its groups are dropped, or the picker has no way to offer writing it
- * again.
+ * where its groups are dropped, or nothing can offer to write it again.
  */
 export async function readLens(subject: DiffSubject): Promise<StoredLens | null> {
   const row = await getDiffLens(subject.projectPath, subject.key);

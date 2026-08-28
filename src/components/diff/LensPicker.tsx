@@ -182,9 +182,8 @@ export function LensPicker({
           aria-haspopup="menu"
           aria-expanded={open}
           title={triggerTitle({ writing, showingLens, onFile, label: appliedLabel, staleOffered, interrupted })}
-          // Fills the ledge it is given rather than setting its own height:
-          // what it lines up with sits across the seam, and the two surfaces
-          // that draw this put a different thing there.
+          // Fills the ledge rather than setting its own height: what it lines up
+          // with is across the seam, and differs between the two panes.
           className={`w-full h-full shrink-0 flex items-center gap-1.5 pl-3 pr-3 text-[13px] text-left transition-colors duration-150 ease-out hover:bg-ink/5 ${
             open ? 'bg-ink/[0.07] text-ink' : writing ? 'text-ink/45' : 'text-ink/70'
           }`}

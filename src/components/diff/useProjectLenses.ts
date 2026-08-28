@@ -2,13 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import type { LensSummary } from '../../lens/config';
 
 /**
- * The lenses a project keeps. Local rather than in the github store: that
- * store's loaders are guarded against the panel's active project, which settings
- * never sets, and a worktree diff reads this list with no pull request open at
- * all.
- *
- * An empty list on failure, since every caller offers these alongside a flat
- * file list that works without them.
+ * Not in the github store: its loaders are guarded against the panel's active
+ * project, which settings never sets, and a worktree diff reads this list with no
+ * pull request open at all.
  */
 export function useProjectLenses(projectPath: string): LensSummary[] {
   const [lenses, setLenses] = useState<LensSummary[]>([]);

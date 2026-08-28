@@ -488,16 +488,12 @@ export interface IpcPushContract {
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };
   /** A review draft was written or discarded outside the renderer (the CLI). */
   'github:drafts-changed': { args: [payload: GithubDraftsChangedPayload] };
-  /**
-   * A project's lenses were added to or deleted from. Every picker and list
-   * holds its own copy of `lens:list`, so each reads its own again.
-   */
+  /** Every picker and list holds its own copy of `lens:list`, so each reads again. */
   'lens:list-changed': { args: [projectPath: string] };
   /**
-   * A run over one diff ended, however it ended, for a pane that did not start
-   * it: a renderer reloaded mid-run, or an agent writing over the CLI. One
-   * channel for every kind of diff — the payload names which, the way main and
-   * the renderer both name it.
+   * A run over one diff ended, for a pane that did not start it: a renderer
+   * reloaded mid-run, or an agent writing over the CLI. One channel for every
+   * kind of diff, the payload's key naming which.
    */
   'lens:changed': { args: [payload: LensChangedPayload] };
 }

@@ -8,10 +8,9 @@ interface Anchor {
 }
 
 /**
- * Holds the reader's place across a relayout of the whole pane. A lens landing
- * rebuilds every card — they are keyed by the part that holds them, so React
- * keeps none of them — and the scroll offset the browser keeps through that is
- * by then a count of pixels into a different file.
+ * A lens landing rebuilds every card — they are keyed by the part that holds
+ * them, so React keeps none — and the scroll offset the browser keeps through
+ * that is by then a count of pixels into a different file.
  *
  * Only where the reader had scrolled: holding someone at the top to the first
  * file would put the part that file belongs to above the fold on arrival.
