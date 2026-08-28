@@ -120,7 +120,7 @@ describe('opening a file in the editor', () => {
     await waitFor(() => expect(window.api.openFileInEditor).toHaveBeenCalledTimes(2));
   });
 
-  test('backing out of the request opens nothing, and says when the file itself is gone', async () => {
+  test('backing out of the request opens nothing', async () => {
     vi.mocked(window.api.openFileInEditor).mockReset().mockResolvedValue({ success: false, reason: 'no-editor' });
 
     await clickOpenInEditor();
@@ -128,11 +128,15 @@ describe('opening a file in the editor', () => {
 
     await waitFor(() => expect(useUIStore.getState().editorHookQueue).toHaveLength(0));
     expect(window.api.openFileInEditor).toHaveBeenCalledTimes(1);
+  });
 
-    vi.mocked(window.api.openFileInEditor).mockResolvedValue({ success: false, reason: 'missing-file' });
-    fireEvent.click(screen.getByRole('button', { name: /Open in editor/ }));
+  test('says when the file itself is gone', async () => {
+    vi.mocked(window.api.openFileInEditor).mockReset().mockResolvedValue({ success: false, reason: 'missing-file' });
+
+    await clickOpenInEditor();
 
     expect(await screen.findByText('engine.ts no longer exists')).toBeTruthy();
+    expect(useUIStore.getState().editorHookQueue).toHaveLength(0);
   });
 });
 

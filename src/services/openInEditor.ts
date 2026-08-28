@@ -57,6 +57,8 @@ export async function openFileInEditor(
 
   addToast(`${result.editor} could not open ${basename(filePath)}`, {
     type: 'error',
+    // The action is the point of this toast, so it waits to be answered.
+    persistent: true,
     actionLabel: 'Change editor',
     onAction: () => {
       void window.api.hooks.get(projectPath).then(async (hooks) => {

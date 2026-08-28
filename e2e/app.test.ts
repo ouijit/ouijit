@@ -446,12 +446,9 @@ test('open in editor: starts a never-started task, asks for an editor, and runs 
   test.slow(); // creates a worktree, spawns a terminal, polls for a side-effect file
   const repoPath = testRepo.repoPath;
 
-  // A fake "editor" that records the directory argument it is launched with.
-  // Proving this file gets written is the whole point of the regression: the
-  // old implementation detached the editor as a background process with stdio
-  // ignored, so terminal editors (Helix/Vim) never rendered and nothing ran
-  // visibly. Running it inside a task terminal gives it a real shell + TTY, and
-  // the recorded argument confirms the worktree path reaches the editor.
+  // A stand-in editor that records the directory it is launched with. It runs
+  // in a task terminal rather than a detached spawn, which is the only way a
+  // terminal editor (Helix, Vim) gets the TTY it needs to render.
   const fixtureDir = path.dirname(repoPath); // cleaned up by the testRepo fixture
   const fakeEditor = path.join(fixtureDir, 'fake-editor.sh');
   const markerFile = path.join(fixtureDir, 'editor-arg.txt');
@@ -460,8 +457,6 @@ test('open in editor: starts a never-started task, asks for an editor, and runs 
 
   await enterProject(appPage, repoPath);
 
-  // A task that has never been started: "Editor" has to create the worktree
-  // the way "Terminal" does before it has anywhere to open.
   const input = await openColumnComposer(appPage);
   await input.fill('Editor task');
   await input.press('Enter');
@@ -476,11 +471,8 @@ test('open in editor: starts a never-started task, asks for an editor, and runs 
   await command.fill(fakeEditor);
   await appPage.getByRole('button', { name: 'Save' }).click();
 
-  // A terminal card opens for the editor — the visible result the old
-  // detached-spawn path never produced.
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
 
-  // The fake editor ran in the worktree and received the worktree path.
   const worktreePath = await appPage.evaluate(async (rp: string) => {
     const tasks = await window.api.task.getAll(rp);
     return tasks.find((t: any) => t.name === 'Editor task')?.worktreePath as string | undefined;
