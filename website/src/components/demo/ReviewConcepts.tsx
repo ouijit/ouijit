@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
 import { MockAnalysis } from './MockAnalysis';
 import { DeskWash } from './DeskWash';
-import { RoundTripTerminal, LensedDiffCard } from './ReviewLab';
+import { NotedDiffPane, RoundTripTerminal, LensedDiffCard } from './ReviewLab';
 
 /**
  * Two compositions of the review section's material — the analysis panel, the
@@ -98,6 +98,24 @@ function Crop({
   );
 }
 
+/** The panel at the width the band gives it, not a window onto a wider one:
+ *  these layouts reflow, so a narrower desk is a size the app can be rather
+ *  than something to scale down or cut off. */
+function Fit({ height, children }: { height: number; children: ReactNode }) {
+  return (
+    <div
+      className="rv-crop glass-bevel relative rounded-[14px] overflow-hidden border border-bezel-panel"
+      style={{ height }}
+    >
+      {/* Inline, because `.glass-bevel > *` pins every direct child to
+          position relative — which would collapse this to nothing. */}
+      <div className="flex flex-col" style={{ position: 'absolute', inset: 0 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function Caption({ title, body }: { title: string; body: string }) {
   return (
     <div className="rv-caption">
@@ -141,7 +159,9 @@ export function ReviewBento() {
         <div className="rv-tile">
           <div className="rv-desk plan-desk desk-wash desk-wash--prism-a">
             <DeskWash />
-            <Crop height={340} scale={0.86} x={190}>
+            {/* Ends where the panel's stats column begins, so the window cuts
+                at a gap in the layout rather than through a word. */}
+            <Crop height={340} scale={1} x={162}>
               <div className="flex-1 min-h-0 flex flex-col">
                 <TerminalCardView isActive backDepth={0}>
                   <MockAnalysis showAdvice />
@@ -169,13 +189,11 @@ export function ReviewBento() {
         <div className="rv-tile rv-tile--wide" ref={lensRef}>
           <div className="rv-desk plan-desk desk-wash desk-wash--prism-c">
             <DeskWash />
-            <Crop height={430} scale={0.92}>
-              <div className="flex-1 min-h-0 flex flex-col">
-                <TerminalCardView isActive backDepth={0}>
-                  <LensedDiffCard pPick={1} pParts={pLens} />
-                </TerminalCardView>
-              </div>
-            </Crop>
+            <Fit height={430}>
+              <TerminalCardView isActive backDepth={0}>
+                <LensedDiffCard pPick={1} pParts={pLens} />
+              </TerminalCardView>
+            </Fit>
           </div>
           <Caption {...COPY.lens} />
         </div>
@@ -193,7 +211,6 @@ function Chapter({
   body,
   flip,
   height,
-  scale,
   onRef,
   children,
 }: {
@@ -201,7 +218,6 @@ function Chapter({
   body: string;
   flip?: boolean;
   height: number;
-  scale: number;
   onRef?: (el: HTMLDivElement | null) => void;
   children: ReactNode;
 }) {
@@ -213,13 +229,11 @@ function Chapter({
       </div>
       <div className="rv-band-desk plan-desk desk-wash desk-wash--prism">
         <DeskWash />
-        <Crop height={height} scale={scale}>
-          <div className="flex-1 min-h-0 flex flex-col">
-            <TerminalCardView isActive backDepth={0}>
-              {children}
-            </TerminalCardView>
-          </div>
-        </Crop>
+        <Fit height={height}>
+          <TerminalCardView isActive backDepth={0}>
+            {children}
+          </TerminalCardView>
+        </Fit>
       </div>
     </div>
   );
@@ -228,18 +242,19 @@ function Chapter({
 export function ReviewChapters() {
   const [notesRef, pNotes] = useEnterProgress(4200);
   const [lensRef, pLens] = useEnterProgress(2600);
+  const notes = loopBeats(pNotes);
 
   return (
     <div>
       <h2 className="plan-v-headline">Review in depth</h2>
       <div className="rv-chapters">
-        <Chapter {...COPY.health} height={380} scale={0.78}>
+        <Chapter {...COPY.health} height={420}>
           <MockAnalysis showAdvice />
         </Chapter>
-        <Chapter {...COPY.notes} flip height={420} scale={0.78} onRef={notesRef}>
-          <RoundTripTerminal p={loopBeats(pNotes)} depth={0} />
+        <Chapter {...COPY.notes} flip height={460} onRef={notesRef}>
+          <NotedDiffPane pNote={notes('note')} pSend={notes('send')} />
         </Chapter>
-        <Chapter {...COPY.lens} height={420} scale={0.78} onRef={lensRef}>
+        <Chapter {...COPY.lens} height={460} onRef={lensRef}>
           <LensedDiffCard pPick={1} pParts={pLens} />
         </Chapter>
       </div>

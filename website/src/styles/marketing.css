@@ -2761,10 +2761,15 @@ body.marketing::after {
   max-width: 52ch;
 }
 
+/* Wider than the theater's 1200: a band spends a third of its width on the
+   copy, and the panels beside it reflow rather than scale — below about 900
+   the diff splits into two columns too narrow to read. */
 .rv-chapters {
   display: flex;
   flex-direction: column;
   gap: 96px;
+  max-width: 1360px;
+  margin: 0 auto;
 }
 
 .rv-band {
@@ -2778,7 +2783,7 @@ body.marketing::after {
 }
 
 .rv-band-copy {
-  width: 320px;
+  width: 300px;
   flex-shrink: 0;
 }
 

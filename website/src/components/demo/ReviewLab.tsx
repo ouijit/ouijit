@@ -235,7 +235,7 @@ function NotesIsland({ count, flash }: { count: number; flash?: boolean }) {
 /** The diff panel mid-review: word-level highlights, a note being written on
  * a changed line, and the island that hands the notes to the agent.
  * `pNote` types the note, `pSend` hands it to the agent. */
-function NotedDiffPane({
+export function NotedDiffPane({
   pNote,
   pSend,
   tip,
