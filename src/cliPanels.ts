@@ -7,8 +7,7 @@
  * to the renderer over a `cli:panel-op` push and awaits the matching
  * `cli-panels:respond` reply, correlated by an incrementing request id. The
  * renderer answers from a listener installed for the life of the window, so a
- * timeout here means the window itself is not answering — not that the target
- * terminal is off screen.
+ * timeout here means the window itself is not answering.
  *
  * These ops are the only way a panel appears without a click, and they always
  * reflect what's on screen.
@@ -17,12 +16,12 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { typedPush } from './ipc/helpers';
 import { getLogger } from './logger';
-import type { CliPanelOp, CliPanelResponse } from './types';
+import { CLI_PANEL_TERMINAL_WAIT_MS, type CliPanelOp, type CliPanelResponse } from './types';
 
 const cliPanelsLog = getLogger().scope('cliPanels');
 
 /** How long to wait for the renderer's reply before giving up. */
-const REQUEST_TIMEOUT_MS = 5000;
+const REQUEST_TIMEOUT_MS = CLI_PANEL_TERMINAL_WAIT_MS + 2000;
 
 let mainWindow: BrowserWindow | null = null;
 let nextRequestId = 1;

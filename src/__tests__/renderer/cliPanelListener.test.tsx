@@ -1,19 +1,9 @@
-/**
- * `ouijit markdown` / `ouijit preview` reach a terminal through the global
- * instance registry, so the panel listener is installed once for the window
- * rather than mounted by a view — a terminal shown on the home view answers
- * the same ops as one on its project view, and one still reconnecting after a
- * reload answers once it is back.
- */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { installCliPanelListener } from '../../services/cliPanelListener';
-import { terminalInstances, registerTerminalInstance, trackRestore } from '../../components/terminal/terminalRegistry';
+import { terminalInstances, restoreTerminalOnce } from '../../components/terminal/terminalRegistry';
 import type { OuijitTerminal } from '../../components/terminal/terminalReact';
-import type { CliPanelOp, CliPanelResponse } from '../../types';
-
-/** Matches `TERMINAL_WAIT_MS` in the listener. */
-const TERMINAL_WAIT_MS = 3000;
+import { CLI_PANEL_TERMINAL_WAIT_MS, type CliPanelOp, type CliPanelResponse } from '../../types';
 
 type Panel = { id: string; kind: 'plan' | 'webPreview'; planPath?: string; url?: string };
 
@@ -48,27 +38,28 @@ class FakeTerminal {
 }
 
 function register(ptyId: string, term: FakeTerminal): void {
-  registerTerminalInstance(ptyId, term as unknown as OuijitTerminal);
+  terminalInstances.set(ptyId, term as unknown as OuijitTerminal);
 }
 
 let sendOp: (op: CliPanelOp) => void;
 let requestId = 0;
 
-/**
- * Fire an op at the installed listener and return the reply it sent back.
- * `during` runs while the op is in flight, before the wait for a terminal.
- */
-async function run(
-  op: Omit<CliPanelOp, 'requestId'>,
-  during?: () => Promise<void> | void,
-): Promise<CliPanelResponse> {
+function send(op: Omit<CliPanelOp, 'requestId'>): number {
   const id = ++requestId;
   sendOp({ requestId: id, ...op });
-  await during?.();
-  await vi.advanceTimersByTimeAsync(TERMINAL_WAIT_MS);
+  return id;
+}
+
+/** Run out the listener's wait and return the reply it sent for `id`. */
+async function settle(id: number): Promise<CliPanelResponse> {
+  await vi.advanceTimersByTimeAsync(CLI_PANEL_TERMINAL_WAIT_MS);
   const last = vi.mocked(window.api.cliPanels.respond).mock.calls.at(-1);
   expect(last?.[0]).toBe(id);
   return last![1];
+}
+
+function run(op: Omit<CliPanelOp, 'requestId'>): Promise<CliPanelResponse> {
+  return settle(send(op));
 }
 
 describe('CLI panel listener', () => {
@@ -123,28 +114,20 @@ describe('CLI panel listener', () => {
   it('holds an op until a reconnecting terminal has finished restoring', async () => {
     const term = new FakeTerminal();
     let finishRestore!: () => void;
-    trackRestore(
-      'pty-reloading',
-      new Promise<void>((resolve) => {
-        finishRestore = () => {
-          // The snapshot restore replaces panels wholesale, so an op applied
-          // before it lands would be thrown away.
-          term.panels = [];
-          resolve();
-        };
-      }),
-    );
+    const restored = new Promise<void>((resolve) => {
+      finishRestore = resolve;
+    });
+    void restoreTerminalOnce('pty-reloading', async () => {
+      register('pty-reloading', term); // the terminal binds partway through
+      await restored;
+      term.panels = []; // ...and the snapshot then replaces its panels wholesale
+    });
 
-    const reply = await run(
-      { ptyId: 'pty-reloading', action: 'add', kind: 'markdown', value: '/notes.md' },
-      async () => {
-        register('pty-reloading', term);
-        await vi.advanceTimersByTimeAsync(0); // let the op get as far as it can
-        finishRestore();
-      },
-    );
+    const id = send({ ptyId: 'pty-reloading', action: 'add', kind: 'markdown', value: '/notes.md' });
+    await vi.advanceTimersByTimeAsync(1000); // long enough to act on a half-restored terminal
+    finishRestore();
 
-    expect(reply).toEqual({
+    expect(await settle(id)).toEqual({
       ok: true,
       panels: [{ kind: 'markdown', label: 'notes.md', path: '/notes.md', active: true }],
     });

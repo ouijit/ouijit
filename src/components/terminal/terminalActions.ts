@@ -20,7 +20,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
 import { OuijitTerminal, resolveTerminalLabel, type SummaryType } from './terminalReact';
-import { terminalInstances, registerTerminalInstance, restoreInFlight, trackRestore } from './terminalRegistry';
+import { terminalInstances, restoreTerminalOnce } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
 import { generateId } from '../../utils/ids';
 import { parseOsc133ExitCodes } from './osc133';
@@ -185,7 +185,7 @@ function registerTerminal(
 ): void {
   const ptyId = term.ptyId;
 
-  registerTerminalInstance(ptyId, term);
+  terminalInstances.set(ptyId, term);
 
   term.setProjectNameGetter(() => useAppStore.getState().activeProjectData?.name ?? 'Ouijit');
 
@@ -675,7 +675,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
       return;
     }
 
-    registerTerminalInstance(result.ptyId, runner);
+    terminalInstances.set(result.ptyId, runner);
 
     runner.bind(result.ptyId, {
       skipSideEffects: true,
@@ -788,30 +788,6 @@ export function killExistingCommandInstances(
 
 // ── Reconnect all orphaned sessions for a project ────────────────────
 
-/**
- * Restore `ptyId` at most once across concurrent callers. A caller that loses
- * the race awaits the winner rather than skipping ahead, so the terminal list
- * is final by the time it returns. ProjectViewReact reads that list to decide
- * whether reconnection produced anything or the kanban should open instead.
- *
- * `terminalInstances` only gains its entry partway through a restore, so a bare
- * `has(ptyId)` check can't serialize the two callers: on a renderer reload the
- * home view's unscoped reconnect and the project view's scoped one overlap,
- * both pass the check for the same session, and each registers a card for it.
- */
-async function reconnectSessionOnce(ptyId: string, restore: () => Promise<unknown>): Promise<void> {
-  if (terminalInstances.has(ptyId)) return;
-
-  const inFlight = restoreInFlight(ptyId);
-  if (inFlight) {
-    // The winner reports its own failure; the loser only needs it to be over.
-    await inFlight.catch(() => {});
-    return;
-  }
-
-  await trackRestore(ptyId, restore());
-}
-
 export async function reconnectOrphanedSessions(projectPath?: string): Promise<void> {
   let sessions: ActiveSession[];
   try {
@@ -839,9 +815,9 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
   const runnerSessions = relevant.filter((s) => s.isRunner);
 
   // Reconnect main terminals first (so runner parents exist before runners
-  // reattach). reconnectSessionOnce makes this idempotent across the two callers.
+  // reattach). restoreTerminalOnce makes this idempotent across the two callers.
   for (const session of mainSessions) {
-    await reconnectSessionOnce(session.ptyId, async () => {
+    await restoreTerminalOnce(session.ptyId, async () => {
       let worktreeBranch: string | undefined;
       let mergeTarget: string | undefined;
       if (session.taskId != null) {
@@ -875,7 +851,7 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
 
   // Reconnect runners to their parent terminals
   for (const session of runnerSessions) {
-    await reconnectSessionOnce(session.ptyId, () => reconnectRunnerToParent(session));
+    await restoreTerminalOnce(session.ptyId, () => reconnectRunnerToParent(session));
   }
 }
 
@@ -928,7 +904,7 @@ export async function reconnectRunnerToParent(session: ActiveSession): Promise<b
   }
 
   runner.replayBuffer(result.bufferedOutput, result.lastCols, result.isAltScreen);
-  registerTerminalInstance(session.ptyId, runner);
+  terminalInstances.set(session.ptyId, runner);
   runner.bind(session.ptyId, {
     skipSideEffects: true,
     onData: (data) => {

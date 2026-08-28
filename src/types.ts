@@ -824,6 +824,14 @@ export interface CliPanelOp {
   value?: string;
 }
 
+/**
+ * How long the renderer waits for a terminal that is still reconnecting before
+ * answering that the session has none. The main process allows more than this
+ * for the whole round trip, so a wait that runs out still reports its own
+ * reason rather than the bridge's generic timeout.
+ */
+export const CLI_PANEL_TERMINAL_WAIT_MS = 3000;
+
 /** Renderer's reply for a {@link CliPanelOp}. */
 export interface CliPanelResponse {
   ok: boolean;

@@ -20,7 +20,7 @@ import { diffBaseSettingKey } from '../../diffSource';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
 import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
-import { terminalInstances, registerTerminalInstance, unregisterTerminalInstance } from './terminalRegistry';
+import { terminalInstances } from './terminalRegistry';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
@@ -566,13 +566,13 @@ export class OuijitTerminal {
     const prevPtyId = this.ptyId;
     if (prevPtyId !== ptyId) {
       if (terminalInstances.get(prevPtyId) === this) {
-        unregisterTerminalInstance(prevPtyId);
+        terminalInstances.delete(prevPtyId);
       }
       useTerminalStore.getState().rekeyTerminal(prevPtyId, ptyId);
     }
     this.ptyId = ptyId;
     if (terminalInstances.get(ptyId) !== this) {
-      registerTerminalInstance(ptyId, this);
+      terminalInstances.set(ptyId, this);
     }
     this.bound = true;
 
@@ -745,7 +745,7 @@ export class OuijitTerminal {
 
     // Remove from instance registry
     if (this.ptyId) {
-      unregisterTerminalInstance(this.ptyId);
+      terminalInstances.delete(this.ptyId);
     }
 
     // Remove viewport element
