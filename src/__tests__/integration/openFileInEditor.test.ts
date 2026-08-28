@@ -1,7 +1,5 @@
 /**
  * Opening a file at a line, against a real database and a real spawned editor.
- * Every failure here used to look identical from the outside — nothing opened,
- * nothing said — so what the caller gets back is the behaviour worth pinning.
  *
  * LAUNCH_EDITOR is launch-editor's own override, and the only way to keep the
  * test off whatever editor happens to be running on the machine.

@@ -1,7 +1,7 @@
 /**
- * What "Open in editor" does when it cannot open anything — the case that used
- * to end in silence. Driven through the analysis panel's hotspots; the plan
- * panel's file references go through the same hook.
+ * What "Open in editor" does when it cannot open anything. Driven through the
+ * analysis panel's hotspots; the plan panel's file references go through the
+ * same hook.
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
@@ -79,7 +79,6 @@ describe('opening a file in the editor', () => {
 
     await waitFor(() => expect(window.api.openFileInEditor).toHaveBeenCalledTimes(2));
     expect(window.api.openFileInEditor).toHaveBeenLastCalledWith(PROJECT, PROJECT, 'src/engine.ts', undefined);
-    expect(useProjectStore.getState().configuredHooks.editor).toBe(true);
   });
 
   test('names the editor that failed and opens its command for editing', async () => {

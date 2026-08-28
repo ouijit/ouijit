@@ -479,8 +479,6 @@ test('open in editor: asks for an editor when none is registered, then runs it i
 
   await chooseSubmenuItem(appPage, 'Open in', 'Editor');
 
-  // No editor registered yet, so the request turns into the setup dialog and
-  // is carried out as soon as one is saved.
   const command = appPage.locator('#hook-command');
   await expect(command).toBeVisible({ timeout: 5_000 });
   await command.fill(fakeEditor);

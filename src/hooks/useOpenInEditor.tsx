@@ -82,7 +82,6 @@ export function useOpenInEditor(projectPath: string, workspaceRoot: string): Ope
         setPending(null);
         // An empty command deletes the hook, so there is nothing to retry with.
         if (!result?.hook?.command) return;
-        useProjectStore.getState().markHookConfigured('editor');
         retry();
       }}
     />
