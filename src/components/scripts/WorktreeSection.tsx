@@ -34,7 +34,7 @@ export function WorktreeSection({ projectPath }: WorktreeSectionProps) {
   };
 
   return (
-    <div className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
+    <div className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg">
       {MODE_OPTIONS.map((option) => (
         <ModeRow
           key={option.value}

@@ -26,9 +26,6 @@ const LABELS: Record<string, string> = {
   error: 'Failed',
 };
 
-/** The unlit cell of a 2×2 grid travelling clockwise. The cells are listed in
- *  The four cells are plain children; which one is unlit when is set by the
- *  animation delays in `.status-dot-grid`. */
 function ThinkingGrid({ color }: { color: string }) {
   return (
     <span className="status-dot-grid" style={{ '--status-dot-color': color } as CSSProperties}>
@@ -49,7 +46,7 @@ export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotP
   return (
     <Tooltip text={tooltipText} placement="top" delay={300}>
       <span
-        className="status-dot inline-flex items-center justify-center rounded-full shrink-0"
+        className="status-dot inline-flex items-center justify-center shrink-0"
         data-status={summaryType}
         style={
           {

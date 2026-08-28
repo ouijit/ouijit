@@ -341,7 +341,7 @@ function PaletteBody({ visible }: { visible: boolean }) {
         }}
         onKeyDown={onKeyDown}
       >
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-ink/[0.06] shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-separator shrink-0">
           <span className="shrink-0 text-text-tertiary [&>svg]:w-4 [&>svg]:h-4">
             <Icon name="magnifying-glass" />
           </span>
@@ -419,7 +419,7 @@ function PaletteBody({ visible }: { visible: boolean }) {
           </div>
         )}
 
-        <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-ink/[0.06] text-[11px] text-ink/40">
+        <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-separator text-[11px] text-ink/40">
           <KeyHint keys="↑↓" label="Navigate" />
           {action && <KeyHint keys="↵" label={action} />}
           <span className="flex-1" />

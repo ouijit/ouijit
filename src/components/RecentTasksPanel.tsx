@@ -75,7 +75,7 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
         boxShadow: 'var(--shadow-panel)',
       }}
     >
-      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 shrink-0 border-b border-ink/[0.06]">
+      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 shrink-0 border-b border-separator">
         <span className="text-[11px] uppercase tracking-wider text-text-tertiary">Pick up where you left off</span>
         <button
           type="button"
@@ -85,7 +85,7 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
           {allSelected ? 'Deselect all' : `Select all (${recents.length})`}
         </button>
       </div>
-      <ul className="flex flex-col overflow-y-auto min-h-0 settings-scrollable divide-y divide-ink/[0.04]">
+      <ul className="flex flex-col overflow-y-auto min-h-0 settings-scrollable divide-y divide-separator">
         {recents.map((task) => {
           const key = selectionKey(task);
           return (
@@ -106,7 +106,7 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
         })}
       </ul>
       {selected.size > 0 && (
-        <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-ink/[0.06] shrink-0">
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-separator shrink-0">
           <span className="text-xs text-text-tertiary tabular-nums">
             <span className="text-text-secondary">{selected.size}</span> selected
           </span>

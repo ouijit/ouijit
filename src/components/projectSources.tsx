@@ -82,7 +82,7 @@ export function ProjectSourceList({
           <span className="text-sm text-text-primary leading-tight">{title}</span>
         </div>
       )}
-      <div className={`${title ? 'border-t border-ink/[0.06] ' : ''}divide-y divide-ink/[0.04]`}>
+      <div className={`${title ? 'border-t border-separator ' : ''}divide-y divide-separator`}>
         {PROJECT_SOURCES.map((source) => (
           <ProjectSourceChoice key={source.kind} source={source} onClick={() => onChoose(source.kind)} />
         ))}

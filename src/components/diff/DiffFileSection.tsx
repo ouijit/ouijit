@@ -170,7 +170,7 @@ export function HunkHeader({ header, first = false }: { header: string; first?: 
 
   return (
     <div
-      className={`flex items-center gap-3 py-1 pr-4 font-mono text-xs ${first ? '' : 'border-t border-ink/[0.06]'}`}
+      className={`flex items-center gap-3 py-1 pr-4 font-mono text-xs ${first ? '' : 'border-t border-separator'}`}
       style={{ paddingLeft: '100px' }}
     >
       <span className="shrink-0 text-ink/25">{range}</span>

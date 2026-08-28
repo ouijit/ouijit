@@ -318,15 +318,6 @@ ouijit script run <id-or-name>                # executes and streams output
 ouijit script run <id-or-name> --task <number> # run in task's worktree dir
 
 ## Pull Requests
-Default to these for anything that belongs to a review. They write locally, so
-the user sends the review themselves; \`gh\` reaches GitHub the moment it runs,
-and whatever it writes lands under the user's own account. Reading with \`gh\`
-is always fine — \`gh pr diff <n>\` has no Ouijit equivalent.
-
-A \`gh\` write the user explicitly asks for — \`gh pr create\`, \`gh pr comment\`,
-\`gh pr merge\` — is theirs to make: do it, and say it will appear as them. The
-default above covers work you decided to do on your own.
-
 A task made from a pull request carries its number:
 ouijit task current | jq .githubPrNumber
 
@@ -418,12 +409,10 @@ ouijit tag add 3 auth
 # Set up a project run hook:
 ouijit hook set run --name "Dev server" --command "npm run dev"
 
-# Review a pull request without posting anything to GitHub:
+# Stage a review comment on the task's pull request:
 PR=$(ouijit task current | jq .githubPrNumber)
-gh pr diff $PR                                # read it
 ouijit pr draft add $PR --file src/api.ts --line 88 \\
   --origin claude --body "this can throw when the token is missing"
-# ...then the user reads the staged comments and sends the review themselves.
 `;
 
 /**

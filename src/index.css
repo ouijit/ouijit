@@ -447,7 +447,7 @@ textarea,
     inset 1px 0 0 var(--bevel-side),
     inset -1px 0 0 var(--bevel-side),
     inset 0 -1px 0 var(--bevel-bottom),
-    inset 0 2px 6px -3px var(--bevel-glow);
+    var(--bevel-cast);
   z-index: 1;
 }
 
@@ -527,7 +527,7 @@ textarea,
     inset 1px 0 0 var(--bevel-side),
     inset -1px 0 0 var(--bevel-side),
     inset 0 -1px 0 var(--bevel-bottom),
-    inset 0 2px 6px -3px var(--bevel-glow);
+    var(--bevel-cast);
   z-index: 20;
 }
 
@@ -559,11 +559,14 @@ textarea,
    =================================== */
 
 /* Bottom edge only: lighting the top face too would put a highlight in the
-   pixel the ledge above is cutting, and paint order would decide which wins. */
+   pixel the ledge above is cutting, and paint order would decide which wins.
+   The throw is what separates the two panes on a theme whose catch cannot be
+   brighter than the surface under it. */
 .pane-ledge {
   box-shadow:
     0 1px 0 var(--seam-cut),
-    0 2px 0 var(--seam-catch);
+    0 2px 0 var(--seam-catch),
+    0 6px 8px -7px var(--seam-shadow);
 }
 
 /* Only where the ledge borders the well along its whole length: one shadow
@@ -582,7 +585,7 @@ textarea,
   box-shadow:
     inset 0 1px 0 var(--bevel-top),
     inset 0 -1px 0 var(--bevel-bottom),
-    inset 0 2px 6px -3px var(--bevel-glow),
+    var(--bevel-cast),
     0 1px 0 var(--seam-catch);
 }
 
@@ -676,6 +679,13 @@ textarea,
   width: calc(var(--status-dot-size) + 2 * (var(--status-ring-width) + var(--status-ring-gap)));
   height: calc(var(--status-dot-size) + 2 * (var(--status-ring-width) + var(--status-ring-gap)));
   border: var(--status-ring-width) solid var(--status-ring-color, transparent);
+  border-radius: 999px;
+  transition: border-radius 200ms ease-out;
+}
+
+/* Thinking draws a square grid, so the ring squares off to keep an even gap. */
+.status-dot[data-status='thinking'] {
+  border-radius: calc(var(--status-dot-size) / 2);
 }
 
 @media (min-resolution: 2dppx) {
@@ -913,7 +923,7 @@ textarea,
 }
 
 .app-markdown td {
-  @apply px-3 py-1.5 text-sm border-b border-ink/[0.06];
+  @apply px-3 py-1.5 text-sm border-b border-separator;
 }
 
 /* Task list checkboxes */

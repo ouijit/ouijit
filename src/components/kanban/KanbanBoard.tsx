@@ -78,12 +78,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     | null
   >(null);
 
-  // projectStore owns the config: loaded per project by ProjectViewReact and
-  // refreshed by HookList and this board's hook-dialog close handler.
-  const markEditorHookConfigured = useCallback(() => {
-    useProjectStore.getState().markHookConfigured('editor');
-  }, []);
-
   // Local task state for drag preview — synced from store, mutated during drag.
   // `storeTasks` gets a new identity on every task edit, so chainMap is keyed on
   // a fingerprint of the parent relations it actually depends on; otherwise
@@ -630,8 +624,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
                 onConfigureHook={handleConfigureHook}
                 hasConfiguredHook={hookActive}
                 availableSandboxProviders={availableSandboxProviders}
-                hasEditorHook={!!configuredHooks.editor}
-                onEditorHookConfigured={markEditorHookConfigured}
               />
             );
           })}
