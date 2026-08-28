@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
-import { MockAnalysis } from './MockAnalysis';
+import { MockAnalysis, HotspotTip } from './MockAnalysis';
 import { DeskWash } from './DeskWash';
-import { NotedDiffPane, RoundTripTerminal, LensedDiffCard } from './ReviewLab';
+import { NotedDiffPane, LensedDiffCard } from './ReviewLab';
 
 /**
  * Two compositions of the review section's material — the analysis panel, the
@@ -57,47 +57,6 @@ function loopBeats(progress: number): (k: string) => number {
   return (k) => (k === 'scan' ? 1 : k === 'note' ? span(0, 0.4) : k === 'send' ? span(0.4, 0.55) : span(0.55, 1));
 }
 
-/**
- * A surface at the size it was drawn, shown through a window smaller than it.
- * The panels are laid out for a 1180px stage and their type is sized for that,
- * so a tile shows a region of one — `x` and `y` into the panel, `scale` a nudge
- * rather than a fit — instead of shrinking the whole thing past reading.
- */
-function Crop({
-  height,
-  scale,
-  x = 0,
-  y = 0,
-  panel = { w: 1180, h: 520 },
-  children,
-}: {
-  height: number;
-  scale: number;
-  x?: number;
-  y?: number;
-  panel?: { w: number; h: number };
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className="rv-crop glass-bevel relative rounded-[14px] overflow-hidden border border-bezel-panel"
-      style={{ height }}
-    >
-      <div
-        className="absolute top-0 left-0 flex flex-col"
-        style={{
-          width: panel.w,
-          height: panel.h,
-          transform: `translate(${-x * scale}px, ${-y * scale}px) scale(${scale})`,
-          transformOrigin: 'top left',
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
 /** The panel at the width the band gives it, not a window onto a wider one:
  *  these layouts reflow, so a narrower desk is a size the app can be rather
  *  than something to scale down or cut off. */
@@ -143,31 +102,39 @@ const COPY = {
 /* ─── A: three tiles, no time axis ────────────────────────────────── */
 
 /**
- * Everything at once. The three surfaces are sized against each other rather
- * than sequenced — the reader picks where to look, and nothing has to be
- * waited for. Each tile carries a third of the prism, in gradient order, so
- * the row still reads as one sweep broken into panels.
+ * Everything at once. Nothing is sequenced and nothing is cropped: a panel is
+ * drawn at the width its row gives it, and the row is as wide as the panel
+ * needs. The tiles carry the prism in gradient order, so the column still
+ * reads as one sweep broken into panels.
  */
 export function ReviewBento() {
   const [notesRef, pNotes] = useEnterProgress(4200);
   const [lensRef, pLens] = useEnterProgress(2600);
+  const notes = loopBeats(pNotes);
 
   return (
     <div>
       <h2 className="plan-v-headline">Review in depth</h2>
       <div className="rv-bento">
         <div className="rv-tile">
-          <div className="rv-desk plan-desk desk-wash desk-wash--prism-a">
-            <DeskWash />
-            {/* Ends where the panel's stats column begins, so the window cuts
-                at a gap in the layout rather than through a word. */}
-            <Crop height={340} scale={1} x={162}>
-              <div className="flex-1 min-h-0 flex flex-col">
+          <div className="rv-pair">
+            <div className="rv-desk plan-desk desk-wash desk-wash--prism-a">
+              <DeskWash />
+              {/* Tall enough for the whole expanded hotspot: `showAdvice`
+                  opens the panel scrolled to the foot of it, and a shorter
+                  frame cuts the head of the entry off. */}
+              <Fit height={520}>
                 <TerminalCardView isActive backDepth={0}>
                   <MockAnalysis showAdvice />
                 </TerminalCardView>
-              </div>
-            </Crop>
+              </Fit>
+            </div>
+            {/* The same reading the panel holds, where it actually reaches a
+                reader: on the file's own row in a diff. */}
+            <div className="rv-desk rv-desk--tip plan-desk desk-wash desk-wash--prism-b">
+              <DeskWash />
+              <HotspotTip path="src/onboarding/Stepper.tsx" />
+            </div>
           </div>
           <Caption {...COPY.health} />
         </div>
@@ -175,21 +142,19 @@ export function ReviewBento() {
         <div className="rv-tile" ref={notesRef}>
           <div className="rv-desk plan-desk desk-wash desk-wash--prism-b">
             <DeskWash />
-            <Crop height={340} scale={0.86} x={560} y={40}>
-              <div className="flex-1 min-h-0 flex flex-col">
-                <TerminalCardView isActive backDepth={0}>
-                  <RoundTripTerminal p={loopBeats(pNotes)} depth={0} />
-                </TerminalCardView>
-              </div>
-            </Crop>
+            <Fit height={440}>
+              <TerminalCardView isActive backDepth={0}>
+                <NotedDiffPane pNote={notes('note')} pSend={notes('send')} />
+              </TerminalCardView>
+            </Fit>
           </div>
           <Caption {...COPY.notes} />
         </div>
 
-        <div className="rv-tile rv-tile--wide" ref={lensRef}>
+        <div className="rv-tile" ref={lensRef}>
           <div className="rv-desk plan-desk desk-wash desk-wash--prism-c">
             <DeskWash />
-            <Fit height={430}>
+            <Fit height={480}>
               <TerminalCardView isActive backDepth={0}>
                 <LensedDiffCard pPick={1} pParts={pLens} />
               </TerminalCardView>
@@ -248,13 +213,13 @@ export function ReviewChapters() {
     <div>
       <h2 className="plan-v-headline">Review in depth</h2>
       <div className="rv-chapters">
-        <Chapter {...COPY.health} height={420}>
+        <Chapter {...COPY.health} height={520}>
           <MockAnalysis showAdvice />
         </Chapter>
-        <Chapter {...COPY.notes} flip height={460} onRef={notesRef}>
+        <Chapter {...COPY.notes} flip height={440} onRef={notesRef}>
           <NotedDiffPane pNote={notes('note')} pSend={notes('send')} />
         </Chapter>
-        <Chapter {...COPY.lens} height={460} onRef={lensRef}>
+        <Chapter {...COPY.lens} height={480} onRef={lensRef}>
           <LensedDiffCard pPick={1} pParts={pLens} />
         </Chapter>
       </div>

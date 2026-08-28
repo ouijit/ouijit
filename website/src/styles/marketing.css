@@ -2720,13 +2720,31 @@ body.marketing::after {
 /* Review concepts (lab only): two compositions of the review material that
    do not run on a timeline. `rv-` is shared by both. */
 .rv-bento {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+  max-width: 1360px;
+  margin: 0 auto;
 }
 
-.rv-tile--wide {
-  grid-column: 1 / -1;
+.rv-pair {
+  display: flex;
+  gap: 28px;
+}
+
+.rv-pair > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Holds one tooltip at its own size rather than a panel, so the row pairs the
+   reading with where it lands. */
+.rv-desk--tip {
+  width: 360px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .rv-desk {
@@ -2794,8 +2812,12 @@ body.marketing::after {
 }
 
 @media (max-width: 999px) {
-  .rv-bento {
-    grid-template-columns: minmax(0, 1fr);
+  .rv-pair {
+    flex-direction: column;
+  }
+
+  .rv-desk--tip {
+    width: auto;
   }
 
   .rv-band,
