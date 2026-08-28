@@ -193,7 +193,7 @@ describe('the diff panel, read through a lens', () => {
     expect(row.getAttribute('title')).toContain('Started 3 hours ago');
 
     fireEvent.click(row);
-    await waitFor(() => expect(window.api.diffLens.run).toHaveBeenCalledWith(expect.anything(), 'narrative'));
+    await waitFor(() => expect(window.api.diffLens.run).toHaveBeenCalledWith(expect.anything(), NARRATIVE.id));
   });
 
   test('a file split across two parts is navigated, counted and folded a part at a time', async () => {

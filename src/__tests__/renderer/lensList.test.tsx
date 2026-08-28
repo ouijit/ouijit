@@ -4,12 +4,14 @@ import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/re
 import { LensList } from '../../components/scripts/LensList';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { DEFAULT_EXPERIMENTAL_FLAGS } from '../../experimentalFlags';
+import { aLens } from '../lensFixtures';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
 
 const PROJECT = '/work/alpha';
+const NARRATIVE = aLens('Narrative');
 const SETUP =
   'One part for the groundwork that had to land first, one for the change it was laid for. If the groundwork is large, split it by what depends on what.';
 
@@ -25,10 +27,13 @@ describe('LensList', () => {
     vi.clearAllMocks();
     analysis(false);
     vi.mocked(window.api.lens.list).mockResolvedValue([]);
-    vi.mocked(window.api.lens.save).mockImplementation(async (_project, input) => ({
-      id: input.id ?? 'made',
-      ...input,
-    }));
+    // As main answers it: an id naming a lens edits that one, anything else is
+    // new and gets an id of its own.
+    vi.mocked(window.api.lens.save).mockImplementation(async (_project, input) =>
+      input.id === NARRATIVE.id
+        ? { ...NARRATIVE, name: input.name, instruction: input.instruction }
+        : aLens(input.name, input.instruction),
+    );
     vi.mocked(window.api.lens.agent).mockResolvedValue({ agentId: null });
     window.api.health.check = vi.fn().mockResolvedValue({ claude: true, codex: false });
   });
@@ -57,9 +62,7 @@ describe('LensList', () => {
 
     // Gone once there is a list of your own.
     cleanup();
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
+    vi.mocked(window.api.lens.list).mockResolvedValue([NARRATIVE]);
     render(<LensList projectPath={PROJECT} />);
     expect(await screen.findByText('Narrative')).toBeTruthy();
     expect(screen.queryByText('No lenses yet.')).toBeNull();
@@ -78,19 +81,17 @@ describe('LensList', () => {
 
     // Handed back as saved, with the id a run needs.
     await waitFor(() =>
-      expect(run).toHaveBeenCalledWith({ id: 'made', name: 'Narrative', instruction: 'group by story' }),
+      expect(run).toHaveBeenCalledWith(expect.objectContaining({ name: 'Narrative', instruction: 'group by story' })),
     );
 
     cleanup();
     run.mockClear();
     vi.mocked(window.api.lens.save).mockClear();
-    vi.mocked(window.api.lens.list).mockResolvedValue([
-      { id: 'narrative', name: 'Narrative', instruction: 'group by story' },
-    ]);
+    vi.mocked(window.api.lens.list).mockResolvedValue([NARRATIVE]);
     render(<LensList projectPath={PROJECT} onRun={run} />);
 
     fireEvent.click(await screen.findByLabelText('Run “Narrative”'));
-    expect(run).toHaveBeenCalledWith({ id: 'narrative', name: 'Narrative', instruction: 'group by story' });
+    expect(run).toHaveBeenCalledWith(NARRATIVE);
     expect(window.api.lens.save).not.toHaveBeenCalled();
 
     run.mockClear();
@@ -100,7 +101,7 @@ describe('LensList', () => {
 
     await waitFor(() =>
       expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, {
-        id: 'narrative',
+        id: NARRATIVE.id,
         name: 'Narrative',
         instruction: 'group by risk',
       }),

@@ -46,7 +46,7 @@ function analysed(over: { score?: number; rising?: boolean; missing?: string[] }
       added: 0,
       deleted: 0,
       monthly: [],
-      trend: { direction: over.rising ? 'rising' : 'steady', slope: 0 },
+      trend: { direction: over.rising ? 'rising' : 'steady', recent: 0, total: 42 },
       topAuthors: [],
       authorCount: 1,
       complexity: null,

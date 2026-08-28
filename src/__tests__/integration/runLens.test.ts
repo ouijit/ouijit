@@ -15,7 +15,12 @@ import { runLens } from '../../lens/runLens';
 import type { LensAgent } from '../../lens/lensAgents';
 import { fileDiff, diffsByPath } from '../lensFixtures';
 
-const GROUPS = { groups: [{ title: 'Transport', summary: null, slices: [{ path: 'a.ts', ranges: null }] }] };
+/** What `LENS_SCHEMA` demands: every field present, and every optional one null. */
+interface LensReply {
+  groups: { title: string; summary: string | null; slices: { path: string; ranges: [number, number][] | null }[] }[];
+}
+
+const GROUPS: LensReply = { groups: [{ title: 'Transport', summary: null, slices: [{ path: 'a.ts', ranges: null }] }] };
 
 let room: string;
 

@@ -7,7 +7,7 @@ import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { _resetLensRunsForTesting } from '../../components/diff/useLensSession';
 import { prSubjectKey } from '../../lens/subjectKeys';
-import { NARRATIVE, hunk, lensOnFile } from '../lensFixtures';
+import { NARRATIVE, aLens, hunk, lensOnFile } from '../lensFixtures';
 import { pr, inbox, detail, changed } from './githubFixtures';
 import type { PullRequestFile } from '../../github/types';
 import type { StoredLens } from '../../lens/readLens';
@@ -122,7 +122,7 @@ describe('PullRequestsPanel — lens', () => {
     await openCodePane({
       changedFiles: 3,
       lens: null,
-      lenses: [NARRATIVE, { id: 'risk', name: 'What the tests miss', instruction: 'group by risk' }],
+      lenses: [NARRATIVE, aLens('What the tests miss', 'group by risk')],
     });
     await openPicker();
 
@@ -267,7 +267,11 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   test('a lens made in the dialog reads the change and gets out of the way', async () => {
-    vi.mocked(window.api.lens.save).mockImplementation(async (_project, input) => ({ id: 'made', ...input }));
+    let saved: LensSummary | undefined;
+    vi.mocked(window.api.lens.save).mockImplementation(async (_project, input) => {
+      saved = aLens(input.name, input.instruction);
+      return saved;
+    });
     vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
     await openCodePane({ lens: null });
 
@@ -285,7 +289,7 @@ describe('PullRequestsPanel — lens', () => {
         instruction: expect.stringContaining('what could break in production'),
       }),
     );
-    await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalledWith(PROJECT, 5, 'made'));
+    await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalledWith(PROJECT, 5, saved?.id));
     await waitFor(() => expect(screen.queryByTestId('dialog-overlay')).toBeNull());
 
     expect(await screen.findByText('Writing Risk first…')).toBeTruthy();
@@ -326,7 +330,7 @@ describe('PullRequestsPanel — lens', () => {
     await openPicker();
     pick('Narrative');
 
-    await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalledWith(PROJECT, 5, 'narrative'));
+    await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalledWith(PROJECT, 5, NARRATIVE.id));
     expect(await screen.findByText('Writing Narrative…')).toBeTruthy();
   });
 
@@ -337,7 +341,10 @@ describe('PullRequestsPanel — lens', () => {
       return () => listChanged.delete(cb);
     });
     vi.mocked(window.api.lens.save).mockImplementation(async (project, input) => {
-      const saved = { id: input.id ?? 'made', name: input.name, instruction: input.instruction };
+      const saved =
+        input.id === NARRATIVE.id
+          ? { ...NARRATIVE, name: input.name, instruction: input.instruction }
+          : aLens(input.name, input.instruction);
       vi.mocked(window.api.lens.list).mockResolvedValue([saved]);
       for (const notify of listChanged) notify(project);
       return saved;
@@ -363,7 +370,7 @@ describe('PullRequestsPanel — lens', () => {
 
     await waitFor(() =>
       expect(window.api.lens.save).toHaveBeenCalledWith(PROJECT, {
-        id: 'narrative',
+        id: NARRATIVE.id,
         name: 'Narrative v2',
         instruction: 'group by story',
       }),
@@ -480,7 +487,7 @@ describe('PullRequestsPanel — lens', () => {
     expect(screen.getByRole('menuitem', { name: 'Narrativeout of date' })).toBeTruthy();
 
     pick(/^Narrative/);
-    await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalledWith(PROJECT, 5, 'narrative'));
+    await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalledWith(PROJECT, 5, NARRATIVE.id));
   });
 
   test('a stale lens the project cannot run again is left unsaid', async () => {

@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import type { FileDiff, DiffHunk } from '../types';
 import type { LensGroup } from '../lens/lens';
 import type { StoredLens } from '../lens/readLens';
+import type { LensSummary } from '../lens/config';
 
 /**
  * A lens claims new-file line ranges, so what a test needs from a diff is which
@@ -36,5 +38,10 @@ export function lensOnFile(groups: LensGroup[] | null, over: Partial<StoredLens>
   return { groups, lensId: null, lensName: null, stale: false, omitted: 0, running: null, ...over };
 }
 
+/** A lens as the project keeps one, with the minted id that entails. */
+export function aLens(name: string, instruction = 'group by story'): LensSummary {
+  return { id: randomUUID(), name, instruction };
+}
+
 /** The lens most of these tests read a change through. */
-export const NARRATIVE = { id: 'narrative', name: 'Narrative', instruction: 'group by story' };
+export const NARRATIVE = aLens('Narrative');

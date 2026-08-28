@@ -4,7 +4,7 @@
  * migrating what every project has already stored.
  */
 
-import { randomUUID } from 'node:crypto';
+import { randomUUID, type UUID } from 'node:crypto';
 import { getGlobalSetting, setGlobalSetting } from '../db';
 import { getCachedHealth, checkHealth } from '../healthCheck';
 import { installedAgents, resolveLensAgent, type LensAgent, type LensAgentChoice } from './lensAgents';
@@ -14,37 +14,48 @@ export interface LensSummary {
    * Stable across every edit, including a rename: a stored grouping records the
    * lens that wrote it, and the name has to be free to move without it.
    */
-  id: string;
+  id: UUID;
   name: string;
   instruction: string;
 }
 
 export interface LensInput {
+  /** A claim to be editing an existing lens, not an id. Checked, never trusted. */
   id?: string;
   name: string;
   instruction: string;
+}
+
+interface StoredEntry {
+  id?: UUID;
+  name: string;
+  instruction: string;
+}
+
+function isUUID(value: unknown): value is UUID {
+  return typeof value === 'string' && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
 }
 
 export function lensesKey(projectPath: string): string {
   return 'github:lenses:' + projectPath;
 }
 
-/** Entries as stored, which for a lens written before ids carry no id. */
-function parseLenses(raw: string | null | undefined): LensInput[] | null {
+/** An unreadable id is dropped, which leaves it to the backfill in `listLenses`. */
+function parseLenses(raw: string | null | undefined): StoredEntry[] | null {
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return null;
     return parsed
       .filter(
-        (entry): entry is LensInput =>
+        (entry): entry is { id?: unknown; name: string; instruction: string } =>
           typeof entry === 'object' &&
           entry !== null &&
-          typeof (entry as LensInput).name === 'string' &&
-          typeof (entry as LensInput).instruction === 'string',
+          typeof (entry as { name?: unknown }).name === 'string' &&
+          typeof (entry as { instruction?: unknown }).instruction === 'string',
       )
       .map((entry) => ({
-        ...(typeof entry.id === 'string' && entry.id ? { id: entry.id } : {}),
+        ...(isUUID(entry.id) ? { id: entry.id } : {}),
         name: entry.name,
         instruction: entry.instruction,
       }));
@@ -55,28 +66,28 @@ function parseLenses(raw: string | null | undefined): LensInput[] | null {
 
 export async function listLenses(projectPath: string): Promise<LensSummary[]> {
   const stored = parseLenses(await getGlobalSetting(lensesKey(projectPath))) ?? [];
-  if (stored.every((lens) => lens.id)) return stored as LensSummary[];
+  const minted = stored.some((lens) => !lens.id);
+  const lenses = stored.map((lens) => ({ ...lens, id: lens.id ?? randomUUID() }));
 
   // No schema to migrate, and an id minted per read would key nothing — so the
   // backfill is written back the first time a project's lenses are asked for.
-  const withIds = stored.map((lens) => ({ ...lens, id: lens.id ?? randomUUID() }));
-  await writeLenses(projectPath, withIds);
-  return withIds;
+  if (minted) await writeLenses(projectPath, lenses);
+  return lenses;
 }
 
 async function writeLenses(projectPath: string, lenses: LensSummary[]): Promise<void> {
   await setGlobalSetting(lensesKey(projectPath), JSON.stringify(lenses));
 }
 
-/** An input with no id is a new lens; one with an id edits in place. */
 export async function saveLens(projectPath: string, input: LensInput): Promise<LensSummary> {
+  const lenses = await listLenses(projectPath);
+  const at = input.id ? lenses.findIndex((lens) => lens.id === input.id) : -1;
+
   const lens: LensSummary = {
-    id: input.id ?? randomUUID(),
+    id: at >= 0 ? lenses[at].id : randomUUID(),
     name: input.name.trim(),
     instruction: input.instruction.trim(),
   };
-  const lenses = await listLenses(projectPath);
-  const at = lenses.findIndex((l) => l.id === lens.id);
 
   if (at >= 0) lenses[at] = lens;
   else lenses.push(lens);
