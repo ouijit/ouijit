@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import {
-  terminalInstances,
-  restoreTerminalOnce,
-  whenTerminalReady,
-} from '../components/terminal/terminalRegistry';
+import { terminalInstances, restoreTerminalOnce, whenTerminalReady } from '../components/terminal/terminalRegistry';
 import type { OuijitTerminal } from '../components/terminal/terminalReact';
 
 const WAIT_MS = 3000;
