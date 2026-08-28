@@ -144,13 +144,14 @@ textarea,
   }
 }
 
-@keyframes terminal-status-pulse {
+@keyframes terminal-status-orbit {
   0%,
+  10% {
+    opacity: 0.15;
+  }
+  35%,
   100% {
     opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
   }
 }
 
@@ -675,6 +676,13 @@ textarea,
   width: calc(var(--status-dot-size) + 2 * (var(--status-ring-width) + var(--status-ring-gap)));
   height: calc(var(--status-dot-size) + 2 * (var(--status-ring-width) + var(--status-ring-gap)));
   border: var(--status-ring-width) solid var(--status-ring-color, transparent);
+  border-radius: 999px;
+  transition: border-radius 200ms ease-out;
+}
+
+/* Thinking draws a square grid, so the ring squares off to keep an even gap. */
+.status-dot[data-status='thinking'] {
+  border-radius: calc(var(--status-dot-size) / 2);
 }
 
 @media (min-resolution: 2dppx) {
@@ -687,6 +695,39 @@ textarea,
 .status-dot-fill {
   width: var(--status-dot-size);
   height: var(--status-dot-size);
+}
+
+.status-dot-grid {
+  --status-orbit-duration: 0.9s;
+
+  display: grid;
+  grid-template: repeat(2, 1fr) / repeat(2, 1fr);
+  /* A pixel wider than the dot it replaces so the four cells land on whole
+     pixels; halving 6px leaves them straddling one and rendering uneven. */
+  gap: 1px;
+  width: calc(var(--status-dot-size) + 1px);
+  height: calc(var(--status-dot-size) + 1px);
+}
+
+.status-dot-grid > span {
+  border-radius: 1px;
+  background: var(--status-dot-color);
+  animation: terminal-status-orbit var(--status-orbit-duration) linear infinite;
+}
+
+/* Grid auto-placement fills row by row, so the children are top left, top
+   right, bottom left, bottom right. The bottom two are the reverse of the way
+   round the unlit cell travels, hence the delays out of document order. */
+.status-dot-grid > span:nth-child(2) {
+  animation-delay: calc(var(--status-orbit-duration) * -0.75);
+}
+
+.status-dot-grid > span:nth-child(4) {
+  animation-delay: calc(var(--status-orbit-duration) * -0.5);
+}
+
+.status-dot-grid > span:nth-child(3) {
+  animation-delay: calc(var(--status-orbit-duration) * -0.25);
 }
 
 /* ===================================
