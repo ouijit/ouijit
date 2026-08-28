@@ -2727,24 +2727,12 @@ body.marketing::after {
   margin: 0 auto;
 }
 
-.rv-pair {
+/* A tile can hold more than one desk: what the history says and what you do
+   about it in the diff are one caption. */
+.rv-tile {
   display: flex;
-  gap: 28px;
-}
-
-.rv-pair > :first-child {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Holds one tooltip at its own size rather than a panel, so the row pairs the
-   reading with where it lands. */
-.rv-desk--tip {
-  width: 360px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .rv-desk {
@@ -2812,14 +2800,6 @@ body.marketing::after {
 }
 
 @media (max-width: 999px) {
-  .rv-pair {
-    flex-direction: column;
-  }
-
-  .rv-desk--tip {
-    width: auto;
-  }
-
   .rv-band,
   .rv-band--flip {
     flex-direction: column;

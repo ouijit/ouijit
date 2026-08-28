@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
-import { MockAnalysis, HotspotTip } from './MockAnalysis';
+import { MockAnalysis } from './MockAnalysis';
 import { DeskWash } from './DeskWash';
 import { NotedDiffPane, LensedDiffCard } from './ReviewLab';
 
@@ -50,11 +50,22 @@ function useEnterProgress(ms: number): [(el: HTMLDivElement | null) => void, num
   return [setNode, progress];
 }
 
-/** The loop's beats off one run of progress, so a surface built for the
- *  theater can be handed a block that only plays once. */
-function loopBeats(progress: number): (k: string) => number {
-  const span = (from: number, to: number) => Math.min(1, Math.max(0, (progress - from) / (to - from)));
-  return (k) => (k === 'scan' ? 1 : k === 'note' ? span(0, 0.4) : k === 'send' ? span(0.4, 0.55) : span(0.55, 1));
+const span = (progress: number, from: number, to: number) => Math.min(1, Math.max(0, (progress - from) / (to - from)));
+
+/**
+ * One run of progress spread over the diff's answer to a hotspot: the tooltip
+ * the chip carries, the note written on the line it points at, and the note
+ * going to the agent. The theater spent three beats on this; here it is one
+ * pass with no way back to the start.
+ */
+function RespondingDiff({ progress }: { progress: number }) {
+  return (
+    <NotedDiffPane
+      tip={progress < 0.3}
+      pNote={span(progress, 0.25, 0.78)}
+      pSend={span(progress, 0.82, 1)}
+    />
+  );
 }
 
 /** The panel at the width the band gives it, not a window onto a wider one:
@@ -66,9 +77,12 @@ function Fit({ height, children }: { height: number; children: ReactNode }) {
       className="rv-crop glass-bevel relative rounded-[14px] overflow-hidden border border-bezel-panel"
       style={{ height }}
     >
+      {/* The panels scroll their own panes, and a wheel over one of them would
+          be taken by the panel rather than the page. Nothing here is for
+          clicking, so nothing here takes the pointer. */}
       {/* Inline, because `.glass-bevel > *` pins every direct child to
           position relative — which would collapse this to nothing. */}
-      <div className="flex flex-col" style={{ position: 'absolute', inset: 0 }}>
+      <div className="flex flex-col pointer-events-none" style={{ position: 'absolute', inset: 0 }}>
         {children}
       </div>
     </div>
@@ -108,47 +122,36 @@ const COPY = {
  * reads as one sweep broken into panels.
  */
 export function ReviewBento() {
-  const [notesRef, pNotes] = useEnterProgress(4200);
+  const [respondRef, pRespond] = useEnterProgress(5200);
   const [lensRef, pLens] = useEnterProgress(2600);
-  const notes = loopBeats(pNotes);
 
   return (
     <div>
       <h2 className="plan-v-headline">Review in depth</h2>
       <div className="rv-bento">
-        <div className="rv-tile">
-          <div className="rv-pair">
-            <div className="rv-desk plan-desk desk-wash desk-wash--prism-a">
+        <div className="rv-tile" ref={respondRef}>
+          <div className="rv-desk plan-desk desk-wash desk-wash--prism-a">
               <DeskWash />
-              {/* Tall enough for the whole expanded hotspot: `showAdvice`
-                  opens the panel scrolled to the foot of it, and a shorter
-                  frame cuts the head of the entry off. */}
-              <Fit height={520}>
-                <TerminalCardView isActive backDepth={0}>
-                  <MockAnalysis showAdvice />
-                </TerminalCardView>
-              </Fit>
-            </div>
-            {/* The same reading the panel holds, where it actually reaches a
-                reader: on the file's own row in a diff. */}
-            <div className="rv-desk rv-desk--tip plan-desk desk-wash desk-wash--prism-b">
-              <DeskWash />
-              <HotspotTip path="src/onboarding/Stepper.tsx" />
-            </div>
-          </div>
-          <Caption {...COPY.health} />
-        </div>
-
-        <div className="rv-tile" ref={notesRef}>
-          <div className="rv-desk plan-desk desk-wash desk-wash--prism-b">
-            <DeskWash />
-            <Fit height={440}>
+            {/* Tall enough for the whole expanded hotspot: `showAdvice` opens
+                the panel scrolled to the foot of it, and a shorter frame cuts
+                the head of the entry off. */}
+            <Fit height={520}>
               <TerminalCardView isActive backDepth={0}>
-                <NotedDiffPane pNote={notes('note')} pSend={notes('send')} />
+                <MockAnalysis showAdvice />
               </TerminalCardView>
             </Fit>
           </div>
-          <Caption {...COPY.notes} />
+          <div className="rv-desk plan-desk desk-wash desk-wash--prism-b">
+            <DeskWash />
+            {/* The chip's tooltip opens into the well and runs 330px down it,
+                so a shorter frame cuts the foot of the reading off. */}
+            <Fit height={500}>
+              <TerminalCardView isActive backDepth={0}>
+                <RespondingDiff progress={pRespond} />
+              </TerminalCardView>
+            </Fit>
+          </div>
+          <Caption {...COPY.health} />
         </div>
 
         <div className="rv-tile" ref={lensRef}>
@@ -205,9 +208,8 @@ function Chapter({
 }
 
 export function ReviewChapters() {
-  const [notesRef, pNotes] = useEnterProgress(4200);
+  const [respondRef, pRespond] = useEnterProgress(5200);
   const [lensRef, pLens] = useEnterProgress(2600);
-  const notes = loopBeats(pNotes);
 
   return (
     <div>
@@ -216,8 +218,8 @@ export function ReviewChapters() {
         <Chapter {...COPY.health} height={520}>
           <MockAnalysis showAdvice />
         </Chapter>
-        <Chapter {...COPY.notes} flip height={440} onRef={notesRef}>
-          <NotedDiffPane pNote={notes('note')} pSend={notes('send')} />
+        <Chapter {...COPY.notes} flip height={500} onRef={respondRef}>
+          <RespondingDiff progress={pRespond} />
         </Chapter>
         <Chapter {...COPY.lens} height={480} onRef={lensRef}>
           <LensedDiffCard pPick={1} pParts={pLens} />
