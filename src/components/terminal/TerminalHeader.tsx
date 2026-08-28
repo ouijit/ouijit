@@ -88,7 +88,6 @@ export const TerminalHeader = memo(function TerminalHeader({
   const isTaskTerminal = taskId != null;
 
   const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
-  const hasEditorHook = useProjectStore((s) => !!s.configuredHooks.editor);
   const task = useProjectStore((s) => (taskId != null ? s.tasks.find((t) => t.taskNumber === taskId) : undefined));
   const githubEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.github ?? false);
 
@@ -110,15 +109,14 @@ export const TerminalHeader = memo(function TerminalHeader({
           });
         },
         openEditor: () => {
-          if (hasEditorHook && instance.worktreePath) {
-            openWorktreeEditor(
-              projectPath,
-              { path: instance.worktreePath, branch: instance.worktreeBranch ?? '', createdAt: '' },
-              taskId ?? undefined,
-            );
-          } else {
-            setEditorHookDialog(true);
-          }
+          if (!instance.worktreePath) return;
+          void openWorktreeEditor(
+            projectPath,
+            { path: instance.worktreePath, branch: instance.worktreeBranch ?? '', createdAt: '' },
+            taskId ?? undefined,
+          ).then((opened) => {
+            if (!opened) setEditorHookDialog(true);
+          });
         },
         openFolder: () => void revealInFileManager(instance.worktreePath!),
         setStatus: async (status) => {
@@ -163,7 +161,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     });
 
     return items;
-  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, hasEditorHook, task, githubEnabled]);
+  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, task, githubEnabled]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

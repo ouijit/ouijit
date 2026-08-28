@@ -33,8 +33,6 @@ interface KanbanColumnProps {
   hasConfiguredHook?: boolean;
   chainMap?: Map<number, TaskChainInfo>;
   availableSandboxProviders?: SandboxProviderId[];
-  hasEditorHook?: boolean;
-  onEditorHookConfigured?: () => void;
 }
 
 export function KanbanColumn({
@@ -53,8 +51,6 @@ export function KanbanColumn({
   hasConfiguredHook,
   chainMap,
   availableSandboxProviders,
-  hasEditorHook,
-  onEditorHookConfigured,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const taskIds = useMemo(() => tasks.map((t) => `task-${t.taskNumber}`), [tasks]);
@@ -96,8 +92,6 @@ export function KanbanColumn({
             onSwitchToTerminal={onSwitchToTerminal}
             onSelect={onSelect}
             availableSandboxProviders={availableSandboxProviders}
-            hasEditorHook={hasEditorHook}
-            onEditorHookConfigured={onEditorHookConfigured}
           />
         ))}
       </SortableContext>
@@ -123,8 +117,6 @@ function SortableCard({
   onSwitchToTerminal,
   onSelect,
   availableSandboxProviders,
-  hasEditorHook,
-  onEditorHookConfigured,
 }: {
   task: TaskWithWorkspace;
   projectPath: string;
@@ -136,8 +128,6 @@ function SortableCard({
   onSwitchToTerminal: (ptyId: string) => void;
   onSelect: (taskNumber: number, event: MouseEvent) => void;
   availableSandboxProviders?: SandboxProviderId[];
-  hasEditorHook?: boolean;
-  onEditorHookConfigured?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task-${task.taskNumber}`,
@@ -191,8 +181,6 @@ function SortableCard({
         onSwitchToTerminal={onSwitchToTerminal}
         onSelect={onSelect}
         availableSandboxProviders={availableSandboxProviders}
-        hasEditorHook={hasEditorHook}
-        onEditorHookConfigured={onEditorHookConfigured}
       />
     </div>
   );

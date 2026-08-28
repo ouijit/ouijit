@@ -12,6 +12,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import launchEditor from 'launch-editor';
 import guessEditor from 'launch-editor/guess';
 import { getHook } from './db';
+import type { EditorOpenResult } from './types';
 import { getLogger } from './logger';
 
 const editorLog = getLogger().scope('editor');
@@ -74,32 +75,43 @@ function ensureEditorPath(): void {
 /**
  * Opens a file at a specific line in the user's editor.
  *
- * Always runs the editor hook first (ensures the editor is running), then
- * uses launch-editor to open the file at the correct line. If no hook is
- * configured, returns 'no-editor' so the renderer can show the setup dialog.
+ * Runs the editor hook first (which starts the editor if it isn't running),
+ * then hands the file to launch-editor for the line jump. Every way this can
+ * fail is named in the result — the renderer writes what the user reads.
  */
 export async function openFileInEditor(
   projectPath: string,
   workspaceRoot: string,
   filePath: string,
   line?: number,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<EditorOpenResult> {
   ensureEditorPath();
 
   const fullPath = path.resolve(workspaceRoot, filePath);
 
-  // 1. Run the editor hook to ensure the editor is running
   const hook = await getHook(projectPath, 'editor');
-  if (!hook?.command) return { success: false, error: 'no-editor' };
+  if (!hook?.command) return { success: false, reason: 'no-editor' };
 
-  spawn(hook.command, [fullPath], { detached: true, stdio: 'ignore', shell: true }).unref();
+  // launch-editor returns without calling back when the file is gone, so the
+  // check has to happen here or the failure has no way to surface.
+  if (!fs.existsSync(fullPath)) return { success: false, reason: 'missing-file' };
 
-  // 2. Use launch-editor to open file at the correct line
+  const hookProcess = spawn(hook.command, [fullPath], { detached: true, stdio: 'ignore', shell: true });
+  hookProcess.on('error', (err) => editorLog.warn('editor hook failed to spawn', { command: hook.command, err }));
+  hookProcess.unref();
+
+  // The hook may have just started the editor, so process-list detection can
+  // still come up empty; the registered command is the fallback editor.
   const [detectedEditor] = guessEditor();
-  editorLog.info('opening file', { filePath, line, detectedEditor });
+  const editor = detectedEditor ? path.basename(detectedEditor) : hook.command.split(' ')[0];
+  editorLog.info('opening file', { filePath, line, editor });
   const target = line ? `${fullPath}:${line}` : fullPath;
-  await tryLaunchEditor(target);
+  const failure = await tryLaunchEditor(target, detectedEditor ? undefined : hook.command);
 
+  if (failure) {
+    editorLog.warn('editor launch failed', { target, editor, failure });
+    return { success: false, reason: 'launch-failed', editor };
+  }
   return { success: true };
 }
 
@@ -107,7 +119,7 @@ export async function openFileInEditor(
  * Wraps launch-editor in a Promise. Returns null on success, error string on failure.
  * Suppresses launch-editor's console.log output by temporarily replacing it.
  */
-function tryLaunchEditor(target: string): Promise<string | null> {
+function tryLaunchEditor(target: string, specifiedEditor?: string): Promise<string | null> {
   return new Promise((resolve) => {
     let errorMsg: string | null = null;
 
@@ -124,8 +136,8 @@ function tryLaunchEditor(target: string): Promise<string | null> {
       origSpawn(cmd, args, { ...opts, stdio: 'ignore' });
 
     try {
-      launchEditor(target, undefined, (_fileName, msg) => {
-        errorMsg = msg ?? 'No editor detected';
+      launchEditor(target, specifiedEditor, (_fileName, msg) => {
+        errorMsg = msg ?? 'no editor detected';
       });
     } finally {
       console.log = origLog;
@@ -137,7 +149,7 @@ function tryLaunchEditor(target: string): Promise<string | null> {
     if (errorMsg) {
       resolve(errorMsg);
     } else {
-      setTimeout(() => resolve(null), 150);
+      setTimeout(() => resolve(errorMsg), 150);
     }
   });
 }

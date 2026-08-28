@@ -7,6 +7,7 @@
 
 import type {
   Project,
+  EditorOpenResult,
   PtySpawnOptions,
   PtySpawnResult,
   PtyReconnectResult,
@@ -87,7 +88,7 @@ export interface IpcInvokeContract {
   'open-in-finder': { args: [projectPath: string]; return: { success: boolean; error?: string } };
   'open-file-in-editor': {
     args: [projectPath: string, workspaceRoot: string, filePath: string, line?: number];
-    return: { success: boolean; error?: string };
+    return: EditorOpenResult;
   };
   'open-external': { args: [url: string]; return: void };
   'refresh-projects': { args: []; return: Project[] };

@@ -32,9 +32,6 @@ interface KanbanCardProps {
   isSelected?: boolean;
   /** Hoisted from per-card IPC to a single board-level call. */
   availableSandboxProviders?: SandboxProviderId[];
-  /** Hoisted from per-card IPC to a single board-level call. */
-  hasEditorHook?: boolean;
-  onEditorHookConfigured?: () => void;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => void;
@@ -50,8 +47,6 @@ export const KanbanCard = memo(function KanbanCard({
   isSettingUp,
   isSelected,
   availableSandboxProviders = [],
-  hasEditorHook = false,
-  onEditorHookConfigured,
   onRename,
   onUpdateDescription,
   onOpenTerminal,
@@ -199,15 +194,14 @@ export const KanbanCard = memo(function KanbanCard({
     const actions: TaskMenuActions = {
       openTerminal: (provider) => onOpenTerminal(task, provider),
       openEditor: () => {
-        if (hasEditorHook && task.worktreePath && task.branch) {
-          openWorktreeEditor(
-            projectPath,
-            { path: task.worktreePath, branch: task.branch, createdAt: task.createdAt },
-            task.taskNumber,
-          );
-        } else {
-          setEditorHookDialog(true);
-        }
+        if (!task.worktreePath || !task.branch) return;
+        void openWorktreeEditor(
+          projectPath,
+          { path: task.worktreePath, branch: task.branch, createdAt: task.createdAt },
+          task.taskNumber,
+        ).then((opened) => {
+          if (!opened) setEditorHookDialog(true);
+        });
       },
       openFolder: () => void revealInFileManager(task.worktreePath!),
       setStatus: async (status) => {
@@ -272,7 +266,6 @@ export const KanbanCard = memo(function KanbanCard({
     task,
     projectPath,
     availableSandboxProviders,
-    hasEditorHook,
     isSelected,
     selectedCount,
     githubEnabled,
@@ -345,7 +338,7 @@ export const KanbanCard = memo(function KanbanCard({
           onClose={(result) => {
             setEditorHookDialog(false);
             if (result?.saved) {
-              onEditorHookConfigured?.();
+              useProjectStore.getState().markHookConfigured('editor');
               // Open the editor straight away: the config dialog was a detour,
               // not the request.
               if (result.hook?.command && task.worktreePath && task.branch) {

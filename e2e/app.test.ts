@@ -439,7 +439,7 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
   expect(fs.existsSync(newWorktreePath)).toBe(true);
 });
 
-test('open in editor: runs the editor hook in a task terminal with the worktree path', async ({
+test('open in editor: asks for an editor when none is registered, then runs it in a task terminal', async ({
   appPage,
   testRepo,
 }) => {
@@ -460,16 +460,6 @@ test('open in editor: runs the editor hook in a task terminal with the worktree 
 
   await enterProject(appPage, repoPath);
 
-  // Configure the editor hook, then refresh the renderer's hook config so the
-  // context menu launches the editor instead of opening the setup dialog.
-  await appPage.evaluate(
-    async ({ rp, cmd }) => {
-      await window.api.hooks.save(rp, { id: 'hook-editor', type: 'editor', name: 'Editor', command: cmd });
-      await (window as any).__projectStore.getState().loadProjectConfig(rp);
-    },
-    { rp: repoPath, cmd: fakeEditor },
-  );
-
   // Create a task and open it in a terminal (creates the worktree).
   const input = await openColumnComposer(appPage);
   await input.fill('Editor task');
@@ -488,6 +478,13 @@ test('open in editor: runs the editor hook in a task terminal with the worktree 
   await ipCard.click({ button: 'right' });
 
   await chooseSubmenuItem(appPage, 'Open in', 'Editor');
+
+  // No editor registered yet, so the request turns into the setup dialog and
+  // is carried out as soon as one is saved.
+  const command = appPage.locator('#hook-command');
+  await expect(command).toBeVisible({ timeout: 5_000 });
+  await command.fill(fakeEditor);
+  await appPage.getByRole('button', { name: 'Save' }).click();
 
   // A second terminal card opens for the editor — the visible result the old
   // detached-spawn path never produced.

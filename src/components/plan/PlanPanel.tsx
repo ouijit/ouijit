@@ -2,11 +2,10 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { renderPlanMarkdown } from '../../utils/renderPlanMarkdown';
 import { useResolvedTheme } from '../../hooks/useResolvedTheme';
 import { terminalInstances } from '../terminal/terminalReact';
-import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
 import { FullWidthToggle, MinimizeButton, PanelCloseButton } from '../terminal/FullWidthToggle';
-import { HookConfigDialog } from '../dialogs/HookConfigDialog';
+import { useOpenInEditor } from '../../hooks/useOpenInEditor';
 
 interface PlanPanelProps {
   ptyId: string;
@@ -154,26 +153,10 @@ export function PlanPanel({
     };
   }, [renderedHtml, ptyId]);
 
-  const [editorHookDialog, setEditorHookDialog] = useState(false);
-  const pendingFileRef = useRef<{ filePath: string; line?: number } | null>(null);
-
-  const openFile = useCallback(
-    (filePath: string, line?: number) => {
-      const inst = terminalInstances.get(ptyId);
-      if (!inst) return;
-      const workspaceRoot = inst.worktreePath || inst.projectPath;
-      window.api.openFileInEditor(inst.projectPath, workspaceRoot, filePath, line).then((result) => {
-        if (!result.success) {
-          if (result.error === 'no-editor') {
-            pendingFileRef.current = { filePath, line };
-            setEditorHookDialog(true);
-          } else if (result.error) {
-            useProjectStore.getState().addToast(result.error, 'error');
-          }
-        }
-      });
-    },
-    [ptyId],
+  const instance = terminalInstances.get(ptyId);
+  const { openFile, editorDialog } = useOpenInEditor(
+    instance?.projectPath ?? '',
+    instance?.worktreePath || instance?.projectPath || '',
   );
 
   const handleClick = useCallback(
@@ -262,21 +245,7 @@ export function PlanPanel({
           />
         )}
       </div>
-      {editorHookDialog && (
-        <HookConfigDialog
-          projectPath={terminalInstances.get(ptyId)?.projectPath ?? ''}
-          hookType="editor"
-          onClose={(result) => {
-            setEditorHookDialog(false);
-            if (result?.saved && pendingFileRef.current) {
-              // Retry the file open now that an editor is configured
-              const { filePath, line } = pendingFileRef.current;
-              pendingFileRef.current = null;
-              openFile(filePath, line);
-            }
-          }}
-        />
-      )}
+      {editorDialog}
     </div>
   );
 }

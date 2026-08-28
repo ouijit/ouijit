@@ -14,6 +14,7 @@ import { basename, dirname } from '../../analysis/paths';
 import { useAnalysisStore } from '../../stores/analysisStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEscape } from '../../hooks/useEscape';
+import { useOpenInEditor } from '../../hooks/useOpenInEditor';
 import { Icon } from '../terminal/Icon';
 import { Section } from '../github/Sections';
 import { PanelFrame } from '../ui/PanelFrame';
@@ -159,6 +160,7 @@ function HotspotEntry({ projectPath, row, endMonth }: { projectPath: string; row
 function HotspotDetail({ projectPath, row, endMonth }: { projectPath: string; row: HotspotRow; endMonth: number }) {
   const { signal } = row;
   const levers = leversFor(signal, row.partner);
+  const { openFile, editorDialog } = useOpenInEditor(projectPath, projectPath);
 
   return (
     <div className="analysis-detail-enter ml-8 mr-2 mb-2.5 pl-4 pt-3.5 pb-2.5 border-l border-ink/[0.09] flex flex-col gap-4">
@@ -207,12 +209,13 @@ function HotspotDetail({ projectPath, row, endMonth }: { projectPath: string; ro
         <button
           type="button"
           className="shrink-0 flex items-center gap-1.5 text-[11px] text-text-tertiary hover:text-accent transition-colors duration-100"
-          onClick={() => void window.api.openFileInEditor(projectPath, projectPath, row.path)}
+          onClick={() => openFile(row.path)}
         >
           Open in editor
           <Icon name="arrow-square-out" className="w-3 h-3" />
         </button>
       </div>
+      {editorDialog}
     </div>
   );
 }

@@ -448,6 +448,17 @@ export interface Project {
   iconColor?: string;
 }
 
+/**
+ * The result of "open in editor". `no-editor` is the setup case — nothing is
+ * registered yet — and `launch-failed` carries the editor that was tried, so
+ * the caller can offer to change it. The renderer writes what the user reads.
+ */
+export interface EditorOpenResult {
+  success: boolean;
+  reason?: 'no-editor' | 'missing-file' | 'launch-failed';
+  editor?: string;
+}
+
 export interface ElectronAPI {
   getProjects(): Promise<Project[]>;
   openProject(path: string): Promise<{ success: boolean; error?: string }>;
@@ -459,7 +470,7 @@ export interface ElectronAPI {
     workspaceRoot: string,
     filePath: string,
     line?: number,
-  ): Promise<{ success: boolean; error?: string }>;
+  ): Promise<EditorOpenResult>;
   openExternal(url: string): Promise<void>;
   pty: PtyAPI;
   worktree: WorktreeAPI;
