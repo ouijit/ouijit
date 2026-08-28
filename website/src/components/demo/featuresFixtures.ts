@@ -1,8 +1,6 @@
 import type { TaskWithWorkspace } from '../../ouijit-ui/types';
 import type { TerminalDisplayState } from '../../ouijit-ui/terminalDisplay';
 import { DEFAULT_DISPLAY_STATE } from '../../ouijit-ui/terminalDisplay';
-import type { TaskChainInfo } from '../../ouijit-ui/utils/taskChain';
-import { buildChainMap } from '../../ouijit-ui/utils/taskChain';
 
 const PROJECT_PATH = '/demo/horizon';
 
@@ -124,8 +122,6 @@ export const featuresTasks: TaskWithWorkspace[] = [
   },
 ];
 
-export const featuresChainMap: Map<number, TaskChainInfo> = buildChainMap(featuresTasks);
-
 /**
  * Connected terminals per task, and the single source for the four fixture
  * terminals: the stack, the board rows and the palette all read them from
@@ -172,8 +168,6 @@ export const featuresTerminalsByTask: Record<number, TerminalDisplayState[]> = {
     }),
   ],
 };
-
-export const FEATURES_PROJECT_PATH = PROJECT_PATH;
 
 /** Branches for the terminals the stack draws; the board rows don't show one. */
 export const FEATURES_BRANCHES: Record<string, string> = {

@@ -27,9 +27,9 @@ function task(taskNumber: number, name: string, branch: string): TaskWithWorkspa
   };
 }
 
-export const SEED_TASK = task(116, 'Bump deps for security advisory', 'bump-deps-advisory');
+const SEED_TASK = task(116, 'Bump deps for security advisory', 'bump-deps-advisory');
 
-export const TASK_BY_SOURCE: Record<SourceKey, TaskWithWorkspace> = {
+const TASK_BY_SOURCE: Record<SourceKey, TaskWithWorkspace> = {
   agent: task(119, 'Add rate-limit headers to the public API', 'api-rate-limit-headers'),
   issue: task(121, 'Support SSO re-auth prompt', 'sso-reauth-prompt'),
   manual: task(120, 'Fix flaky signup e2e', 'fix-signup-e2e'),

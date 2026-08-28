@@ -139,10 +139,3 @@ function initBentoSpotlight() {
   }, 2800);
 }
 
-/** Progress of the viewport through an element, clamped to [0, 1]. */
-export function scrollProgress(el: HTMLElement): number {
-  const rect = el.getBoundingClientRect();
-  const range = rect.height - window.innerHeight;
-  if (range <= 0) return rect.top < 0 ? 1 : 0;
-  return Math.min(1, Math.max(0, -rect.top / range));
-}

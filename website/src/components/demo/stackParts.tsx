@@ -247,7 +247,7 @@ export function ClaudeShell({ children, busy, pendingText }: { children: ReactNo
 
 /* ─── Bodies ─────────────────────────────────────────────────────── */
 
-export function ClaudeBody() {
+function ClaudeBody() {
   return (
     <ClaudeShell busy>
       <ClaudeUser>Split onboarding into a three-step stepper with saved progress.</ClaudeUser>
@@ -280,7 +280,7 @@ export function ClaudeBody() {
   );
 }
 
-export function DevServerBody() {
+function DevServerBody() {
   const Hmr = ({ time, path }: { time: string; path: string }) => (
     <div>
       <span className="text-white/30">{time}</span> <span className="text-[#79b8ff]/80">[vite]</span>{' '}
@@ -325,7 +325,7 @@ export function DevServerBody() {
   );
 }
 
-export function TestBody() {
+function TestBody() {
   return (
     <ClaudeShell pendingText="run litmus on the new template">
       <ClaudeUser>Tighten the invitation email — subject line, brand tokens, plain-text fallback.</ClaudeUser>
@@ -362,7 +362,7 @@ export function TestBody() {
   );
 }
 
-export function ShellBody() {
+function ShellBody() {
   return (
     <ClaudeShell busy>
       <ClaudeUser>Audit the settings dialog for WCAG 2.0 AA issues and queue fixes.</ClaudeUser>
