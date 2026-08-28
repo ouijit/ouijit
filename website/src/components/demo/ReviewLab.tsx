@@ -524,66 +524,79 @@ const STATUS: Record<LensFile['status'], { icon: string; color: string; badge: s
   M: { icon: 'file-dashed', color: 'text-ink/50', badge: 'bg-ink/[0.06] text-ink/40', label: 'modified' },
 };
 
-const LENS_DIR = 'src/onboarding';
+const LENS_DIR = 'src/search';
 
-const LEGACY_LINES = [
-  "import { useState } from 'react';",
-  '',
-  'const progress = new Map<string, number>();',
-  '',
-  'export function readProgress(accountId: string) {',
-  '  return progress.get(accountId) ?? 0;',
-  '}',
+const BUILDER_LINES: NotedLine[] = [
+  { type: 'addition', newNo: 4, content: <>import {'{ tokenize }'} from {hl("'./tokenizer'", 'add')};</> },
+  { type: 'deletion', oldNo: 18, content: 'export function buildIndex(files: string[]) {' },
+  {
+    type: 'addition',
+    newNo: 19,
+    content: <>export {hl('async', 'add')} function buildIndex(files: string[]{hl(', signal: AbortSignal', 'add')}) {'{'}</>,
+  },
+  { type: 'deletion', oldNo: 19, content: <>{'  const index = new '}{hl('Map<string, number[]>()', 'del')};</> },
+  { type: 'addition', newNo: 20, content: <>{'  const index = new '}{hl('SearchIndex()', 'add')};</> },
+  { type: 'addition', newNo: 21, content: '  for (const batch of chunk(files, 250)) {' },
+  { type: 'addition', newNo: 22, content: '    await idle(signal);' },
+  { type: 'context', oldNo: 20, newNo: 23, content: '' },
+];
+
+const TOKENIZER_LINES: NotedLine[] = [
+  { type: 'addition', newNo: 6, content: 'export function tokenize(text: string): string[] {' },
+  { type: 'addition', newNo: 7, content: '  return text.split(WORD).filter(Boolean);' },
+  { type: 'addition', newNo: 8, content: '}' },
+  { type: 'context', oldNo: 6, newNo: 9, content: '' },
+];
+
+const LEGACY_LINES: NotedLine[] = [
+  { type: 'deletion', oldNo: 1, content: "import { readFileSync } from 'node:fs';" },
+  { type: 'deletion', oldNo: 2, content: '' },
+  { type: 'deletion', oldNo: 3, content: 'export function buildOnOpen(paths: string[]) {' },
+  { type: 'deletion', oldNo: 4, content: '  return paths.map((path) => readFileSync(path, "utf8"));' },
+  { type: 'deletion', oldNo: 5, content: '}' },
 ];
 
 /** In tree order, which the document follows. */
 const FLAT_FILES: LensFile[] = [
   {
-    name: 'legacyProgress.ts',
-    status: 'D',
-    del: 64,
-    hunk: {
-      range: '@@ -1,64 +0,0 @@',
-      context: 'legacyProgress',
-      lines: LEGACY_LINES.map((content, i) => ({ type: 'deletion', oldNo: i + 1, content })),
-    },
-  },
-  {
-    name: 'Stepper.tsx',
+    name: 'indexBuilder.ts',
     status: 'M',
-    add: 92,
-    del: 14,
-    hunk: { range: '@@ -1,8 +1,12 @@', context: 'Stepper container', lines: NOTED_LINES },
+    add: 120,
+    del: 30,
+    hunk: { range: '@@ -18,9 +18,14 @@', context: 'buildIndex', lines: BUILDER_LINES },
   },
   {
-    name: 'useOnboardingProgress.ts',
-    status: 'A',
-    add: 38,
-    hunk: {
-      range: '@@ -0,0 +1,38 @@',
-      context: 'useOnboardingProgress',
-      lines: HOOK_LINES.slice(0, 4).map((content, i) => ({ type: 'addition', newNo: i + 1, content })),
-    },
+    name: 'legacyIndex.ts',
+    status: 'D',
+    del: 18,
+    hunk: { range: '@@ -1,18 +0,0 @@', context: 'buildOnOpen', lines: LEGACY_LINES },
+  },
+  {
+    name: 'tokenizer.ts',
+    status: 'M',
+    add: 62,
+    del: 6,
+    hunk: { range: '@@ -4,4 +4,8 @@', context: 'tokenize', lines: TOKENIZER_LINES },
   },
 ];
 
-/** What the lens made of those same files. Stepper.tsx is in two parts: a
+/** What the lens made of those same files. indexBuilder.ts is in two parts: a
  *  part claims line ranges rather than whole files. */
 const LENS_PARTS: { title: string; summary: string; files: LensFile[] }[] = [
   {
     title: 'The decision',
-    summary: 'Step progress moves out of component state and into the account, where a reload can find it.',
-    files: [FLAT_FILES[1], FLAT_FILES[2]],
+    summary: 'The index builds in batches off the main thread, so a large repository stops blocking the first search.',
+    files: [FLAT_FILES[0], FLAT_FILES[2]],
   },
   {
     title: 'What it replaces',
-    summary: 'The in-memory store the stepper kept, and the last call into it.',
-    files: [FLAT_FILES[0]],
+    summary: 'The index the search box used to build on open, one blocking read at a time.',
+    files: [FLAT_FILES[1]],
   },
   {
     title: 'Mechanical churn',
-    summary: 'Imports and prop names the move dragged along.',
-    files: [FLAT_FILES[1]],
+    summary: 'Imports and type names the move dragged along.',
+    files: [FLAT_FILES[0]],
   },
 ];
 
@@ -761,7 +774,7 @@ function PrChrome() {
       </span>
       <span className="flex items-center gap-2 min-w-0 text-text-secondary">
         <Icon name="git-pull-request" className="w-4 h-4 shrink-0 text-vcs-added" />
-        <span className="truncate text-[15px]">Rework onboarding flow</span>
+        <span className="truncate text-[15px]">Speed up search index build</span>
       </span>
       <nav className="flex items-center gap-4 mx-auto shrink-0 self-stretch">
         <span className="flex items-center px-0.5 border-b-2 -mb-px border-transparent text-[13px] font-medium text-text-tertiary">
@@ -779,7 +792,7 @@ function PrChrome() {
         style={{ background: '#212126' }}
       >
         <span className={`${SEG} text-text-secondary`}>
-          <span className="w-1.5 h-1.5 rounded-full bg-accent" />1 unsent
+          <span className="w-1.5 h-1.5 rounded-full bg-accent" />3 unsent
         </span>
         {SEG_DIVIDER}
         <span className={`${SEG} text-text-secondary`}>Review</span>
@@ -803,7 +816,7 @@ export function LensedDiffCard({ pPick, pParts }: { pPick: number; pParts: numbe
     <div className="flex absolute inset-0 overflow-hidden bg-terminal-bg">
       {/* The inbox stays open beside the request being read: which ones are
           waiting on you is the reason this one is on screen. */}
-      <PullRequestSidebar width={300} active={501} />
+      <PullRequestSidebar />
       <div className="pane-seam relative w-px shrink-0" />
       <div className="flex flex-col flex-1 min-w-0">
         <PrChrome />

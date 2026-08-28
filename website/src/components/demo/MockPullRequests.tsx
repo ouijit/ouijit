@@ -52,29 +52,6 @@ const GROUPS: Array<{ label: string; rows: PrRowFixture[] }> = [
         state: 'open',
         task: 98,
       },
-      {
-        number: 501,
-        title: 'Rework onboarding flow',
-        author: 'prentice',
-        branch: 'rework-onboarding',
-        updated: 'just now',
-        additions: 130,
-        deletions: 78,
-        state: 'open',
-        drafts: 1,
-        task: 101,
-      },
-      {
-        number: 479,
-        title: 'Restore login redirect after timeout',
-        author: 'prentice',
-        branch: 'login-redirect',
-        updated: '1 day ago',
-        additions: 48,
-        deletions: 12,
-        state: 'merged',
-        task: 95,
-      },
     ],
   },
   {
@@ -111,9 +88,8 @@ export function MockPullRequests() {
 }
 
 /** The inbox: which pull requests are waiting on you, which are yours, and how
- *  far through them you are. `active` names the row the pane beside it is
- *  showing. */
-export function Sidebar({ width = 320, active = ACTIVE }: { width?: number; active?: number } = {}) {
+ *  many notes are unsent on each. */
+export function Sidebar({ width = 320 }: { width?: number } = {}) {
   return (
     <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
       <div className="shrink-0 flex flex-col">
@@ -138,7 +114,7 @@ export function Sidebar({ width = 320, active = ACTIVE }: { width?: number; acti
           <section key={label} className="pt-3">
             <div className="px-4 pb-1 text-[13px] text-text-tertiary">{label}</div>
             {rows.map((pr) => (
-              <PullRequestRow key={pr.number} pr={pr} active={pr.number === active} />
+              <PullRequestRow key={pr.number} pr={pr} active={pr.number === ACTIVE} />
             ))}
           </section>
         ))}
@@ -171,14 +147,20 @@ function PullRequestRow({ pr, active }: { pr: PrRowFixture; active: boolean }) {
         <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">{pr.title}</span>
         <span className="shrink-0 text-[13px] text-text-tertiary">{pr.updated}</span>
       </span>
-      <span className="flex items-center gap-2 min-w-0 text-[13px] text-text-tertiary">
+      {/* Everything after the branch is a fixed cost, so the two names are what
+          gives way — the row is as narrow as the list is dragged. */}
+      <span className="flex items-center gap-2 min-w-0 overflow-hidden text-[13px] text-text-tertiary">
         <Icon
           name={pr.state === 'merged' ? 'git-merge' : 'git-pull-request'}
           className={`w-3.5 h-3.5 shrink-0 ${pr.state === 'merged' ? 'text-vcs-renamed' : 'text-vcs-added'}`}
         />
         <MockAvatar login={pr.author} size={16} />
-        <span className="shrink-0">{pr.author}</span>
-        <span className="flex-1 min-w-0 truncate font-mono text-[12px]">{pr.branch}</span>
+        <span className="min-w-0 truncate">{pr.author}</span>
+        {/* Gives way first, and by six times as much: a branch is the one name
+            here a reader can do without. */}
+        <span className="min-w-0 flex-1 truncate font-mono text-[12px]" style={{ flexShrink: 6 }}>
+          {pr.branch}
+        </span>
         {pr.drafts != null && pr.drafts > 0 && <span className="shrink-0 text-accent">{pr.drafts} unsent</span>}
         {pr.task != null && <span className="shrink-0 font-mono text-[12px] text-text-tertiary">T-{pr.task}</span>}
         <span className="shrink-0 font-mono text-[12px] tabular-nums">
