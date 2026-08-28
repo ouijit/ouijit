@@ -1506,11 +1506,11 @@ body.marketing::after {
     padding: 24px;
   }
 
+  /* The column is where the flights land, and stacked there are no flights:
+     it arrives already full, under three rows that have each shown their card
+     being made. Nothing left for it to say. */
   .plan-column-rail {
-    position: static;
-    width: auto;
-    align-self: center;
-    margin-top: 24px;
+    display: none;
   }
 
 }
@@ -1783,6 +1783,10 @@ body.marketing::after {
 }
 
 @media (max-width: 999px) {
+  .home-build {
+    padding: 80px var(--content-padding) 24px;
+  }
+
   .hx-frame {
     padding: 32px var(--content-padding);
   }
@@ -1798,19 +1802,11 @@ body.marketing::after {
     width: 100%;
   }
 
-  /* `flex: none` because the stage stacks here: in a column, flex-basis is
-     the height, and it would take the desk's own away. */
+  /* The stack is five terminals at once, and this is a screen with room for
+     one. The column carries the section on its own: every task in flight has
+     a session under it, named on the card. */
   .hx-desk {
-    width: 100%;
-    flex: none;
-    --desk-h: 520px;
-    padding: 20px;
-  }
-
-  .hx-well {
-    left: 20px;
-    right: 20px;
-    bottom: 20px;
+    display: none;
   }
 }
 
