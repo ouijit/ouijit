@@ -53,6 +53,9 @@ import {
   listDrafts,
   saveDraft,
   discardDraft,
+  getPullRequestLens,
+  setPullRequestLens,
+  clearPullRequestLens,
 } from '../github/service';
 import { getProjectList } from '../projectList';
 import { cliPanelRequest } from '../cliPanels';
@@ -708,6 +711,47 @@ const routes: Route[] = [
       if (!id) throw new HttpError(400, 'Missing draft id');
       return discardDraft(id);
     },
+    true,
+    'sandbox',
+  ),
+
+  // ── Lens ─────────────────────────────────────────────────────
+  // Sandbox-reachable, like drafts: this is where an agent that has read the
+  // diff writes down what it found, and it touches one local table and no
+  // credentials.
+  route(
+    'GET',
+    'pulls/:number/lens',
+    async (r) => {
+      const project = requireProject(r.query);
+      const headSha = r.query.get('headSha');
+      if (!headSha) throw new HttpError(400, 'Missing ?headSha=');
+      return getPullRequestLens(project, prNumber(r), headSha);
+    },
+    false,
+    'sandbox',
+  ),
+
+  route(
+    'PUT',
+    'pulls/:number/lens',
+    async (r) => {
+      const project = requireProject(r.query);
+      const headSha = r.body.headSha;
+      const groups = r.body.groups;
+      if (typeof headSha !== 'string' || !headSha) throw new HttpError(400, 'Missing headSha');
+      const result = await setPullRequestLens(project, prNumber(r), headSha, { groups });
+      if (!result.success) throw new HttpError(400, result.error ?? 'Invalid lens');
+      return result;
+    },
+    true,
+    'sandbox',
+  ),
+
+  route(
+    'DELETE',
+    'pulls/:number/lens',
+    async (r) => clearPullRequestLens(requireProject(r.query), prNumber(r)),
     true,
     'sandbox',
   ),

@@ -541,6 +541,18 @@ textarea,
   margin-top: 12px;
 }
 
+/* A part of a lens opens with a bar that pins to the top of the pane. The gap
+   above belongs between one part and the next, not between a part and its own
+   bar, and not above the first — which has the ledge above it to sit against.
+
+   A folded part is only its bar, so the gap after one would be a strip of well
+   between two bars that should stack. */
+.lens-part > *:first-child,
+.diff-list > .lens-part:first-child,
+.lens-part[data-collapsed] + .lens-part {
+  margin-top: 0;
+}
+
 /* ===================================
    Pane ledge — a header the content scrolls under
    =================================== */
@@ -558,6 +570,19 @@ textarea,
    catch. */
 .pane-ledge.over-well {
   box-shadow: 0 1px 0 var(--seam-cut);
+}
+
+/* A ledge with surface above it as well as below: the bar a lens's part opens
+   with sits mid-document, so it is bevelled like a card rather than cut like a
+   pane ledge. The edges are inset, which is what lets folded parts stack —
+   their bars are siblings, and an outer shadow would be painted over by the
+   next one. Only the catch is outside, where the well is there to take it. */
+.pane-ledge-raised {
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset 0 -1px 0 var(--bevel-bottom),
+    inset 0 2px 6px -3px var(--bevel-glow),
+    0 1px 0 var(--seam-catch);
 }
 
 /* The same ledge inverted, for a strip pinned under the content. */
@@ -1205,4 +1230,21 @@ textarea,
 
 .description-attachment-chip::before {
   content: '[Img #' counter(img-counter) ']';
+}
+
+@keyframes lens-part-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The fade is also cover for the reflow: `useReadingAnchor` puts the reader
+   back on the file they were on while the parts are still transparent. */
+.lens-part-enter {
+  animation: lens-part-enter 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }

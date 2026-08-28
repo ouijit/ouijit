@@ -8,10 +8,12 @@ import {
   DIFF_FILE_LIST_MAX_WIDTH,
 } from '../../stores/uiStore';
 import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
-import { DiffFileTree, inTreeOrder } from './DiffFileTree';
+import { DiffFileTree, treeFileOrder } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
 import { DeferredMount } from './DeferredMount';
 import { scrollToSection, fileSelector } from './scrollToSection';
+import { useLensReveal } from './lensReveal';
+import { useDiffSlices } from './diffSlice';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { SidebarToggle } from '../common/SidebarToggle';
 import { FullWidthToggle, PanelCloseButton } from '../terminal/FullWidthToggle';
@@ -21,8 +23,17 @@ import { InlineCommentBox, InlineCommentCard } from './InlineCommentBox';
 import { DiffNotesIsland } from './DiffNotesIsland';
 import { DiffComparisonPicker } from './DiffComparisonPicker';
 import { useDiffNotes } from './useDiffNotes';
+import { useProjectLenses } from './useProjectLenses';
+import { useLensSession } from './useLensSession';
+import { worktreeSubjectKey } from '../../lens/subjectKeys';
+import { estimateLensPromptChars } from '../../lens/lensPrompt';
+import { LensPicker } from './LensPicker';
+import { LensedFileList } from './LensedFileList';
+import { LensDialog } from '../dialogs/LensDialog';
 import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type DiffLineAnchor } from '../../diffAnchor';
-import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
+import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff, baseToReadAgainst } from '../../diffSource';
+import { partHolding, type ResolvedSlice } from '../../lens/lens';
+import type { DiffLensTarget } from '../../lens/worktreeSubject';
 import { toggleIn } from '../../utils/toggleIn';
 import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
 import { AnalysisChip, AnalysisRailDot, worthAChip } from './AnalysisChip';
@@ -44,9 +55,11 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const sidebarCollapsed = useUIStore((s) => s.diffFileListCollapsed);
   const sidebarWidth = useUIStore((s) => s.diffFileListWidth);
-  // Local, and gone when the panel closes: folding here is scroll management,
-  // not review state that has to survive.
+  // By section, not by path: a lens can put one file in three parts, and each is
+  // folded on its own.
   const [folded, setFolded] = useState<Set<string>>(new Set());
+  /** Parts of the lens folded away in the document, by group id. */
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   // Through a ref so callbacks survive each batch of diffs arriving.
   const diffsRef = useRef(diffs);
@@ -64,18 +77,18 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
 
   const totalFileCount = storeFiles.length;
 
-  // Status polls hand back a fresh object every few seconds, so the tree walk
-  // and per-file loader below key off this fingerprint instead. The base is
-  // part of it: two comparisons can list the same files with different hunks.
+  // Status polls hand back a fresh object every few seconds, so the tree walk,
+  // the lens resolution and the per-file loader below key off this fingerprint
+  // instead. The base is part of it: two comparisons can list the same files
+  // with different hunks.
   const filesFingerprint = useMemo(
     () => `${base ?? ''}\n${diffShape(storeFiles.slice(0, MAX_DIFF_FILES))}`,
     [storeFiles, base],
   );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
   const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [filesFingerprint]);
-  // The document must run in the tree's order, or clicking a file in the rail
-  // is no way to find it here.
-  const ordered = useMemo(() => inTreeOrder(files), [files]);
+  const order = useMemo(() => treeFileOrder(files), [files]);
+  const promptChars = useMemo(() => estimateLensPromptChars(files), [files]);
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
 
@@ -104,6 +117,23 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     [analysisSignals],
   );
 
+  const lensTarget = useMemo<DiffLensTarget | null>(
+    () =>
+      gitPath
+        ? {
+            projectPath,
+            worktreePath: gitPath,
+            base,
+            branch,
+            mergeTarget: instance?.mergeTarget,
+            title: instance?.label,
+            description: instance?.taskPrompt,
+            files,
+          }
+        : null,
+    [gitPath, projectPath, base, branch, instance?.mergeTarget, instance?.label, instance?.taskPrompt, files],
+  );
+
   useEffect(() => {
     const inst = terminalInstances.get(ptyId);
     if (inst) refreshTerminalGitStatus(inst);
@@ -113,17 +143,35 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     files,
     filesFingerprint,
     (file) => {
-      // An untracked file is in no revision, so no comparison can produce it;
-      // read it whole instead.
-      return file.status === '?' || !base
-        ? window.api.getFileDiff(gitPath, file.path, undefined, file.status === '?')
-        : window.api.worktree.getFileDiff(gitPath, base, file.path, file.oldPath);
+      const against = baseToReadAgainst(base, file.status);
+      return against
+        ? window.api.worktree.getFileDiff(gitPath, against, file.path, file.oldPath)
+        : window.api.getFileDiff(gitPath, file.path, undefined, file.status === '?');
     },
     setDiffs,
   );
 
-  const scrollToFile = useCallback((path: string) => {
-    scrollToSection(contentRef.current, fileSelector(path));
+  const lenses = useProjectLenses(projectPath);
+  const lens = useLensSession(
+    {
+      projectPath,
+      // Not the target object, which is rebuilt on every render and would have
+      // the session reloading forever.
+      key: lensTarget ? worktreeSubjectKey(lensTarget.worktreePath, lensTarget.base) : null,
+      revision: filesFingerprint,
+      read: () => (lensTarget ? window.api.diffLens.get(lensTarget) : Promise.resolve(null)),
+      write: (lensId) =>
+        lensTarget ? window.api.diffLens.run(lensTarget, lensId) : Promise.resolve({ success: false }),
+    },
+    diffs,
+    order,
+  );
+  const [lensesOpen, setLensesOpen] = useState(false);
+
+  // With the group, not just the path: a lens can name the same file in three
+  // parts, and every copy of it answers to `[data-path]`.
+  const scrollToFile = useCallback((path: string, group?: string) => {
+    scrollToSection(contentRef.current, fileSelector(path, group));
   }, []);
 
   const { setComposingAt, setEditingId } = notes;
@@ -221,8 +269,15 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     [notes.notes, diffs],
   );
 
-  const toggleFolded = useCallback((path: string, next: boolean) => {
-    setFolded((prev) => toggleIn(prev, path, next));
+  const revealing = useLensReveal(lens.landed, contentRef);
+  const sliceFor = useDiffSlices();
+
+  const toggleFolded = useCallback((section: string, next: boolean) => {
+    setFolded((prev) => toggleIn(prev, section, next));
+  }, []);
+
+  const toggleGroup = useCallback((id: string, next: boolean) => {
+    setCollapsed((prev) => toggleIn(prev, id, next));
   }, []);
 
   const stats = useMemo(() => {
@@ -238,45 +293,63 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     return text;
   }, [files, truncated, totalFileCount]);
 
-  const renderFile = (file: (typeof files)[number]) => (
-    // `data-path` on the wrapper, so the tree can jump to a file that has not
-    // mounted yet.
-    <DeferredMount
-      key={file.path}
-      dataPath={file.path}
-      estimatedHeight={estimateFileHeight(
-        diffs.get(file.path),
-        file.additions + file.deletions,
-        1,
-        folded.has(file.path),
-      )}
-    >
-      <DiffFileSection
-        path={file.path}
-        status={file.status}
-        additions={file.additions}
-        deletions={file.deletions}
-        diff={diffs.get(file.path)}
-        onAddComment={startNote}
-        // Withheld until there is something to draw: it runs once per diff line
-        // and changes identity whenever the notes do.
-        renderBelowLine={hasNotes ? renderBelowLine : undefined}
-        markLine={spans.length > 0 ? markLine : undefined}
-        headerRight={analysisChips?.get(file.path)}
-        collapsed={folded.has(file.path)}
-        onCollapsedChange={toggleFolded}
-      />
-    </DeferredMount>
-  );
+  // The key is the caller's to give: a lens can name the same file in more than
+  // one part, and React would keep only the last copy.
+  const renderFile = (file: (typeof files)[number], key?: string, slice?: ResolvedSlice) => {
+    const section = key ?? file.path;
+    const diff = sliceFor(file.path, diffs.get(file.path), slice?.hunks);
+    const changes = slice?.changes ?? file;
+
+    return (
+      <DeferredMount
+        key={section}
+        dataPath={file.path}
+        estimatedHeight={estimateFileHeight(diff, changes.additions + changes.deletions, 1, folded.has(section))}
+      >
+        <DiffFileSection
+          path={file.path}
+          status={file.status}
+          additions={changes.additions}
+          deletions={changes.deletions}
+          diff={diff}
+          onAddComment={startNote}
+          // Withheld until there is something to draw: it runs once per diff
+          // line and changes identity whenever the notes do.
+          renderBelowLine={hasNotes ? renderBelowLine : undefined}
+          markLine={spans.length > 0 ? markLine : undefined}
+          headerRight={analysisChips?.get(file.path)}
+          collapsed={folded.has(section)}
+          sectionId={section}
+          onCollapsedChange={toggleFolded}
+        />
+      </DeferredMount>
+    );
+  };
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
       {!sidebarCollapsed && (
         <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: sidebarWidth }}>
+          {/* `h-11` is the toolbar across the seam — `py-2` around an `h-7`
+              control — so the rule under the two ledges is one line. */}
+          {lensTarget && (
+            <div className="pane-ledge shrink-0 flex flex-col h-11">
+              <LensPicker
+                session={lens}
+                lenses={lenses}
+                changedFiles={files.length}
+                promptChars={promptChars}
+                onLensOn={lens.setLensOn}
+                onManage={() => setLensesOpen(true)}
+              />
+            </div>
+          )}
           <DiffFileTree
             files={files}
+            lens={{ groups: lens.shown, collapsed, onCollapsedChange: toggleGroup }}
             onFileClick={scrollToFile}
             renderFileTrailing={analysisSignals ? railTrailing : undefined}
+            revealing={revealing}
           />
         </div>
       )}
@@ -327,8 +400,17 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           {!loading && files.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">No changes</div>
           )}
-          {!loading && ordered.map((file) => renderFile(file))}
-
+          {!loading && (
+            <LensedFileList
+              files={files}
+              order={order}
+              groups={lens.shown}
+              renderFile={renderFile}
+              collapsed={collapsed}
+              onCollapsedChange={toggleGroup}
+              revealing={revealing}
+            />
+          )}
           {!loading && truncated && (
             <div className="mx-6 px-4 py-3 text-xs text-ink/40 text-center">
               Showing {files.length} of {totalFileCount} changed files
@@ -340,10 +422,20 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           inView={inView}
           subject={diffSubject(base, branch)}
           ptyId={ptyId}
-          onJump={(note) => scrollToFile(note.path)}
+          onJump={(note) =>
+            scrollToFile(note.path, partHolding(lens.shown, diffsRef.current.get(note.path), note.path, note.line))
+          }
           onDiscard={notes.discard}
           onClear={notes.clear}
         />
+        {lensesOpen && (
+          <LensDialog
+            projectPath={projectPath}
+            onRun={(picked) => void lens.run(picked)}
+            running={lens.writing?.id ?? null}
+            onClose={() => setLensesOpen(false)}
+          />
+        )}
       </div>
     </div>
   );

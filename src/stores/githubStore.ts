@@ -12,7 +12,8 @@ import type {
 
 import type { FileDiff } from '../types';
 import { describeError } from '../utils/describeError';
-import { toggleInList } from '../utils/toggleIn';
+import { toggleIn, toggleInList } from '../utils/toggleIn';
+import { markSection } from '../github/viewedSections';
 import type { DiffAnchor } from '../diffAnchor';
 
 const githubLog = log.scope('github');
@@ -57,7 +58,7 @@ interface GithubStoreState {
   detailError: string | null;
 
   files: PullRequestFile[];
-  /** Parsed diffs per path, so the rail and the document read the same hunks. */
+  /** Parsed diffs per path. The rail binds a lens to these, as the document does. */
   diffs: Map<string, FileDiff | null>;
   filesLoading: boolean;
   filesError: string | null;
@@ -72,11 +73,27 @@ interface GithubStoreState {
   viewedPaths: string[];
 
   /**
-   * The file the reader is on, for the rail to mark. Here rather than in the
-   * detail view: it changes on every scroll frame, and view state would
-   * re-render the whole diff each time.
+   * Parts of a file the reviewer has finished with. The file is claimed whole once
+   * every piece of it has been, at which point the claim moves to `viewedPaths`
+   * and is written down.
+   *
+   * Not kept on disk, unlike that claim: these name the parts of one lens, and the
+   * next lens over this change cuts it somewhere else.
    */
-  activePath: string | null;
+  viewedSections: Set<string>;
+
+  /**
+   * Parts of the lens folded away, by id. Survives leaving the pane; not kept on
+   * disk, since a fold is where you are in a document rather than a verdict on it.
+   */
+  collapsedGroups: Set<string>;
+
+  /**
+   * The section the reader is on, for the rail to mark. Here rather than in the
+   * detail view: it changes on every scroll frame, and view state would re-render
+   * the whole diff each time.
+   */
+  activeSection: string | null;
 
   drafts: ReviewDraft[];
   /** Anchor the user is currently composing a new comment on. */
@@ -101,9 +118,12 @@ interface GithubStoreActions {
 
   loadDrafts: (projectPath: string, prNumber: number) => Promise<void>;
   setDiffs: (diffs: Map<string, FileDiff | null>) => void;
-  setActivePath: (path: string | null) => void;
+  setGroupCollapsed: (id: string, collapsed: boolean) => void;
+  setActiveSection: (section: string | null) => void;
   loadViewed: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) => void;
+  /** `siblings` is every part of that file on screen, so a part read can roll the file up. */
+  markSectionViewed: (path: string, section: string, siblings: readonly string[], next: boolean) => void;
   setComposingAt: (anchor: GithubStoreState['composingAt']) => void;
   setSubmitting: (submitting: boolean) => void;
   setSidebarWidth: (width: number) => void;
@@ -153,7 +173,9 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
   filesError: null,
   filesFromGit: false,
   viewedPaths: [],
-  activePath: null,
+  viewedSections: new Set(),
+  collapsedGroups: new Set(),
+  activeSection: null,
   drafts: [],
   composingAt: null,
   submitting: false,
@@ -161,11 +183,13 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
 
 /**
  * Where the reader is in one pull request at one head. Cleared when either
- * changes: both fields name specific hunks, which a new head invalidates.
+ * changes: these name specific hunks, which a new head invalidates.
  */
-const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'activePath'> = {
+const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'viewedSections' | 'collapsedGroups' | 'activeSection'> = {
   viewedPaths: [],
-  activePath: null,
+  viewedSections: new Set(),
+  collapsedGroups: new Set(),
+  activeSection: null,
 };
 
 /**
@@ -342,8 +366,6 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     try {
       const detail = await window.api.github.pullRequest(projectPath, number);
       if (version !== detailVersion || get().projectPath !== projectPath) return;
-      // Every claim in there is about specific hunks at one head, and a
-      // force-push leaves none of them true.
       const newHead = get().detail?.headSha !== detail.headSha;
       set({ detail, detailLoading: false, ...(newHead ? CLEAR_FOR_HEAD : {}) });
 
@@ -422,8 +444,20 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
   setDiffs: (diffs) => set({ diffs }),
 
-  setActivePath: (path) => {
-    if (get().activePath !== path) set({ activePath: path });
+  setActiveSection: (section) => {
+    if (get().activeSection !== section) set({ activeSection: section });
+  },
+
+  setGroupCollapsed: (id, collapsed) => {
+    set({ collapsedGroups: toggleIn(get().collapsedGroups, id, collapsed) });
+  },
+
+  markSectionViewed: (path, section, siblings, next) => {
+    const { projectPath, activeNumber, detail, viewedPaths, viewedSections, setFileViewed } = get();
+    const change = markSection(viewedSections, viewedPaths.includes(path), siblings, section, next);
+    set({ viewedSections: change.sections });
+    if (change.file === undefined || !projectPath || activeNumber === null || !detail) return;
+    setFileViewed(projectPath, activeNumber, detail.headSha, path, change.file);
   },
 
   loadViewed: async (projectPath, prNumber, headSha) => {
