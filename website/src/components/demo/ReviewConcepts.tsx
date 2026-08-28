@@ -200,29 +200,23 @@ export function ReviewStrip() {
 
 /* ─── B: three bands, one topic at a time ─────────────────────────── */
 
-/** A band: copy on one side, the surface on the other, at the size the app
- *  draws it. The side alternates down the section. */
+/** A band: the surface at the size the app draws it, and the copy for it in a
+ *  column to its right. */
 function Chapter({
   title,
   body,
-  flip,
   height,
   onRef,
   children,
 }: {
   title: string;
   body: string;
-  flip?: boolean;
   height: number;
   onRef?: (el: HTMLDivElement | null) => void;
   children: ReactNode;
 }) {
   return (
-    <div className={`rv-band${flip ? ' rv-band--flip' : ''}`} ref={onRef}>
-      <div className="rv-band-copy">
-        <h3>{title}</h3>
-        <p>{body}</p>
-      </div>
+    <div className="rv-band" ref={onRef}>
       <div className="rv-band-desk plan-desk desk-wash desk-wash--prism">
         <DeskWash />
         <Fit height={height}>
@@ -230,6 +224,10 @@ function Chapter({
             {children}
           </TerminalCardView>
         </Fit>
+      </div>
+      <div className="rv-band-copy">
+        <h3>{title}</h3>
+        <p>{body}</p>
       </div>
     </div>
   );
@@ -246,7 +244,7 @@ export function ReviewChapters() {
         <Chapter {...COPY.health} height={520}>
           <MockAnalysis showAdvice />
         </Chapter>
-        <Chapter {...COPY.notes} flip height={500} onRef={respondRef}>
+        <Chapter {...COPY.notes} height={500} onRef={respondRef}>
           <RespondingDiff progress={pRespond} />
         </Chapter>
         <Chapter {...COPY.lens} height={480} onRef={lensRef}>

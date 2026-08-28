@@ -2829,10 +2829,6 @@ body.marketing::after {
   gap: 56px;
 }
 
-.rv-band--flip {
-  flex-direction: row-reverse;
-}
-
 .rv-band-copy {
   width: 300px;
   flex-shrink: 0;
@@ -2845,8 +2841,7 @@ body.marketing::after {
 }
 
 @media (max-width: 999px) {
-  .rv-band,
-  .rv-band--flip {
+  .rv-band {
     flex-direction: column;
     align-items: stretch;
     gap: 24px;
