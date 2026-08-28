@@ -8,7 +8,6 @@ import { reconnectOrphanedSessions, addProjectTerminal, closeProjectTerminal } f
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { TerminalBody } from './terminal/TerminalBody';
 import { XTermContainer } from './terminal/XTermContainer';
-import { useHookStatusListener } from '../hooks/useHookStatusListener';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { RecentTasksPanel } from './RecentTasksPanel';
@@ -70,8 +69,6 @@ export function HomeView() {
     if (!activePtyId) return;
     stackRecencyRef.current.set(activePtyId, ++stackTickRef.current);
   }, [activePtyId]);
-
-  useHookStatusListener(null);
 
   useEffect(() => {
     window.api.getProjects().then((projs) => {

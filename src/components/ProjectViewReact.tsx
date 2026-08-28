@@ -23,7 +23,6 @@ import {
 import { refreshAllTerminalGitStatus } from './terminal/terminalReact';
 import { terminalInstances } from './terminal/terminalRegistry';
 import { detectPullRequestsForProject } from '../services/githubTaskActions';
-import { useHookStatusListener } from '../hooks/useHookStatusListener';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const PROJECT_REFRESH_INTERVAL = 30000;
@@ -315,9 +314,6 @@ export function ProjectView() {
       stop();
     };
   }, [projectPath, githubEnabled, analysisEnabled]);
-
-  // Hook status: register ongoing listener + seed existing terminals
-  useHookStatusListener(projectPath);
 
   // Focus active terminal when active index changes (stack mode only)
   useEffect(() => {

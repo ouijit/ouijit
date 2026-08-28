@@ -3,7 +3,7 @@ import type { OuijitTerminal } from '../components/terminal/terminalReact';
 import { whenTerminalReady } from '../components/terminal/terminalRegistry';
 import { panelLabel, type TerminalPanel } from '../components/terminal/panelTypes';
 import {
-  CLI_PANEL_TERMINAL_WAIT_MS,
+  TERMINAL_READY_WAIT_MS,
   type CliPanelInfo,
   type CliPanelKind,
   type CliPanelOp,
@@ -60,7 +60,7 @@ async function handleOp(op: CliPanelOp): Promise<void> {
     void window.api.cliPanels.respond(op.requestId, response);
   };
 
-  const instance = await whenTerminalReady(op.ptyId, CLI_PANEL_TERMINAL_WAIT_MS);
+  const instance = await whenTerminalReady(op.ptyId, TERMINAL_READY_WAIT_MS);
   if (!instance) {
     respond({
       ok: false,

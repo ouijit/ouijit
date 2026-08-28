@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { installCliPanelListener } from '../../services/cliPanelListener';
 import { terminalInstances, restoreTerminalOnce } from '../../components/terminal/terminalRegistry';
 import type { OuijitTerminal } from '../../components/terminal/terminalReact';
-import { CLI_PANEL_TERMINAL_WAIT_MS, type CliPanelOp, type CliPanelResponse } from '../../types';
+import { TERMINAL_READY_WAIT_MS, type CliPanelOp, type CliPanelResponse } from '../../types';
 
 type Panel = { id: string; kind: 'plan' | 'webPreview'; planPath?: string; url?: string };
 
@@ -52,7 +52,7 @@ function send(op: Omit<CliPanelOp, 'requestId'>): number {
 
 /** Run out the listener's wait and return the reply it sent for `id`. */
 async function settle(id: number): Promise<CliPanelResponse> {
-  await vi.advanceTimersByTimeAsync(CLI_PANEL_TERMINAL_WAIT_MS);
+  await vi.advanceTimersByTimeAsync(TERMINAL_READY_WAIT_MS);
   const last = vi.mocked(window.api.cliPanels.respond).mock.calls.at(-1);
   expect(last?.[0]).toBe(id);
   return last![1];

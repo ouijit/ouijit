@@ -16,12 +16,12 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { typedPush } from './ipc/helpers';
 import { getLogger } from './logger';
-import { CLI_PANEL_TERMINAL_WAIT_MS, type CliPanelOp, type CliPanelResponse } from './types';
+import { TERMINAL_READY_WAIT_MS, type CliPanelOp, type CliPanelResponse } from './types';
 
 const cliPanelsLog = getLogger().scope('cliPanels');
 
 /** How long to wait for the renderer's reply before giving up. */
-const REQUEST_TIMEOUT_MS = CLI_PANEL_TERMINAL_WAIT_MS + 2000;
+const REQUEST_TIMEOUT_MS = TERMINAL_READY_WAIT_MS + 2000;
 
 let mainWindow: BrowserWindow | null = null;
 let nextRequestId = 1;
