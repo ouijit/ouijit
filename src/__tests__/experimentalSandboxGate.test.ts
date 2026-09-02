@@ -21,7 +21,6 @@ describe('applyExperimentalSandboxGate', () => {
         expect(gatedBackend?.detail).toMatch(/experimental/i);
       }
     }
-    // Each flag opens only its own backend.
     expect(applyExperimentalSandboxGate([lima, nono, custom], { ...DEFAULT_EXPERIMENTAL_FLAGS, nono: true })).toEqual([
       lima,
       nono,

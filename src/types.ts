@@ -41,10 +41,10 @@ import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
 import type {
   SandboxProviderId,
-  SandboxBackendId,
   SandboxProviderStatus,
   NonoConfig,
   CustomSandboxConfig,
+  SandboxLaunchFailedPayload,
 } from './sandbox/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';
 
@@ -77,6 +77,7 @@ export type {
   SandboxCapabilities,
   NonoConfig,
   CustomSandboxConfig,
+  SandboxLaunchFailedPayload,
 } from './sandbox/types';
 export { SANDBOX_BACKEND_LABELS, legacySandboxProvider, isActiveSandbox } from './sandbox/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
@@ -547,9 +548,7 @@ export interface ElectronAPI {
   /** Listen for a spawned shell that has no integration provider (fish/zsh/bash are integrated) */
   onShellUnsupported(callback: (info: { shell: string }) => void): () => void;
   /** Listen for a sandbox launcher that exited non-zero before starting the shell */
-  onSandboxLaunchFailed(
-    callback: (info: { ptyId: string; provider: SandboxBackendId; exitCode: number; output: string }) => void,
-  ): () => void;
+  onSandboxLaunchFailed(callback: (info: SandboxLaunchFailedPayload) => void): () => void;
   /** Listen for "What's New" on first launch after update */
   onWhatsNew(callback: (info: { version: string; notes: string }) => void): () => void;
   /** Listen for CLI changes (sentinel file written by ouijit CLI) */

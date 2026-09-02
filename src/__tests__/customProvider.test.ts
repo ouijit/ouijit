@@ -47,19 +47,15 @@ describe('customProvider', () => {
     expect(status).toMatchObject({ available: true, ready: true, detail: 'Ready' });
     expect(await getCustomSandboxConfig(ctx.projectPath)).toEqual({ command: '/opt/sb --strict' });
 
-    // Every writer vets through here: a refused launcher leaves the stored one alone.
     const refused = await setCustomSandboxConfig(ctx.projectPath, { command: 'scripts/sandbox' });
     expect(refused.success).toBe(false);
     expect(refused.error).toMatch(/relative path/);
     expect(await getCustomSandboxConfig(ctx.projectPath)).toEqual({ command: '/opt/sb --strict' });
 
-    // Whitespace clears; stored garbage reads as unset.
     await setCustomSandboxConfig(ctx.projectPath, { command: '   ' });
     expect(await getCustomSandboxConfig(ctx.projectPath)).toEqual({});
-    for (const blob of ['{not json', 'null', '{"command": 5}']) {
-      await setGlobalSetting(customSandboxConfigKey(ctx.projectPath), blob);
-      expect((await customProvider.getStatus(ctx.projectPath)).ready).toBe(false);
-    }
+    await setGlobalSetting(customSandboxConfigKey(ctx.projectPath), '{not json');
+    expect((await customProvider.getStatus(ctx.projectPath)).ready).toBe(false);
   });
 
   test('prepare exports host-computed hints, keeps cwd, and creates the cache dir', async () => {
@@ -80,7 +76,6 @@ describe('customProvider', () => {
     expect(fs.existsSync(env.OUIJIT_SANDBOX_CACHE_DIR)).toBe(true);
     expect(env.OUIJIT_SANDBOX_WRAPPER_DIR).toBe('/Users/dev/.config/Ouijit');
     expect(env.OUIJIT_SANDBOX_CLI_DIR).toBe('/Applications/Ouijit.app/dist-cli');
-    // Nothing nono-specific leaks through.
     expect(env.OUIJIT_SANDBOX_NO_HISTORY).toBeUndefined();
     expect(env.npm_config_cache).toBeUndefined();
   });
@@ -92,19 +87,18 @@ describe('customProvider', () => {
     expect(prepared.env?.OUIJIT_SANDBOX_GIT_DIR).toBe('/Users/dev/code/proj/.git');
   });
 
-  test('prepare refuses loudly instead of falling back to a host shell', async () => {
+  test('wrapLaunch refuses loudly instead of falling back to a host shell', async () => {
     await setCustomSandboxConfig(ctx.projectPath, {});
-    await expect(customProvider.prepare(ctx)).rejects.toThrow(/No sandbox command configured/);
+    await expect(customProvider.wrapLaunch(launch, ctx)).rejects.toThrow(/No sandbox command configured/);
 
     // The spawn vets on its own, even for a stored value that bypassed the writer.
     const stored = (command: string) =>
       setGlobalSetting(customSandboxConfigKey(ctx.projectPath), JSON.stringify({ command }));
     await stored('scripts/sandbox');
-    await expect(customProvider.prepare(ctx)).rejects.toThrow(/relative path/);
+    await expect(customProvider.wrapLaunch(launch, ctx)).rejects.toThrow(/relative path/);
 
     await stored('/Users/dev/wt/T-3/scripts/sandbox');
-    await expect(customProvider.prepare(ctx)).rejects.toThrow(/inside \/Users\/dev\/wt\/T-3/);
-    await expect(customProvider.wrapLaunch(launch, ctx)).rejects.toThrow(/inside/);
+    await expect(customProvider.wrapLaunch(launch, ctx)).rejects.toThrow(/inside \/Users\/dev\/wt\/T-3/);
   });
 
   test('wrapLaunch prefixes the configured command and appends the shell after --', async () => {

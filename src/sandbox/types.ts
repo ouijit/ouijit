@@ -109,6 +109,13 @@ export interface NonoConfig {
   profile?: string;
 }
 
+/** A wrapper backend's launcher exited non-zero before the shell started. */
+export interface SandboxLaunchFailedPayload {
+  ptyId: string;
+  provider: SandboxBackendId;
+  exitCode: number;
+}
+
 /**
  * Persisted per-project configuration of the custom (bring-your-own) backend.
  * The command is the launcher Ouijit runs as `<command> -- <shell> [args]`;

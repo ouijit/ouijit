@@ -8,7 +8,7 @@ import { GIT_WRITABLE_OVERLAY_DIRS } from '../types';
 import { getMainGitDir } from '../gitDir';
 import { sandboxCacheDir } from '../cacheDir';
 import { getCustomSandboxConfig } from './config';
-import { NO_COMMAND_MESSAGE, buildCustomLaunch, resolveCommandTokens } from './argv';
+import { NO_COMMAND_MESSAGE, buildCustomLaunch } from './argv';
 
 const customLog = getLogger().scope('customSandbox');
 
@@ -50,12 +50,12 @@ export const customProvider: WrapperSandboxProvider = {
   cleanup(): void {},
 
   async prepare(ctx: SandboxSpawnContext): Promise<{ cwd: string; env?: Record<string, string> }> {
-    const { command } = await getCustomSandboxConfig(ctx.projectPath);
-    resolveCommandTokens(command ?? '', [ctx.cwd, ctx.worktreePath ?? ctx.cwd]);
-
-    const gitDir = (await getMainGitDir(ctx.projectPath)) ?? path.join(ctx.projectPath, '.git');
     const cacheDir = sandboxCacheDir(ctx.projectPath);
-    await fs.mkdir(cacheDir, { recursive: true });
+    const [resolvedGitDir] = await Promise.all([
+      getMainGitDir(ctx.projectPath),
+      fs.mkdir(cacheDir, { recursive: true }),
+    ]);
+    const gitDir = resolvedGitDir ?? path.join(ctx.projectPath, '.git');
 
     const env: Record<string, string> = {
       OUIJIT_SANDBOX_WORKTREE: ctx.worktreePath ?? ctx.cwd,
@@ -72,7 +72,7 @@ export const customProvider: WrapperSandboxProvider = {
 
   async wrapLaunch(launch: SandboxLaunch, ctx: SandboxSpawnContext): Promise<SandboxLaunch> {
     const { command } = await getCustomSandboxConfig(ctx.projectPath);
-    const wrapped = buildCustomLaunch(command ?? '', launch, [ctx.cwd, ctx.worktreePath ?? ctx.cwd]);
+    const wrapped = buildCustomLaunch(command ?? '', launch, [...new Set([ctx.cwd, ctx.worktreePath ?? ctx.cwd])]);
     customLog.info('wrapping launch under custom sandbox command', { launcher: wrapped.file, cwd: ctx.cwd });
     return wrapped;
   },

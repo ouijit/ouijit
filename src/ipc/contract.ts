@@ -74,7 +74,12 @@ import type { AnalysisOverview, DiffSignals } from '../analysis/types';
 import type { DiffLensTarget } from '../lens/worktreeSubject';
 import type { StoredLens } from '../lens/readLens';
 import type { LensChangedPayload } from '../lens/subjectKeys';
-import type { SandboxBackendId, SandboxProviderStatus, NonoConfig, CustomSandboxConfig } from '../sandbox/types';
+import type {
+  SandboxProviderStatus,
+  NonoConfig,
+  CustomSandboxConfig,
+  SandboxLaunchFailedPayload,
+} from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
@@ -425,9 +430,7 @@ export interface IpcPushContract {
   health: { args: [status: HealthStatus] };
   'update-available': { args: [info: { version: string; url: string }] };
   'shell-unsupported': { args: [info: { shell: string }] };
-  'sandbox-launch-failed': {
-    args: [info: { ptyId: string; provider: SandboxBackendId; exitCode: number; output: string }];
-  };
+  'sandbox-launch-failed': { args: [info: SandboxLaunchFailedPayload] };
   'clone:changed': { args: [jobs: CloneJob[]] };
   'clone:landed': { args: [projectPath: string] };
   'whats-new': { args: [info: { version: string; notes: string }] };

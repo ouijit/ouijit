@@ -2,16 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import type { CustomSandboxConfig } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 import { HookRowView } from './HookRowView';
+import { CARD, PILL_BTN } from './sandboxStyles';
 
 interface CustomSandboxSectionProps {
   projectPath: string;
 }
 
-const CARD =
-  'glass-bevel relative border border-bezel rounded-[14px] overflow-hidden bg-terminal-bg divide-y divide-separator';
-
-const PILL_BTN =
-  'shrink-0 text-xs font-medium text-text-secondary bg-background-secondary border border-bezel rounded-[10px] px-2.5 py-1.5 hover:bg-background-tertiary hover:text-text-primary transition-colors';
+const SAVE_FAILED = 'Could not save the sandbox command';
 
 export function CustomSandboxSection({ projectPath }: CustomSandboxSectionProps) {
   const [config, setConfig] = useState<CustomSandboxConfig>({});
@@ -21,36 +18,24 @@ export function CustomSandboxSection({ projectPath }: CustomSandboxSectionProps)
 
   useEffect(() => {
     let active = true;
-    window.api.sandbox
-      .customConfig(projectPath)
-      .then((cfg) => {
-        if (active) setConfig(cfg);
-      })
-      .catch(() => {
-        if (active) setConfig({});
-      });
+    void window.api.sandbox.customConfig(projectPath).then((cfg) => {
+      if (active) setConfig(cfg);
+    });
     return () => {
       active = false;
     };
   }, [projectPath]);
 
-  // The main process vets the launcher; the card only shows its verdict.
   const save = useCallback(
     async (next: CustomSandboxConfig) => {
-      let result: { success: boolean; error?: string };
-      try {
-        result = await window.api.sandbox.setCustomConfig(projectPath, next);
-      } catch {
-        result = { success: false, error: 'Could not save the sandbox command' };
-      }
+      const result = await window.api.sandbox.setCustomConfig(projectPath, next).catch(() => ({ success: false }));
       if (!result.success) {
-        setError(result.error ?? 'Could not save the sandbox command');
+        setError(('error' in result && result.error) || SAVE_FAILED);
         return;
       }
       setConfig(next.command ? { command: next.command.trim() } : {});
       setEditing(false);
       setError(null);
-      // Readiness feeds the Open in menu and the spawn funnel via sandbox:status.
       await useProjectStore.getState().loadProjectConfig(projectPath);
     },
     [projectPath],

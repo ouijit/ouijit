@@ -133,15 +133,12 @@ describe('spawnPty wrapper seam', () => {
     fake.onData!('\x1b[31mpolicy differs from trunk\x1b[0m\r\n');
     fake.onExit!({ exitCode: 2 });
 
-    // The normal exit still reaches the terminal, and the failure push carries
-    // the launcher's output as plain text.
     expect(send).toHaveBeenCalledWith(expect.stringMatching(/^pty:exit:/), 2);
     expect(launchFailures()).toHaveLength(1);
     expect(launchFailures()[0][1]).toEqual({
       ptyId: expect.any(String),
       provider: 'custom',
       exitCode: 2,
-      output: 'policy differs from trunk',
     });
   });
 
@@ -150,7 +147,6 @@ describe('spawnPty wrapper seam', () => {
       ...fakeWrapper,
       id: 'custom',
     });
-    // The OSC 133 prefix split across several data events still counts.
     fake.onData!('banner\r\n\x1b]');
     fake.onData!('13');
     fake.onData!('3;A\x07$ ');

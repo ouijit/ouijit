@@ -80,6 +80,16 @@ async function realpathLongestPrefix(p: string): Promise<string> {
   return p;
 }
 
+/**
+ * Lexical containment: whether `file` is `root` or lies under it, after
+ * `path.resolve` on both. No filesystem access, so symlinks are not followed;
+ * use `resolveWithinBase` when the path may be guest-written.
+ */
+export function isPathInside(file: string, root: string): boolean {
+  const rel = path.relative(path.resolve(root), path.resolve(file));
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
+}
+
 export function isSymlinkEscapeError(err: unknown): err is SymlinkEscapeError {
   return err instanceof SymlinkEscapeError;
 }

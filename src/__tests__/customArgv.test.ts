@@ -14,7 +14,6 @@ describe('custom sandbox argv', () => {
       'its',
     ]);
     expect(tokenizeCommand('/opt/sb a\\ b "q\\"x" \'\\n\'')).toEqual(['/opt/sb', 'a b', 'q"x', '\\n']);
-    // No $VAR, ~, or glob expansion: the words run exactly as written.
     expect(tokenizeCommand('/opt/sb $HOME ~/x *.json')).toEqual(['/opt/sb', '$HOME', '~/x', '*.json']);
     expect(tokenizeCommand('')).toEqual([]);
     expect(() => tokenizeCommand('/opt/sb "open')).toThrow(/unterminated double quote/);

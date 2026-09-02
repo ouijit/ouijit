@@ -76,21 +76,17 @@ describe('SandboxSection provider router', () => {
   test('custom: the command row edits inline, shows the main-process verdict, and refreshes availability', async () => {
     setAvailable(['custom']);
     vi.mocked(window.api.sandbox.status).mockResolvedValue([{ providerId: 'custom', available: true, ready: true }]);
-    vi.mocked(window.api.sandbox.setCustomConfig).mockImplementation(async (_p, cfg) => {
-      const command = cfg.command?.trim() ?? '';
-      return command.includes('/') && !command.startsWith('/')
-        ? { success: false, error: 'Sandbox command "scripts/sandbox" is a relative path' }
-        : { success: true };
-    });
+    vi.mocked(window.api.sandbox.setCustomConfig).mockImplementation(async (_p, cfg) =>
+      cfg.command === 'scripts/sandbox' ? { success: false, error: 'refused by the main process' } : { success: true },
+    );
     const { getByText, getByLabelText, queryByText, queryByLabelText } = render(<SandboxSection projectPath="/p" />);
     fireEvent.click(await waitFor(() => getByText('+ Configure')));
     const field = getByLabelText('Sandbox command');
     vi.mocked(window.api.sandbox.status).mockClear();
 
-    // A refused launcher keeps the editor open with the verdict inline.
     fireEvent.change(field, { target: { value: 'scripts/sandbox' } });
     fireEvent.click(getByText('Save'));
-    await waitFor(() => expect(getByText(/relative path/)).toBeTruthy());
+    await waitFor(() => expect(getByText(/refused by the main process/)).toBeTruthy());
     expect(getByLabelText('Sandbox command')).toBeTruthy();
     expect(window.api.sandbox.status).not.toHaveBeenCalled();
 
@@ -99,13 +95,11 @@ describe('SandboxSection provider router', () => {
     await waitFor(() =>
       expect(window.api.sandbox.setCustomConfig).toHaveBeenCalledWith('/p', { command: '  /opt/sb --strict  ' }),
     );
-    // Readiness feeds the Open in menu, so the section re-queries status.
     await waitFor(() => expect(window.api.sandbox.status).toHaveBeenCalledWith('/p'));
-    expect(queryByText(/relative path/)).toBeNull();
+    expect(queryByText(/refused by the main process/)).toBeNull();
     expect(queryByLabelText('Sandbox command')).toBeNull();
     expect(getByText('/opt/sb --strict')).toBeTruthy();
 
-    // Clear removes the launcher and the row.
     fireEvent.click(getByText('Edit'));
     fireEvent.click(getByText('Clear'));
     await waitFor(() => expect(window.api.sandbox.setCustomConfig).toHaveBeenCalledWith('/p', {}));

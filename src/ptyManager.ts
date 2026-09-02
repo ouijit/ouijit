@@ -1,6 +1,7 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
-import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxBackendId, SandboxProviderId } from './types';
+import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from './types';
+import { isActiveSandbox } from './sandbox/types';
 import type { WrapperSandboxProvider } from './sandbox/provider';
 import { generateId } from './utils/ids';
 import { getApiPort, clearHookStatus, clearAllHookStatuses } from './hookServer';
@@ -64,7 +65,7 @@ interface ManagedPty {
    * interactive shell emits its first sequence after its first command, not
    * at the first prompt.
    */
-  launchWatch?: SandboxBackendId;
+  watchLaunch: boolean;
   shellStarted: boolean;
   outputTail: string;
 }
@@ -91,12 +92,7 @@ const warnedUnsupportedShells = new Set<string>();
 const MAX_BUFFER_SIZE = 100 * 1024;
 const SIGKILL_GRACE = 3000;
 const OSC_133_PREFIX = '\x1b]133;';
-const LAUNCH_FAILURE_OUTPUT_BYTES = 2048;
-
-/** Strip CSI/OSC escape sequences so launcher output reads as plain text in a toast. */
-function stripEscapes(text: string): string {
-  return text.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
-}
+const LAUNCH_FAILURE_LOG_BYTES = 2048;
 
 function getDefaultShell(): string {
   if (process.platform === 'win32') {
@@ -158,11 +154,10 @@ function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
   if (data.includes('\x1b[?1049l') || data.includes('\x1b[?47l')) {
     managed.isAltScreen = false;
   }
-  if (managed.launchWatch && !managed.shellStarted) {
-    // Carry the tail of the previous chunk so a sequence split across two
-    // data events still matches.
-    if ((managed.outputTail + data).includes(OSC_133_PREFIX)) managed.shellStarted = true;
-    managed.outputTail = (managed.outputTail + data).slice(-(OSC_133_PREFIX.length - 1));
+  if (managed.watchLaunch && !managed.shellStarted) {
+    const window = managed.outputTail + data;
+    if (window.includes(OSC_133_PREFIX)) managed.shellStarted = true;
+    managed.outputTail = window.slice(-(OSC_133_PREFIX.length - 1));
   }
 
   // Array-based history buffer (preserved per-chunk for accurate replay)
@@ -322,7 +317,7 @@ export async function spawnPty(
       isAltScreen: false,
       lastCols: options.cols || 80,
       lastRows: options.rows || 24,
-      launchWatch: wrapper && integration.isIntegrated ? wrapper.id : undefined,
+      watchLaunch: wrapper != null && integration.isIntegrated,
       shellStarted: false,
       outputTail: '',
     };
@@ -350,21 +345,16 @@ export async function spawnPty(
       if (canSendToRenderer()) {
         currentWindow!.webContents.send(`pty:exit:${ptyId}`, exitCode);
       }
-      if (managed.launchWatch && exitCode !== 0 && !managed.shellStarted) {
-        const output = stripEscapes(managed.outputChunks.join('').slice(-LAUNCH_FAILURE_OUTPUT_BYTES)).trim();
+      const provider = managed.sandboxProvider;
+      if (managed.watchLaunch && isActiveSandbox(provider) && exitCode !== 0 && !managed.shellStarted) {
         ptyLog.error('sandbox launcher exited before starting the shell', {
           ptyId,
-          provider: managed.launchWatch,
+          provider,
           exitCode,
-          output,
+          output: managed.outputChunks.join('').slice(-LAUNCH_FAILURE_LOG_BYTES),
         });
         if (canSendToRenderer()) {
-          typedPush(currentWindow!, 'sandbox-launch-failed', {
-            ptyId,
-            provider: managed.launchWatch,
-            exitCode,
-            output,
-          });
+          typedPush(currentWindow!, 'sandbox-launch-failed', { ptyId, provider, exitCode });
         }
       }
       activePtys.delete(ptyId);

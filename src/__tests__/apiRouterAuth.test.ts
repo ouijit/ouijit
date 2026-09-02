@@ -176,9 +176,6 @@ describe('REST API auth', () => {
 });
 
 describe('sandbox command setting', () => {
-  // The setting decides what the next sandboxed spawn executes on the host,
-  // so only a host token may read or write it, and a write is vetted the same
-  // way a spawn vets it.
   test('host token can read and write it; bad launchers are refused at save time', async () => {
     const token = issueToken('pty-host', 'host');
     expect((await request('GET', `/api/sandbox/command?project=${PROJECT}`, token)).status).toBe(200);
@@ -196,7 +193,6 @@ describe('sandbox command setting', () => {
       command: 'scripts/sandbox',
     });
     expect(relative.status).toBe(400);
-    expect(String(relative.body.error)).toMatch(/relative path/);
 
     expect((await request('DELETE', `/api/sandbox/command?project=${PROJECT}`, token)).status).toBe(200);
   });

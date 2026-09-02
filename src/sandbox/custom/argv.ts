@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import type { SandboxLaunch } from '../types';
+import { isPathInside } from '../../utils/pathSafety';
 
 export const NO_COMMAND_MESSAGE =
   'No sandbox command configured. Set one in Project Settings ▸ Sandbox ▸ Custom, or run `ouijit sandbox-command set <command>`.';
@@ -57,11 +58,6 @@ export function tokenizeCommand(command: string): string[] {
   return tokens;
 }
 
-function isInside(file: string, root: string): boolean {
-  const rel = path.relative(path.resolve(root), path.resolve(file));
-  return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
-}
-
 /**
  * Tokenize and vet a launcher command. The launcher runs on the host before
  * any boundary exists, so it must not be something the sandboxed agent could
@@ -71,8 +67,7 @@ function isInside(file: string, root: string): boolean {
  */
 export function resolveCommandTokens(command: string, forbiddenRoots: string[] = []): string[] {
   const tokens = tokenizeCommand(command);
-  if (tokens.length === 0) throw new Error(NO_COMMAND_MESSAGE);
-  const file = tokens[0];
+  const [file] = tokens;
   if (!file) throw new Error(NO_COMMAND_MESSAGE);
   if (file.includes('/') && !path.isAbsolute(file)) {
     throw new Error(
@@ -80,7 +75,7 @@ export function resolveCommandTokens(command: string, forbiddenRoots: string[] =
     );
   }
   for (const root of forbiddenRoots) {
-    if (path.isAbsolute(file) && isInside(file, root)) {
+    if (path.isAbsolute(file) && isPathInside(file, root)) {
       throw new Error(
         `Sandbox command "${file}" lives inside ${root}, which the sandboxed agent can edit. Install the launcher outside the worktree.`,
       );

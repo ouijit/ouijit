@@ -422,7 +422,7 @@ describe('useIPCListeners — sandbox-launch-failed', () => {
   test('a launcher refusal becomes a persistent error toast naming the backend', () => {
     const stubs = installListenerStubs();
     renderHook(() => useIPCListeners());
-    stubs.launchFailedCb!({ ptyId: 'pty-1', provider: 'custom', exitCode: 2, output: '' });
+    stubs.launchFailedCb!({ ptyId: 'pty-1', provider: 'custom', exitCode: 2 });
     const toast = useProjectStore.getState().toasts.find((t) => t.message.includes('Custom sandbox failed to start'));
     expect(toast).toMatchObject({ type: 'error', persistent: true });
     expect(toast?.message).toContain('(exit 2)');

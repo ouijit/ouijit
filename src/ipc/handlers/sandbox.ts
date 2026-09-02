@@ -4,7 +4,13 @@ import { type ExperimentalFlags, experimentalStorageKey, parseExperimentalFlags 
 import { listSandboxProviders } from '../../sandbox';
 import { getNonoConfig, setNonoConfig } from '../../sandbox/nono/config';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../../sandbox/custom/config';
-import type { SandboxProviderStatus } from '../../sandbox/types';
+import type { SandboxBackendId, SandboxProviderStatus } from '../../sandbox/types';
+
+/** Backends that stay unavailable until the project turns their flag on. */
+const EXPERIMENTAL_BACKEND_FLAG: Partial<Record<SandboxBackendId, keyof ExperimentalFlags>> = {
+  nono: 'nono',
+  custom: 'customSandbox',
+};
 
 /**
  * Apply the experimental product gate to raw provider statuses. Providers
@@ -18,16 +24,11 @@ export function applyExperimentalSandboxGate(
   statuses: SandboxProviderStatus[],
   flags: ExperimentalFlags,
 ): SandboxProviderStatus[] {
-  const gated = (s: SandboxProviderStatus): SandboxProviderStatus => ({
-    ...s,
-    available: false,
-    ready: false,
-    detail: 'Experimental — enable in Project Settings',
-  });
   return statuses.map((s) => {
-    if (s.providerId === 'nono' && !flags.nono) return gated(s);
-    if (s.providerId === 'custom' && !flags.customSandbox) return gated(s);
-    return s;
+    const flag = EXPERIMENTAL_BACKEND_FLAG[s.providerId];
+    return flag && !flags[flag]
+      ? { ...s, available: false, ready: false, detail: 'Experimental — enable in Project Settings' }
+      : s;
   });
 }
 

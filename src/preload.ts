@@ -20,7 +20,7 @@ import type {
   TaskWithWorkspace,
   NonoConfig,
   CustomSandboxConfig,
-  SandboxBackendId,
+  SandboxLaunchFailedPayload,
   CliPanelOp,
   CliPanelResponse,
 } from './types';
@@ -249,9 +249,8 @@ contextBridge.exposeInMainWorld('api', {
 
   onShellUnsupported: (callback: (info: { shell: string }) => void) => typedListen('shell-unsupported', callback),
 
-  onSandboxLaunchFailed: (
-    callback: (info: { ptyId: string; provider: SandboxBackendId; exitCode: number; output: string }) => void,
-  ) => typedListen('sandbox-launch-failed', callback),
+  onSandboxLaunchFailed: (callback: (info: SandboxLaunchFailedPayload) => void) =>
+    typedListen('sandbox-launch-failed', callback),
 
   onWhatsNew: (callback: (info: { version: string; notes: string }) => void) => typedListen('whats-new', callback),
 
