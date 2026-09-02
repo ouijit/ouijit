@@ -310,6 +310,15 @@ ouijit hook get <type>
 ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"]
 ouijit hook delete <type>
 
+## Sandbox Command (host terminals only)
+The project's custom sandbox launcher, run as <command> -- <shell> for terminals
+opened with "Custom sandbox". Not reachable from inside a sandbox. Takes effect
+only once Custom sandbox is enabled under Project Settings > Experimental.
+
+ouijit sandbox-command get                    # → {command?}
+ouijit sandbox-command set "<launcher>"       # absolute path or a name on PATH, outside the repo
+ouijit sandbox-command clear
+
 ## Script Commands (ad-hoc project scripts)
 ouijit script list                            # → [{id, name, command, sortOrder}]
 ouijit script set --name "<name>" --command "<cmd>"

@@ -56,7 +56,7 @@ A lens is a named instruction you keep with the project, like "lead with what co
 
 ## Sandboxing
 
-Run any terminal sandboxed: in a Lima VM that mounts only the task's worktree, or in place under Seatbelt/Landlock via nono (experimental).
+Run any terminal sandboxed: in a Lima VM that mounts only the task's worktree, in place under Seatbelt/Landlock via nono (experimental), or under a launcher of your own (experimental).
 
 ## Session resume
 

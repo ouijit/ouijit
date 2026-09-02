@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
+import { SANDBOX_BACKEND_LABELS } from '../types';
 import {
   useProjectStore,
   type PendingCliStart,
@@ -119,6 +120,17 @@ export function useIPCListeners() {
       }),
     );
 
+    cleanups.push(
+      window.api.onSandboxLaunchFailed(({ provider, exitCode }) => {
+        useProjectStore
+          .getState()
+          .addToast(
+            `${SANDBOX_BACKEND_LABELS[provider]} sandbox failed to start (exit ${exitCode}). See the terminal output.`,
+            { type: 'error', persistent: true },
+          );
+      }),
+    );
+
     // Spawned a shell with no integration provider (not zsh/bash/fish). It
     // launches fine, but the wrapper-PATH fix and command status dots may not
     // work. Notify once per shell, with a one-click path to request support.
@@ -169,7 +181,7 @@ export function useIPCListeners() {
         const store = useProjectStore.getState();
         if (payload.resource === 'scripts') {
           store.loadScripts(activeProject);
-        } else if (payload.resource === 'hooks') {
+        } else if (payload.resource === 'hooks' || payload.resource === 'sandbox') {
           store.loadProjectConfig(activeProject);
         } else {
           store.loadTasks(activeProject);

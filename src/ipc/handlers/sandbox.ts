@@ -3,13 +3,14 @@ import { getGlobalSetting } from '../../db';
 import { type ExperimentalFlags, experimentalStorageKey, parseExperimentalFlags } from '../../experimentalFlags';
 import { listSandboxProviders } from '../../sandbox';
 import { getNonoConfig, setNonoConfig } from '../../sandbox/nono/config';
+import { getCustomSandboxConfig, setCustomSandboxConfig } from '../../sandbox/custom/config';
 import type { SandboxProviderStatus } from '../../sandbox/types';
 
 /**
  * Apply the experimental product gate to raw provider statuses. Providers
- * report physical availability (installed + platform-supported); nono is still
- * an experimental backend, so until a project opts in it is reported
- * unavailable. Everything downstream — the picker, the Open in menu, and the
+ * report physical availability (installed + platform-supported); nono and the
+ * custom backend are still experimental, so until a project opts in they are
+ * reported unavailable. Everything downstream — the picker, the Open in menu, and the
  * spawn funnel's resolveAvailableProvider — derives from status, so this one
  * gate covers all of them. Pure so it is unit-testable without IPC.
  */
@@ -17,11 +18,17 @@ export function applyExperimentalSandboxGate(
   statuses: SandboxProviderStatus[],
   flags: ExperimentalFlags,
 ): SandboxProviderStatus[] {
-  return statuses.map((s) =>
-    s.providerId === 'nono' && !flags.nono
-      ? { ...s, available: false, ready: false, detail: 'Experimental — enable in Project Settings' }
-      : s,
-  );
+  const gated = (s: SandboxProviderStatus): SandboxProviderStatus => ({
+    ...s,
+    available: false,
+    ready: false,
+    detail: 'Experimental — enable in Project Settings',
+  });
+  return statuses.map((s) => {
+    if (s.providerId === 'nono' && !flags.nono) return gated(s);
+    if (s.providerId === 'custom' && !flags.customSandbox) return gated(s);
+    return s;
+  });
 }
 
 /**
@@ -42,4 +49,6 @@ export function registerSandboxHandlers(): void {
 
   typedHandle('sandbox:nono-config', (projectPath) => getNonoConfig(projectPath));
   typedHandle('sandbox:set-nono-config', (projectPath, config) => setNonoConfig(projectPath, config));
+  typedHandle('sandbox:custom-config', (projectPath) => getCustomSandboxConfig(projectPath));
+  typedHandle('sandbox:set-custom-config', (projectPath, config) => setCustomSandboxConfig(projectPath, config));
 }

@@ -88,6 +88,7 @@ function completedPayload(overrides: Partial<CliTaskCompletedPayload> = {}): Cli
 }
 
 type CliChangePayload = Parameters<Parameters<typeof window.api.onCliChange>[0]>[0];
+type LaunchFailedCb = Parameters<typeof window.api.onSandboxLaunchFailed>[0];
 type CliChangeCb = (payload: CliChangePayload) => void;
 
 interface ListenerStubs {
@@ -95,6 +96,7 @@ interface ListenerStubs {
   cliTaskTransitionedCb: CliTaskTransitionedCb | null;
   cliTaskCompletedCb: CliTaskCompletedCb | null;
   cliChangeCb: CliChangeCb | null;
+  launchFailedCb: LaunchFailedCb | null;
 }
 
 /**
@@ -109,10 +111,15 @@ function installListenerStubs(): ListenerStubs {
     cliTaskTransitionedCb: null,
     cliTaskCompletedCb: null,
     cliChangeCb: null,
+    launchFailedCb: null,
   };
   const api = window.api as unknown as Record<string, unknown>;
   api['onUpdateAvailable'] = vi.fn(() => () => {});
   api['onShellUnsupported'] = vi.fn(() => () => {});
+  api['onSandboxLaunchFailed'] = vi.fn((cb: LaunchFailedCb) => {
+    stubs.launchFailedCb = cb;
+    return () => {};
+  });
   api['onWhatsNew'] = vi.fn(() => () => {});
   api['onCliChange'] = vi.fn((cb: CliChangeCb) => {
     stubs.cliChangeCb = cb;
@@ -385,6 +392,14 @@ describe('useIPCListeners — cli-change refreshes the resource that changed', (
     expect(window.api.hooks.get).toHaveBeenCalledWith(PROJECT);
     expect(window.api.task.getAll).not.toHaveBeenCalled();
 
+    // `ouijit sandbox-command set` changes which backends are ready, which
+    // the Open in menu reads from the same project config.
+    vi.clearAllMocks();
+    fire('sandbox');
+    await flush();
+    expect(window.api.sandbox.status).toHaveBeenCalledWith(PROJECT);
+    expect(window.api.task.getAll).not.toHaveBeenCalled();
+
     vi.clearAllMocks();
     fire('tasks');
     await flush();
@@ -395,5 +410,21 @@ describe('useIPCListeners — cli-change refreshes the resource that changed', (
     fire('scripts', '/proj/other');
     await flush();
     expect(window.api.scripts.getAll).not.toHaveBeenCalled();
+  });
+});
+
+describe('useIPCListeners — sandbox-launch-failed', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useProjectStore.getState().resetForProject();
+  });
+
+  test('a launcher refusal becomes a persistent error toast naming the backend', () => {
+    const stubs = installListenerStubs();
+    renderHook(() => useIPCListeners());
+    stubs.launchFailedCb!({ ptyId: 'pty-1', provider: 'custom', exitCode: 2, output: '' });
+    const toast = useProjectStore.getState().toasts.find((t) => t.message.includes('Custom sandbox failed to start'));
+    expect(toast).toMatchObject({ type: 'error', persistent: true });
+    expect(toast?.message).toContain('(exit 2)');
   });
 });
