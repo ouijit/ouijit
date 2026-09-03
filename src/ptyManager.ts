@@ -61,9 +61,9 @@ interface ManagedPty {
   lastCols: number;
   lastRows: number;
   /**
-   * Only the integrated shells (zsh/bash/fish) emit OSC 133, and a plain
-   * interactive shell emits its first sequence after its first command, not
-   * at the first prompt.
+   * Whether a non-zero exit with no shell prompt counts as a launcher failure.
+   * Only the integrated shells (zsh/bash/fish) emit OSC 133, so without one
+   * there is no signal that the shell ever started.
    */
   watchLaunch: boolean;
   shellStarted: boolean;
@@ -264,7 +264,7 @@ export async function spawnPty(
       typedPush(window, 'shell-unsupported', { shell });
     }
 
-    // A wrapper provider (nono) transforms the fully-built host launch: it
+    // A wrapper provider transforms the fully-built host launch: it
     // prefixes its own argv around the shell and may overlay cwd/env. The
     // shell-integration recipe, wrapper-PATH, and OUIJIT_* env are already in
     // place, so the sandboxed shell keeps status reporting and shell integration.

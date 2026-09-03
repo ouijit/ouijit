@@ -392,8 +392,7 @@ describe('useIPCListeners — cli-change refreshes the resource that changed', (
     expect(window.api.hooks.get).toHaveBeenCalledWith(PROJECT);
     expect(window.api.task.getAll).not.toHaveBeenCalled();
 
-    // `ouijit sandbox-command set` changes which backends are ready, which
-    // the Open in menu reads from the same project config.
+    // `ouijit sandbox-command set` changes which backends are ready to spawn.
     vi.clearAllMocks();
     fire('sandbox');
     await flush();

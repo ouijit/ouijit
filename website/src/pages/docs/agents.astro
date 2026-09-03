@@ -73,6 +73,7 @@ ouijit pr draft add $PR --file src/api.ts --line 88 \
   <ul>
     <li><strong>Lima VM</strong>. The <code>ouijit</code> binary is not installed in the VM, and the <code>/api/*</code> routes return 403 for sandbox-scoped tokens. Only the <code>/hook</code> status endpoint is reachable, so agent status still reports, but the CLI workflows above are host-only.</li>
     <li><strong>nono</strong>. The terminal runs on the host, so <code>ouijit</code> stays on <code>PATH</code> with access scoped to the task's own data. Pull request drafts written from a sandbox are stamped with a <code>sandbox</code> origin the caller cannot forge.</li>
+    <li><strong>Custom</strong>. The launcher the project supplies owns the boundary, so whether <code>ouijit</code> is reachable at all is up to it. The token is scoped the same way as under nono, and a draft written through it carries the same <code>sandbox</code> origin.</li>
   </ul>
 
   <h2>Machine-readable docs</h2>

@@ -59,11 +59,10 @@ export function tokenizeCommand(command: string): string[] {
 }
 
 /**
- * Tokenize and vet a launcher command. The launcher runs on the host before
- * any boundary exists, so it must not be something the sandboxed agent could
- * have written: relative paths resolve against the spawn cwd (the worktree),
- * and an absolute path under one of `forbiddenRoots` (the worktree, the spawn
- * cwd) is just as editable. Bare names resolve through PATH on the host.
+ * Tokenize and vet a launcher command. The launcher runs on the host before any
+ * boundary exists, so it must not be a path the sandboxed agent could have
+ * written: one relative to the spawn cwd, or one under `forbiddenRoots`. A bare
+ * name resolves through PATH on the host.
  */
 export function resolveCommandTokens(command: string, forbiddenRoots: string[] = []): string[] {
   const tokens = tokenizeCommand(command);
@@ -85,9 +84,8 @@ export function resolveCommandTokens(command: string, forbiddenRoots: string[] =
 }
 
 /**
- * Wrap a host launch in the project's launcher: `<launcher> [args] -- <shell>
- * [shell args]`. The launcher's argv is exactly the configured command; only
- * the `--` and the shell launch are appended.
+ * Wrap a host launch in the project's launcher, which is invoked as
+ * `<launcher> [args] -- <shell> [shell args]`.
  */
 export function buildCustomLaunch(
   command: string,

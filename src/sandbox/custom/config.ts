@@ -35,9 +35,8 @@ export async function getCustomSandboxConfig(projectPath: string): Promise<Custo
 }
 
 /**
- * Persist a project's launcher. Every writer (settings card, REST, CLI) goes
- * through here so a stored command is always one `prepare` will accept; an
- * empty command clears the setting.
+ * Persist a project's launcher. Every writer goes through here, so a stored
+ * command is always one the spawn will accept.
  */
 export async function setCustomSandboxConfig(
   projectPath: string,

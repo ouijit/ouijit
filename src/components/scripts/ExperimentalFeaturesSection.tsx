@@ -24,7 +24,7 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
   const handleToggleNono = async () => {
     await useExperimentalStore.getState().setFlag(projectPath, 'nono', !nonoEnabled);
     // Backend availability feeds the picker, the Open in menu, and the spawn
-    // funnel via sandbox:status. Reload it so nono appears/disappears now.
+    // funnel via sandbox:status. Reload it so the backend appears/disappears now.
     await useProjectStore.getState().loadProjectConfig(projectPath);
   };
 

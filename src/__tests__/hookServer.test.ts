@@ -136,6 +136,10 @@ describe('CLI_REFERENCE', () => {
 
     // The anchoring rule a whole review fails on.
     expect(CLI_REFERENCE).toContain('ADDED line');
+
+    expect(CLI_REFERENCE).toContain('ouijit sandbox-command set');
+    // Sandboxed agents read the same reference, so it has to say what it cannot run.
+    expect(CLI_REFERENCE).toContain('host terminals only');
   });
 
   test('documents the ouijit CLI and no other tool', () => {

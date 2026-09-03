@@ -498,8 +498,8 @@ const routes: Route[] = [
   ),
 
   // ── Sandbox command (custom backend launcher) ────────────────────
-  // Host-only by default scope, and the only route family that decides what
-  // the next sandboxed spawn executes: a sandbox token must never reach it.
+  // The only route family that decides what the next sandboxed spawn executes:
+  // a sandbox token must never reach it.
   route('GET', 'sandbox/command', (r) => getCustomSandboxConfig(requireProject(r.query))),
 
   route(

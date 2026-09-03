@@ -23,11 +23,7 @@ interface SandboxSectionProps {
   projectPath: string;
 }
 
-/**
- * Routes to the config surface of whichever sandbox backends are available. One
- * backend renders directly; with more than one, tabs switch between their
- * config menus and a caption positions the one you're viewing.
- */
+/** Routes to the config surface of whichever sandbox backends are available. */
 export function SandboxSection({ projectPath }: SandboxSectionProps) {
   const available = useProjectStore((s) => s.availableSandboxProviders);
   const [selected, setSelected] = useState<SandboxBackendId | null>(null);

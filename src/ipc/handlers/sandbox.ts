@@ -16,9 +16,8 @@ const EXPERIMENTAL_BACKEND_FLAG: Partial<Record<SandboxBackendId, keyof Experime
  * Apply the experimental product gate to raw provider statuses. Providers
  * report physical availability (installed + platform-supported); nono and the
  * custom backend are still experimental, so until a project opts in they are
- * reported unavailable. Everything downstream — the picker, the Open in menu, and the
- * spawn funnel's resolveAvailableProvider — derives from status, so this one
- * gate covers all of them. Pure so it is unit-testable without IPC.
+ * reported unavailable. Status is the only availability signal the renderer and
+ * the spawn funnel have, so this is the single gate.
  */
 export function applyExperimentalSandboxGate(
   statuses: SandboxProviderStatus[],
@@ -36,7 +35,7 @@ export function applyExperimentalSandboxGate(
  * Cross-provider sandbox IPC. Reports availability/readiness for every
  * registered backend so the renderer can feature-detect (which backends to
  * offer, whether a task's chosen backend can spawn right now), plus the nono
- * config surface (the Lima config surface stays on the `lima:*` channels).
+ * and custom config surfaces (Lima's stays on the `lima:*` channels).
  */
 export function registerSandboxHandlers(): void {
   typedHandle('sandbox:status', async (projectPath) => {
