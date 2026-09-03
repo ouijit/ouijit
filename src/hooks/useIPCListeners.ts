@@ -164,6 +164,12 @@ export function useIPCListeners() {
     );
 
     cleanups.push(
+      window.api.onShowAbout(({ version }) => {
+        useAppStore.getState().setAboutVersion(version);
+      }),
+    );
+
+    cleanups.push(
       window.api.health.onUpdate((status) => {
         useAppStore.getState().setHealth(status);
       }),

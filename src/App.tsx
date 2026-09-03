@@ -16,6 +16,7 @@ import { ADD_PROJECT_EVENT, type ProjectSourceKind } from './components/projectS
 import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
+import { AboutDialog } from './components/dialogs/AboutDialog';
 import { MissingWorktreeDialog } from './components/dialogs/MissingWorktreeDialog';
 import { HookConfigDialog } from './components/dialogs/HookConfigDialog';
 import { CommandPalette } from './components/CommandPalette';
@@ -74,6 +75,7 @@ export function App() {
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const whatsNew = useAppStore((s) => s.whatsNew);
+  const aboutVersion = useAppStore((s) => s.aboutVersion);
   const helpDialogOpen = useAppStore((s) => s.helpDialogOpen);
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const [addProjectStep, setAddProjectStep] = useState<AddProjectStep | null>(null);
@@ -321,6 +323,9 @@ export function App() {
         />
       )}
       {helpDialogOpen && <HelpDialog onClose={() => useAppStore.getState().setHelpDialogOpen(false)} />}
+      {aboutVersion && (
+        <AboutDialog version={aboutVersion} onClose={() => useAppStore.getState().setAboutVersion(null)} />
+      )}
       <GlobalMissingWorktreeDialog />
       <GlobalEditorHookDialog />
       <CommandPalette />

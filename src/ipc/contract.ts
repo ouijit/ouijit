@@ -434,6 +434,7 @@ export interface IpcPushContract {
   'clone:changed': { args: [jobs: CloneJob[]] };
   'clone:landed': { args: [projectPath: string] };
   'whats-new': { args: [info: { version: string; notes: string }] };
+  'show-about': { args: [info: { version: string }] };
   'cli-change': {
     args: [
       payload: {

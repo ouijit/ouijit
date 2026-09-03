@@ -121,6 +121,7 @@ function installListenerStubs(): ListenerStubs {
     return () => {};
   });
   api['onWhatsNew'] = vi.fn(() => () => {});
+  api['onShowAbout'] = vi.fn(() => () => {});
   api['onCliChange'] = vi.fn((cb: CliChangeCb) => {
     stubs.cliChangeCb = cb;
     return () => {};

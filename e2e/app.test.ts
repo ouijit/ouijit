@@ -649,3 +649,23 @@ test('update available: persistent toast with download action', async ({ appPage
   await closeBtn.click();
   await expect(toast).not.toBeVisible({ timeout: 3_000 });
 });
+
+test('about: the app menu item opens the in-app dialog', async ({ appPage, electronApp }) => {
+  // The menu item pushes to the renderer, so wait for React to have mounted
+  // (and subscribed) before clicking it.
+  await expect(appPage.getByText('Start a project')).toBeVisible({ timeout: 10_000 });
+
+  const version = await electronApp.evaluate(({ app, Menu }) => {
+    const items = Menu.getApplicationMenu()?.items.flatMap((item) => item.submenu?.items ?? []) ?? [];
+    items.find((item) => item.label === `About ${app.name}`)?.click();
+    return app.getVersion();
+  });
+
+  const dialog = appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]');
+  await expect(dialog).toBeVisible({ timeout: 5_000 });
+  await expect(dialog).toContainText(`Version ${version}`);
+  await expect(dialog.locator('button', { hasText: 'GitHub' })).toBeVisible();
+
+  await appPage.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible({ timeout: 3_000 });
+});

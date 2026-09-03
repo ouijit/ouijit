@@ -100,6 +100,13 @@ if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
 let mainWindow: BrowserWindow | null = null;
 let quitConfirmed = false;
 
+function showAbout(): void {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  typedPush(mainWindow, 'show-about', { version: app.getVersion() });
+}
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
@@ -289,11 +296,13 @@ app.on('ready', async () => {
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
 
-  // Dev only: replace the default menu with one that carries a "Dev instance"
-  // label under Help, identifying this window's worktree + dev-server port.
-  // Returns null (keeping Electron's default menu) in packaged builds.
-  const appMenu = buildAppMenu({ devServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL, appPath: app.getAppPath() });
-  if (appMenu) Menu.setApplicationMenu(appMenu);
+  Menu.setApplicationMenu(
+    buildAppMenu({
+      devServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
+      appPath: app.getAppPath(),
+      onShowAbout: showAbout,
+    }),
+  );
 
   if (isCaptureMode()) {
     // Write the hook server port + actual window bounds to a well-known

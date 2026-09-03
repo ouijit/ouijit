@@ -22,6 +22,8 @@ interface AppStoreState {
   sandboxVmStatus: string;
   sandboxStarting: boolean;
   whatsNew: { version: string; notes: string } | null;
+  /** Version shown by the About dialog; null while it is closed. */
+  aboutVersion: string | null;
   helpDialogOpen: boolean;
   /**
    * How many composer sheets are open. The board reads this to leave Escape
@@ -57,6 +59,7 @@ interface AppStoreActions {
   setSandboxStatus: (available: boolean, vmStatus: string) => void;
   setSandboxStarting: (starting: boolean) => void;
   setWhatsNew: (info: { version: string; notes: string } | null) => void;
+  setAboutVersion: (version: string | null) => void;
   setHelpDialogOpen: (open: boolean) => void;
   /** Must be paired with `closeComposerSheet` when the sheet unmounts. */
   openComposerSheet: () => void;
@@ -119,6 +122,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   sandboxVmStatus: '',
   sandboxStarting: false,
   whatsNew: null,
+  aboutVersion: null,
   helpDialogOpen: false,
   composerSheetCount: 0,
   onboardingSoftDismissed: false,
@@ -139,6 +143,8 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   setSandboxStarting: (starting) => set({ sandboxStarting: starting }),
 
   setWhatsNew: (info) => set({ whatsNew: info }),
+
+  setAboutVersion: (version) => set({ aboutVersion: version }),
 
   setHelpDialogOpen: (open) => set({ helpDialogOpen: open }),
 
