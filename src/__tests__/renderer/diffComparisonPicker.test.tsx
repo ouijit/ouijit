@@ -2,23 +2,20 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 import { DiffComparisonPicker } from '../../components/diff/DiffComparisonPicker';
-import { terminalInstances, refreshTerminalGitStatus } from '../../components/terminal/terminalReact';
+import { refreshTerminalGitStatus, type OuijitTerminal } from '../../components/terminal/terminalReact';
+import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import type { DiffBaseRef, DiffBases } from '../../types';
 import { describeDiffComparison } from '../../diffSource';
 
 // terminalReact pulls xterm in, which hangs under jsdom. The picker only ever
-// reaches it for the instance it is changing and the status refresh after.
-//
-// vi.mock is hoisted above the imports, so the factory can't close over a
-// top-level const. Reach the spies through the mocked module instead.
+// reaches it for the status refresh after a change; the instance it changes
+// comes from the real registry below.
 vi.mock('../../components/terminal/terminalReact', () => ({
-  terminalInstances: new Map([['pty-1', { setDiffBase: vi.fn() }]]),
   refreshTerminalGitStatus: vi.fn().mockResolvedValue(undefined),
 }));
 
-const setDiffBase = vi.mocked(
-  (terminalInstances.get('pty-1') as unknown as { setDiffBase: ReturnType<typeof vi.fn> }).setDiffBase,
-);
+const setDiffBase = vi.fn();
+terminalInstances.set('pty-1', { setDiffBase } as unknown as OuijitTerminal);
 
 function refs(...names: string[]): DiffBaseRef[] {
   return names.map((ref) => {

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { terminalInstances } from './terminalReact';
+import { terminalInstances } from './terminalRegistry';
 
 const EMPTY_TAGS: string[] = [];
 

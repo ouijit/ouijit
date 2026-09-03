@@ -14,16 +14,11 @@ vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
 
-// The palette reaches terminals through `navigation`, which pulls in the real
-// terminal machinery (xterm). Both sides are stubbed: `terminalActions` so
-// spawning/reconnecting is observable, `terminalReact` so no xterm is
-// constructed in jsdom.
+// The palette reaches terminals through `navigation`; stub `terminalActions`
+// so spawning and reconnecting are observable.
 vi.mock('../../components/terminal/terminalActions', () => ({
   addProjectTerminal: vi.fn().mockResolvedValue(true),
   reconnectOrphanedSessions: vi.fn().mockResolvedValue(undefined),
-}));
-vi.mock('../../components/terminal/terminalReact', () => ({
-  terminalInstances: new Map(),
 }));
 
 const projectA: Project = { path: '/work/alpha', name: 'Alpha' };

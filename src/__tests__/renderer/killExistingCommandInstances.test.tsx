@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 import { killExistingCommandInstances } from '../../components/terminal/terminalActions';
-import { terminalInstances, OuijitTerminal } from '../../components/terminal/terminalReact';
+import { OuijitTerminal } from '../../components/terminal/terminalReact';
+import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { useTerminalStore } from '../../stores/terminalStore';
 
 vi.mock('electron-log/renderer', () => ({
@@ -36,7 +37,7 @@ vi.mock('../../components/terminal/terminalReact', () => {
       this.command = opts.command;
     }
   }
-  return { terminalInstances: new Map(), OuijitTerminal: FakeTerminal };
+  return { OuijitTerminal: FakeTerminal };
 });
 
 const PROJECT = '/project';

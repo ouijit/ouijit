@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 import { reconnectRunnerToParent } from '../../components/terminal/terminalActions';
-import { terminalInstances, OuijitTerminal } from '../../components/terminal/terminalReact';
+import { OuijitTerminal } from '../../components/terminal/terminalReact';
+import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { useTerminalStore } from '../../stores/terminalStore';
 import type { ActiveSession } from '../../types';
 
@@ -9,10 +10,9 @@ vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
 
-// Stand-in for the xterm-backed terminal module. terminalActions reaches the
-// same `terminalInstances` map the test does (imported back below). The fake
-// OuijitTerminal records the lifecycle calls reconnectRunnerToParent makes so
-// we can assert the runner reattaches to its parent rather than becoming a card.
+// Stand-in for the xterm-backed terminal module. The fake OuijitTerminal
+// records the lifecycle calls reconnectRunnerToParent makes so we can assert
+// the runner reattaches to its parent rather than becoming a card.
 vi.mock('../../components/terminal/terminalReact', () => {
   interface FakePanel {
     id: string;
@@ -58,7 +58,6 @@ vi.mock('../../components/terminal/terminalReact', () => {
     }
   }
   return {
-    terminalInstances: new Map(),
     OuijitTerminal: FakeTerminal,
     resolveTerminalLabel: (taskName?: string | null, branch?: string, fallback?: string) =>
       taskName || branch || fallback || 'Shell',

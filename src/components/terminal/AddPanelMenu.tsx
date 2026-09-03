@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
-import { terminalInstances } from './terminalReact';
+import { terminalInstances } from './terminalRegistry';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import type { RunnerScript } from '../../types';

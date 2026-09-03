@@ -848,6 +848,14 @@ export interface CliPanelOp {
   value?: string;
 }
 
+/**
+ * How long a per-terminal push waits for a terminal that is still reconnecting
+ * before giving up on it. The CLI panel bridge allows more than this for its
+ * whole round trip, so a wait that runs out still reports its own reason
+ * rather than the bridge's generic timeout.
+ */
+export const TERMINAL_READY_WAIT_MS = 3000;
+
 /** Renderer's reply for a {@link CliPanelOp}. */
 export interface CliPanelResponse {
   ok: boolean;

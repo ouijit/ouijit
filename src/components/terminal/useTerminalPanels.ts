@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { terminalInstances } from './terminalReact';
+import { terminalInstances } from './terminalRegistry';
 import { startRunner, restartRunner as restartRunnerAction } from './terminalActions';
 import type { RunnerScript } from '../../types';
 

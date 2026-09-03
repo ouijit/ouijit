@@ -10,7 +10,6 @@ vi.mock('electron-log/renderer', () => ({
 
 vi.mock('../components/terminal/terminalReact', () => ({
   OuijitTerminal: class {},
-  terminalInstances: new Map(),
 }));
 
 const PANEL_ID = 'panel-1';

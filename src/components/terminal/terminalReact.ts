@@ -20,6 +20,7 @@ import { diffBaseSettingKey } from '../../diffSource';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
 import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
+import { terminalInstances } from './terminalRegistry';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
@@ -195,10 +196,6 @@ export function resolveTerminalLabel(
   if (worktreeBranch) return formatBranchNameForDisplay(worktreeBranch);
   return fallback || 'Shell';
 }
-
-// ── Terminal instance registry (outside React state) ─────────────────
-
-export const terminalInstances = new Map<string, OuijitTerminal>();
 
 // Re-skin every live terminal (including runner children not yet in the
 // registry) when the resolved theme changes — xterm repaints on assignment.

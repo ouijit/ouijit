@@ -3,12 +3,11 @@ import { ProjectSourceList, openAddProject } from './projectSources';
 import { useAppStore } from '../stores/appStore';
 import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
-import { terminalInstances } from './terminal/terminalReact';
+import { terminalInstances } from './terminal/terminalRegistry';
 import { reconnectOrphanedSessions, addProjectTerminal, closeProjectTerminal } from './terminal/terminalActions';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { TerminalBody } from './terminal/TerminalBody';
 import { XTermContainer } from './terminal/XTermContainer';
-import { useHookStatusListener } from '../hooks/useHookStatusListener';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { RecentTasksPanel } from './RecentTasksPanel';
@@ -70,8 +69,6 @@ export function HomeView() {
     if (!activePtyId) return;
     stackRecencyRef.current.set(activePtyId, ++stackTickRef.current);
   }, [activePtyId]);
-
-  useHookStatusListener(null);
 
   useEffect(() => {
     window.api.getProjects().then((projs) => {
