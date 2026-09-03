@@ -48,18 +48,18 @@ export interface SessionOwnerSandboxProvider extends SandboxProviderBase {
 }
 
 /**
- * A backend that only transforms a host launch — nono is an argv prefix around
- * a normal host spawn. Its PTYs flow through the host `ptyManager`, so they
- * reuse all of its session machinery (reconnect, output coalescing, alt-screen
- * tracking, kill escalation) for free.
+ * A backend that only transforms a host launch — nono prefixes its own argv,
+ * the custom backend a project-supplied launcher. Its PTYs flow through the
+ * host `ptyManager`, so they reuse all of its session machinery (reconnect,
+ * output coalescing, alt-screen tracking, kill escalation) for free.
  */
 export interface WrapperSandboxProvider extends SandboxProviderBase {
   readonly kind: 'wrapper';
-  /** Near-no-op for nono: verify availability and resolve cwd/env. Throws with
-   *  a clear message when the backend can't run so the spawn fails loudly. */
+  /** Verify availability and resolve cwd/env. Throws with a clear message when
+   *  the backend can't run so the spawn fails loudly. */
   prepare(ctx: SandboxSpawnContext): Promise<{ cwd: string; env?: Record<string, string> }>;
-  /** Transform the host launch — nono derives its grants (worktree, git dir,
-   *  hook port) at spawn time, so this resolves them and prefixes its argv. */
+  /** Transform the host launch at spawn time, once the grants it depends on
+   *  (worktree, git dir, hook port) are known. */
   wrapLaunch(launch: SandboxLaunch, ctx: SandboxSpawnContext): Promise<SandboxLaunch>;
 }
 

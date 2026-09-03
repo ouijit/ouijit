@@ -8,7 +8,7 @@
  */
 
 /** Identifies which sandbox backend runs a task's terminals and hooks. */
-export type SandboxProviderId = 'none' | 'lima' | 'nono';
+export type SandboxProviderId = 'none' | 'lima' | 'nono' | 'custom';
 
 /** A registered backend id (everything except the pass-through 'none'). */
 export type SandboxBackendId = Exclude<SandboxProviderId, 'none'>;
@@ -32,14 +32,16 @@ export function isActiveSandbox(provider: SandboxProviderId | undefined): provid
 export const SANDBOX_BACKEND_LABELS: Record<SandboxBackendId, string> = {
   lima: 'Lima VM',
   nono: 'nono',
+  custom: 'Custom',
 };
 
 /**
  * Subdirectories of a repo's `.git` that every sandbox backend grants writable
  * on top of an otherwise read-only `.git`, so commits land while `hooks/` and
  * `config` (the host-side RCE surface) stay unwritable. Single source of truth
- * for this security-sensitive overlay set — Lima's mounts and nono's `--write`
- * flags derive from it so the two backends can't drift apart.
+ * for this security-sensitive overlay set — Lima's mounts, nono's `--write`
+ * flags, and the custom backend's `OUIJIT_SANDBOX_GIT_WRITABLE_DIRS` hint all
+ * derive from it so the backends can't drift apart.
  */
 export const GIT_WRITABLE_OVERLAY_DIRS = ['objects', 'refs', 'logs', 'worktrees'] as const;
 
@@ -105,4 +107,20 @@ export interface NonoConfig {
    * hook port, caches) on top at spawn time regardless of what this contains.
    */
   profile?: string;
+}
+
+/** A wrapper backend's launcher exited non-zero before the shell started. */
+export interface SandboxLaunchFailedPayload {
+  ptyId: string;
+  provider: SandboxBackendId;
+  exitCode: number;
+}
+
+/**
+ * Persisted per-project configuration of the custom (bring-your-own) backend.
+ * The command is the launcher Ouijit runs as `<command> -- <shell> [args]`;
+ * it owns the sandbox boundary entirely.
+ */
+export interface CustomSandboxConfig {
+  command?: string;
 }

@@ -74,7 +74,12 @@ import type { AnalysisOverview, DiffSignals } from '../analysis/types';
 import type { DiffLensTarget } from '../lens/worktreeSubject';
 import type { StoredLens } from '../lens/readLens';
 import type { LensChangedPayload } from '../lens/subjectKeys';
-import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
+import type {
+  SandboxProviderStatus,
+  NonoConfig,
+  CustomSandboxConfig,
+  SandboxLaunchFailedPayload,
+} from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
@@ -262,6 +267,11 @@ export interface IpcInvokeContract {
   'sandbox:status': { args: [projectPath: string]; return: SandboxProviderStatus[] };
   'sandbox:nono-config': { args: [projectPath: string]; return: NonoConfig };
   'sandbox:set-nono-config': { args: [projectPath: string, config: NonoConfig]; return: { success: boolean } };
+  'sandbox:custom-config': { args: [projectPath: string]; return: CustomSandboxConfig };
+  'sandbox:set-custom-config': {
+    args: [projectPath: string, config: CustomSandboxConfig];
+    return: { success: boolean; error?: string };
+  };
 
   // ── GitHub ───────────────────────────────────────────────────────────
   // Every one of these runs `gh` on the host from the main process. No token
@@ -420,6 +430,7 @@ export interface IpcPushContract {
   health: { args: [status: HealthStatus] };
   'update-available': { args: [info: { version: string; url: string }] };
   'shell-unsupported': { args: [info: { shell: string }] };
+  'sandbox-launch-failed': { args: [info: SandboxLaunchFailedPayload] };
   'clone:changed': { args: [jobs: CloneJob[]] };
   'clone:landed': { args: [projectPath: string] };
   'whats-new': { args: [info: { version: string; notes: string }] };

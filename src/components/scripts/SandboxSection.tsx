@@ -4,27 +4,26 @@ import type { SandboxBackendId } from '../../types';
 import { SANDBOX_BACKEND_LABELS } from '../../types';
 import { LimaSandboxSection } from './LimaSandboxSection';
 import { NonoSandboxSection } from './NonoSandboxSection';
+import { CustomSandboxSection } from './CustomSandboxSection';
 
 const BACKEND_DESCRIPTIONS: Record<SandboxBackendId, string> = {
   lima: 'Full Linux VM with its own filesystem. Boots an image, so it is slower to start.',
   nono: 'Kernel-level access limits rather than a VM boundary. Starts instantly, in place on the worktree.',
+  custom: 'Your own launcher. Ouijit runs it as `<command> -- <shell>` in the worktree and grants nothing itself.',
 };
 
 /** Config surface per backend; keyed by id so a new backend is a compile error until wired. */
 const BACKEND_SECTIONS: Record<SandboxBackendId, ComponentType<{ projectPath: string }>> = {
   lima: LimaSandboxSection,
   nono: NonoSandboxSection,
+  custom: CustomSandboxSection,
 };
 
 interface SandboxSectionProps {
   projectPath: string;
 }
 
-/**
- * Routes to the config surface of whichever sandbox backends are installed. One
- * backend renders directly; with both installed, tabs switch between their
- * config menus and a caption positions the one you're viewing.
- */
+/** Routes to the config surface of whichever sandbox backends are available. */
 export function SandboxSection({ projectPath }: SandboxSectionProps) {
   const available = useProjectStore((s) => s.availableSandboxProviders);
   const [selected, setSelected] = useState<SandboxBackendId | null>(null);
@@ -33,12 +32,12 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
   if (providers.length === 0) return null;
 
   const active = selected && providers.includes(selected) ? selected : providers[0];
-  const both = providers.length > 1;
+  const hasTabs = providers.length > 1;
   const ActiveSection = BACKEND_SECTIONS[active];
 
   return (
     <div className="flex flex-col gap-3">
-      {both && (
+      {hasTabs && (
         <div className="flex flex-col gap-1.5">
           <div className="flex gap-1 self-start rounded-[12px] border border-bezel bg-background-secondary p-1">
             {providers.map((p) => (

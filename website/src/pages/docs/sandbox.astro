@@ -4,15 +4,15 @@ import Docs from '../../layouts/Docs.astro';
 <Docs slug="sandbox">
   <h1>Sandbox</h1>
   <p class="lead">
-    Run any task's terminals and hooks inside a sandbox. Two backends: a Lima VM that mounts only the task's
-    work, or nono's kernel-level access limits in place on the host.
+    Run any task's terminals and hooks inside a sandbox. Three backends: a Lima VM that mounts only the task's
+    work, nono's kernel-level access limits in place on the host, or a launcher of your own.
   </p>
 
   <h2>Choose a backend</h2>
   <p>
     Sandboxing is a per-terminal choice. Right-click a task and use <strong>Open in &rarr; Lima VM
-    sandbox</strong> or <strong>Open in &rarr; nono sandbox</strong>; an entry appears for each backend
-    installed on your system. Plain <strong>Open in &rarr; Terminal</strong> runs on the host, unsandboxed.
+    sandbox</strong>, <strong>Open in &rarr; nono sandbox</strong>, or <strong>Open in &rarr; Custom
+    sandbox</strong>; an entry appears for each backend available to the project. Plain <strong>Open in &rarr; Terminal</strong> runs on the host, unsandboxed.
     Every terminal and <a href="/docs/hooks/">hook</a> opened for that task then runs under the chosen backend. A
     sandboxed terminal carries an outlined status dot and a backend suffix on its label.
   </p>
@@ -145,4 +145,70 @@ import Docs from '../../layouts/Docs.astro';
     <li><strong>macOS</strong>. Seatbelt (<code>sandbox-exec</code>).</li>
     <li><strong>Linux</strong>. Landlock, which needs kernel 5.13 or newer.</li>
   </ul>
+
+  <h2 id="custom">Custom</h2>
+  <p>
+    <strong>Read this first.</strong> A plain task terminal carries a host-scoped <code>OUIJIT_API_TOKEN</code>.
+    A launcher you run by hand inside one passes that token into the sandbox, where an agent can rewrite hooks
+    and this very setting, so the next spawn runs its command on the host. Either <code>unset
+    OUIJIT_API_TOKEN</code> in a hand-run launcher (status reporting stops), or configure the launcher here so
+    Ouijit spawns it with a sandbox-scoped token.
+  </p>
+  <p>
+    The Custom backend runs a task's terminals under a launcher you provide: a reviewed script in your team's
+    control, with its own pinned sandbox binary, committed policy, and preflight checks. Ouijit grants nothing
+    itself; the launcher owns the boundary. It is experimental. Turn it on under
+    <strong>Project Settings &rarr; Experimental</strong>, then set the command under
+    <strong>Project Settings &rarr; Sandbox &rarr; Custom</strong> or with <code>ouijit sandbox-command set</code>.
+  </p>
+
+  <h3>What Ouijit passes</h3>
+  <p>
+    Ouijit runs <code>&lt;launcher&gt; [args] -- &lt;shell&gt; [shell args]</code> with the working directory set
+    to the task worktree and the full terminal environment: <code>OUIJIT_API_URL</code> and a
+    <strong>sandbox-scoped</strong> <code>OUIJIT_API_TOKEN</code>, <code>OUIJIT_PTY_ID</code>,
+    <code>OUIJIT_WRAPPER_DIR</code>, <code>OUIJIT_CLI_PATH</code> (when the bundled CLI is present),
+    <code>OUIJIT_SHELL_INTEGRATION_DIR</code>,
+    and the shell integration's <code>ZDOTDIR</code>. The launcher's argv is exactly the configured command,
+    split on whitespace with shell-style quoting; nothing is expanded and nothing is added except the
+    <code>--</code> and the shell.
+  </p>
+  <p>
+    Everything Ouijit would otherwise have granted is exported as advisory hints. They are computed on the host
+    from the project path and Ouijit's own directories, never from the worktree, and a launcher is free to ignore
+    them.
+  </p>
+  <table>
+    <thead><tr><th>Variable</th><th>What Ouijit's other backends do with it</th></tr></thead>
+    <tbody>
+      <tr><td><code>OUIJIT_SANDBOX_WORKTREE</code></td><td>The task worktree, read+write.</td></tr>
+      <tr><td><code>OUIJIT_SANDBOX_GIT_DIR</code></td><td>The repository's <code>.git</code>, read-only.</td></tr>
+      <tr><td><code>OUIJIT_SANDBOX_GIT_WRITABLE_DIRS</code></td><td>Colon-separated <code>objects</code>, <code>refs</code>, <code>logs</code>, <code>worktrees</code> under it, writable so commits land while <code>hooks/</code> and <code>config</code> stay read-only.</td></tr>
+      <tr><td><code>OUIJIT_SANDBOX_HOOK_PORT</code></td><td>The localhost port that must stay reachable for agent status to report back.</td></tr>
+      <tr><td><code>OUIJIT_SANDBOX_CACHE_DIR</code></td><td>A per-project package-manager cache outside any worktree, read+write. Shared by every task of the project.</td></tr>
+      <tr><td><code>OUIJIT_SANDBOX_WRAPPER_DIR</code></td><td>Ouijit's agent shims and CLI reference, read-only. Its <code>bin/</code> is first on <code>PATH</code>.</td></tr>
+      <tr><td><code>OUIJIT_SANDBOX_CLI_DIR</code></td><td>The bundled <code>ouijit</code> CLI the shim runs, read-only. Set only when the bundled CLI is present.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>What the launcher is responsible for</h3>
+  <ul>
+    <li>Exec the argv after <code>--</code> with the inherited environment intact: at least <code>PATH</code>, <code>ZDOTDIR</code>, every <code>OUIJIT_*</code> variable, <code>TERM</code>, <code>HOME</code>, <code>SHELL</code>, and the locale. Shell integration, the status dot, and the <code>ouijit</code> and agent shims are all carried by the environment; a launcher that scrubs it starts a bare shell.</li>
+    <li>Own the boundary. Ouijit adds no <code>--allow</code> or <code>--read</code> flags.</li>
+    <li>Keep the hook port reachable if you block the network.</li>
+    <li>Exit non-zero to refuse. Whatever it wrote to stderr appears in the terminal, the exit line prints red, and Ouijit raises a "sandbox failed to start" notice. It never falls back to an unsandboxed shell.</li>
+  </ul>
+
+  <h3>Where the launcher may live</h3>
+  <p>
+    An absolute path or a bare name resolved on <code>PATH</code>. Relative paths are refused, and so is any
+    absolute path inside the worktree or the spawn directory: the sandboxed agent can write there, and a
+    launcher it can edit is one it can turn off. Keep a versioned launcher in the repo if you like, but install
+    it from a reviewed checkout to somewhere the sandbox cannot write, such as <code>~/.local/bin</code>, and
+    point the setting there. If your <code>PATH</code> contains relative entries, use an absolute path.
+  </p>
+  <p>
+    A restored terminal whose backend is no longer available (the flag was turned off) reopens as a host shell,
+    as it does for the other backends.
+  </p>
 </Docs>

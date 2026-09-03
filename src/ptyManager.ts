@@ -1,6 +1,7 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from './types';
+import { isActiveSandbox } from './sandbox/types';
 import type { WrapperSandboxProvider } from './sandbox/provider';
 import { generateId } from './utils/ids';
 import { getApiPort, clearHookStatus, clearAllHookStatuses } from './hookServer';
@@ -59,6 +60,14 @@ interface ManagedPty {
   isAltScreen: boolean;
   lastCols: number;
   lastRows: number;
+  /**
+   * Whether a non-zero exit with no shell prompt counts as a launcher failure.
+   * Only the integrated shells (zsh/bash/fish) emit OSC 133, so without one
+   * there is no signal that the shell ever started.
+   */
+  watchLaunch: boolean;
+  shellStarted: boolean;
+  outputTail: string;
 }
 
 export interface ActiveSession {
@@ -82,6 +91,8 @@ const warnedUnsupportedShells = new Set<string>();
 
 const MAX_BUFFER_SIZE = 100 * 1024;
 const SIGKILL_GRACE = 3000;
+const OSC_133_PREFIX = '\x1b]133;';
+const LAUNCH_FAILURE_LOG_BYTES = 2048;
 
 function getDefaultShell(): string {
   if (process.platform === 'win32') {
@@ -143,6 +154,11 @@ function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
   if (data.includes('\x1b[?1049l') || data.includes('\x1b[?47l')) {
     managed.isAltScreen = false;
   }
+  if (managed.watchLaunch && !managed.shellStarted) {
+    const window = managed.outputTail + data;
+    if (window.includes(OSC_133_PREFIX)) managed.shellStarted = true;
+    managed.outputTail = window.slice(-(OSC_133_PREFIX.length - 1));
+  }
 
   // Array-based history buffer (preserved per-chunk for accurate replay)
   managed.outputChunks.push(data);
@@ -167,8 +183,8 @@ export async function spawnPty(
   window: BrowserWindow,
   wrapper?: WrapperSandboxProvider,
 ): Promise<PtySpawnResult> {
+  const ptyId = generateId('pty');
   try {
-    const ptyId = generateId('pty');
     const shell = getDefaultShell();
 
     currentWindow = window;
@@ -248,7 +264,7 @@ export async function spawnPty(
       typedPush(window, 'shell-unsupported', { shell });
     }
 
-    // A wrapper provider (nono) transforms the fully-built host launch: it
+    // A wrapper provider transforms the fully-built host launch: it
     // prefixes its own argv around the shell and may overlay cwd/env. The
     // shell-integration recipe, wrapper-PATH, and OUIJIT_* env are already in
     // place, so the sandboxed shell keeps status reporting and shell integration.
@@ -301,6 +317,9 @@ export async function spawnPty(
       isAltScreen: false,
       lastCols: options.cols || 80,
       lastRows: options.rows || 24,
+      watchLaunch: wrapper != null && integration.isIntegrated,
+      shellStarted: false,
+      outputTail: '',
     };
 
     activePtys.set(ptyId, managed);
@@ -326,6 +345,18 @@ export async function spawnPty(
       if (canSendToRenderer()) {
         currentWindow!.webContents.send(`pty:exit:${ptyId}`, exitCode);
       }
+      const provider = managed.sandboxProvider;
+      if (managed.watchLaunch && isActiveSandbox(provider) && exitCode !== 0 && !managed.shellStarted) {
+        ptyLog.error('sandbox launcher exited before starting the shell', {
+          ptyId,
+          provider,
+          exitCode,
+          output: managed.outputChunks.join('').slice(-LAUNCH_FAILURE_LOG_BYTES),
+        });
+        if (canSendToRenderer()) {
+          typedPush(currentWindow!, 'sandbox-launch-failed', { ptyId, provider, exitCode });
+        }
+      }
       activePtys.delete(ptyId);
       clearHookStatus(ptyId);
       revokeToken(ptyId);
@@ -333,6 +364,7 @@ export async function spawnPty(
 
     return { success: true, ptyId };
   } catch (error) {
+    revokeToken(ptyId);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to spawn PTY',

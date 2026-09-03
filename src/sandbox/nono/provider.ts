@@ -1,33 +1,18 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
-import { createHash } from 'node:crypto';
-import { getWrapperBinDir, getCliPath, getUserDataPath } from '../../paths';
+import { getOuijitDir, getCliPath } from '../../paths';
 import { getLogger } from '../../logger';
 import type { WrapperSandboxProvider } from '../provider';
 import type { SandboxLaunch, SandboxProviderStatus, SandboxSpawnContext } from '../types';
-import { getNonoPath, getVendoredNonoPath, isNonoInstalled, checkPlatformSupport, getMainGitDir } from './binary';
+import { getNonoPath, getVendoredNonoPath, isNonoInstalled, checkPlatformSupport } from './binary';
+import { getMainGitDir } from '../gitDir';
 import { getNonoConfig } from './config';
 import { ensureUnionProfile, ensureProjectProfile } from './profile';
 import { sandboxCacheEnv } from './cacheEnv';
 import { buildNonoLaunch } from './argv';
+import { sandboxCacheDir } from '../cacheDir';
 
 const nonoLog = getLogger().scope('nono');
-
-/** The Ouijit dir holding wrapper scripts + the CLI reference (parent of bin/). */
-function ouijitDir(): string {
-  return path.dirname(getWrapperBinDir());
-}
-
-/**
- * Per-project package-manager cache dir, outside any worktree. Shared across a
- * project's worktrees (so installs aren't re-downloaded per task) and granted
- * read+write in the sandbox. Keyed by a hash of the project path so it doesn't
- * collide across projects and never pollutes the worktree's git status.
- */
-function nonoCacheDir(projectPath: string): string {
-  const hash = createHash('sha1').update(projectPath).digest('hex').slice(0, 10);
-  return path.join(getUserDataPath(), 'sandbox-cache', hash);
-}
 
 /** Single platform + installed gate that `isAvailable`/`getStatus`/`prepare` all read. */
 async function checkAvailability(): Promise<{ ready: boolean; detail?: string }> {
@@ -83,7 +68,7 @@ export const nonoProvider: WrapperSandboxProvider = {
     // Per-project cache dir the sandbox can write, so `npm install` and friends
     // don't fail on the read-only home caches. Create it here (prepare runs
     // before wrapLaunch grants it).
-    const cacheDir = nonoCacheDir(ctx.projectPath);
+    const cacheDir = sandboxCacheDir(ctx.projectPath);
     await fs.mkdir(cacheDir, { recursive: true });
     // nono runs in place on the host worktree — cwd is unchanged. Signal the
     // shell integration to disable history: nono denies the user's shell
@@ -108,7 +93,7 @@ export const nonoProvider: WrapperSandboxProvider = {
     const mainGitDir = resolvedGitDir ?? path.join(worktreePath, '.git');
     const cliPath = getCliPath();
     const cliDir = cliPath ? path.dirname(cliPath) : undefined;
-    const cacheDir = nonoCacheDir(ctx.projectPath);
+    const cacheDir = sandboxCacheDir(ctx.projectPath);
     // A per-project override profile (the profile editor) replaces the managed
     // one by name; with none, this resolves to the managed `ouijit` profile.
     const profileName = await ensureProjectProfile(ctx.projectPath, config.profile);
@@ -125,7 +110,7 @@ export const nonoProvider: WrapperSandboxProvider = {
       worktreePath,
       mainGitDir,
       apiPort: ctx.apiPort,
-      wrapperDir: ouijitDir(),
+      wrapperDir: getOuijitDir(),
       cliDir,
       cacheDir,
       nonoBinPath: getVendoredNonoPath() ?? undefined,

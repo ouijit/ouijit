@@ -165,10 +165,36 @@ describe('REST API auth', () => {
     ['PUT', '/api/scripts/abc'],
     ['GET', '/api/tags'],
     ['GET', '/api/projects'],
+    ['GET', '/api/sandbox/command'],
+    ['PUT', '/api/sandbox/command'],
+    ['DELETE', '/api/sandbox/command'],
   ])('sandbox scope cannot hit %s %s', async (method, route) => {
     const token = issueToken('pty-sbx', 'sandbox');
     const res = await request(method, `${route}?project=${PROJECT}`, token, { name: 'x', type: 'run', command: 'x' });
     expect(res.status).toBe(403);
+  });
+});
+
+describe('sandbox command setting', () => {
+  test('host token can read and write it; bad launchers are refused at save time', async () => {
+    const token = issueToken('pty-host', 'host');
+    expect((await request('GET', `/api/sandbox/command?project=${PROJECT}`, token)).status).toBe(200);
+
+    const ok = await request('PUT', `/api/sandbox/command?project=${PROJECT}`, token, { command: '/opt/sb --strict' });
+    expect(ok.status).toBe(200);
+    expect(vi.mocked(typedPush)).toHaveBeenCalledWith(
+      expect.anything(),
+      'cli-change',
+      expect.objectContaining({ resource: 'sandbox' }),
+    );
+
+    expect((await request('PUT', `/api/sandbox/command?project=${PROJECT}`, token, {})).status).toBe(400);
+    const relative = await request('PUT', `/api/sandbox/command?project=${PROJECT}`, token, {
+      command: 'scripts/sandbox',
+    });
+    expect(relative.status).toBe(400);
+
+    expect((await request('DELETE', `/api/sandbox/command?project=${PROJECT}`, token)).status).toBe(200);
   });
 });
 

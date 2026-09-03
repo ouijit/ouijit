@@ -83,6 +83,15 @@ ouijit hook set run --name "Dev server" --command "npm run dev" --restart-if-run
 ouijit hook delete done</code></pre>
   <p><code>--restart-if-running</code> applies to the run hook only: relaunch instead of focusing an already-running instance.</p>
 
+  <h2>Sandbox command</h2>
+  <p>
+    The launcher for the <a href="/docs/sandbox/#custom">Custom sandbox</a> backend. Host terminals only; a
+    sandboxed session gets 403.
+  </p>
+  <pre class="glass-bevel"><code>ouijit sandbox-command get
+ouijit sandbox-command set "$HOME/.local/bin/ouijit-sandbox --strict"
+ouijit sandbox-command clear</code></pre>
+
   <h2>Tags</h2>
   <p>Tag tasks to <a href="/docs/terminals/">group and filter</a> their terminals.</p>
   <pre class="glass-bevel"><code>ouijit tag list                               # all tags across projects
