@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { DialogOverlay } from './DialogOverlay';
 import { Icon } from '../terminal/Icon';
 import { OuijitLogotype } from '../OuijitLogotype';
-import { WEBSITE_URL, DOCS_URL, REPO_URL } from '../../links';
+import { WEBSITE_URL, DOCS_URL, REPO_URL } from '../../constants/links';
 
 interface AboutDialogProps {
   version: string;

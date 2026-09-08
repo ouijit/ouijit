@@ -1,7 +1,7 @@
 import { describe, test, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AboutDialog } from '../../components/dialogs/AboutDialog';
-import { WEBSITE_URL, DOCS_URL, REPO_URL } from '../../links';
+import { WEBSITE_URL, DOCS_URL, REPO_URL } from '../../constants/links';
 
 describe('About dialog', () => {
   test('shows the running version and opens each link in the browser', () => {

@@ -1,6 +1,6 @@
 import { app, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 import { folderName } from './utils/folderName';
-import { DOCS_URL, ISSUES_URL } from './links';
+import { DOCS_URL, ISSUES_URL } from './constants/links';
 
 interface AppMenuOptions {
   /** Vite dev-server URL — truthy only in dev (`npm start`), undefined in packaged builds. */
