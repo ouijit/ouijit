@@ -27,10 +27,8 @@ function devInstanceItem({ devServerUrl, appPath }: AppMenuOptions): MenuItemCon
 }
 
 /**
- * Builds the native application menu, replacing Electron's default with the
- * role-based equivalent (so copy/paste, DevTools, etc. are all preserved) plus
- * an About item, Help links, and in dev a disabled label identifying which
- * worktree and dev-server port this window belongs to.
+ * Replaces Electron's default menu outright, so the roles below are what keeps
+ * copy/paste, DevTools and the rest of the defaults available.
  */
 export function buildAppMenu(options: AppMenuOptions): Menu {
   const isMac = process.platform === 'darwin';

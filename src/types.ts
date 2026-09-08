@@ -551,7 +551,6 @@ export interface ElectronAPI {
   onSandboxLaunchFailed(callback: (info: SandboxLaunchFailedPayload) => void): () => void;
   /** Listen for "What's New" on first launch after update */
   onWhatsNew(callback: (info: { version: string; notes: string }) => void): () => void;
-  /** Listen for the About menu item */
   onShowAbout(callback: (info: { version: string }) => void): () => void;
   /** Listen for CLI changes (sentinel file written by ouijit CLI) */
   onCliChange(
