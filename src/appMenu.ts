@@ -27,11 +27,9 @@ function devInstanceItem({ devServerUrl, appPath }: AppMenuOptions): MenuItemCon
 }
 
 /**
- * Builds the native application menu, replacing Electron's default. It is the
- * role-based equivalent (so copy/paste, DevTools, etc. are all preserved) with
- * an About item that opens the in-app dialog — the native About panel renders
- * its credits as plain text, so links there can't be clicked — plus Help links
- * to the docs and issue tracker, and in dev a disabled label identifying which
+ * Builds the native application menu, replacing Electron's default with the
+ * role-based equivalent (so copy/paste, DevTools, etc. are all preserved) plus
+ * an About item, Help links, and in dev a disabled label identifying which
  * worktree and dev-server port this window belongs to.
  */
 export function buildAppMenu(options: AppMenuOptions): Menu {

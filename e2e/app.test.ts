@@ -651,6 +651,8 @@ test('update available: persistent toast with download action', async ({ appPage
 });
 
 test('about: the app menu item opens the in-app dialog', async ({ appPage, electronApp }) => {
+  test.setTimeout(20_000);
+
   // The menu item pushes to the renderer, so wait for React to have mounted
   // (and subscribed) before clicking it.
   await expect(appPage.getByText('Start a project')).toBeVisible({ timeout: 10_000 });
@@ -668,4 +670,27 @@ test('about: the app menu item opens the in-app dialog', async ({ appPage, elect
 
   await appPage.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible({ timeout: 3_000 });
+});
+
+test('about: opens a window when the last one was closed', async ({ appPage, electronApp }) => {
+  // Only macOS keeps the app alive with no windows; elsewhere the last close quits it.
+  test.skip(process.platform !== 'darwin', 'macOS-only window lifecycle');
+  test.slow(); // boots a second window from cold
+
+  await expect(appPage.getByText('Start a project')).toBeVisible({ timeout: 10_000 });
+
+  await electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close());
+  await expect
+    .poll(() => electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length), { timeout: 8_000 })
+    .toBe(0);
+
+  const reopened = electronApp.waitForEvent('window');
+  await electronApp.evaluate(({ app, Menu }) => {
+    const items = Menu.getApplicationMenu()?.items.flatMap((item) => item.submenu?.items ?? []) ?? [];
+    items.find((item) => item.label === `About ${app.name}`)?.click();
+  });
+
+  const page = await reopened;
+  const dialog = page.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]');
+  await expect(dialog).toBeVisible({ timeout: 10_000 });
 });
