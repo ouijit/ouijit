@@ -65,6 +65,13 @@ const INITIAL: LinearStoreState = {
 let groupsVersion = 0;
 let issueVersion = 0;
 
+/** Same reason the GitHub store has one: see `freezeGithubForCapture`. */
+let frozen = false;
+
+export function freezeLinearForCapture(): void {
+  frozen = true;
+}
+
 /** The Linear issue in the panel's slot, if that is what is open. */
 function openIssueId(): string | null {
   const open = usePanelStore.getState().open;
@@ -82,6 +89,7 @@ export const useLinearStore = create<LinearStore>()((set, get) => ({
   },
 
   loadAvailability: async (projectPath, recheck) => {
+    if (frozen) return;
     try {
       const availability = await window.api.linear.availability(projectPath, recheck);
       if (get().projectPath !== projectPath) return;
@@ -94,6 +102,7 @@ export const useLinearStore = create<LinearStore>()((set, get) => ({
   },
 
   loadIssues: async (projectPath) => {
+    if (frozen) return;
     const version = ++groupsVersion;
     set({ groupsLoading: true, groupsError: null });
     try {

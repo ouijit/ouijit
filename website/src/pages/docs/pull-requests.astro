@@ -4,8 +4,9 @@ import Docs from '../../layouts/Docs.astro';
 <Docs slug="pull-requests">
   <h1>Pull requests</h1>
   <p class="lead">
-    An experimental GitHub surface: a pull request inbox, review comments staged locally until you send them,
-    and merging. It drives the <code>gh</code> CLI, so <code>gh auth login</code> is the only setup.
+    An experimental tracker surface: a pull request inbox, review comments staged locally until you send them,
+    merging, and an issues list fed by GitHub, Linear, or both. It drives the <code>gh</code> CLI, so
+    <code>gh auth login</code> is the only setup for the GitHub half.
   </p>
 
   <h2>Turn it on</h2>
@@ -13,8 +14,34 @@ import Docs from '../../layouts/Docs.astro';
     Enable <strong>GitHub</strong> under <strong>Project Settings &rarr; Experimental</strong>. It needs the
     <a href="https://cli.github.com" target="_blank" rel="noopener">GitHub CLI</a> 2.48.0 or newer on
     <code>PATH</code>, signed in via <code>gh auth login</code>, and an <code>origin</code> remote on GitHub.
-    Ouijit never stores a token; every GitHub call goes through <code>gh</code> on the host, and sandboxed
-    terminals never see your credentials.
+    Ouijit never stores a GitHub token; every GitHub call goes through <code>gh</code> on the host, and
+    sandboxed terminals never see your credentials.
+  </p>
+
+  <h2>Add Linear</h2>
+  <p>
+    Enable <strong>Linear</strong> beside it, then paste a personal API key into
+    <strong>App Settings &rarr; Linear</strong>. Make one in Linear under
+    <strong>Settings &rarr; API</strong>: <strong>Read</strong> and <strong>Create comments</strong> is enough
+    to read issues and comment, and <strong>Write</strong> additionally buys the control that moves an issue.
+    Limiting the key to one team is fine, and narrows what Ouijit can see.
+  </p>
+  <p>
+    One key serves the app, since a personal key belongs to one workspace. It is encrypted by your OS keychain
+    and kept out of the renderer, the REST API and every sandboxed terminal. On a machine with no keychain —
+    Linux without a keyring — Ouijit refuses to store it and reads <code>LINEAR_API_KEY</code> from your
+    environment instead.
+  </p>
+  <p>
+    Ouijit then works out which issues are this project's. Workspaces that label issues under a
+    <code>repo</code> label group — the convention other Linear integrations already write — are matched against
+    your <code>origin</code> remote and connected without being asked. Otherwise a row above the list asks once
+    which team to use. Either can be changed later from the same row.
+  </p>
+  <p>
+    For an issue to move on its own when its pull request opens and merges, connect
+    <strong>Linear's GitHub integration</strong> — in Linear, per repository. Without it nothing syncs, and the
+    state control on the issue is the way to move it.
   </p>
 
   <h2>Work the inbox</h2>
@@ -24,6 +51,30 @@ import Docs from '../../layouts/Docs.astro';
     request opens into <strong>Summary</strong>, <strong>Timeline</strong>, and <strong>Code</strong> tabs:
     checks, review threads with resolve and reply, and per-file diffs with a <strong>Viewed</strong> state that
     resets when the head changes. Browsing a pull request never checks anything out.
+  </p>
+
+  <h2>Work the issues</h2>
+  <p>
+    The Issues tab is one list, ordered by what wants your attention: <strong>Triage</strong>,
+    <strong>In progress</strong>, <strong>Assigned to you</strong>, <strong>Current cycle</strong>, then the
+    repository's open issues. Each group is answered by whichever source can answer it — an <code>ENG-231</code>
+    and a <code>#299</code> sit side by side under one <strong>Assigned to you</strong> — and a group with
+    nothing in it does not render, so a project with one tracker sees one tracker's groups.
+  </p>
+  <p>
+    An issue opens in the same chrome a pull request does, with what its source knows: assignee, priority,
+    cycle, estimate and team for a Linear issue, assignees and labels for a GitHub one. A Linear issue carries
+    a state control that moves it through its team's workflow — the fastest way to move one, and the only way
+    where Linear is not watching the repository. Under a key without <strong>Write</strong> the control is
+    absent.
+  </p>
+  <p>
+    Comments post when you send them. A comment written by an agent through the CLI waits above the box with
+    its origin beside it, until you press <strong>Send</strong>.
+  </p>
+  <p>
+    A workspace running Linear's own GitHub sync has each piece of work as a Linear issue <em>and</em> a
+    mirrored GitHub issue, so it appears twice — once under Linear's groups, once under the repository's.
   </p>
 
   <h2>Stage a review</h2>
@@ -72,5 +123,11 @@ import Docs from '../../layouts/Docs.astro';
     <li><strong>Check out as task</strong> creates a task with a worktree at the pull request's head, with the PR body as its prompt and the PR's base branch as its merge target.</li>
     <li><strong>Create pull request</strong> on a task card pushes the branch and runs <code>gh pr create</code>, so your repository's PR template applies.</li>
     <li>A task created from an issue links back, and its pull request closes the issue.</li>
+    <li>
+      A task created from a Linear issue starts on the branch name Linear suggested, and the pull request opened
+      from it carries the issue identifier in its body. Linear reads either one, so the issue moves to In Review
+      and then to Done as the pull request does — provided Linear's GitHub integration is connected to the
+      repository.
+    </li>
   </ul>
 </Docs>

@@ -1,5 +1,7 @@
 import type { TerminalDisplayState } from '../stores/terminalStore';
 import type { LensGroup } from '../lens/lens';
+import type { GithubAvailability, GithubIssueList, InboxResult } from '../github/types';
+import type { LinearAvailability, LinearIssueGroups } from '../linear/types';
 
 export type CaptureScene =
   | 'kanban'
@@ -11,6 +13,7 @@ export type CaptureScene =
   | 'lens'
   | 'markdown'
   | 'preview'
+  | 'issues'
   | 'resume';
 
 export interface CaptureTerminalSeed {
@@ -58,6 +61,18 @@ export interface CaptureNavigatePayload {
     base: string | null;
     branch: string | null;
     groups: LensGroup[];
+  };
+  /**
+   * The Issues list, handed over ready-made — only consumed by the issues
+   * scene. The capturing machine has no `gh` and no Linear key, so the scene
+   * seeds both stores and freezes them rather than fetching.
+   */
+  issues?: {
+    availability: GithubAvailability;
+    inbox: InboxResult;
+    githubIssues: GithubIssueList;
+    linear: LinearAvailability;
+    linearGroups: LinearIssueGroups;
   };
   /** URL and terminal for the web preview panel — only consumed by the preview scene */
   previewUrl?: string;

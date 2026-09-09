@@ -19,6 +19,7 @@ import { registerMarkdownCommands } from './commands/markdown';
 import { registerPreviewCommands } from './commands/preview';
 import { registerThemeCommands } from './commands/theme';
 import { registerPrCommands } from './commands/pr';
+import { registerLinearCommands } from './commands/linear';
 
 const program = new Command();
 
@@ -52,6 +53,7 @@ registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
 registerSandboxCommands(program, requireProject);
 registerPrCommands(program, requireProject);
+registerLinearCommands(program, requireProject);
 registerMarkdownCommands(program);
 registerPreviewCommands(program);
 registerThemeCommands(program);
