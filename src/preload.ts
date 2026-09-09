@@ -425,8 +425,6 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('linear:move-issue', projectPath, issueId, stateId),
 
     drafts: (projectPath: string, issueId: string) => typedInvoke('linear:drafts', projectPath, issueId),
-    saveDraft: (projectPath: string, issueId: string, body: string) =>
-      typedInvoke('linear:save-draft', projectPath, issueId, body),
     discardDraft: (projectPath: string, draftId: string) => typedInvoke('linear:discard-draft', projectPath, draftId),
     sendDraft: (projectPath: string, draftId: string) => typedInvoke('linear:send-draft', projectPath, draftId),
 

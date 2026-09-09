@@ -789,7 +789,6 @@ export interface LinearAPI {
   moveIssue(projectPath: string, issueId: string, stateId: string): Promise<GithubActionResult>;
 
   drafts(projectPath: string, issueId: string): Promise<LinearCommentDraft[]>;
-  saveDraft(projectPath: string, issueId: string, body: string): Promise<LinearCommentDraft>;
   discardDraft(projectPath: string, draftId: string): Promise<{ success: boolean; issueId?: string }>;
   sendDraft(projectPath: string, draftId: string): Promise<GithubActionResult>;
 

@@ -352,10 +352,6 @@ export interface IpcInvokeContract {
     return: { success: boolean; error?: string };
   };
   'linear:drafts': { args: [projectPath: string, issueId: string]; return: LinearCommentDraft[] };
-  'linear:save-draft': {
-    args: [projectPath: string, issueId: string, body: string];
-    return: LinearCommentDraft;
-  };
   'linear:discard-draft': {
     args: [projectPath: string, draftId: string];
     return: { success: boolean; issueId?: string };

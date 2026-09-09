@@ -261,7 +261,6 @@ const mockApi = {
     comment: vi.fn().mockResolvedValue({ success: true }),
     moveIssue: vi.fn().mockResolvedValue({ success: true }),
     drafts: vi.fn().mockResolvedValue([]),
-    saveDraft: vi.fn().mockResolvedValue({ id: 'draft-1' }),
     discardDraft: vi.fn().mockResolvedValue({ success: true }),
     sendDraft: vi.fn().mockResolvedValue({ success: true }),
     linkTask: vi.fn().mockResolvedValue({ success: true }),

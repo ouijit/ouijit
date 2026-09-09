@@ -10,7 +10,6 @@ import {
   linkTaskToIssue,
   listDrafts,
   moveIssue,
-  saveDraft,
   sendDraft,
   setCredential,
   setScope,
@@ -34,7 +33,6 @@ export function registerLinearHandlers(): void {
   typedHandle('linear:move-issue', (projectPath, issueId, stateId) => moveIssue(projectPath, issueId, stateId));
 
   typedHandle('linear:drafts', (projectPath, issueId) => listDrafts(projectPath, issueId));
-  typedHandle('linear:save-draft', (projectPath, issueId, body) => saveDraft(projectPath, issueId, body, 'human'));
   typedHandle('linear:discard-draft', (projectPath, draftId) => discardDraft(projectPath, draftId));
   typedHandle('linear:send-draft', (projectPath, draftId) => sendDraft(projectPath, draftId));
 
