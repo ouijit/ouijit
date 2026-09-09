@@ -2,6 +2,7 @@ import type { GithubIssue, GithubIssueList } from '../../github/types';
 import type { LinearIssueGroups, LinearIssueSummary } from '../../linear/types';
 import type { IssueGroup, IssueRow } from '../../issues/types';
 import type { TaskWithWorkspace } from '../../types';
+import { stateGlyph } from '../linear/stateGlyph';
 
 export interface GroupInput {
   github: GithubIssueList | null;
@@ -53,9 +54,10 @@ export function issueGroups({
       updatedAt: issue.updatedAt,
       author: person?.displayName ?? 'Unassigned',
       ...(person?.avatarUrl ? { authorAvatarUrl: person.avatarUrl } : {}),
-      icon: 'circle-dashed',
+      // Linear's own glyph and colour for the state, so a row reads as the
+      // state it is in rather than as one more circle.
+      icon: stateGlyph(issue.state.type),
       tone: '',
-      // Linear's own state colour, so a row reads as the state it is in.
       iconColor: issue.state.color,
       ...(linearTasks[issue.id] ? { taskNumber: linearTasks[issue.id].taskNumber } : {}),
     };

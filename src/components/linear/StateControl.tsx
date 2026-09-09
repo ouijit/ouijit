@@ -34,7 +34,10 @@ export function StateControl({ projectPath, issue }: StateControlProps) {
         useProjectStore.getState().addToast(result.error ?? 'Could not move the issue', 'error');
         return;
       }
-      await useLinearStore.getState().reloadIssue(projectPath);
+      // The groups are membership in a workflow state, so moving one moves the
+      // row between them — the list is as stale as the issue was.
+      const store = useLinearStore.getState();
+      await Promise.all([store.reloadIssue(projectPath), store.loadIssues(projectPath)]);
     } finally {
       setBusy(false);
     }

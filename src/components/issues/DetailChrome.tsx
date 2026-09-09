@@ -8,6 +8,8 @@ import { Tooltip } from '../ui/Tooltip';
 interface DetailChromeProps {
   icon: string;
   tone?: string;
+  /** An exact colour for the glyph, where the source has one of its own. */
+  iconColor?: string;
   title: string;
   url: string;
   tabs: ReactNode;
@@ -28,6 +30,7 @@ interface DetailChromeProps {
 export function DetailChrome({
   icon,
   tone,
+  iconColor,
   title,
   url,
   tabs,
@@ -60,7 +63,11 @@ export function DetailChrome({
         title={title}
         onClick={onClose}
       >
-        <Icon name={icon} className={`w-4 h-4 shrink-0 ${tone ?? ''}`} />
+        <Icon
+          name={icon}
+          className={`w-4 h-4 shrink-0 ${tone ?? ''}`}
+          {...(iconColor ? { style: { color: iconColor } } : {})}
+        />
         <span className="truncate text-[15px]">{title}</span>
       </button>
 

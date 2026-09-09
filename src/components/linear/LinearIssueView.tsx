@@ -7,6 +7,7 @@ import { CommentComposer } from '../issues/CommentComposer';
 import { Fact, LabelChips } from '../issues/Sections';
 import { IssueDetailView } from '../issues/IssueDetailView';
 import { StateControl } from './StateControl';
+import { stateGlyph } from './stateGlyph';
 import { StagedComments } from './StagedComments';
 
 interface LinearIssueViewProps {
@@ -45,8 +46,9 @@ export function LinearIssueView({
       title={issue.title}
       identifier={issue.identifier}
       url={issue.url}
-      icon="circle-dashed"
+      icon={stateGlyph(issue.state.type)}
       tone=""
+      iconColor={issue.state.color}
       stateLabel={issue.state.name}
       author={issue.creator?.displayName ?? 'Unknown'}
       authorAvatarUrl={issue.creator?.avatarUrl}

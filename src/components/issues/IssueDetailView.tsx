@@ -17,6 +17,8 @@ interface IssueDetailViewProps {
   /** Leading glyph and its tint, so a closed issue does not read as an open one. */
   icon: string;
   tone: string;
+  /** An exact colour for the glyph, where the source has one of its own. */
+  iconColor?: string;
   stateLabel: string;
   author: string;
   authorAvatarUrl?: string;
@@ -53,6 +55,7 @@ export function IssueDetailView({
   url,
   icon,
   tone,
+  iconColor,
   stateLabel,
   author,
   authorAvatarUrl,
@@ -85,6 +88,7 @@ export function IssueDetailView({
       <DetailChrome
         icon={icon}
         tone={tone}
+        iconColor={iconColor}
         title={title}
         url={url}
         busy={loading}

@@ -225,6 +225,11 @@ describe('the state control', () => {
     await waitFor(() => {
       expect(window.api.linear.moveIssue).toHaveBeenCalledWith(PROJECT, 'issue-ENG-231', 'state-2');
     });
+    // The groups are membership in a state, so the row moved too — without
+    // this the sidebar stayed as it was until the project was left and reopened.
+    await waitFor(() => {
+      expect(window.api.linear.issues).toHaveBeenCalledTimes(2);
+    });
   });
 });
 
