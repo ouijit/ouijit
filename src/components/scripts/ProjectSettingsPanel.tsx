@@ -7,7 +7,7 @@ import { HookList } from './HookList';
 import type { HookEntry } from './HookList';
 import { SandboxSection } from './SandboxSection';
 import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
-import { AppSettingsLink, LinearScopeSection } from '../linear/LinearScopeSection';
+import { LinearScopeSection } from '../linear/LinearScopeSection';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { WorktreeSection } from './WorktreeSection';
 import { IconColorSection } from './IconColorSection';
@@ -132,11 +132,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
           {linearEnabled && (
             <section>
               <h2 className="text-sm font-semibold text-text-primary mb-2">Linear</h2>
-              <p className="text-xs text-text-tertiary mb-4">
-                Which of your workspace's issues are this project's. One key serves every project; a project in a second
-                workspace can keep its own, since a key reads one workspace. The app-wide one is set under{' '}
-                <AppSettingsLink />.
-              </p>
+              <p className="text-xs text-text-tertiary mb-4">Which Linear issues show in this project.</p>
               <LinearScopeSection projectPath={projectPath} />
             </section>
           )}

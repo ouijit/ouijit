@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { LinearAvailability, LinearScope } from '../../linear/types';
-import { useAppStore } from '../../stores/appStore';
 import { useLinearStore } from '../../stores/linearStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { ScopePicker } from './ScopePicker';
@@ -229,17 +228,4 @@ function describe(availability: LinearAvailability | null): string {
 function identity(availability: LinearAvailability | null): string | null {
   const viewer = availability?.viewer;
   return viewer ? `${viewer.name} · ${viewer.workspaceName}` : null;
-}
-
-/** Kept beside the row it explains, since the key itself lives a panel up. */
-export function AppSettingsLink() {
-  return (
-    <button
-      type="button"
-      onClick={() => useAppStore.getState().navigateHome({ panel: 'settings', direction: 'up' })}
-      className="text-accent underline-offset-2 hover:underline outline-none focus-visible:underline"
-    >
-      App Settings
-    </button>
-  );
 }
