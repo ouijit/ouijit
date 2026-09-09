@@ -103,7 +103,11 @@ function Row({
         <span className="shrink-0 text-[13px] text-text-tertiary">{since(row.updatedAt)}</span>
       </button>
       <span className="flex items-center gap-2 min-w-0 text-[13px] text-text-tertiary">
-        <Icon name={row.icon} className={`w-3.5 h-3.5 shrink-0 ${row.tone}`} />
+        <Icon
+          name={row.icon}
+          className={`w-3.5 h-3.5 shrink-0 ${row.tone}`}
+          {...(row.iconColor ? { style: { color: row.iconColor } } : {})}
+        />
         <Avatar login={row.author} url={row.authorAvatarUrl} size={16} />
         <span className="shrink-0">{row.author}</span>
         <span className="flex-1 min-w-0 truncate font-mono text-[12px]">{row.identifier}</span>

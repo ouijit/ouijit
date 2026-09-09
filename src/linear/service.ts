@@ -38,6 +38,7 @@ import {
 import { matchRepoLabel, readScope, writeScope } from './scope';
 import type {
   LinearAvailability,
+  LinearRepoLabel,
   LinearCommentDraft,
   LinearConnection,
   LinearIssueDetail,
@@ -83,6 +84,7 @@ export async function getConnection(recheck = false): Promise<LinearConnection> 
 export async function setCredential(apiKey: string): Promise<{ success: boolean; error?: string }> {
   const result = await writeCredential(apiKey);
   invalidateCredentialCache();
+  invalidateScopeOptions();
   return result;
 }
 
@@ -116,10 +118,9 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
     return { ...connection, repoLabels: [], teams: [] };
   }
 
-  const apiKey = (await readCredential())!.apiKey;
-  let options: { teams: LinearTeam[]; repoLabels: { id: string; name: string }[] };
+  let options: ScopeOptions;
   try {
-    options = await fetchScopeOptions(apiKey);
+    options = await scopeOptions();
   } catch (error) {
     return { ...connection, ...describe(error), connected: false, repoLabels: [], teams: [] };
   }
@@ -143,6 +144,33 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
   };
 }
 
+type ScopeOptions = { teams: LinearTeam[]; repoLabels: LinearRepoLabel[] };
+
+/**
+ * The key's teams and `repo` labels, kept for the life of the process.
+ *
+ * Every panel open and every issue load asks what the scope is, and the answer
+ * changes when someone adds a team — not between two reads a second apart.
+ * Cleared with the credential, which is when it can actually differ.
+ */
+let cachedOptions: Promise<ScopeOptions> | null = null;
+
+export function invalidateScopeOptions(): void {
+  cachedOptions = null;
+}
+
+async function scopeOptions(): Promise<ScopeOptions> {
+  if (!cachedOptions) {
+    const credential = await readCredential();
+    if (!credential) throw new LinearError('no-credential', 'No Linear API key.');
+    cachedOptions = fetchScopeOptions(credential.apiKey).catch((error: unknown) => {
+      cachedOptions = null;
+      throw error;
+    });
+  }
+  return cachedOptions;
+}
+
 /** Connect this project to a label or a team, stamped with the key's workspace. */
 export async function setScope(
   projectPath: string,
@@ -161,9 +189,15 @@ export async function setScope(
 /** Every group of this project's Linear issues, or none when it has no scope. */
 export async function getIssues(projectPath: string): Promise<LinearIssueGroups | null> {
   const apiKey = await requireKey(projectPath);
-  const availability = await getAvailability(projectPath);
-  if (!availability.scope) return null;
-  return fetchIssueGroups(apiKey, availability.scope, availability.teams);
+  const viewer = await resolveViewer();
+  if (viewer instanceof LinearError) throw viewer;
+  if (!viewer) throw new LinearError('no-credential', 'No Linear API key.');
+
+  const stored = await readScope(projectPath);
+  if (!stored || stored.workspaceId !== viewer.workspaceId) return null;
+
+  const { teams } = await scopeOptions();
+  return fetchIssueGroups(apiKey, stored.scope, teams);
 }
 
 export async function getIssue(projectPath: string, id: string): Promise<LinearIssueDetail> {

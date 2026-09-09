@@ -362,6 +362,12 @@ export interface TaskWithWorkspace {
   githubPrNumber?: number;
   /** Linked GitHub issue, if the task was created from one. */
   githubIssueNumber?: number;
+  /** Linked Linear issue, if the task was created from one. */
+  linearIssueId?: string;
+  /** `ENG-123`, stored so a badge renders without asking Linear. */
+  linearIssueIdentifier?: string;
+  /** The branch the task should start on, captured when it was created. */
+  suggestedBranch?: string;
 }
 
 export interface HooksAPI {

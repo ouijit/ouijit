@@ -45,6 +45,8 @@ export interface IssueRow {
   /** Phosphor icon name and tint for the leading glyph. */
   icon: string;
   tone: string;
+  /** An exact colour for the glyph, where the source has one of its own. */
+  iconColor?: string;
   /** Task number linked to this issue, when there is one. */
   taskNumber?: number;
 }

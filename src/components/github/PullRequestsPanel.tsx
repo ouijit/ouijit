@@ -10,9 +10,12 @@ import { Icon } from '../terminal/Icon';
 import { PullRequestSidebar } from './PullRequestSidebar';
 import { PullRequestDetailView } from './PullRequestDetailView';
 import { GithubIssueView } from './GithubIssueView';
+import { LinearIssueView } from '../linear/LinearIssueView';
+import { ConnectRow } from '../linear/ConnectRow';
 import { IssueList } from '../issues/IssueList';
-import type { IssueGroup, IssueRow } from '../../issues/types';
-import type { GithubIssue } from '../../github/types';
+import { issueGroups } from '../issues/groups';
+import { useLinearStore } from '../../stores/linearStore';
+import type { IssueRow } from '../../issues/types';
 import type { TaskWithWorkspace } from '../../types';
 import { PanelFrame } from '../ui/PanelFrame';
 import { useEscape } from '../../hooks/useEscape';
@@ -47,6 +50,13 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   const issueLoading = useGithubStore((s) => s.issueLoading);
   const issueDetailError = useGithubStore((s) => s.issueError);
 
+  const linearAvailability = useLinearStore((s) => s.availability);
+  const linearGroups = useLinearStore((s) => s.groups);
+  const linearLoading = useLinearStore((s) => s.groupsLoading);
+  const linearError = useLinearStore((s) => s.groupsError);
+  const linearIssueLoading = useLinearStore((s) => s.issueLoading);
+  const linearIssueError = useLinearStore((s) => s.issueError);
+
   const open = usePanelStore((s) => s.open);
   const listView = usePanelStore((s) => s.listView);
   const sidebarWidth = usePanelStore((s) => s.sidebarWidth);
@@ -60,14 +70,17 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   const issue = useGithubStore((s) =>
     open?.source === 'github-issue' && s.issue?.number === open.number ? s.issue : null,
   );
+  const linearIssue = useLinearStore((s) => (open?.source === 'linear' && s.issue?.id === open.id ? s.issue : null));
 
   useEffect(() => {
-    const store = useGithubStore.getState();
-    store.setProject(projectPath);
-    void store.loadAvailability(projectPath);
+    useGithubStore.getState().setProject(projectPath);
+    void useGithubStore.getState().loadAvailability(projectPath);
+    useLinearStore.getState().setProject(projectPath);
+    void useLinearStore.getState().loadAvailability(projectPath);
   }, [projectPath]);
 
   const available = availability?.available ?? false;
+  const linearConnected = linearAvailability?.connected ?? false;
 
   // Both lists load together, so switching between them never waits on a fetch.
   useEffect(() => {
@@ -77,6 +90,13 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     void store.loadIssues(projectPath);
   }, [available, projectPath]);
 
+  // Linear loads on the same terms: on open and on the refresh button, so two
+  // sources in one list do not go stale at different rates.
+  useEffect(() => {
+    if (!linearConnected || !linearAvailability?.scope) return;
+    void useLinearStore.getState().loadIssues(projectPath);
+  }, [linearConnected, linearAvailability?.scope, projectPath]);
+
   const refresh = useCallback(() => {
     const store = useGithubStore.getState();
     // Re-probe `gh` rather than trusting the startup health cache: a cached
@@ -84,6 +104,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     void store.loadAvailability(projectPath, true);
     void store.loadInbox(projectPath);
     void store.loadIssues(projectPath);
+    void useLinearStore.getState().loadAvailability(projectPath, true);
+    void useLinearStore.getState().loadIssues(projectPath);
   }, [projectPath]);
 
   // The one update that arrives unasked: a draft written by the CLI happens in
@@ -99,38 +121,67 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     });
   }, [available, projectPath]);
 
+  const closeOpenItem = useCallback(() => {
+    const slot = usePanelStore.getState().open;
+    if (slot?.source === 'linear') useLinearStore.getState().closeDetail();
+    else useGithubStore.getState().closeDetail();
+  }, []);
+
+  // The same push the GitHub side takes, for a comment staged against a Linear
+  // issue by the CLI. One local read, no refetch.
+  useEffect(() => {
+    if (!linearConnected) return;
+    return window.api.linear.onDraftsChanged((payload) => {
+      if (payload.projectPath !== projectPath) return;
+      const slot = usePanelStore.getState().open;
+      if (slot?.source !== 'linear' || slot.id !== payload.issueId) return;
+      void useLinearStore.getState().loadDrafts(projectPath, payload.issueId);
+    });
+  }, [linearConnected, projectPath]);
+
   // Closes what is open before leaving the panel behind it.
   useEscape(
     useCallback(() => {
       if (usePanelStore.getState().open) {
-        useGithubStore.getState().closeDetail();
+        closeOpenItem();
         return;
       }
       useProjectStore.getState().setActivePanel('terminals');
-    }, []),
+    }, [closeOpenItem]),
   );
 
   // The maps are built in a memo, not the selector: a selector returning a
   // fresh object never equals the last one and re-renders forever.
   const tasks = useProjectStore((s) => s.tasks);
-  const { issueTasks, prTasks, tasksByNumber } = useMemo(() => {
+  const { issueTasks, prTasks, linearTasks, tasksByNumber } = useMemo(() => {
     const issueTasks: Record<number, TaskWithWorkspace> = {};
     const prTasks: Record<number, TaskWithWorkspace> = {};
+    const linearTasks: Record<string, TaskWithWorkspace> = {};
     const tasksByNumber: Record<number, TaskWithWorkspace> = {};
     for (const task of tasks) {
       if (task.githubIssueNumber != null) issueTasks[task.githubIssueNumber] = task;
       if (task.githubPrNumber != null) prTasks[task.githubPrNumber] = task;
+      if (task.linearIssueId) linearTasks[task.linearIssueId] = task;
       tasksByNumber[task.taskNumber] = task;
     }
-    return { issueTasks, prTasks, tasksByNumber };
+    return { issueTasks, prTasks, linearTasks, tasksByNumber };
   }, [tasks]);
 
   const repo = availability?.identity;
-  const issueGroups = useMemo(
-    () => githubIssueGroups(issues, issueTasks, repo ? `${repo.owner}/${repo.repo}` : null),
-    [issues, issueTasks, repo],
+  const scopeName = linearAvailability?.scope?.name ?? null;
+  const listGroups = useMemo(
+    () =>
+      issueGroups({
+        github: issues,
+        githubSlug: repo ? `${repo.owner}/${repo.repo}` : null,
+        linear: linearGroups,
+        linearScopeName: scopeName,
+        githubTasks: issueTasks,
+        linearTasks,
+      }),
+    [issues, repo, linearGroups, scopeName, issueTasks, linearTasks],
   );
-  const issueCount = issueGroups.reduce((total, group) => total + group.rows.length, 0);
+  const issueCount = listGroups.reduce((total, group) => total + group.rows.length, 0);
 
   // The panel only renders for the project being viewed, so the active project
   // is the one a linked task belongs to.
@@ -174,6 +225,45 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     [projectPath, project],
   );
 
+  const createTaskFromLinearIssue = useCallback(
+    async (identifier: string) => {
+      const result = await window.api.linear.taskFromIssue(projectPath, identifier);
+      if (!result.success) {
+        useProjectStore.getState().addToast(result.error ?? 'Could not create the task', 'error');
+        return;
+      }
+      await useProjectStore.getState().loadTasks(projectPath);
+      const created = useProjectStore.getState().tasks.find((t) => t.taskNumber === result.taskNumber);
+      useProjectStore.getState().addToast(`Created task #${result.taskNumber} from ${identifier}`, {
+        type: 'success',
+        ...(created && project
+          ? {
+              actionLabel: TASK_OPEN_LABEL[taskOpenAction(projectPath, created)],
+              onAction: () => void activateTask(project, created),
+            }
+          : {}),
+      });
+    },
+    [projectPath, project],
+  );
+
+  /** A row addresses its issue in its own source's terms; opening dispatches on that. */
+  const openIssueRow = useCallback(
+    (row: IssueRow) => {
+      if (row.source === 'linear') void useLinearStore.getState().openIssue(projectPath, row.key);
+      else void useGithubStore.getState().openIssue(projectPath, Number(row.key));
+    },
+    [projectPath],
+  );
+
+  const createTaskFromRow = useCallback(
+    (row: IssueRow) => {
+      if (row.source === 'linear') void createTaskFromLinearIssue(row.identifier);
+      else void createTaskFromIssue(Number(row.key));
+    },
+    [createTaskFromIssue, createTaskFromLinearIssue],
+  );
+
   const promoteToTask = useCallback(async () => {
     const slot = usePanelStore.getState().open;
     if (slot?.source !== 'github-pr') return;
@@ -201,7 +291,10 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   const linkedTask = detail ? prTasks[detail.number] : undefined;
   const linkedIssueTask = issue ? issueTasks[issue.number] : undefined;
 
-  if (availability && !available) {
+  // The panel opens for any source that can answer. Only when none can does the
+  // notice take the whole pane — with Linear connected and `gh` absent there is
+  // still an Issues list to read.
+  if (availability && !available && !linearConnected) {
     return (
       <PanelFrame>
         <UnavailableNotice message={availability.message} reason={availability.reason} />
@@ -213,7 +306,9 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   // milliseconds, too short to warrant a spinner.
   if (!availability) return <PanelFrame />;
 
-  const error = listView === 'issues' ? issuesError : inboxError;
+  const error = listView === 'issues' ? (issuesError ?? linearError) : inboxError;
+  const openDetail = detail || issue || linearIssue;
+  const detailProblem = detailError ?? issueDetailError ?? linearIssueError;
 
   return (
     <PanelFrame>
@@ -227,21 +322,28 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
           showing={listView}
           issueCount={issueCount}
           activeNumber={open?.source === 'github-pr' ? open.number : null}
-          loading={listView === 'issues' ? issuesLoading : inboxLoading}
+          loading={listView === 'issues' ? issuesLoading || linearLoading : inboxLoading}
           onShow={(next) => usePanelStore.getState().setListView(next)}
           onOpenPullRequest={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
           onOpenTask={openLinkedTask}
           issues={(query) => (
-            <IssueList
-              groups={issueGroups}
-              query={query}
-              open={open}
-              tasks={tasksByNumber}
-              loading={issuesLoading}
-              onOpen={(row) => void useGithubStore.getState().openIssue(projectPath, Number(row.key))}
-              onOpenTask={openLinkedTask}
-              onCreateTask={(row) => void createTaskFromIssue(Number(row.key))}
-            />
+            <>
+              {/* A row, never a modal: someone who opened the panel to read a
+                  pull request is not made to configure a tracker first. */}
+              {linearConnected && linearAvailability && !linearAvailability.scope && (
+                <ConnectRow projectPath={projectPath} availability={linearAvailability} />
+              )}
+              <IssueList
+                groups={listGroups}
+                query={query}
+                open={open}
+                tasks={tasksByNumber}
+                loading={issuesLoading || linearLoading}
+                onOpen={openIssueRow}
+                onOpenTask={openLinkedTask}
+                onCreateTask={createTaskFromRow}
+              />
+            </>
           )}
           width={sidebarWidth}
         />
@@ -262,7 +364,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         {/* `DetailChrome` carries the toggle when something is open. With
             nothing open there is no bar, and a collapsed list would otherwise
             leave no way back. */}
-        {!detail && !issue && (
+        {!openDetail && (
           <div className="pane-ledge relative z-30 shrink-0 h-12 flex items-center px-3">
             <SidebarToggle
               collapsed={sidebarCollapsed}
@@ -276,7 +378,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 
         {/* The list error only takes the pane when nothing is open, so an inbox
           failure cannot discard the pull request being read. */}
-        {error && !detail && !issue ? (
+        {error && !openDetail ? (
           <Centred>
             <Icon name="warning" className="w-6 h-6 text-vcs-modified opacity-70" />
             <p className="text-[15px] text-text-secondary max-w-sm text-center">{error}</p>
@@ -284,17 +386,22 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
               Try again
             </button>
           </Centred>
-        ) : detailError || issueDetailError ? (
+        ) : detailProblem ? (
           <Centred>
-            <p className="text-[15px] text-text-secondary">{detailError ?? issueDetailError}</p>
-            <button
-              type="button"
-              className="btn-secondary btn-compact"
-              onClick={() => useGithubStore.getState().closeDetail()}
-            >
+            <p className="text-[15px] text-text-secondary">{detailProblem}</p>
+            <button type="button" className="btn-secondary btn-compact" onClick={closeOpenItem}>
               Close
             </button>
           </Centred>
+        ) : linearIssue ? (
+          <LinearIssueView
+            projectPath={projectPath}
+            issue={linearIssue}
+            linkedTask={linearTasks[linearIssue.id]}
+            openTaskLabel={openTaskLabel}
+            onOpenTask={openLinkedTask}
+            onCreateTask={() => void createTaskFromLinearIssue(linearIssue.identifier)}
+          />
         ) : issue ? (
           <GithubIssueView
             projectPath={projectPath}
@@ -315,7 +422,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
           />
         ) : detailLoading ? (
           <Loading label="Loading pull request" />
-        ) : issueLoading ? (
+        ) : issueLoading || linearIssueLoading ? (
           <Loading label="Loading issue" />
         ) : !inbox && inboxLoading ? (
           <Loading label="Loading pull requests" />
@@ -332,35 +439,6 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
       </div>
     </PanelFrame>
   );
-}
-
-/**
- * GitHub's contribution to the Issues list: yours, then the repo's. The service
- * has already taken yours out of the repo list, so nothing appears twice.
- */
-function githubIssueGroups(
-  issues: ReturnType<typeof useGithubStore.getState>['issues'],
-  tasks: Record<number, TaskWithWorkspace>,
-  slug: string | null,
-): IssueGroup[] {
-  if (!issues) return [];
-  const row = (issue: GithubIssue): IssueRow => ({
-    source: 'github',
-    key: String(issue.number),
-    identifier: `#${issue.number}`,
-    title: issue.title,
-    updatedAt: issue.updatedAt,
-    author: issue.author,
-    authorAvatarUrl: issue.authorAvatarUrl,
-    icon: 'circle-dashed',
-    tone: 'text-vcs-added',
-    ...(tasks[issue.number] ? { taskNumber: tasks[issue.number].taskNumber } : {}),
-  });
-
-  return [
-    { label: 'Assigned to you', rows: issues.assigned.map(row), capped: issues.assignedCapped },
-    { label: slug ? `Open on ${slug}` : 'Open', rows: issues.open.map(row), capped: issues.openCapped },
-  ];
 }
 
 function Centred({ children }: { children: ReactNode }) {
