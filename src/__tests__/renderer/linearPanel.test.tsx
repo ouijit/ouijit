@@ -156,4 +156,31 @@ describe('Linear in the Issues list', () => {
       });
     });
   });
+
+  /**
+   * The label matched from the remote is a suggestion, not a verdict: a
+   * workspace can label a repo under a name that is not its own.
+   */
+  test('the pre-filled answer can be changed without leaving the row', async () => {
+    vi.mocked(window.api.linear.availability).mockResolvedValue(
+      linearAvailability({ scope: undefined, suggestedLabel: { id: 'label-1', name: 'o/r' } }),
+    );
+    vi.mocked(window.api.linear.setScope).mockResolvedValue({ success: true });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Issues'));
+
+    // The trigger reads the matched label; the menu holds the teams beside it.
+    fireEvent.click(await screen.findByRole('button', { expanded: false, name: /o\/r/ }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Engineering/ }));
+    fireEvent.click(screen.getByText('Connect'));
+
+    await waitFor(() => {
+      expect(window.api.linear.setScope).toHaveBeenCalledWith(PROJECT, {
+        kind: 'team',
+        teamId: 'team-1',
+        name: 'Engineering',
+      });
+    });
+  });
 });
