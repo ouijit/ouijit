@@ -123,6 +123,9 @@ export interface LinearIssueGroups {
 /** Where the key is kept. The environment is the answer where there is no keychain. */
 export type LinearCredentialStorage = 'keychain' | 'environment';
 
+/** Whose key it is: the app's, or one this project keeps for itself. */
+export type LinearCredentialSource = 'app' | 'project';
+
 /**
  * What the renderer is told about the key: enough for the settings row and the
  * connect row, and never the key itself.
@@ -134,6 +137,8 @@ export interface LinearConnection {
   message?: string;
   viewer?: LinearViewer;
   storage?: LinearCredentialStorage;
+  /** Which key answered. A project's own overrides the app's. */
+  source?: LinearCredentialSource;
   /** False where `safeStorage` has no keychain, which is why the key is refused. */
   canStore?: boolean;
 }

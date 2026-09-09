@@ -27,10 +27,12 @@ import Docs from '../../layouts/Docs.astro';
     Limiting the key to one team is fine, and narrows what Ouijit can see.
   </p>
   <p>
-    One key serves the app, since a personal key belongs to one workspace. It is encrypted by your OS keychain
-    and kept out of the renderer, the REST API and every sandboxed terminal. On a machine with no keychain —
-    Linux without a keyring — Ouijit refuses to store it and reads <code>LINEAR_API_KEY</code> from your
-    environment instead.
+    One key serves every project, since a key reads one workspace. A project in a second workspace can keep its
+    own under <strong>Project Settings &rarr; Linear</strong>, which is also where the field appears when there
+    is no key yet — clearing it puts that project back on the app-wide one. Keys are encrypted by your OS
+    keychain and kept out of the renderer, the REST API and every sandboxed terminal. On a machine with no
+    keychain — Linux without a keyring — Ouijit refuses to store one and reads <code>LINEAR_API_KEY</code> from
+    your environment instead.
   </p>
   <p>
     Ouijit then works out which issues are this project's. Workspaces that label issues under a

@@ -15,12 +15,24 @@ import { getGlobalSetting, setGlobalSetting } from '../db';
 import { getLogger } from '../logger';
 import { createLinearRequest, LinearError, type FetchLike } from './client';
 import { VIEWER_QUERY } from './queries';
-import type { LinearCredentialStorage, LinearViewer } from './types';
+import type { LinearCredentialSource, LinearCredentialStorage, LinearViewer } from './types';
 
 const credentialLog = getLogger().scope('linear:credentials');
 
 /** globalSettings key holding the encrypted key, base64. */
 export const LINEAR_CREDENTIAL_KEY = 'linear:credential';
+
+/**
+ * Where a project's own key lives, when it has one.
+ *
+ * A key resolves to exactly one workspace — the API has no shape that returns
+ * two — so a person working across two of them needs a key per workspace. The
+ * app-wide key is the default and the override is the exception, which is why
+ * the app-wide one keeps the unsuffixed name it was already stored under.
+ */
+export function linearCredentialKey(projectPath?: string): string {
+  return projectPath ? `${LINEAR_CREDENTIAL_KEY}:${projectPath}` : LINEAR_CREDENTIAL_KEY;
+}
 
 /** Read instead of storing one, where there is no keychain to store it in. */
 export const LINEAR_ENV_VAR = 'LINEAR_API_KEY';
@@ -28,6 +40,8 @@ export const LINEAR_ENV_VAR = 'LINEAR_API_KEY';
 export interface StoredCredential {
   apiKey: string;
   storage: LinearCredentialStorage;
+  /** Which key this is: the app's, or one this project keeps for itself. */
+  source: LinearCredentialSource;
 }
 
 /** Whether the OS has somewhere to keep a secret. Linux with no keyring has not. */
@@ -36,25 +50,41 @@ export function canStoreCredential(): boolean {
 }
 
 /**
- * The key, from the keychain or from the environment.
+ * The key a project reads Linear with: its own if it keeps one, else the app's,
+ * else the environment.
  *
  * The environment wins nothing: it is only consulted when nothing is stored,
  * which is the case on a machine that refused to store one.
  */
-export async function readCredential(): Promise<StoredCredential | null> {
-  const stored = await getGlobalSetting(LINEAR_CREDENTIAL_KEY);
-  if (stored && canStoreCredential()) {
-    try {
-      return { apiKey: safeStorage.decryptString(Buffer.from(stored, 'base64')), storage: 'keychain' };
-    } catch (error) {
-      // A key encrypted under a keychain this machine no longer has is not a
-      // key; saying so beats every later call failing as "unauthorized".
-      credentialLog.warn('stored Linear key could not be decrypted', { error: (error as Error).name });
-    }
+export async function readCredential(projectPath?: string): Promise<StoredCredential | null> {
+  if (projectPath) {
+    const own = await decrypt(linearCredentialKey(projectPath));
+    if (own) return { apiKey: own, storage: 'keychain', source: 'project' };
   }
 
+  const shared = await decrypt(LINEAR_CREDENTIAL_KEY);
+  if (shared) return { apiKey: shared, storage: 'keychain', source: 'app' };
+
   const fromEnv = process.env[LINEAR_ENV_VAR]?.trim();
-  return fromEnv ? { apiKey: fromEnv, storage: 'environment' } : null;
+  return fromEnv ? { apiKey: fromEnv, storage: 'environment', source: 'app' } : null;
+}
+
+async function decrypt(key: string): Promise<string | null> {
+  const stored = await getGlobalSetting(key);
+  if (!stored || !canStoreCredential()) return null;
+  try {
+    return safeStorage.decryptString(Buffer.from(stored, 'base64'));
+  } catch (error) {
+    // A key encrypted under a keychain this machine no longer has is not a
+    // key; saying so beats every later call failing as "unauthorized".
+    credentialLog.warn('stored Linear key could not be decrypted', { key, error: (error as Error).name });
+    return null;
+  }
+}
+
+/** Whether this project keeps a key of its own, without reading it. */
+export async function hasOwnCredential(projectPath: string): Promise<boolean> {
+  return Boolean(await getGlobalSetting(linearCredentialKey(projectPath)));
 }
 
 /**
@@ -64,10 +94,14 @@ export async function readCredential(): Promise<StoredCredential | null> {
  * put a workspace-wide credential in a plain SQLite row. The caller is told to
  * set `LINEAR_API_KEY` instead.
  */
-export async function writeCredential(apiKey: string): Promise<{ success: boolean; error?: string }> {
+export async function writeCredential(
+  apiKey: string,
+  projectPath?: string,
+): Promise<{ success: boolean; error?: string }> {
+  const key = linearCredentialKey(projectPath);
   const trimmed = apiKey.trim();
   if (!trimmed) {
-    await setGlobalSetting(LINEAR_CREDENTIAL_KEY, '');
+    await setGlobalSetting(key, '');
     return { success: true };
   }
   if (!canStoreCredential()) {
@@ -76,7 +110,7 @@ export async function writeCredential(apiKey: string): Promise<{ success: boolea
       error: `This machine has no keychain to encrypt the key with. Set ${LINEAR_ENV_VAR} in your environment instead.`,
     };
   }
-  await setGlobalSetting(LINEAR_CREDENTIAL_KEY, safeStorage.encryptString(trimmed).toString('base64'));
+  await setGlobalSetting(key, safeStorage.encryptString(trimmed).toString('base64'));
   return { success: true };
 }
 
@@ -104,34 +138,43 @@ export async function fetchViewer(apiKey: string, fetchImpl?: FetchLike): Promis
 
 /**
  * Validity for the life of the process, as `gh auth status` is cached, with a
- * recheck so pasting a key takes effect without a restart. Changing or clearing
- * the key clears it.
+ * recheck so pasting a key takes effect without a restart.
+ *
+ * Per project rather than per process: a project with its own key resolves to
+ * its own workspace, and one entry would answer for the wrong one. Projects on
+ * the app-wide key share the entry under `APP`, which is most of them.
  */
-let cached: Promise<LinearViewer | LinearError | null> | null = null;
+const APP = '\u0000app';
+const cached = new Map<string, Promise<LinearViewer | LinearError | null>>();
 
-export function invalidateCredentialCache(): void {
-  cached = null;
+/** Clears one project's answer, or every one when the app-wide key changed. */
+export function invalidateCredentialCache(projectPath?: string): void {
+  if (projectPath) cached.delete(projectPath);
+  else cached.clear();
 }
 
 /**
- * The viewer the key resolves to, `null` when there is no key, or the error
- * that stopped it. Errors are cached too: without that, a panel open during an
- * outage asks Linear on every render.
+ * The viewer the project's key resolves to, `null` when there is no key, or the
+ * error that stopped it. Errors are cached too: without that, a panel open
+ * during an outage asks Linear on every render.
  */
-export function resolveViewer(recheck = false): Promise<LinearViewer | LinearError | null> {
-  if (recheck || !cached) {
-    cached = loadViewer().then((result) => {
-      // A rate limit passes; the next open should ask again rather than
-      // inherit a refusal that has since expired.
-      if (result instanceof LinearError && result.kind === 'rate-limited') cached = null;
-      return result;
-    });
-  }
-  return cached;
+export function resolveViewer(projectPath?: string, recheck = false): Promise<LinearViewer | LinearError | null> {
+  const entry = projectPath ?? APP;
+  const existing = cached.get(entry);
+  if (!recheck && existing) return existing;
+
+  const pending = loadViewer(projectPath).then((result) => {
+    // A rate limit passes; the next open should ask again rather than inherit
+    // a refusal that has since expired.
+    if (result instanceof LinearError && result.kind === 'rate-limited') cached.delete(entry);
+    return result;
+  });
+  cached.set(entry, pending);
+  return pending;
 }
 
-async function loadViewer(): Promise<LinearViewer | LinearError | null> {
-  const credential = await readCredential();
+async function loadViewer(projectPath?: string): Promise<LinearViewer | LinearError | null> {
+  const credential = await readCredential(projectPath);
   if (!credential) return null;
   try {
     return await fetchViewer(credential.apiKey);

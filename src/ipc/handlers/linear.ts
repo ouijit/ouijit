@@ -21,8 +21,8 @@ import {
  * reads or returns the API key.
  */
 export function registerLinearHandlers(): void {
-  typedHandle('linear:connection', (recheck) => getConnection(recheck));
-  typedHandle('linear:set-credential', (apiKey) => setCredential(apiKey));
+  typedHandle('linear:connection', (projectPath, recheck) => getConnection(projectPath, recheck));
+  typedHandle('linear:set-credential', (apiKey, projectPath) => setCredential(apiKey, projectPath));
   typedHandle('linear:availability', (projectPath, recheck) => getAvailability(projectPath, recheck));
   typedHandle('linear:set-scope', (projectPath, scope) => setScope(projectPath, scope));
 

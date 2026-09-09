@@ -27,7 +27,7 @@ export function LinearSettingsSection() {
         return;
       }
       setKey('');
-      setConnection(await window.api.linear.connection(true));
+      setConnection(await window.api.linear.connection(undefined, true));
     } finally {
       setBusy(false);
     }

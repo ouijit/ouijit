@@ -58,33 +58,40 @@ export async function isLinearEnabled(projectPath: string): Promise<boolean> {
 // ── The key ──────────────────────────────────────────────────────────
 
 /**
- * Whether the key works and who it belongs to. Global, not per project: the
- * key is one for the app, and the settings row that shows this is too.
+ * Whether a key works and who it belongs to.
+ *
+ * With no project it answers for the app-wide key, which is what App Settings
+ * shows. With one it answers for whatever that project actually reads Linear
+ * with — its own key where it keeps one.
  */
-export async function getConnection(recheck = false): Promise<LinearConnection> {
-  const credential = await readCredential();
+export async function getConnection(projectPath?: string, recheck = false): Promise<LinearConnection> {
+  const credential = await readCredential(projectPath);
   if (!credential) {
     return { connected: false, reason: 'no-credential', canStore: canStoreCredential() };
   }
-  const viewer = await resolveViewer(recheck);
+  const viewer = await resolveViewer(projectPath, recheck);
+  const standing = { storage: credential.storage, source: credential.source, canStore: canStoreCredential() };
+
   if (viewer instanceof LinearError) {
-    return {
-      connected: false,
-      reason: viewer.kind,
-      message: viewer.message,
-      storage: credential.storage,
-      canStore: canStoreCredential(),
-    };
+    return { ...standing, connected: false, reason: viewer.kind, message: viewer.message };
   }
   if (!viewer) return { connected: false, reason: 'no-credential', canStore: canStoreCredential() };
-  return { connected: true, viewer, storage: credential.storage, canStore: canStoreCredential() };
+  return { ...standing, connected: true, viewer };
 }
 
-/** Paste a key, or clear it with an empty string. */
-export async function setCredential(apiKey: string): Promise<{ success: boolean; error?: string }> {
-  const result = await writeCredential(apiKey);
-  invalidateCredentialCache();
-  invalidateScopeOptions();
+/**
+ * Paste a key, or clear it with an empty string. A project's own key overrides
+ * the app's; clearing it puts the project back on the app's.
+ */
+export async function setCredential(
+  apiKey: string,
+  projectPath?: string,
+): Promise<{ success: boolean; error?: string }> {
+  const result = await writeCredential(apiKey, projectPath);
+  // Everything, when the app-wide key moved: every project not keeping its own
+  // was reading it.
+  invalidateCredentialCache(projectPath);
+  invalidateScopeOptions(projectPath);
   return result;
 }
 
@@ -93,7 +100,7 @@ async function requireKey(projectPath: string): Promise<string> {
   if (!(await isLinearEnabled(projectPath))) {
     throw new LinearError('no-credential', 'Linear is not enabled for this project.');
   }
-  const credential = await readCredential();
+  const credential = await readCredential(projectPath);
   if (!credential) throw new LinearError('no-credential', 'No Linear API key. Add one in Global Settings.');
   return credential.apiKey;
 }
@@ -116,16 +123,16 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
   // A recheck re-probes everything cached for the life of the process, so a
   // team or a `repo` label added since the app started is picked up by the
   // refresh button rather than by a restart.
-  if (recheck) invalidateScopeOptions();
+  if (recheck) invalidateScopeOptions(projectPath);
 
-  const connection = await getConnection(recheck);
+  const connection = await getConnection(projectPath, recheck);
   if (!connection.connected || !connection.viewer) {
     return { ...connection, repoLabels: [], teams: [] };
   }
 
   let options: ScopeOptions;
   try {
-    options = await scopeOptions();
+    options = await scopeOptions(projectPath);
   } catch (error) {
     const failure = describe(error);
     return {
@@ -164,24 +171,29 @@ type ScopeOptions = { teams: LinearTeam[]; repoLabels: LinearRepoLabel[] };
  *
  * Every panel open and every issue load asks what the scope is, and the answer
  * changes when someone adds a team — not between two reads a second apart.
- * Cleared with the credential, which is when it can actually differ.
+ * Cleared with the credential, which is when it can actually differ, and keyed
+ * per project for the same reason the viewer is: another key, another
+ * workspace, other teams.
  */
-let cachedOptions: Promise<ScopeOptions> | null = null;
+const cachedOptions = new Map<string, Promise<ScopeOptions>>();
 
-export function invalidateScopeOptions(): void {
-  cachedOptions = null;
+export function invalidateScopeOptions(projectPath?: string): void {
+  if (projectPath) cachedOptions.delete(projectPath);
+  else cachedOptions.clear();
 }
 
-async function scopeOptions(): Promise<ScopeOptions> {
-  if (!cachedOptions) {
-    const credential = await readCredential();
-    if (!credential) throw new LinearError('no-credential', 'No Linear API key.');
-    cachedOptions = fetchScopeOptions(credential.apiKey).catch((error: unknown) => {
-      cachedOptions = null;
-      throw error;
-    });
-  }
-  return cachedOptions;
+async function scopeOptions(projectPath: string): Promise<ScopeOptions> {
+  const existing = cachedOptions.get(projectPath);
+  if (existing) return existing;
+
+  const credential = await readCredential(projectPath);
+  if (!credential) throw new LinearError('no-credential', 'No Linear API key.');
+  const pending = fetchScopeOptions(credential.apiKey).catch((error: unknown) => {
+    cachedOptions.delete(projectPath);
+    throw error;
+  });
+  cachedOptions.set(projectPath, pending);
+  return pending;
 }
 
 /** Connect this project to a label or a team, stamped with the key's workspace. */
@@ -189,7 +201,7 @@ export async function setScope(
   projectPath: string,
   scope: LinearScope | null,
 ): Promise<{ success: boolean; error?: string }> {
-  const viewer = await resolveViewer();
+  const viewer = await resolveViewer(projectPath);
   if (!viewer || viewer instanceof LinearError) {
     return { success: false, error: 'The Linear API key is not usable.' };
   }
@@ -202,14 +214,14 @@ export async function setScope(
 /** Every group of this project's Linear issues, or none when it has no scope. */
 export async function getIssues(projectPath: string): Promise<LinearIssueGroups | null> {
   const apiKey = await requireKey(projectPath);
-  const viewer = await resolveViewer();
+  const viewer = await resolveViewer(projectPath);
   if (viewer instanceof LinearError) throw viewer;
   if (!viewer) throw new LinearError('no-credential', 'No Linear API key.');
 
   const stored = await readScope(projectPath);
   if (!stored || stored.workspaceId !== viewer.workspaceId) return null;
 
-  const { teams } = await scopeOptions();
+  const { teams } = await scopeOptions(projectPath);
   return fetchIssueGroups(apiKey, stored.scope, teams);
 }
 

@@ -270,17 +270,59 @@ describe('changing the answer afterwards', () => {
     });
   });
 
-  test('with no key, it says where the key goes rather than offering a picker', async () => {
+  /**
+   * The wall is a project with no usable key, and it is hit here — so the field
+   * is here, rather than a sentence pointing at another panel.
+   */
+  test('with no key, the field to paste one is in the row that needs it', async () => {
     vi.mocked(window.api.linear.availability).mockResolvedValue({
       connected: false,
       reason: 'no-credential',
       repoLabels: [],
       teams: [],
     });
+    vi.mocked(window.api.linear.setCredential).mockResolvedValue({ success: true });
 
     render(<LinearScopeSection projectPath={PROJECT} />);
 
-    expect(await screen.findByText(/App Settings/)).toBeTruthy();
+    const field = await screen.findByPlaceholderText('lin_api_…');
+    fireEvent.change(field, { target: { value: 'lin_api_project' } });
+    fireEvent.click(screen.getByText('Save'));
+
+    // Stored against the project, so the app-wide key is left alone.
+    await waitFor(() => {
+      expect(window.api.linear.setCredential).toHaveBeenCalledWith('lin_api_project', PROJECT);
+    });
     expect(screen.queryByText('Disconnect')).toBeNull();
+  });
+
+  /**
+   * A key reads one workspace, so a project in a second one keeps its own. Most
+   * do not, and theirs must be the app's rather than a copy of it.
+   */
+  test('a project on the app-wide key can take one of its own, and give it back', async () => {
+    vi.mocked(window.api.linear.availability).mockResolvedValue(linearAvailability({ source: 'app' }));
+    vi.mocked(window.api.linear.setCredential).mockResolvedValue({ success: true });
+
+    render(<LinearScopeSection projectPath={PROJECT} />);
+
+    expect(await screen.findByText(/The app-wide key/)).toBeTruthy();
+    fireEvent.click(screen.getByText('Use another key here'));
+    fireEvent.change(screen.getByPlaceholderText('lin_api_…'), { target: { value: 'lin_api_client' } });
+    // What the row reads back after saving: the project now has its own.
+    vi.mocked(window.api.linear.availability).mockResolvedValue(linearAvailability({ source: 'project' }));
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(window.api.linear.setCredential).toHaveBeenCalledWith('lin_api_client', PROJECT);
+    });
+
+    // Handing it back is the empty string against this project, which falls
+    // through to the app's again.
+    fireEvent.click(await screen.findByText('Use the app-wide key'));
+
+    await waitFor(() => {
+      expect(window.api.linear.setCredential).toHaveBeenLastCalledWith('', PROJECT);
+    });
   });
 });

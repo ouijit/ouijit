@@ -4,6 +4,7 @@ import {
   LINEAR_CREDENTIAL_KEY,
   LINEAR_ENV_VAR,
   canStoreCredential,
+  hasOwnCredential,
   readCredential,
   writeCredential,
 } from '../linear/credentials';
@@ -41,7 +42,7 @@ afterEach(() => {
 describe('where the Linear API key lives', () => {
   test('a stored key round-trips, and clearing it leaves nothing behind', async () => {
     expect(await writeCredential('lin_api_secret')).toEqual({ success: true });
-    expect(await readCredential()).toEqual({ apiKey: 'lin_api_secret', storage: 'keychain' });
+    expect(await readCredential()).toEqual({ apiKey: 'lin_api_secret', storage: 'keychain', source: 'app' });
 
     // What lands in the database is the ciphertext, base64, and never the key.
     const stored = await getGlobalSetting(LINEAR_CREDENTIAL_KEY);
@@ -67,7 +68,35 @@ describe('where the Linear API key lives', () => {
     expect(await getGlobalSetting(LINEAR_CREDENTIAL_KEY)).toBeUndefined();
 
     process.env[LINEAR_ENV_VAR] = 'lin_api_from_env';
-    expect(await readCredential()).toEqual({ apiKey: 'lin_api_from_env', storage: 'environment' });
+    expect(await readCredential()).toEqual({ apiKey: 'lin_api_from_env', storage: 'environment', source: 'app' });
+  });
+
+  /**
+   * A key reads exactly one workspace — the API has no shape that returns two —
+   * so a project in a second one keeps its own, over the app's.
+   */
+  test("a project's own key wins, and clearing it falls back to the app's", async () => {
+    const project = '/work/client';
+    await writeCredential('lin_api_app');
+    expect(await readCredential(project)).toEqual({
+      apiKey: 'lin_api_app',
+      storage: 'keychain',
+      source: 'app',
+    });
+
+    await writeCredential('lin_api_client', project);
+    expect(await readCredential(project)).toEqual({
+      apiKey: 'lin_api_client',
+      storage: 'keychain',
+      source: 'project',
+    });
+    // Every other project is untouched by it.
+    expect(await readCredential('/work/other')).toMatchObject({ apiKey: 'lin_api_app', source: 'app' });
+    expect(await readCredential()).toMatchObject({ apiKey: 'lin_api_app' });
+
+    await writeCredential('', project);
+    expect(await hasOwnCredential(project)).toBe(false);
+    expect(await readCredential(project)).toMatchObject({ apiKey: 'lin_api_app', source: 'app' });
   });
 
   /**
@@ -82,6 +111,6 @@ describe('where the Linear API key lives', () => {
     expect(await readCredential()).toBeNull();
 
     process.env[LINEAR_ENV_VAR] = 'lin_api_from_env';
-    expect(await readCredential()).toEqual({ apiKey: 'lin_api_from_env', storage: 'environment' });
+    expect(await readCredential()).toEqual({ apiKey: 'lin_api_from_env', storage: 'environment', source: 'app' });
   });
 });

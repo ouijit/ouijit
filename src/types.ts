@@ -777,8 +777,8 @@ export interface GithubActionResult {
  * be: what comes back is who it belongs to and what it can see.
  */
 export interface LinearAPI {
-  connection(recheck?: boolean): Promise<LinearConnection>;
-  setCredential(apiKey: string): Promise<GithubActionResult>;
+  connection(projectPath?: string, recheck?: boolean): Promise<LinearConnection>;
+  setCredential(apiKey: string, projectPath?: string): Promise<GithubActionResult>;
   availability(projectPath: string, recheck?: boolean): Promise<LinearAvailability>;
   setScope(projectPath: string, scope: LinearScope | null): Promise<GithubActionResult>;
 

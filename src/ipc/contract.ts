@@ -334,8 +334,11 @@ export interface IpcInvokeContract {
   // ── Linear ───────────────────────────────────────────────────────────
   // The API key stays in the main process. These return who it belongs to and
   // what it can see; none of them returns the key.
-  'linear:connection': { args: [recheck?: boolean]; return: LinearConnection };
-  'linear:set-credential': { args: [apiKey: string]; return: { success: boolean; error?: string } };
+  'linear:connection': { args: [projectPath?: string, recheck?: boolean]; return: LinearConnection };
+  'linear:set-credential': {
+    args: [apiKey: string, projectPath?: string];
+    return: { success: boolean; error?: string };
+  };
   'linear:availability': { args: [projectPath: string, recheck?: boolean]; return: LinearAvailability };
   'linear:set-scope': {
     args: [projectPath: string, scope: LinearScope | null];

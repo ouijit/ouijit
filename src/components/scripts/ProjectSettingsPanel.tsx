@@ -7,7 +7,7 @@ import { HookList } from './HookList';
 import type { HookEntry } from './HookList';
 import { SandboxSection } from './SandboxSection';
 import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
-import { LinearScopeSection } from '../linear/LinearScopeSection';
+import { AppSettingsLink, LinearScopeSection } from '../linear/LinearScopeSection';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { WorktreeSection } from './WorktreeSection';
 import { IconColorSection } from './IconColorSection';
@@ -133,8 +133,9 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
             <section>
               <h2 className="text-sm font-semibold text-text-primary mb-2">Linear</h2>
               <p className="text-xs text-text-tertiary mb-4">
-                Which of your workspace's issues are this project's. The key itself is under App Settings, since one
-                serves every project.
+                Which of your workspace's issues are this project's. One key serves every project; a project in a second
+                workspace can keep its own, since a key reads one workspace. The app-wide one is set under{' '}
+                <AppSettingsLink />.
               </p>
               <LinearScopeSection projectPath={projectPath} />
             </section>

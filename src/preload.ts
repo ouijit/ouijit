@@ -411,8 +411,8 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   linear: {
-    connection: (recheck?: boolean) => typedInvoke('linear:connection', recheck),
-    setCredential: (apiKey: string) => typedInvoke('linear:set-credential', apiKey),
+    connection: (projectPath?: string, recheck?: boolean) => typedInvoke('linear:connection', projectPath, recheck),
+    setCredential: (apiKey: string, projectPath?: string) => typedInvoke('linear:set-credential', apiKey, projectPath),
     availability: (projectPath: string, recheck?: boolean) => typedInvoke('linear:availability', projectPath, recheck),
     setScope: (projectPath: string, scope: LinearScope | null) => typedInvoke('linear:set-scope', projectPath, scope),
 
