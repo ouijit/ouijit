@@ -113,6 +113,11 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
     return { connected: false, reason: 'flag-off', repoLabels: [], teams: [] };
   }
 
+  // A recheck re-probes everything cached for the life of the process, so a
+  // team or a `repo` label added since the app started is picked up by the
+  // refresh button rather than by a restart.
+  if (recheck) invalidateScopeOptions();
+
   const connection = await getConnection(recheck);
   if (!connection.connected || !connection.viewer) {
     return { ...connection, repoLabels: [], teams: [] };
