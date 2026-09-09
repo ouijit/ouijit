@@ -98,10 +98,10 @@ export async function setCredential(
 /** The key itself, for the calls that need it. Never returned to a caller. */
 async function requireKey(projectPath: string): Promise<string> {
   if (!(await isLinearEnabled(projectPath))) {
-    throw new LinearError('no-credential', 'Linear is not enabled for this project.');
+    throw new LinearError('no-credential', "Linear isn't enabled for this project.");
   }
   const credential = await readCredential(projectPath);
-  if (!credential) throw new LinearError('no-credential', 'No Linear API key. Add one in Global Settings.');
+  if (!credential) throw new LinearError('no-credential', 'No API key. Add one in App Settings.');
   return credential.apiKey;
 }
 
@@ -187,7 +187,7 @@ async function scopeOptions(projectPath: string): Promise<ScopeOptions> {
   if (existing) return existing;
 
   const credential = await readCredential(projectPath);
-  if (!credential) throw new LinearError('no-credential', 'No Linear API key.');
+  if (!credential) throw new LinearError('no-credential', 'No API key.');
   const pending = fetchScopeOptions(credential.apiKey).catch((error: unknown) => {
     cachedOptions.delete(projectPath);
     throw error;
@@ -203,7 +203,7 @@ export async function setScope(
 ): Promise<{ success: boolean; error?: string }> {
   const viewer = await resolveViewer(projectPath);
   if (!viewer || viewer instanceof LinearError) {
-    return { success: false, error: 'The Linear API key is not usable.' };
+    return { success: false, error: "This API key isn't working." };
   }
   await writeScope(projectPath, scope ? { workspaceId: viewer.workspaceId, scope } : null);
   return { success: true };
@@ -216,7 +216,7 @@ export async function getIssues(projectPath: string): Promise<LinearIssueGroups 
   const apiKey = await requireKey(projectPath);
   const viewer = await resolveViewer(projectPath);
   if (viewer instanceof LinearError) throw viewer;
-  if (!viewer) throw new LinearError('no-credential', 'No Linear API key.');
+  if (!viewer) throw new LinearError('no-credential', 'No API key.');
 
   const stored = await readScope(projectPath);
   if (!stored || stored.workspaceId !== viewer.workspaceId) return null;
@@ -305,7 +305,7 @@ export async function resolveIssueId(projectPath: string, idOrIdentifier: string
 /** Post a staged comment and drop it, which is what pressing Send does. */
 export async function sendDraft(projectPath: string, draftId: string): Promise<{ success: boolean; error?: string }> {
   const draft = (await getLinearDrafts(projectPath)).find((row) => row.id === draftId);
-  if (!draft) return { success: false, error: 'That draft is gone.' };
+  if (!draft) return { success: false, error: 'This comment no longer exists.' };
   const result = await comment(projectPath, draft.issue_id, draft.body);
   if (!result.success) return result;
   await deleteLinearDraft(draftId);
@@ -359,7 +359,7 @@ export async function createTaskFromIssue(projectPath: string, identifier: strin
 
   const existing = (await getProjectTasks(projectPath)).find((t) => t.linearIssueId === issue.id);
   if (existing) {
-    return { success: false, error: `Task #${existing.taskNumber} is already linked to ${issue.identifier}` };
+    return { success: false, error: `${issue.identifier} is already linked to task #${existing.taskNumber}` };
   }
 
   const taskNumber = await getNextTaskNumber(projectPath);
@@ -388,5 +388,5 @@ export async function issueIdentifierForTask(projectPath: string, taskNumber: nu
 function describe(error: unknown): { error: string; reason?: LinearError['kind'] } {
   if (error instanceof LinearError) return { error: error.message, reason: error.kind };
   linearLog.warn('unexpected Linear failure');
-  return { error: 'Something went wrong talking to Linear.' };
+  return { error: 'Something went wrong. Try again.' };
 }

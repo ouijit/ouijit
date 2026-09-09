@@ -26,7 +26,7 @@ export function StagedComments({ projectPath, drafts }: StagedCommentsProps) {
     try {
       const result = await window.api.linear.sendDraft(projectPath, draft.id);
       if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Could not send the comment', 'error');
+        useProjectStore.getState().addToast(result.error ?? "Couldn't send the comment", 'error');
         return;
       }
       await useLinearStore.getState().reloadIssue(projectPath);

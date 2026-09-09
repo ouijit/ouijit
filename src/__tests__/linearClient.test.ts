@@ -85,7 +85,7 @@ describe('what Linear says going wrong', () => {
 
     await expect(request('query { viewer { id } }')).rejects.toMatchObject({ kind: 'unauthorized' });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    await expect(request('query { viewer { id } }')).rejects.toThrow(/Global Settings/);
+    await expect(request('query { viewer { id } }')).rejects.toThrow(/App Settings/);
   });
 
   test('a dropped connection is a network failure, and gives up after three tries', async () => {

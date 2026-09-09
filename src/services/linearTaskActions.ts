@@ -21,7 +21,7 @@ export function openLinearIssueInPanel(projectPath: string, issueId: string): vo
 export async function unlinkLinearIssue(projectPath: string, taskNumber: number): Promise<void> {
   const result = await window.api.linear.linkTask(projectPath, taskNumber, null);
   if (!result.success) {
-    useProjectStore.getState().addToast(result.error ?? 'Could not unlink the issue', 'error');
+    useProjectStore.getState().addToast(result.error ?? "Couldn't unlink the issue", 'error');
     return;
   }
   await useProjectStore.getState().loadTasks(projectPath);

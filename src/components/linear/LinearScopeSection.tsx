@@ -49,7 +49,7 @@ export function LinearScopeSection({ projectPath }: LinearScopeSectionProps) {
     try {
       const result = await window.api.linear.setCredential(apiKey, projectPath);
       if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Could not save the key', 'error');
+        useProjectStore.getState().addToast(result.error ?? "Couldn't save the key", 'error');
         return false;
       }
       await reload(true);
@@ -65,7 +65,7 @@ export function LinearScopeSection({ projectPath }: LinearScopeSectionProps) {
     try {
       const result = await window.api.linear.setScope(projectPath, scope);
       if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Could not change the Linear scope', 'error');
+        useProjectStore.getState().addToast(result.error ?? "Couldn't change which issues show", 'error');
         return;
       }
       await reload(true);
@@ -82,11 +82,11 @@ export function LinearScopeSection({ projectPath }: LinearScopeSectionProps) {
       {availability?.connected && availability.scope && (
         <div className="flex items-center gap-4 px-4 py-3">
           <div className="flex-1 min-w-0">
-            <div className="text-sm text-text-primary">Issues from</div>
+            <div className="text-sm text-text-primary">Show issues from</div>
             <div className="text-xs text-text-tertiary mt-0.5">
               {availability.scope.kind === 'repo-label'
-                ? 'A label on the issues, so it can span teams.'
-                : 'Every issue on this team.'}
+                ? `Issues labeled ${availability.scope.name}, across every team.`
+                : `Every issue in ${availability.scope.name}.`}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -161,12 +161,12 @@ function KeyRow({
               title="Read Linear with the key every other project uses"
               onClick={() => void save('')}
             >
-              Use the app-wide key
+              Use shared key
             </button>
           )}
           {connected && !open && (
             <button type="button" className="btn-secondary btn-compact h-8" onClick={() => setEditing(true)}>
-              {own ? 'Replace' : 'Use another key here'}
+              {own ? 'Replace key' : 'Use a different key'}
             </button>
           )}
         </div>
@@ -212,17 +212,19 @@ function KeyRow({
   );
 }
 
+/** Who the key is, then where it came from. One shape, one clause different. */
 function standing(availability: LinearAvailability | null): string {
   if (!availability) return 'Checking…';
-  if (availability.reason === 'flag-off') return 'Turn Linear on under Experimental to connect this project.';
+  if (availability.reason === 'flag-off') return 'Turn on Linear under Experimental to use it here.';
   if (!availability.connected) {
-    return availability.message ?? 'From Linear, under Settings → API. One key reads one workspace.';
+    return availability.message ?? 'Create a key in Linear under Settings → API.';
   }
 
-  const who = availability.viewer ? `${availability.viewer.name} · ${availability.viewer.workspaceName}` : '';
-  if (availability.source === 'project') return `This project's own key — ${who}`;
-  if (availability.storage === 'environment') return `From LINEAR_API_KEY — ${who}`;
-  return `The app-wide key — ${who}`;
+  const viewer = availability.viewer;
+  const who = viewer ? `${viewer.name} in ${viewer.workspaceName}. ` : '';
+  if (availability.source === 'project') return `${who}Used by this project only.`;
+  if (availability.storage === 'environment') return `${who}Read from LINEAR_API_KEY.`;
+  return `${who}Shared with every project.`;
 }
 
 /** Kept beside the row it explains, since the key itself lives a panel up. */

@@ -86,7 +86,7 @@ describe('an issue becoming work', () => {
 
     const second = await createTaskFromIssue(repoDir, 'ENG-2');
     expect(second.success).toBe(false);
-    expect(second.error).toContain(`Task #${created.taskNumber}`);
+    expect(second.error).toContain(`ENG-2 is already linked to task #${created.taskNumber}`);
   });
 
   /**

@@ -34,14 +34,14 @@ export function ConnectRow({ projectPath, availability }: ConnectRowProps) {
   if (!chosen) {
     return (
       <p className="px-4 py-3 text-[13px] text-text-tertiary text-balance">
-        This Linear API key can see no teams. One limited to a team you are not on will do that.
+        This key has no access to any teams. Check what it's limited to in Linear.
       </p>
     );
   }
 
   return (
     <div className="px-3 py-2.5 flex flex-col gap-1.5 border-b border-ink/[0.06]">
-      <span className="px-1 text-[13px] text-text-tertiary">Linear issues from</span>
+      <span className="px-1 text-[13px] text-text-tertiary">Show Linear issues from</span>
       <div className="flex items-center gap-2">
         <ScopePicker
           availability={availability}

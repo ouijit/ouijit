@@ -209,7 +209,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     async (issueNumber: number) => {
       const result = await window.api.github.taskFromIssue(projectPath, issueNumber);
       if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Could not create the task', 'error');
+        useProjectStore.getState().addToast(result.error ?? "Couldn't create the task", 'error');
         return;
       }
       await useProjectStore.getState().loadTasks(projectPath);
@@ -234,7 +234,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     async (identifier: string) => {
       const result = await window.api.linear.taskFromIssue(projectPath, identifier);
       if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Could not create the task', 'error');
+        useProjectStore.getState().addToast(result.error ?? "Couldn't create the task", 'error');
         return;
       }
       await useProjectStore.getState().loadTasks(projectPath);
@@ -275,7 +275,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     const number = slot.number;
     const result = await window.api.github.taskFromPr(projectPath, number);
     if (!result.success || result.taskNumber == null) {
-      useProjectStore.getState().addToast(result.error ?? 'Could not create the task', 'error');
+      useProjectStore.getState().addToast(result.error ?? "Couldn't create the task", 'error');
       return;
     }
     // `headRef` is a local branch the main process just created at the PR's

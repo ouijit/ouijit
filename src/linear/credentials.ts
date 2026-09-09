@@ -107,7 +107,7 @@ export async function writeCredential(
   if (!canStoreCredential()) {
     return {
       success: false,
-      error: `This machine has no keychain to encrypt the key with. Set ${LINEAR_ENV_VAR} in your environment instead.`,
+      error: `No keychain available to encrypt the key. Set ${LINEAR_ENV_VAR} in your environment instead.`,
     };
   }
   await setGlobalSetting(key, safeStorage.encryptString(trimmed).toString('base64'));

@@ -119,7 +119,7 @@ export const useLinearStore = create<LinearStore>()((set, get) => ({
   connect: async (projectPath, scope) => {
     const result = await window.api.linear.setScope(projectPath, scope);
     if (!result.success) {
-      set({ groupsError: result.error ?? 'Could not connect this project to Linear.' });
+      set({ groupsError: result.error ?? "Couldn't connect to Linear." });
       return;
     }
     await get().loadAvailability(projectPath, true);

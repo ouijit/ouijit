@@ -146,7 +146,7 @@ describe('Linear in the Issues list', () => {
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Issues'));
 
-    expect(await screen.findByText('Linear issues from')).toBeTruthy();
+    expect(await screen.findByText('Show Linear issues from')).toBeTruthy();
     fireEvent.click(screen.getByText('Connect'));
 
     await waitFor(() => {
@@ -306,8 +306,8 @@ describe('changing the answer afterwards', () => {
 
     render(<LinearScopeSection projectPath={PROJECT} />);
 
-    expect(await screen.findByText(/The app-wide key/)).toBeTruthy();
-    fireEvent.click(screen.getByText('Use another key here'));
+    expect(await screen.findByText(/Shared with every project/)).toBeTruthy();
+    fireEvent.click(screen.getByText('Use a different key'));
     fireEvent.change(screen.getByPlaceholderText('lin_api_…'), { target: { value: 'lin_api_client' } });
     // What the row reads back after saving: the project now has its own.
     vi.mocked(window.api.linear.availability).mockResolvedValue(linearAvailability({ source: 'project' }));
@@ -319,7 +319,7 @@ describe('changing the answer afterwards', () => {
 
     // Handing it back is the empty string against this project, which falls
     // through to the app's again.
-    fireEvent.click(await screen.findByText('Use the app-wide key'));
+    fireEvent.click(await screen.findByText('Use shared key'));
 
     await waitFor(() => {
       expect(window.api.linear.setCredential).toHaveBeenLastCalledWith('', PROJECT);

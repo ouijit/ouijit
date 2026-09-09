@@ -179,7 +179,7 @@ export async function fetchIssue(apiKey: string, id: string, fetchImpl?: FetchLi
       | null;
   }>(ISSUE_DETAIL_QUERY, { id });
 
-  if (!data.issue) throw new LinearError('not-found', `Linear has no issue ${id}.`);
+  if (!data.issue) throw new LinearError('not-found', `${id} doesn't exist in Linear.`);
 
   return {
     ...mapIssue(data.issue),
@@ -203,7 +203,7 @@ export async function createComment(
 ): Promise<void> {
   const request = createLinearRequest(apiKey, fetchImpl);
   const data = await request<{ commentCreate: { success: boolean } }>(CREATE_COMMENT_MUTATION, { issueId, body });
-  if (!data.commentCreate.success) throw new LinearError('unknown', 'Linear did not accept the comment.');
+  if (!data.commentCreate.success) throw new LinearError('unknown', 'Linear rejected the comment.');
 }
 
 /** The one Linear write outside comments, and the only thing needing a Write key. */
@@ -219,7 +219,7 @@ export async function setIssueState(
     { id, stateId },
   );
   if (!data.issueUpdate.success || !data.issueUpdate.issue) {
-    throw new LinearError('unknown', 'Linear did not accept the state change.');
+    throw new LinearError('unknown', 'Linear rejected the status change.');
   }
   return mapState(data.issueUpdate.issue.state);
 }

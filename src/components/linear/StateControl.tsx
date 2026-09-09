@@ -31,7 +31,7 @@ export function StateControl({ projectPath, issue }: StateControlProps) {
     try {
       const result = await window.api.linear.moveIssue(projectPath, issue.id, stateId);
       if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Could not move the issue', 'error');
+        useProjectStore.getState().addToast(result.error ?? "Couldn't change the status", 'error');
         return;
       }
       // The groups are membership in a workflow state, so moving one moves the
@@ -51,7 +51,7 @@ export function StateControl({ projectPath, issue }: StateControlProps) {
         dot
         dotColor={issue.state.color}
         disabled={busy}
-        title={`${issue.identifier} is ${issue.state.name}`}
+        title="Change status"
       >
         {(close) =>
           issue.workflowStates.map((state) => (

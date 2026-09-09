@@ -40,8 +40,8 @@ export function LinearSettingsSection() {
         <div className="px-4 py-3 flex flex-col gap-2">
           <div className="text-sm text-text-primary">API key</div>
           <p className="text-xs text-text-tertiary">
-            From Linear, under Settings → API. Read and Create comments is enough to read issues and comment; Write also
-            buys the control that moves an issue. Stored encrypted by your OS keychain.
+            Create one in Linear under Settings → API. Read and Create comments lets you read issues and comment on
+            them. Add Write to change an issue's status. Shared with every project, and encrypted by your OS keychain.
           </p>
           <div className="flex items-center gap-2">
             <input
@@ -51,7 +51,7 @@ export function LinearSettingsSection() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && key.trim()) void save(key);
               }}
-              placeholder={connection?.connected ? 'Replace the stored key' : 'lin_api_…'}
+              placeholder={connection?.connected ? 'Enter a new key' : 'lin_api_…'}
               className="field flex-1 min-w-0"
               spellCheck={false}
             />
@@ -83,8 +83,8 @@ function Standing({ connection }: { connection: LinearConnection | null }) {
     return (
       <p className="text-xs text-text-secondary flex items-center gap-1.5">
         <Icon name="check-circle" className="w-3.5 h-3.5 text-vcs-added" />
-        {connection.viewer.name} · {connection.viewer.workspaceName}
-        {connection.storage === 'environment' && <span className="text-text-tertiary">from LINEAR_API_KEY</span>}
+        {connection.viewer.name} in {connection.viewer.workspaceName}
+        {connection.storage === 'environment' && <span className="text-text-tertiary">· read from LINEAR_API_KEY</span>}
       </p>
     );
   }
@@ -93,10 +93,10 @@ function Standing({ connection }: { connection: LinearConnection | null }) {
     return (
       <p className="text-xs text-text-secondary">
         {connection.message ??
-          'This machine has no keychain to encrypt the key with. Set LINEAR_API_KEY in your environment instead.'}
+          'No keychain available to encrypt the key. Set LINEAR_API_KEY in your environment instead.'}
       </p>
     );
   }
 
-  return <p className="text-xs text-text-tertiary">{connection.message ?? 'No key yet.'}</p>;
+  return <p className="text-xs text-text-tertiary">{connection.message ?? 'No key added.'}</p>;
 }

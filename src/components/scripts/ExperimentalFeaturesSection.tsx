@@ -74,7 +74,7 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
       />
       <ToggleRow
         label="Linear"
-        description="Linear issues in the Issues list, alongside GitHub's. Needs an API key in Global Settings."
+        description="Show Linear issues alongside GitHub's in the Issues list. Needs an API key."
         checked={linearEnabled}
         onChange={handleToggleLinear}
       />

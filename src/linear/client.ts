@@ -97,7 +97,7 @@ async function send<T>(
       body: JSON.stringify({ query, variables }),
     });
   } catch {
-    throw new LinearError('network', 'Could not reach Linear.');
+    throw new LinearError('network', "Can't reach Linear. Check your connection.");
   }
 
   type Body = { data?: T; errors?: RawGraphQLError[] } | null;
@@ -150,10 +150,10 @@ function classify(response: Response, errors: RawGraphQLError[]): LinearError {
     return new LinearError('rate-limited', message, resetDelay(response.headers));
   }
   if (parsed instanceof AuthenticationLinearError || parsed instanceof ForbiddenLinearError) {
-    return new LinearError('unauthorized', 'Linear refused the API key. Check it in Global Settings.');
+    return new LinearError('unauthorized', 'Invalid API key. Check it in App Settings.');
   }
   if (parsed instanceof NetworkLinearError || parsed instanceof InternalLinearError) {
-    return new LinearError('network', 'Linear is not answering. Try again in a moment.');
+    return new LinearError('network', "Linear isn't responding. Try again in a moment.");
   }
   return new LinearError('unknown', message);
 }

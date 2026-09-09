@@ -34,7 +34,7 @@ export function LinearIssueView({
   const post = async (body: string) => {
     const result = await window.api.linear.comment(projectPath, issue.id, body);
     if (!result.success) {
-      useProjectStore.getState().addToast(result.error ?? 'Could not post the comment', 'error');
+      useProjectStore.getState().addToast(result.error ?? "Couldn't post the comment", 'error');
       return false;
     }
     await useLinearStore.getState().reloadIssue(projectPath);
