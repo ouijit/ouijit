@@ -144,10 +144,12 @@ function KeyRow({
       <div className="flex items-center gap-4">
         <div className="flex-1 min-w-0">
           <div className="text-sm text-text-primary">API key</div>
-          <div className="text-xs text-text-tertiary mt-0.5">{describe(availability)}</div>
+          {/* First, and in mono: a row about a key should look like it holds
+              one before it says whose it is. */}
           {availability?.masked && (
-            <div className="text-xs font-mono text-text-secondary mt-1.5 truncate">{availability.masked}</div>
+            <div className="text-[13px] font-mono text-text-secondary mt-1 truncate">{availability.masked}</div>
           )}
+          <div className="text-xs text-text-tertiary mt-1">{describe(availability)}</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {own && (
