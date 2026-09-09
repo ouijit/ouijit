@@ -157,15 +157,15 @@ function KeyRow({
               type="button"
               className="btn-secondary btn-compact h-8"
               disabled={busy}
-              title="Read Linear with the key every other project uses"
+              title="Go back to the API key every other project uses"
               onClick={() => void save('')}
             >
-              Use shared key
+              Use the shared API key
             </button>
           )}
           {connected && !open && (
             <button type="button" className="btn-secondary btn-compact h-8" onClick={() => setEditing(true)}>
-              {own ? 'Replace key' : 'Use a project key'}
+              {own ? 'Replace API key' : 'Use a different API key for this project'}
             </button>
           )}
         </div>
@@ -174,7 +174,7 @@ function KeyRow({
       {open && (
         <>
           <p className="text-xs text-text-tertiary">
-            Used by this project only. Every other project keeps the shared key.
+            This API key will be used by this project only. Every other project keeps the shared one.
           </p>
           <div className="flex items-center gap-2">
             <input
