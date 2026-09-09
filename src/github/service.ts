@@ -5,9 +5,9 @@
  * touching `api.ts` / `prDiff.ts` directly, so availability gating, error
  * shaping, and the task-link side effects happen in exactly one place.
  *
- * Every `gh` call runs on the host from the main process. The sandbox policy
- * that strips `GITHUB_TOKEN` from guest environments is untouched — no guest
- * ever gets GitHub credentials, directly or by proxy.
+ * Every `gh` call runs on the host from the main process. The guest environment
+ * is built from an allowlist, so no guest ever gets GitHub or Linear
+ * credentials, directly or by proxy.
  */
 
 import { randomUUID } from 'node:crypto';

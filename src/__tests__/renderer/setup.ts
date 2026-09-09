@@ -251,6 +251,23 @@ const mockApi = {
     taskFromPr: vi.fn().mockResolvedValue({ success: true }),
     onDraftsChanged: vi.fn().mockReturnValue(() => {}),
   },
+  linear: {
+    connection: vi.fn().mockResolvedValue({ connected: false, reason: 'no-credential', canStore: true }),
+    setCredential: vi.fn().mockResolvedValue({ success: true }),
+    availability: vi.fn().mockResolvedValue({ connected: false, reason: 'flag-off', repoLabels: [], teams: [] }),
+    setScope: vi.fn().mockResolvedValue({ success: true }),
+    issues: vi.fn().mockResolvedValue(null),
+    issue: vi.fn().mockResolvedValue(null),
+    comment: vi.fn().mockResolvedValue({ success: true }),
+    moveIssue: vi.fn().mockResolvedValue({ success: true }),
+    drafts: vi.fn().mockResolvedValue([]),
+    saveDraft: vi.fn().mockResolvedValue({ id: 'draft-1' }),
+    discardDraft: vi.fn().mockResolvedValue({ success: true }),
+    sendDraft: vi.fn().mockResolvedValue({ success: true }),
+    linkTask: vi.fn().mockResolvedValue({ success: true }),
+    taskFromIssue: vi.fn().mockResolvedValue({ success: true }),
+    onDraftsChanged: vi.fn().mockReturnValue(() => {}),
+  },
 };
 
 Object.defineProperty(window, 'api', {

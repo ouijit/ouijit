@@ -31,6 +31,15 @@ import type {
   PromoteToTaskResult,
   PrFileVersions,
 } from './github/types';
+import type {
+  LinearAvailability,
+  LinearCommentDraft,
+  LinearConnection,
+  LinearDraftsChangedPayload,
+  LinearIssueDetail,
+  LinearIssueGroups,
+  LinearScope,
+} from './linear/types';
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
 import type { LensChangedPayload } from './lens/subjectKeys';
@@ -613,6 +622,7 @@ export interface ElectronAPI {
   capture: CaptureAPI;
   /** GitHub pull requests and issues, via the `gh` CLI on the host */
   github: GithubAPI;
+  linear: LinearAPI;
   /** Notes written on a worktree's own diff */
   diffNotes: DiffNotesAPI;
   /** Hotspot, coupling, and ownership signals mined from git history */
@@ -754,6 +764,33 @@ export interface GithubAPI {
 export interface GithubActionResult {
   success: boolean;
   error?: string;
+}
+
+/**
+ * Linear, as the renderer sees it. The API key is not in here and never will
+ * be: what comes back is who it belongs to and what it can see.
+ */
+export interface LinearAPI {
+  connection(recheck?: boolean): Promise<LinearConnection>;
+  setCredential(apiKey: string): Promise<GithubActionResult>;
+  availability(projectPath: string, recheck?: boolean): Promise<LinearAvailability>;
+  setScope(projectPath: string, scope: LinearScope | null): Promise<GithubActionResult>;
+
+  issues(projectPath: string): Promise<LinearIssueGroups | null>;
+  issue(projectPath: string, id: string): Promise<LinearIssueDetail>;
+
+  comment(projectPath: string, issueId: string, body: string): Promise<GithubActionResult>;
+  moveIssue(projectPath: string, issueId: string, stateId: string): Promise<GithubActionResult>;
+
+  drafts(projectPath: string, issueId: string): Promise<LinearCommentDraft[]>;
+  saveDraft(projectPath: string, issueId: string, body: string): Promise<LinearCommentDraft>;
+  discardDraft(draftId: string): Promise<{ success: boolean }>;
+  sendDraft(projectPath: string, draftId: string): Promise<GithubActionResult>;
+
+  linkTask(projectPath: string, taskNumber: number, identifier: string | null): Promise<GithubActionResult>;
+  taskFromIssue(projectPath: string, identifier: string): Promise<GithubActionResult & { taskNumber?: number }>;
+
+  onDraftsChanged(callback: (payload: LinearDraftsChangedPayload) => void): () => void;
 }
 
 export interface OnboardingAPI {

@@ -15,6 +15,7 @@ import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
+import { LinearDraftRepo, type LinearDraftRow } from './repos/linearDraftRepo';
 import { DiffLensRepo, type DiffLensRow } from './repos/diffLensRepo';
 import { worktreeKeyPrefix } from '../lens/subjectKeys';
 import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
@@ -42,6 +43,15 @@ export interface TaskMetadata {
   parentTaskNumber?: number;
   githubPrNumber?: number;
   githubIssueNumber?: number;
+  linearIssueId?: string;
+  /** `ENG-123`. Stored so a badge can render it without asking Linear. */
+  linearIssueIdentifier?: string;
+  /**
+   * The branch name the task should start on — Linear's suggestion for the
+   * issue it came from. Read at start time, so starting costs no round trip and
+   * works offline. Provider-neutral: nothing about it is Linear's.
+   */
+  suggestedBranch?: string;
 }
 
 // ── Lazy singleton repos ─────────────────────────────────────────────
@@ -53,6 +63,7 @@ let tagRepo: TagRepo | null = null;
 let globalSettingsRepo: GlobalSettingsRepo | null = null;
 let scriptRepo: ScriptRepo | null = null;
 let reviewDraftRepo: ReviewDraftRepo | null = null;
+let linearDraftRepo: LinearDraftRepo | null = null;
 let diffLensRepo: DiffLensRepo | null = null;
 let diffNoteRepo: DiffNoteRepo | null = null;
 
@@ -66,6 +77,7 @@ function repos() {
     globalSettingsRepo = new GlobalSettingsRepo(db);
     scriptRepo = new ScriptRepo(db);
     reviewDraftRepo = new ReviewDraftRepo(db);
+    linearDraftRepo = new LinearDraftRepo(db);
     diffLensRepo = new DiffLensRepo(db);
     diffNoteRepo = new DiffNoteRepo(db);
   }
@@ -77,6 +89,7 @@ function repos() {
     globalSettingsRepo: globalSettingsRepo!,
     scriptRepo: scriptRepo!,
     reviewDraftRepo: reviewDraftRepo!,
+    linearDraftRepo: linearDraftRepo!,
     diffLensRepo: diffLensRepo!,
     diffNoteRepo: diffNoteRepo!,
   };
@@ -93,6 +106,7 @@ export function _resetCacheForTesting(): void {
   globalSettingsRepo = new GlobalSettingsRepo(db);
   scriptRepo = new ScriptRepo(db);
   reviewDraftRepo = new ReviewDraftRepo(db);
+  linearDraftRepo = new LinearDraftRepo(db);
   diffLensRepo = new DiffLensRepo(db);
   diffNoteRepo = new DiffNoteRepo(db);
 }
@@ -123,6 +137,9 @@ function rowToTask(row: TaskRow): TaskMetadata {
     // drops a 0, and nothing guarantees these numbers stay 1-based.
     ...(row.github_pr_number != null && { githubPrNumber: row.github_pr_number }),
     ...(row.github_issue_number != null && { githubIssueNumber: row.github_issue_number }),
+    ...(row.linear_issue_id && { linearIssueId: row.linear_issue_id }),
+    ...(row.linear_issue_identifier && { linearIssueIdentifier: row.linear_issue_identifier }),
+    ...(row.suggested_branch && { suggestedBranch: row.suggested_branch }),
   };
 }
 
@@ -183,6 +200,9 @@ export async function createTask(
     parentTaskNumber?: number;
     githubPrNumber?: number;
     githubIssueNumber?: number;
+    linearIssueId?: string;
+    linearIssueIdentifier?: string;
+    suggestedBranch?: string;
   },
 ): Promise<TaskMetadata> {
   ensureProject(projectPath);
@@ -363,6 +383,22 @@ export async function claimTaskGithubPr(projectPath: string, taskNumber: number,
   return tr.claimGithubPrNumber(projectPath, taskNumber, prNumber);
 }
 
+/** All three Linear fields move together; null clears them. */
+export async function setTaskLinearIssue(
+  projectPath: string,
+  taskNumber: number,
+  issue: { id: string; identifier: string; suggestedBranch?: string } | null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { taskRepo: tr } = repos();
+    if (!tr.getByTaskNumber(projectPath, taskNumber)) return { success: false, error: 'Task not found' };
+    tr.updateLinearIssue(projectPath, taskNumber, issue);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 export async function setTaskGithubIssue(
   projectPath: string,
   taskNumber: number,
@@ -412,6 +448,37 @@ export async function deleteReviewDraft(id: string): Promise<void> {
 export async function getReviewDraftCounts(projectPath: string): Promise<Record<number, number>> {
   const { reviewDraftRepo: rr } = repos();
   return Object.fromEntries(rr.countsByPr(projectPath));
+}
+
+// ── Linear comment drafts ────────────────────────────────────────────
+
+export type { LinearDraftRow } from './repos/linearDraftRepo';
+
+export async function getLinearDrafts(projectPath: string, issueId?: string): Promise<LinearDraftRow[]> {
+  const { linearDraftRepo: lr } = repos();
+  return issueId ? lr.getForIssue(projectPath, issueId) : lr.getForProject(projectPath);
+}
+
+export async function saveLinearDraft(
+  row: Omit<LinearDraftRow, 'created_at' | 'origin' | 'project_path' | 'issue_id'> & {
+    projectPath: string;
+    issueId: string;
+    origin?: string;
+  },
+): Promise<LinearDraftRow> {
+  const { linearDraftRepo: lr } = repos();
+  return lr.save({
+    id: row.id,
+    project_path: row.projectPath,
+    issue_id: row.issueId,
+    body: row.body,
+    ...(row.origin ? { origin: row.origin } : {}),
+  });
+}
+
+export async function deleteLinearDraft(id: string): Promise<void> {
+  const { linearDraftRepo: lr } = repos();
+  lr.delete(id);
 }
 
 // ── Diff notes ───────────────────────────────────────────────────────

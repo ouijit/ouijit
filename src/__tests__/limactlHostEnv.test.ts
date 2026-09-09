@@ -35,6 +35,7 @@ describe('buildLimactlHostEnv', () => {
     'ANTHROPIC_API_KEY',
     'OPENAI_API_KEY',
     'GITHUB_TOKEN',
+    'LINEAR_API_KEY',
     'NPM_TOKEN',
     'GOOGLE_APPLICATION_CREDENTIALS',
     'HISTFILE',
