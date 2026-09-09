@@ -163,7 +163,7 @@ function KeyRow({
           )}
           {connected && !open && (
             <button type="button" className="btn-secondary btn-compact h-8" onClick={() => setEditing(true)}>
-              {own ? 'Replace key' : 'Use a key here only'}
+              {own ? 'Replace key' : 'Use a project key'}
             </button>
           )}
         </div>
