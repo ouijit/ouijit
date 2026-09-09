@@ -260,9 +260,26 @@ export async function saveDraft(
   return toDraft(await saveLinearDraft({ id: randomUUID(), projectPath, issueId, body, origin }));
 }
 
-export async function discardDraft(draftId: string): Promise<{ success: boolean }> {
+/** Answers with the issue it was staged against, so a caller can refresh it. */
+export async function discardDraft(
+  projectPath: string,
+  draftId: string,
+): Promise<{ success: boolean; issueId?: string }> {
+  const draft = (await getLinearDrafts(projectPath)).find((row) => row.id === draftId);
   await deleteLinearDraft(draftId);
-  return { success: true };
+  return { success: true, ...(draft ? { issueId: draft.issue_id } : {}) };
+}
+
+/**
+ * The issue's id, from an id or an identifier.
+ *
+ * Drafts are keyed by id: an issue that changes team changes identifier, and
+ * comments staged against it must not orphan. The CLI has the identifier —
+ * `ENG-214` is what a person and an agent both hold — so this is where the two
+ * meet.
+ */
+export async function resolveIssueId(projectPath: string, idOrIdentifier: string): Promise<string> {
+  return (await getIssue(projectPath, idOrIdentifier)).id;
 }
 
 /** Post a staged comment and drop it, which is what pressing Send does. */

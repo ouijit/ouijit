@@ -15,9 +15,11 @@ import { experimentalStorageKey } from '../../experimentalFlags';
 import { invalidateCredentialCache } from '../../linear/credentials';
 import {
   createTaskFromIssue,
+  discardDraft,
   getIssue,
   invalidateScopeOptions,
   listDrafts,
+  resolveIssueId,
   saveDraft,
   setCredential,
 } from '../../linear/service';
@@ -108,13 +110,20 @@ describe('an issue becoming work', () => {
    * terminal has no human gate, so what it writes waits for one.
    */
   test('a comment written by an agent stages rather than posts', async () => {
-    const issue = await getIssue(repoDir, 'ENG-2');
-    const draft = await saveDraft(repoDir, issue.id, 'this can throw when the token is missing', 'claude');
+    // What the CLI holds is `ENG-2`; drafts are keyed by the issue's own id, so
+    // one written against the identifier is the one the panel then reads.
+    const issueId = await resolveIssueId(repoDir, 'ENG-2');
+    const draft = await saveDraft(repoDir, issueId, 'this can throw when the token is missing', 'claude');
 
+    expect(issueId).toBe('issue-2');
     expect(draft.origin).toBe('claude');
     expect(posted).toEqual([]);
 
-    const staged = await listDrafts(repoDir, issue.id);
+    const staged = await listDrafts(repoDir, (await getIssue(repoDir, 'ENG-2')).id);
     expect(staged.map((d) => d.body)).toEqual(['this can throw when the token is missing']);
+
+    // Discarding says which issue it was on, so the panel can refresh that one.
+    expect(await discardDraft(repoDir, draft.id)).toEqual({ success: true, issueId: 'issue-2' });
+    expect(await listDrafts(repoDir, issueId)).toEqual([]);
   });
 });

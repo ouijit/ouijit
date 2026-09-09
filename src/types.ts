@@ -790,7 +790,7 @@ export interface LinearAPI {
 
   drafts(projectPath: string, issueId: string): Promise<LinearCommentDraft[]>;
   saveDraft(projectPath: string, issueId: string, body: string): Promise<LinearCommentDraft>;
-  discardDraft(draftId: string): Promise<{ success: boolean }>;
+  discardDraft(projectPath: string, draftId: string): Promise<{ success: boolean; issueId?: string }>;
   sendDraft(projectPath: string, draftId: string): Promise<GithubActionResult>;
 
   linkTask(projectPath: string, taskNumber: number, identifier: string | null): Promise<GithubActionResult>;

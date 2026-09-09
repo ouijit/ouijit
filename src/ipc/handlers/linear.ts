@@ -35,7 +35,7 @@ export function registerLinearHandlers(): void {
 
   typedHandle('linear:drafts', (projectPath, issueId) => listDrafts(projectPath, issueId));
   typedHandle('linear:save-draft', (projectPath, issueId, body) => saveDraft(projectPath, issueId, body, 'human'));
-  typedHandle('linear:discard-draft', (draftId) => discardDraft(draftId));
+  typedHandle('linear:discard-draft', (projectPath, draftId) => discardDraft(projectPath, draftId));
   typedHandle('linear:send-draft', (projectPath, draftId) => sendDraft(projectPath, draftId));
 
   typedHandle('linear:link-task', (projectPath, taskNumber, identifier) =>

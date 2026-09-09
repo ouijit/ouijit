@@ -64,6 +64,7 @@ import {
   saveDraft as saveLinearDraft,
   discardDraft as discardLinearDraft,
   linkTaskToIssue as linkTaskToLinearIssue,
+  resolveIssueId as resolveLinearIssueId,
 } from '../linear/service';
 import { getProjectList } from '../projectList';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
@@ -818,10 +819,16 @@ const routes: Route[] = [
   // Drafts, on the same terms the pull request ones take: local rows, no
   // credential, and an origin stamped here so a sandboxed caller cannot forge
   // one.
+  //
+  // Callers here hold `ENG-214`; drafts are keyed by the issue's id, so the
+  // identifier is resolved before anything is written or read.
   route(
     'GET',
     'linear/issues/:id/drafts',
-    (r) => listLinearDrafts(requireProject(r.query), issueId(r)),
+    async (r) => {
+      const project = requireProject(r.query);
+      return listLinearDrafts(project, await resolveLinearIssueId(project, issueId(r)));
+    },
     false,
     'sandbox',
   ),
@@ -835,7 +842,7 @@ const routes: Route[] = [
       if (typeof body !== 'string' || !body.trim()) throw new HttpError(400, 'Missing body');
       return saveLinearDraft(
         project,
-        issueId(r),
+        await resolveLinearIssueId(project, issueId(r)),
         body,
         r.auth.scope === 'sandbox' ? 'sandbox' : ((r.body.origin as string | undefined) ?? 'cli'),
       );
@@ -850,7 +857,7 @@ const routes: Route[] = [
     (r) => {
       const draftId = r.segments[4];
       if (!draftId) throw new HttpError(400, 'Missing draft id');
-      return discardLinearDraft(draftId);
+      return discardLinearDraft(requireProject(r.query), draftId);
     },
     true,
     'sandbox',
@@ -1022,9 +1029,13 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
         });
       }
 
-      // The same push, for a comment staged against a Linear issue.
+      // The same push, for a comment staged against a Linear issue. The id
+      // comes from the result rather than the path, which carries whatever the
+      // caller had — usually the identifier, which is not what drafts are keyed
+      // by.
       if (segments[0] === 'linear' && segments[3] === 'drafts') {
-        typedPush(window, 'linear:drafts-changed', { projectPath: project, issueId: segments[2] });
+        const issueId = (result as { issueId?: string } | null)?.issueId;
+        if (issueId) typedPush(window, 'linear:drafts-changed', { projectPath: project, issueId });
       }
 
       // Task-start routes also need a terminal + hook in the renderer.
