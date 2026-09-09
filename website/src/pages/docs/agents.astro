@@ -68,6 +68,15 @@ ouijit pr draft add $PR --file src/api.ts --line 88 \
     comment points outside the diff.
   </p>
 
+  <p>
+    A <a href="/docs/pull-requests/">Linear</a> comment works the same way, and for the same reason. Nothing an
+    agent runs moves an issue &mdash; that is a control on the issue, pressed by someone looking at it.
+  </p>
+  <pre class="glass-bevel"><code>ISSUE=$(ouijit task current | jq -r .linearIssueIdentifier)
+ouijit linear view $ISSUE                     # read it
+ouijit linear draft add $ISSUE --origin claude \
+  --body "the retry loop drops the last error"</code></pre>
+
   <h2>Inside a sandbox</h2>
   <p>The API surface shrinks under a <a href="/docs/sandbox/">sandbox</a>:</p>
   <ul>
