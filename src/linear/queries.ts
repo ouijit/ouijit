@@ -54,6 +54,9 @@ query {
 /**
  * All four groups in one document, each under the project's scope filter.
  *
+ * Ordered by `sort` rather than `orderBy`: the latter's direction is Linear's
+ * to choose, and every group here means "most recently touched first".
+ *
  * Ordering matters: a group excludes what the groups above it hold, and that
  * exclusion is applied to the mapped result rather than in the filters, since
  * "not in the list I have not fetched yet" is not something GraphQL can say.
@@ -63,19 +66,19 @@ query($scope: IssueFilter!, $first: Int!) {
   viewer { ${USER_FIELDS} }
   triage: issues(
     first: $first
-    orderBy: updatedAt
+    sort: [{ updatedAt: { order: Descending } }]
     filter: { and: [$scope, { state: { type: { eq: "triage" } } }] }
   ) { nodes { ${ISSUE_FIELDS} } }
 
   started: issues(
     first: $first
-    orderBy: updatedAt
+    sort: [{ updatedAt: { order: Descending } }]
     filter: { and: [$scope, { assignee: { isMe: { eq: true } } }, { state: { type: { eq: "started" } } }] }
   ) { nodes { ${ISSUE_FIELDS} } }
 
   assigned: issues(
     first: $first
-    orderBy: updatedAt
+    sort: [{ updatedAt: { order: Descending } }]
     filter: {
       and: [$scope, { assignee: { isMe: { eq: true } } }, { state: { type: { in: ["backlog", "unstarted"] } } }]
     }
@@ -83,7 +86,7 @@ query($scope: IssueFilter!, $first: Int!) {
 
   cycle: issues(
     first: $first
-    orderBy: updatedAt
+    sort: [{ updatedAt: { order: Descending } }]
     filter: {
       and: [
         $scope
@@ -104,7 +107,7 @@ export const INCOMPLETE_ISSUES_QUERY = `
 query($scope: IssueFilter!, $first: Int!) {
   issues(
     first: $first
-    orderBy: updatedAt
+    sort: [{ updatedAt: { order: Descending } }]
     filter: { and: [$scope, { state: { type: { in: ["backlog", "unstarted", "started"] } } }] }
   ) { nodes { ${ISSUE_FIELDS} } }
 }`;
