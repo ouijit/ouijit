@@ -30,12 +30,14 @@ export function IssueList({ groups, query, open, tasks, onOpen, onOpenTask, onCr
   const activeKey = open ? openKey(open) : null;
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return groups;
     return groups.map((group) => ({
       ...group,
-      rows: group.rows.filter((row) =>
-        [row.title, row.author, row.identifier].some((text) => text.toLowerCase().includes(q)),
-      ),
+      // What the group holds, which is what `capped` is a statement about — the
+      // search narrows what is shown, not what was fetched.
+      total: group.rows.length,
+      rows: q
+        ? group.rows.filter((row) => [row.title, row.author, row.identifier].some((t) => t.toLowerCase().includes(q)))
+        : group.rows,
     }));
   }, [groups, query]);
 
@@ -50,7 +52,7 @@ export function IssueList({ groups, query, open, tasks, onOpen, onOpenTask, onCr
   return (
     <>
       {filtered.map((group) => (
-        <Group key={group.label} label={group.label} capped={group.capped}>
+        <Group key={group.label} label={group.label} capped={group.capped ? group.total : 0}>
           {group.rows.map((row) => (
             <Row
               key={`${row.source}:${row.key}`}
@@ -68,13 +70,14 @@ export function IssueList({ groups, query, open, tasks, onOpen, onOpenTask, onCr
   );
 }
 
-function Group({ label, capped, children }: { label: string; capped: boolean; children: React.ReactNode[] }) {
+/** `capped` is how many the group holds when that is a page rather than all of it. */
+function Group({ label, capped, children }: { label: string; capped: number; children: React.ReactNode[] }) {
   if (children.length === 0) return null;
   return (
     <section className="pt-3">
       <h2 className="px-4 pb-1 flex items-baseline gap-2 text-[13px] text-text-tertiary">
         {label}
-        {capped && <span className="opacity-70">first {children.length}</span>}
+        {capped > 0 && <span className="opacity-70">first {capped}</span>}
       </h2>
       {children}
     </section>

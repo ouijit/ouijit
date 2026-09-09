@@ -74,6 +74,11 @@ describe('Linear in the Issues list', () => {
     // Nothing GitHub could answer, so none of its headings render.
     expect(screen.queryByText('Open on o/r')).toBeNull();
     expect(screen.queryByText('Current cycle')).toBeNull();
+
+    // The other tab is the empty one, and says why rather than reading as
+    // "no open pull requests".
+    fireEvent.click(screen.getByText('Pull requests'));
+    expect(await screen.findByText('The GitHub CLI is not installed.')).toBeTruthy();
   });
 
   test('with both connected, one Assigned to you holds rows from each', async () => {

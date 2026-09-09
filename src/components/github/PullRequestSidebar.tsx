@@ -24,6 +24,8 @@ interface PullRequestSidebarProps {
   onOpenTask: (task: TaskWithWorkspace) => void;
   /** The Issues list, rendered under this list's own search box. */
   issues: (query: string) => ReactNode;
+  /** Why the pull request half is empty, when it is not simply empty. */
+  unavailable?: string;
   loading: boolean;
   width: number;
 }
@@ -52,6 +54,7 @@ export function PullRequestSidebar({
   onOpenPullRequest,
   onOpenTask,
   issues,
+  unavailable,
   loading,
   width,
 }: PullRequestSidebarProps) {
@@ -121,6 +124,9 @@ export function PullRequestSidebar({
       <div className="flex-1 min-h-0 overflow-y-auto pb-4">
         {showing === 'issues' ? (
           issues(query)
+        ) : unavailable ? (
+          // The panel opens for any source, so this tab can be the empty one.
+          <p className="px-4 py-8 text-sm text-text-tertiary text-center text-balance">{unavailable}</p>
         ) : noPulls ? (
           <p className="px-4 py-8 text-center text-sm text-text-tertiary">
             {loading ? '' : query ? 'Nothing matches that' : 'Nothing open'}

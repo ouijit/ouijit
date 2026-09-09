@@ -91,11 +91,15 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   }, [available, projectPath]);
 
   // Linear loads on the same terms: on open and on the refresh button, so two
-  // sources in one list do not go stale at different rates.
+  // sources in one list do not go stale at different rates. Keyed by the scope
+  // itself rather than the object holding it, which is new on every load.
+  const scopeKey = linearAvailability?.scope
+    ? `${linearAvailability.scope.kind}:${'labelId' in linearAvailability.scope ? linearAvailability.scope.labelId : linearAvailability.scope.teamId}`
+    : null;
   useEffect(() => {
-    if (!linearConnected || !linearAvailability?.scope) return;
+    if (!linearConnected || !scopeKey) return;
     void useLinearStore.getState().loadIssues(projectPath);
-  }, [linearConnected, linearAvailability?.scope, projectPath]);
+  }, [linearConnected, scopeKey, projectPath]);
 
   const refresh = useCallback(() => {
     const store = useGithubStore.getState();
@@ -323,6 +327,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
           issueCount={issueCount}
           activeNumber={open?.source === 'github-pr' ? open.number : null}
           loading={listView === 'issues' ? issuesLoading || linearLoading : inboxLoading}
+          {...(available ? {} : { unavailable: availability.message ?? 'GitHub is not available for this project.' })}
           onShow={(next) => usePanelStore.getState().setListView(next)}
           onOpenPullRequest={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
           onOpenTask={openLinkedTask}
