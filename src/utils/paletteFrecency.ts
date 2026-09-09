@@ -33,6 +33,7 @@ export const projectKey = (path: string): string => `project:${path}`;
 export const taskKey = (projectPath: string, taskNumber: number): string => `task:${projectPath}#${taskNumber}`;
 export const terminalKey = (ptyId: string): string => `terminal:${ptyId}`;
 export const pullKey = (projectPath: string, prNumber: number): string => `pull:${projectPath}#${prNumber}`;
+export const issueKey = (projectPath: string, issueId: string): string => `issue:${projectPath}#${issueId}`;
 
 /**
  * A shell and a pull request each borrow the identity of the task that claims

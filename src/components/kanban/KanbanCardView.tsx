@@ -31,7 +31,8 @@ export interface KanbanCardViewProps {
   showBadge?: boolean;
   badge?: ReactNode;
   /** Linked pull request chip, rendered beside the task badge. */
-  prBadge?: ReactNode;
+  /** Linked pull request and issue chips, from whichever trackers are on. */
+  trackerBadges?: ReactNode;
   formattedDate?: string;
   onSelect?: (taskNumber: number, event: MouseEvent) => void;
   onPlainClick?: () => void;
@@ -82,7 +83,7 @@ export const KanbanCardView = memo(function KanbanCardView({
   isInvalidBadgeTarget = false,
   showBadge = false,
   badge,
-  prBadge,
+  trackerBadges,
   formattedDate,
   onSelect,
   onPlainClick,
@@ -332,10 +333,10 @@ export const KanbanCardView = memo(function KanbanCardView({
           <Icon name="caret-down" />
         </button>
       </div>
-      {((showBadge && badge) || prBadge) && (
+      {((showBadge && badge) || trackerBadges) && (
         <div className="mt-1 flex items-center gap-1 flex-wrap">
           {showBadge && badge}
-          {prBadge}
+          {trackerBadges}
         </div>
       )}
 

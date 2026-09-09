@@ -83,6 +83,24 @@ export function githubEntries(
   return [{ label: 'Create pull request', icon: 'git-pull-request', onClick: actions.createPullRequest }];
 }
 
+/** Returns nothing when the Linear feature is off, or the task has no issue. */
+export interface LinearMenuActions {
+  openIssue: (issueId: string) => void;
+  unlink: () => void;
+}
+
+export function linearEntries(
+  options: { enabled: boolean; issueId?: string; identifier?: string },
+  actions: LinearMenuActions,
+): ContextMenuEntry[] {
+  if (!options.enabled || !options.issueId || !options.identifier) return [];
+  const issueId = options.issueId;
+  return [
+    { label: options.identifier, icon: 'circle-dashed', onClick: () => actions.openIssue(issueId) },
+    { label: 'Unlink issue', icon: 'x', onClick: actions.unlink },
+  ];
+}
+
 /** "Move to ▸" — the four columns, then a danger Trash. */
 export function moveToEntry(
   actions: Pick<TaskMenuActions, 'setStatus' | 'completeToDone' | 'trash'>,

@@ -22,6 +22,7 @@ import { createPortal } from 'react-dom';
 import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useGithubStore } from '../stores/githubStore';
+import { useLinearStore } from '../stores/linearStore';
 import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
 import { scoreFields, type FieldMatch } from '../utils/paletteScore';
@@ -43,7 +44,7 @@ const VISIBLE_ROWS = 9;
 /** Fade-out duration; matches the dialog transitions. */
 const EXIT_MS = 200;
 
-const GROUP_ORDER: PaletteKind[] = ['terminal', 'project', 'task', 'pull'];
+const GROUP_ORDER: PaletteKind[] = ['terminal', 'project', 'task', 'pull', 'issue'];
 
 type GroupKey = 'results' | 'recent' | PaletteKind;
 
@@ -109,6 +110,10 @@ function PaletteBody({ visible }: { visible: boolean }) {
     activeProjectPath ? (s.flagsByProject[activeProjectPath]?.github ?? false) : false,
   );
   const inbox = useGithubStore((s) => s.inbox);
+  const linearEnabled = useExperimentalStore((s) =>
+    activeProjectPath ? (s.flagsByProject[activeProjectPath]?.linear ?? false) : false,
+  );
+  const linearGroups = useLinearStore((s) => s.groups);
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
@@ -146,6 +151,11 @@ function PaletteBody({ visible }: { visible: boolean }) {
       const store = useGithubStore.getState();
       store.setProject(activeProjectPath);
       void store.loadInbox(activeProjectPath);
+    }
+    if (linearEnabled && activeProjectPath) {
+      const store = useLinearStore.getState();
+      store.setProject(activeProjectPath);
+      void store.loadIssues(activeProjectPath);
     }
     return () => {
       cancelled = true;
@@ -198,6 +208,12 @@ function PaletteBody({ visible }: { visible: boolean }) {
     return [...inbox.needsReview, ...inbox.mine, ...inbox.others];
   }, [githubEnabled, inbox]);
 
+  const linearIssues = useMemo(() => {
+    if (!linearEnabled || !linearGroups) return undefined;
+    // The groups already exclude each other, so this is every issue once.
+    return [...linearGroups.triage, ...linearGroups.started, ...linearGroups.assigned, ...linearGroups.cycle];
+  }, [linearEnabled, linearGroups]);
+
   const items = useMemo(
     () =>
       buildPaletteItems({
@@ -208,8 +224,18 @@ function PaletteBody({ visible }: { visible: boolean }) {
         sessions,
         taskCacheByProject,
         pullRequests,
+        linearIssues,
       }),
-    [projects, activeProjectPath, terminalsByProject, displayStates, sessions, taskCacheByProject, pullRequests],
+    [
+      projects,
+      activeProjectPath,
+      terminalsByProject,
+      displayStates,
+      sessions,
+      taskCacheByProject,
+      pullRequests,
+      linearIssues,
+    ],
   );
 
   // A task's shells are branch rows under it, never free-standing results.

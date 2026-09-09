@@ -784,7 +784,7 @@ export async function createPullRequestForTask(
   const push = await pushBranch(cwd, task.branch);
   if (!push.success) return { success: false, error: push.error };
 
-  const body = buildPrBody(options.body ?? task.prompt ?? '', task.githubIssueNumber);
+  const body = buildPrBody(options.body ?? task.prompt ?? '', task.githubIssueNumber, task.linearIssueIdentifier);
 
   try {
     const result = await createPullRequest(identity, cwd, {
@@ -801,11 +801,26 @@ export async function createPullRequestForTask(
   }
 }
 
-/** Append the closing keyword for a linked issue, unless the body already has one. */
-function buildPrBody(body: string, issueNumber?: number): string {
-  if (issueNumber == null) return body;
-  if (new RegExp(`\\b(closes|fixes|resolves)\\s+#${issueNumber}\\b`, 'i').test(body)) return body;
-  return body.trim() ? `${body.trim()}\n\nFixes #${issueNumber}` : `Fixes #${issueNumber}`;
+/**
+ * Append what a linked issue needs to hear about this pull request.
+ *
+ * GitHub takes a closing keyword. Linear takes the bare identifier, and reads
+ * it through its own GitHub integration — this is not a write to Linear. Both
+ * are skipped where the body already carries them.
+ */
+export function buildPrBody(body: string, issueNumber?: number, linearIdentifier?: string): string {
+  let out = body;
+  if (issueNumber != null && !new RegExp(`\\b(closes|fixes|resolves)\\s+#${issueNumber}\\b`, 'i').test(out)) {
+    out = append(out, `Fixes #${issueNumber}`);
+  }
+  if (linearIdentifier && !new RegExp(`\\b${linearIdentifier}\\b`, 'i').test(out)) {
+    out = append(out, linearIdentifier);
+  }
+  return out;
+}
+
+function append(body: string, line: string): string {
+  return body.trim() ? `${body.trim()}\n\n${line}` : line;
 }
 
 export async function mergePr(
