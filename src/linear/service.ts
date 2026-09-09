@@ -122,7 +122,15 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
   try {
     options = await scopeOptions();
   } catch (error) {
-    return { ...connection, ...describe(error), connected: false, repoLabels: [], teams: [] };
+    const failure = describe(error);
+    return {
+      ...connection,
+      connected: false,
+      message: failure.error,
+      ...(failure.reason ? { reason: failure.reason } : {}),
+      repoLabels: [],
+      teams: [],
+    };
   }
 
   const stored = await readScope(projectPath);
@@ -216,7 +224,7 @@ export async function comment(
     await createComment(await requireKey(projectPath), issueId, body);
     return { success: true };
   } catch (error) {
-    return { success: false, ...describe(error) };
+    return { success: false, error: describe(error).error };
   }
 }
 
@@ -229,7 +237,7 @@ export async function moveIssue(
     await setIssueState(await requireKey(projectPath), issueId, stateId);
     return { success: true };
   } catch (error) {
-    return { success: false, ...describe(error) };
+    return { success: false, error: describe(error).error };
   }
 }
 
@@ -291,7 +299,7 @@ export async function linkTaskToIssue(
   try {
     issue = await getIssue(projectPath, identifier);
   } catch (error) {
-    return { success: false, ...describe(error) };
+    return { success: false, error: describe(error).error };
   }
   return setTaskLinearIssue(projectPath, taskNumber, {
     id: issue.id,
@@ -309,7 +317,7 @@ export async function createTaskFromIssue(projectPath: string, identifier: strin
   try {
     issue = await getIssue(projectPath, identifier);
   } catch (error) {
-    return { success: false, ...describe(error) };
+    return { success: false, error: describe(error).error };
   }
 
   const existing = (await getProjectTasks(projectPath)).find((t) => t.linearIssueId === issue.id);
@@ -336,7 +344,10 @@ export async function issueIdentifierForTask(projectPath: string, taskNumber: nu
 
 // ── Errors ───────────────────────────────────────────────────────────
 
-/** One shape for every failure that crosses a channel: a message, never a stack. */
+/**
+ * One shape for every failure that crosses a channel: a message, never a stack
+ * — a Linear error carries the request that caused it, headers included.
+ */
 function describe(error: unknown): { error: string; reason?: LinearError['kind'] } {
   if (error instanceof LinearError) return { error: error.message, reason: error.kind };
   linearLog.warn('unexpected Linear failure');
