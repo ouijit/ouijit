@@ -39,10 +39,15 @@ export function LinearSettingsSection() {
       <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg">
         <div className="px-4 py-3 flex flex-col gap-2">
           <div className="text-sm text-text-primary">API key</div>
-          <p className="text-xs text-text-tertiary">
-            Create one in Linear under Settings → API. Read and Create comments lets you read issues and comment on
-            them. Add Write to change an issue's status. Shared with every project, and encrypted by your OS keychain.
-          </p>
+          <p className="text-xs text-text-tertiary">Shared with every project, and encrypted by your OS keychain.</p>
+          {/* Only while there is a key to create: what the scopes buy is
+              something you act on in Linear, and nowhere else. */}
+          {!connection?.connected && (
+            <p className="text-xs text-text-tertiary">
+              Create one under Settings → API in Linear. Read and Create comments to read and comment; add Write to
+              change an issue's status.
+            </p>
+          )}
           <div className="flex items-center gap-2">
             <input
               type="password"

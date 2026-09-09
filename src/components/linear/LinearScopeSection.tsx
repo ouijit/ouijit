@@ -82,11 +82,11 @@ export function LinearScopeSection({ projectPath }: LinearScopeSectionProps) {
       {availability?.connected && availability.scope && (
         <div className="flex items-center gap-4 px-4 py-3">
           <div className="flex-1 min-w-0">
-            <div className="text-sm text-text-primary">Show issues from</div>
+            <div className="text-sm text-text-primary">Issues</div>
             <div className="text-xs text-text-tertiary mt-0.5">
               {availability.scope.kind === 'repo-label'
-                ? `Issues labeled ${availability.scope.name}, across every team.`
-                : `Every issue in ${availability.scope.name}.`}
+                ? 'Every issue with this label, across teams.'
+                : 'Every issue in this team.'}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -150,7 +150,10 @@ function KeyRow({
       <div className="flex items-center gap-4">
         <div className="flex-1 min-w-0">
           <div className="text-sm text-text-primary">API key</div>
-          <div className="text-xs text-text-tertiary mt-0.5">{standing(availability)}</div>
+          <div className="text-xs text-text-tertiary mt-0.5">{describe(availability)}</div>
+          {identity(availability) && (
+            <div className="text-xs font-mono text-text-secondary mt-1.5 truncate">{identity(availability)}</div>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {own && (
@@ -212,19 +215,20 @@ function KeyRow({
   );
 }
 
-/** Who the key is, then where it came from. One shape, one clause different. */
-function standing(availability: LinearAvailability | null): string {
+/** The description slot: only what there is to act on, in one clause. */
+function describe(availability: LinearAvailability | null): string {
   if (!availability) return 'Checking…';
-  if (availability.reason === 'flag-off') return 'Turn on Linear under Experimental to use it here.';
-  if (!availability.connected) {
-    return availability.message ?? 'Create a key in Linear under Settings → API.';
-  }
+  if (availability.reason === 'flag-off') return 'Turn on Linear under Experimental.';
+  if (!availability.connected) return availability.message ?? 'Create one in Linear under Settings → API.';
+  if (availability.source === 'project') return 'Used by this project only.';
+  if (availability.storage === 'environment') return 'Read from LINEAR_API_KEY.';
+  return 'Shared with every project.';
+}
 
-  const viewer = availability.viewer;
-  const who = viewer ? `${viewer.name} in ${viewer.workspaceName}. ` : '';
-  if (availability.source === 'project') return `${who}Used by this project only.`;
-  if (availability.storage === 'environment') return `${who}Read from LINEAR_API_KEY.`;
-  return `${who}Shared with every project.`;
+/** The value slot: who the key turns out to be. */
+function identity(availability: LinearAvailability | null): string | null {
+  const viewer = availability?.viewer;
+  return viewer ? `${viewer.name} · ${viewer.workspaceName}` : null;
 }
 
 /** Kept beside the row it explains, since the key itself lives a panel up. */
