@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 
 import { PullRequestsPanel } from '../../components/github/PullRequestsPanel';
+import { LinearScopeSection } from '../../components/linear/LinearScopeSection';
 import { TitleBar } from '../../components/TitleBarReact';
 import { useAppStore } from '../../stores/appStore';
 import { useExperimentalStore } from '../../stores/experimentalStore';
@@ -182,5 +183,57 @@ describe('Linear in the Issues list', () => {
         name: 'Engineering',
       });
     });
+  });
+});
+
+describe('changing the answer afterwards', () => {
+  beforeEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+    useLinearStore.getState().reset();
+    useProjectStore.setState({ tasks: [], toasts: [] });
+    useExperimentalStore.setState({
+      flagsByProject: { [PROJECT]: { ...DEFAULT_EXPERIMENTAL_FLAGS, linear: true } },
+    });
+    vi.mocked(window.api.linear.availability).mockResolvedValue(linearAvailability());
+    vi.mocked(window.api.linear.setScope).mockResolvedValue({ success: true });
+  });
+
+  /**
+   * The connect row disappears the moment it is answered, so without this the
+   * answer could be given once and never taken back.
+   */
+  test('project settings can point the project at something else, or at nothing', async () => {
+    render(<LinearScopeSection projectPath={PROJECT} />);
+
+    fireEvent.click(await screen.findByRole('button', { expanded: false, name: /o\/r/ }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Engineering/ }));
+
+    await waitFor(() => {
+      expect(window.api.linear.setScope).toHaveBeenCalledWith(PROJECT, {
+        kind: 'team',
+        teamId: 'team-1',
+        name: 'Engineering',
+      });
+    });
+
+    fireEvent.click(screen.getByText('Disconnect'));
+    await waitFor(() => {
+      expect(window.api.linear.setScope).toHaveBeenLastCalledWith(PROJECT, null);
+    });
+  });
+
+  test('with no key, it says where the key goes rather than offering a picker', async () => {
+    vi.mocked(window.api.linear.availability).mockResolvedValue({
+      connected: false,
+      reason: 'no-credential',
+      repoLabels: [],
+      teams: [],
+    });
+
+    render(<LinearScopeSection projectPath={PROJECT} />);
+
+    expect(await screen.findByText(/App Settings/)).toBeTruthy();
+    expect(screen.queryByText('Disconnect')).toBeNull();
   });
 });
