@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { LinearAvailability, LinearScope } from '../../linear/types';
 import { useLinearStore } from '../../stores/linearStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { LinearKeyRow } from './LinearKeyRow';
 import { ScopePicker } from './ScopePicker';
 
 interface LinearScopeSectionProps {
@@ -76,7 +77,26 @@ export function LinearScopeSection({ projectPath }: LinearScopeSectionProps) {
 
   return (
     <div className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg">
-      <KeyRow availability={availability} busy={busy} onSave={setKey} />
+      <LinearKeyRow
+        connection={availability}
+        busy={busy}
+        onSave={setKey}
+        showScope
+        replaceLabel={
+          availability?.source === 'project' ? 'Replace API key' : 'Use a different API key for this project'
+        }
+        {...(availability?.source === 'project'
+          ? {
+              secondary: {
+                label: 'Use the shared API key',
+                title: 'Go back to the API key every other project uses',
+                onClick: () => void setKey(''),
+              },
+            }
+          : {})}
+        hint="This API key will be used by this project only. Every other project keeps the shared one."
+        help="Create one in Linear under Settings → API."
+      />
 
       {availability?.connected && availability.scope && (
         <div className="flex items-center gap-4 px-4 py-3">
@@ -104,131 +124,4 @@ export function LinearScopeSection({ projectPath }: LinearScopeSectionProps) {
       )}
     </div>
   );
-}
-
-/**
- * The key this project reads with.
- *
- * A key resolves to exactly one Linear workspace, so a project in a second one
- * needs a key of its own. Most do not: the app-wide key is the default, shown
- * here rather than only in App Settings because this is where you find out you
- * need one.
- */
-function KeyRow({
-  availability,
-  busy,
-  onSave,
-}: {
-  availability: LinearAvailability | null;
-  busy: boolean;
-  onSave: (apiKey: string) => Promise<boolean>;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState('');
-
-  const connected = availability?.connected ?? false;
-  const own = availability?.source === 'project';
-  // The wall is a project with no usable key: the field is offered there rather
-  // than a sentence pointing at another panel.
-  const open = editing || (availability != null && !connected);
-
-  const save = async (apiKey: string) => {
-    if (await onSave(apiKey)) {
-      setValue('');
-      setEditing(false);
-    }
-  };
-
-  return (
-    <div className="px-4 py-3 flex flex-col gap-2">
-      <div className="flex items-center gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="text-sm text-text-primary">API key</div>
-          {/* First, and in mono: a row about a key should look like it holds
-              one before it says whose it is. */}
-          {availability?.masked && (
-            <div className="text-[13px] font-mono text-text-secondary mt-1 truncate">{availability.masked}</div>
-          )}
-          <div className="text-xs text-text-tertiary mt-1">{describe(availability)}</div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {own && (
-            <button
-              type="button"
-              className="btn-secondary btn-compact h-8"
-              disabled={busy}
-              title="Go back to the API key every other project uses"
-              onClick={() => void save('')}
-            >
-              Use the shared API key
-            </button>
-          )}
-          {connected && !open && (
-            <button type="button" className="btn-secondary btn-compact h-8" onClick={() => setEditing(true)}>
-              {own ? 'Replace API key' : 'Use a different API key for this project'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {open && (
-        <>
-          <p className="text-xs text-text-tertiary">
-            This API key will be used by this project only. Every other project keeps the shared one.
-          </p>
-          <div className="flex items-center gap-2">
-            <input
-              type="password"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && value.trim()) void save(value);
-                if (e.key === 'Escape' && connected) setEditing(false);
-              }}
-              placeholder="lin_api_…"
-              spellCheck={false}
-              className="field flex-1 min-w-0"
-            />
-            <button
-              type="button"
-              className="btn-primary btn-compact h-8 shrink-0"
-              disabled={busy || !value.trim()}
-              onClick={() => void save(value)}
-            >
-              {busy ? 'Checking…' : 'Save'}
-            </button>
-            {connected && (
-              <button
-                type="button"
-                className="btn-secondary btn-compact h-8 shrink-0"
-                onClick={() => {
-                  setValue('');
-                  setEditing(false);
-                }}
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-/**
- * The description slot: who the key is, and where it applies. Two short
- * phrases rather than a sentence — the second is the one that answers whether
- * changing it here changes it everywhere.
- */
-function describe(availability: LinearAvailability | null): string {
-  if (!availability) return 'Checking…';
-  if (availability.reason === 'flag-off') return 'Turn on Linear under Experimental.';
-  if (!availability.connected) return availability.message ?? 'Create one in Linear under Settings → API.';
-
-  const viewer = availability.viewer;
-  const who = viewer ? `${viewer.name} in ${viewer.workspaceName} · ` : '';
-  if (availability.source === 'project') return `${who}This project only`;
-  if (availability.storage === 'environment') return `${who}From LINEAR_API_KEY`;
-  return `${who}Shared with every project`;
 }

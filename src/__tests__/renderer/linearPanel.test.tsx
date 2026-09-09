@@ -3,6 +3,7 @@ import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/re
 
 import { PullRequestsPanel } from '../../components/github/PullRequestsPanel';
 import { LinearScopeSection } from '../../components/linear/LinearScopeSection';
+import { LinearSettingsSection } from '../../components/LinearSettingsSection';
 import { TitleBar } from '../../components/TitleBarReact';
 import { useAppStore } from '../../stores/appStore';
 import { useExperimentalStore } from '../../stores/experimentalStore';
@@ -183,6 +184,57 @@ describe('Linear in the Issues list', () => {
         name: 'Engineering',
       });
     });
+  });
+});
+
+/**
+ * Both places a key can be set render one row, so a fix to one cannot leave the
+ * other behind — which is what happened when they were two.
+ */
+describe('the API key row', () => {
+  beforeEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  test('shows the key it holds, and opens no field until asked', async () => {
+    vi.mocked(window.api.linear.connection).mockResolvedValue({
+      connected: true,
+      viewer: {
+        id: 'u',
+        name: 'Prentice Bjerkeseth',
+        displayName: 'prentice',
+        workspaceId: 'w',
+        workspaceName: 'prentice',
+      },
+      storage: 'keychain',
+      source: 'app',
+      masked: 'lin_api_••••6Zzz',
+      canStore: true,
+    });
+
+    render(<LinearSettingsSection />);
+
+    expect(await screen.findByText('lin_api_••••6Zzz')).toBeTruthy();
+    // No Save button over an empty box beside a key that already works.
+    expect(screen.queryByPlaceholderText('lin_api_…')).toBeNull();
+    expect(screen.queryByText('Save')).toBeNull();
+
+    fireEvent.click(screen.getByText('Replace API key'));
+    expect(screen.getByPlaceholderText('lin_api_…')).toBeTruthy();
+  });
+
+  test('with no key, the field is open and there is nothing to clear', async () => {
+    vi.mocked(window.api.linear.connection).mockResolvedValue({
+      connected: false,
+      reason: 'no-credential',
+      canStore: true,
+    });
+
+    render(<LinearSettingsSection />);
+
+    expect(await screen.findByPlaceholderText('lin_api_…')).toBeTruthy();
+    expect(screen.queryByText('Clear')).toBeNull();
   });
 });
 
