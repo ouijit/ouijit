@@ -186,6 +186,48 @@ describe('Linear in the Issues list', () => {
   });
 });
 
+describe('the state control', () => {
+  beforeEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+    useGithubStore.getState().reset();
+    useLinearStore.getState().reset();
+    usePanelStore.setState(usePanelStore.getInitialState());
+    useProjectStore.setState({ tasks: [], toasts: [] });
+    useAppStore.setState({ activeProjectData: { path: PROJECT, name: 'Alpha' } });
+    vi.mocked(window.api.github.availability).mockResolvedValue({
+      available: true,
+      identity: { host: 'github.com', owner: 'o', repo: 'r' },
+    });
+    vi.mocked(window.api.github.inbox).mockResolvedValue(inbox());
+    vi.mocked(window.api.github.issues).mockResolvedValue(issueList());
+    vi.mocked(window.api.github.onDraftsChanged).mockReturnValue(() => {});
+    vi.mocked(window.api.linear.onDraftsChanged).mockReturnValue(() => {});
+    vi.mocked(window.api.lens.onChanged).mockReturnValue(() => {});
+    vi.mocked(window.api.linear.availability).mockResolvedValue(linearAvailability());
+    vi.mocked(window.api.linear.issues).mockResolvedValue(
+      linearGroups({ assigned: [linearIssue({ identifier: 'ENG-231', title: 'Ship the thing' })] }),
+    );
+    vi.mocked(window.api.linear.issue).mockResolvedValue(linearDetail({ identifier: 'ENG-231' }));
+    vi.mocked(window.api.linear.moveIssue).mockResolvedValue({ success: true });
+  });
+
+  /** The one Linear write outside comments, and the way out of Triage. */
+  test('moves the issue through its team workflow', async () => {
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Issues'));
+    fireEvent.click(await screen.findByText('Ship the thing'));
+
+    // The chrome names the state it is in, as the Review and Merge menus do.
+    fireEvent.click(await screen.findByRole('button', { expanded: false, name: /Todo/ }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /In Progress/ }));
+
+    await waitFor(() => {
+      expect(window.api.linear.moveIssue).toHaveBeenCalledWith(PROJECT, 'issue-ENG-231', 'state-2');
+    });
+  });
+});
+
 describe('changing the answer afterwards', () => {
   beforeEach(() => {
     cleanup();

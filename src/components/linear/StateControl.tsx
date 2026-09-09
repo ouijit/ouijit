@@ -2,7 +2,9 @@ import { useState } from 'react';
 import type { LinearIssueDetail } from '../../linear/types';
 import { useLinearStore } from '../../stores/linearStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { Icon } from '../terminal/Icon';
+import { ActionMenu } from '../ui/ActionMenu';
+import { MenuItem } from '../ui/Menu';
+import { SegmentedGroup } from '../ui/SegmentedGroup';
 
 interface StateControlProps {
   projectPath: string;
@@ -39,21 +41,29 @@ export function StateControl({ projectPath, issue }: StateControlProps) {
   };
 
   return (
-    <label className="flex items-center gap-1.5 h-7 px-2 rounded-md hover:bg-ink/[0.08] transition-colors duration-150">
-      <Icon name="circle-dashed" className="w-3.5 h-3.5 shrink-0" style={{ color: issue.state.color }} />
-      <select
-        value={issue.state.id}
+    <SegmentedGroup>
+      <ActionMenu
+        label={busy ? 'Moving…' : issue.state.name}
+        // Linear's own colour for the state, which is how it reads there.
+        dot
+        dotColor={issue.state.color}
         disabled={busy}
-        aria-label="Workflow state"
-        className="bg-transparent border-none outline-none text-[13px] text-text-secondary"
-        onChange={(e) => void move(e.target.value)}
+        title={`${issue.identifier} is ${issue.state.name}`}
       >
-        {issue.workflowStates.map((state) => (
-          <option key={state.id} value={state.id}>
-            {state.name}
-          </option>
-        ))}
-      </select>
-    </label>
+        {(close) =>
+          issue.workflowStates.map((state) => (
+            <MenuItem
+              key={state.id}
+              label={state.name}
+              selected={state.id === issue.state.id}
+              onClick={() => {
+                close();
+                void move(state.id);
+              }}
+            />
+          ))
+        }
+      </ActionMenu>
+    </SegmentedGroup>
   );
 }
