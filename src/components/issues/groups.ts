@@ -42,22 +42,24 @@ export function issueGroups({
     ...(githubTasks[issue.number] ? { taskNumber: githubTasks[issue.number].taskNumber } : {}),
   });
 
-  const lin = (issue: LinearIssueSummary): IssueRow => ({
-    source: 'linear',
-    key: issue.id,
-    identifier: issue.identifier,
-    title: issue.title,
-    updatedAt: issue.updatedAt,
-    author: issue.assignee?.displayName ?? issue.creator?.displayName ?? 'Unassigned',
-    ...(issue.assignee?.avatarUrl || issue.creator?.avatarUrl
-      ? { authorAvatarUrl: issue.assignee?.avatarUrl ?? issue.creator?.avatarUrl }
-      : {}),
-    icon: 'circle-dashed',
-    tone: '',
-    // Linear's own state colour, so a row reads as the state it is in.
-    iconColor: issue.state.color,
-    ...(linearTasks[issue.id] ? { taskNumber: linearTasks[issue.id].taskNumber } : {}),
-  });
+  const lin = (issue: LinearIssueSummary): IssueRow => {
+    // One person, so the name and the face beside it cannot come from two.
+    const person = issue.assignee ?? issue.creator;
+    return {
+      source: 'linear',
+      key: issue.id,
+      identifier: issue.identifier,
+      title: issue.title,
+      updatedAt: issue.updatedAt,
+      author: person?.displayName ?? 'Unassigned',
+      ...(person?.avatarUrl ? { authorAvatarUrl: person.avatarUrl } : {}),
+      icon: 'circle-dashed',
+      tone: '',
+      // Linear's own state colour, so a row reads as the state it is in.
+      iconColor: issue.state.color,
+      ...(linearTasks[issue.id] ? { taskNumber: linearTasks[issue.id].taskNumber } : {}),
+    };
+  };
 
   const groups: IssueGroup[] = [];
   const add = (label: string, rows: IssueRow[], capped: boolean) => {

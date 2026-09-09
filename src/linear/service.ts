@@ -77,7 +77,7 @@ export async function getConnection(recheck = false): Promise<LinearConnection> 
     };
   }
   if (!viewer) return { connected: false, reason: 'no-credential', canStore: canStoreCredential() };
-  return { connected: true, viewer, storage: credential.storage, canStore: true };
+  return { connected: true, viewer, storage: credential.storage, canStore: canStoreCredential() };
 }
 
 /** Paste a key, or clear it with an empty string. */
@@ -270,9 +270,12 @@ export async function discardDraft(
   projectPath: string,
   draftId: string,
 ): Promise<{ success: boolean; issueId?: string }> {
+  // Looked up within the project first: a draft id is guessable, and a
+  // sandboxed caller holds a token scoped to one project.
   const draft = (await getLinearDrafts(projectPath)).find((row) => row.id === draftId);
+  if (!draft) return { success: false };
   await deleteLinearDraft(draftId);
-  return { success: true, ...(draft ? { issueId: draft.issue_id } : {}) };
+  return { success: true, issueId: draft.issue_id };
 }
 
 /**

@@ -62,6 +62,23 @@ describe('what Linear says going wrong', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  /**
+   * The budget is per hour. Sitting on a reset that far out would hang the
+   * panel for a minute and fail anyway.
+   */
+  test('a rate limit that outlasts the wait fails straight away', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      response(400, RATE_LIMITED, {
+        'X-RateLimit-Requests-Reset': String(Date.now() + 40 * 60_000),
+      }),
+    );
+
+    await expect(createLinearRequest('lin_api_test', fetchImpl)('query { viewer { id } }')).rejects.toMatchObject({
+      kind: 'rate-limited',
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   test('a refused key is not retried, and its message says where to fix it', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(response(401, UNAUTHENTICATED));
     const request = createLinearRequest('lin_api_bad', fetchImpl);

@@ -73,6 +73,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   const linearIssue = useLinearStore((s) => (open?.source === 'linear' && s.issue?.id === open.id ? s.issue : null));
 
   useEffect(() => {
+    usePanelStore.getState().setProject(projectPath);
     useGithubStore.getState().setProject(projectPath);
     void useGithubStore.getState().loadAvailability(projectPath);
     useLinearStore.getState().setProject(projectPath);
@@ -312,7 +313,16 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 
   const error = listView === 'issues' ? (issuesError ?? linearError) : inboxError;
   const openDetail = detail || issue || linearIssue;
-  const detailProblem = detailError ?? issueDetailError ?? linearIssueError;
+  // Keyed to the slot, like the data: a failed load in one source must not
+  // paint over what the other has just opened.
+  const detailProblem =
+    open?.source === 'github-pr'
+      ? detailError
+      : open?.source === 'github-issue'
+        ? issueDetailError
+        : open?.source === 'linear'
+          ? linearIssueError
+          : null;
 
   return (
     <PanelFrame>

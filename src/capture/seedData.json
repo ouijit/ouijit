@@ -7,7 +7,7 @@
       "prompt": "Split the onboarding wizard into focused steps and persist progress.",
       "branch": "rework-onboarding-flow-124",
       "mergeTarget": "main",
-      "linearIssueId": "issue-eng-214",
+      "linearIssueId": "issue-ENG-214",
       "linearIssueIdentifier": "ENG-214",
       "suggestedBranch": "someone/eng-214-rework-onboarding-flow"
     },

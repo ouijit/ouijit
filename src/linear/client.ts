@@ -69,10 +69,10 @@ export function createLinearRequest(apiKey: string, fetchImpl: FetchLike = fetch
         return await send<T>(apiKey, fetchImpl, query, variables);
       } catch (error) {
         const failure = error instanceof LinearError ? error : new LinearError('unknown', 'Linear request failed');
-        if (attempt >= MAX_ATTEMPTS || !isRetryable(failure.kind)) throw failure;
-        const wait = failure.retryAfterMs ?? Math.min(MAX_BACKOFF_MS, 2 ** attempt * 500);
+        const wait = waitFor(failure, attempt);
+        if (attempt >= MAX_ATTEMPTS || wait === null) throw failure;
         linearLog.warn('retrying after a failed request', { kind: failure.kind, attempt, waitMs: wait });
-        await delay(Math.min(wait, MAX_BACKOFF_MS));
+        await delay(wait);
       }
     }
   };
@@ -175,8 +175,17 @@ function resetDelay(headers: Headers): number | undefined {
   return Math.max(0, Math.max(...resets) - Date.now());
 }
 
-function isRetryable(kind: LinearErrorKind): boolean {
-  return kind === 'rate-limited' || kind === 'network';
+/**
+ * How long to wait before trying again, or null for not trying again.
+ *
+ * A budget that refills in seconds is worth waiting out. One that refills in
+ * forty minutes is not: sitting on it would hang the panel for a minute and
+ * fail anyway, where the message says what happened straight away.
+ */
+function waitFor(failure: LinearError, attempt: number): number | null {
+  if (failure.kind === 'network') return Math.min(MAX_BACKOFF_MS, 2 ** attempt * 500);
+  if (failure.kind !== 'rate-limited') return null;
+  return failure.retryAfterMs != null && failure.retryAfterMs <= MAX_BACKOFF_MS ? failure.retryAfterMs : null;
 }
 
 function delay(ms: number): Promise<void> {

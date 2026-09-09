@@ -25,6 +25,19 @@ describe('panel layout and the open slot', () => {
     expect(useGithubStore.getState().detail).toBeNull();
   });
 
+  /**
+   * The slot names something in one project. Left set across a switch, the
+   * first Escape closes a phantom and the visit tracker records a pull request
+   * nobody opened here.
+   */
+  test('switching projects empties the slot', () => {
+    usePanelStore.getState().setProject('/work/alpha');
+    usePanelStore.getState().setOpen({ source: 'github-pr', number: 42 });
+
+    usePanelStore.getState().setProject('/work/other');
+    expect(usePanelStore.getState().open).toBeNull();
+  });
+
   test('a width outside the limits is brought back inside them', () => {
     usePanelStore.getState().setSidebarWidth(10_000);
     expect(usePanelStore.getState().sidebarWidth).toBe(SIDEBAR_MAX_WIDTH);

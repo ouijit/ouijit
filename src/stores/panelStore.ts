@@ -15,6 +15,8 @@ export type OpenItem =
 export type PanelList = 'pulls' | 'issues';
 
 interface PanelStoreState {
+  /** The project the slot belongs to. Switching projects empties it. */
+  projectPath: string | null;
   open: OpenItem;
   listView: PanelList;
   /**
@@ -26,6 +28,7 @@ interface PanelStoreState {
 }
 
 interface PanelStoreActions {
+  setProject: (projectPath: string) => void;
   setListView: (list: PanelList) => void;
   setOpen: (item: OpenItem) => void;
   close: () => void;
@@ -37,11 +40,19 @@ export const SIDEBAR_DEFAULT_WIDTH = 320;
 export const SIDEBAR_MIN_WIDTH = 240;
 export const SIDEBAR_MAX_WIDTH = 560;
 
-export const usePanelStore = create<PanelStoreState & PanelStoreActions>()((set) => ({
+export const usePanelStore = create<PanelStoreState & PanelStoreActions>()((set, get) => ({
+  projectPath: null,
   open: null,
   listView: 'pulls',
   sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
   sidebarCollapsed: false,
+
+  // Left set, the slot names something in the project you just left: a first
+  // Escape closes a phantom, and a same-numbered row here highlights as open.
+  setProject: (projectPath) => {
+    if (get().projectPath === projectPath) return;
+    set({ projectPath, open: null });
+  },
 
   setListView: (listView) => set({ listView }),
   setOpen: (open) => set({ open }),

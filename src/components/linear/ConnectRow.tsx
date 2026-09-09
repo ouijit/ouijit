@@ -15,12 +15,14 @@ interface ConnectRowProps {
  */
 export function ConnectRow({ projectPath, availability }: ConnectRowProps) {
   const suggested = availability.suggestedLabel;
-  const [teamId, setTeamId] = useState(availability.teams[0]?.id ?? '');
+  // Held as "the one picked, if any": the teams arrive with a later load, and
+  // an id chosen from an empty list would match no option and connect nothing.
+  const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const team = availability.teams.find((t) => t.id === picked) ?? availability.teams[0];
 
   const scope = (): LinearScope | null => {
     if (suggested) return { kind: 'repo-label', labelId: suggested.id, name: suggested.name };
-    const team = availability.teams.find((t) => t.id === teamId);
     return team ? { kind: 'team', teamId: team.id, name: team.name } : null;
   };
 
@@ -50,8 +52,8 @@ export function ConnectRow({ projectPath, availability }: ConnectRowProps) {
         <span className="flex-1 min-w-0 truncate font-mono text-[12px] text-text-primary">{suggested.name}</span>
       ) : (
         <select
-          value={teamId}
-          onChange={(e) => setTeamId(e.target.value)}
+          value={team?.id ?? ''}
+          onChange={(e) => setPicked(e.target.value)}
           className="field flex-1 min-w-0 h-8 text-[13px]"
         >
           {availability.teams.map((team) => (

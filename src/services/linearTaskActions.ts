@@ -4,12 +4,14 @@
  */
 
 import { useProjectStore } from '../stores/projectStore';
+import { usePanelStore } from '../stores/panelStore';
 import { useLinearStore } from '../stores/linearStore';
 
 /** Open a Linear issue in the project panel, switching to it if needed. */
 export function openLinearIssueInPanel(projectPath: string, issueId: string): void {
   useProjectStore.getState().setActivePanel('pull-requests');
   useProjectStore.getState().setKanbanVisible(false);
+  usePanelStore.getState().setProject(projectPath);
   const store = useLinearStore.getState();
   store.setProject(projectPath);
   void store.openIssue(projectPath, issueId);
