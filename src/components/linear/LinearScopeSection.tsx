@@ -82,11 +82,6 @@ export function LinearScopeSection({ projectPath }: LinearScopeSectionProps) {
         <div className="flex items-center gap-4 px-4 py-3">
           <div className="flex-1 min-w-0">
             <div className="text-sm text-text-primary">Issues</div>
-            <div className="text-xs text-text-tertiary mt-0.5">
-              {availability.scope.kind === 'repo-label'
-                ? 'Every issue with this label, across teams.'
-                : 'Every issue in this team.'}
-            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <ScopePicker
@@ -227,5 +222,5 @@ function describe(availability: LinearAvailability | null): string {
 /** The value slot: who the key turns out to be. */
 function identity(availability: LinearAvailability | null): string | null {
   const viewer = availability?.viewer;
-  return viewer ? `${viewer.name} · ${viewer.workspaceName}` : null;
+  return viewer ? `${viewer.name} in ${viewer.workspaceName}` : null;
 }

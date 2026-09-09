@@ -44,7 +44,7 @@ export function ScopePicker({ availability, value, onChange, disabled, className
           disabled={disabled}
           aria-haspopup="menu"
           aria-expanded={open}
-          title={value.name}
+          title={`${value.kind === 'repo-label' ? 'Label' : 'Team'} · ${value.name}`}
           // The sidebar's search field, one size down: the app has one control
           // shape for a thing you pick from, and this is it.
           className={`flex items-center gap-2 h-8 px-3 rounded-full text-[13px] text-left transition-colors duration-150 disabled:opacity-50 ${
@@ -56,7 +56,10 @@ export function ScopePicker({ availability, value, onChange, disabled, className
             name={value.kind === 'repo-label' ? 'tag' : 'users-three'}
             className="w-4 h-4 shrink-0 text-text-tertiary"
           />
-          <span className="flex-1 min-w-0 truncate">{value.name}</span>
+          <span className="flex-1 min-w-0 truncate">
+            <span className="text-text-tertiary">{value.kind === 'repo-label' ? 'Label' : 'Team'} · </span>
+            {value.name}
+          </span>
           <Icon name="caret-down" className="w-3 h-3 shrink-0 text-text-tertiary" />
         </button>
       )}
