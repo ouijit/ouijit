@@ -139,6 +139,8 @@ export interface LinearConnection {
   storage?: LinearCredentialStorage;
   /** Which key answered. A project's own overrides the app's. */
   source?: LinearCredentialSource;
+  /** The key as it can be shown: a prefix, bullets, and the last four. */
+  masked?: string;
   /** False where `safeStorage` has no keychain, which is why the key is refused. */
   canStore?: boolean;
 }

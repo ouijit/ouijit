@@ -5,6 +5,7 @@ import {
   LINEAR_ENV_VAR,
   canStoreCredential,
   hasOwnCredential,
+  maskCredential,
   readCredential,
   writeCredential,
 } from '../linear/credentials';
@@ -40,6 +41,14 @@ afterEach(() => {
 });
 
 describe('where the Linear API key lives', () => {
+  /** Enough to recognise, never enough to use. */
+  test('a key is shown as a prefix and its last four characters', () => {
+    expect(maskCredential('lin_api_AbCdEfGhIjKl4f2a')).toBe('lin_api_••••4f2a');
+    // Too short to have a prefix worth keeping: the tail alone, and no more.
+    expect(maskCredential('short4f2a')).toBe('••••4f2a');
+    expect(maskCredential('lin_api_AbCdEfGhIjKl4f2a')).not.toContain('AbCdEfGhIjKl');
+  });
+
   test('a stored key round-trips, and clearing it leaves nothing behind', async () => {
     expect(await writeCredential('lin_api_secret')).toEqual({ success: true });
     expect(await readCredential()).toEqual({ apiKey: 'lin_api_secret', storage: 'keychain', source: 'app' });

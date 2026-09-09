@@ -145,8 +145,8 @@ function KeyRow({
         <div className="flex-1 min-w-0">
           <div className="text-sm text-text-primary">API key</div>
           <div className="text-xs text-text-tertiary mt-0.5">{describe(availability)}</div>
-          {identity(availability) && (
-            <div className="text-xs font-mono text-text-secondary mt-1.5 truncate">{identity(availability)}</div>
+          {availability?.masked && (
+            <div className="text-xs font-mono text-text-secondary mt-1.5 truncate">{availability.masked}</div>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -163,64 +163,70 @@ function KeyRow({
           )}
           {connected && !open && (
             <button type="button" className="btn-secondary btn-compact h-8" onClick={() => setEditing(true)}>
-              {own ? 'Replace key' : 'Use a different key'}
+              {own ? 'Replace key' : 'Use a key here only'}
             </button>
           )}
         </div>
       </div>
 
       {open && (
-        <div className="flex items-center gap-2">
-          <input
-            type="password"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && value.trim()) void save(value);
-              if (e.key === 'Escape' && connected) setEditing(false);
-            }}
-            placeholder="lin_api_…"
-            spellCheck={false}
-            className="field flex-1 min-w-0"
-          />
-          <button
-            type="button"
-            className="btn-primary btn-compact h-8 shrink-0"
-            disabled={busy || !value.trim()}
-            onClick={() => void save(value)}
-          >
-            {busy ? 'Checking…' : 'Save'}
-          </button>
-          {connected && (
+        <>
+          <p className="text-xs text-text-tertiary">
+            Used by this project only. Every other project keeps the shared key.
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="password"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && value.trim()) void save(value);
+                if (e.key === 'Escape' && connected) setEditing(false);
+              }}
+              placeholder="lin_api_…"
+              spellCheck={false}
+              className="field flex-1 min-w-0"
+            />
             <button
               type="button"
-              className="btn-secondary btn-compact h-8 shrink-0"
-              onClick={() => {
-                setValue('');
-                setEditing(false);
-              }}
+              className="btn-primary btn-compact h-8 shrink-0"
+              disabled={busy || !value.trim()}
+              onClick={() => void save(value)}
             >
-              Cancel
+              {busy ? 'Checking…' : 'Save'}
             </button>
-          )}
-        </div>
+            {connected && (
+              <button
+                type="button"
+                className="btn-secondary btn-compact h-8 shrink-0"
+                onClick={() => {
+                  setValue('');
+                  setEditing(false);
+                }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-/** The description slot: only what there is to act on, in one clause. */
+/**
+ * The description slot: who the key is, and where it applies. Two short
+ * phrases rather than a sentence — the second is the one that answers whether
+ * changing it here changes it everywhere.
+ */
 function describe(availability: LinearAvailability | null): string {
   if (!availability) return 'Checking…';
   if (availability.reason === 'flag-off') return 'Turn on Linear under Experimental.';
   if (!availability.connected) return availability.message ?? 'Create one in Linear under Settings → API.';
-  if (availability.source === 'project') return 'Used by this project only.';
-  if (availability.storage === 'environment') return 'Read from LINEAR_API_KEY.';
-  return 'Shared with every project.';
-}
 
-/** The value slot: who the key turns out to be. */
-function identity(availability: LinearAvailability | null): string | null {
-  const viewer = availability?.viewer;
-  return viewer ? `${viewer.name} in ${viewer.workspaceName}` : null;
+  const viewer = availability.viewer;
+  const who = viewer ? `${viewer.name} in ${viewer.workspaceName} · ` : '';
+  if (availability.source === 'project') return `${who}This project only`;
+  if (availability.storage === 'environment') return `${who}From LINEAR_API_KEY`;
+  return `${who}Shared with every project`;
 }

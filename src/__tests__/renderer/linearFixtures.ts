@@ -45,6 +45,7 @@ export function linearAvailability(over: Partial<LinearAvailability> = {}): Line
     },
     storage: 'keychain',
     source: 'app',
+    masked: 'lin_api_••••4f2a',
     scope: { kind: 'repo-label', labelId: 'label-1', name: 'o/r' },
     repoLabels: [{ id: 'label-1', name: 'o/r' }],
     teams: [{ id: 'team-1', key: 'ENG', name: 'Engineering', triageEnabled: true }],

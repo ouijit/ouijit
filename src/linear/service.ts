@@ -29,11 +29,12 @@ import { repoSlug } from '../github/types';
 import { LinearError } from './client';
 import { createComment, fetchIssue, fetchIssueGroups, fetchScopeOptions, setIssueState } from './api';
 import {
+  canStoreCredential,
   invalidateCredentialCache,
+  maskCredential,
   readCredential,
   resolveViewer,
   writeCredential,
-  canStoreCredential,
 } from './credentials';
 import { matchRepoLabel, readScope, writeScope } from './scope';
 import type {
@@ -70,7 +71,12 @@ export async function getConnection(projectPath?: string, recheck = false): Prom
     return { connected: false, reason: 'no-credential', canStore: canStoreCredential() };
   }
   const viewer = await resolveViewer(projectPath, recheck);
-  const standing = { storage: credential.storage, source: credential.source, canStore: canStoreCredential() };
+  const standing = {
+    storage: credential.storage,
+    source: credential.source,
+    masked: maskCredential(credential.apiKey),
+    canStore: canStoreCredential(),
+  };
 
   if (viewer instanceof LinearError) {
     return { ...standing, connected: false, reason: viewer.kind, message: viewer.message };

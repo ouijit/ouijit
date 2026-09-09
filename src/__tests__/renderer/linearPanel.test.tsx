@@ -306,8 +306,10 @@ describe('changing the answer afterwards', () => {
 
     render(<LinearScopeSection projectPath={PROJECT} />);
 
-    expect(await screen.findByText(/Shared with every project/)).toBeTruthy();
-    fireEvent.click(screen.getByText('Use a different key'));
+    // Unmistakably a key that is set, and where it applies.
+    expect(await screen.findByText('lin_api_••••4f2a')).toBeTruthy();
+    expect(screen.getByText(/Shared with every project/)).toBeTruthy();
+    fireEvent.click(screen.getByText('Use a key here only'));
     fireEvent.change(screen.getByPlaceholderText('lin_api_…'), { target: { value: 'lin_api_client' } });
     // What the row reads back after saving: the project now has its own.
     vi.mocked(window.api.linear.availability).mockResolvedValue(linearAvailability({ source: 'project' }));

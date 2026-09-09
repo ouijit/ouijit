@@ -86,11 +86,16 @@ function Standing({ connection }: { connection: LinearConnection | null }) {
 
   if (connection.connected && connection.viewer) {
     return (
-      <p className="text-xs text-text-secondary flex items-center gap-1.5">
-        <Icon name="check-circle" className="w-3.5 h-3.5 text-vcs-added" />
-        {connection.viewer.name} in {connection.viewer.workspaceName}
-        {connection.storage === 'environment' && <span className="text-text-tertiary">· read from LINEAR_API_KEY</span>}
-      </p>
+      <div className="flex flex-col gap-1">
+        <p className="text-xs text-text-secondary flex items-center gap-1.5">
+          <Icon name="check-circle" className="w-3.5 h-3.5 text-vcs-added" />
+          {connection.viewer.name} in {connection.viewer.workspaceName}
+          {connection.storage === 'environment' && (
+            <span className="text-text-tertiary">· read from LINEAR_API_KEY</span>
+          )}
+        </p>
+        {connection.masked && <p className="text-xs font-mono text-text-tertiary">{connection.masked}</p>}
+      </div>
     );
   }
 

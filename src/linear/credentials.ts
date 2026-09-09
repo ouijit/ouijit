@@ -82,6 +82,16 @@ async function decrypt(key: string): Promise<string | null> {
   }
 }
 
+/**
+ * Enough of the key to recognise, and never enough to use: the prefix Linear
+ * mints them with and the last four characters. Without it a row showing only
+ * an account name never looks like somewhere a secret is stored.
+ */
+export function maskCredential(apiKey: string): string {
+  const tail = apiKey.slice(-4);
+  return apiKey.length > 12 ? `${apiKey.slice(0, 8)}••••${tail}` : `••••${tail}`;
+}
+
 /** Whether this project keeps a key of its own, without reading it. */
 export async function hasOwnCredential(projectPath: string): Promise<boolean> {
   return Boolean(await getGlobalSetting(linearCredentialKey(projectPath)));
