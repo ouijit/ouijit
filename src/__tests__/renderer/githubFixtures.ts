@@ -1,5 +1,5 @@
 import type { GithubIssue, IssueDetail, PullRequestDetail, PullRequestSummary, TaskWithWorkspace } from '../../types';
-import type { InboxResult, PullRequestFile } from '../../github/types';
+import type { GithubIssueList, InboxResult, PullRequestFile } from '../../github/types';
 
 /** What the GitHub panel is handed, filled in enough to render. */
 
@@ -66,6 +66,11 @@ export function issue(over: Partial<GithubIssue> & { number: number }): GithubIs
     commentCount: 0,
     ...over,
   };
+}
+
+/** The Issues tab's GitHub half. Anything not named is the repo's open list. */
+export function issueList(over: Partial<GithubIssueList> = {}): GithubIssueList {
+  return { assigned: [], open: [], assignedCapped: false, openCapped: false, ...over };
 }
 
 export function issueDetail(over: Partial<IssueDetail> & { number: number }): IssueDetail {

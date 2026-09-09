@@ -17,7 +17,7 @@ import type {
   PullRequestFreshness,
   UserReposResult,
   ResolvedRepo,
-  GithubIssue,
+  GithubIssueList,
   IssueDetail,
   CommentKind,
   ReviewDraft,
@@ -100,11 +100,11 @@ export type {
   MergeOptions,
   MergeStatus,
   GithubIssue,
+  GithubIssueList,
   IssueDetail,
   CommentKind,
   GithubDraftsChangedPayload,
   CheckRun,
-  TimelineItem,
   InboxResult,
   PullRequestFilesResult,
   SaveDraftInput,
@@ -703,7 +703,7 @@ export interface GithubAPI {
     filePath: string,
     oldPath?: string,
   ): Promise<PrFileVersions>;
-  issues(projectPath: string): Promise<GithubIssue[]>;
+  issues(projectPath: string): Promise<GithubIssueList>;
   issue(projectPath: string, number: number): Promise<IssueDetail>;
 
   linkTaskIssue(projectPath: string, taskNumber: number, issueNumber: number | null): Promise<GithubActionResult>;

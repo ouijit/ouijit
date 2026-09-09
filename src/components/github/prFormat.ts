@@ -1,12 +1,6 @@
 /** Presentation helpers for pull request state, checks, and reviews. */
 
 import type { PullRequestSummary } from '../../github/types';
-import { formatRelativeTime } from '../../utils/formatDate';
-
-/** GitHub timestamps arrive as ISO strings; the shared formatter takes a Date. */
-export function since(isoTimestamp: string): string {
-  return formatRelativeTime(new Date(isoTimestamp));
-}
 
 export interface StateBadge {
   label: string;

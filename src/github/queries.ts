@@ -136,13 +136,23 @@ const ISSUE_FIELDS = `
   assignees(first: 10) { nodes { login } }
 `;
 
+/**
+ * The repo's open issues and the ones assigned to the viewer, in one document.
+ *
+ * The assigned half goes through `search` rather than `issues(filterBy:)`:
+ * that filter takes a login, which we would have to fetch first, while search
+ * understands `assignee:@me` and answers in the same round trip.
+ */
 export const ISSUE_LIST_QUERY = `
-query($owner: String!, $repo: String!, $first: Int!) {
+query($owner: String!, $repo: String!, $first: Int!, $assigned: String!) {
   viewer { login avatarUrl }
   repository(owner: $owner, name: $repo) {
     issues(first: $first, states: [OPEN], orderBy: { field: UPDATED_AT, direction: DESC }) {
       nodes { ${ISSUE_FIELDS} }
     }
+  }
+  assigned: search(query: $assigned, type: ISSUE, first: $first) {
+    nodes { ... on Issue { ${ISSUE_FIELDS} } }
   }
 }`;
 

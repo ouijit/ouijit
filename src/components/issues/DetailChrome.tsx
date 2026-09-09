@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icon } from '../terminal/Icon';
 import { SidebarToggle } from '../common/SidebarToggle';
-import { useGithubStore } from '../../stores/githubStore';
+import { usePanelStore } from '../../stores/panelStore';
 import { RefreshButton } from './RefreshButton';
 import { Tooltip } from '../ui/Tooltip';
 
@@ -38,7 +38,7 @@ export function DetailChrome({
   onRefreshHover,
   onClose,
 }: DetailChromeProps) {
-  const sidebarCollapsed = useGithubStore((s) => s.sidebarCollapsed);
+  const sidebarCollapsed = usePanelStore((s) => s.sidebarCollapsed);
 
   return (
     // Raised so the ledge shadow, which falls outside this box, is not painted
@@ -49,7 +49,7 @@ export function DetailChrome({
           one. */}
       <SidebarToggle
         collapsed={sidebarCollapsed}
-        onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}
+        onCollapsedChange={(collapsed) => usePanelStore.getState().setSidebarCollapsed(collapsed)}
         hideLabel="Hide the list"
         showLabel="Show the list"
         className="-ml-1"

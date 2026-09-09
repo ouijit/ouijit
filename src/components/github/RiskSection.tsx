@@ -5,7 +5,7 @@ import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { describeFrequency, describePartner, mainAuthorOf } from '../../analysis/advice';
 import type { DiffSignals } from '../../analysis/types';
 import { Icon } from '../terminal/Icon';
-import { Section } from './Sections';
+import { Section } from '../issues/Sections';
 
 interface RiskRow {
   key: string;

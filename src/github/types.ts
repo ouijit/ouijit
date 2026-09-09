@@ -11,6 +11,7 @@
 
 import type { BlobContent } from '../git';
 import type { TaskWithWorkspace } from '../types';
+import type { TimelineItem } from '../issues/types';
 
 /** A repo resolved from a git remote URL. `host` is 'github.com' or a GHES host. */
 export interface RepoIdentity {
@@ -157,26 +158,6 @@ export interface ReviewThread {
   comments: ReviewComment[];
 }
 
-export type TimelineItemKind = 'comment' | 'review' | 'commit' | 'event';
-
-export interface TimelineItem {
-  id: string;
-  kind: TimelineItemKind;
-  author: string;
-  authorAvatarUrl?: string;
-  body: string;
-  createdAt: string;
-  url?: string;
-  /** REST id of a comment, which is what deleting one takes. */
-  databaseId?: number | null;
-  /** GitHub's own answer on whether this viewer may delete it. */
-  viewerCanDelete?: boolean;
-  /** For reviews: APPROVED / CHANGES_REQUESTED / COMMENTED / DISMISSED. */
-  reviewState?: string;
-  /** For events: 'merged', 'closed', 'reopened', … */
-  eventType?: string;
-}
-
 export interface CheckRun {
   name: string;
   /** 'SUCCESS' | 'FAILURE' | 'NEUTRAL' | 'CANCELLED' | 'SKIPPED' | 'TIMED_OUT' | 'ACTION_REQUIRED' | null */
@@ -240,6 +221,17 @@ export interface GithubIssue {
   /** Assigned to the authenticated user. */
   isMine: boolean;
   commentCount: number;
+}
+
+/**
+ * The Issues tab's GitHub half. `open` excludes anything in `assigned`, so a
+ * row appears once; each `capped` says the list is a page rather than all of it.
+ */
+export interface GithubIssueList {
+  assigned: GithubIssue[];
+  open: GithubIssue[];
+  assignedCapped: boolean;
+  openCapped: boolean;
 }
 
 /** A pull request detail minus the code: the panel renders both the same way. */

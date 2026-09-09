@@ -4,11 +4,12 @@ import { render, screen, waitFor, cleanup, fireEvent, act } from '@testing-libra
 import { PullRequestsPanel } from '../../components/github/PullRequestsPanel';
 import { useAppStore } from '../../stores/appStore';
 import { useGithubStore } from '../../stores/githubStore';
+import { usePanelStore } from '../../stores/panelStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { _resetLensRunsForTesting } from '../../components/diff/useLensSession';
 import { prSubjectKey } from '../../lens/subjectKeys';
 import { NARRATIVE, aLens, hunk, lensOnFile } from '../lensFixtures';
-import { pr, inbox, detail, changed } from './githubFixtures';
+import { pr, inbox, detail, changed, issueList } from './githubFixtures';
 import type { PullRequestFile } from '../../github/types';
 import type { StoredLens } from '../../lens/readLens';
 import type { LensSummary } from '../../lens/config';
@@ -74,6 +75,7 @@ describe('PullRequestsPanel — lens', () => {
     // outlive the test that started it too.
     _resetLensRunsForTesting();
     useGithubStore.getState().reset();
+    usePanelStore.setState(usePanelStore.getInitialState());
     useGithubStore.setState({ projectPath: null });
     useProjectStore.setState({ tasks: [], toasts: [] });
     useAppStore.setState({ activeProjectData: { path: PROJECT, name: 'Alpha' } });
@@ -82,7 +84,7 @@ describe('PullRequestsPanel — lens', () => {
       identity: { host: 'github.com', owner: 'o', repo: 'r' },
     });
     vi.mocked(window.api.github.inbox).mockResolvedValue(inbox());
-    vi.mocked(window.api.github.issues).mockResolvedValue([]);
+    vi.mocked(window.api.github.issues).mockResolvedValue(issueList());
     vi.mocked(window.api.github.onDraftsChanged).mockReturnValue(() => {});
     vi.mocked(window.api.lens.onChanged).mockReturnValue(() => {});
     vi.mocked(window.api.github.drafts).mockResolvedValue([]);

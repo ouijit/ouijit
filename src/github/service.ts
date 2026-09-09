@@ -71,7 +71,7 @@ import type {
   PullRequestDetail,
   PullRequestFreshness,
   PullRequestFile,
-  GithubIssue,
+  GithubIssueList,
   IssueDetail,
   CommentKind,
   ReviewDraft,
@@ -330,7 +330,7 @@ export async function getPullRequestFileVersions(
   return getPrFileVersions(projectPath, number, baseSha, headSha, filePath, oldPath);
 }
 
-export async function getIssues(projectPath: string): Promise<GithubIssue[]> {
+export async function getIssues(projectPath: string): Promise<GithubIssueList> {
   const identity = await requireIdentity(projectPath);
   return fetchIssues(identity);
 }

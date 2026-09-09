@@ -16,10 +16,10 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useEscape } from '../../hooks/useEscape';
 import { openFileInEditor } from '../../services/openInEditor';
 import { Icon } from '../terminal/Icon';
-import { Section } from '../github/Sections';
+import { Section } from '../issues/Sections';
 import { PanelFrame } from '../ui/PanelFrame';
-import { RefreshButton } from '../github/RefreshButton';
-import { Loading } from '../github/Loading';
+import { RefreshButton } from '../issues/RefreshButton';
+import { Loading } from '../issues/Loading';
 import { BarSeries, LEVER_ICON, OwnershipBar, ScoreMeter, Sparkline, TIER_COLOR, Track } from './Signals';
 
 interface AnalysisPanelProps {

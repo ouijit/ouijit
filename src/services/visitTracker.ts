@@ -14,6 +14,7 @@ import { isBoardMounted } from '../stores/composerStore';
 import { getActivePtyId, useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { useGithubStore } from '../stores/githubStore';
+import { usePanelStore } from '../stores/panelStore';
 import {
   projectKey,
   pullKey,
@@ -47,9 +48,9 @@ function currentView(): View {
   }
 
   if (project.activePanel === 'pull-requests') {
-    const github = useGithubStore.getState();
-    if (github.projectPath === activeProjectPath && github.activeNumber != null) {
-      return { kind: 'pull', projectPath: activeProjectPath, prNumber: github.activeNumber };
+    const open = usePanelStore.getState().open;
+    if (useGithubStore.getState().projectPath === activeProjectPath && open?.source === 'github-pr') {
+      return { kind: 'pull', projectPath: activeProjectPath, prNumber: open.number };
     }
   } else if (project.activePanel === 'terminals' && project.terminalLayout !== 'canvas') {
     // The canvas has no single foreground card, and `activeIndices` is not
@@ -104,7 +105,7 @@ export function installVisitTracker(): () => void {
     }, DWELL_MS);
   };
 
-  const stores = [useAppStore, useProjectStore, useTerminalStore, useUIStore, useGithubStore];
+  const stores = [useAppStore, useProjectStore, useTerminalStore, useUIStore, useGithubStore, usePanelStore];
   const unsubscribes = stores.map((store) => store.subscribe(onViewChanged));
   onViewChanged();
   return () => {

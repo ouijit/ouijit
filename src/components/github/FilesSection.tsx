@@ -31,7 +31,7 @@ import { usePullRequestSignals } from '../../hooks/usePullRequestSignals';
 import { AnalysisChip, worthAChip } from '../diff/AnalysisChip';
 import type { FileAnalysis } from '../../analysis/types';
 
-import { Loading } from './Loading';
+import { Loading } from '../issues/Loading';
 
 /** Nothing reaches GitHub until the review is submitted as a batch. */
 const DRAFT_HINT = 'Saved locally until you submit the review.';

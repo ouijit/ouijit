@@ -54,7 +54,7 @@ import type {
   ResolvedRepo,
   PullRequestDetail,
   PullRequestFreshness,
-  GithubIssue,
+  GithubIssueList,
   IssueDetail,
   CommentKind,
   ReviewDraft,
@@ -312,7 +312,7 @@ export interface IpcInvokeContract {
   };
   'github:user-repos': { args: []; return: UserReposResult };
   'github:resolve-repo': { args: [identity: RepoIdentity]; return: ResolvedRepo };
-  'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
+  'github:issues': { args: [projectPath: string]; return: GithubIssueList };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 
   'github:link-task-issue': {

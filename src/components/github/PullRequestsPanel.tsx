@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
-import { useGithubStore, SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../../stores/githubStore';
+import { useGithubStore } from '../../stores/githubStore';
+import { usePanelStore, SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../../stores/panelStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { SidebarToggle } from '../common/SidebarToggle';
@@ -8,19 +9,26 @@ import { activateTask, taskOpenAction, TASK_OPEN_LABEL } from '../navigation';
 import { Icon } from '../terminal/Icon';
 import { PullRequestSidebar } from './PullRequestSidebar';
 import { PullRequestDetailView } from './PullRequestDetailView';
-import { IssueDetailView } from './IssueDetailView';
+import { GithubIssueView } from './GithubIssueView';
+import { IssueList } from '../issues/IssueList';
+import type { IssueGroup, IssueRow } from '../../issues/types';
+import type { GithubIssue } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { PanelFrame } from '../ui/PanelFrame';
 import { useEscape } from '../../hooks/useEscape';
-import { RefreshButton } from './RefreshButton';
-import { Loading } from './Loading';
+import { RefreshButton } from '../issues/RefreshButton';
+import { Loading } from '../issues/Loading';
 
 interface PullRequestsPanelProps {
   projectPath: string;
 }
 
 /**
- * The GitHub surface: the list on the left, whatever is open on the right.
+ * The tracker surface: the list on the left, whatever is open on the right.
+ *
+ * A host rather than GitHub's own panel — the Issues list is fed by every
+ * source that has something to put in it, and what is open lives in one slot
+ * on `panelStore` so two of them cannot both think they are showing something.
  *
  * Reviewing leaves nothing behind but the fetched refs — the diff is read out
  * of the object database with no checkout and no worktree. "Check out as task"
@@ -28,24 +36,30 @@ interface PullRequestsPanelProps {
  */
 export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   const availability = useGithubStore((s) => s.availability);
-  const view = useGithubStore((s) => s.view);
-  const listView = useGithubStore((s) => s.listView);
   const inbox = useGithubStore((s) => s.inbox);
   const inboxLoading = useGithubStore((s) => s.inboxLoading);
   const inboxError = useGithubStore((s) => s.inboxError);
   const issues = useGithubStore((s) => s.issues);
   const issuesLoading = useGithubStore((s) => s.issuesLoading);
   const issuesError = useGithubStore((s) => s.issuesError);
-  const activeNumber = useGithubStore((s) => s.activeNumber);
-  const detail = useGithubStore((s) => s.detail);
   const detailLoading = useGithubStore((s) => s.detailLoading);
   const detailError = useGithubStore((s) => s.detailError);
-  const activeIssue = useGithubStore((s) => s.activeIssue);
-  const sidebarWidth = useGithubStore((s) => s.sidebarWidth);
-  const sidebarCollapsed = useGithubStore((s) => s.sidebarCollapsed);
-  const issue = useGithubStore((s) => s.issue);
   const issueLoading = useGithubStore((s) => s.issueLoading);
   const issueDetailError = useGithubStore((s) => s.issueError);
+
+  const open = usePanelStore((s) => s.open);
+  const listView = usePanelStore((s) => s.listView);
+  const sidebarWidth = usePanelStore((s) => s.sidebarWidth);
+  const sidebarCollapsed = usePanelStore((s) => s.sidebarCollapsed);
+
+  // Keyed by the slot: data for something no longer open is stale, and the
+  // pane it belongs to is not the one on screen.
+  const detail = useGithubStore((s) =>
+    open?.source === 'github-pr' && s.detail?.number === open.number ? s.detail : null,
+  );
+  const issue = useGithubStore((s) =>
+    open?.source === 'github-issue' && s.issue?.number === open.number ? s.issue : null,
+  );
 
   useEffect(() => {
     const store = useGithubStore.getState();
@@ -79,18 +93,17 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     if (!available) return;
     return window.api.github.onDraftsChanged((payload) => {
       if (payload.projectPath !== projectPath) return;
-      const store = useGithubStore.getState();
-      if (store.activeNumber !== payload.prNumber) return;
-      void store.loadDrafts(projectPath, payload.prNumber);
+      const slot = usePanelStore.getState().open;
+      if (slot?.source !== 'github-pr' || slot.number !== payload.prNumber) return;
+      void useGithubStore.getState().loadDrafts(projectPath, payload.prNumber);
     });
   }, [available, projectPath]);
 
   // Closes what is open before leaving the panel behind it.
   useEscape(
     useCallback(() => {
-      const store = useGithubStore.getState();
-      if (store.activeNumber != null || store.activeIssue != null) {
-        store.closeDetail();
+      if (usePanelStore.getState().open) {
+        useGithubStore.getState().closeDetail();
         return;
       }
       useProjectStore.getState().setActivePanel('terminals');
@@ -100,15 +113,24 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   // The maps are built in a memo, not the selector: a selector returning a
   // fresh object never equals the last one and re-renders forever.
   const tasks = useProjectStore((s) => s.tasks);
-  const { issueTasks, prTasks } = useMemo(() => {
+  const { issueTasks, prTasks, tasksByNumber } = useMemo(() => {
     const issueTasks: Record<number, TaskWithWorkspace> = {};
     const prTasks: Record<number, TaskWithWorkspace> = {};
+    const tasksByNumber: Record<number, TaskWithWorkspace> = {};
     for (const task of tasks) {
       if (task.githubIssueNumber != null) issueTasks[task.githubIssueNumber] = task;
       if (task.githubPrNumber != null) prTasks[task.githubPrNumber] = task;
+      tasksByNumber[task.taskNumber] = task;
     }
-    return { issueTasks, prTasks };
+    return { issueTasks, prTasks, tasksByNumber };
   }, [tasks]);
+
+  const repo = availability?.identity;
+  const issueGroups = useMemo(
+    () => githubIssueGroups(issues, issueTasks, repo ? `${repo.owner}/${repo.repo}` : null),
+    [issues, issueTasks, repo],
+  );
+  const issueCount = issueGroups.reduce((total, group) => total + group.rows.length, 0);
 
   // The panel only renders for the project being viewed, so the active project
   // is the one a linked task belongs to.
@@ -153,8 +175,9 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   );
 
   const promoteToTask = useCallback(async () => {
-    const number = useGithubStore.getState().activeNumber;
-    if (number == null) return;
+    const slot = usePanelStore.getState().open;
+    if (slot?.source !== 'github-pr') return;
+    const number = slot.number;
     const result = await window.api.github.taskFromPr(projectPath, number);
     if (!result.success || result.taskNumber == null) {
       useProjectStore.getState().addToast(result.error ?? 'Could not create the task', 'error');
@@ -190,8 +213,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   // milliseconds, too short to warrant a spinner.
   if (!availability) return <PanelFrame />;
 
-  const showing = view === 'detail' ? listView : view;
-  const error = showing === 'issues' ? issuesError : inboxError;
+  const error = listView === 'issues' ? issuesError : inboxError;
 
   return (
     <PanelFrame>
@@ -200,19 +222,27 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
           needsReview={inbox?.needsReview ?? []}
           mine={inbox?.mine ?? []}
           others={inbox?.others ?? []}
-          issues={issues}
           draftCounts={inbox?.draftCounts ?? {}}
           prTasks={prTasks}
-          issueTasks={issueTasks}
-          showing={showing === 'issues' ? 'issues' : 'pulls'}
-          activeNumber={activeNumber}
-          activeIssue={activeIssue}
-          loading={showing === 'issues' ? issuesLoading : inboxLoading}
-          onShow={(next) => useGithubStore.getState().setView(next === 'issues' ? 'issues' : 'inbox')}
+          showing={listView}
+          issueCount={issueCount}
+          activeNumber={open?.source === 'github-pr' ? open.number : null}
+          loading={listView === 'issues' ? issuesLoading : inboxLoading}
+          onShow={(next) => usePanelStore.getState().setListView(next)}
           onOpenPullRequest={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
-          onOpenIssue={(row) => void useGithubStore.getState().openIssue(projectPath, row.number)}
-          onCreateTaskFromIssue={(n) => void createTaskFromIssue(n)}
           onOpenTask={openLinkedTask}
+          issues={(query) => (
+            <IssueList
+              groups={issueGroups}
+              query={query}
+              open={open}
+              tasks={tasksByNumber}
+              loading={issuesLoading}
+              onOpen={(row) => void useGithubStore.getState().openIssue(projectPath, Number(row.key))}
+              onOpenTask={openLinkedTask}
+              onCreateTask={(row) => void createTaskFromIssue(Number(row.key))}
+            />
+          )}
           width={sidebarWidth}
         />
       )}
@@ -220,7 +250,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
       {!sidebarCollapsed && (
         <ResizeHandle
           width={sidebarWidth}
-          onWidth={(width) => useGithubStore.getState().setSidebarWidth(width)}
+          onWidth={(width) => usePanelStore.getState().setSidebarWidth(width)}
           min={SIDEBAR_MIN_WIDTH}
           max={SIDEBAR_MAX_WIDTH}
           defaultWidth={SIDEBAR_DEFAULT_WIDTH}
@@ -236,7 +266,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
           <div className="pane-ledge relative z-30 shrink-0 h-12 flex items-center px-3">
             <SidebarToggle
               collapsed={sidebarCollapsed}
-              onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}
+              onCollapsedChange={(collapsed) => usePanelStore.getState().setSidebarCollapsed(collapsed)}
               hideLabel="Hide the list"
               showLabel="Show the list"
               className="-ml-1"
@@ -266,7 +296,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
             </button>
           </Centred>
         ) : issue ? (
-          <IssueDetailView
+          <GithubIssueView
             projectPath={projectPath}
             issue={issue}
             linkedTask={linkedIssueTask}
@@ -302,6 +332,35 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
       </div>
     </PanelFrame>
   );
+}
+
+/**
+ * GitHub's contribution to the Issues list: yours, then the repo's. The service
+ * has already taken yours out of the repo list, so nothing appears twice.
+ */
+function githubIssueGroups(
+  issues: ReturnType<typeof useGithubStore.getState>['issues'],
+  tasks: Record<number, TaskWithWorkspace>,
+  slug: string | null,
+): IssueGroup[] {
+  if (!issues) return [];
+  const row = (issue: GithubIssue): IssueRow => ({
+    source: 'github',
+    key: String(issue.number),
+    identifier: `#${issue.number}`,
+    title: issue.title,
+    updatedAt: issue.updatedAt,
+    author: issue.author,
+    authorAvatarUrl: issue.authorAvatarUrl,
+    icon: 'circle-dashed',
+    tone: 'text-vcs-added',
+    ...(tasks[issue.number] ? { taskNumber: tasks[issue.number].taskNumber } : {}),
+  });
+
+  return [
+    { label: 'Assigned to you', rows: issues.assigned.map(row), capped: issues.assignedCapped },
+    { label: slug ? `Open on ${slug}` : 'Open', rows: issues.open.map(row), capped: issues.openCapped },
+  ];
 }
 
 function Centred({ children }: { children: ReactNode }) {
