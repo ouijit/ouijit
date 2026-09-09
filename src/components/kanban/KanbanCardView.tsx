@@ -30,7 +30,6 @@ export interface KanbanCardViewProps {
   isInvalidBadgeTarget?: boolean;
   showBadge?: boolean;
   badge?: ReactNode;
-  /** Linked pull request chip, rendered beside the task badge. */
   /** Linked pull request and issue chips, from whichever trackers are on. */
   trackerBadges?: ReactNode;
   formattedDate?: string;
