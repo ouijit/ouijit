@@ -7,6 +7,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } 
 import { CSS } from '@dnd-kit/utilities';
 import { ScriptRowView } from './ScriptRowView';
 import { Checkbox } from '../ui/Checkbox';
+import { scriptFromDraft } from './scriptFromDraft';
 
 interface ScriptListProps {
   projectPath: string;
@@ -46,12 +47,11 @@ export function ScriptList({ projectPath, bare }: ScriptListProps) {
 
   const handleSave = useCallback(
     async (script: Script) => {
-      await window.api.scripts.save(projectPath, script);
-      reload();
+      if (!(await useProjectStore.getState().saveScript(projectPath, script))) return;
       setExpandedId(null);
       setAddingNew(false);
     },
-    [projectPath, reload],
+    [projectPath],
   );
 
   const handleDelete = useCallback(
@@ -198,32 +198,20 @@ function ScriptForm({
     }
   }, [initial]);
 
-  const handleSubmit = useCallback(() => {
-    const trimmedName = name.trim();
-    const trimmedCommand = command.trim();
-    if (!trimmedName || !trimmedCommand) return;
-    onSave({
-      id: initial?.id ?? crypto.randomUUID(),
-      name: trimmedName,
-      command: trimmedCommand,
-      sortOrder: initial?.sortOrder ?? 0,
-      restartIfRunning,
-    });
-  }, [name, command, restartIfRunning, initial, onSave]);
+  const draft = scriptFromDraft({ name, command, restartIfRunning }, initial);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        handleSubmit();
-      }
-      if (e.key === 'Escape') {
-        onCancel();
-      }
-    },
-    [handleSubmit, onCancel],
-  );
+  const handleSubmit = () => {
+    if (draft) onSave(draft);
+  };
 
-  const isValid = name.trim() && command.trim();
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      handleSubmit();
+    }
+    if (e.key === 'Escape') {
+      onCancel();
+    }
+  };
 
   return (
     <div className="px-4 py-3 space-y-3" onClick={(e) => e.stopPropagation()}>
@@ -272,9 +260,9 @@ function ScriptForm({
         </button>
         <button
           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 ${
-            isValid ? 'text-accent-ink bg-accent hover:bg-accent-hover' : 'text-text-tertiary bg-background-tertiary'
+            draft ? 'text-accent-ink bg-accent hover:bg-accent-hover' : 'text-text-tertiary bg-background-tertiary'
           }`}
-          disabled={!isValid}
+          disabled={!draft}
           onClick={handleSubmit}
         >
           Save

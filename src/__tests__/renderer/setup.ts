@@ -5,6 +5,7 @@
 import { vi, afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import { resetFrecencyForTests } from '../../utils/paletteFrecency';
+import type { Script } from '../../types';
 
 /**
  * Importing the renderer logger under jsdom hangs — no error, no timeout, it
@@ -129,7 +130,7 @@ const mockApi = {
   },
   scripts: {
     getAll: vi.fn().mockResolvedValue([]),
-    save: vi.fn().mockResolvedValue({ success: true }),
+    save: vi.fn((_projectPath: string, script: Script) => Promise.resolve({ success: true, script })),
     delete: vi.fn().mockResolvedValue({ success: true }),
     reorder: vi.fn().mockResolvedValue({ success: true }),
   },

@@ -1,22 +1,22 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { Script } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 import { DialogOverlay } from './DialogOverlay';
+import { DIALOG_INPUT_CLASS, DIALOG_MONO_INPUT_CLASS } from './dialogStyles';
 import { Checkbox } from '../ui/Checkbox';
+import { scriptFromDraft } from '../scripts/scriptFromDraft';
 
 interface ScriptConfigDialogProps {
   projectPath: string;
   onClose: (script: Script | null) => void;
 }
 
-const INPUT_CLASS =
-  'w-full px-3 py-2 text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none focus:border-accent focus:ring-3 focus:ring-accent-light placeholder:text-text-tertiary';
-
 export function ScriptConfigDialog({ projectPath, onClose }: ScriptConfigDialogProps) {
   const [name, setName] = useState('');
   const [command, setCommand] = useState('');
   const [restartIfRunning, setRestartIfRunning] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -24,35 +24,23 @@ export function ScriptConfigDialog({ projectPath, onClose }: ScriptConfigDialogP
     nameRef.current?.focus();
   }, []);
 
-  const dismiss = useCallback(
-    (script: Script | null) => {
-      setVisible(false);
-      setTimeout(() => onClose(script), 200);
-    },
-    [onClose],
-  );
+  const draft = scriptFromDraft({ name, command, restartIfRunning });
 
-  const isValid = name.trim() !== '' && command.trim() !== '';
+  const dismiss = (script: Script | null) => {
+    setVisible(false);
+    setTimeout(() => onClose(script), 200);
+  };
 
-  const handleSave = useCallback(async () => {
-    if (!isValid) return;
-    const result = await window.api.scripts.save(projectPath, {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      command: command.trim(),
-      sortOrder: 0,
-      restartIfRunning,
-    });
-    if (!result.success || !result.script) {
-      useProjectStore.getState().addToast('Failed to save script', 'error');
-      return;
-    }
-    await useProjectStore.getState().loadScripts(projectPath);
-    dismiss(result.script);
-  }, [isValid, projectPath, name, command, restartIfRunning, dismiss]);
+  const handleSave = async () => {
+    if (!draft || saving) return;
+    setSaving(true);
+    const saved = await useProjectStore.getState().saveScript(projectPath, draft);
+    if (saved) dismiss(saved);
+    else setSaving(false);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') void handleSave();
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) void handleSave();
   };
 
   return (
@@ -67,7 +55,7 @@ export function ScriptConfigDialog({ projectPath, onClose }: ScriptConfigDialogP
           <input
             ref={nameRef}
             id="script-name"
-            className={INPUT_CLASS}
+            className={DIALOG_INPUT_CLASS}
             placeholder="Test"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -80,7 +68,7 @@ export function ScriptConfigDialog({ projectPath, onClose }: ScriptConfigDialogP
           </label>
           <input
             id="script-command"
-            className={`${INPUT_CLASS} font-mono`}
+            className={DIALOG_MONO_INPUT_CLASS}
             placeholder="npm test"
             value={command}
             onChange={(e) => setCommand(e.target.value)}
@@ -98,7 +86,7 @@ export function ScriptConfigDialog({ projectPath, onClose }: ScriptConfigDialogP
         <button className="btn-secondary" onClick={() => dismiss(null)}>
           Cancel
         </button>
-        <button className="btn-primary" disabled={!isValid} onClick={() => void handleSave()}>
+        <button className="btn-primary" disabled={!draft || saving} onClick={() => void handleSave()}>
           Save
         </button>
       </div>
