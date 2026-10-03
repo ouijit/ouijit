@@ -561,26 +561,26 @@ const CODEX_STATUS_HOOKS: ReadonlyArray<readonly [event: string, status: 'thinki
   ['Stop', 'ready', 'stop'],
 ];
 
-function codexHookCommand(hookPath: string, status: 'thinking' | 'ready'): string {
-  return `${hookPath} status status=${status}`;
+function codexHookCommand(status: 'thinking' | 'ready'): string {
+  return `${CODEX_OUIJIT_HOOK} status status=${status}`;
 }
 
 /** TOML array-of-one-inline-table value for a single Codex `hooks.<Event>` entry (one command hook). */
-function codexHookEventValue(hookPath: string, status: 'thinking' | 'ready'): string {
-  return `[{hooks=[{type="command",command="${codexHookCommand(hookPath, status)}"}]}]`;
+function codexHookEventValue(status: 'thinking' | 'ready'): string {
+  return `[{hooks=[{type="command",command="${codexHookCommand(status)}"}]}]`;
 }
 
 /** TOML/JSON array value for Codex's `notify` config — a shell wrapper that ignores the trailing payload arg. */
-function codexNotifyValue(hookPath: string): string {
-  return JSON.stringify(['bash', '-c', codexHookCommand(hookPath, 'ready')]);
+function codexNotifyValue(): string {
+  return JSON.stringify(['bash', '-c', codexHookCommand('ready')]);
 }
 
 /**
  * Build the persisted hook key Codex uses for a single command hook in our
  * single-group/single-handler layout: `<source>:<event_snake>:0:0`.
  */
-function codexHookStateKey(source: string, eventSnake: string): string {
-  return `${source}:${eventSnake}:0:0`;
+function codexHookStateKey(eventSnake: string): string {
+  return `${CODEX_SESSION_FLAGS_PATH}:${eventSnake}:0:0`;
 }
 
 /**
@@ -635,15 +635,15 @@ export const CODEX_WRAPPER = [
   'exec "$REAL_BIN" \\',
   '  -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" \\',
   ...CODEX_STATUS_HOOKS.flatMap(([event, status, eventSnake]) => {
-    const cmd = codexHookCommand(CODEX_OUIJIT_HOOK, status);
-    const stateKey = codexHookStateKey(CODEX_SESSION_FLAGS_PATH, eventSnake);
+    const cmd = codexHookCommand(status);
+    const stateKey = codexHookStateKey(eventSnake);
     const hash = codexHookTrustHash(eventSnake, cmd);
     return [
-      `  -c 'hooks.${event}=${codexHookEventValue(CODEX_OUIJIT_HOOK, status)}' \\`,
+      `  -c 'hooks.${event}=${codexHookEventValue(status)}' \\`,
       `  -c 'hooks.state."${stateKey}".trusted_hash="${hash}"' \\`,
     ];
   }),
-  `  -c 'notify=${codexNotifyValue(CODEX_OUIJIT_HOOK)}' \\`,
+  `  -c 'notify=${codexNotifyValue()}' \\`,
   '  "$@"',
   '',
 ].join('\n');
@@ -651,9 +651,8 @@ export const CODEX_WRAPPER = [
 // ── Pi wrapper ───────────────────────────────────────────────────────
 // Pi exposes lifecycle events only to TypeScript extensions, not as
 // shell-command hooks. We ship a tiny extension and load it via
-// `pi --extension <path>`; the same source auto-discovers in the sandbox
-// VM. OUIJIT_HOOK_BIN (set by the wrapper / VM init) carries the path to
-// ouijit-hook so the extension source is identical in both contexts.
+// `pi --extension <path>`. OUIJIT_HOOK_BIN (set by the wrapper) carries the
+// path to ouijit-hook, so the extension source never hardcodes one.
 
 export function getPiExtensionPath(): string {
   return path.join(os.homedir(), '.config', 'Ouijit', 'pi', 'ouijit-extension.ts');

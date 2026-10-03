@@ -282,7 +282,7 @@ async function runTransition(
       const tDialog = performance.now();
       hookPromise = useProjectStore
         .getState()
-        .requestRunHook({ projectPath, hookType, hook, task })
+        .requestRunHook({ hookType, hook, task })
         .then((res) => {
           taskStartLog.info('hook dialog closed', {
             taskNumber,

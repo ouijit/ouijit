@@ -73,7 +73,7 @@ export async function prepareProjectsFolderChange(
 export interface ApplyProjectsFolderChangeOptions {
   /** Paths of projects with running terminal sessions; these refuse to move. */
   activeProjectPaths: Set<string>;
-  /** Unregisters one project, including any per-project cleanup (sandbox VM, config). */
+  /** Unregisters one project, including any per-project cleanup. */
   removeProject: (projectPath: string) => Promise<void>;
 }
 

@@ -40,8 +40,8 @@ export const nonoProvider: SandboxProvider = {
   },
 
   cleanup(): void {
-    // nono spawns are plain host PTYs owned by ptyManager; nothing VM-like to
-    // tear down on quit.
+    // nono spawns are plain host PTYs owned by ptyManager; nothing of its own
+    // to tear down on quit.
   },
 
   async prepare(ctx: SandboxSpawnContext): Promise<{ cwd: string; env?: Record<string, string> }> {

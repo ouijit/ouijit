@@ -110,9 +110,7 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
   } else if (!hookControl) {
     const hooks = await window.api.hooks.get(projectPath);
     if (hooks.done) {
-      const result = await useProjectStore
-        .getState()
-        .requestRunHook({ projectPath, hookType: 'done', hook: hooks.done, task });
+      const result = await useProjectStore.getState().requestRunHook({ hookType: 'done', hook: hooks.done, task });
       if (result) {
         effectiveCommand = result.command;
         foreground = result.foreground;

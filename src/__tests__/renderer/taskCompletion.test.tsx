@@ -141,7 +141,7 @@ describe('completeTask', () => {
 
     await completeTask({ projectPath: PROJECT, task: makeTask() });
 
-    expect(promptSpy).toHaveBeenCalledWith(expect.objectContaining({ projectPath: PROJECT, hookType: 'done' }));
+    expect(promptSpy).toHaveBeenCalledWith(expect.objectContaining({ hookType: 'done' }));
     expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'echo configured' });
     expect(window.api.task.setStatus).toHaveBeenCalledWith(PROJECT, 7, 'done');
   });

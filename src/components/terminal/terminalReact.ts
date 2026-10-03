@@ -12,7 +12,6 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
 import type { PtyId, PtySpawnOptions, GitFileStatus, SandboxProviderId } from '../../types';
-import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -401,9 +400,6 @@ export class OuijitTerminal {
 
   // ── Task/worktree metadata ──────────────────────────────────────────
   readonly sandboxProvider: SandboxProviderId | undefined;
-  get sandboxed(): boolean {
-    return isActiveSandbox(this.sandboxProvider);
-  }
   readonly taskId: number | null;
   readonly taskPrompt?: string;
   worktreePath?: string;
@@ -562,7 +558,7 @@ export class OuijitTerminal {
   ): void {
     if (this.disposed) return;
     // Sandbox terminals register under a placeholder ptyId before the
-    // real one is known (so the loading card can render while the VM
+    // real one is known (so the loading card can render while the sandbox
     // spawns). Re-key the registry and Zustand store to the real id so
     // downstream lookups — hook status updates, plan events, git-status
     // refresh — can find us.

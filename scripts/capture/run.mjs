@@ -313,7 +313,7 @@ function buildTerminalSeeds() {
       summaryType: 'thinking',
       worktreeBranch: 'cta-hover-states-121',
       worktreePath: path.join(worktreesPath, 'T-4'),
-      sandboxed: true,
+      sandboxProvider: 'nono',
       content: SANDBOX_SCREEN,
     },
   ];

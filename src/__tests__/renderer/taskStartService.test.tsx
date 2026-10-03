@@ -464,7 +464,6 @@ describe('projectStore runHook queue', () => {
   });
 
   const makeReq = (taskNumber: number) => ({
-    projectPath: PROJECT,
     hookType: 'start' as const,
     hook: { command: `cmd-${taskNumber}`, name: 'Start', source: 'configured' as const, priority: 0 },
     task: { taskNumber, name: `Task ${taskNumber}`, status: 'todo' as const, order: 0, createdAt: '' },

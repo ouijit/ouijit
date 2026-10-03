@@ -15,7 +15,6 @@ import { useAppStore } from './appStore';
 export type TerminalLayout = 'stack' | 'canvas';
 
 export interface RunHookInput {
-  projectPath: string;
   hookType: HookType;
   hook: ScriptHook;
   task: TaskWithWorkspace;

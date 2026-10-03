@@ -2,7 +2,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import type { SandboxProvider } from '../sandbox/provider';
 
 import * as apiAuth from '../apiAuth';
-import { spawnPty, getActiveSessions } from '../ptyManager';
+import { spawnPty, getActiveSessions, getPtyTaskContext, isPtyActive } from '../ptyManager';
 
 // Fake node-pty so no real process is spawned; capture spawn args and the
 // data/exit listeners so a test can play a launcher's output back.
@@ -97,9 +97,12 @@ describe('spawnPty wrapper seam', () => {
     // Sandbox-hosted shells get the restricted token scope.
     expect(issue).toHaveBeenCalledWith(expect.any(String), 'sandbox');
 
-    // The active session records which backend runs it.
+    // The active session records which backend runs it, and the pty resolves
+    // back to its task — what scopes a sandbox token's reach over the API.
     const session = getActiveSessions().find((s) => s.ptyId === result.ptyId);
     expect(session?.sandboxProvider).toBe('nono');
+    expect(isPtyActive(result.ptyId!)).toBe(true);
+    expect(getPtyTaskContext(result.ptyId!)).toEqual({ projectPath: '/proj', taskId: 3 });
 
     // nono is launch-watched like any wrapper: a refusal before the prompt is reported.
     fake.onExit!({ exitCode: 2 });
