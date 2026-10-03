@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from './terminalReact';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
+import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
 import type { RunnerScript } from '../../types';
 
 interface AddPanelMenuProps {
@@ -32,7 +33,14 @@ export function AddPanelMenu({
   // self-load. The store always reflects the active project's commands.
   const hasRunHook = useProjectStore((s) => !!s.configuredHooks.run);
   const scripts = useProjectStore((s) => s.scripts);
-  const [runHookDialog, setRunHookDialog] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(true);
+  const [dialog, setDialog] = useState<'run' | 'script' | null>(null);
+
+  // ContextMenu closes itself before running the picked item, so the menu
+  // closing must not end this component while that item opens a dialog.
+  useEffect(() => {
+    if (!menuOpen && !dialog) onClose();
+  }, [menuOpen, dialog, onClose]);
 
   const pickPlanFile = async () => {
     const inst = terminalInstances.get(ptyId);
@@ -45,34 +53,47 @@ export function AddPanelMenu({
 
   if (hasRunHook) {
     items.push({ label: 'Run', onClick: () => onAddRunner() });
+  } else {
+    items.push({ label: 'Configure run command…', onClick: () => setDialog('run') });
   }
   for (const script of scripts) {
     items.push({ label: script.name, onClick: () => onAddRunner(script) });
   }
-  if (!hasRunHook && scripts.length === 0) {
-    items.push({ label: 'Configure run command…', onClick: () => setRunHookDialog(true) });
-  }
+  items.push({ label: 'New script…', onClick: () => setDialog('script') });
 
   items.push({ separator: true });
   items.push({ label: 'Web Preview', icon: 'globe-simple', onClick: onAddWebPreview });
   items.push({ label: 'Markdown File', icon: 'file-text', onClick: () => void pickPlanFile() });
 
-  if (runHookDialog) {
+  if (dialog === 'run') {
     return (
       <HookConfigDialog
         projectPath={projectPath}
         hookType="run"
         onClose={(result) => {
-          setRunHookDialog(false);
           if (result?.saved && result.hook) {
             useProjectStore.getState().markHookConfigured('run');
             onAddRunner();
           }
-          onClose();
+          setDialog(null);
         }}
       />
     );
   }
 
-  return <ContextMenu x={x} y={y} items={items} onClose={onClose} />;
+  if (dialog === 'script') {
+    return (
+      <ScriptConfigDialog
+        projectPath={projectPath}
+        onClose={(script) => {
+          if (script) onAddRunner(script);
+          setDialog(null);
+        }}
+      />
+    );
+  }
+
+  if (!menuOpen) return null;
+
+  return <ContextMenu x={x} y={y} items={items} onClose={() => setMenuOpen(false)} />;
 }
