@@ -3,8 +3,8 @@ import type { SandboxProvider } from './provider';
 
 /**
  * Central registry of sandbox backends, populated by `registerSandboxProviders`
- * during main-process bootstrap — before any PTY spawn or worktree op can
- * resolve a backend out of it.
+ * during main-process bootstrap — before any PTY spawn can resolve a backend
+ * out of it.
  */
 const providers = new Map<SandboxBackendId, SandboxProvider>();
 

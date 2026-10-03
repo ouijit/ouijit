@@ -669,8 +669,7 @@ const routes: Route[] = [
 
   // ── Pull requests ─────────────────────────────────────────────────
   // Host-only (default scope): these shell out to `gh` on the host with the
-  // user's credentials. A sandboxed session must not be able to reach them,
-  // which is also why the guest env keeps its GITHUB_TOKEN stripped.
+  // user's credentials, which a sandboxed session must not be able to reach.
   route('GET', 'pulls', async (r) => {
     const project = requireProject(r.query);
     const availability = await getGithubAvailability(project);
