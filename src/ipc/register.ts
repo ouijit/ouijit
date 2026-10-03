@@ -20,6 +20,8 @@ import { registerDiffPanelHandlers } from './handlers/diffPanel';
 import { registerAnalysisHandlers } from './handlers/analysis';
 import { initCliPanels } from '../cliPanels';
 import { setLensAnnouncer } from '../lens/announce';
+import { removeLimaLeftovers } from '../services/limaLeftovers';
+import { getLogger } from '../logger';
 
 /**
  * Registers all IPC handlers for the main process.
@@ -52,6 +54,14 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerAnalysisHandlers();
   initCliPanels(mainWindow);
   setLensAnnouncer((change) => typedPush(mainWindow, 'lens:changed', change));
+
+  // Off the critical path: it walks every project's git, and nothing else in
+  // the app reads what it removes.
+  void removeLimaLeftovers().catch((error: unknown) => {
+    getLogger()
+      .scope('ipc')
+      .warn('Lima leftover cleanup failed', { error: error instanceof Error ? error.message : String(error) });
+  });
 }
 
 export function cleanupIpc(): void {
