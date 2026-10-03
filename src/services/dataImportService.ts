@@ -26,7 +26,6 @@ interface OldTaskMetadata {
   worktreePath?: string;
   mergeTarget?: string;
   prompt?: string;
-  sandboxed?: boolean;
   order?: number;
   readyToShip?: boolean;
 }

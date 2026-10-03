@@ -13,11 +13,6 @@ import {
   getApiPort,
   installWrapper,
   migrateFromSettingsHooks,
-  buildVmHookSettings,
-  buildVmCodexConfig,
-  buildVmCodexTrustState,
-  buildVmPiExtension,
-  buildVmOpencodePlugin,
   CLAUDE_WRAPPER,
   CODEX_WRAPPER,
   PI_WRAPPER,
@@ -332,7 +327,6 @@ describe('plan detection', () => {
 
     expect(fs.existsSync(path.join(binDir, 'ouijit-plan-hook'))).toBe(false);
     expect(fs.readFileSync(path.join(binDir, 'claude'), 'utf-8')).not.toContain('plan-hook');
-    expect(buildVmHookSettings()).not.toContain('plan-hook');
 
     // And an older hook script still calling in gets a silent 200.
     const port = getApiPort();
@@ -1095,8 +1089,6 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
   });
 });
 
-// ── buildVmHookSettings ──────────────────────────────────────────────
-
 // ── migrateFromSettingsHooks ──────────────────────────────────────────
 
 describe('migrateFromSettingsHooks', () => {
@@ -1202,81 +1194,6 @@ describe('migrateFromSettingsHooks', () => {
     const after = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as Record<string, unknown>;
     expect(after.hooks).toBeUndefined();
     expect(after.otherKey).toBe(42);
-  });
-});
-
-// ── buildVmHookSettings ──────────────────────────────────────────────
-
-describe('buildVmHookSettings', () => {
-  test('returns valid JSON', () => {
-    const json = buildVmHookSettings();
-    const settings = JSON.parse(json) as HookSettings;
-    expect(settings).toBeDefined();
-    expect(typeof settings).toBe('object');
-  });
-
-  test('contains expected hook events', () => {
-    const settings = JSON.parse(buildVmHookSettings()) as HookSettings;
-    expect(settings.hooks).toBeDefined();
-    expect(settings.hooks!.UserPromptSubmit).toHaveLength(1);
-    expect(settings.hooks!.PostToolUse).toHaveLength(1);
-    expect(settings.hooks!.Stop).toHaveLength(1);
-    expect(settings.hooks!.Notification).toHaveLength(1);
-    expect(settings.hooks!.Notification![0].matcher).toBe('permission_prompt|idle_prompt');
-  });
-
-  test('commands point to $HOME/ouijit-hook', () => {
-    const settings = JSON.parse(buildVmHookSettings()) as HookSettings;
-    for (const event of ['UserPromptSubmit', 'PostToolUse', 'Stop', 'Notification']) {
-      const cmd = settings.hooks![event][0].hooks[0].command;
-      expect(cmd).toContain('$HOME/ouijit-hook');
-      // Should NOT reference project dir or global config path
-      expect(cmd).not.toContain('CLAUDE_PROJECT_DIR');
-      expect(cmd).not.toContain('.config/Ouijit');
-    }
-  });
-});
-
-// ── buildVmCodexConfig ───────────────────────────────────────────────
-
-describe('buildVmCodexConfig', () => {
-  test('wires notify + the status hooks via $HOME/ouijit-hook and omits the CLI reference', () => {
-    const toml = buildVmCodexConfig();
-    expect(toml).toContain('notify = ["bash", "-c", "$HOME/ouijit-hook status status=ready"]');
-    expect(toml).toMatch(
-      /hooks\.UserPromptSubmit = \[\{hooks=\[\{type="command",command="\$HOME\/ouijit-hook status status=thinking"\}\]\}\]/,
-    );
-    expect(toml).toMatch(/hooks\.PostToolUse = .+status=thinking/);
-    expect(toml).toMatch(/hooks\.Stop = .+status=ready/);
-    // Exhaustive for the same reason as the wrapper: ready belongs to Stop alone.
-    expect(toml.match(/hooks\.\w+ =/g)).toEqual(['hooks.UserPromptSubmit =', 'hooks.PostToolUse =', 'hooks.Stop =']);
-    // Codex skips async hooks today ("async hooks are not supported yet")
-    expect(toml).not.toContain('async');
-    // Sandbox must not get the ouijit CLI reference (lateral-movement concern)
-    expect(toml).not.toContain('developer_instructions');
-    expect(toml).not.toContain('.config/Ouijit');
-  });
-
-  test('the embedded notify array is valid JSON', () => {
-    const match = buildVmCodexConfig().match(/notify = (\[.+\])/);
-    expect(match).not.toBeNull();
-    const notify = JSON.parse(match![1]) as string[];
-    expect(notify).toEqual(['bash', '-c', '$HOME/ouijit-hook status status=ready']);
-  });
-});
-
-// ── buildVmCodexTrustState ───────────────────────────────────────────
-
-describe('buildVmCodexTrustState', () => {
-  test('emits a trusted_hash line per event keyed off the VM config path with $HOME literal', () => {
-    const toml = buildVmCodexTrustState();
-    // $HOME stays literal — the unquoted heredoc in lima/spawn expands it at write time.
-    const trusted = [
-      ...toml.matchAll(
-        /hooks\.state\."\$HOME\/\.codex\/config\.toml:(\w+):0:0"\.trusted_hash = "sha256:[0-9a-f]{64}"/g,
-      ),
-    ];
-    expect(trusted.map(([, event]) => event)).toEqual(['user_prompt_submit', 'post_tool_use', 'stop']);
   });
 });
 
@@ -1460,21 +1377,6 @@ function compilePiExtension(src: string): (pi: unknown) => Promise<void> {
   new Function('exports', 'module', 'process', transpiled)(moduleExports.exports, moduleExports, process);
   return moduleExports.exports.default as (pi: unknown) => Promise<void>;
 }
-
-// ── buildVmPiExtension ───────────────────────────────────────────────
-
-describe('buildVmPiExtension', () => {
-  test('matches the host-side extension exactly', () => {
-    expect(buildVmPiExtension()).toBe(PI_EXTENSION);
-  });
-
-  test('omits any reference to the host-only CLI reference file', () => {
-    // Lateral-movement: agent in sandbox must not get the CLI.
-    const ext = buildVmPiExtension();
-    expect(ext).not.toContain('ouijit-cli-reference');
-    expect(ext).not.toContain('.config/Ouijit');
-  });
-});
 
 // ── OPENCODE_WRAPPER constant ────────────────────────────────────────
 
@@ -1685,18 +1587,3 @@ function compileOpencodePlugin(src: string): (ctx: { $: FakeShell }) => Promise<
   new Function('exports', 'module', 'process', transpiled)(moduleExports.exports, moduleExports, process);
   return moduleExports.exports.OuijitStatusPlugin as (ctx: { $: FakeShell }) => Promise<OpencodeEventHandlers>;
 }
-
-// ── buildVmOpencodePlugin ────────────────────────────────────────────
-
-describe('buildVmOpencodePlugin', () => {
-  test('matches the host-side plugin exactly', () => {
-    expect(buildVmOpencodePlugin()).toBe(OPENCODE_PLUGIN);
-  });
-
-  test('omits any reference to the host-only CLI reference file', () => {
-    // Lateral-movement: agent in sandbox must not get the CLI.
-    const plugin = buildVmOpencodePlugin();
-    expect(plugin).not.toContain('ouijit-cli-reference');
-    expect(plugin).not.toContain('.config/Ouijit');
-  });
-});

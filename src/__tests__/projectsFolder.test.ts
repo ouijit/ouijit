@@ -12,7 +12,6 @@ import {
   PROJECTS_FOLDER_KEY,
 } from '../projectsFolder';
 import { createProject } from '../projectCreator';
-import { writeUserConfig, configExists } from '../lima/configStore';
 import {
   addProject,
   getAllProjects,
@@ -131,20 +130,6 @@ describe('moveProjects', () => {
     expect(await getGlobalSetting(`experimental:${newPath}`)).toBe('{"flags":1}');
     expect(await getGlobalSetting(`canvas:${projectPath}`)).toBeUndefined();
     expect(await getGlobalSetting(`worktree:${projectPath}`)).toBeUndefined();
-  });
-
-  test('migrates the sandbox config file with the project', async () => {
-    const oldFolder = path.join(scratchDir, 'old');
-    const newFolder = path.join(scratchDir, 'new');
-    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
-    await addProject(projectPath);
-    await writeUserConfig(projectPath, 'cpus: 4\n');
-
-    await moveProjects([projectPath], newFolder);
-
-    const newPath = path.join(newFolder, 'my-app');
-    expect(await configExists(newPath)).toBe(true);
-    expect(await configExists(projectPath)).toBe(false);
   });
 
   test('rejects a new folder nested inside a project being moved, without creating it', async () => {

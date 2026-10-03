@@ -17,7 +17,7 @@ import { previewTheme } from '../theme/themeManager';
 import { isThemePreference } from '../theme/themes';
 import { OuijitTerminal, terminalInstances } from '../components/terminal/terminalReact';
 import { SNAPSHOT_KEY, suspendSnapshotSaves } from '../components/terminal/sessionSnapshot';
-import { legacySandboxProvider, type LastSessionSnapshot, type SnapshotTerminal } from '../types';
+import type { LastSessionSnapshot, SnapshotTerminal } from '../types';
 import type { CaptureNavigatePayload, CaptureTerminalSeed } from './types';
 
 const captureLog = log.scope('capture');
@@ -32,14 +32,14 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     label: seed.label,
     summaryType: seed.summaryType ?? 'ready',
     worktreeBranch: seed.worktreeBranch ?? null,
-    sandboxProvider: legacySandboxProvider(seed.sandboxed),
+    sandboxProvider: seed.sandboxProvider,
   });
 
   const term = new OuijitTerminal({
     projectPath,
     label: seed.label,
     taskId: seed.taskId,
-    sandboxProvider: legacySandboxProvider(seed.sandboxed),
+    sandboxProvider: seed.sandboxProvider,
     worktreeBranch: seed.worktreeBranch,
     worktreePath: seed.worktreePath,
     ptyId: seed.ptyId,

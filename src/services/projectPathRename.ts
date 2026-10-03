@@ -1,16 +1,14 @@
 /**
  * A project's path is its identity: the per-project database tables,
- * path-prefixed global settings, the Lima sandbox config, and git worktree
- * links are all keyed by it. Every subsystem that stores state under the
- * path migrates here, in one place, so a rename can't silently strand part
- * of a project's state. New path-keyed state must add its migration step
- * to this function.
+ * path-prefixed global settings, and git worktree links are all keyed by it.
+ * Every subsystem that stores state under the path migrates here, in one
+ * place, so a rename can't silently strand part of a project's state. New
+ * path-keyed state must add its migration step to this function.
  */
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { updateProjectPath } from '../db';
-import { renameConfig } from '../lima/configStore';
 import { getLogger } from '../logger';
 
 const execFileAsync = promisify(execFile);
@@ -24,9 +22,6 @@ const renameLog = getLogger().scope('projectPathRename');
 export async function renameProjectPath(oldPath: string, newPath: string): Promise<void> {
   // Database rows and path-keyed global settings, in one transaction.
   await updateProjectPath(oldPath, newPath);
-
-  // Lima sandbox config files are named by a hash of the project path.
-  await renameConfig(oldPath, newPath);
 
   // Linked worktrees' .git files point at the main repo's old location.
   try {

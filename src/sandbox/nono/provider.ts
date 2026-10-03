@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { getOuijitDir, getCliPath } from '../../paths';
 import { getLogger } from '../../logger';
-import type { WrapperSandboxProvider } from '../provider';
+import type { SandboxProvider } from '../provider';
 import type { SandboxLaunch, SandboxProviderStatus, SandboxSpawnContext } from '../types';
 import { getNonoPath, getVendoredNonoPath, isNonoInstalled, checkPlatformSupport } from './binary';
 import { getMainGitDir } from '../gitDir';
@@ -23,22 +23,12 @@ async function checkAvailability(): Promise<{ ready: boolean; detail?: string }>
 }
 
 /**
- * nono as a `SandboxProvider`. Unlike Lima it owns no session: it is a pure
- * argv wrapper, so its PTYs flow through the host `ptyManager` and reuse all of
- * its session machinery. All grants are derived from the task's worktree at
- * spawn time (kernel deny-by-default on Seatbelt / Landlock).
+ * nono as a `SandboxProvider`. All grants are derived from the task's worktree
+ * at spawn time (kernel deny-by-default on Seatbelt / Landlock).
  */
-export const nonoProvider: WrapperSandboxProvider = {
-  kind: 'wrapper',
+export const nonoProvider: SandboxProvider = {
   id: 'nono',
   displayName: 'nono',
-  capabilities: {
-    vmLifecycle: false,
-    yamlConfig: false,
-    sandboxView: false,
-    profiles: true,
-    network: true,
-  },
 
   async isAvailable(): Promise<boolean> {
     return (await checkAvailability()).ready;

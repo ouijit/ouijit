@@ -32,90 +32,52 @@ vi.mock('../ptyManager', () => ({
 }));
 
 const getSandboxProvider = vi.fn();
-const findSessionOwner = vi.fn();
-const listSessionOwners = vi.fn();
 vi.mock('../sandbox', () => ({
   getSandboxProvider: (id: unknown) => getSandboxProvider(id),
-  findSessionOwner: (id: unknown) => findSessionOwner(id),
-  listSessionOwners: () => listSessionOwners(),
 }));
 
 const window = {} as unknown as Electron.BrowserWindow;
-
-function makeSessionOwner() {
-  return {
-    kind: 'session-owner' as const,
-    spawnPty: vi.fn(async () => ({ success: true, ptyId: 'pty-sandbox-1' })),
-    ownsPty: (id: string) => id.startsWith('pty-sandbox'),
-    writePty: vi.fn(),
-    resizePty: vi.fn(),
-    killPty: vi.fn(),
-    setPtyLabel: vi.fn(),
-    reconnectPty: vi.fn(() => ({ success: true, bufferedOutput: 'sb' })),
-    getActiveSessions: vi.fn(() => [{ ptyId: 'pty-sandbox-1', projectPath: '/p', command: '', label: 'sb' }]),
-  };
-}
 
 beforeEach(() => {
   vi.clearAllMocks();
   handlers.clear();
   getSandboxProvider.mockReturnValue(undefined);
-  findSessionOwner.mockReturnValue(undefined);
-  listSessionOwners.mockReturnValue([]);
   registerPtyHandlers(window);
 });
 
 describe('pty provider dispatch', () => {
-  test('no provider → host spawnPty (2 args, no wrapper)', async () => {
+  test('no provider → host spawnPty with no wrapper', async () => {
     const result = await handlers.get('pty:spawn')!({ cwd: '/p' });
     expect(result).toEqual({ success: true, ptyId: 'pty-host' });
-    expect(hostSpawn).toHaveBeenCalledTimes(1);
-    expect(hostSpawn.mock.calls[0]).toHaveLength(2); // options, window — no wrapper
+    expect(hostSpawn).toHaveBeenCalledWith({ cwd: '/p' }, window, undefined);
   });
 
-  test('session-owner provider takes full custody of the spawn', async () => {
-    const owner = makeSessionOwner();
-    getSandboxProvider.mockReturnValue(owner);
-    const options = { cwd: '/p', sandboxProvider: 'lima' };
-
-    const result = await handlers.get('pty:spawn')!(options);
-    expect(owner.spawnPty).toHaveBeenCalledWith(options, window);
-    expect(hostSpawn).not.toHaveBeenCalled();
-    expect(result).toEqual({ success: true, ptyId: 'pty-sandbox-1' });
-  });
-
-  test('wrapper provider flows through host spawnPty with itself as the wrapper arg', async () => {
-    const wrapper = { kind: 'wrapper' as const };
-    getSandboxProvider.mockReturnValue(wrapper);
+  test('a sandbox backend flows through host spawnPty as the wrapper arg', async () => {
+    const provider = { id: 'nono' };
+    getSandboxProvider.mockReturnValue(provider);
     const options = { cwd: '/p', sandboxProvider: 'nono' };
 
     await handlers.get('pty:spawn')!(options);
-    expect(hostSpawn).toHaveBeenCalledWith(options, window, wrapper);
+    expect(hostSpawn).toHaveBeenCalledWith(options, window, provider);
   });
 
-  test('per-ptyId ops route to the owning session-owner, else the host', () => {
-    const owner = makeSessionOwner();
-    findSessionOwner.mockImplementation((id: string) => (id.startsWith('pty-sandbox') ? owner : undefined));
+  test('per-ptyId ops and active sessions go to the host pty manager', () => {
+    handlers.get('pty:write')!('pty-host', 'x');
+    expect(writeToPty).toHaveBeenCalledWith('pty-host', 'x');
 
-    handlers.get('pty:write')!('pty-sandbox-1', 'x');
-    expect(owner.writePty).toHaveBeenCalledWith('pty-sandbox-1', 'x');
-    expect(writeToPty).not.toHaveBeenCalled();
+    handlers.get('pty:resize')!('pty-host', 80, 24);
+    expect(resizePty).toHaveBeenCalledWith('pty-host', 80, 24);
 
-    handlers.get('pty:write')!('pty-host', 'y');
-    expect(writeToPty).toHaveBeenCalledWith('pty-host', 'y');
+    handlers.get('pty:kill')!('pty-host');
+    expect(killPty).toHaveBeenCalledWith('pty-host');
 
-    handlers.get('pty:kill')!('pty-sandbox-1');
-    expect(owner.killPty).toHaveBeenCalledWith('pty-sandbox-1');
+    handlers.get('pty:set-label')!('pty-host', 'renamed');
+    expect(setPtyLabel).toHaveBeenCalledWith('pty-host', 'renamed');
 
-    handlers.get('pty:reconnect')!('pty-sandbox-1');
-    expect(owner.reconnectPty).toHaveBeenCalledWith('pty-sandbox-1', window);
-  });
-
-  test('get-active-sessions merges host sessions with every session-owner', () => {
-    const owner = makeSessionOwner();
-    listSessionOwners.mockReturnValue([owner]);
+    handlers.get('pty:reconnect')!('pty-host');
+    expect(hostReconnect).toHaveBeenCalledWith('pty-host', window);
 
     const sessions = handlers.get('pty:get-active-sessions')!() as Array<{ ptyId: string }>;
-    expect(sessions.map((s) => s.ptyId)).toEqual(['pty-host', 'pty-sandbox-1']);
+    expect(sessions.map((s) => s.ptyId)).toEqual(['pty-host']);
   });
 });

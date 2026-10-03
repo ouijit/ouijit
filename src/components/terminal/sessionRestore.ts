@@ -10,7 +10,6 @@ import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { addProjectTerminal } from './terminalActions';
 import { suspendSnapshotSaves, resumeSnapshotSaves } from './sessionSnapshot';
-import { legacySandboxProvider } from '../../types';
 import type { LastSessionSnapshot, Project, SnapshotTerminal, TaskStatus } from '../../types';
 
 const restoreLog = log.scope('sessionRestore');
@@ -98,9 +97,7 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
       for (const entry of projectEntries) {
         const source = entry.source;
         try {
-          // Prefer the persisted provider; fall back to the legacy boolean
-          // (pre-provider snapshots) which was always Lima.
-          const restoredProvider = source.sandboxProvider ?? legacySandboxProvider(source.sandboxed);
+          const restoredProvider = source.sandboxProvider;
           await addProjectTerminal(projectPath, undefined, {
             existingWorktree: source.worktreePath
               ? {

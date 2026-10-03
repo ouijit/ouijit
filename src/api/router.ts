@@ -199,8 +199,7 @@ interface Route {
   mutating: boolean;
   /**
    * Minimum scope required to hit this route. Defaults to 'host' so
-   * sandbox-scoped callers (anything reaching us from inside a guest VM
-   * via host.lima.internal) cannot hit privileged endpoints by default.
+   * sandbox-scoped callers cannot hit privileged endpoints by default.
    */
   minScope: ApiScope;
 }
@@ -829,9 +828,8 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
   const apiPath = url.pathname.replace(/^\/api\//, '');
   const segments = apiPath.split('/').filter(Boolean);
 
-  // Every route requires a valid per-PTY bearer token. Sandboxed VMs
-  // reach us via host.lima.internal — we can't rely on loopback
-  // reachability as a security boundary.
+  // Every route requires a valid per-PTY bearer token. Sandboxed shells run
+  // on the host, so loopback reachability is not a security boundary.
   const auth = authenticateRequest(req.headers['authorization']);
   if (!auth) {
     json(res, 401, { error: 'Unauthorized' });

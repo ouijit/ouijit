@@ -98,22 +98,9 @@ const config: ForgeConfig = {
             );
           }
 
-          // 4. Copy limactl binary
-          const stagedLimactl = staging ? path.join(staging, 'bin', 'limactl') : null;
-          const limactlSrc = stagedLimactl && fs.existsSync(stagedLimactl)
-            ? stagedLimactl
-            : path.join(__dirname, 'resources', 'bin', 'limactl');
-          if (fs.existsSync(limactlSrc)) {
-            const binDest = path.join(buildPath, '..', 'bin');
-            fs.mkdirSync(binDest, { recursive: true });
-            fs.copyFileSync(limactlSrc, path.join(binDest, 'limactl'));
-            fs.chmodSync(path.join(binDest, 'limactl'), 0o755);
-            console.log(`Copied limactl from ${limactlSrc}`);
-          }
-
-          // 4b. Copy nono binary (vendored by download-nono.sh / build-linux.sh,
-          // same as limactl). The existsSync guard keeps a build working if the
-          // download step was skipped — the backend then resolves nono from PATH.
+          // 4. Copy nono binary (vendored by download-nono.sh / build-linux.sh).
+          // The existsSync guard keeps a build working if the download step was
+          // skipped — the backend then resolves nono from PATH.
           const stagedNono = staging ? path.join(staging, 'bin', 'nono') : null;
           const nonoSrc = stagedNono && fs.existsSync(stagedNono)
             ? stagedNono
@@ -126,18 +113,7 @@ const config: ForgeConfig = {
             console.log(`Copied nono from ${nonoSrc}`);
           }
 
-          // 5. Copy Lima guest agent binaries
-          const stagedAgents = staging ? path.join(staging, 'share', 'lima') : null;
-          const guestAgentSrc = stagedAgents && fs.existsSync(stagedAgents)
-            ? stagedAgents
-            : path.join(__dirname, 'resources', 'share', 'lima');
-          if (fs.existsSync(guestAgentSrc)) {
-            const shareDest = path.join(buildPath, '..', 'share', 'lima');
-            copyRecursive(guestAgentSrc, shareDest);
-            console.log(`Copied Lima guest agents from ${guestAgentSrc}`);
-          }
-
-          // 5b. Copy vendored nono agent packs and their lockfile
+          // 5. Copy vendored nono agent packs and their lockfile
           // (platform-independent JSON the union profile inherits) so the
           // first sandboxed launch needs no network. Same staged-else-resources
           // resolution as the binaries.

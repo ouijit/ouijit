@@ -1,9 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { createTask } from '../db';
-import { registerSandboxProvider, _resetSandboxRegistryForTesting } from '../sandbox/registry';
-import type { SessionOwnerSandboxProvider } from '../sandbox/provider';
 
-import { createTaskWorktree, recoverTaskWorktree, removeTaskWorktree } from '../worktree';
+import { createTaskWorktree, recoverTaskWorktree } from '../worktree';
 import { beginTask } from '../taskLifecycle';
 import { exec as execMockedRaw } from 'node:child_process';
 
@@ -52,30 +50,6 @@ vi.mock('koffi', () => ({
 
 const execMocked = vi.mocked(execMockedRaw);
 
-// removeTaskWorktree routes per-task cleanup through every registered provider's
-// cleanupTaskResources (Lima's stopSandboxView) — the backend is a per-terminal
-// choice, not stored on the task, so cleanup asks each provider. Register a fake
-// Lima provider whose cleanup is a spy to keep the real Lima/node-pty graph out.
-const cleanupTaskResources = vi.fn(async () => undefined);
-const fakeLima = {
-  kind: 'session-owner',
-  id: 'lima',
-  displayName: 'Lima VM',
-  capabilities: { vmLifecycle: true, yamlConfig: true, sandboxView: true, profiles: false, network: false },
-  isAvailable: async () => true,
-  getStatus: async () => ({ providerId: 'lima', available: true, ready: true }),
-  cleanupTaskResources,
-  cleanup: vi.fn(),
-  spawnPty: vi.fn(),
-  ownsPty: () => false,
-  writePty: vi.fn(),
-  resizePty: vi.fn(),
-  killPty: vi.fn(),
-  setPtyLabel: vi.fn(),
-  getActiveSessions: () => [],
-  reconnectPty: () => ({ success: true }),
-} as unknown as SessionOwnerSandboxProvider;
-
 function findLsFilesCall(): unknown[] | undefined {
   return execMocked.mock.calls.find(
     (call) => typeof call[0] === 'string' && (call[0] as string).includes('git ls-files'),
@@ -83,10 +57,7 @@ function findLsFilesCall(): unknown[] | undefined {
 }
 
 beforeEach(() => {
-  cleanupTaskResources.mockClear();
   execMocked.mockClear();
-  _resetSandboxRegistryForTesting();
-  registerSandboxProvider(fakeLima);
 });
 
 // Sandboxing is per terminal, not per task, so worktrees are always full
@@ -117,26 +88,5 @@ describe('worktree ignored-file copy', () => {
     const result = await recoverTaskWorktree(project, 7);
     expect(result.success).toBe(true);
     expect(findLsFilesCall()).toBeDefined();
-  });
-});
-
-describe('removeTaskWorktree provider cleanup', () => {
-  test('asks every registered provider to clean up a task with a branch', async () => {
-    const project = '/test/worktree-remove';
-    await createTask(project, 4, 'Delete me', { branch: 'feat/del', worktreePath: '/worktrees/T-4' });
-
-    const result = await removeTaskWorktree(project, '/worktrees/T-4', 4);
-    expect(result.success).toBe(true);
-    expect(cleanupTaskResources).toHaveBeenCalledTimes(1);
-    expect(cleanupTaskResources).toHaveBeenCalledWith(project, 4, 'feat/del');
-  });
-
-  test('swallows provider cleanup errors so the delete still succeeds', async () => {
-    cleanupTaskResources.mockRejectedValueOnce(new Error('git worktree not found'));
-    const project = '/test/worktree-remove-error';
-    await createTask(project, 9, 'Delete err', { branch: 'feat/err', worktreePath: '/worktrees/T-9' });
-
-    const result = await removeTaskWorktree(project, '/worktrees/T-9', 9);
-    expect(result.success).toBe(true);
   });
 });

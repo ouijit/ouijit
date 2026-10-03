@@ -174,10 +174,8 @@ export function App() {
             if (parsed.type === 'project' && parsed.path) {
               const project = projects.find((p) => p.path === parsed.path);
               if (project) {
-                // Pre-fetch sandbox status + tasks before navigating so the
-                // first project paint (kanban included) shows correct content.
-                const limaStatus = await window.api.lima.status(parsed.path);
-                useAppStore.getState().setSandboxStatus(limaStatus.available, limaStatus.vmStatus);
+                // Pre-fetch tasks before navigating so the first project paint
+                // (kanban included) shows correct content.
                 await useProjectStore.getState().loadTasks(parsed.path);
                 useAppStore.getState().navigateToProject(parsed.path, project);
                 restoredToProject = true;

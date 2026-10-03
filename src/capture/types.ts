@@ -1,5 +1,6 @@
 import type { TerminalDisplayState } from '../stores/terminalStore';
 import type { LensGroup } from '../lens/lens';
+import type { SandboxProviderId } from '../types';
 
 export type CaptureScene =
   | 'kanban'
@@ -20,7 +21,7 @@ export interface CaptureTerminalSeed {
   summaryType?: TerminalDisplayState['summaryType'];
   worktreeBranch?: string;
   worktreePath?: string;
-  sandboxed?: boolean;
+  sandboxProvider?: SandboxProviderId;
   /** Optional canned ANSI content to write into the xterm on seed */
   content?: string;
   /** Canvas layout position — only consumed by the canvas scene */

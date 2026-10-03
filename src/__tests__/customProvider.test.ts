@@ -33,8 +33,7 @@ beforeEach(() => {
 });
 
 describe('customProvider', () => {
-  test('is a wrapper backend that is always available and ready once a command is saved', async () => {
-    expect(customProvider.kind).toBe('wrapper');
+  test('is always available and ready once a command is saved', async () => {
     expect(customProvider.id).toBe('custom');
 
     await setCustomSandboxConfig(ctx.projectPath, {});

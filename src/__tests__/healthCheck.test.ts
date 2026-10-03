@@ -1,7 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 
 const execFileMock = vi.fn();
-const isLimaInstalledMock = vi.fn();
 const isNonoInstalledMock = vi.fn();
 
 vi.mock('node:child_process', () => ({
@@ -25,10 +24,6 @@ vi.mock('node:util', async () => {
   };
 });
 
-vi.mock('../lima/manager', () => ({
-  isLimaInstalled: () => isLimaInstalledMock(),
-}));
-
 vi.mock('../sandbox/nono/binary', () => ({
   isNonoInstalled: () => isNonoInstalledMock(),
 }));
@@ -50,7 +45,6 @@ describe('healthCheck', () => {
   beforeEach(() => {
     vi.resetModules();
     execFileMock.mockReset();
-    isLimaInstalledMock.mockReset();
     isNonoInstalledMock.mockReset();
     // Default nono to false; individual tests override as needed.
     isNonoInstalledMock.mockResolvedValue(false);
@@ -62,7 +56,6 @@ describe('healthCheck', () => {
       else if (cmd === 'which') cb(null, `/usr/local/bin/${args[0]}\n`, '');
       else cb(new Error(`unexpected ${cmd}`));
     });
-    isLimaInstalledMock.mockResolvedValue(true);
     isNonoInstalledMock.mockResolvedValue(true);
 
     const { checkHealth } = await import('../healthCheck');
@@ -73,7 +66,6 @@ describe('healthCheck', () => {
       codex: true,
       pi: true,
       opencode: true,
-      lima: true,
       nono: true,
       gitVersion: '2.39.5',
       ...GH_ABSENT,
@@ -86,7 +78,6 @@ describe('healthCheck', () => {
       else if (cmd === 'which') cb(new Error('command not found'));
       else cb(new Error(`unexpected ${cmd}`));
     });
-    isLimaInstalledMock.mockResolvedValue(false);
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
@@ -96,7 +87,6 @@ describe('healthCheck', () => {
       codex: false,
       pi: false,
       opencode: false,
-      lima: false,
       nono: false,
       gitVersion: undefined,
       ...GH_ABSENT,
@@ -110,7 +100,6 @@ describe('healthCheck', () => {
       else if (cmd === 'which') cb(new Error('not found'));
       else cb(new Error(`unexpected ${cmd}`));
     });
-    isLimaInstalledMock.mockResolvedValue(false);
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
@@ -120,7 +109,6 @@ describe('healthCheck', () => {
       codex: true,
       pi: false,
       opencode: false,
-      lima: false,
       nono: false,
       gitVersion: '2.41.0',
       ...GH_ABSENT,
@@ -134,7 +122,6 @@ describe('healthCheck', () => {
       else if (cmd === 'which') cb(new Error('not found'));
       else cb(new Error(`unexpected ${cmd}`));
     });
-    isLimaInstalledMock.mockResolvedValue(false);
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
@@ -144,7 +131,6 @@ describe('healthCheck', () => {
       codex: false,
       pi: true,
       opencode: false,
-      lima: false,
       nono: false,
       gitVersion: '2.42.0',
       ...GH_ABSENT,
@@ -158,7 +144,6 @@ describe('healthCheck', () => {
       else if (cmd === 'which') cb(new Error('not found'));
       else cb(new Error(`unexpected ${cmd}`));
     });
-    isLimaInstalledMock.mockResolvedValue(false);
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
@@ -168,7 +153,6 @@ describe('healthCheck', () => {
       codex: false,
       pi: false,
       opencode: true,
-      lima: false,
       nono: false,
       gitVersion: '2.43.0',
       ...GH_ABSENT,
@@ -181,7 +165,6 @@ describe('healthCheck', () => {
       else if (cmd === 'which') cb(new Error('not found'));
       else cb(new Error(`unexpected ${cmd}`));
     });
-    isLimaInstalledMock.mockResolvedValue(true);
 
     const { checkHealth, getCachedHealth } = await import('../healthCheck');
     expect(getCachedHealth()).toBeNull();
@@ -192,7 +175,6 @@ describe('healthCheck', () => {
       codex: false,
       pi: false,
       opencode: false,
-      lima: true,
       nono: false,
       gitVersion: '2.40.0',
       ...GH_ABSENT,
@@ -206,7 +188,6 @@ describe('healthCheck', () => {
       else if (cmd === 'which') cb(new Error('not found'));
       else cb(new Error(`unexpected ${cmd} ${args.join(' ')}`));
     });
-    isLimaInstalledMock.mockResolvedValue(false);
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
@@ -226,7 +207,6 @@ describe('healthCheck', () => {
       else if (cmd === 'which') cb(new Error('not found'));
       else cb(new Error(`unexpected ${cmd}`));
     });
-    isLimaInstalledMock.mockResolvedValue(false);
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
@@ -235,18 +215,17 @@ describe('healthCheck', () => {
     expect(status.ghVersionOk).toBe(false);
   });
 
-  test('detects nono independently of lima', async () => {
+  test('detects nono independently of the agent CLIs', async () => {
     execFileMock.mockImplementation((cmd: string, _args: string[], cb: ExecFileCallback) => {
       if (cmd === 'git') cb(null, 'git version 2.44.0\n', '');
       else if (cmd === 'which') cb(new Error('not found'));
       else cb(new Error(`unexpected ${cmd}`));
     });
-    isLimaInstalledMock.mockResolvedValue(false);
     isNonoInstalledMock.mockResolvedValue(true);
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
-    expect(status.lima).toBe(false);
+    expect(status.claude).toBe(false);
     expect(status.nono).toBe(true);
   });
 

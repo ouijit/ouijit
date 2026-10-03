@@ -137,7 +137,7 @@ describe('completeTask', () => {
     });
     const promptSpy = vi
       .spyOn(useProjectStore.getState(), 'requestRunHook')
-      .mockResolvedValue({ command: 'echo configured', sandboxed: false, foreground: false });
+      .mockResolvedValue({ command: 'echo configured', foreground: false });
 
     await completeTask({ projectPath: PROJECT, task: makeTask() });
 

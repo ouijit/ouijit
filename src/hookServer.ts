@@ -109,9 +109,9 @@ export function startHookServer(window: BrowserWindow): Promise<void> {
         return;
       }
 
-      // Any process on the host loopback (and every sandboxed VM via
-      // host.lima.internal) can reach this endpoint. Require a valid
-      // per-PTY bearer token so only legitimate hook scripts succeed.
+      // Any process on the host loopback can reach this endpoint — sandboxed
+      // shells included, since they run on the host. Require a valid per-PTY
+      // bearer token so only legitimate hook scripts succeed.
       const auth = authenticateRequest(req.headers['authorization']);
       if (!auth) {
         res.writeHead(401);
@@ -995,66 +995,4 @@ export function migrateFromSettingsHooks(): void {
   } catch (err) {
     hookServerLog.warn('migration failed', { error: err instanceof Error ? err.message : String(err) });
   }
-}
-
-// ── VM hook injection ────────────────────────────────────────────────
-// Sandboxed Lima VMs only mount the project directory. Instead of writing
-// hook files into the project (which pollutes git), we inject the hook
-// script and settings into the VM's ephemeral home directory at spawn time.
-
-/**
- * Build the JSON content for the VM's ~/.claude/settings.json.
- * Uses $HOME/ouijit-hook as the command path (script lives in the VM's home dir).
- */
-export function buildVmHookSettings(): string {
-  return JSON.stringify(buildHookSettings('$HOME/ouijit-hook'), null, 2);
-}
-
-/**
- * Build the TOML content for the VM's ~/.codex/config.toml. There is no `codex`
- * wrapper inside the sandbox, so the lifecycle hooks + turn-complete notifier
- * are wired via the config file instead. The CLI reference is deliberately
- * omitted — the ouijit CLI is not installed in the sandbox. $HOME stays
- * literal so the in-VM shell expands it.
- *
- * Written into the VM via a *quoted* heredoc (no expansion) so that `$HOME` in
- * hook commands reaches Codex unchanged and gets expanded by the agent's shell.
- */
-export function buildVmCodexConfig(): string {
-  const hookPath = '$HOME/ouijit-hook';
-  const lines = [`notify = ["bash", "-c", "${codexHookCommand(hookPath, 'ready')}"]`];
-  for (const [event, status] of CODEX_STATUS_HOOKS) {
-    lines.push(`hooks.${event} = ${codexHookEventValue(hookPath, status)}`);
-  }
-  lines.push('');
-  return lines.join('\n');
-}
-
-/**
- * Build the `[hooks.state]` trust-state lines for the VM's ~/.codex/config.toml.
- * The key prefix is the absolute path of the config file, which we can only
- * resolve at write time inside the VM — so this is meant to be appended via an
- * *unquoted* heredoc so the VM's bash expands `$HOME` in the key.
- */
-export function buildVmCodexTrustState(): string {
-  const hookPath = '$HOME/ouijit-hook';
-  const source = '$HOME/.codex/config.toml';
-  const lines = CODEX_STATUS_HOOKS.map(([, status, eventSnake]) => {
-    const cmd = codexHookCommand(hookPath, status);
-    const stateKey = codexHookStateKey(source, eventSnake);
-    const hash = codexHookTrustHash(eventSnake, cmd);
-    return `hooks.state."${stateKey}".trusted_hash = "${hash}"`;
-  });
-  lines.push('');
-  return lines.join('\n');
-}
-
-/** Pi extension for the sandbox VM. Identical to the host-side source. */
-export function buildVmPiExtension(): string {
-  return PI_EXTENSION;
-}
-
-/** opencode status plugin for the sandbox VM. Identical to the host-side source. */
-export function buildVmOpencodePlugin(): string {
-  return OPENCODE_PLUGIN;
 }

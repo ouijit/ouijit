@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useAppStore, selectIsCloning } from '../stores/appStore';
 import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
@@ -55,17 +55,6 @@ export function TitleBar({ mode }: TitleBarProps) {
     for (const ids of Object.values(terminalsByProject)) all.push(...ids);
     return collectActiveTags(all, displayStates);
   }, [terminalsByProject, displayStates]);
-
-  // Fetch sandbox availability when switching projects
-  useEffect(() => {
-    if (!activeProjectPath || cloning) {
-      useAppStore.getState().setSandboxStatus(false, '');
-      return;
-    }
-    window.api.lima.status(activeProjectPath).then((s) => {
-      useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
-    });
-  }, [activeProjectPath, cloning]);
 
   const handleToggleView = useCallback(
     (view: 'board' | 'stack' | 'canvas' | 'settings' | 'pull-requests' | 'analysis') => {

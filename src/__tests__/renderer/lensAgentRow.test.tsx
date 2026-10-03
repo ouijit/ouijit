@@ -15,7 +15,6 @@ const HEALTH = {
   codex: true,
   pi: true,
   opencode: true,
-  lima: false,
   nono: false,
   gh: true,
   ghVersionOk: true,

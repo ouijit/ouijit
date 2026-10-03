@@ -38,7 +38,6 @@ import type { LensInput, LensSummary } from './lens/config';
 import type { StoredLens } from './lens/readLens';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
-import type { LimaStatus } from './lima/types';
 import type {
   SandboxProviderId,
   SandboxProviderStatus,
@@ -69,17 +68,15 @@ export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorkt
 export type { TaskStatus, TaskMetadata } from './db';
 export type { TagRow } from './db';
 export type { ActiveSession } from './ptyManager';
-export type { LimaStatus } from './lima/types';
 export type {
   SandboxProviderId,
   SandboxBackendId,
   SandboxProviderStatus,
-  SandboxCapabilities,
   NonoConfig,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
 } from './sandbox/types';
-export { SANDBOX_BACKEND_LABELS, legacySandboxProvider, isActiveSandbox } from './sandbox/types';
+export { SANDBOX_BACKEND_LABELS, isActiveSandbox } from './sandbox/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
 export type {
   RepoIdentity,
@@ -180,8 +177,6 @@ export interface SnapshotTerminal {
   worktreeBranch: string | null;
   /** Sandbox backend for the terminal; omitted/'none' for a host shell. */
   sandboxProvider?: SandboxProviderId;
-  /** @deprecated Legacy boolean read on restore of pre-provider snapshots. */
-  sandboxed?: boolean;
   label: string | null;
   ordinalInProject: number;
   isActiveInProject: boolean;
@@ -603,11 +598,10 @@ export interface ElectronAPI {
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   homePath(): Promise<string>;
-  lima: LimaAPI;
   sandbox: SandboxAPI;
   globalSettings: GlobalSettingsAPI;
   onboarding: OnboardingAPI;
-  /** Health probe API (git/claude/lima detection) */
+  /** Health probe API (git / agent CLI / sandbox detection) */
   health: HealthAPI;
   /** Capture-mode API (only populated when OUIJIT_CAPTURE_MODE=1) */
   capture: CaptureAPI;
@@ -865,8 +859,8 @@ export interface CliPanelsAPI {
 
 /**
  * Cross-provider sandbox API exposed to the renderer. Provider-neutral: it
- * reports availability for every registered backend. Backend-specific config
- * lives on its own API surface (e.g. LimaAPI for the YAML editor).
+ * reports availability for every registered backend, alongside each backend's
+ * own config surface.
  */
 export interface SandboxAPI {
   /** Availability + readiness of every registered sandbox backend. */
@@ -875,21 +869,6 @@ export interface SandboxAPI {
   setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }>;
   customConfig(projectPath: string): Promise<CustomSandboxConfig>;
   setCustomConfig(projectPath: string, config: CustomSandboxConfig): Promise<{ success: boolean; error?: string }>;
-}
-
-export interface LimaAPI {
-  status(projectPath: string): Promise<LimaStatus>;
-  start(projectPath: string): Promise<{ success: boolean; error?: string }>;
-  stop(projectPath: string): Promise<{ success: boolean; error?: string }>;
-  getYaml(projectPath: string): Promise<string>;
-  setYaml(projectPath: string, yaml: string): Promise<{ success: boolean; error?: string }>;
-  getMergedYaml(projectPath: string): Promise<string>;
-  recreate(projectPath: string): Promise<{ success: boolean; error?: string }>;
-  delete(projectPath: string): Promise<{ success: boolean; error?: string }>;
-  onSpawnProgress(callback: (step: { id: string; label: string; status: 'active' | 'done' }) => void): () => void;
-  onSandboxDiverged(
-    callback: (event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }) => void,
-  ): () => void;
 }
 
 export interface GlobalSettingsAPI {

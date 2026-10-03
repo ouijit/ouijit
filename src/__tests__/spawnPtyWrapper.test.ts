@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import type { WrapperSandboxProvider } from '../sandbox/provider';
+import type { SandboxProvider } from '../sandbox/provider';
 
 import * as apiAuth from '../apiAuth';
 import { spawnPty, getActiveSessions } from '../ptyManager';
@@ -38,11 +38,9 @@ const send = vi.fn();
 const window = { isDestroyed: () => false, webContents: { send } } as unknown as Electron.BrowserWindow;
 
 // A stand-in wrapper provider that prefixes an argv, exactly as nono will.
-const fakeWrapper: WrapperSandboxProvider = {
-  kind: 'wrapper',
+const fakeWrapper: SandboxProvider = {
   id: 'nono',
   displayName: 'nono',
-  capabilities: { vmLifecycle: false, yamlConfig: false, sandboxView: false, profiles: true, network: true },
   isAvailable: async () => true,
   getStatus: async () => ({ providerId: 'nono', available: true, ready: true }),
   cleanup: vi.fn(),
@@ -111,7 +109,7 @@ describe('spawnPty wrapper seam', () => {
 
   test('wrapper that refuses in prepare fails the spawn and revokes the token it was issued', async () => {
     const issue = vi.spyOn(apiAuth, 'issueToken');
-    const refusing: WrapperSandboxProvider = {
+    const refusing: SandboxProvider = {
       ...fakeWrapper,
       id: 'custom',
       prepare: vi.fn(async () => {

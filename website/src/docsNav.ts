@@ -58,7 +58,7 @@ export const DOC_PAGES: DocPage[] = [
     slug: 'sandbox',
     label: 'Sandbox',
     href: '/docs/sandbox/',
-    description: "Run a task's terminals and hooks in a Lima VM or under nono's kernel-level access limits.",
+    description: "Run a task's terminals and hooks under nono's kernel-level access limits, or your own launcher.",
   },
   {
     slug: 'resume',

@@ -30,7 +30,7 @@
     "build:cli": "node scripts/build-cli.mjs",
     "docs:check": "node scripts/build-cli.mjs && node scripts/docs-check.mjs",
     "test:full": "vitest run && node e2e/build.mjs && npx playwright test --config e2e/playwright.config.ts",
-    "postinstall": "./scripts/download-lima.sh && ./scripts/download-nono.sh && chmod +x node_modules/node-pty/prebuilds/*/spawn-helper 2>/dev/null || true",
+    "postinstall": "./scripts/download-nono.sh && chmod +x node_modules/node-pty/prebuilds/*/spawn-helper 2>/dev/null || true",
     "db:reset": "node scripts/dev-db.mjs reset",
     "db:seed": "node scripts/dev-db.mjs seed",
     "db:clone-prod": "node scripts/dev-db.mjs clone-prod",

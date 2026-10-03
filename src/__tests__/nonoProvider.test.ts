@@ -60,12 +60,6 @@ beforeEach(() => {
 });
 
 describe('nonoProvider', () => {
-  test('is a wrapper backend advertising profile + network config', () => {
-    expect(nonoProvider.kind).toBe('wrapper');
-    expect(nonoProvider.id).toBe('nono');
-    expect(nonoProvider.capabilities).toMatchObject({ profiles: true, network: true, sandboxView: false });
-  });
-
   test('prepare leaves cwd unchanged, installs the union profile, and signals the shell to disable denied history', async () => {
     const result = await nonoProvider.prepare(ctx);
     expect(result.cwd).toBe('/Users/dev/wt/T-3');
