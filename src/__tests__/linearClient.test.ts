@@ -79,13 +79,13 @@ describe('what Linear says going wrong', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  test('a refused key is not retried, and its message says where to fix it', async () => {
+  test('a refused key is not retried', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(response(401, UNAUTHENTICATED));
     const request = createLinearRequest('lin_api_bad', fetchImpl);
 
     await expect(request('query { viewer { id } }')).rejects.toMatchObject({ kind: 'unauthorized' });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    await expect(request('query { viewer { id } }')).rejects.toThrow(/App Settings/);
+    await expect(request('query { viewer { id } }')).rejects.toThrow(/didn't accept the API key/);
   });
 
   test('a dropped connection is a network failure, and gives up after three tries', async () => {

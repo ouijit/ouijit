@@ -5,7 +5,7 @@ import { Icon } from '../terminal/Icon';
 import { Avatar } from '../issues/Avatar';
 import { Tab, TabBar } from '../issues/Tabs';
 import { since } from '../issues/since';
-import { rowClass, rowTitleClass, TaskLink } from '../issues/rows';
+import { Group, rowClass, rowTitleClass, TaskLink } from '../issues/rows';
 import { stateBadge } from './prFormat';
 
 interface PullRequestSidebarProps {
@@ -150,16 +150,6 @@ export function PullRequestSidebar({
         )}
       </div>
     </div>
-  );
-}
-
-function Group({ label, children }: { label: string; children: React.ReactNode[] }) {
-  if (children.length === 0) return null;
-  return (
-    <section className="pt-3">
-      <h2 className="px-4 pb-1 text-[13px] text-text-tertiary">{label}</h2>
-      {children}
-    </section>
   );
 }
 

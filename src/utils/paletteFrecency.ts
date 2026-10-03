@@ -57,6 +57,14 @@ export function pullTaskNumber(
   return (taskCacheByProject[projectPath] ?? []).find((t) => t.githubPrNumber === prNumber)?.taskNumber ?? null;
 }
 
+export function issueTaskNumber(
+  projectPath: string,
+  issueId: string,
+  taskCacheByProject: Record<string, readonly { taskNumber: number; linearIssueId?: string | null }[] | undefined>,
+): number | null {
+  return (taskCacheByProject[projectPath] ?? []).find((t) => t.linearIssueId === issueId)?.taskNumber ?? null;
+}
+
 /** 0..MAX_BOOST, added to a row's match score. */
 export function frecencyBoost(entry: FrecencyEntry | undefined, now: number): number {
   if (!entry) return 0;

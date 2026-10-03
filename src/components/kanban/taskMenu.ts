@@ -1,7 +1,9 @@
 import type { ContextMenuEntry } from '../ui/ContextMenu';
-import type { SandboxProviderId, TaskStatus } from '../../types';
+import type { SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../../types';
 import { SANDBOX_BACKEND_LABELS } from '../../types';
 import { FILE_MANAGER_NAME } from '../../utils/fileManager';
+import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
+import { openLinearIssueInPanel, unlinkLinearIssue } from '../../services/linearTaskActions';
 
 /** Column display names, as the "Move to" menu and its toasts write them. */
 export const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -56,49 +58,46 @@ export function openInEntry(
   return { label: 'Open in', submenu };
 }
 
-/** Returns nothing when the GitHub feature is off for the project. */
-export interface GithubMenuActions {
-  openPullRequest: (prNumber: number) => void;
-  createPullRequest: () => void;
-}
-
-export function githubEntries(
-  options: { enabled: boolean; prNumber?: number; hasBranch: boolean },
-  actions: GithubMenuActions,
+/**
+ * What the task's trackers offer, separated from the entries above it. Empty
+ * when neither has anything to say, so the separator does not end the menu.
+ */
+export function trackerEntries(
+  projectPath: string,
+  task: TaskWithWorkspace | undefined,
+  enabled: { github: boolean; linear: boolean },
 ): ContextMenuEntry[] {
-  if (!options.enabled) return [];
+  if (!task) return [];
+  const entries: ContextMenuEntry[] = [];
 
-  if (options.prNumber != null) {
-    const prNumber = options.prNumber;
-    return [
-      {
-        label: `Pull request #${prNumber}`,
-        icon: 'git-pull-request',
-        onClick: () => actions.openPullRequest(prNumber),
-      },
-    ];
+  const prNumber = task.githubPrNumber;
+  if (enabled.github && prNumber != null) {
+    entries.push({
+      label: `Pull request #${prNumber}`,
+      icon: 'git-pull-request',
+      onClick: () => openPullRequestInPanel(projectPath, prNumber),
+    });
+  } else if (enabled.github && task.branch) {
+    entries.push({
+      label: 'Create pull request',
+      icon: 'git-pull-request',
+      onClick: () => void createPullRequestForTask(projectPath, task),
+    });
   }
 
-  if (!options.hasBranch) return [];
-  return [{ label: 'Create pull request', icon: 'git-pull-request', onClick: actions.createPullRequest }];
-}
+  const issueId = task.linearIssueId;
+  if (enabled.linear && issueId && task.linearIssueIdentifier) {
+    entries.push(
+      {
+        label: task.linearIssueIdentifier,
+        icon: 'circle-dashed',
+        onClick: () => openLinearIssueInPanel(projectPath, issueId),
+      },
+      { label: 'Unlink issue', icon: 'x', onClick: () => void unlinkLinearIssue(projectPath, task.taskNumber) },
+    );
+  }
 
-/** Returns nothing when the Linear feature is off, or the task has no issue. */
-export interface LinearMenuActions {
-  openIssue: (issueId: string) => void;
-  unlink: () => void;
-}
-
-export function linearEntries(
-  options: { enabled: boolean; issueId?: string; identifier?: string },
-  actions: LinearMenuActions,
-): ContextMenuEntry[] {
-  if (!options.enabled || !options.issueId || !options.identifier) return [];
-  const issueId = options.issueId;
-  return [
-    { label: options.identifier, icon: 'circle-dashed', onClick: () => actions.openIssue(issueId) },
-    { label: 'Unlink issue', icon: 'x', onClick: actions.unlink },
-  ];
+  return entries.length > 0 ? [{ separator: true }, ...entries] : [];
 }
 
 /** "Move to ▸" — the four columns, then a danger Trash. */

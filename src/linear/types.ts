@@ -73,6 +73,17 @@ export interface LinearWorkflowState {
   color: string;
 }
 
+/** An issue named, and enough of it to open a task from: no thread, no team. */
+export interface LinearIssueRef {
+  id: string;
+  identifier: string;
+  title: string;
+  description: string;
+  url: string;
+  /** Linear's own suggestion, used as the branch name for a task started from it. */
+  branchName: string;
+}
+
 export interface LinearIssueSummary {
   id: string;
   /** `ENG-123`. Stored on a linked task so a badge can render it offline. */
@@ -141,8 +152,6 @@ export interface LinearConnection {
   source?: LinearCredentialSource;
   /** The key as it can be shown: a prefix, bullets, and the last four. */
   masked?: string;
-  /** False where `safeStorage` has no keychain, which is why the key is refused. */
-  canStore?: boolean;
 }
 
 /** What the connect row needs to offer a scope, and the panel to render one. */

@@ -13,7 +13,7 @@
 import { safeStorage } from 'electron';
 import { getGlobalSetting, setGlobalSetting } from '../db';
 import { getLogger } from '../logger';
-import { createLinearRequest, LinearError, type FetchLike } from './client';
+import { createLinearRequest, LinearError } from './client';
 import { VIEWER_QUERY } from './queries';
 import type { LinearCredentialSource, LinearCredentialStorage, LinearViewer } from './types';
 
@@ -129,8 +129,8 @@ export async function writeCredential(
  * what a stored project scope is checked against, so a key re-pasted from
  * another workspace drops the scope rather than emptying the list.
  */
-export async function fetchViewer(apiKey: string, fetchImpl?: FetchLike): Promise<LinearViewer> {
-  const request = createLinearRequest(apiKey, fetchImpl);
+export async function fetchViewer(apiKey: string): Promise<LinearViewer> {
+  const request = createLinearRequest(apiKey);
   const data = await request<{
     viewer: { id: string; name: string; displayName: string; avatarUrl?: string };
     organization: { id: string; name: string };
@@ -151,8 +151,8 @@ export async function fetchViewer(apiKey: string, fetchImpl?: FetchLike): Promis
  * recheck so pasting a key takes effect without a restart.
  *
  * Per project rather than per process: a project with its own key resolves to
- * its own workspace, and one entry would answer for the wrong one. Projects on
- * the app-wide key share the entry under `APP`, which is most of them.
+ * its own workspace, and one entry would answer for the wrong one. `APP` is the
+ * entry for no project at all, which is what App Settings asks about.
  */
 const APP = '\u0000app';
 const cached = new Map<string, Promise<LinearViewer | LinearError | null>>();

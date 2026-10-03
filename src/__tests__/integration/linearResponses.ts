@@ -94,6 +94,24 @@ export function triageResponse() {
   };
 }
 
+/** What `ISSUE_REF_QUERY` selects, and nothing the document did not ask for. */
+export function issueRefResponse(over: { identifier?: string; description?: string } = {}) {
+  const identifier = over.identifier ?? 'ENG-2';
+  const { id, title, url, branchName } = issue({ identifier });
+  return {
+    data: {
+      issue: {
+        id,
+        identifier,
+        title,
+        description: over.description ?? 'Split the onboarding wizard into focused steps.',
+        url,
+        branchName,
+      },
+    },
+  };
+}
+
 export function issueDetailResponse(over: { identifier?: string; description?: string } = {}) {
   const identifier = over.identifier ?? 'ENG-2';
   return {

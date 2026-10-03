@@ -1,4 +1,4 @@
-import type { GithubIssue, GithubIssueList } from '../../github/types';
+import type { GithubIssueList, GithubIssueRow } from '../../github/types';
 import type { LinearIssueGroups, LinearIssueSummary } from '../../linear/types';
 import type { IssueGroup, IssueRow } from '../../issues/types';
 import type { TaskWithWorkspace } from '../../types';
@@ -30,7 +30,7 @@ export function issueGroups({
   githubTasks,
   linearTasks,
 }: GroupInput): IssueGroup[] {
-  const gh = (issue: GithubIssue): IssueRow => ({
+  const gh = (issue: GithubIssueRow): IssueRow => ({
     source: 'github',
     key: String(issue.number),
     identifier: `#${issue.number}`,
@@ -57,7 +57,6 @@ export function issueGroups({
       // Linear's own glyph and colour for the state, so a row reads as the
       // state it is in rather than as one more circle.
       icon: stateGlyph(issue.state.type),
-      tone: '',
       iconColor: issue.state.color,
       ...(linearTasks[issue.id] ? { taskNumber: linearTasks[issue.id].taskNumber } : {}),
     };

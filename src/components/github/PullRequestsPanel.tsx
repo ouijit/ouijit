@@ -12,6 +12,7 @@ import { PullRequestDetailView } from './PullRequestDetailView';
 import { GithubIssueView } from './GithubIssueView';
 import { LinearIssueView } from '../linear/LinearIssueView';
 import { ConnectRow } from '../linear/ConnectRow';
+import { scopeKey } from '../linear/ScopePicker';
 import { IssueList } from '../issues/IssueList';
 import { issueGroups } from '../issues/groups';
 import { useLinearStore } from '../../stores/linearStore';
@@ -25,6 +26,9 @@ import { Loading } from '../issues/Loading';
 interface PullRequestsPanelProps {
   projectPath: string;
 }
+
+/** Enough of a row to create a task from it — a list row, or an open issue. */
+type IssueTarget = Pick<IssueRow, 'source' | 'key' | 'identifier'>;
 
 /**
  * The tracker surface: the list on the left, whatever is open on the right.
@@ -85,7 +89,6 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 
   // Both lists load together, so switching between them never waits on a fetch.
   useEffect(() => {
-    if (!available) return;
     const store = useGithubStore.getState();
     void store.loadInbox(projectPath);
     void store.loadIssues(projectPath);
@@ -94,13 +97,19 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   // Linear loads on the same terms: on open and on the refresh button, so two
   // sources in one list do not go stale at different rates. Keyed by the scope
   // itself rather than the object holding it, which is new on every load.
-  const scopeKey = linearAvailability?.scope
-    ? `${linearAvailability.scope.kind}:${'labelId' in linearAvailability.scope ? linearAvailability.scope.labelId : linearAvailability.scope.teamId}`
-    : null;
+  const scope = linearAvailability?.scope ? scopeKey(linearAvailability.scope) : null;
   useEffect(() => {
-    if (!linearConnected || !scopeKey) return;
     void useLinearStore.getState().loadIssues(projectPath);
-  }, [linearConnected, scopeKey, projectPath]);
+  }, [linearConnected, scope, projectPath]);
+
+  // Land on the tab that can answer: with `gh` absent and Linear connected,
+  // opening on Pull requests is opening on the notice saying there are none.
+  const githubChecked = availability != null;
+  useEffect(() => {
+    if (githubChecked && !available && linearConnected && usePanelStore.getState().listView === 'pulls') {
+      usePanelStore.getState().setListView('issues');
+    }
+  }, [githubChecked, available, linearConnected]);
 
   const refresh = useCallback(() => {
     const store = useGithubStore.getState();
@@ -205,53 +214,6 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     [projectPath],
   );
 
-  const createTaskFromIssue = useCallback(
-    async (issueNumber: number) => {
-      const result = await window.api.github.taskFromIssue(projectPath, issueNumber);
-      if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? "Couldn't create the task", 'error');
-        return;
-      }
-      await useProjectStore.getState().loadTasks(projectPath);
-
-      // Offer the jump rather than taking it: creating several tasks from a
-      // list of issues in one pass is the common case.
-      const created = useProjectStore.getState().tasks.find((t) => t.taskNumber === result.taskNumber);
-      useProjectStore.getState().addToast(`Created task #${result.taskNumber} from issue #${issueNumber}`, {
-        type: 'success',
-        ...(created && project
-          ? {
-              actionLabel: TASK_OPEN_LABEL[taskOpenAction(projectPath, created)],
-              onAction: () => void activateTask(project, created),
-            }
-          : {}),
-      });
-    },
-    [projectPath, project],
-  );
-
-  const createTaskFromLinearIssue = useCallback(
-    async (identifier: string) => {
-      const result = await window.api.linear.taskFromIssue(projectPath, identifier);
-      if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? "Couldn't create the task", 'error');
-        return;
-      }
-      await useProjectStore.getState().loadTasks(projectPath);
-      const created = useProjectStore.getState().tasks.find((t) => t.taskNumber === result.taskNumber);
-      useProjectStore.getState().addToast(`Created task #${result.taskNumber} from ${identifier}`, {
-        type: 'success',
-        ...(created && project
-          ? {
-              actionLabel: TASK_OPEN_LABEL[taskOpenAction(projectPath, created)],
-              onAction: () => void activateTask(project, created),
-            }
-          : {}),
-      });
-    },
-    [projectPath, project],
-  );
-
   /** A row addresses its issue in its own source's terms; opening dispatches on that. */
   const openIssueRow = useCallback(
     (row: IssueRow) => {
@@ -261,12 +223,33 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     [projectPath],
   );
 
-  const createTaskFromRow = useCallback(
-    (row: IssueRow) => {
-      if (row.source === 'linear') void createTaskFromLinearIssue(row.identifier);
-      else void createTaskFromIssue(Number(row.key));
+  const createTask = useCallback(
+    async (row: IssueTarget) => {
+      const result =
+        row.source === 'linear'
+          ? await window.api.linear.taskFromIssue(projectPath, row.identifier)
+          : await window.api.github.taskFromIssue(projectPath, Number(row.key));
+      if (!result.success) {
+        useProjectStore.getState().addToast(result.error ?? "Couldn't create the task", 'error');
+        return;
+      }
+      await useProjectStore.getState().loadTasks(projectPath);
+
+      // Offer the jump rather than taking it: creating several tasks from a
+      // list of issues in one pass is the common case.
+      const created = useProjectStore.getState().tasks.find((t) => t.taskNumber === result.taskNumber);
+      const from = row.source === 'github' ? `issue ${row.identifier}` : row.identifier;
+      useProjectStore.getState().addToast(`Created task #${result.taskNumber} from ${from}`, {
+        type: 'success',
+        ...(created && project
+          ? {
+              actionLabel: TASK_OPEN_LABEL[taskOpenAction(projectPath, created)],
+              onAction: () => void activateTask(project, created),
+            }
+          : {}),
+      });
     },
-    [createTaskFromIssue, createTaskFromLinearIssue],
+    [projectPath, project],
   );
 
   const promoteToTask = useCallback(async () => {
@@ -311,18 +294,94 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   // milliseconds, too short to warrant a spinner.
   if (!availability) return <PanelFrame />;
 
-  const error = listView === 'issues' ? (issuesError ?? linearError) : inboxError;
+  // One source failing must not paint over what the other loaded, so on the
+  // Issues tab the notice takes the pane only when the list behind it is empty.
+  const error = listView === 'issues' ? (issueCount > 0 ? null : (issuesError ?? linearError)) : inboxError;
   const openDetail = detail || issue || linearIssue;
   // Keyed to the slot, like the data: a failed load in one source must not
   // paint over what the other has just opened.
   const detailProblem =
-    open?.source === 'github-pr'
-      ? detailError
-      : open?.source === 'github-issue'
-        ? issueDetailError
-        : open?.source === 'linear'
-          ? linearIssueError
-          : null;
+    (open && { 'github-pr': detailError, 'github-issue': issueDetailError, linear: linearIssueError }[open.source]) ??
+    null;
+
+  const detailPane = () => {
+    if (error && !openDetail) {
+      // The list error only takes the pane when nothing is open, so an inbox
+      // failure cannot discard the pull request being read.
+      return (
+        <Centred>
+          <Icon name="warning" className="w-6 h-6 text-vcs-modified opacity-70" />
+          <p className="text-[15px] text-text-secondary max-w-sm text-center">{error}</p>
+          <button type="button" className="btn-secondary btn-compact" onClick={refresh}>
+            Try again
+          </button>
+        </Centred>
+      );
+    }
+    if (detailProblem) {
+      return (
+        <Centred>
+          <p className="text-[15px] text-text-secondary">{detailProblem}</p>
+          <button type="button" className="btn-secondary btn-compact" onClick={closeOpenItem}>
+            Close
+          </button>
+        </Centred>
+      );
+    }
+    if (linearIssue) {
+      return (
+        <LinearIssueView
+          projectPath={projectPath}
+          issue={linearIssue}
+          linkedTask={linearTasks[linearIssue.id]}
+          openTaskLabel={openTaskLabel}
+          onOpenTask={openLinkedTask}
+          onCreateTask={() =>
+            void createTask({ source: 'linear', key: linearIssue.id, identifier: linearIssue.identifier })
+          }
+        />
+      );
+    }
+    if (issue) {
+      return (
+        <GithubIssueView
+          projectPath={projectPath}
+          issue={issue}
+          linkedTask={linkedIssueTask}
+          openTaskLabel={openTaskLabel}
+          onOpenTask={openLinkedTask}
+          onCreateTask={() =>
+            void createTask({ source: 'github', key: String(issue.number), identifier: `#${issue.number}` })
+          }
+        />
+      );
+    }
+    if (detail) {
+      return (
+        <PullRequestDetailView
+          projectPath={projectPath}
+          detail={detail}
+          linkedTask={linkedTask}
+          openTaskLabel={openTaskLabel}
+          onOpenTask={openLinkedTask}
+          onPromoteToTask={() => void promoteToTask()}
+        />
+      );
+    }
+    if (detailLoading) return <Loading label="Loading pull request" />;
+    if (issueLoading || linearIssueLoading) return <Loading label="Loading issue" />;
+    if (!inbox && inboxLoading) return <Loading label="Loading pull requests" />;
+    return (
+      <Centred>
+        <Icon name="git-pull-request" className="w-8 h-8 text-text-tertiary opacity-30" />
+        <p className="text-[15px] text-text-tertiary">Pick something from the list</p>
+        <span className="flex items-center gap-2 text-[13px] text-text-tertiary">
+          {availability.identity ? `${availability.identity.owner}/${availability.identity.repo}` : ''}
+          <RefreshButton busy={inboxLoading || issuesLoading || linearLoading} onClick={refresh} />
+        </span>
+      </Centred>
+    );
+  };
 
   return (
     <PanelFrame>
@@ -356,7 +415,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
                 loading={issuesLoading || linearLoading}
                 onOpen={openIssueRow}
                 onOpenTask={openLinkedTask}
-                onCreateTask={createTaskFromRow}
+                onCreateTask={createTask}
               />
             </>
           )}
@@ -391,66 +450,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
           </div>
         )}
 
-        {/* The list error only takes the pane when nothing is open, so an inbox
-          failure cannot discard the pull request being read. */}
-        {error && !openDetail ? (
-          <Centred>
-            <Icon name="warning" className="w-6 h-6 text-vcs-modified opacity-70" />
-            <p className="text-[15px] text-text-secondary max-w-sm text-center">{error}</p>
-            <button type="button" className="btn-secondary btn-compact" onClick={refresh}>
-              Try again
-            </button>
-          </Centred>
-        ) : detailProblem ? (
-          <Centred>
-            <p className="text-[15px] text-text-secondary">{detailProblem}</p>
-            <button type="button" className="btn-secondary btn-compact" onClick={closeOpenItem}>
-              Close
-            </button>
-          </Centred>
-        ) : linearIssue ? (
-          <LinearIssueView
-            projectPath={projectPath}
-            issue={linearIssue}
-            linkedTask={linearTasks[linearIssue.id]}
-            openTaskLabel={openTaskLabel}
-            onOpenTask={openLinkedTask}
-            onCreateTask={() => void createTaskFromLinearIssue(linearIssue.identifier)}
-          />
-        ) : issue ? (
-          <GithubIssueView
-            projectPath={projectPath}
-            issue={issue}
-            linkedTask={linkedIssueTask}
-            openTaskLabel={openTaskLabel}
-            onOpenTask={openLinkedTask}
-            onCreateTask={() => void createTaskFromIssue(issue.number)}
-          />
-        ) : detail ? (
-          <PullRequestDetailView
-            projectPath={projectPath}
-            detail={detail}
-            linkedTask={linkedTask}
-            openTaskLabel={openTaskLabel}
-            onOpenTask={openLinkedTask}
-            onPromoteToTask={() => void promoteToTask()}
-          />
-        ) : detailLoading ? (
-          <Loading label="Loading pull request" />
-        ) : issueLoading || linearIssueLoading ? (
-          <Loading label="Loading issue" />
-        ) : !inbox && inboxLoading ? (
-          <Loading label="Loading pull requests" />
-        ) : (
-          <Centred>
-            <Icon name="git-pull-request" className="w-8 h-8 text-text-tertiary opacity-30" />
-            <p className="text-[15px] text-text-tertiary">Pick something from the list</p>
-            <span className="flex items-center gap-2 text-[13px] text-text-tertiary">
-              {availability.identity ? `${availability.identity.owner}/${availability.identity.repo}` : ''}
-              <RefreshButton busy={inboxLoading || issuesLoading} onClick={refresh} />
-            </span>
-          </Centred>
-        )}
+        {detailPane()}
       </div>
     </PanelFrame>
   );

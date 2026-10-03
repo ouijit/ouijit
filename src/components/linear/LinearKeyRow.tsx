@@ -1,20 +1,22 @@
 import { useState, type ReactNode } from 'react';
 import type { LinearConnection } from '../../linear/types';
+import { useProjectStore } from '../../stores/projectStore';
 
 interface LinearKeyRowProps {
   /** Null while it is still being checked. */
   connection: LinearConnection | null;
-  busy: boolean;
-  /** Saves the key, or clears it with an empty string. False keeps the field open. */
-  onSave: (apiKey: string) => Promise<boolean>;
+  /** The project taking a key of its own. Absent for the key every project shares. */
+  projectPath?: string;
+  /** Re-read whatever the caller is showing, once the key has changed. */
+  onSaved: () => Promise<void>;
   /**
    * What opening the field is called. "Replace API key" replaces the one shown;
    * a project reading the shared key is not replacing it, it is taking one of
    * its own, and the button has to say which.
    */
   replaceLabel?: string;
-  /** The second button beside it — Clear here, Use the shared API key there. */
-  secondary?: { label: string; title?: string; onClick: () => void };
+  /** Words for the button that clears the key — Clear here, Use the shared API key there. */
+  clear?: { label: string; title?: string };
   /** Shown while the field is open, saying what saving will do. */
   hint?: ReactNode;
   /** Shown when there is no key: where to get one. */
@@ -36,24 +38,34 @@ interface LinearKeyRowProps {
  */
 export function LinearKeyRow({
   connection,
-  busy,
-  onSave,
+  projectPath,
+  onSaved,
   replaceLabel = 'Replace API key',
-  secondary,
+  clear,
   hint,
   help,
   showScope,
 }: LinearKeyRowProps) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const connected = connection?.connected ?? false;
   const open = editing || (connection != null && !connected);
 
   const save = async (apiKey: string) => {
-    if (await onSave(apiKey)) {
+    setBusy(true);
+    try {
+      const result = await window.api.linear.setCredential(apiKey, projectPath);
+      if (!result.success) {
+        useProjectStore.getState().addToast(result.error ?? "Couldn't save the key", 'error');
+        return;
+      }
       setValue('');
       setEditing(false);
+      await onSaved();
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -71,22 +83,22 @@ export function LinearKeyRow({
           {!connected && help && <div className="text-xs text-text-tertiary mt-1">{help}</div>}
         </div>
 
-        {connected && (
+        {(connected || clear) && (
           <div className="flex items-center gap-2 shrink-0">
-            {!open && (
+            {connected && !open && (
               <button type="button" className="btn-secondary btn-compact h-8" onClick={() => setEditing(true)}>
                 {replaceLabel}
               </button>
             )}
-            {secondary && (
+            {clear && (
               <button
                 type="button"
                 className="btn-secondary btn-compact h-8"
                 disabled={busy}
-                title={secondary.title}
-                onClick={secondary.onClick}
+                title={clear.title}
+                onClick={() => void save('')}
               >
-                {secondary.label}
+                {clear.label}
               </button>
             )}
           </div>

@@ -62,7 +62,6 @@ export function issue(over: Partial<GithubIssue> & { number: number }): GithubIs
     url: `https://github.com/o/r/issues/${over.number}`,
     labels: [],
     assignees: [],
-    isMine: false,
     commentCount: 0,
     ...over,
   };

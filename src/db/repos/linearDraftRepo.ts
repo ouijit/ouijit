@@ -10,11 +10,7 @@ export interface LinearDraftRow {
   created_at: string;
 }
 
-/**
- * Comments written against a Linear issue and held until a person sends them.
- * Keyed by (project_path, issue_id), so a draft on an issue with no task behind
- * it persists the same way one with a task does.
- */
+/** Comments written against a Linear issue and held until a person sends them. */
 export class LinearDraftRepo {
   constructor(private db: Database.Database) {}
 
@@ -22,6 +18,16 @@ export class LinearDraftRepo {
     return this.db
       .prepare('SELECT * FROM linear_comment_drafts WHERE project_path = ? AND issue_id = ? ORDER BY created_at')
       .all(projectPath, issueId) as LinearDraftRow[];
+  }
+
+  /**
+   * Scoped to the project, not looked up by id alone: a draft id is guessable,
+   * and a sandboxed caller holds a token good for one project.
+   */
+  find(projectPath: string, id: string): LinearDraftRow | undefined {
+    return this.db
+      .prepare('SELECT * FROM linear_comment_drafts WHERE project_path = ? AND id = ?')
+      .get(projectPath, id) as LinearDraftRow | undefined;
   }
 
   getForProject(projectPath: string): LinearDraftRow[] {
@@ -34,8 +40,7 @@ export class LinearDraftRepo {
     this.db
       .prepare(
         `INSERT INTO linear_comment_drafts (id, project_path, issue_id, body, origin)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET body = excluded.body`,
+         VALUES (?, ?, ?, ?, ?)`,
       )
       .run(row.id, row.project_path, row.issue_id, row.body, row.origin ?? 'human');
     return this.db.prepare('SELECT * FROM linear_comment_drafts WHERE id = ?').get(row.id) as LinearDraftRow;

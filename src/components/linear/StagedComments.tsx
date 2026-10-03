@@ -36,7 +36,10 @@ export function StagedComments({ projectPath, drafts }: StagedCommentsProps) {
   };
 
   const discard = async (draft: LinearCommentDraft) => {
-    await window.api.linear.discardDraft(projectPath, draft.id);
+    const result = await window.api.linear.discardDraft(projectPath, draft.id);
+    if (!result.success) {
+      useProjectStore.getState().addToast("Couldn't discard the comment", 'error');
+    }
     await useLinearStore.getState().loadDrafts(projectPath, draft.issueId);
   };
 

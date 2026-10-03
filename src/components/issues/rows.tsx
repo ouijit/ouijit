@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { TaskWithWorkspace } from '../../types';
 
 /**
@@ -27,5 +28,22 @@ export function TaskLink({ task, onOpen }: { task: TaskWithWorkspace; onOpen: (t
     >
       T-{task.taskNumber}
     </button>
+  );
+}
+
+/**
+ * A heading over the rows it names, and nothing when it has none. `capped` is
+ * how many the group holds when that is a page rather than all of it.
+ */
+export function Group({ label, capped = 0, children }: { label: string; capped?: number; children: ReactNode[] }) {
+  if (children.length === 0) return null;
+  return (
+    <section className="pt-3">
+      <h2 className="px-4 pb-1 flex items-baseline gap-2 text-[13px] text-text-tertiary">
+        {label}
+        {capped > 0 && <span className="opacity-70">first {capped}</span>}
+      </h2>
+      {children}
+    </section>
   );
 }

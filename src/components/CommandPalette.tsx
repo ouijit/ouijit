@@ -150,12 +150,18 @@ function PaletteBody({ visible }: { visible: boolean }) {
     if (githubEnabled && activeProjectPath) {
       const store = useGithubStore.getState();
       store.setProject(activeProjectPath);
-      void store.loadInbox(activeProjectPath);
+      const checked = useGithubStore.getState().availability
+        ? Promise.resolve()
+        : store.loadAvailability(activeProjectPath);
+      void checked.then(() => store.loadInbox(activeProjectPath));
     }
     if (linearEnabled && activeProjectPath) {
       const store = useLinearStore.getState();
       store.setProject(activeProjectPath);
-      void store.loadIssues(activeProjectPath);
+      const checked = useLinearStore.getState().availability
+        ? Promise.resolve()
+        : store.loadAvailability(activeProjectPath);
+      void checked.then(() => store.loadIssues(activeProjectPath));
     }
     return () => {
       cancelled = true;

@@ -14,12 +14,10 @@ import { AddPanelMenu } from './AddPanelMenu';
 import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
 import type { GitFileStatus, RunnerScript } from '../../types';
-import { openInEntry, moveToEntry, githubEntries, linearEntries, type TaskMenuActions } from '../kanban/taskMenu';
+import { openInEntry, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { openTaskInEditor, openWorktreeInEditor } from '../../services/openInEditor';
-import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
-import { openLinearIssueInPanel, unlinkLinearIssue } from '../../services/linearTaskActions';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { describeDiffComparison, filesInDiff } from '../../diffSource';
 
@@ -141,28 +139,7 @@ export const TerminalHeader = memo(function TerminalHeader({
       }
       items.push({ label: 'Rename task', icon: 'pencil-simple', onClick: () => setRenameTarget('task') });
 
-      // The same entries the kanban card shows.
-      const github = task
-        ? githubEntries(
-            { enabled: githubEnabled, prNumber: task.githubPrNumber, hasBranch: !!task.branch },
-            {
-              openPullRequest: (prNumber) => openPullRequestInPanel(projectPath, prNumber),
-              createPullRequest: () => void createPullRequestForTask(projectPath, task),
-            },
-          )
-        : [];
-      const linear = task
-        ? linearEntries(
-            { enabled: linearEnabled, issueId: task.linearIssueId, identifier: task.linearIssueIdentifier },
-            {
-              openIssue: (issueId) => openLinearIssueInPanel(projectPath, issueId),
-              unlink: () => void unlinkLinearIssue(projectPath, task.taskNumber),
-            },
-          )
-        : [];
-      if (github.length > 0 || linear.length > 0) {
-        items.push({ separator: true }, ...github, ...linear);
-      }
+      items.push(...trackerEntries(projectPath, task, { github: githubEnabled, linear: linearEnabled }));
     }
 
     items.push({

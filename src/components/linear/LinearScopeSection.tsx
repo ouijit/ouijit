@@ -44,22 +44,6 @@ export function LinearScopeSection({ projectPath }: LinearScopeSectionProps) {
     await store.loadIssues(projectPath);
   };
 
-  const setKey = async (apiKey: string) => {
-    setBusy(true);
-    try {
-      const result = await window.api.linear.setCredential(apiKey, projectPath);
-      if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? "Couldn't save the key", 'error');
-        return false;
-      }
-      await reload(true);
-      await refreshPanel();
-      return true;
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const setScope = async (scope: LinearScope | null) => {
     setBusy(true);
     try {
@@ -79,20 +63,17 @@ export function LinearScopeSection({ projectPath }: LinearScopeSectionProps) {
     <div className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg">
       <LinearKeyRow
         connection={availability}
-        busy={busy}
-        onSave={setKey}
+        projectPath={projectPath}
+        onSaved={async () => {
+          await reload(true);
+          await refreshPanel();
+        }}
         showScope
         replaceLabel={
           availability?.source === 'project' ? 'Replace API key' : 'Use a different API key for this project'
         }
         {...(availability?.source === 'project'
-          ? {
-              secondary: {
-                label: 'Use the shared API key',
-                title: 'Go back to the API key every other project uses',
-                onClick: () => void setKey(''),
-              },
-            }
+          ? { clear: { label: 'Use the shared API key', title: 'Go back to the API key every other project uses' } }
           : {})}
         hint="This API key will be used by this project only. Every other project keeps the shared one."
         help="Create one in Linear under Settings → API."

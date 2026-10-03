@@ -47,7 +47,6 @@ export function LinearIssueView({
       identifier={issue.identifier}
       url={issue.url}
       icon={stateGlyph(issue.state.type)}
-      tone=""
       iconColor={issue.state.color}
       stateLabel={issue.state.name}
       author={issue.creator?.displayName ?? 'Unknown'}

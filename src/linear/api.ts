@@ -6,12 +6,13 @@
  * here. That is also what keeps `types.ts` a runtime leaf.
  */
 
-import { LinearError, createLinearRequest, type FetchLike } from './client';
+import { LinearError, createLinearRequest } from './client';
 import {
   CREATE_COMMENT_MUTATION,
   INCOMPLETE_ISSUES_QUERY,
   ISSUE_DETAIL_QUERY,
   ISSUE_GROUPS_QUERY,
+  ISSUE_REF_QUERY,
   SCOPE_OPTIONS_QUERY,
   SET_STATE_MUTATION,
 } from './queries';
@@ -19,6 +20,7 @@ import { scopeFilter } from './scope';
 import type {
   LinearIssueDetail,
   LinearIssueGroups,
+  LinearIssueRef,
   LinearIssueSummary,
   LinearRepoLabel,
   LinearScope,
@@ -85,9 +87,8 @@ function list<T>(connection: Nodes<T>): T[] {
 /** The teams and `repo` labels the connect row offers. */
 export async function fetchScopeOptions(
   apiKey: string,
-  fetchImpl?: FetchLike,
 ): Promise<{ teams: LinearTeam[]; repoLabels: LinearRepoLabel[] }> {
-  const request = createLinearRequest(apiKey, fetchImpl);
+  const request = createLinearRequest(apiKey);
   const data = await request<{
     teams: Nodes<{ id: string; key: string; name: string; triageEnabled: boolean }>;
     issueLabels: Nodes<{ id: string; name: string }>;
@@ -115,9 +116,8 @@ export async function fetchIssueGroups(
   apiKey: string,
   scope: LinearScope,
   teams: LinearTeam[],
-  fetchImpl?: FetchLike,
 ): Promise<LinearIssueGroups> {
-  const request = createLinearRequest(apiKey, fetchImpl);
+  const request = createLinearRequest(apiKey);
   const filter = scopeFilter(scope);
   const data = await request<{
     triage: Nodes<RawIssue>;
@@ -160,13 +160,30 @@ export async function fetchIssueGroups(
       cycle: cycle.length >= GROUP_LIMIT,
     },
     cycleIsFallback,
-    triageEnabled: teams.some((team) => team.triageEnabled),
+    // Triage is opt-in per team, and a team scope is one team: asking every
+    // team in the workspace answers for teams this list never shows.
+    triageEnabled: inScope(teams, scope).some((team) => team.triageEnabled),
   };
 }
 
+function inScope(teams: LinearTeam[], scope: LinearScope): LinearTeam[] {
+  return scope.kind === 'team' ? teams.filter((team) => team.id === scope.teamId) : teams;
+}
+
+/** One issue without its thread, by identifier (`ENG-123`) or id. */
+export async function fetchIssueRef(apiKey: string, id: string): Promise<LinearIssueRef> {
+  const request = createLinearRequest(apiKey);
+  const data = await request<{ issue: (Omit<LinearIssueRef, 'description'> & { description: string | null }) | null }>(
+    ISSUE_REF_QUERY,
+    { id },
+  );
+  if (!data.issue) throw new LinearError('not-found', `${id} doesn't exist in Linear.`);
+  return { ...data.issue, description: data.issue.description ?? '' };
+}
+
 /** One issue, by identifier (`ENG-123`) or id, with its thread. */
-export async function fetchIssue(apiKey: string, id: string, fetchImpl?: FetchLike): Promise<LinearIssueDetail> {
-  const request = createLinearRequest(apiKey, fetchImpl);
+export async function fetchIssue(apiKey: string, id: string): Promise<LinearIssueDetail> {
+  const request = createLinearRequest(apiKey);
   const data = await request<{
     viewer: RawUser;
     issue:
@@ -195,33 +212,21 @@ export async function fetchIssue(apiKey: string, id: string, fetchImpl?: FetchLi
 
 // ── Writes ───────────────────────────────────────────────────────────
 
-export async function createComment(
-  apiKey: string,
-  issueId: string,
-  body: string,
-  fetchImpl?: FetchLike,
-): Promise<void> {
-  const request = createLinearRequest(apiKey, fetchImpl);
-  const data = await request<{ commentCreate: { success: boolean } }>(CREATE_COMMENT_MUTATION, { issueId, body });
+export async function createComment(apiKey: string, issueId: string, body: string): Promise<void> {
+  const request = createLinearRequest(apiKey);
+  const data = await request<{ commentCreate: { success: boolean } }>(
+    CREATE_COMMENT_MUTATION,
+    { issueId, body },
+    { idempotent: false },
+  );
   if (!data.commentCreate.success) throw new LinearError('unknown', 'Linear rejected the comment.');
 }
 
 /** The one Linear write outside comments, and the only thing needing a Write key. */
-export async function setIssueState(
-  apiKey: string,
-  id: string,
-  stateId: string,
-  fetchImpl?: FetchLike,
-): Promise<LinearWorkflowState> {
-  const request = createLinearRequest(apiKey, fetchImpl);
-  const data = await request<{ issueUpdate: { success: boolean; issue: { state: RawState } | null } }>(
-    SET_STATE_MUTATION,
-    { id, stateId },
-  );
-  if (!data.issueUpdate.success || !data.issueUpdate.issue) {
-    throw new LinearError('unknown', 'Linear rejected the status change.');
-  }
-  return mapState(data.issueUpdate.issue.state);
+export async function setIssueState(apiKey: string, id: string, stateId: string): Promise<void> {
+  const request = createLinearRequest(apiKey);
+  const data = await request<{ issueUpdate: { success: boolean } }>(SET_STATE_MUTATION, { id, stateId });
+  if (!data.issueUpdate.success) throw new LinearError('unknown', 'Linear rejected the status change.');
 }
 
 // ── Mapping ──────────────────────────────────────────────────────────

@@ -63,7 +63,6 @@ query {
  */
 export const ISSUE_GROUPS_QUERY = `
 query($scope: IssueFilter!, $first: Int!) {
-  viewer { ${USER_FIELDS} }
   triage: issues(
     first: $first
     sort: [{ updatedAt: { order: Descending } }]
@@ -135,6 +134,15 @@ query($id: String!) {
   }
 }`;
 
+/**
+ * The issue itself, without its thread. The detail document below carries 60
+ * comments and 50 workflow states.
+ */
+export const ISSUE_REF_QUERY = `
+query($id: String!) {
+  issue(id: $id) { id identifier title description url branchName }
+}`;
+
 export const CREATE_COMMENT_MUTATION = `
 mutation($issueId: String!, $body: String!) {
   commentCreate(input: { issueId: $issueId, body: $body }) {
@@ -146,6 +154,5 @@ export const SET_STATE_MUTATION = `
 mutation($id: String!, $stateId: String!) {
   issueUpdate(id: $id, input: { stateId: $stateId }) {
     success
-    issue { id state { ${STATE_FIELDS} } }
   }
 }`;

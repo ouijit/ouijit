@@ -63,14 +63,9 @@ export const usePanelStore = create<PanelStoreState & PanelStoreActions>()((set,
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
 }));
 
-/** One string naming what is open, so a row can ask whether it is the one. */
-export function openKey(item: NonNullable<OpenItem>): string {
-  return item.source === 'linear' ? `linear:${item.id}` : `${item.source}:${item.number}`;
-}
-
-/** What opening a row of the Issues list puts in the slot. */
-export function issueOpenItem(row: IssueRow): NonNullable<OpenItem> {
+/** Whether the slot holds this row — a row addresses its issue in its own terms. */
+export function isRowOpen(open: OpenItem, row: IssueRow): boolean {
   return row.source === 'linear'
-    ? { source: 'linear', id: row.key }
-    : { source: 'github-issue', number: Number(row.key) };
+    ? open?.source === 'linear' && open.id === row.key
+    : open?.source === 'github-issue' && String(open.number) === row.key;
 }

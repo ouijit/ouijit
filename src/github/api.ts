@@ -37,6 +37,7 @@ import type {
   MergeStatus,
   GithubIssue,
   GithubIssueList,
+  GithubIssueRow,
   IssueDetail,
   CommentKind,
   ReviewEvent,
@@ -227,12 +228,10 @@ function mapSummary(raw: RawSummary, viewer: string, reviewRequested: Set<number
   };
 }
 
-function mapIssue(raw: RawIssue, viewer: string): GithubIssue {
-  const assignees = (raw.assignees?.nodes ?? []).map((a) => a?.login).filter((l): l is string => l != null);
+function mapIssueRow(raw: RawIssue): GithubIssueRow {
   return {
     number: raw.number,
     title: raw.title,
-    body: raw.body ?? '',
     state: raw.state === 'CLOSED' ? 'closed' : 'open',
     stateReason: raw.stateReason,
     author: actorLogin(raw.author),
@@ -240,9 +239,15 @@ function mapIssue(raw: RawIssue, viewer: string): GithubIssue {
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
     url: raw.url,
+  };
+}
+
+function mapIssue(raw: RawIssue): GithubIssue {
+  return {
+    ...mapIssueRow(raw),
+    body: raw.body ?? '',
     labels: mapLabels(raw.labels),
-    assignees,
-    isMine: assignees.includes(viewer),
+    assignees: (raw.assignees?.nodes ?? []).map((a) => a?.login).filter((l): l is string => l != null),
     commentCount: raw.comments?.totalCount ?? 0,
   };
 }
@@ -544,7 +549,6 @@ function mapRestFile(file: RestFile): PullRequestFile {
  */
 export async function fetchIssues(identity: RepoIdentity): Promise<GithubIssueList> {
   const data = await ghGraphql<{
-    viewer: { login: string };
     repository: { issues: { nodes: Array<RawIssue | null> | null } } | null;
     assigned: { nodes: Array<RawIssue | null> | null } | null;
   }>(
@@ -561,7 +565,7 @@ export async function fetchIssues(identity: RepoIdentity): Promise<GithubIssueLi
   if (!data.repository) throw new GithubError('not-found', `Repository ${repoSlug(identity)} not found`);
 
   const map = (nodes: Array<RawIssue | null> | null | undefined) =>
-    (nodes ?? []).filter((n): n is RawIssue => n != null).map((n) => mapIssue(n, data.viewer.login));
+    (nodes ?? []).filter((n): n is RawIssue => n != null).map(mapIssueRow);
 
   const assigned = map(data.assigned?.nodes);
   const assignedNumbers = new Set(assigned.map((issue) => issue.number));
@@ -594,7 +598,7 @@ export async function fetchIssue(identity: RepoIdentity, number: number): Promis
   if (!issue) throw new GithubError('not-found', `Issue #${number} not found`);
 
   return {
-    ...mapIssue(issue, data.viewer.login),
+    ...mapIssue(issue),
     viewer: data.viewer.login,
     viewerAvatarUrl: data.viewer.avatarUrl,
     timeline: (issue.timelineItems?.nodes ?? [])

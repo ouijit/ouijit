@@ -13,17 +13,7 @@
 
 import type { Command } from 'commander';
 import { get, post, del } from '../api';
-import { printJson } from '../output';
-
-/** `--body -` reads stdin, for the reason `pr draft add` does: multi-line prose. */
-async function readBody(value: string): Promise<string> {
-  if (value !== '-') return value;
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
-  const body = Buffer.concat(chunks).toString('utf8').trim();
-  if (!body) throw new Error('No body on stdin');
-  return body;
-}
+import { printJson, readBody } from '../output';
 
 export function registerLinearCommands(parent: Command, requireProject: () => string) {
   const linear = parent

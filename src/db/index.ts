@@ -459,6 +459,10 @@ export async function getLinearDrafts(projectPath: string, issueId?: string): Pr
   return issueId ? lr.getForIssue(projectPath, issueId) : lr.getForProject(projectPath);
 }
 
+export async function findLinearDraft(projectPath: string, id: string): Promise<LinearDraftRow | undefined> {
+  return repos().linearDraftRepo.find(projectPath, id);
+}
+
 export async function saveLinearDraft(
   row: Omit<LinearDraftRow, 'created_at' | 'origin' | 'project_path' | 'issue_id'> & {
     projectPath: string;

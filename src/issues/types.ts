@@ -42,10 +42,9 @@ export interface IssueRow {
   updatedAt: string;
   author: string;
   authorAvatarUrl?: string;
-  /** Phosphor icon name and tint for the leading glyph. */
+  /** Phosphor icon name, with a class tint or an exact colour behind it. */
   icon: string;
-  tone: string;
-  /** An exact colour for the glyph, where the source has one of its own. */
+  tone?: string;
   iconColor?: string;
   /** Task number linked to this issue, when there is one. */
   taskNumber?: number;

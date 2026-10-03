@@ -16,7 +16,14 @@ import { experimentalStorageKey } from '../../experimentalFlags';
 import { invalidateRepoIdentity } from '../../github/repoIdentity';
 import { invalidateCredentialCache } from '../../linear/credentials';
 import { linearScopeKey } from '../../linear/scope';
-import { getAvailability, getIssues, invalidateScopeOptions, setCredential, setScope } from '../../linear/service';
+import {
+  getAvailability,
+  getConnection,
+  getIssues,
+  invalidateScopeOptions,
+  setCredential,
+  setScope,
+} from '../../linear/service';
 import { issuesResponse, scopeOptionsResponse, viewerResponse } from './linearResponses';
 
 let tmpDir: string;
@@ -149,5 +156,25 @@ describe('scoping a project to Linear', () => {
     expect(issuesQuery.variables.scope).toEqual({ team: { id: { eq: 'team-eng' } } });
     // Triage is opt-in per team; with it off nothing renders that group.
     expect(groups!.triageEnabled).toBe(false);
+  });
+
+  test('a refused key says where that key is set', async () => {
+    const refused = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            errors: [{ message: 'Authentication required', extensions: { type: 'authentication error' } }],
+          }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } },
+        ),
+    );
+    vi.stubGlobal('fetch', refused);
+
+    expect((await getConnection(repoDir)).message).toBe("Linear didn't accept the API key. Check it in App Settings.");
+
+    await setCredential('lin_api_own', repoDir);
+    expect((await getConnection(repoDir, true)).message).toBe(
+      "Linear didn't accept the API key. Check it in Project Settings.",
+    );
   });
 });

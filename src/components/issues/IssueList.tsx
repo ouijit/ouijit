@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import type { IssueGroup, IssueRow } from '../../issues/types';
-import { issueOpenItem, openKey, type OpenItem } from '../../stores/panelStore';
+import { isRowOpen, type OpenItem } from '../../stores/panelStore';
 import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
 import { Avatar } from './Avatar';
 import { since } from './since';
-import { rowActionClass, rowClass, rowTitleClass, TaskLink } from './rows';
+import { Group, rowActionClass, rowClass, rowTitleClass, TaskLink } from './rows';
 
 interface IssueListProps {
   groups: IssueGroup[];
@@ -27,7 +27,6 @@ interface IssueListProps {
  * and a `#299` sit in one `Assigned to you`.
  */
 export function IssueList({ groups, query, open, tasks, onOpen, onOpenTask, onCreateTask, loading }: IssueListProps) {
-  const activeKey = open ? openKey(open) : null;
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return groups.map((group) => ({
@@ -58,7 +57,7 @@ export function IssueList({ groups, query, open, tasks, onOpen, onOpenTask, onCr
               key={`${row.source}:${row.key}`}
               row={row}
               task={row.taskNumber != null ? tasks[row.taskNumber] : undefined}
-              active={activeKey === openKey(issueOpenItem(row))}
+              active={isRowOpen(open, row)}
               onOpen={() => onOpen(row)}
               onOpenTask={onOpenTask}
               onCreateTask={() => onCreateTask(row)}
@@ -67,20 +66,6 @@ export function IssueList({ groups, query, open, tasks, onOpen, onOpenTask, onCr
         </Group>
       ))}
     </>
-  );
-}
-
-/** `capped` is how many the group holds when that is a page rather than all of it. */
-function Group({ label, capped, children }: { label: string; capped: number; children: React.ReactNode[] }) {
-  if (children.length === 0) return null;
-  return (
-    <section className="pt-3">
-      <h2 className="px-4 pb-1 flex items-baseline gap-2 text-[13px] text-text-tertiary">
-        {label}
-        {capped > 0 && <span className="opacity-70">first {capped}</span>}
-      </h2>
-      {children}
-    </section>
   );
 }
 
@@ -108,7 +93,7 @@ function Row({
       <span className="flex items-center gap-2 min-w-0 text-[13px] text-text-tertiary">
         <Icon
           name={row.icon}
-          className={`w-3.5 h-3.5 shrink-0 ${row.tone}`}
+          className={`w-3.5 h-3.5 shrink-0 ${row.tone ?? ''}`}
           {...(row.iconColor ? { style: { color: row.iconColor } } : {})}
         />
         <Avatar login={row.author} url={row.authorAvatarUrl} size={16} />

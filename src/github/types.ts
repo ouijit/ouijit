@@ -204,10 +204,9 @@ export interface PullRequestDetail extends PullRequestSummary {
   viewerAvatarUrl?: string;
 }
 
-export interface GithubIssue {
+export interface GithubIssueRow {
   number: number;
   title: string;
-  body: string;
   state: 'open' | 'closed';
   /** Why a closed issue was closed: COMPLETED, NOT_PLANNED, or null. */
   stateReason: string | null;
@@ -216,10 +215,13 @@ export interface GithubIssue {
   createdAt: string;
   updatedAt: string;
   url: string;
+}
+
+/** A row plus what only the open issue shows. */
+export interface GithubIssue extends GithubIssueRow {
+  body: string;
   labels: PullRequestLabel[];
   assignees: string[];
-  /** Assigned to the authenticated user. */
-  isMine: boolean;
   commentCount: number;
 }
 
@@ -228,8 +230,8 @@ export interface GithubIssue {
  * row appears once; each `capped` says the list is a page rather than all of it.
  */
 export interface GithubIssueList {
-  assigned: GithubIssue[];
-  open: GithubIssue[];
+  assigned: GithubIssueRow[];
+  open: GithubIssueRow[];
   assignedCapped: boolean;
   openCapped: boolean;
 }

@@ -816,12 +816,8 @@ const routes: Route[] = [
     true,
   ),
 
-  // Drafts, on the same terms the pull request ones take: local rows, no
-  // credential, and an origin stamped here so a sandboxed caller cannot forge
-  // one.
-  //
-  // Callers here hold `ENG-214`; drafts are keyed by the issue's id, so the
-  // identifier is resolved before anything is written or read.
+  // Drafts, on the same terms the pull request ones take: local rows with an
+  // origin stamped here, so a sandboxed caller cannot forge one.
   route(
     'GET',
     'linear/issues/:id/drafts',

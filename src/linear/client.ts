@@ -34,6 +34,7 @@ export const LINEAR_API_URL = 'https://api.linear.app/graphql';
 /** Attempts including the first, and the ceiling on the wait between them. */
 const MAX_ATTEMPTS = 3;
 const MAX_BACKOFF_MS = 30_000;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 /** Linear's ceiling on one query, in complexity points. */
 const MAX_QUERY_COMPLEXITY = 10_000;
@@ -52,8 +53,18 @@ export class LinearError extends Error {
 
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
-/** Sends one document and returns its `data`, or throws a `LinearError`. */
-export type LinearRequest = <T>(query: string, variables?: Record<string, unknown>) => Promise<T>;
+/**
+ * Sends one document and returns its `data`, or throws a `LinearError`.
+ *
+ * `idempotent: false` marks a document that must not be sent twice — a lost
+ * response is not a failed request, and `commentCreate` retried through one
+ * posts the comment again.
+ */
+export type LinearRequest = <T>(
+  query: string,
+  variables?: Record<string, unknown>,
+  options?: { idempotent?: boolean },
+) => Promise<T>;
 
 interface RawGraphQLError {
   message?: string;
@@ -61,7 +72,11 @@ interface RawGraphQLError {
 }
 
 export function createLinearRequest(apiKey: string, fetchImpl: FetchLike = fetch): LinearRequest {
-  return async function request<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+  return async function request<T>(
+    query: string,
+    variables: Record<string, unknown> = {},
+    options: { idempotent?: boolean } = {},
+  ): Promise<T> {
     let attempt = 0;
     for (;;) {
       attempt++;
@@ -69,7 +84,7 @@ export function createLinearRequest(apiKey: string, fetchImpl: FetchLike = fetch
         return await send<T>(apiKey, fetchImpl, query, variables);
       } catch (error) {
         const failure = error instanceof LinearError ? error : new LinearError('unknown', 'Linear request failed');
-        const wait = waitFor(failure, attempt);
+        const wait = waitFor(failure, attempt, options.idempotent ?? true);
         if (attempt >= MAX_ATTEMPTS || wait === null) throw failure;
         linearLog.warn('retrying after a failed request', { kind: failure.kind, attempt, waitMs: wait });
         await delay(wait);
@@ -95,6 +110,9 @@ async function send<T>(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ query, variables }),
+      // Node's fetch waits five minutes for headers by default, which on a
+      // stalled connection is a panel spinning that long before the retry runs.
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch {
     throw new LinearError('network', "Can't reach Linear. Check your connection.");
@@ -150,7 +168,7 @@ function classify(response: Response, errors: RawGraphQLError[]): LinearError {
     return new LinearError('rate-limited', message, resetDelay(response.headers));
   }
   if (parsed instanceof AuthenticationLinearError || parsed instanceof ForbiddenLinearError) {
-    return new LinearError('unauthorized', 'Invalid API key. Check it in App Settings.');
+    return new LinearError('unauthorized', "Linear didn't accept the API key.");
   }
   if (parsed instanceof NetworkLinearError || parsed instanceof InternalLinearError) {
     return new LinearError('network', "Linear isn't responding. Try again in a moment.");
@@ -165,7 +183,7 @@ function isRateLimit(error: RawGraphQLError): boolean {
 
 /**
  * Both reset headers are UTC epoch milliseconds. Whichever budget is further
- * out is the one to wait for; without either, the caller backs off.
+ * out is the one to wait for; without either, the request is not retried.
  */
 function resetDelay(headers: Headers): number | undefined {
   const resets = ['X-RateLimit-Requests-Reset', 'X-RateLimit-Complexity-Reset']
@@ -181,9 +199,13 @@ function resetDelay(headers: Headers): number | undefined {
  * A budget that refills in seconds is worth waiting out. One that refills in
  * forty minutes is not: sitting on it would hang the panel for a minute and
  * fail anyway, where the message says what happened straight away.
+ *
+ * A rate limit means Linear refused the document, so resending it is safe. A
+ * network failure means the answer was lost, which for a non-idempotent
+ * document could mean it was applied — those give up instead.
  */
-function waitFor(failure: LinearError, attempt: number): number | null {
-  if (failure.kind === 'network') return Math.min(MAX_BACKOFF_MS, 2 ** attempt * 500);
+function waitFor(failure: LinearError, attempt: number, idempotent: boolean): number | null {
+  if (failure.kind === 'network') return idempotent ? Math.min(MAX_BACKOFF_MS, 2 ** attempt * 500) : null;
   if (failure.kind !== 'rate-limited') return null;
   return failure.retryAfterMs != null && failure.retryAfterMs <= MAX_BACKOFF_MS ? failure.retryAfterMs : null;
 }

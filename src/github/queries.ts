@@ -120,17 +120,26 @@ query($owner: String!, $repo: String!, $number: Int!) {
   }
 }`;
 
-/** Fields every issue needs, whether it is a row in the list or the open one. */
-const ISSUE_FIELDS = `
+/** What a row of the Issues list draws. */
+const LIST_ISSUE_FIELDS = `
   number
   title
-  body
   state
   stateReason
   url
   createdAt
   updatedAt
   author { login avatarUrl }
+`;
+
+/**
+ * The open issue, which is the only place the body and the sidebar are read.
+ * The list document fetches two pages of up to 50, so carrying these on a row
+ * is a hundred issue bodies to draw five fields.
+ */
+const ISSUE_FIELDS = `
+  ${LIST_ISSUE_FIELDS}
+  body
   comments { totalCount }
   labels(first: 10) { nodes { name color } }
   assignees(first: 10) { nodes { login } }
@@ -145,14 +154,13 @@ const ISSUE_FIELDS = `
  */
 export const ISSUE_LIST_QUERY = `
 query($owner: String!, $repo: String!, $first: Int!, $assigned: String!) {
-  viewer { login avatarUrl }
   repository(owner: $owner, name: $repo) {
     issues(first: $first, states: [OPEN], orderBy: { field: UPDATED_AT, direction: DESC }) {
-      nodes { ${ISSUE_FIELDS} }
+      nodes { ${LIST_ISSUE_FIELDS} }
     }
   }
   assigned: search(query: $assigned, type: ISSUE, first: $first) {
-    nodes { ... on Issue { ${ISSUE_FIELDS} } }
+    nodes { ... on Issue { ${LIST_ISSUE_FIELDS} } }
   }
 }`;
 

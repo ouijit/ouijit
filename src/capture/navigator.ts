@@ -13,8 +13,9 @@ import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, setActiveTerminal, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
-import { freezeGithubForCapture, useGithubStore } from '../stores/githubStore';
-import { freezeLinearForCapture, useLinearStore } from '../stores/linearStore';
+import { useGithubStore } from '../stores/githubStore';
+import { useLinearStore } from '../stores/linearStore';
+import { freezeForCapture } from './frozen';
 import { usePanelStore } from '../stores/panelStore';
 import { previewTheme } from '../theme/themeManager';
 import { isThemePreference } from '../theme/themes';
@@ -292,8 +293,7 @@ export function installCaptureNavigator(): void {
         projectStore.setActivePanel('pull-requests');
         projectStore.setKanbanVisible(false);
         if (payload.issues) {
-          freezeGithubForCapture();
-          freezeLinearForCapture();
+          freezeForCapture();
           useGithubStore.setState({
             projectPath: payload.projectPath,
             availability: payload.issues.availability,

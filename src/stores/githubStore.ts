@@ -12,6 +12,7 @@ import type {
 
 import type { FileDiff } from '../types';
 import { usePanelStore } from './panelStore';
+import { isFrozenForCapture } from '../capture/frozen';
 import { describeError } from '../utils/describeError';
 import { toggleIn, toggleInList } from '../utils/toggleIn';
 import { markSection } from '../github/viewedSections';
@@ -220,17 +221,6 @@ let detailVersion = 0;
 let issuesVersion = 0;
 let issueVersion = 0;
 
-/**
- * Capture mode hands the panel canned data and then must keep it: the machine
- * taking screenshots has no `gh` and no Linear key, so every load would replace
- * the scene with a failure notice.
- */
-let frozen = false;
-
-export function freezeGithubForCapture(): void {
-  frozen = true;
-}
-
 /** The pull request in the panel's slot, if that is what is open. */
 function openPrNumber(): number | null {
   const open = usePanelStore.getState().open;
@@ -259,7 +249,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   },
 
   loadAvailability: async (projectPath, recheck) => {
-    if (frozen) return;
+    if (isFrozenForCapture()) return;
     try {
       const availability = await window.api.github.availability(projectPath, recheck);
       if (get().projectPath !== projectPath) return;
@@ -272,7 +262,12 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   },
 
   loadInbox: async (projectPath) => {
-    if (frozen) return;
+    if (isFrozenForCapture()) return;
+    if (!get().availability?.available) {
+      inboxVersion++;
+      set({ inbox: null, inboxLoading: false, inboxError: null });
+      return;
+    }
     const version = ++inboxVersion;
     set({ inboxLoading: true, inboxError: null });
     try {
@@ -286,7 +281,12 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   },
 
   loadIssues: async (projectPath) => {
-    if (frozen) return;
+    if (isFrozenForCapture()) return;
+    if (!get().availability?.available) {
+      issuesVersion++;
+      set({ issues: null, issuesLoading: false, issuesError: null });
+      return;
+    }
     const version = ++issuesVersion;
     set({ issuesLoading: true, issuesError: null });
     try {

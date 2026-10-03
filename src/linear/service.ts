@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto';
 import {
   createTask,
   getGlobalSetting,
+  findLinearDraft,
   getLinearDrafts,
   getNextTaskNumber,
   getProjectTasks,
@@ -27,14 +28,14 @@ import { getLogger } from '../logger';
 import { getRepoIdentity } from '../github/repoIdentity';
 import { repoSlug } from '../github/types';
 import { LinearError } from './client';
-import { createComment, fetchIssue, fetchIssueGroups, fetchScopeOptions, setIssueState } from './api';
+import { createComment, fetchIssue, fetchIssueGroups, fetchIssueRef, fetchScopeOptions, setIssueState } from './api';
 import {
-  canStoreCredential,
   invalidateCredentialCache,
   maskCredential,
   readCredential,
   resolveViewer,
   writeCredential,
+  type StoredCredential,
 } from './credentials';
 import { matchRepoLabel, readScope, writeScope } from './scope';
 import type {
@@ -44,6 +45,7 @@ import type {
   LinearConnection,
   LinearIssueDetail,
   LinearIssueGroups,
+  LinearIssueRef,
   LinearScope,
   LinearTeam,
 } from './types';
@@ -68,21 +70,26 @@ export async function isLinearEnabled(projectPath: string): Promise<boolean> {
 export async function getConnection(projectPath?: string, recheck = false): Promise<LinearConnection> {
   const credential = await readCredential(projectPath);
   if (!credential) {
-    return { connected: false, reason: 'no-credential', canStore: canStoreCredential() };
+    return { connected: false, reason: 'no-credential' };
   }
   const viewer = await resolveViewer(projectPath, recheck);
   const standing = {
     storage: credential.storage,
     source: credential.source,
     masked: maskCredential(credential.apiKey),
-    canStore: canStoreCredential(),
   };
 
   if (viewer instanceof LinearError) {
-    return { ...standing, connected: false, reason: viewer.kind, message: viewer.message };
+    const message = viewer.kind === 'unauthorized' ? `${viewer.message} ${whereToFix(credential)}` : viewer.message;
+    return { ...standing, connected: false, reason: viewer.kind, message };
   }
-  if (!viewer) return { connected: false, reason: 'no-credential', canStore: canStoreCredential() };
+  if (!viewer) return { connected: false, reason: 'no-credential' };
   return { ...standing, connected: true, viewer };
+}
+
+function whereToFix(credential: StoredCredential): string {
+  if (credential.storage === 'environment') return 'Check LINEAR_API_KEY.';
+  return credential.source === 'project' ? 'Check it in Project Settings.' : 'Check it in App Settings.';
 }
 
 /**
@@ -136,11 +143,20 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
     return { ...connection, repoLabels: [], teams: [] };
   }
 
-  let options: ScopeOptions;
-  try {
-    options = await scopeOptions(projectPath);
-  } catch (error) {
-    const failure = describe(error);
+  // Three lookups that answer to the credential rather than to each other. The
+  // scope options carry their failure in the result: thrown, it would take the
+  // other two down with it.
+  const [options, stored, identity] = await Promise.all([
+    scopeOptions(projectPath).then(
+      (value) => ({ value }),
+      (error: unknown) => ({ error }),
+    ),
+    readScope(projectPath),
+    getRepoIdentity(projectPath),
+  ]);
+
+  if ('error' in options) {
+    const failure = describe(options.error);
     return {
       ...connection,
       connected: false,
@@ -151,22 +167,19 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
     };
   }
 
-  const stored = await readScope(projectPath);
   if (stored && stored.workspaceId !== connection.viewer.workspaceId) {
     linearLog.info('dropping a scope stored under another workspace', { projectPath });
     await writeScope(projectPath, null);
   }
   const scope = stored?.workspaceId === connection.viewer.workspaceId ? stored.scope : undefined;
-
-  const identity = await getRepoIdentity(projectPath);
-  const suggested = matchRepoLabel(options.repoLabels, identity ? repoSlug(identity) : null);
+  const suggested = matchRepoLabel(options.value.repoLabels, identity ? repoSlug(identity) : null);
 
   return {
     ...connection,
     ...(scope ? { scope } : {}),
     ...(suggested ? { suggestedLabel: suggested } : {}),
-    repoLabels: options.repoLabels,
-    teams: options.teams,
+    repoLabels: options.value.repoLabels,
+    teams: options.value.teams,
   };
 }
 
@@ -288,9 +301,7 @@ export async function discardDraft(
   projectPath: string,
   draftId: string,
 ): Promise<{ success: boolean; issueId?: string }> {
-  // Looked up within the project first: a draft id is guessable, and a
-  // sandboxed caller holds a token scoped to one project.
-  const draft = (await getLinearDrafts(projectPath)).find((row) => row.id === draftId);
+  const draft = await findLinearDraft(projectPath, draftId);
   if (!draft) return { success: false };
   await deleteLinearDraft(draftId);
   return { success: true, issueId: draft.issue_id };
@@ -305,12 +316,17 @@ export async function discardDraft(
  * meet.
  */
 export async function resolveIssueId(projectPath: string, idOrIdentifier: string): Promise<string> {
-  return (await getIssue(projectPath, idOrIdentifier)).id;
+  const apiKey = await requireKey(projectPath);
+  if (UUID.test(idOrIdentifier)) return idOrIdentifier.toLowerCase();
+  return (await fetchIssueRef(apiKey, idOrIdentifier)).id;
 }
+
+/** Linear ids are UUIDs; an identifier is `ENG-214`, which is not one. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Post a staged comment and drop it, which is what pressing Send does. */
 export async function sendDraft(projectPath: string, draftId: string): Promise<{ success: boolean; error?: string }> {
-  const draft = (await getLinearDrafts(projectPath)).find((row) => row.id === draftId);
+  const draft = await findLinearDraft(projectPath, draftId);
   if (!draft) return { success: false, error: 'This comment no longer exists.' };
   const result = await comment(projectPath, draft.issue_id, draft.body);
   if (!result.success) return result;
@@ -338,12 +354,18 @@ export async function linkTaskToIssue(
 ): Promise<{ success: boolean; error?: string }> {
   if (!identifier) return setTaskLinearIssue(projectPath, taskNumber, null);
 
-  let issue: LinearIssueDetail;
+  let issue: LinearIssueRef;
   try {
-    issue = await getIssue(projectPath, identifier);
+    issue = await fetchIssueRef(await requireKey(projectPath), identifier);
   } catch (error) {
     return { success: false, error: describe(error).error };
   }
+
+  const claimed = await claimedBy(projectPath, issue.id, taskNumber);
+  if (claimed) {
+    return { success: false, error: `${issue.identifier} is already linked to task #${claimed}` };
+  }
+
   return setTaskLinearIssue(projectPath, taskNumber, {
     id: issue.id,
     identifier: issue.identifier,
@@ -356,16 +378,16 @@ export async function linkTaskToIssue(
  * pull request opened from it later point Linear at the work.
  */
 export async function createTaskFromIssue(projectPath: string, identifier: string): Promise<TaskFromGithubResult> {
-  let issue: LinearIssueDetail;
+  let issue: LinearIssueRef;
   try {
-    issue = await getIssue(projectPath, identifier);
+    issue = await fetchIssueRef(await requireKey(projectPath), identifier);
   } catch (error) {
     return { success: false, error: describe(error).error };
   }
 
-  const existing = (await getProjectTasks(projectPath)).find((t) => t.linearIssueId === issue.id);
-  if (existing) {
-    return { success: false, error: `${issue.identifier} is already linked to task #${existing.taskNumber}` };
+  const claimed = await claimedBy(projectPath, issue.id);
+  if (claimed) {
+    return { success: false, error: `${issue.identifier} is already linked to task #${claimed}` };
   }
 
   const taskNumber = await getNextTaskNumber(projectPath);
@@ -378,6 +400,14 @@ export async function createTaskFromIssue(projectPath: string, identifier: strin
     suggestedBranch: issue.branchName,
   });
   return { success: true, taskNumber };
+}
+
+/** The task already holding this issue, so a second cannot start on its branch. */
+async function claimedBy(projectPath: string, issueId: string, except?: number): Promise<number | null> {
+  const claimed = (await getProjectTasks(projectPath)).find(
+    (task) => task.linearIssueId === issueId && task.taskNumber !== except,
+  );
+  return claimed?.taskNumber ?? null;
 }
 
 /** The identifier a linked task carries, for the pull request body. */

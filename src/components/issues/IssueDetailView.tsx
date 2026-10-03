@@ -16,7 +16,7 @@ interface IssueDetailViewProps {
   url: string;
   /** Leading glyph and its tint, so a closed issue does not read as an open one. */
   icon: string;
-  tone: string;
+  tone?: string;
   /** An exact colour for the glyph, where the source has one of its own. */
   iconColor?: string;
   stateLabel: string;

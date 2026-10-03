@@ -210,7 +210,6 @@ describe('the API key row', () => {
       storage: 'keychain',
       source: 'app',
       masked: 'lin_api_••••6Zzz',
-      canStore: true,
     });
 
     render(<LinearSettingsSection />);
@@ -228,7 +227,6 @@ describe('the API key row', () => {
     vi.mocked(window.api.linear.connection).mockResolvedValue({
       connected: false,
       reason: 'no-credential',
-      canStore: true,
     });
 
     render(<LinearSettingsSection />);

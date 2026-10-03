@@ -24,7 +24,7 @@ import {
   setCredential,
 } from '../../linear/service';
 import { startTask } from '../../worktree';
-import { issueDetailResponse, viewerResponse } from './linearResponses';
+import { issueDetailResponse, issueRefResponse, viewerResponse } from './linearResponses';
 
 let tmpDir: string;
 let repoDir: string;
@@ -56,7 +56,10 @@ beforeEach(async () => {
         return json({ data: { commentCreate: { success: true } } });
       }
       if (sent.query.includes('organization')) return json(viewerResponse());
-      return json(issueDetailResponse({ identifier: String(sent.variables.id ?? 'ENG-2') }));
+      const identifier = String(sent.variables.id ?? 'ENG-2');
+      return sent.query.includes('comments(')
+        ? json(issueDetailResponse({ identifier }))
+        : json(issueRefResponse({ identifier }));
     }),
   );
 });

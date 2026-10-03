@@ -9,6 +9,7 @@ import type {
 } from '../linear/types';
 import { describeError } from '../utils/describeError';
 import { usePanelStore } from './panelStore';
+import { isFrozenForCapture } from '../capture/frozen';
 
 const linearLog = log.scope('linear');
 
@@ -65,13 +66,6 @@ const INITIAL: LinearStoreState = {
 let groupsVersion = 0;
 let issueVersion = 0;
 
-/** Same reason the GitHub store has one: see `freezeGithubForCapture`. */
-let frozen = false;
-
-export function freezeLinearForCapture(): void {
-  frozen = true;
-}
-
 /** The Linear issue in the panel's slot, if that is what is open. */
 function openIssueId(): string | null {
   const open = usePanelStore.getState().open;
@@ -89,7 +83,7 @@ export const useLinearStore = create<LinearStore>()((set, get) => ({
   },
 
   loadAvailability: async (projectPath, recheck) => {
-    if (frozen) return;
+    if (isFrozenForCapture()) return;
     try {
       const availability = await window.api.linear.availability(projectPath, recheck);
       if (get().projectPath !== projectPath) return;
@@ -102,7 +96,13 @@ export const useLinearStore = create<LinearStore>()((set, get) => ({
   },
 
   loadIssues: async (projectPath) => {
-    if (frozen) return;
+    if (isFrozenForCapture()) return;
+    const availability = get().availability;
+    if (!availability?.connected || !availability.scope) {
+      groupsVersion++;
+      set({ groups: null, groupsLoading: false, groupsError: null });
+      return;
+    }
     const version = ++groupsVersion;
     set({ groupsLoading: true, groupsError: null });
     try {
@@ -151,7 +151,7 @@ export const useLinearStore = create<LinearStore>()((set, get) => ({
       set({ issue, issueLoading: false });
       void get().loadDrafts(projectPath, issue.id);
     } catch (error) {
-      if (version !== issueVersion) return;
+      if (version !== issueVersion || get().projectPath !== projectPath) return;
       // A refresh that fails leaves what is on screen alone; only a first load
       // has nothing to fall back to.
       set({ issueLoading: false, ...(get().issue ? {} : { issueError: describeError(error) }) });

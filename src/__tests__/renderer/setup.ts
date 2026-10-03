@@ -252,7 +252,7 @@ const mockApi = {
     onDraftsChanged: vi.fn().mockReturnValue(() => {}),
   },
   linear: {
-    connection: vi.fn().mockResolvedValue({ connected: false, reason: 'no-credential', canStore: true }),
+    connection: vi.fn().mockResolvedValue({ connected: false, reason: 'no-credential' }),
     setCredential: vi.fn().mockResolvedValue({ success: true }),
     availability: vi.fn().mockResolvedValue({ connected: false, reason: 'flag-off', repoLabels: [], teams: [] }),
     setScope: vi.fn().mockResolvedValue({ success: true }),

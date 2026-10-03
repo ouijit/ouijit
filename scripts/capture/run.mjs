@@ -347,17 +347,12 @@ function buildIssuesSeed() {
   const github = (number, title, author, updatedAt) => ({
     number,
     title,
-    body: '',
     state: 'open',
     stateReason: null,
     author,
     createdAt: '2026-06-18T09:00:00.000Z',
     updatedAt,
     url: `https://github.com/acme/widgets/issues/${number}`,
-    labels: [],
-    assignees: [],
-    isMine: false,
-    commentCount: 0,
   });
 
   return {
