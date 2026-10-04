@@ -89,8 +89,8 @@ if (process.env.OUIJIT_TEST_USER_DATA) {
 // Set CLI path so PTY sessions can find the bundled ouijit CLI
 if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
   setCliPath(path.join(app.getAppPath(), 'dist-cli', 'ouijit.js'));
-  // Resolve vendored binaries/resources (limactl, nono, agent packs) from the
-  // repo checkout so dev matches packaged builds instead of falling back to
+  // Resolve vendored binaries/resources (nono, agent packs) from the repo
+  // checkout so dev matches packaged builds instead of falling back to
   // whatever happens to be on PATH.
   setDevResourcesRoot(path.join(app.getAppPath(), 'resources'));
 } else {
@@ -354,7 +354,7 @@ app.on('ready', async () => {
     initUpdater(mainWindow);
   }
 
-  // Health probe (git/claude/lima detection) — push to renderer once it's ready
+  // Health probe (git / agent CLI / sandbox detection) — push to renderer once it's ready
   if (!isCaptureMode() && mainWindow) {
     const pushHealth = async () => {
       const status = await checkHealth();

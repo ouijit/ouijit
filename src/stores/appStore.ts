@@ -18,9 +18,6 @@ interface AppStoreState {
   projects: Project[];
   /** Clones in flight, standing in for the projects they will become. */
   cloneJobs: CloneJob[];
-  sandboxAvailable: boolean;
-  sandboxVmStatus: string;
-  sandboxStarting: boolean;
   whatsNew: { version: string; notes: string } | null;
   /** Version shown by the About dialog; null while it is closed. */
   aboutVersion: string | null;
@@ -56,8 +53,6 @@ interface AppStoreActions {
   setProjects: (projects: Project[]) => void;
   setCloneJobs: (jobs: CloneJob[]) => void;
   setFullscreen: (fullscreen: boolean) => void;
-  setSandboxStatus: (available: boolean, vmStatus: string) => void;
-  setSandboxStarting: (starting: boolean) => void;
   setWhatsNew: (info: { version: string; notes: string } | null) => void;
   setAboutVersion: (version: string | null) => void;
   setHelpDialogOpen: (open: boolean) => void;
@@ -118,9 +113,6 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   platform: navigator.platform.toLowerCase().includes('mac') ? 'darwin' : 'other',
   projects: [],
   cloneJobs: [],
-  sandboxAvailable: false,
-  sandboxVmStatus: '',
-  sandboxStarting: false,
   whatsNew: null,
   aboutVersion: null,
   helpDialogOpen: false,
@@ -137,10 +129,6 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   setCloneJobs: (cloneJobs) => set({ cloneJobs }),
 
   setFullscreen: (fullscreen) => set({ fullscreen }),
-
-  setSandboxStatus: (available, vmStatus) => set({ sandboxAvailable: available, sandboxVmStatus: vmStatus }),
-
-  setSandboxStarting: (starting) => set({ sandboxStarting: starting }),
 
   setWhatsNew: (info) => set({ whatsNew: info }),
 

@@ -12,7 +12,6 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
 import type { PtyId, PtySpawnOptions, GitFileStatus, SandboxProviderId } from '../../types';
-import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -398,9 +397,6 @@ export class OuijitTerminal {
 
   // ── Task/worktree metadata ──────────────────────────────────────────
   readonly sandboxProvider: SandboxProviderId | undefined;
-  get sandboxed(): boolean {
-    return isActiveSandbox(this.sandboxProvider);
-  }
   readonly taskId: number | null;
   readonly taskPrompt?: string;
   worktreePath?: string;
@@ -559,7 +555,7 @@ export class OuijitTerminal {
   ): void {
     if (this.disposed) return;
     // Sandbox terminals register under a placeholder ptyId before the
-    // real one is known (so the loading card can render while the VM
+    // real one is known (so the loading card can render while the sandbox
     // spawns). Re-key the registry and Zustand store to the real id so
     // downstream lookups — hook status updates, plan events, git-status
     // refresh — can find us.
@@ -582,62 +578,8 @@ export class OuijitTerminal {
     this.wireResizeObserver();
   }
 
-  /** Spawn a PTY, showing VM boot progress for the Lima backend. */
   async spawnPty(options: PtySpawnOptions): Promise<PtyId | null> {
-    let cleanupProgress: (() => void) | null = null;
-    if (options.sandboxProvider === 'lima') {
-      const spinner = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
-      let frame = 0;
-      let activeLabel = 'Connecting to sandbox…';
-      let activeId = '_init';
-
-      // Truncate label to fit in one terminal row (leave room for spinner + padding)
-      const truncate = (label: string) => {
-        const maxLen = this.xterm.cols - 4; // "⠋ " prefix + safety margin
-        return label.length > maxLen ? label.slice(0, maxLen - 1) + '…' : label;
-      };
-
-      this.xterm.write(`\x1b[90m${spinner[0]} ${activeLabel}\x1b[0m`);
-
-      // Spinner animation: overwrite in place, then clear trailing chars (no full line clear to avoid flicker)
-      const interval = setInterval(() => {
-        frame = (frame + 1) % spinner.length;
-        this.xterm.write(`\r\x1b[90m${spinner[frame]} ${truncate(activeLabel)}\x1b[0m\x1b[K`);
-      }, 80);
-
-      const unlistenProgress = window.api.lima.onSpawnProgress((step) => {
-        if (step.id === activeId) {
-          activeLabel = step.label;
-          if (step.status === 'done') {
-            this.xterm.write(`\r\x1b[90m✓ ${truncate(step.label)}\x1b[0m\x1b[K\r\n`);
-            activeLabel = '';
-            activeId = '';
-          }
-        } else {
-          if (activeId) {
-            this.xterm.write(`\r\x1b[90m✓ ${truncate(activeLabel)}\x1b[0m\x1b[K\r\n`);
-          }
-          activeId = step.id;
-          activeLabel = step.label;
-          if (step.status === 'done') {
-            this.xterm.write(`\x1b[90m✓ ${truncate(step.label)}\x1b[0m\x1b[K\r\n`);
-            activeLabel = '';
-            activeId = '';
-          }
-        }
-      });
-
-      cleanupProgress = () => {
-        clearInterval(interval);
-        unlistenProgress();
-        if (activeId) {
-          this.xterm.write('\r\x1b[2K');
-        }
-      };
-    }
-
     const result = await window.api.pty.spawn(options);
-    cleanupProgress?.();
 
     if (!result.success || !result.ptyId) {
       this.xterm.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);

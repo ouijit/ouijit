@@ -25,10 +25,6 @@ import {
   type TaskMetadata,
 } from './db';
 import { mergeWorktreeBranch } from './git';
-// Import from the registry (runtime-import-free) rather than the sandbox index
-// so worktree.ts doesn't pull the Lima/node-pty graph into every importer. The
-// registry is populated at bootstrap, before any worktree op runs.
-import { listSandboxProviders } from './sandbox/registry';
 
 const worktreeLog = getLogger().scope('worktree');
 
@@ -724,26 +720,6 @@ export async function removeTaskWorktree(
     // Get the task to find the branch name
     const task = await getTaskByNumber(projectPath, taskNumber);
     const branchName = task?.branch;
-
-    // Best-effort: let every sandbox backend tear down any per-task resources
-    // (Lima removes its sandbox-view worktree and s/<branch> branch) before
-    // touching the user worktree, so git's metadata stays consistent. The
-    // backend is a per-terminal choice, not stored on the task, so we ask each
-    // registered provider to clean up — the ones with nothing to do no-op.
-    // Swallow errors — the resources may already be gone.
-    if (task?.branch && !Number.isNaN(taskNumber)) {
-      const branch = task.branch;
-      try {
-        await Promise.all(
-          listSandboxProviders().map((provider) => provider.cleanupTaskResources?.(projectPath, taskNumber, branch)),
-        );
-      } catch (error) {
-        worktreeLog.warn('sandbox task cleanup failed', {
-          taskNumber,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
 
     // Remove the worktree
     await execFileAsync('git', ['worktree', 'remove', worktreePath, '--force'], {

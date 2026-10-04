@@ -136,7 +136,7 @@ describe('taskStartService.beginTransition', () => {
 
     await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
     const req = useProjectStore.getState().runHookQueue[0]!;
-    useProjectStore.getState().resolveRunHookRequest(req.id, { command: 'npm ci', sandboxed: false, foreground: true });
+    useProjectStore.getState().resolveRunHookRequest(req.id, { command: 'npm ci', foreground: true });
 
     await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
 
@@ -178,7 +178,7 @@ describe('taskStartService.beginTransition', () => {
 
     await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
     const req = useProjectStore.getState().runHookQueue[0]!;
-    useProjectStore.getState().resolveRunHookRequest(req.id, { command: 'npm ci', sandboxed: false, foreground: true });
+    useProjectStore.getState().resolveRunHookRequest(req.id, { command: 'npm ci', foreground: true });
 
     // Should fire before the worktree resolves.
     await waitFor(() => onForegroundOpen.mock.calls.length === 1);
@@ -208,9 +208,7 @@ describe('taskStartService.beginTransition', () => {
 
     await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
     const req = useProjectStore.getState().runHookQueue[0]!;
-    useProjectStore
-      .getState()
-      .resolveRunHookRequest(req.id, { command: 'npm ci', sandboxed: false, foreground: false });
+    useProjectStore.getState().resolveRunHookRequest(req.id, { command: 'npm ci', foreground: false });
 
     await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
 
@@ -391,9 +389,7 @@ describe('taskStartService.beginTransition', () => {
       expect(req.hookType).toBe('review');
       expect(addProjectTerminal).not.toHaveBeenCalled();
 
-      useProjectStore
-        .getState()
-        .resolveRunHookRequest(req.id, { command: 'claude review', sandboxed: false, foreground: false });
+      useProjectStore.getState().resolveRunHookRequest(req.id, { command: 'claude review', foreground: false });
 
       await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
       expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({
@@ -441,7 +437,7 @@ describe('taskStartService.beginTransition', () => {
     expect(useProjectStore.getState().runHookQueue[0]!.task.taskNumber).toBe(7);
 
     // Accept the head — the second prompt slides into its place.
-    const runResult = { command: 'npm install', sandboxed: false, foreground: false };
+    const runResult = { command: 'npm install', foreground: false };
     useProjectStore.getState().resolveRunHookRequest(useProjectStore.getState().runHookQueue[0]!.id, runResult);
     await waitFor(() => useProjectStore.getState().runHookQueue.length === 1);
     expect(useProjectStore.getState().runHookQueue[0]!.task.taskNumber).toBe(8);
@@ -468,7 +464,6 @@ describe('projectStore runHook queue', () => {
   });
 
   const makeReq = (taskNumber: number) => ({
-    projectPath: PROJECT,
     hookType: 'start' as const,
     hook: { command: `cmd-${taskNumber}`, name: 'Start', source: 'configured' as const, priority: 0 },
     task: { taskNumber, name: `Task ${taskNumber}`, status: 'todo' as const, order: 0, createdAt: '' },
@@ -511,11 +506,11 @@ describe('projectStore runHook queue', () => {
     const p1 = store.requestRunHook(makeReq(1));
     const p2 = store.requestRunHook(makeReq(2));
 
-    const headResult = { command: 'edited', sandboxed: true, foreground: true };
+    const headResult = { command: 'edited', foreground: true };
     useProjectStore.getState().runAllRunHookRequests(headResult);
 
     await expect(p1).resolves.toEqual(headResult);
-    await expect(p2).resolves.toEqual({ command: 'cmd-2', sandboxed: false, foreground: false });
+    await expect(p2).resolves.toEqual({ command: 'cmd-2', foreground: false });
     expect(useProjectStore.getState().runHookQueue).toHaveLength(0);
     expect(useProjectStore.getState().runHookQueueTotal).toBe(0);
   });

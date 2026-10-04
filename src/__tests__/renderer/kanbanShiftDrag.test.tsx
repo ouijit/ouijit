@@ -57,7 +57,7 @@ describe('shift-drag (skip done hook)', () => {
     // like every other column transition.
     const promptSpy = vi
       .spyOn(useProjectStore.getState(), 'requestRunHook')
-      .mockResolvedValue({ command: 'echo cleanup', sandboxed: false, foreground: false });
+      .mockResolvedValue({ command: 'echo cleanup', foreground: false });
 
     await completeTask({ projectPath: PROJECT, task: makeTask() });
 

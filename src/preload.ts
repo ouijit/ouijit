@@ -304,21 +304,6 @@ contextBridge.exposeInMainWorld('api', {
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   homePath: (): Promise<string> => typedInvoke('get-home-path'),
 
-  lima: {
-    status: (projectPath: string) => typedInvoke('lima:status', projectPath),
-    start: (projectPath: string) => typedInvoke('lima:start', projectPath),
-    stop: (projectPath: string) => typedInvoke('lima:stop', projectPath),
-    getYaml: (projectPath: string) => typedInvoke('lima:get-yaml', projectPath),
-    setYaml: (projectPath: string, yaml: string) => typedInvoke('lima:set-yaml', projectPath, yaml),
-    getMergedYaml: (projectPath: string) => typedInvoke('lima:get-merged-yaml', projectPath),
-    recreate: (projectPath: string) => typedInvoke('lima:recreate', projectPath),
-    delete: (projectPath: string) => typedInvoke('lima:delete', projectPath),
-    onSpawnProgress: (callback: (step: { id: string; label: string; status: 'active' | 'done' }) => void) =>
-      typedListen('lima:spawn-progress', callback),
-    onSandboxDiverged: (
-      callback: (event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }) => void,
-    ) => typedListen('sandbox:diverged', callback),
-  },
   sandbox: {
     status: (projectPath: string) => typedInvoke('sandbox:status', projectPath),
     nonoConfig: (projectPath: string) => typedInvoke('sandbox:nono-config', projectPath),

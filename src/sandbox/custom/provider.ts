@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { getOuijitDir, getCliPath } from '../../paths';
 import { getLogger } from '../../logger';
-import type { WrapperSandboxProvider } from '../provider';
+import type { SandboxProvider } from '../provider';
 import type { SandboxLaunch, SandboxProviderStatus, SandboxSpawnContext } from '../types';
 import { GIT_WRITABLE_OVERLAY_DIRS } from '../types';
 import { getMainGitDir } from '../gitDir';
@@ -21,17 +21,9 @@ const customLog = getLogger().scope('customSandbox');
  * linked worktree's `.git` pointer file, and must not be able to steer the
  * launcher's grants for the next spawn.
  */
-export const customProvider: WrapperSandboxProvider = {
-  kind: 'wrapper',
+export const customProvider: SandboxProvider = {
   id: 'custom',
   displayName: 'Custom',
-  capabilities: {
-    vmLifecycle: false,
-    yamlConfig: false,
-    sandboxView: false,
-    profiles: false,
-    network: false,
-  },
 
   async isAvailable(): Promise<boolean> {
     return true;

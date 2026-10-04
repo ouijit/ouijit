@@ -208,8 +208,7 @@ interface Route {
   mutating: boolean;
   /**
    * Minimum scope required to hit this route. Defaults to 'host' so
-   * sandbox-scoped callers (anything reaching us from inside a guest VM
-   * via host.lima.internal) cannot hit privileged endpoints by default.
+   * sandbox-scoped callers cannot hit privileged endpoints by default.
    */
   minScope: ApiScope;
 }
@@ -686,8 +685,7 @@ const routes: Route[] = [
 
   // ── Pull requests ─────────────────────────────────────────────────
   // Host-only (default scope): these shell out to `gh` on the host with the
-  // user's credentials. A sandboxed session must not be able to reach them,
-  // which is also why the guest env keeps its GITHUB_TOKEN stripped.
+  // user's credentials, which a sandboxed session must not be able to reach.
   route('GET', 'pulls', async (r) => {
     const project = requireProject(r.query);
     const availability = await getGithubAvailability(project);
@@ -910,9 +908,8 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
   const apiPath = url.pathname.replace(/^\/api\//, '');
   const segments = apiPath.split('/').filter(Boolean);
 
-  // Every route requires a valid per-PTY bearer token. Sandboxed VMs
-  // reach us via host.lima.internal — we can't rely on loopback
-  // reachability as a security boundary.
+  // Every route requires a valid per-PTY bearer token. Sandboxed shells run
+  // on the host, so loopback reachability is not a security boundary.
   const auth = authenticateRequest(req.headers['authorization']);
   if (!auth) {
     json(res, 401, { error: 'Unauthorized' });

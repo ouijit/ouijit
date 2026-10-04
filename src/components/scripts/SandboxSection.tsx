@@ -2,19 +2,16 @@ import { useState, type ComponentType } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import type { SandboxBackendId } from '../../types';
 import { SANDBOX_BACKEND_LABELS } from '../../types';
-import { LimaSandboxSection } from './LimaSandboxSection';
 import { NonoSandboxSection } from './NonoSandboxSection';
 import { CustomSandboxSection } from './CustomSandboxSection';
 
 const BACKEND_DESCRIPTIONS: Record<SandboxBackendId, string> = {
-  lima: 'Full Linux VM with its own filesystem. Boots an image, so it is slower to start.',
-  nono: 'Kernel-level access limits rather than a VM boundary. Starts instantly, in place on the worktree.',
+  nono: 'Kernel-level access limits on the shell itself. Starts instantly, in place on the worktree.',
   custom: 'Your own launcher. Ouijit runs it as `<command> -- <shell>` in the worktree and grants nothing itself.',
 };
 
 /** Config surface per backend; keyed by id so a new backend is a compile error until wired. */
 const BACKEND_SECTIONS: Record<SandboxBackendId, ComponentType<{ projectPath: string }>> = {
-  lima: LimaSandboxSection,
   nono: NonoSandboxSection,
   custom: CustomSandboxSection,
 };

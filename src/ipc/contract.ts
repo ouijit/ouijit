@@ -46,7 +46,6 @@ import type {
   CliPanelOp,
   CliPanelResponse,
 } from '../types';
-import type { LimaStatus } from '../lima/types';
 import type {
   RepoIdentity,
   GithubAvailability,
@@ -434,16 +433,6 @@ export interface IpcInvokeContract {
     return: { success: boolean; error?: string; taskNumber?: number };
   };
   'github:task-from-pr': { args: [projectPath: string, prNumber: number]; return: PromoteToTaskResult };
-
-  // ── Lima ─────────────────────────────────────────────────────────────
-  'lima:status': { args: [projectPath: string]; return: LimaStatus };
-  'lima:start': { args: [projectPath: string]; return: { success: boolean; error?: string } };
-  'lima:stop': { args: [projectPath: string]; return: { success: boolean; error?: string } };
-  'lima:get-yaml': { args: [projectPath: string]; return: string };
-  'lima:set-yaml': { args: [projectPath: string, yaml: string]; return: { success: boolean; error?: string } };
-  'lima:get-merged-yaml': { args: [projectPath: string]; return: string };
-  'lima:recreate': { args: [projectPath: string]; return: { success: boolean; error?: string } };
-  'lima:delete': { args: [projectPath: string]; return: { success: boolean; error?: string } };
 }
 
 /**
@@ -463,17 +452,13 @@ export interface IpcSendContract {
  *
  * Note: Dynamic per-PTY channels (pty:data:${ptyId}, pty:exit:${ptyId}) are not
  * included here because their channel names are constructed at runtime. They are
- * handled directly in preload.ts and ptyManager.ts / lima/spawn.ts.
+ * handled directly in preload.ts and ptyManager.ts.
  */
 export interface IpcPushContract {
   'fullscreen-change': { args: [isFullscreen: boolean] };
   'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
   'cli:panel-op': { args: [op: CliPanelOp] };
   'plan:content-changed': { args: [planPath: string, content: string] };
-  'lima:spawn-progress': { args: [step: { id: string; label: string; status: 'active' | 'done' }] };
-  'sandbox:diverged': {
-    args: [event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }];
-  };
   health: { args: [status: HealthStatus] };
   'update-available': { args: [info: { version: string; url: string }] };
   'shell-unsupported': { args: [info: { shell: string }] };

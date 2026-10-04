@@ -39,7 +39,6 @@ interface TaskSeed {
   branch?: string;
   mergeTarget?: string;
   parentTaskNumber?: number;
-  sandboxed?: boolean;
 }
 
 const TASK_SEEDS = seedData.tasks as TaskSeed[];

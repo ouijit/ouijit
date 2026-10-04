@@ -5,9 +5,9 @@ import { SandboxSection } from '../../components/scripts/SandboxSection';
 import { useProjectStore } from '../../stores/projectStore';
 import type { SandboxProviderId } from '../../types';
 
-// LimaSandboxSection (reached via SandboxSection) transitively imports
-// terminalActions -> terminalReact -> @xterm/xterm, which hangs when loaded
-// for real under jsdom. Sever the chain like the other renderer tests do.
+// The backend sections transitively import terminalActions -> terminalReact ->
+// @xterm/xterm, which hangs when loaded for real under jsdom. Sever the chain
+// like the other renderer tests do.
 vi.mock('../../components/terminal/terminalActions', () => ({
   addProjectTerminal: vi.fn().mockResolvedValue(true),
   closeProjectTerminal: vi.fn(),
@@ -20,10 +20,6 @@ function setAvailable(providers: SandboxProviderId[]) {
 describe('SandboxSection provider router', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Lima section polls status; keep it quiet.
-    vi.mocked(window.api.lima.status).mockResolvedValue({ available: true, vmStatus: 'Stopped' });
-    vi.mocked(window.api.lima.getYaml).mockResolvedValue('');
-    vi.mocked(window.api.lima.getMergedYaml).mockResolvedValue('');
   });
 
   test('renders nothing when no backend is available', () => {
@@ -37,15 +33,15 @@ describe('SandboxSection provider router', () => {
     const { queryByText, getByLabelText } = render(<SandboxSection projectPath="/p" />);
     await waitFor(() => expect(getByLabelText('Block outbound network')).toBeTruthy());
     // No picker tabs when a single backend.
-    expect(queryByText('Lima VM')).toBeNull();
+    expect(queryByText('Custom')).toBeNull();
   });
 
   test('both backends: shows a picker to switch between them', async () => {
-    setAvailable(['lima', 'nono']);
+    setAvailable(['nono', 'custom']);
     const { getByText } = render(<SandboxSection projectPath="/p" />);
     await waitFor(() => {
-      expect(getByText('Lima VM')).toBeTruthy();
       expect(getByText('nono')).toBeTruthy();
+      expect(getByText('Custom')).toBeTruthy();
     });
   });
 

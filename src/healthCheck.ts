@@ -1,7 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import * as path from 'node:path';
-import { isLimaInstalled } from './lima/manager';
 import { isNonoInstalled } from './sandbox/nono/binary';
 import { getWrapperBinDir } from './paths';
 import { probeGh } from './github/client';
@@ -18,7 +17,6 @@ export interface HealthStatus {
   codex: boolean;
   pi: boolean;
   opencode: boolean;
-  lima: boolean;
   nono: boolean;
   gitVersion?: string;
   /** `gh` is on PATH. The GitHub panel needs it; nothing else does. */
@@ -72,13 +70,12 @@ export async function checkHealth(): Promise<HealthStatus> {
   // none of the places these binaries install themselves into.
   await ensureLoginPath();
 
-  const [git, claude, codex, pi, opencode, lima, nono, gh] = await Promise.all([
+  const [git, claude, codex, pi, opencode, nono, gh] = await Promise.all([
     detectGit(),
     detectAgent('claude'),
     detectAgent('codex'),
     detectAgent('pi'),
     detectAgent('opencode'),
-    isLimaInstalled(),
     isNonoInstalled(),
     probeGh(),
   ]);
@@ -88,7 +85,6 @@ export async function checkHealth(): Promise<HealthStatus> {
     codex,
     pi,
     opencode,
-    lima,
     nono,
     gitVersion: git.version,
     gh: gh.installed,
@@ -101,7 +97,6 @@ export async function checkHealth(): Promise<HealthStatus> {
     codex: cached.codex,
     pi: cached.pi,
     opencode: cached.opencode,
-    lima: cached.lima,
     nono: cached.nono,
     gitVersion: cached.gitVersion,
     gh: cached.gh,

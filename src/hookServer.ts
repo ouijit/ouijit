@@ -109,9 +109,9 @@ export function startHookServer(window: BrowserWindow): Promise<void> {
         return;
       }
 
-      // Any process on the host loopback (and every sandboxed VM via
-      // host.lima.internal) can reach this endpoint. Require a valid
-      // per-PTY bearer token so only legitimate hook scripts succeed.
+      // Any process on the host loopback can reach this endpoint — sandboxed
+      // shells included, since they run on the host. Require a valid per-PTY
+      // bearer token so only legitimate hook scripts succeed.
       const auth = authenticateRequest(req.headers['authorization']);
       if (!auth) {
         res.writeHead(401);
@@ -579,26 +579,26 @@ const CODEX_STATUS_HOOKS: ReadonlyArray<readonly [event: string, status: 'thinki
   ['Stop', 'ready', 'stop'],
 ];
 
-function codexHookCommand(hookPath: string, status: 'thinking' | 'ready'): string {
-  return `${hookPath} status status=${status}`;
+function codexHookCommand(status: 'thinking' | 'ready'): string {
+  return `${CODEX_OUIJIT_HOOK} status status=${status}`;
 }
 
 /** TOML array-of-one-inline-table value for a single Codex `hooks.<Event>` entry (one command hook). */
-function codexHookEventValue(hookPath: string, status: 'thinking' | 'ready'): string {
-  return `[{hooks=[{type="command",command="${codexHookCommand(hookPath, status)}"}]}]`;
+function codexHookEventValue(status: 'thinking' | 'ready'): string {
+  return `[{hooks=[{type="command",command="${codexHookCommand(status)}"}]}]`;
 }
 
 /** TOML/JSON array value for Codex's `notify` config — a shell wrapper that ignores the trailing payload arg. */
-function codexNotifyValue(hookPath: string): string {
-  return JSON.stringify(['bash', '-c', codexHookCommand(hookPath, 'ready')]);
+function codexNotifyValue(): string {
+  return JSON.stringify(['bash', '-c', codexHookCommand('ready')]);
 }
 
 /**
  * Build the persisted hook key Codex uses for a single command hook in our
  * single-group/single-handler layout: `<source>:<event_snake>:0:0`.
  */
-function codexHookStateKey(source: string, eventSnake: string): string {
-  return `${source}:${eventSnake}:0:0`;
+function codexHookStateKey(eventSnake: string): string {
+  return `${CODEX_SESSION_FLAGS_PATH}:${eventSnake}:0:0`;
 }
 
 /**
@@ -653,15 +653,15 @@ export const CODEX_WRAPPER = [
   'exec "$REAL_BIN" \\',
   '  -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" \\',
   ...CODEX_STATUS_HOOKS.flatMap(([event, status, eventSnake]) => {
-    const cmd = codexHookCommand(CODEX_OUIJIT_HOOK, status);
-    const stateKey = codexHookStateKey(CODEX_SESSION_FLAGS_PATH, eventSnake);
+    const cmd = codexHookCommand(status);
+    const stateKey = codexHookStateKey(eventSnake);
     const hash = codexHookTrustHash(eventSnake, cmd);
     return [
-      `  -c 'hooks.${event}=${codexHookEventValue(CODEX_OUIJIT_HOOK, status)}' \\`,
+      `  -c 'hooks.${event}=${codexHookEventValue(status)}' \\`,
       `  -c 'hooks.state."${stateKey}".trusted_hash="${hash}"' \\`,
     ];
   }),
-  `  -c 'notify=${codexNotifyValue(CODEX_OUIJIT_HOOK)}' \\`,
+  `  -c 'notify=${codexNotifyValue()}' \\`,
   '  "$@"',
   '',
 ].join('\n');
@@ -669,9 +669,8 @@ export const CODEX_WRAPPER = [
 // ── Pi wrapper ───────────────────────────────────────────────────────
 // Pi exposes lifecycle events only to TypeScript extensions, not as
 // shell-command hooks. We ship a tiny extension and load it via
-// `pi --extension <path>`; the same source auto-discovers in the sandbox
-// VM. OUIJIT_HOOK_BIN (set by the wrapper / VM init) carries the path to
-// ouijit-hook so the extension source is identical in both contexts.
+// `pi --extension <path>`. OUIJIT_HOOK_BIN (set by the wrapper) carries the
+// path to ouijit-hook, so the extension source never hardcodes one.
 
 export function getPiExtensionPath(): string {
   return path.join(os.homedir(), '.config', 'Ouijit', 'pi', 'ouijit-extension.ts');
@@ -1013,66 +1012,4 @@ export function migrateFromSettingsHooks(): void {
   } catch (err) {
     hookServerLog.warn('migration failed', { error: err instanceof Error ? err.message : String(err) });
   }
-}
-
-// ── VM hook injection ────────────────────────────────────────────────
-// Sandboxed Lima VMs only mount the project directory. Instead of writing
-// hook files into the project (which pollutes git), we inject the hook
-// script and settings into the VM's ephemeral home directory at spawn time.
-
-/**
- * Build the JSON content for the VM's ~/.claude/settings.json.
- * Uses $HOME/ouijit-hook as the command path (script lives in the VM's home dir).
- */
-export function buildVmHookSettings(): string {
-  return JSON.stringify(buildHookSettings('$HOME/ouijit-hook'), null, 2);
-}
-
-/**
- * Build the TOML content for the VM's ~/.codex/config.toml. There is no `codex`
- * wrapper inside the sandbox, so the lifecycle hooks + turn-complete notifier
- * are wired via the config file instead. The CLI reference is deliberately
- * omitted — the ouijit CLI is not installed in the sandbox. $HOME stays
- * literal so the in-VM shell expands it.
- *
- * Written into the VM via a *quoted* heredoc (no expansion) so that `$HOME` in
- * hook commands reaches Codex unchanged and gets expanded by the agent's shell.
- */
-export function buildVmCodexConfig(): string {
-  const hookPath = '$HOME/ouijit-hook';
-  const lines = [`notify = ["bash", "-c", "${codexHookCommand(hookPath, 'ready')}"]`];
-  for (const [event, status] of CODEX_STATUS_HOOKS) {
-    lines.push(`hooks.${event} = ${codexHookEventValue(hookPath, status)}`);
-  }
-  lines.push('');
-  return lines.join('\n');
-}
-
-/**
- * Build the `[hooks.state]` trust-state lines for the VM's ~/.codex/config.toml.
- * The key prefix is the absolute path of the config file, which we can only
- * resolve at write time inside the VM — so this is meant to be appended via an
- * *unquoted* heredoc so the VM's bash expands `$HOME` in the key.
- */
-export function buildVmCodexTrustState(): string {
-  const hookPath = '$HOME/ouijit-hook';
-  const source = '$HOME/.codex/config.toml';
-  const lines = CODEX_STATUS_HOOKS.map(([, status, eventSnake]) => {
-    const cmd = codexHookCommand(hookPath, status);
-    const stateKey = codexHookStateKey(source, eventSnake);
-    const hash = codexHookTrustHash(eventSnake, cmd);
-    return `hooks.state."${stateKey}".trusted_hash = "${hash}"`;
-  });
-  lines.push('');
-  return lines.join('\n');
-}
-
-/** Pi extension for the sandbox VM. Identical to the host-side source. */
-export function buildVmPiExtension(): string {
-  return PI_EXTENSION;
-}
-
-/** opencode status plugin for the sandbox VM. Identical to the host-side source. */
-export function buildVmOpencodePlugin(): string {
-  return OPENCODE_PLUGIN;
 }

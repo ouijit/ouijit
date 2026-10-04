@@ -2,7 +2,7 @@ import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from './types';
 import { isActiveSandbox } from './sandbox/types';
-import type { WrapperSandboxProvider } from './sandbox/provider';
+import type { SandboxProvider } from './sandbox/provider';
 import { generateId } from './utils/ids';
 import { getApiPort, clearHookStatus, clearAllHookStatuses } from './hookServer';
 import { getWrapperBinDir, getUserDataPath, getCliPath } from './paths';
@@ -181,7 +181,7 @@ function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
 export async function spawnPty(
   options: PtySpawnOptions,
   window: BrowserWindow,
-  wrapper?: WrapperSandboxProvider,
+  wrapper?: SandboxProvider,
 ): Promise<PtySpawnResult> {
   const ptyId = generateId('pty');
   try {
@@ -212,7 +212,7 @@ export async function spawnPty(
 
     // Inject hook API env vars so Claude Code hooks can reach us. A wrapper
     // provider (e.g. nono) runs the shell inside a sandbox, so it gets the
-    // restricted 'sandbox' token scope, matching Lima-hosted agents.
+    // restricted 'sandbox' token scope.
     finalEnv['OUIJIT_PTY_ID'] = ptyId;
     finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
     finalEnv['OUIJIT_API_TOKEN'] = issueToken(ptyId, wrapper ? 'sandbox' : 'host');
@@ -443,45 +443,18 @@ export function setPtyLabel(ptyId: PtyId, label: string): void {
   if (managed) managed.label = label;
 }
 
-/**
- * Sandbox PTYs live in their own map in src/lima/spawn.ts and never enter
- * `activePtys`, so spawn.ts registers and unregisters their ids here to keep
- * "is this ptyId live?" answerable for both kinds.
- *
- * A direct import would cycle — spawn.ts already imports from hookServer —
- * hence this narrow one-way hook.
- */
-interface SandboxPtyInfo {
-  projectPath: string;
-  taskId?: number;
-}
-const sandboxPtyInfo = new Map<PtyId, SandboxPtyInfo>();
-
-export function registerSandboxPty(ptyId: PtyId, info: SandboxPtyInfo): void {
-  sandboxPtyInfo.set(ptyId, info);
-}
-
-export function unregisterSandboxPty(ptyId: PtyId): void {
-  sandboxPtyInfo.delete(ptyId);
-}
-
-/** Check if a PTY is currently active — covers host and sandbox PTYs. */
 export function isPtyActive(ptyId: PtyId): boolean {
-  return activePtys.has(ptyId) || sandboxPtyInfo.has(ptyId);
+  return activePtys.has(ptyId);
 }
 
 /**
- * Resolve the task context for a ptyId — covers host and sandbox PTYs.
- * Returns null when the pty isn't live or isn't bound to a task.
+ * Resolve the task context for a ptyId. Returns null when the pty isn't live
+ * or isn't bound to a task.
  */
 export function getPtyTaskContext(ptyId: PtyId): { projectPath: string; taskId: number } | null {
-  const host = activePtys.get(ptyId);
-  if (host && host.taskId != null) {
-    return { projectPath: host.projectPath, taskId: host.taskId };
-  }
-  const sandbox = sandboxPtyInfo.get(ptyId);
-  if (sandbox && sandbox.taskId != null) {
-    return { projectPath: sandbox.projectPath, taskId: sandbox.taskId };
+  const managed = activePtys.get(ptyId);
+  if (managed && managed.taskId != null) {
+    return { projectPath: managed.projectPath, taskId: managed.taskId };
   }
   return null;
 }

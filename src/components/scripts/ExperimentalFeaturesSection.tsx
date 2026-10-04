@@ -56,13 +56,13 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
       />
       <ToggleRow
         label="nono sandbox"
-        description="Run a task's terminals under nono's kernel-level access limits instead of a Lima VM."
+        description="Run a task's terminals under nono's kernel-level access limits."
         checked={nonoEnabled}
         onChange={handleToggleNono}
       />
       <ToggleRow
         label="Custom sandbox"
-        description="Run a task's terminals under a launcher you configure, instead of Lima or nono."
+        description="Run a task's terminals under a launcher you configure."
         checked={customSandboxEnabled}
         onChange={handleToggleCustomSandbox}
       />

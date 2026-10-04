@@ -15,7 +15,6 @@ import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { completeTask } from './taskCompletion';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
-import { legacySandboxProvider } from '../types';
 import type { CliHookMode, HookType, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
@@ -268,9 +267,9 @@ async function runTransition(
     if (hookControl) {
       let resolved: RunHookResult | null = null;
       if (hookControl.mode === 'command' && hookControl.command) {
-        resolved = { command: hookControl.command, sandboxed: false, foreground: false };
+        resolved = { command: hookControl.command, foreground: false };
       } else if (hookControl.mode === 'run' && hook) {
-        resolved = { command: hook.command, sandboxed: false, foreground: false };
+        resolved = { command: hook.command, foreground: false };
       }
       // 'skip', or 'run' with no configured hook → plain shell (null).
       taskStartLog.info('hook resolved from CLI flags', {
@@ -283,7 +282,7 @@ async function runTransition(
       const tDialog = performance.now();
       hookPromise = useProjectStore
         .getState()
-        .requestRunHook({ projectPath, hookType, hook, task })
+        .requestRunHook({ hookType, hook, task })
         .then((res) => {
           taskStartLog.info('hook dialog closed', {
             taskNumber,
@@ -386,9 +385,6 @@ async function spawnTerminalForInProgress(
   await addProjectTerminal(projectPath, runConfig, {
     existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
     taskId: task.taskNumber,
-    // Sandboxing is per terminal: this one-off hook runs on the host unless
-    // the dialog toggle opts it into Lima.
-    sandboxProvider: legacySandboxProvider(hookResult?.sandboxed),
     skipAutoHook: true,
     replaceLoadingId: loadingSlot ?? undefined,
   });
@@ -409,9 +405,6 @@ async function runNonStartHookInTerminal(
         existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
         taskId: task.taskNumber,
         skipAutoHook: true,
-        // Sandboxing is per terminal: this one-off hook runs on the host unless
-        // the dialog toggle opts it into Lima.
-        sandboxProvider: legacySandboxProvider(hookResult.sandboxed),
         background: !hookResult.foreground,
       },
     );

@@ -15,7 +15,6 @@ import { useAppStore } from './appStore';
 export type TerminalLayout = 'stack' | 'canvas';
 
 export interface RunHookInput {
-  projectPath: string;
   hookType: HookType;
   hook: ScriptHook;
   task: TaskWithWorkspace;
@@ -169,8 +168,8 @@ interface ProjectStoreActions {
   saveScript: (projectPath: string, script: Script) => Promise<Script | null>;
   /**
    * Load project-scoped config (sandbox availability + configured hooks) in a
-   * single pair of IPC calls. Replaces per-card fan-out where every kanban card
-   * and terminal header spawned its own limactl subprocess on mount.
+   * single pair of IPC calls, so kanban cards and terminal headers read it from
+   * the store rather than each probing on mount.
    */
   loadProjectConfig: (projectPath: string) => Promise<void>;
   /** Mark a hook as configured after the user saves one from a card dialog. */
@@ -540,7 +539,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     // each one.
     set({
       runHookQueue: settleAllPrompts(queue, (req, index) =>
-        index === 0 ? headResult : { command: req.hook.command, sandboxed: false, foreground: false },
+        index === 0 ? headResult : { command: req.hook.command, foreground: false },
       ),
       runHookQueueTotal: 0,
     });

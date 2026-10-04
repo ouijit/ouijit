@@ -61,7 +61,7 @@ export function SandboxMock() {
         <StatusDot summaryType="thinking" sandboxed />
         <span className="font-mono text-xs font-medium text-ink/85 min-w-0 truncate">Refine CTA button hover states</span>
         <span className="font-mono text-xs text-ink/40 min-w-0 truncate">Running npm test…</span>
-        <span className={`${METADATA_CHIP} ml-auto`}>lima</span>
+        <span className={`${METADATA_CHIP} ml-auto`}>nono</span>
       </div>
     </FloatingPanel>
   );

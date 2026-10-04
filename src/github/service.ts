@@ -5,9 +5,10 @@
  * touching `api.ts` / `prDiff.ts` directly, so availability gating, error
  * shaping, and the task-link side effects happen in exactly one place.
  *
- * Every `gh` call runs on the host from the main process. The guest environment
- * is built from an allowlist, so no guest ever gets GitHub or Linear
- * credentials, directly or by proxy.
+ * Every `gh` call runs on the host from the main process, and the REST routes
+ * into it are host scope only, so a sandboxed session cannot drive `gh` through
+ * Ouijit. Nothing filters the environment a sandboxed shell inherits, though,
+ * so a `GITHUB_TOKEN` or Linear key the user exports is readable inside one.
  */
 
 import { randomUUID } from 'node:crypto';

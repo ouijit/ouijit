@@ -10,8 +10,6 @@ import { addExistingProject, createAndRegisterProject } from '../../services/pro
 import { cancelClone, listCloneJobs, retryClone, setCloneListeners, startClone } from '../../services/cloneRegistry';
 import { seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openFileInEditor } from '../../editorLauncher';
-import { deleteWithCleanup } from '../../lima/manager';
-import { deleteConfig } from '../../lima/configStore';
 import { getActiveSessions } from '../../ptyManager';
 import { getLogger } from '../../logger';
 
@@ -37,10 +35,7 @@ async function revealPath(targetPath: string): Promise<{ success: boolean; error
   return { success: true };
 }
 
-/** Unregister a project, cleaning up its sandbox VM and config first. */
 async function removeProjectWithCleanup(folderPath: string): Promise<void> {
-  await deleteWithCleanup(folderPath).catch(() => {});
-  await deleteConfig(folderPath).catch(() => {});
   invalidateAnalysis(folderPath);
   await removeProject(folderPath);
 }

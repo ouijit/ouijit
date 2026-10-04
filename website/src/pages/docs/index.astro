@@ -66,7 +66,7 @@ import Docs from '../../layouts/Docs.astro';
   <ul>
     <li><a href="/docs/palette/">Command palette</a>: jump between everything with <code>⌘K</code>.</li>
     <li><a href="/docs/panels/">Panels</a>: put the agent's plan, its dev server, and a runner beside its terminal.</li>
-    <li><a href="/docs/sandbox/">Sandbox</a>: run a task in a Lima VM or under nono when you don't trust the code.</li>
+    <li><a href="/docs/sandbox/">Sandbox</a>: run a task under nono's access limits when you don't trust the code.</li>
     <li><a href="/docs/pull-requests/">Pull requests</a>: review and merge without leaving Ouijit.</li>
   </ul>
 
@@ -92,8 +92,8 @@ npm start</code></pre>
   <h2>Check your environment</h2>
   <p>
     Ouijit checks your environment at startup: git, the agent CLIs (<code>claude</code>, <code>codex</code>,
-    <code>pi</code>, <code>opencode</code>), and the tools behind optional features (<code>gh</code>, Lima,
-    nono). The <strong>Help &amp; setup</strong> dialog shows each result, and dialogs that need a missing tool
+    <code>pi</code>, <code>opencode</code>), and the tools behind optional features (<code>gh</code>,
+    <code>nono</code>). The <strong>Help &amp; setup</strong> dialog shows each result, and dialogs that need a missing tool
     say so inline.
   </p>
 

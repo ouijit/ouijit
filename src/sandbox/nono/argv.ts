@@ -56,7 +56,7 @@ export interface NonoArgvContext {
  * per-task grants that can't live in a static profile:
  *   - the task worktree, read+write
  *   - the main `.git` read-only, with objects/refs/logs/worktrees writable so
- *     commits land while hooks/config stay unwritable (mirrors Lima's mounts)
+ *     commits land while hooks/config stay unwritable
  *   - the Ouijit wrapper dir (its agent shims are first on PATH) and the
  *     hook-server port
  *

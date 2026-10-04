@@ -270,7 +270,7 @@ export function ProjectView() {
 
   // Load project-scoped config (sandbox availability + configured hooks) once.
   // Terminal headers and kanban cards read this from the store instead of each
-  // making their own `lima.status` (subprocess spawn) + `hooks.get` IPC calls.
+  // making their own `sandbox.status` + `hooks.get` IPC calls.
   useEffect(() => {
     if (!projectPath) return;
     useProjectStore.getState().loadProjectConfig(projectPath);
@@ -382,7 +382,6 @@ function GlobalRunHookDialog() {
       key={request.id}
       hookType={request.hookType}
       hook={request.hook}
-      projectPath={request.projectPath}
       taskName={request.task.name}
       queuePosition={position}
       queueTotal={total}

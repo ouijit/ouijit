@@ -176,7 +176,6 @@ export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
         </div>
       </div>
 
-      {/* Sandbox profile — full escape hatch, peer to Lima's YAML editor */}
       <div className={CARD}>
         <div className="flex flex-col gap-2 px-4 py-3">
           <div className="flex items-center justify-between gap-4">

@@ -159,8 +159,8 @@ describe('projectStore.loadProjectConfig', () => {
 
   test('writes available backends + configured hooks into the store', async () => {
     vi.mocked(window.api.sandbox.status).mockResolvedValue([
-      { providerId: 'lima', available: true, ready: true },
       { providerId: 'nono', available: true, ready: true },
+      { providerId: 'custom', available: true, ready: true },
     ]);
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       editor: { name: 'edit', command: 'code' },
@@ -170,15 +170,15 @@ describe('projectStore.loadProjectConfig', () => {
     await useProjectStore.getState().loadProjectConfig('/a');
 
     const s = useProjectStore.getState();
-    expect(s.availableSandboxProviders).toEqual(['lima', 'nono']);
+    expect(s.availableSandboxProviders).toEqual(['nono', 'custom']);
     expect(s.configuredHooks).toEqual({ editor: true });
     expect(s.configProjectPath).toBe('/a');
   });
 
   test('the most-recent load wins regardless of IPC resolve order (stale-load race)', async () => {
     // load(A) hangs longer than load(B); we expect B's state to land, not A's.
-    let resolveA!: (v: { providerId: 'lima'; available: boolean; ready: boolean }[]) => void;
-    const aStatus = new Promise<{ providerId: 'lima'; available: boolean; ready: boolean }[]>((res) => {
+    let resolveA!: (v: { providerId: 'nono'; available: boolean; ready: boolean }[]) => void;
+    const aStatus = new Promise<{ providerId: 'nono'; available: boolean; ready: boolean }[]>((res) => {
       resolveA = res;
     });
     vi.mocked(window.api.sandbox.status).mockImplementationOnce(() => aStatus);
@@ -186,7 +186,7 @@ describe('projectStore.loadProjectConfig', () => {
       Promise.resolve({ editor: { name: 'a', command: 'a' } }),
     );
 
-    vi.mocked(window.api.sandbox.status).mockResolvedValueOnce([{ providerId: 'lima', available: true, ready: true }]);
+    vi.mocked(window.api.sandbox.status).mockResolvedValueOnce([{ providerId: 'nono', available: true, ready: true }]);
     vi.mocked(window.api.hooks.get).mockResolvedValueOnce({ run: { name: 'b', command: 'b' } });
 
     const aPromise = useProjectStore.getState().loadProjectConfig('/a');
@@ -198,18 +198,18 @@ describe('projectStore.loadProjectConfig', () => {
     expect(useProjectStore.getState().configuredHooks).toEqual({ run: true });
 
     // Now let A resolve — its writes must be ignored.
-    resolveA([{ providerId: 'lima', available: false, ready: false }]);
+    resolveA([{ providerId: 'nono', available: false, ready: false }]);
     await aPromise;
 
     const s = useProjectStore.getState();
     expect(s.configProjectPath).toBe('/b');
     expect(s.configuredHooks).toEqual({ run: true });
-    expect(s.availableSandboxProviders).toEqual(['lima']);
+    expect(s.availableSandboxProviders).toEqual(['nono']);
   });
 
   test('IPC failures are swallowed and leave the store untouched', async () => {
     useProjectStore.setState({
-      availableSandboxProviders: ['lima'],
+      availableSandboxProviders: ['nono'],
       configuredHooks: { editor: true },
       configProjectPath: '/prev',
     });
@@ -219,7 +219,7 @@ describe('projectStore.loadProjectConfig', () => {
     await useProjectStore.getState().loadProjectConfig('/a');
 
     const s = useProjectStore.getState();
-    expect(s.availableSandboxProviders).toEqual(['lima']);
+    expect(s.availableSandboxProviders).toEqual(['nono']);
     expect(s.configuredHooks).toEqual({ editor: true });
     expect(s.configProjectPath).toBe('/prev');
   });

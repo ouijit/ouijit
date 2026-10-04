@@ -347,21 +347,6 @@ export function useIPCListeners() {
     });
     cleanups.push(unsubscribeAppStore);
 
-    // Sandbox branch diverged — agent commits can't fast-forward onto the
-    // user's task branch because the user committed in parallel. Surface a
-    // persistent toast so the user can reconcile manually in their IDE.
-    cleanups.push(
-      window.api.lima.onSandboxDiverged((event) => {
-        ipcLog.warn('sandbox branch diverged from user branch', event);
-        useProjectStore
-          .getState()
-          .addToast(`Task T-${event.taskNumber}: agent commits diverged from your branch. Merge manually to sync.`, {
-            type: 'error',
-            persistent: true,
-          });
-      }),
-    );
-
     // Clone progress arrives as pushes; the list is fetched once so a reload
     // mid-clone still shows what is in flight.
     void window.api.listClones().then((jobs) => useAppStore.getState().setCloneJobs(jobs));

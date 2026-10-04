@@ -17,7 +17,6 @@ import { addProjectTerminal, closeProjectTerminal } from '../components/terminal
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { CliHookMode, TaskWithWorkspace } from '../types';
-import { legacySandboxProvider } from '../types';
 
 const completionLog = log.scope('taskCompletion');
 
@@ -96,12 +95,11 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
 
   // 1. Resolve the effective hook command + how to run it. With no hookControl
   //    the Done dialog is shown (if a hook is configured), matching the dialog
-  //    every other column transition shows; the dialog's foreground/sandbox
-  //    choices are honored. Headless modes (run/command/skip) come from
-  //    shift-drag or the CLI flags and never prompt.
+  //    every other column transition shows; the dialog's foreground choice is
+  //    honored. Headless modes (run/command/skip) come from shift-drag or the
+  //    CLI flags and never prompt.
   let effectiveCommand: string | null = null;
   let foreground = false;
-  let sandboxed = false;
   if (hookControl?.mode === 'skip') {
     // Run no hook.
   } else if (hookControl?.mode === 'command' && hookControl.command) {
@@ -112,13 +110,10 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
   } else if (!hookControl) {
     const hooks = await window.api.hooks.get(projectPath);
     if (hooks.done) {
-      const result = await useProjectStore
-        .getState()
-        .requestRunHook({ projectPath, hookType: 'done', hook: hooks.done, task });
+      const result = await useProjectStore.getState().requestRunHook({ hookType: 'done', hook: hooks.done, task });
       if (result) {
         effectiveCommand = result.command;
         foreground = result.foreground;
-        sandboxed = result.sandboxed;
       }
     }
   }
@@ -146,9 +141,6 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
           existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
           taskId: taskNumber,
           skipAutoHook: true,
-          // Sandboxing is per terminal: this one-off hook runs on the host
-          // unless the dialog toggle opts it into Lima.
-          sandboxProvider: legacySandboxProvider(sandboxed),
           // "Run & Open" (foreground) brings the hook terminal up so the user
           // can watch it; the background run stays out of the way and tidies up
           // on success. Either way the hook terminal is excluded from the close
