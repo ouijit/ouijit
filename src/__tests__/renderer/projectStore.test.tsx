@@ -227,18 +227,20 @@ describe('projectStore.loadProjectConfig', () => {
 
 describe('projectStore.markHookConfigured', () => {
   beforeEach(() => {
-    useProjectStore.setState({ configuredHooks: {} });
+    useProjectStore.setState({ configuredHooks: {}, configProjectPath: '/p' });
   });
 
-  test('adds the hook type to configuredHooks', () => {
-    useProjectStore.getState().markHookConfigured('editor');
+  test("adds the hook type to configuredHooks, but only for the store's project", () => {
+    useProjectStore.getState().markHookConfigured('/other', 'editor');
+    expect(useProjectStore.getState().configuredHooks).toEqual({});
+    useProjectStore.getState().markHookConfigured('/p', 'editor');
     expect(useProjectStore.getState().configuredHooks).toEqual({ editor: true });
   });
 
   test('is idempotent — repeating the call does not allocate a new object', () => {
-    useProjectStore.getState().markHookConfigured('editor');
+    useProjectStore.getState().markHookConfigured('/p', 'editor');
     const ref = useProjectStore.getState().configuredHooks;
-    useProjectStore.getState().markHookConfigured('editor');
+    useProjectStore.getState().markHookConfigured('/p', 'editor');
     // Same reference proves the early-return path was taken.
     expect(useProjectStore.getState().configuredHooks).toBe(ref);
   });

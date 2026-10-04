@@ -3,7 +3,8 @@ import { Icon } from '../terminal/Icon';
 import { parseRepoInput, repoRef } from '../../github/repoUrl';
 import { repoSlug } from '../../github/types';
 import { scoreFields } from '../../utils/paletteScore';
-import { DIALOG_INPUT_CLASS, ProjectLocationField, useProjectLocation } from './ProjectLocationField';
+import { ProjectLocationField, useProjectLocation } from './ProjectLocationField';
+import { DIALOG_INPUT_CLASS } from './dialogStyles';
 import type { GithubRepoSummary, RepoIdentity, ResolvedRepo } from '../../types';
 
 interface CloneFromGithubFormProps {

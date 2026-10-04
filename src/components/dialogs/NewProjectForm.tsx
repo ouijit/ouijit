@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppStore } from '../../stores/appStore';
-import { DIALOG_INPUT_CLASS, ProjectLocationField, useProjectLocation } from './ProjectLocationField';
+import { ProjectLocationField, useProjectLocation } from './ProjectLocationField';
+import { DIALOG_INPUT_CLASS } from './dialogStyles';
 
 interface NewProjectFormProps {
   onCancel: () => void;

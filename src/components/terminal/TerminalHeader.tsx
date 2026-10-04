@@ -19,6 +19,8 @@ import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { openTaskInEditor, openWorktreeInEditor } from '../../services/openInEditor';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
+import { HookConfigDialog } from '../dialogs/HookConfigDialog';
+import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
 import { describeDiffComparison, filesInDiff } from '../../diffSource';
 
 const EMPTY_TAGS: string[] = [];
@@ -78,6 +80,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
   const [renameTarget, setRenameTarget] = useState<null | 'terminal' | 'task'>(null);
   const [branchFromDialog, setBranchFromDialog] = useState(false);
+  const [commandDialog, setCommandDialog] = useState<'run' | 'script' | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const addRef = useRef<HTMLButtonElement>(null);
 
@@ -292,7 +295,31 @@ export const TerminalHeader = memo(function TerminalHeader({
           onAddRunner={handleAddRunner}
           onAddWebPreview={handleAddWebPreview}
           onAddPlan={handleAddPlan}
+          onConfigureRun={() => setCommandDialog('run')}
+          onNewScript={() => setCommandDialog('script')}
           onClose={() => setAddMenu(null)}
+        />
+      )}
+      {commandDialog === 'run' && (
+        <HookConfigDialog
+          projectPath={projectPath}
+          hookType="run"
+          onClose={(result) => {
+            setCommandDialog(null);
+            if (result?.saved && result.hook) {
+              useProjectStore.getState().markHookConfigured(projectPath, 'run');
+              handleAddRunner();
+            }
+          }}
+        />
+      )}
+      {commandDialog === 'script' && (
+        <ScriptConfigDialog
+          projectPath={projectPath}
+          onClose={(script) => {
+            setCommandDialog(null);
+            if (script) handleAddRunner(script);
+          }}
         />
       )}
       {branchFromDialog && task && (
