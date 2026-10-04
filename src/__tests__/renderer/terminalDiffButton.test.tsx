@@ -9,7 +9,6 @@ import type { GitFileStatus } from '../../types';
 // terminalReact pulls xterm in, which hangs under jsdom, and the header reaches
 // it (and terminalActions behind it) only for things this test does not touch.
 vi.mock('../../components/terminal/terminalReact', () => ({
-  terminalInstances: new Map(),
   refreshTerminalGitStatus: vi.fn().mockResolvedValue(undefined),
 }));
 

@@ -6,7 +6,7 @@ import { openInEntry, moveToEntry, trackerEntries, STATUS_LABELS, type TaskMenuA
 import { completeTask } from '../../services/taskCompletion';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { terminalInstances } from '../terminal/terminalReact';
+import { terminalInstances } from '../terminal/terminalRegistry';
 import { Icon } from '../terminal/Icon';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';

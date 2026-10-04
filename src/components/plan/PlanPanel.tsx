@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { renderPlanMarkdown } from '../../utils/renderPlanMarkdown';
 import { useResolvedTheme } from '../../hooks/useResolvedTheme';
-import { terminalInstances } from '../terminal/terminalReact';
+import { terminalInstances } from '../terminal/terminalRegistry';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
 import { FullWidthToggle, MinimizeButton, PanelCloseButton } from '../terminal/FullWidthToggle';
