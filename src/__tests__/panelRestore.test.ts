@@ -11,7 +11,6 @@ vi.mock('electron-log/renderer', () => ({
 
 vi.mock('../components/terminal/terminalReact', () => ({
   OuijitTerminal: class {},
-  terminalInstances: new Map(),
 }));
 
 function makeFakeTerm() {

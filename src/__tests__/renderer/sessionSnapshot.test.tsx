@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 import { gatherSnapshot } from '../../components/terminal/sessionSnapshot';
 import { renameTerminal } from '../../components/terminal/terminalActions';
-import { terminalInstances } from '../../components/terminal/terminalReact';
+import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useAppStore } from '../../stores/appStore';
 import type { OuijitTerminal } from '../../components/terminal/terminalReact';
@@ -12,11 +12,8 @@ vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
 
-// Replace terminalReact (xterm under the hood) with a thin stand-in. Both
-// sessionSnapshot.ts and terminalActions.ts import from it; the test reaches
-// the same `terminalInstances` map they do.
+// Replace terminalReact (xterm under the hood) with a thin stand-in.
 vi.mock('../../components/terminal/terminalReact', () => ({
-  terminalInstances: new Map(),
   OuijitTerminal: class {},
   resolveTerminalLabel: (taskName?: string | null, branch?: string, fallback?: string) =>
     taskName || branch || fallback || 'Shell',
