@@ -1,7 +1,7 @@
 import type { PullRequestDetail } from '../../github/types';
-import { CommentComposer } from './CommentComposer';
+import { GithubCommentComposer } from './GithubCommentComposer';
 import { ReviewThreadView } from './ReviewThreadView';
-import { TimelineEntries } from './TimelineEntries';
+import { TimelineEntries } from '../issues/TimelineEntries';
 import { useThreadActions } from './useThreadActions';
 
 interface DiscussionSectionProps {
@@ -49,7 +49,7 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
         />
       </section>
 
-      <CommentComposer projectPath={projectPath} number={detail.number} subject="pr" />
+      <GithubCommentComposer projectPath={projectPath} number={detail.number} subject="pr" />
     </div>
   );
 }

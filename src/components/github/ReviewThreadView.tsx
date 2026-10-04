@@ -1,10 +1,10 @@
+import { since } from '../issues/since';
 import { useState } from 'react';
 import type { ReviewThread } from '../../github/types';
 import { Icon } from '../terminal/Icon';
-import { Avatar } from './Avatar';
+import { Avatar } from '../issues/Avatar';
 import { CommentActions } from './CommentActions';
-import { Markdown } from './Markdown';
-import { since } from './prFormat';
+import { Markdown } from '../issues/Markdown';
 
 interface ReviewThreadViewProps {
   thread: ReviewThread;

@@ -5,9 +5,9 @@
  * touching `api.ts` / `prDiff.ts` directly, so availability gating, error
  * shaping, and the task-link side effects happen in exactly one place.
  *
- * Every `gh` call runs on the host from the main process. The sandbox policy
- * that strips `GITHUB_TOKEN` from guest environments is untouched — no guest
- * ever gets GitHub credentials, directly or by proxy.
+ * Every `gh` call runs on the host from the main process. The guest environment
+ * is built from an allowlist, so no guest ever gets GitHub or Linear
+ * credentials, directly or by proxy.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -71,7 +71,7 @@ import type {
   PullRequestDetail,
   PullRequestFreshness,
   PullRequestFile,
-  GithubIssue,
+  GithubIssueList,
   IssueDetail,
   CommentKind,
   ReviewDraft,
@@ -330,7 +330,7 @@ export async function getPullRequestFileVersions(
   return getPrFileVersions(projectPath, number, baseSha, headSha, filePath, oldPath);
 }
 
-export async function getIssues(projectPath: string): Promise<GithubIssue[]> {
+export async function getIssues(projectPath: string): Promise<GithubIssueList> {
   const identity = await requireIdentity(projectPath);
   return fetchIssues(identity);
 }
@@ -784,7 +784,7 @@ export async function createPullRequestForTask(
   const push = await pushBranch(cwd, task.branch);
   if (!push.success) return { success: false, error: push.error };
 
-  const body = buildPrBody(options.body ?? task.prompt ?? '', task.githubIssueNumber);
+  const body = buildPrBody(options.body ?? task.prompt ?? '', task.githubIssueNumber, task.linearIssueIdentifier);
 
   try {
     const result = await createPullRequest(identity, cwd, {
@@ -801,11 +801,26 @@ export async function createPullRequestForTask(
   }
 }
 
-/** Append the closing keyword for a linked issue, unless the body already has one. */
-function buildPrBody(body: string, issueNumber?: number): string {
-  if (issueNumber == null) return body;
-  if (new RegExp(`\\b(closes|fixes|resolves)\\s+#${issueNumber}\\b`, 'i').test(body)) return body;
-  return body.trim() ? `${body.trim()}\n\nFixes #${issueNumber}` : `Fixes #${issueNumber}`;
+/**
+ * Append what a linked issue needs to hear about this pull request.
+ *
+ * GitHub takes a closing keyword. Linear takes the bare identifier, and reads
+ * it through its own GitHub integration — this is not a write to Linear. Both
+ * are skipped where the body already carries them.
+ */
+export function buildPrBody(body: string, issueNumber?: number, linearIdentifier?: string): string {
+  let out = body;
+  if (issueNumber != null && !new RegExp(`\\b(closes|fixes|resolves)\\s+#${issueNumber}\\b`, 'i').test(out)) {
+    out = append(out, `Fixes #${issueNumber}`);
+  }
+  if (linearIdentifier && !new RegExp(`\\b${linearIdentifier}\\b`, 'i').test(out)) {
+    out = append(out, linearIdentifier);
+  }
+  return out;
+}
+
+function append(body: string, line: string): string {
+  return body.trim() ? `${body.trim()}\n\n${line}` : line;
 }
 
 export async function mergePr(

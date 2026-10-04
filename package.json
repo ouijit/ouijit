@@ -83,6 +83,7 @@
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",
+    "@linear/sdk": "^94.0.0",
     "@phosphor-icons/core": "^2.1.1",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",

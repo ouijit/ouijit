@@ -9,6 +9,7 @@
 import { ghRest, ghRestVoid, ghGraphql, runGh, GithubError } from './client';
 import { MAX_DIFF_FILES } from '../diffSource';
 import { repoSlug } from './types';
+import type { TimelineItem } from '../issues/types';
 import {
   PULL_REQUEST_LIST_QUERY,
   PULL_REQUEST_DETAIL_QUERY,
@@ -30,12 +31,13 @@ import type {
   PullRequestLabel,
   ReviewThread,
   ReviewComment,
-  TimelineItem,
   CheckRun,
   ChecksState,
   ReviewDecision,
   MergeStatus,
   GithubIssue,
+  GithubIssueList,
+  GithubIssueRow,
   IssueDetail,
   CommentKind,
   ReviewEvent,
@@ -226,12 +228,10 @@ function mapSummary(raw: RawSummary, viewer: string, reviewRequested: Set<number
   };
 }
 
-function mapIssue(raw: RawIssue, viewer: string): GithubIssue {
-  const assignees = (raw.assignees?.nodes ?? []).map((a) => a?.login).filter((l): l is string => l != null);
+function mapIssueRow(raw: RawIssue): GithubIssueRow {
   return {
     number: raw.number,
     title: raw.title,
-    body: raw.body ?? '',
     state: raw.state === 'CLOSED' ? 'closed' : 'open',
     stateReason: raw.stateReason,
     author: actorLogin(raw.author),
@@ -239,9 +239,15 @@ function mapIssue(raw: RawIssue, viewer: string): GithubIssue {
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
     url: raw.url,
+  };
+}
+
+function mapIssue(raw: RawIssue): GithubIssue {
+  return {
+    ...mapIssueRow(raw),
+    body: raw.body ?? '',
     labels: mapLabels(raw.labels),
-    assignees,
-    isMine: assignees.includes(viewer),
+    assignees: (raw.assignees?.nodes ?? []).map((a) => a?.login).filter((l): l is string => l != null),
     commentCount: raw.comments?.totalCount ?? 0,
   };
 }
@@ -536,17 +542,43 @@ function mapRestFile(file: RestFile): PullRequestFile {
   };
 }
 
-export async function fetchIssues(identity: RepoIdentity): Promise<GithubIssue[]> {
+/**
+ * The Issues tab's GitHub half: what is assigned to you, and the repo's open
+ * issues minus those. The split is made here so the panel, the CLI and REST all
+ * see the same two groups.
+ */
+export async function fetchIssues(identity: RepoIdentity): Promise<GithubIssueList> {
   const data = await ghGraphql<{
-    viewer: { login: string };
     repository: { issues: { nodes: Array<RawIssue | null> | null } } | null;
-  }>(ISSUE_LIST_QUERY, { owner: identity.owner, repo: identity.repo, first: ISSUE_LIST_LIMIT }, { identity });
+    assigned: { nodes: Array<RawIssue | null> | null } | null;
+  }>(
+    ISSUE_LIST_QUERY,
+    {
+      owner: identity.owner,
+      repo: identity.repo,
+      first: ISSUE_LIST_LIMIT,
+      assigned: `repo:${repoSlug(identity)} is:issue is:open assignee:@me sort:updated-desc`,
+    },
+    { identity },
+  );
 
   if (!data.repository) throw new GithubError('not-found', `Repository ${repoSlug(identity)} not found`);
 
-  return (data.repository.issues.nodes ?? [])
-    .filter((n): n is RawIssue => n != null)
-    .map((n) => mapIssue(n, data.viewer.login));
+  const map = (nodes: Array<RawIssue | null> | null | undefined) =>
+    (nodes ?? []).filter((n): n is RawIssue => n != null).map(mapIssueRow);
+
+  const assigned = map(data.assigned?.nodes);
+  const assignedNumbers = new Set(assigned.map((issue) => issue.number));
+  const open = map(data.repository.issues.nodes).filter((issue) => !assignedNumbers.has(issue.number));
+
+  return {
+    assigned,
+    open,
+    assignedCapped: assigned.length >= ISSUE_LIST_LIMIT,
+    // Against the fetched count, not the filtered one: dropping your own issues
+    // out of it does not mean the rest fitted.
+    openCapped: (data.repository.issues.nodes ?? []).length >= ISSUE_LIST_LIMIT,
+  };
 }
 
 /**
@@ -566,7 +598,7 @@ export async function fetchIssue(identity: RepoIdentity, number: number): Promis
   if (!issue) throw new GithubError('not-found', `Issue #${number} not found`);
 
   return {
-    ...mapIssue(issue, data.viewer.login),
+    ...mapIssue(issue),
     viewer: data.viewer.login,
     viewerAvatarUrl: data.viewer.avatarUrl,
     timeline: (issue.timelineItems?.nodes ?? [])

@@ -14,7 +14,11 @@ import { isBoardMounted } from '../stores/composerStore';
 import { getActivePtyId, useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { useGithubStore } from '../stores/githubStore';
+import { useLinearStore } from '../stores/linearStore';
+import { usePanelStore } from '../stores/panelStore';
 import {
+  issueKey,
+  issueTaskNumber,
   projectKey,
   pullKey,
   pullTaskNumber,
@@ -30,6 +34,7 @@ const DWELL_MS = 1200;
 type View =
   | { kind: 'terminal'; ptyId: string }
   | { kind: 'pull'; projectPath: string; prNumber: number }
+  | { kind: 'issue'; projectPath: string; issueId: string }
   | { kind: 'project'; projectPath: string }
   | null;
 
@@ -47,9 +52,14 @@ function currentView(): View {
   }
 
   if (project.activePanel === 'pull-requests') {
-    const github = useGithubStore.getState();
-    if (github.projectPath === activeProjectPath && github.activeNumber != null) {
-      return { kind: 'pull', projectPath: activeProjectPath, prNumber: github.activeNumber };
+    const open = usePanelStore.getState().open;
+    if (useGithubStore.getState().projectPath === activeProjectPath && open?.source === 'github-pr') {
+      return { kind: 'pull', projectPath: activeProjectPath, prNumber: open.number };
+    }
+    // Only Linear's: the palette lists no row for a GitHub issue, and a key
+    // recorded against no row takes its boost nowhere.
+    if (useLinearStore.getState().projectPath === activeProjectPath && open?.source === 'linear') {
+      return { kind: 'issue', projectPath: activeProjectPath, issueId: open.id };
     }
   } else if (project.activePanel === 'terminals' && project.terminalLayout !== 'canvas') {
     // The canvas has no single foreground card, and `activeIndices` is not
@@ -65,6 +75,7 @@ function identity(view: View): string | null {
   if (!view) return null;
   if (view.kind === 'terminal') return terminalKey(view.ptyId);
   if (view.kind === 'pull') return pullKey(view.projectPath, view.prNumber);
+  if (view.kind === 'issue') return issueKey(view.projectPath, view.issueId);
   return projectKey(view.projectPath);
 }
 
@@ -79,6 +90,10 @@ function visitKey(view: View): string | null {
   if (view.kind === 'pull') {
     const owner = pullTaskNumber(view.projectPath, view.prNumber, taskCacheByProject);
     return owner == null ? pullKey(view.projectPath, view.prNumber) : taskKey(view.projectPath, owner);
+  }
+  if (view.kind === 'issue') {
+    const owner = issueTaskNumber(view.projectPath, view.issueId, taskCacheByProject);
+    return owner == null ? issueKey(view.projectPath, view.issueId) : taskKey(view.projectPath, owner);
   }
   const display = useTerminalStore.getState().displayStates[view.ptyId];
   if (!display) return null;
@@ -104,7 +119,15 @@ export function installVisitTracker(): () => void {
     }, DWELL_MS);
   };
 
-  const stores = [useAppStore, useProjectStore, useTerminalStore, useUIStore, useGithubStore];
+  const stores = [
+    useAppStore,
+    useProjectStore,
+    useTerminalStore,
+    useUIStore,
+    useGithubStore,
+    useLinearStore,
+    usePanelStore,
+  ];
   const unsubscribes = stores.map((store) => store.subscribe(onViewChanged));
   onViewChanged();
   return () => {

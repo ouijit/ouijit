@@ -15,12 +15,19 @@ if (typeof globalThis.navigator === 'undefined') {
 // (taskMetadata stores JSON here). Tests manage their own git repos separately.
 const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-integration-'));
 
+// `safeStorage` is the OS keychain, which no test has. The fake round-trips,
+// which is the whole contract the credential store depends on.
 vi.mock('electron', () => ({
   app: {
     getPath: (name: string) => {
       if (name === 'userData') return testDataDir;
       return testDataDir;
     },
+  },
+  safeStorage: {
+    isEncryptionAvailable: () => true,
+    encryptString: (value: string) => Buffer.from(`encrypted:${value}`, 'utf8'),
+    decryptString: (buffer: Buffer) => buffer.toString('utf8').replace(/^encrypted:/, ''),
   },
 }));
 

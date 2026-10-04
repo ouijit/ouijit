@@ -1,9 +1,10 @@
-import type { TimelineItem } from '../../github/types';
+import { since } from './since';
+import type { TimelineItem } from '../../issues/types';
 import { Icon } from '../terminal/Icon';
 import { Avatar } from './Avatar';
-import { CommentActions } from './CommentActions';
+import { CommentActions } from '../github/CommentActions';
 import { Markdown } from './Markdown';
-import { reviewStateLabel, since } from './prFormat';
+import { reviewStateLabel } from '../github/prFormat';
 
 /**
  * Timeline entries. A section that shows a count must render through this, or

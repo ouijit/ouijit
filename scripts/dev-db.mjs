@@ -173,7 +173,7 @@ function seed() {
       ? join(dirname(projectPath), `${projectName}-worktrees`, `T-${taskNumber}`)
       : null;
     const createdAt = new Date(Date.now() - (seedData.tasks.length - i) * 3600_000).toISOString();
-    return `INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sort_order, created_at, parent_task_number, github_pr_number, github_issue_number) VALUES ('${esc(projectPath)}', ${taskNumber}, '${esc(t.name)}', '${esc(status)}', ${nullable(t.prompt)}, ${nullable(t.branch)}, ${nullable(worktreePath)}, ${nullable(t.mergeTarget)}, ${sortOrder}, '${esc(createdAt)}', ${t.parentTaskNumber ?? 'NULL'}, ${t.githubPrNumber ?? 'NULL'}, ${t.githubIssueNumber ?? 'NULL'});`;
+    return `INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sort_order, created_at, parent_task_number, github_pr_number, github_issue_number, linear_issue_id, linear_issue_identifier, suggested_branch) VALUES ('${esc(projectPath)}', ${taskNumber}, '${esc(t.name)}', '${esc(status)}', ${nullable(t.prompt)}, ${nullable(t.branch)}, ${nullable(worktreePath)}, ${nullable(t.mergeTarget)}, ${sortOrder}, '${esc(createdAt)}', ${t.parentTaskNumber ?? 'NULL'}, ${t.githubPrNumber ?? 'NULL'}, ${t.githubIssueNumber ?? 'NULL'}, ${nullable(t.linearIssueId)}, ${nullable(t.linearIssueIdentifier)}, ${nullable(t.suggestedBranch)});`;
   });
   const nextTaskNumber = seedData.tasks.length + 1;
   exec(

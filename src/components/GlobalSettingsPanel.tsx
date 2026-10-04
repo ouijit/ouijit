@@ -5,6 +5,7 @@ import { setTerminalFontFamily, setTerminalFontSize } from './terminal/terminalR
 import { setReadyAudioDisabled } from '../utils/notifications';
 import { FontPickerRow } from './FontPickerRow';
 import { ThemeSettingsSection } from './ThemeSettingsSection';
+import { LinearSettingsSection } from './LinearSettingsSection';
 import { MoveProjectsDialog } from './dialogs/MoveProjectsDialog';
 import type { AffectedProject, ProjectsFolderChangeAction } from '../types';
 import log from 'electron-log/renderer';
@@ -203,6 +204,8 @@ export function GlobalSettingsPanel() {
               />
             </div>
           </section>
+
+          <LinearSettingsSection />
 
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Updates</h2>

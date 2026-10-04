@@ -285,6 +285,9 @@ function toTaskWithWorkspace(task: TaskMetadata, worktree: WorktreeInfo | undefi
     parentTaskNumber: task.parentTaskNumber,
     githubPrNumber: task.githubPrNumber,
     githubIssueNumber: task.githubIssueNumber,
+    linearIssueId: task.linearIssueId,
+    linearIssueIdentifier: task.linearIssueIdentifier,
+    suggestedBranch: task.suggestedBranch,
   };
 }
 

@@ -13,6 +13,10 @@ import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, setActiveTerminal, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
+import { useGithubStore } from '../stores/githubStore';
+import { useLinearStore } from '../stores/linearStore';
+import { freezeForCapture } from './frozen';
+import { usePanelStore } from '../stores/panelStore';
 import { previewTheme } from '../theme/themeManager';
 import { isThemePreference } from '../theme/themes';
 import { OuijitTerminal } from '../components/terminal/terminalReact';
@@ -281,6 +285,28 @@ export function installCaptureNavigator(): void {
         if (term && plan) {
           setActiveTerminal(payload.projectPath, term.ptyId);
           term.activatePanel(plan.id);
+        }
+        break;
+      }
+      // Both stores are seeded and frozen: the panel loads on mount, and this
+      // machine has neither `gh` nor a Linear key to answer with.
+      case 'issues': {
+        projectStore.setActivePanel('pull-requests');
+        projectStore.setKanbanVisible(false);
+        if (payload.issues) {
+          freezeForCapture();
+          useGithubStore.setState({
+            projectPath: payload.projectPath,
+            availability: payload.issues.availability,
+            inbox: payload.issues.inbox,
+            issues: payload.issues.githubIssues,
+          });
+          useLinearStore.setState({
+            projectPath: payload.projectPath,
+            availability: payload.issues.linear,
+            groups: payload.issues.linearGroups,
+          });
+          usePanelStore.setState({ listView: 'issues', open: null });
         }
         break;
       }

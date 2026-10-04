@@ -18,6 +18,9 @@ export interface TaskRow {
   parent_task_number: number | null;
   github_pr_number: number | null;
   github_issue_number: number | null;
+  linear_issue_id: string | null;
+  linear_issue_identifier: string | null;
+  suggested_branch: string | null;
 }
 
 export class TaskRepo {
@@ -62,6 +65,9 @@ export class TaskRepo {
       parentTaskNumber?: number;
       githubPrNumber?: number;
       githubIssueNumber?: number;
+      linearIssueId?: string;
+      linearIssueIdentifier?: string;
+      suggestedBranch?: string;
     },
   ): TaskRow {
     return this.db.transaction(() => {
@@ -75,8 +81,8 @@ export class TaskRepo {
       this.db
         .prepare(
           `
-        INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sort_order, created_at, parent_task_number, github_pr_number, github_issue_number)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sort_order, created_at, parent_task_number, github_pr_number, github_issue_number, linear_issue_id, linear_issue_identifier, suggested_branch)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         )
         .run(
@@ -93,6 +99,9 @@ export class TaskRepo {
           options?.parentTaskNumber ?? null,
           options?.githubPrNumber ?? null,
           options?.githubIssueNumber ?? null,
+          options?.linearIssueId ?? null,
+          options?.linearIssueIdentifier ?? null,
+          options?.suggestedBranch ?? null,
         );
 
       this.db
@@ -191,6 +200,19 @@ export class TaskRepo {
     this.db
       .prepare('UPDATE tasks SET github_issue_number = ? WHERE project_path = ? AND task_number = ?')
       .run(issueNumber, projectPath, taskNumber);
+  }
+
+  /** All three move together: an identifier without its id names nothing. */
+  updateLinearIssue(
+    projectPath: string,
+    taskNumber: number,
+    issue: { id: string; identifier: string; suggestedBranch?: string } | null,
+  ): void {
+    this.db
+      .prepare(
+        'UPDATE tasks SET linear_issue_id = ?, linear_issue_identifier = ?, suggested_branch = ? WHERE project_path = ? AND task_number = ?',
+      )
+      .run(issue?.id ?? null, issue?.identifier ?? null, issue?.suggestedBranch ?? null, projectPath, taskNumber);
   }
 
   updateName(projectPath: string, taskNumber: number, name: string): void {

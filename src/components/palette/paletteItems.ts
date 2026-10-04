@@ -17,21 +17,24 @@
  */
 
 import type { ActiveSession, Project, PullRequestSummary, SandboxProviderId, TaskWithWorkspace } from '../../types';
+import type { LinearIssueSummary } from '../../linear/types';
 import type { TerminalDisplayState } from '../../stores/terminalStore';
 import type { SearchField } from '../../utils/paletteScore';
 import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 import { activateTask, focusTerminal, selectProject, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
-import { projectKey, pullKey, taskKey, terminalKey, terminalTaskNumber } from '../../utils/paletteFrecency';
+import { openLinearIssueInPanel } from '../../services/linearTaskActions';
+import { issueKey, projectKey, pullKey, taskKey, terminalKey, terminalTaskNumber } from '../../utils/paletteFrecency';
 
-export type PaletteKind = 'terminal' | 'project' | 'task' | 'pull';
+export type PaletteKind = 'terminal' | 'project' | 'task' | 'pull' | 'issue';
 
 export const KIND_LABEL: Record<PaletteKind, string> = {
   terminal: 'Terminals',
   project: 'Projects',
   task: 'Tasks',
   pull: 'Pull requests',
+  issue: 'Issues',
 };
 
 export interface PaletteItem {
@@ -87,6 +90,8 @@ export interface PaletteInput {
    * a fetch of its own, it paints from what is cached.
    */
   pullRequests?: PullRequestSummary[];
+  /** This project's Linear issues, on the same terms. */
+  linearIssues?: LinearIssueSummary[];
 }
 
 /** One live, switchable shell, from either source. */
@@ -347,6 +352,37 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
         meta: pr.reviewRequested && !pr.isMine ? 'needs review' : pr.isMine ? 'yours' : undefined,
         action: 'Open pull request',
         run: () => openPullRequestInPanel(projectPath, pr.number),
+      });
+    }
+  }
+
+  // Issues, on the same terms, and skipping any already carried by a task row.
+  if (input.activeProjectPath && input.linearIssues?.length) {
+    const projectPath = input.activeProjectPath;
+    const project = projectByPath.get(projectPath);
+    const claimedIssueIds = new Set(
+      (input.taskCacheByProject[projectPath] ?? []).map((t) => t.linearIssueId).filter((id) => id != null),
+    );
+
+    for (const issue of input.linearIssues) {
+      if (claimedIssueIds.has(issue.id)) continue;
+      const key = issueKey(projectPath, issue.id);
+      push({
+        id: key,
+        key,
+        kind: 'issue',
+        title: issue.title,
+        context: project?.name ?? projectPath,
+        fields: [
+          { key: 'title', text: issue.title, weight: 1 },
+          { key: 'identifier', text: issue.identifier, weight: 1 },
+          { key: 'assignee', text: issue.assignee?.displayName ?? '', weight: 0.6 },
+          { key: 'project', text: project?.name ?? projectPath, weight: 0.5 },
+        ],
+        project,
+        meta: issue.state.name,
+        action: 'Open issue',
+        run: () => openLinearIssueInPanel(projectPath, issue.id),
       });
     }
   }

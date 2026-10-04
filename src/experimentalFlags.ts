@@ -15,6 +15,8 @@ export interface ExperimentalFlags {
   customSandbox: boolean;
   /** GitHub pull request inbox and review surface. Panel and polling stay dark until on. */
   github: boolean;
+  /** Linear issues in the panel's Issues list. Needs a personal API key. */
+  linear: boolean;
   /** Hotspot and change-coupling signals from git history, on the diff and PR views. */
   analysis: boolean;
 }
@@ -24,6 +26,7 @@ export const DEFAULT_EXPERIMENTAL_FLAGS: ExperimentalFlags = {
   nono: false,
   customSandbox: false,
   github: false,
+  linear: false,
   analysis: false,
 };
 

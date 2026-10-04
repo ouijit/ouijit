@@ -33,6 +33,7 @@ export const projectKey = (path: string): string => `project:${path}`;
 export const taskKey = (projectPath: string, taskNumber: number): string => `task:${projectPath}#${taskNumber}`;
 export const terminalKey = (ptyId: string): string => `terminal:${ptyId}`;
 export const pullKey = (projectPath: string, prNumber: number): string => `pull:${projectPath}#${prNumber}`;
+export const issueKey = (projectPath: string, issueId: string): string => `issue:${projectPath}#${issueId}`;
 
 /**
  * A shell and a pull request each borrow the identity of the task that claims
@@ -54,6 +55,14 @@ export function pullTaskNumber(
   taskCacheByProject: Record<string, readonly { taskNumber: number; githubPrNumber?: number | null }[] | undefined>,
 ): number | null {
   return (taskCacheByProject[projectPath] ?? []).find((t) => t.githubPrNumber === prNumber)?.taskNumber ?? null;
+}
+
+export function issueTaskNumber(
+  projectPath: string,
+  issueId: string,
+  taskCacheByProject: Record<string, readonly { taskNumber: number; linearIssueId?: string | null }[] | undefined>,
+): number | null {
+  return (taskCacheByProject[projectPath] ?? []).find((t) => t.linearIssueId === issueId)?.taskNumber ?? null;
 }
 
 /** 0..MAX_BOOST, added to a row's match score. */

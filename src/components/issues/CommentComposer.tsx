@@ -1,26 +1,23 @@
 import { useState } from 'react';
-import { useGithubStore } from '../../stores/githubStore';
-import { useProjectStore } from '../../stores/projectStore';
 import { Avatar } from './Avatar';
 
 interface CommentComposerProps {
-  projectPath: string;
-  number: number;
-  /** Which thread the comment lands on, and therefore what to reload after. */
-  subject: 'pr' | 'issue';
+  /** Who is writing, for the face beside the box. Absent until the source knows. */
+  viewer?: string;
+  viewerAvatarUrl?: string;
+  /**
+   * Posts the comment and refreshes whatever is open. False leaves the text in
+   * the box, so a failed post is not also a lost comment.
+   */
+  onPost: (body: string) => Promise<boolean>;
 }
 
 /**
- * One endpoint serves pull requests and issues alike — GitHub keeps pull
- * request conversation on the issue thread — so only the reload differs.
+ * The comment box, over any source. What posting means is the caller's: GitHub
+ * keeps pull request conversation on the issue thread, Linear has its own
+ * mutation, and only they know what to reload afterwards.
  */
-export function CommentComposer({ projectPath, number, subject }: CommentComposerProps) {
-  // From the open item, which is always loaded here; the inbox may not be, so
-  // the box shows a placeholder until the list arrives.
-  const viewer = useGithubStore((s) => s.detail?.viewer ?? s.issue?.viewer ?? s.inbox?.viewer);
-  const viewerAvatarUrl = useGithubStore(
-    (s) => s.detail?.viewerAvatarUrl ?? s.issue?.viewerAvatarUrl ?? s.inbox?.viewerAvatarUrl,
-  );
+export function CommentComposer({ viewer, viewerAvatarUrl, onPost }: CommentComposerProps) {
   const [body, setBody] = useState('');
   const [posting, setPosting] = useState(false);
 
@@ -28,14 +25,7 @@ export function CommentComposer({ projectPath, number, subject }: CommentCompose
     if (!body.trim() || posting) return;
     setPosting(true);
     try {
-      const result = await window.api.github.comment(projectPath, number, body);
-      if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Could not post the comment', 'error');
-        return;
-      }
-      setBody('');
-      const store = useGithubStore.getState();
-      await (subject === 'issue' ? store.reloadIssue(projectPath) : store.reloadDetail(projectPath));
+      if (await onPost(body)) setBody('');
     } finally {
       setPosting(false);
     }
