@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
-import { terminalInstances } from './terminalReact';
+import { terminalInstances } from './terminalRegistry';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import type { RunnerScript, Script } from '../../types';
 

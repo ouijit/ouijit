@@ -19,7 +19,8 @@ import { useTerminalStore, setActiveTerminal, type TerminalDisplayState } from '
 import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
-import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
+import { OuijitTerminal, resolveTerminalLabel, type SummaryType } from './terminalReact';
+import { terminalInstances, restoreTerminalOnce } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
 import { generateId } from '../../utils/ids';
 import { parseOsc133ExitCodes } from './osc133';
@@ -782,40 +783,6 @@ export function killExistingCommandInstances(
 
 // ── Reconnect all orphaned sessions for a project ────────────────────
 
-/**
- * Reconnects currently in flight, keyed by PTY id. `terminalInstances` only
- * gains its entry after `pty.reconnect` resolves, so a bare `has(ptyId)` check
- * can't serialize the two callers: on a renderer reload the home view's
- * unscoped reconnect and the project view's scoped one overlap, both pass the
- * check for the same session, and each registers a card for it.
- */
-const reconnectsInFlight = new Map<string, Promise<unknown>>();
-
-/**
- * Restore `ptyId` at most once across concurrent callers. A caller that loses
- * the race awaits the winner rather than skipping ahead, so the terminal list
- * is final by the time it returns. ProjectViewReact reads that list to decide
- * whether reconnection produced anything or the kanban should open instead.
- */
-async function reconnectSessionOnce(ptyId: string, restore: () => Promise<unknown>): Promise<void> {
-  if (terminalInstances.has(ptyId)) return;
-
-  const inFlight = reconnectsInFlight.get(ptyId);
-  if (inFlight) {
-    // The winner reports its own failure; the loser only needs it to be over.
-    await inFlight.catch(() => {});
-    return;
-  }
-
-  const pending = restore();
-  reconnectsInFlight.set(ptyId, pending);
-  try {
-    await pending;
-  } finally {
-    reconnectsInFlight.delete(ptyId);
-  }
-}
-
 export async function reconnectOrphanedSessions(projectPath?: string): Promise<void> {
   let sessions: ActiveSession[];
   try {
@@ -842,10 +809,10 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
   const mainSessions = relevant.filter((s) => !s.isRunner);
   const runnerSessions = relevant.filter((s) => s.isRunner);
 
-  // Reconnect main terminals first (so runner parents exist before runners
-  // reattach). reconnectSessionOnce makes this idempotent across the two callers.
+  // Reconnect main terminals first, so runner parents exist before runners
+  // reattach.
   for (const session of mainSessions) {
-    await reconnectSessionOnce(session.ptyId, async () => {
+    await restoreTerminalOnce(session.ptyId, async () => {
       let worktreeBranch: string | undefined;
       let mergeTarget: string | undefined;
       if (session.taskId != null) {
@@ -879,7 +846,7 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
 
   // Reconnect runners to their parent terminals
   for (const session of runnerSessions) {
-    await reconnectSessionOnce(session.ptyId, () => reconnectRunnerToParent(session));
+    await restoreTerminalOnce(session.ptyId, () => reconnectRunnerToParent(session));
   }
 }
 
