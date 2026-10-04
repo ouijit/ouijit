@@ -59,7 +59,6 @@ import minus from '@phosphor-icons/core/assets/regular/minus.svg?raw';
 import pencilSimple from '@phosphor-icons/core/assets/regular/pencil-simple.svg?raw';
 import play from '@phosphor-icons/core/assets/regular/play.svg?raw';
 import plus from '@phosphor-icons/core/assets/regular/plus.svg?raw';
-import prohibit from '@phosphor-icons/core/assets/regular/prohibit.svg?raw';
 import question from '@phosphor-icons/core/assets/regular/question.svg?raw';
 import rocket from '@phosphor-icons/core/assets/regular/rocket.svg?raw';
 import sidebarSimple from '@phosphor-icons/core/assets/regular/sidebar-simple.svg?raw';
@@ -83,6 +82,13 @@ import circle from '@phosphor-icons/core/assets/regular/circle.svg?raw';
 import circleDashed from '@phosphor-icons/core/assets/regular/circle-dashed.svg?raw';
 import userCircle from '@phosphor-icons/core/assets/regular/user-circle.svg?raw';
 import users from '@phosphor-icons/core/assets/regular/users.svg?raw';
+import usersThree from '@phosphor-icons/core/assets/regular/users-three.svg?raw';
+import circleHalf from '@phosphor-icons/core/assets/regular/circle-half.svg?raw';
+import warningCircle from '@phosphor-icons/core/assets/regular/warning-circle.svg?raw';
+import prohibit from '@phosphor-icons/core/assets/regular/prohibit.svg?raw';
+import flag from '@phosphor-icons/core/assets/regular/flag.svg?raw';
+import repeat from '@phosphor-icons/core/assets/regular/repeat.svg?raw';
+import ruler from '@phosphor-icons/core/assets/regular/ruler.svg?raw';
 import arrowUp from '@phosphor-icons/core/assets/regular/arrow-up.svg?raw';
 import chatCircle from '@phosphor-icons/core/assets/regular/chat-circle.svg?raw';
 import clock from '@phosphor-icons/core/assets/regular/clock.svg?raw';
@@ -169,8 +175,14 @@ export const iconMap: Record<string, string> = {
   'check-circle': checkCircle,
   circle: circle,
   'circle-dashed': circleDashed,
+  'circle-half': circleHalf,
+  'warning-circle': warningCircle,
   'user-circle': userCircle,
   users: users,
+  'users-three': usersThree,
+  flag: flag,
+  repeat: repeat,
+  ruler: ruler,
   'arrow-up': arrowUp,
   'chat-circle': chatCircle,
   clock: clock,

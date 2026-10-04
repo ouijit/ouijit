@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
-import { terminalInstances } from './terminalReact';
+import { terminalInstances } from './terminalRegistry';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
-import { HookConfigDialog } from '../dialogs/HookConfigDialog';
-import type { RunnerScript } from '../../types';
+import type { RunnerScript, Script } from '../../types';
 
 interface AddPanelMenuProps {
   ptyId: string;
@@ -14,6 +13,8 @@ interface AddPanelMenuProps {
   onAddRunner: (script?: RunnerScript) => void;
   onAddWebPreview: () => void;
   onAddPlan: (planPath: string) => void;
+  onConfigureRun: () => void;
+  onNewScript: () => void;
   onClose: () => void;
 }
 
@@ -25,14 +26,11 @@ export function AddPanelMenu({
   onAddRunner,
   onAddWebPreview,
   onAddPlan,
+  onConfigureRun,
+  onNewScript,
   onClose,
 }: AddPanelMenuProps) {
-  // Config and scripts are both loaded centrally by ProjectViewReact on project
-  // switch (version-guarded), so we read them straight from the store here — no
-  // self-load. The store always reflects the active project's commands.
-  const hasRunHook = useProjectStore((s) => !!s.configuredHooks.run);
-  const scripts = useProjectStore((s) => s.scripts);
-  const [runHookDialog, setRunHookDialog] = useState(false);
+  const commands = useProjectCommands(projectPath);
 
   const pickPlanFile = async () => {
     const inst = terminalInstances.get(ptyId);
@@ -43,36 +41,56 @@ export function AddPanelMenu({
 
   const items: ContextMenuEntry[] = [];
 
-  if (hasRunHook) {
-    items.push({ label: 'Run', onClick: () => onAddRunner() });
-  }
-  for (const script of scripts) {
-    items.push({ label: script.name, onClick: () => onAddRunner(script) });
-  }
-  if (!hasRunHook && scripts.length === 0) {
-    items.push({ label: 'Configure run command…', onClick: () => setRunHookDialog(true) });
+  if (commands) {
+    if (commands.hasRunHook) {
+      items.push({ label: 'Run', onClick: () => onAddRunner() });
+    } else {
+      items.push({ label: 'Configure run command…', onClick: onConfigureRun });
+    }
+    for (const script of commands.scripts) {
+      items.push({ label: script.name, onClick: () => onAddRunner(script) });
+    }
+    items.push({ label: 'New script…', onClick: onNewScript });
   }
 
   items.push({ separator: true });
   items.push({ label: 'Web Preview', icon: 'globe-simple', onClick: onAddWebPreview });
   items.push({ label: 'Markdown File', icon: 'file-text', onClick: () => void pickPlanFile() });
 
-  if (runHookDialog) {
-    return (
-      <HookConfigDialog
-        projectPath={projectPath}
-        hookType="run"
-        onClose={(result) => {
-          setRunHookDialog(false);
-          if (result?.saved && result.hook) {
-            useProjectStore.getState().markHookConfigured('run');
-            onAddRunner();
-          }
-          onClose();
-        }}
-      />
-    );
-  }
-
   return <ContextMenu x={x} y={y} items={items} onClose={onClose} />;
+}
+
+interface ProjectCommands {
+  hasRunHook: boolean;
+  scripts: Script[];
+}
+
+/**
+ * The store holds the open project's commands, but the home view shows
+ * terminals from every project, so any other project's are read directly.
+ * Null until they arrive, so the menu never offers to configure a run command
+ * that already exists.
+ */
+function useProjectCommands(projectPath: string): ProjectCommands | null {
+  const isStoreProject = useProjectStore(
+    (s) => s.configProjectPath === projectPath && s.scriptsProjectPath === projectPath,
+  );
+  const storeHasRunHook = useProjectStore((s) => !!s.configuredHooks.run);
+  const storeScripts = useProjectStore((s) => s.scripts);
+  const [fetched, setFetched] = useState<ProjectCommands | null>(null);
+
+  useEffect(() => {
+    if (isStoreProject) return;
+    let cancelled = false;
+    Promise.all([window.api.hooks.get(projectPath), window.api.scripts.getAll(projectPath)])
+      .then(([hooks, scripts]) => {
+        if (!cancelled) setFetched({ hasRunHook: !!hooks.run, scripts });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isStoreProject, projectPath]);
+
+  return isStoreProject ? { hasRunHook: storeHasRunHook, scripts: storeScripts } : fetched;
 }

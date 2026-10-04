@@ -42,9 +42,11 @@ Ouijit shadows the agent binaries on PATH to inject lifecycle hooks and a refere
 
 <img src="website/public/assets/screenshots/palette.png" alt="Command palette over the kanban board" width="100%">
 
-## Diffs and pull requests
+## Diffs, pull requests and issues
 
 Every task terminal includes a diff of its worktree against its merge target, uncommitted changes, or any base you pick, with word-level highlighting. Leave a note on a diff line and it goes to the agent working in that worktree, re-anchoring as the code moves. An experimental GitHub surface adds a pull request inbox, review comments staged locally until you send them, and merging. It drives the `gh` CLI, so `gh auth login` is the only setup.
+
+Beside it sits one issues list, fed by GitHub, Linear, or both. Each group — triage, in progress, assigned to you, this cycle, the repo's open issues — is answered by whichever tracker can answer it, so an `ENG-231` and a `#299` sit side by side. Turn an issue into a task and it starts on the branch name Linear suggested; the pull request opened from it carries the identifier, so the issue moves when the work lands.
 
 <img src="website/public/assets/screenshots/diff.png" alt="Worktree diff beside the agent terminal, with a note being written on a changed line" width="100%">
 

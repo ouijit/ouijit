@@ -7,7 +7,8 @@ import { SegmentedGroup, segmentBase, segmentQuiet } from '../ui/SegmentedGroup'
 import { Icon } from '../terminal/Icon';
 import { formatAge } from '../../utils/formatDate';
 import { groupDiffBases, searchDiffBases, MAX_BASE_ROWS, type DiffBaseRow } from './diffBaseGroups';
-import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
+import { refreshTerminalGitStatus } from '../terminal/terminalReact';
+import { terminalInstances } from '../terminal/terminalRegistry';
 
 interface DiffComparisonPickerProps {
   ptyId: string;

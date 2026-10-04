@@ -364,6 +364,24 @@ Hunks no group claims are still shown, in a trailing group — a lens can reorde
 and split a diff but never hides part of it, so covering everything is not
 required.
 
+## Linear Issues
+A task made from a Linear issue carries its identifier:
+ouijit task current | jq .linearIssueIdentifier
+
+ouijit linear list                            # → this project's issues, in the panel's groups
+ouijit linear view <identifier>               # → one issue with its comments and states
+ouijit linear link <identifier> --task <n>    # link an issue to a task
+
+### Comments (staged locally, sent by the user)
+ouijit linear draft list <identifier>
+ouijit linear draft add <identifier> --body "<text>" [--origin <name>]
+ouijit linear draft add <identifier> --body -   # body on stdin
+ouijit linear draft discard <identifier> <draft-id>
+
+Comments stage rather than post, for the reason review comments do: a person
+sends them. There is no command that moves an issue — that is a control on the
+issue, pressed by someone looking at it.
+
 ## Markdown Panel Commands (open .md files as tabs in this terminal)
 ouijit markdown add <path.md>                 # open a markdown file panel on this terminal
 ouijit markdown list                          # → {ptyId, kind, panels: [{label, path, active}, ...]}

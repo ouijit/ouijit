@@ -7,7 +7,8 @@
 import log from 'electron-log/renderer';
 import { useAppStore } from '../../stores/appStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { terminalInstances, type OuijitTerminal } from './terminalReact';
+import { type OuijitTerminal } from './terminalReact';
+import { terminalInstances } from './terminalRegistry';
 import {
   SNAPSHOT_KEY,
   type LastSessionSnapshot,

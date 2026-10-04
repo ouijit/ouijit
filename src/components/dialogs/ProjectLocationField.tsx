@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export const DIALOG_INPUT_CLASS =
-  'w-full h-9 px-4 font-sans text-sm text-text-primary bg-background border border-border rounded-md outline-none transition-all duration-150 ease-out focus:border-accent focus:ring-3 focus:ring-accent-light placeholder:text-text-tertiary';
-
 /** `location` is null until the default has loaded, which is what forms gate on. */
 export function useProjectLocation(): {
   location: string | null;

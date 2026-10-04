@@ -513,7 +513,10 @@ async function startTaskImpl(
 
     const projectName = path.basename(projectPath);
     const baseDir = getWorktreeBaseDir(projectName);
-    const branch = branchName || generateBranchName(task.name, taskNumber);
+    // A task created from an issue carries the tracker's suggested branch name,
+    // captured then rather than fetched now: starting a task must not depend on
+    // the network. An explicit --branch still wins.
+    const branch = branchName || task.suggestedBranch || generateBranchName(task.name, taskNumber);
 
     const headPromise = execAsync('git rev-parse HEAD', { cwd: projectPath }).then(
       () => true,

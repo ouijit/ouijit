@@ -34,4 +34,7 @@ export interface TaskWithWorkspace {
   parentTaskNumber?: number;
   githubPrNumber?: number;
   githubIssueNumber?: number;
+  linearIssueId?: string;
+  linearIssueIdentifier?: string;
+  suggestedBranch?: string;
 }

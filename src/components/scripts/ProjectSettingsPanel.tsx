@@ -7,6 +7,8 @@ import { HookList } from './HookList';
 import type { HookEntry } from './HookList';
 import { SandboxSection } from './SandboxSection';
 import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
+import { LinearScopeSection } from '../linear/LinearScopeSection';
+import { useExperimentalStore } from '../../stores/experimentalStore';
 import { WorktreeSection } from './WorktreeSection';
 import { IconColorSection } from './IconColorSection';
 import { Icon } from '../terminal/Icon';
@@ -33,6 +35,7 @@ interface ProjectSettingsPanelProps {
 
 export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps) {
   const sandboxAvailable = useProjectStore((s) => s.availableSandboxProviders.length > 0);
+  const linearEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.linear ?? false);
 
   useEffect(() => {
     useProjectStore.getState().loadScripts(projectPath);
@@ -121,6 +124,13 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               <h2 className="text-sm font-semibold text-text-primary mb-2">Sandbox</h2>
               <p className="text-xs text-text-tertiary mb-4">Backends that can run a task's terminals contained.</p>
               <SandboxSection projectPath={projectPath} />
+            </section>
+          )}
+          {linearEnabled && (
+            <section>
+              <h2 className="text-sm font-semibold text-text-primary mb-2">Linear</h2>
+              <p className="text-xs text-text-tertiary mb-4">Which Linear issues show in this project.</p>
+              <LinearScopeSection projectPath={projectPath} />
             </section>
           )}
           <section>

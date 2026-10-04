@@ -57,6 +57,15 @@ import {
   setPullRequestLens,
   clearPullRequestLens,
 } from '../github/service';
+import {
+  getIssues as getLinearIssues,
+  getIssue as getLinearIssue,
+  listDrafts as listLinearDrafts,
+  saveDraft as saveLinearDraft,
+  discardDraft as discardLinearDraft,
+  linkTaskToIssue as linkTaskToLinearIssue,
+  resolveIssueId as resolveLinearIssueId,
+} from '../linear/service';
 import { getProjectList } from '../projectList';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { cliPanelRequest } from '../cliPanels';
@@ -243,6 +252,13 @@ function route(
 
 function prNumber(r: ParsedRequest): number {
   return requireInt(r.segments[1], 'Pull request number');
+}
+
+/** A Linear issue id or identifier — `ENG-123` reads either way. */
+function issueId(r: ParsedRequest): string {
+  const id = r.segments[2];
+  if (!id) throw new HttpError(400, 'Missing issue identifier');
+  return id;
 }
 
 /**
@@ -776,6 +792,71 @@ const routes: Route[] = [
     'sandbox',
   ),
 
+  // ── Linear ────────────────────────────────────────────────────────
+  // Reads are sandbox-reachable and the key never crosses: the main process
+  // holds it, and what comes back is issues. Writes to Linear itself are not
+  // here at all — an agent stages a comment and a person sends it.
+  route('GET', 'linear/issues', (r) => getLinearIssues(requireProject(r.query)), false, 'sandbox'),
+
+  route('GET', 'linear/issues/:id', (r) => getLinearIssue(requireProject(r.query), issueId(r)), false, 'sandbox'),
+
+  route(
+    'POST',
+    'linear/issues/:id/link',
+    async (r) => {
+      const project = requireProject(r.query);
+      const taskNumber = r.body.taskNumber;
+      if (typeof taskNumber !== 'number') throw new HttpError(400, 'Missing taskNumber in body');
+      const result = await linkTaskToLinearIssue(project, taskNumber, issueId(r));
+      if (!result.success) throw new HttpError(400, result.error ?? 'Failed to link');
+      return { success: true, taskNumber, issue: issueId(r) };
+    },
+    true,
+  ),
+
+  // Drafts, on the same terms the pull request ones take: local rows with an
+  // origin stamped here, so a sandboxed caller cannot forge one.
+  route(
+    'GET',
+    'linear/issues/:id/drafts',
+    async (r) => {
+      const project = requireProject(r.query);
+      return listLinearDrafts(project, await resolveLinearIssueId(project, issueId(r)));
+    },
+    false,
+    'sandbox',
+  ),
+
+  route(
+    'POST',
+    'linear/issues/:id/drafts',
+    async (r) => {
+      const project = requireProject(r.query);
+      const body = r.body.body;
+      if (typeof body !== 'string' || !body.trim()) throw new HttpError(400, 'Missing body');
+      return saveLinearDraft(
+        project,
+        await resolveLinearIssueId(project, issueId(r)),
+        body,
+        r.auth.scope === 'sandbox' ? 'sandbox' : ((r.body.origin as string | undefined) ?? 'cli'),
+      );
+    },
+    true,
+    'sandbox',
+  ),
+
+  route(
+    'DELETE',
+    'linear/issues/:id/drafts/:draftId',
+    (r) => {
+      const draftId = r.segments[4];
+      if (!draftId) throw new HttpError(400, 'Missing draft id');
+      return discardLinearDraft(requireProject(r.query), draftId);
+    },
+    true,
+    'sandbox',
+  ),
+
   // ── Panels ────────────────────────────────────────────────────────
   // The two user-addressable panel kinds on a terminal: markdown files and
   // web previews. A terminal can hold several of each, so these are plural
@@ -939,6 +1020,15 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
           projectPath: project,
           prNumber: parseInt(segments[1], 10),
         });
+      }
+
+      // The same push, for a comment staged against a Linear issue. The id
+      // comes from the result rather than the path, which carries whatever the
+      // caller had — usually the identifier, which is not what drafts are keyed
+      // by.
+      if (segments[0] === 'linear' && segments[3] === 'drafts') {
+        const issueId = (result as { issueId?: string } | null)?.issueId;
+        if (issueId) typedPush(window, 'linear:drafts-changed', { projectPath: project, issueId });
       }
 
       // Task-start routes also need a terminal + hook in the renderer.

@@ -5,6 +5,7 @@
 import { vi, afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import { resetFrecencyForTests } from '../../utils/paletteFrecency';
+import type { Script } from '../../types';
 
 /**
  * Importing the renderer logger under jsdom hangs — no error, no timeout, it
@@ -129,7 +130,7 @@ const mockApi = {
   },
   scripts: {
     getAll: vi.fn().mockResolvedValue([]),
-    save: vi.fn().mockResolvedValue({ success: true }),
+    save: vi.fn((_projectPath: string, script: Script) => Promise.resolve({ success: true, script })),
     delete: vi.fn().mockResolvedValue({ success: true }),
     reorder: vi.fn().mockResolvedValue({ success: true }),
   },
@@ -143,6 +144,10 @@ const mockApi = {
   agentHooks: {
     onStatus: vi.fn().mockReturnValue(() => {}),
     getStatus: vi.fn().mockResolvedValue(null),
+  },
+  cliPanels: {
+    onOp: vi.fn().mockReturnValue(() => {}),
+    respond: vi.fn().mockResolvedValue(undefined),
   },
   plan: {
     read: vi.fn().mockResolvedValue(null),
@@ -213,7 +218,7 @@ const mockApi = {
     pullRequestFiles: vi.fn().mockResolvedValue({ files: [], fromGit: false }),
     pullRequestFileDiff: vi.fn().mockResolvedValue(null),
     pullRequestFileVersions: vi.fn().mockResolvedValue({ before: null, after: null }),
-    issues: vi.fn().mockResolvedValue([]),
+    issues: vi.fn().mockResolvedValue({ assigned: [], open: [], assignedCapped: false, openCapped: false }),
     issue: vi.fn().mockResolvedValue(null),
     linkTaskIssue: vi.fn().mockResolvedValue({ success: true }),
     detectTaskPr: vi.fn().mockResolvedValue({ prNumber: null }),
@@ -234,6 +239,22 @@ const mockApi = {
     mergePr: vi.fn().mockResolvedValue({ success: true }),
     taskFromIssue: vi.fn().mockResolvedValue({ success: true }),
     taskFromPr: vi.fn().mockResolvedValue({ success: true }),
+    onDraftsChanged: vi.fn().mockReturnValue(() => {}),
+  },
+  linear: {
+    connection: vi.fn().mockResolvedValue({ connected: false, reason: 'no-credential' }),
+    setCredential: vi.fn().mockResolvedValue({ success: true }),
+    availability: vi.fn().mockResolvedValue({ connected: false, reason: 'flag-off', repoLabels: [], teams: [] }),
+    setScope: vi.fn().mockResolvedValue({ success: true }),
+    issues: vi.fn().mockResolvedValue(null),
+    issue: vi.fn().mockResolvedValue(null),
+    comment: vi.fn().mockResolvedValue({ success: true }),
+    moveIssue: vi.fn().mockResolvedValue({ success: true }),
+    drafts: vi.fn().mockResolvedValue([]),
+    discardDraft: vi.fn().mockResolvedValue({ success: true }),
+    sendDraft: vi.fn().mockResolvedValue({ success: true }),
+    linkTask: vi.fn().mockResolvedValue({ success: true }),
+    taskFromIssue: vi.fn().mockResolvedValue({ success: true }),
     onDraftsChanged: vi.fn().mockReturnValue(() => {}),
   },
 };

@@ -53,7 +53,7 @@ import type {
   ResolvedRepo,
   PullRequestDetail,
   PullRequestFreshness,
-  GithubIssue,
+  GithubIssueList,
   IssueDetail,
   CommentKind,
   ReviewDraft,
@@ -67,6 +67,15 @@ import type {
   PromoteToTaskResult,
   PrFileVersions,
 } from '../github/types';
+import type {
+  LinearAvailability,
+  LinearCommentDraft,
+  LinearConnection,
+  LinearDraftsChangedPayload,
+  LinearIssueDetail,
+  LinearIssueGroups,
+  LinearScope,
+} from '../linear/types';
 import type { LensInput, LensSummary } from '../lens/config';
 import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
 import type { AnalysisOverview, DiffSignals } from '../analysis/types';
@@ -311,7 +320,7 @@ export interface IpcInvokeContract {
   };
   'github:user-repos': { args: []; return: UserReposResult };
   'github:resolve-repo': { args: [identity: RepoIdentity]; return: ResolvedRepo };
-  'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
+  'github:issues': { args: [projectPath: string]; return: GithubIssueList };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 
   'github:link-task-issue': {
@@ -320,6 +329,44 @@ export interface IpcInvokeContract {
   };
   'github:detect-task-pr': { args: [projectPath: string, taskNumber: number]; return: { prNumber: number | null } };
   'github:detect-project-prs': { args: [projectPath: string]; return: { linked: number } };
+
+  // ── Linear ───────────────────────────────────────────────────────────
+  // The API key stays in the main process. These return who it belongs to and
+  // what it can see; none of them returns the key.
+  'linear:connection': { args: [projectPath?: string, recheck?: boolean]; return: LinearConnection };
+  'linear:set-credential': {
+    args: [apiKey: string, projectPath?: string];
+    return: { success: boolean; error?: string };
+  };
+  'linear:availability': { args: [projectPath: string, recheck?: boolean]; return: LinearAvailability };
+  'linear:set-scope': {
+    args: [projectPath: string, scope: LinearScope | null];
+    return: { success: boolean; error?: string };
+  };
+  'linear:issues': { args: [projectPath: string]; return: LinearIssueGroups | null };
+  'linear:issue': { args: [projectPath: string, id: string]; return: LinearIssueDetail };
+  'linear:comment': {
+    args: [projectPath: string, issueId: string, body: string];
+    return: { success: boolean; error?: string };
+  };
+  'linear:move-issue': {
+    args: [projectPath: string, issueId: string, stateId: string];
+    return: { success: boolean; error?: string };
+  };
+  'linear:drafts': { args: [projectPath: string, issueId: string]; return: LinearCommentDraft[] };
+  'linear:discard-draft': {
+    args: [projectPath: string, draftId: string];
+    return: { success: boolean; issueId?: string };
+  };
+  'linear:send-draft': { args: [projectPath: string, draftId: string]; return: { success: boolean; error?: string } };
+  'linear:link-task': {
+    args: [projectPath: string, taskNumber: number, identifier: string | null];
+    return: { success: boolean; error?: string };
+  };
+  'linear:task-from-issue': {
+    args: [projectPath: string, identifier: string];
+    return: { success: boolean; error?: string; taskNumber?: number };
+  };
 
   // ── Lenses ─────────────────────────────────────────────────────────
   // The project's named instructions and the agent that runs them.
@@ -486,6 +533,8 @@ export interface IpcPushContract {
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };
   /** A review draft was written or discarded outside the renderer (the CLI). */
   'github:drafts-changed': { args: [payload: GithubDraftsChangedPayload] };
+  /** The same, for a comment staged against a Linear issue. */
+  'linear:drafts-changed': { args: [payload: LinearDraftsChangedPayload] };
   /** Every picker and list holds its own copy of `lens:list`, so each reads again. */
   'lens:list-changed': { args: [projectPath: string] };
   /**

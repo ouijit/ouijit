@@ -33,6 +33,7 @@ import type {
   SaveDraftInput,
   PrHead,
 } from './github/types';
+import type { LinearDraftsChangedPayload, LinearScope } from './linear/types';
 import type { LensInput } from './lens/config';
 import type { SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
@@ -392,6 +393,33 @@ contextBridge.exposeInMainWorld('api', {
 
     onDraftsChanged: (callback: (payload: GithubDraftsChangedPayload) => void) =>
       typedListen('github:drafts-changed', callback),
+  },
+
+  linear: {
+    connection: (projectPath?: string, recheck?: boolean) => typedInvoke('linear:connection', projectPath, recheck),
+    setCredential: (apiKey: string, projectPath?: string) => typedInvoke('linear:set-credential', apiKey, projectPath),
+    availability: (projectPath: string, recheck?: boolean) => typedInvoke('linear:availability', projectPath, recheck),
+    setScope: (projectPath: string, scope: LinearScope | null) => typedInvoke('linear:set-scope', projectPath, scope),
+
+    issues: (projectPath: string) => typedInvoke('linear:issues', projectPath),
+    issue: (projectPath: string, id: string) => typedInvoke('linear:issue', projectPath, id),
+
+    comment: (projectPath: string, issueId: string, body: string) =>
+      typedInvoke('linear:comment', projectPath, issueId, body),
+    moveIssue: (projectPath: string, issueId: string, stateId: string) =>
+      typedInvoke('linear:move-issue', projectPath, issueId, stateId),
+
+    drafts: (projectPath: string, issueId: string) => typedInvoke('linear:drafts', projectPath, issueId),
+    discardDraft: (projectPath: string, draftId: string) => typedInvoke('linear:discard-draft', projectPath, draftId),
+    sendDraft: (projectPath: string, draftId: string) => typedInvoke('linear:send-draft', projectPath, draftId),
+
+    linkTask: (projectPath: string, taskNumber: number, identifier: string | null) =>
+      typedInvoke('linear:link-task', projectPath, taskNumber, identifier),
+    taskFromIssue: (projectPath: string, identifier: string) =>
+      typedInvoke('linear:task-from-issue', projectPath, identifier),
+
+    onDraftsChanged: (callback: (payload: LinearDraftsChangedPayload) => void) =>
+      typedListen('linear:drafts-changed', callback),
   },
 
   diffNotes: {

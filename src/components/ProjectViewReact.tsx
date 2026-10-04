@@ -20,10 +20,9 @@ import {
   reconnectOrphanedSessions,
   startRunner,
 } from './terminal/terminalActions';
-import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
+import { refreshAllTerminalGitStatus } from './terminal/terminalReact';
+import { terminalInstances } from './terminal/terminalRegistry';
 import { detectPullRequestsForProject } from '../services/githubTaskActions';
-import { useHookStatusListener } from '../hooks/useHookStatusListener';
-import { useCliPanelListener } from '../hooks/useCliPanelListener';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const PROJECT_REFRESH_INTERVAL = 30000;
@@ -315,12 +314,6 @@ export function ProjectView() {
       stop();
     };
   }, [projectPath, githubEnabled, analysisEnabled]);
-
-  // Hook status: register ongoing listener + seed existing terminals
-  useHookStatusListener(projectPath);
-
-  // CLI panel ops (`ouijit markdown` / `ouijit preview`) → live terminal panels
-  useCliPanelListener();
 
   // Focus active terminal when active index changes (stack mode only)
   useEffect(() => {

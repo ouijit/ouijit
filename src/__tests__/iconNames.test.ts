@@ -40,10 +40,11 @@ function iconMapKeys(): Set<string> {
 }
 
 /**
- * Literal icon names, from the two ways this codebase writes them: the `name`
- * prop on `<Icon>`, and the `icon` field on a context menu entry. Names built
- * at runtime (the diff status helpers, the check-run appearance helpers) are
- * covered by their own tests, which assert against this same map.
+ * Literal icon names, from the three ways this codebase writes them: the `name`
+ * prop on `<Icon>`, an `icon` prop on a component that forwards one, and the
+ * `icon` field on a context menu entry. Names built at runtime (the diff status
+ * helpers, the check-run appearance helpers) are covered by their own tests,
+ * which assert against this same map.
  */
 function referencedNames(): Map<string, string[]> {
   const found = new Map<string, string[]>();
@@ -56,6 +57,7 @@ function referencedNames(): Map<string, string[]> {
   for (const file of sourceFiles(SRC)) {
     const source = readFileSync(file, 'utf8');
     for (const match of source.matchAll(/<Icon\s[^>]*name=["']([a-zA-Z0-9-]+)["']/g)) record(match[1], file);
+    for (const match of source.matchAll(/\sicon=["']([a-zA-Z0-9-]+)["']/g)) record(match[1], file);
     // The trailing group rejects a type position: `icon: 'project' | 'tag'` is
     // a union of allowed values in an interface, not a reference to an icon.
     for (const match of source.matchAll(/\bicon:\s*'([a-zA-Z0-9-]+)'(\s*\|)?/g)) {

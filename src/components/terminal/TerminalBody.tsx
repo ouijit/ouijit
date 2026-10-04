@@ -7,7 +7,7 @@ import { DiffPanel } from '../diff/DiffPanel';
 import { PlanPanel } from '../plan/PlanPanel';
 import { WebPreviewPanel } from '../webPreview/WebPreviewPanel';
 import { useTerminalPanels } from './useTerminalPanels';
-import { terminalInstances } from './terminalReact';
+import { terminalInstances } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
 
 interface TerminalBodyProps {

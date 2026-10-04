@@ -319,6 +319,94 @@ function buildTerminalSeeds() {
   ];
 }
 
+
+/**
+ * The Issues list with both trackers connected — the shot that shows one list
+ * answering from two of them. Handed over ready-made: the capturing machine has
+ * no `gh` and no Linear key, and the scene freezes the stores rather than
+ * fetching.
+ */
+function buildIssuesSeed() {
+  const person = (name, displayName) => ({ id: `user-${displayName}`, name, displayName });
+  const state = (name, type, color) => ({ id: `state-${type}`, name, type, color });
+  const linear = (identifier, title, over = {}) => ({
+    id: `issue-${identifier}`,
+    identifier,
+    title,
+    url: `https://linear.app/acme/issue/${identifier}`,
+    createdAt: '2026-06-20T09:00:00.000Z',
+    updatedAt: '2026-07-02T09:00:00.000Z',
+    priority: 2,
+    priorityLabel: 'High',
+    state: state('Todo', 'unstarted', '#9aa4b2'),
+    team: { id: 'team-eng', key: 'ENG', name: 'Engineering' },
+    branchName: `mel/${identifier.toLowerCase()}`,
+    assignee: person('Mel Ito', 'mel'),
+    ...over,
+  });
+  const github = (number, title, author, updatedAt) => ({
+    number,
+    title,
+    state: 'open',
+    stateReason: null,
+    author,
+    createdAt: '2026-06-18T09:00:00.000Z',
+    updatedAt,
+    url: `https://github.com/acme/widgets/issues/${number}`,
+  });
+
+  return {
+    availability: { available: true, identity: { host: 'github.com', owner: 'acme', repo: 'widgets' } },
+    inbox: { viewer: 'mel', needsReview: [], mine: [], others: [], draftCounts: {}, linkedTasks: {} },
+    githubIssues: {
+      assigned: [github(299, 'Terminal scroll jumps on resize', 'rowan', '2026-07-01T11:00:00.000Z')],
+      open: [
+        github(291, 'Add a keyboard shortcut for the diff pane', 'jules', '2026-06-30T15:00:00.000Z'),
+        github(287, 'Worktree list is slow on very large repos', 'ada', '2026-06-29T10:00:00.000Z'),
+      ],
+      assignedCapped: false,
+      openCapped: false,
+    },
+    linear: {
+      connected: true,
+      viewer: { id: 'user-mel', name: 'Mel Ito', displayName: 'mel', workspaceId: 'ws', workspaceName: 'Acme' },
+      storage: 'keychain',
+      scope: { kind: 'repo-label', labelId: 'label-widgets', name: 'acme/widgets' },
+      repoLabels: [{ id: 'label-widgets', name: 'acme/widgets' }],
+      teams: [{ id: 'team-eng', key: 'ENG', name: 'Engineering', triageEnabled: true }],
+    },
+    linearGroups: {
+      triage: [
+        linear('ENG-318', 'Onboarding stalls on the second step', {
+          state: state('Triage', 'triage', '#95a2b3'),
+          assignee: undefined,
+          updatedAt: '2026-07-02T16:00:00.000Z',
+        }),
+      ],
+      started: [
+        linear('ENG-214', 'Rework the onboarding flow', {
+          state: state('In Progress', 'started', '#f2c94c'),
+          updatedAt: '2026-07-02T14:00:00.000Z',
+        }),
+      ],
+      assigned: [
+        linear('ENG-231', 'Stream events into the activity feed', { updatedAt: '2026-07-02T12:00:00.000Z' }),
+      ],
+      cycle: [
+        linear('ENG-244', 'Tighten the invitation email copy', {
+          assignee: person('Rowan Diaz', 'rowan'),
+          priority: 3,
+          priorityLabel: 'Medium',
+          updatedAt: '2026-07-01T17:00:00.000Z',
+        }),
+      ],
+      capped: { triage: false, started: false, assigned: false, cycle: false },
+      cycleIsFallback: false,
+      triageEnabled: true,
+    },
+  };
+}
+
 // Every scene pins its theme — an unpinned scene follows the capturing
 // machine's OS appearance and the output would flip between runs.
 const SCENES = [
@@ -376,6 +464,7 @@ const SCENES = [
     },
     settleMs: 2500,
   },
+  { scene: 'issues', file: 'issues.png', needsProject: true, theme: 'dark', issues: buildIssuesSeed() },
   { scene: 'settings', file: 'settings.png', needsProject: true, theme: 'dark' },
   // The resume banner lists one row per snapshot terminal; three rows reads as
   // an example, the full seed list reads as clutter.
@@ -547,6 +636,7 @@ async function main() {
       if (scene.diffPtyId) payload.diffPtyId = scene.diffPtyId;
       if (scene.diffLens) payload.diffLens = scene.diffLens;
       if (scene.diffNote) payload.diffNote = scene.diffNote;
+      if (scene.issues) payload.issues = scene.issues;
       if (scene.previewPtyId) {
         payload.previewPtyId = scene.previewPtyId;
         payload.previewUrl = previewUrl;

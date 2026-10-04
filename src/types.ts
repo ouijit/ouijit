@@ -17,7 +17,7 @@ import type {
   PullRequestFreshness,
   UserReposResult,
   ResolvedRepo,
-  GithubIssue,
+  GithubIssueList,
   IssueDetail,
   CommentKind,
   ReviewDraft,
@@ -31,6 +31,15 @@ import type {
   PromoteToTaskResult,
   PrFileVersions,
 } from './github/types';
+import type {
+  LinearAvailability,
+  LinearCommentDraft,
+  LinearConnection,
+  LinearDraftsChangedPayload,
+  LinearIssueDetail,
+  LinearIssueGroups,
+  LinearScope,
+} from './linear/types';
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
 import type { LensChangedPayload } from './lens/subjectKeys';
@@ -97,11 +106,11 @@ export type {
   MergeOptions,
   MergeStatus,
   GithubIssue,
+  GithubIssueList,
   IssueDetail,
   CommentKind,
   GithubDraftsChangedPayload,
   CheckRun,
-  TimelineItem,
   InboxResult,
   PullRequestFilesResult,
   SaveDraftInput,
@@ -348,6 +357,12 @@ export interface TaskWithWorkspace {
   githubPrNumber?: number;
   /** Linked GitHub issue, if the task was created from one. */
   githubIssueNumber?: number;
+  /** Linked Linear issue, if the task was created from one. */
+  linearIssueId?: string;
+  /** `ENG-123`, stored so a badge renders without asking Linear. */
+  linearIssueIdentifier?: string;
+  /** The branch the task should start on, captured when it was created. */
+  suggestedBranch?: string;
 }
 
 export interface HooksAPI {
@@ -607,6 +622,7 @@ export interface ElectronAPI {
   capture: CaptureAPI;
   /** GitHub pull requests and issues, via the `gh` CLI on the host */
   github: GithubAPI;
+  linear: LinearAPI;
   /** Notes written on a worktree's own diff */
   diffNotes: DiffNotesAPI;
   /** Hotspot, coupling, and ownership signals mined from git history */
@@ -697,7 +713,7 @@ export interface GithubAPI {
     filePath: string,
     oldPath?: string,
   ): Promise<PrFileVersions>;
-  issues(projectPath: string): Promise<GithubIssue[]>;
+  issues(projectPath: string): Promise<GithubIssueList>;
   issue(projectPath: string, number: number): Promise<IssueDetail>;
 
   linkTaskIssue(projectPath: string, taskNumber: number, issueNumber: number | null): Promise<GithubActionResult>;
@@ -748,6 +764,32 @@ export interface GithubAPI {
 export interface GithubActionResult {
   success: boolean;
   error?: string;
+}
+
+/**
+ * Linear, as the renderer sees it. The API key is not in here and never will
+ * be: what comes back is who it belongs to and what it can see.
+ */
+export interface LinearAPI {
+  connection(projectPath?: string, recheck?: boolean): Promise<LinearConnection>;
+  setCredential(apiKey: string, projectPath?: string): Promise<GithubActionResult>;
+  availability(projectPath: string, recheck?: boolean): Promise<LinearAvailability>;
+  setScope(projectPath: string, scope: LinearScope | null): Promise<GithubActionResult>;
+
+  issues(projectPath: string): Promise<LinearIssueGroups | null>;
+  issue(projectPath: string, id: string): Promise<LinearIssueDetail>;
+
+  comment(projectPath: string, issueId: string, body: string): Promise<GithubActionResult>;
+  moveIssue(projectPath: string, issueId: string, stateId: string): Promise<GithubActionResult>;
+
+  drafts(projectPath: string, issueId: string): Promise<LinearCommentDraft[]>;
+  discardDraft(projectPath: string, draftId: string): Promise<{ success: boolean; issueId?: string }>;
+  sendDraft(projectPath: string, draftId: string): Promise<GithubActionResult>;
+
+  linkTask(projectPath: string, taskNumber: number, identifier: string | null): Promise<GithubActionResult>;
+  taskFromIssue(projectPath: string, identifier: string): Promise<GithubActionResult & { taskNumber?: number }>;
+
+  onDraftsChanged(callback: (payload: LinearDraftsChangedPayload) => void): () => void;
 }
 
 export interface OnboardingAPI {
@@ -842,6 +884,14 @@ export interface CliPanelOp {
   /** Absolute path (markdown) or URL (preview) for add/remove. */
   value?: string;
 }
+
+/**
+ * How long a per-terminal push waits for a terminal that is still reconnecting
+ * before giving up on it. The CLI panel bridge allows more than this for its
+ * whole round trip, so a wait that runs out still reports its own reason
+ * rather than the bridge's generic timeout.
+ */
+export const TERMINAL_READY_WAIT_MS = 3000;
 
 /** Renderer's reply for a {@link CliPanelOp}. */
 export interface CliPanelResponse {

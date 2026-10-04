@@ -73,6 +73,8 @@ interface ProjectStoreState {
   /** When set, the terminal stack and canvas show only sessions whose task has this tag. */
   tagFilter: string | null;
   scripts: Script[];
+  /** projectPath the scripts currently reflect; null = not loaded. */
+  scriptsProjectPath: string | null;
   taskVersion: number;
   highlightedChainTask: number | null;
   detachHoverParent: number | null;
@@ -163,6 +165,7 @@ interface ProjectStoreActions {
   loadTasks: (projectPath: string) => Promise<void>;
   loadTasksIfActive: (projectPath: string) => Promise<void>;
   loadScripts: (projectPath: string) => Promise<void>;
+  saveScript: (projectPath: string, script: Script) => Promise<Script | null>;
   /**
    * Load project-scoped config (sandbox availability + configured hooks) in a
    * single pair of IPC calls, so kanban cards and terminal headers read it from
@@ -170,7 +173,7 @@ interface ProjectStoreActions {
    */
   loadProjectConfig: (projectPath: string) => Promise<void>;
   /** Mark a hook as configured after the user saves one from a card dialog. */
-  markHookConfigured: (hookType: HookType) => void;
+  markHookConfigured: (projectPath: string, hookType: HookType) => void;
   /** Move a task with optimistic update and rollback */
   moveTask: (projectPath: string, taskNumber: number, newStatus: string, targetIndex: number) => Promise<void>;
 
@@ -218,6 +221,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   activePanel: 'terminals',
   tagFilter: null,
   scripts: [],
+  scriptsProjectPath: null,
   taskVersion: 0,
   highlightedChainTask: null,
   detachHoverParent: null,
@@ -322,6 +326,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       activePanel: 'terminals',
       tagFilter: null,
       scripts: [],
+      scriptsProjectPath: null,
       taskVersion: 0,
       highlightedChainTask: null,
       detachHoverParent: null,
@@ -408,10 +413,20 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     try {
       const scripts = await window.api.scripts.getAll(projectPath);
       if (version !== scriptsLoadVersion) return;
-      set({ scripts });
+      set({ scripts, scriptsProjectPath: projectPath });
     } catch (err) {
       get().addToast(`Failed to load scripts: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
+  },
+
+  saveScript: async (projectPath, script) => {
+    const result = await window.api.scripts.save(projectPath, script).catch((): null => null);
+    if (!result?.success || !result.script) {
+      get().addToast('Failed to save script', 'error');
+      return null;
+    }
+    if (get().scriptsProjectPath === projectPath) void get().loadScripts(projectPath);
+    return result.script;
   },
 
   loadProjectConfig: async (projectPath) => {
@@ -443,9 +458,9 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     }
   },
 
-  markHookConfigured: (hookType) => {
+  markHookConfigured: (projectPath, hookType) => {
     const prev = get().configuredHooks;
-    if (prev[hookType]) return;
+    if (get().configProjectPath !== projectPath || prev[hookType]) return;
     set({ configuredHooks: { ...prev, [hookType]: true } });
   },
 

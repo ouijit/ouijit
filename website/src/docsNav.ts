@@ -52,7 +52,8 @@ export const DOC_PAGES: DocPage[] = [
     slug: 'pull-requests',
     label: 'Pull requests',
     href: '/docs/pull-requests/',
-    description: 'The experimental GitHub surface: a PR inbox, locally staged reviews, and merging.',
+    description:
+      'The experimental tracker surface: a PR inbox, locally staged reviews, merging, and issues from GitHub and Linear.',
   },
   {
     slug: 'sandbox',

@@ -11,6 +11,7 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
   const nonoEnabled = flags?.nono ?? false;
   const customSandboxEnabled = flags?.customSandbox ?? false;
   const githubEnabled = flags?.github ?? false;
+  const linearEnabled = flags?.linear ?? false;
   const analysisEnabled = flags?.analysis ?? false;
 
   const handleToggleCanvas = async () => {
@@ -41,6 +42,10 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
     await useExperimentalStore.getState().setFlag(projectPath, 'github', !githubEnabled);
   };
 
+  const handleToggleLinear = async () => {
+    await useExperimentalStore.getState().setFlag(projectPath, 'linear', !linearEnabled);
+  };
+
   return (
     <div className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg">
       <ToggleRow
@@ -66,6 +71,12 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
         description="Pull request inbox and review, powered by the GitHub CLI. Requires gh on PATH and signed in."
         checked={githubEnabled}
         onChange={handleToggleGithub}
+      />
+      <ToggleRow
+        label="Linear"
+        description="Show Linear issues alongside GitHub's in the Issues list. Needs an API key."
+        checked={linearEnabled}
+        onChange={handleToggleLinear}
       />
       <ToggleRow
         label="Analysis"

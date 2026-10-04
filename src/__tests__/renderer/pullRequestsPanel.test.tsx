@@ -6,8 +6,9 @@ import { activateTask } from '../../components/navigation';
 import { useAppStore } from '../../stores/appStore';
 import { lensOnFile } from '../lensFixtures';
 import { useGithubStore } from '../../stores/githubStore';
+import { usePanelStore } from '../../stores/panelStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { pr, inbox, detail, issue, issueDetail, task } from './githubFixtures';
+import { pr, inbox, detail, issue, issueDetail, issueList, task } from './githubFixtures';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -27,6 +28,7 @@ describe('PullRequestsPanel', () => {
     // carry across tests unless they're cleared here.
     vi.clearAllMocks();
     useGithubStore.getState().reset();
+    usePanelStore.setState(usePanelStore.getInitialState());
     useGithubStore.setState({ projectPath: null });
     useProjectStore.setState({ tasks: [], toasts: [] });
     useAppStore.setState({ activeProjectData: { path: PROJECT, name: 'Alpha' } });
@@ -35,7 +37,7 @@ describe('PullRequestsPanel', () => {
       identity: { host: 'github.com', owner: 'o', repo: 'r' },
     });
     vi.mocked(window.api.github.inbox).mockResolvedValue(inbox());
-    vi.mocked(window.api.github.issues).mockResolvedValue([]);
+    vi.mocked(window.api.github.issues).mockResolvedValue(issueList());
     vi.mocked(window.api.github.onDraftsChanged).mockReturnValue(() => {});
     vi.mocked(window.api.lens.onChanged).mockReturnValue(() => {});
     // clearAllMocks resets call records but keeps implementations, so a test
@@ -160,7 +162,9 @@ describe('PullRequestsPanel', () => {
   });
 
   test('a linked issue row names the task tracking it', async () => {
-    vi.mocked(window.api.github.issues).mockResolvedValue([issue({ number: 12, title: 'Something is broken' })]);
+    vi.mocked(window.api.github.issues).mockResolvedValue(
+      issueList({ open: [issue({ number: 12, title: 'Something is broken' })] }),
+    );
     const linked = task({ taskNumber: 7, githubIssueNumber: 12, status: 'in_progress' });
     useProjectStore.setState({ tasks: [linked] });
 
@@ -179,7 +183,9 @@ describe('PullRequestsPanel', () => {
    * browser.
    */
   test('an issue opens in the panel and takes a comment', async () => {
-    vi.mocked(window.api.github.issues).mockResolvedValue([issue({ number: 12, title: 'Something is broken' })]);
+    vi.mocked(window.api.github.issues).mockResolvedValue(
+      issueList({ open: [issue({ number: 12, title: 'Something is broken' })] }),
+    );
     vi.mocked(window.api.github.issue).mockResolvedValue(
       issueDetail({
         number: 12,
@@ -249,7 +255,9 @@ describe('PullRequestsPanel', () => {
   });
 
   test('an unlinked issue offers to create a task', async () => {
-    vi.mocked(window.api.github.issues).mockResolvedValue([issue({ number: 13, title: 'Needs doing', body: '' })]);
+    vi.mocked(window.api.github.issues).mockResolvedValue(
+      issueList({ open: [issue({ number: 13, title: 'Needs doing', body: '' })] }),
+    );
     vi.mocked(window.api.github.taskFromIssue).mockResolvedValue({ success: true, taskNumber: 9 });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
@@ -692,8 +700,7 @@ describe('PullRequestsPanel', () => {
    * brings it back.
    */
   test('the list can be hidden and brought back', async () => {
-    // Not covered by `reset()`: the sidebar layout deliberately survives it.
-    useGithubStore.getState().setSidebarCollapsed(false);
+    usePanelStore.getState().setSidebarCollapsed(false);
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
     );
@@ -719,7 +726,7 @@ describe('PullRequestsPanel', () => {
    * over by the pane, and the press lands on whatever is underneath.
    */
   test('the toggle is reachable with a pull request open', async () => {
-    useGithubStore.getState().setSidebarCollapsed(false);
+    usePanelStore.getState().setSidebarCollapsed(false);
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
     );
@@ -741,9 +748,7 @@ describe('PullRequestsPanel', () => {
    * the button asks the cheap question instead.
    */
   test('hovering refresh checks for changes and says what it found', async () => {
-    // Layout survives a store reset by design, so the test before this one can
-    // leave the list hidden and the pull request unreachable.
-    useGithubStore.getState().setSidebarCollapsed(false);
+    usePanelStore.getState().setSidebarCollapsed(false);
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
     );

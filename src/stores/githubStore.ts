@@ -4,13 +4,15 @@ import type {
   GithubAvailability,
   PullRequestDetail,
   PullRequestFile,
-  GithubIssue,
+  GithubIssueList,
   IssueDetail,
   ReviewDraft,
   InboxResult,
 } from '../github/types';
 
 import type { FileDiff } from '../types';
+import { usePanelStore } from './panelStore';
+import { isFrozenForCapture } from '../capture/frozen';
 import { describeError } from '../utils/describeError';
 import { toggleIn, toggleInList } from '../utils/toggleIn';
 import { markSection } from '../github/viewedSections';
@@ -18,22 +20,15 @@ import type { DiffAnchor } from '../diffAnchor';
 
 const githubLog = log.scope('github');
 
-/** Which pane the panel is showing: a list, or an open item. */
-export type GithubView = 'inbox' | 'issues' | 'detail';
-
+/**
+ * GitHub's half of the panel: what was fetched, and nothing about what the
+ * panel is showing. Which item is open, and which list the tab bar is on, live
+ * in `panelStore` — one slot shared with every other source.
+ */
 interface GithubStoreState {
   projectPath: string | null;
   availability: GithubAvailability | null;
-  view: GithubView;
-  /** The list to return to when the detail view closes. */
-  listView: 'inbox' | 'issues';
 
-  /**
-   * Layout of the list beside what it opens. Excluded from every reset: it is a
-   * preference, not state about a repository.
-   */
-  sidebarWidth: number;
-  sidebarCollapsed: boolean;
   /** Width of the changed-file rail inside the code pane. */
   railWidth: number;
 
@@ -41,18 +36,14 @@ interface GithubStoreState {
   inboxLoading: boolean;
   inboxError: string | null;
 
-  issues: GithubIssue[];
+  issues: GithubIssueList | null;
   issuesLoading: boolean;
   issuesError: string | null;
 
-  /** Issue currently open in the detail view. Exclusive with `activeNumber`. */
-  activeIssue: number | null;
   issue: IssueDetail | null;
   issueLoading: boolean;
   issueError: string | null;
 
-  /** PR currently open in the detail view. */
-  activeNumber: number | null;
   detail: PullRequestDetail | null;
   detailLoading: boolean;
   detailError: string | null;
@@ -103,7 +94,6 @@ interface GithubStoreState {
 
 interface GithubStoreActions {
   setProject: (projectPath: string | null) => void;
-  setView: (view: GithubView) => void;
 
   loadAvailability: (projectPath: string, recheck?: boolean) => Promise<void>;
   loadInbox: (projectPath: string) => Promise<void>;
@@ -126,8 +116,6 @@ interface GithubStoreActions {
   markSectionViewed: (path: string, section: string, siblings: readonly string[], next: boolean) => void;
   setComposingAt: (anchor: GithubStoreState['composingAt']) => void;
   setSubmitting: (submitting: boolean) => void;
-  setSidebarWidth: (width: number) => void;
-  setSidebarCollapsed: (collapsed: boolean) => void;
   setRailWidth: (width: number) => void;
 
   reset: () => void;
@@ -135,35 +123,27 @@ interface GithubStoreActions {
 
 type GithubStore = GithubStoreState & GithubStoreActions;
 
-export const SIDEBAR_DEFAULT_WIDTH = 320;
-export const SIDEBAR_MIN_WIDTH = 240;
-export const SIDEBAR_MAX_WIDTH = 560;
-
 export const RAIL_DEFAULT_WIDTH = 228;
 export const RAIL_MIN_WIDTH = 160;
 export const RAIL_MAX_WIDTH = 480;
 
 /**
- * One project's GitHub session: what a project switch clears. The sidebar
- * layout is excluded by type, since `set({ ...INITIAL })` merges and anything
- * left out survives the reset.
+ * One project's GitHub session: what a project switch clears. The rail width
+ * is excluded by type, since `set({ ...INITIAL })` merges and anything left out
+ * survives the reset.
  */
-const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'railWidth'> = {
+const INITIAL: Omit<GithubStoreState, 'railWidth'> = {
   projectPath: null,
   availability: null,
-  view: 'inbox',
-  listView: 'inbox',
   inbox: null,
   inboxLoading: false,
   inboxError: null,
-  issues: [],
+  issues: null,
   issuesLoading: false,
   issuesError: null,
-  activeIssue: null,
   issue: null,
   issueLoading: false,
   issueError: null,
-  activeNumber: null,
   detail: null,
   detailLoading: false,
   detailError: null,
@@ -193,6 +173,44 @@ const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'viewedSections' | 
 };
 
 /**
+ * What opening or closing something clears. Both loading flags are cleared
+ * with it: the load that just lost its version check returns without clearing
+ * its own, and left set the pane opens on a spinner nothing will replace.
+ */
+const CLEAR_ON_OPEN: Pick<
+  GithubStoreState,
+  | 'issue'
+  | 'issueLoading'
+  | 'issueError'
+  | 'detail'
+  | 'detailLoading'
+  | 'detailError'
+  | 'files'
+  | 'diffs'
+  | 'filesLoading'
+  | 'filesError'
+  | 'filesFromGit'
+  | 'drafts'
+  | 'composingAt'
+> &
+  typeof CLEAR_FOR_HEAD = {
+  issue: null,
+  issueLoading: false,
+  issueError: null,
+  detail: null,
+  detailLoading: false,
+  detailError: null,
+  files: [],
+  diffs: new Map(),
+  filesLoading: false,
+  filesError: null,
+  filesFromGit: false,
+  drafts: [],
+  composingAt: null,
+  ...CLEAR_FOR_HEAD,
+};
+
+/**
  * Version counters, same pattern the project store uses: a later load bumps the
  * counter so an earlier in-flight response can't land after it and overwrite
  * fresher data. `gh` forks a process per call, so a switch mid-flight is
@@ -203,10 +221,19 @@ let detailVersion = 0;
 let issuesVersion = 0;
 let issueVersion = 0;
 
+/** The pull request in the panel's slot, if that is what is open. */
+function openPrNumber(): number | null {
+  const open = usePanelStore.getState().open;
+  return open?.source === 'github-pr' ? open.number : null;
+}
+
+function openIssueNumber(): number | null {
+  const open = usePanelStore.getState().open;
+  return open?.source === 'github-issue' ? open.number : null;
+}
+
 export const useGithubStore = create<GithubStore>()((set, get) => ({
   ...INITIAL,
-  sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
-  sidebarCollapsed: false,
   railWidth: RAIL_DEFAULT_WIDTH,
 
   setProject: (projectPath) => {
@@ -221,11 +248,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     set({ ...INITIAL, projectPath });
   },
 
-  // Switching lists while something is open leaves it open — the list is a
-  // sidebar, not a destination — but it does become the list closing returns to.
-  setView: (view) => set(view === 'detail' ? { view } : { view, listView: view }),
-
   loadAvailability: async (projectPath, recheck) => {
+    if (isFrozenForCapture()) return;
     try {
       const availability = await window.api.github.availability(projectPath, recheck);
       if (get().projectPath !== projectPath) return;
@@ -238,6 +262,12 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   },
 
   loadInbox: async (projectPath) => {
+    if (isFrozenForCapture()) return;
+    if (!get().availability?.available) {
+      inboxVersion++;
+      set({ inbox: null, inboxLoading: false, inboxError: null });
+      return;
+    }
     const version = ++inboxVersion;
     set({ inboxLoading: true, inboxError: null });
     try {
@@ -251,6 +281,12 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   },
 
   loadIssues: async (projectPath) => {
+    if (isFrozenForCapture()) return;
+    if (!get().availability?.available) {
+      issuesVersion++;
+      set({ issues: null, issuesLoading: false, issuesError: null });
+      return;
+    }
     const version = ++issuesVersion;
     set({ issuesLoading: true, issuesError: null });
     try {
@@ -271,30 +307,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
    */
   openPullRequest: async (projectPath, number) => {
     issueVersion++;
-    const from = get().view;
-    set({
-      view: 'detail',
-      // Remember which list you came from: opening a PR linked to an issue and
-      // then going back should land you on issues, not on pull requests.
-      ...(from !== 'detail' ? { listView: from } : {}),
-      activeNumber: number,
-      activeIssue: null,
-      issue: null,
-      // Same reason as `closeDetail`: the issue load this cancels won't clear
-      // the flag itself.
-      issueLoading: false,
-      issueError: null,
-      detail: null,
-      detailLoading: true,
-      detailError: null,
-      files: [],
-      diffs: new Map(),
-      filesError: null,
-      filesFromGit: false,
-      drafts: [],
-      composingAt: null,
-      ...CLEAR_FOR_HEAD,
-    });
+    usePanelStore.getState().setOpen({ source: 'github-pr', number });
+    set({ ...CLEAR_ON_OPEN, detailLoading: true });
     await get().reloadDetail(projectPath);
   },
 
@@ -303,24 +317,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
    */
   openIssue: async (projectPath, number) => {
     detailVersion++;
-    const from = get().view;
-    set({
-      view: 'detail',
-      ...(from !== 'detail' ? { listView: from } : {}),
-      activeIssue: number,
-      issue: null,
-      issueLoading: true,
-      issueError: null,
-      activeNumber: null,
-      detail: null,
-      detailLoading: false,
-      detailError: null,
-      files: [],
-      filesLoading: false,
-      drafts: [],
-      composingAt: null,
-      ...CLEAR_FOR_HEAD,
-    });
+    usePanelStore.getState().setOpen({ source: 'github-issue', number });
+    set({ ...CLEAR_ON_OPEN, issueLoading: true });
     await get().reloadIssue(projectPath);
   },
 
@@ -329,25 +327,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     // user after they've gone back to the list.
     detailVersion++;
     issueVersion++;
-    set({
-      ...CLEAR_FOR_HEAD,
-      view: get().listView,
-      activeNumber: null,
-      detail: null,
-      // The load that just lost its version check returns without clearing its
-      // own flag, so closing has to. Left set, the next visit to this pane opens
-      // on a spinner that nothing is coming to replace.
-      detailLoading: false,
-      detailError: null,
-      activeIssue: null,
-      issue: null,
-      issueLoading: false,
-      issueError: null,
-      files: [],
-      filesLoading: false,
-      drafts: [],
-      composingAt: null,
-    });
+    usePanelStore.getState().close();
+    set({ ...CLEAR_ON_OPEN });
   },
 
   /**
@@ -358,7 +339,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
    * arrives.
    */
   reloadDetail: async (projectPath) => {
-    const number = get().activeNumber;
+    const number = openPrNumber();
     if (number == null) return;
     const version = ++detailVersion;
     set({ detailLoading: true, detailError: null });
@@ -398,7 +379,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   },
 
   reloadIssue: async (projectPath) => {
-    const number = get().activeIssue;
+    const number = openIssueNumber();
     if (number == null) return;
     const version = ++issueVersion;
     set({ issueLoading: true, issueError: null });
@@ -421,7 +402,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
    */
   reloadOpen: async (projectPath) => {
     const store = get();
-    await (store.activeIssue != null ? store.reloadIssue(projectPath) : store.reloadDetail(projectPath));
+    await (openIssueNumber() != null ? store.reloadIssue(projectPath) : store.reloadDetail(projectPath));
   },
 
   loadDrafts: async (projectPath, prNumber) => {
@@ -432,7 +413,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       const detail = get().detail;
       const head = detail?.number === prNumber ? { baseSha: detail.baseSha, headSha: detail.headSha } : undefined;
       const drafts = await window.api.github.drafts(projectPath, prNumber, head);
-      if (get().activeNumber !== prNumber) return;
+      if (openPrNumber() !== prNumber) return;
       set({ drafts });
     } catch (error) {
       githubLog.warn('failed to load review drafts', { error: describeError(error) });
@@ -453,18 +434,19 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   },
 
   markSectionViewed: (path, section, siblings, next) => {
-    const { projectPath, activeNumber, detail, viewedPaths, viewedSections, setFileViewed } = get();
+    const { projectPath, detail, viewedPaths, viewedSections, setFileViewed } = get();
     const change = markSection(viewedSections, viewedPaths.includes(path), siblings, section, next);
     set({ viewedSections: change.sections });
-    if (change.file === undefined || !projectPath || activeNumber === null || !detail) return;
-    setFileViewed(projectPath, activeNumber, detail.headSha, path, change.file);
+    const number = openPrNumber();
+    if (change.file === undefined || !projectPath || number === null || !detail) return;
+    setFileViewed(projectPath, number, detail.headSha, path, change.file);
   },
 
   loadViewed: async (projectPath, prNumber, headSha) => {
     const paths = await window.api.github.viewedFiles(projectPath, prNumber, headSha);
     // The pane may have moved on while this was in flight; landing then would
     // mark files done on whatever is open now.
-    if (get().projectPath !== projectPath || get().activeNumber !== prNumber) return;
+    if (get().projectPath !== projectPath || openPrNumber() !== prNumber) return;
     set({ viewedPaths: paths });
   },
 
@@ -477,11 +459,6 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       set({ viewedPaths: current });
     });
   },
-
-  setSidebarWidth: (width) =>
-    set({ sidebarWidth: Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, Math.round(width))) }),
-
-  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
   setRailWidth: (width) => set({ railWidth: Math.max(RAIL_MIN_WIDTH, Math.min(RAIL_MAX_WIDTH, Math.round(width))) }),
 
