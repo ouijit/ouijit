@@ -441,7 +441,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   return (
     <>
       {filesFromGit && (
-        <div className="px-3 py-2 font-mono text-[11px] text-text-tertiary border-b border-ink/[0.06]">
+        <div className="px-3 py-2 font-mono text-[11px] text-text-tertiary border-b border-separator">
           File list read from git — GitHub&apos;s list was unavailable
           {filesError ? `: ${filesError}` : ''}.
         </div>
@@ -467,7 +467,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
       {orphanThreads.length > 0 && (
         <>
-          <div className="px-3 py-2 font-mono text-[11px] text-text-tertiary border-t border-ink/[0.06]">
+          <div className="px-3 py-2 font-mono text-[11px] text-text-tertiary border-t border-separator">
             {orphanThreads.length} {orphanThreads.length === 1 ? 'thread' : 'threads'} not anchored in this diff
           </div>
           {orphanThreads.map((thread) => (
@@ -482,7 +482,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       )}
 
       {detail.changedFiles > files.length && (
-        <div className="flex items-center justify-center gap-1.5 px-3 py-3 font-mono text-[11px] text-text-tertiary border-t border-ink/[0.06]">
+        <div className="flex items-center justify-center gap-1.5 px-3 py-3 font-mono text-[11px] text-text-tertiary border-t border-separator">
           <Icon name="warning" className="w-3 h-3" />
           Showing {files.length} of {detail.changedFiles} changed files
         </div>

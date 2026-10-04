@@ -11,9 +11,10 @@ import {
 } from '../diffSource';
 import type { LensFile, LensSubject } from './lensPrompt';
 import type { DiffSubject } from './subject';
+import type { LensGroup } from './lens';
 import { worktreeSubjectKey } from './subjectKeys';
 import { readLens, type StoredLens } from './readLens';
-import { writeLens } from './writeLens';
+import { postLens, writeLens } from './writeLens';
 
 export interface DiffLensTarget {
   projectPath: string;
@@ -112,4 +113,13 @@ export function readDiffLens(target: DiffLensTarget): Promise<StoredLens | null>
 
 export function writeDiffLens(target: DiffLensTarget, lensId: string): Promise<{ success: boolean; error?: string }> {
   return writeLens(new WorktreeSubject(target), lensId);
+}
+
+/** Groups stored as a run of `lens` would have left them, without running one. */
+export function postDiffLens(
+  target: DiffLensTarget,
+  groups: LensGroup[],
+  lens: { id: string; name: string },
+): Promise<void> {
+  return postLens(new WorktreeSubject(target), groups, lens);
 }

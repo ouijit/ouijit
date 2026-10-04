@@ -11,6 +11,8 @@ export interface ExperimentalFlags {
   canvas: boolean;
   /** The nono sandbox backend (still maturing; gated off by default). */
   nono: boolean;
+  /** The custom (bring-your-own launcher) sandbox backend. */
+  customSandbox: boolean;
   /** GitHub pull request inbox and review surface. Panel and polling stay dark until on. */
   github: boolean;
   /** Hotspot and change-coupling signals from git history, on the diff and PR views. */
@@ -20,6 +22,7 @@ export interface ExperimentalFlags {
 export const DEFAULT_EXPERIMENTAL_FLAGS: ExperimentalFlags = {
   canvas: false,
   nono: false,
+  customSandbox: false,
   github: false,
   analysis: false,
 };

@@ -39,7 +39,13 @@ import type { StoredLens } from './lens/readLens';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
-import type { SandboxProviderId, SandboxProviderStatus, NonoConfig } from './sandbox/types';
+import type {
+  SandboxProviderId,
+  SandboxProviderStatus,
+  NonoConfig,
+  CustomSandboxConfig,
+  SandboxLaunchFailedPayload,
+} from './sandbox/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';
 
 export type {
@@ -70,6 +76,8 @@ export type {
   SandboxProviderStatus,
   SandboxCapabilities,
   NonoConfig,
+  CustomSandboxConfig,
+  SandboxLaunchFailedPayload,
 } from './sandbox/types';
 export { SANDBOX_BACKEND_LABELS, legacySandboxProvider, isActiveSandbox } from './sandbox/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
@@ -539,8 +547,11 @@ export interface ElectronAPI {
   onUpdateAvailable(callback: (info: { version: string; url: string }) => void): () => void;
   /** Listen for a spawned shell that has no integration provider (fish/zsh/bash are integrated) */
   onShellUnsupported(callback: (info: { shell: string }) => void): () => void;
+  /** Listen for a sandbox launcher that exited non-zero before starting the shell */
+  onSandboxLaunchFailed(callback: (info: SandboxLaunchFailedPayload) => void): () => void;
   /** Listen for "What's New" on first launch after update */
   onWhatsNew(callback: (info: { version: string; notes: string }) => void): () => void;
+  onShowAbout(callback: (info: { version: string }) => void): () => void;
   /** Listen for CLI changes (sentinel file written by ouijit CLI) */
   onCliChange(
     callback: (payload: { project: string; action: string; resource: string; message?: string; ts: number }) => void,
@@ -870,6 +881,8 @@ export interface SandboxAPI {
   status(projectPath: string): Promise<SandboxProviderStatus[]>;
   nonoConfig(projectPath: string): Promise<NonoConfig>;
   setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }>;
+  customConfig(projectPath: string): Promise<CustomSandboxConfig>;
+  setCustomConfig(projectPath: string, config: CustomSandboxConfig): Promise<{ success: boolean; error?: string }>;
 }
 
 export interface LimaAPI {

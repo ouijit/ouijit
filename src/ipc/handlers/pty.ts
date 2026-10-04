@@ -15,7 +15,7 @@ import { getSandboxProvider, listSessionOwners, findSessionOwner } from '../../s
 export function registerPtyHandlers(mainWindow: BrowserWindow): void {
   typedHandle('pty:spawn', async (options) => {
     // Resolve the task's sandbox backend. A session-owner (Lima) takes full
-    // custody of the spawn; a wrapper (nono) flows through the host spawn path
+    // custody of the spawn; a wrapper flows through the host spawn path
     // with its launch transform applied. No provider → plain host shell.
     const provider = getSandboxProvider(options.sandboxProvider);
     if (!provider) {

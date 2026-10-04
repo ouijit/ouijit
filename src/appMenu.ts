@@ -1,11 +1,13 @@
-import { Menu, type MenuItemConstructorOptions } from 'electron';
+import { app, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 import { folderName } from './utils/folderName';
+import { DOCS_URL, ISSUES_URL } from './constants/links';
 
 interface AppMenuOptions {
   /** Vite dev-server URL — truthy only in dev (`npm start`), undefined in packaged builds. */
   devServerUrl: string | undefined;
   /** Repo/worktree root, used to derive the dev-instance label. */
   appPath: string;
+  onShowAbout: () => void;
 }
 
 function devServerPort(devServerUrl: string): string {
@@ -16,32 +18,53 @@ function devServerPort(devServerUrl: string): string {
   }
 }
 
-/**
- * Builds the native application menu. In dev, this replaces Electron's default
- * menu with a role-based equivalent (so copy/paste, DevTools, etc. are all
- * preserved) plus a disabled "Dev instance" label under Help that identifies
- * which worktree and dev-server port this window belongs to — the on-demand
- * replacement for the old titlebar badge.
- *
- * Returns null in production so the caller keeps Electron's default menu.
- */
-export function buildAppMenu({ devServerUrl, appPath }: AppMenuOptions): Menu | null {
-  if (!devServerUrl) return null;
-
-  const isMac = process.platform === 'darwin';
-  const worktreeName = folderName(appPath);
+function devInstanceItem({ devServerUrl, appPath }: AppMenuOptions): MenuItemConstructorOptions[] {
+  if (!devServerUrl) return [];
   const port = devServerPort(devServerUrl);
-  const devLabel = port ? `Dev instance: ${worktreeName} · :${port}` : `Dev instance: ${worktreeName}`;
+  const worktreeName = folderName(appPath);
+  const label = port ? `Dev instance: ${worktreeName} · :${port}` : `Dev instance: ${worktreeName}`;
+  return [{ type: 'separator' }, { label, enabled: false }];
+}
+
+/**
+ * Replaces Electron's default menu outright, so the roles below are what keeps
+ * copy/paste, DevTools and the rest of the defaults available.
+ */
+export function buildAppMenu(options: AppMenuOptions): Menu {
+  const isMac = process.platform === 'darwin';
+  const aboutItem: MenuItemConstructorOptions = { label: `About ${app.name}`, click: options.onShowAbout };
 
   const template: MenuItemConstructorOptions[] = [
-    ...(isMac ? [{ role: 'appMenu' } as MenuItemConstructorOptions] : []),
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              aboutItem,
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          } as MenuItemConstructorOptions,
+        ]
+      : []),
     { role: 'fileMenu' },
     { role: 'editMenu' },
     { role: 'viewMenu' },
     { role: 'windowMenu' },
     {
       role: 'help',
-      submenu: [{ label: devLabel, enabled: false }],
+      submenu: [
+        { label: 'Documentation', click: () => shell.openExternal(DOCS_URL) },
+        { label: 'Report an Issue', click: () => shell.openExternal(ISSUES_URL) },
+        ...(isMac ? [] : [{ type: 'separator' } as MenuItemConstructorOptions, aboutItem]),
+        ...devInstanceItem(options),
+      ],
     },
   ];
 

@@ -19,6 +19,8 @@ import type {
   CliHookMode,
   TaskWithWorkspace,
   NonoConfig,
+  CustomSandboxConfig,
+  SandboxLaunchFailedPayload,
   CliPanelOp,
   CliPanelResponse,
 } from './types';
@@ -247,7 +249,12 @@ contextBridge.exposeInMainWorld('api', {
 
   onShellUnsupported: (callback: (info: { shell: string }) => void) => typedListen('shell-unsupported', callback),
 
+  onSandboxLaunchFailed: (callback: (info: SandboxLaunchFailedPayload) => void) =>
+    typedListen('sandbox-launch-failed', callback),
+
   onWhatsNew: (callback: (info: { version: string; notes: string }) => void) => typedListen('whats-new', callback),
+
+  onShowAbout: (callback: (info: { version: string }) => void) => typedListen('show-about', callback),
 
   onCliChange: (
     callback: (payload: { project: string; action: string; resource: string; message?: string; ts: number }) => void,
@@ -316,6 +323,9 @@ contextBridge.exposeInMainWorld('api', {
     nonoConfig: (projectPath: string) => typedInvoke('sandbox:nono-config', projectPath),
     setNonoConfig: (projectPath: string, config: NonoConfig) =>
       typedInvoke('sandbox:set-nono-config', projectPath, config),
+    customConfig: (projectPath: string) => typedInvoke('sandbox:custom-config', projectPath),
+    setCustomConfig: (projectPath: string, config: CustomSandboxConfig) =>
+      typedInvoke('sandbox:set-custom-config', projectPath, config),
   },
 
   github: {

@@ -204,6 +204,32 @@ const PREVIEW_PAGE = `<!doctype html>
 </html>
 `;
 
+/** Narrower than CLAUDE_RULE: the lens scene gives this terminal a third of
+ *  the split, and 64 columns wraps there. */
+const FEED_RULE = '\x1b[38;5;240m' + '─'.repeat(42) + '\x1b[0m\r\n';
+
+// Wrapped to the rule's width for the same reason.
+const FEED_SCREEN = [
+  '\x1b[38;5;245m>\x1b[0m \x1b[38;5;252mAdd an activity feed to the dashboard,\r\n',
+  '  polling the events table so it keeps up.\x1b[0m\r\n',
+  '\r\n',
+  "\x1b[38;5;252m⏺\x1b[0m I'll add the query first, then the\r\n",
+  '  component, then wire it in.\r\n',
+  '\r\n',
+  '\x1b[38;5;114m⏺\x1b[0m \x1b[1mWrite(src/api/activity.ts)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Wrote 16 lines\x1b[0m\r\n',
+  '\r\n',
+  '\x1b[38;5;114m⏺\x1b[0m \x1b[1mEdit(src/dashboard/Dashboard.tsx)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Updated with 11 additions\x1b[0m\r\n',
+  '\r\n',
+  '\x1b[38;5;204m✳\x1b[0m Simmering… \x1b[38;5;244m(1m 12s · ↓ 5.4k tokens)\x1b[0m\r\n',
+  '\r\n',
+  FEED_RULE,
+  '\x1b[38;5;252m>\x1b[0m \x1b[7m \x1b[0m\r\n',
+  FEED_RULE,
+  '  \x1b[38;5;179m⏵⏵ auto mode on\x1b[0m \x1b[38;5;244m· esc to interrupt\x1b[0m\r\n',
+].join('');
+
 function startPreviewServer(port) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
@@ -227,9 +253,10 @@ const SANDBOX_SCREEN = [
   '\x1b[38;5;75m╰──────────────────────────────────────────────╯\x1b[0m\r\n',
 ].join('');
 
-// Labels mirror what the app derives for a task terminal: the task's name.
-// The dev-server terminal keeps its command label, the way a shell's title
-// reports what is running in it.
+// Labels mirror resolveTerminalLabel: a task's name if it has one, then its
+// branch, then a script's name. The task name wins before anything else is
+// consulted, so both of T-1's terminals carry it and their summaries are what
+// tell them apart.
 function buildTerminalSeeds() {
   return [
     {
@@ -247,7 +274,7 @@ function buildTerminalSeeds() {
     {
       ptyId: 'capture-pty-1b',
       taskId: 1,
-      label: 'npm run dev',
+      label: 'Rework onboarding flow',
       summary: 'Vite dev server',
       summaryType: 'ready',
       worktreeBranch: 'rework-onboarding-flow-124',
@@ -262,7 +289,11 @@ function buildTerminalSeeds() {
       summaryType: 'thinking',
       worktreeBranch: 'dashboard-activity-feed-120',
       worktreePath: path.join(worktreesPath, 'T-2'),
-      content: CLAUDE_SCREEN,
+      content: FEED_SCREEN,
+      // The lens scene reads this terminal, and its half of the split carries
+      // the parts rail and the document both. The transcript beside it is the
+      // same few lines whatever it is given.
+      panelSplitRatio: 0.64,
     },
     {
       ptyId: 'capture-pty-3',
@@ -305,6 +336,43 @@ const SCENES = [
       path: 'src/onboarding/Stepper.tsx',
       lineText: 'saveProgress(step + 1);',
       body: 'Clear the saved step when onboarding completes, or the next run resumes on the last step.',
+    },
+    settleMs: 2500,
+  },
+  // Six files over two named parts, one of them Dashboard.tsx twice: what the
+  // flat file list cannot say. The test file is left out of the groups on
+  // purpose, so the trailing part a lens claimed nothing of is in the shot.
+  {
+    scene: 'lens',
+    file: 'lens.png',
+    needsProject: true,
+    diffPtyId: 'capture-pty-2',
+    theme: 'dark',
+    diffLens: {
+      name: 'Lead with what could break',
+      instruction: 'Lead with what could break in production, then the code that only shapes what it looks like.',
+      worktreePath: path.join(worktreesPath, 'T-2'),
+      base: 'main',
+      branch: 'dashboard-activity-feed-120',
+      groups: [
+        {
+          title: 'Polling that outlives the page',
+          summary: 'A five-second interval, and the unbounded query behind it.',
+          slices: [
+            { path: 'src/dashboard/Dashboard.tsx', ranges: [[13, 18]] },
+            { path: 'src/api/activity.ts' },
+          ],
+        },
+        {
+          title: 'The feed itself',
+          summary: 'Rendering, once the events are in hand.',
+          slices: [
+            { path: 'src/dashboard/ActivityFeed.tsx' },
+            { path: 'src/dashboard/Dashboard.tsx', ranges: [[28, 28]] },
+            { path: 'src/dashboard/activity.css' },
+          ],
+        },
+      ],
     },
     settleMs: 2500,
   },
@@ -477,6 +545,7 @@ async function main() {
       if (scene.seeds) payload.terminalSeeds = scene.seeds;
       if (scene.theme) payload.theme = scene.theme;
       if (scene.diffPtyId) payload.diffPtyId = scene.diffPtyId;
+      if (scene.diffLens) payload.diffLens = scene.diffLens;
       if (scene.diffNote) payload.diffNote = scene.diffNote;
       if (scene.previewPtyId) {
         payload.previewPtyId = scene.previewPtyId;

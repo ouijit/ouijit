@@ -302,7 +302,7 @@ export function LimaSandboxSection({ projectPath }: LimaSandboxSectionProps) {
         {showMerged ? (
           <textarea
             ref={mergedRef}
-            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-ink/[0.06] p-4 text-text-secondary resize-none outline-none tabular-nums"
+            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-separator p-4 text-text-secondary resize-none outline-none tabular-nums"
             value={mergedYaml}
             readOnly
             spellCheck={false}
@@ -310,7 +310,7 @@ export function LimaSandboxSection({ projectPath }: LimaSandboxSectionProps) {
         ) : (
           <textarea
             ref={editRef}
-            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-ink/[0.06] p-4 text-text-primary resize-none outline-none tabular-nums"
+            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-separator p-4 text-text-primary resize-none outline-none tabular-nums"
             value={editorValue}
             onChange={(e) => handleEditorChange(e.target.value)}
             onKeyDown={handleKeyDown}

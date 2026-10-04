@@ -99,7 +99,12 @@ function defaultUserDataPath(): string {
 }
 
 export function getWrapperBinDir(): string {
-  return path.join(os.homedir(), '.config', 'Ouijit', 'bin');
+  return path.join(getOuijitDir(), 'bin');
+}
+
+/** The Ouijit dir holding the agent wrapper scripts (under bin/) and the CLI reference. */
+export function getOuijitDir(): string {
+  return path.join(os.homedir(), '.config', 'Ouijit');
 }
 
 export function setUserDataPath(p: string): void {

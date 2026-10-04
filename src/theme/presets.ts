@@ -285,20 +285,25 @@ const sepia: CustomTheme = {
 
     '--color-border': 'rgba(74, 58, 36, 0.14)',
     '--color-border-hover': 'rgba(74, 58, 36, 0.22)',
-    '--color-bezel': 'rgba(74, 58, 36, 0.18)',
-    '--color-bezel-panel': 'rgba(74, 58, 36, 0.3)',
+    '--color-bezel': 'rgba(74, 58, 36, 0.11)',
+    '--color-bezel-panel': 'rgba(74, 58, 36, 0.15)',
 
     // Warm-tinted elevation — pure black shadows read cold on paper.
-    '--shadow-sm': '0 1px 2px rgba(58, 42, 20, 0.1)',
-    '--shadow-md': '0 4px 12px rgba(58, 42, 20, 0.12)',
-    '--shadow-lg': '0 8px 24px rgba(58, 42, 20, 0.14)',
-    '--shadow-hover': '0 12px 32px rgba(58, 42, 20, 0.18)',
-    '--shadow-panel': '0 4px 12px rgba(58, 42, 20, 0.1), 0 20px 40px rgba(58, 42, 20, 0.12)',
-    '--shadow-menu': '0 0 0 1px rgba(58, 42, 20, 0.08), 0 10px 30px rgba(58, 42, 20, 0.18)',
+    '--shadow-sm': '0 1px 1px rgba(58, 42, 20, 0.06), 0 1px 3px rgba(58, 42, 20, 0.05)',
+    '--shadow-md':
+      '0 1px 1px rgba(58, 42, 20, 0.05), 0 3px 6px rgba(58, 42, 20, 0.06), 0 6px 12px rgba(58, 42, 20, 0.05)',
+    '--shadow-lg':
+      '0 1px 1px rgba(58, 42, 20, 0.05), 0 4px 8px rgba(58, 42, 20, 0.06), 0 12px 24px rgba(58, 42, 20, 0.06)',
+    '--shadow-hover':
+      '0 1px 1px rgba(58, 42, 20, 0.06), 0 6px 12px rgba(58, 42, 20, 0.07), 0 18px 36px rgba(58, 42, 20, 0.07)',
+    '--shadow-panel':
+      '0 1px 1px rgba(58, 42, 20, 0.05), 0 4px 8px rgba(58, 42, 20, 0.05), 0 12px 24px rgba(58, 42, 20, 0.05)',
+    '--shadow-menu':
+      '0 0 0 1px rgba(58, 42, 20, 0.06), 0 2px 4px rgba(58, 42, 20, 0.06), 0 8px 20px rgba(58, 42, 20, 0.1)',
     '--shadow-toast':
-      '0 0 0 1px rgba(58, 42, 20, 0.08), 0 4px 12px rgba(58, 42, 20, 0.12), 0 16px 32px rgba(58, 42, 20, 0.16)',
-    '--shadow-inset-panel': '0 2px 10px rgba(58, 42, 20, 0.1)',
-    '--shadow-tooltip': '0 2px 8px rgba(58, 42, 20, 0.15)',
+      '0 0 0 1px rgba(58, 42, 20, 0.06), 0 2px 4px rgba(58, 42, 20, 0.06), 0 10px 24px rgba(58, 42, 20, 0.1)',
+    '--shadow-inset-panel': '0 1px 1px rgba(58, 42, 20, 0.05), 0 2px 8px rgba(58, 42, 20, 0.06)',
+    '--shadow-tooltip': '0 1px 2px rgba(58, 42, 20, 0.08), 0 4px 12px rgba(58, 42, 20, 0.12)',
 
     '--color-accent': '#a4632a',
     '--color-accent-hover': '#8a5222',

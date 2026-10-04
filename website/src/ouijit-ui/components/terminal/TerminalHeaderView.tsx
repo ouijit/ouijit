@@ -5,7 +5,7 @@ import { StatusDot } from './StatusDot';
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
 const METADATA_CHIP =
-  'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-white/55 bg-white/[0.05] rounded-full px-2 py-0.5 shrink-0';
+  'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-ink/55 bg-ink/[0.05] rounded-full px-2 py-0.5 shrink-0';
 
 export interface TerminalHeaderViewProps {
   summaryType: string;
@@ -15,19 +15,17 @@ export interface TerminalHeaderViewProps {
   isBackCard?: boolean;
   compact?: boolean;
 
-  /** Identity slot (label, summary, optional rename input). Required. */
+  /** Identity slot: label, OSC title, optional rename input. */
   nameContent: ReactNode;
 
-  /** Tag chips. Optional. */
   tagsContent?: ReactNode;
 
   /** Branch row content (typically a copy-button). Rendered below the identity row when active. */
   branchContent?: ReactNode;
 
-  /** Right-side action area (ActionGroup, RunScriptDropdown anchor, etc.). */
+  /** Right-side action area (panel controls, add menu, etc.). */
   actions?: ReactNode;
 
-  /** When true, renders a close × button to the right of actions. */
   showCloseButton?: boolean;
   onClose?: (e: MouseEvent) => void;
   onContextMenu?: (e: MouseEvent) => void;
@@ -38,10 +36,8 @@ export interface TerminalHeaderViewProps {
 }
 
 /**
- * Pure presentational terminal header. Used by the smart TerminalHeader
- * wrapper (which fills slots with editable inputs, action groups, dialogs)
- * and by the marketing site (which composes nameContent/tagsContent inline
- * using the helpers below).
+ * Vendored port of the app's pure terminal header. `sandboxed` replaces the
+ * app's sandbox-provider prop; the demos only need the boolean.
  */
 export function TerminalHeaderView({
   summaryType,
@@ -62,16 +58,25 @@ export function TerminalHeaderView({
   return (
     <Fragment>
       {overlays}
+      {/* Raised over the terminal and the panel beside it, which the card sees
+          to: see `.glass-bevel > .pane-ledge`.
+
+          Only on the card that has a body — under a back card the cut would be
+          a line along the card's own bottom edge. */}
       <div
-        className={`flex items-center justify-between pl-3 pr-3 ${compact || isBackCard ? 'pt-0.5 pb-1' : 'py-2'} min-h-9`}
+        className={`${isActive ? 'pane-ledge ' : ''}flex items-center justify-between pl-3 pr-3 ${
+          compact || isBackCard ? 'pt-0.5 pb-1' : 'py-2'
+        } min-h-9`}
         onContextMenu={onContextMenu}
       >
         <div className="flex flex-col min-w-0 shrink gap-0.5">
-          <div className="group/meta flex items-center gap-2 min-w-0">
+          {/* overflow-hidden keeps rigid identity content (label, tag pills) from
+              bleeding over the actions area when the header runs out of room. */}
+          <div className="group/meta flex items-center gap-2 min-w-0 overflow-hidden">
             <StatusDot summaryType={summaryType} sandboxed={sandboxed} />
             {!isActive && stackPosition != null && stackPosition <= 9 && (
-              <kbd className="inline-flex items-center font-mono text-base text-white/40 shrink-0">
-                {isMac ? '⌘' : 'Ctrl+'}
+              <kbd className="inline-flex items-center font-mono text-base text-ink/40 shrink-0">
+                {isMac ? '⌘' : '⌃'}
                 <span className="text-xs">{stackPosition}</span>
               </kbd>
             )}
@@ -80,11 +85,13 @@ export function TerminalHeaderView({
           </div>
           {!compact && isActive && branchContent}
         </div>
-        <div className="flex items-center gap-2 shrink-0 justify-end">
+        {/* Shrinkable so the panel tabs inside `actions` can give up width
+            instead of overflowing the header. */}
+        <div className="flex items-center gap-2 min-w-0 justify-end">
           {actions}
           {showCloseButton && (
             <button
-              className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150 ml-1 [&_svg]:w-4 [&_svg]:h-4"
+              className="w-7 h-7 shrink-0 flex items-center justify-center bg-transparent border-none text-ink/40 hover:text-ink/90 transition-colors duration-150 ml-1 [&_svg]:w-4 [&_svg]:h-4"
               onClick={onClose}
             >
               <Icon name="x" />
@@ -98,8 +105,7 @@ export function TerminalHeaderView({
 
 /**
  * Standard identity content for a terminal header: label, optional summary
- * (em-dash separated), optional OSC title. Used by the in-app TerminalHeader
- * (when not renaming) and by marketing demos.
+ * (em-dash separated, used by the demos' back cards), optional OSC title.
  */
 export function TerminalHeaderName({
   label,
@@ -112,16 +118,15 @@ export function TerminalHeaderName({
 }) {
   return (
     <Fragment>
-      {label && <span className="font-mono text-xs font-medium text-white/85 shrink-0">{label}</span>}
-      {summary && <span className="font-mono text-xs text-white/45 min-w-0 truncate">— {summary}</span>}
+      {label && <span className="font-mono text-xs font-medium text-ink/85 shrink-0">{label}</span>}
+      {summary && <span className="font-mono text-xs text-ink/45 min-w-0 truncate">— {summary}</span>}
       {lastOscTitle && (
-        <span className="font-mono text-xs font-medium text-white/40 min-w-0 truncate">{lastOscTitle}</span>
+        <span className="font-mono text-xs font-medium text-ink/40 min-w-0 truncate">{lastOscTitle}</span>
       )}
     </Fragment>
   );
 }
 
-/** Standard pill renderer for a list of tag strings. */
 export function TerminalHeaderTags({ tags }: { tags: string[] }) {
   return (
     <Fragment>

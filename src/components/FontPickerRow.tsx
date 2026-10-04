@@ -171,7 +171,7 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
             />
           ))}
         {!loading && usingFallback && (
-          <div className="px-2.5 pt-2 pb-1 text-[11px] text-text-tertiary border-t border-ink/[0.06] mt-1">
+          <div className="px-2.5 pt-2 pb-1 text-[11px] text-text-tertiary border-t border-separator mt-1">
             Showing fallback list — allow font access to see your installed fonts.
           </div>
         )}

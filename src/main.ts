@@ -100,6 +100,20 @@ if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
 let mainWindow: BrowserWindow | null = null;
 let quitConfirmed = false;
 
+// Reachable from the menu bar with no window open: macOS keeps the app alive
+// after the last window closes, so this has to be able to make one.
+function showAbout(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) mainWindow = createWindow();
+  const window = mainWindow;
+
+  if (window.isMinimized()) window.restore();
+  window.show();
+
+  const push = () => typedPush(window, 'show-about', { version: app.getVersion() });
+  if (window.webContents.isLoading()) window.webContents.once('did-finish-load', push);
+  else push();
+}
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
@@ -289,11 +303,13 @@ app.on('ready', async () => {
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
 
-  // Dev only: replace the default menu with one that carries a "Dev instance"
-  // label under Help, identifying this window's worktree + dev-server port.
-  // Returns null (keeping Electron's default menu) in packaged builds.
-  const appMenu = buildAppMenu({ devServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL, appPath: app.getAppPath() });
-  if (appMenu) Menu.setApplicationMenu(appMenu);
+  Menu.setApplicationMenu(
+    buildAppMenu({
+      devServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
+      appPath: app.getAppPath(),
+      onShowAbout: showAbout,
+    }),
+  );
 
   if (isCaptureMode()) {
     // Write the hook server port + actual window bounds to a well-known
@@ -407,7 +423,7 @@ app.on('activate', () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+    mainWindow = createWindow();
   }
 });
 

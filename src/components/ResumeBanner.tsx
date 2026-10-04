@@ -156,7 +156,7 @@ export function ResumeBanner() {
         </div>
       </div>
       {expanded && (
-        <div className="border-t border-ink/[0.06] max-h-[14rem] overflow-y-auto settings-scrollable">
+        <div className="border-t border-separator max-h-[14rem] overflow-y-auto settings-scrollable">
           {grouped.map((group, idx) => (
             <ProjectGroup key={group.project.path} group={group} isFirst={idx === 0} />
           ))}
@@ -174,7 +174,7 @@ function ProjectGroup({
   isFirst: boolean;
 }) {
   return (
-    <div className={isFirst ? '' : 'border-t border-ink/[0.04]'}>
+    <div className={isFirst ? '' : 'border-t border-separator'}>
       <div className="flex items-center gap-2 px-5 pt-2.5 pb-1">
         <ProjectThumb project={group.project} />
         <span className="text-[11px] uppercase tracking-wider text-text-tertiary truncate">{group.project.name}</span>

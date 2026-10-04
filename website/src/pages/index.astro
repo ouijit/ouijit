@@ -1,6 +1,13 @@
 ---
 import Site from '../layouts/Site.astro';
-import WorkspaceScene from '../components/demo/WorkspaceScene.tsx';
+import DownloadButtons from '../components/home/DownloadButtons.astro';
+import AppWindowScene from '../components/demo/AppWindowScene.tsx';
+import Harnesses from '../components/home/Harnesses.astro';
+import Plan from '../components/home/Plan.astro';
+import Build from '../components/home/Build.astro';
+import Review from '../components/home/Review.astro';
+import Extras from '../components/home/Extras.astro';
+import Cta from '../components/home/Cta.astro';
 
 const softwareSchema = {
   '@context': 'https://schema.org',
@@ -43,75 +50,35 @@ const softwareSchema = {
 };
 ---
 <Site>
+  <script is:inline>document.documentElement.classList.add('js');</script>
   <script type="application/ld+json" set:html={JSON.stringify(softwareSchema)} />
+
   <section class="hero">
-    <h1>Command parallel coding agents, on your terms</h1>
-    <p class="hero-subtitle">Run Claude, Codex, Pi, and OpenCode in parallel: by hand, with scripts, or through delegation.</p>
-    <div class="download-buttons">
-      <a
-        href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.dmg"
-        class="btn btn-primary">Download for macOS (Apple Silicon)</a>
-      <a
-        href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.dmg"
-        class="btn btn-secondary">macOS (Intel)</a>
-      <a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip" class="btn btn-secondary"
-        >Linux</a>
+    <h1 data-reveal>Command coding agents <span class="hero-dim">on your terms.</span></h1>
+    <div data-reveal style="--reveal-delay: 180ms">
+      <DownloadButtons />
     </div>
-    <p class="hero-fine-print">Free and open source. No account, no sign-in, no telemetry.</p>
-    <div class="mobile-cta">
-      <div class="mobile-cta-note" role="note">View on desktop to download</div>
-    </div>
+    <p class="hero-fine-print" data-reveal style="--reveal-delay: 260ms">Free and open source. No account, no sign-in, no telemetry.</p>
   </section>
 
   <section class="hero-scene">
-    <WorkspaceScene client:visible />
+    <AppWindowScene client:visible />
   </section>
 
-  <section class="home-pitch">
-    <p>
-      Ouijit is a task and terminal manager for running coding agents in parallel. Each task gets its own git
-      worktree and terminal, lifecycle hooks launch your agent CLI with the right context, and a session-aware
-      CLI lets agents drive the board back. Live status, notifications, diff review, and per-terminal
-      sandboxing (a Lima VM or nono's kernel-level access limits) are built in.
-    </p>
-    <a class="home-pitch-link" href="/docs/">Read the docs <span aria-hidden="true">→</span></a>
-  </section>
+  <Plan />
 
-  <section class="home-agents">
-    <h2>Supported harnesses</h2>
-    <ul class="home-agents-grid">
-      <li>
-        <a class="glass-bevel" href="https://claude.com/claude-code">
-          <img src="/assets/agents/claude-code.svg" alt="" width="40" height="40" />
-          <span class="home-agents-name">Claude Code</span>
-          <span class="home-agents-domain">claude.com/claude-code</span>
-        </a>
-      </li>
-      <li>
-        <a class="glass-bevel" href="https://github.com/openai/codex">
-          <img src="/assets/agents/codex.svg" alt="" width="40" height="40" />
-          <span class="home-agents-name">Codex</span>
-          <span class="home-agents-domain">github.com/openai/codex</span>
-        </a>
-      </li>
-      <li>
-        <a class="glass-bevel" href="https://pi.dev">
-          <img src="/assets/agents/pi.svg" alt="" width="40" height="40" />
-          <span class="home-agents-name">Pi</span>
-          <span class="home-agents-domain">pi.dev</span>
-        </a>
-      </li>
-      <li>
-        <a class="glass-bevel" href="https://opencode.ai">
-          <img src="/assets/agents/opencode.svg" alt="" width="40" height="40" />
-          <span class="home-agents-name">OpenCode</span>
-          <span class="home-agents-domain">opencode.ai</span>
-        </a>
-      </li>
-    </ul>
-    <p class="home-agents-footnote">
-      To request support for another harness,
-      <a href="https://github.com/ouijit/ouijit/issues/new">open an issue</a>.
-    </p>
-  </section>
+  <Build />
+
+  <Review />
+
+  <Extras />
+
+  <Harnesses />
+
+  <Cta />
+
+  <script>
+    import { initHomeChrome } from '../scripts/homeChrome';
+    initHomeChrome();
+  </script>
 </Site>

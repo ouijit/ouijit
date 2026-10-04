@@ -58,6 +58,7 @@ import {
   clearPullRequestLens,
 } from '../github/service';
 import { getProjectList } from '../projectList';
+import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { cliPanelRequest } from '../cliPanels';
 import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
@@ -496,6 +497,27 @@ const routes: Route[] = [
     true,
   ),
 
+  // ── Sandbox command (custom backend launcher) ────────────────────
+  // The only route family that decides what the next sandboxed spawn executes:
+  // a sandbox token must never reach it.
+  route('GET', 'sandbox/command', (r) => getCustomSandboxConfig(requireProject(r.query))),
+
+  route(
+    'PUT',
+    'sandbox/command',
+    async (r) => {
+      const project = requireProject(r.query);
+      const command = typeof r.body.command === 'string' ? r.body.command.trim() : '';
+      if (!command) throw new HttpError(400, 'command is required');
+      const result = await setCustomSandboxConfig(project, { command });
+      if (!result.success && result.error) throw new HttpError(400, result.error);
+      return result;
+    },
+    true,
+  ),
+
+  route('DELETE', 'sandbox/command', (r) => setCustomSandboxConfig(requireProject(r.query), {}), true),
+
   // ── Tags ─────────────────────────────────────────────────────────
   route('GET', 'tags', () => {
     return getAllTags();
@@ -831,7 +853,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     try {
       let result: unknown;
       if (segments[1] === 'navigate') {
-        result = handleCaptureNavigate({ window, body });
+        result = await handleCaptureNavigate({ window, body });
       } else if (segments[1] === 'snapshot') {
         result = await handleCaptureSnapshot({ window, body });
       } else {

@@ -96,7 +96,7 @@ export function MenuPopover({
           >
             {/* Outside the scroll below, so a field that filters the rows
                 stays put while they move. */}
-            {header && <div className="shrink-0 p-2 border-b border-ink/[0.06]">{header}</div>}
+            {header && <div className="shrink-0 p-2 border-b border-separator">{header}</div>}
             {/* The bevel is drawn on the surface and the scrolling happens
                 inside it. On one element they fight: the ::before is laid out
                 against the padding box, so it would scroll away from the edge
@@ -141,7 +141,7 @@ export function MenuItem({
 }
 
 export function MenuDivider() {
-  return <div className="my-1 mx-1 border-t border-ink/[0.06]" />;
+  return <div className="my-1 mx-1 border-t border-separator" />;
 }
 
 /** Free-form content in a menu — the review summary box uses this. */

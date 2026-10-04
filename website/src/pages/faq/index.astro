@@ -33,7 +33,7 @@ const faqs: Faq[] = [
   },
   {
     q: 'What does the sandbox do?',
-    a: 'Ouijit runs a task\'s terminals and hooks inside a sandbox, chosen per terminal from the task\'s Open in menu. Two backends are available. Lima runs them inside a Linux VM on a parallel git worktree of only tracked files: the user worktree is never mounted, .git is mounted with hooks/, config, and packed-refs read-only, and agent commits land on a child branch s/<your-branch> that a host watcher fast-forwards back. nono runs them in place on the host worktree under kernel-level access limits (Seatbelt on macOS, Landlock on Linux), with filesystem access scoped to the worktree and git data and the same read-only .git hooks/config. nono is a lighter boundary than the VM: a kernel access policy on a host process rather than a separate machine.',
+    a: 'Ouijit runs a task\'s terminals and hooks inside a sandbox, chosen per terminal from the task\'s Open in menu. Three backends are available. Lima runs them inside a Linux VM on a parallel git worktree of only tracked files: the user worktree is never mounted, .git is mounted with hooks/, config, and packed-refs read-only, and agent commits land on a child branch s/<your-branch> that a host watcher fast-forwards back. nono runs them in place on the host worktree under kernel-level access limits (Seatbelt on macOS, Landlock on Linux), with filesystem access scoped to the worktree and git data and the same read-only .git hooks/config. nono is a lighter boundary than the VM: a kernel access policy on a host process rather than a separate machine. Custom runs them under a launcher you supply, which owns the boundary entirely.',
   },
   {
     q: 'Can the agent inside a sandbox terminal use the Ouijit CLI?',

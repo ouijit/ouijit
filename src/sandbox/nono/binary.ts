@@ -1,12 +1,6 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { getLogger } from '../../logger';
 import { resolveBundledBinary, isBundledBinaryInstalled } from '../../paths';
-
-const execFileAsync = promisify(execFile);
-const nonoLog = getLogger().scope('nono');
 
 /**
  * Resolve the nono binary: the bundled copy under the app's resources if it
@@ -54,21 +48,4 @@ export function checkPlatformSupport(): { supported: boolean; reason?: string } 
 /** Whether the nono binary is present (bundled or on PATH). */
 export async function isNonoInstalled(): Promise<boolean> {
   return isBundledBinaryInstalled('nono');
-}
-
-/** Absolute path to the main repository's `.git` directory for a worktree. */
-export async function getMainGitDir(worktreePath: string): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
-      cwd: worktreePath,
-    });
-    const dir = stdout.trim();
-    return dir || null;
-  } catch (error) {
-    nonoLog.warn('git-common-dir lookup failed', {
-      worktreePath,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
-  }
 }

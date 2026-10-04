@@ -73,6 +73,40 @@ describe('SandboxSection provider router', () => {
     );
   });
 
+  test('custom: the command row edits inline, shows the main-process verdict, and refreshes availability', async () => {
+    setAvailable(['custom']);
+    vi.mocked(window.api.sandbox.status).mockResolvedValue([{ providerId: 'custom', available: true, ready: true }]);
+    vi.mocked(window.api.sandbox.setCustomConfig).mockImplementation(async (_p, cfg) =>
+      cfg.command === 'scripts/sandbox' ? { success: false, error: 'refused by the main process' } : { success: true },
+    );
+    const { getByText, getByLabelText, queryByText, queryByLabelText } = render(<SandboxSection projectPath="/p" />);
+    fireEvent.click(await waitFor(() => getByText('+ Configure')));
+    const field = getByLabelText('Sandbox command');
+    vi.mocked(window.api.sandbox.status).mockClear();
+
+    fireEvent.change(field, { target: { value: 'scripts/sandbox' } });
+    fireEvent.click(getByText('Save'));
+    await waitFor(() => expect(getByText(/refused by the main process/)).toBeTruthy());
+    expect(getByLabelText('Sandbox command')).toBeTruthy();
+    expect(window.api.sandbox.status).not.toHaveBeenCalled();
+
+    fireEvent.change(field, { target: { value: '  /opt/sb --strict  ' } });
+    fireEvent.click(getByText('Save'));
+    await waitFor(() =>
+      expect(window.api.sandbox.setCustomConfig).toHaveBeenCalledWith('/p', { command: '  /opt/sb --strict  ' }),
+    );
+    await waitFor(() => expect(window.api.sandbox.status).toHaveBeenCalledWith('/p'));
+    expect(queryByText(/refused by the main process/)).toBeNull();
+    expect(queryByLabelText('Sandbox command')).toBeNull();
+    expect(getByText('/opt/sb --strict')).toBeTruthy();
+
+    fireEvent.click(getByText('Edit'));
+    fireEvent.click(getByText('Clear'));
+    await waitFor(() => expect(window.api.sandbox.setCustomConfig).toHaveBeenCalledWith('/p', {}));
+    await waitFor(() => expect(queryByText('/opt/sb --strict')).toBeNull());
+    expect(getByText('+ Configure')).toBeTruthy();
+  });
+
   test('adding an extra port persists it to openPorts', async () => {
     setAvailable(['nono']);
     const { getByText, getByPlaceholderText } = render(<SandboxSection projectPath="/p" />);

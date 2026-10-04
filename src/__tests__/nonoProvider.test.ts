@@ -19,6 +19,8 @@ vi.mock('../sandbox/nono/binary', () => ({
   getVendoredNonoPath: () => (getNonoPath().startsWith('/') ? getNonoPath() : null),
   isNonoInstalled: () => isNonoInstalled(),
   checkPlatformSupport: () => checkPlatformSupport(),
+}));
+vi.mock('../sandbox/gitDir', () => ({
   getMainGitDir: (wt: string) => getMainGitDir(wt),
 }));
 vi.mock('../sandbox/nono/config', () => ({
@@ -35,6 +37,7 @@ vi.mock('../sandbox/nono/profile', () => ({
 vi.mock('../paths', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../paths')>()),
   getWrapperBinDir: () => '/Users/dev/.config/Ouijit/bin',
+  getOuijitDir: () => '/Users/dev/.config/Ouijit',
 }));
 
 const ctx: SandboxSpawnContext = {
