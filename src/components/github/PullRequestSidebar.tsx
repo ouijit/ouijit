@@ -1,28 +1,31 @@
-import { useMemo, useState } from 'react';
-import type { GithubIssue, PullRequestSummary } from '../../github/types';
+import { useMemo, useState, type ReactNode } from 'react';
+import type { PullRequestSummary } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
-import { Avatar } from './Avatar';
-import { Tab, TabBar } from './Tabs';
-import { since, stateBadge } from './prFormat';
+import { Avatar } from '../issues/Avatar';
+import { Tab, TabBar } from '../issues/Tabs';
+import { since } from '../issues/since';
+import { Group, rowClass, rowTitleClass, TaskLink } from '../issues/rows';
+import { stateBadge } from './prFormat';
 
 interface PullRequestSidebarProps {
   needsReview: PullRequestSummary[];
   mine: PullRequestSummary[];
   others: PullRequestSummary[];
-  issues: GithubIssue[];
   draftCounts: Record<number, number>;
   prTasks: Record<number, TaskWithWorkspace>;
-  issueTasks: Record<number, TaskWithWorkspace>;
   showing: 'pulls' | 'issues';
+  /** Count beside the Issues tab, across every source feeding the list. */
+  issueCount: number;
   activeNumber: number | null;
-  activeIssue: number | null;
   onShow: (showing: 'pulls' | 'issues') => void;
   onOpenPullRequest: (number: number) => void;
-  onOpenIssue: (issue: GithubIssue) => void;
-  onCreateTaskFromIssue: (issueNumber: number) => void;
   /** Focus the task's shell, or open/create its worktree. */
   onOpenTask: (task: TaskWithWorkspace) => void;
+  /** The Issues list, rendered under this list's own search box. */
+  issues: (query: string) => ReactNode;
+  /** Why the pull request half is empty, when it is not simply empty. */
+  unavailable?: string;
   loading: boolean;
   width: number;
 }
@@ -42,18 +45,16 @@ export function PullRequestSidebar({
   needsReview,
   mine,
   others,
-  issues,
   draftCounts,
   prTasks,
-  issueTasks,
   showing,
+  issueCount,
   activeNumber,
-  activeIssue,
   onShow,
   onOpenPullRequest,
-  onOpenIssue,
-  onCreateTaskFromIssue,
   onOpenTask,
+  issues,
+  unavailable,
   loading,
   width,
 }: PullRequestSidebarProps) {
@@ -71,16 +72,11 @@ export function PullRequestSidebar({
       needsReview: prs(needsReview),
       mine: prs(mine),
       others: prs(others),
-      issues: issues.filter((i) => match([i.title, i.author, `#${i.number}`])),
     };
-  }, [query, needsReview, mine, others, issues]);
+  }, [query, needsReview, mine, others]);
 
   const pullCount = needsReview.length + mine.length + others.length;
-
-  const empty =
-    showing === 'issues'
-      ? groups.issues.length === 0
-      : groups.needsReview.length === 0 && groups.mine.length === 0 && groups.others.length === 0;
+  const noPulls = groups.needsReview.length === 0 && groups.mine.length === 0 && groups.others.length === 0;
 
   return (
     // No right border: the resize handle beside this is the boundary.
@@ -90,7 +86,7 @@ export function PullRequestSidebar({
           <Tab active={showing === 'pulls'} count={pullCount} onClick={() => onShow('pulls')}>
             Pull requests
           </Tab>
-          <Tab active={showing === 'issues'} count={issues.length} onClick={() => onShow('issues')}>
+          <Tab active={showing === 'issues'} count={issueCount} onClick={() => onShow('issues')}>
             Issues
           </Tab>
         </TabBar>
@@ -126,24 +122,15 @@ export function PullRequestSidebar({
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto pb-4">
-        {empty ? (
+        {showing === 'issues' ? (
+          issues(query)
+        ) : unavailable ? (
+          // The panel opens for any source, so this tab can be the empty one.
+          <p className="px-4 py-8 text-sm text-text-tertiary text-center text-balance">{unavailable}</p>
+        ) : noPulls ? (
           <p className="px-4 py-8 text-center text-sm text-text-tertiary">
-            {loading ? '' : query ? 'Nothing matches that' : showing === 'issues' ? 'No open issues' : 'Nothing open'}
+            {loading ? '' : query ? 'Nothing matches that' : 'Nothing open'}
           </p>
-        ) : showing === 'issues' ? (
-          <Group label="Open">
-            {groups.issues.map((issue) => (
-              <IssueRow
-                key={issue.number}
-                issue={issue}
-                task={issueTasks[issue.number]}
-                active={activeIssue === issue.number}
-                onOpen={() => onOpenIssue(issue)}
-                onOpenTask={onOpenTask}
-                onCreateTask={() => onCreateTaskFromIssue(issue.number)}
-              />
-            ))}
-          </Group>
         ) : (
           PULL_GROUPS.map(([label, key]) => (
             <Group key={label} label={label}>
@@ -163,16 +150,6 @@ export function PullRequestSidebar({
         )}
       </div>
     </div>
-  );
-}
-
-function Group({ label, children }: { label: string; children: React.ReactNode[] }) {
-  if (children.length === 0) return null;
-  return (
-    <section className="pt-3">
-      <h2 className="px-4 pb-1 text-[13px] text-text-tertiary">{label}</h2>
-      {children}
-    </section>
   );
 }
 
@@ -209,78 +186,6 @@ function PullRequestRow({
           <span className="text-diff-added">+{pr.additions}</span>{' '}
           <span className="text-diff-removed">-{pr.deletions}</span>
         </span>
-      </span>
-    </div>
-  );
-}
-
-/**
- * The whole row opens the item, but the row cannot itself be a button: it holds
- * buttons, and nesting them is invalid and unreachable by keyboard. The title
- * button stretches over the row with a `::before`, and the controls that need
- * their own click are raised above it.
- */
-function rowClass(active: boolean): string {
-  return `group relative w-full px-4 py-2 flex flex-col gap-0.5 transition-colors duration-100 ${
-    active ? 'bg-ink/[0.07]' : 'hover:bg-ink/[0.04]'
-  }`;
-}
-
-const rowTitleClass = "flex items-baseline gap-2 text-left before:absolute before:inset-0 before:content-['']";
-
-/** A control inside a row, raised above the title's stretched hit area. */
-const rowActionClass = 'relative z-10 shrink-0';
-
-function TaskLink({ task, onOpen }: { task: TaskWithWorkspace; onOpen: (task: TaskWithWorkspace) => void }) {
-  return (
-    <button
-      type="button"
-      className={`${rowActionClass} font-mono text-[12px] text-text-tertiary hover:text-accent transition-colors duration-100`}
-      title={task.name}
-      onClick={() => onOpen(task)}
-    >
-      T-{task.taskNumber}
-    </button>
-  );
-}
-
-function IssueRow({
-  issue,
-  task,
-  active,
-  onOpen,
-  onOpenTask,
-  onCreateTask,
-}: {
-  issue: GithubIssue;
-  task?: TaskWithWorkspace;
-  active: boolean;
-  onOpen: () => void;
-  onOpenTask: (task: TaskWithWorkspace) => void;
-  onCreateTask: () => void;
-}) {
-  return (
-    <div className={rowClass(active)}>
-      <button type="button" className={rowTitleClass} onClick={onOpen}>
-        <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">{issue.title}</span>
-        <span className="shrink-0 text-[13px] text-text-tertiary">{since(issue.updatedAt)}</span>
-      </button>
-      <span className="flex items-center gap-2 min-w-0 text-[13px] text-text-tertiary">
-        <Icon name="circle-dashed" className="w-3.5 h-3.5 shrink-0 text-vcs-added" />
-        <Avatar login={issue.author} url={issue.authorAvatarUrl} size={16} />
-        <span className="shrink-0">{issue.author}</span>
-        <span className="flex-1 min-w-0 truncate font-mono text-[12px]">#{issue.number}</span>
-        {task ? (
-          <TaskLink task={task} onOpen={onOpenTask} />
-        ) : (
-          <button
-            type="button"
-            className={`${rowActionClass} text-[13px] text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-accent transition-all duration-100`}
-            onClick={onCreateTask}
-          >
-            Create task
-          </button>
-        )}
       </span>
     </div>
   );

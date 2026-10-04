@@ -32,9 +32,12 @@ export function TitleBar({ mode }: TitleBarProps) {
   const canvasEnabled = useExperimentalStore((s) =>
     activeProjectPath ? (s.flagsByProject[activeProjectPath]?.canvas ?? false) : false,
   );
-  const githubEnabled = useExperimentalStore((s) =>
-    activeProjectPath ? (s.flagsByProject[activeProjectPath]?.github ?? false) : false,
-  );
+  // Either source is enough to open the panel: gating on GitHub alone would
+  // ship Linear with no way in.
+  const trackerEnabled = useExperimentalStore((s) => {
+    const flags = activeProjectPath ? s.flagsByProject[activeProjectPath] : undefined;
+    return (flags?.github ?? false) || (flags?.linear ?? false);
+  });
   const analysisEnabled = useExperimentalStore((s) =>
     activeProjectPath ? (s.flagsByProject[activeProjectPath]?.analysis ?? false) : false,
   );
@@ -189,7 +192,7 @@ export function TitleBar({ mode }: TitleBarProps) {
                       <CanvasIcon />
                     </TooltipButton>
                   )}
-                  {githubEnabled && (
+                  {trackerEnabled && (
                     <TooltipButton
                       text="Pull requests"
                       className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'pull-requests' ? ' text-text-primary bg-background-tertiary' : ''}`}

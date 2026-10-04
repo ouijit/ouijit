@@ -98,12 +98,16 @@ export function Section({
   );
 }
 
+/** GitHub gives a bare hex, Linear gives one with the `#` already on it. */
 export function LabelChips({ labels }: { labels: Array<{ name: string; color: string }> }) {
   return (
     <>
       {labels.map((label) => (
         <span key={label.name} className="flex items-center gap-1.5 text-[15px] text-text-primary">
-          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: `#${label.color}` }} />
+          <span
+            className="w-2.5 h-2.5 rounded-full shrink-0"
+            style={{ background: label.color.startsWith('#') ? label.color : `#${label.color}` }}
+          />
           {label.name}
         </span>
       ))}

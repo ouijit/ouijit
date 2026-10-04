@@ -57,6 +57,9 @@ export function TooltipButton({
     <>
       <button
         ref={refs.setReference}
+        // The tooltip is the only name this button has, and it is only there on
+        // hover — so it is the accessible name too.
+        aria-label={text}
         className={className}
         onClick={onClick}
         disabled={disabled}

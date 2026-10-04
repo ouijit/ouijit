@@ -146,6 +146,24 @@ ouijit pr lens clear 42</code></pre>
     <code>ouijit pr lens set --help</code> for the shape.
   </p>
 
+  <h2>Linear issues</h2>
+  <p>
+    Read the <a href="/docs/pull-requests/">Linear issues</a> this project is scoped to, link one to a task, and
+    stage a comment. Comments stay local until the user sends them from the app, and nothing here moves an
+    issue — that is a control on the issue itself.
+  </p>
+  <pre class="glass-bevel"><code>ouijit linear list                            # this project's issues, in the panel's groups
+ouijit linear view ENG-214                    # one issue with its comments and states
+ouijit linear link ENG-214 --task 5           # link an issue to a task
+ouijit linear draft list ENG-214
+ouijit linear draft add ENG-214 --body "the retry loop drops the last error" --origin claude
+ouijit linear draft add ENG-214 --body -      # body from stdin
+ouijit linear draft discard ENG-214 &lt;draft-id&gt;</code></pre>
+  <p>
+    A task created from an issue carries its identifier, so
+    <code>ouijit task current | jq .linearIssueIdentifier</code> is the issue an agent is working on.
+  </p>
+
   <h2>Markdown panels</h2>
   <p>Open markdown files as <a href="/docs/panels/">panels</a> on a terminal. The pty id defaults to the current terminal.</p>
   <pre class="glass-bevel"><code>ouijit markdown add ./plan.md                 # uses current OUIJIT_PTY_ID

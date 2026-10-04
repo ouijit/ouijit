@@ -6,6 +6,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore, DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useGithubStore } from '../../stores/githubStore';
+import { usePanelStore } from '../../stores/panelStore';
 import type { Project, TaskWithWorkspace } from '../../types';
 
 /** Past the tracker's dwell window, so a settled view counts as visited. */
@@ -95,7 +96,8 @@ describe('visitTracker', () => {
 
   test('a pull request open in the panel is a visit to the task holding it', async () => {
     useProjectStore.setState({ kanbanVisible: false, activePanel: 'pull-requests' });
-    useGithubStore.setState({ projectPath: projectA.path, activeNumber: 42 });
+    useGithubStore.setState({ projectPath: projectA.path });
+    usePanelStore.setState({ open: { source: 'github-pr', number: 42 } });
     await settle();
     expect(written()).toEqual([`task:${projectA.path}#7`]);
   });

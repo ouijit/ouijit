@@ -17,6 +17,7 @@ import { registerScriptHandlers } from './handlers/scripts';
 import { registerPlanHandlers, cleanupPlanWatchers } from './handlers/plan';
 import { registerHealthHandlers } from './handlers/health';
 import { registerGithubHandlers } from './handlers/github';
+import { registerLinearHandlers } from './handlers/linear';
 import { registerDiffPanelHandlers } from './handlers/diffPanel';
 import { registerAnalysisHandlers } from './handlers/analysis';
 import { initCliPanels } from '../cliPanels';
@@ -50,6 +51,7 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerPlanHandlers(mainWindow);
   registerHealthHandlers();
   registerGithubHandlers();
+  registerLinearHandlers();
   registerDiffPanelHandlers(mainWindow);
   registerAnalysisHandlers();
   initCliPanels(mainWindow);

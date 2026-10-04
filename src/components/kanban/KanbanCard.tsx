@@ -2,7 +2,7 @@ import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode
 import { useDraggable } from '@dnd-kit/core';
 import { useShallow } from 'zustand/react/shallow';
 import type { TaskWithWorkspace, SandboxProviderId } from '../../types';
-import { openInEntry, moveToEntry, githubEntries, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
+import { openInEntry, moveToEntry, trackerEntries, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
 import { completeTask } from '../../services/taskCompletion';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -18,9 +18,10 @@ import { isChainMember, isDescendantOf } from '../../utils/taskChain';
 import { openTaskInEditor } from '../../services/openInEditor';
 import { KanbanCardView } from './KanbanCardView';
 import { KanbanBadgeView } from './KanbanBadgeView';
-import { KanbanPrBadgeView } from './KanbanPrBadgeView';
+import { KanbanTrackerBadgeView } from './KanbanTrackerBadgeView';
 import { useExperimentalStore } from '../../stores/experimentalStore';
-import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
+import { openPullRequestInPanel } from '../../services/githubTaskActions';
+import { openLinearIssueInPanel } from '../../services/linearTaskActions';
 
 interface KanbanCardProps {
   task: TaskWithWorkspace;
@@ -61,6 +62,7 @@ export const KanbanCard = memo(function KanbanCard({
 
   const isInChain = isChainMember(chainInfo);
   const githubEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.github ?? false);
+  const linearEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.linear ?? false);
 
   // Derived in selectors, so a badge drag re-renders only the cards involved.
   const activeBadgeDragSource = useProjectStore((s) => s.activeBadgeDrag);
@@ -238,16 +240,7 @@ export const KanbanCard = memo(function KanbanCard({
       onClick: handleStartRenameTask,
     });
 
-    const github = githubEntries(
-      { enabled: githubEnabled, prNumber: task.githubPrNumber, hasBranch: !!task.branch },
-      {
-        openPullRequest: (prNumber) => openPullRequestInPanel(projectPath, prNumber),
-        createPullRequest: () => void createPullRequestForTask(projectPath, task),
-      },
-    );
-    if (github.length > 0) {
-      items.push({ separator: true }, ...github);
-    }
+    items.push(...trackerEntries(projectPath, task, { github: githubEnabled, linear: linearEnabled }));
 
     return items;
   }, [
@@ -258,10 +251,42 @@ export const KanbanCard = memo(function KanbanCard({
     isSelected,
     selectedCount,
     githubEnabled,
+    linearEnabled,
     onSwitchToTerminal,
     onOpenTerminal,
     handleStartRenameTask,
   ]);
+
+  // A list, not a fragment: the row below the card only exists when there is a
+  // badge to put in it, and a fragment is truthy either way.
+  const trackerBadges: ReactNode[] = [];
+  if (githubEnabled && task.githubPrNumber != null) {
+    const prNumber = task.githubPrNumber;
+    trackerBadges.push(
+      <KanbanTrackerBadgeView
+        key="pr"
+        icon="github-logo"
+        title={`Pull request #${prNumber}`}
+        onClick={() => openPullRequestInPanel(projectPath, prNumber)}
+      >
+        <span className="opacity-50">#</span>
+        {prNumber}
+      </KanbanTrackerBadgeView>,
+    );
+  }
+  if (linearEnabled && task.linearIssueId && task.linearIssueIdentifier) {
+    const issueId = task.linearIssueId;
+    trackerBadges.push(
+      <KanbanTrackerBadgeView
+        key="issue"
+        icon="circle-dashed"
+        title={`Linear issue ${task.linearIssueIdentifier}`}
+        onClick={() => openLinearIssueInPanel(projectPath, issueId)}
+      >
+        {task.linearIssueIdentifier}
+      </KanbanTrackerBadgeView>,
+    );
+  }
 
   return (
     <>
@@ -279,14 +304,7 @@ export const KanbanCard = memo(function KanbanCard({
             <DraggableBadge task={task} projectPath={projectPath} chainInfo={chainInfo} chainMap={chainMap} />
           ) : null
         }
-        prBadge={
-          githubEnabled && task.githubPrNumber != null ? (
-            <KanbanPrBadgeView
-              prNumber={task.githubPrNumber}
-              onClick={() => openPullRequestInPanel(projectPath, task.githubPrNumber!)}
-            />
-          ) : null
-        }
+        trackerBadges={trackerBadges.length > 0 ? trackerBadges : null}
         formattedDate={formattedDate}
         onSelect={onSelect}
         onPlainClick={handlePlainClick}

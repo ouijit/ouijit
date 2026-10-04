@@ -1,7 +1,8 @@
 /**
  * The `gh` CLI wrapper. Everything GitHub goes through here, in git.ts's
- * execFile idiom. Auth is entirely `gh`'s: no token is read, stored or
- * forwarded, so the app has no secret-storage surface.
+ * execFile idiom. Auth is entirely `gh`'s: no GitHub token is read, stored or
+ * forwarded by this module. The app does hold one secret — the Linear API key,
+ * in `linear/credentials.ts` — and nothing about it passes through here.
  *
  * Both a REST and a GraphQL helper: resolving a review thread and reading
  * `statusCheckRollup` have no REST equivalent.

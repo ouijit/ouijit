@@ -1,14 +1,15 @@
+import { since } from '../issues/since';
 import type { PullRequestDetail } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
-import { Avatar } from './Avatar';
+import { Avatar } from '../issues/Avatar';
 import { ChecksSection } from './ChecksSection';
-import { Markdown } from './Markdown';
-import { CommentComposer } from './CommentComposer';
-import { Dot, Fact, Section, TaskFact } from './Sections';
+import { Markdown } from '../issues/Markdown';
+import { GithubCommentComposer } from './GithubCommentComposer';
+import { Dot, Fact, Section, TaskFact } from '../issues/Sections';
 import { RiskSection } from './RiskSection';
-import { TimelineEntries } from './TimelineEntries';
-import { checkOutcome, since } from './prFormat';
+import { TimelineEntries } from '../issues/TimelineEntries';
+import { checkOutcome } from './prFormat';
 
 interface SummaryPaneProps {
   projectPath: string;
@@ -108,7 +109,7 @@ export function SummaryPane({
       <Section label="Comments" count={comments.length} defaultOpen>
         <div className="flex flex-col gap-5">
           <TimelineEntries items={comments} empty="No comments yet" />
-          <CommentComposer projectPath={projectPath} number={detail.number} subject="pr" />
+          <GithubCommentComposer projectPath={projectPath} number={detail.number} subject="pr" />
         </div>
       </Section>
     </div>

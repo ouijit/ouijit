@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react';
 import { Icon } from '../terminal/Icon';
 import { SidebarToggle } from '../common/SidebarToggle';
-import { useGithubStore } from '../../stores/githubStore';
+import { usePanelStore } from '../../stores/panelStore';
 import { RefreshButton } from './RefreshButton';
 import { Tooltip } from '../ui/Tooltip';
 
 interface DetailChromeProps {
   icon: string;
   tone?: string;
+  /** An exact colour for the glyph, where the source has one of its own. */
+  iconColor?: string;
   title: string;
   url: string;
   tabs: ReactNode;
@@ -28,6 +30,7 @@ interface DetailChromeProps {
 export function DetailChrome({
   icon,
   tone,
+  iconColor,
   title,
   url,
   tabs,
@@ -38,7 +41,7 @@ export function DetailChrome({
   onRefreshHover,
   onClose,
 }: DetailChromeProps) {
-  const sidebarCollapsed = useGithubStore((s) => s.sidebarCollapsed);
+  const sidebarCollapsed = usePanelStore((s) => s.sidebarCollapsed);
 
   return (
     // Raised so the ledge shadow, which falls outside this box, is not painted
@@ -49,7 +52,7 @@ export function DetailChrome({
           one. */}
       <SidebarToggle
         collapsed={sidebarCollapsed}
-        onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}
+        onCollapsedChange={(collapsed) => usePanelStore.getState().setSidebarCollapsed(collapsed)}
         hideLabel="Hide the list"
         showLabel="Show the list"
         className="-ml-1"
@@ -60,7 +63,11 @@ export function DetailChrome({
         title={title}
         onClick={onClose}
       >
-        <Icon name={icon} className={`w-4 h-4 shrink-0 ${tone ?? ''}`} />
+        <Icon
+          name={icon}
+          className={`w-4 h-4 shrink-0 ${tone ?? ''}`}
+          {...(iconColor ? { style: { color: iconColor } } : {})}
+        />
         <span className="truncate text-[15px]">{title}</span>
       </button>
 

@@ -10,6 +10,8 @@ interface ActionMenuProps {
   accent?: boolean;
   /** An accent dot before the label, flagging state rather than naming an action. */
   dot?: boolean;
+  /** The dot's colour, where the state has one of its own. */
+  dotColor?: string;
   disabled?: boolean;
   title?: string;
   /** Which way the menu opens — upward, for a group that sits at the foot of a pane. */
@@ -26,7 +28,7 @@ interface ActionMenuProps {
  * buttons: the app's two status colours mean added and removed everywhere
  * else.
  */
-export function ActionMenu({ label, accent, dot, disabled, title, placement, children }: ActionMenuProps) {
+export function ActionMenu({ label, accent, dot, dotColor, disabled, title, placement, children }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -47,7 +49,13 @@ export function ActionMenu({ label, accent, dot, disabled, title, placement, chi
           }`}
           onClick={() => setOpen(!open)}
         >
-          {dot && <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+          {dot && (
+            <span
+              aria-hidden
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor ? '' : 'bg-accent'}`}
+              style={dotColor ? { background: dotColor } : undefined}
+            />
+          )}
           {label}
           <Icon name="caret-down" className="w-3 h-3 opacity-60" />
         </button>
