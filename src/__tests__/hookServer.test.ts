@@ -1374,7 +1374,7 @@ describe('OPENCODE_WRAPPER', () => {
   });
 
   describe('launching opencode', () => {
-    const runWrapper = (args: string[], version: string, apiUrl = 'http://stub') => {
+    const runWrapper = (args: string[], version: string, env: Record<string, string> = {}) => {
       const root = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-wrapper-test-'));
       const wrapperDir = path.join(root, 'wrapper');
       const stubDir = path.join(root, 'stub');
@@ -1387,6 +1387,10 @@ describe('OPENCODE_WRAPPER', () => {
         [
           '#!/bin/bash',
           'if [ "$1" = "--version" ]; then echo "$STUB_VERSION"; exit 0; fi',
+          'if [ "$1" = session ] && [ "$2" = list ]; then',
+          '  printf "%s\\n" "$OUIJIT_TEST_SESSION_LIST"',
+          '  exit 0',
+          'fi',
           `for a in "$@"; do printf 'ARGV:%s\\n' "$a" >> "${logFile}"; done`,
           `printf 'CFG:%s\\n' "$OPENCODE_CONFIG_CONTENT" >> "${logFile}"`,
           `printf 'HOOK:%s\\n' "$OUIJIT_HOOK_BIN" >> "${logFile}"`,
@@ -1401,7 +1405,8 @@ describe('OPENCODE_WRAPPER', () => {
             PATH: `${wrapperDir}:${stubDir}:/usr/bin:/bin`,
             HOME: root,
             STUB_VERSION: version,
-            OUIJIT_API_URL: apiUrl,
+            OUIJIT_API_URL: 'http://stub',
+            ...env,
           },
           encoding: 'utf8',
         });
@@ -1451,9 +1456,44 @@ describe('OPENCODE_WRAPPER', () => {
       expect(runWrapper(['run', '--standalone', 'hi'], v2).argv).toEqual(['run', '--standalone', 'hi']);
     });
 
+    test('continue resumes the newest session started in this worktree, never another worktree’s', () => {
+      const sessions = JSON.stringify(
+        [
+          { id: 'ses_other', title: '"id": "ses_title"', directory: '/tmp/project/T-1' },
+          { id: 'ses_sibling', title: 'a', directory: '/tmp/project/T-22' },
+          { id: 'ses_task_new', title: 'b', directory: '/tmp/project/T-2/src' },
+          { id: 'ses_task_old', title: 'c', directory: '/tmp/project/T-2' },
+        ],
+        null,
+        2,
+      );
+      const inWorktree = (worktree: string, args: string[], version = v1) =>
+        runWrapper(args, version, { OUIJIT_WORKTREE_PATH: worktree, OUIJIT_TEST_SESSION_LIST: sessions });
+
+      const resumed = inWorktree('/tmp/project/T-2', ['-c', '--model', 'x']);
+      expect(resumed.argv).toEqual(['--session', 'ses_task_new', '--model', 'x']);
+      expect(resumed.instructions).toHaveLength(1);
+      expect(resumed.hook).not.toBe('');
+
+      expect(inWorktree('/tmp/project/T-2', ['run', '--continue', 'hi'], v2).argv).toEqual([
+        'run',
+        '--standalone',
+        '--session',
+        'ses_task_new',
+        'hi',
+      ]);
+      expect(inWorktree('/tmp/project/T-3', ['-c']).argv).toEqual([]);
+      expect(inWorktree('/tmp/project/T-2', ['-c', '--session', 'ses_explicit']).argv).toEqual([
+        '-c',
+        '--session',
+        'ses_explicit',
+      ]);
+      expect(runWrapper(['-c'], v1, { OUIJIT_TEST_SESSION_LIST: sessions }).argv).toEqual(['-c']);
+    });
+
     test('without OUIJIT_API_URL the CLI reference is still offered but status stays off', () => {
       for (const version of [v1, v2]) {
-        const session = runWrapper([], version, '');
+        const session = runWrapper([], version, { OUIJIT_API_URL: '' });
         expect(session.instructions).toHaveLength(1);
         expect(session.reference).not.toBe('');
         expect(session.hook).toBe('');

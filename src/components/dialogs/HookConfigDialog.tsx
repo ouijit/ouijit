@@ -2,46 +2,41 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ScriptHook, HookType } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
+import { useHookCommandDefault } from '../../utils/hookDefaults';
 import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
 import { Checkbox } from '../ui/Checkbox';
 
-const HOOK_LABELS: Record<HookType, { title: string; description: string; placeholder: string; envVars?: boolean }> = {
+const HOOK_LABELS: Record<HookType, { title: string; description: string; envVars?: boolean }> = {
   start: {
     title: 'Start Hook',
     description: 'Runs when a task moves from To Do to In Progress',
-    placeholder: 'claude "complete the current task and move it into in review"',
     envVars: true,
   },
   continue: {
     title: 'Continue Hook',
     description: 'Runs when reopening a task that is already In Progress',
-    placeholder: 'claude -c',
     envVars: true,
   },
   run: {
     title: 'Run',
     description: "Runs from a terminal's + menu",
-    placeholder: 'npm run dev',
     envVars: true,
   },
   review: {
     title: 'Review Hook',
     description: 'Runs when a task moves to In Review',
-    placeholder: 'claude "open a pull request for the current task"',
     envVars: true,
   },
   done: {
     title: 'Done Hook',
     description: 'Runs when a task moves to Done',
-    placeholder: 'git push origin HEAD',
     envVars: true,
   },
   editor: {
     title: 'Editor',
     description: 'Opens the task worktree in your preferred code editor',
-    placeholder: 'code',
   },
 };
 
@@ -54,6 +49,7 @@ interface HookConfigDialogProps {
 
 export function HookConfigDialog({ projectPath, hookType, existingHook, onClose }: HookConfigDialogProps) {
   const labels = HOOK_LABELS[hookType];
+  const placeholder = useHookCommandDefault(hookType);
   const isRunHook = hookType === 'run';
 
   const [command, setCommand] = useState(existingHook?.command ?? '');
@@ -118,7 +114,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
             id="hook-command"
             className="w-full px-3 py-2 font-mono text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none resize-none overflow-hidden focus:border-accent focus:ring-3 focus:ring-accent-light placeholder:text-text-tertiary"
             style={{ transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out' }}
-            placeholder={labels.placeholder}
+            placeholder={placeholder}
             value={command}
             onChange={(e) => {
               setCommand(e.target.value);

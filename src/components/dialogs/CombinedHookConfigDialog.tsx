@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ScriptHook } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
+import { useHookCommandDefault } from '../../utils/hookDefaults';
 import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
@@ -19,6 +20,8 @@ export function CombinedHookConfigDialog({
   existingContinue,
   onClose,
 }: CombinedHookConfigDialogProps) {
+  const startPlaceholder = useHookCommandDefault('start');
+  const continuePlaceholder = useHookCommandDefault('continue');
   const [startCommand, setStartCommand] = useState(existingStart?.command ?? '');
   const [continueCommand, setContinueCommand] = useState(existingContinue?.command ?? '');
   const [visible, setVisible] = useState(false);
@@ -91,7 +94,7 @@ export function CombinedHookConfigDialog({
             id="hook-start-command"
             className="w-full px-3 py-2 font-mono text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none resize-none overflow-hidden focus:border-accent focus:ring-3 focus:ring-accent-light placeholder:text-text-tertiary"
             style={{ transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out' }}
-            placeholder='claude "complete the current task and move it into in review"'
+            placeholder={startPlaceholder}
             value={startCommand}
             onChange={(e) => {
               setStartCommand(e.target.value);
@@ -112,7 +115,7 @@ export function CombinedHookConfigDialog({
             id="hook-continue-command"
             className="w-full px-3 py-2 font-mono text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none resize-none overflow-hidden focus:border-accent focus:ring-3 focus:ring-accent-light placeholder:text-text-tertiary"
             style={{ transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out' }}
-            placeholder="claude -c"
+            placeholder={continuePlaceholder}
             value={continueCommand}
             onChange={(e) => {
               setContinueCommand(e.target.value);
