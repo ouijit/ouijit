@@ -37,7 +37,7 @@ export interface ShellLaunchContext {
   shell: string;
   /** Directory the integration scripts live in. */
   integrationDir: string;
-  /** Startup command to run before the interactive shell, or '' for none. */
+  /** Command the shell runs once at startup, or '' for none. */
   command: string;
   /** The user's current $ZDOTDIR, if any (zsh needs to restore it). */
   zdotdir?: string;
@@ -58,27 +58,14 @@ export interface ShellIntegration {
   launch(ctx: ShellLaunchContext): ShellLaunch;
 }
 
-// ── Shared bootstrap ─────────────────────────────────────────────────
-//
-// When a startup command is present we run it, capture its exit code across the
-// `exec` into the interactive shell (which resets $?), and keep the wrapper dir
-// first in PATH. This is POSIX sh — `export`, the `(...)` subshell, and `$?`
-// are not portable to fish/nushell — so non-POSIX shells run it under /bin/sh
-// (see fishIntegration / posixFallbackIntegration) rather than in-shell.
+// ── Startup command ──────────────────────────────────────────────────
 
-const WRAPPER_PATH_EXPORT = 'export PATH="$OUIJIT_WRAPPER_DIR:$PATH"';
-
-/**
- * A POSIX bootstrap: re-prepend the wrapper dir, run `command` in a subshell so
- * a stray `exit` only kills the subshell, stash its exit code in
- * OUIJIT_INITIAL_EXIT (the integration scripts read it and emit OSC 133;D on
- * first load), then run `execTail` to become the interactive shell.
- */
-function bootstrap(command: string, execTail: string): string {
-  return `${WRAPPER_PATH_EXPORT}; (${command}); export OUIJIT_INITIAL_EXIT=$?; ${execTail}`;
-}
+const startupEnv = (command: string): Record<string, string> | undefined =>
+  command ? { OUIJIT_STARTUP_COMMAND: command } : undefined;
 
 // ── Shared script fragments ──────────────────────────────────────────
+
+const indent = (lines: string[], pad: string): string[] => lines.map((line) => (line ? pad + line : line));
 
 /**
  * Re-prepend the wrapper dir to PATH, removing any existing copies first.
@@ -94,7 +81,27 @@ const POSIX_PATH_REPREPEND = [
   'export PATH',
 ];
 
-const indent = (lines: string[], pad: string): string[] => lines.map((line) => (line ? pad + line : line));
+/**
+ * bash/zsh prompt hook that runs the startup command once, as a job of the
+ * interactive shell so Ctrl-Z then `fg` resumes it. It leaves the
+ * environment first so a shell it starts does not run it again, and is cleared
+ * before it runs, outside any `if`: zsh moves the rest of a compound command
+ * stopped by Ctrl-Z into a subshell, where clearing it would not stick. The
+ * subshell keeps a stray `exit` from closing the terminal; built inside the
+ * `eval` so bash names the job after the command rather than this line.
+ */
+const posixStartupCommand = (beforeRun: string[] = []): string[] => [
+  '_ouijit_startup_command=${OUIJIT_STARTUP_COMMAND-}',
+  'unset OUIJIT_STARTUP_COMMAND',
+  '_ouijit_run_startup_command() {',
+  '  [ -n "$_ouijit_startup_command" ] || return',
+  '  local cmd=$_ouijit_startup_command',
+  '  _ouijit_startup_command=',
+  ...indent(beforeRun, '  '),
+  '  eval "( $cmd"$\'\\n\'")"',
+  '  printf "\\033]133;D;%d\\007" "$?"',
+  '}',
+];
 
 // ── zsh ──────────────────────────────────────────────────────────────
 
@@ -141,6 +148,10 @@ export const ZSH_ZSHRC = [
   'fi',
   'unset _OUIJIT_ZSH_HOME _OUIJIT_USER_ZDOTDIR',
   '',
+  '# Registered after the user rc, which may reassign precmd_functions. The',
+  "# exit-code hook goes first so $? is still the user command's.",
+  'precmd_functions=(_ouijit_emit_exit_code $precmd_functions _ouijit_run_startup_command)',
+  '',
   "# Under a filesystem sandbox the user's history file is denied. Point HISTFILE",
   '# at /dev/null AFTER the user rc (which may set it) so zsh never tries to lock',
   '# a file it cannot write — otherwise it prints "locking failed" at every',
@@ -166,8 +177,7 @@ export const ZSH_INTEGRATION = [
   '',
   '# Emit OSC 133;D;<exit_code> after each command so the renderer can detect',
   "# the prior command's exit code without the PTY actually exiting. Skips the",
-  '# very first prompt (no command has run yet). MUST be the first precmd so',
-  '# $? still reflects the user command, not a downstream precmd hook.',
+  '# very first prompt (no command has run yet). Registered from .zshrc.',
   '_ouijit_emit_exit_code() {',
   '  local code=$?',
   '  if [ -n "$_OUIJIT_HAS_RUN" ]; then',
@@ -176,17 +186,12 @@ export const ZSH_INTEGRATION = [
   '  _OUIJIT_HAS_RUN=1',
   '  return $code',
   '}',
-  'precmd_functions=(_ouijit_emit_exit_code $precmd_functions)',
   '',
-  '# When we exec into this shell from a one-off command (a hook script), the',
-  '# subshell exit code is passed across the exec via OUIJIT_INITIAL_EXIT. Emit',
-  '# OSC 133;D for it now so the renderer learns the result without waiting for',
-  '# the user to type a command. The precmd hook above still skips its first',
-  '# emission so this is the only signal for the initial command.',
-  'if [ -n "${OUIJIT_INITIAL_EXIT-}" ]; then',
-  '  printf "\\033]133;D;%d\\007" "$OUIJIT_INITIAL_EXIT"',
-  '  unset OUIJIT_INITIAL_EXIT',
-  'fi',
+  // zsh abandons the rest of a function, and the precmd hooks after it, when a
+  // job it waits on dies of SIGINT, unless INT is trapped. The PATH fix is
+  // repeated because a user rc that reassigns precmd_functions drops
+  // _ouijit_fix_path.
+  ...posixStartupCommand(['setopt localoptions localtraps', 'trap : INT', ...POSIX_PATH_REPREPEND]),
   '',
 ].join('\n');
 
@@ -207,10 +212,9 @@ const zshIntegration: ShellIntegration = {
     const env = {
       OUIJIT_ZSH_ZDOTDIR: zdotdir ?? '',
       ZDOTDIR: path.join(integrationDir, 'zsh'),
+      ...startupEnv(command),
     };
-    if (!command) return { file: shell, args: [], env };
-    const execTail = `ZDOTDIR="$OUIJIT_SHELL_INTEGRATION_DIR/zsh" exec ${shell}`;
-    return { file: shell, args: ['-ic', bootstrap(command, execTail)], env };
+    return { file: shell, args: [], env };
   },
 };
 
@@ -247,20 +251,13 @@ export const BASH_INTEGRATION = [
   '  _OUIJIT_HAS_RUN=1',
   '  return $code',
   '}',
-  'if [ -n "$PROMPT_COMMAND" ]; then',
-  '  PROMPT_COMMAND="_ouijit_emit_exit_code; $PROMPT_COMMAND"',
-  'else',
-  '  PROMPT_COMMAND="_ouijit_emit_exit_code"',
-  'fi',
   '',
-  '# When we exec into this shell from a one-off command (a hook script), the',
-  '# subshell exit code is passed across the exec via OUIJIT_INITIAL_EXIT. Emit',
-  '# OSC 133;D for it now so the renderer learns the result without waiting for',
-  '# the user to type a command.',
-  'if [ -n "${OUIJIT_INITIAL_EXIT-}" ]; then',
-  '  printf "\\033]133;D;%d\\007" "$OUIJIT_INITIAL_EXIT"',
-  '  unset OUIJIT_INITIAL_EXIT',
-  'fi',
+  ...posixStartupCommand(),
+  // Newlines, not `;`: a PROMPT_COMMAND ending in `;` is common, and `; ;` is a
+  // syntax error that would stop every hook in it.
+  'PROMPT_COMMAND="_ouijit_emit_exit_code',
+  '$PROMPT_COMMAND',
+  '_ouijit_run_startup_command"',
   '',
 ].join('\n');
 
@@ -272,11 +269,10 @@ const bashIntegration: ShellIntegration = {
     fs.writeFileSync(path.join(dir, 'ouijit-bash-integration.bash'), BASH_INTEGRATION, { mode: 0o644 });
   },
   launch({ shell, integrationDir, command }) {
-    // --rcfile/--init-file: bash sources this instead of ~/.bashrc; ours
+    // --init-file: bash sources this instead of ~/.bashrc; ours
     // sources .bashrc first, then fixes PATH.
     const rcfile = path.join(integrationDir, 'ouijit-bash-integration.bash');
-    if (!command) return { file: shell, args: ['--init-file', rcfile] };
-    return { file: shell, args: ['-ic', bootstrap(command, `exec bash --rcfile ${rcfile}`)] };
+    return { file: shell, args: ['--init-file', rcfile], env: startupEnv(command) };
   },
 };
 
@@ -305,12 +301,21 @@ export const FISH_INTEGRATION = [
   '    printf "\\033]133;D;%d\\007" $code',
   'end',
   '',
-  '# When we exec into fish from a one-off command (a hook script), its exit',
-  '# code arrives via OUIJIT_INITIAL_EXIT. Emit OSC 133;D for it now so the',
-  '# renderer learns the result without waiting for the user to type a command.',
-  'if set -q OUIJIT_INITIAL_EXIT',
-  '    printf "\\033]133;D;%d\\007" $OUIJIT_INITIAL_EXIT',
-  '    set -e OUIJIT_INITIAL_EXIT',
+  '# Run the startup command before the first prompt. fish gives a job the',
+  '# terminal only under job control and outside an event handler, so it runs',
+  '# here under full job control: Ctrl-Z then fg resumes it. It is POSIX sh, so',
+  '# sh runs it. Erased before it runs so a fish it starts does not run it again.',
+  'if set -q OUIJIT_STARTUP_COMMAND',
+  '    set -l command $OUIJIT_STARTUP_COMMAND',
+  '    set -e OUIJIT_STARTUP_COMMAND',
+  '    set -l mode interactive',
+  '    status is-full-job-control; and set mode full',
+  '    status is-no-job-control; and set mode none',
+  '    status job-control full',
+  '    /bin/sh -c $command',
+  '    set -l code $status',
+  '    status job-control $mode',
+  '    printf "\\033]133;D;%d\\007" $code',
   'end',
   '',
 ].join('\n');
@@ -327,19 +332,16 @@ const fishIntegration: ShellIntegration = {
     // `-C` runs after config.fish but before the prompt — the right place to
     // re-fix PATH. Single-quote the path so spaces in $HOME survive fish's parse.
     const sourceArg = `source '${initFile}'`;
-    if (!command) return { file: shell, args: ['-C', sourceArg] };
-    // fish can't parse our POSIX bootstrap (export / (...) / $?), so /bin/sh
-    // runs it and execs into fish with the integration sourced.
-    return { file: '/bin/sh', args: ['-c', bootstrap(command, `exec ${shell} -C "${sourceArg}"`)] };
+    return { file: shell, args: ['-C', sourceArg], env: startupEnv(command) };
   },
 };
 
 // ── fallback ─────────────────────────────────────────────────────────
 
 /**
- * Unknown shell: launch it, but with no integration. With a startup command the
- * POSIX bootstrap runs under /bin/sh and execs into the shell; without one the
- * shell launches directly. Fail open — exotic shells work, just without the
+ * Unknown shell: launch it, but with no integration. With a startup command,
+ * /bin/sh runs it and execs into the shell, so a command stopped with Ctrl-Z
+ * cannot be resumed there. Fail open — exotic shells work, just without the
  * wrapper-PATH guarantee or exit-code signal until they get a provider.
  */
 const posixFallbackIntegration: ShellIntegration = {
@@ -349,7 +351,7 @@ const posixFallbackIntegration: ShellIntegration = {
   installFiles() {},
   launch({ shell, command }) {
     if (!command) return { file: shell, args: [] };
-    return { file: '/bin/sh', args: ['-c', bootstrap(command, `exec ${shell}`)] };
+    return { file: '/bin/sh', args: ['-c', `export PATH="$OUIJIT_WRAPPER_DIR:$PATH"; (${command}); exec ${shell}`] };
   },
 };
 
