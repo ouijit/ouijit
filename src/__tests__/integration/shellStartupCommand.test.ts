@@ -131,6 +131,13 @@ describe('startup command', () => {
           term.write('\x1a');
           await waitFor(exitCode);
 
+          // zsh leaves a job started from a function unnamed.
+          if (path.basename(shell) === 'bash') {
+            term.write('jobs\r');
+            await waitFor(/probe\.js/);
+            await waitFor(exitCode);
+          }
+
           term.write('fg\r');
           await new Promise((resolve) => setTimeout(resolve, 500));
           term.write('resumed\r');

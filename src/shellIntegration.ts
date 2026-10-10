@@ -87,7 +87,8 @@ const POSIX_PATH_REPREPEND = [
  * environment first so a shell it starts does not run it again, and is cleared
  * before it runs, outside any `if`: zsh moves the rest of a compound command
  * stopped by Ctrl-Z into a subshell, where clearing it would not stick. The
- * subshell around `eval` keeps a stray `exit` from closing the terminal.
+ * subshell keeps a stray `exit` from closing the terminal; built inside the
+ * `eval` so bash names the job after the command rather than this line.
  */
 const posixStartupCommand = (beforeRun: string[] = []): string[] => [
   '_ouijit_startup_command=${OUIJIT_STARTUP_COMMAND-}',
@@ -97,7 +98,7 @@ const posixStartupCommand = (beforeRun: string[] = []): string[] => [
   '  local cmd=$_ouijit_startup_command',
   '  _ouijit_startup_command=',
   ...indent(beforeRun, '  '),
-  '  ( eval "$cmd" )',
+  '  eval "( $cmd"$\'\\n\'")"',
   '  printf "\\033]133;D;%d\\007" "$?"',
   '}',
 ];
