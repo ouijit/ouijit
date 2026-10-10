@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectStore } from '../../stores/projectStore';
-import type { TaskWithWorkspace, TaskStatus, HookType, SandboxProviderId } from '../../types';
+import type { TaskWithWorkspace, TaskStatus, HookType, SandboxProviderId, ScriptHook } from '../../types';
 import { beginTransition, bulkTransitionTasks } from '../../services/taskStartService';
 import { completeTask } from '../../services/taskCompletion';
 import { KanbanColumn } from './KanbanColumn';
@@ -73,7 +73,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const projectHooks = useProjectStore((s) => s.hooks);
   const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
   const [hookDialog, setHookDialog] = useState<
-    | { mode: 'single'; hookType: HookType; existingHook?: any }
+    | { mode: 'single'; hookType: HookType; existingHook?: ScriptHook }
     | { mode: 'combined'; start?: any; continue?: any }
     | null
   >(null);
@@ -531,21 +531,15 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const selectedTaskCount = useProjectStore((s) => s.selectedTaskNumbers.size);
 
   const handleConfigureHook = useCallback(
-    async (hookTypes: HookType[]) => {
-      const hooks = await window.api.hooks.get(projectPath);
+    (hookTypes: HookType[]) => {
       if (hookTypes.length === 2 && hookTypes.includes('start') && hookTypes.includes('continue')) {
-        setHookDialog({
-          mode: 'combined',
-          start: hooks.start ?? undefined,
-          continue: hooks.continue ?? undefined,
-        });
+        setHookDialog({ mode: 'combined', start: projectHooks.start, continue: projectHooks.continue });
       } else {
         const hookType = hookTypes[0];
-        const existing = hooks[hookType] ?? undefined;
-        setHookDialog({ mode: 'single', hookType, existingHook: existing });
+        setHookDialog({ mode: 'single', hookType, existingHook: projectHooks[hookType] });
       }
     },
-    [projectPath],
+    [projectHooks],
   );
 
   const handleHookDialogClose = useCallback(() => setHookDialog(null), []);

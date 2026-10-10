@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { HookType, ProjectHooks, ScriptHook } from '../../types';
 import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
@@ -23,12 +23,6 @@ interface HookListProps {
 export function HookList({ projectPath, hooks: hookEntries, bare }: HookListProps) {
   const hooks = useProjectStore((s) => (s.configProjectPath === projectPath ? s.hooks : NO_HOOKS));
   const [editingHook, setEditingHook] = useState<{ hookType: HookType; existing?: ScriptHook } | null>(null);
-
-  useEffect(() => {
-    if (useProjectStore.getState().configProjectPath !== projectPath) {
-      void useProjectStore.getState().loadProjectConfig(projectPath);
-    }
-  }, [projectPath]);
 
   const rows = hookEntries.map(({ type, label, description }) => {
     const hook = hooks[type];

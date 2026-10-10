@@ -12,7 +12,7 @@ interface CombinedHookConfigDialogProps {
   projectPath: string;
   existingStart?: ScriptHook;
   existingContinue?: ScriptHook;
-  onClose: (result: { saved: boolean } | null) => void;
+  onClose: () => void;
 }
 
 export function CombinedHookConfigDialog({
@@ -40,13 +40,10 @@ export function CombinedHookConfigDialog({
     }
   }, []);
 
-  const dismiss = useCallback(
-    (result: { saved: boolean } | null) => {
-      setVisible(false);
-      setTimeout(() => onClose(result), 200);
-    },
-    [onClose],
-  );
+  const dismiss = useCallback(() => {
+    setVisible(false);
+    setTimeout(onClose, 200);
+  }, [onClose]);
 
   const handleSave = useCallback(async () => {
     const startTrimmed = startCommand.trim();
@@ -79,7 +76,7 @@ export function CombinedHookConfigDialog({
     }
 
     useProjectStore.getState().addToast('Hooks saved', 'success');
-    dismiss({ saved: true });
+    dismiss();
   }, [
     startCommand,
     continueCommand,
@@ -92,7 +89,7 @@ export function CombinedHookConfigDialog({
   ]);
 
   return (
-    <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
+    <DialogOverlay visible={visible} onDismiss={dismiss}>
       <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">Start & Continue Hooks</h2>
 
       <div className="mb-6">
@@ -151,7 +148,7 @@ export function CombinedHookConfigDialog({
       <div className="flex gap-2 justify-between mt-4 items-center">
         <HookCliHint />
         <div className="flex gap-2">
-          <button className="btn-secondary" onClick={() => dismiss(null)}>
+          <button className="btn-secondary" onClick={dismiss}>
             Cancel
           </button>
           <button className="btn-primary" onClick={handleSave}>

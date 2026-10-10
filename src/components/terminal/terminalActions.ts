@@ -29,6 +29,7 @@ import { buildEditorCommand } from './editorCommand';
 import { readSnapshot } from './sessionSnapshot';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import { detectPullRequestForTask } from '../../services/githubTaskActions';
+import { hookSandbox } from '../../services/hookRun';
 import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
@@ -37,7 +38,7 @@ const actionsLog = log.scope('terminalActions');
 
 export interface AddProjectTerminalOptions {
   existingWorktree?: WorktreeInfo & { prompt?: string; sandboxProvider?: SandboxProviderId };
-  /** Sandbox backend for this spawn; absent means a plain host shell. */
+  /** Overrides a restored terminal's or the continue hook's sandbox; absent with neither runs on the host. */
   sandboxProvider?: SandboxProviderId;
   taskId?: number;
   skipAutoHook?: boolean;
@@ -272,7 +273,7 @@ export async function addProjectTerminal(
       const hooks = await window.api.hooks.get(projectPath);
       if (hooks.continue) {
         startCommand = hooks.continue.command;
-        requestedProvider ??= hooks.continue.sandbox;
+        requestedProvider = hookSandbox(requestedProvider, hooks.continue);
       }
     }
   }

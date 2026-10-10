@@ -1,5 +1,4 @@
-import type { RunHookResult } from '../components/dialogs/RunHookDialog';
-import type { CliHookMode, SandboxProviderId, ScriptHook } from '../types';
+import type { CliHookMode, RunHookResult, SandboxProviderId, ScriptHook } from '../types';
 
 /** An explicit override wins, then the hook's own setting, then the host. */
 export function hookSandbox(override: SandboxProviderId | undefined, hook: ScriptHook | undefined): SandboxProviderId {

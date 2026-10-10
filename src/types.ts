@@ -256,6 +256,13 @@ export interface ScriptHook {
   sandbox?: SandboxProviderId;
 }
 
+/** How to run a lifecycle hook: as chosen in its dialog, or decided without one. */
+export interface RunHookResult {
+  command: string;
+  foreground: boolean;
+  sandbox: SandboxProviderId;
+}
+
 export interface Script {
   id: string;
   name: string;

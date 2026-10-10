@@ -10,8 +10,8 @@ import type {
   SandboxBackendId,
   SandboxProviderStatus,
   ProjectHooks,
+  RunHookResult,
 } from '../types';
-import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { queuePrompt, settlePrompt, settleAllPrompts, type Pending } from './promptQueue';
 import { useAppStore } from './appStore';
 

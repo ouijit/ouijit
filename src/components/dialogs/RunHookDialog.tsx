@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { ScriptHook, HookType, SandboxProviderId } from '../../types';
+import type { ScriptHook, HookType, RunHookResult, SandboxProviderId } from '../../types';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { DialogOverlay } from './DialogOverlay';
 import { HookEnvVars } from './HookEnvVars';
@@ -12,12 +12,6 @@ const HOOK_TITLES: Record<string, string> = {
   done: 'Done',
   run: 'Run',
 };
-
-export interface RunHookResult {
-  command: string;
-  foreground: boolean;
-  sandbox: SandboxProviderId;
-}
 
 interface RunHookDialogProps {
   hookType: HookType;

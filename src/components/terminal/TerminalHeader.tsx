@@ -309,9 +309,9 @@ export const TerminalHeader = memo(function TerminalHeader({
           projectPath={projectPath}
           hookType="run"
           existingHook={commandDialog.existing}
-          onClose={(result) => {
+          onClose={(hook) => {
             setCommandDialog(null);
-            if (result?.hook && !commandDialog.existing) handleAddRunner();
+            if (hook && !commandDialog.existing) handleAddRunner();
           }}
         />
       )}

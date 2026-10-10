@@ -6,7 +6,7 @@ import { getCustomSandboxConfig, setCustomSandboxConfig } from '../../sandbox/cu
 /**
  * Cross-provider sandbox IPC. Reports availability for every
  * registered backend so the renderer can feature-detect (which backends to
- * offer, whether a task's chosen backend can spawn right now), plus each
+ * offer, whether a chosen backend can spawn right now), plus each
  * backend's own config surface.
  */
 export function registerSandboxHandlers(): void {

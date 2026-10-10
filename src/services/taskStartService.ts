@@ -11,12 +11,11 @@
 import log from 'electron-log/renderer';
 import { addProjectTerminal } from '../components/terminal/terminalActions';
 import { STATUS_LABELS } from '../components/kanban/taskMenu';
-import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { completeTask } from './taskCompletion';
 import { headlessHookRun, hookSandbox, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
-import type { HookType, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
+import type { HookType, RunHookResult, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
 /** Id for a loading slot standing in for a task's terminal while it spawns. */

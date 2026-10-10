@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import type { SandboxLaunch } from '../types';
 import { isPathInside } from '../../utils/pathSafety';
 
-export const NO_COMMAND_MESSAGE =
+const NO_COMMAND_MESSAGE =
   'No sandbox command configured. Set one in Project Settings ▸ Sandbox ▸ Custom, or run `ouijit sandbox-command set <command>`.';
 
 /**
