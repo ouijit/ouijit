@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { ScriptHook, HookType } from '../../types';
+import type { ScriptHook, HookType, SandboxProviderId } from '../../types';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { DialogOverlay } from './DialogOverlay';
 import { HookEnvVars } from './HookEnvVars';
+import { SandboxPicker } from '../ui/SandboxPicker';
 
 const HOOK_TITLES: Record<string, string> = {
   start: 'Start Task',
@@ -15,11 +16,13 @@ const HOOK_TITLES: Record<string, string> = {
 export interface RunHookResult {
   command: string;
   foreground: boolean;
+  sandbox: SandboxProviderId;
 }
 
 interface RunHookDialogProps {
   hookType: HookType;
   hook: ScriptHook;
+  sandbox: SandboxProviderId;
   taskName?: string;
   /** 1-based position of this prompt in the queue (only set when queued). */
   queuePosition?: number;
@@ -35,6 +38,7 @@ interface RunHookDialogProps {
 export function RunHookDialog({
   hookType,
   hook,
+  sandbox: initialSandbox,
   taskName,
   queuePosition,
   queueTotal,
@@ -43,6 +47,7 @@ export function RunHookDialog({
   onSkipAll,
 }: RunHookDialogProps) {
   const [command, setCommand] = useState(hook.command);
+  const [sandbox, setSandbox] = useState(initialSandbox);
   const [visible, setVisible] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
@@ -115,6 +120,10 @@ export function RunHookDialog({
 
       <HookEnvVars />
 
+      <div className="mt-3">
+        <SandboxPicker value={sandbox} onChange={setSandbox} />
+      </div>
+
       <div className="flex gap-2 justify-end mt-4 items-center">
         <div className="flex gap-2">
           <button data-testid="dialog-cancel" className="btn-secondary" onClick={() => dismiss(null)}>
@@ -123,7 +132,7 @@ export function RunHookDialog({
           <button
             data-testid="dialog-run-open"
             className="btn-primary whitespace-nowrap"
-            onClick={() => dismiss({ command: command.trim(), foreground: true })}
+            onClick={() => dismiss({ command: command.trim(), foreground: true, sandbox })}
             disabled={!command.trim()}
           >
             Run & Open
@@ -131,7 +140,7 @@ export function RunHookDialog({
           <button
             data-testid="dialog-run"
             className="btn-primary"
-            onClick={() => dismiss({ command: command.trim(), foreground: false })}
+            onClick={() => dismiss({ command: command.trim(), foreground: false, sandbox })}
             disabled={!command.trim()}
           >
             Run
@@ -152,7 +161,7 @@ export function RunHookDialog({
           <button
             data-testid="dialog-run-all"
             className="text-accent hover:text-accent-hover outline-none [-webkit-app-region:no-drag] transition-colors duration-100 disabled:opacity-40"
-            onClick={() => dismissRunAll({ command: command.trim(), foreground: false })}
+            onClick={() => dismissRunAll({ command: command.trim(), foreground: false, sandbox })}
             disabled={!command.trim()}
           >
             Run all

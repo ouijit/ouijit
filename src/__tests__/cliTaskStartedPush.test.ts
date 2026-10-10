@@ -9,6 +9,7 @@ import type { BrowserWindow } from 'electron';
 
 import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
+import { saveHook } from '../db';
 
 vi.mock('../ptyManager', () => ({
   isPtyActive: () => true,
@@ -241,6 +242,33 @@ describe('cli:task-started push', () => {
     expect(pushes[0][2]).toMatchObject({ hookMode: 'command', hookCommand: 'claude' });
   });
 
+  test('forwards a sandbox override with or without a hook mode, and rejects an unknown one', async () => {
+    const started = {
+      success: true,
+      worktreePath: '/tmp/wt/T-5',
+      task: { taskNumber: 5, branch: 'feat-5', createdAt: '2026-05-10T00:00:00.000Z' },
+    };
+    createTaskWorktreeMock.mockResolvedValue(started);
+    const token = issueToken('pty-host', 'host');
+
+    await request('POST', `/api/tasks/start?project=${PROJECT}`, token, { name: 'x', hookSandbox: 'custom' });
+    await request('POST', `/api/tasks/start?project=${PROJECT}`, token, {
+      name: 'x',
+      hookMode: 'run',
+      hookSandbox: 'none',
+    });
+    const pushes = getTaskStartedPushes();
+    expect(pushes.map((p) => [p[2].hookMode, p[2].hookSandbox])).toEqual([
+      [undefined, 'custom'],
+      ['run', 'none'],
+    ]);
+
+    createTaskWorktreeMock.mockClear();
+    const res = await request('POST', `/api/tasks/start?project=${PROJECT}`, token, { name: 'x', hookSandbox: 'vm' });
+    expect(res.status).toBe(400);
+    expect(createTaskWorktreeMock).not.toHaveBeenCalled();
+  });
+
   test('rejects an invalid hookMode with 400 and does not start the task', async () => {
     const token = issueToken('pty-host', 'host');
     const res = await request('POST', `/api/tasks/start?project=${PROJECT}`, token, {
@@ -424,5 +452,32 @@ describe('cli:task-completed push', () => {
 
     expect(res.status).toBe(200);
     expect(getTaskCompletedPushes()).toHaveLength(0);
+  });
+});
+
+describe('PUT /api/hooks/:type', () => {
+  test('saves a hook with its sandbox, and refuses one that names no backend', async () => {
+    const token = issueToken('pty-host', 'host');
+    const ok = await request('PUT', `/api/hooks/start?project=${PROJECT}`, token, {
+      name: 'Agent',
+      command: 'claude',
+      sandbox: 'custom',
+    });
+    expect(ok.status).toBe(200);
+    expect(saveHook).toHaveBeenCalledWith(
+      '/tmp/test-project',
+      expect.objectContaining({ type: 'start', sandbox: 'custom' }),
+    );
+
+    vi.mocked(saveHook).mockClear();
+    for (const sandbox of ['none', 'vm']) {
+      const refused = await request('PUT', `/api/hooks/start?project=${PROJECT}`, token, {
+        name: 'Agent',
+        command: 'claude',
+        sandbox,
+      });
+      expect(refused.status).toBe(400);
+    }
+    expect(saveHook).not.toHaveBeenCalled();
   });
 });

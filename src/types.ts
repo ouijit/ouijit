@@ -49,6 +49,7 @@ import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type {
   SandboxProviderId,
+  SandboxBackendId,
   SandboxProviderStatus,
   NonoConfig,
   CustomSandboxConfig,
@@ -85,7 +86,7 @@ export type {
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
 } from './sandbox/types';
-export { SANDBOX_BACKEND_LABELS, isActiveSandbox } from './sandbox/types';
+export { SANDBOX_BACKEND_IDS, SANDBOX_BACKEND_LABELS, isActiveSandbox, isSandboxBackendId } from './sandbox/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
 export type {
   RepoIdentity,
@@ -141,6 +142,7 @@ export interface SnapshotPanel {
   scriptCommand?: string | null;
   source?: 'hook' | 'script';
   restartIfRunning?: boolean;
+  sandboxProvider?: SandboxProviderId;
   /** webPreview (only user-set URLs are persisted) */
   url?: string | null;
   /** plan */
@@ -242,6 +244,8 @@ export interface ScriptHook {
   description?: string;
   /** Restart the command if an instance is already running in the same task (run hook only). */
   restartIfRunning?: boolean;
+  /** Sandbox backend the hook's terminal runs under; absent runs it on the host. */
+  sandbox?: SandboxBackendId;
 }
 
 export interface Script {
@@ -578,6 +582,7 @@ export interface ElectronAPI {
       createdAt: string;
       hookMode?: CliHookMode;
       hookCommand?: string;
+      hookSandbox?: SandboxProviderId;
     }) => void,
   ): () => void;
   /** Listen for a CLI-initiated done transition that needs terminal cleanup + hook spawn */
@@ -588,6 +593,7 @@ export interface ElectronAPI {
       task: TaskWithWorkspace;
       hookMode?: CliHookMode;
       hookCommand?: string;
+      hookSandbox?: SandboxProviderId;
     }) => void,
   ): () => void;
   /** Listen for a CLI-initiated in_progress/in_review transition that needs a hook spawn */
@@ -600,6 +606,7 @@ export interface ElectronAPI {
       task: TaskWithWorkspace;
       hookMode?: CliHookMode;
       hookCommand?: string;
+      hookSandbox?: SandboxProviderId;
     }) => void,
   ): () => void;
   hooks: HooksAPI;

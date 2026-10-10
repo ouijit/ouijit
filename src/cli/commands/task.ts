@@ -5,6 +5,7 @@
 import type { Command } from 'commander';
 import { get, post, patch, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
+import { SANDBOX_FLAG_VALUES, parseSandboxFlag } from '../sandboxFlag';
 
 const VALID_STATUSES = ['todo', 'in_progress', 'in_review', 'done'];
 
@@ -12,17 +13,33 @@ interface HookFlags {
   runHook?: boolean;
   skipHook?: boolean;
   hookCommand?: string;
+  sandbox?: string;
 }
+
+type HookBody = { hookMode?: string; hookCommand?: string; hookSandbox?: string };
 
 /**
  * Resolve the --run-hook / --skip-hook / --hook-command flags into the
- * `hookMode` / `hookCommand` fields the task-start API understands.
+ * `hookMode` / `hookCommand` fields the task-start API understands, plus the
+ * independent --sandbox override as `hookSandbox`.
  *
- * The flags are mutually exclusive. When none is passed the result is empty,
- * leaving the renderer to fall back to its default behavior (the start-hook
- * dialog) — exactly what a kanban todo → in_progress drop does.
+ * The hook flags are mutually exclusive. When none is passed the renderer falls
+ * back to its default behavior (the start-hook dialog) — exactly what a kanban
+ * todo → in_progress drop does.
  */
-function resolveHookFlags(opts: HookFlags): { hookMode?: string; hookCommand?: string } | { error: string } {
+function resolveHookFlags(opts: HookFlags): HookBody | { error: string } {
+  let hookSandbox: string | undefined;
+  if (opts.sandbox !== undefined) {
+    const parsed = parseSandboxFlag(opts.sandbox);
+    if (!parsed) return { error: `Invalid --sandbox: ${opts.sandbox}. Must be one of: ${SANDBOX_FLAG_VALUES}` };
+    hookSandbox = parsed;
+  }
+  const mode = resolveHookMode(opts);
+  if ('error' in mode) return mode;
+  return { ...mode, ...(hookSandbox && { hookSandbox }) };
+}
+
+function resolveHookMode(opts: HookFlags): { hookMode?: string; hookCommand?: string } | { error: string } {
   const used = [
     opts.runHook ? '--run-hook' : null,
     opts.skipHook ? '--skip-hook' : null,
@@ -52,12 +69,9 @@ function resolveHookFlags(opts: HookFlags): { hookMode?: string; hookCommand?: s
  * Rejecting flags on `todo` (rather than ignoring them) surfaces typos like
  * `Todo` instead of silently dropping the request's intent.
  */
-function resolveStatusHookFlags(
-  status: string,
-  opts: HookFlags,
-): { body: { hookMode?: string; hookCommand?: string } } | { error: string } {
+function resolveStatusHookFlags(status: string, opts: HookFlags): { body: HookBody } | { error: string } {
   if (status === 'todo') {
-    if (opts.runHook || opts.skipHook || opts.hookCommand !== undefined) {
+    if (opts.runHook || opts.skipHook || opts.hookCommand !== undefined || opts.sandbox !== undefined) {
       return { error: 'Hook flags do not apply when setting status to "todo" — no hook runs on that transition' };
     }
     return { body: {} };
@@ -160,6 +174,10 @@ Examples:
     .option('--run-hook', 'run the configured start hook immediately, no dialog')
     .option('--skip-hook', 'spawn the terminal but run no hook')
     .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
+    .option(
+      '--sandbox <backend>',
+      `run the hook in this sandbox instead of the hook's own setting (${SANDBOX_FLAG_VALUES})`,
+    )
     .action(async (number: string, opts: { branch?: string } & HookFlags) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
@@ -186,6 +204,10 @@ Examples:
     .option('--run-hook', 'run the configured start hook immediately, no dialog')
     .option('--skip-hook', 'spawn the terminal but run no hook')
     .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
+    .option(
+      '--sandbox <backend>',
+      `run the hook in this sandbox instead of the hook's own setting (${SANDBOX_FLAG_VALUES})`,
+    )
     .action(async (name: string, opts: { prompt?: string; branch?: string } & HookFlags) => {
       const hook = resolveHookFlags(opts);
       if ('error' in hook) return printError(hook.error);
@@ -210,6 +232,10 @@ Examples:
     .option('--run-hook', "run this transition's configured hook immediately, no dialog")
     .option('--skip-hook', 'skip the hook for this transition (continue/review/done)')
     .option('--hook-command <cmd>', 'run a one-off command instead of the configured hook for this transition')
+    .option(
+      '--sandbox <backend>',
+      `run the hook in this sandbox instead of the hook's own setting (${SANDBOX_FLAG_VALUES})`,
+    )
     .action(async (number: string, status: string, opts: HookFlags) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
@@ -235,6 +261,10 @@ Examples:
     .option('--run-hook', "run this transition's configured hook for every task, no dialog")
     .option('--skip-hook', 'skip the hook for this transition (continue/review/done) on every task')
     .option('--hook-command <cmd>', 'run this command instead of the configured hook for every task')
+    .option(
+      '--sandbox <backend>',
+      `run the hook in this sandbox instead of the hook's own setting (${SANDBOX_FLAG_VALUES})`,
+    )
     .action(async (status: string, numberArgs: string[], opts: HookFlags) => {
       if (!VALID_STATUSES.includes(status)) {
         return printError(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);

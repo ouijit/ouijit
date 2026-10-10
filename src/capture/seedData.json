@@ -86,13 +86,15 @@
       "type": "start",
       "name": "Claude",
       "command": "claude --dangerously-skip-permissions \"$OUIJIT_TASK_DESCRIPTION\"",
-      "description": "Launch Claude Code with the task description"
+      "description": "Launch Claude Code with the task description",
+      "sandbox": "nono"
     },
     {
       "type": "continue",
       "name": "Resume",
       "command": "claude --continue",
-      "description": "Continue a stopped Claude session"
+      "description": "Continue a stopped Claude session",
+      "sandbox": "nono"
     },
     {
       "type": "run",

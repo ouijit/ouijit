@@ -1,3 +1,5 @@
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { describe, test, expect } from 'vitest';
 import { tokenizeCommand, resolveCommandTokens, buildCustomLaunch } from '../sandbox/custom/argv';
 import type { SandboxLaunch } from '../sandbox/types';
@@ -34,6 +36,16 @@ describe('custom sandbox argv', () => {
     expect(resolveCommandTokens('/wt/T-30/sandbox', ['/wt/T-3'])).toEqual(['/wt/T-30/sandbox']);
     expect(resolveCommandTokens('/opt/sb', ['/wt/T-3'])).toEqual(['/opt/sb']);
     expect(resolveCommandTokens('sandbox --strict', ['/wt/T-3'])).toEqual(['sandbox', '--strict']);
+  });
+
+  test('resolves a launcher under ~/ to the host home, and only the launcher', () => {
+    const home = os.homedir();
+    expect(resolveCommandTokens('~/.local/bin/sb ~/policy.json')).toEqual([
+      path.join(home, '.local/bin/sb'),
+      '~/policy.json',
+    ]);
+    // Expanded before the worktree check, so a home-relative path into the worktree is still refused.
+    expect(() => resolveCommandTokens('~/wt/sb', [path.join(home, 'wt')])).toThrow(/inside/);
   });
 
   test('wraps the shell launch as <launcher> [args] -- <shell> [shell args] and leaves env alone', () => {

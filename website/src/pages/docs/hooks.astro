@@ -35,6 +35,13 @@ import Docs from '../../layouts/Docs.astro';
     launches Claude Code with the task's prompt the moment the task starts.
   </p>
 
+  <h2 id="sandbox">Sandbox</h2>
+  <p>
+    Start, continue, review, and done each choose where they run: on the host, or in a
+    <a href="/docs/sandbox/">sandbox</a>. An agent started with permission checks off can run sandboxed while a
+    deterministic done script stays on the host. The hook dialog shows the setting and can change it for one run.
+  </p>
+
   <h2 id="hook-environment">Hook environment</h2>
   <p>Hooks receive the task's context as environment variables:</p>
   <pre class="glass-bevel"><code>OUIJIT_PROJECT_PATH=/path/to/my-project

@@ -42,6 +42,7 @@ ouijit task start 5 --branch custom-name
 ouijit task start 5 --run-hook                # run the configured start hook, no dialog
 ouijit task start 5 --skip-hook               # spawn the terminal, run no hook
 ouijit task start 5 --hook-command "claude"   # one-off command instead of the configured hook
+ouijit task start 5 --run-hook --sandbox custom # run it in a sandbox other than the hook's own
 ouijit task create-and-start "Add 2FA"        # create + start in one step
 ouijit task create-and-start "Add 2FA" --prompt "..." --branch custom --skip-hook
 ouijit task spawn "Add 2FA"                   # alias for create-and-start
@@ -64,6 +65,10 @@ ouijit task delete 5</code></pre>
     and rejects these flags.
   </p>
   <p>
+    <code>--sandbox host|nono|custom</code> overrides the hook's own <a href="/docs/sandbox/">sandbox</a> setting
+    for that run, with or without the flags above. With the dialog, it is what the dialog preselects.
+  </p>
+  <p>
     <code>ouijit task current</code> resolves the task owning the current terminal via the
     <code>OUIJIT_PTY_ID</code> env var that Ouijit sets on every spawn:
   </p>
@@ -80,8 +85,13 @@ ouijit task set-status "$TASK" in_review</code></pre>
 ouijit hook get start
 ouijit hook set start --name "Install &amp; agent" --command 'npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"'
 ouijit hook set run --name "Dev server" --command "npm run dev" --restart-if-running
+ouijit hook set continue --name "Agent" --command "claude -c" --sandbox custom
 ouijit hook delete done</code></pre>
   <p><code>--restart-if-running</code> applies to the run hook only: relaunch instead of focusing an already-running instance.</p>
+  <p>
+    <code>--sandbox nono|custom</code> applies to the start, continue, review, and done hooks: the sandbox the
+    hook runs in. <code>hook set</code> replaces the whole hook, so leaving it out runs the hook on the host.
+  </p>
 
   <h2>Sandbox command</h2>
   <p>

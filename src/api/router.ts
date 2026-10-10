@@ -73,7 +73,8 @@ import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
-import type { CliHookMode, CliPanelKind } from '../types';
+import type { CliHookMode, CliPanelKind, SandboxProviderId } from '../types';
+import { isSandboxBackendId } from '../sandbox/types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
@@ -151,6 +152,7 @@ function isSuccessfulStart(result: unknown): result is TaskStartResult {
 interface HookControl {
   hookMode?: CliHookMode;
   hookCommand?: string;
+  hookSandbox?: SandboxProviderId;
 }
 
 /**
@@ -160,6 +162,15 @@ interface HookControl {
  * dialog. An empty result means "use the default dialog behavior".
  */
 function parseHookControl(body: Record<string, unknown>): HookControl {
+  const sandbox = body.hookSandbox;
+  if (sandbox !== undefined && sandbox !== 'none' && !isSandboxBackendId(sandbox)) {
+    throw new HttpError(400, `Invalid hookSandbox: ${String(sandbox)}. Must be none, nono, or custom`);
+  }
+  const hookSandbox = sandbox as SandboxProviderId | undefined;
+  return { ...parseHookMode(body), ...(hookSandbox && { hookSandbox }) };
+}
+
+function parseHookMode(body: Record<string, unknown>): Omit<HookControl, 'hookSandbox'> {
   const mode = body.hookMode;
   if (mode === undefined) return {};
   if (mode !== 'run' && mode !== 'skip' && mode !== 'command') {
@@ -496,6 +507,9 @@ const routes: Route[] = [
     (r) => {
       const project = requireProject(r.query);
       const type = r.segments[1];
+      if (r.body.sandbox !== undefined && !isSandboxBackendId(r.body.sandbox)) {
+        throw new HttpError(400, `Invalid sandbox: ${String(r.body.sandbox)}. Must be nono or custom`);
+      }
       return saveHook(project, { ...r.body, type } as Parameters<typeof saveHook>[1]);
     },
     true,
@@ -1047,6 +1061,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             createdAt: task.createdAt,
             hookMode: hookControl.hookMode,
             hookCommand: hookControl.hookCommand,
+            hookSandbox: hookControl.hookSandbox,
           });
         }
       }
@@ -1073,6 +1088,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               task,
               hookMode: hookControl.hookMode,
               hookCommand: hookControl.hookCommand,
+              hookSandbox: hookControl.hookSandbox,
             });
           }
         }
@@ -1104,6 +1120,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               task,
               hookMode: hookControl.hookMode,
               hookCommand: hookControl.hookCommand,
+              hookSandbox: hookControl.hookSandbox,
             });
           }
         }

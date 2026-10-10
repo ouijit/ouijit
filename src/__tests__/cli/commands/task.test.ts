@@ -164,6 +164,35 @@ describe('task commands', () => {
       });
     });
 
+    test('--sandbox rides along with any hook flag as hookSandbox, and is refused where no hook runs', async () => {
+      vi.mocked(post).mockResolvedValue({ success: true });
+      vi.mocked(patch).mockResolvedValue({ success: true });
+      const run = async (args: string[]) => {
+        const output = captureOutput();
+        await createProgram().parseAsync(args, { from: 'user' });
+        output.getJson();
+      };
+
+      await run(['task', 'start', '3', '--run-hook', '--sandbox', 'host']);
+      expect(vi.mocked(post).mock.lastCall?.[1]).toMatchObject({ hookMode: 'run', hookSandbox: 'none' });
+      await run(['task', 'set-status', '3', 'in_review', '--sandbox', 'custom']);
+      expect(vi.mocked(patch).mock.lastCall?.[1]).toEqual({ status: 'in_review', hookSandbox: 'custom' });
+
+      const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`exit:${code}`);
+      }) as never);
+      vi.mocked(patch).mockClear();
+      try {
+        await expect(run(['task', 'set-status', '3', 'todo', '--sandbox', 'nono'])).rejects.toThrow(/exit:1/);
+        await expect(run(['task', 'set-status', '3', 'done', '--sandbox', 'vm'])).rejects.toThrow(/exit:1/);
+        expect(patch).not.toHaveBeenCalled();
+      } finally {
+        errSpy.mockRestore();
+        exitSpy.mockRestore();
+      }
+    });
+
     test('mutually exclusive hook flags error and exit non-zero', async () => {
       const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
       const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {

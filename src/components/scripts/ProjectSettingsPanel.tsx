@@ -34,7 +34,6 @@ interface ProjectSettingsPanelProps {
 }
 
 export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps) {
-  const sandboxAvailable = useProjectStore((s) => s.availableSandboxProviders.length > 0);
   const linearEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.linear ?? false);
 
   useEffect(() => {
@@ -119,13 +118,11 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
             <p className="text-xs text-text-tertiary mb-4">Command to open task worktrees in your editor.</p>
             <HookList projectPath={projectPath} hooks={EDITOR_HOOK} />
           </section>
-          {sandboxAvailable && (
-            <section>
-              <h2 className="text-sm font-semibold text-text-primary mb-2">Sandbox</h2>
-              <p className="text-xs text-text-tertiary mb-4">Backends that can run a task's terminals contained.</p>
-              <SandboxSection projectPath={projectPath} />
-            </section>
-          )}
+          <section>
+            <h2 className="text-sm font-semibold text-text-primary mb-2">Sandbox</h2>
+            <p className="text-xs text-text-tertiary mb-4">Backends that can run a task's terminals contained.</p>
+            <SandboxSection projectPath={projectPath} />
+          </section>
           {linearEnabled && (
             <section>
               <h2 className="text-sm font-semibold text-text-primary mb-2">Linear</h2>

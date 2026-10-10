@@ -12,6 +12,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
 import type { PtyId, PtySpawnOptions, GitFileStatus, SandboxProviderId } from '../../types';
+import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -578,19 +579,20 @@ export class OuijitTerminal {
     this.wireResizeObserver();
   }
 
-  async spawnPty(options: PtySpawnOptions): Promise<PtyId | null> {
+  async spawnPty(options: PtySpawnOptions): Promise<{ ptyId: PtyId } | { error: string }> {
     const result = await window.api.pty.spawn(options);
 
     if (!result.success || !result.ptyId) {
-      this.xterm.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);
+      const error = result.error || 'Unknown error';
+      this.xterm.writeln(`\x1b[31mFailed to start terminal: ${error}\x1b[0m`);
       this.xterm.writeln(`\x1b[90mThis card will close in 10 seconds.\x1b[0m`);
-      return null;
+      return { error };
     }
 
     this.bind(result.ptyId);
     // Suppress resize while layout settles to avoid SIGWINCH → zsh % artifacts
     this.suppressResizeDuring(500);
-    return result.ptyId;
+    return { ptyId: result.ptyId };
   }
 
   replayBuffer(bufferedOutput: string | undefined, lastCols?: number, isAltScreen?: boolean): void {
@@ -759,7 +761,13 @@ export class OuijitTerminal {
   }
 
   addRunnerPanel(
-    script?: { name: string; command: string; source?: 'hook' | 'script'; restartIfRunning?: boolean } | null,
+    script?: {
+      name: string;
+      command: string;
+      source?: 'hook' | 'script';
+      restartIfRunning?: boolean;
+      sandboxProvider?: SandboxProviderId;
+    } | null,
     activate = true,
   ): string {
     const id = generateId('panel');
@@ -771,6 +779,7 @@ export class OuijitTerminal {
       command: script?.command ?? null,
       source: script?.source ?? 'script',
       restartIfRunning: script?.restartIfRunning ?? false,
+      ...(isActiveSandbox(script?.sandboxProvider) && { sandboxProvider: script.sandboxProvider }),
       status: 'idle',
     };
     this.appendPanel(panel, activate);

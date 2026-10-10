@@ -22,27 +22,22 @@ describe('SandboxSection provider router', () => {
     vi.clearAllMocks();
   });
 
-  test('renders nothing when no backend is available', () => {
+  test('lists every backend, opens on nono, and says why the one shown cannot run', async () => {
     setAvailable([]);
-    const { container } = render(<SandboxSection projectPath="/p" />);
-    expect(container.firstChild).toBeNull();
-  });
+    vi.mocked(window.api.sandbox.status).mockResolvedValue([
+      { providerId: 'nono', available: false, ready: false, detail: 'Not installed' },
+      { providerId: 'custom', available: false, ready: false, detail: 'Set a sandbox command to use it.' },
+    ]);
+    const { getByText, getByLabelText, queryByText } = render(<SandboxSection projectPath="/p" />);
 
-  test('nono-only: shows the nono config surface, no backend picker', async () => {
-    setAvailable(['nono']);
-    const { queryByText, getByLabelText } = render(<SandboxSection projectPath="/p" />);
-    await waitFor(() => expect(getByLabelText('Block outbound network')).toBeTruthy());
-    // No picker tabs when a single backend.
-    expect(queryByText('Custom')).toBeNull();
-  });
+    await waitFor(() => expect(getByText('Not installed')).toBeTruthy());
+    expect(getByLabelText('Block outbound network')).toBeTruthy();
+    expect(queryByText('Set a sandbox command to use it.')).toBeNull();
 
-  test('both backends: shows a picker to switch between them', async () => {
-    setAvailable(['nono', 'custom']);
-    const { getByText } = render(<SandboxSection projectPath="/p" />);
-    await waitFor(() => {
-      expect(getByText('nono')).toBeTruthy();
-      expect(getByText('Custom')).toBeTruthy();
-    });
+    fireEvent.click(getByText('Custom'));
+    expect(getByText('Set a sandbox command to use it.')).toBeTruthy();
+    expect(getByText('+ Configure')).toBeTruthy();
+    expect(queryByText('Not installed')).toBeNull();
   });
 
   test('toggling the nono network restriction persists the config', async () => {
@@ -76,6 +71,7 @@ describe('SandboxSection provider router', () => {
       cfg.command === 'scripts/sandbox' ? { success: false, error: 'refused by the main process' } : { success: true },
     );
     const { getByText, getByLabelText, queryByText, queryByLabelText } = render(<SandboxSection projectPath="/p" />);
+    fireEvent.click(getByText('Custom'));
     fireEvent.click(await waitFor(() => getByText('+ Configure')));
     const field = getByLabelText('Sandbox command');
     vi.mocked(window.api.sandbox.status).mockClear();

@@ -33,13 +33,13 @@ beforeEach(() => {
 });
 
 describe('customProvider', () => {
-  test('is always available and ready once a command is saved', async () => {
+  test('is available once a command is saved', async () => {
     expect(customProvider.id).toBe('custom');
 
     await setCustomSandboxConfig(ctx.projectPath, {});
     let status = await customProvider.getStatus(ctx.projectPath);
-    expect(status).toMatchObject({ providerId: 'custom', available: true, ready: false });
-    expect(status.detail).toMatch(/No sandbox command configured/);
+    expect(status).toMatchObject({ providerId: 'custom', available: false, ready: false });
+    expect(status.detail).toMatch(/sandbox command/);
 
     await setCustomSandboxConfig(ctx.projectPath, { command: '  /opt/sb --strict  ' });
     status = await customProvider.getStatus(ctx.projectPath);

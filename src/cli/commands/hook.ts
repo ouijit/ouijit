@@ -5,8 +5,10 @@
 import type { Command } from 'commander';
 import { get, put, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
+import { SANDBOX_FLAG_VALUES, parseSandboxFlag } from '../sandboxFlag';
 
 const VALID_HOOK_TYPES = ['start', 'continue', 'run', 'review', 'done', 'editor'];
+const SANDBOXABLE_HOOK_TYPES = ['start', 'continue', 'review', 'done'];
 
 function validateHookType(type: string): string {
   if (!VALID_HOOK_TYPES.includes(type)) {
@@ -27,6 +29,7 @@ Hook types: start, continue, run, review, done, editor
 Examples:
   ouijit hook list
   ouijit hook set start --name "Install deps" --command "npm install"
+  ouijit hook set start --name "Claude" --command "claude" --sandbox custom
   ouijit hook get review
   ouijit hook delete done`,
     );
@@ -59,10 +62,14 @@ Examples:
     .requiredOption('--command <cmd>', 'hook command')
     .option('--description <desc>', 'hook description')
     .option('--restart-if-running', 'run hook only: restart the command if it is already running in the task')
+    .option(
+      '--sandbox <backend>',
+      `start, continue, review, done: the sandbox the hook runs in (${SANDBOX_FLAG_VALUES})`,
+    )
     .action(
       async (
         type: string,
-        opts: { name: string; command: string; description?: string; restartIfRunning?: boolean },
+        opts: { name: string; command: string; description?: string; restartIfRunning?: boolean; sandbox?: string },
       ) => {
         const t = validateHookType(type);
         // restartIfRunning only affects the run hook (the only hook surfaced as a
@@ -70,12 +77,20 @@ Examples:
         if (opts.restartIfRunning && t !== 'run') {
           return printError('--restart-if-running is only valid for the run hook');
         }
+        const sandbox = opts.sandbox === undefined ? undefined : parseSandboxFlag(opts.sandbox);
+        if (sandbox === null) {
+          return printError(`Invalid --sandbox: ${opts.sandbox}. Must be one of: ${SANDBOX_FLAG_VALUES}`);
+        }
+        if (sandbox && !SANDBOXABLE_HOOK_TYPES.includes(t)) {
+          return printError(`--sandbox is only valid for the ${SANDBOXABLE_HOOK_TYPES.join(', ')} hooks`);
+        }
         const project = requireProject();
         const result = await put(`/api/hooks/${t}${projectQuery(project)}`, {
           name: opts.name,
           command: opts.command,
           ...(opts.description && { description: opts.description }),
           ...(opts.restartIfRunning && { restartIfRunning: true }),
+          ...(sandbox && sandbox !== 'none' && { sandbox }),
         });
         printJson(result);
       },

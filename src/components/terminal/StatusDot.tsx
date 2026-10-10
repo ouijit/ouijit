@@ -9,6 +9,8 @@ interface StatusDotProps {
   size?: number;
 }
 
+export const SANDBOX_RING_COLOR = 'color-mix(in srgb, var(--color-ansi-blue) 60%, transparent)';
+
 export function sandboxSuffix(sandboxProvider?: SandboxProviderId): string {
   return isActiveSandbox(sandboxProvider) ? ` (${sandboxProvider})` : '';
 }
@@ -51,9 +53,7 @@ export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotP
         style={
           {
             '--status-dot-size': `${size}px`,
-            ...(sandboxed
-              ? { '--status-ring-color': 'color-mix(in srgb, var(--color-ansi-blue) 60%, transparent)' }
-              : {}),
+            ...(sandboxed ? { '--status-ring-color': SANDBOX_RING_COLOR } : {}),
           } as CSSProperties
         }
       >

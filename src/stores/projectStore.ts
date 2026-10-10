@@ -18,6 +18,8 @@ export interface RunHookInput {
   hookType: HookType;
   hook: ScriptHook;
   task: TaskWithWorkspace;
+  /** What the dialog preselects, and what "Run all" uses for the hooks behind it. */
+  sandbox: SandboxProviderId;
 }
 
 export type RunHookRequest = RunHookInput & Pending<RunHookResult | null>;
@@ -31,6 +33,8 @@ export interface PendingCliStart {
   hookMode?: CliHookMode;
   /** Custom command when hookMode is 'command'. */
   hookCommand?: string;
+  /** Sandbox override from the CLI's --sandbox flag. */
+  hookSandbox?: SandboxProviderId;
 }
 
 /**
@@ -48,6 +52,8 @@ export interface PendingCliTransition {
   hookMode?: CliHookMode;
   /** Custom command when hookMode is 'command'. */
   hookCommand?: string;
+  /** Sandbox override from the CLI's --sandbox flag. */
+  hookSandbox?: SandboxProviderId;
 }
 
 /**
@@ -63,6 +69,8 @@ export interface PendingCliCompletion {
   hookMode?: CliHookMode;
   /** Custom command when hookMode is 'command'. */
   hookCommand?: string;
+  /** Sandbox override from the CLI's --sandbox flag. */
+  hookSandbox?: SandboxProviderId;
 }
 
 interface ProjectStoreState {
@@ -539,7 +547,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     // each one.
     set({
       runHookQueue: settleAllPrompts(queue, (req, index) =>
-        index === 0 ? headResult : { command: req.hook.command, foreground: false },
+        index === 0 ? headResult : { command: req.hook.command, foreground: false, sandbox: req.sandbox },
       ),
       runHookQueueTotal: 0,
     });

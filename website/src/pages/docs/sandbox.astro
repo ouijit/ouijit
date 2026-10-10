@@ -8,15 +8,32 @@ import Docs from '../../layouts/Docs.astro';
     place on the host, or a launcher of your own.
   </p>
 
-  <h2>Choose a backend</h2>
+  <h2>Choose where things run</h2>
   <p>
-    Sandboxing is a per-terminal choice. Right-click a task and use <strong>Open in &rarr; nono
-    sandbox</strong> or <strong>Open in &rarr; Custom sandbox</strong>; an entry appears for each backend
-    available to the project. Plain <strong>Open in &rarr; Terminal</strong> runs on the host, unsandboxed.
-    Every terminal and <a href="/docs/hooks/">hook</a> opened for that task then runs under the chosen backend. A
-    sandboxed terminal carries an outlined status dot and a backend suffix on its label.
+    <strong>Hooks.</strong> Start, continue, review, and done each have a sandbox setting beside their command:
+    Host, nono, or Custom. Moving a task runs that column's <a href="/docs/hooks/#sandbox">hook</a> where it is
+    set to run, and the hook dialog can change it for that one run.
   </p>
-  <p>Each backend has its own configuration under <strong>Project Settings &rarr; Sandbox</strong>.</p>
+  <p>
+    <strong>Runners.</strong> In a terminal's <strong>+</strong> menu, clicking Run or a script runs it on the
+    host. The backend buttons on the same row run it sandboxed instead, so a dev server can sit beside a
+    sandboxed agent in the same card. <code>⌘P</code> runs on the host.
+  </p>
+  <p>
+    <strong>Terminals.</strong> Right-click a task and use <strong>Open in &rarr; nono sandbox</strong> or
+    <strong>Open in &rarr; Custom sandbox</strong>. <strong>Open in &rarr; Terminal</strong> runs the continue
+    hook where it is set to run.
+  </p>
+  <p>
+    A sandboxed terminal carries an outlined status dot and a backend suffix on its label; a sandboxed runner's
+    tab dot is outlined too.
+  </p>
+  <p>
+    A backend is offered once it can run: nono when its binary is present, Custom once its command is set. Each
+    has its own configuration under <strong>Project Settings &rarr; Sandbox</strong>. If the chosen backend
+    cannot start, the terminal says why and Ouijit raises an error. It never runs the command on the host
+    instead, and a restored terminal whose backend is gone fails the same way.
+  </p>
 
   <h2>nono</h2>
   <p>
@@ -25,11 +42,6 @@ import Docs from '../../layouts/Docs.astro';
     is a kernel access policy on a host process rather than a separate machine, so it starts instantly with no
     file sync.
   </p>
-  <p>
-    nono is experimental. Turn it on under <strong>Project Settings &rarr; Experimental</strong>; the
-    <strong>nono sandbox</strong> entry then appears in a task's <strong>Open in</strong> menu.
-  </p>
-
   <h3>What it does</h3>
   <p>
     Terminals and hooks run on the real worktree, wrapped by <code>nono</code>. Filesystem access is limited to
@@ -66,8 +78,7 @@ import Docs from '../../layouts/Docs.astro';
   <p>
     The Custom backend runs a task's terminals under a launcher you provide: a reviewed script in your team's
     control, with its own pinned sandbox binary, committed policy, and preflight checks. Ouijit grants nothing
-    itself; the launcher owns the boundary. It is experimental. Turn it on under
-    <strong>Project Settings &rarr; Experimental</strong>, then set the command under
+    itself; the launcher owns the boundary. Set the command under
     <strong>Project Settings &rarr; Sandbox &rarr; Custom</strong> or with <code>ouijit sandbox-command set</code>.
   </p>
 
@@ -79,8 +90,8 @@ import Docs from '../../layouts/Docs.astro';
     <code>OUIJIT_WRAPPER_DIR</code>, <code>OUIJIT_CLI_PATH</code> (when the bundled CLI is present),
     <code>OUIJIT_SHELL_INTEGRATION_DIR</code>,
     and the shell integration's <code>ZDOTDIR</code>. The launcher's argv is exactly the configured command,
-    split on whitespace with shell-style quoting; nothing is expanded and nothing is added except the
-    <code>--</code> and the shell.
+    split on whitespace with shell-style quoting. Nothing is expanded except a leading <code>~/</code> on the
+    launcher path, and nothing is added except the <code>--</code> and the shell.
   </p>
   <p>
     Everything Ouijit would otherwise have granted is exported as advisory hints. They are computed on the host
@@ -115,9 +126,5 @@ import Docs from '../../layouts/Docs.astro';
     launcher it can edit is one it can turn off. Keep a versioned launcher in the repo if you like, but install
     it from a reviewed checkout to somewhere the sandbox cannot write, such as <code>~/.local/bin</code>, and
     point the setting there. If your <code>PATH</code> contains relative entries, use an absolute path.
-  </p>
-  <p>
-    A restored terminal whose backend is no longer available (the flag was turned off) reopens as a host shell,
-    as it does for the other backends.
   </p>
 </Docs>

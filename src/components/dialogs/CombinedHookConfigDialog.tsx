@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { ScriptHook } from '../../types';
+import type { SandboxProviderId, ScriptHook } from '../../types';
+import { isActiveSandbox } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { useHookCommandDefault } from '../../utils/hookDefaults';
 import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
+import { SandboxPicker } from '../ui/SandboxPicker';
 
 interface CombinedHookConfigDialogProps {
   projectPath: string;
@@ -24,6 +26,8 @@ export function CombinedHookConfigDialog({
   const continuePlaceholder = useHookCommandDefault('continue');
   const [startCommand, setStartCommand] = useState(existingStart?.command ?? '');
   const [continueCommand, setContinueCommand] = useState(existingContinue?.command ?? '');
+  const [startSandbox, setStartSandbox] = useState<SandboxProviderId>(existingStart?.sandbox ?? 'none');
+  const [continueSandbox, setContinueSandbox] = useState<SandboxProviderId>(existingContinue?.sandbox ?? 'none');
   const [visible, setVisible] = useState(false);
   const startRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
@@ -56,6 +60,7 @@ export function CombinedHookConfigDialog({
         type: 'start',
         name: 'Start Hook',
         command: startTrimmed,
+        ...(isActiveSandbox(startSandbox) && { sandbox: startSandbox }),
       });
     } else if (existingStart) {
       await window.api.hooks.delete(projectPath, 'start');
@@ -68,6 +73,7 @@ export function CombinedHookConfigDialog({
         type: 'continue',
         name: 'Continue Hook',
         command: continueTrimmed,
+        ...(isActiveSandbox(continueSandbox) && { sandbox: continueSandbox }),
       });
     } else if (existingContinue) {
       await window.api.hooks.delete(projectPath, 'continue');
@@ -75,7 +81,16 @@ export function CombinedHookConfigDialog({
 
     useProjectStore.getState().addToast('Hooks saved', 'success');
     dismiss({ saved: true });
-  }, [startCommand, continueCommand, projectPath, existingStart, existingContinue, dismiss]);
+  }, [
+    startCommand,
+    continueCommand,
+    startSandbox,
+    continueSandbox,
+    projectPath,
+    existingStart,
+    existingContinue,
+    dismiss,
+  ]);
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
@@ -102,6 +117,9 @@ export function CombinedHookConfigDialog({
             }}
             rows={1}
           />
+          <div className="mt-2">
+            <SandboxPicker value={startSandbox} onChange={setStartSandbox} />
+          </div>
         </div>
 
         <div className="flex flex-col gap-1 mt-4">
@@ -123,6 +141,9 @@ export function CombinedHookConfigDialog({
             }}
             rows={1}
           />
+          <div className="mt-2">
+            <SandboxPicker value={continueSandbox} onChange={setContinueSandbox} />
+          </div>
         </div>
 
         <HookEnvVars />

@@ -49,6 +49,7 @@ async function spawnTerminalForCliStart(projectPath: string, start: PendingCliSt
       branch: task.branch ?? start.branch,
     },
     hookControl: start.hookMode ? { mode: start.hookMode, command: start.hookCommand } : undefined,
+    sandbox: start.hookSandbox,
   });
 }
 
@@ -64,6 +65,7 @@ function runCliTransition(projectPath: string, transition: PendingCliTransition)
     newStatus: transition.newStatus,
     task: transition.task,
     hookControl: transition.hookMode ? { mode: transition.hookMode, command: transition.hookCommand } : undefined,
+    sandbox: transition.hookSandbox,
   });
 }
 
@@ -78,6 +80,7 @@ function runCliCompletion(projectPath: string, completion: PendingCliCompletion)
     projectPath,
     task: completion.task,
     hookControl: completion.hookMode ? { mode: completion.hookMode, command: completion.hookCommand } : undefined,
+    sandbox: completion.hookSandbox,
     skipStatusWrite: true,
   }).catch((err) => {
     ipcLog.error('CLI task-completed lifecycle failed', {
@@ -217,6 +220,7 @@ export function useIPCListeners() {
           task: payload.task,
           hookMode: payload.hookMode,
           hookCommand: payload.hookCommand,
+          hookSandbox: payload.hookSandbox,
         };
 
         // A bare done (no hookMode) shows the Done dialog, which can only render
@@ -251,6 +255,7 @@ export function useIPCListeners() {
           createdAt: payload.createdAt,
           hookMode: payload.hookMode,
           hookCommand: payload.hookCommand,
+          hookSandbox: payload.hookSandbox,
         };
 
         if (activeProject === payload.project) {
@@ -287,6 +292,7 @@ export function useIPCListeners() {
           task: payload.task,
           hookMode: payload.hookMode,
           hookCommand: payload.hookCommand,
+          hookSandbox: payload.hookSandbox,
         };
 
         if (payload.hookMode || activeProject === payload.project) {

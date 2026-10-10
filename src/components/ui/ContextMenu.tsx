@@ -1,12 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../terminal/Icon';
+import { Tooltip } from './Tooltip';
+import { TooltipButton } from './TooltipButton';
+
+export interface ContextMenuItemAction {
+  /** The tooltip, and the button's only name when it has no `text`. */
+  label: string;
+  icon: string;
+  text?: string;
+  onClick: () => void;
+}
 
 export interface ContextMenuItem {
   label: string;
   icon?: string;
   danger?: boolean;
   onClick: () => void;
+  detail?: ReactNode;
+  /** Buttons at the end of the row, each doing something other than the row itself. */
+  actions?: ContextMenuItemAction[];
 }
 
 export interface ContextMenuSubmenu {
@@ -29,8 +42,14 @@ interface ContextMenuProps {
   onClose: () => void;
 }
 
-const ITEM_CLASS =
-  'context-menu-item w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out flex items-center gap-1.5 whitespace-nowrap hover:bg-ink/[0.08] [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60';
+const ITEM_LAYOUT =
+  'px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out flex items-center gap-1.5 whitespace-nowrap [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60';
+const ITEM_CLASS = `context-menu-item w-full ${ITEM_LAYOUT} hover:bg-ink/[0.08]`;
+const ACTION_CLASS =
+  'h-6 px-1.5 flex items-center gap-1 rounded-[6px] bg-transparent border-none text-[11px] text-text-tertiary transition-colors duration-100 ease-out hover:bg-ink/[0.1] hover:text-text-primary [&>svg]:w-3 [&>svg]:h-3';
+
+/** Long enough that sweeping the pointer down the menu doesn't flash every row's detail. */
+const DETAIL_DELAY = 600;
 
 /** The bevel is an inset `::before`, so whatever wears this has to be positioned. */
 const PANEL_CLASS = 'p-1 glass-bevel border border-bezel rounded-[12px]';
@@ -100,16 +119,54 @@ function MenuList({
             </div>
           );
         }
-        return (
+        const row = (
           <button
-            key={i}
             type="button"
-            className={`${ITEM_CLASS} ${item.danger ? 'context-menu-item--danger hover:bg-error/10 hover:text-error' : ''}`}
+            className={
+              item.actions
+                ? `context-menu-item flex-1 min-w-0 ${ITEM_LAYOUT}`
+                : `${ITEM_CLASS} ${item.danger ? 'context-menu-item--danger hover:bg-error/10 hover:text-error' : ''}`
+            }
             onClick={() => onSelect(item.onClick)}
           >
             {item.icon && <Icon name={item.icon} />}
             {item.label}
           </button>
+        );
+        const withDetail = item.detail ? (
+          <Tooltip
+            text={item.detail}
+            placement="right"
+            delay={DETAIL_DELAY}
+            offsetPx={12}
+            wrapAt={360}
+            referenceClassName={item.actions ? 'flex flex-1 min-w-0' : 'block'}
+          >
+            {row}
+          </Tooltip>
+        ) : (
+          row
+        );
+        if (!item.actions) return <Fragment key={i}>{withDetail}</Fragment>;
+        return (
+          <div key={i} className="flex items-center gap-0.5 pr-0.5 rounded-[7px] hover:bg-ink/[0.08]">
+            {withDetail}
+            {item.actions.map((action) => (
+              <TooltipButton
+                key={action.label}
+                text={action.label}
+                placement="top"
+                className={ACTION_CLASS}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect(action.onClick);
+                }}
+              >
+                <Icon name={action.icon} />
+                {action.text}
+              </TooltipButton>
+            ))}
+          </div>
         );
       })}
     </>

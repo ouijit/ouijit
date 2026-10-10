@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { ScriptHook, HookType } from '../../types';
+import type { ScriptHook, HookType, SandboxProviderId } from '../../types';
+import { isActiveSandbox } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { useHookCommandDefault } from '../../utils/hookDefaults';
@@ -7,17 +8,20 @@ import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
 import { Checkbox } from '../ui/Checkbox';
+import { SandboxPicker } from '../ui/SandboxPicker';
 
-const HOOK_LABELS: Record<HookType, { title: string; description: string; envVars?: boolean }> = {
+const HOOK_LABELS: Record<HookType, { title: string; description: string; envVars?: boolean; sandbox?: boolean }> = {
   start: {
     title: 'Start Hook',
     description: 'Runs when a task moves from To Do to In Progress',
     envVars: true,
+    sandbox: true,
   },
   continue: {
     title: 'Continue Hook',
     description: 'Runs when reopening a task that is already In Progress',
     envVars: true,
+    sandbox: true,
   },
   run: {
     title: 'Run',
@@ -28,11 +32,13 @@ const HOOK_LABELS: Record<HookType, { title: string; description: string; envVar
     title: 'Review Hook',
     description: 'Runs when a task moves to In Review',
     envVars: true,
+    sandbox: true,
   },
   done: {
     title: 'Done Hook',
     description: 'Runs when a task moves to Done',
     envVars: true,
+    sandbox: true,
   },
   editor: {
     title: 'Editor',
@@ -54,6 +60,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
 
   const [command, setCommand] = useState(existingHook?.command ?? '');
   const [restartIfRunning, setRestartIfRunning] = useState(existingHook?.restartIfRunning ?? false);
+  const [sandbox, setSandbox] = useState<SandboxProviderId>(existingHook?.sandbox ?? 'none');
   const [visible, setVisible] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
@@ -91,13 +98,14 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
       name: labels.title,
       command: trimmed,
       ...(isRunHook && { restartIfRunning }),
+      ...(labels.sandbox && isActiveSandbox(sandbox) && { sandbox }),
     };
 
     await window.api.hooks.save(projectPath, hook);
 
     useProjectStore.getState().addToast(`${labels.title} saved`, 'success');
     dismiss({ saved: true, hook });
-  }, [command, projectPath, hookType, existingHook, labels, isRunHook, restartIfRunning, dismiss]);
+  }, [command, projectPath, hookType, existingHook, labels, isRunHook, restartIfRunning, sandbox, dismiss]);
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
@@ -131,6 +139,12 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
               onChange={setRestartIfRunning}
               label="Restart if it's already running in the task"
             />
+          </div>
+        )}
+
+        {labels.sandbox && (
+          <div className="mt-3">
+            <SandboxPicker value={sandbox} onChange={setSandbox} />
           </div>
         )}
 

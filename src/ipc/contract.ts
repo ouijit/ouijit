@@ -32,6 +32,7 @@ import type {
   CheckWorktreeResult,
   TaskWithWorkspace,
   CliHookMode,
+  SandboxProviderId,
   TaskStatus,
   ScriptHook,
   HookType,
@@ -493,6 +494,7 @@ export interface IpcPushContract {
         hookMode?: CliHookMode;
         /** Custom command when hookMode is 'command'. */
         hookCommand?: string;
+        hookSandbox?: SandboxProviderId;
       },
     ];
   };
@@ -509,6 +511,7 @@ export interface IpcPushContract {
         hookMode?: CliHookMode;
         /** Custom command when hookMode is 'command'. */
         hookCommand?: string;
+        hookSandbox?: SandboxProviderId;
       },
     ];
   };
@@ -527,6 +530,7 @@ export interface IpcPushContract {
         hookMode?: CliHookMode;
         /** Custom command when hookMode is 'command'. */
         hookCommand?: string;
+        hookSandbox?: SandboxProviderId;
       },
     ];
   };

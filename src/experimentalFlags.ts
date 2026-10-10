@@ -9,10 +9,6 @@
 export interface ExperimentalFlags {
   /** React-flow free-form terminal canvas. */
   canvas: boolean;
-  /** The nono sandbox backend (still maturing; gated off by default). */
-  nono: boolean;
-  /** The custom (bring-your-own launcher) sandbox backend. */
-  customSandbox: boolean;
   /** GitHub pull request inbox and review surface. Panel and polling stay dark until on. */
   github: boolean;
   /** Linear issues in the panel's Issues list. Needs a personal API key. */
@@ -23,8 +19,6 @@ export interface ExperimentalFlags {
 
 export const DEFAULT_EXPERIMENTAL_FLAGS: ExperimentalFlags = {
   canvas: false,
-  nono: false,
-  customSandbox: false,
   github: false,
   linear: false,
   analysis: false,

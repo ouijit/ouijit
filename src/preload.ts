@@ -17,6 +17,7 @@ import type {
   HookType,
   Script,
   CliHookMode,
+  SandboxProviderId,
   TaskWithWorkspace,
   NonoConfig,
   CustomSandboxConfig,
@@ -272,6 +273,7 @@ contextBridge.exposeInMainWorld('api', {
       createdAt: string;
       hookMode?: CliHookMode;
       hookCommand?: string;
+      hookSandbox?: SandboxProviderId;
     }) => void,
   ) => typedListen('cli:task-started', callback),
 
@@ -282,6 +284,7 @@ contextBridge.exposeInMainWorld('api', {
       task: TaskWithWorkspace;
       hookMode?: CliHookMode;
       hookCommand?: string;
+      hookSandbox?: SandboxProviderId;
     }) => void,
   ) => typedListen('cli:task-completed', callback),
 
@@ -294,6 +297,7 @@ contextBridge.exposeInMainWorld('api', {
       task: TaskWithWorkspace;
       hookMode?: CliHookMode;
       hookCommand?: string;
+      hookSandbox?: SandboxProviderId;
     }) => void,
   ) => typedListen('cli:task-transitioned', callback),
 

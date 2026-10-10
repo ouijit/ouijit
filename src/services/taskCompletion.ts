@@ -16,7 +16,7 @@ import log from 'electron-log/renderer';
 import { addProjectTerminal, closeProjectTerminal } from '../components/terminal/terminalActions';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
-import type { CliHookMode, TaskWithWorkspace } from '../types';
+import type { CliHookMode, SandboxProviderId, TaskWithWorkspace } from '../types';
 
 const completionLog = log.scope('taskCompletion');
 
@@ -44,6 +44,8 @@ export interface CompleteTaskOptions {
    * headlessly, run a custom command, or skip — used by shift-drag and the CLI.
    */
   hookControl?: CompleteHookControl;
+  /** Overrides the done hook's own sandbox setting. */
+  sandbox?: SandboxProviderId;
   /**
    * Kanban-only: when set, also reorder the task within the done column.
    * When omitted, only the status is written.
@@ -83,7 +85,7 @@ export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
 }
 
 async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
-  const { projectPath, task, hookControl, targetIndex, skipStatusWrite } = opts;
+  const { projectPath, task, hookControl, sandbox: sandboxOverride, targetIndex, skipStatusWrite } = opts;
   const taskNumber = task.taskNumber;
   completionLog.info('completing task', {
     taskNumber,
@@ -100,20 +102,22 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
   //    CLI flags and never prompt.
   let effectiveCommand: string | null = null;
   let foreground = false;
-  if (hookControl?.mode === 'skip') {
-    // Run no hook.
-  } else if (hookControl?.mode === 'command' && hookControl.command) {
-    effectiveCommand = hookControl.command;
-  } else if (hookControl?.mode === 'run') {
-    const hooks = await window.api.hooks.get(projectPath);
-    if (hooks.done) effectiveCommand = hooks.done.command;
-  } else if (!hookControl) {
-    const hooks = await window.api.hooks.get(projectPath);
-    if (hooks.done) {
-      const result = await useProjectStore.getState().requestRunHook({ hookType: 'done', hook: hooks.done, task });
+  let sandbox: SandboxProviderId = 'none';
+  if (hookControl?.mode !== 'skip') {
+    const doneHook = (await window.api.hooks.get(projectPath)).done;
+    sandbox = sandboxOverride ?? doneHook?.sandbox ?? 'none';
+    if (hookControl?.mode === 'command' && hookControl.command) {
+      effectiveCommand = hookControl.command;
+    } else if (hookControl?.mode === 'run') {
+      if (doneHook) effectiveCommand = doneHook.command;
+    } else if (!hookControl && doneHook) {
+      const result = await useProjectStore
+        .getState()
+        .requestRunHook({ hookType: 'done', hook: doneHook, task, sandbox });
       if (result) {
         effectiveCommand = result.command;
         foreground = result.foreground;
+        sandbox = result.sandbox;
       }
     }
   }
@@ -141,6 +145,7 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
           existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
           taskId: taskNumber,
           skipAutoHook: true,
+          sandboxProvider: sandbox,
           // "Run & Open" (foreground) brings the hook terminal up so the user
           // can watch it; the background run stays out of the way and tidies up
           // on success. Either way the hook terminal is excluded from the close

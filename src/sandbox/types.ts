@@ -17,6 +17,12 @@ export function isActiveSandbox(provider: SandboxProviderId | undefined): provid
   return provider != null && provider !== 'none';
 }
 
+export const SANDBOX_BACKEND_IDS: readonly SandboxBackendId[] = ['nono', 'custom'];
+
+export function isSandboxBackendId(value: unknown): value is SandboxBackendId {
+  return typeof value === 'string' && (SANDBOX_BACKEND_IDS as readonly string[]).includes(value);
+}
+
 /** Display label for each sandbox backend, shared across every UI surface. */
 export const SANDBOX_BACKEND_LABELS: Record<SandboxBackendId, string> = {
   nono: 'nono',

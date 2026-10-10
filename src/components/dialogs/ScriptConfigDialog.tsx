@@ -8,13 +8,15 @@ import { scriptFromDraft } from '../scripts/scriptFromDraft';
 
 interface ScriptConfigDialogProps {
   projectPath: string;
+  /** Edits this script in place; without it the dialog creates one. */
+  existing?: Script;
   onClose: (script: Script | null) => void;
 }
 
-export function ScriptConfigDialog({ projectPath, onClose }: ScriptConfigDialogProps) {
-  const [name, setName] = useState('');
-  const [command, setCommand] = useState('');
-  const [restartIfRunning, setRestartIfRunning] = useState(false);
+export function ScriptConfigDialog({ projectPath, existing, onClose }: ScriptConfigDialogProps) {
+  const [name, setName] = useState(existing?.name ?? '');
+  const [command, setCommand] = useState(existing?.command ?? '');
+  const [restartIfRunning, setRestartIfRunning] = useState(existing?.restartIfRunning ?? false);
   const [visible, setVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -24,7 +26,7 @@ export function ScriptConfigDialog({ projectPath, onClose }: ScriptConfigDialogP
     nameRef.current?.focus();
   }, []);
 
-  const draft = scriptFromDraft({ name, command, restartIfRunning });
+  const draft = scriptFromDraft({ name, command, restartIfRunning }, existing);
 
   const dismiss = (script: Script | null) => {
     setVisible(false);
@@ -45,7 +47,9 @@ export function ScriptConfigDialog({ projectPath, onClose }: ScriptConfigDialogP
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
-      <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">New Script</h2>
+      <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">
+        {existing ? 'Edit Script' : 'New Script'}
+      </h2>
 
       <div className="mb-6 flex flex-col gap-3">
         <div className="flex flex-col gap-1">

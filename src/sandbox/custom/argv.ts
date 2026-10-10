@@ -1,3 +1,4 @@
+import * as os from 'node:os';
 import * as path from 'node:path';
 import type { SandboxLaunch } from '../types';
 import { isPathInside } from '../../utils/pathSafety';
@@ -9,8 +10,9 @@ export const NO_COMMAND_MESSAGE =
  * Split a launcher command into argv the way a POSIX shell would read the
  * words, and nothing more: single quotes are literal, double quotes honour
  * backslash escapes, a bare backslash escapes the next character. There is no
- * variable, glob, or `~` expansion — the string is host-owned configuration and
- * runs exactly as written.
+ * variable, glob, or `~` expansion here — the string is host-owned configuration
+ * and runs as written, apart from the launcher path `resolveCommandTokens`
+ * expands.
  */
 export function tokenizeCommand(command: string): string[] {
   const tokens: string[] = [];
@@ -62,10 +64,11 @@ export function tokenizeCommand(command: string): string[] {
  * Tokenize and vet a launcher command. The launcher runs on the host before any
  * boundary exists, so it must not be a path the sandboxed agent could have
  * written: one relative to the spawn cwd, or one under `forbiddenRoots`. A bare
- * name resolves through PATH on the host.
+ * name resolves through PATH on the host, and a leading `~/` to the host home.
  */
 export function resolveCommandTokens(command: string, forbiddenRoots: string[] = []): string[] {
   const tokens = tokenizeCommand(command);
+  if (tokens[0]?.startsWith('~/')) tokens[0] = path.join(os.homedir(), tokens[0].slice(2));
   const [file] = tokens;
   if (!file) throw new Error(NO_COMMAND_MESSAGE);
   if (file.includes('/') && !path.isAbsolute(file)) {
