@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { CustomSandboxConfig } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
-import { HookRowView } from './HookRowView';
-import { CARD, PILL_BTN } from './sandboxStyles';
+import { PILL_BTN } from './sandboxStyles';
 
 interface CustomSandboxSectionProps {
   projectPath: string;
@@ -48,21 +47,27 @@ export function CustomSandboxSection({ projectPath }: CustomSandboxSectionProps)
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-xs text-text-tertiary">
-        Runs a task's terminals under a launcher from this project's host settings. The launcher owns the boundary;
-        Ouijit grants nothing itself.
-      </p>
-
-      <div className={CARD}>
-        <HookRowView
-          label="Sandbox command"
-          description="Absolute path or a name on PATH, outside the repo. Receives the shell after --."
-          command={config.command}
-          onAction={editing ? undefined : openEditor}
-        />
+    <>
+      <div className="flex flex-col gap-2 px-4 py-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-sm text-text-primary">Sandbox command</div>
+            <div className="mt-0.5 truncate text-xs text-text-tertiary">
+              {config.command ? (
+                <span className="font-mono text-text-secondary">{config.command}</span>
+              ) : (
+                'An absolute path or a name on PATH, outside the repo.'
+              )}
+            </div>
+          </div>
+          {!editing && (
+            <button type="button" onClick={openEditor} className={PILL_BTN}>
+              {config.command ? 'Edit' : 'Set command'}
+            </button>
+          )}
+        </div>
         {editing && (
-          <div className="flex flex-col gap-2 px-4 py-3">
+          <div className="flex flex-col gap-2">
             <textarea
               value={draft}
               onChange={(e) => {
@@ -95,6 +100,6 @@ export function CustomSandboxSection({ projectPath }: CustomSandboxSectionProps)
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

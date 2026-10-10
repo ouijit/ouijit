@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, waitFor, fireEvent } from '@testing-library/react';
+import { render, waitFor, fireEvent, within } from '@testing-library/react';
 
 import { SandboxSection } from '../../components/scripts/SandboxSection';
 import { useProjectStore } from '../../stores/projectStore';
@@ -22,7 +22,7 @@ describe('SandboxSection provider router', () => {
     vi.clearAllMocks();
   });
 
-  test('lists every backend, opens on nono, and says why the one shown cannot run', async () => {
+  test('lists every backend with its settings, each saying why it cannot run', async () => {
     useProjectStore.setState({
       configProjectPath: '/p',
       availableSandboxProviders: [],
@@ -31,16 +31,15 @@ describe('SandboxSection provider router', () => {
         { providerId: 'custom', available: false, detail: 'Set a sandbox command to use it.' },
       ],
     });
-    const { getByText, getByLabelText, queryByText } = render(<SandboxSection projectPath="/p" />);
+    const { getByRole } = render(<SandboxSection projectPath="/p" />);
 
-    expect(getByText('Not installed')).toBeTruthy();
-    expect(getByLabelText('Block outbound network')).toBeTruthy();
-    expect(queryByText('Set a sandbox command to use it.')).toBeNull();
+    const nono = within(getByRole('region', { name: 'nono' }));
+    expect(nono.getByText('Not installed')).toBeTruthy();
+    expect(nono.getByLabelText('Block outbound network')).toBeTruthy();
 
-    fireEvent.click(getByText('Custom'));
-    expect(getByText('Set a sandbox command to use it.')).toBeTruthy();
-    expect(getByText('+ Configure')).toBeTruthy();
-    expect(queryByText('Not installed')).toBeNull();
+    const custom = within(getByRole('region', { name: 'Custom' }));
+    expect(custom.getByText('Set a sandbox command to use it.')).toBeTruthy();
+    expect(custom.getByText('Set command')).toBeTruthy();
   });
 
   test('toggling the nono network restriction persists the config', async () => {
@@ -74,8 +73,7 @@ describe('SandboxSection provider router', () => {
       cfg.command === 'scripts/sandbox' ? { success: false, error: 'refused by the main process' } : { success: true },
     );
     const { getByText, getByLabelText, queryByText, queryByLabelText } = render(<SandboxSection projectPath="/p" />);
-    fireEvent.click(getByText('Custom'));
-    fireEvent.click(await waitFor(() => getByText('+ Configure')));
+    fireEvent.click(await waitFor(() => getByText('Set command')));
     const field = getByLabelText('Sandbox command');
     vi.mocked(window.api.sandbox.status).mockClear();
 
@@ -99,7 +97,7 @@ describe('SandboxSection provider router', () => {
     fireEvent.click(getByText('Clear'));
     await waitFor(() => expect(window.api.sandbox.setCustomConfig).toHaveBeenCalledWith('/p', {}));
     await waitFor(() => expect(queryByText('/opt/sb --strict')).toBeNull());
-    expect(getByText('+ Configure')).toBeTruthy();
+    expect(getByText('Set command')).toBeTruthy();
   });
 
   test('adding an extra port persists it to openPorts', async () => {

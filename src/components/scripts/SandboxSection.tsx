@@ -1,13 +1,19 @@
-import { useState, type ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import type { SandboxBackendId } from '../../types';
 import { SANDBOX_BACKEND_IDS, SANDBOX_BACKEND_LABELS } from '../../types';
 import { NonoSandboxSection } from './NonoSandboxSection';
 import { CustomSandboxSection } from './CustomSandboxSection';
+import { CARD } from './sandboxStyles';
 
-const BACKEND_DESCRIPTIONS: Record<SandboxBackendId, string> = {
+const BACKEND_DESCRIPTIONS: Record<SandboxBackendId, ReactNode> = {
   nono: 'Kernel-level access limits on the shell itself. Starts instantly, in place on the worktree.',
-  custom: 'Your own launcher. Ouijit runs it as `<command> -- <shell>` in the worktree and grants nothing itself.',
+  custom: (
+    <>
+      Your own launcher, run as <code className="font-mono">&lt;command&gt; -- &lt;shell&gt;</code> in the worktree.
+      Ouijit grants nothing itself.
+    </>
+  ),
 };
 
 /** Config surface per backend; keyed by id so a new backend is a compile error until wired. */
@@ -21,37 +27,34 @@ interface SandboxSectionProps {
 }
 
 export function SandboxSection({ projectPath }: SandboxSectionProps) {
-  const [active, setActive] = useState<SandboxBackendId>(SANDBOX_BACKEND_IDS[0]);
-  const unavailable = useProjectStore((s) =>
-    s.configProjectPath === projectPath
-      ? s.sandboxStatuses.find((st) => st.providerId === active && !st.available)
-      : undefined,
-  );
-  const ActiveSection = BACKEND_SECTIONS[active];
+  const statuses = useProjectStore((s) => (s.configProjectPath === projectPath ? s.sandboxStatuses : undefined));
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1.5">
-        <div className="flex gap-1 self-start rounded-[12px] border border-bezel bg-background-secondary p-1">
-          {SANDBOX_BACKEND_IDS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setActive(p)}
-              className={`rounded-[9px] px-3 py-1 text-xs font-medium transition-colors ${
-                active === p
-                  ? 'bg-background-tertiary text-text-primary'
-                  : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {SANDBOX_BACKEND_LABELS[p]}
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-text-tertiary">{BACKEND_DESCRIPTIONS[active]}</p>
-        {unavailable?.detail && <p className="text-xs text-text-secondary">{unavailable.detail}</p>}
-      </div>
-      <ActiveSection projectPath={projectPath} />
+    <div className="flex flex-col gap-5">
+      {SANDBOX_BACKEND_IDS.map((id) => {
+        const Section = BACKEND_SECTIONS[id];
+        const status = statuses?.find((st) => st.providerId === id);
+        return (
+          <section key={id} aria-label={SANDBOX_BACKEND_LABELS[id]} className="flex flex-col gap-2">
+            <div className="px-1">
+              <div className="flex items-baseline justify-between gap-4">
+                <h3 className="text-[13px] font-medium text-text-primary">{SANDBOX_BACKEND_LABELS[id]}</h3>
+                {status && (
+                  <span
+                    className={`shrink-0 text-xs ${status.available ? 'text-text-secondary' : 'text-text-tertiary'}`}
+                  >
+                    {status.available ? 'Ready' : status.detail}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-text-tertiary">{BACKEND_DESCRIPTIONS[id]}</p>
+            </div>
+            <div className={CARD}>
+              <Section projectPath={projectPath} />
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

@@ -64,6 +64,8 @@ const PANEL_STYLE = {
  */
 const SUBMENU_CLOSE_DELAY = 300;
 
+const EDGE_MARGIN = 8;
+
 function MenuList({
   items,
   onSelect,
@@ -149,23 +151,25 @@ function MenuList({
         );
         if (!item.actions) return <Fragment key={i}>{withDetail}</Fragment>;
         return (
-          <div key={i} className="flex items-center gap-0.5 pr-0.5 rounded-[7px] hover:bg-ink/[0.08]">
+          <div key={i} className="group/row flex items-center gap-0.5 pr-0.5 rounded-[7px] hover:bg-ink/[0.08]">
             {withDetail}
-            {item.actions.map((action) => (
-              <TooltipButton
-                key={action.label}
-                text={action.label}
-                placement="top"
-                className={ACTION_CLASS}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect(action.onClick);
-                }}
-              >
-                <Icon name={action.icon} />
-                {action.text}
-              </TooltipButton>
-            ))}
+            <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-100 group-hover/row:opacity-100 focus-within:opacity-100">
+              {item.actions.map((action) => (
+                <TooltipButton
+                  key={action.label}
+                  text={action.label}
+                  placement="top"
+                  className={ACTION_CLASS}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect(action.onClick);
+                  }}
+                >
+                  <Icon name={action.icon} />
+                  {action.text}
+                </TooltipButton>
+              ))}
+            </div>
           </div>
         );
       })}
@@ -214,8 +218,8 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const itemCount = items.filter((i) => !('separator' in i)).length;
   const sepCount = items.filter((i) => 'separator' in i).length;
   const menuHeight = 32 * itemCount + 9 * sepCount;
-  const posX = Math.min(x, window.innerWidth - menuWidth);
-  const posY = Math.min(y, window.innerHeight - menuHeight);
+  const posX = Math.min(x, window.innerWidth - menuWidth - EDGE_MARGIN);
+  const posY = Math.min(y, window.innerHeight - menuHeight - EDGE_MARGIN);
   // Flip submenu flyouts to the left when they would overflow the right edge.
   const openLeft = posX + menuWidth + submenuWidth > window.innerWidth;
 
