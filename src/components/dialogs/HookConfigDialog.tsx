@@ -84,7 +84,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
 
     if (!trimmed) {
       // Empty command = delete hook
-      await window.api.hooks.delete(projectPath, hookType);
+      await useProjectStore.getState().deleteHook(projectPath, hookType);
       dismiss({ saved: true });
       return;
     }
@@ -98,7 +98,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
       ...(sandboxable && { sandbox }),
     };
 
-    await window.api.hooks.save(projectPath, hook);
+    await useProjectStore.getState().saveHook(projectPath, hook);
 
     useProjectStore.getState().addToast(`${labels.title} saved`, 'success');
     dismiss({ saved: true, hook });

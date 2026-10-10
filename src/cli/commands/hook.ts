@@ -6,7 +6,7 @@ import type { Command } from 'commander';
 import { get, put, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
 import { SANDBOX_FLAG, parseSandboxFlag, sandboxFlagHelp } from '../sandboxFlag';
-import { SANDBOXABLE_HOOK_TYPES, isActiveSandbox, type SandboxProviderId } from '../../sandbox/types';
+import { SANDBOXABLE_HOOK_TYPES, isActiveSandbox } from '../../sandbox/types';
 
 const VALID_HOOK_TYPES = ['start', 'continue', 'run', 'review', 'done', 'editor'];
 
@@ -74,12 +74,9 @@ Examples:
         if (opts.restartIfRunning && t !== 'run') {
           return printError('--restart-if-running is only valid for the run hook');
         }
-        let sandbox: SandboxProviderId | undefined;
-        if (opts.sandbox !== undefined) {
-          const parsed = parseSandboxFlag(opts.sandbox);
-          if ('error' in parsed) return printError(parsed.error);
-          sandbox = parsed.sandbox;
-        }
+        const parsed = parseSandboxFlag(opts.sandbox);
+        if ('error' in parsed) return printError(parsed.error);
+        const { sandbox } = parsed;
         if (isActiveSandbox(sandbox) && !SANDBOXABLE_HOOK_TYPES.includes(t)) {
           return printError(`--sandbox is only valid for the ${SANDBOXABLE_HOOK_TYPES.join(', ')} hooks`);
         }

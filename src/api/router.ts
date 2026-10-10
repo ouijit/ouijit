@@ -74,7 +74,7 @@ import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
 import type { CliHookControl, CliPanelKind, SandboxProviderId } from '../types';
-import { SANDBOXABLE_HOOK_TYPES, SANDBOX_BACKEND_IDS, isActiveSandbox, isSandboxProviderId } from '../sandbox/types';
+import { SANDBOXABLE_HOOK_TYPES, SANDBOX_PROVIDER_IDS, isActiveSandbox, isSandboxProviderId } from '../sandbox/types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
@@ -163,10 +163,7 @@ function parseHookControl(body: Record<string, unknown>): CliHookControl {
 function parseSandbox(value: unknown, field: string): SandboxProviderId | undefined {
   if (value === undefined) return undefined;
   if (isSandboxProviderId(value)) return value;
-  throw new HttpError(
-    400,
-    `Invalid ${field}: ${String(value)}. Must be one of: ${['none', ...SANDBOX_BACKEND_IDS].join(', ')}`,
-  );
+  throw new HttpError(400, `Invalid ${field}: ${String(value)}. Must be one of: ${SANDBOX_PROVIDER_IDS.join(', ')}`);
 }
 
 function parseHookMode(body: Record<string, unknown>): Omit<CliHookControl, 'hookSandbox'> {

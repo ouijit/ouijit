@@ -4,7 +4,7 @@ import { getNonoConfig, setNonoConfig } from '../../sandbox/nono/config';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../../sandbox/custom/config';
 
 /**
- * Cross-provider sandbox IPC. Reports availability/readiness for every
+ * Cross-provider sandbox IPC. Reports availability for every
  * registered backend so the renderer can feature-detect (which backends to
  * offer, whether a task's chosen backend can spawn right now), plus each
  * backend's own config surface.

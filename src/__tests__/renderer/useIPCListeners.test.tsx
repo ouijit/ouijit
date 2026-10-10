@@ -419,12 +419,15 @@ describe('useIPCListeners — sandbox-launch-failed', () => {
     useProjectStore.getState().resetForProject();
   });
 
-  test('a launcher refusal becomes a persistent error toast naming the backend', () => {
+  test('a launcher or spawn refusal becomes a persistent error toast naming the backend and why', () => {
     const stubs = installListenerStubs();
     renderHook(() => useIPCListeners());
     stubs.launchFailedCb!({ ptyId: 'pty-1', provider: 'custom', exitCode: 2 });
-    const toast = useProjectStore.getState().toasts.find((t) => t.message.includes('Custom sandbox failed to start'));
-    expect(toast).toMatchObject({ type: 'error', persistent: true });
-    expect(toast?.message).toContain('(exit 2)');
+    stubs.launchFailedCb!({ ptyId: 'pty-2', provider: 'nono', error: 'nono is not installed.' });
+    const toasts = useProjectStore.getState().toasts.filter((t) => t.message.includes('sandbox failed to start'));
+    expect(toasts.map((t) => [t.message, t.type, t.persistent])).toEqual([
+      ['Custom sandbox failed to start (exit 2). See the terminal output.', 'error', true],
+      ['nono sandbox failed to start: nono is not installed.', 'error', true],
+    ]);
   });
 });

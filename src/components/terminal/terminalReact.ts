@@ -579,20 +579,19 @@ export class OuijitTerminal {
     this.wireResizeObserver();
   }
 
-  async spawnPty(options: PtySpawnOptions): Promise<{ ptyId: PtyId } | { error: string }> {
+  async spawnPty(options: PtySpawnOptions): Promise<PtyId | null> {
     const result = await window.api.pty.spawn(options);
 
     if (!result.success || !result.ptyId) {
-      const error = result.error || 'Unknown error';
-      this.xterm.writeln(`\x1b[31mFailed to start terminal: ${error}\x1b[0m`);
+      this.xterm.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);
       this.xterm.writeln(`\x1b[90mThis card will close in 10 seconds.\x1b[0m`);
-      return { error };
+      return null;
     }
 
     this.bind(result.ptyId);
     // Suppress resize while layout settles to avoid SIGWINCH → zsh % artifacts
     this.suppressResizeDuring(500);
-    return { ptyId: result.ptyId };
+    return result.ptyId;
   }
 
   replayBuffer(bufferedOutput: string | undefined, lastCols?: number, isAltScreen?: boolean): void {

@@ -6,9 +6,16 @@ export function hookSandbox(override: SandboxProviderId | undefined, hook: Scrip
   return override ?? hook?.sandbox ?? 'none';
 }
 
+/** A hook choice made without the dialog: by CLI flags or a shift-drag. */
+export interface HookControl {
+  mode: CliHookMode;
+  /** The one-off command, required when `mode` is `command`. */
+  command?: string;
+}
+
 /** What a hook mode chosen without the dialog runs; null runs no hook. */
 export function headlessHookRun(
-  control: { mode: CliHookMode; command?: string },
+  control: HookControl,
   hook: ScriptHook | undefined,
   sandbox: SandboxProviderId,
 ): RunHookResult | null {

@@ -117,7 +117,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
 
   const handleUseExampleHook = async () => {
     try {
-      const result = await window.api.hooks.save(projectPath, {
+      const result = await useProjectStore.getState().saveHook(projectPath, {
         id: `hook-${Date.now()}`,
         type: 'start',
         name: 'Start Hook',
@@ -127,7 +127,6 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
         useProjectStore.getState().addToast("Couldn't save the start hook", 'error');
         return;
       }
-      await useProjectStore.getState().loadProjectConfig(projectPath);
       useProjectStore.getState().addToast('Start hook configured', 'success');
     } catch (error) {
       useProjectStore

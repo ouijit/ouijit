@@ -14,7 +14,7 @@ import { AddPanelMenu } from './AddPanelMenu';
 import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type RunnerPanel as RunnerPanelState, type TerminalPanel } from './panelTypes';
 import { SandboxRing } from './StatusDot';
-import type { GitFileStatus, RunnerScript, SandboxProviderId, Script, ScriptHook } from '../../types';
+import type { GitFileStatus, RunnerScript, SandboxBackendId, Script, ScriptHook } from '../../types';
 import { openInEntry, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
@@ -217,7 +217,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   }, []);
 
   const handleAddRunner = useCallback(
-    (script?: RunnerScript, sandbox?: SandboxProviderId) => {
+    (script?: RunnerScript, sandbox?: SandboxBackendId) => {
       void startRunner(ptyId, script, sandbox);
     },
     [ptyId],
@@ -311,13 +311,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           existingHook={commandDialog.existing}
           onClose={(result) => {
             setCommandDialog(null);
-            if (!result?.saved) return;
-            if (!result.hook) {
-              void useProjectStore.getState().loadProjectConfig(projectPath);
-              return;
-            }
-            useProjectStore.getState().setConfiguredHook(projectPath, result.hook);
-            if (!commandDialog.existing) handleAddRunner();
+            if (result?.hook && !commandDialog.existing) handleAddRunner();
           }}
         />
       )}

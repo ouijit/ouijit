@@ -125,13 +125,12 @@ export function useIPCListeners() {
     );
 
     cleanups.push(
-      window.api.onSandboxLaunchFailed(({ provider, exitCode }) => {
-        useProjectStore
-          .getState()
-          .addToast(
-            `${SANDBOX_BACKEND_LABELS[provider]} sandbox failed to start (exit ${exitCode}). See the terminal output.`,
-            { type: 'error', persistent: true },
-          );
+      window.api.onSandboxLaunchFailed(({ provider, exitCode, error }) => {
+        const reason = error ? `: ${error}` : ` (exit ${exitCode}). See the terminal output.`;
+        useProjectStore.getState().addToast(`${SANDBOX_BACKEND_LABELS[provider]} sandbox failed to start${reason}`, {
+          type: 'error',
+          persistent: true,
+        });
       }),
     );
 

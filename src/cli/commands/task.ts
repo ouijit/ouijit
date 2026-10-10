@@ -30,12 +30,9 @@ type HookBody = { hookMode?: string; hookCommand?: string; hookSandbox?: string 
  * todo → in_progress drop does.
  */
 function resolveHookFlags(opts: HookFlags): HookBody | { error: string } {
-  let hookSandbox: string | undefined;
-  if (opts.sandbox !== undefined) {
-    const parsed = parseSandboxFlag(opts.sandbox);
-    if ('error' in parsed) return parsed;
-    hookSandbox = parsed.sandbox;
-  }
+  const parsed = parseSandboxFlag(opts.sandbox);
+  if ('error' in parsed) return parsed;
+  const hookSandbox = parsed.sandbox;
   const mode = resolveHookMode(opts);
   if ('error' in mode) return mode;
   return { ...mode, ...(hookSandbox && { hookSandbox }) };

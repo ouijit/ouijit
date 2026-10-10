@@ -16,25 +16,10 @@ import log from 'electron-log/renderer';
 import { addProjectTerminal, closeProjectTerminal } from '../components/terminal/terminalActions';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
-import { headlessHookRun, hookSandbox } from './hookRun';
-import type { CliHookMode, SandboxProviderId, TaskWithWorkspace } from '../types';
+import { headlessHookRun, hookSandbox, type HookControl } from './hookRun';
+import type { SandboxProviderId, TaskWithWorkspace } from '../types';
 
 const completionLog = log.scope('taskCompletion');
-
-/**
- * Governs the done hook for a completion. Mirrors the start/continue/review
- * transitions so Done behaves uniformly across the four columns:
- *   - omitted             → show the Done dialog (if a done hook is configured)
- *   - { mode: 'skip' }        → run no hook
- *   - { mode: 'run' }         → run the configured done hook headless (no dialog)
- *   - { mode: 'command', ... }→ run a one-off command headless
- * The terminal-cleanup + status-write lifecycle runs regardless of this choice.
- */
-export interface CompleteHookControl {
-  mode: CliHookMode;
-  /** The one-off command, required when `mode` is `command`. */
-  command?: string;
-}
 
 export interface CompleteTaskOptions {
   projectPath: string;
@@ -44,7 +29,7 @@ export interface CompleteTaskOptions {
    * default for a kanban drop / terminal "Close Task"); set it to run the hook
    * headlessly, run a custom command, or skip — used by shift-drag and the CLI.
    */
-  hookControl?: CompleteHookControl;
+  hookControl?: HookControl;
   /** Overrides the done hook's own sandbox setting. */
   sandbox?: SandboxProviderId;
   /**

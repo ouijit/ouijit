@@ -15,7 +15,7 @@ import type {
   SandboxProviderId,
   SandboxBackendId,
 } from '../../types';
-import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
+import { isActiveSandbox } from '../../types';
 import { useTerminalStore, setActiveTerminal, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
@@ -32,13 +32,6 @@ import { detectPullRequestForTask } from '../../services/githubTaskActions';
 import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
-
-function reportSandboxRefusal(provider: SandboxBackendId, error: string): void {
-  useProjectStore.getState().addToast(`${SANDBOX_BACKEND_LABELS[provider]} sandbox failed to start: ${error}`, {
-    type: 'error',
-    persistent: true,
-  });
-}
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -339,18 +332,17 @@ export async function addProjectTerminal(
   };
 
   try {
-    const spawned = await term.spawnPty(spawnOptions);
+    const ptyId = await term.spawnPty(spawnOptions);
 
     if (isStale()) {
-      if ('ptyId' in spawned) {
-        window.api.pty.kill(spawned.ptyId);
+      if (ptyId) {
+        window.api.pty.kill(ptyId);
         term.dispose();
       }
       return false;
     }
 
-    if ('error' in spawned) {
-      if (sandboxProvider) reportSandboxRefusal(sandboxProvider, spawned.error);
+    if (!ptyId) {
       if (addedEarly) {
         setTimeout(() => {
           term.dispose();
@@ -540,7 +532,7 @@ async function resolveRunnable(
 export async function startRunner(
   ptyId: string,
   script?: RunnerScript,
-  sandboxProvider?: SandboxProviderId,
+  sandboxProvider?: SandboxBackendId,
 ): Promise<string | null> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return null;
@@ -645,7 +637,6 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
 
     if (!result.success || !result.ptyId) {
       runner.xterm.writeln(`\x1b[31mFailed to start runner: ${result.error || 'Unknown error'}\x1b[0m`);
-      if (panel.sandboxProvider) reportSandboxRefusal(panel.sandboxProvider, result.error || 'Unknown error');
       instance.updatePanel(panelId, { status: 'error' });
       return;
     }

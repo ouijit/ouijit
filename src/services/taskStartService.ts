@@ -13,10 +13,10 @@ import { addProjectTerminal } from '../components/terminal/terminalActions';
 import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { completeTask } from './taskCompletion';
-import { headlessHookRun, hookSandbox } from './hookRun';
+import { headlessHookRun, hookSandbox, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
-import type { CliHookMode, HookType, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
+import type { HookType, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
 /** Id for a loading slot standing in for a task's terminal while it spawns. */
@@ -43,18 +43,6 @@ function hookTypeForTransition(origStatus: TaskStatus, newStatus: TaskStatus): H
   if (newStatus === 'in_review') return 'review';
   // 'done' is handled by completeTask, not beginTransition.
   return null;
-}
-
-/**
- * CLI-driven hook control. When present, the start-hook dialog is skipped
- * entirely — the caller has already decided what should happen. Used by
- * `ouijit task start --run-hook/--skip-hook/--hook-command` so an agent can
- * start a task headlessly without a human at the dialog.
- */
-export interface HookControl {
-  mode: CliHookMode;
-  /** The one-off command, required when `mode` is `command`. */
-  command?: string;
 }
 
 export interface BeginTransitionOptions {

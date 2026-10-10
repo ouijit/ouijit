@@ -54,7 +54,7 @@ export function CombinedHookConfigDialog({
 
     // Save or delete start hook
     if (startTrimmed) {
-      await window.api.hooks.save(projectPath, {
+      await useProjectStore.getState().saveHook(projectPath, {
         id: existingStart?.id ?? `hook-${Date.now()}`,
         type: 'start',
         name: 'Start Hook',
@@ -62,12 +62,12 @@ export function CombinedHookConfigDialog({
         sandbox: startSandbox,
       });
     } else if (existingStart) {
-      await window.api.hooks.delete(projectPath, 'start');
+      await useProjectStore.getState().deleteHook(projectPath, 'start');
     }
 
     // Save or delete continue hook
     if (continueTrimmed) {
-      await window.api.hooks.save(projectPath, {
+      await useProjectStore.getState().saveHook(projectPath, {
         id: existingContinue?.id ?? `hook-${Date.now() + 1}`,
         type: 'continue',
         name: 'Continue Hook',
@@ -75,7 +75,7 @@ export function CombinedHookConfigDialog({
         sandbox: continueSandbox,
       });
     } else if (existingContinue) {
-      await window.api.hooks.delete(projectPath, 'continue');
+      await useProjectStore.getState().deleteHook(projectPath, 'continue');
     }
 
     useProjectStore.getState().addToast('Hooks saved', 'success');

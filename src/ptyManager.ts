@@ -365,10 +365,9 @@ export async function spawnPty(
     return { success: true, ptyId };
   } catch (error) {
     revokeToken(ptyId);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to spawn PTY',
-    };
+    const message = error instanceof Error ? error.message : 'Failed to spawn PTY';
+    if (wrapper) typedPush(window, 'sandbox-launch-failed', { ptyId, provider: wrapper.id, error: message });
+    return { success: false, error: message };
   }
 }
 

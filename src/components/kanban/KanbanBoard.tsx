@@ -548,11 +548,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     [projectPath],
   );
 
-  const handleHookDialogClose = useCallback(() => {
-    setHookDialog(null);
-    // Refresh in the store so terminal headers and column badges agree.
-    useProjectStore.getState().loadProjectConfig(projectPath);
-  }, [projectPath]);
+  const handleHookDialogClose = useCallback(() => setHookDialog(null), []);
 
   return (
     <DndContext

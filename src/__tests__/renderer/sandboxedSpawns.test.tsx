@@ -14,7 +14,7 @@ vi.mock('electron-log/renderer', () => ({
 // read and write — panels, the sandbox it was built with — and fails a
 // spawn the way the real one does when the main process refuses it.
 const shellSpawns = vi.hoisted(() => ({
-  result: {} as { ptyId: string } | { error: string },
+  result: null as string | null,
   calls: [] as PtySpawnOptions[],
 }));
 vi.mock('../../components/terminal/terminalReact', () => {
@@ -74,9 +74,9 @@ describe('sandboxed spawns', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     terminalInstances.clear();
-    useProjectStore.setState({ toasts: [], availableSandboxProviders: [], configProjectPath: PROJECT });
+    useProjectStore.setState({ availableSandboxProviders: [], configProjectPath: PROJECT });
     vi.mocked(window.api.hooks.get).mockResolvedValue({});
-    shellSpawns.result = { ptyId: 'pty-1' };
+    shellSpawns.result = 'pty-1';
     shellSpawns.calls = [];
   });
 
@@ -113,8 +113,8 @@ describe('sandboxed spawns', () => {
     ]);
   });
 
-  test('a sandbox that cannot start is reported, never swapped for a host shell', async () => {
-    shellSpawns.result = { error: 'No sandbox command configured.' };
+  test('a sandbox that cannot start fails the open, never swapped for a host shell', async () => {
+    shellSpawns.result = null;
 
     // The store says Custom cannot run; the spawn is still asked for it.
     const opened = await addProjectTerminal(PROJECT, undefined, {
@@ -124,8 +124,5 @@ describe('sandboxed spawns', () => {
 
     expect(opened).toBe(false);
     expect(shellSpawns.calls.map((c) => c.sandboxProvider)).toEqual(['custom']);
-    expect(useProjectStore.getState().toasts.map((t) => t.message)).toEqual([
-      'Custom sandbox failed to start: No sandbox command configured.',
-    ]);
   });
 });

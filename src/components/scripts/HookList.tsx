@@ -1,9 +1,11 @@
-import { useState, useCallback, useEffect } from 'react';
-import type { HookType, ScriptHook } from '../../types';
+import { useState, useEffect } from 'react';
+import type { HookType, ProjectHooks, ScriptHook } from '../../types';
 import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { HookRowView } from './HookRowView';
 import { useProjectStore } from '../../stores/projectStore';
+
+const NO_HOOKS: ProjectHooks = {};
 
 export interface HookEntry {
   type: HookType;
@@ -19,40 +21,14 @@ interface HookListProps {
 }
 
 export function HookList({ projectPath, hooks: hookEntries, bare }: HookListProps) {
-  const [hooks, setHooks] = useState<Record<string, ScriptHook | undefined>>({});
+  const hooks = useProjectStore((s) => (s.configProjectPath === projectPath ? s.hooks : NO_HOOKS));
   const [editingHook, setEditingHook] = useState<{ hookType: HookType; existing?: ScriptHook } | null>(null);
 
-  const loadHooks = useCallback(() => {
-    window.api.hooks.get(projectPath).then((h) => {
-      setHooks(h as Record<string, ScriptHook | undefined>);
-    });
+  useEffect(() => {
+    if (useProjectStore.getState().configProjectPath !== projectPath) {
+      void useProjectStore.getState().loadProjectConfig(projectPath);
+    }
   }, [projectPath]);
-
-  useEffect(() => {
-    loadHooks();
-  }, [loadHooks]);
-
-  // The hook rows are local state (the store only tracks which types are
-  // configured), so a `ouijit hook set` while this panel is open needs its own
-  // re-read to avoid showing the old command.
-  useEffect(() => {
-    return window.api.onCliChange((payload) => {
-      if (payload.resource === 'hooks' && payload.project === projectPath) loadHooks();
-    });
-  }, [loadHooks, projectPath]);
-
-  const handleDialogClose = useCallback(
-    (result: { saved: boolean } | null) => {
-      setEditingHook(null);
-      if (result?.saved) {
-        loadHooks();
-        // Keep the shared projectStore in sync so terminal headers and kanban
-        // column badges see the new hook without a stale window.
-        useProjectStore.getState().loadProjectConfig(projectPath);
-      }
-    },
-    [loadHooks, projectPath],
-  );
 
   const rows = hookEntries.map(({ type, label, description }) => {
     const hook = hooks[type];
@@ -87,7 +63,7 @@ export function HookList({ projectPath, hooks: hookEntries, bare }: HookListProp
           projectPath={projectPath}
           hookType={editingHook.hookType}
           existingHook={editingHook.existing}
-          onClose={handleDialogClose}
+          onClose={() => setEditingHook(null)}
         />
       )}
     </>

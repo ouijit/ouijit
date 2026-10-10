@@ -3,7 +3,7 @@ import { availableBackends, useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from './terminalRegistry';
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItemAction } from '../ui/ContextMenu';
 import { SANDBOX_BACKEND_LABELS } from '../../types';
-import type { RunnerScript, SandboxBackendId, SandboxProviderId, Script, ScriptHook } from '../../types';
+import type { RunnerScript, SandboxBackendId, Script, ScriptHook } from '../../types';
 
 interface AddPanelMenuProps {
   ptyId: string;
@@ -11,7 +11,7 @@ interface AddPanelMenuProps {
   /** Anchor position (the "+" button's bottom-left). */
   x: number;
   y: number;
-  onAddRunner: (script?: RunnerScript, sandbox?: SandboxProviderId) => void;
+  onAddRunner: (script?: RunnerScript, sandbox?: SandboxBackendId) => void;
   onAddWebPreview: () => void;
   onAddPlan: (planPath: string) => void;
   onConfigureRun: (existing?: ScriptHook) => void;

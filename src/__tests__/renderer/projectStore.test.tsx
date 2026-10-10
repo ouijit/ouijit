@@ -226,13 +226,23 @@ describe('projectStore.loadProjectConfig', () => {
   });
 });
 
-describe('projectStore.setConfiguredHook', () => {
-  test("records a saved hook, but only for the store's project", () => {
+describe('projectStore.saveHook / deleteHook', () => {
+  test("saves and deletes a hook, reflecting it only for the store's project and only once it saved", async () => {
     useProjectStore.setState({ hooks: {}, configProjectPath: '/p' });
     const run = { id: 'r', type: 'run' as const, name: 'Run', command: 'npm run dev' };
-    useProjectStore.getState().setConfiguredHook('/other', run);
+    vi.mocked(window.api.hooks.save).mockResolvedValue({ success: true });
+
+    await useProjectStore.getState().saveHook('/other', run);
     expect(useProjectStore.getState().hooks).toEqual({});
-    useProjectStore.getState().setConfiguredHook('/p', run);
+    await useProjectStore.getState().saveHook('/p', run);
     expect(useProjectStore.getState().hooks).toEqual({ run });
+
+    vi.mocked(window.api.hooks.save).mockResolvedValueOnce({ success: false });
+    await useProjectStore.getState().saveHook('/p', { ...run, command: 'make dev' });
+    expect(useProjectStore.getState().hooks).toEqual({ run });
+
+    await useProjectStore.getState().deleteHook('/p', 'run');
+    expect(useProjectStore.getState().hooks).toEqual({});
+    expect(window.api.hooks.delete).toHaveBeenCalledWith('/p', 'run');
   });
 });

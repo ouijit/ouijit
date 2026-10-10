@@ -85,14 +85,7 @@ export type {
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
 } from './sandbox/types';
-export {
-  SANDBOX_BACKEND_IDS,
-  SANDBOX_BACKEND_LABELS,
-  SANDBOXABLE_HOOK_TYPES,
-  isActiveSandbox,
-  isSandboxBackendId,
-  isSandboxProviderId,
-} from './sandbox/types';
+export { SANDBOX_BACKEND_IDS, SANDBOX_BACKEND_LABELS, SANDBOXABLE_HOOK_TYPES, isActiveSandbox } from './sandbox/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
 export type {
   RepoIdentity,
@@ -934,7 +927,7 @@ export interface CliPanelsAPI {
  * own config surface.
  */
 export interface SandboxAPI {
-  /** Availability + readiness of every registered sandbox backend. */
+  /** Availability of every registered sandbox backend. */
   status(projectPath: string): Promise<SandboxProviderStatus[]>;
   nonoConfig(projectPath: string): Promise<NonoConfig>;
   setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }>;

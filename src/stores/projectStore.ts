@@ -170,8 +170,9 @@ interface ProjectStoreActions {
    * the store rather than each probing on mount.
    */
   loadProjectConfig: (projectPath: string) => Promise<void>;
-  /** Record a hook the user just saved from a card dialog. */
-  setConfiguredHook: (projectPath: string, hook: ScriptHook) => void;
+  /** Persist a hook, and reflect it here when it belongs to the store's project. */
+  saveHook: (projectPath: string, hook: ScriptHook) => Promise<{ success: boolean }>;
+  deleteHook: (projectPath: string, hookType: HookType) => Promise<void>;
   /** Move a task with optimistic update and rollback */
   moveTask: (projectPath: string, taskNumber: number, newStatus: string, targetIndex: number) => Promise<void>;
 
@@ -454,9 +455,19 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     }
   },
 
-  setConfiguredHook: (projectPath, hook) => {
+  saveHook: async (projectPath, hook) => {
+    const result = await window.api.hooks.save(projectPath, hook);
+    if (result.success && get().configProjectPath === projectPath) {
+      set({ hooks: { ...get().hooks, [hook.type]: hook } });
+    }
+    return result;
+  },
+
+  deleteHook: async (projectPath, hookType) => {
+    await window.api.hooks.delete(projectPath, hookType);
     if (get().configProjectPath !== projectPath) return;
-    set({ hooks: { ...get().hooks, [hook.type]: hook } });
+    const { [hookType]: _deleted, ...rest } = get().hooks;
+    set({ hooks: rest });
   },
 
   moveTask: async (projectPath, taskNumber, newStatus, targetIndex) => {
