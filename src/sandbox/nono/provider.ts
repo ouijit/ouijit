@@ -14,14 +14,6 @@ import { sandboxCacheDir } from '../cacheDir';
 
 const nonoLog = getLogger().scope('nono');
 
-/** Single platform + installed gate that `isAvailable`/`getStatus`/`prepare` all read. */
-async function checkAvailability(): Promise<{ ready: boolean; detail?: string }> {
-  const platform = checkPlatformSupport();
-  if (!platform.supported) return { ready: false, detail: platform.reason };
-  const installed = await isNonoInstalled();
-  return { ready: installed, detail: installed ? 'Ready' : 'Not installed' };
-}
-
 /**
  * nono as a `SandboxProvider`. All grants are derived from the task's worktree
  * at spawn time (kernel deny-by-default on Seatbelt / Landlock).
@@ -30,13 +22,11 @@ export const nonoProvider: SandboxProvider = {
   id: 'nono',
   displayName: 'nono',
 
-  async isAvailable(): Promise<boolean> {
-    return (await checkAvailability()).ready;
-  },
-
   async getStatus(): Promise<SandboxProviderStatus> {
-    const { ready, detail } = await checkAvailability();
-    return { providerId: 'nono', available: ready, ready, detail };
+    const platform = checkPlatformSupport();
+    if (!platform.supported) return { providerId: 'nono', available: false, detail: platform.reason };
+    const installed = await isNonoInstalled();
+    return { providerId: 'nono', available: installed, detail: installed ? 'Ready' : 'Not installed' };
   },
 
   cleanup(): void {

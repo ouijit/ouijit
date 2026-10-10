@@ -382,6 +382,7 @@ function GlobalRunHookDialog() {
       key={request.id}
       hookType={request.hookType}
       hook={request.hook}
+      sandbox={request.sandbox}
       taskName={request.task.name}
       queuePosition={position}
       queueTotal={total}

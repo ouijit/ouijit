@@ -58,7 +58,7 @@ A lens is a named instruction you keep with the project, like "lead with what co
 
 ## Sandboxing
 
-Run any terminal sandboxed: in place under Seatbelt/Landlock via nono (experimental), or under a launcher of your own (experimental).
+Run any hook, terminal, or runner sandboxed: in place under Seatbelt/Landlock via nono, or under a launcher of your own. Each hook keeps its own setting and each runner chooses when it starts, so an agent can run sandboxed while the dev server beside it stays on the host.
 
 ## Session resume
 

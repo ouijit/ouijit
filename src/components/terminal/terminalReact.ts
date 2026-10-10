@@ -12,6 +12,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
 import type { PtyId, PtySpawnOptions, GitFileStatus, SandboxProviderId } from '../../types';
+import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -759,7 +760,13 @@ export class OuijitTerminal {
   }
 
   addRunnerPanel(
-    script?: { name: string; command: string; source?: 'hook' | 'script'; restartIfRunning?: boolean } | null,
+    script?: {
+      name: string;
+      command: string;
+      source?: 'hook' | 'script';
+      restartIfRunning?: boolean;
+      sandboxProvider?: SandboxProviderId;
+    } | null,
     activate = true,
   ): string {
     const id = generateId('panel');
@@ -771,6 +778,7 @@ export class OuijitTerminal {
       command: script?.command ?? null,
       source: script?.source ?? 'script',
       restartIfRunning: script?.restartIfRunning ?? false,
+      ...(isActiveSandbox(script?.sandboxProvider) && { sandboxProvider: script.sandboxProvider }),
       status: 'idle',
     };
     this.appendPanel(panel, activate);

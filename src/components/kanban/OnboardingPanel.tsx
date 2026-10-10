@@ -26,7 +26,7 @@ const io: OnboardingStorageIO = {
  */
 export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }: OnboardingPanelProps) {
   const tasks = useProjectStore((s) => s.tasks);
-  const startHookConfigured = useProjectStore((s) => !!s.configuredHooks.start);
+  const startHookConfigured = useProjectStore((s) => !!s.hooks.start);
   const exampleStartHookCommand = useHookCommandDefault('start');
   // `undefined` = not yet loaded, `null` = loaded but no state exists yet.
   const [state, setState] = useState<OnboardingState | null | undefined>(undefined);
@@ -67,7 +67,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   // Latched, since configuring the hook afterwards doesn't retrigger it.
   //
   // Set only on a real transition into 'in-flight'. On mount with a task
-  // already in_progress, configuredHooks has not loaded and
+  // already in_progress, the store's hooks have not loaded and
   // startHookConfigured is briefly false, which would latch falsely.
   const prevStageRef = useRef<Stage | undefined>(undefined);
   useEffect(() => {
@@ -117,7 +117,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
 
   const handleUseExampleHook = async () => {
     try {
-      const result = await window.api.hooks.save(projectPath, {
+      const result = await useProjectStore.getState().saveHook(projectPath, {
         id: `hook-${Date.now()}`,
         type: 'start',
         name: 'Start Hook',
@@ -127,7 +127,6 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
         useProjectStore.getState().addToast("Couldn't save the start hook", 'error');
         return;
       }
-      await useProjectStore.getState().loadProjectConfig(projectPath);
       useProjectStore.getState().addToast('Start hook configured', 'success');
     } catch (error) {
       useProjectStore

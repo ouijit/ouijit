@@ -17,6 +17,21 @@ export function isActiveSandbox(provider: SandboxProviderId | undefined): provid
   return provider != null && provider !== 'none';
 }
 
+export const SANDBOX_BACKEND_IDS: readonly SandboxBackendId[] = ['nono', 'custom'];
+
+export function isSandboxBackendId(value: unknown): value is SandboxBackendId {
+  return typeof value === 'string' && (SANDBOX_BACKEND_IDS as readonly string[]).includes(value);
+}
+
+export const SANDBOX_PROVIDER_IDS: readonly SandboxProviderId[] = ['none', ...SANDBOX_BACKEND_IDS];
+
+export function isSandboxProviderId(value: unknown): value is SandboxProviderId {
+  return typeof value === 'string' && (SANDBOX_PROVIDER_IDS as readonly string[]).includes(value);
+}
+
+/** The lifecycle hooks that run in a task terminal of their own, so can run sandboxed. */
+export const SANDBOXABLE_HOOK_TYPES: readonly string[] = ['start', 'continue', 'review', 'done'];
+
 /** Display label for each sandbox backend, shared across every UI surface. */
 export const SANDBOX_BACKEND_LABELS: Record<SandboxBackendId, string> = {
   nono: 'nono',
@@ -33,13 +48,11 @@ export const SANDBOX_BACKEND_LABELS: Record<SandboxBackendId, string> = {
  */
 export const GIT_WRITABLE_OVERLAY_DIRS = ['objects', 'refs', 'logs', 'worktrees'] as const;
 
-/** Provider-neutral availability / readiness status surfaced to the UI. */
+/** Provider-neutral availability status surfaced to the UI. */
 export interface SandboxProviderStatus {
   providerId: SandboxBackendId;
-  /** Binary present and platform supported. */
+  /** Can spawn right now: installed and supported, or configured. */
   available: boolean;
-  /** Can spawn right now. */
-  ready: boolean;
   /** Provider-specific state label, or a reason string when unavailable
    *  (e.g. "Linux kernel 5.13+ required"). */
   detail?: string;
@@ -81,11 +94,12 @@ export interface NonoConfig {
   profile?: string;
 }
 
-/** A wrapper backend's launcher exited non-zero before the shell started. */
+/** A wrapper backend refused to spawn (`error`), or its launcher exited non-zero before the shell started. */
 export interface SandboxLaunchFailedPayload {
   ptyId: string;
   provider: SandboxBackendId;
-  exitCode: number;
+  exitCode?: number;
+  error?: string;
 }
 
 /**

@@ -1,17 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { ScriptHook } from '../../types';
+import type { SandboxProviderId, ScriptHook } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { useHookCommandDefault } from '../../utils/hookDefaults';
 import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
+import { SandboxPicker } from '../ui/SandboxPicker';
 
 interface CombinedHookConfigDialogProps {
   projectPath: string;
   existingStart?: ScriptHook;
   existingContinue?: ScriptHook;
-  onClose: (result: { saved: boolean } | null) => void;
+  onClose: () => void;
 }
 
 export function CombinedHookConfigDialog({
@@ -24,6 +25,8 @@ export function CombinedHookConfigDialog({
   const continuePlaceholder = useHookCommandDefault('continue');
   const [startCommand, setStartCommand] = useState(existingStart?.command ?? '');
   const [continueCommand, setContinueCommand] = useState(existingContinue?.command ?? '');
+  const [startSandbox, setStartSandbox] = useState<SandboxProviderId>(existingStart?.sandbox ?? 'none');
+  const [continueSandbox, setContinueSandbox] = useState<SandboxProviderId>(existingContinue?.sandbox ?? 'none');
   const [visible, setVisible] = useState(false);
   const startRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
@@ -37,13 +40,10 @@ export function CombinedHookConfigDialog({
     }
   }, []);
 
-  const dismiss = useCallback(
-    (result: { saved: boolean } | null) => {
-      setVisible(false);
-      setTimeout(() => onClose(result), 200);
-    },
-    [onClose],
-  );
+  const dismiss = useCallback(() => {
+    setVisible(false);
+    setTimeout(onClose, 200);
+  }, [onClose]);
 
   const handleSave = useCallback(async () => {
     const startTrimmed = startCommand.trim();
@@ -51,34 +51,45 @@ export function CombinedHookConfigDialog({
 
     // Save or delete start hook
     if (startTrimmed) {
-      await window.api.hooks.save(projectPath, {
+      await useProjectStore.getState().saveHook(projectPath, {
         id: existingStart?.id ?? `hook-${Date.now()}`,
         type: 'start',
         name: 'Start Hook',
         command: startTrimmed,
+        sandbox: startSandbox,
       });
     } else if (existingStart) {
-      await window.api.hooks.delete(projectPath, 'start');
+      await useProjectStore.getState().deleteHook(projectPath, 'start');
     }
 
     // Save or delete continue hook
     if (continueTrimmed) {
-      await window.api.hooks.save(projectPath, {
+      await useProjectStore.getState().saveHook(projectPath, {
         id: existingContinue?.id ?? `hook-${Date.now() + 1}`,
         type: 'continue',
         name: 'Continue Hook',
         command: continueTrimmed,
+        sandbox: continueSandbox,
       });
     } else if (existingContinue) {
-      await window.api.hooks.delete(projectPath, 'continue');
+      await useProjectStore.getState().deleteHook(projectPath, 'continue');
     }
 
     useProjectStore.getState().addToast('Hooks saved', 'success');
-    dismiss({ saved: true });
-  }, [startCommand, continueCommand, projectPath, existingStart, existingContinue, dismiss]);
+    dismiss();
+  }, [
+    startCommand,
+    continueCommand,
+    startSandbox,
+    continueSandbox,
+    projectPath,
+    existingStart,
+    existingContinue,
+    dismiss,
+  ]);
 
   return (
-    <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
+    <DialogOverlay visible={visible} onDismiss={dismiss}>
       <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">Start & Continue Hooks</h2>
 
       <div className="mb-6">
@@ -102,6 +113,9 @@ export function CombinedHookConfigDialog({
             }}
             rows={1}
           />
+          <div className="mt-2">
+            <SandboxPicker value={startSandbox} onChange={setStartSandbox} />
+          </div>
         </div>
 
         <div className="flex flex-col gap-1 mt-4">
@@ -123,6 +137,9 @@ export function CombinedHookConfigDialog({
             }}
             rows={1}
           />
+          <div className="mt-2">
+            <SandboxPicker value={continueSandbox} onChange={setContinueSandbox} />
+          </div>
         </div>
 
         <HookEnvVars />
@@ -131,7 +148,7 @@ export function CombinedHookConfigDialog({
       <div className="flex gap-2 justify-between mt-4 items-center">
         <HookCliHint />
         <div className="flex gap-2">
-          <button className="btn-secondary" onClick={() => dismiss(null)}>
+          <button className="btn-secondary" onClick={dismiss}>
             Cancel
           </button>
           <button className="btn-primary" onClick={handleSave}>

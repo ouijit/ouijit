@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Tooltip } from '../ui/Tooltip';
 import type { SandboxProviderId } from '../../types';
 import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
@@ -37,6 +37,36 @@ function ThinkingGrid({ color }: { color: string }) {
   );
 }
 
+/** The dot's footprint, outlined when what it stands for runs sandboxed. */
+export function SandboxRing({
+  sandboxed,
+  size,
+  status,
+  children,
+}: {
+  sandboxed: boolean;
+  size: number;
+  status?: string;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className="status-dot inline-flex items-center justify-center shrink-0"
+      data-status={status}
+      style={
+        {
+          '--status-dot-size': `${size}px`,
+          ...(sandboxed
+            ? { '--status-ring-color': 'color-mix(in srgb, var(--color-ansi-blue) 60%, transparent)' }
+            : {}),
+        } as CSSProperties
+      }
+    >
+      {children}
+    </span>
+  );
+}
+
 export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotProps) {
   const isThinking = summaryType === 'thinking';
   const background = COLORS[summaryType] ?? COLORS.ready;
@@ -45,24 +75,13 @@ export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotP
   const tooltipText = sandboxed ? `${label} · ${SANDBOX_BACKEND_LABELS[sandboxProvider]}` : label;
   return (
     <Tooltip text={tooltipText} placement="top" delay={300}>
-      <span
-        className="status-dot inline-flex items-center justify-center shrink-0"
-        data-status={summaryType}
-        style={
-          {
-            '--status-dot-size': `${size}px`,
-            ...(sandboxed
-              ? { '--status-ring-color': 'color-mix(in srgb, var(--color-ansi-blue) 60%, transparent)' }
-              : {}),
-          } as CSSProperties
-        }
-      >
+      <SandboxRing sandboxed={sandboxed} size={size} status={summaryType}>
         {isThinking ? (
           <ThinkingGrid color={background} />
         ) : (
           <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />
         )}
-      </span>
+      </SandboxRing>
     </Tooltip>
   );
 }

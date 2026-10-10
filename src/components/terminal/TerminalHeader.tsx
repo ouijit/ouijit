@@ -12,8 +12,9 @@ import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { Tooltip } from '../ui/Tooltip';
 import { AddPanelMenu } from './AddPanelMenu';
 import { useTerminalPanels } from './useTerminalPanels';
-import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
-import type { GitFileStatus, RunnerScript } from '../../types';
+import { panelIcon, panelLabel, type RunnerPanel as RunnerPanelState, type TerminalPanel } from './panelTypes';
+import { SandboxRing } from './StatusDot';
+import type { GitFileStatus, RunnerScript, SandboxBackendId, Script, ScriptHook } from '../../types';
 import { openInEntry, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
@@ -80,7 +81,9 @@ export const TerminalHeader = memo(function TerminalHeader({
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
   const [renameTarget, setRenameTarget] = useState<null | 'terminal' | 'task'>(null);
   const [branchFromDialog, setBranchFromDialog] = useState(false);
-  const [commandDialog, setCommandDialog] = useState<'run' | 'script' | null>(null);
+  const [commandDialog, setCommandDialog] = useState<
+    { kind: 'run'; existing?: ScriptHook } | { kind: 'script'; existing?: Script } | null
+  >(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const addRef = useRef<HTMLButtonElement>(null);
 
@@ -214,8 +217,8 @@ export const TerminalHeader = memo(function TerminalHeader({
   }, []);
 
   const handleAddRunner = useCallback(
-    (script?: RunnerScript) => {
-      void startRunner(ptyId, script);
+    (script?: RunnerScript, sandbox?: SandboxBackendId) => {
+      void startRunner(ptyId, script, sandbox);
     },
     [ptyId],
   );
@@ -295,30 +298,30 @@ export const TerminalHeader = memo(function TerminalHeader({
           onAddRunner={handleAddRunner}
           onAddWebPreview={handleAddWebPreview}
           onAddPlan={handleAddPlan}
-          onConfigureRun={() => setCommandDialog('run')}
-          onNewScript={() => setCommandDialog('script')}
+          onConfigureRun={(existing) => setCommandDialog({ kind: 'run', existing })}
+          onNewScript={() => setCommandDialog({ kind: 'script' })}
+          onEditScript={(existing) => setCommandDialog({ kind: 'script', existing })}
           onClose={() => setAddMenu(null)}
         />
       )}
-      {commandDialog === 'run' && (
+      {commandDialog?.kind === 'run' && (
         <HookConfigDialog
           projectPath={projectPath}
           hookType="run"
-          onClose={(result) => {
+          existingHook={commandDialog.existing}
+          onClose={(hook) => {
             setCommandDialog(null);
-            if (result?.saved && result.hook) {
-              useProjectStore.getState().markHookConfigured(projectPath, 'run');
-              handleAddRunner();
-            }
+            if (hook && !commandDialog.existing) handleAddRunner();
           }}
         />
       )}
-      {commandDialog === 'script' && (
+      {commandDialog?.kind === 'script' && (
         <ScriptConfigDialog
           projectPath={projectPath}
+          existing={commandDialog.existing}
           onClose={(script) => {
             setCommandDialog(null);
-            if (script) handleAddRunner(script);
+            if (script && !commandDialog.existing) handleAddRunner(script);
           }}
         />
       )}
@@ -424,6 +427,16 @@ const RUNNER_DOT: Record<string, string> = {
   idle: 'bg-ink/30',
 };
 
+function RunnerDot({ panel }: { panel: RunnerPanelState }) {
+  const dot = <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${RUNNER_DOT[panel.status] ?? 'bg-ink/30'}`} />;
+  if (!panel.sandboxProvider) return dot;
+  return (
+    <SandboxRing sandboxed size={6}>
+      {dot}
+    </SandboxRing>
+  );
+}
+
 function PanelControls({
   panels,
   activePanelId,
@@ -471,7 +484,7 @@ function PanelControls({
         onClick={() => (active ? onMinimize() : onActivate(panel.id))}
       >
         {panel.kind === 'runner' ? (
-          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${RUNNER_DOT[panel.status] ?? 'bg-ink/30'}`} />
+          <RunnerDot panel={panel} />
         ) : (
           <Icon name={panelIcon(panel)} className="w-3.5 h-3.5 shrink-0" />
         )}

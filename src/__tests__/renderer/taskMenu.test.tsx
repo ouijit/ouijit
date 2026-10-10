@@ -28,9 +28,9 @@ describe('openInEntry', () => {
     const withWorktree = submenuOf(openInEntry(['nono'], true, actions()));
     expect(withWorktree.map((i) => i.label)).toEqual(['Terminal', 'nono sandbox', 'Editor', FILE_MANAGER_NAME]);
 
-    // Terminal and Editor both create one, so they survive without it.
+    // Terminals, sandboxed or not, and Editor create one, so they survive without it.
     const withoutWorktree = submenuOf(openInEntry(['nono'], false, actions()));
-    expect(withoutWorktree.map((i) => i.label)).toEqual(['Terminal', 'Editor']);
+    expect(withoutWorktree.map((i) => i.label)).toEqual(['Terminal', 'nono sandbox', 'Editor']);
   });
 
   it('runs openFolder when the file manager entry is clicked', () => {

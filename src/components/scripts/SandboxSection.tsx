@@ -1,7 +1,7 @@
 import { useState, type ComponentType } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import type { SandboxBackendId } from '../../types';
-import { SANDBOX_BACKEND_LABELS } from '../../types';
+import { SANDBOX_BACKEND_IDS, SANDBOX_BACKEND_LABELS } from '../../types';
 import { NonoSandboxSection } from './NonoSandboxSection';
 import { CustomSandboxSection } from './CustomSandboxSection';
 
@@ -20,41 +20,37 @@ interface SandboxSectionProps {
   projectPath: string;
 }
 
-/** Routes to the config surface of whichever sandbox backends are available. */
 export function SandboxSection({ projectPath }: SandboxSectionProps) {
-  const available = useProjectStore((s) => s.availableSandboxProviders);
-  const [selected, setSelected] = useState<SandboxBackendId | null>(null);
-
-  const providers = available.filter((p): p is SandboxBackendId => p !== 'none');
-  if (providers.length === 0) return null;
-
-  const active = selected && providers.includes(selected) ? selected : providers[0];
-  const hasTabs = providers.length > 1;
+  const [active, setActive] = useState<SandboxBackendId>(SANDBOX_BACKEND_IDS[0]);
+  const unavailable = useProjectStore((s) =>
+    s.configProjectPath === projectPath
+      ? s.sandboxStatuses.find((st) => st.providerId === active && !st.available)
+      : undefined,
+  );
   const ActiveSection = BACKEND_SECTIONS[active];
 
   return (
     <div className="flex flex-col gap-3">
-      {hasTabs && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex gap-1 self-start rounded-[12px] border border-bezel bg-background-secondary p-1">
-            {providers.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setSelected(p)}
-                className={`rounded-[9px] px-3 py-1 text-xs font-medium transition-colors ${
-                  active === p
-                    ? 'bg-background-tertiary text-text-primary'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                {SANDBOX_BACKEND_LABELS[p]}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-text-tertiary">{BACKEND_DESCRIPTIONS[active]}</p>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex gap-1 self-start rounded-[12px] border border-bezel bg-background-secondary p-1">
+          {SANDBOX_BACKEND_IDS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setActive(p)}
+              className={`rounded-[9px] px-3 py-1 text-xs font-medium transition-colors ${
+                active === p
+                  ? 'bg-background-tertiary text-text-primary'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {SANDBOX_BACKEND_LABELS[p]}
+            </button>
+          ))}
         </div>
-      )}
+        <p className="text-xs text-text-tertiary">{BACKEND_DESCRIPTIONS[active]}</p>
+        {unavailable?.detail && <p className="text-xs text-text-secondary">{unavailable.detail}</p>}
+      </div>
       <ActiveSection projectPath={projectPath} />
     </div>
   );

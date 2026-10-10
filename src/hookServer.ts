@@ -290,6 +290,7 @@ ouijit task set-status <number> done --run-hook              # run the configure
 ouijit task set-status <number> done --skip-hook            # change status, run no hook
 ouijit task set-status <number> done --hook-command "<cmd>" # run a one-off command instead of the done hook
 ouijit task bulk-set-status <status> <n1> <n2>...           # set status on many tasks in parallel (in_progress/in_review/done all take --run-hook/--skip-hook/--hook-command)
+ouijit task start <number> --run-hook --sandbox custom      # start, create-and-start, set-status and bulk-set-status all take --sandbox host|nono|custom, overriding the hook's own sandbox for that run
 ouijit task set-name <number> <new name>
 ouijit task set-description <number> <text>
 ouijit task set-merge-target <number> <branch>
@@ -307,13 +308,14 @@ Hook types: start, continue, run, review, done, editor
 
 ouijit hook list                              # → {start?: {name, command}, ...}
 ouijit hook get <type>
-ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"]
+ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"] [--sandbox nono|custom]
+                                              # --sandbox: start/continue/review/done only; omitting it runs the hook on the host
 ouijit hook delete <type>
 
 ## Sandbox Command (host terminals only)
-The project's custom sandbox launcher, run as <command> -- <shell> for terminals
-opened with "Custom sandbox". Not reachable from inside a sandbox. Takes effect
-only once Custom sandbox is enabled under Project Settings > Experimental.
+The project's custom sandbox launcher, run as <command> -- <shell> for hooks,
+terminals and runners set to the Custom sandbox. Not reachable from inside a
+sandbox.
 
 ouijit sandbox-command get                    # → {command?}
 ouijit sandbox-command set "<launcher>"       # absolute path or a name on PATH, outside the repo

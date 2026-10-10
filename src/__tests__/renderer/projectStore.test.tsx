@@ -149,36 +149,37 @@ describe('projectStore.pendingCliStarts (T-366)', () => {
 describe('projectStore.loadProjectConfig', () => {
   beforeEach(() => {
     useProjectStore.setState({
+      sandboxStatuses: [],
       availableSandboxProviders: [],
-      configuredHooks: {},
+      hooks: {},
       configProjectPath: null,
     });
     vi.mocked(window.api.sandbox.status).mockReset();
     vi.mocked(window.api.hooks.get).mockReset();
   });
 
-  test('writes available backends + configured hooks into the store', async () => {
-    vi.mocked(window.api.sandbox.status).mockResolvedValue([
-      { providerId: 'nono', available: true, ready: true },
-      { providerId: 'custom', available: true, ready: true },
-    ]);
-    vi.mocked(window.api.hooks.get).mockResolvedValue({
-      editor: { name: 'edit', command: 'code' },
-      run: undefined,
-    });
+  test('writes sandbox statuses, the backends among them that can run, and the hooks into the store', async () => {
+    const statuses = [
+      { providerId: 'nono' as const, available: true },
+      { providerId: 'custom' as const, available: false, detail: 'Set a sandbox command to use it.' },
+    ];
+    const editor = { id: 'e', type: 'editor' as const, name: 'edit', command: 'code' };
+    vi.mocked(window.api.sandbox.status).mockResolvedValue(statuses);
+    vi.mocked(window.api.hooks.get).mockResolvedValue({ editor });
 
     await useProjectStore.getState().loadProjectConfig('/a');
 
     const s = useProjectStore.getState();
-    expect(s.availableSandboxProviders).toEqual(['nono', 'custom']);
-    expect(s.configuredHooks).toEqual({ editor: true });
+    expect(s.sandboxStatuses).toEqual(statuses);
+    expect(s.availableSandboxProviders).toEqual(['nono']);
+    expect(s.hooks).toEqual({ editor });
     expect(s.configProjectPath).toBe('/a');
   });
 
   test('the most-recent load wins regardless of IPC resolve order (stale-load race)', async () => {
     // load(A) hangs longer than load(B); we expect B's state to land, not A's.
-    let resolveA!: (v: { providerId: 'nono'; available: boolean; ready: boolean }[]) => void;
-    const aStatus = new Promise<{ providerId: 'nono'; available: boolean; ready: boolean }[]>((res) => {
+    let resolveA!: (v: { providerId: 'nono'; available: boolean }[]) => void;
+    const aStatus = new Promise<{ providerId: 'nono'; available: boolean }[]>((res) => {
       resolveA = res;
     });
     vi.mocked(window.api.sandbox.status).mockImplementationOnce(() => aStatus);
@@ -186,7 +187,7 @@ describe('projectStore.loadProjectConfig', () => {
       Promise.resolve({ editor: { name: 'a', command: 'a' } }),
     );
 
-    vi.mocked(window.api.sandbox.status).mockResolvedValueOnce([{ providerId: 'nono', available: true, ready: true }]);
+    vi.mocked(window.api.sandbox.status).mockResolvedValueOnce([{ providerId: 'nono', available: true }]);
     vi.mocked(window.api.hooks.get).mockResolvedValueOnce({ run: { name: 'b', command: 'b' } });
 
     const aPromise = useProjectStore.getState().loadProjectConfig('/a');
@@ -195,22 +196,22 @@ describe('projectStore.loadProjectConfig', () => {
     // Resolve B first (it has mockResolvedValueOnce so it resolves immediately).
     await bPromise;
     expect(useProjectStore.getState().configProjectPath).toBe('/b');
-    expect(useProjectStore.getState().configuredHooks).toEqual({ run: true });
+    expect(useProjectStore.getState().hooks).toEqual({ run: { name: 'b', command: 'b' } });
 
     // Now let A resolve — its writes must be ignored.
-    resolveA([{ providerId: 'nono', available: false, ready: false }]);
+    resolveA([{ providerId: 'nono', available: false }]);
     await aPromise;
 
     const s = useProjectStore.getState();
     expect(s.configProjectPath).toBe('/b');
-    expect(s.configuredHooks).toEqual({ run: true });
+    expect(s.hooks).toEqual({ run: { name: 'b', command: 'b' } });
     expect(s.availableSandboxProviders).toEqual(['nono']);
   });
 
   test('IPC failures are swallowed and leave the store untouched', async () => {
     useProjectStore.setState({
       availableSandboxProviders: ['nono'],
-      configuredHooks: { editor: true },
+      hooks: { editor: { id: 'e', type: 'editor', name: 'edit', command: 'code' } },
       configProjectPath: '/prev',
     });
     vi.mocked(window.api.sandbox.status).mockRejectedValueOnce(new Error('boom'));
@@ -220,28 +221,28 @@ describe('projectStore.loadProjectConfig', () => {
 
     const s = useProjectStore.getState();
     expect(s.availableSandboxProviders).toEqual(['nono']);
-    expect(s.configuredHooks).toEqual({ editor: true });
+    expect(Object.keys(s.hooks)).toEqual(['editor']);
     expect(s.configProjectPath).toBe('/prev');
   });
 });
 
-describe('projectStore.markHookConfigured', () => {
-  beforeEach(() => {
-    useProjectStore.setState({ configuredHooks: {}, configProjectPath: '/p' });
-  });
+describe('projectStore.saveHook / deleteHook', () => {
+  test("saves and deletes a hook, reflecting it only for the store's project and only once it saved", async () => {
+    useProjectStore.setState({ hooks: {}, configProjectPath: '/p' });
+    const run = { id: 'r', type: 'run' as const, name: 'Run', command: 'npm run dev' };
+    vi.mocked(window.api.hooks.save).mockResolvedValue({ success: true });
 
-  test("adds the hook type to configuredHooks, but only for the store's project", () => {
-    useProjectStore.getState().markHookConfigured('/other', 'editor');
-    expect(useProjectStore.getState().configuredHooks).toEqual({});
-    useProjectStore.getState().markHookConfigured('/p', 'editor');
-    expect(useProjectStore.getState().configuredHooks).toEqual({ editor: true });
-  });
+    await useProjectStore.getState().saveHook('/other', run);
+    expect(useProjectStore.getState().hooks).toEqual({});
+    await useProjectStore.getState().saveHook('/p', run);
+    expect(useProjectStore.getState().hooks).toEqual({ run });
 
-  test('is idempotent — repeating the call does not allocate a new object', () => {
-    useProjectStore.getState().markHookConfigured('/p', 'editor');
-    const ref = useProjectStore.getState().configuredHooks;
-    useProjectStore.getState().markHookConfigured('/p', 'editor');
-    // Same reference proves the early-return path was taken.
-    expect(useProjectStore.getState().configuredHooks).toBe(ref);
+    vi.mocked(window.api.hooks.save).mockResolvedValueOnce({ success: false });
+    await useProjectStore.getState().saveHook('/p', { ...run, command: 'make dev' });
+    expect(useProjectStore.getState().hooks).toEqual({ run });
+
+    await useProjectStore.getState().deleteHook('/p', 'run');
+    expect(useProjectStore.getState().hooks).toEqual({});
+    expect(window.api.hooks.delete).toHaveBeenCalledWith('/p', 'run');
   });
 });

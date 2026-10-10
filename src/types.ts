@@ -85,7 +85,7 @@ export type {
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
 } from './sandbox/types';
-export { SANDBOX_BACKEND_LABELS, isActiveSandbox } from './sandbox/types';
+export { SANDBOX_BACKEND_IDS, SANDBOX_BACKEND_LABELS, SANDBOXABLE_HOOK_TYPES, isActiveSandbox } from './sandbox/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
 export type {
   RepoIdentity,
@@ -141,6 +141,7 @@ export interface SnapshotPanel {
   scriptCommand?: string | null;
   source?: 'hook' | 'script';
   restartIfRunning?: boolean;
+  sandboxProvider?: SandboxProviderId;
   /** webPreview (only user-set URLs are persisted) */
   url?: string | null;
   /** plan */
@@ -234,6 +235,15 @@ export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'edito
  */
 export type CliHookMode = 'run' | 'skip' | 'command';
 
+/** What a CLI status change asks of the hook it fires; all absent shows the hook dialog. */
+export interface CliHookControl {
+  hookMode?: CliHookMode;
+  /** The one-off command when `hookMode` is `command`. */
+  hookCommand?: string;
+  /** Overrides the hook's own sandbox setting. */
+  hookSandbox?: SandboxProviderId;
+}
+
 export interface ScriptHook {
   id: string;
   type: HookType;
@@ -242,6 +252,15 @@ export interface ScriptHook {
   description?: string;
   /** Restart the command if an instance is already running in the same task (run hook only). */
   restartIfRunning?: boolean;
+  /** Sandbox backend the hook's terminal runs under; absent or 'none' runs it on the host. */
+  sandbox?: SandboxProviderId;
+}
+
+/** How to run a lifecycle hook: as chosen in its dialog, or decided without one. */
+export interface RunHookResult {
+  command: string;
+  foreground: boolean;
+  sandbox: SandboxProviderId;
 }
 
 export interface Script {
@@ -276,6 +295,8 @@ export interface ProjectSettings {
     editor?: ScriptHook;
   };
 }
+
+export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
 
 export interface GitCheckoutResult {
   success: boolean;
@@ -570,37 +591,37 @@ export interface ElectronAPI {
   onCliThemeChanged(callback: () => void): () => void;
   /** Listen for a CLI-initiated task start that requires spawning a terminal */
   onCliTaskStarted(
-    callback: (payload: {
-      project: string;
-      taskNumber: number;
-      worktreePath: string;
-      branch: string;
-      createdAt: string;
-      hookMode?: CliHookMode;
-      hookCommand?: string;
-    }) => void,
+    callback: (
+      payload: {
+        project: string;
+        taskNumber: number;
+        worktreePath: string;
+        branch: string;
+        createdAt: string;
+      } & CliHookControl,
+    ) => void,
   ): () => void;
   /** Listen for a CLI-initiated done transition that needs terminal cleanup + hook spawn */
   onCliTaskCompleted(
-    callback: (payload: {
-      project: string;
-      taskNumber: number;
-      task: TaskWithWorkspace;
-      hookMode?: CliHookMode;
-      hookCommand?: string;
-    }) => void,
+    callback: (
+      payload: {
+        project: string;
+        taskNumber: number;
+        task: TaskWithWorkspace;
+      } & CliHookControl,
+    ) => void,
   ): () => void;
   /** Listen for a CLI-initiated in_progress/in_review transition that needs a hook spawn */
   onCliTaskTransitioned(
-    callback: (payload: {
-      project: string;
-      taskNumber: number;
-      origStatus: TaskStatus;
-      newStatus: TaskStatus;
-      task: TaskWithWorkspace;
-      hookMode?: CliHookMode;
-      hookCommand?: string;
-    }) => void,
+    callback: (
+      payload: {
+        project: string;
+        taskNumber: number;
+        origStatus: TaskStatus;
+        newStatus: TaskStatus;
+        task: TaskWithWorkspace;
+      } & CliHookControl,
+    ) => void,
   ): () => void;
   hooks: HooksAPI;
   tags: TagsAPI;
@@ -913,7 +934,7 @@ export interface CliPanelsAPI {
  * own config surface.
  */
 export interface SandboxAPI {
-  /** Availability + readiness of every registered sandbox backend. */
+  /** Availability of every registered sandbox backend. */
   status(projectPath: string): Promise<SandboxProviderStatus[]>;
   nonoConfig(projectPath: string): Promise<NonoConfig>;
   setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }>;

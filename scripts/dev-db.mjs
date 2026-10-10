@@ -169,9 +169,7 @@ function seed() {
     const taskNumber = i + 1;
     const status = t.status;
     const sortOrder = (sortByStatus[status] = (sortByStatus[status] ?? -1) + 1);
-    const worktreePath = t.branch
-      ? join(dirname(projectPath), `${projectName}-worktrees`, `T-${taskNumber}`)
-      : null;
+    const worktreePath = t.branch ? join(dirname(projectPath), `${projectName}-worktrees`, `T-${taskNumber}`) : null;
     const createdAt = new Date(Date.now() - (seedData.tasks.length - i) * 3600_000).toISOString();
     return `INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sort_order, created_at, parent_task_number, github_pr_number, github_issue_number, linear_issue_id, linear_issue_identifier, suggested_branch) VALUES ('${esc(projectPath)}', ${taskNumber}, '${esc(t.name)}', '${esc(status)}', ${nullable(t.prompt)}, ${nullable(t.branch)}, ${nullable(worktreePath)}, ${nullable(t.mergeTarget)}, ${sortOrder}, '${esc(createdAt)}', ${t.parentTaskNumber ?? 'NULL'}, ${t.githubPrNumber ?? 'NULL'}, ${t.githubIssueNumber ?? 'NULL'}, ${nullable(t.linearIssueId)}, ${nullable(t.linearIssueIdentifier)}, ${nullable(t.suggestedBranch)});`;
   });
@@ -183,7 +181,7 @@ function seed() {
   // Hooks
   const hookInserts = seedData.hooks.map(
     (h) =>
-      `INSERT INTO hooks (id, project_path, type, name, command, description) VALUES ('${randomUUID()}', '${esc(projectPath)}', '${esc(h.type)}', '${esc(h.name)}', '${esc(h.command)}', ${nullable(h.description)});`,
+      `INSERT INTO hooks (id, project_path, type, name, command, description, sandbox) VALUES ('${randomUUID()}', '${esc(projectPath)}', '${esc(h.type)}', '${esc(h.name)}', '${esc(h.command)}', ${nullable(h.description)}, ${nullable(h.sandbox)});`,
   );
   exec(hookInserts.join('\n'));
 

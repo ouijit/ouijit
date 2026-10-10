@@ -84,17 +84,36 @@ describe('taskStartService.beginTransition', () => {
     expect(useProjectStore.getState().startingTaskNumbers.has(7)).toBe(false);
   });
 
-  test("a task's start-hook terminal runs on the host (sandbox is per-terminal, not task-level)", async () => {
-    beginTransition(PROJECT, {
-      origStatus: 'todo',
-      newStatus: 'in_progress',
-      task: { ...makeTask(), worktreePath: '/wt/T-7', branch: 'wire-up-auth-7' },
-    });
+  test('a hook runs in its own sandbox unless the CLI or the dialog picks another; no hook means the host', async () => {
+    const started = { ...makeTask(), worktreePath: '/wt/T-7', branch: 'wire-up-auth-7' };
+    async function transition(opts: Partial<Parameters<typeof beginTransition>[1]>, resolveDialog?: 'nono') {
+      vi.mocked(addProjectTerminal).mockClear();
+      beginTransition(PROJECT, { origStatus: 'todo', newStatus: 'in_progress', task: started, ...opts });
+      if (resolveDialog) {
+        await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
+        const req = useProjectStore.getState().runHookQueue[0]!;
+        expect(req.sandbox).toBe('custom');
+        useProjectStore
+          .getState()
+          .resolveRunHookRequest(req.id, { command: req.hook.command, foreground: false, sandbox: resolveDialog });
+      }
+      await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
+      await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+      return vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandboxProvider;
+    }
 
-    await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
-    const options = vi.mocked(addProjectTerminal).mock.calls[0][2];
-    expect(options).toMatchObject({ taskId: 7 });
-    expect(options?.sandboxProvider).toBeUndefined();
+    expect(await transition({ hookControl: { mode: 'run' } })).toBeUndefined();
+
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 'h', type: 'start', name: 'Start', command: 'claude', sandbox: 'custom' },
+    });
+    expect(await transition({ hookControl: { mode: 'run' } })).toBe('custom');
+    expect(await transition({ hookControl: { mode: 'command', command: 'claude -p' } })).toBe('custom');
+    expect(await transition({ hookControl: { mode: 'run' }, sandbox: 'none' })).toBe('none');
+    expect(await transition({}, 'nono')).toBe('nono');
+    // Skipping the hook leaves a plain shell, which runs where the CLI says or on the host.
+    expect(await transition({ hookControl: { mode: 'skip' } })).toBeUndefined();
+    expect(await transition({ hookControl: { mode: 'skip' }, sandbox: 'nono' })).toBe('nono');
   });
 
   test('hook prompt cancel: opens no terminal and removes the loading slot', async () => {
@@ -467,6 +486,7 @@ describe('projectStore runHook queue', () => {
     hookType: 'start' as const,
     hook: { command: `cmd-${taskNumber}`, name: 'Start', source: 'configured' as const, priority: 0 },
     task: { taskNumber, name: `Task ${taskNumber}`, status: 'todo' as const, order: 0, createdAt: '' },
+    sandbox: taskNumber === 2 ? ('custom' as const) : ('none' as const),
   });
 
   test('requestRunHook appends instead of evicting the prior prompt', async () => {
@@ -501,16 +521,16 @@ describe('projectStore runHook queue', () => {
     expect(useProjectStore.getState().runHookQueueTotal).toBe(0);
   });
 
-  test('runAllRunHookRequests applies headResult to the head and defaults to the rest', async () => {
+  test("runAllRunHookRequests applies headResult to the head and each rest's own defaults", async () => {
     const store = useProjectStore.getState();
     const p1 = store.requestRunHook(makeReq(1));
     const p2 = store.requestRunHook(makeReq(2));
 
-    const headResult = { command: 'edited', foreground: true };
+    const headResult = { command: 'edited', foreground: true, sandbox: 'nono' as const };
     useProjectStore.getState().runAllRunHookRequests(headResult);
 
     await expect(p1).resolves.toEqual(headResult);
-    await expect(p2).resolves.toEqual({ command: 'cmd-2', foreground: false });
+    await expect(p2).resolves.toEqual({ command: 'cmd-2', foreground: false, sandbox: 'custom' });
     expect(useProjectStore.getState().runHookQueue).toHaveLength(0);
     expect(useProjectStore.getState().runHookQueueTotal).toBe(0);
   });

@@ -320,6 +320,8 @@ export function seedCaptureFixture(
       hook.command,
       undefined,
       hook.description,
+      false,
+      'sandbox' in hook ? hook.sandbox : null,
     );
   }
 
