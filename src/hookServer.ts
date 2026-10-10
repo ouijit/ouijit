@@ -768,18 +768,14 @@ const OUIJIT_SETTLED = new Set([
   'session.deleted',
 ]);
 
-interface OuijitV1Event {
+interface OuijitEvent {
   type: string;
+  data?: { sessionID?: string };
   properties?: { status?: { type?: string } };
 }
 
-interface OuijitV2Event {
-  type: string;
-  data?: { sessionID?: string };
-}
-
 interface OuijitV2Context {
-  event: { subscribe(options: { signal: AbortSignal }): AsyncIterable<OuijitV2Event> };
+  event: { subscribe(options: { signal: AbortSignal }): AsyncIterable<OuijitEvent> };
   session: {
     hook(name: 'context', callback: (event: { system: { type: 'text'; text: string }[] }) => void): Promise<unknown>;
   };
@@ -842,7 +838,7 @@ export default {
     if (!report) return {};
     return {
       // status.type is 'busy' | 'retry' | 'idle'.
-      event: async ({ event }: { event: OuijitV1Event }) => {
+      event: async ({ event }: { event: OuijitEvent }) => {
         if (event?.type !== 'session.status') return;
         report(event.properties?.status?.type === 'idle' ? 'ready' : 'thinking');
       },
@@ -857,11 +853,11 @@ export const OPENCODE_WRAPPER = [
   '# and ouijit-hook, and gives opencode 1 the reference as config instructions.',
   buildWrapperResolver('opencode'),
   '',
-  '# opencode utility subcommands do not start an agent session. Run them',
-  '# untouched so config injection never interferes (mirrors the claude and',
-  '# pi subcommand guards).',
+  '# opencode utility subcommands do not start an agent session.',
   'SUBCOMMAND=""',
+  'SUBCOMMAND_INDEX=0',
   'for arg in "$@"; do',
+  '  SUBCOMMAND_INDEX=$((SUBCOMMAND_INDEX + 1))',
   '  case "$arg" in',
   '    -*) continue ;;',
   '    auth|models|upgrade|update|uninstall|stats|mcp|serve|github|export|import|debug|agent|session|db|plugin|acp|api|service|reload|pair)',
@@ -874,48 +870,30 @@ export const OPENCODE_WRAPPER = [
   '# opencode 2 runs sessions in one background server shared by every',
   '# terminal, with whichever terminal started it as its env and sandbox.',
   '# --standalone gives this terminal its own.',
-  'OPENCODE_VERSION="$("$REAL_BIN" --version 2>/dev/null)"',
-  'OPENCODE_VERSION="${OPENCODE_VERSION##*v}"',
-  'OPENCODE_MAJOR="${OPENCODE_VERSION%%.*}"',
-  'STANDALONE=""',
-  'if [[ "$OPENCODE_MAJOR" =~ ^[0-9]+$ ]] && [ "$OPENCODE_MAJOR" -ge 2 ]; then',
-  '  STANDALONE=1',
+  'needs_standalone() {',
   '  for arg in "$@"; do',
   '    case "$arg" in',
-  '      --standalone|--server|--server=*) STANDALONE="" ;;',
+  '      --standalone|--server|--server=*) return 1 ;;',
   '    esac',
   '  done',
-  'fi',
-  'if [ -n "$STANDALONE" ]; then',
+  '  local version major',
+  '  version="$("$REAL_BIN" --version 2>/dev/null)"',
+  '  version="${version##*v}"',
+  '  major="${version%%.*}"',
+  '  [[ "$major" =~ ^[0-9]+$ ]] && [ "$major" -ge 2 ]',
+  '}',
+  'if needs_standalone "$@"; then',
   '  case "$SUBCOMMAND" in',
-  '    run|mini)',
-  '      ARGS=()',
-  '      PLACED=""',
-  '      for arg in "$@"; do',
-  '        ARGS+=("$arg")',
-  '        if [ -z "$PLACED" ] && [ "$arg" = "$SUBCOMMAND" ]; then',
-  '          ARGS+=(--standalone)',
-  '          PLACED=1',
-  '        fi',
-  '      done',
-  '      set -- "${ARGS[@]}"',
-  '      ;;',
+  '    run|mini) set -- "${@:1:SUBCOMMAND_INDEX}" --standalone "${@:SUBCOMMAND_INDEX+1}" ;;',
   '    *) set -- --standalone "$@" ;;',
   '  esac',
   'fi',
   '',
-  'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
-  'HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
-  'OUIJIT_OPENCODE_CONFIG="{\\"instructions\\":[\\"$REFERENCE_FILE\\"]}"',
-  'export OUIJIT_REFERENCE_FILE="$REFERENCE_FILE"',
-  '',
-  '# If ouijit is not running, still surface the CLI reference but leave',
-  '# status reporting off (OUIJIT_HOOK_BIN unset).',
-  'if [ -z "$OUIJIT_API_URL" ]; then',
-  '  OPENCODE_CONFIG_CONTENT="$OUIJIT_OPENCODE_CONFIG" exec "$REAL_BIN" "$@"',
+  'export OUIJIT_REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  'if [ -n "$OUIJIT_API_URL" ]; then',
+  '  export OUIJIT_HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
   'fi',
-  '',
-  'OPENCODE_CONFIG_CONTENT="$OUIJIT_OPENCODE_CONFIG" OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_BIN" "$@"',
+  'OPENCODE_CONFIG_CONTENT="{\\"instructions\\":[\\"$OUIJIT_REFERENCE_FILE\\"]}" exec "$REAL_BIN" "$@"',
   '',
 ].join('\n');
 
@@ -981,7 +959,6 @@ export function installWrapper(): void {
     fs.mkdirSync(path.dirname(piExtPath), { recursive: true });
     fs.writeFileSync(piExtPath, PI_EXTENSION, { mode: 0o644 });
 
-    // Write opencode wrapper (shadows `opencode`) and the plugin it configures
     fs.writeFileSync(path.join(binDir, 'opencode'), OPENCODE_WRAPPER, { mode: 0o755 });
     fs.mkdirSync(getOpencodePluginDir(), { recursive: true });
     fs.writeFileSync(getOpencodePluginPath(), OPENCODE_PLUGIN, { mode: 0o644 });
