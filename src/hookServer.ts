@@ -738,20 +738,10 @@ export const PI_WRAPPER = [
 ].join('\n');
 
 // ── opencode plugin + wrapper ────────────────────────────────────────
-// opencode exposes lifecycle events only to JS/TS plugins, and it has no
-// --append-system-prompt / hook CLI flag. Status and the CLI reference are
-// injected two different ways:
-//   • Status plugin: written into opencode's auto-load dir
-//     (~/.config/opencode/plugins), which opencode imports directly at
-//     startup. This is the only mechanism that works on released opencode:
-//     a `plugin` entry in config (even an absolute path) is instead treated
-//     as an npm package and `bun add`-ed, which fails for a local file. The
-//     plugin loads for every opencode session but is a no-op unless
-//     OUIJIT_HOOK_BIN is set (only the wrapper sets it), so a plain
-//     `opencode` run is unaffected.
-//   • CLI reference: rides on OPENCODE_CONFIG_CONTENT, an env var opencode
-//     parses as JSON and merges additively into the resolved config. Its
-//     `instructions` array concatenates onto the user's (never replaces).
+// opencode exposes lifecycle events only to JS/TS plugins and has no
+// system-prompt or hook CLI flag. The plugin goes in its global auto-load
+// dir, since a `plugin` config entry is installed from npm instead. It reads
+// what the wrapper exports, so it is inert in a plain `opencode` run.
 
 /** opencode's global plugin auto-load directory. */
 export function getOpencodePluginDir(): string {
@@ -762,91 +752,169 @@ export function getOpencodePluginPath(): string {
   return path.join(getOpencodePluginDir(), 'ouijit.ts');
 }
 
-export const OPENCODE_PLUGIN = `// Ouijit opencode plugin - bridges opencode session status to the
-// per-terminal status indicator. Auto-installed; safe to delete (Ouijit
-// recreates it). No-ops when OUIJIT_HOOK_BIN is unset, so it is harmless if
-// it ever loads outside Ouijit.
+export const OPENCODE_PLUGIN = `// Ouijit opencode plugin - reports session status to the terminal and adds
+// the Ouijit CLI reference to the system prompt. Auto-installed; safe to
+// delete (Ouijit recreates it).
+
+import { execFile } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 type OuijitStatus = 'thinking' | 'ready';
 
-interface OuijitShellResult {
-  quiet(): { nothrow(): Promise<unknown> };
-}
+const OUIJIT_SETTLED = new Set([
+  'session.execution.succeeded',
+  'session.execution.failed',
+  'session.execution.interrupted',
+  'session.deleted',
+]);
 
-interface OuijitOpencodeContext {
-  $: (strings: TemplateStringsArray, ...values: unknown[]) => OuijitShellResult;
-}
-
-interface OuijitSessionEvent {
+interface OuijitV1Event {
   type: string;
   properties?: { status?: { type?: string } };
 }
 
-export const OuijitStatusPlugin = async ({ $ }: OuijitOpencodeContext) => {
-  const hookBin = process.env.OUIJIT_HOOK_BIN;
-  if (!hookBin) return {};
+interface OuijitV2Event {
+  type: string;
+  data?: { sessionID?: string };
+}
 
-  // Only report real transitions so we don't spawn a hook process per event.
+interface OuijitV2Context {
+  event: { subscribe(options: { signal: AbortSignal }): AsyncIterable<OuijitV2Event> };
+  session: {
+    hook(name: 'context', callback: (event: { system: { type: 'text'; text: string }[] }) => void): Promise<unknown>;
+  };
+}
+
+function statusReporter() {
+  const hookBin = process.env.OUIJIT_HOOK_BIN;
+  if (!hookBin) return undefined;
   let last: OuijitStatus | null = null;
-  const ping = (status: OuijitStatus) => {
+  return (status: OuijitStatus) => {
     if (status === last) return;
     last = status;
-    try {
-      $\`\${hookBin} status status=\${status}\`.quiet().nothrow().catch(() => {});
-    } catch {
-      // best-effort: never let status reporting break the session
-    }
+    execFile(hookBin, ['status', \`status=\${status}\`], () => {});
   };
+}
 
-  return {
-    // session.status carries opencode's busy/idle state (session.idle is
-    // deprecated). status.type is 'busy' | 'retry' | 'idle'; anything that is
-    // not idle means the agent is still working.
-    event: async ({ event }: { event: OuijitSessionEvent }) => {
-      if (event?.type !== 'session.status') return;
-      ping(event.properties?.status?.type === 'idle' ? 'ready' : 'thinking');
-    },
-  };
+function readInstructions(): string | undefined {
+  const file = process.env.OUIJIT_REFERENCE_FILE;
+  if (!file) return undefined;
+  try {
+    return readFileSync(file, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+export default {
+  id: 'ouijit',
+
+  // opencode 2. The wrapper starts it with --standalone, so this runs in a
+  // server private to the terminal and every session here is the terminal's.
+  async setup(ctx: OuijitV2Context) {
+    const instructions = readInstructions();
+    if (instructions) {
+      await ctx.session.hook('context', (event) => {
+        event.system.push({ type: 'text', text: instructions });
+      });
+    }
+
+    const report = statusReporter();
+    if (!report) return;
+    const running = new Set<string>();
+    const controller = new AbortController();
+    void (async () => {
+      for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+        const sessionID = event.data?.sessionID;
+        if (!sessionID) continue;
+        if (event.type === 'session.execution.started') running.add(sessionID);
+        else if (OUIJIT_SETTLED.has(event.type)) running.delete(sessionID);
+        else continue;
+        report(running.size > 0 ? 'thinking' : 'ready');
+      }
+    })().catch(() => {});
+    return () => controller.abort();
+  },
+
+  // opencode 1, which takes the CLI reference from config instructions.
+  async server() {
+    const report = statusReporter();
+    if (!report) return {};
+    return {
+      // status.type is 'busy' | 'retry' | 'idle'.
+      event: async ({ event }: { event: OuijitV1Event }) => {
+        if (event?.type !== 'session.status') return;
+        report(event.properties?.status?.type === 'idle' ? 'ready' : 'thinking');
+      },
+    };
+  },
 };
 `;
 
 export const OPENCODE_WRAPPER = [
   '#!/bin/bash',
-  '# Ouijit opencode wrapper - injects the Ouijit CLI reference via',
-  '# OPENCODE_CONFIG_CONTENT (opencode parses it as JSON and merges it into',
-  '# the resolved config; `instructions` concatenates onto the user config).',
-  '# The status plugin is loaded separately from opencode auto-load dir; this',
-  '# wrapper only flips it on by exporting OUIJIT_HOOK_BIN. opencode has no',
-  '# system-prompt or hook CLI flags, so everything rides on env + config.',
+  '# Ouijit opencode wrapper - points the Ouijit plugin at the CLI reference',
+  '# and ouijit-hook, and gives opencode 1 the reference as config instructions.',
   buildWrapperResolver('opencode'),
   '',
   '# opencode utility subcommands do not start an agent session. Run them',
   '# untouched so config injection never interferes (mirrors the claude and',
   '# pi subcommand guards).',
+  'SUBCOMMAND=""',
   'for arg in "$@"; do',
   '  case "$arg" in',
   '    -*) continue ;;',
-  '    auth|models|upgrade|uninstall|stats|mcp|serve|github|export|import|debug|agent|session|db|plugin)',
+  '    auth|models|upgrade|update|uninstall|stats|mcp|serve|github|export|import|debug|agent|session|db|plugin|acp|api|service|reload|pair)',
   '      exec "$REAL_BIN" "$@"',
   '      ;;',
-  '    *) break ;;',
+  '    *) SUBCOMMAND="$arg"; break ;;',
   '  esac',
   'done',
   '',
+  '# opencode 2 runs sessions in one background server shared by every',
+  '# terminal, with whichever terminal started it as its env and sandbox.',
+  '# --standalone gives this terminal its own.',
+  'OPENCODE_VERSION="$("$REAL_BIN" --version 2>/dev/null)"',
+  'OPENCODE_VERSION="${OPENCODE_VERSION##*v}"',
+  'OPENCODE_MAJOR="${OPENCODE_VERSION%%.*}"',
+  'STANDALONE=""',
+  'if [[ "$OPENCODE_MAJOR" =~ ^[0-9]+$ ]] && [ "$OPENCODE_MAJOR" -ge 2 ]; then',
+  '  STANDALONE=1',
+  '  for arg in "$@"; do',
+  '    case "$arg" in',
+  '      --standalone|--server|--server=*) STANDALONE="" ;;',
+  '    esac',
+  '  done',
+  'fi',
+  'if [ -n "$STANDALONE" ]; then',
+  '  case "$SUBCOMMAND" in',
+  '    run|mini)',
+  '      ARGS=()',
+  '      PLACED=""',
+  '      for arg in "$@"; do',
+  '        ARGS+=("$arg")',
+  '        if [ -z "$PLACED" ] && [ "$arg" = "$SUBCOMMAND" ]; then',
+  '          ARGS+=(--standalone)',
+  '          PLACED=1',
+  '        fi',
+  '      done',
+  '      set -- "${ARGS[@]}"',
+  '      ;;',
+  '    *) set -- --standalone "$@" ;;',
+  '  esac',
+  'fi',
+  '',
   'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
   'HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
-  '',
-  '# Add the CLI reference to opencode instructions for this invocation only.',
   'OUIJIT_OPENCODE_CONFIG="{\\"instructions\\":[\\"$REFERENCE_FILE\\"]}"',
+  'export OUIJIT_REFERENCE_FILE="$REFERENCE_FILE"',
   '',
-  '# If ouijit is not running, still surface the CLI reference but leave the',
-  '# status plugin inert (OUIJIT_HOOK_BIN unset).',
+  '# If ouijit is not running, still surface the CLI reference but leave',
+  '# status reporting off (OUIJIT_HOOK_BIN unset).',
   'if [ -z "$OUIJIT_API_URL" ]; then',
   '  OPENCODE_CONFIG_CONTENT="$OUIJIT_OPENCODE_CONFIG" exec "$REAL_BIN" "$@"',
   'fi',
   '',
-  '# OUIJIT_HOOK_BIN activates the ouijit status plugin (loaded from opencode',
-  '# auto-load dir); it shells out to ouijit-hook on session.status busy/idle.',
   'OPENCODE_CONFIG_CONTENT="$OUIJIT_OPENCODE_CONFIG" OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_BIN" "$@"',
   '',
 ].join('\n');
@@ -913,20 +981,14 @@ export function installWrapper(): void {
     fs.mkdirSync(path.dirname(piExtPath), { recursive: true });
     fs.writeFileSync(piExtPath, PI_EXTENSION, { mode: 0o644 });
 
-    // Write opencode wrapper (shadows `opencode`) and the status plugin into
-    // opencode's auto-load dir. opencode imports auto-load files directly,
-    // whereas a `plugin` config entry is `bun add`-ed (fails for a local
-    // file), so the auto-load dir is the only working host mechanism. The
-    // plugin is inert until the wrapper exports OUIJIT_HOOK_BIN, so a plain
-    // `opencode` run is unaffected.
+    // Write opencode wrapper (shadows `opencode`) and the plugin it configures
     fs.writeFileSync(path.join(binDir, 'opencode'), OPENCODE_WRAPPER, { mode: 0o755 });
+    fs.mkdirSync(getOpencodePluginDir(), { recursive: true });
+    fs.writeFileSync(getOpencodePluginPath(), OPENCODE_PLUGIN, { mode: 0o644 });
 
     // Write nono shim (resolves the vendored nono binary via OUIJIT_NONO_PATH,
     // set by every Ouijit task terminal; falls through to PATH everywhere else)
     fs.writeFileSync(path.join(binDir, 'nono'), NONO_SHIM, { mode: 0o755 });
-    const opencodePluginPath = getOpencodePluginPath();
-    fs.mkdirSync(path.dirname(opencodePluginPath), { recursive: true });
-    fs.writeFileSync(opencodePluginPath, OPENCODE_PLUGIN, { mode: 0o644 });
 
     // Write ouijit CLI wrapper (delegates to the bundled CLI JS via env vars set by PTY manager)
     fs.writeFileSync(
