@@ -4,14 +4,13 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useAppStore } from '../../stores/appStore';
 import { type OnboardingStorageIO, patchOnboardingState, readOnboardingState } from '../../onboardingState';
 import type { FirstProjectSource, OnboardingState } from '../../types';
+import { useHookCommandDefault } from '../../utils/hookDefaults';
 
 interface OnboardingPanelProps {
   projectPath: string;
   onConfigureCliAgent: () => void;
   onOpenHelp: () => void;
 }
-
-const EXAMPLE_START_HOOK_COMMAND = `claude "complete the current task and move it into in review"`;
 
 type Stage = 'intro' | 'setup' | 'in-flight' | 'complete';
 
@@ -28,6 +27,7 @@ const io: OnboardingStorageIO = {
 export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }: OnboardingPanelProps) {
   const tasks = useProjectStore((s) => s.tasks);
   const startHookConfigured = useProjectStore((s) => !!s.configuredHooks.start);
+  const exampleStartHookCommand = useHookCommandDefault('start');
   // `undefined` = not yet loaded, `null` = loaded but no state exists yet.
   const [state, setState] = useState<OnboardingState | null | undefined>(undefined);
   // In the app store, not useState: the panel unmounts when the kanban view is
@@ -121,7 +121,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
         id: `hook-${Date.now()}`,
         type: 'start',
         name: 'Start Hook',
-        command: EXAMPLE_START_HOOK_COMMAND,
+        command: exampleStartHookCommand,
       });
       if (!result.success) {
         useProjectStore.getState().addToast("Couldn't save the start hook", 'error');
@@ -139,7 +139,13 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   const renderStageBody = (s: Stage) => (
     <>
       {s === 'intro' && <IntroStage source={state.source} />}
-      {s === 'setup' && <SetupStage configured={startHookConfigured} onUseExampleHook={handleUseExampleHook} />}
+      {s === 'setup' && (
+        <SetupStage
+          command={exampleStartHookCommand}
+          configured={startHookConfigured}
+          onUseExampleHook={handleUseExampleHook}
+        />
+      )}
       {s === 'in-flight' && (
         <InFlightStage
           stuck={stuckLatched}
@@ -370,7 +376,15 @@ function IntroStage({ source }: { source: FirstProjectSource | undefined }) {
   );
 }
 
-function SetupStage({ configured, onUseExampleHook }: { configured: boolean; onUseExampleHook: () => void }) {
+function SetupStage({
+  command,
+  configured,
+  onUseExampleHook,
+}: {
+  command: string;
+  configured: boolean;
+  onUseExampleHook: () => void;
+}) {
   return (
     <>
       <div className="flex items-center gap-2 mb-4">
@@ -387,7 +401,7 @@ function SetupStage({ configured, onUseExampleHook }: { configured: boolean; onU
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <code className="inline-block font-mono text-[12px] text-text-primary bg-ink/5 rounded-md px-2.5 py-1.5 max-w-full overflow-x-auto whitespace-nowrap">
-                {EXAMPLE_START_HOOK_COMMAND}
+                {command}
               </code>
               {!configured && (
                 <button
