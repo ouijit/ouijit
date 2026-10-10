@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { ZSH_INTEGRATION, BASH_INTEGRATION, FISH_INTEGRATION } from '../shellIntegration';
+import { ZSH_INTEGRATION, ZSH_ZSHRC, BASH_INTEGRATION, FISH_INTEGRATION } from '../shellIntegration';
 
 /**
  * The shell-integration scripts emit OSC 133;D;<exit_code> after each command
@@ -22,7 +22,7 @@ describe('zsh shell integration', () => {
   });
 
   test('hook runs first so $? still reflects the user command, not later precmds', () => {
-    expect(ZSH_INTEGRATION).toContain('precmd_functions=(_ouijit_emit_exit_code $precmd_functions)');
+    expect(ZSH_ZSHRC).toContain('precmd_functions=(_ouijit_emit_exit_code $precmd_functions');
   });
 });
 
@@ -39,7 +39,7 @@ describe('bash shell integration', () => {
   });
 
   test('hook is prepended to PROMPT_COMMAND so $? still reflects the user command', () => {
-    expect(BASH_INTEGRATION).toContain('PROMPT_COMMAND="_ouijit_emit_exit_code; $PROMPT_COMMAND"');
+    expect(BASH_INTEGRATION).toContain('PROMPT_COMMAND="_ouijit_emit_exit_code\n$PROMPT_COMMAND\n');
   });
 });
 

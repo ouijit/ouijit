@@ -14,10 +14,12 @@ function findOnPath(name: string): string | null {
   }
 }
 
-const SHELLS = ['/bin/zsh', '/bin/bash', findOnPath('fish')].map((shell) => ({
-  shell: shell ?? 'fish',
-  installed: shell != null && fs.existsSync(shell),
-}));
+const fish = findOnPath('fish');
+const SHELLS = [
+  { shell: '/bin/zsh', installed: fs.existsSync('/bin/zsh') },
+  { shell: '/bin/bash', installed: fs.existsSync('/bin/bash') },
+  { shell: fish ?? 'fish', installed: fish != null },
+];
 
 let root: string;
 let integrationDir: string;
@@ -35,11 +37,14 @@ beforeAll(() => {
   fs.writeFileSync(path.join(wrapperDir, 'ls'), '#!/bin/sh\necho WRAPPED\n', { mode: 0o755 });
 
   // Each rc pushes the system dirs ahead of the wrapper dir, as a user's own
-  // PATH edits would.
+  // PATH edits would, and replaces the prompt hooks it was handed.
   home = path.join(root, 'home');
   fs.mkdirSync(path.join(home, '.config', 'fish'), { recursive: true });
-  fs.writeFileSync(path.join(home, '.zshrc'), 'export PATH="/usr/bin:/bin:$PATH"\n');
-  fs.writeFileSync(path.join(home, '.bashrc'), 'export PATH="/usr/bin:/bin:$PATH"\n');
+  fs.writeFileSync(path.join(home, '.zshrc'), 'export PATH="/usr/bin:/bin:$PATH"\nprecmd_functions=()\n');
+  fs.writeFileSync(
+    path.join(home, '.bashrc'),
+    'export PATH="/usr/bin:/bin:$PATH"\nPROMPT_COMMAND="history -a; $PROMPT_COMMAND"\n',
+  );
   fs.writeFileSync(path.join(home, '.config', 'fish', 'config.fish'), 'set -gx PATH /usr/bin /bin $PATH\n');
 
   probe = path.join(root, 'probe.js');
@@ -109,6 +114,15 @@ describe('startup command', () => {
           await exiting.waitFor(/[\r\n]still-open/);
         } finally {
           exiting.term.kill();
+        }
+
+        const interrupted = spawnShell(shell, `${process.execPath} ${probe}`);
+        try {
+          await interrupted.waitFor(/started/);
+          interrupted.term.write('\x03');
+          expect((await interrupted.waitFor(exitCode))[1]).toBe('130');
+        } finally {
+          interrupted.term.kill();
         }
 
         const { term, waitFor } = spawnShell(shell, `${process.execPath} ${probe}`);

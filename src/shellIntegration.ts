@@ -59,18 +59,13 @@ export interface ShellIntegration {
 }
 
 // ── Startup command ──────────────────────────────────────────────────
-//
-// The integrated shells take the startup command in OUIJIT_STARTUP_COMMAND and
-// run it themselves, so it is a job of the interactive shell the user ends up
-// in: Ctrl-Z then `fg` resumes it. Running it ahead of an `exec` into that
-// shell would leave a stopped process the new shell has no job for.
-
-const STARTUP_COMMAND_ENV = 'OUIJIT_STARTUP_COMMAND';
 
 const startupEnv = (command: string): Record<string, string> | undefined =>
-  command ? { [STARTUP_COMMAND_ENV]: command } : undefined;
+  command ? { OUIJIT_STARTUP_COMMAND: command } : undefined;
 
 // ── Shared script fragments ──────────────────────────────────────────
+
+const indent = (lines: string[], pad: string): string[] => lines.map((line) => (line ? pad + line : line));
 
 /**
  * Re-prepend the wrapper dir to PATH, removing any existing copies first.
@@ -86,7 +81,26 @@ const POSIX_PATH_REPREPEND = [
   'export PATH',
 ];
 
-const indent = (lines: string[], pad: string): string[] => lines.map((line) => (line ? pad + line : line));
+/**
+ * bash/zsh prompt hook that runs the startup command once, as a job of the
+ * interactive shell so Ctrl-Z then `fg` resumes it. It leaves the
+ * environment first so a shell it starts does not run it again, and is cleared
+ * before it runs, outside any `if`: zsh moves the rest of a compound command
+ * stopped by Ctrl-Z into a subshell, where clearing it would not stick. The
+ * subshell around `eval` keeps a stray `exit` from closing the terminal.
+ */
+const posixStartupCommand = (beforeRun: string[] = []): string[] => [
+  '_ouijit_startup_command=${OUIJIT_STARTUP_COMMAND-}',
+  'unset OUIJIT_STARTUP_COMMAND',
+  '_ouijit_run_startup_command() {',
+  '  [ -n "$_ouijit_startup_command" ] || return',
+  '  local cmd=$_ouijit_startup_command',
+  '  _ouijit_startup_command=',
+  ...indent(beforeRun, '  '),
+  '  ( eval "$cmd" )',
+  '  printf "\\033]133;D;%d\\007" "$?"',
+  '}',
+];
 
 // ── zsh ──────────────────────────────────────────────────────────────
 
@@ -133,6 +147,10 @@ export const ZSH_ZSHRC = [
   'fi',
   'unset _OUIJIT_ZSH_HOME _OUIJIT_USER_ZDOTDIR',
   '',
+  '# Registered after the user rc, which may reassign precmd_functions. The',
+  "# exit-code hook goes first so $? is still the user command's.",
+  'precmd_functions=(_ouijit_emit_exit_code $precmd_functions _ouijit_run_startup_command)',
+  '',
   "# Under a filesystem sandbox the user's history file is denied. Point HISTFILE",
   '# at /dev/null AFTER the user rc (which may set it) so zsh never tries to lock',
   '# a file it cannot write — otherwise it prints "locking failed" at every',
@@ -158,8 +176,7 @@ export const ZSH_INTEGRATION = [
   '',
   '# Emit OSC 133;D;<exit_code> after each command so the renderer can detect',
   "# the prior command's exit code without the PTY actually exiting. Skips the",
-  '# very first prompt (no command has run yet). MUST be the first precmd so',
-  '# $? still reflects the user command, not a downstream precmd hook.',
+  '# very first prompt (no command has run yet). Registered from .zshrc.',
   '_ouijit_emit_exit_code() {',
   '  local code=$?',
   '  if [ -n "$_OUIJIT_HAS_RUN" ]; then',
@@ -168,24 +185,12 @@ export const ZSH_INTEGRATION = [
   '  _OUIJIT_HAS_RUN=1',
   '  return $code',
   '}',
-  'precmd_functions=(_ouijit_emit_exit_code $precmd_functions)',
   '',
-  '# Run the startup command once, from the first prompt. Unset before it runs',
-  '# so a shell it starts does not run it again; the subshell keeps a stray',
-  '# `exit` from closing the terminal.',
-  'if [ -n "${OUIJIT_STARTUP_COMMAND-}" ]; then',
-  '  _ouijit_startup_command=$OUIJIT_STARTUP_COMMAND',
-  '  unset OUIJIT_STARTUP_COMMAND',
-  '  _ouijit_run_startup_command() {',
-  '    precmd_functions=(${precmd_functions:#_ouijit_run_startup_command})',
-  '    ( eval "$_ouijit_startup_command" )',
-  '    local code=$?',
-  '    unset _ouijit_startup_command',
-  '    printf "\\033]133;D;%d\\007" "$code"',
-  '    return $code',
-  '  }',
-  '  precmd_functions+=(_ouijit_run_startup_command)',
-  'fi',
+  // zsh abandons the rest of a function, and the precmd hooks after it, when a
+  // job it waits on dies of SIGINT, unless INT is trapped. The PATH fix is
+  // repeated because a user rc that reassigns precmd_functions drops
+  // _ouijit_fix_path.
+  ...posixStartupCommand(['setopt localoptions localtraps', 'trap : INT', ...POSIX_PATH_REPREPEND]),
   '',
 ].join('\n');
 
@@ -245,28 +250,13 @@ export const BASH_INTEGRATION = [
   '  _OUIJIT_HAS_RUN=1',
   '  return $code',
   '}',
-  'if [ -n "$PROMPT_COMMAND" ]; then',
-  '  PROMPT_COMMAND="_ouijit_emit_exit_code; $PROMPT_COMMAND"',
-  'else',
-  '  PROMPT_COMMAND="_ouijit_emit_exit_code"',
-  'fi',
   '',
-  '# Run the startup command once, from the first prompt. Unset before it runs',
-  '# so a shell it starts does not run it again; the subshell keeps a stray',
-  '# `exit` from closing the terminal.',
-  'if [ -n "${OUIJIT_STARTUP_COMMAND-}" ]; then',
-  '  _ouijit_startup_command=$OUIJIT_STARTUP_COMMAND',
-  '  unset OUIJIT_STARTUP_COMMAND',
-  '  _ouijit_run_startup_command() {',
-  '    PROMPT_COMMAND="${PROMPT_COMMAND/; _ouijit_run_startup_command/}"',
-  '    ( eval "$_ouijit_startup_command" )',
-  '    local code=$?',
-  '    unset _ouijit_startup_command',
-  '    printf "\\033]133;D;%d\\007" "$code"',
-  '    return $code',
-  '  }',
-  '  PROMPT_COMMAND="${PROMPT_COMMAND/#_ouijit_emit_exit_code/_ouijit_emit_exit_code; _ouijit_run_startup_command}"',
-  'fi',
+  ...posixStartupCommand(),
+  // Newlines, not `;`: a PROMPT_COMMAND ending in `;` is common, and `; ;` is a
+  // syntax error that would stop every hook in it.
+  'PROMPT_COMMAND="_ouijit_emit_exit_code',
+  '$PROMPT_COMMAND',
+  '_ouijit_run_startup_command"',
   '',
 ].join('\n');
 
@@ -278,7 +268,7 @@ const bashIntegration: ShellIntegration = {
     fs.writeFileSync(path.join(dir, 'ouijit-bash-integration.bash'), BASH_INTEGRATION, { mode: 0o644 });
   },
   launch({ shell, integrationDir, command }) {
-    // --rcfile/--init-file: bash sources this instead of ~/.bashrc; ours
+    // --init-file: bash sources this instead of ~/.bashrc; ours
     // sources .bashrc first, then fixes PATH.
     const rcfile = path.join(integrationDir, 'ouijit-bash-integration.bash');
     return { file: shell, args: ['--init-file', rcfile], env: startupEnv(command) };
@@ -351,8 +341,7 @@ const fishIntegration: ShellIntegration = {
  * Unknown shell: launch it, but with no integration. With a startup command,
  * /bin/sh runs it and execs into the shell, so a command stopped with Ctrl-Z
  * cannot be resumed there. Fail open — exotic shells work, just without the
- * wrapper-PATH guarantee, exit-code signal or job control of the startup
- * command until they get a provider.
+ * wrapper-PATH guarantee or exit-code signal until they get a provider.
  */
 const posixFallbackIntegration: ShellIntegration = {
   id: 'posix',
