@@ -37,6 +37,10 @@ const config: ForgeConfig = {
     // Node's native module loader expects .node files on the real filesystem.
     asar: false,
     icon: './src/assets/icons/icon',
+    extendInfo: {
+      NSMicrophoneUsageDescription: 'Allows programs run in Ouijit terminals to use the microphone.',
+      NSCameraUsageDescription: 'Allows programs run in Ouijit terminals to use the camera.',
+    },
     osxSign: process.env.SKIP_SIGN
       ? undefined
       : {
