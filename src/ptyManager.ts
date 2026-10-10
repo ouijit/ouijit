@@ -278,15 +278,21 @@ export async function spawnPty(
         worktreePath: options.worktreePath,
         apiPort: getApiPort(),
       };
-      const prepared = await wrapper.prepare({ ...spawnContext, cwd: options.cwd });
-      spawnCwd = prepared.cwd;
-      if (prepared.env) Object.assign(finalEnv, prepared.env);
-      const wrapped = await wrapper.wrapLaunch(
-        { file: launch.file, args: launch.args, env: finalEnv },
-        { ...spawnContext, cwd: spawnCwd },
-      );
-      launchFile = wrapped.file;
-      launchArgs = wrapped.args;
+      try {
+        const prepared = await wrapper.prepare({ ...spawnContext, cwd: options.cwd });
+        spawnCwd = prepared.cwd;
+        if (prepared.env) Object.assign(finalEnv, prepared.env);
+        const wrapped = await wrapper.wrapLaunch(
+          { file: launch.file, args: launch.args, env: finalEnv },
+          { ...spawnContext, cwd: spawnCwd },
+        );
+        launchFile = wrapped.file;
+        launchArgs = wrapped.args;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        typedPush(window, 'sandbox-launch-failed', { ptyId, provider: wrapper.id, error: message });
+        throw error;
+      }
     }
 
     const ptyProcess = pty.spawn(launchFile, launchArgs, {
@@ -365,9 +371,10 @@ export async function spawnPty(
     return { success: true, ptyId };
   } catch (error) {
     revokeToken(ptyId);
-    const message = error instanceof Error ? error.message : 'Failed to spawn PTY';
-    if (wrapper) typedPush(window, 'sandbox-launch-failed', { ptyId, provider: wrapper.id, error: message });
-    return { success: false, error: message };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to spawn PTY',
+    };
   }
 }
 

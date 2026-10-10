@@ -1,11 +1,9 @@
 import type { CliHookMode, RunHookResult, SandboxProviderId, ScriptHook } from '../types';
 
-/** An explicit override wins, then the hook's own setting, then the host. */
 export function hookSandbox(override: SandboxProviderId | undefined, hook: ScriptHook | undefined): SandboxProviderId {
   return override ?? hook?.sandbox ?? 'none';
 }
 
-/** A hook choice made without the dialog: by CLI flags or a shift-drag. */
 export interface HookControl {
   mode: CliHookMode;
   /** The one-off command, required when `mode` is `command`. */

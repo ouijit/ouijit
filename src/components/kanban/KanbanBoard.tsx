@@ -74,7 +74,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
   const [hookDialog, setHookDialog] = useState<
     | { mode: 'single'; hookType: HookType; existingHook?: ScriptHook }
-    | { mode: 'combined'; start?: any; continue?: any }
+    | { mode: 'combined'; start?: ScriptHook; continue?: ScriptHook }
     | null
   >(null);
 

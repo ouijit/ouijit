@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../terminal/Icon';
 import { Tooltip } from './Tooltip';
@@ -176,6 +176,11 @@ function MenuList({
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const [renderedWidth, setRenderedWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    setRenderedWidth(menuRef.current?.offsetWidth ?? 0);
+  }, []);
 
   // Position and animate in
   useEffect(() => {
@@ -204,7 +209,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
 
   // Keep within viewport. Only top-level entries drive the height clamp;
   // submenu flyouts open to the side.
-  const menuWidth = 200;
+  const menuWidth = Math.max(200, renderedWidth);
   const submenuWidth = 180;
   const itemCount = items.filter((i) => !('separator' in i)).length;
   const sepCount = items.filter((i) => 'separator' in i).length;
