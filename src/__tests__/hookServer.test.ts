@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import * as ts from 'typescript';
 import type { BrowserWindow } from 'electron';
 
@@ -448,26 +449,10 @@ describe('installWrapper', () => {
     installWrapper();
 
     const wrapperPath = path.join(tmpHome, '.config', 'Ouijit', 'bin', 'opencode');
-    const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
-    expect(wrapper).toContain('#!/bin/bash');
-    expect(wrapper).toContain('REAL_BIN=');
-    expect(wrapper).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
-    // Injects the CLI reference via OPENCODE_CONFIG_CONTENT and activates the
-    // plugin via OUIJIT_HOOK_BIN (opencode has no system-prompt/hook flags).
-    expect(wrapper).toContain('OPENCODE_CONFIG_CONTENT="$OUIJIT_OPENCODE_CONFIG"');
-    expect(wrapper).toContain('OUIJIT_HOOK_BIN="$HOOK_BIN"');
-    // No-API fallthrough still surfaces the CLI reference, plugin left inert.
-    expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
+    expect(fs.readFileSync(wrapperPath, 'utf-8')).toBe(OPENCODE_WRAPPER);
 
-    // Plugin lands in opencode's auto-load dir (imported directly at startup;
-    // a `plugin` config entry would be bun-add'd and fail for a local file).
     const pluginPath = path.join(tmpHome, '.config', 'opencode', 'plugins', 'ouijit.ts');
-    expect(fs.existsSync(pluginPath)).toBe(true);
-    const plugin = fs.readFileSync(pluginPath, 'utf-8');
-    expect(plugin).toContain('export const OuijitStatusPlugin');
-    expect(plugin).toContain('session.status');
-    expect(plugin).toContain("'ready' : 'thinking'");
-    expect(plugin).toContain('OUIJIT_HOOK_BIN');
+    expect(fs.readFileSync(pluginPath, 'utf-8')).toBe(OPENCODE_PLUGIN);
   });
 
   test('creates nono shim preferring OUIJIT_NONO_PATH with a PATH fallthrough', () => {
@@ -1346,36 +1331,37 @@ describe('PI_EXTENSION', () => {
         pings.push(args[1].replace('status=', ''));
       },
     };
-    const factory = compilePiExtension(PI_EXTENSION);
-    process.env.OUIJIT_HOOK_BIN = '/fake/ouijit-hook';
-    try {
-      await factory(pi);
+    const factory = loadDefaultExport<(pi: unknown) => Promise<void>>(PI_EXTENSION, {
+      OUIJIT_HOOK_BIN: '/fake/ouijit-hook',
+    });
+    await factory(pi);
 
-      // One prompt, three internal turns.
-      handlers.agent_start();
-      handlers.turn_start?.();
-      handlers.turn_end?.();
-      handlers.turn_start?.();
-      handlers.turn_end?.();
-      handlers.turn_start?.();
-      handlers.turn_end?.();
-      handlers.agent_end();
+    // One prompt, three internal turns.
+    handlers.agent_start();
+    handlers.turn_start?.();
+    handlers.turn_end?.();
+    handlers.turn_start?.();
+    handlers.turn_end?.();
+    handlers.turn_start?.();
+    handlers.turn_end?.();
+    handlers.agent_end();
 
-      expect(pings).toEqual(['thinking', 'ready']);
-    } finally {
-      delete process.env.OUIJIT_HOOK_BIN;
-    }
+    expect(pings).toEqual(['thinking', 'ready']);
   });
 });
 
-/** Strips type annotations from the PI_EXTENSION TS string into a runnable factory. */
-function compilePiExtension(src: string): (pi: unknown) => Promise<void> {
+function loadDefaultExport<T>(src: string, env: Record<string, string>): T {
   const transpiled = ts.transpileModule(src, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText;
-  const moduleExports: { exports: { default?: unknown } } = { exports: {} };
-  new Function('exports', 'module', 'process', transpiled)(moduleExports.exports, moduleExports, process);
-  return moduleExports.exports.default as (pi: unknown) => Promise<void>;
+  const module: { exports: { default?: T } } = { exports: {} };
+  new Function('exports', 'module', 'require', 'process', transpiled)(
+    module.exports,
+    module,
+    createRequire(import.meta.url),
+    { env },
+  );
+  return module.exports.default!;
 }
 
 // ── OPENCODE_WRAPPER constant ────────────────────────────────────────
@@ -1387,32 +1373,8 @@ describe('OPENCODE_WRAPPER', () => {
     expect(OPENCODE_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
   });
 
-  test('builds a valid embedded instructions config', () => {
-    // Expand the OUIJIT_OPENCODE_CONFIG assignment under bash with a fake HOME
-    // and confirm the result parses as JSON pointing at the CLI reference.
-    // (The plugin is loaded from the auto-load dir, not via config — a
-    // `plugin` config entry would be bun-add'd and fail for a local file.)
-    const home = '/home/user';
-    const result = execFileSync(
-      'bash',
-      [
-        '-c',
-        [
-          `HOME="${home}"`,
-          'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
-          'OUIJIT_OPENCODE_CONFIG="{\\"instructions\\":[\\"$REFERENCE_FILE\\"]}"',
-          'printf %s "$OUIJIT_OPENCODE_CONFIG"',
-        ].join('\n'),
-      ],
-      { encoding: 'utf8' },
-    );
-    const parsed = JSON.parse(result) as { instructions: string[] };
-    expect(parsed.instructions).toEqual([`${home}/.config/Ouijit/ouijit-cli-reference.md`]);
-    expect(parsed).not.toHaveProperty('plugin');
-  });
-
-  describe('subcommand passthrough', () => {
-    const runWrapper = (args: string[], extraEnv: Record<string, string> = {}) => {
+  describe('launching opencode', () => {
+    const runWrapper = (args: string[], version: string, env: Record<string, string> = {}) => {
       const root = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-wrapper-test-'));
       const wrapperDir = path.join(root, 'wrapper');
       const stubDir = path.join(root, 'stub');
@@ -1420,11 +1382,11 @@ describe('OPENCODE_WRAPPER', () => {
       fs.mkdirSync(stubDir);
       const logFile = path.join(root, 'invoke.log');
       fs.writeFileSync(path.join(wrapperDir, 'opencode'), OPENCODE_WRAPPER, { mode: 0o755 });
-      // Stub records argv plus the injected env so we can assert both.
       fs.writeFileSync(
         path.join(stubDir, 'opencode'),
         [
           '#!/bin/bash',
+          'if [ "$1" = "--version" ]; then echo "$STUB_VERSION"; exit 0; fi',
           'if [ "$1" = session ] && [ "$2" = list ]; then',
           '  printf "%s\\n" "$OUIJIT_TEST_SESSION_LIST"',
           '  exit 0',
@@ -1432,47 +1394,66 @@ describe('OPENCODE_WRAPPER', () => {
           `for a in "$@"; do printf 'ARGV:%s\\n' "$a" >> "${logFile}"; done`,
           `printf 'CFG:%s\\n' "$OPENCODE_CONFIG_CONTENT" >> "${logFile}"`,
           `printf 'HOOK:%s\\n' "$OUIJIT_HOOK_BIN" >> "${logFile}"`,
+          `printf 'REF:%s\\n' "$OUIJIT_REFERENCE_FILE" >> "${logFile}"`,
           '',
         ].join('\n'),
         { mode: 0o755 },
       );
       try {
         execFileSync(path.join(wrapperDir, 'opencode'), args, {
-          env: { PATH: `${wrapperDir}:${stubDir}:/usr/bin:/bin`, HOME: root, ...extraEnv },
+          env: {
+            PATH: `${wrapperDir}:${stubDir}:/usr/bin:/bin`,
+            HOME: root,
+            STUB_VERSION: version,
+            OUIJIT_API_URL: 'http://stub',
+            ...env,
+          },
           encoding: 'utf8',
         });
-        const lines = fs.existsSync(logFile) ? fs.readFileSync(logFile, 'utf8').split('\n').filter(Boolean) : [];
-        const argv = lines.filter((l) => l.startsWith('ARGV:')).map((l) => l.slice(5));
-        const cfg = lines.find((l) => l.startsWith('CFG:'))?.slice(4) ?? '';
-        const hook = lines.find((l) => l.startsWith('HOOK:'))?.slice(5) ?? '';
-        return { argv, cfg, hook };
+        const lines = fs.readFileSync(logFile, 'utf8').split('\n').filter(Boolean);
+        const value = (prefix: string) => lines.find((l) => l.startsWith(prefix))?.slice(prefix.length) ?? '';
+        const config = value('CFG:');
+        return {
+          argv: lines.filter((l) => l.startsWith('ARGV:')).map((l) => l.slice(5)),
+          instructions: config ? (JSON.parse(config) as { instructions: string[] }).instructions : [],
+          hook: value('HOOK:'),
+          reference: value('REF:'),
+        };
       } finally {
         fs.rmSync(root, { recursive: true, force: true });
       }
     };
 
-    test('`opencode auth` passes through with no config/hook injection', () => {
-      const { argv, cfg, hook } = runWrapper(['auth'], { OUIJIT_API_URL: 'http://stub' });
-      expect(argv).toEqual(['auth']);
-      expect(cfg).toBe('');
-      expect(hook).toBe('');
+    const v1 = '1.18.35';
+    const v2 = 'opencode v2.0.26';
+
+    test('utility subcommands pass through untouched', () => {
+      for (const version of [v1, v2]) {
+        expect(runWrapper(['auth', 'login'], version)).toEqual({
+          argv: ['auth', 'login'],
+          instructions: [],
+          hook: '',
+          reference: '',
+        });
+      }
     });
 
-    test('bare `opencode` injects the CLI reference and activates the hook', () => {
-      const { cfg, hook } = runWrapper([], { OUIJIT_API_URL: 'http://stub' });
-      const parsed = JSON.parse(cfg) as { instructions: string[] };
-      expect(parsed.instructions[0]).toContain('ouijit-cli-reference.md');
-      // The plugin is NOT referenced in config (auto-loaded instead); a config
-      // `plugin` entry would be bun-add'd and fail for a local file.
-      expect(cfg).not.toContain('plugin');
-      expect(hook).toContain('ouijit-hook');
+    test('opencode 1 gets the CLI reference as config instructions and runs in place', () => {
+      const session = runWrapper(['run', 'hello world'], v1);
+      expect(session.argv).toEqual(['run', 'hello world']);
+      expect(session.instructions).toEqual([expect.stringMatching(/\/\.config\/Ouijit\/ouijit-cli-reference\.md$/)]);
+      expect(session.hook).toMatch(/\/\.config\/Ouijit\/bin\/ouijit-hook$/);
     });
 
-    test('`opencode run <message>` still gets injection', () => {
-      const { argv, cfg, hook } = runWrapper(['run', 'hello world'], { OUIJIT_API_URL: 'http://stub' });
-      expect(argv).toEqual(['run', 'hello world']);
-      expect(cfg).toContain('ouijit-cli-reference.md');
-      expect(hook).toContain('ouijit-hook');
+    test('opencode 2 gets a private server, unless one is chosen explicitly', () => {
+      const session = runWrapper([], v2);
+      expect(session.argv).toEqual(['--standalone']);
+      expect(session.reference).toMatch(/\/\.config\/Ouijit\/ouijit-cli-reference\.md$/);
+      expect(session.hook).toMatch(/\/\.config\/Ouijit\/bin\/ouijit-hook$/);
+      expect(runWrapper(['--continue', 'src'], v2).argv).toEqual(['--standalone', '--continue', 'src']);
+      expect(runWrapper(['run', 'hello world'], v2).argv).toEqual(['run', '--standalone', 'hello world']);
+      expect(runWrapper(['--server', 'http://host:4096'], v2).argv).toEqual(['--server', 'http://host:4096']);
+      expect(runWrapper(['run', '--standalone', 'hi'], v2).argv).toEqual(['run', '--standalone', 'hi']);
     });
 
     test('continue resumes the newest session started in this worktree, never another worktree’s', () => {
@@ -1486,20 +1467,17 @@ describe('OPENCODE_WRAPPER', () => {
         null,
         2,
       );
-      const inWorktree = (worktree: string, args: string[]) =>
-        runWrapper(args, {
-          OUIJIT_API_URL: 'http://stub',
-          OUIJIT_WORKTREE_PATH: worktree,
-          OUIJIT_TEST_SESSION_LIST: sessions,
-        });
+      const inWorktree = (worktree: string, args: string[], version = v1) =>
+        runWrapper(args, version, { OUIJIT_WORKTREE_PATH: worktree, OUIJIT_TEST_SESSION_LIST: sessions });
 
       const resumed = inWorktree('/tmp/project/T-2', ['-c', '--model', 'x']);
       expect(resumed.argv).toEqual(['--session', 'ses_task_new', '--model', 'x']);
-      expect(resumed.cfg).toContain('ouijit-cli-reference.md');
-      expect(resumed.hook).toContain('ouijit-hook');
+      expect(resumed.instructions).toHaveLength(1);
+      expect(resumed.hook).not.toBe('');
 
-      expect(inWorktree('/tmp/project/T-2', ['run', '--continue', 'hi']).argv).toEqual([
+      expect(inWorktree('/tmp/project/T-2', ['run', '--continue', 'hi'], v2).argv).toEqual([
         'run',
+        '--standalone',
         '--session',
         'ses_task_new',
         'hi',
@@ -1510,13 +1488,16 @@ describe('OPENCODE_WRAPPER', () => {
         '--session',
         'ses_explicit',
       ]);
-      expect(runWrapper(['-c'], { OUIJIT_TEST_SESSION_LIST: sessions }).argv).toEqual(['-c']);
+      expect(runWrapper(['-c'], v1, { OUIJIT_TEST_SESSION_LIST: sessions }).argv).toEqual(['-c']);
     });
 
-    test('without OUIJIT_API_URL the CLI reference is injected but the plugin stays inert (no hook bin)', () => {
-      const { cfg, hook } = runWrapper([], { OUIJIT_API_URL: '' });
-      expect(cfg).toContain('ouijit-cli-reference.md');
-      expect(hook).toBe('');
+    test('without OUIJIT_API_URL the CLI reference is still offered but status stays off', () => {
+      for (const version of [v1, v2]) {
+        const session = runWrapper([], version, { OUIJIT_API_URL: '' });
+        expect(session.instructions).toHaveLength(1);
+        expect(session.reference).not.toBe('');
+        expect(session.hook).toBe('');
+      }
     });
   });
 
@@ -1556,76 +1537,109 @@ describe('OPENCODE_WRAPPER', () => {
 // ── OPENCODE_PLUGIN constant ─────────────────────────────────────────
 
 describe('OPENCODE_PLUGIN', () => {
-  test('is a TypeScript module with a named-export factory', () => {
-    expect(OPENCODE_PLUGIN).toMatch(/export const OuijitStatusPlugin = async \(\{ \$ \}/);
+  let pingLog: string;
+  let env: Record<string, string>;
+
+  beforeEach(() => {
+    pingLog = path.join(tmpHome, 'pings.log');
+    const hookBin = path.join(tmpHome, 'ouijit-hook');
+    fs.writeFileSync(hookBin, `#!/bin/bash\necho "$2" >> "${pingLog}"\n`, { mode: 0o755 });
+    const referenceFile = path.join(tmpHome, 'reference.md');
+    fs.writeFileSync(referenceFile, 'Use `ouijit task list`.');
+    env = { OUIJIT_HOOK_BIN: hookBin, OUIJIT_REFERENCE_FILE: referenceFile };
   });
 
-  test('no-ops when OUIJIT_HOOK_BIN is unset (safe outside Ouijit)', () => {
-    expect(OPENCODE_PLUGIN).toMatch(/const hookBin = process\.env\.OUIJIT_HOOK_BIN/);
-    expect(OPENCODE_PLUGIN).toMatch(/if \(!hookBin\) return \{\}/);
+  const pings = () => (fs.existsSync(pingLog) ? fs.readFileSync(pingLog, 'utf8').split('\n').filter(Boolean) : []);
+  const waitForPings = (count: number) => vi.waitFor(() => expect(pings()).toHaveLength(count));
+
+  test('on opencode 2, adds the CLI reference to every request and reports each turn', async () => {
+    const plugin = loadDefaultExport<OpencodePlugin>(OPENCODE_PLUGIN, env);
+    const events = fakeEventSubscription();
+    let contextHook: ((event: { system: { type: string; text: string }[] }) => void) | undefined;
+    const cleanup = await plugin.setup({
+      event: { subscribe: events.subscribe },
+      session: {
+        hook: async (_name, callback) => {
+          contextHook = callback;
+        },
+      },
+    });
+
+    const request = { system: [{ type: 'text', text: 'You are opencode.' }] };
+    contextHook!(request);
+    expect(request.system[1]).toEqual({ type: 'text', text: 'Use `ouijit task list`.' });
+
+    events.push({ type: 'session.execution.started', data: { sessionID: 'ses_parent' } });
+    await waitForPings(1);
+    events.push({ type: 'session.execution.started', data: { sessionID: 'ses_subagent' } });
+    events.push({ type: 'session.text.delta', data: { sessionID: 'ses_parent' } });
+    events.push({ type: 'session.execution.succeeded', data: { sessionID: 'ses_subagent' } });
+    events.push({ type: 'session.execution.succeeded', data: { sessionID: 'ses_parent' } });
+    await waitForPings(2);
+    events.push({ type: 'session.execution.started', data: { sessionID: 'ses_parent' } });
+    await waitForPings(3);
+    events.push({ type: 'session.execution.interrupted', data: { sessionID: 'ses_parent' } });
+    await waitForPings(4);
+    expect(pings()).toEqual(['status=thinking', 'status=ready', 'status=thinking', 'status=ready']);
+
+    cleanup!();
+    expect(events.signal()?.aborted).toBe(true);
   });
 
-  test('drives status off session.status (not the deprecated session.idle) and swallows shell errors', () => {
-    expect(OPENCODE_PLUGIN).toContain("event?.type !== 'session.status'");
-    expect(OPENCODE_PLUGIN).toContain("=== 'idle' ? 'ready' : 'thinking'");
-    expect(OPENCODE_PLUGIN).toContain('.catch(() => {})');
-    // The deprecated event must not be what we key off of.
-    expect(OPENCODE_PLUGIN).not.toContain("=== 'session.idle'");
-  });
-
-  test('returns no handlers when OUIJIT_HOOK_BIN is unset', async () => {
-    const factory = compileOpencodePlugin(OPENCODE_PLUGIN);
-    const pings: string[] = [];
-    const $ = makeFakeShell(pings);
-    const handlers = await factory({ $ });
-    expect(handlers.event).toBeUndefined();
-    expect(pings).toEqual([]);
-  });
-
-  test('maps session.status busy/idle to thinking/ready and dedups repeats', async () => {
-    const factory = compileOpencodePlugin(OPENCODE_PLUGIN);
-    const pings: string[] = [];
-    const $ = makeFakeShell(pings);
-    process.env.OUIJIT_HOOK_BIN = '/fake/ouijit-hook';
+  test('on opencode 1, maps session.status busy/idle to thinking/ready', async () => {
+    const handlers = await loadDefaultExport<OpencodePlugin>(OPENCODE_PLUGIN, env).server();
     const status = (type: string) => ({ event: { type: 'session.status', properties: { status: { type } } } });
-    try {
-      const handlers = await factory({ $ });
-      await handlers.event!(status('busy'));
-      await handlers.event!(status('busy')); // repeat, deduped
-      // Non-status events are ignored entirely.
-      await handlers.event!({ event: { type: 'message.updated' } });
-      await handlers.event!(status('idle'));
-      expect(pings).toEqual(['thinking', 'ready']);
 
-      // A second turn pings again.
-      await handlers.event!(status('busy'));
-      await handlers.event!(status('idle'));
-      expect(pings).toEqual(['thinking', 'ready', 'thinking', 'ready']);
-    } finally {
-      delete process.env.OUIJIT_HOOK_BIN;
-    }
+    await handlers.event!(status('busy'));
+    await waitForPings(1);
+    await handlers.event!(status('retry'));
+    await handlers.event!({ event: { type: 'message.updated' } });
+    await handlers.event!(status('idle'));
+    await waitForPings(2);
+    expect(pings()).toEqual(['status=thinking', 'status=ready']);
+  });
+
+  test('stays inert outside the wrapper', async () => {
+    const plugin = loadDefaultExport<OpencodePlugin>(OPENCODE_PLUGIN, {});
+    const subscribe = vi.fn();
+    const hook = vi.fn();
+    expect(await plugin.setup({ event: { subscribe }, session: { hook } })).toBeUndefined();
+    expect(subscribe).not.toHaveBeenCalled();
+    expect(hook).not.toHaveBeenCalled();
+    expect(await plugin.server()).toEqual({});
   });
 });
 
-type OpencodeEvent = { type: string; properties?: { status?: { type?: string } } };
-type OpencodeEventHandlers = { event?: (arg: { event: OpencodeEvent }) => Promise<void> };
-type FakeShellResult = { quiet(): { nothrow(): Promise<unknown> } };
-type FakeShell = (strings: TemplateStringsArray, ...values: unknown[]) => FakeShellResult;
+type OpencodeEvent = { type: string; data?: { sessionID?: string }; properties?: { status?: { type?: string } } };
 
-/** Fake Bun `$` that records the status from the last interpolated value. */
-function makeFakeShell(pings: string[]): FakeShell {
-  return (_strings: TemplateStringsArray, ...values: unknown[]) => {
-    pings.push(String(values[values.length - 1]));
-    return { quiet: () => ({ nothrow: () => Promise.resolve() }) };
-  };
+interface OpencodePlugin {
+  id: string;
+  setup(ctx: {
+    event: { subscribe(options: { signal: AbortSignal }): AsyncIterable<OpencodeEvent> };
+    session: {
+      hook(name: 'context', callback: (event: { system: { type: string; text: string }[] }) => void): Promise<unknown>;
+    };
+  }): Promise<(() => void) | undefined>;
+  server(): Promise<{ event?: (arg: { event: OpencodeEvent }) => Promise<void> }>;
 }
 
-/** Strips type annotations from the OPENCODE_PLUGIN TS string into a runnable factory. */
-function compileOpencodePlugin(src: string): (ctx: { $: FakeShell }) => Promise<OpencodeEventHandlers> {
-  const transpiled = ts.transpileModule(src, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-  }).outputText;
-  const moduleExports: { exports: { OuijitStatusPlugin?: unknown } } = { exports: {} };
-  new Function('exports', 'module', 'process', transpiled)(moduleExports.exports, moduleExports, process);
-  return moduleExports.exports.OuijitStatusPlugin as (ctx: { $: FakeShell }) => Promise<OpencodeEventHandlers>;
+function fakeEventSubscription() {
+  const queue: OpencodeEvent[] = [];
+  let wake: (() => void) | undefined;
+  let subscribed: AbortSignal | undefined;
+  return {
+    push(event: OpencodeEvent) {
+      queue.push(event);
+      wake?.();
+    },
+    signal: () => subscribed,
+    async *subscribe({ signal }: { signal: AbortSignal }): AsyncIterable<OpencodeEvent> {
+      subscribed = signal;
+      while (!signal.aborted) {
+        const event = queue.shift();
+        if (event) yield event;
+        else await new Promise<void>((resolve) => (wake = resolve));
+      }
+    },
+  };
 }
