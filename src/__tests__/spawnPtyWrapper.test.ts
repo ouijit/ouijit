@@ -41,8 +41,7 @@ const window = { isDestroyed: () => false, webContents: { send } } as unknown as
 const fakeWrapper: SandboxProvider = {
   id: 'nono',
   displayName: 'nono',
-  isAvailable: async () => true,
-  getStatus: async () => ({ providerId: 'nono', available: true, ready: true }),
+  getStatus: async () => ({ providerId: 'nono', available: true }),
   cleanup: vi.fn(),
   prepare: vi.fn(async (ctx) => ({ cwd: ctx.cwd })),
   wrapLaunch: vi.fn((launch, ctx) => ({

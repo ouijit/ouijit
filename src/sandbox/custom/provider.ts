@@ -25,17 +25,12 @@ export const customProvider: SandboxProvider = {
   id: 'custom',
   displayName: 'Custom',
 
-  async isAvailable(): Promise<boolean> {
-    return true;
-  },
-
   async getStatus(projectPath: string): Promise<SandboxProviderStatus> {
     const { command } = await getCustomSandboxConfig(projectPath);
     const configured = command != null;
     return {
       providerId: 'custom',
       available: configured,
-      ready: configured,
       detail: configured ? 'Ready' : 'Set a sandbox command to use it.',
     };
   },

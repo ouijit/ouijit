@@ -95,7 +95,7 @@ describe('hook commands', () => {
     stderr.mockRestore();
   });
 
-  test('set --sandbox names the backend a lifecycle hook runs in; host, or a run hook, sends none', async () => {
+  test('set --sandbox names where a lifecycle hook runs, and is refused for a run hook or an unknown backend', async () => {
     vi.mocked(put).mockResolvedValue({ success: true });
     const set = async (...args: string[]) => {
       const output = captureOutput();
@@ -111,7 +111,8 @@ describe('hook commands', () => {
       command: 'claude',
       sandbox: 'custom',
     });
-    expect(await set('continue', '--sandbox', 'host')).toEqual({ name: 'Agent', command: 'claude' });
+    expect(await set('continue', '--sandbox', 'host')).toEqual({ name: 'Agent', command: 'claude', sandbox: 'none' });
+    expect(await set('run', '--sandbox', 'host')).toEqual({ name: 'Agent', command: 'claude', sandbox: 'none' });
 
     const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('exit');

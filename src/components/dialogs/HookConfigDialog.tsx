@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ScriptHook, HookType, SandboxProviderId } from '../../types';
-import { isActiveSandbox } from '../../types';
+import { SANDBOXABLE_HOOK_TYPES } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { useHookCommandDefault } from '../../utils/hookDefaults';
@@ -10,18 +10,16 @@ import { HookEnvVars } from './HookEnvVars';
 import { Checkbox } from '../ui/Checkbox';
 import { SandboxPicker } from '../ui/SandboxPicker';
 
-const HOOK_LABELS: Record<HookType, { title: string; description: string; envVars?: boolean; sandbox?: boolean }> = {
+const HOOK_LABELS: Record<HookType, { title: string; description: string; envVars?: boolean }> = {
   start: {
     title: 'Start Hook',
     description: 'Runs when a task moves from To Do to In Progress',
     envVars: true,
-    sandbox: true,
   },
   continue: {
     title: 'Continue Hook',
     description: 'Runs when reopening a task that is already In Progress',
     envVars: true,
-    sandbox: true,
   },
   run: {
     title: 'Run',
@@ -32,13 +30,11 @@ const HOOK_LABELS: Record<HookType, { title: string; description: string; envVar
     title: 'Review Hook',
     description: 'Runs when a task moves to In Review',
     envVars: true,
-    sandbox: true,
   },
   done: {
     title: 'Done Hook',
     description: 'Runs when a task moves to Done',
     envVars: true,
-    sandbox: true,
   },
   editor: {
     title: 'Editor',
@@ -57,6 +53,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
   const labels = HOOK_LABELS[hookType];
   const placeholder = useHookCommandDefault(hookType);
   const isRunHook = hookType === 'run';
+  const sandboxable = SANDBOXABLE_HOOK_TYPES.includes(hookType);
 
   const [command, setCommand] = useState(existingHook?.command ?? '');
   const [restartIfRunning, setRestartIfRunning] = useState(existingHook?.restartIfRunning ?? false);
@@ -98,14 +95,25 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
       name: labels.title,
       command: trimmed,
       ...(isRunHook && { restartIfRunning }),
-      ...(labels.sandbox && isActiveSandbox(sandbox) && { sandbox }),
+      ...(sandboxable && { sandbox }),
     };
 
     await window.api.hooks.save(projectPath, hook);
 
     useProjectStore.getState().addToast(`${labels.title} saved`, 'success');
     dismiss({ saved: true, hook });
-  }, [command, projectPath, hookType, existingHook, labels, isRunHook, restartIfRunning, sandbox, dismiss]);
+  }, [
+    command,
+    projectPath,
+    hookType,
+    existingHook,
+    labels,
+    isRunHook,
+    restartIfRunning,
+    sandboxable,
+    sandbox,
+    dismiss,
+  ]);
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
@@ -142,7 +150,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
           </div>
         )}
 
-        {labels.sandbox && (
+        {sandboxable && (
           <div className="mt-3">
             <SandboxPicker value={sandbox} onChange={setSandbox} />
           </div>

@@ -13,6 +13,7 @@ import { addProjectTerminal } from '../components/terminal/terminalActions';
 import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { completeTask } from './taskCompletion';
+import { headlessHookRun, hookSandbox } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { CliHookMode, HookType, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
@@ -76,21 +77,19 @@ export interface BeginTransitionOptions {
  * completion in the background, surviving any view changes.
  */
 export function beginTransition(projectPath: string, opts: BeginTransitionOptions): void {
-  const { origStatus, newStatus, task, onForegroundOpen, hookControl, sandbox } = opts;
+  const { origStatus, newStatus, task, hookControl } = opts;
   const taskNumber = task.taskNumber;
   const t0 = performance.now();
   taskStartLog.info('beginTransition', { taskNumber, origStatus, newStatus, hookMode: hookControl?.mode });
 
-  void runTransition(projectPath, task, origStatus, newStatus, onForegroundOpen, hookControl, sandbox, t0).catch(
-    (err) => {
-      taskStartLog.error('transition failed', {
-        taskNumber,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      useProjectStore.getState().addToast('Task transition failed', 'error');
-      useProjectStore.getState().markTaskStartingDone(taskNumber);
-    },
-  );
+  void runTransition(projectPath, opts, t0).catch((err) => {
+    taskStartLog.error('transition failed', {
+      taskNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    useProjectStore.getState().addToast('Task transition failed', 'error');
+    useProjectStore.getState().markTaskStartingDone(taskNumber);
+  });
 }
 
 /**
@@ -190,16 +189,8 @@ export async function bulkTransitionTasks(
   return succeeded;
 }
 
-async function runTransition(
-  projectPath: string,
-  task: TaskWithWorkspace,
-  origStatus: TaskStatus,
-  newStatus: TaskStatus,
-  onForegroundOpen: (() => void) | undefined,
-  hookControl: HookControl | undefined,
-  sandboxOverride: SandboxProviderId | undefined,
-  t0: number,
-): Promise<void> {
+async function runTransition(projectPath: string, opts: BeginTransitionOptions, t0: number): Promise<void> {
+  const { task, origStatus, newStatus, onForegroundOpen, hookControl, sandbox: sandboxOverride } = opts;
   const taskNumber = task.taskNumber;
   const transitioningToInProgress = newStatus === 'in_progress';
 
@@ -263,7 +254,7 @@ async function runTransition(
     // decided — skip the dialog entirely. Otherwise show the dialog
     // proactively if a hook is configured for this transition.
     let hookPromise: Promise<RunHookResult | null> = Promise.resolve(null);
-    const hookSandbox = sandboxOverride ?? hook?.sandbox ?? 'none';
+    const sandbox = hookSandbox(sandboxOverride, hook);
     // True when an interactive start-hook dialog is shown to the user. Clicking
     // its Cancel button (hookResult === null) is an explicit "don't run a hook
     // and don't open a terminal" — distinct from the no-hook drop, where a plain
@@ -271,13 +262,8 @@ async function runTransition(
     // for CLI-driven (hookControl) starts.
     const interactiveHookOffered = !hookControl && transitioningToInProgress && !!hookType && !!hook;
     if (hookControl) {
-      let resolved: RunHookResult | null = null;
-      if (hookControl.mode === 'command' && hookControl.command) {
-        resolved = { command: hookControl.command, foreground: false, sandbox: hookSandbox };
-      } else if (hookControl.mode === 'run' && hook) {
-        resolved = { command: hook.command, foreground: false, sandbox: hookSandbox };
-      }
       // 'skip', or 'run' with no configured hook → plain shell (null).
+      const resolved = headlessHookRun(hookControl, hook, sandbox);
       taskStartLog.info('hook resolved from CLI flags', {
         taskNumber,
         mode: hookControl.mode,
@@ -288,7 +274,7 @@ async function runTransition(
       const tDialog = performance.now();
       hookPromise = useProjectStore
         .getState()
-        .requestRunHook({ hookType, hook, task, sandbox: hookSandbox })
+        .requestRunHook({ hookType, hook, task, sandbox })
         .then((res) => {
           taskStartLog.info('hook dialog closed', {
             taskNumber,

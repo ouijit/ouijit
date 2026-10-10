@@ -13,6 +13,7 @@ import type {
   SnapshotTerminalUi,
   TaskWithWorkspace,
   SandboxProviderId,
+  SandboxBackendId,
 } from '../../types';
 import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
 import { useTerminalStore, setActiveTerminal, type TerminalDisplayState } from '../../stores/terminalStore';
@@ -31,6 +32,13 @@ import { detectPullRequestForTask } from '../../services/githubTaskActions';
 import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
+
+function reportSandboxRefusal(provider: SandboxBackendId, error: string): void {
+  useProjectStore.getState().addToast(`${SANDBOX_BACKEND_LABELS[provider]} sandbox failed to start: ${error}`, {
+    type: 'error',
+    persistent: true,
+  });
+}
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -342,14 +350,7 @@ export async function addProjectTerminal(
     }
 
     if ('error' in spawned) {
-      if (sandboxProvider) {
-        useProjectStore
-          .getState()
-          .addToast(`${SANDBOX_BACKEND_LABELS[sandboxProvider]} sandbox failed to start: ${spawned.error}`, {
-            type: 'error',
-            persistent: true,
-          });
-      }
+      if (sandboxProvider) reportSandboxRefusal(sandboxProvider, spawned.error);
       if (addedEarly) {
         setTimeout(() => {
           term.dispose();
@@ -644,6 +645,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
 
     if (!result.success || !result.ptyId) {
       runner.xterm.writeln(`\x1b[31mFailed to start runner: ${result.error || 'Unknown error'}\x1b[0m`);
+      if (panel.sandboxProvider) reportSandboxRefusal(panel.sandboxProvider, result.error || 'Unknown error');
       instance.updatePanel(panelId, { status: 'error' });
       return;
     }

@@ -26,7 +26,7 @@ const io: OnboardingStorageIO = {
  */
 export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }: OnboardingPanelProps) {
   const tasks = useProjectStore((s) => s.tasks);
-  const startHookConfigured = useProjectStore((s) => !!s.configuredHooks.start);
+  const startHookConfigured = useProjectStore((s) => !!s.hooks.start);
   const exampleStartHookCommand = useHookCommandDefault('start');
   // `undefined` = not yet loaded, `null` = loaded but no state exists yet.
   const [state, setState] = useState<OnboardingState | null | undefined>(undefined);
@@ -67,7 +67,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   // Latched, since configuring the hook afterwards doesn't retrigger it.
   //
   // Set only on a real transition into 'in-flight'. On mount with a task
-  // already in_progress, configuredHooks has not loaded and
+  // already in_progress, the store's hooks have not loaded and
   // startHookConfigured is briefly false, which would latch falsely.
   const prevStageRef = useRef<Stage | undefined>(undefined);
   useEffect(() => {

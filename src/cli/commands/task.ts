@@ -5,7 +5,9 @@
 import type { Command } from 'commander';
 import { get, post, patch, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
-import { SANDBOX_FLAG_VALUES, parseSandboxFlag } from '../sandboxFlag';
+import { SANDBOX_FLAG, parseSandboxFlag, sandboxFlagHelp } from '../sandboxFlag';
+
+const HOOK_SANDBOX_HELP = sandboxFlagHelp("run the hook in this sandbox instead of the hook's own setting");
 
 const VALID_STATUSES = ['todo', 'in_progress', 'in_review', 'done'];
 
@@ -31,8 +33,8 @@ function resolveHookFlags(opts: HookFlags): HookBody | { error: string } {
   let hookSandbox: string | undefined;
   if (opts.sandbox !== undefined) {
     const parsed = parseSandboxFlag(opts.sandbox);
-    if (!parsed) return { error: `Invalid --sandbox: ${opts.sandbox}. Must be one of: ${SANDBOX_FLAG_VALUES}` };
-    hookSandbox = parsed;
+    if ('error' in parsed) return parsed;
+    hookSandbox = parsed.sandbox;
   }
   const mode = resolveHookMode(opts);
   if ('error' in mode) return mode;
@@ -174,10 +176,7 @@ Examples:
     .option('--run-hook', 'run the configured start hook immediately, no dialog')
     .option('--skip-hook', 'spawn the terminal but run no hook')
     .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
-    .option(
-      '--sandbox <backend>',
-      `run the hook in this sandbox instead of the hook's own setting (${SANDBOX_FLAG_VALUES})`,
-    )
+    .option(SANDBOX_FLAG, HOOK_SANDBOX_HELP)
     .action(async (number: string, opts: { branch?: string } & HookFlags) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
@@ -204,10 +203,7 @@ Examples:
     .option('--run-hook', 'run the configured start hook immediately, no dialog')
     .option('--skip-hook', 'spawn the terminal but run no hook')
     .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
-    .option(
-      '--sandbox <backend>',
-      `run the hook in this sandbox instead of the hook's own setting (${SANDBOX_FLAG_VALUES})`,
-    )
+    .option(SANDBOX_FLAG, HOOK_SANDBOX_HELP)
     .action(async (name: string, opts: { prompt?: string; branch?: string } & HookFlags) => {
       const hook = resolveHookFlags(opts);
       if ('error' in hook) return printError(hook.error);
@@ -232,10 +228,7 @@ Examples:
     .option('--run-hook', "run this transition's configured hook immediately, no dialog")
     .option('--skip-hook', 'skip the hook for this transition (continue/review/done)')
     .option('--hook-command <cmd>', 'run a one-off command instead of the configured hook for this transition')
-    .option(
-      '--sandbox <backend>',
-      `run the hook in this sandbox instead of the hook's own setting (${SANDBOX_FLAG_VALUES})`,
-    )
+    .option(SANDBOX_FLAG, HOOK_SANDBOX_HELP)
     .action(async (number: string, status: string, opts: HookFlags) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
@@ -261,10 +254,7 @@ Examples:
     .option('--run-hook', "run this transition's configured hook for every task, no dialog")
     .option('--skip-hook', 'skip the hook for this transition (continue/review/done) on every task')
     .option('--hook-command <cmd>', 'run this command instead of the configured hook for every task')
-    .option(
-      '--sandbox <backend>',
-      `run the hook in this sandbox instead of the hook's own setting (${SANDBOX_FLAG_VALUES})`,
-    )
+    .option(SANDBOX_FLAG, HOOK_SANDBOX_HELP)
     .action(async (status: string, numberArgs: string[], opts: HookFlags) => {
       if (!VALID_STATUSES.includes(status)) {
         return printError(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);

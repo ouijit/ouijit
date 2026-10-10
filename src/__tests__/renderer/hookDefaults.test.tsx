@@ -24,7 +24,7 @@ test('hook examples use opencode when claude is not installed', async () => {
   useAppStore.setState({ health: openCodeOnly, onboardingSoftDismissed: false });
   useProjectStore.setState({
     tasks: [{ taskNumber: 1, status: 'todo' } as TaskWithWorkspace],
-    configuredHooks: {},
+    hooks: {},
     configProjectPath: '/project',
   });
   vi.mocked(window.api.globalSettings.get).mockResolvedValueOnce(

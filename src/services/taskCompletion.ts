@@ -16,6 +16,7 @@ import log from 'electron-log/renderer';
 import { addProjectTerminal, closeProjectTerminal } from '../components/terminal/terminalActions';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
+import { headlessHookRun, hookSandbox } from './hookRun';
 import type { CliHookMode, SandboxProviderId, TaskWithWorkspace } from '../types';
 
 const completionLog = log.scope('taskCompletion');
@@ -105,12 +106,11 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
   let sandbox: SandboxProviderId = 'none';
   if (hookControl?.mode !== 'skip') {
     const doneHook = (await window.api.hooks.get(projectPath)).done;
-    sandbox = sandboxOverride ?? doneHook?.sandbox ?? 'none';
-    if (hookControl?.mode === 'command' && hookControl.command) {
-      effectiveCommand = hookControl.command;
-    } else if (hookControl?.mode === 'run') {
-      if (doneHook) effectiveCommand = doneHook.command;
-    } else if (!hookControl && doneHook) {
+    sandbox = hookSandbox(sandboxOverride, doneHook);
+    if (hookControl) {
+      const resolved = headlessHookRun(hookControl, doneHook, sandbox);
+      effectiveCommand = resolved?.command ?? null;
+    } else if (doneHook) {
       const result = await useProjectStore
         .getState()
         .requestRunHook({ hookType: 'done', hook: doneHook, task, sandbox });

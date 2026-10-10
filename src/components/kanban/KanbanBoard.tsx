@@ -70,7 +70,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
   const activeBadgeDrag = useProjectStore((s) => s.activeBadgeDrag);
   // Project-scoped config is loaded once by ProjectViewReact; we just subscribe.
-  const configuredHooks = useProjectStore((s) => s.configuredHooks);
+  const projectHooks = useProjectStore((s) => s.hooks);
   const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
   const [hookDialog, setHookDialog] = useState<
     | { mode: 'single'; hookType: HookType; existingHook?: any }
@@ -602,9 +602,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         <div className="flex flex-1 min-h-0" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
           {COLUMNS.map((col) => {
             const hookActive =
-              (col.status === 'in_progress' && !!(configuredHooks.start || configuredHooks.continue)) ||
-              (col.status === 'in_review' && !!configuredHooks.review) ||
-              (col.status === 'done' && !!configuredHooks.done);
+              (col.status === 'in_progress' && !!(projectHooks.start || projectHooks.continue)) ||
+              (col.status === 'in_review' && !!projectHooks.review) ||
+              (col.status === 'done' && !!projectHooks.done);
 
             return (
               <KanbanColumn

@@ -3,7 +3,7 @@ import { render, waitFor, fireEvent } from '@testing-library/react';
 
 import { SandboxSection } from '../../components/scripts/SandboxSection';
 import { useProjectStore } from '../../stores/projectStore';
-import type { SandboxProviderId } from '../../types';
+import type { SandboxBackendId } from '../../types';
 
 // The backend sections transitively import terminalActions -> terminalReact ->
 // @xterm/xterm, which hangs when loaded for real under jsdom. Sever the chain
@@ -13,7 +13,7 @@ vi.mock('../../components/terminal/terminalActions', () => ({
   closeProjectTerminal: vi.fn(),
 }));
 
-function setAvailable(providers: SandboxProviderId[]) {
+function setAvailable(providers: SandboxBackendId[]) {
   useProjectStore.setState({ availableSandboxProviders: providers });
 }
 
@@ -23,14 +23,17 @@ describe('SandboxSection provider router', () => {
   });
 
   test('lists every backend, opens on nono, and says why the one shown cannot run', async () => {
-    setAvailable([]);
-    vi.mocked(window.api.sandbox.status).mockResolvedValue([
-      { providerId: 'nono', available: false, ready: false, detail: 'Not installed' },
-      { providerId: 'custom', available: false, ready: false, detail: 'Set a sandbox command to use it.' },
-    ]);
+    useProjectStore.setState({
+      configProjectPath: '/p',
+      availableSandboxProviders: [],
+      sandboxStatuses: [
+        { providerId: 'nono', available: false, detail: 'Not installed' },
+        { providerId: 'custom', available: false, detail: 'Set a sandbox command to use it.' },
+      ],
+    });
     const { getByText, getByLabelText, queryByText } = render(<SandboxSection projectPath="/p" />);
 
-    await waitFor(() => expect(getByText('Not installed')).toBeTruthy());
+    expect(getByText('Not installed')).toBeTruthy();
     expect(getByLabelText('Block outbound network')).toBeTruthy();
     expect(queryByText('Set a sandbox command to use it.')).toBeNull();
 
@@ -66,7 +69,7 @@ describe('SandboxSection provider router', () => {
 
   test('custom: the command row edits inline, shows the main-process verdict, and refreshes availability', async () => {
     setAvailable(['custom']);
-    vi.mocked(window.api.sandbox.status).mockResolvedValue([{ providerId: 'custom', available: true, ready: true }]);
+    vi.mocked(window.api.sandbox.status).mockResolvedValue([{ providerId: 'custom', available: true }]);
     vi.mocked(window.api.sandbox.setCustomConfig).mockImplementation(async (_p, cfg) =>
       cfg.command === 'scripts/sandbox' ? { success: false, error: 'refused by the main process' } : { success: true },
     );

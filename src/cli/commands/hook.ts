@@ -5,10 +5,10 @@
 import type { Command } from 'commander';
 import { get, put, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
-import { SANDBOX_FLAG_VALUES, parseSandboxFlag } from '../sandboxFlag';
+import { SANDBOX_FLAG, parseSandboxFlag, sandboxFlagHelp } from '../sandboxFlag';
+import { SANDBOXABLE_HOOK_TYPES, isActiveSandbox, type SandboxProviderId } from '../../sandbox/types';
 
 const VALID_HOOK_TYPES = ['start', 'continue', 'run', 'review', 'done', 'editor'];
-const SANDBOXABLE_HOOK_TYPES = ['start', 'continue', 'review', 'done'];
 
 function validateHookType(type: string): string {
   if (!VALID_HOOK_TYPES.includes(type)) {
@@ -62,10 +62,7 @@ Examples:
     .requiredOption('--command <cmd>', 'hook command')
     .option('--description <desc>', 'hook description')
     .option('--restart-if-running', 'run hook only: restart the command if it is already running in the task')
-    .option(
-      '--sandbox <backend>',
-      `start, continue, review, done: the sandbox the hook runs in (${SANDBOX_FLAG_VALUES})`,
-    )
+    .option(SANDBOX_FLAG, sandboxFlagHelp('start, continue, review, done: the sandbox the hook runs in'))
     .action(
       async (
         type: string,
@@ -77,11 +74,13 @@ Examples:
         if (opts.restartIfRunning && t !== 'run') {
           return printError('--restart-if-running is only valid for the run hook');
         }
-        const sandbox = opts.sandbox === undefined ? undefined : parseSandboxFlag(opts.sandbox);
-        if (sandbox === null) {
-          return printError(`Invalid --sandbox: ${opts.sandbox}. Must be one of: ${SANDBOX_FLAG_VALUES}`);
+        let sandbox: SandboxProviderId | undefined;
+        if (opts.sandbox !== undefined) {
+          const parsed = parseSandboxFlag(opts.sandbox);
+          if ('error' in parsed) return printError(parsed.error);
+          sandbox = parsed.sandbox;
         }
-        if (sandbox && !SANDBOXABLE_HOOK_TYPES.includes(t)) {
+        if (isActiveSandbox(sandbox) && !SANDBOXABLE_HOOK_TYPES.includes(t)) {
           return printError(`--sandbox is only valid for the ${SANDBOXABLE_HOOK_TYPES.join(', ')} hooks`);
         }
         const project = requireProject();
@@ -90,7 +89,7 @@ Examples:
           command: opts.command,
           ...(opts.description && { description: opts.description }),
           ...(opts.restartIfRunning && { restartIfRunning: true }),
-          ...(sandbox && sandbox !== 'none' && { sandbox }),
+          ...(sandbox && { sandbox }),
         });
         printJson(result);
       },

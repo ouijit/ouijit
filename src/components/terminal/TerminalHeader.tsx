@@ -1,4 +1,4 @@
-import { Fragment, memo, useState, useCallback, useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import { Fragment, memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -13,7 +13,7 @@ import { Tooltip } from '../ui/Tooltip';
 import { AddPanelMenu } from './AddPanelMenu';
 import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type RunnerPanel as RunnerPanelState, type TerminalPanel } from './panelTypes';
-import { SANDBOX_RING_COLOR } from './StatusDot';
+import { SandboxRing } from './StatusDot';
 import type { GitFileStatus, RunnerScript, SandboxProviderId, Script, ScriptHook } from '../../types';
 import { openInEntry, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
@@ -312,12 +312,12 @@ export const TerminalHeader = memo(function TerminalHeader({
           onClose={(result) => {
             setCommandDialog(null);
             if (!result?.saved) return;
-            if (commandDialog.existing) {
+            if (!result.hook) {
               void useProjectStore.getState().loadProjectConfig(projectPath);
-            } else if (result.hook) {
-              useProjectStore.getState().markHookConfigured(projectPath, 'run');
-              handleAddRunner();
+              return;
             }
+            useProjectStore.getState().setConfiguredHook(projectPath, result.hook);
+            if (!commandDialog.existing) handleAddRunner();
           }}
         />
       )}
@@ -437,12 +437,9 @@ function RunnerDot({ panel }: { panel: RunnerPanelState }) {
   const dot = <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${RUNNER_DOT[panel.status] ?? 'bg-ink/30'}`} />;
   if (!panel.sandboxProvider) return dot;
   return (
-    <span
-      className="status-dot inline-flex items-center justify-center shrink-0"
-      style={{ '--status-dot-size': '6px', '--status-ring-color': SANDBOX_RING_COLOR } as CSSProperties}
-    >
+    <SandboxRing sandboxed size={6}>
       {dot}
-    </span>
+    </SandboxRing>
   );
 }
 

@@ -1,6 +1,6 @@
-import { useEffect, useState, type ComponentType } from 'react';
+import { useState, type ComponentType } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
-import type { SandboxBackendId, SandboxProviderStatus } from '../../types';
+import type { SandboxBackendId } from '../../types';
 import { SANDBOX_BACKEND_IDS, SANDBOX_BACKEND_LABELS } from '../../types';
 import { NonoSandboxSection } from './NonoSandboxSection';
 import { CustomSandboxSection } from './CustomSandboxSection';
@@ -22,24 +22,12 @@ interface SandboxSectionProps {
 
 export function SandboxSection({ projectPath }: SandboxSectionProps) {
   const [active, setActive] = useState<SandboxBackendId>(SANDBOX_BACKEND_IDS[0]);
-  const [statuses, setStatuses] = useState<SandboxProviderStatus[]>([]);
-  // Saving a backend's config reloads this, so it doubles as the cue to re-read why one can't run.
-  const available = useProjectStore((s) => s.availableSandboxProviders);
+  const unavailable = useProjectStore((s) =>
+    s.configProjectPath === projectPath
+      ? s.sandboxStatuses.find((st) => st.providerId === active && !st.available)
+      : undefined,
+  );
   const ActiveSection = BACKEND_SECTIONS[active];
-  const unavailable = statuses.find((st) => st.providerId === active && !st.available);
-
-  useEffect(() => {
-    let cancelled = false;
-    window.api.sandbox
-      .status(projectPath)
-      .then((next) => {
-        if (!cancelled) setStatuses(next);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [projectPath, available]);
 
   return (
     <div className="flex flex-col gap-3">

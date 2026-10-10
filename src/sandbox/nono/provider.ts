@@ -14,7 +14,7 @@ import { sandboxCacheDir } from '../cacheDir';
 
 const nonoLog = getLogger().scope('nono');
 
-/** Single platform + installed gate that `isAvailable`/`getStatus`/`prepare` all read. */
+/** Platform + installed gate behind `getStatus`. */
 async function checkAvailability(): Promise<{ ready: boolean; detail?: string }> {
   const platform = checkPlatformSupport();
   if (!platform.supported) return { ready: false, detail: platform.reason };
@@ -30,13 +30,9 @@ export const nonoProvider: SandboxProvider = {
   id: 'nono',
   displayName: 'nono',
 
-  async isAvailable(): Promise<boolean> {
-    return (await checkAvailability()).ready;
-  },
-
   async getStatus(): Promise<SandboxProviderStatus> {
     const { ready, detail } = await checkAvailability();
-    return { providerId: 'nono', available: ready, ready, detail };
+    return { providerId: 'nono', available: ready, detail };
   },
 
   cleanup(): void {

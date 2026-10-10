@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { SandboxProviderId, ScriptHook } from '../../types';
-import { isActiveSandbox } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { useHookCommandDefault } from '../../utils/hookDefaults';
@@ -60,7 +59,7 @@ export function CombinedHookConfigDialog({
         type: 'start',
         name: 'Start Hook',
         command: startTrimmed,
-        ...(isActiveSandbox(startSandbox) && { sandbox: startSandbox }),
+        sandbox: startSandbox,
       });
     } else if (existingStart) {
       await window.api.hooks.delete(projectPath, 'start');
@@ -73,7 +72,7 @@ export function CombinedHookConfigDialog({
         type: 'continue',
         name: 'Continue Hook',
         command: continueTrimmed,
-        ...(isActiveSandbox(continueSandbox) && { sandbox: continueSandbox }),
+        sandbox: continueSandbox,
       });
     } else if (existingContinue) {
       await window.api.hooks.delete(projectPath, 'continue');

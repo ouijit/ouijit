@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { HookType, ScriptHook } from '../../types';
-import { SANDBOX_BACKEND_LABELS } from '../../types';
+import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { HookRowView } from './HookRowView';
 import { useProjectStore } from '../../stores/projectStore';
@@ -62,7 +62,7 @@ export function HookList({ projectPath, hooks: hookEntries, bare }: HookListProp
         label={label}
         description={description}
         command={hook?.command}
-        sandboxLabel={hook?.sandbox && SANDBOX_BACKEND_LABELS[hook.sandbox]}
+        sandboxLabel={isActiveSandbox(hook?.sandbox) ? SANDBOX_BACKEND_LABELS[hook.sandbox] : undefined}
         onAction={() => setEditingHook({ hookType: type, existing: hook })}
       />
     );

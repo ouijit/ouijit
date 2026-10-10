@@ -456,28 +456,21 @@ describe('cli:task-completed push', () => {
 });
 
 describe('PUT /api/hooks/:type', () => {
-  test('saves a hook with its sandbox, and refuses one that names no backend', async () => {
+  test('saves a lifecycle hook with its sandbox, and refuses an unknown backend or a sandboxed run hook', async () => {
     const token = issueToken('pty-host', 'host');
-    const ok = await request('PUT', `/api/hooks/start?project=${PROJECT}`, token, {
-      name: 'Agent',
-      command: 'claude',
-      sandbox: 'custom',
-    });
-    expect(ok.status).toBe(200);
-    expect(saveHook).toHaveBeenCalledWith(
-      '/tmp/test-project',
-      expect.objectContaining({ type: 'start', sandbox: 'custom' }),
-    );
+    const put = (type: string, sandbox: string) =>
+      request('PUT', `/api/hooks/${type}?project=${PROJECT}`, token, { name: 'Agent', command: 'claude', sandbox });
+
+    expect((await put('start', 'custom')).status).toBe(200);
+    expect((await put('run', 'none')).status).toBe(200);
+    expect(vi.mocked(saveHook).mock.calls.map((c) => [c[1].type, c[1].sandbox])).toEqual([
+      ['start', 'custom'],
+      ['run', 'none'],
+    ]);
 
     vi.mocked(saveHook).mockClear();
-    for (const sandbox of ['none', 'vm']) {
-      const refused = await request('PUT', `/api/hooks/start?project=${PROJECT}`, token, {
-        name: 'Agent',
-        command: 'claude',
-        sandbox,
-      });
-      expect(refused.status).toBe(400);
-    }
+    expect((await put('start', 'vm')).status).toBe(400);
+    expect((await put('run', 'nono')).status).toBe(400);
     expect(saveHook).not.toHaveBeenCalled();
   });
 });

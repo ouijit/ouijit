@@ -23,6 +23,13 @@ export function isSandboxBackendId(value: unknown): value is SandboxBackendId {
   return typeof value === 'string' && (SANDBOX_BACKEND_IDS as readonly string[]).includes(value);
 }
 
+export function isSandboxProviderId(value: unknown): value is SandboxProviderId {
+  return value === 'none' || isSandboxBackendId(value);
+}
+
+/** The lifecycle hooks that run in a task terminal of their own, so can run sandboxed. */
+export const SANDBOXABLE_HOOK_TYPES: readonly string[] = ['start', 'continue', 'review', 'done'];
+
 /** Display label for each sandbox backend, shared across every UI surface. */
 export const SANDBOX_BACKEND_LABELS: Record<SandboxBackendId, string> = {
   nono: 'nono',
@@ -42,10 +49,8 @@ export const GIT_WRITABLE_OVERLAY_DIRS = ['objects', 'refs', 'logs', 'worktrees'
 /** Provider-neutral availability / readiness status surfaced to the UI. */
 export interface SandboxProviderStatus {
   providerId: SandboxBackendId;
-  /** Binary present and platform supported. */
+  /** Can spawn right now: installed and supported, or configured. */
   available: boolean;
-  /** Can spawn right now. */
-  ready: boolean;
   /** Provider-specific state label, or a reason string when unavailable
    *  (e.g. "Linux kernel 5.13+ required"). */
   detail?: string;

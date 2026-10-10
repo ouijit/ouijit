@@ -9,8 +9,6 @@ import type { SandboxBackendId, SandboxLaunch, SandboxProviderStatus, SandboxSpa
 export interface SandboxProvider {
   readonly id: SandboxBackendId;
   readonly displayName: string;
-  /** Binary present and platform supported. */
-  isAvailable(): Promise<boolean>;
   getStatus(projectPath: string): Promise<SandboxProviderStatus>;
   /** Verify availability and resolve cwd/env. Throws with a clear message when
    *  the backend can't run so the spawn fails loudly. */

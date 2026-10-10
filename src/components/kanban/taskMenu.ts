@@ -1,5 +1,5 @@
 import type { ContextMenuEntry } from '../ui/ContextMenu';
-import type { SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../../types';
+import type { SandboxBackendId, SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../../types';
 import { SANDBOX_BACKEND_LABELS } from '../../types';
 import { FILE_MANAGER_NAME } from '../../utils/fileManager';
 import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
@@ -36,13 +36,12 @@ export interface TaskMenuActions {
  * never had; the file manager needs one already on disk.
  */
 export function openInEntry(
-  sandboxProviders: SandboxProviderId[],
+  sandboxProviders: SandboxBackendId[],
   hasWorktree: boolean,
   actions: TaskMenuActions,
 ): ContextMenuEntry {
   const submenu: ContextMenuEntry[] = [{ label: 'Terminal', icon: 'terminal', onClick: () => actions.openTerminal() }];
   for (const provider of sandboxProviders) {
-    if (provider === 'none') continue;
     submenu.push({
       label: `${SANDBOX_BACKEND_LABELS[provider]} sandbox`,
       icon: 'cube',

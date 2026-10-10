@@ -39,7 +39,7 @@ describe("the terminal's + menu", () => {
     useProjectStore.setState({
       configProjectPath: PROJECT,
       scriptsProjectPath: PROJECT,
-      configuredHooks: {},
+      hooks: {},
       scripts: [],
     });
     openAddMenu();
@@ -65,7 +65,7 @@ describe("the terminal's + menu", () => {
     useProjectStore.setState({
       configProjectPath: PROJECT,
       scriptsProjectPath: PROJECT,
-      configuredHooks: { run: true },
+      hooks: { run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' } },
       scripts: [existing],
     });
     openAddMenu();
@@ -97,12 +97,9 @@ describe("the terminal's + menu", () => {
     useProjectStore.setState({
       configProjectPath: PROJECT,
       scriptsProjectPath: PROJECT,
-      configuredHooks: { run: true },
+      hooks: { run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' } },
       scripts: [lint],
       availableSandboxProviders: ['custom'],
-    });
-    vi.mocked(window.api.hooks.get).mockResolvedValue({
-      run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' },
     });
 
     openAddMenu();
@@ -118,8 +115,7 @@ describe("the terminal's + menu", () => {
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, undefined, 'custom'));
 
     fireEvent.click(screen.getByLabelText('Add panel'));
-    // The run hook's edit appears once the hook itself has loaded; the script's is always there.
-    await waitFor(() => expect(screen.getAllByLabelText('Edit')).toHaveLength(2));
+    expect(screen.getAllByLabelText('Edit')).toHaveLength(2);
     fireEvent.mouseEnter(screen.getByText('Run').parentElement!);
     expect(await screen.findByText('npm run dev')).toBeTruthy();
 
@@ -150,7 +146,7 @@ describe("the terminal's + menu", () => {
     const its: Script = { id: 's2', name: 'Build', command: 'make', sortOrder: 0, restartIfRunning: false };
     useProjectStore.setState({
       configProjectPath,
-      configuredHooks: {},
+      hooks: {},
       scriptsProjectPath: '/elsewhere',
       scripts: [storeScript],
     });

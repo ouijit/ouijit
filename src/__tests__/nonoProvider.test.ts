@@ -128,6 +128,6 @@ describe('nonoProvider', () => {
   test('getStatus reports unavailable with a reason on an unsupported platform', async () => {
     checkPlatformSupport.mockReturnValue({ supported: false, reason: 'unsupported OS' });
     const status = await nonoProvider.getStatus('/proj');
-    expect(status).toMatchObject({ providerId: 'nono', available: false, ready: false, detail: 'unsupported OS' });
+    expect(status).toMatchObject({ providerId: 'nono', available: false, detail: 'unsupported OS' });
   });
 });

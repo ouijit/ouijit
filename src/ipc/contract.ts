@@ -31,8 +31,7 @@ import type {
   TaskWorktreeResult,
   CheckWorktreeResult,
   TaskWithWorkspace,
-  CliHookMode,
-  SandboxProviderId,
+  CliHookControl,
   TaskStatus,
   ScriptHook,
   HookType,
@@ -490,12 +489,7 @@ export interface IpcPushContract {
         worktreePath: string;
         branch: string;
         createdAt: string;
-        /** Hook-control mode from the CLI flags; absent = default dialog. */
-        hookMode?: CliHookMode;
-        /** Custom command when hookMode is 'command'. */
-        hookCommand?: string;
-        hookSandbox?: SandboxProviderId;
-      },
+      } & CliHookControl,
     ];
   };
   'cli:task-completed': {
@@ -507,12 +501,7 @@ export interface IpcPushContract {
          *  look it up in projectStore.tasks (which only holds the *active*
          *  project's tasks — would miss when the user is viewing a different project). */
         task: TaskWithWorkspace;
-        /** Hook-control mode from the CLI flags; absent = default Done dialog. */
-        hookMode?: CliHookMode;
-        /** Custom command when hookMode is 'command'. */
-        hookCommand?: string;
-        hookSandbox?: SandboxProviderId;
-      },
+      } & CliHookControl,
     ];
   };
   'cli:task-transitioned': {
@@ -526,12 +515,7 @@ export interface IpcPushContract {
         newStatus: TaskStatus;
         /** Full task record fetched server-side (same rationale as cli:task-completed). */
         task: TaskWithWorkspace;
-        /** Hook-control mode from the CLI flags; absent = default dialog. */
-        hookMode?: CliHookMode;
-        /** Custom command when hookMode is 'command'. */
-        hookCommand?: string;
-        hookSandbox?: SandboxProviderId;
-      },
+      } & CliHookControl,
     ];
   };
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };
