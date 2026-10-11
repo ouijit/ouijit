@@ -396,7 +396,7 @@ function BranchCopy({ branch }: { branch: string }) {
   return (
     <button
       type="button"
-      className="inline-flex items-center gap-1 font-mono text-[11px] text-ink/45 bg-transparent border-none p-0 min-w-0 self-start shrink-0 transition-colors duration-150 hover:text-ink/75"
+      className="inline-flex items-center gap-1 font-mono text-[11px] text-ink/45 bg-transparent border-none p-0 min-w-0 max-w-full self-start shrink-0 transition-colors duration-150 hover:text-ink/75"
       onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
