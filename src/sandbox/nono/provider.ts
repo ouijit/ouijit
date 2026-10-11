@@ -14,14 +14,6 @@ import { sandboxCacheDir } from '../cacheDir';
 
 const nonoLog = getLogger().scope('nono');
 
-/** Single platform + installed gate that `isAvailable`/`getStatus`/`prepare` all read. */
-async function checkAvailability(): Promise<{ ready: boolean; detail?: string }> {
-  const platform = checkPlatformSupport();
-  if (!platform.supported) return { ready: false, detail: platform.reason };
-  const installed = await isNonoInstalled();
-  return { ready: installed, detail: installed ? 'Ready' : 'Not installed' };
-}
-
 /**
  * nono as a `SandboxProvider`. All grants are derived from the task's worktree
  * at spawn time (kernel deny-by-default on Seatbelt / Landlock).
@@ -30,13 +22,12 @@ export const nonoProvider: SandboxProvider = {
   id: 'nono',
   displayName: 'nono',
 
-  async isAvailable(): Promise<boolean> {
-    return (await checkAvailability()).ready;
-  },
-
-  async getStatus(): Promise<SandboxProviderStatus> {
-    const { ready, detail } = await checkAvailability();
-    return { providerId: 'nono', available: ready, ready, detail };
+  async getStatus(projectPath: string): Promise<SandboxProviderStatus> {
+    const platform = checkPlatformSupport();
+    if (!platform.supported) return { providerId: 'nono', available: false, detail: platform.reason };
+    if (!(await isNonoInstalled())) return { providerId: 'nono', available: false, detail: 'Not installed' };
+    const { enabled } = await getNonoConfig(projectPath);
+    return { providerId: 'nono', available: !!enabled, detail: enabled ? 'Ready' : 'Off' };
   },
 
   cleanup(): void {
@@ -51,6 +42,9 @@ export const nonoProvider: SandboxProvider = {
     }
     if (!(await isNonoInstalled())) {
       throw new Error('nono is not installed. Install it, then reopen the terminal.');
+    }
+    if (!(await getNonoConfig(ctx.projectPath)).enabled) {
+      throw new Error('nono is off for this project. Turn it on in Project Settings ▸ Sandbox.');
     }
     // Make sure the union profile (and the agent packs it inherits) is on disk
     // before the spawn references it by name.

@@ -16,7 +16,7 @@ import type {
   ScriptHook,
   HookType,
   Script,
-  CliHookMode,
+  CliHookControl,
   TaskWithWorkspace,
   NonoConfig,
   CustomSandboxConfig,
@@ -264,37 +264,37 @@ contextBridge.exposeInMainWorld('api', {
   onCliThemeChanged: (callback: () => void) => typedListen('cli:theme-changed', callback),
 
   onCliTaskStarted: (
-    callback: (payload: {
-      project: string;
-      taskNumber: number;
-      worktreePath: string;
-      branch: string;
-      createdAt: string;
-      hookMode?: CliHookMode;
-      hookCommand?: string;
-    }) => void,
+    callback: (
+      payload: {
+        project: string;
+        taskNumber: number;
+        worktreePath: string;
+        branch: string;
+        createdAt: string;
+      } & CliHookControl,
+    ) => void,
   ) => typedListen('cli:task-started', callback),
 
   onCliTaskCompleted: (
-    callback: (payload: {
-      project: string;
-      taskNumber: number;
-      task: TaskWithWorkspace;
-      hookMode?: CliHookMode;
-      hookCommand?: string;
-    }) => void,
+    callback: (
+      payload: {
+        project: string;
+        taskNumber: number;
+        task: TaskWithWorkspace;
+      } & CliHookControl,
+    ) => void,
   ) => typedListen('cli:task-completed', callback),
 
   onCliTaskTransitioned: (
-    callback: (payload: {
-      project: string;
-      taskNumber: number;
-      origStatus: TaskStatus;
-      newStatus: TaskStatus;
-      task: TaskWithWorkspace;
-      hookMode?: CliHookMode;
-      hookCommand?: string;
-    }) => void,
+    callback: (
+      payload: {
+        project: string;
+        taskNumber: number;
+        origStatus: TaskStatus;
+        newStatus: TaskStatus;
+        task: TaskWithWorkspace;
+      } & CliHookControl,
+    ) => void,
   ) => typedListen('cli:task-transitioned', callback),
 
   capture: {

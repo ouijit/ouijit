@@ -38,7 +38,8 @@ ouijit task set-status "$TASK" in_review --skip-hook</code></pre>
     By default a status change opens that column's hook dialog in the GUI. When no human is at the keyboard,
     pass <code>--run-hook</code> (run the configured hook immediately), <code>--skip-hook</code> (no hook), or
     <code>--hook-command "&lt;cmd&gt;"</code> (a one-off command). The same flags apply to
-    <code>task start</code> and <code>task create-and-start</code>.
+    <code>task start</code> and <code>task create-and-start</code>. The hook runs in its own
+    <a href="/docs/sandbox/">sandbox</a> setting unless <code>--sandbox host|nono|custom</code> says otherwise.
   </p>
 
   <h2>Open panels beside yourself</h2>

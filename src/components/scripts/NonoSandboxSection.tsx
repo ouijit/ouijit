@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { NonoConfig } from '../../types';
-import { CARD, PILL_BTN } from './sandboxStyles';
+import { CARD, FIELD, PRIMARY_BUTTON, ROW_ACTION } from './sandboxStyles';
+import { QUIET_BUTTON } from './LensList';
+import { useProjectStore } from '../../stores/projectStore';
 
 interface NonoSandboxSectionProps {
   projectPath: string;
@@ -31,12 +33,19 @@ export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
   }, [projectPath]);
 
   const save = useCallback(
-    (next: NonoConfig) => {
+    async (next: NonoConfig) => {
       setConfig(next);
-      void window.api.sandbox.setNonoConfig(projectPath, next);
+      await window.api.sandbox.setNonoConfig(projectPath, next);
+      if (next.enabled !== config.enabled) await useProjectStore.getState().loadProjectConfig(projectPath);
     },
-    [projectPath],
+    [projectPath, config.enabled],
   );
+
+  const unavailableReason = useProjectStore((s) => {
+    const status =
+      s.configProjectPath === projectPath ? s.sandboxStatuses.find((st) => st.providerId === 'nono') : undefined;
+    return status && !status.available && status.detail !== 'Off' ? status.detail : undefined;
+  });
 
   const allowPaths = config.allowPaths ?? [];
   const openPorts = config.openPorts ?? [];
@@ -84,150 +93,154 @@ export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-xs text-text-tertiary">
-        Runs a task's commands with OS-level access limits, scoped to its worktree and git data. Turn it on from a
-        task's menu.
-      </p>
-
-      <div className={CARD}>
-        {/* Additional folders */}
-        <div className="flex flex-col gap-2 px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="text-sm text-text-primary">Additional folders</div>
-              <div className="mt-0.5 text-xs text-text-tertiary">Beyond the worktree and git data.</div>
-            </div>
-            <button type="button" onClick={addFolder} className={PILL_BTN}>
-              Add folder
-            </button>
-          </div>
-          {allowPaths.length > 0 && (
-            <div className="flex flex-col gap-1">
-              {allowPaths.map((p) => (
-                <div key={p} className="flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate text-xs text-text-secondary">{p}</code>
-                  <button
-                    type="button"
-                    onClick={() => removeFolder(p)}
-                    aria-label={`Remove ${p}`}
-                    className="px-1 text-xs text-text-tertiary hover:text-text-primary"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Network */}
-        <label className="flex items-center justify-between gap-4 px-4 py-3">
-          <span className="text-sm text-text-primary">Block outbound network</span>
-          <Toggle
-            checked={config.blockNet ?? false}
-            label="Block outbound network"
-            onClick={() => save({ ...config, blockNet: !(config.blockNet ?? false) })}
-          />
-        </label>
-
-        {/* Allowed ports */}
-        <div className="flex flex-col gap-2 px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-sm text-text-primary">Allowed ports</span>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={portDraft}
-                placeholder="3000"
-                aria-label="Add a port"
-                onChange={(e) => setPortDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') addPort();
-                }}
-                className="w-16 rounded-[10px] border border-bezel bg-background-secondary px-2 py-1.5 text-xs text-text-primary"
-              />
-              <button type="button" onClick={addPort} className={PILL_BTN}>
-                Add
-              </button>
-            </div>
-          </div>
-          {openPorts.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {openPorts.map((n) => (
-                <span
-                  key={n}
-                  className="inline-flex items-center gap-1 rounded-full border border-bezel bg-background-secondary py-0.5 pl-2 pr-1 text-xs text-text-secondary"
-                >
-                  {n}
-                  <button
-                    type="button"
-                    onClick={() => removePort(n)}
-                    aria-label={`Remove port ${n}`}
-                    className="px-1 text-text-tertiary hover:text-text-primary"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className={CARD}>
-        <div className="flex flex-col gap-2 px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="text-sm text-text-primary">Sandbox profile</div>
-              <div className="mt-0.5 text-xs text-text-tertiary">
-                {config.profile
-                  ? 'Using a custom profile for this project.'
-                  : 'Edit this project’s nono policy directly. Ouijit still grants the worktree, git data, hook port, and caches on top.'}
+    <section aria-label="nono" className={CARD}>
+      <label className="flex items-center justify-between gap-4 px-4 py-3">
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-text-primary">nono</span>
+          <span className="mt-0.5 block text-xs text-text-tertiary">
+            {unavailableReason ?? 'Kernel-level limits on the shell itself, in place on the worktree.'}
+          </span>
+        </span>
+        <Toggle
+          checked={config.enabled ?? false}
+          label="Use nono"
+          onClick={() => void save({ ...config, enabled: !(config.enabled ?? false) })}
+        />
+      </label>
+      {config.enabled && (
+        <>
+          {/* Additional folders */}
+          <div className="flex flex-col gap-2 px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-sm text-text-primary">Additional folders</div>
+                <div className="mt-0.5 text-xs text-text-tertiary">Beyond the worktree and git data.</div>
               </div>
-            </div>
-            {!profileOpen && (
-              <button type="button" onClick={openProfileEditor} className={PILL_BTN}>
-                {config.profile ? 'Edit' : 'Customize'}
+              <button type="button" onClick={addFolder} className={ROW_ACTION}>
+                + Add folder
               </button>
+            </div>
+            {allowPaths.length > 0 && (
+              <div className="flex flex-col gap-1">
+                {allowPaths.map((p) => (
+                  <div key={p} className="flex items-center gap-2">
+                    <code className="min-w-0 flex-1 truncate text-xs text-text-secondary">{p}</code>
+                    <button
+                      type="button"
+                      onClick={() => removeFolder(p)}
+                      aria-label={`Remove ${p}`}
+                      className="px-1 text-xs text-text-tertiary hover:text-text-primary"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-          {profileOpen && (
-            <div className="flex flex-col gap-2">
-              <textarea
-                value={profileDraft}
-                onChange={(e) => {
-                  setProfileDraft(e.target.value);
-                  setProfileError(null);
-                }}
-                spellCheck={false}
-                aria-label="nono profile JSON"
-                className="h-56 w-full resize-y rounded-[10px] border border-bezel bg-background-secondary px-3 py-2 font-mono text-xs leading-relaxed text-text-primary outline-none"
-              />
-              {profileError && <div className="text-xs text-error">{profileError}</div>}
-              <div className="flex items-center gap-1.5">
-                <button type="button" onClick={saveProfile} className={PILL_BTN}>
-                  Save
+
+          {/* Network */}
+          <label className="flex items-center justify-between gap-4 px-4 py-3">
+            <span className="text-sm text-text-primary">Block outbound network</span>
+            <Toggle
+              checked={config.blockNet ?? false}
+              label="Block outbound network"
+              onClick={() => save({ ...config, blockNet: !(config.blockNet ?? false) })}
+            />
+          </label>
+
+          {/* Allowed ports */}
+          <div className="flex flex-col gap-2 px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm text-text-primary">Allowed ports</span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={portDraft}
+                  placeholder="3000"
+                  aria-label="Add a port"
+                  onChange={(e) => setPortDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addPort();
+                  }}
+                  className={`${FIELD} w-20 font-mono`}
+                />
+                <button type="button" onClick={addPort} className={ROW_ACTION}>
+                  + Add
                 </button>
-                <button type="button" onClick={() => setProfileOpen(false)} className={PILL_BTN}>
-                  Cancel
-                </button>
-                {config.profile && (
-                  <button
-                    type="button"
-                    onClick={resetProfile}
-                    className="ml-auto text-xs text-text-tertiary hover:text-text-primary"
-                  >
-                    Reset to default
-                  </button>
-                )}
               </div>
             </div>
-          )}
-        </div>
-      </div>
-    </div>
+            {openPorts.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {openPorts.map((n) => (
+                  <span
+                    key={n}
+                    className="inline-flex items-center gap-1 rounded-full border border-bezel bg-background-secondary py-0.5 pl-2 pr-1 text-xs text-text-secondary"
+                  >
+                    {n}
+                    <button
+                      type="button"
+                      onClick={() => removePort(n)}
+                      aria-label={`Remove port ${n}`}
+                      className="px-1 text-text-tertiary hover:text-text-primary"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2 px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-sm text-text-primary">Sandbox profile</div>
+                <div className="mt-0.5 text-xs text-text-tertiary">
+                  {config.profile
+                    ? 'Using a custom profile for this project.'
+                    : 'Edit this project’s nono policy directly. Ouijit still grants the worktree, git data, hook port, and caches on top.'}
+                </div>
+              </div>
+              {!profileOpen && (
+                <button type="button" onClick={openProfileEditor} className={ROW_ACTION}>
+                  {config.profile ? 'Edit' : 'Customize'}
+                </button>
+              )}
+            </div>
+            {profileOpen && (
+              <div className="flex flex-col gap-2">
+                <textarea
+                  value={profileDraft}
+                  onChange={(e) => {
+                    setProfileDraft(e.target.value);
+                    setProfileError(null);
+                  }}
+                  spellCheck={false}
+                  aria-label="nono profile JSON"
+                  className={`${FIELD} h-56 w-full resize-y font-mono leading-relaxed`}
+                />
+                {profileError && <div className="text-xs text-error">{profileError}</div>}
+                <div className="flex items-center justify-end gap-1.5">
+                  {config.profile && (
+                    <button type="button" onClick={resetProfile} className={`${ROW_ACTION} mr-auto`}>
+                      Reset to default
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setProfileOpen(false)} className={QUIET_BUTTON}>
+                    Cancel
+                  </button>
+                  <button type="button" onClick={saveProfile} className={PRIMARY_BUTTON}>
+                    Save
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 

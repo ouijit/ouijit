@@ -5,6 +5,8 @@
 import type { Command } from 'commander';
 import { get, put, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
+import { SANDBOX_FLAG, parseSandboxFlag, sandboxFlagHelp } from '../sandboxFlag';
+import { SANDBOXABLE_HOOK_TYPES, isActiveSandbox } from '../../sandbox/types';
 
 const VALID_HOOK_TYPES = ['start', 'continue', 'run', 'review', 'done', 'editor'];
 
@@ -27,6 +29,7 @@ Hook types: start, continue, run, review, done, editor
 Examples:
   ouijit hook list
   ouijit hook set start --name "Install deps" --command "npm install"
+  ouijit hook set start --name "Claude" --command "claude" --sandbox custom
   ouijit hook get review
   ouijit hook delete done`,
     );
@@ -59,10 +62,11 @@ Examples:
     .requiredOption('--command <cmd>', 'hook command')
     .option('--description <desc>', 'hook description')
     .option('--restart-if-running', 'run hook only: restart the command if it is already running in the task')
+    .option(SANDBOX_FLAG, sandboxFlagHelp('start, continue, review, done: the sandbox the hook runs in'))
     .action(
       async (
         type: string,
-        opts: { name: string; command: string; description?: string; restartIfRunning?: boolean },
+        opts: { name: string; command: string; description?: string; restartIfRunning?: boolean; sandbox?: string },
       ) => {
         const t = validateHookType(type);
         // restartIfRunning only affects the run hook (the only hook surfaced as a
@@ -70,12 +74,19 @@ Examples:
         if (opts.restartIfRunning && t !== 'run') {
           return printError('--restart-if-running is only valid for the run hook');
         }
+        const parsed = parseSandboxFlag(opts.sandbox);
+        if ('error' in parsed) return printError(parsed.error);
+        const { sandbox } = parsed;
+        if (isActiveSandbox(sandbox) && !SANDBOXABLE_HOOK_TYPES.includes(t)) {
+          return printError(`--sandbox is only valid for the ${SANDBOXABLE_HOOK_TYPES.join(', ')} hooks`);
+        }
         const project = requireProject();
         const result = await put(`/api/hooks/${t}${projectQuery(project)}`, {
           name: opts.name,
           command: opts.command,
           ...(opts.description && { description: opts.description }),
           ...(opts.restartIfRunning && { restartIfRunning: true }),
+          ...(sandbox && { sandbox }),
         });
         printJson(result);
       },

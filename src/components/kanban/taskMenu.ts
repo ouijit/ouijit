@@ -1,5 +1,5 @@
 import type { ContextMenuEntry } from '../ui/ContextMenu';
-import type { SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../../types';
+import type { SandboxBackendId, SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../../types';
 import { SANDBOX_BACKEND_LABELS } from '../../types';
 import { FILE_MANAGER_NAME } from '../../utils/fileManager';
 import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
@@ -31,25 +31,22 @@ export interface TaskMenuActions {
 }
 
 /**
- * "Open in ▸" — a host Terminal, one entry per installed sandbox backend,
- * Editor, and the OS file manager. Terminal and Editor create the worktree a
- * task has never had; the rest need one already on disk.
+ * "Open in ▸" — a Terminal, one entry per available sandbox backend, Editor,
+ * and the OS file manager. Terminals and Editor create the worktree a task has
+ * never had; the file manager needs one already on disk.
  */
 export function openInEntry(
-  sandboxProviders: SandboxProviderId[],
+  sandboxProviders: SandboxBackendId[],
   hasWorktree: boolean,
   actions: TaskMenuActions,
 ): ContextMenuEntry {
   const submenu: ContextMenuEntry[] = [{ label: 'Terminal', icon: 'terminal', onClick: () => actions.openTerminal() }];
-  if (hasWorktree) {
-    for (const provider of sandboxProviders) {
-      if (provider === 'none') continue;
-      submenu.push({
-        label: `${SANDBOX_BACKEND_LABELS[provider]} sandbox`,
-        icon: 'cube',
-        onClick: () => actions.openTerminal(provider),
-      });
-    }
+  for (const provider of sandboxProviders) {
+    submenu.push({
+      label: `${SANDBOX_BACKEND_LABELS[provider]} sandbox`,
+      icon: 'cube',
+      onClick: () => actions.openTerminal(provider),
+    });
   }
   submenu.push({ label: 'Editor', icon: 'code', onClick: actions.openEditor });
   if (hasWorktree) {

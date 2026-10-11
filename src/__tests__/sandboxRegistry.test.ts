@@ -13,8 +13,7 @@ function makeProvider(id: SandboxBackendId): SandboxProvider {
   return {
     id,
     displayName: id,
-    isAvailable: async () => true,
-    getStatus: async () => ({ providerId: id, available: true, ready: true }),
+    getStatus: async () => ({ providerId: id, available: true }),
     cleanup: vi.fn(),
     prepare: async (ctx) => ({ cwd: ctx.cwd }),
     wrapLaunch: async (launch) => launch,

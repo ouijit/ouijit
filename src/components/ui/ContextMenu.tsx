@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../terminal/Icon';
 
@@ -7,11 +7,19 @@ export interface ContextMenuItem {
   icon?: string;
   danger?: boolean;
   onClick: () => void;
+  /** Marks the current choice among siblings, which keep the space so labels line up. */
+  checked?: boolean;
+  /** Leave the menu open after the click, for a choice that sets up what is picked next. */
+  keepOpen?: boolean;
+  /** An icon button at the end of the row, shown under the pointer, doing something other than the row. */
+  secondary?: { icon: string; label: string; onClick: () => void };
 }
 
 export interface ContextMenuSubmenu {
   label: string;
   icon?: string;
+  /** The current choice, shown at the row's end; the label then reads as a heading over the rows that follow. */
+  value?: string;
   /** Nested entries shown in a hover flyout. */
   submenu: ContextMenuEntry[];
 }
@@ -29,8 +37,11 @@ interface ContextMenuProps {
   onClose: () => void;
 }
 
-const ITEM_CLASS =
-  'context-menu-item w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out flex items-center gap-1.5 whitespace-nowrap hover:bg-ink/[0.08] [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60';
+const ITEM_LAYOUT =
+  'px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out flex items-center gap-1.5 whitespace-nowrap [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60';
+const ITEM_CLASS = `context-menu-item w-full ${ITEM_LAYOUT} hover:bg-ink/[0.08]`;
+const SECONDARY_CLASS =
+  'w-6 h-6 shrink-0 flex items-center justify-center rounded-[6px] border-none bg-transparent text-text-tertiary opacity-0 transition-[opacity,background-color] duration-100 ease-out group-hover/row:opacity-100 focus-visible:opacity-100 hover:bg-ink/[0.1] hover:text-text-primary [&>svg]:w-3 [&>svg]:h-3';
 
 /** The bevel is an inset `::before`, so whatever wears this has to be positioned. */
 const PANEL_CLASS = 'p-1 glass-bevel border border-bezel rounded-[12px]';
@@ -44,6 +55,8 @@ const PANEL_STYLE = {
  * the row over the rows below, and the flyout goes with it.
  */
 const SUBMENU_CLOSE_DELAY = 300;
+
+const EDGE_MARGIN = 8;
 
 function MenuList({
   items,
@@ -82,11 +95,18 @@ function MenuList({
           return (
             <div key={i} className="relative" onMouseEnter={() => openSubmenu(i)} onMouseLeave={scheduleClose}>
               <button type="button" className={`${ITEM_CLASS} justify-between ${open ? 'bg-ink/[0.08]' : ''}`}>
-                <span className="flex items-center gap-1.5">
+                <span className={`flex items-center gap-1.5 ${item.value ? 'text-[11px] text-text-tertiary' : ''}`}>
                   {item.icon && <Icon name={item.icon} />}
                   {item.label}
                 </span>
-                <Icon name="caret-right" />
+                {item.value ? (
+                  <span className="flex items-center gap-1 text-[11px] text-text-secondary">
+                    {item.value}
+                    <Icon name="caret-right" />
+                  </span>
+                ) : (
+                  <Icon name="caret-right" />
+                )}
               </button>
               {/* Nested in the row, so moving into it fires no mouseleave, and the
                   padding around it covers the gap between the two panels. */}
@@ -100,16 +120,35 @@ function MenuList({
             </div>
           );
         }
-        return (
+        const row = (
           <button
-            key={i}
             type="button"
-            className={`${ITEM_CLASS} ${item.danger ? 'context-menu-item--danger hover:bg-error/10 hover:text-error' : ''}`}
-            onClick={() => onSelect(item.onClick)}
+            className={
+              item.secondary
+                ? `context-menu-item flex-1 min-w-0 ${ITEM_LAYOUT}`
+                : `${ITEM_CLASS} ${item.danger ? 'context-menu-item--danger hover:bg-error/10 hover:text-error' : ''}`
+            }
+            onClick={() => (item.keepOpen ? item.onClick() : onSelect(item.onClick))}
           >
+            {item.checked !== undefined && <Icon name="check" className={item.checked ? '' : 'invisible'} />}
             {item.icon && <Icon name={item.icon} />}
             {item.label}
           </button>
+        );
+        if (!item.secondary) return <Fragment key={i}>{row}</Fragment>;
+        const { secondary } = item;
+        return (
+          <div key={i} className="group/row flex items-center pr-1 rounded-[7px] hover:bg-ink/[0.08]">
+            {row}
+            <button
+              type="button"
+              aria-label={secondary.label}
+              className={SECONDARY_CLASS}
+              onClick={() => onSelect(secondary.onClick)}
+            >
+              <Icon name={secondary.icon} />
+            </button>
+          </div>
         );
       })}
     </>
@@ -119,6 +158,11 @@ function MenuList({
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const [renderedWidth, setRenderedWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    setRenderedWidth(menuRef.current?.offsetWidth ?? 0);
+  }, []);
 
   // Position and animate in
   useEffect(() => {
@@ -147,13 +191,13 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
 
   // Keep within viewport. Only top-level entries drive the height clamp;
   // submenu flyouts open to the side.
-  const menuWidth = 200;
+  const menuWidth = Math.max(200, renderedWidth);
   const submenuWidth = 180;
   const itemCount = items.filter((i) => !('separator' in i)).length;
   const sepCount = items.filter((i) => 'separator' in i).length;
   const menuHeight = 32 * itemCount + 9 * sepCount;
-  const posX = Math.min(x, window.innerWidth - menuWidth);
-  const posY = Math.min(y, window.innerHeight - menuHeight);
+  const posX = Math.min(x, window.innerWidth - menuWidth - EDGE_MARGIN);
+  const posY = Math.min(y, window.innerHeight - menuHeight - EDGE_MARGIN);
   // Flip submenu flyouts to the left when they would overflow the right edge.
   const openLeft = posX + menuWidth + submenuWidth > window.innerWidth;
 

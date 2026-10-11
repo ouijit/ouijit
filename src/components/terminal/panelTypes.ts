@@ -11,6 +11,8 @@
  * tracked separately in `OuijitTerminal.runnerChildren`, keyed by panel id.
  */
 
+import type { SandboxBackendId } from '../../types';
+
 export type PanelKind = 'runner' | 'webPreview' | 'plan';
 
 export type RunnerStatus = 'running' | 'success' | 'error' | 'idle';
@@ -31,6 +33,8 @@ export interface RunnerPanel {
   /** When re-run while a live instance already runs in this task, kill the old
    *  one first. Opt-in per runnable (script or run hook); defaults off. */
   restartIfRunning: boolean;
+  /** Chosen when the runner is started, independent of its terminal's; absent runs on the host. */
+  sandboxProvider?: SandboxBackendId;
   status: RunnerStatus;
 }
 

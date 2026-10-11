@@ -54,7 +54,7 @@ beforeEach(() => {
   checkPlatformSupport.mockReturnValue({ supported: true });
   isNonoInstalled.mockResolvedValue(true);
   getMainGitDir.mockResolvedValue('/Users/dev/code/proj/.git');
-  getNonoConfig.mockResolvedValue({});
+  getNonoConfig.mockResolvedValue({ enabled: true });
   ensureUnionProfile.mockResolvedValue(undefined);
   getNonoPath.mockReturnValue('/opt/bin/nono');
 });
@@ -93,6 +93,16 @@ describe('nonoProvider', () => {
     await expect(nonoProvider.prepare(ctx)).rejects.toThrow(/not installed/i);
   });
 
+  test('is offered, and spawns, only once the project turns it on', async () => {
+    getNonoConfig.mockResolvedValue({});
+    expect(await nonoProvider.getStatus('/proj')).toMatchObject({ available: false, detail: 'Off' });
+    await expect(nonoProvider.prepare(ctx)).rejects.toThrow(/off for this project/);
+
+    getNonoConfig.mockResolvedValue({ enabled: true });
+    expect(await nonoProvider.getStatus('/proj')).toMatchObject({ available: true, detail: 'Ready' });
+    await expect(nonoProvider.prepare(ctx)).resolves.toBeTruthy();
+  });
+
   test('prepare rejects when the platform is unsupported', async () => {
     checkPlatformSupport.mockReturnValue({ supported: false, reason: 'Linux kernel 5.13+ required' });
     await expect(nonoProvider.prepare(ctx)).rejects.toThrow(/5\.13/);
@@ -128,6 +138,6 @@ describe('nonoProvider', () => {
   test('getStatus reports unavailable with a reason on an unsupported platform', async () => {
     checkPlatformSupport.mockReturnValue({ supported: false, reason: 'unsupported OS' });
     const status = await nonoProvider.getStatus('/proj');
-    expect(status).toMatchObject({ providerId: 'nono', available: false, ready: false, detail: 'unsupported OS' });
+    expect(status).toMatchObject({ providerId: 'nono', available: false, detail: 'unsupported OS' });
   });
 });

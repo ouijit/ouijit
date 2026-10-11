@@ -73,7 +73,8 @@ import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
-import type { CliHookMode, CliPanelKind } from '../types';
+import type { CliHookControl, CliPanelKind, SandboxProviderId } from '../types';
+import { SANDBOXABLE_HOOK_TYPES, SANDBOX_PROVIDER_IDS, isActiveSandbox, isSandboxProviderId } from '../sandbox/types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
@@ -148,18 +149,24 @@ function isSuccessfulStart(result: unknown): result is TaskStartResult {
   );
 }
 
-interface HookControl {
-  hookMode?: CliHookMode;
-  hookCommand?: string;
-}
-
 /**
  * Validate the optional hook-control fields on a task-start request body.
  * Throws HttpError on a bad request; returns the fields to forward to the
  * renderer via the `cli:task-started` push so it can bypass the start-hook
  * dialog. An empty result means "use the default dialog behavior".
  */
-function parseHookControl(body: Record<string, unknown>): HookControl {
+function parseHookControl(body: Record<string, unknown>): CliHookControl {
+  const hookSandbox = parseSandbox(body.hookSandbox, 'hookSandbox');
+  return { ...parseHookMode(body), ...(hookSandbox && { hookSandbox }) };
+}
+
+function parseSandbox(value: unknown, field: string): SandboxProviderId | undefined {
+  if (value === undefined) return undefined;
+  if (isSandboxProviderId(value)) return value;
+  throw new HttpError(400, `Invalid ${field}: ${String(value)}. Must be one of: ${SANDBOX_PROVIDER_IDS.join(', ')}`);
+}
+
+function parseHookMode(body: Record<string, unknown>): Omit<CliHookControl, 'hookSandbox'> {
   const mode = body.hookMode;
   if (mode === undefined) return {};
   if (mode !== 'run' && mode !== 'skip' && mode !== 'command') {
@@ -496,6 +503,9 @@ const routes: Route[] = [
     (r) => {
       const project = requireProject(r.query);
       const type = r.segments[1];
+      if (isActiveSandbox(parseSandbox(r.body.sandbox, 'sandbox')) && !SANDBOXABLE_HOOK_TYPES.includes(type)) {
+        throw new HttpError(400, `The ${type} hook cannot run in a sandbox`);
+      }
       return saveHook(project, { ...r.body, type } as Parameters<typeof saveHook>[1]);
     },
     true,
@@ -1045,8 +1055,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             worktreePath: startResult.worktreePath,
             branch: task.branch,
             createdAt: task.createdAt,
-            hookMode: hookControl.hookMode,
-            hookCommand: hookControl.hookCommand,
+            ...hookControl,
           });
         }
       }
@@ -1071,8 +1080,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               project,
               taskNumber,
               task,
-              hookMode: hookControl.hookMode,
-              hookCommand: hookControl.hookCommand,
+              ...hookControl,
             });
           }
         }
@@ -1102,8 +1110,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               origStatus: prevStatus as 'todo' | 'in_progress' | 'in_review' | 'done',
               newStatus: body.status,
               task,
-              hookMode: hookControl.hookMode,
-              hookCommand: hookControl.hookCommand,
+              ...hookControl,
             });
           }
         }

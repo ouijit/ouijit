@@ -41,8 +41,7 @@ const window = { isDestroyed: () => false, webContents: { send } } as unknown as
 const fakeWrapper: SandboxProvider = {
   id: 'nono',
   displayName: 'nono',
-  isAvailable: async () => true,
-  getStatus: async () => ({ providerId: 'nono', available: true, ready: true }),
+  getStatus: async () => ({ providerId: 'nono', available: true }),
   cleanup: vi.fn(),
   prepare: vi.fn(async (ctx) => ({ cwd: ctx.cwd })),
   wrapLaunch: vi.fn((launch, ctx) => ({
@@ -110,7 +109,7 @@ describe('spawnPty wrapper seam', () => {
     expect(launchFailures()[0][1]).toMatchObject({ provider: 'nono', exitCode: 2 });
   });
 
-  test('wrapper that refuses in prepare fails the spawn and revokes the token it was issued', async () => {
+  test('wrapper that refuses in prepare fails the spawn, reports why, and revokes the token it was issued', async () => {
     const issue = vi.spyOn(apiAuth, 'issueToken');
     const refusing: SandboxProvider = {
       ...fakeWrapper,
@@ -122,6 +121,9 @@ describe('spawnPty wrapper seam', () => {
     const result = await spawnPty({ cwd: '/proj', projectPath: '/proj', sandboxProvider: 'custom' }, window, refusing);
     expect(result).toEqual({ success: false, error: 'No sandbox command configured' });
     expect(ptySpawn).not.toHaveBeenCalled();
+    expect(launchFailures().map((c) => c[1])).toEqual([
+      expect.objectContaining({ provider: 'custom', error: 'No sandbox command configured' }),
+    ]);
     const token = issue.mock.results[0].value as string;
     expect(apiAuth.verifyToken(token)).toBeNull();
   });

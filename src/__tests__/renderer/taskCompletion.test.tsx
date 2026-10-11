@@ -146,6 +146,26 @@ describe('completeTask', () => {
     expect(window.api.task.setStatus).toHaveBeenCalledWith(PROJECT, 7, 'done');
   });
 
+  test('the done hook runs in its own sandbox unless the CLI or the dialog picks another', async () => {
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      done: { id: 'h', type: 'done', name: 'Done', command: 'git push', sandbox: 'custom' },
+    });
+    const sandboxOfRun = async (opts: Partial<Parameters<typeof completeTask>[0]>) => {
+      vi.mocked(addProjectTerminal).mockClear();
+      await completeTask({ projectPath: PROJECT, task: makeTask(), ...opts });
+      return vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandboxProvider;
+    };
+
+    expect(await sandboxOfRun({ hookControl: { mode: 'run' } })).toBe('custom');
+    expect(await sandboxOfRun({ hookControl: { mode: 'command', command: 'echo hi' }, sandbox: 'none' })).toBe('none');
+
+    const promptSpy = vi
+      .spyOn(useProjectStore.getState(), 'requestRunHook')
+      .mockResolvedValue({ command: 'git push', foreground: false, sandbox: 'nono' });
+    expect(await sandboxOfRun({})).toBe('nono');
+    expect(promptSpy).toHaveBeenCalledWith(expect.objectContaining({ sandbox: 'custom' }));
+  });
+
   test('dialog skipped (returns null): no hook spawns but the task still completes', async () => {
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       done: { command: 'echo configured', name: 'Done', source: 'configured', priority: 0 },
@@ -164,7 +184,7 @@ describe('completeTask', () => {
     });
     vi.spyOn(useProjectStore.getState(), 'requestRunHook').mockResolvedValue({
       command: 'echo configured',
-      sandboxed: false,
+      sandbox: 'none',
       foreground: true,
     });
 

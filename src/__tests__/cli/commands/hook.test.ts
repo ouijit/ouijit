@@ -95,6 +95,41 @@ describe('hook commands', () => {
     stderr.mockRestore();
   });
 
+  test('set --sandbox names where a lifecycle hook runs, and is refused for a run hook or an unknown backend', async () => {
+    vi.mocked(put).mockResolvedValue({ success: true });
+    const set = async (...args: string[]) => {
+      const output = captureOutput();
+      await createProgram().parseAsync(['hook', 'set', ...args, '--name', 'Agent', '--command', 'claude'], {
+        from: 'user',
+      });
+      output.getJson();
+      return vi.mocked(put).mock.lastCall?.[1];
+    };
+
+    expect(await set('continue', '--sandbox', 'custom')).toEqual({
+      name: 'Agent',
+      command: 'claude',
+      sandbox: 'custom',
+    });
+    expect(await set('continue', '--sandbox', 'host')).toEqual({ name: 'Agent', command: 'claude', sandbox: 'none' });
+    expect(await set('run', '--sandbox', 'host')).toEqual({ name: 'Agent', command: 'claude', sandbox: 'none' });
+
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit');
+    });
+    const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    vi.mocked(put).mockClear();
+    await expect(set('run', '--sandbox', 'nono')).rejects.toThrow('exit');
+    expect(stderr).toHaveBeenLastCalledWith(
+      expect.stringContaining('only valid for the start, continue, review, done'),
+    );
+    await expect(set('start', '--sandbox', 'vm')).rejects.toThrow('exit');
+    expect(stderr).toHaveBeenLastCalledWith(expect.stringContaining('host|nono|custom'));
+    expect(put).not.toHaveBeenCalled();
+    exit.mockRestore();
+    stderr.mockRestore();
+  });
+
   test('get retrieves a hook by type from hooks object', async () => {
     vi.mocked(get).mockResolvedValue({ start: { name: 'Start', command: 'echo start' } });
     const output = captureOutput();

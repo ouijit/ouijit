@@ -2,7 +2,7 @@ import { useMemo, type MouseEvent } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { TaskWithWorkspace, HookType, SandboxProviderId } from '../../types';
+import type { TaskWithWorkspace, HookType, SandboxBackendId, SandboxProviderId } from '../../types';
 import type { TaskChainInfo } from '../../utils/taskChain';
 import { useProjectStore } from '../../stores/projectStore';
 import { KanbanCard } from './KanbanCard';
@@ -32,7 +32,7 @@ interface KanbanColumnProps {
   onConfigureHook?: (hookTypes: HookType[]) => void;
   hasConfiguredHook?: boolean;
   chainMap?: Map<number, TaskChainInfo>;
-  availableSandboxProviders?: SandboxProviderId[];
+  availableSandboxProviders?: SandboxBackendId[];
 }
 
 export function KanbanColumn({
@@ -127,7 +127,7 @@ function SortableCard({
   onOpenTerminal: (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => void;
   onSwitchToTerminal: (ptyId: string) => void;
   onSelect: (taskNumber: number, event: MouseEvent) => void;
-  availableSandboxProviders?: SandboxProviderId[];
+  availableSandboxProviders?: SandboxBackendId[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task-${task.taskNumber}`,

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { SANDBOX_BACKEND_LABELS } from '../types';
+import { SANDBOX_BACKEND_LABELS, type CliHookControl } from '../types';
 import {
   useProjectStore,
   type PendingCliStart,
@@ -48,8 +48,16 @@ async function spawnTerminalForCliStart(projectPath: string, start: PendingCliSt
       worktreePath: task.worktreePath ?? start.worktreePath,
       branch: task.branch ?? start.branch,
     },
-    hookControl: start.hookMode ? { mode: start.hookMode, command: start.hookCommand } : undefined,
+    ...hookOptions(start),
   });
+}
+
+function cliHookControl({ hookMode, hookCommand, hookSandbox }: CliHookControl): CliHookControl {
+  return { hookMode, hookCommand, hookSandbox };
+}
+
+function hookOptions({ hookMode, hookCommand, hookSandbox }: CliHookControl) {
+  return { hookControl: hookMode ? { mode: hookMode, command: hookCommand } : undefined, sandbox: hookSandbox };
 }
 
 /**
@@ -63,7 +71,7 @@ function runCliTransition(projectPath: string, transition: PendingCliTransition)
     origStatus: transition.origStatus,
     newStatus: transition.newStatus,
     task: transition.task,
-    hookControl: transition.hookMode ? { mode: transition.hookMode, command: transition.hookCommand } : undefined,
+    ...hookOptions(transition),
   });
 }
 
@@ -77,7 +85,7 @@ function runCliCompletion(projectPath: string, completion: PendingCliCompletion)
   void completeTask({
     projectPath,
     task: completion.task,
-    hookControl: completion.hookMode ? { mode: completion.hookMode, command: completion.hookCommand } : undefined,
+    ...hookOptions(completion),
     skipStatusWrite: true,
   }).catch((err) => {
     ipcLog.error('CLI task-completed lifecycle failed', {
@@ -117,13 +125,12 @@ export function useIPCListeners() {
     );
 
     cleanups.push(
-      window.api.onSandboxLaunchFailed(({ provider, exitCode }) => {
-        useProjectStore
-          .getState()
-          .addToast(
-            `${SANDBOX_BACKEND_LABELS[provider]} sandbox failed to start (exit ${exitCode}). See the terminal output.`,
-            { type: 'error', persistent: true },
-          );
+      window.api.onSandboxLaunchFailed(({ provider, exitCode, error }) => {
+        const reason = error ? `: ${error}` : ` (exit ${exitCode}). See the terminal output.`;
+        useProjectStore.getState().addToast(`${SANDBOX_BACKEND_LABELS[provider]} sandbox failed to start${reason}`, {
+          type: 'error',
+          persistent: true,
+        });
       }),
     );
 
@@ -215,8 +222,7 @@ export function useIPCListeners() {
         const completion: PendingCliCompletion = {
           taskNumber: payload.taskNumber,
           task: payload.task,
-          hookMode: payload.hookMode,
-          hookCommand: payload.hookCommand,
+          ...cliHookControl(payload),
         };
 
         // A bare done (no hookMode) shows the Done dialog, which can only render
@@ -249,8 +255,7 @@ export function useIPCListeners() {
           worktreePath: payload.worktreePath,
           branch: payload.branch,
           createdAt: payload.createdAt,
-          hookMode: payload.hookMode,
-          hookCommand: payload.hookCommand,
+          ...cliHookControl(payload),
         };
 
         if (activeProject === payload.project) {
@@ -285,8 +290,7 @@ export function useIPCListeners() {
           origStatus: payload.origStatus,
           newStatus: payload.newStatus,
           task: payload.task,
-          hookMode: payload.hookMode,
-          hookCommand: payload.hookCommand,
+          ...cliHookControl(payload),
         };
 
         if (payload.hookMode || activeProject === payload.project) {

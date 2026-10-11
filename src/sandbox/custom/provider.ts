@@ -8,7 +8,7 @@ import { GIT_WRITABLE_OVERLAY_DIRS } from '../types';
 import { getMainGitDir } from '../gitDir';
 import { sandboxCacheDir } from '../cacheDir';
 import { getCustomSandboxConfig } from './config';
-import { NO_COMMAND_MESSAGE, buildCustomLaunch } from './argv';
+import { buildCustomLaunch } from './argv';
 
 const customLog = getLogger().scope('customSandbox');
 
@@ -25,17 +25,13 @@ export const customProvider: SandboxProvider = {
   id: 'custom',
   displayName: 'Custom',
 
-  async isAvailable(): Promise<boolean> {
-    return true;
-  },
-
   async getStatus(projectPath: string): Promise<SandboxProviderStatus> {
     const { command } = await getCustomSandboxConfig(projectPath);
+    const configured = command != null;
     return {
       providerId: 'custom',
-      available: true,
-      ready: command != null,
-      detail: command != null ? 'Ready' : NO_COMMAND_MESSAGE,
+      available: configured,
+      detail: configured ? 'Ready' : 'Set a sandbox command to use it.',
     };
   },
 

@@ -8,8 +8,6 @@ interface ExperimentalFeaturesSectionProps {
 export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeaturesSectionProps) {
   const flags = useExperimentalStore((s) => s.flagsByProject[projectPath]);
   const canvasEnabled = flags?.canvas ?? false;
-  const nonoEnabled = flags?.nono ?? false;
-  const customSandboxEnabled = flags?.customSandbox ?? false;
   const githubEnabled = flags?.github ?? false;
   const linearEnabled = flags?.linear ?? false;
   const analysisEnabled = flags?.analysis ?? false;
@@ -20,18 +18,6 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
     if (!next && useProjectStore.getState().terminalLayout === 'canvas') {
       useProjectStore.getState().setTerminalLayout('stack');
     }
-  };
-
-  const handleToggleNono = async () => {
-    await useExperimentalStore.getState().setFlag(projectPath, 'nono', !nonoEnabled);
-    // Backend availability feeds the picker, the Open in menu, and the spawn
-    // funnel via sandbox:status. Reload it so the backend appears/disappears now.
-    await useProjectStore.getState().loadProjectConfig(projectPath);
-  };
-
-  const handleToggleCustomSandbox = async () => {
-    await useExperimentalStore.getState().setFlag(projectPath, 'customSandbox', !customSandboxEnabled);
-    await useProjectStore.getState().loadProjectConfig(projectPath);
   };
 
   const handleToggleAnalysis = async () => {
@@ -53,18 +39,6 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
         description="React-flow based free-form terminal canvas with grouping and chain edges."
         checked={canvasEnabled}
         onChange={handleToggleCanvas}
-      />
-      <ToggleRow
-        label="nono sandbox"
-        description="Run a task's terminals under nono's kernel-level access limits."
-        checked={nonoEnabled}
-        onChange={handleToggleNono}
-      />
-      <ToggleRow
-        label="Custom sandbox"
-        description="Run a task's terminals under a launcher you configure."
-        checked={customSandboxEnabled}
-        onChange={handleToggleCustomSandbox}
       />
       <ToggleRow
         label="GitHub"

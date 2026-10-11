@@ -33,17 +33,17 @@ beforeEach(() => {
 });
 
 describe('customProvider', () => {
-  test('is always available and ready once a command is saved', async () => {
+  test('is available once a command is saved', async () => {
     expect(customProvider.id).toBe('custom');
 
     await setCustomSandboxConfig(ctx.projectPath, {});
     let status = await customProvider.getStatus(ctx.projectPath);
-    expect(status).toMatchObject({ providerId: 'custom', available: true, ready: false });
-    expect(status.detail).toMatch(/No sandbox command configured/);
+    expect(status).toMatchObject({ providerId: 'custom', available: false });
+    expect(status.detail).toMatch(/sandbox command/);
 
     await setCustomSandboxConfig(ctx.projectPath, { command: '  /opt/sb --strict  ' });
     status = await customProvider.getStatus(ctx.projectPath);
-    expect(status).toMatchObject({ available: true, ready: true, detail: 'Ready' });
+    expect(status).toMatchObject({ available: true, detail: 'Ready' });
     expect(await getCustomSandboxConfig(ctx.projectPath)).toEqual({ command: '/opt/sb --strict' });
 
     const refused = await setCustomSandboxConfig(ctx.projectPath, { command: 'scripts/sandbox' });
@@ -54,7 +54,7 @@ describe('customProvider', () => {
     await setCustomSandboxConfig(ctx.projectPath, { command: '   ' });
     expect(await getCustomSandboxConfig(ctx.projectPath)).toEqual({});
     await setGlobalSetting(customSandboxConfigKey(ctx.projectPath), '{not json');
-    expect((await customProvider.getStatus(ctx.projectPath)).ready).toBe(false);
+    expect((await customProvider.getStatus(ctx.projectPath)).available).toBe(false);
   });
 
   test('prepare exports host-computed hints, keeps cwd, and creates the cache dir', async () => {

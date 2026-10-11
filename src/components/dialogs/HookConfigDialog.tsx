@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { ScriptHook, HookType } from '../../types';
+import type { ScriptHook, HookType, SandboxProviderId } from '../../types';
+import { SANDBOXABLE_HOOK_TYPES } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { useHookCommandDefault } from '../../utils/hookDefaults';
@@ -7,6 +8,7 @@ import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
 import { Checkbox } from '../ui/Checkbox';
+import { SandboxPicker } from '../ui/SandboxPicker';
 
 const HOOK_LABELS: Record<HookType, { title: string; description: string; envVars?: boolean }> = {
   start: {
@@ -44,16 +46,19 @@ interface HookConfigDialogProps {
   projectPath: string;
   hookType: HookType;
   existingHook?: ScriptHook;
-  onClose: (result: { saved: boolean; hook?: ScriptHook } | null) => void;
+  /** The saved hook, or null when cancelled or the hook was deleted. */
+  onClose: (hook: ScriptHook | null) => void;
 }
 
 export function HookConfigDialog({ projectPath, hookType, existingHook, onClose }: HookConfigDialogProps) {
   const labels = HOOK_LABELS[hookType];
   const placeholder = useHookCommandDefault(hookType);
   const isRunHook = hookType === 'run';
+  const sandboxable = SANDBOXABLE_HOOK_TYPES.includes(hookType);
 
   const [command, setCommand] = useState(existingHook?.command ?? '');
   const [restartIfRunning, setRestartIfRunning] = useState(existingHook?.restartIfRunning ?? false);
+  const [sandbox, setSandbox] = useState<SandboxProviderId>(existingHook?.sandbox ?? 'none');
   const [visible, setVisible] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
@@ -68,9 +73,9 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
   }, []);
 
   const dismiss = useCallback(
-    (result: { saved: boolean; hook?: ScriptHook } | null) => {
+    (hook: ScriptHook | null) => {
       setVisible(false);
-      setTimeout(() => onClose(result), 200);
+      setTimeout(() => onClose(hook), 200);
     },
     [onClose],
   );
@@ -80,8 +85,8 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
 
     if (!trimmed) {
       // Empty command = delete hook
-      await window.api.hooks.delete(projectPath, hookType);
-      dismiss({ saved: true });
+      await useProjectStore.getState().deleteHook(projectPath, hookType);
+      dismiss(null);
       return;
     }
 
@@ -91,13 +96,25 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
       name: labels.title,
       command: trimmed,
       ...(isRunHook && { restartIfRunning }),
+      ...(sandboxable && { sandbox }),
     };
 
-    await window.api.hooks.save(projectPath, hook);
+    await useProjectStore.getState().saveHook(projectPath, hook);
 
     useProjectStore.getState().addToast(`${labels.title} saved`, 'success');
-    dismiss({ saved: true, hook });
-  }, [command, projectPath, hookType, existingHook, labels, isRunHook, restartIfRunning, dismiss]);
+    dismiss(hook);
+  }, [
+    command,
+    projectPath,
+    hookType,
+    existingHook,
+    labels,
+    isRunHook,
+    restartIfRunning,
+    sandboxable,
+    sandbox,
+    dismiss,
+  ]);
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
@@ -131,6 +148,12 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
               onChange={setRestartIfRunning}
               label="Restart if it's already running in the task"
             />
+          </div>
+        )}
+
+        {sandboxable && (
+          <div className="mt-3">
+            <SandboxPicker value={sandbox} onChange={setSandbox} />
           </div>
         )}
 

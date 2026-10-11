@@ -1,61 +1,42 @@
-import { useState, type ComponentType } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
-import type { SandboxBackendId } from '../../types';
-import { SANDBOX_BACKEND_LABELS } from '../../types';
 import { NonoSandboxSection } from './NonoSandboxSection';
 import { CustomSandboxSection } from './CustomSandboxSection';
-
-const BACKEND_DESCRIPTIONS: Record<SandboxBackendId, string> = {
-  nono: 'Kernel-level access limits on the shell itself. Starts instantly, in place on the worktree.',
-  custom: 'Your own launcher. Ouijit runs it as `<command> -- <shell>` in the worktree and grants nothing itself.',
-};
-
-/** Config surface per backend; keyed by id so a new backend is a compile error until wired. */
-const BACKEND_SECTIONS: Record<SandboxBackendId, ComponentType<{ projectPath: string }>> = {
-  nono: NonoSandboxSection,
-  custom: CustomSandboxSection,
-};
+import { CARD } from './sandboxStyles';
+import { SandboxSegments, useSandboxOptions } from '../ui/SandboxPicker';
 
 interface SandboxSectionProps {
   projectPath: string;
 }
 
-/** Routes to the config surface of whichever sandbox backends are available. */
 export function SandboxSection({ projectPath }: SandboxSectionProps) {
-  const available = useProjectStore((s) => s.availableSandboxProviders);
-  const [selected, setSelected] = useState<SandboxBackendId | null>(null);
-
-  const providers = available.filter((p): p is SandboxBackendId => p !== 'none');
-  if (providers.length === 0) return null;
-
-  const active = selected && providers.includes(selected) ? selected : providers[0];
-  const hasTabs = providers.length > 1;
-  const ActiveSection = BACKEND_SECTIONS[active];
+  const runnerSandbox = useProjectStore((s) => s.runnerSandbox);
+  const runnerOptions = useSandboxOptions(runnerSandbox);
 
   return (
     <div className="flex flex-col gap-3">
-      {hasTabs && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex gap-1 self-start rounded-[12px] border border-bezel bg-background-secondary p-1">
-            {providers.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setSelected(p)}
-                className={`rounded-[9px] px-3 py-1 text-xs font-medium transition-colors ${
-                  active === p
-                    ? 'bg-background-tertiary text-text-primary'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                {SANDBOX_BACKEND_LABELS[p]}
-              </button>
-            ))}
+      <NonoSandboxSection projectPath={projectPath} />
+      <CustomSandboxSection projectPath={projectPath} />
+      <div className={CARD}>
+        <div className="flex items-center gap-4 px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm text-text-primary">Default environment</div>
+            <div className="mt-0.5 text-xs text-text-tertiary">
+              {runnerOptions.length > 1
+                ? "Run and scripts in a terminal's + menu."
+                : 'Turn on nono or set a Custom command to choose a sandbox.'}
+            </div>
           </div>
-          <p className="text-xs text-text-tertiary">{BACKEND_DESCRIPTIONS[active]}</p>
+          {runnerOptions.length > 1 ? (
+            <SandboxSegments
+              options={runnerOptions}
+              value={runnerSandbox}
+              onChange={(sandbox) => void useProjectStore.getState().setRunnerSandbox(projectPath, sandbox)}
+            />
+          ) : (
+            <span className="shrink-0 text-xs text-text-secondary">Host</span>
+          )}
         </div>
-      )}
-      <ActiveSection projectPath={projectPath} />
+      </div>
     </div>
   );
 }

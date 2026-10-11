@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TerminalHeader } from '../../components/terminal/TerminalHeader';
-import { terminalInstances } from '../../components/terminal/terminalReact';
+import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { startRunner } from '../../components/terminal/terminalActions';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -9,7 +9,6 @@ import { DEFAULT_DISPLAY_STATE } from '../../stores/terminalDisplay';
 import type { Script } from '../../types';
 
 vi.mock('../../components/terminal/terminalReact', () => ({
-  terminalInstances: new Map(),
   refreshTerminalGitStatus: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -40,7 +39,7 @@ describe("the terminal's + menu", () => {
     useProjectStore.setState({
       configProjectPath: PROJECT,
       scriptsProjectPath: PROJECT,
-      configuredHooks: {},
+      hooks: {},
       scripts: [],
     });
     openAddMenu();
@@ -50,7 +49,7 @@ describe("the terminal's + menu", () => {
     fireEvent.change(await screen.findByLabelText('Command'), { target: { value: 'npm run dev' } });
     fireEvent.click(screen.getByText('Save'));
 
-    await waitFor(() => expect(startRunner).toHaveBeenCalledWith(PTY, undefined));
+    await waitFor(() => expect(startRunner).toHaveBeenCalledWith(PTY, undefined, undefined));
     expect(window.api.hooks.save).toHaveBeenCalledWith(
       PROJECT,
       expect.objectContaining({ type: 'run', command: 'npm run dev' }),
@@ -66,7 +65,7 @@ describe("the terminal's + menu", () => {
     useProjectStore.setState({
       configProjectPath: PROJECT,
       scriptsProjectPath: PROJECT,
-      configuredHooks: { run: true },
+      hooks: { run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' } },
       scripts: [existing],
     });
     openAddMenu();
@@ -81,12 +80,54 @@ describe("the terminal's + menu", () => {
     fireEvent.click(screen.getByText('Save'));
 
     await waitFor(() =>
-      expect(startRunner).toHaveBeenCalledWith(PTY, expect.objectContaining({ name: 'Test', command: 'npm test' })),
+      expect(startRunner).toHaveBeenCalledWith(
+        PTY,
+        expect.objectContaining({ name: 'Test', command: 'npm test' }),
+        undefined,
+      ),
     );
     expect(window.api.scripts.save).toHaveBeenCalledWith(
       PROJECT,
       expect.objectContaining({ name: 'Test', command: 'npm test' }),
     );
+  });
+
+  test("commands run in the project's default environment, which the menu sets without running anything", async () => {
+    const lint: Script = { id: 's1', name: 'Lint', command: 'npm run lint', sortOrder: 0, restartIfRunning: false };
+    useProjectStore.setState({
+      configProjectPath: PROJECT,
+      scriptsProjectPath: PROJECT,
+      hooks: { run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' } },
+      scripts: [lint],
+      availableSandboxProviders: ['custom'],
+      runnerSandbox: 'custom',
+    });
+
+    openAddMenu();
+    fireEvent.click(screen.getByText('Lint'));
+    await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom'));
+
+    fireEvent.click(screen.getByLabelText('Add panel'));
+    fireEvent.mouseEnter(screen.getByText('Default environment').closest('div')!);
+    fireEvent.click(await screen.findByRole('button', { name: 'Host' }));
+    await waitFor(() => expect(useProjectStore.getState().runnerSandbox).toBe('none'));
+    expect(window.api.globalSettings.set).toHaveBeenCalledWith(`runnerSandbox:${PROJECT}`, 'none');
+    expect(startRunner).toHaveBeenCalledTimes(1);
+
+    // The menu stays open on its new default, ready for the command to run.
+    fireEvent.click(screen.getByText('Lint'));
+    await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined));
+
+    fireEvent.click(screen.getByLabelText('Add panel'));
+    fireEvent.click(screen.getByLabelText('Edit Lint'));
+    const command = await screen.findByLabelText('Command');
+    expect(screen.getByText('Edit Script')).toBeTruthy();
+    fireEvent.change(command, { target: { value: 'npm run lint -- --fix' } });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() =>
+      expect(window.api.scripts.save).toHaveBeenCalledWith(PROJECT, { ...lint, command: 'npm run lint -- --fix' }),
+    );
+    expect(startRunner).toHaveBeenCalledTimes(2);
   });
 
   test.each([
@@ -103,7 +144,7 @@ describe("the terminal's + menu", () => {
     const its: Script = { id: 's2', name: 'Build', command: 'make', sortOrder: 0, restartIfRunning: false };
     useProjectStore.setState({
       configProjectPath,
-      configuredHooks: {},
+      hooks: {},
       scriptsProjectPath: '/elsewhere',
       scripts: [storeScript],
     });

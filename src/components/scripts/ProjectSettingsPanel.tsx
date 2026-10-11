@@ -11,7 +11,6 @@ import { LinearScopeSection } from '../linear/LinearScopeSection';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { WorktreeSection } from './WorktreeSection';
 import { IconColorSection } from './IconColorSection';
-import { Icon } from '../terminal/Icon';
 import { LensList } from './LensList';
 import { LensAgentRow } from './LensAgentRow';
 import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
@@ -34,7 +33,6 @@ interface ProjectSettingsPanelProps {
 }
 
 export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps) {
-  const sandboxAvailable = useProjectStore((s) => s.availableSandboxProviders.length > 0);
   const linearEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.linear ?? false);
 
   useEffect(() => {
@@ -101,10 +99,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
             </div>
           </section>
           <section>
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary mb-2">
-              <Icon name="aperture" className="w-4 h-4 text-accent" />
-              Lenses
-            </h2>
+            <h2 className="text-sm font-semibold text-text-primary mb-2">Lenses</h2>
             <p className="text-xs text-text-tertiary mb-4">
               Ways of reading a diff. Each is a command that reads the change and says what its parts are, so the diff
               can be shown in that order instead of a list of files.
@@ -119,13 +114,11 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
             <p className="text-xs text-text-tertiary mb-4">Command to open task worktrees in your editor.</p>
             <HookList projectPath={projectPath} hooks={EDITOR_HOOK} />
           </section>
-          {sandboxAvailable && (
-            <section>
-              <h2 className="text-sm font-semibold text-text-primary mb-2">Sandbox</h2>
-              <p className="text-xs text-text-tertiary mb-4">Backends that can run a task's terminals contained.</p>
-              <SandboxSection projectPath={projectPath} />
-            </section>
-          )}
+          <section>
+            <h2 className="text-sm font-semibold text-text-primary mb-2">Sandbox</h2>
+            <p className="text-xs text-text-tertiary mb-4">Sandboxes this project can run things in.</p>
+            <SandboxSection projectPath={projectPath} />
+          </section>
           {linearEnabled && (
             <section>
               <h2 className="text-sm font-semibold text-text-primary mb-2">Linear</h2>

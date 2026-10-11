@@ -4,33 +4,39 @@ import type {
   Script,
   ScriptHook,
   HookType,
-  CliHookMode,
+  CliHookControl,
   TaskStatus,
   SandboxProviderId,
+  SandboxBackendId,
+  SandboxProviderStatus,
+  ProjectHooks,
+  RunHookResult,
 } from '../types';
-import type { RunHookResult } from '../components/dialogs/RunHookDialog';
+import { isSandboxProviderId, runnerSandboxSettingKey } from '../types';
 import { queuePrompt, settlePrompt, settleAllPrompts, type Pending } from './promptQueue';
 import { useAppStore } from './appStore';
 
 export type TerminalLayout = 'stack' | 'canvas';
 
+export function availableBackends(statuses: SandboxProviderStatus[]): SandboxBackendId[] {
+  return statuses.filter((s) => s.available).map((s) => s.providerId);
+}
+
 export interface RunHookInput {
   hookType: HookType;
   hook: ScriptHook;
   task: TaskWithWorkspace;
+  /** What the dialog preselects, and what "Run all" uses for the hooks behind it. */
+  sandbox: SandboxProviderId;
 }
 
 export type RunHookRequest = RunHookInput & Pending<RunHookResult | null>;
 
-export interface PendingCliStart {
+export interface PendingCliStart extends CliHookControl {
   taskNumber: number;
   worktreePath: string;
   branch: string;
   createdAt: string;
-  /** Hook-control mode from the CLI flags; absent = default start-hook dialog. */
-  hookMode?: CliHookMode;
-  /** Custom command when hookMode is 'command'. */
-  hookCommand?: string;
 }
 
 /**
@@ -39,15 +45,11 @@ export interface PendingCliStart {
  * drained on navigation. Carries the full task and origStatus so the renderer
  * can run the same beginTransition path a kanban drop would.
  */
-export interface PendingCliTransition {
+export interface PendingCliTransition extends CliHookControl {
   taskNumber: number;
   origStatus: TaskStatus;
   newStatus: TaskStatus;
   task: TaskWithWorkspace;
-  /** Hook-control mode from the CLI flags; absent = default hook dialog. */
-  hookMode?: CliHookMode;
-  /** Custom command when hookMode is 'command'. */
-  hookCommand?: string;
 }
 
 /**
@@ -56,13 +58,9 @@ export interface PendingCliTransition {
  * for a project the user isn't viewing, and drained on navigation. A done with
  * explicit hook flags runs headlessly and is never queued.
  */
-export interface PendingCliCompletion {
+export interface PendingCliCompletion extends CliHookControl {
   taskNumber: number;
   task: TaskWithWorkspace;
-  /** Hook-control mode from the CLI flags; absent = default Done dialog. */
-  hookMode?: CliHookMode;
-  /** Custom command when hookMode is 'command'. */
-  hookCommand?: string;
 }
 
 interface ProjectStoreState {
@@ -118,9 +116,12 @@ interface ProjectStoreState {
    * so we don't fan out N `sandbox.status` (subprocess spawn) + `hooks.get` calls
    * across every visible card.
    */
-  /** Backends that are installed for this project (a task can pick any of these). */
-  availableSandboxProviders: SandboxProviderId[];
-  configuredHooks: Record<string, boolean>;
+  sandboxStatuses: SandboxProviderStatus[];
+  /** The backends in `sandboxStatuses` that can run. */
+  availableSandboxProviders: SandboxBackendId[];
+  hooks: ProjectHooks;
+  /** Where Run and scripts from a terminal's + menu run unless told otherwise. */
+  runnerSandbox: SandboxProviderId;
   /** projectPath the config currently reflects; null = not loaded. */
   configProjectPath: string | null;
   _version: number;
@@ -172,8 +173,10 @@ interface ProjectStoreActions {
    * the store rather than each probing on mount.
    */
   loadProjectConfig: (projectPath: string) => Promise<void>;
-  /** Mark a hook as configured after the user saves one from a card dialog. */
-  markHookConfigured: (projectPath: string, hookType: HookType) => void;
+  /** Persist a hook, and reflect it here when it belongs to the store's project. */
+  saveHook: (projectPath: string, hook: ScriptHook) => Promise<{ success: boolean }>;
+  setRunnerSandbox: (projectPath: string, sandbox: SandboxProviderId) => Promise<void>;
+  deleteHook: (projectPath: string, hookType: HookType) => Promise<void>;
   /** Move a task with optimistic update and rollback */
   moveTask: (projectPath: string, taskNumber: number, newStatus: string, targetIndex: number) => Promise<void>;
 
@@ -239,8 +242,10 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   pendingCliStarts: {},
   pendingCliTransitions: {},
   pendingCliCompletions: {},
+  sandboxStatuses: [],
   availableSandboxProviders: [],
-  configuredHooks: {},
+  hooks: {},
+  runnerSandbox: 'none',
   configProjectPath: null,
   _version: 0,
 
@@ -340,8 +345,10 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       startingTaskNumbers: new Set<number>(),
       runHookQueue: [],
       runHookQueueTotal: 0,
+      sandboxStatuses: [],
       availableSandboxProviders: [],
-      configuredHooks: {},
+      hooks: {},
+      runnerSandbox: 'none',
       configProjectPath: null,
       _version: 0,
     });
@@ -436,19 +443,17 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     // Otherwise stale A config could land under project B.
     const version = ++configLoadVersion;
     try {
-      const [statuses, hooks] = await Promise.all([
+      const [statuses, hooks, runnerSandbox] = await Promise.all([
         window.api.sandbox.status(projectPath),
         window.api.hooks.get(projectPath),
+        window.api.globalSettings.get(runnerSandboxSettingKey(projectPath)),
       ]);
       if (version !== configLoadVersion) return;
-      const configured: Record<string, boolean> = {};
-      for (const key of Object.keys(hooks)) {
-        if (hooks[key as HookType]) configured[key] = true;
-      }
-      const available = statuses.filter((s) => s.available).map((s) => s.providerId);
       set({
-        availableSandboxProviders: available,
-        configuredHooks: configured,
+        sandboxStatuses: statuses,
+        availableSandboxProviders: availableBackends(statuses),
+        hooks,
+        runnerSandbox: isSandboxProviderId(runnerSandbox) ? runnerSandbox : 'none',
         configProjectPath: projectPath,
       });
     } catch {
@@ -458,10 +463,24 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     }
   },
 
-  markHookConfigured: (projectPath, hookType) => {
-    const prev = get().configuredHooks;
-    if (get().configProjectPath !== projectPath || prev[hookType]) return;
-    set({ configuredHooks: { ...prev, [hookType]: true } });
+  setRunnerSandbox: async (projectPath, sandbox) => {
+    const { success } = await window.api.globalSettings.set(runnerSandboxSettingKey(projectPath), sandbox);
+    if (success && get().configProjectPath === projectPath) set({ runnerSandbox: sandbox });
+  },
+
+  saveHook: async (projectPath, hook) => {
+    const result = await window.api.hooks.save(projectPath, hook);
+    if (result.success && get().configProjectPath === projectPath) {
+      set({ hooks: { ...get().hooks, [hook.type]: hook } });
+    }
+    return result;
+  },
+
+  deleteHook: async (projectPath, hookType) => {
+    await window.api.hooks.delete(projectPath, hookType);
+    if (get().configProjectPath !== projectPath) return;
+    const { [hookType]: _deleted, ...rest } = get().hooks;
+    set({ hooks: rest });
   },
 
   moveTask: async (projectPath, taskNumber, newStatus, targetIndex) => {
@@ -539,7 +558,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     // each one.
     set({
       runHookQueue: settleAllPrompts(queue, (req, index) =>
-        index === 0 ? headResult : { command: req.hook.command, foreground: false },
+        index === 0 ? headResult : { command: req.hook.command, foreground: false, sandbox: req.sandbox },
       ),
       runHookQueueTotal: 0,
     });

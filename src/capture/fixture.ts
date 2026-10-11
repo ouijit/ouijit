@@ -320,6 +320,8 @@ export function seedCaptureFixture(
       hook.command,
       undefined,
       hook.description,
+      false,
+      'sandbox' in hook ? hook.sandbox : null,
     );
   }
 
@@ -328,6 +330,7 @@ export function seedCaptureFixture(
   }
 
   new GlobalSettingsRepo(db).set(`experimental:${projectPath}`, JSON.stringify({ canvas: false }));
+  new GlobalSettingsRepo(db).set(`nono:${projectPath}`, JSON.stringify({ enabled: true }));
 
   captureFixtureLog.info('fixture seeded', { projectPath, tasks: TASK_SEEDS.length });
 

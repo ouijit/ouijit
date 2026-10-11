@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { CustomSandboxConfig } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
-import { HookRowView } from './HookRowView';
-import { CARD, PILL_BTN } from './sandboxStyles';
+import { CARD, FIELD, PRIMARY_BUTTON, ROW_ACTION } from './sandboxStyles';
+import { QUIET_BUTTON } from './LensList';
 
 interface CustomSandboxSectionProps {
   projectPath: string;
@@ -48,21 +48,29 @@ export function CustomSandboxSection({ projectPath }: CustomSandboxSectionProps)
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-xs text-text-tertiary">
-        Runs a task's terminals under a launcher from this project's host settings. The launcher owns the boundary;
-        Ouijit grants nothing itself.
-      </p>
-
-      <div className={CARD}>
-        <HookRowView
-          label="Sandbox command"
-          description="Absolute path or a name on PATH, outside the repo. Receives the shell after --."
-          command={config.command}
-          onAction={editing ? undefined : openEditor}
-        />
+    <section aria-label="Custom" className={CARD}>
+      <div className="px-4 py-3">
+        <div className="text-sm font-medium text-text-primary">Custom</div>
+        <div className="mt-0.5 text-xs text-text-tertiary">
+          A launcher you provide, run as <code className="font-mono">&lt;command&gt; -- &lt;shell&gt;</code>.
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 px-4 py-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-sm text-text-primary">Launcher</div>
+            <div className="mt-0.5 truncate text-xs text-text-tertiary">
+              {config.command ? <span className="font-mono text-text-secondary">{config.command}</span> : 'Not set'}
+            </div>
+          </div>
+          {!editing && (
+            <button type="button" onClick={openEditor} className={ROW_ACTION}>
+              {config.command ? 'Edit' : '+ Configure'}
+            </button>
+          )}
+        </div>
         {editing && (
-          <div className="flex flex-col gap-2 px-4 py-3">
+          <div className="flex flex-col gap-2">
             <textarea
               value={draft}
               onChange={(e) => {
@@ -70,31 +78,27 @@ export function CustomSandboxSection({ projectPath }: CustomSandboxSectionProps)
                 setError(null);
               }}
               spellCheck={false}
-              aria-label="Sandbox command"
+              aria-label="Launcher command"
               placeholder="~/.local/bin/ouijit-sandbox"
-              className="h-16 w-full resize-y rounded-[10px] border border-bezel bg-background-secondary px-3 py-2 font-mono text-xs leading-relaxed text-text-primary outline-none"
+              className={`${FIELD} h-16 w-full resize-y font-mono leading-relaxed`}
             />
             {error && <div className="text-xs text-error">{error}</div>}
-            <div className="flex items-center gap-1.5">
-              <button type="button" onClick={() => void save({ command: draft })} className={PILL_BTN}>
-                Save
-              </button>
-              <button type="button" onClick={() => setEditing(false)} className={PILL_BTN}>
-                Cancel
-              </button>
+            <div className="flex items-center justify-end gap-1.5">
               {config.command && (
-                <button
-                  type="button"
-                  onClick={() => void save({})}
-                  className="ml-auto text-xs text-text-tertiary hover:text-text-primary"
-                >
+                <button type="button" onClick={() => void save({})} className={`${ROW_ACTION} mr-auto`}>
                   Clear
                 </button>
               )}
+              <button type="button" onClick={() => setEditing(false)} className={QUIET_BUTTON}>
+                Cancel
+              </button>
+              <button type="button" onClick={() => void save({ command: draft })} className={PRIMARY_BUTTON}>
+                Save
+              </button>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }

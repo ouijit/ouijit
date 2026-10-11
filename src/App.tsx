@@ -346,7 +346,7 @@ function GlobalEditorHookDialog() {
       projectPath={request.projectPath}
       hookType="editor"
       existingHook={request.existingHook}
-      onClose={(result) => useUIStore.getState().resolveEditorHook(request.id, result?.hook ?? null)}
+      onClose={(hook) => useUIStore.getState().resolveEditorHook(request.id, hook)}
     />
   );
 }

@@ -11,6 +11,7 @@ export interface HookRow {
   command: string;
   description: string | null;
   restart_if_running: number;
+  sandbox: string | null;
 }
 
 export class HookRepo {
@@ -34,23 +35,25 @@ export class HookRepo {
     id?: string,
     description?: string,
     restartIfRunning = false,
+    sandbox: string | null = null,
   ): HookRow {
     const hookId = id ?? randomUUID();
 
     this.db
       .prepare(
         `
-      INSERT INTO hooks (id, project_path, type, name, command, description, restart_if_running)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO hooks (id, project_path, type, name, command, description, restart_if_running, sandbox)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(project_path, type) DO UPDATE SET
         id = excluded.id,
         name = excluded.name,
         command = excluded.command,
         description = excluded.description,
-        restart_if_running = excluded.restart_if_running
+        restart_if_running = excluded.restart_if_running,
+        sandbox = excluded.sandbox
     `,
       )
-      .run(hookId, projectPath, type, name, command, description ?? null, restartIfRunning ? 1 : 0);
+      .run(hookId, projectPath, type, name, command, description ?? null, restartIfRunning ? 1 : 0, sandbox);
 
     return this.getByType(projectPath, type)!;
   }

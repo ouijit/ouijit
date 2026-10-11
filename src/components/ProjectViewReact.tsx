@@ -23,6 +23,7 @@ import {
 import { refreshAllTerminalGitStatus } from './terminal/terminalReact';
 import { terminalInstances } from './terminal/terminalRegistry';
 import { detectPullRequestsForProject } from '../services/githubTaskActions';
+import { isActiveSandbox } from '../types';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const PROJECT_REFRESH_INTERVAL = 30000;
@@ -149,7 +150,9 @@ export function ProjectView() {
             if (runnerPanel) {
               inst.activatePanel(runnerPanel.id);
             } else {
-              void startRunner(pPtyId);
+              const { configProjectPath, runnerSandbox } = useProjectStore.getState();
+              const sandbox = configProjectPath === inst.projectPath ? runnerSandbox : 'none';
+              void startRunner(pPtyId, undefined, isActiveSandbox(sandbox) ? sandbox : undefined);
             }
             useProjectStore.getState().setKanbanVisible(false);
           }
@@ -382,6 +385,7 @@ function GlobalRunHookDialog() {
       key={request.id}
       hookType={request.hookType}
       hook={request.hook}
+      sandbox={request.sandbox}
       taskName={request.task.name}
       queuePosition={position}
       queueTotal={total}

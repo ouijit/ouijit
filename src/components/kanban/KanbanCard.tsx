@@ -1,7 +1,7 @@
 import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { useShallow } from 'zustand/react/shallow';
-import type { TaskWithWorkspace, SandboxProviderId } from '../../types';
+import type { TaskWithWorkspace, SandboxBackendId, SandboxProviderId } from '../../types';
 import { openInEntry, moveToEntry, trackerEntries, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
 import { completeTask } from '../../services/taskCompletion';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
@@ -31,7 +31,7 @@ interface KanbanCardProps {
   isSettingUp?: boolean;
   isSelected?: boolean;
   /** Hoisted from per-card IPC to a single board-level call. */
-  availableSandboxProviders?: SandboxProviderId[];
+  availableSandboxProviders?: SandboxBackendId[];
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => void;

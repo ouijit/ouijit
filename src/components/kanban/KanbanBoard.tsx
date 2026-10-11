@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectStore } from '../../stores/projectStore';
-import type { TaskWithWorkspace, TaskStatus, HookType, SandboxProviderId } from '../../types';
+import type { TaskWithWorkspace, TaskStatus, HookType, SandboxProviderId, ScriptHook } from '../../types';
 import { beginTransition, bulkTransitionTasks } from '../../services/taskStartService';
 import { completeTask } from '../../services/taskCompletion';
 import { KanbanColumn } from './KanbanColumn';
@@ -70,11 +70,11 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
   const activeBadgeDrag = useProjectStore((s) => s.activeBadgeDrag);
   // Project-scoped config is loaded once by ProjectViewReact; we just subscribe.
-  const configuredHooks = useProjectStore((s) => s.configuredHooks);
+  const projectHooks = useProjectStore((s) => s.hooks);
   const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
   const [hookDialog, setHookDialog] = useState<
-    | { mode: 'single'; hookType: HookType; existingHook?: any }
-    | { mode: 'combined'; start?: any; continue?: any }
+    | { mode: 'single'; hookType: HookType; existingHook?: ScriptHook }
+    | { mode: 'combined'; start?: ScriptHook; continue?: ScriptHook }
     | null
   >(null);
 
@@ -531,28 +531,18 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const selectedTaskCount = useProjectStore((s) => s.selectedTaskNumbers.size);
 
   const handleConfigureHook = useCallback(
-    async (hookTypes: HookType[]) => {
-      const hooks = await window.api.hooks.get(projectPath);
+    (hookTypes: HookType[]) => {
       if (hookTypes.length === 2 && hookTypes.includes('start') && hookTypes.includes('continue')) {
-        setHookDialog({
-          mode: 'combined',
-          start: hooks.start ?? undefined,
-          continue: hooks.continue ?? undefined,
-        });
+        setHookDialog({ mode: 'combined', start: projectHooks.start, continue: projectHooks.continue });
       } else {
         const hookType = hookTypes[0];
-        const existing = hooks[hookType] ?? undefined;
-        setHookDialog({ mode: 'single', hookType, existingHook: existing });
+        setHookDialog({ mode: 'single', hookType, existingHook: projectHooks[hookType] });
       }
     },
-    [projectPath],
+    [projectHooks],
   );
 
-  const handleHookDialogClose = useCallback(() => {
-    setHookDialog(null);
-    // Refresh in the store so terminal headers and column badges agree.
-    useProjectStore.getState().loadProjectConfig(projectPath);
-  }, [projectPath]);
+  const handleHookDialogClose = useCallback(() => setHookDialog(null), []);
 
   return (
     <DndContext
@@ -602,9 +592,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         <div className="flex flex-1 min-h-0" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
           {COLUMNS.map((col) => {
             const hookActive =
-              (col.status === 'in_progress' && !!(configuredHooks.start || configuredHooks.continue)) ||
-              (col.status === 'in_review' && !!configuredHooks.review) ||
-              (col.status === 'done' && !!configuredHooks.done);
+              (col.status === 'in_progress' && !!(projectHooks.start || projectHooks.continue)) ||
+              (col.status === 'in_review' && !!projectHooks.review) ||
+              (col.status === 'done' && !!projectHooks.done);
 
             return (
               <KanbanColumn
