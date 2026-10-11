@@ -72,7 +72,8 @@ export function TerminalHeaderView({
         } min-h-9`}
         onContextMenu={onContextMenu}
       >
-        <div className="flex flex-col min-w-0 shrink gap-0.5">
+        {/* Zero basis: the identity truncates before the actions give up any width. */}
+        <div className="flex flex-col flex-1 min-w-0 gap-0.5">
           {/* overflow-hidden keeps rigid identity content (label, tag pills) from
               bleeding over the actions area when the header runs out of room. */}
           <div className="group/meta flex items-center gap-2 min-w-0 overflow-hidden">
@@ -114,7 +115,7 @@ export function TerminalHeaderView({
 export function TerminalHeaderName({ label, lastOscTitle }: { label?: string; lastOscTitle?: string }) {
   return (
     <Fragment>
-      {label && <span className="font-mono text-xs font-medium text-ink/85 shrink-0">{label}</span>}
+      {label && <span className="font-mono text-xs font-medium text-ink/85 min-w-0 truncate">{label}</span>}
       {lastOscTitle && (
         <span className="font-mono text-xs font-medium text-ink/40 min-w-0 truncate">{lastOscTitle}</span>
       )}
