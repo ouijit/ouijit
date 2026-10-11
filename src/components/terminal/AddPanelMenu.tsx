@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { availableBackends, useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from './terminalRegistry';
-import { ContextMenu, type ContextMenuEntry, type ContextMenuItemAction } from '../ui/ContextMenu';
-import { SANDBOX_BACKEND_LABELS } from '../../types';
-import type { RunnerScript, SandboxBackendId, Script, ScriptHook } from '../../types';
+import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
+import { SANDBOX_BACKEND_LABELS, isActiveSandbox, isSandboxProviderId, runnerSandboxSettingKey } from '../../types';
+import type { RunnerScript, SandboxBackendId, SandboxProviderId, Script, ScriptHook } from '../../types';
 
 interface AddPanelMenuProps {
   ptyId: string;
@@ -34,6 +34,7 @@ export function AddPanelMenu({
   onClose,
 }: AddPanelMenuProps) {
   const commands = useProjectCommands(projectPath);
+  const [chosenPlace, setChosenPlace] = useState<SandboxProviderId | null>(null);
 
   const pickPlanFile = async () => {
     const inst = terminalInstances.get(ptyId);
@@ -45,33 +46,40 @@ export function AddPanelMenu({
   const items: ContextMenuEntry[] = [];
 
   if (commands) {
-    const runnerActions = (script: RunnerScript | undefined, edit: () => void): ContextMenuItemAction[] => [
-      ...commands.sandboxes.map((backend) => ({
-        label: `Run in ${SANDBOX_BACKEND_LABELS[backend]} sandbox`,
-        icon: 'cube',
-        text: SANDBOX_BACKEND_LABELS[backend],
-        onClick: () => onAddRunner(script, backend),
-      })),
-      { label: 'Edit', icon: 'pencil-simple', onClick: edit },
-    ];
+    const defaultPlace = chosenPlace ?? commands.defaultSandbox;
+    const places: SandboxProviderId[] = ['none', ...commands.sandboxes];
+    if (!places.includes(defaultPlace)) places.push(defaultPlace);
+    if (places.length > 1) {
+      items.push({
+        label: 'Default environment',
+        value: placeLabel(defaultPlace),
+        submenu: places.map((place) => ({
+          label: placeLabel(place),
+          checked: place === defaultPlace,
+          keepOpen: true,
+          onClick: () => {
+            setChosenPlace(place);
+            void useProjectStore.getState().setRunnerSandbox(projectPath, place);
+          },
+        })),
+      });
+    }
+
+    const run = (script?: RunnerScript) =>
+      onAddRunner(script, isActiveSandbox(defaultPlace) ? defaultPlace : undefined);
+    const edit = (label: string, onClick: () => void) => ({ icon: 'pencil-simple', label: `Edit ${label}`, onClick });
 
     const { runHook } = commands;
     if (runHook) {
-      items.push({
-        label: 'Run',
-        onClick: () => onAddRunner(),
-        detail: <CommandDetail command={runHook.command} />,
-        actions: runnerActions(undefined, () => onConfigureRun(runHook)),
-      });
+      items.push({ label: 'Run', onClick: () => run(), secondary: edit('Run', () => onConfigureRun(runHook)) });
     } else {
       items.push({ label: 'Configure run command…', onClick: () => onConfigureRun() });
     }
     for (const script of commands.scripts) {
       items.push({
         label: script.name,
-        onClick: () => onAddRunner(script),
-        detail: <CommandDetail command={script.command} />,
-        actions: runnerActions(script, () => onEditScript(script)),
+        onClick: () => run(script),
+        secondary: edit(script.name, () => onEditScript(script)),
       });
     }
     items.push({ label: 'New script…', onClick: onNewScript });
@@ -84,14 +92,15 @@ export function AddPanelMenu({
   return <ContextMenu x={x} y={y} items={items} onClose={onClose} />;
 }
 
-function CommandDetail({ command }: { command: string }) {
-  return <span className="font-mono text-xs whitespace-pre-wrap break-all">{command}</span>;
+function placeLabel(place: SandboxProviderId): string {
+  return isActiveSandbox(place) ? SANDBOX_BACKEND_LABELS[place] : 'Host';
 }
 
 interface ProjectCommands {
   runHook?: ScriptHook;
   scripts: Script[];
   sandboxes: SandboxBackendId[];
+  defaultSandbox: SandboxProviderId;
 }
 
 /**
@@ -107,6 +116,7 @@ function useProjectCommands(projectPath: string): ProjectCommands | null {
   const storeRunHook = useProjectStore((s) => s.hooks.run);
   const storeScripts = useProjectStore((s) => s.scripts);
   const storeSandboxes = useProjectStore((s) => s.availableSandboxProviders);
+  const storeDefault = useProjectStore((s) => s.runnerSandbox);
   const [fetched, setFetched] = useState<ProjectCommands | null>(null);
 
   useEffect(() => {
@@ -116,9 +126,16 @@ function useProjectCommands(projectPath: string): ProjectCommands | null {
       window.api.hooks.get(projectPath),
       window.api.scripts.getAll(projectPath),
       window.api.sandbox.status(projectPath),
+      window.api.globalSettings.get(runnerSandboxSettingKey(projectPath)),
     ])
-      .then(([hooks, scripts, statuses]) => {
-        if (!cancelled) setFetched({ runHook: hooks.run, scripts, sandboxes: availableBackends(statuses) });
+      .then(([hooks, scripts, statuses, runnerSandbox]) => {
+        if (cancelled) return;
+        setFetched({
+          runHook: hooks.run,
+          scripts,
+          sandboxes: availableBackends(statuses),
+          defaultSandbox: isSandboxProviderId(runnerSandbox) ? runnerSandbox : 'none',
+        });
       })
       .catch(() => {});
     return () => {
@@ -126,5 +143,7 @@ function useProjectCommands(projectPath: string): ProjectCommands | null {
     };
   }, [isStoreProject, projectPath]);
 
-  return isStoreProject ? { runHook: storeRunHook, scripts: storeScripts, sandboxes: storeSandboxes } : fetched;
+  return isStoreProject
+    ? { runHook: storeRunHook, scripts: storeScripts, sandboxes: storeSandboxes, defaultSandbox: storeDefault }
+    : fetched;
 }

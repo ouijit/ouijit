@@ -1,30 +1,25 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../terminal/Icon';
-import { Tooltip } from './Tooltip';
-import { TooltipButton } from './TooltipButton';
-
-export interface ContextMenuItemAction {
-  /** The tooltip, and the button's only name when it has no `text`. */
-  label: string;
-  icon: string;
-  text?: string;
-  onClick: () => void;
-}
 
 export interface ContextMenuItem {
   label: string;
   icon?: string;
   danger?: boolean;
   onClick: () => void;
-  detail?: ReactNode;
-  /** Buttons at the end of the row, each doing something other than the row itself. */
-  actions?: ContextMenuItemAction[];
+  /** Marks the current choice among siblings, which keep the space so labels line up. */
+  checked?: boolean;
+  /** Leave the menu open after the click, for a choice that sets up what is picked next. */
+  keepOpen?: boolean;
+  /** An icon button at the end of the row, shown under the pointer, doing something other than the row. */
+  secondary?: { icon: string; label: string; onClick: () => void };
 }
 
 export interface ContextMenuSubmenu {
   label: string;
   icon?: string;
+  /** The current choice, shown at the row's end; the label then reads as a heading over the rows that follow. */
+  value?: string;
   /** Nested entries shown in a hover flyout. */
   submenu: ContextMenuEntry[];
 }
@@ -45,11 +40,8 @@ interface ContextMenuProps {
 const ITEM_LAYOUT =
   'px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out flex items-center gap-1.5 whitespace-nowrap [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60';
 const ITEM_CLASS = `context-menu-item w-full ${ITEM_LAYOUT} hover:bg-ink/[0.08]`;
-const ACTION_CLASS =
-  'h-6 px-1.5 flex items-center gap-1 rounded-[6px] bg-transparent border-none text-[11px] text-text-tertiary transition-colors duration-100 ease-out hover:bg-ink/[0.1] hover:text-text-primary [&>svg]:w-3 [&>svg]:h-3';
-
-/** Long enough that sweeping the pointer down the menu doesn't flash every row's detail. */
-const DETAIL_DELAY = 600;
+const SECONDARY_CLASS =
+  'w-6 h-6 shrink-0 flex items-center justify-center rounded-[6px] border-none bg-transparent text-text-tertiary opacity-0 transition-[opacity,background-color] duration-100 ease-out group-hover/row:opacity-100 focus-visible:opacity-100 hover:bg-ink/[0.1] hover:text-text-primary [&>svg]:w-3 [&>svg]:h-3';
 
 /** The bevel is an inset `::before`, so whatever wears this has to be positioned. */
 const PANEL_CLASS = 'p-1 glass-bevel border border-bezel rounded-[12px]';
@@ -103,11 +95,18 @@ function MenuList({
           return (
             <div key={i} className="relative" onMouseEnter={() => openSubmenu(i)} onMouseLeave={scheduleClose}>
               <button type="button" className={`${ITEM_CLASS} justify-between ${open ? 'bg-ink/[0.08]' : ''}`}>
-                <span className="flex items-center gap-1.5">
+                <span className={`flex items-center gap-1.5 ${item.value ? 'text-[11px] text-text-tertiary' : ''}`}>
                   {item.icon && <Icon name={item.icon} />}
                   {item.label}
                 </span>
-                <Icon name="caret-right" />
+                {item.value ? (
+                  <span className="flex items-center gap-1 text-[11px] text-text-secondary">
+                    {item.value}
+                    <Icon name="caret-right" />
+                  </span>
+                ) : (
+                  <Icon name="caret-right" />
+                )}
               </button>
               {/* Nested in the row, so moving into it fires no mouseleave, and the
                   padding around it covers the gap between the two panels. */}
@@ -125,51 +124,30 @@ function MenuList({
           <button
             type="button"
             className={
-              item.actions
+              item.secondary
                 ? `context-menu-item flex-1 min-w-0 ${ITEM_LAYOUT}`
                 : `${ITEM_CLASS} ${item.danger ? 'context-menu-item--danger hover:bg-error/10 hover:text-error' : ''}`
             }
-            onClick={() => onSelect(item.onClick)}
+            onClick={() => (item.keepOpen ? item.onClick() : onSelect(item.onClick))}
           >
+            {item.checked !== undefined && <Icon name="check" className={item.checked ? '' : 'invisible'} />}
             {item.icon && <Icon name={item.icon} />}
             {item.label}
           </button>
         );
-        const withDetail = item.detail ? (
-          <Tooltip
-            text={item.detail}
-            placement="right"
-            delay={DETAIL_DELAY}
-            offsetPx={12}
-            wrapAt={360}
-            referenceClassName={item.actions ? 'flex flex-1 min-w-0' : 'block'}
-          >
-            {row}
-          </Tooltip>
-        ) : (
-          row
-        );
-        if (!item.actions) return <Fragment key={i}>{withDetail}</Fragment>;
+        if (!item.secondary) return <Fragment key={i}>{row}</Fragment>;
+        const { secondary } = item;
         return (
-          <div key={i} className="group/row flex items-center gap-0.5 pr-0.5 rounded-[7px] hover:bg-ink/[0.08]">
-            {withDetail}
-            <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-100 group-hover/row:opacity-100 focus-within:opacity-100">
-              {item.actions.map((action) => (
-                <TooltipButton
-                  key={action.label}
-                  text={action.label}
-                  placement="top"
-                  className={ACTION_CLASS}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelect(action.onClick);
-                  }}
-                >
-                  <Icon name={action.icon} />
-                  {action.text}
-                </TooltipButton>
-              ))}
-            </div>
+          <div key={i} className="group/row flex items-center pr-1 rounded-[7px] hover:bg-ink/[0.08]">
+            {row}
+            <button
+              type="button"
+              aria-label={secondary.label}
+              className={SECONDARY_CLASS}
+              onClick={() => onSelect(secondary.onClick)}
+            >
+              <Icon name={secondary.icon} />
+            </button>
           </div>
         );
       })}

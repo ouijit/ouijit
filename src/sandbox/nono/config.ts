@@ -19,6 +19,7 @@ export async function getNonoConfig(projectPath: string): Promise<NonoConfig> {
   try {
     const parsed = JSON.parse(raw) as NonoConfig;
     return {
+      enabled: parsed.enabled === true,
       blockNet: parsed.blockNet === true,
       openPorts: Array.isArray(parsed.openPorts) ? parsed.openPorts.filter((p) => Number.isInteger(p)) : undefined,
       allowPaths: Array.isArray(parsed.allowPaths)

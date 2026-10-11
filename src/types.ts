@@ -85,7 +85,14 @@ export type {
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
 } from './sandbox/types';
-export { SANDBOX_BACKEND_IDS, SANDBOX_BACKEND_LABELS, SANDBOXABLE_HOOK_TYPES, isActiveSandbox } from './sandbox/types';
+export {
+  SANDBOX_BACKEND_IDS,
+  SANDBOX_BACKEND_LABELS,
+  SANDBOXABLE_HOOK_TYPES,
+  isActiveSandbox,
+  isSandboxProviderId,
+  runnerSandboxSettingKey,
+} from './sandbox/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
 export type {
   RepoIdentity,

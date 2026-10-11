@@ -54,7 +54,7 @@ beforeEach(() => {
   checkPlatformSupport.mockReturnValue({ supported: true });
   isNonoInstalled.mockResolvedValue(true);
   getMainGitDir.mockResolvedValue('/Users/dev/code/proj/.git');
-  getNonoConfig.mockResolvedValue({});
+  getNonoConfig.mockResolvedValue({ enabled: true });
   ensureUnionProfile.mockResolvedValue(undefined);
   getNonoPath.mockReturnValue('/opt/bin/nono');
 });
@@ -91,6 +91,16 @@ describe('nonoProvider', () => {
   test('prepare rejects with a clear error when nono is not installed', async () => {
     isNonoInstalled.mockResolvedValue(false);
     await expect(nonoProvider.prepare(ctx)).rejects.toThrow(/not installed/i);
+  });
+
+  test('is offered, and spawns, only once the project turns it on', async () => {
+    getNonoConfig.mockResolvedValue({});
+    expect(await nonoProvider.getStatus('/proj')).toMatchObject({ available: false, detail: 'Off' });
+    await expect(nonoProvider.prepare(ctx)).rejects.toThrow(/off for this project/);
+
+    getNonoConfig.mockResolvedValue({ enabled: true });
+    expect(await nonoProvider.getStatus('/proj')).toMatchObject({ available: true, detail: 'Ready' });
+    await expect(nonoProvider.prepare(ctx)).resolves.toBeTruthy();
   });
 
   test('prepare rejects when the platform is unsupported', async () => {

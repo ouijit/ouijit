@@ -12,6 +12,7 @@ import type {
   ProjectHooks,
   RunHookResult,
 } from '../types';
+import { isSandboxProviderId, runnerSandboxSettingKey } from '../types';
 import { queuePrompt, settlePrompt, settleAllPrompts, type Pending } from './promptQueue';
 import { useAppStore } from './appStore';
 
@@ -119,6 +120,8 @@ interface ProjectStoreState {
   /** The backends in `sandboxStatuses` that can run. */
   availableSandboxProviders: SandboxBackendId[];
   hooks: ProjectHooks;
+  /** Where Run and scripts from a terminal's + menu run unless told otherwise. */
+  runnerSandbox: SandboxProviderId;
   /** projectPath the config currently reflects; null = not loaded. */
   configProjectPath: string | null;
   _version: number;
@@ -172,6 +175,7 @@ interface ProjectStoreActions {
   loadProjectConfig: (projectPath: string) => Promise<void>;
   /** Persist a hook, and reflect it here when it belongs to the store's project. */
   saveHook: (projectPath: string, hook: ScriptHook) => Promise<{ success: boolean }>;
+  setRunnerSandbox: (projectPath: string, sandbox: SandboxProviderId) => Promise<void>;
   deleteHook: (projectPath: string, hookType: HookType) => Promise<void>;
   /** Move a task with optimistic update and rollback */
   moveTask: (projectPath: string, taskNumber: number, newStatus: string, targetIndex: number) => Promise<void>;
@@ -241,6 +245,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   sandboxStatuses: [],
   availableSandboxProviders: [],
   hooks: {},
+  runnerSandbox: 'none',
   configProjectPath: null,
   _version: 0,
 
@@ -343,6 +348,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       sandboxStatuses: [],
       availableSandboxProviders: [],
       hooks: {},
+      runnerSandbox: 'none',
       configProjectPath: null,
       _version: 0,
     });
@@ -437,15 +443,17 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     // Otherwise stale A config could land under project B.
     const version = ++configLoadVersion;
     try {
-      const [statuses, hooks] = await Promise.all([
+      const [statuses, hooks, runnerSandbox] = await Promise.all([
         window.api.sandbox.status(projectPath),
         window.api.hooks.get(projectPath),
+        window.api.globalSettings.get(runnerSandboxSettingKey(projectPath)),
       ]);
       if (version !== configLoadVersion) return;
       set({
         sandboxStatuses: statuses,
         availableSandboxProviders: availableBackends(statuses),
         hooks,
+        runnerSandbox: isSandboxProviderId(runnerSandbox) ? runnerSandbox : 'none',
         configProjectPath: projectPath,
       });
     } catch {
@@ -453,6 +461,11 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       // a UX nicety; if IPC fails the cards just render with falsy defaults
       // and the user retries the action.
     }
+  },
+
+  setRunnerSandbox: async (projectPath, sandbox) => {
+    const { success } = await window.api.globalSettings.set(runnerSandboxSettingKey(projectPath), sandbox);
+    if (success && get().configProjectPath === projectPath) set({ runnerSandbox: sandbox });
   },
 
   saveHook: async (projectPath, hook) => {

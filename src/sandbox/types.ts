@@ -29,6 +29,11 @@ export function isSandboxProviderId(value: unknown): value is SandboxProviderId 
   return typeof value === 'string' && (SANDBOX_PROVIDER_IDS as readonly string[]).includes(value);
 }
 
+/** globalSettings key holding where a project's runners run by default. */
+export function runnerSandboxSettingKey(projectPath: string): string {
+  return `runnerSandbox:${projectPath}`;
+}
+
 /** The lifecycle hooks that run in a task terminal of their own, so can run sandboxed. */
 export const SANDBOXABLE_HOOK_TYPES: readonly string[] = ['start', 'continue', 'review', 'done'];
 
@@ -78,6 +83,8 @@ export interface SandboxLaunch {
 
 /** Persisted per-project nono configuration. */
 export interface NonoConfig {
+  /** Offered and usable in this project only once turned on. */
+  enabled?: boolean;
   /** Deny outbound network (`--block-net`); the hook port stays open. */
   blockNet?: boolean;
   /** Extra localhost ports to open beyond the hook server. */

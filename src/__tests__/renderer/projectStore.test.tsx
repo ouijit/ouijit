@@ -158,7 +158,7 @@ describe('projectStore.loadProjectConfig', () => {
     vi.mocked(window.api.hooks.get).mockReset();
   });
 
-  test('writes sandbox statuses, the backends among them that can run, and the hooks into the store', async () => {
+  test('writes sandbox statuses, the backends among them that can run, the hooks and the default environment', async () => {
     const statuses = [
       { providerId: 'nono' as const, available: true },
       { providerId: 'custom' as const, available: false, detail: 'Set a sandbox command to use it.' },
@@ -166,6 +166,9 @@ describe('projectStore.loadProjectConfig', () => {
     const editor = { id: 'e', type: 'editor' as const, name: 'edit', command: 'code' };
     vi.mocked(window.api.sandbox.status).mockResolvedValue(statuses);
     vi.mocked(window.api.hooks.get).mockResolvedValue({ editor });
+    vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) =>
+      key === 'runnerSandbox:/a' ? 'nono' : undefined,
+    );
 
     await useProjectStore.getState().loadProjectConfig('/a');
 
@@ -173,6 +176,7 @@ describe('projectStore.loadProjectConfig', () => {
     expect(s.sandboxStatuses).toEqual(statuses);
     expect(s.availableSandboxProviders).toEqual(['nono']);
     expect(s.hooks).toEqual({ editor });
+    expect(s.runnerSandbox).toBe('nono');
     expect(s.configProjectPath).toBe('/a');
   });
 

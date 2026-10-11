@@ -92,7 +92,7 @@ describe("the terminal's + menu", () => {
     );
   });
 
-  test('runs a command on the host or in a sandbox from its row, shows it on hover, and edits it in place', async () => {
+  test("commands run in the project's default environment, which the menu sets without running anything", async () => {
     const lint: Script = { id: 's1', name: 'Lint', command: 'npm run lint', sortOrder: 0, restartIfRunning: false };
     useProjectStore.setState({
       configProjectPath: PROJECT,
@@ -100,36 +100,34 @@ describe("the terminal's + menu", () => {
       hooks: { run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' } },
       scripts: [lint],
       availableSandboxProviders: ['custom'],
+      runnerSandbox: 'custom',
     });
 
     openAddMenu();
     fireEvent.click(screen.getByText('Lint'));
-    await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined));
-
-    fireEvent.click(screen.getByLabelText('Add panel'));
-    fireEvent.click(screen.getAllByLabelText('Run in Custom sandbox')[1]);
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom'));
 
     fireEvent.click(screen.getByLabelText('Add panel'));
-    fireEvent.click(screen.getAllByLabelText('Run in Custom sandbox')[0]);
-    await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, undefined, 'custom'));
+    fireEvent.mouseEnter(screen.getByText('Default environment').closest('div')!);
+    fireEvent.click(await screen.findByRole('button', { name: 'Host' }));
+    await waitFor(() => expect(useProjectStore.getState().runnerSandbox).toBe('none'));
+    expect(window.api.globalSettings.set).toHaveBeenCalledWith(`runnerSandbox:${PROJECT}`, 'none');
+    expect(startRunner).toHaveBeenCalledTimes(1);
+
+    // The menu stays open on its new default, ready for the command to run.
+    fireEvent.click(screen.getByText('Lint'));
+    await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined));
 
     fireEvent.click(screen.getByLabelText('Add panel'));
-    expect(screen.getAllByLabelText('Edit')).toHaveLength(2);
-    fireEvent.mouseEnter(screen.getByText('Run').parentElement!);
-    expect(await screen.findByText('npm run dev')).toBeTruthy();
-
-    fireEvent.click(screen.getAllByLabelText('Edit')[1]);
+    fireEvent.click(screen.getByLabelText('Edit Lint'));
     const command = await screen.findByLabelText('Command');
     expect(screen.getByText('Edit Script')).toBeTruthy();
-    expect((command as HTMLInputElement).value).toBe('npm run lint');
     fireEvent.change(command, { target: { value: 'npm run lint -- --fix' } });
     fireEvent.click(screen.getByText('Save'));
-
     await waitFor(() =>
       expect(window.api.scripts.save).toHaveBeenCalledWith(PROJECT, { ...lint, command: 'npm run lint -- --fix' }),
     );
-    expect(startRunner).toHaveBeenCalledTimes(3);
+    expect(startRunner).toHaveBeenCalledTimes(2);
   });
 
   test.each([

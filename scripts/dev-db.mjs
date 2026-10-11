@@ -199,6 +199,7 @@ function seed() {
 
   // Mark welcome seen so the dialog doesn't pop on top of seeded data
   exec(`INSERT OR REPLACE INTO global_settings (key, value) VALUES ('hasSeenWelcome', '1');`);
+  exec(`INSERT OR REPLACE INTO global_settings (key, value) VALUES ('nono:${esc(projectPath)}', '{"enabled":true}');`);
 
   console.log(`Seeded demo project at ${projectPath}`);
   console.log(`  ${seedData.tasks.length} tasks, ${seedData.hooks.length} hooks, ${seedData.scripts.length} scripts`);

@@ -22,11 +22,12 @@ export const nonoProvider: SandboxProvider = {
   id: 'nono',
   displayName: 'nono',
 
-  async getStatus(): Promise<SandboxProviderStatus> {
+  async getStatus(projectPath: string): Promise<SandboxProviderStatus> {
     const platform = checkPlatformSupport();
     if (!platform.supported) return { providerId: 'nono', available: false, detail: platform.reason };
-    const installed = await isNonoInstalled();
-    return { providerId: 'nono', available: installed, detail: installed ? 'Ready' : 'Not installed' };
+    if (!(await isNonoInstalled())) return { providerId: 'nono', available: false, detail: 'Not installed' };
+    const { enabled } = await getNonoConfig(projectPath);
+    return { providerId: 'nono', available: !!enabled, detail: enabled ? 'Ready' : 'Off' };
   },
 
   cleanup(): void {
@@ -41,6 +42,9 @@ export const nonoProvider: SandboxProvider = {
     }
     if (!(await isNonoInstalled())) {
       throw new Error('nono is not installed. Install it, then reopen the terminal.');
+    }
+    if (!(await getNonoConfig(ctx.projectPath)).enabled) {
+      throw new Error('nono is off for this project. Turn it on in Project Settings ▸ Sandbox.');
     }
     // Make sure the union profile (and the agent packs it inherits) is on disk
     // before the spawn references it by name.

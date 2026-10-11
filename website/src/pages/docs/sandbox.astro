@@ -15,9 +15,9 @@ import Docs from '../../layouts/Docs.astro';
     set to run, and the hook dialog can change it for that one run.
   </p>
   <p>
-    <strong>Runners.</strong> In a terminal's <strong>+</strong> menu, clicking Run or a script runs it on the
-    host. The backend buttons on the same row run it sandboxed instead, so a dev server can sit beside a
-    sandboxed agent in the same card. <code>⌘P</code> runs on the host.
+    <strong>Runners.</strong> Run and scripts from a terminal's <strong>+</strong> menu, and <code>⌘P</code>, run
+    where the project's <strong>Default environment</strong> setting says: Host unless you change it, under
+    <strong>Project Settings &rarr; Sandbox</strong>, or from <strong>Run in</strong> at the top of the menu.
   </p>
   <p>
     <strong>Terminals.</strong> Right-click a task and use <strong>Open in &rarr; nono sandbox</strong> or
@@ -29,7 +29,7 @@ import Docs from '../../layouts/Docs.astro';
     tab dot is outlined too.
   </p>
   <p>
-    A backend is offered once it can run: nono when its binary is present, Custom once its command is set. Each
+    A backend is offered once it can run: nono once <strong>Use nono</strong> is on, Custom once its command is set. Each
     has its own configuration under <strong>Project Settings &rarr; Sandbox</strong>. If the chosen backend
     cannot start, the terminal says why and Ouijit raises an error. It never runs the command on the host
     instead, and a restored terminal whose backend is gone fails the same way.
