@@ -15,8 +15,8 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
 
 /** Callers supply the handlers and add their own entries around these. */
 export interface TaskMenuActions {
-  /** Open a new terminal for the task; a provider opens it sandboxed. */
-  openTerminal: (provider?: SandboxProviderId) => void;
+  /** Open a new terminal for the task, overriding the continue hook's sandbox. */
+  openTerminal: (provider: SandboxProviderId) => void;
   openEditor: () => void;
   /** Reveal the task's worktree in the OS file manager. */
   openFolder: () => void;
@@ -40,7 +40,7 @@ export function openInEntry(
   hasWorktree: boolean,
   actions: TaskMenuActions,
 ): ContextMenuEntry {
-  const submenu: ContextMenuEntry[] = [{ label: 'Terminal', icon: 'terminal', onClick: () => actions.openTerminal() }];
+  const submenu: ContextMenuEntry[] = [{ label: 'Terminal', icon: 'terminal', onClick: () => actions.openTerminal('none') }];
   for (const provider of sandboxProviders) {
     submenu.push({
       label: `${SANDBOX_BACKEND_LABELS[provider]} sandbox`,

@@ -33,10 +33,11 @@ describe('openInEntry', () => {
     expect(withoutWorktree.map((i) => i.label)).toEqual(['Terminal', 'nono sandbox', 'Editor']);
   });
 
-  it('runs openFolder when the file manager entry is clicked', () => {
+  it('opens each entry where it names, so Terminal is the host whatever the continue hook says', () => {
     const acts = actions();
-    const entry = submenuOf(openInEntry([], true, acts)).find((i) => i.label === FILE_MANAGER_NAME);
-    entry!.onClick();
+    for (const item of submenuOf(openInEntry(['nono'], true, acts))) item.onClick();
+    expect(vi.mocked(acts.openTerminal).mock.calls).toEqual([['none'], ['nono']]);
+    expect(acts.openEditor).toHaveBeenCalled();
     expect(acts.openFolder).toHaveBeenCalled();
   });
 });

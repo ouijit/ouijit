@@ -171,7 +171,7 @@ export const KanbanCard = memo(function KanbanCard({
             const store = useProjectStore.getState();
             const selected = [...store.selectedTaskNumbers];
             const tasks = store.tasks.filter((t) => selected.includes(t.taskNumber));
-            for (const t of tasks) onOpenTerminal(t);
+            for (const t of tasks) onOpenTerminal(t, 'none');
             store.clearSelection();
           },
         },
