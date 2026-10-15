@@ -40,7 +40,9 @@ export function openInEntry(
   hasWorktree: boolean,
   actions: TaskMenuActions,
 ): ContextMenuEntry {
-  const submenu: ContextMenuEntry[] = [{ label: 'Terminal', icon: 'terminal', onClick: () => actions.openTerminal('none') }];
+  const submenu: ContextMenuEntry[] = [
+    { label: 'Terminal', icon: 'terminal', onClick: () => actions.openTerminal('none') },
+  ];
   for (const provider of sandboxProviders) {
     submenu.push({
       label: `${SANDBOX_BACKEND_LABELS[provider]} sandbox`,
