@@ -24,7 +24,6 @@ export function LinearSettingsSection() {
           connection={connection}
           onSaved={async () => setConnection(await window.api.linear.connection(undefined, true))}
           {...(connection?.storage === 'keychain' ? { clear: { label: 'Clear' } } : {})}
-          help="Create one in Linear under Settings → API. Read and Create comments to read and comment; add Write to change an issue's status."
         />
       </div>
     </section>

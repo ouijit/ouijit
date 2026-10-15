@@ -19,8 +19,6 @@ interface LinearKeyRowProps {
   clear?: { label: string; title?: string };
   /** Shown while the field is open, saying what saving will do. */
   hint?: ReactNode;
-  /** Shown when there is no key: where to get one. */
-  help?: ReactNode;
   /** Say where the key applies. Off where the section above already says it. */
   showScope?: boolean;
 }
@@ -43,7 +41,6 @@ export function LinearKeyRow({
   replaceLabel = 'Replace API key',
   clear,
   hint,
-  help,
   showScope,
 }: LinearKeyRowProps) {
   const [editing, setEditing] = useState(false);
@@ -81,7 +78,6 @@ export function LinearKeyRow({
             <div className="text-[13px] font-mono text-text-secondary mt-1 truncate">{connection.masked}</div>
           )}
           {description && <div className="text-xs text-text-tertiary mt-1">{description}</div>}
-          {!connected && help && <div className="text-xs text-text-tertiary mt-1">{help}</div>}
         </div>
 
         {(connected || clear) && (

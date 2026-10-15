@@ -76,7 +76,6 @@ export function LinearScopeSection({ projectPath }: LinearScopeSectionProps) {
           ? { clear: { label: 'Use the shared API key', title: 'Go back to the API key every other project uses' } }
           : {})}
         hint="This API key will be used by this project only. Every other project keeps the shared one."
-        help="Create one in Linear under Settings → API."
       />
 
       {availability?.connected && availability.scope && (

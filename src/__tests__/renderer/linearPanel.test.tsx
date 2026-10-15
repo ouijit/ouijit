@@ -223,7 +223,7 @@ describe('the API key row', () => {
     expect(screen.getByPlaceholderText('lin_api_…')).toBeTruthy();
   });
 
-  test('with no key, the field is open, says once where to get one, and there is nothing to clear', async () => {
+  test('with no key, the field is open and there is nothing to clear', async () => {
     vi.mocked(window.api.linear.connection).mockResolvedValue({
       connected: false,
       reason: 'no-credential',
@@ -232,7 +232,6 @@ describe('the API key row', () => {
     render(<LinearSettingsSection />);
 
     expect(await screen.findByPlaceholderText('lin_api_…')).toBeTruthy();
-    expect(screen.getAllByText(/Settings → API/)).toHaveLength(1);
     expect(screen.queryByText('Clear')).toBeNull();
   });
 });
