@@ -61,7 +61,7 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
     const tasksToOpen = store.tasks.filter((t) => selected.includes(t.taskNumber));
 
     const doOpen = () => {
-      for (const t of tasksToOpen) onOpenTerminal(t);
+      for (const t of tasksToOpen) onOpenTerminal(t, 'none');
       useProjectStore.getState().clearSelection();
     };
 
