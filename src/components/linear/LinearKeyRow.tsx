@@ -52,6 +52,7 @@ export function LinearKeyRow({
 
   const connected = connection?.connected ?? false;
   const open = editing || (connection != null && !connected);
+  const description = describe(connection, showScope);
 
   const save = async (apiKey: string) => {
     setBusy(true);
@@ -79,7 +80,7 @@ export function LinearKeyRow({
           {connection?.masked && (
             <div className="text-[13px] font-mono text-text-secondary mt-1 truncate">{connection.masked}</div>
           )}
-          <div className="text-xs text-text-tertiary mt-1">{describe(connection, showScope)}</div>
+          {description && <div className="text-xs text-text-tertiary mt-1">{description}</div>}
           {!connected && help && <div className="text-xs text-text-tertiary mt-1">{help}</div>}
         </div>
 
@@ -149,10 +150,10 @@ export function LinearKeyRow({
 }
 
 /** Who the key is, and — where the caller asks for it — where it applies. */
-function describe(connection: LinearConnection | null, showScope?: boolean): string {
+function describe(connection: LinearConnection | null, showScope?: boolean): string | undefined {
   if (!connection) return 'Checking…';
   if (connection.reason === 'flag-off') return 'Turn on Linear under Experimental.';
-  if (!connection.connected) return connection.message ?? 'Create one in Linear under Settings → API.';
+  if (!connection.connected) return connection.message;
 
   const viewer = connection.viewer;
   const who = viewer ? `${viewer.name} in ${viewer.workspaceName}` : '';
