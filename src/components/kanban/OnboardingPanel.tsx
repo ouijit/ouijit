@@ -56,12 +56,11 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   );
 
   const stage: Stage | null = useMemo(() => {
-    if (seededTaskNumber == null) return 'intro';
-    if (!seededTask) return 'intro';
+    if (!seededTask) return tasks.length === 0 ? 'intro' : null;
     if (seededTask.status === 'todo') return 'setup';
     if (seededTask.status === 'in_progress') return 'in-flight';
     return 'complete';
-  }, [seededTaskNumber, seededTask]);
+  }, [seededTask, tasks.length]);
 
   // Stuck: the task reached in_progress with no start hook, so nothing fired.
   // Latched, since configuring the hook afterwards doesn't retrigger it.
