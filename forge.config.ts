@@ -7,11 +7,10 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { PublisherGithub } from '@electron-forge/publisher-github';
-import { notarize } from '@electron/notarize';
 import { execFileSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { resolveSigningIdentity, notarizeAndStapleDMGs } from './forge.dmg';
+import { resolveSigningIdentity, notarizeAllowingUnstapled, notarizeDMGs } from './forge.dmg';
 
 const dmgSigningIdentity = resolveSigningIdentity();
 
@@ -192,13 +191,9 @@ const config: ForgeConfig = {
         });
       }
 
-      // Notarize and staple the DMG wrapper. The app inside is already
-      // notarized via postPackage, but Apple requires the distribution
-      // artifact itself to be notarized too, otherwise Gatekeeper warns
-      // on first open.
       for (const result of makeResults) {
         if (result.platform !== 'darwin') continue;
-        await notarizeAndStapleDMGs(result.artifacts);
+        await notarizeDMGs(result.artifacts);
       }
 
       return makeResults;
@@ -217,28 +212,7 @@ const config: ForgeConfig = {
       }
 
       console.log(`Notarizing ${appPath}...`);
-
-      if (process.env.APPLE_API_KEY_ID && process.env.APPLE_API_ISSUER) {
-        // CI: App Store Connect API key (written to disk by workflow)
-        const keyPath = path.join(
-          process.env.HOME!,
-          'private_keys',
-          `AuthKey_${process.env.APPLE_API_KEY_ID}.p8`,
-        );
-        await notarize({
-          appPath,
-          appleApiKey: keyPath,
-          appleApiKeyId: process.env.APPLE_API_KEY_ID,
-          appleApiIssuer: process.env.APPLE_API_ISSUER,
-        });
-      } else {
-        // Local: stored keychain profile
-        await notarize({
-          appPath,
-          keychainProfile: 'ouijit-notarize',
-        });
-      }
-
+      await notarizeAllowingUnstapled(appPath);
       console.log('Notarization complete!');
     },
   },

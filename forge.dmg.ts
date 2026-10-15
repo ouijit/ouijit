@@ -1,16 +1,12 @@
 // Helpers for the macOS DMG distributable. Lives outside forge.config.ts so the
-// pure logic (signing-identity resolution, notarize-and-staple) can be unit tested
+// pure logic (signing-identity resolution, notarization) can be unit tested
 // without booting electron-forge.
 
 import { notarize as electronNotarize } from '@electron/notarize';
 import { execFileSync } from 'child_process';
 import path from 'path';
 
-export interface NotarizeCredentials {
-  appleApiKeyId: string;
-  appleApiIssuer: string;
-  homeDir: string;
-}
+type NotarizeOptions = Parameters<typeof electronNotarize>[0];
 
 // Reads the Developer ID Application identity used to sign the DMG wrapper
 // (the app inside is signed separately by osxSign). Honors SKIP_SIGN, then an
@@ -31,73 +27,50 @@ export function resolveSigningIdentity(
   }
 }
 
-// Notarize a single DMG (or any signed artifact) and staple the ticket so the
-// file carries proof of notarization offline. Apple requires both steps.
-export async function notarizeAndStapleArtifact(
-  artifactPath: string,
-  options: {
-    creds?: NotarizeCredentials;
-    keychainProfile?: string;
-    notarizeFn?: typeof electronNotarize;
-    stapleFn?: (artifactPath: string) => void;
-  } = {},
-): Promise<void> {
-  const notarizeFn = options.notarizeFn ?? electronNotarize;
-  const stapleFn =
-    options.stapleFn ??
-    ((p: string) => {
-      execFileSync('xcrun', ['stapler', 'staple', p], { stdio: 'inherit' });
-    });
-
-  if (options.creds) {
-    const keyPath = path.join(options.creds.homeDir, 'private_keys', `AuthKey_${options.creds.appleApiKeyId}.p8`);
-    await notarizeFn({
-      appPath: artifactPath,
-      appleApiKey: keyPath,
-      appleApiKeyId: options.creds.appleApiKeyId,
-      appleApiIssuer: options.creds.appleApiIssuer,
-    });
-  } else if (options.keychainProfile) {
-    await notarizeFn({ appPath: artifactPath, keychainProfile: options.keychainProfile });
-  } else {
-    throw new Error('notarizeAndStapleArtifact requires either creds or keychainProfile');
+// CI writes an App Store Connect API key to disk; local builds use a stored
+// keychain profile.
+function notarizeOptions(appPath: string, env: NodeJS.ProcessEnv): NotarizeOptions {
+  if (env.APPLE_API_KEY_ID && env.APPLE_API_ISSUER && env.HOME) {
+    return {
+      appPath,
+      appleApiKey: path.join(env.HOME, 'private_keys', `AuthKey_${env.APPLE_API_KEY_ID}.p8`),
+      appleApiKeyId: env.APPLE_API_KEY_ID,
+      appleApiIssuer: env.APPLE_API_ISSUER,
+    };
   }
-
-  stapleFn(artifactPath);
+  return { appPath, keychainProfile: 'ouijit-notarize' };
 }
 
-// Filter make artifacts down to DMGs and notarize+staple each. Honors
-// SKIP_NOTARIZE so local builds without credentials still complete.
-export async function notarizeAndStapleDMGs(
+// @electron/notarize staples after notarizing, and reports a failed staple only
+// through this message. Stapling fetches the ticket from Apple's CloudKit, so it
+// can fail on the network after notarization succeeded; the artifact is then
+// still notarized and Gatekeeper finds the ticket online. The release workflow
+// staples the DMG again before verifying it.
+const STAPLE_FAILURE = 'Failed to staple';
+
+export async function notarizeAllowingUnstapled(
+  appPath: string,
+  options: { env?: NodeJS.ProcessEnv; notarizeFn?: typeof electronNotarize } = {},
+): Promise<void> {
+  const notarizeFn = options.notarizeFn ?? electronNotarize;
+  try {
+    await notarizeFn(notarizeOptions(appPath, options.env ?? process.env));
+  } catch (err) {
+    if (!(err instanceof Error) || !err.message.startsWith(STAPLE_FAILURE)) throw err;
+    console.warn(`Notarized but not stapled: ${appPath}\n${err.message}`);
+  }
+}
+
+// Apple requires the distribution artifact itself to be notarized, not just the
+// app inside it, otherwise Gatekeeper warns on first open.
+export async function notarizeDMGs(
   artifacts: readonly string[],
-  options: {
-    env?: NodeJS.ProcessEnv;
-    notarizeFn?: typeof electronNotarize;
-    stapleFn?: (artifactPath: string) => void;
-  } = {},
+  options: { env?: NodeJS.ProcessEnv; notarizeFn?: typeof electronNotarize } = {},
 ): Promise<void> {
   const env = options.env ?? process.env;
   if (env.SKIP_NOTARIZE) return;
 
-  const dmgs = artifacts.filter((a) => a.endsWith('.dmg'));
-  if (dmgs.length === 0) return;
-
-  const creds: NotarizeCredentials | undefined =
-    env.APPLE_API_KEY_ID && env.APPLE_API_ISSUER && env.HOME
-      ? {
-          appleApiKeyId: env.APPLE_API_KEY_ID,
-          appleApiIssuer: env.APPLE_API_ISSUER,
-          homeDir: env.HOME,
-        }
-      : undefined;
-  const keychainProfile = creds ? undefined : 'ouijit-notarize';
-
-  for (const dmg of dmgs) {
-    await notarizeAndStapleArtifact(dmg, {
-      creds,
-      keychainProfile,
-      notarizeFn: options.notarizeFn,
-      stapleFn: options.stapleFn,
-    });
+  for (const dmg of artifacts.filter((a) => a.endsWith('.dmg'))) {
+    await notarizeAllowingUnstapled(dmg, { env, notarizeFn: options.notarizeFn });
   }
 }

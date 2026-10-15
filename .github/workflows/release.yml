@@ -110,6 +110,13 @@ jobs:
           BUILD_ARCH: ${{ matrix.arch }}
         run: npm run publish -- --arch="$BUILD_ARCH"
 
+      - name: Staple DMG
+        if: matrix.platform == 'darwin'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: ./scripts/staple-dmg.sh
+
       # -- Verify the DMG would pass Gatekeeper on a user's machine.
       # Catches missing signing or notarization before the draft is promoted.
       - name: Verify DMG signed + notarized
