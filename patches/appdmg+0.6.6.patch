@@ -1,0 +1,13 @@
+diff --git a/node_modules/appdmg/lib/hdiutil.js b/node_modules/appdmg/lib/hdiutil.js
+index a85a3af..2e02acc 100644
+--- a/node_modules/appdmg/lib/hdiutil.js
++++ b/node_modules/appdmg/lib/hdiutil.js
+@@ -70,6 +70,8 @@ exports.detach = function (path, cb) {
+       setTimeout(function () {
+         util.sh('hdiutil', args, attemptDetach)
+       }, 1000 * Math.pow(2, attempts - 1))
++    } else if (err && !fs.existsSync(path)) {
++      cb(null)
+     } else {
+       cb(err)
+     }
