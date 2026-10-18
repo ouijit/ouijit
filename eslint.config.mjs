@@ -9,6 +9,7 @@ export default tseslint.config(
       'dist/',
       'out/',
       '.vite/',
+      '.vite-e2e/',
       'node_modules/',
       'e2e/',
       '**/*.js',

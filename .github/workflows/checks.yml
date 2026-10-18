@@ -26,7 +26,7 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run docs:check
-      - run: npm rebuild better-sqlite3 --silent
+      - run: node scripts/sqlite-bindings.mjs node
       # Only the unit project: integration tests need a git identity the
       # runner does not have (see #63).
       - run: npx vitest run --project unit
