@@ -34,7 +34,7 @@ function makeTask(overrides: Partial<TaskWithWorkspace> = {}): TaskWithWorkspace
 
 describe('completeTask', () => {
   beforeEach(() => {
-    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
+    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, order: [] });
     useAppStore.setState({ activeProjectPath: PROJECT });
     vi.clearAllMocks();
     vi.mocked(window.api.hooks.get).mockResolvedValue({});

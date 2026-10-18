@@ -1,9 +1,7 @@
 /**
  * Shared navigation actions for the sidebar, the command palette, the board
- * and the home recents panel. The sequences are order-sensitive: tasks are
- * pre-fetched before navigating so the kanban paints through the
- * view-transition snapshot, and the terminal card stack reverts an active
- * index a tag filter hides.
+ * and the home recents panel. Tasks are pre-fetched before navigating so the
+ * kanban paints through the view-transition snapshot.
  *
  * Nothing here feeds palette frecency. What the user ends up looking at is a
  * visit, and `visitTracker` reads that off the view itself.
@@ -13,9 +11,8 @@ import type { Project, SandboxProviderId, TaskWithWorkspace, WorktreeInfo } from
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { loadTasks } from '../stores/projectDataStore';
-import { useTerminalStore, setActiveTerminal, terminalMatchesTag } from '../stores/terminalStore';
+import { useTerminalStore, activateTerminal } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
-import { useUIStore } from '../stores/uiStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalRegistry';
@@ -88,25 +85,14 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
 
   const ownerPath = display.projectPath;
   const project = useAppStore.getState().projects.find((p) => p.path === ownerPath);
+  activateTerminal(ptyId);
 
   // No registered project owns it: a shell spawned from home, or a project
-  // that has since been removed. The home stack renders those.
+  // that has since been removed. Only the home stack shows those.
   if (!project) {
-    const ui = useUIStore.getState();
-    if (ui.homeTagFilter && !terminalMatchesTag(display, ui.homeTagFilter)) {
-      ui.setHomeTagFilter(null);
-    }
-    ui.setHomeActivePtyId(ptyId);
     selectHome();
     focusXterm(ptyId);
     return;
-  }
-
-  // A tag filter that hides the target would make this a no-op: the card stack
-  // resets the active index back to the head of the visible list.
-  const projectStore = useProjectStore.getState();
-  if (projectStore.tagFilter && !terminalMatchesTag(display, projectStore.tagFilter)) {
-    projectStore.setTagFilter(null);
   }
 
   await showProjectTerminals(ownerPath, project);
@@ -117,8 +103,6 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
       const nodes = canvas.nodes.map((node) => ({ ...node, selected: node.id === ptyId }));
       useCanvasStore.getState().loadCanvas(ownerPath, { ...canvas, nodes });
     }
-  } else {
-    setActiveTerminal(ownerPath, ptyId);
   }
 
   focusXterm(ptyId);
@@ -217,8 +201,6 @@ async function startTaskWorktree(project: Project, task: TaskWithWorkspace): Pro
 
   try {
     await showProjectTerminals(project.path, project);
-    useTerminalStore.getState().activateLast(project.path);
-
     await openTaskShell(project.path, task, { mode: 'shell', replaceLoadingId: slotId });
   } finally {
     useProjectStore.getState().markTaskStartingDone(task.taskNumber);

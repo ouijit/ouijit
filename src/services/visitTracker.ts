@@ -11,7 +11,7 @@
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { isBoardMounted } from '../stores/composerStore';
-import { getActivePtyId, useTerminalStore } from '../stores/terminalStore';
+import { HOME_STACK, getActivePtyId, useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { useGithubStore } from '../stores/githubStore';
 import { useLinearStore } from '../stores/linearStore';
@@ -41,7 +41,7 @@ type View =
 function currentView(): View {
   const { activeView, activeProjectPath } = useAppStore.getState();
   if (activeView === 'home') {
-    const ptyId = useUIStore.getState().homeActivePtyId;
+    const ptyId = getActivePtyId(HOME_STACK);
     return ptyId ? { kind: 'terminal', ptyId } : null;
   }
   if (!activeProjectPath) return null;
@@ -62,8 +62,8 @@ function currentView(): View {
       return { kind: 'issue', projectPath: activeProjectPath, issueId: open.id };
     }
   } else if (project.activePanel === 'terminals' && project.terminalLayout !== 'canvas') {
-    // The canvas has no single foreground card, and `activeIndices` is not
-    // maintained while it is up — reading one there names an arbitrary shell.
+    // The canvas has no single foreground card, and the stack's front is not
+    // what the user is looking at while it is up.
     const ptyId = getActivePtyId(activeProjectPath);
     if (ptyId) return { kind: 'terminal', ptyId };
   }

@@ -1,47 +1,39 @@
-import { useCallback, useEffect } from 'react';
-import { useTerminalStore, setActiveTerminal, STACK_PAGE_SIZE, terminalMatchesTag } from '../../stores/terminalStore';
-import { useProjectStore } from '../../stores/projectStore';
+import { useEffect, useState } from 'react';
+import { useTerminalStore, useTagFilter, useVisibleStack } from '../../stores/terminalStore';
 import { TerminalCard } from './TerminalCard';
+import { stackWindow, turnPage, type StackWindow } from './stackWindow';
+import { setStackPositions } from './stackPositions';
+import { useViewKeys } from './terminalShortcuts';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
-const EMPTY: string[] = [];
 
 interface TerminalCardStackProps {
   projectPath: string;
 }
 
 export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
-  const terminals = useTerminalStore((s) => s.terminalsByProject[projectPath]) ?? EMPTY;
-  const activeIndex = useTerminalStore((s) => s.activeIndices[projectPath] ?? 0);
-  const displayStates = useTerminalStore((s) => s.displayStates);
-  const tagFilter = useProjectStore((s) => s.tagFilter);
+  const visible = useVisibleStack(projectPath);
+  const memberCount = useTerminalStore((s) => s.terminalsByProject[projectPath]?.length ?? 0);
+  const tagFilter = useTagFilter(projectPath);
+  const activeId = visible[0];
 
-  const visible = tagFilter ? terminals.filter((id) => terminalMatchesTag(displayStates[id], tagFilter)) : terminals;
+  // A page asked for by hand, until the active terminal changes.
+  const [page, setPage] = useState<{ page: number; activeId: string | undefined } | null>(null);
+  const shown = stackWindow(visible, activeId, page && page.activeId === activeId ? page.page : null);
+  const backCards = shown.ids.slice(1);
 
-  // Resolve the active card within the visible list. If the filter hid the
-  // store's active terminal, fall back to the front of the visible list.
-  const activeFullPtyId = terminals[activeIndex];
-  const activeId = activeFullPtyId && visible.includes(activeFullPtyId) ? activeFullPtyId : (visible[0] ?? null);
-
-  // Keep the store's active pointer on a visible terminal so focus, diff, and
-  // keyboard nav all target something that's actually on screen.
   useEffect(() => {
-    if (!tagFilter || visible.length === 0) return;
-    if (activeFullPtyId && visible.includes(activeFullPtyId)) return;
-    setActiveTerminal(projectPath, visible[0]);
-  }, [tagFilter, visible, activeFullPtyId, projectPath]);
+    setStackPositions([...backCards].reverse());
+    return () => setStackPositions([]);
+  });
 
-  const activeVisibleIndex = Math.max(activeId ? visible.indexOf(activeId) : 0, 0);
-  const page = Math.floor(activeVisibleIndex / STACK_PAGE_SIZE);
-  const pageStart = page * STACK_PAGE_SIZE;
-  const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, visible.length);
-  const pageSize = pageEnd - pageStart;
-  const totalPages = Math.max(1, Math.ceil(visible.length / STACK_PAGE_SIZE));
+  useViewKeys({
+    arrowleft: (e) => e.shiftKey && pageTo(shown, -1, activeId, setPage),
+    arrowright: (e) => e.shiftKey && pageTo(shown, 1, activeId, setPage),
+  });
 
-  const backCardCount = Math.max(Math.min(pageSize - 1, 4), 0);
-  const stackTop = 82 + backCardCount * 24;
-
-  const isEmpty = terminals.length === 0;
+  const stackTop = 82 + backCards.length * 24;
+  const isEmpty = memberCount === 0;
   const isFilteredEmpty = !isEmpty && tagFilter != null && visible.length === 0;
 
   return (
@@ -55,21 +47,43 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
     >
       {isEmpty && <EmptyState />}
       {isFilteredEmpty && tagFilter && (
-        <FilteredEmptyState tag={tagFilter} onClear={() => useProjectStore.getState().setTagFilter(null)} />
+        <FilteredEmptyState
+          tag={tagFilter}
+          onClear={() => useTerminalStore.getState().setTagFilter(projectPath, null)}
+        />
       )}
 
-      {visible.map((ptyId) => (
-        <TerminalCard key={ptyId} ptyId={ptyId} projectPath={projectPath} orderedIds={visible} activeId={activeId} />
+      {shown.ids.map((ptyId, depth) => (
+        <TerminalCard
+          key={ptyId}
+          ptyId={ptyId}
+          depth={depth}
+          stackPosition={depth === 0 ? undefined : backCards.length - depth + 1}
+        />
       ))}
 
-      {totalPages > 1 && <Pagination page={page} totalPages={totalPages} visible={visible} projectPath={projectPath} />}
+      {shown.pageCount > 1 && (
+        <Pagination shown={shown} onTurn={(direction) => pageTo(shown, direction, activeId, setPage)} />
+      )}
     </div>
   );
 }
 
+function pageTo(
+  shown: StackWindow,
+  direction: -1 | 1,
+  activeId: string | undefined,
+  setPage: (page: { page: number; activeId: string | undefined }) => void,
+): boolean {
+  const next = turnPage(shown, direction);
+  if (next == null) return false;
+  setPage({ page: next, activeId });
+  return true;
+}
+
 // ── Filtered empty state ─────────────────────────────────────────────
 
-function FilteredEmptyState({ tag, onClear }: { tag: string; onClear: () => void }) {
+export function FilteredEmptyState({ tag, onClear }: { tag: string; onClear: () => void }) {
   return (
     <div
       className="project-stack-empty project-stack-empty--visible absolute inset-0 flex flex-col items-center justify-center text-center rounded-[14px] border border-dashed border-ink/10 p-12 opacity-100"
@@ -129,26 +143,8 @@ function EmptyState() {
 
 // ── Pagination ───────────────────────────────────────────────────────
 
-function Pagination({
-  page,
-  totalPages,
-  visible,
-  projectPath,
-}: {
-  page: number;
-  totalPages: number;
-  visible: string[];
-  projectPath: string;
-}) {
-  const navigatePage = useCallback(
-    (direction: -1 | 1) => {
-      const targetPage = page + direction;
-      if (targetPage < 0 || targetPage >= totalPages) return;
-      const ptyId = visible[targetPage * STACK_PAGE_SIZE];
-      if (ptyId) setActiveTerminal(projectPath, ptyId);
-    },
-    [page, totalPages, visible, projectPath],
-  );
+function Pagination({ shown, onTurn }: { shown: StackWindow; onTurn: (direction: -1 | 1) => void }) {
+  const { page, pageCount: totalPages } = shown;
 
   return (
     <div
@@ -165,7 +161,7 @@ function Pagination({
         style={{ visibility: page > 0 ? 'visible' : 'hidden' }}
         onClick={(e) => {
           e.stopPropagation();
-          navigatePage(-1);
+          onTurn(-1);
         }}
       >
         <svg
@@ -189,7 +185,7 @@ function Pagination({
         style={{ visibility: page < totalPages - 1 ? 'visible' : 'hidden' }}
         onClick={(e) => {
           e.stopPropagation();
-          navigatePage(1);
+          onTurn(1);
         }}
       >
         <svg

@@ -3,8 +3,12 @@ import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { installVisitTracker } from '../../services/visitTracker';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { useTerminalStore, DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from '../../stores/terminalStore';
-import { useUIStore } from '../../stores/uiStore';
+import {
+  activateTerminal,
+  useTerminalStore,
+  DEFAULT_DISPLAY_STATE,
+  type TerminalDisplayState,
+} from '../../stores/terminalStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { usePanelStore } from '../../stores/panelStore';
 import type { Project, TaskWithWorkspace } from '../../types';
@@ -55,10 +59,9 @@ beforeEach(() => {
       'alpha-1': display({ ptyId: 'alpha-1', projectPath: projectA.path, label: 'Alpha shell' }),
       'alpha-7': display({ ptyId: 'alpha-7', projectPath: projectA.path, label: 'Seven', taskId: 7 }),
     },
-    activeIndices: { [projectA.path]: 0 },
+    order: ['alpha-1', 'alpha-7'],
   });
   useProjectStore.setState({ kanbanVisible: true, activePanel: 'terminals' });
-  useUIStore.setState({ homeActivePtyId: null });
   useGithubStore.setState({ projectPath: null, activeNumber: null });
 
   stop = installVisitTracker();
@@ -83,11 +86,10 @@ describe('visitTracker', () => {
 
   test('a foregrounded shell is a visit to the task that owns it, or to the shell if none does', async () => {
     useProjectStore.setState({ kanbanVisible: false });
-    useTerminalStore.setState({ activeIndices: { [projectA.path]: 0 } });
     await settle();
     expect(written()).toEqual(['terminal:alpha-1']);
 
-    useTerminalStore.setState({ activeIndices: { [projectA.path]: 1 } });
+    activateTerminal('alpha-7');
     await settle();
     // Keyed on the task, not the pty: the shell will not outlive the worktree,
     // but what this says about the task should.

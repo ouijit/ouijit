@@ -1,6 +1,7 @@
 import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { usePaletteShortcut } from './hooks/usePaletteShortcut';
+import { useTerminalShortcuts } from './components/terminal/terminalShortcuts';
 import { useAppStore, selectIsCloning } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
 import { loadTasks } from './stores/projectDataStore';
@@ -20,7 +21,7 @@ import { HelpDialog } from './components/dialogs/HelpDialog';
 import { AboutDialog } from './components/dialogs/AboutDialog';
 import { MissingWorktreeDialog } from './components/dialogs/MissingWorktreeDialog';
 import { HookConfigDialog } from './components/dialogs/HookConfigDialog';
-import { RunHookDialog } from './components/dialogs/RunHookDialog';
+import { GlobalRunHookDialog } from './components/dialogs/GlobalRunHookDialog';
 import { CommandPalette } from './components/CommandPalette';
 import { selectProject, selectHome } from './components/navigation';
 import { installCaptureNavigator } from './capture/navigator';
@@ -75,6 +76,7 @@ class ViewErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 export function App() {
   useIPCListeners();
   usePaletteShortcut();
+  useTerminalShortcuts();
 
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -337,37 +339,6 @@ export function App() {
       <GlobalEditorHookDialog />
       <CommandPalette />
     </div>
-  );
-}
-
-/** Concurrent hook prompts queue up and are shown one at a time as a stepper. */
-function GlobalRunHookDialog() {
-  const queue = useProjectStore((s) => s.runHookQueue);
-  const total = useProjectStore((s) => s.runHookQueueTotal);
-  const request = queue[0];
-  const elsewhere = useAppStore((s) =>
-    request && request.projectPath !== s.activeProjectPath
-      ? (s.projects.find((p) => p.path === request.projectPath)?.name ?? request.projectPath)
-      : undefined,
-  );
-  if (!request) return null;
-  // Held fixed while the queue drains, so the stepper counts up.
-  const position = total - queue.length + 1;
-  return (
-    <RunHookDialog
-      key={request.id}
-      projectPath={request.projectPath}
-      projectName={elsewhere}
-      hookType={request.hookType}
-      hook={request.hook}
-      sandbox={request.sandbox}
-      taskName={request.task.name}
-      queuePosition={position}
-      queueTotal={total}
-      onClose={(result) => useProjectStore.getState().resolveRunHookRequest(request.id, result)}
-      onRunAll={(result) => useProjectStore.getState().runAllRunHookRequests(result)}
-      onSkipAll={() => useProjectStore.getState().skipAllRunHookRequests()}
-    />
   );
 }
 

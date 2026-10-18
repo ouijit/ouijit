@@ -13,7 +13,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 const PROJECT = '/tmp/project';
 
 function reset() {
-  useTerminalStore.setState({ displayStates: {}, terminalsByProject: {}, activeIndices: {} });
+  useTerminalStore.setState({ displayStates: {}, terminalsByProject: {}, order: [] });
 }
 
 describe('KanbanShellBar', () => {

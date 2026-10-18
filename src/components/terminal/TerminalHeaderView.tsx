@@ -14,7 +14,6 @@ export interface TerminalHeaderViewProps {
   stackPosition?: number;
   isActive?: boolean;
   isBackCard?: boolean;
-  compact?: boolean;
 
   /** Identity slot: label, OSC title, optional rename input. */
   nameContent: ReactNode;
@@ -48,7 +47,6 @@ export function TerminalHeaderView({
   stackPosition,
   isActive = false,
   isBackCard = false,
-  compact = false,
   nameContent,
   tagsContent,
   branchContent,
@@ -68,7 +66,7 @@ export function TerminalHeaderView({
           a line along the card's own bottom edge. */}
       <div
         className={`${isActive ? 'pane-ledge ' : ''}flex items-center justify-between pl-3 pr-3 ${
-          compact || isBackCard ? 'pt-0.5 pb-1' : 'py-2'
+          isBackCard ? 'pt-0.5 pb-1' : 'py-2'
         } min-h-9`}
         onContextMenu={onContextMenu}
       >
@@ -87,7 +85,7 @@ export function TerminalHeaderView({
             {nameContent}
             {tagsContent && <span className="inline-flex items-center gap-1 min-w-0 shrink-0">{tagsContent}</span>}
           </div>
-          {!compact && isActive && branchContent}
+          {isActive && branchContent}
         </div>
         {/* Shrinkable so the panel tabs inside `actions` can give up width
             instead of overflowing the header. */}

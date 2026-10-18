@@ -141,7 +141,7 @@ function installListenerStubs(): ListenerStubs {
 describe('useIPCListeners — CLI task lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
+    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, order: [] });
     vi.mocked(window.api.task.getByNumber).mockResolvedValue(makeTask());
   });
 

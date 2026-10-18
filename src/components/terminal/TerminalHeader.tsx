@@ -33,7 +33,6 @@ interface TerminalHeaderProps {
   ptyId: string;
   isActive: boolean;
   isBackCard?: boolean;
-  compact?: boolean;
   stackPosition?: number;
   onClose: () => void;
 }
@@ -42,7 +41,6 @@ export const TerminalHeader = memo(function TerminalHeader({
   ptyId,
   isActive,
   isBackCard,
-  compact,
   stackPosition,
   onClose,
 }: TerminalHeaderProps) {
@@ -340,12 +338,11 @@ export const TerminalHeader = memo(function TerminalHeader({
       stackPosition={stackPosition}
       isActive={isActive}
       isBackCard={isBackCard}
-      compact={compact}
       nameContent={nameContent}
       tagsContent={tagsContent}
       branchContent={gitFileStatus?.branch ? <BranchCopy branch={gitFileStatus.branch} /> : undefined}
       actions={
-        isActive && !compact ? (
+        isActive ? (
           <PanelControls
             panels={panels}
             activePanelId={activePanelId}

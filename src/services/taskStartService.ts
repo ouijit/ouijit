@@ -199,7 +199,6 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
     useTerminalStore
       .getState()
       .addTerminal(projectPath, slotId, { label: task.name, taskId: taskNumber, isLoading: true });
-    useTerminalStore.getState().activateLast(projectPath);
   }
 
   try {

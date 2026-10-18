@@ -16,7 +16,7 @@ import type {
   SandboxBackendId,
 } from '../../types';
 import { isActiveSandbox } from '../../types';
-import { useTerminalStore, setActiveTerminal, type TerminalDisplayState } from '../../stores/terminalStore';
+import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore } from '../../stores/appStore';
@@ -26,7 +26,7 @@ import type { TerminalPanel } from './panelTypes';
 import { generateId } from '../../utils/ids';
 import { parseOsc133ExitCodes } from './osc133';
 import { buildEditorCommand } from './editorCommand';
-import { readSnapshot } from './sessionSnapshot';
+import { readSnapshot, snapshotRecency } from './sessionSnapshot';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import { detectPullRequestForTask } from '../../services/githubTaskActions';
 import { hookSandbox } from '../../services/hookRun';
@@ -48,9 +48,8 @@ export interface AddProjectTerminalOptions {
   label?: string;
   /** Apply persisted UI state (plan, web preview, runner panel) after spawn — for session restore. */
   initialUiState?: SnapshotTerminalUi;
-  /** If set, the new terminal takes this loading slot's place via
-   *  `rekeyTerminal` rather than being appended. Lets the kanban-drop loading
-   *  card morph into the real terminal in the same stack position. */
+  /** If set, the new terminal takes this loading slot's place in the stack
+   *  instead of entering it anew, so the loading card becomes the terminal. */
   replaceLoadingId?: string;
   /** Close this terminal automatically after a short grace period when its
    *  underlying command exits with code 0 (signalled by OSC 133;D from the
@@ -161,26 +160,17 @@ function registerTerminal(
   term.setProjectNameGetter(() => useAppStore.getState().activeProjectData?.name ?? 'Ouijit');
 
   if (replaceLoadingId) {
-    // Take the loading slot's place: same array position, same active index.
-    // Clear the `isLoading` flag now that a real PTY backs the slot.
     useTerminalStore.getState().rekeyTerminal(replaceLoadingId, ptyId);
     useTerminalStore.getState().updateDisplay(ptyId, { ...initial, isLoading: false });
   } else {
-    useTerminalStore.getState().addTerminal(projectPath, ptyId, initial);
+    useTerminalStore.getState().addTerminal(projectPath, ptyId, initial, { background });
   }
 
   useCanvasStore.getState().ensureProject(projectPath);
   useCanvasStore.getState().addNode(projectPath, ptyId);
   persistCanvas(projectPath);
 
-  // Activate last unless background. With a replaced loading slot the
-  // active index already points at it — just focus the new xterm.
-  if (!background) {
-    if (!replaceLoadingId) {
-      useTerminalStore.getState().activateLast(projectPath);
-    }
-    requestAnimationFrame(() => term.xterm.focus());
-  }
+  if (!background) requestAnimationFrame(() => term.xterm.focus());
 }
 
 // ── Worktree hook environment ────────────────────────────────────────
@@ -749,8 +739,8 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
   if (relevant.length === 0) return;
 
   // The session snapshot from the same launch (PTYs survive a renderer reload)
-  // carries per-terminal UI state and which card was focused. Match its rows to
-  // live sessions by ptyId.
+  // carries per-terminal UI state and the stack order. Match its rows to live
+  // sessions by ptyId.
   const snapshot = await readSnapshot();
   const snapByPtyId = new Map(
     (snapshot?.terminals ?? [])
@@ -760,6 +750,7 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
 
   const mainSessions = relevant.filter((s) => !s.isRunner);
   const runnerSessions = relevant.filter((s) => s.isRunner);
+  const reattaching = new Set(mainSessions.map((s) => s.ptyId).filter((id) => !terminalInstances.has(id)));
 
   // Reconnect main terminals first, so runner parents exist before runners
   // reattach.
@@ -787,14 +778,9 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
     });
   }
 
-  // Restore the focused card per project: reconnectTerminal calls activateLast,
-  // so without this whichever PTY reconnects last takes the selection.
-  const store = useTerminalStore.getState();
-  const focusProjects = projectPath ? [projectPath] : [...new Set(mainSessions.map((s) => s.projectPath))];
-  for (const pp of focusProjects) {
-    const activeEntry = (snapshot?.terminals ?? []).find((t) => t.projectPath === pp && t.isActiveInProject && t.ptyId);
-    if (!activeEntry?.ptyId || !setActiveTerminal(pp, activeEntry.ptyId)) store.activateLast(pp);
-  }
+  const snapshotOrder = (snapshot ? snapshotRecency(snapshot) : []).flatMap((t) => (t.ptyId ? [t.ptyId] : []));
+  const unsnapshotted = mainSessions.map((s) => s.ptyId).filter((id) => !snapByPtyId.has(id));
+  useTerminalStore.getState().restoreOrder([...snapshotOrder, ...unsnapshotted].filter((id) => reattaching.has(id)));
 
   // Reconnect runners to their parent terminals
   for (const session of runnerSessions) {

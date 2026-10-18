@@ -31,7 +31,7 @@ function makeTask(): TaskWithWorkspace {
 
 describe('shift-drag (skip done hook)', () => {
   beforeEach(() => {
-    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
+    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, order: [] });
     vi.clearAllMocks();
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       done: { command: 'echo cleanup', name: 'Done', source: 'configured', priority: 0 },

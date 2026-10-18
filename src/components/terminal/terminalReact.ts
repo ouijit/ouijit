@@ -337,9 +337,7 @@ export async function refreshTerminalGitStatus(term: OuijitTerminal): Promise<vo
   applyGitStatus(term, fileStatus);
 }
 
-export async function refreshAllTerminalGitStatus(projectPath: string): Promise<void> {
-  const store = useTerminalStore.getState();
-  const ptyIds = store.terminalsByProject[projectPath] ?? [];
+export async function refreshTerminalsGitStatus(ptyIds: string[]): Promise<void> {
   if (ptyIds.length === 0) return;
 
   // Group by gitPath + base, so a child task diffing against its parent branch
