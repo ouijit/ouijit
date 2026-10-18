@@ -58,8 +58,6 @@ test('one set of terminal shortcuts drives both views, and the stack survives a 
         for (const p of paths) await window.api.addProject(p);
         (window as any).__appStore.getState().setProjects(await window.api.refreshProjects());
         await window.api.hooks.save(paths[0], { id: 'run', type: 'run', name: 'Run', command: 'echo RUNNER_UP' });
-        // The resume banner sits with the recent tasks, so there has to be one.
-        await window.api.task.create(paths[0], 'Keep a recent task');
       },
       [testRepo.repoPath, other.repoPath],
     );

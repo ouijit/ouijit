@@ -149,6 +149,9 @@ export function HomeView() {
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-text-tertiary rounded-[14px] border border-dashed border-ink/10"
             style={{ background: 'var(--color-terminal-bg)' }}
           >
+            <div className="w-full max-w-[36rem] px-6 empty:hidden">
+              <ResumeBanner />
+            </div>
             <div className="text-sm">No tasks yet.</div>
             <div className="flex items-center gap-2 text-xs">
               <span className="font-mono text-[13px]">{isMac ? '⌘ I' : '⌃ I'}</span>
