@@ -120,23 +120,12 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   }
   await expect(appPage.locator('.project-card')).toHaveCount(5, { timeout: 10_000 });
 
-  // A 6th terminal enters at the front, so page 1 holds the five most recent
-  // and the least recent falls to page 2.
+  // A 6th terminal enters at the front and every card stays in the stack, the
+  // least recent deepest, where ⌘1 reaches it.
   const oldest = await appPage.evaluate(() => (window as any).__terminalStore.getState().order.at(-1));
   await appPage.keyboard.press(`${modifier}+i`);
-  await expect(appPage.locator('.project-stack-pagination')).toBeAttached({ timeout: 5_000 });
-  await expect(appPage.locator('.project-stack-page-indicator')).toHaveText('1 / 2');
-  await expect(appPage.locator('.project-card')).toHaveCount(5, { timeout: 5_000 });
-
-  // Paging shows the older terminals without bringing any forward.
-  await appPage.keyboard.press(`${modifier}+Shift+ArrowRight`);
-  await expect(appPage.locator('.project-stack-page-indicator')).toHaveText('2 / 2');
-  await expect(appPage.locator('.project-card')).toHaveCount(1);
-  await expect(appPage.locator(`.project-card[data-pty-id="${oldest}"]`)).toHaveCount(1);
-
-  // Choosing it brings it to the front of page 1.
-  await appPage.locator(`.project-card[data-pty-id="${oldest}"]`).click();
-  await expect(appPage.locator('.project-stack-page-indicator')).toHaveText('1 / 2');
+  await expect(appPage.locator('.project-card')).toHaveCount(6, { timeout: 10_000 });
+  await appPage.keyboard.press(`${modifier}+1`);
   await expect(appPage.locator('.project-card--active')).toHaveAttribute('data-pty-id', oldest);
 
   // Close all terminals

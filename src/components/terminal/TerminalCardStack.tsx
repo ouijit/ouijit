@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useTerminalStore, useTagFilter, useVisibleStack } from '../../stores/terminalStore';
 import { TerminalCard } from './TerminalCard';
-import { stackWindow, turnPage, type StackWindow } from './stackWindow';
 import { setStackPositions } from './stackPositions';
-import { useViewKeys } from './terminalShortcuts';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -15,21 +13,11 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
   const visible = useVisibleStack(projectPath);
   const memberCount = useTerminalStore((s) => s.terminalsByProject[projectPath]?.length ?? 0);
   const tagFilter = useTagFilter(projectPath);
-  const activeId = visible[0];
-
-  // A page asked for by hand, until the active terminal changes.
-  const [page, setPage] = useState<{ page: number; activeId: string | undefined } | null>(null);
-  const shown = stackWindow(visible, activeId, page && page.activeId === activeId ? page.page : null);
-  const backCards = shown.ids.slice(1);
+  const backCards = visible.slice(1);
 
   useEffect(() => {
     setStackPositions([...backCards].reverse());
     return () => setStackPositions([]);
-  });
-
-  useViewKeys({
-    arrowleft: (e) => e.shiftKey && pageTo(shown, -1, activeId, setPage),
-    arrowright: (e) => e.shiftKey && pageTo(shown, 1, activeId, setPage),
   });
 
   const stackTop = 82 + backCards.length * 24;
@@ -53,7 +41,7 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
         />
       )}
 
-      {shown.ids.map((ptyId, depth) => (
+      {visible.map((ptyId, depth) => (
         <TerminalCard
           key={ptyId}
           ptyId={ptyId}
@@ -61,24 +49,8 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
           stackPosition={depth === 0 ? undefined : backCards.length - depth + 1}
         />
       ))}
-
-      {shown.pageCount > 1 && (
-        <Pagination shown={shown} onTurn={(direction) => pageTo(shown, direction, activeId, setPage)} />
-      )}
     </div>
   );
-}
-
-function pageTo(
-  shown: StackWindow,
-  direction: -1 | 1,
-  activeId: string | undefined,
-  setPage: (page: { page: number; activeId: string | undefined }) => void,
-): boolean {
-  const next = turnPage(shown, direction);
-  if (next == null) return false;
-  setPage({ page: next, activeId });
-  return true;
 }
 
 // ── Filtered empty state ─────────────────────────────────────────────
@@ -137,70 +109,6 @@ function EmptyState() {
           Board
         </span>
       </div>
-    </div>
-  );
-}
-
-// ── Pagination ───────────────────────────────────────────────────────
-
-function Pagination({ shown, onTurn }: { shown: StackWindow; onTurn: (direction: -1 | 1) => void }) {
-  const { page, pageCount: totalPages } = shown;
-
-  return (
-    <div
-      className="project-stack-pagination fixed z-[150] flex items-center gap-1.5"
-      style={{
-        top: 58,
-        left: 'calc(var(--sidebar-offset, 0px) + (100% - var(--sidebar-offset, 0px)) / 2)',
-        transition: 'left 0.2s ease-out',
-        transform: 'translateX(-50%)',
-      }}
-    >
-      <button
-        className="w-6 h-6 flex items-center justify-center bg-transparent border-none rounded text-ink/35 transition-colors duration-150 ease-out hover:text-ink/70"
-        style={{ visibility: page > 0 ? 'visible' : 'hidden' }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onTurn(-1);
-        }}
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
-      </button>
-      <span className="project-stack-page-indicator text-xs font-mono text-ink/35">
-        {page + 1} / {totalPages}
-      </span>
-      <button
-        className="w-6 h-6 flex items-center justify-center bg-transparent border-none rounded text-ink/35 transition-colors duration-150 ease-out hover:text-ink/70"
-        style={{ visibility: page < totalPages - 1 ? 'visible' : 'hidden' }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onTurn(1);
-        }}
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-      </button>
     </div>
   );
 }
