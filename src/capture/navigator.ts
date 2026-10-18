@@ -35,7 +35,7 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     projectPath,
     taskId: seed.taskId,
     label: seed.label,
-    summaryType: seed.summaryType ?? 'ready',
+    status: seed.status ?? 'ready',
     worktreeBranch: seed.worktreeBranch ?? null,
     sandboxProvider: seed.sandboxProvider,
   });
@@ -48,7 +48,7 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     worktreeBranch: seed.worktreeBranch,
     worktreePath: seed.worktreePath,
     ptyId: seed.ptyId,
-    initialSummaryType: seed.summaryType ?? 'ready',
+    initialStatus: seed.status ?? 'ready',
   });
   term.openTerminal();
   // Before the body mounts: it reads the ratio once, for its initial state, and

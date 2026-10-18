@@ -15,7 +15,7 @@ import type { PtyId, PtySpawnOptions, GitFileStatus, SandboxProviderId } from '.
 import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
-import { useTerminalStore } from '../../stores/terminalStore';
+import { useTerminalStore, type TerminalStatus } from '../../stores/terminalStore';
 import { diffBaseSettingKey } from '../../diffSource';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
@@ -26,8 +26,6 @@ import { terminalInstances } from './terminalRegistry';
 const IDLE_FALLBACK_MS = 3000;
 const READY_DEFERRAL_MS = 5_000;
 const SIDE_EFFECT_THROTTLE_MS = 250;
-
-export type SummaryType = 'thinking' | 'ready' | 'success' | 'error';
 
 export interface TerminalOptions {
   ptyId?: PtyId;
@@ -42,7 +40,7 @@ export interface TerminalOptions {
   mergeTarget?: string;
   tags?: string[];
   isRunner?: boolean;
-  initialSummaryType?: SummaryType;
+  initialStatus?: TerminalStatus;
   /**
    * When true, this terminal closes itself after a short grace period when its
    * underlying command exits with code 0. The exit signal comes from OSC 133;D
@@ -389,7 +387,7 @@ export class OuijitTerminal {
 
   // ── Display state (plain values, pushed to Zustand) ────────────────
   label: string;
-  summaryType: SummaryType;
+  private status: TerminalStatus;
   gitFileStatus: GitFileStatus | null = null;
   lastOscTitle = '';
   tags: string[];
@@ -462,7 +460,7 @@ export class OuijitTerminal {
     void restoreDiffBase(this);
 
     this.label = opts.label;
-    this.summaryType = opts.initialSummaryType ?? 'ready';
+    this.status = opts.initialStatus ?? 'ready';
     this.tags = opts.tags ?? [];
 
     this.xterm = new XTerminal({
@@ -509,6 +507,13 @@ export class OuijitTerminal {
   pushDisplayState(patch: Record<string, unknown>): void {
     if (!this.ptyId) return;
     useTerminalStore.getState().updateDisplay(this.ptyId, patch);
+  }
+
+  private setStatus(next: TerminalStatus): boolean {
+    if (this.status === next) return false;
+    this.status = next;
+    this.pushDisplayState({ status: next, statusSince: Date.now() });
+    return true;
   }
 
   setProjectNameGetter(getter: () => string): void {
@@ -867,16 +872,12 @@ export class OuijitTerminal {
         this.idleTimer = null;
       }
 
-      if (this.summaryType !== 'thinking') {
-        this.hookThinkingCount = 0;
-        this.summaryType = 'thinking';
-        this.pushDisplayState({ summaryType: 'thinking' });
-      }
+      if (this.setStatus('thinking')) this.hookThinkingCount = 0;
 
       this.hookThinkingCount++;
       this.resetIdleTimer();
     } else {
-      if (this.hookThinkingCount > 1 && this.summaryType === 'thinking') {
+      if (this.hookThinkingCount > 1 && this.status === 'thinking') {
         if (this.idleTimer) {
           clearTimeout(this.idleTimer);
           this.idleTimer = null;
@@ -884,13 +885,11 @@ export class OuijitTerminal {
         this.clearReadyDeferral();
         this.readyDeferralTimer = setTimeout(() => {
           this.readyDeferralTimer = null;
-          if (this.summaryType !== 'thinking') return;
+          if (this.status !== 'thinking') return;
           if (this.idleTimer) clearTimeout(this.idleTimer);
           this.idleTimer = setTimeout(() => {
             this.idleTimer = null;
-            if (this.summaryType === 'thinking') {
-              this.summaryType = 'ready';
-              this.pushDisplayState({ summaryType: 'ready' });
+            if (this.status === 'thinking' && this.setStatus('ready')) {
               const projectName = this.getProjectName?.() ?? 'Ouijit';
               notifyReady(projectName, readyBody(this.label, this.lastOscTitle));
             }
@@ -900,9 +899,7 @@ export class OuijitTerminal {
         return;
       }
 
-      if (this.summaryType !== 'ready') {
-        this.summaryType = 'ready';
-        this.pushDisplayState({ summaryType: 'ready' });
+      if (this.setStatus('ready')) {
         const projectName = this.getProjectName?.() ?? 'Ouijit';
         notifyReady(projectName, readyBody(this.label, this.lastOscTitle));
       }
@@ -974,19 +971,15 @@ export class OuijitTerminal {
   /**
    * Apply an exit-code-driven status flip. Used by both the PTY-exit path
    * (`wireExitHandler`) and the OSC 133;D in-shell path (`handleCommandExit`).
-   * Only the status dot (`summaryType`) reflects the exit code; the PTY-exit
+   * Only the status dot reflects the exit code; the PTY-exit
    * path additionally sets the `exited: true` flag. We don't surface a textual
    * "Done" / "Exit N" suffix in the header — the dot carries that signal, and
    * the suffix only collided with the OSC title the shell/agent renders.
    */
   private applyExitState(exitCode: number, opts: { isPtyExit: boolean }): void {
-    const nextType: SummaryType = exitCode === 0 ? 'success' : 'error';
-    if (this.summaryType !== nextType) {
-      this.summaryType = nextType;
-      this.pushDisplayState(opts.isPtyExit ? { summaryType: nextType, exited: true } : { summaryType: nextType });
-    } else if (opts.isPtyExit) {
-      this.pushDisplayState({ exited: true });
-    }
+    const nextType: TerminalStatus = exitCode === 0 ? 'success' : 'error';
+    this.setStatus(nextType);
+    if (opts.isPtyExit) this.pushDisplayState({ exited: true });
     this.maybeScheduleAutoClose(exitCode);
   }
 
@@ -1096,17 +1089,14 @@ export class OuijitTerminal {
   // ── Idle timer ──────────────────────────────────────────────────────
 
   private resetIdleTimer(): void {
-    if (this.summaryType !== 'thinking') return;
+    if (this.status !== 'thinking') return;
 
     if (this.hookThinkingCount > 1 && !this.idleTimer) return;
 
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = setTimeout(() => {
       this.idleTimer = null;
-      if (this.summaryType === 'thinking') {
-        this.summaryType = 'ready';
-        this.pushDisplayState({ summaryType: 'ready' });
-      }
+      if (this.status === 'thinking') this.setStatus('ready');
       this.hookThinkingCount = 0;
     }, IDLE_FALLBACK_MS);
   }

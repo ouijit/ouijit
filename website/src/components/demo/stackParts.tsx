@@ -15,7 +15,7 @@ export type PanelKind = 'plan' | 'preview' | 'diff';
 export interface StackTerminal {
   ptyId: string;
   label: string;
-  summaryType: string;
+  status: string;
   lastOscTitle: string;
   branch?: string;
   sandboxed?: boolean;
@@ -27,7 +27,7 @@ export const STACK_TERMINALS: StackTerminal[] = Object.values(featuresTerminalsB
   .map((t) => ({
     ptyId: t.ptyId,
     label: t.label,
-    summaryType: t.summaryType,
+    status: t.status,
     lastOscTitle: t.lastOscTitle ?? '',
     branch: FEATURES_BRANCHES[t.ptyId],
   }));

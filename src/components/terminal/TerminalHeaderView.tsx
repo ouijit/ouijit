@@ -9,7 +9,7 @@ const METADATA_CHIP =
   'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-ink/55 bg-ink/[0.05] rounded-full px-2 py-0.5 shrink-0';
 
 export interface TerminalHeaderViewProps {
-  summaryType: string;
+  status: string;
   sandboxProvider?: SandboxProviderId;
   stackPosition?: number;
   isActive?: boolean;
@@ -42,7 +42,7 @@ export interface TerminalHeaderViewProps {
  * copy under website/src/ouijit-ui/, so the two can diverge independently.
  */
 export function TerminalHeaderView({
-  summaryType,
+  status,
   sandboxProvider,
   stackPosition,
   isActive = false,
@@ -75,7 +75,7 @@ export function TerminalHeaderView({
           {/* overflow-hidden keeps rigid identity content (label, tag pills) from
               bleeding over the actions area when the header runs out of room. */}
           <div className="group/meta flex items-center gap-2 min-w-0 overflow-hidden">
-            <StatusDot summaryType={summaryType} sandboxProvider={sandboxProvider} />
+            <StatusDot status={status} sandboxProvider={sandboxProvider} />
             {!isActive && stackPosition != null && stackPosition <= 9 && (
               <kbd className="inline-flex items-center font-mono text-base text-ink/40 shrink-0">
                 {isMac ? '⌘' : '⌃'}

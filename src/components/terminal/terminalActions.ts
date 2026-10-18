@@ -16,11 +16,11 @@ import type {
   SandboxBackendId,
 } from '../../types';
 import { isActiveSandbox } from '../../types';
-import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
+import { useTerminalStore, type TerminalDisplayState, type TerminalStatus } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore } from '../../stores/appStore';
-import { OuijitTerminal, resolveTerminalLabel, type SummaryType } from './terminalReact';
+import { OuijitTerminal, resolveTerminalLabel } from './terminalReact';
 import { terminalInstances, restoreTerminalOnce } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
 import { generateId } from '../../utils/ids';
@@ -161,7 +161,10 @@ function registerTerminal(
 
   if (replaceLoadingId) {
     useTerminalStore.getState().rekeyTerminal(replaceLoadingId, ptyId);
-    useTerminalStore.getState().updateDisplay(ptyId, { ...initial, isLoading: false });
+    const now = Date.now();
+    useTerminalStore
+      .getState()
+      .updateDisplay(ptyId, { statusSince: now, lastViewedAt: now, ...initial, isLoading: false });
   } else {
     useTerminalStore.getState().addTerminal(projectPath, ptyId, initial, { background });
   }
@@ -406,7 +409,7 @@ export function closeProjectTerminal(ptyId: string): void {
 
 export async function reconnectTerminal(
   session: ActiveSession,
-  opts: { worktreeBranch?: string; mergeTarget?: string; initialStatus?: SummaryType; label?: string } = {},
+  opts: { worktreeBranch?: string; mergeTarget?: string; initialStatus?: TerminalStatus; label?: string } = {},
 ): Promise<OuijitTerminal | null> {
   const label = opts.label ?? session.label;
   const term = new OuijitTerminal({
@@ -419,7 +422,7 @@ export async function reconnectTerminal(
     worktreePath: session.worktreePath,
     worktreeBranch: opts.worktreeBranch,
     mergeTarget: opts.mergeTarget,
-    initialSummaryType: opts.initialStatus,
+    initialStatus: opts.initialStatus,
   });
 
   term.openTerminal();
@@ -448,7 +451,7 @@ export async function reconnectTerminal(
       sandboxProvider: session.sandboxProvider,
       taskId: session.taskId ?? null,
       worktreeBranch: opts.worktreeBranch ?? null,
-      summaryType: opts.initialStatus ?? 'ready',
+      status: opts.initialStatus ?? 'ready',
     },
     /* background */ true,
   );
@@ -765,7 +768,7 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
       }
 
       const hookStatus = await window.api.agentHooks.getStatus(session.ptyId);
-      const initialStatus: SummaryType = hookStatus?.status === 'thinking' ? 'thinking' : 'ready';
+      const initialStatus: TerminalStatus = hookStatus?.status === 'thinking' ? 'thinking' : 'ready';
 
       const snapEntry = snapByPtyId.get(session.ptyId);
       const term = await reconnectTerminal(session, {

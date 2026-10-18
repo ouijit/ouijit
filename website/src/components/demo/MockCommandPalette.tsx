@@ -42,7 +42,7 @@ interface Item {
   action: string;
   hint?: string;
   leading: ReactNode;
-  children?: { key: string; title: string; summaryType: string }[];
+  children?: { key: string; title: string; status: string }[];
 }
 
 const TERMINALS = Object.values(featuresTerminalsByTask).flat();
@@ -58,7 +58,7 @@ const ITEMS: Item[] = [
       hint: t.lastOscTitle ?? undefined,
       context: PROJECT.name,
       action: 'Focus terminal',
-      leading: <StatusDot summaryType={t.summaryType} />,
+      leading: <StatusDot status={t.status} />,
     }),
   ),
   {
@@ -88,7 +88,7 @@ const ITEMS: Item[] = [
       children: (featuresTerminalsByTask[task.taskNumber] ?? []).map((t) => ({
         key: t.ptyId,
         title: t.lastOscTitle || t.label,
-        summaryType: t.summaryType,
+        status: t.status,
       })),
     }),
   ),
@@ -133,7 +133,7 @@ function highlight(text: string, ranges: MatchRange[] | undefined): ReactNode {
 interface Row {
   key: string;
   item: Item;
-  child?: { key: string; title: string; summaryType: string };
+  child?: { key: string; title: string; status: string };
   last?: boolean;
   ranges?: MatchRange[];
 }
@@ -243,7 +243,7 @@ export function MockCommandPalette({ onClose }: { onClose: () => void }) {
                     <PaletteBranchRow
                       key={row.key}
                       title={row.child.title}
-                      summaryType={row.child.summaryType}
+                      status={row.child.status}
                       last={!!row.last}
                       selected={on}
                       rowRef={on ? selectedRef : undefined}

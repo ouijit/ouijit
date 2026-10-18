@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useTerminalStore, useTagFilter, useVisibleStack } from '../../stores/terminalStore';
+import { useTerminalStore, useTagFilter, useViewedStack, useVisibleStack } from '../../stores/terminalStore';
 import { TerminalCard } from './TerminalCard';
 import { setStackPositions } from './stackPositions';
 
@@ -14,6 +14,7 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
   const memberCount = useTerminalStore((s) => s.terminalsByProject[projectPath]?.length ?? 0);
   const tagFilter = useTagFilter(projectPath);
   const backCards = visible.slice(1);
+  useViewedStack(projectPath);
 
   useEffect(() => {
     setStackPositions([...backCards].reverse());

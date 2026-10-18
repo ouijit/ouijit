@@ -461,7 +461,7 @@ function RoundTripTerminal({ p, depth, tip }: { p: (k: string) => number; depth:
   return (
     <>
       <TerminalHeaderView
-        summaryType={fixing && !fixed && !receded ? 'thinking' : 'ready'}
+        status={fixing && !fixed && !receded ? 'thinking' : 'ready'}
         isActive={!receded}
         isBackCard={receded}
         stackPosition={receded ? depth : undefined}

@@ -4,7 +4,7 @@ import type { SandboxProviderId } from '../../types';
 import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
 
 interface StatusDotProps {
-  summaryType: string;
+  status: string;
   sandboxProvider?: SandboxProviderId;
   size?: number;
 }
@@ -67,15 +67,15 @@ export function SandboxRing({
   );
 }
 
-export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotProps) {
-  const isThinking = summaryType === 'thinking';
-  const background = COLORS[summaryType] ?? COLORS.ready;
-  const label = LABELS[summaryType] ?? LABELS.ready;
+export function StatusDot({ status, sandboxProvider, size = 6 }: StatusDotProps) {
+  const isThinking = status === 'thinking';
+  const background = COLORS[status] ?? COLORS.ready;
+  const label = LABELS[status] ?? LABELS.ready;
   const sandboxed = isActiveSandbox(sandboxProvider);
   const tooltipText = sandboxed ? `${label} · ${SANDBOX_BACKEND_LABELS[sandboxProvider]}` : label;
   return (
     <Tooltip text={tooltipText} placement="top" delay={300}>
-      <SandboxRing sandboxed={sandboxed} size={size} status={summaryType}>
+      <SandboxRing sandboxed={sandboxed} size={size} status={status}>
         {isThinking ? (
           <ThinkingGrid color={background} />
         ) : (

@@ -6,6 +6,7 @@ import {
   activateTerminal,
   useTagFilter,
   useTerminalStore,
+  useViewedStack,
   useVisibleStack,
   visibleStack,
   type TerminalDisplayState,
@@ -100,6 +101,7 @@ export function HomeView() {
   const tagFilter = useTagFilter(HOME_STACK);
   const displayStates = useTerminalStore((s) => s.displayStates);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
+  useViewedStack(HOME_STACK);
 
   useTerminalView({
     stack: HOME_STACK,

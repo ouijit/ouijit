@@ -308,7 +308,7 @@ export default function AppWindowScene() {
                         onClick={isActive ? undefined : () => bringToFront(term.ptyId)}
                       >
                         <TerminalHeaderView
-                          summaryType={term.summaryType}
+                          status={term.status}
                           sandboxed={term.sandboxed}
                           isActive={isActive}
                           isBackCard={!isActive}
