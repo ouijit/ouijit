@@ -82,6 +82,13 @@ type OuijitFixtures = {
   userDataDir: string;
 };
 
+export function launchApp(userDataDir: string): Promise<ElectronApplication> {
+  return _electron.launch({
+    args: [path.resolve(__dirname, '..', '.vite-e2e', 'build', 'main.js'), '--no-sandbox'],
+    env: { ...process.env, OUIJIT_TEST_USER_DATA: userDataDir, OUIJIT_E2E: '1' },
+  });
+}
+
 export const test = base.extend<OuijitFixtures>({
   testRepo: async ({}, use) => {
     const repo = createTestRepo();
@@ -96,16 +103,7 @@ export const test = base.extend<OuijitFixtures>({
   },
 
   electronApp: async ({ userDataDir }, use) => {
-    const mainScript = path.resolve(__dirname, '..', '.vite-e2e', 'build', 'main.js');
-
-    const electronApp = await _electron.launch({
-      args: [mainScript, '--no-sandbox'],
-      env: {
-        ...process.env,
-        OUIJIT_TEST_USER_DATA: userDataDir,
-        OUIJIT_E2E: '1',
-      },
-    });
+    const electronApp = await launchApp(userDataDir);
 
     await use(electronApp);
 
