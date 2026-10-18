@@ -14,11 +14,15 @@ const external = [
   ...builtinModules.map((m) => [m, `node:${m}`]).flat(),
 ];
 
+// Not `.vite`: electron-forge writes its dev build there on every `npm start`
+// (which `npm run capture` runs), and fixtures.ts launches from this one.
+const outRoot = '.vite-e2e';
+
 // Build main process
 await build({
   configFile: 'vite.main.config.ts',
   build: {
-    outDir: '.vite/build',
+    outDir: `${outRoot}/build`,
     emptyOutDir: false,
     lib: {
       entry: 'src/main.ts',
@@ -45,7 +49,7 @@ await build({
 await build({
   configFile: 'vite.preload.config.ts',
   build: {
-    outDir: '.vite/build',
+    outDir: `${outRoot}/build`,
     emptyOutDir: false,
     lib: {
       entry: 'src/preload.ts',
@@ -65,7 +69,7 @@ await build({
   root: '.',
   base: './',
   build: {
-    outDir: '.vite/renderer/main_window',
+    outDir: `${outRoot}/renderer/main_window`,
     emptyOutDir: true,
     minify: false,
   },

@@ -71,7 +71,7 @@ export const test = base.extend<OuijitFixtures>({
   },
 
   electronApp: async ({ userDataDir }, use) => {
-    const mainScript = path.resolve(__dirname, '..', '.vite', 'build', 'main.js');
+    const mainScript = path.resolve(__dirname, '..', '.vite-e2e', 'build', 'main.js');
 
     const electronApp = await _electron.launch({
       args: [mainScript, '--no-sandbox'],
