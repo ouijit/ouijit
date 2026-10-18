@@ -250,7 +250,7 @@ export function TitleBar({ mode }: TitleBarProps) {
               </TooltipButton>
               <TagFilterControl
                 variant="segment"
-                title="Group or filter by tag"
+                label="Group or filter by tag"
                 tags={homeTags}
                 value={homeTagFilter}
                 active={homeActivePanel !== 'settings' && homeGroupMode === 'tag'}
