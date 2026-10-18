@@ -1,5 +1,6 @@
 import { type MouseEvent, type ReactNode, Fragment } from 'react';
 import type { SandboxProviderId } from '../../types';
+import type { TerminalStatus } from '../../stores/terminalDisplay';
 import { Icon } from './Icon';
 import { StatusDot } from './StatusDot';
 
@@ -9,7 +10,7 @@ const METADATA_CHIP =
   'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-ink/55 bg-ink/[0.05] rounded-full px-2 py-0.5 shrink-0';
 
 export interface TerminalHeaderViewProps {
-  status: string;
+  status: TerminalStatus;
   sandboxProvider?: SandboxProviderId;
   stackPosition?: number;
   isActive?: boolean;

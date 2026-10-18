@@ -18,7 +18,7 @@
 
 import type { ActiveSession, Project, PullRequestSummary, SandboxProviderId, TaskWithWorkspace } from '../../types';
 import type { LinearIssueSummary } from '../../linear/types';
-import type { TerminalDisplayState } from '../../stores/terminalStore';
+import type { TerminalDisplayState, TerminalStatus } from '../../stores/terminalStore';
 import type { SearchField } from '../../utils/paletteScore';
 import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
@@ -60,7 +60,7 @@ export interface PaletteItem {
   meta?: string;
   dimmed?: boolean;
   /** Present when a live shell backs the row; renders as the leading dot. */
-  shell?: { status: string; sandboxProvider?: SandboxProviderId };
+  shell?: { status: TerminalStatus; sandboxProvider?: SandboxProviderId };
   /**
    * Id of the task row this one hangs under. Set on a task's live shells, which
    * render as branch children the way they do on a kanban card. Ranking scores
@@ -103,7 +103,7 @@ interface LiveTerminal {
   tags: string[];
   branch: string | null;
   exited: boolean;
-  status: string;
+  status: TerminalStatus;
   sandboxProvider?: SandboxProviderId;
   /** Active project first, then hydrated, then merely live. */
   rank: number;
