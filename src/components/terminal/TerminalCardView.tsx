@@ -36,7 +36,6 @@ const DEPTH_STYLES: Record<number, DepthStyle> = {
   },
 };
 
-/** Past the styled depths, each card sits one more step up and in. */
 function depthStyle(depth: number): DepthStyle {
   return (
     DEPTH_STYLES[depth] ?? {

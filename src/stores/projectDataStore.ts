@@ -120,7 +120,6 @@ function patchConfig(projectPath: string, patch: (config: ProjectConfig) => Part
   if (config) setConfig(projectPath, { ...config, ...patch(config) });
 }
 
-/** What a CLI mutation touched, refetched for whichever project it was. */
 export function refreshProjectData(projectPath: string, resource: string): void {
   const { configByProject, scriptsByProject } = useProjectDataStore.getState();
   if (resource === 'scripts') {
@@ -172,7 +171,6 @@ export async function reorderScripts(projectPath: string, reordered: Script[]): 
 
 let moveCounter = 0;
 
-/** Move a task with an optimistic update, rolled back if the write fails. */
 export async function moveTask(
   projectPath: string,
   taskNumber: number,

@@ -8,7 +8,8 @@ import Docs from '../../layouts/Docs.astro';
   <h2>Card stack</h2>
   <p>
     Each terminal runs your default shell in the task's worktree. Click a background card to
-    bring it forward. When an agent runs in a card, its status (thinking or idle) shows on the card even when it
+    bring it forward. Cards stay in the order you last used them, so the one you just left is directly behind
+    the one in front, and the least recent move to later pages. When an agent runs in a card, its status (thinking or idle) shows on the card even when it
     is behind others. See <a href="/docs/harnesses/">Harnesses</a>.
   </p>
 
@@ -35,8 +36,8 @@ import Docs from '../../layouts/Docs.astro';
   <p>
     The home view shows every live terminal across all projects in one stack, grouped by project. Click a
     group's tab to bring it forward. Terminals that don't belong to a registered project appear as
-    <strong>Shell</strong>. Press <code>⌘T</code> there to group by tag instead, and <code>⌘I</code> to open a
-    shell in your home directory.
+    <strong>Shell</strong>. The terminal shortcuts work here too, and act on the card in front. Press
+    <code>⌘T</code> to group by tag instead, and <code>⌘I</code> to open a shell in your home directory.
   </p>
   <p>
     When nothing is running, the home view offers to <a href="/docs/resume/">resume your last session</a> and lists

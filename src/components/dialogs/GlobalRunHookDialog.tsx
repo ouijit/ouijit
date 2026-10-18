@@ -2,7 +2,6 @@ import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { RunHookDialog } from './RunHookDialog';
 
-/** Concurrent hook prompts queue up and are shown one at a time as a stepper. */
 export function GlobalRunHookDialog() {
   const queue = useProjectStore((s) => s.runHookQueue);
   const total = useProjectStore((s) => s.runHookQueueTotal);

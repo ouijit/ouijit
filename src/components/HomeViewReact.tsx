@@ -21,7 +21,6 @@ import { stringToColor, getInitials } from '../utils/projectIcon';
 import { RecentTasksPanel } from './RecentTasksPanel';
 import { ResumeBanner } from './ResumeBanner';
 
-/** Inline depth positioning for the group dividers between cards */
 function getDepthStyle(depth: number): React.CSSProperties {
   return {
     position: 'absolute',

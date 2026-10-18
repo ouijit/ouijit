@@ -84,7 +84,6 @@ interface ProjectStoreActions {
   toggleTaskSelection: (taskNumber: number) => void;
   selectTaskRange: (taskNumber: number, orderedTaskNumbers: number[]) => void;
   clearSelection: () => void;
-  /** Drop selected tasks that are no longer in the board's list. */
   pruneSelection: (tasks: TaskWithWorkspace[]) => void;
 
   /** Mark a task as starting (worktree being created). Does not depend on any view being mounted. */

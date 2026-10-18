@@ -16,7 +16,6 @@ export type ViewKeyHandler = (e: KeyboardEvent) => boolean | void;
 /** What the terminal shortcuts act on in the view on screen. */
 export interface TerminalView {
   stack: string;
-  /** Where a new shell opens. */
   shellPath: () => string | Promise<string>;
   /** The terminal ⌘W, ⌘P and ⌘D act on, when it isn't the stack's active one. */
   activeTerminal?: () => string | undefined;
