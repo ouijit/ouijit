@@ -6,6 +6,7 @@ import { openInEntry, moveToEntry, trackerEntries, STATUS_LABELS, type TaskMenuA
 import { completeTask } from '../../services/taskCompletion';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { getProjectTasks, loadTasks } from '../../stores/projectDataStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { Icon } from '../terminal/Icon';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
@@ -149,14 +150,14 @@ export const KanbanCard = memo(function KanbanCard({
         setStatus: async (status) => {
           const selected = [...useProjectStore.getState().selectedTaskNumbers];
           await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, status)));
-          useProjectStore.getState().loadTasks(projectPath);
+          loadTasks(projectPath);
           useProjectStore.getState().clearSelection();
           useProjectStore.getState().addToast(`Moved ${selected.length} tasks to ${STATUS_LABELS[status]}`, 'success');
         },
         trash: async () => {
           const selected = [...useProjectStore.getState().selectedTaskNumbers];
           await Promise.allSettled(selected.map((n) => window.api.task.trash(projectPath, n)));
-          useProjectStore.getState().loadTasks(projectPath);
+          loadTasks(projectPath);
           useProjectStore.getState().clearSelection();
           useProjectStore.getState().addToast(`Moved ${selected.length} tasks to trash`, 'success');
         },
@@ -170,7 +171,7 @@ export const KanbanCard = memo(function KanbanCard({
           onClick: () => {
             const store = useProjectStore.getState();
             const selected = [...store.selectedTaskNumbers];
-            const tasks = store.tasks.filter((t) => selected.includes(t.taskNumber));
+            const tasks = getProjectTasks(projectPath).filter((t) => selected.includes(t.taskNumber));
             for (const t of tasks) onOpenTerminal(t, 'none');
             store.clearSelection();
           },
@@ -197,12 +198,12 @@ export const KanbanCard = memo(function KanbanCard({
       openFolder: () => void revealInFileManager(task.worktreePath!),
       setStatus: async (status) => {
         await window.api.task.setStatus(projectPath, task.taskNumber, status);
-        useProjectStore.getState().loadTasks(projectPath);
+        loadTasks(projectPath);
       },
       completeToDone: () => void completeTask({ projectPath, task }),
       trash: async () => {
         await window.api.task.trash(projectPath, task.taskNumber);
-        useProjectStore.getState().loadTasks(projectPath);
+        loadTasks(projectPath);
         useProjectStore.getState().addToast('Task moved to trash', 'success');
       },
     };
@@ -345,7 +346,7 @@ export const KanbanCard = memo(function KanbanCard({
           onClose={(created) => {
             setBranchFromDialog(false);
             if (created) {
-              useProjectStore.getState().loadTasks(projectPath);
+              loadTasks(projectPath);
             }
           }}
         />
@@ -440,7 +441,7 @@ function DraggableBadge({
               useProjectStore.getState().clearChainHighlights();
               const mainBranch = await window.api.worktree.getMainBranch(projectPath);
               await window.api.task.setParent(projectPath, task.taskNumber, null, mainBranch);
-              useProjectStore.getState().loadTasks(projectPath);
+              loadTasks(projectPath);
             } finally {
               detachingRef.current = false;
             }

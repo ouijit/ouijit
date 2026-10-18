@@ -4,7 +4,7 @@ import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
-import { useTerminalStore, collectActiveTags } from '../stores/terminalStore';
+import { HOME_STACK, collectActiveTags, useTagFilter, useTerminalStore } from '../stores/terminalStore';
 import { Icon } from './terminal/Icon';
 import { TagFilterControl } from './terminal/TagFilterControl';
 import { addProjectTerminal } from './terminal/terminalActions';
@@ -44,8 +44,8 @@ export function TitleBar({ mode }: TitleBarProps) {
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const sidebarPinned = useUIStore((s) => s.sidebarPinned);
   const paletteOpen = useUIStore((s) => s.paletteOpen);
-  const tagFilter = useProjectStore((s) => s.tagFilter);
-  const homeTagFilter = useUIStore((s) => s.homeTagFilter);
+  const tagFilter = useTagFilter(activeProjectPath ?? '');
+  const homeFilter = useTagFilter(HOME_STACK);
   const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
   const displayStates = useTerminalStore((s) => s.displayStates);
 
@@ -53,11 +53,7 @@ export function TitleBar({ mode }: TitleBarProps) {
     () => (activeProjectPath ? collectActiveTags(terminalsByProject[activeProjectPath] ?? [], displayStates) : []),
     [activeProjectPath, terminalsByProject, displayStates],
   );
-  const homeTags = useMemo(() => {
-    const all: string[] = [];
-    for (const ids of Object.values(terminalsByProject)) all.push(...ids);
-    return collectActiveTags(all, displayStates);
-  }, [terminalsByProject, displayStates]);
+  const homeTags = useMemo(() => collectActiveTags(Object.keys(displayStates), displayStates), [displayStates]);
 
   const handleToggleView = useCallback(
     (view: 'board' | 'stack' | 'canvas' | 'settings' | 'pull-requests' | 'analysis') => {
@@ -212,8 +208,8 @@ export function TitleBar({ mode }: TitleBarProps) {
                   value={tagFilter}
                   active={tagFilter != null}
                   allSelected={tagFilter == null}
-                  onSelectAll={() => useProjectStore.getState().setTagFilter(null)}
-                  onSelectTag={(t) => useProjectStore.getState().setTagFilter(t)}
+                  onSelectAll={() => useTerminalStore.getState().setTagFilter(activeProjectPath, null)}
+                  onSelectTag={(t) => useTerminalStore.getState().setTagFilter(activeProjectPath, t)}
                 />
                 <Tooltip text="New terminal" placement="bottom">
                   <button
@@ -252,18 +248,18 @@ export function TitleBar({ mode }: TitleBarProps) {
                 variant="segment"
                 label="Group or filter by tag"
                 tags={homeTags}
-                value={homeTagFilter}
+                value={homeFilter}
                 active={homeActivePanel !== 'settings' && homeGroupMode === 'tag'}
-                allSelected={homeGroupMode === 'tag' && homeTagFilter == null}
+                allSelected={homeGroupMode === 'tag' && homeFilter == null}
                 onSelectAll={() => {
                   useAppStore.getState().setHomeActivePanel('home');
                   useUIStore.getState().setHomeGroupMode('tag');
-                  useUIStore.getState().setHomeTagFilter(null);
+                  useTerminalStore.getState().setTagFilter(HOME_STACK, null);
                 }}
                 onSelectTag={(t) => {
                   useAppStore.getState().setHomeActivePanel('home');
                   useUIStore.getState().setHomeGroupMode('tag');
-                  useUIStore.getState().setHomeTagFilter(t);
+                  useTerminalStore.getState().setTagFilter(HOME_STACK, t);
                 }}
               />
               <TooltipButton

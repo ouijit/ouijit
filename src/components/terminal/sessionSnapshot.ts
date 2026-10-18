@@ -6,7 +6,7 @@
 
 import log from 'electron-log/renderer';
 import { useAppStore } from '../../stores/appStore';
-import { useTerminalStore } from '../../stores/terminalStore';
+import { stackMembers, useTerminalStore } from '../../stores/terminalStore';
 import { type OuijitTerminal } from './terminalReact';
 import { terminalInstances } from './terminalRegistry';
 import {
@@ -65,27 +65,27 @@ export function gatherSnapshot(): LastSessionSnapshot {
   const appStore = useAppStore.getState();
 
   const terminals: SnapshotTerminal[] = [];
+  const projectFronts = new Map<string, string | undefined>();
 
-  for (const [projectPath, ptyIds] of Object.entries(termStore.terminalsByProject)) {
-    const activeIndex = termStore.activeIndices[projectPath] ?? -1;
+  for (const ptyId of termStore.order) {
+    const term = terminalInstances.get(ptyId);
+    if (!term) continue; // pending/disposed instance — skip
+    if (term.isRunner) continue; // runners are restored as state on their parent
+    const projectPath = term.projectPath;
+    if (!projectFronts.has(projectPath)) projectFronts.set(projectPath, stackMembers(termStore, projectPath)[0]);
 
-    ptyIds.forEach((ptyId, ordinalInProject) => {
-      const term = terminalInstances.get(ptyId);
-      if (!term) return; // pending/disposed instance — skip
-      if (term.isRunner) return; // runners are restored as state on their parent
-
-      terminals.push({
-        ptyId: term.ptyId,
-        projectPath,
-        taskNumber: term.taskId,
-        worktreePath: term.worktreePath ?? null,
-        worktreeBranch: term.worktreeBranch ?? null,
-        sandboxProvider: term.sandboxProvider,
-        label: term.label || null,
-        ordinalInProject,
-        isActiveInProject: ordinalInProject === activeIndex,
-        ui: uiFor(term),
-      });
+    terminals.push({
+      ptyId: term.ptyId,
+      projectPath,
+      taskNumber: term.taskId,
+      worktreePath: term.worktreePath ?? null,
+      worktreeBranch: term.worktreeBranch ?? null,
+      sandboxProvider: term.sandboxProvider,
+      label: term.label || null,
+      ordinalInProject: (termStore.terminalsByProject[projectPath] ?? []).indexOf(ptyId),
+      isActiveInProject: projectFronts.get(projectPath) === ptyId,
+      recencyRank: terminals.length,
+      ui: uiFor(term),
     });
   }
 
@@ -201,6 +201,26 @@ export function installSessionAutoSave(): void {
   // terminal's panels — a dropped pending save means they come back bare.
   window.addEventListener('beforeunload', flushSnapshotSave);
   window.addEventListener('pagehide', flushSnapshotSave);
+}
+
+/**
+ * The snapshot's terminals in recency order, front first. A snapshot written
+ * before recency was recorded keeps each project's creation order with its
+ * active terminal in front, and the project that was open ahead of the rest.
+ */
+export function snapshotRecency(snapshot: LastSessionSnapshot): SnapshotTerminal[] {
+  const terminals = snapshot.terminals;
+  if (terminals.every((t) => t.recencyRank != null)) {
+    return [...terminals].sort((a, b) => a.recencyRank! - b.recencyRank!);
+  }
+  const byProject = new Map<string, SnapshotTerminal[]>();
+  if (snapshot.activeProjectPath) byProject.set(snapshot.activeProjectPath, []);
+  for (const t of terminals) byProject.set(t.projectPath, [...(byProject.get(t.projectPath) ?? []), t]);
+  return [...byProject.values()].flatMap((list) =>
+    [...list].sort(
+      (a, b) => Number(b.isActiveInProject) - Number(a.isActiveInProject) || a.ordinalInProject - b.ordinalInProject,
+    ),
+  );
 }
 
 // ── Read on launch ───────────────────────────────────────────────────

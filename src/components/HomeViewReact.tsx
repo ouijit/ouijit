@@ -1,20 +1,26 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ProjectSourceList, openAddProject } from './projectSources';
 import { useAppStore } from '../stores/appStore';
-import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
-import { useUIStore } from '../stores/uiStore';
-import { terminalInstances } from './terminal/terminalRegistry';
-import { reconnectOrphanedSessions, addProjectTerminal, closeProjectTerminal } from './terminal/terminalActions';
-import { TerminalHeader } from './terminal/TerminalHeader';
-import { TerminalBody } from './terminal/TerminalBody';
-import { XTermContainer } from './terminal/XTermContainer';
+import {
+  HOME_STACK,
+  activateTerminal,
+  useTagFilter,
+  useTerminalStore,
+  useVisibleStack,
+  visibleStack,
+  type TerminalDisplayState,
+} from '../stores/terminalStore';
+import { useUIStore, type HomeGroupMode } from '../stores/uiStore';
+import { reconnectOrphanedSessions } from './terminal/terminalActions';
+import { TerminalCard } from './terminal/TerminalCard';
+import { FilteredEmptyState } from './terminal/TerminalCardStack';
+import { setStackPositions } from './terminal/stackPositions';
+import { useTerminalView, useViewKeys } from './terminal/terminalShortcuts';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { RecentTasksPanel } from './RecentTasksPanel';
 import { ResumeBanner } from './ResumeBanner';
-import type { Project } from '../types';
 
-/** Inline depth positioning for home view cards — no CSS class dependency */
 function getDepthStyle(depth: number): React.CSSProperties {
   return {
     position: 'absolute',
@@ -29,270 +35,97 @@ function getDepthStyle(depth: number): React.CSSProperties {
   };
 }
 
+type Divider = {
+  key: string;
+  label: string;
+  kind: 'project' | 'tag';
+  projectPath?: string;
+  depth: number;
+  first: string;
+};
+
+interface HomeLayout {
+  cards: { ptyId: string; depth: number }[];
+  dividers: Divider[];
+  depth: number;
+}
+
+function groupOf(display: TerminalDisplayState, mode: HomeGroupMode): Omit<Divider, 'depth' | 'first'> {
+  if (mode === 'tag') {
+    const tag = display.tags[0] ?? null;
+    return { key: tag ? `tag:${tag.toLowerCase()}` : 'tag:__untagged__', label: tag ?? 'Untagged', kind: 'tag' };
+  }
+  return {
+    key: `project:${display.projectPath}`,
+    label: display.projectPath,
+    kind: 'project',
+    projectPath: display.projectPath,
+  };
+}
+
+/**
+ * The stack under dividers. A group sits where its most recent terminal does,
+ * so the active terminal's group comes first, and its divider lies behind its
+ * last card.
+ */
+function layOut(
+  ordered: string[],
+  displayStates: Record<string, TerminalDisplayState>,
+  mode: HomeGroupMode,
+): HomeLayout {
+  const groups = new Map<string, { group: Omit<Divider, 'depth' | 'first'>; ptyIds: string[] }>();
+  for (const ptyId of ordered) {
+    const display = displayStates[ptyId];
+    if (!display) continue;
+    const group = groupOf(display, mode);
+    const entry = groups.get(group.key) ?? groups.set(group.key, { group, ptyIds: [] }).get(group.key)!;
+    entry.ptyIds.push(ptyId);
+  }
+  const cards: HomeLayout['cards'] = [];
+  const dividers: Divider[] = [];
+  let depth = 0;
+  for (const { group, ptyIds } of groups.values()) {
+    for (const ptyId of ptyIds) cards.push({ ptyId, depth: depth++ });
+    dividers.push({ ...group, depth: depth++, first: ptyIds[0] });
+  }
+  return { cards, dividers, depth: Math.max(depth - 1, 0) };
+}
+
 export function HomeView() {
-  const [projects, setProjects] = useState<Map<string, Project>>(new Map());
   const allProjects = useAppStore((s) => s.projects);
   const projectCount = allProjects.length;
   const homeRecents = useAppStore((s) => s.homeRecents);
-  const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
+  const memberCount = useTerminalStore((s) => s.order.length);
+  const visible = useVisibleStack(HOME_STACK);
+  const tagFilter = useTagFilter(HOME_STACK);
   const displayStates = useTerminalStore((s) => s.displayStates);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
-  const homeTagFilter = useUIStore((s) => s.homeTagFilter);
 
-  const allPtyIds = useMemo(() => {
-    const ids: string[] = [];
-    for (const ptyIds of Object.values(terminalsByProject)) {
-      for (const id of ptyIds) {
-        if (displayStates[id]?.isLoading) continue;
-        if (homeTagFilter && !terminalMatchesTag(displayStates[id], homeTagFilter)) continue;
-        ids.push(id);
-      }
-    }
-    return ids;
-  }, [terminalsByProject, displayStates, homeTagFilter]);
+  useTerminalView({
+    stack: HOME_STACK,
+    shellPath: () => window.api.homePath(),
+    onScreen: () => visibleStack(useTerminalStore.getState(), HOME_STACK),
+  });
 
-  // Front card of the stack. Held in the UI store rather than local state so
-  // the command palette can promote a home-owned session from anywhere; the
-  // depth/recency ordering below still lives here.
-  const activePtyId = useUIStore((s) => s.homeActivePtyId);
-  const setActivePtyId = useUIStore((s) => s.setHomeActivePtyId);
-  const reconnectedRef = useRef(false);
+  useViewKeys({
+    t: () => useUIStore.getState().setHomeGroupMode(homeGroupMode === 'project' ? 'tag' : 'project'),
+  });
 
-  // Stack order: bigger tick = closer to the front. A terminal gets a tick
-  // when it first appears and a fresh one each time it becomes the active
-  // card, so the back stack stays in most-recently-front order — adding or
-  // closing the front card only shifts its neighbors by one depth.
-  const stackTickRef = useRef(0);
-  const stackRecencyRef = useRef(new Map<string, number>());
-
+  // After a renderer reload only the projects visited since are reattached,
+  // and the home stack holds every project's terminals.
   useEffect(() => {
-    if (!activePtyId) return;
-    stackRecencyRef.current.set(activePtyId, ++stackTickRef.current);
-  }, [activePtyId]);
-
-  useEffect(() => {
-    window.api.getProjects().then((projs) => {
-      setProjects(new Map(projs.map((p) => [p.path, p])));
-    });
+    void reconnectOrphanedSessions();
   }, []);
 
-  // Reconnect orphaned sessions across all projects (the home recents stack is
-  // cross-project). Uses the same reconnect path as the project view so panels
-  // and focus restore identically — see reconnectOrphanedSessions.
-  useEffect(() => {
-    if (reconnectedRef.current) return;
-    if (allPtyIds.length > 0) return;
-    reconnectedRef.current = true;
-    void reconnectOrphanedSessions();
-  }, [allPtyIds.length]);
-
-  const activeDisplay = activePtyId ? displayStates[activePtyId] : null;
-
-  type StackItem =
-    | { type: 'terminal'; ptyId: string; depth: number }
-    | { type: 'divider'; key: string; label: string; icon: 'project' | 'tag'; projectPath?: string; depth: number };
-
-  const { stackItems, orderedGroups } = useMemo(() => {
-    type Group = { key: string; label: string; icon: 'project' | 'tag'; projectPath?: string; ptyIds: string[] };
-    const groups: Group[] = [];
-    const seen = new Map<string, number>();
-
-    // Assign appearance ticks so a freshly spawned terminal sorts to the
-    // front of the back stack even before its activation tick lands
-    const recency = stackRecencyRef.current;
-    for (const ptyId of allPtyIds) {
-      if (!recency.has(ptyId)) recency.set(ptyId, ++stackTickRef.current);
-    }
-    const rank = (ptyId: string) => recency.get(ptyId) ?? 0;
-
-    for (const ptyId of allPtyIds) {
-      const display = displayStates[ptyId];
-      if (!display) continue;
-
-      let groupKey: string;
-      let groupLabel: string;
-      let groupIcon: 'project' | 'tag';
-      let projectPath: string | undefined;
-
-      if (homeGroupMode === 'tag') {
-        const tag = display.tags.length > 0 ? display.tags[0] : null;
-        groupKey = tag ? `tag:${tag.toLowerCase()}` : 'tag:__untagged__';
-        groupLabel = tag ?? 'Untagged';
-        groupIcon = 'tag';
-      } else {
-        groupKey = `project:${display.projectPath}`;
-        groupLabel = display.projectPath;
-        groupIcon = 'project';
-        projectPath = display.projectPath;
-      }
-
-      const idx = seen.get(groupKey);
-      if (idx !== undefined) {
-        groups[idx].ptyIds.push(ptyId);
-      } else {
-        seen.set(groupKey, groups.length);
-        groups.push({ key: groupKey, label: groupLabel, icon: groupIcon, projectPath, ptyIds: [ptyId] });
-      }
-    }
-
-    let activeGroupKey: string | null = null;
-    if (activeDisplay) {
-      if (homeGroupMode === 'tag') {
-        const tag = activeDisplay.tags.length > 0 ? activeDisplay.tags[0] : null;
-        activeGroupKey = tag ? `tag:${tag.toLowerCase()}` : 'tag:__untagged__';
-      } else {
-        activeGroupKey = `project:${activeDisplay.projectPath}`;
-      }
-    }
-
-    for (const group of groups) {
-      group.ptyIds.sort((a, b) => rank(b) - rank(a));
-    }
-
-    const groupRank = (group: Group) => Math.max(...group.ptyIds.map(rank));
-    const rest = groups.filter((g) => g.key !== activeGroupKey).sort((a, b) => groupRank(b) - groupRank(a));
-    const ordered = activeGroupKey ? [...groups.filter((g) => g.key === activeGroupKey), ...rest] : rest;
-
-    const items: StackItem[] = [];
-    let depth = 0;
-    for (const group of ordered) {
-      for (const ptyId of group.ptyIds) {
-        if (ptyId === activePtyId) continue;
-        depth++;
-        items.push({ type: 'terminal', ptyId, depth });
-      }
-      depth++;
-      items.push({
-        type: 'divider',
-        key: group.key,
-        label: group.label,
-        icon: group.icon,
-        projectPath: group.projectPath,
-        depth,
-      });
-    }
-
-    return { stackItems: items, orderedGroups: ordered };
-  }, [allPtyIds, displayStates, homeGroupMode, activeDisplay, activePtyId]);
-
-  // Keep activePtyId valid: if the active terminal was removed, fall back to
-  // the front-most card of the back stack (visual order, not insertion order)
-  useEffect(() => {
-    if (allPtyIds.length === 0) {
-      if (activePtyId !== null) setActivePtyId(null);
-      return;
-    }
-    if (activePtyId === null || !allPtyIds.includes(activePtyId)) {
-      const next = stackItems.find((i): i is Extract<StackItem, { type: 'terminal' }> => i.type === 'terminal');
-      setActivePtyId(next ? next.ptyId : allPtyIds[allPtyIds.length - 1]);
-    }
-  }, [allPtyIds, activePtyId, stackItems, setActivePtyId]);
-
-  const maxDepth = stackItems.length > 0 ? stackItems[stackItems.length - 1].depth : 0;
-
-  const stackTop = 82 + maxDepth * 24;
+  const layout = useMemo(() => layOut(visible, displayStates, homeGroupMode), [visible, displayStates, homeGroupMode]);
+  const backCards = layout.cards.slice(1);
 
   useEffect(() => {
-    if (!activePtyId) return;
-    const instance = terminalInstances.get(activePtyId);
-    if (instance) {
-      requestAnimationFrame(() => {
-        instance.fit();
-        instance.xterm.focus();
-      });
-    }
-  }, [activePtyId]);
+    setStackPositions(backCards.map((c) => c.ptyId).reverse());
+    return () => setStackPositions([]);
+  });
 
-  useEffect(() => {
-    const isMac = navigator.platform.toLowerCase().includes('mac');
-    const handler = (e: KeyboardEvent) => {
-      if (e.repeat) return;
-      const mod = isMac ? e.metaKey : e.ctrlKey;
-      if (!mod) return;
-      const key = e.key.toLowerCase();
-
-      // Cmd+I — new terminal, brought to the front of the stack
-      if (key === 'i') {
-        e.preventDefault();
-        e.stopPropagation();
-        window.api.homePath().then(async (homePath) => {
-          const added = await addProjectTerminal(homePath);
-          if (!added) return;
-          const ptyIds = useTerminalStore.getState().terminalsByProject[homePath];
-          if (ptyIds && ptyIds.length > 0) setActivePtyId(ptyIds[ptyIds.length - 1]);
-        });
-        return;
-      }
-
-      // Cmd+T — toggle grouping mode
-      if (key === 't') {
-        e.preventDefault();
-        e.stopPropagation();
-        const current = useUIStore.getState().homeGroupMode;
-        useUIStore.getState().setHomeGroupMode(current === 'project' ? 'tag' : 'project');
-        return;
-      }
-
-      if (key === 'w' && activePtyId) {
-        e.preventDefault();
-        e.stopPropagation();
-        // Promote the next card in visual stack order before closing so
-        // repeated Cmd+W peels cards front-to-back
-        const next = stackItems.find((i): i is Extract<StackItem, { type: 'terminal' }> => i.type === 'terminal');
-        if (next) setActivePtyId(next.ptyId);
-        closeProjectTerminal(activePtyId);
-        return;
-      }
-
-      const num = parseInt(key, 10);
-      if (num >= 1 && num <= 9) {
-        e.preventDefault();
-        e.stopPropagation();
-        const termItems = stackItems.filter(
-          (i): i is Extract<StackItem, { type: 'terminal' }> => i.type === 'terminal',
-        );
-        const reversed = [...termItems].reverse();
-        if (num <= reversed.length) {
-          setActivePtyId(reversed[num - 1].ptyId);
-        }
-      }
-    };
-    document.addEventListener('keydown', handler, true);
-    return () => document.removeEventListener('keydown', handler, true);
-  }, [activePtyId, stackItems, setActivePtyId]);
-
-  // Build depth map: ptyId → depth (active = 0, others from stackItems)
-  const depthMap = useMemo(() => {
-    const map = new Map<string, number>();
-    if (activePtyId) map.set(activePtyId, 0);
-    for (const item of stackItems) {
-      if (item.type === 'terminal') {
-        map.set(item.ptyId, item.depth);
-      }
-    }
-    return map;
-  }, [activePtyId, stackItems]);
-
-  // Dividers extracted from stackItems — sorted by key for stable DOM order so CSS transitions fire
-  const dividers = useMemo(
-    () =>
-      (
-        stackItems.filter((i) => i.type === 'divider') as Array<
-          Extract<(typeof stackItems)[number], { type: 'divider' }>
-        >
-      ).sort((a, b) => a.key.localeCompare(b.key)),
-    [stackItems],
-  );
-
-  const handleClose = (ptyId: string) => {
-    if (ptyId === activePtyId) {
-      const next = stackItems.find((i): i is Extract<StackItem, { type: 'terminal' }> => i.type === 'terminal');
-      if (next) setActivePtyId(next.ptyId);
-    }
-    closeProjectTerminal(ptyId);
-  };
-
-  if (allPtyIds.length === 0) {
+  if (memberCount === 0) {
     const noProjects = projectCount === 0;
     const noRecents = !noProjects && homeRecents !== null && homeRecents.length === 0;
     const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -316,6 +149,9 @@ export function HomeView() {
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-text-tertiary rounded-[14px] border border-dashed border-ink/10"
             style={{ background: 'var(--color-terminal-bg)' }}
           >
+            <div className="w-full max-w-[36rem] px-6 empty:hidden">
+              <ResumeBanner />
+            </div>
             <div className="text-sm">No tasks yet.</div>
             <div className="flex items-center gap-2 text-xs">
               <span className="font-mono text-[13px]">{isMac ? '⌘ I' : '⌃ I'}</span>
@@ -334,153 +170,136 @@ export function HomeView() {
     );
   }
 
+  const projectsByPath = new Map(allProjects.map((p) => [p.path, p]));
+
   return (
     <div
       className="project-stack fixed top-[82px] right-4 bottom-4 z-[100] overflow-visible"
       style={{
-        top: `${stackTop}px`,
+        top: `${82 + layout.depth * 24}px`,
         left: 'calc(var(--sidebar-offset, 0px) + 16px)',
         transition: 'left 0.2s ease-out, right 0.25s ease, top 0.2s ease',
       }}
     >
-      {/* All terminals — stable keys, depth changes animate via transition */}
-      {allPtyIds.map((ptyId) => {
-        const depth = depthMap.get(ptyId) ?? 0;
-        const isActive = ptyId === activePtyId;
-        return (
-          <div
-            key={ptyId}
-            className={`glass-bevel absolute inset-0 rounded-[14px] border border-bezel overflow-hidden flex flex-col${!isActive ? ' hover:border-accent' : ''}`}
-            style={{
-              ...getDepthStyle(depth),
-              background: 'var(--color-terminal-bg)',
-              ...(isActive
-                ? {
-                    boxShadow: 'var(--shadow-panel)',
-                  }
-                : {}),
-            }}
-            onClick={() => !isActive && setActivePtyId(ptyId)}
-          >
-            <TerminalHeader ptyId={ptyId} isActive={isActive} compact={!isActive} onClose={() => handleClose(ptyId)} />
-            {isActive ? (
-              <TerminalBody ptyId={ptyId} projectPath={activeDisplay?.projectPath ?? ''} />
-            ) : (
-              <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
-                <XTermContainer ptyId={ptyId} />
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {visible.length === 0 && tagFilter && (
+        <FilteredEmptyState
+          tag={tagFilter}
+          onClear={() => useTerminalStore.getState().setTagFilter(HOME_STACK, null)}
+        />
+      )}
 
-      {/* Dividers */}
-      {dividers.map((item) => {
-        const project = item.projectPath ? projects.get(item.projectPath) : undefined;
-        const isRegisteredProject = item.icon === 'project' && project != null;
-        const name = item.icon === 'project' ? project?.name || 'Shell' : item.label;
+      {layout.cards.map(({ ptyId, depth }) => (
+        <TerminalCard
+          key={ptyId}
+          ptyId={ptyId}
+          depth={depth}
+          stackPosition={depth === 0 ? undefined : backCards.length - backCards.findIndex((c) => c.ptyId === ptyId)}
+        />
+      ))}
 
-        return (
-          <div
-            key={`divider-${item.key}`}
-            className="absolute inset-0 rounded-[14px] overflow-visible flex flex-col"
-            style={{
-              ...getDepthStyle(item.depth),
-              background: 'transparent',
-              borderColor: 'transparent',
-              boxShadow: 'none',
-              contain: 'unset',
-              pointerEvents: 'none',
-              marginTop: -1,
-            }}
-          >
-            {/* Card body below the tab — square TL so tab sits flush */}
+      {[...layout.dividers]
+        .sort((a, b) => a.key.localeCompare(b.key))
+        .map((item) => {
+          const project = item.projectPath ? projectsByPath.get(item.projectPath) : undefined;
+          const isRegisteredProject = item.kind === 'project' && project != null;
+          const name = item.kind === 'project' ? project?.name || 'Shell' : item.label;
+
+          return (
             <div
-              className="absolute border border-bezel"
+              key={`divider-${item.key}`}
+              className="absolute inset-0 rounded-[14px] overflow-visible flex flex-col"
               style={{
-                top: 27,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'var(--color-surface-raised)',
-                borderRadius: '0 14px 14px 14px',
-                boxShadow:
-                  'inset 0 1px 0 var(--bevel-top), inset -1px 0 0 var(--bevel-side), inset 1px 0 0 var(--bevel-side), inset 0 -1px 0 var(--bevel-bottom)',
-              }}
-            />
-            <div
-              className="home-folder-tab absolute top-0 left-0 pointer-events-auto border border-bezel"
-              style={{
-                width: 220,
-                height: 28,
-                background: 'var(--color-surface-raised)',
-                borderBottom: 'none',
-                borderRadius: '12px 12px 0 0',
-                boxShadow:
-                  'inset 0 1px 0 var(--bevel-top), inset 1px 0 0 var(--bevel-side), inset -1px 0 0 var(--bevel-side), var(--bevel-cast)',
-                transform: `scale(${Math.max(0.92, 1 - item.depth * 0.015)})`,
-                transformOrigin: 'bottom left',
-                transition: 'transform 200ms ease-out',
-              }}
-              onClick={() => {
-                const group = orderedGroups.find((g) => g.key === item.key);
-                if (group && group.ptyIds.length > 0) {
-                  setActivePtyId(group.ptyIds[0]);
-                }
+                ...getDepthStyle(item.depth),
+                background: 'transparent',
+                borderColor: 'transparent',
+                boxShadow: 'none',
+                contain: 'unset',
+                pointerEvents: 'none',
+                marginTop: -1,
               }}
             >
-              <div className="absolute inset-0 flex items-center" style={{ gap: 6, padding: '0 12px 0 8px' }}>
-                {item.icon === 'tag' ? (
+              {/* Card body below the tab — square TL so tab sits flush */}
+              <div
+                className="absolute border border-bezel"
+                style={{
+                  top: 27,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'var(--color-surface-raised)',
+                  borderRadius: '0 14px 14px 14px',
+                  boxShadow:
+                    'inset 0 1px 0 var(--bevel-top), inset -1px 0 0 var(--bevel-side), inset 1px 0 0 var(--bevel-side), inset 0 -1px 0 var(--bevel-bottom)',
+                }}
+              />
+              <div
+                className="home-folder-tab absolute top-0 left-0 pointer-events-auto border border-bezel"
+                style={{
+                  width: 220,
+                  height: 28,
+                  background: 'var(--color-surface-raised)',
+                  borderBottom: 'none',
+                  borderRadius: '12px 12px 0 0',
+                  boxShadow:
+                    'inset 0 1px 0 var(--bevel-top), inset 1px 0 0 var(--bevel-side), inset -1px 0 0 var(--bevel-side), var(--bevel-cast)',
+                  transform: `scale(${Math.max(0.92, 1 - item.depth * 0.015)})`,
+                  transformOrigin: 'bottom left',
+                  transition: 'transform 200ms ease-out',
+                }}
+                onClick={() => activateTerminal(item.first)}
+              >
+                <div className="absolute inset-0 flex items-center" style={{ gap: 6, padding: '0 12px 0 8px' }}>
+                  {item.kind === 'tag' ? (
+                    <span
+                      className="shrink-0 object-cover flex items-center justify-center"
+                      style={{ width: 16, minWidth: 16, height: 16, borderRadius: 4, aspectRatio: '1' }}
+                    >
+                      <Icon name="tag" />
+                    </span>
+                  ) : isRegisteredProject ? (
+                    <span
+                      className="shrink-0 object-cover flex items-center justify-center text-white"
+                      style={{
+                        width: 16,
+                        minWidth: 16,
+                        height: 16,
+                        borderRadius: 4,
+                        aspectRatio: '1',
+                        backgroundColor: project?.iconColor ?? stringToColor(name),
+                        fontSize: 7,
+                        fontWeight: 700,
+                        textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)',
+                      }}
+                    >
+                      {getInitials(name)}
+                    </span>
+                  ) : (
+                    <span
+                      className="shrink-0 object-cover flex items-center justify-center"
+                      style={{ width: 16, minWidth: 16, height: 16, borderRadius: 4, aspectRatio: '1' }}
+                    >
+                      <Icon name="terminal" />
+                    </span>
+                  )}
                   <span
-                    className="shrink-0 object-cover flex items-center justify-center"
-                    style={{ width: 16, minWidth: 16, height: 16, borderRadius: 4, aspectRatio: '1' }}
-                  >
-                    <Icon name="tag" />
-                  </span>
-                ) : isRegisteredProject ? (
-                  <span
-                    className="shrink-0 object-cover flex items-center justify-center text-white"
                     style={{
-                      width: 16,
-                      minWidth: 16,
-                      height: 16,
-                      borderRadius: 4,
-                      aspectRatio: '1',
-                      backgroundColor: project?.iconColor ?? stringToColor(name),
-                      fontSize: 7,
-                      fontWeight: 700,
-                      textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)',
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: 'color-mix(in srgb, var(--color-ink) 45%, transparent)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
-                    {getInitials(name)}
+                    {name}
                   </span>
-                ) : (
-                  <span
-                    className="shrink-0 object-cover flex items-center justify-center"
-                    style={{ width: 16, minWidth: 16, height: 16, borderRadius: 4, aspectRatio: '1' }}
-                  >
-                    <Icon name="terminal" />
-                  </span>
-                )}
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: 'color-mix(in srgb, var(--color-ink) 45%, transparent)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {name}
-                </span>
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
     </div>
   );
 }

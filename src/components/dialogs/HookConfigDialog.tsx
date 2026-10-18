@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ScriptHook, HookType, SandboxProviderId } from '../../types';
 import { SANDBOXABLE_HOOK_TYPES } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
+import { deleteHook, saveHook } from '../../stores/projectDataStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { useHookCommandDefault } from '../../utils/hookDefaults';
 import { DialogOverlay } from './DialogOverlay';
@@ -85,7 +86,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
 
     if (!trimmed) {
       // Empty command = delete hook
-      await useProjectStore.getState().deleteHook(projectPath, hookType);
+      await deleteHook(projectPath, hookType);
       dismiss(null);
       return;
     }
@@ -99,7 +100,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
       ...(sandboxable && { sandbox }),
     };
 
-    await useProjectStore.getState().saveHook(projectPath, hook);
+    await saveHook(projectPath, hook);
 
     useProjectStore.getState().addToast(`${labels.title} saved`, 'success');
     dismiss(hook);
@@ -153,7 +154,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
 
         {sandboxable && (
           <div className="mt-3">
-            <SandboxPicker value={sandbox} onChange={setSandbox} />
+            <SandboxPicker projectPath={projectPath} value={sandbox} onChange={setSandbox} />
           </div>
         )}
 

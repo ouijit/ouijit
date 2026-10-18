@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { SandboxProviderId, ScriptHook } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
+import { deleteHook, saveHook } from '../../stores/projectDataStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { useHookCommandDefault } from '../../utils/hookDefaults';
 import { DialogOverlay } from './DialogOverlay';
@@ -51,7 +52,7 @@ export function CombinedHookConfigDialog({
 
     // Save or delete start hook
     if (startTrimmed) {
-      await useProjectStore.getState().saveHook(projectPath, {
+      await saveHook(projectPath, {
         id: existingStart?.id ?? `hook-${Date.now()}`,
         type: 'start',
         name: 'Start Hook',
@@ -59,12 +60,12 @@ export function CombinedHookConfigDialog({
         sandbox: startSandbox,
       });
     } else if (existingStart) {
-      await useProjectStore.getState().deleteHook(projectPath, 'start');
+      await deleteHook(projectPath, 'start');
     }
 
     // Save or delete continue hook
     if (continueTrimmed) {
-      await useProjectStore.getState().saveHook(projectPath, {
+      await saveHook(projectPath, {
         id: existingContinue?.id ?? `hook-${Date.now() + 1}`,
         type: 'continue',
         name: 'Continue Hook',
@@ -72,7 +73,7 @@ export function CombinedHookConfigDialog({
         sandbox: continueSandbox,
       });
     } else if (existingContinue) {
-      await useProjectStore.getState().deleteHook(projectPath, 'continue');
+      await deleteHook(projectPath, 'continue');
     }
 
     useProjectStore.getState().addToast('Hooks saved', 'success');
@@ -114,7 +115,7 @@ export function CombinedHookConfigDialog({
             rows={1}
           />
           <div className="mt-2">
-            <SandboxPicker value={startSandbox} onChange={setStartSandbox} />
+            <SandboxPicker projectPath={projectPath} value={startSandbox} onChange={setStartSandbox} />
           </div>
         </div>
 
@@ -138,7 +139,7 @@ export function CombinedHookConfigDialog({
             rows={1}
           />
           <div className="mt-2">
-            <SandboxPicker value={continueSandbox} onChange={setContinueSandbox} />
+            <SandboxPicker projectPath={projectPath} value={continueSandbox} onChange={setContinueSandbox} />
           </div>
         </div>
 

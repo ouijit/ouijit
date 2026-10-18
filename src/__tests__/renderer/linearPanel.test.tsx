@@ -26,7 +26,7 @@ describe('Linear in the Issues list', () => {
     usePanelStore.setState(usePanelStore.getInitialState());
     useGithubStore.setState({ projectPath: null });
     useLinearStore.setState({ projectPath: null });
-    useProjectStore.setState({ tasks: [], toasts: [] });
+    useProjectStore.setState({ toasts: [] });
     useAppStore.setState({ activeProjectData: { path: PROJECT, name: 'Alpha' } });
 
     vi.mocked(window.api.github.availability).mockResolvedValue({
@@ -243,7 +243,7 @@ describe('the state control', () => {
     useGithubStore.getState().reset();
     useLinearStore.getState().reset();
     usePanelStore.setState(usePanelStore.getInitialState());
-    useProjectStore.setState({ tasks: [], toasts: [] });
+    useProjectStore.setState({ toasts: [] });
     useAppStore.setState({ activeProjectData: { path: PROJECT, name: 'Alpha' } });
     vi.mocked(window.api.github.availability).mockResolvedValue({
       available: true,
@@ -288,7 +288,7 @@ describe('changing the answer afterwards', () => {
     cleanup();
     vi.clearAllMocks();
     useLinearStore.getState().reset();
-    useProjectStore.setState({ tasks: [], toasts: [] });
+    useProjectStore.setState({ toasts: [] });
     useExperimentalStore.setState({
       flagsByProject: { [PROJECT]: { ...DEFAULT_EXPERIMENTAL_FLAGS, linear: true } },
     });

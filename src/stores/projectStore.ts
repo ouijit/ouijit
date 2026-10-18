@@ -1,28 +1,11 @@
 import { create } from 'zustand';
-import type {
-  TaskWithWorkspace,
-  Script,
-  ScriptHook,
-  HookType,
-  CliHookControl,
-  TaskStatus,
-  SandboxProviderId,
-  SandboxBackendId,
-  SandboxProviderStatus,
-  ProjectHooks,
-  RunHookResult,
-} from '../types';
-import { isSandboxProviderId, runnerSandboxSettingKey } from '../types';
+import type { TaskWithWorkspace, ScriptHook, HookType, SandboxProviderId, RunHookResult } from '../types';
 import { queuePrompt, settlePrompt, settleAllPrompts, type Pending } from './promptQueue';
-import { useAppStore } from './appStore';
 
 export type TerminalLayout = 'stack' | 'canvas';
 
-export function availableBackends(statuses: SandboxProviderStatus[]): SandboxBackendId[] {
-  return statuses.filter((s) => s.available).map((s) => s.providerId);
-}
-
 export interface RunHookInput {
+  projectPath: string;
   hookType: HookType;
   hook: ScriptHook;
   task: TaskWithWorkspace;
@@ -32,48 +15,10 @@ export interface RunHookInput {
 
 export type RunHookRequest = RunHookInput & Pending<RunHookResult | null>;
 
-export interface PendingCliStart extends CliHookControl {
-  taskNumber: number;
-  worktreePath: string;
-  branch: string;
-  createdAt: string;
-}
-
-/**
- * A CLI-initiated in_progress/in_review transition awaiting a hook spawn. Queued
- * like {@link PendingCliStart} when the user isn't viewing the project, and
- * drained on navigation. Carries the full task and origStatus so the renderer
- * can run the same beginTransition path a kanban drop would.
- */
-export interface PendingCliTransition extends CliHookControl {
-  taskNumber: number;
-  origStatus: TaskStatus;
-  newStatus: TaskStatus;
-  task: TaskWithWorkspace;
-}
-
-/**
- * A CLI-initiated done transition awaiting its lifecycle. Queued like
- * {@link PendingCliStart} when a *bare* done (which shows the Done dialog) lands
- * for a project the user isn't viewing, and drained on navigation. A done with
- * explicit hook flags runs headlessly and is never queued.
- */
-export interface PendingCliCompletion extends CliHookControl {
-  taskNumber: number;
-  task: TaskWithWorkspace;
-}
-
 interface ProjectStoreState {
-  tasks: TaskWithWorkspace[];
   kanbanVisible: boolean;
   terminalLayout: TerminalLayout;
   activePanel: 'terminals' | 'settings' | 'pull-requests' | 'analysis';
-  /** When set, the terminal stack and canvas show only sessions whose task has this tag. */
-  tagFilter: string | null;
-  scripts: Script[];
-  /** projectPath the scripts currently reflect; null = not loaded. */
-  scriptsProjectPath: string | null;
-  taskVersion: number;
   highlightedChainTask: number | null;
   detachHoverParent: number | null;
   optionKeyHeld: boolean;
@@ -107,29 +52,9 @@ interface ProjectStoreState {
    * position counts up instead of the total shrinking under the user.
    */
   runHookQueueTotal: number;
-  /** Queued CLI-initiated task starts awaiting the user to enter the project. */
-  pendingCliStarts: Record<string, PendingCliStart[]>;
-  pendingCliTransitions: Record<string, PendingCliTransition[]>;
-  pendingCliCompletions: Record<string, PendingCliCompletion[]>;
-  /**
-   * Project-scoped config used by terminal/kanban cards. Loaded once per project
-   * so we don't fan out N `sandbox.status` (subprocess spawn) + `hooks.get` calls
-   * across every visible card.
-   */
-  sandboxStatuses: SandboxProviderStatus[];
-  /** The backends in `sandboxStatuses` that can run. */
-  availableSandboxProviders: SandboxBackendId[];
-  hooks: ProjectHooks;
-  /** Where Run and scripts from a terminal's + menu run unless told otherwise. */
-  runnerSandbox: SandboxProviderId;
-  /** projectPath the config currently reflects; null = not loaded. */
-  configProjectPath: string | null;
-  _version: number;
 }
 
 interface ProjectStoreActions {
-  setTasks: (tasks: TaskWithWorkspace[]) => void;
-  invalidateTaskList: () => void;
   setKanbanVisible: (visible: boolean) => void;
   toggleKanban: () => void;
   showModal: (modal: string) => void;
@@ -155,30 +80,11 @@ interface ProjectStoreActions {
   setTerminalLayout: (layout: TerminalLayout) => void;
   toggleTerminalLayout: () => void;
   setActivePanel: (panel: 'terminals' | 'settings' | 'pull-requests' | 'analysis') => void;
-  setTagFilter: (tag: string | null) => void;
-  resetForProject: () => void;
 
   toggleTaskSelection: (taskNumber: number) => void;
   selectTaskRange: (taskNumber: number, orderedTaskNumbers: number[]) => void;
   clearSelection: () => void;
-
-  /** Load tasks from IPC with staleness check */
-  loadTasks: (projectPath: string) => Promise<void>;
-  loadTasksIfActive: (projectPath: string) => Promise<void>;
-  loadScripts: (projectPath: string) => Promise<void>;
-  saveScript: (projectPath: string, script: Script) => Promise<Script | null>;
-  /**
-   * Load project-scoped config (sandbox availability + configured hooks) in a
-   * single pair of IPC calls, so kanban cards and terminal headers read it from
-   * the store rather than each probing on mount.
-   */
-  loadProjectConfig: (projectPath: string) => Promise<void>;
-  /** Persist a hook, and reflect it here when it belongs to the store's project. */
-  saveHook: (projectPath: string, hook: ScriptHook) => Promise<{ success: boolean }>;
-  setRunnerSandbox: (projectPath: string, sandbox: SandboxProviderId) => Promise<void>;
-  deleteHook: (projectPath: string, hookType: HookType) => Promise<void>;
-  /** Move a task with optimistic update and rollback */
-  moveTask: (projectPath: string, taskNumber: number, newStatus: string, targetIndex: number) => Promise<void>;
+  pruneSelection: (tasks: TaskWithWorkspace[]) => void;
 
   /** Mark a task as starting (worktree being created). Does not depend on any view being mounted. */
   markTaskStarting: (taskNumber: number) => void;
@@ -192,40 +98,16 @@ interface ProjectStoreActions {
   runAllRunHookRequests: (headResult: RunHookResult) => void;
   /** Skip the entire queue — resolve every pending hook prompt with null. */
   skipAllRunHookRequests: () => void;
-
-  /** Queue a CLI-initiated start for a project the user isn't currently viewing. */
-  enqueueCliStart: (projectPath: string, start: PendingCliStart) => void;
-  /** Atomically drain all queued starts for a project. */
-  drainCliStarts: (projectPath: string) => PendingCliStart[];
-
-  /** Queue a CLI-initiated in_progress/in_review transition for a project the user isn't viewing. */
-  enqueueCliTransition: (projectPath: string, transition: PendingCliTransition) => void;
-  /** Atomically drain all queued transitions for a project. */
-  drainCliTransitions: (projectPath: string) => PendingCliTransition[];
-
-  /** Queue a CLI-initiated done transition for a project the user isn't viewing. */
-  enqueueCliCompletion: (projectPath: string, completion: PendingCliCompletion) => void;
-  /** Atomically drain all queued completions for a project. */
-  drainCliCompletions: (projectPath: string) => PendingCliCompletion[];
 }
 
 type ProjectStore = ProjectStoreState & ProjectStoreActions;
 
 let toastCounter = 0;
-let moveCounter = 0;
-let configLoadVersion = 0;
-
-let scriptsLoadVersion = 0;
 
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
-  tasks: [],
   kanbanVisible: false,
   terminalLayout: 'stack',
   activePanel: 'terminals',
-  tagFilter: null,
-  scripts: [],
-  scriptsProjectPath: null,
-  taskVersion: 0,
   highlightedChainTask: null,
   detachHoverParent: null,
   optionKeyHeld: false,
@@ -239,30 +121,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   startingTaskNumbers: new Set<number>(),
   runHookQueue: [],
   runHookQueueTotal: 0,
-  pendingCliStarts: {},
-  pendingCliTransitions: {},
-  pendingCliCompletions: {},
-  sandboxStatuses: [],
-  availableSandboxProviders: [],
-  hooks: {},
-  runnerSandbox: 'none',
-  configProjectPath: null,
-  _version: 0,
-
-  setTasks: (tasks) => {
-    const { selectedTaskNumbers } = get();
-    if (selectedTaskNumbers.size > 0) {
-      const validNumbers = new Set(tasks.map((t) => t.taskNumber));
-      const pruned = new Set([...selectedTaskNumbers].filter((n) => validNumbers.has(n)));
-      if (pruned.size !== selectedTaskNumbers.size) {
-        set({ tasks, selectedTaskNumbers: pruned, selectionAnchor: pruned.size > 0 ? get().selectionAnchor : null });
-        return;
-      }
-    }
-    set({ tasks });
-  },
-
-  invalidateTaskList: () => set((s) => ({ taskVersion: s.taskVersion + 1 })),
 
   setKanbanVisible: (visible) => set({ kanbanVisible: visible }),
 
@@ -295,8 +153,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
 
   setActivePanel: (panel) => set({ activePanel: panel }),
 
-  setTagFilter: (tag) => set({ tagFilter: tag }),
-
   showModal: (modal) => set({ activeModal: modal }),
 
   hideModal: () => set({ activeModal: null }),
@@ -320,38 +176,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     set((s) => ({
       toasts: s.toasts.filter((t) => t.id !== id),
     }));
-  },
-
-  resetForProject: () => {
-    settleAllPrompts(get().runHookQueue, (): RunHookResult | null => null);
-    set({
-      tasks: [],
-      kanbanVisible: false,
-      terminalLayout: 'stack',
-      activePanel: 'terminals',
-      tagFilter: null,
-      scripts: [],
-      scriptsProjectPath: null,
-      taskVersion: 0,
-      highlightedChainTask: null,
-      detachHoverParent: null,
-      optionKeyHeld: false,
-      shiftKeyHeld: false,
-      activeBadgeDrag: null,
-      badgeDragOverTask: null,
-      activeModal: null,
-      selectedTaskNumbers: new Set<number>(),
-      selectionAnchor: null,
-      startingTaskNumbers: new Set<number>(),
-      runHookQueue: [],
-      runHookQueueTotal: 0,
-      sandboxStatuses: [],
-      availableSandboxProviders: [],
-      hooks: {},
-      runnerSandbox: 'none',
-      configProjectPath: null,
-      _version: 0,
-    });
   },
 
   toggleTaskSelection: (taskNumber) => {
@@ -388,136 +212,13 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     set({ selectedTaskNumbers: new Set<number>(), selectionAnchor: null });
   },
 
-  loadTasks: async (projectPath) => {
-    const version = ++get()._version;
-    try {
-      const tasks = await window.api.task.getAll(projectPath);
-      if (get()._version !== version) return;
-      set({ tasks });
-      useAppStore.getState().updateProjectTaskCache(projectPath, tasks);
-    } catch (err) {
-      if (get()._version !== version) return;
-      get().addToast(`Failed to load tasks: ${err instanceof Error ? err.message : String(err)}`, 'error');
-    }
-  },
-
-  /**
-   * `tasks` is a singleton holding the *active* project's list, so anything
-   * that finishes after the user has moved on must not load into it. Not folded
-   * into `loadTasks`: navigation loads a project's tasks before making it
-   * active, so the board paints with content.
-   */
-  loadTasksIfActive: async (projectPath) => {
-    if (useAppStore.getState().activeProjectPath !== projectPath) return;
-    await get().loadTasks(projectPath);
-  },
-
-  loadScripts: async (projectPath) => {
-    // Version-guarded like loadProjectConfig: if the user switches A → B while
-    // A's IPC is in flight, B's call bumps the version so A's late response is
-    // dropped instead of overwriting B's scripts.
-    const version = ++scriptsLoadVersion;
-    try {
-      const scripts = await window.api.scripts.getAll(projectPath);
-      if (version !== scriptsLoadVersion) return;
-      set({ scripts, scriptsProjectPath: projectPath });
-    } catch (err) {
-      get().addToast(`Failed to load scripts: ${err instanceof Error ? err.message : String(err)}`, 'error');
-    }
-  },
-
-  saveScript: async (projectPath, script) => {
-    const result = await window.api.scripts.save(projectPath, script).catch((): null => null);
-    if (!result?.success || !result.script) {
-      get().addToast('Failed to save script', 'error');
-      return null;
-    }
-    if (get().scriptsProjectPath === projectPath) void get().loadScripts(projectPath);
-    return result.script;
-  },
-
-  loadProjectConfig: async (projectPath) => {
-    // Version counter: a later call (e.g. user switched projects A → B while
-    // A's IPC was still in flight) bumps the version, so when A's responses
-    // arrive their `version !== configLoadVersion` check drops them.
-    // Otherwise stale A config could land under project B.
-    const version = ++configLoadVersion;
-    try {
-      const [statuses, hooks, runnerSandbox] = await Promise.all([
-        window.api.sandbox.status(projectPath),
-        window.api.hooks.get(projectPath),
-        window.api.globalSettings.get(runnerSandboxSettingKey(projectPath)),
-      ]);
-      if (version !== configLoadVersion) return;
-      set({
-        sandboxStatuses: statuses,
-        availableSandboxProviders: availableBackends(statuses),
-        hooks,
-        runnerSandbox: isSandboxProviderId(runnerSandbox) ? runnerSandbox : 'none',
-        configProjectPath: projectPath,
-      });
-    } catch {
-      // Swallow — project config (sandbox availability + configured hooks) is
-      // a UX nicety; if IPC fails the cards just render with falsy defaults
-      // and the user retries the action.
-    }
-  },
-
-  setRunnerSandbox: async (projectPath, sandbox) => {
-    const { success } = await window.api.globalSettings.set(runnerSandboxSettingKey(projectPath), sandbox);
-    if (success && get().configProjectPath === projectPath) set({ runnerSandbox: sandbox });
-  },
-
-  saveHook: async (projectPath, hook) => {
-    const result = await window.api.hooks.save(projectPath, hook);
-    if (result.success && get().configProjectPath === projectPath) {
-      set({ hooks: { ...get().hooks, [hook.type]: hook } });
-    }
-    return result;
-  },
-
-  deleteHook: async (projectPath, hookType) => {
-    await window.api.hooks.delete(projectPath, hookType);
-    if (get().configProjectPath !== projectPath) return;
-    const { [hookType]: _deleted, ...rest } = get().hooks;
-    set({ hooks: rest });
-  },
-
-  moveTask: async (projectPath, taskNumber, newStatus, targetIndex) => {
-    const prev = get().tasks;
-    const moveVersion = ++moveCounter;
-    const task = prev.find((t) => t.taskNumber === taskNumber);
-    if (!task) return;
-    const updated = prev.filter((t) => t.taskNumber !== taskNumber);
-    const updatedTask = { ...task, status: newStatus as TaskWithWorkspace['status'] };
-    const statusTasks = updated.filter((t) => t.status === newStatus);
-    const otherTasks = updated.filter((t) => t.status !== newStatus);
-    statusTasks.splice(targetIndex, 0, updatedTask);
-    // Update order field so the kanban sort reflects the new positions
-    const orderedStatusTasks = statusTasks.map((t, i) => ({ ...t, order: i }));
-    set({ tasks: [...otherTasks, ...orderedStatusTasks] });
-
-    const rollbackOrReload = () => {
-      // Only rollback if no other move has happened since our snapshot
-      if (moveCounter === moveVersion) {
-        set({ tasks: prev });
-      } else {
-        get().loadTasks(projectPath);
-      }
-      get().addToast('Failed to move task', 'error');
-    };
-
-    try {
-      const result = await window.api.task.reorder(projectPath, taskNumber, newStatus as any, targetIndex);
-      if (!result.success) {
-        rollbackOrReload();
-      } else if (moveCounter !== moveVersion) {
-        // Another move happened while this one was in flight — reconcile with server
-        get().loadTasks(projectPath);
-      }
-    } catch {
-      rollbackOrReload();
-    }
+  pruneSelection: (tasks) => {
+    const { selectedTaskNumbers, selectionAnchor } = get();
+    if (selectedTaskNumbers.size === 0) return;
+    const valid = new Set(tasks.map((t) => t.taskNumber));
+    const pruned = new Set([...selectedTaskNumbers].filter((n) => valid.has(n)));
+    if (pruned.size === selectedTaskNumbers.size) return;
+    set({ selectedTaskNumbers: pruned, selectionAnchor: pruned.size > 0 ? selectionAnchor : null });
   },
 
   markTaskStarting: (taskNumber) => {
@@ -568,53 +269,5 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     const queue = get().runHookQueue;
     if (queue.length === 0) return;
     set({ runHookQueue: settleAllPrompts(queue, (): RunHookResult | null => null), runHookQueueTotal: 0 });
-  },
-
-  enqueueCliStart: (projectPath, start) => {
-    const current = get().pendingCliStarts[projectPath] ?? [];
-    if (current.some((s) => s.taskNumber === start.taskNumber)) return;
-    set({
-      pendingCliStarts: { ...get().pendingCliStarts, [projectPath]: [...current, start] },
-    });
-  },
-
-  drainCliStarts: (projectPath) => {
-    const queued = get().pendingCliStarts[projectPath];
-    if (!queued || queued.length === 0) return [];
-    const { [projectPath]: _drained, ...rest } = get().pendingCliStarts;
-    set({ pendingCliStarts: rest });
-    return queued;
-  },
-
-  enqueueCliTransition: (projectPath, transition) => {
-    const current = get().pendingCliTransitions[projectPath] ?? [];
-    if (current.some((t) => t.taskNumber === transition.taskNumber)) return;
-    set({
-      pendingCliTransitions: { ...get().pendingCliTransitions, [projectPath]: [...current, transition] },
-    });
-  },
-
-  drainCliTransitions: (projectPath) => {
-    const queued = get().pendingCliTransitions[projectPath];
-    if (!queued || queued.length === 0) return [];
-    const { [projectPath]: _drained, ...rest } = get().pendingCliTransitions;
-    set({ pendingCliTransitions: rest });
-    return queued;
-  },
-
-  enqueueCliCompletion: (projectPath, completion) => {
-    const current = get().pendingCliCompletions[projectPath] ?? [];
-    if (current.some((c) => c.taskNumber === completion.taskNumber)) return;
-    set({
-      pendingCliCompletions: { ...get().pendingCliCompletions, [projectPath]: [...current, completion] },
-    });
-  },
-
-  drainCliCompletions: (projectPath) => {
-    const queued = get().pendingCliCompletions[projectPath];
-    if (!queued || queued.length === 0) return [];
-    const { [projectPath]: _drained, ...rest } = get().pendingCliCompletions;
-    set({ pendingCliCompletions: rest });
-    return queued;
   },
 }));

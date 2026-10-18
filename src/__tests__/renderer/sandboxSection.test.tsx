@@ -2,8 +2,9 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, waitFor, fireEvent, within } from '@testing-library/react';
 
 import { SandboxSection } from '../../components/scripts/SandboxSection';
-import { useProjectStore } from '../../stores/projectStore';
+import { getProjectConfig } from '../../stores/projectDataStore';
 import type { SandboxBackendId } from '../../types';
+import { seedProject } from './seedProject';
 
 // The backend sections transitively import terminalActions -> terminalReact ->
 // @xterm/xterm, which hangs when loaded for real under jsdom. Sever the chain
@@ -14,12 +15,7 @@ vi.mock('../../components/terminal/terminalActions', () => ({
 }));
 
 function setStatuses(statuses: { providerId: SandboxBackendId; available: boolean; detail?: string }[]) {
-  useProjectStore.setState({
-    configProjectPath: '/p',
-    sandboxStatuses: statuses,
-    availableSandboxProviders: statuses.filter((st) => st.available).map((st) => st.providerId),
-    runnerSandbox: 'none',
-  });
+  seedProject('/p', { sandboxStatuses: statuses });
 }
 
 describe('sandbox settings', () => {
@@ -115,7 +111,7 @@ describe('sandbox settings', () => {
     setStatuses([{ providerId: 'custom', available: true }]);
     rerender(<SandboxSection projectPath="/p" />);
     fireEvent.click(getByRole('button', { name: 'Custom', pressed: false }));
-    await waitFor(() => expect(useProjectStore.getState().runnerSandbox).toBe('custom'));
+    await waitFor(() => expect(getProjectConfig('/p')?.runnerSandbox).toBe('custom'));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith('runnerSandbox:/p', 'custom');
   });
 });

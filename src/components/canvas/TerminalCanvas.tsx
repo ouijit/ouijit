@@ -19,7 +19,8 @@ import {
   persistCanvas,
   type TerminalNode as TerminalNodeType,
 } from '../../stores/canvasStore';
-import { useTerminalStore, terminalMatchesTag } from '../../stores/terminalStore';
+import { useTerminalStore, terminalMatchesTag, useTagFilter } from '../../stores/terminalStore';
+import { setStackPositions } from '../terminal/stackPositions';
 import { TerminalNode } from './TerminalNode';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { ChainEdge } from './ChainEdge';
@@ -29,7 +30,7 @@ import { AlignMenu } from './AlignMenu';
 import { useChainEdges } from './useChainEdges';
 import { useSmartGuides } from './useSmartGuides';
 import { getChainColor, buildChainMap } from '../../utils/taskChain';
-import { useProjectStore } from '../../stores/projectStore';
+import { useProjectTasks } from '../../stores/projectDataStore';
 import { readToken } from '../../theme/themeManager';
 import { useThemeEpoch } from '../../hooks/useResolvedTheme';
 
@@ -94,7 +95,12 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   // Tag filter: hide non-matching nodes (and their edges) rather than removing
   // them, so persisted canvas positions survive filtering.
   const displayStates = useTerminalStore((s) => s.displayStates);
-  const tagFilter = useProjectStore((s) => s.tagFilter);
+  const tagFilter = useTagFilter(projectPath);
+  const projectTerminals = useTerminalStore((s) => s.terminalsByProject[projectPath]);
+  useEffect(() => {
+    setStackPositions(projectTerminals ?? []);
+    return () => setStackPositions([]);
+  }, [projectTerminals]);
   const hiddenIds = useMemo(() => {
     if (!tagFilter) return null;
     const set = new Set<string>();
@@ -157,7 +163,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     void themeEpoch; // the tokens change when the applied theme does
     return [readToken('--color-border-hover'), readToken('--color-background')];
   }, [themeEpoch]);
-  const tasks = useProjectStore((s) => s.tasks);
+  const tasks = useProjectTasks(projectPath);
   // React Flow calls nodeColor once per node on every minimap render, so build
   // the chain map once here rather than rebuilding it inside the callback.
   const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);

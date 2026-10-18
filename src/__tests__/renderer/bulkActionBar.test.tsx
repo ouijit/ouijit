@@ -5,6 +5,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { BulkActionBar } from '../../components/kanban/BulkActionBar';
 import { bulkTransitionTasks } from '../../services/taskStartService';
 import type { TaskWithWorkspace } from '../../types';
+import { seedProject } from './seedProject';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -24,15 +25,12 @@ function task(taskNumber: number, status: TaskWithWorkspace['status']): TaskWith
 
 describe('BulkActionBar', () => {
   beforeEach(() => {
-    useProjectStore.getState().resetForProject();
     vi.clearAllMocks();
   });
 
   test('clicking a status button dispatches the current selection to bulkTransitionTasks', () => {
-    useProjectStore.setState({
-      tasks: [task(1, 'todo'), task(2, 'todo')],
-      selectedTaskNumbers: new Set([1, 2]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'todo'), task(2, 'todo')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 2]) });
 
     render(<BulkActionBar projectPath={PROJECT} onOpenTerminal={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'In Progress' }));
@@ -41,10 +39,8 @@ describe('BulkActionBar', () => {
   });
 
   test('hides the button for the status all selected tasks share', () => {
-    useProjectStore.setState({
-      tasks: [task(1, 'todo'), task(2, 'todo')],
-      selectedTaskNumbers: new Set([1, 2]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'todo'), task(2, 'todo')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 2]) });
 
     render(<BulkActionBar projectPath={PROJECT} onOpenTerminal={vi.fn()} />);
     expect(screen.queryByRole('button', { name: 'To Do' })).toBeNull();

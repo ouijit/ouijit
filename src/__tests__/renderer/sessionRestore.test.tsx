@@ -14,7 +14,8 @@ vi.mock('electron-log/renderer', () => ({
 vi.mock('../../components/terminal/terminalActions', () => ({
   addProjectTerminal: vi.fn().mockResolvedValue(true),
 }));
-vi.mock('../../components/terminal/sessionSnapshot', () => ({
+vi.mock('../../components/terminal/sessionSnapshot', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../components/terminal/sessionSnapshot')>()),
   suspendSnapshotSaves: vi.fn(),
   resumeSnapshotSaves: vi.fn(),
 }));
@@ -55,29 +56,30 @@ beforeEach(() => {
 });
 
 describe('restoreSession', () => {
-  test('passes the persisted custom label and active flag through to addProjectTerminal', async () => {
-    const a = snapTerminal({ ptyId: 'a', label: 'Build', ordinalInProject: 0, isActiveInProject: false });
+  test('spawns from the back of the recency order, so the front terminal ends up in front, with its label', async () => {
+    const a = snapTerminal({ ptyId: 'a', label: 'Build', ordinalInProject: 0, recencyRank: 1 });
     const b = snapTerminal({
       ptyId: 'b',
       label: 'My Renamed Tab',
       taskNumber: 7,
       ordinalInProject: 1,
       isActiveInProject: true,
+      recencyRank: 0,
     });
+    const c = snapTerminal({ ptyId: 'c', label: 'Other', projectPath: '/other', recencyRank: 2 });
     const snapshot: LastSessionSnapshot = {
       version: 1,
       capturedAt: new Date().toISOString(),
       activeProjectPath: null,
-      terminals: [a, b],
+      terminals: [a, b, c],
     };
 
-    await restoreSession(snapshot, [entry({ source: a }), entry({ source: b })]);
+    await restoreSession(snapshot, [entry({ source: a }), entry({ source: b }), entry({ source: c })]);
 
-    expect(addProjectTerminal).toHaveBeenCalledTimes(2);
     const calls = vi.mocked(addProjectTerminal).mock.calls;
-    // Spawned in ordinal order: 'Build' (background, not active) then the renamed task tab (foreground).
-    expect(calls[0][2]).toMatchObject({ label: 'Build', background: true });
-    expect(calls[1][2]).toMatchObject({ label: 'My Renamed Tab', taskId: 7, background: false });
+    expect(calls.map((call) => call[2]?.label)).toEqual(['Other', 'Build', 'My Renamed Tab']);
+    expect(calls[2][2]).toMatchObject({ taskId: 7, skipAutoHook: true });
+    expect(calls.every((call) => !call[2]?.background)).toBe(true);
   });
 
   test('a terminal that was never renamed restores without a label override', async () => {

@@ -1,4 +1,4 @@
-import { useProjectStore } from '../../stores/projectStore';
+import { setRunnerSandbox, useProjectConfig } from '../../stores/projectDataStore';
 import { NonoSandboxSection } from './NonoSandboxSection';
 import { CustomSandboxSection } from './CustomSandboxSection';
 import { CARD } from './sandboxStyles';
@@ -9,8 +9,8 @@ interface SandboxSectionProps {
 }
 
 export function SandboxSection({ projectPath }: SandboxSectionProps) {
-  const runnerSandbox = useProjectStore((s) => s.runnerSandbox);
-  const runnerOptions = useSandboxOptions(runnerSandbox);
+  const runnerSandbox = useProjectConfig(projectPath)?.runnerSandbox ?? 'none';
+  const runnerOptions = useSandboxOptions(projectPath, runnerSandbox);
 
   return (
     <div className="flex flex-col gap-3">
@@ -30,7 +30,7 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
             <SandboxSegments
               options={runnerOptions}
               value={runnerSandbox}
-              onChange={(sandbox) => void useProjectStore.getState().setRunnerSandbox(projectPath, sandbox)}
+              onChange={(sandbox) => void setRunnerSandbox(projectPath, sandbox)}
             />
           ) : (
             <span className="shrink-0 text-xs text-text-secondary">Host</span>

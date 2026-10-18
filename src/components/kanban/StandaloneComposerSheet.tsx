@@ -3,6 +3,7 @@ import { TaskComposerSheet } from './TaskComposerSheet';
 import { useAppStore } from '../../stores/appStore';
 import { useComposerStore, isBoardMounted } from '../../stores/composerStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { loadTasks } from '../../stores/projectDataStore';
 import { resolveAttachmentPath } from '../../utils/taskAttachments';
 
 /**
@@ -38,7 +39,7 @@ export function StandaloneComposerSheet({ projectPath }: { projectPath: string }
       const result = await window.api.task.create(projectPath, trimmedName, trimmedDescription || undefined);
       if (!result?.success) throw new Error(result?.error ?? 'Failed to create task');
       useComposerStore.getState().clearDraft();
-      void useProjectStore.getState().loadTasks(projectPath);
+      void loadTasks(projectPath);
     } catch (error) {
       useProjectStore.getState().addToast(error instanceof Error ? error.message : 'Failed to create task', 'error');
     }

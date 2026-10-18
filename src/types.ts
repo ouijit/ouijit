@@ -197,6 +197,8 @@ export interface SnapshotTerminal {
   label: string | null;
   ordinalInProject: number;
   isActiveInProject: boolean;
+  /** Place in the recency order across every project, 0 in front. Older snapshots omit it. */
+  recencyRank?: number;
   ui: SnapshotTerminalUi;
 }
 

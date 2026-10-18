@@ -1,8 +1,10 @@
 import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { usePaletteShortcut } from './hooks/usePaletteShortcut';
+import { useTerminalShortcuts } from './components/terminal/terminalShortcuts';
 import { useAppStore, selectIsCloning } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
+import { loadTasks } from './stores/projectDataStore';
 import { useExperimentalStore } from './stores/experimentalStore';
 import { TitleBar } from './components/TitleBarReact';
 import { Sidebar } from './components/SidebarReact';
@@ -19,6 +21,7 @@ import { HelpDialog } from './components/dialogs/HelpDialog';
 import { AboutDialog } from './components/dialogs/AboutDialog';
 import { MissingWorktreeDialog } from './components/dialogs/MissingWorktreeDialog';
 import { HookConfigDialog } from './components/dialogs/HookConfigDialog';
+import { GlobalRunHookDialog } from './components/dialogs/GlobalRunHookDialog';
 import { CommandPalette } from './components/CommandPalette';
 import { selectProject, selectHome } from './components/navigation';
 import { installCaptureNavigator } from './capture/navigator';
@@ -73,6 +76,7 @@ class ViewErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 export function App() {
   useIPCListeners();
   usePaletteShortcut();
+  useTerminalShortcuts();
 
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -182,7 +186,7 @@ export function App() {
               if (project) {
                 // Pre-fetch tasks before navigating so the first project paint
                 // (kanban included) shows correct content.
-                await useProjectStore.getState().loadTasks(parsed.path);
+                await loadTasks(parsed.path);
                 useAppStore.getState().navigateToProject(parsed.path, project);
                 restoredToProject = true;
               }
@@ -330,6 +334,7 @@ export function App() {
       {aboutVersion && (
         <AboutDialog version={aboutVersion} onClose={() => useAppStore.getState().setAboutVersion(null)} />
       )}
+      <GlobalRunHookDialog />
       <GlobalMissingWorktreeDialog />
       <GlobalEditorHookDialog />
       <CommandPalette />

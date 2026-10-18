@@ -3,7 +3,6 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { addProjectTerminal, restartRunner, startRunner } from '../../components/terminal/terminalActions';
 import { OuijitTerminal } from '../../components/terminal/terminalReact';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
-import { useProjectStore } from '../../stores/projectStore';
 import type { PtySpawnOptions, SandboxProviderId } from '../../types';
 
 vi.mock('electron-log/renderer', () => ({
@@ -74,7 +73,6 @@ describe('sandboxed spawns', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     terminalInstances.clear();
-    useProjectStore.setState({ availableSandboxProviders: [], configProjectPath: PROJECT });
     vi.mocked(window.api.hooks.get).mockResolvedValue({});
     shellSpawns.result = 'pty-1';
     shellSpawns.calls = [];

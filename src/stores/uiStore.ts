@@ -27,14 +27,6 @@ interface UIStoreState {
   sidebarPinned: boolean;
   gitDropdownVisible: boolean;
   homeGroupMode: HomeGroupMode;
-  /** When set, the home terminal stack shows only sessions whose task has this tag (across all projects). */
-  homeTagFilter: string | null;
-  /**
-   * Front card of the home terminal stack. Lives here rather than in HomeView
-   * so the command palette can bring a home-owned session to the front from
-   * anywhere; HomeView still owns the stack's depth/recency ordering.
-   */
-  homeActivePtyId: string | null;
   /** Command palette (mod+K) visibility. Session-only. */
   paletteOpen: boolean;
   /** Opening several tasks at once can find more than one worktree missing. */
@@ -57,8 +49,6 @@ interface UIStoreActions {
   setGitDropdownVisible: (visible: boolean) => void;
   closeAllDropdowns: () => void;
   setHomeGroupMode: (mode: HomeGroupMode) => void;
-  setHomeTagFilter: (tag: string | null) => void;
-  setHomeActivePtyId: (ptyId: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
   togglePalette: () => void;
   requestMissingWorktree: (req: MissingWorktreeInput) => Promise<MissingWorktreeAction>;
@@ -84,8 +74,6 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   sidebarPinned: false,
   gitDropdownVisible: false,
   homeGroupMode: 'project',
-  homeTagFilter: null,
-  homeActivePtyId: null,
   paletteOpen: false,
   missingWorktreeQueue: [],
   editorHookQueue: [],
@@ -112,10 +100,6 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   closeAllDropdowns: () => set({ gitDropdownVisible: false }),
 
   setHomeGroupMode: (mode) => set({ homeGroupMode: mode }),
-
-  setHomeTagFilter: (tag) => set({ homeTagFilter: tag }),
-
-  setHomeActivePtyId: (ptyId) => set({ homeActivePtyId: ptyId }),
 
   setPaletteOpen: (open) => set({ paletteOpen: open }),
 

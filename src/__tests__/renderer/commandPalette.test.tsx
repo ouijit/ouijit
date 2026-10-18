@@ -6,7 +6,12 @@ import { usePaletteShortcut } from '../../hooks/usePaletteShortcut';
 import { addProjectTerminal, reconnectOrphanedSessions } from '../../components/terminal/terminalActions';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { useTerminalStore, DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from '../../stores/terminalStore';
+import {
+  getActivePtyId,
+  useTerminalStore,
+  DEFAULT_DISPLAY_STATE,
+  type TerminalDisplayState,
+} from '../../stores/terminalStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { ActiveSession, Project, TaskWithWorkspace } from '../../types';
 
@@ -76,16 +81,16 @@ function seed(): void {
       'alpha-1': display({ ptyId: 'alpha-1', projectPath: projectA.path, label: 'Alpha shell' }),
       'alpha-7': display({ ptyId: 'alpha-7', projectPath: projectA.path, label: 'Seven', taskId: 7 }),
     },
-    activeIndices: { [projectA.path]: 0 },
+    order: ['alpha-1', 'alpha-7'],
+    tagFilters: {},
   });
   useProjectStore.setState({
-    tagFilter: null,
     terminalLayout: 'stack',
     kanbanVisible: true,
     toasts: [],
     startingTaskNumbers: new Set<number>(),
   });
-  useUIStore.setState({ paletteOpen: true, homeActivePtyId: null, homeTagFilter: null });
+  useUIStore.setState({ paletteOpen: true });
 }
 
 function rowLabels(): string[] {
@@ -231,7 +236,7 @@ describe('command palette results', () => {
         'alpha-7': display({ ptyId: 'alpha-7', projectPath: projectA.path, label: 'claude', taskId: 7 }),
         'alpha-7b': display({ ptyId: 'alpha-7b', projectPath: projectA.path, label: 'npm test', taskId: 7 }),
       },
-      activeIndices: { [projectA.path]: 0 },
+      order: ['alpha-7', 'alpha-7b'],
     });
 
     await openPalette();
@@ -251,7 +256,7 @@ describe('command palette results', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(useTerminalStore.getState().activeIndices[projectA.path]).toBe(1));
+    await waitFor(() => expect(getActivePtyId(projectA.path)).toBe('alpha-7b'));
   });
 
   test('a project row searches and shows the same home-relative path', async () => {
@@ -301,17 +306,13 @@ describe('command palette navigation', () => {
     await waitFor(() => expect(reconnectOrphanedSessions).toHaveBeenCalledWith(projectB.path));
     await waitFor(() => expect(useAppStore.getState().activeProjectPath).toBe(projectB.path));
 
-    const terminals = useTerminalStore.getState().terminalsByProject[projectB.path] ?? [];
-    expect(useTerminalStore.getState().activeIndices[projectB.path]).toBe(terminals.indexOf('bravo-1'));
+    expect(getActivePtyId(projectB.path)).toBe('bravo-1');
     // Jumping to a terminal shows the terminals, not the board.
     expect(useProjectStore.getState().kanbanVisible).toBe(false);
     expect(useProjectStore.getState().activePanel).toBe('terminals');
   });
 
   test('clears a tag filter that would hide the terminal being opened', async () => {
-    // The card stack resets the active index back to the visible head, so
-    // without this the jump would silently bounce.
-    useProjectStore.setState({ tagFilter: 'review' });
     useTerminalStore.setState({
       terminalsByProject: { [projectA.path]: ['alpha-1', 'alpha-7'] },
       displayStates: {
@@ -324,7 +325,8 @@ describe('command palette navigation', () => {
           tags: ['review'],
         }),
       },
-      activeIndices: { [projectA.path]: 1 },
+      order: ['alpha-7', 'alpha-1'],
+      tagFilters: { [projectA.path]: 'review' },
     });
 
     await openPalette();
@@ -333,8 +335,8 @@ describe('command palette navigation', () => {
     await waitFor(() => expect(rowLabels()[0]).toContain('Alpha shell'));
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(useProjectStore.getState().tagFilter).toBeNull());
-    expect(useTerminalStore.getState().activeIndices[projectA.path]).toBe(0);
+    await waitFor(() => expect(getActivePtyId(projectA.path)).toBe('alpha-1'));
+    expect(useTerminalStore.getState().tagFilters).toEqual({});
   });
 
   test('opens a task worktree as a plain shell — no hook, no worktree creation', async () => {

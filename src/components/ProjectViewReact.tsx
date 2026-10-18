@@ -1,9 +1,10 @@
 import { useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
+import { stackMembers, useTerminalStore } from '../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../stores/canvasStore';
 import { useExperimentalStore } from '../stores/experimentalStore';
+import { loadProjectConfig, loadScripts } from '../stores/projectDataStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { TerminalCanvas, syncCanvasWithTerminals } from './canvas/TerminalCanvas';
 import { KanbanBoard } from './kanban/KanbanBoard';
@@ -12,41 +13,33 @@ import { PullRequestsPanel } from './github/PullRequestsPanel';
 import { AnalysisPanel } from './analysis/AnalysisPanel';
 import { useAnalysisStore } from '../stores/analysisStore';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
-import { RunHookDialog } from './dialogs/RunHookDialog';
 import { openTaskComposer } from '../utils/openTaskComposer';
-import {
-  addProjectTerminal,
-  closeProjectTerminal,
-  reconnectOrphanedSessions,
-  startRunner,
-} from './terminal/terminalActions';
-import { refreshAllTerminalGitStatus } from './terminal/terminalReact';
+import { reconnectOrphanedSessions } from './terminal/terminalActions';
+import { useTerminalView, useViewKeys } from './terminal/terminalShortcuts';
 import { terminalInstances } from './terminal/terminalRegistry';
 import { detectPullRequestsForProject } from '../services/githubTaskActions';
-import { isActiveSandbox } from '../types';
 
-const isMac = navigator.platform.toLowerCase().includes('mac');
 const PROJECT_REFRESH_INTERVAL = 30000;
-const EMPTY: string[] = [];
 
 /** The first selected node, when the canvas has several selected. */
 function getCanvasSelectedPtyId(projectPath: string): string | undefined {
-  const project = useCanvasStore.getState().canvasByProject[projectPath];
-  if (!project) return undefined;
-  const selected = project.nodes.find((n) => n.selected);
-  return selected?.id;
+  return useCanvasStore.getState().canvasByProject[projectPath]?.nodes.find((n) => n.selected)?.id;
 }
 
-function getActivePtyId(projectPath: string): string | undefined {
-  const layout = useProjectStore.getState().terminalLayout;
-  if (layout === 'canvas') {
-    return getCanvasSelectedPtyId(projectPath);
+function selectCanvasNode(projectPath: string, ptyId: string): void {
+  const canvas = useCanvasStore.getState().canvasByProject[projectPath];
+  if (canvas) {
+    const nodes = canvas.nodes.map((n) => ({ ...n, selected: n.id === ptyId }));
+    useCanvasStore.getState().loadCanvas(projectPath, { ...canvas, nodes });
   }
-  // Stack mode
-  const store = useTerminalStore.getState();
-  const terms = store.terminalsByProject[projectPath] ?? [];
-  const activeIdx = store.activeIndices[projectPath] ?? 0;
-  return terms[activeIdx];
+  const instance = terminalInstances.get(ptyId);
+  if (instance) requestAnimationFrame(() => instance.xterm.focus());
+}
+
+function showTerminals(): void {
+  const store = useProjectStore.getState();
+  store.setActivePanel('terminals');
+  store.setKanbanVisible(false);
 }
 
 export function ProjectView() {
@@ -64,175 +57,31 @@ export function ProjectView() {
   const analysisEnabled = useExperimentalStore((s) =>
     projectPath ? (s.flagsByProject[projectPath]?.analysis ?? false) : false,
   );
+  const onCanvas = canvasEnabled && terminalLayout === 'canvas';
 
-  const activeIndex = useTerminalStore((s) => (projectPath ? (s.activeIndices[projectPath] ?? 0) : 0));
-  const terminalList = useTerminalStore((s) => (projectPath ? s.terminalsByProject[projectPath] : undefined));
-  const terminals = terminalList ?? EMPTY;
+  // The canvas keeps its own selection, so the shortcuts act on that there.
+  useTerminalView({
+    stack: projectPath ?? '',
+    shellPath: () => projectPath ?? '',
+    activeTerminal: onCanvas && projectPath ? () => getCanvasSelectedPtyId(projectPath) : undefined,
+    select: onCanvas && projectPath ? (ptyId) => selectCanvasNode(projectPath, ptyId) : undefined,
+    reveal: showTerminals,
+    onScreen: () => (projectPath ? stackMembers(useTerminalStore.getState(), projectPath) : []),
+  });
 
-  useEffect(() => {
-    if (!projectPath) return;
-
-    const handler = (e: KeyboardEvent) => {
-      if (e.repeat) return;
-      const mod = isMac ? e.metaKey : e.ctrlKey;
-      if (!mod) return;
-
-      const key = e.key.toLowerCase();
-
-      // Cmd+I — spawn shell terminal
-      if (key === 'i') {
-        e.preventDefault();
-        e.stopPropagation();
-        addProjectTerminal(projectPath);
-        const store = useProjectStore.getState();
-        store.setActivePanel('terminals');
-        store.setKanbanVisible(false);
-        return;
-      }
-
-      // Cmd+W — close active/selected terminal
-      if (key === 'w') {
-        e.preventDefault();
-        e.stopPropagation();
-        const ptyId = getActivePtyId(projectPath);
-        if (ptyId) closeProjectTerminal(ptyId);
-        return;
-      }
-
-      // Cmd+N — focus the column composer on the board, open the sheet from
-      // anywhere else rather than yanking the view over to the board
-      if (key === 'n') {
-        e.preventDefault();
-        e.stopPropagation();
-        openTaskComposer();
-        return;
-      }
-
-      // Cmd+T — toggle kanban board
-      if (key === 't') {
-        e.preventDefault();
-        e.stopPropagation();
-        useProjectStore.getState().toggleKanban();
-        return;
-      }
-
-      // Cmd+L — toggle terminal layout (stack / canvas) — only when canvas is enabled
-      if (key === 'l' && canvasEnabled) {
-        e.preventDefault();
-        e.stopPropagation();
-        useProjectStore.getState().toggleTerminalLayout();
-        return;
-      }
-
-      // Cmd+G / Cmd+Shift+G — group/ungroup (canvas mode only)
-      if (key === 'g' && canvasEnabled && useProjectStore.getState().terminalLayout === 'canvas') {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.shiftKey) {
-          useCanvasStore.getState().ungroupSelected(projectPath);
-        } else {
-          useCanvasStore.getState().groupSelected(projectPath);
-        }
-        persistCanvas(projectPath);
-        return;
-      }
-
-      // Cmd+P — play or toggle runner for active terminal
-      if (key === 'p') {
-        e.preventDefault();
-        e.stopPropagation();
-        const pPtyId = getActivePtyId(projectPath);
-        if (pPtyId) {
-          const inst = terminalInstances.get(pPtyId);
-          if (inst) {
-            // Activate an existing runner tab, else start a new runner.
-            const runnerPanel = inst.panels.find((p) => p.kind === 'runner');
-            if (runnerPanel) {
-              inst.activatePanel(runnerPanel.id);
-            } else {
-              const { configProjectPath, runnerSandbox } = useProjectStore.getState();
-              const sandbox = configProjectPath === inst.projectPath ? runnerSandbox : 'none';
-              void startRunner(pPtyId, undefined, isActiveSandbox(sandbox) ? sandbox : undefined);
-            }
-            useProjectStore.getState().setKanbanVisible(false);
-          }
-        }
-        return;
-      }
-
-      // Cmd+D — toggle diff panel for active terminal
-      if (key === 'd') {
-        e.preventDefault();
-        e.stopPropagation();
-        const tPtyId = getActivePtyId(projectPath);
-        if (tPtyId) {
-          const inst = terminalInstances.get(tPtyId);
-          if (inst) {
-            inst.toggleDiffPanel();
-            if (inst.diffPanelOpen) useProjectStore.getState().setKanbanVisible(false);
-          }
-        }
-        return;
-      }
-
-      // Cmd+1-9 — switch terminal by position
-      const num = parseInt(key, 10);
-      if (num >= 1 && num <= 9) {
-        e.preventDefault();
-        e.stopPropagation();
-        const layout = useProjectStore.getState().terminalLayout;
-        if (layout === 'canvas') {
-          // Canvas mode: select Nth terminal node
-          const terms = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
-          const targetIdx = num - 1;
-          if (targetIdx < terms.length) {
-            const targetPtyId = terms[targetIdx];
-            const canvas = useCanvasStore.getState().canvasByProject[projectPath];
-            if (canvas) {
-              const updatedNodes = canvas.nodes.map((n) => ({
-                ...n,
-                selected: n.id === targetPtyId,
-              }));
-              useCanvasStore.getState().loadCanvas(projectPath, { ...canvas, nodes: updatedNodes });
-            }
-            const inst = terminalInstances.get(targetPtyId);
-            if (inst) {
-              requestAnimationFrame(() => inst.xterm.focus());
-            }
-          }
-        } else {
-          // Stack mode: switch by stack position
-          const targetIndex = getTerminalIndexByStackPosition(projectPath, num);
-          if (targetIndex !== -1) {
-            useTerminalStore.getState().setActiveIndex(projectPath, targetIndex);
-          }
-        }
-        return;
-      }
-
-      // Cmd+Shift+Left/Right — page navigation (stack mode only)
-      if (e.shiftKey && (key === 'arrowleft' || key === 'arrowright')) {
-        const layout = useProjectStore.getState().terminalLayout;
-        if (layout === 'stack') {
-          e.preventDefault();
-          e.stopPropagation();
-          const store = useTerminalStore.getState();
-          const terms = store.terminalsByProject[projectPath] ?? [];
-          const currentIndex = store.activeIndices[projectPath] ?? 0;
-          const currentPage = Math.floor(currentIndex / STACK_PAGE_SIZE);
-          const totalPages = Math.max(1, Math.ceil(terms.length / STACK_PAGE_SIZE));
-          const direction = key === 'arrowleft' ? -1 : 1;
-          const targetPage = currentPage + direction;
-          if (targetPage >= 0 && targetPage < totalPages) {
-            store.setActiveIndex(projectPath, targetPage * STACK_PAGE_SIZE);
-          }
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handler, true);
-    return () => document.removeEventListener('keydown', handler, true);
-  }, [projectPath, canvasEnabled]);
+  useViewKeys({
+    // On the board this focuses the column composer; anywhere else it opens
+    // the sheet rather than switching the view.
+    n: () => openTaskComposer(),
+    t: () => useProjectStore.getState().toggleKanban(),
+    l: () => canvasEnabled && useProjectStore.getState().toggleTerminalLayout(),
+    g: (e) => {
+      if (!projectPath || !onCanvas) return false;
+      if (e.shiftKey) useCanvasStore.getState().ungroupSelected(projectPath);
+      else useCanvasStore.getState().groupSelected(projectPath);
+      persistCanvas(projectPath);
+    },
+  });
 
   // Force layout back to stack if the canvas flag gets disabled while active
   useEffect(() => {
@@ -271,13 +120,10 @@ export function ProjectView() {
     });
   }, [projectPath]);
 
-  // Load project-scoped config (sandbox availability + configured hooks) once.
-  // Terminal headers and kanban cards read this from the store instead of each
-  // making their own `sandbox.status` + `hooks.get` IPC calls.
   useEffect(() => {
     if (!projectPath) return;
-    useProjectStore.getState().loadProjectConfig(projectPath);
-    useProjectStore.getState().loadScripts(projectPath);
+    loadProjectConfig(projectPath);
+    loadScripts(projectPath);
   }, [projectPath]);
 
   // Pauses while the window is hidden so we don't keep spawning subprocesses
@@ -298,7 +144,6 @@ export function ProjectView() {
       sweepPullRequests();
       refreshAnalysis();
       interval = setInterval(() => {
-        refreshAllTerminalGitStatus(projectPath);
         sweepPullRequests();
         refreshAnalysis();
       }, PROJECT_REFRESH_INTERVAL);
@@ -317,20 +162,6 @@ export function ProjectView() {
       stop();
     };
   }, [projectPath, githubEnabled, analysisEnabled]);
-
-  // Focus active terminal when active index changes (stack mode only)
-  useEffect(() => {
-    if (!projectPath || terminals.length === 0 || kanbanVisible || terminalLayout !== 'stack') return;
-    const ptyId = terminals[activeIndex];
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (instance) {
-      requestAnimationFrame(() => {
-        instance.fit();
-        instance.xterm.focus();
-      });
-    }
-  }, [activeIndex, terminals, projectPath, kanbanVisible, terminalLayout]);
 
   const handleHideKanban = useCallback(() => {
     useProjectStore.getState().setKanbanVisible(false);
@@ -361,37 +192,7 @@ export function ProjectView() {
           {!kanbanVisible && renderTerminals()}
         </>
       )}
-      <GlobalRunHookDialog />
       <StandaloneComposerSheet projectPath={projectPath} />
     </div>
-  );
-}
-
-/**
- * Hook prompt rendered at the project-view level so it survives toggling
- * between the kanban board and terminal stack mid-flow. Concurrent hook
- * requests queue up and are presented one at a time as a stepper.
- */
-function GlobalRunHookDialog() {
-  const queue = useProjectStore((s) => s.runHookQueue);
-  const total = useProjectStore((s) => s.runHookQueueTotal);
-  const request = queue[0];
-  if (!request) return null;
-  // Position counts up as the queue drains: total is held fixed so the user
-  // sees "Hook 1 of 3" → "Hook 2 of 3" rather than the denominator shrinking.
-  const position = total - queue.length + 1;
-  return (
-    <RunHookDialog
-      key={request.id}
-      hookType={request.hookType}
-      hook={request.hook}
-      sandbox={request.sandbox}
-      taskName={request.task.name}
-      queuePosition={position}
-      queueTotal={total}
-      onClose={(result) => useProjectStore.getState().resolveRunHookRequest(request.id, result)}
-      onRunAll={(result) => useProjectStore.getState().runAllRunHookRequests(result)}
-      onSkipAll={() => useProjectStore.getState().skipAllRunHookRequests()}
-    />
   );
 }

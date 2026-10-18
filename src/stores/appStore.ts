@@ -42,11 +42,8 @@ interface AppStoreState {
   health: HealthStatus | null;
   homeActivePanel: 'home' | 'settings';
   homeRecents: HomeRecentTask[] | null;
-  /** Per-project task cache. Source of truth for `homeRecents`; updated whenever
-   *  any project's tasks are (re)loaded. Lets the home view paint instantly
-   *  from cache while a background refresh reconciles. */
+  /** Every project's tasks, by path. Read through `projectDataStore`. */
   taskCacheByProject: Record<string, TaskWithWorkspace[]>;
-  _version: number;
 }
 
 interface AppStoreActions {
@@ -123,7 +120,6 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   homeActivePanel: 'home',
   homeRecents: null,
   taskCacheByProject: {},
-  _version: 0,
 
   setProjects: (projects) => set({ projects }),
   setCloneJobs: (cloneJobs) => set({ cloneJobs }),
@@ -152,31 +148,19 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     }),
 
   navigateToProject: (path, project, options) =>
-    withViewTransition(
-      () => {
-        const version = get()._version + 1;
-        set({
-          activeView: 'project',
-          activeProjectPath: path,
-          activeProjectData: project,
-          _version: version,
-        });
-      },
-      { direction: options?.direction },
-    ),
+    withViewTransition(() => set({ activeView: 'project', activeProjectPath: path, activeProjectData: project }), {
+      direction: options?.direction,
+    }),
 
   navigateHome: (options) =>
     withViewTransition(
-      () => {
-        const version = get()._version + 1;
+      () =>
         set({
           activeView: 'home',
           activeProjectPath: null,
           activeProjectData: null,
           homeActivePanel: options?.panel ?? 'home',
-          _version: version,
-        });
-      },
+        }),
       { direction: options?.direction },
     ),
 
@@ -207,8 +191,3 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     });
   },
 }));
-
-/** Whether an async result still applies to the project now selected. */
-export function staleGuard(expectedVersion: number) {
-  return () => useAppStore.getState()._version !== expectedVersion;
-}

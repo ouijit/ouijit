@@ -10,7 +10,7 @@
 import log from 'electron-log/renderer';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { useTerminalStore, setActiveTerminal, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
+import { useTerminalStore, activateTerminal, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
 import { useGithubStore } from '../stores/githubStore';
@@ -181,6 +181,7 @@ export function installCaptureNavigator(): void {
                 label: seed.label,
                 ordinalInProject: i,
                 isActiveInProject: i === 0,
+                recencyRank: i,
                 ui: {},
               }),
             ),
@@ -197,7 +198,8 @@ export function installCaptureNavigator(): void {
     if (payload.terminalSeeds && payload.projectPath) {
       const terminals = useTerminalStore.getState().terminalsByProject[payload.projectPath] ?? [];
       if (terminals.length === 0) {
-        for (const seed of payload.terminalSeeds) {
+        // Each enters at the front, so the first seed ends up there.
+        for (const seed of [...payload.terminalSeeds].reverse()) {
           seedTerminal(payload.projectPath, seed);
         }
       }
@@ -249,7 +251,7 @@ export function installCaptureNavigator(): void {
         const target = payload.diffPtyId ?? payload.terminalSeeds?.[0]?.ptyId;
         const term = target ? terminalInstances.get(target) : undefined;
         if (term && target) {
-          setActiveTerminal(payload.projectPath, target);
+          activateTerminal(target);
           term.setDiffPanelOpen(true);
           // The toggle outlives the pane, so each scene has to ask for the
           // side it wants rather than assume the default.
@@ -269,7 +271,7 @@ export function installCaptureNavigator(): void {
         const target = payload.previewPtyId ?? payload.terminalSeeds?.[0]?.ptyId;
         const term = target ? terminalInstances.get(target) : undefined;
         if (term && target && payload.previewUrl) {
-          setActiveTerminal(payload.projectPath, target);
+          activateTerminal(target);
           if (!term.panels.some((p) => p.kind === 'webPreview')) {
             term.addWebPreviewPanel(payload.previewUrl, { activate: true });
           }
@@ -283,7 +285,7 @@ export function installCaptureNavigator(): void {
         const term = [...terminalInstances.values()].find((t) => t.panels.some((p) => p.kind === 'plan'));
         const plan = term?.panels.find((p) => p.kind === 'plan');
         if (term && plan) {
-          setActiveTerminal(payload.projectPath, term.ptyId);
+          activateTerminal(term.ptyId);
           term.activatePanel(plan.id);
         }
         break;
