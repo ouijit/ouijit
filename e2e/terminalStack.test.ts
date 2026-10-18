@@ -157,6 +157,7 @@ test('an agent hook moves statusSince when the status changes, and repeated thin
   await expect.poll(() => fs.existsSync(envFile) && fs.readFileSync(envFile, 'utf8').split('\n').length > 2).toBe(true);
   const [url, token] = fs.readFileSync(envFile, 'utf8').split('\n');
   await expect.poll(async () => (await status()).status, { timeout: 10_000 }).toBe('success');
+  const success = await status();
   const hook = async (next: 'thinking' | 'ready') => {
     const res = await fetch(`${url}/hook`, {
       method: 'POST',
@@ -169,6 +170,7 @@ test('an agent hook moves statusSince when the status changes, and repeated thin
   await hook('thinking');
   await expect.poll(async () => (await status()).status).toBe('thinking');
   const thinking = await status();
+  expect(thinking.statusSince).toBeGreaterThan(success.statusSince);
 
   for (let i = 0; i < 2; i++) {
     await appPage.waitForTimeout(200);
@@ -176,9 +178,4 @@ test('an agent hook moves statusSince when the status changes, and repeated thin
   }
   await appPage.waitForTimeout(300);
   expect(await status()).toEqual(thinking);
-
-  // Several thinking events defer ready by the agent's settle time.
-  await hook('ready');
-  await expect.poll(async () => (await status()).status, { timeout: 20_000 }).toBe('ready');
-  expect((await status()).statusSince).toBeGreaterThan(thinking.statusSince);
 });

@@ -161,10 +161,7 @@ function registerTerminal(
 
   if (replaceLoadingId) {
     useTerminalStore.getState().rekeyTerminal(replaceLoadingId, ptyId);
-    const now = Date.now();
-    useTerminalStore
-      .getState()
-      .updateDisplay(ptyId, { statusSince: now, lastViewedAt: now, ...initial, isLoading: false });
+    useTerminalStore.getState().updateDisplay(ptyId, { ...initial, isLoading: false });
   } else {
     useTerminalStore.getState().addTerminal(projectPath, ptyId, initial, { background });
   }

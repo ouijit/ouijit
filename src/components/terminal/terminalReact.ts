@@ -512,8 +512,13 @@ export class OuijitTerminal {
   private setStatus(next: TerminalStatus): boolean {
     if (this.status === next) return false;
     this.status = next;
-    this.pushDisplayState({ status: next, statusSince: Date.now() });
+    this.pushDisplayState({ status: next });
     return true;
+  }
+
+  private becomeReady(): void {
+    if (!this.setStatus('ready')) return;
+    notifyReady(this.getProjectName?.() ?? 'Ouijit', readyBody(this.label, this.lastOscTitle));
   }
 
   setProjectNameGetter(getter: () => string): void {
@@ -889,20 +894,14 @@ export class OuijitTerminal {
           if (this.idleTimer) clearTimeout(this.idleTimer);
           this.idleTimer = setTimeout(() => {
             this.idleTimer = null;
-            if (this.status === 'thinking' && this.setStatus('ready')) {
-              const projectName = this.getProjectName?.() ?? 'Ouijit';
-              notifyReady(projectName, readyBody(this.label, this.lastOscTitle));
-            }
+            if (this.status === 'thinking') this.becomeReady();
             this.hookThinkingCount = 0;
           }, IDLE_FALLBACK_MS);
         }, READY_DEFERRAL_MS);
         return;
       }
 
-      if (this.setStatus('ready')) {
-        const projectName = this.getProjectName?.() ?? 'Ouijit';
-        notifyReady(projectName, readyBody(this.label, this.lastOscTitle));
-      }
+      this.becomeReady();
       this.clearIdleTimer();
     }
   }
@@ -968,18 +967,9 @@ export class OuijitTerminal {
     });
   }
 
-  /**
-   * Apply an exit-code-driven status flip. Used by both the PTY-exit path
-   * (`wireExitHandler`) and the OSC 133;D in-shell path (`handleCommandExit`).
-   * Only the status dot reflects the exit code; the PTY-exit
-   * path additionally sets the `exited: true` flag. We don't surface a textual
-   * "Done" / "Exit N" suffix in the header — the dot carries that signal, and
-   * the suffix only collided with the OSC title the shell/agent renders.
-   */
   private applyExitState(exitCode: number, opts: { isPtyExit: boolean }): void {
-    const nextType: TerminalStatus = exitCode === 0 ? 'success' : 'error';
-    this.setStatus(nextType);
-    if (opts.isPtyExit) this.pushDisplayState({ exited: true });
+    this.status = exitCode === 0 ? 'success' : 'error';
+    this.pushDisplayState(opts.isPtyExit ? { status: this.status, exited: true } : { status: this.status });
     this.maybeScheduleAutoClose(exitCode);
   }
 

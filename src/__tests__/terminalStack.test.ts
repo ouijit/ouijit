@@ -93,14 +93,13 @@ describe('the terminal stack', () => {
     const at = (ms: number) => vi.setSystemTime(ms);
     const display = (ptyId: string) => store().displayStates[ptyId];
     const unread = (ptyId: string) => isUnread(display(ptyId), viewedPtyId(store()));
-    const finish = (ptyId: string, status: 'ready' | 'success' = 'ready') =>
-      store().updateDisplay(ptyId, { status, statusSince: Date.now() });
+    const finish = (ptyId: string, status: 'ready' | 'success' = 'ready') => store().updateDisplay(ptyId, { status });
 
     test('a terminal is stamped as viewed when it is left, so only what finished while away is unread', () => {
       at(1000);
-      store().addTerminal(A, 'a1', {});
-      store().addTerminal(A, 'a2', {});
-      store().addTerminal(B, 'b1', {}, { background: true });
+      store().addTerminal(A, 'a1', { status: 'thinking' });
+      store().addTerminal(A, 'a2', { status: 'thinking' });
+      store().addTerminal(B, 'b1', { status: 'thinking' }, { background: true });
       expect(display('a1')).toMatchObject({ statusSince: 1000, lastViewedAt: 1000 });
       store().setViewedStack(A);
       expect(viewedPtyId(store())).toBe('a2');
@@ -119,13 +118,11 @@ describe('the terminal stack', () => {
       expect(unread('a2')).toBe(false);
       expect(unread('a1')).toBe(false);
 
-      // Switching views.
       at(4000);
       store().setViewedStack(B);
       expect(display('a1').lastViewedAt).toBe(4000);
       expect(unread('a1')).toBe(false);
 
-      // Blurring the window.
       at(5000);
       store().setWindowFocused(false);
       expect(viewedPtyId(store())).toBeUndefined();

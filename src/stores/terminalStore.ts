@@ -24,7 +24,7 @@ interface TerminalStoreState {
   order: string[];
   /** Keyed by stack. */
   tagFilters: Record<string, string>;
-  /** The stack on screen, or null while none is (the board, a settings panel). */
+  /** Null while no stack is on screen. */
   viewedStack: string | null;
   windowFocused: boolean;
 }
@@ -122,7 +122,9 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const state = get();
     const existing = state.displayStates[ptyId];
     if (!existing) return;
-    set({ displayStates: { ...state.displayStates, [ptyId]: { ...existing, ...patch } } });
+    const next = { ...existing, ...patch };
+    if (next.status !== existing.status) next.statusSince = Date.now();
+    set({ displayStates: { ...state.displayStates, [ptyId]: next } });
   },
 
   rekeyTerminal: (oldPtyId, newPtyId) => {
@@ -188,9 +190,13 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     });
   },
 
-  setViewedStack: (stack) => set({ viewedStack: stack }),
+  setViewedStack: (stack) => {
+    if (get().viewedStack !== stack) set({ viewedStack: stack });
+  },
 
-  setWindowFocused: (focused) => set({ windowFocused: focused }),
+  setWindowFocused: (focused) => {
+    if (get().windowFocused !== focused) set({ windowFocused: focused });
+  },
 }));
 
 // ── Viewing ──────────────────────────────────────────────────────────

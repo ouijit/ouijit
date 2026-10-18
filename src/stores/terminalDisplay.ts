@@ -8,7 +8,7 @@ export interface TerminalDisplayState {
   ptyId: string;
   label: string;
   status: TerminalStatus;
-  /** Epoch ms when `status` last changed value. */
+  /** Epoch ms; `updateDisplay` moves it whenever `status` changes. */
   statusSince: number;
   /** Epoch ms when the terminal last stopped being viewed. */
   lastViewedAt: number;
