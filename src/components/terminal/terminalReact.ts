@@ -968,8 +968,8 @@ export class OuijitTerminal {
   }
 
   private applyExitState(exitCode: number, opts: { isPtyExit: boolean }): void {
-    this.status = exitCode === 0 ? 'success' : 'error';
-    this.pushDisplayState(opts.isPtyExit ? { status: this.status, exited: true } : { status: this.status });
+    this.setStatus(exitCode === 0 ? 'success' : 'error');
+    if (opts.isPtyExit) this.pushDisplayState({ exited: true });
     this.maybeScheduleAutoClose(exitCode);
   }
 

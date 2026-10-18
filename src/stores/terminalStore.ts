@@ -221,7 +221,8 @@ export function useViewedStack(stack: string): void {
   useEffect(() => {
     useTerminalStore.getState().setViewedStack(stack);
     return () => {
-      if (useTerminalStore.getState().viewedStack === stack) useTerminalStore.getState().setViewedStack(null);
+      const state = useTerminalStore.getState();
+      if (state.viewedStack === stack) state.setViewedStack(null);
     };
   }, [stack]);
 }

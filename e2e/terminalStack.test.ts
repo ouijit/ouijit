@@ -172,10 +172,8 @@ test('an agent hook moves statusSince when the status changes, and repeated thin
   const thinking = await status();
   expect(thinking.statusSince).toBeGreaterThan(success.statusSince);
 
-  for (let i = 0; i < 2; i++) {
-    await appPage.waitForTimeout(200);
-    await hook('thinking');
-  }
+  await hook('thinking');
+  await hook('thinking');
   await appPage.waitForTimeout(300);
   expect(await status()).toEqual(thinking);
 });
