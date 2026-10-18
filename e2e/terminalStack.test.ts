@@ -1,6 +1,5 @@
-import { test, expect, createTestRepo } from './fixtures';
-import { _electron, type ElectronApplication, type Page } from '@playwright/test';
-import * as path from 'node:path';
+import { test, expect, createTestRepo, launchApp } from './fixtures';
+import type { ElectronApplication, Page } from '@playwright/test';
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
@@ -124,10 +123,7 @@ test('one set of terminal shortcuts drives both views, and the stack survives a 
     await appPage.waitForTimeout(1_000);
     await electronApp.close();
 
-    relaunched = await _electron.launch({
-      args: [path.resolve(__dirname, '..', '.vite', 'build', 'main.js'), '--no-sandbox'],
-      env: { ...process.env, OUIJIT_TEST_USER_DATA: userDataDir, OUIJIT_E2E: '1' },
-    });
+    relaunched = await launchApp(userDataDir);
     const page = await relaunched.firstWindow();
     await page.getByRole('button', { name: 'Resume', exact: true }).click({ timeout: 20_000 });
     await expect.poll(() => projectOrder(page, projects), { timeout: 30_000 }).toEqual(beforeQuit);
