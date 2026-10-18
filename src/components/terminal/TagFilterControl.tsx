@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useMergeRefs } from '@floating-ui/react';
 import { Icon } from './Icon';
+import { useTooltip } from '../ui/useTooltip';
 
 interface TagFilterControlProps {
   /** Tags available to filter by (already de-duped). */
@@ -15,7 +17,7 @@ interface TagFilterControlProps {
   onSelectTag: (tag: string) => void;
   /** Trigger styling: a standalone rounded pill, or a button inside a segmented group. */
   variant?: 'pill' | 'segment';
-  title?: string;
+  label?: string;
 }
 
 /**
@@ -34,12 +36,14 @@ export function TagFilterControl({
   onSelectAll,
   onSelectTag,
   variant = 'pill',
-  title,
+  label,
 }: TagFilterControlProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const tooltip = useTooltip(label ?? (value ? `Filtering by “${value}”` : 'Filter by tag'), { disabled: open });
+  const setTriggerRef = useMergeRefs([triggerRef, tooltip.setReference]);
 
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return;
@@ -90,10 +94,10 @@ export function TagFilterControl({
   return (
     <div className={wrapperClass}>
       <button
-        ref={triggerRef}
-        title={title ?? (value ? `Filtering by “${value}”` : 'Filter by tag')}
+        ref={setTriggerRef}
         className={triggerClass}
         onClick={() => (hasMenu ? setOpen((v) => !v) : onSelectAll())}
+        {...tooltip.referenceProps}
       >
         <Icon name="tag" />
         {hasMenu && (
@@ -104,6 +108,7 @@ export function TagFilterControl({
           </span>
         )}
       </button>
+      {tooltip.tooltip}
       {open &&
         hasMenu &&
         menuPos &&
