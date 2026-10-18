@@ -21,9 +21,10 @@ const COLORS: Record<TerminalStatus, string> = {
   error: 'var(--color-error)',
 };
 
-const LABELS: Partial<Record<TerminalStatus, string>> = {
+const LABELS: Record<TerminalStatus, string> = {
   thinking: 'Thinking',
   ready: 'Ready',
+  success: 'Ready',
   error: 'Failed',
 };
 
@@ -71,7 +72,7 @@ export function SandboxRing({
 export function StatusDot({ status, sandboxProvider, size = 6 }: StatusDotProps) {
   const isThinking = status === 'thinking';
   const background = COLORS[status];
-  const label = LABELS[status] ?? LABELS.ready;
+  const label = LABELS[status];
   const sandboxed = isActiveSandbox(sandboxProvider);
   const tooltipText = sandboxed ? `${label} · ${SANDBOX_BACKEND_LABELS[sandboxProvider]}` : label;
   return (
