@@ -46,17 +46,7 @@ function electronLogFactory() {
 }
 vi.mock('electron-log/main', electronLogFactory);
 vi.mock('electron-log/renderer', electronLogFactory);
-
-// Mock better-sqlite3 so it doesn't try to load the native binary in tests.
-// The db/index.ts module uses _resetCacheForTesting() which calls _initTestDatabase()
-// to create an in-memory DB — that bypasses this mock via the real import in database.ts.
-// But for tests that import db/index.ts, the mock ensures the initial lazy load
-// doesn't fail (it gets replaced by _resetCacheForTesting immediately anyway).
-vi.mock('better-sqlite3', async () => {
-  // Use the real module — vitest resolves native addons fine in test env
-  const actual = await vi.importActual('better-sqlite3');
-  return actual;
-});
+vi.mock('better-sqlite3', () => import('./nodeSqlite').then((m) => m.nodeSqliteFactory()));
 
 // Sync paths.ts with the mocked Electron userData path
 setUserDataPath(testDataDir);
