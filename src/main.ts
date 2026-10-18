@@ -32,7 +32,7 @@ import {
   isCaptureMode,
 } from './capture/captureMode';
 import { seedCaptureFixture } from './capture/fixture';
-import { registerStaticToken } from './apiAuth';
+import { issueToken, registerStaticToken } from './apiAuth';
 import { buildAppMenu } from './appMenu';
 
 function createElectronLogAdapter(electronLog: typeof log): Logger {
@@ -302,6 +302,14 @@ app.on('ready', async () => {
 
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
+
+  // Read by the e2e `cli` fixture through electronApp.evaluate.
+  if (process.env.OUIJIT_E2E === '1') {
+    (globalThis as Record<string, unknown>).__ouijitE2EApi = {
+      url: `http://127.0.0.1:${getApiPort()}`,
+      token: issueToken('e2e-driver', 'host'),
+    };
+  }
 
   Menu.setApplicationMenu(
     buildAppMenu({
