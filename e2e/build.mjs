@@ -6,6 +6,7 @@
  */
 import { build } from 'vite';
 import { builtinModules } from 'node:module';
+import '../scripts/build-cli.mjs';
 
 const external = [
   'electron',
