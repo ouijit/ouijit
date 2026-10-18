@@ -1,10 +1,12 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   HOME_STACK,
   collectActiveTags,
   getActivePtyId,
+  isUnread,
   terminalMatchesTag,
   useTerminalStore,
+  viewedPtyId,
   visibleStack,
 } from '../stores/terminalStore';
 
@@ -82,5 +84,64 @@ describe('the terminal stack', () => {
 
     store().clearProject(A);
     expect(stack(HOME_STACK)).toEqual(['b1']);
+  });
+
+  describe('viewing', () => {
+    beforeEach(() => vi.useFakeTimers({ toFake: ['Date'] }));
+    afterEach(() => vi.useRealTimers());
+
+    const at = (ms: number) => vi.setSystemTime(ms);
+    const display = (ptyId: string) => store().displayStates[ptyId];
+    const unread = (ptyId: string) => isUnread(display(ptyId), viewedPtyId(store()));
+    const finish = (ptyId: string, status: 'ready' | 'success' = 'ready') => store().updateDisplay(ptyId, { status });
+
+    test('a terminal is stamped as viewed when it is left, so only what finished while away is unread', () => {
+      at(1000);
+      store().addTerminal(A, 'a1', { status: 'thinking' });
+      store().addTerminal(A, 'a2', { status: 'thinking' });
+      store().addTerminal(B, 'b1', { status: 'thinking' }, { background: true });
+      expect(display('a1')).toMatchObject({ statusSince: 1000, lastViewedAt: 1000 });
+      store().setViewedStack(A);
+      expect(viewedPtyId(store())).toBe('a2');
+
+      at(2000);
+      finish('a2');
+      finish('a1');
+      expect(unread('a2')).toBe(false);
+      expect(unread('a1')).toBe(true);
+
+      // Switching terminals stamps the one left; the one arrived at is read while on screen.
+      at(3000);
+      store().activate('a1');
+      expect(display('a2').lastViewedAt).toBe(3000);
+      expect(display('a1').lastViewedAt).toBe(1000);
+      expect(unread('a2')).toBe(false);
+      expect(unread('a1')).toBe(false);
+
+      at(4000);
+      store().setViewedStack(B);
+      expect(display('a1').lastViewedAt).toBe(4000);
+      expect(unread('a1')).toBe(false);
+
+      at(5000);
+      store().setWindowFocused(false);
+      expect(viewedPtyId(store())).toBeUndefined();
+      expect(display('b1').lastViewedAt).toBe(5000);
+
+      at(6000);
+      finish('b1');
+      finish('a2', 'success');
+      expect(unread('b1')).toBe(true);
+      expect(unread('a2')).toBe(false);
+
+      // Coming back marks it read only once it is left again.
+      at(7000);
+      store().setWindowFocused(true);
+      expect(unread('b1')).toBe(false);
+      expect(display('b1').lastViewedAt).toBe(5000);
+      store().setViewedStack(null);
+      expect(display('b1').lastViewedAt).toBe(7000);
+      expect(unread('b1')).toBe(false);
+    });
   });
 });

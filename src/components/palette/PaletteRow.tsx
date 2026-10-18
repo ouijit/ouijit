@@ -112,10 +112,10 @@ function BranchLabel({ item }: { item: PaletteItem }) {
       <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
         {item.branch === 'last' ? '└─' : '├─'}
       </span>
-      {item.status && <StatusDot summaryType={item.status.summaryType} sandboxProvider={item.status.sandboxProvider} />}
+      {item.shell && <StatusDot status={item.shell.status} sandboxProvider={item.shell.sandboxProvider} />}
       <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">
         {item.title}
-        {sandboxSuffix(item.status?.sandboxProvider)}
+        {sandboxSuffix(item.shell?.sandboxProvider)}
       </span>
     </span>
   );
@@ -134,8 +134,8 @@ function Leading({ item }: { item: PaletteItem }) {
     return <span className="font-mono text-[11px] text-text-tertiary tabular-nums">#{item.prNumber}</span>;
   }
 
-  if (item.status) {
-    return <StatusDot summaryType={item.status.summaryType} sandboxProvider={item.status.sandboxProvider} />;
+  if (item.shell) {
+    return <StatusDot status={item.shell.status} sandboxProvider={item.shell.sandboxProvider} />;
   }
 
   if (item.kind === 'project' && item.project) {

@@ -47,7 +47,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   // One shallow-compared subscription replaces many individual selectors.
   const {
     label,
-    summaryType,
+    status,
     gitFileStatus,
     lastOscTitle,
     tags,
@@ -61,7 +61,7 @@ export const TerminalHeader = memo(function TerminalHeader({
       const d = s.displayStates[ptyId];
       return {
         label: d?.label ?? '',
-        summaryType: d?.summaryType ?? 'ready',
+        status: d?.status ?? 'ready',
         gitFileStatus: d?.gitFileStatus ?? null,
         lastOscTitle: d?.lastOscTitle ?? '',
         tags: d?.tags ?? EMPTY_TAGS,
@@ -333,7 +333,7 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   return (
     <TerminalHeaderView
-      summaryType={summaryType}
+      status={status}
       sandboxProvider={sandboxProvider}
       stackPosition={stackPosition}
       isActive={isActive}

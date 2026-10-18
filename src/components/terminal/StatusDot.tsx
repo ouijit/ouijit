@@ -1,10 +1,11 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Tooltip } from '../ui/Tooltip';
 import type { SandboxProviderId } from '../../types';
+import type { TerminalStatus } from '../../stores/terminalDisplay';
 import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
 
 interface StatusDotProps {
-  summaryType: string;
+  status: TerminalStatus;
   sandboxProvider?: SandboxProviderId;
   size?: number;
 }
@@ -13,16 +14,17 @@ export function sandboxSuffix(sandboxProvider?: SandboxProviderId): string {
   return isActiveSandbox(sandboxProvider) ? ` (${sandboxProvider})` : '';
 }
 
-const COLORS: Record<string, string> = {
+const COLORS: Record<TerminalStatus, string> = {
   thinking: 'var(--color-status-thinking)',
   ready: 'var(--color-status-ready)',
   success: 'var(--color-status-ready)',
   error: 'var(--color-error)',
 };
 
-const LABELS: Record<string, string> = {
+const LABELS: Record<TerminalStatus, string> = {
   thinking: 'Thinking',
   ready: 'Ready',
+  success: 'Ready',
   error: 'Failed',
 };
 
@@ -67,15 +69,15 @@ export function SandboxRing({
   );
 }
 
-export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotProps) {
-  const isThinking = summaryType === 'thinking';
-  const background = COLORS[summaryType] ?? COLORS.ready;
-  const label = LABELS[summaryType] ?? LABELS.ready;
+export function StatusDot({ status, sandboxProvider, size = 6 }: StatusDotProps) {
+  const isThinking = status === 'thinking';
+  const background = COLORS[status];
+  const label = LABELS[status];
   const sandboxed = isActiveSandbox(sandboxProvider);
   const tooltipText = sandboxed ? `${label} · ${SANDBOX_BACKEND_LABELS[sandboxProvider]}` : label;
   return (
     <Tooltip text={tooltipText} placement="top" delay={300}>
-      <SandboxRing sandboxed={sandboxed} size={size} status={summaryType}>
+      <SandboxRing sandboxed={sandboxed} size={size} status={status}>
         {isThinking ? (
           <ThinkingGrid color={background} />
         ) : (

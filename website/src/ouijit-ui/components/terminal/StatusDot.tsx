@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 
 interface StatusDotProps {
-  summaryType: string;
+  status: string;
   /** Draws the sandbox ring. The app derives this from its sandbox provider;
    *  the site's demos only need the boolean. */
   sandboxed?: boolean;
@@ -26,13 +26,13 @@ function ThinkingGrid({ color }: { color: string }) {
   );
 }
 
-export function StatusDot({ summaryType, sandboxed = false, size = 6 }: StatusDotProps) {
-  const isThinking = summaryType === 'thinking';
-  const background = COLORS[summaryType] ?? COLORS.ready;
+export function StatusDot({ status, sandboxed = false, size = 6 }: StatusDotProps) {
+  const isThinking = status === 'thinking';
+  const background = COLORS[status] ?? COLORS.ready;
   return (
     <span
       className="status-dot inline-flex items-center justify-center shrink-0"
-      data-status={summaryType}
+      data-status={status}
       style={
         {
           '--status-dot-size': `${size}px`,

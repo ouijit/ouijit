@@ -84,7 +84,7 @@ const CONNECTED: TerminalDisplayState[] = SESSIONS.map((session, i) => ({
   projectPath: '/demo/horizon',
   ptyId: `pty-${TODO_COLUMN[i].taskNumber}-claude`,
   label: session.label,
-  summaryType: 'thinking',
+  status: 'thinking',
   lastOscTitle: session.osc,
   taskId: TODO_COLUMN[i].taskNumber,
 }));
@@ -320,7 +320,7 @@ export function BuildSection() {
                 >
                   <TerminalCardView isActive={front}>
                     <TerminalHeaderView
-                      summaryType="thinking"
+                      status="thinking"
                       isActive={front}
                       isBackCard={!front}
                       stackPosition={front ? undefined : rank}

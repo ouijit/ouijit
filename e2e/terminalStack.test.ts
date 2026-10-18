@@ -1,5 +1,7 @@
-import { test, expect, createTestRepo, launchApp } from './fixtures';
+import { test, expect, createTestRepo, enterProject, launchApp } from './fixtures';
 import type { ElectronApplication, Page } from '@playwright/test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
@@ -131,4 +133,44 @@ test('one set of terminal shortcuts drives both views, and the stack survives a 
     await relaunched?.close().catch(() => {});
     other.cleanup();
   }
+});
+
+test('an agent hook moves statusSince when the status changes, and repeated thinking leaves it alone', async ({
+  appPage,
+  testRepo,
+}) => {
+  test.setTimeout(60_000);
+  await enterProject(appPage, testRepo.repoPath);
+  const ptyId = await newShell(appPage);
+  const status = async () => {
+    const d = await display(appPage, ptyId);
+    return { status: d.status, statusSince: d.statusSince };
+  };
+
+  // The hook script reads these from the terminal's environment; the test posts as it would.
+  const envFile = path.join(testRepo.repoPath, '.hook-env');
+  await appPage.locator('.project-card--active .terminal-xterm-container').click();
+  await appPage.keyboard.type(`printf '%s\\n' "$OUIJIT_API_URL" "$OUIJIT_API_TOKEN" > '${envFile}'\n`);
+  await expect.poll(() => fs.existsSync(envFile) && fs.readFileSync(envFile, 'utf8').split('\n').length > 2).toBe(true);
+  const [url, token] = fs.readFileSync(envFile, 'utf8').split('\n');
+  await expect.poll(async () => (await status()).status, { timeout: 10_000 }).toBe('success');
+  const success = await status();
+  const hook = async (next: 'thinking' | 'ready') => {
+    const res = await fetch(`${url}/hook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ ptyId, action: 'status', status: next }),
+    });
+    expect(res.ok).toBe(true);
+  };
+
+  await hook('thinking');
+  await expect.poll(async () => (await status()).status).toBe('thinking');
+  const thinking = await status();
+  expect(thinking.statusSince).toBeGreaterThan(success.statusSince);
+
+  await hook('thinking');
+  await hook('thinking');
+  await appPage.waitForTimeout(300);
+  expect(await status()).toEqual(thinking);
 });

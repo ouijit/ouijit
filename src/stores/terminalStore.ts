@@ -1,8 +1,9 @@
+import { useEffect } from 'react';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from './terminalDisplay';
 
-export { DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from './terminalDisplay';
+export { DEFAULT_DISPLAY_STATE, isUnread, type TerminalDisplayState, type TerminalStatus } from './terminalDisplay';
 
 /**
  * A stack is the home view's, holding every terminal, or a project's, holding
@@ -23,6 +24,9 @@ interface TerminalStoreState {
   order: string[];
   /** Keyed by stack. */
   tagFilters: Record<string, string>;
+  /** Null while no stack is on screen. */
+  viewedStack: string | null;
+  windowFocused: boolean;
 }
 
 interface TerminalStoreActions {
@@ -48,6 +52,8 @@ interface TerminalStoreActions {
   restoreOrder: (ptyIds: string[]) => void;
   setTagFilter: (stack: string, tag: string | null) => void;
   clearProject: (projectPath: string) => void;
+  setViewedStack: (stack: string | null) => void;
+  setWindowFocused: (focused: boolean) => void;
 }
 
 type TerminalStore = TerminalStoreState & TerminalStoreActions;
@@ -68,11 +74,14 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   terminalsByProject: {},
   order: [],
   tagFilters: {},
+  viewedStack: null,
+  windowFocused: true,
 
   addTerminal: (projectPath, ptyId, initial, options) => {
     const state = get();
     const projectTerminals = state.terminalsByProject[projectPath] ?? [];
     const rest = state.order.filter((id) => id !== ptyId);
+    const now = Date.now();
     set({
       displayStates: {
         ...state.displayStates,
@@ -80,8 +89,10 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
           ...DEFAULT_DISPLAY_STATE,
           ptyId,
           projectPath,
+          statusSince: now,
+          lastViewedAt: now,
           ...initial,
-        } as TerminalDisplayState,
+        },
       },
       terminalsByProject: {
         ...state.terminalsByProject,
@@ -111,7 +122,9 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const state = get();
     const existing = state.displayStates[ptyId];
     if (!existing) return;
-    set({ displayStates: { ...state.displayStates, [ptyId]: { ...existing, ...patch } } });
+    const next = { ...existing, ...patch };
+    if (next.status !== existing.status) next.statusSince = Date.now();
+    set({ displayStates: { ...state.displayStates, [ptyId]: next } });
   },
 
   rekeyTerminal: (oldPtyId, newPtyId) => {
@@ -176,7 +189,51 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       order: state.order.filter((id) => !ptyIds.has(id)),
     });
   },
+
+  setViewedStack: (stack) => {
+    if (get().viewedStack !== stack) set({ viewedStack: stack });
+  },
+
+  setWindowFocused: (focused) => {
+    if (get().windowFocused !== focused) set({ windowFocused: focused });
+  },
 }));
+
+// ── Viewing ──────────────────────────────────────────────────────────
+
+/** The terminal being read: the front of the stack on screen, in a focused window. Back cards only peek. */
+export function viewedPtyId(state: TerminalStoreState): string | undefined {
+  if (!state.windowFocused || state.viewedStack === null) return undefined;
+  return visibleStack(state, state.viewedStack)[0];
+}
+
+// Stamped on leaving rather than arriving, so a terminal that finishes while
+// on screen comes out read.
+let viewed = viewedPtyId(useTerminalStore.getState());
+useTerminalStore.subscribe((state) => {
+  const left = viewed;
+  viewed = viewedPtyId(state);
+  if (left === undefined || left === viewed || !state.displayStates[left]) return;
+  state.updateDisplay(left, { lastViewedAt: Date.now() });
+});
+
+export function useViewedStack(stack: string): void {
+  useEffect(() => {
+    useTerminalStore.getState().setViewedStack(stack);
+    return () => {
+      const state = useTerminalStore.getState();
+      if (state.viewedStack === stack) state.setViewedStack(null);
+    };
+  }, [stack]);
+}
+
+export function trackWindowFocus(): void {
+  const sync = () => useTerminalStore.getState().setWindowFocused(document.hasFocus() && !document.hidden);
+  window.addEventListener('focus', sync);
+  window.addEventListener('blur', sync);
+  document.addEventListener('visibilitychange', sync);
+  sync();
+}
 
 // ── Tag filtering ─────────────────────────────────────────────────────
 

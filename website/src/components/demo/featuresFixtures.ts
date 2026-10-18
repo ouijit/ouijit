@@ -137,14 +137,14 @@ export const featuresTerminalsByTask: Record<number, TerminalDisplayState[]> = {
     term({
       ptyId: 'pty-101-claude',
       label: 'Rework onboarding flow',
-      summaryType: 'thinking',
+      status: 'thinking',
       lastOscTitle: 'Editing onboarding stepper...',
       taskId: 101,
     }),
     term({
       ptyId: 'pty-101-dev',
       label: 'Rework onboarding flow',
-      summaryType: 'ready',
+      status: 'ready',
       lastOscTitle: 'live dev server',
       taskId: 101,
     }),
@@ -153,7 +153,7 @@ export const featuresTerminalsByTask: Record<number, TerminalDisplayState[]> = {
     term({
       ptyId: 'pty-103-test',
       label: 'Polish invitation email',
-      summaryType: 'ready',
+      status: 'ready',
       lastOscTitle: 'Tightened subject and brand tokens',
       taskId: 103,
     }),
@@ -162,7 +162,7 @@ export const featuresTerminalsByTask: Record<number, TerminalDisplayState[]> = {
     term({
       ptyId: 'pty-105-shell',
       label: 'Audit accessibility on settings dialog',
-      summaryType: 'thinking',
+      status: 'thinking',
       lastOscTitle: 'Investigating contrast at SettingsDialog:121',
       taskId: 105,
     }),
