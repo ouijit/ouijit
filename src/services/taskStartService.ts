@@ -14,6 +14,7 @@ import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import { completeTask } from './taskCompletion';
 import { headlessHookRun, hookSandbox, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';
+import { getProjectTasks, loadTasks } from '../stores/projectDataStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { HookType, RunHookResult, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
@@ -97,7 +98,7 @@ export async function bulkTransitionTasks(
   newStatus: TaskStatus,
 ): Promise<Array<{ task: TaskWithWorkspace; origStatus: TaskStatus }>> {
   const store = useProjectStore.getState();
-  const tasksByNumber = new Map(store.tasks.map((t) => [t.taskNumber, t]));
+  const tasksByNumber = new Map(getProjectTasks(projectPath).map((t) => [t.taskNumber, t]));
   // Snapshot each task's status BEFORE mutating so we can drive beginTransition
   // with the right origStatus per task (start vs continue, etc.).
   const transitions = taskNumbers
@@ -158,7 +159,7 @@ export async function bulkTransitionTasks(
     }
   });
 
-  await store.loadTasks(projectPath);
+  await loadTasks(projectPath);
   store.clearSelection();
 
   for (const { task, origStatus } of succeeded) {
@@ -261,7 +262,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
       const tDialog = performance.now();
       hookPromise = useProjectStore
         .getState()
-        .requestRunHook({ hookType, hook, task, sandbox })
+        .requestRunHook({ projectPath, hookType, hook, task, sandbox })
         .then((res) => {
           taskStartLog.info('hook dialog closed', {
             taskNumber,
@@ -287,7 +288,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
     if (worktreeResult) {
       if (!worktreeResult.success) {
         useProjectStore.getState().addToast(worktreeResult.error || 'Failed to create worktree', 'error');
-        await useProjectStore.getState().loadTasks(projectPath);
+        await loadTasks(projectPath);
         return;
       }
       surfaceStartWarnings(worktreeResult.warnings);
@@ -300,7 +301,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
       }
     }
 
-    await useProjectStore.getState().loadTasks(projectPath);
+    await loadTasks(projectPath);
 
     // 6. Spawn the terminal. For in_progress drops we open a terminal (with the
     // hook command if accepted, otherwise a plain shell) so the loading slot

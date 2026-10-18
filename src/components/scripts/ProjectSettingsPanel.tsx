@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { loadScripts } from '../../stores/projectDataStore';
 import { useEscape } from '../../hooks/useEscape';
 import { ScriptList } from './ScriptList';
 import { HookList } from './HookList';
@@ -36,7 +37,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
   const linearEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.linear ?? false);
 
   useEffect(() => {
-    useProjectStore.getState().loadScripts(projectPath);
+    loadScripts(projectPath);
     void useWorktreeSettingsStore.getState().loadFor(projectPath);
   }, [projectPath]);
 

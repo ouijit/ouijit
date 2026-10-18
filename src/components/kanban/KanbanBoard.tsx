@@ -15,7 +15,16 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectStore } from '../../stores/projectStore';
-import type { TaskWithWorkspace, TaskStatus, HookType, SandboxProviderId, ScriptHook } from '../../types';
+import { loadTasks, moveTask, useProjectConfig, useProjectTasks } from '../../stores/projectDataStore';
+import type {
+  TaskWithWorkspace,
+  TaskStatus,
+  HookType,
+  ProjectHooks,
+  SandboxBackendId,
+  SandboxProviderId,
+  ScriptHook,
+} from '../../types';
 import { beginTransition, bulkTransitionTasks } from '../../services/taskStartService';
 import { completeTask } from '../../services/taskCompletion';
 import { KanbanColumn } from './KanbanColumn';
@@ -59,19 +68,22 @@ const customCollision: CollisionDetection = (args) => {
   return rectIntersection(args);
 };
 
+const NO_HOOKS: ProjectHooks = {};
+const NO_BACKENDS: SandboxBackendId[] = [];
+
 interface KanbanBoardProps {
   projectPath: string;
   onHide: () => void;
 }
 
 export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
-  const storeTasks = useProjectStore((s) => s.tasks);
+  const storeTasks = useProjectTasks(projectPath);
   const startingTaskNumbers = useProjectStore((s) => s.startingTaskNumbers);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
   const activeBadgeDrag = useProjectStore((s) => s.activeBadgeDrag);
-  // Project-scoped config is loaded once by ProjectViewReact; we just subscribe.
-  const projectHooks = useProjectStore((s) => s.hooks);
-  const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
+  const config = useProjectConfig(projectPath);
+  const projectHooks = config?.hooks ?? NO_HOOKS;
+  const availableSandboxProviders = config?.availableSandboxProviders ?? NO_BACKENDS;
   const [hookDialog, setHookDialog] = useState<
     | { mode: 'single'; hookType: HookType; existingHook?: ScriptHook }
     | { mode: 'combined'; start?: ScriptHook; continue?: ScriptHook }
@@ -112,7 +124,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   }, [storeTasks, activeTask]);
 
   useEffect(() => {
-    useProjectStore.getState().loadTasks(projectPath);
+    loadTasks(projectPath);
   }, [projectPath]);
 
   // Hotkeys
@@ -333,7 +345,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         const targetTask = storeTasks.find((t) => t.taskNumber === targetTaskNum);
         const result = await window.api.task.setParent(projectPath, badgeDrag, targetTaskNum, targetTask?.branch);
         if (result.success) {
-          useProjectStore.getState().loadTasks(projectPath);
+          loadTasks(projectPath);
         } else {
           useProjectStore.getState().addToast(result.error || 'Failed to link tasks', 'error');
         }
@@ -360,13 +372,13 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         setActiveTask(null);
         if (multiDragTasks) {
           await Promise.allSettled(multiDragTasks.map((n) => window.api.task.trash(projectPath, n)));
-          useProjectStore.getState().loadTasks(projectPath);
+          loadTasks(projectPath);
           useProjectStore.getState().clearSelection();
           useProjectStore.getState().addToast(`Moved ${multiDragTasks.length} tasks to trash`, 'success');
         } else {
           const taskNum = parseInt(activeId.replace('task-', ''), 10);
           await window.api.task.trash(projectPath, taskNum);
-          useProjectStore.getState().loadTasks(projectPath);
+          loadTasks(projectPath);
           useProjectStore.getState().addToast('Task moved to trash', 'success');
         }
         return;
@@ -445,7 +457,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
       // Persisted before the async work below, so clearing activeTask re-syncs
       // the effect to the new position rather than the old one.
-      await useProjectStore.getState().moveTask(projectPath, activeTaskNum, finalContainer, targetIndex);
+      await moveTask(projectPath, activeTaskNum, finalContainer, targetIndex);
       setActiveTask(null);
 
       // A worktree may have been deleted outside the app; recover it before
@@ -476,7 +488,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const handleAddTask = useCallback(
     async (name: string, description?: string) => {
       await window.api.task.create(projectPath, name, description);
-      useProjectStore.getState().loadTasks(projectPath);
+      loadTasks(projectPath);
     },
     [projectPath],
   );
@@ -484,7 +496,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const handleRenameTask = useCallback(
     async (taskNumber: number, newName: string) => {
       await window.api.task.setName(projectPath, taskNumber, newName);
-      useProjectStore.getState().loadTasks(projectPath);
+      loadTasks(projectPath);
     },
     [projectPath],
   );
@@ -492,7 +504,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const handleUpdateDescription = useCallback(
     async (taskNumber: number, description: string) => {
       await window.api.task.setDescription(projectPath, taskNumber, description);
-      useProjectStore.getState().loadTasks(projectPath);
+      loadTasks(projectPath);
     },
     [projectPath],
   );

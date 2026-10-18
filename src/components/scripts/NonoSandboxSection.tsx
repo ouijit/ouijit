@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { NonoConfig } from '../../types';
 import { CARD, FIELD, PRIMARY_BUTTON, ROW_ACTION } from './sandboxStyles';
 import { QUIET_BUTTON } from './LensList';
-import { useProjectStore } from '../../stores/projectStore';
+import { loadProjectConfig, useProjectConfig } from '../../stores/projectDataStore';
 
 interface NonoSandboxSectionProps {
   projectPath: string;
@@ -36,16 +36,13 @@ export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
     async (next: NonoConfig) => {
       setConfig(next);
       await window.api.sandbox.setNonoConfig(projectPath, next);
-      if (next.enabled !== config.enabled) await useProjectStore.getState().loadProjectConfig(projectPath);
+      if (next.enabled !== config.enabled) await loadProjectConfig(projectPath);
     },
     [projectPath, config.enabled],
   );
 
-  const unavailableReason = useProjectStore((s) => {
-    const status =
-      s.configProjectPath === projectPath ? s.sandboxStatuses.find((st) => st.providerId === 'nono') : undefined;
-    return status && !status.available && status.detail !== 'Off' ? status.detail : undefined;
-  });
+  const status = useProjectConfig(projectPath)?.sandboxStatuses.find((st) => st.providerId === 'nono');
+  const unavailableReason = status && !status.available && status.detail !== 'Off' ? status.detail : undefined;
 
   const allowPaths = config.allowPaths ?? [];
   const openPorts = config.openPorts ?? [];

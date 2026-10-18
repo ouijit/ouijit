@@ -12,6 +12,7 @@
 import type { Project, SandboxProviderId, TaskWithWorkspace, WorktreeInfo } from '../types';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
+import { loadTasks } from '../stores/projectDataStore';
 import { useTerminalStore, setActiveTerminal, terminalMatchesTag } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
@@ -31,7 +32,7 @@ export async function selectProject(path: string, project: Project): Promise<voi
   const oldIndex = state.activeView === 'home' ? -1 : orderedPaths.indexOf(state.activeProjectPath ?? '');
   const newIndex = orderedPaths.indexOf(path);
   const direction = newIndex > oldIndex ? 'down' : newIndex < oldIndex ? 'up' : undefined;
-  await useProjectStore.getState().loadTasks(path);
+  await loadTasks(path);
   state.navigateToProject(path, project, { direction });
   window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
 }
@@ -157,7 +158,7 @@ export async function ensureTaskWorktree(projectPath: string, task: TaskWithWork
     return null;
   }
   surfaceStartWarnings(result.warnings);
-  void useProjectStore.getState().loadTasksIfActive(projectPath);
+  void loadTasks(projectPath);
   return { path: result.worktreePath, branch: result.task?.branch || '', createdAt: task.createdAt };
 }
 

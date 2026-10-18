@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { CustomSandboxConfig } from '../../types';
-import { useProjectStore } from '../../stores/projectStore';
+import { loadProjectConfig } from '../../stores/projectDataStore';
 import { CARD, FIELD, PRIMARY_BUTTON, ROW_ACTION } from './sandboxStyles';
 import { QUIET_BUTTON } from './LensList';
 
@@ -36,7 +36,7 @@ export function CustomSandboxSection({ projectPath }: CustomSandboxSectionProps)
       setConfig(next.command ? { command: next.command.trim() } : {});
       setEditing(false);
       setError(null);
-      await useProjectStore.getState().loadProjectConfig(projectPath);
+      await loadProjectConfig(projectPath);
     },
     [projectPath],
   );

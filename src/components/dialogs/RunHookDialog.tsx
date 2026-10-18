@@ -14,6 +14,7 @@ const HOOK_TITLES: Record<string, string> = {
 };
 
 interface RunHookDialogProps {
+  projectPath: string;
   hookType: HookType;
   hook: ScriptHook;
   sandbox: SandboxProviderId;
@@ -30,6 +31,7 @@ interface RunHookDialogProps {
 }
 
 export function RunHookDialog({
+  projectPath,
   hookType,
   hook,
   sandbox: initialSandbox,
@@ -115,7 +117,7 @@ export function RunHookDialog({
       <HookEnvVars />
 
       <div className="mt-3">
-        <SandboxPicker value={sandbox} onChange={setSandbox} />
+        <SandboxPicker projectPath={projectPath} value={sandbox} onChange={setSandbox} />
       </div>
 
       <div className="flex gap-2 justify-end mt-4 items-center">

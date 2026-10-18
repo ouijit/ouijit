@@ -30,6 +30,7 @@ import { useChainEdges } from './useChainEdges';
 import { useSmartGuides } from './useSmartGuides';
 import { getChainColor, buildChainMap } from '../../utils/taskChain';
 import { useProjectStore } from '../../stores/projectStore';
+import { useProjectTasks } from '../../stores/projectDataStore';
 import { readToken } from '../../theme/themeManager';
 import { useThemeEpoch } from '../../hooks/useResolvedTheme';
 
@@ -157,7 +158,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     void themeEpoch; // the tokens change when the applied theme does
     return [readToken('--color-border-hover'), readToken('--color-background')];
   }, [themeEpoch]);
-  const tasks = useProjectStore((s) => s.tasks);
+  const tasks = useProjectTasks(projectPath);
   // React Flow calls nodeColor once per node on every minimap render, so build
   // the chain map once here rather than rebuilding it inside the callback.
   const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);

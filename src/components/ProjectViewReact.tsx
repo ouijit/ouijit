@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
+import { getProjectConfig, loadProjectConfig, loadScripts } from '../stores/projectDataStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../stores/canvasStore';
 import { useExperimentalStore } from '../stores/experimentalStore';
@@ -150,8 +151,7 @@ export function ProjectView() {
             if (runnerPanel) {
               inst.activatePanel(runnerPanel.id);
             } else {
-              const { configProjectPath, runnerSandbox } = useProjectStore.getState();
-              const sandbox = configProjectPath === inst.projectPath ? runnerSandbox : 'none';
+              const sandbox = getProjectConfig(inst.projectPath)?.runnerSandbox ?? 'none';
               void startRunner(pPtyId, undefined, isActiveSandbox(sandbox) ? sandbox : undefined);
             }
             useProjectStore.getState().setKanbanVisible(false);
@@ -271,13 +271,10 @@ export function ProjectView() {
     });
   }, [projectPath]);
 
-  // Load project-scoped config (sandbox availability + configured hooks) once.
-  // Terminal headers and kanban cards read this from the store instead of each
-  // making their own `sandbox.status` + `hooks.get` IPC calls.
   useEffect(() => {
     if (!projectPath) return;
-    useProjectStore.getState().loadProjectConfig(projectPath);
-    useProjectStore.getState().loadScripts(projectPath);
+    loadProjectConfig(projectPath);
+    loadScripts(projectPath);
   }, [projectPath]);
 
   // Pauses while the window is hidden so we don't keep spawning subprocesses
@@ -383,6 +380,7 @@ function GlobalRunHookDialog() {
   return (
     <RunHookDialog
       key={request.id}
+      projectPath={request.projectPath}
       hookType={request.hookType}
       hook={request.hook}
       sandbox={request.sandbox}

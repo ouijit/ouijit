@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { availableBackends, useProjectStore } from '../../stores/projectStore';
+import { useState } from 'react';
+import { setRunnerSandbox, useProjectConfig, useProjectScripts } from '../../stores/projectDataStore';
 import { terminalInstances } from './terminalRegistry';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
-import { SANDBOX_BACKEND_LABELS, isActiveSandbox, isSandboxProviderId, runnerSandboxSettingKey } from '../../types';
+import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
 import type { RunnerScript, SandboxBackendId, SandboxProviderId, Script, ScriptHook } from '../../types';
 
 interface AddPanelMenuProps {
@@ -33,7 +33,8 @@ export function AddPanelMenu({
   onEditScript,
   onClose,
 }: AddPanelMenuProps) {
-  const commands = useProjectCommands(projectPath);
+  const config = useProjectConfig(projectPath);
+  const scripts = useProjectScripts(projectPath);
   const [chosenPlace, setChosenPlace] = useState<SandboxProviderId | null>(null);
 
   const pickPlanFile = async () => {
@@ -45,9 +46,11 @@ export function AddPanelMenu({
 
   const items: ContextMenuEntry[] = [];
 
-  if (commands) {
-    const defaultPlace = chosenPlace ?? commands.defaultSandbox;
-    const places: SandboxProviderId[] = ['none', ...commands.sandboxes];
+  // Waits for both, so the menu never offers to configure a run command that
+  // already exists.
+  if (config && scripts) {
+    const defaultPlace = chosenPlace ?? config.runnerSandbox;
+    const places: SandboxProviderId[] = ['none', ...config.availableSandboxProviders];
     if (!places.includes(defaultPlace)) places.push(defaultPlace);
     if (places.length > 1) {
       items.push({
@@ -59,7 +62,7 @@ export function AddPanelMenu({
           keepOpen: true,
           onClick: () => {
             setChosenPlace(place);
-            void useProjectStore.getState().setRunnerSandbox(projectPath, place);
+            void setRunnerSandbox(projectPath, place);
           },
         })),
       });
@@ -69,13 +72,13 @@ export function AddPanelMenu({
       onAddRunner(script, isActiveSandbox(defaultPlace) ? defaultPlace : undefined);
     const edit = (label: string, onClick: () => void) => ({ icon: 'pencil-simple', label: `Edit ${label}`, onClick });
 
-    const { runHook } = commands;
+    const runHook = config.hooks.run;
     if (runHook) {
       items.push({ label: 'Run', onClick: () => run(), secondary: edit('Run', () => onConfigureRun(runHook)) });
     } else {
       items.push({ label: 'Configure run command…', onClick: () => onConfigureRun() });
     }
-    for (const script of commands.scripts) {
+    for (const script of scripts) {
       items.push({
         label: script.name,
         onClick: () => run(script),
@@ -94,56 +97,4 @@ export function AddPanelMenu({
 
 function placeLabel(place: SandboxProviderId): string {
   return isActiveSandbox(place) ? SANDBOX_BACKEND_LABELS[place] : 'Host';
-}
-
-interface ProjectCommands {
-  runHook?: ScriptHook;
-  scripts: Script[];
-  sandboxes: SandboxBackendId[];
-  defaultSandbox: SandboxProviderId;
-}
-
-/**
- * The store holds the open project's commands, but the home view shows
- * terminals from every project, so any other project's are read directly.
- * Null until they arrive, so the menu never offers to configure a run command
- * that already exists.
- */
-function useProjectCommands(projectPath: string): ProjectCommands | null {
-  const isStoreProject = useProjectStore(
-    (s) => s.configProjectPath === projectPath && s.scriptsProjectPath === projectPath,
-  );
-  const storeRunHook = useProjectStore((s) => s.hooks.run);
-  const storeScripts = useProjectStore((s) => s.scripts);
-  const storeSandboxes = useProjectStore((s) => s.availableSandboxProviders);
-  const storeDefault = useProjectStore((s) => s.runnerSandbox);
-  const [fetched, setFetched] = useState<ProjectCommands | null>(null);
-
-  useEffect(() => {
-    if (isStoreProject) return;
-    let cancelled = false;
-    Promise.all([
-      window.api.hooks.get(projectPath),
-      window.api.scripts.getAll(projectPath),
-      window.api.sandbox.status(projectPath),
-      window.api.globalSettings.get(runnerSandboxSettingKey(projectPath)),
-    ])
-      .then(([hooks, scripts, statuses, runnerSandbox]) => {
-        if (cancelled) return;
-        setFetched({
-          runHook: hooks.run,
-          scripts,
-          sandboxes: availableBackends(statuses),
-          defaultSandbox: isSandboxProviderId(runnerSandbox) ? runnerSandbox : 'none',
-        });
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [isStoreProject, projectPath]);
-
-  return isStoreProject
-    ? { runHook: storeRunHook, scripts: storeScripts, sandboxes: storeSandboxes, defaultSandbox: storeDefault }
-    : fetched;
 }

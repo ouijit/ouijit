@@ -42,9 +42,7 @@ interface AppStoreState {
   health: HealthStatus | null;
   homeActivePanel: 'home' | 'settings';
   homeRecents: HomeRecentTask[] | null;
-  /** Per-project task cache. Source of truth for `homeRecents`; updated whenever
-   *  any project's tasks are (re)loaded. Lets the home view paint instantly
-   *  from cache while a background refresh reconciles. */
+  /** Every project's tasks, by path. Read through `projectDataStore`. */
   taskCacheByProject: Record<string, TaskWithWorkspace[]>;
   _version: number;
 }

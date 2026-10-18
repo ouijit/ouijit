@@ -1,28 +1,19 @@
 import { create } from 'zustand';
 import type {
   TaskWithWorkspace,
-  Script,
   ScriptHook,
   HookType,
   CliHookControl,
   TaskStatus,
   SandboxProviderId,
-  SandboxBackendId,
-  SandboxProviderStatus,
-  ProjectHooks,
   RunHookResult,
 } from '../types';
-import { isSandboxProviderId, runnerSandboxSettingKey } from '../types';
 import { queuePrompt, settlePrompt, settleAllPrompts, type Pending } from './promptQueue';
-import { useAppStore } from './appStore';
 
 export type TerminalLayout = 'stack' | 'canvas';
 
-export function availableBackends(statuses: SandboxProviderStatus[]): SandboxBackendId[] {
-  return statuses.filter((s) => s.available).map((s) => s.providerId);
-}
-
 export interface RunHookInput {
+  projectPath: string;
   hookType: HookType;
   hook: ScriptHook;
   task: TaskWithWorkspace;
@@ -64,16 +55,11 @@ export interface PendingCliCompletion extends CliHookControl {
 }
 
 interface ProjectStoreState {
-  tasks: TaskWithWorkspace[];
   kanbanVisible: boolean;
   terminalLayout: TerminalLayout;
   activePanel: 'terminals' | 'settings' | 'pull-requests' | 'analysis';
   /** When set, the terminal stack and canvas show only sessions whose task has this tag. */
   tagFilter: string | null;
-  scripts: Script[];
-  /** projectPath the scripts currently reflect; null = not loaded. */
-  scriptsProjectPath: string | null;
-  taskVersion: number;
   highlightedChainTask: number | null;
   detachHoverParent: number | null;
   optionKeyHeld: boolean;
@@ -111,25 +97,9 @@ interface ProjectStoreState {
   pendingCliStarts: Record<string, PendingCliStart[]>;
   pendingCliTransitions: Record<string, PendingCliTransition[]>;
   pendingCliCompletions: Record<string, PendingCliCompletion[]>;
-  /**
-   * Project-scoped config used by terminal/kanban cards. Loaded once per project
-   * so we don't fan out N `sandbox.status` (subprocess spawn) + `hooks.get` calls
-   * across every visible card.
-   */
-  sandboxStatuses: SandboxProviderStatus[];
-  /** The backends in `sandboxStatuses` that can run. */
-  availableSandboxProviders: SandboxBackendId[];
-  hooks: ProjectHooks;
-  /** Where Run and scripts from a terminal's + menu run unless told otherwise. */
-  runnerSandbox: SandboxProviderId;
-  /** projectPath the config currently reflects; null = not loaded. */
-  configProjectPath: string | null;
-  _version: number;
 }
 
 interface ProjectStoreActions {
-  setTasks: (tasks: TaskWithWorkspace[]) => void;
-  invalidateTaskList: () => void;
   setKanbanVisible: (visible: boolean) => void;
   toggleKanban: () => void;
   showModal: (modal: string) => void;
@@ -156,29 +126,12 @@ interface ProjectStoreActions {
   toggleTerminalLayout: () => void;
   setActivePanel: (panel: 'terminals' | 'settings' | 'pull-requests' | 'analysis') => void;
   setTagFilter: (tag: string | null) => void;
-  resetForProject: () => void;
 
   toggleTaskSelection: (taskNumber: number) => void;
   selectTaskRange: (taskNumber: number, orderedTaskNumbers: number[]) => void;
   clearSelection: () => void;
-
-  /** Load tasks from IPC with staleness check */
-  loadTasks: (projectPath: string) => Promise<void>;
-  loadTasksIfActive: (projectPath: string) => Promise<void>;
-  loadScripts: (projectPath: string) => Promise<void>;
-  saveScript: (projectPath: string, script: Script) => Promise<Script | null>;
-  /**
-   * Load project-scoped config (sandbox availability + configured hooks) in a
-   * single pair of IPC calls, so kanban cards and terminal headers read it from
-   * the store rather than each probing on mount.
-   */
-  loadProjectConfig: (projectPath: string) => Promise<void>;
-  /** Persist a hook, and reflect it here when it belongs to the store's project. */
-  saveHook: (projectPath: string, hook: ScriptHook) => Promise<{ success: boolean }>;
-  setRunnerSandbox: (projectPath: string, sandbox: SandboxProviderId) => Promise<void>;
-  deleteHook: (projectPath: string, hookType: HookType) => Promise<void>;
-  /** Move a task with optimistic update and rollback */
-  moveTask: (projectPath: string, taskNumber: number, newStatus: string, targetIndex: number) => Promise<void>;
+  /** Drop selected tasks that are no longer in the board's list. */
+  pruneSelection: (tasks: TaskWithWorkspace[]) => void;
 
   /** Mark a task as starting (worktree being created). Does not depend on any view being mounted. */
   markTaskStarting: (taskNumber: number) => void;
@@ -212,20 +165,12 @@ interface ProjectStoreActions {
 type ProjectStore = ProjectStoreState & ProjectStoreActions;
 
 let toastCounter = 0;
-let moveCounter = 0;
-let configLoadVersion = 0;
-
-let scriptsLoadVersion = 0;
 
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
-  tasks: [],
   kanbanVisible: false,
   terminalLayout: 'stack',
   activePanel: 'terminals',
   tagFilter: null,
-  scripts: [],
-  scriptsProjectPath: null,
-  taskVersion: 0,
   highlightedChainTask: null,
   detachHoverParent: null,
   optionKeyHeld: false,
@@ -242,27 +187,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   pendingCliStarts: {},
   pendingCliTransitions: {},
   pendingCliCompletions: {},
-  sandboxStatuses: [],
-  availableSandboxProviders: [],
-  hooks: {},
-  runnerSandbox: 'none',
-  configProjectPath: null,
-  _version: 0,
-
-  setTasks: (tasks) => {
-    const { selectedTaskNumbers } = get();
-    if (selectedTaskNumbers.size > 0) {
-      const validNumbers = new Set(tasks.map((t) => t.taskNumber));
-      const pruned = new Set([...selectedTaskNumbers].filter((n) => validNumbers.has(n)));
-      if (pruned.size !== selectedTaskNumbers.size) {
-        set({ tasks, selectedTaskNumbers: pruned, selectionAnchor: pruned.size > 0 ? get().selectionAnchor : null });
-        return;
-      }
-    }
-    set({ tasks });
-  },
-
-  invalidateTaskList: () => set((s) => ({ taskVersion: s.taskVersion + 1 })),
 
   setKanbanVisible: (visible) => set({ kanbanVisible: visible }),
 
@@ -322,38 +246,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     }));
   },
 
-  resetForProject: () => {
-    settleAllPrompts(get().runHookQueue, (): RunHookResult | null => null);
-    set({
-      tasks: [],
-      kanbanVisible: false,
-      terminalLayout: 'stack',
-      activePanel: 'terminals',
-      tagFilter: null,
-      scripts: [],
-      scriptsProjectPath: null,
-      taskVersion: 0,
-      highlightedChainTask: null,
-      detachHoverParent: null,
-      optionKeyHeld: false,
-      shiftKeyHeld: false,
-      activeBadgeDrag: null,
-      badgeDragOverTask: null,
-      activeModal: null,
-      selectedTaskNumbers: new Set<number>(),
-      selectionAnchor: null,
-      startingTaskNumbers: new Set<number>(),
-      runHookQueue: [],
-      runHookQueueTotal: 0,
-      sandboxStatuses: [],
-      availableSandboxProviders: [],
-      hooks: {},
-      runnerSandbox: 'none',
-      configProjectPath: null,
-      _version: 0,
-    });
-  },
-
   toggleTaskSelection: (taskNumber) => {
     const prev = get().selectedTaskNumbers;
     const next = new Set(prev);
@@ -388,136 +280,13 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     set({ selectedTaskNumbers: new Set<number>(), selectionAnchor: null });
   },
 
-  loadTasks: async (projectPath) => {
-    const version = ++get()._version;
-    try {
-      const tasks = await window.api.task.getAll(projectPath);
-      if (get()._version !== version) return;
-      set({ tasks });
-      useAppStore.getState().updateProjectTaskCache(projectPath, tasks);
-    } catch (err) {
-      if (get()._version !== version) return;
-      get().addToast(`Failed to load tasks: ${err instanceof Error ? err.message : String(err)}`, 'error');
-    }
-  },
-
-  /**
-   * `tasks` is a singleton holding the *active* project's list, so anything
-   * that finishes after the user has moved on must not load into it. Not folded
-   * into `loadTasks`: navigation loads a project's tasks before making it
-   * active, so the board paints with content.
-   */
-  loadTasksIfActive: async (projectPath) => {
-    if (useAppStore.getState().activeProjectPath !== projectPath) return;
-    await get().loadTasks(projectPath);
-  },
-
-  loadScripts: async (projectPath) => {
-    // Version-guarded like loadProjectConfig: if the user switches A → B while
-    // A's IPC is in flight, B's call bumps the version so A's late response is
-    // dropped instead of overwriting B's scripts.
-    const version = ++scriptsLoadVersion;
-    try {
-      const scripts = await window.api.scripts.getAll(projectPath);
-      if (version !== scriptsLoadVersion) return;
-      set({ scripts, scriptsProjectPath: projectPath });
-    } catch (err) {
-      get().addToast(`Failed to load scripts: ${err instanceof Error ? err.message : String(err)}`, 'error');
-    }
-  },
-
-  saveScript: async (projectPath, script) => {
-    const result = await window.api.scripts.save(projectPath, script).catch((): null => null);
-    if (!result?.success || !result.script) {
-      get().addToast('Failed to save script', 'error');
-      return null;
-    }
-    if (get().scriptsProjectPath === projectPath) void get().loadScripts(projectPath);
-    return result.script;
-  },
-
-  loadProjectConfig: async (projectPath) => {
-    // Version counter: a later call (e.g. user switched projects A → B while
-    // A's IPC was still in flight) bumps the version, so when A's responses
-    // arrive their `version !== configLoadVersion` check drops them.
-    // Otherwise stale A config could land under project B.
-    const version = ++configLoadVersion;
-    try {
-      const [statuses, hooks, runnerSandbox] = await Promise.all([
-        window.api.sandbox.status(projectPath),
-        window.api.hooks.get(projectPath),
-        window.api.globalSettings.get(runnerSandboxSettingKey(projectPath)),
-      ]);
-      if (version !== configLoadVersion) return;
-      set({
-        sandboxStatuses: statuses,
-        availableSandboxProviders: availableBackends(statuses),
-        hooks,
-        runnerSandbox: isSandboxProviderId(runnerSandbox) ? runnerSandbox : 'none',
-        configProjectPath: projectPath,
-      });
-    } catch {
-      // Swallow — project config (sandbox availability + configured hooks) is
-      // a UX nicety; if IPC fails the cards just render with falsy defaults
-      // and the user retries the action.
-    }
-  },
-
-  setRunnerSandbox: async (projectPath, sandbox) => {
-    const { success } = await window.api.globalSettings.set(runnerSandboxSettingKey(projectPath), sandbox);
-    if (success && get().configProjectPath === projectPath) set({ runnerSandbox: sandbox });
-  },
-
-  saveHook: async (projectPath, hook) => {
-    const result = await window.api.hooks.save(projectPath, hook);
-    if (result.success && get().configProjectPath === projectPath) {
-      set({ hooks: { ...get().hooks, [hook.type]: hook } });
-    }
-    return result;
-  },
-
-  deleteHook: async (projectPath, hookType) => {
-    await window.api.hooks.delete(projectPath, hookType);
-    if (get().configProjectPath !== projectPath) return;
-    const { [hookType]: _deleted, ...rest } = get().hooks;
-    set({ hooks: rest });
-  },
-
-  moveTask: async (projectPath, taskNumber, newStatus, targetIndex) => {
-    const prev = get().tasks;
-    const moveVersion = ++moveCounter;
-    const task = prev.find((t) => t.taskNumber === taskNumber);
-    if (!task) return;
-    const updated = prev.filter((t) => t.taskNumber !== taskNumber);
-    const updatedTask = { ...task, status: newStatus as TaskWithWorkspace['status'] };
-    const statusTasks = updated.filter((t) => t.status === newStatus);
-    const otherTasks = updated.filter((t) => t.status !== newStatus);
-    statusTasks.splice(targetIndex, 0, updatedTask);
-    // Update order field so the kanban sort reflects the new positions
-    const orderedStatusTasks = statusTasks.map((t, i) => ({ ...t, order: i }));
-    set({ tasks: [...otherTasks, ...orderedStatusTasks] });
-
-    const rollbackOrReload = () => {
-      // Only rollback if no other move has happened since our snapshot
-      if (moveCounter === moveVersion) {
-        set({ tasks: prev });
-      } else {
-        get().loadTasks(projectPath);
-      }
-      get().addToast('Failed to move task', 'error');
-    };
-
-    try {
-      const result = await window.api.task.reorder(projectPath, taskNumber, newStatus as any, targetIndex);
-      if (!result.success) {
-        rollbackOrReload();
-      } else if (moveCounter !== moveVersion) {
-        // Another move happened while this one was in flight — reconcile with server
-        get().loadTasks(projectPath);
-      }
-    } catch {
-      rollbackOrReload();
-    }
+  pruneSelection: (tasks) => {
+    const { selectedTaskNumbers, selectionAnchor } = get();
+    if (selectedTaskNumbers.size === 0) return;
+    const valid = new Set(tasks.map((t) => t.taskNumber));
+    const pruned = new Set([...selectedTaskNumbers].filter((n) => valid.has(n)));
+    if (pruned.size === selectedTaskNumbers.size) return;
+    set({ selectedTaskNumbers: pruned, selectionAnchor: pruned.size > 0 ? selectionAnchor : null });
   },
 
   markTaskStarting: (taskNumber) => {

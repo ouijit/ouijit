@@ -8,6 +8,7 @@ import {
   type PendingCliCompletion,
 } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
+import { refreshProjectData } from '../stores/projectDataStore';
 import { beginTransition } from '../services/taskStartService';
 import { completeTask } from '../services/taskCompletion';
 import { reloadTheme } from '../theme/themeManager';
@@ -178,26 +179,11 @@ export function useIPCListeners() {
       }),
     );
 
-    // CLI changes — re-fetch whatever the mutated route touched. Scripts and
-    // hooks are the project's run commands: the store loads them once on
-    // project switch, so without this a `ouijit script set` / `hook set` never
-    // shows up in an already-open window (terminal "+" menu, headers, badges).
     cleanups.push(
       window.api.onCliChange((payload) => {
-        const activeProject = useAppStore.getState().activeProjectPath;
-        if (!activeProject || payload.project !== activeProject) return;
-        ipcLog.info('CLI change detected, refreshing', { action: payload.action });
-        const store = useProjectStore.getState();
-        if (payload.resource === 'scripts') {
-          store.loadScripts(activeProject);
-        } else if (payload.resource === 'hooks' || payload.resource === 'sandbox') {
-          store.loadProjectConfig(activeProject);
-        } else {
-          store.loadTasks(activeProject);
-        }
-        if (payload.message) {
-          store.addToast(payload.message, 'info');
-        }
+        ipcLog.info('CLI change detected, refreshing', { action: payload.action, project: payload.project });
+        refreshProjectData(payload.project, payload.resource);
+        if (payload.message) useProjectStore.getState().addToast(payload.message, 'info');
       }),
     );
 

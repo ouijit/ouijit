@@ -45,7 +45,6 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
 
 describe('taskStartService.beginTransition', () => {
   beforeEach(() => {
-    useProjectStore.getState().resetForProject();
     useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
     vi.clearAllMocks();
     vi.mocked(window.api.hooks.get).mockResolvedValue({});
@@ -478,9 +477,7 @@ describe('taskStartService.beginTransition', () => {
 });
 
 describe('projectStore runHook queue', () => {
-  beforeEach(() => {
-    useProjectStore.getState().resetForProject();
-  });
+  beforeEach(() => {});
 
   const makeReq = (taskNumber: number) => ({
     hookType: 'start' as const,

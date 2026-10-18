@@ -3,6 +3,7 @@ import { useIPCListeners } from './hooks/useIPCListeners';
 import { usePaletteShortcut } from './hooks/usePaletteShortcut';
 import { useAppStore, selectIsCloning } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
+import { loadTasks } from './stores/projectDataStore';
 import { useExperimentalStore } from './stores/experimentalStore';
 import { TitleBar } from './components/TitleBarReact';
 import { Sidebar } from './components/SidebarReact';
@@ -182,7 +183,7 @@ export function App() {
               if (project) {
                 // Pre-fetch tasks before navigating so the first project paint
                 // (kanban included) shows correct content.
-                await useProjectStore.getState().loadTasks(parsed.path);
+                await loadTasks(parsed.path);
                 useAppStore.getState().navigateToProject(parsed.path, project);
                 restoredToProject = true;
               }

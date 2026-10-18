@@ -4,6 +4,7 @@
  */
 
 import { useProjectStore } from '../stores/projectStore';
+import { loadTasks } from '../stores/projectDataStore';
 import { usePanelStore } from '../stores/panelStore';
 import { useLinearStore } from '../stores/linearStore';
 
@@ -24,5 +25,5 @@ export async function unlinkLinearIssue(projectPath: string, taskNumber: number)
     useProjectStore.getState().addToast(result.error ?? "Couldn't unlink the issue", 'error');
     return;
   }
-  await useProjectStore.getState().loadTasks(projectPath);
+  await loadTasks(projectPath);
 }

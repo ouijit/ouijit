@@ -15,6 +15,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import { beginTransition } from '../../services/taskStartService';
 import { completeTask } from '../../services/taskCompletion';
 import type { TaskWithWorkspace } from '../../types';
+import { seedProject } from './seedProject';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -37,6 +38,7 @@ type CliTaskCompletedPayload = Parameters<Parameters<typeof window.api.onCliTask
 type CliTaskCompletedCb = (payload: CliTaskCompletedPayload) => void;
 
 const PROJECT = '/proj/a';
+const OTHER = '/proj/b';
 
 function makeTask(): TaskWithWorkspace {
   return {
@@ -146,7 +148,6 @@ function installListenerStubs(): ListenerStubs {
 describe('useIPCListeners — cli:task-started → beginTransition', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useProjectStore.getState().resetForProject();
     useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
     useAppStore.setState({ activeProjectPath: PROJECT });
     vi.mocked(window.api.task.getByNumber).mockResolvedValue(makeTask());
@@ -226,7 +227,6 @@ describe('useIPCListeners — cli:task-started → beginTransition', () => {
 describe('useIPCListeners — cli:task-transitioned → beginTransition', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useProjectStore.getState().resetForProject();
     useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
     useAppStore.setState({ activeProjectPath: PROJECT });
   });
@@ -300,7 +300,6 @@ describe('useIPCListeners — cli:task-transitioned → beginTransition', () => 
 describe('useIPCListeners — cli:task-completed → completeTask', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useProjectStore.getState().resetForProject();
     useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
     useAppStore.setState({ activeProjectPath: PROJECT });
   });
@@ -369,7 +368,6 @@ describe('useIPCListeners — cli:task-completed → completeTask', () => {
 describe('useIPCListeners — cli-change refreshes the resource that changed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useProjectStore.getState().resetForProject();
     useAppStore.setState({ activeProjectPath: PROJECT });
   });
 
@@ -379,18 +377,21 @@ describe('useIPCListeners — cli-change refreshes the resource that changed', (
     stubs.cliChangeCb!({ project, action: `PUT /api/${resource}/x`, resource, ts: 0 });
   }
 
-  test('routes each resource to its own loader and ignores other projects', async () => {
-    // `ouijit script set` / `hook set` add run commands the terminal "+" menu
-    // reads from the store — they must refresh without a project switch.
+  test('routes each resource to its own loader, for whichever project it touched', async () => {
+    // A project's config and scripts refresh once something has loaded them;
+    // its tasks are held for every project, so those always refresh.
+    seedProject(PROJECT, { hooks: {}, scripts: [] });
+    seedProject(OTHER, { hooks: {}, scripts: [] });
+
     fire('scripts');
     await flush();
     expect(window.api.scripts.getAll).toHaveBeenCalledWith(PROJECT);
     expect(window.api.task.getAll).not.toHaveBeenCalled();
 
     vi.clearAllMocks();
-    fire('hooks');
+    fire('hooks', OTHER);
     await flush();
-    expect(window.api.hooks.get).toHaveBeenCalledWith(PROJECT);
+    expect(window.api.hooks.get).toHaveBeenCalledWith(OTHER);
     expect(window.api.task.getAll).not.toHaveBeenCalled();
 
     // `ouijit sandbox-command set` changes which backends are ready to spawn.
@@ -398,16 +399,15 @@ describe('useIPCListeners — cli-change refreshes the resource that changed', (
     fire('sandbox');
     await flush();
     expect(window.api.sandbox.status).toHaveBeenCalledWith(PROJECT);
-    expect(window.api.task.getAll).not.toHaveBeenCalled();
 
     vi.clearAllMocks();
-    fire('tasks');
+    fire('tasks', '/proj/never-loaded');
     await flush();
-    expect(window.api.task.getAll).toHaveBeenCalledWith(PROJECT);
+    expect(window.api.task.getAll).toHaveBeenCalledWith('/proj/never-loaded');
     expect(window.api.scripts.getAll).not.toHaveBeenCalled();
 
     vi.clearAllMocks();
-    fire('scripts', '/proj/other');
+    fire('scripts', '/proj/never-loaded');
     await flush();
     expect(window.api.scripts.getAll).not.toHaveBeenCalled();
   });
@@ -416,7 +416,6 @@ describe('useIPCListeners — cli-change refreshes the resource that changed', (
 describe('useIPCListeners — sandbox-launch-failed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useProjectStore.getState().resetForProject();
   });
 
   test('a launcher or spawn refusal becomes a persistent error toast naming the backend and why', () => {

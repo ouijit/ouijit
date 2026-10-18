@@ -2,9 +2,11 @@
  * Test setup for renderer (React) tests.
  * Provides jsdom environment and mocks window.api.
  */
-import { vi, afterEach } from 'vitest';
+import { vi, afterEach, beforeEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import { resetFrecencyForTests } from '../../utils/paletteFrecency';
+import { useProjectStore } from '../../stores/projectStore';
+import { useProjectDataStore } from '../../stores/projectDataStore';
 import type { Script } from '../../types';
 
 /**
@@ -17,6 +19,10 @@ import type { Script } from '../../types';
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
+
+beforeEach(() => {
+  for (const store of [useProjectStore, useProjectDataStore]) store.setState({ ...store.getInitialState() }, true);
+});
 
 // Cleanup React DOM after each test
 afterEach(() => {
