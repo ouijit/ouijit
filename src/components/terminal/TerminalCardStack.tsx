@@ -42,14 +42,19 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
         />
       )}
 
-      {visible.map((ptyId, depth) => (
-        <TerminalCard
-          key={ptyId}
-          ptyId={ptyId}
-          depth={depth}
-          stackPosition={depth === 0 ? undefined : backCards.length - depth + 1}
-        />
-      ))}
+      {/* Rendered in a fixed order and stacked by z-index: a node React moves
+          to match a new order skips its transition and jumps into place. */}
+      {visible
+        .map((ptyId, depth) => ({ ptyId, depth }))
+        .sort((a, b) => a.ptyId.localeCompare(b.ptyId))
+        .map(({ ptyId, depth }) => (
+          <TerminalCard
+            key={ptyId}
+            ptyId={ptyId}
+            depth={depth}
+            stackPosition={depth === 0 ? undefined : backCards.length - depth + 1}
+          />
+        ))}
     </div>
   );
 }

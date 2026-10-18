@@ -190,14 +190,18 @@ export function HomeView() {
         />
       )}
 
-      {layout.cards.map(({ ptyId, depth }) => (
-        <TerminalCard
-          key={ptyId}
-          ptyId={ptyId}
-          depth={depth}
-          stackPosition={depth === 0 ? undefined : backCards.length - backCards.findIndex((c) => c.ptyId === ptyId)}
-        />
-      ))}
+      {/* Rendered in a fixed order and stacked by z-index: a node React moves
+          to match a new order skips its transition and jumps into place. */}
+      {[...layout.cards]
+        .sort((a, b) => a.ptyId.localeCompare(b.ptyId))
+        .map(({ ptyId, depth }) => (
+          <TerminalCard
+            key={ptyId}
+            ptyId={ptyId}
+            depth={depth}
+            stackPosition={depth === 0 ? undefined : backCards.length - backCards.findIndex((c) => c.ptyId === ptyId)}
+          />
+        ))}
 
       {[...layout.dividers]
         .sort((a, b) => a.key.localeCompare(b.key))
