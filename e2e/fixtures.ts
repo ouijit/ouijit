@@ -2,7 +2,10 @@ import { test as base, expect, _electron, type ElectronApplication, type Page } 
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFile, execSync } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Creates a temporary git repo for testing.
@@ -49,9 +52,31 @@ export async function enterProject(appPage: Page, repoPath: string): Promise<voi
   await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
 }
 
+interface ApiCredentials {
+  url: string;
+  token: string;
+}
+
+async function apiCredentials(electronApp: ElectronApplication): Promise<ApiCredentials> {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const api = await electronApp.evaluate(() => (globalThis as { __ouijitE2EApi?: ApiCredentials }).__ouijitE2EApi);
+    if (api) return api;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error('The app never exposed its API credentials');
+}
+
+/**
+ * Runs the built `ouijit` CLI against the app under test and returns its JSON.
+ * `args` goes through a shell, so quote it the way you would at a prompt.
+ */
+export type Cli = <T = unknown>(args: string, options?: { project?: string }) => Promise<T>;
+
 // Extend Playwright test with Ouijit-specific fixtures
 type OuijitFixtures = {
   electronApp: ElectronApplication;
+  cli: Cli;
   appPage: Page;
   testRepo: { repoPath: string; cleanup: () => void };
   userDataDir: string;
@@ -89,6 +114,42 @@ export const test = base.extend<OuijitFixtures>({
     } catch {
       // App may already be closed
     }
+  },
+
+  cli: async ({ electronApp }, use) => {
+    const cliPath = path.resolve(__dirname, '..', 'dist-cli', 'ouijit.js');
+    let credentials: Promise<ApiCredentials> | undefined;
+
+    await use(async (args, { project } = {}) => {
+      const api = await (credentials ??= apiCredentials(electronApp));
+      // The runner may itself be inside an Ouijit terminal, whose session would
+      // otherwise answer the markdown and preview commands.
+      const { OUIJIT_PTY_ID: _, ...env } = process.env;
+      // --project rather than cwd detection: git resolves the tmpdir through
+      // its symlink (/var → /private/var), which is not the path the app registered.
+      const projectFlag = project ? '--project "$OUIJIT_E2E_PROJECT" ' : '';
+      try {
+        const { stdout } = await execFileAsync(
+          '/bin/sh',
+          ['-c', `"$OUIJIT_E2E_NODE" "$OUIJIT_E2E_CLI" ${projectFlag}${args}`],
+          {
+            cwd: os.tmpdir(),
+            env: {
+              ...env,
+              OUIJIT_API_URL: api.url,
+              OUIJIT_API_TOKEN: api.token,
+              OUIJIT_E2E_NODE: process.execPath,
+              OUIJIT_E2E_CLI: cliPath,
+              OUIJIT_E2E_PROJECT: project ?? '',
+            },
+          },
+        );
+        return JSON.parse(stdout);
+      } catch (err) {
+        const stderr = (err as { stderr?: string }).stderr?.trim();
+        throw new Error(`ouijit ${args}: ${stderr || (err as Error).message}`);
+      }
+    });
   },
 
   appPage: async ({ electronApp }, use) => {

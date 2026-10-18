@@ -51,4 +51,5 @@ function electronLogFactory() {
 }
 vi.mock('electron-log/main', electronLogFactory);
 vi.mock('electron-log/renderer', electronLogFactory);
+vi.mock('better-sqlite3', () => import('../nodeSqlite').then((m) => m.nodeSqliteFactory()));
 setUserDataPath(testDataDir);
