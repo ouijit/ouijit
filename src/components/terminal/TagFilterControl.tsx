@@ -42,7 +42,8 @@ export function TagFilterControl({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
-  const tooltip = useTooltip(label ?? (value ? `Filtering by “${value}”` : 'Filter by tag'), { disabled: open });
+  const triggerLabel = label ?? (value ? `Filtering by “${value}”` : 'Filter by tag');
+  const tooltip = useTooltip(triggerLabel, { disabled: open });
   const setTriggerRef = useMergeRefs([triggerRef, tooltip.setReference]);
 
   useLayoutEffect(() => {
@@ -95,6 +96,7 @@ export function TagFilterControl({
     <div className={wrapperClass}>
       <button
         ref={setTriggerRef}
+        aria-label={triggerLabel}
         className={triggerClass}
         onClick={() => (hasMenu ? setOpen((v) => !v) : onSelectAll())}
         {...tooltip.referenceProps}
