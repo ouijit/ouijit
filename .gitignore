@@ -87,6 +87,7 @@ typings/
 
 # Vite
 .vite/
+.vite-e2e/
 
 # Bundled binaries (downloaded during build)
 resources/bin/*

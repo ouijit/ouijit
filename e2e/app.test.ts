@@ -271,15 +271,12 @@ test('terminal reconnect after reload does not produce % artifacts', async ({ ap
   expect(percentArtifacts, `Found ${percentArtifacts} PROMPT_EOL_MARK artifacts after reload`).toBe(0);
 });
 
-test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, testRepo }) => {
+test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, testRepo, cli }) => {
   const repoPath = testRepo.repoPath;
 
   await enterProject(appPage, repoPath);
 
-  // Configure start hook
-  await appPage.evaluate(async (rp) => {
-    await window.api.hooks.save(rp, { id: 'hook-start', type: 'start', name: 'Start', command: 'echo starting' });
-  }, repoPath);
+  await cli('hook set start --name Start --command "echo starting"', { project: repoPath });
 
   // Create a task — entering the project already left the board up
   const input = await openColumnComposer(appPage);
@@ -343,9 +340,7 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
 
   // --- No dialog after hook deleted ---
 
-  await appPage.evaluate(async (rp) => {
-    await window.api.hooks.delete(rp, 'start');
-  }, repoPath);
+  await cli('hook delete start', { project: repoPath });
 
   await openColumnComposer(appPage);
   await input.fill('Hook task 3');

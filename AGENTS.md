@@ -98,6 +98,8 @@ Where a test goes, per `vitest.config.ts`:
 - `src/__tests__/renderer/**/*.test.tsx` — `renderer`, jsdom.
 - `e2e/*.test.ts` — Playwright, driving a real Electron window.
 
-`npm test` and `npm run test:e2e` each rebuild better-sqlite3 for their own ABI
-in a pre-hook, so run them separately. `npm run test:full` chains the two
-without a rebuild between and cannot pass both halves.
+better-sqlite3 is built once per runtime by `scripts/sqlite-bindings.mjs`,
+which every test script runs as a pre-hook: vitest loads the Node copy from
+`node_modules/.cache`, and Electron loads the package's own `build/Release`.
+Calling `npx vitest` directly skips that hook, so run the script first on a
+fresh install.
