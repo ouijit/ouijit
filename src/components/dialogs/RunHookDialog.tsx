@@ -15,6 +15,8 @@ const HOOK_TITLES: Record<string, string> = {
 
 interface RunHookDialogProps {
   projectPath: string;
+  /** Set when the prompt belongs to a project other than the one on screen. */
+  projectName?: string;
   hookType: HookType;
   hook: ScriptHook;
   sandbox: SandboxProviderId;
@@ -32,6 +34,7 @@ interface RunHookDialogProps {
 
 export function RunHookDialog({
   projectPath,
+  projectName,
   hookType,
   hook,
   sandbox: initialSandbox,
@@ -85,10 +88,19 @@ export function RunHookDialog({
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)} maxWidth={420}>
       <h2
         data-testid="dialog-title"
-        className={`dialog-title text-lg font-semibold text-text-primary text-center ${queued ? 'mb-1' : 'mb-4'}`}
+        className={`dialog-title text-lg font-semibold text-text-primary text-center ${queued || projectName ? 'mb-1' : 'mb-4'}`}
       >
         {title}
       </h2>
+
+      {projectName && (
+        <div
+          data-testid="hook-project"
+          className={`text-xs text-text-secondary text-center truncate ${queued ? 'mb-1' : 'mb-4'}`}
+        >
+          {projectName}
+        </div>
+      )}
 
       {queued && (
         <div data-testid="hook-queue-stepper" className="text-xs text-text-secondary text-center mb-4">

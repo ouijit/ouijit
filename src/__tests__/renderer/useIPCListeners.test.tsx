@@ -1,10 +1,3 @@
-/**
- * Coverage for the plumbing between a `cli:task-started` IPC push and the
- * `beginTransition` call that spawns the terminal: hookMode / hookCommand
- * from the CLI flags must thread through `PendingCliStart` and into
- * `beginTransition`'s `hookControl` option, both on the active-project
- * path and on the queued-then-drained path.
- */
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 
@@ -145,224 +138,60 @@ function installListenerStubs(): ListenerStubs {
   return stubs;
 }
 
-describe('useIPCListeners — cli:task-started → beginTransition', () => {
+describe('useIPCListeners — CLI task lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
-    useAppStore.setState({ activeProjectPath: PROJECT });
     vi.mocked(window.api.task.getByNumber).mockResolvedValue(makeTask());
   });
 
-  test('payload with no hookMode → beginTransition called with hookControl: undefined', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-    expect(stubs.cliTaskStartedCb).not.toBeNull();
+  test.each([
+    ['its own project', PROJECT],
+    ['home', null],
+    ['another project', OTHER],
+  ])(
+    "runs a start, transition or completion at once while %s is showing, with the CLI's hook flags",
+    async (_, active) => {
+      useAppStore.setState({ activeProjectPath: active });
+      const stubs = installListenerStubs();
+      renderHook(() => useIPCListeners());
 
-    stubs.cliTaskStartedCb!(basePayload());
-    await flush();
+      stubs.cliTaskStartedCb!(basePayload());
+      stubs.cliTaskStartedCb!(basePayload({ hookMode: 'skip' }));
+      stubs.cliTaskStartedCb!(basePayload({ hookMode: 'run' }));
+      stubs.cliTaskStartedCb!(basePayload({ hookMode: 'command', hookCommand: 'claude --resume' }));
+      await flush();
+      expect(
+        vi.mocked(beginTransition).mock.calls.map(([path, opts]) => [path, opts.newStatus, opts.hookControl]),
+      ).toEqual([
+        [PROJECT, 'in_progress', undefined],
+        [PROJECT, 'in_progress', { mode: 'skip', command: undefined }],
+        [PROJECT, 'in_progress', { mode: 'run', command: undefined }],
+        [PROJECT, 'in_progress', { mode: 'command', command: 'claude --resume' }],
+      ]);
 
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toBeUndefined();
-  });
+      vi.mocked(beginTransition).mockClear();
+      stubs.cliTaskTransitionedCb!(transitionPayload());
+      stubs.cliTaskTransitionedCb!(transitionPayload({ hookMode: 'command', hookCommand: 'claude review' }));
+      await flush();
+      expect(
+        vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.origStatus, opts.newStatus, opts.hookControl]),
+      ).toEqual([
+        ['in_progress', 'in_review', undefined],
+        ['in_progress', 'in_review', { mode: 'command', command: 'claude review' }],
+      ]);
 
-  test('hookMode "skip" threads through into hookControl', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskStartedCb!(basePayload({ hookMode: 'skip' }));
-    await flush();
-
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toEqual({ mode: 'skip', command: undefined });
-  });
-
-  test('hookMode "run" threads through into hookControl', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskStartedCb!(basePayload({ hookMode: 'run' }));
-    await flush();
-
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toEqual({ mode: 'run', command: undefined });
-  });
-
-  test('hookMode "command" threads command through into hookControl', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskStartedCb!(basePayload({ hookMode: 'command', hookCommand: 'claude --resume' }));
-    await flush();
-
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toEqual({
-      mode: 'command',
-      command: 'claude --resume',
-    });
-  });
-
-  test('queued-then-drained start preserves hookMode + hookCommand', async () => {
-    // User is viewing a different project; the start should queue.
-    useAppStore.setState({ activeProjectPath: '/proj/other' });
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskStartedCb!(basePayload({ hookMode: 'command', hookCommand: 'echo queued' }));
-    await flush();
-
-    // Should NOT have called beginTransition yet — payload is queued.
-    expect(beginTransition).not.toHaveBeenCalled();
-    expect(useProjectStore.getState().pendingCliStarts[PROJECT]?.[0]?.hookMode).toBe('command');
-
-    // Activate the project; the queued start drains and beginTransition fires.
-    useAppStore.setState({ activeProjectPath: PROJECT });
-    await flush();
-
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toEqual({
-      mode: 'command',
-      command: 'echo queued',
-    });
-  });
-});
-
-describe('useIPCListeners — cli:task-transitioned → beginTransition', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
-    useAppStore.setState({ activeProjectPath: PROJECT });
-  });
-
-  test('in_review with no hookMode → beginTransition with origStatus/newStatus and hookControl undefined', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-    expect(stubs.cliTaskTransitionedCb).not.toBeNull();
-
-    stubs.cliTaskTransitionedCb!(transitionPayload());
-    await flush();
-
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    const opts = vi.mocked(beginTransition).mock.calls[0][1];
-    expect(opts.origStatus).toBe('in_progress');
-    expect(opts.newStatus).toBe('in_review');
-    expect(opts.hookControl).toBeUndefined();
-  });
-
-  test('hookMode "command" threads command through into hookControl', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskTransitionedCb!(transitionPayload({ hookMode: 'command', hookCommand: 'claude review' }));
-    await flush();
-
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toEqual({
-      mode: 'command',
-      command: 'claude review',
-    });
-  });
-
-  test('bare transition for a project not in view is queued, then drained on navigation', async () => {
-    useAppStore.setState({ activeProjectPath: '/proj/other' });
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    // No hookMode → shows a dialog, which can't render off-project, so it waits.
-    stubs.cliTaskTransitionedCb!(transitionPayload());
-    await flush();
-
-    expect(beginTransition).not.toHaveBeenCalled();
-    expect(useProjectStore.getState().pendingCliTransitions[PROJECT]?.[0]?.origStatus).toBe('in_progress');
-
-    useAppStore.setState({ activeProjectPath: PROJECT });
-    await flush();
-
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    const opts = vi.mocked(beginTransition).mock.calls[0][1];
-    expect(opts.origStatus).toBe('in_progress');
-    expect(opts.hookControl).toBeUndefined();
-  });
-
-  test('headless transition (explicit flag) runs immediately even when off-project', async () => {
-    useAppStore.setState({ activeProjectPath: '/proj/other' });
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    // No dialog for a skip, so it's safe to run regardless of the active project.
-    stubs.cliTaskTransitionedCb!(transitionPayload({ hookMode: 'skip' }));
-    await flush();
-
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    const opts = vi.mocked(beginTransition).mock.calls[0][1];
-    expect(opts.origStatus).toBe('in_progress');
-    expect(opts.hookControl).toEqual({ mode: 'skip', command: undefined });
-    expect(useProjectStore.getState().pendingCliTransitions[PROJECT]).toBeUndefined();
-  });
-});
-
-describe('useIPCListeners — cli:task-completed → completeTask', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
-    useAppStore.setState({ activeProjectPath: PROJECT });
-  });
-
-  test('bare done while viewing the project → completeTask with hookControl undefined + skipStatusWrite', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-    expect(stubs.cliTaskCompletedCb).not.toBeNull();
-
-    stubs.cliTaskCompletedCb!(completedPayload());
-    await flush();
-
-    expect(completeTask).toHaveBeenCalledTimes(1);
-    const opts = vi.mocked(completeTask).mock.calls[0][0];
-    expect(opts.hookControl).toBeUndefined();
-    expect(opts.skipStatusWrite).toBe(true);
-  });
-
-  test('done --hook-command threads command through into hookControl', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskCompletedCb!(completedPayload({ hookMode: 'command', hookCommand: 'npm run deploy' }));
-    await flush();
-
-    expect(vi.mocked(completeTask).mock.calls[0][0].hookControl).toEqual({
-      mode: 'command',
-      command: 'npm run deploy',
-    });
-  });
-
-  test('bare done for a project not in view is queued, then drained on navigation', async () => {
-    useAppStore.setState({ activeProjectPath: '/proj/other' });
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskCompletedCb!(completedPayload());
-    await flush();
-
-    // No dialog can render for an unviewed project, so it must wait.
-    expect(completeTask).not.toHaveBeenCalled();
-    expect(useProjectStore.getState().pendingCliCompletions[PROJECT]?.[0]?.taskNumber).toBe(9);
-
-    useAppStore.setState({ activeProjectPath: PROJECT });
-    await flush();
-
-    expect(completeTask).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(completeTask).mock.calls[0][0].hookControl).toBeUndefined();
-  });
-
-  test('headless done (explicit flag) runs immediately even when off-project', async () => {
-    useAppStore.setState({ activeProjectPath: '/proj/other' });
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskCompletedCb!(completedPayload({ hookMode: 'skip' }));
-    await flush();
-
-    // No dialog for a skip, so it's safe to run regardless of the active project.
-    expect(completeTask).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(completeTask).mock.calls[0][0].hookControl).toEqual({ mode: 'skip', command: undefined });
-    expect(useProjectStore.getState().pendingCliCompletions[PROJECT]).toBeUndefined();
-  });
+      stubs.cliTaskCompletedCb!(completedPayload());
+      stubs.cliTaskCompletedCb!(completedPayload({ hookMode: 'command', hookCommand: 'npm run deploy' }));
+      await flush();
+      expect(
+        vi.mocked(completeTask).mock.calls.map(([opts]) => [opts.projectPath, opts.hookControl, opts.skipStatusWrite]),
+      ).toEqual([
+        [PROJECT, undefined, true],
+        [PROJECT, { mode: 'command', command: 'npm run deploy' }, true],
+      ]);
+    },
+  );
 });
 
 describe('useIPCListeners — cli-change refreshes the resource that changed', () => {

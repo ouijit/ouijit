@@ -19,7 +19,7 @@ import { isActiveSandbox } from '../../types';
 import { useTerminalStore, setActiveTerminal, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
-import { useAppStore, staleGuard } from '../../stores/appStore';
+import { useAppStore } from '../../stores/appStore';
 import { OuijitTerminal, resolveTerminalLabel, type SummaryType } from './terminalReact';
 import { terminalInstances, restoreTerminalOnce } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
@@ -229,9 +229,6 @@ export async function addProjectTerminal(
   runConfig?: RunConfig,
   options?: AddProjectTerminalOptions,
 ): Promise<boolean> {
-  const version = useAppStore.getState()._version;
-  const isStale = staleGuard(version);
-
   let terminalCwd = projectPath;
   const worktreeInfo: (WorktreeInfo & { prompt?: string }) | undefined = options?.existingWorktree;
 
@@ -249,8 +246,6 @@ export async function addProjectTerminal(
   const taskName = task?.name;
   const mergeTarget = task?.mergeTarget;
   const taskPrompt = task?.prompt;
-
-  if (isStale()) return false;
 
   const label = options?.label ?? resolveTerminalLabel(taskName, worktreeInfo?.branch, runConfig?.name);
   const command = runConfig?.command;
@@ -277,8 +272,6 @@ export async function addProjectTerminal(
       }
     }
   }
-
-  if (isStale()) return false;
 
   // An unavailable backend is passed through regardless: the spawn refuses it
   // with a reason, where falling back would run the command unsandboxed.
@@ -334,14 +327,6 @@ export async function addProjectTerminal(
 
   try {
     const ptyId = await term.spawnPty(spawnOptions);
-
-    if (isStale()) {
-      if (ptyId) {
-        window.api.pty.kill(ptyId);
-        term.dispose();
-      }
-      return false;
-    }
 
     if (!ptyId) {
       if (addedEarly) {

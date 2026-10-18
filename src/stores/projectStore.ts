@@ -1,13 +1,5 @@
 import { create } from 'zustand';
-import type {
-  TaskWithWorkspace,
-  ScriptHook,
-  HookType,
-  CliHookControl,
-  TaskStatus,
-  SandboxProviderId,
-  RunHookResult,
-} from '../types';
+import type { TaskWithWorkspace, ScriptHook, HookType, SandboxProviderId, RunHookResult } from '../types';
 import { queuePrompt, settlePrompt, settleAllPrompts, type Pending } from './promptQueue';
 
 export type TerminalLayout = 'stack' | 'canvas';
@@ -22,37 +14,6 @@ export interface RunHookInput {
 }
 
 export type RunHookRequest = RunHookInput & Pending<RunHookResult | null>;
-
-export interface PendingCliStart extends CliHookControl {
-  taskNumber: number;
-  worktreePath: string;
-  branch: string;
-  createdAt: string;
-}
-
-/**
- * A CLI-initiated in_progress/in_review transition awaiting a hook spawn. Queued
- * like {@link PendingCliStart} when the user isn't viewing the project, and
- * drained on navigation. Carries the full task and origStatus so the renderer
- * can run the same beginTransition path a kanban drop would.
- */
-export interface PendingCliTransition extends CliHookControl {
-  taskNumber: number;
-  origStatus: TaskStatus;
-  newStatus: TaskStatus;
-  task: TaskWithWorkspace;
-}
-
-/**
- * A CLI-initiated done transition awaiting its lifecycle. Queued like
- * {@link PendingCliStart} when a *bare* done (which shows the Done dialog) lands
- * for a project the user isn't viewing, and drained on navigation. A done with
- * explicit hook flags runs headlessly and is never queued.
- */
-export interface PendingCliCompletion extends CliHookControl {
-  taskNumber: number;
-  task: TaskWithWorkspace;
-}
 
 interface ProjectStoreState {
   kanbanVisible: boolean;
@@ -93,10 +54,6 @@ interface ProjectStoreState {
    * position counts up instead of the total shrinking under the user.
    */
   runHookQueueTotal: number;
-  /** Queued CLI-initiated task starts awaiting the user to enter the project. */
-  pendingCliStarts: Record<string, PendingCliStart[]>;
-  pendingCliTransitions: Record<string, PendingCliTransition[]>;
-  pendingCliCompletions: Record<string, PendingCliCompletion[]>;
 }
 
 interface ProjectStoreActions {
@@ -145,21 +102,6 @@ interface ProjectStoreActions {
   runAllRunHookRequests: (headResult: RunHookResult) => void;
   /** Skip the entire queue — resolve every pending hook prompt with null. */
   skipAllRunHookRequests: () => void;
-
-  /** Queue a CLI-initiated start for a project the user isn't currently viewing. */
-  enqueueCliStart: (projectPath: string, start: PendingCliStart) => void;
-  /** Atomically drain all queued starts for a project. */
-  drainCliStarts: (projectPath: string) => PendingCliStart[];
-
-  /** Queue a CLI-initiated in_progress/in_review transition for a project the user isn't viewing. */
-  enqueueCliTransition: (projectPath: string, transition: PendingCliTransition) => void;
-  /** Atomically drain all queued transitions for a project. */
-  drainCliTransitions: (projectPath: string) => PendingCliTransition[];
-
-  /** Queue a CLI-initiated done transition for a project the user isn't viewing. */
-  enqueueCliCompletion: (projectPath: string, completion: PendingCliCompletion) => void;
-  /** Atomically drain all queued completions for a project. */
-  drainCliCompletions: (projectPath: string) => PendingCliCompletion[];
 }
 
 type ProjectStore = ProjectStoreState & ProjectStoreActions;
@@ -184,9 +126,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   startingTaskNumbers: new Set<number>(),
   runHookQueue: [],
   runHookQueueTotal: 0,
-  pendingCliStarts: {},
-  pendingCliTransitions: {},
-  pendingCliCompletions: {},
 
   setKanbanVisible: (visible) => set({ kanbanVisible: visible }),
 
@@ -337,53 +276,5 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     const queue = get().runHookQueue;
     if (queue.length === 0) return;
     set({ runHookQueue: settleAllPrompts(queue, (): RunHookResult | null => null), runHookQueueTotal: 0 });
-  },
-
-  enqueueCliStart: (projectPath, start) => {
-    const current = get().pendingCliStarts[projectPath] ?? [];
-    if (current.some((s) => s.taskNumber === start.taskNumber)) return;
-    set({
-      pendingCliStarts: { ...get().pendingCliStarts, [projectPath]: [...current, start] },
-    });
-  },
-
-  drainCliStarts: (projectPath) => {
-    const queued = get().pendingCliStarts[projectPath];
-    if (!queued || queued.length === 0) return [];
-    const { [projectPath]: _drained, ...rest } = get().pendingCliStarts;
-    set({ pendingCliStarts: rest });
-    return queued;
-  },
-
-  enqueueCliTransition: (projectPath, transition) => {
-    const current = get().pendingCliTransitions[projectPath] ?? [];
-    if (current.some((t) => t.taskNumber === transition.taskNumber)) return;
-    set({
-      pendingCliTransitions: { ...get().pendingCliTransitions, [projectPath]: [...current, transition] },
-    });
-  },
-
-  drainCliTransitions: (projectPath) => {
-    const queued = get().pendingCliTransitions[projectPath];
-    if (!queued || queued.length === 0) return [];
-    const { [projectPath]: _drained, ...rest } = get().pendingCliTransitions;
-    set({ pendingCliTransitions: rest });
-    return queued;
-  },
-
-  enqueueCliCompletion: (projectPath, completion) => {
-    const current = get().pendingCliCompletions[projectPath] ?? [];
-    if (current.some((c) => c.taskNumber === completion.taskNumber)) return;
-    set({
-      pendingCliCompletions: { ...get().pendingCliCompletions, [projectPath]: [...current, completion] },
-    });
-  },
-
-  drainCliCompletions: (projectPath) => {
-    const queued = get().pendingCliCompletions[projectPath];
-    if (!queued || queued.length === 0) return [];
-    const { [projectPath]: _drained, ...rest } = get().pendingCliCompletions;
-    set({ pendingCliCompletions: rest });
-    return queued;
   },
 }));

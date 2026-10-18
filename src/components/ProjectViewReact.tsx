@@ -13,7 +13,6 @@ import { PullRequestsPanel } from './github/PullRequestsPanel';
 import { AnalysisPanel } from './analysis/AnalysisPanel';
 import { useAnalysisStore } from '../stores/analysisStore';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
-import { RunHookDialog } from './dialogs/RunHookDialog';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import {
   addProjectTerminal,
@@ -358,38 +357,7 @@ export function ProjectView() {
           {!kanbanVisible && renderTerminals()}
         </>
       )}
-      <GlobalRunHookDialog />
       <StandaloneComposerSheet projectPath={projectPath} />
     </div>
-  );
-}
-
-/**
- * Hook prompt rendered at the project-view level so it survives toggling
- * between the kanban board and terminal stack mid-flow. Concurrent hook
- * requests queue up and are presented one at a time as a stepper.
- */
-function GlobalRunHookDialog() {
-  const queue = useProjectStore((s) => s.runHookQueue);
-  const total = useProjectStore((s) => s.runHookQueueTotal);
-  const request = queue[0];
-  if (!request) return null;
-  // Position counts up as the queue drains: total is held fixed so the user
-  // sees "Hook 1 of 3" → "Hook 2 of 3" rather than the denominator shrinking.
-  const position = total - queue.length + 1;
-  return (
-    <RunHookDialog
-      key={request.id}
-      projectPath={request.projectPath}
-      hookType={request.hookType}
-      hook={request.hook}
-      sandbox={request.sandbox}
-      taskName={request.task.name}
-      queuePosition={position}
-      queueTotal={total}
-      onClose={(result) => useProjectStore.getState().resolveRunHookRequest(request.id, result)}
-      onRunAll={(result) => useProjectStore.getState().runAllRunHookRequests(result)}
-      onSkipAll={() => useProjectStore.getState().skipAllRunHookRequests()}
-    />
   );
 }
