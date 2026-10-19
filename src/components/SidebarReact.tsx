@@ -503,6 +503,13 @@ function GroupHeader({
   );
 }
 
+const PAGE_ICONS: Record<ProjectPage, string> = {
+  board: 'kanban',
+  settings: 'gear',
+  'pull-requests': 'git-pull-request',
+  analysis: 'binoculars',
+};
+
 const ROW_BUTTON = 'w-6 h-6 flex items-center justify-center rounded-md transition-colors duration-100';
 const rowButtonState = (active: boolean) =>
   active ? 'bg-ink/10 text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-ink/10';
@@ -528,14 +535,14 @@ function ProjectGroup({ project }: { project: Project }) {
     ...overflowPages.map(
       (page): ContextMenuItem => ({
         label: PAGE_TITLES[page],
-        checked: openPage === page,
+        icon: PAGE_ICONS[page],
         onClick: () => void openProjectPage(project.path, page),
       }),
     ),
     { separator: true },
     { label: 'New terminal', icon: 'terminal', onClick: () => void openShell(project.path) },
     { separator: true },
-    { label: 'Remove', danger: true, onClick: () => void removeProject(project) },
+    { label: 'Remove', icon: 'trash', danger: true, onClick: () => void removeProject(project) },
   ];
   const openMenuAt = (x: number, y: number) => setMenu({ x, y });
 
@@ -571,7 +578,7 @@ function ProjectGroup({ project }: { project: Project }) {
                 className={`${ROW_BUTTON} ${rowButtonState(openPage === 'board')}`}
                 onClick={() => void openProjectPage(project.path, 'board')}
               >
-                <Icon name="kanban" className="w-3.5 h-3.5" />
+                <Icon name={PAGE_ICONS.board} className="w-3.5 h-3.5" />
               </button>
             </Tooltip>
             <Tooltip text="New task" placement="bottom">
