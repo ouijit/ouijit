@@ -71,7 +71,7 @@ test('the sidebar navigates: a board from its project row, a terminal from the b
 
     // Two terminals on one task: its stack holds both, the newer in front, and ⌘1 reaches the other.
     await openBoard(appPage, testRepo.repoPath);
-    await expect(appPage.getByText('/ Board', { exact: true })).toBeVisible();
+    await expect(appPage.getByRole('banner').getByText('Board', { exact: true })).toBeVisible();
     const t1 = await openFromBoard(appPage, 'Ship it');
     await appPage.keyboard.press(`${modifier}+t`);
     const t2 = await openFromBoard(appPage, 'Ship it');

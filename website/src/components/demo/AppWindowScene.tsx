@@ -174,7 +174,15 @@ export default function AppWindowScene() {
                     <div className="flex flex-col gap-[2px] min-w-0">
                       <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
                         horizon
-                        {page && <span className="font-normal text-text-tertiary"> / {PAGE_TITLES[page]}</span>}
+                        {page && (
+                          <>
+                            <Icon
+                              name="caret-right"
+                              className="inline-block w-3 h-3 mx-1.5 align-[-1px] text-text-tertiary"
+                            />
+                            <span className="font-normal text-text-tertiary">{PAGE_TITLES[page]}</span>
+                          </>
+                        )}
                       </span>
                       <span className="text-[11px] font-mono text-text-tertiary leading-[1.3] truncate">
                         ~/Code/horizon

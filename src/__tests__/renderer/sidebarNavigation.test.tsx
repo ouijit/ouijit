@@ -152,7 +152,7 @@ describe('the sidebar is the navigation', () => {
     fireEvent.click(row(projects, 'Write docs'));
     await waitFor(() => expect(front()).toBe(docs));
     expect(cards()).toEqual([docs]);
-    expect(screen.getByRole('banner').textContent).toContain('Alpha / Write docs');
+    expect(screen.getByRole('banner').textContent).toContain('AlphaWrite docs');
     expect(useAppStore.getState().activeProjectPath).toBe(ALPHA.path);
 
     // A task with several opens the one used last, with only its own terminals behind it.
@@ -188,7 +188,7 @@ describe('the sidebar is the navigation', () => {
     fireEvent.click(within(alpha).getByText('Alpha'));
     await waitFor(() => expect(document.querySelector('.kanban-board')).toBeTruthy());
     expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: ALPHA.path, page: 'board' });
-    expect(screen.getByRole('banner').textContent).toContain('Alpha / Board');
+    expect(screen.getByRole('banner').textContent).toContain('AlphaBoard');
     expect(display(pricing).lastViewedAt).toBe(Date.now());
     expect(within(section('Waiting for you')).getByText('All caught up')).toBeTruthy();
 
