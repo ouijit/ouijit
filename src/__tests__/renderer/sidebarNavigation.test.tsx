@@ -179,10 +179,10 @@ describe('the sidebar is the navigation', () => {
     expect(row(section('Waiting for you'), 'Pricing page').getAttribute('aria-current')).toBe('true');
     expect(useAppStore.getState().activeProjectPath).toBe(BRAVO.path);
 
-    // From the board: the page button opens it, and its terminal rows open their terminal.
+    // From the board: the project's name opens it, and its terminal rows open their terminal.
     tick(1000);
     const alpha = document.querySelector<HTMLElement>(`[data-project-path="${ALPHA.path}"]`)!;
-    fireEvent.click(within(alpha).getByLabelText('Board'));
+    fireEvent.click(within(alpha).getByText('Alpha'));
     await waitFor(() => expect(document.querySelector('.kanban-board')).toBeTruthy());
     expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: ALPHA.path, page: 'board' });
     expect(display(pricing).lastViewedAt).toBe(Date.now());

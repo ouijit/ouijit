@@ -452,6 +452,8 @@ interface GroupHeaderProps {
   rowProps?: Record<string, unknown>;
   onContextMenu?: (e: React.MouseEvent) => void;
   projectPath?: string;
+  /** What clicking the name does. Without it the name folds the group too. */
+  onOpen?: () => void;
 }
 
 function GroupHeader({
@@ -464,6 +466,7 @@ function GroupHeader({
   rowProps,
   onContextMenu,
   projectPath,
+  onOpen,
 }: GroupHeaderProps) {
   const [collapsed, toggle] = useGroupCollapsed(groupKey);
   return (
@@ -478,7 +481,7 @@ function GroupHeader({
         type="button"
         aria-label={collapsed ? `Show ${name}` : `Hide ${name}`}
         aria-expanded={!collapsed}
-        className="w-5 h-7 flex items-center justify-center shrink-0 text-text-secondary"
+        className="w-5 h-5 flex items-center justify-center shrink-0 rounded-md text-text-secondary hover:text-text-primary hover:bg-ink/10"
         onClick={toggle}
       >
         <Icon
@@ -490,7 +493,7 @@ function GroupHeader({
       <button
         type="button"
         className="flex-1 min-w-0 h-7 flex items-center gap-2 pl-0.5 pr-1 text-left text-[13px] font-medium text-text-primary"
-        onClick={toggle}
+        onClick={onOpen ?? toggle}
       >
         {icon}
         <span className="truncate flex-1 min-w-0">{name}</span>
@@ -541,6 +544,7 @@ function ProjectGroup({ project }: { project: Project }) {
         name={project.name}
         ptyIds={ptyIds}
         projectPath={project.path}
+        onOpen={() => void openProjectPage(project.path, 'board')}
         selected={openPage !== null}
         rowProps={listeners}
         onContextMenu={(e) => {
