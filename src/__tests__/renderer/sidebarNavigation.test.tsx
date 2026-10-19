@@ -239,15 +239,14 @@ describe('creating from the sidebar', () => {
     fireEvent.keyDown(field, { key: 'Enter' });
     expect(display(second).label).toBe('review');
 
-    // The + menu opens a shell in its project, wherever you are.
-    const bravo = document.querySelector<HTMLElement>(`[data-project-path="${BRAVO.path}"]`)!;
-    fireEvent.click(within(bravo).getByLabelText('New in Bravo'));
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'New terminal' }));
+    // A project's right-click menu opens a shell there, wherever you are.
+    fireEvent.contextMenu(document.querySelector(`[data-project-path="${BRAVO.path}"]`)!);
+    fireEvent.click(await screen.findByText('New terminal'));
     await waitFor(() => expect(display(front()!)).toMatchObject({ taskId: null, projectPath: BRAVO.path }));
 
-    // A task for a project not on screen gets the sheet, named for where it goes.
-    fireEvent.contextMenu(document.querySelector(`[data-project-path="${ALPHA.path}"]`)!);
-    fireEvent.click(await screen.findByText('New task'));
+    // Its + makes a task, which for a project not on screen gets the sheet, named for where it goes.
+    const alpha = document.querySelector<HTMLElement>(`[data-project-path="${ALPHA.path}"]`)!;
+    fireEvent.click(within(alpha).getByLabelText('New task in Alpha'));
     const sheet = await screen.findByTestId('composer-sheet');
     expect(within(sheet).getByText('New task in Alpha')).toBeTruthy();
     fireEvent.change(sheet.querySelector('textarea')!, { target: { value: 'From the sidebar' } });

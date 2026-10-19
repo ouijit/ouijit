@@ -21,7 +21,6 @@ import { Tooltip } from './ui/Tooltip';
 import { openProjectPage, focusTerminal, openShell } from './navigation';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuItem } from './ui/ContextMenu';
-import { MenuItem, MenuPopover } from './ui/Menu';
 import { PAGE_TITLES } from './TitleBarReact';
 import { StageIcon } from './sidebar/StageIcon';
 import { formatSince, groupByTag, waitingFor } from './sidebar/sidebarTree';
@@ -518,7 +517,6 @@ function ProjectGroup({ project }: { project: Project }) {
   const onScreen = useAppStore((s) => s.activeProjectPath === project.path);
   const flags = useProjectFlags(project.path);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const [adding, setAdding] = useState(false);
   const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: project.path });
 
   const creating: ContextMenuItem[] = [
@@ -526,11 +524,12 @@ function ProjectGroup({ project }: { project: Project }) {
     { label: 'New terminal', onClick: () => void openShell(project.path) },
   ];
 
+  // Board and new task hold the right edge, so they stay put whichever flags add pages.
   const pages: PageButton[] = [
-    { page: 'board', icon: 'kanban' },
+    { page: 'settings', icon: 'gear' },
     ...(flags.tracker ? [{ page: 'pull-requests' as const, icon: 'git-pull-request' }] : []),
     ...(flags.analysis ? [{ page: 'analysis' as const, icon: 'binoculars' }] : []),
-    { page: 'settings', icon: 'gear' },
+    { page: 'board', icon: 'kanban' },
   ];
 
   return (
@@ -554,43 +553,9 @@ function ProjectGroup({ project }: { project: Project }) {
         actions={
           <div
             className={`flex gap-px shrink-0 transition-opacity duration-100 ${
-              onScreen || adding ? 'opacity-100' : 'opacity-0 group-hover/header:opacity-100 focus-within:opacity-100'
+              onScreen ? 'opacity-100' : 'opacity-0 group-hover/header:opacity-100 focus-within:opacity-100'
             }`}
           >
-            <MenuPopover
-              open={adding}
-              onOpenChange={setAdding}
-              placement="bottom-start"
-              className="w-44"
-              trigger={(ref) => (
-                <button
-                  ref={ref}
-                  type="button"
-                  aria-label={`New in ${project.name}`}
-                  aria-haspopup="menu"
-                  aria-expanded={adding}
-                  className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors duration-100 ${
-                    adding
-                      ? 'bg-ink/10 text-text-primary'
-                      : 'text-text-secondary hover:text-text-primary hover:bg-ink/10'
-                  }`}
-                  onClick={() => setAdding(!adding)}
-                >
-                  <Icon name="plus" className="w-3.5 h-3.5" />
-                </button>
-              )}
-            >
-              {creating.map((item) => (
-                <MenuItem
-                  key={item.label}
-                  label={item.label}
-                  onClick={() => {
-                    setAdding(false);
-                    item.onClick();
-                  }}
-                />
-              ))}
-            </MenuPopover>
             {pages.map(({ page, icon }) => (
               <Tooltip key={page} text={PAGE_TITLES[page]} placement="bottom">
                 <button
@@ -608,6 +573,16 @@ function ProjectGroup({ project }: { project: Project }) {
                 </button>
               </Tooltip>
             ))}
+            <Tooltip text="New task" placement="bottom">
+              <button
+                type="button"
+                aria-label={`New task in ${project.name}`}
+                className="w-6 h-6 flex items-center justify-center rounded-md transition-colors duration-100 text-text-secondary hover:text-text-primary hover:bg-ink/10"
+                onClick={() => openTaskComposer(project.path)}
+              >
+                <Icon name="plus" className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
           </div>
         }
       />
