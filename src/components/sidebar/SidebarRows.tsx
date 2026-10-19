@@ -498,6 +498,10 @@ export function GroupRows({
     [ptyIds, displays, tasksByProject, projectOrder, idleIn],
   );
 
+  if (idleIn && tasks.length === 0 && shells.length === 0) {
+    return <div className="h-7 flex items-center pl-[30px] text-[12.5px] text-text-tertiary">Nothing in progress</div>;
+  }
+
   return (
     <>
       {tasks.map((group) => (

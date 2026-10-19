@@ -330,6 +330,10 @@ describe('the sidebar tree', () => {
     });
     expect(rows()).toEqual(before);
     expect(within(section('Projects')).getByText('~')).toBeTruthy();
+    // A project with nothing open and nothing in progress or review says so.
+    act(() => useAppStore.getState().setProjects([ALPHA, BRAVO, { path: '/code/charlie', name: 'Charlie' }]));
+    const charlie = document.querySelector<HTMLElement>('[data-project-path="/code/charlie"]')!.parentElement!;
+    expect(within(charlie).getByText('Nothing in progress')).toBeTruthy();
     expect(row(section('Projects'), 'Tidy up').dataset.bright).toBe('true');
     expect(row(section('Projects'), 'Write docs').dataset.bright).toBeUndefined();
     expect(row(section('Waiting for you'), 'Tidy up')).toBeTruthy();
