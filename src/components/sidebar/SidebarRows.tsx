@@ -347,7 +347,18 @@ function TaskRows({
 
   return (
     <>
-      {single ? (
+      {!front && task ? (
+        <SidebarRow
+          icon={icon}
+          title={taskTitle}
+          tooltip={`${taskTitle} · ${projectName} · No terminal open`}
+          bright={false}
+          trailing={<IdleMark />}
+          onClick={() => void openTaskTerminal(projectPath, task)}
+          onContextMenu={openMenu(null)}
+          rename={commitAndClose(taskRename)}
+        />
+      ) : single ? (
         <TerminalRow
           ptyId={group.ptyIds[0]}
           title={() => taskTitle}
@@ -405,6 +416,18 @@ function TaskRows({
   );
 }
 
+/** Where a task with no terminal open would show its status dot. */
+function IdleMark() {
+  return (
+    <span
+      aria-label="No terminal open"
+      className="w-3.5 shrink-0 text-center text-[9px] font-semibold leading-none text-text-tertiary"
+    >
+      Zz
+    </span>
+  );
+}
+
 function ShellRow({
   ptyId,
   detail,
@@ -458,18 +481,21 @@ export function GroupRows({
   ptyIds,
   detail,
   projectOrder,
+  idleIn,
 }: {
   ptyIds: string[];
   detail: RowDetail;
   projectOrder?: string[];
+  /** The project whose in-progress and in-review tasks stay listed with no terminal open. */
+  idleIn?: string;
 }) {
   const displays = useTerminalStore((s) => s.displayStates);
   const tasksByProject = useAppStore((s) => s.taskCacheByProject);
   const shown = useShownPtyId();
   const now = useNow();
   const { tasks, shells } = useMemo(
-    () => groupByTask(ptyIds, displays, tasksByProject, projectOrder),
-    [ptyIds, displays, tasksByProject, projectOrder],
+    () => groupByTask(ptyIds, displays, tasksByProject, projectOrder, idleIn),
+    [ptyIds, displays, tasksByProject, projectOrder, idleIn],
   );
 
   return (

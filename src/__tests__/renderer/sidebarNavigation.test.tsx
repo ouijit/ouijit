@@ -76,7 +76,7 @@ const TASKS: Record<string, TaskWithWorkspace[]> = {
     task({ taskNumber: 8, name: 'Ship it', status: 'in_progress', order: 1, branch: 't-8', worktreePath: '/wt/8' }),
     task({ taskNumber: 9, name: 'Write docs', status: 'in_review', order: 0 }),
     task({ taskNumber: 10, name: 'Plan it', status: 'todo', order: 0 }),
-    task({ taskNumber: 11, name: 'Tidy up', status: 'in_progress', order: 0 }),
+    task({ taskNumber: 11, name: 'Tidy up', status: 'in_progress', order: 0, branch: 't-11', worktreePath: '/wt/11' }),
   ],
   [BRAVO.path]: [task({ taskNumber: 3, name: 'Pricing page' })],
 };
@@ -238,6 +238,15 @@ describe('creating from the sidebar', () => {
     fireEvent.change(field, { target: { value: 'review' } });
     fireEvent.keyDown(field, { key: 'Enter' });
     expect(display(second).label).toBe('review');
+
+    // A task in progress with nothing open stays listed, asleep, and wakes into a terminal.
+    const idle = row(section('Projects'), 'Tidy up').closest<HTMLElement>('[data-sidebar-row]')!;
+    expect(within(idle).getByLabelText('No terminal open')).toBeTruthy();
+    expect(within(section('Projects')).queryByText('Plan it')).toBeNull();
+    fireEvent.click(row(section('Projects'), 'Tidy up'));
+    await waitFor(() => expect(display(front()!)).toMatchObject({ taskId: 11, projectPath: ALPHA.path }));
+    const woken = row(section('Projects'), 'Tidy up').closest<HTMLElement>('[data-sidebar-row]')!;
+    expect(within(woken).queryByLabelText('No terminal open')).toBeNull();
 
     // A project's right-click menu opens a shell there, wherever you are.
     fireEvent.contextMenu(document.querySelector(`[data-project-path="${BRAVO.path}"]`)!);

@@ -9,7 +9,7 @@ export interface TaskGroup {
   taskId: number;
   /** Missing while the project's tasks are still loading, or once the task is deleted. */
   task: TaskWithWorkspace | undefined;
-  /** In the order they were opened, so opening one does not move the rows. */
+  /** In the order they were opened, so opening one does not move the rows. Empty for a task with none open. */
   ptyIds: string[];
 }
 
@@ -18,16 +18,21 @@ export interface Grouped {
   shells: string[];
 }
 
+/** Columns whose tasks stay listed when none of their terminals are open. */
+const ACTIVE_STAGES: TaskStatus[] = ['in_progress', 'in_review'];
+
 /**
  * The tasks these terminals belong to, in board order: by column, then by
  * their place in it. `projectOrder` puts tasks from several projects in the
- * sidebar's order first.
+ * sidebar's order first. `idleIn` adds that project's in-progress and
+ * in-review tasks that have no terminal open, with no terminals under them.
  */
 export function groupByTask(
   ptyIds: string[],
   displays: Record<string, TerminalDisplayState>,
   tasksByProject: Record<string, TaskWithWorkspace[]>,
   projectOrder: string[] = [],
+  idleIn?: string,
 ): Grouped {
   const groups = new Map<string, TaskGroup>();
   const shells: string[] = [];
@@ -49,6 +54,14 @@ export function groupByTask(
         task: tasksByProject[display.projectPath]?.find((t) => t.taskNumber === display.taskId),
         ptyIds: [ptyId],
       });
+  }
+
+  if (idleIn) {
+    for (const task of tasksByProject[idleIn] ?? []) {
+      const key = `${idleIn}#${task.taskNumber}`;
+      if (!ACTIVE_STAGES.includes(task.status) || groups.has(key)) continue;
+      groups.set(key, { key, projectPath: idleIn, taskId: task.taskNumber, task, ptyIds: [] });
+    }
   }
 
   const projectRank = (path: string) => {

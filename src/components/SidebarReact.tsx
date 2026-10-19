@@ -609,7 +609,7 @@ function ProjectGroup({ project }: { project: Project }) {
           </div>
         }
       />
-      {!collapsed && <GroupRows ptyIds={ptyIds} detail="diff" />}
+      {!collapsed && <GroupRows ptyIds={ptyIds} detail="diff" idleIn={project.path} />}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={overflow} onClose={() => setMenu(null)} />}
     </div>
   );
