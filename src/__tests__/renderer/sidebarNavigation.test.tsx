@@ -330,10 +330,17 @@ describe('the sidebar tree', () => {
     });
     expect(rows()).toEqual(before);
     expect(within(section('Projects')).getByText('~')).toBeTruthy();
-    // A project with nothing open and nothing in progress or review says so.
-    act(() => useAppStore.getState().setProjects([ALPHA, BRAVO, { path: '/code/charlie', name: 'Charlie' }]));
-    const charlie = document.querySelector<HTMLElement>('[data-project-path="/code/charlie"]')!.parentElement!;
-    expect(within(charlie).getByText('Nothing in progress')).toBeTruthy();
+    // A project with nothing going on offers the next step: start what is waiting, or make a task.
+    const CHARLIE = { path: '/code/charlie', name: 'Charlie' };
+    const DELTA = { path: '/code/delta', name: 'Delta' };
+    act(() => {
+      useAppStore.getState().updateProjectTaskCache(CHARLIE.path, [task({ taskNumber: 1, status: 'todo' })]);
+      useAppStore.getState().setProjects([ALPHA, BRAVO, CHARLIE, DELTA]);
+    });
+    const group = (path: string) =>
+      document.querySelector<HTMLElement>(`[data-project-path="${path}"]`)!.parentElement!;
+    expect(within(group(CHARLIE.path)).getByText('Start a task')).toBeTruthy();
+    expect(within(group(DELTA.path)).getByText('New task')).toBeTruthy();
     expect(row(section('Projects'), 'Tidy up').dataset.bright).toBe('true');
     expect(row(section('Projects'), 'Write docs').dataset.bright).toBeUndefined();
     expect(row(section('Waiting for you'), 'Tidy up')).toBeTruthy();

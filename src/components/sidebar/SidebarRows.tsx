@@ -6,7 +6,8 @@ import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import type { Project, SandboxBackendId } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
 import { filesInDiff } from '../../diffSource';
-import { focusTerminal, openTaskTerminal } from '../navigation';
+import { focusTerminal, openProjectPage, openTaskTerminal } from '../navigation';
+import { openTaskComposer } from '../../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { taskEntries } from '../kanban/taskMenu';
@@ -416,6 +417,19 @@ function TaskRows({
   );
 }
 
+function NextStep({ projectPath, hasTodo }: { projectPath: string; hasTodo: boolean }) {
+  return (
+    <button
+      type="button"
+      className={`${ROW} ${ROW_IDLE} text-text-tertiary hover:text-text-secondary`}
+      onClick={() => (hasTodo ? void openProjectPage(projectPath, 'board') : openTaskComposer(projectPath))}
+    >
+      <Icon name={hasTodo ? 'kanban' : 'plus'} className="w-3.5 h-3.5" />
+      <span className="truncate">{hasTodo ? 'Start a task' : 'New task'}</span>
+    </button>
+  );
+}
+
 /** Where a task with no terminal open would show its status dot. */
 function IdleMark() {
   return (
@@ -499,7 +513,7 @@ export function GroupRows({
   );
 
   if (idleIn && tasks.length === 0 && shells.length === 0) {
-    return <div className="h-7 flex items-center pl-[30px] text-[12.5px] text-text-tertiary">Nothing in progress</div>;
+    return <NextStep projectPath={idleIn} hasTodo={(tasksByProject[idleIn] ?? []).some((t) => t.status === 'todo')} />;
   }
 
   return (
