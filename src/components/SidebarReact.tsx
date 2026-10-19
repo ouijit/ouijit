@@ -3,6 +3,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useShallow } from 'zustand/react/shallow';
+import { getInitials, projectIconColor } from '../utils/projectIcon';
 import type { CloneJob, Project } from '../types';
 import { useAppStore, selectCloneJob, type ProjectPage } from '../stores/appStore';
 import { useExperimentalStore, useProjectFlags } from '../stores/experimentalStore';
@@ -510,6 +511,18 @@ const PAGE_ICONS: Record<ProjectPage, string> = {
   analysis: 'binoculars',
 };
 
+function ProjectTile({ project }: { project: { name: string; iconColor?: string } }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="w-4 h-4 shrink-0 rounded flex items-center justify-center text-[7px] font-bold text-white"
+      style={{ backgroundColor: projectIconColor(project), textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)' }}
+    >
+      {getInitials(project.name)}
+    </span>
+  );
+}
+
 const ROW_BUTTON = 'w-6 h-6 flex items-center justify-center rounded-md transition-colors duration-100';
 const rowButtonState = (active: boolean) =>
   active ? 'bg-ink/10 text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-ink/10';
@@ -558,6 +571,7 @@ function ProjectGroup({ project }: { project: Project }) {
         ptyIds={ptyIds}
         projectPath={project.path}
         onOpen={() => void openProjectPage(project.path, 'board')}
+        icon={<ProjectTile project={project} />}
         selected={openPage !== null}
         rowProps={listeners}
         onContextMenu={(e) => {
@@ -633,9 +647,12 @@ function CloneRow({ projectPath, onSelect }: { projectPath: string; onSelect: ()
   return (
     <button
       type="button"
-      className={`h-7 flex items-center gap-2 pl-[30px] pr-2.5 rounded-[7px] text-[13px] text-left ${selected ? ROW_SELECTED : ROW_IDLE}`}
+      className={`h-7 flex items-center gap-2 pl-[26px] pr-2.5 rounded-[7px] text-[13px] text-left ${selected ? ROW_SELECTED : ROW_IDLE}`}
       onClick={onSelect}
     >
+      <span className="opacity-50">
+        <ProjectTile project={{ name: job.name }} />
+      </span>
       <span className="flex-1 min-w-0 truncate font-medium text-text-secondary">{job.name}</span>
       <span
         className={`shrink-0 font-mono text-[10.5px] ${job.status === 'failed' ? 'text-error' : 'text-text-tertiary'}`}
