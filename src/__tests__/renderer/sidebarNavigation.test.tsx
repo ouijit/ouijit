@@ -254,8 +254,8 @@ describe('the sidebar tree', () => {
       'Plan it',
       'Tidy up',
       'Ship it+412 −168',
-      '└npm test',
       '└claude',
+      '└npm test',
       'Write docs',
       'zsh',
       BRAVO.path,
@@ -263,6 +263,13 @@ describe('the sidebar tree', () => {
       HOME,
       'Home shell',
     ]);
+    // Using a terminal moves it to the front of its stack, not in the list.
+    const before = rows();
+    act(() => {
+      useTerminalStore.getState().activate('ship-a');
+      useTerminalStore.getState().activate('docs');
+    });
+    expect(rows()).toEqual(before);
     expect(within(section('Projects')).getByText('~')).toBeTruthy();
     expect(row(section('Projects'), 'Tidy up').dataset.bright).toBe('true');
     expect(row(section('Projects'), 'Write docs').dataset.bright).toBeUndefined();

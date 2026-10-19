@@ -167,15 +167,6 @@ export default function AppWindowScene() {
                       >
                         <Icon name="sidebar-simple" />
                       </button>
-                      <button
-                        type="button"
-                        aria-label="Toggle search"
-                        aria-expanded={paletteOpen}
-                        className={`${PLAIN_BTN} ${paletteOpen ? 'text-text-primary bg-background-secondary' : 'text-text-secondary'}`}
-                        onClick={() => setPaletteOpen(!paletteOpen)}
-                      >
-                        <Icon name="magnifying-glass" />
-                      </button>
                     </div>
                   )}
                   <div className="flex items-center gap-3 min-w-0">

@@ -65,7 +65,6 @@ export function TitleBar() {
                 <Icon name="sidebar-simple" />
               </button>
             </Tooltip>
-            <SearchButton />
           </div>
         )}
         {project && (
@@ -120,24 +119,6 @@ export function TitleBar() {
         )}
       </div>
     </header>
-  );
-}
-
-/** In the sidebar while it is shown, in the title bar while it is not. */
-export function SearchButton() {
-  const paletteOpen = useUIStore((s) => s.paletteOpen);
-  return (
-    <Tooltip text="Search" placement="bottom-start">
-      <button
-        type="button"
-        className={`${iconButton} [-webkit-app-region:no-drag]${paletteOpen ? ' bg-background-secondary text-text-primary' : ''}`}
-        aria-label="Toggle search"
-        aria-expanded={paletteOpen}
-        onClick={() => useUIStore.getState().togglePalette()}
-      >
-        <Icon name="magnifying-glass" />
-      </button>
-    </Tooltip>
   );
 }
 

@@ -19,7 +19,7 @@ import { refreshTerminalsGitStatus } from './terminal/terminalReact';
 import { Icon } from './terminal/Icon';
 import { Tooltip } from './ui/Tooltip';
 import { openProjectPage, focusTerminal } from './navigation';
-import { PAGE_TITLES, SearchButton } from './TitleBarReact';
+import { PAGE_TITLES } from './TitleBarReact';
 import { StageIcon } from './sidebar/StageIcon';
 import { formatSince, groupByTag, waitingFor } from './sidebar/sidebarTree';
 import {
@@ -228,6 +228,25 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
   );
 }
 
+function SearchButton() {
+  const paletteOpen = useUIStore((s) => s.paletteOpen);
+  return (
+    <Tooltip text="Search" placement="bottom-end">
+      <button
+        type="button"
+        aria-label="Toggle search"
+        aria-expanded={paletteOpen}
+        className={`w-9 h-9 flex items-center justify-center rounded-[10px] transition-colors duration-150 hover:bg-background-secondary hover:text-text-primary [-webkit-app-region:no-drag] [&>svg]:w-5 [&>svg]:h-5 ${
+          paletteOpen ? 'bg-background-secondary text-text-primary' : 'text-text-secondary'
+        }`}
+        onClick={() => useUIStore.getState().togglePalette()}
+      >
+        <Icon name="magnifying-glass" />
+      </button>
+    </Tooltip>
+  );
+}
+
 function FooterButton({
   icon,
   label,
@@ -418,8 +437,9 @@ function ProjectsTree({ onCloneSelect }: { onCloneSelect: (projectPath: string) 
   );
 }
 
+/** In the order they were opened: the sidebar holds still while you move between terminals. */
 function useTerminalsAt(projectPath: string): string[] {
-  return useTerminalStore(useShallow((s) => s.order.filter((id) => s.displayStates[id]?.projectPath === projectPath)));
+  return useTerminalStore(useShallow((s) => s.terminalsByProject[projectPath] ?? []));
 }
 
 interface GroupHeaderProps {
@@ -640,10 +660,10 @@ function PathGroup({ path }: { path: string }) {
 }
 
 function TagsTree() {
-  const order = useTerminalStore((s) => s.order);
+  const opened = useTerminalStore(useShallow((s) => Object.values(s.terminalsByProject).flat()));
   const displays = useTerminalStore((s) => s.displayStates);
   const projectOrder = useAppStore(useShallow((s) => s.projects.map((p) => p.path)));
-  const groups = useMemo(() => groupByTag(order, displays), [order, displays]);
+  const groups = useMemo(() => groupByTag(opened, displays), [opened, displays]);
   return (
     <div className="flex flex-col gap-1.5">
       {groups.map((group) => (

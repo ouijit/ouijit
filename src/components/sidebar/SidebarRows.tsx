@@ -230,7 +230,10 @@ function TaskRows({
           tooltip={rowTooltip(taskTitle, projectName, front, now)}
           bright={anyUnread}
           detail={diff}
-          onClick={() => void focusTerminal(group.ptyIds[0])}
+          onClick={() => {
+            const { order } = useTerminalStore.getState();
+            void focusTerminal(order.find((id) => group.ptyIds.includes(id)) ?? group.ptyIds[0]);
+          }}
         />
       )}
       {group.ptyIds.map((ptyId) => (

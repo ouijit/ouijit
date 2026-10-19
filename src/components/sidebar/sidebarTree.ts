@@ -9,7 +9,7 @@ export interface TaskGroup {
   taskId: number;
   /** Missing while the project's tasks are still loading, or once the task is deleted. */
   task: TaskWithWorkspace | undefined;
-  /** Most recently used first. */
+  /** In the order they were opened, so opening one does not move the rows. */
   ptyIds: string[];
 }
 
