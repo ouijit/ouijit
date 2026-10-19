@@ -680,8 +680,14 @@ function TagsTree() {
   const displays = useTerminalStore((s) => s.displayStates);
   const projectOrder = useAppStore(useShallow((s) => s.projects.map((p) => p.path)));
   const groups = useMemo(() => groupByTag(opened, displays), [opened, displays]);
+  const tagged = groups.some((group) => group.tag !== null);
   return (
     <div className="flex flex-col gap-1.5">
+      {!tagged && (
+        <p className="px-2.5 py-1 text-[12.5px] leading-snug text-text-tertiary">
+          No tags yet. Tag a terminal from its header to group it here.
+        </p>
+      )}
       {groups.map((group) => (
         <TagGroup
           key={group.key}

@@ -368,6 +368,11 @@ describe('the sidebar tree', () => {
       'Home shell~',
     ]);
     expect(within(section('Tags')).getByText('No tag')).toBeTruthy();
+    expect(within(section('Tags')).queryByText(/No tags yet/)).toBeNull();
+
+    // With nothing tagged, the view says how to get a tag rather than going blank.
+    act(() => useTerminalStore.setState(useTerminalStore.getInitialState(), true));
+    expect(within(section('Tags')).getByText(/No tags yet/)).toBeTruthy();
     expect(useUIStore.getState().sidebarGroupMode).toBe('tag');
     expect(window.api.globalSettings.set).toHaveBeenCalledWith('ui:sidebar-group', 'tag');
   });
