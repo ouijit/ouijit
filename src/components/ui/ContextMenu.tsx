@@ -204,7 +204,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   return createPortal(
     <div
       ref={menuRef}
-      className={`context-menu fixed z-[2000] ${PANEL_CLASS} ${visible ? 'context-menu--visible opacity-100' : 'opacity-0'}`}
+      className={`context-menu fixed z-[10002] ${PANEL_CLASS} ${visible ? 'context-menu--visible opacity-100' : 'opacity-0'}`}
       style={{
         left: posX,
         top: posY,
