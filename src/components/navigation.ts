@@ -132,9 +132,13 @@ export async function openTaskShell(
   });
 }
 
-/** Another shell in a task's worktree, shown in front of its stack. */
-export async function openTaskTerminal(projectPath: string, task: TaskWithWorkspace): Promise<void> {
-  if (!(await openTaskShell(projectPath, task, { mode: 'shell' }))) return;
+/** Another terminal in a task's worktree, as the board opens one, shown in front of its stack. */
+export async function openTaskTerminal(
+  projectPath: string,
+  task: TaskWithWorkspace,
+  sandboxProvider?: SandboxProviderId,
+): Promise<void> {
+  if (!(await openTaskShell(projectPath, task, { mode: 'resume', sandboxProvider }))) return;
   const [front] = useTerminalStore.getState().order;
   if (front) useAppStore.getState().showTerminal(front);
 }

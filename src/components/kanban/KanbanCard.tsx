@@ -2,21 +2,17 @@ import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode
 import { useDraggable } from '@dnd-kit/core';
 import { useShallow } from 'zustand/react/shallow';
 import type { TaskWithWorkspace, SandboxBackendId, SandboxProviderId } from '../../types';
-import { openInEntry, moveToEntry, trackerEntries, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
-import { completeTask } from '../../services/taskCompletion';
+import { moveToEntry, taskEntries, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { getProjectTasks, loadTasks } from '../../stores/projectDataStore';
-import { terminalInstances } from '../terminal/terminalRegistry';
 import { Icon } from '../terminal/Icon';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { Tooltip } from '../ui/Tooltip';
-import { revealInFileManager } from '../../utils/fileManager';
 import { resolveAttachmentPath } from '../../utils/taskAttachments';
 import type { TaskChainInfo } from '../../utils/taskChain';
 import { isChainMember, isDescendantOf } from '../../utils/taskChain';
-import { openTaskInEditor } from '../../services/openInEditor';
 import { KanbanCardView } from './KanbanCardView';
 import { KanbanBadgeView } from './KanbanBadgeView';
 import { KanbanTrackerBadgeView } from './KanbanTrackerBadgeView';
@@ -180,70 +176,17 @@ export const KanbanCard = memo(function KanbanCard({
       return items;
     }
 
-    const items: ContextMenuEntry[] = [];
-
-    for (const display of connectedDisplays) {
-      items.push({
-        label: display.lastOscTitle || display.label || 'Shell',
-        onClick: () => onSwitchToTerminal(display.ptyId),
-      });
-    }
-    if (connectedDisplays.length > 0) {
-      items.push({ separator: true });
-    }
-
-    const actions: TaskMenuActions = {
+    return taskEntries({
+      projectPath,
+      task,
+      sandboxProviders: availableSandboxProviders,
+      terminals: connectedDisplays,
+      trackers: { github: githubEnabled, linear: linearEnabled },
       openTerminal: (provider) => onOpenTerminal(task, provider),
-      openEditor: () => void openTaskInEditor(projectPath, task),
-      openFolder: () => void revealInFileManager(task.worktreePath!),
-      setStatus: async (status) => {
-        await window.api.task.setStatus(projectPath, task.taskNumber, status);
-        loadTasks(projectPath);
-      },
-      completeToDone: () => void completeTask({ projectPath, task }),
-      trash: async () => {
-        await window.api.task.trash(projectPath, task.taskNumber);
-        loadTasks(projectPath);
-        useProjectStore.getState().addToast('Task moved to trash', 'success');
-      },
-    };
-    items.push(openInEntry(availableSandboxProviders, !!(task.worktreePath && task.branch), actions));
-
-    const planDisplay = connectedDisplays.find((d) => d.panels.some((p) => p.kind === 'plan'));
-    if (planDisplay) {
-      items.push({
-        label: 'View Plan',
-        icon: 'list-checks',
-        onClick: () => {
-          onSwitchToTerminal(planDisplay.ptyId);
-          const inst = terminalInstances.get(planDisplay.ptyId);
-          const planPanel = inst?.panels.find((p) => p.kind === 'plan');
-          if (inst && planPanel) inst.activatePanel(planPanel.id);
-        },
-      });
-    }
-
-    items.push({ separator: true });
-
-    items.push(moveToEntry(actions));
-
-    if (task.branch && task.status !== 'done') {
-      items.push({
-        label: 'Branch from this task',
-        icon: 'git-branch',
-        onClick: () => setBranchFromDialog(true),
-      });
-    }
-
-    items.push({
-      label: 'Rename',
-      icon: 'pencil-simple',
-      onClick: handleStartRenameTask,
+      showTerminal: onSwitchToTerminal,
+      branchFrom: () => setBranchFromDialog(true),
+      rename: handleStartRenameTask,
     });
-
-    items.push(...trackerEntries(projectPath, task, { github: githubEnabled, linear: linearEnabled }));
-
-    return items;
   }, [
     connectedDisplays,
     task,

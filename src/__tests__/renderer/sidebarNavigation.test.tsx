@@ -210,17 +210,34 @@ describe('the sidebar is the navigation', () => {
 });
 
 describe('creating from the sidebar', () => {
-  test('a project row makes tasks and shells in that project, and a task row another terminal in its task', async () => {
+  test('a project row makes tasks and shells in that project, and a task row has the menu the board gives it', async () => {
     const ship = await spawn(ALPHA.path, 8);
     render(<App />);
     fireEvent.click(row(section('Projects'), 'Ship it'));
     await waitFor(() => expect(front()).toBe(ship));
 
-    // Right-clicking a task opens another terminal in its stack.
+    // A task's row has the board card's menu: Open in ▸ Terminal adds to its stack.
     fireEvent.contextMenu(row(section('Projects'), 'Ship it'));
-    fireEvent.click(await screen.findByText('New terminal'));
+    const menu = await waitFor(() => {
+      const open = document.querySelector<HTMLElement>('.context-menu--visible');
+      if (!open) throw new Error('the menu did not open');
+      return open;
+    });
+    expect(within(menu).getByText('Move to')).toBeTruthy();
+    fireEvent.mouseEnter(within(menu).getByText('Open in').closest('div')!);
+    fireEvent.click(await within(menu).findByText('Terminal'));
     await waitFor(() => expect(cards()).toHaveLength(2));
-    expect(display(front()!)).toMatchObject({ taskId: 8, projectPath: ALPHA.path });
+    const second = front()!;
+    expect(display(second)).toMatchObject({ taskId: 8, projectPath: ALPHA.path });
+
+    // A terminal under it can be renamed in place.
+    await waitFor(() => expect(document.querySelector('.context-menu')).toBeNull());
+    fireEvent.contextMenu(document.querySelector(`[data-sidebar-row][data-pty-id="${second}"]`)!);
+    fireEvent.click(await screen.findByText('Rename terminal'));
+    const field = await within(section('Projects')).findByLabelText('Name');
+    fireEvent.change(field, { target: { value: 'review' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(display(second).label).toBe('review');
 
     // The + menu opens a shell in its project, wherever you are.
     const bravo = document.querySelector<HTMLElement>(`[data-project-path="${BRAVO.path}"]`)!;
