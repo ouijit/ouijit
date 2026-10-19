@@ -7,6 +7,7 @@ import { openShell } from './navigation';
 import { useProjectFlags } from '../stores/experimentalStore';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { Tooltip } from './ui/Tooltip';
+import { stackMembers, useTerminalStore } from '../stores/terminalStore';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -22,6 +23,22 @@ const iconButton =
 const raisedButton =
   'w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5';
 
+/** The task whose terminals are on screen, by name. */
+function useShownTaskName(): string | null {
+  const stack = useAppStore((s) => (s.selection.kind === 'terminal' ? s.selection.stack : null));
+  const front = useTerminalStore((s) => {
+    const ptyId = stack ? stackMembers(s, stack)[0] : undefined;
+    return ptyId ? s.displayStates[ptyId] : undefined;
+  });
+  const projectPath = front?.projectPath;
+  const taskId = front?.taskId;
+  return useAppStore((s) =>
+    projectPath && taskId != null
+      ? (s.taskCacheByProject[projectPath]?.find((t) => t.taskNumber === taskId)?.name ?? null)
+      : null,
+  );
+}
+
 export function TitleBar() {
   const selection = useAppStore((s) => s.selection);
   const project = useAppStore((s) => s.activeProjectData);
@@ -33,7 +50,8 @@ export function TitleBar() {
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
   const flags = useProjectFlags(project && !cloning ? project.path : null);
 
-  const page = selection.kind === 'page' && !cloning ? PAGE_TITLES[selection.page] : null;
+  const taskName = useShownTaskName();
+  const page = selection.kind === 'page' && !cloning ? PAGE_TITLES[selection.page] : taskName;
   const showsTerminal = selection.kind === 'terminal';
   // With the sidebar out of the way the traffic lights sit over the title bar.
   const leftPad = !sidebarShown && !sidebarRevealed && isMac && !fullscreen ? 88 : 16;
