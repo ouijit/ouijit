@@ -527,11 +527,13 @@ function ProjectGroup({ project }: { project: Project }) {
 
   // Everything the row's own buttons do not: the other pages, a shell, and removal.
   const overflowPages: ProjectPage[] = [
-    'settings',
     ...(flags.tracker ? (['pull-requests'] as const) : []),
     ...(flags.analysis ? (['analysis'] as const) : []),
+    'settings',
   ];
   const overflow: ContextMenuEntry[] = [
+    { label: 'New terminal', icon: 'terminal', onClick: () => void openShell(project.path) },
+    { separator: true },
     ...overflowPages.map(
       (page): ContextMenuItem => ({
         label: PAGE_TITLES[page],
@@ -539,8 +541,6 @@ function ProjectGroup({ project }: { project: Project }) {
         onClick: () => void openProjectPage(project.path, page),
       }),
     ),
-    { separator: true },
-    { label: 'New terminal', icon: 'terminal', onClick: () => void openShell(project.path) },
     { separator: true },
     { label: 'Remove', icon: 'trash', danger: true, onClick: () => void removeProject(project) },
   ];
