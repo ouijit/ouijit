@@ -111,6 +111,8 @@ export function MockSidebar({
   onPage,
   onTerminal,
   onHide,
+  searching,
+  onSearch,
 }: {
   page: DemoPage | null;
   shown: string | null;
@@ -118,6 +120,8 @@ export function MockSidebar({
   onPage: (page: DemoPage) => void;
   onTerminal: (ptyId: string) => void;
   onHide: () => void;
+  searching: boolean;
+  onSearch: () => void;
 }) {
   const dot = (status: string) => (
     <span className="w-3.5 flex items-center justify-center shrink-0">
@@ -137,7 +141,18 @@ export function MockSidebar({
         borderRight: '1px solid var(--color-border)',
       }}
     >
-      <div className="h-16 shrink-0 flex items-center justify-end px-2.5">
+      <div className="h-16 shrink-0 flex items-center justify-end gap-0.5 px-2.5">
+        <button
+          type="button"
+          aria-label="Toggle search"
+          aria-expanded={searching}
+          className={`w-9 h-9 flex items-center justify-center rounded-[10px] [&>svg]:w-5 [&>svg]:h-5 ${
+            searching ? 'text-text-primary bg-background-secondary' : 'text-text-secondary'
+          }`}
+          onClick={onSearch}
+        >
+          <Icon name="magnifying-glass" />
+        </button>
         <button
           type="button"
           aria-label="Hide sidebar"
@@ -166,14 +181,9 @@ export function MockSidebar({
         )}
         <div className="h-3.5 shrink-0" />
         <Heading>
-          Projects
-          <span className="ml-auto flex gap-0.5">
-            <span className="h-5 px-[7px] flex items-center rounded-[6px] text-[11px] font-medium bg-ink/10 text-text-primary">
-              Projects
-            </span>
-            <span className="h-5 px-[7px] flex items-center rounded-[6px] text-[11px] font-medium text-text-secondary">
-              Tags
-            </span>
+          <span className="flex gap-3">
+            <span>Projects</span>
+            <span className="text-text-tertiary">Tags</span>
           </span>
         </Heading>
         <div className={`h-7 flex items-center gap-0.5 px-1 rounded-[7px] ${page ? 'bg-ink/10' : ''}`}>

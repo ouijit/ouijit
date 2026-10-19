@@ -150,13 +150,15 @@ export default function AppWindowScene() {
                 onPage={openPage}
                 onTerminal={openTerminal}
                 onHide={() => setSidebarOpen(false)}
+                searching={paletteOpen}
+                onSearch={() => setPaletteOpen(!paletteOpen)}
               />
             )}
             <div className="flex flex-col flex-1 min-w-0">
               <div className="app-window-titlebar" style={sidebarOpen ? { paddingLeft: 16 } : undefined}>
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <div className="flex items-center h-9 shrink-0">
-                    {!sidebarOpen && (
+                  {!sidebarOpen && (
+                    <div className="flex items-center h-9 shrink-0">
                       <button
                         type="button"
                         aria-label="Show sidebar"
@@ -165,17 +167,17 @@ export default function AppWindowScene() {
                       >
                         <Icon name="sidebar-simple" />
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      aria-label="Toggle search"
-                      aria-expanded={paletteOpen}
-                      className={`${PLAIN_BTN} ${paletteOpen ? 'text-text-primary bg-background-secondary' : 'text-text-secondary'}`}
-                      onClick={() => setPaletteOpen(!paletteOpen)}
-                    >
-                      <Icon name="magnifying-glass" />
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        aria-label="Toggle search"
+                        aria-expanded={paletteOpen}
+                        className={`${PLAIN_BTN} ${paletteOpen ? 'text-text-primary bg-background-secondary' : 'text-text-secondary'}`}
+                        onClick={() => setPaletteOpen(!paletteOpen)}
+                      >
+                        <Icon name="magnifying-glass" />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-3 min-w-0">
                     <ProjectAvatar size={32} />
                     <div className="flex flex-col gap-[2px] min-w-0">

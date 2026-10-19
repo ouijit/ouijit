@@ -19,7 +19,7 @@ import { refreshTerminalsGitStatus } from './terminal/terminalReact';
 import { Icon } from './terminal/Icon';
 import { Tooltip } from './ui/Tooltip';
 import { openProjectPage, focusTerminal } from './navigation';
-import { PAGE_TITLES } from './TitleBarReact';
+import { PAGE_TITLES, SearchButton } from './TitleBarReact';
 import { StageIcon } from './sidebar/StageIcon';
 import { formatSince, groupByTag, waitingFor } from './sidebar/sidebarTree';
 import {
@@ -173,8 +173,9 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
           {/* Electron sizes drag regions by layout, not by what is clipped, so a
               collapsed sidebar would still claim this strip over the title bar. */}
           <div
-            className={`h-[72px] shrink-0 flex items-center justify-end px-2.5 ${open ? '[-webkit-app-region:drag]' : ''}`}
+            className={`h-[72px] shrink-0 flex items-center justify-end gap-0.5 px-2.5 ${open ? '[-webkit-app-region:drag]' : ''}`}
           >
+            <SearchButton />
             <Tooltip text={shown ? 'Hide sidebar' : 'Keep sidebar open'} placement="bottom-end">
               <button
                 type="button"

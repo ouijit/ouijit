@@ -30,7 +30,6 @@ export function TitleBar() {
   const fullscreen = useAppStore((s) => s.fullscreen);
   const sidebarShown = useUIStore((s) => s.sidebarShown);
   const sidebarRevealed = useUIStore((s) => s.sidebarRevealed);
-  const paletteOpen = useUIStore((s) => s.paletteOpen);
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
   const flags = useProjectFlags(project && !cloning ? project.path : null);
 
@@ -54,8 +53,8 @@ export function TitleBar() {
         className="flex items-center gap-2 pt-4 pb-2 pr-4 transition-[padding-left] duration-200"
         style={{ paddingLeft: `calc(var(--sidebar-offset, 0px) + ${leftPad}px)` }}
       >
-        <div className="flex items-center h-9 shrink-0 [-webkit-app-region:no-drag]">
-          {!sidebarShown && (
+        {!sidebarShown && (
+          <div className="flex items-center h-9 shrink-0 [-webkit-app-region:no-drag]">
             <Tooltip text="Show sidebar" placement="bottom-start">
               <button
                 type="button"
@@ -66,19 +65,9 @@ export function TitleBar() {
                 <Icon name="sidebar-simple" />
               </button>
             </Tooltip>
-          )}
-          <Tooltip text="Search" placement="bottom-start">
-            <button
-              type="button"
-              className={`${iconButton}${paletteOpen ? ' bg-background-secondary text-text-primary' : ''}`}
-              aria-label="Toggle search"
-              aria-expanded={paletteOpen}
-              onClick={() => useUIStore.getState().togglePalette()}
-            >
-              <Icon name="magnifying-glass" />
-            </button>
-          </Tooltip>
-        </div>
+            <SearchButton />
+          </div>
+        )}
         {project && (
           <div className="flex items-center gap-3 ml-1.5 min-w-0">
             <div
@@ -131,6 +120,24 @@ export function TitleBar() {
         )}
       </div>
     </header>
+  );
+}
+
+/** In the sidebar while it is shown, in the title bar while it is not. */
+export function SearchButton() {
+  const paletteOpen = useUIStore((s) => s.paletteOpen);
+  return (
+    <Tooltip text="Search" placement="bottom-start">
+      <button
+        type="button"
+        className={`${iconButton} [-webkit-app-region:no-drag]${paletteOpen ? ' bg-background-secondary text-text-primary' : ''}`}
+        aria-label="Toggle search"
+        aria-expanded={paletteOpen}
+        onClick={() => useUIStore.getState().togglePalette()}
+      >
+        <Icon name="magnifying-glass" />
+      </button>
+    </Tooltip>
   );
 }
 
