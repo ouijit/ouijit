@@ -97,11 +97,9 @@ function Heading({ children }: { children: ReactNode }) {
 }
 
 const PAGE_BUTTONS: { page: DemoPage | null; icon: string; label: string }[] = [
-  { page: null, icon: 'gear', label: 'Settings' },
-  { page: 'prs', icon: 'git-pull-request', label: 'Pull requests' },
-  { page: 'analysis', icon: 'binoculars', label: 'Analysis' },
   { page: 'board', icon: 'kanban', label: 'Board' },
   { page: null, icon: 'plus', label: 'New task' },
+  { page: null, icon: 'dots-three', label: 'More' },
 ];
 
 /** The app's sidebar, over the homepage demo's fixtures. */

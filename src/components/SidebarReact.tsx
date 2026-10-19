@@ -20,7 +20,7 @@ import { Icon } from './terminal/Icon';
 import { Tooltip } from './ui/Tooltip';
 import { openProjectPage, focusTerminal, openShell } from './navigation';
 import { openTaskComposer } from '../utils/openTaskComposer';
-import { ContextMenu, type ContextMenuItem } from './ui/ContextMenu';
+import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/ContextMenu';
 import { PAGE_TITLES } from './TitleBarReact';
 import { StageIcon } from './sidebar/StageIcon';
 import { formatSince, groupByTag, waitingFor } from './sidebar/sidebarTree';
@@ -503,10 +503,9 @@ function GroupHeader({
   );
 }
 
-interface PageButton {
-  page: ProjectPage;
-  icon: string;
-}
+const ROW_BUTTON = 'w-6 h-6 flex items-center justify-center rounded-md transition-colors duration-100';
+const rowButtonState = (active: boolean) =>
+  active ? 'bg-ink/10 text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-ink/10';
 
 function ProjectGroup({ project }: { project: Project }) {
   const ptyIds = useTerminalsAt(project.path);
@@ -519,18 +518,26 @@ function ProjectGroup({ project }: { project: Project }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: project.path });
 
-  const creating: ContextMenuItem[] = [
-    { label: 'New task', onClick: () => openTaskComposer(project.path) },
-    { label: 'New terminal', onClick: () => void openShell(project.path) },
+  // Everything the row's own buttons do not: the other pages, a shell, and removal.
+  const overflowPages: ProjectPage[] = [
+    'settings',
+    ...(flags.tracker ? (['pull-requests'] as const) : []),
+    ...(flags.analysis ? (['analysis'] as const) : []),
   ];
-
-  // Board and new task hold the right edge, so they stay put whichever flags add pages.
-  const pages: PageButton[] = [
-    { page: 'settings', icon: 'gear' },
-    ...(flags.tracker ? [{ page: 'pull-requests' as const, icon: 'git-pull-request' }] : []),
-    ...(flags.analysis ? [{ page: 'analysis' as const, icon: 'binoculars' }] : []),
-    { page: 'board', icon: 'kanban' },
+  const overflow: ContextMenuEntry[] = [
+    ...overflowPages.map(
+      (page): ContextMenuItem => ({
+        label: PAGE_TITLES[page],
+        checked: openPage === page,
+        onClick: () => void openProjectPage(project.path, page),
+      }),
+    ),
+    { separator: true },
+    { label: 'New terminal', icon: 'terminal', onClick: () => void openShell(project.path) },
+    { separator: true },
+    { label: 'Remove', danger: true, onClick: () => void removeProject(project) },
   ];
+  const openMenuAt = (x: number, y: number) => setMenu({ x, y });
 
   return (
     <div
@@ -548,57 +555,55 @@ function ProjectGroup({ project }: { project: Project }) {
         rowProps={listeners}
         onContextMenu={(e) => {
           e.preventDefault();
-          setMenu({ x: e.clientX, y: e.clientY });
+          openMenuAt(e.clientX, e.clientY);
         }}
         actions={
           <div
             className={`flex gap-px shrink-0 transition-opacity duration-100 ${
-              onScreen ? 'opacity-100' : 'opacity-0 group-hover/header:opacity-100 focus-within:opacity-100'
+              onScreen || menu ? 'opacity-100' : 'opacity-0 group-hover/header:opacity-100 focus-within:opacity-100'
             }`}
           >
-            {pages.map(({ page, icon }) => (
-              <Tooltip key={page} text={PAGE_TITLES[page]} placement="bottom">
-                <button
-                  type="button"
-                  aria-label={PAGE_TITLES[page]}
-                  aria-current={openPage === page ? 'page' : undefined}
-                  className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors duration-100 ${
-                    openPage === page
-                      ? 'bg-ink/10 text-text-primary'
-                      : 'text-text-secondary hover:text-text-primary hover:bg-ink/10'
-                  }`}
-                  onClick={() => void openProjectPage(project.path, page)}
-                >
-                  <Icon name={icon} className="w-3.5 h-3.5" />
-                </button>
-              </Tooltip>
-            ))}
+            <Tooltip text={PAGE_TITLES.board} placement="bottom">
+              <button
+                type="button"
+                aria-label={PAGE_TITLES.board}
+                aria-current={openPage === 'board' ? 'page' : undefined}
+                className={`${ROW_BUTTON} ${rowButtonState(openPage === 'board')}`}
+                onClick={() => void openProjectPage(project.path, 'board')}
+              >
+                <Icon name="kanban" className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
             <Tooltip text="New task" placement="bottom">
               <button
                 type="button"
                 aria-label={`New task in ${project.name}`}
-                className="w-6 h-6 flex items-center justify-center rounded-md transition-colors duration-100 text-text-secondary hover:text-text-primary hover:bg-ink/10"
+                className={`${ROW_BUTTON} ${rowButtonState(false)}`}
                 onClick={() => openTaskComposer(project.path)}
               >
                 <Icon name="plus" className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
+            <Tooltip text="More" placement="bottom">
+              <button
+                type="button"
+                aria-label={`More for ${project.name}`}
+                aria-haspopup="menu"
+                aria-expanded={menu !== null}
+                className={`${ROW_BUTTON} ${rowButtonState(menu !== null || (openPage !== null && openPage !== 'board'))}`}
+                onClick={(e) => {
+                  const box = e.currentTarget.getBoundingClientRect();
+                  openMenuAt(box.left, box.bottom + 4);
+                }}
+              >
+                <Icon name="dots-three" className="w-3.5 h-3.5" />
               </button>
             </Tooltip>
           </div>
         }
       />
       {!collapsed && <GroupRows ptyIds={ptyIds} detail="diff" />}
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          items={[
-            ...creating,
-            { separator: true },
-            { label: 'Remove', danger: true, onClick: () => void removeProject(project) },
-          ]}
-          onClose={() => setMenu(null)}
-        />
-      )}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={overflow} onClose={() => setMenu(null)} />}
     </div>
   );
 }

@@ -43,7 +43,7 @@ describe('Linear in the Issues list', () => {
   });
 
   /**
-   * Gating the project's page buttons on GitHub alone would ship a feature with
+   * Gating the project's pages on GitHub alone would ship a feature with
    * no way to open it: `linear` on and `github` off has a panel and no entry point.
    */
   test('the panel is reachable with Linear on and GitHub off', () => {
@@ -55,7 +55,8 @@ describe('Linear in the Issues list', () => {
     render(<Sidebar onAddProject={() => {}} onCloneSelect={() => {}} />);
 
     const row = document.querySelector<HTMLElement>(`[data-project-path="${PROJECT}"]`)!;
-    expect(within(row).getByLabelText('Pull requests')).toBeTruthy();
+    fireEvent.click(within(row).getByLabelText('More for Project'));
+    expect(screen.getByText('Pull requests')).toBeTruthy();
   });
 
   test('a project with only Linear connected sees Linear groups and no empty headings', async () => {

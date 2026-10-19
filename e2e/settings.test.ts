@@ -1,14 +1,18 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
-/** Adds the test repo and opens its settings from its row in the sidebar. */
+/** Adds the test repo and opens its settings from its row's menu in the sidebar. */
 async function openProjectSettings(appPage: Page, repoPath: string): Promise<void> {
   await appPage.evaluate(async (rp: string) => {
     await window.api.addProject(rp);
     const projects = await window.api.refreshProjects();
     (window as unknown as { __appStore: { getState: () => any } }).__appStore.getState().setProjects(projects);
   }, repoPath);
-  await appPage.locator(`[data-project-path="${repoPath}"]`).getByRole('button', { name: 'Settings' }).click();
+  await appPage
+    .locator(`[data-project-path="${repoPath}"]`)
+    .getByRole('button', { name: /^More for / })
+    .click();
+  await appPage.locator('.context-menu--visible').getByRole('button', { name: 'Settings' }).click();
   await expect(appPage.getByRole('heading', { name: 'Project Settings' })).toBeVisible({ timeout: 10_000 });
 }
 
