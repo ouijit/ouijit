@@ -3,7 +3,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useShallow } from 'zustand/react/shallow';
-import { getInitials, projectIconColor } from '../utils/projectIcon';
+import { ProjectTile } from './ProjectTile';
 import type { CloneJob, Project } from '../types';
 import { useAppStore, selectCloneJob, type ProjectPage } from '../stores/appStore';
 import { useExperimentalStore, useProjectFlags } from '../stores/experimentalStore';
@@ -510,18 +510,6 @@ const PAGE_ICONS: Record<ProjectPage, string> = {
   'pull-requests': 'git-pull-request',
   analysis: 'binoculars',
 };
-
-function ProjectTile({ project }: { project: { name: string; iconColor?: string } }) {
-  return (
-    <span
-      aria-hidden="true"
-      className="w-4 h-4 shrink-0 rounded flex items-center justify-center text-[7px] font-bold text-white"
-      style={{ backgroundColor: projectIconColor(project), textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)' }}
-    >
-      {getInitials(project.name)}
-    </span>
-  );
-}
 
 const ROW_BUTTON = 'w-6 h-6 flex items-center justify-center rounded-md transition-colors duration-100';
 const rowButtonState = (active: boolean) =>

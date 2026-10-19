@@ -267,10 +267,16 @@ describe('creating from the sidebar', () => {
     const alpha = document.querySelector<HTMLElement>(`[data-project-path="${ALPHA.path}"]`)!;
     fireEvent.click(within(alpha).getByLabelText('New task in Alpha'));
     const sheet = await screen.findByTestId('composer-sheet');
-    expect(within(sheet).getByText('New task in Alpha')).toBeTruthy();
     fireEvent.change(sheet.querySelector('textarea')!, { target: { value: 'From the sidebar' } });
+
+    // The sheet names its project and can be pointed at another without losing the draft.
+    fireEvent.click(within(sheet).getByLabelText('Project: Alpha'));
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Bravo' }));
+    const moved = await screen.findByTestId('composer-sheet');
+    expect(within(moved).getByLabelText('Project: Bravo')).toBeTruthy();
+    expect(moved.querySelector('textarea')!.value).toBe('From the sidebar');
     fireEvent.keyDown(document, { key: 'Enter', metaKey: true, ctrlKey: true });
-    await waitFor(() => expect(window.api.task.create).toHaveBeenCalledWith(ALPHA.path, 'From the sidebar', undefined));
+    await waitFor(() => expect(window.api.task.create).toHaveBeenCalledWith(BRAVO.path, 'From the sidebar', undefined));
   });
 });
 

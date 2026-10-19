@@ -23,6 +23,8 @@ interface ComposerStore {
   clearDraft: () => void;
   openSheet: (caret?: number | null, projectPath?: string | null) => void;
   closeSheet: () => void;
+  /** Point the open sheet at another project, keeping the draft. */
+  retarget: (projectPath: string) => void;
 }
 
 export const useComposerStore = create<ComposerStore>()((set) => ({
@@ -41,4 +43,6 @@ export const useComposerStore = create<ComposerStore>()((set) => ({
     set({ sheetOpen: true, sheetCaret: caret, sheetProjectPath: projectPath }),
 
   closeSheet: () => set({ sheetOpen: false, sheetCaret: null, sheetProjectPath: null }),
+
+  retarget: (projectPath) => set({ sheetProjectPath: projectPath }),
 }));

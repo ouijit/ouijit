@@ -5,6 +5,7 @@ import {
   type DescriptionEditorMetrics,
 } from './DescriptionChipEditor';
 import { TaskComposerSheet } from './TaskComposerSheet';
+import { ComposerProjectPicker } from './ComposerProjectPicker';
 import { Icon } from '../terminal/Icon';
 import { Tooltip } from '../ui/Tooltip';
 import { useAppStore } from '../../stores/appStore';
@@ -52,6 +53,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
   // board isn't on screen, so it has to outlive this component.
   const name = useComposerStore((s) => s.draft.name);
   const description = useComposerStore((s) => s.draft.description);
+  const boardProject = useAppStore((s) => s.activeProjectPath);
   // A sheet for another project is the main view's to render.
   const sheetOpen = useComposerStore((s) => s.sheetOpen && s.sheetProjectPath === null);
   const sheetCaret = useComposerStore((s) => s.sheetCaret);
@@ -395,6 +397,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
           onSubmit={submit}
           onCollapse={collapseSheet}
           onDiscard={discard}
+          projectPicker={boardProject && <ComposerProjectPicker projectPath={boardProject} />}
         />
       )}
     </div>

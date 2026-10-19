@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
 import { Icon } from '../terminal/Icon';
@@ -26,8 +26,8 @@ interface TaskComposerSheetProps {
   onCollapse: (caret: number | null) => void;
   /** Throw the draft away. Omitted in `edit` mode. */
   onDiscard?: () => void;
-  /** Names the project a new task goes to, when it is not the one on screen. */
-  projectName?: string;
+  /** Names, and lets the reader change, the project a new task goes to. */
+  projectPicker?: ReactNode;
 }
 
 /**
@@ -46,7 +46,7 @@ export function TaskComposerSheet({
   onSubmit,
   onCollapse,
   onDiscard,
-  projectName,
+  projectPicker,
 }: TaskComposerSheetProps) {
   const [visible, setVisible] = useState(false);
   const editorRef = useRef<DescriptionChipEditorHandle>(null);
@@ -155,8 +155,8 @@ export function TaskComposerSheet({
       >
         <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
           <Icon name={isCreate ? 'file-plus' : 'file-text'} className="w-3.5 h-3.5 text-ink/50 shrink-0" />
-          <span className="text-[13px] text-ink/50 truncate flex-1">
-            {isCreate ? (projectName ? `New task in ${projectName}` : 'New task') : 'Description'}
+          <span className="text-[13px] text-ink/50 flex-1 min-w-0 flex items-center gap-1">
+            {isCreate ? projectPicker ? <>New task in {projectPicker}</> : 'New task' : 'Description'}
           </span>
           <span className="text-[13px] text-ink/35 shrink-0">{isCreate ? 'Todo' : name}</span>
         </div>

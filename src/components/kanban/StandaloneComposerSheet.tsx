@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { TaskComposerSheet } from './TaskComposerSheet';
+import { ComposerProjectPicker } from './ComposerProjectPicker';
 import { useAppStore, selectBoardOnScreen } from '../../stores/appStore';
 import { useComposerStore } from '../../stores/composerStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -15,7 +16,6 @@ export function StandaloneComposerSheet({ projectPath }: { projectPath: string }
   const boardMounted = useAppStore(selectBoardOnScreen);
   const sheetOpen = useComposerStore((s) => s.sheetOpen);
   const forAnotherProject = useComposerStore((s) => s.sheetProjectPath !== null);
-  const projectName = useAppStore((s) => s.projects.find((p) => p.path === projectPath)?.name);
   const name = useComposerStore((s) => s.draft.name);
   const description = useComposerStore((s) => s.draft.description);
 
@@ -66,7 +66,7 @@ export function StandaloneComposerSheet({ projectPath }: { projectPath: string }
       // and the column composer picks it up.
       onCollapse={() => useComposerStore.getState().closeSheet()}
       onDiscard={discard}
-      projectName={forAnotherProject ? projectName : undefined}
+      projectPicker={<ComposerProjectPicker projectPath={projectPath} />}
     />
   );
 }
