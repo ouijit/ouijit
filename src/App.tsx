@@ -278,7 +278,6 @@ export function App() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar onAddProject={handleAddProject} onCloneSelect={handleCloneSelect} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <TitleBar />
         <main className="flex-1 min-h-0">
@@ -287,6 +286,10 @@ export function App() {
           </ViewErrorBoundary>
         </main>
       </div>
+      {/* After the title bar: Electron applies drag and no-drag regions in
+          document order, and the title bar's drag region runs under the
+          sidebar, so placed first it would swallow the sidebar's buttons. */}
+      <Sidebar onAddProject={handleAddProject} onCloneSelect={handleCloneSelect} />
       <ToastContainer />
       {addProjectStep && <AddProjectDialog initialStep={addProjectStep} onClose={handleAddProjectClose} />}
       {gitInitPath && <InitGitRepoDialog folderPath={gitInitPath} onClose={handleGitInitClose} />}

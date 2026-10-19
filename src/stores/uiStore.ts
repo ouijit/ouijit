@@ -27,6 +27,8 @@ interface UIStoreState {
   /** Hovered into view while it is not shown. */
   sidebarRevealed: boolean;
   /** Persisted in global settings. */
+  sidebarWidth: number;
+  /** Persisted in global settings. */
   sidebarGroupMode: SidebarGroupMode;
   /** Sidebar groups, by key, that are folded away. */
   collapsedGroups: Record<string, true>;
@@ -48,6 +50,7 @@ interface UIStoreState {
 interface UIStoreActions {
   setSidebarShown: (shown: boolean) => void;
   setSidebarRevealed: (revealed: boolean) => void;
+  setSidebarWidth: (width: number) => void;
   setSidebarGroupMode: (mode: SidebarGroupMode) => void;
   toggleGroupCollapsed: (key: string) => void;
   expandGroups: (keys: string[]) => void;
@@ -69,6 +72,14 @@ export const DIFF_FILE_LIST_DEFAULT_WIDTH = 220;
 export const DIFF_FILE_LIST_MIN_WIDTH = 120;
 export const DIFF_FILE_LIST_MAX_WIDTH = 500;
 
+export const SIDEBAR_DEFAULT_WIDTH = 264;
+export const SIDEBAR_MIN_WIDTH = 200;
+export const SIDEBAR_MAX_WIDTH = 480;
+
+function clampSidebarWidth(width: number): number {
+  return Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, Math.round(width)));
+}
+
 function clampFileListWidth(width: number): number {
   return Math.max(DIFF_FILE_LIST_MIN_WIDTH, Math.min(DIFF_FILE_LIST_MAX_WIDTH, Math.round(width)));
 }
@@ -76,6 +87,7 @@ function clampFileListWidth(width: number): number {
 export const useUIStore = create<UIStore>()((set, get) => ({
   sidebarShown: true,
   sidebarRevealed: false,
+  sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
   sidebarGroupMode: 'project',
   collapsedGroups: {},
   gitDropdownVisible: false,
@@ -92,6 +104,12 @@ export const useUIStore = create<UIStore>()((set, get) => ({
 
   setSidebarRevealed: (revealed) => {
     if (get().sidebarRevealed !== revealed) set({ sidebarRevealed: revealed });
+  },
+
+  setSidebarWidth: (width) => {
+    const clamped = clampSidebarWidth(width);
+    set({ sidebarWidth: clamped });
+    void window.api.globalSettings.set('ui:sidebar-width', String(clamped));
   },
 
   setSidebarGroupMode: (mode) => {
@@ -151,9 +169,10 @@ export const useUIStore = create<UIStore>()((set, get) => ({
 }));
 
 export async function hydrateUIPreferences(): Promise<void> {
-  const [shown, groupMode, collapsed, width] = await Promise.all([
+  const [shown, groupMode, sidebarWidth, collapsed, width] = await Promise.all([
     window.api.globalSettings.get('ui:sidebar-shown'),
     window.api.globalSettings.get('ui:sidebar-group'),
+    window.api.globalSettings.get('ui:sidebar-width'),
     window.api.globalSettings.get('ui:diff-file-list-collapsed'),
     window.api.globalSettings.get('ui:diff-file-list-width'),
   ]);
@@ -161,6 +180,8 @@ export async function hydrateUIPreferences(): Promise<void> {
   const next: Partial<UIStoreState> = {};
   if (shown === '0' || shown === '1') next.sidebarShown = shown === '1';
   if (groupMode === 'project' || groupMode === 'tag') next.sidebarGroupMode = groupMode;
+  const parsedSidebarWidth = Number(sidebarWidth);
+  if (sidebarWidth && Number.isFinite(parsedSidebarWidth)) next.sidebarWidth = clampSidebarWidth(parsedSidebarWidth);
   if (collapsed === '0' || collapsed === '1') next.diffFileListCollapsed = collapsed === '1';
   const parsedWidth = Number(width);
   if (width && Number.isFinite(parsedWidth)) next.diffFileListWidth = clampFileListWidth(parsedWidth);

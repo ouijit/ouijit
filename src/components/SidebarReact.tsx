@@ -7,7 +7,14 @@ import type { CloneJob, Project } from '../types';
 import { useAppStore, selectCloneJob, type ProjectPage } from '../stores/appStore';
 import { useExperimentalStore, useProjectFlags } from '../stores/experimentalStore';
 import { useTerminalStore, type TerminalDisplayState } from '../stores/terminalStore';
-import { useUIStore, type SidebarGroupMode } from '../stores/uiStore';
+import {
+  useUIStore,
+  SIDEBAR_DEFAULT_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  type SidebarGroupMode,
+} from '../stores/uiStore';
+import { ResizeHandle } from './common/ResizeHandle';
 import { refreshTerminalsGitStatus } from './terminal/terminalReact';
 import { Icon } from './terminal/Icon';
 import { Tooltip } from './ui/Tooltip';
@@ -97,6 +104,7 @@ interface SidebarProps {
 export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
   const shown = useUIStore((s) => s.sidebarShown);
   const revealed = useUIStore((s) => s.sidebarRevealed);
+  const width = useUIStore((s) => s.sidebarWidth);
   const appSettingsOpen = useAppStore((s) => s.selection.kind === 'app-settings');
   const open = shown || revealed;
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -106,8 +114,19 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
   useRevealShown();
 
   useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-width', `${width}px`);
+  }, [width]);
+
+  useEffect(() => {
     document.documentElement.style.setProperty('--sidebar-offset', open ? 'var(--sidebar-width)' : '0px');
   }, [open]);
+
+  // Everything that follows the sidebar's edge eases after it; while dragged it should track the pointer.
+  const startResize = () => {
+    const root = document.documentElement;
+    root.classList.add('sidebar-resizing');
+    document.addEventListener('mouseup', () => root.classList.remove('sidebar-resizing'), { once: true });
+  };
 
   const clearTimers = () => {
     if (showTimer.current) clearTimeout(showTimer.current);
@@ -116,6 +135,11 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
     hideTimer.current = null;
   };
   useEffect(() => clearTimers, []);
+
+  const hideRevealed = () => {
+    if (useUIStore.getState().sidebarShown) return;
+    hideTimer.current = setTimeout(() => useUIStore.getState().setSidebarRevealed(false), 300);
+  };
 
   return (
     <>
@@ -140,14 +164,10 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
             width: open ? 'var(--sidebar-width)' : 0,
             transition: 'width 200ms ease-out',
             background: 'var(--sidebar-bg)',
-            borderRight: open ? '1px solid var(--color-border)' : 'none',
           } as React.CSSProperties
         }
         onMouseEnter={clearTimers}
-        onMouseLeave={() => {
-          if (useUIStore.getState().sidebarShown) return;
-          hideTimer.current = setTimeout(() => useUIStore.getState().setSidebarRevealed(false), 300);
-        }}
+        onMouseLeave={hideRevealed}
       >
         <div className="h-full flex flex-col" style={{ width: 'var(--sidebar-width)' }}>
           <div className="h-[72px] shrink-0 flex items-center justify-end px-2.5 [-webkit-app-region:drag]">
@@ -180,6 +200,25 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
           </div>
         </div>
       </aside>
+
+      {open && (
+        <div
+          className="fixed top-0 bottom-0 z-[10002] flex"
+          style={{ left: 'calc(var(--sidebar-width) - 1px)' }}
+          onMouseDownCapture={startResize}
+          onMouseEnter={clearTimers}
+          onMouseLeave={hideRevealed}
+        >
+          <ResizeHandle
+            width={width}
+            onWidth={useUIStore.getState().setSidebarWidth}
+            min={SIDEBAR_MIN_WIDTH}
+            max={SIDEBAR_MAX_WIDTH}
+            defaultWidth={SIDEBAR_DEFAULT_WIDTH}
+            label="Resize sidebar"
+          />
+        </div>
+      )}
     </>
   );
 }

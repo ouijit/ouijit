@@ -363,6 +363,11 @@ textarea,
    =================================== */
 
 /* One pixel of layout: the catch is a shadow, so it costs no width. */
+.sidebar-resizing,
+.sidebar-resizing * {
+  transition: none !important;
+}
+
 .pane-seam {
   background: var(--seam-cut);
   box-shadow: 1px 0 0 var(--seam-catch);
