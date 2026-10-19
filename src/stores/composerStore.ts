@@ -15,11 +15,13 @@ interface ComposerStore {
   sheetOpen: boolean;
   /** Caret offset the sheet opens at, handed over by the inline editor. */
   sheetCaret: number | null;
+  /** The project the sheet creates in, when it is not the one on screen. */
+  sheetProjectPath: string | null;
 
   setName: (name: string) => void;
   setDescription: (description: string) => void;
   clearDraft: () => void;
-  openSheet: (caret?: number | null) => void;
+  openSheet: (caret?: number | null, projectPath?: string | null) => void;
   closeSheet: () => void;
 }
 
@@ -27,6 +29,7 @@ export const useComposerStore = create<ComposerStore>()((set) => ({
   draft: { name: '', description: '' },
   sheetOpen: false,
   sheetCaret: null,
+  sheetProjectPath: null,
 
   setName: (name) => set((s) => ({ draft: { ...s.draft, name } })),
 
@@ -34,7 +37,8 @@ export const useComposerStore = create<ComposerStore>()((set) => ({
 
   clearDraft: () => set({ draft: { name: '', description: '' } }),
 
-  openSheet: (caret = null) => set({ sheetOpen: true, sheetCaret: caret }),
+  openSheet: (caret = null, projectPath = null) =>
+    set({ sheetOpen: true, sheetCaret: caret, sheetProjectPath: projectPath }),
 
-  closeSheet: () => set({ sheetOpen: false, sheetCaret: null }),
+  closeSheet: () => set({ sheetOpen: false, sheetCaret: null, sheetProjectPath: null }),
 }));

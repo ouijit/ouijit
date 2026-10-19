@@ -20,6 +20,7 @@ import { RecentTasksPanel } from './RecentTasksPanel';
 import { ResumeBanner } from './ResumeBanner';
 import { openProjectPage } from './navigation';
 import { openTaskComposer } from '../utils/openTaskComposer';
+import { useComposerStore } from '../stores/composerStore';
 import { useTerminalView, useViewKeys } from './terminal/terminalShortcuts';
 import { terminalInstances } from './terminal/terminalRegistry';
 import { detectPullRequestsForProject } from '../services/githubTaskActions';
@@ -83,6 +84,7 @@ export function MainView() {
   const projectPath = useAppStore((s) => s.activeProjectPath);
   const cloning = useAppStore(selectIsCloning);
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
+  const sheetProject = useComposerStore((s) => s.sheetProjectPath) ?? (cloning ? null : projectPath);
   const flags = useProjectFlags(cloning ? null : projectPath);
   const stack = selection.kind === 'terminal' ? selection.stack : '';
   const onCanvas = selection.kind === 'terminal' && projectPath !== null && flags.canvas && terminalLayout === 'canvas';
@@ -138,7 +140,7 @@ export function MainView() {
       ) : (
         <Selected selection={selection} projectPath={projectPath} onCanvas={onCanvas} />
       )}
-      {projectPath && !cloning && <StandaloneComposerSheet projectPath={projectPath} />}
+      {sheetProject && <StandaloneComposerSheet projectPath={sheetProject} />}
     </div>
   );
 }

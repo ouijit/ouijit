@@ -14,10 +14,12 @@ import { resolveAttachmentPath } from '../../utils/taskAttachments';
 export function StandaloneComposerSheet({ projectPath }: { projectPath: string }) {
   const boardMounted = useAppStore(selectBoardOnScreen);
   const sheetOpen = useComposerStore((s) => s.sheetOpen);
+  const forAnotherProject = useComposerStore((s) => s.sheetProjectPath !== null);
+  const projectName = useAppStore((s) => s.projects.find((p) => p.path === projectPath)?.name);
   const name = useComposerStore((s) => s.draft.name);
   const description = useComposerStore((s) => s.draft.description);
 
-  const owned = sheetOpen && !boardMounted;
+  const owned = sheetOpen && (forAnotherProject || !boardMounted);
 
   // The board's Escape handler stands down while a composer sheet is up.
   useEffect(() => {
@@ -64,6 +66,7 @@ export function StandaloneComposerSheet({ projectPath }: { projectPath: string }
       // and the column composer picks it up.
       onCollapse={() => useComposerStore.getState().closeSheet()}
       onDiscard={discard}
+      projectName={forAnotherProject ? projectName : undefined}
     />
   );
 }

@@ -6,7 +6,8 @@ import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import type { Project } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
 import { filesInDiff } from '../../diffSource';
-import { focusTerminal } from '../navigation';
+import { focusTerminal, openTaskTerminal } from '../navigation';
+import { ContextMenu } from '../ui/ContextMenu';
 import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { Tooltip } from '../ui/Tooltip';
@@ -85,6 +86,7 @@ interface RowProps {
   detail?: string | null;
   trailing?: ReactNode;
   onClick: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
   ptyId?: string;
 }
 
@@ -98,6 +100,7 @@ export function SidebarRow({
   detail,
   trailing,
   onClick,
+  onContextMenu,
   ptyId,
 }: RowProps) {
   const ref = useRevealed(selected);
@@ -109,6 +112,7 @@ export function SidebarRow({
       data-sidebar-row
       data-pty-id={ptyId}
       onClick={onClick}
+      onContextMenu={onContextMenu}
     >
       <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">{icon}</span>
       <Tooltip text={tooltip} placement="right" delay={500}>
@@ -163,9 +167,10 @@ interface TerminalRowProps {
   detail?: string | null | ((display: TerminalDisplayState) => string | null);
   shown: string | undefined;
   now: number;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-function TerminalRow({ ptyId, title, icon, mono, detail, shown, now }: TerminalRowProps) {
+function TerminalRow({ ptyId, title, icon, mono, detail, shown, now, onContextMenu }: TerminalRowProps) {
   const display = useTerminalStore((s) => s.displayStates[ptyId]);
   const bright = useBright(ptyId, shown);
   const projectName = useProjectName(display?.projectPath ?? '');
@@ -183,6 +188,7 @@ function TerminalRow({ ptyId, title, icon, mono, detail, shown, now }: TerminalR
       detail={typeof detail === 'function' ? detail(display) : detail}
       trailing={<StatusSlot display={display} />}
       onClick={() => void focusTerminal(ptyId)}
+      onContextMenu={onContextMenu}
     />
   );
 }
@@ -213,16 +219,44 @@ function TaskRows({
   const taskTitle = group.task?.name || displays[0]?.label || 'Untitled';
   const icon = group.task ? <StageIcon status={group.task.status} /> : <Icon name="terminal" className="w-3.5 h-3.5" />;
   const diff = detail === 'project' ? projectName : (displays.map(diffSummary).find(Boolean) ?? null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const { task } = group;
+  const openMenu = task
+    ? (e: React.MouseEvent) => {
+        e.preventDefault();
+        setMenu({ x: e.clientX, y: e.clientY });
+      }
+    : undefined;
+  const menuView = menu && task && (
+    <ContextMenu
+      x={menu.x}
+      y={menu.y}
+      items={[{ label: 'New terminal', onClick: () => void openTaskTerminal(group.projectPath, task) }]}
+      onClose={() => setMenu(null)}
+    />
+  );
 
   if (group.ptyIds.length === 1) {
     return (
-      <TerminalRow ptyId={group.ptyIds[0]} title={() => taskTitle} icon={icon} detail={diff} shown={shown} now={now} />
+      <>
+        <TerminalRow
+          ptyId={group.ptyIds[0]}
+          title={() => taskTitle}
+          icon={icon}
+          detail={diff}
+          shown={shown}
+          now={now}
+          onContextMenu={openMenu}
+        />
+        {menuView}
+      </>
     );
   }
 
   const front = displays[0];
   return (
     <>
+      {menuView}
       {front && (
         <SidebarRow
           icon={icon}
@@ -234,6 +268,7 @@ function TaskRows({
             const { order } = useTerminalStore.getState();
             void focusTerminal(order.find((id) => group.ptyIds.includes(id)) ?? group.ptyIds[0]);
           }}
+          onContextMenu={openMenu}
         />
       )}
       {group.ptyIds.map((ptyId) => (
@@ -245,6 +280,7 @@ function TaskRows({
           icon={<span className="font-mono text-xs opacity-45">└</span>}
           shown={shown}
           now={now}
+          onContextMenu={openMenu}
         />
       ))}
     </>

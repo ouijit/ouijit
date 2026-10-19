@@ -26,6 +26,8 @@ interface TaskComposerSheetProps {
   onCollapse: (caret: number | null) => void;
   /** Throw the draft away. Omitted in `edit` mode. */
   onDiscard?: () => void;
+  /** Names the project a new task goes to, when it is not the one on screen. */
+  projectName?: string;
 }
 
 /**
@@ -44,6 +46,7 @@ export function TaskComposerSheet({
   onSubmit,
   onCollapse,
   onDiscard,
+  projectName,
 }: TaskComposerSheetProps) {
   const [visible, setVisible] = useState(false);
   const editorRef = useRef<DescriptionChipEditorHandle>(null);
@@ -152,7 +155,9 @@ export function TaskComposerSheet({
       >
         <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
           <Icon name={isCreate ? 'file-plus' : 'file-text'} className="w-3.5 h-3.5 text-ink/50 shrink-0" />
-          <span className="text-[13px] text-ink/50 truncate flex-1">{isCreate ? 'New task' : 'Description'}</span>
+          <span className="text-[13px] text-ink/50 truncate flex-1">
+            {isCreate ? (projectName ? `New task in ${projectName}` : 'New task') : 'Description'}
+          </span>
           <span className="text-[13px] text-ink/35 shrink-0">{isCreate ? 'Todo' : name}</span>
         </div>
 

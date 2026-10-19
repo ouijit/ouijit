@@ -132,6 +132,13 @@ export async function openTaskShell(
   });
 }
 
+/** Another shell in a task's worktree, shown in front of its stack. */
+export async function openTaskTerminal(projectPath: string, task: TaskWithWorkspace): Promise<void> {
+  if (!(await openTaskShell(projectPath, task, { mode: 'shell' }))) return;
+  const [front] = useTerminalStore.getState().order;
+  if (front) useAppStore.getState().showTerminal(front);
+}
+
 /** Lands on the first task that actually opened. */
 export async function openTasks(
   tasks: { project: Project; task: TaskWithWorkspace }[],

@@ -73,7 +73,7 @@ function task(over: Partial<TaskWithWorkspace>): TaskWithWorkspace {
 
 const TASKS: Record<string, TaskWithWorkspace[]> = {
   [ALPHA.path]: [
-    task({ taskNumber: 8, name: 'Ship it', status: 'in_progress', order: 1 }),
+    task({ taskNumber: 8, name: 'Ship it', status: 'in_progress', order: 1, branch: 't-8', worktreePath: '/wt/8' }),
     task({ taskNumber: 9, name: 'Write docs', status: 'in_review', order: 0 }),
     task({ taskNumber: 10, name: 'Plan it', status: 'todo', order: 0 }),
     task({ taskNumber: 11, name: 'Tidy up', status: 'in_progress', order: 0 }),
@@ -206,6 +206,36 @@ describe('the sidebar is the navigation', () => {
     await waitFor(() => expect(front()).toBe(ship2));
     press('w');
     await waitFor(() => expect(front()).toBe(docs));
+  });
+});
+
+describe('creating from the sidebar', () => {
+  test('a project row makes tasks and shells in that project, and a task row another terminal in its task', async () => {
+    const ship = await spawn(ALPHA.path, 8);
+    render(<App />);
+    fireEvent.click(row(section('Projects'), 'Ship it'));
+    await waitFor(() => expect(front()).toBe(ship));
+
+    // Right-clicking a task opens another terminal in its stack.
+    fireEvent.contextMenu(row(section('Projects'), 'Ship it'));
+    fireEvent.click(await screen.findByText('New terminal'));
+    await waitFor(() => expect(cards()).toHaveLength(2));
+    expect(display(front()!)).toMatchObject({ taskId: 8, projectPath: ALPHA.path });
+
+    // The + menu opens a shell in its project, wherever you are.
+    const bravo = document.querySelector<HTMLElement>(`[data-project-path="${BRAVO.path}"]`)!;
+    fireEvent.click(within(bravo).getByLabelText('New in Bravo'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'New terminal' }));
+    await waitFor(() => expect(display(front()!)).toMatchObject({ taskId: null, projectPath: BRAVO.path }));
+
+    // A task for a project not on screen gets the sheet, named for where it goes.
+    fireEvent.contextMenu(document.querySelector(`[data-project-path="${ALPHA.path}"]`)!);
+    fireEvent.click(await screen.findByText('New task'));
+    const sheet = await screen.findByTestId('composer-sheet');
+    expect(within(sheet).getByText('New task in Alpha')).toBeTruthy();
+    fireEvent.change(sheet.querySelector('textarea')!, { target: { value: 'From the sidebar' } });
+    fireEvent.keyDown(document, { key: 'Enter', metaKey: true, ctrlKey: true });
+    await waitFor(() => expect(window.api.task.create).toHaveBeenCalledWith(ALPHA.path, 'From the sidebar', undefined));
   });
 });
 

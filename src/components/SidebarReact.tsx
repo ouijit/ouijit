@@ -18,7 +18,10 @@ import { ResizeHandle } from './common/ResizeHandle';
 import { refreshTerminalsGitStatus } from './terminal/terminalReact';
 import { Icon } from './terminal/Icon';
 import { Tooltip } from './ui/Tooltip';
-import { openProjectPage, focusTerminal } from './navigation';
+import { openProjectPage, focusTerminal, openShell } from './navigation';
+import { openTaskComposer } from '../utils/openTaskComposer';
+import { ContextMenu, type ContextMenuItem } from './ui/ContextMenu';
+import { MenuItem, MenuPopover } from './ui/Menu';
 import { PAGE_TITLES } from './TitleBarReact';
 import { StageIcon } from './sidebar/StageIcon';
 import { formatSince, groupByTag, waitingFor } from './sidebar/sidebarTree';
@@ -512,7 +515,13 @@ function ProjectGroup({ project }: { project: Project }) {
   const onScreen = useAppStore((s) => s.activeProjectPath === project.path);
   const flags = useProjectFlags(project.path);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [adding, setAdding] = useState(false);
   const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: project.path });
+
+  const creating: ContextMenuItem[] = [
+    { label: 'New task', onClick: () => openTaskComposer(project.path) },
+    { label: 'New terminal', onClick: () => void openShell(project.path) },
+  ];
 
   const pages: PageButton[] = [
     { page: 'board', icon: 'kanban' },
@@ -541,9 +550,43 @@ function ProjectGroup({ project }: { project: Project }) {
         actions={
           <div
             className={`flex gap-px shrink-0 transition-opacity duration-100 ${
-              onScreen ? 'opacity-100' : 'opacity-0 group-hover/header:opacity-100 focus-within:opacity-100'
+              onScreen || adding ? 'opacity-100' : 'opacity-0 group-hover/header:opacity-100 focus-within:opacity-100'
             }`}
           >
+            <MenuPopover
+              open={adding}
+              onOpenChange={setAdding}
+              placement="bottom-start"
+              className="w-44"
+              trigger={(ref) => (
+                <button
+                  ref={ref}
+                  type="button"
+                  aria-label={`New in ${project.name}`}
+                  aria-haspopup="menu"
+                  aria-expanded={adding}
+                  className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors duration-100 ${
+                    adding
+                      ? 'bg-ink/10 text-text-primary'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-ink/10'
+                  }`}
+                  onClick={() => setAdding(!adding)}
+                >
+                  <Icon name="plus" className="w-3.5 h-3.5" />
+                </button>
+              )}
+            >
+              {creating.map((item) => (
+                <MenuItem
+                  key={item.label}
+                  label={item.label}
+                  onClick={() => {
+                    setAdding(false);
+                    item.onClick();
+                  }}
+                />
+              ))}
+            </MenuPopover>
             {pages.map(({ page, icon }) => (
               <Tooltip key={page} text={PAGE_TITLES[page]} placement="bottom">
                 <button
@@ -565,57 +608,25 @@ function ProjectGroup({ project }: { project: Project }) {
         }
       />
       {!collapsed && <GroupRows ptyIds={ptyIds} detail="diff" />}
-      {menu && <ProjectMenu project={project} at={menu} onClose={() => setMenu(null)} />}
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={[
+            ...creating,
+            { separator: true },
+            { label: 'Remove', danger: true, onClick: () => void removeProject(project) },
+          ]}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   );
 }
 
-function ProjectMenu({
-  project,
-  at,
-  onClose,
-}: {
-  project: Project;
-  at: { x: number; y: number };
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const dismiss = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
-    };
-    const timer = setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', dismiss);
-    };
-  }, [onClose]);
-
-  const remove = async () => {
-    onClose();
-    const result = await window.api.removeProject(project.path);
-    if (result.success) useAppStore.getState().setProjects(await window.api.refreshProjects());
-  };
-
-  return (
-    <div
-      ref={ref}
-      className="fixed z-[10002] p-1 glass-bevel border border-bezel rounded-[12px] overflow-hidden"
-      style={{
-        left: Math.min(at.x, window.innerWidth - 120),
-        top: Math.min(at.y, window.innerHeight - 40),
-        background: 'var(--color-terminal-bg)',
-        boxShadow: 'var(--shadow-menu)',
-      }}
-    >
-      <button
-        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-error/10 hover:text-error"
-        onClick={() => void remove()}
-      >
-        Remove
-      </button>
-    </div>
-  );
+async function removeProject(project: Project): Promise<void> {
+  const result = await window.api.removeProject(project.path);
+  if (result.success) useAppStore.getState().setProjects(await window.api.refreshProjects());
 }
 
 function cloneSummary(job: CloneJob): string {
