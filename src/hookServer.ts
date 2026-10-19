@@ -296,12 +296,11 @@ ouijit task set-description <number> <text>
 ouijit task set-merge-target <number> <branch>
 ouijit task delete <number>                   # removes task and its worktree
 
-## Tag Commands
-ouijit tag list                               # → all tags across projects
-ouijit tag list --task <number>               # → tags for one task
-ouijit tag add <task-number> <tag-name>
-ouijit tag remove <task-number> <tag-name>
-ouijit tag set <task-number> <tag1> <tag2>... # replace all tags
+## Tag Commands (the tag on a terminal's card; one per terminal)
+ouijit tag list                               # → [{name, terminals: [{ptyId, label, projectPath}]}] across open terminals
+ouijit tag get [pty-id]                       # → {ptyId, tags} — defaults to this terminal
+ouijit tag set <tag> [pty-id]                 # replace the terminal's tag
+ouijit tag clear [pty-id]                     # remove it
 
 ## Hook Commands (project lifecycle scripts)
 Hook types: start, continue, run, review, done, editor
@@ -430,10 +429,9 @@ ouijit task start 5 --skip-hook
 ouijit task start 5 --run-hook
 ouijit task start 5 --hook-command "claude"
 
-# Tag and describe a task:
+# Describe a task and tag this terminal:
 ouijit task set-description 3 "Refactor the auth middleware to use JWT refresh tokens"
-ouijit tag add 3 refactor
-ouijit tag add 3 auth
+ouijit tag set refactor
 
 # Set up a project run hook:
 ouijit hook set run --name "Dev server" --command "npm run dev"

@@ -133,6 +133,8 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
     if (ui.webPreview?.splitRatio != null) term.panelSplitRatio = ui.webPreview.splitRatio;
   }
 
+  term.setTags(ui.tags ?? []);
+
   term.panels = panels;
   // Diff and an active panel are mutually exclusive — the diff wins on restore.
   term.activePanelId = ui.diffPanelOpen ? null : activeId;
@@ -347,7 +349,6 @@ export async function addProjectTerminal(
     }
 
     term.refreshGitStatus();
-    term.loadTags();
 
     if (options?.taskId != null) {
       void detectPullRequestForTask(projectPath, options.taskId);
@@ -453,7 +454,6 @@ export async function reconnectTerminal(
     /* background */ true,
   );
 
-  term.loadTags();
   term.refreshGitStatus();
 
   return term;

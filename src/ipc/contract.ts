@@ -36,7 +36,6 @@ import type {
   ScriptHook,
   HookType,
   BranchInfo,
-  TagRow,
   Script,
   ValidateFolderFailureReason,
   FolderPickerOptions,
@@ -45,6 +44,8 @@ import type {
   ApplyProjectsFolderChangeResult,
   CliPanelOp,
   CliPanelResponse,
+  CliTagOp,
+  CliTagResponse,
 } from '../types';
 import type {
   RepoIdentity,
@@ -247,19 +248,13 @@ export interface IpcInvokeContract {
 
   // ── CLI panel ops (renderer → main reply for a cli:panel-op push) ─────
   'cli-panels:respond': { args: [requestId: number, response: CliPanelResponse]; return: void };
+  'cli-tags:respond': { args: [requestId: number, response: CliTagResponse]; return: void };
 
   // ── Scripts ──────────────────────────────────────────────────────────
   'scripts:get-all': { args: [projectPath: string]; return: Script[] };
   'scripts:save': { args: [projectPath: string, script: Script]; return: { success: boolean; script?: Script } };
   'scripts:delete': { args: [projectPath: string, scriptId: string]; return: { success: boolean } };
   'scripts:reorder': { args: [projectPath: string, scriptIds: string[]]; return: { success: boolean } };
-
-  // ── Tags ─────────────────────────────────────────────────────────────
-  'tags:get-all': { args: []; return: TagRow[] };
-  'tags:get-for-task': { args: [projectPath: string, taskNumber: number]; return: TagRow[] };
-  'tags:add-to-task': { args: [projectPath: string, taskNumber: number, tagName: string]; return: TagRow };
-  'tags:remove-from-task': { args: [projectPath: string, taskNumber: number, tagName: string]; return: void };
-  'tags:set-task-tags': { args: [projectPath: string, taskNumber: number, tagNames: string[]]; return: TagRow[] };
 
   // ── Global Settings ──────────────────────────────────────────────────
   'settings:get-global': { args: [key: string]; return: string | undefined };
@@ -458,6 +453,7 @@ export interface IpcPushContract {
   'fullscreen-change': { args: [isFullscreen: boolean] };
   'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
   'cli:panel-op': { args: [op: CliPanelOp] };
+  'cli:tag-op': { args: [op: CliTagOp] };
   'plan:content-changed': { args: [planPath: string, content: string] };
   health: { args: [status: HealthStatus] };
   'update-available': { args: [info: { version: string; url: string }] };

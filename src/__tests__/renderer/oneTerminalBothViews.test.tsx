@@ -51,7 +51,6 @@ vi.mock('../../components/terminal/terminalReact', () => {
     detach() {}
     fit() {}
     bind() {}
-    loadTags() {}
     refreshGitStatus() {}
     setProjectNameGetter() {}
     suppressResizeDuring() {}

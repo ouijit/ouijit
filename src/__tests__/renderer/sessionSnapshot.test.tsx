@@ -3,10 +3,11 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { gatherSnapshot, SNAPSHOT_KEY } from '../../components/terminal/sessionSnapshot';
 import { reconnectOrphanedSessions, renameTerminal } from '../../components/terminal/terminalActions';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
+import { OuijitTerminal } from '../../components/terminal/terminalReact';
+import { installCliTagListener } from '../../services/cliTagListener';
 import { HOME_STACK, getActivePtyId, useTerminalStore, visibleStack } from '../../stores/terminalStore';
 import { useAppStore } from '../../stores/appStore';
-import type { OuijitTerminal } from '../../components/terminal/terminalReact';
-import type { ActiveSession, LastSessionSnapshot } from '../../types';
+import type { ActiveSession, CliTagOp, CliTagResponse, LastSessionSnapshot } from '../../types';
 
 // Replace terminalReact (xterm under the hood) with a stand-in that keeps the
 // state the snapshot reads and the reconnect writes.
@@ -17,9 +18,18 @@ vi.mock('../../components/terminal/terminalReact', () => ({
     panelFullWidth = true;
     diffPanelOpen = false;
     isRunner = false;
+    tags: string[] = [];
+    ptyId = '';
     xterm = { focus: () => {} };
     constructor(opts: Record<string, unknown>) {
       Object.assign(this, opts);
+    }
+    setTags(tags: string[]) {
+      this.tags = tags;
+      this.pushDisplayState({ tags });
+    }
+    pushDisplayState(patch: Record<string, unknown>) {
+      useTerminalStore.getState().updateDisplay(this.ptyId, patch);
     }
     openTerminal() {}
     replayBuffer() {}
@@ -29,7 +39,6 @@ vi.mock('../../components/terminal/terminalReact', () => ({
     refreshGitStatus() {}
     setProjectNameGetter() {}
     syncPanels() {}
-    pushDisplayState() {}
     dispose() {}
   },
   resolveTerminalLabel: (taskName?: string | null, branch?: string, fallback?: string) =>
@@ -53,7 +62,7 @@ function makeFakeTerm(projectPath: string, opts: FakeTermOpts): OuijitTerminal {
   const panels: Array<Record<string, unknown>> = [];
   if (opts.planPath) panels.push({ id: 'plan', kind: 'plan', planPath: opts.planPath });
   if (opts.previewUrl) panels.push({ id: 'prev', kind: 'webPreview', url: opts.previewUrl });
-  return {
+  return new OuijitTerminal({
     ptyId: opts.ptyId,
     projectPath,
     label: opts.label ?? 'Shell',
@@ -61,9 +70,8 @@ function makeFakeTerm(projectPath: string, opts: FakeTermOpts): OuijitTerminal {
     taskId: opts.taskId ?? null,
     panels,
     activePanelId: opts.planPath ? 'plan' : null,
-    panelFullWidth: true,
     diffPanelOpen: opts.diffPanelOpen ?? false,
-  } as unknown as OuijitTerminal;
+  } as never);
 }
 
 function open(projectPath: string, opts: FakeTermOpts): void {
@@ -151,6 +159,53 @@ describe('session persistence', () => {
 
     expect(visibleStack(useTerminalStore.getState(), HOME_STACK)).toEqual(['b1', 'a2', 'a1', 'a3']);
     expect(getActivePtyId(A)).toBe('a2');
+    expect(['a1', 'a2', 'a3', 'b1'].map((id) => terminalInstances.get(id)?.tags)).toEqual([[], [], [], []]);
+  });
+
+  test("each terminal keeps its own tag across a reload, two of one task included, and a shell's too", async () => {
+    let sendOp: (op: CliTagOp) => void = () => {};
+    vi.mocked(window.api.cliTags.onOp).mockImplementation((cb) => {
+      sendOp = cb;
+      return () => {};
+    });
+    installCliTagListener();
+    const tagOp = async (op: Omit<CliTagOp, 'requestId'>): Promise<CliTagResponse> => {
+      sendOp({ requestId: 1, ...op });
+      await vi.waitFor(() => expect(window.api.cliTags.respond).toHaveBeenCalled());
+      const reply = vi.mocked(window.api.cliTags.respond).mock.calls[0][1];
+      vi.mocked(window.api.cliTags.respond).mockClear();
+      return reply;
+    };
+
+    open(A, { ptyId: 'agent', taskId: 7 });
+    open(A, { ptyId: 'review', taskId: 7 });
+    open(B, { ptyId: 'shell' });
+
+    expect(await tagOp({ action: 'set', ptyId: 'agent', tag: ' building ' })).toEqual({ ok: true, tags: ['building'] });
+    await tagOp({ action: 'set', ptyId: 'review', tag: 'blocked' });
+    await tagOp({ action: 'set', ptyId: 'shell', tag: 'Blocked' });
+    expect(await tagOp({ action: 'get', ptyId: 'agent' })).toEqual({ ok: true, tags: ['building'] });
+    expect((await tagOp({ action: 'list' })).listing).toEqual([
+      {
+        name: 'Blocked',
+        terminals: [
+          { ptyId: 'shell', label: 'Shell', projectPath: B },
+          { ptyId: 'review', label: 'Shell', projectPath: A },
+        ],
+      },
+      { name: 'building', terminals: [{ ptyId: 'agent', label: 'Shell', projectPath: A }] },
+    ]);
+
+    await reload(gatherSnapshot(), [session('agent', A), session('review', A), session('shell', B)]);
+
+    const { displayStates } = useTerminalStore.getState();
+    expect(['agent', 'review', 'shell'].map((id) => [terminalInstances.get(id)?.tags, displayStates[id].tags])).toEqual(
+      [
+        [['building'], ['building']],
+        [['blocked'], ['blocked']],
+        [['Blocked'], ['Blocked']],
+      ],
+    );
   });
 });
 

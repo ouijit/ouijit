@@ -9,7 +9,6 @@ import { registerPtyHandlers } from './handlers/pty';
 import { registerTaskHandlers } from './handlers/task';
 import { registerWorktreeHandlers } from './handlers/worktree';
 import { registerHookHandlers } from './handlers/hooks';
-import { registerTagHandlers } from './handlers/tags';
 import { registerSandboxHandlers } from './handlers/sandbox';
 import { registerSettingsHandlers } from './handlers/settings';
 import { registerScriptHandlers } from './handlers/scripts';
@@ -44,7 +43,6 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerTaskHandlers();
   registerWorktreeHandlers();
   registerHookHandlers();
-  registerTagHandlers();
   registerSandboxHandlers();
   registerSettingsHandlers();
   registerScriptHandlers();

@@ -30,6 +30,7 @@ import { hydrateNotificationSettings } from './utils/notifications';
 import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
 import { installVisitTracker } from './services/visitTracker';
 import { installCliPanelListener } from './services/cliPanelListener';
+import { installCliTagListener } from './services/cliTagListener';
 import { installHookStatusListener } from './services/hookStatusListener';
 import { useUIStore, hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
@@ -134,6 +135,8 @@ export function App() {
   useEffect(() => installVisitTracker(), []);
 
   useEffect(() => installCliPanelListener(), []);
+
+  useEffect(() => installCliTagListener(), []);
 
   useEffect(() => installHookStatusListener(), []);
 

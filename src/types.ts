@@ -45,7 +45,7 @@ import type { DiffLensTarget } from './lens/worktreeSubject';
 import type { LensChangedPayload } from './lens/subjectKeys';
 import type { LensInput, LensSummary } from './lens/config';
 import type { StoredLens } from './lens/readLens';
-import type { TaskStatus, TagRow } from './db';
+import type { TaskStatus } from './db';
 import type { ActiveSession } from './ptyManager';
 import type {
   SandboxProviderId,
@@ -75,7 +75,6 @@ export type {
 } from './git';
 export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 export type { TaskStatus, TaskMetadata } from './db';
-export type { TagRow } from './db';
 export type { ActiveSession } from './ptyManager';
 export type {
   SandboxProviderId,
@@ -166,6 +165,8 @@ export interface SnapshotTerminalUi {
   panelSplitRatio?: number;
   /** Automatic diff takeover state (separate from the panel tabs). */
   diffPanelOpen?: boolean;
+  /** Older snapshots omit it; restore those untagged. */
+  tags?: string[];
 
   // ── Legacy singleton fields (kept optional for back-compat) ──────────
   planPath?: string | null;
@@ -408,14 +409,6 @@ export interface HooksAPI {
   delete(projectPath: string, hookType: HookType): Promise<{ success: boolean }>;
 }
 
-export interface TagsAPI {
-  getAll(): Promise<TagRow[]>;
-  getForTask(projectPath: string, taskNumber: number): Promise<TagRow[]>;
-  addToTask(projectPath: string, taskNumber: number, tagName: string): Promise<TagRow>;
-  removeFromTask(projectPath: string, taskNumber: number, tagName: string): Promise<void>;
-  setTaskTags(projectPath: string, taskNumber: number, tagNames: string[]): Promise<TagRow[]>;
-}
-
 export interface ScriptsAPI {
   /** Get all scripts for a project, ordered by sort_order */
   getAll(projectPath: string): Promise<Script[]>;
@@ -633,13 +626,14 @@ export interface ElectronAPI {
     ) => void,
   ): () => void;
   hooks: HooksAPI;
-  tags: TagsAPI;
   scripts: ScriptsAPI;
   /** CLI agent hook events (claude/codex/pi/opencode) */
   agentHooks: AgentHooksAPI;
   plan: PlanAPI;
   /** CLI-driven terminal panel ops (markdown / web preview) */
   cliPanels: CliPanelsAPI;
+  /** CLI-driven terminal tag ops */
+  cliTags: CliTagsAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   homePath(): Promise<string>;
@@ -935,6 +929,40 @@ export interface CliPanelResponse {
 export interface CliPanelsAPI {
   onOp(callback: (op: CliPanelOp) => void): () => void;
   respond(requestId: number, response: CliPanelResponse): Promise<void>;
+}
+
+/**
+ * Op forwarded from the main process to the renderer for `ouijit tag`. Tags
+ * live on the renderer's terminals, so these cross the same request/response
+ * bridge as panel ops.
+ */
+export interface CliTagOp {
+  requestId: number;
+  action: 'list' | 'get' | 'set' | 'clear';
+  /** Every action but list. */
+  ptyId?: PtyId;
+  /** set */
+  tag?: string;
+}
+
+export interface CliTagListing {
+  name: string;
+  terminals: { ptyId: PtyId; label: string; projectPath: string }[];
+}
+
+/** Renderer's reply for a {@link CliTagOp}. */
+export interface CliTagResponse {
+  ok: boolean;
+  error?: string;
+  /** The terminal's tags after a get, set or clear. */
+  tags?: string[];
+  /** list */
+  listing?: CliTagListing[];
+}
+
+export interface CliTagsAPI {
+  onOp(callback: (op: CliTagOp) => void): () => void;
+  respond(requestId: number, response: CliTagResponse): Promise<void>;
 }
 
 /**
