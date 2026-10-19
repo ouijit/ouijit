@@ -127,8 +127,6 @@ export type {
   PrFileVersions,
 } from './github/types';
 
-export type LastActiveView = { type: 'home' } | { type: 'project'; path: string };
-
 /**
  * Per-terminal UI state captured for cross-launch session restore.
  *

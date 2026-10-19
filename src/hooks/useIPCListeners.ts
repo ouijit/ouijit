@@ -230,15 +230,8 @@ export function useIPCListeners() {
     void window.api.listClones().then((jobs) => useAppStore.getState().setCloneJobs(jobs));
     cleanups.push(window.api.onClonesChanged((jobs) => useAppStore.getState().setCloneJobs(jobs)));
     cleanups.push(
-      window.api.onCloneLanded(async (projectPath) => {
-        const projects = await window.api.refreshProjects();
-        useAppStore.getState().setProjects(projects);
-        // Settle in place for whoever is watching, but never pull someone back
-        // to a project they navigated away from while it downloaded.
-        const project = projects.find((p) => p.path === projectPath);
-        if (project && useAppStore.getState().activeProjectPath === projectPath) {
-          useAppStore.getState().navigateToProject(projectPath, project);
-        }
+      window.api.onCloneLanded(async () => {
+        useAppStore.getState().setProjects(await window.api.refreshProjects());
       }),
     );
 

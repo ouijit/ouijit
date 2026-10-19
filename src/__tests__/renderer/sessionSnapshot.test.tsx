@@ -3,7 +3,7 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { gatherSnapshot, SNAPSHOT_KEY } from '../../components/terminal/sessionSnapshot';
 import { reconnectOrphanedSessions, renameTerminal } from '../../components/terminal/terminalActions';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
-import { HOME_STACK, getActivePtyId, useTerminalStore, visibleStack } from '../../stores/terminalStore';
+import { useTerminalStore } from '../../stores/terminalStore';
 import { useAppStore } from '../../stores/appStore';
 import type { OuijitTerminal } from '../../components/terminal/terminalReact';
 import type { ActiveSession, LastSessionSnapshot } from '../../types';
@@ -119,9 +119,7 @@ describe('session persistence', () => {
     // Sessions come back in the order they were spawned, not the order they were used.
     await reload(snapshot, [session('a', A), session('b', A), session('c', B), session('stray', B)]);
 
-    expect(visibleStack(useTerminalStore.getState(), HOME_STACK)).toEqual(['b', 'a', 'c', 'stray']);
-    expect(getActivePtyId(A)).toBe('b');
-    expect(getActivePtyId(B)).toBe('c');
+    expect(useTerminalStore.getState().order).toEqual(['b', 'a', 'c', 'stray']);
     expect(useTerminalStore.getState().displayStates['b'].label).toBe('My Renamed Tab');
     expect(terminalInstances.get('b')?.panels).toEqual([
       expect.objectContaining({ kind: 'plan', planPath: '/plan.md' }),
@@ -149,8 +147,7 @@ describe('session persistence', () => {
 
     await reload(snapshot, [session('a1', A), session('a2', A), session('a3', A), session('b1', B)]);
 
-    expect(visibleStack(useTerminalStore.getState(), HOME_STACK)).toEqual(['b1', 'a2', 'a1', 'a3']);
-    expect(getActivePtyId(A)).toBe('a2');
+    expect(useTerminalStore.getState().order).toEqual(['b1', 'a2', 'a1', 'a3']);
   });
 });
 

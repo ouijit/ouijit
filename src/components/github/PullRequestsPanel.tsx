@@ -161,8 +161,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         closeOpenItem();
         return;
       }
-      useProjectStore.getState().setActivePanel('terminals');
-    }, [closeOpenItem]),
+      useAppStore.getState().showProjectTerminals(projectPath);
+    }, [closeOpenItem, projectPath]),
   );
 
   // The maps are built in a memo, not the selector: a selector returning a

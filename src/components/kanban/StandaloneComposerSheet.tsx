@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { TaskComposerSheet } from './TaskComposerSheet';
-import { useAppStore } from '../../stores/appStore';
-import { useComposerStore, isBoardMounted } from '../../stores/composerStore';
+import { useAppStore, selectBoardOnScreen } from '../../stores/appStore';
+import { useComposerStore } from '../../stores/composerStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { loadTasks } from '../../stores/projectDataStore';
 import { resolveAttachmentPath } from '../../utils/taskAttachments';
@@ -12,13 +12,11 @@ import { resolveAttachmentPath } from '../../utils/taskAttachments';
  * read the same draft. Creating here goes straight to the API.
  */
 export function StandaloneComposerSheet({ projectPath }: { projectPath: string }) {
-  const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
-  const activePanel = useProjectStore((s) => s.activePanel);
+  const boardMounted = useAppStore(selectBoardOnScreen);
   const sheetOpen = useComposerStore((s) => s.sheetOpen);
   const name = useComposerStore((s) => s.draft.name);
   const description = useComposerStore((s) => s.draft.description);
 
-  const boardMounted = isBoardMounted(activePanel, kanbanVisible);
   const owned = sheetOpen && !boardMounted;
 
   // The board's Escape handler stands down while a composer sheet is up.

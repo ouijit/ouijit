@@ -69,21 +69,28 @@ export function SandboxRing({
   );
 }
 
-export function StatusDot({ status, sandboxProvider, size = 6 }: StatusDotProps) {
-  const isThinking = status === 'thinking';
+/** The dot alone, for a place that already says what it means. */
+export function StatusGlyph({ status, sandboxProvider, size = 6 }: StatusDotProps) {
   const background = COLORS[status];
+  return (
+    <SandboxRing sandboxed={isActiveSandbox(sandboxProvider)} size={size} status={status}>
+      {status === 'thinking' ? (
+        <ThinkingGrid color={background} />
+      ) : (
+        <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />
+      )}
+    </SandboxRing>
+  );
+}
+
+export function StatusDot({ status, sandboxProvider, size = 6 }: StatusDotProps) {
   const label = LABELS[status];
-  const sandboxed = isActiveSandbox(sandboxProvider);
-  const tooltipText = sandboxed ? `${label} · ${SANDBOX_BACKEND_LABELS[sandboxProvider]}` : label;
+  const tooltipText = isActiveSandbox(sandboxProvider)
+    ? `${label} · ${SANDBOX_BACKEND_LABELS[sandboxProvider]}`
+    : label;
   return (
     <Tooltip text={tooltipText} placement="top" delay={300}>
-      <SandboxRing sandboxed={sandboxed} size={size} status={status}>
-        {isThinking ? (
-          <ThinkingGrid color={background} />
-        ) : (
-          <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />
-        )}
-      </SandboxRing>
+      <StatusGlyph status={status} sandboxProvider={sandboxProvider} size={size} />
     </Tooltip>
   );
 }

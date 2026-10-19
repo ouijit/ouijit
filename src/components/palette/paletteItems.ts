@@ -22,7 +22,7 @@ import type { TerminalDisplayState, TerminalStatus } from '../../stores/terminal
 import type { SearchField } from '../../utils/paletteScore';
 import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
-import { activateTask, focusTerminal, selectProject, TASK_OPEN_LABEL } from '../navigation';
+import { activateTask, focusTerminal, openProjectPage, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
 import { openLinearIssueInPanel } from '../../services/linearTaskActions';
 import { issueKey, projectKey, pullKey, taskKey, terminalKey, terminalTaskNumber } from '../../utils/paletteFrecency';
@@ -253,8 +253,8 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
         { key: 'path', text: displayPath, weight: 0.6 },
       ],
       project,
-      action: 'Switch project',
-      run: () => void selectProject(project.path, project),
+      action: 'Open board',
+      run: () => void openProjectPage(project.path, 'board'),
     });
   }
 

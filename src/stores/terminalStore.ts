@@ -6,14 +6,11 @@ import { DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from './terminalDisp
 export { DEFAULT_DISPLAY_STATE, isUnread, type TerminalDisplayState, type TerminalStatus } from './terminalDisplay';
 
 /**
- * A stack is the home view's, holding every terminal, or a project's, holding
- * that project's. Both are the one recency order restricted to their members,
- * so the two views always agree on which of two terminals was used last.
+ * A task's terminals share a stack; a shell is a stack of its own. Every stack
+ * is the one recency order restricted to its members.
  */
-export const HOME_STACK = ':home';
-
-export function stackFor(projectPath: string | null): string {
-  return projectPath ?? HOME_STACK;
+export function stackOf(display: Pick<TerminalDisplayState, 'ptyId' | 'projectPath' | 'taskId'>): string {
+  return display.taskId == null ? `shell:${display.ptyId}` : `task:${display.taskId}:${display.projectPath}`;
 }
 
 interface TerminalStoreState {
@@ -22,8 +19,6 @@ interface TerminalStoreState {
   terminalsByProject: Record<string, string[]>;
   /** Every terminal, most recently active first. The front of a stack is its active terminal. */
   order: string[];
-  /** Keyed by stack. */
-  tagFilters: Record<string, string>;
   /** Null while no stack is on screen. */
   viewedStack: string | null;
   windowFocused: boolean;
@@ -46,11 +41,10 @@ interface TerminalStoreActions {
    * per-pty state to the real id, keeping its place in the order.
    */
   rekeyTerminal: (oldPtyId: string, newPtyId: string) => void;
-  /** Bring a terminal to the front, clearing any filter that would hide it. False if it is not registered. */
+  /** Bring a terminal to the front. False if it is not registered. */
   activate: (ptyId: string) => boolean;
   /** Put these terminals back in this order, in the places they already hold. */
   restoreOrder: (ptyIds: string[]) => void;
-  setTagFilter: (stack: string, tag: string | null) => void;
   clearProject: (projectPath: string) => void;
   setViewedStack: (stack: string | null) => void;
   setWindowFocused: (focused: boolean) => void;
@@ -73,7 +67,6 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   displayStates: {},
   terminalsByProject: {},
   order: [],
-  tagFilters: {},
   viewedStack: null,
   windowFocused: true,
 
@@ -150,17 +143,9 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   },
 
   activate: (ptyId) => {
-    const { displayStates, order, tagFilters } = get();
-    const display = displayStates[ptyId];
-    if (!display) return false;
-    const hiding = [HOME_STACK, display.projectPath].filter(
-      (stack) => !terminalMatchesTag(display, tagFilters[stack] ?? null),
-    );
-    if (order[0] === ptyId && hiding.length === 0) return true;
-    set({
-      order: [ptyId, ...order.filter((id) => id !== ptyId)],
-      tagFilters: Object.fromEntries(Object.entries(tagFilters).filter(([stack]) => !hiding.includes(stack))),
-    });
+    const { displayStates, order } = get();
+    if (!displayStates[ptyId]) return false;
+    if (order[0] !== ptyId) set({ order: [ptyId, ...order.filter((id) => id !== ptyId)] });
     return true;
   },
 
@@ -170,11 +155,6 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const wantedSet = new Set(wanted);
     let next = 0;
     set({ order: order.map((id) => (wantedSet.has(id) ? wanted[next++] : id)) });
-  },
-
-  setTagFilter: (stack, tag) => {
-    const { [stack]: _, ...rest } = get().tagFilters;
-    set({ tagFilters: tag ? { ...rest, [stack]: tag } : rest });
   },
 
   clearProject: (projectPath) => {
@@ -204,7 +184,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
 /** The terminal being read: the front of the stack on screen, in a focused window. Back cards only peek. */
 export function viewedPtyId(state: TerminalStoreState): string | undefined {
   if (!state.windowFocused || state.viewedStack === null) return undefined;
-  return visibleStack(state, state.viewedStack)[0];
+  return stackMembers(state, state.viewedStack)[0];
 }
 
 // Stamped on leaving rather than arriving, so a terminal that finishes while
@@ -235,55 +215,22 @@ export function trackWindowFocus(): void {
   sync();
 }
 
-// ── Tag filtering ─────────────────────────────────────────────────────
-
-/** Whether a terminal's display state matches the given tag filter. A null tag matches everything. */
-export function terminalMatchesTag(display: TerminalDisplayState | undefined, tag: string | null): boolean {
-  if (!tag) return true;
-  if (!display) return false;
-  const needle = tag.toLowerCase();
-  return display.tags.some((t) => t.toLowerCase() === needle);
-}
-
-/** Distinct tags (case-insensitive, first-seen casing) present on the given terminals' display states. */
-export function collectActiveTags(ptyIds: string[], displayStates: Record<string, TerminalDisplayState>): string[] {
-  const seen = new Map<string, string>();
-  for (const id of ptyIds) {
-    const display = displayStates[id];
-    if (!display) continue;
-    for (const tag of display.tags) {
-      const key = tag.toLowerCase();
-      if (!seen.has(key)) seen.set(key, tag);
-    }
-  }
-  return [...seen.values()];
-}
-
 // ── Stacks ───────────────────────────────────────────────────────────
 
 /** A stack's terminals, most recent first. */
-export function stackMembers(state: TerminalStoreState, stack: string): string[] {
-  if (stack === HOME_STACK) return state.order;
-  return state.order.filter((id) => state.displayStates[id]?.projectPath === stack);
-}
-
-/** A stack's terminals that its tag filter lets through, most recent first. */
-export function visibleStack(state: TerminalStoreState, stack: string): string[] {
-  const members = stackMembers(state, stack);
-  const tag = state.tagFilters[stack] ?? null;
-  return tag ? members.filter((id) => terminalMatchesTag(state.displayStates[id], tag)) : members;
+export function stackMembers(state: Pick<TerminalStoreState, 'order' | 'displayStates'>, stack: string): string[] {
+  return state.order.filter((id) => {
+    const display = state.displayStates[id];
+    return display !== undefined && stackOf(display) === stack;
+  });
 }
 
 export function getActivePtyId(stack: string): string | undefined {
-  return visibleStack(useTerminalStore.getState(), stack)[0];
+  return stackMembers(useTerminalStore.getState(), stack)[0];
 }
 
-export function useVisibleStack(stack: string): string[] {
-  return useTerminalStore(useShallow((s) => visibleStack(s, stack)));
-}
-
-export function useTagFilter(stack: string): string | null {
-  return useTerminalStore((s) => s.tagFilters[stack] ?? null);
+export function useStack(stack: string): string[] {
+  return useTerminalStore(useShallow((s) => stackMembers(s, stack)));
 }
 
 export function activateTerminal(ptyId: string): boolean {

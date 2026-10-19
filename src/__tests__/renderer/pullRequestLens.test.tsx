@@ -242,7 +242,7 @@ describe('PullRequestsPanel — lens', () => {
 
     pick('Add a lens…');
     expect(await screen.findByText(/No lenses yet/)).toBeTruthy();
-    expect(useProjectStore.getState().activePanel).not.toBe('settings');
+    expect(useAppStore.getState().selection).not.toMatchObject({ page: 'settings' });
   });
 
   test('the picker follows lenses added and deleted elsewhere', async () => {

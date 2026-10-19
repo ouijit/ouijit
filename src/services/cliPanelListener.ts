@@ -61,7 +61,7 @@ async function handleOp(op: CliPanelOp): Promise<void> {
   if (!instance) {
     respond({
       ok: false,
-      error: `Session ${op.ptyId} has no terminal in this window — open its project or the home view to reconnect it`,
+      error: `Session ${op.ptyId} has no terminal in this window`,
     });
     return;
   }

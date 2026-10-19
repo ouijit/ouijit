@@ -11,7 +11,7 @@ import { create } from 'zustand';
 interface ComposerStore {
   draft: { name: string; description: string };
   /** The expanded sheet is open. Rendered by the board when it's mounted, by
-   *  the project view when it isn't. */
+   *  the main view when it isn't. */
   sheetOpen: boolean;
   /** Caret offset the sheet opens at, handed over by the inline editor. */
   sheetCaret: number | null;
@@ -38,14 +38,3 @@ export const useComposerStore = create<ComposerStore>()((set) => ({
 
   closeSheet: () => set({ sheetOpen: false, sheetCaret: null }),
 }));
-
-/**
- * True when the board is on screen, so the column composer exists to focus.
- *
- * Checked in rather than out: every panel that is not `terminals` renders in
- * place of the board, so a panel added later defaults to "no board" rather than
- * claiming a composer that is not mounted.
- */
-export function isBoardMounted(activePanel: string, kanbanVisible: boolean): boolean {
-  return activePanel === 'terminals' && kanbanVisible;
-}

@@ -6,7 +6,7 @@
 
 import log from 'electron-log/renderer';
 import { useAppStore } from '../../stores/appStore';
-import { stackMembers, useTerminalStore } from '../../stores/terminalStore';
+import { useTerminalStore } from '../../stores/terminalStore';
 import { type OuijitTerminal } from './terminalReact';
 import { terminalInstances } from './terminalRegistry';
 import {
@@ -65,14 +65,14 @@ export function gatherSnapshot(): LastSessionSnapshot {
   const appStore = useAppStore.getState();
 
   const terminals: SnapshotTerminal[] = [];
-  const projectFronts = new Map<string, string | undefined>();
+  const projectFronts = new Map<string, string>();
 
   for (const ptyId of termStore.order) {
     const term = terminalInstances.get(ptyId);
     if (!term) continue; // pending/disposed instance — skip
     if (term.isRunner) continue; // runners are restored as state on their parent
     const projectPath = term.projectPath;
-    if (!projectFronts.has(projectPath)) projectFronts.set(projectPath, stackMembers(termStore, projectPath)[0]);
+    if (!projectFronts.has(projectPath)) projectFronts.set(projectPath, ptyId);
 
     terminals.push({
       ptyId: term.ptyId,

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { ScriptHook, TaskWithWorkspace } from '../types';
 import { queuePrompt, settlePrompt, type Pending } from './promptQueue';
 
-export type HomeGroupMode = 'project' | 'tag';
+export type SidebarGroupMode = 'project' | 'tag';
 
 export type MissingWorktreeAction = 'recover' | null;
 
@@ -22,11 +22,15 @@ export interface EditorHookInput {
 export type EditorHookRequest = EditorHookInput & Pending<ScriptHook | null>;
 
 interface UIStoreState {
-  sidebarVisible: boolean;
-  /** When true, sidebar stays open regardless of hover. Persisted in global settings. */
-  sidebarPinned: boolean;
+  /** Persisted in global settings. */
+  sidebarShown: boolean;
+  /** Hovered into view while it is not shown. */
+  sidebarRevealed: boolean;
+  /** Persisted in global settings. */
+  sidebarGroupMode: SidebarGroupMode;
+  /** Sidebar groups, by key, that are folded away. */
+  collapsedGroups: Record<string, true>;
   gitDropdownVisible: boolean;
-  homeGroupMode: HomeGroupMode;
   /** Command palette (mod+K) visibility. Session-only. */
   paletteOpen: boolean;
   /** Opening several tasks at once can find more than one worktree missing. */
@@ -42,13 +46,13 @@ interface UIStoreState {
 }
 
 interface UIStoreActions {
-  setSidebarVisible: (visible: boolean) => void;
-  toggleSidebar: () => void;
-  setSidebarPinned: (pinned: boolean) => void;
-  toggleSidebarPinned: () => void;
+  setSidebarShown: (shown: boolean) => void;
+  setSidebarRevealed: (revealed: boolean) => void;
+  setSidebarGroupMode: (mode: SidebarGroupMode) => void;
+  toggleGroupCollapsed: (key: string) => void;
+  expandGroups: (keys: string[]) => void;
   setGitDropdownVisible: (visible: boolean) => void;
   closeAllDropdowns: () => void;
-  setHomeGroupMode: (mode: HomeGroupMode) => void;
   setPaletteOpen: (open: boolean) => void;
   togglePalette: () => void;
   requestMissingWorktree: (req: MissingWorktreeInput) => Promise<MissingWorktreeAction>;
@@ -70,36 +74,45 @@ function clampFileListWidth(width: number): number {
 }
 
 export const useUIStore = create<UIStore>()((set, get) => ({
-  sidebarVisible: false,
-  sidebarPinned: false,
+  sidebarShown: true,
+  sidebarRevealed: false,
+  sidebarGroupMode: 'project',
+  collapsedGroups: {},
   gitDropdownVisible: false,
-  homeGroupMode: 'project',
   paletteOpen: false,
   missingWorktreeQueue: [],
   editorHookQueue: [],
   diffFileListCollapsed: false,
   diffFileListWidth: DIFF_FILE_LIST_DEFAULT_WIDTH,
 
-  setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
-
-  toggleSidebar: () => set((s) => ({ sidebarVisible: !s.sidebarVisible })),
-
-  setSidebarPinned: (pinned) => {
-    set({ sidebarPinned: pinned });
-    void window.api.globalSettings.set('ui:sidebar-pinned', pinned ? '1' : '0');
+  setSidebarShown: (shown) => {
+    set({ sidebarShown: shown, sidebarRevealed: false });
+    void window.api.globalSettings.set('ui:sidebar-shown', shown ? '1' : '0');
   },
 
-  toggleSidebarPinned: () => {
-    const next = !get().sidebarPinned;
-    set({ sidebarPinned: next });
-    void window.api.globalSettings.set('ui:sidebar-pinned', next ? '1' : '0');
+  setSidebarRevealed: (revealed) => {
+    if (get().sidebarRevealed !== revealed) set({ sidebarRevealed: revealed });
+  },
+
+  setSidebarGroupMode: (mode) => {
+    set({ sidebarGroupMode: mode });
+    void window.api.globalSettings.set('ui:sidebar-group', mode);
+  },
+
+  toggleGroupCollapsed: (key) => {
+    const { [key]: collapsed, ...rest } = get().collapsedGroups;
+    set({ collapsedGroups: collapsed ? rest : { ...rest, [key]: true } });
+  },
+
+  expandGroups: (keys) => {
+    const collapsed = get().collapsedGroups;
+    if (!keys.some((key) => collapsed[key])) return;
+    set({ collapsedGroups: Object.fromEntries(Object.entries(collapsed).filter(([key]) => !keys.includes(key))) });
   },
 
   setGitDropdownVisible: (visible) => set({ gitDropdownVisible: visible }),
 
   closeAllDropdowns: () => set({ gitDropdownVisible: false }),
-
-  setHomeGroupMode: (mode) => set({ homeGroupMode: mode }),
 
   setPaletteOpen: (open) => set({ paletteOpen: open }),
 
@@ -138,14 +151,16 @@ export const useUIStore = create<UIStore>()((set, get) => ({
 }));
 
 export async function hydrateUIPreferences(): Promise<void> {
-  const [pinned, collapsed, width] = await Promise.all([
-    window.api.globalSettings.get('ui:sidebar-pinned'),
+  const [shown, groupMode, collapsed, width] = await Promise.all([
+    window.api.globalSettings.get('ui:sidebar-shown'),
+    window.api.globalSettings.get('ui:sidebar-group'),
     window.api.globalSettings.get('ui:diff-file-list-collapsed'),
     window.api.globalSettings.get('ui:diff-file-list-width'),
   ]);
 
   const next: Partial<UIStoreState> = {};
-  if (pinned === '0' || pinned === '1') next.sidebarPinned = pinned === '1';
+  if (shown === '0' || shown === '1') next.sidebarShown = shown === '1';
+  if (groupMode === 'project' || groupMode === 'tag') next.sidebarGroupMode = groupMode;
   if (collapsed === '0' || collapsed === '1') next.diffFileListCollapsed = collapsed === '1';
   const parsedWidth = Number(width);
   if (width && Number.isFinite(parsedWidth)) next.diffFileListWidth = clampFileListWidth(parsedWidth);

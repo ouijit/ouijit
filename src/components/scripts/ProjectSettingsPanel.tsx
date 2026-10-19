@@ -1,6 +1,5 @@
 import { useCallback, useEffect } from 'react';
 import { useAppStore } from '../../stores/appStore';
-import { useProjectStore } from '../../stores/projectStore';
 import { loadScripts } from '../../stores/projectDataStore';
 import { useEscape } from '../../hooks/useEscape';
 import { ScriptList } from './ScriptList';
@@ -41,7 +40,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
     void useWorktreeSettingsStore.getState().loadFor(projectPath);
   }, [projectPath]);
 
-  useEscape(useCallback(() => useProjectStore.getState().setActivePanel('terminals'), []));
+  useEscape(useCallback(() => useAppStore.getState().showProjectTerminals(projectPath), [projectPath]));
 
   return (
     <div
@@ -61,7 +60,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               Settings for this project only. Updates, terminal, and sound are set in{' '}
               <button
                 type="button"
-                onClick={() => useAppStore.getState().navigateHome({ panel: 'settings', direction: 'up' })}
+                onClick={() => useAppStore.getState().select({ kind: 'app-settings' })}
                 className="text-accent underline-offset-2 hover:underline outline-none focus-visible:underline"
               >
                 App Settings
@@ -71,7 +70,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
           </div>
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Appearance</h2>
-            <p className="text-xs text-text-tertiary mb-4">How this project looks in the sidebar and home view.</p>
+            <p className="text-xs text-text-tertiary mb-4">How this project looks in the sidebar.</p>
             <IconColorSection projectPath={projectPath} />
           </section>
           <section>

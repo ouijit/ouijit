@@ -3,7 +3,8 @@ import { getActivePtyId, activateTerminal } from '../../stores/terminalStore';
 import { getProjectConfig } from '../../stores/projectDataStore';
 import { isActiveSandbox } from '../../types';
 import { terminalInstances } from './terminalRegistry';
-import { addProjectTerminal, closeProjectTerminal, startRunner } from './terminalActions';
+import { closeProjectTerminal, startRunner } from './terminalActions';
+import { openShell } from '../navigation';
 import { refreshTerminalsGitStatus } from './terminalReact';
 import { getStackPositions } from './stackPositions';
 
@@ -21,8 +22,6 @@ export interface TerminalView {
   activeTerminal?: () => string | undefined;
   /** How ⌘1–9 bring a terminal forward, when it isn't by activating it. */
   select?: (ptyId: string) => void;
-  /** Brings the terminals up over whatever else the view is showing. */
-  reveal?: () => void;
   /** The terminals whose git status is worth keeping current. */
   onScreen: () => string[];
 }
@@ -62,10 +61,6 @@ function runViewKey(key: string, e: KeyboardEvent): boolean {
   return false;
 }
 
-async function openShell(view: TerminalView): Promise<void> {
-  await addProjectTerminal(await view.shellPath());
-}
-
 function toggleRunner(ptyId: string): void {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return;
@@ -82,24 +77,17 @@ function handleTerminalKey(view: TerminalView, key: string): boolean {
   const active = view.activeTerminal ? view.activeTerminal() : getActivePtyId(view.stack);
   switch (key) {
     case 'i':
-      void openShell(view);
-      view.reveal?.();
+      void Promise.resolve(view.shellPath()).then(openShell);
       return true;
     case 'w':
       if (active) closeProjectTerminal(active);
       return true;
     case 'p':
-      if (active) {
-        toggleRunner(active);
-        view.reveal?.();
-      }
+      if (active) toggleRunner(active);
       return true;
-    case 'd': {
-      const instance = active ? terminalInstances.get(active) : undefined;
-      instance?.toggleDiffPanel();
-      if (instance?.diffPanelOpen) view.reveal?.();
+    case 'd':
+      if (active) terminalInstances.get(active)?.toggleDiffPanel();
       return true;
-    }
   }
   const position = parseInt(key, 10);
   if (position >= 1 && position <= 9) {

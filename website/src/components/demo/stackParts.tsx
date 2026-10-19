@@ -14,6 +14,7 @@ export type PanelKind = 'plan' | 'preview' | 'diff';
 
 export interface StackTerminal {
   ptyId: string;
+  taskId: number | null;
   label: string;
   status: string;
   lastOscTitle: string;
@@ -26,6 +27,7 @@ export const STACK_TERMINALS: StackTerminal[] = Object.values(featuresTerminalsB
   .flat()
   .map((t) => ({
     ptyId: t.ptyId,
+    taskId: t.taskId,
     label: t.label,
     status: t.status,
     lastOscTitle: t.lastOscTitle ?? '',
@@ -107,7 +109,8 @@ export function ActiveActions({
   );
 }
 
-export const BODY_CLS = 'flex-1 p-4 font-mono text-[11px] leading-[1.65] text-white/85 overflow-hidden min-h-0 flex flex-col';
+export const BODY_CLS =
+  'flex-1 p-4 font-mono text-[11px] leading-[1.65] text-white/85 overflow-hidden min-h-0 flex flex-col';
 
 /* ─── Claude conversation atoms ──────────────────────────────────── */
 
@@ -236,7 +239,15 @@ function ClaudeTuiInput({ busy = false, pendingText }: { busy?: boolean; pending
 
 /** Wraps a Claude conversation: scrolling content area on top, TUI input
  * pinned at the bottom — matching the real Claude Code TUI layout. */
-export function ClaudeShell({ children, busy, pendingText }: { children: ReactNode; busy?: boolean; pendingText?: string }) {
+export function ClaudeShell({
+  children,
+  busy,
+  pendingText,
+}: {
+  children: ReactNode;
+  busy?: boolean;
+  pendingText?: string;
+}) {
   return (
     <div className={BODY_CLS}>
       <div className="flex-1 min-h-0 overflow-hidden">{children}</div>

@@ -1,61 +1,38 @@
 /**
  * Shared navigation actions for the sidebar, the command palette, the board
- * and the home recents panel. Tasks are pre-fetched before navigating so the
- * kanban paints through the view-transition snapshot.
+ * and the recents panel.
  *
  * Nothing here feeds palette frecency. What the user ends up looking at is a
  * visit, and `visitTracker` reads that off the view itself.
  */
 
 import type { Project, SandboxProviderId, TaskWithWorkspace, WorktreeInfo } from '../types';
-import { useAppStore } from '../stores/appStore';
+import { useAppStore, type ProjectPage } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { loadTasks } from '../stores/projectDataStore';
-import { useTerminalStore, activateTerminal } from '../stores/terminalStore';
+import { stackMembers, stackOf, useTerminalStore } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalRegistry';
 import { ensureWorktree } from '../services/worktreeRecovery';
 
-/**
- * Navigates to a project, transitioning in the direction of its position in the
- * sidebar. Tasks load first, so the project view's first paint has content.
- */
-export async function selectProject(path: string, project: Project): Promise<void> {
-  const state = useAppStore.getState();
-  if (state.activeProjectPath === path) return;
-  const orderedPaths = state.projects.map((p) => p.path);
-  const oldIndex = state.activeView === 'home' ? -1 : orderedPaths.indexOf(state.activeProjectPath ?? '');
-  const newIndex = orderedPaths.indexOf(path);
-  const direction = newIndex > oldIndex ? 'down' : newIndex < oldIndex ? 'up' : undefined;
-  await loadTasks(path);
-  state.navigateToProject(path, project, { direction });
-  window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
+/** Tasks load first, so a board's first paint has its cards. */
+export async function openProjectPage(path: string, page: ProjectPage): Promise<void> {
+  if (page === 'board') await loadTasks(path);
+  useAppStore.getState().openPage(path, page);
 }
 
-/**
- * Navigate to a project and land on its terminals. Callers spawn or stage a
- * terminal first: the project view force-shows the kanban when it mounts with
- * none registered.
- */
-export async function showProjectTerminals(path: string, project: Project): Promise<void> {
-  await selectProject(path, project);
-  const store = useProjectStore.getState();
-  store.setActivePanel('terminals');
-  store.setKanbanVisible(false);
+function showTaskTerminals(projectPath: string, taskNumber: number): void {
+  const [front] = stackMembers(useTerminalStore.getState(), stackOf({ ptyId: '', projectPath, taskId: taskNumber }));
+  if (front) useAppStore.getState().showTerminal(front);
 }
 
-/**
- * Navigate home. Navigates immediately — the cached `homeRecents` paints during
- * the view transition — and reconciles with a background refresh.
- */
-export function selectHome(): void {
-  const state = useAppStore.getState();
-  if (state.activeView === 'home') return;
-  state.navigateHome({ direction: 'up' });
-  void state.loadHomeRecents();
-  window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
+/** A shell in `projectPath`, shown once it spawns. */
+export async function openShell(projectPath: string): Promise<void> {
+  if (!(await addProjectTerminal(projectPath))) return;
+  const [front] = useTerminalStore.getState().order;
+  if (front) useAppStore.getState().showTerminal(front);
 }
 
 /** Fit and focus a terminal's xterm once React has had a frame to mount it. */
@@ -84,18 +61,7 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
   }
 
   const ownerPath = display.projectPath;
-  const project = useAppStore.getState().projects.find((p) => p.path === ownerPath);
-  activateTerminal(ptyId);
-
-  // No registered project owns it: a shell spawned from home, or a project
-  // that has since been removed. Only the home stack shows those.
-  if (!project) {
-    selectHome();
-    focusXterm(ptyId);
-    return;
-  }
-
-  await showProjectTerminals(ownerPath, project);
+  useAppStore.getState().showTerminal(ptyId);
 
   if (useProjectStore.getState().terminalLayout === 'canvas') {
     const canvas = useCanvasStore.getState().canvasByProject[ownerPath];
@@ -166,18 +132,14 @@ export async function openTaskShell(
   });
 }
 
-/**
- * Lands on the first task that actually opened; shells for the rest appear when
- * the user switches to their projects.
- */
+/** Lands on the first task that actually opened. */
 export async function openTasks(
   tasks: { project: Project; task: TaskWithWorkspace }[],
   mode: OpenTaskShellOptions['mode'] = 'resume',
 ): Promise<void> {
   const opened = await Promise.all(tasks.map(({ project, task }) => openTaskShell(project.path, task, { mode })));
   const landing = tasks[opened.indexOf(true)];
-  if (!landing) return;
-  await showProjectTerminals(landing.project.path, landing.project);
+  if (landing) showTaskTerminals(landing.project.path, landing.task.taskNumber);
 }
 
 /**
@@ -200,7 +162,7 @@ async function startTaskWorktree(project: Project, task: TaskWithWorkspace): Pro
     .addTerminal(project.path, slotId, { label: task.name || 'Untitled', taskId: task.taskNumber, isLoading: true });
 
   try {
-    await showProjectTerminals(project.path, project);
+    useAppStore.getState().showTerminal(slotId);
     await openTaskShell(project.path, task, { mode: 'shell', replaceLoadingId: slotId });
   } finally {
     useProjectStore.getState().markTaskStartingDone(task.taskNumber);

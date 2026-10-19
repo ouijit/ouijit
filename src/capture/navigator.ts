@@ -10,7 +10,7 @@
 import log from 'electron-log/renderer';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { useTerminalStore, activateTerminal, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
+import { useTerminalStore, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
 import { useGithubStore } from '../stores/githubStore';
@@ -157,11 +157,11 @@ export function installCaptureNavigator(): void {
       term.setPanelFullWidth(false);
     }
 
-    // The resume banner only renders on a home view with no open terminals,
-    // reads its snapshot once on mount, and stays hidden if any snapshot PTY is
-    // still alive. So stage it explicitly: stop the auto-save (it would
-    // overwrite the snapshot as the stores change), drop the seeded terminals,
-    // write a snapshot with no ptyIds, and let navigateHome remount the banner.
+    // The resume banner only renders with nothing selected, reads its snapshot
+    // once on mount, and stays hidden if any snapshot PTY is still alive. So
+    // stage it explicitly: stop the auto-save (it would overwrite the snapshot
+    // as the stores change), drop the seeded terminals, write a snapshot with
+    // no ptyIds, and select nothing to remount the banner.
     if (payload.scene === 'resume') {
       suspendSnapshotSaves();
       if (payload.projectPath) {
@@ -189,7 +189,7 @@ export function installCaptureNavigator(): void {
           await window.api.globalSettings.set(SNAPSHOT_KEY, JSON.stringify(snapshot));
         }
       }
-      useAppStore.getState().navigateHome();
+      useAppStore.getState().select({ kind: 'none' });
       await clickWhenPresent('button[aria-label="Show session details"]');
       return;
     }
@@ -216,27 +216,22 @@ export function installCaptureNavigator(): void {
       return;
     }
 
-    const project = useAppStore.getState().projects.find((p) => p.path === payload.projectPath)!;
-    useAppStore.getState().navigateToProject(project.path, project);
-
+    const projectPath = payload.projectPath;
+    const app = useAppStore.getState();
     const projectStore = useProjectStore.getState();
     switch (payload.scene) {
       case 'kanban':
-        projectStore.setActivePanel('terminals');
-        projectStore.setKanbanVisible(true);
+        app.openPage(projectPath, 'board');
         break;
       case 'terminal-stack':
-        projectStore.setActivePanel('terminals');
-        projectStore.setKanbanVisible(false);
         projectStore.setTerminalLayout('stack');
+        app.showProjectTerminals(projectPath);
         break;
       case 'settings':
-        projectStore.setActivePanel('settings');
-        projectStore.setKanbanVisible(false);
+        app.openPage(projectPath, 'settings');
         break;
       case 'palette':
-        projectStore.setActivePanel('terminals');
-        projectStore.setKanbanVisible(true);
+        app.openPage(projectPath, 'board');
         useUIStore.getState().setPaletteOpen(true);
         break;
       // The lens scene opens the same pane: a stored lens draws grouped until a
@@ -245,13 +240,11 @@ export function installCaptureNavigator(): void {
       // all named at once.
       case 'diff':
       case 'lens': {
-        projectStore.setActivePanel('terminals');
-        projectStore.setKanbanVisible(false);
         projectStore.setTerminalLayout('stack');
         const target = payload.diffPtyId ?? payload.terminalSeeds?.[0]?.ptyId;
         const term = target ? terminalInstances.get(target) : undefined;
         if (term && target) {
-          activateTerminal(target);
+          app.showTerminal(target);
           term.setDiffPanelOpen(true);
           // The toggle outlives the pane, so each scene has to ask for the
           // side it wants rather than assume the default.
@@ -265,13 +258,11 @@ export function installCaptureNavigator(): void {
         break;
       }
       case 'preview': {
-        projectStore.setActivePanel('terminals');
-        projectStore.setKanbanVisible(false);
         projectStore.setTerminalLayout('stack');
         const target = payload.previewPtyId ?? payload.terminalSeeds?.[0]?.ptyId;
         const term = target ? terminalInstances.get(target) : undefined;
         if (term && target && payload.previewUrl) {
-          activateTerminal(target);
+          app.showTerminal(target);
           if (!term.panels.some((p) => p.kind === 'webPreview')) {
             term.addWebPreviewPanel(payload.previewUrl, { activate: true });
           }
@@ -279,13 +270,11 @@ export function installCaptureNavigator(): void {
         break;
       }
       case 'markdown': {
-        projectStore.setActivePanel('terminals');
-        projectStore.setKanbanVisible(false);
         projectStore.setTerminalLayout('stack');
         const term = [...terminalInstances.values()].find((t) => t.panels.some((p) => p.kind === 'plan'));
         const plan = term?.panels.find((p) => p.kind === 'plan');
         if (term && plan) {
-          activateTerminal(term.ptyId);
+          app.showTerminal(term.ptyId);
           term.activatePanel(plan.id);
         }
         break;
@@ -293,8 +282,7 @@ export function installCaptureNavigator(): void {
       // Both stores are seeded and frozen: the panel loads on mount, and this
       // machine has neither `gh` nor a Linear key to answer with.
       case 'issues': {
-        projectStore.setActivePanel('pull-requests');
-        projectStore.setKanbanVisible(false);
+        app.openPage(projectPath, 'pull-requests');
         if (payload.issues) {
           freezeForCapture();
           useGithubStore.setState({
@@ -313,16 +301,15 @@ export function installCaptureNavigator(): void {
         break;
       }
       case 'canvas':
-        projectStore.setActivePanel('terminals');
-        projectStore.setKanbanVisible(false);
         projectStore.setTerminalLayout('canvas');
+        app.showProjectTerminals(projectPath);
         if (payload.terminalSeeds) {
           const canvas = useCanvasStore.getState();
           for (const seed of payload.terminalSeeds) {
-            canvas.addNode(payload.projectPath, seed.ptyId, seed.canvasPosition);
+            canvas.addNode(projectPath, seed.ptyId, seed.canvasPosition);
           }
           if (payload.canvasViewport) {
-            canvas.setViewport(payload.projectPath, payload.canvasViewport);
+            canvas.setViewport(projectPath, payload.canvasViewport);
           }
         }
         break;

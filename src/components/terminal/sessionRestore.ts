@@ -7,7 +7,6 @@
 
 import log from 'electron-log/renderer';
 import { useAppStore } from '../../stores/appStore';
-import { useProjectStore } from '../../stores/projectStore';
 import { addProjectTerminal } from './terminalActions';
 import { suspendSnapshotSaves, resumeSnapshotSaves, snapshotRecency } from './sessionSnapshot';
 import type { LastSessionSnapshot, Project, SnapshotTerminal, TaskStatus } from '../../types';
@@ -121,15 +120,8 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
       }
     }
 
-    // Navigate to last-active project (terminals view)
-    if (snapshot.activeProjectPath) {
-      const project = projectByPath.get(snapshot.activeProjectPath);
-      if (project) {
-        useAppStore.getState().navigateToProject(snapshot.activeProjectPath, project);
-        const projectStore = useProjectStore.getState();
-        projectStore.setActivePanel('terminals');
-        projectStore.setKanbanVisible(false);
-      }
+    if (snapshot.activeProjectPath && projectByPath.has(snapshot.activeProjectPath)) {
+      useAppStore.getState().showProjectTerminals(snapshot.activeProjectPath);
     }
   } finally {
     resumeSnapshotSaves();

@@ -1,4 +1,4 @@
-import { test, expect, createTestRepo, enterProject, launchApp } from './fixtures';
+import { test, expect, createTestRepo, enterProject, launchApp, openBoard } from './fixtures';
 import type { ElectronApplication, Page } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -6,14 +6,6 @@ import * as path from 'node:path';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 const front = (appPage: Page) => appPage.locator('.project-card--active').getAttribute('data-pty-id');
-/** What the sidebar's home button does, including remembering it for the next load. */
-async function goHome(appPage: Page): Promise<void> {
-  await appPage.evaluate(async () => {
-    (window as any).__appStore.getState().navigateHome();
-    await window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
-  });
-}
-
 const order = (appPage: Page): Promise<string[]> =>
   appPage.evaluate(() => (window as any).__terminalStore.getState().order);
 const display = (appPage: Page, ptyId: string) =>
@@ -44,7 +36,20 @@ const projectOrder = (appPage: Page, projects: string[]): Promise<string[]> =>
     return s.order.map((id: string) => s.displayStates[id].projectPath).filter((p: string) => projects.includes(p));
   }, projects);
 
-test('one set of terminal shortcuts drives both views, and the stack survives a reload and a relaunch', async ({
+/** Opens a task's worktree in a new terminal from its card on the board. */
+async function openFromBoard(appPage: Page, taskName: string): Promise<string> {
+  const before = (await order(appPage)).length;
+  await appPage.locator('.kanban-card', { hasText: taskName }).first().click({ button: 'right' });
+  const menu = appPage.locator('.context-menu--visible');
+  await menu.getByRole('button', { name: 'Open in', exact: true }).hover();
+  await menu.getByRole('button', { name: 'Terminal', exact: true }).click();
+  await expect.poll(async () => (await order(appPage)).length, { timeout: 15_000 }).toBe(before + 1);
+  const [ptyId] = await order(appPage);
+  await expect.poll(() => front(appPage), { timeout: 10_000 }).toBe(ptyId);
+  return ptyId;
+}
+
+test('the sidebar navigates: a board from its project row, a terminal from the board, ⌘1–9 within its task, across a reload and a relaunch', async ({
   appPage,
   electronApp,
   testRepo,
@@ -58,70 +63,63 @@ test('one set of terminal shortcuts drives both views, and the stack survives a 
       async (paths: string[]) => {
         for (const p of paths) await window.api.addProject(p);
         (window as any).__appStore.getState().setProjects(await window.api.refreshProjects());
+        await window.api.task.create(paths[0], 'Ship it');
         await window.api.hooks.save(paths[0], { id: 'run', type: 'run', name: 'Run', command: 'echo RUNNER_UP' });
       },
       [testRepo.repoPath, other.repoPath],
     );
 
-    // In a project: two shells, the newer in front; ⌘1 counts from the top of the back stack.
-    await appPage.mouse.move(2, 200);
-    await appPage.locator(`[data-project-path="${testRepo.repoPath}"]`).click();
-    await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
-    const a1 = await newShell(appPage);
-    const a2 = await newShell(appPage);
+    // Two terminals on one task: its stack holds both, the newer in front, and ⌘1 reaches the other.
+    await openBoard(appPage, testRepo.repoPath);
+    await expect(appPage.getByText('/ Board', { exact: true })).toBeVisible();
+    const t1 = await openFromBoard(appPage, 'Ship it');
+    await appPage.keyboard.press(`${modifier}+t`);
+    const t2 = await openFromBoard(appPage, 'Ship it');
+    await expect(appPage.locator('.project-card')).toHaveCount(2);
     await pressInTerminal(appPage, '1');
-    await expect.poll(() => front(appPage)).toBe(a1);
+    await expect.poll(() => front(appPage)).toBe(t1);
 
-    // On home: a new shell comes to the front from inside a focused terminal,
-    // and positions follow the grouped order, home's shells ahead of the project's.
-    await goHome(appPage);
-    await expect.poll(() => front(appPage), { timeout: 10_000 }).toBe(a1);
-    await appPage.locator('.project-card--active .terminal-xterm-container').click();
-    const h1 = await newShell(appPage);
-    expect(await order(appPage)).toEqual([h1, a1, a2]);
-    await pressInTerminal(appPage, '1');
-    await expect.poll(() => front(appPage)).toBe(a2);
-    expect((await order(appPage)).slice(0, 2)).toEqual([a2, h1]);
+    // A shell is a stack of its own.
+    const shell = await newShell(appPage);
+    await expect(appPage.locator('.project-card')).toHaveCount(1);
 
-    // ⌘D and ⌘P act on home's front terminal, in its own project.
+    // ⌘D and ⌘P act on the terminal in front.
     await pressInTerminal(appPage, 'd');
-    await expect.poll(async () => (await display(appPage, a2)).diffPanelOpen).toBe(true);
+    await expect.poll(async () => (await display(appPage, shell)).diffPanelOpen).toBe(true);
     await appPage.keyboard.press(`${modifier}+d`);
-    await expect.poll(async () => (await display(appPage, a2)).diffPanelOpen).toBe(false);
+    await expect.poll(async () => (await display(appPage, shell)).diffPanelOpen).toBe(false);
     await pressInTerminal(appPage, 'p');
     await expect
-      .poll(async () => (await display(appPage, a2)).panels.map((p: { kind: string }) => p.kind))
+      .poll(async () => (await display(appPage, shell)).panels.map((p: { kind: string }) => p.kind))
       .toEqual(['runner']);
 
-    // ⌘T is home's own key: it regroups by tag.
+    // From the board, a terminal's row on its card opens that terminal with its task's stack.
     await appPage.keyboard.press(`${modifier}+t`);
-    await expect(appPage.getByText('Untagged', { exact: true })).toBeVisible();
-    await appPage.keyboard.press(`${modifier}+t`);
+    await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 5_000 });
+    const rows = appPage.locator('.kanban-card', { hasText: 'Ship it' }).locator('div.flex-row', { hasText: '─' });
+    await expect(rows).toHaveCount(2);
+    await rows.nth(1).click();
+    await expect(appPage.locator('.kanban-board')).toHaveCount(0);
+    await expect(appPage.locator('.project-card')).toHaveCount(2);
+    const shown = await front(appPage);
+    expect([t1, t2]).toContain(shown);
 
-    // A renderer reload keeps the order and the front terminal.
+    // A renderer reload keeps the order and lands on the same terminal.
     const beforeReload = await order(appPage);
     await appPage.reload();
     await appPage.waitForLoadState('domcontentloaded');
     await expect.poll(() => order(appPage), { timeout: 30_000 }).toEqual(beforeReload);
-    await expect.poll(() => front(appPage), { timeout: 10_000 }).toBe(a2);
+    await expect.poll(() => front(appPage), { timeout: 10_000 }).toBe(shown);
 
-    // ⌘W closes the front terminal and the one used before it takes its place.
+    // ⌘W closes the front terminal and the task's other one takes its place.
     await pressInTerminal(appPage, 'w');
-    await expect.poll(() => front(appPage), { timeout: 10_000 }).toBe(h1);
+    await expect.poll(() => front(appPage), { timeout: 10_000 }).toBe(shown === t1 ? t2 : t1);
 
-    // Quitting ends the shells; resuming on the next launch brings the
-    // project ones back in the same order.
-    await appPage.mouse.move(2, 200);
-    await appPage.locator(`[data-project-path="${other.repoPath}"]`).click();
-    await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
+    // Quitting ends the shells; resuming on the next launch brings them back in the same order.
+    await openBoard(appPage, other.repoPath);
     await newShell(appPage);
-    await goHome(appPage);
-    // The deepest card is ⌘1: Alpha's, behind the Bravo and home groups.
-    await pressInTerminal(appPage, '1');
-    await expect.poll(() => front(appPage)).toBe(a1);
     const projects = [testRepo.repoPath, other.repoPath];
     const beforeQuit = await projectOrder(appPage, projects);
-    expect(beforeQuit).toEqual([testRepo.repoPath, other.repoPath]);
     await appPage.waitForTimeout(1_000);
     await electronApp.close();
 

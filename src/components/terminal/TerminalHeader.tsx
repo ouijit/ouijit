@@ -205,7 +205,6 @@ export const TerminalHeader = memo(function TerminalHeader({
       const inst = terminalInstances.get(ptyId);
       if (!inst) return;
       inst.toggleDiffPanel();
-      if (inst.diffPanelOpen) useProjectStore.getState().setKanbanVisible(false);
     },
     [ptyId],
   );

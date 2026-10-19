@@ -78,7 +78,7 @@ Five lifecycle hooks (start, continue, run, review, done) and per-project script
 
 <img src="website/public/assets/screenshots/settings.png" alt="Project settings with hooks and scripts" width="100%">
 
-Also in the box: a multi-project home view, a configurable projects folder, `git init` for folders that need it, an editor launcher, health checks for the agent CLIs, first-run onboarding, terminal font settings, auto-update on macOS with release notes, and a local REST API behind the CLI. Everything is stored locally in SQLite.
+Also in the box: a sidebar across every project, a configurable projects folder, `git init` for folders that need it, an editor launcher, health checks for the agent CLIs, first-run onboarding, terminal font settings, auto-update on macOS with release notes, and a local REST API behind the CLI. Everything is stored locally in SQLite.
 
 ## Supported harnesses
 

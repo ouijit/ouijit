@@ -2,13 +2,7 @@ import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import { installVisitTracker } from '../../services/visitTracker';
 import { useAppStore } from '../../stores/appStore';
-import { useProjectStore } from '../../stores/projectStore';
-import {
-  activateTerminal,
-  useTerminalStore,
-  DEFAULT_DISPLAY_STATE,
-  type TerminalDisplayState,
-} from '../../stores/terminalStore';
+import { useTerminalStore, DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { usePanelStore } from '../../stores/panelStore';
 import type { Project, TaskWithWorkspace } from '../../types';
@@ -48,11 +42,9 @@ beforeEach(() => {
 
   useAppStore.setState({
     projects: [projectA, projectB],
-    activeView: 'project',
-    activeProjectPath: projectA.path,
-    activeProjectData: projectA,
     taskCacheByProject: { ...TASKS },
   });
+  useAppStore.getState().openPage(projectA.path, 'board');
   useTerminalStore.setState({
     terminalsByProject: { [projectA.path]: ['alpha-1', 'alpha-7'] },
     displayStates: {
@@ -61,7 +53,6 @@ beforeEach(() => {
     },
     order: ['alpha-1', 'alpha-7'],
   });
-  useProjectStore.setState({ kanbanVisible: true, activePanel: 'terminals' });
   useGithubStore.setState({ projectPath: null, activeNumber: null });
 
   stop = installVisitTracker();
@@ -85,11 +76,11 @@ describe('visitTracker', () => {
   });
 
   test('a foregrounded shell is a visit to the task that owns it, or to the shell if none does', async () => {
-    useProjectStore.setState({ kanbanVisible: false });
+    useAppStore.getState().showTerminal('alpha-1');
     await settle();
     expect(written()).toEqual(['terminal:alpha-1']);
 
-    activateTerminal('alpha-7');
+    useAppStore.getState().showTerminal('alpha-7');
     await settle();
     // Keyed on the task, not the pty: the shell will not outlive the worktree,
     // but what this says about the task should.
@@ -97,7 +88,7 @@ describe('visitTracker', () => {
   });
 
   test('a pull request open in the panel is a visit to the task holding it', async () => {
-    useProjectStore.setState({ kanbanVisible: false, activePanel: 'pull-requests' });
+    useAppStore.getState().openPage(projectA.path, 'pull-requests');
     useGithubStore.setState({ projectPath: projectA.path });
     usePanelStore.setState({ open: { source: 'github-pr', number: 42 } });
     await settle();
@@ -106,7 +97,7 @@ describe('visitTracker', () => {
 
   test('passing through a view on the way elsewhere is not a visit', async () => {
     await vi.advanceTimersByTimeAsync(DWELL / 3);
-    useAppStore.setState({ activeProjectPath: projectB.path, activeProjectData: projectB });
+    useAppStore.getState().openPage(projectB.path, 'board');
     await settle();
     expect(written()).toEqual([`project:${projectB.path}`]);
   });

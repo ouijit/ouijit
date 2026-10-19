@@ -19,7 +19,7 @@ import {
   persistCanvas,
   type TerminalNode as TerminalNodeType,
 } from '../../stores/canvasStore';
-import { useTerminalStore, terminalMatchesTag, useTagFilter } from '../../stores/terminalStore';
+import { useTerminalStore } from '../../stores/terminalStore';
 import { setStackPositions } from '../terminal/stackPositions';
 import { TerminalNode } from './TerminalNode';
 import { terminalInstances } from '../terminal/terminalRegistry';
@@ -92,33 +92,12 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const viewport = project?.viewport;
   const gridSnap = project?.gridSnap ?? false;
 
-  // Tag filter: hide non-matching nodes (and their edges) rather than removing
-  // them, so persisted canvas positions survive filtering.
   const displayStates = useTerminalStore((s) => s.displayStates);
-  const tagFilter = useTagFilter(projectPath);
   const projectTerminals = useTerminalStore((s) => s.terminalsByProject[projectPath]);
   useEffect(() => {
     setStackPositions(projectTerminals ?? []);
     return () => setStackPositions([]);
   }, [projectTerminals]);
-  const hiddenIds = useMemo(() => {
-    if (!tagFilter) return null;
-    const set = new Set<string>();
-    for (const n of nodes) if (!terminalMatchesTag(displayStates[n.id], tagFilter)) set.add(n.id);
-    return set;
-  }, [nodes, tagFilter, displayStates]);
-  const renderedNodes = useMemo(
-    () => (hiddenIds ? nodes.map((n) => (hiddenIds.has(n.id) ? { ...n, hidden: true } : n)) : nodes),
-    [nodes, hiddenIds],
-  );
-  const renderedEdges = useMemo(
-    () =>
-      hiddenIds && hiddenIds.size > 0
-        ? edges.filter((e) => !hiddenIds.has(e.source) && !hiddenIds.has(e.target))
-        : edges,
-    [edges, hiddenIds],
-  );
-
   // Phase 2: chain edges
   useChainEdges(projectPath);
 
@@ -224,8 +203,8 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   return (
     <div className="terminal-canvas relative w-full h-full">
       <ReactFlow
-        nodes={renderedNodes}
-        edges={renderedEdges}
+        nodes={nodes}
+        edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}

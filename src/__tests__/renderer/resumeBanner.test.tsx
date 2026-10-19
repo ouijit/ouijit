@@ -1,6 +1,6 @@
 import { test, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { HomeView } from '../../components/HomeViewReact';
+import { MainView } from '../../components/MainView';
 import { SNAPSHOT_KEY } from '../../components/terminal/sessionSnapshot';
 import { useAppStore } from '../../stores/appStore';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -11,7 +11,7 @@ vi.mock('../../components/terminal/terminalReact', () => ({ OuijitTerminal: clas
 
 const ALPHA = { path: '/code/alpha', name: 'Alpha' };
 
-test('home offers to resume the last session even when no project has a task', async () => {
+test('with nothing selected, the main area offers to resume the last session even when no project has a task', async () => {
   const snapshot: LastSessionSnapshot = {
     version: 1,
     capturedAt: new Date().toISOString(),
@@ -36,8 +36,9 @@ test('home offers to resume the last session even when no project has a task', a
   vi.mocked(window.api.pty.getActiveSessions).mockResolvedValue([]);
   useTerminalStore.setState(useTerminalStore.getInitialState(), true);
   useAppStore.setState({ projects: [ALPHA], homeRecents: [] });
+  useAppStore.getState().select({ kind: 'none' });
 
-  render(<HomeView />);
+  render(<MainView />);
 
   expect(await screen.findByRole('button', { name: 'Resume' })).toBeTruthy();
   expect(screen.getByText('No tasks yet.')).toBeTruthy();

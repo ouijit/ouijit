@@ -11,6 +11,7 @@
 import log from 'electron-log/renderer';
 import type { TaskWithWorkspace } from '../types';
 import { describeError } from '../utils/describeError';
+import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { loadTasks } from '../stores/projectDataStore';
 import { usePanelStore } from '../stores/panelStore';
@@ -20,8 +21,7 @@ const actionLog = log.scope('github:task');
 
 /** Open a pull request in the project panel, switching to it if needed. */
 export function openPullRequestInPanel(projectPath: string, prNumber: number): void {
-  useProjectStore.getState().setActivePanel('pull-requests');
-  useProjectStore.getState().setKanbanVisible(false);
+  useAppStore.getState().openPage(projectPath, 'pull-requests');
   usePanelStore.getState().setProject(projectPath);
   const store = useGithubStore.getState();
   store.setProject(projectPath);

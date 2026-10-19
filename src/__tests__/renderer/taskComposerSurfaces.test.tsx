@@ -14,7 +14,6 @@ import { KanbanCardView } from '../../components/kanban/KanbanCardView';
 import { StandaloneComposerSheet } from '../../components/kanban/StandaloneComposerSheet';
 import { useComposerStore } from '../../stores/composerStore';
 import { useAppStore } from '../../stores/appStore';
-import { useProjectStore } from '../../stores/projectStore';
 import type { TaskWithWorkspace } from '../../types';
 
 /** The platform modifier the app binds to, mirrored so these run on any host. */
@@ -42,7 +41,7 @@ beforeEach(() => {
   useComposerStore.setState({ draft: { name: '', description: '' }, sheetOpen: false, sheetCaret: null });
   useAppStore.setState({ composerSheetCount: 0 });
   // Off the board, which is when the standalone sheet is the one that renders.
-  useProjectStore.setState({ activePanel: 'terminals', kanbanVisible: false });
+  useAppStore.getState().select({ kind: 'none' });
 });
 
 describe('column placement', () => {
@@ -71,7 +70,7 @@ describe('StandaloneComposerSheet', () => {
 
     // On the board the column composer owns the sheet, so this one stands down
     // and the two can never both render it.
-    act(() => useProjectStore.setState({ kanbanVisible: true }));
+    act(() => useAppStore.getState().openPage('/p', 'board'));
     rerender(<StandaloneComposerSheet projectPath="/p" />);
     expect(getSheet()).toBeNull();
   });

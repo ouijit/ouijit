@@ -16,9 +16,7 @@ export interface RunHookInput {
 export type RunHookRequest = RunHookInput & Pending<RunHookResult | null>;
 
 interface ProjectStoreState {
-  kanbanVisible: boolean;
   terminalLayout: TerminalLayout;
-  activePanel: 'terminals' | 'settings' | 'pull-requests' | 'analysis';
   highlightedChainTask: number | null;
   detachHoverParent: number | null;
   optionKeyHeld: boolean;
@@ -55,8 +53,6 @@ interface ProjectStoreState {
 }
 
 interface ProjectStoreActions {
-  setKanbanVisible: (visible: boolean) => void;
-  toggleKanban: () => void;
   showModal: (modal: string) => void;
   hideModal: () => void;
   addToast: (
@@ -79,7 +75,6 @@ interface ProjectStoreActions {
   resetBadgeDragState: () => void;
   setTerminalLayout: (layout: TerminalLayout) => void;
   toggleTerminalLayout: () => void;
-  setActivePanel: (panel: 'terminals' | 'settings' | 'pull-requests' | 'analysis') => void;
 
   toggleTaskSelection: (taskNumber: number) => void;
   selectTaskRange: (taskNumber: number, orderedTaskNumbers: number[]) => void;
@@ -105,9 +100,7 @@ type ProjectStore = ProjectStoreState & ProjectStoreActions;
 let toastCounter = 0;
 
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
-  kanbanVisible: false,
   terminalLayout: 'stack',
-  activePanel: 'terminals',
   highlightedChainTask: null,
   detachHoverParent: null,
   optionKeyHeld: false,
@@ -121,10 +114,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   startingTaskNumbers: new Set<number>(),
   runHookQueue: [],
   runHookQueueTotal: 0,
-
-  setKanbanVisible: (visible) => set({ kanbanVisible: visible }),
-
-  toggleKanban: () => set((s) => ({ kanbanVisible: !s.kanbanVisible })),
 
   setHighlightedChainTask: (taskNumber) => {
     if (get().highlightedChainTask !== taskNumber) set({ highlightedChainTask: taskNumber });
@@ -150,8 +139,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   setTerminalLayout: (layout) => set({ terminalLayout: layout }),
 
   toggleTerminalLayout: () => set((s) => ({ terminalLayout: s.terminalLayout === 'stack' ? 'canvas' : 'stack' })),
-
-  setActivePanel: (panel) => set({ activePanel: panel }),
 
   showModal: (modal) => set({ activeModal: modal }),
 

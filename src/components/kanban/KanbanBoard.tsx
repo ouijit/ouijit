@@ -73,10 +73,10 @@ const NO_BACKENDS: SandboxBackendId[] = [];
 
 interface KanbanBoardProps {
   projectPath: string;
-  onHide: () => void;
+  onTerminalOpened: () => void;
 }
 
-export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
+export function KanbanBoard({ projectPath, onTerminalOpened }: KanbanBoardProps) {
   const storeTasks = useProjectTasks(projectPath);
   const startingTaskNumbers = useProjectStore((s) => s.startingTaskNumbers);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
@@ -478,10 +478,10 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         origStatus,
         newStatus,
         task: draggedTask,
-        onForegroundOpen: onHide,
+        onForegroundOpen: onTerminalOpened,
       });
     },
-    [activeTask, chainMap, storeTasks, items, findContainer, projectPath, onHide],
+    [activeTask, chainMap, storeTasks, items, findContainer, projectPath, onTerminalOpened],
   );
 
   // Task CRUD
@@ -511,14 +511,13 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const handleOpenTerminal = useCallback(
     async (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => {
-      if (await openTaskShell(projectPath, task, { mode: 'resume', sandboxProvider })) onHide();
+      if (await openTaskShell(projectPath, task, { mode: 'resume', sandboxProvider })) onTerminalOpened();
     },
-    [projectPath, onHide],
+    [projectPath, onTerminalOpened],
   );
 
-  // No `onHide`: `focusTerminal` hides the kanban itself. Hiding here happens a
-  // microtask earlier, which mounts the stack on the terminal the switch is
-  // about to replace.
+  // No `onTerminalOpened`: it shows the project's front terminal, a microtask before
+  // `focusTerminal` shows the one asked for.
   const handleSwitchToTerminal = useCallback(
     (ptyId: string) => {
       void focusTerminal(ptyId, projectPath);

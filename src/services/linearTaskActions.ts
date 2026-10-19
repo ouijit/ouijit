@@ -3,6 +3,7 @@
  * header menu, and the command palette.
  */
 
+import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { loadTasks } from '../stores/projectDataStore';
 import { usePanelStore } from '../stores/panelStore';
@@ -10,8 +11,7 @@ import { useLinearStore } from '../stores/linearStore';
 
 /** Open a Linear issue in the project panel, switching to it if needed. */
 export function openLinearIssueInPanel(projectPath: string, issueId: string): void {
-  useProjectStore.getState().setActivePanel('pull-requests');
-  useProjectStore.getState().setKanbanVisible(false);
+  useAppStore.getState().openPage(projectPath, 'pull-requests');
   usePanelStore.getState().setProject(projectPath);
   const store = useLinearStore.getState();
   store.setProject(projectPath);

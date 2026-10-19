@@ -7,7 +7,7 @@ import { addProjectTerminal, reconnectOrphanedSessions } from '../../components/
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import {
-  getActivePtyId,
+  stackMembers,
   useTerminalStore,
   DEFAULT_DISPLAY_STATE,
   type TerminalDisplayState,
@@ -70,11 +70,9 @@ const TASKS: Record<string, TaskWithWorkspace[]> = {
 function seed(): void {
   useAppStore.setState({
     projects: [projectA, projectB],
-    activeView: 'project',
-    activeProjectPath: projectA.path,
-    activeProjectData: projectA,
     taskCacheByProject: { ...TASKS },
   });
+  useAppStore.getState().openPage(projectA.path, 'board');
   useTerminalStore.setState({
     terminalsByProject: { [projectA.path]: ['alpha-1', 'alpha-7'] },
     displayStates: {
@@ -82,15 +80,19 @@ function seed(): void {
       'alpha-7': display({ ptyId: 'alpha-7', projectPath: projectA.path, label: 'Seven', taskId: 7 }),
     },
     order: ['alpha-1', 'alpha-7'],
-    tagFilters: {},
   });
   useProjectStore.setState({
     terminalLayout: 'stack',
-    kanbanVisible: true,
     toasts: [],
     startingTaskNumbers: new Set<number>(),
   });
   useUIStore.setState({ paletteOpen: true });
+}
+
+/** The front card of the stack on screen. */
+function shown(): string | undefined {
+  const { selection } = useAppStore.getState();
+  return selection.kind === 'terminal' ? stackMembers(useTerminalStore.getState(), selection.stack)[0] : undefined;
 }
 
 function rowLabels(): string[] {
@@ -256,7 +258,7 @@ describe('command palette results', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(getActivePtyId(projectA.path)).toBe('alpha-7b'));
+    await waitFor(() => expect(shown()).toBe('alpha-7b'));
   });
 
   test('a project row searches and shows the same home-relative path', async () => {
@@ -306,37 +308,8 @@ describe('command palette navigation', () => {
     await waitFor(() => expect(reconnectOrphanedSessions).toHaveBeenCalledWith(projectB.path));
     await waitFor(() => expect(useAppStore.getState().activeProjectPath).toBe(projectB.path));
 
-    expect(getActivePtyId(projectB.path)).toBe('bravo-1');
-    // Jumping to a terminal shows the terminals, not the board.
-    expect(useProjectStore.getState().kanbanVisible).toBe(false);
-    expect(useProjectStore.getState().activePanel).toBe('terminals');
-  });
-
-  test('clears a tag filter that would hide the terminal being opened', async () => {
-    useTerminalStore.setState({
-      terminalsByProject: { [projectA.path]: ['alpha-1', 'alpha-7'] },
-      displayStates: {
-        'alpha-1': display({ ptyId: 'alpha-1', projectPath: projectA.path, label: 'Alpha shell' }),
-        'alpha-7': display({
-          ptyId: 'alpha-7',
-          projectPath: projectA.path,
-          label: 'Seven',
-          taskId: 7,
-          tags: ['review'],
-        }),
-      },
-      order: ['alpha-7', 'alpha-1'],
-      tagFilters: { [projectA.path]: 'review' },
-    });
-
-    await openPalette();
-    const input = screen.getByLabelText('Search terminals, projects and tasks');
-    fireEvent.change(input, { target: { value: 'Alpha shell' } });
-    await waitFor(() => expect(rowLabels()[0]).toContain('Alpha shell'));
-    fireEvent.keyDown(input, { key: 'Enter' });
-
-    await waitFor(() => expect(getActivePtyId(projectA.path)).toBe('alpha-1'));
-    expect(useTerminalStore.getState().tagFilters).toEqual({});
+    // Jumping to a terminal shows it, not the board.
+    expect(shown()).toBe('bravo-1');
   });
 
   test('opens a task worktree as a plain shell — no hook, no worktree creation', async () => {
@@ -373,7 +346,7 @@ describe('command palette navigation', () => {
     await waitFor(() => expect(useProjectStore.getState().startingTaskNumbers.has(11)).toBe(true));
     const staged = Object.values(useTerminalStore.getState().displayStates).find((d) => d.taskId === 11);
     expect(staged).toMatchObject({ label: 'Eleven', isLoading: true });
-    expect(useProjectStore.getState().kanbanVisible).toBe(false);
+    expect(shown()).toBe(staged?.ptyId);
 
     releaseStart({ success: true, worktreePath: '/wt/eleven', task: { branch: 'eleven' } });
 
@@ -435,7 +408,7 @@ describe('command palette navigation', () => {
     );
   });
 
-  test('selecting a project loads its tasks, navigates, and persists the view', async () => {
+  test('selecting a project opens its board with its tasks loaded, and persists the view', async () => {
     await openPalette();
     const input = screen.getByLabelText('Search terminals, projects and tasks');
     fireEvent.change(input, { target: { value: '/work/bravo' } });
@@ -443,10 +416,11 @@ describe('command palette navigation', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(useAppStore.getState().activeProjectPath).toBe(projectB.path));
+    expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: projectB.path, page: 'board' });
     expect(window.api.task.getAll).toHaveBeenCalledWith(projectB.path);
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(
       'lastActiveView',
-      JSON.stringify({ type: 'project', path: projectB.path }),
+      JSON.stringify({ type: 'page', path: projectB.path, page: 'board' }),
     );
   });
 });

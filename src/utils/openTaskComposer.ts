@@ -1,6 +1,6 @@
 import { focusKanbanAddInput } from '../components/kanban/KanbanAddInput';
-import { useComposerStore, isBoardMounted } from '../stores/composerStore';
-import { useProjectStore } from '../stores/projectStore';
+import { useComposerStore } from '../stores/composerStore';
+import { useAppStore, selectBoardOnScreen } from '../stores/appStore';
 
 /**
  * The single entry point for "new task", behind ⌘N and the title bar button.
@@ -12,9 +12,7 @@ import { useProjectStore } from '../stores/projectStore';
  * other picks up where you left off.
  */
 export function openTaskComposer(): void {
-  const { activePanel, kanbanVisible } = useProjectStore.getState();
-
-  if (isBoardMounted(activePanel, kanbanVisible)) {
+  if (selectBoardOnScreen(useAppStore.getState())) {
     focusKanbanAddInput();
     return;
   }

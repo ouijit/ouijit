@@ -1,10 +1,10 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent, within } from '@testing-library/react';
 
 import { PullRequestsPanel } from '../../components/github/PullRequestsPanel';
 import { LinearScopeSection } from '../../components/linear/LinearScopeSection';
 import { LinearSettingsSection } from '../../components/LinearSettingsSection';
-import { TitleBar } from '../../components/TitleBarReact';
+import { Sidebar } from '../../components/SidebarReact';
 import { useAppStore } from '../../stores/appStore';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { useGithubStore } from '../../stores/githubStore';
@@ -43,18 +43,19 @@ describe('Linear in the Issues list', () => {
   });
 
   /**
-   * Gating the title bar on GitHub alone would ship a feature with no way to
-   * open it: `linear` on and `github` off has a panel and no entry point.
+   * Gating the project's page buttons on GitHub alone would ship a feature with
+   * no way to open it: `linear` on and `github` off has a panel and no entry point.
    */
   test('the panel is reachable with Linear on and GitHub off', () => {
-    useAppStore.setState({ activeProjectPath: PROJECT, activeView: 'project' });
+    useAppStore.setState({ projects: [{ path: PROJECT, name: 'Project' }] });
     useExperimentalStore.setState({
       flagsByProject: { [PROJECT]: { ...DEFAULT_EXPERIMENTAL_FLAGS, github: false, linear: true } },
     });
 
-    render(<TitleBar mode="project" />);
+    render(<Sidebar onAddProject={() => {}} onCloneSelect={() => {}} />);
 
-    expect(screen.getByLabelText('Pull requests')).toBeTruthy();
+    const row = document.querySelector<HTMLElement>(`[data-project-path="${PROJECT}"]`)!;
+    expect(within(row).getByLabelText('Pull requests')).toBeTruthy();
   });
 
   test('a project with only Linear connected sees Linear groups and no empty headings', async () => {

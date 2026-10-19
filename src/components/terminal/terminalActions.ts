@@ -157,7 +157,9 @@ function registerTerminal(
 
   terminalInstances.set(ptyId, term);
 
-  term.setProjectNameGetter(() => useAppStore.getState().activeProjectData?.name ?? 'Ouijit');
+  term.setProjectNameGetter(
+    () => useAppStore.getState().projects.find((p) => p.path === term.projectPath)?.name ?? 'Ouijit',
+  );
 
   if (replaceLoadingId) {
     useTerminalStore.getState().rekeyTerminal(replaceLoadingId, ptyId);
@@ -668,9 +670,7 @@ export async function openWorktreeEditor(
     // launch exits non-zero and stays open.
     { existingWorktree: worktree, taskId, autoCloseOnSuccess: true },
   );
-  // Surface the editor terminal: when launched from the kanban, dismiss the
-  // board so the new card is visible (mirrors "Open in Terminal").
-  useProjectStore.getState().setKanbanVisible(false);
+  useAppStore.getState().showProjectTerminals(projectPath);
 }
 
 // ── Kill existing command instances ──────────────────────────────────

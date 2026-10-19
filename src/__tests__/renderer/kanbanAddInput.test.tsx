@@ -12,7 +12,6 @@ import { render, fireEvent, screen, act } from '@testing-library/react';
 import { KanbanAddInput, focusKanbanAddInput } from '../../components/kanban/KanbanAddInput';
 import { useComposerStore } from '../../stores/composerStore';
 import { useAppStore } from '../../stores/appStore';
-import { useProjectStore } from '../../stores/projectStore';
 import { openTaskComposer } from '../../utils/openTaskComposer';
 
 /** The platform modifier the app binds to, mirrored so these run on any host. */
@@ -64,7 +63,7 @@ afterEach(() => {
 beforeEach(() => {
   useComposerStore.setState({ draft: { name: '', description: '' }, sheetOpen: false, sheetCaret: null });
   useAppStore.setState({ composerSheetCount: 0 });
-  useProjectStore.setState({ activePanel: 'terminals', kanbanVisible: true });
+  useAppStore.getState().openPage('/p', 'board');
 });
 
 describe('KanbanAddInput', () => {
@@ -211,20 +210,20 @@ describe('KanbanAddInput', () => {
 
     // Off the board there is nothing to focus, so the sheet comes to you
     // rather than the view switching underneath.
-    useProjectStore.setState({ kanbanVisible: false });
+    useAppStore.getState().select({ kind: 'none' });
     act(() => openTaskComposer());
     expect(useComposerStore.getState().sheetOpen).toBe(true);
-    expect(useProjectStore.getState().kanbanVisible).toBe(false);
+    expect(useAppStore.getState().selection).toEqual({ kind: 'none' });
   });
 
   it('carries a draft written off the board back to the column composer', () => {
-    useProjectStore.setState({ kanbanVisible: false });
+    useAppStore.getState().select({ kind: 'none' });
     act(() => openTaskComposer());
     useComposerStore.getState().setName('Started from a terminal');
     useComposerStore.getState().closeSheet();
 
     // Arriving at the board later, the draft is waiting in the resting row.
-    useProjectStore.setState({ kanbanVisible: true });
+    useAppStore.getState().openPage('/p', 'board');
     render(<KanbanAddInput onAdd={vi.fn()} />);
     expect(getRest()!.textContent).toContain('Started from a terminal');
   });

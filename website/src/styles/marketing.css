@@ -441,20 +441,6 @@ body.marketing .app-markdown h4 {
   border-radius: 50%;
 }
 
-/* Same treatment as the app's .sidebar-home-logo-mask, pointed at the site's
-   copy of the logomark. */
-.app-window-logo-mask {
-  background-color: var(--color-text-secondary);
-  -webkit-mask-image: url('/assets/ouijit-logomark.svg');
-  mask-image: url('/assets/ouijit-logomark.svg');
-  -webkit-mask-size: contain;
-  mask-size: contain;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-}
-
 /* --- Home pitch (display paragraph below the workspace scene) --- */
 body.marketing .cta-docs-link {
   display: block;

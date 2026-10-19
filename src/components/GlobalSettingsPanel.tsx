@@ -56,12 +56,9 @@ export function GlobalSettingsPanel() {
     };
   }, []);
 
-  // Escape returns to home — mirrors ProjectSettingsPanel's escape handler.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        useAppStore.getState().setHomeActivePanel('home');
-      }
+      if (e.key === 'Escape') useAppStore.getState().select({ kind: 'none' });
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);

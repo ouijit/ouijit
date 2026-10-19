@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { CloneJob, Project, TaskWithWorkspace } from '../types';
 import type { HealthStatus } from '../healthCheck';
-import { withViewTransition, type ViewTransitionDirection } from '../utils/viewTransition';
+import { stackMembers, stackOf, useTerminalStore } from './terminalStore';
 
 export interface HomeRecentTask extends TaskWithWorkspace {
   project: Project;
@@ -9,8 +9,18 @@ export interface HomeRecentTask extends TaskWithWorkspace {
 
 const MAX_HOME_RECENTS = 8;
 
+export type ProjectPage = 'board' | 'settings' | 'pull-requests' | 'analysis';
+
+/** What the main area shows. */
+export type Selection =
+  | { kind: 'terminal'; stack: string; projectPath: string }
+  | { kind: 'page'; projectPath: string; page: ProjectPage }
+  | { kind: 'app-settings' }
+  | { kind: 'none' };
+
 interface AppStoreState {
-  activeView: 'home' | 'project';
+  selection: Selection;
+  /** The registered project, or clone, whose terminal or page is on screen. */
   activeProjectPath: string | null;
   activeProjectData: Project | null;
   fullscreen: boolean;
@@ -40,7 +50,6 @@ interface AppStoreState {
   onboardingSoftDismissed: boolean;
   onboardingStuckLatched: boolean;
   health: HealthStatus | null;
-  homeActivePanel: 'home' | 'settings';
   homeRecents: HomeRecentTask[] | null;
   /** Every project's tasks, by path. Read through `projectDataStore`. */
   taskCacheByProject: Record<string, TaskWithWorkspace[]>;
@@ -59,13 +68,15 @@ interface AppStoreActions {
   setOnboardingSoftDismissed: (value: boolean) => void;
   setOnboardingStuckLatched: (value: boolean) => void;
   setHealth: (status: HealthStatus | null) => void;
-  setHomeActivePanel: (panel: 'home' | 'settings') => void;
-  navigateToProject: (path: string, project: Project, options?: { direction?: ViewTransitionDirection }) => void;
-  navigateHome: (options?: { direction?: ViewTransitionDirection; panel?: 'home' | 'settings' }) => void;
+  select: (selection: Selection) => void;
+  /** Brings a terminal to the front of its stack and shows that stack. False if it is not registered. */
+  showTerminal: (ptyId: string) => boolean;
+  /** Shows the project's most recently used terminal, or its board when it has none. */
+  showProjectTerminals: (projectPath: string) => void;
+  openPage: (projectPath: string, page: ProjectPage) => void;
   loadHomeRecents: () => Promise<void>;
   /** Update one project's slice of the task cache; re-derives `homeRecents`. */
   updateProjectTaskCache: (projectPath: string, tasks: TaskWithWorkspace[]) => void;
-  resetProjectState: () => void;
 }
 
 function deriveHomeRecents(projects: Project[], cache: Record<string, TaskWithWorkspace[]>): HomeRecentTask[] {
@@ -84,6 +95,29 @@ function deriveHomeRecents(projects: Project[], cache: Record<string, TaskWithWo
 
 type AppStore = AppStoreState & AppStoreActions;
 
+function selectionPath(selection: Selection): string | null {
+  return selection.kind === 'terminal' || selection.kind === 'page' ? selection.projectPath : null;
+}
+
+/** A clone has no project row yet, so one is stood up from its job. */
+function projectAt(state: Pick<AppStoreState, 'projects' | 'cloneJobs'>, path: string | null): Project | null {
+  if (!path) return null;
+  const project = state.projects.find((p) => p.path === path);
+  if (project) return project;
+  const job = state.cloneJobs.find((entry) => entry.projectPath === path);
+  return job ? { name: job.name, path } : null;
+}
+
+function persistSelection(selection: Selection): void {
+  const view =
+    selection.kind === 'terminal'
+      ? { type: 'terminal', ptyId: stackMembers(useTerminalStore.getState(), selection.stack)[0] }
+      : selection.kind === 'page'
+        ? { type: 'page', path: selection.projectPath, page: selection.page }
+        : { type: selection.kind };
+  void window.api.globalSettings.set('lastActiveView', JSON.stringify(view));
+}
+
 /**
  * The clone standing in for the active project, when the project is not real
  * yet. The job object is replaced on every progress line, so anything that
@@ -98,12 +132,17 @@ export function selectIsCloning(s: AppStoreState): boolean {
   return selectActiveClone(s) !== undefined;
 }
 
+/** The column composer only exists while the board is up. */
+export function selectBoardOnScreen(s: AppStoreState): boolean {
+  return s.selection.kind === 'page' && s.selection.page === 'board';
+}
+
 export function selectCloneJob(projectPath: string) {
   return (s: AppStoreState): CloneJob | undefined => s.cloneJobs.find((job) => job.projectPath === projectPath);
 }
 
 export const useAppStore = create<AppStore>()((set, get) => ({
-  activeView: 'home',
+  selection: { kind: 'none' },
   activeProjectPath: null,
   activeProjectData: null,
   fullscreen: false,
@@ -117,11 +156,13 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   onboardingSoftDismissed: false,
   onboardingStuckLatched: false,
   health: null,
-  homeActivePanel: 'home',
   homeRecents: null,
   taskCacheByProject: {},
 
-  setProjects: (projects) => set({ projects }),
+  setProjects: (projects) => {
+    const activeProjectData = projectAt({ projects, cloneJobs: get().cloneJobs }, get().activeProjectPath);
+    set({ projects, activeProjectData, activeProjectPath: activeProjectData?.path ?? null });
+  },
   setCloneJobs: (cloneJobs) => set({ cloneJobs }),
 
   setFullscreen: (fullscreen) => set({ fullscreen }),
@@ -142,27 +183,32 @@ export const useAppStore = create<AppStore>()((set, get) => ({
 
   setHealth: (status) => set({ health: status }),
 
-  setHomeActivePanel: (panel) =>
-    withViewTransition(() => {
-      set({ homeActivePanel: panel });
-    }),
+  select: (selection) => {
+    const activeProjectData = projectAt(get(), selectionPath(selection));
+    set({ selection, activeProjectData, activeProjectPath: activeProjectData?.path ?? null });
+    persistSelection(selection);
+  },
 
-  navigateToProject: (path, project, options) =>
-    withViewTransition(() => set({ activeView: 'project', activeProjectPath: path, activeProjectData: project }), {
-      direction: options?.direction,
-    }),
+  showTerminal: (ptyId) => {
+    const terminals = useTerminalStore.getState();
+    const display = terminals.displayStates[ptyId];
+    if (!display || !terminals.activate(ptyId)) return false;
+    const current = get().selection;
+    const stack = stackOf(display);
+    if (current.kind !== 'terminal' || current.stack !== stack) {
+      get().select({ kind: 'terminal', stack, projectPath: display.projectPath });
+    }
+    return true;
+  },
 
-  navigateHome: (options) =>
-    withViewTransition(
-      () =>
-        set({
-          activeView: 'home',
-          activeProjectPath: null,
-          activeProjectData: null,
-          homeActivePanel: options?.panel ?? 'home',
-        }),
-      { direction: options?.direction },
-    ),
+  showProjectTerminals: (projectPath) => {
+    const { order, displayStates } = useTerminalStore.getState();
+    const front = order.find((id) => displayStates[id]?.projectPath === projectPath);
+    if (front) get().showTerminal(front);
+    else get().openPage(projectPath, 'board');
+  },
+
+  openPage: (projectPath, page) => get().select({ kind: 'page', projectPath, page }),
 
   loadHomeRecents: async () => {
     const projects = get().projects;
@@ -183,11 +229,17 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     const cache = { ...get().taskCacheByProject, [projectPath]: tasks };
     set({ taskCacheByProject: cache, homeRecents: deriveHomeRecents(get().projects, cache) });
   },
-
-  resetProjectState: () => {
-    set({
-      activeProjectPath: null,
-      activeProjectData: null,
-    });
-  },
 }));
+
+// A stack empties when its last terminal closes. What takes its place is the
+// project's next terminal, so closing a shell does not throw the user out of
+// the project they were working in.
+useTerminalStore.subscribe((terminals) => {
+  const app = useAppStore.getState();
+  const { selection } = app;
+  if (selection.kind !== 'terminal' || stackMembers(terminals, selection.stack).length > 0) return;
+  const next = terminals.order.find((id) => terminals.displayStates[id]?.projectPath === selection.projectPath);
+  if (next) app.showTerminal(next);
+  else if (app.activeProjectPath) app.openPage(app.activeProjectPath, 'board');
+  else app.select({ kind: 'none' });
+});
