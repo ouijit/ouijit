@@ -170,7 +170,11 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
         onMouseLeave={hideRevealed}
       >
         <div className="h-full flex flex-col" style={{ width: 'var(--sidebar-width)' }}>
-          <div className="h-[72px] shrink-0 flex items-center justify-end px-2.5 [-webkit-app-region:drag]">
+          {/* Electron sizes drag regions by layout, not by what is clipped, so a
+              collapsed sidebar would still claim this strip over the title bar. */}
+          <div
+            className={`h-[72px] shrink-0 flex items-center justify-end px-2.5 ${open ? '[-webkit-app-region:drag]' : ''}`}
+          >
             <Tooltip text={shown ? 'Hide sidebar' : 'Keep sidebar open'} placement="bottom-end">
               <button
                 type="button"
