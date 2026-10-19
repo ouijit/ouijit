@@ -53,6 +53,8 @@ export function TitleBar() {
   const taskName = useShownTaskName();
   const page = selection.kind === 'page' && !cloning ? PAGE_TITLES[selection.page] : taskName;
   const showsTerminal = selection.kind === 'terminal';
+  const onSettings = selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
+  const offersCreation = !cloning && !onSettings;
   // With the sidebar out of the way the traffic lights sit over the title bar.
   const leftPad = !sidebarShown && !sidebarRevealed && isMac && !fullscreen ? 88 : 16;
 
@@ -122,7 +124,7 @@ export function TitleBar() {
             </button>
           </Tooltip>
         )}
-        {!cloning && (
+        {offersCreation && (
           <Tooltip text="New terminal" placement="bottom">
             <button
               className={raisedButton}
@@ -133,7 +135,7 @@ export function TitleBar() {
             </button>
           </Tooltip>
         )}
-        {project && !cloning && (
+        {project && offersCreation && (
           <Tooltip text="New task" placement="bottom-end">
             <button className={raisedButton} aria-label="New task" onClick={() => openTaskComposer()}>
               <Icon name="plus" />

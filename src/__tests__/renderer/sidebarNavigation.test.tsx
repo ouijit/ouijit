@@ -189,6 +189,12 @@ describe('the sidebar is the navigation', () => {
     await waitFor(() => expect(document.querySelector('.kanban-board')).toBeTruthy());
     expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: ALPHA.path, page: 'board' });
     expect(screen.getByRole('banner').textContent).toContain('AlphaBoard');
+    expect(within(screen.getByRole('banner')).getByLabelText('New terminal')).toBeTruthy();
+    act(() => useAppStore.getState().openPage(ALPHA.path, 'settings'));
+    // Settings is for configuring; nothing is made from it.
+    expect(within(screen.getByRole('banner')).queryByLabelText('New terminal')).toBeNull();
+    expect(within(screen.getByRole('banner')).queryByLabelText('New task')).toBeNull();
+    act(() => useAppStore.getState().openPage(ALPHA.path, 'board'));
     expect(display(pricing).lastViewedAt).toBe(Date.now());
     expect(within(section('Waiting for you')).getByText('All caught up')).toBeTruthy();
 
