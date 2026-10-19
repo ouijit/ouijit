@@ -292,10 +292,7 @@ function WaitingSection() {
     <section aria-label="Waiting for you" className="flex flex-col">
       <SectionHeading>Waiting for you</SectionHeading>
       {waiting.length === 0 ? (
-        <div className="h-7 flex items-center gap-2 px-2.5 text-[12.5px] text-text-tertiary">
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--color-status-ready)' }} />
-          All caught up
-        </div>
+        <div className="h-7 flex items-center px-2.5 text-[12.5px] text-text-tertiary">All caught up</div>
       ) : (
         waiting.map((ptyId) => <WaitingRow key={ptyId} ptyId={ptyId} selected={ptyId === shown} now={now} />)
       )}

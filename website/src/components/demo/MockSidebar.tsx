@@ -174,10 +174,7 @@ export function MockSidebar({
             onClick={() => onTerminal(DEMO_WAITING)}
           />
         ) : (
-          <div className="h-7 flex items-center gap-2 px-2.5 text-[12.5px] text-text-tertiary">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--color-status-ready)' }} />
-            All caught up
-          </div>
+          <div className="h-7 flex items-center px-2.5 text-[12.5px] text-text-tertiary">All caught up</div>
         )}
         <div className="h-3.5 shrink-0" />
         <Heading>
