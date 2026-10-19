@@ -316,12 +316,15 @@ function WaitingRow({ ptyId, selected, now }: { ptyId: string; selected: boolean
 function TreeSection({ onCloneSelect }: { onCloneSelect: (projectPath: string) => void }) {
   const mode = useUIStore((s) => s.sidebarGroupMode);
   const setMode = useUIStore((s) => s.setSidebarGroupMode);
-  const segment = (value: SidebarGroupMode, label: string) => (
+  const tab = (value: SidebarGroupMode, label: string) => (
     <button
       type="button"
-      aria-pressed={mode === value}
-      className={`h-5 px-[7px] rounded-[6px] text-[11px] font-medium transition-colors duration-100 ${
-        mode === value ? 'bg-ink/10 text-text-primary' : 'text-text-secondary hover:text-text-primary'
+      role="tab"
+      data-mode={value}
+      aria-selected={mode === value}
+      tabIndex={mode === value ? 0 : -1}
+      className={`h-full transition-colors duration-100 ${
+        mode === value ? 'text-text-secondary' : 'text-text-tertiary hover:text-text-secondary'
       }`}
       onClick={() => setMode(value)}
     >
@@ -332,11 +335,20 @@ function TreeSection({ onCloneSelect }: { onCloneSelect: (projectPath: string) =
   return (
     <section aria-label={mode === 'project' ? 'Projects' : 'Tags'} className="flex flex-col">
       <SectionHeading>
-        {mode === 'project' ? 'Projects' : 'Tags'}
-        <span className="ml-auto flex gap-0.5">
-          {segment('project', 'Projects')}
-          {segment('tag', 'Tags')}
-        </span>
+        <div
+          role="tablist"
+          aria-label="Group by"
+          className="h-full flex gap-3"
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+            const next = mode === 'project' ? 'tag' : 'project';
+            setMode(next);
+            e.currentTarget.querySelector<HTMLElement>(`[data-mode="${next}"]`)?.focus();
+          }}
+        >
+          {tab('project', 'Projects')}
+          {tab('tag', 'Tags')}
+        </div>
       </SectionHeading>
       {mode === 'project' ? <ProjectsTree onCloneSelect={onCloneSelect} /> : <TagsTree />}
     </section>

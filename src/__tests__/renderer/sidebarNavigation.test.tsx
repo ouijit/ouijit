@@ -276,7 +276,7 @@ describe('the sidebar tree', () => {
 
     // By tag: a task sits under each tag its terminals carry, listing only those terminals,
     // with its project where the diff was; the rest go under No tag.
-    fireEvent.click(screen.getByRole('button', { name: 'Tags' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Tags' }));
     expect(rows()).toEqual([
       'tag:docs',
       'Ship itAlpha',
