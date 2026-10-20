@@ -79,7 +79,7 @@ function task(over: Partial<TaskWithWorkspace>): TaskWithWorkspace {
 const TASKS: Record<string, TaskWithWorkspace[]> = {
   [ALPHA.path]: [
     task({ taskNumber: 8, name: 'Ship it', status: 'in_progress', order: 1, branch: 't-8', worktreePath: '/wt/8' }),
-    task({ taskNumber: 9, name: 'Write docs', status: 'in_review', order: 0 }),
+    task({ taskNumber: 9, name: 'Write docs', status: 'in_review', order: 0, branch: 't-9', worktreePath: '/wt/9' }),
     task({ taskNumber: 10, name: 'Plan it', status: 'todo', order: 0 }),
     task({ taskNumber: 11, name: 'Tidy up', status: 'in_progress', order: 0, branch: 't-11', worktreePath: '/wt/11' }),
   ],
@@ -347,6 +347,28 @@ describe('stacking several from the sidebar', () => {
     await waitFor(() => expect(display(ship1)).toBeUndefined());
     expect(display(pricing)).toBeUndefined();
   });
+});
+
+test('⌘ on a project with nothing open resumes its active tasks into one stack, or opens its board', async () => {
+  const DELTA = { path: '/code/delta', name: 'Delta' };
+  useAppStore.setState({ projects: [ALPHA, BRAVO, DELTA] });
+  render(<App />);
+  const name = (project: { path: string; name: string }) =>
+    within(document.querySelector<HTMLElement>(`[data-project-path="${project.path}"]`)!).getByText(project.name);
+
+  fireEvent.click(name(ALPHA), { metaKey: true, ctrlKey: true });
+  await waitFor(() => expect(cards()).toHaveLength(3));
+  expect(
+    cards()
+      .map((id) => display(id).taskId)
+      .sort(),
+  ).toEqual([11, 8, 9]);
+  expect(screen.getByRole('banner').textContent).toContain('All terminals');
+
+  fireEvent.click(name(DELTA), { metaKey: true, ctrlKey: true });
+  await waitFor(() =>
+    expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: DELTA.path, page: 'board' }),
+  );
 });
 
 describe('creating from the sidebar', () => {

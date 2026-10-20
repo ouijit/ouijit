@@ -28,13 +28,13 @@ import { ResizeHandle } from './common/ResizeHandle';
 import { refreshTerminalsGitStatus } from './terminal/terminalReact';
 import { Icon } from './terminal/Icon';
 import { Tooltip } from './ui/Tooltip';
-import { openProjectPage, focusTerminal, openShell } from './navigation';
+import { openProjectPage, focusTerminal, openShell, openTaskTerminal } from './navigation';
 import { isModKey } from '../utils/modKey';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/ContextMenu';
 import { PAGE_TITLES } from './TitleBarReact';
 import { StageIcon } from './sidebar/StageIcon';
-import { formatSince, groupByTag, waitingFor } from './sidebar/sidebarTree';
+import { formatSince, groupByTag, groupByTask, waitingFor } from './sidebar/sidebarTree';
 import {
   GroupDots,
   GroupRows,
@@ -570,7 +570,7 @@ function ProjectGroup({ project }: { project: Project }) {
   const overflow: ContextMenuEntry[] = [
     { label: 'New terminal', icon: 'terminal', onClick: () => void openShell(project.path) },
     ...(ptyIds.length > 0
-      ? [{ label: 'All terminals', icon: 'cards-three', onClick: () => showGroup(wholeStack) }]
+      ? [{ label: 'All terminals', icon: 'cards-three', onClick: () => showProject(project.path, ptyIds) }]
       : []),
     { separator: true },
     ...overflowPages.map(
@@ -597,7 +597,7 @@ function ProjectGroup({ project }: { project: Project }) {
         ptyIds={ptyIds}
         projectPath={project.path}
         onOpen={() => void openProjectPage(project.path, 'board')}
-        onOpenAll={() => showGroup(wholeStack)}
+        onOpenAll={() => showProject(project.path, ptyIds)}
         icon={<ProjectTile project={project} />}
         selected={openPage !== null || wholeShown}
         rowProps={listeners}
@@ -660,6 +660,23 @@ function ProjectGroup({ project }: { project: Project }) {
 function showGroup(stack: string): void {
   const [front] = stackMembers(useTerminalStore.getState(), stack);
   if (front) void focusTerminal(front, { stack });
+}
+
+/**
+ * Stacks everything in a project, resuming its in-progress and in-review tasks
+ * that have nothing open, as picking them in the tree does. With nothing to
+ * stack, its board.
+ */
+function showProject(projectPath: string, ptyIds: string[]): void {
+  const stack = stackFrom([projectUnit(projectPath)]);
+  const { displayStates } = useTerminalStore.getState();
+  const { taskCacheByProject } = useAppStore.getState();
+  const sleeping = groupByTask(ptyIds, displayStates, taskCacheByProject, [], projectPath).tasks.flatMap((group) =>
+    group.ptyIds.length === 0 && group.task ? [group.task] : [],
+  );
+  if (ptyIds.length === 0 && sleeping.length === 0) return void openProjectPage(projectPath, 'board');
+  for (const task of sleeping) void openTaskTerminal(projectPath, task, undefined, stack);
+  if (ptyIds.length > 0) showGroup(stack);
 }
 
 function useStackShown(stack: string | null): boolean {
