@@ -312,6 +312,13 @@ describe('stacking several from the sidebar', () => {
     fireEvent.contextMenu(document.querySelector(`[data-project-path="${ALPHA.path}"]`)!);
     fireEvent.click(await screen.findByText('New terminal'));
     await waitFor(() => expect(cards()).toHaveLength(6));
+    // So does ⌘ on its name, which alone opens the board.
+    fireEvent.click(row(projects(), 'Write docs'));
+    await waitFor(() => expect(cards()).toEqual([docs]));
+    const alphaHeader = document.querySelector<HTMLElement>(`[data-project-path="${ALPHA.path}"]`)!;
+    fireEvent.click(within(alphaHeader).getByText('Alpha'), { metaKey: true, ctrlKey: true });
+    await waitFor(() => expect(cards()).toHaveLength(6));
+    expect(banner()).toContain('All terminals');
 
     // A tag's name stacks every terminal carrying it, from any project.
     act(() => {

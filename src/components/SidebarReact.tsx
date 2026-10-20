@@ -12,6 +12,7 @@ import {
   stackFrom,
   stackMembers,
   tagUnit,
+  terminalUnit,
   useTerminalStore,
   type TerminalDisplayState,
 } from '../stores/terminalStore';
@@ -27,6 +28,7 @@ import { refreshTerminalsGitStatus } from './terminal/terminalReact';
 import { Icon } from './terminal/Icon';
 import { Tooltip } from './ui/Tooltip';
 import { openProjectPage, focusTerminal, openShell } from './navigation';
+import { isModKey } from '../utils/modKey';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/ContextMenu';
 import { PAGE_TITLES } from './TitleBarReact';
@@ -461,6 +463,8 @@ interface GroupHeaderProps {
   projectPath?: string;
   /** What clicking the name does. Without it the name folds the group too. */
   onOpen?: () => void;
+  /** Stacks every terminal in the group, on ⌘-clicking the name. */
+  onOpenAll?: () => void;
 }
 
 function GroupHeader({
@@ -474,6 +478,7 @@ function GroupHeader({
   onContextMenu,
   projectPath,
   onOpen,
+  onOpenAll,
 }: GroupHeaderProps) {
   const [collapsed, toggle] = useGroupCollapsed(groupKey);
   return (
@@ -500,7 +505,10 @@ function GroupHeader({
       <button
         type="button"
         className="flex-1 min-w-0 h-7 flex items-center gap-2 pl-0.5 pr-1 text-left text-[13px] font-medium text-text-primary"
-        onClick={onOpen ?? toggle}
+        onClick={(e) => {
+          if (onOpenAll && isModKey(e)) onOpenAll();
+          else (onOpen ?? toggle)();
+        }}
       >
         {icon}
         <span className="truncate flex-1 min-w-0">{name}</span>
@@ -571,6 +579,7 @@ function ProjectGroup({ project }: { project: Project }) {
         ptyIds={ptyIds}
         projectPath={project.path}
         onOpen={() => void openProjectPage(project.path, 'board')}
+        onOpenAll={() => showGroup(wholeStack)}
         icon={<ProjectTile project={project} />}
         selected={openPage !== null || wholeShown}
         rowProps={listeners}
@@ -679,7 +688,12 @@ function PathGroup({ path }: { path: string }) {
   const [collapsed] = useGroupCollapsed(path);
   return (
     <div className="flex flex-col">
-      <GroupHeader groupKey={path} name={homeRelative(path)} ptyIds={ptyIds} />
+      <GroupHeader
+        groupKey={path}
+        name={homeRelative(path)}
+        ptyIds={ptyIds}
+        onOpenAll={() => showGroup(stackFrom([projectUnit(path)]))}
+      />
       {!collapsed && <GroupRows ptyIds={ptyIds} detail="diff" />}
     </div>
   );
@@ -734,6 +748,7 @@ function TagGroup({
         icon={tag ? <Icon name="tag" className="w-3.5 h-3.5 text-text-secondary" /> : undefined}
         selected={wholeShown}
         onOpen={wholeStack ? () => showGroup(wholeStack) : undefined}
+        onOpenAll={() => showGroup(wholeStack ?? stackFrom(ptyIds.map(terminalUnit)))}
       />
       {!collapsed && <GroupRows ptyIds={ptyIds} detail="project" projectOrder={projectOrder} />}
     </div>
