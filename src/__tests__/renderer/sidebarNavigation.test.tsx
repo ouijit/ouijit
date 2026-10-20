@@ -244,7 +244,7 @@ describe('stacking several from the sidebar', () => {
     await waitFor(() => expect(cards()).toEqual([docs, ship1, ship2].sort()));
     expect(front()).toBe(ship2);
     expect(banner()).toContain('2 tasks');
-    expect(marked()).toBe(3);
+    expect(marked()).toBe(4);
 
     // ⌘ again takes it out; down to one task, the stack is that task's own.
     modClick('Write docs');
@@ -338,9 +338,15 @@ describe('stacking several from the sidebar', () => {
       useTerminalStore.getState().updateDisplay(pricing, { tags: ['release'] });
     });
     fireEvent.click(screen.getByRole('tab', { name: 'Tags' }));
-    fireEvent.click(within(section('Tags')).getByText('Release'));
+    // A task opened under a tag brings its other terminals; ⌘ there keeps only those carrying the tag.
+    const release = document.querySelector<HTMLElement>('[data-group="tag:release"]')!.parentElement!;
+    fireEvent.click(row(release, 'Ship it'));
+    await waitFor(() => expect(cards()).toEqual([ship1, ship2].sort()));
+    fireEvent.click(row(release, 'Pricing page'), { metaKey: true, ctrlKey: true });
     await waitFor(() => expect(cards()).toEqual([ship1, pricing].sort()));
-    expect(banner()).toContain('Release');
+    fireEvent.click(within(section('Tags')).getByText('Release'));
+    await waitFor(() => expect(banner()).toContain('Release'));
+    expect(cards()).toEqual([ship1, pricing].sort());
 
     fireEvent.contextMenu(row(section('Tags'), 'Pricing page'));
     fireEvent.click(await screen.findByText('Close 2 terminals'));

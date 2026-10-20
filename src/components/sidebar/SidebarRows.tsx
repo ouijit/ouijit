@@ -417,6 +417,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
               title={taskTitle}
               tooltip={rowTooltip(taskTitle, projectName, front, now)}
               bright={anyUnread}
+              selected={group.ptyIds.every((id) => onScreen.includes(id))}
               detail={diff}
               onClick={pick(at, () => {
                 const { order } = useTerminalStore.getState();
@@ -639,12 +640,15 @@ export function GroupRows({
   );
 }
 
-/** The stack on screen, when every terminal in it is one of `ptyIds`. */
+/**
+ * The part of the stack on screen that is in this group. A task's stack can
+ * hold terminals listed elsewhere, under another tag; picking more here leaves
+ * those behind, since a stack stays in one group.
+ */
 function onScreenHere(ptyIds: string[]): string[] {
   const { selection } = useAppStore.getState();
   if (selection.kind !== 'terminal') return [];
-  const members = stackMembers(useTerminalStore.getState(), selection.stack);
-  return members.every((id) => ptyIds.includes(id)) ? members : [];
+  return stackMembers(useTerminalStore.getState(), selection.stack).filter((id) => ptyIds.includes(id));
 }
 
 /** One per terminal that is working or finished unseen, for a group folded away. */

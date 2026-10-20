@@ -344,18 +344,25 @@ function WaitingRow({ ptyId, selected, now }: { ptyId: string; selected: boolean
   );
 }
 
-/** The stack on screen with this terminal added, when they share a group in the sidebar's view. */
+/**
+ * The stack on screen with this terminal added, keeping the part of it that
+ * shares a group with the terminal in the sidebar's view: its project, or a
+ * tag it carries. Null when nothing does.
+ */
 function stackWith(ptyId: string): string | null {
   const { selection } = useAppStore.getState();
   const terminals = useTerminalStore.getState();
   const added = terminals.displayStates[ptyId];
   if (selection.kind !== 'terminal' || !added) return null;
-  const members = stackMembers(terminals, selection.stack).map((id) => terminals.displayStates[id]);
-  const together =
+  const members = stackMembers(terminals, selection.stack);
+  const shares = (id: string, tag: string) => terminals.displayStates[id].tags.some((t) => tagUnit(t) === tagUnit(tag));
+  const kept =
     useUIStore.getState().sidebarGroupMode === 'project'
-      ? members.every((d) => d.projectPath === added.projectPath)
-      : added.tags.some((tag) => members.every((d) => d.tags.some((t) => tagUnit(t) === tagUnit(tag))));
-  return together ? stackFrom([...unitsOf(selection.stack), terminalUnit(ptyId)]) : null;
+      ? members.filter((id) => terminals.displayStates[id].projectPath === added.projectPath)
+      : (added.tags.map((tag) => members.filter((id) => shares(id, tag))).find((ids) => ids.length > 0) ?? []);
+  if (kept.length === 0) return null;
+  const units = kept.length === members.length ? unitsOf(selection.stack) : kept.map(terminalUnit);
+  return stackFrom([...units, terminalUnit(ptyId)]);
 }
 
 // ── Projects and tags ────────────────────────────────────────────────
