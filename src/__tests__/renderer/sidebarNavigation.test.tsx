@@ -218,6 +218,76 @@ describe('the sidebar is the navigation', () => {
   });
 });
 
+describe('stacking several from the sidebar', () => {
+  test('⌘- and shift-clicking rows in one group stacks them, and a whole project or tag stacks at once', async () => {
+    const ship1 = await spawn(ALPHA.path, 8);
+    const ship2 = await spawn(ALPHA.path, 8);
+    const docs = await spawn(ALPHA.path, 9);
+    const shell = await spawn(ALPHA.path);
+    const pricing = await spawn(BRAVO.path, 3);
+    render(<App />);
+    const projects = () => section('Projects');
+    const modClick = (title: string) => fireEvent.click(row(projects(), title), { metaKey: true, ctrlKey: true });
+    const banner = () => screen.getByRole('banner').textContent;
+    const marked = () => within(projects()).getAllByRole('button', { current: true }).length;
+
+    fireEvent.click(row(projects(), 'Write docs'));
+    await waitFor(() => expect(cards()).toEqual([docs]));
+
+    // ⌘ adds a task, all its terminals, in front; the breadcrumb counts what is stacked.
+    modClick('Ship it');
+    await waitFor(() => expect(cards()).toEqual([docs, ship1, ship2].sort()));
+    expect(front()).toBe(ship2);
+    expect(banner()).toContain('2 tasks');
+    expect(marked()).toBe(3);
+
+    // ⌘ again takes it out; down to one task, the stack is that task's own.
+    modClick('Write docs');
+    await waitFor(() => expect(cards()).toEqual([ship1, ship2].sort()));
+    expect(banner()).toContain('Ship it');
+    expect(marked()).toBe(1);
+
+    // A stack never spans two projects: ⌘ in another starts over there.
+    modClick('Pricing page');
+    await waitFor(() => expect(cards()).toEqual([pricing]));
+
+    // Shift takes in every row from the last one clicked.
+    fireEvent.click(row(projects(), 'Write docs'));
+    await waitFor(() => expect(cards()).toEqual([docs]));
+    fireEvent.click(row(projects(), 'Shell'), { shiftKey: true });
+    await waitFor(() => expect(cards()).toEqual([docs, shell].sort()));
+    // A task in the range with nothing open resumes into the stack, as it does clicked alone.
+    fireEvent.click(row(projects(), 'Tidy up'), { shiftKey: true });
+    await waitFor(() => expect(cards()).toHaveLength(5));
+    expect(display(front()!)).toMatchObject({ taskId: 11, projectPath: ALPHA.path });
+    expect(cards()).toEqual(expect.arrayContaining([docs, shell, ship1, ship2]));
+    expect(banner()).toContain('5 terminals');
+
+    // A plain click is that task alone again.
+    fireEvent.click(row(projects(), 'Write docs'));
+    await waitFor(() => expect(cards()).toEqual([docs]));
+
+    // The project's menu stacks all of it, and a terminal opened there joins.
+    fireEvent.click(screen.getByLabelText('More for Alpha'));
+    fireEvent.click(await screen.findByText('All terminals'));
+    await waitFor(() => expect(cards()).toHaveLength(5));
+    expect(banner()).toContain('All terminals');
+    fireEvent.contextMenu(document.querySelector(`[data-project-path="${ALPHA.path}"]`)!);
+    fireEvent.click(await screen.findByText('New terminal'));
+    await waitFor(() => expect(cards()).toHaveLength(6));
+
+    // A tag's name stacks every terminal carrying it, from any project.
+    act(() => {
+      useTerminalStore.getState().updateDisplay(ship1, { tags: ['Release'] });
+      useTerminalStore.getState().updateDisplay(pricing, { tags: ['release'] });
+    });
+    fireEvent.click(screen.getByRole('tab', { name: 'Tags' }));
+    fireEvent.click(within(section('Tags')).getByText('Release'));
+    await waitFor(() => expect(cards()).toEqual([ship1, pricing].sort()));
+    expect(banner()).toContain('Release');
+  });
+});
+
 describe('creating from the sidebar', () => {
   test('a project row makes tasks and shells in that project, and a task row has the menu the board gives it', async () => {
     const ship = await spawn(ALPHA.path, 8);

@@ -69,8 +69,11 @@ interface AppStoreActions {
   setOnboardingStuckLatched: (value: boolean) => void;
   setHealth: (status: HealthStatus | null) => void;
   select: (selection: Selection) => void;
-  /** Brings a terminal to the front of its stack and shows that stack. False if it is not registered. */
-  showTerminal: (ptyId: string) => boolean;
+  /**
+   * Brings a terminal to the front and shows `stack`, else the stack on screen
+   * when the terminal is in it, else its own. False if it is not registered.
+   */
+  showTerminal: (ptyId: string, stack?: string) => boolean;
   /** Shows the project's most recently used terminal, or its board when it has none. */
   showProjectTerminals: (projectPath: string) => void;
   openPage: (projectPath: string, page: ProjectPage) => void;
@@ -111,7 +114,11 @@ function projectAt(state: Pick<AppStoreState, 'projects' | 'cloneJobs'>, path: s
 function persistSelection(selection: Selection): void {
   const view =
     selection.kind === 'terminal'
-      ? { type: 'terminal', ptyId: stackMembers(useTerminalStore.getState(), selection.stack)[0] }
+      ? {
+          type: 'terminal',
+          ptyId: stackMembers(useTerminalStore.getState(), selection.stack)[0],
+          stack: selection.stack,
+        }
       : selection.kind === 'page'
         ? { type: 'page', path: selection.projectPath, page: selection.page }
         : { type: selection.kind };
@@ -189,14 +196,15 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     persistSelection(selection);
   },
 
-  showTerminal: (ptyId) => {
+  showTerminal: (ptyId, stack) => {
     const terminals = useTerminalStore.getState();
     const display = terminals.displayStates[ptyId];
     if (!display || !terminals.activate(ptyId)) return false;
     const current = get().selection;
-    const stack = stackOf(display);
-    if (current.kind !== 'terminal' || current.stack !== stack) {
-      get().select({ kind: 'terminal', stack, projectPath: display.projectPath });
+    const keep = current.kind === 'terminal' && stackMembers(terminals, current.stack).includes(ptyId);
+    const next = stack ?? (keep ? current.stack : stackOf(display));
+    if (current.kind !== 'terminal' || current.stack !== next || current.projectPath !== display.projectPath) {
+      get().select({ kind: 'terminal', stack: next, projectPath: display.projectPath });
     }
     return true;
   },

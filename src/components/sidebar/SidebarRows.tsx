@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../stores/appStore';
-import { isUnread, stackMembers, useTerminalStore, viewedPtyId } from '../../stores/terminalStore';
+import { isUnread, stackFrom, stackMembers, stackOf, useTerminalStore, viewedPtyId } from '../../stores/terminalStore';
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import type { Project, SandboxBackendId } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
@@ -19,7 +19,8 @@ import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { Tooltip } from '../ui/Tooltip';
 import { StageIcon } from './StageIcon';
-import { formatSince, groupByTask, type TaskGroup } from './sidebarTree';
+import { formatSince, groupByTask, unitsFor, type TaskGroup } from './sidebarTree';
+import { isModKey } from '../../utils/modKey';
 
 const NO_BACKENDS: SandboxBackendId[] = [];
 
@@ -43,6 +44,18 @@ export function useNow(): number {
 export function useShownPtyId(): string | undefined {
   const stack = useAppStore((s) => (s.selection.kind === 'terminal' ? s.selection.stack : null));
   return useTerminalStore((s) => (stack ? stackMembers(s, stack)[0] : undefined));
+}
+
+/** The rows to mark as on screen: the front of one task's stack, or every terminal in a stack of several. */
+function useOnScreen(): string[] {
+  const stack = useAppStore((s) => (s.selection.kind === 'terminal' ? s.selection.stack : null));
+  return useTerminalStore(
+    useShallow((s) => {
+      const members = stack ? stackMembers(s, stack) : [];
+      const front = s.displayStates[members[0]];
+      return front && stackOf(front) === stack ? [front.ptyId] : members;
+    }),
+  );
 }
 
 export function homeRelative(path: string): string {
@@ -94,7 +107,7 @@ interface RowProps {
   mono?: boolean;
   detail?: string | null;
   trailing?: ReactNode;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   /** Swaps the title for a field, prefilled, until committed or cancelled. */
   rename?: Rename;
@@ -151,7 +164,7 @@ export function SidebarRow({
   // tooltip of its own, opens the row too; the button's click bubbles to it.
   return (
     <div
-      className={`${ROW} ${selected ? ROW_SELECTED : ROW_IDLE} cursor-default`}
+      className={`${ROW} ${selected ? ROW_SELECTED : ROW_IDLE} cursor-default select-none`}
       data-sidebar-row
       data-pty-id={ptyId}
       onClick={onClick}
@@ -213,12 +226,26 @@ interface TerminalRowProps {
   mono?: boolean;
   detail?: string | null | ((display: TerminalDisplayState) => string | null);
   shown: string | undefined;
+  selected: boolean;
   now: number;
+  onClick: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   rename?: Rename;
 }
 
-function TerminalRow({ ptyId, title, icon, mono, detail, shown, now, onContextMenu, rename }: TerminalRowProps) {
+function TerminalRow({
+  ptyId,
+  title,
+  icon,
+  mono,
+  detail,
+  shown,
+  selected,
+  now,
+  onClick,
+  onContextMenu,
+  rename,
+}: TerminalRowProps) {
   const display = useTerminalStore((s) => s.displayStates[ptyId]);
   const bright = useBright(ptyId, shown);
   const projectName = useProjectName(display?.projectPath ?? '');
@@ -232,10 +259,10 @@ function TerminalRow({ ptyId, title, icon, mono, detail, shown, now, onContextMe
       mono={mono}
       tooltip={rowTooltip(text, projectName, display, now)}
       bright={bright}
-      selected={ptyId === shown}
+      selected={selected}
       detail={typeof detail === 'function' ? detail(display) : detail}
       trailing={<StatusSlot display={display} />}
-      onClick={() => void focusTerminal(ptyId)}
+      onClick={onClick}
       onContextMenu={onContextMenu}
       rename={rename}
     />
@@ -260,19 +287,25 @@ function renameTask(projectPath: string, taskNumber: number, name: string): void
   void window.api.task.setName(projectPath, taskNumber, name).then(() => loadTasks(projectPath));
 }
 
-/** A task's rows, with the menu the board card and the terminal header give it. */
-function TaskRows({
-  group,
-  detail,
-  shown,
-  now,
-}: {
-  group: TaskGroup;
+/**
+ * A row's place in its group, `at`, and what a plain click on it does. `pick`
+ * wraps that click so a modifier adds the row to the stack on screen instead.
+ */
+type Pick = (at: number, alone: () => void) => (e: React.MouseEvent) => void;
+
+interface PlacedRowProps {
   detail: RowDetail;
   shown: string | undefined;
+  onScreen: string[];
   now: number;
-}) {
+  at: number;
+  pick: Pick;
+}
+
+/** A task's rows, with the menu the board card and the terminal header give it. */
+function TaskRows({ group, detail, shown, onScreen, now, at, pick }: PlacedRowProps & { group: TaskGroup }) {
   const { projectPath, task } = group;
+  const ownStack = stackOf({ ptyId: '', projectPath, taskId: group.taskId });
   const projectName = useProjectName(projectPath);
   const displays = useTerminalStore(useShallow((s) => group.ptyIds.map((id) => s.displayStates[id])));
   const anyUnread = useTerminalStore((s) => {
@@ -355,7 +388,7 @@ function TaskRows({
           tooltip={`${taskTitle} · ${projectName} · No terminal open`}
           bright={false}
           trailing={<IdleMark />}
-          onClick={() => void openTaskTerminal(projectPath, task)}
+          onClick={pick(at, () => void openTaskTerminal(projectPath, task, undefined, ownStack))}
           onContextMenu={openMenu(null)}
           rename={commitAndClose(taskRename)}
         />
@@ -366,7 +399,9 @@ function TaskRows({
           icon={icon}
           detail={diff}
           shown={shown}
+          selected={onScreen.includes(group.ptyIds[0])}
           now={now}
+          onClick={pick(at, () => void focusTerminal(group.ptyIds[0], { stack: ownStack }))}
           onContextMenu={openMenu(group.ptyIds[0])}
           rename={commitAndClose(taskRename ?? terminalRename(group.ptyIds[0]))}
         />
@@ -379,15 +414,16 @@ function TaskRows({
               tooltip={rowTooltip(taskTitle, projectName, front, now)}
               bright={anyUnread}
               detail={diff}
-              onClick={() => {
+              onClick={pick(at, () => {
                 const { order } = useTerminalStore.getState();
-                void focusTerminal(order.find((id) => group.ptyIds.includes(id)) ?? group.ptyIds[0]);
-              }}
+                const latest = order.find((id) => group.ptyIds.includes(id)) ?? group.ptyIds[0];
+                void focusTerminal(latest, { stack: ownStack });
+              })}
               onContextMenu={openMenu(null)}
               rename={commitAndClose(taskRename)}
             />
           )}
-          {group.ptyIds.map((ptyId) => (
+          {group.ptyIds.map((ptyId, i) => (
             <TerminalRow
               key={ptyId}
               ptyId={ptyId}
@@ -395,7 +431,9 @@ function TaskRows({
               mono
               icon={<span className="font-mono text-xs opacity-45">└</span>}
               shown={shown}
+              selected={onScreen.includes(ptyId)}
               now={now}
+              onClick={pick(at + 1 + i, () => void focusTerminal(ptyId, { stack: ownStack }))}
               onContextMenu={openMenu(ptyId)}
               rename={commitAndClose(terminalRename(ptyId))}
             />
@@ -442,17 +480,7 @@ function IdleMark() {
   );
 }
 
-function ShellRow({
-  ptyId,
-  detail,
-  shown,
-  now,
-}: {
-  ptyId: string;
-  detail: RowDetail;
-  shown: string | undefined;
-  now: number;
-}) {
+function ShellRow({ ptyId, detail, shown, onScreen, now, at, pick }: PlacedRowProps & { ptyId: string }) {
   const [menu, openMenu, closeMenu] = useRowMenu();
   const [renaming, setRenaming] = useState(false);
   return (
@@ -463,7 +491,12 @@ function ShellRow({
         icon={<Icon name="terminal" className="w-3.5 h-3.5 text-text-tertiary" />}
         detail={detail === 'project' ? (d) => projectNameOf(useAppStore.getState().projects, d.projectPath) : undefined}
         shown={shown}
+        selected={onScreen.includes(ptyId)}
         now={now}
+        onClick={pick(
+          at,
+          () => void focusTerminal(ptyId, { stack: stackOf({ ptyId, projectPath: '', taskId: null }) }),
+        )}
         onContextMenu={openMenu(ptyId)}
         rename={
           renaming
@@ -506,26 +539,87 @@ export function GroupRows({
   const displays = useTerminalStore((s) => s.displayStates);
   const tasksByProject = useAppStore((s) => s.taskCacheByProject);
   const shown = useShownPtyId();
+  const onScreen = useOnScreen();
   const now = useNow();
-  const { tasks, shells } = useMemo(
+  const anchor = useRef<number | null>(null);
+  const grouped = useMemo(
     () => groupByTask(ptyIds, displays, tasksByProject, projectOrder, idleIn),
     [ptyIds, displays, tasksByProject, projectOrder, idleIn],
   );
+  const { tasks, shells } = grouped;
 
   if (idleIn && tasks.length === 0 && shells.length === 0) {
     return <NextStep projectPath={idleIn} hasTodo={(tasksByProject[idleIn] ?? []).some((t) => t.status === 'todo')} />;
   }
 
+  // Every row in the order drawn, each with the terminals clicking it picks.
+  const rows: { ptyIds: string[]; idle?: TaskGroup }[] = [];
+  const starts = tasks.map((group) => {
+    const start = rows.length;
+    if (group.ptyIds.length === 0) rows.push({ ptyIds: [], idle: group });
+    else rows.push({ ptyIds: group.ptyIds });
+    if (group.ptyIds.length > 1) rows.push(...group.ptyIds.map((id) => ({ ptyIds: [id] })));
+    return start;
+  });
+  const shellStart = rows.length;
+  rows.push(...shells.map((id) => ({ ptyIds: [id] })));
+
+  const pick: Pick = (at, alone) => (e) => {
+    const toggling = isModKey(e);
+    const ranging = e.shiftKey && anchor.current !== null;
+    const members = onScreenHere(ptyIds);
+    if ((!toggling && !ranging) || members.length === 0) {
+      anchor.current = at;
+      alone();
+      return;
+    }
+    const row = rows[at];
+    const next = new Set(members);
+    let picked = [row];
+    if (ranging) {
+      const [from, to] = [anchor.current!, at].sort((a, b) => a - b);
+      picked = rows.slice(from, to + 1);
+      for (const id of picked.flatMap((r) => r.ptyIds)) next.add(id);
+    } else {
+      anchor.current = at;
+      const leaving = row.ptyIds.length > 0 && row.ptyIds.every((id) => next.has(id));
+      for (const id of row.ptyIds) {
+        if (leaving) next.delete(id);
+        else next.add(id);
+      }
+    }
+    // Picking a task with nothing open resumes it, as clicking it alone does.
+    const waking = picked.flatMap((r) => (r.idle?.task ? [{ ...r.idle, task: r.idle.task }] : []));
+    const units = unitsFor(next, grouped, detail === 'diff');
+    for (const idle of waking) units.push(stackOf({ ptyId: '', projectPath: idle.projectPath, taskId: idle.taskId }));
+    if (units.length === 0) return;
+    const stack = stackFrom(units);
+    for (const idle of waking) void openTaskTerminal(idle.projectPath, idle.task, undefined, stack);
+    if (waking.length > 0 && row.idle) return;
+    const { order } = useTerminalStore.getState();
+    const front = order.find((id) => row.ptyIds.includes(id) && next.has(id)) ?? order.find((id) => next.has(id));
+    if (front) void focusTerminal(front, { stack });
+  };
+
+  const placed = { detail, shown, onScreen, now, pick };
   return (
     <>
-      {tasks.map((group) => (
-        <TaskRows key={group.key} group={group} detail={detail} shown={shown} now={now} />
+      {tasks.map((group, i) => (
+        <TaskRows key={group.key} group={group} at={starts[i]} {...placed} />
       ))}
-      {shells.map((ptyId) => (
-        <ShellRow key={ptyId} ptyId={ptyId} detail={detail} shown={shown} now={now} />
+      {shells.map((ptyId, i) => (
+        <ShellRow key={ptyId} ptyId={ptyId} at={shellStart + i} {...placed} />
       ))}
     </>
   );
+}
+
+/** The stack on screen, when every terminal in it is one of `ptyIds`. */
+function onScreenHere(ptyIds: string[]): string[] {
+  const { selection } = useAppStore.getState();
+  if (selection.kind !== 'terminal') return [];
+  const members = stackMembers(useTerminalStore.getState(), selection.stack);
+  return members.every((id) => ptyIds.includes(id)) ? members : [];
 }
 
 /** One per terminal that is working or finished unseen, for a group folded away. */

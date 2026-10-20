@@ -51,7 +51,10 @@ function focusXterm(ptyId: string): void {
  * registered projects too. `projectPath` is needed only for the unhydrated
  * case.
  */
-export async function focusTerminal(ptyId: string, projectPath?: string): Promise<void> {
+export async function focusTerminal(
+  ptyId: string,
+  { projectPath, stack }: { projectPath?: string; stack?: string } = {},
+): Promise<void> {
   let display = useTerminalStore.getState().displayStates[ptyId];
   if (!display) {
     if (!projectPath) return;
@@ -61,7 +64,7 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
   }
 
   const ownerPath = display.projectPath;
-  useAppStore.getState().showTerminal(ptyId);
+  useAppStore.getState().showTerminal(ptyId, stack);
 
   if (useProjectStore.getState().terminalLayout === 'canvas') {
     const canvas = useCanvasStore.getState().canvasByProject[ownerPath];
@@ -132,15 +135,16 @@ export async function openTaskShell(
   });
 }
 
-/** Another terminal in a task's worktree, as the board opens one, shown in front of its stack. */
+/** Another terminal in a task's worktree, as the board opens one, shown in front of `stack` or its own. */
 export async function openTaskTerminal(
   projectPath: string,
   task: TaskWithWorkspace,
   sandboxProvider?: SandboxProviderId,
+  stack?: string,
 ): Promise<void> {
   if (!(await openTaskShell(projectPath, task, { mode: 'resume', sandboxProvider }))) return;
   const [front] = useTerminalStore.getState().order;
-  if (front) useAppStore.getState().showTerminal(front);
+  if (front) useAppStore.getState().showTerminal(front, stack);
 }
 
 /** Lands on the first task that actually opened. */
@@ -226,7 +230,7 @@ export function taskOpenAction(projectPath: string, task: TaskWithWorkspace): Ta
 export async function activateTask(project: Project, task: TaskWithWorkspace, knownPtyId?: string): Promise<void> {
   const ptyId = knownPtyId ?? liveTerminalForTask(project.path, task.taskNumber);
   if (ptyId) {
-    await focusTerminal(ptyId, project.path);
+    await focusTerminal(ptyId, { projectPath: project.path });
     return;
   }
   if (task.worktreePath && task.branch) {

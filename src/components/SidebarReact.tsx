@@ -7,7 +7,14 @@ import { ProjectTile } from './ProjectTile';
 import type { CloneJob, Project } from '../types';
 import { useAppStore, selectCloneJob, type ProjectPage } from '../stores/appStore';
 import { useExperimentalStore, useProjectFlags } from '../stores/experimentalStore';
-import { useTerminalStore, type TerminalDisplayState } from '../stores/terminalStore';
+import {
+  projectUnit,
+  stackFrom,
+  stackMembers,
+  tagUnit,
+  useTerminalStore,
+  type TerminalDisplayState,
+} from '../stores/terminalStore';
 import {
   useUIStore,
   SIDEBAR_DEFAULT_WIDTH,
@@ -522,6 +529,8 @@ function ProjectGroup({ project }: { project: Project }) {
     s.selection.kind === 'page' && s.selection.projectPath === project.path ? s.selection.page : null,
   );
   const onScreen = useAppStore((s) => s.activeProjectPath === project.path);
+  const wholeStack = stackFrom([projectUnit(project.path)]);
+  const wholeShown = useStackShown(wholeStack);
   const flags = useProjectFlags(project.path);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: project.path });
@@ -534,6 +543,9 @@ function ProjectGroup({ project }: { project: Project }) {
   ];
   const overflow: ContextMenuEntry[] = [
     { label: 'New terminal', icon: 'terminal', onClick: () => void openShell(project.path) },
+    ...(ptyIds.length > 0
+      ? [{ label: 'All terminals', icon: 'cards-three', onClick: () => showGroup(wholeStack) }]
+      : []),
     { separator: true },
     ...overflowPages.map(
       (page): ContextMenuItem => ({
@@ -560,7 +572,7 @@ function ProjectGroup({ project }: { project: Project }) {
         projectPath={project.path}
         onOpen={() => void openProjectPage(project.path, 'board')}
         icon={<ProjectTile project={project} />}
-        selected={openPage !== null}
+        selected={openPage !== null || wholeShown}
         rowProps={listeners}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -615,6 +627,16 @@ function ProjectGroup({ project }: { project: Project }) {
       {menu && <ContextMenu x={menu.x} y={menu.y} items={overflow} onClose={() => setMenu(null)} />}
     </div>
   );
+}
+
+/** Shows every terminal `stack` takes in, most recent in front. */
+function showGroup(stack: string): void {
+  const [front] = stackMembers(useTerminalStore.getState(), stack);
+  if (front) void focusTerminal(front, { stack });
+}
+
+function useStackShown(stack: string | null): boolean {
+  return useAppStore((s) => stack !== null && s.selection.kind === 'terminal' && s.selection.stack === stack);
 }
 
 async function removeProject(project: Project): Promise<void> {
@@ -701,6 +723,8 @@ function TagGroup({
   projectOrder: string[];
 }) {
   const [collapsed] = useGroupCollapsed(groupKey);
+  const wholeStack = tag ? stackFrom([tagUnit(tag)]) : null;
+  const wholeShown = useStackShown(wholeStack);
   return (
     <div className="flex flex-col">
       <GroupHeader
@@ -708,6 +732,8 @@ function TagGroup({
         name={tag ?? 'No tag'}
         ptyIds={ptyIds}
         icon={tag ? <Icon name="tag" className="w-3.5 h-3.5 text-text-secondary" /> : undefined}
+        selected={wholeShown}
+        onOpen={wholeStack ? () => showGroup(wholeStack) : undefined}
       />
       {!collapsed && <GroupRows ptyIds={ptyIds} detail="project" projectOrder={projectOrder} />}
     </div>

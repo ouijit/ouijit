@@ -230,7 +230,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
       dimmed: terminal.exited,
       shell: { status: terminal.status, sandboxProvider: terminal.sandboxProvider },
       action: 'Focus terminal',
-      run: () => void focusTerminal(terminal.ptyId, terminal.projectPath),
+      run: () => void focusTerminal(terminal.ptyId, { projectPath: terminal.projectPath }),
     });
   }
 
@@ -310,7 +310,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
         branch: i === live.length - 1 ? 'last' : 'mid',
         shell: { status: terminal.status, sandboxProvider: terminal.sandboxProvider },
         action: 'Focus terminal',
-        run: () => void focusTerminal(terminal.ptyId, terminal.projectPath),
+        run: () => void focusTerminal(terminal.ptyId, { projectPath: terminal.projectPath }),
       });
     });
   }

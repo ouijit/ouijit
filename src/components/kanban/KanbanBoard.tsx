@@ -520,7 +520,7 @@ export function KanbanBoard({ projectPath, onTerminalOpened }: KanbanBoardProps)
   // `focusTerminal` shows the one asked for.
   const handleSwitchToTerminal = useCallback(
     (ptyId: string) => {
-      void focusTerminal(ptyId, projectPath);
+      void focusTerminal(ptyId, { projectPath });
     },
     [projectPath],
   );

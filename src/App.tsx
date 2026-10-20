@@ -5,7 +5,7 @@ import { useTerminalShortcuts } from './components/terminal/terminalShortcuts';
 import { useAppStore, selectIsCloning, type Selection } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
 import { useExperimentalStore } from './stores/experimentalStore';
-import { stackOf, useTerminalStore } from './stores/terminalStore';
+import { stackMembers, stackOf, useTerminalStore } from './stores/terminalStore';
 import { TitleBar } from './components/TitleBarReact';
 import { Sidebar } from './components/SidebarReact';
 import { MainView } from './components/MainView';
@@ -41,15 +41,18 @@ const appLog = log.scope('app');
  * survive, or a project since removed, leaves nothing selected.
  */
 function restoredSelection(saved: string | undefined, projects: Project[]): Selection | null {
-  let view: { type?: string; ptyId?: string; path?: string; page?: string };
+  let view: { type?: string; ptyId?: string; stack?: string; path?: string; page?: string };
   try {
     view = JSON.parse(saved ?? '');
   } catch {
     return null;
   }
-  if (view.type === 'terminal' && view.ptyId) {
-    const display = useTerminalStore.getState().displayStates[view.ptyId];
-    return display ? { kind: 'terminal', stack: stackOf(display), projectPath: display.projectPath } : null;
+  if (view.type === 'terminal') {
+    const terminals = useTerminalStore.getState();
+    const [front] = view.stack ? stackMembers(terminals, view.stack) : [];
+    const display = terminals.displayStates[front ?? view.ptyId ?? ''];
+    if (!display) return null;
+    return { kind: 'terminal', stack: front ? view.stack! : stackOf(display), projectPath: display.projectPath };
   }
   if (view.type === 'app-settings') return { kind: 'app-settings' };
   const path = view.path;

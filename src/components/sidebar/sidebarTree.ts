@@ -1,5 +1,6 @@
 import type { TaskStatus, TaskWithWorkspace } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
+import { stackOf, terminalUnit } from '../../stores/terminalStore';
 
 export const STAGES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done'];
 
@@ -80,6 +81,25 @@ export function groupByTask(
     tasks,
     shells: shells.sort((a, b) => projectRank(displays[a].projectPath) - projectRank(displays[b].projectPath)),
   };
+}
+
+/**
+ * Names `members` as stack units: a task whole when all its listed terminals
+ * are in, so terminals it opens later join, else terminal by terminal. Under a
+ * tag a task is only ever named by terminal, since its other terminals are not
+ * in the group.
+ */
+export function unitsFor(members: Set<string>, grouped: Grouped, wholeTasks: boolean): string[] {
+  const units: string[] = [];
+  for (const group of grouped.tasks) {
+    const inside = group.ptyIds.filter((id) => members.has(id));
+    if (inside.length === 0) continue;
+    if (wholeTasks && inside.length === group.ptyIds.length) {
+      units.push(stackOf({ ptyId: '', projectPath: group.projectPath, taskId: group.taskId }));
+    } else units.push(...inside.map(terminalUnit));
+  }
+  for (const ptyId of grouped.shells) if (members.has(ptyId)) units.push(terminalUnit(ptyId));
+  return units;
 }
 
 export interface TagGroup {

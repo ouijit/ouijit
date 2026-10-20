@@ -13,6 +13,32 @@ export function stackOf(display: Pick<TerminalDisplayState, 'ptyId' | 'projectPa
   return display.taskId == null ? `shell:${display.ptyId}` : `task:${display.taskId}:${display.projectPath}`;
 }
 
+/**
+ * A stack can also be several units at once: tasks and shells as `stackOf`
+ * names them, single terminals, or a whole project or tag. A unit that names a
+ * task, project or tag takes in terminals opened there later.
+ */
+export const terminalUnit = (ptyId: string) => `pty:${ptyId}`;
+export const projectUnit = (projectPath: string) => `project:${projectPath}`;
+export const tagUnit = (tag: string) => `tag:${tag.toLowerCase()}`;
+
+export function stackFrom(units: string[]): string {
+  return [...new Set(units)].sort().join('\n');
+}
+
+export function unitsOf(stack: string): string[] {
+  return stack.split('\n');
+}
+
+function inStack(display: TerminalDisplayState, units: Set<string>): boolean {
+  return (
+    units.has(stackOf(display)) ||
+    units.has(terminalUnit(display.ptyId)) ||
+    units.has(projectUnit(display.projectPath)) ||
+    display.tags.some((tag) => units.has(tagUnit(tag)))
+  );
+}
+
 interface TerminalStoreState {
   displayStates: Record<string, TerminalDisplayState>;
   /** Each project's terminals, in no particular order. */
@@ -241,9 +267,10 @@ export function collectActiveTags(ptyIds: string[], displayStates: Record<string
 
 /** A stack's terminals, most recent first. */
 export function stackMembers(state: Pick<TerminalStoreState, 'order' | 'displayStates'>, stack: string): string[] {
+  const units = new Set(unitsOf(stack));
   return state.order.filter((id) => {
     const display = state.displayStates[id];
-    return display !== undefined && stackOf(display) === stack;
+    return display !== undefined && inStack(display, units);
   });
 }
 

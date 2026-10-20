@@ -7,7 +7,8 @@ import { openShell } from './navigation';
 import { useProjectFlags } from '../stores/experimentalStore';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { Tooltip } from './ui/Tooltip';
-import { stackMembers, useTerminalStore } from '../stores/terminalStore';
+import { useShallow } from 'zustand/react/shallow';
+import { stackMembers, stackOf, tagUnit, unitsOf, useTerminalStore } from '../stores/terminalStore';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -23,20 +24,43 @@ const iconButton =
 const raisedButton =
   'w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5';
 
-/** The task whose terminals are on screen, by name. */
-function useShownTaskName(): string | null {
+/** What the stack on screen holds: one task by name, a whole project or tag, or a count. */
+function useShownStackName(): string | null {
   const stack = useAppStore((s) => (s.selection.kind === 'terminal' ? s.selection.stack : null));
-  const front = useTerminalStore((s) => {
-    const ptyId = stack ? stackMembers(s, stack)[0] : undefined;
-    return ptyId ? s.displayStates[ptyId] : undefined;
-  });
-  const projectPath = front?.projectPath;
-  const taskId = front?.taskId;
-  return useAppStore((s) =>
-    projectPath && taskId != null
-      ? (s.taskCacheByProject[projectPath]?.find((t) => t.taskNumber === taskId)?.name ?? null)
+  const shape = useTerminalStore(
+    useShallow((s) => {
+      if (!stack) return null;
+      const members = stackMembers(s, stack).map((id) => s.displayStates[id]);
+      const [front] = members;
+      if (!front) return null;
+      const [unit, ...more] = unitsOf(stack);
+      // Spelled as the sidebar's tag group is: as the first terminal opened with it has it.
+      const tag =
+        more.length === 0 && unit.startsWith('tag:')
+          ? Object.values(s.terminalsByProject)
+              .flat()
+              .flatMap((id) => s.displayStates[id]?.tags ?? [])
+              .find((t) => tagUnit(t) === unit)
+          : undefined;
+      return {
+        whole: more.length === 0 && unit.startsWith('project:') ? 'All terminals' : (tag ?? null),
+        stacks: new Set(members.map(stackOf)).size,
+        terminals: members.length,
+        shells: members.some((d) => d.taskId == null),
+        projectPath: front.projectPath,
+        taskId: front.taskId,
+      };
+    }),
+  );
+  const taskName = useAppStore((s) =>
+    shape && shape.taskId != null
+      ? (s.taskCacheByProject[shape.projectPath]?.find((t) => t.taskNumber === shape.taskId)?.name ?? null)
       : null,
   );
+  if (!shape) return null;
+  if (shape.whole) return shape.whole;
+  if (shape.stacks === 1) return taskName;
+  return shape.shells ? `${shape.terminals} terminals` : `${shape.stacks} tasks`;
 }
 
 export function TitleBar() {
@@ -50,8 +74,8 @@ export function TitleBar() {
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
   const flags = useProjectFlags(project && !cloning ? project.path : null);
 
-  const taskName = useShownTaskName();
-  const page = selection.kind === 'page' && !cloning ? PAGE_TITLES[selection.page] : taskName;
+  const stackName = useShownStackName();
+  const page = selection.kind === 'page' && !cloning ? PAGE_TITLES[selection.page] : stackName;
   const showsTerminal = selection.kind === 'terminal';
   const onSettings = selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
   const offersCreation = !cloning && !onSettings;
