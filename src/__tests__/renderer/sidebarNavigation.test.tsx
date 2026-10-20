@@ -28,6 +28,7 @@ vi.mock('../../components/terminal/terminalReact', () => {
     runnerChildren = new Map();
     isRunner = false;
     xterm = { focus: () => {}, cols: 80, rows: 24, write: () => {} };
+    tags: string[] = [];
     constructor(opts: Record<string, unknown>) {
       this.ptyId = (opts.ptyId as string) ?? `placeholder-${Math.random()}`;
       this.projectPath = opts.projectPath as string;
@@ -42,6 +43,10 @@ vi.mock('../../components/terminal/terminalReact', () => {
     }
     getViewportElement = () => document.createElement('div');
     getActivePanel = () => null;
+    setTags(tags: string[]) {
+      this.tags = tags;
+      useTerminalStore.getState().updateDisplay(this.ptyId, { tags });
+    }
     toggleDiffPanel() {}
     openTerminal() {}
     reattach() {}
@@ -263,6 +268,38 @@ describe('stacking several from the sidebar', () => {
     expect(cards()).toEqual(expect.arrayContaining([docs, shell, ship1, ship2]));
     expect(banner()).toContain('5 terminals');
 
+    // Right-clicking any of them offers the menu for all of them, once.
+    const openMenu = async (title: string) => {
+      fireEvent.contextMenu(row(projects(), title));
+      return waitFor(() => {
+        const open = document.querySelector<HTMLElement>('.context-menu--visible');
+        if (!open) throw new Error('the menu did not open');
+        return open;
+      });
+    };
+    const submenu = async (menu: HTMLElement, heading: string, item: string) => {
+      fireEvent.mouseEnter(within(menu).getByText(heading).closest('div')!);
+      fireEvent.click(await within(menu).findByText(item));
+      await waitFor(() => expect(document.querySelector('.context-menu')).toBeNull());
+    };
+    await submenu(await openMenu('Write docs'), 'Tag', 'New tag…');
+    const name = await screen.findByLabelText('New tag');
+    fireEvent.change(name, { target: { value: 'batch' } });
+    fireEvent.keyDown(name, { key: 'Enter' });
+    expect(cards().map((id) => display(id).tags)).toEqual(cards().map(() => ['batch']));
+    await submenu(await openMenu('Shell'), 'Move to', 'In Review');
+    await waitFor(() => expect(window.api.task.setStatus).toHaveBeenCalledTimes(3));
+    expect(
+      vi
+        .mocked(window.api.task.setStatus)
+        .mock.calls.map(([, n, status]) => [n, status])
+        .sort(),
+    ).toEqual([
+      [11, 'in_review'],
+      [8, 'in_review'],
+      [9, 'in_review'],
+    ]);
+
     // A plain click is that task alone again.
     fireEvent.click(row(projects(), 'Write docs'));
     await waitFor(() => expect(cards()).toEqual([docs]));
@@ -285,6 +322,11 @@ describe('stacking several from the sidebar', () => {
     fireEvent.click(within(section('Tags')).getByText('Release'));
     await waitFor(() => expect(cards()).toEqual([ship1, pricing].sort()));
     expect(banner()).toContain('Release');
+
+    fireEvent.contextMenu(row(section('Tags'), 'Pricing page'));
+    fireEvent.click(await screen.findByText('Close 2 terminals'));
+    await waitFor(() => expect(display(ship1)).toBeUndefined());
+    expect(display(pricing)).toBeUndefined();
   });
 });
 

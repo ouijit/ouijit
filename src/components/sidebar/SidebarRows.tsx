@@ -21,6 +21,7 @@ import { Tooltip } from '../ui/Tooltip';
 import { StageIcon } from './StageIcon';
 import { formatSince, groupByTask, unitsFor, type TaskGroup } from './sidebarTree';
 import { isModKey } from '../../utils/modKey';
+import { selectionEntries, TagPrompt } from './SelectionMenu';
 
 const NO_BACKENDS: SandboxBackendId[] = [];
 
@@ -292,6 +293,8 @@ function renameTask(projectPath: string, taskNumber: number, name: string): void
  * wraps that click so a modifier adds the row to the stack on screen instead.
  */
 type Pick = (at: number, alone: () => void) => (e: React.MouseEvent) => void;
+/** Likewise for right-click: a row of a stack of several gets the menu for all of it. */
+type RowMenu = (at: number, own: (e: React.MouseEvent) => void) => (e: React.MouseEvent) => void;
 
 interface PlacedRowProps {
   detail: RowDetail;
@@ -300,10 +303,11 @@ interface PlacedRowProps {
   now: number;
   at: number;
   pick: Pick;
+  rowMenu: RowMenu;
 }
 
 /** A task's rows, with the menu the board card and the terminal header give it. */
-function TaskRows({ group, detail, shown, onScreen, now, at, pick }: PlacedRowProps & { group: TaskGroup }) {
+function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: PlacedRowProps & { group: TaskGroup }) {
   const { projectPath, task } = group;
   const ownStack = stackOf({ ptyId: '', projectPath, taskId: group.taskId });
   const projectName = useProjectName(projectPath);
@@ -389,7 +393,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick }: PlacedRowPr
           bright={false}
           trailing={<IdleMark />}
           onClick={pick(at, () => void openTaskTerminal(projectPath, task, undefined, ownStack))}
-          onContextMenu={openMenu(null)}
+          onContextMenu={rowMenu(at, openMenu(null))}
           rename={commitAndClose(taskRename)}
         />
       ) : single ? (
@@ -402,7 +406,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick }: PlacedRowPr
           selected={onScreen.includes(group.ptyIds[0])}
           now={now}
           onClick={pick(at, () => void focusTerminal(group.ptyIds[0], { stack: ownStack }))}
-          onContextMenu={openMenu(group.ptyIds[0])}
+          onContextMenu={rowMenu(at, openMenu(group.ptyIds[0]))}
           rename={commitAndClose(taskRename ?? terminalRename(group.ptyIds[0]))}
         />
       ) : (
@@ -419,7 +423,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick }: PlacedRowPr
                 const latest = order.find((id) => group.ptyIds.includes(id)) ?? group.ptyIds[0];
                 void focusTerminal(latest, { stack: ownStack });
               })}
-              onContextMenu={openMenu(null)}
+              onContextMenu={rowMenu(at, openMenu(null))}
               rename={commitAndClose(taskRename)}
             />
           )}
@@ -434,7 +438,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick }: PlacedRowPr
               selected={onScreen.includes(ptyId)}
               now={now}
               onClick={pick(at + 1 + i, () => void focusTerminal(ptyId, { stack: ownStack }))}
-              onContextMenu={openMenu(ptyId)}
+              onContextMenu={rowMenu(at + 1 + i, openMenu(ptyId))}
               rename={commitAndClose(terminalRename(ptyId))}
             />
           ))}
@@ -480,7 +484,7 @@ function IdleMark() {
   );
 }
 
-function ShellRow({ ptyId, detail, shown, onScreen, now, at, pick }: PlacedRowProps & { ptyId: string }) {
+function ShellRow({ ptyId, detail, shown, onScreen, now, at, pick, rowMenu }: PlacedRowProps & { ptyId: string }) {
   const [menu, openMenu, closeMenu] = useRowMenu();
   const [renaming, setRenaming] = useState(false);
   return (
@@ -497,7 +501,7 @@ function ShellRow({ ptyId, detail, shown, onScreen, now, at, pick }: PlacedRowPr
           at,
           () => void focusTerminal(ptyId, { stack: stackOf({ ptyId, projectPath: '', taskId: null }) }),
         )}
-        onContextMenu={openMenu(ptyId)}
+        onContextMenu={rowMenu(at, openMenu(ptyId))}
         rename={
           renaming
             ? {
@@ -542,6 +546,8 @@ export function GroupRows({
   const onScreen = useOnScreen();
   const now = useNow();
   const anchor = useRef<number | null>(null);
+  const [selectionMenu, setSelectionMenu] = useState<{ x: number; y: number; ptyIds: string[] } | null>(null);
+  const [tagging, setTagging] = useState<{ x: number; y: number; ptyIds: string[] } | null>(null);
   const grouped = useMemo(
     () => groupByTask(ptyIds, displays, tasksByProject, projectOrder, idleIn),
     [ptyIds, displays, tasksByProject, projectOrder, idleIn],
@@ -601,7 +607,17 @@ export function GroupRows({
     if (front) void focusTerminal(front, { stack });
   };
 
-  const placed = { detail, shown, onScreen, now, pick };
+  const rowMenu: RowMenu = (at, own) => (e) => {
+    const members = onScreenHere(ptyIds);
+    const { selection } = useAppStore.getState();
+    const front = useTerminalStore.getState().displayStates[members[0]];
+    const many = front !== undefined && selection.kind === 'terminal' && stackOf(front) !== selection.stack;
+    if (!many || !rows[at].ptyIds.some((id) => members.includes(id))) return own(e);
+    e.preventDefault();
+    setSelectionMenu({ x: e.clientX, y: e.clientY, ptyIds: members });
+  };
+
+  const placed = { detail, shown, onScreen, now, pick, rowMenu };
   return (
     <>
       {tasks.map((group, i) => (
@@ -610,6 +626,15 @@ export function GroupRows({
       {shells.map((ptyId, i) => (
         <ShellRow key={ptyId} ptyId={ptyId} at={shellStart + i} {...placed} />
       ))}
+      {selectionMenu && (
+        <ContextMenu
+          x={selectionMenu.x}
+          y={selectionMenu.y}
+          items={selectionEntries(selectionMenu.ptyIds, () => setTagging(selectionMenu))}
+          onClose={() => setSelectionMenu(null)}
+        />
+      )}
+      {tagging && <TagPrompt {...tagging} onClose={() => setTagging(null)} />}
     </>
   );
 }
