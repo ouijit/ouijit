@@ -256,6 +256,18 @@ describe('stacking several from the sidebar', () => {
     modClick('Pricing page');
     await waitFor(() => expect(cards()).toEqual([pricing]));
 
+    // ⌘ on a terminal waiting for you adds it, when it is in the same project.
+    fireEvent.click(row(projects(), 'Write docs'));
+    await waitFor(() => expect(cards()).toEqual([docs]));
+    tick(1000);
+    act(() => {
+      useTerminalStore.getState().updateDisplay(shell, { status: 'thinking' });
+      useTerminalStore.getState().updateDisplay(shell, { status: 'ready' });
+    });
+    fireEvent.click(row(section('Waiting for you'), 'Shell'), { metaKey: true, ctrlKey: true });
+    await waitFor(() => expect(cards()).toEqual([docs, shell].sort()));
+    expect(front()).toBe(shell);
+
     // Shift takes in every row from the last one clicked.
     fireEvent.click(row(projects(), 'Write docs'));
     await waitFor(() => expect(cards()).toEqual([docs]));

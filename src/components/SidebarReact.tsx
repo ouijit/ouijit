@@ -13,6 +13,7 @@ import {
   stackMembers,
   tagUnit,
   terminalUnit,
+  unitsOf,
   useTerminalStore,
   type TerminalDisplayState,
 } from '../stores/terminalStore';
@@ -335,9 +336,26 @@ function WaitingRow({ ptyId, selected, now }: { ptyId: string; selected: boolean
       trailing={
         <span className="shrink-0 text-[11.5px] text-text-secondary">{formatSince(now - display.statusSince)}</span>
       }
-      onClick={() => void focusTerminal(ptyId)}
+      onClick={(e) => {
+        const stack = isModKey(e) ? stackWith(ptyId) : null;
+        void focusTerminal(ptyId, stack ? { stack } : {});
+      }}
     />
   );
+}
+
+/** The stack on screen with this terminal added, when they share a group in the sidebar's view. */
+function stackWith(ptyId: string): string | null {
+  const { selection } = useAppStore.getState();
+  const terminals = useTerminalStore.getState();
+  const added = terminals.displayStates[ptyId];
+  if (selection.kind !== 'terminal' || !added) return null;
+  const members = stackMembers(terminals, selection.stack).map((id) => terminals.displayStates[id]);
+  const together =
+    useUIStore.getState().sidebarGroupMode === 'project'
+      ? members.every((d) => d.projectPath === added.projectPath)
+      : added.tags.some((tag) => members.every((d) => d.tags.some((t) => tagUnit(t) === tagUnit(tag))));
+  return together ? stackFrom([...unitsOf(selection.stack), terminalUnit(ptyId)]) : null;
 }
 
 // ── Projects and tags ────────────────────────────────────────────────
