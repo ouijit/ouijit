@@ -10,6 +10,7 @@ import { useExperimentalStore, useProjectFlags } from '../stores/experimentalSto
 import {
   projectUnit,
   stackFrom,
+  stackOf,
   stackMembers,
   tagUnit,
   terminalUnit,
@@ -337,8 +338,8 @@ function WaitingRow({ ptyId, selected, now }: { ptyId: string; selected: boolean
         <span className="shrink-0 text-[11.5px] text-text-secondary">{formatSince(now - display.statusSince)}</span>
       }
       onClick={(e) => {
-        const stack = isModKey(e) ? stackWith(ptyId) : null;
-        void focusTerminal(ptyId, stack ? { stack } : {});
+        const stack = (isModKey(e) && stackWith(ptyId)) || stackOf(display);
+        void focusTerminal(ptyId, { stack });
       }}
     />
   );

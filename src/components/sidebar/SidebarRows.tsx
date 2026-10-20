@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../stores/appStore';
-import { isUnread, stackFrom, stackMembers, stackOf, useTerminalStore, viewedPtyId } from '../../stores/terminalStore';
+import {
+  isUnread,
+  stackFrom,
+  stackMembers,
+  stackOf,
+  terminalUnit,
+  useTerminalStore,
+  viewedPtyId,
+} from '../../stores/terminalStore';
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import type { Project, SandboxBackendId } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
@@ -432,7 +440,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
               shown={shown}
               selected={onScreen.includes(ptyId)}
               now={now}
-              onClick={pick(at + 1 + i, () => void focusTerminal(ptyId, { stack: ownStack }))}
+              onClick={pick(at + 1 + i, () => void focusTerminal(ptyId, { stack: stackFrom([terminalUnit(ptyId)]) }))}
               onContextMenu={rowMenu(at + 1 + i, openMenu(ptyId))}
               rename={commitAndClose(terminalRename(ptyId))}
             />

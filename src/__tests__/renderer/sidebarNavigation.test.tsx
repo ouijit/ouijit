@@ -252,6 +252,10 @@ describe('stacking several from the sidebar', () => {
     expect(banner()).toContain('Ship it');
     expect(marked()).toBe(3);
 
+    // A plain click on one of them is that one alone, down to a single terminal of a task.
+    fireEvent.click(document.querySelector(`[data-sidebar-row][data-pty-id="${ship1}"]`)!);
+    await waitFor(() => expect(cards()).toEqual([ship1]));
+
     // A stack never spans two projects: ⌘ in another starts over there.
     modClick('Pricing page');
     await waitFor(() => expect(cards()).toEqual([pricing]));
@@ -267,6 +271,8 @@ describe('stacking several from the sidebar', () => {
     fireEvent.click(row(section('Waiting for you'), 'Shell'), { metaKey: true, ctrlKey: true });
     await waitFor(() => expect(cards()).toEqual([docs, shell].sort()));
     expect(front()).toBe(shell);
+    fireEvent.click(row(section('Waiting for you'), 'Shell'));
+    await waitFor(() => expect(cards()).toEqual([shell]));
 
     // Shift takes in every row from the last one clicked.
     fireEvent.click(row(projects(), 'Write docs'));
