@@ -166,10 +166,10 @@ describe('the sidebar is the navigation', () => {
     expect(cards()).toEqual([ship1, ship2].sort());
     expect(display(docs).lastViewedAt).toBe(Date.now());
 
-    // ⌘1 counts the task's back cards, and the sub-rows follow the front.
+    // ⌘1 counts the task's back cards; the task and both its terminals are marked.
     press('1');
     await waitFor(() => expect(front()).toBe(ship1));
-    expect(within(projects).getAllByRole('button', { current: true })).toHaveLength(1);
+    expect(within(projects).getAllByRole('button', { current: true })).toHaveLength(3);
 
     // An agent finishing off-screen waits for you; opening it keeps it listed, selected, until it is left.
     expect(within(section('Waiting for you')).getByText('All caught up')).toBeTruthy();
@@ -250,7 +250,7 @@ describe('stacking several from the sidebar', () => {
     modClick('Write docs');
     await waitFor(() => expect(cards()).toEqual([ship1, ship2].sort()));
     expect(banner()).toContain('Ship it');
-    expect(marked()).toBe(1);
+    expect(marked()).toBe(3);
 
     // A stack never spans two projects: ⌘ in another starts over there.
     modClick('Pricing page');

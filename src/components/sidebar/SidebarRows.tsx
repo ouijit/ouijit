@@ -47,16 +47,10 @@ export function useShownPtyId(): string | undefined {
   return useTerminalStore((s) => (stack ? stackMembers(s, stack)[0] : undefined));
 }
 
-/** The rows to mark as on screen: the front of one task's stack, or every terminal in a stack of several. */
+/** Every terminal in the stack on screen. */
 function useOnScreen(): string[] {
   const stack = useAppStore((s) => (s.selection.kind === 'terminal' ? s.selection.stack : null));
-  return useTerminalStore(
-    useShallow((s) => {
-      const members = stack ? stackMembers(s, stack) : [];
-      const front = s.displayStates[members[0]];
-      return front && stackOf(front) === stack ? [front.ptyId] : members;
-    }),
-  );
+  return useTerminalStore(useShallow((s) => (stack ? stackMembers(s, stack) : [])));
 }
 
 export function homeRelative(path: string): string {
