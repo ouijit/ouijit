@@ -57,6 +57,7 @@ function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
     panelFullWidth: term.panelFullWidth,
     panelSplitRatio: term.panelSplitRatio,
     diffPanelOpen: term.diffPanelOpen,
+    tags: term.tags,
   };
 }
 

@@ -103,12 +103,15 @@ ouijit sandbox-command set "$HOME/.local/bin/ouijit-sandbox --strict"
 ouijit sandbox-command clear</code></pre>
 
   <h2>Tags</h2>
-  <p>Tag tasks to <a href="/docs/terminals/">group and filter</a> their terminals.</p>
-  <pre class="glass-bevel"><code>ouijit tag list                               # all tags across projects
-ouijit tag list --task 5                      # tags on one task
-ouijit tag add 5 bug
-ouijit tag remove 5 bug
-ouijit tag set 5 bug priority urgent          # replace all tags</code></pre>
+  <p>
+    Tag a terminal to <a href="/docs/terminals/">group and filter</a> it. A terminal carries one tag, and the pty
+    id defaults to the current terminal. Host terminals only; a sandboxed session gets 403.
+  </p>
+  <pre class="glass-bevel"><code>ouijit tag list                               # tags on open terminals, and which carry each
+ouijit tag get                                # this terminal's tag
+ouijit tag set review                         # replaces any tag it had
+ouijit tag set review pty_abc123              # explicit pty id
+ouijit tag clear</code></pre>
 
   <h2>Scripts</h2>
   <p>

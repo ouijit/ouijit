@@ -38,7 +38,6 @@ export interface TerminalOptions {
   worktreePath?: string;
   worktreeBranch?: string;
   mergeTarget?: string;
-  tags?: string[];
   isRunner?: boolean;
   initialStatus?: TerminalStatus;
   /**
@@ -390,7 +389,7 @@ export class OuijitTerminal {
   private status: TerminalStatus;
   gitFileStatus: GitFileStatus | null = null;
   lastOscTitle = '';
-  tags: string[];
+  tags: string[] = [];
 
   // ── Task/worktree metadata ──────────────────────────────────────────
   readonly sandboxProvider: SandboxProviderId | undefined;
@@ -461,7 +460,6 @@ export class OuijitTerminal {
 
     this.label = opts.label;
     this.status = opts.initialStatus ?? 'ready';
-    this.tags = opts.tags ?? [];
 
     this.xterm = new XTerminal({
       theme: buildXtermTheme(),
@@ -912,15 +910,9 @@ export class OuijitTerminal {
     await refreshTerminalGitStatus(this);
   }
 
-  async loadTags(): Promise<void> {
-    if (this.taskId == null) return;
-    try {
-      const tags = await window.api.tags.getForTask(this.projectPath, this.taskId);
-      this.tags = tags.map((t) => t.name);
-      this.pushDisplayState({ tags: this.tags });
-    } catch {
-      /* DB not ready or task gone */
-    }
+  setTags(tags: string[]): void {
+    this.tags = tags;
+    this.pushDisplayState({ tags });
   }
 
   // ── Internal: PTY wiring ────────────────────────────────────────────

@@ -16,11 +16,6 @@ import {
   getHooks,
   saveHook,
   deleteHook,
-  getAllTags,
-  getTaskTags,
-  addTagToTask,
-  removeTagFromTask,
-  setTaskTags,
   getScripts,
   saveScript,
   deleteScript,
@@ -68,12 +63,12 @@ import {
 } from '../linear/service';
 import { getProjectList } from '../projectList';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
-import { cliPanelRequest } from '../cliPanels';
+import { cliPanelRequest, cliTagRequest } from '../cliPanels';
 import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
-import type { CliHookControl, CliPanelKind, SandboxProviderId } from '../types';
+import type { CliHookControl, CliPanelKind, CliTagOp, CliTagResponse, SandboxProviderId } from '../types';
 import { SANDBOXABLE_HOOK_TYPES, SANDBOX_PROVIDER_IDS, isActiveSandbox, isSandboxProviderId } from '../sandbox/types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
@@ -342,6 +337,19 @@ async function runPanelOp(
   return { ptyId, kind, panels: result.panels ?? [] };
 }
 
+/** Forward a tag op to the renderer, where a terminal's tags live. */
+async function runTagOp(op: Omit<CliTagOp, 'requestId'>): Promise<CliTagResponse> {
+  if (op.ptyId && !isPtyActive(op.ptyId)) throw new HttpError(404, `PTY ${op.ptyId} not found or inactive`);
+  const result = await cliTagRequest(op);
+  if (!result.ok) throw new HttpError(404, result.error ?? 'Tag operation failed');
+  return result;
+}
+
+async function terminalTags(op: Omit<CliTagOp, 'requestId'>): Promise<{ ptyId: string; tags: string[] }> {
+  const { tags } = await runTagOp(op);
+  return { ptyId: op.ptyId!, tags: tags ?? [] };
+}
+
 const routes: Route[] = [
   // ── Tasks ────────────────────────────────────────────────────────
   route('GET', 'tasks', (r) => {
@@ -544,51 +552,22 @@ const routes: Route[] = [
   route('DELETE', 'sandbox/command', (r) => setCustomSandboxConfig(requireProject(r.query), {}), true),
 
   // ── Tags ─────────────────────────────────────────────────────────
-  route('GET', 'tags', () => {
-    return getAllTags();
-  }),
+  route('GET', 'tags', async () => (await runTagOp({ action: 'list' })).listing ?? []),
 
-  route('GET', 'tasks/:number/tags', (r) => {
-    const project = requireProject(r.query);
-    const num = requireInt(r.segments[1], 'Task number');
-    return getTaskTags(project, num);
-  }),
-
-  route(
-    'POST',
-    'tasks/:number/tags',
-    (r) => {
-      const project = requireProject(r.query);
-      const num = requireInt(r.segments[1], 'Task number');
-      if (typeof r.body.name !== 'string') throw new HttpError(400, 'Missing name in body');
-      return addTagToTask(project, num, r.body.name);
-    },
-    true,
-  ),
+  route('GET', 'terminals/:ptyId/tags', (r) => terminalTags({ action: 'get', ptyId: r.segments[1] })),
 
   route(
     'PUT',
-    'tasks/:number/tags',
+    'terminals/:ptyId/tags',
     (r) => {
-      const project = requireProject(r.query);
-      const num = requireInt(r.segments[1], 'Task number');
-      if (!Array.isArray(r.body.tags)) throw new HttpError(400, 'Missing tags array in body');
-      return setTaskTags(project, num, r.body.tags as string[]);
+      const tag = typeof r.body.tag === 'string' ? r.body.tag.trim() : '';
+      if (!tag) throw new HttpError(400, 'Missing tag in body');
+      return terminalTags({ action: 'set', ptyId: r.segments[1], tag });
     },
     true,
   ),
 
-  route(
-    'DELETE',
-    'tasks/:number/tags/:name',
-    (r) => {
-      const project = requireProject(r.query);
-      const num = requireInt(r.segments[1], 'Task number');
-      const tagName = decodeURIComponent(r.segments[3]);
-      return removeTagFromTask(project, num, tagName);
-    },
-    true,
-  ),
+  route('DELETE', 'terminals/:ptyId/tags', (r) => terminalTags({ action: 'clear', ptyId: r.segments[1] }), true),
 
   // ── Projects ─────────────────────────────────────────────────────
   route('GET', 'projects', () => {

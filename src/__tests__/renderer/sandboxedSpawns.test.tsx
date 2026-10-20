@@ -30,7 +30,6 @@ vi.mock('../../components/terminal/terminalReact', () => {
     bind = vi.fn();
     dispose = vi.fn();
     refreshGitStatus = vi.fn();
-    loadTags = vi.fn();
     setProjectNameGetter = vi.fn();
     killRunnerChild = vi.fn();
     setRunnerChild = vi.fn((id: string, child: unknown) => this.runnerChildren.set(id, child));

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useTerminalStore } from '../../stores/terminalStore';
+import { collectActiveTags, useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances } from './terminalRegistry';
 
 const EMPTY_TAGS: string[] = [];
@@ -7,20 +7,6 @@ const EMPTY_TAGS: string[] = [];
 interface TagInputProps {
   ptyId: string;
   onClose: () => void;
-}
-
-function getActiveSessionTags(): string[] {
-  const seen = new Map<string, string>();
-  const state = useTerminalStore.getState();
-
-  for (const display of Object.values(state.displayStates)) {
-    for (const tag of display.tags) {
-      const key = tag.toLowerCase();
-      if (!seen.has(key)) seen.set(key, tag);
-    }
-  }
-
-  return Array.from(seen.values());
 }
 
 export function TagInput({ ptyId, onClose }: TagInputProps) {
@@ -49,53 +35,21 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
   }, [onClose]);
 
   const addTag = useCallback(
-    async (name: string) => {
+    (name: string) => {
       const normalized = name.trim();
       if (!normalized) return;
-
-      // Same tag already — no-op
-      if (tags.length === 1 && tags[0].toLowerCase() === normalized.toLowerCase()) {
-        setInputValue('');
-        setSuggestions([]);
-        return;
-      }
-
-      const instance = terminalInstances.get(ptyId);
-      if (instance?.taskId != null) {
-        try {
-          await window.api.tags.setTaskTags(instance.projectPath, instance.taskId, [normalized]);
-        } catch {
-          /* DB not ready */
-        }
-      }
-
       // Single tag only — replace existing
-      if (instance) {
-        instance.tags = [normalized];
-        instance.pushDisplayState({ tags: [normalized] });
-      }
-
+      terminalInstances.get(ptyId)?.setTags([normalized]);
       setInputValue('');
       setSuggestions([]);
     },
-    [ptyId, tags],
+    [ptyId],
   );
 
   const removeTag = useCallback(
-    async (tagName: string) => {
+    (tagName: string) => {
       const instance = terminalInstances.get(ptyId);
-      if (instance?.taskId != null) {
-        try {
-          await window.api.tags.removeFromTask(instance.projectPath, instance.taskId, tagName);
-        } catch {
-          /* DB not ready */
-        }
-      }
-
-      if (instance) {
-        instance.tags = instance.tags.filter((t) => t.toLowerCase() !== tagName.toLowerCase());
-        instance.pushDisplayState({ tags: instance.tags });
-      }
+      instance?.setTags(instance.tags.filter((t) => t.toLowerCase() !== tagName.toLowerCase()));
     },
     [ptyId],
   );
@@ -107,7 +61,8 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
       return;
     }
 
-    const allTags = getActiveSessionTags();
+    const { order, displayStates } = useTerminalStore.getState();
+    const allTags = collectActiveTags(order, displayStates);
     const existing = new Set(tags.map((t) => t.toLowerCase()));
     const matches = allTags
       .filter((t) => t.toLowerCase().includes(value.toLowerCase()) && !existing.has(t.toLowerCase()))

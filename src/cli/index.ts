@@ -48,7 +48,7 @@ function requireProject(): string {
 
 registerTaskCommands(program, requireProject);
 registerHookCommands(program, requireProject);
-registerTagCommands(program, requireProject);
+registerTagCommands(program);
 registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
 registerSandboxCommands(program, requireProject);

@@ -215,6 +215,28 @@ export function trackWindowFocus(): void {
   sync();
 }
 
+// ── Tags ─────────────────────────────────────────────────────────────
+
+export function terminalMatchesTag(display: TerminalDisplayState | undefined, tag: string): boolean {
+  if (!display) return false;
+  const needle = tag.toLowerCase();
+  return display.tags.some((t) => t.toLowerCase() === needle);
+}
+
+/** Distinct tags (case-insensitive, first-seen casing) present on the given terminals' display states. */
+export function collectActiveTags(ptyIds: string[], displayStates: Record<string, TerminalDisplayState>): string[] {
+  const seen = new Map<string, string>();
+  for (const id of ptyIds) {
+    const display = displayStates[id];
+    if (!display) continue;
+    for (const tag of display.tags) {
+      const key = tag.toLowerCase();
+      if (!seen.has(key)) seen.set(key, tag);
+    }
+  }
+  return [...seen.values()];
+}
+
 // ── Stacks ───────────────────────────────────────────────────────────
 
 /** A stack's terminals, most recent first. */

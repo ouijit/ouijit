@@ -23,6 +23,8 @@ import type {
   SandboxLaunchFailedPayload,
   CliPanelOp,
   CliPanelResponse,
+  CliTagOp,
+  CliTagResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
 import type {
@@ -197,17 +199,6 @@ contextBridge.exposeInMainWorld('api', {
     reorder: (projectPath: string, scriptIds: string[]) => typedInvoke('scripts:reorder', projectPath, scriptIds),
   },
 
-  tags: {
-    getAll: () => typedInvoke('tags:get-all'),
-    getForTask: (projectPath: string, taskNumber: number) => typedInvoke('tags:get-for-task', projectPath, taskNumber),
-    addToTask: (projectPath: string, taskNumber: number, tagName: string) =>
-      typedInvoke('tags:add-to-task', projectPath, taskNumber, tagName),
-    removeFromTask: (projectPath: string, taskNumber: number, tagName: string) =>
-      typedInvoke('tags:remove-from-task', projectPath, taskNumber, tagName),
-    setTaskTags: (projectPath: string, taskNumber: number, tagNames: string[]) =>
-      typedInvoke('tags:set-task-tags', projectPath, taskNumber, tagNames),
-  },
-
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => typedListen('fullscreen-change', callback),
 
   agentHooks: {
@@ -229,6 +220,11 @@ contextBridge.exposeInMainWorld('api', {
   cliPanels: {
     onOp: (callback: (op: CliPanelOp) => void) => typedListen('cli:panel-op', callback),
     respond: (requestId: number, response: CliPanelResponse) => typedInvoke('cli-panels:respond', requestId, response),
+  },
+
+  cliTags: {
+    onOp: (callback: (op: CliTagOp) => void) => typedListen('cli:tag-op', callback),
+    respond: (requestId: number, response: CliTagResponse) => typedInvoke('cli-tags:respond', requestId, response),
   },
 
   globalSettings: {

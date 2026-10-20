@@ -140,18 +140,15 @@ const mockApi = {
     delete: vi.fn().mockResolvedValue({ success: true }),
     reorder: vi.fn().mockResolvedValue({ success: true }),
   },
-  tags: {
-    getAll: vi.fn().mockResolvedValue([]),
-    getForTask: vi.fn().mockResolvedValue([]),
-    addToTask: vi.fn().mockResolvedValue({ id: 1, name: 'test' }),
-    removeFromTask: vi.fn().mockResolvedValue(undefined),
-    setTaskTags: vi.fn().mockResolvedValue([]),
-  },
   agentHooks: {
     onStatus: vi.fn().mockReturnValue(() => {}),
     getStatus: vi.fn().mockResolvedValue(null),
   },
   cliPanels: {
+    onOp: vi.fn().mockReturnValue(() => {}),
+    respond: vi.fn().mockResolvedValue(undefined),
+  },
+  cliTags: {
     onOp: vi.fn().mockReturnValue(() => {}),
     respond: vi.fn().mockResolvedValue(undefined),
   },

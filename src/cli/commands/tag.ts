@@ -1,78 +1,61 @@
 /**
- * CLI tag commands — CRUD for task tags via REST API.
+ * CLI tag commands — read and set the tag on a terminal session via the REST
+ * API. A terminal carries one tag, as in the tag input on its card.
  */
 
 import type { Command } from 'commander';
-import { get, post, put, del, projectQuery } from '../api';
-import { printJson, printError } from '../output';
+import { get, put, del } from '../api';
+import { printJson } from '../output';
+import { resolvePtyId } from '../ptyId';
 
-export function registerTagCommands(parent: Command, requireProject: () => string) {
+function tagsUrl(ptyId: string): string {
+  return `/api/terminals/${encodeURIComponent(ptyId)}/tags`;
+}
+
+export function registerTagCommands(parent: Command) {
   const tag = parent
     .command('tag')
-    .description('Manage task tags')
+    .description('Manage terminal tags')
     .addHelpText(
       'after',
       `
 Examples:
   ouijit tag list
-  ouijit tag add 5 bug
-  ouijit tag remove 5 bug
-  ouijit tag set 5 bug priority`,
+  ouijit tag get
+  ouijit tag set review
+  ouijit tag set review pty_abc123
+  ouijit tag clear`,
     );
 
   tag
     .command('list')
-    .description('List all tags, or tags for a specific task')
-    .option('--task <number>', 'filter by task number')
-    .action(async (opts: { task?: string }) => {
-      if (opts.task) {
-        const project = requireProject();
-        const taskNumber = parseInt(opts.task, 10);
-        if (isNaN(taskNumber)) return printError('--task must be a number');
-        const tags = await get(`/api/tasks/${taskNumber}/tags${projectQuery(project)}`);
-        printJson(tags);
-      } else {
-        const tags = await get('/api/tags');
-        printJson(tags);
-      }
+    .description('List the tags on open terminals, with the terminals that carry each')
+    .action(async () => {
+      printJson(await get('/api/tags'));
     });
 
   tag
-    .command('add')
-    .description('Add tag to task')
-    .argument('<task-number>', 'task number')
-    .argument('<tag-name>', 'tag name')
-    .action(async (taskNumber: string, tagName: string) => {
-      const num = parseInt(taskNumber, 10);
-      if (isNaN(num)) return printError('Task number must be an integer');
-      const project = requireProject();
-      const t = await post(`/api/tasks/${num}/tags${projectQuery(project)}`, { name: tagName });
-      printJson(t);
-    });
-
-  tag
-    .command('remove')
-    .description('Remove tag from task')
-    .argument('<task-number>', 'task number')
-    .argument('<tag-name>', 'tag name')
-    .action(async (taskNumber: string, tagName: string) => {
-      const num = parseInt(taskNumber, 10);
-      if (isNaN(num)) return printError('Task number must be an integer');
-      const project = requireProject();
-      await del(`/api/tasks/${num}/tags/${encodeURIComponent(tagName)}${projectQuery(project)}`);
-      printJson({ success: true });
+    .command('get')
+    .description("Show a terminal's tags")
+    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
+    .action(async (explicitPtyId?: string) => {
+      printJson(await get(tagsUrl(resolvePtyId(explicitPtyId))));
     });
 
   tag
     .command('set')
-    .description('Replace all tags on a task')
-    .argument('<task-number>', 'task number')
-    .argument('<tags...>', 'tag names')
-    .action(async (taskNumber: string, tagNames: string[]) => {
-      const num = parseInt(taskNumber, 10);
-      if (isNaN(num)) return printError('Task number must be an integer');
-      const project = requireProject();
-      const tags = await put(`/api/tasks/${num}/tags${projectQuery(project)}`, { tags: tagNames });
-      printJson(tags);
+    .description("Set a terminal's tag, replacing any it had")
+    .argument('<tag>', 'tag name')
+    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
+    .action(async (tagName: string, explicitPtyId?: string) => {
+      printJson(await put(tagsUrl(resolvePtyId(explicitPtyId)), { tag: tagName }));
+    });
+
+  tag
+    .command('clear')
+    .description("Remove a terminal's tag")
+    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
+    .action(async (explicitPtyId?: string) => {
+      printJson(await del(tagsUrl(resolvePtyId(explicitPtyId))));
     });
 }
