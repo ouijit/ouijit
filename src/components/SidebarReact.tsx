@@ -29,7 +29,7 @@ import { ResizeHandle } from './common/ResizeHandle';
 import { refreshTerminalsGitStatus } from './terminal/terminalReact';
 import { Icon } from './terminal/Icon';
 import { Tooltip } from './ui/Tooltip';
-import { openProjectPage, focusTerminal, openShell, openTaskTerminal } from './navigation';
+import { openProject, openProjectPage, focusTerminal, openShell, openTaskTerminal } from './navigation';
 import { isModKey } from '../utils/modKey';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/ContextMenu';
@@ -604,7 +604,7 @@ function ProjectGroup({ project }: { project: Project }) {
         name={project.name}
         ptyIds={ptyIds}
         projectPath={project.path}
-        onOpen={() => void openProjectPage(project.path, 'board')}
+        onOpen={() => void openProject(project.path)}
         onOpenAll={() => showProject(project.path, ptyIds)}
         icon={<ProjectTile project={project} />}
         selected={openPage !== null || wholeShown}

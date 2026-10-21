@@ -23,6 +23,13 @@ export async function openProjectPage(path: string, page: ProjectPage): Promise<
   useAppStore.getState().openPage(path, page);
 }
 
+/** Back to the board or terminal stack the project last had, else its board. */
+export async function openProject(path: string): Promise<void> {
+  const view = useAppStore.getState().projectView(path);
+  if (view?.kind === 'terminal') useAppStore.getState().select(view);
+  else await openProjectPage(path, 'board');
+}
+
 function showTaskTerminals(projectPath: string, taskNumber: number): void {
   const [front] = stackMembers(useTerminalStore.getState(), stackOf({ ptyId: '', projectPath, taskId: taskNumber }));
   if (front) useAppStore.getState().showTerminal(front);

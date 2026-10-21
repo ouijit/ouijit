@@ -206,6 +206,8 @@ export interface LastSessionSnapshot {
   capturedAt: string;
   activeProjectPath: string | null;
   terminals: SnapshotTerminal[];
+  /** Each project's last board or terminal stack. Older snapshots omit it. */
+  views?: Record<string, { stack: string } | { page: 'board' }>;
 }
 
 export interface RunConfig {

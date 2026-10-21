@@ -25,14 +25,14 @@ import { installCaptureNavigator } from './capture/navigator';
 import { hydrateTerminalFont } from './components/terminal/terminalReact';
 import { reconnectOrphanedSessions } from './components/terminal/terminalActions';
 import { hydrateNotificationSettings } from './utils/notifications';
-import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
+import { installSessionAutoSave, rememberSnapshotViews } from './components/terminal/sessionSnapshot';
 import { installVisitTracker } from './services/visitTracker';
 import { installCliPanelListener } from './services/cliPanelListener';
 import { installCliTagListener } from './services/cliTagListener';
 import { installHookStatusListener } from './services/hookStatusListener';
 import { useUIStore, hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
-import type { Project } from './types';
+import type { LastSessionSnapshot, Project } from './types';
 
 const appLog = log.scope('app');
 
@@ -181,10 +181,11 @@ export function App() {
       const hasResumable = !!pendingSnapshot && pendingSnapshot.length > 0;
 
       let snapshotPtysAlive = false;
+      let snapshot: LastSessionSnapshot | null = null;
       if (hasResumable) {
         try {
-          const snap = JSON.parse(pendingSnapshot) as { terminals?: { ptyId?: string }[] };
-          const snapPtyIds = new Set((snap.terminals ?? []).map((t) => t.ptyId).filter(Boolean));
+          snapshot = JSON.parse(pendingSnapshot) as LastSessionSnapshot;
+          const snapPtyIds = new Set((snapshot.terminals ?? []).map((t) => t.ptyId).filter(Boolean));
           if (snapPtyIds.size > 0) {
             const live = await window.api.pty.getActiveSessions();
             snapshotPtysAlive = live.some((s) => snapPtyIds.has(s.ptyId));
@@ -201,6 +202,8 @@ export function App() {
         reconnectOrphanedSessions(),
       ]);
 
+      // As read at launch: the reconnect's saves rewrite the snapshot before views are back.
+      if (snapshot && snapshotPtysAlive) rememberSnapshotViews(snapshot);
       if (!hasResumable || snapshotPtysAlive) {
         const restored = restoredSelection(await window.api.globalSettings.get('lastActiveView'), projects);
         if (restored) useAppStore.getState().select(restored);

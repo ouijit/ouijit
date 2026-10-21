@@ -5,8 +5,8 @@
  */
 
 import log from 'electron-log/renderer';
-import { useAppStore } from '../../stores/appStore';
-import { useTerminalStore } from '../../stores/terminalStore';
+import { useAppStore, type ProjectView } from '../../stores/appStore';
+import { renameInStack, useTerminalStore } from '../../stores/terminalStore';
 import { type OuijitTerminal } from './terminalReact';
 import { terminalInstances } from './terminalRegistry';
 import {
@@ -95,7 +95,27 @@ export function gatherSnapshot(): LastSessionSnapshot {
     capturedAt: new Date().toISOString(),
     activeProjectPath: appStore.activeProjectPath,
     terminals,
+    views: Object.fromEntries(
+      Object.values(appStore.viewByProject).map((view) => [
+        view.projectPath,
+        view.kind === 'terminal' ? { stack: view.stack } : { page: 'board' as const },
+      ]),
+    ),
   };
+}
+
+/**
+ * Puts back each project's last board or terminal stack. After a quit the
+ * terminals come back under new ids, so `renamed` maps each captured id to the
+ * one it was restored as.
+ */
+export function rememberSnapshotViews(snapshot: LastSessionSnapshot, renamed?: Map<string, string>): void {
+  const views = Object.entries(snapshot.views ?? {}).flatMap(([projectPath, view]): ProjectView[] => {
+    if (!('stack' in view)) return [{ kind: 'page', projectPath, page: 'board' }];
+    const stack = renamed ? renameInStack(view.stack, renamed) : view.stack;
+    return stack ? [{ kind: 'terminal', projectPath, stack }] : [];
+  });
+  useAppStore.getState().rememberViews(views);
 }
 
 // ── Debounced save ───────────────────────────────────────────────────

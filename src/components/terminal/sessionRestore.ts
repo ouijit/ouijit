@@ -7,8 +7,9 @@
 
 import log from 'electron-log/renderer';
 import { useAppStore } from '../../stores/appStore';
+import { useTerminalStore } from '../../stores/terminalStore';
 import { addProjectTerminal } from './terminalActions';
-import { suspendSnapshotSaves, resumeSnapshotSaves, snapshotRecency } from './sessionSnapshot';
+import { suspendSnapshotSaves, resumeSnapshotSaves, snapshotRecency, rememberSnapshotViews } from './sessionSnapshot';
 import type { LastSessionSnapshot, Project, SnapshotTerminal, TaskStatus } from '../../types';
 
 const restoreLog = log.scope('sessionRestore');
@@ -86,13 +87,14 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
     // of the order leaves it as it was.
     const rank = new Map(snapshotRecency(snapshot).map((t, i) => [t, i]));
     const backToFront = [...entries].sort((a, b) => (rank.get(b.source) ?? 0) - (rank.get(a.source) ?? 0));
+    const renamed = new Map<string, string>();
 
     for (const entry of backToFront) {
       const projectPath = entry.project.path;
       const source = entry.source;
       try {
         const restoredProvider = source.sandboxProvider;
-        await addProjectTerminal(projectPath, undefined, {
+        const spawned = await addProjectTerminal(projectPath, undefined, {
           existingWorktree: source.worktreePath
             ? {
                 path: source.worktreePath,
@@ -111,6 +113,8 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
           skipAutoHook: true,
           initialUiState: source.ui,
         });
+        const [restored] = useTerminalStore.getState().order;
+        if (spawned && source.ptyId && restored) renamed.set(source.ptyId, restored);
       } catch (err) {
         restoreLog.warn('failed to restore terminal', {
           projectPath,
@@ -120,8 +124,13 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
       }
     }
 
-    if (snapshot.activeProjectPath && projectByPath.has(snapshot.activeProjectPath)) {
-      useAppStore.getState().showProjectTerminals(snapshot.activeProjectPath);
+    rememberSnapshotViews(snapshot, renamed);
+    const active = snapshot.activeProjectPath;
+    if (active && projectByPath.has(active)) {
+      const app = useAppStore.getState();
+      const view = app.projectView(active);
+      if (view) app.select(view);
+      else app.showProjectTerminals(active);
     }
   } finally {
     resumeSnapshotSaves();

@@ -1,11 +1,11 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
-import { gatherSnapshot, SNAPSHOT_KEY } from '../../components/terminal/sessionSnapshot';
+import { gatherSnapshot, rememberSnapshotViews, SNAPSHOT_KEY } from '../../components/terminal/sessionSnapshot';
 import { reconnectOrphanedSessions, renameTerminal } from '../../components/terminal/terminalActions';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { OuijitTerminal } from '../../components/terminal/terminalReact';
 import { installCliTagListener } from '../../services/cliTagListener';
-import { useTerminalStore } from '../../stores/terminalStore';
+import { stackFrom, terminalUnit, useTerminalStore } from '../../stores/terminalStore';
 import { useAppStore } from '../../stores/appStore';
 import type { ActiveSession, CliTagOp, CliTagResponse, LastSessionSnapshot } from '../../types';
 
@@ -98,7 +98,14 @@ async function reload(snapshot: LastSessionSnapshot, sessions: ActiveSession[]):
 beforeEach(() => {
   terminalInstances.clear();
   useTerminalStore.setState(useTerminalStore.getInitialState(), true);
-  useAppStore.setState({ activeProjectPath: A });
+  useAppStore.setState({
+    projects: [
+      { path: A, name: 'A' },
+      { path: B, name: 'B' },
+    ],
+    viewByProject: {},
+  });
+  useAppStore.getState().select({ kind: 'page', projectPath: A, page: 'board' });
   vi.clearAllMocks();
 });
 
@@ -110,6 +117,9 @@ describe('session persistence', () => {
     open(A, { ptyId: 'runner', isRunner: true });
     useTerminalStore.getState().activate('a');
     useTerminalStore.getState().activate('b');
+    const stack = stackFrom([terminalUnit('a'), terminalUnit('b')]);
+    useAppStore.getState().openPage(B, 'board');
+    useAppStore.getState().select({ kind: 'terminal', projectPath: A, stack });
 
     const snapshot = gatherSnapshot();
     expect(snapshot.activeProjectPath).toBe(A);
@@ -127,6 +137,10 @@ describe('session persistence', () => {
     await reload(snapshot, [session('a', A), session('b', A), session('c', B), session('stray', B)]);
 
     expect(useTerminalStore.getState().order).toEqual(['b', 'a', 'c', 'stray']);
+    useAppStore.setState({ viewByProject: {} });
+    rememberSnapshotViews(snapshot);
+    expect(useAppStore.getState().projectView(A)).toEqual({ kind: 'terminal', projectPath: A, stack });
+    expect(useAppStore.getState().projectView(B)).toEqual({ kind: 'page', projectPath: B, page: 'board' });
     expect(useTerminalStore.getState().displayStates['b'].label).toBe('My Renamed Tab');
     expect(terminalInstances.get('b')?.panels).toEqual([
       expect.objectContaining({ kind: 'plan', planPath: '/plan.md' }),

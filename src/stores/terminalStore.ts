@@ -30,6 +30,18 @@ export function unitsOf(stack: string): string[] {
   return stack.split('\n');
 }
 
+/** The stack with its terminals renamed, dropping those `renamed` lacks; null when nothing is left. */
+export function renameInStack(stack: string, renamed: Map<string, string>): string | null {
+  const units = unitsOf(stack).flatMap((unit) => {
+    const colon = unit.indexOf(':');
+    const kind = unit.slice(0, colon);
+    if (kind !== 'pty' && kind !== 'shell') return [unit];
+    const to = renamed.get(unit.slice(colon + 1));
+    return to ? [`${kind}:${to}`] : [];
+  });
+  return units.length > 0 ? stackFrom(units) : null;
+}
+
 function inStack(display: TerminalDisplayState, units: Set<string>): boolean {
   return (
     units.has(stackOf(display)) ||

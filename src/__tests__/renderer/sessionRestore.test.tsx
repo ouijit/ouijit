@@ -2,6 +2,8 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 import { restoreSession } from '../../components/terminal/sessionRestore';
 import { addProjectTerminal } from '../../components/terminal/terminalActions';
+import { useAppStore } from '../../stores/appStore';
+import { stackFrom, useTerminalStore } from '../../stores/terminalStore';
 import type { LastSessionSnapshot, Project, SnapshotTerminal } from '../../types';
 import type { RestorableEntry } from '../../components/terminal/sessionRestore';
 
@@ -53,6 +55,9 @@ function entry(over: Partial<RestorableEntry> & { source: SnapshotTerminal }): R
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useTerminalStore.setState(useTerminalStore.getInitialState(), true);
+  useAppStore.setState({ projects: [project, { path: '/other', name: 'Other' }], viewByProject: {} });
+  useAppStore.getState().select({ kind: 'none' });
 });
 
 describe('restoreSession', () => {
@@ -94,5 +99,42 @@ describe('restoreSession', () => {
     await restoreSession(snapshot, [entry({ source: a })]);
 
     expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({ label: undefined, taskId: 3 });
+  });
+
+  test('each project goes back to its board or stack, with the terminals in it under the ids they came back with', async () => {
+    vi.mocked(addProjectTerminal).mockImplementation(async (projectPath, _run, options) => {
+      useTerminalStore
+        .getState()
+        .addTerminal(projectPath, `new-${options?.label}`, { taskId: options?.taskId ?? null });
+      return true;
+    });
+    const shell = snapTerminal({ ptyId: 'a', label: 'Build', recencyRank: 1 });
+    const task = snapTerminal({ ptyId: 'b', label: 'Ship', taskNumber: 7, recencyRank: 0 });
+    const closed = snapTerminal({ ptyId: 'c', label: 'Gone', projectPath: '/other', recencyRank: 2 });
+    const snapshot: LastSessionSnapshot = {
+      version: 1,
+      capturedAt: new Date().toISOString(),
+      activeProjectPath: PROJECT,
+      terminals: [shell, task, closed],
+      views: {
+        [PROJECT]: { stack: stackFrom(['shell:a', `task:7:${PROJECT}`]) },
+        '/other': { page: 'board' },
+        '/gone': { stack: 'shell:c' },
+      },
+    };
+
+    await restoreSession(snapshot, [entry({ source: shell }), entry({ source: task })]);
+
+    expect(useAppStore.getState().selection).toEqual({
+      kind: 'terminal',
+      projectPath: PROJECT,
+      stack: stackFrom(['shell:new-Build', `task:7:${PROJECT}`]),
+    });
+    expect(useAppStore.getState().projectView('/other')).toEqual({
+      kind: 'page',
+      projectPath: '/other',
+      page: 'board',
+    });
+    expect(useAppStore.getState().projectView('/gone')).toBeNull();
   });
 });

@@ -18,6 +18,15 @@ export type Selection =
   | { kind: 'app-settings' }
   | { kind: 'none' };
 
+/** What a project goes back to when it is opened again. */
+export type ProjectView =
+  | Extract<Selection, { kind: 'terminal' }>
+  | { kind: 'page'; projectPath: string; page: 'board' };
+
+function isProjectView(selection: Selection): selection is ProjectView {
+  return selection.kind === 'terminal' || (selection.kind === 'page' && selection.page === 'board');
+}
+
 interface AppStoreState {
   selection: Selection;
   /** The registered project, or clone, whose terminal or page is on screen. */
@@ -53,6 +62,8 @@ interface AppStoreState {
   homeRecents: HomeRecentTask[] | null;
   /** Every project's tasks, by path. Read through `projectDataStore`. */
   taskCacheByProject: Record<string, TaskWithWorkspace[]>;
+  /** Each project's last board or terminal stack. */
+  viewByProject: Record<string, ProjectView>;
 }
 
 interface AppStoreActions {
@@ -77,6 +88,9 @@ interface AppStoreActions {
   /** Shows the project's most recently used terminal, or its board when it has none. */
   showProjectTerminals: (projectPath: string) => void;
   openPage: (projectPath: string, page: ProjectPage) => void;
+  /** The project's last board or terminal stack, while that stack still has terminals. */
+  projectView: (projectPath: string) => ProjectView | null;
+  rememberViews: (views: ProjectView[]) => void;
   loadHomeRecents: () => Promise<void>;
   /** Update one project's slice of the task cache; re-derives `homeRecents`. */
   updateProjectTaskCache: (projectPath: string, tasks: TaskWithWorkspace[]) => void;
@@ -165,6 +179,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   health: null,
   homeRecents: null,
   taskCacheByProject: {},
+  viewByProject: {},
 
   setProjects: (projects) => {
     const activeProjectData = projectAt({ projects, cloneJobs: get().cloneJobs }, get().activeProjectPath);
@@ -192,7 +207,14 @@ export const useAppStore = create<AppStore>()((set, get) => ({
 
   select: (selection) => {
     const activeProjectData = projectAt(get(), selectionPath(selection));
-    set({ selection, activeProjectData, activeProjectPath: activeProjectData?.path ?? null });
+    set({
+      selection,
+      activeProjectData,
+      activeProjectPath: activeProjectData?.path ?? null,
+      ...(isProjectView(selection) && {
+        viewByProject: { ...get().viewByProject, [selection.projectPath]: selection },
+      }),
+    });
     persistSelection(selection);
   },
 
@@ -217,6 +239,15 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   },
 
   openPage: (projectPath, page) => get().select({ kind: 'page', projectPath, page }),
+
+  projectView: (projectPath) => {
+    const view = get().viewByProject[projectPath];
+    if (view?.kind === 'terminal' && stackMembers(useTerminalStore.getState(), view.stack).length === 0) return null;
+    return view ?? null;
+  },
+
+  rememberViews: (views) =>
+    set({ viewByProject: { ...get().viewByProject, ...Object.fromEntries(views.map((v) => [v.projectPath, v])) } }),
 
   loadHomeRecents: async () => {
     const projects = get().projects;

@@ -94,7 +94,7 @@ beforeEach(() => {
   terminalInstances.clear();
   useTerminalStore.setState(useTerminalStore.getInitialState(), true);
   useUIStore.setState(useUIStore.getInitialState(), true);
-  useAppStore.setState({ projects: [ALPHA, BRAVO], taskCacheByProject: { ...TASKS } });
+  useAppStore.setState({ projects: [ALPHA, BRAVO], taskCacheByProject: { ...TASKS }, viewByProject: {} });
   useAppStore.getState().select({ kind: 'none' });
   spawned = [];
   vi.mocked(window.api.task.getAll).mockImplementation(async (path) => TASKS[path] ?? []);
@@ -186,10 +186,10 @@ describe('the sidebar is the navigation', () => {
     expect(row(section('Waiting for you'), 'Pricing page').getAttribute('aria-current')).toBe('true');
     expect(useAppStore.getState().activeProjectPath).toBe(BRAVO.path);
 
-    // From the board: the project's name opens it, and its terminal rows open their terminal.
+    // From the board: the project's board button opens it, and its terminal rows open their terminal.
     tick(1000);
     const alpha = document.querySelector<HTMLElement>(`[data-project-path="${ALPHA.path}"]`)!;
-    fireEvent.click(within(alpha).getByText('Alpha'));
+    fireEvent.click(within(alpha).getByLabelText('Board'));
     await waitFor(() => expect(document.querySelector('.kanban-board')).toBeTruthy());
     expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: ALPHA.path, page: 'board' });
     expect(screen.getByRole('banner').textContent).toContain('AlphaBoard');
@@ -381,6 +381,40 @@ test('⌘ on a project with nothing open resumes its active tasks into one stack
   await waitFor(() =>
     expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: DELTA.path, page: 'board' }),
   );
+});
+
+test('a project opens to the board or terminals it last showed, and to its board once those have closed', async () => {
+  const ship = await spawn(ALPHA.path, 8);
+  const docs = await spawn(ALPHA.path, 9);
+  const pricing = await spawn(BRAVO.path, 3);
+  render(<App />);
+  const name = (project: { path: string; name: string }) =>
+    within(document.querySelector<HTMLElement>(`[data-project-path="${project.path}"]`)!).getByText(project.name);
+  const board = (project: { path: string }) => ({ kind: 'page', projectPath: project.path, page: 'board' });
+
+  fireEvent.click(row(section('Projects'), 'Write docs'));
+  fireEvent.click(row(section('Projects'), 'Ship it'), { metaKey: true, ctrlKey: true });
+  await waitFor(() => expect(cards()).toEqual([docs, ship].sort()));
+
+  fireEvent.click(name(BRAVO));
+  await waitFor(() => expect(useAppStore.getState().selection).toEqual(board(BRAVO)));
+  fireEvent.click(name(ALPHA));
+  await waitFor(() => expect(cards()).toEqual([docs, ship].sort()));
+  expect(front()).toBe(ship);
+
+  fireEvent.click(row(section('Projects'), 'Pricing page'));
+  await waitFor(() => expect(cards()).toEqual([pricing]));
+  fireEvent.click(name(ALPHA));
+  await waitFor(() => expect(cards()).toEqual([docs, ship].sort()));
+  fireEvent.click(name(BRAVO));
+  await waitFor(() => expect(cards()).toEqual([pricing]));
+
+  act(() => {
+    useTerminalStore.getState().removeTerminal(docs);
+    useTerminalStore.getState().removeTerminal(ship);
+  });
+  fireEvent.click(name(ALPHA));
+  await waitFor(() => expect(useAppStore.getState().selection).toEqual(board(ALPHA)));
 });
 
 describe('creating from the sidebar', () => {
