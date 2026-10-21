@@ -69,7 +69,7 @@ function toggleRunner(ptyId: string): void {
     instance.activatePanel(runner.id);
     return;
   }
-  const sandbox = getProjectConfig(instance.projectPath)?.runnerSandbox;
+  const sandbox = getProjectConfig(instance.projectPath)?.defaultSandbox;
   void startRunner(ptyId, undefined, isActiveSandbox(sandbox) ? sandbox : undefined);
 }
 

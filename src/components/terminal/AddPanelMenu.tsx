@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { setRunnerSandbox, useProjectConfig, useProjectScripts } from '../../stores/projectDataStore';
+import { setDefaultSandbox, useProjectConfig, useProjectScripts } from '../../stores/projectDataStore';
 import { terminalInstances } from './terminalRegistry';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
@@ -49,7 +49,7 @@ export function AddPanelMenu({
   // Waits for both, so the menu never offers to configure a run command that
   // already exists.
   if (config && scripts) {
-    const defaultPlace = chosenPlace ?? config.runnerSandbox;
+    const defaultPlace = chosenPlace ?? config.defaultSandbox;
     const places: SandboxProviderId[] = ['none', ...config.availableSandboxProviders];
     if (!places.includes(defaultPlace)) places.push(defaultPlace);
     if (places.length > 1) {
@@ -62,7 +62,7 @@ export function AddPanelMenu({
           keepOpen: true,
           onClick: () => {
             setChosenPlace(place);
-            void setRunnerSandbox(projectPath, place);
+            void setDefaultSandbox(projectPath, place);
           },
         })),
       });

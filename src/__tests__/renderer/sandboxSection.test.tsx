@@ -111,7 +111,7 @@ describe('sandbox settings', () => {
     setStatuses([{ providerId: 'custom', available: true }]);
     rerender(<SandboxSection projectPath="/p" />);
     fireEvent.click(getByRole('button', { name: 'Custom', pressed: false }));
-    await waitFor(() => expect(getProjectConfig('/p')?.runnerSandbox).toBe('custom'));
+    await waitFor(() => expect(getProjectConfig('/p')?.defaultSandbox).toBe('custom'));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith('runnerSandbox:/p', 'custom');
   });
 });

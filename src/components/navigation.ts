@@ -9,7 +9,7 @@
 import type { Project, SandboxProviderId, TaskWithWorkspace, WorktreeInfo } from '../types';
 import { useAppStore, type ProjectPage } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { loadTasks } from '../stores/projectDataStore';
+import { getProjectConfig, loadProjectConfig, loadTasks } from '../stores/projectDataStore';
 import { stackMembers, stackOf, useTerminalStore } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
@@ -137,9 +137,17 @@ export async function openTaskShell(
     existingWorktree: worktree,
     taskId: task.taskNumber,
     skipAutoHook,
-    sandboxProvider: options.sandboxProvider,
+    sandboxProvider: options.sandboxProvider ?? (await unchosenSandbox(projectPath, !skipAutoHook)),
     replaceLoadingId: options.replaceLoadingId,
   });
+}
+
+/** A continue hook that runs keeps its own sandbox; anything else takes the project's default. */
+async function unchosenSandbox(projectPath: string, mayRunHook: boolean): Promise<SandboxProviderId | undefined> {
+  if (!getProjectConfig(projectPath)) await loadProjectConfig(projectPath);
+  const config = getProjectConfig(projectPath);
+  if (mayRunHook && config?.hooks.continue) return undefined;
+  return config?.defaultSandbox;
 }
 
 /** Another terminal in a task's worktree, as the board opens one, shown in front of `stack` or its own. */

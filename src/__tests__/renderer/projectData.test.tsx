@@ -112,9 +112,9 @@ describe('project config', () => {
       sandboxStatuses: statuses,
       availableSandboxProviders: ['nono'],
       hooks: { editor },
-      runnerSandbox: 'nono',
+      defaultSandbox: 'nono',
     });
-    expect(getProjectConfig('/b')).toMatchObject({ availableSandboxProviders: [], hooks: {}, runnerSandbox: 'none' });
+    expect(getProjectConfig('/b')).toMatchObject({ availableSandboxProviders: [], hooks: {}, defaultSandbox: 'none' });
 
     vi.mocked(window.api.sandbox.status).mockRejectedValueOnce(new Error('boom'));
     await loadProjectConfig('/a');

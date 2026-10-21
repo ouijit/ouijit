@@ -20,8 +20,8 @@ export interface ProjectConfig {
   /** The backends in `sandboxStatuses` that can run. */
   availableSandboxProviders: SandboxBackendId[];
   hooks: ProjectHooks;
-  /** Where Run and scripts from a terminal's + menu run unless told otherwise. */
-  runnerSandbox: SandboxProviderId;
+  /** Where task terminals that run no hook, and Run and scripts from a terminal's + menu, run unless told otherwise. */
+  defaultSandbox: SandboxProviderId;
 }
 
 interface ProjectDataState {
@@ -77,7 +77,7 @@ export async function loadTasks(projectPath: string): Promise<void> {
 export async function loadProjectConfig(projectPath: string): Promise<void> {
   const isLatest = configLoads.begin(projectPath);
   try {
-    const [statuses, hooks, runnerSandbox] = await Promise.all([
+    const [statuses, hooks, defaultSandbox] = await Promise.all([
       window.api.sandbox.status(projectPath),
       window.api.hooks.get(projectPath),
       window.api.globalSettings.get(runnerSandboxSettingKey(projectPath)),
@@ -87,7 +87,7 @@ export async function loadProjectConfig(projectPath: string): Promise<void> {
       sandboxStatuses: statuses,
       availableSandboxProviders: availableBackends(statuses),
       hooks,
-      runnerSandbox: isSandboxProviderId(runnerSandbox) ? runnerSandbox : 'none',
+      defaultSandbox: isSandboxProviderId(defaultSandbox) ? defaultSandbox : 'none',
     });
   } catch {
     // Swallowed: with no config the cards render without sandbox and hook
@@ -145,9 +145,9 @@ export async function deleteHook(projectPath: string, hookType: HookType): Promi
   });
 }
 
-export async function setRunnerSandbox(projectPath: string, sandbox: SandboxProviderId): Promise<void> {
+export async function setDefaultSandbox(projectPath: string, sandbox: SandboxProviderId): Promise<void> {
   const { success } = await window.api.globalSettings.set(runnerSandboxSettingKey(projectPath), sandbox);
-  if (success) patchConfig(projectPath, () => ({ runnerSandbox: sandbox }));
+  if (success) patchConfig(projectPath, () => ({ defaultSandbox: sandbox }));
 }
 
 export async function saveScript(projectPath: string, script: Script): Promise<Script | null> {

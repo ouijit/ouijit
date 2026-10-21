@@ -9,12 +9,12 @@ export function seedProject(
     tasks?: TaskWithWorkspace[];
     hooks?: ProjectHooks;
     sandboxStatuses?: SandboxProviderStatus[];
-    runnerSandbox?: SandboxProviderId;
+    defaultSandbox?: SandboxProviderId;
     scripts?: Script[];
   },
 ): void {
   if (data.tasks) useAppStore.getState().updateProjectTaskCache(projectPath, data.tasks);
-  if (data.hooks || data.sandboxStatuses || data.runnerSandbox) {
+  if (data.hooks || data.sandboxStatuses || data.defaultSandbox) {
     const statuses = data.sandboxStatuses ?? [];
     useProjectDataStore.setState((s) => ({
       configByProject: {
@@ -23,7 +23,7 @@ export function seedProject(
           sandboxStatuses: statuses,
           availableSandboxProviders: availableBackends(statuses),
           hooks: data.hooks ?? {},
-          runnerSandbox: data.runnerSandbox ?? 'none',
+          defaultSandbox: data.defaultSandbox ?? 'none',
         },
       },
     }));

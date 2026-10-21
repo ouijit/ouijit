@@ -1,4 +1,4 @@
-import { setRunnerSandbox, useProjectConfig } from '../../stores/projectDataStore';
+import { setDefaultSandbox, useProjectConfig } from '../../stores/projectDataStore';
 import { NonoSandboxSection } from './NonoSandboxSection';
 import { CustomSandboxSection } from './CustomSandboxSection';
 import { CARD } from './sandboxStyles';
@@ -9,8 +9,8 @@ interface SandboxSectionProps {
 }
 
 export function SandboxSection({ projectPath }: SandboxSectionProps) {
-  const runnerSandbox = useProjectConfig(projectPath)?.runnerSandbox ?? 'none';
-  const runnerOptions = useSandboxOptions(projectPath, runnerSandbox);
+  const defaultSandbox = useProjectConfig(projectPath)?.defaultSandbox ?? 'none';
+  const options = useSandboxOptions(projectPath, defaultSandbox);
 
   return (
     <div className="flex flex-col gap-3">
@@ -21,16 +21,16 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
           <div className="min-w-0 flex-1">
             <div className="text-sm text-text-primary">Default environment</div>
             <div className="mt-0.5 text-xs text-text-tertiary">
-              {runnerOptions.length > 1
-                ? "Run and scripts in a terminal's + menu."
+              {options.length > 1
+                ? "Task terminals, and Run and scripts in a terminal's + menu."
                 : 'Turn on nono or set a Custom command to choose a sandbox.'}
             </div>
           </div>
-          {runnerOptions.length > 1 ? (
+          {options.length > 1 ? (
             <SandboxSegments
-              options={runnerOptions}
-              value={runnerSandbox}
-              onChange={(sandbox) => void setRunnerSandbox(projectPath, sandbox)}
+              options={options}
+              value={defaultSandbox}
+              onChange={(sandbox) => void setDefaultSandbox(projectPath, sandbox)}
             />
           ) : (
             <span className="shrink-0 text-xs text-text-secondary">Host</span>

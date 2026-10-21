@@ -27,13 +27,13 @@ function seed(
     hooks = {},
     scripts = [],
     sandboxes = [],
-    runnerSandbox = 'none',
-  }: { hooks?: ProjectHooks; scripts?: Script[]; sandboxes?: SandboxBackendId[]; runnerSandbox?: SandboxProviderId },
+    defaultSandbox = 'none',
+  }: { hooks?: ProjectHooks; scripts?: Script[]; sandboxes?: SandboxBackendId[]; defaultSandbox?: SandboxProviderId },
 ) {
   useProjectDataStore.setState((s) => ({
     configByProject: {
       ...s.configByProject,
-      [projectPath]: { sandboxStatuses: [], availableSandboxProviders: sandboxes, hooks, runnerSandbox },
+      [projectPath]: { sandboxStatuses: [], availableSandboxProviders: sandboxes, hooks, defaultSandbox },
     },
     scriptsByProject: { ...s.scriptsByProject, [projectPath]: scripts },
   }));
@@ -110,7 +110,7 @@ describe("the terminal's + menu", () => {
       hooks: { run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' } },
       scripts: [lint],
       sandboxes: ['custom'],
-      runnerSandbox: 'custom',
+      defaultSandbox: 'custom',
     });
 
     openAddMenu();
@@ -120,7 +120,7 @@ describe("the terminal's + menu", () => {
     fireEvent.click(screen.getByLabelText('Add panel'));
     fireEvent.mouseEnter(screen.getByText('Default environment').closest('div')!);
     fireEvent.click(await screen.findByRole('button', { name: 'Host' }));
-    await waitFor(() => expect(getProjectConfig(PROJECT)?.runnerSandbox).toBe('none'));
+    await waitFor(() => expect(getProjectConfig(PROJECT)?.defaultSandbox).toBe('none'));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(`runnerSandbox:${PROJECT}`, 'none');
     expect(startRunner).toHaveBeenCalledTimes(1);
 
