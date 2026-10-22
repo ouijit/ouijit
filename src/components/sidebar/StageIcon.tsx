@@ -27,14 +27,13 @@ export function StageIcon({ status }: { status: TaskStatus }) {
             )}
             {status === 'in_review' && (
               <>
-                <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.5" />
                 <path
-                  d="M5.6 8.2l1.7 1.7 3.1-3.3"
+                  d="M1.75 8S4 3.75 8 3.75 14.25 8 14.25 8 12 12.25 8 12.25 1.75 8 1.75 8z"
                   stroke="currentColor"
                   strokeWidth="1.5"
-                  strokeLinecap="round"
                   strokeLinejoin="round"
                 />
+                <circle cx="8" cy="8" r="1.75" fill="currentColor" />
               </>
             )}
             {status === 'done' && (
