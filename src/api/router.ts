@@ -941,8 +941,9 @@ async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
 }
 
 /**
- * Moving or renaming the caller's own task. A one-off hook command is refused:
- * the renderer runs it on the host.
+ * Moving or renaming the caller's own task. The hook that move runs stays the
+ * user's: a one-off command or a different sandbox for it is refused, since
+ * either would let the caller choose what runs on the host.
  */
 function isOwnTaskEdit(
   caller: SandboxCaller,
@@ -953,7 +954,7 @@ function isOwnTaskEdit(
 ): boolean {
   if (caller.access !== 'task' || method !== 'PATCH' || segments[0] !== 'tasks') return false;
   if (segments[2] !== 'status' && segments[2] !== 'name') return false;
-  if (segments[2] === 'status' && body.hookMode === 'command') return false;
+  if (segments[2] === 'status' && (body.hookMode === 'command' || body.hookSandbox !== undefined)) return false;
   const context = getPtyTaskContext(caller.ptyId);
   return !!context && context.projectPath === query.get('project') && String(context.taskId) === segments[1];
 }

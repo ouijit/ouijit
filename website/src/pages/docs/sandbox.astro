@@ -49,7 +49,7 @@ import Docs from '../../layouts/Docs.astro';
   <p>Under <strong>Project Settings &rarr; Sandbox &rarr; Ouijit CLI access</strong>:</p>
   <ul>
     <li><strong>Read only</strong>, the default. A sandboxed command can read its own task and draft pull request and Linear comments.</li>
-    <li><strong>Its own task.</strong> It can also move and rename its own task, so an agent can mark its work ready for review. Moving a task runs that column's hook as usual; a one-off <code>--hook-command</code> is refused.</li>
+    <li><strong>Its own task.</strong> It can also move and rename its own task, so an agent can mark its work ready for review. Moving a task runs that column's hook as usual, where it is set to run; a one-off <code>--hook-command</code> or <code>--sandbox</code> is refused.</li>
     <li><strong>Everything.</strong> It can do anything a host terminal can, which includes having Ouijit run commands on the host. Choose this only for agents you would run unsandboxed anyway.</li>
   </ul>
 
