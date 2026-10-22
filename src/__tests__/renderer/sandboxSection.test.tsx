@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, waitFor, fireEvent, within } from '@testing-library/react';
+import { render, waitFor, fireEvent, screen } from '@testing-library/react';
 
 import { SandboxSection } from '../../components/scripts/SandboxSection';
 import { getProjectConfig } from '../../stores/projectDataStore';
@@ -21,57 +21,56 @@ function setStatuses(statuses: { providerId: SandboxBackendId; available: boolea
 describe('sandbox settings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(window.api.sandbox.nonoConfig).mockResolvedValue({});
     vi.mocked(window.api.sandbox.status).mockResolvedValue([]);
+    vi.mocked(window.api.homePath).mockResolvedValue('/home');
   });
 
-  test('nono is off until turned on, and its settings appear and persist once it is', async () => {
-    vi.mocked(window.api.showFolderPicker).mockResolvedValue({ canceled: false, filePaths: ['/Users/dev/cache'] });
+  test('the default and the CLI access are picked from menus, and a default that cannot run says why', async () => {
     setStatuses([
-      { providerId: 'nono', available: false, detail: 'Off' },
-      { providerId: 'custom', available: false },
+      { providerId: 'nono', available: true },
+      { providerId: 'custom', available: false, detail: 'Set a launcher first.' },
     ]);
-    const { getByRole } = render(<SandboxSection projectPath="/p" />);
-    const nono = within(getByRole('region', { name: 'nono' }));
+    render(<SandboxSection projectPath="/p" />);
+    expect(screen.getByText('Where terminals, hooks and scripts run.')).toBeTruthy();
 
-    const use = await waitFor(() => nono.getByRole('switch', { name: 'Use nono' }));
-    expect(use.getAttribute('aria-checked')).toBe('false');
-    expect(nono.queryByLabelText('Block outbound network')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Default' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Sandbox' }));
+    await waitFor(() => expect(getProjectConfig('/p')?.defaultSandbox).toBe('nono'));
+    expect(window.api.globalSettings.set).toHaveBeenCalledWith('defaultSandbox:/p', 'nono');
 
-    fireEvent.click(use);
-    await waitFor(() =>
-      expect(window.api.sandbox.setNonoConfig).toHaveBeenCalledWith('/p', expect.objectContaining({ enabled: true })),
-    );
-    await waitFor(() => expect(window.api.sandbox.status).toHaveBeenCalledWith('/p'));
+    fireEvent.click(screen.getByRole('button', { name: 'Default' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Custom' }));
+    await waitFor(() => expect(screen.getByText("Custom can't run. Set a launcher first.")).toBeTruthy());
 
-    fireEvent.click(nono.getByLabelText('Block outbound network'));
-    await waitFor(() =>
-      expect(window.api.sandbox.setNonoConfig).toHaveBeenLastCalledWith(
-        '/p',
-        expect.objectContaining({ enabled: true, blockNet: true }),
-      ),
-    );
-    fireEvent.click(nono.getByText('+ Add folder'));
-    await waitFor(() =>
-      expect(window.api.sandbox.setNonoConfig).toHaveBeenLastCalledWith(
-        '/p',
-        expect.objectContaining({ allowPaths: ['/Users/dev/cache'] }),
-      ),
-    );
-    fireEvent.change(nono.getByPlaceholderText('3000'), { target: { value: '8080' } });
-    fireEvent.click(nono.getByText('+ Add'));
-    await waitFor(() =>
-      expect(window.api.sandbox.setNonoConfig).toHaveBeenLastCalledWith(
-        '/p',
-        expect.objectContaining({ openPorts: [8080] }),
-      ),
-    );
+    expect(screen.getByText('Sandboxed commands can read their task and draft comments.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Ouijit CLI access' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Everything' }));
+    await waitFor(() => expect(getProjectConfig('/p')?.sandboxCliAccess).toBe('all'));
+    expect(window.api.globalSettings.set).toHaveBeenCalledWith('sandboxCliAccess:/p', 'all');
+    expect(screen.getByText('Sandboxed commands can make Ouijit run anything on the host.')).toBeTruthy();
   });
 
-  test('a nono that cannot run says why in place of its description', () => {
+  test("the sandbox profile is the project's own file until another is chosen, and Reset goes back to it", async () => {
+    setStatuses([{ providerId: 'nono', available: true }]);
+    vi.mocked(window.api.sandbox.chooseNonoProfile).mockResolvedValue({ path: '/shared/strict.json', own: false });
+    render(<SandboxSection projectPath="/p" />);
+
+    await waitFor(() => expect(screen.getByText('~/.config/nono/profiles/ouijit-p.json')).toBeTruthy());
+    expect(screen.queryByText('Reset')).toBeNull();
+    fireEvent.click(screen.getByText('Open'));
+    expect(window.api.sandbox.openNonoProfile).toHaveBeenCalledWith('/p');
+
+    fireEvent.click(screen.getByText('Change…'));
+    await waitFor(() => expect(screen.getByText('/shared/strict.json')).toBeTruthy());
+    fireEvent.click(screen.getByText('Reset'));
+    await waitFor(() => expect(screen.getByText('~/.config/nono/profiles/ouijit-p.json')).toBeTruthy());
+    expect(window.api.sandbox.resetNonoProfile).toHaveBeenCalledWith('/p');
+  });
+
+  test('a sandbox that cannot run says why in place of its profile', () => {
     setStatuses([{ providerId: 'nono', available: false, detail: 'Not installed' }]);
-    const { getByRole } = render(<SandboxSection projectPath="/p" />);
-    expect(within(getByRole('region', { name: 'nono' })).getByText('Not installed')).toBeTruthy();
+    render(<SandboxSection projectPath="/p" />);
+    expect(screen.getByText('Not installed')).toBeTruthy();
   });
 
   test("Custom's launcher edits inline, shows the main-process verdict, and refreshes what can run", async () => {
@@ -80,8 +79,8 @@ describe('sandbox settings', () => {
     vi.mocked(window.api.sandbox.setCustomConfig).mockImplementation(async (_p, cfg) =>
       cfg.command === 'scripts/sandbox' ? { success: false, error: 'refused by the main process' } : { success: true },
     );
-    const { getByRole } = render(<SandboxSection projectPath="/p" />);
-    const custom = within(getByRole('region', { name: 'Custom' }));
+    render(<SandboxSection projectPath="/p" />);
+    const custom = screen;
     expect(custom.getByText('Not set')).toBeTruthy();
 
     fireEvent.click(await waitFor(() => custom.getByText('+ Configure')));
@@ -101,17 +100,5 @@ describe('sandbox settings', () => {
     fireEvent.click(custom.getByText('Clear'));
     await waitFor(() => expect(window.api.sandbox.setCustomConfig).toHaveBeenLastCalledWith('/p', {}));
     await waitFor(() => expect(custom.getByText('Not set')).toBeTruthy());
-  });
-
-  test('the default environment is Host until a sandbox can run, then can be set to one', async () => {
-    setStatuses([{ providerId: 'custom', available: false }]);
-    const { getByText, getByRole, rerender } = render(<SandboxSection projectPath="/p" />);
-    expect(getByText('Turn on nono or set a Custom command to choose a sandbox.')).toBeTruthy();
-
-    setStatuses([{ providerId: 'custom', available: true }]);
-    rerender(<SandboxSection projectPath="/p" />);
-    fireEvent.click(getByRole('button', { name: 'Custom', pressed: false }));
-    await waitFor(() => expect(getProjectConfig('/p')?.defaultSandbox).toBe('custom'));
-    expect(window.api.globalSettings.set).toHaveBeenCalledWith('runnerSandbox:/p', 'custom');
   });
 });

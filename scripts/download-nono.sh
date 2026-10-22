@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-NONO_VERSION="0.66.0"
+NONO_VERSION="0.80.0"
 RESOURCES="$(cd "$(dirname "$0")/.." && pwd)/resources"
 DEST="$RESOURCES/bin"
 
@@ -32,7 +32,7 @@ TARGET="${RUST_ARCH}-${RUST_OS}"
 if [ -x "$DEST/nono" ] && "$DEST/nono" --version 2>/dev/null | grep -q "$NONO_VERSION"; then
   echo "nono $NONO_VERSION already present"
 else
-  URL="https://github.com/always-further/nono/releases/download/v${NONO_VERSION}/nono-v${NONO_VERSION}-${TARGET}.tar.gz"
+  URL="https://github.com/nolabs-ai/nono/releases/download/v${NONO_VERSION}/nono-v${NONO_VERSION}-${TARGET}.tar.gz"
 
   echo "Downloading nono v${NONO_VERSION} (${TARGET})..."
   mkdir -p "$DEST"
@@ -65,24 +65,25 @@ fi
 # copy-install performs no wiring, and the record would otherwise bake this
 # machine's paths into every install.
 SHARE="$RESOURCES/share"
-PACKS_DIR="$SHARE/nono/packages/always-further"
+PACKS_DIR="$SHARE/nono/packages/nolabs-ai"
 LOCKFILE="$SHARE/nono/packages/lockfile.json"
 PACKS="claude codex opencode pi"
 if [ -f "$LOCKFILE" ] && [ -d "$PACKS_DIR/claude" ] && [ -d "$PACKS_DIR/codex" ] && [ -d "$PACKS_DIR/opencode" ] && [ -d "$PACKS_DIR/pi" ]; then
   echo "nono agent packs already vendored"
 else
   echo "Vendoring nono agent packs into $SHARE/nono/packages..."
+  rm -rf "$SHARE/nono/packages"
   mkdir -p "$PACKS_DIR"
   PACKS_TMP="$(mktemp -d)"
   trap 'rm -rf "$PACKS_TMP"' EXIT
   for pack in $PACKS; do
-    if env -u XDG_CONFIG_HOME HOME="$PACKS_TMP" "$DEST/nono" pull "always-further/$pack" --silent; then
+    if env -u XDG_CONFIG_HOME HOME="$PACKS_TMP" "$DEST/nono" pull "nolabs-ai/$pack" --silent; then
       # Replace, don't merge: cp -R into an existing dir keeps files deleted
       # upstream, leaving the vendored tree out of sync with the lockfile.
       rm -rf "$PACKS_DIR/$pack"
-      cp -R "$PACKS_TMP/.config/nono/packages/always-further/$pack" "$PACKS_DIR/"
+      cp -R "$PACKS_TMP/.config/nono/packages/nolabs-ai/$pack" "$PACKS_DIR/"
     else
-      echo "Warning: failed to vendor always-further/$pack; first launch will pull it at runtime"
+      echo "Warning: failed to vendor nolabs-ai/$pack; first launch will pull it at runtime"
     fi
   done
   TMP_LOCKFILE="$PACKS_TMP/.config/nono/packages/lockfile.json"

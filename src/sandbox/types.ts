@@ -34,6 +34,20 @@ export function defaultSandboxSettingKey(projectPath: string): string {
   return `defaultSandbox:${projectPath}`;
 }
 
+/**
+ * How much of the Ouijit API a sandboxed command may use: read its own task,
+ * also move and rename it, or everything a host terminal can.
+ */
+export type SandboxCliAccess = 'read' | 'task' | 'all';
+
+export function isSandboxCliAccess(value: unknown): value is SandboxCliAccess {
+  return value === 'read' || value === 'task' || value === 'all';
+}
+
+export function sandboxCliAccessSettingKey(projectPath: string): string {
+  return `sandboxCliAccess:${projectPath}`;
+}
+
 /** The lifecycle hooks that run in a task terminal of their own, so can run sandboxed. */
 export const SANDBOXABLE_HOOK_TYPES: readonly string[] = ['start', 'continue', 'review', 'done'];
 
@@ -82,24 +96,11 @@ export interface SandboxLaunch {
   env: Record<string, string>;
 }
 
-/** Persisted per-project nono configuration. */
-export interface NonoConfig {
-  /** Offered and usable in this project only once turned on. */
-  enabled?: boolean;
-  /** Deny outbound network (`--block-net`); the hook port stays open. */
-  blockNet?: boolean;
-  /** Extra localhost ports to open beyond the hook server. */
-  openPorts?: number[];
-  /** Extra folders granted read+write beyond the derived worktree + git grants. */
-  allowPaths?: string[];
-  /**
-   * Full escape hatch: a raw nono profile (JSON text) that replaces Ouijit's
-   * managed `ouijit` profile for this project — the developer owns the sandbox
-   * policy. Blank/absent means the managed profile is used. Ouijit still layers
-   * the per-task grants (worktree, git, hook port, caches) on top at spawn time
-   * regardless of what this contains.
-   */
-  profile?: string;
+/** The nono profile file a project's sandbox runs under. */
+export interface NonoProfile {
+  path: string;
+  /** False when the user pointed the project at a file other than its own. */
+  own: boolean;
 }
 
 /** A wrapper backend refused to spawn (`error`), or its launcher exited non-zero before the shell started. */

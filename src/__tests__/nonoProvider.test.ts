@@ -8,7 +8,6 @@ import type { SandboxLaunch, SandboxSpawnContext } from '../sandbox/types';
 const isNonoInstalled = vi.fn<() => Promise<boolean>>();
 const checkPlatformSupport = vi.fn<() => { supported: boolean; reason?: string }>();
 const getMainGitDir = vi.fn<(wt: string) => Promise<string | null>>();
-const getNonoConfig = vi.fn();
 const ensureUnionProfile = vi.fn<() => Promise<void>>();
 const getNonoPath = vi.fn<() => string>();
 
@@ -24,15 +23,10 @@ vi.mock('../sandbox/gitDir', () => ({
   getMainGitDir: (wt: string) => getMainGitDir(wt),
 }));
 vi.mock('../sandbox/nono/config', () => ({
-  getNonoConfig: (p: string) => getNonoConfig(p),
+  getNonoProfile: () => Promise.resolve({ path: '/profiles/ouijit-proj.json', own: true }),
 }));
-// argv.ts (used for real) imports OUIJIT_PROFILE_NAME from here, so the mock
-// must export it alongside the install hook.
 vi.mock('../sandbox/nono/profile', () => ({
-  OUIJIT_PROFILE_NAME: 'ouijit',
   ensureUnionProfile: () => ensureUnionProfile(),
-  ensureProjectProfile: (_p: string, override: string | undefined) =>
-    Promise.resolve(override ? 'ouijit-local' : 'ouijit'),
 }));
 vi.mock('../paths', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../paths')>()),
@@ -54,7 +48,6 @@ beforeEach(() => {
   checkPlatformSupport.mockReturnValue({ supported: true });
   isNonoInstalled.mockResolvedValue(true);
   getMainGitDir.mockResolvedValue('/Users/dev/code/proj/.git');
-  getNonoConfig.mockResolvedValue({ enabled: true });
   ensureUnionProfile.mockResolvedValue(undefined);
   getNonoPath.mockReturnValue('/opt/bin/nono');
 });
@@ -93,12 +86,7 @@ describe('nonoProvider', () => {
     await expect(nonoProvider.prepare(ctx)).rejects.toThrow(/not installed/i);
   });
 
-  test('is offered, and spawns, only once the project turns it on', async () => {
-    getNonoConfig.mockResolvedValue({});
-    expect(await nonoProvider.getStatus('/proj')).toMatchObject({ available: false, detail: 'Off' });
-    await expect(nonoProvider.prepare(ctx)).rejects.toThrow(/off for this project/);
-
-    getNonoConfig.mockResolvedValue({ enabled: true });
+  test('is offered, and spawns, wherever it is installed and supported', async () => {
     expect(await nonoProvider.getStatus('/proj')).toMatchObject({ available: true, detail: 'Ready' });
     await expect(nonoProvider.prepare(ctx)).resolves.toBeTruthy();
   });
@@ -112,7 +100,7 @@ describe('nonoProvider', () => {
     const wrapped = await nonoProvider.wrapLaunch(launch, ctx);
     expect(wrapped.file).toBe('/opt/bin/nono');
     expect(wrapped.args[0]).toBe('run');
-    expect(wrapped.args.slice(0, 3)).toEqual(['run', '--profile', 'ouijit']);
+    expect(wrapped.args.slice(0, 3)).toEqual(['run', '--profile', '/profiles/ouijit-proj.json']);
     // Grants derived from the spawn context.
     expect(wrapped.args).toContain('/Users/dev/wt/T-3'); // worktree
     expect(wrapped.args).toContain('/Users/dev/code/proj/.git'); // main git dir (not the worktree's)

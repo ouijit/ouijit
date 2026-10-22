@@ -68,8 +68,22 @@ import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
-import type { CliHookControl, CliPanelKind, CliTagOp, CliTagResponse, SandboxProviderId } from '../types';
-import { SANDBOXABLE_HOOK_TYPES, SANDBOX_PROVIDER_IDS, isActiveSandbox, isSandboxProviderId } from '../sandbox/types';
+import type {
+  CliHookControl,
+  CliPanelKind,
+  CliTagOp,
+  CliTagResponse,
+  SandboxCliAccess,
+  SandboxProviderId,
+} from '../types';
+import {
+  SANDBOXABLE_HOOK_TYPES,
+  SANDBOX_PROVIDER_IDS,
+  isActiveSandbox,
+  isSandboxCliAccess,
+  isSandboxProviderId,
+  sandboxCliAccessSettingKey,
+} from '../sandbox/types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
@@ -880,6 +894,42 @@ const routes: Route[] = [
   ),
 ];
 
+// ── Sandbox CLI access ───────────────────────────────────────────────
+
+interface SandboxCaller extends AuthContext {
+  access: SandboxCliAccess;
+}
+
+/**
+ * A sandboxed terminal's access comes from its project's setting. At
+ * "Everything" it is treated as a host caller throughout, handlers included.
+ */
+async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
+  if (auth.scope === 'host') return { ...auth, access: 'all' };
+  const context = getPtyTaskContext(auth.ptyId);
+  const stored = context ? await getGlobalSetting(sandboxCliAccessSettingKey(context.projectPath)) : undefined;
+  const access = isSandboxCliAccess(stored) ? stored : 'read';
+  return access === 'all' ? { ...auth, scope: 'host', access } : { ...auth, access };
+}
+
+/**
+ * Moving or renaming the caller's own task. A one-off hook command is refused:
+ * the renderer runs it on the host.
+ */
+function isOwnTaskEdit(
+  caller: SandboxCaller,
+  method: string,
+  segments: string[],
+  query: URLSearchParams,
+  body: Record<string, unknown>,
+): boolean {
+  if (caller.access !== 'task' || method !== 'PATCH' || segments[0] !== 'tasks') return false;
+  if (segments[2] !== 'status' && segments[2] !== 'name') return false;
+  if (segments[2] === 'status' && body.hookMode === 'command') return false;
+  const context = getPtyTaskContext(caller.ptyId);
+  return !!context && context.projectPath === query.get('project') && String(context.taskId) === segments[1];
+}
+
 // ── Main handler ─────────────────────────────────────────────────────
 
 export function handleApiRequest(req: IncomingMessage, res: ServerResponse, window: BrowserWindow): void {
@@ -940,17 +990,6 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     return;
   }
 
-  // Sandbox-scoped callers are read-only: they may never reach a mutating
-  // route, even one that opts into sandbox scope. Writes require host scope.
-  if (matched.route.mutating && auth.scope !== 'host') {
-    json(res, 403, { error: 'Forbidden' });
-    return;
-  }
-  if (matched.route.minScope === 'host' && auth.scope !== 'host') {
-    json(res, 403, { error: 'Forbidden' });
-    return;
-  }
-
   let body: Record<string, unknown> = {};
   if (method !== 'GET' && method !== 'DELETE') {
     try {
@@ -960,6 +999,13 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       json(res, 400, { error: 'Invalid JSON body' });
       return;
     }
+  }
+
+  const caller = await withCliAccess(auth);
+  const privileged = matched.route.mutating || matched.route.minScope === 'host';
+  if (privileged && caller.scope !== 'host' && !isOwnTaskEdit(caller, method, segments, url.searchParams, body)) {
+    json(res, 403, { error: 'Forbidden' });
+    return;
   }
 
   // A status PATCH to in_progress/in_review/done fires a renderer-side hook,
@@ -980,7 +1026,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
   }
 
   try {
-    const result = await matched.route.handler({ method, segments, query: url.searchParams, body, auth });
+    const result = await matched.route.handler({ method, segments, query: url.searchParams, body, auth: caller });
     json(res, 200, { data: result });
 
     // Notify renderer after mutating operations

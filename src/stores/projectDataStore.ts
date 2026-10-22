@@ -4,6 +4,7 @@ import type {
   HookType,
   ProjectHooks,
   SandboxBackendId,
+  SandboxCliAccess,
   SandboxProviderId,
   SandboxProviderStatus,
   Script,
@@ -11,7 +12,12 @@ import type {
   TaskStatus,
   TaskWithWorkspace,
 } from '../types';
-import { isSandboxProviderId, defaultSandboxSettingKey } from '../types';
+import {
+  isSandboxCliAccess,
+  isSandboxProviderId,
+  defaultSandboxSettingKey,
+  sandboxCliAccessSettingKey,
+} from '../types';
 import { useAppStore } from './appStore';
 import { useProjectStore } from './projectStore';
 
@@ -22,6 +28,7 @@ export interface ProjectConfig {
   hooks: ProjectHooks;
   /** Where task terminals that run no hook, and Run and scripts from a terminal's + menu, run unless told otherwise. */
   defaultSandbox: SandboxProviderId;
+  sandboxCliAccess: SandboxCliAccess;
 }
 
 interface ProjectDataState {
@@ -77,10 +84,11 @@ export async function loadTasks(projectPath: string): Promise<void> {
 export async function loadProjectConfig(projectPath: string): Promise<void> {
   const isLatest = configLoads.begin(projectPath);
   try {
-    const [statuses, hooks, defaultSandbox] = await Promise.all([
+    const [statuses, hooks, defaultSandbox, sandboxCliAccess] = await Promise.all([
       window.api.sandbox.status(projectPath),
       window.api.hooks.get(projectPath),
       window.api.globalSettings.get(defaultSandboxSettingKey(projectPath)),
+      window.api.globalSettings.get(sandboxCliAccessSettingKey(projectPath)),
     ]);
     if (!isLatest()) return;
     setConfig(projectPath, {
@@ -88,6 +96,7 @@ export async function loadProjectConfig(projectPath: string): Promise<void> {
       availableSandboxProviders: availableBackends(statuses),
       hooks,
       defaultSandbox: isSandboxProviderId(defaultSandbox) ? defaultSandbox : 'none',
+      sandboxCliAccess: isSandboxCliAccess(sandboxCliAccess) ? sandboxCliAccess : 'read',
     });
   } catch {
     // Swallowed: with no config the cards render without sandbox and hook
@@ -154,6 +163,11 @@ export async function projectDefaultSandbox(projectPath: string): Promise<Sandbo
 export async function setDefaultSandbox(projectPath: string, sandbox: SandboxProviderId): Promise<void> {
   const { success } = await window.api.globalSettings.set(defaultSandboxSettingKey(projectPath), sandbox);
   if (success) patchConfig(projectPath, () => ({ defaultSandbox: sandbox }));
+}
+
+export async function setSandboxCliAccess(projectPath: string, access: SandboxCliAccess): Promise<void> {
+  const { success } = await window.api.globalSettings.set(sandboxCliAccessSettingKey(projectPath), access);
+  if (success) patchConfig(projectPath, () => ({ sandboxCliAccess: access }));
 }
 
 export async function saveScript(projectPath: string, script: Script): Promise<Script | null> {

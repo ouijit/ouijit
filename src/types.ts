@@ -50,7 +50,7 @@ import type { ActiveSession } from './ptyManager';
 import type {
   SandboxProviderId,
   SandboxProviderStatus,
-  NonoConfig,
+  NonoProfile,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
 } from './sandbox/types';
@@ -80,17 +80,21 @@ export type {
   SandboxProviderId,
   SandboxBackendId,
   SandboxProviderStatus,
-  NonoConfig,
+  NonoProfile,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
+  SandboxCliAccess,
 } from './sandbox/types';
 export {
   SANDBOX_BACKEND_IDS,
   SANDBOX_LABELS,
+  SANDBOX_PROVIDER_IDS,
   SANDBOXABLE_HOOK_TYPES,
   isActiveSandbox,
   isSandboxProviderId,
   defaultSandboxSettingKey,
+  sandboxCliAccessSettingKey,
+  isSandboxCliAccess,
 } from './sandbox/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
 export type {
@@ -973,8 +977,11 @@ export interface CliTagsAPI {
 export interface SandboxAPI {
   /** Availability of every registered sandbox backend. */
   status(projectPath: string): Promise<SandboxProviderStatus[]>;
-  nonoConfig(projectPath: string): Promise<NonoConfig>;
-  setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }>;
+  nonoProfile(projectPath: string): Promise<NonoProfile>;
+  /** Asks for a profile file; null when the dialog is cancelled. */
+  chooseNonoProfile(projectPath: string): Promise<NonoProfile | null>;
+  resetNonoProfile(projectPath: string): Promise<NonoProfile>;
+  openNonoProfile(projectPath: string): Promise<{ success: boolean; error?: string }>;
   customConfig(projectPath: string): Promise<CustomSandboxConfig>;
   setCustomConfig(projectPath: string, config: CustomSandboxConfig): Promise<{ success: boolean; error?: string }>;
 }

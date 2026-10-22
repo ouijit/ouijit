@@ -161,8 +161,10 @@ const mockApi = {
   },
   sandbox: {
     status: vi.fn().mockResolvedValue([]),
-    nonoConfig: vi.fn().mockResolvedValue({}),
-    setNonoConfig: vi.fn().mockResolvedValue({ success: true }),
+    nonoProfile: vi.fn().mockResolvedValue({ path: '/home/.config/nono/profiles/ouijit-p.json', own: true }),
+    chooseNonoProfile: vi.fn().mockResolvedValue(null),
+    resetNonoProfile: vi.fn().mockResolvedValue({ path: '/home/.config/nono/profiles/ouijit-p.json', own: true }),
+    openNonoProfile: vi.fn().mockResolvedValue({ success: true }),
     customConfig: vi.fn().mockResolvedValue({}),
     setCustomConfig: vi.fn().mockResolvedValue({ success: true }),
   },

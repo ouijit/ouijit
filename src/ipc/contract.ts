@@ -85,7 +85,7 @@ import type { StoredLens } from '../lens/readLens';
 import type { LensChangedPayload } from '../lens/subjectKeys';
 import type {
   SandboxProviderStatus,
-  NonoConfig,
+  NonoProfile,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
 } from '../sandbox/types';
@@ -268,8 +268,10 @@ export interface IpcInvokeContract {
 
   // ── Sandbox (cross-provider) ─────────────────────────────────────────
   'sandbox:status': { args: [projectPath: string]; return: SandboxProviderStatus[] };
-  'sandbox:nono-config': { args: [projectPath: string]; return: NonoConfig };
-  'sandbox:set-nono-config': { args: [projectPath: string, config: NonoConfig]; return: { success: boolean } };
+  'sandbox:nono-profile': { args: [projectPath: string]; return: NonoProfile };
+  'sandbox:choose-nono-profile': { args: [projectPath: string]; return: NonoProfile | null };
+  'sandbox:reset-nono-profile': { args: [projectPath: string]; return: NonoProfile };
+  'sandbox:open-nono-profile': { args: [projectPath: string]; return: { success: boolean; error?: string } };
   'sandbox:custom-config': { args: [projectPath: string]; return: CustomSandboxConfig };
   'sandbox:set-custom-config': {
     args: [projectPath: string, config: CustomSandboxConfig];

@@ -18,7 +18,6 @@ import type {
   Script,
   CliHookControl,
   TaskWithWorkspace,
-  NonoConfig,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
   CliPanelOp,
@@ -302,9 +301,10 @@ contextBridge.exposeInMainWorld('api', {
 
   sandbox: {
     status: (projectPath: string) => typedInvoke('sandbox:status', projectPath),
-    nonoConfig: (projectPath: string) => typedInvoke('sandbox:nono-config', projectPath),
-    setNonoConfig: (projectPath: string, config: NonoConfig) =>
-      typedInvoke('sandbox:set-nono-config', projectPath, config),
+    nonoProfile: (projectPath: string) => typedInvoke('sandbox:nono-profile', projectPath),
+    chooseNonoProfile: (projectPath: string) => typedInvoke('sandbox:choose-nono-profile', projectPath),
+    resetNonoProfile: (projectPath: string) => typedInvoke('sandbox:reset-nono-profile', projectPath),
+    openNonoProfile: (projectPath: string) => typedInvoke('sandbox:open-nono-profile', projectPath),
     customConfig: (projectPath: string) => typedInvoke('sandbox:custom-config', projectPath),
     setCustomConfig: (projectPath: string, config: CustomSandboxConfig) =>
       typedInvoke('sandbox:set-custom-config', projectPath, config),

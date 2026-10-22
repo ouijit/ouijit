@@ -116,7 +116,9 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
           </section>
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Sandbox</h2>
-            <p className="text-xs text-text-tertiary mb-4">Sandboxes this project can run things in.</p>
+            <p className="text-xs text-text-tertiary mb-4">
+              Where this project runs things, and what a sandbox can reach.
+            </p>
             <SandboxSection projectPath={projectPath} />
           </section>
           {linearEnabled && (

@@ -33,7 +33,13 @@ function seed(
   useProjectDataStore.setState((s) => ({
     configByProject: {
       ...s.configByProject,
-      [projectPath]: { sandboxStatuses: [], availableSandboxProviders: sandboxes, hooks, defaultSandbox },
+      [projectPath]: {
+        sandboxStatuses: [],
+        availableSandboxProviders: sandboxes,
+        hooks,
+        defaultSandbox,
+        sandboxCliAccess: 'read',
+      },
     },
     scriptsByProject: { ...s.scriptsByProject, [projectPath]: scripts },
   }));

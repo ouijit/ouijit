@@ -24,6 +24,7 @@ export function seedProject(
           availableSandboxProviders: availableBackends(statuses),
           hooks: data.hooks ?? {},
           defaultSandbox: data.defaultSandbox ?? 'none',
+          sandboxCliAccess: 'read',
         },
       },
     }));

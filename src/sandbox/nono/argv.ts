@@ -1,7 +1,6 @@
 import * as path from 'node:path';
-import type { NonoConfig, SandboxLaunch } from '../types';
+import type { SandboxLaunch } from '../types';
 import { GIT_WRITABLE_OVERLAY_DIRS } from '../types';
-import { OUIJIT_PROFILE_NAME } from './profile';
 
 /** Everything the argv builder needs, resolved at spawn time. */
 export interface NonoArgvContext {
@@ -32,12 +31,8 @@ export interface NonoArgvContext {
    * with `nono why`. Unset when nono is user-installed (already on PATH).
    */
   nonoBinPath?: string;
-  /**
-   * Profile to run under. Defaults to Ouijit's managed `ouijit` profile; a
-   * per-project override profile (the profile editor) replaces it by name.
-   */
-  profileName?: string;
-  config?: NonoConfig;
+  /** The project's profile, by file path. */
+  profile: string;
 }
 
 /**
@@ -65,27 +60,16 @@ export interface NonoArgvContext {
  */
 export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: NonoArgvContext): SandboxLaunch {
   const git = ctx.mainGitDir;
-  const profile = ctx.profileName ?? OUIJIT_PROFILE_NAME;
-  const args: string[] = ['run', '--profile', profile, '--startup-timeout', '0', '--allow-cwd'];
+  const args: string[] = ['run', '--profile', ctx.profile, '--startup-timeout', '0', '--allow-cwd'];
 
-  if (ctx.config?.blockNet) args.push('--block-net');
-
-  // Always open the hook-server port: harmless when network is allowed,
-  // essential when it is blocked (the agent-status pipeline depends on it).
+  // Harmless when the profile allows network, and what keeps agent status
+  // reporting when it blocks it.
   args.push('--open-port', String(ctx.apiPort));
-  for (const port of ctx.config?.openPorts ?? []) {
-    args.push('--open-port', String(port));
-  }
 
   args.push('--allow', ctx.worktreePath);
   // Per-project package-manager cache dir, so installs write their caches here
   // instead of failing on the read-only home caches.
   if (ctx.cacheDir) args.push('--allow', ctx.cacheDir);
-  // Extra user-granted folders (read+write), e.g. a shared cache or a monorepo
-  // sibling that lives outside the worktree.
-  for (const extra of ctx.config?.allowPaths ?? []) {
-    args.push('--allow', extra);
-  }
   args.push('--read', git);
   for (const dir of GIT_WRITABLE_OVERLAY_DIRS) {
     args.push('--write', path.join(git, dir));

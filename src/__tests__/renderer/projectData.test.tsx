@@ -97,13 +97,13 @@ describe('project config', () => {
   test('is loaded per project, keeps what it had when a load fails, and reflects a saved or deleted hook', async () => {
     const statuses = [
       { providerId: 'nono' as const, available: true },
-      { providerId: 'custom' as const, available: false, detail: 'Set a sandbox command to use it.' },
+      { providerId: 'custom' as const, available: false, detail: 'Set a launcher first.' },
     ];
     const editor = { id: 'e', type: 'editor' as const, name: 'edit', command: 'code' };
     vi.mocked(window.api.sandbox.status).mockResolvedValueOnce(statuses).mockResolvedValueOnce([]);
     vi.mocked(window.api.hooks.get).mockResolvedValueOnce({ editor }).mockResolvedValueOnce({});
     vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) =>
-      key === 'defaultSandbox:/a' ? 'nono' : undefined,
+      key === 'defaultSandbox:/a' ? 'nono' : key === 'sandboxCliAccess:/a' ? 'task' : undefined,
     );
 
     await loadProjectConfig('/a');
@@ -113,8 +113,14 @@ describe('project config', () => {
       availableSandboxProviders: ['nono'],
       hooks: { editor },
       defaultSandbox: 'nono',
+      sandboxCliAccess: 'task',
     });
-    expect(getProjectConfig('/b')).toMatchObject({ availableSandboxProviders: [], hooks: {}, defaultSandbox: 'none' });
+    expect(getProjectConfig('/b')).toMatchObject({
+      availableSandboxProviders: [],
+      hooks: {},
+      defaultSandbox: 'none',
+      sandboxCliAccess: 'read',
+    });
 
     vi.mocked(window.api.sandbox.status).mockRejectedValueOnce(new Error('boom'));
     await loadProjectConfig('/a');

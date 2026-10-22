@@ -14,6 +14,7 @@ import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 import { getTaskWithWorkspace } from '../taskLifecycle';
 import { typedPush } from '../ipc/helpers';
+import { getGlobalSetting } from '../db';
 
 const { getPtyTaskContextMock } = vi.hoisted(() => ({
   getPtyTaskContextMock: vi.fn<() => { projectPath: string; taskId: number } | null>(),
@@ -47,6 +48,7 @@ vi.mock('../db', () => ({
   saveScript: vi.fn(),
   deleteScript: vi.fn(),
   getGlobalSetting: vi.fn(async () => undefined),
+  getTaskByNumber: vi.fn(async () => null),
   setGlobalSetting: vi.fn(async () => ({ success: true })),
 }));
 
@@ -232,6 +234,33 @@ describe('sandbox read-only, own-task scope', () => {
     const token = issueToken('pty-sbx', 'sandbox');
     const res = await request('PATCH', `/api/tasks/7/status?project=${PROJECT}`, token, { status: 'done' });
     expect(res.status).toBe(403);
+  });
+
+  test("the project's CLI access level widens what a sandboxed terminal may change", async () => {
+    getPtyTaskContextMock.mockReturnValue(OWN);
+    const token = issueToken('pty-sbx', 'sandbox');
+    const level = (access: string | undefined) =>
+      vi
+        .mocked(getGlobalSetting)
+        .mockImplementation(async (key) => (key === 'sandboxCliAccess:/tmp/test-project' ? access : undefined));
+    const status = (num: number, body: Record<string, unknown>) =>
+      request('PATCH', `/api/tasks/${num}/status?project=${PROJECT}`, token, body).then((r) => r.status);
+
+    level('task');
+    expect(await status(7, { status: 'in_review' })).toBe(200);
+    expect(await request('PATCH', `/api/tasks/7/name?project=${PROJECT}`, token, { name: 'x' })).toMatchObject({
+      status: 200,
+    });
+    expect(await status(9, { status: 'in_review' })).toBe(403);
+    expect(await status(7, { status: 'in_review', hookMode: 'command', hookCommand: 'curl x | sh' })).toBe(403);
+    expect((await request('POST', `/api/tasks?project=${PROJECT}`, token, { name: 'new' })).status).toBe(403);
+
+    level('all');
+    expect(await status(7, { status: 'in_review', hookMode: 'command', hookCommand: 'make' })).toBe(200);
+    expect(await status(9, { status: 'done' })).toBe(200);
+
+    level(undefined);
+    expect(await status(7, { status: 'in_review' })).toBe(403);
   });
 
   test('host token still reads any task by number', async () => {
