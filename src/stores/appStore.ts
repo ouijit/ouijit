@@ -23,6 +23,10 @@ export type ProjectView =
   | Extract<Selection, { kind: 'terminal' }>
   | { kind: 'page'; projectPath: string; page: 'board' };
 
+function isSettings(selection: Selection): boolean {
+  return selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
+}
+
 function isProjectView(selection: Selection): selection is ProjectView {
   return selection.kind === 'terminal' || (selection.kind === 'page' && selection.page === 'board');
 }
@@ -64,6 +68,8 @@ interface AppStoreState {
   taskCacheByProject: Record<string, TaskWithWorkspace[]>;
   /** Each project's last board or terminal stack. */
   viewByProject: Record<string, ProjectView>;
+  /** What was on screen when settings opened, for leaving them. */
+  beforeSettings: Selection | null;
 }
 
 interface AppStoreActions {
@@ -88,6 +94,8 @@ interface AppStoreActions {
   /** Shows the project's most recently used terminal, or its board when it has none. */
   showProjectTerminals: (projectPath: string) => void;
   openPage: (projectPath: string, page: ProjectPage) => void;
+  /** Back to what settings were opened over, while it still exists. */
+  leaveSettings: () => void;
   /** The project's last board or terminal stack, while that stack still has terminals. */
   projectView: (projectPath: string) => ProjectView | null;
   rememberViews: (views: ProjectView[]) => void;
@@ -180,6 +188,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   homeRecents: null,
   taskCacheByProject: {},
   viewByProject: {},
+  beforeSettings: null,
 
   setProjects: (projects) => {
     const activeProjectData = projectAt({ projects, cloneJobs: get().cloneJobs }, get().activeProjectPath);
@@ -207,8 +216,10 @@ export const useAppStore = create<AppStore>()((set, get) => ({
 
   select: (selection) => {
     const activeProjectData = projectAt(get(), selectionPath(selection));
+    const current = get().selection;
     set({
       selection,
+      ...(isSettings(selection) && !isSettings(current) && { beforeSettings: current }),
       activeProjectData,
       activeProjectPath: activeProjectData?.path ?? null,
       ...(isProjectView(selection) && {
@@ -239,6 +250,17 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   },
 
   openPage: (projectPath, page) => get().select({ kind: 'page', projectPath, page }),
+
+  leaveSettings: () => {
+    const { selection, beforeSettings } = get();
+    const gone =
+      !beforeSettings ||
+      (beforeSettings.kind === 'terminal' &&
+        stackMembers(useTerminalStore.getState(), beforeSettings.stack).length === 0);
+    if (!gone) get().select(beforeSettings);
+    else if (selection.kind === 'page') get().showProjectTerminals(selection.projectPath);
+    else get().select({ kind: 'none' });
+  },
 
   projectView: (projectPath) => {
     const view = get().viewByProject[projectPath];

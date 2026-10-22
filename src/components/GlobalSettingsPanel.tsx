@@ -58,7 +58,7 @@ export function GlobalSettingsPanel() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') useAppStore.getState().select({ kind: 'none' });
+      if (e.key === 'Escape') useAppStore.getState().leaveSettings();
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);

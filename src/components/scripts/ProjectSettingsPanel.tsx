@@ -40,7 +40,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
     void useWorktreeSettingsStore.getState().loadFor(projectPath);
   }, [projectPath]);
 
-  useEscape(useCallback(() => useAppStore.getState().showProjectTerminals(projectPath), [projectPath]));
+  useEscape(useCallback(() => useAppStore.getState().leaveSettings(), []));
 
   return (
     <div

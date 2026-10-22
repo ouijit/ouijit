@@ -160,9 +160,31 @@ export function TitleBar() {
           </Tooltip>
         )}
         {project && offersCreation && (
-          <Tooltip text="New task" placement="bottom-end">
+          <Tooltip text="New task" placement="bottom">
             <button className={raisedButton} aria-label="New task" onClick={() => openTaskComposer()}>
               <Icon name="plus" />
+            </button>
+          </Tooltip>
+        )}
+        {project && offersCreation && (
+          <Tooltip text="Project settings" placement="bottom-end">
+            <button
+              className={raisedButton}
+              aria-label="Project settings"
+              onClick={() => useAppStore.getState().openPage(project.path, 'settings')}
+            >
+              <Icon name="gear" />
+            </button>
+          </Tooltip>
+        )}
+        {onSettings && (
+          <Tooltip text="Close settings" placement="bottom-end">
+            <button
+              className={raisedButton}
+              aria-label="Close settings"
+              onClick={() => useAppStore.getState().leaveSettings()}
+            >
+              <Icon name="x" />
             </button>
           </Tooltip>
         )}

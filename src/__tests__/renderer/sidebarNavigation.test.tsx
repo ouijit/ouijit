@@ -194,11 +194,15 @@ describe('the sidebar is the navigation', () => {
     expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: ALPHA.path, page: 'board' });
     expect(screen.getByRole('banner').textContent).toContain('AlphaBoard');
     expect(within(screen.getByRole('banner')).getByLabelText('New terminal')).toBeTruthy();
-    act(() => useAppStore.getState().openPage(ALPHA.path, 'settings'));
-    // Settings is for configuring; nothing is made from it.
-    expect(within(screen.getByRole('banner')).queryByLabelText('New terminal')).toBeNull();
-    expect(within(screen.getByRole('banner')).queryByLabelText('New task')).toBeNull();
-    act(() => useAppStore.getState().openPage(ALPHA.path, 'board'));
+    // Settings open from the title bar and close back to where they were; nothing is made from them.
+    const banner = () => within(screen.getByRole('banner'));
+    fireEvent.click(banner().getByLabelText('Project settings'));
+    expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: ALPHA.path, page: 'settings' });
+    expect(banner().queryByLabelText('New terminal')).toBeNull();
+    expect(banner().queryByLabelText('New task')).toBeNull();
+    expect(banner().queryByLabelText('Project settings')).toBeNull();
+    fireEvent.click(banner().getByLabelText('Close settings'));
+    expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: ALPHA.path, page: 'board' });
     expect(display(pricing).lastViewedAt).toBe(Date.now());
     expect(within(section('Waiting for you')).getByText('All caught up')).toBeTruthy();
 
@@ -220,6 +224,12 @@ describe('the sidebar is the navigation', () => {
     await waitFor(() => expect(front()).toBe(ship2));
     press('w');
     await waitFor(() => expect(front()).toBe(docs));
+
+    // Escape leaves settings the same way, back to the terminal they opened over.
+    const before = useAppStore.getState().selection;
+    fireEvent.click(within(screen.getByRole('banner')).getByLabelText('Project settings'));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(useAppStore.getState().selection).toEqual(before));
   });
 });
 
