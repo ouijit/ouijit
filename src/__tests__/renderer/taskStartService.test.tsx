@@ -2,7 +2,8 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { beginTransition } from '../../services/taskStartService';
+import { beginTransition, createAndStartTask } from '../../services/taskStartService';
+import { useAppStore } from '../../stores/appStore';
 import { addProjectTerminal, closeProjectTerminal } from '../../components/terminal/terminalActions';
 import type { TaskWithWorkspace } from '../../types';
 import { seedProject } from './seedProject';
@@ -55,6 +56,29 @@ describe('taskStartService.beginTransition', () => {
       task: { taskNumber: 7, name: 'Wire up auth', branch: 'wire-up-auth-7', status: 'in_progress', createdAt: '' },
     });
     vi.mocked(window.api.task.getAll).mockResolvedValue([]);
+  });
+
+  test('create and start makes the task, starts it with the choices made, and shows its terminal', async () => {
+    vi.mocked(window.api.task.create).mockResolvedValue({ success: true, task: { ...makeTask() } as never });
+    vi.mocked(window.api.task.getByNumber).mockResolvedValue(makeTask());
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 'h', type: 'start', name: 'Start', command: 'claude' },
+    });
+
+    expect(await createAndStartTask(PROJECT, 'Wire up auth', 'with oauth', { hook: 'skip', sandbox: 'custom' })).toBe(
+      true,
+    );
+    expect(window.api.task.create).toHaveBeenCalledWith(PROJECT, 'Wire up auth', 'with oauth');
+    expect(useAppStore.getState().selection).toMatchObject({ kind: 'terminal', projectPath: PROJECT });
+    await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
+    // Skipping the hook leaves a plain shell, in the sandbox picked, with no dialog.
+    expect(useProjectStore.getState().runHookQueue).toHaveLength(0);
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toBeUndefined();
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandboxProvider).toBe('custom');
+
+    vi.mocked(window.api.task.create).mockResolvedValue({ success: false, error: 'disk full' });
+    expect(await createAndStartTask(PROJECT, 'Again', undefined, { hook: 'run' })).toBe(false);
+    expect(useProjectStore.getState().toasts.map((t) => t.message)).toContain('disk full');
   });
 
   test('drop into in_progress without a hook: places loading slot, replaces it on spawn', async () => {

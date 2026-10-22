@@ -14,6 +14,7 @@ import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import { completeTask } from './taskCompletion';
 import { headlessHookRun, hookSandbox, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';
+import { useAppStore } from '../stores/appStore';
 import { getProjectTasks, loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { HookType, RunHookResult, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
@@ -392,4 +393,42 @@ async function runNonStartHookInTerminal(
     );
     if (hookResult.foreground && onForegroundOpen) onForegroundOpen();
   }
+}
+
+export interface StartChoices {
+  hook: 'run' | 'skip';
+  /** Absent runs where the start hook, or else the project, says. */
+  sandbox?: SandboxProviderId;
+}
+
+/**
+ * Creates a task and starts it as moving it to In progress would, with the
+ * hook and sandbox already chosen, then shows its terminal. Resolves false when
+ * the task could not be created; the draft is the caller's to keep.
+ */
+export async function createAndStartTask(
+  projectPath: string,
+  name: string,
+  description: string | undefined,
+  choices: StartChoices,
+): Promise<boolean> {
+  const result = await window.api.task.create(projectPath, name, description);
+  const taskNumber = result?.task?.taskNumber;
+  const task =
+    result?.success && taskNumber != null ? await window.api.task.getByNumber(projectPath, taskNumber) : null;
+  if (!task) {
+    useProjectStore.getState().addToast(result?.error ?? 'Failed to create task', 'error');
+    return false;
+  }
+  beginTransition(projectPath, {
+    origStatus: 'todo',
+    newStatus: 'in_progress',
+    task,
+    hookControl: { mode: choices.hook },
+    sandbox: choices.sandbox,
+  });
+  const { terminalsByProject, displayStates } = useTerminalStore.getState();
+  const slot = terminalsByProject[projectPath]?.find((id) => displayStates[id]?.taskId === task.taskNumber);
+  if (slot) useAppStore.getState().showTerminal(slot);
+  return true;
 }

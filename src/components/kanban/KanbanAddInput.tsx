@@ -4,6 +4,7 @@ import {
   type DescriptionChipEditorHandle,
   type DescriptionEditorMetrics,
 } from './DescriptionChipEditor';
+import { createAndStartTask, type StartChoices } from '../../services/taskStartService';
 import { TaskComposerSheet } from './TaskComposerSheet';
 import { ComposerProjectPicker } from './ComposerProjectPicker';
 import { Icon } from '../terminal/Icon';
@@ -142,6 +143,22 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     setActive(true);
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [name, description, onAdd]);
+
+  const startTask = useCallback(
+    (choices: StartChoices) => {
+      const trimmedName = name.trim();
+      if (!trimmedName || !boardProject) return;
+      const composer = useComposerStore.getState();
+      composer.closeSheet();
+      void createAndStartTask(boardProject, trimmedName, description.trim() || undefined, choices).then((created) => {
+        if (!created) return;
+        useComposerStore.getState().clearDraft();
+        editorRef.current?.setValue('');
+        setActive(false);
+      });
+    },
+    [name, description, boardProject],
+  );
 
   const expand = useCallback(() => {
     useComposerStore.getState().openSheet(editorRef.current?.getCaret() ?? null);
@@ -356,8 +373,8 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
               </button>
             </Tooltip>
           </div>
-          {/* DOM order is [Create, Discard] so Tab from the description lands
-              on Create first; flex-row-reverse keeps Discard on the visual left.
+          {/* DOM order is [Create, Start, Discard] so Tab from the description
+              lands on Create first; flex-row-reverse keeps Discard on the visual left.
               No bottom rule: this row is the column's bottom edge now. */}
           <div className="flex flex-row-reverse items-center justify-start gap-2 px-2 py-1.5">
             <button
@@ -368,6 +385,14 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             >
               Create
               <SubmitHint withModifier={focusedField === 'description'} />
+            </button>
+            <button
+              type="button"
+              onClick={() => startTask({ hook: 'run' })}
+              disabled={!canSubmit || !boardProject}
+              className="kanban-add-button text-accent hover:bg-accent/10 disabled:text-text-tertiary"
+            >
+              Start
             </button>
             <button
               type="button"
@@ -395,6 +420,8 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
           }}
           onAttachFile={resolveAttachmentPath}
           onSubmit={submit}
+          onStart={startTask}
+          startProjectPath={boardProject ?? undefined}
           onCollapse={collapseSheet}
           onDiscard={discard}
           projectPicker={boardProject && <ComposerProjectPicker projectPath={boardProject} />}

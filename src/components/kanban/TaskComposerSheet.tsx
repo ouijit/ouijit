@@ -4,6 +4,10 @@ import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './Descr
 import { Icon } from '../terminal/Icon';
 import { KeyHint } from '../ui/KeyHint';
 import { isModKey, MOD_LABEL } from '../../utils/modKey';
+import { QuietPicker } from '../ui/QuietPicker';
+import { useProjectConfig } from '../../stores/projectDataStore';
+import { SANDBOX_LABELS, type SandboxProviderId } from '../../types';
+import type { StartChoices } from '../../services/taskStartService';
 
 /** Matches the app's other overlays, so the surfaces enter and leave alike. */
 const TRANSITION_MS = 200;
@@ -28,6 +32,10 @@ interface TaskComposerSheetProps {
   onDiscard?: () => void;
   /** Names, and lets the reader change, the project a new task goes to. */
   projectPicker?: ReactNode;
+  /** Create the task and start it, with where its start hook and terminal run. */
+  onStart?: (choices: StartChoices) => void;
+  /** The project whose start hook and sandboxes the start choices offer. */
+  startProjectPath?: string;
 }
 
 /**
@@ -47,7 +55,15 @@ export function TaskComposerSheet({
   onCollapse,
   onDiscard,
   projectPicker,
+  onStart,
+  startProjectPath,
 }: TaskComposerSheetProps) {
+  const projectConfig = useProjectConfig(startProjectPath ?? '');
+  const [choices, setChoices] = useState<StartChoices>({ hook: 'run' });
+  const usual =
+    (choices.hook === 'run' ? projectConfig?.hooks.start?.sandbox : undefined) ??
+    projectConfig?.defaultSandbox ??
+    'none';
   const [visible, setVisible] = useState(false);
   const editorRef = useRef<DescriptionChipEditorHandle>(null);
   const nameRef = useRef<HTMLTextAreaElement>(null);
@@ -83,6 +99,11 @@ export function TaskComposerSheet({
     if (!canSubmit) return;
     dismiss(onSubmit);
   }, [canSubmit, dismiss, onSubmit]);
+
+  const start = useCallback(() => {
+    if (!canSubmit || !onStart) return;
+    dismiss(() => onStart(choices));
+  }, [canSubmit, dismiss, onStart, choices]);
 
   /** Grow the title with its content — it wraps like a heading, not a field. */
   const sizeName = useCallback(() => {
@@ -123,12 +144,13 @@ export function TaskComposerSheet({
       } else if (mod && e.key === 'Enter') {
         e.preventDefault();
         e.stopPropagation();
-        submit();
+        if (e.shiftKey && onStart) start();
+        else submit();
       }
     };
     document.addEventListener('keydown', handler, true);
     return () => document.removeEventListener('keydown', handler, true);
-  }, [collapse, submit]);
+  }, [collapse, submit, start, onStart]);
 
   return createPortal(
     <div
@@ -213,15 +235,48 @@ export function TaskComposerSheet({
         <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-separator text-[11px] text-ink/40">
           <KeyHint keys="esc" label={isCreate ? 'Draft stays in the column' : 'Back to the card'} />
           <span className="flex-1" />
+          {onStart && projectConfig && (
+            <span className="flex items-center gap-1 text-ink/60">
+              {projectConfig.hooks.start && (
+                <QuietPicker<StartChoices['hook']>
+                  label="Start hook"
+                  value={choices.hook}
+                  options={['run', 'skip']}
+                  optionLabel={(hook) => (hook === 'run' ? 'Run start hook' : 'Skip start hook')}
+                  onChange={(hook) => setChoices((c) => ({ ...c, hook }))}
+                />
+              )}
+              {projectConfig.availableSandboxProviders.length > 0 && (
+                <QuietPicker<SandboxProviderId | 'default'>
+                  label="Sandbox"
+                  value={choices.sandbox ?? 'default'}
+                  options={['default', 'none', ...projectConfig.availableSandboxProviders]}
+                  optionLabel={(id) => (id === 'default' ? `Default (${SANDBOX_LABELS[usual]})` : SANDBOX_LABELS[id])}
+                  onChange={(id) => setChoices((c) => ({ ...c, sandbox: id === 'default' ? undefined : id }))}
+                />
+              )}
+            </span>
+          )}
           {onDiscard && (
             <button type="button" onClick={onDiscard} className="btn-secondary">
               Discard
             </button>
           )}
-          <button type="button" onClick={submit} disabled={!canSubmit} className="btn-primary">
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!canSubmit}
+            className={onStart ? 'btn-secondary' : 'btn-primary'}
+          >
             {isCreate ? 'Create task' : 'Save'}
             <span className="opacity-60 font-mono text-[11px]">{MOD_LABEL}↵</span>
           </button>
+          {onStart && (
+            <button type="button" onClick={start} disabled={!canSubmit} className="btn-primary">
+              Create and start
+              <span className="opacity-60 font-mono text-[11px]">⇧{MOD_LABEL}↵</span>
+            </button>
+          )}
         </div>
       </div>
     </div>,
