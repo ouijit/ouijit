@@ -27,18 +27,18 @@ export function StageIcon({ status }: { status: TaskStatus }) {
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             {status === 'todo' && (
-              <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2.2 2" />
+              <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.25" strokeDasharray="2.2 2" />
             )}
             {status === 'in_progress' && (
               <>
-                <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M8 4.5a3.5 3.5 0 0 1 0 7z" fill="currentColor" />
+                <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.25" />
+                <path d="M8 4a4 4 0 0 1 0 8z" fill="currentColor" />
               </>
             )}
             {status === 'in_review' && (
               <>
-                <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M8 8V4.5A3.5 3.5 0 1 1 4.5 8z" fill="currentColor" />
+                <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.25" />
+                <path d="M8 8V4A4 4 0 1 1 4 8z" fill="currentColor" />
               </>
             )}
             {status === 'done' && (
