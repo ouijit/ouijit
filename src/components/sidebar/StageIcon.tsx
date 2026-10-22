@@ -2,6 +2,16 @@ import type { TaskStatus } from '../../types';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 import { Tooltip } from '../ui/Tooltip';
 
+const QUIET = 'color-mix(in srgb, var(--color-ink) 32%, transparent)';
+
+/** Muted hues the status dots beside them don't use. */
+const STAGE_COLORS: Record<TaskStatus, string> = {
+  todo: QUIET,
+  in_progress: 'color-mix(in srgb, var(--color-ansi-yellow) 70%, transparent)',
+  in_review: 'color-mix(in srgb, var(--color-ansi-cyan) 70%, transparent)',
+  done: QUIET,
+};
+
 /** Which board column a task is in, quieter than the titles and status dots beside it. */
 export function StageIcon({ status }: { status: TaskStatus }) {
   return (
@@ -13,7 +23,7 @@ export function StageIcon({ status }: { status: TaskStatus }) {
           role="img"
           aria-label={STATUS_LABELS[status]}
           className="w-3.5 h-3.5 flex items-center justify-center shrink-0"
-          style={{ color: 'color-mix(in srgb, var(--color-ink) 32%, transparent)' }}
+          style={{ color: STAGE_COLORS[status] }}
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             {status === 'todo' && (
@@ -27,13 +37,8 @@ export function StageIcon({ status }: { status: TaskStatus }) {
             )}
             {status === 'in_review' && (
               <>
-                <path
-                  d="M1.75 8S4 3.75 8 3.75 14.25 8 14.25 8 12 12.25 8 12.25 1.75 8 1.75 8z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-                <circle cx="8" cy="8" r="1.75" fill="currentColor" />
+                <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M8 8V4.5A3.5 3.5 0 1 1 4.5 8z" fill="currentColor" />
               </>
             )}
             {status === 'done' && (
