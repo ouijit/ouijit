@@ -7,8 +7,8 @@ const QUIET = 'color-mix(in srgb, var(--color-ink) 32%, transparent)';
 /** Muted hues the status dots beside them don't use. */
 const STAGE_COLORS: Record<TaskStatus, string> = {
   todo: QUIET,
-  in_progress: 'color-mix(in srgb, var(--color-ansi-yellow) 70%, transparent)',
-  in_review: 'color-mix(in srgb, var(--color-ansi-cyan) 70%, transparent)',
+  in_progress: `color-mix(in oklab, var(--color-ansi-yellow) 40%, ${QUIET})`,
+  in_review: `color-mix(in oklab, var(--color-ansi-cyan) 40%, ${QUIET})`,
   done: QUIET,
 };
 
