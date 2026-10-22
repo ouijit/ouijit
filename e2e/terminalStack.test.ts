@@ -42,7 +42,7 @@ async function openFromBoard(appPage: Page, taskName: string): Promise<string> {
   await appPage.locator('.kanban-card', { hasText: taskName }).first().click({ button: 'right' });
   const menu = appPage.locator('.context-menu--visible');
   await menu.getByRole('button', { name: 'Open in', exact: true }).hover();
-  await menu.getByRole('button', { name: 'Terminal', exact: true }).click();
+  await menu.getByRole('button', { name: 'Host terminal', exact: true }).click();
   await expect.poll(async () => (await order(appPage)).length, { timeout: 15_000 }).toBe(before + 1);
   const [ptyId] = await order(appPage);
   await expect.poll(() => front(appPage), { timeout: 10_000 }).toBe(ptyId);

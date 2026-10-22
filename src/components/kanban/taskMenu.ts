@@ -50,8 +50,7 @@ export function openInEntry(
   const places: SandboxProviderId[] = ['none', ...sandboxProviders];
   places.sort((a, b) => Number(b === projectDefault) - Number(a === projectDefault));
   const submenu: ContextMenuEntry[] = places.map((place) => ({
-    label: 'Terminal',
-    value: SANDBOX_LABELS[place],
+    label: `${SANDBOX_LABELS[place]} terminal`,
     icon: 'terminal',
     onClick: () => actions.openTerminal(place),
   }));

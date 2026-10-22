@@ -26,17 +26,17 @@ function submenuOf(entry: ContextMenuEntry): ContextMenuItem[] {
 describe('openInEntry', () => {
   it('offers what needs a worktree on disk only once the task has one', () => {
     const withWorktree = submenuOf(openInEntry(['nono'], true, actions(), 'none'));
-    expect(withWorktree.map((i) => i.label)).toEqual(['Terminal', 'Terminal', 'Editor', FILE_MANAGER_NAME]);
+    expect(withWorktree.map((i) => i.label)).toEqual(['Host terminal', 'Sandbox terminal', 'Editor', FILE_MANAGER_NAME]);
 
     // Terminals, sandboxed or not, and Editor create one, so they survive without it.
     const withoutWorktree = submenuOf(openInEntry(['nono'], false, actions(), 'none'));
-    expect(withoutWorktree.map((i) => i.label)).toEqual(['Terminal', 'Terminal', 'Editor']);
+    expect(withoutWorktree.map((i) => i.label)).toEqual(['Host terminal', 'Sandbox terminal', 'Editor']);
   });
 
   it('lists a Terminal for each place, the project default first, and opens each where it names', () => {
     const acts = actions();
     const items = submenuOf(openInEntry(['nono', 'custom'], true, acts, 'nono'));
-    expect(items.slice(0, 3).map((i) => i.value)).toEqual(['Sandbox', 'Host', 'Custom']);
+    expect(items.slice(0, 3).map((i) => i.label)).toEqual(['Sandbox terminal', 'Host terminal', 'Custom terminal']);
     for (const item of items) item.onClick();
     expect(vi.mocked(acts.openTerminal).mock.calls).toEqual([['nono'], ['none'], ['custom']]);
     expect(acts.openEditor).toHaveBeenCalled();

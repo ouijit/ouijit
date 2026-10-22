@@ -141,7 +141,7 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   // `inset: 0` against the panel's padding box: its border, on each side.
   expect(flyout).toEqual({ width: 2, height: 2 });
 
-  await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
+  await chooseSubmenuItem(appPage, 'Open in', 'Host terminal');
 
   await expect(appPage.locator('.kanban-board')).not.toBeVisible({ timeout: 5_000 });
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
@@ -312,7 +312,7 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
   // Open in terminal via context menu
   const kanbanCard = todoColumn.locator('.kanban-card').first();
   await kanbanCard.click({ button: 'right' });
-  await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
+  await chooseSubmenuItem(appPage, 'Open in', 'Host terminal');
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
 
   // Get the worktree path from the task data
@@ -337,7 +337,7 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
 
   // Try to open the task again — should show recovery dialog
   await ipCard.click({ button: 'right' });
-  await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
+  await chooseSubmenuItem(appPage, 'Open in', 'Host terminal');
 
   // Recovery dialog should appear
   const recoveryDialog = appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]');

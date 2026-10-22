@@ -433,7 +433,7 @@ describe('creating from the sidebar', () => {
     });
     expect(within(menu).getByText('Move to')).toBeTruthy();
     fireEvent.mouseEnter(within(menu).getByText('Open in').closest('div')!);
-    fireEvent.click(await within(menu).findByText('Terminal'));
+    fireEvent.click(await within(menu).findByText('Host terminal'));
     await waitFor(() => expect(cards()).toHaveLength(2));
     const second = front()!;
     expect(display(second)).toMatchObject({ taskId: 8, projectPath: ALPHA.path });
