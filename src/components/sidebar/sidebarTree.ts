@@ -127,16 +127,6 @@ export function groupByTag(ptyIds: string[], displays: Record<string, TerminalDi
   return groups;
 }
 
-/** The raw comparison, so the terminal on screen stays listed until it is left. */
-export function waitingFor(order: string[], displays: Record<string, TerminalDisplayState>): string[] {
-  return order
-    .filter((id) => {
-      const d = displays[id];
-      return d !== undefined && !d.isLoading && d.status === 'ready' && d.statusSince > d.lastViewedAt;
-    })
-    .sort((a, b) => displays[a].statusSince - displays[b].statusSince);
-}
-
 export function formatSince(ms: number): string {
   const minutes = Math.floor(ms / 60_000);
   if (minutes < 1) return 'now';

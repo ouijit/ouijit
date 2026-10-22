@@ -8,6 +8,8 @@ interface StatusDotProps {
   status: TerminalStatus;
   sandboxProvider?: SandboxProviderId;
   size?: number;
+  /** Finished while you were looking elsewhere. */
+  unread?: boolean;
 }
 
 export function sandboxSuffix(sandboxProvider?: SandboxProviderId): string {
@@ -28,9 +30,12 @@ const LABELS: Record<TerminalStatus, string> = {
   error: 'Failed',
 };
 
-function ThinkingGrid({ color }: { color: string }) {
+function Grid({ color, still }: { color: string; still?: boolean }) {
   return (
-    <span className="status-dot-grid" style={{ '--status-dot-color': color } as CSSProperties}>
+    <span
+      className={`status-dot-grid ${still ? 'status-dot-grid--still' : ''}`}
+      style={{ '--status-dot-color': color } as CSSProperties}
+    >
       <span />
       <span />
       <span />
@@ -70,12 +75,14 @@ export function SandboxRing({
 }
 
 /** The dot alone, for a place that already says what it means. */
-export function StatusGlyph({ status, sandboxProvider, size = 6 }: StatusDotProps) {
+export function StatusGlyph({ status, sandboxProvider, size = 6, unread }: StatusDotProps) {
   const background = COLORS[status];
   return (
-    <SandboxRing sandboxed={isActiveSandbox(sandboxProvider)} size={size} status={status}>
-      {status === 'thinking' ? (
-        <ThinkingGrid color={background} />
+    <SandboxRing sandboxed={isActiveSandbox(sandboxProvider)} size={size} status={unread ? 'unread' : status}>
+      {unread ? (
+        <Grid color="var(--color-accent)" still />
+      ) : status === 'thinking' ? (
+        <Grid color={background} />
       ) : (
         <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />
       )}
@@ -83,12 +90,12 @@ export function StatusGlyph({ status, sandboxProvider, size = 6 }: StatusDotProp
   );
 }
 
-export function StatusDot({ status, sandboxProvider, size = 6 }: StatusDotProps) {
-  const label = LABELS[status];
+export function StatusDot({ status, sandboxProvider, size = 6, unread }: StatusDotProps) {
+  const label = unread ? 'Finished' : LABELS[status];
   const tooltipText = isActiveSandbox(sandboxProvider) ? `${label} · ${SANDBOX_LABELS[sandboxProvider]}` : label;
   return (
     <Tooltip text={tooltipText} placement="top" delay={300}>
-      <StatusGlyph status={status} sandboxProvider={sandboxProvider} size={size} />
+      <StatusGlyph status={status} sandboxProvider={sandboxProvider} size={size} unread={unread} />
     </Tooltip>
   );
 }

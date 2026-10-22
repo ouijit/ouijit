@@ -144,7 +144,7 @@ function App() {
 }
 
 describe('the sidebar is the navigation', () => {
-  test('a terminal opened from the tree, Waiting for you or the board shows its task stack and stamps the one left', async () => {
+  test('a terminal opened from the tree or the board shows its task stack and stamps the one left', async () => {
     const ship1 = await spawn(ALPHA.path, 8);
     const ship2 = await spawn(ALPHA.path, 8);
     const docs = await spawn(ALPHA.path, 9);
@@ -171,19 +171,19 @@ describe('the sidebar is the navigation', () => {
     await waitFor(() => expect(front()).toBe(ship1));
     expect(within(projects).getAllByRole('button', { current: true })).toHaveLength(3);
 
-    // An agent finishing off-screen waits for you; opening it keeps it listed, selected, until it is left.
-    expect(within(section('Waiting for you')).getByText('All caught up')).toBeTruthy();
+    // An agent finishing off-screen is marked unread in the tree until it is opened.
+    const unread = (title: string) => row(section('Projects'), title).querySelector('[data-status="unread"]');
+    expect(unread('Pricing page')).toBeNull();
     tick(1000);
     act(() => {
       useTerminalStore.getState().updateDisplay(pricing, { status: 'thinking' });
       useTerminalStore.getState().updateDisplay(pricing, { status: 'ready' });
     });
     tick(60_000);
-    const waiting = section('Waiting for you');
-    expect(within(waiting).queryByText('All caught up')).toBeNull();
-    fireEvent.click(row(waiting, 'Pricing page'));
+    expect(unread('Pricing page')).toBeTruthy();
+    fireEvent.click(row(section('Projects'), 'Pricing page'));
     await waitFor(() => expect(front()).toBe(pricing));
-    expect(row(section('Waiting for you'), 'Pricing page').getAttribute('aria-current')).toBe('true');
+    expect(unread('Pricing page')).toBeNull();
     expect(useAppStore.getState().activeProjectPath).toBe(BRAVO.path);
 
     // From the board: the project's board button opens it, and its terminal rows open their terminal.
@@ -204,7 +204,7 @@ describe('the sidebar is the navigation', () => {
     fireEvent.click(banner().getByLabelText('Close settings'));
     expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: ALPHA.path, page: 'board' });
     expect(display(pricing).lastViewedAt).toBe(Date.now());
-    expect(within(section('Waiting for you')).getByText('All caught up')).toBeTruthy();
+    expect(unread('Pricing page')).toBeNull();
 
     // The task is collapsed away in the sidebar; opening its terminal reveals it.
     fireEvent.click(within(alpha).getByLabelText('Hide Alpha'));
@@ -270,7 +270,7 @@ describe('stacking several from the sidebar', () => {
     modClick('Pricing page');
     await waitFor(() => expect(cards()).toEqual([pricing]));
 
-    // ⌘ on a terminal waiting for you adds it, when it is in the same project.
+    // ⌘ on a terminal that finished unseen adds it, when it is in the same project.
     fireEvent.click(row(projects(), 'Write docs'));
     await waitFor(() => expect(cards()).toEqual([docs]));
     tick(1000);
@@ -278,10 +278,10 @@ describe('stacking several from the sidebar', () => {
       useTerminalStore.getState().updateDisplay(shell, { status: 'thinking' });
       useTerminalStore.getState().updateDisplay(shell, { status: 'ready' });
     });
-    fireEvent.click(row(section('Waiting for you'), 'Shell'), { metaKey: true, ctrlKey: true });
+    fireEvent.click(row(projects(), 'Shell'), { metaKey: true, ctrlKey: true });
     await waitFor(() => expect(cards()).toEqual([docs, shell].sort()));
     expect(front()).toBe(shell);
-    fireEvent.click(row(section('Waiting for you'), 'Shell'));
+    fireEvent.click(row(projects(), 'Shell'));
     await waitFor(() => expect(cards()).toEqual([shell]));
 
     // Shift takes in every row from the last one clicked.
@@ -563,7 +563,7 @@ describe('the sidebar tree', () => {
     expect(within(group(DELTA.path)).getByText('New task')).toBeTruthy();
     expect(row(section('Projects'), 'Tidy up').dataset.bright).toBe('true');
     expect(row(section('Projects'), 'Write docs').dataset.bright).toBeUndefined();
-    expect(row(section('Waiting for you'), 'Tidy up')).toBeTruthy();
+    expect(row(section('Projects'), 'Tidy up').querySelector('[data-status="unread"]')).toBeTruthy();
 
     // A folded project still shows what is working or waiting in it.
     fireEvent.click(screen.getByLabelText('Hide Bravo'));

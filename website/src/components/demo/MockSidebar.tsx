@@ -122,13 +122,10 @@ export function MockSidebar({
   searching: boolean;
   onSearch: () => void;
 }) {
-  const dot = (status: string) => (
+  const dot = (status: string, unread = false) => (
     <span className="w-3.5 flex items-center justify-center shrink-0">
-      <StatusDot status={status} />
+      <StatusDot status={status} unread={unread} />
     </span>
-  );
-  const waitingTask = featuresTasks.find((t) =>
-    featuresTerminalsByTask[t.taskNumber]?.some((d) => d.ptyId === DEMO_WAITING),
   );
 
   return (
@@ -162,20 +159,6 @@ export function MockSidebar({
         </button>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden px-2.5 flex flex-col">
-        <Heading>Waiting for you</Heading>
-        {waiting && waitingTask ? (
-          <Row
-            icon={<StageIcon status={waitingTask.status} />}
-            title={waitingTask.name}
-            bright
-            selected={shown === DEMO_WAITING}
-            trailing={<span className="shrink-0 text-[11.5px] text-text-secondary">4m</span>}
-            onClick={() => onTerminal(DEMO_WAITING)}
-          />
-        ) : (
-          <div className="h-7 flex items-center px-2.5 text-[12.5px] text-text-tertiary">All caught up</div>
-        )}
-        <div className="h-3.5 shrink-0" />
         <Heading>
           <span className="flex gap-3">
             <span>Projects</span>
@@ -217,7 +200,7 @@ export function MockSidebar({
                 title={task.name}
                 bright={unread || shown === only.ptyId}
                 selected={shown === only.ptyId}
-                trailing={dot(only.status)}
+                trailing={dot(only.status, unread && shown !== only.ptyId)}
                 onClick={() => onTerminal(only.ptyId)}
               />
             );
@@ -239,7 +222,7 @@ export function MockSidebar({
                   mono
                   bright={shown === d.ptyId}
                   selected={shown === d.ptyId}
-                  trailing={dot(d.status)}
+                  trailing={dot(d.status, waiting && d.ptyId === DEMO_WAITING && shown !== d.ptyId)}
                   onClick={() => onTerminal(d.ptyId)}
                 />
               ))}

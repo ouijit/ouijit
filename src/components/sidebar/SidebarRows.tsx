@@ -40,7 +40,7 @@ export const ROW_SELECTED = 'bg-ink/10';
 const DIM = 'color-mix(in srgb, var(--color-text-primary) 62%, transparent)';
 
 /** Ticks often enough for "4m" to stay true. */
-export function useNow(): number {
+function useNow(): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
@@ -69,7 +69,7 @@ function projectNameOf(projects: Project[], projectPath: string): string {
   return projects.find((p) => p.path === projectPath)?.name ?? homeRelative(projectPath);
 }
 
-export function useProjectName(projectPath: string): string {
+function useProjectName(projectPath: string): string {
   return useAppStore((s) => projectNameOf(s.projects, projectPath));
 }
 
@@ -87,7 +87,7 @@ function statusPhrase(display: TerminalDisplayState, now: number): string {
   return `${display.status === 'thinking' ? 'Working' : 'Ready'} for ${duration}`;
 }
 
-export function rowTooltip(title: string, projectName: string, display: TerminalDisplayState, now: number): string {
+function rowTooltip(title: string, projectName: string, display: TerminalDisplayState, now: number): string {
   return `${title} · ${projectName} · ${statusPhrase(display, now)}`;
 }
 
@@ -148,7 +148,7 @@ function RenameField({ initial, onCommit, onCancel }: Rename) {
   );
 }
 
-export function SidebarRow({
+function SidebarRow({
   icon,
   title,
   tooltip,
@@ -207,9 +207,10 @@ export function SidebarRow({
 }
 
 function StatusSlot({ display }: { display: TerminalDisplayState }) {
+  const unread = useTerminalStore((s) => isUnread(display, viewedPtyId(s)));
   return (
     <span className="w-3.5 flex items-center justify-center shrink-0">
-      <StatusGlyph status={display.status} sandboxProvider={display.sandboxProvider} />
+      <StatusGlyph status={display.status} sandboxProvider={display.sandboxProvider} unread={unread} />
     </span>
   );
 }
@@ -655,20 +656,21 @@ function onScreenHere(ptyIds: string[]): string[] {
 
 /** One per terminal that is working or finished unseen, for a group folded away. */
 export function GroupDots({ ptyIds }: { ptyIds: string[] }) {
-  const statuses = useTerminalStore(
+  const dots = useTerminalStore(
     useShallow((s) => {
       const viewed = viewedPtyId(s);
       return ptyIds.flatMap((id) => {
         const display = s.displayStates[id];
-        return display && (display.status === 'thinking' || isUnread(display, viewed)) ? [display.status] : [];
+        if (display?.status === 'thinking') return ['thinking'];
+        return display && isUnread(display, viewed) ? ['unread'] : [];
       });
     }),
   );
-  if (statuses.length === 0) return null;
+  if (dots.length === 0) return null;
   return (
     <span className="flex items-center gap-1 shrink-0" data-testid="group-dots">
-      {statuses.map((status, i) => (
-        <StatusGlyph key={i} status={status} />
+      {dots.map((dot, i) => (
+        <StatusGlyph key={i} status={dot === 'thinking' ? 'thinking' : 'ready'} unread={dot === 'unread'} />
       ))}
     </span>
   );

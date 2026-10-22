@@ -10,11 +10,9 @@ import { useExperimentalStore, useProjectFlags } from '../stores/experimentalSto
 import {
   projectUnit,
   stackFrom,
-  stackOf,
   stackMembers,
   tagUnit,
   terminalUnit,
-  unitsOf,
   useTerminalStore,
   type TerminalDisplayState,
 } from '../stores/terminalStore';
@@ -34,19 +32,14 @@ import { isModKey } from '../utils/modKey';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/ContextMenu';
 import { PAGE_TITLES } from './TitleBarReact';
-import { StageIcon } from './sidebar/StageIcon';
-import { formatSince, groupByTag, groupByTask, waitingFor } from './sidebar/sidebarTree';
+import { groupByTag, groupByTask } from './sidebar/sidebarTree';
 import {
   GroupDots,
   GroupRows,
   ROW_IDLE,
   ROW_SELECTED,
-  SidebarRow,
   homeRelative,
-  rowTooltip,
   useGroupCollapsed,
-  useNow,
-  useProjectName,
   useShownPtyId,
 } from './sidebar/SidebarRows';
 
@@ -203,8 +196,6 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 pt-1 pb-4 flex flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <WaitingSection />
-            <div className="h-3.5 shrink-0" />
             <TreeSection onCloneSelect={onCloneSelect} />
           </div>
 
@@ -291,79 +282,6 @@ function SectionHeading({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
-}
-
-// ── Waiting for you ──────────────────────────────────────────────────
-
-function WaitingSection() {
-  const order = useTerminalStore((s) => s.order);
-  const displays = useTerminalStore((s) => s.displayStates);
-  const waiting = useMemo(() => waitingFor(order, displays), [order, displays]);
-  const shown = useShownPtyId();
-  const now = useNow();
-
-  return (
-    <section aria-label="Waiting for you" className="flex flex-col">
-      <SectionHeading>Waiting for you</SectionHeading>
-      {waiting.length === 0 ? (
-        <div className="h-7 flex items-center px-2.5 text-[12.5px] text-text-tertiary">All caught up</div>
-      ) : (
-        waiting.map((ptyId) => <WaitingRow key={ptyId} ptyId={ptyId} selected={ptyId === shown} now={now} />)
-      )}
-    </section>
-  );
-}
-
-function WaitingRow({ ptyId, selected, now }: { ptyId: string; selected: boolean; now: number }) {
-  const display = useTerminalStore((s) => s.displayStates[ptyId]);
-  const task = useAppStore((s) =>
-    display?.taskId == null
-      ? undefined
-      : s.taskCacheByProject[display.projectPath]?.find((t) => t.taskNumber === display.taskId),
-  );
-  const projectName = useProjectName(display?.projectPath ?? '');
-  if (!display) return null;
-  const title = task?.name || display.label || 'Shell';
-  return (
-    <SidebarRow
-      ptyId={ptyId}
-      icon={
-        task ? <StageIcon status={task.status} /> : <Icon name="terminal" className="w-3.5 h-3.5 text-text-tertiary" />
-      }
-      title={title}
-      tooltip={rowTooltip(title, projectName, display, now)}
-      bright
-      selected={selected}
-      trailing={
-        <span className="shrink-0 text-[11.5px] text-text-secondary">{formatSince(now - display.statusSince)}</span>
-      }
-      onClick={(e) => {
-        const stack = (isModKey(e) && stackWith(ptyId)) || stackOf(display);
-        void focusTerminal(ptyId, { stack });
-      }}
-    />
-  );
-}
-
-/**
- * The stack on screen with this terminal added, keeping the part of it that
- * shares a group with the terminal in the sidebar's view: its project, or a
- * tag it carries. Null when nothing does.
- */
-function stackWith(ptyId: string): string | null {
-  const { selection } = useAppStore.getState();
-  const terminals = useTerminalStore.getState();
-  const added = terminals.displayStates[ptyId];
-  if (selection.kind !== 'terminal' || !added) return null;
-  const members = stackMembers(terminals, selection.stack);
-  const shares = (id: string, tag: string) => terminals.displayStates[id].tags.some((t) => tagUnit(t) === tagUnit(tag));
-  const kept =
-    useUIStore.getState().sidebarGroupMode === 'project'
-      ? members.filter((id) => terminals.displayStates[id].projectPath === added.projectPath)
-      : (added.tags.map((tag) => members.filter((id) => shares(id, tag))).find((ids) => ids.length > 0) ?? []);
-  if (kept.length === 0) return null;
-  const units = kept.length === members.length ? unitsOf(selection.stack) : kept.map(terminalUnit);
-  return stackFrom([...units, terminalUnit(ptyId)]);
 }
 
 // ── Projects and tags ────────────────────────────────────────────────
