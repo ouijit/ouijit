@@ -91,12 +91,22 @@ function rowTooltip(title: string, projectName: string, display: TerminalDisplay
   return `${title} · ${projectName} · ${statusPhrase(display, now)}`;
 }
 
-/** Scrolls a row into view when it becomes the one on screen. */
+/**
+ * Scrolls a row into view in the sidebar's own scroller when it becomes the one
+ * on screen. scrollIntoView also scrolls every clipped ancestor, which pushes the
+ * sidebar's header and the window's title bar out of view.
+ */
 function useRevealed(selected: boolean) {
   const ref = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
-    // Optional call: jsdom doesn't implement scrollIntoView.
-    if (selected) ref.current?.scrollIntoView?.({ block: 'nearest' });
+    const row = ref.current;
+    if (!selected || !row) return;
+    const scroller = row.closest<HTMLElement>('[data-sidebar-scroller]');
+    if (!scroller) return;
+    const rowBox = row.getBoundingClientRect();
+    const box = scroller.getBoundingClientRect();
+    if (rowBox.top < box.top) scroller.scrollTop -= box.top - rowBox.top;
+    else if (rowBox.bottom > box.bottom) scroller.scrollTop += rowBox.bottom - box.bottom;
   }, [selected]);
   return ref;
 }
