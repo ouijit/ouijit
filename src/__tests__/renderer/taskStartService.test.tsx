@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 import { useProjectStore } from '../../stores/projectStore';
-import { useTerminalStore } from '../../stores/terminalStore';
+import { stackMembers, useTerminalStore } from '../../stores/terminalStore';
 import { beginTransition, createAndStartTask } from '../../services/taskStartService';
 import { useAppStore } from '../../stores/appStore';
 import { addProjectTerminal, closeProjectTerminal } from '../../components/terminal/terminalActions';
@@ -65,9 +65,17 @@ describe('taskStartService.beginTransition', () => {
       start: { id: 'h', type: 'start', name: 'Start', command: 'claude' },
     });
 
+    // Started while a shell of the same project is on screen, it joins that stack.
+    useTerminalStore.getState().addTerminal(PROJECT, 'pty-shell', { label: 'shell', taskId: null });
+    useAppStore.getState().select({ kind: 'terminal', stack: 'shell:pty-shell', projectPath: PROJECT });
     expect(await createAndStartTask(PROJECT, 'Wire up auth', 'with oauth')).toBe(true);
     expect(window.api.task.create).toHaveBeenCalledWith(PROJECT, 'Wire up auth', 'with oauth');
-    expect(useAppStore.getState().selection).toMatchObject({ kind: 'terminal', projectPath: PROJECT });
+    const shown = useAppStore.getState().selection;
+    if (shown.kind !== 'terminal') throw new Error('no terminal shown');
+    const members = stackMembers(useTerminalStore.getState(), shown.stack).map(
+      (id) => useTerminalStore.getState().displayStates[id].taskId,
+    );
+    expect(members.sort()).toEqual([7, null]);
 
     // The same dialog a drag to In progress gets; what it settles is what runs.
     await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);

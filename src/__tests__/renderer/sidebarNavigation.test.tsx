@@ -258,6 +258,27 @@ describe('stacking several from the sidebar', () => {
     }
   });
 
+  test('a shell made while a stack is on screen joins it, but not one in another project', async () => {
+    const docs = await spawn(ALPHA.path, 9);
+    const ship = await spawn(ALPHA.path, 8);
+    await spawn(BRAVO.path, 3);
+    render(<App />);
+    fireEvent.click(row(section('Projects'), 'Write docs'));
+    fireEvent.click(row(section('Projects'), 'Ship it'), { metaKey: true, ctrlKey: true });
+    await waitFor(() => expect(cards()).toEqual([docs, ship].sort()));
+
+    press('i');
+    await waitFor(() => expect(cards()).toHaveLength(3));
+    const shell = front()!;
+    expect(display(shell)).toMatchObject({ taskId: null, projectPath: ALPHA.path });
+    expect(cards()).toEqual([docs, ship, shell].sort());
+
+    fireEvent.contextMenu(document.querySelector(`[data-project-path="${BRAVO.path}"]`)!);
+    fireEvent.click(await screen.findByText('New terminal'));
+    await waitFor(() => expect(display(front()!)).toMatchObject({ taskId: null, projectPath: BRAVO.path }));
+    expect(cards()).toEqual([front()]);
+  });
+
   test('⌘- and shift-clicking rows in one group stacks them, and a whole project or tag stacks at once', async () => {
     const ship1 = await spawn(ALPHA.path, 8);
     const ship2 = await spawn(ALPHA.path, 8);

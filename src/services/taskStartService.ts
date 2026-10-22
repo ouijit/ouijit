@@ -14,9 +14,9 @@ import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import { completeTask } from './taskCompletion';
 import { headlessHookRun, hookSandbox, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';
-import { useAppStore } from '../stores/appStore';
+import { joinStack, useAppStore } from '../stores/appStore';
 import { getProjectTasks, loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
-import { useTerminalStore } from '../stores/terminalStore';
+import { stackOf, useTerminalStore } from '../stores/terminalStore';
 import type { HookType, RunHookResult, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
@@ -413,9 +413,11 @@ export async function createAndStartTask(
     useProjectStore.getState().addToast(result?.error ?? 'Failed to create task', 'error');
     return false;
   }
+  const { selection } = useAppStore.getState();
   beginTransition(projectPath, { origStatus: 'todo', newStatus: 'in_progress', task });
   const { terminalsByProject, displayStates } = useTerminalStore.getState();
   const slot = terminalsByProject[projectPath]?.find((id) => displayStates[id]?.taskId === task.taskNumber);
-  if (slot) useAppStore.getState().showTerminal(slot);
+  const own = stackOf({ ptyId: '', projectPath, taskId: task.taskNumber });
+  if (slot) useAppStore.getState().showTerminal(slot, joinStack(selection, projectPath, own));
   return true;
 }

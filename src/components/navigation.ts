@@ -7,7 +7,7 @@
  */
 
 import type { Project, SandboxProviderId, TaskWithWorkspace, WorktreeInfo } from '../types';
-import { useAppStore, type ProjectPage } from '../stores/appStore';
+import { joinStack, useAppStore, type ProjectPage } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
 import { stackMembers, stackOf, useTerminalStore } from '../stores/terminalStore';
@@ -35,11 +35,15 @@ function showTaskTerminals(projectPath: string, taskNumber: number): void {
   if (front) useAppStore.getState().showTerminal(front);
 }
 
-/** A shell in `projectPath`, shown once it spawns. */
+/** A shell in `projectPath`, shown once it spawns, in the stack on screen when that is the same project's. */
 export async function openShell(projectPath: string): Promise<void> {
+  const { selection } = useAppStore.getState();
   if (!(await addProjectTerminal(projectPath))) return;
   const [front] = useTerminalStore.getState().order;
-  if (front) useAppStore.getState().showTerminal(front);
+  if (!front) return;
+  useAppStore
+    .getState()
+    .showTerminal(front, joinStack(selection, projectPath, stackOf({ ptyId: front, projectPath, taskId: null })));
 }
 
 /** Fit and focus a terminal's xterm once React has had a frame to mount it. */

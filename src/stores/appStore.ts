@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { CloneJob, Project, TaskWithWorkspace } from '../types';
 import type { HealthStatus } from '../healthCheck';
-import { stackMembers, stackOf, useTerminalStore } from './terminalStore';
+import { stackFrom, stackMembers, stackOf, unitsOf, useTerminalStore } from './terminalStore';
 
 export interface HomeRecentTask extends TaskWithWorkspace {
   project: Project;
@@ -22,6 +22,16 @@ export type Selection =
 export type ProjectView =
   | Extract<Selection, { kind: 'terminal' }>
   | { kind: 'page'; projectPath: string; page: 'board' };
+
+/**
+ * `unit`'s stack joined to the one `selection` shows, when that is the same
+ * project's: what you make there joins what you are looking at. Otherwise
+ * `unit` alone, as a stack never spans two projects.
+ */
+export function joinStack(selection: Selection, projectPath: string, unit: string): string {
+  if (selection.kind !== 'terminal' || selection.projectPath !== projectPath) return unit;
+  return stackFrom([...unitsOf(selection.stack), unit]);
+}
 
 function isSettings(selection: Selection): boolean {
   return selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
