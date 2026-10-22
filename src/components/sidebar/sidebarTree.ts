@@ -28,6 +28,11 @@ const ACTIVE_STAGES: TaskStatus[] = ['in_progress', 'in_review'];
  * sidebar's order first. `idleIn` adds that project's in-progress and
  * in-review tasks that have no terminal open, with no terminals under them.
  */
+/** The terminals in the order a group's rows list them: tasks in board order, then shells. */
+export function listedOrder(grouped: Grouped): string[] {
+  return [...grouped.tasks.flatMap((group) => group.ptyIds), ...grouped.shells];
+}
+
 export function groupByTask(
   ptyIds: string[],
   displays: Record<string, TerminalDisplayState>,

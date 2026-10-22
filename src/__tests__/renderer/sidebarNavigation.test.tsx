@@ -234,29 +234,23 @@ describe('the sidebar is the navigation', () => {
 });
 
 describe('stacking several from the sidebar', () => {
-  test('closing through a stack picked from the sidebar goes down the list from the row clicked, then wraps', async () => {
+  test('a stack picked in the sidebar mirrors the list: the bottom row in front, and ⌘W walks up', async () => {
     await spawn(ALPHA.path, 8);
     await spawn(ALPHA.path, 8);
     await spawn(ALPHA.path, 9);
     await spawn(ALPHA.path);
     render(<App />);
     const group = document.querySelector<HTMLElement>(`[data-project-path="${ALPHA.path}"]`)!.parentElement!;
-    const listed = () =>
-      [...group.querySelectorAll<HTMLElement>('[data-sidebar-row][data-pty-id]')].map((el) => el.dataset.ptyId!);
-    const [first, , third, last] = listed();
+    const listed = [...group.querySelectorAll<HTMLElement>('[data-sidebar-row][data-pty-id]')].map(
+      (el) => el.dataset.ptyId!,
+    );
     const rowOf = (ptyId: string) => group.querySelector<HTMLElement>(`[data-sidebar-row][data-pty-id="${ptyId}"]`)!;
 
-    fireEvent.click(rowOf(last));
-    await waitFor(() => expect(front()).toBe(last));
-    fireEvent.click(rowOf(first), { shiftKey: true });
+    fireEvent.click(rowOf(listed[0]));
+    await waitFor(() => expect(front()).toBe(listed[0]));
+    fireEvent.click(rowOf(listed[3]), { shiftKey: true });
     await waitFor(() => expect(cards()).toHaveLength(4));
-    expect(front()).toBe(first);
-    fireEvent.click(rowOf(third), { metaKey: true, ctrlKey: true });
-    fireEvent.click(rowOf(third), { metaKey: true, ctrlKey: true });
-    await waitFor(() => expect(front()).toBe(third));
-
-    const expected = [third, last, first, listed()[1]];
-    for (const ptyId of expected) {
+    for (const ptyId of [...listed].reverse()) {
       await waitFor(() => expect(front()).toBe(ptyId));
       press('w');
     }
@@ -277,10 +271,10 @@ describe('stacking several from the sidebar', () => {
     fireEvent.click(row(projects(), 'Write docs'));
     await waitFor(() => expect(cards()).toEqual([docs]));
 
-    // ⌘ adds a task, all its terminals, in front; the breadcrumb counts what is stacked.
+    // ⌘ adds a task, all its terminals; the lowest row listed is in front, and the breadcrumb counts what is stacked.
     modClick('Ship it');
     await waitFor(() => expect(cards()).toEqual([docs, ship1, ship2].sort()));
-    expect(front()).toBe(ship2);
+    expect(front()).toBe(docs);
     expect(banner()).toContain('2 tasks');
     expect(marked()).toBe(4);
 
@@ -438,7 +432,7 @@ test('a project opens to the board or terminals it last showed, and to its board
   await waitFor(() => expect(useAppStore.getState().selection).toEqual(board(BRAVO)));
   fireEvent.click(name(ALPHA));
   await waitFor(() => expect(cards()).toEqual([docs, ship].sort()));
-  expect(front()).toBe(ship);
+  expect(front()).toBe(docs);
 
   fireEvent.click(row(section('Projects'), 'Pricing page'));
   await waitFor(() => expect(cards()).toEqual([pricing]));

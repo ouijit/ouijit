@@ -604,14 +604,10 @@ export function GroupRows({
     const stack = stackFrom(units);
     for (const idle of waking) void openTaskTerminal(idle.projectPath, idle.task, undefined, stack);
     if (waking.length > 0 && row.idle) return;
-    const { order } = useTerminalStore.getState();
-    const front = order.find((id) => row.ptyIds.includes(id) && next.has(id)) ?? order.find((id) => next.has(id));
-    if (!front) return;
-    // The stack's cards, and so ⌘W, follow the list down from the row clicked.
-    const listed = rows.flatMap((r) => r.ptyIds).filter((id) => next.has(id));
-    const from = Math.max(0, listed.indexOf(front));
-    useTerminalStore.getState().restoreOrder([...listed.slice(from), ...listed.slice(0, from)]);
-    void focusTerminal(front, { stack });
+    showInListOrder(
+      stack,
+      rows.flatMap((r) => r.ptyIds),
+    );
   };
 
   const rowMenu: RowMenu = (at, own) => (e) => {
@@ -651,6 +647,19 @@ export function GroupRows({
  * hold terminals listed elsewhere, under another tag; picking more here leaves
  * those behind, since a stack stays in one group.
  */
+/**
+ * Shows `stack` with its cards in the order the sidebar lists them. The front
+ * card sits lowest, so it is the last one listed and the rest peek out above it
+ * the way the list runs; ⌘W then walks up the list.
+ */
+export function showInListOrder(stack: string, listed: string[]): void {
+  const members = new Set(stackMembers(useTerminalStore.getState(), stack));
+  const frontFirst = listed.filter((id) => members.has(id)).reverse();
+  if (frontFirst.length === 0) return;
+  useTerminalStore.getState().restoreOrder(frontFirst);
+  void focusTerminal(frontFirst[0], { stack });
+}
+
 function onScreenHere(ptyIds: string[]): string[] {
   const { selection } = useAppStore.getState();
   if (selection.kind !== 'terminal') return [];

@@ -10,7 +10,6 @@ import { useExperimentalStore, useProjectFlags } from '../stores/experimentalSto
 import {
   projectUnit,
   stackFrom,
-  stackMembers,
   tagUnit,
   terminalUnit,
   useTerminalStore,
@@ -27,12 +26,12 @@ import { ResizeHandle } from './common/ResizeHandle';
 import { refreshTerminalsGitStatus } from './terminal/terminalReact';
 import { Icon } from './terminal/Icon';
 import { Tooltip } from './ui/Tooltip';
-import { openProject, openProjectPage, focusTerminal, openShell, openTaskTerminal } from './navigation';
+import { openProject, openProjectPage, openShell, openTaskTerminal } from './navigation';
 import { isModKey } from '../utils/modKey';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/ContextMenu';
 import { PAGE_TITLES } from './TitleBarReact';
-import { groupByTag, groupByTask } from './sidebar/sidebarTree';
+import { groupByTag, groupByTask, listedOrder } from './sidebar/sidebarTree';
 import {
   GroupDots,
   GroupRows,
@@ -40,6 +39,7 @@ import {
   ROW_SELECTED,
   homeRelative,
   useGroupCollapsed,
+  showInListOrder,
   useShownPtyId,
 } from './sidebar/SidebarRows';
 
@@ -582,10 +582,11 @@ function ProjectGroup({ project }: { project: Project }) {
   );
 }
 
-/** Shows every terminal `stack` takes in, most recent in front. */
-function showGroup(stack: string): void {
-  const [front] = stackMembers(useTerminalStore.getState(), stack);
-  if (front) void focusTerminal(front, { stack });
+/** Shows every terminal `stack` takes in, in the order the group's rows list them. */
+function showGroup(stack: string, ptyIds: string[], projectOrder?: string[], idleIn?: string): void {
+  const { displayStates } = useTerminalStore.getState();
+  const { taskCacheByProject } = useAppStore.getState();
+  showInListOrder(stack, listedOrder(groupByTask(ptyIds, displayStates, taskCacheByProject, projectOrder, idleIn)));
 }
 
 /**
@@ -602,7 +603,7 @@ function showProject(projectPath: string, ptyIds: string[]): void {
   );
   if (ptyIds.length === 0 && sleeping.length === 0) return void openProjectPage(projectPath, 'board');
   for (const task of sleeping) void openTaskTerminal(projectPath, task, undefined, stack);
-  if (ptyIds.length > 0) showGroup(stack);
+  if (ptyIds.length > 0) showGroup(stack, ptyIds, [], projectPath);
 }
 
 function useStackShown(stack: string | null): boolean {
@@ -653,7 +654,7 @@ function PathGroup({ path }: { path: string }) {
         groupKey={path}
         name={homeRelative(path)}
         ptyIds={ptyIds}
-        onOpenAll={() => showGroup(stackFrom([projectUnit(path)]))}
+        onOpenAll={() => showGroup(stackFrom([projectUnit(path)]), ptyIds)}
       />
       {!collapsed && <GroupRows ptyIds={ptyIds} detail="diff" />}
     </div>
@@ -708,8 +709,8 @@ function TagGroup({
         ptyIds={ptyIds}
         icon={tag ? <Icon name="tag" className="w-3.5 h-3.5 text-text-secondary" /> : undefined}
         selected={wholeShown}
-        onOpen={wholeStack ? () => showGroup(wholeStack) : undefined}
-        onOpenAll={() => showGroup(wholeStack ?? stackFrom(ptyIds.map(terminalUnit)))}
+        onOpen={wholeStack ? () => showGroup(wholeStack, ptyIds, projectOrder) : undefined}
+        onOpenAll={() => showGroup(wholeStack ?? stackFrom(ptyIds.map(terminalUnit)), ptyIds, projectOrder)}
       />
       {!collapsed && <GroupRows ptyIds={ptyIds} detail="project" projectOrder={projectOrder} />}
     </div>
