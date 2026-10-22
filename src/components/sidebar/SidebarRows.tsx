@@ -27,7 +27,7 @@ import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { Tooltip } from '../ui/Tooltip';
 import { StageIcon } from './StageIcon';
-import { formatSince, groupByTask, unitsFor, type TaskGroup } from './sidebarTree';
+import { formatSince, groupByTask, listedOrder, unitsFor, type TaskGroup } from './sidebarTree';
 import { isModKey } from '../../utils/modKey';
 import { selectionEntries, TagPrompt } from './SelectionMenu';
 
@@ -602,11 +602,8 @@ export function GroupRows({
     for (const idle of waking) units.push(stackOf({ ptyId: '', projectPath: idle.projectPath, taskId: idle.taskId }));
     if (units.length === 0) return;
     const stack = stackFrom(units);
-    for (const idle of waking) void openTaskTerminal(idle.projectPath, idle.task, undefined, stack);
-    if (waking.length > 0 && row.idle) return;
-    showInListOrder(
-      stack,
-      rows.flatMap((r) => r.ptyIds),
+    void Promise.all(waking.map((idle) => openTaskTerminal(idle.projectPath, idle.task, undefined, stack))).then(() =>
+      showInListOrder(stack, projectOrder, idleIn),
     );
   };
 
@@ -652,9 +649,16 @@ export function GroupRows({
  * card sits lowest, so it is the last one listed and the rest peek out above it
  * the way the list runs; ⌘W then walks up the list.
  */
-export function showInListOrder(stack: string, listed: string[]): void {
-  const members = new Set(stackMembers(useTerminalStore.getState(), stack));
-  const frontFirst = listed.filter((id) => members.has(id)).reverse();
+export function showInListOrder(stack: string, projectOrder?: string[], idleIn?: string): void {
+  const terminals = useTerminalStore.getState();
+  const members = new Set(stackMembers(terminals, stack));
+  // In the order the sidebar's groups are fed, so a task's terminals line up with its rows.
+  const listedIds = Object.values(terminals.terminalsByProject)
+    .flat()
+    .filter((id) => members.has(id));
+  const tasks = useAppStore.getState().taskCacheByProject;
+  const grouped = groupByTask(listedIds, terminals.displayStates, tasks, projectOrder, idleIn);
+  const frontFirst = listedOrder(grouped).reverse();
   if (frontFirst.length === 0) return;
   useTerminalStore.getState().restoreOrder(frontFirst);
   void focusTerminal(frontFirst[0], { stack });

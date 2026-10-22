@@ -241,16 +241,18 @@ describe('stacking several from the sidebar', () => {
     await spawn(ALPHA.path);
     render(<App />);
     const group = document.querySelector<HTMLElement>(`[data-project-path="${ALPHA.path}"]`)!.parentElement!;
-    const listed = [...group.querySelectorAll<HTMLElement>('[data-sidebar-row][data-pty-id]')].map(
-      (el) => el.dataset.ptyId!,
-    );
-    const rowOf = (ptyId: string) => group.querySelector<HTMLElement>(`[data-sidebar-row][data-pty-id="${ptyId}"]`)!;
+    const rows = () => [...group.querySelectorAll<HTMLElement>('[data-sidebar-row]')];
+    const listed = () => rows().flatMap((el) => (el.dataset.ptyId ? [el.dataset.ptyId] : []));
+    // The range takes in a task with nothing open, whose terminal opens after the rest are stacked.
+    expect(within(group).getByText('Tidy up')).toBeTruthy();
 
-    fireEvent.click(rowOf(listed[0]));
-    await waitFor(() => expect(front()).toBe(listed[0]));
-    fireEvent.click(rowOf(listed[3]), { shiftKey: true });
-    await waitFor(() => expect(cards()).toHaveLength(4));
-    for (const ptyId of [...listed].reverse()) {
+    fireEvent.click(rows()[0]);
+    await waitFor(() => expect(cards()).toHaveLength(rows()[0].dataset.ptyId ? 1 : 2));
+    fireEvent.click(rows()[rows().length - 1], { shiftKey: true });
+    await waitFor(() => expect(cards()).toHaveLength(5));
+    const order = listed();
+    expect(order).toHaveLength(5);
+    for (const ptyId of [...order].reverse()) {
       await waitFor(() => expect(front()).toBe(ptyId));
       press('w');
     }
@@ -314,7 +316,7 @@ describe('stacking several from the sidebar', () => {
     // A task in the range with nothing open resumes into the stack, as it does clicked alone.
     fireEvent.click(row(projects(), 'Tidy up'), { shiftKey: true });
     await waitFor(() => expect(cards()).toHaveLength(5));
-    expect(display(front()!)).toMatchObject({ taskId: 11, projectPath: ALPHA.path });
+    expect(cards().map(display)).toContainEqual(expect.objectContaining({ taskId: 11, projectPath: ALPHA.path }));
     expect(cards()).toEqual(expect.arrayContaining([docs, shell, ship1, ship2]));
     expect(banner()).toContain('5 terminals');
 

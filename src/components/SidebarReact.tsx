@@ -31,7 +31,7 @@ import { isModKey } from '../utils/modKey';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/ContextMenu';
 import { PAGE_TITLES } from './TitleBarReact';
-import { groupByTag, groupByTask, listedOrder } from './sidebar/sidebarTree';
+import { groupByTag, groupByTask } from './sidebar/sidebarTree';
 import {
   GroupDots,
   GroupRows,
@@ -582,13 +582,6 @@ function ProjectGroup({ project }: { project: Project }) {
   );
 }
 
-/** Shows every terminal `stack` takes in, in the order the group's rows list them. */
-function showGroup(stack: string, ptyIds: string[], projectOrder?: string[], idleIn?: string): void {
-  const { displayStates } = useTerminalStore.getState();
-  const { taskCacheByProject } = useAppStore.getState();
-  showInListOrder(stack, listedOrder(groupByTask(ptyIds, displayStates, taskCacheByProject, projectOrder, idleIn)));
-}
-
 /**
  * Stacks everything in a project, resuming its in-progress and in-review tasks
  * that have nothing open, as picking them in the tree does. With nothing to
@@ -602,8 +595,9 @@ function showProject(projectPath: string, ptyIds: string[]): void {
     group.ptyIds.length === 0 && group.task ? [group.task] : [],
   );
   if (ptyIds.length === 0 && sleeping.length === 0) return void openProjectPage(projectPath, 'board');
-  for (const task of sleeping) void openTaskTerminal(projectPath, task, undefined, stack);
-  if (ptyIds.length > 0) showGroup(stack, ptyIds, [], projectPath);
+  void Promise.all(sleeping.map((task) => openTaskTerminal(projectPath, task, undefined, stack))).then(() =>
+    showInListOrder(stack, [], projectPath),
+  );
 }
 
 function useStackShown(stack: string | null): boolean {
@@ -654,7 +648,7 @@ function PathGroup({ path }: { path: string }) {
         groupKey={path}
         name={homeRelative(path)}
         ptyIds={ptyIds}
-        onOpenAll={() => showGroup(stackFrom([projectUnit(path)]), ptyIds)}
+        onOpenAll={() => showInListOrder(stackFrom([projectUnit(path)]))}
       />
       {!collapsed && <GroupRows ptyIds={ptyIds} detail="diff" />}
     </div>
@@ -709,8 +703,8 @@ function TagGroup({
         ptyIds={ptyIds}
         icon={tag ? <Icon name="tag" className="w-3.5 h-3.5 text-text-secondary" /> : undefined}
         selected={wholeShown}
-        onOpen={wholeStack ? () => showGroup(wholeStack, ptyIds, projectOrder) : undefined}
-        onOpenAll={() => showGroup(wholeStack ?? stackFrom(ptyIds.map(terminalUnit)), ptyIds, projectOrder)}
+        onOpen={wholeStack ? () => showInListOrder(wholeStack, projectOrder) : undefined}
+        onOpenAll={() => showInListOrder(wholeStack ?? stackFrom(ptyIds.map(terminalUnit)), projectOrder)}
       />
       {!collapsed && <GroupRows ptyIds={ptyIds} detail="project" projectOrder={projectOrder} />}
     </div>
