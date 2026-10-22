@@ -86,11 +86,11 @@ export type {
 } from './sandbox/types';
 export {
   SANDBOX_BACKEND_IDS,
-  SANDBOX_BACKEND_LABELS,
+  SANDBOX_LABELS,
   SANDBOXABLE_HOOK_TYPES,
   isActiveSandbox,
   isSandboxProviderId,
-  runnerSandboxSettingKey,
+  defaultSandboxSettingKey,
 } from './sandbox/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
 export type {
@@ -262,7 +262,7 @@ export interface ScriptHook {
   description?: string;
   /** Restart the command if an instance is already running in the same task (run hook only). */
   restartIfRunning?: boolean;
-  /** Sandbox backend the hook's terminal runs under; absent or 'none' runs it on the host. */
+  /** Where the hook always runs; absent follows the project default. */
   sandbox?: SandboxProviderId;
 }
 

@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Tooltip } from '../ui/Tooltip';
 import type { SandboxProviderId } from '../../types';
 import type { TerminalStatus } from '../../stores/terminalDisplay';
-import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
+import { SANDBOX_LABELS, isActiveSandbox } from '../../types';
 
 interface StatusDotProps {
   status: TerminalStatus;
@@ -11,7 +11,7 @@ interface StatusDotProps {
 }
 
 export function sandboxSuffix(sandboxProvider?: SandboxProviderId): string {
-  return isActiveSandbox(sandboxProvider) ? ` (${sandboxProvider})` : '';
+  return isActiveSandbox(sandboxProvider) ? ` (${SANDBOX_LABELS[sandboxProvider]})` : '';
 }
 
 const COLORS: Record<TerminalStatus, string> = {
@@ -85,9 +85,7 @@ export function StatusGlyph({ status, sandboxProvider, size = 6 }: StatusDotProp
 
 export function StatusDot({ status, sandboxProvider, size = 6 }: StatusDotProps) {
   const label = LABELS[status];
-  const tooltipText = isActiveSandbox(sandboxProvider)
-    ? `${label} · ${SANDBOX_BACKEND_LABELS[sandboxProvider]}`
-    : label;
+  const tooltipText = isActiveSandbox(sandboxProvider) ? `${label} · ${SANDBOX_LABELS[sandboxProvider]}` : label;
   return (
     <Tooltip text={tooltipText} placement="top" delay={300}>
       <StatusGlyph status={status} sandboxProvider={sandboxProvider} size={size} />

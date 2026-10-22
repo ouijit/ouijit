@@ -1,9 +1,9 @@
 import type { ContextMenuEntry } from '../ui/ContextMenu';
 import type { SandboxBackendId, SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../../types';
-import { SANDBOX_BACKEND_LABELS } from '../../types';
+import { SANDBOX_LABELS } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import { useProjectStore } from '../../stores/projectStore';
-import { loadTasks } from '../../stores/projectDataStore';
+import { getProjectConfig, loadTasks } from '../../stores/projectDataStore';
 import { completeTask } from '../../services/taskCompletion';
 import { openTaskInEditor } from '../../services/openInEditor';
 import { FILE_MANAGER_NAME, revealInFileManager } from '../../utils/fileManager';
@@ -37,25 +37,25 @@ export interface TaskMenuActions {
 }
 
 /**
- * "Open in ▸" — a Terminal, one entry per available sandbox backend, Editor,
- * and the OS file manager. Terminals and Editor create the worktree a task has
+ * "Open in ▸" — a Terminal for each place one can run, the project default
+ * first, then Editor and the OS file manager. Terminals and Editor create the worktree a task has
  * never had; the file manager needs one already on disk.
  */
 export function openInEntry(
   sandboxProviders: SandboxBackendId[],
   hasWorktree: boolean,
   actions: TaskMenuActions,
+  projectDefault: SandboxProviderId,
 ): ContextMenuEntry {
-  const submenu: ContextMenuEntry[] = [
-    { label: 'Terminal', icon: 'terminal', onClick: () => actions.openTerminal('none') },
-  ];
-  for (const provider of sandboxProviders) {
-    submenu.push({
-      label: `${SANDBOX_BACKEND_LABELS[provider]} sandbox`,
-      icon: 'cube',
-      onClick: () => actions.openTerminal(provider),
-    });
-  }
+  const places: SandboxProviderId[] = ['none', ...sandboxProviders];
+  places.sort((a, b) => Number(b === projectDefault) - Number(a === projectDefault));
+  const submenu: ContextMenuEntry[] = places.map((place) => ({
+    label: 'Terminal',
+    value: SANDBOX_LABELS[place],
+    icon: 'terminal',
+    onClick: () => actions.openTerminal(place),
+  }));
+  submenu.push({ separator: true });
   submenu.push({ label: 'Editor', icon: 'code', onClick: actions.openEditor });
   if (hasWorktree) {
     submenu.push({ label: FILE_MANAGER_NAME, icon: 'folder-open', onClick: actions.openFolder });
@@ -155,7 +155,14 @@ export function taskEntries(ctx: TaskMenuContext): ContextMenuEntry[] {
       useProjectStore.getState().addToast('Task moved to trash', 'success');
     },
   };
-  items.push(openInEntry(ctx.sandboxProviders, !!(task.worktreePath && task.branch), actions));
+  items.push(
+    openInEntry(
+      ctx.sandboxProviders,
+      !!(task.worktreePath && task.branch),
+      actions,
+      getProjectConfig(ctx.projectPath)?.defaultSandbox ?? 'none',
+    ),
+  );
 
   const planDisplay = ctx.terminals.find((d) => d.panels.some((p) => p.kind === 'plan'));
   if (planDisplay) {

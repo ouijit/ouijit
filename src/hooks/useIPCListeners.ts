@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { SANDBOX_BACKEND_LABELS, type CliHookControl, type TaskStatus, type TaskWithWorkspace } from '../types';
+import { SANDBOX_LABELS, type CliHookControl, type TaskStatus, type TaskWithWorkspace } from '../types';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { refreshProjectData } from '../stores/projectDataStore';
@@ -128,7 +128,7 @@ export function useIPCListeners() {
     cleanups.push(
       window.api.onSandboxLaunchFailed(({ provider, exitCode, error }) => {
         const reason = error ? `: ${error}` : ` (exit ${exitCode}). See the terminal output.`;
-        useProjectStore.getState().addToast(`${SANDBOX_BACKEND_LABELS[provider]} sandbox failed to start${reason}`, {
+        useProjectStore.getState().addToast(`${SANDBOX_LABELS[provider]} failed to start${reason}`, {
           type: 'error',
           persistent: true,
         });

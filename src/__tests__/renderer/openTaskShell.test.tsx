@@ -19,7 +19,6 @@ vi.mock('../../components/terminal/terminalActions', () => ({
 }));
 
 const PROJECT = '/work/alpha';
-const NO_HOOKS = '/work/beta';
 
 const started: TaskWithWorkspace = {
   taskNumber: 4,
@@ -151,13 +150,8 @@ describe('openTaskShell', () => {
     );
   });
 
-  test('a terminal opened with no sandbox chosen takes the project default, unless the continue hook runs it', async () => {
+  test('a plain shell with no sandbox chosen opens in the project default; a resume leaves it to the continue hook', async () => {
     window.api.globalSettings.get = vi.fn().mockResolvedValue('nono');
-    window.api.hooks.get = vi.fn(async (projectPath: string) =>
-      projectPath === PROJECT
-        ? { continue: { id: 'c', type: 'continue', name: 'Continue', command: 'claude -c', sandbox: 'none' } }
-        : {},
-    );
     window.api.task.start = vi.fn().mockResolvedValue({
       success: true,
       worktreePath: '/work/alpha-9',
@@ -171,7 +165,6 @@ describe('openTaskShell', () => {
     expect(await sandboxOf(PROJECT, started, { mode: 'shell' })).toBe('nono');
     expect(await sandboxOf(PROJECT, neverStarted, { mode: 'resume' })).toBe('nono');
     expect(await sandboxOf(PROJECT, started, { mode: 'resume' })).toBeUndefined();
-    expect(await sandboxOf(NO_HOOKS, started, { mode: 'resume' })).toBe('nono');
     expect(await sandboxOf(PROJECT, started, { mode: 'shell', sandboxProvider: 'custom' })).toBe('custom');
   });
 

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { setDefaultSandbox, useProjectConfig, useProjectScripts } from '../../stores/projectDataStore';
+import { useProjectConfig, useProjectScripts } from '../../stores/projectDataStore';
 import { terminalInstances } from './terminalRegistry';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
-import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
+import { SANDBOX_LABELS, isActiveSandbox } from '../../types';
 import type { RunnerScript, SandboxBackendId, SandboxProviderId, Script, ScriptHook } from '../../types';
 
 interface AddPanelMenuProps {
@@ -49,27 +49,25 @@ export function AddPanelMenu({
   // Waits for both, so the menu never offers to configure a run command that
   // already exists.
   if (config && scripts) {
-    const defaultPlace = chosenPlace ?? config.defaultSandbox;
+    const projectDefault = config.defaultSandbox;
+    const place = chosenPlace ?? projectDefault;
     const places: SandboxProviderId[] = ['none', ...config.availableSandboxProviders];
-    if (!places.includes(defaultPlace)) places.push(defaultPlace);
+    if (!places.includes(projectDefault)) places.push(projectDefault);
+    places.sort((a, b) => Number(b === projectDefault) - Number(a === projectDefault));
     if (places.length > 1) {
       items.push({
-        label: 'Default environment',
-        value: placeLabel(defaultPlace),
-        submenu: places.map((place) => ({
-          label: placeLabel(place),
-          checked: place === defaultPlace,
+        label: 'Run in',
+        value: SANDBOX_LABELS[place],
+        submenu: places.map((option) => ({
+          label: option === projectDefault ? `Default (${SANDBOX_LABELS[option]})` : SANDBOX_LABELS[option],
+          checked: option === place,
           keepOpen: true,
-          onClick: () => {
-            setChosenPlace(place);
-            void setDefaultSandbox(projectPath, place);
-          },
+          onClick: () => setChosenPlace(option),
         })),
       });
     }
 
-    const run = (script?: RunnerScript) =>
-      onAddRunner(script, isActiveSandbox(defaultPlace) ? defaultPlace : undefined);
+    const run = (script?: RunnerScript) => onAddRunner(script, isActiveSandbox(place) ? place : undefined);
     const edit = (label: string, onClick: () => void) => ({ icon: 'pencil-simple', label: `Edit ${label}`, onClick });
 
     const runHook = config.hooks.run;
@@ -93,8 +91,4 @@ export function AddPanelMenu({
   items.push({ label: 'Markdown File', icon: 'file-text', onClick: () => void pickPlanFile() });
 
   return <ContextMenu x={x} y={y} items={items} onClose={onClose} />;
-}
-
-function placeLabel(place: SandboxProviderId): string {
-  return isActiveSandbox(place) ? SANDBOX_BACKEND_LABELS[place] : 'Host';
 }

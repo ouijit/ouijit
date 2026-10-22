@@ -1,7 +1,7 @@
 import { Fragment, memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { loadTasks, useProjectConfig, useProjectTask } from '../../stores/projectDataStore';
+import { getProjectConfig, loadTasks, useProjectConfig, useProjectTask } from '../../stores/projectDataStore';
 import { useShallow } from 'zustand/react/shallow';
 import { terminalInstances } from './terminalRegistry';
 import { addProjectTerminal, renameTerminal, startRunner } from './terminalActions';
@@ -137,7 +137,14 @@ export const TerminalHeader = memo(function TerminalHeader({
         },
       };
 
-      items.push(openInEntry(availableSandboxProviders, hasWorktree, actions));
+      items.push(
+        openInEntry(
+          availableSandboxProviders,
+          hasWorktree,
+          actions,
+          getProjectConfig(projectPath)?.defaultSandbox ?? 'none',
+        ),
+      );
       items.push({ separator: true });
       items.push(moveToEntry(actions));
       if (task?.branch && task.status !== 'done') {

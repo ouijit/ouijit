@@ -19,7 +19,7 @@ import { DiffLensRepo, type DiffLensRow } from './repos/diffLensRepo';
 import { worktreeKeyPrefix } from '../lens/subjectKeys';
 import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
-import { SANDBOXABLE_HOOK_TYPES, isSandboxBackendId } from '../sandbox/types';
+import { SANDBOXABLE_HOOK_TYPES, isSandboxProviderId } from '../sandbox/types';
 import { getLogger } from '../logger';
 
 const dbLog = getLogger().scope('db');
@@ -602,7 +602,7 @@ export async function getProjectSettings(projectPath: string): Promise<ProjectSe
       command: row.command,
       restartIfRunning: row.restart_if_running === 1,
       ...(row.description && { description: row.description }),
-      ...(isSandboxBackendId(row.sandbox) && { sandbox: row.sandbox }),
+      ...(isSandboxProviderId(row.sandbox) && { sandbox: row.sandbox }),
     } as ScriptHook;
   }
 
@@ -641,7 +641,7 @@ export async function saveHook(projectPath: string, hook: ScriptHook): Promise<{
       hook.id,
       hook.description,
       hook.restartIfRunning,
-      SANDBOXABLE_HOOK_TYPES.includes(hook.type) && isSandboxBackendId(hook.sandbox) ? hook.sandbox : null,
+      SANDBOXABLE_HOOK_TYPES.includes(hook.type) && isSandboxProviderId(hook.sandbox) ? hook.sandbox : null,
     );
     return { success: true };
   } catch (error) {

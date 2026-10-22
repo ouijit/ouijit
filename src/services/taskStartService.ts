@@ -14,7 +14,7 @@ import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import { completeTask } from './taskCompletion';
 import { headlessHookRun, hookSandbox, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';
-import { getProjectTasks, loadTasks } from '../stores/projectDataStore';
+import { getProjectTasks, loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { HookType, RunHookResult, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
@@ -241,7 +241,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
     // decided — skip the dialog entirely. Otherwise show the dialog
     // proactively if a hook is configured for this transition.
     let hookPromise: Promise<RunHookResult | null> = Promise.resolve(null);
-    const sandbox = hookSandbox(sandboxOverride, hook);
+    const sandbox = hookSandbox(sandboxOverride, hook, await projectDefaultSandbox(projectPath));
     // True when an interactive start-hook dialog is shown to the user. Clicking
     // its Cancel button (hookResult === null) is an explicit "don't run a hook
     // and don't open a terminal" — distinct from the no-hook drop, where a plain
@@ -312,13 +312,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
       if (interactiveHookOffered && !hookResult) {
         taskStartLog.info('start hook cancelled — moving to in_progress without a terminal', { taskNumber });
       } else {
-        await spawnTerminalForInProgress(
-          projectPath,
-          resolvedTask,
-          hookResult,
-          hookResult?.sandbox ?? sandboxOverride,
-          slotId,
-        );
+        await spawnTerminalForInProgress(projectPath, resolvedTask, hookResult, hookResult?.sandbox ?? sandbox, slotId);
       }
     } else if (hookResult) {
       await runNonStartHookInTerminal(projectPath, resolvedTask, newStatus, hookResult, onForegroundOpen);

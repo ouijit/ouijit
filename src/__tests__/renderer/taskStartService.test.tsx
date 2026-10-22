@@ -5,6 +5,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import { beginTransition } from '../../services/taskStartService';
 import { addProjectTerminal, closeProjectTerminal } from '../../components/terminal/terminalActions';
 import type { TaskWithWorkspace } from '../../types';
+import { seedProject } from './seedProject';
 
 // electron-log/renderer expects an Electron host to talk to via IPC. Stub it
 // to a no-op logger so the service module evaluates cleanly under jsdom.
@@ -83,7 +84,7 @@ describe('taskStartService.beginTransition', () => {
     expect(useProjectStore.getState().startingTaskNumbers.has(7)).toBe(false);
   });
 
-  test('a hook runs in its own sandbox unless the CLI or the dialog picks another; no hook means the host', async () => {
+  test('a hook runs where it is set, else the project default, unless the CLI or the dialog picks another', async () => {
     const started = { ...makeTask(), worktreePath: '/wt/T-7', branch: 'wire-up-auth-7' };
     async function transition(opts: Partial<Parameters<typeof beginTransition>[1]>, resolveDialog?: 'nono') {
       vi.mocked(addProjectTerminal).mockClear();
@@ -101,7 +102,8 @@ describe('taskStartService.beginTransition', () => {
       return vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandboxProvider;
     }
 
-    expect(await transition({ hookControl: { mode: 'run' } })).toBeUndefined();
+    // With no hook, the plain shell opens in the project default.
+    expect(await transition({ hookControl: { mode: 'run' } })).toBe('none');
 
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { id: 'h', type: 'start', name: 'Start', command: 'claude', sandbox: 'custom' },
@@ -110,9 +112,14 @@ describe('taskStartService.beginTransition', () => {
     expect(await transition({ hookControl: { mode: 'command', command: 'claude -p' } })).toBe('custom');
     expect(await transition({ hookControl: { mode: 'run' }, sandbox: 'none' })).toBe('none');
     expect(await transition({}, 'nono')).toBe('nono');
-    // Skipping the hook leaves a plain shell, which runs where the CLI says or on the host.
-    expect(await transition({ hookControl: { mode: 'skip' } })).toBeUndefined();
+    expect(await transition({ hookControl: { mode: 'skip' } })).toBe('custom');
     expect(await transition({ hookControl: { mode: 'skip' }, sandbox: 'nono' })).toBe('nono');
+
+    seedProject(PROJECT, { defaultSandbox: 'nono' });
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 'h', type: 'start', name: 'Start', command: 'claude' },
+    });
+    expect(await transition({ hookControl: { mode: 'run' } })).toBe('nono');
   });
 
   test('hook prompt cancel: opens no terminal and removes the loading slot', async () => {

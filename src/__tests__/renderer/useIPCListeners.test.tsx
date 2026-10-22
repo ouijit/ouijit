@@ -252,10 +252,10 @@ describe('useIPCListeners — sandbox-launch-failed', () => {
     renderHook(() => useIPCListeners());
     stubs.launchFailedCb!({ ptyId: 'pty-1', provider: 'custom', exitCode: 2 });
     stubs.launchFailedCb!({ ptyId: 'pty-2', provider: 'nono', error: 'nono is not installed.' });
-    const toasts = useProjectStore.getState().toasts.filter((t) => t.message.includes('sandbox failed to start'));
+    const toasts = useProjectStore.getState().toasts.filter((t) => t.message.includes('failed to start'));
     expect(toasts.map((t) => [t.message, t.type, t.persistent])).toEqual([
-      ['Custom sandbox failed to start (exit 2). See the terminal output.', 'error', true],
-      ['nono sandbox failed to start: nono is not installed.', 'error', true],
+      ['Custom failed to start (exit 2). See the terminal output.', 'error', true],
+      ['Sandbox failed to start: nono is not installed.', 'error', true],
     ]);
   });
 });

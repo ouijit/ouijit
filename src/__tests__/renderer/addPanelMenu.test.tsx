@@ -104,7 +104,7 @@ describe("the terminal's + menu", () => {
     );
   });
 
-  test("commands run in the project's default environment, which the menu sets without running anything", async () => {
+  test('commands run in the project default unless Run in picks elsewhere, which changes nothing else', async () => {
     const lint: Script = { id: 's1', name: 'Lint', command: 'npm run lint', sortOrder: 0, restartIfRunning: false };
     seed(PROJECT, {
       hooks: { run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' } },
@@ -118,13 +118,13 @@ describe("the terminal's + menu", () => {
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom'));
 
     fireEvent.click(screen.getByLabelText('Add panel'));
-    fireEvent.mouseEnter(screen.getByText('Default environment').closest('div')!);
+    fireEvent.mouseEnter(screen.getByText('Run in').closest('div')!);
     fireEvent.click(await screen.findByRole('button', { name: 'Host' }));
-    await waitFor(() => expect(getProjectConfig(PROJECT)?.defaultSandbox).toBe('none'));
-    expect(window.api.globalSettings.set).toHaveBeenCalledWith(`runnerSandbox:${PROJECT}`, 'none');
+    expect(getProjectConfig(PROJECT)?.defaultSandbox).toBe('custom');
+    expect(window.api.globalSettings.set).not.toHaveBeenCalled();
     expect(startRunner).toHaveBeenCalledTimes(1);
 
-    // The menu stays open on its new default, ready for the command to run.
+    // The menu stays open on the pick, ready for the command to run.
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined));
 

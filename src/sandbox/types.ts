@@ -29,17 +29,18 @@ export function isSandboxProviderId(value: unknown): value is SandboxProviderId 
   return typeof value === 'string' && (SANDBOX_PROVIDER_IDS as readonly string[]).includes(value);
 }
 
-/** globalSettings key holding where a project's runners run by default. */
-export function runnerSandboxSettingKey(projectPath: string): string {
-  return `runnerSandbox:${projectPath}`;
+/** globalSettings key holding where a project runs things unless told otherwise. */
+export function defaultSandboxSettingKey(projectPath: string): string {
+  return `defaultSandbox:${projectPath}`;
 }
 
 /** The lifecycle hooks that run in a task terminal of their own, so can run sandboxed. */
 export const SANDBOXABLE_HOOK_TYPES: readonly string[] = ['start', 'continue', 'review', 'done'];
 
-/** Display label for each sandbox backend, shared across every UI surface. */
-export const SANDBOX_BACKEND_LABELS: Record<SandboxBackendId, string> = {
-  nono: 'nono',
+/** What each place a command can run is called, everywhere in the UI. */
+export const SANDBOX_LABELS: Record<SandboxProviderId, string> = {
+  none: 'Host',
+  nono: 'Sandbox',
   custom: 'Custom',
 };
 

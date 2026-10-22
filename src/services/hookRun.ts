@@ -1,7 +1,11 @@
 import type { CliHookMode, RunHookResult, SandboxProviderId, ScriptHook } from '../types';
 
-export function hookSandbox(override: SandboxProviderId | undefined, hook: ScriptHook | undefined): SandboxProviderId {
-  return override ?? hook?.sandbox ?? 'none';
+export function hookSandbox(
+  override: SandboxProviderId | undefined,
+  hook: ScriptHook | undefined,
+  projectDefault: SandboxProviderId,
+): SandboxProviderId {
+  return override ?? hook?.sandbox ?? projectDefault;
 }
 
 export interface HookControl {

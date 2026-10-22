@@ -9,7 +9,7 @@ import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
 import { Checkbox } from '../ui/Checkbox';
-import { SandboxPicker } from '../ui/SandboxPicker';
+import { HookSandboxPicker } from '../ui/SandboxPicker';
 
 const HOOK_LABELS: Record<HookType, { title: string; description: string; envVars?: boolean }> = {
   start: {
@@ -59,7 +59,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
 
   const [command, setCommand] = useState(existingHook?.command ?? '');
   const [restartIfRunning, setRestartIfRunning] = useState(existingHook?.restartIfRunning ?? false);
-  const [sandbox, setSandbox] = useState<SandboxProviderId>(existingHook?.sandbox ?? 'none');
+  const [sandbox, setSandbox] = useState<SandboxProviderId | undefined>(existingHook?.sandbox);
   const [visible, setVisible] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
@@ -97,7 +97,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
       name: labels.title,
       command: trimmed,
       ...(isRunHook && { restartIfRunning }),
-      ...(sandboxable && { sandbox }),
+      ...(sandboxable && sandbox && { sandbox }),
     };
 
     await saveHook(projectPath, hook);
@@ -154,7 +154,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
 
         {sandboxable && (
           <div className="mt-3">
-            <SandboxPicker projectPath={projectPath} value={sandbox} onChange={setSandbox} />
+            <HookSandboxPicker projectPath={projectPath} value={sandbox} onChange={setSandbox} />
           </div>
         )}
 

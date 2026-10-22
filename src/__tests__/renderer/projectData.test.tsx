@@ -103,7 +103,7 @@ describe('project config', () => {
     vi.mocked(window.api.sandbox.status).mockResolvedValueOnce(statuses).mockResolvedValueOnce([]);
     vi.mocked(window.api.hooks.get).mockResolvedValueOnce({ editor }).mockResolvedValueOnce({});
     vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) =>
-      key === 'runnerSandbox:/a' ? 'nono' : undefined,
+      key === 'defaultSandbox:/a' ? 'nono' : undefined,
     );
 
     await loadProjectConfig('/a');

@@ -11,7 +11,7 @@ import type {
   TaskStatus,
   TaskWithWorkspace,
 } from '../types';
-import { isSandboxProviderId, runnerSandboxSettingKey } from '../types';
+import { isSandboxProviderId, defaultSandboxSettingKey } from '../types';
 import { useAppStore } from './appStore';
 import { useProjectStore } from './projectStore';
 
@@ -80,7 +80,7 @@ export async function loadProjectConfig(projectPath: string): Promise<void> {
     const [statuses, hooks, defaultSandbox] = await Promise.all([
       window.api.sandbox.status(projectPath),
       window.api.hooks.get(projectPath),
-      window.api.globalSettings.get(runnerSandboxSettingKey(projectPath)),
+      window.api.globalSettings.get(defaultSandboxSettingKey(projectPath)),
     ]);
     if (!isLatest()) return;
     setConfig(projectPath, {
@@ -145,8 +145,14 @@ export async function deleteHook(projectPath: string, hookType: HookType): Promi
   });
 }
 
+/** Loads the project's config first when nothing has, so a project never opened still gets its own default. */
+export async function projectDefaultSandbox(projectPath: string): Promise<SandboxProviderId> {
+  if (!getProjectConfig(projectPath)) await loadProjectConfig(projectPath);
+  return getProjectConfig(projectPath)?.defaultSandbox ?? 'none';
+}
+
 export async function setDefaultSandbox(projectPath: string, sandbox: SandboxProviderId): Promise<void> {
-  const { success } = await window.api.globalSettings.set(runnerSandboxSettingKey(projectPath), sandbox);
+  const { success } = await window.api.globalSettings.set(defaultSandboxSettingKey(projectPath), sandbox);
   if (success) patchConfig(projectPath, () => ({ defaultSandbox: sandbox }));
 }
 

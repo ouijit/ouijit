@@ -308,7 +308,7 @@ Hook types: start, continue, run, review, done, editor
 ouijit hook list                              # → {start?: {name, command}, ...}
 ouijit hook get <type>
 ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"] [--sandbox nono|custom]
-                                              # --sandbox: start/continue/review/done only; omitting it runs the hook on the host
+                                              # --sandbox: start/continue/review/done only; omitting it follows the project default
 ouijit hook delete <type>
 
 ## Sandbox Command (host terminals only)

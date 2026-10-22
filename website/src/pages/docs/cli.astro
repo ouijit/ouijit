@@ -89,8 +89,8 @@ ouijit hook set continue --name "Agent" --command "claude -c" --sandbox custom
 ouijit hook delete done</code></pre>
   <p><code>--restart-if-running</code> applies to the run hook only: relaunch instead of focusing an already-running instance.</p>
   <p>
-    <code>--sandbox nono|custom</code> applies to the start, continue, review, and done hooks: the sandbox the
-    hook runs in. <code>hook set</code> replaces the whole hook, so leaving it out runs the hook on the host.
+    <code>--sandbox host|nono|custom</code> applies to the start, continue, review, and done hooks: where the
+    hook always runs. <code>nono</code> is Ouijit's sandbox. <code>hook set</code> replaces the whole hook, so leaving it out makes the hook follow the project default.
   </p>
 
   <h2>Sandbox command</h2>

@@ -30,6 +30,7 @@ import { readSnapshot, snapshotRecency } from './sessionSnapshot';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import { detectPullRequestForTask } from '../../services/githubTaskActions';
 import { hookSandbox } from '../../services/hookRun';
+import { projectDefaultSandbox } from '../../stores/projectDataStore';
 import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
@@ -38,7 +39,10 @@ const actionsLog = log.scope('terminalActions');
 
 export interface AddProjectTerminalOptions {
   existingWorktree?: WorktreeInfo & { prompt?: string; sandboxProvider?: SandboxProviderId };
-  /** Overrides a restored terminal's or the continue hook's sandbox; absent with neither runs on the host. */
+  /**
+   * Overrides a restored terminal's sandbox, or where the continue hook runs.
+   * Absent, a terminal that runs no hook opens on the host.
+   */
   sandboxProvider?: SandboxProviderId;
   taskId?: number;
   skipAutoHook?: boolean;
@@ -259,11 +263,12 @@ export async function addProjectTerminal(
     });
 
     if (!runConfig && !options?.skipAutoHook) {
-      const hooks = await window.api.hooks.get(projectPath);
-      if (hooks.continue) {
-        startCommand = hooks.continue.command;
-        requestedProvider = hookSandbox(requestedProvider, hooks.continue);
-      }
+      const [hooks, projectDefault] = await Promise.all([
+        window.api.hooks.get(projectPath),
+        projectDefaultSandbox(projectPath),
+      ]);
+      if (hooks.continue) startCommand = hooks.continue.command;
+      requestedProvider = hookSandbox(requestedProvider, hooks.continue, projectDefault);
     }
   }
 
