@@ -58,26 +58,30 @@ describe('taskStartService.beginTransition', () => {
     vi.mocked(window.api.task.getAll).mockResolvedValue([]);
   });
 
-  test('create and start makes the task, starts it with the choices made, and shows its terminal', async () => {
+  test('create and start makes the task, starts it through the start-hook dialog, and shows its terminal', async () => {
     vi.mocked(window.api.task.create).mockResolvedValue({ success: true, task: { ...makeTask() } as never });
     vi.mocked(window.api.task.getByNumber).mockResolvedValue(makeTask());
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { id: 'h', type: 'start', name: 'Start', command: 'claude' },
     });
 
-    expect(await createAndStartTask(PROJECT, 'Wire up auth', 'with oauth', { hook: 'skip', sandbox: 'custom' })).toBe(
-      true,
-    );
+    expect(await createAndStartTask(PROJECT, 'Wire up auth', 'with oauth')).toBe(true);
     expect(window.api.task.create).toHaveBeenCalledWith(PROJECT, 'Wire up auth', 'with oauth');
     expect(useAppStore.getState().selection).toMatchObject({ kind: 'terminal', projectPath: PROJECT });
+
+    // The same dialog a drag to In progress gets; what it settles is what runs.
+    await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
+    const req = useProjectStore.getState().runHookQueue[0]!;
+    expect(req.hookType).toBe('start');
+    useProjectStore
+      .getState()
+      .resolveRunHookRequest(req.id, { command: 'claude -p', foreground: true, sandbox: 'custom' });
     await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
-    // Skipping the hook leaves a plain shell, in the sandbox picked, with no dialog.
-    expect(useProjectStore.getState().runHookQueue).toHaveLength(0);
-    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toBeUndefined();
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]?.command).toBe('claude -p');
     expect(vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandboxProvider).toBe('custom');
 
     vi.mocked(window.api.task.create).mockResolvedValue({ success: false, error: 'disk full' });
-    expect(await createAndStartTask(PROJECT, 'Again', undefined, { hook: 'run' })).toBe(false);
+    expect(await createAndStartTask(PROJECT, 'Again', undefined)).toBe(false);
     expect(useProjectStore.getState().toasts.map((t) => t.message)).toContain('disk full');
   });
 

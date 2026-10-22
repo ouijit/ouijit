@@ -4,7 +4,7 @@ import {
   type DescriptionChipEditorHandle,
   type DescriptionEditorMetrics,
 } from './DescriptionChipEditor';
-import { createAndStartTask, type StartChoices } from '../../services/taskStartService';
+import { createAndStartTask } from '../../services/taskStartService';
 import { TaskComposerSheet } from './TaskComposerSheet';
 import { ComposerProjectPicker } from './ComposerProjectPicker';
 import { Icon } from '../terminal/Icon';
@@ -144,21 +144,17 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [name, description, onAdd]);
 
-  const startTask = useCallback(
-    (choices: StartChoices) => {
-      const trimmedName = name.trim();
-      if (!trimmedName || !boardProject) return;
-      const composer = useComposerStore.getState();
-      composer.closeSheet();
-      void createAndStartTask(boardProject, trimmedName, description.trim() || undefined, choices).then((created) => {
-        if (!created) return;
-        useComposerStore.getState().clearDraft();
-        editorRef.current?.setValue('');
-        setActive(false);
-      });
-    },
-    [name, description, boardProject],
-  );
+  const startTask = useCallback(() => {
+    const trimmedName = name.trim();
+    if (!trimmedName || !boardProject) return;
+    useComposerStore.getState().closeSheet();
+    void createAndStartTask(boardProject, trimmedName, description.trim() || undefined).then((created) => {
+      if (!created) return;
+      useComposerStore.getState().clearDraft();
+      editorRef.current?.setValue('');
+      setActive(false);
+    });
+  }, [name, description, boardProject]);
 
   const expand = useCallback(() => {
     useComposerStore.getState().openSheet(editorRef.current?.getCaret() ?? null);
@@ -388,7 +384,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             </button>
             <button
               type="button"
-              onClick={() => startTask({ hook: 'run' })}
+              onClick={startTask}
               disabled={!canSubmit || !boardProject}
               className="kanban-add-button text-accent hover:bg-accent/10 disabled:text-text-tertiary"
             >
@@ -421,7 +417,6 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
           onAttachFile={resolveAttachmentPath}
           onSubmit={submit}
           onStart={startTask}
-          startProjectPath={boardProject ?? undefined}
           onCollapse={collapseSheet}
           onDiscard={discard}
           projectPicker={boardProject && <ComposerProjectPicker projectPath={boardProject} />}

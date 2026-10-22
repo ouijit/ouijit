@@ -6,7 +6,7 @@ import { useComposerStore } from '../../stores/composerStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { loadTasks } from '../../stores/projectDataStore';
 import { resolveAttachmentPath } from '../../utils/taskAttachments';
-import { createAndStartTask, type StartChoices } from '../../services/taskStartService';
+import { createAndStartTask } from '../../services/taskStartService';
 
 /**
  * The composer sheet for ⌘N away from the board. When the board is up its
@@ -46,17 +46,14 @@ export function StandaloneComposerSheet({ projectPath }: { projectPath: string }
     }
   }, [name, description, projectPath]);
 
-  const createAndStart = useCallback(
-    async (choices: StartChoices) => {
-      const trimmedName = name.trim();
-      if (!trimmedName) return;
-      useComposerStore.getState().closeSheet();
-      if (await createAndStartTask(projectPath, trimmedName, description.trim() || undefined, choices)) {
-        useComposerStore.getState().clearDraft();
-      }
-    },
-    [name, description, projectPath],
-  );
+  const createAndStart = useCallback(async () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    useComposerStore.getState().closeSheet();
+    if (await createAndStartTask(projectPath, trimmedName, description.trim() || undefined)) {
+      useComposerStore.getState().clearDraft();
+    }
+  }, [name, description, projectPath]);
 
   const discard = useCallback(() => {
     const composer = useComposerStore.getState();
@@ -75,8 +72,7 @@ export function StandaloneComposerSheet({ projectPath }: { projectPath: string }
       onDescriptionChange={useComposerStore.getState().setDescription}
       onAttachFile={resolveAttachmentPath}
       onSubmit={create}
-      onStart={(choices) => void createAndStart(choices)}
-      startProjectPath={projectPath}
+      onStart={() => void createAndStart()}
       // No inline editor out here to hand the caret back to; the draft is kept
       // and the column composer picks it up.
       onCollapse={() => useComposerStore.getState().closeSheet()}

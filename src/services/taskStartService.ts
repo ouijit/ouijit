@@ -395,22 +395,15 @@ async function runNonStartHookInTerminal(
   }
 }
 
-export interface StartChoices {
-  hook: 'run' | 'skip';
-  /** Absent runs where the start hook, or else the project, says. */
-  sandbox?: SandboxProviderId;
-}
-
 /**
- * Creates a task and starts it as moving it to In progress would, with the
- * hook and sandbox already chosen, then shows its terminal. Resolves false when
+ * Creates a task and starts it as moving it to In progress would, start-hook
+ * dialog and all, then shows its terminal. Resolves false when
  * the task could not be created; the draft is the caller's to keep.
  */
 export async function createAndStartTask(
   projectPath: string,
   name: string,
   description: string | undefined,
-  choices: StartChoices,
 ): Promise<boolean> {
   const result = await window.api.task.create(projectPath, name, description);
   const taskNumber = result?.task?.taskNumber;
@@ -420,13 +413,7 @@ export async function createAndStartTask(
     useProjectStore.getState().addToast(result?.error ?? 'Failed to create task', 'error');
     return false;
   }
-  beginTransition(projectPath, {
-    origStatus: 'todo',
-    newStatus: 'in_progress',
-    task,
-    hookControl: { mode: choices.hook },
-    sandbox: choices.sandbox,
-  });
+  beginTransition(projectPath, { origStatus: 'todo', newStatus: 'in_progress', task });
   const { terminalsByProject, displayStates } = useTerminalStore.getState();
   const slot = terminalsByProject[projectPath]?.find((id) => displayStates[id]?.taskId === task.taskNumber);
   if (slot) useAppStore.getState().showTerminal(slot);

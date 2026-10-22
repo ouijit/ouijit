@@ -4,10 +4,6 @@ import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './Descr
 import { Icon } from '../terminal/Icon';
 import { KeyHint } from '../ui/KeyHint';
 import { isModKey, MOD_LABEL } from '../../utils/modKey';
-import { QuietPicker } from '../ui/QuietPicker';
-import { useProjectConfig } from '../../stores/projectDataStore';
-import { SANDBOX_LABELS, type SandboxProviderId } from '../../types';
-import type { StartChoices } from '../../services/taskStartService';
 
 /** Matches the app's other overlays, so the surfaces enter and leave alike. */
 const TRANSITION_MS = 200;
@@ -32,10 +28,8 @@ interface TaskComposerSheetProps {
   onDiscard?: () => void;
   /** Names, and lets the reader change, the project a new task goes to. */
   projectPicker?: ReactNode;
-  /** Create the task and start it, with where its start hook and terminal run. */
-  onStart?: (choices: StartChoices) => void;
-  /** The project whose start hook and sandboxes the start choices offer. */
-  startProjectPath?: string;
+  /** Create the task and start it. */
+  onStart?: () => void;
 }
 
 /**
@@ -56,14 +50,7 @@ export function TaskComposerSheet({
   onDiscard,
   projectPicker,
   onStart,
-  startProjectPath,
 }: TaskComposerSheetProps) {
-  const projectConfig = useProjectConfig(startProjectPath ?? '');
-  const [choices, setChoices] = useState<StartChoices>({ hook: 'run' });
-  const usual =
-    (choices.hook === 'run' ? projectConfig?.hooks.start?.sandbox : undefined) ??
-    projectConfig?.defaultSandbox ??
-    'none';
   const [visible, setVisible] = useState(false);
   const editorRef = useRef<DescriptionChipEditorHandle>(null);
   const nameRef = useRef<HTMLTextAreaElement>(null);
@@ -102,8 +89,8 @@ export function TaskComposerSheet({
 
   const start = useCallback(() => {
     if (!canSubmit || !onStart) return;
-    dismiss(() => onStart(choices));
-  }, [canSubmit, dismiss, onStart, choices]);
+    dismiss(onStart);
+  }, [canSubmit, dismiss, onStart]);
 
   /** Grow the title with its content — it wraps like a heading, not a field. */
   const sizeName = useCallback(() => {
@@ -231,31 +218,6 @@ export function TaskComposerSheet({
             style={{ minHeight: '18rem', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
           />
         </div>
-
-        {onStart &&
-          projectConfig &&
-          (projectConfig.hooks.start || projectConfig.availableSandboxProviders.length > 0) && (
-            <div className="shrink-0 flex items-center gap-1 px-1.5 py-1 border-t border-separator">
-              {projectConfig.hooks.start && (
-                <QuietPicker<StartChoices['hook']>
-                  label="Start hook"
-                  value={choices.hook}
-                  options={['run', 'skip']}
-                  optionLabel={(hook) => (hook === 'run' ? 'Run start hook' : 'Skip start hook')}
-                  onChange={(hook) => setChoices((c) => ({ ...c, hook }))}
-                />
-              )}
-              {projectConfig.availableSandboxProviders.length > 0 && (
-                <QuietPicker<SandboxProviderId | 'default'>
-                  label="Sandbox"
-                  value={choices.sandbox ?? 'default'}
-                  options={['default', 'none', ...projectConfig.availableSandboxProviders]}
-                  optionLabel={(id) => (id === 'default' ? `Default (${SANDBOX_LABELS[usual]})` : SANDBOX_LABELS[id])}
-                  onChange={(id) => setChoices((c) => ({ ...c, sandbox: id === 'default' ? undefined : id }))}
-                />
-              )}
-            </div>
-          )}
 
         <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-separator text-[11px] text-ink/40">
           <span className="min-w-0 truncate">
