@@ -234,6 +234,34 @@ describe('the sidebar is the navigation', () => {
 });
 
 describe('stacking several from the sidebar', () => {
+  test('closing through a stack picked from the sidebar goes down the list from the row clicked, then wraps', async () => {
+    await spawn(ALPHA.path, 8);
+    await spawn(ALPHA.path, 8);
+    await spawn(ALPHA.path, 9);
+    await spawn(ALPHA.path);
+    render(<App />);
+    const group = document.querySelector<HTMLElement>(`[data-project-path="${ALPHA.path}"]`)!.parentElement!;
+    const listed = () =>
+      [...group.querySelectorAll<HTMLElement>('[data-sidebar-row][data-pty-id]')].map((el) => el.dataset.ptyId!);
+    const [first, , third, last] = listed();
+    const rowOf = (ptyId: string) => group.querySelector<HTMLElement>(`[data-sidebar-row][data-pty-id="${ptyId}"]`)!;
+
+    fireEvent.click(rowOf(last));
+    await waitFor(() => expect(front()).toBe(last));
+    fireEvent.click(rowOf(first), { shiftKey: true });
+    await waitFor(() => expect(cards()).toHaveLength(4));
+    expect(front()).toBe(first);
+    fireEvent.click(rowOf(third), { metaKey: true, ctrlKey: true });
+    fireEvent.click(rowOf(third), { metaKey: true, ctrlKey: true });
+    await waitFor(() => expect(front()).toBe(third));
+
+    const expected = [third, last, first, listed()[1]];
+    for (const ptyId of expected) {
+      await waitFor(() => expect(front()).toBe(ptyId));
+      press('w');
+    }
+  });
+
   test('⌘- and shift-clicking rows in one group stacks them, and a whole project or tag stacks at once', async () => {
     const ship1 = await spawn(ALPHA.path, 8);
     const ship2 = await spawn(ALPHA.path, 8);

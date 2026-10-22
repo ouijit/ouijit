@@ -606,7 +606,12 @@ export function GroupRows({
     if (waking.length > 0 && row.idle) return;
     const { order } = useTerminalStore.getState();
     const front = order.find((id) => row.ptyIds.includes(id) && next.has(id)) ?? order.find((id) => next.has(id));
-    if (front) void focusTerminal(front, { stack });
+    if (!front) return;
+    // The stack's cards, and so ⌘W, follow the list down from the row clicked.
+    const listed = rows.flatMap((r) => r.ptyIds).filter((id) => next.has(id));
+    const from = Math.max(0, listed.indexOf(front));
+    useTerminalStore.getState().restoreOrder([...listed.slice(from), ...listed.slice(0, from)]);
+    void focusTerminal(front, { stack });
   };
 
   const rowMenu: RowMenu = (at, own) => (e) => {
