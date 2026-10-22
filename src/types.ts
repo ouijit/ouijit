@@ -53,6 +53,7 @@ import type {
   NonoProfile,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
+  TerminalSandboxPayload,
 } from './sandbox/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';
 
@@ -84,6 +85,7 @@ export type {
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
   SandboxCliAccess,
+  TerminalSandboxPayload,
 } from './sandbox/types';
 export {
   SANDBOX_BACKEND_IDS,
@@ -586,6 +588,7 @@ export interface ElectronAPI {
   onShellUnsupported(callback: (info: { shell: string }) => void): () => void;
   /** Listen for a sandbox launcher that exited non-zero before starting the shell */
   onSandboxLaunchFailed(callback: (info: SandboxLaunchFailedPayload) => void): () => void;
+  onTerminalSandbox(callback: (info: TerminalSandboxPayload) => void): () => void;
   /** Listen for "What's New" on first launch after update */
   onWhatsNew(callback: (info: { version: string; notes: string }) => void): () => void;
   onShowAbout(callback: (info: { version: string }) => void): () => void;

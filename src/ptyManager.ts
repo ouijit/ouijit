@@ -457,6 +457,16 @@ export function isPtyActive(ptyId: PtyId): boolean {
  * Resolve the task context for a ptyId. Returns null when the pty isn't live
  * or isn't bound to a task.
  */
+/** What a sandbox needs to wrap a command run inside this PTY. */
+export function getPtySpawnContext(
+  ptyId: PtyId,
+): { projectPath: string; taskId?: number; worktreePath?: string; sandboxProvider?: SandboxProviderId } | null {
+  const managed = activePtys.get(ptyId);
+  if (!managed) return null;
+  const { projectPath, taskId, worktreePath, sandboxProvider } = managed;
+  return { projectPath, taskId, worktreePath, sandboxProvider };
+}
+
 export function getPtyTaskContext(ptyId: PtyId): { projectPath: string; taskId: number } | null {
   const managed = activePtys.get(ptyId);
   if (managed && managed.taskId != null) {

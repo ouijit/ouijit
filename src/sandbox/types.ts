@@ -96,6 +96,12 @@ export interface SandboxLaunch {
   env: Record<string, string>;
 }
 
+/** Where a terminal's foreground command runs right now; absent is the host. */
+export interface TerminalSandboxPayload {
+  ptyId: string;
+  sandboxProvider?: SandboxProviderId;
+}
+
 /** The nono profile file a project's sandbox runs under. */
 export interface NonoProfile {
   path: string;

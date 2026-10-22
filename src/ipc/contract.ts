@@ -88,6 +88,7 @@ import type {
   NonoProfile,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
+  TerminalSandboxPayload,
 } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
@@ -461,6 +462,7 @@ export interface IpcPushContract {
   'update-available': { args: [info: { version: string; url: string }] };
   'shell-unsupported': { args: [info: { shell: string }] };
   'sandbox-launch-failed': { args: [info: SandboxLaunchFailedPayload] };
+  'terminal-sandbox': { args: [info: TerminalSandboxPayload] };
   'clone:changed': { args: [jobs: CloneJob[]] };
   'clone:landed': { args: [projectPath: string] };
   'whats-new': { args: [info: { version: string; notes: string }] };

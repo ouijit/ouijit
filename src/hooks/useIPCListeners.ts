@@ -135,6 +135,12 @@ export function useIPCListeners() {
       }),
     );
 
+    cleanups.push(
+      window.api.onTerminalSandbox(({ ptyId, sandboxProvider }) => {
+        useTerminalStore.getState().updateDisplay(ptyId, { sandboxProvider });
+      }),
+    );
+
     // Spawned a shell with no integration provider (not zsh/bash/fish). It
     // launches fine, but the wrapper-PATH fix and command status dots may not
     // work. Notify once per shell, with a one-click path to request support.

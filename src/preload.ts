@@ -20,6 +20,7 @@ import type {
   TaskWithWorkspace,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
+  TerminalSandboxPayload,
   CliPanelOp,
   CliPanelResponse,
   CliTagOp,
@@ -247,6 +248,7 @@ contextBridge.exposeInMainWorld('api', {
 
   onSandboxLaunchFailed: (callback: (info: SandboxLaunchFailedPayload) => void) =>
     typedListen('sandbox-launch-failed', callback),
+  onTerminalSandbox: (callback: (info: TerminalSandboxPayload) => void) => typedListen('terminal-sandbox', callback),
 
   onWhatsNew: (callback: (info: { version: string; notes: string }) => void) => typedListen('whats-new', callback),
 

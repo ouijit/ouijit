@@ -311,10 +311,14 @@ ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"
                                               # --sandbox: start/continue/review/done only; omitting it follows the project default
 ouijit hook delete <type>
 
-## Sandbox Command (host terminals only)
-The project's custom sandbox launcher, run as <command> -- <shell> for hooks,
-terminals and runners set to the Custom sandbox. Not reachable from inside a
-sandbox.
+## Sandbox (host terminals only)
+Run one command in the project's sandbox; the rest of the line stays on the host.
+
+ouijit sandbox -- <command> [args]            # in Ouijit's sandbox
+ouijit sandbox --custom -- <command> [args]   # in the Custom sandbox
+
+The Custom sandbox's launcher, run as <command> -- <shell>. Not reachable from
+inside a sandbox.
 
 ouijit sandbox-command get                    # → {command?}
 ouijit sandbox-command set "<launcher>"       # absolute path or a name on PATH, outside the repo

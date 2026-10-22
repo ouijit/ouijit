@@ -63,6 +63,7 @@ import {
 } from '../linear/service';
 import { getProjectList } from '../projectList';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
+import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
 import { cliPanelRequest, cliTagRequest } from '../cliPanels';
 import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
@@ -80,6 +81,7 @@ import {
   SANDBOXABLE_HOOK_TYPES,
   SANDBOX_PROVIDER_IDS,
   isActiveSandbox,
+  isSandboxBackendId,
   isSandboxCliAccess,
   isSandboxProviderId,
   sandboxCliAccessSettingKey,
@@ -99,6 +101,7 @@ interface ParsedRequest {
   query: URLSearchParams;
   body: Record<string, unknown>;
   auth: AuthContext;
+  window: BrowserWindow;
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -548,6 +551,31 @@ const routes: Route[] = [
   // The only route family that decides what the next sandboxed spawn executes:
   // a sandbox token must never reach it.
   route('GET', 'sandbox/command', (r) => getCustomSandboxConfig(requireProject(r.query))),
+
+  route('POST', 'sandbox/wrap', (r) => {
+    const { argv, cwd, backend } = r.body;
+    if (!Array.isArray(argv) || argv.length === 0 || !argv.every((a) => typeof a === 'string')) {
+      throw new HttpError(400, 'argv must be a non-empty array of strings');
+    }
+    if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) throw new HttpError(400, 'cwd must be an absolute path');
+    if (backend !== undefined && !isSandboxBackendId(backend))
+      throw new HttpError(400, `Invalid backend: ${String(backend)}`);
+    return wrapCommand(
+      r.window,
+      r.auth.ptyId,
+      isSandboxBackendId(backend) ? backend : 'nono',
+      argv as string[],
+      cwd,
+    ).catch((error: unknown) => {
+      throw new HttpError(409, error instanceof Error ? error.message : String(error));
+    });
+  }),
+
+  route('POST', 'sandbox/release', (r) => {
+    if (typeof r.body.token !== 'string') throw new HttpError(400, 'Missing token');
+    releaseCommand(r.window, r.auth.ptyId, r.body.token);
+    return { success: true };
+  }),
 
   route(
     'PUT',
@@ -1026,7 +1054,14 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
   }
 
   try {
-    const result = await matched.route.handler({ method, segments, query: url.searchParams, body, auth: caller });
+    const result = await matched.route.handler({
+      method,
+      segments,
+      query: url.searchParams,
+      body,
+      auth: caller,
+      window,
+    });
     json(res, 200, { data: result });
 
     // Notify renderer after mutating operations

@@ -84,6 +84,7 @@ function completedPayload(overrides: Partial<CliTaskCompletedPayload> = {}): Cli
 
 type CliChangePayload = Parameters<Parameters<typeof window.api.onCliChange>[0]>[0];
 type LaunchFailedCb = Parameters<typeof window.api.onSandboxLaunchFailed>[0];
+type TerminalSandboxCb = Parameters<typeof window.api.onTerminalSandbox>[0];
 type CliChangeCb = (payload: CliChangePayload) => void;
 
 interface ListenerStubs {
@@ -92,6 +93,7 @@ interface ListenerStubs {
   cliTaskCompletedCb: CliTaskCompletedCb | null;
   cliChangeCb: CliChangeCb | null;
   launchFailedCb: LaunchFailedCb | null;
+  terminalSandboxCb: TerminalSandboxCb | null;
 }
 
 /**
@@ -107,12 +109,17 @@ function installListenerStubs(): ListenerStubs {
     cliTaskCompletedCb: null,
     cliChangeCb: null,
     launchFailedCb: null,
+    terminalSandboxCb: null,
   };
   const api = window.api as unknown as Record<string, unknown>;
   api['onUpdateAvailable'] = vi.fn(() => () => {});
   api['onShellUnsupported'] = vi.fn(() => () => {});
   api['onSandboxLaunchFailed'] = vi.fn((cb: LaunchFailedCb) => {
     stubs.launchFailedCb = cb;
+    return () => {};
+  });
+  api['onTerminalSandbox'] = vi.fn((cb: TerminalSandboxCb) => {
+    stubs.terminalSandboxCb = cb;
     return () => {};
   });
   api['onWhatsNew'] = vi.fn(() => () => {});
@@ -257,5 +264,15 @@ describe('useIPCListeners — sandbox-launch-failed', () => {
       ['Custom failed to start (exit 2). See the terminal output.', 'error', true],
       ['Sandbox failed to start: nono is not installed.', 'error', true],
     ]);
+  });
+
+  test('a terminal shows the sandbox its foreground command runs in, and drops it after', () => {
+    const stubs = installListenerStubs();
+    renderHook(() => useIPCListeners());
+    useTerminalStore.getState().addTerminal('/p', 'pty-9', { taskId: null, label: 'shell' });
+    stubs.terminalSandboxCb!({ ptyId: 'pty-9', sandboxProvider: 'nono' });
+    expect(useTerminalStore.getState().displayStates['pty-9']?.sandboxProvider).toBe('nono');
+    stubs.terminalSandboxCb!({ ptyId: 'pty-9' });
+    expect(useTerminalStore.getState().displayStates['pty-9']?.sandboxProvider).toBeUndefined();
   });
 });
