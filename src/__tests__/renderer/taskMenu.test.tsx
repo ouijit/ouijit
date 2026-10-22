@@ -26,7 +26,12 @@ function submenuOf(entry: ContextMenuEntry): ContextMenuItem[] {
 describe('openInEntry', () => {
   it('offers what needs a worktree on disk only once the task has one', () => {
     const withWorktree = submenuOf(openInEntry(['nono'], true, actions(), 'none'));
-    expect(withWorktree.map((i) => i.label)).toEqual(['Host terminal', 'Sandbox terminal', 'Editor', FILE_MANAGER_NAME]);
+    expect(withWorktree.map((i) => i.label)).toEqual([
+      'Host terminal',
+      'Sandbox terminal',
+      'Editor',
+      FILE_MANAGER_NAME,
+    ]);
 
     // Terminals, sandboxed or not, and Editor create one, so they survive without it.
     const withoutWorktree = submenuOf(openInEntry(['nono'], false, actions(), 'none'));
