@@ -24,23 +24,13 @@ const tasksWithTerminals = featuresTasks
   .filter((task) => featuresTerminalsByTask[task.taskNumber]?.length)
   .sort((a, b) => STAGES.indexOf(a.status) - STAGES.indexOf(b.status));
 
-const QUIET = 'color-mix(in srgb, var(--color-ink) 32%, transparent)';
-
-/** Muted hues the status dots beside them don't use. */
-const STAGE_COLORS: Record<TaskStatus, string> = {
-  todo: QUIET,
-  in_progress: `color-mix(in oklab, var(--color-ansi-yellow) 40%, ${QUIET})`,
-  in_review: `color-mix(in oklab, var(--color-ansi-cyan) 40%, ${QUIET})`,
-  done: QUIET,
-};
-
 function StageIcon({ status }: { status: TaskStatus }) {
   return (
     <span
       role="img"
       aria-label={STAGE_LABELS[status]}
       className="w-3.5 h-3.5 flex items-center justify-center shrink-0"
-      style={{ color: STAGE_COLORS[status] }}
+      style={{ color: 'color-mix(in srgb, var(--color-ink) 32%, transparent)' }}
     >
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
         {status === 'todo' && (
@@ -50,12 +40,7 @@ function StageIcon({ status }: { status: TaskStatus }) {
           <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.25" />
         )}
         {status === 'in_progress' && <path d="M8 4a4 4 0 0 1 0 8z" fill="currentColor" />}
-        {status === 'in_review' && (
-          <>
-            <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.25" />
-            <path d="M8 8V4A4 4 0 1 1 4 8z" fill="currentColor" />
-          </>
-        )}
+        {status === 'in_review' && <circle cx="8" cy="8" r="6.25" fill="currentColor" />}
         {status === 'done' && (
           <>
             <circle cx="8" cy="8" r="6.25" fill="currentColor" />
