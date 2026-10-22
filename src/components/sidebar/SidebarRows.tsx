@@ -479,11 +479,8 @@ function NextStep({ projectPath, hasTodo }: { projectPath: string; hasTodo: bool
 /** Where a task with no terminal open would show its status dot. */
 function IdleMark() {
   return (
-    <span
-      aria-label="No terminal open"
-      className="w-3.5 shrink-0 text-center text-[9px] font-semibold leading-none text-text-tertiary"
-    >
-      Zz
+    <span aria-label="No terminal open" className="w-3.5 flex items-center justify-center shrink-0 text-text-tertiary">
+      <Icon name="moon" className="w-3 h-3" />
     </span>
   );
 }
