@@ -25,6 +25,7 @@ const tasksWithTerminals = featuresTasks
   .sort((a, b) => STAGES.indexOf(a.status) - STAGES.indexOf(b.status));
 
 function StageIcon({ status }: { status: TaskStatus }) {
+  if (status === 'in_progress') return null;
   return (
     <span
       role="img"
@@ -36,11 +37,17 @@ function StageIcon({ status }: { status: TaskStatus }) {
         {status === 'todo' && (
           <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.25" strokeDasharray="2.2 2" />
         )}
-        {status !== 'todo' && status !== 'done' && (
-          <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.25" />
+        {status === 'in_review' && (
+          <>
+            <path
+              d="M1.75 8S4 3.75 8 3.75 14.25 8 14.25 8 12 12.25 8 12.25 1.75 8 1.75 8z"
+              stroke="currentColor"
+              strokeWidth="1.25"
+              strokeLinejoin="round"
+            />
+            <circle cx="8" cy="8" r="1.75" fill="currentColor" />
+          </>
         )}
-        {status === 'in_progress' && <path d="M8 4a4 4 0 0 1 0 8z" fill="currentColor" />}
-        {status === 'in_review' && <circle cx="8" cy="8" r="6.25" fill="currentColor" />}
         {status === 'done' && (
           <>
             <circle cx="8" cy="8" r="6.25" fill="currentColor" />
