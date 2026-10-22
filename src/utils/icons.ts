@@ -68,6 +68,7 @@ import squareSplitHorizontal from '@phosphor-icons/core/assets/regular/square-sp
 import star from '@phosphor-icons/core/assets/regular/star.svg?raw';
 import tag from '@phosphor-icons/core/assets/regular/tag.svg?raw';
 import terminal from '@phosphor-icons/core/assets/regular/terminal.svg?raw';
+import terminalWindow from '@phosphor-icons/core/assets/regular/terminal-window.svg?raw';
 import trash from '@phosphor-icons/core/assets/regular/trash.svg?raw';
 import treeStructure from '@phosphor-icons/core/assets/regular/tree-structure.svg?raw';
 import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
@@ -167,6 +168,7 @@ export const iconMap: Record<string, string> = {
   star: star,
   tag: tag,
   terminal: terminal,
+  'terminal-window': terminalWindow,
   trash: trash,
   'tree-structure': treeStructure,
   upload: upload,

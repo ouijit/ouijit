@@ -330,7 +330,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
   const [branchingFrom, setBranchingFrom] = useState(false);
 
   const taskTitle = task?.name || displays[0]?.label || 'Untitled';
-  const icon = task ? <StageIcon status={task.status} /> : <Icon name="terminal" className="w-3.5 h-3.5" />;
+  const icon = task ? <StageIcon status={task.status} /> : <Icon name="terminal-window" className="w-3.5 h-3.5" />;
   const diff = detail === 'project' ? projectName : (displays.map(diffSummary).find(Boolean) ?? null);
 
   const menuItems = (ptyId: string | null): ContextMenuEntry[] => {
@@ -496,7 +496,7 @@ function ShellRow({ ptyId, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
       <TerminalRow
         ptyId={ptyId}
         title={(d) => d.label || 'Shell'}
-        icon={<Icon name="terminal" className="w-3.5 h-3.5 text-text-tertiary" />}
+        icon={<Icon name="terminal-window" className="w-3.5 h-3.5 text-text-tertiary" />}
         detail={detail === 'project' ? (d) => projectNameOf(useAppStore.getState().projects, d.projectPath) : undefined}
         shown={shown}
         selected={onScreen.includes(ptyId)}
