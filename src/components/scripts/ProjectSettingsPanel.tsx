@@ -5,6 +5,7 @@ import { useEscape } from '../../hooks/useEscape';
 import { ScriptList } from './ScriptList';
 import { HookList } from './HookList';
 import type { HookEntry } from './HookList';
+import { RemoveProjectRow } from './RemoveProjectRow';
 import { SandboxSection } from './SandboxSection';
 import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
 import { LinearScopeSection } from '../linear/LinearScopeSection';
@@ -134,6 +135,9 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               Unstable features that may change or be removed in future releases.
             </p>
             <ExperimentalFeaturesSection projectPath={projectPath} />
+          </section>
+          <section>
+            <RemoveProjectRow projectPath={projectPath} />
           </section>
         </div>
       </div>

@@ -506,8 +506,6 @@ function ProjectGroup({ project }: { project: Project }) {
         onClick: () => void openProjectPage(project.path, page),
       }),
     ),
-    { separator: true },
-    { label: 'Remove', icon: 'trash', danger: true, onClick: () => void removeProject(project) },
   ];
   const openMenuAt = (x: number, y: number) => setMenu({ x, y });
 
@@ -602,11 +600,6 @@ function showProject(projectPath: string, ptyIds: string[]): void {
 
 function useStackShown(stack: string | null): boolean {
   return useAppStore((s) => stack !== null && s.selection.kind === 'terminal' && s.selection.stack === stack);
-}
-
-async function removeProject(project: Project): Promise<void> {
-  const result = await window.api.removeProject(project.path);
-  if (result.success) useAppStore.getState().setProjects(await window.api.refreshProjects());
 }
 
 function cloneSummary(job: CloneJob): string {
