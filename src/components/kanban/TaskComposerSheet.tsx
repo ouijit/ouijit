@@ -245,7 +245,7 @@ export function TaskComposerSheet({
               disabled={!canSubmit}
               className="btn-primary shrink-0 whitespace-nowrap"
             >
-              Create and start
+              Start task
               <span className="opacity-60 font-mono text-[11px]">⇧{MOD_LABEL}↵</span>
             </button>
           )}
