@@ -232,11 +232,10 @@ export function TaskComposerSheet({
           />
         </div>
 
-        <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-separator text-[11px] text-ink/40">
-          <KeyHint keys="esc" label={isCreate ? 'Draft stays in the column' : 'Back to the card'} />
-          <span className="flex-1" />
-          {onStart && projectConfig && (
-            <span className="flex items-center gap-1 text-ink/60">
+        {onStart &&
+          projectConfig &&
+          (projectConfig.hooks.start || projectConfig.availableSandboxProviders.length > 0) && (
+            <div className="shrink-0 flex items-center gap-1 px-1.5 py-1 border-t border-separator">
               {projectConfig.hooks.start && (
                 <QuietPicker<StartChoices['hook']>
                   label="Start hook"
@@ -255,10 +254,16 @@ export function TaskComposerSheet({
                   onChange={(id) => setChoices((c) => ({ ...c, sandbox: id === 'default' ? undefined : id }))}
                 />
               )}
-            </span>
+            </div>
           )}
+
+        <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-separator text-[11px] text-ink/40">
+          <span className="min-w-0 truncate">
+            <KeyHint keys="esc" label={isCreate ? 'Draft stays in the column' : 'Back to the card'} />
+          </span>
+          <span className="flex-1" />
           {onDiscard && (
-            <button type="button" onClick={onDiscard} className="btn-secondary">
+            <button type="button" onClick={onDiscard} className="btn-secondary shrink-0 whitespace-nowrap">
               Discard
             </button>
           )}
@@ -266,13 +271,18 @@ export function TaskComposerSheet({
             type="button"
             onClick={submit}
             disabled={!canSubmit}
-            className={onStart ? 'btn-secondary' : 'btn-primary'}
+            className={`${onStart ? 'btn-secondary' : 'btn-primary'} shrink-0 whitespace-nowrap`}
           >
             {isCreate ? 'Create task' : 'Save'}
             <span className="opacity-60 font-mono text-[11px]">{MOD_LABEL}↵</span>
           </button>
           {onStart && (
-            <button type="button" onClick={start} disabled={!canSubmit} className="btn-primary">
+            <button
+              type="button"
+              onClick={start}
+              disabled={!canSubmit}
+              className="btn-primary shrink-0 whitespace-nowrap"
+            >
               Create and start
               <span className="opacity-60 font-mono text-[11px]">⇧{MOD_LABEL}↵</span>
             </button>
