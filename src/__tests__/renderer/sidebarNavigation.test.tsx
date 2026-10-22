@@ -495,7 +495,7 @@ describe('creating from the sidebar', () => {
     fireEvent.click(await screen.findByText('New terminal'));
     await waitFor(() => expect(display(front()!)).toMatchObject({ taskId: null, projectPath: BRAVO.path }));
 
-    // Its + makes a task, which for a project not on screen gets the sheet, named for where it goes.
+    // Its + makes a task in the sheet, even over its own board, named for where it goes.
     const alpha = document.querySelector<HTMLElement>(`[data-project-path="${ALPHA.path}"]`)!;
     fireEvent.click(within(alpha).getByLabelText('New task in Alpha'));
     const sheet = await screen.findByTestId('composer-sheet');

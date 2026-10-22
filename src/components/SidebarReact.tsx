@@ -28,7 +28,7 @@ import { Icon } from './terminal/Icon';
 import { Tooltip } from './ui/Tooltip';
 import { openProject, openProjectPage, openShell, openTaskTerminal } from './navigation';
 import { isModKey } from '../utils/modKey';
-import { openTaskComposer } from '../utils/openTaskComposer';
+import { openTaskSheet } from '../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/ContextMenu';
 import { PAGE_TITLES } from './TitleBarReact';
 import { groupByTag, groupByTask } from './sidebar/sidebarTree';
@@ -551,7 +551,7 @@ function ProjectGroup({ project }: { project: Project }) {
                 type="button"
                 aria-label={`New task in ${project.name}`}
                 className={`${ROW_BUTTON} ${rowButtonState(false)}`}
-                onClick={() => openTaskComposer(project.path)}
+                onClick={() => openTaskSheet(project.path)}
               >
                 <Icon name="plus" className="w-3.5 h-3.5" />
               </button>

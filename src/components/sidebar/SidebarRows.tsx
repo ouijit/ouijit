@@ -15,7 +15,7 @@ import type { Project, SandboxBackendId } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
 import { filesInDiff } from '../../diffSource';
 import { focusTerminal, openProjectPage, openTaskTerminal } from '../navigation';
-import { openTaskComposer } from '../../utils/openTaskComposer';
+import { openTaskSheet } from '../../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { taskEntries } from '../kanban/taskMenu';
@@ -469,7 +469,7 @@ function NextStep({ projectPath, hasTodo }: { projectPath: string; hasTodo: bool
     <button
       type="button"
       className={`${ROW} ${ROW_IDLE} text-text-tertiary hover:text-text-secondary`}
-      onClick={() => (hasTodo ? void openProjectPage(projectPath, 'board') : openTaskComposer(projectPath))}
+      onClick={() => (hasTodo ? void openProjectPage(projectPath, 'board') : openTaskSheet(projectPath))}
     >
       <Icon name={hasTodo ? 'kanban' : 'plus'} className="w-3.5 h-3.5" />
       <span className="truncate">{hasTodo ? 'Start a task' : 'New task'}</span>
