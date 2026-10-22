@@ -36,7 +36,7 @@ const NO_BACKENDS: SandboxBackendId[] = [];
 export const ROW =
   'w-full h-7 flex items-center gap-2 pl-2 pr-2.5 rounded-[7px] text-[13px] text-left whitespace-nowrap transition-colors duration-100';
 export const ROW_IDLE = 'hover:bg-ink/5';
-export const ROW_SELECTED = 'bg-ink/10';
+export const ROW_SELECTED = 'bg-accent/15';
 const DIM = 'color-mix(in srgb, var(--color-text-primary) 62%, transparent)';
 
 /** Ticks often enough for "4m" to stay true. */
@@ -169,6 +169,7 @@ function SidebarRow({
     <div
       className={`${ROW} ${selected ? ROW_SELECTED : ROW_IDLE} cursor-default select-none`}
       data-sidebar-row
+      data-selected={selected || undefined}
       data-pty-id={ptyId}
       onClick={onClick}
       onContextMenu={onContextMenu}

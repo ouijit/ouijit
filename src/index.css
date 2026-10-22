@@ -589,6 +589,17 @@ textarea,
   }
 }
 
+/* Rows on screen together read as one block: no notches where they meet. */
+[data-sidebar-row][data-selected]:has(+ [data-sidebar-row][data-selected]) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+[data-sidebar-row][data-selected] + [data-sidebar-row][data-selected] {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
 .status-dot-fill {
   width: var(--status-dot-size);
   height: var(--status-dot-size);
