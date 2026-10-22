@@ -4,62 +4,81 @@ import Docs from '../../layouts/Docs.astro';
 <Docs slug="sandbox">
   <h1>Sandbox</h1>
   <p class="lead">
-    Run any task's terminals and hooks inside a sandbox. Two backends: nono's kernel-level access limits in
-    place on the host, or a launcher of your own.
+    Run an agent with its permission checks off without handing it your machine. Ouijit's sandbox limits a
+    command to its task's worktree, and you choose what runs inside it: a whole terminal, a hook, or one command.
   </p>
 
-  <h2>Choose where things run</h2>
+  <h2>Where things run</h2>
   <p>
-    <strong>Hooks.</strong> Start, continue, review, and done each have a sandbox setting beside their command:
-    Host, nono, or Custom. Moving a task runs that column's <a href="/docs/hooks/#sandbox">hook</a> where it is
-    set to run, and the hook dialog can change it for that one run.
+    Each project has a <strong>Default</strong> under <strong>Project Settings &rarr; Sandbox</strong>: Host,
+    Sandbox, or Custom. Task terminals, hooks, Run, and scripts all run there unless something more specific
+    says otherwise:
   </p>
-  <p>
-    <strong>Runners.</strong> Run and scripts from a terminal's <strong>+</strong> menu, and <code>⌘P</code>, run
-    where the project's <strong>Default environment</strong> setting says: Host unless you change it, under
-    <strong>Project Settings &rarr; Sandbox</strong>, or from <strong>Run in</strong> at the top of the menu.
-  </p>
-  <p>
-    <strong>Terminals.</strong> A task's terminal opens in the <strong>Default environment</strong>, unless it
-    resumes with the continue hook, which runs where the hook is set to run. To pick for one terminal,
-    right-click a task and use
-    <strong>Open in &rarr; nono sandbox</strong> or <strong>Open in &rarr; Custom sandbox</strong>.
-  </p>
-  <p>
-    A sandboxed terminal carries an outlined status dot and a backend suffix on its label; a sandboxed runner's
-    tab dot is outlined too.
-  </p>
-  <p>
-    A backend is offered once it can run: nono once <strong>Use nono</strong> is on, Custom once its command is set. Each
-    has its own configuration under <strong>Project Settings &rarr; Sandbox</strong>. If the chosen backend
-    cannot start, the terminal says why and Ouijit raises an error. It never runs the command on the host
-    instead, and a restored terminal whose backend is gone fails the same way.
-  </p>
-
-  <h2>nono</h2>
-  <p>
-    <a href="https://github.com/nolabs-ai/nono" target="_blank" rel="noopener">nono</a> runs a task's commands
-    in place on the host worktree under kernel-level access limits (Seatbelt on macOS, Landlock on Linux). It
-    is a kernel access policy on a host process rather than a separate machine, so it starts instantly with no
-    file sync.
-  </p>
-  <h3>What it does</h3>
-  <p>
-    Terminals and hooks run on the real worktree, wrapped by <code>nono</code>. Filesystem access is limited to
-    the worktree and the repository's git data: <code>.git</code> is read-only apart from read/write overlays at
-    <code>objects/</code>, <code>refs/</code>, <code>logs/</code>, and <code>worktrees/</code>, so commits land
-    while <code>hooks/</code> and <code>config</code> stay read-only. Ouijit derives these grants from the task's worktree path at spawn
-    time. Network is allowed by default; the local hook-server port stays reachable so agent status still
-    reports back.
-  </p>
-
-  <h3>Configuration</h3>
-  <p>Under <strong>Project Settings &rarr; Sandbox &rarr; nono</strong>:</p>
   <ul>
-    <li><strong>Additional folders</strong>. Extra paths granted read/write beyond the worktree and git data, e.g. a shared cache or a monorepo sibling.</li>
-    <li><strong>Block outbound network</strong>. Deny outbound connections. The hook-server port stays open so agent status keeps working.</li>
-    <li><strong>Allowed ports</strong>. Extra localhost ports to keep reachable, e.g. a dev server on <code>3000</code>.</li>
+    <li><strong>One terminal.</strong> Right-click a task and use <strong>Open in</strong>. It lists a Terminal for each place, the default first.</li>
+    <li><strong>One run of a hook.</strong> The dialog that appears when you move a task starts on the hook's setting and can change it for that run.</li>
+    <li><strong>One Run or script.</strong> <strong>Run in</strong> at the top of a terminal's <strong>+</strong> menu.</li>
+    <li><strong>A hook, every time.</strong> Each of start, continue, review, and done has its own setting, which starts on Default. Set it when a hook must always run somewhere else, such as a done hook that pushes with credentials only the host has.</li>
+    <li><strong>Part of a command.</strong> <code>ouijit sandbox -- &lt;command&gt;</code> runs just that command in the sandbox, from a host terminal. See <a href="#command">below</a>.</li>
   </ul>
+  <p>
+    A sandboxed terminal carries an outlined status dot and a suffix on its label, and so does a host terminal
+    while a command started with <code>ouijit sandbox</code> is running. A sandboxed runner's tab dot is
+    outlined too.
+  </p>
+  <p>
+    If the chosen sandbox cannot start, the terminal says why and Ouijit raises an error. It never runs the
+    command on the host instead, and a restored terminal whose sandbox is gone fails the same way.
+  </p>
+
+  <h2 id="command">Sandboxing one command</h2>
+  <p>
+    <code>ouijit sandbox</code> runs a single command in the sandbox with the grants its terminal's task would
+    get, while the rest of the line stays on the host. A start hook can pull on the host and contain only the
+    agent:
+  </p>
+  <pre><code>git pull origin main &amp;&amp; ouijit sandbox -- claude --dangerously-skip-permissions "$OUIJIT_TASK_NAME"</code></pre>
+  <p>
+    Add <code>--custom</code> to use the Custom sandbox. The command gets an API token of its own at the
+    project's <a href="#cli">CLI access</a> level, never the host terminal's, and loses it when it exits. A
+    host step that runs after a sandboxed one can still execute files the agent changed, such as tests it
+    edited, so the sandbox protects your machine while the agent works rather than from what it leaves behind.
+  </p>
+
+  <h2 id="cli">The Ouijit CLI inside a sandbox</h2>
+  <p>Under <strong>Project Settings &rarr; Sandbox &rarr; Ouijit CLI access</strong>:</p>
+  <ul>
+    <li><strong>Read only</strong>, the default. A sandboxed command can read its own task and draft pull request and Linear comments.</li>
+    <li><strong>Its own task.</strong> It can also move and rename its own task, so an agent can mark its work ready for review. Moving a task runs that column's hook as usual; a one-off <code>--hook-command</code> is refused.</li>
+    <li><strong>Everything.</strong> It can do anything a host terminal can, which includes having Ouijit run commands on the host. Choose this only for agents you would run unsandboxed anyway.</li>
+  </ul>
+
+  <h2>Ouijit's sandbox</h2>
+  <p>
+    Ouijit's sandbox is <a href="https://github.com/nolabs-ai/nono" target="_blank" rel="noopener">nono</a>,
+    which runs a command in place on the host worktree under kernel-level access limits (Seatbelt on macOS,
+    Landlock on Linux). It is a kernel access policy on a host process rather than a separate machine, so it
+    starts instantly with no file sync.
+  </p>
+  <h3>What it grants</h3>
+  <p>
+    Filesystem access is limited to the worktree and the repository's git data: <code>.git</code> is read-only
+    apart from read/write overlays at <code>objects/</code>, <code>refs/</code>, <code>logs/</code>, and
+    <code>worktrees/</code>, so commits land while <code>hooks/</code> and <code>config</code> stay read-only.
+    Ouijit also grants a per-project package cache and keeps its status port reachable, so agent status
+    reports back even when the network is blocked. These are derived from the task at spawn time.
+  </p>
+  <h3>The profile</h3>
+  <p>
+    Everything else is a nono profile file. Each project gets its own, at
+    <code>~/.config/nono/profiles/ouijit-&lt;project&gt;-&lt;id&gt;.json</code>, written once to extend Ouijit's
+    base profile (which lets Claude Code, Codex, OpenCode, and Pi sign in and run) and then left to you. Open
+    it from <strong>Sandbox profile</strong> in settings to block the network, open ports, or grant folders,
+    in nono's own <a href="https://nono.sh/docs/cli/features/profile-authoring" target="_blank" rel="noopener">profile format</a>.
+    <strong>Change&hellip;</strong> points the project at another profile file, such as one your team shares,
+    and <strong>Reset</strong> goes back to the project's own. Profiles live outside the repository, where a
+    sandboxed agent cannot edit its own permissions.
+  </p>
 
   <h3>Requirements</h3>
   <p>Ouijit bundles the <code>nono</code> binary and the agent packs it uses; there is nothing extra to install.</p>
@@ -72,15 +91,15 @@ import Docs from '../../layouts/Docs.astro';
   <p>
     <strong>Read this first.</strong> A plain task terminal carries a host-scoped <code>OUIJIT_API_TOKEN</code>.
     A launcher you run by hand inside one passes that token into the sandbox, where an agent can rewrite hooks
-    and this very setting, so the next spawn runs its command on the host. Either <code>unset
-    OUIJIT_API_TOKEN</code> in a hand-run launcher (status reporting stops), or configure the launcher here so
-    Ouijit spawns it with a sandbox-scoped token.
+    and this very setting, so the next spawn runs its command on the host. Configure the launcher here and use
+    <code>ouijit sandbox --custom -- &lt;command&gt;</code>, which gives the command a sandbox-scoped token of
+    its own.
   </p>
   <p>
     The Custom backend runs a task's terminals under a launcher you provide: a reviewed script in your team's
     control, with its own pinned sandbox binary, committed policy, and preflight checks. Ouijit grants nothing
     itself; the launcher owns the boundary. Set the command under
-    <strong>Project Settings &rarr; Sandbox &rarr; Custom</strong> or with <code>ouijit sandbox-command set</code>.
+    <strong>Project Settings &rarr; Sandbox &rarr; Custom launcher</strong> or with <code>ouijit sandbox-command set</code>.
   </p>
 
   <h3>What Ouijit passes</h3>
