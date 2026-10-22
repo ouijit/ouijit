@@ -40,7 +40,15 @@ function StageIcon({ status }: { status: TaskStatus }) {
           <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.5" />
         )}
         {status === 'in_progress' && <path d="M8 4.5a3.5 3.5 0 0 1 0 7z" fill="currentColor" />}
-        {status === 'in_review' && <circle cx="8" cy="8" r="2.5" fill="currentColor" />}
+        {status === 'in_review' && (
+          <path
+            d="M5.6 8.2l1.7 1.7 3.1-3.3"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
         {status === 'done' && (
           <>
             <circle cx="8" cy="8" r="6.25" fill="currentColor" />
