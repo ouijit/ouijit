@@ -210,6 +210,7 @@ export function buildWorktreeStartEnv(params: {
     OUIJIT_WORKTREE_PATH: worktreeInfo.path,
     OUIJIT_TASK_BRANCH: worktreeInfo.branch,
     OUIJIT_TASK_NAME: label,
+    ...(task && { OUIJIT_TASK_NUMBER: String(task.taskNumber) }),
   };
   const description = task?.prompt;
   if (description) {
@@ -607,6 +608,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
       ...(instance.worktreePath && { OUIJIT_WORKTREE_PATH: instance.worktreePath }),
       ...(instance.worktreeBranch && { OUIJIT_TASK_BRANCH: instance.worktreeBranch }),
       ...(instance.label && { OUIJIT_TASK_NAME: instance.label }),
+      ...(instance.taskId != null && { OUIJIT_TASK_NUMBER: String(instance.taskId) }),
       ...(instance.taskPrompt && {
         OUIJIT_TASK_DESCRIPTION: descriptionToHookPrompt(instance.taskPrompt),
         // Deprecated alias for OUIJIT_TASK_DESCRIPTION.
