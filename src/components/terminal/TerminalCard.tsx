@@ -51,11 +51,12 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, depth, stackPosi
       onMouseEnter={() => !isFront && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* A card behind shows only the strip above the one in front of it. */}
+      {/* A card behind shows only the strip above the one in front of it. Positioned
+          inline: `.glass-bevel > *` makes every child of the card relative. */}
       {!isFront && (
         <div
-          className="absolute inset-x-0 top-0 pointer-events-none"
-          style={{ height: STACK_PEEK }}
+          className="pointer-events-none"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: STACK_PEEK }}
           data-point-target={pointKeys}
         />
       )}
