@@ -6,6 +6,7 @@ export interface Pointer {
   from: string;
   target: PointTarget;
   at: number;
+  message?: string;
   /**
    * What following does beyond going there. A CLI task move whose hook would
    * have opened a dialog over the user waits here, and runs on follow.

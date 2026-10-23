@@ -50,7 +50,7 @@ async function handleOp(op: CliPointOp): Promise<CliPointResponse> {
   if (typeof target === 'string') return { ok: false, error: target };
   const error = await missing(target);
   if (error) return { ok: false, error };
-  usePointerStore.getState().point({ from: op.fromPtyId, target });
+  usePointerStore.getState().point({ from: op.fromPtyId, target, ...(op.message && { message: op.message }) });
   return { ok: true, target };
 }
 

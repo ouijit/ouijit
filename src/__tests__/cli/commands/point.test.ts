@@ -90,7 +90,10 @@ describe('ouijit point', () => {
     await ouijit('task', '14');
     await ouijit('terminal', 'pty-b');
     await ouijit('board');
-    await ouijit('pr', '212');
+    expect(await ouijit('pr', '212', '-m', '  Up for review  ')).toEqual({
+      target: { kind: 'pr', projectPath: '/p', number: 212 },
+      message: 'Up for review',
+    });
     await ouijit('issue', 'ENG-231');
     await ouijit('panel', 'panel-2');
     // The worktree registered through a symlink, the CLI's shell standing in the real directory.
@@ -123,6 +126,7 @@ describe('ouijit point', () => {
       ['clear', null],
     ]);
     expect(ops.every((op) => op.fromPtyId === 'pty-agent')).toBe(true);
+    expect(ops.find((op) => op.target?.kind === 'pr')?.message).toBe('Up for review');
 
     await expect(ouijit('task', '99')).rejects.toThrow(/Task 99 not found/);
   });

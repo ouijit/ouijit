@@ -95,7 +95,9 @@ function usePlacements(pointers: Pointer[]): Placement[] {
     let frame = 0;
     const tick = () => {
       const next = place(pointers);
-      const signature = JSON.stringify(next.map((p) => [p.id, p.rect, p.placed.map((x) => [x.pointer.from, x.depth])]));
+      const signature = JSON.stringify(
+        next.map((p) => [p.id, p.rect, p.placed.map((x) => [x.pointer.from, x.pointer.at, x.depth])]),
+      );
       if (signature !== last.current) {
         last.current = signature;
         setPlacements(next);
@@ -212,6 +214,10 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
   const where = ({ pointer, depth }: Placed) =>
     depth === 0 ? 'points here' : `points to ${describeTarget(pointer.target, w)}`;
   const fromName = (p: Pointer) => displays[p.from]?.label ?? 'A terminal';
+  const label = (x: Placed) =>
+    x.pointer.message
+      ? `${x.pointer.message}, from ${fromName(x.pointer)}`
+      : `${fromName(x.pointer)}, which ${where(x)}`;
 
   const hold = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -225,7 +231,7 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
     <>
       <button
         type="button"
-        aria-label={`Follow ${fromName(newest.pointer)}, which ${where(newest)}`}
+        aria-label={`Follow ${label(newest)}`}
         className="fixed z-[10002] flex items-center gap-1 border-none bg-accent text-accent-ink text-[11px] font-semibold cursor-pointer"
         style={{ ...style, boxShadow: '0 2px 8px color-mix(in srgb, var(--color-accent) 45%, transparent)' }}
         onClick={() => void followPointer(newest.pointer)}
@@ -241,7 +247,7 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
         <div
           role="dialog"
           aria-label="Pointers"
-          className="fixed z-[10003] p-1 glass-bevel border border-bezel rounded-[12px] min-w-[200px]"
+          className="fixed z-[10003] p-1 glass-bevel border border-bezel rounded-[12px] min-w-[200px] max-w-[320px]"
           style={{
             ...cardPosition(side, style),
             background: 'var(--color-terminal-bg)',
@@ -253,9 +259,19 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
           {placed.map((x) => (
             <div key={x.pointer.from} className="group/row flex items-center gap-1">
               <button type="button" className={ROW} onClick={() => void followPointer(x.pointer)}>
-                <span className="flex-1 min-w-0 truncate">
-                  <span className="font-semibold">{fromName(x.pointer)}</span> {where(x)}
-                </span>
+                {x.pointer.message ? (
+                  <span className="flex-1 min-w-0 flex flex-col gap-0.5 whitespace-normal">
+                    <span className="text-[13px] leading-snug">{x.pointer.message}</span>
+                    <span className="text-text-tertiary">
+                      {fromName(x.pointer)}
+                      {x.depth > 0 && ` · on ${describeTarget(x.pointer.target, w)}`}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="flex-1 min-w-0 truncate">
+                    <span className="font-semibold">{fromName(x.pointer)}</span> {where(x)}
+                  </span>
+                )}
                 {x.pointer === latest && (
                   <kbd className="font-mono text-[10px] leading-none px-1.5 py-1 rounded bg-ink/[0.06] text-text-tertiary">
                     {FOLLOW_KEYS}

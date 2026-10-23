@@ -122,6 +122,31 @@ describe('a pointer on screen', () => {
     fireEvent.click(screen.getByRole('button', { name: "Dismiss Docs nav's pointer" }));
     expect(usePointerStore.getState().pointers.map((p) => p.from)).toEqual(['pty-agent']);
 
+    // A message is the pointer's label, the terminal it came from beneath it.
+    act(() =>
+      usePointerStore.getState().point({
+        from: 'pty-other',
+        target: { kind: 'project', projectPath: PROJECT },
+        message: 'Tests still to write',
+      }),
+    );
+    await waitFor(() => expect(ribbon().getAttribute('aria-label')).toBe('Follow Tests still to write, from Docs nav'));
+    fireEvent.mouseEnter(ribbon());
+    expect(screen.getByRole('dialog', { name: 'Pointers' }).textContent).toMatch(/Tests still to writeDocs nav/);
+    act(() => usePointerStore.getState().dismiss('pty-other'));
+
+    // A new pointer from the same terminal at the same thing is drawn afresh, not left as the old one.
+    act(() =>
+      usePointerStore.getState().point({
+        from: 'pty-agent',
+        target: { kind: 'task', projectPath: PROJECT, taskNumber: 14 },
+        message: 'Now with tests',
+      }),
+    );
+    await waitFor(() =>
+      expect(ribbon().getAttribute('aria-label')).toBe('Follow Now with tests, from Fix auth timeout'),
+    );
+
     // Following a ribbon that stands in keeps it, to land on the real thing; a second follow drops it regardless.
     window.api.task.getAll = vi.fn().mockResolvedValue([task]);
     fireEvent.click(ribbon());

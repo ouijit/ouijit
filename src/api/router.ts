@@ -208,6 +208,9 @@ function parseHookMode(body: Record<string, unknown>): Omit<CliHookControl, 'hoo
   return { hookMode: mode };
 }
 
+/** A pointer's label, not a place to write: longer than a line or two is cut. */
+const MAX_POINT_MESSAGE = 200;
+
 function cliCaller(fromPtyId: string, body: Record<string, unknown>): CliCaller {
   return { fromPtyId, ...(body.point === true && { point: true }) };
 }
@@ -274,10 +277,13 @@ function pointTarget(r: ParsedRequest): PointTarget {
   }
 }
 
-async function runPointOp(op: Omit<CliPointOp, 'requestId'>): Promise<{ target?: PointTarget; cleared?: boolean }> {
+async function runPointOp(
+  op: Omit<CliPointOp, 'requestId'>,
+): Promise<{ target?: PointTarget; message?: string; cleared?: boolean }> {
   const result = await cliPointRequest(op);
   if (!result.ok) throw new HttpError(404, result.error ?? 'Point failed');
-  return op.action === 'clear' ? { cleared: true } : { target: result.target };
+  if (op.action === 'clear') return { cleared: true };
+  return { target: result.target, ...(op.message && { message: op.message }) };
 }
 
 async function readCustomThemes(): Promise<CustomTheme[]> {
@@ -783,11 +789,13 @@ const routes: Route[] = [
     'POST',
     'point',
     (r) => {
+      const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_POINT_MESSAGE) : '';
+      const said = message ? { message } : {};
       if (r.body.kind === 'note') {
         if (typeof r.body.noteId !== 'string' || !r.body.noteId) throw new HttpError(400, 'Missing note id');
-        return runPointOp({ fromPtyId: r.auth.ptyId, action: 'note', noteId: r.body.noteId });
+        return runPointOp({ fromPtyId: r.auth.ptyId, action: 'note', noteId: r.body.noteId, ...said });
       }
-      return runPointOp({ fromPtyId: r.auth.ptyId, action: 'point', target: pointTarget(r) });
+      return runPointOp({ fromPtyId: r.auth.ptyId, action: 'point', target: pointTarget(r), ...said });
     },
     false,
     'sandbox',

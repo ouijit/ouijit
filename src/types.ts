@@ -1042,6 +1042,8 @@ export interface CliPointOp {
   fromPtyId: PtyId;
   action: 'point' | 'note' | 'clear';
   target?: PointTarget;
+  /** What the pointer is about, in the agent's words. */
+  message?: string;
   /** note */
   noteId?: string;
 }

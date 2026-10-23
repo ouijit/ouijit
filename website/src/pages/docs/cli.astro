@@ -136,14 +136,15 @@ ouijit diff close</code></pre>
     An agent can point you at something without moving your screen. A ribbon appears on the thing itself: a
     sidebar row, a board card, a panel tab, a pull request, a line of the diff. Click it, or press
     <kbd>⌘J</kbd> for the latest, to go there. Each terminal has one pointer; a new one replaces it.
+    <code>-m</code> labels it with what it's about.
   </p>
-  <pre class="glass-bevel"><code>ouijit point task 14
+  <pre class="glass-bevel"><code>ouijit point task 14 -m "Split out of auth; its tests aren't written yet"
 ouijit point terminal pty_abc123
 ouijit point board
 ouijit point pr 212
 ouijit point issue ENG-231                    # or a GitHub issue number
 ouijit point panel panel-3fa9
-ouijit point diff src/auth/session.ts:88
+ouijit point diff src/auth/session.ts:88 -m "This races the refresh"
 ouijit point note 7f3c                        # from ouijit diff notes
 ouijit point clear
 ouijit task start 14 --skip-hook --point      # task start, create-and-start and terminal open take --point</code></pre>
