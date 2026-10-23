@@ -321,7 +321,7 @@ changes. side LEFT means code that was removed, numbered as the file was.
 snippet is the source the note was written against.
 
 ## Pointing (show the user something without moving their screen)
-ouijit point task <n>                         # its terminal when one is open, else its card
+ouijit point task <n>                         # its terminal, opened on follow if none is; a task never started, its card
 ouijit point terminal <pty-id>
 ouijit point project | board
 ouijit point pr <n>

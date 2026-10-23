@@ -46,7 +46,7 @@ Each terminal has one pointer; a new one replaces it.`,
 
   point
     .command('task')
-    .description('A task: its terminal when one is open, else its card')
+    .description('A task: following opens its terminal, or its card if it was never started')
     .argument('<number>', 'task number')
     .action(async (n: string) => {
       printJson(await pointAt({ kind: 'task', taskNumber: int(n, 'Task number') }, requireProject()));

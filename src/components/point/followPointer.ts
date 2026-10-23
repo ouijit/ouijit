@@ -1,4 +1,4 @@
-import { focusTerminal, openProject, openProjectPage } from '../navigation';
+import { focusTerminal, openProject, openProjectPage, openTaskTerminal } from '../navigation';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
 import { openLinearIssueInPanel } from '../../services/linearTaskActions';
@@ -14,10 +14,14 @@ import type { PointTarget } from '../../types';
 async function go(target: PointTarget): Promise<void> {
   switch (target.kind) {
     case 'task': {
-      // A task with nothing open goes to its card: following a pointer never starts or opens anything.
+      // As clicking its row does, except that a task never started goes to its card: following never starts one.
       const unit = stackOf({ ptyId: '', projectPath: target.projectPath, taskId: target.taskNumber });
       const [front] = stackMembers(useTerminalStore.getState(), unit);
+      const task = (useAppStore.getState().taskCacheByProject[target.projectPath] ?? []).find(
+        (t) => t.taskNumber === target.taskNumber,
+      );
       if (front) await focusTerminal(front, { stack: unit });
+      else if (task?.branch && task.worktreePath) await openTaskTerminal(target.projectPath, task, undefined, unit);
       else await openProjectPage(target.projectPath, 'board');
       return;
     }
@@ -54,14 +58,21 @@ async function go(target: PointTarget): Promise<void> {
   }
 }
 
-/** Go where the pointer points and drop it, then run whatever was waiting on it. */
+/**
+ * Go where the pointer points and drop it. A move waiting on the pointer runs
+ * instead of going: its dialog opens over wherever the user is, and its hook
+ * opens the terminal.
+ */
 export async function followPointer(pointer: Pointer): Promise<void> {
   usePointerStore.getState().dismiss(pointer.from);
+  if (pointer.then) {
+    pointer.then();
+    return;
+  }
   await go(pointer.target);
   const [own] = anchorChain(pointer.target, {
     displays: useTerminalStore.getState().displayStates,
     tasksByProject: useAppStore.getState().taskCacheByProject,
   });
   revealWhenShown(own);
-  pointer.then?.();
 }
