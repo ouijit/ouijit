@@ -79,7 +79,7 @@ afterEach(() => {
 });
 
 describe('a pointer on screen', () => {
-  test('lands on the main area over the sidebar, on what holds the target when it is hidden, and counts pointers', async () => {
+  test('lands on the main area over the sidebar, stands in on what holds a hidden target until followed there, and counts pointers', async () => {
     const { rerender } = render(
       <>
         <Screen />
@@ -121,6 +121,14 @@ describe('a pointer on screen', () => {
 
     fireEvent.click(screen.getByRole('button', { name: "Dismiss Docs nav's pointer" }));
     expect(usePointerStore.getState().pointers.map((p) => p.from)).toEqual(['pty-agent']);
+
+    // Following a ribbon that stands in keeps it, to land on the real thing; a second follow drops it regardless.
+    window.api.task.getAll = vi.fn().mockResolvedValue([task]);
+    fireEvent.click(ribbon());
+    await waitFor(() => expect(useAppStore.getState().selection).toEqual(expect.objectContaining({ page: 'board' })));
+    expect(usePointerStore.getState().pointers.map((p) => p.from)).toEqual(['pty-agent']);
+    fireEvent.click(ribbon());
+    await waitFor(() => expect(usePointerStore.getState().pointers).toEqual([]));
   });
 
   test('is followed by a click or ⌘J, and goes when the terminal that pointed closes', async () => {
@@ -151,7 +159,7 @@ describe('a pointer on screen', () => {
 });
 
 describe('an agent pointing', () => {
-  test('is checked against what exists, a note becomes its line, and a path its place in the worktree', async () => {
+  test('is checked against what exists, and a note becomes its line', async () => {
     let send: (op: CliPointOp) => void = () => {};
     vi.mocked(window.api.cliPoints.onOp).mockImplementation((cb) => {
       send = cb;
@@ -190,12 +198,7 @@ describe('an agent pointing', () => {
     });
     expect(usePointerStore.getState().pointers).toEqual([]);
 
-    expect(
-      await point({
-        action: 'point',
-        target: { kind: 'diff', ptyId: 'pty-agent', path: '/wt/T-12/src/auth.ts', line: 3 },
-      }),
-    ).toEqual({ ok: true, target: { kind: 'diff', ptyId: 'pty-agent', path: 'src/auth.ts', line: 3 } });
+    await point({ action: 'point', target: { kind: 'diff', ptyId: 'pty-agent', path: 'src/auth.ts', line: 3 } });
     expect((await point({ action: 'note', noteId: 'n-1' })).target).toEqual({
       kind: 'diff',
       ptyId: 'pty-agent',

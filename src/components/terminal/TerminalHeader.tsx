@@ -525,6 +525,8 @@ function PanelControls({
             diffPanelOpen ? groupButtonActive : groupButtonInactive
           }`}
           aria-label="Diff"
+          data-point-target={pointKey.diffButton(ptyId)}
+          data-point-side="below"
           onClick={onDiffClick}
         >
           {/* The size of the change, and nothing about what it is measured

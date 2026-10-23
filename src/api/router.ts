@@ -7,6 +7,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { BrowserWindow } from 'electron';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createTodoTask, createTaskWorktree } from '../worktree';
 import {
@@ -211,6 +212,29 @@ function cliCaller(fromPtyId: string, body: Record<string, unknown>): CliCaller 
   return { fromPtyId, ...(body.point === true && { point: true }) };
 }
 
+/** A path's real location, through any symlink, for as much of it as exists. */
+function realLocation(p: string): string {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    const parent = path.dirname(p);
+    return parent === p ? p : path.join(realLocation(parent), path.basename(p));
+  }
+}
+
+/**
+ * The diff names files by their path in the worktree. The CLI sends an
+ * absolute one, resolved from its shell's directory, which may have come
+ * through a symlink the registered worktree path did not (macOS's /var).
+ */
+function pathInWorktree(ptyId: string, file: string): string {
+  const ctx = getPtySpawnContext(ptyId);
+  const root = ctx?.worktreePath || ctx?.projectPath;
+  if (!root || !path.isAbsolute(file)) return file;
+  const relative = path.relative(realLocation(root), realLocation(file));
+  return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : file;
+}
+
 /** The target of `ouijit point`, from its body. The project ones take `?project=`; the rest name a terminal. */
 function pointTarget(r: ParsedRequest): PointTarget {
   const { body } = r;
@@ -243,7 +267,7 @@ function pointTarget(r: ParsedRequest): PointTarget {
     case 'diff': {
       if (typeof body.path !== 'string' || !body.path) throw new HttpError(400, 'Missing path');
       const line = body.line === undefined ? undefined : requireInt(String(body.line), 'Line');
-      return { kind: 'diff', ptyId, path: body.path, ...(line !== undefined && { line }) };
+      return { kind: 'diff', ptyId, path: pathInWorktree(ptyId, body.path), ...(line !== undefined && { line }) };
     }
     default:
       throw new HttpError(400, `Unknown target '${String(body.kind)}'`);

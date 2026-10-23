@@ -40,24 +40,14 @@ async function noteTarget(fromPtyId: string, noteId: string): Promise<PointTarge
   return { kind: 'diff', ptyId: fromPtyId, path: note.path, line: note.line, noteId };
 }
 
-/** The CLI sends an absolute path; the diff keys files by their path in the worktree. */
-function inWorktree(target: PointTarget): PointTarget {
-  if (target.kind !== 'diff' || !target.path.startsWith('/')) return target;
-  const display = useTerminalStore.getState().displayStates[target.ptyId];
-  const root = terminalInstances.get(target.ptyId)?.worktreePath || display?.projectPath;
-  if (!root || !target.path.startsWith(`${root}/`)) return target;
-  return { ...target, path: target.path.slice(root.length + 1) };
-}
-
 async function handleOp(op: CliPointOp): Promise<CliPointResponse> {
   if (op.action === 'clear') {
     usePointerStore.getState().dismiss(op.fromPtyId);
     return { ok: true };
   }
-  const resolved = op.action === 'note' ? await noteTarget(op.fromPtyId, op.noteId ?? '') : op.target;
-  if (!resolved) return { ok: false, error: 'Missing target' };
-  if (typeof resolved === 'string') return { ok: false, error: resolved };
-  const target = inWorktree(resolved);
+  const target = op.action === 'note' ? await noteTarget(op.fromPtyId, op.noteId ?? '') : op.target;
+  if (!target) return { ok: false, error: 'Missing target' };
+  if (typeof target === 'string') return { ok: false, error: target };
   const error = await missing(target);
   if (error) return { ok: false, error };
   usePointerStore.getState().point({ from: op.fromPtyId, target });

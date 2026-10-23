@@ -19,6 +19,7 @@ export const pointKey = {
   issue: (projectPath: string, id: string) => `issue:${enc(projectPath)}:${enc(id)}`,
   panel: (ptyId: string, panelId: string) => `panel:${enc(ptyId)}:${enc(panelId)}`,
   diffFile: (ptyId: string, path: string) => `diff:${enc(ptyId)}:${enc(path)}`,
+  diffButton: (ptyId: string) => `diff-button:${enc(ptyId)}`,
   note: (ptyId: string, noteId: string) => `note:${enc(ptyId)}:${enc(noteId)}`,
 };
 
@@ -85,6 +86,7 @@ export function anchorChain(target: PointTarget, world: PointWorld): AnchorEntry
         ...(target.noteId ? [pointKey.note(target.ptyId, target.noteId)] : []),
         ...(target.line != null ? [{ file: pointKey.diffFile(target.ptyId, target.path), line: target.line }] : []),
         pointKey.diffFile(target.ptyId, target.path),
+        pointKey.diffButton(target.ptyId),
         ...terminalChain(world, target.ptyId),
       ];
   }

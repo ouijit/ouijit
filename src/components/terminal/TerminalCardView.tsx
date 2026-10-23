@@ -1,5 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react';
 
+/** How far each card behind sits above the one in front: the strip of it that shows. */
+export const STACK_PEEK = 24;
+
 interface DepthStyle {
   translateY: number;
   scaleX: number;
@@ -11,25 +14,25 @@ interface DepthStyle {
    bezel-panel border and read as a doubled, thicker edge on light themes. */
 const DEPTH_STYLES: Record<number, DepthStyle> = {
   1: {
-    translateY: -24,
+    translateY: -STACK_PEEK * 1,
     scaleX: 0.98,
     zIndex: 9,
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
   },
   2: {
-    translateY: -48,
+    translateY: -STACK_PEEK * 2,
     scaleX: 0.96,
     zIndex: 8,
     boxShadow: '0 1px 4px rgba(0, 0, 0, 0.08)',
   },
   3: {
-    translateY: -72,
+    translateY: -STACK_PEEK * 3,
     scaleX: 0.94,
     zIndex: 7,
     boxShadow: 'none',
   },
   4: {
-    translateY: -96,
+    translateY: -STACK_PEEK * 4,
     scaleX: 0.92,
     zIndex: 6,
     boxShadow: 'none',
@@ -39,7 +42,7 @@ const DEPTH_STYLES: Record<number, DepthStyle> = {
 function depthStyle(depth: number): DepthStyle {
   return (
     DEPTH_STYLES[depth] ?? {
-      translateY: -24 * depth,
+      translateY: -STACK_PEEK * depth,
       scaleX: Math.max(0.8, 1 - 0.02 * depth),
       zIndex: 10 - depth,
       boxShadow: 'none',

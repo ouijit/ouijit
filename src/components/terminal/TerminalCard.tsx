@@ -4,7 +4,7 @@ import { closeProjectTerminal } from './terminalActions';
 import { terminalInstances } from './terminalRegistry';
 import { TerminalHeader } from './TerminalHeader';
 import { TerminalBody } from './TerminalBody';
-import { TerminalCardView } from './TerminalCardView';
+import { TerminalCardView, STACK_PEEK } from './TerminalCardView';
 import { pointKey } from '../point/pointKeys';
 
 interface TerminalCardProps {
@@ -22,6 +22,9 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, depth, stackPosi
   const taskId = useTerminalStore((s) => s.displayStates[ptyId]?.taskId ?? null);
   const isFront = depth === 0;
   const [hovered, setHovered] = useState(false);
+  const pointKeys = [pointKey.terminal(ptyId), ...(taskId != null ? [pointKey.task(projectPath, taskId)] : [])].join(
+    ' ',
+  );
 
   useEffect(() => {
     if (!isFront || isLoading) return;
@@ -43,13 +46,19 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, depth, stackPosi
       backDepth={depth}
       hoverLift={!isFront && hovered ? 4 : 0}
       ptyId={ptyId}
-      pointTarget={[pointKey.terminal(ptyId), ...(taskId != null ? [pointKey.task(projectPath, taskId)] : [])].join(
-        ' ',
-      )}
+      pointTarget={isFront ? pointKeys : undefined}
       onClick={handleClick}
       onMouseEnter={() => !isFront && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* A card behind shows only the strip above the one in front of it. */}
+      {!isFront && (
+        <div
+          className="absolute inset-x-0 top-0 pointer-events-none"
+          style={{ height: STACK_PEEK }}
+          data-point-target={pointKeys}
+        />
+      )}
       {isLoading ? (
         <LoadingContents label={label || 'New task'} isFront={isFront} />
       ) : (

@@ -1,4 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { Command } from 'commander';
 import type { BrowserWindow } from 'electron';
@@ -9,9 +11,10 @@ import { issueToken, revokeAllTokens } from '../../../apiAuth';
 import { initCliPanels } from '../../../cliPanels';
 import type { CliPointOp, CliPointResponse } from '../../../types';
 
-const { ipcHandlers, ops } = vi.hoisted(() => ({
+const { ipcHandlers, ops, worktrees } = vi.hoisted(() => ({
   ipcHandlers: new Map<string, (event: unknown, ...args: unknown[]) => unknown>(),
   ops: [] as Omit<CliPointOp, 'requestId'>[],
+  worktrees: {} as Record<string, string>,
 }));
 
 vi.mock('electron', () => ({
@@ -25,7 +28,8 @@ vi.mock('electron', () => ({
 vi.mock('../../../ptyManager', () => ({
   isPtyActive: (ptyId: string) => ptyId === 'pty-agent',
   getPtyTaskContext: () => ({ projectPath: '/p', taskId: 4 }),
-  getPtySpawnContext: () => null,
+  getPtySpawnContext: (ptyId: string) =>
+    worktrees[ptyId] ? { projectPath: '/p', worktreePath: worktrees[ptyId] } : null,
   getActiveSessions: () => [],
 }));
 
@@ -80,7 +84,7 @@ afterEach(async () => {
 });
 
 describe('ouijit point', () => {
-  test('points from the terminal it runs in, even a sandboxed one, at anything it can name', async () => {
+  test('points from the terminal it runs in, even a sandboxed one, at anything it can name, a file by its place in the worktree', async () => {
     vi.stubEnv('OUIJIT_API_TOKEN', issueToken('pty-agent', 'sandbox'));
 
     await ouijit('task', '14');
@@ -89,9 +93,21 @@ describe('ouijit point', () => {
     await ouijit('pr', '212');
     await ouijit('issue', 'ENG-231');
     await ouijit('panel', 'panel-2');
-    expect(await ouijit('diff', 'src/auth.ts:88', 'pty-b')).toEqual({
-      target: { kind: 'diff', ptyId: 'pty-b', path: path.resolve('src/auth.ts'), line: 88 },
-    });
+    // The worktree registered through a symlink, the CLI's shell standing in the real directory.
+    const real = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-point-')));
+    fs.mkdirSync(path.join(real, 'wt'));
+    fs.symlinkSync(path.join(real, 'wt'), path.join(real, 'linked'));
+    worktrees['pty-b'] = path.join(real, 'linked');
+    const cwd = process.cwd();
+    process.chdir(path.join(real, 'wt'));
+    try {
+      expect(await ouijit('diff', 'src/auth.ts:88', 'pty-b')).toEqual({
+        target: { kind: 'diff', ptyId: 'pty-b', path: 'src/auth.ts', line: 88 },
+      });
+    } finally {
+      process.chdir(cwd);
+      fs.rmSync(real, { recursive: true, force: true });
+    }
     await ouijit('note', 'n-1');
     expect(await ouijit('clear')).toEqual({ cleared: true });
 
@@ -102,7 +118,7 @@ describe('ouijit point', () => {
       ['point', { kind: 'pr', projectPath: '/p', number: 212 }],
       ['point', { kind: 'issue', projectPath: '/p', id: 'ENG-231' }],
       ['point', { kind: 'panel', ptyId: 'pty-agent', panelId: 'panel-2' }],
-      ['point', { kind: 'diff', ptyId: 'pty-b', path: path.resolve('src/auth.ts'), line: 88 }],
+      ['point', { kind: 'diff', ptyId: 'pty-b', path: 'src/auth.ts', line: 88 }],
       ['note', 'n-1'],
       ['clear', null],
     ]);

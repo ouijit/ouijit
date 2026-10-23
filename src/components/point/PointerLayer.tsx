@@ -125,11 +125,20 @@ function useFollowShortcut(): void {
 
 const RIBBON = 24;
 const OVERLAP = 6;
+const EDGE = 8;
 
-function ribbonBox(p: Placement, count: number): { style: React.CSSProperties; arrow: string } {
+/** The side asked for, unless the ribbon would leave the window there. */
+function fittedSide(p: Placement, long: number): Side {
+  if (p.side === 'right' && p.rect.right - OVERLAP + long > window.innerWidth - EDGE) return 'left';
+  if (p.side === 'left' && p.rect.left + OVERLAP - long < EDGE) return 'right';
+  return p.side;
+}
+
+function ribbonBox(p: Placement, count: number): { style: React.CSSProperties; arrow: string; side: Side } {
   const long = 32 + (count > 1 ? 12 : 0);
   const { rect } = p;
-  if (p.side === 'below') {
+  const side = fittedSide(p, long);
+  if (side === 'below') {
     return {
       style: {
         left: rect.left + rect.width / 2 - RIBBON / 2,
@@ -142,10 +151,11 @@ function ribbonBox(p: Placement, count: number): { style: React.CSSProperties; a
         paddingBottom: 6,
       },
       arrow: 'M8 13V3M4 7l4-4 4 4',
+      side,
     };
   }
   const middle = rect.top + rect.height / 2 - RIBBON / 2;
-  if (p.side === 'left') {
+  if (side === 'left') {
     return {
       style: {
         left: rect.left - long + OVERLAP,
@@ -157,6 +167,7 @@ function ribbonBox(p: Placement, count: number): { style: React.CSSProperties; a
         paddingLeft: 7,
       },
       arrow: 'M3 8h10M9 4l4 4-4 4',
+      side,
     };
   }
   return {
@@ -170,15 +181,21 @@ function ribbonBox(p: Placement, count: number): { style: React.CSSProperties; a
       paddingRight: 7,
     },
     arrow: 'M13 8H3M7 4L3 8l4 4',
+    side,
   };
 }
 
-function cardPosition(p: Placement, ribbon: React.CSSProperties): React.CSSProperties {
+/** Beside the ribbon, on whichever side of it the window has more room. */
+function cardPosition(side: Side, ribbon: React.CSSProperties): React.CSSProperties {
   const left = Number(ribbon.left);
+  const right = left + Number(ribbon.width);
   const top = Number(ribbon.top);
-  if (p.side === 'below') return { left: left - 8, top: top + Number(ribbon.height) + 6 };
-  if (p.side === 'left') return { right: window.innerWidth - left + 6, top: top - 6 };
-  return { left: left + Number(ribbon.width) + 6, top: top - 6 };
+  const roomLeft = left > window.innerWidth - right;
+  if (side === 'below') {
+    const below = top + Number(ribbon.height) + 6;
+    return roomLeft ? { right: window.innerWidth - right - 8, top: below } : { left: left - 8, top: below };
+  }
+  return roomLeft ? { right: window.innerWidth - left + 6, top: top - 6 } : { left: right + 6, top: top - 6 };
 }
 
 const ROW =
@@ -189,7 +206,7 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const displays = useTerminalStore((s) => s.displayStates);
   const { placed } = placement;
-  const { style, arrow } = ribbonBox(placement, placed.length);
+  const { style, arrow, side } = ribbonBox(placement, placed.length);
   const newest = placed.find((x) => x.pointer === latestPointer(placed.map((y) => y.pointer)))!;
   const w = world();
   const where = ({ pointer, depth }: Placed) =>
@@ -226,7 +243,7 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
           aria-label="Pointers"
           className="fixed z-[10003] p-1 glass-bevel border border-bezel rounded-[12px] min-w-[200px]"
           style={{
-            ...cardPosition(placement, style),
+            ...cardPosition(side, style),
             background: 'var(--color-terminal-bg)',
             boxShadow: 'var(--shadow-menu)',
           }}
