@@ -1,28 +1,29 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { getHooks, saveHook, _resetCacheForTesting } from '../db';
+import { hookSandbox } from '../services/hookRun';
 import type { ScriptHook } from '../types';
 
-describe('a hook keeps the sandbox it runs in', () => {
+describe('where a hook runs', () => {
   beforeEach(() => {
     _resetCacheForTesting();
   });
 
-  test('round-trips a backend, and reads as host once saved without one or with anything else', async () => {
+  test('a hook keeps a place it was given, Host included, and follows the project default without one', async () => {
     const project = '/test/hook-sandbox';
     const start: ScriptHook = { id: 'h', type: 'start', name: 'Agent', command: 'claude' };
 
     await saveHook(project, { ...start, sandbox: 'custom' });
-    await saveHook(project, { ...start, id: 'd', type: 'done', command: 'git push' });
+    await saveHook(project, { ...start, id: 'd', type: 'done', command: 'git push', sandbox: 'none' });
+    await saveHook(project, { ...start, id: 'r', type: 'review', command: 'claude -p review' });
     let hooks = await getHooks(project);
-    expect(hooks.start?.sandbox).toBe('custom');
-    expect(hooks.done?.sandbox).toBeUndefined();
-
-    await saveHook(project, start);
-    expect((await getHooks(project)).start?.sandbox).toBeUndefined();
+    expect(hookSandbox(undefined, hooks.start, 'nono')).toBe('custom');
+    expect(hookSandbox(undefined, hooks.done, 'nono')).toBe('none');
+    expect(hookSandbox(undefined, hooks.review, 'nono')).toBe('nono');
+    expect(hookSandbox('none', hooks.start, 'nono')).toBe('none');
 
     await saveHook(project, { ...start, sandbox: 'vm' as ScriptHook['sandbox'] });
     hooks = await getHooks(project);
     expect(hooks.start).toBeDefined();
-    expect(hooks.start?.sandbox).toBeUndefined();
+    expect(hookSandbox(undefined, hooks.start, 'nono')).toBe('nono');
   });
 });

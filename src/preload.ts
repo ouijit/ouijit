@@ -18,11 +18,17 @@ import type {
   Script,
   CliHookControl,
   TaskWithWorkspace,
-  NonoConfig,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
+  TerminalSandboxPayload,
   CliPanelOp,
   CliPanelResponse,
+  CliTagOp,
+  CliTagResponse,
+  CliTerminalOp,
+  CliTerminalResponse,
+  CliPointOp,
+  CliPointResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
 import type {
@@ -164,7 +170,6 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('task:get-by-number', projectPath, taskNumber),
     setStatus: (projectPath: string, taskNumber: number, status: TaskStatus) =>
       typedInvoke('task:set-status', projectPath, taskNumber, status),
-    delete: (projectPath: string, taskNumber: number) => typedInvoke('task:delete', projectPath, taskNumber),
     trash: (projectPath: string, taskNumber: number) => typedInvoke('task:trash', projectPath, taskNumber),
     setMergeTarget: (projectPath: string, taskNumber: number, mergeTarget: string) =>
       typedInvoke('task:set-merge-target', projectPath, taskNumber, mergeTarget),
@@ -197,17 +202,6 @@ contextBridge.exposeInMainWorld('api', {
     reorder: (projectPath: string, scriptIds: string[]) => typedInvoke('scripts:reorder', projectPath, scriptIds),
   },
 
-  tags: {
-    getAll: () => typedInvoke('tags:get-all'),
-    getForTask: (projectPath: string, taskNumber: number) => typedInvoke('tags:get-for-task', projectPath, taskNumber),
-    addToTask: (projectPath: string, taskNumber: number, tagName: string) =>
-      typedInvoke('tags:add-to-task', projectPath, taskNumber, tagName),
-    removeFromTask: (projectPath: string, taskNumber: number, tagName: string) =>
-      typedInvoke('tags:remove-from-task', projectPath, taskNumber, tagName),
-    setTaskTags: (projectPath: string, taskNumber: number, tagNames: string[]) =>
-      typedInvoke('tags:set-task-tags', projectPath, taskNumber, tagNames),
-  },
-
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => typedListen('fullscreen-change', callback),
 
   agentHooks: {
@@ -231,6 +225,22 @@ contextBridge.exposeInMainWorld('api', {
     respond: (requestId: number, response: CliPanelResponse) => typedInvoke('cli-panels:respond', requestId, response),
   },
 
+  cliTags: {
+    onOp: (callback: (op: CliTagOp) => void) => typedListen('cli:tag-op', callback),
+    respond: (requestId: number, response: CliTagResponse) => typedInvoke('cli-tags:respond', requestId, response),
+  },
+
+  cliTerminals: {
+    onOp: (callback: (op: CliTerminalOp) => void) => typedListen('cli:terminal-op', callback),
+    respond: (requestId: number, response: CliTerminalResponse) =>
+      typedInvoke('cli-terminals:respond', requestId, response),
+  },
+
+  cliPoints: {
+    onOp: (callback: (op: CliPointOp) => void) => typedListen('cli:point-op', callback),
+    respond: (requestId: number, response: CliPointResponse) => typedInvoke('cli-points:respond', requestId, response),
+  },
+
   globalSettings: {
     get: (key: string) => typedInvoke('settings:get-global', key),
     set: (key: string, value: string) => typedInvoke('settings:set-global', key, value),
@@ -252,6 +262,7 @@ contextBridge.exposeInMainWorld('api', {
 
   onSandboxLaunchFailed: (callback: (info: SandboxLaunchFailedPayload) => void) =>
     typedListen('sandbox-launch-failed', callback),
+  onTerminalSandbox: (callback: (info: TerminalSandboxPayload) => void) => typedListen('terminal-sandbox', callback),
 
   onWhatsNew: (callback: (info: { version: string; notes: string }) => void) => typedListen('whats-new', callback),
 
@@ -306,9 +317,10 @@ contextBridge.exposeInMainWorld('api', {
 
   sandbox: {
     status: (projectPath: string) => typedInvoke('sandbox:status', projectPath),
-    nonoConfig: (projectPath: string) => typedInvoke('sandbox:nono-config', projectPath),
-    setNonoConfig: (projectPath: string, config: NonoConfig) =>
-      typedInvoke('sandbox:set-nono-config', projectPath, config),
+    nonoProfile: (projectPath: string) => typedInvoke('sandbox:nono-profile', projectPath),
+    chooseNonoProfile: (projectPath: string) => typedInvoke('sandbox:choose-nono-profile', projectPath),
+    resetNonoProfile: (projectPath: string) => typedInvoke('sandbox:reset-nono-profile', projectPath),
+    openNonoProfile: (projectPath: string) => typedInvoke('sandbox:open-nono-profile', projectPath),
     customConfig: (projectPath: string) => typedInvoke('sandbox:custom-config', projectPath),
     setCustomConfig: (projectPath: string, config: CustomSandboxConfig) =>
       typedInvoke('sandbox:set-custom-config', projectPath, config),

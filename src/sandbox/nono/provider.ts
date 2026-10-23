@@ -6,8 +6,8 @@ import type { SandboxProvider } from '../provider';
 import type { SandboxLaunch, SandboxProviderStatus, SandboxSpawnContext } from '../types';
 import { getNonoPath, getVendoredNonoPath, isNonoInstalled, checkPlatformSupport } from './binary';
 import { getMainGitDir } from '../gitDir';
-import { getNonoConfig } from './config';
-import { ensureUnionProfile, ensureProjectProfile } from './profile';
+import { getNonoProfile } from './config';
+import { ensureUnionProfile } from './profile';
 import { sandboxCacheEnv } from './cacheEnv';
 import { buildNonoLaunch } from './argv';
 import { sandboxCacheDir } from '../cacheDir';
@@ -22,12 +22,11 @@ export const nonoProvider: SandboxProvider = {
   id: 'nono',
   displayName: 'nono',
 
-  async getStatus(projectPath: string): Promise<SandboxProviderStatus> {
+  async getStatus(_projectPath: string): Promise<SandboxProviderStatus> {
     const platform = checkPlatformSupport();
     if (!platform.supported) return { providerId: 'nono', available: false, detail: platform.reason };
     if (!(await isNonoInstalled())) return { providerId: 'nono', available: false, detail: 'Not installed' };
-    const { enabled } = await getNonoConfig(projectPath);
-    return { providerId: 'nono', available: !!enabled, detail: enabled ? 'Ready' : 'Off' };
+    return { providerId: 'nono', available: true, detail: 'Ready' };
   },
 
   cleanup(): void {
@@ -42,9 +41,6 @@ export const nonoProvider: SandboxProvider = {
     }
     if (!(await isNonoInstalled())) {
       throw new Error('nono is not installed. Install it, then reopen the terminal.');
-    }
-    if (!(await getNonoConfig(ctx.projectPath)).enabled) {
-      throw new Error('nono is off for this project. Turn it on in Project Settings ▸ Sandbox.');
     }
     // Make sure the union profile (and the agent packs it inherits) is on disk
     // before the spawn references it by name.
@@ -73,21 +69,17 @@ export const nonoProvider: SandboxProvider = {
     const worktreePath = ctx.worktreePath ?? ctx.cwd;
     // Independent: a `git rev-parse` subprocess and a DB read. Run them together
     // so the config read isn't stuck behind the git subprocess on the spawn path.
-    const [resolvedGitDir, config] = await Promise.all([getMainGitDir(worktreePath), getNonoConfig(ctx.projectPath)]);
+    const [resolvedGitDir, profile] = await Promise.all([getMainGitDir(worktreePath), getNonoProfile(ctx.projectPath)]);
     const mainGitDir = resolvedGitDir ?? path.join(worktreePath, '.git');
     const cliPath = getCliPath();
     const cliDir = cliPath ? path.dirname(cliPath) : undefined;
     const cacheDir = sandboxCacheDir(ctx.projectPath);
-    // A per-project override profile (the profile editor) replaces the managed
-    // one by name; with none, this resolves to the managed `ouijit` profile.
-    const profileName = await ensureProjectProfile(ctx.projectPath, config.profile);
 
     nonoLog.info('wrapping launch under nono', {
       worktreePath,
       mainGitDir,
       apiPort: ctx.apiPort,
-      blockNet: config.blockNet ?? false,
-      profileName,
+      profile: profile.path,
     });
 
     return buildNonoLaunch(getNonoPath(), launch, {
@@ -98,8 +90,7 @@ export const nonoProvider: SandboxProvider = {
       cliDir,
       cacheDir,
       nonoBinPath: getVendoredNonoPath() ?? undefined,
-      profileName,
-      config,
+      profile: profile.path,
     });
   },
 };

@@ -1,30 +1,9 @@
-import { test, expect, createTestRepo, enterProject } from './fixtures';
+import { test, expect, createTestRepo, enterProject, openBoard } from './fixtures';
 import type { Page, Locator, ElectronApplication } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-
-/**
- * Helper: navigate into an already-registered project by path. `enterProject`
- * takes the first sidebar item, which is ambiguous once more than one project
- * is registered.
- */
-async function enterProjectByPath(appPage: Page, repoPath: string): Promise<void> {
-  await appPage.mouse.move(2, 200);
-  const sidebarItem = appPage.locator(`[data-project-path="${repoPath}"]`);
-  await expect(sidebarItem).toBeVisible({ timeout: 10_000 });
-  await sidebarItem.click();
-}
-
-/**
- * Helper: dismiss the kanban board. Board/stack toggling is owned by
- * Cmd/Ctrl+T (Escape is reserved for form-level resets), so toggle with that.
- */
-async function dismissKanban(appPage: Page): Promise<void> {
-  await appPage.keyboard.press(`${modifier}+t`);
-  await expect(appPage.locator('.kanban-board')).toHaveCount(0, { timeout: 5_000 });
-}
 
 /**
  * Helper: open the Todo column's composer and hand back its title field.
@@ -91,63 +70,17 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
 
   // --- Terminal lifecycle ---
 
-  await dismissKanban(appPage);
-
-  // Empty state visible
-  await expect(appPage.locator('.project-stack-empty--visible')).toBeAttached({ timeout: 5_000 });
-  await expect(appPage.locator('.project-stack-empty--visible')).toContainText('No active terminals');
-
-  // Open first terminal (Cmd+I)
+  // A shell is a stack of its own, listed in the sidebar under its project.
+  const project = appPage.locator(`[data-project-path="${testRepo.repoPath}"]`).locator('..');
   await appPage.keyboard.press(`${modifier}+i`);
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 10_000 });
   await expect(appPage.locator('.project-card--active')).toHaveCount(1);
   await expect(appPage.locator('.terminal-xterm-container').first()).toBeAttached({ timeout: 5_000 });
-  await expect(appPage.locator('.project-stack-empty--visible')).toHaveCount(0);
-
-  // Open second terminal
   await appPage.keyboard.press(`${modifier}+i`);
-  await expect(appPage.locator('.project-card')).toHaveCount(2, { timeout: 10_000 });
-  await expect(appPage.locator('.project-card--active')).toHaveCount(1);
-
-  // Switch to first terminal (Cmd+1)
-  await appPage.keyboard.press(`${modifier}+1`);
-  const firstCard = appPage.locator('.project-card').first();
-  await expect(firstCard).toHaveClass(/project-card--active/);
-
-  // Open 3 more terminals (5 total, fills page 1)
-  for (let i = 0; i < 3; i++) {
-    await appPage.keyboard.press(`${modifier}+i`);
-  }
-  await expect(appPage.locator('.project-card')).toHaveCount(5, { timeout: 10_000 });
-
-  // Open 6th terminal — triggers pagination, new terminal on page 2
-  await appPage.keyboard.press(`${modifier}+i`);
-  await expect(appPage.locator('.project-stack-pagination')).toBeAttached({ timeout: 5_000 });
-  await expect(appPage.locator('.project-stack-page-indicator')).toHaveText('2 / 2');
-  // Only 1 card visible on page 2
+  await expect(project.locator('[data-sidebar-row]')).toHaveCount(2, { timeout: 10_000 });
   await expect(appPage.locator('.project-card')).toHaveCount(1);
 
-  // Navigate to page 1 — should show 5 cards
-  await appPage.keyboard.press(`${modifier}+Shift+ArrowLeft`);
-  await expect(appPage.locator('.project-stack-page-indicator')).toHaveText('1 / 2');
-  await expect(appPage.locator('.project-card')).toHaveCount(5, { timeout: 5_000 });
-
-  // Close all terminals
-  const maxCloses = 10;
-  for (let i = 0; i < maxCloses; i++) {
-    const count = await appPage.locator('.project-card').count();
-    if (count === 0) break;
-    await appPage.keyboard.press(`${modifier}+w`);
-    await appPage.waitForTimeout(200);
-  }
-  await expect(appPage.locator('.project-card')).toHaveCount(0);
-
-  // Empty state returns
-  await expect(appPage.locator('.project-stack-empty--visible')).toBeAttached({ timeout: 5_000 });
-
-  // --- Kanban task creation ---
-
-  // Away from the board, ⌘N opens the composer as a sheet over the terminals
+  // Away from the board, ⌘N opens the composer as a sheet over the terminal
   // rather than switching the view out from under you. Dismissed again here —
   // the rest of this test is about the task landing in the column.
   await appPage.keyboard.press(`${modifier}+n`);
@@ -156,7 +89,16 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await appPage.keyboard.press('Escape');
   await expect(composerSheet).toHaveCount(0, { timeout: 5_000 });
 
-  await appPage.keyboard.press(`${modifier}+t`);
+  // Closing a shell shows the project's other one; closing the last leaves its board.
+  await appPage.keyboard.press(`${modifier}+w`);
+  await expect(project.locator('[data-sidebar-row]')).toHaveCount(1, { timeout: 5_000 });
+  await expect(appPage.locator('.project-card')).toHaveCount(1);
+  await appPage.keyboard.press(`${modifier}+w`);
+  await expect(appPage.locator('.project-card')).toHaveCount(0, { timeout: 5_000 });
+  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 5_000 });
+
+  // --- Kanban task creation ---
+
   const input = await openColumnComposer(appPage);
   await input.fill('E2E test task');
   await input.press('Enter');
@@ -199,7 +141,7 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   // `inset: 0` against the panel's padding box: its border, on each side.
   expect(flyout).toEqual({ width: 2, height: 2 });
 
-  await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
+  await chooseSubmenuItem(appPage, 'Open in', 'Host terminal');
 
   await expect(appPage.locator('.kanban-board')).not.toBeVisible({ timeout: 5_000 });
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
@@ -230,7 +172,6 @@ test('terminal reconnect after reload does not produce % artifacts', async ({ ap
   test.setTimeout(40_000);
 
   await enterProject(appPage, testRepo.repoPath);
-  await dismissKanban(appPage);
 
   // Open a terminal
   await appPage.keyboard.press(`${modifier}+i`);
@@ -249,8 +190,8 @@ test('terminal reconnect after reload does not produce % artifacts', async ({ ap
   await appPage.reload();
   await appPage.waitForLoadState('domcontentloaded');
 
-  // A refresh must land back in the same project view (its PTYs are still
-  // alive), and reconnectOrphanedSessions reattaches and refocuses the terminal.
+  // A refresh must land back on the same terminal (its PTY is still alive),
+  // which reconnectOrphanedSessions reattaches.
   await expect(appPage.locator('.project-card--active')).toHaveCount(1, { timeout: 15_000 });
   // Exactly one card — reconnect must not duplicate the shared session.
   await expect(appPage.locator('.project-card')).toHaveCount(1);
@@ -308,16 +249,13 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
   // Kanban stays visible for background run — verify task moved
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
-  // Toggle to terminal view to verify terminal was created
-  await appPage.keyboard.press(`${modifier}+t`);
-  await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
-  // Toggle back to kanban for the next steps
-  await appPage.keyboard.press(`${modifier}+t`);
+  // The terminal it started is listed in the sidebar.
+  const terminalRows = appPage.locator(`[data-project-path="${repoPath}"]`).locator('..').locator('[data-sidebar-row]');
+  await expect(terminalRows).toHaveCount(1, { timeout: 15_000 });
 
   // --- Cancel flow: create task 2, drag, cancel dialog ---
 
-  // The composer went back to its resting row when the first task was created,
-  // and again when the board remounted behind the terminal toggle.
+  // The composer went back to its resting row when the first task was created.
   await openColumnComposer(appPage);
   await input.fill('Hook task 2');
   await input.press('Enter');
@@ -338,9 +276,7 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(2, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
   // No new terminal was created — still just the one from the Run flow earlier.
-  await appPage.keyboard.press(`${modifier}+t`);
-  await expect(appPage.locator('.project-card')).toHaveCount(1);
-  await appPage.keyboard.press(`${modifier}+t`);
+  await expect(terminalRows).toHaveCount(1);
 
   // --- No dialog after hook deleted ---
 
@@ -376,7 +312,7 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
   // Open in terminal via context menu
   const kanbanCard = todoColumn.locator('.kanban-card').first();
   await kanbanCard.click({ button: 'right' });
-  await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
+  await chooseSubmenuItem(appPage, 'Open in', 'Host terminal');
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
 
   // Get the worktree path from the task data
@@ -390,12 +326,9 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
   fs.rmSync(worktreePath, { recursive: true, force: true });
   expect(fs.existsSync(worktreePath)).toBe(false);
 
-  // Close the terminal so we can reopen from kanban
+  // Closing the project's only terminal leaves its board.
   await appPage.keyboard.press(`${modifier}+w`);
   await expect(appPage.locator('.project-card')).toHaveCount(0, { timeout: 5_000 });
-
-  // Open kanban
-  await appPage.keyboard.press(`${modifier}+t`);
   await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 5_000 });
 
   const inProgressColumn = appPage.locator('.kanban-column[data-status="in_progress"]');
@@ -404,7 +337,7 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
 
   // Try to open the task again — should show recovery dialog
   await ipCard.click({ button: 'right' });
-  await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
+  await chooseSubmenuItem(appPage, 'Open in', 'Host terminal');
 
   // Recovery dialog should appear
   const recoveryDialog = appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]');
@@ -487,28 +420,25 @@ test('command palette: opens over a focused terminal and jumps to a session in a
 
   const otherRepo = createTestRepo('other-project');
   try {
-    await appPage.evaluate(async (paths: string[]) => {
-      for (const p of paths) await window.api.addProject(p);
-      const projects = await window.api.refreshProjects();
-      (window as any).__appStore.getState().setProjects(projects);
-    }, [testRepo.repoPath, otherRepo.repoPath]);
+    await appPage.evaluate(
+      async (paths: string[]) => {
+        for (const p of paths) await window.api.addProject(p);
+        const projects = await window.api.refreshProjects();
+        (window as any).__appStore.getState().setProjects(projects);
+      },
+      [testRepo.repoPath, otherRepo.repoPath],
+    );
 
     // A terminal in each project.
-    await enterProjectByPath(appPage, testRepo.repoPath);
-    await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
-    await dismissKanban(appPage);
+    await openBoard(appPage, testRepo.repoPath);
     await appPage.keyboard.press(`${modifier}+i`);
     await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
 
-    await enterProjectByPath(appPage, otherRepo.repoPath);
-    await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
-    await dismissKanban(appPage);
+    await openBoard(appPage, otherRepo.repoPath);
     await appPage.keyboard.press(`${modifier}+i`);
     await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
 
-    // Reload so the first project's PTY is still alive but no longer hydrated
-    // in this renderer. The palette has to source it from getActiveSessions and
-    // reconnect it on the way in — the path the unit suite can only mock.
+    // Reload, so the jump lands on a PTY this renderer reattached rather than spawned.
     await appPage.reload();
     await appPage.waitForLoadState('domcontentloaded');
     await expect(appPage.locator('.project-card--active')).toHaveCount(1, { timeout: 30_000 });
@@ -538,17 +468,16 @@ test('command palette: opens over a focused terminal and jumps to a session in a
     await appPage.keyboard.type('test-project');
     await expect(input).toHaveValue('test-project');
 
-    // Terminals rank above projects, so the top row is the other project's
-    // shell, not the project itself.
-    const firstRow = appPage.locator('[data-testid="palette-row"]').first();
-    await expect(firstRow).toContainText('test-project', { timeout: 5_000 });
-    await appPage.keyboard.press('Enter');
+    // The project's board was just visited, so it can lead; the jump is to its shell.
+    const shellRow = appPage.locator('[data-testid="palette-row"]', { hasText: 'Shell' });
+    await expect(shellRow).toContainText('test-project', { timeout: 5_000 });
+    await shellRow.click();
 
     await expect
       .poll(() => appPage.evaluate(() => (window as any).__appStore.getState().activeProjectPath), { timeout: 20_000 })
       .toBe(testRepo.repoPath);
     await expect(palette).toHaveCount(0, { timeout: 5_000 });
-    // Jumping to a terminal shows terminals, not the board.
+    // Jumping to a terminal shows it, not the board.
     await expect(appPage.locator('.kanban-board')).toHaveCount(0);
     await expect(appPage.locator('.project-card--active')).toHaveCount(1, { timeout: 20_000 });
 

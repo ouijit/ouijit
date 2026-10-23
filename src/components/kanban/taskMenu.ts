@@ -1,7 +1,13 @@
 import type { ContextMenuEntry } from '../ui/ContextMenu';
 import type { SandboxBackendId, SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../../types';
-import { SANDBOX_BACKEND_LABELS } from '../../types';
-import { FILE_MANAGER_NAME } from '../../utils/fileManager';
+import { SANDBOX_LABELS } from '../../types';
+import type { TerminalDisplayState } from '../../stores/terminalDisplay';
+import { useProjectStore } from '../../stores/projectStore';
+import { getProjectConfig, loadTasks } from '../../stores/projectDataStore';
+import { completeTask } from '../../services/taskCompletion';
+import { openTaskInEditor } from '../../services/openInEditor';
+import { FILE_MANAGER_NAME, revealInFileManager } from '../../utils/fileManager';
+import { terminalInstances } from '../terminal/terminalRegistry';
 import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
 import { openLinearIssueInPanel, unlinkLinearIssue } from '../../services/linearTaskActions';
 
@@ -31,25 +37,24 @@ export interface TaskMenuActions {
 }
 
 /**
- * "Open in ▸" — a Terminal, one entry per available sandbox backend, Editor,
- * and the OS file manager. Terminals and Editor create the worktree a task has
+ * "Open in ▸" — a Terminal for each place one can run, the project default
+ * first, then Editor and the OS file manager. Terminals and Editor create the worktree a task has
  * never had; the file manager needs one already on disk.
  */
 export function openInEntry(
   sandboxProviders: SandboxBackendId[],
   hasWorktree: boolean,
   actions: TaskMenuActions,
+  projectDefault: SandboxProviderId,
 ): ContextMenuEntry {
-  const submenu: ContextMenuEntry[] = [
-    { label: 'Terminal', icon: 'terminal', onClick: () => actions.openTerminal('none') },
-  ];
-  for (const provider of sandboxProviders) {
-    submenu.push({
-      label: `${SANDBOX_BACKEND_LABELS[provider]} sandbox`,
-      icon: 'cube',
-      onClick: () => actions.openTerminal(provider),
-    });
-  }
+  const places: SandboxProviderId[] = ['none', ...sandboxProviders];
+  places.sort((a, b) => Number(b === projectDefault) - Number(a === projectDefault));
+  const submenu: ContextMenuEntry[] = places.map((place) => ({
+    label: `${SANDBOX_LABELS[place]} terminal`,
+    icon: 'terminal',
+    onClick: () => actions.openTerminal(place),
+  }));
+  submenu.push({ separator: true });
   submenu.push({ label: 'Editor', icon: 'code', onClick: actions.openEditor });
   if (hasWorktree) {
     submenu.push({ label: FILE_MANAGER_NAME, icon: 'folder-open', onClick: actions.openFolder });
@@ -114,4 +119,70 @@ export function moveToEntry(
       { label: 'Trash', icon: 'trash', danger: true, onClick: actions.trash },
     ],
   };
+}
+
+export interface TaskMenuContext {
+  projectPath: string;
+  task: TaskWithWorkspace;
+  sandboxProviders: SandboxBackendId[];
+  /** The task's terminals, for View Plan. */
+  terminals: TerminalDisplayState[];
+  trackers: { github: boolean; linear: boolean };
+  openTerminal: (provider: SandboxProviderId) => void;
+  showTerminal: (ptyId: string) => void;
+  branchFrom: () => void;
+  rename: () => void;
+}
+
+/** One task's menu, the same wherever the task is shown. */
+export function taskEntries(ctx: TaskMenuContext): ContextMenuEntry[] {
+  const { projectPath, task } = ctx;
+  const items: ContextMenuEntry[] = [];
+
+  const actions: TaskMenuActions = {
+    openTerminal: ctx.openTerminal,
+    openEditor: () => void openTaskInEditor(projectPath, task),
+    openFolder: () => void revealInFileManager(task.worktreePath!),
+    setStatus: async (status) => {
+      await window.api.task.setStatus(projectPath, task.taskNumber, status);
+      loadTasks(projectPath);
+    },
+    completeToDone: () => void completeTask({ projectPath, task }),
+    trash: async () => {
+      await window.api.task.trash(projectPath, task.taskNumber);
+      loadTasks(projectPath);
+      useProjectStore.getState().addToast('Task moved to trash', 'success');
+    },
+  };
+  items.push(
+    openInEntry(
+      ctx.sandboxProviders,
+      !!(task.worktreePath && task.branch),
+      actions,
+      getProjectConfig(ctx.projectPath)?.defaultSandbox ?? 'none',
+    ),
+  );
+
+  const planDisplay = ctx.terminals.find((d) => d.panels.some((p) => p.kind === 'plan'));
+  if (planDisplay) {
+    items.push({
+      label: 'View Plan',
+      icon: 'list-checks',
+      onClick: () => {
+        ctx.showTerminal(planDisplay.ptyId);
+        const inst = terminalInstances.get(planDisplay.ptyId);
+        const planPanel = inst?.panels.find((p) => p.kind === 'plan');
+        if (inst && planPanel) inst.activatePanel(planPanel.id);
+      },
+    });
+  }
+
+  items.push({ separator: true });
+  items.push(moveToEntry(actions));
+  if (task.branch && task.status !== 'done') {
+    items.push({ label: 'Branch from this task', icon: 'git-branch', onClick: ctx.branchFrom });
+  }
+  items.push({ label: 'Rename', icon: 'pencil-simple', onClick: ctx.rename });
+  items.push(...trackerEntries(projectPath, task, ctx.trackers));
+  return items;
 }

@@ -9,6 +9,7 @@ import { useGithubStore } from '../../stores/githubStore';
 import { usePanelStore } from '../../stores/panelStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { pr, inbox, detail, issue, issueDetail, issueList, task } from './githubFixtures';
+import { seedProject } from './seedProject';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -30,7 +31,7 @@ describe('PullRequestsPanel', () => {
     useGithubStore.getState().reset();
     usePanelStore.setState(usePanelStore.getInitialState());
     useGithubStore.setState({ projectPath: null });
-    useProjectStore.setState({ tasks: [], toasts: [] });
+    useProjectStore.setState({ toasts: [] });
     useAppStore.setState({ activeProjectData: { path: PROJECT, name: 'Alpha' } });
     vi.mocked(window.api.github.availability).mockResolvedValue({
       available: true,
@@ -54,9 +55,7 @@ describe('PullRequestsPanel', () => {
    * one that invites it, and mounting with tasks present is what exposes it.
    */
   test('mounts without a render loop when tasks are present', async () => {
-    useProjectStore.setState({
-      tasks: [task({ taskNumber: 1, githubIssueNumber: 7 }), task({ taskNumber: 2 })],
-    });
+    seedProject(PROJECT, { tasks: [task({ taskNumber: 1, githubIssueNumber: 7 }), task({ taskNumber: 2 })] });
 
     const errors: unknown[] = [];
     const spy = vi.spyOn(console, 'error').mockImplementation((...args) => errors.push(args[0]));
@@ -166,7 +165,7 @@ describe('PullRequestsPanel', () => {
       issueList({ open: [issue({ number: 12, title: 'Something is broken' })] }),
     );
     const linked = task({ taskNumber: 7, githubIssueNumber: 12, status: 'in_progress' });
-    useProjectStore.setState({ tasks: [linked] });
+    seedProject(PROJECT, { tasks: [linked] });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Issues'));
@@ -242,7 +241,7 @@ describe('PullRequestsPanel', () => {
     );
     vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ number: 42, isMine: true }));
     const linked = task({ taskNumber: 3, githubPrNumber: 42, status: 'in_review' });
-    useProjectStore.setState({ tasks: [linked] });
+    seedProject(PROJECT, { tasks: [linked] });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Half landed'));

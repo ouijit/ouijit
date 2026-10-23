@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useProjectStore } from '../../stores/projectStore';
+import { getProjectTasks, loadTasks, useProjectTasks } from '../../stores/projectDataStore';
 import type { TaskWithWorkspace, TaskStatus, SandboxProviderId } from '../../types';
 import { bulkTransitionTasks } from '../../services/taskStartService';
 import { Icon } from '../terminal/Icon';
@@ -12,7 +13,7 @@ interface BulkActionBarProps {
 
 export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProps) {
   const selectedTaskNumbers = useProjectStore((s) => s.selectedTaskNumbers);
-  const tasks = useProjectStore((s) => s.tasks);
+  const tasks = useProjectTasks(projectPath);
   const count = selectedTaskNumbers.size;
 
   const selectedTasks = tasks.filter((t) => selectedTaskNumbers.has(t.taskNumber));
@@ -42,7 +43,7 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
         onAction: async () => {
           const nums = [...useProjectStore.getState().selectedTaskNumbers];
           await Promise.allSettled(nums.map((n) => window.api.task.trash(projectPath, n)));
-          useProjectStore.getState().loadTasks(projectPath);
+          loadTasks(projectPath);
           useProjectStore.getState().clearSelection();
           useProjectStore.getState().addToast(`Moved ${nums.length} tasks to trash`, 'success');
         },
@@ -50,7 +51,7 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
       return;
     }
     await Promise.allSettled(selected.map((n) => window.api.task.trash(projectPath, n)));
-    useProjectStore.getState().loadTasks(projectPath);
+    loadTasks(projectPath);
     useProjectStore.getState().clearSelection();
     useProjectStore.getState().addToast(`Moved ${selected.length} tasks to trash`, 'success');
   }, [projectPath]);
@@ -58,10 +59,10 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
   const handleOpenTerminals = useCallback(() => {
     const store = useProjectStore.getState();
     const selected = [...store.selectedTaskNumbers];
-    const tasksToOpen = store.tasks.filter((t) => selected.includes(t.taskNumber));
+    const tasksToOpen = getProjectTasks(projectPath).filter((t) => selected.includes(t.taskNumber));
 
     const doOpen = () => {
-      for (const t of tasksToOpen) onOpenTerminal(t, 'none');
+      for (const t of tasksToOpen) onOpenTerminal(t);
       useProjectStore.getState().clearSelection();
     };
 
@@ -75,7 +76,7 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
       return;
     }
     doOpen();
-  }, [onOpenTerminal]);
+  }, [projectPath, onOpenTerminal]);
 
   const bar = (
     <div

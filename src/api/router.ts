@@ -7,6 +7,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { BrowserWindow } from 'electron';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createTodoTask, createTaskWorktree } from '../worktree';
 import {
@@ -16,11 +17,6 @@ import {
   getHooks,
   saveHook,
   deleteHook,
-  getAllTags,
-  getTaskTags,
-  addTagToTask,
-  removeTagFromTask,
-  setTaskTags,
   getScripts,
   saveScript,
   deleteScript,
@@ -41,7 +37,7 @@ import { PRESET_THEMES, withPresets, selectionOrphanedByDelete } from '../theme/
 import {
   beginTask,
   setTaskStatusWithHooks,
-  deleteTaskWithWorktree,
+  trashTaskWithWorktree,
   getTasksWithWorkspaces,
   getTaskWithWorkspace,
 } from '../taskLifecycle';
@@ -68,13 +64,42 @@ import {
 } from '../linear/service';
 import { getProjectList } from '../projectList';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
-import { cliPanelRequest } from '../cliPanels';
-import { isPtyActive, getPtyTaskContext } from '../ptyManager';
+import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
+import { cliPanelRequest, cliPointRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
+import {
+  isPtyActive,
+  getPtyTaskContext,
+  getActiveSessions,
+  getPtySpawnContext,
+  type ActiveSession,
+} from '../ptyManager';
+import { getHookStatus } from '../hookServer';
+import { liveNotes } from '../diffNotesService';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
-import type { CliHookControl, CliPanelKind, SandboxProviderId } from '../types';
-import { SANDBOXABLE_HOOK_TYPES, SANDBOX_PROVIDER_IDS, isActiveSandbox, isSandboxProviderId } from '../sandbox/types';
+import type {
+  CliHookControl,
+  CliPanelKind,
+  CliTagOp,
+  CliTagResponse,
+  CliTerminalOp,
+  CliTerminalResponse,
+  CliPointOp,
+  CliCaller,
+  PointTarget,
+  SandboxCliAccess,
+  SandboxProviderId,
+} from '../types';
+import {
+  SANDBOXABLE_HOOK_TYPES,
+  SANDBOX_PROVIDER_IDS,
+  isActiveSandbox,
+  isSandboxBackendId,
+  isSandboxCliAccess,
+  isSandboxProviderId,
+  sandboxCliAccessSettingKey,
+} from '../sandbox/types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
@@ -90,6 +115,7 @@ interface ParsedRequest {
   query: URLSearchParams;
   body: Record<string, unknown>;
   auth: AuthContext;
+  window: BrowserWindow;
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -180,6 +206,84 @@ function parseHookMode(body: Record<string, unknown>): Omit<CliHookControl, 'hoo
     return { hookMode: mode, hookCommand: command };
   }
   return { hookMode: mode };
+}
+
+/** A pointer's label, not a place to write: longer than a line or two is cut. */
+const MAX_POINT_MESSAGE = 200;
+
+function cliCaller(fromPtyId: string, body: Record<string, unknown>): CliCaller {
+  return { fromPtyId, ...(body.point === true && { point: true }) };
+}
+
+/** A path's real location, through any symlink, for as much of it as exists. */
+function realLocation(p: string): string {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    const parent = path.dirname(p);
+    return parent === p ? p : path.join(realLocation(parent), path.basename(p));
+  }
+}
+
+/**
+ * The diff names files by their path in the worktree. The CLI sends an
+ * absolute one, resolved from its shell's directory, which may have come
+ * through a symlink the registered worktree path did not (macOS's /var).
+ */
+function pathInWorktree(ptyId: string, file: string): string {
+  const ctx = getPtySpawnContext(ptyId);
+  const root = ctx?.worktreePath || ctx?.projectPath;
+  if (!root || !path.isAbsolute(file)) return file;
+  const relative = path.relative(realLocation(root), realLocation(file));
+  return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : file;
+}
+
+/** The target of `ouijit point`, from its body. The project ones take `?project=`; the rest name a terminal. */
+function pointTarget(r: ParsedRequest): PointTarget {
+  const { body } = r;
+  const ptyId = typeof body.ptyId === 'string' && body.ptyId ? body.ptyId : r.auth.ptyId;
+  switch (body.kind) {
+    case 'task':
+      return {
+        kind: 'task',
+        projectPath: requireProject(r.query),
+        taskNumber: requireInt(String(body.taskNumber), 'Task number'),
+      };
+    case 'terminal':
+      if (typeof body.ptyId !== 'string' || !body.ptyId) throw new HttpError(400, 'Missing ptyId');
+      return { kind: 'terminal', ptyId: body.ptyId };
+    case 'project':
+    case 'board':
+      return { kind: body.kind, projectPath: requireProject(r.query) };
+    case 'pr':
+      return {
+        kind: 'pr',
+        projectPath: requireProject(r.query),
+        number: requireInt(String(body.number), 'Pull request number'),
+      };
+    case 'issue':
+      if (typeof body.id !== 'string' || !body.id) throw new HttpError(400, 'Missing issue');
+      return { kind: 'issue', projectPath: requireProject(r.query), id: body.id };
+    case 'panel':
+      if (typeof body.panelId !== 'string' || !body.panelId) throw new HttpError(400, 'Missing panel id');
+      return { kind: 'panel', ptyId, panelId: body.panelId };
+    case 'diff': {
+      if (typeof body.path !== 'string' || !body.path) throw new HttpError(400, 'Missing path');
+      const line = body.line === undefined ? undefined : requireInt(String(body.line), 'Line');
+      return { kind: 'diff', ptyId, path: pathInWorktree(ptyId, body.path), ...(line !== undefined && { line }) };
+    }
+    default:
+      throw new HttpError(400, `Unknown target '${String(body.kind)}'`);
+  }
+}
+
+async function runPointOp(
+  op: Omit<CliPointOp, 'requestId'>,
+): Promise<{ target?: PointTarget; message?: string; cleared?: boolean }> {
+  const result = await cliPointRequest(op);
+  if (!result.ok) throw new HttpError(404, result.error ?? 'Point failed');
+  if (op.action === 'clear') return { cleared: true };
+  return { target: result.target, ...(op.message && { message: op.message }) };
 }
 
 async function readCustomThemes(): Promise<CustomTheme[]> {
@@ -301,8 +405,8 @@ function draftInput(body: Record<string, unknown>): {
 // ── Panel route helpers ──────────────────────────────────────────────
 
 function parsePanelKind(segment: string): CliPanelKind {
-  if (segment === 'markdown' || segment === 'preview') return segment;
-  throw new HttpError(404, `Unknown panel kind '${segment}' (expected 'markdown' or 'preview')`);
+  if (segment === 'markdown' || segment === 'preview' || segment === 'runner') return segment;
+  throw new HttpError(404, `Unknown panel kind '${segment}' (expected 'markdown', 'preview' or 'runner')`);
 }
 
 /**
@@ -310,7 +414,11 @@ function parsePanelKind(segment: string): CliPanelKind {
  * paths are resolved to absolute so a removal matches the path a prior add
  * stored. Returns undefined for list ops (no target).
  */
-function panelValue(kind: CliPanelKind, rawPath?: unknown, rawUrl?: unknown): string {
+function panelValue(kind: CliPanelKind, rawPath?: unknown, rawUrl?: unknown, rawScript?: unknown): string {
+  if (kind === 'runner') {
+    if (typeof rawScript !== 'string' || !rawScript) throw new HttpError(400, 'Missing script');
+    return rawScript;
+  }
   if (kind === 'markdown') {
     if (typeof rawPath !== 'string' || !rawPath) throw new HttpError(400, 'Missing path');
     if (!rawPath.endsWith('.md')) throw new HttpError(400, 'Markdown path must be a .md file');
@@ -340,6 +448,50 @@ async function runPanelOp(
   const result = await cliPanelRequest({ ptyId, action, kind, value });
   if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
   return { ptyId, kind, panels: result.panels ?? [] };
+}
+
+/** A panel op that spans every kind, or the diff, which is not a panel. */
+async function runTerminalPanelsOp(
+  ptyId: string,
+  action: 'list-all' | 'focus' | 'diff-open' | 'diff-close',
+  value?: string,
+): Promise<{ ptyId: string; panels: unknown; diffOpen: boolean }> {
+  if (!isPtyActive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
+  const result = await cliPanelRequest({ ptyId, action, value });
+  if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
+  return { ptyId, panels: result.panels ?? [], diffOpen: result.diffOpen ?? false };
+}
+
+async function runTerminalOp(op: Omit<CliTerminalOp, 'requestId'>): Promise<CliTerminalResponse> {
+  if (op.ptyId && !isPtyActive(op.ptyId)) throw new HttpError(404, `PTY ${op.ptyId} not found or inactive`);
+  const result = await cliTerminalRequest(op);
+  if (!result.ok) throw new HttpError(op.action === 'paste' ? 400 : 404, result.error ?? 'Terminal operation failed');
+  return result;
+}
+
+function describeTerminal(session: ActiveSession) {
+  return {
+    ptyId: session.ptyId,
+    label: session.label,
+    projectPath: session.projectPath,
+    taskNumber: session.taskId ?? null,
+    worktreePath: session.worktreePath ?? null,
+    sandbox: session.sandboxProvider ?? 'none',
+    agentStatus: getHookStatus(session.ptyId)?.status ?? null,
+  };
+}
+
+/** Forward a tag op to the renderer, where a terminal's tags live. */
+async function runTagOp(op: Omit<CliTagOp, 'requestId'>): Promise<CliTagResponse> {
+  if (op.ptyId && !isPtyActive(op.ptyId)) throw new HttpError(404, `PTY ${op.ptyId} not found or inactive`);
+  const result = await cliTagRequest(op);
+  if (!result.ok) throw new HttpError(404, result.error ?? 'Tag operation failed');
+  return result;
+}
+
+async function terminalTags(op: Omit<CliTagOp, 'requestId'>): Promise<{ ptyId: string; tags: string[] }> {
+  const { tags } = await runTagOp(op);
+  return { ptyId: op.ptyId!, tags: tags ?? [] };
 }
 
 const routes: Route[] = [
@@ -487,7 +639,7 @@ const routes: Route[] = [
     (r) => {
       const project = requireProject(r.query);
       const num = requireInt(r.segments[1], 'Task number');
-      return deleteTaskWithWorktree(project, num);
+      return trashTaskWithWorktree(project, num);
     },
     true,
   ),
@@ -527,6 +679,31 @@ const routes: Route[] = [
   // a sandbox token must never reach it.
   route('GET', 'sandbox/command', (r) => getCustomSandboxConfig(requireProject(r.query))),
 
+  route('POST', 'sandbox/wrap', (r) => {
+    const { argv, cwd, backend } = r.body;
+    if (!Array.isArray(argv) || argv.length === 0 || !argv.every((a) => typeof a === 'string')) {
+      throw new HttpError(400, 'argv must be a non-empty array of strings');
+    }
+    if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) throw new HttpError(400, 'cwd must be an absolute path');
+    if (backend !== undefined && !isSandboxBackendId(backend))
+      throw new HttpError(400, `Invalid backend: ${String(backend)}`);
+    return wrapCommand(
+      r.window,
+      r.auth.ptyId,
+      isSandboxBackendId(backend) ? backend : 'nono',
+      argv as string[],
+      cwd,
+    ).catch((error: unknown) => {
+      throw new HttpError(409, error instanceof Error ? error.message : String(error));
+    });
+  }),
+
+  route('POST', 'sandbox/release', (r) => {
+    if (typeof r.body.token !== 'string') throw new HttpError(400, 'Missing token');
+    releaseCommand(r.window, r.auth.ptyId, r.body.token);
+    return { success: true };
+  }),
+
   route(
     'PUT',
     'sandbox/command',
@@ -543,52 +720,136 @@ const routes: Route[] = [
 
   route('DELETE', 'sandbox/command', (r) => setCustomSandboxConfig(requireProject(r.query), {}), true),
 
-  // ── Tags ─────────────────────────────────────────────────────────
-  route('GET', 'tags', () => {
-    return getAllTags();
-  }),
-
-  route('GET', 'tasks/:number/tags', (r) => {
-    const project = requireProject(r.query);
-    const num = requireInt(r.segments[1], 'Task number');
-    return getTaskTags(project, num);
-  }),
-
-  route(
-    'POST',
-    'tasks/:number/tags',
-    (r) => {
-      const project = requireProject(r.query);
-      const num = requireInt(r.segments[1], 'Task number');
-      if (typeof r.body.name !== 'string') throw new HttpError(400, 'Missing name in body');
-      return addTagToTask(project, num, r.body.name);
-    },
-    true,
+  // ── Terminals ────────────────────────────────────────────────────
+  route('GET', 'terminals', () =>
+    getActiveSessions()
+      .filter((session) => !session.isRunner)
+      .map(describeTerminal),
   ),
 
   route(
-    'PUT',
-    'tasks/:number/tags',
-    (r) => {
-      const project = requireProject(r.query);
-      const num = requireInt(r.segments[1], 'Task number');
-      if (!Array.isArray(r.body.tags)) throw new HttpError(400, 'Missing tags array in body');
-      return setTaskTags(project, num, r.body.tags as string[]);
+    'POST',
+    'terminals',
+    async (r) => {
+      const projectPath = requireProject(r.query);
+      const taskNumber = r.body.task === undefined ? undefined : requireInt(String(r.body.task), 'Task number');
+      const sandbox = parseSandbox(r.body.sandbox, 'sandbox');
+      const { ptyId } = await runTerminalOp({
+        action: 'open',
+        projectPath,
+        taskNumber,
+        resume: r.body.resume === true,
+        sandbox,
+      });
+      const session = getActiveSessions().find((s) => s.ptyId === ptyId);
+      if (!session) throw new HttpError(404, 'The terminal did not open');
+      return describeTerminal(session);
     },
     true,
   ),
 
   route(
     'DELETE',
-    'tasks/:number/tags/:name',
-    (r) => {
-      const project = requireProject(r.query);
-      const num = requireInt(r.segments[1], 'Task number');
-      const tagName = decodeURIComponent(r.segments[3]);
-      return removeTagFromTask(project, num, tagName);
+    'terminals/:ptyId',
+    async (r) => {
+      await runTerminalOp({ action: 'close', ptyId: r.segments[1] });
+      return { ptyId: r.segments[1], closed: true };
     },
     true,
   ),
+
+  route('GET', 'terminals/:ptyId/screen', async (r) => {
+    const lines = r.query.get('lines');
+    const { text, alternateScreen } = await runTerminalOp({
+      action: 'read',
+      ptyId: r.segments[1],
+      lines: lines === null ? undefined : Math.max(1, requireInt(lines, 'lines')),
+    });
+    return { ptyId: r.segments[1], text: text ?? '', alternateScreen: alternateScreen ?? false };
+  }),
+
+  route(
+    'POST',
+    'terminals/:ptyId/paste',
+    async (r) => {
+      if (typeof r.body.text !== 'string' || !r.body.text) throw new HttpError(400, 'Missing text');
+      await runTerminalOp({ action: 'paste', ptyId: r.segments[1], text: r.body.text });
+      return { ptyId: r.segments[1], pasted: true };
+    },
+    true,
+  ),
+
+  route('POST', 'terminals/:ptyId/diff', (r) => runTerminalPanelsOp(r.segments[1], 'diff-open'), true),
+  route('DELETE', 'terminals/:ptyId/diff', (r) => runTerminalPanelsOp(r.segments[1], 'diff-close'), true),
+
+  // ── Pointers ─────────────────────────────────────────────────────
+  // A pointer only suggests where the user might look, and it is the
+  // caller's own, so a sandbox at the lowest CLI access can leave one.
+  route(
+    'POST',
+    'point',
+    (r) => {
+      const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_POINT_MESSAGE) : '';
+      const said = message ? { message } : {};
+      if (r.body.kind === 'note') {
+        if (typeof r.body.noteId !== 'string' || !r.body.noteId) throw new HttpError(400, 'Missing note id');
+        return runPointOp({ fromPtyId: r.auth.ptyId, action: 'note', noteId: r.body.noteId, ...said });
+      }
+      return runPointOp({ fromPtyId: r.auth.ptyId, action: 'point', target: pointTarget(r), ...said });
+    },
+    false,
+    'sandbox',
+  ),
+
+  route('DELETE', 'point', (r) => runPointOp({ fromPtyId: r.auth.ptyId, action: 'clear' }), false, 'sandbox'),
+
+  // ── Diff notes ───────────────────────────────────────────────────
+  route(
+    'GET',
+    'diff-notes',
+    (r) => {
+      const ctx = getPtySpawnContext(r.auth.ptyId);
+      if (!ctx) throw new HttpError(404, `PTY ${r.auth.ptyId} not found or inactive`);
+      return liveNotes(ctx.worktreePath || ctx.projectPath);
+    },
+    false,
+    // Resolved from the caller's own PTY, as tasks/current is.
+    'sandbox',
+  ),
+
+  route('GET', 'tasks/:number/diff-notes', async (r) => {
+    const project = requireProject(r.query);
+    const num = requireInt(r.segments[1], 'Task number');
+    const task = await getTaskWithWorkspace(project, num);
+    if (!task) throw new HttpError(404, `Task ${num} not found`);
+    if (!task.worktreePath) throw new HttpError(404, `Task ${num} has no worktree`);
+    return liveNotes(task.worktreePath);
+  }),
+
+  // ── Tags ─────────────────────────────────────────────────────────
+  route('GET', 'tags', async () => (await runTagOp({ action: 'list' })).listing ?? []),
+
+  route('GET', 'terminals/:ptyId/tags', (r) => terminalTags({ action: 'get', ptyId: r.segments[1] })),
+
+  route(
+    'POST',
+    'terminals/:ptyId/tags',
+    (r) => {
+      const tag = typeof r.body.tag === 'string' ? r.body.tag.trim() : '';
+      if (!tag) throw new HttpError(400, 'Missing tag in body');
+      return terminalTags({ action: 'add', ptyId: r.segments[1], tag });
+    },
+    true,
+  ),
+
+  route(
+    'DELETE',
+    'terminals/:ptyId/tags/:tag',
+    (r) => terminalTags({ action: 'remove', ptyId: r.segments[1], tag: decodeURIComponent(r.segments[3]) }),
+    true,
+  ),
+
+  route('DELETE', 'terminals/:ptyId/tags', (r) => terminalTags({ action: 'clear', ptyId: r.segments[1] }), true),
 
   // ── Projects ─────────────────────────────────────────────────────
   route('GET', 'projects', () => {
@@ -874,6 +1135,19 @@ const routes: Route[] = [
   //
   // Host-only (default scope): the guest shouldn't be able to steer the host
   // renderer to open arbitrary .md files or URLs.
+  route('GET', 'panels/:ptyId', (r) => runTerminalPanelsOp(r.segments[1], 'list-all')),
+
+  // Matched before the panel-kind routes, whose `:kind` would otherwise read `focus`.
+  route(
+    'POST',
+    'panels/:ptyId/focus',
+    (r) => {
+      if (typeof r.body.id !== 'string' || !r.body.id) throw new HttpError(400, 'Missing id');
+      return runTerminalPanelsOp(r.segments[1], 'focus', r.body.id);
+    },
+    true,
+  ),
+
   route('GET', 'panels/:ptyId/:kind', (r) => runPanelOp(r.segments[1], 'list', parsePanelKind(r.segments[2]))),
 
   route(
@@ -881,7 +1155,7 @@ const routes: Route[] = [
     'panels/:ptyId/:kind',
     (r) => {
       const kind = parsePanelKind(r.segments[2]);
-      const value = panelValue(kind, r.body.path, r.body.url);
+      const value = panelValue(kind, r.body.path, r.body.url, r.body.script);
       return runPanelOp(r.segments[1], 'add', kind, value);
     },
     true,
@@ -893,13 +1167,55 @@ const routes: Route[] = [
     (r) => {
       const kind = parsePanelKind(r.segments[2]);
       // DELETE carries no body through the CLI client; the target comes in the
-      // query string (?path= / ?url=).
-      const value = panelValue(kind, r.query.get('path') ?? undefined, r.query.get('url') ?? undefined);
+      // query string (?path= / ?url= / ?script=).
+      const value = panelValue(
+        kind,
+        r.query.get('path') ?? undefined,
+        r.query.get('url') ?? undefined,
+        r.query.get('script') ?? undefined,
+      );
       return runPanelOp(r.segments[1], 'remove', kind, value);
     },
     true,
   ),
 ];
+
+// ── Sandbox CLI access ───────────────────────────────────────────────
+
+interface SandboxCaller extends AuthContext {
+  access: SandboxCliAccess;
+}
+
+/**
+ * A sandboxed terminal's access comes from its project's setting. At
+ * "Everything" it is treated as a host caller throughout, handlers included.
+ */
+async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
+  if (auth.scope === 'host') return { ...auth, access: 'all' };
+  const context = getPtyTaskContext(auth.ptyId);
+  const stored = context ? await getGlobalSetting(sandboxCliAccessSettingKey(context.projectPath)) : undefined;
+  const access = isSandboxCliAccess(stored) ? stored : 'read';
+  return access === 'all' ? { ...auth, scope: 'host', access } : { ...auth, access };
+}
+
+/**
+ * Moving or renaming the caller's own task. The hook that move runs stays the
+ * user's: a one-off command or a different sandbox for it is refused, since
+ * either would let the caller choose what runs on the host.
+ */
+function isOwnTaskEdit(
+  caller: SandboxCaller,
+  method: string,
+  segments: string[],
+  query: URLSearchParams,
+  body: Record<string, unknown>,
+): boolean {
+  if (caller.access !== 'task' || method !== 'PATCH' || segments[0] !== 'tasks') return false;
+  if (segments[2] !== 'status' && segments[2] !== 'name') return false;
+  if (segments[2] === 'status' && (body.hookMode === 'command' || body.hookSandbox !== undefined)) return false;
+  const context = getPtyTaskContext(caller.ptyId);
+  return !!context && context.projectPath === query.get('project') && String(context.taskId) === segments[1];
+}
 
 // ── Main handler ─────────────────────────────────────────────────────
 
@@ -961,17 +1277,6 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     return;
   }
 
-  // Sandbox-scoped callers are read-only: they may never reach a mutating
-  // route, even one that opts into sandbox scope. Writes require host scope.
-  if (matched.route.mutating && auth.scope !== 'host') {
-    json(res, 403, { error: 'Forbidden' });
-    return;
-  }
-  if (matched.route.minScope === 'host' && auth.scope !== 'host') {
-    json(res, 403, { error: 'Forbidden' });
-    return;
-  }
-
   let body: Record<string, unknown> = {};
   if (method !== 'GET' && method !== 'DELETE') {
     try {
@@ -981,6 +1286,13 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       json(res, 400, { error: 'Invalid JSON body' });
       return;
     }
+  }
+
+  const caller = await withCliAccess(auth);
+  const privileged = matched.route.mutating || matched.route.minScope === 'host';
+  if (privileged && caller.scope !== 'host' && !isOwnTaskEdit(caller, method, segments, url.searchParams, body)) {
+    json(res, 403, { error: 'Forbidden' });
+    return;
   }
 
   // A status PATCH to in_progress/in_review/done fires a renderer-side hook,
@@ -1001,7 +1313,14 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
   }
 
   try {
-    const result = await matched.route.handler({ method, segments, query: url.searchParams, body, auth });
+    const result = await matched.route.handler({
+      method,
+      segments,
+      query: url.searchParams,
+      body,
+      auth: caller,
+      window,
+    });
     json(res, 200, { data: result });
 
     // Notify renderer after mutating operations
@@ -1056,6 +1375,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             branch: task.branch,
             createdAt: task.createdAt,
             ...hookControl,
+            ...cliCaller(caller.ptyId, body),
           });
         }
       }
@@ -1081,6 +1401,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               taskNumber,
               task,
               ...hookControl,
+              ...cliCaller(caller.ptyId, body),
             });
           }
         }
@@ -1111,6 +1432,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               newStatus: body.status,
               task,
               ...hookControl,
+              ...cliCaller(caller.ptyId, body),
             });
           }
         }

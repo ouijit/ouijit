@@ -35,11 +35,6 @@ vi.mock('../db', () => ({
   getHooks: vi.fn(() => ({})),
   saveHook: vi.fn(),
   deleteHook: vi.fn(),
-  getAllTags: vi.fn(() => []),
-  getTaskTags: vi.fn(() => []),
-  addTagToTask: vi.fn(),
-  removeTagFromTask: vi.fn(),
-  setTaskTags: vi.fn(),
   getScripts: vi.fn(() => []),
   saveScript: vi.fn(),
   deleteScript: vi.fn(),
@@ -52,7 +47,7 @@ const getTaskWithWorkspaceMock = vi.fn(async () => null);
 vi.mock('../taskLifecycle', () => ({
   beginTask: (...args: unknown[]) => beginTaskMock(...args),
   setTaskStatusWithHooks: (...args: unknown[]) => setTaskStatusWithHooksMock(...args),
-  deleteTaskWithWorktree: vi.fn(async () => ({})),
+  trashTaskWithWorktree: vi.fn(async () => ({})),
   getTasksWithWorkspaces: vi.fn(async () => []),
   getTaskWithWorkspace: (...args: unknown[]) => getTaskWithWorkspaceMock(...args),
 }));
@@ -152,6 +147,7 @@ describe('cli:task-started push', () => {
       worktreePath: '/tmp/wt/T-7',
       branch: 'feat-7',
       createdAt: '2026-05-10T00:00:00.000Z',
+      fromPtyId: 'pty-host',
     });
   });
 

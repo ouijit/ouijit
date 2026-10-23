@@ -1,98 +1,90 @@
-import { useCallback, useMemo } from 'react';
-import { useAppStore, selectIsCloning } from '../stores/appStore';
-import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
-import { projectIconColor, getInitials } from '../utils/projectIcon';
-import { useExperimentalStore } from '../stores/experimentalStore';
+import { useAppStore, selectIsCloning, type ProjectPage } from '../stores/appStore';
+import { useProjectStore } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
-import { useTerminalStore, collectActiveTags } from '../stores/terminalStore';
+import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
-import { TagFilterControl } from './terminal/TagFilterControl';
-import { addProjectTerminal } from './terminal/terminalActions';
+import { openShell } from './navigation';
+import { useProjectFlags } from '../stores/experimentalStore';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { Tooltip } from './ui/Tooltip';
-import { TooltipButton } from './ui/TooltipButton';
+import { useShallow } from 'zustand/react/shallow';
+import { stackMembers, stackOf, tagUnit, unitsOf, useTerminalStore } from '../stores/terminalStore';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
-interface TitleBarProps {
-  mode: string;
+export const PAGE_TITLES: Record<ProjectPage, string> = {
+  board: 'Board',
+  settings: 'Settings',
+  'pull-requests': 'Pull requests',
+  analysis: 'Analysis',
+};
+
+const iconButton =
+  'w-9 h-9 flex items-center justify-center rounded-[10px] text-text-secondary transition-colors duration-150 hover:bg-background-secondary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5';
+const raisedButton =
+  'w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5';
+
+/** What the stack on screen holds: one task by name, a whole project or tag, or a count. */
+function useShownStackName(): string | null {
+  const stack = useAppStore((s) => (s.selection.kind === 'terminal' ? s.selection.stack : null));
+  const shape = useTerminalStore(
+    useShallow((s) => {
+      if (!stack) return null;
+      const members = stackMembers(s, stack).map((id) => s.displayStates[id]);
+      const [front] = members;
+      if (!front) return null;
+      const [unit, ...more] = unitsOf(stack);
+      // Spelled as the sidebar's tag group is: as the first terminal opened with it has it.
+      const tag =
+        more.length === 0 && unit.startsWith('tag:')
+          ? Object.values(s.terminalsByProject)
+              .flat()
+              .flatMap((id) => s.displayStates[id]?.tags ?? [])
+              .find((t) => tagUnit(t) === unit)
+          : undefined;
+      return {
+        whole: more.length === 0 && unit.startsWith('project:') ? 'All terminals' : (tag ?? null),
+        stacks: new Set(members.map(stackOf)).size,
+        terminals: members.length,
+        shells: members.some((d) => d.taskId == null),
+        projectPath: front.projectPath,
+        taskId: front.taskId,
+      };
+    }),
+  );
+  const taskName = useAppStore((s) =>
+    shape && shape.taskId != null
+      ? (s.taskCacheByProject[shape.projectPath]?.find((t) => t.taskNumber === shape.taskId)?.name ?? null)
+      : null,
+  );
+  if (!shape) return null;
+  if (shape.whole) return shape.whole;
+  if (shape.stacks === 1) return taskName;
+  return shape.shells ? `${shape.terminals} terminals` : `${shape.stacks} tasks`;
 }
 
-export function TitleBar({ mode }: TitleBarProps) {
-  const activeProjectData = useAppStore((s) => s.activeProjectData);
-  const activeProjectPath = useAppStore((s) => s.activeProjectPath);
-  const activeView = useAppStore((s) => s.activeView);
+export function TitleBar() {
+  const selection = useAppStore((s) => s.selection);
+  const project = useAppStore((s) => s.activeProjectData);
   // A cloning project has no directory yet, so nothing here may act on its path.
   const cloning = useAppStore(selectIsCloning);
   const fullscreen = useAppStore((s) => s.fullscreen);
-  const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
+  const sidebarShown = useUIStore((s) => s.sidebarShown);
+  const sidebarRevealed = useUIStore((s) => s.sidebarRevealed);
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
-  const activePanel = useProjectStore((s) => s.activePanel);
-  const homeActivePanel = useAppStore((s) => s.homeActivePanel);
-  const canvasEnabled = useExperimentalStore((s) =>
-    activeProjectPath ? (s.flagsByProject[activeProjectPath]?.canvas ?? false) : false,
-  );
-  // Either source is enough to open the panel: gating on GitHub alone would
-  // ship Linear with no way in.
-  const trackerEnabled = useExperimentalStore((s) => {
-    const flags = activeProjectPath ? s.flagsByProject[activeProjectPath] : undefined;
-    return (flags?.github ?? false) || (flags?.linear ?? false);
-  });
-  const analysisEnabled = useExperimentalStore((s) =>
-    activeProjectPath ? (s.flagsByProject[activeProjectPath]?.analysis ?? false) : false,
-  );
-  const homeGroupMode = useUIStore((s) => s.homeGroupMode);
-  const sidebarPinned = useUIStore((s) => s.sidebarPinned);
-  const paletteOpen = useUIStore((s) => s.paletteOpen);
-  const tagFilter = useProjectStore((s) => s.tagFilter);
-  const homeTagFilter = useUIStore((s) => s.homeTagFilter);
-  const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
-  const displayStates = useTerminalStore((s) => s.displayStates);
+  const flags = useProjectFlags(project && !cloning ? project.path : null);
 
-  const projectTags = useMemo(
-    () => (activeProjectPath ? collectActiveTags(terminalsByProject[activeProjectPath] ?? [], displayStates) : []),
-    [activeProjectPath, terminalsByProject, displayStates],
-  );
-  const homeTags = useMemo(() => {
-    const all: string[] = [];
-    for (const ids of Object.values(terminalsByProject)) all.push(...ids);
-    return collectActiveTags(all, displayStates);
-  }, [terminalsByProject, displayStates]);
-
-  const handleToggleView = useCallback(
-    (view: 'board' | 'stack' | 'canvas' | 'settings' | 'pull-requests' | 'analysis') => {
-      const store = useProjectStore.getState();
-      if (view === 'settings' || view === 'pull-requests' || view === 'analysis') {
-        store.setActivePanel(view);
-      } else if (view === 'board') {
-        store.setActivePanel('terminals');
-        store.setKanbanVisible(true);
-      } else {
-        store.setActivePanel('terminals');
-        store.setKanbanVisible(false);
-        store.setTerminalLayout(view as TerminalLayout);
-      }
-    },
-    [],
-  );
-
-  const handleNewTerminal = useCallback(() => {
-    if (activeProjectPath) {
-      addProjectTerminal(activeProjectPath);
-      const store = useProjectStore.getState();
-      store.setActivePanel('terminals');
-      store.setKanbanVisible(false);
-    }
-  }, [activeProjectPath]);
-
-  const handleNewTask = useCallback(() => openTaskComposer(), []);
-
-  const isProjectOrHome = mode === 'project' || mode === 'home';
-  const needsTrafficLightPad = isMac && !fullscreen;
+  const stackName = useShownStackName();
+  const page = selection.kind === 'page' && !cloning ? PAGE_TITLES[selection.page] : stackName;
+  const showsTerminal = selection.kind === 'terminal';
+  const onSettings = selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
+  const offersCreation = !cloning && !onSettings;
+  // With the sidebar out of the way the traffic lights sit over the title bar.
+  const leftPad = !sidebarShown && !sidebarRevealed && isMac && !fullscreen ? 88 : 16;
 
   return (
     <header
-      className={`sticky top-0 relative [-webkit-app-region:drag] ${isProjectOrHome ? 'z-[10000] border-b-0' : 'z-[100] border-b border-border'}`}
+      className="sticky top-0 relative z-[10000] [-webkit-app-region:drag]"
       style={
         {
           background: 'color-mix(in srgb, var(--color-background) 97%, transparent)',
@@ -102,191 +94,100 @@ export function TitleBar({ mode }: TitleBarProps) {
       }
     >
       <div
-        className={`mx-auto flex items-center gap-2 transition-[padding-left] duration-200 ${
-          isProjectOrHome
-            ? `max-w-none px-0 pt-4 pb-2 ${mode === 'home' ? 'justify-start' : 'justify-center'}`
-            : 'max-w-[var(--content-max-width)] px-6 py-4 justify-center'
-        }`}
-        style={{ paddingLeft: needsTrafficLightPad ? 88 : 16 }}
+        className="box-content h-9 flex items-center gap-2 pt-4 pb-2 pr-4 transition-[padding-left] duration-200"
+        style={{ paddingLeft: `calc(var(--sidebar-offset, 0px) + ${leftPad}px)` }}
       >
-        {isProjectOrHome && (
+        {!sidebarShown && (
           <div className="flex items-center h-9 shrink-0 [-webkit-app-region:no-drag]">
-            <Tooltip text={sidebarPinned ? 'Hide sidebar' : 'Show sidebar'} placement="bottom-start">
+            <Tooltip text="Show sidebar" placement="bottom-start">
               <button
                 type="button"
-                className={`w-9 h-9 flex items-center justify-center rounded-[10px] transition-colors duration-150 hover:bg-background-secondary [&>svg]:w-5 [&>svg]:h-5 ${sidebarPinned ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
-                aria-label={sidebarPinned ? 'Hide sidebar' : 'Show sidebar'}
-                aria-expanded={sidebarPinned}
-                onClick={() => document.dispatchEvent(new CustomEvent('toggle-sidebar'))}
+                className={iconButton}
+                aria-label="Show sidebar"
+                onClick={() => useUIStore.getState().setSidebarShown(true)}
               >
                 <Icon name="sidebar-simple" />
               </button>
             </Tooltip>
-            <Tooltip text="Search" placement="bottom-start">
-              <button
-                type="button"
-                className={`w-9 h-9 flex items-center justify-center rounded-[10px] text-text-secondary transition-colors duration-150 hover:bg-background-secondary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5${paletteOpen ? ' bg-background-secondary text-text-primary' : ''}`}
-                aria-label="Toggle search"
-                aria-expanded={paletteOpen}
-                onClick={() => useUIStore.getState().togglePalette()}
-              >
-                <Icon name="magnifying-glass" />
-              </button>
-            </Tooltip>
           </div>
         )}
-        {activeView === 'project' && activeProjectData && activeProjectPath ? (
-          <div key="project-header" className="flex items-center gap-3 flex-1 pr-4 min-w-0">
+        {project && (
+          <div className="flex items-center gap-3 ml-1.5 min-w-0">
             <div
               className="w-8 h-8 shrink-0 overflow-hidden rounded-md flex items-center justify-center text-xs font-bold text-white"
-              style={{
-                backgroundColor: projectIconColor(activeProjectData),
-                textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-              }}
+              style={{ backgroundColor: projectIconColor(project), textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
             >
-              {getInitials(activeProjectData.name)}
+              {getInitials(project.name)}
             </div>
             <div className="flex flex-col gap-[2px] min-w-0">
               <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
-                {activeProjectData.name}
+                {project.name}
+                {page && (
+                  <>
+                    <Icon name="caret-right" className="inline-block w-3 h-3 mx-1.5 align-[-1px] text-text-tertiary" />
+                    <span className="font-normal text-text-tertiary">{page}</span>
+                  </>
+                )}
               </span>
               <span className="text-[11px] font-mono text-text-tertiary leading-[1.3] truncate">
-                {activeProjectPath.replace(/^\/Users\/[^/]+/, '~')}
+                {project.path.replace(/^\/Users\/[^/]+/, '~')}
               </span>
             </div>
-            <div style={{ flex: 1 }} />
-            {!cloning && (
-              <>
-                <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
-                  <TooltipButton
-                    text="Board view"
-                    className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'terminals' && kanbanVisible ? ' text-text-primary bg-background-tertiary' : ''}`}
-                    onClick={() => handleToggleView('board')}
-                  >
-                    <Icon name="kanban" />
-                  </TooltipButton>
-                  <TooltipButton
-                    text="Terminal stack"
-                    className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'terminals' && !kanbanVisible && terminalLayout === 'stack' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                    onClick={() => handleToggleView('stack')}
-                  >
-                    <Icon name="cards-three" />
-                  </TooltipButton>
-                  {canvasEnabled && (
-                    <TooltipButton
-                      text="Canvas"
-                      className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'terminals' && !kanbanVisible && terminalLayout === 'canvas' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                      onClick={() => handleToggleView('canvas')}
-                    >
-                      <CanvasIcon />
-                    </TooltipButton>
-                  )}
-                  {trackerEnabled && (
-                    <TooltipButton
-                      text="Pull requests"
-                      className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'pull-requests' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                      onClick={() => handleToggleView('pull-requests')}
-                    >
-                      <Icon name="git-pull-request" />
-                    </TooltipButton>
-                  )}
-                  {analysisEnabled && (
-                    <TooltipButton
-                      text="Analysis"
-                      className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'analysis' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                      onClick={() => handleToggleView('analysis')}
-                    >
-                      <Icon name="binoculars" />
-                    </TooltipButton>
-                  )}
-                  <TooltipButton
-                    text="Settings"
-                    className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'settings' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                    onClick={() => handleToggleView('settings')}
-                  >
-                    <Icon name="gear" />
-                  </TooltipButton>
-                </div>
-                <TagFilterControl
-                  tags={projectTags}
-                  value={tagFilter}
-                  active={tagFilter != null}
-                  allSelected={tagFilter == null}
-                  onSelectAll={() => useProjectStore.getState().setTagFilter(null)}
-                  onSelectTag={(t) => useProjectStore.getState().setTagFilter(t)}
-                />
-                <Tooltip text="New terminal" placement="bottom">
-                  <button
-                    className="w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
-                    onClick={handleNewTerminal}
-                  >
-                    <Icon name="terminal" />
-                  </button>
-                </Tooltip>
-                <Tooltip text="New task" placement="bottom-end">
-                  <button
-                    className="w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
-                    onClick={handleNewTask}
-                  >
-                    <Icon name="plus" />
-                  </button>
-                </Tooltip>
-              </>
-            )}
           </div>
-        ) : activeView === 'home' ? (
-          <div key="home-header" className="flex items-center gap-3 flex-1 pr-4">
-            <div style={{ flex: 1 }} />
-            <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
-              <TooltipButton
-                text="Group by project"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeActivePanel !== 'settings' && homeGroupMode === 'project' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                onClick={() => {
-                  useAppStore.getState().setHomeActivePanel('home');
-                  useUIStore.getState().setHomeGroupMode('project');
-                }}
-              >
-                <Icon name="folder-open" />
-              </TooltipButton>
-              <TagFilterControl
-                variant="segment"
-                label="Group or filter by tag"
-                tags={homeTags}
-                value={homeTagFilter}
-                active={homeActivePanel !== 'settings' && homeGroupMode === 'tag'}
-                allSelected={homeGroupMode === 'tag' && homeTagFilter == null}
-                onSelectAll={() => {
-                  useAppStore.getState().setHomeActivePanel('home');
-                  useUIStore.getState().setHomeGroupMode('tag');
-                  useUIStore.getState().setHomeTagFilter(null);
-                }}
-                onSelectTag={(t) => {
-                  useAppStore.getState().setHomeActivePanel('home');
-                  useUIStore.getState().setHomeGroupMode('tag');
-                  useUIStore.getState().setHomeTagFilter(t);
-                }}
-              />
-              <TooltipButton
-                text="Settings"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeActivePanel === 'settings' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                onClick={() => useAppStore.getState().setHomeActivePanel('settings')}
-              >
-                <Icon name="gear" />
-              </TooltipButton>
-            </div>
-            <Tooltip text="New terminal" placement="bottom">
-              <button
-                className="w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
-                onClick={async () => {
-                  const homePath = await window.api.homePath();
-                  addProjectTerminal(homePath);
-                }}
-              >
-                <Icon name="terminal" />
-              </button>
-            </Tooltip>
-          </div>
-        ) : null}
+        )}
+        <div className="flex-1" />
+        {showsTerminal && flags.canvas && (
+          <Tooltip text={terminalLayout === 'canvas' ? 'Stack' : 'Canvas'} placement="bottom">
+            <button
+              className={raisedButton}
+              aria-label="Canvas"
+              aria-pressed={terminalLayout === 'canvas'}
+              onClick={() => useProjectStore.getState().toggleTerminalLayout()}
+            >
+              {terminalLayout === 'canvas' ? <Icon name="cards-three" /> : <CanvasIcon />}
+            </button>
+          </Tooltip>
+        )}
+        {offersCreation && (
+          <Tooltip text="New terminal" placement="bottom">
+            <button
+              className={raisedButton}
+              aria-label="New terminal"
+              onClick={async () => openShell(project?.path ?? (await window.api.homePath()))}
+            >
+              <Icon name="terminal" />
+            </button>
+          </Tooltip>
+        )}
+        {project && offersCreation && (
+          <Tooltip text="New task" placement="bottom">
+            <button className={raisedButton} aria-label="New task" onClick={() => openTaskComposer()}>
+              <Icon name="plus" />
+            </button>
+          </Tooltip>
+        )}
+        {project && offersCreation && (
+          <Tooltip text="Project settings" placement="bottom-end">
+            <button
+              className={raisedButton}
+              aria-label="Project settings"
+              onClick={() => useAppStore.getState().openPage(project.path, 'settings')}
+            >
+              <Icon name="gear" />
+            </button>
+          </Tooltip>
+        )}
+        {onSettings && (
+          <Tooltip text="Close settings" placement="bottom-end">
+            <button
+              className={raisedButton}
+              aria-label="Close settings"
+              onClick={() => useAppStore.getState().leaveSettings()}
+            >
+              <Icon name="x" />
+            </button>
+          </Tooltip>
+        )}
       </div>
     </header>
   );

@@ -1,9 +1,12 @@
 import { useCallback, useEffect } from 'react';
 import { TaskComposerSheet } from './TaskComposerSheet';
-import { useAppStore } from '../../stores/appStore';
-import { useComposerStore, isBoardMounted } from '../../stores/composerStore';
+import { ComposerProjectPicker } from './ComposerProjectPicker';
+import { useAppStore, selectBoardOnScreen } from '../../stores/appStore';
+import { useComposerStore } from '../../stores/composerStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { loadTasks } from '../../stores/projectDataStore';
 import { resolveAttachmentPath } from '../../utils/taskAttachments';
+import { createAndStartTask } from '../../services/taskStartService';
 
 /**
  * The composer sheet for ⌘N away from the board. When the board is up its
@@ -11,14 +14,13 @@ import { resolveAttachmentPath } from '../../utils/taskAttachments';
  * read the same draft. Creating here goes straight to the API.
  */
 export function StandaloneComposerSheet({ projectPath }: { projectPath: string }) {
-  const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
-  const activePanel = useProjectStore((s) => s.activePanel);
+  const boardMounted = useAppStore(selectBoardOnScreen);
   const sheetOpen = useComposerStore((s) => s.sheetOpen);
+  const forAnotherProject = useComposerStore((s) => s.sheetProjectPath !== null);
   const name = useComposerStore((s) => s.draft.name);
   const description = useComposerStore((s) => s.draft.description);
 
-  const boardMounted = isBoardMounted(activePanel, kanbanVisible);
-  const owned = sheetOpen && !boardMounted;
+  const owned = sheetOpen && (forAnotherProject || !boardMounted);
 
   // The board's Escape handler stands down while a composer sheet is up.
   useEffect(() => {
@@ -38,9 +40,18 @@ export function StandaloneComposerSheet({ projectPath }: { projectPath: string }
       const result = await window.api.task.create(projectPath, trimmedName, trimmedDescription || undefined);
       if (!result?.success) throw new Error(result?.error ?? 'Failed to create task');
       useComposerStore.getState().clearDraft();
-      void useProjectStore.getState().loadTasks(projectPath);
+      void loadTasks(projectPath);
     } catch (error) {
       useProjectStore.getState().addToast(error instanceof Error ? error.message : 'Failed to create task', 'error');
+    }
+  }, [name, description, projectPath]);
+
+  const createAndStart = useCallback(async () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    useComposerStore.getState().closeSheet();
+    if (await createAndStartTask(projectPath, trimmedName, description.trim() || undefined)) {
+      useComposerStore.getState().clearDraft();
     }
   }, [name, description, projectPath]);
 
@@ -61,10 +72,12 @@ export function StandaloneComposerSheet({ projectPath }: { projectPath: string }
       onDescriptionChange={useComposerStore.getState().setDescription}
       onAttachFile={resolveAttachmentPath}
       onSubmit={create}
+      onStart={() => void createAndStart()}
       // No inline editor out here to hand the caret back to; the draft is kept
       // and the column composer picks it up.
       onCollapse={() => useComposerStore.getState().closeSheet()}
       onDiscard={discard}
+      projectPicker={<ComposerProjectPicker projectPath={projectPath} />}
     />
   );
 }

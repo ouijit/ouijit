@@ -4,7 +4,7 @@ import { XTermContainer } from './XTermContainer';
 import { Icon } from './Icon';
 import { Tooltip } from '../ui/Tooltip';
 import { FullWidthToggle, MinimizeButton, PanelCloseButton } from './FullWidthToggle';
-import { SANDBOX_BACKEND_LABELS } from '../../types';
+import { SANDBOX_LABELS } from '../../types';
 
 interface RunnerPanelProps {
   ptyId: string;
@@ -39,9 +39,7 @@ export function RunnerPanel({
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
         <span className="text-[13px] text-ink/50 truncate flex-1 font-mono">{panelTitle}</span>
         {panel?.kind === 'runner' && panel.sandboxProvider && (
-          <span className="text-xs text-text-tertiary shrink-0">
-            {SANDBOX_BACKEND_LABELS[panel.sandboxProvider]} sandbox
-          </span>
+          <span className="text-xs text-text-tertiary shrink-0">{SANDBOX_LABELS[panel.sandboxProvider]}</span>
         )}
         {runnerPtyId && (
           <Tooltip text="Kill">

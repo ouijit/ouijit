@@ -3,10 +3,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TerminalHeader } from '../../components/terminal/TerminalHeader';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { startRunner } from '../../components/terminal/terminalActions';
-import { useProjectStore } from '../../stores/projectStore';
+import { getProjectConfig, useProjectDataStore } from '../../stores/projectDataStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { DEFAULT_DISPLAY_STATE } from '../../stores/terminalDisplay';
-import type { Script } from '../../types';
+import type { ProjectHooks, SandboxBackendId, SandboxProviderId, Script } from '../../types';
 
 vi.mock('../../components/terminal/terminalReact', () => ({
   refreshTerminalGitStatus: vi.fn().mockResolvedValue(undefined),
@@ -21,6 +21,30 @@ vi.mock('../../components/terminal/terminalActions', () => ({
 const PROJECT = '/tmp/project';
 const PTY = 'pty-1';
 
+function seed(
+  projectPath: string,
+  {
+    hooks = {},
+    scripts = [],
+    sandboxes = [],
+    defaultSandbox = 'none',
+  }: { hooks?: ProjectHooks; scripts?: Script[]; sandboxes?: SandboxBackendId[]; defaultSandbox?: SandboxProviderId },
+) {
+  useProjectDataStore.setState((s) => ({
+    configByProject: {
+      ...s.configByProject,
+      [projectPath]: {
+        sandboxStatuses: [],
+        availableSandboxProviders: sandboxes,
+        hooks,
+        defaultSandbox,
+        sandboxCliAccess: 'read',
+      },
+    },
+    scriptsByProject: { ...s.scriptsByProject, [projectPath]: scripts },
+  }));
+}
+
 function openAddMenu() {
   render(<TerminalHeader ptyId={PTY} isActive onClose={() => {}} />);
   fireEvent.click(screen.getByLabelText('Add panel'));
@@ -33,15 +57,11 @@ describe("the terminal's + menu", () => {
     useTerminalStore.setState({
       displayStates: { [PTY]: { ...DEFAULT_DISPLAY_STATE, ptyId: PTY, projectPath: PROJECT } },
     });
+    useProjectDataStore.setState({ configByProject: {}, scriptsByProject: {} });
   });
 
   test('with no commands, still offers a new script, and a run command saved from it starts', async () => {
-    useProjectStore.setState({
-      configProjectPath: PROJECT,
-      scriptsProjectPath: PROJECT,
-      hooks: {},
-      scripts: [],
-    });
+    seed(PROJECT, {});
     openAddMenu();
 
     expect(screen.getByText('New script…')).toBeTruthy();
@@ -62,9 +82,7 @@ describe("the terminal's + menu", () => {
 
   test('a new script is saved and run, alongside the existing commands', async () => {
     const existing: Script = { id: 's1', name: 'Lint', command: 'npm run lint', sortOrder: 0, restartIfRunning: false };
-    useProjectStore.setState({
-      configProjectPath: PROJECT,
-      scriptsProjectPath: PROJECT,
+    seed(PROJECT, {
       hooks: { run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' } },
       scripts: [existing],
     });
@@ -92,15 +110,13 @@ describe("the terminal's + menu", () => {
     );
   });
 
-  test("commands run in the project's default environment, which the menu sets without running anything", async () => {
+  test('commands run in the project default unless Run in picks elsewhere, which changes nothing else', async () => {
     const lint: Script = { id: 's1', name: 'Lint', command: 'npm run lint', sortOrder: 0, restartIfRunning: false };
-    useProjectStore.setState({
-      configProjectPath: PROJECT,
-      scriptsProjectPath: PROJECT,
+    seed(PROJECT, {
       hooks: { run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' } },
       scripts: [lint],
-      availableSandboxProviders: ['custom'],
-      runnerSandbox: 'custom',
+      sandboxes: ['custom'],
+      defaultSandbox: 'custom',
     });
 
     openAddMenu();
@@ -108,13 +124,13 @@ describe("the terminal's + menu", () => {
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom'));
 
     fireEvent.click(screen.getByLabelText('Add panel'));
-    fireEvent.mouseEnter(screen.getByText('Default environment').closest('div')!);
+    fireEvent.mouseEnter(screen.getByText('Run in').closest('div')!);
     fireEvent.click(await screen.findByRole('button', { name: 'Host' }));
-    await waitFor(() => expect(useProjectStore.getState().runnerSandbox).toBe('none'));
-    expect(window.api.globalSettings.set).toHaveBeenCalledWith(`runnerSandbox:${PROJECT}`, 'none');
+    expect(getProjectConfig(PROJECT)?.defaultSandbox).toBe('custom');
+    expect(window.api.globalSettings.set).not.toHaveBeenCalled();
     expect(startRunner).toHaveBeenCalledTimes(1);
 
-    // The menu stays open on its new default, ready for the command to run.
+    // The menu stays open on the pick, ready for the command to run.
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined));
 
@@ -130,24 +146,11 @@ describe("the terminal's + menu", () => {
     expect(startRunner).toHaveBeenCalledTimes(2);
   });
 
-  test.each([
-    ['belongs to another project', '/elsewhere'],
-    ["has this project's config but still another's scripts", PROJECT],
-  ])("lists the terminal's own project's commands while the store %s", async (_, configProjectPath) => {
-    const storeScript: Script = {
-      id: 's1',
-      name: 'Lint',
-      command: 'npm run lint',
-      sortOrder: 0,
-      restartIfRunning: false,
-    };
-    const its: Script = { id: 's2', name: 'Build', command: 'make', sortOrder: 0, restartIfRunning: false };
-    useProjectStore.setState({
-      configProjectPath,
-      hooks: {},
-      scriptsProjectPath: '/elsewhere',
-      scripts: [storeScript],
+  test("lists the terminal's own project's commands, loaded when another project's are the only ones held", async () => {
+    seed('/elsewhere', {
+      scripts: [{ id: 's1', name: 'Lint', command: 'npm run lint', sortOrder: 0, restartIfRunning: false }],
     });
+    const its: Script = { id: 's2', name: 'Build', command: 'make', sortOrder: 0, restartIfRunning: false };
     vi.mocked(window.api.hooks.get).mockResolvedValueOnce({
       run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' },
     });

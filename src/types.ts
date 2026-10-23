@@ -45,14 +45,15 @@ import type { DiffLensTarget } from './lens/worktreeSubject';
 import type { LensChangedPayload } from './lens/subjectKeys';
 import type { LensInput, LensSummary } from './lens/config';
 import type { StoredLens } from './lens/readLens';
-import type { TaskStatus, TagRow } from './db';
+import type { TaskStatus } from './db';
 import type { ActiveSession } from './ptyManager';
 import type {
   SandboxProviderId,
   SandboxProviderStatus,
-  NonoConfig,
+  NonoProfile,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
+  TerminalSandboxPayload,
 } from './sandbox/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';
 
@@ -75,23 +76,27 @@ export type {
 } from './git';
 export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 export type { TaskStatus, TaskMetadata } from './db';
-export type { TagRow } from './db';
 export type { ActiveSession } from './ptyManager';
 export type {
   SandboxProviderId,
   SandboxBackendId,
   SandboxProviderStatus,
-  NonoConfig,
+  NonoProfile,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
+  SandboxCliAccess,
+  TerminalSandboxPayload,
 } from './sandbox/types';
 export {
   SANDBOX_BACKEND_IDS,
-  SANDBOX_BACKEND_LABELS,
+  SANDBOX_LABELS,
+  SANDBOX_PROVIDER_IDS,
   SANDBOXABLE_HOOK_TYPES,
   isActiveSandbox,
   isSandboxProviderId,
-  runnerSandboxSettingKey,
+  defaultSandboxSettingKey,
+  sandboxCliAccessSettingKey,
+  isSandboxCliAccess,
 } from './sandbox/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
 export type {
@@ -126,8 +131,6 @@ export type {
   SubmitReviewResult,
   PrFileVersions,
 } from './github/types';
-
-export type LastActiveView = { type: 'home' } | { type: 'project'; path: string };
 
 /**
  * Per-terminal UI state captured for cross-launch session restore.
@@ -166,6 +169,8 @@ export interface SnapshotTerminalUi {
   panelSplitRatio?: number;
   /** Automatic diff takeover state (separate from the panel tabs). */
   diffPanelOpen?: boolean;
+  /** Older snapshots omit it; restore those untagged. */
+  tags?: string[];
 
   // ── Legacy singleton fields (kept optional for back-compat) ──────────
   planPath?: string | null;
@@ -197,6 +202,8 @@ export interface SnapshotTerminal {
   label: string | null;
   ordinalInProject: number;
   isActiveInProject: boolean;
+  /** Place in the recency order across every project, 0 in front. Older snapshots omit it. */
+  recencyRank?: number;
   ui: SnapshotTerminalUi;
 }
 
@@ -205,6 +212,8 @@ export interface LastSessionSnapshot {
   capturedAt: string;
   activeProjectPath: string | null;
   terminals: SnapshotTerminal[];
+  /** Each project's last board or terminal stack. Older snapshots omit it. */
+  views?: Record<string, { stack: string } | { page: 'board' }>;
 }
 
 export interface RunConfig {
@@ -243,6 +252,12 @@ export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'edito
 export type CliHookMode = 'run' | 'skip' | 'command';
 
 /** What a CLI status change asks of the hook it fires; all absent shows the hook dialog. */
+/** Which terminal ran a CLI task move, and whether it asked to point at the task. */
+export interface CliCaller {
+  fromPtyId?: PtyId;
+  point?: boolean;
+}
+
 export interface CliHookControl {
   hookMode?: CliHookMode;
   /** The one-off command when `hookMode` is `command`. */
@@ -259,7 +274,7 @@ export interface ScriptHook {
   description?: string;
   /** Restart the command if an instance is already running in the same task (run hook only). */
   restartIfRunning?: boolean;
-  /** Sandbox backend the hook's terminal runs under; absent or 'none' runs it on the host. */
+  /** Where the hook always runs; absent follows the project default. */
   sandbox?: SandboxProviderId;
 }
 
@@ -406,14 +421,6 @@ export interface HooksAPI {
   delete(projectPath: string, hookType: HookType): Promise<{ success: boolean }>;
 }
 
-export interface TagsAPI {
-  getAll(): Promise<TagRow[]>;
-  getForTask(projectPath: string, taskNumber: number): Promise<TagRow[]>;
-  addToTask(projectPath: string, taskNumber: number, tagName: string): Promise<TagRow>;
-  removeFromTask(projectPath: string, taskNumber: number, tagName: string): Promise<void>;
-  setTaskTags(projectPath: string, taskNumber: number, tagNames: string[]): Promise<TagRow[]>;
-}
-
 export interface ScriptsAPI {
   /** Get all scripts for a project, ordered by sort_order */
   getAll(projectPath: string): Promise<Script[]>;
@@ -435,7 +442,6 @@ export interface TaskAPI {
     taskNumber: number,
     status: TaskStatus,
   ): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
-  delete(projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string }>;
   trash(projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string; trashed?: boolean }>;
   setMergeTarget(
     projectPath: string,
@@ -587,6 +593,7 @@ export interface ElectronAPI {
   onShellUnsupported(callback: (info: { shell: string }) => void): () => void;
   /** Listen for a sandbox launcher that exited non-zero before starting the shell */
   onSandboxLaunchFailed(callback: (info: SandboxLaunchFailedPayload) => void): () => void;
+  onTerminalSandbox(callback: (info: TerminalSandboxPayload) => void): () => void;
   /** Listen for "What's New" on first launch after update */
   onWhatsNew(callback: (info: { version: string; notes: string }) => void): () => void;
   onShowAbout(callback: (info: { version: string }) => void): () => void;
@@ -631,13 +638,16 @@ export interface ElectronAPI {
     ) => void,
   ): () => void;
   hooks: HooksAPI;
-  tags: TagsAPI;
   scripts: ScriptsAPI;
   /** CLI agent hook events (claude/codex/pi/opencode) */
   agentHooks: AgentHooksAPI;
   plan: PlanAPI;
   /** CLI-driven terminal panel ops (markdown / web preview) */
   cliPanels: CliPanelsAPI;
+  /** CLI-driven terminal tag ops */
+  cliTags: CliTagsAPI;
+  cliTerminals: CliTerminalsAPI;
+  cliPoints: CliPointsAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   homePath(): Promise<string>;
@@ -887,10 +897,12 @@ export interface PlanAPI {
  * A terminal's panel kind is `'plan'` internally; the CLI surfaces it as
  * `'markdown'` to match the UI's "Markdown File" tab.
  */
-export type CliPanelKind = 'markdown' | 'preview';
+export type CliPanelKind = 'markdown' | 'preview' | 'runner';
 
 /** A single panel as reported back to the CLI. */
 export interface CliPanelInfo {
+  /** What `ouijit panel focus` takes. */
+  id: string;
   kind: CliPanelKind;
   /** Tab label shown in the UI. */
   label: string;
@@ -898,6 +910,8 @@ export interface CliPanelInfo {
   path?: string;
   /** Preview URL — preview panels only. */
   url?: string;
+  /** Script name — runner panels only. */
+  script?: string;
   /** Whether this panel is the terminal's active (foreground) panel. */
   active: boolean;
 }
@@ -907,9 +921,14 @@ export interface CliPanelOp {
   /** Correlates the renderer's reply with the awaiting main-process request. */
   requestId: number;
   ptyId: PtyId;
-  action: 'list' | 'add' | 'remove';
-  kind: CliPanelKind;
-  /** Absolute path (markdown) or URL (preview) for add/remove. */
+  /**
+   * `list`, `add` and `remove` act on one kind. `list-all` and `focus` span
+   * every kind, `focus` taking a panel id or `terminal`. `diff-open` and
+   * `diff-close` toggle the diff, which is not a panel.
+   */
+  action: 'list' | 'add' | 'remove' | 'list-all' | 'focus' | 'diff-open' | 'diff-close';
+  kind?: CliPanelKind;
+  /** Absolute path (markdown), URL (preview) or script id or name (runner) for add/remove; a panel id for focus. */
   value?: string;
 }
 
@@ -926,13 +945,123 @@ export interface CliPanelResponse {
   ok: boolean;
   /** Present when ok=false — a human-readable reason (e.g. terminal not found). */
   error?: string;
-  /** The terminal's panels of the op's kind after the op ran. */
+  /** The terminal's panels after the op ran: of the op's kind, or all of them. */
   panels?: CliPanelInfo[];
+  diffOpen?: boolean;
 }
 
 export interface CliPanelsAPI {
   onOp(callback: (op: CliPanelOp) => void): () => void;
   respond(requestId: number, response: CliPanelResponse): Promise<void>;
+}
+
+/**
+ * Op forwarded from the main process to the renderer for `ouijit tag`. Tags
+ * live on the renderer's terminals, so these cross the same request/response
+ * bridge as panel ops.
+ */
+export interface CliTagOp {
+  requestId: number;
+  action: 'list' | 'get' | 'add' | 'remove' | 'clear';
+  /** Every action but list. */
+  ptyId?: PtyId;
+  /** add and remove */
+  tag?: string;
+}
+
+export interface CliTagListing {
+  name: string;
+  terminals: { ptyId: PtyId; label: string; projectPath: string }[];
+}
+
+/** Renderer's reply for a {@link CliTagOp}. */
+export interface CliTagResponse {
+  ok: boolean;
+  error?: string;
+  /** The terminal's tags after every action but list. */
+  tags?: string[];
+  /** list */
+  listing?: CliTagListing[];
+}
+
+export interface CliTagsAPI {
+  onOp(callback: (op: CliTagOp) => void): () => void;
+  respond(requestId: number, response: CliTagResponse): Promise<void>;
+}
+
+/**
+ * Op forwarded from the main process to the renderer for `ouijit terminal`:
+ * reading and pasting go through the terminal's xterm, opening and closing
+ * through the app's own terminal actions.
+ */
+export interface CliTerminalOp {
+  requestId: number;
+  action: 'read' | 'paste' | 'open' | 'close';
+  /** read, paste and close. */
+  ptyId?: PtyId;
+  /** read: how many lines from the bottom. */
+  lines?: number;
+  /** paste. */
+  text?: string;
+  /** open. Without a task, a shell in the project. */
+  projectPath?: string;
+  taskNumber?: number;
+  resume?: boolean;
+  sandbox?: SandboxProviderId;
+}
+
+/** Renderer's reply for a {@link CliTerminalOp}. */
+export interface CliTerminalResponse {
+  ok: boolean;
+  error?: string;
+  /** read */
+  text?: string;
+  alternateScreen?: boolean;
+  /** open */
+  ptyId?: PtyId;
+}
+
+/**
+ * Something an agent can point at. A diff target is in the pointing terminal's
+ * worktree unless `ptyId` names another; `noteId` lands it on a note's marker.
+ * An issue `id` that is all digits is a GitHub issue, anything else Linear's.
+ */
+export type PointTarget =
+  | { kind: 'task'; projectPath: string; taskNumber: number }
+  | { kind: 'terminal'; ptyId: PtyId }
+  | { kind: 'project'; projectPath: string }
+  | { kind: 'board'; projectPath: string }
+  | { kind: 'pr'; projectPath: string; number: number }
+  | { kind: 'issue'; projectPath: string; id: string }
+  | { kind: 'panel'; ptyId: PtyId; panelId: string }
+  | { kind: 'diff'; ptyId: PtyId; path: string; line?: number; noteId?: string };
+
+/** Op forwarded to the renderer for `ouijit point`. A note is resolved there, to the diff line it sits on. */
+export interface CliPointOp {
+  requestId: number;
+  fromPtyId: PtyId;
+  action: 'point' | 'note' | 'clear';
+  target?: PointTarget;
+  /** What the pointer is about, in the agent's words. */
+  message?: string;
+  /** note */
+  noteId?: string;
+}
+
+export interface CliPointResponse {
+  ok: boolean;
+  error?: string;
+  target?: PointTarget;
+}
+
+export interface CliPointsAPI {
+  onOp(callback: (op: CliPointOp) => void): () => void;
+  respond(requestId: number, response: CliPointResponse): Promise<void>;
+}
+
+export interface CliTerminalsAPI {
+  onOp(callback: (op: CliTerminalOp) => void): () => void;
+  respond(requestId: number, response: CliTerminalResponse): Promise<void>;
 }
 
 /**
@@ -943,8 +1072,11 @@ export interface CliPanelsAPI {
 export interface SandboxAPI {
   /** Availability of every registered sandbox backend. */
   status(projectPath: string): Promise<SandboxProviderStatus[]>;
-  nonoConfig(projectPath: string): Promise<NonoConfig>;
-  setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }>;
+  nonoProfile(projectPath: string): Promise<NonoProfile>;
+  /** Asks for a profile file; null when the dialog is cancelled. */
+  chooseNonoProfile(projectPath: string): Promise<NonoProfile | null>;
+  resetNonoProfile(projectPath: string): Promise<NonoProfile>;
+  openNonoProfile(projectPath: string): Promise<{ success: boolean; error?: string }>;
   customConfig(projectPath: string): Promise<CustomSandboxConfig>;
   setCustomConfig(projectPath: string, config: CustomSandboxConfig): Promise<{ success: boolean; error?: string }>;
 }

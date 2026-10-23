@@ -36,7 +36,6 @@ import type {
   ScriptHook,
   HookType,
   BranchInfo,
-  TagRow,
   Script,
   ValidateFolderFailureReason,
   FolderPickerOptions,
@@ -45,6 +44,13 @@ import type {
   ApplyProjectsFolderChangeResult,
   CliPanelOp,
   CliPanelResponse,
+  CliTagOp,
+  CliTagResponse,
+  CliTerminalOp,
+  CliTerminalResponse,
+  CliPointOp,
+  CliPointResponse,
+  CliCaller,
 } from '../types';
 import type {
   RepoIdentity,
@@ -84,9 +90,10 @@ import type { StoredLens } from '../lens/readLens';
 import type { LensChangedPayload } from '../lens/subjectKeys';
 import type {
   SandboxProviderStatus,
-  NonoConfig,
+  NonoProfile,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
+  TerminalSandboxPayload,
 } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
@@ -172,7 +179,6 @@ export interface IpcInvokeContract {
     args: [projectPath: string, taskNumber: number, status: TaskStatus];
     return: { success: boolean; error?: string; hookWarning?: string };
   };
-  'task:delete': { args: [projectPath: string, taskNumber: number]; return: { success: boolean; error?: string } };
   'task:trash': {
     args: [projectPath: string, taskNumber: number];
     return: { success: boolean; error?: string; trashed?: boolean };
@@ -247,19 +253,15 @@ export interface IpcInvokeContract {
 
   // ── CLI panel ops (renderer → main reply for a cli:panel-op push) ─────
   'cli-panels:respond': { args: [requestId: number, response: CliPanelResponse]; return: void };
+  'cli-tags:respond': { args: [requestId: number, response: CliTagResponse]; return: void };
+  'cli-terminals:respond': { args: [requestId: number, response: CliTerminalResponse]; return: void };
+  'cli-points:respond': { args: [requestId: number, response: CliPointResponse]; return: void };
 
   // ── Scripts ──────────────────────────────────────────────────────────
   'scripts:get-all': { args: [projectPath: string]; return: Script[] };
   'scripts:save': { args: [projectPath: string, script: Script]; return: { success: boolean; script?: Script } };
   'scripts:delete': { args: [projectPath: string, scriptId: string]; return: { success: boolean } };
   'scripts:reorder': { args: [projectPath: string, scriptIds: string[]]; return: { success: boolean } };
-
-  // ── Tags ─────────────────────────────────────────────────────────────
-  'tags:get-all': { args: []; return: TagRow[] };
-  'tags:get-for-task': { args: [projectPath: string, taskNumber: number]; return: TagRow[] };
-  'tags:add-to-task': { args: [projectPath: string, taskNumber: number, tagName: string]; return: TagRow };
-  'tags:remove-from-task': { args: [projectPath: string, taskNumber: number, tagName: string]; return: void };
-  'tags:set-task-tags': { args: [projectPath: string, taskNumber: number, tagNames: string[]]; return: TagRow[] };
 
   // ── Global Settings ──────────────────────────────────────────────────
   'settings:get-global': { args: [key: string]; return: string | undefined };
@@ -273,8 +275,10 @@ export interface IpcInvokeContract {
 
   // ── Sandbox (cross-provider) ─────────────────────────────────────────
   'sandbox:status': { args: [projectPath: string]; return: SandboxProviderStatus[] };
-  'sandbox:nono-config': { args: [projectPath: string]; return: NonoConfig };
-  'sandbox:set-nono-config': { args: [projectPath: string, config: NonoConfig]; return: { success: boolean } };
+  'sandbox:nono-profile': { args: [projectPath: string]; return: NonoProfile };
+  'sandbox:choose-nono-profile': { args: [projectPath: string]; return: NonoProfile | null };
+  'sandbox:reset-nono-profile': { args: [projectPath: string]; return: NonoProfile };
+  'sandbox:open-nono-profile': { args: [projectPath: string]; return: { success: boolean; error?: string } };
   'sandbox:custom-config': { args: [projectPath: string]; return: CustomSandboxConfig };
   'sandbox:set-custom-config': {
     args: [projectPath: string, config: CustomSandboxConfig];
@@ -458,11 +462,15 @@ export interface IpcPushContract {
   'fullscreen-change': { args: [isFullscreen: boolean] };
   'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
   'cli:panel-op': { args: [op: CliPanelOp] };
+  'cli:tag-op': { args: [op: CliTagOp] };
+  'cli:terminal-op': { args: [op: CliTerminalOp] };
+  'cli:point-op': { args: [op: CliPointOp] };
   'plan:content-changed': { args: [planPath: string, content: string] };
   health: { args: [status: HealthStatus] };
   'update-available': { args: [info: { version: string; url: string }] };
   'shell-unsupported': { args: [info: { shell: string }] };
   'sandbox-launch-failed': { args: [info: SandboxLaunchFailedPayload] };
+  'terminal-sandbox': { args: [info: TerminalSandboxPayload] };
   'clone:changed': { args: [jobs: CloneJob[]] };
   'clone:landed': { args: [projectPath: string] };
   'whats-new': { args: [info: { version: string; notes: string }] };
@@ -489,7 +497,8 @@ export interface IpcPushContract {
         worktreePath: string;
         branch: string;
         createdAt: string;
-      } & CliHookControl,
+      } & CliHookControl &
+        CliCaller,
     ];
   };
   'cli:task-completed': {
@@ -501,7 +510,8 @@ export interface IpcPushContract {
          *  look it up in projectStore.tasks (which only holds the *active*
          *  project's tasks — would miss when the user is viewing a different project). */
         task: TaskWithWorkspace;
-      } & CliHookControl,
+      } & CliHookControl &
+        CliCaller,
     ];
   };
   'cli:task-transitioned': {
@@ -515,7 +525,8 @@ export interface IpcPushContract {
         newStatus: TaskStatus;
         /** Full task record fetched server-side (same rationale as cli:task-completed). */
         task: TaskWithWorkspace;
-      } & CliHookControl,
+      } & CliHookControl &
+        CliCaller,
     ];
   };
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };

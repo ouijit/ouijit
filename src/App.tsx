@@ -1,17 +1,16 @@
 import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { usePaletteShortcut } from './hooks/usePaletteShortcut';
-import { useAppStore, selectIsCloning } from './stores/appStore';
+import { useTerminalShortcuts } from './components/terminal/terminalShortcuts';
+import { useAppStore, selectIsCloning, type Selection } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
 import { useExperimentalStore } from './stores/experimentalStore';
+import { stackMembers, stackOf, useTerminalStore } from './stores/terminalStore';
 import { TitleBar } from './components/TitleBarReact';
 import { Sidebar } from './components/SidebarReact';
-import { HomeView } from './components/HomeViewReact';
-import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
-import { ProjectView } from './components/ProjectViewReact';
+import { MainView } from './components/MainView';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { AddProjectDialog, type AddProjectResult, type AddProjectStep } from './components/dialogs/AddProjectDialog';
-import { CloningProjectView } from './components/CloningProjectView';
 import { ADD_PROJECT_EVENT, type ProjectSourceKind } from './components/projectSources';
 import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
@@ -19,20 +18,52 @@ import { HelpDialog } from './components/dialogs/HelpDialog';
 import { AboutDialog } from './components/dialogs/AboutDialog';
 import { MissingWorktreeDialog } from './components/dialogs/MissingWorktreeDialog';
 import { HookConfigDialog } from './components/dialogs/HookConfigDialog';
+import { GlobalRunHookDialog } from './components/dialogs/GlobalRunHookDialog';
 import { CommandPalette } from './components/CommandPalette';
-import { selectProject, selectHome } from './components/navigation';
+import { openProjectPage } from './components/navigation';
 import { installCaptureNavigator } from './capture/navigator';
 import { hydrateTerminalFont } from './components/terminal/terminalReact';
+import { reconnectOrphanedSessions } from './components/terminal/terminalActions';
 import { hydrateNotificationSettings } from './utils/notifications';
-import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
+import { installSessionAutoSave, rememberSnapshotViews } from './components/terminal/sessionSnapshot';
 import { installVisitTracker } from './services/visitTracker';
 import { installCliPanelListener } from './services/cliPanelListener';
+import { installCliTagListener } from './services/cliTagListener';
+import { installCliTerminalListener } from './services/cliTerminalListener';
+import { installCliPointListener } from './services/cliPointListener';
+import { PointerLayer } from './components/point/PointerLayer';
 import { installHookStatusListener } from './services/hookStatusListener';
 import { useUIStore, hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
-import type { Project } from './types';
+import type { LastSessionSnapshot, Project } from './types';
 
 const appLog = log.scope('app');
+
+/**
+ * What was on screen when the renderer last ran. A terminal that did not
+ * survive, or a project since removed, leaves nothing selected.
+ */
+function restoredSelection(saved: string | undefined, projects: Project[]): Selection | null {
+  let view: { type?: string; ptyId?: string; stack?: string; path?: string; page?: string };
+  try {
+    view = JSON.parse(saved ?? '');
+  } catch {
+    return null;
+  }
+  if (view.type === 'terminal') {
+    const terminals = useTerminalStore.getState();
+    const [front] = view.stack ? stackMembers(terminals, view.stack) : [];
+    const display = terminals.displayStates[front ?? view.ptyId ?? ''];
+    if (!display) return null;
+    return { kind: 'terminal', stack: front ? view.stack! : stackOf(display), projectPath: display.projectPath };
+  }
+  if (view.type === 'app-settings') return { kind: 'app-settings' };
+  const path = view.path;
+  if (!path || !projects.some((p) => p.path === path)) return null;
+  const pages = ['board', 'settings', 'pull-requests', 'analysis'] as const;
+  const page = pages.find((p) => p === view.page) ?? 'board';
+  return { kind: 'page', projectPath: path, page };
+}
 
 class ViewErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
@@ -73,13 +104,12 @@ class ViewErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 export function App() {
   useIPCListeners();
   usePaletteShortcut();
+  useTerminalShortcuts();
 
-  const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const whatsNew = useAppStore((s) => s.whatsNew);
   const aboutVersion = useAppStore((s) => s.aboutVersion);
   const helpDialogOpen = useAppStore((s) => s.helpDialogOpen);
-  const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const [addProjectStep, setAddProjectStep] = useState<AddProjectStep | null>(null);
   const cloning = useAppStore(selectIsCloning);
   const [gitInitPath, setGitInitPath] = useState<string | null>(null);
@@ -117,10 +147,6 @@ export function App() {
     hydrateNotificationSettings();
   }, []);
 
-  useEffect(() => {
-    void hydrateUIPreferences();
-  }, []);
-
   // Subscribe to terminal store changes so the cross-launch session snapshot
   // stays current. Resume banner reads it on next launch.
   useEffect(() => {
@@ -131,10 +157,16 @@ export function App() {
 
   useEffect(() => installCliPanelListener(), []);
 
+  useEffect(() => installCliTagListener(), []);
+
+  useEffect(() => installCliTerminalListener(), []);
+
+  useEffect(() => installCliPointListener(), []);
+
   useEffect(() => installHookStatusListener(), []);
 
   // First-run marker — set so other surfaces can know whether the user has
-  // launched before. The actual welcome UI lives inline in the empty home view.
+  // launched before. The actual welcome UI lives inline in the empty main view.
   useEffect(() => {
     (async () => {
       const seen = await window.api.globalSettings.get('hasSeenWelcome');
@@ -147,20 +179,20 @@ export function App() {
     window.api.getProjects().then(async (projects) => {
       useAppStore.getState().setProjects(projects);
 
-      // A persisted snapshot only means "force home for the resume banner" on a
-      // cold launch, where its PTYs are gone. When those PTYs are still alive
-      // the renderer merely reloaded (a refresh): restore the prior view so the
-      // user lands exactly where they were and reconnectOrphanedSessions
-      // reattaches the terminals. (ResumeBanner uses the same live-PTY check to
+      // A persisted snapshot means "show the resume banner" only on a cold
+      // launch, where its PTYs are gone. When those PTYs are still alive the
+      // renderer merely reloaded: restore the prior selection so the user lands
+      // exactly where they were. (ResumeBanner uses the same live-PTY check to
       // stay silent in that case.)
       const pendingSnapshot = await window.api.globalSettings.get('lastSession:snapshot');
       const hasResumable = !!pendingSnapshot && pendingSnapshot.length > 0;
 
       let snapshotPtysAlive = false;
+      let snapshot: LastSessionSnapshot | null = null;
       if (hasResumable) {
         try {
-          const snap = JSON.parse(pendingSnapshot) as { terminals?: { ptyId?: string }[] };
-          const snapPtyIds = new Set((snap.terminals ?? []).map((t) => t.ptyId).filter(Boolean));
+          snapshot = JSON.parse(pendingSnapshot) as LastSessionSnapshot;
+          const snapPtyIds = new Set((snapshot.terminals ?? []).map((t) => t.ptyId).filter(Boolean));
           if (snapPtyIds.size > 0) {
             const live = await window.api.pty.getActiveSessions();
             snapshotPtysAlive = live.some((s) => snapPtyIds.has(s.ptyId));
@@ -169,58 +201,29 @@ export function App() {
           /* unparseable snapshot — treat as a cold launch */
         }
       }
-      const forceHomeForResume = hasResumable && !snapshotPtysAlive;
 
-      let restoredToProject = false;
-      if (!forceHomeForResume) {
-        const lastView = await window.api.globalSettings.get('lastActiveView');
-        if (lastView) {
-          try {
-            const parsed = JSON.parse(lastView);
-            if (parsed.type === 'project' && parsed.path) {
-              const project = projects.find((p) => p.path === parsed.path);
-              if (project) {
-                // Pre-fetch tasks before navigating so the first project paint
-                // (kanban included) shows correct content.
-                await useProjectStore.getState().loadTasks(parsed.path);
-                useAppStore.getState().navigateToProject(parsed.path, project);
-                restoredToProject = true;
-              }
-            }
-          } catch {
-            /* invalid JSON, stay on home */
-          }
-        }
-      }
+      // The sidebar lists every project's tasks and terminals from the first paint.
+      await Promise.all([
+        useAppStore.getState().loadHomeRecents(),
+        hydrateUIPreferences(),
+        reconnectOrphanedSessions(),
+      ]);
 
-      // Pre-warm the home recents cache regardless of which view we're
-      // restoring to, so a later home click paints from cache instantly.
-      // Awaited only when landing on home, to keep the initial home paint
-      // populated; for project restores the fetch runs in the background.
-      const recentsPromise = useAppStore.getState().loadHomeRecents();
-      if (!restoredToProject) {
-        await recentsPromise;
+      // As read at launch: the reconnect's saves rewrite the snapshot before views are back.
+      if (snapshot && snapshotPtysAlive) rememberSnapshotViews(snapshot);
+      if (!hasResumable || snapshotPtysAlive) {
+        const restored = restoredSelection(await window.api.globalSettings.get('lastActiveView'), projects);
+        if (restored) useAppStore.getState().select(restored);
       }
 
       setInitialized(true);
     });
   }, []);
 
-  // Sidebar callbacks — the shared navigation actions, so the sidebar and the
-  // command palette can't drift apart.
-  const handleProjectSelect = useCallback((path: string, project: Project) => {
-    void selectProject(path, project);
-  }, []);
-
-  const handleHomeSelect = useCallback(() => {
-    selectHome();
-  }, []);
-
   const finalizeAddedProject = useCallback(async (addedPath: string) => {
     const projects = await window.api.refreshProjects();
     useAppStore.getState().setProjects(projects);
-    const project = projects.find((p) => p.path === addedPath);
-    if (project) useAppStore.getState().navigateToProject(addedPath, project);
+    if (projects.some((p) => p.path === addedPath)) await openProjectPage(addedPath, 'board');
   }, []);
 
   const handleAddExisting = useCallback(async () => {
@@ -256,11 +259,8 @@ export function App() {
 
   const handleAddProject = useCallback(() => setAddProjectStep('choose'), []);
 
-  // A clone has no project row to navigate to yet, so one is stood up from the
-  // job. It is replaced by the real project the moment the clone lands.
   const handleCloneSelect = useCallback((projectPath: string) => {
-    const job = useAppStore.getState().cloneJobs.find((entry) => entry.projectPath === projectPath);
-    if (job) useAppStore.getState().navigateToProject(projectPath, { name: job.name, path: projectPath });
+    useAppStore.getState().openPage(projectPath, 'board');
   }, []);
 
   const chooseProjectSource = useCallback(
@@ -294,28 +294,19 @@ export function App() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        onProjectSelect={handleProjectSelect}
-        onHomeSelect={handleHomeSelect}
-        onAddProject={handleAddProject}
-        onCloneSelect={handleCloneSelect}
-      />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TitleBar mode={activeView} />
-        <main
-          className="app-content-main flex-1 min-h-0"
-          style={
-            activeView === 'project' || activeView === 'home'
-              ? { padding: 0 }
-              : { padding: 'var(--spacing-md) var(--content-padding)' }
-          }
-        >
+        <TitleBar />
+        <main className="flex-1 min-h-0">
           <ViewErrorBoundary>
-            {activeView === 'home' && (homeActivePanel === 'settings' ? <GlobalSettingsPanel /> : <HomeView />)}
-            {activeView === 'project' && (cloning ? <CloningProjectView /> : <ProjectView />)}
+            <MainView />
           </ViewErrorBoundary>
         </main>
       </div>
+      {/* After the title bar: Electron applies drag and no-drag regions in
+          document order, and the title bar's drag region runs under the
+          sidebar, so placed first it would swallow the sidebar's buttons. */}
+      <Sidebar onAddProject={handleAddProject} onCloneSelect={handleCloneSelect} />
+      <PointerLayer />
       <ToastContainer />
       {addProjectStep && <AddProjectDialog initialStep={addProjectStep} onClose={handleAddProjectClose} />}
       {gitInitPath && <InitGitRepoDialog folderPath={gitInitPath} onClose={handleGitInitClose} />}
@@ -330,6 +321,7 @@ export function App() {
       {aboutVersion && (
         <AboutDialog version={aboutVersion} onClose={() => useAppStore.getState().setAboutVersion(null)} />
       )}
+      <GlobalRunHookDialog />
       <GlobalMissingWorktreeDialog />
       <GlobalEditorHookDialog />
       <CommandPalette />

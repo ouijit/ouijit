@@ -1,9 +1,10 @@
 import { focusKanbanAddInput } from '../components/kanban/KanbanAddInput';
-import { useComposerStore, isBoardMounted } from '../stores/composerStore';
-import { useProjectStore } from '../stores/projectStore';
+import { useComposerStore } from '../stores/composerStore';
+import { useAppStore, selectBoardOnScreen } from '../stores/appStore';
 
 /**
- * The single entry point for "new task", behind ⌘N and the title bar button.
+ * "New task" behind ⌘N and the title bar button. A project other than the one
+ * on screen always gets the sheet.
  *
  * On the board, the composer is already on screen, so this just focuses it —
  * the new task lands where you can see it. Anywhere else, the expanded sheet
@@ -11,13 +12,21 @@ import { useProjectStore } from '../stores/projectStore';
  * under you. Both write the same draft, so leaving one and arriving at the
  * other picks up where you left off.
  */
-export function openTaskComposer(): void {
-  const { activePanel, kanbanVisible } = useProjectStore.getState();
-
-  if (isBoardMounted(activePanel, kanbanVisible)) {
+export function openTaskComposer(projectPath?: string): void {
+  const app = useAppStore.getState();
+  if (projectPath && projectPath !== app.activeProjectPath) {
+    useComposerStore.getState().openSheet(null, projectPath);
+    return;
+  }
+  if (selectBoardOnScreen(app)) {
     focusKanbanAddInput();
     return;
   }
 
   useComposerStore.getState().openSheet();
+}
+
+/** The sheet for a project, even over that project's own board. */
+export function openTaskSheet(projectPath: string): void {
+  useComposerStore.getState().openSheet(null, projectPath);
 }

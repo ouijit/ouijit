@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import type { TaskWithWorkspace } from '../../types';
-import type { TerminalDisplayState } from '../../stores/terminalStore';
+import { isUnread, type TerminalDisplayState } from '../../stores/terminalStore';
 import { Icon } from '../terminal/Icon';
 import { StatusDot, sandboxSuffix } from '../terminal/StatusDot';
 import {
@@ -379,7 +379,11 @@ export const KanbanCardView = memo(function KanbanCardView({
                 <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
                   {isLast ? '└─' : '├─'}
                 </span>
-                <StatusDot summaryType={display.summaryType} sandboxProvider={display.sandboxProvider} />
+                <StatusDot
+                  status={display.status}
+                  sandboxProvider={display.sandboxProvider}
+                  unread={isUnread(display, undefined)}
+                />
                 {isRenaming ? (
                   <input
                     ref={terminalRenameRef}

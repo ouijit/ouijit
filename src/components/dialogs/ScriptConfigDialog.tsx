@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Script } from '../../types';
-import { useProjectStore } from '../../stores/projectStore';
+import { saveScript } from '../../stores/projectDataStore';
 import { DialogOverlay } from './DialogOverlay';
 import { DIALOG_INPUT_CLASS, DIALOG_MONO_INPUT_CLASS } from './dialogStyles';
 import { Checkbox } from '../ui/Checkbox';
@@ -36,7 +36,7 @@ export function ScriptConfigDialog({ projectPath, existing, onClose }: ScriptCon
   const handleSave = async () => {
     if (!draft || saving) return;
     setSaving(true);
-    const saved = await useProjectStore.getState().saveScript(projectPath, draft);
+    const saved = await saveScript(projectPath, draft);
     if (saved) dismiss(saved);
     else setSaving(false);
   };

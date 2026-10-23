@@ -18,11 +18,11 @@
 
 import type { ActiveSession, Project, PullRequestSummary, SandboxProviderId, TaskWithWorkspace } from '../../types';
 import type { LinearIssueSummary } from '../../linear/types';
-import type { TerminalDisplayState } from '../../stores/terminalStore';
+import type { TerminalDisplayState, TerminalStatus } from '../../stores/terminalStore';
 import type { SearchField } from '../../utils/paletteScore';
 import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
-import { activateTask, focusTerminal, selectProject, TASK_OPEN_LABEL } from '../navigation';
+import { activateTask, focusTerminal, openProject, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
 import { openLinearIssueInPanel } from '../../services/linearTaskActions';
 import { issueKey, projectKey, pullKey, taskKey, terminalKey, terminalTaskNumber } from '../../utils/paletteFrecency';
@@ -60,7 +60,7 @@ export interface PaletteItem {
   meta?: string;
   dimmed?: boolean;
   /** Present when a live shell backs the row; renders as the leading dot. */
-  status?: { summaryType: string; sandboxProvider?: SandboxProviderId };
+  shell?: { status: TerminalStatus; sandboxProvider?: SandboxProviderId };
   /**
    * Id of the task row this one hangs under. Set on a task's live shells, which
    * render as branch children the way they do on a kanban card. Ranking scores
@@ -103,7 +103,7 @@ interface LiveTerminal {
   tags: string[];
   branch: string | null;
   exited: boolean;
-  summaryType: string;
+  status: TerminalStatus;
   sandboxProvider?: SandboxProviderId;
   /** Active project first, then hydrated, then merely live. */
   rank: number;
@@ -133,7 +133,7 @@ function collectTerminals(input: PaletteInput): LiveTerminal[] {
         tags: display.tags,
         branch: display.worktreeBranch,
         exited: display.exited,
-        summaryType: display.summaryType,
+        status: display.status,
         sandboxProvider: display.sandboxProvider,
         rank: projectPath === input.activeProjectPath ? 0 : 1,
       });
@@ -151,9 +151,9 @@ function collectTerminals(input: PaletteInput): LiveTerminal[] {
       tags: [],
       branch: null,
       exited: false,
-      // Not hydrated, so there's no live summary yet — the card shows the real
+      // Not hydrated, so there's no live status yet — the card shows the real
       // one once it reconnects.
-      summaryType: 'ready',
+      status: 'ready',
       sandboxProvider: session.sandboxProvider,
       rank: session.projectPath === input.activeProjectPath ? 0 : 2,
     });
@@ -228,9 +228,9 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
       tags: terminal.tags,
       meta: terminal.exited ? 'exited' : undefined,
       dimmed: terminal.exited,
-      status: { summaryType: terminal.summaryType, sandboxProvider: terminal.sandboxProvider },
+      shell: { status: terminal.status, sandboxProvider: terminal.sandboxProvider },
       action: 'Focus terminal',
-      run: () => void focusTerminal(terminal.ptyId, terminal.projectPath),
+      run: () => void focusTerminal(terminal.ptyId, { projectPath: terminal.projectPath }),
     });
   }
 
@@ -253,8 +253,8 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
         { key: 'path', text: displayPath, weight: 0.6 },
       ],
       project,
-      action: 'Switch project',
-      run: () => void selectProject(project.path, project),
+      action: 'Open',
+      run: () => void openProject(project.path),
     });
   }
 
@@ -308,9 +308,9 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
         project,
         parentId: taskId,
         branch: i === live.length - 1 ? 'last' : 'mid',
-        status: { summaryType: terminal.summaryType, sandboxProvider: terminal.sandboxProvider },
+        shell: { status: terminal.status, sandboxProvider: terminal.sandboxProvider },
         action: 'Focus terminal',
-        run: () => void focusTerminal(terminal.ptyId, terminal.projectPath),
+        run: () => void focusTerminal(terminal.ptyId, { projectPath: terminal.projectPath }),
       });
     });
   }

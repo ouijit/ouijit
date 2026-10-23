@@ -5,8 +5,8 @@
  */
 
 import log from 'electron-log/renderer';
-import { useAppStore } from '../../stores/appStore';
-import { useTerminalStore } from '../../stores/terminalStore';
+import { useAppStore, type ProjectView } from '../../stores/appStore';
+import { renameInStack, useTerminalStore } from '../../stores/terminalStore';
 import { type OuijitTerminal } from './terminalReact';
 import { terminalInstances } from './terminalRegistry';
 import {
@@ -57,6 +57,7 @@ function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
     panelFullWidth: term.panelFullWidth,
     panelSplitRatio: term.panelSplitRatio,
     diffPanelOpen: term.diffPanelOpen,
+    tags: term.tags,
   };
 }
 
@@ -65,27 +66,27 @@ export function gatherSnapshot(): LastSessionSnapshot {
   const appStore = useAppStore.getState();
 
   const terminals: SnapshotTerminal[] = [];
+  const projectFronts = new Map<string, string>();
 
-  for (const [projectPath, ptyIds] of Object.entries(termStore.terminalsByProject)) {
-    const activeIndex = termStore.activeIndices[projectPath] ?? -1;
+  for (const ptyId of termStore.order) {
+    const term = terminalInstances.get(ptyId);
+    if (!term) continue; // pending/disposed instance — skip
+    if (term.isRunner) continue; // runners are restored as state on their parent
+    const projectPath = term.projectPath;
+    if (!projectFronts.has(projectPath)) projectFronts.set(projectPath, ptyId);
 
-    ptyIds.forEach((ptyId, ordinalInProject) => {
-      const term = terminalInstances.get(ptyId);
-      if (!term) return; // pending/disposed instance — skip
-      if (term.isRunner) return; // runners are restored as state on their parent
-
-      terminals.push({
-        ptyId: term.ptyId,
-        projectPath,
-        taskNumber: term.taskId,
-        worktreePath: term.worktreePath ?? null,
-        worktreeBranch: term.worktreeBranch ?? null,
-        sandboxProvider: term.sandboxProvider,
-        label: term.label || null,
-        ordinalInProject,
-        isActiveInProject: ordinalInProject === activeIndex,
-        ui: uiFor(term),
-      });
+    terminals.push({
+      ptyId: term.ptyId,
+      projectPath,
+      taskNumber: term.taskId,
+      worktreePath: term.worktreePath ?? null,
+      worktreeBranch: term.worktreeBranch ?? null,
+      sandboxProvider: term.sandboxProvider,
+      label: term.label || null,
+      ordinalInProject: (termStore.terminalsByProject[projectPath] ?? []).indexOf(ptyId),
+      isActiveInProject: projectFronts.get(projectPath) === ptyId,
+      recencyRank: terminals.length,
+      ui: uiFor(term),
     });
   }
 
@@ -94,7 +95,27 @@ export function gatherSnapshot(): LastSessionSnapshot {
     capturedAt: new Date().toISOString(),
     activeProjectPath: appStore.activeProjectPath,
     terminals,
+    views: Object.fromEntries(
+      Object.values(appStore.viewByProject).map((view) => [
+        view.projectPath,
+        view.kind === 'terminal' ? { stack: view.stack } : { page: 'board' as const },
+      ]),
+    ),
   };
+}
+
+/**
+ * Puts back each project's last board or terminal stack. After a quit the
+ * terminals come back under new ids, so `renamed` maps each captured id to the
+ * one it was restored as.
+ */
+export function rememberSnapshotViews(snapshot: LastSessionSnapshot, renamed?: Map<string, string>): void {
+  const views = Object.entries(snapshot.views ?? {}).flatMap(([projectPath, view]): ProjectView[] => {
+    if (!('stack' in view)) return [{ kind: 'page', projectPath, page: 'board' }];
+    const stack = renamed ? renameInStack(view.stack, renamed) : view.stack;
+    return stack ? [{ kind: 'terminal', projectPath, stack }] : [];
+  });
+  useAppStore.getState().rememberViews(views);
 }
 
 // ── Debounced save ───────────────────────────────────────────────────
@@ -201,6 +222,26 @@ export function installSessionAutoSave(): void {
   // terminal's panels — a dropped pending save means they come back bare.
   window.addEventListener('beforeunload', flushSnapshotSave);
   window.addEventListener('pagehide', flushSnapshotSave);
+}
+
+/**
+ * The snapshot's terminals in recency order, front first. A snapshot written
+ * before recency was recorded keeps each project's creation order with its
+ * active terminal in front, and the project that was open ahead of the rest.
+ */
+export function snapshotRecency(snapshot: LastSessionSnapshot): SnapshotTerminal[] {
+  const terminals = snapshot.terminals;
+  if (terminals.every((t) => t.recencyRank != null)) {
+    return [...terminals].sort((a, b) => a.recencyRank! - b.recencyRank!);
+  }
+  const byProject = new Map<string, SnapshotTerminal[]>();
+  if (snapshot.activeProjectPath) byProject.set(snapshot.activeProjectPath, []);
+  for (const t of terminals) byProject.set(t.projectPath, [...(byProject.get(t.projectPath) ?? []), t]);
+  return [...byProject.values()].flatMap((list) =>
+    [...list].sort(
+      (a, b) => Number(b.isActiveInProject) - Number(a.isActiveInProject) || a.ordinalInProject - b.ordinalInProject,
+    ),
+  );
 }
 
 // ── Read on launch ───────────────────────────────────────────────────

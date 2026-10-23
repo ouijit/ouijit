@@ -1,6 +1,7 @@
 import { Fragment, memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { getProjectConfig, loadTasks, useProjectConfig, useProjectTask } from '../../stores/projectDataStore';
 import { useShallow } from 'zustand/react/shallow';
 import { terminalInstances } from './terminalRegistry';
 import { addProjectTerminal, renameTerminal, startRunner } from './terminalActions';
@@ -25,13 +26,13 @@ import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
 import { describeDiffComparison, filesInDiff } from '../../diffSource';
 
 const EMPTY_TAGS: string[] = [];
+const NO_BACKENDS: SandboxBackendId[] = [];
 const EMPTY_PANELS: TerminalPanel[] = [];
 
 interface TerminalHeaderProps {
   ptyId: string;
   isActive: boolean;
   isBackCard?: boolean;
-  compact?: boolean;
   stackPosition?: number;
   onClose: () => void;
 }
@@ -40,14 +41,13 @@ export const TerminalHeader = memo(function TerminalHeader({
   ptyId,
   isActive,
   isBackCard,
-  compact,
   stackPosition,
   onClose,
 }: TerminalHeaderProps) {
   // One shallow-compared subscription replaces many individual selectors.
   const {
     label,
-    summaryType,
+    status,
     gitFileStatus,
     lastOscTitle,
     tags,
@@ -61,7 +61,7 @@ export const TerminalHeader = memo(function TerminalHeader({
       const d = s.displayStates[ptyId];
       return {
         label: d?.label ?? '',
-        summaryType: d?.summaryType ?? 'ready',
+        status: d?.status ?? 'ready',
         gitFileStatus: d?.gitFileStatus ?? null,
         lastOscTitle: d?.lastOscTitle ?? '',
         tags: d?.tags ?? EMPTY_TAGS,
@@ -91,8 +91,8 @@ export const TerminalHeader = memo(function TerminalHeader({
   const projectPath = instance?.projectPath ?? '';
   const isTaskTerminal = taskId != null;
 
-  const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
-  const task = useProjectStore((s) => (taskId != null ? s.tasks.find((t) => t.taskNumber === taskId) : undefined));
+  const availableSandboxProviders = useProjectConfig(projectPath)?.availableSandboxProviders ?? NO_BACKENDS;
+  const task = useProjectTask(projectPath, taskId);
   const githubEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.github ?? false);
   const linearEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.linear ?? false);
 
@@ -127,17 +127,24 @@ export const TerminalHeader = memo(function TerminalHeader({
         openFolder: () => void revealInFileManager(instance.worktreePath!),
         setStatus: async (status) => {
           await window.api.task.setStatus(projectPath, taskId!, status);
-          useProjectStore.getState().loadTasks(projectPath);
+          loadTasks(projectPath);
         },
         completeToDone: task ? () => void completeTask({ projectPath, task }) : undefined,
         trash: async () => {
           await window.api.task.trash(projectPath, taskId!);
-          useProjectStore.getState().loadTasks(projectPath);
+          loadTasks(projectPath);
           useProjectStore.getState().addToast('Task moved to trash', 'success');
         },
       };
 
-      items.push(openInEntry(availableSandboxProviders, hasWorktree, actions));
+      items.push(
+        openInEntry(
+          availableSandboxProviders,
+          hasWorktree,
+          actions,
+          getProjectConfig(projectPath)?.defaultSandbox ?? 'none',
+        ),
+      );
       items.push({ separator: true });
       items.push(moveToEntry(actions));
       if (task?.branch && task.status !== 'done') {
@@ -176,7 +183,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     if (value) {
       if (renameTarget === 'task' && taskId != null) {
         void window.api.task.setName(projectPath, taskId, value).then(() => {
-          useProjectStore.getState().loadTasks(projectPath);
+          loadTasks(projectPath);
         });
       } else {
         renameTerminal(ptyId, value);
@@ -205,7 +212,6 @@ export const TerminalHeader = memo(function TerminalHeader({
       const inst = terminalInstances.get(ptyId);
       if (!inst) return;
       inst.toggleDiffPanel();
-      if (inst.diffPanelOpen) useProjectStore.getState().setKanbanVisible(false);
     },
     [ptyId],
   );
@@ -333,17 +339,16 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   return (
     <TerminalHeaderView
-      summaryType={summaryType}
+      status={status}
       sandboxProvider={sandboxProvider}
       stackPosition={stackPosition}
       isActive={isActive}
       isBackCard={isBackCard}
-      compact={compact}
       nameContent={nameContent}
       tagsContent={tagsContent}
       branchContent={gitFileStatus?.branch ? <BranchCopy branch={gitFileStatus.branch} /> : undefined}
       actions={
-        isActive && !compact ? (
+        isActive ? (
           <PanelControls
             panels={panels}
             activePanelId={activePanelId}

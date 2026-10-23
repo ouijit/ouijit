@@ -11,6 +11,7 @@
 import log from 'electron-log/renderer';
 import type { TaskWithWorkspace } from '../types';
 import { useProjectStore } from '../stores/projectStore';
+import { loadTasks } from '../stores/projectDataStore';
 import { useUIStore } from '../stores/uiStore';
 
 const recoveryLog = log.scope('worktree');
@@ -51,6 +52,6 @@ export async function ensureWorktree(projectPath: string, task: TaskWithWorkspac
   }
 
   recoveryLog.info('worktree recovered', { taskNumber: task.taskNumber, worktreePath: result.worktreePath });
-  void useProjectStore.getState().loadTasksIfActive(projectPath);
+  void loadTasks(projectPath);
   return { path: result.worktreePath, branch: result.task?.branch || task.branch || '' };
 }

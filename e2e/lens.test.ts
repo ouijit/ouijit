@@ -1,5 +1,4 @@
 import { test, expect, createTestRepo, enterProject } from './fixtures';
-import type { Page } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -32,13 +31,6 @@ async function seedLens(
   db.close();
 }
 
-/** Into the project, then into a terminal, which is where the diff panel lives. */
-async function enterProjectTerminal(appPage: Page, repoPath: string): Promise<void> {
-  await enterProject(appPage, repoPath);
-  await appPage.keyboard.press(`${modifier}+t`);
-  await expect(appPage.locator('.kanban-board')).toHaveCount(0, { timeout: 5_000 });
-}
-
 test('the diff panel reads a change through a lens', async ({ appPage, userDataDir }) => {
   test.slow();
   const repo = createTestRepo('lens-project');
@@ -47,7 +39,8 @@ test('the diff panel reads a change through a lens', async ({ appPage, userDataD
     fs.writeFileSync(path.join(repo.repoPath, 'README.md'), '# Test Project\n\nnow with more words\n');
     fs.writeFileSync(path.join(repo.repoPath, 'store.ts'), 'export const rows = [];\n');
 
-    await enterProjectTerminal(appPage, repo.repoPath);
+    // Into a terminal, which is where the diff panel lives.
+    await enterProject(appPage, repo.repoPath);
     await appPage.keyboard.press(`${modifier}+i`);
     await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 10_000 });
 

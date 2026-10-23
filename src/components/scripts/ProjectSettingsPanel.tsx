@@ -1,10 +1,11 @@
 import { useCallback, useEffect } from 'react';
 import { useAppStore } from '../../stores/appStore';
-import { useProjectStore } from '../../stores/projectStore';
+import { loadScripts } from '../../stores/projectDataStore';
 import { useEscape } from '../../hooks/useEscape';
 import { ScriptList } from './ScriptList';
 import { HookList } from './HookList';
 import type { HookEntry } from './HookList';
+import { RemoveProjectRow } from './RemoveProjectRow';
 import { SandboxSection } from './SandboxSection';
 import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
 import { LinearScopeSection } from '../linear/LinearScopeSection';
@@ -36,11 +37,11 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
   const linearEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.linear ?? false);
 
   useEffect(() => {
-    useProjectStore.getState().loadScripts(projectPath);
+    loadScripts(projectPath);
     void useWorktreeSettingsStore.getState().loadFor(projectPath);
   }, [projectPath]);
 
-  useEscape(useCallback(() => useProjectStore.getState().setActivePanel('terminals'), []));
+  useEscape(useCallback(() => useAppStore.getState().leaveSettings(), []));
 
   return (
     <div
@@ -60,7 +61,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               Settings for this project only. Updates, terminal, and sound are set in{' '}
               <button
                 type="button"
-                onClick={() => useAppStore.getState().navigateHome({ panel: 'settings', direction: 'up' })}
+                onClick={() => useAppStore.getState().select({ kind: 'app-settings' })}
                 className="text-accent underline-offset-2 hover:underline outline-none focus-visible:underline"
               >
                 App Settings
@@ -70,7 +71,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
           </div>
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Appearance</h2>
-            <p className="text-xs text-text-tertiary mb-4">How this project looks in the sidebar and home view.</p>
+            <p className="text-xs text-text-tertiary mb-4">How this project looks in the sidebar.</p>
             <IconColorSection projectPath={projectPath} />
           </section>
           <section>
@@ -116,7 +117,9 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
           </section>
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Sandbox</h2>
-            <p className="text-xs text-text-tertiary mb-4">Sandboxes this project can run things in.</p>
+            <p className="text-xs text-text-tertiary mb-4">
+              Where this project runs things, and what a sandbox can reach.
+            </p>
             <SandboxSection projectPath={projectPath} />
           </section>
           {linearEnabled && (
@@ -132,6 +135,9 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               Unstable features that may change or be removed in future releases.
             </p>
             <ExperimentalFeaturesSection projectPath={projectPath} />
+          </section>
+          <section>
+            <RemoveProjectRow projectPath={projectPath} />
           </section>
         </div>
       </div>

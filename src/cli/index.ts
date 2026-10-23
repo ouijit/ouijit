@@ -20,6 +20,10 @@ import { registerPreviewCommands } from './commands/preview';
 import { registerThemeCommands } from './commands/theme';
 import { registerPrCommands } from './commands/pr';
 import { registerLinearCommands } from './commands/linear';
+import { registerTerminalCommands } from './commands/terminal';
+import { registerDiffCommands } from './commands/diff';
+import { registerPanelCommands } from './commands/panel';
+import { registerPointCommands } from './commands/point';
 
 const program = new Command();
 
@@ -35,7 +39,7 @@ Examples:
   ouijit task list
   ouijit task set-status 5 in_review
   ouijit hook set start --name "Install" --command "npm install"
-  ouijit tag add 5 bug
+  ouijit tag add bug
   ouijit pr list`,
   );
 
@@ -48,14 +52,18 @@ function requireProject(): string {
 
 registerTaskCommands(program, requireProject);
 registerHookCommands(program, requireProject);
-registerTagCommands(program, requireProject);
+registerTerminalCommands(program, requireProject);
+registerTagCommands(program);
 registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
 registerSandboxCommands(program, requireProject);
 registerPrCommands(program, requireProject);
 registerLinearCommands(program, requireProject);
+registerDiffCommands(program, requireProject);
 registerMarkdownCommands(program);
 registerPreviewCommands(program);
+registerPanelCommands(program);
+registerPointCommands(program, requireProject);
 registerThemeCommands(program);
 
 // Command actions are async; parse() would let an API rejection surface as an

@@ -30,7 +30,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 LIMA_VM="ouijit-linux-builder"
-NONO_VERSION="0.66.0"
+NONO_VERSION="0.80.0"
 STAGING="${PROJECT_DIR}/out/linux-staging"
 
 echo "==> Building Ouijit for Linux x64"
@@ -49,7 +49,7 @@ mkdir -p "$STAGING"/{node_modules,bin}
 
 # 1a. Download Linux nono
 echo "==> Downloading Linux nono v${NONO_VERSION}..."
-NONO_URL="https://github.com/always-further/nono/releases/download/v${NONO_VERSION}/nono-v${NONO_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+NONO_URL="https://github.com/nolabs-ai/nono/releases/download/v${NONO_VERSION}/nono-v${NONO_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
 NONO_TMP="$(mktemp -d)"
 trap 'rm -rf "$NONO_TMP"' EXIT
 curl -fSL "$NONO_URL" | tar xz -C "$NONO_TMP"

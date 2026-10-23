@@ -1,7 +1,7 @@
 {
   "name": "ouijit",
   "productName": "ouijit",
-  "version": "1.10.3",
+  "version": "1.11.0-beta.3",
   "description": "Discover and manage your local development projects",
   "main": ".vite/build/main.js",
   "bin": {
@@ -65,6 +65,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react-swc": "^4.3.0",
+    "@xterm/headless": "^6.0.0",
     "electron": "39.8.8",
     "esbuild": "^0.25.12",
     "eslint": "^9.39.4",

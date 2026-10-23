@@ -1,11 +1,13 @@
 import type { CSSProperties } from 'react';
 
 interface StatusDotProps {
-  summaryType: string;
+  status: string;
   /** Draws the sandbox ring. The app derives this from its sandbox provider;
    *  the site's demos only need the boolean. */
   sandboxed?: boolean;
   size?: number;
+  /** Finished while you were looking elsewhere. */
+  unread?: boolean;
 }
 
 const COLORS: Record<string, string> = {
@@ -15,9 +17,12 @@ const COLORS: Record<string, string> = {
   error: 'var(--color-error)',
 };
 
-function ThinkingGrid({ color }: { color: string }) {
+function Grid({ color, still }: { color: string; still?: boolean }) {
   return (
-    <span className="status-dot-grid" style={{ '--status-dot-color': color } as CSSProperties}>
+    <span
+      className={`status-dot-grid ${still ? 'status-dot-grid--still' : ''}`}
+      style={{ '--status-dot-color': color } as CSSProperties}
+    >
       <span />
       <span />
       <span />
@@ -26,13 +31,13 @@ function ThinkingGrid({ color }: { color: string }) {
   );
 }
 
-export function StatusDot({ summaryType, sandboxed = false, size = 6 }: StatusDotProps) {
-  const isThinking = summaryType === 'thinking';
-  const background = COLORS[summaryType] ?? COLORS.ready;
+export function StatusDot({ status, sandboxed = false, size = 6, unread }: StatusDotProps) {
+  const isThinking = status === 'thinking';
+  const background = COLORS[status] ?? COLORS.ready;
   return (
     <span
       className="status-dot inline-flex items-center justify-center shrink-0"
-      data-status={summaryType}
+      data-status={unread ? 'unread' : status}
       style={
         {
           '--status-dot-size': `${size}px`,
@@ -42,8 +47,10 @@ export function StatusDot({ summaryType, sandboxed = false, size = 6 }: StatusDo
         } as CSSProperties
       }
     >
-      {isThinking ? (
-        <ThinkingGrid color={background} />
+      {unread ? (
+        <Grid color="var(--color-accent)" still />
+      ) : isThinking ? (
+        <Grid color={background} />
       ) : (
         <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />
       )}

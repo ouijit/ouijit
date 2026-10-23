@@ -16,7 +16,8 @@ export function isAllowedKey(key: string): boolean {
     key.startsWith('ui:') ||
     key.startsWith('worktree:') ||
     key.startsWith('onboarding:') ||
-    key.startsWith('runnerSandbox:')
+    key.startsWith('defaultSandbox:') ||
+    key.startsWith('sandboxCliAccess:')
   );
 }
 

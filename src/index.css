@@ -200,12 +200,6 @@ textarea,
   animation: clone-bar-sweep 1.4s ease-in-out infinite;
 }
 
-@keyframes clone-ring-sweep {
-  to {
-    stroke-dashoffset: -1;
-  }
-}
-
 @keyframes sandbox-icon-pulse {
   0%,
   100% {
@@ -215,100 +209,6 @@ textarea,
   50% {
     color: var(--color-accent-hover);
     opacity: 1;
-  }
-}
-
-/* View transitions for home/project/sub-panel switches, triggered by
-   `withViewTransition` in src/utils/viewTransition.ts. Naming the main content
-   area confines the animation to it; the root snapshot carrying the sidebar and
-   title bar is suppressed so those stay still. */
-.app-content-main {
-  view-transition-name: app-content;
-}
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-}
-/* Default: subtle scale + fade. */
-::view-transition-old(app-content) {
-  animation: 200ms cubic-bezier(0.4, 0, 0.2, 1) both view-transition-old;
-}
-::view-transition-new(app-content) {
-  animation: 200ms cubic-bezier(0.4, 0, 0.2, 1) both view-transition-new;
-}
-@keyframes view-transition-old {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.02);
-  }
-}
-@keyframes view-transition-new {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Directional variants: old content drifts the way navigation went, new
-   content slides in from the opposite side. */
-.view-transition-down::view-transition-old(app-content) {
-  animation: 240ms cubic-bezier(0.4, 0, 0.2, 1) both view-transition-out-up;
-}
-.view-transition-down::view-transition-new(app-content) {
-  animation: 240ms cubic-bezier(0.4, 0, 0.2, 1) both view-transition-in-from-below;
-}
-.view-transition-up::view-transition-old(app-content) {
-  animation: 240ms cubic-bezier(0.4, 0, 0.2, 1) both view-transition-out-down;
-}
-.view-transition-up::view-transition-new(app-content) {
-  animation: 240ms cubic-bezier(0.4, 0, 0.2, 1) both view-transition-in-from-above;
-}
-@keyframes view-transition-out-up {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-24px) scale(0.985);
-  }
-}
-@keyframes view-transition-in-from-below {
-  from {
-    opacity: 0;
-    transform: translateY(24px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-@keyframes view-transition-out-down {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(24px) scale(0.985);
-  }
-}
-@keyframes view-transition-in-from-above {
-  from {
-    opacity: 0;
-    transform: translateY(-24px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 
@@ -412,18 +312,6 @@ textarea,
   animation: onboarding-badge-check 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Sidebar home logo mask — CSS url() resolves relative to this file */
-.sidebar-home-logo-mask {
-  -webkit-mask-image: url('./assets/ouijit-logomark.svg');
-  mask-image: url('./assets/ouijit-logomark.svg');
-  -webkit-mask-size: contain;
-  mask-size: contain;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-}
-
 /* `corner-shape` gives continuous curvature, which is why the radius is larger
    than a circular-arc corner would need at this size. Chromium < 139 has no
    `corner-shape` and falls back to a plain rounded rect. */
@@ -475,6 +363,11 @@ textarea,
    =================================== */
 
 /* One pixel of layout: the catch is a shadow, so it costs no width. */
+.sidebar-resizing,
+.sidebar-resizing * {
+  transition: none !important;
+}
+
 .pane-seam {
   background: var(--seam-cut);
   box-shadow: 1px 0 0 var(--seam-catch);
@@ -683,8 +576,9 @@ textarea,
   transition: border-radius 200ms ease-out;
 }
 
-/* Thinking draws a square grid, so the ring squares off to keep an even gap. */
-.status-dot[data-status='thinking'] {
+/* Thinking and unread draw a square grid, so the ring squares off to keep an even gap. */
+.status-dot[data-status='thinking'],
+.status-dot[data-status='unread'] {
   border-radius: calc(var(--status-dot-size) / 2);
 }
 
@@ -693,6 +587,17 @@ textarea,
     --status-ring-width: 1.5px;
     --status-ring-gap: 1.5px;
   }
+}
+
+/* Rows on screen together read as one block: no notches where they meet. */
+[data-sidebar-row][data-selected]:has(+ [data-sidebar-row][data-selected]) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+[data-sidebar-row][data-selected] + [data-sidebar-row][data-selected] {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
 .status-dot-fill {
@@ -731,6 +636,10 @@ textarea,
 
 .status-dot-grid > span:nth-child(3) {
   animation-delay: calc(var(--status-orbit-duration) * -0.25);
+}
+
+.status-dot-grid--still > span {
+  animation: none;
 }
 
 /* ===================================

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { useGithubStore } from '../../stores/githubStore';
 import { usePanelStore, SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../../stores/panelStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { getProjectTasks, loadTasks, useProjectTasks } from '../../stores/projectDataStore';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { SidebarToggle } from '../common/SidebarToggle';
 import { useAppStore } from '../../stores/appStore';
@@ -160,13 +161,13 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         closeOpenItem();
         return;
       }
-      useProjectStore.getState().setActivePanel('terminals');
-    }, [closeOpenItem]),
+      useAppStore.getState().showProjectTerminals(projectPath);
+    }, [closeOpenItem, projectPath]),
   );
 
   // The maps are built in a memo, not the selector: a selector returning a
   // fresh object never equals the last one and re-renders forever.
-  const tasks = useProjectStore((s) => s.tasks);
+  const tasks = useProjectTasks(projectPath);
   const { issueTasks, prTasks, linearTasks, tasksByNumber } = useMemo(() => {
     const issueTasks: Record<number, TaskWithWorkspace> = {};
     const prTasks: Record<number, TaskWithWorkspace> = {};
@@ -233,11 +234,11 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         useProjectStore.getState().addToast(result.error ?? "Couldn't create the task", 'error');
         return;
       }
-      await useProjectStore.getState().loadTasks(projectPath);
+      await loadTasks(projectPath);
 
       // Offer the jump rather than taking it: creating several tasks from a
       // list of issues in one pass is the common case.
-      const created = useProjectStore.getState().tasks.find((t) => t.taskNumber === result.taskNumber);
+      const created = getProjectTasks(projectPath).find((t) => t.taskNumber === result.taskNumber);
       const from = row.source === 'github' ? `issue ${row.identifier}` : row.identifier;
       useProjectStore.getState().addToast(`Created task #${result.taskNumber} from ${from}`, {
         type: 'success',
@@ -265,7 +266,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     // head, so the worktree carries the PR's commits rather than branching off
     // whatever HEAD is.
     const start = await window.api.task.start(projectPath, result.taskNumber, result.headRef);
-    await useProjectStore.getState().loadTasks(projectPath);
+    await loadTasks(projectPath);
     if (!start.success) {
       useProjectStore
         .getState()

@@ -37,9 +37,9 @@ import Docs from '../../layouts/Docs.astro';
 
   <h2 id="sandbox">Sandbox</h2>
   <p>
-    Start, continue, review, and done each choose where they run: on the host, or in a
-    <a href="/docs/sandbox/">sandbox</a>. An agent started with permission checks off can run sandboxed while a
-    deterministic done script stays on the host. The hook dialog shows the setting and can change it for one run.
+    Start, continue, review, and done run in the project's default <a href="/docs/sandbox/">sandbox</a> setting
+    unless a hook is set to run somewhere else, such as a done script that pushes from the host. The hook dialog
+    shows where it will run and can change that for one run.
   </p>
 
   <h2 id="hook-environment">Hook environment</h2>
@@ -47,6 +47,7 @@ import Docs from '../../layouts/Docs.astro';
   <pre class="glass-bevel"><code>OUIJIT_PROJECT_PATH=/path/to/my-project
 OUIJIT_WORKTREE_PATH=~/Ouijit/worktrees/my-project/T-42
 OUIJIT_TASK_BRANCH=T-42
+OUIJIT_TASK_NUMBER=42
 OUIJIT_TASK_NAME="Add user auth"
 OUIJIT_TASK_DESCRIPTION="implement oauth login"
 OUIJIT_HOOK_TYPE=start</code></pre>

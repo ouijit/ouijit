@@ -4,9 +4,9 @@ import { CombinedHookConfigDialog } from '../../components/dialogs/CombinedHookC
 import { HookConfigDialog } from '../../components/dialogs/HookConfigDialog';
 import { OnboardingPanel } from '../../components/kanban/OnboardingPanel';
 import { useAppStore } from '../../stores/appStore';
-import { useProjectStore } from '../../stores/projectStore';
 import type { HealthStatus } from '../../healthCheck';
 import type { TaskWithWorkspace } from '../../types';
+import { seedProject } from './seedProject';
 
 const openCodeOnly: HealthStatus = {
   git: true,
@@ -22,11 +22,7 @@ const openCodeOnly: HealthStatus = {
 test('hook examples use opencode when claude is not installed', async () => {
   const startCommand = 'opencode --prompt "complete the current task and move it into in review"';
   useAppStore.setState({ health: openCodeOnly, onboardingSoftDismissed: false });
-  useProjectStore.setState({
-    tasks: [{ taskNumber: 1, status: 'todo' } as TaskWithWorkspace],
-    hooks: {},
-    configProjectPath: '/project',
-  });
+  seedProject('/project', { tasks: [{ taskNumber: 1, status: 'todo' } as TaskWithWorkspace], hooks: {} });
   vi.mocked(window.api.globalSettings.get).mockResolvedValueOnce(
     JSON.stringify({
       version: 1,

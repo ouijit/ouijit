@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import type { HookType, ProjectHooks, ScriptHook } from '../../types';
-import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
+import { SANDBOX_LABELS } from '../../types';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { HookRowView } from './HookRowView';
-import { useProjectStore } from '../../stores/projectStore';
+import { useProjectConfig } from '../../stores/projectDataStore';
 
 const NO_HOOKS: ProjectHooks = {};
 
@@ -21,7 +21,7 @@ interface HookListProps {
 }
 
 export function HookList({ projectPath, hooks: hookEntries, bare }: HookListProps) {
-  const hooks = useProjectStore((s) => (s.configProjectPath === projectPath ? s.hooks : NO_HOOKS));
+  const hooks = useProjectConfig(projectPath)?.hooks ?? NO_HOOKS;
   const [editingHook, setEditingHook] = useState<{ hookType: HookType; existing?: ScriptHook } | null>(null);
 
   const rows = hookEntries.map(({ type, label, description }) => {
@@ -32,7 +32,7 @@ export function HookList({ projectPath, hooks: hookEntries, bare }: HookListProp
         label={label}
         description={description}
         command={hook?.command}
-        sandboxLabel={isActiveSandbox(hook?.sandbox) ? SANDBOX_BACKEND_LABELS[hook.sandbox] : undefined}
+        sandboxLabel={hook?.sandbox ? SANDBOX_LABELS[hook.sandbox] : undefined}
         onAction={() => setEditingHook({ hookType: type, existing: hook })}
       />
     );

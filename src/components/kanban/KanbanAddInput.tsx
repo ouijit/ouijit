@@ -4,7 +4,9 @@ import {
   type DescriptionChipEditorHandle,
   type DescriptionEditorMetrics,
 } from './DescriptionChipEditor';
+import { createAndStartTask } from '../../services/taskStartService';
 import { TaskComposerSheet } from './TaskComposerSheet';
+import { ComposerProjectPicker } from './ComposerProjectPicker';
 import { Icon } from '../terminal/Icon';
 import { Tooltip } from '../ui/Tooltip';
 import { useAppStore } from '../../stores/appStore';
@@ -52,7 +54,9 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
   // board isn't on screen, so it has to outlive this component.
   const name = useComposerStore((s) => s.draft.name);
   const description = useComposerStore((s) => s.draft.description);
-  const sheetOpen = useComposerStore((s) => s.sheetOpen);
+  const boardProject = useAppStore((s) => s.activeProjectPath);
+  // A sheet for another project is the main view's to render.
+  const sheetOpen = useComposerStore((s) => s.sheetOpen && s.sheetProjectPath === null);
   const sheetCaret = useComposerStore((s) => s.sheetCaret);
   const setName = useComposerStore((s) => s.setName);
   const setDescription = useComposerStore((s) => s.setDescription);
@@ -139,6 +143,18 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     setActive(true);
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [name, description, onAdd]);
+
+  const startTask = useCallback(() => {
+    const trimmedName = name.trim();
+    if (!trimmedName || !boardProject) return;
+    useComposerStore.getState().closeSheet();
+    void createAndStartTask(boardProject, trimmedName, description.trim() || undefined).then((created) => {
+      if (!created) return;
+      useComposerStore.getState().clearDraft();
+      editorRef.current?.setValue('');
+      setActive(false);
+    });
+  }, [name, description, boardProject]);
 
   const expand = useCallback(() => {
     useComposerStore.getState().openSheet(editorRef.current?.getCaret() ?? null);
@@ -353,8 +369,8 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
               </button>
             </Tooltip>
           </div>
-          {/* DOM order is [Create, Discard] so Tab from the description lands
-              on Create first; flex-row-reverse keeps Discard on the visual left.
+          {/* DOM order is [Create, Start, Discard] so Tab from the description
+              lands on Create first; flex-row-reverse keeps Discard on the visual left.
               No bottom rule: this row is the column's bottom edge now. */}
           <div className="flex flex-row-reverse items-center justify-start gap-2 px-2 py-1.5">
             <button
@@ -365,6 +381,14 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             >
               Create
               <SubmitHint withModifier={focusedField === 'description'} />
+            </button>
+            <button
+              type="button"
+              onClick={startTask}
+              disabled={!canSubmit || !boardProject}
+              className="kanban-add-button text-accent hover:bg-accent/10 disabled:text-text-tertiary"
+            >
+              Start
             </button>
             <button
               type="button"
@@ -392,8 +416,10 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
           }}
           onAttachFile={resolveAttachmentPath}
           onSubmit={submit}
+          onStart={startTask}
           onCollapse={collapseSheet}
           onDiscard={discard}
+          projectPicker={boardProject && <ComposerProjectPicker projectPath={boardProject} />}
         />
       )}
     </div>

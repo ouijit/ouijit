@@ -18,9 +18,9 @@ export function CloningProjectView() {
 
   const dismiss = () => {
     setBusy(true);
-    // Home before the cancel, not after it: dropping the job while its path is
-    // still the active one puts the project view on a folder that is not there.
-    useAppStore.getState().navigateHome();
+    // Away before the cancel, not after it: dropping the job while its path is
+    // still the active one puts a project page on a folder that is not there.
+    useAppStore.getState().select({ kind: 'none' });
     void window.api.cancelClone(job.projectPath);
   };
 
