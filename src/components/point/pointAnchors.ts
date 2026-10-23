@@ -1,6 +1,4 @@
-/** Finding, on screen, the element a pointer should land on. */
-
-import type { AnchorEntry } from './pointKeys';
+/** Finding, on screen, the sidebar row a pointer should land on. */
 
 function clips(el: HTMLElement): boolean {
   const { overflowX, overflowY } = getComputedStyle(el);
@@ -20,42 +18,27 @@ export function isShown(el: HTMLElement): boolean {
   return true;
 }
 
-function matches(entry: AnchorEntry): HTMLElement[] {
-  const selector =
-    typeof entry === 'string'
-      ? `[data-point-target~="${entry}"]`
-      : `[data-point-file~="${entry.file}"] [data-new-line="${entry.line}"]`;
-  return [...document.querySelectorAll<HTMLElement>(selector)];
-}
-
 export interface Anchor {
   el: HTMLElement;
-  /** How far down the chain it was found: 0 is the target itself. */
+  /** How far down the chain it was found: 0 is the first row asked for. */
   depth: number;
-  side: 'right' | 'left' | 'below';
 }
 
-/**
- * The first key in `chain` that something on screen answers to. Where both the
- * sidebar and the main area show it, as a task's row and its board card do,
- * the main area's wins: it is the one the user is looking at.
- */
-export function findAnchor(chain: AnchorEntry[]): Anchor | null {
-  for (const [depth, entry] of chain.entries()) {
-    const shown = matches(entry).filter(isShown);
-    if (shown.length === 0) continue;
-    const el = shown.find((candidate) => !candidate.closest('aside[aria-label="Sidebar"]')) ?? shown[0];
-    const side = typeof entry === 'string' ? ((el.dataset.pointSide as Anchor['side'] | undefined) ?? 'right') : 'left';
-    return { el, depth, side };
+/** The first key in `chain` that a row on screen answers to. */
+export function findAnchor(chain: string[]): Anchor | null {
+  for (const [depth, key] of chain.entries()) {
+    const el = [...document.querySelectorAll<HTMLElement>(`[data-point-target~="${key}"]`)].find(isShown);
+    if (el) return { el, depth };
   }
   return null;
 }
 
-/** Scroll the target itself into view once it renders, giving up after a second. */
-export function revealWhenShown(key: AnchorEntry): void {
+/** Scroll a line of an opening diff into view once it renders, giving up after a second. */
+export function revealDiffLine(path: string, line: number): void {
+  const selector = `[data-path="${CSS.escape(path)}"] [data-new-line="${line}"]`;
   const deadline = performance.now() + 1000;
   const look = () => {
-    const el = matches(key)[0];
+    const el = document.querySelector(selector);
     if (el) {
       el.scrollIntoView({ block: 'center', inline: 'nearest' });
       return;

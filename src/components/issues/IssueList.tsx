@@ -6,10 +6,8 @@ import { Icon } from '../terminal/Icon';
 import { Avatar } from './Avatar';
 import { since } from './since';
 import { Group, rowActionClass, rowClass, rowTitleClass, TaskLink } from './rows';
-import { pointKey } from '../point/pointKeys';
 
 interface IssueListProps {
-  projectPath: string;
   groups: IssueGroup[];
   /** Filters what is loaded rather than querying, so a capped group stays honest. */
   query: string;
@@ -28,17 +26,7 @@ interface IssueListProps {
  * is named for what it answers rather than for who answered it, so an `ENG-231`
  * and a `#299` sit in one `Assigned to you`.
  */
-export function IssueList({
-  projectPath,
-  groups,
-  query,
-  open,
-  tasks,
-  onOpen,
-  onOpenTask,
-  onCreateTask,
-  loading,
-}: IssueListProps) {
+export function IssueList({ groups, query, open, tasks, onOpen, onOpenTask, onCreateTask, loading }: IssueListProps) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return groups.map((group) => ({
@@ -69,7 +57,6 @@ export function IssueList({
               key={`${row.source}:${row.key}`}
               row={row}
               task={row.taskNumber != null ? tasks[row.taskNumber] : undefined}
-              pointTarget={pointKey.issue(projectPath, row.source === 'linear' ? row.identifier : row.key)}
               active={isRowOpen(open, row)}
               onOpen={() => onOpen(row)}
               onOpenTask={onOpenTask}
@@ -83,7 +70,6 @@ export function IssueList({
 }
 
 function Row({
-  pointTarget,
   row,
   task,
   active,
@@ -91,7 +77,6 @@ function Row({
   onOpenTask,
   onCreateTask,
 }: {
-  pointTarget: string;
   row: IssueRow;
   task?: TaskWithWorkspace;
   active: boolean;
@@ -100,7 +85,7 @@ function Row({
   onCreateTask: () => void;
 }) {
   return (
-    <div className={rowClass(active)} data-point-target={pointTarget}>
+    <div className={rowClass(active)}>
       <button type="button" className={rowTitleClass} onClick={onOpen}>
         <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">{row.title}</span>
         <span className="shrink-0 text-[13px] text-text-tertiary">{since(row.updatedAt)}</span>

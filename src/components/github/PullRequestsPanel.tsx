@@ -388,7 +388,6 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     <PanelFrame>
       {!sidebarCollapsed && (
         <PullRequestSidebar
-          projectPath={projectPath}
           needsReview={inbox?.needsReview ?? []}
           mine={inbox?.mine ?? []}
           others={inbox?.others ?? []}
@@ -410,7 +409,6 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
                 <ConnectRow projectPath={projectPath} availability={linearAvailability} />
               )}
               <IssueList
-                projectPath={projectPath}
                 groups={listGroups}
                 query={query}
                 open={open}

@@ -7,10 +7,8 @@ import { Tab, TabBar } from '../issues/Tabs';
 import { since } from '../issues/since';
 import { Group, rowClass, rowTitleClass, TaskLink } from '../issues/rows';
 import { stateBadge } from './prFormat';
-import { pointKey } from '../point/pointKeys';
 
 interface PullRequestSidebarProps {
-  projectPath: string;
   needsReview: PullRequestSummary[];
   mine: PullRequestSummary[];
   others: PullRequestSummary[];
@@ -44,7 +42,6 @@ const PULL_GROUPS = [
  * already loaded, with no round trip.
  */
 export function PullRequestSidebar({
-  projectPath,
   needsReview,
   mine,
   others,
@@ -140,7 +137,6 @@ export function PullRequestSidebar({
               {groups[key].map((pr) => (
                 <PullRequestRow
                   key={pr.number}
-                  pointTarget={pointKey.pr(projectPath, pr.number)}
                   pr={pr}
                   drafts={draftCounts[pr.number] ?? 0}
                   task={prTasks[pr.number]}
@@ -158,7 +154,6 @@ export function PullRequestSidebar({
 }
 
 function PullRequestRow({
-  pointTarget,
   pr,
   drafts,
   task,
@@ -166,7 +161,6 @@ function PullRequestRow({
   onOpen,
   onOpenTask,
 }: {
-  pointTarget: string;
   pr: PullRequestSummary;
   drafts: number;
   task?: TaskWithWorkspace;
@@ -176,7 +170,7 @@ function PullRequestRow({
 }) {
   const badge = stateBadge(pr);
   return (
-    <div className={rowClass(active)} data-point-target={pointTarget}>
+    <div className={rowClass(active)}>
       <button type="button" className={rowTitleClass} onClick={onOpen}>
         <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">{pr.title}</span>
         <span className="shrink-0 text-[13px] text-text-tertiary">{since(pr.updatedAt)}</span>

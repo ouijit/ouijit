@@ -28,27 +28,18 @@ function layOut(): void {
 const PROJECT = '/code/alpha';
 const task = { taskNumber: 14, name: 'Rate limit login', status: 'in_progress', createdAt: '' } as TaskWithWorkspace;
 
-function Screen({ board = true, rows = true }: { board?: boolean; rows?: boolean }) {
+function Screen({ rows = true }: { rows?: boolean }) {
   return (
-    <>
-      <aside aria-label="Sidebar" data-rect="0,0,268,800">
-        <div data-point-target={pointKey.project(PROJECT)} data-rect="10,50,248,30">
-          alpha
+    <aside aria-label="Sidebar" data-rect="0,0,268,800">
+      <div data-point-target={pointKey.project(PROJECT)} data-rect="10,50,248,30">
+        alpha
+      </div>
+      {rows && (
+        <div data-point-target={pointKey.task(PROJECT, 14)} data-rect="10,122,248,34">
+          Rate limit login
         </div>
-        {rows && (
-          <div data-point-target={pointKey.task(PROJECT, 14)} data-rect="10,122,248,34">
-            Rate limit login
-          </div>
-        )}
-      </aside>
-      <main data-rect="268,0,1012,800">
-        {board && (
-          <div data-point-target={pointKey.task(PROJECT, 14)} data-rect="534,172,230,64">
-            card
-          </div>
-        )}
-      </main>
-    </>
+      )}
+    </aside>
   );
 }
 
@@ -79,7 +70,7 @@ afterEach(() => {
 });
 
 describe('a pointer on screen', () => {
-  test('lands on the main area over the sidebar, stands in on what holds a hidden target until followed there, and counts pointers', async () => {
+  test('lands on its sidebar row, or the row holding it, counts pointers, and is labelled by its message', async () => {
     const { rerender } = render(
       <>
         <Screen />
@@ -92,14 +83,14 @@ describe('a pointer on screen', () => {
         .point({ from: 'pty-agent', target: { kind: 'task', projectPath: PROJECT, taskNumber: 14 } }),
     );
 
-    // The board card, not the sidebar row: its right edge, overlapping it a little.
-    await waitFor(() => expect(ribbon().style.left).toBe('758px'));
+    // The row's right edge, overlapping it a little.
+    await waitFor(() => expect(ribbon().style.left).toBe('252px'));
     expect(ribbon().getAttribute('aria-label')).toBe('Follow Fix auth timeout, which points here');
 
-    // With the board gone and the project folded, the project's header stands in, naming what is really meant.
+    // With the project folded, its header stands in, naming what is really meant.
     rerender(
       <>
-        <Screen board={false} rows={false} />
+        <Screen rows={false} />
         <PointerLayer />
       </>,
     );
@@ -108,7 +99,7 @@ describe('a pointer on screen', () => {
     );
     expect(ribbon().style.top).toBe(`${50 + 15 - 12}px`);
 
-    // A second agent at the same thing: one ribbon, counting both, each listed on hover.
+    // A second agent at the same row: one mark, counting both, each listed on hover.
     act(() =>
       usePointerStore.getState().point({ from: 'pty-other', target: { kind: 'project', projectPath: PROJECT } }),
     );
@@ -147,13 +138,11 @@ describe('a pointer on screen', () => {
       expect(ribbon().getAttribute('aria-label')).toBe('Follow Now with tests, from Fix auth timeout'),
     );
 
-    // Following a ribbon that stands in keeps it, to land on the real thing; a second follow drops it regardless.
+    // Following goes there and drops it.
     window.api.task.getAll = vi.fn().mockResolvedValue([task]);
     fireEvent.click(ribbon());
     await waitFor(() => expect(useAppStore.getState().selection).toEqual(expect.objectContaining({ page: 'board' })));
-    expect(usePointerStore.getState().pointers.map((p) => p.from)).toEqual(['pty-agent']);
-    fireEvent.click(ribbon());
-    await waitFor(() => expect(usePointerStore.getState().pointers).toEqual([]));
+    expect(usePointerStore.getState().pointers).toEqual([]);
   });
 
   test('is followed by a click or ⌘J, and goes when the terminal that pointed closes', async () => {

@@ -4,8 +4,7 @@ import { closeProjectTerminal } from './terminalActions';
 import { terminalInstances } from './terminalRegistry';
 import { TerminalHeader } from './TerminalHeader';
 import { TerminalBody } from './TerminalBody';
-import { TerminalCardView, STACK_PEEK } from './TerminalCardView';
-import { pointKey } from '../point/pointKeys';
+import { TerminalCardView } from './TerminalCardView';
 
 interface TerminalCardProps {
   ptyId: string;
@@ -19,12 +18,8 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, depth, stackPosi
   const isLoading = useTerminalStore((s) => s.displayStates[ptyId]?.isLoading ?? false);
   const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
   const projectPath = useTerminalStore((s) => s.displayStates[ptyId]?.projectPath ?? '');
-  const taskId = useTerminalStore((s) => s.displayStates[ptyId]?.taskId ?? null);
   const isFront = depth === 0;
   const [hovered, setHovered] = useState(false);
-  const pointKeys = [pointKey.terminal(ptyId), ...(taskId != null ? [pointKey.task(projectPath, taskId)] : [])].join(
-    ' ',
-  );
 
   useEffect(() => {
     if (!isFront || isLoading) return;
@@ -46,20 +41,10 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, depth, stackPosi
       backDepth={depth}
       hoverLift={!isFront && hovered ? 4 : 0}
       ptyId={ptyId}
-      pointTarget={isFront ? pointKeys : undefined}
       onClick={handleClick}
       onMouseEnter={() => !isFront && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* A card behind shows only the strip above the one in front of it. Positioned
-          inline: `.glass-bevel > *` makes every child of the card relative. */}
-      {!isFront && (
-        <div
-          className="pointer-events-none"
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: STACK_PEEK }}
-          data-point-target={pointKeys}
-        />
-      )}
       {isLoading ? (
         <LoadingContents label={label || 'New task'} isFront={isFront} />
       ) : (

@@ -22,8 +22,6 @@ const EMPTY_METRICS: DescriptionEditorMetrics = { overflowing: false, atTop: tru
 
 export interface KanbanCardViewProps {
   task: TaskWithWorkspace;
-  /** What a pointer at this card is pointing at: see `pointKey`. */
-  pointTarget?: string;
   connectedDisplays?: TerminalDisplayState[];
   isSettingUp?: boolean;
   isSelected?: boolean;
@@ -76,7 +74,6 @@ export interface KanbanCardViewProps {
  */
 export const KanbanCardView = memo(function KanbanCardView({
   task,
-  pointTarget,
   connectedDisplays = [],
   isSettingUp = false,
   isSelected = false,
@@ -262,7 +259,6 @@ export const KanbanCardView = memo(function KanbanCardView({
   return (
     <div
       className="kanban-card group px-3 py-3.5 ease-out [-webkit-app-region:no-drag] hover:bg-black/10 active:bg-black/[0.12]"
-      data-point-target={pointTarget}
       style={{
         background: isSelected
           ? 'color-mix(in srgb, var(--color-accent) 6%, transparent)'

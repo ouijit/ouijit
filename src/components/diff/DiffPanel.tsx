@@ -38,7 +38,6 @@ import type { DiffLensTarget } from '../../lens/worktreeSubject';
 import { toggleIn } from '../../utils/toggleIn';
 import { useAnalysisSignals } from '../../hooks/useAnalysisSignals';
 import { AnalysisChip, AnalysisRailDot, worthAChip } from './AnalysisChip';
-import { pointKey } from '../point/pointKeys';
 
 interface DiffPanelProps {
   ptyId: string;
@@ -208,13 +207,12 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
                 onDiscard={() => notes.discard(note.id)}
               />
             ) : (
-              <div key={note.id} data-point-target={pointKey.note(ptyId, note.id)} data-point-side="left">
-                <InlineCommentCard
-                  label={`Note · ${describeAnchor(note)}`}
-                  body={note.body}
-                  onClick={() => notes.setEditingId(note.id)}
-                />
-              </div>
+              <InlineCommentCard
+                key={note.id}
+                label={`Note · ${describeAnchor(note)}`}
+                body={note.body}
+                onClick={() => notes.setEditingId(note.id)}
+              />
             ),
           )}
           {composing && (
@@ -240,7 +238,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
         </div>
       );
     },
-    [notes, ptyId],
+    [notes],
   );
 
   const hasNotes = notes.notes.length > 0 || notes.composingAt !== null;
@@ -311,7 +309,6 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
       >
         <DiffFileSection
           path={file.path}
-          pointTarget={pointKey.diffFile(ptyId, file.path)}
           status={file.status}
           additions={changes.additions}
           deletions={changes.deletions}

@@ -4,24 +4,21 @@ import { useAppStore } from '../../stores/appStore';
 import { latestPointer, usePointerStore, type Pointer } from '../../stores/pointerStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { Icon } from '../terminal/Icon';
-import { anchorChain, describeTarget, targetAlive, type PointWorld } from './pointKeys';
+import { anchorChain, describeTarget, hasOwnRow, targetAlive, type PointWorld } from './pointKeys';
 import { findAnchor } from './pointAnchors';
 import { followPointer } from './followPointer';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const FOLLOW_KEYS = isMac ? '⌘J' : 'Ctrl+J';
 
-type Side = 'right' | 'left' | 'below';
-
 interface Placed {
   pointer: Pointer;
-  /** 0 when the ribbon is on the pointer's target itself, more when it stands on something holding it. */
-  depth: number;
+  /** Whether the row it sits on is its target's own, not the row of something holding it. */
+  own: boolean;
 }
 
 interface Placement {
   id: number;
-  side: Side;
   rect: { top: number; left: number; right: number; bottom: number; width: number; height: number };
   placed: Placed[];
 }
@@ -47,17 +44,17 @@ function place(pointers: Pointer[]): Placement[] {
   for (const pointer of pointers) {
     const anchor = findAnchor(anchorChain(pointer.target, w));
     if (!anchor) continue;
+    const own = anchor.depth === 0 && hasOwnRow(pointer.target);
     const existing = byElement.get(anchor.el);
     if (existing) {
-      existing.placed.push({ pointer, depth: anchor.depth });
+      existing.placed.push({ pointer, own });
       continue;
     }
     const r = anchor.el.getBoundingClientRect();
     byElement.set(anchor.el, {
       id: idOf(anchor.el),
-      side: anchor.side,
       rect: { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height },
-      placed: [{ pointer, depth: anchor.depth }],
+      placed: [{ pointer, own }],
     });
   }
   return [...byElement.values()];
@@ -82,7 +79,7 @@ function usePrunePointers(): void {
   }, []);
 }
 
-/** Where each ribbon sits, re-measured every frame while there are any, since rows scroll and cards move. */
+/** Where each pointer sits, re-measured every frame while there are any, since rows scroll and fold. */
 function usePlacements(pointers: Pointer[]): Placement[] {
   const [placements, setPlacements] = useState<Placement[]>([]);
   const last = useRef('');
@@ -96,7 +93,7 @@ function usePlacements(pointers: Pointer[]): Placement[] {
     const tick = () => {
       const next = place(pointers);
       const signature = JSON.stringify(
-        next.map((p) => [p.id, p.rect, p.placed.map((x) => [x.pointer.from, x.pointer.at, x.depth])]),
+        next.map((p) => [p.id, p.rect, p.placed.map((x) => [x.pointer.from, x.pointer.at, x.own])]),
       );
       if (signature !== last.current) {
         last.current = signature;
@@ -127,65 +124,31 @@ function useFollowShortcut(): void {
 
 const SIZE = 24;
 const OVERLAP = 6;
-const EDGE = 8;
 
-/** The side asked for, unless the pointer would leave the window there. */
-function fittedSide(p: Placement): Side {
-  if (p.side === 'right' && p.rect.right - OVERLAP + SIZE > window.innerWidth - EDGE) return 'left';
-  if (p.side === 'left' && p.rect.left + OVERLAP - SIZE < EDGE) return 'right';
-  return p.side;
-}
-
-const ARROWS: Record<Side, string> = {
-  below: 'M8 13V3M4 7l4-4 4 4',
-  left: 'M3 8h10M9 4l4 4-4 4',
-  right: 'M13 8H3M7 4L3 8l4 4',
-};
-
-/** A circle on the target's edge, overlapping it a little, its arrow toward it. */
-function ribbonBox(p: Placement): { style: React.CSSProperties; arrow: string; side: Side } {
-  const { rect } = p;
-  const side = fittedSide(p);
-  const middleY = rect.top + rect.height / 2 - SIZE / 2;
-  const position =
-    side === 'below'
-      ? { left: rect.left + rect.width / 2 - SIZE / 2, top: rect.bottom - OVERLAP }
-      : side === 'left'
-        ? { left: rect.left - SIZE + OVERLAP, top: middleY }
-        : { left: rect.right - OVERLAP, top: middleY };
+/** A circle on the row's right edge, overlapping it a little, its arrow toward it. */
+function markStyle(rect: Placement['rect']): React.CSSProperties {
   return {
-    style: { ...position, width: SIZE, height: SIZE, borderRadius: '50%', justifyContent: 'center' },
-    arrow: ARROWS[side],
-    side,
+    left: rect.right - OVERLAP,
+    top: rect.top + rect.height / 2 - SIZE / 2,
+    width: SIZE,
+    height: SIZE,
+    borderRadius: '50%',
+    justifyContent: 'center',
   };
-}
-
-/** Beside the ribbon, on whichever side of it the window has more room. */
-function cardPosition(side: Side, ribbon: React.CSSProperties): React.CSSProperties {
-  const left = Number(ribbon.left);
-  const right = left + Number(ribbon.width);
-  const top = Number(ribbon.top);
-  const roomLeft = left > window.innerWidth - right;
-  if (side === 'below') {
-    const below = top + Number(ribbon.height) + 6;
-    return roomLeft ? { right: window.innerWidth - right - 8, top: below } : { left: left - 8, top: below };
-  }
-  return roomLeft ? { right: window.innerWidth - left + 6, top: top - 6 } : { left: right + 6, top: top - 6 };
 }
 
 const ROW =
   'w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left flex items-center gap-2 whitespace-nowrap hover:bg-ink/[0.08]';
 
-function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer | undefined }) {
+function Mark({ placement, latest }: { placement: Placement; latest: Pointer | undefined }) {
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const displays = useTerminalStore((s) => s.displayStates);
   const { placed } = placement;
-  const { style, arrow, side } = ribbonBox(placement);
+  const style = markStyle(placement.rect);
   const newest = placed.find((x) => x.pointer === latestPointer(placed.map((y) => y.pointer)))!;
   const w = world();
-  const where = ({ pointer, depth }: Placed) =>
-    depth === 0 ? 'points here' : `points to ${describeTarget(pointer.target, w)}`;
+  const where = ({ pointer, own }: Placed) => (own ? 'points here' : `points to ${describeTarget(pointer.target, w)}`);
   const fromName = (p: Pointer) => displays[p.from]?.label ?? 'A terminal';
   const label = (x: Placed) =>
     x.pointer.message
@@ -215,7 +178,13 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
           <span>{placed.length}</span>
         ) : (
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d={arrow} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M13 8H3M7 4L3 8l4 4"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         )}
       </button>
@@ -225,7 +194,8 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
           aria-label="Pointers"
           className="fixed z-[10003] p-1 glass-bevel border border-bezel rounded-[12px] min-w-[200px] max-w-[320px]"
           style={{
-            ...cardPosition(side, style),
+            left: Number(style.left) + SIZE + 6,
+            top: Number(style.top) - 6,
             background: 'var(--color-terminal-bg)',
             boxShadow: 'var(--shadow-menu)',
           }}
@@ -240,7 +210,7 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
                     <span className="text-[13px] leading-snug">{x.pointer.message}</span>
                     <span className="text-text-tertiary">
                       {fromName(x.pointer)}
-                      {x.depth > 0 && ` · on ${describeTarget(x.pointer.target, w)}`}
+                      {!x.own && ` · on ${describeTarget(x.pointer.target, w)}`}
                     </span>
                   </span>
                 ) : (
@@ -270,7 +240,7 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
   );
 }
 
-/** Every agent's pointer, as a ribbon on what it points at. */
+/** Every agent's pointer, as a mark on the sidebar row of what it points at. */
 export function PointerLayer() {
   const pointers = usePointerStore((s) => s.pointers);
   usePrunePointers();
@@ -280,7 +250,7 @@ export function PointerLayer() {
   return createPortal(
     <>
       {placements.map((p) => (
-        <Ribbon key={p.id} placement={p} latest={latest} />
+        <Mark key={p.id} placement={p} latest={latest} />
       ))}
     </>,
     document.body,

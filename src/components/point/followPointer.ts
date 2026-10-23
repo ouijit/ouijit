@@ -6,8 +6,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { usePanelStore } from '../../stores/panelStore';
 import { usePointerStore, type Pointer } from '../../stores/pointerStore';
-import { anchorChain } from './pointKeys';
-import { findAnchor, revealWhenShown } from './pointAnchors';
+import { revealDiffLine } from './pointAnchors';
 import { stackMembers, stackOf, useTerminalStore } from '../../stores/terminalStore';
 import type { PointTarget } from '../../types';
 
@@ -59,25 +58,18 @@ async function go(target: PointTarget): Promise<void> {
 }
 
 /**
- * Go where the pointer points. A pointer whose ribbon is on its target is
- * done with and goes; one standing in on what holds the target stays, so the
- * ribbon lands on the line or card it meant once that is on screen. A move
- * waiting on the pointer runs instead of going: its dialog opens over wherever
- * the user is, and its hook opens the terminal.
+ * Go where the pointer points, and drop it. A move waiting on the pointer
+ * runs instead of going: its dialog opens over wherever the user is, and its
+ * hook opens the terminal.
  */
-export async function followPointer(followed: Pointer): Promise<void> {
-  const pointer = usePointerStore.getState().pointers.find((p) => p.from === followed.from) ?? followed;
-  const chain = anchorChain(pointer.target, {
-    displays: useTerminalStore.getState().displayStates,
-    tasksByProject: useAppStore.getState().taskCacheByProject,
-  });
-  const done = pointer.then || pointer.followed || findAnchor(chain)?.depth === 0;
-  if (done) usePointerStore.getState().dismiss(pointer.from);
-  else usePointerStore.getState().markFollowed(pointer.from);
+export async function followPointer(pointer: Pointer): Promise<void> {
+  usePointerStore.getState().dismiss(pointer.from);
   if (pointer.then) {
     pointer.then();
     return;
   }
   await go(pointer.target);
-  revealWhenShown(chain[0]);
+  if (pointer.target.kind === 'diff' && pointer.target.line != null) {
+    revealDiffLine(pointer.target.path, pointer.target.line);
+  }
 }

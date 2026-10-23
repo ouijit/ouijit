@@ -1,8 +1,9 @@
 /**
- * Where a pointer lands. Anything a pointer can land on carries
- * `data-point-target`: space-separated keys, one element answering for several
- * targets (a task's only terminal is its task's row too). Paths are
- * percent-encoded so a key never holds a space or a quote.
+ * Where a pointer lands: always a row in the sidebar, never the board,
+ * terminals or diff the user is working in. A row carries `data-point-target`,
+ * space-separated keys, one row answering for several targets (a task's only
+ * terminal is its task's row too). Paths are percent-encoded so a key never
+ * holds a space or a quote.
  */
 
 import type { PointTarget, TaskWithWorkspace } from '../../types';
@@ -15,19 +16,7 @@ export const pointKey = {
   terminal: (ptyId: string) => `terminal:${enc(ptyId)}`,
   project: (projectPath: string) => `project:${enc(projectPath)}`,
   board: (projectPath: string) => `board:${enc(projectPath)}`,
-  pr: (projectPath: string, number: number) => `pr:${enc(projectPath)}:${number}`,
-  issue: (projectPath: string, id: string) => `issue:${enc(projectPath)}:${enc(id)}`,
-  panel: (ptyId: string, panelId: string) => `panel:${enc(ptyId)}:${enc(panelId)}`,
-  diffFile: (ptyId: string, path: string) => `diff:${enc(ptyId)}:${enc(path)}`,
-  diffButton: (ptyId: string) => `diff-button:${enc(ptyId)}`,
-  note: (ptyId: string, noteId: string) => `note:${enc(ptyId)}:${enc(noteId)}`,
 };
-
-/**
- * A key, or a diff line: lines carry only their number, so one is found inside
- * the file section answering to `file`.
- */
-export type AnchorEntry = string | { file: string; line: number };
 
 export interface PointWorld {
   displays: Record<string, TerminalDisplayState>;
@@ -50,10 +39,10 @@ function terminalChain(world: PointWorld, ptyId: string): string[] {
 }
 
 /**
- * The keys to look for, nearest first: the target itself, then what holds it,
- * so a target folded away or off on another page still has a ribbon.
+ * The rows to look for, nearest first. A target deeper than a row lands on the
+ * row of what holds it, and a row folded away gives way to its project's.
  */
-export function anchorChain(target: PointTarget, world: PointWorld): AnchorEntry[] {
+export function anchorChain(target: PointTarget, world: PointWorld): string[] {
   switch (target.kind) {
     case 'task':
       return [pointKey.task(target.projectPath, target.taskNumber), pointKey.project(target.projectPath)];
@@ -65,13 +54,11 @@ export function anchorChain(target: PointTarget, world: PointWorld): AnchorEntry
       return [pointKey.board(target.projectPath), pointKey.project(target.projectPath)];
     case 'pr':
       return [
-        pointKey.pr(target.projectPath, target.number),
         ...linkedTask(world, target.projectPath, (t) => t.githubPrNumber === target.number),
         pointKey.project(target.projectPath),
       ];
     case 'issue':
       return [
-        pointKey.issue(target.projectPath, target.id),
         ...linkedTask(
           world,
           target.projectPath,
@@ -80,16 +67,14 @@ export function anchorChain(target: PointTarget, world: PointWorld): AnchorEntry
         pointKey.project(target.projectPath),
       ];
     case 'panel':
-      return [pointKey.panel(target.ptyId, target.panelId), ...terminalChain(world, target.ptyId)];
     case 'diff':
-      return [
-        ...(target.noteId ? [pointKey.note(target.ptyId, target.noteId)] : []),
-        ...(target.line != null ? [{ file: pointKey.diffFile(target.ptyId, target.path), line: target.line }] : []),
-        pointKey.diffFile(target.ptyId, target.path),
-        pointKey.diffButton(target.ptyId),
-        ...terminalChain(world, target.ptyId),
-      ];
+      return terminalChain(world, target.ptyId);
   }
+}
+
+/** Whether the target has a row of its own, rather than always standing in on what holds it. */
+export function hasOwnRow(target: PointTarget): boolean {
+  return target.kind === 'task' || target.kind === 'terminal' || target.kind === 'project' || target.kind === 'board';
 }
 
 /** Whether the thing pointed at still exists, so a pointer at a closed terminal or a trashed task goes. */
@@ -106,7 +91,7 @@ export function targetAlive(target: PointTarget, world: PointWorld): boolean {
   }
 }
 
-/** The target in a few words, for when the ribbon stands in for it on something that holds it. */
+/** The target in a few words, for when its pointer sits on the row of something that holds it. */
 export function describeTarget(target: PointTarget, world: PointWorld): string {
   switch (target.kind) {
     case 'task': {

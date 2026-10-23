@@ -333,9 +333,10 @@ ouijit point clear
 Every target takes -m "<what it's about>": a line the user reads on the pointer.
 task start, create-and-start and terminal open take --point too.
 
-Nothing in Ouijit moves the user's view for you. A pointer marks the thing
-itself, in the sidebar, on the board or in the diff, and the user follows it
-when they choose. This terminal has one pointer at a time; a new one replaces
+Nothing in Ouijit moves the user's view for you. A pointer marks a row in the
+sidebar: the task, terminal or project, or the one a pull request, panel or
+diff line belongs to. The user follows it when they choose, and following
+goes to the exact thing. This terminal has one pointer at a time; a new one replaces
 it. Point after you finish something the user should look at, instead of
 asking them to find it, and say in -m why it is worth a look.
 

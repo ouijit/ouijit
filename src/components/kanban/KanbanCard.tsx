@@ -19,7 +19,6 @@ import { KanbanTrackerBadgeView } from './KanbanTrackerBadgeView';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
 import { openLinearIssueInPanel } from '../../services/linearTaskActions';
-import { pointKey } from '../point/pointKeys';
 
 interface KanbanCardProps {
   task: TaskWithWorkspace;
@@ -237,7 +236,6 @@ export const KanbanCard = memo(function KanbanCard({
     <>
       <KanbanCardView
         task={task}
-        pointTarget={pointKey.task(projectPath, task.taskNumber)}
         connectedDisplays={connectedDisplays}
         isSettingUp={isSettingUp}
         isSelected={isSelected}
