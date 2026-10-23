@@ -262,7 +262,7 @@ export const HELPER_SCRIPT = [
 /** CLI reference loaded by Claude Code via --append-system-prompt-file. */
 export const CLI_REFERENCE = `# Ouijit CLI Reference
 
-You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, tags, hooks, scripts, and plans for this project. All commands output JSON to stdout. The CLI is pre-configured via environment variables — no setup needed.
+You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, terminals, tags, hooks, and scripts for this project. All commands output JSON to stdout. The CLI is pre-configured via environment variables — no setup needed.
 
 ## Environment (pre-set, do not modify)
 - OUIJIT_API_URL — REST API endpoint (already configured)
@@ -308,7 +308,7 @@ Each note is about lines startLine–line of path, kept current as the file
 changes. side LEFT means code that was removed, numbered as the file was.
 snippet is the source the note was written against.
 
-## Tag Commands (the tags on a terminal's card)
+## Tag Commands (the tags on a terminal's card; host terminals only)
 ouijit tag list                               # → [{name, terminals: [{ptyId, label, projectPath}]}] across open terminals
 ouijit tag get [pty-id]                       # → {ptyId, tags} — defaults to this terminal
 ouijit tag add <tag> [pty-id]                 # add a tag to the terminal
@@ -316,12 +316,13 @@ ouijit tag remove <tag> [pty-id]              # remove one tag
 ouijit tag clear [pty-id]                     # remove all of them
 
 ## Hook Commands (project lifecycle scripts)
-Hook types: start, continue, run, review, done, editor
+Hook types: start (task moves to in_progress), continue (a task already in_progress is reopened),
+review (moves to in_review), done (moves to done)
 
 ouijit hook list                              # → {start?: {name, command}, ...}
 ouijit hook get <type>
-ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"] [--sandbox nono|custom]
-                                              # --sandbox: start/continue/review/done only; omitting it follows the project default
+ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"] [--sandbox host|nono|custom]
+                                              # omitting --sandbox follows the project default
 ouijit hook delete <type>
 
 ## Sandbox (host terminals only)
@@ -450,8 +451,8 @@ ouijit task start 5 --hook-command "claude"
 ouijit task set-description 3 "Refactor the auth middleware to use JWT refresh tokens"
 ouijit tag add refactor
 
-# Set up a project run hook:
-ouijit hook set run --name "Dev server" --command "npm run dev"
+# Run an agent whenever a task starts:
+ouijit hook set start --name "Agent" --command 'claude "$OUIJIT_TASK_DESCRIPTION"'
 
 # Stage a review comment on the task's pull request:
 PR=$(ouijit task current | jq .githubPrNumber)
