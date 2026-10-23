@@ -125,64 +125,37 @@ function useFollowShortcut(): void {
   }, []);
 }
 
-const RIBBON = 24;
+const SIZE = 24;
 const OVERLAP = 6;
 const EDGE = 8;
 
-/** The side asked for, unless the ribbon would leave the window there. */
-function fittedSide(p: Placement, long: number): Side {
-  if (p.side === 'right' && p.rect.right - OVERLAP + long > window.innerWidth - EDGE) return 'left';
-  if (p.side === 'left' && p.rect.left + OVERLAP - long < EDGE) return 'right';
+/** The side asked for, unless the pointer would leave the window there. */
+function fittedSide(p: Placement): Side {
+  if (p.side === 'right' && p.rect.right - OVERLAP + SIZE > window.innerWidth - EDGE) return 'left';
+  if (p.side === 'left' && p.rect.left + OVERLAP - SIZE < EDGE) return 'right';
   return p.side;
 }
 
-function ribbonBox(p: Placement, count: number): { style: React.CSSProperties; arrow: string; side: Side } {
-  const long = 32 + (count > 1 ? 12 : 0);
+const ARROWS: Record<Side, string> = {
+  below: 'M8 13V3M4 7l4-4 4 4',
+  left: 'M3 8h10M9 4l4 4-4 4',
+  right: 'M13 8H3M7 4L3 8l4 4',
+};
+
+/** A circle on the target's edge, overlapping it a little, its arrow toward it. */
+function ribbonBox(p: Placement): { style: React.CSSProperties; arrow: string; side: Side } {
   const { rect } = p;
-  const side = fittedSide(p, long);
-  if (side === 'below') {
-    return {
-      style: {
-        left: rect.left + rect.width / 2 - RIBBON / 2,
-        top: rect.bottom - OVERLAP,
-        width: RIBBON,
-        height: long,
-        borderRadius: '4px 4px 12px 12px',
-        flexDirection: 'column',
-        justifyContent: 'flex-end',
-        paddingBottom: 6,
-      },
-      arrow: 'M8 13V3M4 7l4-4 4 4',
-      side,
-    };
-  }
-  const middle = rect.top + rect.height / 2 - RIBBON / 2;
-  if (side === 'left') {
-    return {
-      style: {
-        left: rect.left - long + OVERLAP,
-        top: middle,
-        width: long,
-        height: RIBBON,
-        borderRadius: '12px 4px 4px 12px',
-        justifyContent: 'flex-start',
-        paddingLeft: 7,
-      },
-      arrow: 'M3 8h10M9 4l4 4-4 4',
-      side,
-    };
-  }
+  const side = fittedSide(p);
+  const middleY = rect.top + rect.height / 2 - SIZE / 2;
+  const position =
+    side === 'below'
+      ? { left: rect.left + rect.width / 2 - SIZE / 2, top: rect.bottom - OVERLAP }
+      : side === 'left'
+        ? { left: rect.left - SIZE + OVERLAP, top: middleY }
+        : { left: rect.right - OVERLAP, top: middleY };
   return {
-    style: {
-      left: rect.right - OVERLAP,
-      top: middle,
-      width: long,
-      height: RIBBON,
-      borderRadius: '4px 12px 12px 4px',
-      justifyContent: 'flex-end',
-      paddingRight: 7,
-    },
-    arrow: 'M13 8H3M7 4L3 8l4 4',
+    style: { ...position, width: SIZE, height: SIZE, borderRadius: '50%', justifyContent: 'center' },
+    arrow: ARROWS[side],
     side,
   };
 }
@@ -208,7 +181,7 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const displays = useTerminalStore((s) => s.displayStates);
   const { placed } = placement;
-  const { style, arrow, side } = ribbonBox(placement, placed.length);
+  const { style, arrow, side } = ribbonBox(placement);
   const newest = placed.find((x) => x.pointer === latestPointer(placed.map((y) => y.pointer)))!;
   const w = world();
   const where = ({ pointer, depth }: Placed) =>
@@ -232,16 +205,19 @@ function Ribbon({ placement, latest }: { placement: Placement; latest: Pointer |
       <button
         type="button"
         aria-label={`Follow ${label(newest)}`}
-        className="fixed z-[10002] flex items-center gap-1 border-none bg-accent text-accent-ink text-[11px] font-semibold cursor-pointer"
+        className="fixed z-[10002] flex items-center border-none p-0 bg-accent text-accent-ink text-[11px] font-semibold cursor-pointer"
         style={{ ...style, boxShadow: '0 2px 8px color-mix(in srgb, var(--color-accent) 45%, transparent)' }}
         onClick={() => void followPointer(newest.pointer)}
         onMouseEnter={hold}
         onMouseLeave={release}
       >
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <path d={arrow} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        {placed.length > 1 && <span>{placed.length}</span>}
+        {placed.length > 1 ? (
+          <span>{placed.length}</span>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d={arrow} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
       </button>
       {open && (
         <div
