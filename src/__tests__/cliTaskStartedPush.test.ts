@@ -47,7 +47,7 @@ const getTaskWithWorkspaceMock = vi.fn(async () => null);
 vi.mock('../taskLifecycle', () => ({
   beginTask: (...args: unknown[]) => beginTaskMock(...args),
   setTaskStatusWithHooks: (...args: unknown[]) => setTaskStatusWithHooksMock(...args),
-  deleteTaskWithWorktree: vi.fn(async () => ({})),
+  trashTaskWithWorktree: vi.fn(async () => ({})),
   getTasksWithWorkspaces: vi.fn(async () => []),
   getTaskWithWorkspace: (...args: unknown[]) => getTaskWithWorkspaceMock(...args),
 }));

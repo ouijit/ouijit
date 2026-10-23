@@ -54,7 +54,7 @@ ouijit task bulk-set-status done 5 6 7        # set status on many in parallel
 ouijit task set-name 5 "Better name"
 ouijit task set-description 5 "More detail"
 ouijit task set-merge-target 5 develop
-ouijit task delete 5</code></pre>
+ouijit task trash 5                           # worktree goes to the system trash</code></pre>
   <p>
     <code>--run-hook</code>, <code>--skip-hook</code>, and <code>--hook-command</code> are mutually exclusive.
     By default, a status change opens that column's hook dialog in the GUI, just like dragging a card; use these
@@ -101,6 +101,21 @@ ouijit hook delete done</code></pre>
   <pre class="glass-bevel"><code>ouijit sandbox-command get
 ouijit sandbox-command set "$HOME/.local/bin/ouijit-sandbox --strict"
 ouijit sandbox-command clear</code></pre>
+
+  <h2>Terminals</h2>
+  <p>
+    Every open terminal in every project, with its task, its sandbox, and whether its agent is
+    <code>thinking</code> or <code>ready</code>. Host terminals only.
+  </p>
+  <pre class="glass-bevel"><code>ouijit terminal list</code></pre>
+
+  <h2>Diff notes</h2>
+  <p>
+    The <a href="/docs/diff/">notes</a> you've left on a worktree's diff, so an agent can read them itself. Without
+    <code>--task</code> it reads the current terminal's worktree, which works from a sandbox too.
+  </p>
+  <pre class="glass-bevel"><code>ouijit diff notes
+ouijit diff notes --task 5</code></pre>
 
   <h2>Tags</h2>
   <p>

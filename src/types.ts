@@ -436,7 +436,6 @@ export interface TaskAPI {
     taskNumber: number,
     status: TaskStatus,
   ): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
-  delete(projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string }>;
   trash(projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string; trashed?: boolean }>;
   setMergeTarget(
     projectPath: string,

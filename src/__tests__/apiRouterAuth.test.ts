@@ -55,7 +55,7 @@ vi.mock('../db', () => ({
 vi.mock('../taskLifecycle', () => ({
   beginTask: vi.fn(async () => ({})),
   setTaskStatusWithHooks: vi.fn(async () => ({})),
-  deleteTaskWithWorktree: vi.fn(async () => ({})),
+  trashTaskWithWorktree: vi.fn(async () => ({})),
   getTasksWithWorkspaces: vi.fn(async () => []),
   getTaskWithWorkspace: vi.fn(async () => null),
 }));

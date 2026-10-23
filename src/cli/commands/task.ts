@@ -116,7 +116,7 @@ Examples:
   ouijit task bulk-set-status done 5 6 7
   ouijit task bulk-set-status done 5 6 7 --skip-hook
   ouijit task set-name 5 "Better name"
-  ouijit task delete 5`,
+  ouijit task trash 5`,
     );
 
   task
@@ -335,8 +335,8 @@ Examples:
     });
 
   task
-    .command('delete')
-    .description('Delete task and its worktree')
+    .command('trash')
+    .description('Delete a task, moving its worktree to the system trash')
     .argument('<number>', 'task number')
     .action(async (number: string) => {
       const num = parseInt(number, 10);

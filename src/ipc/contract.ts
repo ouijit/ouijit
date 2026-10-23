@@ -174,7 +174,6 @@ export interface IpcInvokeContract {
     args: [projectPath: string, taskNumber: number, status: TaskStatus];
     return: { success: boolean; error?: string; hookWarning?: string };
   };
-  'task:delete': { args: [projectPath: string, taskNumber: number]; return: { success: boolean; error?: string } };
   'task:trash': {
     args: [projectPath: string, taskNumber: number];
     return: { success: boolean; error?: string; trashed?: boolean };

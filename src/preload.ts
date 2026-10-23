@@ -166,7 +166,6 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('task:get-by-number', projectPath, taskNumber),
     setStatus: (projectPath: string, taskNumber: number, status: TaskStatus) =>
       typedInvoke('task:set-status', projectPath, taskNumber, status),
-    delete: (projectPath: string, taskNumber: number) => typedInvoke('task:delete', projectPath, taskNumber),
     trash: (projectPath: string, taskNumber: number) => typedInvoke('task:trash', projectPath, taskNumber),
     setMergeTarget: (projectPath: string, taskNumber: number, mergeTarget: string) =>
       typedInvoke('task:set-merge-target', projectPath, taskNumber, mergeTarget),

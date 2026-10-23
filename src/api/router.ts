@@ -36,7 +36,7 @@ import { PRESET_THEMES, withPresets, selectionOrphanedByDelete } from '../theme/
 import {
   beginTask,
   setTaskStatusWithHooks,
-  deleteTaskWithWorktree,
+  trashTaskWithWorktree,
   getTasksWithWorkspaces,
   getTaskWithWorkspace,
 } from '../taskLifecycle';
@@ -65,7 +65,9 @@ import { getProjectList } from '../projectList';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
 import { cliPanelRequest, cliTagRequest } from '../cliPanels';
-import { isPtyActive, getPtyTaskContext } from '../ptyManager';
+import { isPtyActive, getPtyTaskContext, getActiveSessions, getPtySpawnContext } from '../ptyManager';
+import { getHookStatus } from '../hookServer';
+import { liveNotes } from '../diffNotesService';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
@@ -512,7 +514,7 @@ const routes: Route[] = [
     (r) => {
       const project = requireProject(r.query);
       const num = requireInt(r.segments[1], 'Task number');
-      return deleteTaskWithWorktree(project, num);
+      return trashTaskWithWorktree(project, num);
     },
     true,
   ),
@@ -592,6 +594,44 @@ const routes: Route[] = [
   ),
 
   route('DELETE', 'sandbox/command', (r) => setCustomSandboxConfig(requireProject(r.query), {}), true),
+
+  // ── Terminals ────────────────────────────────────────────────────
+  route('GET', 'terminals', () =>
+    getActiveSessions()
+      .filter((session) => !session.isRunner)
+      .map((session) => ({
+        ptyId: session.ptyId,
+        label: session.label,
+        projectPath: session.projectPath,
+        taskNumber: session.taskId ?? null,
+        worktreePath: session.worktreePath ?? null,
+        sandbox: session.sandboxProvider ?? 'none',
+        agentStatus: getHookStatus(session.ptyId)?.status ?? null,
+      })),
+  ),
+
+  // ── Diff notes ───────────────────────────────────────────────────
+  route(
+    'GET',
+    'diff-notes',
+    (r) => {
+      const ctx = getPtySpawnContext(r.auth.ptyId);
+      if (!ctx) throw new HttpError(404, `PTY ${r.auth.ptyId} not found or inactive`);
+      return liveNotes(ctx.worktreePath || ctx.projectPath);
+    },
+    false,
+    // Resolved from the caller's own PTY, as tasks/current is.
+    'sandbox',
+  ),
+
+  route('GET', 'tasks/:number/diff-notes', async (r) => {
+    const project = requireProject(r.query);
+    const num = requireInt(r.segments[1], 'Task number');
+    const task = await getTaskWithWorkspace(project, num);
+    if (!task) throw new HttpError(404, `Task ${num} not found`);
+    if (!task.worktreePath) throw new HttpError(404, `Task ${num} has no worktree`);
+    return liveNotes(task.worktreePath);
+  }),
 
   // ── Tags ─────────────────────────────────────────────────────────
   route('GET', 'tags', async () => (await runTagOp({ action: 'list' })).listing ?? []),

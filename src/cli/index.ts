@@ -20,6 +20,8 @@ import { registerPreviewCommands } from './commands/preview';
 import { registerThemeCommands } from './commands/theme';
 import { registerPrCommands } from './commands/pr';
 import { registerLinearCommands } from './commands/linear';
+import { registerTerminalCommands } from './commands/terminal';
+import { registerDiffCommands } from './commands/diff';
 
 const program = new Command();
 
@@ -48,12 +50,14 @@ function requireProject(): string {
 
 registerTaskCommands(program, requireProject);
 registerHookCommands(program, requireProject);
+registerTerminalCommands(program);
 registerTagCommands(program);
 registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
 registerSandboxCommands(program, requireProject);
 registerPrCommands(program, requireProject);
 registerLinearCommands(program, requireProject);
+registerDiffCommands(program, requireProject);
 registerMarkdownCommands(program);
 registerPreviewCommands(program);
 registerThemeCommands(program);

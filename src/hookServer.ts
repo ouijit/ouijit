@@ -266,7 +266,7 @@ You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, tag
 
 ## Environment (pre-set, do not modify)
 - OUIJIT_API_URL — REST API endpoint (already configured)
-- OUIJIT_PTY_ID — this terminal session's ID (used by markdown and preview commands)
+- OUIJIT_PTY_ID — this terminal session's ID (the default for every [pty-id] argument)
 
 ## Task Commands (most common)
 ouijit task list                              # → [{taskNumber, name, status, branch, worktreePath, prompt, ...}]
@@ -294,7 +294,19 @@ ouijit task start <number> --run-hook --sandbox custom      # start, create-and-
 ouijit task set-name <number> <new name>
 ouijit task set-description <number> <text>
 ouijit task set-merge-target <number> <branch>
-ouijit task delete <number>                   # removes task and its worktree
+ouijit task trash <number>                    # removes task, worktree goes to the system trash
+
+## Terminal Commands
+ouijit terminal list                          # → [{ptyId, label, projectPath, taskNumber, worktreePath, sandbox, agentStatus}] across every project
+                                              # agentStatus: thinking | ready, or null where no agent has reported
+
+## Diff Notes (left by the user on a worktree's diff, for you)
+ouijit diff notes                             # → [{id, path, startLine, line, side, snippet, body, createdAt}] on this terminal's worktree
+ouijit diff notes --task <n>                  # on a task's worktree instead
+
+Each note is about lines startLine–line of path, kept current as the file
+changes. side LEFT means code that was removed, numbered as the file was.
+snippet is the source the note was written against.
 
 ## Tag Commands (the tags on a terminal's card)
 ouijit tag list                               # → [{name, terminals: [{ptyId, label, projectPath}]}] across open terminals
