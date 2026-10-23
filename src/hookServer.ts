@@ -323,7 +323,8 @@ snippet is the source the note was written against.
 ## Pointing (show the user something without moving their screen)
 ouijit point task <n>                         # its terminal, opened on follow if none is; a task never started, its card
 ouijit point terminal <pty-id>
-ouijit point project | board
+ouijit point project
+ouijit point board
 ouijit point pr <n>
 ouijit point issue <id>                       # a GitHub issue number, or a Linear identifier like ENG-231
 ouijit point panel <id> [pty-id]              # an id from panel list
