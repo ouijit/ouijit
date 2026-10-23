@@ -35,7 +35,7 @@ Examples:
   ouijit task list
   ouijit task set-status 5 in_review
   ouijit hook set start --name "Install" --command "npm install"
-  ouijit tag set bug
+  ouijit tag add bug
   ouijit pr list`,
   );
 

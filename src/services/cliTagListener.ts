@@ -1,6 +1,6 @@
 import log from 'electron-log/renderer';
 import { terminalInstances, whenTerminalReady } from '../components/terminal/terminalRegistry';
-import { collectActiveTags, terminalMatchesTag, useTerminalStore } from '../stores/terminalStore';
+import { collectActiveTags, terminalMatchesTag, useTerminalStore, withTag, withoutTag } from '../stores/terminalStore';
 import { TERMINAL_READY_WAIT_MS, type CliTagListing, type CliTagOp, type CliTagResponse } from '../types';
 
 const cliTagsLog = log.scope('cliTags');
@@ -34,10 +34,10 @@ async function handleOp(op: CliTagOp): Promise<CliTagResponse> {
     };
   }
 
-  if (op.action === 'set') {
+  if (op.action === 'add' || op.action === 'remove') {
     const tag = op.tag?.trim();
     if (!tag) return { ok: false, error: 'Missing tag' };
-    instance.setTags([tag]);
+    instance.setTags(op.action === 'add' ? withTag(instance.tags, tag) : withoutTag(instance.tags, tag));
   } else if (op.action === 'clear') {
     instance.setTags([]);
   }

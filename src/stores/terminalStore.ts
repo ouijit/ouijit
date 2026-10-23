@@ -261,6 +261,17 @@ export function terminalMatchesTag(display: TerminalDisplayState | undefined, ta
   return display.tags.some((t) => t.toLowerCase() === needle);
 }
 
+export function withTag(tags: string[], tag: string): string[] {
+  const name = tag.trim();
+  if (!name || tags.some((t) => t.toLowerCase() === name.toLowerCase())) return tags;
+  return [...tags, name];
+}
+
+export function withoutTag(tags: string[], tag: string): string[] {
+  const needle = tag.trim().toLowerCase();
+  return tags.filter((t) => t.toLowerCase() !== needle);
+}
+
 /** Distinct tags (case-insensitive, first-seen casing) present on the given terminals' display states. */
 export function collectActiveTags(ptyIds: string[], displayStates: Record<string, TerminalDisplayState>): string[] {
   const seen = new Map<string, string>();

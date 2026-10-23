@@ -172,7 +172,7 @@ describe('session persistence', () => {
     expect(['a1', 'a2', 'a3', 'b1'].map((id) => terminalInstances.get(id)?.tags)).toEqual([[], [], [], []]);
   });
 
-  test("each terminal keeps its own tag across a reload, two of one task included, and a shell's too", async () => {
+  test("each terminal keeps its own tags across a reload, two of one task included, and a shell's too", async () => {
     let sendOp: (op: CliTagOp) => void = () => {};
     vi.mocked(window.api.cliTags.onOp).mockImplementation((cb) => {
       sendOp = cb;
@@ -191,10 +191,14 @@ describe('session persistence', () => {
     open(A, { ptyId: 'review', taskId: 7 });
     open(B, { ptyId: 'shell' });
 
-    expect(await tagOp({ action: 'set', ptyId: 'agent', tag: ' building ' })).toEqual({ ok: true, tags: ['building'] });
-    await tagOp({ action: 'set', ptyId: 'review', tag: 'blocked' });
-    await tagOp({ action: 'set', ptyId: 'shell', tag: 'Blocked' });
-    expect(await tagOp({ action: 'get', ptyId: 'agent' })).toEqual({ ok: true, tags: ['building'] });
+    expect(await tagOp({ action: 'add', ptyId: 'agent', tag: ' building ' })).toEqual({ ok: true, tags: ['building'] });
+    await tagOp({ action: 'add', ptyId: 'agent', tag: 'flaky' });
+    await tagOp({ action: 'add', ptyId: 'agent', tag: 'Flaky' });
+    await tagOp({ action: 'add', ptyId: 'review', tag: 'blocked' });
+    await tagOp({ action: 'add', ptyId: 'review', tag: 'flaky' });
+    await tagOp({ action: 'remove', ptyId: 'review', tag: 'FLAKY' });
+    await tagOp({ action: 'add', ptyId: 'shell', tag: 'Blocked' });
+    expect(await tagOp({ action: 'get', ptyId: 'agent' })).toEqual({ ok: true, tags: ['building', 'flaky'] });
     expect((await tagOp({ action: 'list' })).listing).toEqual([
       {
         name: 'Blocked',
@@ -204,6 +208,7 @@ describe('session persistence', () => {
         ],
       },
       { name: 'building', terminals: [{ ptyId: 'agent', label: 'Shell', projectPath: A }] },
+      { name: 'flaky', terminals: [{ ptyId: 'agent', label: 'Shell', projectPath: A }] },
     ]);
 
     await reload(gatherSnapshot(), [session('agent', A), session('review', A), session('shell', B)]);
@@ -211,7 +216,10 @@ describe('session persistence', () => {
     const { displayStates } = useTerminalStore.getState();
     expect(['agent', 'review', 'shell'].map((id) => [terminalInstances.get(id)?.tags, displayStates[id].tags])).toEqual(
       [
-        [['building'], ['building']],
+        [
+          ['building', 'flaky'],
+          ['building', 'flaky'],
+        ],
         [['blocked'], ['blocked']],
         [['Blocked'], ['Blocked']],
       ],

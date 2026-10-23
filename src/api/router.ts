@@ -599,13 +599,20 @@ const routes: Route[] = [
   route('GET', 'terminals/:ptyId/tags', (r) => terminalTags({ action: 'get', ptyId: r.segments[1] })),
 
   route(
-    'PUT',
+    'POST',
     'terminals/:ptyId/tags',
     (r) => {
       const tag = typeof r.body.tag === 'string' ? r.body.tag.trim() : '';
       if (!tag) throw new HttpError(400, 'Missing tag in body');
-      return terminalTags({ action: 'set', ptyId: r.segments[1], tag });
+      return terminalTags({ action: 'add', ptyId: r.segments[1], tag });
     },
+    true,
+  ),
+
+  route(
+    'DELETE',
+    'terminals/:ptyId/tags/:tag',
+    (r) => terminalTags({ action: 'remove', ptyId: r.segments[1], tag: decodeURIComponent(r.segments[3]) }),
     true,
   ),
 

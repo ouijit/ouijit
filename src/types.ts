@@ -945,10 +945,10 @@ export interface CliPanelsAPI {
  */
 export interface CliTagOp {
   requestId: number;
-  action: 'list' | 'get' | 'set' | 'clear';
+  action: 'list' | 'get' | 'add' | 'remove' | 'clear';
   /** Every action but list. */
   ptyId?: PtyId;
-  /** set */
+  /** add and remove */
   tag?: string;
 }
 
@@ -961,7 +961,7 @@ export interface CliTagListing {
 export interface CliTagResponse {
   ok: boolean;
   error?: string;
-  /** The terminal's tags after a get, set or clear. */
+  /** The terminal's tags after every action but list. */
   tags?: string[];
   /** list */
   listing?: CliTagListing[];

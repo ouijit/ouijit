@@ -360,6 +360,11 @@ describe('stacking several from the sidebar', () => {
     fireEvent.change(name, { target: { value: 'batch' } });
     fireEvent.keyDown(name, { key: 'Enter' });
     expect(cards().map((id) => display(id).tags)).toEqual(cards().map(() => ['batch']));
+    await submenu(await openMenu('Write docs'), 'Tag', 'New tag…');
+    fireEvent.change(await screen.findByLabelText('New tag'), { target: { value: 'urgent' } });
+    fireEvent.keyDown(screen.getByLabelText('New tag'), { key: 'Enter' });
+    await submenu(await openMenu('Write docs'), 'Tag', 'batch');
+    expect(cards().map((id) => display(id).tags)).toEqual(cards().map(() => ['urgent']));
     await submenu(await openMenu('Shell'), 'Move to', 'In Review');
     await waitFor(() => expect(window.api.task.setStatus).toHaveBeenCalledTimes(3));
     expect(

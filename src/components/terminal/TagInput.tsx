@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { collectActiveTags, useTerminalStore } from '../../stores/terminalStore';
+import { collectActiveTags, useTerminalStore, withTag, withoutTag } from '../../stores/terminalStore';
 import { terminalInstances } from './terminalRegistry';
 
 const EMPTY_TAGS: string[] = [];
@@ -36,10 +36,8 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
 
   const addTag = useCallback(
     (name: string) => {
-      const normalized = name.trim();
-      if (!normalized) return;
-      // Single tag only — replace existing
-      terminalInstances.get(ptyId)?.setTags([normalized]);
+      const instance = terminalInstances.get(ptyId);
+      instance?.setTags(withTag(instance.tags, name));
       setInputValue('');
       setSuggestions([]);
     },
@@ -49,7 +47,7 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
   const removeTag = useCallback(
     (tagName: string) => {
       const instance = terminalInstances.get(ptyId);
-      instance?.setTags(instance.tags.filter((t) => t.toLowerCase() !== tagName.toLowerCase()));
+      instance?.setTags(withoutTag(instance.tags, tagName));
     },
     [ptyId],
   );

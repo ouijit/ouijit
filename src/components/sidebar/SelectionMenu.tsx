@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ContextMenuEntry } from '../ui/ContextMenu';
-import { collectActiveTags, tagUnit, useTerminalStore } from '../../stores/terminalStore';
+import { collectActiveTags, tagUnit, useTerminalStore, withTag, withoutTag } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { loadTasks } from '../../stores/projectDataStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
@@ -9,8 +9,11 @@ import { closeProjectTerminal } from '../terminal/terminalActions';
 import { moveToEntry, STATUS_LABELS } from '../kanban/taskMenu';
 import type { TaskStatus } from '../../types';
 
-function setTags(ptyIds: string[], tags: string[]): void {
-  for (const id of ptyIds) terminalInstances.get(id)?.setTags(tags);
+function updateTags(ptyIds: string[], update: (tags: string[]) => string[]): void {
+  for (const id of ptyIds) {
+    const instance = terminalInstances.get(id);
+    instance?.setTags(update(instance.tags));
+  }
 }
 
 /** The tasks these terminals belong to, once each. */
@@ -71,11 +74,15 @@ export function selectionEntries(ptyIds: string[], newTag: () => void): ContextM
     label: 'Tag',
     icon: 'tag',
     submenu: [
-      ...known.map((tag) => ({ label: tag, checked: shared(tag), onClick: () => setTags(ptyIds, [tag]) })),
+      ...known.map((tag) => ({
+        label: tag,
+        checked: shared(tag),
+        onClick: () => updateTags(ptyIds, (tags) => (shared(tag) ? withoutTag(tags, tag) : withTag(tags, tag))),
+      })),
       ...(known.length > 0 ? [{ separator: true as const }] : []),
       { label: 'New tag…', icon: 'plus', onClick: newTag },
       ...(ptyIds.some((id) => displayStates[id]?.tags.length)
-        ? [{ label: 'Remove tag', icon: 'x', onClick: () => setTags(ptyIds, []) }]
+        ? [{ label: 'Clear tags', icon: 'x', onClick: () => updateTags(ptyIds, () => []) }]
         : []),
     ],
   });
@@ -107,7 +114,7 @@ export function TagPrompt({ x, y, ptyIds, onClose }: { x: number; y: number; pty
       onBlur={onClose}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && value.trim()) {
-          setTags(ptyIds, [value.trim()]);
+          updateTags(ptyIds, (tags) => withTag(tags, value));
           onClose();
         }
         if (e.key === 'Escape') onClose();

@@ -27,7 +27,7 @@ vi.mock('../../../ptyManager', () => ({
 
 /**
  * The renderer end of the bridge: answers each `cli:tag-op` push on
- * `cli-tags:respond`, as the window's listener does, keeping one tag per terminal.
+ * `cli-tags:respond`, as the window's listener does, with a tag at most once per terminal whatever its case.
  */
 function fakeRendererWindow(): BrowserWindow {
   const tags = new Map<string, string[]>([
@@ -47,7 +47,14 @@ function fakeRendererWindow(): BrowserWindow {
         })),
       };
     }
-    if (op.action === 'set') tags.set(op.ptyId!, [op.tag!]);
+    const current = tags.get(op.ptyId!) ?? [];
+    const has = (t: string) => t.toLowerCase() === op.tag?.toLowerCase();
+    if (op.action === 'add' && !current.some(has)) tags.set(op.ptyId!, [...current, op.tag!]);
+    if (op.action === 'remove')
+      tags.set(
+        op.ptyId!,
+        current.filter((t) => !has(t)),
+      );
     if (op.action === 'clear') tags.set(op.ptyId!, []);
     return { ok: true, tags: tags.get(op.ptyId!) };
   };
@@ -95,17 +102,23 @@ afterEach(async () => {
 });
 
 describe('ouijit tag', () => {
-  test('sets, reads and clears the tag on the terminal it runs in, or on one it names', async () => {
+  test('adds, reads, removes and clears tags on the terminal it runs in, or on one it names', async () => {
     expect(await ouijit('get')).toEqual({ ptyId: 'pty-a', tags: [] });
-    expect(await ouijit('set', 'review')).toEqual({ ptyId: 'pty-a', tags: ['review'] });
-    expect(await ouijit('set', 'blocked', 'pty-b')).toEqual({ ptyId: 'pty-b', tags: ['blocked'] });
-    expect(await ouijit('get')).toEqual({ ptyId: 'pty-a', tags: ['review'] });
+    expect(await ouijit('add', 'review')).toEqual({ ptyId: 'pty-a', tags: ['review'] });
+    expect(await ouijit('add', 'needs/design')).toEqual({ ptyId: 'pty-a', tags: ['review', 'needs/design'] });
+    expect(await ouijit('add', 'review', 'pty-b')).toEqual({ ptyId: 'pty-b', tags: ['review'] });
+    expect(await ouijit('get')).toEqual({ ptyId: 'pty-a', tags: ['review', 'needs/design'] });
 
     expect(await ouijit('list')).toEqual([
-      { name: 'review', terminals: [expect.objectContaining({ ptyId: 'pty-a' })] },
-      { name: 'blocked', terminals: [expect.objectContaining({ ptyId: 'pty-b' })] },
+      {
+        name: 'review',
+        terminals: [expect.objectContaining({ ptyId: 'pty-a' }), expect.objectContaining({ ptyId: 'pty-b' })],
+      },
+      { name: 'needs/design', terminals: [expect.objectContaining({ ptyId: 'pty-a' })] },
     ]);
 
+    expect(await ouijit('remove', 'needs/design')).toEqual({ ptyId: 'pty-a', tags: ['review'] });
+    expect(await ouijit('clear', 'pty-b')).toEqual({ ptyId: 'pty-b', tags: [] });
     expect(await ouijit('clear')).toEqual({ ptyId: 'pty-a', tags: [] });
     await expect(ouijit('get', 'pty-gone')).rejects.toThrow(/not found/);
   });

@@ -104,14 +104,15 @@ ouijit sandbox-command clear</code></pre>
 
   <h2>Tags</h2>
   <p>
-    Tag a terminal to <a href="/docs/terminals/">group and filter</a> it. A terminal carries one tag, and the pty
+    Tag a terminal to <a href="/docs/terminals/">group and filter</a> it. A terminal can carry several, and the pty
     id defaults to the current terminal. Host terminals only; a sandboxed session gets 403.
   </p>
   <pre class="glass-bevel"><code>ouijit tag list                               # tags on open terminals, and which carry each
-ouijit tag get                                # this terminal's tag
-ouijit tag set review                         # replaces any tag it had
-ouijit tag set review pty_abc123              # explicit pty id
-ouijit tag clear</code></pre>
+ouijit tag get                                # this terminal's tags
+ouijit tag add review
+ouijit tag add review pty_abc123              # explicit pty id
+ouijit tag remove review
+ouijit tag clear                              # removes all of them</code></pre>
 
   <h2>Scripts</h2>
   <p>
