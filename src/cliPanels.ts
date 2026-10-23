@@ -10,8 +10,9 @@
  * timeout here means the window itself is not answering.
  *
  * These ops are the only way a panel appears without a click, and they always
- * reflect what's on screen. `ouijit tag` and `ouijit terminal` cross the same
- * bridge on channels of their own, since tags and the xterm buffer live there too.
+ * reflect what's on screen. `ouijit tag`, `terminal` and `point` cross the same
+ * bridge on channels of their own, since tags, the xterm buffer and pointers
+ * live there too.
  */
 
 import { BrowserWindow, ipcMain } from 'electron';
@@ -25,6 +26,8 @@ import {
   type CliTagResponse,
   type CliTerminalOp,
   type CliTerminalResponse,
+  type CliPointOp,
+  type CliPointResponse,
 } from './types';
 
 const cliPanelsLog = getLogger().scope('cliPanels');
@@ -42,7 +45,10 @@ interface Pending {
 
 const pending = new Map<number, Pending>();
 
-function settle(requestId: number, response: CliPanelResponse | CliTagResponse | CliTerminalResponse): void {
+function settle(
+  requestId: number,
+  response: CliPanelResponse | CliTagResponse | CliTerminalResponse | CliPointResponse,
+): void {
   const entry = pending.get(requestId);
   if (!entry) return; // late or duplicate reply — request already settled
   clearTimeout(entry.timer);
@@ -59,6 +65,9 @@ export function initCliPanels(window: BrowserWindow): void {
     settle(requestId, response),
   );
   ipcMain.handle('cli-terminals:respond', (_event, requestId: number, response: CliTerminalResponse) =>
+    settle(requestId, response),
+  );
+  ipcMain.handle('cli-points:respond', (_event, requestId: number, response: CliPointResponse) =>
     settle(requestId, response),
   );
 }
@@ -100,6 +109,13 @@ export function cliPanelRequest(op: Omit<CliPanelOp, 'requestId'>): Promise<CliP
 export function cliTerminalRequest(op: Omit<CliTerminalOp, 'requestId'>): Promise<CliTerminalResponse> {
   return request((window, requestId) => typedPush(window, 'cli:terminal-op', { requestId, ...op }), {
     ptyId: op.ptyId,
+    action: op.action,
+  });
+}
+
+export function cliPointRequest(op: Omit<CliPointOp, 'requestId'>): Promise<CliPointResponse> {
+  return request((window, requestId) => typedPush(window, 'cli:point-op', { requestId, ...op }), {
+    fromPtyId: op.fromPtyId,
     action: op.action,
   });
 }

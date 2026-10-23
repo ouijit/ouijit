@@ -252,6 +252,12 @@ export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'edito
 export type CliHookMode = 'run' | 'skip' | 'command';
 
 /** What a CLI status change asks of the hook it fires; all absent shows the hook dialog. */
+/** Which terminal ran a CLI task move, and whether it asked to point at the task. */
+export interface CliCaller {
+  fromPtyId?: PtyId;
+  point?: boolean;
+}
+
 export interface CliHookControl {
   hookMode?: CliHookMode;
   /** The one-off command when `hookMode` is `command`. */
@@ -641,6 +647,7 @@ export interface ElectronAPI {
   /** CLI-driven terminal tag ops */
   cliTags: CliTagsAPI;
   cliTerminals: CliTerminalsAPI;
+  cliPoints: CliPointsAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   homePath(): Promise<string>;
@@ -1012,6 +1019,42 @@ export interface CliTerminalResponse {
   alternateScreen?: boolean;
   /** open */
   ptyId?: PtyId;
+}
+
+/**
+ * Something an agent can point at. A diff target is in the pointing terminal's
+ * worktree unless `ptyId` names another; `noteId` lands it on a note's marker.
+ * An issue `id` that is all digits is a GitHub issue, anything else Linear's.
+ */
+export type PointTarget =
+  | { kind: 'task'; projectPath: string; taskNumber: number }
+  | { kind: 'terminal'; ptyId: PtyId }
+  | { kind: 'project'; projectPath: string }
+  | { kind: 'board'; projectPath: string }
+  | { kind: 'pr'; projectPath: string; number: number }
+  | { kind: 'issue'; projectPath: string; id: string }
+  | { kind: 'panel'; ptyId: PtyId; panelId: string }
+  | { kind: 'diff'; ptyId: PtyId; path: string; line?: number; noteId?: string };
+
+/** Op forwarded to the renderer for `ouijit point`. A note is resolved there, to the diff line it sits on. */
+export interface CliPointOp {
+  requestId: number;
+  fromPtyId: PtyId;
+  action: 'point' | 'note' | 'clear';
+  target?: PointTarget;
+  /** note */
+  noteId?: string;
+}
+
+export interface CliPointResponse {
+  ok: boolean;
+  error?: string;
+  target?: PointTarget;
+}
+
+export interface CliPointsAPI {
+  onOp(callback: (op: CliPointOp) => void): () => void;
+  respond(requestId: number, response: CliPointResponse): Promise<void>;
 }
 
 export interface CliTerminalsAPI {

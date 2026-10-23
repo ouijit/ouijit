@@ -12,12 +12,12 @@ import log from 'electron-log/renderer';
 import { addProjectTerminal } from '../components/terminal/terminalActions';
 import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import { completeTask } from './taskCompletion';
-import { headlessHookRun, hookSandbox, type HookControl } from './hookRun';
+import { headlessHookRun, hookSandbox, hookTypeForTransition, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';
 import { joinStack, useAppStore } from '../stores/appStore';
 import { getProjectTasks, loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
 import { stackOf, useTerminalStore } from '../stores/terminalStore';
-import type { HookType, RunHookResult, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
+import type { RunHookResult, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
 /** Id for a loading slot standing in for a task's terminal while it spawns. */
@@ -36,14 +36,6 @@ export function surfaceStartWarnings(warnings?: string[]): void {
     surfacedWarnings.add(w);
     useProjectStore.getState().addToast(w, 'info');
   }
-}
-
-function hookTypeForTransition(origStatus: TaskStatus, newStatus: TaskStatus): HookType | null {
-  if (origStatus === newStatus) return null;
-  if (newStatus === 'in_progress') return origStatus === 'todo' ? 'start' : 'continue';
-  if (newStatus === 'in_review') return 'review';
-  // 'done' is handled by completeTask, not beginTransition.
-  return null;
 }
 
 export interface BeginTransitionOptions {

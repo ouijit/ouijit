@@ -42,6 +42,7 @@ import {
   showInListOrder,
   useShownPtyId,
 } from './sidebar/SidebarRows';
+import { pointKey } from './point/pointKeys';
 
 const GIT_REFRESH_INTERVAL = 120_000;
 
@@ -434,6 +435,7 @@ function GroupHeader({
       className={`group/header h-7 flex items-center gap-0.5 px-1 rounded-[7px] ${selected ? ROW_SELECTED : ROW_IDLE}`}
       data-project-path={projectPath}
       data-group={groupKey}
+      data-point-target={projectPath ? pointKey.project(projectPath) : undefined}
       onContextMenu={onContextMenu}
     >
       <button
@@ -544,6 +546,7 @@ function ProjectGroup({ project }: { project: Project }) {
                 aria-label={PAGE_TITLES.board}
                 aria-current={openPage === 'board' ? 'page' : undefined}
                 className={`${ROW_BUTTON} ${rowButtonState(openPage === 'board')}`}
+                data-point-target={pointKey.board(project.path)}
                 onClick={() => void openProjectPage(project.path, 'board')}
               >
                 <Icon name={PAGE_ICONS.board} className="w-3.5 h-3.5" />

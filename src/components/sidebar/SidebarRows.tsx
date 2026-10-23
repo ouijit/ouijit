@@ -30,6 +30,7 @@ import { StageIcon } from './StageIcon';
 import { formatSince, groupByTask, listedOrder, unitsFor, type TaskGroup } from './sidebarTree';
 import { isModKey } from '../../utils/modKey';
 import { selectionEntries, TagPrompt } from './SelectionMenu';
+import { pointKey } from '../point/pointKeys';
 
 const NO_BACKENDS: SandboxBackendId[] = [];
 
@@ -125,6 +126,8 @@ interface RowProps {
   /** Swaps the title for a field, prefilled, until committed or cancelled. */
   rename?: Rename;
   ptyId?: string;
+  /** What a pointer at this row is pointing at: see `pointKey`. */
+  pointKeys?: string[];
 }
 
 interface Rename {
@@ -171,6 +174,7 @@ function SidebarRow({
   onContextMenu,
   rename,
   ptyId,
+  pointKeys,
 }: RowProps) {
   const ref = useRevealed(selected);
   // The click is taken here rather than on the button so the icon, which has a
@@ -181,6 +185,7 @@ function SidebarRow({
       data-sidebar-row
       data-selected={selected || undefined}
       data-pty-id={ptyId}
+      data-point-target={pointKeys?.join(' ')}
       onClick={onClick}
       onContextMenu={onContextMenu}
     >
@@ -246,6 +251,8 @@ interface TerminalRowProps {
   onClick: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   rename?: Rename;
+  /** Beyond the terminal itself, which every terminal row answers to. */
+  alsoPointKeys?: string[];
 }
 
 function TerminalRow({
@@ -260,6 +267,7 @@ function TerminalRow({
   onClick,
   onContextMenu,
   rename,
+  alsoPointKeys = [],
 }: TerminalRowProps) {
   const display = useTerminalStore((s) => s.displayStates[ptyId]);
   const bright = useBright(ptyId, shown);
@@ -269,6 +277,7 @@ function TerminalRow({
   return (
     <SidebarRow
       ptyId={ptyId}
+      pointKeys={[pointKey.terminal(ptyId), ...alsoPointKeys]}
       icon={icon}
       title={text}
       mono={mono}
@@ -404,6 +413,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
           icon={icon}
           title={taskTitle}
           tooltip={`${taskTitle} · ${projectName} · No terminal open`}
+          pointKeys={[pointKey.task(projectPath, task.taskNumber)]}
           bright={false}
           trailing={<IdleMark />}
           onClick={pick(at, () => void openTaskTerminal(projectPath, task, undefined, ownStack))}
@@ -413,6 +423,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
       ) : single ? (
         <TerminalRow
           ptyId={group.ptyIds[0]}
+          alsoPointKeys={task ? [pointKey.task(projectPath, task.taskNumber)] : []}
           title={() => taskTitle}
           icon={icon}
           detail={diff}
@@ -430,6 +441,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
               icon={icon}
               title={taskTitle}
               tooltip={rowTooltip(taskTitle, projectName, front, now)}
+              pointKeys={task ? [pointKey.task(projectPath, task.taskNumber)] : undefined}
               bright={anyUnread}
               selected={group.ptyIds.every((id) => onScreen.includes(id))}
               detail={diff}

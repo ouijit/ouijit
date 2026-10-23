@@ -23,6 +23,7 @@ import { registerLinearCommands } from './commands/linear';
 import { registerTerminalCommands } from './commands/terminal';
 import { registerDiffCommands } from './commands/diff';
 import { registerPanelCommands } from './commands/panel';
+import { registerPointCommands } from './commands/point';
 
 const program = new Command();
 
@@ -62,6 +63,7 @@ registerDiffCommands(program, requireProject);
 registerMarkdownCommands(program);
 registerPreviewCommands(program);
 registerPanelCommands(program);
+registerPointCommands(program, requireProject);
 registerThemeCommands(program);
 
 // Command actions are async; parse() would let an API rejection surface as an

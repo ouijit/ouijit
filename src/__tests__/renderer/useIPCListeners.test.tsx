@@ -9,6 +9,8 @@ import { beginTransition } from '../../services/taskStartService';
 import { completeTask } from '../../services/taskCompletion';
 import type { TaskWithWorkspace } from '../../types';
 import { seedProject } from './seedProject';
+import { usePointerStore } from '../../stores/pointerStore';
+import { followPointer } from '../../components/point/followPointer';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -163,20 +165,21 @@ describe('useIPCListeners — CLI task lifecycle', () => {
       const stubs = installListenerStubs();
       renderHook(() => useIPCListeners());
 
-      stubs.cliTaskStartedCb!(basePayload());
       stubs.cliTaskStartedCb!(basePayload({ hookMode: 'skip' }));
       stubs.cliTaskStartedCb!(basePayload({ hookMode: 'run' }));
       stubs.cliTaskStartedCb!(basePayload({ hookMode: 'command', hookCommand: 'claude --resume' }));
+      // No flags and no hook configured: nothing to ask, so it runs too.
+      stubs.cliTaskStartedCb!(basePayload());
       await flush();
       expect(
         vi
           .mocked(beginTransition)
           .mock.calls.map(([path, opts]) => [path, opts.newStatus, opts.hookControl, opts.background]),
       ).toEqual([
-        [PROJECT, 'in_progress', undefined, true],
         [PROJECT, 'in_progress', { mode: 'skip', command: undefined }, true],
         [PROJECT, 'in_progress', { mode: 'run', command: undefined }, true],
         [PROJECT, 'in_progress', { mode: 'command', command: 'claude --resume' }, true],
+        [PROJECT, 'in_progress', undefined, true],
       ]);
 
       vi.mocked(beginTransition).mockClear();
@@ -188,8 +191,8 @@ describe('useIPCListeners — CLI task lifecycle', () => {
           .mocked(beginTransition)
           .mock.calls.map(([, opts]) => [opts.origStatus, opts.newStatus, opts.hookControl, opts.background]),
       ).toEqual([
-        ['in_progress', 'in_review', undefined, true],
         ['in_progress', 'in_review', { mode: 'command', command: 'claude review' }, true],
+        ['in_progress', 'in_review', undefined, true],
       ]);
 
       stubs.cliTaskCompletedCb!(completedPayload());
@@ -198,11 +201,49 @@ describe('useIPCListeners — CLI task lifecycle', () => {
       expect(
         vi.mocked(completeTask).mock.calls.map(([opts]) => [opts.projectPath, opts.hookControl, opts.skipStatusWrite]),
       ).toEqual([
-        [PROJECT, undefined, true],
         [PROJECT, { mode: 'command', command: 'npm run deploy' }, true],
+        [PROJECT, undefined, true],
       ]);
     },
   );
+
+  test("a move whose hook would ask waits behind a pointer from the terminal that ran it, and asks once it's followed", async () => {
+    usePointerStore.setState({ pointers: [] });
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 's', type: 'start', name: 'Agent', command: 'claude' },
+      review: { id: 'r', type: 'review', name: 'PR', command: 'gh pr create' },
+      done: { id: 'd', type: 'done', name: 'Push', command: 'git push' },
+    });
+    const stubs = installListenerStubs();
+    renderHook(() => useIPCListeners());
+
+    stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-agent' }));
+    await flush();
+    expect(beginTransition).not.toHaveBeenCalled();
+    const [pointer] = usePointerStore.getState().pointers;
+    expect(pointer).toEqual(
+      expect.objectContaining({ from: 'pty-agent', target: { kind: 'task', projectPath: PROJECT, taskNumber: 9 } }),
+    );
+
+    await followPointer(pointer);
+    expect(
+      vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl, opts.background]),
+    ).toEqual([['in_progress', undefined, false]]);
+    expect(usePointerStore.getState().pointers).toEqual([]);
+
+    // Review and done wait the same way; with flags they run at once, and --point leaves a pointer anyway.
+    stubs.cliTaskTransitionedCb!(transitionPayload({ fromPtyId: 'pty-agent' }));
+    stubs.cliTaskCompletedCb!(completedPayload({ fromPtyId: 'pty-other' }));
+    await flush();
+    expect(usePointerStore.getState().pointers.map((p) => p.from)).toEqual(['pty-agent', 'pty-other']);
+    expect(completeTask).not.toHaveBeenCalled();
+
+    vi.mocked(beginTransition).mockClear();
+    stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-third', hookMode: 'run', point: true }));
+    await flush();
+    expect(beginTransition).toHaveBeenCalledTimes(1);
+    expect(usePointerStore.getState().pointers.find((p) => p.from === 'pty-third')?.then).toBeUndefined();
+  });
 });
 
 describe('useIPCListeners — cli-change refreshes the resource that changed', () => {

@@ -50,19 +50,20 @@ Examples:
     .option('--task <number>', "open it in this task's worktree")
     .option('--resume', "run the project's continue hook in it, as reopening the task does")
     .option(SANDBOX_FLAG, sandboxFlagHelp('where it runs; omitted, the project default'))
-    .action(async (opts: { task?: string; resume?: boolean; sandbox?: string }) => {
+    .option('--point', 'leave a pointer to it for the user to follow')
+    .action(async (opts: { task?: string; resume?: boolean; sandbox?: string; point?: boolean }) => {
       const parsed = parseSandboxFlag(opts.sandbox);
       if ('error' in parsed) return printError(parsed.error);
       const task = opts.task === undefined ? undefined : parseInt(opts.task, 10);
       if (task !== undefined && isNaN(task)) return printError('Task number must be an integer');
       if (opts.resume && task === undefined) return printError('--resume needs --task');
-      printJson(
-        await post(`/api/terminals${projectQuery(requireProject())}`, {
-          ...(task !== undefined && { task }),
-          ...(opts.resume && { resume: true }),
-          ...(parsed.sandbox && { sandbox: parsed.sandbox }),
-        }),
-      );
+      const opened = await post<{ ptyId: string }>(`/api/terminals${projectQuery(requireProject())}`, {
+        ...(task !== undefined && { task }),
+        ...(opts.resume && { resume: true }),
+        ...(parsed.sandbox && { sandbox: parsed.sandbox }),
+      });
+      if (opts.point) await post('/api/point', { kind: 'terminal', ptyId: opened.ptyId });
+      printJson(opened);
     });
 
   terminal

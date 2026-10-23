@@ -1,20 +1,56 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { SANDBOX_LABELS, type CliHookControl, type TaskStatus, type TaskWithWorkspace } from '../types';
+import {
+  SANDBOX_LABELS,
+  type CliCaller,
+  type CliHookControl,
+  type HookType,
+  type TaskStatus,
+  type TaskWithWorkspace,
+} from '../types';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { refreshProjectData } from '../stores/projectDataStore';
 import { beginTransition } from '../services/taskStartService';
+import { hookTypeForTransition } from '../services/hookRun';
+import { usePointerStore } from '../stores/pointerStore';
 import { completeTask } from '../services/taskCompletion';
 import { reloadTheme } from '../theme/themeManager';
 import log from 'electron-log/renderer';
 
 const ipcLog = log.scope('ipcListeners');
 
-interface CliStart extends CliHookControl {
+interface CliStart extends CliHookControl, CliCaller {
   taskNumber: number;
   worktreePath: string;
   branch: string;
+}
+
+function hookOptions({ hookMode, hookCommand, hookSandbox }: CliHookControl) {
+  return { hookControl: hookMode ? { mode: hookMode, command: hookCommand } : undefined, sandbox: hookSandbox };
+}
+
+/**
+ * A CLI task move never takes over the screen. Where its hook would open a
+ * dialog, the move waits behind a pointer at the task, from the terminal that
+ * ran it, and the dialog opens when the user follows. Otherwise it runs at
+ * once, its terminal behind the one on screen.
+ */
+async function stageOrRun(
+  projectPath: string,
+  task: TaskWithWorkspace,
+  move: CliHookControl & CliCaller & { hookType: HookType | null },
+  run: (background: boolean) => void,
+): Promise<void> {
+  const { fromPtyId } = move;
+  const target = { kind: 'task' as const, projectPath, taskNumber: task.taskNumber };
+  const prompts = !move.hookMode && move.hookType != null && !!(await window.api.hooks.get(projectPath))[move.hookType];
+  if (prompts && fromPtyId) {
+    usePointerStore.getState().point({ from: fromPtyId, target, then: () => run(false) });
+    return;
+  }
+  run(true);
+  if (move.point && fromPtyId) usePointerStore.getState().point({ from: fromPtyId, target });
 }
 
 async function spawnTerminalForCliStart(projectPath: string, start: CliStart): Promise<void> {
@@ -32,68 +68,68 @@ async function spawnTerminalForCliStart(projectPath: string, start: CliStart): P
   // Use the full task record so beginTransition has name/mergeTarget/etc.
   // The CLI already created the worktree and flipped status, so the
   // transition's worktree-creation step short-circuits on task.worktreePath.
-  const task = await window.api.task.getByNumber(projectPath, start.taskNumber);
-  if (!task) {
+  const found = await window.api.task.getByNumber(projectPath, start.taskNumber);
+  if (!found) {
     ipcLog.warn('CLI task-started: task not found, skipping spawn', { taskNumber: start.taskNumber });
     return;
   }
+  const task = {
+    ...found,
+    worktreePath: found.worktreePath ?? start.worktreePath,
+    branch: found.branch ?? start.branch,
+  };
 
-  // Route through the same service the kanban drag uses. With no hook flags
-  // the `start` hook dialog appears, matching the todo → in_progress drop UX
-  // exactly. When the CLI passed --run-hook/--skip-hook/--hook-command, the
-  // dialog is skipped so an agent can start a task headlessly.
-  beginTransition(projectPath, {
-    origStatus: 'todo',
-    newStatus: 'in_progress',
-    task: {
-      ...task,
-      worktreePath: task.worktreePath ?? start.worktreePath,
-      branch: task.branch ?? start.branch,
-    },
-    ...hookOptions(start),
-    background: true,
-  });
-}
-
-function hookOptions({ hookMode, hookCommand, hookSandbox }: CliHookControl) {
-  return { hookControl: hookMode ? { mode: hookMode, command: hookCommand } : undefined, sandbox: hookSandbox };
+  // The same service a kanban drag to In progress goes through.
+  await stageOrRun(projectPath, task, { ...start, hookType: 'start' }, (background) =>
+    beginTransition(projectPath, {
+      origStatus: 'todo',
+      newStatus: 'in_progress',
+      task,
+      ...hookOptions(start),
+      background,
+    }),
+  );
 }
 
 /**
  * Run a CLI-initiated in_progress/in_review transition through the same
  * beginTransition path a kanban drop uses. The server already wrote the status
- * and fetched the full task, so this just fires the hook: a dialog by default,
- * or headless when the CLI passed --run-hook/--skip-hook/--hook-command.
+ * and fetched the full task, so this just fires the hook.
  */
-function runCliTransition(
+async function runCliTransition(
   projectPath: string,
-  transition: CliHookControl & { origStatus: TaskStatus; newStatus: TaskStatus; task: TaskWithWorkspace },
-): void {
-  beginTransition(projectPath, {
-    origStatus: transition.origStatus,
-    newStatus: transition.newStatus,
-    task: transition.task,
-    ...hookOptions(transition),
-    background: true,
-  });
+  transition: CliHookControl & CliCaller & { origStatus: TaskStatus; newStatus: TaskStatus; task: TaskWithWorkspace },
+): Promise<void> {
+  const { origStatus, newStatus, task } = transition;
+  await stageOrRun(
+    projectPath,
+    task,
+    { ...transition, hookType: hookTypeForTransition(origStatus, newStatus) },
+    (background) =>
+      beginTransition(projectPath, { origStatus, newStatus, task, ...hookOptions(transition), background }),
+  );
 }
 
 /**
  * Run a CLI-initiated done transition through completeTask. The server already
  * wrote the status (skipStatusWrite), so this drives the done lifecycle:
- * terminal cleanup always runs; the hook is a dialog by default, or headless
- * when the CLI passed --run-hook/--skip-hook/--hook-command.
+ * terminal cleanup and the done hook.
  */
-function runCliCompletion(projectPath: string, completion: CliHookControl & { task: TaskWithWorkspace }): void {
-  void completeTask({
-    projectPath,
-    task: completion.task,
-    ...hookOptions(completion),
-    skipStatusWrite: true,
-  }).catch((err) => {
-    ipcLog.error('CLI task-completed lifecycle failed', {
-      taskNumber: completion.task.taskNumber,
-      error: err instanceof Error ? err.message : String(err),
+async function runCliCompletion(
+  projectPath: string,
+  completion: CliHookControl & CliCaller & { task: TaskWithWorkspace },
+): Promise<void> {
+  await stageOrRun(projectPath, completion.task, { ...completion, hookType: 'done' }, () => {
+    void completeTask({
+      projectPath,
+      task: completion.task,
+      ...hookOptions(completion),
+      skipStatusWrite: true,
+    }).catch((err) => {
+      ipcLog.error('CLI task-completed lifecycle failed', {
+        taskNumber: completion.task.taskNumber,
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
   });
 }
@@ -210,7 +246,7 @@ export function useIPCListeners() {
     cleanups.push(
       window.api.onCliTaskCompleted((payload) => {
         ipcLog.info('CLI task-completed', { project: payload.project, taskNumber: payload.taskNumber });
-        runCliCompletion(payload.project, payload);
+        void runCliCompletion(payload.project, payload);
       }),
     );
 
@@ -229,7 +265,7 @@ export function useIPCListeners() {
     cleanups.push(
       window.api.onCliTaskTransitioned((payload) => {
         ipcLog.info('CLI task-transitioned', { taskNumber: payload.taskNumber, newStatus: payload.newStatus });
-        runCliTransition(payload.project, payload);
+        void runCliTransition(payload.project, payload);
       }),
     );
 

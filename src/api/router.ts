@@ -64,7 +64,7 @@ import {
 import { getProjectList } from '../projectList';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
-import { cliPanelRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
+import { cliPanelRequest, cliPointRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
 import {
   isPtyActive,
   getPtyTaskContext,
@@ -84,6 +84,9 @@ import type {
   CliTagResponse,
   CliTerminalOp,
   CliTerminalResponse,
+  CliPointOp,
+  CliCaller,
+  PointTarget,
   SandboxCliAccess,
   SandboxProviderId,
 } from '../types';
@@ -202,6 +205,55 @@ function parseHookMode(body: Record<string, unknown>): Omit<CliHookControl, 'hoo
     return { hookMode: mode, hookCommand: command };
   }
   return { hookMode: mode };
+}
+
+function cliCaller(fromPtyId: string, body: Record<string, unknown>): CliCaller {
+  return { fromPtyId, ...(body.point === true && { point: true }) };
+}
+
+/** The target of `ouijit point`, from its body. The project ones take `?project=`; the rest name a terminal. */
+function pointTarget(r: ParsedRequest): PointTarget {
+  const { body } = r;
+  const ptyId = typeof body.ptyId === 'string' && body.ptyId ? body.ptyId : r.auth.ptyId;
+  switch (body.kind) {
+    case 'task':
+      return {
+        kind: 'task',
+        projectPath: requireProject(r.query),
+        taskNumber: requireInt(String(body.taskNumber), 'Task number'),
+      };
+    case 'terminal':
+      if (typeof body.ptyId !== 'string' || !body.ptyId) throw new HttpError(400, 'Missing ptyId');
+      return { kind: 'terminal', ptyId: body.ptyId };
+    case 'project':
+    case 'board':
+      return { kind: body.kind, projectPath: requireProject(r.query) };
+    case 'pr':
+      return {
+        kind: 'pr',
+        projectPath: requireProject(r.query),
+        number: requireInt(String(body.number), 'Pull request number'),
+      };
+    case 'issue':
+      if (typeof body.id !== 'string' || !body.id) throw new HttpError(400, 'Missing issue');
+      return { kind: 'issue', projectPath: requireProject(r.query), id: body.id };
+    case 'panel':
+      if (typeof body.panelId !== 'string' || !body.panelId) throw new HttpError(400, 'Missing panel id');
+      return { kind: 'panel', ptyId, panelId: body.panelId };
+    case 'diff': {
+      if (typeof body.path !== 'string' || !body.path) throw new HttpError(400, 'Missing path');
+      const line = body.line === undefined ? undefined : requireInt(String(body.line), 'Line');
+      return { kind: 'diff', ptyId, path: body.path, ...(line !== undefined && { line }) };
+    }
+    default:
+      throw new HttpError(400, `Unknown target '${String(body.kind)}'`);
+  }
+}
+
+async function runPointOp(op: Omit<CliPointOp, 'requestId'>): Promise<{ target?: PointTarget; cleared?: boolean }> {
+  const result = await cliPointRequest(op);
+  if (!result.ok) throw new HttpError(404, result.error ?? 'Point failed');
+  return op.action === 'clear' ? { cleared: true } : { target: result.target };
 }
 
 async function readCustomThemes(): Promise<CustomTheme[]> {
@@ -699,6 +751,25 @@ const routes: Route[] = [
 
   route('POST', 'terminals/:ptyId/diff', (r) => runTerminalPanelsOp(r.segments[1], 'diff-open'), true),
   route('DELETE', 'terminals/:ptyId/diff', (r) => runTerminalPanelsOp(r.segments[1], 'diff-close'), true),
+
+  // ── Pointers ─────────────────────────────────────────────────────
+  // A pointer only suggests where the user might look, and it is the
+  // caller's own, so a sandbox at the lowest CLI access can leave one.
+  route(
+    'POST',
+    'point',
+    (r) => {
+      if (r.body.kind === 'note') {
+        if (typeof r.body.noteId !== 'string' || !r.body.noteId) throw new HttpError(400, 'Missing note id');
+        return runPointOp({ fromPtyId: r.auth.ptyId, action: 'note', noteId: r.body.noteId });
+      }
+      return runPointOp({ fromPtyId: r.auth.ptyId, action: 'point', target: pointTarget(r) });
+    },
+    false,
+    'sandbox',
+  ),
+
+  route('DELETE', 'point', (r) => runPointOp({ fromPtyId: r.auth.ptyId, action: 'clear' }), false, 'sandbox'),
 
   // ── Diff notes ───────────────────────────────────────────────────
   route(
@@ -1272,6 +1343,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             branch: task.branch,
             createdAt: task.createdAt,
             ...hookControl,
+            ...cliCaller(caller.ptyId, body),
           });
         }
       }
@@ -1297,6 +1369,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               taskNumber,
               task,
               ...hookControl,
+              ...cliCaller(caller.ptyId, body),
             });
           }
         }
@@ -1327,6 +1400,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               newStatus: body.status,
               task,
               ...hookControl,
+              ...cliCaller(caller.ptyId, body),
             });
           }
         }

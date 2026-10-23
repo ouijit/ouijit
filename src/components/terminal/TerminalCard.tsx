@@ -5,6 +5,7 @@ import { terminalInstances } from './terminalRegistry';
 import { TerminalHeader } from './TerminalHeader';
 import { TerminalBody } from './TerminalBody';
 import { TerminalCardView } from './TerminalCardView';
+import { pointKey } from '../point/pointKeys';
 
 interface TerminalCardProps {
   ptyId: string;
@@ -18,6 +19,7 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, depth, stackPosi
   const isLoading = useTerminalStore((s) => s.displayStates[ptyId]?.isLoading ?? false);
   const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
   const projectPath = useTerminalStore((s) => s.displayStates[ptyId]?.projectPath ?? '');
+  const taskId = useTerminalStore((s) => s.displayStates[ptyId]?.taskId ?? null);
   const isFront = depth === 0;
   const [hovered, setHovered] = useState(false);
 
@@ -41,6 +43,9 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, depth, stackPosi
       backDepth={depth}
       hoverLift={!isFront && hovered ? 4 : 0}
       ptyId={ptyId}
+      pointTarget={[pointKey.terminal(ptyId), ...(taskId != null ? [pointKey.task(projectPath, taskId)] : [])].join(
+        ' ',
+      )}
       onClick={handleClick}
       onMouseEnter={() => !isFront && setHovered(true)}
       onMouseLeave={() => setHovered(false)}

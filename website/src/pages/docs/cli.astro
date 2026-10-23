@@ -46,7 +46,7 @@ ouijit task start 5 --run-hook --sandbox custom # run it in a sandbox other than
 ouijit task create-and-start "Add 2FA"        # create + start in one step
 ouijit task create-and-start "Add 2FA" --prompt "..." --branch custom --skip-hook
 ouijit task spawn "Add 2FA"                   # alias for create-and-start
-ouijit task set-status 5 in_review            # fires the review hook (dialog by default)
+ouijit task set-status 5 in_review            # the review hook waits behind a pointer by default
 ouijit task set-status 5 in_review --run-hook # run the review hook, no dialog
 ouijit task set-status 5 in_review --skip-hook
 ouijit task set-status 5 done --hook-command "npm run deploy"
@@ -57,8 +57,9 @@ ouijit task set-merge-target 5 develop
 ouijit task trash 5                           # worktree goes to the system trash</code></pre>
   <p>
     <code>--run-hook</code>, <code>--skip-hook</code>, and <code>--hook-command</code> are mutually exclusive.
-    By default, a status change opens that column's hook dialog in the GUI, just like dragging a card; use these
-    flags for headless runs where no one is at the keyboard to dismiss it. They apply to <code>task start</code>
+    By default, a status change whose hook would ask first leaves a <a href="#point">pointer</a> at the task, and
+    the hook's dialog opens when you follow it, so an agent never puts a dialog over what you're doing. Use these
+    flags to run without waiting for you. They apply to <code>task start</code>
     and <code>create-and-start</code> (the start hook) and to <code>set-status</code> into
     <code>in_progress</code>, <code>in_review</code>, or <code>done</code> (the continue, review, and done
     hooks). <code>bulk-set-status</code> takes the same flags. Setting status to <code>todo</code> runs no hook
@@ -66,7 +67,7 @@ ouijit task trash 5                           # worktree goes to the system tras
   </p>
   <p>
     <code>--sandbox host|nono|custom</code> overrides the hook's own <a href="/docs/sandbox/">sandbox</a> setting
-    for that run, with or without the flags above. With the dialog, it is what the dialog preselects.
+    for that run, with or without the flags above. When it waits for you, it is what the dialog preselects.
   </p>
   <p>
     <code>ouijit task current</code> resolves the task owning the current terminal via the
@@ -129,6 +130,23 @@ ouijit terminal close pty_abc123</code></pre>
 ouijit diff notes --task 5
 ouijit diff open                              # show this terminal's diff panel
 ouijit diff close</code></pre>
+
+  <h2 id="point">Pointing</h2>
+  <p>
+    An agent can point you at something without moving your screen. A ribbon appears on the thing itself: a
+    sidebar row, a board card, a panel tab, a pull request, a line of the diff. Click it, or press
+    <kbd>⌘J</kbd> for the latest, to go there. Each terminal has one pointer; a new one replaces it.
+  </p>
+  <pre class="glass-bevel"><code>ouijit point task 14
+ouijit point terminal pty_abc123
+ouijit point board
+ouijit point pr 212
+ouijit point issue ENG-231                    # or a GitHub issue number
+ouijit point panel panel-3fa9
+ouijit point diff src/auth/session.ts:88
+ouijit point note 7f3c                        # from ouijit diff notes
+ouijit point clear
+ouijit task start 14 --skip-hook --point      # task start, create-and-start and terminal open take --point</code></pre>
 
   <h2>Tags</h2>
   <p>

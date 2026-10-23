@@ -35,8 +35,9 @@ import Docs from '../../layouts/Docs.astro';
   <pre class="glass-bevel"><code>TASK=$(ouijit task current | jq -r .taskNumber)
 ouijit task set-status "$TASK" in_review --skip-hook</code></pre>
   <p>
-    By default a status change opens that column's hook dialog in the GUI. When no human is at the keyboard,
-    pass <code>--run-hook</code> (run the configured hook immediately), <code>--skip-hook</code> (no hook), or
+    By default a status change whose hook would ask first waits behind a <a href="/docs/cli/#point">pointer</a>
+    at the task, and the dialog opens when the user follows it. To run without waiting, pass
+    <code>--run-hook</code> (run the configured hook immediately), <code>--skip-hook</code> (no hook), or
     <code>--hook-command "&lt;cmd&gt;"</code> (a one-off command). The same flags apply to
     <code>task start</code> and <code>task create-and-start</code>. The hook runs where its
     <a href="/docs/sandbox/">sandbox</a> setting says, or the project default, unless

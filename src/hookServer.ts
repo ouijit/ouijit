@@ -274,18 +274,18 @@ ouijit task get <number>                      # → single task object
 ouijit task current                           # → task owning this terminal (resolves via OUIJIT_PTY_ID)
 ouijit task create "<name>"                   # → {success, task: {taskNumber, ...}}
 ouijit task create "<name>" --prompt "<text>" # set description at creation
-ouijit task start <number>                    # creates git worktree, sets in_progress; default opens the start-hook dialog in the GUI
+ouijit task start <number>                    # creates git worktree, sets in_progress; default: the start hook waits behind a pointer the user follows
 ouijit task start <number> --branch <name>    # use a custom branch name for the worktree
 ouijit task start <number> --run-hook         # run the configured start hook immediately, no dialog
 ouijit task start <number> --skip-hook        # spawn the terminal but run no hook
 ouijit task start <number> --hook-command "<cmd>"  # spawn the terminal running a one-off command instead of the configured hook
 ouijit task create-and-start "<name>"         # create + start in one step (accepts --prompt, --branch, and the same --run-hook / --skip-hook / --hook-command flags); aliased as "task spawn"
 ouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done
-ouijit task set-status <number> in_review                    # default: opens the review-hook dialog (like a kanban drop)
+ouijit task set-status <number> in_review                    # default: the review hook waits behind a pointer the user follows
 ouijit task set-status <number> in_review --run-hook         # run the configured review hook immediately, no dialog
 ouijit task set-status <number> in_review --skip-hook        # change status, run no hook
 ouijit task set-status <number> in_review --hook-command "<cmd>" # run a one-off command instead of the review hook
-ouijit task set-status <number> done                         # default: opens the done-hook dialog (like a kanban drop)
+ouijit task set-status <number> done                         # default: the done hook waits behind a pointer the user follows
 ouijit task set-status <number> done --run-hook              # run the configured done hook immediately, no dialog
 ouijit task set-status <number> done --skip-hook            # change status, run no hook
 ouijit task set-status <number> done --hook-command "<cmd>" # run a one-off command instead of the done hook
@@ -319,6 +319,24 @@ ouijit diff close [pty-id]
 Each note is about lines startLine–line of path, kept current as the file
 changes. side LEFT means code that was removed, numbered as the file was.
 snippet is the source the note was written against.
+
+## Pointing (show the user something without moving their screen)
+ouijit point task <n>                         # its terminal when one is open, else its card
+ouijit point terminal <pty-id>
+ouijit point project | board
+ouijit point pr <n>
+ouijit point issue <id>                       # a GitHub issue number, or a Linear identifier like ENG-231
+ouijit point panel <id> [pty-id]              # an id from panel list
+ouijit point diff <file>[:<line>] [pty-id]    # a file, or a line, in a terminal's diff
+ouijit point note <id>                        # an id from diff notes
+ouijit point clear
+task start, create-and-start and terminal open take --point too.
+
+Nothing in Ouijit moves the user's view for you. A pointer marks the thing
+itself, in the sidebar, on the board or in the diff, and the user follows it
+when they choose. This terminal has one pointer at a time; a new one replaces
+it. Point after you finish something the user should look at, instead of
+asking them to find it.
 
 ## Tag Commands (the tags on a terminal's card; host terminals only)
 ouijit tag list                               # → [{name, terminals: [{ptyId, label, projectPath}]}] across open terminals
@@ -462,8 +480,8 @@ ouijit task set-status $(ouijit task current | jq .taskNumber) in_review
 # Create a task and immediately start working:
 ouijit task create-and-start "Fix auth timeout" --prompt "Session expires too early"
 
-# Headless start — no GUI dialog needed. Use these when a human isn't at the keyboard
-# to dismiss the start-hook dialog. The flags are mutually exclusive.
+# Start without waiting for the user: run the hook, skip it, or run something else.
+# The flags are mutually exclusive.
 ouijit task start 5 --skip-hook
 ouijit task start 5 --run-hook
 ouijit task start 5 --hook-command "claude"

@@ -147,6 +147,7 @@ describe('cli:task-started push', () => {
       worktreePath: '/tmp/wt/T-7',
       branch: 'feat-7',
       createdAt: '2026-05-10T00:00:00.000Z',
+      fromPtyId: 'pty-host',
     });
   });
 

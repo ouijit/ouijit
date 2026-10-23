@@ -174,7 +174,8 @@ Examples:
     .option('--skip-hook', 'spawn the terminal but run no hook')
     .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
     .option(SANDBOX_FLAG, HOOK_SANDBOX_HELP)
-    .action(async (number: string, opts: { branch?: string } & HookFlags) => {
+    .option('--point', 'leave a pointer to the task for the user to follow')
+    .action(async (number: string, opts: { branch?: string; point?: boolean } & HookFlags) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
       const hook = resolveHookFlags(opts);
@@ -183,6 +184,7 @@ Examples:
       const result = await post(`/api/tasks/${num}/start${projectQuery(project)}`, {
         branchName: opts.branch,
         ...hook,
+        ...(opts.point && { point: true }),
       });
       if (!(result as { success?: boolean }).success) {
         return printError((result as { error?: string }).error || 'Failed to start task');
@@ -201,7 +203,8 @@ Examples:
     .option('--skip-hook', 'spawn the terminal but run no hook')
     .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
     .option(SANDBOX_FLAG, HOOK_SANDBOX_HELP)
-    .action(async (name: string, opts: { prompt?: string; branch?: string } & HookFlags) => {
+    .option('--point', 'leave a pointer to the task for the user to follow')
+    .action(async (name: string, opts: { prompt?: string; branch?: string; point?: boolean } & HookFlags) => {
       const hook = resolveHookFlags(opts);
       if ('error' in hook) return printError(hook.error);
       const project = requireProject();
@@ -210,6 +213,7 @@ Examples:
         prompt: opts.prompt,
         branchName: opts.branch,
         ...hook,
+        ...(opts.point && { point: true }),
       });
       if (!(result as { success?: boolean }).success) {
         return printError((result as { error?: string }).error || 'Failed to create and start task');

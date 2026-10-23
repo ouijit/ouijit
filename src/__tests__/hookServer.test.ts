@@ -138,6 +138,8 @@ describe('CLI_REFERENCE', () => {
     // Watching and nudging another agent, the paste staying unsent.
     expect(CLI_REFERENCE).toContain('ouijit terminal read');
     expect(CLI_REFERENCE).toMatch(/ouijit terminal paste .*never pressing Enter/);
+    // The one way to show the user something, since nothing moves their view.
+    expect(CLI_REFERENCE).toContain('ouijit point task');
 
     expect(CLI_REFERENCE).toContain('ouijit sandbox-command set');
     // Sandboxed agents read the same reference, so it has to say what it cannot run.

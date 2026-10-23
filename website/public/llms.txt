@@ -22,7 +22,7 @@ Every page below is also served as plain Markdown at https://ouijit.com/docs/<sl
 - [Hooks](https://ouijit.com/docs/hooks/): Five lifecycle hooks (start, continue, run, review, done) configured per project, plus the on-demand editor command. Hooks receive OUIJIT_TASK_* env vars.
 - [Harnesses](https://ouijit.com/docs/harnesses/): Status indicators and CLI awareness for Claude Code, Codex, Pi, and OpenCode via injected wrappers.
 - [Agents](https://ouijit.com/docs/agents/): The contract for agents driving Ouijit: injected CLI reference, environment variables, headless hook flags, panel commands, the staged PR review workflow, sandbox constraints.
-- [CLI](https://ouijit.com/docs/cli/): The `ouijit` command auto-installed in every terminal, with subcommands for tasks, terminals (list, read, open, paste, close), diff notes, hooks, scripts, runners, tags, pull requests, themes, panels, projects, and the custom sandbox launcher.
+- [CLI](https://ouijit.com/docs/cli/): The `ouijit` command auto-installed in every terminal, with subcommands for tasks, terminals (list, read, open, paste, close), pointing the user at something without moving their screen, diff notes, hooks, scripts, runners, tags, pull requests, themes, panels, projects, and the custom sandbox launcher.
 
 ## Project
 

@@ -24,6 +24,7 @@ import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
 import { describeDiffComparison, filesInDiff } from '../../diffSource';
+import { pointKey } from '../point/pointKeys';
 
 const EMPTY_TAGS: string[] = [];
 const NO_BACKENDS: SandboxBackendId[] = [];
@@ -350,6 +351,7 @@ export const TerminalHeader = memo(function TerminalHeader({
       actions={
         isActive ? (
           <PanelControls
+            ptyId={ptyId}
             panels={panels}
             activePanelId={activePanelId}
             gitFileStatus={gitFileStatus}
@@ -443,6 +445,7 @@ function RunnerDot({ panel }: { panel: RunnerPanelState }) {
 }
 
 function PanelControls({
+  ptyId,
   panels,
   activePanelId,
   gitFileStatus,
@@ -454,6 +457,7 @@ function PanelControls({
   onDiffClick,
   onAddClick,
 }: {
+  ptyId: string;
   panels: TerminalPanel[];
   activePanelId: string | null;
   gitFileStatus: GitFileStatus | null;
@@ -485,6 +489,8 @@ function PanelControls({
       <button
         key={panel.id}
         className={`${groupButtonBase} ${groupButtonFlexible} ${active ? groupButtonActive : groupButtonInactive}`}
+        data-point-target={pointKey.panel(ptyId, panel.id)}
+        data-point-side="below"
         // Clicking the already-active tab minimizes it (collapses to the bare terminal).
         onClick={() => (active ? onMinimize() : onActivate(panel.id))}
       >

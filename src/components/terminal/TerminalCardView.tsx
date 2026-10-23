@@ -60,6 +60,8 @@ export interface TerminalCardViewProps {
   /** Adds a small upward lift when hovered behind cards */
   hoverLift?: number;
   ptyId?: string;
+  /** What a pointer at this card is pointing at: see `pointKey`. */
+  pointTarget?: string;
   className?: string;
   onClick?: () => void;
   onMouseEnter?: () => void;
@@ -77,6 +79,7 @@ export function TerminalCardView({
   backDepth = 0,
   hoverLift = 0,
   ptyId,
+  pointTarget,
   className,
   onClick,
   onMouseEnter,
@@ -107,6 +110,7 @@ export function TerminalCardView({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       data-pty-id={ptyId}
+      data-point-target={pointTarget}
       onClick={onClick}
     >
       {children}

@@ -48,6 +48,9 @@ import type {
   CliTagResponse,
   CliTerminalOp,
   CliTerminalResponse,
+  CliPointOp,
+  CliPointResponse,
+  CliCaller,
 } from '../types';
 import type {
   RepoIdentity,
@@ -252,6 +255,7 @@ export interface IpcInvokeContract {
   'cli-panels:respond': { args: [requestId: number, response: CliPanelResponse]; return: void };
   'cli-tags:respond': { args: [requestId: number, response: CliTagResponse]; return: void };
   'cli-terminals:respond': { args: [requestId: number, response: CliTerminalResponse]; return: void };
+  'cli-points:respond': { args: [requestId: number, response: CliPointResponse]; return: void };
 
   // ── Scripts ──────────────────────────────────────────────────────────
   'scripts:get-all': { args: [projectPath: string]; return: Script[] };
@@ -460,6 +464,7 @@ export interface IpcPushContract {
   'cli:panel-op': { args: [op: CliPanelOp] };
   'cli:tag-op': { args: [op: CliTagOp] };
   'cli:terminal-op': { args: [op: CliTerminalOp] };
+  'cli:point-op': { args: [op: CliPointOp] };
   'plan:content-changed': { args: [planPath: string, content: string] };
   health: { args: [status: HealthStatus] };
   'update-available': { args: [info: { version: string; url: string }] };
@@ -492,7 +497,8 @@ export interface IpcPushContract {
         worktreePath: string;
         branch: string;
         createdAt: string;
-      } & CliHookControl,
+      } & CliHookControl &
+        CliCaller,
     ];
   };
   'cli:task-completed': {
@@ -504,7 +510,8 @@ export interface IpcPushContract {
          *  look it up in projectStore.tasks (which only holds the *active*
          *  project's tasks — would miss when the user is viewing a different project). */
         task: TaskWithWorkspace;
-      } & CliHookControl,
+      } & CliHookControl &
+        CliCaller,
     ];
   };
   'cli:task-transitioned': {
@@ -518,7 +525,8 @@ export interface IpcPushContract {
         newStatus: TaskStatus;
         /** Full task record fetched server-side (same rationale as cli:task-completed). */
         task: TaskWithWorkspace;
-      } & CliHookControl,
+      } & CliHookControl &
+        CliCaller,
     ];
   };
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };
