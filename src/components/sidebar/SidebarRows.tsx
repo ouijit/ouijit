@@ -14,7 +14,7 @@ import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import type { Project, SandboxBackendId } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
 import { filesInDiff } from '../../diffSource';
-import { focusTerminal, openProjectPage, openTaskTerminal } from '../navigation';
+import { focusTerminal, openTaskTerminal } from '../navigation';
 import { openTaskSheet } from '../../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
@@ -486,15 +486,15 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
   );
 }
 
-function NextStep({ projectPath, hasTodo }: { projectPath: string; hasTodo: boolean }) {
+function NewTaskRow({ projectPath }: { projectPath: string }) {
   return (
     <button
       type="button"
       className={`${ROW} ${ROW_IDLE} text-text-tertiary hover:text-text-secondary`}
-      onClick={() => (hasTodo ? void openProjectPage(projectPath, 'board') : openTaskSheet(projectPath))}
+      onClick={() => openTaskSheet(projectPath)}
     >
-      <Icon name={hasTodo ? 'kanban' : 'plus'} className="w-3.5 h-3.5" />
-      <span className="truncate">{hasTodo ? 'Start a task' : 'New task'}</span>
+      <Icon name="plus" className="w-3.5 h-3.5" />
+      <span className="truncate">New task</span>
     </button>
   );
 }
@@ -579,7 +579,7 @@ export function GroupRows({
   const { tasks, shells } = grouped;
 
   if (idleIn && tasks.length === 0 && shells.length === 0) {
-    return <NextStep projectPath={idleIn} hasTodo={(tasksByProject[idleIn] ?? []).some((t) => t.status === 'todo')} />;
+    return <NewTaskRow projectPath={idleIn} />;
   }
 
   // Every row in the order drawn, each with the terminals clicking it picks.

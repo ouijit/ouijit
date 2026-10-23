@@ -600,7 +600,7 @@ describe('the sidebar tree', () => {
     });
     expect(rows()).toEqual(before);
     expect(within(section('Projects')).getByText('~')).toBeTruthy();
-    // A project with nothing going on offers the next step: start what is waiting, or make a task.
+    // A project with nothing going on offers a new task, whether or not some wait on its board.
     const CHARLIE = { path: '/code/charlie', name: 'Charlie' };
     const DELTA = { path: '/code/delta', name: 'Delta' };
     act(() => {
@@ -609,7 +609,7 @@ describe('the sidebar tree', () => {
     });
     const group = (path: string) =>
       document.querySelector<HTMLElement>(`[data-project-path="${path}"]`)!.parentElement!;
-    expect(within(group(CHARLIE.path)).getByText('Start a task')).toBeTruthy();
+    expect(within(group(CHARLIE.path)).getByText('New task')).toBeTruthy();
     expect(within(group(DELTA.path)).getByText('New task')).toBeTruthy();
     expect(row(section('Projects'), 'Tidy up').dataset.bright).toBe('true');
     expect(row(section('Projects'), 'Write docs').dataset.bright).toBeUndefined();
