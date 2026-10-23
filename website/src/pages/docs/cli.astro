@@ -104,10 +104,21 @@ ouijit sandbox-command clear</code></pre>
 
   <h2>Terminals</h2>
   <p>
-    Every open terminal in every project, with its task, its sandbox, and whether its agent is
-    <code>thinking</code> or <code>ready</code>. Host terminals only.
+    See every open terminal, read what's on its screen, open and close terminals, and paste a message into
+    one for you to send. A terminal opened here goes behind the one on screen, and a paste never presses Enter.
+    Host terminals only.
   </p>
-  <pre class="glass-bevel"><code>ouijit terminal list</code></pre>
+  <pre class="glass-bevel"><code>ouijit terminal list                          # every project's terminals, with task, sandbox and agent status
+ouijit terminal read pty_abc123 --lines 40    # its screen and recent scrollback, as text
+ouijit terminal open --task 5                 # a shell in a started task's worktree
+ouijit terminal open --task 5 --resume        # running the continue hook
+ouijit terminal open                          # a shell in the project
+ouijit terminal paste pty_abc123 "run the tests again"
+ouijit terminal paste pty_abc123 - &lt; followup.md
+ouijit terminal close pty_abc123</code></pre>
+  <p>
+    A multi-line paste is refused where the program in that terminal would read each newline as Enter.
+  </p>
 
   <h2>Diff notes</h2>
   <p>
@@ -115,7 +126,9 @@ ouijit sandbox-command clear</code></pre>
     <code>--task</code> it reads the current terminal's worktree, which works from a sandbox too.
   </p>
   <pre class="glass-bevel"><code>ouijit diff notes
-ouijit diff notes --task 5</code></pre>
+ouijit diff notes --task 5
+ouijit diff open                              # show this terminal's diff panel
+ouijit diff close</code></pre>
 
   <h2>Tags</h2>
   <p>
@@ -129,7 +142,7 @@ ouijit tag add review pty_abc123              # explicit pty id
 ouijit tag remove review
 ouijit tag clear                              # removes all of them</code></pre>
 
-  <h2>Scripts</h2>
+  <h2 id="scripts">Scripts</h2>
   <p>
     Scripts are saved shell commands that show up in the <a href="/docs/panels/">panel menu</a> and the CLI.
     Unlike hooks, they don't fire on lifecycle events.
@@ -205,6 +218,21 @@ ouijit markdown remove ./plan.md</code></pre>
 ouijit preview add http://localhost:3000 pty_abc123
 ouijit preview list
 ouijit preview remove http://localhost:3000</code></pre>
+
+  <h2>Runners</h2>
+  <p>
+    Run a project <a href="#scripts">script</a> in a <a href="/docs/panels/">runner panel</a> beside a terminal,
+    as the <strong>+</strong> menu does, in the project's default sandbox.
+  </p>
+  <pre class="glass-bevel"><code>ouijit runner add "Dev server"                # by id or name
+ouijit runner list
+ouijit runner remove "Dev server"             # stops the script</code></pre>
+
+  <h2>Panels</h2>
+  <p>Every panel on a terminal, of every kind, and bringing one to the front.</p>
+  <pre class="glass-bevel"><code>ouijit panel list                             # ids, kinds, labels, which is active
+ouijit panel focus panel-3fa9
+ouijit panel focus terminal                   # back to the terminal itself</code></pre>
 
   <h2>Themes</h2>
   <p><a href="/docs/themes/">Themes</a> are global, not project-scoped.</p>

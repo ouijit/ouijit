@@ -46,6 +46,8 @@ import type {
   CliPanelResponse,
   CliTagOp,
   CliTagResponse,
+  CliTerminalOp,
+  CliTerminalResponse,
 } from '../types';
 import type {
   RepoIdentity,
@@ -249,6 +251,7 @@ export interface IpcInvokeContract {
   // ── CLI panel ops (renderer → main reply for a cli:panel-op push) ─────
   'cli-panels:respond': { args: [requestId: number, response: CliPanelResponse]; return: void };
   'cli-tags:respond': { args: [requestId: number, response: CliTagResponse]; return: void };
+  'cli-terminals:respond': { args: [requestId: number, response: CliTerminalResponse]; return: void };
 
   // ── Scripts ──────────────────────────────────────────────────────────
   'scripts:get-all': { args: [projectPath: string]; return: Script[] };
@@ -456,6 +459,7 @@ export interface IpcPushContract {
   'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
   'cli:panel-op': { args: [op: CliPanelOp] };
   'cli:tag-op': { args: [op: CliTagOp] };
+  'cli:terminal-op': { args: [op: CliTerminalOp] };
   'plan:content-changed': { args: [planPath: string, content: string] };
   health: { args: [status: HealthStatus] };
   'update-available': { args: [info: { version: string; url: string }] };

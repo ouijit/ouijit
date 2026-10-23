@@ -3,19 +3,22 @@
  */
 
 import type { Command } from 'commander';
-import { get, projectQuery } from '../api';
+import { get, post, del, projectQuery } from '../api';
+import { resolvePtyId } from '../ptyId';
 import { printJson, printError } from '../output';
 
 export function registerDiffCommands(parent: Command, requireProject: () => string) {
   const diff = parent
     .command('diff')
-    .description("Read what's been written on a worktree's diff")
+    .description("Read the notes on a worktree's diff, and show or hide a terminal's diff")
     .addHelpText(
       'after',
       `
 Examples:
   ouijit diff notes
-  ouijit diff notes --task 5`,
+  ouijit diff notes --task 5
+  ouijit diff open
+  ouijit diff close`,
     );
 
   diff
@@ -30,5 +33,21 @@ Examples:
       const num = parseInt(opts.task, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
       printJson(await get(`/api/tasks/${num}/diff-notes${projectQuery(requireProject())}`));
+    });
+
+  diff
+    .command('open')
+    .description("Show a terminal's diff panel")
+    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
+    .action(async (explicitPtyId?: string) => {
+      printJson(await post(`/api/terminals/${encodeURIComponent(resolvePtyId(explicitPtyId))}/diff`, {}));
+    });
+
+  diff
+    .command('close')
+    .description("Hide a terminal's diff panel")
+    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
+    .action(async (explicitPtyId?: string) => {
+      printJson(await del(`/api/terminals/${encodeURIComponent(resolvePtyId(explicitPtyId))}/diff`));
     });
 }

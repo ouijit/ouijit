@@ -64,8 +64,14 @@ import {
 import { getProjectList } from '../projectList';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
-import { cliPanelRequest, cliTagRequest } from '../cliPanels';
-import { isPtyActive, getPtyTaskContext, getActiveSessions, getPtySpawnContext } from '../ptyManager';
+import { cliPanelRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
+import {
+  isPtyActive,
+  getPtyTaskContext,
+  getActiveSessions,
+  getPtySpawnContext,
+  type ActiveSession,
+} from '../ptyManager';
 import { getHookStatus } from '../hookServer';
 import { liveNotes } from '../diffNotesService';
 import { typedPush } from '../ipc/helpers';
@@ -76,6 +82,8 @@ import type {
   CliPanelKind,
   CliTagOp,
   CliTagResponse,
+  CliTerminalOp,
+  CliTerminalResponse,
   SandboxCliAccess,
   SandboxProviderId,
 } from '../types';
@@ -315,8 +323,8 @@ function draftInput(body: Record<string, unknown>): {
 // ── Panel route helpers ──────────────────────────────────────────────
 
 function parsePanelKind(segment: string): CliPanelKind {
-  if (segment === 'markdown' || segment === 'preview') return segment;
-  throw new HttpError(404, `Unknown panel kind '${segment}' (expected 'markdown' or 'preview')`);
+  if (segment === 'markdown' || segment === 'preview' || segment === 'runner') return segment;
+  throw new HttpError(404, `Unknown panel kind '${segment}' (expected 'markdown', 'preview' or 'runner')`);
 }
 
 /**
@@ -324,7 +332,11 @@ function parsePanelKind(segment: string): CliPanelKind {
  * paths are resolved to absolute so a removal matches the path a prior add
  * stored. Returns undefined for list ops (no target).
  */
-function panelValue(kind: CliPanelKind, rawPath?: unknown, rawUrl?: unknown): string {
+function panelValue(kind: CliPanelKind, rawPath?: unknown, rawUrl?: unknown, rawScript?: unknown): string {
+  if (kind === 'runner') {
+    if (typeof rawScript !== 'string' || !rawScript) throw new HttpError(400, 'Missing script');
+    return rawScript;
+  }
   if (kind === 'markdown') {
     if (typeof rawPath !== 'string' || !rawPath) throw new HttpError(400, 'Missing path');
     if (!rawPath.endsWith('.md')) throw new HttpError(400, 'Markdown path must be a .md file');
@@ -354,6 +366,37 @@ async function runPanelOp(
   const result = await cliPanelRequest({ ptyId, action, kind, value });
   if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
   return { ptyId, kind, panels: result.panels ?? [] };
+}
+
+/** A panel op that spans every kind, or the diff, which is not a panel. */
+async function runTerminalPanelsOp(
+  ptyId: string,
+  action: 'list-all' | 'focus' | 'diff-open' | 'diff-close',
+  value?: string,
+): Promise<{ ptyId: string; panels: unknown; diffOpen: boolean }> {
+  if (!isPtyActive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
+  const result = await cliPanelRequest({ ptyId, action, value });
+  if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
+  return { ptyId, panels: result.panels ?? [], diffOpen: result.diffOpen ?? false };
+}
+
+async function runTerminalOp(op: Omit<CliTerminalOp, 'requestId'>): Promise<CliTerminalResponse> {
+  if (op.ptyId && !isPtyActive(op.ptyId)) throw new HttpError(404, `PTY ${op.ptyId} not found or inactive`);
+  const result = await cliTerminalRequest(op);
+  if (!result.ok) throw new HttpError(op.action === 'paste' ? 400 : 404, result.error ?? 'Terminal operation failed');
+  return result;
+}
+
+function describeTerminal(session: ActiveSession) {
+  return {
+    ptyId: session.ptyId,
+    label: session.label,
+    projectPath: session.projectPath,
+    taskNumber: session.taskId ?? null,
+    worktreePath: session.worktreePath ?? null,
+    sandbox: session.sandboxProvider ?? 'none',
+    agentStatus: getHookStatus(session.ptyId)?.status ?? null,
+  };
 }
 
 /** Forward a tag op to the renderer, where a terminal's tags live. */
@@ -599,16 +642,63 @@ const routes: Route[] = [
   route('GET', 'terminals', () =>
     getActiveSessions()
       .filter((session) => !session.isRunner)
-      .map((session) => ({
-        ptyId: session.ptyId,
-        label: session.label,
-        projectPath: session.projectPath,
-        taskNumber: session.taskId ?? null,
-        worktreePath: session.worktreePath ?? null,
-        sandbox: session.sandboxProvider ?? 'none',
-        agentStatus: getHookStatus(session.ptyId)?.status ?? null,
-      })),
+      .map(describeTerminal),
   ),
+
+  route(
+    'POST',
+    'terminals',
+    async (r) => {
+      const projectPath = requireProject(r.query);
+      const taskNumber = r.body.task === undefined ? undefined : requireInt(String(r.body.task), 'Task number');
+      const sandbox = parseSandbox(r.body.sandbox, 'sandbox');
+      const { ptyId } = await runTerminalOp({
+        action: 'open',
+        projectPath,
+        taskNumber,
+        resume: r.body.resume === true,
+        sandbox,
+      });
+      const session = getActiveSessions().find((s) => s.ptyId === ptyId);
+      if (!session) throw new HttpError(404, 'The terminal did not open');
+      return describeTerminal(session);
+    },
+    true,
+  ),
+
+  route(
+    'DELETE',
+    'terminals/:ptyId',
+    async (r) => {
+      await runTerminalOp({ action: 'close', ptyId: r.segments[1] });
+      return { ptyId: r.segments[1], closed: true };
+    },
+    true,
+  ),
+
+  route('GET', 'terminals/:ptyId/screen', async (r) => {
+    const lines = r.query.get('lines');
+    const { text, alternateScreen } = await runTerminalOp({
+      action: 'read',
+      ptyId: r.segments[1],
+      lines: lines === null ? undefined : Math.max(1, requireInt(lines, 'lines')),
+    });
+    return { ptyId: r.segments[1], text: text ?? '', alternateScreen: alternateScreen ?? false };
+  }),
+
+  route(
+    'POST',
+    'terminals/:ptyId/paste',
+    async (r) => {
+      if (typeof r.body.text !== 'string' || !r.body.text) throw new HttpError(400, 'Missing text');
+      await runTerminalOp({ action: 'paste', ptyId: r.segments[1], text: r.body.text });
+      return { ptyId: r.segments[1], pasted: true };
+    },
+    true,
+  ),
+
+  route('POST', 'terminals/:ptyId/diff', (r) => runTerminalPanelsOp(r.segments[1], 'diff-open'), true),
+  route('DELETE', 'terminals/:ptyId/diff', (r) => runTerminalPanelsOp(r.segments[1], 'diff-close'), true),
 
   // ── Diff notes ───────────────────────────────────────────────────
   route(
@@ -942,6 +1032,19 @@ const routes: Route[] = [
   //
   // Host-only (default scope): the guest shouldn't be able to steer the host
   // renderer to open arbitrary .md files or URLs.
+  route('GET', 'panels/:ptyId', (r) => runTerminalPanelsOp(r.segments[1], 'list-all')),
+
+  // Matched before the panel-kind routes, whose `:kind` would otherwise read `focus`.
+  route(
+    'POST',
+    'panels/:ptyId/focus',
+    (r) => {
+      if (typeof r.body.id !== 'string' || !r.body.id) throw new HttpError(400, 'Missing id');
+      return runTerminalPanelsOp(r.segments[1], 'focus', r.body.id);
+    },
+    true,
+  ),
+
   route('GET', 'panels/:ptyId/:kind', (r) => runPanelOp(r.segments[1], 'list', parsePanelKind(r.segments[2]))),
 
   route(
@@ -949,7 +1052,7 @@ const routes: Route[] = [
     'panels/:ptyId/:kind',
     (r) => {
       const kind = parsePanelKind(r.segments[2]);
-      const value = panelValue(kind, r.body.path, r.body.url);
+      const value = panelValue(kind, r.body.path, r.body.url, r.body.script);
       return runPanelOp(r.segments[1], 'add', kind, value);
     },
     true,
@@ -961,8 +1064,13 @@ const routes: Route[] = [
     (r) => {
       const kind = parsePanelKind(r.segments[2]);
       // DELETE carries no body through the CLI client; the target comes in the
-      // query string (?path= / ?url=).
-      const value = panelValue(kind, r.query.get('path') ?? undefined, r.query.get('url') ?? undefined);
+      // query string (?path= / ?url= / ?script=).
+      const value = panelValue(
+        kind,
+        r.query.get('path') ?? undefined,
+        r.query.get('url') ?? undefined,
+        r.query.get('script') ?? undefined,
+      );
       return runPanelOp(r.segments[1], 'remove', kind, value);
     },
     true,

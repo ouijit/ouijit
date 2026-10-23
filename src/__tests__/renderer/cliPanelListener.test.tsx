@@ -93,7 +93,7 @@ describe('CLI panel listener', () => {
     const added = await run({ ptyId: 'pty-home', action: 'add', kind: 'markdown', value: '/notes.md' });
     expect(added).toEqual({
       ok: true,
-      panels: [{ kind: 'markdown', label: 'notes.md', path: '/notes.md', active: true }],
+      panels: [{ id: 'panel-1', kind: 'markdown', label: 'notes.md', path: '/notes.md', active: true }],
     });
 
     // A second add of the same file surfaces the panel it already has.
@@ -105,7 +105,7 @@ describe('CLI panel listener', () => {
     // Listing is scoped to the kind asked for.
     const listed = await run({ ptyId: 'pty-home', action: 'list', kind: 'preview' });
     expect(listed.panels).toEqual([
-      { kind: 'preview', label: 'localhost:3000', url: 'http://localhost:3000', active: false },
+      { id: 'panel-2', kind: 'preview', label: 'localhost:3000', url: 'http://localhost:3000', active: false },
     ]);
 
     expect(await run({ ptyId: 'pty-home', action: 'remove', kind: 'markdown', value: '/notes.md' })).toEqual({
@@ -137,7 +137,7 @@ describe('CLI panel listener', () => {
 
     expect(await settle(id)).toEqual({
       ok: true,
-      panels: [{ kind: 'markdown', label: 'notes.md', path: '/notes.md', active: true }],
+      panels: [{ id: 'panel-1', kind: 'markdown', label: 'notes.md', path: '/notes.md', active: true }],
     });
     expect(term.panels).toHaveLength(1);
   });

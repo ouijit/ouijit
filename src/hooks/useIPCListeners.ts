@@ -51,6 +51,7 @@ async function spawnTerminalForCliStart(projectPath: string, start: CliStart): P
       branch: task.branch ?? start.branch,
     },
     ...hookOptions(start),
+    background: true,
   });
 }
 
@@ -73,6 +74,7 @@ function runCliTransition(
     newStatus: transition.newStatus,
     task: transition.task,
     ...hookOptions(transition),
+    background: true,
   });
 }
 

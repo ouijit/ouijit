@@ -60,7 +60,7 @@ async function ouijit(...args: string[]): Promise<unknown> {
   });
   const program = new Command();
   program.exitOverride();
-  registerTerminalCommands(program);
+  registerTerminalCommands(program, () => repoDir);
   registerDiffCommands(program, () => repoDir);
   registerTaskCommands(program, () => repoDir);
   try {

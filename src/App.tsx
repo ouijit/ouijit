@@ -29,6 +29,7 @@ import { installSessionAutoSave, rememberSnapshotViews } from './components/term
 import { installVisitTracker } from './services/visitTracker';
 import { installCliPanelListener } from './services/cliPanelListener';
 import { installCliTagListener } from './services/cliTagListener';
+import { installCliTerminalListener } from './services/cliTerminalListener';
 import { installHookStatusListener } from './services/hookStatusListener';
 import { useUIStore, hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
@@ -155,6 +156,8 @@ export function App() {
   useEffect(() => installCliPanelListener(), []);
 
   useEffect(() => installCliTagListener(), []);
+
+  useEffect(() => installCliTerminalListener(), []);
 
   useEffect(() => installHookStatusListener(), []);
 

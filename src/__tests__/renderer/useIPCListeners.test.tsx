@@ -157,7 +157,7 @@ describe('useIPCListeners — CLI task lifecycle', () => {
     ['home', null],
     ['another project', OTHER],
   ])(
-    "runs a start, transition or completion at once while %s is showing, with the CLI's hook flags",
+    "runs a start, transition or completion at once while %s is showing, with the CLI's hook flags, behind what's on screen",
     async (_, active) => {
       useAppStore.setState({ activeProjectPath: active });
       const stubs = installListenerStubs();
@@ -169,12 +169,14 @@ describe('useIPCListeners — CLI task lifecycle', () => {
       stubs.cliTaskStartedCb!(basePayload({ hookMode: 'command', hookCommand: 'claude --resume' }));
       await flush();
       expect(
-        vi.mocked(beginTransition).mock.calls.map(([path, opts]) => [path, opts.newStatus, opts.hookControl]),
+        vi
+          .mocked(beginTransition)
+          .mock.calls.map(([path, opts]) => [path, opts.newStatus, opts.hookControl, opts.background]),
       ).toEqual([
-        [PROJECT, 'in_progress', undefined],
-        [PROJECT, 'in_progress', { mode: 'skip', command: undefined }],
-        [PROJECT, 'in_progress', { mode: 'run', command: undefined }],
-        [PROJECT, 'in_progress', { mode: 'command', command: 'claude --resume' }],
+        [PROJECT, 'in_progress', undefined, true],
+        [PROJECT, 'in_progress', { mode: 'skip', command: undefined }, true],
+        [PROJECT, 'in_progress', { mode: 'run', command: undefined }, true],
+        [PROJECT, 'in_progress', { mode: 'command', command: 'claude --resume' }, true],
       ]);
 
       vi.mocked(beginTransition).mockClear();
@@ -182,10 +184,12 @@ describe('useIPCListeners — CLI task lifecycle', () => {
       stubs.cliTaskTransitionedCb!(transitionPayload({ hookMode: 'command', hookCommand: 'claude review' }));
       await flush();
       expect(
-        vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.origStatus, opts.newStatus, opts.hookControl]),
+        vi
+          .mocked(beginTransition)
+          .mock.calls.map(([, opts]) => [opts.origStatus, opts.newStatus, opts.hookControl, opts.background]),
       ).toEqual([
-        ['in_progress', 'in_review', undefined],
-        ['in_progress', 'in_review', { mode: 'command', command: 'claude review' }],
+        ['in_progress', 'in_review', undefined, true],
+        ['in_progress', 'in_review', { mode: 'command', command: 'claude review' }, true],
       ]);
 
       stubs.cliTaskCompletedCb!(completedPayload());

@@ -640,6 +640,7 @@ export interface ElectronAPI {
   cliPanels: CliPanelsAPI;
   /** CLI-driven terminal tag ops */
   cliTags: CliTagsAPI;
+  cliTerminals: CliTerminalsAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   homePath(): Promise<string>;
@@ -889,10 +890,12 @@ export interface PlanAPI {
  * A terminal's panel kind is `'plan'` internally; the CLI surfaces it as
  * `'markdown'` to match the UI's "Markdown File" tab.
  */
-export type CliPanelKind = 'markdown' | 'preview';
+export type CliPanelKind = 'markdown' | 'preview' | 'runner';
 
 /** A single panel as reported back to the CLI. */
 export interface CliPanelInfo {
+  /** What `ouijit panel focus` takes. */
+  id: string;
   kind: CliPanelKind;
   /** Tab label shown in the UI. */
   label: string;
@@ -900,6 +903,8 @@ export interface CliPanelInfo {
   path?: string;
   /** Preview URL — preview panels only. */
   url?: string;
+  /** Script name — runner panels only. */
+  script?: string;
   /** Whether this panel is the terminal's active (foreground) panel. */
   active: boolean;
 }
@@ -909,9 +914,14 @@ export interface CliPanelOp {
   /** Correlates the renderer's reply with the awaiting main-process request. */
   requestId: number;
   ptyId: PtyId;
-  action: 'list' | 'add' | 'remove';
-  kind: CliPanelKind;
-  /** Absolute path (markdown) or URL (preview) for add/remove. */
+  /**
+   * `list`, `add` and `remove` act on one kind. `list-all` and `focus` span
+   * every kind, `focus` taking a panel id or `terminal`. `diff-open` and
+   * `diff-close` toggle the diff, which is not a panel.
+   */
+  action: 'list' | 'add' | 'remove' | 'list-all' | 'focus' | 'diff-open' | 'diff-close';
+  kind?: CliPanelKind;
+  /** Absolute path (markdown), URL (preview) or script id or name (runner) for add/remove; a panel id for focus. */
   value?: string;
 }
 
@@ -928,8 +938,9 @@ export interface CliPanelResponse {
   ok: boolean;
   /** Present when ok=false — a human-readable reason (e.g. terminal not found). */
   error?: string;
-  /** The terminal's panels of the op's kind after the op ran. */
+  /** The terminal's panels after the op ran: of the op's kind, or all of them. */
   panels?: CliPanelInfo[];
+  diffOpen?: boolean;
 }
 
 export interface CliPanelsAPI {
@@ -969,6 +980,43 @@ export interface CliTagResponse {
 export interface CliTagsAPI {
   onOp(callback: (op: CliTagOp) => void): () => void;
   respond(requestId: number, response: CliTagResponse): Promise<void>;
+}
+
+/**
+ * Op forwarded from the main process to the renderer for `ouijit terminal`:
+ * reading and pasting go through the terminal's xterm, opening and closing
+ * through the app's own terminal actions.
+ */
+export interface CliTerminalOp {
+  requestId: number;
+  action: 'read' | 'paste' | 'open' | 'close';
+  /** read, paste and close. */
+  ptyId?: PtyId;
+  /** read: how many lines from the bottom. */
+  lines?: number;
+  /** paste. */
+  text?: string;
+  /** open. Without a task, a shell in the project. */
+  projectPath?: string;
+  taskNumber?: number;
+  resume?: boolean;
+  sandbox?: SandboxProviderId;
+}
+
+/** Renderer's reply for a {@link CliTerminalOp}. */
+export interface CliTerminalResponse {
+  ok: boolean;
+  error?: string;
+  /** read */
+  text?: string;
+  alternateScreen?: boolean;
+  /** open */
+  ptyId?: PtyId;
+}
+
+export interface CliTerminalsAPI {
+  onOp(callback: (op: CliTerminalOp) => void): () => void;
+  respond(requestId: number, response: CliTerminalResponse): Promise<void>;
 }
 
 /**

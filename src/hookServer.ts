@@ -262,7 +262,7 @@ export const HELPER_SCRIPT = [
 /** CLI reference loaded by Claude Code via --append-system-prompt-file. */
 export const CLI_REFERENCE = `# Ouijit CLI Reference
 
-You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, terminals, tags, hooks, and scripts for this project. All commands output JSON to stdout. The CLI is pre-configured via environment variables — no setup needed.
+You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, terminals, panels, tags, hooks, and scripts for this project. All commands output JSON to stdout. The CLI is pre-configured via environment variables — no setup needed.
 
 ## Environment (pre-set, do not modify)
 - OUIJIT_API_URL — REST API endpoint (already configured)
@@ -296,13 +296,25 @@ ouijit task set-description <number> <text>
 ouijit task set-merge-target <number> <branch>
 ouijit task trash <number>                    # removes task, worktree goes to the system trash
 
-## Terminal Commands
+## Terminal Commands (host terminals only)
 ouijit terminal list                          # → [{ptyId, label, projectPath, taskNumber, worktreePath, sandbox, agentStatus}] across every project
                                               # agentStatus: thinking | ready, or null where no agent has reported
+ouijit terminal read <pty-id> [--lines <n>]   # → {ptyId, text, alternateScreen}: its screen and recent scrollback, as text
+ouijit terminal open [--task <n>] [--resume] [--sandbox host|nono|custom]
+                                              # a terminal in a started task's worktree, or a shell in the project; --resume runs the continue hook
+ouijit terminal paste <pty-id> "<text>"       # into its prompt, never pressing Enter: the user sends it
+ouijit terminal paste <pty-id> -              # text on stdin, for anything multi-line
+ouijit terminal close <pty-id>
+
+Opening a terminal never changes what the user is looking at: it opens behind
+the one on screen. A multi-line paste is refused where the program in that
+terminal would read each newline as Enter.
 
 ## Diff Notes (left by the user on a worktree's diff, for you)
 ouijit diff notes                             # → [{id, path, startLine, line, side, snippet, body, createdAt}] on this terminal's worktree
 ouijit diff notes --task <n>                  # on a task's worktree instead
+ouijit diff open [pty-id]                     # show a terminal's diff panel
+ouijit diff close [pty-id]
 
 Each note is about lines startLine–line of path, kept current as the file
 changes. side LEFT means code that was removed, numbered as the file was.
@@ -403,13 +415,22 @@ issue, pressed by someone looking at it.
 
 ## Markdown Panel Commands (open .md files as tabs in this terminal)
 ouijit markdown add <path.md>                 # open a markdown file panel on this terminal
-ouijit markdown list                          # → {ptyId, kind, panels: [{label, path, active}, ...]}
+ouijit markdown list                          # → {ptyId, kind, panels: [{id, label, path, active}, ...]}
 ouijit markdown remove <path.md>              # close that markdown panel
 
 ## Web Preview Commands (open a URL as a tab in this terminal)
 ouijit preview add <url>                      # open a web preview panel (http/https) on this terminal
-ouijit preview list                           # → {ptyId, kind, panels: [{label, url, active}, ...]}
+ouijit preview list                           # → {ptyId, kind, panels: [{id, label, url, active}, ...]}
 ouijit preview remove <url>                   # close that preview panel
+
+## Runner Commands (run a project script in a tab on this terminal)
+ouijit runner add <script>                    # by id or name from script list, in the project's default sandbox
+ouijit runner list                            # → {ptyId, kind, panels: [{id, label, script, active}, ...]}
+ouijit runner remove <script>                 # close it, stopping the script
+
+## Panel Commands (every kind of tab on a terminal)
+ouijit panel list [pty-id]                    # → {ptyId, panels: [{id, kind, label, active, ...}], diffOpen}
+ouijit panel focus <id> [pty-id]              # bring one forward; focus terminal shows the terminal itself
 
 ## Project Commands
 ouijit project list                           # → all registered projects

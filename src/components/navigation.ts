@@ -99,6 +99,7 @@ export interface OpenTaskShellOptions {
   /** Never persisted on the task — passed straight to the spawn. */
   sandboxProvider?: SandboxProviderId;
   replaceLoadingId?: string;
+  background?: boolean;
 }
 
 /**
@@ -144,6 +145,7 @@ export async function openTaskShell(
     // A terminal that runs the continue hook resolves its own default.
     sandboxProvider: options.sandboxProvider ?? (skipAutoHook ? await projectDefaultSandbox(projectPath) : undefined),
     replaceLoadingId: options.replaceLoadingId,
+    background: options.background,
   });
 }
 

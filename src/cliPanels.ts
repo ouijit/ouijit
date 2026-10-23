@@ -10,8 +10,8 @@
  * timeout here means the window itself is not answering.
  *
  * These ops are the only way a panel appears without a click, and they always
- * reflect what's on screen. `ouijit tag` crosses the same bridge on its own
- * channel, since a terminal's tags live there too.
+ * reflect what's on screen. `ouijit tag` and `ouijit terminal` cross the same
+ * bridge on channels of their own, since tags and the xterm buffer live there too.
  */
 
 import { BrowserWindow, ipcMain } from 'electron';
@@ -23,6 +23,8 @@ import {
   type CliPanelResponse,
   type CliTagOp,
   type CliTagResponse,
+  type CliTerminalOp,
+  type CliTerminalResponse,
 } from './types';
 
 const cliPanelsLog = getLogger().scope('cliPanels');
@@ -40,7 +42,7 @@ interface Pending {
 
 const pending = new Map<number, Pending>();
 
-function settle(requestId: number, response: CliPanelResponse | CliTagResponse): void {
+function settle(requestId: number, response: CliPanelResponse | CliTagResponse | CliTerminalResponse): void {
   const entry = pending.get(requestId);
   if (!entry) return; // late or duplicate reply — request already settled
   clearTimeout(entry.timer);
@@ -54,6 +56,9 @@ export function initCliPanels(window: BrowserWindow): void {
     settle(requestId, response),
   );
   ipcMain.handle('cli-tags:respond', (_event, requestId: number, response: CliTagResponse) =>
+    settle(requestId, response),
+  );
+  ipcMain.handle('cli-terminals:respond', (_event, requestId: number, response: CliTerminalResponse) =>
     settle(requestId, response),
   );
 }
@@ -89,6 +94,13 @@ export function cliPanelRequest(op: Omit<CliPanelOp, 'requestId'>): Promise<CliP
     ptyId: op.ptyId,
     action: op.action,
     kind: op.kind,
+  });
+}
+
+export function cliTerminalRequest(op: Omit<CliTerminalOp, 'requestId'>): Promise<CliTerminalResponse> {
+  return request((window, requestId) => typedPush(window, 'cli:terminal-op', { requestId, ...op }), {
+    ptyId: op.ptyId,
+    action: op.action,
   });
 }
 

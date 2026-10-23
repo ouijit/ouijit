@@ -22,6 +22,7 @@ import { registerPrCommands } from './commands/pr';
 import { registerLinearCommands } from './commands/linear';
 import { registerTerminalCommands } from './commands/terminal';
 import { registerDiffCommands } from './commands/diff';
+import { registerPanelCommands } from './commands/panel';
 
 const program = new Command();
 
@@ -50,7 +51,7 @@ function requireProject(): string {
 
 registerTaskCommands(program, requireProject);
 registerHookCommands(program, requireProject);
-registerTerminalCommands(program);
+registerTerminalCommands(program, requireProject);
 registerTagCommands(program);
 registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
@@ -60,6 +61,7 @@ registerLinearCommands(program, requireProject);
 registerDiffCommands(program, requireProject);
 registerMarkdownCommands(program);
 registerPreviewCommands(program);
+registerPanelCommands(program);
 registerThemeCommands(program);
 
 // Command actions are async; parse() would let an API rejection surface as an

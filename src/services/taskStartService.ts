@@ -59,6 +59,8 @@ export interface BeginTransitionOptions {
   hookControl?: HookControl;
   /** Overrides the hook's own sandbox setting; with no hook to run, sandboxes the plain shell. */
   sandbox?: SandboxProviderId;
+  /** Open the terminal behind the one in front, and leave keyboard focus where it is. */
+  background?: boolean;
 }
 
 /**
@@ -179,7 +181,7 @@ export async function bulkTransitionTasks(
 }
 
 async function runTransition(projectPath: string, opts: BeginTransitionOptions, t0: number): Promise<void> {
-  const { task, origStatus, newStatus, onForegroundOpen, hookControl, sandbox: sandboxOverride } = opts;
+  const { task, origStatus, newStatus, onForegroundOpen, hookControl, sandbox: sandboxOverride, background } = opts;
   const taskNumber = task.taskNumber;
   const transitioningToInProgress = newStatus === 'in_progress';
 
@@ -199,7 +201,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
     useProjectStore.getState().markTaskStarting(taskNumber);
     useTerminalStore
       .getState()
-      .addTerminal(projectPath, slotId, { label: task.name, taskId: taskNumber, isLoading: true });
+      .addTerminal(projectPath, slotId, { label: task.name, taskId: taskNumber, isLoading: true }, { background });
   }
 
   try {
@@ -313,7 +315,14 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
       if (interactiveHookOffered && !hookResult) {
         taskStartLog.info('start hook cancelled — moving to in_progress without a terminal', { taskNumber });
       } else {
-        await spawnTerminalForInProgress(projectPath, resolvedTask, hookResult, hookResult?.sandbox ?? sandbox, slotId);
+        await spawnTerminalForInProgress(
+          projectPath,
+          resolvedTask,
+          hookResult,
+          hookResult?.sandbox ?? sandbox,
+          slotId,
+          background,
+        );
       }
     } else if (hookResult) {
       await runNonStartHookInTerminal(projectPath, resolvedTask, newStatus, hookResult, onForegroundOpen);
@@ -353,6 +362,7 @@ async function spawnTerminalForInProgress(
   hookResult: RunHookResult | null,
   sandbox: SandboxProviderId | undefined,
   loadingSlot: string | null,
+  background: boolean | undefined,
 ): Promise<void> {
   if (!task.worktreePath) {
     // Worktree creation must have failed earlier; nothing to do.
@@ -369,6 +379,7 @@ async function spawnTerminalForInProgress(
     skipAutoHook: true,
     sandboxProvider: sandbox,
     replaceLoadingId: loadingSlot ?? undefined,
+    background,
   });
 }
 

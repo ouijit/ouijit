@@ -135,6 +135,9 @@ describe('CLI_REFERENCE', () => {
 
     // Notes a person left on the diff reach an agent only if it asks for them.
     expect(CLI_REFERENCE).toContain('ouijit diff notes');
+    // Watching and nudging another agent, the paste staying unsent.
+    expect(CLI_REFERENCE).toContain('ouijit terminal read');
+    expect(CLI_REFERENCE).toMatch(/ouijit terminal paste .*never pressing Enter/);
 
     expect(CLI_REFERENCE).toContain('ouijit sandbox-command set');
     // Sandboxed agents read the same reference, so it has to say what it cannot run.

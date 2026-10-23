@@ -93,7 +93,7 @@ describe('taskStartService.beginTransition', () => {
     expect(useProjectStore.getState().toasts.map((t) => t.message)).toContain('disk full');
   });
 
-  test('drop into in_progress without a hook: places loading slot, replaces it on spawn', async () => {
+  test('drop into in_progress without a hook: places loading slot, replaces it on spawn, behind the front one from the CLI', async () => {
     beginTransition(PROJECT, {
       origStatus: 'todo',
       newStatus: 'in_progress',
@@ -118,6 +118,15 @@ describe('taskStartService.beginTransition', () => {
 
     // Starting flag cleared.
     expect(useProjectStore.getState().startingTaskNumbers.has(7)).toBe(false);
+
+    // A CLI start keeps the terminal in front where it is, slot and spawn alike.
+    vi.mocked(addProjectTerminal).mockClear();
+    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, order: [] });
+    useTerminalStore.getState().addTerminal(PROJECT, 'pty-front', { label: 'shell', taskId: null });
+    beginTransition(PROJECT, { origStatus: 'todo', newStatus: 'in_progress', task: makeTask(), background: true });
+    expect(useTerminalStore.getState().order).toEqual(['pty-front', expect.stringContaining('7')]);
+    await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({ background: true });
   });
 
   test('a hook runs where it is set, else the project default, unless the CLI or the dialog picks another', async () => {
