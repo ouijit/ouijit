@@ -54,9 +54,6 @@ export interface NonoArgvContext {
  *     commits land while hooks/config stay unwritable
  *   - the Ouijit wrapper dir (its agent shims are first on PATH) and the
  *     hook-server port
- *
- * Network is nono's default (allowed) unless `config.blockNet` opts into deny,
- * in which case `--open-port` keeps the hook server reachable.
  */
 export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: NonoArgvContext): SandboxLaunch {
   const git = ctx.mainGitDir;

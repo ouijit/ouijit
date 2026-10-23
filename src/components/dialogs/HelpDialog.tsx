@@ -17,7 +17,7 @@ const CLI_EXAMPLES: CliExample[] = [
   { command: 'ouijit task list', desc: 'List all tasks' },
   { command: 'ouijit task set-status <n> in_review', desc: 'Move a task to In Review' },
   { command: 'ouijit task create "<name>"', desc: 'Create a new task' },
-  { command: 'ouijit tag add <n> <tag>', desc: 'Tag a task' },
+  { command: 'ouijit tag set <tag>', desc: 'Tag this terminal' },
   { command: 'ouijit hook list', desc: 'Show configured project hooks' },
 ];
 
