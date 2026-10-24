@@ -3,6 +3,7 @@ import { terminalInstances } from '../components/terminal/terminalRegistry';
 import { useAppStore } from '../stores/appStore';
 import { usePointerStore } from '../stores/pointerStore';
 import { useTerminalStore } from '../stores/terminalStore';
+import { askToRun } from './askRun';
 import type { CliPointOp, CliPointResponse, PointTarget } from '../types';
 
 const cliPointsLog = log.scope('cliPoints');
@@ -45,6 +46,10 @@ async function handleOp(op: CliPointOp): Promise<CliPointResponse> {
     usePointerStore.getState().dismiss(op.fromPtyId);
     return { ok: true };
   }
+  if (op.action === 'ask') {
+    if (!op.ask) return { ok: false, error: 'Missing ask' };
+    return askToRun(op.fromPtyId, op.ask, op.message);
+  }
   const target = op.action === 'note' ? await noteTarget(op.fromPtyId, op.noteId ?? '') : op.target;
   if (!target) return { ok: false, error: 'Missing target' };
   if (typeof target === 'string') return { ok: false, error: target };
@@ -54,7 +59,7 @@ async function handleOp(op: CliPointOp): Promise<CliPointResponse> {
   return { ok: true, target };
 }
 
-/** Handle `ouijit point`. Install once for the life of the renderer. */
+/** Handle `ouijit point` and `ouijit ask`. Install once for the life of the renderer. */
 export function installCliPointListener(): () => void {
   return window.api.cliPoints.onOp((op) => {
     void handleOp(op)

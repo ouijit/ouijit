@@ -3,6 +3,7 @@ import type { OuijitTerminal } from '../components/terminal/terminalReact';
 import { whenTerminalReady } from '../components/terminal/terminalRegistry';
 import { startRunner } from '../components/terminal/terminalActions';
 import { panelLabel, type TerminalPanel } from '../components/terminal/panelTypes';
+import { bufferText } from '../components/terminal/terminalText';
 import { projectDefaultSandbox } from '../stores/projectDataStore';
 import { isActiveSandbox } from '../sandbox/types';
 import {
@@ -10,10 +11,13 @@ import {
   type CliPanelInfo,
   type CliPanelKind,
   type CliPanelOp,
+  type CliPanelRead,
   type CliPanelResponse,
 } from '../types';
 
 const cliPanelsLog = log.scope('cliPanels');
+
+const DEFAULT_READ_LINES = 100;
 
 const INTERNAL_KIND = { markdown: 'plan', preview: 'webPreview', runner: 'runner' } as const;
 const CLI_KIND = { plan: 'markdown', webPreview: 'preview', runner: 'runner' } as const;
@@ -89,12 +93,30 @@ function focus(instance: OuijitTerminal, id: string | undefined): string | null 
   return null;
 }
 
+function read(instance: OuijitTerminal, id: string | undefined, lines: number | undefined): CliPanelRead | string {
+  const panel = instance.panels.find((p) => p.id === id);
+  if (!panel) return `No panel ${id ?? '(none)'}`;
+  if (panel.kind === 'plan') return { kind: 'markdown', path: panel.planPath };
+  if (panel.kind === 'webPreview') return { kind: 'preview', url: panel.url ?? undefined };
+  const child = instance.runnerChildren.get(panel.id);
+  return {
+    kind: 'runner',
+    text: child ? bufferText(child.xterm, lines ?? DEFAULT_READ_LINES) : '',
+    status: panel.status,
+    exitCode: panel.exitCode ?? null,
+  };
+}
+
 function respondWith(instance: OuijitTerminal, panels: TerminalPanel[]): CliPanelResponse {
   return { ok: true, panels: panels.map((p) => describe(instance, p)), diffOpen: instance.diffPanelOpen };
 }
 
 async function run(instance: OuijitTerminal, op: CliPanelOp): Promise<CliPanelResponse> {
   const { action, kind, value } = op;
+  if (action === 'read') {
+    const result = read(instance, value, op.lines);
+    return typeof result === 'string' ? { ok: false, error: result } : { ok: true, read: result };
+  }
   if (action === 'list-all' || action === 'focus' || action === 'diff-open' || action === 'diff-close') {
     if (action === 'focus') {
       const error = focus(instance, value);

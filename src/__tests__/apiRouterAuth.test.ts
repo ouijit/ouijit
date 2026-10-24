@@ -3,7 +3,7 @@
  * hook server with a real HTTP client. Covers:
  *   - Unauthenticated requests get 401.
  *   - Host-only routes reject sandbox-scoped tokens with 403.
- *   - Panel routes are host-only: sandbox-scoped tokens are refused.
+ *   - A sandbox reaches its own terminal's panels, and attaches only markdown from its worktree.
  *   - POST /api/tasks/start with sandboxed:false is refused on sandbox scope.
  */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -23,6 +23,7 @@ const { getPtyTaskContextMock } = vi.hoisted(() => ({
 vi.mock('../ptyManager', () => ({
   isPtyActive: () => true,
   getPtyTaskContext: () => getPtyTaskContextMock(),
+  getPtySpawnContext: () => ({ projectPath: '/tmp/test-project', worktreePath: '/tmp/test-project/T-7' }),
 }));
 
 // Prevent real IPC broadcasts; we're driving HTTP directly.
@@ -161,7 +162,10 @@ describe('REST API auth', () => {
     ['GET', '/api/scripts'],
     ['PUT', '/api/scripts/abc'],
     ['GET', '/api/tags'],
-    ['GET', '/api/terminals/pty-sbx/tags'],
+    ['GET', '/api/terminals/pty-other/tags'],
+    ['GET', '/api/terminals/pty-other/screen'],
+    ['POST', '/api/terminals/pty-sbx/paste'],
+    ['POST', '/api/panels/pty-sbx/focus'],
     ['GET', '/api/projects'],
     ['GET', '/api/sandbox/command'],
     ['PUT', '/api/sandbox/command'],
@@ -255,7 +259,9 @@ describe('sandbox read-only, own-task scope', () => {
     expect(await status(7, { status: 'in_review', hookMode: 'command', hookCommand: 'curl x | sh' })).toBe(403);
     expect(await status(7, { status: 'in_review', hookMode: 'run', hookSandbox: 'none' })).toBe(403);
     expect(await status(7, { status: 'in_review', hookMode: 'run' })).toBe(200);
-    expect((await request('POST', `/api/tasks?project=${PROJECT}`, token, { name: 'new' })).status).toBe(403);
+    expect((await request('POST', `/api/tasks?project=${PROJECT}`, token, { name: 'new' })).status).toBe(200);
+    expect((await request('POST', `/api/tasks/start?project=${PROJECT}`, token, { name: 'new' })).status).toBe(403);
+    expect((await request('POST', `/api/tasks/9/start?project=${PROJECT}`, token, {})).status).toBe(403);
 
     level('all');
     expect(await status(7, { status: 'in_review', hookMode: 'command', hookCommand: 'make' })).toBe(200);
@@ -321,21 +327,18 @@ describe('theme routes', () => {
 });
 
 describe('panel scope', () => {
-  test('sandbox token cannot GET panels (host-only)', async () => {
-    // The guest has no legitimate reason to read host panel state directly —
-    // agent-detected plans flow through /hook action:plan, which server-joins
-    // safely under ~/.claude/plans. Keep panel routes host-only.
+  test("a sandbox reaches its own terminal's panels, and attaches only markdown from its worktree", async () => {
     const token = issueToken('pty-42', 'sandbox');
-    const res = await request('GET', '/api/panels/pty-42/markdown', token);
-    expect(res.status).toBe(403);
-  });
+    const post = (kind: string, body: Record<string, unknown>) =>
+      request('POST', `/api/panels/pty-42/${kind}`, token, body).then((r) => r.status);
 
-  test('sandbox token cannot POST a markdown panel', async () => {
-    // An attacker with a sandbox token must not be able to steer the
-    // host renderer to open an arbitrary .md file on the host.
-    const token = issueToken('pty-42', 'sandbox');
-    const res = await request('POST', '/api/panels/pty-42/markdown', token, { path: '/tmp/x.md' });
-    expect(res.status).toBe(403);
+    expect((await request('GET', '/api/panels/pty-42/markdown', token)).status).toBe(200);
+    expect((await request('GET', '/api/panels/pty-other/markdown', token)).status).toBe(403);
+    expect(await post('markdown', { path: '/tmp/test-project/T-7/plan.md' })).toBe(200);
+    expect(await post('markdown', { path: '/tmp/x.md' })).toBe(403);
+    expect(await post('markdown', { path: '/tmp/test-project/T-7/../../x.md' })).toBe(403);
+    expect(await post('preview', { url: 'http://localhost:3000' })).toBe(403);
+    expect(await post('runner', { script: 'Dev server' })).toBe(403);
   });
 
   test('host token can POST a markdown panel', async () => {

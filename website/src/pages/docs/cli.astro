@@ -151,10 +151,21 @@ ouijit point note 7f3c                        # from ouijit diff notes
 ouijit point clear
 ouijit task start 14 --skip-hook --point      # task start, create-and-start and terminal open take --point</code></pre>
 
+  <h2 id="ask">Asking you to run something</h2>
+  <p>
+    An agent in a sandbox can ask you to run a command on your computer, outside the sandbox. The ask is its
+    pointer: open it to see the exact command, where it runs and the script file it runs, then Run or Decline.
+    Nothing runs until you press Run. It runs in a runner panel on the agent's terminal, and with
+    <code>--wait</code> the agent gets the exit code and output back.
+  </p>
+  <pre class="glass-bevel"><code>ouijit ask run -m "Needs the keychain" -- npm run release:sign
+ouijit ask run --wait -- ./scripts/migrate.sh --dry-run
+ouijit ask script "Dev server"                # a project script, by id or name</code></pre>
+
   <h2>Tags</h2>
   <p>
     Tag a terminal to <a href="/docs/terminals/">group and filter</a> it. A terminal can carry several, and the pty
-    id defaults to the current terminal. Host terminals only; a sandboxed session gets 403.
+    id defaults to the current terminal. A sandboxed session can tag its own terminal.
   </p>
   <pre class="glass-bevel"><code>ouijit tag list                               # tags on open terminals, and which carry each
 ouijit tag get                                # this terminal's tags
@@ -250,8 +261,9 @@ ouijit runner list
 ouijit runner remove "Dev server"             # stops the script</code></pre>
 
   <h2>Panels</h2>
-  <p>Every panel on a terminal, of every kind, and bringing one to the front.</p>
+  <p>Every panel on a terminal, of every kind: reading one, and bringing one to the front.</p>
   <pre class="glass-bevel"><code>ouijit panel list                             # ids, kinds, labels, which is active
+ouijit panel read panel-3fa9 --lines 40       # a runner's screen, status and exit code
 ouijit panel focus panel-3fa9
 ouijit panel focus terminal                   # back to the terminal itself</code></pre>
 

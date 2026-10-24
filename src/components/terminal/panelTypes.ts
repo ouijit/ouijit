@@ -36,6 +36,8 @@ export interface RunnerPanel {
   /** Chosen when the runner is started, independent of its terminal's; absent runs on the host. */
   sandboxProvider?: SandboxBackendId;
   status: RunnerStatus;
+  /** The last command's exit code, once one has finished. */
+  exitCode?: number | null;
 }
 
 export interface WebPreviewPanel {

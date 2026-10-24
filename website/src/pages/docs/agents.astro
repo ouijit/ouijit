@@ -83,8 +83,10 @@ ouijit linear draft add $ISSUE --origin claude \
   <h2>Inside a sandbox</h2>
   <p>
     Inside a <a href="/docs/sandbox/">sandbox</a>, <code>ouijit</code> can do what the project's
-    <a href="/docs/sandbox/#cli">Ouijit CLI access</a> allows: read its own task by default, also move and rename
-    it, or everything. Pull request drafts written from a sandbox are stamped with a <code>sandbox</code> origin
+    <a href="/docs/sandbox/#cli">Ouijit CLI access</a> allows: by default read its own task, stage comments,
+    point and label its own terminal; also edit and move its task; or everything. At any level it can
+    <a href="/docs/cli/#ask">ask you to run a command</a> outside the sandbox, which runs only when you press Run.
+    A hook that would run on the host waits for you even with <code>--run-hook</code>. Pull request drafts written from a sandbox are stamped with a <code>sandbox</code> origin
     the caller cannot forge. Under the Custom sandbox, whether <code>ouijit</code> is reachable at all is up to
     the launcher.
   </p>

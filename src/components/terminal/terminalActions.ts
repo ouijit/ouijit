@@ -481,10 +481,11 @@ export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTermina
   // already visually obsolete by the time the renderer sees them.
   const codes = parseOsc133ExitCodes(data);
   if (codes.length === 0) return;
-  const next = codes[codes.length - 1] === 0 ? 'success' : 'error';
+  const exitCode = codes[codes.length - 1];
+  const next = exitCode === 0 ? 'success' : 'error';
   const panel = parent.panels.find((p) => p.id === panelId);
-  if (panel?.kind === 'runner' && panel.status !== next) {
-    parent.updatePanel(panelId, { status: next });
+  if (panel?.kind === 'runner' && (panel.status !== next || panel.exitCode !== exitCode)) {
+    parent.updatePanel(panelId, { status: next, exitCode });
   }
 }
 
@@ -579,7 +580,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
   }
 
   // Reset the header to the command on (re)start; OSC titles refine it later.
-  instance.updatePanel(panelId, { command: commandStr, status: 'running' });
+  instance.updatePanel(panelId, { command: commandStr, status: 'running', exitCode: undefined });
 
   const runner = new OuijitTerminal({
     projectPath: path,
@@ -638,7 +639,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
         updateRunnerStatusFromOsc133(data, instance, panelId);
       },
       onExit: (exitCode) => {
-        instance.updatePanel(panelId, { status: exitCode === 0 ? 'success' : 'error' });
+        instance.updatePanel(panelId, { status: exitCode === 0 ? 'success' : 'error', exitCode });
       },
     });
 

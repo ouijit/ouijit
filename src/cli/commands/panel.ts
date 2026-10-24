@@ -15,12 +15,13 @@ function panelsUrl(ptyId: string): string {
 export function registerPanelCommands(parent: Command) {
   const panel = parent
     .command('panel')
-    .description("List a terminal's panels of every kind, and bring one to the front")
+    .description("List a terminal's panels of every kind, read one, and bring one to the front")
     .addHelpText(
       'after',
       `
 Examples:
   ouijit panel list
+  ouijit panel read panel-3fa9 --lines 40
   ouijit panel focus panel-3fa9
   ouijit panel focus terminal`,
     );
@@ -31,6 +32,19 @@ Examples:
     .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
     .action(async (explicitPtyId?: string) => {
       printJson(await get(panelsUrl(resolvePtyId(explicitPtyId))));
+    });
+
+  panel
+    .command('read')
+    .description(
+      "Show a runner's screen as text, with its status and exit code; a markdown or preview panel's path or url",
+    )
+    .argument('<id>', 'a panel id from `panel list`')
+    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
+    .option('--lines <n>', 'how many lines from the bottom (default 100)')
+    .action(async (id: string, explicitPtyId: string | undefined, opts: { lines?: string }) => {
+      const query = opts.lines === undefined ? '' : `?lines=${encodeURIComponent(opts.lines)}`;
+      printJson(await get(`${panelsUrl(resolvePtyId(explicitPtyId))}/${encodeURIComponent(id)}/screen${query}`));
     });
 
   panel

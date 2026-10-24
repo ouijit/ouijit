@@ -10,9 +10,10 @@ import {
 } from '../types';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
-import { refreshProjectData } from '../stores/projectDataStore';
+import { projectDefaultSandbox, refreshProjectData } from '../stores/projectDataStore';
+import { isActiveSandbox } from '../sandbox/types';
 import { beginTransition } from '../services/taskStartService';
-import { hookTypeForTransition } from '../services/hookRun';
+import { hookSandbox, hookTypeForTransition } from '../services/hookRun';
 import { usePointerStore } from '../stores/pointerStore';
 import { completeTask } from '../services/taskCompletion';
 import { reloadTheme } from '../theme/themeManager';
@@ -35,21 +36,29 @@ function hookOptions({ hookMode, hookCommand, hookSandbox }: CliHookControl) {
  * dialog, the move waits behind a pointer at the task, from the terminal that
  * ran it, and the dialog opens when the user follows. Otherwise it runs at
  * once, its terminal behind the one on screen.
+ *
+ * A sandboxed caller's `--run-hook` waits for the dialog too when the hook
+ * runs on the host, since it would run there in a worktree the caller wrote.
  */
 async function stageOrRun(
   projectPath: string,
   task: TaskWithWorkspace,
   move: CliHookControl & CliCaller & { hookType: HookType | null },
-  run: (background: boolean) => void,
+  run: (background: boolean, control: CliHookControl) => void,
 ): Promise<void> {
   const { fromPtyId } = move;
   const target = { kind: 'task' as const, projectPath, taskNumber: task.taskNumber };
-  const prompts = !move.hookMode && move.hookType != null && !!(await window.api.hooks.get(projectPath))[move.hookType];
-  if (prompts && fromPtyId) {
-    usePointerStore.getState().point({ from: fromPtyId, target, then: () => run(false) });
+  const hook = move.hookType != null ? (await window.api.hooks.get(projectPath))[move.hookType] : undefined;
+  const onHostUnseen =
+    !!hook &&
+    !!move.fromSandbox &&
+    move.hookMode === 'run' &&
+    !isActiveSandbox(hookSandbox(undefined, hook, await projectDefaultSandbox(projectPath)));
+  if (hook && (!move.hookMode || onHostUnseen) && fromPtyId) {
+    usePointerStore.getState().point({ from: fromPtyId, target, then: () => run(false, {}) });
     return;
   }
-  run(true);
+  run(true, move);
   if (move.point && fromPtyId) usePointerStore.getState().point({ from: fromPtyId, target });
 }
 
@@ -80,12 +89,12 @@ async function spawnTerminalForCliStart(projectPath: string, start: CliStart): P
   };
 
   // The same service a kanban drag to In progress goes through.
-  await stageOrRun(projectPath, task, { ...start, hookType: 'start' }, (background) =>
+  await stageOrRun(projectPath, task, { ...start, hookType: 'start' }, (background, control) =>
     beginTransition(projectPath, {
       origStatus: 'todo',
       newStatus: 'in_progress',
       task,
-      ...hookOptions(start),
+      ...hookOptions(control),
       background,
     }),
   );
@@ -105,8 +114,8 @@ async function runCliTransition(
     projectPath,
     task,
     { ...transition, hookType: hookTypeForTransition(origStatus, newStatus) },
-    (background) =>
-      beginTransition(projectPath, { origStatus, newStatus, task, ...hookOptions(transition), background }),
+    (background, control) =>
+      beginTransition(projectPath, { origStatus, newStatus, task, ...hookOptions(control), background }),
   );
 }
 
@@ -119,11 +128,11 @@ async function runCliCompletion(
   projectPath: string,
   completion: CliHookControl & CliCaller & { task: TaskWithWorkspace },
 ): Promise<void> {
-  await stageOrRun(projectPath, completion.task, { ...completion, hookType: 'done' }, () => {
+  await stageOrRun(projectPath, completion.task, { ...completion, hookType: 'done' }, (_background, control) => {
     void completeTask({
       projectPath,
       task: completion.task,
-      ...hookOptions(completion),
+      ...hookOptions(control),
       skipStatusWrite: true,
     }).catch((err) => {
       ipcLog.error('CLI task-completed lifecycle failed', {

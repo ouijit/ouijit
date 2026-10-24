@@ -191,8 +191,8 @@ describe('useIPCListeners — CLI task lifecycle', () => {
           .mocked(beginTransition)
           .mock.calls.map(([, opts]) => [opts.origStatus, opts.newStatus, opts.hookControl, opts.background]),
       ).toEqual([
-        ['in_progress', 'in_review', { mode: 'command', command: 'claude review' }, true],
         ['in_progress', 'in_review', undefined, true],
+        ['in_progress', 'in_review', { mode: 'command', command: 'claude review' }, true],
       ]);
 
       stubs.cliTaskCompletedCb!(completedPayload());
@@ -201,8 +201,8 @@ describe('useIPCListeners — CLI task lifecycle', () => {
       expect(
         vi.mocked(completeTask).mock.calls.map(([opts]) => [opts.projectPath, opts.hookControl, opts.skipStatusWrite]),
       ).toEqual([
-        [PROJECT, { mode: 'command', command: 'npm run deploy' }, true],
         [PROJECT, undefined, true],
+        [PROJECT, { mode: 'command', command: 'npm run deploy' }, true],
       ]);
     },
   );
@@ -243,6 +243,31 @@ describe('useIPCListeners — CLI task lifecycle', () => {
     await flush();
     expect(beginTransition).toHaveBeenCalledTimes(1);
     expect(usePointerStore.getState().pointers.find((p) => p.from === 'pty-third')?.then).toBeUndefined();
+  });
+
+  test("a sandboxed caller's --run-hook runs a sandboxed hook at once, and waits for the user when the hook would run on the host", async () => {
+    usePointerStore.setState({ pointers: [] });
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 's', type: 'start', name: 'Agent', command: 'claude', sandbox: 'nono' },
+      review: { id: 'r', type: 'review', name: 'Tests', command: 'npm test' },
+    });
+    const stubs = installListenerStubs();
+    renderHook(() => useIPCListeners());
+
+    stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-agent', fromSandbox: true, hookMode: 'run' }));
+    stubs.cliTaskTransitionedCb!(transitionPayload({ fromPtyId: 'pty-agent', fromSandbox: true, hookMode: 'run' }));
+    await flush();
+    expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl])).toEqual([
+      ['in_progress', { mode: 'run', command: undefined }],
+    ]);
+    const [pointer] = usePointerStore.getState().pointers;
+    expect(pointer.target).toEqual({ kind: 'task', projectPath: PROJECT, taskNumber: 9 });
+
+    vi.mocked(beginTransition).mockClear();
+    await followPointer(pointer);
+    expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl])).toEqual([
+      ['in_review', undefined],
+    ]);
   });
 });
 

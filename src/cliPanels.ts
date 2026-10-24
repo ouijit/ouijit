@@ -80,6 +80,7 @@ export function initCliPanels(window: BrowserWindow): void {
 function request<R extends { ok: boolean; error?: string }>(
   push: (window: BrowserWindow, requestId: number) => void,
   logContext: Record<string, unknown>,
+  timeout: { ms: number; response?: R } = { ms: REQUEST_TIMEOUT_MS },
 ): Promise<R> {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return Promise.resolve({ ok: false, error: 'Ouijit window is not available' } as R);
@@ -89,9 +90,13 @@ function request<R extends { ok: boolean; error?: string }>(
   return new Promise<R>((resolve) => {
     const timer = setTimeout(() => {
       pending.delete(requestId);
+      if (timeout.response) {
+        resolve(timeout.response);
+        return;
+      }
       cliPanelsLog.warn('cli op timed out', { requestId, ...logContext });
       resolve({ ok: false, error: 'Ouijit window did not respond — try again in a moment' } as R);
-    }, REQUEST_TIMEOUT_MS);
+    }, timeout.ms);
 
     pending.set(requestId, { resolve, timer });
     push(mainWindow as BrowserWindow, requestId);
@@ -113,11 +118,15 @@ export function cliTerminalRequest(op: Omit<CliTerminalOp, 'requestId'>): Promis
   });
 }
 
+/** How long `ask run --wait` holds its request open before answering that the run is still pending. */
+const ASK_WAIT_MS = 10 * 60_000;
+
 export function cliPointRequest(op: Omit<CliPointOp, 'requestId'>): Promise<CliPointResponse> {
-  return request((window, requestId) => typedPush(window, 'cli:point-op', { requestId, ...op }), {
-    fromPtyId: op.fromPtyId,
-    action: op.action,
-  });
+  return request(
+    (window, requestId) => typedPush(window, 'cli:point-op', { requestId, ...op }),
+    { fromPtyId: op.fromPtyId, action: op.action },
+    op.ask?.wait ? { ms: ASK_WAIT_MS, response: { ok: true, answer: { status: 'pending' } } } : undefined,
+  );
 }
 
 export function cliTagRequest(op: Omit<CliTagOp, 'requestId'>): Promise<CliTagResponse> {

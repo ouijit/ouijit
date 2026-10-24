@@ -7,6 +7,7 @@ import { Icon } from '../terminal/Icon';
 import { anchorChain, describeTarget, hasOwnRow, targetAlive, type PointWorld } from './pointKeys';
 import { findAnchor } from './pointAnchors';
 import { followPointer } from './followPointer';
+import { AskRunDialog } from './AskRunDialog';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const FOLLOW_KEYS = isMac ? '⌘J' : 'Ctrl+J';
@@ -148,10 +149,15 @@ function Mark({ placement, latest }: { placement: Placement; latest: Pointer | u
   const style = markStyle(placement.rect);
   const newest = placed.find((x) => x.pointer === latestPointer(placed.map((y) => y.pointer)))!;
   const w = world();
-  const where = ({ pointer, own }: Placed) => (own ? 'points here' : `points to ${describeTarget(pointer.target, w)}`);
+  const where = ({ pointer, own }: Placed) =>
+    pointer.ask
+      ? `asks to run ${pointer.ask.command}`
+      : own
+        ? 'points here'
+        : `points to ${describeTarget(pointer.target, w)}`;
   const fromName = (p: Pointer) => displays[p.from]?.label ?? 'A terminal';
   const label = (x: Placed) =>
-    x.pointer.message
+    x.pointer.message && !x.pointer.ask
       ? `${x.pointer.message}, from ${fromName(x.pointer)}`
       : `${fromName(x.pointer)}, which ${where(x)}`;
 
@@ -205,7 +211,7 @@ function Mark({ placement, latest }: { placement: Placement; latest: Pointer | u
           {placed.map((x) => (
             <div key={x.pointer.from} className="group/row flex items-center gap-1">
               <button type="button" className={ROW} onClick={() => void followPointer(x.pointer)}>
-                {x.pointer.message ? (
+                {x.pointer.message && !x.pointer.ask ? (
                   <span className="flex-1 min-w-0 flex flex-col gap-0.5 whitespace-normal">
                     <span className="text-[13px] leading-snug">{x.pointer.message}</span>
                     <span className="text-text-tertiary">
@@ -252,6 +258,7 @@ export function PointerLayer() {
       {placements.map((p) => (
         <Mark key={p.id} placement={p} latest={latest} />
       ))}
+      <AskRunDialog />
     </>,
     document.body,
   );

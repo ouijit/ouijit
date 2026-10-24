@@ -60,9 +60,15 @@ async function go(target: PointTarget): Promise<void> {
 /**
  * Go where the pointer points, and drop it. A move waiting on the pointer
  * runs instead of going: its dialog opens over wherever the user is, and its
- * hook opens the terminal.
+ * hook opens the terminal. An ask goes to its terminal and opens, and stays
+ * until the user runs or declines it: following never runs it.
  */
 export async function followPointer(pointer: Pointer): Promise<void> {
+  if (pointer.ask) {
+    await go(pointer.target);
+    usePointerStore.getState().openAsk(pointer.from);
+    return;
+  }
   usePointerStore.getState().dismiss(pointer.from);
   if (pointer.then) {
     pointer.then();

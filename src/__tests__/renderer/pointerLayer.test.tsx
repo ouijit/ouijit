@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Terminal } from '@xterm/headless';
 
 import { PointerLayer } from '../../components/point/PointerLayer';
 import { installCliPointListener } from '../../services/cliPointListener';
@@ -8,11 +9,18 @@ import type { OuijitTerminal } from '../../components/terminal/terminalReact';
 import { pointKey } from '../../components/point/pointKeys';
 import { useAppStore } from '../../stores/appStore';
 import { usePointerStore } from '../../stores/pointerStore';
+import { startRunner } from '../../components/terminal/terminalActions';
 import { DEFAULT_DISPLAY_STATE, useTerminalStore } from '../../stores/terminalStore';
 import type { CliPointOp, CliPointResponse, TaskWithWorkspace } from '../../types';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
+}));
+
+// A runner spawns a PTY, which jsdom cannot.
+vi.mock('../../components/terminal/terminalActions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../components/terminal/terminalActions')>()),
+  startRunner: vi.fn(),
 }));
 
 // jsdom lays nothing out, so every element reads as 0×0. Each fixture says
@@ -172,23 +180,33 @@ describe('a pointer on screen', () => {
   });
 });
 
+/** The CLI's side of the point bridge: send an op as pty-agent, and read the reply when it comes. */
+function cliPoints() {
+  let send: (op: CliPointOp) => void = () => {};
+  vi.mocked(window.api.cliPoints.onOp).mockImplementation((cb) => {
+    send = cb;
+    return () => {};
+  });
+  vi.mocked(window.api.cliPoints.respond).mockClear();
+  installCliPointListener();
+  let requestId = 0;
+  const reply = (id: number) => vi.mocked(window.api.cliPoints.respond).mock.calls.find(([r]) => r === id)?.[1];
+  const sendOp = (op: Omit<CliPointOp, 'requestId' | 'fromPtyId'>): number => {
+    const id = ++requestId;
+    send({ ...op, requestId: id, fromPtyId: 'pty-agent' });
+    return id;
+  };
+  const point = async (op: Omit<CliPointOp, 'requestId' | 'fromPtyId'>): Promise<CliPointResponse> => {
+    const id = sendOp(op);
+    await waitFor(() => expect(reply(id)).toBeDefined());
+    return reply(id)!;
+  };
+  return { sendOp, reply, point };
+}
+
 describe('an agent pointing', () => {
   test('is checked against what exists, and a note becomes its line', async () => {
-    let send: (op: CliPointOp) => void = () => {};
-    vi.mocked(window.api.cliPoints.onOp).mockImplementation((cb) => {
-      send = cb;
-      return () => {};
-    });
-    installCliPointListener();
-    let requestId = 0;
-    const point = async (op: Omit<CliPointOp, 'requestId' | 'fromPtyId'>): Promise<CliPointResponse> => {
-      const id = ++requestId;
-      send({ ...op, requestId: id, fromPtyId: 'pty-agent' });
-      await waitFor(() =>
-        expect(vi.mocked(window.api.cliPoints.respond).mock.calls.some(([r]) => r === id)).toBe(true),
-      );
-      return vi.mocked(window.api.cliPoints.respond).mock.calls.find(([r]) => r === id)![1];
-    };
+    const { point } = cliPoints();
     terminalInstances.set('pty-agent', {
       worktreePath: '/wt/T-12',
       panels: [{ id: 'panel-1' }],
@@ -230,3 +248,99 @@ describe('an agent pointing', () => {
     terminalInstances.delete('pty-agent');
   });
 });
+
+describe('an agent asking to run something', () => {
+  afterEach(() => terminalInstances.delete('pty-agent'));
+
+  test('is opened by following, never run by it, and runs on Run in a runner whose result the agent can wait for', async () => {
+    const runner = new Terminal({ cols: 40, rows: 5, allowProposedApi: true });
+    await new Promise<void>((done) => runner.write('signed 3 binaries\r\n', done));
+    terminalInstances.set('pty-agent', {
+      worktreePath: '/wt/T-12',
+      panels: [],
+      runnerChildren: new Map([['panel-r', { xterm: runner }]]),
+      fit: () => {},
+      xterm: { focus: () => {} },
+    } as unknown as OuijitTerminal);
+    const runnerPanel = (status: string, exitCode?: number) =>
+      act(() =>
+        useTerminalStore.setState((s) => ({
+          displayStates: {
+            ...s.displayStates,
+            'pty-agent': {
+              ...s.displayStates['pty-agent'],
+              panels: [{ id: 'panel-r', kind: 'runner', status, exitCode } as never],
+            },
+          },
+        })),
+      );
+    vi.mocked(startRunner).mockResolvedValue('panel-r');
+    render(
+      <>
+        <Screen />
+        <PointerLayer />
+      </>,
+    );
+    const { sendOp, reply, point } = cliPoints();
+    const ask = {
+      command: './scripts/sign.sh --all',
+      cwd: '/wt/T-12',
+      file: { path: 'scripts/sign.sh', contents: 'codesign --deep "$@"' },
+    };
+
+    const waiting = sendOp({ action: 'ask', ask: { ...ask, wait: true }, message: 'Needs the keychain' });
+    await waitFor(() =>
+      expect(ribbon().getAttribute('aria-label')).toMatch(/Fix auth timeout, which asks to run \.\/scripts\/sign\.sh/),
+    );
+
+    // ⌘J opens it, showing what runs and the file it runs; closing it leaves it waiting.
+    fireEvent.keyDown(document, { key: 'j', metaKey: true, ctrlKey: true });
+    expect((await screen.findByTestId('ask-command')).textContent).toBe('./scripts/sign.sh --all');
+    expect(screen.getByTestId('ask-file').textContent).toBe('codesign --deep "$@"');
+    screen.getByText('Needs the keychain');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByTestId('ask-command')).toBeNull());
+    expect(startRunner).not.toHaveBeenCalled();
+    expect(reply(waiting)).toBeUndefined();
+
+    fireEvent.click(ribbon());
+    runnerPanel('running');
+    fireEvent.click(await screen.findByTestId('ask-run'));
+    await waitFor(() =>
+      expect(startRunner).toHaveBeenCalledWith('pty-agent', {
+        name: './scripts/sign.sh --all',
+        command: './scripts/sign.sh --all',
+      }),
+    );
+    expect(usePointerStore.getState().pointers).toEqual([]);
+    expect(reply(waiting)).toBeUndefined();
+
+    runnerPanel('success', 0);
+    await waitFor(() =>
+      expect(reply(waiting)).toEqual({
+        ok: true,
+        answer: {
+          status: 'exited',
+          panelId: 'panel-r',
+          exitCode: 0,
+          output: expect.stringContaining('signed 3 binaries'),
+        },
+      }),
+    );
+
+    // Without --wait the answer is that it is pending; declining, or the agent pointing elsewhere, refuses it.
+    expect(await point({ action: 'ask', ask })).toEqual({ ok: true, answer: { status: 'pending' } });
+    await followAndDecline();
+    const replaced = sendOp({ action: 'ask', ask: { ...ask, wait: true } });
+    await waitFor(() => expect(usePointerStore.getState().pointers).toHaveLength(1));
+    await point({ action: 'point', target: { kind: 'board', projectPath: PROJECT } });
+    expect(reply(replaced)).toEqual({ ok: true, answer: { status: 'declined' } });
+    expect(startRunner).toHaveBeenCalledTimes(1);
+  });
+});
+
+async function followAndDecline(): Promise<void> {
+  fireEvent.click(ribbon());
+  fireEvent.click(await screen.findByTestId('ask-decline'));
+  await waitFor(() => expect(usePointerStore.getState().pointers).toEqual([]));
+}

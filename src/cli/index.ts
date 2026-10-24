@@ -24,6 +24,7 @@ import { registerTerminalCommands } from './commands/terminal';
 import { registerDiffCommands } from './commands/diff';
 import { registerPanelCommands } from './commands/panel';
 import { registerPointCommands } from './commands/point';
+import { registerAskCommands } from './commands/ask';
 
 const program = new Command();
 
@@ -64,6 +65,7 @@ registerMarkdownCommands(program);
 registerPreviewCommands(program);
 registerPanelCommands(program);
 registerPointCommands(program, requireProject);
+registerAskCommands(program);
 registerThemeCommands(program);
 
 // Command actions are async; parse() would let an API rejection surface as an
@@ -72,9 +74,10 @@ registerThemeCommands(program);
 program.parseAsync().catch((err: unknown) => {
   if (err instanceof ApiError) {
     if (err.status === 403) {
+      if (err.message !== 'Forbidden') return printError(`Forbidden: ${err.message}`);
       return printError(
-        'Forbidden: this command is not available for the current session. ' +
-          'Sandboxed sessions are read-only and limited to their own task.',
+        "Forbidden: this terminal's sandbox does not allow this command at its project's Ouijit CLI access. " +
+          'To run something outside the sandbox, ask the user with `ouijit ask run -- <command>`.',
       );
     }
     return printError(err.status > 0 ? `${err.message} (HTTP ${err.status})` : err.message);

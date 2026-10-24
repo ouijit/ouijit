@@ -296,7 +296,7 @@ ouijit task set-description <number> <text>
 ouijit task set-merge-target <number> <branch>
 ouijit task trash <number>                    # removes task, worktree goes to the system trash
 
-## Terminal Commands (host terminals only)
+## Terminal Commands
 ouijit terminal list                          # → [{ptyId, label, projectPath, taskNumber, worktreePath, sandbox, agentStatus}] across every project
                                               # agentStatus: thinking | ready, or null where no agent has reported
 ouijit terminal read <pty-id> [--lines <n>]   # → {ptyId, text, alternateScreen}: its screen and recent scrollback, as text
@@ -341,7 +341,19 @@ goes to the exact thing. This terminal has one pointer at a time; a new one repl
 it. Point after you finish something the user should look at, instead of
 asking them to find it, and say in -m why it is worth a look.
 
-## Tag Commands (the tags on a terminal's card; host terminals only)
+## Asking the user to run something (on this computer, outside any sandbox)
+ouijit ask run [-m "<why>"] [--wait] -- <command> [args]
+ouijit ask script <script> [-m "<why>"] [--wait]   # a project script, by id or name
+                                              # → {command, cwd, status: pending | declined | exited, panelId?, exitCode?, output?}
+
+The ask is this terminal's pointer. The user opens it, reads the exact command
+and presses Run or Decline; nothing runs before that. It runs in a runner panel
+on this terminal, in its worktree. With --wait the reply comes once they
+decline or it finishes; without it, the reply is pending at once, and panel
+read shows the runner. Ask for what the sandbox stops, such as credentials,
+the network or signing, and say in -m why.
+
+## Tag Commands (the tags on a terminal's card)
 ouijit tag list                               # → [{name, terminals: [{ptyId, label, projectPath}]}] across open terminals
 ouijit tag get [pty-id]                       # → {ptyId, tags} — defaults to this terminal
 ouijit tag add <tag> [pty-id]                 # add a tag to the terminal
@@ -451,6 +463,7 @@ ouijit runner remove <script>                 # close it, stopping the script
 
 ## Panel Commands (every kind of tab on a terminal)
 ouijit panel list [pty-id]                    # → {ptyId, panels: [{id, kind, label, active, ...}], diffOpen}
+ouijit panel read <id> [pty-id] [--lines <n>] # a runner → {kind, text, status, exitCode}; markdown → {path}; preview → {url}
 ouijit panel focus <id> [pty-id]              # bring one forward; focus terminal shows the terminal itself
 
 ## Project Commands
@@ -466,6 +479,20 @@ ouijit theme delete <id>                      # remove a custom theme
 # {"id":"my-theme","name":"My Theme","base":"dark","tokens":{"--color-accent":"#ff2d55"}}
 # The presets in \`ouijit theme list\` show the full token vocabulary (colors,
 # ANSI palette, shadows). Saving an id that matches a preset overrides it.
+
+## From a sandbox
+A sandboxed terminal reaches Ouijit at its project's CLI access level:
+- Read only, the default: its own task (task current, task get), diff notes,
+  point, ask, pr list and view, pr and linear drafts, pr lenses, linear list
+  and view. On this terminal: terminal read, tags, panel list and read, and
+  markdown add and remove for files in its worktree.
+- Its own task: also task set-status, set-name and set-description on its own
+  task, pr link and linear link to it, and task create for a to-do card.
+  terminal read, tags and panels reach every terminal on its task. A hook that
+  runs on the host waits for the user even with --run-hook, and --hook-command
+  and --sandbox are refused.
+- Everything: what a host terminal can.
+Anything else is Forbidden. To run something outside the sandbox, use ouijit ask.
 
 ## Key Behaviors
 - All mutating commands notify the Ouijit app UI in real-time.

@@ -42,7 +42,9 @@ describe('sandbox settings', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Custom' }));
     await waitFor(() => expect(screen.getByText("Custom can't run. Set a launcher first.")).toBeTruthy());
 
-    expect(screen.getByText('Sandboxed commands can read their task and draft comments.')).toBeTruthy();
+    expect(
+      screen.getByText('Sandboxed commands can read their task, draft comments, and ask you to run a command.'),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Ouijit CLI access' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Everything' }));
     await waitFor(() => expect(getProjectConfig('/p')?.sandboxCliAccess).toBe('all'));

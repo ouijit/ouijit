@@ -256,6 +256,8 @@ export type CliHookMode = 'run' | 'skip' | 'command';
 export interface CliCaller {
   fromPtyId?: PtyId;
   point?: boolean;
+  /** The caller runs in a sandbox, so a hook it starts must not run on the host unseen. */
+  fromSandbox?: boolean;
 }
 
 export interface CliHookControl {
@@ -926,10 +928,12 @@ export interface CliPanelOp {
    * every kind, `focus` taking a panel id or `terminal`. `diff-open` and
    * `diff-close` toggle the diff, which is not a panel.
    */
-  action: 'list' | 'add' | 'remove' | 'list-all' | 'focus' | 'diff-open' | 'diff-close';
+  action: 'list' | 'add' | 'remove' | 'list-all' | 'focus' | 'diff-open' | 'diff-close' | 'read';
   kind?: CliPanelKind;
-  /** Absolute path (markdown), URL (preview) or script id or name (runner) for add/remove; a panel id for focus. */
+  /** Absolute path (markdown), URL (preview) or script id or name (runner) for add/remove; a panel id for focus and read. */
   value?: string;
+  /** read: how many lines of a runner's screen. */
+  lines?: number;
 }
 
 /**
@@ -948,6 +952,8 @@ export interface CliPanelResponse {
   /** The terminal's panels after the op ran: of the op's kind, or all of them. */
   panels?: CliPanelInfo[];
   diffOpen?: boolean;
+  /** read: a runner's screen, or where a markdown or preview panel points. */
+  read?: CliPanelRead;
 }
 
 export interface CliPanelsAPI {
@@ -1036,22 +1042,51 @@ export type PointTarget =
   | { kind: 'panel'; ptyId: PtyId; panelId: string }
   | { kind: 'diff'; ptyId: PtyId; path: string; line?: number; noteId?: string };
 
-/** Op forwarded to the renderer for `ouijit point`. A note is resolved there, to the diff line it sits on. */
+export interface CliPanelRead {
+  kind: CliPanelKind;
+  text?: string;
+  status?: 'running' | 'success' | 'error' | 'idle';
+  exitCode?: number | null;
+  path?: string;
+  url?: string;
+}
+
+/** Op forwarded to the renderer for `ouijit point` and `ouijit ask`. A note is resolved there, to the diff line it sits on. */
 export interface CliPointOp {
   requestId: number;
   fromPtyId: PtyId;
-  action: 'point' | 'note' | 'clear';
+  action: 'point' | 'note' | 'clear' | 'ask';
   target?: PointTarget;
   /** What the pointer is about, in the agent's words. */
   message?: string;
   /** note */
   noteId?: string;
+  ask?: AskRun;
 }
+
+/** What `ouijit ask run` asks the user to run on the host, resolved before the user sees it. */
+export interface AskRun {
+  command: string;
+  /** The project script it names, if it named one. */
+  scriptName?: string;
+  cwd: string;
+  /** A file in the worktree that the command runs, which the agent could have written. */
+  file?: { path: string; contents: string };
+  /** Answer once the run ends, rather than once it is asked. */
+  wait?: boolean;
+}
+
+export type AskAnswer =
+  | { status: 'pending'; panelId?: string }
+  | { status: 'declined' }
+  | { status: 'exited'; panelId: string; exitCode: number | null; output: string }
+  | { status: 'closed'; panelId: string };
 
 export interface CliPointResponse {
   ok: boolean;
   error?: string;
   target?: PointTarget;
+  answer?: AskAnswer;
 }
 
 export interface CliPointsAPI {

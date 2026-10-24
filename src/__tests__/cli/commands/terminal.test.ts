@@ -139,9 +139,10 @@ describe('ouijit terminal', () => {
     ]);
     await expect(ouijit('terminal', 'read', 'pty-gone')).rejects.toThrow(/not found/);
 
-    // Another terminal's screen, and typing into it, are the host's alone.
+    // A sandbox reads its own screen; another terminal's, and typing into any, are the host's.
     vi.stubEnv('OUIJIT_API_TOKEN', issueToken('pty-a', 'sandbox'));
-    await expect(ouijit('terminal', 'read', 'pty-a')).rejects.toThrow(/Forbidden/);
+    expect(await ouijit('terminal', 'read', 'pty-a')).toEqual(expect.objectContaining({ ptyId: 'pty-a' }));
+    await expect(ouijit('terminal', 'read', 'pty-new')).rejects.toThrow(/Forbidden/);
     await expect(ouijit('terminal', 'paste', 'pty-a', 'hi')).rejects.toThrow(/Forbidden/);
   });
 });

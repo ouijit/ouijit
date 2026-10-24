@@ -14,7 +14,7 @@ vi.mock('../components/terminal/terminalReact', () => ({
 
 const PANEL_ID = 'panel-1';
 
-function makeFakeParent(initial: RunnerStatus = 'running') {
+function makeFakeParent(initial: RunnerStatus = 'running', exitCode?: number) {
   const runnerPanel = {
     id: PANEL_ID,
     kind: 'runner' as const,
@@ -22,6 +22,7 @@ function makeFakeParent(initial: RunnerStatus = 'running') {
     scriptCommand: null,
     command: null,
     status: initial,
+    exitCode,
   };
   const updatePanel = vi.fn((id: string, patch: Record<string, unknown>) => {
     if (id === runnerPanel.id) Object.assign(runnerPanel, patch);
@@ -35,14 +36,14 @@ describe('updateRunnerStatusFromOsc133', () => {
     const { parent, runnerPanel, updatePanel } = makeFakeParent();
     updateRunnerStatusFromOsc133('output\x1b]133;D;0\x07', parent, PANEL_ID);
     expect(runnerPanel.status).toBe('success');
-    expect(updatePanel).toHaveBeenCalledWith(PANEL_ID, { status: 'success' });
+    expect(updatePanel).toHaveBeenCalledWith(PANEL_ID, { status: 'success', exitCode: 0 });
   });
 
   test('flips the runner panel status to error on non-zero OSC 133;D', () => {
     const { parent, runnerPanel, updatePanel } = makeFakeParent();
     updateRunnerStatusFromOsc133('build failed\x1b]133;D;2\x07', parent, PANEL_ID);
     expect(runnerPanel.status).toBe('error');
-    expect(updatePanel).toHaveBeenCalledWith(PANEL_ID, { status: 'error' });
+    expect(updatePanel).toHaveBeenCalledWith(PANEL_ID, { status: 'error', exitCode: 2 });
   });
 
   test('does nothing when no OSC 133 is present', () => {
@@ -58,8 +59,8 @@ describe('updateRunnerStatusFromOsc133', () => {
     expect(runnerPanel.status).toBe('error');
   });
 
-  test('only pushes once when the status does not change', () => {
-    const { parent, updatePanel } = makeFakeParent('success');
+  test('only pushes once when the status and exit code do not change', () => {
+    const { parent, updatePanel } = makeFakeParent('success', 0);
     updateRunnerStatusFromOsc133('\x1b]133;D;0\x07', parent, PANEL_ID);
     expect(updatePanel).not.toHaveBeenCalled();
   });

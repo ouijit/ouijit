@@ -7,8 +7,14 @@ import { CustomLauncherRow } from './CustomLauncherRow';
 import { CARD } from './sandboxStyles';
 
 const CLI_ACCESS: Record<SandboxCliAccess, { label: string; detail: string }> = {
-  read: { label: 'Read only', detail: 'Sandboxed commands can read their task and draft comments.' },
-  task: { label: 'Its own task', detail: 'Sandboxed commands can also move and rename their task.' },
+  read: {
+    label: 'Read only',
+    detail: 'Sandboxed commands can read their task, draft comments, and ask you to run a command.',
+  },
+  task: {
+    label: 'Its own task',
+    detail: 'Sandboxed commands can also edit and move their task, add to-do tasks, and read its terminals.',
+  },
   all: { label: 'Everything', detail: 'Sandboxed commands can make Ouijit run anything on the host.' },
 };
 
