@@ -12,7 +12,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import { _resetCacheForTesting, setGlobalSetting } from '../../db';
-import { createTaskWorktree, createTodoTask, getWorktreeBaseDir, startTask } from '../../worktree';
+import { createTaskWorktree, createTodoTask, startTask } from '../../worktree';
 
 let tmpDir: string;
 let projectDir: string;
@@ -29,7 +29,7 @@ beforeEach(async () => {
   _resetCacheForTesting();
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ouijit-default-base-'));
   const originDir = path.join(tmpDir, 'origin.git');
-  projectDir = path.join(tmpDir, path.basename(tmpDir));
+  projectDir = path.join(tmpDir, 'project');
   otherDir = path.join(tmpDir, 'other');
 
   execSync(`git init --bare -b main ${originDir}`);
@@ -49,7 +49,6 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await fs.rm(getWorktreeBaseDir(path.basename(projectDir)), { recursive: true, force: true });
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
