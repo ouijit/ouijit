@@ -481,18 +481,19 @@ ouijit theme delete <id>                      # remove a custom theme
 # ANSI palette, shadows). Saving an id that matches a preset overrides it.
 
 ## From a sandbox
-A sandboxed terminal reaches Ouijit at its project's CLI access level:
+A sandboxed terminal reaches Ouijit in its own project, at that project's CLI access level:
 - Read only, the default: its own task (task current, task get), diff notes,
   point, ask, pr list and view, pr and linear drafts, pr lenses, linear list
   and view. On this terminal: terminal read, tags, panel list and read, and
   markdown add and remove for files in its worktree.
 - Its own task: also task set-status, set-name and set-description on its own
   task, pr link and linear link to it, and task create for a to-do card.
-  terminal read, tags and panels reach every terminal on its task. A hook that
+  terminal read, tags and panels reach every sandboxed terminal on its task. A hook that
   runs on the host waits for the user even with --run-hook, and --hook-command
   and --sandbox are refused.
 - Everything: what a host terminal can.
-Anything else is Forbidden. To run something outside the sandbox, use ouijit ask.
+It edits and discards only the drafts a sandbox wrote. Anything else is
+Forbidden, and the error names the ouijit ask that would run it outside the sandbox.
 
 ## Key Behaviors
 - All mutating commands notify the Ouijit app UI in real-time.

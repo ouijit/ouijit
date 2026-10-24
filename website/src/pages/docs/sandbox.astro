@@ -46,10 +46,13 @@ import Docs from '../../layouts/Docs.astro';
   </p>
 
   <h2 id="cli">The Ouijit CLI inside a sandbox</h2>
-  <p>Under <strong>Project Settings &rarr; Sandbox &rarr; Ouijit CLI access</strong>:</p>
+  <p>
+    Under <strong>Project Settings &rarr; Sandbox &rarr; Ouijit CLI access</strong>. At every level a sandboxed
+    command reaches only its own project, and edits only the comment drafts a sandbox wrote, never yours:
+  </p>
   <ul>
     <li><strong>Read only</strong>, the default. A sandboxed command can read its own task, its diff notes and pull requests, draft pull request and Linear comments, point you at things, and ask you to run a command. On its own terminal it can read the screen, add tags, read panels, and open markdown files from its worktree.</li>
-    <li><strong>Its own task.</strong> It can also move, rename and describe its own task, link it to a pull request or issue, and add to-do tasks. It can read every terminal on its task. Moving a task runs that column's hook as usual, but a hook that would run on the host waits for you to open it, even with <code>--run-hook</code>; a one-off <code>--hook-command</code> or <code>--sandbox</code> is refused.</li>
+    <li><strong>Its own task.</strong> It can also move, rename and describe its own task, link it to a pull request or issue, and add to-do tasks. It can read every sandboxed terminal on its task. Moving a task runs that column's hook as usual, but a hook that would run on the host waits for you to open it, even with <code>--run-hook</code>; a one-off <code>--hook-command</code> or <code>--sandbox</code> is refused.</li>
     <li><strong>Everything.</strong> It can do anything a host terminal can, which includes having Ouijit run commands on the host. Choose this only for agents you would run unsandboxed anyway.</li>
   </ul>
 

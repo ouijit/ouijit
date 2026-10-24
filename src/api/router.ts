@@ -22,6 +22,8 @@ import {
   deleteScript,
   getTaskByNumber,
   getGlobalSetting,
+  getReviewDraft,
+  findLinearDraft,
   setGlobalSetting,
 } from '../db';
 import {
@@ -379,7 +381,8 @@ interface Route {
  * Who in a sandbox may call a route; without one, only the host may. `level`
  * is the project's Ouijit CLI access it needs. `owns` is what the request must
  * name of the caller's own: its terminal, which at "Its own task" widens to
- * every terminal on its task, or its task, by `:number` or `taskNumber`.
+ * every sandboxed terminal on its task, or its task, by `:number` or
+ * `taskNumber`. Any `?project=` must be the caller's own project.
  *
  * A route with a rule never lets the caller choose what runs on the host, and
  * anything it runs stays in the sandbox — keep it that way when changing one.
@@ -433,6 +436,13 @@ function issueId(r: ParsedRequest): string {
   const id = r.segments[2];
   if (!id) throw new HttpError(400, 'Missing issue identifier');
   return id;
+}
+
+/** A sandbox edits and discards the drafts a sandbox wrote, never the user's. */
+function guardSandboxDraft(r: ParsedRequest, draft: { origin: string } | undefined): void {
+  if (r.auth.scope === 'sandbox' && draft && draft.origin !== 'sandbox') {
+    throw new HttpError(403, "A sandboxed terminal cannot change the user's own drafts");
+  }
 }
 
 /**
@@ -1114,6 +1124,7 @@ const routes: Route[] = [
     'pulls/:pr/drafts',
     async (r) => {
       const project = requireProject(r.query);
+      if (typeof r.body.id === 'string') guardSandboxDraft(r, await getReviewDraft(r.body.id));
       const draft = await saveDraft(project, {
         ...draftInput(r.body),
         prNumber: prNumber(r),
@@ -1128,10 +1139,14 @@ const routes: Route[] = [
   route(
     'DELETE',
     'pulls/:pr/drafts/:id',
-    (r) => {
+    async (r) => {
       const id = r.segments[3];
       if (!id) throw new HttpError(400, 'Missing draft id');
-      return discardDraft(id);
+      const project = requireProject(r.query);
+      guardSandboxDraft(r, await getReviewDraft(id));
+      const result = await discardDraft(project, id, prNumber(r));
+      if (!result.success) throw new HttpError(404, `No draft ${id} on pull request ${prNumber(r)}`);
+      return result;
     },
     true,
     READ,
@@ -1232,10 +1247,12 @@ const routes: Route[] = [
   route(
     'DELETE',
     'linear/issues/:id/drafts/:draftId',
-    (r) => {
+    async (r) => {
       const draftId = r.segments[4];
       if (!draftId) throw new HttpError(400, 'Missing draft id');
-      return discardLinearDraft(requireProject(r.query), draftId);
+      const project = requireProject(r.query);
+      guardSandboxDraft(r, await findLinearDraft(project, draftId));
+      return discardLinearDraft(project, draftId);
     },
     true,
     READ,
@@ -1344,6 +1361,8 @@ function sandboxAllows(
   body: Record<string, unknown>,
 ): boolean {
   if (!rule || (rule.level === 'task' && caller.access !== 'task')) return false;
+  const project = query.get('project');
+  if (project !== null && project !== getPtySpawnContext(caller.ptyId)?.projectPath) return false;
   if (rule.owns === 'terminal') return ownsTerminal(caller, params.ptyId);
   if (rule.owns === 'task') return ownsTask(caller, query.get('project'), params.number ?? body.taskNumber);
   return true;
@@ -1355,7 +1374,13 @@ function ownsTerminal(caller: SandboxCaller, ptyId: string | undefined): boolean
   if (caller.access !== 'task') return false;
   const own = getPtyTaskContext(caller.ptyId);
   const theirs = getPtyTaskContext(ptyId);
-  return !!own && !!theirs && own.projectPath === theirs.projectPath && own.taskId === theirs.taskId;
+  return (
+    !!own &&
+    !!theirs &&
+    own.projectPath === theirs.projectPath &&
+    own.taskId === theirs.taskId &&
+    isActiveSandbox(getPtySpawnContext(ptyId)?.sandboxProvider)
+  );
 }
 
 function ownsTask(caller: SandboxCaller, project: string | null, taskNumber: unknown): boolean {

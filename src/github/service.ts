@@ -539,7 +539,16 @@ export async function saveDraft(projectPath: string, input: SaveDraftInput): Pro
 }
 
 /** A draft's id is unique on its own, so the project it belongs to is not asked for. */
-export async function discardDraft(draftId: string): Promise<{ success: boolean }> {
+/** Discards a draft only from the project, and the pull request when one is named, that it belongs to. */
+export async function discardDraft(
+  projectPath: string,
+  draftId: string,
+  prNumber?: number,
+): Promise<{ success: boolean }> {
+  const draft = await getReviewDraft(draftId);
+  if (!draft || draft.project_path !== projectPath || (prNumber !== undefined && draft.pr_number !== prNumber)) {
+    return { success: false };
+  }
   await deleteReviewDraft(draftId);
   return { success: true };
 }

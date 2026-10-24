@@ -29,7 +29,7 @@ vi.mock('../../../ptyManager', () => ({
   isPtyActive: (ptyId: string) => ptyId === 'pty-agent',
   getPtyTaskContext: () => ({ projectPath: '/p', taskId: 4 }),
   getPtySpawnContext: (ptyId: string) =>
-    worktrees[ptyId] ? { projectPath: '/p', worktreePath: worktrees[ptyId] } : null,
+    ptyId === 'pty-agent' || worktrees[ptyId] ? { projectPath: '/p', worktreePath: worktrees[ptyId] } : null,
   getActiveSessions: () => [],
 }));
 

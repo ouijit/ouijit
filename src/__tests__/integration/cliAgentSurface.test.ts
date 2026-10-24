@@ -195,16 +195,48 @@ describe('what an agent can see and do from the CLI', () => {
   });
 
   test("a sandboxed agent's reach grows with its project's CLI access, and never past its own task", async () => {
-    sessions.push({
-      ptyId: 'pty-tests',
-      projectPath: repoDir,
-      command: 'npm test',
-      label: 'Tests',
-      taskId: 1,
-      worktreePath: worktree,
-    });
+    sessions.push(
+      {
+        ptyId: 'pty-tests',
+        projectPath: repoDir,
+        command: 'npm test',
+        label: 'Tests',
+        taskId: 1,
+        worktreePath: worktree,
+        sandboxProvider: 'nono',
+      },
+      {
+        ptyId: 'pty-own-shell',
+        projectPath: repoDir,
+        command: 'zsh',
+        label: 'Shell',
+        taskId: 1,
+        worktreePath: worktree,
+      },
+    );
     await createTask(repoDir, 2, 'Someone else');
-    as('pty-agent', 'sandbox');
+    as('pty-host', 'host');
+    const theirs = (await ouijit(
+      'pr',
+      'draft',
+      'add',
+      '12',
+      '--file',
+      'auth.ts',
+      '--line',
+      '1',
+      '--body',
+      'mine',
+      '--origin',
+      'human',
+    )) as { id: string };
+    const sandboxToken = as('pty-agent', 'sandbox');
+    const call = (method: string, route: string, body?: unknown) =>
+      fetch(`http://127.0.0.1:${getApiPort()}/api/${route}`, {
+        method,
+        headers: { Authorization: `Bearer ${sandboxToken}`, 'Content-Type': 'application/json' },
+        ...(body !== undefined && { body: JSON.stringify(body) }),
+      }).then((res) => res.status);
     // With no renderer in this test, a command the router lets through fails on the bridge instead.
     const passesTheRouter = /window is not available/;
 
@@ -212,7 +244,20 @@ describe('what an agent can see and do from the CLI', () => {
     expect(
       await ouijit('pr', 'draft', 'add', '12', '--file', 'auth.ts', '--line', '2', '--body', 'token is unset'),
     ).toEqual(expect.objectContaining({ body: 'token is unset', origin: 'sandbox' }));
-    expect(await ouijit('pr', 'draft', 'list', '12')).toEqual([expect.objectContaining({ body: 'token is unset' })]);
+    const [, ours] = (await ouijit('pr', 'draft', 'list', '12')) as { id: string; body: string }[];
+    expect(ours).toEqual(expect.objectContaining({ body: 'token is unset' }));
+
+    // Only the drafts a sandbox wrote, only on the pull request they belong to, and only in its own project.
+    await expect(ouijit('pr', 'draft', 'discard', '12', theirs.id)).rejects.toThrow(/user's own drafts/);
+    const project = `project=${encodeURIComponent(repoDir)}`;
+    expect(await call('POST', `pulls/12/drafts?${project}`, { id: theirs.id, path: 'a', line: 1, body: 'x' })).toBe(
+      403,
+    );
+    await expect(ouijit('pr', 'draft', 'discard', '13', ours.id)).rejects.toThrow(/No draft/);
+    await ouijit('pr', 'draft', 'discard', '12', ours.id);
+    expect(await call('GET', `pulls/12/drafts?project=${encodeURIComponent(tmpDir)}`)).toBe(403);
+    expect(await call('POST', `point?project=${encodeURIComponent(tmpDir)}`, { kind: 'board' })).toBe(403);
+
     await expect(ouijit('terminal', 'read', 'pty-agent')).rejects.toThrow(passesTheRouter);
     await expect(ouijit('terminal', 'read', 'pty-tests')).rejects.toThrow(/Forbidden/);
     await expect(ouijit('ask', 'run', '--', 'npm', 'run', 'sign')).rejects.toThrow(passesTheRouter);
@@ -229,6 +274,7 @@ describe('what an agent can see and do from the CLI', () => {
       expect.objectContaining({ task: expect.objectContaining({ taskNumber: 3, status: 'todo' }) }),
     );
     await expect(ouijit('terminal', 'read', 'pty-tests')).rejects.toThrow(passesTheRouter);
+    await expect(ouijit('terminal', 'read', 'pty-own-shell')).rejects.toThrow(/Forbidden/);
 
     await expect(ouijit('task', 'set-description', '2', 'x')).rejects.toThrow(/Forbidden/);
     await expect(ouijit('pr', 'link', '12', '--task', '2')).rejects.toThrow(/Forbidden/);
