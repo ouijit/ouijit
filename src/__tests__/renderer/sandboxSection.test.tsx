@@ -46,7 +46,12 @@ describe('sandbox settings', () => {
       screen.getByText('Sandboxed commands can read their task, draft comments, and ask you to run a command.'),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Ouijit CLI access' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Everything' }));
+    // Each choice says what it allows before it is picked.
+    const everything = screen.getByRole('menuitem', { name: 'Everything' });
+    expect(document.getElementById(everything.getAttribute('aria-describedby')!)?.textContent).toBe(
+      'Run anything on the host through Ouijit',
+    );
+    fireEvent.click(everything);
     await waitFor(() => expect(getProjectConfig('/p')?.sandboxCliAccess).toBe('all'));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith('sandboxCliAccess:/p', 'all');
     expect(screen.getByText('Sandboxed commands can make Ouijit run anything on the host.')).toBeTruthy();

@@ -6,16 +6,22 @@ import { SandboxProfileRow } from './SandboxProfileRow';
 import { CustomLauncherRow } from './CustomLauncherRow';
 import { CARD } from './sandboxStyles';
 
-const CLI_ACCESS: Record<SandboxCliAccess, { label: string; detail: string }> = {
+const CLI_ACCESS: Record<SandboxCliAccess, { label: string; detail: string; option: string }> = {
   read: {
     label: 'Read only',
     detail: 'Sandboxed commands can read their task, draft comments, and ask you to run a command.',
+    option: 'Read its task, draft comments, ask you to run a command',
   },
   task: {
     label: 'Its own task',
     detail: 'Sandboxed commands can also edit and move their task, add to-do tasks, and read its terminals.',
+    option: 'Also edit and move its task, add to-dos, read its terminals',
   },
-  all: { label: 'Everything', detail: 'Sandboxed commands can make Ouijit run anything on the host.' },
+  all: {
+    label: 'Everything',
+    detail: 'Sandboxed commands can make Ouijit run anything on the host.',
+    option: 'Run anything on the host through Ouijit',
+  },
 };
 
 export function SandboxSection({ projectPath }: { projectPath: string }) {
@@ -58,6 +64,7 @@ export function SandboxSection({ projectPath }: { projectPath: string }) {
           value={cliAccess}
           options={['read', 'task', 'all']}
           optionLabel={(level) => CLI_ACCESS[level].label}
+          optionDetail={(level) => CLI_ACCESS[level].option}
           onChange={(level) => void setSandboxCliAccess(projectPath, level)}
         />
       </div>

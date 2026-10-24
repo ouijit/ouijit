@@ -8,12 +8,14 @@ export function QuietPicker<T extends string>({
   value,
   options,
   optionLabel,
+  optionDetail,
   onChange,
 }: {
   label: string;
   value: T;
   options: readonly T[];
   optionLabel: (option: T) => string;
+  optionDetail?: (option: T) => string;
   onChange: (option: T) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -22,7 +24,7 @@ export function QuietPicker<T extends string>({
       open={open}
       onOpenChange={setOpen}
       placement="bottom-end"
-      className="w-56 max-h-[22rem]"
+      className={`${optionDetail ? 'w-80' : 'w-56'} max-h-[22rem]`}
       trigger={(ref) => (
         <button
           ref={ref}
@@ -42,6 +44,7 @@ export function QuietPicker<T extends string>({
         <MenuItem
           key={option}
           label={optionLabel(option)}
+          {...(optionDetail && { detail: optionDetail(option) })}
           selected={option === value}
           onClick={() => {
             setOpen(false);
