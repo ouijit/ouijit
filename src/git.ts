@@ -174,7 +174,8 @@ export async function listDiffBases(projectPath: string): Promise<DiffBases> {
 
 async function refNames(projectPath: string, prefix: string, remote: boolean): Promise<DiffBaseRef[]> {
   try {
-    const out = await gitAsync(['for-each-ref', '--format=%(refname:short)', prefix], projectPath);
+    // Not `:short`, which turns `refs/remotes/origin/HEAD` into a bare `origin`.
+    const out = await gitAsync(['for-each-ref', '--format=%(refname:lstrip=2)', prefix], projectPath);
     return out
       .split('\n')
       .filter(Boolean)
@@ -219,12 +220,16 @@ async function lastFetchTime(projectPath: string): Promise<number | null> {
  * fetch origin main` writes FETCH_HEAD and only opportunistically moves the
  * tracking ref this is meant to move.
  */
-export async function fetchDiffBase(projectPath: string, ref: string): Promise<{ success: boolean; error?: string }> {
+export async function fetchDiffBase(
+  projectPath: string,
+  ref: string,
+  timeoutMs?: number,
+): Promise<{ success: boolean; error?: string }> {
   const slash = ref.indexOf('/');
   if (slash <= 0) return { success: false, error: `${ref} is not a remote-tracking branch` };
   const remote = ref.slice(0, slash);
   const branch = ref.slice(slash + 1);
-  return fetchRefspec(projectPath, remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`);
+  return fetchRefspec(projectPath, remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`, timeoutMs);
 }
 
 /** Null when the path isn't a git repo or the commands fail. */
@@ -358,11 +363,13 @@ export async function fetchRefspec(
   projectPath: string,
   remote: string,
   refspec: string,
+  timeoutMs?: number,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await execFileAsync('git', ['fetch', '--no-tags', '--force', remote, refspec], {
       ...gitExecOpts(projectPath),
       maxBuffer: 10 * 1024 * 1024,
+      ...(timeoutMs && { timeout: timeoutMs }),
     });
     return { success: true };
   } catch (error) {

@@ -357,15 +357,15 @@ function buildIssuesSeed() {
 
   return {
     availability: { available: true, identity: { host: 'github.com', owner: 'acme', repo: 'widgets' } },
-    inbox: { viewer: 'mel', needsReview: [], mine: [], others: [], draftCounts: {}, linkedTasks: {} },
+    inbox: { viewer: 'mel', needsReview: [], mine: [], others: [], next: null, draftCounts: {}, linkedTasks: {} },
     githubIssues: {
       assigned: [github(299, 'Terminal scroll jumps on resize', 'rowan', '2026-07-01T11:00:00.000Z')],
       open: [
         github(291, 'Add a keyboard shortcut for the diff pane', 'jules', '2026-06-30T15:00:00.000Z'),
         github(287, 'Worktree list is slow on very large repos', 'ada', '2026-06-29T10:00:00.000Z'),
       ],
-      assignedCapped: false,
-      openCapped: false,
+      assignedNext: null,
+      openNext: null,
     },
     linear: {
       connected: true,
@@ -400,7 +400,7 @@ function buildIssuesSeed() {
           updatedAt: '2026-07-01T17:00:00.000Z',
         }),
       ],
-      capped: { triage: false, started: false, assigned: false, cycle: false },
+      next: { triage: null, started: null, assigned: null, cycle: null },
       cycleIsFallback: false,
       triageEnabled: true,
     },

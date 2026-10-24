@@ -38,8 +38,9 @@ import type {
   GithubDraftsChangedPayload,
   SaveDraftInput,
   PrHead,
+  GithubIssueListGroup,
 } from './github/types';
-import type { LinearDraftsChangedPayload, LinearScope } from './linear/types';
+import type { LinearDraftsChangedPayload, LinearGroupFilter, LinearScope } from './linear/types';
 import type { LensInput } from './lens/config';
 import type { SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
@@ -328,7 +329,9 @@ contextBridge.exposeInMainWorld('api', {
 
   github: {
     availability: (projectPath: string, recheck?: boolean) => typedInvoke('github:availability', projectPath, recheck),
-    inbox: (projectPath: string) => typedInvoke('github:inbox', projectPath),
+    inbox: (projectPath: string, after?: string) => typedInvoke('github:inbox', projectPath, after),
+    searchPullRequests: (projectPath: string, query: string) =>
+      typedInvoke('github:search-pull-requests', projectPath, query),
     pullRequest: (projectPath: string, number: number) => typedInvoke('github:pull-request', projectPath, number),
     pullRequestFreshness: (projectPath: string, number: number) =>
       typedInvoke('github:pull-request-freshness', projectPath, number),
@@ -369,7 +372,9 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('github:viewed-files', projectPath, prNumber, headSha),
     setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) =>
       typedInvoke('github:set-file-viewed', projectPath, prNumber, headSha, path, viewed),
-    issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
+    issues: (projectPath: string, page?: { group: GithubIssueListGroup; after: string }) =>
+      typedInvoke('github:issues', projectPath, page),
+    searchIssues: (projectPath: string, query: string) => typedInvoke('github:search-issues', projectPath, query),
     issue: (projectPath: string, number: number) => typedInvoke('github:issue', projectPath, number),
 
     linkTaskIssue: (projectPath: string, taskNumber: number, issueNumber: number | null) =>
@@ -414,6 +419,9 @@ contextBridge.exposeInMainWorld('api', {
     setScope: (projectPath: string, scope: LinearScope | null) => typedInvoke('linear:set-scope', projectPath, scope),
 
     issues: (projectPath: string) => typedInvoke('linear:issues', projectPath),
+    issuePage: (projectPath: string, group: LinearGroupFilter, after: string) =>
+      typedInvoke('linear:issue-page', projectPath, group, after),
+    search: (projectPath: string, term: string) => typedInvoke('linear:search', projectPath, term),
     issue: (projectPath: string, id: string) => typedInvoke('linear:issue', projectPath, id),
 
     comment: (projectPath: string, issueId: string, body: string) =>

@@ -18,6 +18,9 @@ import type {
   UserReposResult,
   ResolvedRepo,
   GithubIssueList,
+  GithubIssueListGroup,
+  GithubIssueRow,
+  PullRequestSummary,
   IssueDetail,
   CommentKind,
   ReviewDraft,
@@ -36,8 +39,10 @@ import type {
   LinearCommentDraft,
   LinearConnection,
   LinearDraftsChangedPayload,
+  LinearGroupFilter,
   LinearIssueDetail,
   LinearIssueGroups,
+  LinearIssueSummary,
   LinearScope,
 } from './linear/types';
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
@@ -727,7 +732,9 @@ export interface DiffNotesAPI {
  */
 export interface GithubAPI {
   availability(projectPath: string, recheck?: boolean): Promise<GithubAvailability>;
-  inbox(projectPath: string): Promise<InboxResult>;
+  /** With `after`, the page of open pull requests following that cursor. */
+  inbox(projectPath: string, after?: string): Promise<InboxResult>;
+  searchPullRequests(projectPath: string, query: string): Promise<PullRequestSummary[]>;
   pullRequest(projectPath: string, number: number): Promise<PullRequestDetail>;
   pullRequestFreshness(projectPath: string, number: number): Promise<PullRequestFreshness>;
   pullRequestFiles(
@@ -753,7 +760,8 @@ export interface GithubAPI {
     filePath: string,
     oldPath?: string,
   ): Promise<PrFileVersions>;
-  issues(projectPath: string): Promise<GithubIssueList>;
+  issues(projectPath: string, page?: { group: GithubIssueListGroup; after: string }): Promise<GithubIssueList>;
+  searchIssues(projectPath: string, query: string): Promise<GithubIssueRow[]>;
   issue(projectPath: string, number: number): Promise<IssueDetail>;
 
   linkTaskIssue(projectPath: string, taskNumber: number, issueNumber: number | null): Promise<GithubActionResult>;
@@ -817,6 +825,12 @@ export interface LinearAPI {
   setScope(projectPath: string, scope: LinearScope | null): Promise<GithubActionResult>;
 
   issues(projectPath: string): Promise<LinearIssueGroups | null>;
+  issuePage(
+    projectPath: string,
+    group: LinearGroupFilter,
+    after: string,
+  ): Promise<{ issues: LinearIssueSummary[]; next: string | null }>;
+  search(projectPath: string, term: string): Promise<LinearIssueSummary[]>;
   issue(projectPath: string, id: string): Promise<LinearIssueDetail>;
 
   comment(projectPath: string, issueId: string, body: string): Promise<GithubActionResult>;

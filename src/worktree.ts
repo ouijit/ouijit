@@ -24,7 +24,7 @@ import {
   deleteWorktreeDiffLenses,
   type TaskMetadata,
 } from './db';
-import { mergeWorktreeBranch } from './git';
+import { fetchDiffBase, mergeWorktreeBranch } from './git';
 
 const worktreeLog = getLogger().scope('worktree');
 
@@ -201,19 +201,48 @@ async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T
   await Promise.all(runners);
 }
 
-/**
- * Read the per-project worktree mode. Defaults to quick-start (copy ignored files)
- * to preserve the current behavior when the user hasn't picked a mode.
- */
-async function shouldCopyIgnoredFiles(projectPath: string): Promise<boolean> {
+/** Written by the renderer's `worktreeSettingsStore`. */
+async function readWorktreeSettings(projectPath: string): Promise<{ mode?: string; base?: string }> {
   try {
     const json = await getGlobalSetting(`worktree:${projectPath}`);
-    if (!json) return true;
-    const parsed = JSON.parse(json) as { mode?: string };
-    return parsed.mode !== 'clean-checkout';
+    return json ? (JSON.parse(json) as { mode?: string; base?: string }) : {};
   } catch {
-    return true;
+    return {};
   }
+}
+
+/** Quick-start, copying ignored files, unless the project picked a clean checkout. */
+async function shouldCopyIgnoredFiles(projectPath: string): Promise<boolean> {
+  return (await readWorktreeSettings(projectPath)).mode !== 'clean-checkout';
+}
+
+/** How long starting a task waits on fetching a remote base before branching from what it has. */
+const BASE_FETCH_TIMEOUT_MS = 5000;
+
+/**
+ * Where a new task branches from when nothing more specific says, and the
+ * local branch it merges back into: `origin/main` merges into `main`, since
+ * git cannot check out a remote-tracking ref to merge into it. Null when the
+ * project has no default base, which branches from whatever is checked out.
+ */
+async function defaultBase(projectPath: string): Promise<{ ref: string; mergeTarget: string } | null> {
+  const ref = (await readWorktreeSettings(projectPath)).base;
+  if (!ref) return null;
+  const fullName = async () =>
+    execFileAsync('git', ['rev-parse', '--verify', '--quiet', '--symbolic-full-name', ref], { cwd: projectPath })
+      .then(({ stdout }) => stdout.trim())
+      .catch(() => '');
+
+  if ((await fullName()).startsWith('refs/remotes/')) {
+    const fetched = await fetchDiffBase(projectPath, ref, BASE_FETCH_TIMEOUT_MS);
+    if (!fetched.success)
+      worktreeLog.warn('default base fetch failed, using the last fetch', { ref, error: fetched.error });
+  }
+  const resolved = await fullName();
+  const remote = /^refs\/remotes\/[^/]+\/(.+)$/.exec(resolved);
+  const local = /^refs\/heads\/(.+)$/.exec(resolved);
+  if (!remote && !local) throw new Error(`This project's default base, ${ref}, isn't a branch in this repository`);
+  return { ref, mergeTarget: (remote ?? local)![1] };
 }
 
 async function copyGitIgnoredFiles(
@@ -547,10 +576,13 @@ async function startTaskImpl(
       await execAsync('git commit --allow-empty -m "Initial commit"', { cwd: projectPath });
     }
 
+    const base = branchExists || baseBranch ? null : await defaultBase(projectPath);
+    const startPoint = baseBranch || base?.ref;
+
     // A task that already names its merge target keeps it. A pull request
     // checked out here merges back into that PR's base branch, which is rarely
     // the branch the project happened to be on when the worktree was made.
-    const mergeTarget = baseBranch || task.mergeTarget || branchHead;
+    const mergeTarget = baseBranch || task.mergeTarget || base?.mergeTarget || branchHead;
 
     // Probe + add run inside the mutex so two concurrent starts don't both
     // claim the same T-N. Prune has already completed above, so the probe
@@ -569,10 +601,12 @@ async function startTaskImpl(
       }
       t.mark('pathProbe');
 
+      // `--no-track`: branched from `origin/main`, git would otherwise set
+      // that as the upstream, and a plain `git push` would aim at main.
       const wtAddArgs = branchExists
         ? ['worktree', 'add', p, branch]
-        : baseBranch
-          ? ['worktree', 'add', '-b', branch, p, baseBranch]
+        : startPoint
+          ? ['worktree', 'add', '--no-track', '-b', branch, p, startPoint]
           : ['worktree', 'add', '-b', branch, p];
 
       await execFileAsync('git', wtAddArgs, { cwd: projectPath });
@@ -636,7 +670,6 @@ export async function createTaskWorktree(
       await execAsync('git commit --allow-empty -m "Initial commit"', { cwd: projectPath });
     }
 
-    const mergeTarget = branchResult;
     const projectName = path.basename(projectPath);
     const displayName = name || 'Untitled';
 
@@ -666,9 +699,13 @@ export async function createTaskWorktree(
       () => true,
       () => false,
     );
+    const base = branchExists ? null : await defaultBase(projectPath);
+    const mergeTarget = base?.mergeTarget ?? branchResult;
     const wtAddArgs = branchExists
       ? ['worktree', 'add', worktreePath, branch]
-      : ['worktree', 'add', '-b', branch, worktreePath];
+      : base
+        ? ['worktree', 'add', '--no-track', '-b', branch, worktreePath, base.ref]
+        : ['worktree', 'add', '-b', branch, worktreePath];
 
     const copyIgnored = await shouldCopyIgnoredFiles(projectPath);
 

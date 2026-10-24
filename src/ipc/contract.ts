@@ -60,6 +60,9 @@ import type {
   PullRequestDetail,
   PullRequestFreshness,
   GithubIssueList,
+  GithubIssueListGroup,
+  GithubIssueRow,
+  PullRequestSummary,
   IssueDetail,
   CommentKind,
   ReviewDraft,
@@ -78,8 +81,10 @@ import type {
   LinearCommentDraft,
   LinearConnection,
   LinearDraftsChangedPayload,
+  LinearGroupFilter,
   LinearIssueDetail,
   LinearIssueGroups,
+  LinearIssueSummary,
   LinearScope,
 } from '../linear/types';
 import type { LensInput, LensSummary } from '../lens/config';
@@ -289,7 +294,8 @@ export interface IpcInvokeContract {
   // Every one of these runs `gh` on the host from the main process. No token
   // is ever read, stored, or handed to a renderer or a sandbox guest.
   'github:availability': { args: [projectPath: string, recheck?: boolean]; return: GithubAvailability };
-  'github:inbox': { args: [projectPath: string]; return: InboxResult };
+  'github:inbox': { args: [projectPath: string, after?: string]; return: InboxResult };
+  'github:search-pull-requests': { args: [projectPath: string, query: string]; return: PullRequestSummary[] };
   'github:pull-request': { args: [projectPath: string, number: number]; return: PullRequestDetail };
   'github:pull-request-files': {
     args: [projectPath: string, number: number, baseSha: string, headSha: string];
@@ -324,7 +330,11 @@ export interface IpcInvokeContract {
   };
   'github:user-repos': { args: []; return: UserReposResult };
   'github:resolve-repo': { args: [identity: RepoIdentity]; return: ResolvedRepo };
-  'github:issues': { args: [projectPath: string]; return: GithubIssueList };
+  'github:issues': {
+    args: [projectPath: string, page?: { group: GithubIssueListGroup; after: string }];
+    return: GithubIssueList;
+  };
+  'github:search-issues': { args: [projectPath: string, query: string]; return: GithubIssueRow[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 
   'github:link-task-issue': {
@@ -348,6 +358,11 @@ export interface IpcInvokeContract {
     return: { success: boolean; error?: string };
   };
   'linear:issues': { args: [projectPath: string]; return: LinearIssueGroups | null };
+  'linear:issue-page': {
+    args: [projectPath: string, group: LinearGroupFilter, after: string];
+    return: { issues: LinearIssueSummary[]; next: string | null };
+  };
+  'linear:search': { args: [projectPath: string, term: string]; return: LinearIssueSummary[] };
   'linear:issue': { args: [projectPath: string, id: string]; return: LinearIssueDetail };
   'linear:comment': {
     args: [projectPath: string, issueId: string, body: string];

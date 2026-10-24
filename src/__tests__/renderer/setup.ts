@@ -221,9 +221,16 @@ const mockApi = {
   },
   github: {
     availability: vi.fn().mockResolvedValue({ available: false, reason: 'flag-off' }),
-    inbox: vi
-      .fn()
-      .mockResolvedValue({ viewer: '', needsReview: [], mine: [], others: [], draftCounts: {}, linkedTasks: {} }),
+    inbox: vi.fn().mockResolvedValue({
+      viewer: '',
+      needsReview: [],
+      mine: [],
+      others: [],
+      next: null,
+      draftCounts: {},
+      linkedTasks: {},
+    }),
+    searchPullRequests: vi.fn().mockResolvedValue([]),
     pullRequest: vi.fn().mockResolvedValue(null),
     pullRequestFreshness: vi
       .fn()
@@ -231,7 +238,8 @@ const mockApi = {
     pullRequestFiles: vi.fn().mockResolvedValue({ files: [], fromGit: false }),
     pullRequestFileDiff: vi.fn().mockResolvedValue(null),
     pullRequestFileVersions: vi.fn().mockResolvedValue({ before: null, after: null }),
-    issues: vi.fn().mockResolvedValue({ assigned: [], open: [], assignedCapped: false, openCapped: false }),
+    issues: vi.fn().mockResolvedValue({ assigned: [], open: [], assignedNext: null, openNext: null }),
+    searchIssues: vi.fn().mockResolvedValue([]),
     issue: vi.fn().mockResolvedValue(null),
     linkTaskIssue: vi.fn().mockResolvedValue({ success: true }),
     detectTaskPr: vi.fn().mockResolvedValue({ prNumber: null }),
@@ -260,6 +268,8 @@ const mockApi = {
     availability: vi.fn().mockResolvedValue({ connected: false, reason: 'flag-off', repoLabels: [], teams: [] }),
     setScope: vi.fn().mockResolvedValue({ success: true }),
     issues: vi.fn().mockResolvedValue(null),
+    issuePage: vi.fn().mockResolvedValue({ issues: [], next: null }),
+    search: vi.fn().mockResolvedValue([]),
     issue: vi.fn().mockResolvedValue(null),
     comment: vi.fn().mockResolvedValue({ success: true }),
     moveIssue: vi.fn().mockResolvedValue({ success: true }),

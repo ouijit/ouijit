@@ -46,6 +46,8 @@ import { reviewSubmitProblem } from './reviewRules';
 import { describeError } from '../utils/describeError';
 import {
   fetchInbox,
+  searchPullRequests as searchPullRequestsApi,
+  searchIssues as searchIssuesApi,
   fetchPullRequest,
   fetchPullRequestFreshness,
   fetchPullRequestFiles,
@@ -73,6 +75,9 @@ import type {
   PullRequestFreshness,
   PullRequestFile,
   GithubIssueList,
+  GithubIssueListGroup,
+  GithubIssueRow,
+  PullRequestSummary,
   IssueDetail,
   CommentKind,
   ReviewDraft,
@@ -243,10 +248,11 @@ async function identityIfAvailable(projectPath: string): Promise<RepoIdentity | 
 
 // ── Reads ────────────────────────────────────────────────────────────
 
-export async function getInbox(projectPath: string): Promise<InboxResult> {
+/** With `after`, the page of open pull requests following that cursor. */
+export async function getInbox(projectPath: string, after?: string): Promise<InboxResult> {
   const identity = await requireIdentity(projectPath);
   const [inbox, draftCounts, tasks] = await Promise.all([
-    fetchInbox(identity),
+    fetchInbox(identity, after),
     getReviewDraftCounts(projectPath),
     getProjectTasks(projectPath),
   ]);
@@ -331,9 +337,20 @@ export async function getPullRequestFileVersions(
   return getPrFileVersions(projectPath, number, baseSha, headSha, filePath, oldPath);
 }
 
-export async function getIssues(projectPath: string): Promise<GithubIssueList> {
+export async function getIssues(
+  projectPath: string,
+  page?: { group: GithubIssueListGroup; after: string },
+): Promise<GithubIssueList> {
   const identity = await requireIdentity(projectPath);
-  return fetchIssues(identity);
+  return fetchIssues(identity, page);
+}
+
+export async function searchPullRequests(projectPath: string, query: string): Promise<PullRequestSummary[]> {
+  return searchPullRequestsApi(await requireIdentity(projectPath), query);
+}
+
+export async function searchIssues(projectPath: string, query: string): Promise<GithubIssueRow[]> {
+  return searchIssuesApi(await requireIdentity(projectPath), query);
 }
 
 /** One issue and its thread, fetched by number rather than found in the list. */

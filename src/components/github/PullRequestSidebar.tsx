@@ -1,11 +1,11 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type { PullRequestSummary } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
 import { Avatar } from '../issues/Avatar';
 import { Tab, TabBar } from '../issues/Tabs';
 import { since } from '../issues/since';
-import { Group, rowClass, rowTitleClass, TaskLink } from '../issues/rows';
+import { Group, rowClass, rowTitleClass, ShowMore, TaskLink } from '../issues/rows';
 import { stateBadge } from './prFormat';
 
 interface PullRequestSidebarProps {
@@ -18,12 +18,19 @@ interface PullRequestSidebarProps {
   /** Count beside the Issues tab, across every source feeding the list. */
   issueCount: number;
   activeNumber: number | null;
+  query: string;
+  onQueryChange: (query: string) => void;
+  /** GitHub's own answer for `query`, null until it has one. */
+  found: PullRequestSummary[] | null;
+  searching: boolean;
+  /** Set when the open pull requests are a page with another after it. */
+  more?: { loading: boolean; onShow: () => void };
   onShow: (showing: 'pulls' | 'issues') => void;
   onOpenPullRequest: (number: number) => void;
   /** Focus the task's shell, or open/create its worktree. */
   onOpenTask: (task: TaskWithWorkspace) => void;
   /** The Issues list, rendered under this list's own search box. */
-  issues: (query: string) => ReactNode;
+  issues: ReactNode;
   /** Why the pull request half is empty, when it is not simply empty. */
   unavailable?: string;
   loading: boolean;
@@ -39,7 +46,7 @@ const PULL_GROUPS = [
 
 /**
  * The list, kept on screen beside whatever is open. Search filters what is
- * already loaded, with no round trip.
+ * already loaded at once, and GitHub's own matches follow beneath it.
  */
 export function PullRequestSidebar({
   needsReview,
@@ -50,6 +57,11 @@ export function PullRequestSidebar({
   showing,
   issueCount,
   activeNumber,
+  query,
+  onQueryChange: setQuery,
+  found,
+  searching,
+  more,
   onShow,
   onOpenPullRequest,
   onOpenTask,
@@ -58,8 +70,6 @@ export function PullRequestSidebar({
   loading,
   width,
 }: PullRequestSidebarProps) {
-  const [query, setQuery] = useState('');
-
   const groups = useMemo(() => {
     const match = (text: string[]) => {
       const q = query.trim().toLowerCase();
@@ -68,15 +78,30 @@ export function PullRequestSidebar({
     };
     const prs = (list: PullRequestSummary[]) =>
       list.filter((pr) => match([pr.title, pr.author, pr.headRefName, `#${pr.number}`]));
-    return {
-      needsReview: prs(needsReview),
-      mine: prs(mine),
-      others: prs(others),
-    };
-  }, [query, needsReview, mine, others]);
+    const shown = { needsReview: prs(needsReview), mine: prs(mine), others: prs(others) };
+    // Against what is shown rather than what is loaded, as the Issues list does.
+    const onScreen = new Set([...shown.needsReview, ...shown.mine, ...shown.others].map((pr) => pr.number));
+    return { ...shown, found: (found ?? []).filter((pr) => !onScreen.has(pr.number)) };
+  }, [query, needsReview, mine, others, found]);
+
+  const row = (pr: PullRequestSummary) => (
+    <PullRequestRow
+      key={pr.number}
+      pr={pr}
+      drafts={draftCounts[pr.number] ?? 0}
+      task={prTasks[pr.number]}
+      active={activeNumber === pr.number}
+      onOpen={() => onOpenPullRequest(pr.number)}
+      onOpenTask={onOpenTask}
+    />
+  );
 
   const pullCount = needsReview.length + mine.length + others.length;
-  const noPulls = groups.needsReview.length === 0 && groups.mine.length === 0 && groups.others.length === 0;
+  const noPulls =
+    groups.needsReview.length === 0 &&
+    groups.mine.length === 0 &&
+    groups.others.length === 0 &&
+    groups.found.length === 0;
 
   return (
     // No right border: the resize handle beside this is the boundary.
@@ -123,30 +148,24 @@ export function PullRequestSidebar({
 
       <div className="flex-1 min-h-0 overflow-y-auto pb-4">
         {showing === 'issues' ? (
-          issues(query)
+          issues
         ) : unavailable ? (
           // The panel opens for any source, so this tab can be the empty one.
           <p className="px-4 py-8 text-sm text-text-tertiary text-center text-balance">{unavailable}</p>
         ) : noPulls ? (
           <p className="px-4 py-8 text-center text-sm text-text-tertiary">
-            {loading ? '' : query ? 'Nothing matches that' : 'Nothing open'}
+            {loading ? '' : searching ? 'Searching…' : query ? 'Nothing matches that' : 'Nothing open'}
           </p>
         ) : (
-          PULL_GROUPS.map(([label, key]) => (
-            <Group key={label} label={label}>
-              {groups[key].map((pr) => (
-                <PullRequestRow
-                  key={pr.number}
-                  pr={pr}
-                  drafts={draftCounts[pr.number] ?? 0}
-                  task={prTasks[pr.number]}
-                  active={activeNumber === pr.number}
-                  onOpen={() => onOpenPullRequest(pr.number)}
-                  onOpenTask={onOpenTask}
-                />
-              ))}
-            </Group>
-          ))
+          <>
+            {PULL_GROUPS.map(([label, key]) => (
+              <Group key={label} label={label}>
+                {groups[key].map(row)}
+              </Group>
+            ))}
+            {more && <ShowMore {...more} />}
+            <Group label="More results">{groups.found.map(row)}</Group>
+          </>
         )}
       </div>
     </div>

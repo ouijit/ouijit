@@ -95,6 +95,22 @@ export function triageResponse() {
 }
 
 /** What `ISSUE_REF_QUERY` selects, and nothing the document did not ask for. */
+/** One group on its own, with a page after it. */
+export function groupPageResponse() {
+  return {
+    data: {
+      issues: {
+        nodes: [issue({ identifier: 'ENG-4' })],
+        pageInfo: { hasNextPage: true, endCursor: 'cursor-2' },
+      },
+    },
+  };
+}
+
+export function searchResponse() {
+  return { data: { searchIssues: { nodes: [issue({ identifier: 'ENG-5' })] } } };
+}
+
 export function issueRefResponse(over: { identifier?: string; description?: string } = {}) {
   const identifier = over.identifier ?? 'ENG-2';
   const { id, title, url, branchName } = issue({ identifier });

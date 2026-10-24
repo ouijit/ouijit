@@ -30,6 +30,7 @@ export function TaskFact({
   onOpenTask,
   createLabel,
   createTitle,
+  creatingLabel,
   onCreate,
 }: {
   task?: TaskWithWorkspace;
@@ -37,11 +38,18 @@ export function TaskFact({
   onOpenTask: (task: TaskWithWorkspace) => void;
   createLabel: string;
   createTitle: string;
+  /** Set while the task is being made, in place of the button. */
+  creatingLabel?: string;
   onCreate: () => void;
 }) {
   return (
     <Fact icon="user-circle" label="Task">
-      {task ? (
+      {creatingLabel ? (
+        <span role="status" className="flex items-center gap-2 text-[15px] text-text-secondary">
+          <Spinner />
+          {creatingLabel}
+        </span>
+      ) : task ? (
         <button
           type="button"
           className="flex items-center gap-1.5 text-[15px] text-text-primary hover:text-accent transition-colors duration-100"
@@ -63,6 +71,16 @@ export function TaskFact({
         </button>
       )}
     </Fact>
+  );
+}
+
+export function Spinner() {
+  return (
+    <span
+      aria-hidden
+      className="w-3.5 h-3.5 shrink-0 rounded-full border-2 border-ink/15 border-t-ink/50"
+      style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
+    />
   );
 }
 
