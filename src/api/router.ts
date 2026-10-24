@@ -63,6 +63,7 @@ import {
   resolveIssueId as resolveLinearIssueId,
 } from '../linear/service';
 import { getProjectList } from '../projectList';
+import { shellJoin } from '../utils/shellQuote';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
 import { cliPanelRequest, cliPointRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
@@ -296,12 +297,6 @@ async function runPointOp(
   return { target: result.target, ...(op.message && { message: op.message }) };
 }
 
-const SAFE_SHELL_WORD = /^[\w@%+=:,./-]+$/;
-
-function shellQuote(arg: string): string {
-  return SAFE_SHELL_WORD.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`;
-}
-
 const MAX_SHOWN_FILE = 32_768;
 
 /**
@@ -342,7 +337,7 @@ async function askRun(r: ParsedRequest): Promise<AskRun> {
   if (!Array.isArray(argv) || argv.length === 0 || !argv.every((a) => typeof a === 'string')) {
     throw new HttpError(400, 'Ask to run a script by name, or a command after --');
   }
-  const command = (argv as string[]).map(shellQuote).join(' ');
+  const command = shellJoin(argv as string[]);
   return { command, cwd, file: fileItRuns(command, cwd), wait };
 }
 

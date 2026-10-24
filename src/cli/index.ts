@@ -8,7 +8,7 @@
 import { Command } from 'commander';
 import { ApiError } from './api';
 import { detectProject } from './detect';
-import { printError } from './output';
+import { forbiddenMessage, printError } from './output';
 import { registerTaskCommands } from './commands/task';
 import { registerHookCommands } from './commands/hook';
 import { registerTagCommands } from './commands/tag';
@@ -74,11 +74,7 @@ registerThemeCommands(program);
 program.parseAsync().catch((err: unknown) => {
   if (err instanceof ApiError) {
     if (err.status === 403) {
-      if (err.message !== 'Forbidden') return printError(`Forbidden: ${err.message}`);
-      return printError(
-        "Forbidden: this terminal's sandbox does not allow this command at its project's Ouijit CLI access. " +
-          'To run something outside the sandbox, ask the user with `ouijit ask run -- <command>`.',
-      );
+      return printError(forbiddenMessage(err.message, process.argv.slice(2)));
     }
     return printError(err.status > 0 ? `${err.message} (HTTP ${err.status})` : err.message);
   }
