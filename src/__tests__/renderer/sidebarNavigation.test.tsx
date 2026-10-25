@@ -173,6 +173,7 @@ describe('the sidebar is the navigation', () => {
 
     // An agent finishing off-screen is marked unread in the tree until it is opened.
     const unread = (title: string) => row(section('Projects'), title).querySelector('[data-status="unread"]');
+    const weight = (title: string) => within(row(section('Projects'), title)).getByText(title).style.fontWeight;
     expect(unread('Pricing page')).toBeNull();
     tick(1000);
     act(() => {
@@ -181,9 +182,11 @@ describe('the sidebar is the navigation', () => {
     });
     tick(60_000);
     expect(unread('Pricing page')).toBeTruthy();
+    expect(weight('Pricing page')).toBe('600');
     fireEvent.click(row(section('Projects'), 'Pricing page'));
     await waitFor(() => expect(front()).toBe(pricing));
     expect(unread('Pricing page')).toBeNull();
+    expect(weight('Pricing page')).toBe('');
     expect(useAppStore.getState().activeProjectPath).toBe(BRAVO.path);
 
     // From the board: the project's board button opens it, and its terminal rows open their terminal.

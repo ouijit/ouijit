@@ -117,6 +117,8 @@ interface RowProps {
   title: string;
   tooltip: string;
   bright: boolean;
+  /** Set in weight too, so an unread row stands apart from the one on screen. */
+  unread?: boolean;
   selected?: boolean;
   mono?: boolean;
   detail?: string | null;
@@ -166,6 +168,7 @@ function SidebarRow({
   title,
   tooltip,
   bright,
+  unread = false,
   selected = false,
   mono,
   detail,
@@ -208,7 +211,7 @@ function SidebarRow({
             >
               <span
                 className={`flex-1 min-w-0 truncate ${mono ? 'font-mono text-[11.5px]' : ''}`}
-                style={{ color: bright ? 'var(--color-text-primary)' : DIM }}
+                style={{ color: bright ? 'var(--color-text-primary)' : DIM, fontWeight: unread ? 600 : undefined }}
               >
                 {title}
               </span>
@@ -231,11 +234,10 @@ function StatusSlot({ display }: { display: TerminalDisplayState }) {
   );
 }
 
-/** Whether a terminal's title reads bright: it is on screen, or it finished while you were elsewhere. */
-function useBright(ptyId: string, shown: string | undefined): boolean {
+function useUnread(ptyId: string): boolean {
   return useTerminalStore((s) => {
     const display = s.displayStates[ptyId];
-    return ptyId === shown || (display !== undefined && isUnread(display, viewedPtyId(s)));
+    return display !== undefined && isUnread(display, viewedPtyId(s));
   });
 }
 
@@ -270,7 +272,7 @@ function TerminalRow({
   alsoPointKeys = [],
 }: TerminalRowProps) {
   const display = useTerminalStore((s) => s.displayStates[ptyId]);
-  const bright = useBright(ptyId, shown);
+  const unread = useUnread(ptyId);
   const projectName = useProjectName(display?.projectPath ?? '');
   if (!display) return null;
   const text = title(display);
@@ -282,7 +284,8 @@ function TerminalRow({
       title={text}
       mono={mono}
       tooltip={rowTooltip(text, projectName, display, now)}
-      bright={bright}
+      bright={unread || ptyId === shown}
+      unread={unread}
       selected={selected}
       detail={typeof detail === 'function' ? detail(display) : detail}
       trailing={<StatusSlot display={display} />}
@@ -443,6 +446,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
               tooltip={rowTooltip(taskTitle, projectName, front, now)}
               pointKeys={task ? [pointKey.task(projectPath, task.taskNumber)] : undefined}
               bright={anyUnread}
+              unread={anyUnread}
               selected={group.ptyIds.every((id) => onScreen.includes(id))}
               detail={diff}
               onClick={pick(at, () => {

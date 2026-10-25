@@ -61,6 +61,7 @@ function Row({
   icon,
   title,
   bright,
+  unread = false,
   selected,
   mono,
   trailing,
@@ -69,6 +70,7 @@ function Row({
   icon: ReactNode;
   title: string;
   bright: boolean;
+  unread?: boolean;
   selected: boolean;
   mono?: boolean;
   trailing?: ReactNode;
@@ -79,7 +81,7 @@ function Row({
       <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">{icon}</span>
       <span
         className={`flex-1 min-w-0 truncate ${mono ? 'font-mono text-[11.5px]' : ''}`}
-        style={{ color: bright ? 'var(--color-text-primary)' : DIM }}
+        style={{ color: bright ? 'var(--color-text-primary)' : DIM, fontWeight: unread ? 600 : undefined }}
       >
         {title}
       </span>
@@ -199,6 +201,7 @@ export function MockSidebar({
                 icon={<StageIcon status={task.status} />}
                 title={task.name}
                 bright={unread || shown === only.ptyId}
+                unread={unread && shown !== only.ptyId}
                 selected={shown === only.ptyId}
                 trailing={dot(only.status, unread && shown !== only.ptyId)}
                 onClick={() => onTerminal(only.ptyId)}
@@ -211,6 +214,7 @@ export function MockSidebar({
                 icon={<StageIcon status={task.status} />}
                 title={task.name}
                 bright={unread}
+                unread={unread}
                 selected={false}
                 onClick={() => onTerminal(terminals[0].ptyId)}
               />
