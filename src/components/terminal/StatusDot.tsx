@@ -30,12 +30,9 @@ const LABELS: Record<TerminalStatus, string> = {
   error: 'Failed',
 };
 
-function Grid({ color, still }: { color: string; still?: boolean }) {
+function Grid({ color }: { color: string }) {
   return (
-    <span
-      className={`status-dot-grid ${still ? 'status-dot-grid--still' : ''}`}
-      style={{ '--status-dot-color': color } as CSSProperties}
-    >
+    <span className="status-dot-grid" style={{ '--status-dot-color': color } as CSSProperties}>
       <span />
       <span />
       <span />
@@ -76,12 +73,10 @@ export function SandboxRing({
 
 /** The dot alone, for a place that already says what it means. */
 export function StatusGlyph({ status, sandboxProvider, size = 6, unread }: StatusDotProps) {
-  const background = COLORS[status];
+  const background = unread ? 'var(--color-accent)' : COLORS[status];
   return (
     <SandboxRing sandboxed={isActiveSandbox(sandboxProvider)} size={size} status={unread ? 'unread' : status}>
-      {unread ? (
-        <Grid color="var(--color-accent)" still />
-      ) : status === 'thinking' ? (
+      {status === 'thinking' ? (
         <Grid color={background} />
       ) : (
         <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />

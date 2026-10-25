@@ -17,12 +17,9 @@ const COLORS: Record<string, string> = {
   error: 'var(--color-error)',
 };
 
-function Grid({ color, still }: { color: string; still?: boolean }) {
+function Grid({ color }: { color: string }) {
   return (
-    <span
-      className={`status-dot-grid ${still ? 'status-dot-grid--still' : ''}`}
-      style={{ '--status-dot-color': color } as CSSProperties}
-    >
+    <span className="status-dot-grid" style={{ '--status-dot-color': color } as CSSProperties}>
       <span />
       <span />
       <span />
@@ -33,7 +30,7 @@ function Grid({ color, still }: { color: string; still?: boolean }) {
 
 export function StatusDot({ status, sandboxed = false, size = 6, unread }: StatusDotProps) {
   const isThinking = status === 'thinking';
-  const background = COLORS[status] ?? COLORS.ready;
+  const background = unread ? 'var(--color-accent)' : (COLORS[status] ?? COLORS.ready);
   return (
     <span
       className="status-dot inline-flex items-center justify-center shrink-0"
@@ -47,9 +44,7 @@ export function StatusDot({ status, sandboxed = false, size = 6, unread }: Statu
         } as CSSProperties
       }
     >
-      {unread ? (
-        <Grid color="var(--color-accent)" still />
-      ) : isThinking ? (
+      {isThinking ? (
         <Grid color={background} />
       ) : (
         <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />

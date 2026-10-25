@@ -576,9 +576,8 @@ textarea,
   transition: border-radius 200ms ease-out;
 }
 
-/* Thinking and unread draw a square grid, so the ring squares off to keep an even gap. */
-.status-dot[data-status='thinking'],
-.status-dot[data-status='unread'] {
+/* Thinking draws a square grid, so the ring squares off to keep an even gap. */
+.status-dot[data-status='thinking'] {
   border-radius: calc(var(--status-dot-size) / 2);
 }
 
@@ -636,10 +635,6 @@ textarea,
 
 .status-dot-grid > span:nth-child(3) {
   animation-delay: calc(var(--status-orbit-duration) * -0.25);
-}
-
-.status-dot-grid--still > span {
-  animation: none;
 }
 
 /* ===================================
