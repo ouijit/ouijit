@@ -346,8 +346,9 @@ ouijit ask run [-m "<why>"] [--wait] -- <command> [args]
 ouijit ask script <script> [-m "<why>"] [--wait]   # a project script, by id or name
                                               # → {command, cwd, status: pending | declined | exited, panelId?, exitCode?, output?}
 
-The ask is this terminal's pointer. The user opens it, reads the exact command
-and presses Run or Decline; nothing runs before that. It runs in a runner panel
+If the user is looking at this task, the ask opens for them at once; otherwise
+it waits as this terminal's pointer. They read the exact command and press Run
+or Decline; nothing runs before that. It runs in a runner panel
 on this terminal, in its worktree. With --wait the reply comes once they
 decline or it finishes; without it, the reply is pending at once, and panel
 read shows the runner. Ask for what the sandbox stops, such as credentials,

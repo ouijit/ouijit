@@ -191,9 +191,9 @@ function cliPoints() {
   installCliPointListener();
   let requestId = 0;
   const reply = (id: number) => vi.mocked(window.api.cliPoints.respond).mock.calls.find(([r]) => r === id)?.[1];
-  const sendOp = (op: Omit<CliPointOp, 'requestId' | 'fromPtyId'>): number => {
+  const sendOp = (op: Omit<CliPointOp, 'requestId' | 'fromPtyId'>, fromPtyId = 'pty-agent'): number => {
     const id = ++requestId;
-    send({ ...op, requestId: id, fromPtyId: 'pty-agent' });
+    send({ ...op, requestId: id, fromPtyId });
     return id;
   };
   const point = async (op: Omit<CliPointOp, 'requestId' | 'fromPtyId'>): Promise<CliPointResponse> => {
@@ -337,6 +337,35 @@ describe('an agent asking to run something', () => {
     expect(reply(replaced)).toEqual({ ok: true, answer: { status: 'declined' } });
     expect(startRunner).toHaveBeenCalledTimes(1);
   });
+});
+
+test('an ask from the task on screen opens at once, and one from another task waits as its pointer', async () => {
+  vi.mocked(startRunner).mockClear();
+  useTerminalStore.setState((s) => ({
+    displayStates: {
+      ...s.displayStates,
+      'pty-agent': { ...s.displayStates['pty-agent'], taskId: 14 },
+      'pty-other': { ...s.displayStates['pty-other'], taskId: 15 },
+    },
+  }));
+  useAppStore.setState({ selection: { kind: 'terminal', stack: `task:14:${PROJECT}`, projectPath: PROJECT } });
+  render(
+    <>
+      <Screen />
+      <PointerLayer />
+    </>,
+  );
+  const { sendOp } = cliPoints();
+  const ask = { command: 'npm run e2e', cwd: '/wt/T-14' };
+
+  sendOp({ action: 'ask', ask }, 'pty-other');
+  await waitFor(() => expect(usePointerStore.getState().pointers).toHaveLength(1));
+  expect(screen.queryByTestId('ask-command')).toBeNull();
+
+  sendOp({ action: 'ask', ask });
+  expect((await screen.findByTestId('ask-command')).textContent).toBe('npm run e2e');
+  expect(usePointerStore.getState().asking).toBe('pty-agent');
+  expect(startRunner).not.toHaveBeenCalled();
 });
 
 async function followAndDecline(): Promise<void> {

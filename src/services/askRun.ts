@@ -1,8 +1,9 @@
 import { startRunner } from '../components/terminal/terminalActions';
 import { terminalInstances } from '../components/terminal/terminalRegistry';
 import { bufferText } from '../components/terminal/terminalText';
+import { useAppStore } from '../stores/appStore';
 import { usePointerStore } from '../stores/pointerStore';
-import { useTerminalStore } from '../stores/terminalStore';
+import { stackMembers, useTerminalStore } from '../stores/terminalStore';
 import type { AskAnswer, AskRun, CliPointResponse } from '../types';
 
 const OUTPUT_LINES = 100;
@@ -32,8 +33,16 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
   });
 }
 
+function onScreen(ptyId: string): boolean {
+  const { selection } = useAppStore.getState();
+  return selection.kind === 'terminal' && stackMembers(useTerminalStore.getState(), selection.stack).includes(ptyId);
+}
+
 /**
- * Put `ouijit ask run` in front of the user as the asking terminal's pointer.
+ * Put `ouijit ask run` in front of the user as the asking terminal's pointer,
+ * opened at once when that terminal's task is the one on screen: a pointer
+ * there would point at what the user is already looking at. Closed, it stays
+ * as the pointer.
  * Approved, it runs on the host in a runner panel on that terminal. The reply
  * comes at once, or with `wait` once the user declines or the run ends.
  */
@@ -67,6 +76,8 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
         },
       },
     });
+    const pointers = usePointerStore.getState();
+    if (onScreen(fromPtyId) && (pointers.asking == null || pointers.asking === fromPtyId)) pointers.openAsk(fromPtyId);
     if (!ask.wait) answer({ status: 'pending' });
   });
 }

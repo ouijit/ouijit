@@ -153,8 +153,9 @@ ouijit task start 14 --skip-hook --point      # task start, create-and-start and
 
   <h2 id="ask">Asking you to run something</h2>
   <p>
-    An agent in a sandbox can ask you to run a command on your computer, outside the sandbox. The ask is its
-    pointer: open it to see the exact command, where it runs and the script file it runs, then Run or Decline.
+    An agent in a sandbox can ask you to run a command on your computer, outside the sandbox. If you're on its task
+    the ask opens at once; otherwise it waits as the agent's pointer. It shows the exact command, where it runs
+    and the script file it runs, then Run or Decline.
     Nothing runs until you press Run. It runs in a runner panel on the agent's terminal, and with
     <code>--wait</code> the agent gets the exit code and output back.
   </p>
