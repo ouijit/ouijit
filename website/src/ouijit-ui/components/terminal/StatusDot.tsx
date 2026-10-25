@@ -30,7 +30,7 @@ function Grid({ color }: { color: string }) {
 
 export function StatusDot({ status, sandboxed = false, size = 6, unread }: StatusDotProps) {
   const isThinking = status === 'thinking';
-  const background = unread ? 'var(--color-accent)' : (COLORS[status] ?? COLORS.ready);
+  const background = unread ? 'var(--color-status-unread)' : (COLORS[status] ?? COLORS.ready);
   return (
     <span
       className="status-dot inline-flex items-center justify-center shrink-0"

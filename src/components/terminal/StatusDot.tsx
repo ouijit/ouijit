@@ -73,7 +73,7 @@ export function SandboxRing({
 
 /** The dot alone, for a place that already says what it means. */
 export function StatusGlyph({ status, sandboxProvider, size = 6, unread }: StatusDotProps) {
-  const background = unread ? 'var(--color-accent)' : COLORS[status];
+  const background = unread ? 'var(--color-status-unread)' : COLORS[status];
   return (
     <SandboxRing sandboxed={isActiveSandbox(sandboxProvider)} size={size} status={unread ? 'unread' : status}>
       {status === 'thinking' ? (

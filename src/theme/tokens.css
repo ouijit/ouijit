@@ -67,6 +67,7 @@
   /* Terminal status dots + header +/- counters */
   --color-status-ready: #4ee82e;
   --color-status-thinking: #da77f2;
+  --color-status-unread: #0a84ff;
 
   /* ── Terminal surfaces ─────────────────────────────────────────── */
   --color-terminal-bg: #171717;
@@ -251,6 +252,7 @@
   --color-error: #d70015;
   --color-status-ready: #17a533;
   --color-status-thinking: #9c36b5;
+  --color-status-unread: #007aff;
 
   --color-terminal-bg: #f7f7f9;
   --color-terminal-fg: #1d1d1f;
