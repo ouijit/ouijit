@@ -24,7 +24,7 @@ export function AskRunDialog() {
 
   if (!pointer?.ask) return null;
   const { ask, from } = pointer;
-  const { openAsk, dismiss } = usePointerStore.getState();
+  const { openAsk, clear } = usePointerStore.getState();
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => openAsk(null)} maxWidth={520}>
@@ -55,7 +55,7 @@ export function AskRunDialog() {
       {pointer.message && <p className="mt-2 text-sm text-text-secondary">{pointer.message}</p>}
 
       <div className="flex gap-2 justify-end mt-5">
-        <button data-testid="ask-decline" className="btn-secondary" onClick={() => dismiss(from)}>
+        <button data-testid="ask-decline" className="btn-secondary" onClick={() => clear(from)}>
           Decline
         </button>
         <button
@@ -63,7 +63,7 @@ export function AskRunDialog() {
           className="btn-primary"
           onClick={() => {
             ask.run();
-            dismiss(from);
+            clear(from);
           }}
         >
           Run

@@ -149,12 +149,16 @@ function Mark({ placement, latest }: { placement: Placement; latest: Pointer | u
   const style = markStyle(placement.rect);
   const newest = placed.find((x) => x.pointer === latestPointer(placed.map((y) => y.pointer)))!;
   const w = world();
-  const where = ({ pointer, own }: Placed) =>
-    pointer.ask
+  const where = ({ pointer, own }: Placed) => {
+    const base = pointer.ask
       ? `asks to run ${pointer.ask.command}`
       : own
         ? 'points here'
         : `points to ${describeTarget(pointer.target, w)}`;
+    // The newest move is the one pointed at; the rest wait behind it.
+    const behind = (pointer.waiting?.length ?? 0) - (pointer.moved ? 1 : 0);
+    return behind > 0 ? `${base}, and ${behind} more waiting` : base;
+  };
   const fromName = (p: Pointer) => displays[p.from]?.label ?? 'A terminal';
   const label = (x: Placed) =>
     x.pointer.message && !x.pointer.ask

@@ -43,7 +43,7 @@ async function noteTarget(fromPtyId: string, noteId: string): Promise<PointTarge
 
 async function handleOp(op: CliPointOp): Promise<CliPointResponse> {
   if (op.action === 'clear') {
-    usePointerStore.getState().dismiss(op.fromPtyId);
+    usePointerStore.getState().clear(op.fromPtyId);
     return { ok: true };
   }
   if (op.action === 'ask') {

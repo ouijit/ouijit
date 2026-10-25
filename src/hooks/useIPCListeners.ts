@@ -55,7 +55,7 @@ async function stageOrRun(
     move.hookMode === 'run' &&
     !isActiveSandbox(hookSandbox(undefined, hook, await projectDefaultSandbox(projectPath)));
   if (hook && (!move.hookMode || onHostUnseen) && fromPtyId) {
-    usePointerStore.getState().point({ from: fromPtyId, target, then: () => run(false, {}) });
+    usePointerStore.getState().point({ from: fromPtyId, target, move: () => run(false, {}) });
     return;
   }
   run(true, move);

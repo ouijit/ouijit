@@ -368,6 +368,23 @@ test('an ask from the task on screen opens at once, and one from another task wa
   expect(startRunner).not.toHaveBeenCalled();
 });
 
+test('a pointer holding several waiting moves says how many wait behind the one it points at', async () => {
+  render(
+    <>
+      <Screen />
+      <PointerLayer />
+    </>,
+  );
+  act(() => {
+    for (const taskNumber of [12, 13, 14]) {
+      usePointerStore
+        .getState()
+        .point({ from: 'pty-agent', target: { kind: 'task', projectPath: PROJECT, taskNumber }, move: () => {} });
+    }
+  });
+  await waitFor(() => expect(ribbon().getAttribute('aria-label')).toMatch(/, and 2 more waiting$/));
+});
+
 async function followAndDecline(): Promise<void> {
   fireEvent.click(ribbon());
   fireEvent.click(await screen.findByTestId('ask-decline'));

@@ -136,8 +136,8 @@ ouijit diff close</code></pre>
     An agent can point you at something without moving your screen. A mark appears on its row in the sidebar,
     or the row of the task or terminal it belongs to, like a pull request's task or a diff's terminal. Click
     it, or press <kbd>⌘J</kbd> for the latest, to go there: to the line of the diff, the panel, the pull
-    request itself. Each terminal has one pointer; a new one replaces it.
-    <code>-m</code> labels it with what it's about.
+    request itself. Each terminal has one pointer; a new one replaces it, but task moves waiting behind it stack
+    instead, and following runs them all. <code>-m</code> labels it with what it's about.
   </p>
   <pre class="glass-bevel"><code>ouijit point task 14 -m "Split out of auth; its tests aren't written yet"
 ouijit point terminal pty_abc123

@@ -242,7 +242,35 @@ describe('useIPCListeners — CLI task lifecycle', () => {
     stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-third', hookMode: 'run', point: true }));
     await flush();
     expect(beginTransition).toHaveBeenCalledTimes(1);
-    expect(usePointerStore.getState().pointers.find((p) => p.from === 'pty-third')?.then).toBeUndefined();
+    expect(usePointerStore.getState().pointers.find((p) => p.from === 'pty-third')?.waiting).toBeUndefined();
+  });
+
+  test('moves from one terminal stack on its pointer, survive it pointing elsewhere, and all run on follow', async () => {
+    usePointerStore.setState({ pointers: [] });
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 's', type: 'start', name: 'Agent', command: 'claude' },
+    });
+    vi.mocked(window.api.task.getByNumber).mockImplementation(async (_p, n) => ({ ...makeTask(), taskNumber: n }));
+    const stubs = installListenerStubs();
+    renderHook(() => useIPCListeners());
+
+    // A loop of starts without --run-hook, as an agent would write it.
+    for (const taskNumber of [12, 13, 14]) {
+      stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-agent', taskNumber }));
+      await flush();
+    }
+    expect(beginTransition).not.toHaveBeenCalled();
+    expect(usePointerStore.getState().pointers).toHaveLength(1);
+
+    // The agent pointing somewhere else, then clearing, drops none of them.
+    usePointerStore.getState().point({ from: 'pty-agent', target: { kind: 'board', projectPath: PROJECT } });
+    usePointerStore.getState().clear('pty-agent');
+    const [pointer] = usePointerStore.getState().pointers;
+    expect(pointer.target).toEqual({ kind: 'task', projectPath: PROJECT, taskNumber: 14 });
+
+    await followPointer(pointer);
+    expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => opts.task.taskNumber)).toEqual([12, 13, 14]);
+    expect(usePointerStore.getState().pointers).toEqual([]);
   });
 
   test("a sandboxed caller's --run-hook runs a sandboxed hook at once, and waits for the user when the hook would run on the host", async () => {

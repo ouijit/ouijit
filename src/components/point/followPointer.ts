@@ -58,10 +58,12 @@ async function go(target: PointTarget): Promise<void> {
 }
 
 /**
- * Go where the pointer points, and drop it. A move waiting on the pointer
- * runs instead of going: its dialog opens over wherever the user is, and its
- * hook opens the terminal. An ask goes to its terminal and opens, and stays
- * until the user runs or declines it: following never runs it.
+ * Go where the pointer points, and drop it. Moves waiting on the pointer run,
+ * oldest first: each one's dialog joins the run-hook queue over wherever the
+ * user is, and its hook opens the terminal, so a pointer whose latest point
+ * was a move goes nowhere else. An ask goes to its terminal and opens, and
+ * stays until the user runs or declines it, with the moves still waiting:
+ * following never runs it.
  */
 export async function followPointer(pointer: Pointer): Promise<void> {
   if (pointer.ask) {
@@ -70,10 +72,8 @@ export async function followPointer(pointer: Pointer): Promise<void> {
     return;
   }
   usePointerStore.getState().dismiss(pointer.from);
-  if (pointer.then) {
-    pointer.then();
-    return;
-  }
+  for (const move of pointer.waiting ?? []) move.run();
+  if (pointer.moved) return;
   await go(pointer.target);
   if (pointer.target.kind === 'diff' && pointer.target.line != null) {
     revealDiffLine(pointer.target.path, pointer.target.line);
