@@ -51,6 +51,11 @@ function Screen({ rows = true }: { rows?: boolean }) {
   );
 }
 
+/** The code a preview shows, without its header or line numbers. */
+function codeIn(preview: HTMLElement): string {
+  return [...preview.querySelectorAll('[data-code-line]')].map((line) => line.textContent).join('\n');
+}
+
 function ribbon(): HTMLElement {
   return screen.getByRole('button', { name: /^Follow / });
 }
@@ -296,8 +301,8 @@ describe('an agent asking to run something', () => {
 
     // ⌘J opens it, showing what runs and the file it runs; closing it leaves it waiting.
     fireEvent.keyDown(document, { key: 'j', metaKey: true, ctrlKey: true });
-    expect((await screen.findByTestId('ask-command')).textContent).toBe('./scripts/sign.sh --all');
-    expect(screen.getByTestId('ask-file').textContent).toBe('codesign --deep "$@"');
+    expect(codeIn(await screen.findByTestId('ask-command'))).toBe('./scripts/sign.sh --all');
+    expect(codeIn(screen.getByTestId('ask-file'))).toBe('codesign --deep "$@"');
     screen.getByText('Runs as shown, even if the file changes.');
     screen.getByText('Needs the keychain');
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -367,7 +372,7 @@ test('an ask from the task on screen opens at once, and one from another task wa
   expect(screen.queryByTestId('ask-command')).toBeNull();
 
   sendOp({ action: 'ask', ask });
-  expect((await screen.findByTestId('ask-command')).textContent).toBe('npm run e2e');
+  expect(codeIn(await screen.findByTestId('ask-command'))).toBe('npm run e2e');
   expect(usePointerStore.getState().asking).toBe('pty-agent');
   expect(startRunner).not.toHaveBeenCalled();
 });
