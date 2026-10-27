@@ -156,7 +156,7 @@ function Mark({ placement, latest }: { placement: Placement; latest: Pointer | u
         ? 'points here'
         : `points to ${describeTarget(pointer.target, w)}`;
     // The newest move is the one pointed at; the rest wait behind it.
-    const behind = (pointer.waiting?.length ?? 0) - (pointer.moved ? 1 : 0);
+    const behind = (pointer.waiting?.length ?? 0) - (pointer.moved ? 1 : 0) + (pointer.laterAsks?.length ?? 0);
     return behind > 0 ? `${base}, and ${behind} more waiting` : base;
   };
   const fromName = (p: Pointer) => displays[p.from]?.label ?? 'A terminal';

@@ -3,6 +3,8 @@ import type { AskRun, PointTarget } from '../types';
 
 /** A request to run something on the host, waiting on the user. */
 export interface PendingAsk extends AskRun {
+  /** Why the agent asks; kept on the ask, since one can wait behind another. */
+  message?: string;
   run: () => void;
   decline: () => void;
 }
@@ -29,6 +31,8 @@ export interface Pointer {
   moved?: boolean;
   /** Following opens it for the user to run or decline; replacing it any other way declines it. */
   ask?: PendingAsk;
+  /** Asks sent while `ask` waited, oldest first: each comes up once the one before is answered. */
+  laterAsks?: PendingAsk[];
 }
 
 interface PointerStore {
@@ -38,9 +42,16 @@ interface PointerStore {
   point: (pointer: Omit<Pointer, 'at' | 'waiting' | 'moved'> & { move?: () => void }) => void;
   /** The user is done with this terminal's pointer, waiting moves and all. */
   dismiss: (from: string) => void;
-  /** The agent's point or ask is over; any moves still waiting stay as the pointer. */
+  /** The agent withdraws its point and its asks; any moves still waiting stay as the pointer. */
   clear: (from: string) => void;
+  /** The user ran or declined the ask in front; the next one behind it, if any, takes its place. */
+  answered: (from: string) => void;
   openAsk: (from: string | null) => void;
+}
+
+function declineAsks(pointer: Pointer | undefined): void {
+  pointer?.ask?.decline();
+  for (const ask of pointer?.laterAsks ?? []) ask.decline();
 }
 
 /** What is left of a pointer once its point or ask is gone: its waiting moves, pointing at the newest. */
@@ -54,7 +65,12 @@ export const usePointerStore = create<PointerStore>()((set, get) => ({
   asking: null,
   point: ({ move, ...pointer }) => {
     const previous = get().pointers.find((p) => p.from === pointer.from);
-    if (previous?.ask && previous.ask !== pointer.ask) previous.ask.decline();
+    if (previous?.ask && pointer.ask) {
+      const queued = { ...previous, at: Date.now(), laterAsks: [...(previous.laterAsks ?? []), pointer.ask] };
+      set({ pointers: [...get().pointers.filter((p) => p.from !== pointer.from), queued] });
+      return;
+    }
+    declineAsks(previous);
     const waiting = [...(previous?.waiting ?? []), ...(move ? [{ target: pointer.target, run: move }] : [])];
     set({
       pointers: [
@@ -64,16 +80,40 @@ export const usePointerStore = create<PointerStore>()((set, get) => ({
     });
   },
   dismiss: (from) => {
-    for (const p of get().pointers) if (p.from === from) p.ask?.decline();
+    declineAsks(get().pointers.find((p) => p.from === from));
     set({ pointers: get().pointers.filter((p) => p.from !== from), ...(get().asking === from && { asking: null }) });
   },
   clear: (from) => {
     const previous = get().pointers.find((p) => p.from === from);
     if (!previous) return;
-    previous.ask?.decline();
+    declineAsks(previous);
     set({
       pointers: [...get().pointers.filter((p) => p.from !== from), ...movesOnly(from, previous.waiting ?? [])],
       ...(get().asking === from && { asking: null }),
+    });
+  },
+  answered: (from) => {
+    const previous = get().pointers.find((p) => p.from === from);
+    if (!previous) return;
+    // Declined, unless it was run: an ask decides once.
+    previous.ask?.decline();
+    const [next, ...later] = previous.laterAsks ?? [];
+    if (!next) {
+      get().clear(from);
+      return;
+    }
+    const { message: _answered, ...rest } = previous;
+    set({
+      pointers: [
+        ...get().pointers.filter((p) => p.from !== from),
+        {
+          ...rest,
+          at: Date.now(),
+          ask: next,
+          ...(next.message && { message: next.message }),
+          laterAsks: later.length > 0 ? later : undefined,
+        },
+      ],
     });
   },
   openAsk: (from) => set({ asking: from }),

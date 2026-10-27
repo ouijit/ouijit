@@ -67,6 +67,7 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
       ...(message && { message }),
       ask: {
         ...ask,
+        ...(message && { message }),
         run: () => {
           if (decided) return;
           decided = true;

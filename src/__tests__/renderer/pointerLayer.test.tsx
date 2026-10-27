@@ -394,6 +394,48 @@ test('a pointer holding several waiting moves says how many wait behind the one 
   await waitFor(() => expect(ribbon().getAttribute('aria-label')).toMatch(/, and 2 more waiting$/));
 });
 
+test('asks sent one after another wait in line on one pointer, each coming up as the one before is answered', async () => {
+  vi.mocked(startRunner).mockClear();
+  vi.mocked(startRunner).mockResolvedValue('panel-r');
+  render(
+    <>
+      <Screen />
+      <PointerLayer />
+    </>,
+  );
+  const { sendOp, reply } = cliPoints();
+  const trash = (n: number) =>
+    sendOp({
+      action: 'ask',
+      ask: { command: `ouijit task trash ${n}`, cwd: '/wt/T-29', wait: true },
+      message: `Trash ${n}`,
+    });
+  const asked = [trash(31), trash(32), trash(33)];
+
+  await waitFor(() => expect(ribbon().getAttribute('aria-label')).toMatch(/trash 31, and 2 more waiting$/));
+  expect(asked.map(reply)).toEqual([undefined, undefined, undefined]);
+
+  fireEvent.click(ribbon());
+  expect(codeIn(await screen.findByTestId('ask-command'))).toBe('ouijit task trash 31');
+  screen.getByText('Trash 31');
+  screen.getByText(/2 more after this/);
+  fireEvent.click(screen.getByTestId('ask-run'));
+
+  // The next one is up in the same card, with its own message.
+  await waitFor(() => expect(codeIn(screen.getByTestId('ask-command'))).toBe('ouijit task trash 32'));
+  screen.getByText('Trash 32');
+  fireEvent.click(screen.getByTestId('ask-decline'));
+  await waitFor(() => expect(reply(asked[1])).toEqual({ ok: true, answer: { status: 'declined' } }));
+
+  await waitFor(() => expect(codeIn(screen.getByTestId('ask-command'))).toBe('ouijit task trash 33'));
+  fireEvent.click(screen.getByTestId('ask-run'));
+  await waitFor(() => expect(usePointerStore.getState().pointers).toEqual([]));
+  expect(vi.mocked(startRunner).mock.calls.map(([, script]) => script?.command)).toEqual([
+    'ouijit task trash 31',
+    'ouijit task trash 33',
+  ]);
+});
+
 async function followAndDecline(): Promise<void> {
   fireEvent.click(ribbon());
   fireEvent.click(await screen.findByTestId('ask-decline'));

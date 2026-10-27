@@ -458,6 +458,16 @@ export function isPtyActive(ptyId: PtyId): boolean {
  * or isn't bound to a task.
  */
 /** What a sandbox needs to wrap a command run inside this PTY. */
+/**
+ * Whose pointer a pty's commands leave: a runner's parent terminal's. A runner
+ * has no sidebar row, and a pointer from a terminal without one is pruned at
+ * once, taking any task moves waiting on it.
+ */
+export function pointingPty(ptyId: PtyId): PtyId {
+  const managed = activePtys.get(ptyId);
+  return managed?.isRunner && managed.parentPtyId ? managed.parentPtyId : ptyId;
+}
+
 export function getPtySpawnContext(
   ptyId: PtyId,
 ): { projectPath: string; taskId?: number; worktreePath?: string; sandboxProvider?: SandboxProviderId } | null {

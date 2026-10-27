@@ -75,6 +75,7 @@ import {
   getPtyTaskContext,
   getActiveSessions,
   getPtySpawnContext,
+  pointingPty,
   type ActiveSession,
 } from '../ptyManager';
 import { getHookStatus } from '../hookServer';
@@ -218,7 +219,7 @@ const MAX_POINT_MESSAGE = 200;
 
 function cliCaller(auth: AuthContext, body: Record<string, unknown>): CliCaller {
   return {
-    fromPtyId: auth.ptyId,
+    fromPtyId: pointingPty(auth.ptyId),
     ...(body.point === true && { point: true }),
     ...(auth.scope === 'sandbox' && { fromSandbox: true }),
   };
@@ -857,15 +858,15 @@ const routes: Route[] = [
       const said = message ? { message } : {};
       if (r.body.kind === 'note') {
         if (typeof r.body.noteId !== 'string' || !r.body.noteId) throw new HttpError(400, 'Missing note id');
-        return runPointOp({ fromPtyId: r.auth.ptyId, action: 'note', noteId: r.body.noteId, ...said });
+        return runPointOp({ fromPtyId: pointingPty(r.auth.ptyId), action: 'note', noteId: r.body.noteId, ...said });
       }
-      return runPointOp({ fromPtyId: r.auth.ptyId, action: 'point', target: pointTarget(r), ...said });
+      return runPointOp({ fromPtyId: pointingPty(r.auth.ptyId), action: 'point', target: pointTarget(r), ...said });
     },
     false,
     READ,
   ),
 
-  route('DELETE', 'point', (r) => runPointOp({ fromPtyId: r.auth.ptyId, action: 'clear' }), false, READ),
+  route('DELETE', 'point', (r) => runPointOp({ fromPtyId: pointingPty(r.auth.ptyId), action: 'clear' }), false, READ),
 
   // ── Asking the user ──────────────────────────────────────────────
   // Reachable at the lowest CLI access because the caller chooses nothing that
@@ -877,7 +878,7 @@ const routes: Route[] = [
       const ask = await askRun(r);
       const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_POINT_MESSAGE) : '';
       const result = await cliPointRequest({
-        fromPtyId: r.auth.ptyId,
+        fromPtyId: pointingPty(r.auth.ptyId),
         action: 'ask',
         ask,
         ...(message && { message }),

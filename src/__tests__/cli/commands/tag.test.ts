@@ -23,6 +23,7 @@ vi.mock('electron', () => ({
 vi.mock('../../../ptyManager', () => ({
   isPtyActive: (ptyId: string) => ptyId === 'pty-a' || ptyId === 'pty-b',
   getPtyTaskContext: () => null,
+  pointingPty: (ptyId: string) => ptyId,
 }));
 
 /**

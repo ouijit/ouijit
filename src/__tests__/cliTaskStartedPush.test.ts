@@ -14,6 +14,7 @@ import { saveHook } from '../db';
 vi.mock('../ptyManager', () => ({
   isPtyActive: () => true,
   getPtyTaskContext: () => null,
+  pointingPty: (ptyId: string) => ptyId,
 }));
 
 const typedPushMock = vi.fn();

@@ -338,8 +338,9 @@ Nothing in Ouijit moves the user's view for you. A pointer marks a row in the
 sidebar: the task, terminal or project, or the one a pull request, panel or
 diff line belongs to. The user follows it when they choose, and following
 goes to the exact thing. This terminal has one pointer at a time; a new one replaces
-it. Task moves waiting behind it are kept, though: several starts without
---run-hook stack on the one pointer, and following runs them all. Point after you finish something the user should look at, instead of
+it. Task moves and asks waiting behind it are kept, though: several starts
+without --run-hook stack on the one pointer, and following runs them all, and
+asks sent one after another come up one at a time. Point after you finish something the user should look at, instead of
 asking them to find it, and say in -m why it is worth a look.
 
 ## Asking the user to run something (on this computer, outside any sandbox)

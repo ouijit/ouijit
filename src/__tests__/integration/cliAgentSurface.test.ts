@@ -27,6 +27,7 @@ vi.mock('../../ptyManager', () => {
   return {
     getActiveSessions: () => sessions,
     isPtyActive: (ptyId: string) => !!find(ptyId),
+    pointingPty: (ptyId: string) => ptyId,
     getPtySpawnContext: (ptyId: string) => {
       const s = find(ptyId);
       return s

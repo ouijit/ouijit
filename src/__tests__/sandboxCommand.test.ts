@@ -13,6 +13,7 @@ const TASK = { projectPath: '/Users/dev/code/proj', taskId: 3, worktreePath: '/U
 vi.mock('../ptyManager', () => ({
   isPtyActive: () => true,
   getPtyTaskContext: () => ({ projectPath: TASK.projectPath, taskId: TASK.taskId }),
+  pointingPty: (ptyId: string) => ptyId,
   getPtySpawnContext: () => TASK,
 }));
 vi.mock('../ipc/helpers', () => ({ typedPush: vi.fn() }));

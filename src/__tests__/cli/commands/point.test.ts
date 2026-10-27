@@ -24,12 +24,15 @@ vi.mock('electron', () => ({
   },
 }));
 
-// A live PTY needs a spawned shell; this one stands in for the agent's terminal.
+// A live PTY needs a spawned shell; these stand in for the agent's terminal and a runner panel on it.
 vi.mock('../../../ptyManager', () => ({
-  isPtyActive: (ptyId: string) => ptyId === 'pty-agent',
+  isPtyActive: (ptyId: string) => ptyId === 'pty-agent' || ptyId === 'pty-runner',
   getPtyTaskContext: () => ({ projectPath: '/p', taskId: 4 }),
+  pointingPty: (ptyId: string) => (ptyId === 'pty-runner' ? 'pty-agent' : ptyId),
   getPtySpawnContext: (ptyId: string) =>
-    ptyId === 'pty-agent' || worktrees[ptyId] ? { projectPath: '/p', worktreePath: worktrees[ptyId] } : null,
+    ptyId === 'pty-agent' || ptyId === 'pty-runner' || worktrees[ptyId]
+      ? { projectPath: '/p', worktreePath: worktrees[ptyId] }
+      : null,
   getActiveSessions: () => [],
 }));
 
@@ -129,5 +132,12 @@ describe('ouijit point', () => {
     expect(ops.find((op) => op.target?.kind === 'pr')?.message).toBe('Up for review');
 
     await expect(ouijit('task', '99')).rejects.toThrow(/Task 99 not found/);
+  });
+
+  test('from a runner panel, points from the terminal the panel is on, which has a row for it to sit on', async () => {
+    vi.stubEnv('OUIJIT_PTY_ID', 'pty-runner');
+    vi.stubEnv('OUIJIT_API_TOKEN', issueToken('pty-runner', 'host'));
+    await ouijit('task', '14');
+    expect(ops.map((op) => op.fromPtyId)).toEqual(['pty-agent']);
   });
 });

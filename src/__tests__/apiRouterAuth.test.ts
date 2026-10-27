@@ -23,6 +23,7 @@ const { getPtyTaskContextMock } = vi.hoisted(() => ({
 vi.mock('../ptyManager', () => ({
   isPtyActive: () => true,
   getPtyTaskContext: () => getPtyTaskContextMock(),
+  pointingPty: (ptyId: string) => ptyId,
   getPtySpawnContext: () => ({ projectPath: '/tmp/test-project', worktreePath: '/tmp/test-project/T-7' }),
 }));
 

@@ -11,8 +11,13 @@ export function bufferText(xterm: Pick<XTerminal, 'buffer'>, lines: number): str
     if (line.isWrapped && out.length > 0) out[out.length - 1] += text;
     else out.push(text);
   }
-  while (out.length > 0 && out[out.length - 1].trim() === '') out.pop();
-  return out.slice(-lines).join('\n');
+  // Trailing spaces are written cells, not empty ones, so `translateToString`
+  // keeps them: zsh pads a line with them to place its `%` marker, and output
+  // landing on that row inherits the padding. Trimmed once rows are joined, as
+  // a soft-wrapped row's trailing spaces belong to the line it continues.
+  const text = out.map((line) => line.trimEnd());
+  while (text.length > 0 && text[text.length - 1] === '') text.pop();
+  return text.slice(-lines).join('\n');
 }
 
 /**

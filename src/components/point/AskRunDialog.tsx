@@ -23,7 +23,7 @@ export function AskRunDialog() {
 
   if (!pointer?.ask) return null;
   const { ask, from } = pointer;
-  const { openAsk, clear } = usePointerStore.getState();
+  const { openAsk, answered } = usePointerStore.getState();
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => openAsk(null)} maxWidth={520}>
@@ -32,6 +32,7 @@ export function AskRunDialog() {
       </h2>
       <div className="text-xs text-text-secondary text-center mb-4">
         {label ?? 'A terminal'} asks to run this on your computer
+        {pointer.laterAsks && ` · ${pointer.laterAsks.length} more after this`}
       </div>
 
       <CodePreview
@@ -58,10 +59,10 @@ export function AskRunDialog() {
       )}
 
       <p className="mt-4 text-xs text-text-tertiary">The agent can change files in this worktree.</p>
-      {pointer.message && <p className="mt-2 text-sm text-text-secondary">{pointer.message}</p>}
+      {ask.message && <p className="mt-2 text-sm text-text-secondary">{ask.message}</p>}
 
       <div className="flex gap-2 justify-end mt-5">
-        <button data-testid="ask-decline" className="btn-secondary" onClick={() => clear(from)}>
+        <button data-testid="ask-decline" className="btn-secondary" onClick={() => answered(from)}>
           Decline
         </button>
         <button
@@ -69,7 +70,7 @@ export function AskRunDialog() {
           className="btn-primary"
           onClick={() => {
             ask.run();
-            clear(from);
+            answered(from);
           }}
         >
           Run

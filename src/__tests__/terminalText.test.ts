@@ -20,6 +20,10 @@ describe('reading a terminal', () => {
     expect(bufferText(term, 100)).toBe(['npm test', `${'x'.repeat(19)} wrapped at a space`, '3 failing'].join('\n'));
     expect(bufferText(term, 1)).toBe('3 failing');
 
+    // zsh pads the row with spaces to place its `%` marker; output written over it keeps none of them.
+    await write(term, `%${' '.repeat(19)}\rORIGINAL SCRIPT\r\n`);
+    expect(bufferText(term, 1)).toBe('ORIGINAL SCRIPT');
+
     // A full-screen program draws on the alternate screen; that is what's on screen.
     await write(term, '\x1b[?1049h\x1b[H> prompt');
     expect(term.buffer.active.type).toBe('alternate');
