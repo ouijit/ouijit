@@ -9,6 +9,8 @@ interface CodePreviewProps {
   /** Names the code in a header, as a diff card names its file; without one, the code stands alone. */
   path?: string;
   lineNumbers?: boolean;
+  /** Name the language in the header; off where the code's kind goes without saying. */
+  showLang?: boolean;
   /** Tailwind max-height for the scrolling body. */
   maxHeight?: string;
   testId?: string;
@@ -25,6 +27,7 @@ export function CodePreview({
   lang,
   path,
   lineNumbers = true,
+  showLang = true,
   maxHeight = 'max-h-60',
   testId,
 }: CodePreviewProps) {
@@ -51,7 +54,7 @@ export function CodePreview({
             <span className="text-ink/35">{dirname(path)}</span>
             <span className="text-ink/90">{path.slice(dirname(path).length)}</span>
           </span>
-          {lang && <span className="shrink-0 text-[10px] text-text-tertiary">{lang}</span>}
+          {showLang && lang && <span className="shrink-0 text-[10px] text-text-tertiary">{lang}</span>}
         </div>
       )}
       <div className={`${maxHeight} overflow-auto py-1.5`}>
