@@ -8,7 +8,7 @@ interface StatusDotProps {
   status: TerminalStatus;
   sandboxProvider?: SandboxProviderId;
   size?: number;
-  /** Finished while you were looking elsewhere. */
+  /** Wants you: finished while you were elsewhere, or asking to run something, which it may be thinking through. */
   unread?: boolean;
 }
 
@@ -76,7 +76,7 @@ export function StatusGlyph({ status, sandboxProvider, size = 6, unread }: Statu
   const background = unread ? 'var(--color-status-unread)' : COLORS[status];
   return (
     <SandboxRing sandboxed={isActiveSandbox(sandboxProvider)} size={size} status={unread ? 'unread' : status}>
-      {status === 'thinking' ? (
+      {status === 'thinking' && !unread ? (
         <Grid color={background} />
       ) : (
         <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />

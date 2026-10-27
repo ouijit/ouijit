@@ -48,6 +48,9 @@ export function AskRunDialog() {
           <pre data-testid="ask-file" className={`${CODE} max-h-60 overflow-auto text-xs`}>
             {ask.file.contents}
           </pre>
+          {ask.runCommand && (
+            <div className="mt-1.5 text-xs text-text-tertiary">Runs as shown, even if the file changes.</div>
+          )}
         </div>
       )}
 

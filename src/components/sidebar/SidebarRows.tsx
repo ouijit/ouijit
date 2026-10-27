@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../stores/appStore';
+import { usePointerStore } from '../../stores/pointerStore';
 import {
   isUnread,
   stackFrom,
@@ -225,8 +226,25 @@ function SidebarRow({
   );
 }
 
+/** Terminals whose agent is asking you to run something. */
+function useAsking(): string[] {
+  return usePointerStore(useShallow((s) => s.pointers.filter((p) => p.ask).map((p) => p.from)));
+}
+
+/**
+ * A terminal wants you when it finished while you were elsewhere, or when its
+ * agent is asking to run something and you aren't looking at it. Both read as
+ * unread: an ask blocks the agent until you answer.
+ */
+function wantsYou(s: ReturnType<typeof useTerminalStore.getState>, ptyId: string, asking: string[]): boolean {
+  const display = s.displayStates[ptyId];
+  const viewed = viewedPtyId(s);
+  return display !== undefined && (isUnread(display, viewed) || (asking.includes(ptyId) && ptyId !== viewed));
+}
+
 function StatusSlot({ display }: { display: TerminalDisplayState }) {
-  const unread = useTerminalStore((s) => isUnread(display, viewedPtyId(s)));
+  const asking = useAsking();
+  const unread = useTerminalStore((s) => wantsYou(s, display.ptyId, asking));
   return (
     <span className="w-3.5 flex items-center justify-center shrink-0">
       <StatusGlyph status={display.status} sandboxProvider={display.sandboxProvider} unread={unread} />
@@ -235,10 +253,8 @@ function StatusSlot({ display }: { display: TerminalDisplayState }) {
 }
 
 function useUnread(ptyId: string): boolean {
-  return useTerminalStore((s) => {
-    const display = s.displayStates[ptyId];
-    return display !== undefined && isUnread(display, viewedPtyId(s));
-  });
+  const asking = useAsking();
+  return useTerminalStore((s) => wantsYou(s, ptyId, asking));
 }
 
 interface TerminalRowProps {
@@ -338,13 +354,8 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
   const ownStack = stackOf({ ptyId: '', projectPath, taskId: group.taskId });
   const projectName = useProjectName(projectPath);
   const displays = useTerminalStore(useShallow((s) => group.ptyIds.map((id) => s.displayStates[id])));
-  const anyUnread = useTerminalStore((s) => {
-    const viewed = viewedPtyId(s);
-    return group.ptyIds.some((id) => {
-      const display = s.displayStates[id];
-      return display !== undefined && isUnread(display, viewed);
-    });
-  });
+  const asking = useAsking();
+  const anyUnread = useTerminalStore((s) => group.ptyIds.some((id) => wantsYou(s, id, asking)));
   const sandboxProviders = useProjectConfig(projectPath)?.availableSandboxProviders ?? NO_BACKENDS;
   const github = useExperimentalStore((s) => s.flagsByProject[projectPath]?.github ?? false);
   const linear = useExperimentalStore((s) => s.flagsByProject[projectPath]?.linear ?? false);
@@ -698,15 +709,15 @@ function onScreenHere(ptyIds: string[]): string[] {
 
 /** One per terminal that is working or finished unseen, for a group folded away. */
 export function GroupDots({ ptyIds }: { ptyIds: string[] }) {
+  const asking = useAsking();
   const dots = useTerminalStore(
-    useShallow((s) => {
-      const viewed = viewedPtyId(s);
-      return ptyIds.flatMap((id) => {
-        const display = s.displayStates[id];
-        if (display?.status === 'thinking') return ['thinking'];
-        return display && isUnread(display, viewed) ? ['unread'] : [];
-      });
-    }),
+    useShallow((s) =>
+      ptyIds.flatMap((id) => {
+        // Before thinking: an agent waiting on an ask is still working, as far as its status says.
+        if (wantsYou(s, id, asking)) return ['unread'];
+        return s.displayStates[id]?.status === 'thinking' ? ['thinking'] : [];
+      }),
+    ),
   );
   if (dots.length === 0) return null;
   return (

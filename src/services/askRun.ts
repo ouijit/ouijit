@@ -2,11 +2,19 @@ import { startRunner } from '../components/terminal/terminalActions';
 import { terminalInstances } from '../components/terminal/terminalRegistry';
 import { bufferText } from '../components/terminal/terminalText';
 import { useAppStore } from '../stores/appStore';
+import { notifyUnfocused } from '../utils/notifications';
 import { usePointerStore } from '../stores/pointerStore';
 import { stackMembers, useTerminalStore } from '../stores/terminalStore';
 import type { AskAnswer, AskRun, CliPointResponse } from '../types';
 
 const OUTPUT_LINES = 100;
+
+/**
+ * The run is a real terminal, so `gh api` or `git log` would open a pager and
+ * wait for a keypress nobody is there to give. An editor still waits: that one
+ * the user can answer in the panel, and turning it off would change the command.
+ */
+const NO_PAGER = { PAGER: 'cat', GH_PAGER: 'cat', GIT_PAGER: 'cat' };
 
 /** Resolves once the runner's command has finished, or its panel has closed. */
 function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
@@ -62,12 +70,14 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
         run: () => {
           if (decided) return;
           decided = true;
-          void startRunner(fromPtyId, { name: ask.scriptName ?? ask.command, command: ask.command }).then(
-            async (panelId) => {
-              if (!panelId) answer({ status: 'declined' });
-              else answer(ask.wait ? await outcome(fromPtyId, panelId) : { status: 'pending', panelId });
-            },
-          );
+          void startRunner(fromPtyId, {
+            name: ask.scriptName ?? ask.command,
+            command: ask.runCommand ?? ask.command,
+            env: NO_PAGER,
+          }).then(async (panelId) => {
+            if (!panelId) answer({ status: 'declined' });
+            else answer(ask.wait ? await outcome(fromPtyId, panelId) : { status: 'pending', panelId });
+          });
         },
         decline: () => {
           if (decided) return;
@@ -78,6 +88,9 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
     });
     const pointers = usePointerStore.getState();
     if (onScreen(fromPtyId) && (pointers.asking == null || pointers.asking === fromPtyId)) pointers.openAsk(fromPtyId);
+    const display = useTerminalStore.getState().displayStates[fromPtyId];
+    const project = useAppStore.getState().projects.find((p) => p.path === display.projectPath);
+    notifyUnfocused(project?.name ?? 'Ouijit', `${display.label} asks to run ${ask.command}`);
     if (!ask.wait) answer({ status: 'pending' });
   });
 }

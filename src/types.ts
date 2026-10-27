@@ -157,6 +157,7 @@ export interface SnapshotPanel {
   source?: 'hook' | 'script';
   restartIfRunning?: boolean;
   sandboxProvider?: SandboxProviderId;
+  env?: Record<string, string>;
   /** webPreview (only user-set URLs are persisted) */
   url?: string | null;
   /** plan */
@@ -307,6 +308,7 @@ export interface RunnerScript {
   command: string;
   /** Restart the command if an instance is already running in the same task. */
   restartIfRunning?: boolean;
+  env?: Record<string, string>;
 }
 
 export interface ProjectSettings {
@@ -1084,8 +1086,10 @@ export interface AskRun {
   /** The project script it names, if it named one. */
   scriptName?: string;
   cwd: string;
-  /** A file in the worktree that the command runs, which the agent could have written. */
+  /** A script the command runs that the agent could have written, as the user is shown it. */
   file?: { path: string; contents: string };
+  /** The command as it runs: `command` with that script swapped for a copy the agent cannot change. */
+  runCommand?: string;
   /** Answer once the run ends, rather than once it is asked. */
   wait?: boolean;
 }

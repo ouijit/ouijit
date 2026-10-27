@@ -66,6 +66,7 @@ import {
 } from '../linear/service';
 import { getProjectList } from '../projectList';
 import { shellJoin } from '../utils/shellQuote';
+import { fileItRuns } from '../askFile';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
 import { cliPanelRequest, cliPointRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
@@ -299,31 +300,6 @@ async function runPointOp(
   return { target: result.target, ...(op.message && { message: op.message }) };
 }
 
-const MAX_SHOWN_FILE = 32_768;
-
-/**
- * A file in the worktree that the command runs, read so the user sees what
- * they approve: `./fix.sh` or `bash scripts/x.sh` would otherwise show only
- * a name, over contents the agent wrote.
- */
-function fileItRuns(command: string, cwd: string): AskRun['file'] {
-  const words = command.split(/\s+/).slice(0, 3);
-  for (const word of words) {
-    const file = path.resolve(cwd, word.replace(/^['"]|['"]$/g, ''));
-    const relative = path.relative(realLocation(cwd), realLocation(file));
-    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) continue;
-    try {
-      const stat = fs.statSync(file);
-      if (!stat.isFile() || stat.size > MAX_SHOWN_FILE) continue;
-      const contents = fs.readFileSync(file, 'utf8');
-      if (!contents.includes('\0')) return { path: relative, contents };
-    } catch {
-      continue;
-    }
-  }
-  return undefined;
-}
-
 async function askRun(r: ParsedRequest): Promise<AskRun> {
   const ctx = getPtySpawnContext(r.auth.ptyId);
   if (!ctx) throw new HttpError(404, `PTY ${r.auth.ptyId} not found or inactive`);
@@ -334,13 +310,13 @@ async function askRun(r: ParsedRequest): Promise<AskRun> {
     const scripts = await getScripts(ctx.projectPath);
     const named = scripts.find((s) => s.id === script) ?? scripts.find((s) => s.name === script);
     if (!named) throw new HttpError(404, `No script named ${script}`);
-    return { command: named.command, scriptName: named.name, cwd, file: fileItRuns(named.command, cwd), wait };
+    return { command: named.command, scriptName: named.name, cwd, ...fileItRuns(named.command, cwd), wait };
   }
   if (!Array.isArray(argv) || argv.length === 0 || !argv.every((a) => typeof a === 'string')) {
     throw new HttpError(400, 'Ask to run a script by name, or a command after --');
   }
   const command = shellJoin(argv as string[]);
-  return { command, cwd, file: fileItRuns(command, cwd), wait };
+  return { command, cwd, ...fileItRuns(command, cwd), wait };
 }
 
 async function readCustomThemes(): Promise<CustomTheme[]> {

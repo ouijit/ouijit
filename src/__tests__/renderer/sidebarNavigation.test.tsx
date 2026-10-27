@@ -9,6 +9,7 @@ import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { useAppStore } from '../../stores/appStore';
 import { useUIStore } from '../../stores/uiStore';
 import { DEFAULT_DISPLAY_STATE, useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
+import { usePointerStore } from '../../stores/pointerStore';
 import type { GitFileStatus, PtySpawnOptions, TaskWithWorkspace } from '../../types';
 
 // xterm cannot construct under jsdom. The stand-in keeps the state the cards
@@ -187,6 +188,20 @@ describe('the sidebar is the navigation', () => {
     await waitFor(() => expect(front()).toBe(pricing));
     expect(unread('Pricing page')).toBeNull();
     expect(weight('Pricing page')).toBe('');
+
+    // An agent off screen asking to run something is marked the same way while it works, until the ask is answered.
+    act(() => {
+      useTerminalStore.getState().updateDisplay(docs, { status: 'thinking' });
+      usePointerStore.getState().point({
+        from: docs,
+        target: { kind: 'terminal', ptyId: docs },
+        ask: { command: 'gh release create v1', cwd: '/wt/9', run: () => {}, decline: () => {} },
+      });
+    });
+    expect(unread('Write docs')).toBeTruthy();
+    expect(weight('Write docs')).toBe('600');
+    act(() => usePointerStore.getState().clear(docs));
+    expect(unread('Write docs')).toBeNull();
     expect(useAppStore.getState().activeProjectPath).toBe(BRAVO.path);
 
     // From the board: the project's board button opens it, and its terminal rows open their terminal.

@@ -93,6 +93,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
             source: sp.source ?? 'script',
             restartIfRunning: sp.restartIfRunning ?? false,
             ...(isActiveSandbox(sp.sandboxProvider) && { sandboxProvider: sp.sandboxProvider }),
+            ...(sp.env && { env: sp.env }),
             status: 'idle',
           });
           break;
@@ -604,6 +605,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
     parentPtyId: instance.ptyId,
     sandboxProvider: panel.sandboxProvider,
     env: {
+      ...panel.env,
       OUIJIT_HOOK_TYPE: hookType,
       OUIJIT_PROJECT_PATH: path,
       ...(instance.worktreePath && { OUIJIT_WORKTREE_PATH: instance.worktreePath }),

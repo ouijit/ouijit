@@ -35,6 +35,8 @@ export interface RunnerPanel {
   restartIfRunning: boolean;
   /** Chosen when the runner is started, independent of its terminal's; absent runs on the host. */
   sandboxProvider?: SandboxBackendId;
+  /** Set on top of the runner's own environment, on every (re)start. */
+  env?: Record<string, string>;
   status: RunnerStatus;
   /** The last command's exit code, once one has finished. */
   exitCode?: number | null;

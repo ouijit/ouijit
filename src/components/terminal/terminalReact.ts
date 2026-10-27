@@ -772,6 +772,7 @@ export class OuijitTerminal {
       source?: 'hook' | 'script';
       restartIfRunning?: boolean;
       sandboxProvider?: SandboxProviderId;
+      env?: Record<string, string>;
     } | null,
     activate = true,
   ): string {
@@ -785,6 +786,7 @@ export class OuijitTerminal {
       source: script?.source ?? 'script',
       restartIfRunning: script?.restartIfRunning ?? false,
       ...(isActiveSandbox(script?.sandboxProvider) && { sandboxProvider: script.sandboxProvider }),
+      ...(script?.env && { env: script.env }),
       status: 'idle',
     };
     this.appendPanel(panel, activate);

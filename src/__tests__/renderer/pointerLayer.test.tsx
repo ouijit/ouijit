@@ -286,6 +286,7 @@ describe('an agent asking to run something', () => {
       command: './scripts/sign.sh --all',
       cwd: '/wt/T-12',
       file: { path: 'scripts/sign.sh', contents: 'codesign --deep "$@"' },
+      runCommand: '/data/ask-runs/1/sign.sh --all',
     };
 
     const waiting = sendOp({ action: 'ask', ask: { ...ask, wait: true }, message: 'Needs the keychain' });
@@ -297,6 +298,7 @@ describe('an agent asking to run something', () => {
     fireEvent.keyDown(document, { key: 'j', metaKey: true, ctrlKey: true });
     expect((await screen.findByTestId('ask-command')).textContent).toBe('./scripts/sign.sh --all');
     expect(screen.getByTestId('ask-file').textContent).toBe('codesign --deep "$@"');
+    screen.getByText('Runs as shown, even if the file changes.');
     screen.getByText('Needs the keychain');
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByTestId('ask-command')).toBeNull());
@@ -307,9 +309,11 @@ describe('an agent asking to run something', () => {
     runnerPanel('running');
     fireEvent.click(await screen.findByTestId('ask-run'));
     await waitFor(() =>
+      // The copy that was read runs, not the file the agent can still edit, and nothing waits on a pager.
       expect(startRunner).toHaveBeenCalledWith('pty-agent', {
         name: './scripts/sign.sh --all',
-        command: './scripts/sign.sh --all',
+        command: '/data/ask-runs/1/sign.sh --all',
+        env: expect.objectContaining({ PAGER: 'cat', GH_PAGER: 'cat', GIT_PAGER: 'cat' }),
       }),
     );
     expect(usePointerStore.getState().pointers).toEqual([]);

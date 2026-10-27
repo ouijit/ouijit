@@ -355,6 +355,11 @@ decline or it finishes; without it, the reply is pending at once, and panel
 read shows the runner. Ask for what the sandbox stops, such as credentials,
 the network or signing, and say in -m why.
 
+Put the command itself in the ask, so the user reads what runs. A script it
+runs is shown in full when it is in your worktree or a temp folder, and that
+copy is what runs; keep such a script short. Pagers are off. A command that
+opens an editor or prompts waits for the user, so pass non-interactive flags.
+
 ## Tag Commands (the tags on a terminal's card)
 ouijit tag list                               # → [{name, terminals: [{ptyId, label, projectPath}]}] across open terminals
 ouijit tag get [pty-id]                       # → {ptyId, tags} — defaults to this terminal
