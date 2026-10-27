@@ -304,7 +304,7 @@ describe('an agent asking to run something', () => {
     expect(codeIn(await screen.findByTestId('ask-command'))).toBe('./scripts/sign.sh --all');
     expect(codeIn(screen.getByTestId('ask-file'))).toBe('codesign --deep "$@"');
     screen.getByText(/The script runs as shown, even if the file changes\./);
-    screen.getByText('“Needs the keychain”');
+    screen.getByText('Needs the keychain');
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByTestId('ask-command')).toBeNull());
     expect(startRunner).not.toHaveBeenCalled();
@@ -417,13 +417,13 @@ test('asks sent one after another wait in line on one pointer, each coming up as
 
   fireEvent.click(ribbon());
   expect(codeIn(await screen.findByTestId('ask-command'))).toBe('ouijit task trash 31');
-  screen.getByText('“Trash 31”');
+  screen.getByText('Trash 31');
   screen.getByText(/2 more after this/);
   fireEvent.click(screen.getByTestId('ask-run'));
 
   // The next one is up in the same card, with its own message.
   await waitFor(() => expect(codeIn(screen.getByTestId('ask-command'))).toBe('ouijit task trash 32'));
-  screen.getByText('“Trash 32”');
+  screen.getByText('Trash 32');
   fireEvent.click(screen.getByTestId('ask-decline'));
   await waitFor(() => expect(reply(asked[1])).toEqual({ ok: true, answer: { status: 'declined' } }));
 

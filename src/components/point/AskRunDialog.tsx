@@ -36,7 +36,11 @@ export function AskRunDialog() {
         <div className="mt-0.5 text-xs text-text-tertiary">{pointer.laterAsks.length} more after this</div>
       )}
 
-      {ask.message && <p className="mt-4 text-[15px] leading-snug text-text-primary">“{ask.message}”</p>}
+      {ask.message && (
+        <p className="mt-3 max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-5 text-text-primary">
+          {ask.message}
+        </p>
+      )}
 
       <div className="mt-4">
         <CodePreview
