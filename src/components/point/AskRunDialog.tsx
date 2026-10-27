@@ -32,10 +32,9 @@ export function AskRunDialog() {
       <h2 data-testid="dialog-title" className="text-[17px] font-semibold text-text-primary">
         {display?.label ?? 'A terminal'} <span className="font-normal text-text-secondary">asks to run</span>
       </h2>
-      <div className="mt-0.5 text-xs text-text-tertiary">
-        {isActiveSandbox(display?.sandboxProvider) ? 'On your computer, outside its sandbox' : 'On your computer'}
-        {pointer.laterAsks && ` · ${pointer.laterAsks.length} more after this`}
-      </div>
+      {pointer.laterAsks && (
+        <div className="mt-0.5 text-xs text-text-tertiary">{pointer.laterAsks.length} more after this</div>
+      )}
 
       {ask.message && <p className="mt-4 text-[15px] leading-snug text-text-primary">“{ask.message}”</p>}
 
@@ -59,13 +58,17 @@ export function AskRunDialog() {
             lang={languageOf(ask.file.path, ask.file.contents)}
             path={homeRelative(ask.file.path)}
           />
-          {ask.runCommand && (
-            <div className="mt-1.5 text-xs text-text-tertiary">Runs as shown, even if the file changes.</div>
-          )}
         </div>
       )}
 
-      <div className="flex gap-2 justify-end mt-5">
+      <p className="mt-4 text-xs text-text-tertiary">
+        {isActiveSandbox(display?.sandboxProvider)
+          ? 'Runs on your computer, outside its sandbox.'
+          : 'Runs on your computer.'}
+        {ask.runCommand && ' The script runs as shown, even if the file changes.'}
+      </p>
+
+      <div className="flex gap-2 justify-end mt-4">
         <button data-testid="ask-decline" className="btn-secondary" onClick={() => answered(from)}>
           Decline
         </button>

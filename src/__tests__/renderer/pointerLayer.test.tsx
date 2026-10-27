@@ -303,7 +303,7 @@ describe('an agent asking to run something', () => {
     fireEvent.keyDown(document, { key: 'j', metaKey: true, ctrlKey: true });
     expect(codeIn(await screen.findByTestId('ask-command'))).toBe('./scripts/sign.sh --all');
     expect(codeIn(screen.getByTestId('ask-file'))).toBe('codesign --deep "$@"');
-    screen.getByText('Runs as shown, even if the file changes.');
+    screen.getByText(/The script runs as shown, even if the file changes\./);
     screen.getByText('“Needs the keychain”');
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByTestId('ask-command')).toBeNull());
