@@ -45,8 +45,10 @@ export function runnerSandboxSettingKey(projectPath: string): string {
  */
 export type SandboxCliAccess = 'read' | 'task' | 'all';
 
+export const SANDBOX_CLI_ACCESS: readonly SandboxCliAccess[] = ['read', 'task', 'all'];
+
 export function isSandboxCliAccess(value: unknown): value is SandboxCliAccess {
-  return value === 'read' || value === 'task' || value === 'all';
+  return typeof value === 'string' && (SANDBOX_CLI_ACCESS as readonly string[]).includes(value);
 }
 
 export function sandboxCliAccessSettingKey(projectPath: string): string {

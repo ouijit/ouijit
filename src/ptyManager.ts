@@ -1,10 +1,11 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from './types';
-import { isActiveSandbox } from './sandbox/types';
+import { isActiveSandbox, isSandboxCliAccess, sandboxCliAccessSettingKey } from './sandbox/types';
 import type { SandboxProvider } from './sandbox/provider';
 import { generateId } from './utils/ids';
-import { getApiPort, clearHookStatus, clearAllHookStatuses } from './hookServer';
+import { getApiPort, clearHookStatus, clearAllHookStatuses, getCliReferencePath } from './hookServer';
+import { getGlobalSetting } from './db';
 import { getWrapperBinDir, getUserDataPath, getCliPath } from './paths';
 import { getShellIntegrationDir, resolveShellIntegration } from './shellIntegration';
 import { typedPush } from './ipc/helpers';
@@ -216,6 +217,12 @@ export async function spawnPty(
     finalEnv['OUIJIT_PTY_ID'] = ptyId;
     finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
     finalEnv['OUIJIT_API_TOKEN'] = issueToken(ptyId, wrapper ? 'sandbox' : 'host');
+    if (wrapper) {
+      const projectPath = options.projectPath ?? options.cwd;
+      const stored = await getGlobalSetting(sandboxCliAccessSettingKey(projectPath)).catch((): undefined => undefined);
+      const access = isSandboxCliAccess(stored) ? stored : 'read';
+      finalEnv['OUIJIT_SANDBOX_REFERENCE_FILE'] = getCliReferencePath({ provider: wrapper.id, access });
+    }
 
     // Shell integration: wrapper dir + integration dir for PATH fix scripts
     const wrapperBinDir = getWrapperBinDir();

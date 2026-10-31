@@ -70,6 +70,9 @@ describe('spawnPty wrapper seam', () => {
     expect(file).toBe('/bin/zsh');
     expect(args).toEqual(['-il']);
     expect(issue).toHaveBeenCalledWith(expect.any(String), 'host');
+    expect((ptySpawn.mock.calls[0] as [string, string[], { env: Record<string, string> }])[2].env).not.toHaveProperty(
+      'OUIJIT_SANDBOX_REFERENCE_FILE',
+    );
 
     // A plain shell exiting non-zero is not a launch failure.
     fake.onExit!({ exitCode: 1 });
@@ -95,6 +98,10 @@ describe('spawnPty wrapper seam', () => {
 
     // Sandbox-hosted shells get the restricted token scope.
     expect(issue).toHaveBeenCalledWith(expect.any(String), 'sandbox');
+    // And their agents load the reference written for this sandbox, at the
+    // project's CLI access, which is read only until set.
+    const env = (ptySpawn.mock.calls[0] as [string, string[], { env: Record<string, string> }])[2].env;
+    expect(env.OUIJIT_SANDBOX_REFERENCE_FILE).toMatch(/ouijit-cli-reference-nono-read\.md$/);
 
     // The active session records which backend runs it, and the pty resolves
     // back to its task — what scopes a sandbox token's reach over the API.

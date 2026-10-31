@@ -18,6 +18,7 @@ import { getLogger } from './logger';
 import { handleApiRequest } from './api/router';
 import { authenticateRequest, type AuthContext } from './apiAuth';
 import { getWrapperBinDir } from './paths';
+import { SANDBOX_BACKEND_IDS, SANDBOX_CLI_ACCESS, type SandboxBackendId, type SandboxCliAccess } from './sandbox/types';
 
 const hookServerLog = getLogger().scope('hookServer');
 
@@ -197,9 +198,44 @@ export function stopHookServer(): Promise<void> {
 
 // ── Hook definitions ─────────────────────────────────────────────────
 
-/** Path to the CLI reference file loaded by Claude via --append-system-prompt-file. */
-export function getCliReferencePath(): string {
-  return path.join(os.homedir(), '.config', 'Ouijit', 'ouijit-cli-reference.md');
+/**
+ * The CLI reference an agent's wrapper loads, with a section on top for a
+ * sandboxed terminal. The wrappers read it from under `~/.config/Ouijit`,
+ * which the nono sandbox grants.
+ */
+export function getCliReferencePath(sandbox?: SandboxReference): string {
+  const name = sandbox ? `ouijit-cli-reference-${sandbox.provider}-${sandbox.access}.md` : 'ouijit-cli-reference.md';
+  return path.join(os.homedir(), '.config', 'Ouijit', name);
+}
+
+export interface SandboxReference {
+  provider: SandboxBackendId;
+  access: SandboxCliAccess;
+}
+
+const ACCESS_NOTES: Record<SandboxCliAccess, string> = {
+  read: 'reading your own task and diff notes, pointing, and asking',
+  task: 'your own task, which you can also move and rename, and creating to-do cards',
+  all: 'everything a host terminal can',
+};
+
+/** What Ouijit knows about a sandboxed terminal when it starts: the profile or launcher decides the rest. */
+export function sandboxNote({ provider, access }: SandboxReference): string {
+  const rest =
+    provider === 'nono'
+      ? "The project's sandbox profile decides the rest; most network access, other credentials and writes elsewhere are blocked. `nono why <path>` says why something was denied."
+      : "This project's own launcher decides what else is allowed; Ouijit doesn't know its rules.";
+  return [
+    '# This terminal is sandboxed',
+    `You can write this worktree, the repo's commits and branches, and a package cache. ${rest}`,
+    '',
+    "When a command fails because of the sandbox, don't retry it or work around it. Ask the user to run it on their computer:",
+    '  ouijit ask run -m "<why>" -- <command>',
+    '',
+    `Ouijit commands work here at this project's CLI access: ${ACCESS_NOTES[access]}.`,
+    '',
+    '',
+  ].join('\n');
 }
 
 interface HookEntry {
@@ -613,7 +649,7 @@ export const CLAUDE_WRAPPER = [
   'done',
   '',
   '# CLI reference file for Claude Code agents',
-  'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  'REFERENCE_FILE="${OUIJIT_SANDBOX_REFERENCE_FILE:-$HOME/.config/Ouijit/ouijit-cli-reference.md}"',
   '',
   '# If ouijit is not running, just exec the real claude with CLI awareness',
   'if [ -z "$OUIJIT_API_URL" ]; then',
@@ -739,7 +775,7 @@ export const CODEX_WRAPPER = [
   buildWrapperResolver('codex'),
   '',
   '# Ouijit CLI reference file — surfaced via developer_instructions',
-  'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  'REFERENCE_FILE="${OUIJIT_SANDBOX_REFERENCE_FILE:-$HOME/.config/Ouijit/ouijit-cli-reference.md}"',
   '',
   '# If ouijit is not running, just exec the real codex with CLI awareness',
   'if [ -z "$OUIJIT_API_URL" ]; then',
@@ -817,7 +853,7 @@ export const PI_WRAPPER = [
   '  esac',
   'done',
   '',
-  'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  'REFERENCE_FILE="${OUIJIT_SANDBOX_REFERENCE_FILE:-$HOME/.config/Ouijit/ouijit-cli-reference.md}"',
   'EXTENSION_FILE="$HOME/.config/Ouijit/pi/ouijit-extension.ts"',
   'HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
   '',
@@ -1009,7 +1045,7 @@ export const OPENCODE_WRAPPER = [
   '  fi',
   'fi',
   '',
-  'export OUIJIT_REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  'export OUIJIT_REFERENCE_FILE="${OUIJIT_SANDBOX_REFERENCE_FILE:-$HOME/.config/Ouijit/ouijit-cli-reference.md}"',
   'if [ -n "$OUIJIT_API_URL" ]; then',
   '  export OUIJIT_HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
   'fi',
@@ -1055,8 +1091,14 @@ export function installWrapper(): void {
     const binDir = getWrapperBinDir();
     fs.mkdirSync(binDir, { recursive: true });
 
-    // Write CLI reference file (loaded by claude via --append-system-prompt-file)
+    // The CLI reference each agent wrapper loads, one per kind of sandbox.
     fs.writeFileSync(getCliReferencePath(), CLI_REFERENCE, { mode: 0o644 });
+    for (const provider of SANDBOX_BACKEND_IDS) {
+      for (const access of SANDBOX_CLI_ACCESS) {
+        const sandbox = { provider, access };
+        fs.writeFileSync(getCliReferencePath(sandbox), sandboxNote(sandbox) + CLI_REFERENCE, { mode: 0o644 });
+      }
+    }
 
     // Write ouijit-hook helper script (curl client invoked by hooks)
     fs.writeFileSync(path.join(binDir, 'ouijit-hook'), HELPER_SCRIPT, { mode: 0o755 });

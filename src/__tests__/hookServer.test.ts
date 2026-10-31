@@ -22,6 +22,7 @@ import {
   OPENCODE_PLUGIN,
   NONO_SHIM,
   CLI_REFERENCE,
+  getCliReferencePath,
 } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 
@@ -588,6 +589,55 @@ describe('wrapper resolver (shared)', () => {
       }
     });
   }
+});
+
+describe('the reference a sandboxed agent loads', () => {
+  beforeEach(() => {
+    _testHomedir = tmpHome;
+  });
+
+  afterEach(() => {
+    _testHomedir = '';
+  });
+
+  test('every agent wrapper leads with what the sandbox allows and how to ask, and a host terminal gets the plain one', () => {
+    installWrapper();
+    const binDir = path.join(tmpHome, '.config', 'Ouijit', 'bin');
+    const realDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sandbox-reference-'));
+    try {
+      // Stands in for each agent: echoes its argv, and any file named there.
+      const echo = '#!/bin/bash\nfor a in "$@"; do printf "%s\\n" "$a"; if [ -f "$a" ]; then cat "$a"; fi; done\n';
+      for (const bin of ['claude', 'codex', 'pi']) fs.writeFileSync(path.join(realDir, bin), echo, { mode: 0o755 });
+      const run = (bin: string, env: Record<string, string>) =>
+        execFileSync('bash', [path.join(binDir, bin)], {
+          env: { PATH: [binDir, realDir, '/usr/bin', '/bin'].join(':'), HOME: tmpHome, OUIJIT_API_URL: '', ...env },
+          encoding: 'utf8',
+          timeout: 10_000,
+        });
+
+      const nono = getCliReferencePath({ provider: 'nono', access: 'task' });
+      for (const bin of ['claude', 'codex', 'pi']) {
+        const sandboxed = run(bin, { OUIJIT_SANDBOX_REFERENCE_FILE: nono });
+        expect(sandboxed).toContain('# This terminal is sandboxed');
+        expect(sandboxed).toContain('ouijit ask run -m "<why>" -- <command>');
+        expect(sandboxed).toContain('your own task, which you can also move and rename');
+        expect(sandboxed).toContain('nono why');
+        expect(sandboxed).toContain('# Ouijit CLI Reference');
+
+        const host = run(bin, {});
+        expect(host).toContain('# Ouijit CLI Reference');
+        expect(host).not.toContain('This terminal is sandboxed');
+      }
+
+      // A custom launcher's rules are its own, so the agent is told Ouijit doesn't know them.
+      const custom = fs.readFileSync(getCliReferencePath({ provider: 'custom', access: 'read' }), 'utf8');
+      expect(custom).toContain("Ouijit doesn't know its rules");
+      expect(custom).toContain('reading your own task');
+      expect(custom).not.toContain('nono why');
+    } finally {
+      fs.rmSync(realDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('NONO_SHIM', () => {

@@ -15,6 +15,12 @@ import Docs from '../../layouts/Docs.astro';
     commands in these docs plus behavioral notes: JSON output on stdout, errors as
     <code>{`{"error": "..."}`}</code> on stderr with a non-zero exit, and the flags for headless status changes.
   </p>
+  <p>
+    In a sandboxed terminal the reference opens with a short section of its own: that the terminal is sandboxed,
+    what Ouijit lets it write, the project's CLI access level, and to ask with <code>ouijit ask run</code> when the
+    sandbox blocks a command rather than work around it. What else the sandbox allows is up to its profile or
+    launcher, so the section doesn't list it.
+  </p>
 
   <h2>Environment</h2>
   <p>Every Ouijit terminal has these set. An agent can read them directly:</p>
