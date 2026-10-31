@@ -41,15 +41,15 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
   });
 }
 
-function onScreen(ptyId: string): boolean {
+function inFront(ptyId: string): boolean {
   const { selection } = useAppStore.getState();
-  return selection.kind === 'terminal' && stackMembers(useTerminalStore.getState(), selection.stack).includes(ptyId);
+  return selection.kind === 'terminal' && stackMembers(useTerminalStore.getState(), selection.stack)[0] === ptyId;
 }
 
 /**
  * Put `ouijit ask run` in front of the user as the asking terminal's pointer,
- * opened at once when that terminal's task is the one on screen: a pointer
- * there would point at what the user is already looking at. Closed, it stays
+ * opened at once when that terminal is the one in front: a pointer there
+ * would point at what the user is already looking at. Closed, it stays
  * as the pointer.
  * Approved, it runs on the host in a runner panel on that terminal. The reply
  * comes at once, or with `wait` once the user declines or the run ends.
@@ -88,7 +88,7 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
       },
     });
     const pointers = usePointerStore.getState();
-    if (onScreen(fromPtyId) && (pointers.asking == null || pointers.asking === fromPtyId)) pointers.openAsk(fromPtyId);
+    if (inFront(fromPtyId) && (pointers.asking == null || pointers.asking === fromPtyId)) pointers.openAsk(fromPtyId);
     const display = useTerminalStore.getState().displayStates[fromPtyId];
     const project = useAppStore.getState().projects.find((p) => p.path === display.projectPath);
     notifyUnfocused(project?.name ?? 'Ouijit', `${display.label} asks to run ${ask.command}`);

@@ -348,13 +348,13 @@ describe('an agent asking to run something', () => {
   });
 });
 
-test('an ask from the task on screen opens at once, and one from another task waits as its pointer', async () => {
+test('an ask from the terminal in front opens at once, and one from a card behind it waits as its pointer', async () => {
   vi.mocked(startRunner).mockClear();
   useTerminalStore.setState((s) => ({
     displayStates: {
       ...s.displayStates,
       'pty-agent': { ...s.displayStates['pty-agent'], taskId: 14 },
-      'pty-other': { ...s.displayStates['pty-other'], taskId: 15 },
+      'pty-other': { ...s.displayStates['pty-other'], taskId: 14 },
     },
   }));
   useAppStore.setState({ selection: { kind: 'terminal', stack: `task:14:${PROJECT}`, projectPath: PROJECT } });
