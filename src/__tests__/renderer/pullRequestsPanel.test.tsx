@@ -599,6 +599,13 @@ describe('PullRequestsPanel', () => {
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Please look'));
 
+    // Unsent comments are enough to send as a review; asking for changes takes words.
+    await screen.findByText('2 unsent');
+    fireEvent.click(screen.getByText('Review'));
+    expect((await screen.findByText('Comment')).closest('button')?.disabled).toBe(false);
+    expect(screen.getByText('Request changes').closest('button')?.disabled).toBe(true);
+    fireEvent.click(screen.getByText('Review'));
+
     fireEvent.click(await screen.findByText('2 unsent'));
     expect(await screen.findByText('claude')).toBeTruthy();
     // The one you typed carries no badge — only what you did not write is named.
@@ -641,8 +648,8 @@ describe('PullRequestsPanel', () => {
     fireEvent.click(await screen.findByText('Mine'));
     fireEvent.click(await screen.findByText('Review'));
 
-    // GitHub rejects a wordless COMMENT review, so that one is gated on the
-    // summary rather than on authorship.
+    // A Comment review with nothing in it is refused, so with no unsent
+    // comments it waits on a summary rather than on authorship.
     expect(screen.getByText('Comment').closest('button')?.disabled).toBe(true);
     fireEvent.change(screen.getByPlaceholderText('Summary'), { target: { value: 'looks fine to me' } });
     expect(screen.getByText('Comment').closest('button')?.disabled).toBe(false);
