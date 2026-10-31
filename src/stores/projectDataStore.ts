@@ -170,7 +170,7 @@ export async function setDefaultSandbox(projectPath: string, sandbox: SandboxPro
   if (success) patchConfig(projectPath, () => ({ defaultSandbox: sandbox }));
 }
 
-export function runnerSandbox(config: ProjectConfig | undefined): SandboxProviderId {
+export function runnerPlace(config: ProjectConfig | undefined): SandboxProviderId {
   return config?.runnerSandbox ?? config?.defaultSandbox ?? 'none';
 }
 

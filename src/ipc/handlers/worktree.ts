@@ -6,7 +6,6 @@ import {
   removeTaskWorktree,
   listWorktrees,
   shipWorktree,
-  branchNamedBy,
 } from '../../worktree';
 import { getNextTaskNumber } from '../../db';
 import { getWorktreeDiff, getWorktreeFileDiff, mergeWorktreeBranch, listBranches, getMainBranch } from '../../git';
@@ -48,5 +47,4 @@ export function registerWorktreeHandlers(): void {
 
   typedHandle('worktree:list-branches', (projectPath) => listBranches(projectPath));
   typedHandle('worktree:get-main-branch', (projectPath) => getMainBranch(projectPath));
-  typedHandle('worktree:branch-named-by', (projectPath, ref) => branchNamedBy(projectPath, ref));
 }

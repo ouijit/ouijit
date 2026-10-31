@@ -87,11 +87,19 @@ export interface GitFileStatus {
   mainBranch: string;
   /** The ref this was compared against — `HEAD` for the uncommitted changes. */
   base: string;
+  /** What it is compared against until the reader picks another. */
+  defaultBase: string;
   commitsAheadOfMain: number;
   /** Tracked files differing from the base, committed and uncommitted alike. */
   changedFiles: ChangedFile[];
   /** Untracked files not in .gitignore, counted like any other change. */
   untrackedFiles: ChangedFile[];
+}
+
+/** Where a terminal's work merges, for working out what its diff compares against until the reader picks. */
+export interface DiffDefaults {
+  projectPath: string;
+  mergeTarget?: string;
 }
 
 export interface BranchInfo {
@@ -1056,7 +1064,11 @@ async function countOne(projectPath: string, relPath: string): Promise<ChangedFi
  * A `HEAD` base therefore yields the uncommitted changes alone, with no special
  * casing anywhere in here.
  */
-export async function getGitFileStatus(projectPath: string, diffBase?: string): Promise<GitFileStatus | null> {
+export async function getGitFileStatus(
+  projectPath: string,
+  diffBase?: string,
+  defaultBase?: string,
+): Promise<GitFileStatus | null> {
   try {
     let branch: string;
     try {
@@ -1066,7 +1078,8 @@ export async function getGitFileStatus(projectPath: string, diffBase?: string): 
     }
 
     const mainBranch = await getMainBranchAsync(projectPath);
-    const base = diffBase || mainBranch;
+    const fallback = defaultBase || mainBranch;
+    const base = diffBase || fallback;
 
     // Run all independent git commands in parallel
     const [numstatResult, nameStatusResult, untrackedResult, commitsAheadResult] = await Promise.allSettled([
@@ -1093,7 +1106,7 @@ export async function getGitFileStatus(projectPath: string, diffBase?: string): 
         ? parseInt(commitsAheadResult.value, 10) || 0
         : 0;
 
-    return { branch, mainBranch, base, commitsAheadOfMain, changedFiles, untrackedFiles };
+    return { branch, mainBranch, base, defaultBase: fallback, commitsAheadOfMain, changedFiles, untrackedFiles };
   } catch {
     return null;
   }

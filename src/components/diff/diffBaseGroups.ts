@@ -3,15 +3,6 @@ import { fuzzyMatch } from '../../utils/fuzzyMatch';
 
 export const MAX_BASE_ROWS = 15;
 
-/** The project's default base where the work merges into the branch it names, else the merge target. */
-export function comparedByDefault(
-  project: { base: string | null; baseBranch: string | null } | undefined,
-  mergeTarget: string | undefined,
-): string | undefined {
-  const tracks = project?.base && (!mergeTarget || project.baseBranch === mergeTarget);
-  return tracks ? project.base! : mergeTarget;
-}
-
 export interface DiffBaseRow {
   ref: string;
   /** Role this ref plays for the branch; unset for plain rows. */

@@ -244,6 +244,18 @@ function symbolicName(projectPath: string, ref: string): Promise<string> {
     .catch(() => '');
 }
 
+/**
+ * What a diff compares against until the reader picks: the project's default
+ * base where the work merges into the branch it names (`origin/main` for work
+ * merging into `main`), else the merge target, else nothing for the main
+ * branch to fill in.
+ */
+export async function defaultDiffBase(projectPath: string, mergeTarget?: string): Promise<string | undefined> {
+  const { base } = await readWorktreeSettings(projectPath);
+  if (base && (!mergeTarget || (await branchNamedBy(projectPath, base)) === mergeTarget)) return base;
+  return mergeTarget;
+}
+
 /** The local branch a ref names, `main` for `origin/main` or `main`; null when the ref isn't a branch. */
 export async function branchNamedBy(projectPath: string, ref: string): Promise<string | null> {
   const match = /^refs\/(?:remotes\/[^/]+|heads)\/(.+)$/.exec(await symbolicName(projectPath, ref));

@@ -11,14 +11,12 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
-import type { PtyId, PtySpawnOptions, GitFileStatus, SandboxProviderId } from '../../types';
+import type { PtyId, PtySpawnOptions, DiffDefaults, GitFileStatus, SandboxProviderId } from '../../types';
 import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore, type TerminalStatus } from '../../stores/terminalStore';
 import { diffBaseSettingKey } from '../../diffSource';
-import { comparedByDefault } from '../diff/diffBaseGroups';
-import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
 import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
@@ -295,19 +293,18 @@ function scheduleTerminalGitStatusRefresh(term: OuijitTerminal): void {
 }
 
 /**
- * The ref this terminal's diff is taken against.
- *
- * The reader's choice, then the default, and `getGitFileStatus` falls back to
- * the project's main branch when neither says — and reports back which it
- * used. Both the status poll and the per-file loads have to ask for the same
- * one, or the file list and the hunks under it are two different comparisons.
+ * What this terminal's diff is taken against: the reader's choice, else main
+ * works out the default from the project and the merge target, and reports
+ * back which it used. Both the status poll and the per-file loads have to ask
+ * for the same one, or the file list and the hunks under it are two different
+ * comparisons.
  */
-function diffBaseFor(term: OuijitTerminal): string | undefined {
-  return term.diffBase ?? defaultDiffBase(term);
-}
-
-export function defaultDiffBase(term: Pick<OuijitTerminal, 'projectPath' | 'mergeTarget'>): string | undefined {
-  return comparedByDefault(useWorktreeSettingsStore.getState().settingsByProject[term.projectPath], term.mergeTarget);
+function statusArgs(term: OuijitTerminal): [string, string | undefined, DiffDefaults] {
+  return [
+    term.worktreePath || term.projectPath,
+    term.diffBase,
+    { projectPath: term.projectPath, mergeTarget: term.mergeTarget },
+  ];
 }
 
 function diffBaseKey(term: OuijitTerminal): string {
@@ -315,21 +312,16 @@ function diffBaseKey(term: OuijitTerminal): string {
 }
 
 /**
- * Put back the comparison this worktree was last read against, else the
- * project's default.
+ * Put back the comparison this worktree was last read against.
  *
- * Runs settings reads behind the first status poll, so an early poll answers
- * for the merge target and this corrects it. A pick made in the meantime is the
+ * Runs a settings read behind the first status poll, so an early poll answers
+ * for the default and this corrects it. A pick made in the meantime is the
  * newer answer and is left alone.
  */
 async function restoreDiffBase(term: OuijitTerminal): Promise<void> {
-  const settings = useWorktreeSettingsStore.getState();
-  const [stored] = await Promise.all([
-    window.api.globalSettings.get(diffBaseKey(term)),
-    settings.settingsByProject[term.projectPath] ? null : settings.loadFor(term.projectPath),
-  ]);
-  if (term.diffBase) return;
-  if (stored) term.diffBase = stored;
+  const stored = await window.api.globalSettings.get(diffBaseKey(term));
+  if (!stored || term.diffBase) return;
+  term.diffBase = stored;
   await refreshTerminalGitStatus(term);
 }
 
@@ -339,22 +331,20 @@ function applyGitStatus(term: OuijitTerminal, fileStatus: GitFileStatus | null):
 }
 
 export async function refreshTerminalGitStatus(term: OuijitTerminal): Promise<void> {
-  const gitPath = term.worktreePath || term.projectPath;
-  const fileStatus = await window.api.getGitFileStatus(gitPath, diffBaseFor(term));
-  applyGitStatus(term, fileStatus);
+  applyGitStatus(term, await window.api.getGitFileStatus(...statusArgs(term)));
 }
 
 export async function refreshTerminalsGitStatus(ptyIds: string[]): Promise<void> {
   if (ptyIds.length === 0) return;
 
-  // Group by gitPath + base, so a child task diffing against its parent branch
-  // and a terminal the reader pointed at a remote each get their own answer.
+  // Grouped by everything the comparison depends on, so a child task diffing
+  // against its parent branch and a terminal the reader pointed at a remote
+  // each get their own answer.
   const groupToTerminals = new Map<string, OuijitTerminal[]>();
   for (const ptyId of ptyIds) {
     const term = terminalInstances.get(ptyId);
     if (!term) continue;
-    const gitPath = term.worktreePath || term.projectPath;
-    const key = `${gitPath}\0${diffBaseFor(term) ?? ''}`;
+    const key = JSON.stringify(statusArgs(term));
     const group = groupToTerminals.get(key);
     if (group) {
       group.push(term);
@@ -364,9 +354,8 @@ export async function refreshTerminalsGitStatus(ptyIds: string[]): Promise<void>
   }
 
   await Promise.all(
-    Array.from(groupToTerminals.entries()).map(async ([key, terms]) => {
-      const gitPath = key.split('\0')[0];
-      const fileStatus = await window.api.getGitFileStatus(gitPath, diffBaseFor(terms[0]));
+    Array.from(groupToTerminals.values()).map(async (terms) => {
+      const fileStatus = await window.api.getGitFileStatus(...statusArgs(terms[0]));
       for (const t of terms) applyGitStatus(t, fileStatus);
     }),
   );

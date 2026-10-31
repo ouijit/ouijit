@@ -208,7 +208,7 @@ export function getCliReferencePath(sandbox?: SandboxReference): string {
   return path.join(os.homedir(), '.config', 'Ouijit', name);
 }
 
-export interface SandboxReference {
+interface SandboxReference {
   provider: SandboxBackendId;
   access: SandboxCliAccess;
 }

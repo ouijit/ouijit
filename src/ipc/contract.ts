@@ -19,6 +19,7 @@ import type {
   CreateProjectResult,
   ProjectSettings,
   GitStatus,
+  DiffDefaults,
   GitFileStatus,
   GitDropdownInfo,
   GitCheckoutResult,
@@ -151,7 +152,10 @@ export interface IpcInvokeContract {
 
   // ── Git ──────────────────────────────────────────────────────────────
   'get-git-status': { args: [projectPath: string]; return: GitStatus | null };
-  'get-git-file-status': { args: [projectPath: string, diffBase?: string]; return: GitFileStatus | null };
+  'get-git-file-status': {
+    args: [gitPath: string, diffBase?: string, defaults?: DiffDefaults];
+    return: GitFileStatus | null;
+  };
   'get-git-dropdown-info': { args: [projectPath: string]; return: GitDropdownInfo | null };
   'git-diff-bases': { args: [projectPath: string]; return: DiffBases };
   'git-fetch-diff-base': {
@@ -242,7 +246,6 @@ export interface IpcInvokeContract {
   };
   'worktree:list-branches': { args: [projectPath: string]; return: BranchInfo[] };
   'worktree:get-main-branch': { args: [projectPath: string]; return: string };
-  'worktree:branch-named-by': { args: [projectPath: string, ref: string]; return: string | null };
 
   // ── Hooks ────────────────────────────────────────────────────────────
   'hooks:get': { args: [projectPath: string]; return: ProjectHooks };

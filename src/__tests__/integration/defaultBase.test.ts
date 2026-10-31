@@ -12,7 +12,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import { _resetCacheForTesting, setGlobalSetting } from '../../db';
-import { branchNamedBy, createTaskWorktree, createTodoTask, startTask } from '../../worktree';
+import { createTaskWorktree, createTodoTask, defaultDiffBase, startTask } from '../../worktree';
 
 let tmpDir: string;
 let projectDir: string;
@@ -73,8 +73,11 @@ describe('a default base', () => {
     expect(created.success).toBe(true);
     expect(git(created.task!.worktreePath!, 'rev-parse HEAD')).toBe(pushed);
     expect(created.task?.mergeTarget).toBe('main');
-    // What the diff asks to know these tasks read against the default base.
-    expect(await branchNamedBy(projectDir, 'origin/main')).toBe('main');
+    // Their diffs, and the project root's, read against the default base; work
+    // merging elsewhere reads against where it merges.
+    expect(await defaultDiffBase(projectDir, 'main')).toBe('origin/main');
+    expect(await defaultDiffBase(projectDir, undefined)).toBe('origin/main');
+    expect(await defaultDiffBase(projectDir, 'feature')).toBe('feature');
   });
 
   test('without one a task branches from what is checked out, and a base git lacks is refused by name', async () => {
@@ -83,12 +86,14 @@ describe('a default base', () => {
     const started = await startTask(projectDir, plain.task!.taskNumber);
     expect(git(started.worktreePath!, 'rev-parse HEAD')).toBe(feature);
     expect(started.task?.mergeTarget).toBe('feature');
+    expect(await defaultDiffBase(projectDir, 'feature')).toBe('feature');
+    expect(await defaultDiffBase(projectDir, undefined)).toBeUndefined();
 
     await setBase('origin/nope');
     const missing = await createTodoTask(projectDir, 'Missing base');
     const refused = await startTask(projectDir, missing.task!.taskNumber);
     expect(refused.success).toBe(false);
     expect(refused.error).toContain('origin/nope');
-    expect(await branchNamedBy(projectDir, 'origin/nope')).toBeNull();
+    expect(await defaultDiffBase(projectDir, 'main')).toBe('main');
   });
 });

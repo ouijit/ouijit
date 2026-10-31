@@ -7,8 +7,7 @@
  */
 export function scrollToSection(container: HTMLElement | null, selector: string, within?: string): void {
   if (!container) return;
-  // Optional calls: jsdom has no `scrollIntoView`. `within` is centred once
-  // the section has mounted far enough to hold it, and the section until then.
+  // Optional calls: jsdom has no `scrollIntoView`.
   const land = () => {
     const inner = within ? container.querySelector(`${selector} ${within}`) : null;
     if (inner) inner.scrollIntoView?.({ block: 'center' });

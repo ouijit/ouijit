@@ -3,6 +3,7 @@
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/contract';
+import type { DiffDefaults } from './git';
 import type {
   PtyId,
   PtySpawnOptions,
@@ -104,8 +105,8 @@ contextBridge.exposeInMainWorld('api', {
     typedInvoke('settings:set-project-icon-color', projectPath, color),
 
   getGitStatus: (projectPath: string) => typedInvoke('get-git-status', projectPath),
-  getGitFileStatus: (projectPath: string, diffBase?: string) =>
-    typedInvoke('get-git-file-status', projectPath, diffBase),
+  getGitFileStatus: (gitPath: string, diffBase?: string, defaults?: DiffDefaults) =>
+    typedInvoke('get-git-file-status', gitPath, diffBase, defaults),
   getGitDropdownInfo: (projectPath: string) => typedInvoke('get-git-dropdown-info', projectPath),
   listDiffBases: (projectPath: string) => typedInvoke('git-diff-bases', projectPath),
   fetchDiffBase: (projectPath: string, ref: string) => typedInvoke('git-fetch-diff-base', projectPath, ref),
@@ -157,7 +158,6 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('worktree:ship', projectPath, worktreeBranch, commitMessage),
     listBranches: (projectPath: string) => typedInvoke('worktree:list-branches', projectPath),
     getMainBranch: (projectPath: string) => typedInvoke('worktree:get-main-branch', projectPath),
-    branchNamedBy: (projectPath: string, ref: string) => typedInvoke('worktree:branch-named-by', projectPath, ref),
   },
 
   task: {

@@ -1,4 +1,4 @@
-import { runnerSandbox, setRunnerSandbox, useProjectConfig, useProjectScripts } from '../../stores/projectDataStore';
+import { runnerPlace, setRunnerSandbox, useProjectConfig, useProjectScripts } from '../../stores/projectDataStore';
 import { terminalInstances } from './terminalRegistry';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { SANDBOX_LABELS, isActiveSandbox } from '../../types';
@@ -48,7 +48,7 @@ export function AddPanelMenu({
   // already exists.
   if (config && scripts) {
     const projectDefault = config.defaultSandbox;
-    const place = runnerSandbox(config);
+    const place = runnerPlace(config);
     const places: SandboxProviderId[] = ['none', ...config.availableSandboxProviders];
     for (const kept of [projectDefault, place]) if (!places.includes(kept)) places.push(kept);
     places.sort((a, b) => Number(b === projectDefault) - Number(a === projectDefault));

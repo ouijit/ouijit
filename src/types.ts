@@ -1,6 +1,7 @@
 // Import for local use within this file
 import type {
   GitStatus,
+  DiffDefaults,
   GitFileStatus,
   GitDropdownInfo,
   FileDiff,
@@ -73,6 +74,7 @@ export type {
   DiffHunk,
   FileDiff,
   BlobContent,
+  DiffDefaults,
   GitFileStatus,
   WorktreeDiffSummary,
   BranchInfo,
@@ -505,7 +507,6 @@ export interface WorktreeAPI {
   ): Promise<{ success: boolean; error?: string; conflictFiles?: string[]; mergedBranch?: string }>;
   listBranches(projectPath: string): Promise<BranchInfo[]>;
   getMainBranch(projectPath: string): Promise<string>;
-  branchNamedBy(projectPath: string, ref: string): Promise<string | null>;
 }
 
 export interface Project {
@@ -548,7 +549,7 @@ export interface ElectronAPI {
   refreshProjects(): Promise<Project[]>;
   /** Get git status (branch and dirty state) for a project */
   getGitStatus(projectPath: string): Promise<GitStatus | null>;
-  getGitFileStatus(projectPath: string, diffBase?: string): Promise<GitFileStatus | null>;
+  getGitFileStatus(gitPath: string, diffBase?: string, defaults?: DiffDefaults): Promise<GitFileStatus | null>;
   getGitDropdownInfo(projectPath: string): Promise<GitDropdownInfo | null>;
   /** The refs a branch diff can be taken against, and when the repo last fetched. */
   listDiffBases(projectPath: string): Promise<DiffBases>;

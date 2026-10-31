@@ -7,7 +7,7 @@ import {
   DIFF_FILE_LIST_MIN_WIDTH,
   DIFF_FILE_LIST_MAX_WIDTH,
 } from '../../stores/uiStore';
-import { defaultDiffBase, refreshTerminalGitStatus } from '../terminal/terminalReact';
+import { refreshTerminalGitStatus } from '../terminal/terminalReact';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { DiffFileTree, treeFileOrder } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
@@ -377,7 +377,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
             ptyId={ptyId}
             gitPath={gitPath}
             base={base}
-            defaultBase={(instance && defaultDiffBase(instance)) ?? gitFileStatus?.mainBranch ?? null}
+            defaultBase={gitFileStatus?.defaultBase ?? null}
             mainBranch={gitFileStatus?.mainBranch ?? null}
             branch={branch}
           />

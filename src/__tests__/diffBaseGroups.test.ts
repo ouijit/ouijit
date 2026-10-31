@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { comparedByDefault, groupDiffBases, searchDiffBases, MAX_BASE_ROWS } from '../components/diff/diffBaseGroups';
+import { groupDiffBases, searchDiffBases, MAX_BASE_ROWS } from '../components/diff/diffBaseGroups';
 import type { DiffBaseRef, DiffBases } from '../types';
 
 function refs(...names: string[]): DiffBaseRef[] {
@@ -82,20 +82,5 @@ describe('finding a branch by typing', () => {
     // The remote prefix does not have to be typed to reach a remote branch.
     expect(searchDiffBases(refs('origin/release'), 'release', null).map((r) => r.ref)).toEqual(['origin/release']);
     expect(searchDiffBases(refs('main', 'origin/main'), 'zzz', null)).toEqual([]);
-  });
-});
-
-describe('what a diff compares against until one is picked', () => {
-  test("the project's default base wherever the work merges into the branch it names, else the merge target", () => {
-    const origin = { base: 'origin/main', baseBranch: 'main' };
-    // The project root, and a task off the default base merging into its local branch.
-    expect(comparedByDefault(origin, undefined)).toBe('origin/main');
-    expect(comparedByDefault(origin, 'main')).toBe('origin/main');
-    // A task stacked on another branch reads against it, even one whose name ends the same way.
-    expect(comparedByDefault(origin, 'feat/parent')).toBe('feat/parent');
-    expect(comparedByDefault({ base: 'origin/feat/main', baseBranch: 'feat/main' }, 'main')).toBe('main');
-    // No default base: the merge target, or nothing for main to fill in.
-    expect(comparedByDefault({ base: null, baseBranch: null }, 'main')).toBe('main');
-    expect(comparedByDefault(undefined, undefined)).toBeUndefined();
   });
 });
