@@ -17,6 +17,8 @@ import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore, type TerminalStatus } from '../../stores/terminalStore';
 import { diffBaseSettingKey } from '../../diffSource';
+import { comparedByDefault } from '../diff/diffBaseGroups';
+import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
 import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
@@ -295,14 +297,20 @@ function scheduleTerminalGitStatusRefresh(term: OuijitTerminal): void {
 /**
  * The ref this terminal's diff is taken against.
  *
- * The reader's choice, then the task's merge target, and `getGitFileStatus`
- * falls back to the project's main branch when neither says — and reports back
- * which it used. Both the status poll and the per-file loads have to ask for
- * the same one, or the file list and the hunks under it are two different
- * comparisons.
+ * The reader's choice, then the default, and `getGitFileStatus` falls back to
+ * the project's main branch when neither says — and reports back which it
+ * used. Both the status poll and the per-file loads have to ask for the same
+ * one, or the file list and the hunks under it are two different comparisons.
  */
 function diffBaseFor(term: OuijitTerminal): string | undefined {
-  return term.diffBase ?? term.mergeTarget;
+  return term.diffBase ?? defaultDiffBase(term);
+}
+
+export function defaultDiffBase(term: Pick<OuijitTerminal, 'projectPath' | 'mergeTarget'>): string | undefined {
+  return comparedByDefault(
+    useWorktreeSettingsStore.getState().settingsByProject[term.projectPath]?.base,
+    term.mergeTarget,
+  );
 }
 
 function diffBaseKey(term: OuijitTerminal): string {
@@ -310,16 +318,21 @@ function diffBaseKey(term: OuijitTerminal): string {
 }
 
 /**
- * Put back the comparison this worktree was last read against.
+ * Put back the comparison this worktree was last read against, else the
+ * project's default.
  *
- * Runs a settings read behind the first status poll, so an early poll answers
+ * Runs settings reads behind the first status poll, so an early poll answers
  * for the merge target and this corrects it. A pick made in the meantime is the
  * newer answer and is left alone.
  */
 async function restoreDiffBase(term: OuijitTerminal): Promise<void> {
-  const stored = await window.api.globalSettings.get(diffBaseKey(term));
-  if (!stored || term.diffBase) return;
-  term.diffBase = stored;
+  const settings = useWorktreeSettingsStore.getState();
+  const [stored] = await Promise.all([
+    window.api.globalSettings.get(diffBaseKey(term)),
+    settings.settingsByProject[term.projectPath] ? null : settings.loadFor(term.projectPath),
+  ]);
+  if (term.diffBase) return;
+  if (stored) term.diffBase = stored;
   await refreshTerminalGitStatus(term);
 }
 
