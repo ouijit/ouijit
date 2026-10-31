@@ -16,7 +16,8 @@ import { projectIconColor, getInitials } from '../../utils/projectIcon';
 import type { FieldMatch } from '../../utils/paletteScore';
 import type { MatchRange } from '../../utils/fuzzyMatch';
 import { Icon } from '../terminal/Icon';
-import { StatusDot, sandboxSuffix } from '../terminal/StatusDot';
+import { sandboxSuffix } from '../terminal/StatusDot';
+import { TerminalDot } from '../terminal/wantsYou';
 import { type PaletteItem } from './paletteItems';
 
 /** Fields whose match is shown on the title rather than as a separate hint. */
@@ -112,7 +113,7 @@ function BranchLabel({ item }: { item: PaletteItem }) {
       <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
         {item.branch === 'last' ? '└─' : '├─'}
       </span>
-      {item.shell && <StatusDot status={item.shell.status} sandboxProvider={item.shell.sandboxProvider} />}
+      {item.shell && <TerminalDot {...item.shell} />}
       <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">
         {item.title}
         {sandboxSuffix(item.shell?.sandboxProvider)}
@@ -135,7 +136,7 @@ function Leading({ item }: { item: PaletteItem }) {
   }
 
   if (item.shell) {
-    return <StatusDot status={item.shell.status} sandboxProvider={item.shell.sandboxProvider} />;
+    return <TerminalDot {...item.shell} />;
   }
 
   if (item.kind === 'project' && item.project) {

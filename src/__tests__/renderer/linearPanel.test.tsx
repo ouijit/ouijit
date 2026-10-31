@@ -7,6 +7,7 @@ import { LinearSettingsSection } from '../../components/LinearSettingsSection';
 import { Sidebar } from '../../components/SidebarReact';
 import { useAppStore } from '../../stores/appStore';
 import { useExperimentalStore } from '../../stores/experimentalStore';
+import { TitleBar } from '../../components/TitleBarReact';
 import { useGithubStore } from '../../stores/githubStore';
 import { useLinearStore } from '../../stores/linearStore';
 import { usePanelStore } from '../../stores/panelStore';
@@ -46,17 +47,34 @@ describe('Linear in the Issues list', () => {
    * Gating the project's pages on GitHub alone would ship a feature with
    * no way to open it: `linear` on and `github` off has a panel and no entry point.
    */
-  test('the panel is reachable with Linear on and GitHub off', () => {
+  test('the panel is reachable with Linear on and GitHub off, each list by its own name', async () => {
     useAppStore.setState({ projects: [{ path: PROJECT, name: 'Project' }] });
     useExperimentalStore.setState({
       flagsByProject: { [PROJECT]: { ...DEFAULT_EXPERIMENTAL_FLAGS, github: false, linear: true } },
     });
 
-    render(<Sidebar onAddProject={() => {}} onCloneSelect={() => {}} />);
-
+    render(
+      <>
+        <TitleBar />
+        <Sidebar onAddProject={() => {}} onCloneSelect={() => {}} />
+      </>,
+    );
     const row = document.querySelector<HTMLElement>(`[data-project-path="${PROJECT}"]`)!;
-    fireEvent.click(within(row).getByLabelText('More for Project'));
-    expect(screen.getByText('Pull requests')).toBeTruthy();
+    const open = (entry: string) => {
+      fireEvent.click(within(row).getByLabelText('More for Project'));
+      fireEvent.click(screen.getByText(entry));
+    };
+
+    open('Issues');
+    await waitFor(() =>
+      expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: PROJECT, page: 'pull-requests' }),
+    );
+    expect(usePanelStore.getState().listView).toBe('issues');
+    expect(screen.getByRole('banner').textContent).toContain('Issues');
+
+    open('Pull requests');
+    await waitFor(() => expect(usePanelStore.getState().listView).toBe('pulls'));
+    expect(screen.getByRole('banner').textContent).toContain('Pull requests');
   });
 
   test('a project with only Linear connected sees Linear groups and no empty headings', async () => {

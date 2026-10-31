@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { Sidebar } from '../../components/SidebarReact';
 import { MainView } from '../../components/MainView';
 import { TitleBar } from '../../components/TitleBarReact';
+import { CommandPalette } from '../../components/CommandPalette';
 import { useTerminalShortcuts } from '../../components/terminal/terminalShortcuts';
 import { addProjectTerminal } from '../../components/terminal/terminalActions';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
@@ -249,6 +250,46 @@ describe('the sidebar is the navigation', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(useAppStore.getState().selection).toEqual(before));
   });
+});
+
+test('a terminal that finished unseen is marked in the tree, the stack, the palette and the board, until it is in front', async () => {
+  const ship1 = await spawn(ALPHA.path, 8);
+  const ship2 = await spawn(ALPHA.path, 8);
+  render(<App />);
+  fireEvent.click(row(section('Projects'), 'Ship it'));
+  await waitFor(() => expect(front()).toBe(ship2));
+
+  tick(1000);
+  act(() => {
+    useTerminalStore.getState().updateDisplay(ship1, { status: 'thinking' });
+    useTerminalStore.getState().updateDisplay(ship1, { status: 'ready' });
+  });
+  tick(1000);
+  const marks = (scope: Element | null) => scope?.querySelectorAll('[data-status="unread"]').length ?? 0;
+  const card = (ptyId: string) => document.querySelector(`.project-card[data-pty-id="${ptyId}"]`);
+
+  // Behind the card on screen: its own header says so, and so does its row.
+  expect(marks(card(ship1))).toBe(1);
+  expect(marks(card(ship2))).toBe(0);
+  expect(marks(section('Projects'))).toBe(1);
+
+  act(() => useUIStore.setState({ paletteOpen: true }));
+  const palette = render(<CommandPalette />);
+  await waitFor(() => expect(screen.getAllByTestId('palette-row').length).toBeGreaterThan(0));
+  expect(screen.getAllByTestId('palette-row').reduce((n, r) => n + marks(r), 0)).toBe(1);
+  palette.unmount();
+  act(() => useUIStore.setState({ paletteOpen: false }));
+
+  fireEvent.click(within(document.querySelector(`[data-project-path="${ALPHA.path}"]`)!).getByLabelText('Board'));
+  await waitFor(() => expect(document.querySelector('.kanban-board')).toBeTruthy());
+  expect(marks(document.querySelector('.kanban-board'))).toBe(1);
+
+  // Brought to the front, it has been seen everywhere at once.
+  fireEvent.click(row(section('Projects'), 'Ship it'));
+  await waitFor(() => expect(front()).toBe(ship2));
+  press('1');
+  await waitFor(() => expect(front()).toBe(ship1));
+  expect(marks(document.body)).toBe(0);
 });
 
 describe('stacking several from the sidebar', () => {

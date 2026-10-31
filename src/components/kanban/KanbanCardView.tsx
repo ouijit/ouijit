@@ -1,9 +1,9 @@
 import { memo, useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import type { TaskWithWorkspace } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalStore';
-import { useWantsYou } from '../terminal/wantsYou';
+import { TerminalDot } from '../terminal/wantsYou';
 import { Icon } from '../terminal/Icon';
-import { StatusDot, sandboxSuffix } from '../terminal/StatusDot';
+import { sandboxSuffix } from '../terminal/StatusDot';
 import {
   DescriptionChipEditor,
   type DescriptionChipEditorHandle,
@@ -20,11 +20,6 @@ const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase
 const DESCRIPTION_CAP_RATIO = 0.4;
 
 const EMPTY_METRICS: DescriptionEditorMetrics = { overflowing: false, atTop: true, atBottom: true };
-
-function TerminalDot({ display }: { display: TerminalDisplayState }) {
-  const unread = useWantsYou(display.ptyId);
-  return <StatusDot status={display.status} sandboxProvider={display.sandboxProvider} unread={unread} />;
-}
 
 export interface KanbanCardViewProps {
   task: TaskWithWorkspace;
@@ -385,7 +380,7 @@ export const KanbanCardView = memo(function KanbanCardView({
                 <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
                   {isLast ? '└─' : '├─'}
                 </span>
-                <TerminalDot display={display} />
+                <TerminalDot ptyId={display.ptyId} status={display.status} sandboxProvider={display.sandboxProvider} />
                 {isRenaming ? (
                   <input
                     ref={terminalRenameRef}

@@ -1,6 +1,8 @@
 import { useShallow } from 'zustand/react/shallow';
 import { usePointerStore } from '../../stores/pointerStore';
-import { isUnread, useTerminalStore, viewedPtyId } from '../../stores/terminalStore';
+import { isUnread, useTerminalStore, viewedPtyId, type TerminalStatus } from '../../stores/terminalStore';
+import type { SandboxProviderId } from '../../types';
+import { StatusDot } from './StatusDot';
 
 /** Terminals whose agent is asking you to run something. */
 export function useAsking(): string[] {
@@ -21,4 +23,18 @@ export function wantsYou(s: ReturnType<typeof useTerminalStore.getState>, ptyId:
 export function useWantsYou(ptyId: string): boolean {
   const asking = useAsking();
   return useTerminalStore((s) => wantsYou(s, ptyId, asking));
+}
+
+/** A terminal's dot wherever it is listed, blue while it wants you. */
+export function TerminalDot({
+  ptyId,
+  status,
+  sandboxProvider,
+}: {
+  ptyId: string;
+  status: TerminalStatus;
+  sandboxProvider?: SandboxProviderId;
+}) {
+  const unread = useWantsYou(ptyId);
+  return <StatusDot status={status} sandboxProvider={sandboxProvider} unread={unread} />;
 }

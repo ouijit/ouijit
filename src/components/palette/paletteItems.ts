@@ -60,7 +60,7 @@ export interface PaletteItem {
   meta?: string;
   dimmed?: boolean;
   /** Present when a live shell backs the row; renders as the leading dot. */
-  shell?: { status: TerminalStatus; sandboxProvider?: SandboxProviderId };
+  shell?: { ptyId: string; status: TerminalStatus; sandboxProvider?: SandboxProviderId };
   /**
    * Id of the task row this one hangs under. Set on a task's live shells, which
    * render as branch children the way they do on a kanban card. Ranking scores
@@ -228,7 +228,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
       tags: terminal.tags,
       meta: terminal.exited ? 'exited' : undefined,
       dimmed: terminal.exited,
-      shell: { status: terminal.status, sandboxProvider: terminal.sandboxProvider },
+      shell: { ptyId: terminal.ptyId, status: terminal.status, sandboxProvider: terminal.sandboxProvider },
       action: 'Focus terminal',
       run: () => void focusTerminal(terminal.ptyId, { projectPath: terminal.projectPath }),
     });
@@ -308,7 +308,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
         project,
         parentId: taskId,
         branch: i === live.length - 1 ? 'last' : 'mid',
-        shell: { status: terminal.status, sandboxProvider: terminal.sandboxProvider },
+        shell: { ptyId: terminal.ptyId, status: terminal.status, sandboxProvider: terminal.sandboxProvider },
         action: 'Focus terminal',
         run: () => void focusTerminal(terminal.ptyId, { projectPath: terminal.projectPath }),
       });

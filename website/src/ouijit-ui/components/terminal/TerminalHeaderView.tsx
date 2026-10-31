@@ -10,6 +10,7 @@ const METADATA_CHIP =
 export interface TerminalHeaderViewProps {
   status: string;
   sandboxed?: boolean;
+  unread?: boolean;
   stackPosition?: number;
   isActive?: boolean;
   isBackCard?: boolean;
@@ -42,6 +43,7 @@ export interface TerminalHeaderViewProps {
 export function TerminalHeaderView({
   status,
   sandboxed = false,
+  unread,
   stackPosition,
   isActive = false,
   isBackCard = false,
@@ -74,7 +76,7 @@ export function TerminalHeaderView({
           {/* overflow-hidden keeps rigid identity content (label, tag pills) from
               bleeding over the actions area when the header runs out of room. */}
           <div className="group/meta flex items-center gap-2 min-w-0 overflow-hidden">
-            <StatusDot status={status} sandboxed={sandboxed} />
+            <StatusDot status={status} sandboxed={sandboxed} unread={unread} />
             {!isActive && stackPosition != null && stackPosition <= 9 && (
               <kbd className="inline-flex items-center font-mono text-base text-ink/40 shrink-0">
                 {isMac ? '⌘' : '⌃'}
