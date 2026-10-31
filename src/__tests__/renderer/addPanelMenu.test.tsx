@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TerminalHeader } from '../../components/terminal/TerminalHeader';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { startRunner } from '../../components/terminal/terminalActions';
-import { getProjectConfig, useProjectDataStore } from '../../stores/projectDataStore';
+import { getProjectConfig, runnerPlace, useProjectDataStore } from '../../stores/projectDataStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { DEFAULT_DISPLAY_STATE } from '../../stores/terminalDisplay';
 import type { ProjectHooks, SandboxBackendId, SandboxProviderId, Script } from '../../types';
@@ -126,7 +126,7 @@ describe("the terminal's + menu", () => {
     fireEvent.click(screen.getByLabelText('Add panel'));
     fireEvent.mouseEnter(screen.getByText('Run in').closest('div')!);
     fireEvent.click(await screen.findByRole('button', { name: 'Host' }));
-    await waitFor(() => expect(window.api.globalSettings.set).toHaveBeenCalledWith(`runnerSandbox:${PROJECT}`, 'none'));
+    await waitFor(() => expect(runnerPlace(getProjectConfig(PROJECT))).toBe('none'));
     expect(getProjectConfig(PROJECT)?.defaultSandbox).toBe('custom');
     expect(startRunner).toHaveBeenCalledTimes(1);
 
@@ -142,7 +142,7 @@ describe("the terminal's + menu", () => {
     fireEvent.click(screen.getByLabelText('Add panel'));
     fireEvent.mouseEnter(screen.getByText('Run in').closest('div')!);
     fireEvent.click(await screen.findByRole('button', { name: 'Default (Custom)' }));
-    await waitFor(() => expect(window.api.globalSettings.set).toHaveBeenLastCalledWith(`runnerSandbox:${PROJECT}`, ''));
+    await waitFor(() => expect(runnerPlace(getProjectConfig(PROJECT))).toBe('custom'));
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom'));
 

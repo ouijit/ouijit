@@ -72,6 +72,14 @@ describe('Linear in the Issues list', () => {
     expect(usePanelStore.getState().listView).toBe('issues');
     expect(screen.getByRole('banner').textContent).toContain('Issues');
 
+    // Pull requests are GitHub's alone, so with it off there is no entry for them.
+    fireEvent.click(within(row).getByLabelText('More for Project'));
+    expect(screen.queryByText('Pull requests')).toBeNull();
+
+    useExperimentalStore.setState({
+      flagsByProject: { [PROJECT]: { ...DEFAULT_EXPERIMENTAL_FLAGS, github: true, linear: true } },
+    });
+    fireEvent.keyDown(document, { key: 'Escape' });
     open('Pull requests');
     await waitFor(() => expect(usePanelStore.getState().listView).toBe('pulls'));
     expect(screen.getByRole('banner').textContent).toContain('Pull requests');

@@ -503,16 +503,18 @@ function ProjectGroup({ project }: { project: Project }) {
 
   // Everything the row's own buttons do not: the other pages, a shell, and removal.
   const overflowPages: ProjectPage[] = [...(flags.analysis ? (['analysis'] as const) : []), 'settings'];
-  const trackerLists: ContextMenuItem[] = flags.tracker
-    ? (['pulls', 'issues'] as const).map((list) => ({
-        label: LIST_TITLES[list],
-        icon: LIST_ICONS[list],
-        onClick: () => {
-          usePanelStore.getState().setListView(list);
-          void openProjectPage(project.path, 'pull-requests');
-        },
-      }))
-    : [];
+  const lists: PanelList[] = [
+    ...(flags.github ? (['pulls'] as const) : []),
+    ...(flags.tracker ? (['issues'] as const) : []),
+  ];
+  const trackerLists: ContextMenuItem[] = lists.map((list) => ({
+    label: LIST_TITLES[list],
+    icon: LIST_ICONS[list],
+    onClick: () => {
+      usePanelStore.getState().setListView(list);
+      void openProjectPage(project.path, 'pull-requests');
+    },
+  }));
   const overflow: ContextMenuEntry[] = [
     { label: 'New terminal', icon: 'terminal', onClick: () => void openShell(project.path) },
     ...(config?.availableSandboxProviders ?? []).map(

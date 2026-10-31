@@ -4,7 +4,7 @@ import { bufferText } from '../components/terminal/terminalText';
 import { useAppStore } from '../stores/appStore';
 import { notifyUnfocused } from '../utils/notifications';
 import { usePointerStore } from '../stores/pointerStore';
-import { stackMembers, useTerminalStore } from '../stores/terminalStore';
+import { getActivePtyId, useTerminalStore } from '../stores/terminalStore';
 import type { AskAnswer, AskRun, CliPointResponse } from '../types';
 
 const OUTPUT_LINES = 100;
@@ -43,7 +43,7 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
 
 function inFront(ptyId: string): boolean {
   const { selection } = useAppStore.getState();
-  return selection.kind === 'terminal' && stackMembers(useTerminalStore.getState(), selection.stack)[0] === ptyId;
+  return selection.kind === 'terminal' && getActivePtyId(selection.stack) === ptyId;
 }
 
 /**

@@ -221,13 +221,13 @@ const ACCESS_NOTES: Record<SandboxCliAccess, string> = {
 
 /** What Ouijit knows about a sandboxed terminal when it starts: the profile or launcher decides the rest. */
 function sandboxNote({ provider, access }: SandboxReference): string {
-  const rest =
+  const allowed =
     provider === 'nono'
-      ? "The project's sandbox profile decides the rest; most network access, other credentials and writes elsewhere are blocked. `nono why <path>` says why something was denied."
-      : "This project's own launcher decides what else is allowed; Ouijit doesn't know its rules.";
+      ? "You can write this checkout, the repo's commits and branches, and a package cache. The project's sandbox profile decides the rest; most network access, other credentials and writes elsewhere are blocked. `nono why <path>` says why something was denied."
+      : "This project's own launcher decides what you can reach; Ouijit doesn't know its rules.";
   return [
     '# This terminal is sandboxed',
-    `You can write this worktree, the repo's commits and branches, and a package cache. ${rest}`,
+    allowed,
     '',
     "When a command fails because of the sandbox, don't retry it or work around it. Ask the user to run it on their computer:",
     '  ouijit ask run -m "<why>" -- <command>',

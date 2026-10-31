@@ -612,12 +612,16 @@ describe('PullRequestsPanel', () => {
     expect(screen.queryByText('human')).toBeNull();
 
     const scrolled: Element[] = [];
-    Element.prototype.scrollIntoView = function (this: Element) {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (this: Element) {
       scrolled.push(this);
-    };
-    fireEvent.click(screen.getByText('this can throw'));
-    await waitFor(() => expect(scrolled.some((el) => el.matches('[data-draft-id="d1"]'))).toBe(true));
-    expect(screen.queryByText('Update comment')).toBeNull();
+    });
+    try {
+      fireEvent.click(screen.getByText('this can throw'));
+      await waitFor(() => expect(scrolled.some((el) => el.matches('[data-draft-id="d1"]'))).toBe(true));
+      expect(screen.queryByText('Update comment')).toBeNull();
+    } finally {
+      scroll.mockRestore();
+    }
   });
 
   /**
