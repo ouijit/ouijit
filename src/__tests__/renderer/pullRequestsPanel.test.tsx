@@ -555,7 +555,7 @@ describe('PullRequestsPanel', () => {
    * Twelve agent-written comments and twelve you typed must not look the same
    * in a queue you are about to send under your own name.
    */
-  test('a draft written by something else is labelled in the unsent list', async () => {
+  test('a draft written by something else is labelled in the unsent list, which jumps to it to read', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
     );
@@ -584,6 +584,17 @@ describe('PullRequestsPanel', () => {
         origin: 'human',
       },
     ]);
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
+      files: [{ path: 'src/api.ts', status: 'M', additions: 2, deletions: 0 }],
+      fromGit: false,
+    });
+    vi.mocked(window.api.github.pullRequestFileDiff).mockResolvedValue({
+      path: 'src/api.ts',
+      hunks: [12, 20].map((line) => ({
+        header: `@@ -${line},1 +${line},1 @@`,
+        lines: [{ type: 'addition' as const, content: `line ${line}`, newLineNo: line }],
+      })),
+    });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Please look'));
@@ -592,6 +603,14 @@ describe('PullRequestsPanel', () => {
     expect(await screen.findByText('claude')).toBeTruthy();
     // The one you typed carries no badge — only what you did not write is named.
     expect(screen.queryByText('human')).toBeNull();
+
+    const scrolled: Element[] = [];
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+    fireEvent.click(screen.getByText('this can throw'));
+    await waitFor(() => expect(scrolled.some((el) => el.matches('[data-draft-id="d1"]'))).toBe(true));
+    expect(screen.queryByText('Update comment')).toBeNull();
   });
 
   /**

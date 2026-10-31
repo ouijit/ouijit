@@ -1,4 +1,4 @@
-import { forwardRef, memo, useCallback, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { FileDiff } from '../../types';
 import type { PullRequestDetail, PullRequestFile, ReviewDraft } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
@@ -52,11 +52,6 @@ interface FilesSectionProps {
   groups: ResolvedGroup[] | null;
   /** The grouping has just arrived, so its parts lay themselves in. */
   revealing?: boolean;
-}
-
-export interface FilesSectionHandle {
-  /** Open a pending comment for editing — the action bar jumps to one. */
-  editDraft: (draftId: string) => void;
 }
 
 interface FileSectionProps {
@@ -168,10 +163,7 @@ const FileSection = memo(function FileSection({
  * from the local object database, not GitHub's patches, so context is not
  * capped at what a patch would carry.
  */
-export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(function FilesSection(
-  { projectPath, detail, order, groups, revealing },
-  ref,
-) {
+export function FilesSection({ projectPath, detail, order, groups, revealing }: FilesSectionProps) {
   const files = useGithubStore((s) => s.files);
   const filesLoading = useGithubStore((s) => s.filesLoading);
   const filesError = useGithubStore((s) => s.filesError);
@@ -189,8 +181,6 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   // Through a ref so the save callback survives each batch of diffs arriving.
   const diffsRef = useRef(diffs);
   diffsRef.current = diffs;
-
-  useImperativeHandle(ref, () => ({ editDraft: setEditingDraftId }), []);
 
   // The head is part of the fingerprint: an amend or reorder can leave every
   // path and line count identical, and the loader would then keep the old
@@ -313,26 +303,26 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
               onToggleResolved={toggleResolved}
             />
           ))}
-          {anchorDrafts?.map((draft) =>
-            editingDraftId === draft.id ? (
-              <InlineCommentBox
-                key={draft.id}
-                initialBody={draft.body}
-                saveLabel="Update comment"
-                onSave={(body) => saveDraft({ id: draft.id, path, line: draft.line, side: draft.side, body })}
-                onCancel={() => setEditingDraftId(null)}
-                onDiscard={() => discardDraft(draft)}
-                hint={draft.unplaceable ? UNPLACEABLE_HINT : DRAFT_HINT}
-              />
-            ) : (
-              <InlineCommentCard
-                key={draft.id}
-                label={`Unsent comment · ${describeLines(draft.startLine, draft.line)}`}
-                body={draft.body}
-                onClick={() => setEditingDraftId(draft.id)}
-              />
-            ),
-          )}
+          {anchorDrafts?.map((draft) => (
+            <div key={draft.id} data-draft-id={draft.id}>
+              {editingDraftId === draft.id ? (
+                <InlineCommentBox
+                  initialBody={draft.body}
+                  saveLabel="Update comment"
+                  onSave={(body) => saveDraft({ id: draft.id, path, line: draft.line, side: draft.side, body })}
+                  onCancel={() => setEditingDraftId(null)}
+                  onDiscard={() => discardDraft(draft)}
+                  hint={draft.unplaceable ? UNPLACEABLE_HINT : DRAFT_HINT}
+                />
+              ) : (
+                <InlineCommentCard
+                  label={`Unsent comment · ${describeLines(draft.startLine, draft.line)}`}
+                  body={draft.body}
+                  onClick={() => setEditingDraftId(draft.id)}
+                />
+              )}
+            </div>
+          ))}
           {composing && (
             <InlineCommentBox
               onSave={(body) =>
@@ -489,4 +479,4 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       )}
     </>
   );
-});
+}
