@@ -9,7 +9,16 @@ import { useProjectFlags } from '../stores/experimentalStore';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { Tooltip } from './ui/Tooltip';
 import { useShallow } from 'zustand/react/shallow';
-import { stackMembers, stackOf, tagUnit, unitsOf, useTerminalStore } from '../stores/terminalStore';
+import {
+  projectUnit,
+  stackFrom,
+  stackMembers,
+  stackOf,
+  tagUnit,
+  unitsOf,
+  useTerminalStore,
+} from '../stores/terminalStore';
+import { showInListOrder } from './sidebar/SidebarRows';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -80,6 +89,10 @@ export function TitleBar() {
   const pageTitle = (page: ProjectPage) => (page === 'pull-requests' ? LIST_TITLES[listView] : PAGE_TITLES[page]);
   const page = selection.kind === 'page' && !cloning ? pageTitle(selection.page) : stackName;
   const showsTerminal = selection.kind === 'terminal';
+  const onBoard = selection.kind === 'page' && selection.page === 'board' && !cloning;
+  const hasTerminals = useTerminalStore(
+    (s) => project != null && (s.terminalsByProject[project.path]?.length ?? 0) > 0,
+  );
   const onSettings = selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
   const offersCreation = !cloning && !onSettings;
   // With the sidebar out of the way the traffic lights sit over the title bar.
@@ -148,6 +161,17 @@ export function TitleBar() {
               onClick={() => useProjectStore.getState().toggleTerminalLayout()}
             >
               {terminalLayout === 'canvas' ? <Icon name="cards-three" /> : <CanvasIcon />}
+            </button>
+          </Tooltip>
+        )}
+        {project && onBoard && hasTerminals && (
+          <Tooltip text="Terminals" placement="bottom">
+            <button
+              className={raisedButton}
+              aria-label="Terminals"
+              onClick={() => showInListOrder(stackFrom([projectUnit(project.path)]))}
+            >
+              <Icon name="cards-three" />
             </button>
           </Tooltip>
         )}
