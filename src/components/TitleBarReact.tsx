@@ -1,6 +1,7 @@
 import { useAppStore, selectIsCloning, type ProjectPage } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
+import { usePanelStore, type PanelList } from '../stores/panelStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
 import { openShell } from './navigation';
@@ -17,6 +18,12 @@ export const PAGE_TITLES: Record<ProjectPage, string> = {
   settings: 'Settings',
   'pull-requests': 'Pull requests',
   analysis: 'Analysis',
+};
+
+/** The pull requests page is two lists, named for the one showing. */
+export const LIST_TITLES: Record<PanelList, string> = {
+  pulls: 'Pull requests',
+  issues: 'Issues',
 };
 
 const iconButton =
@@ -75,7 +82,13 @@ export function TitleBar() {
   const flags = useProjectFlags(project && !cloning ? project.path : null);
 
   const stackName = useShownStackName();
-  const page = selection.kind === 'page' && !cloning ? PAGE_TITLES[selection.page] : stackName;
+  const listView = usePanelStore((s) => s.listView);
+  const page =
+    selection.kind !== 'page' || cloning
+      ? stackName
+      : selection.page === 'pull-requests'
+        ? LIST_TITLES[listView]
+        : PAGE_TITLES[selection.page];
   const showsTerminal = selection.kind === 'terminal';
   const onSettings = selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
   const offersCreation = !cloning && !onSettings;

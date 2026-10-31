@@ -10,7 +10,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useUIStore } from '../../stores/uiStore';
 import { DEFAULT_DISPLAY_STATE, useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { usePointerStore } from '../../stores/pointerStore';
-import type { GitFileStatus, PtySpawnOptions, TaskWithWorkspace } from '../../types';
+import type { GitFileStatus, PtySpawnOptions, SandboxProviderStatus, TaskWithWorkspace } from '../../types';
 
 // xterm cannot construct under jsdom. The stand-in keeps the state the cards
 // read and spawns through the mocked IPC, so everything above it is real.
@@ -277,6 +277,9 @@ describe('stacking several from the sidebar', () => {
   });
 
   test('a shell made while a stack is on screen joins it, but not one in another project', async () => {
+    vi.mocked(window.api.sandbox.status).mockResolvedValue([
+      { providerId: 'custom', available: true } satisfies SandboxProviderStatus,
+    ]);
     const docs = await spawn(ALPHA.path, 9);
     const ship = await spawn(ALPHA.path, 8);
     await spawn(BRAVO.path, 3);
@@ -294,7 +297,16 @@ describe('stacking several from the sidebar', () => {
     fireEvent.contextMenu(document.querySelector(`[data-project-path="${BRAVO.path}"]`)!);
     fireEvent.click(await screen.findByText('New terminal'));
     await waitFor(() => expect(display(front()!)).toMatchObject({ taskId: null, projectPath: BRAVO.path }));
-    expect(cards()).toEqual([front()]);
+    const hostShell = front()!;
+    expect(cards()).toEqual([hostShell]);
+    expect(display(hostShell).sandboxProvider).toBeUndefined();
+
+    // Sandboxed too, where the project has a sandbox that can run.
+    fireEvent.contextMenu(document.querySelector(`[data-project-path="${BRAVO.path}"]`)!);
+    fireEvent.click(await screen.findByText('New custom terminal'));
+    await waitFor(() => expect(front()).not.toBe(hostShell));
+    expect(display(front()!)).toMatchObject({ taskId: null, projectPath: BRAVO.path, sandboxProvider: 'custom' });
+    vi.mocked(window.api.sandbox.status).mockResolvedValue([]);
   });
 
   test('⌘- and shift-clicking rows in one group stacks them, and a whole project or tag stacks at once', async () => {

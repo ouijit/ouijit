@@ -6,7 +6,7 @@
  * visit, and `visitTracker` reads that off the view itself.
  */
 
-import type { Project, SandboxProviderId, TaskWithWorkspace, WorktreeInfo } from '../types';
+import type { Project, SandboxBackendId, SandboxProviderId, TaskWithWorkspace, WorktreeInfo } from '../types';
 import { joinStack, useAppStore, type ProjectPage } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
@@ -36,9 +36,9 @@ function showTaskTerminals(projectPath: string, taskNumber: number): void {
 }
 
 /** A shell in `projectPath`, shown once it spawns, in the stack on screen when that is the same project's. */
-export async function openShell(projectPath: string): Promise<void> {
+export async function openShell(projectPath: string, sandboxProvider?: SandboxBackendId): Promise<void> {
   const { selection } = useAppStore.getState();
-  if (!(await addProjectTerminal(projectPath))) return;
+  if (!(await addProjectTerminal(projectPath, undefined, { sandboxProvider }))) return;
   const [front] = useTerminalStore.getState().order;
   if (!front) return;
   useAppStore

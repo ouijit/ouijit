@@ -5,6 +5,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { useShallow } from 'zustand/react/shallow';
 import { ProjectTile } from './ProjectTile';
 import type { CloneJob, Project } from '../types';
+import { SANDBOX_LABELS } from '../types';
+import { loadProjectConfig, useProjectDataStore } from '../stores/projectDataStore';
 import { useAppStore, selectCloneJob, type ProjectPage } from '../stores/appStore';
 import { useExperimentalStore, useProjectFlags } from '../stores/experimentalStore';
 import {
@@ -30,7 +32,8 @@ import { openProject, openProjectPage, openShell, openTaskTerminal } from './nav
 import { isModKey } from '../utils/modKey';
 import { openTaskSheet } from '../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/ContextMenu';
-import { PAGE_TITLES } from './TitleBarReact';
+import { LIST_TITLES, PAGE_TITLES } from './TitleBarReact';
+import { usePanelStore, type PanelList } from '../stores/panelStore';
 import { groupByTag, groupByTask } from './sidebar/sidebarTree';
 import {
   GroupDots,
@@ -475,6 +478,11 @@ const PAGE_ICONS: Record<ProjectPage, string> = {
   analysis: 'binoculars',
 };
 
+const LIST_ICONS: Record<PanelList, string> = {
+  pulls: 'git-pull-request',
+  issues: 'circle-dashed',
+};
+
 const ROW_BUTTON = 'w-6 h-6 flex items-center justify-center rounded-md transition-colors duration-100';
 const rowButtonState = (active: boolean) =>
   active ? 'bg-ink/10 text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-ink/10';
@@ -489,21 +497,36 @@ function ProjectGroup({ project }: { project: Project }) {
   const wholeStack = stackFrom([projectUnit(project.path)]);
   const wholeShown = useStackShown(wholeStack);
   const flags = useProjectFlags(project.path);
+  const config = useProjectDataStore((s) => s.configByProject[project.path]);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: project.path });
 
   // Everything the row's own buttons do not: the other pages, a shell, and removal.
-  const overflowPages: ProjectPage[] = [
-    ...(flags.tracker ? (['pull-requests'] as const) : []),
-    ...(flags.analysis ? (['analysis'] as const) : []),
-    'settings',
-  ];
+  const overflowPages: ProjectPage[] = [...(flags.analysis ? (['analysis'] as const) : []), 'settings'];
+  const trackerLists: ContextMenuItem[] = flags.tracker
+    ? (['pulls', 'issues'] as const).map((list) => ({
+        label: LIST_TITLES[list],
+        icon: LIST_ICONS[list],
+        onClick: () => {
+          usePanelStore.getState().setListView(list);
+          void openProjectPage(project.path, 'pull-requests');
+        },
+      }))
+    : [];
   const overflow: ContextMenuEntry[] = [
     { label: 'New terminal', icon: 'terminal', onClick: () => void openShell(project.path) },
+    ...(config?.availableSandboxProviders ?? []).map(
+      (backend): ContextMenuItem => ({
+        label: `New ${SANDBOX_LABELS[backend].toLowerCase()} terminal`,
+        icon: 'terminal',
+        onClick: () => void openShell(project.path, backend),
+      }),
+    ),
     ...(ptyIds.length > 0
       ? [{ label: 'All terminals', icon: 'cards-three', onClick: () => showProject(project.path, ptyIds) }]
       : []),
     { separator: true },
+    ...trackerLists,
     ...overflowPages.map(
       (page): ContextMenuItem => ({
         label: PAGE_TITLES[page],
@@ -512,7 +535,10 @@ function ProjectGroup({ project }: { project: Project }) {
       }),
     ),
   ];
-  const openMenuAt = (x: number, y: number) => setMenu({ x, y });
+  const openMenuAt = (x: number, y: number) => {
+    if (!config) void loadProjectConfig(project.path);
+    setMenu({ x, y });
+  };
 
   return (
     <div
