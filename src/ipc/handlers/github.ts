@@ -3,6 +3,8 @@ import { typedHandle } from '../helpers';
 import {
   getAvailability,
   getInbox,
+  searchPullRequests,
+  searchIssues,
   getPullRequest,
   getPullRequestFreshness,
   getPullRequestFiles,
@@ -37,7 +39,8 @@ import {
  */
 export function registerGithubHandlers(): void {
   typedHandle('github:availability', (projectPath, recheck) => getAvailability(projectPath, recheck));
-  typedHandle('github:inbox', (projectPath) => getInbox(projectPath));
+  typedHandle('github:inbox', (projectPath, after) => getInbox(projectPath, after));
+  typedHandle('github:search-pull-requests', (projectPath, query) => searchPullRequests(projectPath, query));
   typedHandle('github:pull-request', (projectPath, number) => getPullRequest(projectPath, number));
   typedHandle('github:pull-request-freshness', (projectPath, number) => getPullRequestFreshness(projectPath, number));
   typedHandle('github:pull-request-files', (projectPath, number, baseSha, headSha) =>
@@ -53,7 +56,8 @@ export function registerGithubHandlers(): void {
   );
   typedHandle('github:user-repos', () => listUserRepos());
   typedHandle('github:resolve-repo', (ref) => resolveRepo(ref));
-  typedHandle('github:issues', (projectPath) => getIssues(projectPath));
+  typedHandle('github:issues', (projectPath, page) => getIssues(projectPath, page));
+  typedHandle('github:search-issues', (projectPath, query) => searchIssues(projectPath, query));
   typedHandle('github:issue', (projectPath, number) => getIssue(projectPath, number));
 
   typedHandle('github:link-task-issue', (projectPath, taskNumber, issueNumber) =>
@@ -64,7 +68,7 @@ export function registerGithubHandlers(): void {
 
   typedHandle('github:drafts', (projectPath, prNumber, head) => listDrafts(projectPath, prNumber, head));
   typedHandle('github:save-draft', (projectPath, input) => saveDraft(projectPath, input));
-  typedHandle('github:discard-draft', (_projectPath, draftId) => discardDraft(draftId));
+  typedHandle('github:discard-draft', (projectPath, draftId) => discardDraft(projectPath, draftId));
   typedHandle('github:submit-review', (projectPath, prNumber, event, body) =>
     submitPullRequestReview(projectPath, prNumber, event, body),
   );

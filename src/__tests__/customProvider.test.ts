@@ -39,7 +39,7 @@ describe('customProvider', () => {
     await setCustomSandboxConfig(ctx.projectPath, {});
     let status = await customProvider.getStatus(ctx.projectPath);
     expect(status).toMatchObject({ providerId: 'custom', available: false });
-    expect(status.detail).toMatch(/sandbox command/);
+    expect(status.detail).toMatch(/launcher/);
 
     await setCustomSandboxConfig(ctx.projectPath, { command: '  /opt/sb --strict  ' });
     status = await customProvider.getStatus(ctx.projectPath);

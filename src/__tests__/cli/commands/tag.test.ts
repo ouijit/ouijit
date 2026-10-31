@@ -1,90 +1,126 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
+import type { BrowserWindow } from 'electron';
+
 import { registerTagCommands } from '../../../cli/commands/tag';
+import { startHookServer, stopHookServer, getApiPort } from '../../../hookServer';
+import { issueToken, revokeAllTokens } from '../../../apiAuth';
+import { initCliPanels } from '../../../cliPanels';
+import type { CliTagOp, CliTagResponse } from '../../../types';
 
-import { get, post, put, del } from '../../../cli/api';
-
-vi.mock('../../../cli/api', () => ({
-  get: vi.fn(),
-  post: vi.fn(),
-  put: vi.fn(),
-  del: vi.fn(),
-  projectQuery: (p: string) => '?project=' + encodeURIComponent(p),
+const { ipcHandlers } = vi.hoisted(() => ({
+  ipcHandlers: new Map<string, (event: unknown, ...args: unknown[]) => unknown>(),
 }));
 
-function captureOutput() {
+vi.mock('electron', () => ({
+  app: { getPath: () => '/tmp/test', isReady: () => true, getLocale: () => 'en-US' },
+  ipcMain: {
+    handle: (channel: string, fn: (event: unknown, ...args: unknown[]) => unknown) => ipcHandlers.set(channel, fn),
+  },
+}));
+
+// Live PTYs need a spawned shell; these two stand in for open terminals.
+vi.mock('../../../ptyManager', () => ({
+  isPtyActive: (ptyId: string) => ptyId === 'pty-a' || ptyId === 'pty-b',
+  getPtyTaskContext: () => null,
+  pointingPty: (ptyId: string) => ptyId,
+}));
+
+/**
+ * The renderer end of the bridge: answers each `cli:tag-op` push on
+ * `cli-tags:respond`, as the window's listener does, with a tag at most once per terminal whatever its case.
+ */
+function fakeRendererWindow(): BrowserWindow {
+  const tags = new Map<string, string[]>([
+    ['pty-a', []],
+    ['pty-b', []],
+  ]);
+  const answer = (op: CliTagOp): CliTagResponse => {
+    if (op.action === 'list') {
+      const names = [...new Set([...tags.values()].flat())];
+      return {
+        ok: true,
+        listing: names.map((name) => ({
+          name,
+          terminals: [...tags]
+            .filter(([, t]) => t.includes(name))
+            .map(([ptyId]) => ({ ptyId, label: ptyId, projectPath: '/p' })),
+        })),
+      };
+    }
+    const current = tags.get(op.ptyId!) ?? [];
+    const has = (t: string) => t.toLowerCase() === op.tag?.toLowerCase();
+    if (op.action === 'add' && !current.some(has)) tags.set(op.ptyId!, [...current, op.tag!]);
+    if (op.action === 'remove')
+      tags.set(
+        op.ptyId!,
+        current.filter((t) => !has(t)),
+      );
+    if (op.action === 'clear') tags.set(op.ptyId!, []);
+    return { ok: true, tags: tags.get(op.ptyId!) };
+  };
+  return {
+    isDestroyed: () => false,
+    webContents: {
+      send: (channel: string, op: CliTagOp) => {
+        if (channel !== 'cli:tag-op') return;
+        setImmediate(() => ipcHandlers.get('cli-tags:respond')!({}, op.requestId, answer(op)));
+      },
+    },
+  } as unknown as BrowserWindow;
+}
+
+async function ouijit(...args: string[]): Promise<unknown> {
   const chunks: string[] = [];
   const spy = vi.spyOn(process.stdout, 'write').mockImplementation((data) => {
-    chunks.push(typeof data === 'string' ? data : data.toString());
+    chunks.push(String(data));
     return true;
   });
-  return {
-    spy,
-    getJson: () => {
-      spy.mockRestore();
-      return JSON.parse(chunks.join(''));
-    },
-  };
-}
-
-const PROJECT = '/test/project';
-
-function createProgram() {
   const program = new Command();
   program.exitOverride();
-  registerTagCommands(program, () => PROJECT);
-  return program;
+  registerTagCommands(program);
+  try {
+    await program.parseAsync(['tag', ...args], { from: 'user' });
+  } finally {
+    spy.mockRestore();
+  }
+  return JSON.parse(chunks.join(''));
 }
 
-describe('tag commands', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+beforeEach(async () => {
+  revokeAllTokens();
+  const window = fakeRendererWindow();
+  initCliPanels(window);
+  await startHookServer(window);
+  vi.stubEnv('OUIJIT_API_URL', `http://127.0.0.1:${getApiPort()}`);
+  vi.stubEnv('OUIJIT_API_TOKEN', issueToken('pty-a', 'host'));
+  vi.stubEnv('OUIJIT_PTY_ID', 'pty-a');
+});
 
-  test('list calls GET /api/tags', async () => {
-    vi.mocked(get).mockResolvedValue([]);
-    const output = captureOutput();
-    await createProgram().parseAsync(['tag', 'list'], { from: 'user' });
-    const result = output.getJson();
-    expect(get).toHaveBeenCalledWith('/api/tags');
-    expect(result).toEqual([]);
-  });
+afterEach(async () => {
+  vi.unstubAllEnvs();
+  await stopHookServer();
+});
 
-  test('list --task calls GET /api/tasks/:number/tags', async () => {
-    vi.mocked(get).mockResolvedValue([{ name: 'bug' }]);
-    const output = captureOutput();
-    await createProgram().parseAsync(['tag', 'list', '--task', '1'], { from: 'user' });
-    const result = output.getJson();
-    expect(get).toHaveBeenCalledWith(`/api/tasks/1/tags?project=${encodeURIComponent(PROJECT)}`);
-    expect(result).toEqual([{ name: 'bug' }]);
-  });
+describe('ouijit tag', () => {
+  test('adds, reads, removes and clears tags on the terminal it runs in, or on one it names', async () => {
+    expect(await ouijit('get')).toEqual({ ptyId: 'pty-a', tags: [] });
+    expect(await ouijit('add', 'review')).toEqual({ ptyId: 'pty-a', tags: ['review'] });
+    expect(await ouijit('add', 'needs/design')).toEqual({ ptyId: 'pty-a', tags: ['review', 'needs/design'] });
+    expect(await ouijit('add', 'review', 'pty-b')).toEqual({ ptyId: 'pty-b', tags: ['review'] });
+    expect(await ouijit('get')).toEqual({ ptyId: 'pty-a', tags: ['review', 'needs/design'] });
 
-  test('add calls POST /api/tasks/:number/tags', async () => {
-    vi.mocked(post).mockResolvedValue({ name: 'urgent' });
-    const output = captureOutput();
-    await createProgram().parseAsync(['tag', 'add', '1', 'urgent'], { from: 'user' });
-    const result = output.getJson();
-    expect(post).toHaveBeenCalledWith(`/api/tasks/1/tags?project=${encodeURIComponent(PROJECT)}`, { name: 'urgent' });
-    expect(result.name).toBe('urgent');
-  });
+    expect(await ouijit('list')).toEqual([
+      {
+        name: 'review',
+        terminals: [expect.objectContaining({ ptyId: 'pty-a' }), expect.objectContaining({ ptyId: 'pty-b' })],
+      },
+      { name: 'needs/design', terminals: [expect.objectContaining({ ptyId: 'pty-a' })] },
+    ]);
 
-  test('remove calls DELETE /api/tasks/:number/tags/:name', async () => {
-    vi.mocked(del).mockResolvedValue(undefined);
-    const output = captureOutput();
-    await createProgram().parseAsync(['tag', 'remove', '1', 'temp'], { from: 'user' });
-    const result = output.getJson();
-    expect(del).toHaveBeenCalledWith(`/api/tasks/1/tags/temp?project=${encodeURIComponent(PROJECT)}`);
-    expect(result.success).toBe(true);
-  });
-
-  test('set calls PUT /api/tasks/:number/tags', async () => {
-    vi.mocked(put).mockResolvedValue([{ name: 'alpha' }, { name: 'beta' }]);
-    const output = captureOutput();
-    await createProgram().parseAsync(['tag', 'set', '1', 'alpha', 'beta'], { from: 'user' });
-    const result = output.getJson();
-    expect(put).toHaveBeenCalledWith(`/api/tasks/1/tags?project=${encodeURIComponent(PROJECT)}`, {
-      tags: ['alpha', 'beta'],
-    });
-    expect(result).toHaveLength(2);
+    expect(await ouijit('remove', 'needs/design')).toEqual({ ptyId: 'pty-a', tags: ['review'] });
+    expect(await ouijit('clear', 'pty-b')).toEqual({ ptyId: 'pty-b', tags: [] });
+    expect(await ouijit('clear')).toEqual({ ptyId: 'pty-a', tags: [] });
+    await expect(ouijit('get', 'pty-gone')).rejects.toThrow(/not found/);
   });
 });

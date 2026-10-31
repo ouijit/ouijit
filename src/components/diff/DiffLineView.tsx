@@ -75,6 +75,7 @@ export const DiffLineView = memo(function DiffLineView({
   return (
     <div
       className={`relative flex font-mono text-sm leading-normal ${selected ? 'bg-accent/[0.14]' : lineBg}`}
+      data-new-line={line.newLineNo ?? undefined}
       onMouseEnter={onHover && index != null ? () => onHover(index) : undefined}
     >
       <span className={`flex shrink-0 select-none sticky left-0 z-[1] ${gutterBg} border-r border-ink/[0.07]`}>

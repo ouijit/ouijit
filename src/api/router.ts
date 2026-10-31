@@ -7,6 +7,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { BrowserWindow } from 'electron';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createTodoTask, createTaskWorktree } from '../worktree';
 import {
@@ -16,16 +17,13 @@ import {
   getHooks,
   saveHook,
   deleteHook,
-  getAllTags,
-  getTaskTags,
-  addTagToTask,
-  removeTagFromTask,
-  setTaskTags,
   getScripts,
   saveScript,
   deleteScript,
   getTaskByNumber,
   getGlobalSetting,
+  getReviewDraft,
+  findLinearDraft,
   setGlobalSetting,
 } from '../db';
 import {
@@ -41,7 +39,7 @@ import { PRESET_THEMES, withPresets, selectionOrphanedByDelete } from '../theme/
 import {
   beginTask,
   setTaskStatusWithHooks,
-  deleteTaskWithWorktree,
+  trashTaskWithWorktree,
   getTasksWithWorkspaces,
   getTaskWithWorkspace,
 } from '../taskLifecycle';
@@ -67,14 +65,46 @@ import {
   resolveIssueId as resolveLinearIssueId,
 } from '../linear/service';
 import { getProjectList } from '../projectList';
+import { shellJoin } from '../utils/shellQuote';
+import { fileItRuns } from '../askFile';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
-import { cliPanelRequest } from '../cliPanels';
-import { isPtyActive, getPtyTaskContext } from '../ptyManager';
+import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
+import { cliPanelRequest, cliPointRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
+import {
+  isPtyActive,
+  getPtyTaskContext,
+  getActiveSessions,
+  getPtySpawnContext,
+  pointingPty,
+  type ActiveSession,
+} from '../ptyManager';
+import { getHookStatus } from '../hookServer';
+import { liveNotes } from '../diffNotesService';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
-import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
-import type { CliHookControl, CliPanelKind, SandboxProviderId } from '../types';
-import { SANDBOXABLE_HOOK_TYPES, SANDBOX_PROVIDER_IDS, isActiveSandbox, isSandboxProviderId } from '../sandbox/types';
+import { authenticateRequest, type AuthContext } from '../apiAuth';
+import type {
+  AskRun,
+  CliHookControl,
+  CliPanelKind,
+  CliTagOp,
+  CliTagResponse,
+  CliTerminalOp,
+  CliTerminalResponse,
+  CliPointOp,
+  CliCaller,
+  PointTarget,
+  SandboxCliAccess,
+  SandboxProviderId,
+} from '../types';
+import {
+  SANDBOXABLE_HOOK_TYPES,
+  SANDBOX_PROVIDER_IDS,
+  isActiveSandbox,
+  isSandboxBackendId,
+  isSandboxProviderId,
+} from '../sandbox/types';
+import { sandboxCliAccessFor } from '../sandbox/cliAccess';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
@@ -90,6 +120,7 @@ interface ParsedRequest {
   query: URLSearchParams;
   body: Record<string, unknown>;
   auth: AuthContext;
+  window: BrowserWindow;
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -182,6 +213,112 @@ function parseHookMode(body: Record<string, unknown>): Omit<CliHookControl, 'hoo
   return { hookMode: mode };
 }
 
+/** A pointer's label, not a place to write: longer than a line or two is cut. */
+const MAX_POINT_MESSAGE = 200;
+
+function cliCaller(auth: AuthContext, body: Record<string, unknown>): CliCaller {
+  return {
+    fromPtyId: pointingPty(auth.ptyId),
+    ...(body.point === true && { point: true }),
+    ...(auth.scope === 'sandbox' && { fromSandbox: true }),
+  };
+}
+
+/** A path's real location, through any symlink, for as much of it as exists. */
+function realLocation(p: string): string {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    const parent = path.dirname(p);
+    return parent === p ? p : path.join(realLocation(parent), path.basename(p));
+  }
+}
+
+/**
+ * The diff names files by their path in the worktree. The CLI sends an
+ * absolute one, resolved from its shell's directory, which may have come
+ * through a symlink the registered worktree path did not (macOS's /var).
+ */
+function pathInWorktree(ptyId: string, file: string): string {
+  return worktreeRelative(ptyId, file) ?? file;
+}
+
+/** `file` relative to the terminal's worktree, or null when it lies outside it. */
+function worktreeRelative(ptyId: string, file: string): string | null {
+  const ctx = getPtySpawnContext(ptyId);
+  const root = ctx?.worktreePath || ctx?.projectPath;
+  if (!root || !path.isAbsolute(file)) return null;
+  const relative = path.relative(realLocation(root), realLocation(file));
+  return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : null;
+}
+
+/** The target of `ouijit point`, from its body. The project ones take `?project=`; the rest name a terminal. */
+function pointTarget(r: ParsedRequest): PointTarget {
+  const { body } = r;
+  const ptyId = typeof body.ptyId === 'string' && body.ptyId ? body.ptyId : r.auth.ptyId;
+  switch (body.kind) {
+    case 'task':
+      return {
+        kind: 'task',
+        projectPath: requireProject(r.query),
+        taskNumber: requireInt(String(body.taskNumber), 'Task number'),
+      };
+    case 'terminal':
+      if (typeof body.ptyId !== 'string' || !body.ptyId) throw new HttpError(400, 'Missing ptyId');
+      return { kind: 'terminal', ptyId: body.ptyId };
+    case 'project':
+    case 'board':
+      return { kind: body.kind, projectPath: requireProject(r.query) };
+    case 'pr':
+      return {
+        kind: 'pr',
+        projectPath: requireProject(r.query),
+        number: requireInt(String(body.number), 'Pull request number'),
+      };
+    case 'issue':
+      if (typeof body.id !== 'string' || !body.id) throw new HttpError(400, 'Missing issue');
+      return { kind: 'issue', projectPath: requireProject(r.query), id: body.id };
+    case 'panel':
+      if (typeof body.panelId !== 'string' || !body.panelId) throw new HttpError(400, 'Missing panel id');
+      return { kind: 'panel', ptyId, panelId: body.panelId };
+    case 'diff': {
+      if (typeof body.path !== 'string' || !body.path) throw new HttpError(400, 'Missing path');
+      const line = body.line === undefined ? undefined : requireInt(String(body.line), 'Line');
+      return { kind: 'diff', ptyId, path: pathInWorktree(ptyId, body.path), ...(line !== undefined && { line }) };
+    }
+    default:
+      throw new HttpError(400, `Unknown target '${String(body.kind)}'`);
+  }
+}
+
+async function runPointOp(
+  op: Omit<CliPointOp, 'requestId'>,
+): Promise<{ target?: PointTarget; message?: string; cleared?: boolean }> {
+  const result = await cliPointRequest(op);
+  if (!result.ok) throw new HttpError(404, result.error ?? 'Point failed');
+  if (op.action === 'clear') return { cleared: true };
+  return { target: result.target, ...(op.message && { message: op.message }) };
+}
+
+async function askRun(r: ParsedRequest): Promise<AskRun> {
+  const ctx = getPtySpawnContext(r.auth.ptyId);
+  if (!ctx) throw new HttpError(404, `PTY ${r.auth.ptyId} not found or inactive`);
+  const cwd = ctx.worktreePath || ctx.projectPath;
+  const wait = r.body.wait === true;
+  const { script, argv } = r.body;
+  if (typeof script === 'string' && script) {
+    const scripts = await getScripts(ctx.projectPath);
+    const named = scripts.find((s) => s.id === script) ?? scripts.find((s) => s.name === script);
+    if (!named) throw new HttpError(404, `No script named ${script}`);
+    return { command: named.command, scriptName: named.name, cwd, ...fileItRuns(named.command, cwd), wait };
+  }
+  if (!Array.isArray(argv) || argv.length === 0 || !argv.every((a) => typeof a === 'string')) {
+    throw new HttpError(400, 'Ask to run a script by name, or a command after --');
+  }
+  const command = shellJoin(argv as string[]);
+  return { command, cwd, ...fileItRuns(command, cwd), wait };
+}
+
 async function readCustomThemes(): Promise<CustomTheme[]> {
   return parseCustomThemes(await getGlobalSetting(CUSTOM_THEMES_KEY));
 }
@@ -213,12 +350,27 @@ interface Route {
   pattern: string[];
   handler: RouteHandler;
   mutating: boolean;
-  /**
-   * Minimum scope required to hit this route. Defaults to 'host' so
-   * sandbox-scoped callers cannot hit privileged endpoints by default.
-   */
-  minScope: ApiScope;
+  sandbox?: SandboxRule;
 }
+
+/**
+ * Who in a sandbox may call a route; without one, only the host may. `level`
+ * is the project's Ouijit CLI access it needs. `owns` is what the request must
+ * name of the caller's own: its terminal, which at "Its own task" widens to
+ * every sandboxed terminal on its task, or its task, by `:number` or
+ * `taskNumber`. Any `?project=` must be the caller's own project.
+ *
+ * A route with a rule never lets the caller choose what runs on the host, and
+ * anything it runs stays in the sandbox — keep it that way when changing one.
+ */
+interface SandboxRule {
+  level: 'read' | 'task';
+  owns?: 'terminal' | 'task';
+}
+
+const READ: SandboxRule = { level: 'read' };
+const OWN_TERMINAL: SandboxRule = { level: 'read', owns: 'terminal' };
+const OWN_TASK: SandboxRule = { level: 'task', owns: 'task' };
 
 function matchRoute(
   routes: Route[],
@@ -245,14 +397,8 @@ function matchRoute(
 
 // ── Routes ───────────────────────────────────────────────────────────
 
-function route(
-  method: string,
-  pattern: string,
-  handler: RouteHandler,
-  mutating = false,
-  minScope: ApiScope = 'host',
-): Route {
-  return { method, pattern: pattern.split('/').filter(Boolean), handler, mutating, minScope };
+function route(method: string, pattern: string, handler: RouteHandler, mutating = false, sandbox?: SandboxRule): Route {
+  return { method, pattern: pattern.split('/').filter(Boolean), handler, mutating, sandbox };
 }
 
 // ── Pull request helpers ─────────────────────────────────────────────
@@ -266,6 +412,13 @@ function issueId(r: ParsedRequest): string {
   const id = r.segments[2];
   if (!id) throw new HttpError(400, 'Missing issue identifier');
   return id;
+}
+
+/** A sandbox edits and discards the drafts a sandbox wrote, never the user's. */
+function guardSandboxDraft(r: ParsedRequest, draft: { origin: string } | undefined): void {
+  if (r.auth.scope === 'sandbox' && draft && draft.origin !== 'sandbox') {
+    throw new HttpError(403, "A sandboxed terminal cannot change the user's own drafts");
+  }
 }
 
 /**
@@ -301,8 +454,8 @@ function draftInput(body: Record<string, unknown>): {
 // ── Panel route helpers ──────────────────────────────────────────────
 
 function parsePanelKind(segment: string): CliPanelKind {
-  if (segment === 'markdown' || segment === 'preview') return segment;
-  throw new HttpError(404, `Unknown panel kind '${segment}' (expected 'markdown' or 'preview')`);
+  if (segment === 'markdown' || segment === 'preview' || segment === 'runner') return segment;
+  throw new HttpError(404, `Unknown panel kind '${segment}' (expected 'markdown', 'preview' or 'runner')`);
 }
 
 /**
@@ -310,7 +463,11 @@ function parsePanelKind(segment: string): CliPanelKind {
  * paths are resolved to absolute so a removal matches the path a prior add
  * stored. Returns undefined for list ops (no target).
  */
-function panelValue(kind: CliPanelKind, rawPath?: unknown, rawUrl?: unknown): string {
+function panelValue(kind: CliPanelKind, rawPath?: unknown, rawUrl?: unknown, rawScript?: unknown): string {
+  if (kind === 'runner') {
+    if (typeof rawScript !== 'string' || !rawScript) throw new HttpError(400, 'Missing script');
+    return rawScript;
+  }
   if (kind === 'markdown') {
     if (typeof rawPath !== 'string' || !rawPath) throw new HttpError(400, 'Missing path');
     if (!rawPath.endsWith('.md')) throw new HttpError(400, 'Markdown path must be a .md file');
@@ -329,6 +486,19 @@ function panelValue(kind: CliPanelKind, rawPath?: unknown, rawUrl?: unknown): st
   return rawUrl;
 }
 
+function readLines(query: URLSearchParams): number | undefined {
+  const lines = query.get('lines');
+  return lines === null ? undefined : Math.max(1, requireInt(lines, 'lines'));
+}
+
+/** Of the panels a sandbox may add or remove, only markdown: see the panel routes. */
+function sandboxPanelKind(r: ParsedRequest, kind: CliPanelKind): CliPanelKind {
+  if (r.auth.scope === 'sandbox' && kind !== 'markdown') {
+    throw new HttpError(403, `A sandboxed terminal cannot add or remove a ${kind} panel`);
+  }
+  return kind;
+}
+
 /** Forward a panel op to the renderer (via the CLI panel bridge) and shape the reply. */
 async function runPanelOp(
   ptyId: string,
@@ -340,6 +510,50 @@ async function runPanelOp(
   const result = await cliPanelRequest({ ptyId, action, kind, value });
   if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
   return { ptyId, kind, panels: result.panels ?? [] };
+}
+
+/** A panel op that spans every kind, or the diff, which is not a panel. */
+async function runTerminalPanelsOp(
+  ptyId: string,
+  action: 'list-all' | 'focus' | 'diff-open' | 'diff-close',
+  value?: string,
+): Promise<{ ptyId: string; panels: unknown; diffOpen: boolean }> {
+  if (!isPtyActive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
+  const result = await cliPanelRequest({ ptyId, action, value });
+  if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
+  return { ptyId, panels: result.panels ?? [], diffOpen: result.diffOpen ?? false };
+}
+
+async function runTerminalOp(op: Omit<CliTerminalOp, 'requestId'>): Promise<CliTerminalResponse> {
+  if (op.ptyId && !isPtyActive(op.ptyId)) throw new HttpError(404, `PTY ${op.ptyId} not found or inactive`);
+  const result = await cliTerminalRequest(op);
+  if (!result.ok) throw new HttpError(op.action === 'paste' ? 400 : 404, result.error ?? 'Terminal operation failed');
+  return result;
+}
+
+function describeTerminal(session: ActiveSession) {
+  return {
+    ptyId: session.ptyId,
+    label: session.label,
+    projectPath: session.projectPath,
+    taskNumber: session.taskId ?? null,
+    worktreePath: session.worktreePath ?? null,
+    sandbox: session.sandboxProvider ?? 'none',
+    agentStatus: getHookStatus(session.ptyId)?.status ?? null,
+  };
+}
+
+/** Forward a tag op to the renderer, where a terminal's tags live. */
+async function runTagOp(op: Omit<CliTagOp, 'requestId'>): Promise<CliTagResponse> {
+  if (op.ptyId && !isPtyActive(op.ptyId)) throw new HttpError(404, `PTY ${op.ptyId} not found or inactive`);
+  const result = await cliTagRequest(op);
+  if (!result.ok) throw new HttpError(404, result.error ?? 'Tag operation failed');
+  return result;
+}
+
+async function terminalTags(op: Omit<CliTagOp, 'requestId'>): Promise<{ ptyId: string; tags: string[] }> {
+  const { tags } = await runTagOp(op);
+  return { ptyId: op.ptyId!, tags: tags ?? [] };
 }
 
 const routes: Route[] = [
@@ -363,9 +577,7 @@ const routes: Route[] = [
       return task;
     },
     false,
-    // Read-only, resolved from the caller's own PTY, so a sandboxed agent can
-    // read its own current task without host scope.
-    'sandbox',
+    READ,
   ),
 
   route(
@@ -373,18 +585,10 @@ const routes: Route[] = [
     'tasks/:number',
     (r) => {
       const project = requireProject(r.query);
-      const num = requireInt(r.segments[1], 'Task number');
-      // A sandboxed session may read only its own task, never an arbitrary one.
-      if (r.auth.scope === 'sandbox') {
-        const ctx = getPtyTaskContext(r.auth.ptyId);
-        if (!ctx || ctx.projectPath !== project || ctx.taskId !== num) {
-          throw new HttpError(403, 'Sandboxed sessions may only read their own task');
-        }
-      }
-      return getTaskWithWorkspace(project, num);
+      return getTaskWithWorkspace(project, requireInt(r.segments[1], 'Task number'));
     },
     false,
-    'sandbox',
+    { level: 'read', owns: 'task' },
   ),
 
   route(
@@ -395,6 +599,8 @@ const routes: Route[] = [
       return createTodoTask(project, r.body.name as string | undefined, r.body.prompt as string | undefined);
     },
     true,
+    // A to-do card only: starting one runs the start hook, and that route stays the host's.
+    { level: 'task' },
   ),
 
   route(
@@ -436,6 +642,9 @@ const routes: Route[] = [
       const num = requireInt(r.segments[1], 'Task number');
       const status = r.body.status;
       if (typeof status !== 'string') throw new HttpError(400, 'Missing status in body');
+      if (r.auth.scope === 'sandbox' && (r.body.hookMode === 'command' || r.body.hookSandbox !== undefined)) {
+        throw new HttpError(403, 'A sandboxed terminal runs the hook as configured, or none');
+      }
       // in_progress / in_review / done all fire a renderer-side hook and carry
       // the same hook-control flags as task-start. Validate them up front so a
       // bad hookMode fails before any status is written.
@@ -443,6 +652,7 @@ const routes: Route[] = [
       return setTaskStatusWithHooks(project, num, status as 'todo' | 'in_progress' | 'in_review' | 'done');
     },
     true,
+    OWN_TASK,
   ),
 
   route(
@@ -455,6 +665,7 @@ const routes: Route[] = [
       return setTaskName(project, num, r.body.name);
     },
     true,
+    OWN_TASK,
   ),
 
   route(
@@ -467,6 +678,7 @@ const routes: Route[] = [
       return setTaskDescription(project, num, r.body.description);
     },
     true,
+    OWN_TASK,
   ),
 
   route(
@@ -487,7 +699,7 @@ const routes: Route[] = [
     (r) => {
       const project = requireProject(r.query);
       const num = requireInt(r.segments[1], 'Task number');
-      return deleteTaskWithWorktree(project, num);
+      return trashTaskWithWorktree(project, num);
     },
     true,
   ),
@@ -527,6 +739,31 @@ const routes: Route[] = [
   // a sandbox token must never reach it.
   route('GET', 'sandbox/command', (r) => getCustomSandboxConfig(requireProject(r.query))),
 
+  route('POST', 'sandbox/wrap', (r) => {
+    const { argv, cwd, backend } = r.body;
+    if (!Array.isArray(argv) || argv.length === 0 || !argv.every((a) => typeof a === 'string')) {
+      throw new HttpError(400, 'argv must be a non-empty array of strings');
+    }
+    if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) throw new HttpError(400, 'cwd must be an absolute path');
+    if (backend !== undefined && !isSandboxBackendId(backend))
+      throw new HttpError(400, `Invalid backend: ${String(backend)}`);
+    return wrapCommand(
+      r.window,
+      r.auth.ptyId,
+      isSandboxBackendId(backend) ? backend : 'nono',
+      argv as string[],
+      cwd,
+    ).catch((error: unknown) => {
+      throw new HttpError(409, error instanceof Error ? error.message : String(error));
+    });
+  }),
+
+  route('POST', 'sandbox/release', (r) => {
+    if (typeof r.body.token !== 'string') throw new HttpError(400, 'Missing token');
+    releaseCommand(r.window, r.auth.ptyId, r.body.token);
+    return { success: true };
+  }),
+
   route(
     'PUT',
     'sandbox/command',
@@ -543,51 +780,174 @@ const routes: Route[] = [
 
   route('DELETE', 'sandbox/command', (r) => setCustomSandboxConfig(requireProject(r.query), {}), true),
 
-  // ── Tags ─────────────────────────────────────────────────────────
-  route('GET', 'tags', () => {
-    return getAllTags();
-  }),
-
-  route('GET', 'tasks/:number/tags', (r) => {
-    const project = requireProject(r.query);
-    const num = requireInt(r.segments[1], 'Task number');
-    return getTaskTags(project, num);
-  }),
-
-  route(
-    'POST',
-    'tasks/:number/tags',
-    (r) => {
-      const project = requireProject(r.query);
-      const num = requireInt(r.segments[1], 'Task number');
-      if (typeof r.body.name !== 'string') throw new HttpError(400, 'Missing name in body');
-      return addTagToTask(project, num, r.body.name);
-    },
-    true,
+  // ── Terminals ────────────────────────────────────────────────────
+  route('GET', 'terminals', () =>
+    getActiveSessions()
+      .filter((session) => !session.isRunner)
+      .map(describeTerminal),
   ),
 
   route(
-    'PUT',
-    'tasks/:number/tags',
-    (r) => {
-      const project = requireProject(r.query);
-      const num = requireInt(r.segments[1], 'Task number');
-      if (!Array.isArray(r.body.tags)) throw new HttpError(400, 'Missing tags array in body');
-      return setTaskTags(project, num, r.body.tags as string[]);
+    'POST',
+    'terminals',
+    async (r) => {
+      const projectPath = requireProject(r.query);
+      const taskNumber = r.body.task === undefined ? undefined : requireInt(String(r.body.task), 'Task number');
+      const sandbox = parseSandbox(r.body.sandbox, 'sandbox');
+      const { ptyId } = await runTerminalOp({
+        action: 'open',
+        projectPath,
+        taskNumber,
+        resume: r.body.resume === true,
+        sandbox,
+      });
+      const session = getActiveSessions().find((s) => s.ptyId === ptyId);
+      if (!session) throw new HttpError(404, 'The terminal did not open');
+      return describeTerminal(session);
     },
     true,
   ),
 
   route(
     'DELETE',
-    'tasks/:number/tags/:name',
-    (r) => {
-      const project = requireProject(r.query);
-      const num = requireInt(r.segments[1], 'Task number');
-      const tagName = decodeURIComponent(r.segments[3]);
-      return removeTagFromTask(project, num, tagName);
+    'terminals/:ptyId',
+    async (r) => {
+      await runTerminalOp({ action: 'close', ptyId: r.segments[1] });
+      return { ptyId: r.segments[1], closed: true };
     },
     true,
+  ),
+
+  route(
+    'GET',
+    'terminals/:ptyId/screen',
+    async (r) => {
+      const { text, alternateScreen } = await runTerminalOp({
+        action: 'read',
+        ptyId: r.segments[1],
+        lines: readLines(r.query),
+      });
+      return { ptyId: r.segments[1], text: text ?? '', alternateScreen: alternateScreen ?? false };
+    },
+    false,
+    OWN_TERMINAL,
+  ),
+
+  route(
+    'POST',
+    'terminals/:ptyId/paste',
+    async (r) => {
+      if (typeof r.body.text !== 'string' || !r.body.text) throw new HttpError(400, 'Missing text');
+      await runTerminalOp({ action: 'paste', ptyId: r.segments[1], text: r.body.text });
+      return { ptyId: r.segments[1], pasted: true };
+    },
+    true,
+  ),
+
+  route('POST', 'terminals/:ptyId/diff', (r) => runTerminalPanelsOp(r.segments[1], 'diff-open'), true),
+  route('DELETE', 'terminals/:ptyId/diff', (r) => runTerminalPanelsOp(r.segments[1], 'diff-close'), true),
+
+  // ── Pointers ─────────────────────────────────────────────────────
+  // A pointer only suggests where the user might look, and it is the caller's own.
+  route(
+    'POST',
+    'point',
+    (r) => {
+      const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_POINT_MESSAGE) : '';
+      const said = message ? { message } : {};
+      if (r.body.kind === 'note') {
+        if (typeof r.body.noteId !== 'string' || !r.body.noteId) throw new HttpError(400, 'Missing note id');
+        return runPointOp({ fromPtyId: pointingPty(r.auth.ptyId), action: 'note', noteId: r.body.noteId, ...said });
+      }
+      return runPointOp({ fromPtyId: pointingPty(r.auth.ptyId), action: 'point', target: pointTarget(r), ...said });
+    },
+    false,
+    READ,
+  ),
+
+  route('DELETE', 'point', (r) => runPointOp({ fromPtyId: pointingPty(r.auth.ptyId), action: 'clear' }), false, READ),
+
+  // ── Asking the user ──────────────────────────────────────────────
+  // Reachable at the lowest CLI access because the caller chooses nothing that
+  // runs: the user reads the command and presses Run, or nothing happens.
+  route(
+    'POST',
+    'ask/run',
+    async (r) => {
+      const ask = await askRun(r);
+      const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_POINT_MESSAGE) : '';
+      const result = await cliPointRequest({
+        fromPtyId: pointingPty(r.auth.ptyId),
+        action: 'ask',
+        ask,
+        ...(message && { message }),
+      });
+      if (!result.ok) throw new HttpError(404, result.error ?? 'Ask failed');
+      return { command: ask.command, cwd: ask.cwd, ...result.answer };
+    },
+    false,
+    READ,
+  ),
+
+  // ── Diff notes ───────────────────────────────────────────────────
+  route(
+    'GET',
+    'diff-notes',
+    (r) => {
+      const ctx = getPtySpawnContext(r.auth.ptyId);
+      if (!ctx) throw new HttpError(404, `PTY ${r.auth.ptyId} not found or inactive`);
+      return liveNotes(ctx.worktreePath || ctx.projectPath);
+    },
+    false,
+    READ,
+  ),
+
+  route('GET', 'tasks/:number/diff-notes', async (r) => {
+    const project = requireProject(r.query);
+    const num = requireInt(r.segments[1], 'Task number');
+    const task = await getTaskWithWorkspace(project, num);
+    if (!task) throw new HttpError(404, `Task ${num} not found`);
+    if (!task.worktreePath) throw new HttpError(404, `Task ${num} has no worktree`);
+    return liveNotes(task.worktreePath);
+  }),
+
+  // ── Tags ─────────────────────────────────────────────────────────
+  route('GET', 'tags', async () => (await runTagOp({ action: 'list' })).listing ?? []),
+
+  route(
+    'GET',
+    'terminals/:ptyId/tags',
+    (r) => terminalTags({ action: 'get', ptyId: r.segments[1] }),
+    false,
+    OWN_TERMINAL,
+  ),
+
+  route(
+    'POST',
+    'terminals/:ptyId/tags',
+    (r) => {
+      const tag = typeof r.body.tag === 'string' ? r.body.tag.trim() : '';
+      if (!tag) throw new HttpError(400, 'Missing tag in body');
+      return terminalTags({ action: 'add', ptyId: r.segments[1], tag });
+    },
+    true,
+    OWN_TERMINAL,
+  ),
+
+  route(
+    'DELETE',
+    'terminals/:ptyId/tags/:tag',
+    (r) => terminalTags({ action: 'remove', ptyId: r.segments[1], tag: decodeURIComponent(r.segments[3]) }),
+    true,
+    OWN_TERMINAL,
+  ),
+
+  route(
+    'DELETE',
+    'terminals/:ptyId/tags',
+    (r) => terminalTags({ action: 'clear', ptyId: r.segments[1] }),
+    true,
+    OWN_TERMINAL,
   ),
 
   // ── Projects ─────────────────────────────────────────────────────
@@ -694,22 +1054,28 @@ const routes: Route[] = [
   ),
 
   // ── Pull requests ─────────────────────────────────────────────────
-  // Host-only (default scope): these shell out to `gh` on the host with the
-  // user's credentials, which a sandboxed session must not be able to reach.
-  route('GET', 'pulls', async (r) => {
-    const project = requireProject(r.query);
-    const availability = await getGithubAvailability(project);
-    if (!availability.available) {
-      throw new HttpError(400, availability.message ?? 'GitHub is not enabled for this project');
-    }
-    return getGithubInbox(project);
-  }),
+  // Reads shell out to `gh` with the user's credentials, which stay in this
+  // process: what crosses is pull requests, as Linear's issues do below.
+  route(
+    'GET',
+    'pulls',
+    async (r) => {
+      const project = requireProject(r.query);
+      const availability = await getGithubAvailability(project);
+      if (!availability.available) {
+        throw new HttpError(400, availability.message ?? 'GitHub is not enabled for this project');
+      }
+      return getGithubInbox(project);
+    },
+    false,
+    READ,
+  ),
 
-  route('GET', 'pulls/:number', (r) => getGithubPullRequest(requireProject(r.query), prNumber(r))),
+  route('GET', 'pulls/:pr', (r) => getGithubPullRequest(requireProject(r.query), prNumber(r)), false, READ),
 
   route(
     'POST',
-    'pulls/:number/link',
+    'pulls/:pr/link',
     async (r) => {
       const project = requireProject(r.query);
       const num = prNumber(r);
@@ -720,24 +1086,21 @@ const routes: Route[] = [
       return { success: true, taskNumber, prNumber: num };
     },
     true,
+    OWN_TASK,
   ),
 
   // ── Review drafts ─────────────────────────────────────────────────
-  // Deliberately reachable from a sandbox, unlike their neighbours above. The
-  // host-only rule there is about shelling out to `gh` with the user's
-  // credentials; these touch one local table and shell out to nothing. Locking
-  // them to the host would stop an agent running in a sandbox — the safest way
-  // to run one — from writing a draft at all.
-  //
-  // A sandboxed caller cannot name itself: the origin is stamped here, so a
-  // draft's provenance cannot be forged by the thing that wrote it.
-  route('GET', 'pulls/:number/drafts', (r) => listDrafts(requireProject(r.query), prNumber(r)), false, 'sandbox'),
+  // Local rows that a person sends. A sandboxed caller cannot name itself: the
+  // origin is stamped here, so a draft's provenance cannot be forged by the
+  // thing that wrote it.
+  route('GET', 'pulls/:pr/drafts', (r) => listDrafts(requireProject(r.query), prNumber(r)), false, READ),
 
   route(
     'POST',
-    'pulls/:number/drafts',
+    'pulls/:pr/drafts',
     async (r) => {
       const project = requireProject(r.query);
+      if (typeof r.body.id === 'string') guardSandboxDraft(r, await getReviewDraft(r.body.id));
       const draft = await saveDraft(project, {
         ...draftInput(r.body),
         prNumber: prNumber(r),
@@ -746,28 +1109,29 @@ const routes: Route[] = [
       return draft;
     },
     true,
-    'sandbox',
+    READ,
   ),
 
   route(
     'DELETE',
-    'pulls/:number/drafts/:id',
-    (r) => {
+    'pulls/:pr/drafts/:id',
+    async (r) => {
       const id = r.segments[3];
       if (!id) throw new HttpError(400, 'Missing draft id');
-      return discardDraft(id);
+      const project = requireProject(r.query);
+      guardSandboxDraft(r, await getReviewDraft(id));
+      const result = await discardDraft(project, id, prNumber(r));
+      if (!result.success) throw new HttpError(404, `No draft ${id} on pull request ${prNumber(r)}`);
+      return result;
     },
     true,
-    'sandbox',
+    READ,
   ),
 
   // ── Lens ─────────────────────────────────────────────────────
-  // Sandbox-reachable, like drafts: this is where an agent that has read the
-  // diff writes down what it found, and it touches one local table and no
-  // credentials.
   route(
     'GET',
-    'pulls/:number/lens',
+    'pulls/:pr/lens',
     async (r) => {
       const project = requireProject(r.query);
       const headSha = r.query.get('headSha');
@@ -775,12 +1139,12 @@ const routes: Route[] = [
       return getPullRequestLens(project, prNumber(r), headSha);
     },
     false,
-    'sandbox',
+    READ,
   ),
 
   route(
     'PUT',
-    'pulls/:number/lens',
+    'pulls/:pr/lens',
     async (r) => {
       const project = requireProject(r.query);
       const headSha = r.body.headSha;
@@ -791,24 +1155,24 @@ const routes: Route[] = [
       return result;
     },
     true,
-    'sandbox',
+    READ,
   ),
 
   route(
     'DELETE',
-    'pulls/:number/lens',
+    'pulls/:pr/lens',
     async (r) => clearPullRequestLens(requireProject(r.query), prNumber(r)),
     true,
-    'sandbox',
+    READ,
   ),
 
   // ── Linear ────────────────────────────────────────────────────────
   // Reads are sandbox-reachable and the key never crosses: the main process
   // holds it, and what comes back is issues. Writes to Linear itself are not
   // here at all — an agent stages a comment and a person sends it.
-  route('GET', 'linear/issues', (r) => getLinearIssues(requireProject(r.query)), false, 'sandbox'),
+  route('GET', 'linear/issues', (r) => getLinearIssues(requireProject(r.query)), false, READ),
 
-  route('GET', 'linear/issues/:id', (r) => getLinearIssue(requireProject(r.query), issueId(r)), false, 'sandbox'),
+  route('GET', 'linear/issues/:id', (r) => getLinearIssue(requireProject(r.query), issueId(r)), false, READ),
 
   route(
     'POST',
@@ -822,6 +1186,7 @@ const routes: Route[] = [
       return { success: true, taskNumber, issue: issueId(r) };
     },
     true,
+    OWN_TASK,
   ),
 
   // Drafts, on the same terms the pull request ones take: local rows with an
@@ -834,7 +1199,7 @@ const routes: Route[] = [
       return listLinearDrafts(project, await resolveLinearIssueId(project, issueId(r)));
     },
     false,
-    'sandbox',
+    READ,
   ),
 
   route(
@@ -852,54 +1217,151 @@ const routes: Route[] = [
       );
     },
     true,
-    'sandbox',
+    READ,
   ),
 
   route(
     'DELETE',
     'linear/issues/:id/drafts/:draftId',
-    (r) => {
+    async (r) => {
       const draftId = r.segments[4];
       if (!draftId) throw new HttpError(400, 'Missing draft id');
-      return discardLinearDraft(requireProject(r.query), draftId);
+      const project = requireProject(r.query);
+      guardSandboxDraft(r, await findLinearDraft(project, draftId));
+      return discardLinearDraft(project, draftId);
     },
     true,
-    'sandbox',
+    READ,
   ),
 
   // ── Panels ────────────────────────────────────────────────────────
-  // The two user-addressable panel kinds on a terminal: markdown files and
-  // web previews. A terminal can hold several of each, so these are plural
-  // (list/add/remove).
-  //
-  // Host-only (default scope): the guest shouldn't be able to steer the host
-  // renderer to open arbitrary .md files or URLs.
-  route('GET', 'panels/:ptyId/:kind', (r) => runPanelOp(r.segments[1], 'list', parsePanelKind(r.segments[2]))),
+  // A sandbox may list its own terminal's panels and read them, and attach
+  // markdown from its worktree. Previews and runners stay the host's: one loads
+  // any URL in this window, the other runs a script on the host.
+  route('GET', 'panels/:ptyId', (r) => runTerminalPanelsOp(r.segments[1], 'list-all'), false, OWN_TERMINAL),
+
+  // Matched before the panel-kind routes, whose `:kind` would otherwise read `focus`.
+  route(
+    'POST',
+    'panels/:ptyId/focus',
+    (r) => {
+      if (typeof r.body.id !== 'string' || !r.body.id) throw new HttpError(400, 'Missing id');
+      return runTerminalPanelsOp(r.segments[1], 'focus', r.body.id);
+    },
+    true,
+  ),
+
+  route(
+    'GET',
+    'panels/:ptyId/:kind',
+    (r) => runPanelOp(r.segments[1], 'list', parsePanelKind(r.segments[2])),
+    false,
+    OWN_TERMINAL,
+  ),
+
+  route(
+    'GET',
+    'panels/:ptyId/:id/screen',
+    async (r) => {
+      const result = await cliPanelRequest({
+        ptyId: r.segments[1],
+        action: 'read',
+        value: r.segments[2],
+        lines: readLines(r.query),
+      });
+      if (!result.ok) throw new HttpError(404, result.error ?? 'Panel read failed');
+      return { ptyId: r.segments[1], id: r.segments[2], ...result.read };
+    },
+    false,
+    OWN_TERMINAL,
+  ),
 
   route(
     'POST',
     'panels/:ptyId/:kind',
     (r) => {
-      const kind = parsePanelKind(r.segments[2]);
-      const value = panelValue(kind, r.body.path, r.body.url);
+      const kind = sandboxPanelKind(r, parsePanelKind(r.segments[2]));
+      const value = panelValue(kind, r.body.path, r.body.url, r.body.script);
+      if (r.auth.scope === 'sandbox' && worktreeRelative(r.auth.ptyId, value) === null) {
+        throw new HttpError(403, 'A sandboxed terminal attaches markdown from its own worktree');
+      }
       return runPanelOp(r.segments[1], 'add', kind, value);
     },
     true,
+    OWN_TERMINAL,
   ),
 
   route(
     'DELETE',
     'panels/:ptyId/:kind',
     (r) => {
-      const kind = parsePanelKind(r.segments[2]);
+      const kind = sandboxPanelKind(r, parsePanelKind(r.segments[2]));
       // DELETE carries no body through the CLI client; the target comes in the
-      // query string (?path= / ?url=).
-      const value = panelValue(kind, r.query.get('path') ?? undefined, r.query.get('url') ?? undefined);
+      // query string (?path= / ?url= / ?script=).
+      const value = panelValue(
+        kind,
+        r.query.get('path') ?? undefined,
+        r.query.get('url') ?? undefined,
+        r.query.get('script') ?? undefined,
+      );
       return runPanelOp(r.segments[1], 'remove', kind, value);
     },
     true,
+    OWN_TERMINAL,
   ),
 ];
+
+// ── Sandbox CLI access ───────────────────────────────────────────────
+
+interface SandboxCaller extends AuthContext {
+  access: SandboxCliAccess;
+}
+
+/**
+ * A sandboxed terminal's access comes from its project's setting. At
+ * "Everything" it is treated as a host caller throughout, handlers included.
+ */
+async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
+  if (auth.scope === 'host') return { ...auth, access: 'all' };
+  const context = getPtyTaskContext(auth.ptyId);
+  const access = context ? await sandboxCliAccessFor(context.projectPath) : 'read';
+  return access === 'all' ? { ...auth, scope: 'host', access } : { ...auth, access };
+}
+
+function sandboxAllows(
+  rule: SandboxRule | undefined,
+  caller: SandboxCaller,
+  params: Record<string, string>,
+  query: URLSearchParams,
+  body: Record<string, unknown>,
+): boolean {
+  if (!rule || (rule.level === 'task' && caller.access !== 'task')) return false;
+  const project = query.get('project');
+  if (project !== null && project !== getPtySpawnContext(caller.ptyId)?.projectPath) return false;
+  if (rule.owns === 'terminal') return ownsTerminal(caller, params.ptyId);
+  if (rule.owns === 'task') return ownsTask(caller, query.get('project'), params.number ?? body.taskNumber);
+  return true;
+}
+
+function ownsTerminal(caller: SandboxCaller, ptyId: string | undefined): boolean {
+  if (!ptyId) return false;
+  if (ptyId === caller.ptyId) return true;
+  if (caller.access !== 'task') return false;
+  const own = getPtyTaskContext(caller.ptyId);
+  const theirs = getPtyTaskContext(ptyId);
+  return (
+    !!own &&
+    !!theirs &&
+    own.projectPath === theirs.projectPath &&
+    own.taskId === theirs.taskId &&
+    isActiveSandbox(getPtySpawnContext(ptyId)?.sandboxProvider)
+  );
+}
+
+function ownsTask(caller: SandboxCaller, project: string | null, taskNumber: unknown): boolean {
+  const own = getPtyTaskContext(caller.ptyId);
+  return !!own && own.projectPath === project && String(own.taskId) === String(taskNumber);
+}
 
 // ── Main handler ─────────────────────────────────────────────────────
 
@@ -961,17 +1423,6 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     return;
   }
 
-  // Sandbox-scoped callers are read-only: they may never reach a mutating
-  // route, even one that opts into sandbox scope. Writes require host scope.
-  if (matched.route.mutating && auth.scope !== 'host') {
-    json(res, 403, { error: 'Forbidden' });
-    return;
-  }
-  if (matched.route.minScope === 'host' && auth.scope !== 'host') {
-    json(res, 403, { error: 'Forbidden' });
-    return;
-  }
-
   let body: Record<string, unknown> = {};
   if (method !== 'GET' && method !== 'DELETE') {
     try {
@@ -981,6 +1432,15 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       json(res, 400, { error: 'Invalid JSON body' });
       return;
     }
+  }
+
+  const caller = await withCliAccess(auth);
+  if (
+    caller.scope !== 'host' &&
+    !sandboxAllows(matched.route.sandbox, caller, matched.params, url.searchParams, body)
+  ) {
+    json(res, 403, { error: 'Forbidden' });
+    return;
   }
 
   // A status PATCH to in_progress/in_review/done fires a renderer-side hook,
@@ -1001,7 +1461,14 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
   }
 
   try {
-    const result = await matched.route.handler({ method, segments, query: url.searchParams, body, auth });
+    const result = await matched.route.handler({
+      method,
+      segments,
+      query: url.searchParams,
+      body,
+      auth: caller,
+      window,
+    });
     json(res, 200, { data: result });
 
     // Notify renderer after mutating operations
@@ -1056,6 +1523,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             branch: task.branch,
             createdAt: task.createdAt,
             ...hookControl,
+            ...cliCaller(caller, body),
           });
         }
       }
@@ -1081,6 +1549,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               taskNumber,
               task,
               ...hookControl,
+              ...cliCaller(caller, body),
             });
           }
         }
@@ -1111,6 +1580,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               newStatus: body.status,
               task,
               ...hookControl,
+              ...cliCaller(caller, body),
             });
           }
         }

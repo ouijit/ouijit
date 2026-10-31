@@ -9,15 +9,17 @@
 import { LinearError, createLinearRequest } from './client';
 import {
   CREATE_COMMENT_MUTATION,
-  INCOMPLETE_ISSUES_QUERY,
   ISSUE_DETAIL_QUERY,
   ISSUE_GROUPS_QUERY,
   ISSUE_REF_QUERY,
+  ISSUE_SEARCH_QUERY,
   SCOPE_OPTIONS_QUERY,
   SET_STATE_MUTATION,
+  issueGroupQuery,
 } from './queries';
 import { scopeFilter } from './scope';
 import type {
+  LinearGroupFilter,
   LinearIssueDetail,
   LinearIssueGroups,
   LinearIssueRef,
@@ -32,6 +34,7 @@ import type { TimelineItem } from '../issues/types';
 
 /** The same 50 the GitHub lists take. */
 export const GROUP_LIMIT = 50;
+const SEARCH_LIMIT = 30;
 
 // ── Raw shapes, as the documents select them ─────────────────────────
 
@@ -76,7 +79,14 @@ interface RawComment {
   user?: RawUser | null;
 }
 
-type Nodes<T> = { nodes: Array<T | null> | null } | null;
+type Nodes<T> = {
+  nodes: Array<T | null> | null;
+  pageInfo?: { hasNextPage: boolean; endCursor: string | null };
+} | null;
+
+function nextCursor(connection: Nodes<unknown>): string | null {
+  return connection?.pageInfo?.hasNextPage ? (connection.pageInfo.endCursor ?? null) : null;
+}
 
 function list<T>(connection: Nodes<T>): T[] {
   return (connection?.nodes ?? []).filter((node): node is T => node != null);
@@ -130,14 +140,13 @@ export async function fetchIssueGroups(
   const started = list(data.started).map(mapIssue);
   const assigned = list(data.assigned).map(mapIssue);
   let cycle = list(data.cycle).map(mapIssue);
+  let cycleNext = nextCursor(data.cycle);
   let cycleIsFallback = false;
 
   if (cycle.length === 0) {
-    const fallback = await request<{ issues: Nodes<RawIssue> }>(INCOMPLETE_ISSUES_QUERY, {
-      scope: filter,
-      first: GROUP_LIMIT,
-    });
-    cycle = list(fallback.issues).map(mapIssue);
+    const fallback = await fetchIssueGroupPage(apiKey, scope, 'incomplete');
+    cycle = fallback.issues;
+    cycleNext = fallback.next;
     cycleIsFallback = true;
   }
 
@@ -153,17 +162,46 @@ export async function fetchIssueGroups(
     started: take(started),
     assigned: take(assigned),
     cycle: take(cycle),
-    capped: {
-      triage: triage.length >= GROUP_LIMIT,
-      started: started.length >= GROUP_LIMIT,
-      assigned: assigned.length >= GROUP_LIMIT,
-      cycle: cycle.length >= GROUP_LIMIT,
+    next: {
+      triage: nextCursor(data.triage),
+      started: nextCursor(data.started),
+      assigned: nextCursor(data.assigned),
+      cycle: cycleNext,
     },
     cycleIsFallback,
     // Triage is opt-in per team, and a team scope is one team: asking every
     // team in the workspace answers for teams this list never shows.
     triageEnabled: inScope(teams, scope).some((team) => team.triageEnabled),
   };
+}
+
+/**
+ * One group, from `after` on. The rows are not kept apart from the other
+ * groups here; the caller holds those, and drops a row one of them already has.
+ */
+export async function fetchIssueGroupPage(
+  apiKey: string,
+  scope: LinearScope,
+  group: LinearGroupFilter,
+  after?: string,
+): Promise<{ issues: LinearIssueSummary[]; next: string | null }> {
+  const request = createLinearRequest(apiKey);
+  const data = await request<{ issues: Nodes<RawIssue> }>(issueGroupQuery(group), {
+    scope: scopeFilter(scope),
+    first: GROUP_LIMIT,
+    ...(after && { after }),
+  });
+  return { issues: list(data.issues).map(mapIssue), next: nextCursor(data.issues) };
+}
+
+export async function searchIssues(apiKey: string, scope: LinearScope, term: string): Promise<LinearIssueSummary[]> {
+  const request = createLinearRequest(apiKey);
+  const data = await request<{ searchIssues: Nodes<RawIssue> }>(ISSUE_SEARCH_QUERY, {
+    term,
+    scope: scopeFilter(scope),
+    first: SEARCH_LIMIT,
+  });
+  return list(data.searchIssues).map(mapIssue);
 }
 
 function inScope(teams: LinearTeam[], scope: LinearScope): LinearTeam[] {

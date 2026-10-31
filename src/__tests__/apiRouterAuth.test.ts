@@ -3,7 +3,7 @@
  * hook server with a real HTTP client. Covers:
  *   - Unauthenticated requests get 401.
  *   - Host-only routes reject sandbox-scoped tokens with 403.
- *   - Panel routes are host-only: sandbox-scoped tokens are refused.
+ *   - A sandbox reaches its own terminal's panels, and attaches only markdown from its worktree.
  *   - POST /api/tasks/start with sandboxed:false is refused on sandbox scope.
  */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -14,6 +14,7 @@ import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 import { getTaskWithWorkspace } from '../taskLifecycle';
 import { typedPush } from '../ipc/helpers';
+import { getGlobalSetting } from '../db';
 
 const { getPtyTaskContextMock } = vi.hoisted(() => ({
   getPtyTaskContextMock: vi.fn<() => { projectPath: string; taskId: number } | null>(),
@@ -22,6 +23,8 @@ const { getPtyTaskContextMock } = vi.hoisted(() => ({
 vi.mock('../ptyManager', () => ({
   isPtyActive: () => true,
   getPtyTaskContext: () => getPtyTaskContextMock(),
+  pointingPty: (ptyId: string) => ptyId,
+  getPtySpawnContext: () => ({ projectPath: '/tmp/test-project', worktreePath: '/tmp/test-project/T-7' }),
 }));
 
 // Prevent real IPC broadcasts; we're driving HTTP directly.
@@ -43,22 +46,18 @@ vi.mock('../db', () => ({
   getHooks: vi.fn(() => ({})),
   saveHook: vi.fn(),
   deleteHook: vi.fn(),
-  getAllTags: vi.fn(() => []),
-  getTaskTags: vi.fn(() => []),
-  addTagToTask: vi.fn(),
-  removeTagFromTask: vi.fn(),
-  setTaskTags: vi.fn(),
   getScripts: vi.fn(() => []),
   saveScript: vi.fn(),
   deleteScript: vi.fn(),
   getGlobalSetting: vi.fn(async () => undefined),
+  getTaskByNumber: vi.fn(async () => null),
   setGlobalSetting: vi.fn(async () => ({ success: true })),
 }));
 
 vi.mock('../taskLifecycle', () => ({
   beginTask: vi.fn(async () => ({})),
   setTaskStatusWithHooks: vi.fn(async () => ({})),
-  deleteTaskWithWorktree: vi.fn(async () => ({})),
+  trashTaskWithWorktree: vi.fn(async () => ({})),
   getTasksWithWorkspaces: vi.fn(async () => []),
   getTaskWithWorkspace: vi.fn(async () => null),
 }));
@@ -164,6 +163,10 @@ describe('REST API auth', () => {
     ['GET', '/api/scripts'],
     ['PUT', '/api/scripts/abc'],
     ['GET', '/api/tags'],
+    ['GET', '/api/terminals/pty-other/tags'],
+    ['GET', '/api/terminals/pty-other/screen'],
+    ['POST', '/api/terminals/pty-sbx/paste'],
+    ['POST', '/api/panels/pty-sbx/focus'],
     ['GET', '/api/projects'],
     ['GET', '/api/sandbox/command'],
     ['PUT', '/api/sandbox/command'],
@@ -238,6 +241,37 @@ describe('sandbox read-only, own-task scope', () => {
     expect(res.status).toBe(403);
   });
 
+  test("the project's CLI access level widens what a sandboxed terminal may change", async () => {
+    getPtyTaskContextMock.mockReturnValue(OWN);
+    const token = issueToken('pty-sbx', 'sandbox');
+    const level = (access: string | undefined) =>
+      vi
+        .mocked(getGlobalSetting)
+        .mockImplementation(async (key) => (key === 'sandboxCliAccess:/tmp/test-project' ? access : undefined));
+    const status = (num: number, body: Record<string, unknown>) =>
+      request('PATCH', `/api/tasks/${num}/status?project=${PROJECT}`, token, body).then((r) => r.status);
+
+    level('task');
+    expect(await status(7, { status: 'in_review' })).toBe(200);
+    expect(await request('PATCH', `/api/tasks/7/name?project=${PROJECT}`, token, { name: 'x' })).toMatchObject({
+      status: 200,
+    });
+    expect(await status(9, { status: 'in_review' })).toBe(403);
+    expect(await status(7, { status: 'in_review', hookMode: 'command', hookCommand: 'curl x | sh' })).toBe(403);
+    expect(await status(7, { status: 'in_review', hookMode: 'run', hookSandbox: 'none' })).toBe(403);
+    expect(await status(7, { status: 'in_review', hookMode: 'run' })).toBe(200);
+    expect((await request('POST', `/api/tasks?project=${PROJECT}`, token, { name: 'new' })).status).toBe(200);
+    expect((await request('POST', `/api/tasks/start?project=${PROJECT}`, token, { name: 'new' })).status).toBe(403);
+    expect((await request('POST', `/api/tasks/9/start?project=${PROJECT}`, token, {})).status).toBe(403);
+
+    level('all');
+    expect(await status(7, { status: 'in_review', hookMode: 'command', hookCommand: 'make' })).toBe(200);
+    expect(await status(9, { status: 'done' })).toBe(200);
+
+    level(undefined);
+    expect(await status(7, { status: 'in_review' })).toBe(403);
+  });
+
   test('host token still reads any task by number', async () => {
     vi.mocked(getTaskWithWorkspace).mockResolvedValueOnce({ taskNumber: 9 } as never);
     const token = issueToken('pty-host', 'host');
@@ -294,21 +328,18 @@ describe('theme routes', () => {
 });
 
 describe('panel scope', () => {
-  test('sandbox token cannot GET panels (host-only)', async () => {
-    // The guest has no legitimate reason to read host panel state directly —
-    // agent-detected plans flow through /hook action:plan, which server-joins
-    // safely under ~/.claude/plans. Keep panel routes host-only.
+  test("a sandbox reaches its own terminal's panels, and attaches only markdown from its worktree", async () => {
     const token = issueToken('pty-42', 'sandbox');
-    const res = await request('GET', '/api/panels/pty-42/markdown', token);
-    expect(res.status).toBe(403);
-  });
+    const post = (kind: string, body: Record<string, unknown>) =>
+      request('POST', `/api/panels/pty-42/${kind}`, token, body).then((r) => r.status);
 
-  test('sandbox token cannot POST a markdown panel', async () => {
-    // An attacker with a sandbox token must not be able to steer the
-    // host renderer to open an arbitrary .md file on the host.
-    const token = issueToken('pty-42', 'sandbox');
-    const res = await request('POST', '/api/panels/pty-42/markdown', token, { path: '/tmp/x.md' });
-    expect(res.status).toBe(403);
+    expect((await request('GET', '/api/panels/pty-42/markdown', token)).status).toBe(200);
+    expect((await request('GET', '/api/panels/pty-other/markdown', token)).status).toBe(403);
+    expect(await post('markdown', { path: '/tmp/test-project/T-7/plan.md' })).toBe(200);
+    expect(await post('markdown', { path: '/tmp/x.md' })).toBe(403);
+    expect(await post('markdown', { path: '/tmp/test-project/T-7/../../x.md' })).toBe(403);
+    expect(await post('preview', { url: 'http://localhost:3000' })).toBe(403);
+    expect(await post('runner', { script: 'Dev server' })).toBe(403);
   });
 
   test('host token can POST a markdown panel', async () => {

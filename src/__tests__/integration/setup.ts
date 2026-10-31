@@ -51,5 +51,12 @@ function electronLogFactory() {
 }
 vi.mock('electron-log/main', electronLogFactory);
 vi.mock('electron-log/renderer', electronLogFactory);
+// Task worktrees go under `~/Ouijit/worktrees`, so a test that starts a task
+// would otherwise leave one in the real home directory on every run.
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:os')>();
+  const homedir = () => testDataDir;
+  return { ...actual, homedir, default: { ...actual, homedir } };
+});
 vi.mock('better-sqlite3', () => import('../nodeSqlite').then((m) => m.nodeSqliteFactory()));
 setUserDataPath(testDataDir);

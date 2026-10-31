@@ -377,7 +377,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
             ptyId={ptyId}
             gitPath={gitPath}
             base={base}
-            defaultBase={instance?.mergeTarget ?? gitFileStatus?.mainBranch ?? null}
+            defaultBase={gitFileStatus?.defaultBase ?? null}
             mainBranch={gitFileStatus?.mainBranch ?? null}
             branch={branch}
           />

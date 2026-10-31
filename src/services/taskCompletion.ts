@@ -15,6 +15,7 @@
 import log from 'electron-log/renderer';
 import { addProjectTerminal, closeProjectTerminal } from '../components/terminal/terminalActions';
 import { useProjectStore } from '../stores/projectStore';
+import { loadTasks, moveTask, projectDefaultSandbox } from '../stores/projectDataStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { headlessHookRun, hookSandbox, type HookControl } from './hookRun';
 import type { SandboxProviderId, TaskWithWorkspace } from '../types';
@@ -91,14 +92,14 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
   let sandbox: SandboxProviderId = 'none';
   if (hookControl?.mode !== 'skip') {
     const doneHook = (await window.api.hooks.get(projectPath)).done;
-    sandbox = hookSandbox(sandboxOverride, doneHook);
+    sandbox = hookSandbox(sandboxOverride, doneHook, await projectDefaultSandbox(projectPath));
     if (hookControl) {
       const resolved = headlessHookRun(hookControl, doneHook, sandbox);
       effectiveCommand = resolved?.command ?? null;
     } else if (doneHook) {
       const result = await useProjectStore
         .getState()
-        .requestRunHook({ hookType: 'done', hook: doneHook, task, sandbox });
+        .requestRunHook({ projectPath, hookType: 'done', hook: doneHook, task, sandbox });
       if (result) {
         effectiveCommand = result.command;
         foreground = result.foreground;
@@ -160,9 +161,9 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
   //    sets `skipStatusWrite` because the server already PATCHed before
   //    pushing — only the renderer reload is needed.
   if (targetIndex != null) {
-    await useProjectStore.getState().moveTask(projectPath, taskNumber, 'done', targetIndex);
+    await moveTask(projectPath, taskNumber, 'done', targetIndex);
   } else {
     if (!skipStatusWrite) await window.api.task.setStatus(projectPath, taskNumber, 'done');
-    await useProjectStore.getState().loadTasksIfActive(projectPath);
+    await loadTasks(projectPath);
   }
 }

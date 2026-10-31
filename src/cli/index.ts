@@ -8,7 +8,7 @@
 import { Command } from 'commander';
 import { ApiError } from './api';
 import { detectProject } from './detect';
-import { printError } from './output';
+import { forbiddenMessage, printError } from './output';
 import { registerTaskCommands } from './commands/task';
 import { registerHookCommands } from './commands/hook';
 import { registerTagCommands } from './commands/tag';
@@ -20,6 +20,11 @@ import { registerPreviewCommands } from './commands/preview';
 import { registerThemeCommands } from './commands/theme';
 import { registerPrCommands } from './commands/pr';
 import { registerLinearCommands } from './commands/linear';
+import { registerTerminalCommands } from './commands/terminal';
+import { registerDiffCommands } from './commands/diff';
+import { registerPanelCommands } from './commands/panel';
+import { registerPointCommands } from './commands/point';
+import { registerAskCommands } from './commands/ask';
 
 const program = new Command();
 
@@ -35,7 +40,7 @@ Examples:
   ouijit task list
   ouijit task set-status 5 in_review
   ouijit hook set start --name "Install" --command "npm install"
-  ouijit tag add 5 bug
+  ouijit tag add bug
   ouijit pr list`,
   );
 
@@ -48,14 +53,19 @@ function requireProject(): string {
 
 registerTaskCommands(program, requireProject);
 registerHookCommands(program, requireProject);
-registerTagCommands(program, requireProject);
+registerTerminalCommands(program, requireProject);
+registerTagCommands(program);
 registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
 registerSandboxCommands(program, requireProject);
 registerPrCommands(program, requireProject);
 registerLinearCommands(program, requireProject);
+registerDiffCommands(program, requireProject);
 registerMarkdownCommands(program);
 registerPreviewCommands(program);
+registerPanelCommands(program);
+registerPointCommands(program, requireProject);
+registerAskCommands(program);
 registerThemeCommands(program);
 
 // Command actions are async; parse() would let an API rejection surface as an
@@ -64,10 +74,7 @@ registerThemeCommands(program);
 program.parseAsync().catch((err: unknown) => {
   if (err instanceof ApiError) {
     if (err.status === 403) {
-      return printError(
-        'Forbidden: this command is not available for the current session. ' +
-          'Sandboxed sessions are read-only and limited to their own task.',
-      );
+      return printError(forbiddenMessage(err.message, process.argv.slice(2)));
     }
     return printError(err.status > 0 ? `${err.message} (HTTP ${err.status})` : err.message);
   }

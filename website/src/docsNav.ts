@@ -28,7 +28,7 @@ export const DOC_PAGES: DocPage[] = [
     slug: 'terminals',
     label: 'Terminals',
     href: '/docs/terminals/',
-    description: 'The terminal card stack, keyboard shortcuts, the home view, and tags.',
+    description: 'The sidebar, the terminal card stack, keyboard shortcuts, and tags.',
   },
   {
     slug: 'panels',

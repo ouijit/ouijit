@@ -14,7 +14,7 @@ import { scrollToSection, fileSelector } from '../diff/scrollToSection';
 import { Tab, TabBar } from '../issues/Tabs';
 import { DetailChrome } from '../issues/DetailChrome';
 import { DiscussionSection } from './DiscussionSection';
-import { FilesSection, type FilesSectionHandle } from './FilesSection';
+import { FilesSection } from './FilesSection';
 import { PullRequestRail } from './PullRequestRail';
 import { ReviewActions } from './ReviewActions';
 import { SummaryPane } from './SummaryPane';
@@ -56,7 +56,6 @@ export function PullRequestDetailView({
   const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const badge = stateBadge(detail);
 
-  const filesRef = useRef<FilesSectionHandle>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   const [pane, setPane] = useState<Pane>('summary');
 
@@ -65,14 +64,14 @@ export function PullRequestDetailView({
   }, [pane]);
 
   /** The rail navigates the document; it never filters it. */
-  const scrollToFile = useCallback((path: string | null, group?: string) => {
+  const scrollToFile = useCallback((path: string | null, group?: string, within?: string) => {
     const container = paneRef.current;
     if (!path) {
       if (container) container.scrollTop = 0;
       return;
     }
     useGithubStore.getState().setActiveSection(sectionKey(group, path));
-    scrollToSection(container, fileSelector(path, group));
+    scrollToSection(container, fileSelector(path, group), within);
   }, []);
 
   /**
@@ -110,9 +109,8 @@ export function PullRequestDetailView({
   // Clear it on a new pull request: the previous answer says nothing about it.
   useEffect(() => setRefreshTip(undefined), [detail.number, detail.headSha, detail.updatedAt]);
 
-  // Jumping to a draft means the code pane, but the jump is usually made from
-  // Summary or Timeline where `FilesSection` is unmounted and the ref is null.
-  // Remember the draft and open it once that pane exists.
+  // The jump is usually made from Summary or Timeline, where the code pane is
+  // not mounted, so the draft waits for it.
   const [pendingDraft, setPendingDraft] = useState<{ id: string; path: string; line: number } | null>(null);
 
   const jumpToDraft = useCallback((draft: ReviewDraft) => {
@@ -148,8 +146,7 @@ export function PullRequestDetailView({
   useEffect(() => {
     if (pane !== 'code' || !pendingDraft) return;
     const part = partHolding(shown, diffs.get(pendingDraft.path), pendingDraft.path, pendingDraft.line);
-    scrollToFile(pendingDraft.path, part);
-    filesRef.current?.editDraft(pendingDraft.id);
+    scrollToFile(pendingDraft.path, part, `[data-draft-id="${pendingDraft.id}"]`);
     setPendingDraft(null);
   }, [pane, pendingDraft, scrollToFile, shown, diffs]);
 
@@ -279,7 +276,6 @@ export function PullRequestDetailView({
             <DiscussionSection projectPath={projectPath} detail={detail} />
           ) : (
             <FilesSection
-              ref={filesRef}
               projectPath={projectPath}
               detail={detail}
               order={fileOrder}

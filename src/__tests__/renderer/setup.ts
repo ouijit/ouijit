@@ -2,9 +2,11 @@
  * Test setup for renderer (React) tests.
  * Provides jsdom environment and mocks window.api.
  */
-import { vi, afterEach } from 'vitest';
+import { vi, afterEach, beforeEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import { resetFrecencyForTests } from '../../utils/paletteFrecency';
+import { useProjectStore } from '../../stores/projectStore';
+import { useProjectDataStore } from '../../stores/projectDataStore';
 import type { Script } from '../../types';
 
 /**
@@ -17,6 +19,10 @@ import type { Script } from '../../types';
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
+
+beforeEach(() => {
+  for (const store of [useProjectStore, useProjectDataStore]) store.setState({ ...store.getInitialState() }, true);
+});
 
 // Cleanup React DOM after each test
 afterEach(() => {
@@ -134,18 +140,23 @@ const mockApi = {
     delete: vi.fn().mockResolvedValue({ success: true }),
     reorder: vi.fn().mockResolvedValue({ success: true }),
   },
-  tags: {
-    getAll: vi.fn().mockResolvedValue([]),
-    getForTask: vi.fn().mockResolvedValue([]),
-    addToTask: vi.fn().mockResolvedValue({ id: 1, name: 'test' }),
-    removeFromTask: vi.fn().mockResolvedValue(undefined),
-    setTaskTags: vi.fn().mockResolvedValue([]),
-  },
   agentHooks: {
     onStatus: vi.fn().mockReturnValue(() => {}),
     getStatus: vi.fn().mockResolvedValue(null),
   },
   cliPanels: {
+    onOp: vi.fn().mockReturnValue(() => {}),
+    respond: vi.fn().mockResolvedValue(undefined),
+  },
+  cliTags: {
+    onOp: vi.fn().mockReturnValue(() => {}),
+    respond: vi.fn().mockResolvedValue(undefined),
+  },
+  cliTerminals: {
+    onOp: vi.fn().mockReturnValue(() => {}),
+    respond: vi.fn().mockResolvedValue(undefined),
+  },
+  cliPoints: {
     onOp: vi.fn().mockReturnValue(() => {}),
     respond: vi.fn().mockResolvedValue(undefined),
   },
@@ -158,8 +169,10 @@ const mockApi = {
   },
   sandbox: {
     status: vi.fn().mockResolvedValue([]),
-    nonoConfig: vi.fn().mockResolvedValue({}),
-    setNonoConfig: vi.fn().mockResolvedValue({ success: true }),
+    nonoProfile: vi.fn().mockResolvedValue({ path: '/home/.config/nono/profiles/ouijit-p.json', own: true }),
+    chooseNonoProfile: vi.fn().mockResolvedValue(null),
+    resetNonoProfile: vi.fn().mockResolvedValue({ path: '/home/.config/nono/profiles/ouijit-p.json', own: true }),
+    openNonoProfile: vi.fn().mockResolvedValue({ success: true }),
     customConfig: vi.fn().mockResolvedValue({}),
     setCustomConfig: vi.fn().mockResolvedValue({ success: true }),
   },
@@ -208,9 +221,16 @@ const mockApi = {
   },
   github: {
     availability: vi.fn().mockResolvedValue({ available: false, reason: 'flag-off' }),
-    inbox: vi
-      .fn()
-      .mockResolvedValue({ viewer: '', needsReview: [], mine: [], others: [], draftCounts: {}, linkedTasks: {} }),
+    inbox: vi.fn().mockResolvedValue({
+      viewer: '',
+      needsReview: [],
+      mine: [],
+      others: [],
+      next: null,
+      draftCounts: {},
+      linkedTasks: {},
+    }),
+    searchPullRequests: vi.fn().mockResolvedValue([]),
     pullRequest: vi.fn().mockResolvedValue(null),
     pullRequestFreshness: vi
       .fn()
@@ -218,7 +238,8 @@ const mockApi = {
     pullRequestFiles: vi.fn().mockResolvedValue({ files: [], fromGit: false }),
     pullRequestFileDiff: vi.fn().mockResolvedValue(null),
     pullRequestFileVersions: vi.fn().mockResolvedValue({ before: null, after: null }),
-    issues: vi.fn().mockResolvedValue({ assigned: [], open: [], assignedCapped: false, openCapped: false }),
+    issues: vi.fn().mockResolvedValue({ assigned: [], open: [], assignedNext: null, openNext: null }),
+    searchIssues: vi.fn().mockResolvedValue([]),
     issue: vi.fn().mockResolvedValue(null),
     linkTaskIssue: vi.fn().mockResolvedValue({ success: true }),
     detectTaskPr: vi.fn().mockResolvedValue({ prNumber: null }),
@@ -247,6 +268,8 @@ const mockApi = {
     availability: vi.fn().mockResolvedValue({ connected: false, reason: 'flag-off', repoLabels: [], teams: [] }),
     setScope: vi.fn().mockResolvedValue({ success: true }),
     issues: vi.fn().mockResolvedValue(null),
+    issuePage: vi.fn().mockResolvedValue({ issues: [], next: null }),
+    search: vi.fn().mockResolvedValue([]),
     issue: vi.fn().mockResolvedValue(null),
     comment: vi.fn().mockResolvedValue({ success: true }),
     moveIssue: vi.fn().mockResolvedValue({ success: true }),

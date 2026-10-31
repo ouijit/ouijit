@@ -1,10 +1,3 @@
-/**
- * Coverage for the plumbing between a `cli:task-started` IPC push and the
- * `beginTransition` call that spawns the terminal: hookMode / hookCommand
- * from the CLI flags must thread through `PendingCliStart` and into
- * `beginTransition`'s `hookControl` option, both on the active-project
- * path and on the queued-then-drained path.
- */
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 
@@ -15,6 +8,9 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import { beginTransition } from '../../services/taskStartService';
 import { completeTask } from '../../services/taskCompletion';
 import type { TaskWithWorkspace } from '../../types';
+import { seedProject } from './seedProject';
+import { usePointerStore } from '../../stores/pointerStore';
+import { followPointer } from '../../components/point/followPointer';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -37,6 +33,7 @@ type CliTaskCompletedPayload = Parameters<Parameters<typeof window.api.onCliTask
 type CliTaskCompletedCb = (payload: CliTaskCompletedPayload) => void;
 
 const PROJECT = '/proj/a';
+const OTHER = '/proj/b';
 
 function makeTask(): TaskWithWorkspace {
   return {
@@ -89,6 +86,7 @@ function completedPayload(overrides: Partial<CliTaskCompletedPayload> = {}): Cli
 
 type CliChangePayload = Parameters<Parameters<typeof window.api.onCliChange>[0]>[0];
 type LaunchFailedCb = Parameters<typeof window.api.onSandboxLaunchFailed>[0];
+type TerminalSandboxCb = Parameters<typeof window.api.onTerminalSandbox>[0];
 type CliChangeCb = (payload: CliChangePayload) => void;
 
 interface ListenerStubs {
@@ -97,6 +95,7 @@ interface ListenerStubs {
   cliTaskCompletedCb: CliTaskCompletedCb | null;
   cliChangeCb: CliChangeCb | null;
   launchFailedCb: LaunchFailedCb | null;
+  terminalSandboxCb: TerminalSandboxCb | null;
 }
 
 /**
@@ -112,12 +111,17 @@ function installListenerStubs(): ListenerStubs {
     cliTaskCompletedCb: null,
     cliChangeCb: null,
     launchFailedCb: null,
+    terminalSandboxCb: null,
   };
   const api = window.api as unknown as Record<string, unknown>;
   api['onUpdateAvailable'] = vi.fn(() => () => {});
   api['onShellUnsupported'] = vi.fn(() => () => {});
   api['onSandboxLaunchFailed'] = vi.fn((cb: LaunchFailedCb) => {
     stubs.launchFailedCb = cb;
+    return () => {};
+  });
+  api['onTerminalSandbox'] = vi.fn((cb: TerminalSandboxCb) => {
+    stubs.terminalSandboxCb = cb;
     return () => {};
   });
   api['onWhatsNew'] = vi.fn(() => () => {});
@@ -143,233 +147,161 @@ function installListenerStubs(): ListenerStubs {
   return stubs;
 }
 
-describe('useIPCListeners — cli:task-started → beginTransition', () => {
+describe('useIPCListeners — CLI task lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useProjectStore.getState().resetForProject();
-    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
-    useAppStore.setState({ activeProjectPath: PROJECT });
+    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, order: [] });
     vi.mocked(window.api.task.getByNumber).mockResolvedValue(makeTask());
   });
 
-  test('payload with no hookMode → beginTransition called with hookControl: undefined', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-    expect(stubs.cliTaskStartedCb).not.toBeNull();
+  test.each([
+    ['its own project', PROJECT],
+    ['home', null],
+    ['another project', OTHER],
+  ])(
+    "runs a start, transition or completion at once while %s is showing, with the CLI's hook flags, behind what's on screen",
+    async (_, active) => {
+      useAppStore.setState({ activeProjectPath: active });
+      const stubs = installListenerStubs();
+      renderHook(() => useIPCListeners());
 
-    stubs.cliTaskStartedCb!(basePayload());
-    await flush();
+      stubs.cliTaskStartedCb!(basePayload({ hookMode: 'skip' }));
+      stubs.cliTaskStartedCb!(basePayload({ hookMode: 'run' }));
+      stubs.cliTaskStartedCb!(basePayload({ hookMode: 'command', hookCommand: 'claude --resume' }));
+      // No flags and no hook configured: nothing to ask, so it runs too.
+      stubs.cliTaskStartedCb!(basePayload());
+      await flush();
+      expect(
+        vi
+          .mocked(beginTransition)
+          .mock.calls.map(([path, opts]) => [path, opts.newStatus, opts.hookControl, opts.background]),
+      ).toEqual([
+        [PROJECT, 'in_progress', { mode: 'skip', command: undefined }, true],
+        [PROJECT, 'in_progress', { mode: 'run', command: undefined }, true],
+        [PROJECT, 'in_progress', { mode: 'command', command: 'claude --resume' }, true],
+        [PROJECT, 'in_progress', undefined, true],
+      ]);
 
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toBeUndefined();
-  });
+      vi.mocked(beginTransition).mockClear();
+      stubs.cliTaskTransitionedCb!(transitionPayload());
+      stubs.cliTaskTransitionedCb!(transitionPayload({ hookMode: 'command', hookCommand: 'claude review' }));
+      await flush();
+      expect(
+        vi
+          .mocked(beginTransition)
+          .mock.calls.map(([, opts]) => [opts.origStatus, opts.newStatus, opts.hookControl, opts.background]),
+      ).toEqual([
+        ['in_progress', 'in_review', undefined, true],
+        ['in_progress', 'in_review', { mode: 'command', command: 'claude review' }, true],
+      ]);
 
-  test('hookMode "skip" threads through into hookControl', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
+      stubs.cliTaskCompletedCb!(completedPayload());
+      stubs.cliTaskCompletedCb!(completedPayload({ hookMode: 'command', hookCommand: 'npm run deploy' }));
+      await flush();
+      expect(
+        vi.mocked(completeTask).mock.calls.map(([opts]) => [opts.projectPath, opts.hookControl, opts.skipStatusWrite]),
+      ).toEqual([
+        [PROJECT, undefined, true],
+        [PROJECT, { mode: 'command', command: 'npm run deploy' }, true],
+      ]);
+    },
+  );
 
-    stubs.cliTaskStartedCb!(basePayload({ hookMode: 'skip' }));
-    await flush();
-
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toEqual({ mode: 'skip', command: undefined });
-  });
-
-  test('hookMode "run" threads through into hookControl', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskStartedCb!(basePayload({ hookMode: 'run' }));
-    await flush();
-
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toEqual({ mode: 'run', command: undefined });
-  });
-
-  test('hookMode "command" threads command through into hookControl', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskStartedCb!(basePayload({ hookMode: 'command', hookCommand: 'claude --resume' }));
-    await flush();
-
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toEqual({
-      mode: 'command',
-      command: 'claude --resume',
+  test("a move whose hook would ask waits behind a pointer from the terminal that ran it, and asks once it's followed", async () => {
+    usePointerStore.setState({ pointers: [] });
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 's', type: 'start', name: 'Agent', command: 'claude' },
+      review: { id: 'r', type: 'review', name: 'PR', command: 'gh pr create' },
+      done: { id: 'd', type: 'done', name: 'Push', command: 'git push' },
     });
-  });
-
-  test('queued-then-drained start preserves hookMode + hookCommand', async () => {
-    // User is viewing a different project; the start should queue.
-    useAppStore.setState({ activeProjectPath: '/proj/other' });
     const stubs = installListenerStubs();
     renderHook(() => useIPCListeners());
 
-    stubs.cliTaskStartedCb!(basePayload({ hookMode: 'command', hookCommand: 'echo queued' }));
+    stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-agent' }));
     await flush();
-
-    // Should NOT have called beginTransition yet — payload is queued.
     expect(beginTransition).not.toHaveBeenCalled();
-    expect(useProjectStore.getState().pendingCliStarts[PROJECT]?.[0]?.hookMode).toBe('command');
+    const [pointer] = usePointerStore.getState().pointers;
+    expect(pointer).toEqual(
+      expect.objectContaining({ from: 'pty-agent', target: { kind: 'task', projectPath: PROJECT, taskNumber: 9 } }),
+    );
 
-    // Activate the project; the queued start drains and beginTransition fires.
-    useAppStore.setState({ activeProjectPath: PROJECT });
+    await followPointer(pointer);
+    expect(
+      vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl, opts.background]),
+    ).toEqual([['in_progress', undefined, false]]);
+    expect(usePointerStore.getState().pointers).toEqual([]);
+
+    // Review and done wait the same way; with flags they run at once, and --point leaves a pointer anyway.
+    stubs.cliTaskTransitionedCb!(transitionPayload({ fromPtyId: 'pty-agent' }));
+    stubs.cliTaskCompletedCb!(completedPayload({ fromPtyId: 'pty-other' }));
     await flush();
-
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toEqual({
-      mode: 'command',
-      command: 'echo queued',
-    });
-  });
-});
-
-describe('useIPCListeners — cli:task-transitioned → beginTransition', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useProjectStore.getState().resetForProject();
-    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
-    useAppStore.setState({ activeProjectPath: PROJECT });
-  });
-
-  test('in_review with no hookMode → beginTransition with origStatus/newStatus and hookControl undefined', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-    expect(stubs.cliTaskTransitionedCb).not.toBeNull();
-
-    stubs.cliTaskTransitionedCb!(transitionPayload());
-    await flush();
-
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    const opts = vi.mocked(beginTransition).mock.calls[0][1];
-    expect(opts.origStatus).toBe('in_progress');
-    expect(opts.newStatus).toBe('in_review');
-    expect(opts.hookControl).toBeUndefined();
-  });
-
-  test('hookMode "command" threads command through into hookControl', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskTransitionedCb!(transitionPayload({ hookMode: 'command', hookCommand: 'claude review' }));
-    await flush();
-
-    expect(vi.mocked(beginTransition).mock.calls[0][1].hookControl).toEqual({
-      mode: 'command',
-      command: 'claude review',
-    });
-  });
-
-  test('bare transition for a project not in view is queued, then drained on navigation', async () => {
-    useAppStore.setState({ activeProjectPath: '/proj/other' });
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    // No hookMode → shows a dialog, which can't render off-project, so it waits.
-    stubs.cliTaskTransitionedCb!(transitionPayload());
-    await flush();
-
-    expect(beginTransition).not.toHaveBeenCalled();
-    expect(useProjectStore.getState().pendingCliTransitions[PROJECT]?.[0]?.origStatus).toBe('in_progress');
-
-    useAppStore.setState({ activeProjectPath: PROJECT });
-    await flush();
-
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    const opts = vi.mocked(beginTransition).mock.calls[0][1];
-    expect(opts.origStatus).toBe('in_progress');
-    expect(opts.hookControl).toBeUndefined();
-  });
-
-  test('headless transition (explicit flag) runs immediately even when off-project', async () => {
-    useAppStore.setState({ activeProjectPath: '/proj/other' });
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    // No dialog for a skip, so it's safe to run regardless of the active project.
-    stubs.cliTaskTransitionedCb!(transitionPayload({ hookMode: 'skip' }));
-    await flush();
-
-    expect(beginTransition).toHaveBeenCalledTimes(1);
-    const opts = vi.mocked(beginTransition).mock.calls[0][1];
-    expect(opts.origStatus).toBe('in_progress');
-    expect(opts.hookControl).toEqual({ mode: 'skip', command: undefined });
-    expect(useProjectStore.getState().pendingCliTransitions[PROJECT]).toBeUndefined();
-  });
-});
-
-describe('useIPCListeners — cli:task-completed → completeTask', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useProjectStore.getState().resetForProject();
-    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
-    useAppStore.setState({ activeProjectPath: PROJECT });
-  });
-
-  test('bare done while viewing the project → completeTask with hookControl undefined + skipStatusWrite', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-    expect(stubs.cliTaskCompletedCb).not.toBeNull();
-
-    stubs.cliTaskCompletedCb!(completedPayload());
-    await flush();
-
-    expect(completeTask).toHaveBeenCalledTimes(1);
-    const opts = vi.mocked(completeTask).mock.calls[0][0];
-    expect(opts.hookControl).toBeUndefined();
-    expect(opts.skipStatusWrite).toBe(true);
-  });
-
-  test('done --hook-command threads command through into hookControl', async () => {
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskCompletedCb!(completedPayload({ hookMode: 'command', hookCommand: 'npm run deploy' }));
-    await flush();
-
-    expect(vi.mocked(completeTask).mock.calls[0][0].hookControl).toEqual({
-      mode: 'command',
-      command: 'npm run deploy',
-    });
-  });
-
-  test('bare done for a project not in view is queued, then drained on navigation', async () => {
-    useAppStore.setState({ activeProjectPath: '/proj/other' });
-    const stubs = installListenerStubs();
-    renderHook(() => useIPCListeners());
-
-    stubs.cliTaskCompletedCb!(completedPayload());
-    await flush();
-
-    // No dialog can render for an unviewed project, so it must wait.
+    expect(usePointerStore.getState().pointers.map((p) => p.from)).toEqual(['pty-agent', 'pty-other']);
     expect(completeTask).not.toHaveBeenCalled();
-    expect(useProjectStore.getState().pendingCliCompletions[PROJECT]?.[0]?.taskNumber).toBe(9);
 
-    useAppStore.setState({ activeProjectPath: PROJECT });
+    vi.mocked(beginTransition).mockClear();
+    stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-third', hookMode: 'run', point: true }));
     await flush();
-
-    expect(completeTask).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(completeTask).mock.calls[0][0].hookControl).toBeUndefined();
+    expect(beginTransition).toHaveBeenCalledTimes(1);
+    expect(usePointerStore.getState().pointers.find((p) => p.from === 'pty-third')?.waiting).toBeUndefined();
   });
 
-  test('headless done (explicit flag) runs immediately even when off-project', async () => {
-    useAppStore.setState({ activeProjectPath: '/proj/other' });
+  test('moves from one terminal stack on its pointer, survive it pointing elsewhere, and all run on follow', async () => {
+    usePointerStore.setState({ pointers: [] });
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 's', type: 'start', name: 'Agent', command: 'claude' },
+    });
+    vi.mocked(window.api.task.getByNumber).mockImplementation(async (_p, n) => ({ ...makeTask(), taskNumber: n }));
     const stubs = installListenerStubs();
     renderHook(() => useIPCListeners());
 
-    stubs.cliTaskCompletedCb!(completedPayload({ hookMode: 'skip' }));
-    await flush();
+    // A loop of starts without --run-hook, as an agent would write it.
+    for (const taskNumber of [12, 13, 14]) {
+      stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-agent', taskNumber }));
+      await flush();
+    }
+    expect(beginTransition).not.toHaveBeenCalled();
+    expect(usePointerStore.getState().pointers).toHaveLength(1);
 
-    // No dialog for a skip, so it's safe to run regardless of the active project.
-    expect(completeTask).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(completeTask).mock.calls[0][0].hookControl).toEqual({ mode: 'skip', command: undefined });
-    expect(useProjectStore.getState().pendingCliCompletions[PROJECT]).toBeUndefined();
+    // The agent pointing somewhere else, then clearing, drops none of them.
+    usePointerStore.getState().point({ from: 'pty-agent', target: { kind: 'board', projectPath: PROJECT } });
+    usePointerStore.getState().clear('pty-agent');
+    const [pointer] = usePointerStore.getState().pointers;
+    expect(pointer.target).toEqual({ kind: 'task', projectPath: PROJECT, taskNumber: 14 });
+
+    await followPointer(pointer);
+    expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => opts.task.taskNumber)).toEqual([12, 13, 14]);
+    expect(usePointerStore.getState().pointers).toEqual([]);
+  });
+
+  test("a sandboxed caller's --run-hook runs a sandboxed hook at once, and waits for the user when the hook would run on the host", async () => {
+    usePointerStore.setState({ pointers: [] });
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 's', type: 'start', name: 'Agent', command: 'claude', sandbox: 'nono' },
+      review: { id: 'r', type: 'review', name: 'Tests', command: 'npm test' },
+    });
+    const stubs = installListenerStubs();
+    renderHook(() => useIPCListeners());
+
+    stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-agent', fromSandbox: true, hookMode: 'run' }));
+    stubs.cliTaskTransitionedCb!(transitionPayload({ fromPtyId: 'pty-agent', fromSandbox: true, hookMode: 'run' }));
+    await flush();
+    expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl])).toEqual([
+      ['in_progress', { mode: 'run', command: undefined }],
+    ]);
+    const [pointer] = usePointerStore.getState().pointers;
+    expect(pointer.target).toEqual({ kind: 'task', projectPath: PROJECT, taskNumber: 9 });
+
+    vi.mocked(beginTransition).mockClear();
+    await followPointer(pointer);
+    expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl])).toEqual([
+      ['in_review', undefined],
+    ]);
   });
 });
 
 describe('useIPCListeners — cli-change refreshes the resource that changed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useProjectStore.getState().resetForProject();
     useAppStore.setState({ activeProjectPath: PROJECT });
   });
 
@@ -379,18 +311,21 @@ describe('useIPCListeners — cli-change refreshes the resource that changed', (
     stubs.cliChangeCb!({ project, action: `PUT /api/${resource}/x`, resource, ts: 0 });
   }
 
-  test('routes each resource to its own loader and ignores other projects', async () => {
-    // `ouijit script set` / `hook set` add run commands the terminal "+" menu
-    // reads from the store — they must refresh without a project switch.
+  test('routes each resource to its own loader, for whichever project it touched', async () => {
+    // A project's config and scripts refresh once something has loaded them;
+    // its tasks are held for every project, so those always refresh.
+    seedProject(PROJECT, { hooks: {}, scripts: [] });
+    seedProject(OTHER, { hooks: {}, scripts: [] });
+
     fire('scripts');
     await flush();
     expect(window.api.scripts.getAll).toHaveBeenCalledWith(PROJECT);
     expect(window.api.task.getAll).not.toHaveBeenCalled();
 
     vi.clearAllMocks();
-    fire('hooks');
+    fire('hooks', OTHER);
     await flush();
-    expect(window.api.hooks.get).toHaveBeenCalledWith(PROJECT);
+    expect(window.api.hooks.get).toHaveBeenCalledWith(OTHER);
     expect(window.api.task.getAll).not.toHaveBeenCalled();
 
     // `ouijit sandbox-command set` changes which backends are ready to spawn.
@@ -398,16 +333,15 @@ describe('useIPCListeners — cli-change refreshes the resource that changed', (
     fire('sandbox');
     await flush();
     expect(window.api.sandbox.status).toHaveBeenCalledWith(PROJECT);
-    expect(window.api.task.getAll).not.toHaveBeenCalled();
 
     vi.clearAllMocks();
-    fire('tasks');
+    fire('tasks', '/proj/never-loaded');
     await flush();
-    expect(window.api.task.getAll).toHaveBeenCalledWith(PROJECT);
+    expect(window.api.task.getAll).toHaveBeenCalledWith('/proj/never-loaded');
     expect(window.api.scripts.getAll).not.toHaveBeenCalled();
 
     vi.clearAllMocks();
-    fire('scripts', '/proj/other');
+    fire('scripts', '/proj/never-loaded');
     await flush();
     expect(window.api.scripts.getAll).not.toHaveBeenCalled();
   });
@@ -416,7 +350,6 @@ describe('useIPCListeners — cli-change refreshes the resource that changed', (
 describe('useIPCListeners — sandbox-launch-failed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useProjectStore.getState().resetForProject();
   });
 
   test('a launcher or spawn refusal becomes a persistent error toast naming the backend and why', () => {
@@ -424,10 +357,20 @@ describe('useIPCListeners — sandbox-launch-failed', () => {
     renderHook(() => useIPCListeners());
     stubs.launchFailedCb!({ ptyId: 'pty-1', provider: 'custom', exitCode: 2 });
     stubs.launchFailedCb!({ ptyId: 'pty-2', provider: 'nono', error: 'nono is not installed.' });
-    const toasts = useProjectStore.getState().toasts.filter((t) => t.message.includes('sandbox failed to start'));
+    const toasts = useProjectStore.getState().toasts.filter((t) => t.message.includes('failed to start'));
     expect(toasts.map((t) => [t.message, t.type, t.persistent])).toEqual([
-      ['Custom sandbox failed to start (exit 2). See the terminal output.', 'error', true],
-      ['nono sandbox failed to start: nono is not installed.', 'error', true],
+      ['Custom failed to start (exit 2). See the terminal output.', 'error', true],
+      ['Sandbox failed to start: nono is not installed.', 'error', true],
     ]);
+  });
+
+  test('a terminal shows the sandbox its foreground command runs in, and drops it after', () => {
+    const stubs = installListenerStubs();
+    renderHook(() => useIPCListeners());
+    useTerminalStore.getState().addTerminal('/p', 'pty-9', { taskId: null, label: 'shell' });
+    stubs.terminalSandboxCb!({ ptyId: 'pty-9', sandboxProvider: 'nono' });
+    expect(useTerminalStore.getState().displayStates['pty-9']?.sandboxProvider).toBe('nono');
+    stubs.terminalSandboxCb!({ ptyId: 'pty-9' });
+    expect(useTerminalStore.getState().displayStates['pty-9']?.sandboxProvider).toBeUndefined();
   });
 });

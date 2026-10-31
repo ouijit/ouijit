@@ -31,11 +31,12 @@ const PR_SUMMARY_FIELDS = `
  * the PR names the team without saying whether the viewer is in it.
  */
 export const PULL_REQUEST_LIST_QUERY = `
-query($owner: String!, $repo: String!, $first: Int!, $reviewQuery: String!) {
+query($owner: String!, $repo: String!, $first: Int!, $after: String, $reviewQuery: String!) {
   viewer { login avatarUrl }
   repository(owner: $owner, name: $repo) {
-    pullRequests(first: $first, states: [OPEN], orderBy: { field: UPDATED_AT, direction: DESC }) {
+    pullRequests(first: $first, after: $after, states: [OPEN], orderBy: { field: UPDATED_AT, direction: DESC }) {
       nodes { ${PR_SUMMARY_FIELDS} }
+      pageInfo { hasNextPage endCursor }
     }
   }
   reviewRequested: search(query: $reviewQuery, type: ISSUE, first: 50) {
@@ -153,14 +154,64 @@ const ISSUE_FIELDS = `
  * understands `assignee:@me` and answers in the same round trip.
  */
 export const ISSUE_LIST_QUERY = `
-query($owner: String!, $repo: String!, $first: Int!, $assigned: String!) {
+query(
+  $owner: String!
+  $repo: String!
+  $first: Int!
+  $assigned: String!
+  $withOpen: Boolean!
+  $openAfter: String
+  $withAssigned: Boolean!
+  $assignedAfter: String
+) {
   repository(owner: $owner, name: $repo) {
-    issues(first: $first, states: [OPEN], orderBy: { field: UPDATED_AT, direction: DESC }) {
+    issues(first: $first, after: $openAfter, states: [OPEN], orderBy: { field: UPDATED_AT, direction: DESC })
+      @include(if: $withOpen) {
       nodes { ${LIST_ISSUE_FIELDS} }
+      pageInfo { hasNextPage endCursor }
     }
   }
-  assigned: search(query: $assigned, type: ISSUE, first: $first) {
+  assigned: search(query: $assigned, type: ISSUE, first: $first, after: $assignedAfter) @include(if: $withAssigned) {
     nodes { ... on Issue { ${LIST_ISSUE_FIELDS} } }
+    pageInfo { hasNextPage endCursor }
+  }
+}`;
+
+/**
+ * Pull requests in any state matching what was typed, through GitHub's own
+ * search. The variable is not `$query`: `gh api graphql` takes the document
+ * itself as `query=`, and refuses a variable of the same name.
+ */
+export const PULL_REQUEST_SEARCH_QUERY = `
+query($search: String!, $first: Int!) {
+  viewer { login avatarUrl }
+  search(query: $search, type: ISSUE, first: $first) {
+    nodes { ... on PullRequest { ${PR_SUMMARY_FIELDS} } }
+  }
+}`;
+
+/**
+ * A number typed into the search box, looked up as one. Search matches text,
+ * so `412` would otherwise find the issues that mention 412 rather than #412.
+ */
+export const PULL_REQUEST_BY_NUMBER_QUERY = `
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) { ${PR_SUMMARY_FIELDS} }
+  }
+}`;
+
+export const ISSUE_SEARCH_QUERY = `
+query($search: String!, $first: Int!) {
+  search(query: $search, type: ISSUE, first: $first) {
+    nodes { ... on Issue { ${LIST_ISSUE_FIELDS} } }
+  }
+}`;
+
+export const ISSUE_BY_NUMBER_QUERY = `
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    issue(number: $number) { ${LIST_ISSUE_FIELDS} }
   }
 }`;
 

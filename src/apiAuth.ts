@@ -32,6 +32,8 @@ interface TokenEntry {
 
 const tokens = new Map<string, TokenEntry>();
 const ptyToToken = new Map<string, string>();
+/** Sandbox-scoped tokens handed to commands run under `ouijit sandbox` in a PTY. */
+const commandTokens = new Map<string, Set<string>>();
 
 export function issueToken(ptyId: string, scope: ApiScope): string {
   const existing = ptyToToken.get(ptyId);
@@ -62,17 +64,37 @@ export function registerStaticToken(token: string, ptyId: string, scope: ApiScop
   ptyToToken.set(ptyId, token);
 }
 
+/** A sandbox-scoped token for one command inside a PTY; it dies with the PTY at the latest. */
+export function issueCommandToken(ptyId: string): string {
+  const token = randomBytes(32).toString('hex');
+  tokens.set(token, { ptyId, scope: 'sandbox' });
+  const forPty = commandTokens.get(ptyId) ?? new Set<string>();
+  forPty.add(token);
+  commandTokens.set(ptyId, forPty);
+  return token;
+}
+
+/** Only a token issued to `ptyId` by `issueCommandToken` is revoked. */
+export function revokeCommandToken(ptyId: string, token: string): boolean {
+  if (!commandTokens.get(ptyId)?.delete(token)) return false;
+  tokens.delete(token);
+  return true;
+}
+
 export function revokeToken(ptyId: string): void {
   const token = ptyToToken.get(ptyId);
   if (token) {
     tokens.delete(token);
     ptyToToken.delete(ptyId);
   }
+  for (const commandToken of commandTokens.get(ptyId) ?? []) tokens.delete(commandToken);
+  commandTokens.delete(ptyId);
 }
 
 export function revokeAllTokens(): void {
   tokens.clear();
   ptyToToken.clear();
+  commandTokens.clear();
 }
 
 /**

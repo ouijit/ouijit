@@ -21,7 +21,7 @@ export interface CaptureTerminalSeed {
   ptyId: string;
   taskId: number;
   label: string;
-  summaryType?: TerminalDisplayState['summaryType'];
+  status?: TerminalDisplayState['status'];
   worktreeBranch?: string;
   worktreePath?: string;
   sandboxProvider?: SandboxProviderId;

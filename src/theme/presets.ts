@@ -36,6 +36,7 @@ const dracula: CustomTheme = {
     '--color-error': '#ff5555',
     '--color-status-ready': '#50fa7b',
     '--color-status-thinking': '#ff79c6',
+    '--color-status-unread': '#3d8eff',
 
     '--color-terminal-bg': '#282a36',
     '--color-terminal-fg': '#f8f8f2',
@@ -101,6 +102,7 @@ const tokyoNight: CustomTheme = {
     '--color-error': '#f7768e',
     '--color-status-ready': '#9ece6a',
     '--color-status-thinking': '#bb9af7',
+    '--color-status-unread': '#3d8eff',
 
     '--color-terminal-bg': '#1a1b26',
     '--color-terminal-fg': '#a9b1d6',
@@ -168,6 +170,7 @@ const matrix: CustomTheme = {
     '--color-error': '#ff4d4d',
     '--color-status-ready': '#00ff41',
     '--color-status-thinking': '#66ffcc',
+    '--color-status-unread': '#3d8eff',
 
     '--color-terminal-bg': '#0a0f0a',
     '--color-terminal-fg': '#00ff41',
@@ -231,6 +234,7 @@ const hotPink: CustomTheme = {
     '--color-error': '#ff4d6d',
     '--color-status-ready': '#3dd68c',
     '--color-status-thinking': '#c792ea',
+    '--color-status-unread': '#3d8eff',
 
     '--color-terminal-bg': '#1e141b',
     '--color-terminal-fg': '#f5dcea',
@@ -317,6 +321,7 @@ const sepia: CustomTheme = {
     '--color-error': '#b3392f',
     '--color-status-ready': '#5a7a29',
     '--color-status-thinking': '#94518d',
+    '--color-status-unread': '#1f6fd6',
 
     '--color-terminal-bg': '#f7efe0',
     '--color-terminal-fg': '#433422',

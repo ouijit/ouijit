@@ -5,10 +5,14 @@
  * frame on the way. The landing repeats because sections mounted during the
  * jump replace their estimated heights and move the target.
  */
-export function scrollToSection(container: HTMLElement | null, selector: string): void {
+export function scrollToSection(container: HTMLElement | null, selector: string, within?: string): void {
   if (!container) return;
-  // Optional call: jsdom has no `scrollIntoView`.
-  const land = () => container.querySelector(selector)?.scrollIntoView?.({ block: 'start' });
+  // Optional calls: jsdom has no `scrollIntoView`.
+  const land = () => {
+    const inner = within ? container.querySelector(`${selector} ${within}`) : null;
+    if (inner) inner.scrollIntoView?.({ block: 'center' });
+    else container.querySelector(selector)?.scrollIntoView?.({ block: 'start' });
+  };
   if (!container.querySelector(selector)) return;
 
   land();

@@ -3,6 +3,7 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { useProjectStore } from '../../stores/projectStore';
 import { bulkTransitionTasks } from '../../services/taskStartService';
 import type { TaskWithWorkspace, TaskStatus } from '../../types';
+import { seedProject } from './seedProject';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -31,10 +32,6 @@ function task(taskNumber: number, status: TaskStatus, extras: Partial<TaskWithWo
 
 describe('bulkTransitionTasks', () => {
   beforeEach(() => {
-    useProjectStore.getState().resetForProject();
-    // resetForProject intentionally preserves toasts across project switches;
-    // start each test from a clean toast list.
-    useProjectStore.setState({ toasts: [] });
     vi.clearAllMocks();
     vi.mocked(window.api.task.setStatus).mockResolvedValue({ success: true });
     vi.mocked(window.api.task.getAll).mockResolvedValue([]);
@@ -50,10 +47,8 @@ describe('bulkTransitionTasks', () => {
     // Mixed starting columns — proves the per-task snapshot rather than a
     // shared "from" column. If origStatus were derived after the setStatus
     // round-trip, every task would look like it came from in_progress.
-    useProjectStore.setState({
-      tasks: [task(1, 'todo'), task(2, 'in_review'), task(3, 'todo')],
-      selectedTaskNumbers: new Set([1, 2, 3]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'todo'), task(2, 'in_review'), task(3, 'todo')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 2, 3]) });
 
     const transitions = await bulkTransitionTasks(PROJECT, [1, 2, 3], 'in_progress');
 
@@ -65,10 +60,8 @@ describe('bulkTransitionTasks', () => {
   });
 
   test('persists setStatus for each transitioning task in parallel', async () => {
-    useProjectStore.setState({
-      tasks: [task(1, 'todo'), task(2, 'todo')],
-      selectedTaskNumbers: new Set([1, 2]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'todo'), task(2, 'todo')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 2]) });
 
     await bulkTransitionTasks(PROJECT, [1, 2], 'in_progress');
 
@@ -82,10 +75,8 @@ describe('bulkTransitionTasks', () => {
   });
 
   test('skips tasks already in the target column', async () => {
-    useProjectStore.setState({
-      tasks: [task(1, 'done'), task(2, 'in_review')],
-      selectedTaskNumbers: new Set([1, 2]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'done'), task(2, 'in_review')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 2]) });
 
     const transitions = await bulkTransitionTasks(PROJECT, [1, 2], 'done');
 
@@ -97,10 +88,8 @@ describe('bulkTransitionTasks', () => {
   });
 
   test('drops unknown task numbers (selection out of sync with task list)', async () => {
-    useProjectStore.setState({
-      tasks: [task(1, 'todo')],
-      selectedTaskNumbers: new Set([1, 999]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'todo')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 999]) });
 
     const transitions = await bulkTransitionTasks(PROJECT, [1, 999], 'in_progress');
 
@@ -109,10 +98,8 @@ describe('bulkTransitionTasks', () => {
   });
 
   test('reloads tasks and clears selection as side effects', async () => {
-    useProjectStore.setState({
-      tasks: [task(1, 'todo')],
-      selectedTaskNumbers: new Set([1]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'todo')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1]) });
 
     await bulkTransitionTasks(PROJECT, [1], 'in_progress');
 
@@ -121,10 +108,8 @@ describe('bulkTransitionTasks', () => {
   });
 
   test('emits a success toast counting actual transitions, not the selection size', async () => {
-    useProjectStore.setState({
-      tasks: [task(1, 'done'), task(2, 'in_review'), task(3, 'in_review')],
-      selectedTaskNumbers: new Set([1, 2, 3]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'done'), task(2, 'in_review'), task(3, 'in_review')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 2, 3]) });
 
     // Task 1 already done → 2 actual transitions, even though 3 were selected.
     await bulkTransitionTasks(PROJECT, [1, 2, 3], 'done');
@@ -140,10 +125,8 @@ describe('bulkTransitionTasks', () => {
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
     });
-    useProjectStore.setState({
-      tasks: [task(1, 'todo'), task(2, 'todo')],
-      selectedTaskNumbers: new Set([1, 2]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'todo'), task(2, 'todo')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 2]) });
 
     await bulkTransitionTasks(PROJECT, [1, 2], 'in_progress');
 
@@ -154,10 +137,8 @@ describe('bulkTransitionTasks', () => {
   });
 
   test('a no-op bulk action (all selected already in target) fires no IPC and no toast', async () => {
-    useProjectStore.setState({
-      tasks: [task(1, 'done'), task(2, 'done')],
-      selectedTaskNumbers: new Set([1, 2]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'done'), task(2, 'done')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 2]) });
 
     const transitions = await bulkTransitionTasks(PROJECT, [1, 2], 'done');
 
@@ -174,10 +155,8 @@ describe('bulkTransitionTasks', () => {
       if (taskNumber === 2) throw new Error('connection refused');
       return { success: true };
     });
-    useProjectStore.setState({
-      tasks: [task(1, 'todo'), task(2, 'todo'), task(3, 'todo')],
-      selectedTaskNumbers: new Set([1, 2, 3]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'todo'), task(2, 'todo'), task(3, 'todo')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 2, 3]) });
 
     const succeeded = await bulkTransitionTasks(PROJECT, [1, 2, 3], 'in_progress');
 
@@ -198,10 +177,8 @@ describe('bulkTransitionTasks', () => {
       if (taskNumber === 1) return { success: false, error: 'task locked' };
       return { success: true };
     });
-    useProjectStore.setState({
-      tasks: [task(1, 'todo'), task(2, 'todo')],
-      selectedTaskNumbers: new Set([1, 2]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'todo'), task(2, 'todo')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 2]) });
 
     const succeeded = await bulkTransitionTasks(PROJECT, [1, 2], 'in_progress');
 
@@ -212,10 +189,8 @@ describe('bulkTransitionTasks', () => {
 
   test('when every setStatus fails, no success toast is emitted', async () => {
     vi.mocked(window.api.task.setStatus).mockResolvedValue({ success: false, error: 'boom' });
-    useProjectStore.setState({
-      tasks: [task(1, 'todo'), task(2, 'todo')],
-      selectedTaskNumbers: new Set([1, 2]),
-    });
+    seedProject(PROJECT, { tasks: [task(1, 'todo'), task(2, 'todo')] });
+    useProjectStore.setState({ selectedTaskNumbers: new Set([1, 2]) });
 
     const succeeded = await bulkTransitionTasks(PROJECT, [1, 2], 'in_progress');
 

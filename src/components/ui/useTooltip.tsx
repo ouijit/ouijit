@@ -58,7 +58,7 @@ export function useTooltip(
     ? createPortal(
         <div
           ref={refs.setFloating}
-          className="fixed z-[10002] pointer-events-none"
+          className="fixed z-[10010] pointer-events-none"
           style={floatingStyles}
           {...getFloatingProps()}
         >

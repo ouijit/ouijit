@@ -6,7 +6,6 @@ import {
   beginTask,
   setTaskStatusWithHooks,
   reorderTaskWithHooks,
-  deleteTaskWithWorktree,
   trashTaskWithWorktree,
   getTasksWithWorkspaces,
   getTaskWithWorkspace,
@@ -29,8 +28,6 @@ export function registerTaskHandlers(): void {
   typedHandle('task:set-status', (projectPath, taskNumber, status) =>
     setTaskStatusWithHooks(projectPath, taskNumber, status),
   );
-
-  typedHandle('task:delete', (projectPath, taskNumber) => deleteTaskWithWorktree(projectPath, taskNumber));
 
   typedHandle('task:trash', (projectPath, taskNumber) => trashTaskWithWorktree(projectPath, taskNumber));
 

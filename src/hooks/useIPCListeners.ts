@@ -1,21 +1,68 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { SANDBOX_BACKEND_LABELS, type CliHookControl } from '../types';
 import {
-  useProjectStore,
-  type PendingCliStart,
-  type PendingCliTransition,
-  type PendingCliCompletion,
-} from '../stores/projectStore';
+  SANDBOX_LABELS,
+  type CliCaller,
+  type CliHookControl,
+  type HookType,
+  type TaskStatus,
+  type TaskWithWorkspace,
+} from '../types';
+import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
+import { projectDefaultSandbox, refreshProjectData } from '../stores/projectDataStore';
+import { isActiveSandbox } from '../sandbox/types';
 import { beginTransition } from '../services/taskStartService';
+import { hookSandbox, hookTypeForTransition } from '../services/hookRun';
+import { usePointerStore } from '../stores/pointerStore';
 import { completeTask } from '../services/taskCompletion';
 import { reloadTheme } from '../theme/themeManager';
 import log from 'electron-log/renderer';
 
 const ipcLog = log.scope('ipcListeners');
 
-async function spawnTerminalForCliStart(projectPath: string, start: PendingCliStart): Promise<void> {
+interface CliStart extends CliHookControl, CliCaller {
+  taskNumber: number;
+  worktreePath: string;
+  branch: string;
+}
+
+function hookOptions({ hookMode, hookCommand, hookSandbox }: CliHookControl) {
+  return { hookControl: hookMode ? { mode: hookMode, command: hookCommand } : undefined, sandbox: hookSandbox };
+}
+
+/**
+ * A CLI task move never takes over the screen. Where its hook would open a
+ * dialog, the move waits behind a pointer at the task, from the terminal that
+ * ran it, and the dialog opens when the user follows. Otherwise it runs at
+ * once, its terminal behind the one on screen.
+ *
+ * A sandboxed caller's `--run-hook` waits for the dialog too when the hook
+ * runs on the host, since it would run there in a worktree the caller wrote.
+ */
+async function stageOrRun(
+  projectPath: string,
+  task: TaskWithWorkspace,
+  move: CliHookControl & CliCaller & { hookType: HookType | null },
+  run: (background: boolean, control: CliHookControl) => void,
+): Promise<void> {
+  const { fromPtyId } = move;
+  const target = { kind: 'task' as const, projectPath, taskNumber: task.taskNumber };
+  const hook = move.hookType != null ? (await window.api.hooks.get(projectPath))[move.hookType] : undefined;
+  const onHostUnseen =
+    !!hook &&
+    !!move.fromSandbox &&
+    move.hookMode === 'run' &&
+    !isActiveSandbox(hookSandbox(undefined, hook, await projectDefaultSandbox(projectPath)));
+  if (hook && (!move.hookMode || onHostUnseen) && fromPtyId) {
+    usePointerStore.getState().point({ from: fromPtyId, target, move: () => run(false, {}) });
+    return;
+  }
+  run(true, move);
+  if (move.point && fromPtyId) usePointerStore.getState().point({ from: fromPtyId, target });
+}
+
+async function spawnTerminalForCliStart(projectPath: string, start: CliStart): Promise<void> {
   // Guard against double-spawn: skip if a terminal for this task already exists.
   const terminals = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
   const displayStates = useTerminalStore.getState().displayStates;
@@ -30,67 +77,68 @@ async function spawnTerminalForCliStart(projectPath: string, start: PendingCliSt
   // Use the full task record so beginTransition has name/mergeTarget/etc.
   // The CLI already created the worktree and flipped status, so the
   // transition's worktree-creation step short-circuits on task.worktreePath.
-  const task = await window.api.task.getByNumber(projectPath, start.taskNumber);
-  if (!task) {
+  const found = await window.api.task.getByNumber(projectPath, start.taskNumber);
+  if (!found) {
     ipcLog.warn('CLI task-started: task not found, skipping spawn', { taskNumber: start.taskNumber });
     return;
   }
+  const task = {
+    ...found,
+    worktreePath: found.worktreePath ?? start.worktreePath,
+    branch: found.branch ?? start.branch,
+  };
 
-  // Route through the same service the kanban drag uses. With no hook flags
-  // the `start` hook dialog appears, matching the todo → in_progress drop UX
-  // exactly. When the CLI passed --run-hook/--skip-hook/--hook-command, the
-  // dialog is skipped so an agent can start a task headlessly.
-  beginTransition(projectPath, {
-    origStatus: 'todo',
-    newStatus: 'in_progress',
-    task: {
-      ...task,
-      worktreePath: task.worktreePath ?? start.worktreePath,
-      branch: task.branch ?? start.branch,
-    },
-    ...hookOptions(start),
-  });
-}
-
-function cliHookControl({ hookMode, hookCommand, hookSandbox }: CliHookControl): CliHookControl {
-  return { hookMode, hookCommand, hookSandbox };
-}
-
-function hookOptions({ hookMode, hookCommand, hookSandbox }: CliHookControl) {
-  return { hookControl: hookMode ? { mode: hookMode, command: hookCommand } : undefined, sandbox: hookSandbox };
+  // The same service a kanban drag to In progress goes through.
+  await stageOrRun(projectPath, task, { ...start, hookType: 'start' }, (background, control) =>
+    beginTransition(projectPath, {
+      origStatus: 'todo',
+      newStatus: 'in_progress',
+      task,
+      ...hookOptions(control),
+      background,
+    }),
+  );
 }
 
 /**
  * Run a CLI-initiated in_progress/in_review transition through the same
  * beginTransition path a kanban drop uses. The server already wrote the status
- * and fetched the full task, so this just fires the hook: a dialog by default,
- * or headless when the CLI passed --run-hook/--skip-hook/--hook-command.
+ * and fetched the full task, so this just fires the hook.
  */
-function runCliTransition(projectPath: string, transition: PendingCliTransition): void {
-  beginTransition(projectPath, {
-    origStatus: transition.origStatus,
-    newStatus: transition.newStatus,
-    task: transition.task,
-    ...hookOptions(transition),
-  });
+async function runCliTransition(
+  projectPath: string,
+  transition: CliHookControl & CliCaller & { origStatus: TaskStatus; newStatus: TaskStatus; task: TaskWithWorkspace },
+): Promise<void> {
+  const { origStatus, newStatus, task } = transition;
+  await stageOrRun(
+    projectPath,
+    task,
+    { ...transition, hookType: hookTypeForTransition(origStatus, newStatus) },
+    (background, control) =>
+      beginTransition(projectPath, { origStatus, newStatus, task, ...hookOptions(control), background }),
+  );
 }
 
 /**
  * Run a CLI-initiated done transition through completeTask. The server already
  * wrote the status (skipStatusWrite), so this drives the done lifecycle:
- * terminal cleanup always runs; the hook is a dialog by default, or headless
- * when the CLI passed --run-hook/--skip-hook/--hook-command.
+ * terminal cleanup and the done hook.
  */
-function runCliCompletion(projectPath: string, completion: PendingCliCompletion): void {
-  void completeTask({
-    projectPath,
-    task: completion.task,
-    ...hookOptions(completion),
-    skipStatusWrite: true,
-  }).catch((err) => {
-    ipcLog.error('CLI task-completed lifecycle failed', {
-      taskNumber: completion.taskNumber,
-      error: err instanceof Error ? err.message : String(err),
+async function runCliCompletion(
+  projectPath: string,
+  completion: CliHookControl & CliCaller & { task: TaskWithWorkspace },
+): Promise<void> {
+  await stageOrRun(projectPath, completion.task, { ...completion, hookType: 'done' }, (_background, control) => {
+    void completeTask({
+      projectPath,
+      task: completion.task,
+      ...hookOptions(control),
+      skipStatusWrite: true,
+    }).catch((err) => {
+      ipcLog.error('CLI task-completed lifecycle failed', {
+        taskNumber: completion.task.taskNumber,
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
   });
 }
@@ -127,10 +175,16 @@ export function useIPCListeners() {
     cleanups.push(
       window.api.onSandboxLaunchFailed(({ provider, exitCode, error }) => {
         const reason = error ? `: ${error}` : ` (exit ${exitCode}). See the terminal output.`;
-        useProjectStore.getState().addToast(`${SANDBOX_BACKEND_LABELS[provider]} sandbox failed to start${reason}`, {
+        useProjectStore.getState().addToast(`${SANDBOX_LABELS[provider]} failed to start${reason}`, {
           type: 'error',
           persistent: true,
         });
+      }),
+    );
+
+    cleanups.push(
+      window.api.onTerminalSandbox(({ ptyId, sandboxProvider }) => {
+        useTerminalStore.getState().updateDisplay(ptyId, { sandboxProvider });
       }),
     );
 
@@ -178,26 +232,11 @@ export function useIPCListeners() {
       }),
     );
 
-    // CLI changes — re-fetch whatever the mutated route touched. Scripts and
-    // hooks are the project's run commands: the store loads them once on
-    // project switch, so without this a `ouijit script set` / `hook set` never
-    // shows up in an already-open window (terminal "+" menu, headers, badges).
     cleanups.push(
       window.api.onCliChange((payload) => {
-        const activeProject = useAppStore.getState().activeProjectPath;
-        if (!activeProject || payload.project !== activeProject) return;
-        ipcLog.info('CLI change detected, refreshing', { action: payload.action });
-        const store = useProjectStore.getState();
-        if (payload.resource === 'scripts') {
-          store.loadScripts(activeProject);
-        } else if (payload.resource === 'hooks' || payload.resource === 'sandbox') {
-          store.loadProjectConfig(activeProject);
-        } else {
-          store.loadTasks(activeProject);
-        }
-        if (payload.message) {
-          store.addToast(payload.message, 'info');
-        }
+        ipcLog.info('CLI change detected, refreshing', { action: payload.action, project: payload.project });
+        refreshProjectData(payload.project, payload.resource);
+        if (payload.message) useProjectStore.getState().addToast(payload.message, 'info');
       }),
     );
 
@@ -210,161 +249,42 @@ export function useIPCListeners() {
       }),
     );
 
-    // CLI-initiated done transition — server already wrote status and included
-    // the full task in the payload, so the done-hook lifecycle (snapshot
-    // terminals, spawn done hook, close snapshot) can run regardless of which
-    // project the user is currently viewing. completeTask itself guards
-    // loadTasks against clobbering the active project's task list, so the
-    // visible kanban catches up on next navigation.
+    // The CLI has already written the status. Each of these runs its hook here
+    // wherever the user is: headless when the CLI passed a hook flag, otherwise
+    // through the hook dialog.
     cleanups.push(
       window.api.onCliTaskCompleted((payload) => {
-        const activeProject = useAppStore.getState().activeProjectPath;
-        const completion: PendingCliCompletion = {
-          taskNumber: payload.taskNumber,
-          task: payload.task,
-          ...cliHookControl(payload),
-        };
-
-        // A bare done (no hookMode) shows the Done dialog, which can only render
-        // for the project the user is viewing — queue it otherwise and drain on
-        // navigation. A done with explicit hook flags is headless (no dialog),
-        // so it runs immediately regardless of which project is in view.
-        if (payload.hookMode || activeProject === payload.project) {
-          ipcLog.info('CLI task-completed: running completeTask', {
-            project: payload.project,
-            taskNumber: payload.taskNumber,
-          });
-          runCliCompletion(payload.project, completion);
-        } else {
-          ipcLog.info('CLI task-completed: queuing for later navigation', {
-            project: payload.project,
-            taskNumber: payload.taskNumber,
-          });
-          useProjectStore.getState().enqueueCliCompletion(payload.project, completion);
-        }
+        ipcLog.info('CLI task-completed', { project: payload.project, taskNumber: payload.taskNumber });
+        void runCliCompletion(payload.project, payload);
       }),
     );
 
-    // CLI-initiated task start — spawn a terminal + run the configured hook.
-    // If the user isn't viewing the project, queue it and drain on navigation.
     cleanups.push(
       window.api.onCliTaskStarted((payload) => {
-        const activeProject = useAppStore.getState().activeProjectPath;
-        const start: PendingCliStart = {
-          taskNumber: payload.taskNumber,
-          worktreePath: payload.worktreePath,
-          branch: payload.branch,
-          createdAt: payload.createdAt,
-          ...cliHookControl(payload),
-        };
-
-        if (activeProject === payload.project) {
-          ipcLog.info('CLI task-started: spawning terminal', { taskNumber: payload.taskNumber });
-          void spawnTerminalForCliStart(payload.project, start).catch((err) => {
-            ipcLog.error('CLI task-started spawn failed', {
-              taskNumber: payload.taskNumber,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          });
-        } else {
-          ipcLog.info('CLI task-started: queuing for later navigation', {
-            project: payload.project,
+        ipcLog.info('CLI task-started', { project: payload.project, taskNumber: payload.taskNumber });
+        void spawnTerminalForCliStart(payload.project, payload).catch((err) => {
+          ipcLog.error('CLI task-started spawn failed', {
             taskNumber: payload.taskNumber,
-          });
-          useProjectStore.getState().enqueueCliStart(payload.project, start);
-        }
-      }),
-    );
-
-    // CLI-initiated in_progress/in_review transition — fire the column hook via
-    // beginTransition. A bare transition (no hookMode) shows that column's hook
-    // dialog, which can only render for the project the user is viewing — queue
-    // it otherwise and drain on navigation. A transition with explicit hook
-    // flags is headless (no dialog), so it runs immediately regardless of which
-    // project is in view, the same as a headless done.
-    cleanups.push(
-      window.api.onCliTaskTransitioned((payload) => {
-        const activeProject = useAppStore.getState().activeProjectPath;
-        const transition: PendingCliTransition = {
-          taskNumber: payload.taskNumber,
-          origStatus: payload.origStatus,
-          newStatus: payload.newStatus,
-          task: payload.task,
-          ...cliHookControl(payload),
-        };
-
-        if (payload.hookMode || activeProject === payload.project) {
-          ipcLog.info('CLI task-transitioned: running transition', {
-            taskNumber: payload.taskNumber,
-            newStatus: payload.newStatus,
-          });
-          runCliTransition(payload.project, transition);
-        } else {
-          ipcLog.info('CLI task-transitioned: queuing for later navigation', {
-            project: payload.project,
-            taskNumber: payload.taskNumber,
-          });
-          useProjectStore.getState().enqueueCliTransition(payload.project, transition);
-        }
-      }),
-    );
-
-    // Drain queued CLI starts whenever the active project changes.
-    const drain = (projectPath: string | null) => {
-      if (!projectPath) return;
-      const queued = useProjectStore.getState().drainCliStarts(projectPath);
-      for (const start of queued) {
-        ipcLog.info('draining queued CLI task-started', {
-          project: projectPath,
-          taskNumber: start.taskNumber,
-        });
-        void spawnTerminalForCliStart(projectPath, start).catch((err) => {
-          ipcLog.error('queued CLI task-started spawn failed', {
-            taskNumber: start.taskNumber,
             error: err instanceof Error ? err.message : String(err),
           });
         });
-      }
-      const queuedTransitions = useProjectStore.getState().drainCliTransitions(projectPath);
-      for (const transition of queuedTransitions) {
-        ipcLog.info('draining queued CLI task-transitioned', {
-          project: projectPath,
-          taskNumber: transition.taskNumber,
-        });
-        runCliTransition(projectPath, transition);
-      }
-      const queuedCompletions = useProjectStore.getState().drainCliCompletions(projectPath);
-      for (const completion of queuedCompletions) {
-        ipcLog.info('draining queued CLI task-completed', {
-          project: projectPath,
-          taskNumber: completion.taskNumber,
-        });
-        runCliCompletion(projectPath, completion);
-      }
-    };
-    // Initial drain in case events arrived before this effect mounted.
-    drain(useAppStore.getState().activeProjectPath);
-    const unsubscribeAppStore = useAppStore.subscribe((state, prev) => {
-      if (state.activeProjectPath !== prev.activeProjectPath) {
-        drain(state.activeProjectPath);
-      }
-    });
-    cleanups.push(unsubscribeAppStore);
+      }),
+    );
+
+    cleanups.push(
+      window.api.onCliTaskTransitioned((payload) => {
+        ipcLog.info('CLI task-transitioned', { taskNumber: payload.taskNumber, newStatus: payload.newStatus });
+        void runCliTransition(payload.project, payload);
+      }),
+    );
 
     // Clone progress arrives as pushes; the list is fetched once so a reload
     // mid-clone still shows what is in flight.
     void window.api.listClones().then((jobs) => useAppStore.getState().setCloneJobs(jobs));
     cleanups.push(window.api.onClonesChanged((jobs) => useAppStore.getState().setCloneJobs(jobs)));
     cleanups.push(
-      window.api.onCloneLanded(async (projectPath) => {
-        const projects = await window.api.refreshProjects();
-        useAppStore.getState().setProjects(projects);
-        // Settle in place for whoever is watching, but never pull someone back
-        // to a project they navigated away from while it downloaded.
-        const project = projects.find((p) => p.path === projectPath);
-        if (project && useAppStore.getState().activeProjectPath === projectPath) {
-          useAppStore.getState().navigateToProject(projectPath, project);
-        }
+      window.api.onCloneLanded(async () => {
+        useAppStore.getState().setProjects(await window.api.refreshProjects());
       }),
     );
 

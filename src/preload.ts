@@ -3,6 +3,7 @@
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/contract';
+import type { DiffDefaults } from './git';
 import type {
   PtyId,
   PtySpawnOptions,
@@ -18,11 +19,17 @@ import type {
   Script,
   CliHookControl,
   TaskWithWorkspace,
-  NonoConfig,
   CustomSandboxConfig,
   SandboxLaunchFailedPayload,
+  TerminalSandboxPayload,
   CliPanelOp,
   CliPanelResponse,
+  CliTagOp,
+  CliTagResponse,
+  CliTerminalOp,
+  CliTerminalResponse,
+  CliPointOp,
+  CliPointResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
 import type {
@@ -32,8 +39,9 @@ import type {
   GithubDraftsChangedPayload,
   SaveDraftInput,
   PrHead,
+  GithubIssueListGroup,
 } from './github/types';
-import type { LinearDraftsChangedPayload, LinearScope } from './linear/types';
+import type { LinearDraftsChangedPayload, LinearGroupFilter, LinearScope } from './linear/types';
 import type { LensInput } from './lens/config';
 import type { SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
@@ -97,8 +105,8 @@ contextBridge.exposeInMainWorld('api', {
     typedInvoke('settings:set-project-icon-color', projectPath, color),
 
   getGitStatus: (projectPath: string) => typedInvoke('get-git-status', projectPath),
-  getGitFileStatus: (projectPath: string, diffBase?: string) =>
-    typedInvoke('get-git-file-status', projectPath, diffBase),
+  getGitFileStatus: (gitPath: string, diffBase?: string, defaults?: DiffDefaults) =>
+    typedInvoke('get-git-file-status', gitPath, diffBase, defaults),
   getGitDropdownInfo: (projectPath: string) => typedInvoke('get-git-dropdown-info', projectPath),
   listDiffBases: (projectPath: string) => typedInvoke('git-diff-bases', projectPath),
   fetchDiffBase: (projectPath: string, ref: string) => typedInvoke('git-fetch-diff-base', projectPath, ref),
@@ -164,7 +172,6 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('task:get-by-number', projectPath, taskNumber),
     setStatus: (projectPath: string, taskNumber: number, status: TaskStatus) =>
       typedInvoke('task:set-status', projectPath, taskNumber, status),
-    delete: (projectPath: string, taskNumber: number) => typedInvoke('task:delete', projectPath, taskNumber),
     trash: (projectPath: string, taskNumber: number) => typedInvoke('task:trash', projectPath, taskNumber),
     setMergeTarget: (projectPath: string, taskNumber: number, mergeTarget: string) =>
       typedInvoke('task:set-merge-target', projectPath, taskNumber, mergeTarget),
@@ -197,17 +204,6 @@ contextBridge.exposeInMainWorld('api', {
     reorder: (projectPath: string, scriptIds: string[]) => typedInvoke('scripts:reorder', projectPath, scriptIds),
   },
 
-  tags: {
-    getAll: () => typedInvoke('tags:get-all'),
-    getForTask: (projectPath: string, taskNumber: number) => typedInvoke('tags:get-for-task', projectPath, taskNumber),
-    addToTask: (projectPath: string, taskNumber: number, tagName: string) =>
-      typedInvoke('tags:add-to-task', projectPath, taskNumber, tagName),
-    removeFromTask: (projectPath: string, taskNumber: number, tagName: string) =>
-      typedInvoke('tags:remove-from-task', projectPath, taskNumber, tagName),
-    setTaskTags: (projectPath: string, taskNumber: number, tagNames: string[]) =>
-      typedInvoke('tags:set-task-tags', projectPath, taskNumber, tagNames),
-  },
-
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => typedListen('fullscreen-change', callback),
 
   agentHooks: {
@@ -231,6 +227,22 @@ contextBridge.exposeInMainWorld('api', {
     respond: (requestId: number, response: CliPanelResponse) => typedInvoke('cli-panels:respond', requestId, response),
   },
 
+  cliTags: {
+    onOp: (callback: (op: CliTagOp) => void) => typedListen('cli:tag-op', callback),
+    respond: (requestId: number, response: CliTagResponse) => typedInvoke('cli-tags:respond', requestId, response),
+  },
+
+  cliTerminals: {
+    onOp: (callback: (op: CliTerminalOp) => void) => typedListen('cli:terminal-op', callback),
+    respond: (requestId: number, response: CliTerminalResponse) =>
+      typedInvoke('cli-terminals:respond', requestId, response),
+  },
+
+  cliPoints: {
+    onOp: (callback: (op: CliPointOp) => void) => typedListen('cli:point-op', callback),
+    respond: (requestId: number, response: CliPointResponse) => typedInvoke('cli-points:respond', requestId, response),
+  },
+
   globalSettings: {
     get: (key: string) => typedInvoke('settings:get-global', key),
     set: (key: string, value: string) => typedInvoke('settings:set-global', key, value),
@@ -252,6 +264,7 @@ contextBridge.exposeInMainWorld('api', {
 
   onSandboxLaunchFailed: (callback: (info: SandboxLaunchFailedPayload) => void) =>
     typedListen('sandbox-launch-failed', callback),
+  onTerminalSandbox: (callback: (info: TerminalSandboxPayload) => void) => typedListen('terminal-sandbox', callback),
 
   onWhatsNew: (callback: (info: { version: string; notes: string }) => void) => typedListen('whats-new', callback),
 
@@ -306,9 +319,10 @@ contextBridge.exposeInMainWorld('api', {
 
   sandbox: {
     status: (projectPath: string) => typedInvoke('sandbox:status', projectPath),
-    nonoConfig: (projectPath: string) => typedInvoke('sandbox:nono-config', projectPath),
-    setNonoConfig: (projectPath: string, config: NonoConfig) =>
-      typedInvoke('sandbox:set-nono-config', projectPath, config),
+    nonoProfile: (projectPath: string) => typedInvoke('sandbox:nono-profile', projectPath),
+    chooseNonoProfile: (projectPath: string) => typedInvoke('sandbox:choose-nono-profile', projectPath),
+    resetNonoProfile: (projectPath: string) => typedInvoke('sandbox:reset-nono-profile', projectPath),
+    openNonoProfile: (projectPath: string) => typedInvoke('sandbox:open-nono-profile', projectPath),
     customConfig: (projectPath: string) => typedInvoke('sandbox:custom-config', projectPath),
     setCustomConfig: (projectPath: string, config: CustomSandboxConfig) =>
       typedInvoke('sandbox:set-custom-config', projectPath, config),
@@ -316,7 +330,9 @@ contextBridge.exposeInMainWorld('api', {
 
   github: {
     availability: (projectPath: string, recheck?: boolean) => typedInvoke('github:availability', projectPath, recheck),
-    inbox: (projectPath: string) => typedInvoke('github:inbox', projectPath),
+    inbox: (projectPath: string, after?: string) => typedInvoke('github:inbox', projectPath, after),
+    searchPullRequests: (projectPath: string, query: string) =>
+      typedInvoke('github:search-pull-requests', projectPath, query),
     pullRequest: (projectPath: string, number: number) => typedInvoke('github:pull-request', projectPath, number),
     pullRequestFreshness: (projectPath: string, number: number) =>
       typedInvoke('github:pull-request-freshness', projectPath, number),
@@ -357,7 +373,9 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('github:viewed-files', projectPath, prNumber, headSha),
     setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) =>
       typedInvoke('github:set-file-viewed', projectPath, prNumber, headSha, path, viewed),
-    issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
+    issues: (projectPath: string, page?: { group: GithubIssueListGroup; after: string }) =>
+      typedInvoke('github:issues', projectPath, page),
+    searchIssues: (projectPath: string, query: string) => typedInvoke('github:search-issues', projectPath, query),
     issue: (projectPath: string, number: number) => typedInvoke('github:issue', projectPath, number),
 
     linkTaskIssue: (projectPath: string, taskNumber: number, issueNumber: number | null) =>
@@ -402,6 +420,9 @@ contextBridge.exposeInMainWorld('api', {
     setScope: (projectPath: string, scope: LinearScope | null) => typedInvoke('linear:set-scope', projectPath, scope),
 
     issues: (projectPath: string) => typedInvoke('linear:issues', projectPath),
+    issuePage: (projectPath: string, group: LinearGroupFilter, after: string) =>
+      typedInvoke('linear:issue-page', projectPath, group, after),
+    search: (projectPath: string, term: string) => typedInvoke('linear:search', projectPath, term),
     issue: (projectPath: string, id: string) => typedInvoke('linear:issue', projectPath, id),
 
     comment: (projectPath: string, issueId: string, body: string) =>

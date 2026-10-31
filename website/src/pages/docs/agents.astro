@@ -15,6 +15,12 @@ import Docs from '../../layouts/Docs.astro';
     commands in these docs plus behavioral notes: JSON output on stdout, errors as
     <code>{`{"error": "..."}`}</code> on stderr with a non-zero exit, and the flags for headless status changes.
   </p>
+  <p>
+    In a sandboxed terminal the reference opens with a short section of its own: that the terminal is sandboxed,
+    what Ouijit lets it write, the project's CLI access level, and to ask with <code>ouijit ask run</code> when the
+    sandbox blocks a command rather than work around it. What else the sandbox allows is up to its profile or
+    launcher, so the section doesn't list it.
+  </p>
 
   <h2>Environment</h2>
   <p>Every Ouijit terminal has these set. An agent can read them directly:</p>
@@ -35,11 +41,13 @@ import Docs from '../../layouts/Docs.astro';
   <pre class="glass-bevel"><code>TASK=$(ouijit task current | jq -r .taskNumber)
 ouijit task set-status "$TASK" in_review --skip-hook</code></pre>
   <p>
-    By default a status change opens that column's hook dialog in the GUI. When no human is at the keyboard,
-    pass <code>--run-hook</code> (run the configured hook immediately), <code>--skip-hook</code> (no hook), or
+    By default a status change whose hook would ask first waits behind a <a href="/docs/cli/#point">pointer</a>
+    at the task, and the dialog opens when the user follows it. To run without waiting, pass
+    <code>--run-hook</code> (run the configured hook immediately), <code>--skip-hook</code> (no hook), or
     <code>--hook-command "&lt;cmd&gt;"</code> (a one-off command). The same flags apply to
-    <code>task start</code> and <code>task create-and-start</code>. The hook runs in its own
-    <a href="/docs/sandbox/">sandbox</a> setting unless <code>--sandbox host|nono|custom</code> says otherwise.
+    <code>task start</code> and <code>task create-and-start</code>. The hook runs where its
+    <a href="/docs/sandbox/">sandbox</a> setting says, or the project default, unless
+    <code>--sandbox host|nono|custom</code> says otherwise. <code>nono</code> is Ouijit's sandbox.
   </p>
 
   <h2>Open panels beside yourself</h2>
@@ -79,11 +87,15 @@ ouijit linear draft add $ISSUE --origin claude \
   --body "the retry loop drops the last error"</code></pre>
 
   <h2>Inside a sandbox</h2>
-  <p>The API surface shrinks under a <a href="/docs/sandbox/">sandbox</a>:</p>
-  <ul>
-    <li><strong>nono</strong>. The terminal runs on the host, so <code>ouijit</code> stays on <code>PATH</code> with access scoped to the task's own data. Pull request drafts written from a sandbox are stamped with a <code>sandbox</code> origin the caller cannot forge.</li>
-    <li><strong>Custom</strong>. The launcher the project supplies owns the boundary, so whether <code>ouijit</code> is reachable at all is up to it. The token is scoped the same way as under nono, and a draft written through it carries the same <code>sandbox</code> origin.</li>
-  </ul>
+  <p>
+    Inside a <a href="/docs/sandbox/">sandbox</a>, <code>ouijit</code> can do what the project's
+    <a href="/docs/sandbox/#cli">Ouijit CLI access</a> allows: by default read its own task, stage comments,
+    point and label its own terminal; also edit and move its task; or everything. At any level it can
+    <a href="/docs/cli/#ask">ask you to run a command</a> outside the sandbox, which runs only when you press Run.
+    A hook that would run on the host waits for you even with <code>--run-hook</code>. Pull request drafts written from a sandbox are stamped with a <code>sandbox</code> origin
+    the caller cannot forge. Under the Custom sandbox, whether <code>ouijit</code> is reachable at all is up to
+    the launcher.
+  </p>
 
   <h2>Machine-readable docs</h2>
   <ul>

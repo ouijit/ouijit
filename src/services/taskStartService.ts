@@ -12,10 +12,12 @@ import log from 'electron-log/renderer';
 import { addProjectTerminal } from '../components/terminal/terminalActions';
 import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import { completeTask } from './taskCompletion';
-import { headlessHookRun, hookSandbox, type HookControl } from './hookRun';
+import { headlessHookRun, hookSandbox, hookTypeForTransition, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';
-import { useTerminalStore } from '../stores/terminalStore';
-import type { HookType, RunHookResult, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
+import { joinStack, useAppStore } from '../stores/appStore';
+import { getProjectTasks, loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
+import { stackOf, useTerminalStore } from '../stores/terminalStore';
+import type { RunHookResult, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
 /** Id for a loading slot standing in for a task's terminal while it spawns. */
@@ -36,14 +38,6 @@ export function surfaceStartWarnings(warnings?: string[]): void {
   }
 }
 
-function hookTypeForTransition(origStatus: TaskStatus, newStatus: TaskStatus): HookType | null {
-  if (origStatus === newStatus) return null;
-  if (newStatus === 'in_progress') return origStatus === 'todo' ? 'start' : 'continue';
-  if (newStatus === 'in_review') return 'review';
-  // 'done' is handled by completeTask, not beginTransition.
-  return null;
-}
-
 export interface BeginTransitionOptions {
   /** Original status before the drag — used to disambiguate start vs continue. */
   origStatus: TaskStatus;
@@ -57,6 +51,8 @@ export interface BeginTransitionOptions {
   hookControl?: HookControl;
   /** Overrides the hook's own sandbox setting; with no hook to run, sandboxes the plain shell. */
   sandbox?: SandboxProviderId;
+  /** Open the terminal behind the one in front, and leave keyboard focus where it is. */
+  background?: boolean;
 }
 
 /**
@@ -97,7 +93,7 @@ export async function bulkTransitionTasks(
   newStatus: TaskStatus,
 ): Promise<Array<{ task: TaskWithWorkspace; origStatus: TaskStatus }>> {
   const store = useProjectStore.getState();
-  const tasksByNumber = new Map(store.tasks.map((t) => [t.taskNumber, t]));
+  const tasksByNumber = new Map(getProjectTasks(projectPath).map((t) => [t.taskNumber, t]));
   // Snapshot each task's status BEFORE mutating so we can drive beginTransition
   // with the right origStatus per task (start vs continue, etc.).
   const transitions = taskNumbers
@@ -158,7 +154,7 @@ export async function bulkTransitionTasks(
     }
   });
 
-  await store.loadTasks(projectPath);
+  await loadTasks(projectPath);
   store.clearSelection();
 
   for (const { task, origStatus } of succeeded) {
@@ -177,7 +173,7 @@ export async function bulkTransitionTasks(
 }
 
 async function runTransition(projectPath: string, opts: BeginTransitionOptions, t0: number): Promise<void> {
-  const { task, origStatus, newStatus, onForegroundOpen, hookControl, sandbox: sandboxOverride } = opts;
+  const { task, origStatus, newStatus, onForegroundOpen, hookControl, sandbox: sandboxOverride, background } = opts;
   const taskNumber = task.taskNumber;
   const transitioningToInProgress = newStatus === 'in_progress';
 
@@ -197,8 +193,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
     useProjectStore.getState().markTaskStarting(taskNumber);
     useTerminalStore
       .getState()
-      .addTerminal(projectPath, slotId, { label: task.name, taskId: taskNumber, isLoading: true });
-    useTerminalStore.getState().activateLast(projectPath);
+      .addTerminal(projectPath, slotId, { label: task.name, taskId: taskNumber, isLoading: true }, { background });
   }
 
   try {
@@ -241,7 +236,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
     // decided — skip the dialog entirely. Otherwise show the dialog
     // proactively if a hook is configured for this transition.
     let hookPromise: Promise<RunHookResult | null> = Promise.resolve(null);
-    const sandbox = hookSandbox(sandboxOverride, hook);
+    const sandbox = hookSandbox(sandboxOverride, hook, await projectDefaultSandbox(projectPath));
     // True when an interactive start-hook dialog is shown to the user. Clicking
     // its Cancel button (hookResult === null) is an explicit "don't run a hook
     // and don't open a terminal" — distinct from the no-hook drop, where a plain
@@ -261,7 +256,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
       const tDialog = performance.now();
       hookPromise = useProjectStore
         .getState()
-        .requestRunHook({ hookType, hook, task, sandbox })
+        .requestRunHook({ projectPath, hookType, hook, task, sandbox })
         .then((res) => {
           taskStartLog.info('hook dialog closed', {
             taskNumber,
@@ -287,7 +282,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
     if (worktreeResult) {
       if (!worktreeResult.success) {
         useProjectStore.getState().addToast(worktreeResult.error || 'Failed to create worktree', 'error');
-        await useProjectStore.getState().loadTasks(projectPath);
+        await loadTasks(projectPath);
         return;
       }
       surfaceStartWarnings(worktreeResult.warnings);
@@ -300,7 +295,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
       }
     }
 
-    await useProjectStore.getState().loadTasks(projectPath);
+    await loadTasks(projectPath);
 
     // 6. Spawn the terminal. For in_progress drops we open a terminal (with the
     // hook command if accepted, otherwise a plain shell) so the loading slot
@@ -316,8 +311,9 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
           projectPath,
           resolvedTask,
           hookResult,
-          hookResult?.sandbox ?? sandboxOverride,
+          hookResult?.sandbox ?? sandbox,
           slotId,
+          background,
         );
       }
     } else if (hookResult) {
@@ -358,6 +354,7 @@ async function spawnTerminalForInProgress(
   hookResult: RunHookResult | null,
   sandbox: SandboxProviderId | undefined,
   loadingSlot: string | null,
+  background: boolean | undefined,
 ): Promise<void> {
   if (!task.worktreePath) {
     // Worktree creation must have failed earlier; nothing to do.
@@ -374,6 +371,7 @@ async function spawnTerminalForInProgress(
     skipAutoHook: true,
     sandboxProvider: sandbox,
     replaceLoadingId: loadingSlot ?? undefined,
+    background,
   });
 }
 
@@ -398,4 +396,31 @@ async function runNonStartHookInTerminal(
     );
     if (hookResult.foreground && onForegroundOpen) onForegroundOpen();
   }
+}
+
+/**
+ * Creates a task and starts it as moving it to In progress would, start-hook
+ * dialog and all, then shows its terminal. Resolves false when
+ * the task could not be created; the draft is the caller's to keep.
+ */
+export async function createAndStartTask(
+  projectPath: string,
+  name: string,
+  description: string | undefined,
+): Promise<boolean> {
+  const result = await window.api.task.create(projectPath, name, description);
+  const taskNumber = result?.task?.taskNumber;
+  const task =
+    result?.success && taskNumber != null ? await window.api.task.getByNumber(projectPath, taskNumber) : null;
+  if (!task) {
+    useProjectStore.getState().addToast(result?.error ?? 'Failed to create task', 'error');
+    return false;
+  }
+  const { selection } = useAppStore.getState();
+  beginTransition(projectPath, { origStatus: 'todo', newStatus: 'in_progress', task });
+  const { terminalsByProject, displayStates } = useTerminalStore.getState();
+  const slot = terminalsByProject[projectPath]?.find((id) => displayStates[id]?.taskId === task.taskNumber);
+  const own = stackOf({ ptyId: '', projectPath, taskId: task.taskNumber });
+  if (slot) useAppStore.getState().showTerminal(slot, joinStack(selection, projectPath, own));
+  return true;
 }

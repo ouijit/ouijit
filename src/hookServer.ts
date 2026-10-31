@@ -18,6 +18,7 @@ import { getLogger } from './logger';
 import { handleApiRequest } from './api/router';
 import { authenticateRequest, type AuthContext } from './apiAuth';
 import { getWrapperBinDir } from './paths';
+import { SANDBOX_BACKEND_IDS, SANDBOX_CLI_ACCESS, type SandboxBackendId, type SandboxCliAccess } from './sandbox/types';
 
 const hookServerLog = getLogger().scope('hookServer');
 
@@ -197,9 +198,44 @@ export function stopHookServer(): Promise<void> {
 
 // ── Hook definitions ─────────────────────────────────────────────────
 
-/** Path to the CLI reference file loaded by Claude via --append-system-prompt-file. */
-export function getCliReferencePath(): string {
-  return path.join(os.homedir(), '.config', 'Ouijit', 'ouijit-cli-reference.md');
+/**
+ * The CLI reference an agent's wrapper loads, with a section on top for a
+ * sandboxed terminal. The wrappers read it from under `~/.config/Ouijit`,
+ * which the nono sandbox grants.
+ */
+export function getCliReferencePath(sandbox?: SandboxReference): string {
+  const name = sandbox ? `ouijit-cli-reference-${sandbox.provider}-${sandbox.access}.md` : 'ouijit-cli-reference.md';
+  return path.join(os.homedir(), '.config', 'Ouijit', name);
+}
+
+interface SandboxReference {
+  provider: SandboxBackendId;
+  access: SandboxCliAccess;
+}
+
+const ACCESS_NOTES: Record<SandboxCliAccess, string> = {
+  read: 'reading your own task and diff notes, pointing, and asking',
+  task: 'your own task, which you can also move and rename, and creating to-do cards',
+  all: 'everything a host terminal can',
+};
+
+/** What Ouijit knows about a sandboxed terminal when it starts: the profile or launcher decides the rest. */
+function sandboxNote({ provider, access }: SandboxReference): string {
+  const allowed =
+    provider === 'nono'
+      ? "You can write this checkout, the repo's commits and branches, and a package cache. The project's sandbox profile decides the rest; most network access, other credentials and writes elsewhere are blocked. `nono why <path>` says why something was denied."
+      : "This project's own launcher decides what you can reach; Ouijit doesn't know its rules.";
+  return [
+    '# This terminal is sandboxed',
+    allowed,
+    '',
+    "When a command fails because of the sandbox, don't retry it or work around it. Ask the user to run it on their computer:",
+    '  ouijit ask run -m "<why>" -- <command>',
+    '',
+    `Ouijit commands work here at this project's CLI access: ${ACCESS_NOTES[access]}.`,
+    '',
+    '',
+  ].join('\n');
 }
 
 interface HookEntry {
@@ -262,11 +298,11 @@ export const HELPER_SCRIPT = [
 /** CLI reference loaded by Claude Code via --append-system-prompt-file. */
 export const CLI_REFERENCE = `# Ouijit CLI Reference
 
-You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, tags, hooks, scripts, and plans for this project. All commands output JSON to stdout. The CLI is pre-configured via environment variables — no setup needed.
+You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, terminals, panels, tags, hooks, and scripts for this project. All commands output JSON to stdout. The CLI is pre-configured via environment variables — no setup needed.
 
 ## Environment (pre-set, do not modify)
 - OUIJIT_API_URL — REST API endpoint (already configured)
-- OUIJIT_PTY_ID — this terminal session's ID (used by markdown and preview commands)
+- OUIJIT_PTY_ID — this terminal session's ID (the default for every [pty-id] argument)
 
 ## Task Commands (most common)
 ouijit task list                              # → [{taskNumber, name, status, branch, worktreePath, prompt, ...}]
@@ -274,18 +310,18 @@ ouijit task get <number>                      # → single task object
 ouijit task current                           # → task owning this terminal (resolves via OUIJIT_PTY_ID)
 ouijit task create "<name>"                   # → {success, task: {taskNumber, ...}}
 ouijit task create "<name>" --prompt "<text>" # set description at creation
-ouijit task start <number>                    # creates git worktree, sets in_progress; default opens the start-hook dialog in the GUI
+ouijit task start <number>                    # creates git worktree, sets in_progress; default: the start hook waits behind a pointer the user follows
 ouijit task start <number> --branch <name>    # use a custom branch name for the worktree
 ouijit task start <number> --run-hook         # run the configured start hook immediately, no dialog
 ouijit task start <number> --skip-hook        # spawn the terminal but run no hook
 ouijit task start <number> --hook-command "<cmd>"  # spawn the terminal running a one-off command instead of the configured hook
 ouijit task create-and-start "<name>"         # create + start in one step (accepts --prompt, --branch, and the same --run-hook / --skip-hook / --hook-command flags); aliased as "task spawn"
 ouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done
-ouijit task set-status <number> in_review                    # default: opens the review-hook dialog (like a kanban drop)
+ouijit task set-status <number> in_review                    # default: the review hook waits behind a pointer the user follows
 ouijit task set-status <number> in_review --run-hook         # run the configured review hook immediately, no dialog
 ouijit task set-status <number> in_review --skip-hook        # change status, run no hook
 ouijit task set-status <number> in_review --hook-command "<cmd>" # run a one-off command instead of the review hook
-ouijit task set-status <number> done                         # default: opens the done-hook dialog (like a kanban drop)
+ouijit task set-status <number> done                         # default: the done hook waits behind a pointer the user follows
 ouijit task set-status <number> done --run-hook              # run the configured done hook immediately, no dialog
 ouijit task set-status <number> done --skip-hook            # change status, run no hook
 ouijit task set-status <number> done --hook-command "<cmd>" # run a one-off command instead of the done hook
@@ -294,28 +330,98 @@ ouijit task start <number> --run-hook --sandbox custom      # start, create-and-
 ouijit task set-name <number> <new name>
 ouijit task set-description <number> <text>
 ouijit task set-merge-target <number> <branch>
-ouijit task delete <number>                   # removes task and its worktree
+ouijit task trash <number>                    # removes task, worktree goes to the system trash
 
-## Tag Commands
-ouijit tag list                               # → all tags across projects
-ouijit tag list --task <number>               # → tags for one task
-ouijit tag add <task-number> <tag-name>
-ouijit tag remove <task-number> <tag-name>
-ouijit tag set <task-number> <tag1> <tag2>... # replace all tags
+## Terminal Commands
+ouijit terminal list                          # → [{ptyId, label, projectPath, taskNumber, worktreePath, sandbox, agentStatus}] across every project
+                                              # agentStatus: thinking | ready, or null where no agent has reported
+ouijit terminal read <pty-id> [--lines <n>]   # → {ptyId, text, alternateScreen}: its screen and recent scrollback, as text
+ouijit terminal open [--task <n>] [--resume] [--sandbox host|nono|custom]
+                                              # a terminal in a started task's worktree, or a shell in the project; --resume runs the continue hook
+ouijit terminal paste <pty-id> "<text>"       # into its prompt, never pressing Enter: the user sends it
+ouijit terminal paste <pty-id> -              # text on stdin, for anything multi-line
+ouijit terminal close <pty-id>
+
+Opening a terminal never changes what the user is looking at: it opens behind
+the one on screen. A multi-line paste is refused where the program in that
+terminal would read each newline as Enter.
+
+## Diff Notes (left by the user on a worktree's diff, for you)
+ouijit diff notes                             # → [{id, path, startLine, line, side, snippet, body, createdAt}] on this terminal's worktree
+ouijit diff notes --task <n>                  # on a task's worktree instead
+ouijit diff open [pty-id]                     # show a terminal's diff panel
+ouijit diff close [pty-id]
+
+Each note is about lines startLine–line of path, kept current as the file
+changes. side LEFT means code that was removed, numbered as the file was.
+snippet is the source the note was written against.
+
+## Pointing (show the user something without moving their screen)
+ouijit point task <n>                         # its terminal, opened on follow if none is; a task never started, its card
+ouijit point terminal <pty-id>
+ouijit point project
+ouijit point board
+ouijit point pr <n>
+ouijit point issue <id>                       # a GitHub issue number, or a Linear identifier like ENG-231
+ouijit point panel <id> [pty-id]              # an id from panel list
+ouijit point diff <file>[:<line>] [pty-id]    # a file, or a line, in a terminal's diff
+ouijit point note <id>                        # an id from diff notes
+ouijit point clear
+Every target takes -m "<what it's about>": a line the user reads on the pointer.
+task start, create-and-start and terminal open take --point too.
+
+Nothing in Ouijit moves the user's view for you. A pointer marks a row in the
+sidebar: the task, terminal or project, or the one a pull request, panel or
+diff line belongs to. The user follows it when they choose, and following
+goes to the exact thing. This terminal has one pointer at a time; a new one replaces
+it. Task moves and asks waiting behind it are kept, though: several starts
+without --run-hook stack on the one pointer, and following runs them all, and
+asks sent one after another come up one at a time. Point after you finish something the user should look at, instead of
+asking them to find it, and say in -m why it is worth a look.
+
+## Asking the user to run something (on this computer, outside any sandbox)
+ouijit ask run [-m "<why>"] [--wait] -- <command> [args]
+ouijit ask script <script> [-m "<why>"] [--wait]   # a project script, by id or name
+                                              # → {command, cwd, status: pending | declined | exited, panelId?, exitCode?, output?}
+
+If this terminal is the one in front, the ask opens for the user at once; otherwise
+it waits as this terminal's pointer. They read the exact command and press Run
+or Decline; nothing runs before that. It runs in a runner panel
+on this terminal, in its worktree. With --wait the reply comes once they
+decline or it finishes; without it, the reply is pending at once, and panel
+read shows the runner. Ask for what the sandbox stops, such as credentials,
+the network or signing, and say in -m why.
+
+Put the command itself in the ask, so the user reads what runs. A script it
+runs is shown in full when it is in your worktree or a temp folder, and that
+copy is what runs; keep such a script short. Pagers are off. A command that
+opens an editor or prompts waits for the user, so pass non-interactive flags.
+
+## Tag Commands (the tags on a terminal's card)
+ouijit tag list                               # → [{name, terminals: [{ptyId, label, projectPath}]}] across open terminals
+ouijit tag get [pty-id]                       # → {ptyId, tags} — defaults to this terminal
+ouijit tag add <tag> [pty-id]                 # add a tag to the terminal
+ouijit tag remove <tag> [pty-id]              # remove one tag
+ouijit tag clear [pty-id]                     # remove all of them
 
 ## Hook Commands (project lifecycle scripts)
-Hook types: start, continue, run, review, done, editor
+Hook types: start (task moves to in_progress), continue (a task already in_progress is reopened),
+review (moves to in_review), done (moves to done)
 
 ouijit hook list                              # → {start?: {name, command}, ...}
 ouijit hook get <type>
-ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"] [--sandbox nono|custom]
-                                              # --sandbox: start/continue/review/done only; omitting it runs the hook on the host
+ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"] [--sandbox host|nono|custom]
+                                              # omitting --sandbox follows the project default
 ouijit hook delete <type>
 
-## Sandbox Command (host terminals only)
-The project's custom sandbox launcher, run as <command> -- <shell> for hooks,
-terminals and runners set to the Custom sandbox. Not reachable from inside a
-sandbox.
+## Sandbox (host terminals only)
+Run one command in the project's sandbox; the rest of the line stays on the host.
+
+ouijit sandbox -- <command> [args]            # in Ouijit's sandbox
+ouijit sandbox --custom -- <command> [args]   # in the Custom sandbox
+
+The Custom sandbox's launcher, run as <command> -- <shell>. Not reachable from
+inside a sandbox.
 
 ouijit sandbox-command get                    # → {command?}
 ouijit sandbox-command set "<launcher>"       # absolute path or a name on PATH, outside the repo
@@ -386,13 +492,23 @@ issue, pressed by someone looking at it.
 
 ## Markdown Panel Commands (open .md files as tabs in this terminal)
 ouijit markdown add <path.md>                 # open a markdown file panel on this terminal
-ouijit markdown list                          # → {ptyId, kind, panels: [{label, path, active}, ...]}
+ouijit markdown list                          # → {ptyId, kind, panels: [{id, label, path, active}, ...]}
 ouijit markdown remove <path.md>              # close that markdown panel
 
 ## Web Preview Commands (open a URL as a tab in this terminal)
 ouijit preview add <url>                      # open a web preview panel (http/https) on this terminal
-ouijit preview list                           # → {ptyId, kind, panels: [{label, url, active}, ...]}
+ouijit preview list                           # → {ptyId, kind, panels: [{id, label, url, active}, ...]}
 ouijit preview remove <url>                   # close that preview panel
+
+## Runner Commands (run a project script in a tab on this terminal)
+ouijit runner add <script>                    # by id or name from script list, in the project's default sandbox
+ouijit runner list                            # → {ptyId, kind, panels: [{id, label, script, active}, ...]}
+ouijit runner remove <script>                 # close it, stopping the script
+
+## Panel Commands (every kind of tab on a terminal)
+ouijit panel list [pty-id]                    # → {ptyId, panels: [{id, kind, label, active, ...}], diffOpen}
+ouijit panel read <id> [pty-id] [--lines <n>] # a runner → {kind, text, status, exitCode}; markdown → {path}; preview → {url}
+ouijit panel focus <id> [pty-id]              # bring one forward; focus terminal shows the terminal itself
 
 ## Project Commands
 ouijit project list                           # → all registered projects
@@ -407,6 +523,21 @@ ouijit theme delete <id>                      # remove a custom theme
 # {"id":"my-theme","name":"My Theme","base":"dark","tokens":{"--color-accent":"#ff2d55"}}
 # The presets in \`ouijit theme list\` show the full token vocabulary (colors,
 # ANSI palette, shadows). Saving an id that matches a preset overrides it.
+
+## From a sandbox
+A sandboxed terminal reaches Ouijit in its own project, at that project's CLI access level:
+- Read only, the default: its own task (task current, task get), diff notes,
+  point, ask, pr list and view, pr and linear drafts, pr lenses, linear list
+  and view. On this terminal: terminal read, tags, panel list and read, and
+  markdown add and remove for files in its worktree.
+- Its own task: also task set-status, set-name and set-description on its own
+  task, pr link and linear link to it, and task create for a to-do card.
+  terminal read, tags and panels reach every sandboxed terminal on its task. A hook that
+  runs on the host waits for the user even with --run-hook, and --hook-command
+  and --sandbox are refused.
+- Everything: what a host terminal can.
+It edits and discards only the drafts a sandbox wrote. Anything else is
+Forbidden, and the error names the ouijit ask that would run it outside the sandbox.
 
 ## Key Behaviors
 - All mutating commands notify the Ouijit app UI in real-time.
@@ -424,19 +555,18 @@ ouijit task set-status $(ouijit task current | jq .taskNumber) in_review
 # Create a task and immediately start working:
 ouijit task create-and-start "Fix auth timeout" --prompt "Session expires too early"
 
-# Headless start — no GUI dialog needed. Use these when a human isn't at the keyboard
-# to dismiss the start-hook dialog. The flags are mutually exclusive.
+# Start without waiting for the user: run the hook, skip it, or run something else.
+# The flags are mutually exclusive.
 ouijit task start 5 --skip-hook
 ouijit task start 5 --run-hook
 ouijit task start 5 --hook-command "claude"
 
-# Tag and describe a task:
+# Describe a task and tag this terminal:
 ouijit task set-description 3 "Refactor the auth middleware to use JWT refresh tokens"
-ouijit tag add 3 refactor
-ouijit tag add 3 auth
+ouijit tag add refactor
 
-# Set up a project run hook:
-ouijit hook set run --name "Dev server" --command "npm run dev"
+# Run an agent whenever a task starts:
+ouijit hook set start --name "Agent" --command 'claude "$OUIJIT_TASK_DESCRIPTION"'
 
 # Stage a review comment on the task's pull request:
 PR=$(ouijit task current | jq .githubPrNumber)
@@ -519,7 +649,7 @@ export const CLAUDE_WRAPPER = [
   'done',
   '',
   '# CLI reference file for Claude Code agents',
-  'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  'REFERENCE_FILE="${OUIJIT_SANDBOX_REFERENCE_FILE:-$HOME/.config/Ouijit/ouijit-cli-reference.md}"',
   '',
   '# If ouijit is not running, just exec the real claude with CLI awareness',
   'if [ -z "$OUIJIT_API_URL" ]; then',
@@ -645,7 +775,7 @@ export const CODEX_WRAPPER = [
   buildWrapperResolver('codex'),
   '',
   '# Ouijit CLI reference file — surfaced via developer_instructions',
-  'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  'REFERENCE_FILE="${OUIJIT_SANDBOX_REFERENCE_FILE:-$HOME/.config/Ouijit/ouijit-cli-reference.md}"',
   '',
   '# If ouijit is not running, just exec the real codex with CLI awareness',
   'if [ -z "$OUIJIT_API_URL" ]; then',
@@ -723,7 +853,7 @@ export const PI_WRAPPER = [
   '  esac',
   'done',
   '',
-  'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  'REFERENCE_FILE="${OUIJIT_SANDBOX_REFERENCE_FILE:-$HOME/.config/Ouijit/ouijit-cli-reference.md}"',
   'EXTENSION_FILE="$HOME/.config/Ouijit/pi/ouijit-extension.ts"',
   'HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
   '',
@@ -915,7 +1045,7 @@ export const OPENCODE_WRAPPER = [
   '  fi',
   'fi',
   '',
-  'export OUIJIT_REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  'export OUIJIT_REFERENCE_FILE="${OUIJIT_SANDBOX_REFERENCE_FILE:-$HOME/.config/Ouijit/ouijit-cli-reference.md}"',
   'if [ -n "$OUIJIT_API_URL" ]; then',
   '  export OUIJIT_HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
   'fi',
@@ -961,8 +1091,13 @@ export function installWrapper(): void {
     const binDir = getWrapperBinDir();
     fs.mkdirSync(binDir, { recursive: true });
 
-    // Write CLI reference file (loaded by claude via --append-system-prompt-file)
     fs.writeFileSync(getCliReferencePath(), CLI_REFERENCE, { mode: 0o644 });
+    for (const provider of SANDBOX_BACKEND_IDS) {
+      for (const access of SANDBOX_CLI_ACCESS) {
+        const sandbox = { provider, access };
+        fs.writeFileSync(getCliReferencePath(sandbox), sandboxNote(sandbox) + CLI_REFERENCE, { mode: 0o644 });
+      }
+    }
 
     // Write ouijit-hook helper script (curl client invoked by hooks)
     fs.writeFileSync(path.join(binDir, 'ouijit-hook'), HELPER_SCRIPT, { mode: 0o755 });

@@ -31,8 +31,7 @@ function makeTask(): TaskWithWorkspace {
 
 describe('shift-drag (skip done hook)', () => {
   beforeEach(() => {
-    useProjectStore.getState().resetForProject();
-    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
+    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, order: [] });
     vi.clearAllMocks();
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       done: { command: 'echo cleanup', name: 'Done', source: 'configured', priority: 0 },
@@ -63,13 +62,5 @@ describe('shift-drag (skip done hook)', () => {
 
     expect(promptSpy).toHaveBeenCalledWith(expect.objectContaining({ hookType: 'done' }));
     expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'echo cleanup' });
-  });
-
-  test('shiftKeyHeld is independently tracked in the project store', () => {
-    expect(useProjectStore.getState().shiftKeyHeld).toBe(false);
-    useProjectStore.setState({ shiftKeyHeld: true });
-    expect(useProjectStore.getState().shiftKeyHeld).toBe(true);
-    useProjectStore.getState().resetForProject();
-    expect(useProjectStore.getState().shiftKeyHeld).toBe(false);
   });
 });

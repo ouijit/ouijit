@@ -16,6 +16,10 @@ import {
   PULL_REQUEST_FRESHNESS_QUERY,
   ISSUE_LIST_QUERY,
   ISSUE_DETAIL_QUERY,
+  PULL_REQUEST_SEARCH_QUERY,
+  PULL_REQUEST_BY_NUMBER_QUERY,
+  ISSUE_SEARCH_QUERY,
+  ISSUE_BY_NUMBER_QUERY,
   RESOLVE_THREAD_MUTATION,
   UNRESOLVE_THREAD_MUTATION,
 } from './queries';
@@ -37,6 +41,7 @@ import type {
   MergeStatus,
   GithubIssue,
   GithubIssueList,
+  GithubIssueListGroup,
   GithubIssueRow,
   IssueDetail,
   CommentKind,
@@ -47,6 +52,16 @@ import type {
 
 const PR_LIST_LIMIT = 50;
 const ISSUE_LIST_LIMIT = 50;
+const SEARCH_LIMIT = 30;
+
+interface RawPage<T> {
+  nodes: Array<T | null> | null;
+  pageInfo?: { hasNextPage: boolean; endCursor: string | null };
+}
+
+function nextCursor(page: RawPage<unknown> | null | undefined): string | null {
+  return page?.pageInfo?.hasNextPage ? (page.pageInfo.endCursor ?? null) : null;
+}
 
 // ── Raw GraphQL shapes ───────────────────────────────────────────────
 // Narrow interfaces for exactly the fields the documents request; everything
@@ -391,12 +406,13 @@ export function deriveMergeStatus(raw: {
 
 /**
  * Open PRs for a repo, split into the three inbox buckets. Split main-side, so
- * the panel and the command palette read the same buckets.
+ * the panel and the command palette read the same buckets. With `after`, the
+ * page following that cursor, bucketed the same way.
  */
-export async function fetchInbox(identity: RepoIdentity): Promise<PullRequestInbox> {
+export async function fetchInbox(identity: RepoIdentity, after?: string): Promise<PullRequestInbox> {
   const data = await ghGraphql<{
     viewer: { login: string; avatarUrl?: string };
-    repository: { pullRequests: { nodes: Array<RawSummary | null> | null } } | null;
+    repository: { pullRequests: RawPage<RawSummary> } | null;
     reviewRequested: { nodes: Array<{ number?: number } | null> | null };
   }>(
     PULL_REQUEST_LIST_QUERY,
@@ -404,6 +420,7 @@ export async function fetchInbox(identity: RepoIdentity): Promise<PullRequestInb
       owner: identity.owner,
       repo: identity.repo,
       first: PR_LIST_LIMIT,
+      ...(after && { after }),
       reviewQuery: `repo:${repoSlug(identity)} is:pr is:open review-requested:@me`,
     },
     { identity },
@@ -428,7 +445,82 @@ export async function fetchInbox(identity: RepoIdentity): Promise<PullRequestInb
   const claimed = new Set([...needsReview, ...mine].map((pr) => pr.number));
   const others = all.filter((pr) => !claimed.has(pr.number));
 
-  return { viewer, viewerAvatarUrl: data.viewer.avatarUrl, needsReview, mine, others };
+  return {
+    viewer,
+    viewerAvatarUrl: data.viewer.avatarUrl,
+    needsReview,
+    mine,
+    others,
+    next: nextCursor(data.repository.pullRequests),
+  };
+}
+
+/** `#412` and `412` both name a number; anything else is text to search for. */
+function typedNumber(query: string): number | null {
+  const match = /^#?(\d+)$/.exec(query.trim());
+  return match ? Number(match[1]) : null;
+}
+
+/** A lookup by number that finds nothing is an answer, not an error. */
+async function orNotFound<T>(lookup: Promise<T>): Promise<T | null> {
+  try {
+    return await lookup;
+  } catch (error) {
+    if (error instanceof GithubError && error.kind === 'not-found') return null;
+    throw error;
+  }
+}
+
+/** Pull requests in any state matching `query`, the one it names by number first. */
+export async function searchPullRequests(identity: RepoIdentity, query: string): Promise<PullRequestSummary[]> {
+  const number = typedNumber(query);
+  const [found, byNumber] = await Promise.all([
+    ghGraphql<{ viewer: { login: string }; search: { nodes: Array<Partial<RawSummary> | null> | null } }>(
+      PULL_REQUEST_SEARCH_QUERY,
+      { search: `repo:${repoSlug(identity)} is:pr ${query.trim()} sort:updated-desc`, first: SEARCH_LIMIT },
+      { identity },
+    ),
+    number == null
+      ? null
+      : orNotFound(
+          ghGraphql<{ repository: { pullRequest: RawSummary | null } | null }>(
+            PULL_REQUEST_BY_NUMBER_QUERY,
+            { owner: identity.owner, repo: identity.repo, number },
+            { identity },
+          ),
+        ),
+  ]);
+  const viewer = found.viewer.login;
+  // A search hit that is not a pull request comes back as an empty object.
+  const hits = (found.search.nodes ?? []).filter((n): n is RawSummary => n?.number != null);
+  const exact = byNumber?.repository?.pullRequest;
+  return [...(exact ? [exact] : []), ...hits.filter((n) => n.number !== exact?.number)].map((n) =>
+    mapSummary(n, viewer, new Set()),
+  );
+}
+
+/** Issues in any state matching `query`, the one it names by number first. */
+export async function searchIssues(identity: RepoIdentity, query: string): Promise<GithubIssueRow[]> {
+  const number = typedNumber(query);
+  const [found, byNumber] = await Promise.all([
+    ghGraphql<{ search: { nodes: Array<Partial<RawIssue> | null> | null } }>(
+      ISSUE_SEARCH_QUERY,
+      { search: `repo:${repoSlug(identity)} is:issue ${query.trim()} sort:updated-desc`, first: SEARCH_LIMIT },
+      { identity },
+    ),
+    number == null
+      ? null
+      : orNotFound(
+          ghGraphql<{ repository: { issue: RawIssue | null } | null }>(
+            ISSUE_BY_NUMBER_QUERY,
+            { owner: identity.owner, repo: identity.repo, number },
+            { identity },
+          ),
+        ),
+  ]);
+  const hits = (found.search.nodes ?? []).filter((n): n is RawIssue => n?.number != null);
+  const exact = byNumber?.repository?.issue;
+  return [...(exact ? [exact] : []), ...hits.filter((n) => n.number !== exact?.number)].map(mapIssueRow);
 }
 
 /**
@@ -545,12 +637,16 @@ function mapRestFile(file: RestFile): PullRequestFile {
 /**
  * The Issues tab's GitHub half: what is assigned to you, and the repo's open
  * issues minus those. The split is made here so the panel, the CLI and REST all
- * see the same two groups.
+ * see the same two groups. With `page`, only that group, from its cursor on; a
+ * later page of `open` can repeat an assigned issue, which the caller drops.
  */
-export async function fetchIssues(identity: RepoIdentity): Promise<GithubIssueList> {
+export async function fetchIssues(
+  identity: RepoIdentity,
+  page?: { group: GithubIssueListGroup; after: string },
+): Promise<GithubIssueList> {
   const data = await ghGraphql<{
-    repository: { issues: { nodes: Array<RawIssue | null> | null } } | null;
-    assigned: { nodes: Array<RawIssue | null> | null } | null;
+    repository: { issues?: RawPage<RawIssue> } | null;
+    assigned?: RawPage<RawIssue> | null;
   }>(
     ISSUE_LIST_QUERY,
     {
@@ -558,26 +654,27 @@ export async function fetchIssues(identity: RepoIdentity): Promise<GithubIssueLi
       repo: identity.repo,
       first: ISSUE_LIST_LIMIT,
       assigned: `repo:${repoSlug(identity)} is:issue is:open assignee:@me sort:updated-desc`,
+      withOpen: !page || page.group === 'open',
+      withAssigned: !page || page.group === 'assigned',
+      ...(page && { [`${page.group}After`]: page.after }),
     },
     { identity },
   );
 
   if (!data.repository) throw new GithubError('not-found', `Repository ${repoSlug(identity)} not found`);
 
-  const map = (nodes: Array<RawIssue | null> | null | undefined) =>
-    (nodes ?? []).filter((n): n is RawIssue => n != null).map(mapIssueRow);
+  const map = (connection: RawPage<RawIssue> | null | undefined) =>
+    (connection?.nodes ?? []).filter((n): n is RawIssue => n != null).map(mapIssueRow);
 
-  const assigned = map(data.assigned?.nodes);
+  const assigned = map(data.assigned);
   const assignedNumbers = new Set(assigned.map((issue) => issue.number));
-  const open = map(data.repository.issues.nodes).filter((issue) => !assignedNumbers.has(issue.number));
+  const open = map(data.repository.issues).filter((issue) => !assignedNumbers.has(issue.number));
 
   return {
     assigned,
     open,
-    assignedCapped: assigned.length >= ISSUE_LIST_LIMIT,
-    // Against the fetched count, not the filtered one: dropping your own issues
-    // out of it does not mean the rest fitted.
-    openCapped: (data.repository.issues.nodes ?? []).length >= ISSUE_LIST_LIMIT,
+    assignedNext: nextCursor(data.assigned),
+    openNext: nextCursor(data.repository.issues),
   };
 }
 

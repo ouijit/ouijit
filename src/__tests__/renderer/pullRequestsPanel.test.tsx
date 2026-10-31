@@ -9,6 +9,7 @@ import { useGithubStore } from '../../stores/githubStore';
 import { usePanelStore } from '../../stores/panelStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { pr, inbox, detail, issue, issueDetail, issueList, task } from './githubFixtures';
+import { seedProject } from './seedProject';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -30,7 +31,7 @@ describe('PullRequestsPanel', () => {
     useGithubStore.getState().reset();
     usePanelStore.setState(usePanelStore.getInitialState());
     useGithubStore.setState({ projectPath: null });
-    useProjectStore.setState({ tasks: [], toasts: [] });
+    useProjectStore.setState({ toasts: [] });
     useAppStore.setState({ activeProjectData: { path: PROJECT, name: 'Alpha' } });
     vi.mocked(window.api.github.availability).mockResolvedValue({
       available: true,
@@ -54,9 +55,7 @@ describe('PullRequestsPanel', () => {
    * one that invites it, and mounting with tasks present is what exposes it.
    */
   test('mounts without a render loop when tasks are present', async () => {
-    useProjectStore.setState({
-      tasks: [task({ taskNumber: 1, githubIssueNumber: 7 }), task({ taskNumber: 2 })],
-    });
+    seedProject(PROJECT, { tasks: [task({ taskNumber: 1, githubIssueNumber: 7 }), task({ taskNumber: 2 })] });
 
     const errors: unknown[] = [];
     const spy = vi.spyOn(console, 'error').mockImplementation((...args) => errors.push(args[0]));
@@ -166,7 +165,7 @@ describe('PullRequestsPanel', () => {
       issueList({ open: [issue({ number: 12, title: 'Something is broken' })] }),
     );
     const linked = task({ taskNumber: 7, githubIssueNumber: 12, status: 'in_progress' });
-    useProjectStore.setState({ tasks: [linked] });
+    seedProject(PROJECT, { tasks: [linked] });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Issues'));
@@ -242,7 +241,7 @@ describe('PullRequestsPanel', () => {
     );
     vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ number: 42, isMine: true }));
     const linked = task({ taskNumber: 3, githubPrNumber: 42, status: 'in_review' });
-    useProjectStore.setState({ tasks: [linked] });
+    seedProject(PROJECT, { tasks: [linked] });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Half landed'));
@@ -556,7 +555,7 @@ describe('PullRequestsPanel', () => {
    * Twelve agent-written comments and twelve you typed must not look the same
    * in a queue you are about to send under your own name.
    */
-  test('a draft written by something else is labelled in the unsent list', async () => {
+  test('a draft written by something else is labelled in the unsent list, which jumps to it to read', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
     );
@@ -585,14 +584,44 @@ describe('PullRequestsPanel', () => {
         origin: 'human',
       },
     ]);
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
+      files: [{ path: 'src/api.ts', status: 'M', additions: 2, deletions: 0 }],
+      fromGit: false,
+    });
+    vi.mocked(window.api.github.pullRequestFileDiff).mockResolvedValue({
+      path: 'src/api.ts',
+      hunks: [12, 20].map((line) => ({
+        header: `@@ -${line},1 +${line},1 @@`,
+        lines: [{ type: 'addition' as const, content: `line ${line}`, newLineNo: line }],
+      })),
+    });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Please look'));
+
+    // Unsent comments are enough to send as a review; asking for changes takes words.
+    await screen.findByText('2 unsent');
+    fireEvent.click(screen.getByText('Review'));
+    expect((await screen.findByText('Comment')).closest('button')?.disabled).toBe(false);
+    expect(screen.getByText('Request changes').closest('button')?.disabled).toBe(true);
+    fireEvent.click(screen.getByText('Review'));
 
     fireEvent.click(await screen.findByText('2 unsent'));
     expect(await screen.findByText('claude')).toBeTruthy();
     // The one you typed carries no badge — only what you did not write is named.
     expect(screen.queryByText('human')).toBeNull();
+
+    const scrolled: Element[] = [];
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (this: Element) {
+      scrolled.push(this);
+    });
+    try {
+      fireEvent.click(screen.getByText('this can throw'));
+      await waitFor(() => expect(scrolled.some((el) => el.matches('[data-draft-id="d1"]'))).toBe(true));
+      expect(screen.queryByText('Update comment')).toBeNull();
+    } finally {
+      scroll.mockRestore();
+    }
   });
 
   /**
@@ -623,8 +652,8 @@ describe('PullRequestsPanel', () => {
     fireEvent.click(await screen.findByText('Mine'));
     fireEvent.click(await screen.findByText('Review'));
 
-    // GitHub rejects a wordless COMMENT review, so that one is gated on the
-    // summary rather than on authorship.
+    // A Comment review with nothing in it is refused, so with no unsent
+    // comments it waits on a summary rather than on authorship.
     expect(screen.getByText('Comment').closest('button')?.disabled).toBe(true);
     fireEvent.change(screen.getByPlaceholderText('Summary'), { target: { value: 'looks fine to me' } });
     expect(screen.getByText('Comment').closest('button')?.disabled).toBe(false);

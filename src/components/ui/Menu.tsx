@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useFloating, offset, flip, shift, autoUpdate, type Placement } from '@floating-ui/react';
 import { Icon } from '../terminal/Icon';
@@ -90,9 +90,10 @@ export function MenuPopover({
             }}
             role="menu"
             style={{ ...floatingStyles, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-menu)' }}
-            // Above the dialog overlay (10001): a menu opened from inside one
-            // portals to the body as its sibling, so only the number orders them.
-            className={`${className} flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px] z-[10002]`}
+            // Above every overlay (dialogs at 10001, the composer sheet at
+            // 10003): a menu opened from inside one portals to the body as its
+            // sibling, so only the number orders them.
+            className={`${className} flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px] z-[10010]`}
           >
             {/* Outside the scroll below, so a field that filters the rows
                 stays put while they move. */}
@@ -111,6 +112,7 @@ export function MenuPopover({
 
 export function MenuItem({
   label,
+  detail,
   hint,
   disabled,
   title,
@@ -118,22 +120,35 @@ export function MenuItem({
   onClick,
 }: {
   label: string;
+  /** A second line under the label, for a choice its name alone does not explain. */
+  detail?: string;
   hint?: string;
   disabled?: boolean;
   title?: string;
   selected?: boolean;
   onClick: () => void;
 }) {
+  const detailId = useId();
   return (
     <button
       type="button"
       role="menuitem"
+      {...(detail && { 'aria-describedby': detailId })}
       disabled={disabled}
       title={title}
       className="w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 text-text-secondary hover:bg-ink/[0.08] hover:text-text-primary disabled:opacity-40 disabled:hover:bg-transparent transition-colors duration-100"
       onClick={onClick}
     >
-      <span className="flex-1 truncate">{label}</span>
+      {detail ? (
+        <span className="flex-1 min-w-0">
+          <span className="block truncate">{label}</span>
+          <span id={detailId} aria-hidden className="block text-xs text-text-tertiary mt-0.5">
+            {detail}
+          </span>
+        </span>
+      ) : (
+        <span className="flex-1 truncate">{label}</span>
+      )}
       {hint && <span className="text-[11px] text-text-tertiary shrink-0">{hint}</span>}
       {selected && <Icon name="check" className="w-3.5 h-3.5 text-accent shrink-0" />}
     </button>

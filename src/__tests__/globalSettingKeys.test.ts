@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { isAllowedKey } from '../ipc/handlers/settings';
 import { diffBaseSettingKey } from '../diffSource';
-import { runnerSandboxSettingKey } from '../sandbox/types';
+import { defaultSandboxSettingKey, runnerSandboxSettingKey } from '../sandbox/types';
 
 /**
  * A key the allow-list refuses is refused in both directions and reported as
@@ -14,7 +14,8 @@ describe('keys the renderer persists through the settings channel', () => {
     expect(isAllowedKey(diffBaseSettingKey('/Users/x/worktrees/T-7'))).toBe(true);
   });
 
-  test("a project's default environment for its commands", () => {
+  test("a project's default environment for its commands, and where its terminals' Run goes", () => {
+    expect(isAllowedKey(defaultSandboxSettingKey('/Users/x/code/proj'))).toBe(true);
     expect(isAllowedKey(runnerSandboxSettingKey('/Users/x/code/proj'))).toBe(true);
   });
 

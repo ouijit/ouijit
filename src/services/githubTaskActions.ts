@@ -11,7 +11,9 @@
 import log from 'electron-log/renderer';
 import type { TaskWithWorkspace } from '../types';
 import { describeError } from '../utils/describeError';
+import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
+import { loadTasks } from '../stores/projectDataStore';
 import { usePanelStore } from '../stores/panelStore';
 import { useGithubStore } from '../stores/githubStore';
 
@@ -19,8 +21,7 @@ const actionLog = log.scope('github:task');
 
 /** Open a pull request in the project panel, switching to it if needed. */
 export function openPullRequestInPanel(projectPath: string, prNumber: number): void {
-  useProjectStore.getState().setActivePanel('pull-requests');
-  useProjectStore.getState().setKanbanVisible(false);
+  useAppStore.getState().openPage(projectPath, 'pull-requests');
   usePanelStore.getState().setProject(projectPath);
   const store = useGithubStore.getState();
   store.setProject(projectPath);
@@ -48,7 +49,7 @@ export async function createPullRequestForTask(projectPath: string, task: TaskWi
     return;
   }
 
-  await useProjectStore.getState().loadTasks(projectPath);
+  await loadTasks(projectPath);
   toast(result.prNumber != null ? `Opened pull request #${result.prNumber}` : 'Opened pull request', {
     type: 'success',
     actionLabel: 'View',
@@ -63,7 +64,7 @@ export async function detectPullRequestForTask(projectPath: string, taskNumber: 
   try {
     const result = await window.api.github.detectTaskPr(projectPath, taskNumber);
     if (result.prNumber == null) return;
-    await useProjectStore.getState().loadTasksIfActive(projectPath);
+    await loadTasks(projectPath);
   } catch (error) {
     actionLog.warn('pull request detection failed', { taskNumber, error: describeError(error) });
   }
@@ -72,7 +73,7 @@ export async function detectPullRequestForTask(projectPath: string, taskNumber: 
 export async function detectPullRequestsForProject(projectPath: string): Promise<void> {
   try {
     const { linked } = await window.api.github.detectProjectPrs(projectPath);
-    if (linked > 0) await useProjectStore.getState().loadTasksIfActive(projectPath);
+    if (linked > 0) await loadTasks(projectPath);
   } catch (error) {
     actionLog.warn('project pull request detection failed', { projectPath, error: describeError(error) });
   }

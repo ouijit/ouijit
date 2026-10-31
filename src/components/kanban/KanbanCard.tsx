@@ -2,20 +2,17 @@ import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode
 import { useDraggable } from '@dnd-kit/core';
 import { useShallow } from 'zustand/react/shallow';
 import type { TaskWithWorkspace, SandboxBackendId, SandboxProviderId } from '../../types';
-import { openInEntry, moveToEntry, trackerEntries, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
-import { completeTask } from '../../services/taskCompletion';
+import { moveToEntry, taskEntries, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { terminalInstances } from '../terminal/terminalRegistry';
+import { getProjectTasks, loadTasks } from '../../stores/projectDataStore';
 import { Icon } from '../terminal/Icon';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { Tooltip } from '../ui/Tooltip';
-import { revealInFileManager } from '../../utils/fileManager';
 import { resolveAttachmentPath } from '../../utils/taskAttachments';
 import type { TaskChainInfo } from '../../utils/taskChain';
 import { isChainMember, isDescendantOf } from '../../utils/taskChain';
-import { openTaskInEditor } from '../../services/openInEditor';
 import { KanbanCardView } from './KanbanCardView';
 import { KanbanBadgeView } from './KanbanBadgeView';
 import { KanbanTrackerBadgeView } from './KanbanTrackerBadgeView';
@@ -149,14 +146,14 @@ export const KanbanCard = memo(function KanbanCard({
         setStatus: async (status) => {
           const selected = [...useProjectStore.getState().selectedTaskNumbers];
           await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, status)));
-          useProjectStore.getState().loadTasks(projectPath);
+          loadTasks(projectPath);
           useProjectStore.getState().clearSelection();
           useProjectStore.getState().addToast(`Moved ${selected.length} tasks to ${STATUS_LABELS[status]}`, 'success');
         },
         trash: async () => {
           const selected = [...useProjectStore.getState().selectedTaskNumbers];
           await Promise.allSettled(selected.map((n) => window.api.task.trash(projectPath, n)));
-          useProjectStore.getState().loadTasks(projectPath);
+          loadTasks(projectPath);
           useProjectStore.getState().clearSelection();
           useProjectStore.getState().addToast(`Moved ${selected.length} tasks to trash`, 'success');
         },
@@ -170,7 +167,7 @@ export const KanbanCard = memo(function KanbanCard({
           onClick: () => {
             const store = useProjectStore.getState();
             const selected = [...store.selectedTaskNumbers];
-            const tasks = store.tasks.filter((t) => selected.includes(t.taskNumber));
+            const tasks = getProjectTasks(projectPath).filter((t) => selected.includes(t.taskNumber));
             for (const t of tasks) onOpenTerminal(t, 'none');
             store.clearSelection();
           },
@@ -179,70 +176,17 @@ export const KanbanCard = memo(function KanbanCard({
       return items;
     }
 
-    const items: ContextMenuEntry[] = [];
-
-    for (const display of connectedDisplays) {
-      items.push({
-        label: display.lastOscTitle || display.label || 'Shell',
-        onClick: () => onSwitchToTerminal(display.ptyId),
-      });
-    }
-    if (connectedDisplays.length > 0) {
-      items.push({ separator: true });
-    }
-
-    const actions: TaskMenuActions = {
+    return taskEntries({
+      projectPath,
+      task,
+      sandboxProviders: availableSandboxProviders,
+      terminals: connectedDisplays,
+      trackers: { github: githubEnabled, linear: linearEnabled },
       openTerminal: (provider) => onOpenTerminal(task, provider),
-      openEditor: () => void openTaskInEditor(projectPath, task),
-      openFolder: () => void revealInFileManager(task.worktreePath!),
-      setStatus: async (status) => {
-        await window.api.task.setStatus(projectPath, task.taskNumber, status);
-        useProjectStore.getState().loadTasks(projectPath);
-      },
-      completeToDone: () => void completeTask({ projectPath, task }),
-      trash: async () => {
-        await window.api.task.trash(projectPath, task.taskNumber);
-        useProjectStore.getState().loadTasks(projectPath);
-        useProjectStore.getState().addToast('Task moved to trash', 'success');
-      },
-    };
-    items.push(openInEntry(availableSandboxProviders, !!(task.worktreePath && task.branch), actions));
-
-    const planDisplay = connectedDisplays.find((d) => d.panels.some((p) => p.kind === 'plan'));
-    if (planDisplay) {
-      items.push({
-        label: 'View Plan',
-        icon: 'list-checks',
-        onClick: () => {
-          onSwitchToTerminal(planDisplay.ptyId);
-          const inst = terminalInstances.get(planDisplay.ptyId);
-          const planPanel = inst?.panels.find((p) => p.kind === 'plan');
-          if (inst && planPanel) inst.activatePanel(planPanel.id);
-        },
-      });
-    }
-
-    items.push({ separator: true });
-
-    items.push(moveToEntry(actions));
-
-    if (task.branch && task.status !== 'done') {
-      items.push({
-        label: 'Branch from this task',
-        icon: 'git-branch',
-        onClick: () => setBranchFromDialog(true),
-      });
-    }
-
-    items.push({
-      label: 'Rename',
-      icon: 'pencil-simple',
-      onClick: handleStartRenameTask,
+      showTerminal: onSwitchToTerminal,
+      branchFrom: () => setBranchFromDialog(true),
+      rename: handleStartRenameTask,
     });
-
-    items.push(...trackerEntries(projectPath, task, { github: githubEnabled, linear: linearEnabled }));
-
-    return items;
   }, [
     connectedDisplays,
     task,
@@ -345,7 +289,7 @@ export const KanbanCard = memo(function KanbanCard({
           onClose={(created) => {
             setBranchFromDialog(false);
             if (created) {
-              useProjectStore.getState().loadTasks(projectPath);
+              loadTasks(projectPath);
             }
           }}
         />
@@ -440,7 +384,7 @@ function DraggableBadge({
               useProjectStore.getState().clearChainHighlights();
               const mainBranch = await window.api.worktree.getMainBranch(projectPath);
               await window.api.task.setParent(projectPath, task.taskNumber, null, mainBranch);
-              useProjectStore.getState().loadTasks(projectPath);
+              loadTasks(projectPath);
             } finally {
               detachingRef.current = false;
             }

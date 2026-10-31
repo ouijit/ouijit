@@ -28,7 +28,16 @@ import { getLogger } from '../logger';
 import { getRepoIdentity } from '../github/repoIdentity';
 import { repoSlug } from '../github/types';
 import { LinearError } from './client';
-import { createComment, fetchIssue, fetchIssueGroups, fetchIssueRef, fetchScopeOptions, setIssueState } from './api';
+import {
+  createComment,
+  fetchIssue,
+  fetchIssueGroupPage,
+  fetchIssueGroups,
+  fetchIssueRef,
+  fetchScopeOptions,
+  searchIssues as searchIssuesApi,
+  setIssueState,
+} from './api';
 import {
   invalidateCredentialCache,
   maskCredential,
@@ -44,8 +53,10 @@ import type {
   LinearCommentDraft,
   LinearConnection,
   LinearIssueDetail,
+  LinearGroupFilter,
   LinearIssueGroups,
   LinearIssueRef,
+  LinearIssueSummary,
   LinearScope,
   LinearTeam,
 } from './types';
@@ -230,8 +241,8 @@ export async function setScope(
 
 // ── Reads ────────────────────────────────────────────────────────────
 
-/** Every group of this project's Linear issues, or none when it has no scope. */
-export async function getIssues(projectPath: string): Promise<LinearIssueGroups | null> {
+/** The key and the scope this project's issues come from, or null when it has no scope in the key's workspace. */
+async function scoped(projectPath: string): Promise<{ apiKey: string; scope: LinearScope } | null> {
   const apiKey = await requireKey(projectPath);
   const viewer = await resolveViewer(projectPath);
   if (viewer instanceof LinearError) throw viewer;
@@ -239,9 +250,31 @@ export async function getIssues(projectPath: string): Promise<LinearIssueGroups 
 
   const stored = await readScope(projectPath);
   if (!stored || stored.workspaceId !== viewer.workspaceId) return null;
+  return { apiKey, scope: stored.scope };
+}
 
+/** Every group of this project's Linear issues, or none when it has no scope. */
+export async function getIssues(projectPath: string): Promise<LinearIssueGroups | null> {
+  const project = await scoped(projectPath);
+  if (!project) return null;
   const { teams } = await scopeOptions(projectPath);
-  return fetchIssueGroups(apiKey, stored.scope, teams);
+  return fetchIssueGroups(project.apiKey, project.scope, teams);
+}
+
+export async function getIssueGroupPage(
+  projectPath: string,
+  group: LinearGroupFilter,
+  after: string,
+): Promise<{ issues: LinearIssueSummary[]; next: string | null }> {
+  const project = await scoped(projectPath);
+  if (!project) return { issues: [], next: null };
+  return fetchIssueGroupPage(project.apiKey, project.scope, group, after);
+}
+
+export async function searchIssues(projectPath: string, term: string): Promise<LinearIssueSummary[]> {
+  const project = await scoped(projectPath);
+  if (!project) return [];
+  return searchIssuesApi(project.apiKey, project.scope, term);
 }
 
 export async function getIssue(projectPath: string, id: string): Promise<LinearIssueDetail> {

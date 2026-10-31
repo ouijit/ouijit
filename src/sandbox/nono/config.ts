@@ -1,41 +1,20 @@
 import { getGlobalSetting, setGlobalSetting } from '../../db';
-import { getLogger } from '../../logger';
-import type { NonoConfig } from '../types';
+import type { NonoProfile } from '../types';
+import { ensureProjectProfile } from './profile';
 
-const nonoLog = getLogger().scope('nono');
-
-/** Global-settings key holding a project's nono config JSON. */
-export function nonoConfigKey(projectPath: string): string {
-  return `nono:${projectPath}`;
+/** Global-settings key holding a profile file the project uses in place of its own. */
+function chosenProfileKey(projectPath: string): string {
+  return `nonoProfile:${projectPath}`;
 }
 
-/**
- * Read a project's nono config. Returns an empty config (nono defaults) when
- * unset or unparseable, so a corrupt value never blocks a spawn.
- */
-export async function getNonoConfig(projectPath: string): Promise<NonoConfig> {
-  const raw = await getGlobalSetting(nonoConfigKey(projectPath));
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as NonoConfig;
-    return {
-      enabled: parsed.enabled === true,
-      blockNet: parsed.blockNet === true,
-      openPorts: Array.isArray(parsed.openPorts) ? parsed.openPorts.filter((p) => Number.isInteger(p)) : undefined,
-      allowPaths: Array.isArray(parsed.allowPaths)
-        ? parsed.allowPaths.filter((p) => typeof p === 'string' && p.length > 0)
-        : undefined,
-      profile: typeof parsed.profile === 'string' && parsed.profile.trim().length > 0 ? parsed.profile : undefined,
-    };
-  } catch (error) {
-    nonoLog.warn('failed to parse nono config; using defaults', {
-      projectPath,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return {};
-  }
+export async function getNonoProfile(projectPath: string): Promise<NonoProfile> {
+  const chosen = await getGlobalSetting(chosenProfileKey(projectPath));
+  if (chosen) return { path: chosen, own: false };
+  return { path: await ensureProjectProfile(projectPath), own: true };
 }
 
-export async function setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }> {
-  return setGlobalSetting(nonoConfigKey(projectPath), JSON.stringify(config));
+/** Null goes back to the project's own profile. */
+export async function setNonoProfile(projectPath: string, file: string | null): Promise<NonoProfile> {
+  await setGlobalSetting(chosenProfileKey(projectPath), file ?? '');
+  return getNonoProfile(projectPath);
 }

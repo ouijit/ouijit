@@ -6,6 +6,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import { completeTask } from '../../services/taskCompletion';
 import { addProjectTerminal, closeProjectTerminal } from '../../components/terminal/terminalActions';
 import type { TaskWithWorkspace } from '../../types';
+import { seedProject } from './seedProject';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -33,8 +34,7 @@ function makeTask(overrides: Partial<TaskWithWorkspace> = {}): TaskWithWorkspace
 
 describe('completeTask', () => {
   beforeEach(() => {
-    useProjectStore.getState().resetForProject();
-    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
+    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, order: [] });
     useAppStore.setState({ activeProjectPath: PROJECT });
     vi.clearAllMocks();
     vi.mocked(window.api.hooks.get).mockResolvedValue({});
@@ -196,12 +196,13 @@ describe('completeTask', () => {
     });
   });
 
-  test('targetIndex: routes through moveTask (status + order) instead of bare setStatus', async () => {
-    const moveTaskSpy = vi.spyOn(useProjectStore.getState(), 'moveTask').mockImplementation(async () => undefined);
+  test('targetIndex: writes status and order in one reorder instead of a bare setStatus', async () => {
+    seedProject(PROJECT, { tasks: [makeTask()] });
+    vi.mocked(window.api.task.reorder).mockResolvedValue({ success: true });
 
     await completeTask({ projectPath: PROJECT, task: makeTask(), targetIndex: 2 });
 
-    expect(moveTaskSpy).toHaveBeenCalledWith(PROJECT, 7, 'done', 2);
+    expect(window.api.task.reorder).toHaveBeenCalledWith(PROJECT, 7, 'done', 2);
     expect(window.api.task.setStatus).not.toHaveBeenCalled();
   });
 
@@ -277,17 +278,5 @@ describe('completeTask', () => {
     await completeTask({ projectPath: PROJECT, task: makeTask() });
 
     expect(window.api.task.setStatus).toHaveBeenCalledTimes(2);
-  });
-
-  test('cross-project call does not clobber the active project task list', async () => {
-    // projectStore.tasks is a singleton holding the active project's tasks.
-    // Calling loadTasks() for a non-active project would overwrite them with
-    // the wrong project's data. Today useIPCListeners gates this out before
-    // completeTask is called, but the guard inside completeTask is the
-    // backstop against future callers.
-    useAppStore.setState({ activeProjectPath: '/other-project' });
-    await completeTask({ projectPath: PROJECT, task: makeTask() });
-
-    expect(window.api.task.getAll).not.toHaveBeenCalled();
   });
 });

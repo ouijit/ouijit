@@ -118,13 +118,18 @@ export interface LinearIssueDetail extends LinearIssueSummary {
  * The Issues list's Linear half, in the order the list reads. Each group
  * excludes what the groups above it hold, so nothing renders twice.
  */
+export type LinearIssueGroup = 'triage' | 'started' | 'assigned' | 'cycle';
+
+/** A group's filter. `incomplete` is what Current cycle holds where no cycle is active. */
+export type LinearGroupFilter = LinearIssueGroup | 'incomplete';
+
 export interface LinearIssueGroups {
   triage: LinearIssueSummary[];
   started: LinearIssueSummary[];
   assigned: LinearIssueSummary[];
   cycle: LinearIssueSummary[];
-  /** Each group hit its limit, so it is a page rather than the whole answer. */
-  capped: { triage: boolean; started: boolean; assigned: boolean; cycle: boolean };
+  /** Each group's cursor for the page after this one, or null when the group is all of it. */
+  next: Record<LinearIssueGroup, string | null>;
   /** `cycle` holds the scope's incomplete issues because no cycle is active. */
   cycleIsFallback: boolean;
   /** No team in scope has triage on, so the Triage group is not a thing here. */

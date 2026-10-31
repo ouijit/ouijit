@@ -11,11 +11,11 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
-import type { PtyId, PtySpawnOptions, GitFileStatus, SandboxProviderId } from '../../types';
+import type { PtyId, PtySpawnOptions, DiffDefaults, GitFileStatus, SandboxProviderId } from '../../types';
 import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
-import { useTerminalStore } from '../../stores/terminalStore';
+import { useTerminalStore, type TerminalStatus } from '../../stores/terminalStore';
 import { diffBaseSettingKey } from '../../diffSource';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
@@ -26,8 +26,6 @@ import { terminalInstances } from './terminalRegistry';
 const IDLE_FALLBACK_MS = 3000;
 const READY_DEFERRAL_MS = 5_000;
 const SIDE_EFFECT_THROTTLE_MS = 250;
-
-export type SummaryType = 'thinking' | 'ready' | 'success' | 'error';
 
 export interface TerminalOptions {
   ptyId?: PtyId;
@@ -40,9 +38,8 @@ export interface TerminalOptions {
   worktreePath?: string;
   worktreeBranch?: string;
   mergeTarget?: string;
-  tags?: string[];
   isRunner?: boolean;
-  initialSummaryType?: SummaryType;
+  initialStatus?: TerminalStatus;
   /**
    * When true, this terminal closes itself after a short grace period when its
    * underlying command exits with code 0. The exit signal comes from OSC 133;D
@@ -296,16 +293,18 @@ function scheduleTerminalGitStatusRefresh(term: OuijitTerminal): void {
 }
 
 /**
- * The ref this terminal's diff is taken against.
- *
- * The reader's choice, then the task's merge target, and `getGitFileStatus`
- * falls back to the project's main branch when neither says — and reports back
- * which it used. Both the status poll and the per-file loads have to ask for
- * the same one, or the file list and the hunks under it are two different
+ * What this terminal's diff is taken against: the reader's choice, else main
+ * works out the default from the project and the merge target, and reports
+ * back which it used. Both the status poll and the per-file loads have to ask
+ * for the same one, or the file list and the hunks under it are two different
  * comparisons.
  */
-function diffBaseFor(term: OuijitTerminal): string | undefined {
-  return term.diffBase ?? term.mergeTarget;
+function statusArgs(term: OuijitTerminal): [string, string | undefined, DiffDefaults] {
+  return [
+    term.worktreePath || term.projectPath,
+    term.diffBase,
+    { projectPath: term.projectPath, mergeTarget: term.mergeTarget },
+  ];
 }
 
 function diffBaseKey(term: OuijitTerminal): string {
@@ -316,7 +315,7 @@ function diffBaseKey(term: OuijitTerminal): string {
  * Put back the comparison this worktree was last read against.
  *
  * Runs a settings read behind the first status poll, so an early poll answers
- * for the merge target and this corrects it. A pick made in the meantime is the
+ * for the default and this corrects it. A pick made in the meantime is the
  * newer answer and is left alone.
  */
 async function restoreDiffBase(term: OuijitTerminal): Promise<void> {
@@ -332,24 +331,20 @@ function applyGitStatus(term: OuijitTerminal, fileStatus: GitFileStatus | null):
 }
 
 export async function refreshTerminalGitStatus(term: OuijitTerminal): Promise<void> {
-  const gitPath = term.worktreePath || term.projectPath;
-  const fileStatus = await window.api.getGitFileStatus(gitPath, diffBaseFor(term));
-  applyGitStatus(term, fileStatus);
+  applyGitStatus(term, await window.api.getGitFileStatus(...statusArgs(term)));
 }
 
-export async function refreshAllTerminalGitStatus(projectPath: string): Promise<void> {
-  const store = useTerminalStore.getState();
-  const ptyIds = store.terminalsByProject[projectPath] ?? [];
+export async function refreshTerminalsGitStatus(ptyIds: string[]): Promise<void> {
   if (ptyIds.length === 0) return;
 
-  // Group by gitPath + base, so a child task diffing against its parent branch
-  // and a terminal the reader pointed at a remote each get their own answer.
+  // Grouped by everything the comparison depends on, so a child task diffing
+  // against its parent branch and a terminal the reader pointed at a remote
+  // each get their own answer.
   const groupToTerminals = new Map<string, OuijitTerminal[]>();
   for (const ptyId of ptyIds) {
     const term = terminalInstances.get(ptyId);
     if (!term) continue;
-    const gitPath = term.worktreePath || term.projectPath;
-    const key = `${gitPath}\0${diffBaseFor(term) ?? ''}`;
+    const key = JSON.stringify(statusArgs(term));
     const group = groupToTerminals.get(key);
     if (group) {
       group.push(term);
@@ -359,9 +354,8 @@ export async function refreshAllTerminalGitStatus(projectPath: string): Promise<
   }
 
   await Promise.all(
-    Array.from(groupToTerminals.entries()).map(async ([key, terms]) => {
-      const gitPath = key.split('\0')[0];
-      const fileStatus = await window.api.getGitFileStatus(gitPath, diffBaseFor(terms[0]));
+    Array.from(groupToTerminals.values()).map(async (terms) => {
+      const fileStatus = await window.api.getGitFileStatus(...statusArgs(terms[0]));
       for (const t of terms) applyGitStatus(t, fileStatus);
     }),
   );
@@ -391,10 +385,10 @@ export class OuijitTerminal {
 
   // ── Display state (plain values, pushed to Zustand) ────────────────
   label: string;
-  summaryType: SummaryType;
+  private status: TerminalStatus;
   gitFileStatus: GitFileStatus | null = null;
   lastOscTitle = '';
-  tags: string[];
+  tags: string[] = [];
 
   // ── Task/worktree metadata ──────────────────────────────────────────
   readonly sandboxProvider: SandboxProviderId | undefined;
@@ -464,8 +458,7 @@ export class OuijitTerminal {
     void restoreDiffBase(this);
 
     this.label = opts.label;
-    this.summaryType = opts.initialSummaryType ?? 'ready';
-    this.tags = opts.tags ?? [];
+    this.status = opts.initialStatus ?? 'ready';
 
     this.xterm = new XTerminal({
       theme: buildXtermTheme(),
@@ -511,6 +504,18 @@ export class OuijitTerminal {
   pushDisplayState(patch: Record<string, unknown>): void {
     if (!this.ptyId) return;
     useTerminalStore.getState().updateDisplay(this.ptyId, patch);
+  }
+
+  private setStatus(next: TerminalStatus): boolean {
+    if (this.status === next) return false;
+    this.status = next;
+    this.pushDisplayState({ status: next });
+    return true;
+  }
+
+  private becomeReady(): void {
+    if (!this.setStatus('ready')) return;
+    notifyReady(this.getProjectName?.() ?? 'Ouijit', readyBody(this.label, this.lastOscTitle));
   }
 
   setProjectNameGetter(getter: () => string): void {
@@ -766,6 +771,7 @@ export class OuijitTerminal {
       source?: 'hook' | 'script';
       restartIfRunning?: boolean;
       sandboxProvider?: SandboxProviderId;
+      env?: Record<string, string>;
     } | null,
     activate = true,
   ): string {
@@ -779,6 +785,7 @@ export class OuijitTerminal {
       source: script?.source ?? 'script',
       restartIfRunning: script?.restartIfRunning ?? false,
       ...(isActiveSandbox(script?.sandboxProvider) && { sandboxProvider: script.sandboxProvider }),
+      ...(script?.env && { env: script.env }),
       status: 'idle',
     };
     this.appendPanel(panel, activate);
@@ -869,16 +876,12 @@ export class OuijitTerminal {
         this.idleTimer = null;
       }
 
-      if (this.summaryType !== 'thinking') {
-        this.hookThinkingCount = 0;
-        this.summaryType = 'thinking';
-        this.pushDisplayState({ summaryType: 'thinking' });
-      }
+      if (this.setStatus('thinking')) this.hookThinkingCount = 0;
 
       this.hookThinkingCount++;
       this.resetIdleTimer();
     } else {
-      if (this.hookThinkingCount > 1 && this.summaryType === 'thinking') {
+      if (this.hookThinkingCount > 1 && this.status === 'thinking') {
         if (this.idleTimer) {
           clearTimeout(this.idleTimer);
           this.idleTimer = null;
@@ -886,28 +889,18 @@ export class OuijitTerminal {
         this.clearReadyDeferral();
         this.readyDeferralTimer = setTimeout(() => {
           this.readyDeferralTimer = null;
-          if (this.summaryType !== 'thinking') return;
+          if (this.status !== 'thinking') return;
           if (this.idleTimer) clearTimeout(this.idleTimer);
           this.idleTimer = setTimeout(() => {
             this.idleTimer = null;
-            if (this.summaryType === 'thinking') {
-              this.summaryType = 'ready';
-              this.pushDisplayState({ summaryType: 'ready' });
-              const projectName = this.getProjectName?.() ?? 'Ouijit';
-              notifyReady(projectName, readyBody(this.label, this.lastOscTitle));
-            }
+            if (this.status === 'thinking') this.becomeReady();
             this.hookThinkingCount = 0;
           }, IDLE_FALLBACK_MS);
         }, READY_DEFERRAL_MS);
         return;
       }
 
-      if (this.summaryType !== 'ready') {
-        this.summaryType = 'ready';
-        this.pushDisplayState({ summaryType: 'ready' });
-        const projectName = this.getProjectName?.() ?? 'Ouijit';
-        notifyReady(projectName, readyBody(this.label, this.lastOscTitle));
-      }
+      this.becomeReady();
       this.clearIdleTimer();
     }
   }
@@ -918,15 +911,9 @@ export class OuijitTerminal {
     await refreshTerminalGitStatus(this);
   }
 
-  async loadTags(): Promise<void> {
-    if (this.taskId == null) return;
-    try {
-      const tags = await window.api.tags.getForTask(this.projectPath, this.taskId);
-      this.tags = tags.map((t) => t.name);
-      this.pushDisplayState({ tags: this.tags });
-    } catch {
-      /* DB not ready or task gone */
-    }
+  setTags(tags: string[]): void {
+    this.tags = tags;
+    this.pushDisplayState({ tags });
   }
 
   // ── Internal: PTY wiring ────────────────────────────────────────────
@@ -973,22 +960,9 @@ export class OuijitTerminal {
     });
   }
 
-  /**
-   * Apply an exit-code-driven status flip. Used by both the PTY-exit path
-   * (`wireExitHandler`) and the OSC 133;D in-shell path (`handleCommandExit`).
-   * Only the status dot (`summaryType`) reflects the exit code; the PTY-exit
-   * path additionally sets the `exited: true` flag. We don't surface a textual
-   * "Done" / "Exit N" suffix in the header — the dot carries that signal, and
-   * the suffix only collided with the OSC title the shell/agent renders.
-   */
   private applyExitState(exitCode: number, opts: { isPtyExit: boolean }): void {
-    const nextType: SummaryType = exitCode === 0 ? 'success' : 'error';
-    if (this.summaryType !== nextType) {
-      this.summaryType = nextType;
-      this.pushDisplayState(opts.isPtyExit ? { summaryType: nextType, exited: true } : { summaryType: nextType });
-    } else if (opts.isPtyExit) {
-      this.pushDisplayState({ exited: true });
-    }
+    this.setStatus(exitCode === 0 ? 'success' : 'error');
+    if (opts.isPtyExit) this.pushDisplayState({ exited: true });
     this.maybeScheduleAutoClose(exitCode);
   }
 
@@ -1098,17 +1072,14 @@ export class OuijitTerminal {
   // ── Idle timer ──────────────────────────────────────────────────────
 
   private resetIdleTimer(): void {
-    if (this.summaryType !== 'thinking') return;
+    if (this.status !== 'thinking') return;
 
     if (this.hookThinkingCount > 1 && !this.idleTimer) return;
 
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = setTimeout(() => {
       this.idleTimer = null;
-      if (this.summaryType === 'thinking') {
-        this.summaryType = 'ready';
-        this.pushDisplayState({ summaryType: 'ready' });
-      }
+      if (this.status === 'thinking') this.setStatus('ready');
       this.hookThinkingCount = 0;
     }, IDLE_FALLBACK_MS);
   }

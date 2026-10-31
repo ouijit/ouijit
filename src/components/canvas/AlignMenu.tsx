@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react';
 import { useCanvasStore, persistCanvas, type TerminalNode } from '../../stores/canvasStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { useProjectStore } from '../../stores/projectStore';
+import { useProjectTasks } from '../../stores/projectDataStore';
 import { buildChainMap, type TaskChainInfo } from '../../utils/taskChain';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 
@@ -134,7 +134,7 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
     [projectPath],
   );
 
-  const tasks = useProjectStore((s) => s.tasks);
+  const tasks = useProjectTasks(projectPath);
   const displayStates = useTerminalStore((s) => s.displayStates);
 
   const handleGridLayout = useCallback(() => {

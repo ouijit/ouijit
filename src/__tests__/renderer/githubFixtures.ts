@@ -33,7 +33,7 @@ export function changed(path: string, over: Partial<PullRequestFile> = {}): Pull
 }
 
 export function inbox(over: Partial<InboxResult> = {}): InboxResult {
-  return { viewer: 'me', needsReview: [], mine: [], others: [], draftCounts: {}, linkedTasks: {}, ...over };
+  return { viewer: 'me', needsReview: [], mine: [], others: [], next: null, draftCounts: {}, linkedTasks: {}, ...over };
 }
 
 export function detail(over: Partial<PullRequestDetail> = {}): PullRequestDetail {
@@ -69,7 +69,7 @@ export function issue(over: Partial<GithubIssue> & { number: number }): GithubIs
 
 /** The Issues tab's GitHub half. Anything not named is the repo's open list. */
 export function issueList(over: Partial<GithubIssueList> = {}): GithubIssueList {
-  return { assigned: [], open: [], assignedCapped: false, openCapped: false, ...over };
+  return { assigned: [], open: [], assignedNext: null, openNext: null, ...over };
 }
 
 export function issueDetail(over: Partial<IssueDetail> & { number: number }): IssueDetail {

@@ -1,16 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { Terminal } from '@xterm/headless';
 
 import { installCliPanelListener } from '../../services/cliPanelListener';
 import { terminalInstances, restoreTerminalOnce } from '../../components/terminal/terminalRegistry';
 import type { OuijitTerminal } from '../../components/terminal/terminalReact';
 import { TERMINAL_READY_WAIT_MS, type CliPanelOp, type CliPanelResponse } from '../../types';
 
-type Panel = { id: string; kind: 'plan' | 'webPreview'; planPath?: string; url?: string };
+type Panel = {
+  id: string;
+  kind: 'plan' | 'webPreview' | 'runner';
+  planPath?: string;
+  url?: string;
+  scriptName?: string;
+  status?: string;
+  exitCode?: number;
+};
 
 /** The slice of `OuijitTerminal`'s panel surface the listener drives. */
 class FakeTerminal {
   panels: Panel[] = [];
   activePanelId: string | null = null;
+  runnerChildren = new Map<string, { xterm: Terminal }>();
   private nextId = 1;
 
   private append(panel: Panel, activate: boolean): string {
@@ -93,7 +103,7 @@ describe('CLI panel listener', () => {
     const added = await run({ ptyId: 'pty-home', action: 'add', kind: 'markdown', value: '/notes.md' });
     expect(added).toEqual({
       ok: true,
-      panels: [{ kind: 'markdown', label: 'notes.md', path: '/notes.md', active: true }],
+      panels: [{ id: 'panel-1', kind: 'markdown', label: 'notes.md', path: '/notes.md', active: true }],
     });
 
     // A second add of the same file surfaces the panel it already has.
@@ -105,7 +115,7 @@ describe('CLI panel listener', () => {
     // Listing is scoped to the kind asked for.
     const listed = await run({ ptyId: 'pty-home', action: 'list', kind: 'preview' });
     expect(listed.panels).toEqual([
-      { kind: 'preview', label: 'localhost:3000', url: 'http://localhost:3000', active: false },
+      { id: 'panel-2', kind: 'preview', label: 'localhost:3000', url: 'http://localhost:3000', active: false },
     ]);
 
     expect(await run({ ptyId: 'pty-home', action: 'remove', kind: 'markdown', value: '/notes.md' })).toEqual({
@@ -117,6 +127,33 @@ describe('CLI panel listener', () => {
     const gone = await run({ ptyId: 'pty-home', action: 'remove', kind: 'markdown', value: '/notes.md' });
     expect(gone.ok).toBe(false);
     expect(gone.error).toContain('/notes.md');
+  });
+
+  it("reads a runner's screen, status and exit code, and where any other panel points", async () => {
+    const term = new FakeTerminal();
+    register('pty-agent', term);
+    const runner = new Terminal({ cols: 40, rows: 5, allowProposedApi: true });
+    const written = new Promise<void>((done) => runner.write('1 failing\r\n  ✗ refresh keeps the session\r\n', done));
+    await vi.advanceTimersByTimeAsync(50);
+    await written;
+    term.panels = [
+      { id: 'panel-r', kind: 'runner', scriptName: 'Tests', status: 'error', exitCode: 1 },
+      { id: 'panel-p', kind: 'plan', planPath: '/wt/plan.md' },
+    ];
+    term.runnerChildren.set('panel-r', { xterm: runner });
+
+    expect(await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-r', lines: 1 })).toEqual({
+      ok: true,
+      read: { kind: 'runner', text: '  ✗ refresh keeps the session', status: 'error', exitCode: 1 },
+    });
+    expect(await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-p' })).toEqual({
+      ok: true,
+      read: { kind: 'markdown', path: '/wt/plan.md' },
+    });
+    expect(await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-x' })).toEqual({
+      ok: false,
+      error: 'No panel panel-x',
+    });
   });
 
   it('holds an op until a reconnecting terminal has finished restoring', async () => {
@@ -137,7 +174,7 @@ describe('CLI panel listener', () => {
 
     expect(await settle(id)).toEqual({
       ok: true,
-      panels: [{ kind: 'markdown', label: 'notes.md', path: '/notes.md', active: true }],
+      panels: [{ id: 'panel-1', kind: 'markdown', label: 'notes.md', path: '/notes.md', active: true }],
     });
     expect(term.panels).toHaveLength(1);
   });

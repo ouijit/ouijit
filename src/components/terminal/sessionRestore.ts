@@ -7,9 +7,9 @@
 
 import log from 'electron-log/renderer';
 import { useAppStore } from '../../stores/appStore';
-import { useProjectStore } from '../../stores/projectStore';
+import { useTerminalStore } from '../../stores/terminalStore';
 import { addProjectTerminal } from './terminalActions';
-import { suspendSnapshotSaves, resumeSnapshotSaves } from './sessionSnapshot';
+import { suspendSnapshotSaves, resumeSnapshotSaves, snapshotRecency, rememberSnapshotViews } from './sessionSnapshot';
 import type { LastSessionSnapshot, Project, SnapshotTerminal, TaskStatus } from '../../types';
 
 const restoreLog = log.scope('sessionRestore');
@@ -83,60 +83,54 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
   // snapshot key the caller is about to clear.
   suspendSnapshotSaves();
   try {
-    // Group by project, preserve original ordinal order
-    const grouped = new Map<string, RestorableEntry[]>();
-    for (const e of entries) {
-      if (!grouped.has(e.project.path)) grouped.set(e.project.path, []);
-      grouped.get(e.project.path)!.push(e);
-    }
-    for (const list of grouped.values()) {
-      list.sort((a, b) => a.ordinalInProject - b.ordinalInProject);
-    }
+    // Each restored terminal enters at the front, so restoring from the back
+    // of the order leaves it as it was.
+    const rank = new Map(snapshotRecency(snapshot).map((t, i) => [t, i]));
+    const backToFront = [...entries].sort((a, b) => (rank.get(b.source) ?? 0) - (rank.get(a.source) ?? 0));
+    const renamed = new Map<string, string>();
 
-    for (const [projectPath, projectEntries] of grouped) {
-      for (const entry of projectEntries) {
-        const source = entry.source;
-        try {
-          const restoredProvider = source.sandboxProvider;
-          await addProjectTerminal(projectPath, undefined, {
-            existingWorktree: source.worktreePath
-              ? {
-                  path: source.worktreePath,
-                  branch: source.worktreeBranch ?? '',
-                  createdAt: '',
-                  sandboxProvider: restoredProvider,
-                }
-              : undefined,
-            taskId: source.taskNumber ?? undefined,
-            sandboxProvider: restoredProvider,
-            // Carry through a user rename so a restored card keeps its name
-            // instead of snapping back to the task name.
-            label: source.label ?? undefined,
-            // Don't fire start/continue hooks on resume — that'd kick off a new
-            // claude session. Restored terminals come back as plain shells.
-            skipAutoHook: true,
-            background: !source.isActiveInProject,
-            initialUiState: source.ui,
-          });
-        } catch (err) {
-          restoreLog.warn('failed to restore terminal', {
-            projectPath,
-            taskNumber: source.taskNumber,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+    for (const entry of backToFront) {
+      const projectPath = entry.project.path;
+      const source = entry.source;
+      try {
+        const restoredProvider = source.sandboxProvider;
+        const spawned = await addProjectTerminal(projectPath, undefined, {
+          existingWorktree: source.worktreePath
+            ? {
+                path: source.worktreePath,
+                branch: source.worktreeBranch ?? '',
+                createdAt: '',
+                sandboxProvider: restoredProvider,
+              }
+            : undefined,
+          taskId: source.taskNumber ?? undefined,
+          sandboxProvider: restoredProvider,
+          // Carry through a user rename so a restored card keeps its name
+          // instead of snapping back to the task name.
+          label: source.label ?? undefined,
+          // Don't fire start/continue hooks on resume — that'd kick off a new
+          // claude session. Restored terminals come back as plain shells.
+          skipAutoHook: true,
+          initialUiState: source.ui,
+        });
+        const [restored] = useTerminalStore.getState().order;
+        if (spawned && source.ptyId && restored) renamed.set(source.ptyId, restored);
+      } catch (err) {
+        restoreLog.warn('failed to restore terminal', {
+          projectPath,
+          taskNumber: source.taskNumber,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
-    // Navigate to last-active project (terminals view)
-    if (snapshot.activeProjectPath) {
-      const project = projectByPath.get(snapshot.activeProjectPath);
-      if (project) {
-        useAppStore.getState().navigateToProject(snapshot.activeProjectPath, project);
-        const projectStore = useProjectStore.getState();
-        projectStore.setActivePanel('terminals');
-        projectStore.setKanbanVisible(false);
-      }
+    rememberSnapshotViews(snapshot, renamed);
+    const active = snapshot.activeProjectPath;
+    if (active && projectByPath.has(active)) {
+      const app = useAppStore.getState();
+      const view = app.projectView(active);
+      if (view) app.select(view);
+      else app.showProjectTerminals(active);
     }
   } finally {
     resumeSnapshotSaves();

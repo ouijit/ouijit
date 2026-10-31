@@ -4,7 +4,16 @@ import { XTermContainer } from './XTermContainer';
 import { Icon } from './Icon';
 import { Tooltip } from '../ui/Tooltip';
 import { FullWidthToggle, MinimizeButton, PanelCloseButton } from './FullWidthToggle';
-import { SANDBOX_BACKEND_LABELS } from '../../types';
+import { SANDBOX_LABELS } from '../../types';
+import { RunnerDot } from './StatusDot';
+import type { RunnerStatus } from './panelTypes';
+
+const RUNNER_LABELS: Record<RunnerStatus, string> = {
+  running: 'Running',
+  success: 'Exited',
+  error: 'Failed',
+  idle: 'Stopped',
+};
 
 interface RunnerPanelProps {
   ptyId: string;
@@ -37,12 +46,18 @@ export function RunnerPanel({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
-        <span className="text-[13px] text-ink/50 truncate flex-1 font-mono">{panelTitle}</span>
-        {panel?.kind === 'runner' && panel.sandboxProvider && (
-          <span className="text-xs text-text-tertiary shrink-0">
-            {SANDBOX_BACKEND_LABELS[panel.sandboxProvider]} sandbox
-          </span>
+        {panel?.kind === 'runner' && (
+          <Tooltip
+            text={[RUNNER_LABELS[panel.status], panel.sandboxProvider && SANDBOX_LABELS[panel.sandboxProvider]]
+              .filter(Boolean)
+              .join(' · ')}
+            placement="top"
+            delay={300}
+          >
+            <RunnerDot status={panel.status} sandboxProvider={panel.sandboxProvider} />
+          </Tooltip>
         )}
+        <span className="text-[13px] text-ink/50 truncate flex-1 font-mono">{panelTitle}</span>
         {runnerPtyId && (
           <Tooltip text="Kill">
             <button

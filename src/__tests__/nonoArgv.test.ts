@@ -9,6 +9,7 @@ const baseCtx: NonoArgvContext = {
   mainGitDir: '/Users/dev/code/proj/.git',
   apiPort: 41234,
   wrapperDir: '/Users/dev/.config/Ouijit',
+  profile: '/Users/dev/.config/nono/profiles/ouijit-proj-abc123.json',
 };
 
 function build(ctx: Partial<NonoArgvContext> = {}) {
@@ -16,12 +17,19 @@ function build(ctx: Partial<NonoArgvContext> = {}) {
 }
 
 describe('buildNonoLaunch', () => {
-  test('wraps the shell launch as a supervised `nono run` under the union profile', () => {
+  test("wraps the shell launch as a supervised `nono run` under the project's profile file", () => {
     const { file, args, env } = build();
     expect(file).toBe('/opt/bin/nono');
     // run mode (supervisor: banner + denial prompts), the union profile, and the
     // startup-timeout disabled so a plain shell is not killed for never entering a TUI.
-    expect(args.slice(0, 6)).toEqual(['run', '--profile', 'ouijit', '--startup-timeout', '0', '--allow-cwd']);
+    expect(args.slice(0, 6)).toEqual([
+      'run',
+      '--profile',
+      '/Users/dev/.config/nono/profiles/ouijit-proj-abc123.json',
+      '--startup-timeout',
+      '0',
+      '--allow-cwd',
+    ]);
     expect(args).not.toContain('--silent');
     // The original launch is preserved verbatim after the `--` separator.
     const sep = args.indexOf('--');
@@ -37,20 +45,14 @@ describe('buildNonoLaunch', () => {
     expect(args[args.indexOf('--allow') + 1]).toBe('/Users/dev/Ouijit/worktrees/proj/T-5');
   });
 
-  test('reflects per-project overrides: the cache-dir grant and the override profile name', () => {
+  test('grants the per-project cache dir read+write alongside the worktree', () => {
     const allowsOf = (args: string[]): string[] =>
       args.reduce<string[]>((acc, a, i) => (a === '--allow' ? [...acc, args[i + 1]] : acc), []);
-
-    // With overrides: runs under the override profile, and the cache dir is
-    // granted read+write alongside the worktree.
-    const over = build({ cacheDir: '/data/sandbox-cache/abc123', profileName: 'ouijit-9f8e7d6c5b' });
-    expect(over.args.slice(0, 3)).toEqual(['run', '--profile', 'ouijit-9f8e7d6c5b']);
-    expect(allowsOf(over.args)).toEqual(['/Users/dev/Ouijit/worktrees/proj/T-5', '/data/sandbox-cache/abc123']);
-
-    // Without overrides: the managed profile, and only the worktree is granted.
-    const base = build();
-    expect(base.args.slice(0, 3)).toEqual(['run', '--profile', 'ouijit']);
-    expect(allowsOf(base.args)).toEqual(['/Users/dev/Ouijit/worktrees/proj/T-5']);
+    expect(allowsOf(build({ cacheDir: '/data/sandbox-cache/abc123' }).args)).toEqual([
+      '/Users/dev/Ouijit/worktrees/proj/T-5',
+      '/data/sandbox-cache/abc123',
+    ]);
+    expect(allowsOf(build().args)).toEqual(['/Users/dev/Ouijit/worktrees/proj/T-5']);
   });
 
   test('grants the MAIN repo .git read-only with the writable overlay subdirs', () => {
@@ -112,26 +114,6 @@ describe('buildNonoLaunch', () => {
     const reads = args.reduce<string[]>((acc, a, i) => (a === '--read' ? [...acc, args[i + 1]] : acc), []);
     expect(reads).not.toContain('/Applications/Ouijit.app/Contents/Resources/bin');
     expect(reads).not.toContain(binPath);
-  });
-
-  test('adds block-net when configured', () => {
-    const { args } = build({ config: { blockNet: true } });
-    expect(args).toContain('--block-net');
-  });
-
-  test('opens extra configured ports in addition to the hook port', () => {
-    const { args } = build({ apiPort: 5000, config: { openPorts: [3000, 8080] } });
-    const opened = args.reduce<string[]>((acc, a, i) => (a === '--open-port' ? [...acc, args[i + 1]] : acc), []);
-    expect(opened).toEqual(['5000', '3000', '8080']);
-  });
-
-  test('grants extra configured folders read+write alongside the worktree', () => {
-    const { args } = build({ config: { allowPaths: ['/Users/dev/cache', '/Users/dev/mono/sibling'] } });
-    const allowed = args.reduce<string[]>((acc, a, i) => (a === '--allow' ? [...acc, args[i + 1]] : acc), []);
-    // The worktree is always first; the configured extras follow.
-    expect(allowed).toContain('/Users/dev/cache');
-    expect(allowed).toContain('/Users/dev/mono/sibling');
-    expect(allowed[0]).toBe('/Users/dev/Ouijit/worktrees/proj/T-5');
   });
 
   test('keeps paths with spaces as single argv elements', () => {

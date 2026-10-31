@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useGithubStore } from '../../stores/githubStore';
-import { usePanelStore, SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../../stores/panelStore';
+import {
+  creatingKey,
+  usePanelStore,
+  SIDEBAR_DEFAULT_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+} from '../../stores/panelStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { getProjectTasks, loadTasks, useProjectTasks } from '../../stores/projectDataStore';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { SidebarToggle } from '../common/SidebarToggle';
 import { useAppStore } from '../../stores/appStore';
@@ -14,9 +21,11 @@ import { LinearIssueView } from '../linear/LinearIssueView';
 import { ConnectRow } from '../linear/ConnectRow';
 import { scopeKey } from '../linear/ScopePicker';
 import { IssueList } from '../issues/IssueList';
-import { issueGroups } from '../issues/groups';
+import { githubIssueRow, issueGroups, linearIssueRow } from '../issues/groups';
+import { useServerSearch } from '../issues/useServerSearch';
+import { describeError } from '../../utils/describeError';
 import { useLinearStore } from '../../stores/linearStore';
-import type { IssueRow } from '../../issues/types';
+import type { IssueGroup, IssueRow } from '../../issues/types';
 import type { TaskWithWorkspace } from '../../types';
 import { PanelFrame } from '../ui/PanelFrame';
 import { useEscape } from '../../hooks/useEscape';
@@ -160,13 +169,13 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         closeOpenItem();
         return;
       }
-      useProjectStore.getState().setActivePanel('terminals');
-    }, [closeOpenItem]),
+      useAppStore.getState().showProjectTerminals(projectPath);
+    }, [closeOpenItem, projectPath]),
   );
 
   // The maps are built in a memo, not the selector: a selector returning a
   // fresh object never equals the last one and re-renders forever.
-  const tasks = useProjectStore((s) => s.tasks);
+  const tasks = useProjectTasks(projectPath);
   const { issueTasks, prTasks, linearTasks, tasksByNumber } = useMemo(() => {
     const issueTasks: Record<number, TaskWithWorkspace> = {};
     const prTasks: Record<number, TaskWithWorkspace> = {};
@@ -197,6 +206,66 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   );
   const issueCount = listGroups.reduce((total, group) => total + group.rows.length, 0);
 
+  const [query, setQuery] = useState('');
+  const linearScoped = linearConnected && Boolean(linearAvailability?.scope);
+  const pullSearch = useServerSearch(
+    listView === 'pulls' ? query : '',
+    available ? (q) => window.api.github.searchPullRequests(projectPath, q) : null,
+  );
+  const issueSearch = useServerSearch(
+    listView === 'issues' ? query : '',
+    available || linearScoped
+      ? async (q) => {
+          // One source failing still shows what the other found.
+          const [github, linear] = await Promise.allSettled([
+            available ? window.api.github.searchIssues(projectPath, q) : [],
+            linearScoped ? window.api.linear.search(projectPath, q) : [],
+          ]);
+          if (github.status === 'rejected' && linear.status === 'rejected') throw github.reason;
+          return {
+            github: github.status === 'fulfilled' ? github.value : [],
+            linear: linear.status === 'fulfilled' ? linear.value : [],
+          };
+        }
+      : null,
+  );
+  // Mapped here rather than when the answer lands, so a task made from a
+  // result shows on its row.
+  const foundIssues = useMemo(
+    () =>
+      issueSearch.results && [
+        ...issueSearch.results.github.map((issue) => githubIssueRow(issue, issueTasks)),
+        ...issueSearch.results.linear.map((issue) => linearIssueRow(issue, linearTasks)),
+      ],
+    [issueSearch.results, issueTasks, linearTasks],
+  );
+
+  const githubPaging = useGithubStore((s) => s.paging);
+  const linearPaging = useLinearStore((s) => s.paging);
+  const pagingIssues = useCallback(
+    (group: IssueGroup) =>
+      group.more.some((page) =>
+        page.source === 'github' ? githubPaging.includes(page.group) : linearPaging.includes(page.group),
+      ),
+    [githubPaging, linearPaging],
+  );
+  const failedToPage = useCallback(
+    (error: unknown) => useProjectStore.getState().addToast(`Couldn't load more: ${describeError(error)}`, 'error'),
+    [],
+  );
+  const showMoreIssues = useCallback(
+    (group: IssueGroup) => {
+      for (const page of group.more) {
+        const loading =
+          page.source === 'github'
+            ? useGithubStore.getState().loadMoreIssues(projectPath, page.group)
+            : useLinearStore.getState().loadMoreIssues(projectPath, page.group);
+        loading.catch(failedToPage);
+      }
+    },
+    [projectPath, failedToPage],
+  );
+
   // The panel only renders for the project being viewed, so the active project
   // is the one a linked task belongs to.
   const project = useAppStore((s) => s.activeProjectData);
@@ -224,31 +293,32 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   );
 
   const createTask = useCallback(
-    async (row: IssueTarget) => {
-      const result =
-        row.source === 'linear'
-          ? await window.api.linear.taskFromIssue(projectPath, row.identifier)
-          : await window.api.github.taskFromIssue(projectPath, Number(row.key));
-      if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? "Couldn't create the task", 'error');
-        return;
-      }
-      await useProjectStore.getState().loadTasks(projectPath);
+    (row: IssueTarget) =>
+      usePanelStore.getState().whileCreating(creatingKey(projectPath, row.source, row.key), async () => {
+        const result =
+          row.source === 'linear'
+            ? await window.api.linear.taskFromIssue(projectPath, row.identifier)
+            : await window.api.github.taskFromIssue(projectPath, Number(row.key));
+        if (!result.success) {
+          useProjectStore.getState().addToast(result.error ?? "Couldn't create the task", 'error');
+          return;
+        }
+        await loadTasks(projectPath);
 
-      // Offer the jump rather than taking it: creating several tasks from a
-      // list of issues in one pass is the common case.
-      const created = useProjectStore.getState().tasks.find((t) => t.taskNumber === result.taskNumber);
-      const from = row.source === 'github' ? `issue ${row.identifier}` : row.identifier;
-      useProjectStore.getState().addToast(`Created task #${result.taskNumber} from ${from}`, {
-        type: 'success',
-        ...(created && project
-          ? {
-              actionLabel: TASK_OPEN_LABEL[taskOpenAction(projectPath, created)],
-              onAction: () => void activateTask(project, created),
-            }
-          : {}),
-      });
-    },
+        // Offer the jump rather than taking it: creating several tasks from a
+        // list of issues in one pass is the common case.
+        const created = getProjectTasks(projectPath).find((t) => t.taskNumber === result.taskNumber);
+        const from = row.source === 'github' ? `issue ${row.identifier}` : row.identifier;
+        useProjectStore.getState().addToast(`Created task #${result.taskNumber} from ${from}`, {
+          type: 'success',
+          ...(created && project
+            ? {
+                actionLabel: TASK_OPEN_LABEL[taskOpenAction(projectPath, created)],
+                onAction: () => void activateTask(project, created),
+              }
+            : {}),
+        });
+      }),
     [projectPath, project],
   );
 
@@ -256,24 +326,29 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     const slot = usePanelStore.getState().open;
     if (slot?.source !== 'github-pr') return;
     const number = slot.number;
-    const result = await window.api.github.taskFromPr(projectPath, number);
-    if (!result.success || result.taskNumber == null) {
-      useProjectStore.getState().addToast(result.error ?? "Couldn't create the task", 'error');
-      return;
-    }
-    // `headRef` is a local branch the main process just created at the PR's
-    // head, so the worktree carries the PR's commits rather than branching off
-    // whatever HEAD is.
-    const start = await window.api.task.start(projectPath, result.taskNumber, result.headRef);
-    await useProjectStore.getState().loadTasks(projectPath);
-    if (!start.success) {
-      useProjectStore
-        .getState()
-        .addToast(`Created task #${result.taskNumber}, but the worktree failed: ${start.error ?? ''}`.trim(), 'error');
-      return;
-    }
-    useProjectStore.getState().addToast(`Checked out #${number} as task #${result.taskNumber}`, 'success');
-    await useGithubStore.getState().loadInbox(projectPath);
+    await usePanelStore.getState().whileCreating(creatingKey(projectPath, 'github-pr', number), async () => {
+      const result = await window.api.github.taskFromPr(projectPath, number);
+      if (!result.success || result.taskNumber == null) {
+        useProjectStore.getState().addToast(result.error ?? "Couldn't create the task", 'error');
+        return;
+      }
+      // `headRef` is a local branch the main process just created at the PR's
+      // head, so the worktree carries the PR's commits rather than branching off
+      // whatever HEAD is.
+      const start = await window.api.task.start(projectPath, result.taskNumber, result.headRef);
+      await loadTasks(projectPath);
+      if (!start.success) {
+        useProjectStore
+          .getState()
+          .addToast(
+            `Created task #${result.taskNumber}, but the worktree failed: ${start.error ?? ''}`.trim(),
+            'error',
+          );
+        return;
+      }
+      useProjectStore.getState().addToast(`Checked out #${number} as task #${result.taskNumber}`, 'success');
+      await useGithubStore.getState().loadInbox(projectPath);
+    });
   }, [projectPath]);
 
   const linkedTask = detail ? prTasks[detail.number] : undefined;
@@ -395,12 +470,22 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
           showing={listView}
           issueCount={issueCount}
           activeNumber={open?.source === 'github-pr' ? open.number : null}
+          query={query}
+          onQueryChange={setQuery}
+          found={pullSearch.results}
+          searching={pullSearch.searching}
+          {...(inbox?.next && {
+            more: {
+              loading: githubPaging.includes('pulls'),
+              onShow: () => void useGithubStore.getState().loadMorePulls(projectPath).catch(failedToPage),
+            },
+          })}
           loading={listView === 'issues' ? issuesLoading || linearLoading : inboxLoading}
           {...(available ? {} : { unavailable: availability.message ?? 'GitHub is not available for this project.' })}
           onShow={(next) => usePanelStore.getState().setListView(next)}
           onOpenPullRequest={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
           onOpenTask={openLinkedTask}
-          issues={(query) => (
+          issues={
             <>
               {/* A row, never a modal: someone who opened the panel to read a
                   pull request is not made to configure a tracker first. */}
@@ -408,8 +493,13 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
                 <ConnectRow projectPath={projectPath} availability={linearAvailability} />
               )}
               <IssueList
+                projectPath={projectPath}
                 groups={listGroups}
                 query={query}
+                found={foundIssues}
+                searching={issueSearch.searching}
+                onShowMore={showMoreIssues}
+                paging={pagingIssues}
                 open={open}
                 tasks={tasksByNumber}
                 loading={issuesLoading || linearLoading}
@@ -418,7 +508,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
                 onCreateTask={createTask}
               />
             </>
-          )}
+          }
           width={sidebarWidth}
         />
       )}

@@ -46,7 +46,7 @@ ouijit task start 5 --run-hook --sandbox custom # run it in a sandbox other than
 ouijit task create-and-start "Add 2FA"        # create + start in one step
 ouijit task create-and-start "Add 2FA" --prompt "..." --branch custom --skip-hook
 ouijit task spawn "Add 2FA"                   # alias for create-and-start
-ouijit task set-status 5 in_review            # fires the review hook (dialog by default)
+ouijit task set-status 5 in_review            # the review hook waits behind a pointer by default
 ouijit task set-status 5 in_review --run-hook # run the review hook, no dialog
 ouijit task set-status 5 in_review --skip-hook
 ouijit task set-status 5 done --hook-command "npm run deploy"
@@ -54,11 +54,12 @@ ouijit task bulk-set-status done 5 6 7        # set status on many in parallel
 ouijit task set-name 5 "Better name"
 ouijit task set-description 5 "More detail"
 ouijit task set-merge-target 5 develop
-ouijit task delete 5</code></pre>
+ouijit task trash 5                           # worktree goes to the system trash</code></pre>
   <p>
     <code>--run-hook</code>, <code>--skip-hook</code>, and <code>--hook-command</code> are mutually exclusive.
-    By default, a status change opens that column's hook dialog in the GUI, just like dragging a card; use these
-    flags for headless runs where no one is at the keyboard to dismiss it. They apply to <code>task start</code>
+    By default, a status change whose hook would ask first leaves a <a href="#point">pointer</a> at the task, and
+    the hook's dialog opens when you follow it, so an agent never puts a dialog over what you're doing. Use these
+    flags to run without waiting for you. They apply to <code>task start</code>
     and <code>create-and-start</code> (the start hook) and to <code>set-status</code> into
     <code>in_progress</code>, <code>in_review</code>, or <code>done</code> (the continue, review, and done
     hooks). <code>bulk-set-status</code> takes the same flags. Setting status to <code>todo</code> runs no hook
@@ -66,7 +67,7 @@ ouijit task delete 5</code></pre>
   </p>
   <p>
     <code>--sandbox host|nono|custom</code> overrides the hook's own <a href="/docs/sandbox/">sandbox</a> setting
-    for that run, with or without the flags above. With the dialog, it is what the dialog preselects.
+    for that run, with or without the flags above. When it waits for you, it is what the dialog preselects.
   </p>
   <p>
     <code>ouijit task current</code> resolves the task owning the current terminal via the
@@ -89,8 +90,8 @@ ouijit hook set continue --name "Agent" --command "claude -c" --sandbox custom
 ouijit hook delete done</code></pre>
   <p><code>--restart-if-running</code> applies to the run hook only: relaunch instead of focusing an already-running instance.</p>
   <p>
-    <code>--sandbox nono|custom</code> applies to the start, continue, review, and done hooks: the sandbox the
-    hook runs in. <code>hook set</code> replaces the whole hook, so leaving it out runs the hook on the host.
+    <code>--sandbox host|nono|custom</code> applies to the start, continue, review, and done hooks: where the
+    hook always runs. <code>nono</code> is Ouijit's sandbox. <code>hook set</code> replaces the whole hook, so leaving it out makes the hook follow the project default.
   </p>
 
   <h2>Sandbox command</h2>
@@ -102,15 +103,80 @@ ouijit hook delete done</code></pre>
 ouijit sandbox-command set "$HOME/.local/bin/ouijit-sandbox --strict"
 ouijit sandbox-command clear</code></pre>
 
-  <h2>Tags</h2>
-  <p>Tag tasks to <a href="/docs/terminals/">group and filter</a> their terminals.</p>
-  <pre class="glass-bevel"><code>ouijit tag list                               # all tags across projects
-ouijit tag list --task 5                      # tags on one task
-ouijit tag add 5 bug
-ouijit tag remove 5 bug
-ouijit tag set 5 bug priority urgent          # replace all tags</code></pre>
+  <h2>Terminals</h2>
+  <p>
+    See every open terminal, read what's on its screen, open and close terminals, and paste a message into
+    one for you to send. A terminal opened here goes behind the one on screen, and a paste never presses Enter.
+    Host terminals only.
+  </p>
+  <pre class="glass-bevel"><code>ouijit terminal list                          # every project's terminals, with task, sandbox and agent status
+ouijit terminal read pty_abc123 --lines 40    # its screen and recent scrollback, as text
+ouijit terminal open --task 5                 # a shell in a started task's worktree
+ouijit terminal open --task 5 --resume        # running the continue hook
+ouijit terminal open                          # a shell in the project
+ouijit terminal paste pty_abc123 "run the tests again"
+ouijit terminal paste pty_abc123 - &lt; followup.md
+ouijit terminal close pty_abc123</code></pre>
+  <p>
+    A multi-line paste is refused where the program in that terminal would read each newline as Enter.
+  </p>
 
-  <h2>Scripts</h2>
+  <h2>Diff notes</h2>
+  <p>
+    The <a href="/docs/diff/">notes</a> you've left on a worktree's diff, so an agent can read them itself. Without
+    <code>--task</code> it reads the current terminal's worktree, which works from a sandbox too.
+  </p>
+  <pre class="glass-bevel"><code>ouijit diff notes
+ouijit diff notes --task 5
+ouijit diff open                              # show this terminal's diff panel
+ouijit diff close</code></pre>
+
+  <h2 id="point">Pointing</h2>
+  <p>
+    An agent can point you at something without moving your screen. A mark appears on its row in the sidebar,
+    or the row of the task or terminal it belongs to, like a pull request's task or a diff's terminal. Click
+    it, or press <kbd>⌘J</kbd> for the latest, to go there: to the line of the diff, the panel, the pull
+    request itself. Each terminal has one pointer; a new one replaces it, but task moves and asks waiting behind
+    it stack instead, and you answer them in turn. <code>-m</code> labels it with what it's about.
+  </p>
+  <pre class="glass-bevel"><code>ouijit point task 14 -m "Split out of auth; its tests aren't written yet"
+ouijit point terminal pty_abc123
+ouijit point project
+ouijit point board
+ouijit point pr 212
+ouijit point issue ENG-231                    # or a GitHub issue number
+ouijit point panel panel-3fa9
+ouijit point diff src/auth/session.ts:88 -m "This races the refresh"
+ouijit point note 7f3c                        # from ouijit diff notes
+ouijit point clear
+ouijit task start 14 --skip-hook --point      # task start, create-and-start and terminal open take --point</code></pre>
+
+  <h2 id="ask">Asking you to run something</h2>
+  <p>
+    An agent in a sandbox can ask you to run a command on your computer, outside the sandbox. If its terminal is the
+    one in front, the ask opens at once; otherwise it waits as the agent's pointer. It shows the exact command, where it runs
+    and the script file it runs, then Run or Decline.
+    Nothing runs until you press Run. A script the command runs, from the agent's worktree or a temp folder, is
+    shown in full, and the copy you read is what runs. It runs in a runner panel on the agent's terminal, without
+    a pager, and with <code>--wait</code> the agent gets the exit code and output back.
+  </p>
+  <pre class="glass-bevel"><code>ouijit ask run -m "Needs the keychain" -- npm run release:sign
+ouijit ask run --wait -- ./scripts/migrate.sh --dry-run
+ouijit ask script "Dev server"                # a project script, by id or name</code></pre>
+
+  <h2>Tags</h2>
+  <p>
+    Tag a terminal to <a href="/docs/terminals/">group and filter</a> it. A terminal can carry several, and the pty
+    id defaults to the current terminal. A sandboxed session can tag its own terminal.
+  </p>
+  <pre class="glass-bevel"><code>ouijit tag list                               # tags on open terminals, and which carry each
+ouijit tag get                                # this terminal's tags
+ouijit tag add review
+ouijit tag add review pty_abc123              # explicit pty id
+ouijit tag remove review
+ouijit tag clear                              # removes all of them</code></pre>
+
+  <h2 id="scripts">Scripts</h2>
   <p>
     Scripts are saved shell commands that show up in the <a href="/docs/panels/">panel menu</a> and the CLI.
     Unlike hooks, they don't fire on lifecycle events.
@@ -186,6 +252,22 @@ ouijit markdown remove ./plan.md</code></pre>
 ouijit preview add http://localhost:3000 pty_abc123
 ouijit preview list
 ouijit preview remove http://localhost:3000</code></pre>
+
+  <h2>Runners</h2>
+  <p>
+    Run a project <a href="#scripts">script</a> in a <a href="/docs/panels/">runner panel</a> beside a terminal,
+    as the <strong>+</strong> menu does, in the project's default sandbox.
+  </p>
+  <pre class="glass-bevel"><code>ouijit runner add "Dev server"                # by id or name
+ouijit runner list
+ouijit runner remove "Dev server"             # stops the script</code></pre>
+
+  <h2>Panels</h2>
+  <p>Every panel on a terminal, of every kind: reading one, and bringing one to the front.</p>
+  <pre class="glass-bevel"><code>ouijit panel list                             # ids, kinds, labels, which is active
+ouijit panel read panel-3fa9 --lines 40       # a runner's screen, status and exit code
+ouijit panel focus panel-3fa9
+ouijit panel focus terminal                   # back to the terminal itself</code></pre>
 
   <h2>Themes</h2>
   <p><a href="/docs/themes/">Themes</a> are global, not project-scoped.</p>

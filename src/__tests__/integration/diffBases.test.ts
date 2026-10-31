@@ -64,7 +64,10 @@ describe('the refs a diff can be taken against', () => {
   });
 
   test('leaves out origin/HEAD, which stands for a branch already listed', async () => {
-    expect((await listDiffBases(repoDir)).refs.map((r) => r.ref)).not.toContain('origin/HEAD');
+    const refs = (await listDiffBases(repoDir)).refs.map((r) => r.ref);
+    expect(refs).not.toContain('origin/HEAD');
+    // git's short name for it is the bare remote.
+    expect(refs).not.toContain('origin');
   });
 
   test('reads what the checked-out branch tracks, and the remote to reach for', async () => {

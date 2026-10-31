@@ -2,9 +2,10 @@ import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from './types';
 import { isActiveSandbox } from './sandbox/types';
+import { sandboxCliAccessFor } from './sandbox/cliAccess';
 import type { SandboxProvider } from './sandbox/provider';
 import { generateId } from './utils/ids';
-import { getApiPort, clearHookStatus, clearAllHookStatuses } from './hookServer';
+import { getApiPort, clearHookStatus, clearAllHookStatuses, getCliReferencePath } from './hookServer';
 import { getWrapperBinDir, getUserDataPath, getCliPath } from './paths';
 import { getShellIntegrationDir, resolveShellIntegration } from './shellIntegration';
 import { typedPush } from './ipc/helpers';
@@ -216,6 +217,14 @@ export async function spawnPty(
     finalEnv['OUIJIT_PTY_ID'] = ptyId;
     finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
     finalEnv['OUIJIT_API_TOKEN'] = issueToken(ptyId, wrapper ? 'sandbox' : 'host');
+    if (wrapper) {
+      // The API grants a terminal without a task read access whatever the project allows.
+      const access =
+        options.taskId == null
+          ? 'read'
+          : await sandboxCliAccessFor(options.projectPath ?? options.cwd).catch((): 'read' => 'read');
+      finalEnv['OUIJIT_SANDBOX_REFERENCE_FILE'] = getCliReferencePath({ provider: wrapper.id, access });
+    }
 
     // Shell integration: wrapper dir + integration dir for PATH fix scripts
     const wrapperBinDir = getWrapperBinDir();
@@ -457,6 +466,26 @@ export function isPtyActive(ptyId: PtyId): boolean {
  * Resolve the task context for a ptyId. Returns null when the pty isn't live
  * or isn't bound to a task.
  */
+/** What a sandbox needs to wrap a command run inside this PTY. */
+/**
+ * Whose pointer a pty's commands leave: a runner's parent terminal's. A runner
+ * has no sidebar row, and a pointer from a terminal without one is pruned at
+ * once, taking any task moves waiting on it.
+ */
+export function pointingPty(ptyId: PtyId): PtyId {
+  const managed = activePtys.get(ptyId);
+  return managed?.isRunner && managed.parentPtyId ? managed.parentPtyId : ptyId;
+}
+
+export function getPtySpawnContext(
+  ptyId: PtyId,
+): { projectPath: string; taskId?: number; worktreePath?: string; sandboxProvider?: SandboxProviderId } | null {
+  const managed = activePtys.get(ptyId);
+  if (!managed) return null;
+  const { projectPath, taskId, worktreePath, sandboxProvider } = managed;
+  return { projectPath, taskId, worktreePath, sandboxProvider };
+}
+
 export function getPtyTaskContext(ptyId: PtyId): { projectPath: string; taskId: number } | null {
   const managed = activePtys.get(ptyId);
   if (managed && managed.taskId != null) {
