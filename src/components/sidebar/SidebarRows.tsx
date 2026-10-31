@@ -219,8 +219,7 @@ function SidebarRow({
 }
 
 function StatusSlot({ display }: { display: TerminalDisplayState }) {
-  const asking = useAsking();
-  const unread = useTerminalStore((s) => wantsYou(s, display.ptyId, asking));
+  const unread = useWantsYou(display.ptyId);
   return (
     <span className="w-3.5 flex items-center justify-center shrink-0">
       <StatusGlyph status={display.status} sandboxProvider={display.sandboxProvider} unread={unread} />

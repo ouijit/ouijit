@@ -86,15 +86,16 @@ describe('finding a branch by typing', () => {
 });
 
 describe('what a diff compares against until one is picked', () => {
-  test("the project's default base wherever the work merges into what it tracks, else the merge target", () => {
+  test("the project's default base wherever the work merges into the branch it names, else the merge target", () => {
+    const origin = { base: 'origin/main', baseBranch: 'main' };
     // The project root, and a task off the default base merging into its local branch.
-    expect(comparedByDefault('origin/main', undefined)).toBe('origin/main');
-    expect(comparedByDefault('origin/main', 'main')).toBe('origin/main');
-    expect(comparedByDefault('main', 'main')).toBe('main');
-    // A task stacked on another task's branch reads against that branch.
-    expect(comparedByDefault('origin/main', 'feat/parent')).toBe('feat/parent');
+    expect(comparedByDefault(origin, undefined)).toBe('origin/main');
+    expect(comparedByDefault(origin, 'main')).toBe('origin/main');
+    // A task stacked on another branch reads against it, even one whose name ends the same way.
+    expect(comparedByDefault(origin, 'feat/parent')).toBe('feat/parent');
+    expect(comparedByDefault({ base: 'origin/feat/main', baseBranch: 'feat/main' }, 'main')).toBe('main');
     // No default base: the merge target, or nothing for main to fill in.
-    expect(comparedByDefault(null, 'main')).toBe('main');
-    expect(comparedByDefault(null, undefined)).toBeUndefined();
+    expect(comparedByDefault({ base: null, baseBranch: null }, 'main')).toBe('main');
+    expect(comparedByDefault(undefined, undefined)).toBeUndefined();
   });
 });

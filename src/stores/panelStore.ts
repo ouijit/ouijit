@@ -14,6 +14,11 @@ export type OpenItem =
 /** Which list the tab bar is on, and what closing an item returns to. */
 export type PanelList = 'pulls' | 'issues';
 
+export const LIST_TITLES: Record<PanelList, string> = {
+  pulls: 'Pull requests',
+  issues: 'Issues',
+};
+
 interface PanelStoreState {
   /** The project the slot belongs to. Switching projects empties it. */
   projectPath: string | null;

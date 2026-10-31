@@ -11,12 +11,21 @@ interface WorktreeSettings {
   mode: WorktreeMode;
   /** What new tasks branch from, `origin/main` say. Null branches from whatever the project has checked out. */
   base: string | null;
+  /** The local branch `base` names, as git resolves it: `main` for `origin/main`. */
+  baseBranch: string | null;
 }
 
 const DEFAULT_SETTINGS: WorktreeSettings = {
   mode: DEFAULT_MODE,
   base: null,
+  baseBranch: null,
 };
+
+const loading = new Map<string, Promise<void>>();
+
+function branchNamedBy(projectPath: string, base: string | null): Promise<string | null> {
+  return base ? window.api.worktree.branchNamedBy(projectPath, base).catch((): null => null) : Promise.resolve(null);
+}
 
 interface WorktreeSettingsStoreState {
   settingsByProject: Record<string, WorktreeSettings>;
@@ -39,34 +48,43 @@ function isWorktreeMode(value: unknown): value is WorktreeMode {
   return value === 'quick-start' || value === 'clean-checkout';
 }
 
-export const useWorktreeSettingsStore = create<WorktreeSettingsStore>()((set, get) => ({
+export const useWorktreeSettingsStore = create<WorktreeSettingsStore>()((_set, get) => ({
   settingsByProject: {},
 
   getMode: (projectPath) => get().settingsByProject[projectPath]?.mode ?? DEFAULT_MODE,
 
-  loadFor: async (projectPath) => {
-    try {
-      const json = await window.api.globalSettings.get(storageKey(projectPath));
-      const parsed = json ? (JSON.parse(json) as { mode?: unknown; base?: unknown }) : {};
-      const mode = isWorktreeMode(parsed.mode) ? parsed.mode : DEFAULT_MODE;
-      const base = typeof parsed.base === 'string' && parsed.base ? parsed.base : null;
-      set((s) => ({
-        settingsByProject: { ...s.settingsByProject, [projectPath]: { mode, base } },
-      }));
-    } catch (error) {
-      worktreeSettingsLog.error('failed to load settings', {
-        projectPath,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      set((s) => ({
-        settingsByProject: { ...s.settingsByProject, [projectPath]: { ...DEFAULT_SETTINGS } },
-      }));
-    }
+  loadFor: (projectPath) => {
+    const inFlight = loading.get(projectPath);
+    if (inFlight) return inFlight;
+    const load = read(projectPath).finally(() => loading.delete(projectPath));
+    loading.set(projectPath, load);
+    return load;
   },
 
   setMode: (projectPath, mode) => save(projectPath, { mode }),
-  setBase: (projectPath, base) => save(projectPath, { base }),
+  setBase: async (projectPath, base) => save(projectPath, { base, baseBranch: await branchNamedBy(projectPath, base) }),
 }));
+
+async function read(projectPath: string): Promise<void> {
+  try {
+    const json = await window.api.globalSettings.get(storageKey(projectPath));
+    const parsed = json ? (JSON.parse(json) as { mode?: unknown; base?: unknown }) : {};
+    const mode = isWorktreeMode(parsed.mode) ? parsed.mode : DEFAULT_MODE;
+    const base = typeof parsed.base === 'string' && parsed.base ? parsed.base : null;
+    const baseBranch = await branchNamedBy(projectPath, base);
+    useWorktreeSettingsStore.setState((s) => ({
+      settingsByProject: { ...s.settingsByProject, [projectPath]: { mode, base, baseBranch } },
+    }));
+  } catch (error) {
+    worktreeSettingsLog.error('failed to load settings', {
+      projectPath,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    useWorktreeSettingsStore.setState((s) => ({
+      settingsByProject: { ...s.settingsByProject, [projectPath]: { ...DEFAULT_SETTINGS } },
+    }));
+  }
+}
 
 async function save(projectPath: string, change: Partial<WorktreeSettings>): Promise<void> {
   const settings = {

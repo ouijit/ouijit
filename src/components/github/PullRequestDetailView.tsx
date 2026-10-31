@@ -109,9 +109,8 @@ export function PullRequestDetailView({
   // Clear it on a new pull request: the previous answer says nothing about it.
   useEffect(() => setRefreshTip(undefined), [detail.number, detail.headSha, detail.updatedAt]);
 
-  // Jumping to a draft means the code pane, but the jump is usually made from
-  // Summary or Timeline where `FilesSection` is unmounted and the ref is null.
-  // Remember the draft and scroll to it once that pane exists.
+  // The jump is usually made from Summary or Timeline, where the code pane is
+  // not mounted, so the draft waits for it.
   const [pendingDraft, setPendingDraft] = useState<{ id: string; path: string; line: number } | null>(null);
 
   const jumpToDraft = useCallback((draft: ReviewDraft) => {

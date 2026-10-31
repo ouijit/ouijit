@@ -110,6 +110,7 @@ const mockApi = {
     ship: vi.fn().mockResolvedValue({ success: true }),
     listBranches: vi.fn().mockResolvedValue([]),
     getMainBranch: vi.fn().mockResolvedValue('main'),
+    branchNamedBy: vi.fn().mockResolvedValue(null),
   },
   task: {
     create: vi.fn().mockResolvedValue({ success: true }),

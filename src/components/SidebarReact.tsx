@@ -32,8 +32,8 @@ import { openProject, openProjectPage, openShell, openTaskTerminal } from './nav
 import { isModKey } from '../utils/modKey';
 import { openTaskSheet } from '../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/ContextMenu';
-import { LIST_TITLES, PAGE_TITLES } from './TitleBarReact';
-import { usePanelStore, type PanelList } from '../stores/panelStore';
+import { PAGE_TITLES } from './TitleBarReact';
+import { LIST_TITLES, usePanelStore, type PanelList } from '../stores/panelStore';
 import { groupByTag, groupByTask } from './sidebar/sidebarTree';
 import {
   GroupDots,

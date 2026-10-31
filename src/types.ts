@@ -505,6 +505,7 @@ export interface WorktreeAPI {
   ): Promise<{ success: boolean; error?: string; conflictFiles?: string[]; mergedBranch?: string }>;
   listBranches(projectPath: string): Promise<BranchInfo[]>;
   getMainBranch(projectPath: string): Promise<string>;
+  branchNamedBy(projectPath: string, ref: string): Promise<string | null>;
 }
 
 export interface Project {

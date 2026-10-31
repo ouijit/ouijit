@@ -242,6 +242,7 @@ export interface IpcInvokeContract {
   };
   'worktree:list-branches': { args: [projectPath: string]; return: BranchInfo[] };
   'worktree:get-main-branch': { args: [projectPath: string]; return: string };
+  'worktree:branch-named-by': { args: [projectPath: string, ref: string]; return: string | null };
 
   // ── Hooks ────────────────────────────────────────────────────────────
   'hooks:get': { args: [projectPath: string]; return: ProjectHooks };

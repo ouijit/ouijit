@@ -7,6 +7,7 @@ import { Tab, TabBar } from '../issues/Tabs';
 import { since } from '../issues/since';
 import { Group, rowClass, rowTitleClass, ShowMore, TaskLink } from '../issues/rows';
 import { stateBadge } from './prFormat';
+import { LIST_TITLES } from '../../stores/panelStore';
 
 interface PullRequestSidebarProps {
   needsReview: PullRequestSummary[];
@@ -109,10 +110,10 @@ export function PullRequestSidebar({
       <div className="shrink-0 flex flex-col">
         <TabBar className="pane-ledge h-12 px-3 items-center">
           <Tab active={showing === 'pulls'} count={pullCount} onClick={() => onShow('pulls')}>
-            Pull requests
+            {LIST_TITLES.pulls}
           </Tab>
           <Tab active={showing === 'issues'} count={issueCount} onClick={() => onShow('issues')}>
-            Issues
+            {LIST_TITLES.issues}
           </Tab>
         </TabBar>
         <div className="px-3 py-2">

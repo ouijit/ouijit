@@ -48,11 +48,9 @@ export function RunnerPanel({
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
         {panel?.kind === 'runner' && (
           <Tooltip
-            text={
-              panel.sandboxProvider
-                ? `${RUNNER_LABELS[panel.status]} · ${SANDBOX_LABELS[panel.sandboxProvider]}`
-                : RUNNER_LABELS[panel.status]
-            }
+            text={[RUNNER_LABELS[panel.status], panel.sandboxProvider && SANDBOX_LABELS[panel.sandboxProvider]]
+              .filter(Boolean)
+              .join(' · ')}
             placement="top"
             delay={300}
           >

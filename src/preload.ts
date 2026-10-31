@@ -157,6 +157,7 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('worktree:ship', projectPath, worktreeBranch, commitMessage),
     listBranches: (projectPath: string) => typedInvoke('worktree:list-branches', projectPath),
     getMainBranch: (projectPath: string) => typedInvoke('worktree:get-main-branch', projectPath),
+    branchNamedBy: (projectPath: string, ref: string) => typedInvoke('worktree:branch-named-by', projectPath, ref),
   },
 
   task: {

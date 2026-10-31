@@ -228,21 +228,26 @@ const BASE_FETCH_TIMEOUT_MS = 5000;
 async function defaultBase(projectPath: string): Promise<{ ref: string; mergeTarget: string } | null> {
   const ref = (await readWorktreeSettings(projectPath)).base;
   if (!ref) return null;
-  const fullName = async () =>
-    execFileAsync('git', ['rev-parse', '--verify', '--quiet', '--symbolic-full-name', ref], { cwd: projectPath })
-      .then(({ stdout }) => stdout.trim())
-      .catch(() => '');
-
-  if ((await fullName()).startsWith('refs/remotes/')) {
+  if ((await symbolicName(projectPath, ref)).startsWith('refs/remotes/')) {
     const fetched = await fetchDiffBase(projectPath, ref, BASE_FETCH_TIMEOUT_MS);
     if (!fetched.success)
       worktreeLog.warn('default base fetch failed, using the last fetch', { ref, error: fetched.error });
   }
-  const resolved = await fullName();
-  const remote = /^refs\/remotes\/[^/]+\/(.+)$/.exec(resolved);
-  const local = /^refs\/heads\/(.+)$/.exec(resolved);
-  if (!remote && !local) throw new Error(`This project's default base, ${ref}, isn't a branch in this repository`);
-  return { ref, mergeTarget: (remote ?? local)![1] };
+  const mergeTarget = await branchNamedBy(projectPath, ref);
+  if (!mergeTarget) throw new Error(`This project's default base, ${ref}, isn't a branch in this repository`);
+  return { ref, mergeTarget };
+}
+
+function symbolicName(projectPath: string, ref: string): Promise<string> {
+  return execFileAsync('git', ['rev-parse', '--verify', '--quiet', '--symbolic-full-name', ref], { cwd: projectPath })
+    .then(({ stdout }) => stdout.trim())
+    .catch(() => '');
+}
+
+/** The local branch a ref names, `main` for `origin/main` or `main`; null when the ref isn't a branch. */
+export async function branchNamedBy(projectPath: string, ref: string): Promise<string | null> {
+  const match = /^refs\/(?:remotes\/[^/]+|heads)\/(.+)$/.exec(await symbolicName(projectPath, ref));
+  return match?.[1] ?? null;
 }
 
 async function copyGitIgnoredFiles(

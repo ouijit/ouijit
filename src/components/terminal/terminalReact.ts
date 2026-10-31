@@ -307,10 +307,7 @@ function diffBaseFor(term: OuijitTerminal): string | undefined {
 }
 
 export function defaultDiffBase(term: Pick<OuijitTerminal, 'projectPath' | 'mergeTarget'>): string | undefined {
-  return comparedByDefault(
-    useWorktreeSettingsStore.getState().settingsByProject[term.projectPath]?.base,
-    term.mergeTarget,
-  );
+  return comparedByDefault(useWorktreeSettingsStore.getState().settingsByProject[term.projectPath], term.mergeTarget);
 }
 
 function diffBaseKey(term: OuijitTerminal): string {

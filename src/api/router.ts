@@ -102,10 +102,9 @@ import {
   SANDBOX_PROVIDER_IDS,
   isActiveSandbox,
   isSandboxBackendId,
-  isSandboxCliAccess,
   isSandboxProviderId,
-  sandboxCliAccessSettingKey,
 } from '../sandbox/types';
+import { sandboxCliAccessFor } from '../sandbox/cliAccess';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
@@ -1325,8 +1324,7 @@ interface SandboxCaller extends AuthContext {
 async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
   if (auth.scope === 'host') return { ...auth, access: 'all' };
   const context = getPtyTaskContext(auth.ptyId);
-  const stored = context ? await getGlobalSetting(sandboxCliAccessSettingKey(context.projectPath)) : undefined;
-  const access = isSandboxCliAccess(stored) ? stored : 'read';
+  const access = context ? await sandboxCliAccessFor(context.projectPath) : 'read';
   return access === 'all' ? { ...auth, scope: 'host', access } : { ...auth, access };
 }
 

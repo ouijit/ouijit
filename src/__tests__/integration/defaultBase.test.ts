@@ -12,7 +12,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import { _resetCacheForTesting, setGlobalSetting } from '../../db';
-import { createTaskWorktree, createTodoTask, startTask } from '../../worktree';
+import { branchNamedBy, createTaskWorktree, createTodoTask, startTask } from '../../worktree';
 
 let tmpDir: string;
 let projectDir: string;
@@ -73,6 +73,8 @@ describe('a default base', () => {
     expect(created.success).toBe(true);
     expect(git(created.task!.worktreePath!, 'rev-parse HEAD')).toBe(pushed);
     expect(created.task?.mergeTarget).toBe('main');
+    // What the diff asks to know these tasks read against the default base.
+    expect(await branchNamedBy(projectDir, 'origin/main')).toBe('main');
   });
 
   test('without one a task branches from what is checked out, and a base git lacks is refused by name', async () => {
@@ -87,5 +89,6 @@ describe('a default base', () => {
     const refused = await startTask(projectDir, missing.task!.taskNumber);
     expect(refused.success).toBe(false);
     expect(refused.error).toContain('origin/nope');
+    expect(await branchNamedBy(projectDir, 'origin/nope')).toBeNull();
   });
 });

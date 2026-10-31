@@ -3,18 +3,13 @@ import { fuzzyMatch } from '../../utils/fuzzyMatch';
 
 export const MAX_BASE_ROWS = 15;
 
-/**
- * What a diff compares against until the reader picks: the project's default
- * base where the task would merge into the branch it tracks (`origin/main` for
- * a task merging into `main`), else the task's merge target.
- */
+/** The project's default base where the work merges into the branch it names, else the merge target. */
 export function comparedByDefault(
-  projectBase: string | null | undefined,
+  project: { base: string | null; baseBranch: string | null } | undefined,
   mergeTarget: string | undefined,
 ): string | undefined {
-  const tracks =
-    projectBase && (!mergeTarget || projectBase === mergeTarget || projectBase.endsWith(`/${mergeTarget}`));
-  return tracks ? projectBase : mergeTarget;
+  const tracks = project?.base && (!mergeTarget || project.baseBranch === mergeTarget);
+  return tracks ? project.base! : mergeTarget;
 }
 
 export interface DiffBaseRow {

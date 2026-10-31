@@ -220,7 +220,7 @@ const ACCESS_NOTES: Record<SandboxCliAccess, string> = {
 };
 
 /** What Ouijit knows about a sandboxed terminal when it starts: the profile or launcher decides the rest. */
-export function sandboxNote({ provider, access }: SandboxReference): string {
+function sandboxNote({ provider, access }: SandboxReference): string {
   const rest =
     provider === 'nono'
       ? "The project's sandbox profile decides the rest; most network access, other credentials and writes elsewhere are blocked. `nono why <path>` says why something was denied."
@@ -1091,7 +1091,6 @@ export function installWrapper(): void {
     const binDir = getWrapperBinDir();
     fs.mkdirSync(binDir, { recursive: true });
 
-    // The CLI reference each agent wrapper loads, one per kind of sandbox.
     fs.writeFileSync(getCliReferencePath(), CLI_REFERENCE, { mode: 0o644 });
     for (const provider of SANDBOX_BACKEND_IDS) {
       for (const access of SANDBOX_CLI_ACCESS) {
