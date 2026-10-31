@@ -34,6 +34,11 @@ export function defaultSandboxSettingKey(projectPath: string): string {
   return `defaultSandbox:${projectPath}`;
 }
 
+/** globalSettings key holding where a terminal's Run and scripts go when chosen apart from the project default. */
+export function runnerSandboxSettingKey(projectPath: string): string {
+  return `runnerSandbox:${projectPath}`;
+}
+
 /**
  * How much of the Ouijit API a sandboxed command may use: read its own task,
  * also move and rename it, or everything a host terminal can.

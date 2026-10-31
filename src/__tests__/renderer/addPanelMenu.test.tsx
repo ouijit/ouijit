@@ -110,7 +110,7 @@ describe("the terminal's + menu", () => {
     );
   });
 
-  test('commands run in the project default unless Run in picks elsewhere, which changes nothing else', async () => {
+  test('commands run in the project default until Run in picks elsewhere, which stays picked until Default is', async () => {
     const lint: Script = { id: 's1', name: 'Lint', command: 'npm run lint', sortOrder: 0, restartIfRunning: false };
     seed(PROJECT, {
       hooks: { run: { id: 'h1', type: 'run', name: 'Run', command: 'npm run dev' } },
@@ -126,13 +126,25 @@ describe("the terminal's + menu", () => {
     fireEvent.click(screen.getByLabelText('Add panel'));
     fireEvent.mouseEnter(screen.getByText('Run in').closest('div')!);
     fireEvent.click(await screen.findByRole('button', { name: 'Host' }));
+    await waitFor(() => expect(window.api.globalSettings.set).toHaveBeenCalledWith(`runnerSandbox:${PROJECT}`, 'none'));
     expect(getProjectConfig(PROJECT)?.defaultSandbox).toBe('custom');
-    expect(window.api.globalSettings.set).not.toHaveBeenCalled();
     expect(startRunner).toHaveBeenCalledTimes(1);
 
     // The menu stays open on the pick, ready for the command to run.
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined));
+
+    fireEvent.click(screen.getByLabelText('Add panel'));
+    fireEvent.click(screen.getByText('Lint'));
+    await waitFor(() => expect(startRunner).toHaveBeenCalledTimes(3));
+    expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined);
+
+    fireEvent.click(screen.getByLabelText('Add panel'));
+    fireEvent.mouseEnter(screen.getByText('Run in').closest('div')!);
+    fireEvent.click(await screen.findByRole('button', { name: 'Default (Custom)' }));
+    await waitFor(() => expect(window.api.globalSettings.set).toHaveBeenLastCalledWith(`runnerSandbox:${PROJECT}`, ''));
+    fireEvent.click(screen.getByText('Lint'));
+    await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom'));
 
     fireEvent.click(screen.getByLabelText('Add panel'));
     fireEvent.click(screen.getByLabelText('Edit Lint'));
@@ -143,7 +155,7 @@ describe("the terminal's + menu", () => {
     await waitFor(() =>
       expect(window.api.scripts.save).toHaveBeenCalledWith(PROJECT, { ...lint, command: 'npm run lint -- --fix' }),
     );
-    expect(startRunner).toHaveBeenCalledTimes(2);
+    expect(startRunner).toHaveBeenCalledTimes(4);
   });
 
   test("lists the terminal's own project's commands, loaded when another project's are the only ones held", async () => {

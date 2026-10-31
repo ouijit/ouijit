@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useProjectConfig, useProjectScripts } from '../../stores/projectDataStore';
+import { runnerSandbox, setRunnerSandbox, useProjectConfig, useProjectScripts } from '../../stores/projectDataStore';
 import { terminalInstances } from './terminalRegistry';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { SANDBOX_LABELS, isActiveSandbox } from '../../types';
@@ -35,7 +34,6 @@ export function AddPanelMenu({
 }: AddPanelMenuProps) {
   const config = useProjectConfig(projectPath);
   const scripts = useProjectScripts(projectPath);
-  const [chosenPlace, setChosenPlace] = useState<SandboxProviderId | null>(null);
 
   const pickPlanFile = async () => {
     const inst = terminalInstances.get(ptyId);
@@ -50,9 +48,9 @@ export function AddPanelMenu({
   // already exists.
   if (config && scripts) {
     const projectDefault = config.defaultSandbox;
-    const place = chosenPlace ?? projectDefault;
+    const place = runnerSandbox(config);
     const places: SandboxProviderId[] = ['none', ...config.availableSandboxProviders];
-    if (!places.includes(projectDefault)) places.push(projectDefault);
+    for (const kept of [projectDefault, place]) if (!places.includes(kept)) places.push(kept);
     places.sort((a, b) => Number(b === projectDefault) - Number(a === projectDefault));
     if (places.length > 1) {
       items.push({
@@ -62,7 +60,7 @@ export function AddPanelMenu({
           label: option === projectDefault ? `Default (${SANDBOX_LABELS[option]})` : SANDBOX_LABELS[option],
           checked: option === place,
           keepOpen: true,
-          onClick: () => setChosenPlace(option),
+          onClick: () => void setRunnerSandbox(projectPath, option),
         })),
       });
     }

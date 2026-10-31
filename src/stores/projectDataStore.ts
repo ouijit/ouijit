@@ -16,6 +16,7 @@ import {
   isSandboxCliAccess,
   isSandboxProviderId,
   defaultSandboxSettingKey,
+  runnerSandboxSettingKey,
   sandboxCliAccessSettingKey,
 } from '../types';
 import { useAppStore } from './appStore';
@@ -28,6 +29,8 @@ export interface ProjectConfig {
   hooks: ProjectHooks;
   /** Where task terminals that run no hook, and Run and scripts from a terminal's + menu, run unless told otherwise. */
   defaultSandbox: SandboxProviderId;
+  /** Where Run and scripts from a terminal's + menu go, when the last one run there was moved off the default. */
+  runnerSandbox?: SandboxProviderId;
   sandboxCliAccess: SandboxCliAccess;
 }
 
@@ -84,10 +87,11 @@ export async function loadTasks(projectPath: string): Promise<void> {
 export async function loadProjectConfig(projectPath: string): Promise<void> {
   const isLatest = configLoads.begin(projectPath);
   try {
-    const [statuses, hooks, defaultSandbox, sandboxCliAccess] = await Promise.all([
+    const [statuses, hooks, defaultSandbox, runnerSandbox, sandboxCliAccess] = await Promise.all([
       window.api.sandbox.status(projectPath),
       window.api.hooks.get(projectPath),
       window.api.globalSettings.get(defaultSandboxSettingKey(projectPath)),
+      window.api.globalSettings.get(runnerSandboxSettingKey(projectPath)),
       window.api.globalSettings.get(sandboxCliAccessSettingKey(projectPath)),
     ]);
     if (!isLatest()) return;
@@ -96,6 +100,7 @@ export async function loadProjectConfig(projectPath: string): Promise<void> {
       availableSandboxProviders: availableBackends(statuses),
       hooks,
       defaultSandbox: isSandboxProviderId(defaultSandbox) ? defaultSandbox : 'none',
+      runnerSandbox: isSandboxProviderId(runnerSandbox) ? runnerSandbox : undefined,
       sandboxCliAccess: isSandboxCliAccess(sandboxCliAccess) ? sandboxCliAccess : 'read',
     });
   } catch {
@@ -163,6 +168,18 @@ export async function projectDefaultSandbox(projectPath: string): Promise<Sandbo
 export async function setDefaultSandbox(projectPath: string, sandbox: SandboxProviderId): Promise<void> {
   const { success } = await window.api.globalSettings.set(defaultSandboxSettingKey(projectPath), sandbox);
   if (success) patchConfig(projectPath, () => ({ defaultSandbox: sandbox }));
+}
+
+export function runnerSandbox(config: ProjectConfig | undefined): SandboxProviderId {
+  return config?.runnerSandbox ?? config?.defaultSandbox ?? 'none';
+}
+
+/** Choosing the project default stores nothing, so the runner follows the default when it changes. */
+export async function setRunnerSandbox(projectPath: string, sandbox: SandboxProviderId): Promise<void> {
+  const config = getProjectConfig(projectPath);
+  const chosen = sandbox === config?.defaultSandbox ? undefined : sandbox;
+  const { success } = await window.api.globalSettings.set(runnerSandboxSettingKey(projectPath), chosen ?? '');
+  if (success) patchConfig(projectPath, () => ({ runnerSandbox: chosen }));
 }
 
 export async function setSandboxCliAccess(projectPath: string, access: SandboxCliAccess): Promise<void> {

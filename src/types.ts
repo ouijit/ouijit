@@ -100,6 +100,7 @@ export {
   isActiveSandbox,
   isSandboxProviderId,
   defaultSandboxSettingKey,
+  runnerSandboxSettingKey,
   sandboxCliAccessSettingKey,
   isSandboxCliAccess,
 } from './sandbox/types';

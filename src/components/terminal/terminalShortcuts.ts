@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { getActivePtyId, activateTerminal } from '../../stores/terminalStore';
-import { getProjectConfig } from '../../stores/projectDataStore';
+import { getProjectConfig, runnerSandbox } from '../../stores/projectDataStore';
 import { isActiveSandbox } from '../../types';
 import { terminalInstances } from './terminalRegistry';
 import { closeProjectTerminal, startRunner } from './terminalActions';
@@ -69,7 +69,7 @@ function toggleRunner(ptyId: string): void {
     instance.activatePanel(runner.id);
     return;
   }
-  const sandbox = getProjectConfig(instance.projectPath)?.defaultSandbox;
+  const sandbox = runnerSandbox(getProjectConfig(instance.projectPath));
   void startRunner(ptyId, undefined, isActiveSandbox(sandbox) ? sandbox : undefined);
 }
 
