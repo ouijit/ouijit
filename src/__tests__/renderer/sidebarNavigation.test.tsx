@@ -514,27 +514,47 @@ test('⌘ on a project with nothing open resumes its active tasks into one stack
   );
 });
 
-test("a project's row opens its board, whose Terminals button stacks the terminals open in it", async () => {
+test('a project opens to the board or terminals it last showed, and its board stacks what is open in it', async () => {
   const ship = await spawn(ALPHA.path, 8);
   const docs = await spawn(ALPHA.path, 9);
+  const pricing = await spawn(BRAVO.path, 3);
   render(<App />);
   const name = (project: { path: string; name: string }) =>
     within(document.querySelector<HTMLElement>(`[data-project-path="${project.path}"]`)!).getByText(project.name);
   const board = (project: { path: string }) => ({ kind: 'page', projectPath: project.path, page: 'board' });
-  const terminalsButton = () => within(screen.getByRole('banner')).queryByLabelText('Terminals');
 
-  // From a stack on screen, the row still goes to the board.
   fireEvent.click(row(section('Projects'), 'Write docs'));
-  await waitFor(() => expect(front()).toBe(docs));
-  fireEvent.click(name(ALPHA));
-  await waitFor(() => expect(useAppStore.getState().selection).toEqual(board(ALPHA)));
-
-  fireEvent.click(terminalsButton()!);
+  fireEvent.click(row(section('Projects'), 'Ship it'), { metaKey: true, ctrlKey: true });
   await waitFor(() => expect(cards()).toEqual([docs, ship].sort()));
 
-  // A project with nothing open has a board and no button.
   fireEvent.click(name(BRAVO));
   await waitFor(() => expect(useAppStore.getState().selection).toEqual(board(BRAVO)));
+  fireEvent.click(name(ALPHA));
+  await waitFor(() => expect(cards()).toEqual([docs, ship].sort()));
+  expect(front()).toBe(docs);
+
+  // A board's Terminals button stacks the project's open terminals.
+  const terminalsButton = () => within(screen.getByRole('banner')).queryByLabelText('Terminals');
+  fireEvent.click(
+    within(document.querySelector<HTMLElement>(`[data-project-path="${BRAVO.path}"]`)!).getByLabelText('Board'),
+  );
+  await waitFor(() => expect(useAppStore.getState().selection).toEqual(board(BRAVO)));
+  fireEvent.click(terminalsButton()!);
+  await waitFor(() => expect(cards()).toEqual([pricing]));
+
+  fireEvent.click(row(section('Projects'), 'Pricing page'));
+  await waitFor(() => expect(cards()).toEqual([pricing]));
+  fireEvent.click(name(ALPHA));
+  await waitFor(() => expect(cards()).toEqual([docs, ship].sort()));
+  fireEvent.click(name(BRAVO));
+  await waitFor(() => expect(cards()).toEqual([pricing]));
+
+  act(() => {
+    useTerminalStore.getState().removeTerminal(docs);
+    useTerminalStore.getState().removeTerminal(ship);
+  });
+  fireEvent.click(name(ALPHA));
+  await waitFor(() => expect(useAppStore.getState().selection).toEqual(board(ALPHA)));
   expect(terminalsButton()).toBeNull();
 });
 
