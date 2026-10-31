@@ -1,16 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../stores/appStore';
-import { usePointerStore } from '../../stores/pointerStore';
-import {
-  isUnread,
-  stackFrom,
-  stackMembers,
-  stackOf,
-  terminalUnit,
-  useTerminalStore,
-  viewedPtyId,
-} from '../../stores/terminalStore';
+import { stackFrom, stackMembers, stackOf, terminalUnit, useTerminalStore } from '../../stores/terminalStore';
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import type { Project, SandboxBackendId } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
@@ -26,6 +17,7 @@ import { useExperimentalStore } from '../../stores/experimentalStore';
 
 import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
+import { useAsking, useWantsYou, wantsYou } from '../terminal/wantsYou';
 import { Tooltip } from '../ui/Tooltip';
 import { StageIcon } from './StageIcon';
 import { formatSince, groupByTask, listedOrder, unitsFor, type TaskGroup } from './sidebarTree';
@@ -226,22 +218,6 @@ function SidebarRow({
   );
 }
 
-/** Terminals whose agent is asking you to run something. */
-function useAsking(): string[] {
-  return usePointerStore(useShallow((s) => s.pointers.filter((p) => p.ask).map((p) => p.from)));
-}
-
-/**
- * A terminal wants you when it finished while you were elsewhere, or when its
- * agent is asking to run something and you aren't looking at it. Both read as
- * unread: an ask blocks the agent until you answer.
- */
-function wantsYou(s: ReturnType<typeof useTerminalStore.getState>, ptyId: string, asking: string[]): boolean {
-  const display = s.displayStates[ptyId];
-  const viewed = viewedPtyId(s);
-  return display !== undefined && (isUnread(display, viewed) || (asking.includes(ptyId) && ptyId !== viewed));
-}
-
 function StatusSlot({ display }: { display: TerminalDisplayState }) {
   const asking = useAsking();
   const unread = useTerminalStore((s) => wantsYou(s, display.ptyId, asking));
@@ -250,11 +226,6 @@ function StatusSlot({ display }: { display: TerminalDisplayState }) {
       <StatusGlyph status={display.status} sandboxProvider={display.sandboxProvider} unread={unread} />
     </span>
   );
-}
-
-function useUnread(ptyId: string): boolean {
-  const asking = useAsking();
-  return useTerminalStore((s) => wantsYou(s, ptyId, asking));
 }
 
 interface TerminalRowProps {
@@ -288,7 +259,7 @@ function TerminalRow({
   alsoPointKeys = [],
 }: TerminalRowProps) {
   const display = useTerminalStore((s) => s.displayStates[ptyId]);
-  const unread = useUnread(ptyId);
+  const unread = useWantsYou(ptyId);
   const projectName = useProjectName(display?.projectPath ?? '');
   if (!display) return null;
   const text = title(display);

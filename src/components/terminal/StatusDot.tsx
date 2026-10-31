@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Tooltip } from '../ui/Tooltip';
 import type { SandboxProviderId } from '../../types';
 import type { TerminalStatus } from '../../stores/terminalDisplay';
+import type { RunnerStatus } from './panelTypes';
 import { SANDBOX_LABELS, isActiveSandbox } from '../../types';
 
 interface StatusDotProps {
@@ -92,5 +93,21 @@ export function StatusDot({ status, sandboxProvider, size = 6, unread }: StatusD
     <Tooltip text={tooltipText} placement="top" delay={300}>
       <StatusGlyph status={status} sandboxProvider={sandboxProvider} size={size} unread={unread} />
     </Tooltip>
+  );
+}
+
+const RUNNER_DOT: Record<RunnerStatus, string> = {
+  running: 'bg-status-ready',
+  success: 'bg-status-ready',
+  error: 'bg-ansi-red',
+  idle: 'bg-ink/30',
+};
+
+/** A runner's state, ringed as a terminal's dot is when it runs sandboxed. */
+export function RunnerDot({ status, sandboxProvider }: { status: RunnerStatus; sandboxProvider?: SandboxProviderId }) {
+  return (
+    <SandboxRing sandboxed={isActiveSandbox(sandboxProvider)} size={6}>
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${RUNNER_DOT[status]}`} />
+    </SandboxRing>
   );
 }
