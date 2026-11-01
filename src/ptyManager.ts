@@ -2,15 +2,13 @@ import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from './types';
 import { isActiveSandbox } from './sandbox/types';
-import { sandboxCliAccessFor } from './sandbox/cliAccess';
 import type { SandboxProvider } from './sandbox/provider';
 import { generateId } from './utils/ids';
-import { getApiPort, clearHookStatus, clearAllHookStatuses, getCliReferencePath } from './hookServer';
-import { getWrapperBinDir, getUserDataPath, getCliPath } from './paths';
+import { clearHookStatus, clearAllHookStatuses } from './hookServer';
 import { getShellIntegrationDir, resolveShellIntegration } from './shellIntegration';
+import { hostEnv, ouijitSessionEnv, sandboxLaunch, sandboxReferenceEnv, SandboxLaunchError } from './sessionEnv';
 import { typedPush } from './ipc/helpers';
 import { getLogger } from './logger';
-import { getVendoredNonoPath } from './sandbox/nono/binary';
 import { issueToken, revokeToken, revokeAllTokens } from './apiAuth';
 import { terminalLocale } from './locale';
 
@@ -184,65 +182,25 @@ export async function spawnPty(
   window: BrowserWindow,
   wrapper?: SandboxProvider,
 ): Promise<PtySpawnResult> {
-  const ptyId = generateId('pty');
+  const ptyId = options.ptyId ?? generateId('pty');
   try {
     const shell = getDefaultShell();
 
     currentWindow = window;
 
-    // node-pty rejects undefined values, so process.env is filtered first.
-    const baseEnv: Record<string, string> = {};
-    for (const [key, value] of Object.entries(process.env)) {
-      if (value !== undefined) {
-        baseEnv[key] = value;
-      }
-    }
+    const baseEnv = hostEnv();
     const finalEnv: Record<string, string> = {
       ...baseEnv,
       TERM: 'xterm-256color',
       ...(await terminalLocale(baseEnv)),
     };
-    // Add custom env vars (these take precedence)
     if (options.env) {
       for (const [key, value] of Object.entries(options.env)) {
-        if (value !== undefined) {
-          finalEnv[key] = value;
-        }
+        if (value !== undefined) finalEnv[key] = value;
       }
     }
-
-    // Inject hook API env vars so Claude Code hooks can reach us. A wrapper
-    // provider (e.g. nono) runs the shell inside a sandbox, so it gets the
-    // restricted 'sandbox' token scope.
-    finalEnv['OUIJIT_PTY_ID'] = ptyId;
-    finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
-    finalEnv['OUIJIT_API_TOKEN'] = issueToken(ptyId, wrapper ? 'sandbox' : 'host');
-    if (wrapper) {
-      const access = await sandboxCliAccessFor(options.projectPath || options.cwd).catch((): 'read' => 'read');
-      finalEnv['OUIJIT_SANDBOX_REFERENCE_FILE'] = getCliReferencePath({ provider: wrapper.id, access });
-    }
-
-    // Shell integration: wrapper dir + integration dir for PATH fix scripts
-    const wrapperBinDir = getWrapperBinDir();
-    const shellIntegrationDir = getShellIntegrationDir();
-    finalEnv['OUIJIT_WRAPPER_DIR'] = wrapperBinDir;
-    finalEnv['OUIJIT_SHELL_INTEGRATION_DIR'] = shellIntegrationDir;
-
-    // Prepend wrapper bin dir so `claude` and `ouijit` resolve to our wrappers first
-    finalEnv['PATH'] = `${wrapperBinDir}:${finalEnv['PATH'] || ''}`;
-
-    // Inject CLI env vars so the `ouijit` wrapper can find the bundled CLI
-    finalEnv['OUIJIT_USER_DATA'] = getUserDataPath();
-    const cliPath = getCliPath();
-    if (cliPath) finalEnv['OUIJIT_CLI_PATH'] = cliPath;
-
-    // Point the `nono` shim at the vendored binary. Every task terminal needs
-    // it, not just sandboxed ones: nono's persistent-grant flow ends with the
-    // user running `nono profile promote` outside the sandbox, i.e. in a
-    // regular task terminal. Unset when nono is user-installed (the shim falls
-    // through to PATH); sandboxed spawns re-set the same value.
-    const vendoredNono = getVendoredNonoPath();
-    if (vendoredNono) finalEnv['OUIJIT_NONO_PATH'] = vendoredNono;
+    Object.assign(finalEnv, ouijitSessionEnv(ptyId, issueToken(ptyId, wrapper ? 'sandbox' : 'host'), finalEnv));
+    Object.assign(finalEnv, await sandboxReferenceEnv(wrapper?.id, options.projectPath || options.cwd));
 
     const expandedCommand = buildCommandString(options.command, options.env);
 
@@ -252,7 +210,7 @@ export async function spawnPty(
     const integration = resolveShellIntegration(shell);
     const launch = integration.launch({
       shell,
-      integrationDir: shellIntegrationDir,
+      integrationDir: getShellIntegrationDir(),
       command: expandedCommand,
       zdotdir: finalEnv['ZDOTDIR'],
     });
@@ -269,36 +227,28 @@ export async function spawnPty(
       typedPush(window, 'shell-unsupported', { shell });
     }
 
-    // A wrapper provider transforms the fully-built host launch: it
-    // prefixes its own argv around the shell and may overlay cwd/env. The
-    // shell-integration recipe, wrapper-PATH, and OUIJIT_* env are already in
-    // place, so the sandboxed shell keeps status reporting and shell integration.
-    let launchFile = launch.file;
-    let launchArgs = launch.args;
-    let spawnCwd = options.cwd;
-    if (wrapper) {
-      const spawnContext = {
-        projectPath: options.projectPath || options.cwd,
-        taskId: options.taskId,
-        worktreePath: options.worktreePath,
-        apiPort: getApiPort(),
-      };
-      try {
-        const prepared = await wrapper.prepare({ ...spawnContext, cwd: options.cwd });
-        spawnCwd = prepared.cwd;
-        if (prepared.env) Object.assign(finalEnv, prepared.env);
-        const wrapped = await wrapper.wrapLaunch(
-          { file: launch.file, args: launch.args, env: finalEnv },
-          { ...spawnContext, cwd: spawnCwd },
-        );
-        launchFile = wrapped.file;
-        launchArgs = wrapped.args;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        typedPush(window, 'sandbox-launch-failed', { ptyId, provider: wrapper.id, error: message });
-        throw error;
+    let sandboxed: Awaited<ReturnType<typeof sandboxLaunch>>;
+    try {
+      sandboxed = await sandboxLaunch(
+        { file: launch.file, args: launch.args, env: finalEnv },
+        {
+          provider: wrapper?.id,
+          projectPath: options.projectPath || options.cwd,
+          cwd: options.cwd,
+          taskId: options.taskId,
+          worktreePath: options.worktreePath,
+        },
+      );
+    } catch (error) {
+      if (error instanceof SandboxLaunchError) {
+        typedPush(window, 'sandbox-launch-failed', { ptyId, provider: error.provider, error: error.message });
       }
+      throw error;
     }
+    const launchFile = sandboxed.launch.file;
+    const launchArgs = sandboxed.launch.args;
+    const spawnCwd = sandboxed.cwd;
+    Object.assign(finalEnv, sandboxed.launch.env);
 
     const ptyProcess = pty.spawn(launchFile, launchArgs, {
       name: 'xterm-256color',

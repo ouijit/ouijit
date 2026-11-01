@@ -365,6 +365,9 @@ export interface PtySpawnOptions {
   env?: Record<string, string>;
   /** Which sandbox backend runs this terminal, or omitted/'none' for a host shell. */
   sandboxProvider?: SandboxProviderId;
+  /** Reuse a card's id instead of minting one, so a chat card that switches to
+   *  its terminal keeps its tags, panels and CLI identity. The id must not be live. */
+  ptyId?: PtyId;
 }
 
 export interface PtySpawnResult {
