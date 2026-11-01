@@ -4,6 +4,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { ChatNodeView, type NodeContext } from './ChatNodes';
 import { ChatComposer } from './ChatComposer';
+import { StatusGlyph } from '../terminal/StatusDot';
 import { sendHeldPrompt } from './chatActions';
 import { CHAT_AGENT_LABELS } from '../../chat/preferences';
 import type { ChatNode, ChatSessionInfo } from '../../chat/model';
@@ -149,10 +150,7 @@ export function ChatView({ cardId }: { cardId: string }) {
           ))}
           {info.status === 'running' && (
             <div className="flex items-center gap-2 text-[13px] text-text-tertiary">
-              <span
-                className="w-2 h-2 rounded-full border-[1.5px] border-ink/25 border-t-ink/70"
-                style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
-              />
+              <StatusGlyph status="thinking" size={8} />
               Working
             </div>
           )}
