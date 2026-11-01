@@ -15,6 +15,7 @@ import { AddPanelMenu } from './AddPanelMenu';
 import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
 import { RunnerDot } from './StatusDot';
+import { SegmentedGroup } from '../ui/SegmentedGroup';
 import type { GitFileStatus, RunnerScript, SandboxBackendId, Script, ScriptHook } from '../../types';
 import { openEntries, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
@@ -470,24 +471,22 @@ function SurfaceToggle({
     void (next === 'terminal' ? switchToTerminal(ptyId) : switchToChat(ptyId));
   };
   return (
-    <div
-      role="radiogroup"
-      aria-label="View"
-      className="flex items-center h-7 shrink-0 bg-background-secondary glass-bevel border border-bezel rounded-[12px] overflow-hidden"
-    >
-      {(['chat', 'terminal'] as const).map((option) => (
-        <button
-          key={option}
-          type="button"
-          role="radio"
-          aria-checked={surface === option}
-          aria-label={option === 'chat' ? 'Chat' : 'Terminal'}
-          className={`${groupButtonBase} !px-2 ${surface === option ? groupButtonActive : groupButtonInactive}`}
-          onClick={() => choose(option)}
-        >
-          <Icon name={option === 'chat' ? 'chat-circle' : 'terminal'} className="w-3.5 h-3.5" />
-        </button>
-      ))}
+    <div role="radiogroup" aria-label="View" className="shrink-0 flex">
+      <SegmentedGroup>
+        {(['chat', 'terminal'] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={surface === option}
+            aria-label={option === 'chat' ? 'Chat' : 'Terminal'}
+            className={`${groupButtonBase} !px-2 ${surface === option ? groupButtonActive : groupButtonInactive}`}
+            onClick={() => choose(option)}
+          >
+            <Icon name={option === 'chat' ? 'chat-circle' : 'terminal'} className="w-3.5 h-3.5" />
+          </button>
+        ))}
+      </SegmentedGroup>
     </div>
   );
 }
