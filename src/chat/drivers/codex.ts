@@ -24,7 +24,7 @@ const CAPABILITIES: ChatCapabilities = {
   interrupt: true,
   models: true,
   effort: true,
-  modes: false,
+  modes: true,
   commands: false,
   fork: true,
   rewind: false,
@@ -261,6 +261,13 @@ function codexInput(input: UserInput): Json[] {
   return parts;
 }
 
+/** The approval policies Codex's `/approvals` offers. The thread starts on whatever the user's config says. */
+const APPROVAL_MODES: ChatOption[] = [
+  { id: 'untrusted', label: 'Ask first', description: 'Ask before running anything not known to be safe' },
+  { id: 'on-request', label: 'Ask when needed', description: 'Ask when a command needs more than the sandbox allows' },
+  { id: 'never', label: 'Never ask', description: 'Run without asking; failures go back to the model' },
+];
+
 const APPROVAL_OPTIONS: RequestOption[] = [
   { id: 'accept', label: 'Allow', kind: 'allow_once' },
   { id: 'acceptForSession', label: 'Allow for this session', kind: 'allow_always' },
@@ -273,6 +280,7 @@ class CodexSession implements DriverSession {
   private turnId: string | null = null;
   private effort: string | null = null;
   private model: string | null = null;
+  private approvalPolicy: string | null = null;
   closing = false;
 
   constructor(
@@ -308,7 +316,10 @@ class CodexSession implements DriverSession {
     this.threadId = String(thread.id);
     this.model = typeof response.model === 'string' ? response.model : null;
     this.effort = typeof response.reasoningEffort === 'string' ? response.reasoningEffort : null;
+    const policy = typeof response.approvalPolicy === 'string' ? response.approvalPolicy : undefined;
     this.sink.session({
+      modes: APPROVAL_MODES,
+      ...(policy && { mode: policy }),
       agentSessionId: this.threadId,
       ...(this.model && { model: this.model }),
       ...(this.effort && { effort: this.effort }),
@@ -519,6 +530,7 @@ class CodexSession implements DriverSession {
       input: codexInput(input),
       ...(this.model && { model: this.model }),
       ...(this.effort && { effort: this.effort }),
+      ...(this.approvalPolicy && { approvalPolicy: this.approvalPolicy }),
     });
   }
 
@@ -544,6 +556,11 @@ class CodexSession implements DriverSession {
 
   async setEffort(effort: string): Promise<void> {
     this.effort = effort;
+  }
+
+  /** Applies from the next turn, as `/approvals` does in Codex's terminal UI. */
+  async setMode(mode: string): Promise<void> {
+    this.approvalPolicy = mode;
   }
 
   async compact(): Promise<void> {
