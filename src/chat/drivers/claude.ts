@@ -607,7 +607,6 @@ class ClaudeSession implements DriverSession {
           usage: {
             inputTokens: Number(usage.input_tokens ?? 0) + Number(usage.cache_read_input_tokens ?? 0),
             outputTokens: Number(usage.output_tokens ?? 0),
-            costUsd: typeof result.total_cost_usd === 'number' ? result.total_cost_usd : undefined,
           },
         });
         if (result.subtype !== 'success') {

@@ -99,8 +99,7 @@ function usageLabel(info: ChatSessionInfo): string | null {
   if (tokens === 0) return null;
   const compact = tokens >= 1000 ? `${(tokens / 1000).toFixed(tokens >= 10_000 ? 0 : 1)}k` : String(tokens);
   const context = usage.contextWindow ? ` of ${Math.round(usage.contextWindow / 1000)}k` : '';
-  const cost = usage.costUsd != null ? ` · $${usage.costUsd.toFixed(2)}` : '';
-  return `${compact}${context} tokens${cost}`;
+  return `${compact}${context} tokens`;
 }
 
 function report(error: unknown): void {

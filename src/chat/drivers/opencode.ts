@@ -469,12 +469,10 @@ class OpencodeSession implements DriverSession {
       case 'session.usage.updated': {
         if (!top) return;
         const tokens = (data.tokens ?? {}) as Json;
-        const cost = data.cost as Json | number | undefined;
         this.sink.session({
           usage: {
             inputTokens: Number(tokens.input ?? 0),
             outputTokens: Number(tokens.output ?? 0),
-            costUsd: typeof cost === 'number' ? cost : typeof cost?.amount === 'number' ? cost.amount : undefined,
           },
         });
         return;

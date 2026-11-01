@@ -375,12 +375,10 @@ class PiSession implements DriverSession {
     }
     const usage = event.usage as Json | undefined;
     if (usage) {
-      const cost = usage.cost as Json | undefined;
       this.sink.session({
         usage: {
           inputTokens: Number(usage.input ?? 0) + Number(usage.cacheRead ?? 0),
           outputTokens: Number(usage.output ?? 0),
-          costUsd: typeof cost?.total === 'number' ? cost.total : undefined,
         },
       });
     }
