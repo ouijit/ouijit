@@ -100,13 +100,15 @@ function kinds(nodes: ChatNode[]): string[] {
   return nodes.map((node) => node.kind);
 }
 
-describe.each(['claude', 'codex', 'pi', 'opencode'] as const)('%s in chat', (agent) => {
+describe.each(['claude', 'codex', 'pi', 'opencode', 'acp'] as const)('%s in chat', (agent) => {
   const available = recording || fs.existsSync(cassettePath(agent));
 
   test.skipIf(!available)(
     'runs a turn that edits a file, keeps the transcript, and resumes the conversation',
     async () => {
       const cwd = repo();
+      // The generic ACP driver, run against a real ACP agent: opencode's own ACP mode.
+      if (agent === 'acp') await setGlobalSetting('chat:acpCommand', 'opencode acp');
       const { host } = await hostFor(agent);
       const stop = approveEverything(host);
       const id = `pty-test-${agent}`;
@@ -295,49 +297,4 @@ describe('pi with approvals on', () => {
     },
     timeout * 2,
   );
-});
-
-describe('an ACP agent in chat', () => {
-  test('streams thought, plan and a gated edit into the transcript, and offers its modes and commands', async () => {
-    const cwd = repo();
-    await setGlobalSetting('chat:acpCommand', 'fake-acp-agent --stdio');
-    const host = new ChatHost({ spawnProcess: replayingSpawn([loadCassette('acp')]) });
-    const stop = approveEverything(host);
-    const id = 'pty-test-acp';
-
-    const started = await host.start({ id, agent: 'acp', projectPath: cwd, cwd, taskId: null });
-    expect(started.info.status, started.info.statusDetail).toBe('idle');
-    expect(started.info.agentSessionId).toBe('sess-1');
-    expect(started.info.modes.map((mode) => mode.id)).toEqual(['ask', 'code']);
-    expect(started.info.mode).toBe('ask');
-
-    await host.prompt(id, { text: 'PROMPT' });
-    const done = await until(
-      host,
-      id,
-      (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message'),
-      5000,
-    );
-
-    expect(kinds(done.nodes)).toEqual([
-      'user_message',
-      'reasoning',
-      'plan',
-      'tool_call',
-      'request',
-      'assistant_message',
-    ]);
-    expect(done.nodes.filter((n) => 'status' in n && n.status === 'running')).toEqual([]);
-    const edit = done.nodes.find((n): n is ToolCallNode => n.kind === 'tool_call')!;
-    expect(edit.status).toBe('completed');
-    expect(edit.files).toEqual([{ path: 'hello.txt', change: 'add', diff: expect.stringContaining('+hi') }]);
-    const plan = done.nodes.find((n) => n.kind === 'plan');
-    expect(plan && 'entries' in plan ? plan.entries : []).toEqual([{ text: 'Write hello.txt', status: 'completed' }]);
-    const reply = done.nodes.find((n) => n.kind === 'assistant_message');
-    expect(reply && 'text' in reply ? reply.text : '').toBe('done');
-    expect(done.info.commands.map((command) => command.name)).toEqual(['review']);
-
-    await host.stop(id);
-    stop();
-  });
 });
