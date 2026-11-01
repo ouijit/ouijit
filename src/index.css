@@ -862,12 +862,10 @@ textarea,
   background-repeat: no-repeat;
 }
 
-/* Code in a chat reply: the diff panel's recessed well, with a slim bar for
-   the language and a copy button above it. */
+/* Code in a chat reply, with a slim bar for the language and a copy button. */
 .chat-markdown .chat-code {
-  @apply my-3 rounded-[10px] overflow-hidden;
-  background: var(--color-diff-well);
-  box-shadow: var(--shadow-well);
+  @apply my-3 rounded-[10px] overflow-hidden border border-separator;
+  background: color-mix(in srgb, var(--color-ink) 3%, transparent);
 }
 
 .chat-markdown .chat-code-bar {
