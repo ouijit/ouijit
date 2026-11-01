@@ -1,5 +1,13 @@
 import { isChatAgentId, type ChatAgentId } from './model';
 
+export const CHAT_AGENT_LABELS: Record<ChatAgentId, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  pi: 'Pi',
+  opencode: 'opencode',
+  acp: 'ACP agent',
+};
+
 /** globalSettings keys for the app-level chat preferences. Leaf module, shared by main and renderer. */
 export const CHAT_SETTING_KEYS = {
   surface: 'chat:surface',

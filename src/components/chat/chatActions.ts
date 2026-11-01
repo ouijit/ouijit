@@ -24,13 +24,15 @@ export async function loadChatSettings(): Promise<ChatSettings> {
 }
 
 /** A chat's status, as the card's status dot reads it: waiting on a person counts as ready for one. */
-function cardStatus(status: ChatSessionStatus): 'thinking' | 'ready' | null {
+function cardStatus(status: ChatSessionStatus): 'thinking' | 'ready' | 'error' | null {
   switch (status) {
     case 'running':
       return 'thinking';
     case 'idle':
     case 'awaiting':
       return 'ready';
+    case 'error':
+      return 'error';
     default:
       return null;
   }
@@ -196,7 +198,6 @@ async function runSetupThenPrompt(
   }
 }
 
-/** Send what setup was holding back, after the person has looked at why setup failed. */
 export async function sendHeldPrompt(id: string): Promise<void> {
   const held = useChatStore.getState().setup[id];
   if (!held) return;

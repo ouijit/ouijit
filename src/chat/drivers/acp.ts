@@ -53,7 +53,7 @@ function toolStatus(status: unknown): NodeStatus {
 }
 
 /** ACP carries an edit as whole old and new text; this is the replacement written as a unified diff. */
-export function replacementDiff(path: string, oldText: string | null, newText: string): string {
+function replacementDiff(path: string, oldText: string | null, newText: string): string {
   const before = oldText ? oldText.split('\n') : [];
   const after = newText.split('\n');
   let start = 0;
@@ -84,7 +84,7 @@ function contentText(content: unknown): string {
     .join('\n');
 }
 
-function contentFiles(content: unknown, locations: unknown): FileChange[] {
+function contentFiles(content: unknown): FileChange[] {
   const files: FileChange[] = [];
   if (Array.isArray(content)) {
     for (const item of content as Json[]) {
@@ -96,9 +96,6 @@ function contentFiles(content: unknown, locations: unknown): FileChange[] {
         diff: replacementDiff(path, (item.oldText as string | null) ?? null, String(item.newText ?? '')),
       });
     }
-  }
-  if (files.length === 0 && Array.isArray(locations)) {
-    return [];
   }
   return files;
 }
@@ -124,7 +121,7 @@ function optionKind(kind: unknown): RequestOptionKind {
 }
 
 /** Split a command line on whitespace, honouring single and double quotes. */
-export function splitCommand(line: string): string[] {
+function splitCommand(line: string): string[] {
   const parts: string[] = [];
   let current = '';
   let quote: string | null = null;
@@ -153,7 +150,7 @@ export function splitCommand(line: string): string[] {
  * chunks of one kind is one node, and a tool call or a change of kind starts
  * the next.
  */
-export class AcpSession implements DriverSession {
+class AcpSession implements DriverSession {
   capabilities: ChatCapabilities = {
     images: false,
     steer: false,
@@ -170,6 +167,11 @@ export class AcpSession implements DriverSession {
   private sessionId = '';
   private stream: { kind: 'assistant_message' | 'reasoning' | 'user_message'; id: string } | null = null;
   private counter = 0;
+  /** Streamed replies and thoughts of the running turn, completed when it ends. */
+  private readonly streaming = new Map<
+    string,
+    { kind: 'assistant_message' | 'reasoning'; text: string; createdAt: number }
+  >();
   private readonly tools = new Map<string, ToolCallNode>();
   private turn = 0;
   closing = false;
@@ -256,7 +258,8 @@ export class AcpSession implements DriverSession {
       if (kind === 'user_message') {
         this.emit({ id, kind, parentId: null, createdAt, text, attachments: [], delivery: 'prompt' });
       } else {
-        this.emit({ id, kind, parentId: null, createdAt, text, status: 'running' });
+        this.emit({ id, kind, parentId: null, createdAt, text, status: this.replaying ? 'completed' : 'running' });
+        if (!this.replaying) this.streaming.set(id, { kind, text, createdAt });
       }
       return;
     }
@@ -264,6 +267,8 @@ export class AcpSession implements DriverSession {
       const node = this.replayed.find((existing) => existing.id === this.stream!.id) as ChatNode & { text: string };
       if (node) node.text += text;
     } else {
+      const open = this.streaming.get(this.stream.id);
+      if (open) open.text += text;
       this.sink.append(this.stream.id, 'text', text);
     }
   }
@@ -350,7 +355,7 @@ export class AcpSession implements DriverSession {
     if (update.content !== undefined) {
       const text = contentText(update.content);
       if (text) node.output = text;
-      const files = contentFiles(update.content, update.locations);
+      const files = contentFiles(update.content);
       if (files.length) node.files = files;
     }
     if (update.rawOutput !== undefined && !node.output) {
@@ -427,6 +432,17 @@ export class AcpSession implements DriverSession {
 
   private finishStreams(): void {
     this.stream = null;
+    for (const [id, open] of this.streaming) {
+      this.sink.node({
+        id,
+        kind: open.kind,
+        parentId: null,
+        createdAt: open.createdAt,
+        text: open.text,
+        status: 'completed',
+      });
+    }
+    this.streaming.clear();
   }
 
   async send(input: UserInput): Promise<void> {

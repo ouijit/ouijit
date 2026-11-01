@@ -9,7 +9,7 @@ import { getOuijitDir } from '../paths';
  * pi driver can render it as an approval for that tool call; the option order
  * (allow, always, block) is what the driver reads.
  */
-export const PI_APPROVAL_EXTENSION = `// Ouijit approval gate for pi chat sessions. Auto-installed; Ouijit recreates it.
+const PI_APPROVAL_EXTENSION = `// Ouijit approval gate for pi chat sessions. Auto-installed; Ouijit recreates it.
 interface ToolCallEvent { toolName: string; toolCallId: string; input: Record<string, unknown> }
 interface Context { hasUI: boolean; ui: { select(title: string, options: string[]): Promise<string | undefined> } }
 interface Api { on(event: 'tool_call', handler: (event: ToolCallEvent, ctx: Context) => Promise<unknown>): void }

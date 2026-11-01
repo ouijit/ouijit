@@ -6,8 +6,8 @@ import { getPiApprovalExtensionPath } from '../piApprovals';
 import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
 import type { ChatAnswer, ChatCapabilities, ChatNode, ChatOption, FileChange, ToolCallNode, ToolKind } from '../model';
 
-/** `agent_settled` and `--session-id` both arrived in this release. */
-export const PI_MIN_VERSION = '0.70.0';
+/** The oldest release the chat driver has been recorded against; RPC mode changed shape before it. */
+const PI_MIN_VERSION = '0.84.0';
 
 const CAPABILITIES: ChatCapabilities = {
   images: true,
@@ -107,8 +107,7 @@ function toolNode(toolCallId: string, name: string, args: Json): ToolCallNode {
   };
 }
 
-/** A conversation from `get_messages` as transcript nodes. */
-export function piHistoryNodes(messages: Json[]): ChatNode[] {
+function piHistoryNodes(messages: Json[]): ChatNode[] {
   const nodes: ChatNode[] = [];
   const tools = new Map<string, ToolCallNode>();
   for (const message of messages) {

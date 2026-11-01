@@ -11,7 +11,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { ChatHost } from '../../../chat/host';
 import { getDriver } from '../../../chat/drivers';
-import { _resetCacheForTesting } from '../../../db';
+import { _resetCacheForTesting, setGlobalSetting } from '../../../db';
 import type { ChatAgentId, ChatNode, ChatSnapshot, RequestNode, ToolCallNode } from '../../../chat/model';
 import { loadCassette, loadCassettes, recording, recordingSpawn, replayingSpawn, cassettePath } from './cassette';
 
@@ -161,4 +161,129 @@ describe.each(['claude', 'codex', 'pi'] as const)('%s in chat', (agent) => {
     },
     timeout * 2,
   );
+});
+
+describe.each(['claude', 'codex', 'pi'] as const)('%s steered mid-turn', (agent) => {
+  const name = `${agent}-steer`;
+  const available = recording || fs.existsSync(cassettePath(name));
+
+  test.skipIf(!available)(
+    'a message sent while the agent works joins the running turn',
+    async () => {
+      const cwd = repo();
+      const probe = recording ? await getDriver(agent).probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording ? recordingSpawn(name, agent, probe?.version) : replayingSpawn(loadCassettes(name)),
+      });
+      const stop = approveEverything(host);
+      const id = `pty-steer-${agent}`;
+      await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });
+
+      await host.prompt(id, { text: 'Run the shell command `sleep 6` and then tell me it finished.' });
+      await until(host, id, (s) => s.nodes.some((n) => n.kind === 'tool_call' && n.status === 'running'), timeout);
+      await host.prompt(id, { text: 'Also end your final reply with the word banana.' });
+
+      const done = await until(
+        host,
+        id,
+        (s) =>
+          s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message' && /banana/i.test(n.text)),
+        timeout,
+      );
+      const users = done.nodes.filter((n) => n.kind === 'user_message');
+      expect(users.map((n) => n.delivery)).toEqual(['prompt', 'steer']);
+      await host.stop(id);
+      stop();
+    },
+    timeout * 2,
+  );
+});
+
+describe('pi with approvals on', () => {
+  const available = recording || fs.existsSync(cassettePath('pi-approvals'));
+
+  test.skipIf(!available)(
+    'asks before a tool call, and a decline keeps the file from being written',
+    async () => {
+      const cwd = repo();
+      await setGlobalSetting('chat:piApprovals', '1');
+      const probe = recording ? await getDriver('pi').probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording
+          ? recordingSpawn('pi-approvals', 'pi', probe?.version)
+          : replayingSpawn(loadCassettes('pi-approvals')),
+      });
+      const stop = host.subscribe((sessionId, { event }) => {
+        if (event.type !== 'node' || event.node.kind !== 'request' || event.node.status !== 'pending') return;
+        const block = event.node.options.find((option) => option.kind === 'reject_once');
+        if (block) setImmediate(() => host.answer(sessionId, event.node.id, { kind: 'option', optionId: block.id }));
+      });
+      const id = 'pty-pi-approvals';
+      await host.start({ id, agent: 'pi', projectPath: cwd, cwd, taskId: null });
+      await host.prompt(id, {
+        text: 'Use your write tool to create hello.txt containing hi. If it is blocked, reply with exactly: blocked',
+      });
+      const done = await until(
+        host,
+        id,
+        (s) =>
+          s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message' && /blocked/i.test(n.text)),
+        timeout,
+      );
+      const request = done.nodes.find((n): n is RequestNode => n.kind === 'request');
+      expect(request?.toolCallId).toMatch(/^pi-tool-/);
+      expect(request?.options.map((option) => option.kind)).toEqual(['allow_once', 'allow_always', 'reject_once']);
+      expect(request?.status).toBe('answered');
+      if (recording) expect(fs.existsSync(path.join(cwd, 'hello.txt'))).toBe(false);
+      await setGlobalSetting('chat:piApprovals', '');
+      await host.stop(id);
+      stop();
+    },
+    timeout * 2,
+  );
+});
+
+describe('an ACP agent in chat', () => {
+  test('streams thought, plan and a gated edit into the transcript, and offers its modes and commands', async () => {
+    const cwd = repo();
+    await setGlobalSetting('chat:acpCommand', 'fake-acp-agent --stdio');
+    const host = new ChatHost({ spawnProcess: replayingSpawn([loadCassette('acp')]) });
+    const stop = approveEverything(host);
+    const id = 'pty-test-acp';
+
+    const started = await host.start({ id, agent: 'acp', projectPath: cwd, cwd, taskId: null });
+    expect(started.info.status, started.info.statusDetail).toBe('idle');
+    expect(started.info.agentSessionId).toBe('sess-1');
+    expect(started.info.modes.map((mode) => mode.id)).toEqual(['ask', 'code']);
+    expect(started.info.mode).toBe('ask');
+
+    await host.prompt(id, { text: 'PROMPT' });
+    const done = await until(
+      host,
+      id,
+      (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message'),
+      5000,
+    );
+
+    expect(kinds(done.nodes)).toEqual([
+      'user_message',
+      'reasoning',
+      'plan',
+      'tool_call',
+      'request',
+      'assistant_message',
+    ]);
+    expect(done.nodes.filter((n) => 'status' in n && n.status === 'running')).toEqual([]);
+    const edit = done.nodes.find((n): n is ToolCallNode => n.kind === 'tool_call')!;
+    expect(edit.status).toBe('completed');
+    expect(edit.files).toEqual([{ path: 'hello.txt', change: 'add', diff: expect.stringContaining('+hi') }]);
+    const plan = done.nodes.find((n) => n.kind === 'plan');
+    expect(plan && 'entries' in plan ? plan.entries : []).toEqual([{ text: 'Write hello.txt', status: 'completed' }]);
+    const reply = done.nodes.find((n) => n.kind === 'assistant_message');
+    expect(reply && 'text' in reply ? reply.text : '').toBe('done');
+    expect(done.info.commands.map((command) => command.name)).toEqual(['review']);
+
+    await host.stop(id);
+    stop();
+  });
 });

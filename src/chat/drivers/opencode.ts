@@ -8,7 +8,7 @@ import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput }
 import type { ChatCapabilities, ChatNode, ChatOption, FileChange, ToolCallNode, ToolKind } from '../model';
 
 /** The `/api` server this driver speaks arrived with opencode 2. Older releases go through `opencode acp`. */
-export const OPENCODE_SERVER_VERSION = '2.0.0';
+const OPENCODE_SERVER_VERSION = '2.0.0';
 
 const CAPABILITIES: ChatCapabilities = {
   images: true,
@@ -115,8 +115,7 @@ function newTool(id: string, name: string, input: Json, parentId: string | null)
   };
 }
 
-/** A session's messages from `GET …/message` as transcript nodes. */
-export function opencodeHistoryNodes(messages: Json[], parentId: string | null = null): ChatNode[] {
+function opencodeHistoryNodes(messages: Json[], parentId: string | null = null): ChatNode[] {
   const nodes: ChatNode[] = [];
   for (const message of messages) {
     const time = (message.time ?? {}) as Json;

@@ -28,7 +28,7 @@ import type {
 } from '../model';
 
 /** The Agent SDK this build ships needs a CLI at least this new for `canUseTool` and session state events. */
-export const CLAUDE_MIN_VERSION = '2.1.200';
+const CLAUDE_MIN_VERSION = '2.1.200';
 
 const CAPABILITIES: ChatCapabilities = {
   images: true,
@@ -209,7 +209,7 @@ const USER_PREFIX = 'user-';
  * block's place in it, the tool_use id, the user message uuid — so the live
  * stream and a history import produce the same nodes.
  */
-export class ClaudeTranscript {
+class ClaudeTranscript {
   private blockOrdinals = new Map<string, number>();
   private readonly tools = new Map<string, ToolCallNode>();
   private plan: PlanEntry[] = [];

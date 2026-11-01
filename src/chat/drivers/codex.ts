@@ -14,8 +14,8 @@ import type {
   ToolCallNode,
 } from '../model';
 
-/** The app-server protocol this driver speaks is v2, which earlier releases did not have in this shape. */
-export const CODEX_MIN_VERSION = '0.140.0';
+/** The oldest release the chat driver has been recorded against; app-server's v2 surface moves between releases. */
+const CODEX_MIN_VERSION = '0.149.0';
 
 const CAPABILITIES: ChatCapabilities = {
   images: true,
@@ -99,7 +99,7 @@ function tool(
 }
 
 /** One app-server item as a transcript node. The same shape arrives live and from `thread/read`, so both use this. */
-export function codexItemNode(item: CodexItem, parentId: string | null = null): ChatNode | null {
+function codexItemNode(item: CodexItem, parentId: string | null = null): ChatNode | null {
   const id = nodeId(item.id);
   const createdAt = Date.now();
   switch (item.type) {

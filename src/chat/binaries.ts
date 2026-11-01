@@ -45,7 +45,6 @@ export async function binaryVersion(file: string, args = ['--version']): Promise
   }
 }
 
-/** -1, 0 or 1 by numeric dotted comparison; a missing part counts as 0. */
 export function compareVersions(a: string, b: string): number {
   const pa = a.split(/[.-]/).map((part) => Number.parseInt(part, 10) || 0);
   const pb = b.split(/[.-]/).map((part) => Number.parseInt(part, 10) || 0);

@@ -14,17 +14,6 @@ const DRIVERS: Record<ChatAgentId, AgentDriver> = {
   acp: acpDriver,
 };
 
-let overrides: Partial<Record<ChatAgentId, AgentDriver>> = {};
-
 export function getDriver(id: ChatAgentId): AgentDriver {
-  return overrides[id] ?? DRIVERS[id];
-}
-
-export function listDrivers(): AgentDriver[] {
-  return Object.keys(DRIVERS).map((id) => getDriver(id as ChatAgentId));
-}
-
-/** Test-only: run a recorded or fake driver in place of a real agent. */
-export function _overrideDriverForTesting(id: ChatAgentId, driver: AgentDriver | null): void {
-  overrides = { ...overrides, [id]: driver ?? undefined };
+  return DRIVERS[id];
 }

@@ -1,0 +1,71 @@
+{
+  "agent": "acp",
+  "version": "spec-v1",
+  "authored": "Written by hand from the ACP v1 spec (agentclientprotocol.com); no ACP agent was available to record.",
+  "entries": [
+    {
+      "dir": "in",
+      "line": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":1,\"clientCapabilities\":{\"fs\":{\"readTextFile\":false,\"writeTextFile\":false},\"terminal\":false},\"clientInfo\":{\"name\":\"ouijit\",\"title\":\"Ouijit\",\"version\":\"1\"}}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":1,\"agentCapabilities\":{\"loadSession\":true,\"promptCapabilities\":{\"image\":false}}}}"
+    },
+    {
+      "dir": "in",
+      "line": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"session/new\",\"params\":{\"cwd\":\"__CWD__\",\"mcpServers\":[]}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"sessionId\":\"sess-1\",\"modes\":{\"currentModeId\":\"ask\",\"availableModes\":[{\"id\":\"ask\",\"name\":\"Ask\"},{\"id\":\"code\",\"name\":\"Code\"}]}}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"sess-1\",\"update\":{\"sessionUpdate\":\"available_commands_update\",\"availableCommands\":[{\"name\":\"review\",\"description\":\"Review the changes\"}]}}}"
+    },
+    {
+      "dir": "in",
+      "line": "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"session/prompt\",\"params\":{\"sessionId\":\"sess-1\",\"prompt\":[{\"type\":\"text\",\"text\":\"PROMPT\"}]}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"sess-1\",\"update\":{\"sessionUpdate\":\"agent_thought_chunk\",\"content\":{\"type\":\"text\",\"text\":\"A file with one word.\"}}}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"sess-1\",\"update\":{\"sessionUpdate\":\"plan\",\"entries\":[{\"content\":\"Write hello.txt\",\"priority\":\"high\",\"status\":\"in_progress\"}]}}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"sess-1\",\"update\":{\"sessionUpdate\":\"tool_call\",\"toolCallId\":\"call-1\",\"title\":\"Write hello.txt\",\"kind\":\"edit\",\"status\":\"pending\",\"rawInput\":{\"path\":\"hello.txt\"}}}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"session/request_permission\",\"params\":{\"sessionId\":\"sess-1\",\"toolCall\":{\"toolCallId\":\"call-1\"},\"options\":[{\"optionId\":\"allow\",\"name\":\"Allow\",\"kind\":\"allow_once\"},{\"optionId\":\"reject\",\"name\":\"Reject\",\"kind\":\"reject_once\"}]}}"
+    },
+    {
+      "dir": "in",
+      "line": "{\"jsonrpc\":\"2.0\",\"id\":0,\"result\":{\"outcome\":{\"outcome\":\"selected\",\"optionId\":\"allow\"}}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"sess-1\",\"update\":{\"sessionUpdate\":\"tool_call_update\",\"toolCallId\":\"call-1\",\"status\":\"completed\",\"content\":[{\"type\":\"diff\",\"path\":\"hello.txt\",\"oldText\":null,\"newText\":\"hi\"}]}}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"sess-1\",\"update\":{\"sessionUpdate\":\"plan\",\"entries\":[{\"content\":\"Write hello.txt\",\"priority\":\"high\",\"status\":\"completed\"}]}}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"sess-1\",\"update\":{\"sessionUpdate\":\"agent_message_chunk\",\"content\":{\"type\":\"text\",\"text\":\"do\"}}}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"sessionId\":\"sess-1\",\"update\":{\"sessionUpdate\":\"agent_message_chunk\",\"content\":{\"type\":\"text\",\"text\":\"ne\"}}}}"
+    },
+    {
+      "dir": "out",
+      "line": "{\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"stopReason\":\"end_turn\"}}"
+    }
+  ]
+}

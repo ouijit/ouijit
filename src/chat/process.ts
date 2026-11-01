@@ -102,13 +102,11 @@ export function stderrTail(proc: AgentProcess, limit = 4096): () => string {
   return () => tail.trim();
 }
 
-/** Resolves when the process exits, with its code. */
 export function exited(proc: AgentProcess): Promise<number | null> {
   if (proc.exitCode !== null) return Promise.resolve(proc.exitCode);
   return new Promise((resolve) => proc.once('exit', (code) => resolve(code)));
 }
 
-/** Terminate politely, then for good. */
 export async function terminate(proc: AgentProcess, graceMs = 3000): Promise<void> {
   if (proc.exitCode !== null) return;
   const done = exited(proc);

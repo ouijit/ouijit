@@ -2,18 +2,16 @@ import { useEffect, useState } from 'react';
 import { SettingsDropdown, SettingsDropdownOption } from '../ui/SettingsDropdown';
 import { SegmentedGroup, segmentAccent, segmentBase, segmentQuiet } from '../ui/SegmentedGroup';
 import { ToggleRow } from '../ui/SettingsRows';
-import { CHAT_SETTING_KEYS, DEFAULT_CHAT_SETTINGS, type ChatSettings, type TaskSurface } from '../../chat/preferences';
+import {
+  CHAT_AGENT_LABELS,
+  CHAT_SETTING_KEYS,
+  DEFAULT_CHAT_SETTINGS,
+  type ChatSettings,
+  type TaskSurface,
+} from '../../chat/preferences';
 import { CHAT_AGENT_IDS, type ChatAgentId } from '../../chat/model';
 import type { DriverProbe } from '../../chat/driver';
 import { loadChatSettings } from './chatActions';
-
-export const CHAT_AGENT_LABELS: Record<ChatAgentId, string> = {
-  claude: 'Claude Code',
-  codex: 'Codex',
-  pi: 'Pi',
-  opencode: 'opencode',
-  acp: 'Other (ACP)',
-};
 
 function Row({ label, description, children }: { label: string; description: string; children: React.ReactNode }) {
   return (

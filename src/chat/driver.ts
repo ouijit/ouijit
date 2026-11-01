@@ -17,10 +17,8 @@ export interface UserInput {
   attachments: ChatAttachment[];
 }
 
-/** What the host gives a driver: where to run, how to spawn, and where to report. */
 export interface DriverContext {
   cwd: string;
-  /** Ouijit's session id, for the driver's own node ids and logs. */
   sessionId: string;
   /** The agent conversation to resume — or to branch a new one from, with `fork` — or null for a new one. */
   resume: { agentSessionId: string; fork: boolean } | null;
@@ -29,7 +27,6 @@ export interface DriverContext {
   preferences: ChatPreferences;
 }
 
-/** The app-level chat settings a driver reads. */
 export interface ChatPreferences {
   /** Load Ouijit's gate into pi, which otherwise runs every tool call without asking. */
   piApprovals: boolean;

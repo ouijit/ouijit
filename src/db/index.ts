@@ -566,8 +566,9 @@ export async function deleteTaskByNumber(
   taskNumber: number,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { taskRepo: tr } = repos();
+    const { taskRepo: tr, chatRepo: cr } = repos();
     tr.delete(projectPath, taskNumber);
+    cr.deleteForTask(projectPath, taskNumber);
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

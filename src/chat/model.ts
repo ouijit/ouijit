@@ -1,12 +1,9 @@
 /**
- * The chat session model every client renders: the desktop window now, a
- * phone later. Drivers translate an agent's own protocol into it, the main
- * process owns and persists it, and nothing outside a driver sees an agent's
- * wire format.
+ * The chat model every client renders. Drivers translate an agent's protocol
+ * into it; nothing outside a driver sees an agent's wire format.
  *
- * A transcript is an ordered list of nodes. Events patch nodes by id — a
- * streamed reply is one node whose text grows — so a client that joins late
- * takes a snapshot and then applies events after its sequence number.
+ * Events patch nodes by id, so a client that joins late takes a snapshot and
+ * applies only the events after its sequence number.
  *
  * Leaf module: no imports, so the renderer and the CLI can share it.
  */
@@ -257,7 +254,7 @@ export interface ChatSnapshot {
   seq: number;
 }
 
-/** Apply one event to a snapshot's nodes in place. Shared by the host and every client so they cannot drift. */
+/** Apply one event to a snapshot's nodes in place. */
 export function applyChatEvent(state: { info: ChatSessionInfo; nodes: ChatNode[] }, event: ChatEvent): void {
   switch (event.type) {
     case 'node': {
@@ -286,12 +283,10 @@ export function applyChatEvent(state: { info: ChatSessionInfo; nodes: ChatNode[]
   }
 }
 
-/** A pending request the agent is blocked on, if any. */
 export function pendingRequests(nodes: ChatNode[]): RequestNode[] {
   return nodes.filter((node): node is RequestNode => node.kind === 'request' && node.status === 'pending');
 }
 
-/** The transcript as plain text, for `ouijit chat read` and anything else that wants words rather than nodes. */
 export function transcriptText(nodes: ChatNode[]): string {
   const lines: string[] = [];
   for (const node of nodes) {

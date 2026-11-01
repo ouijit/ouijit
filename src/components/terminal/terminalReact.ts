@@ -573,10 +573,10 @@ export class OuijitTerminal {
   }
 
   /** Status reported by a chat session's protocol, which needs none of the hook heuristics. */
-  setAgentStatus(status: 'thinking' | 'ready'): void {
+  setAgentStatus(status: 'thinking' | 'ready' | 'error'): void {
     this.clearIdleTimer();
-    if (status === 'thinking') this.setStatus('thinking');
-    else this.becomeReady();
+    if (status === 'ready') this.becomeReady();
+    else this.setStatus(status);
   }
 
   setSurface(surface: TaskSurface): void {

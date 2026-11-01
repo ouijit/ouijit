@@ -169,7 +169,6 @@ function persistedInfo(info: ChatSessionInfo): ChatSessionInfo {
 }
 
 export interface ChatHostOptions {
-  /** The process boundary, which tests replace with a recorded agent. */
   spawnProcess?: typeof spawnAgentProcess;
 }
 
@@ -211,7 +210,7 @@ export class ChatHost {
     return this.sessions.get(id)?.since(seq) ?? null;
   }
 
-  /** The most recent stored session of a task, for a card reopening it. */
+  /** The most recent stored session of a task. */
   latestForTask(projectPath: string, taskId: number): ChatSnapshot | null {
     const [row] = getChatRepo().listForTask(projectPath, taskId);
     return row ? (this.snapshot(row.id) ?? storedSnapshot(row)) : null;
@@ -585,7 +584,6 @@ export class ChatHost {
     revokeToken(id);
   }
 
-  /** Stop the session and forget its transcript. */
   async discard(id: string): Promise<void> {
     await this.stop(id);
     getChatRepo().delete(id);
