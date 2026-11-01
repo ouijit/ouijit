@@ -658,12 +658,12 @@ describe('the sidebar tree', () => {
         ),
       ].map((el) => el.getAttribute('data-group') ?? el.textContent);
 
-    // To Do, In Progress by board order, In Review; the task's diff; a branch per terminal; shells last.
+    // To Do, In Progress by board order, In Review, with no diff beside a task that has one; a branch per terminal; shells last.
     expect(rows()).toEqual([
       ALPHA.path,
       'Plan it',
       'Tidy up',
-      'Ship it+412 −168',
+      'Ship it',
       '└claude',
       '└npm test',
       'Write docs',
@@ -703,7 +703,7 @@ describe('the sidebar tree', () => {
     ).toBeTruthy();
 
     // By tag: a task sits under each tag its terminals carry, listing only those terminals,
-    // with its project where the diff was; the rest go under No tag.
+    // with its project beside it; the rest go under No tag.
     fireEvent.click(screen.getByRole('tab', { name: 'Tags' }));
     expect(rows()).toEqual([
       'tag:docs',

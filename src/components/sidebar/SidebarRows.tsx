@@ -5,7 +5,6 @@ import { stackFrom, stackMembers, stackOf, terminalUnit, useTerminalStore } from
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import type { Project, SandboxBackendId } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
-import { filesInDiff } from '../../diffSource';
 import { focusTerminal, openTaskTerminal } from '../navigation';
 import { openTaskSheet } from '../../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
@@ -65,14 +64,6 @@ function projectNameOf(projects: Project[], projectPath: string): string {
 
 function useProjectName(projectPath: string): string {
   return useAppStore((s) => projectNameOf(s.projects, projectPath));
-}
-
-function diffSummary(display: TerminalDisplayState | undefined): string | null {
-  if (!display?.gitFileStatus) return null;
-  const files = filesInDiff(display.gitFileStatus);
-  const insertions = files.reduce((sum, f) => sum + f.additions, 0);
-  const deletions = files.reduce((sum, f) => sum + f.deletions, 0);
-  return insertions || deletions ? `+${insertions} −${deletions}` : null;
 }
 
 function statusPhrase(display: TerminalDisplayState, now: number): string {
@@ -282,9 +273,6 @@ function TerminalRow({
   );
 }
 
-/** What the slot after a task's title shows: its diff, or under a tag, which project it is in. */
-export type RowDetail = 'diff' | 'project';
-
 type MenuAt = { x: number; y: number; ptyId: string | null };
 
 function useRowMenu(): [MenuAt | null, (ptyId: string | null) => (e: React.MouseEvent) => void, () => void] {
@@ -309,7 +297,8 @@ type Pick = (at: number, alone: () => void) => (e: React.MouseEvent) => void;
 type RowMenu = (at: number, own: (e: React.MouseEvent) => void) => (e: React.MouseEvent) => void;
 
 interface PlacedRowProps {
-  detail: RowDetail;
+  /** Under a tag a row names its project, and a task is picked terminal by terminal. */
+  underTag: boolean;
   shown: string | undefined;
   onScreen: string[];
   now: number;
@@ -319,7 +308,7 @@ interface PlacedRowProps {
 }
 
 /** A task's rows, with the menu the board card and the terminal header give it. */
-function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: PlacedRowProps & { group: TaskGroup }) {
+function TaskRows({ group, underTag, shown, onScreen, now, at, pick, rowMenu }: PlacedRowProps & { group: TaskGroup }) {
   const { projectPath, task } = group;
   const ownStack = stackOf({ ptyId: '', projectPath, taskId: group.taskId });
   const projectName = useProjectName(projectPath);
@@ -335,7 +324,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
 
   const taskTitle = task?.name || displays[0]?.label || 'Untitled';
   const icon = task ? <StageIcon status={task.status} /> : <Icon name="terminal-window" className="w-3.5 h-3.5" />;
-  const diff = detail === 'project' ? projectName : (displays.map(diffSummary).find(Boolean) ?? null);
+  const detail = underTag ? projectName : null;
 
   const menuItems = (ptyId: string | null): ContextMenuEntry[] => {
     const items: ContextMenuEntry[] = task
@@ -410,7 +399,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
           alsoPointKeys={task ? [pointKey.task(projectPath, task.taskNumber)] : []}
           title={() => taskTitle}
           icon={icon}
-          detail={diff}
+          detail={detail}
           shown={shown}
           selected={onScreen.includes(group.ptyIds[0])}
           now={now}
@@ -429,7 +418,7 @@ function TaskRows({ group, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
               bright={anyUnread}
               unread={anyUnread}
               selected={group.ptyIds.every((id) => onScreen.includes(id))}
-              detail={diff}
+              detail={detail}
               onClick={pick(at, () => {
                 const { order } = useTerminalStore.getState();
                 const latest = order.find((id) => group.ptyIds.includes(id)) ?? group.ptyIds[0];
@@ -493,7 +482,7 @@ function IdleMark() {
   );
 }
 
-function ShellRow({ ptyId, detail, shown, onScreen, now, at, pick, rowMenu }: PlacedRowProps & { ptyId: string }) {
+function ShellRow({ ptyId, underTag, shown, onScreen, now, at, pick, rowMenu }: PlacedRowProps & { ptyId: string }) {
   const [menu, openMenu, closeMenu] = useRowMenu();
   const [renaming, setRenaming] = useState(false);
   return (
@@ -502,7 +491,7 @@ function ShellRow({ ptyId, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
         ptyId={ptyId}
         title={(d) => d.label || 'Shell'}
         icon={<Icon name="terminal-window" className="w-3.5 h-3.5 text-text-tertiary" />}
-        detail={detail === 'project' ? (d) => projectNameOf(useAppStore.getState().projects, d.projectPath) : undefined}
+        detail={underTag ? (d) => projectNameOf(useAppStore.getState().projects, d.projectPath) : undefined}
         shown={shown}
         selected={onScreen.includes(ptyId)}
         now={now}
@@ -539,12 +528,12 @@ function ShellRow({ ptyId, detail, shown, onScreen, now, at, pick, rowMenu }: Pl
 /** A group's tasks in board order, then its shells. */
 export function GroupRows({
   ptyIds,
-  detail,
+  underTag = false,
   projectOrder,
   idleIn,
 }: {
   ptyIds: string[];
-  detail: RowDetail;
+  underTag?: boolean;
   projectOrder?: string[];
   /** The project whose in-progress and in-review tasks stay listed with no terminal open. */
   idleIn?: string;
@@ -605,7 +594,7 @@ export function GroupRows({
     }
     // Picking a task with nothing open resumes it, as clicking it alone does.
     const waking = picked.flatMap((r) => (r.idle?.task ? [{ ...r.idle, task: r.idle.task }] : []));
-    const units = unitsFor(next, grouped, detail === 'diff');
+    const units = unitsFor(next, grouped, !underTag);
     for (const idle of waking) units.push(stackOf({ ptyId: '', projectPath: idle.projectPath, taskId: idle.taskId }));
     if (units.length === 0) return;
     const stack = stackFrom(units);
@@ -624,7 +613,7 @@ export function GroupRows({
     setSelectionMenu({ x: e.clientX, y: e.clientY, ptyIds: members });
   };
 
-  const placed = { detail, shown, onScreen, now, pick, rowMenu };
+  const placed = { underTag, shown, onScreen, now, pick, rowMenu };
   return (
     <>
       {tasks.map((group, i) => (

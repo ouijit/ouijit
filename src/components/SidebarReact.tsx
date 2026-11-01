@@ -25,7 +25,6 @@ import {
   type SidebarGroupMode,
 } from '../stores/uiStore';
 import { ResizeHandle } from './common/ResizeHandle';
-import { refreshTerminalsGitStatus } from './terminal/terminalReact';
 import { Icon } from './terminal/Icon';
 import { Tooltip } from './ui/Tooltip';
 import { openProject, openProjectPage, openShell, openTaskTerminal } from './navigation';
@@ -47,56 +46,9 @@ import {
 } from './sidebar/SidebarRows';
 import { pointKey } from './point/pointKeys';
 
-const GIT_REFRESH_INTERVAL = 120_000;
-
 function groupKeysOf(display: TerminalDisplayState): string[] {
   const tags = display.tags.length > 0 ? display.tags.map((tag) => `tag:${tag.toLowerCase()}`) : ['tag:'];
   return [display.projectPath, ...tags];
-}
-
-function isListed(display: TerminalDisplayState, mode: SidebarGroupMode, collapsed: Record<string, true>): boolean {
-  const keys = groupKeysOf(display);
-  return mode === 'project' ? !collapsed[keys[0]] : keys.slice(1).some((key) => !collapsed[key]);
-}
-
-/**
- * Keeps the diff summaries on the task rows current, one terminal per task
- * worktree, more slowly than the terminals on screen are refreshed.
- */
-function useListedGitStatus(): void {
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    const refresh = () => {
-      const ui = useUIStore.getState();
-      if (!ui.sidebarShown && !ui.sidebarRevealed) return;
-      const { order, displayStates } = useTerminalStore.getState();
-      const seen = new Set<string>();
-      const ptyIds = order.filter((id) => {
-        const display = displayStates[id];
-        if (!display || display.taskId == null || display.isLoading) return false;
-        if (!isListed(display, ui.sidebarGroupMode, ui.collapsedGroups)) return false;
-        const task = `${display.projectPath}#${display.taskId}`;
-        if (seen.has(task)) return false;
-        seen.add(task);
-        return true;
-      });
-      void refreshTerminalsGitStatus(ptyIds);
-    };
-    const start = () => {
-      if (interval == null && !document.hidden) interval = setInterval(refresh, GIT_REFRESH_INTERVAL);
-    };
-    const stop = () => {
-      if (interval != null) clearInterval(interval);
-      interval = null;
-    };
-    const onVisibility = () => (document.hidden ? stop() : start());
-    start();
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      stop();
-    };
-  }, []);
 }
 
 function useRevealShown(): void {
@@ -121,7 +73,6 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useListedGitStatus();
   useRevealShown();
 
   useEffect(() => {
@@ -608,7 +559,7 @@ function ProjectGroup({ project }: { project: Project }) {
           </div>
         }
       />
-      {!collapsed && <GroupRows ptyIds={ptyIds} detail="diff" idleIn={project.path} />}
+      {!collapsed && <GroupRows ptyIds={ptyIds} idleIn={project.path} />}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={overflow} onClose={() => setMenu(null)} />}
     </div>
   );
@@ -677,7 +628,7 @@ function PathGroup({ path }: { path: string }) {
         ptyIds={ptyIds}
         onOpenAll={() => showInListOrder(stackFrom([projectUnit(path)]))}
       />
-      {!collapsed && <GroupRows ptyIds={ptyIds} detail="diff" />}
+      {!collapsed && <GroupRows ptyIds={ptyIds} />}
     </div>
   );
 }
@@ -733,7 +684,7 @@ function TagGroup({
         onOpen={wholeStack ? () => showInListOrder(wholeStack, projectOrder) : undefined}
         onOpenAll={() => showInListOrder(wholeStack ?? stackFrom(ptyIds.map(terminalUnit)), projectOrder)}
       />
-      {!collapsed && <GroupRows ptyIds={ptyIds} detail="project" projectOrder={projectOrder} />}
+      {!collapsed && <GroupRows ptyIds={ptyIds} underTag projectOrder={projectOrder} />}
     </div>
   );
 }
