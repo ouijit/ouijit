@@ -8,3 +8,7 @@
  */
 @import 'tailwindcss';
 @import './index.css';
+
+/* Tailwind applies `hover:` only under `@media (hover: hover)`, which some
+   Linux sessions (X11 over remote desktop) report false for a real mouse. */
+@custom-variant hover (&:hover);

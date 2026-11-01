@@ -46,6 +46,9 @@ import {
 } from './sidebar/SidebarRows';
 import { pointKey } from './point/pointKeys';
 
+// Off a Mac the window keeps its own title bar, so nothing here makes room for traffic lights.
+const isMac = navigator.platform.toLowerCase().includes('mac');
+
 function groupKeysOf(display: TerminalDisplayState): string[] {
   const tags = display.tags.length > 0 ? display.tags.map((tag) => `tag:${tag.toLowerCase()}`) : ['tag:'];
   return [display.projectPath, ...tags];
@@ -135,7 +138,7 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
           {/* Electron sizes drag regions by layout, not by what is clipped, so a
               collapsed sidebar would still claim this strip over the title bar. */}
           <div
-            className={`h-[72px] shrink-0 flex items-center justify-end gap-0.5 px-2.5 ${open ? '[-webkit-app-region:drag]' : ''}`}
+            className={`${isMac ? 'h-[72px]' : 'h-[52px]'} shrink-0 flex items-center justify-end gap-0.5 px-2.5 ${open ? '[-webkit-app-region:drag]' : ''}`}
           >
             <SearchButton />
             <Tooltip text={shown ? 'Hide sidebar' : 'Keep sidebar open'} placement="bottom-end">

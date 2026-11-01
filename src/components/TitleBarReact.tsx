@@ -110,7 +110,7 @@ export function TitleBar() {
       }
     >
       <div
-        className="box-content h-9 flex items-center gap-2 pt-4 pb-2 pr-4 transition-[padding-left] duration-200"
+        className={`box-content h-9 flex items-center gap-2 ${isMac ? 'pt-4' : 'pt-2'} pb-2 pr-4 transition-[padding-left] duration-200`}
         style={{ paddingLeft: `calc(var(--sidebar-offset, 0px) + ${leftPad}px)` }}
       >
         {!sidebarShown && (
