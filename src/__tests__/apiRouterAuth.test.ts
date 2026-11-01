@@ -241,7 +241,7 @@ describe('sandbox read-only, own-task scope', () => {
     expect(res.status).toBe(403);
   });
 
-  test("the project's CLI access level widens what a sandboxed terminal may change", async () => {
+  test("the project's CLI access level widens what a sandboxed terminal may change, task or not", async () => {
     getPtyTaskContextMock.mockReturnValue(OWN);
     const token = issueToken('pty-sbx', 'sandbox');
     const level = (access: string | undefined) =>
@@ -270,6 +270,16 @@ describe('sandbox read-only, own-task scope', () => {
 
     level(undefined);
     expect(await status(7, { status: 'in_review' })).toBe(403);
+
+    // A shell at the project's root has no task of its own to change, but the
+    // level still holds for it.
+    getPtyTaskContextMock.mockReturnValue(null);
+    level('task');
+    expect((await request('POST', `/api/tasks?project=${PROJECT}`, token, { name: 'new' })).status).toBe(200);
+    expect(await status(7, { status: 'in_review' })).toBe(403);
+    level('all');
+    expect(await status(7, { status: 'done' })).toBe(200);
+    level(undefined);
   });
 
   test('host token still reads any task by number', async () => {

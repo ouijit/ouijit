@@ -218,11 +218,7 @@ export async function spawnPty(
     finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
     finalEnv['OUIJIT_API_TOKEN'] = issueToken(ptyId, wrapper ? 'sandbox' : 'host');
     if (wrapper) {
-      // The API grants a terminal without a task read access whatever the project allows.
-      const access =
-        options.taskId == null
-          ? 'read'
-          : await sandboxCliAccessFor(options.projectPath ?? options.cwd).catch((): 'read' => 'read');
+      const access = await sandboxCliAccessFor(options.projectPath || options.cwd).catch((): 'read' => 'read');
       finalEnv['OUIJIT_SANDBOX_REFERENCE_FILE'] = getCliReferencePath({ provider: wrapper.id, access });
     }
 

@@ -1323,7 +1323,7 @@ interface SandboxCaller extends AuthContext {
  */
 async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
   if (auth.scope === 'host') return { ...auth, access: 'all' };
-  const context = getPtyTaskContext(auth.ptyId);
+  const context = getPtySpawnContext(auth.ptyId);
   const access = context ? await sandboxCliAccessFor(context.projectPath) : 'read';
   return access === 'all' ? { ...auth, scope: 'host', access } : { ...auth, access };
 }
