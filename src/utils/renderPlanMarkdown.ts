@@ -36,7 +36,7 @@ const PRELOADED_LANGS: BundledLanguage[] = [
 
 let highlighterPromise: Promise<HighlighterGeneric<BundledLanguage, BundledTheme>> | null = null;
 
-function getHighlighter() {
+export function getHighlighter() {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
       themes: [SHIKI_THEMES.dark, SHIKI_THEMES.light],

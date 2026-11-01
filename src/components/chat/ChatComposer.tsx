@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { Icon } from '../terminal/Icon';
-import { MenuPopover, MenuItem } from '../ui/Menu';
+import { MenuPopover } from '../ui/Menu';
 import { growToFit } from '../../hooks/useAutoResize';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -26,48 +26,67 @@ function attachmentFor(path: string): ChatAttachment {
 
 function Picker({
   label,
+  placeholder,
   options,
   value,
   onPick,
 }: {
   label: string;
+  placeholder: string;
   options: ChatOption[];
   value: string | undefined;
   onPick: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const current = options.find((option) => option.id === value)?.label ?? value ?? label;
+  const current = options.find((option) => option.id === value)?.label ?? placeholder;
   return (
     <MenuPopover
       open={open}
       onOpenChange={setOpen}
       placement="top-start"
-      className="w-64 max-h-[18rem]"
+      className="w-72 max-h-[20rem]"
       trigger={(ref) => (
         <button
           ref={ref}
           type="button"
           aria-label={label}
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded-[6px] text-[12px] text-text-tertiary hover:text-text-primary hover:bg-ink/[0.06] transition-colors duration-100 max-w-[12rem]"
+          aria-expanded={open}
+          className={`flex items-center gap-1 h-6 px-2 rounded-[7px] text-[12px] transition-colors duration-100 max-w-[12rem] ${
+            open ? 'bg-ink/[0.08] text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-ink/[0.06]'
+          }`}
           onClick={() => setOpen((v) => !v)}
         >
           <span className="truncate">{current}</span>
-          <Icon name="caret-down" className="w-3 h-3" />
+          <Icon name="caret-down" className="w-3 h-3 shrink-0 opacity-60" />
         </button>
       )}
     >
-      {options.map((option) => (
-        <MenuItem
-          key={option.id}
-          label={option.label}
-          hint={option.description}
-          selected={option.id === value}
-          onClick={() => {
-            setOpen(false);
-            onPick(option.id);
-          }}
-        />
-      ))}
+      {options.map((option) => {
+        const selected = option.id === value;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="menuitemradio"
+            aria-checked={selected}
+            className="w-full text-left px-2.5 py-1.5 rounded-[7px] flex items-start gap-2 hover:bg-ink/[0.08] transition-colors duration-100"
+            onClick={() => {
+              setOpen(false);
+              onPick(option.id);
+            }}
+          >
+            <span className="flex-1 min-w-0">
+              <span className={`block text-sm ${selected ? 'text-text-primary' : 'text-text-secondary'}`}>
+                {option.label}
+              </span>
+              {option.description && (
+                <span className="block text-[12px] leading-snug text-text-tertiary">{option.description}</span>
+              )}
+            </span>
+            <Icon name="check" className={`w-3.5 h-3.5 mt-[3px] shrink-0 text-accent ${selected ? '' : 'invisible'}`} />
+          </button>
+        );
+      })}
     </MenuPopover>
   );
 }
@@ -276,6 +295,7 @@ export function ChatComposer({
         {caps.models && info.models.length > 0 && (
           <Picker
             label="Model"
+            placeholder={info.model ?? 'Model'}
             options={info.models}
             value={info.model}
             onPick={(model) => void window.api.chat.setModel(cardId, model).catch(report)}
@@ -284,6 +304,7 @@ export function ChatComposer({
         {caps.effort && info.efforts.length > 0 && (
           <Picker
             label="Effort"
+            placeholder="Default effort"
             options={info.efforts}
             value={info.effort}
             onPick={(effort) => void window.api.chat.setEffort(cardId, effort).catch(report)}
@@ -292,6 +313,7 @@ export function ChatComposer({
         {caps.modes && info.modes.length > 0 && (
           <Picker
             label="Mode"
+            placeholder="Default mode"
             options={info.modes}
             value={info.mode}
             onPick={(mode) => void window.api.chat.setMode(cardId, mode).catch(report)}

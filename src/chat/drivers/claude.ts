@@ -441,6 +441,9 @@ class ClaudeSession implements DriverSession {
   /** For a rewind: the last assistant message uuid before each user message we sent. */
   private readonly before = new Map<string, string | null>();
   private lastAssistantUuid: string | null = null;
+  /** Claude reports the model it resolved (`claude-opus-5-5`); the menu lists the aliases that resolve to them. */
+  private readonly modelAliases = new Map<string, string>();
+  private reportedModel: string | undefined;
 
   constructor(
     private readonly context: DriverContext,
@@ -521,10 +524,25 @@ class ClaudeSession implements DriverSession {
           argumentHint: command.argumentHint || undefined,
         })),
         models: models.map((model) => ({ id: model.value, label: model.displayName, description: model.description })),
+        ...this.modelPatch(models),
       });
     } catch (error) {
       this.sink.log('claude metadata load failed', { error: String(error) });
     }
+  }
+
+  private modelPatch(
+    models: { value: string; resolvedModel?: string }[] | null,
+    reported?: string,
+  ): { model?: string } {
+    for (const model of models ?? []) {
+      if (model.resolvedModel && !this.modelAliases.has(model.resolvedModel)) {
+        this.modelAliases.set(model.resolvedModel, model.value);
+      }
+    }
+    if (reported) this.reportedModel = reported;
+    if (!this.reportedModel) return {};
+    return { model: this.modelAliases.get(this.reportedModel) ?? this.reportedModel };
   }
 
   private async consume(q: Query): Promise<void> {
@@ -593,7 +611,7 @@ class ClaudeSession implements DriverSession {
         this.sessionId = String(message.session_id);
         this.sink.session({
           agentSessionId: this.sessionId,
-          model: str(message.model),
+          ...this.modelPatch(null, str(message.model)),
           mode: str(message.permissionMode),
           agentVersion: str(message.claude_code_version),
         });

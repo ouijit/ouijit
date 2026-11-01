@@ -1,6 +1,7 @@
 import { memo, useState, type ReactNode } from 'react';
 import { Icon } from '../terminal/Icon';
 import { Markdown } from '../issues/Markdown';
+import { ChatMarkdown } from './ChatMarkdown';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { ChatRequestView } from './ChatRequest';
 import type {
@@ -241,7 +242,7 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
         />
       );
     case 'assistant_message':
-      return node.text ? <Markdown body={node.text} /> : null;
+      return node.text ? <ChatMarkdown text={node.text} complete={node.status !== 'running'} /> : null;
     case 'reasoning':
       return <ReasoningView text={node.text} running={node.status === 'running'} />;
     case 'tool_call':
