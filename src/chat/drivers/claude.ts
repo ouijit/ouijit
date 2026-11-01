@@ -48,7 +48,14 @@ const MODES: ChatOption[] = [
   { id: 'default', label: 'Ask', description: 'Ask before edits and commands your settings do not allow' },
   { id: 'acceptEdits', label: 'Accept edits', description: 'Edit files without asking' },
   { id: 'plan', label: 'Plan', description: 'Plan without changing anything' },
+  { id: 'bypassPermissions', label: 'Skip permissions', description: 'Run everything without asking' },
 ];
+
+const AUTO_MODE: ChatOption = {
+  id: 'auto',
+  label: 'Auto',
+  description: 'A classifier approves safe actions and asks about the rest',
+};
 
 const EFFORTS: ChatOption[] = [
   { id: 'low', label: 'Low' },
@@ -505,6 +512,9 @@ class ClaudeSession implements DriverSession {
       systemPrompt: { type: 'preset', preset: 'claude_code', ...(instructions && { append: instructions }) },
       includePartialMessages: true,
       enableFileCheckpointing: true,
+      // Makes skip-permissions choosable, as `--allow-dangerously-skip-permissions`
+      // does in the terminal; the session still starts in the user's own mode.
+      allowDangerouslySkipPermissions: true,
       canUseTool,
       ...(this.effort && { effort: this.effort }),
       ...(this.sessionId && { resume: this.sessionId }),
@@ -530,6 +540,9 @@ class ClaudeSession implements DriverSession {
           argumentHint: command.argumentHint || undefined,
         })),
         models: models.map((model) => ({ id: model.value, label: model.displayName, description: model.description })),
+        modes: models.some((model) => model.supportsAutoMode)
+          ? [...MODES.slice(0, 3), AUTO_MODE, ...MODES.slice(3)]
+          : MODES,
         ...this.modelPatch(models),
       });
     } catch (error) {

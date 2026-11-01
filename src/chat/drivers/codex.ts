@@ -266,6 +266,7 @@ const APPROVAL_MODES: ChatOption[] = [
   { id: 'untrusted', label: 'Ask first', description: 'Ask before running anything not known to be safe' },
   { id: 'on-request', label: 'Ask when needed', description: 'Ask when a command needs more than the sandbox allows' },
   { id: 'never', label: 'Never ask', description: 'Run without asking; failures go back to the model' },
+  { id: 'full-access', label: 'Full access', description: 'No sandbox and no asking: network and every file' },
 ];
 
 const APPROVAL_OPTIONS: RequestOption[] = [
@@ -530,7 +531,10 @@ class CodexSession implements DriverSession {
       input: codexInput(input),
       ...(this.model && { model: this.model }),
       ...(this.effort && { effort: this.effort }),
-      ...(this.approvalPolicy && { approvalPolicy: this.approvalPolicy }),
+      ...(this.approvalPolicy && {
+        approvalPolicy: this.approvalPolicy === 'full-access' ? 'never' : this.approvalPolicy,
+      }),
+      ...(this.approvalPolicy === 'full-access' && { sandboxPolicy: { type: 'dangerFullAccess' } }),
     });
   }
 
