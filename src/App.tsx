@@ -24,6 +24,7 @@ import { openProjectPage } from './components/navigation';
 import { installCaptureNavigator } from './capture/navigator';
 import { hydrateTerminalFont } from './components/terminal/terminalReact';
 import { reconnectOrphanedSessions } from './components/terminal/terminalActions';
+import { reconnectChatSessions } from './components/chat/chatActions';
 import { hydrateNotificationSettings } from './utils/notifications';
 import { installSessionAutoSave, rememberSnapshotViews } from './components/terminal/sessionSnapshot';
 import { installVisitTracker } from './services/visitTracker';
@@ -205,7 +206,7 @@ export function App() {
       await Promise.all([
         useAppStore.getState().loadHomeRecents(),
         hydrateUIPreferences(),
-        reconnectOrphanedSessions(),
+        reconnectOrphanedSessions().then(() => reconnectChatSessions()),
       ]);
 
       // As read at launch: the reconnect's saves rewrite the snapshot before views are back.

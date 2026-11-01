@@ -104,6 +104,16 @@ import type {
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
+import type {
+  ChatAgentId,
+  ChatAnswer,
+  ChatAttachment,
+  ChatSessionInfo,
+  ChatSnapshot,
+  SequencedChatEvent,
+} from '../chat/model';
+import type { ChatDelivery, ChatStartOptions } from '../chat/host';
+import type { DriverProbe, TerminalResume } from '../chat/driver';
 
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
 
@@ -456,6 +466,32 @@ export interface IpcInvokeContract {
     return: { success: boolean; error?: string; taskNumber?: number };
   };
   'github:task-from-pr': { args: [projectPath: string, prNumber: number]; return: PromoteToTaskResult };
+
+  // ── Chat ─────────────────────────────────────────────────────────────
+  'chat:probe': { args: [agent: ChatAgentId]; return: DriverProbe };
+  'chat:start': { args: [options: ChatStartOptions]; return: ChatSnapshot };
+  'chat:snapshot': { args: [id: string]; return: ChatSnapshot | null };
+  /** Sessions running in the main process, for a reloaded window to put their cards back. */
+  'chat:list-live': { args: []; return: ChatSessionInfo[] };
+  'chat:since': { args: [id: string, seq: number]; return: SequencedChatEvent[] | null };
+  'chat:latest-for-task': { args: [projectPath: string, taskId: number]; return: ChatSnapshot | null };
+  'chat:prompt': {
+    args: [id: string, input: { text: string; attachments?: ChatAttachment[] }, delivery: ChatDelivery];
+    return: string;
+  };
+  'chat:answer': { args: [id: string, requestId: string, answer: ChatAnswer]; return: boolean };
+  'chat:interrupt': { args: [id: string]; return: void };
+  'chat:set-model': { args: [id: string, model: string]; return: void };
+  'chat:set-effort': { args: [id: string, effort: string]; return: void };
+  'chat:set-mode': { args: [id: string, mode: string]; return: void };
+  'chat:rewind': { args: [id: string, userMessageId: string]; return: void };
+  'chat:compact': { args: [id: string]; return: void };
+  'chat:fork': { args: [id: string]; return: ChatSnapshot };
+  /** Stop the agent and keep the transcript; resolves once it has exited. */
+  'chat:stop': { args: [id: string]; return: void };
+  'chat:discard': { args: [id: string]; return: void };
+  /** The agent's terminal UI resuming this chat's conversation, for switching the card to its terminal. */
+  'chat:terminal-resume': { args: [id: string]; return: TerminalResume | null };
 }
 
 /**
@@ -478,6 +514,7 @@ export interface IpcSendContract {
  * handled directly in preload.ts and ptyManager.ts.
  */
 export interface IpcPushContract {
+  'chat:event': { args: [sessionId: string, event: SequencedChatEvent] };
   'fullscreen-change': { args: [isFullscreen: boolean] };
   'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
   'cli:panel-op': { args: [op: CliPanelOp] };

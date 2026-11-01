@@ -39,7 +39,7 @@ function selectCanvasNode(projectPath: string, ptyId: string): void {
     useCanvasStore.getState().loadCanvas(projectPath, { ...canvas, nodes });
   }
   const instance = terminalInstances.get(ptyId);
-  if (instance) requestAnimationFrame(() => instance.xterm.focus());
+  if (instance) requestAnimationFrame(() => instance.focus());
 }
 
 /** PR detection and analysis for the project on screen, paused while the window is hidden. */

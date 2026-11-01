@@ -100,6 +100,10 @@ import gitPullRequest from '@phosphor-icons/core/assets/regular/git-pull-request
 import minusCircle from '@phosphor-icons/core/assets/regular/minus-circle.svg?raw';
 import warning from '@phosphor-icons/core/assets/regular/warning.svg?raw';
 import xCircle from '@phosphor-icons/core/assets/regular/x-circle.svg?raw';
+import stop from '@phosphor-icons/core/assets/regular/stop.svg?raw';
+import paperclip from '@phosphor-icons/core/assets/regular/paperclip.svg?raw';
+import brain from '@phosphor-icons/core/assets/regular/brain.svg?raw';
+import arrowBendUpLeft from '@phosphor-icons/core/assets/regular/arrow-bend-up-left.svg?raw';
 
 const iconsLog = log.scope('icons');
 
@@ -197,6 +201,10 @@ export const iconMap: Record<string, string> = {
   'minus-circle': minusCircle,
   warning: warning,
   'x-circle': xCircle,
+  stop: stop,
+  paperclip: paperclip,
+  brain: brain,
+  'arrow-bend-up-left': arrowBendUpLeft,
 };
 
 /**

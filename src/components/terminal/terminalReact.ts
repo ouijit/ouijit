@@ -1,9 +1,10 @@
 /**
- * OuijitTerminal (React) — encapsulates xterm instance, PTY lifecycle,
- * and display state push to Zustand terminalStore.
+ * OuijitTerminal (React) — one card: its identity, panels, tags and status,
+ * and the session behind its body. The body is a PTY in an xterm, or a chat
+ * session the main process runs; a card that has been a chat can switch
+ * between the two on one conversation, keeping its id.
  *
  * React owns the card chrome (header, tags, git stats, runner panel).
- * This class owns only the xterm viewport and imperative PTY wiring.
  */
 
 import { Terminal as XTerminal } from '@xterm/xterm';
@@ -14,6 +15,8 @@ import { openLink } from '../../links/openLink';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
 import type { PtyId, PtySpawnOptions, DiffDefaults, GitFileStatus, SandboxProviderId } from '../../types';
+import type { ChatAgentId } from '../../chat/model';
+import type { TaskSurface } from '../../chat/preferences';
 import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
@@ -50,6 +53,9 @@ export interface TerminalOptions {
    * debuggable in the interactive shell that survives the command.
    */
   autoCloseOnSuccess?: boolean;
+  surface?: TaskSurface;
+  /** The agent this card's conversation belongs to, for a card that is or has been a chat. */
+  chatAgent?: ChatAgentId;
 }
 
 /** How long to leave an auto-close terminal visible on success before closing. */
@@ -383,6 +389,10 @@ export class OuijitTerminal {
   readonly projectPath: string;
   command: string | undefined;
   readonly isRunner: boolean;
+  surface: TaskSurface;
+  chatAgent: ChatAgentId | null;
+  /** Set by the mounted chat view, so focusing the card focuses its composer. */
+  chatFocus: (() => void) | null = null;
 
   // ── xterm + viewport ───────────────────────────────────────────────
   readonly xterm: XTerminal;
@@ -468,6 +478,8 @@ export class OuijitTerminal {
     this.worktreeBranch = opts.worktreeBranch;
     this.mergeTarget = opts.mergeTarget;
     this.autoCloseOnSuccess = opts.autoCloseOnSuccess ?? false;
+    this.surface = opts.surface ?? 'terminal';
+    this.chatAgent = opts.chatAgent ?? null;
     void restoreDiffBase(this);
 
     this.label = opts.label;
@@ -538,7 +550,11 @@ export class OuijitTerminal {
 
   // ── Public API ──────────────────────────────────────────────────────
 
+  private opened = false;
+
   openTerminal(): void {
+    if (this.opened) return;
+    this.opened = true;
     this.xterm.open(this.viewportElement);
     this.wireDragDrop(this.viewportElement);
   }
@@ -547,8 +563,48 @@ export class OuijitTerminal {
    *  that's handled by debouncedResize (via ResizeObserver) which coalesces
    *  rapid layout changes and avoids spurious SIGWINCH to the shell. */
   fit(): void {
-    if (this.covered) return;
+    if (this.covered || this.surface === 'chat') return;
     scrollSafeFit(this.xterm, this.fitAddon);
+  }
+
+  focus(): void {
+    if (this.surface === 'chat') this.chatFocus?.();
+    else this.xterm.focus();
+  }
+
+  /** Status reported by a chat session's protocol, which needs none of the hook heuristics. */
+  setAgentStatus(status: 'thinking' | 'ready'): void {
+    this.clearIdleTimer();
+    if (status === 'thinking') this.setStatus('thinking');
+    else this.becomeReady();
+  }
+
+  setSurface(surface: TaskSurface): void {
+    this.surface = surface;
+    this.pushDisplayState({ surface });
+  }
+
+  /**
+   * Let go of the PTY behind the body without disposing the card, so the same
+   * id can carry the chat session instead. Resolves once the PTY has exited.
+   */
+  async releasePty(): Promise<void> {
+    this.cleanupData?.();
+    this.cleanupData = null;
+    const exitedPty = new Promise<void>((resolve) => {
+      const stop = window.api.pty.onExit(this.ptyId, () => {
+        stop();
+        resolve();
+      });
+      setTimeout(resolve, 4000);
+    });
+    this.cleanupExit?.();
+    this.cleanupExit = null;
+    this.resizeObserver?.disconnect();
+    window.api.pty.kill(this.ptyId);
+    await exitedPty;
+    this.xterm.reset();
+    this.pushDisplayState({ exited: false });
   }
 
   /** Suppress PTY resizes during reconnection until layout settles. */
@@ -597,6 +653,18 @@ export class OuijitTerminal {
     this.wireExitHandler(opts?.onExit);
     this.wireInputForwarding();
     this.wireResizeObserver();
+  }
+
+  /** Register under a chat session's id. The chat view reads the session itself; nothing is wired here. */
+  bindChat(id: PtyId): void {
+    if (this.disposed) return;
+    if (this.ptyId !== id) {
+      if (terminalInstances.get(this.ptyId) === this) terminalInstances.delete(this.ptyId);
+      useTerminalStore.getState().rekeyTerminal(this.ptyId, id);
+    }
+    this.ptyId = id;
+    terminalInstances.set(id, this);
+    this.bound = true;
   }
 
   async spawnPty(options: PtySpawnOptions): Promise<PtyId | null> {
@@ -683,8 +751,11 @@ export class OuijitTerminal {
     this.runnerChildren.clear();
     this.runnerSpawning.clear();
 
-    // Kill main PTY
-    if (this.ptyId) {
+    // A chat's transcript outlives its card; only the agent process stops.
+    if (this.ptyId && this.surface === 'chat') {
+      void window.api.chat.stop(this.ptyId);
+      this.clearIdleTimer();
+    } else if (this.ptyId) {
       window.api.pty.kill(this.ptyId);
       this.clearIdleTimer();
       this.clearDataThrottle();

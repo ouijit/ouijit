@@ -10,6 +10,7 @@
 
 import log from 'electron-log/renderer';
 import { addProjectTerminal } from '../components/terminal/terminalActions';
+import { addChatCard, loadChatSettings, taskFirstPrompt } from '../components/chat/chatActions';
 import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import { completeTask } from './taskCompletion';
 import { headlessHookRun, hookSandbox, hookTypeForTransition, type HookControl } from './hookRun';
@@ -358,6 +359,20 @@ async function spawnTerminalForInProgress(
 ): Promise<void> {
   if (!task.worktreePath) {
     // Worktree creation must have failed earlier; nothing to do.
+    return;
+  }
+
+  if ((await loadChatSettings()).surface === 'chat') {
+    await addChatCard(projectPath, {
+      worktree: { path: task.worktreePath, branch: task.branch || '' },
+      taskId: task.taskNumber,
+      sandboxProvider: sandbox,
+      replaceLoadingId: loadingSlot ?? undefined,
+      setup: hookResult
+        ? { name: 'Start', command: hookResult.command, hookType: 'start', sandboxProvider: sandbox }
+        : undefined,
+      firstPrompt: taskFirstPrompt(task),
+    });
     return;
   }
 

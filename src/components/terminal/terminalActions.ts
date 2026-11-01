@@ -154,7 +154,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
 
 // ── Add a terminal to the system ─────────────────────────────────────
 
-function registerTerminal(
+export function registerTerminal(
   term: OuijitTerminal,
   projectPath: string,
   initial: Partial<TerminalDisplayState>,
@@ -180,7 +180,7 @@ function registerTerminal(
   useCanvasStore.getState().addNode(projectPath, ptyId);
   persistCanvas(projectPath);
 
-  if (!background) requestAnimationFrame(() => term.xterm.focus());
+  if (!background) requestAnimationFrame(() => term.focus());
 }
 
 // ── Worktree hook environment ────────────────────────────────────────
@@ -572,7 +572,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
   }
   const commandStr = panel.scriptCommand;
   const commandName = panel.scriptName ?? commandStr;
-  const hookType = panel.source === 'hook' ? 'run' : 'script';
+  const hookType = panel.hookType ?? (panel.source === 'hook' ? 'run' : 'script');
 
   // Opt-in: this runnable wants a solo instance, so clear an existing one first.
   // Pass panelId to spare this panel — its command is already set and would else
@@ -786,6 +786,10 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
         label: snapEntry?.label ?? undefined,
       });
       if (term && snapEntry) await applyInitialUiState(term, snapEntry.ui);
+      if (term && snapEntry?.chatAgent) {
+        term.chatAgent = snapEntry.chatAgent;
+        term.pushDisplayState({ chatAgent: snapEntry.chatAgent });
+      }
     });
   }
 

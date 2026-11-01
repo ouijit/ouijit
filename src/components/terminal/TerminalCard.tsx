@@ -26,7 +26,7 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, depth, stackPosi
     const frame = requestAnimationFrame(() => {
       const instance = terminalInstances.get(ptyId);
       instance?.fit();
-      instance?.xterm.focus();
+      instance?.focus();
     });
     return () => cancelAnimationFrame(frame);
   }, [isFront, isLoading, ptyId]);

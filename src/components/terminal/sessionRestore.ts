@@ -9,6 +9,7 @@ import log from 'electron-log/renderer';
 import { useAppStore } from '../../stores/appStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { addProjectTerminal } from './terminalActions';
+import { addChatCard } from '../chat/chatActions';
 import { suspendSnapshotSaves, resumeSnapshotSaves, snapshotRecency, rememberSnapshotViews } from './sessionSnapshot';
 import type { LastSessionSnapshot, Project, SnapshotTerminal, TaskStatus } from '../../types';
 
@@ -94,6 +95,23 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
       const source = entry.source;
       try {
         const restoredProvider = source.sandboxProvider;
+        // A chat comes back as its conversation, resumed under the same id.
+        if (source.surface === 'chat' && source.ptyId) {
+          const resumed = await addChatCard(projectPath, {
+            id: source.ptyId,
+            agent: source.chatAgent,
+            worktree: source.worktreePath
+              ? { path: source.worktreePath, branch: source.worktreeBranch ?? '' }
+              : undefined,
+            taskId: source.taskNumber ?? undefined,
+            sandboxProvider: restoredProvider,
+            label: source.label ?? undefined,
+            initialUiState: source.ui,
+          });
+          // A chat keeps its id, so its views map onto itself.
+          if (resumed) renamed.set(source.ptyId, source.ptyId);
+          continue;
+        }
         const spawned = await addProjectTerminal(projectPath, undefined, {
           existingWorktree: source.worktreePath
             ? {

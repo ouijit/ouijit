@@ -1,5 +1,7 @@
 import type { GitFileStatus, SandboxProviderId } from '../types';
 import type { TerminalPanel } from '../components/terminal/panelTypes';
+import type { ChatAgentId } from '../chat/model';
+import type { TaskSurface } from '../chat/preferences';
 
 export type TerminalStatus = 'thinking' | 'ready' | 'success' | 'error';
 
@@ -32,6 +34,12 @@ export interface TerminalDisplayState {
   worktreeBranch: string | null;
   projectPath: string;
   exited: boolean;
+  /** What the card's body shows: its PTY, or its chat session. */
+  surface: TaskSurface;
+  /** The agent of a card that is or has been a chat, which is what can switch it back and forth. */
+  chatAgent: ChatAgentId | null;
+  /** Waiting for the turn to end before switching between chat and terminal. */
+  switching: TaskSurface | null;
   /** Placeholder slot for an in-flight task start. Card renders the loading
    *  body; the slot will be rekey'd + flag cleared when the real PTY spawns. */
   isLoading: boolean;
@@ -55,6 +63,9 @@ export const DEFAULT_DISPLAY_STATE: Omit<
   taskId: null,
   worktreeBranch: null,
   exited: false,
+  surface: 'terminal',
+  chatAgent: null,
+  switching: null,
   isLoading: false,
 };
 

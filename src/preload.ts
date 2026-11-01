@@ -46,6 +46,8 @@ import type { LensInput } from './lens/config';
 import type { SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
 import type { LensChangedPayload } from './lens/subjectKeys';
+import type { ChatAgentId, ChatAnswer, ChatAttachment, SequencedChatEvent } from './chat/model';
+import type { ChatDelivery, ChatStartOptions } from './chat/host';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -140,6 +142,29 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(channel, handler);
       return () => ipcRenderer.removeListener(channel, handler);
     },
+  },
+
+  chat: {
+    probe: (agent: ChatAgentId) => typedInvoke('chat:probe', agent),
+    start: (options: ChatStartOptions) => typedInvoke('chat:start', options),
+    snapshot: (id: string) => typedInvoke('chat:snapshot', id),
+    listLive: () => typedInvoke('chat:list-live'),
+    since: (id: string, seq: number) => typedInvoke('chat:since', id, seq),
+    latestForTask: (projectPath: string, taskId: number) => typedInvoke('chat:latest-for-task', projectPath, taskId),
+    prompt: (id: string, input: { text: string; attachments?: ChatAttachment[] }, delivery: ChatDelivery = 'auto') =>
+      typedInvoke('chat:prompt', id, input, delivery),
+    answer: (id: string, requestId: string, answer: ChatAnswer) => typedInvoke('chat:answer', id, requestId, answer),
+    interrupt: (id: string) => typedInvoke('chat:interrupt', id),
+    setModel: (id: string, model: string) => typedInvoke('chat:set-model', id, model),
+    setEffort: (id: string, effort: string) => typedInvoke('chat:set-effort', id, effort),
+    setMode: (id: string, mode: string) => typedInvoke('chat:set-mode', id, mode),
+    rewind: (id: string, userMessageId: string) => typedInvoke('chat:rewind', id, userMessageId),
+    compact: (id: string) => typedInvoke('chat:compact', id),
+    fork: (id: string) => typedInvoke('chat:fork', id),
+    stop: (id: string) => typedInvoke('chat:stop', id),
+    discard: (id: string) => typedInvoke('chat:discard', id),
+    terminalResume: (id: string) => typedInvoke('chat:terminal-resume', id),
+    onEvent: (callback: (sessionId: string, event: SequencedChatEvent) => void) => typedListen('chat:event', callback),
   },
 
   worktree: {

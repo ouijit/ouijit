@@ -218,6 +218,9 @@ export interface ChatSessionInfo {
   agentSessionId: string | null;
   projectPath: string;
   cwd: string;
+  worktreePath: string | null;
+  /** The sandbox backend the agent runs in, or null on the host. */
+  sandbox: string | null;
   taskId: number | null;
   status: ChatSessionStatus;
   /** Why the session is in `error` or `exited`, in the agent's words where it gave any. */

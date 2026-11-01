@@ -26,6 +26,10 @@ vi.mock('../../components/terminal/terminalReact', () => {
     runnerChildren = new Map<string, unknown>();
     runnerSpawning = new Set<string>();
     xterm = { cols: 80, rows: 24, writeln: vi.fn(), focus: vi.fn() };
+    surface = 'terminal';
+    focus() {
+      this.xterm.focus();
+    }
     openTerminal = vi.fn();
     bind = vi.fn();
     dispose = vi.fn();

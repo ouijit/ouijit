@@ -84,6 +84,8 @@ export function gatherSnapshot(): LastSessionSnapshot {
       worktreePath: term.worktreePath ?? null,
       worktreeBranch: term.worktreeBranch ?? null,
       sandboxProvider: term.sandboxProvider,
+      ...(term.surface === 'chat' && { surface: 'chat' as const }),
+      ...(term.chatAgent && { chatAgent: term.chatAgent }),
       label: term.label || null,
       ordinalInProject: (termStore.terminalsByProject[projectPath] ?? []).indexOf(ptyId),
       isActiveInProject: projectFronts.get(projectPath) === ptyId,

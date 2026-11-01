@@ -25,6 +25,9 @@ import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
 import { describeDiffComparison, filesInDiff } from '../../diffSource';
 import { useWantsYou } from './wantsYou';
+import { useChatStore } from '../../stores/chatStore';
+import { addChatCard, switchToChat, switchToTerminal } from '../chat/chatActions';
+import type { TaskSurface } from '../../chat/preferences';
 
 const EMPTY_TAGS: string[] = [];
 const NO_BACKENDS: SandboxBackendId[] = [];
@@ -57,6 +60,9 @@ export const TerminalHeader = memo(function TerminalHeader({
     diffPanelOpen,
     panels,
     activePanelId,
+    surface,
+    chatAgent,
+    switching,
   } = useTerminalStore(
     useShallow((s) => {
       const d = s.displayStates[ptyId];
@@ -71,9 +77,13 @@ export const TerminalHeader = memo(function TerminalHeader({
         diffPanelOpen: d?.diffPanelOpen ?? false,
         panels: d?.panels ?? EMPTY_PANELS,
         activePanelId: d?.activePanelId ?? null,
+        surface: d?.surface ?? 'terminal',
+        chatAgent: d?.chatAgent ?? null,
+        switching: d?.switching ?? null,
       };
     }),
   );
+  const chatCapabilities = useChatStore((s) => s.sessions[ptyId]?.info.capabilities);
 
   const panelOps = useTerminalPanels(ptyId);
   const unread = useWantsYou(ptyId);
@@ -164,8 +174,38 @@ export const TerminalHeader = memo(function TerminalHeader({
       onClick: () => setRenameTarget('terminal'),
     });
 
+    if (surface === 'chat' && chatCapabilities) {
+      items.push({ separator: true });
+      if (chatCapabilities.fork) {
+        items.push({
+          label: 'Fork conversation',
+          icon: 'git-fork',
+          onClick: () => void forkChat(ptyId),
+        });
+      }
+      if (chatCapabilities.compact) {
+        items.push({
+          label: 'Compact conversation',
+          icon: 'arrows-in',
+          onClick: () => void window.api.chat.compact(ptyId),
+        });
+      }
+    }
+
     return items;
-  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, task, githubEnabled, linearEnabled]);
+  }, [
+    isTaskTerminal,
+    instance,
+    projectPath,
+    taskId,
+    availableSandboxProviders,
+    task,
+    githubEnabled,
+    linearEnabled,
+    surface,
+    chatCapabilities,
+    ptyId,
+  ]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -353,18 +393,21 @@ export const TerminalHeader = memo(function TerminalHeader({
       branchContent={gitFileStatus?.branch ? <BranchCopy branch={gitFileStatus.branch} /> : undefined}
       actions={
         isActive ? (
-          <PanelControls
-            panels={panels}
-            activePanelId={activePanelId}
-            gitFileStatus={gitFileStatus}
-            diffPanelOpen={diffPanelOpen}
-            addRef={addRef}
-            onActivate={panelOps.activatePanel}
-            onMinimize={panelOps.minimizePanel}
-            onClosePanel={panelOps.closePanel}
-            onDiffClick={handleDiffClick}
-            onAddClick={openAddMenu}
-          />
+          <>
+            {chatAgent && <SurfaceToggle ptyId={ptyId} surface={surface} switching={switching} />}
+            <PanelControls
+              panels={panels}
+              activePanelId={activePanelId}
+              gitFileStatus={gitFileStatus}
+              diffPanelOpen={diffPanelOpen}
+              addRef={addRef}
+              onActivate={panelOps.activatePanel}
+              onMinimize={panelOps.minimizePanel}
+              onClosePanel={panelOps.closePanel}
+              onDiffClick={handleDiffClick}
+              onAddClick={openAddMenu}
+            />
+          </>
         ) : undefined
       }
       showCloseButton
@@ -376,6 +419,78 @@ export const TerminalHeader = memo(function TerminalHeader({
 });
 
 // ── Sub-components ───────────────────────────────────────────────────
+
+async function forkChat(ptyId: string): Promise<void> {
+  const term = terminalInstances.get(ptyId);
+  if (!term) return;
+  try {
+    const forked = await window.api.chat.fork(ptyId);
+    useChatStore.getState().adopt(forked);
+    await addChatCard(term.projectPath, {
+      id: forked.info.id,
+      agent: forked.info.agent,
+      taskId: term.taskId ?? undefined,
+      worktree: term.worktreePath ? { path: term.worktreePath, branch: term.worktreeBranch ?? '' } : undefined,
+      sandboxProvider: term.sandboxProvider,
+      label: `${term.label} (fork)`,
+    });
+  } catch (error) {
+    useProjectStore.getState().addToast(error instanceof Error ? error.message : String(error), 'error');
+  }
+}
+
+/** Which view the card's conversation is in. A switch mid-turn waits for the turn to end. */
+function SurfaceToggle({
+  ptyId,
+  surface,
+  switching,
+}: {
+  ptyId: string;
+  surface: TaskSurface;
+  switching: TaskSurface | null;
+}) {
+  if (switching) {
+    return (
+      <div className="flex items-center gap-2 h-7 shrink-0 text-[12px] text-text-tertiary">
+        <span>Switching when this turn ends</span>
+        {switching === 'terminal' && (
+          <button
+            type="button"
+            className="text-text-secondary hover:text-text-primary transition-colors duration-100"
+            onClick={() => void window.api.chat.interrupt(ptyId)}
+          >
+            Stop now
+          </button>
+        )}
+      </div>
+    );
+  }
+  const choose = (next: TaskSurface) => {
+    if (next === surface) return;
+    void (next === 'terminal' ? switchToTerminal(ptyId) : switchToChat(ptyId));
+  };
+  return (
+    <div
+      role="radiogroup"
+      aria-label="View"
+      className="flex items-center h-7 shrink-0 bg-background-secondary glass-bevel border border-bezel rounded-[12px] overflow-hidden"
+    >
+      {(['chat', 'terminal'] as const).map((option) => (
+        <button
+          key={option}
+          type="button"
+          role="radio"
+          aria-checked={surface === option}
+          aria-label={option === 'chat' ? 'Chat' : 'Terminal'}
+          className={`${groupButtonBase} !px-2 ${surface === option ? groupButtonActive : groupButtonInactive}`}
+          onClick={() => choose(option)}
+        >
+          <Icon name={option === 'chat' ? 'chat-circle' : 'terminal'} className="w-3.5 h-3.5" />
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const METADATA_CHIP =
   'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-ink/55 bg-ink/[0.05] rounded-full px-2 py-0.5 shrink-0';

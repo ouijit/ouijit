@@ -18,6 +18,8 @@ import { registerGithubHandlers } from './handlers/github';
 import { registerLinearHandlers } from './handlers/linear';
 import { registerDiffPanelHandlers } from './handlers/diffPanel';
 import { registerAnalysisHandlers } from './handlers/analysis';
+import { registerChatHandlers } from './handlers/chat';
+import { chatHost } from '../chat/host';
 import { initCliPanels } from '../cliPanels';
 import { setLensAnnouncer } from '../lens/announce';
 
@@ -50,11 +52,13 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerLinearHandlers();
   registerDiffPanelHandlers(mainWindow);
   registerAnalysisHandlers();
+  registerChatHandlers(mainWindow);
   initCliPanels(mainWindow);
   setLensAnnouncer((change) => typedPush(mainWindow, 'lens:changed', change));
 }
 
 export function cleanupIpc(): void {
+  chatHost.killAll();
   cleanupAllPtys();
   cleanupSandboxProviders();
   cleanupPlanWatchers();

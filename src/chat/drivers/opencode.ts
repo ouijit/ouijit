@@ -5,7 +5,7 @@ import { binaryVersion, compareVersions, ouijitInstructions, resolveAgentBinary 
 import { exited, onLines, stderrTail, terminate, type AgentProcess } from '../process';
 import { startAcpSession } from './acp';
 import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
-import type { ChatAnswer, ChatCapabilities, ChatNode, ChatOption, FileChange, ToolCallNode, ToolKind } from '../model';
+import type { ChatCapabilities, ChatNode, ChatOption, FileChange, ToolCallNode, ToolKind } from '../model';
 
 /** The `/api` server this driver speaks arrived with opencode 2. Older releases go through `opencode acp`. */
 export const OPENCODE_SERVER_VERSION = '2.0.0';

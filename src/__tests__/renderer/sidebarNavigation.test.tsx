@@ -31,6 +31,10 @@ vi.mock('../../components/terminal/terminalReact', () => {
     isRunner = false;
     xterm = { focus: () => {}, cols: 80, rows: 24, write: () => {} };
     tags: string[] = [];
+    surface = 'terminal';
+    focus() {
+      this.xterm.focus();
+    }
     constructor(opts: Record<string, unknown>) {
       this.ptyId = (opts.ptyId as string) ?? `placeholder-${Math.random()}`;
       this.projectPath = opts.projectPath as string;

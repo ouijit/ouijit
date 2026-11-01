@@ -3,8 +3,8 @@ import { sandboxCliAccessFor } from './sandbox/cliAccess';
 import { getWrapperBinDir, getUserDataPath, getCliPath } from './paths';
 import { getShellIntegrationDir } from './shellIntegration';
 import { getVendoredNonoPath } from './sandbox/nono/binary';
-import { getSandboxProvider } from './sandbox';
-import type { SandboxBackendId, SandboxProviderId, SandboxLaunch } from './sandbox/types';
+import type { SandboxProvider } from './sandbox/provider';
+import type { SandboxBackendId, SandboxLaunch } from './sandbox/types';
 
 /** `process.env` without its undefined values, which node-pty and child_process both reject. */
 export function hostEnv(): Record<string, string> {
@@ -60,7 +60,7 @@ export async function sandboxReferenceEnv(
 }
 
 export interface SandboxTarget {
-  provider: SandboxProviderId | undefined;
+  provider: SandboxProvider | undefined;
   projectPath: string;
   cwd: string;
   taskId?: number;
@@ -69,7 +69,7 @@ export interface SandboxTarget {
 
 export class SandboxLaunchError extends Error {
   constructor(
-    readonly provider: Exclude<SandboxProviderId, 'none'>,
+    readonly provider: SandboxBackendId,
     message: string,
   ) {
     super(message);
@@ -85,7 +85,7 @@ export async function sandboxLaunch(
   launch: SandboxLaunch,
   target: SandboxTarget,
 ): Promise<{ launch: SandboxLaunch; cwd: string }> {
-  const provider = getSandboxProvider(target.provider);
+  const provider = target.provider;
   if (!provider) return { launch, cwd: target.cwd };
   const context = {
     projectPath: target.projectPath,

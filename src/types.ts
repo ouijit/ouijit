@@ -12,6 +12,16 @@ import type {
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 import type { AnalysisOverview, DiffSignals } from './analysis/types';
 import type {
+  ChatAgentId,
+  ChatAnswer,
+  ChatAttachment,
+  ChatSessionInfo,
+  ChatSnapshot,
+  SequencedChatEvent,
+} from './chat/model';
+import type { DriverProbe, TerminalResume } from './chat/driver';
+import type { ChatDelivery, ChatStartOptions } from './chat/host';
+import type {
   RepoIdentity,
   GithubAvailability,
   PullRequestDetail,
@@ -209,6 +219,9 @@ export interface SnapshotTerminal {
   worktreeBranch: string | null;
   /** Sandbox backend for the terminal; omitted/'none' for a host shell. */
   sandboxProvider?: SandboxProviderId;
+  /** A chat card comes back as its chat, resuming the conversation under the same id. */
+  surface?: 'chat';
+  chatAgent?: ChatAgentId;
   label: string | null;
   ordinalInProject: number;
   isActiveInProject: boolean;
@@ -401,6 +414,28 @@ export interface PtyAPI {
   setWindow(): void;
 }
 
+export interface ChatAPI {
+  probe(agent: ChatAgentId): Promise<DriverProbe>;
+  start(options: ChatStartOptions): Promise<ChatSnapshot>;
+  snapshot(id: string): Promise<ChatSnapshot | null>;
+  listLive(): Promise<ChatSessionInfo[]>;
+  since(id: string, seq: number): Promise<SequencedChatEvent[] | null>;
+  latestForTask(projectPath: string, taskId: number): Promise<ChatSnapshot | null>;
+  prompt(id: string, input: { text: string; attachments?: ChatAttachment[] }, delivery?: ChatDelivery): Promise<string>;
+  answer(id: string, requestId: string, answer: ChatAnswer): Promise<boolean>;
+  interrupt(id: string): Promise<void>;
+  setModel(id: string, model: string): Promise<void>;
+  setEffort(id: string, effort: string): Promise<void>;
+  setMode(id: string, mode: string): Promise<void>;
+  rewind(id: string, userMessageId: string): Promise<void>;
+  compact(id: string): Promise<void>;
+  fork(id: string): Promise<ChatSnapshot>;
+  stop(id: string): Promise<void>;
+  discard(id: string): Promise<void>;
+  terminalResume(id: string): Promise<TerminalResume | null>;
+  onEvent(callback: (sessionId: string, event: SequencedChatEvent) => void): () => void;
+}
+
 export interface TaskWithWorkspace {
   taskNumber: number;
   name: string;
@@ -549,6 +584,7 @@ export interface ElectronAPI {
   ): Promise<EditorOpenResult>;
   openExternal(url: string): Promise<void>;
   pty: PtyAPI;
+  chat: ChatAPI;
   worktree: WorktreeAPI;
   task: TaskAPI;
   refreshProjects(): Promise<Project[]>;

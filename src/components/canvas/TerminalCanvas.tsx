@@ -127,7 +127,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
       const ptyId = node.data?.ptyId;
       if (ptyId) {
         const instance = terminalInstances.get(ptyId);
-        if (instance) requestAnimationFrame(() => instance.xterm.focus());
+        if (instance) requestAnimationFrame(() => instance.focus());
       }
     },
     [fitView],

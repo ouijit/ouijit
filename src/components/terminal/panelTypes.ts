@@ -33,6 +33,8 @@ export interface RunnerPanel {
   /** When re-run while a live instance already runs in this task, kill the old
    *  one first. Opt-in per runnable (script or run hook); defaults off. */
   restartIfRunning: boolean;
+  /** OUIJIT_HOOK_TYPE for a lifecycle hook run as a chat card's setup; otherwise derived from `source`. */
+  hookType?: 'start' | 'continue';
   /** Chosen when the runner is started, independent of its terminal's; absent runs on the host. */
   sandboxProvider?: SandboxBackendId;
   /** Set on top of the runner's own environment, on every (re)start. */

@@ -13,6 +13,8 @@ import { loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
 import { stackMembers, stackOf, useTerminalStore } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
+import { addChatCard, loadChatSettings, reconnectChatSessions } from './chat/chatActions';
+import { hookSandbox } from '../services/hookRun';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalRegistry';
 import { ensureWorktree } from '../services/worktreeRecovery';
@@ -52,7 +54,7 @@ function focusXterm(ptyId: string): void {
     const instance = terminalInstances.get(ptyId);
     if (!instance) return;
     instance.fit();
-    instance.xterm.focus();
+    instance.focus();
   });
 }
 
@@ -70,6 +72,7 @@ export async function focusTerminal(
   if (!display) {
     if (!projectPath) return;
     await reconnectOrphanedSessions(projectPath);
+    await reconnectChatSessions(projectPath);
     display = useTerminalStore.getState().displayStates[ptyId];
     if (!display) return;
   }
@@ -137,6 +140,27 @@ export async function openTaskShell(
 
   const worktree = await ensureTaskWorktree(projectPath, task);
   if (!worktree) return false;
+
+  if (options.mode === 'resume' && (await loadChatSettings()).surface === 'chat') {
+    const hooks = skipAutoHook ? null : await window.api.hooks.get(projectPath);
+    const continueHook = hooks?.continue;
+    // The agent runs in the sandbox it would have in the hook's terminal.
+    const projectDefault = await projectDefaultSandbox(projectPath);
+    const sandbox = continueHook
+      ? hookSandbox(options.sandboxProvider, continueHook, projectDefault)
+      : (options.sandboxProvider ?? projectDefault);
+    return addChatCard(projectPath, {
+      worktree,
+      taskId: task.taskNumber,
+      sandboxProvider: sandbox,
+      replaceLoadingId: options.replaceLoadingId,
+      background: options.background,
+      resumeLatest: true,
+      setup: continueHook
+        ? { name: continueHook.name, command: continueHook.command, hookType: 'continue', sandboxProvider: sandbox }
+        : undefined,
+    });
+  }
 
   return addProjectTerminal(projectPath, undefined, {
     existingWorktree: worktree,

@@ -232,7 +232,7 @@ export async function spawnPty(
       sandboxed = await sandboxLaunch(
         { file: launch.file, args: launch.args, env: finalEnv },
         {
-          provider: wrapper?.id,
+          provider: wrapper,
           projectPath: options.projectPath || options.cwd,
           cwd: options.cwd,
           taskId: options.taskId,

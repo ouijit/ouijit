@@ -5,6 +5,7 @@ import { CHAT_SETTING_KEYS, parseChatSettings } from './preferences';
 import type { ChatSessionRow } from '../db/repos/chatRepo';
 import { issueToken, revokeToken } from '../apiAuth';
 import { hostEnv, ouijitSessionEnv, sandboxLaunch } from '../sessionEnv';
+import { getSandboxProvider } from '../sandbox';
 import { isActiveSandbox, isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
 import { spawnAgentProcess, type AgentProcess, type AgentSpawn } from './process';
 import { getDriver } from './drivers';
@@ -239,6 +240,8 @@ export class ChatHost {
           agentSessionId: null,
           projectPath: options.projectPath,
           cwd: options.cwd,
+          worktreePath: options.worktreePath ?? null,
+          sandbox: isActiveSandbox(options.sandboxProvider) ? options.sandboxProvider : null,
           taskId: options.taskId,
           status: 'starting',
           capabilities: NO_CAPABILITIES,
@@ -330,7 +333,7 @@ export class ChatHost {
     const { launch, cwd } = await sandboxLaunch(
       { file: spawn.command, args: spawn.args, env },
       {
-        provider: session.row.sandbox_provider,
+        provider: getSandboxProvider(session.row.sandbox_provider),
         projectPath: session.row.project_path,
         cwd: spawn.cwd ?? session.row.cwd,
         taskId: session.row.task_id ?? undefined,

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useShallow } from 'zustand/react/shallow';
 import { XTermContainer } from './XTermContainer';
+import { ChatView } from '../chat/ChatView';
 import { RunnerPanel } from './RunnerPanel';
 import { DiffPanel } from '../diff/DiffPanel';
 import { PlanPanel } from '../plan/PlanPanel';
@@ -21,10 +22,11 @@ const XTERM_CLASS =
   'terminal-xterm-container flex-1 min-h-0 min-w-0 rounded-none border-none pt-4 pl-4 pr-2 pb-2 overflow-hidden';
 
 export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
-  const { panels, activePanelId, panelFullWidth, diffPanelOpen } = useTerminalStore(
+  const { panels, activePanelId, panelFullWidth, diffPanelOpen, surface } = useTerminalStore(
     useShallow((s) => {
       const d = s.displayStates[ptyId];
       return {
+        surface: d?.surface ?? 'terminal',
         panels: d?.panels ?? EMPTY_PANELS,
         activePanelId: d?.activePanelId ?? null,
         panelFullWidth: d?.panelFullWidth ?? true,
@@ -90,7 +92,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
     if (!handle || !row || !panel || !instance) return;
 
     let active = false;
-    const xtermEl = row.querySelector<HTMLElement>('.terminal-xterm-container');
+    const xtermEl = row.querySelector<HTMLElement>('[data-card-main]');
 
     const onMouseDown = (e: MouseEvent) => {
       e.preventDefault();
@@ -154,19 +156,28 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   return (
     <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
       <div ref={rowRef} className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
-        <XTermContainer
-          ptyId={ptyId}
-          className={XTERM_CLASS}
+        <div
+          data-card-main
+          className="relative flex flex-col min-h-0 min-w-0 overflow-hidden"
           style={{
             flexGrow: slotOpen ? 0 : 1,
             flexShrink: 1,
             flexBasis: xtermBasis,
             transition,
-            // Collapse padding too when hidden, so basis 0 means truly zero width.
-            ...(slotOpen && !split ? { padding: 0 } : {}),
             background: 'var(--color-terminal-bg)',
           }}
-        />
+        >
+          {surface === 'chat' ? (
+            <ChatView cardId={ptyId} />
+          ) : (
+            <XTermContainer
+              ptyId={ptyId}
+              className={XTERM_CLASS}
+              // Collapse padding too when hidden, so basis 0 means truly zero width.
+              style={{ background: 'var(--color-terminal-bg)', ...(slotOpen && !split ? { padding: 0 } : {}) }}
+            />
+          )}
+        </div>
         {/* One pixel of cut, with a grab target either side of it — see
             `.pane-seam`. The target is lifted but the cut is not: the panel
             is flush and positioned, so it would otherwise take the half of
