@@ -149,9 +149,8 @@ export function ChatView({ cardId }: { cardId: string }) {
             <ChatNodeView key={node.id} node={node} context={context} />
           ))}
           {info.status === 'running' && (
-            <div className="flex items-center gap-2 text-[13px] text-text-tertiary">
+            <div className="flex items-center h-5" role="status" aria-label="Working">
               <StatusGlyph status="thinking" size={8} />
-              Working
             </div>
           )}
           <StatusLine info={info} cardId={cardId} />
