@@ -3,6 +3,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import { useShallow } from 'zustand/react/shallow';
 import { XTermContainer } from './XTermContainer';
 import { ChatView } from '../chat/ChatView';
+import { SurfaceToggle } from '../chat/SurfaceToggle';
 import { RunnerPanel } from './RunnerPanel';
 import { DiffPanel } from '../diff/DiffPanel';
 import { PlanPanel } from '../plan/PlanPanel';
@@ -22,11 +23,12 @@ const XTERM_CLASS =
   'terminal-xterm-container flex-1 min-h-0 min-w-0 rounded-none border-none pt-4 pl-4 pr-2 pb-2 overflow-hidden';
 
 export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
-  const { panels, activePanelId, panelFullWidth, diffPanelOpen, surface } = useTerminalStore(
+  const { panels, activePanelId, panelFullWidth, diffPanelOpen, surface, hasChat } = useTerminalStore(
     useShallow((s) => {
       const d = s.displayStates[ptyId];
       return {
         surface: d?.surface ?? 'terminal',
+        hasChat: (d?.chatAgent ?? null) !== null,
         panels: d?.panels ?? EMPTY_PANELS,
         activePanelId: d?.activePanelId ?? null,
         panelFullWidth: d?.panelFullWidth ?? true,
@@ -167,6 +169,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
             background: 'var(--color-terminal-bg)',
           }}
         >
+          <SurfaceToggle ptyId={ptyId} />
           {surface === 'chat' ? (
             <ChatView cardId={ptyId} />
           ) : (
@@ -174,7 +177,12 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
               ptyId={ptyId}
               className={XTERM_CLASS}
               // Collapse padding too when hidden, so basis 0 means truly zero width.
-              style={{ background: 'var(--color-terminal-bg)', ...(slotOpen && !split ? { padding: 0 } : {}) }}
+              style={{
+                background: 'var(--color-terminal-bg)',
+                // Room for the chat/terminal switch floating in the corner.
+                ...(hasChat ? { paddingTop: 48 } : {}),
+                ...(slotOpen && !split ? { padding: 0 } : {}),
+              }}
             />
           )}
         </div>

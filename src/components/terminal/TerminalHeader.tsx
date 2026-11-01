@@ -15,7 +15,6 @@ import { AddPanelMenu } from './AddPanelMenu';
 import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
 import { RunnerDot } from './StatusDot';
-import { SegmentedGroup } from '../ui/SegmentedGroup';
 import type { GitFileStatus, RunnerScript, SandboxBackendId, Script, ScriptHook } from '../../types';
 import { openEntries, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
@@ -27,8 +26,7 @@ import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
 import { describeDiffComparison, filesInDiff } from '../../diffSource';
 import { useWantsYou } from './wantsYou';
 import { useChatStore } from '../../stores/chatStore';
-import { addChatCard, switchToChat, switchToTerminal } from '../chat/chatActions';
-import type { TaskSurface } from '../../chat/preferences';
+import { addChatCard } from '../chat/chatActions';
 
 const EMPTY_TAGS: string[] = [];
 const NO_BACKENDS: SandboxBackendId[] = [];
@@ -62,8 +60,6 @@ export const TerminalHeader = memo(function TerminalHeader({
     panels,
     activePanelId,
     surface,
-    chatAgent,
-    switching,
   } = useTerminalStore(
     useShallow((s) => {
       const d = s.displayStates[ptyId];
@@ -79,8 +75,6 @@ export const TerminalHeader = memo(function TerminalHeader({
         panels: d?.panels ?? EMPTY_PANELS,
         activePanelId: d?.activePanelId ?? null,
         surface: d?.surface ?? 'terminal',
-        chatAgent: d?.chatAgent ?? null,
-        switching: d?.switching ?? null,
       };
     }),
   );
@@ -395,7 +389,6 @@ export const TerminalHeader = memo(function TerminalHeader({
       actions={
         isActive ? (
           <>
-            {chatAgent && <SurfaceToggle ptyId={ptyId} surface={surface} switching={switching} />}
             <PanelControls
               panels={panels}
               activePanelId={activePanelId}
@@ -438,57 +431,6 @@ async function forkChat(ptyId: string): Promise<void> {
   } catch (error) {
     useProjectStore.getState().addToast(error instanceof Error ? error.message : String(error), 'error');
   }
-}
-
-/** Which view the card's conversation is in. A switch mid-turn waits for the turn to end. */
-function SurfaceToggle({
-  ptyId,
-  surface,
-  switching,
-}: {
-  ptyId: string;
-  surface: TaskSurface;
-  switching: TaskSurface | null;
-}) {
-  if (switching) {
-    return (
-      <div className="flex items-center gap-2 h-7 shrink-0 text-[12px] text-text-tertiary">
-        <span>Switching when this turn ends</span>
-        {switching === 'terminal' && (
-          <button
-            type="button"
-            className="text-text-secondary hover:text-text-primary transition-colors duration-100"
-            onClick={() => void window.api.chat.interrupt(ptyId)}
-          >
-            Stop now
-          </button>
-        )}
-      </div>
-    );
-  }
-  const choose = (next: TaskSurface) => {
-    if (next === surface) return;
-    void (next === 'terminal' ? switchToTerminal(ptyId) : switchToChat(ptyId));
-  };
-  return (
-    <div role="radiogroup" aria-label="View" className="shrink-0 flex">
-      <SegmentedGroup>
-        {(['chat', 'terminal'] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={surface === option}
-            aria-label={option === 'chat' ? 'Chat' : 'Terminal'}
-            className={`${groupButtonBase} !px-2 ${surface === option ? groupButtonActive : groupButtonInactive}`}
-            onClick={() => choose(option)}
-          >
-            <Icon name={option === 'chat' ? 'chat-circle' : 'terminal'} className="w-3.5 h-3.5" />
-          </button>
-        ))}
-      </SegmentedGroup>
-    </div>
-  );
 }
 
 const METADATA_CHIP =
