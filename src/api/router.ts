@@ -83,7 +83,7 @@ import { getHookStatus } from '../hookServer';
 import { liveNotes } from '../diffNotesService';
 import { isSessionLive, getSessionTaskContext } from '../sessions';
 import { chatHost, ChatSessionNotFound } from '../chat/host';
-import { transcriptText, pendingRequests } from '../chat/model';
+import { transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext } from '../apiAuth';
@@ -500,6 +500,25 @@ async function terminalTags(op: Omit<CliTagOp, 'requestId'>): Promise<{ ptyId: s
   return { ptyId: op.ptyId!, tags: tags ?? [] };
 }
 
+function parseAnswer(body: Record<string, unknown>): ChatAnswer {
+  if (typeof body.option === 'string') {
+    return {
+      kind: 'option',
+      optionId: body.option,
+      ...(typeof body.message === 'string' && { message: body.message }),
+    };
+  }
+  if (body.answers && typeof body.answers === 'object') {
+    const answers: Record<string, string[]> = {};
+    for (const [key, value] of Object.entries(body.answers as Record<string, unknown>)) {
+      answers[key] = (Array.isArray(value) ? value : [value]).map(String);
+    }
+    return { kind: 'answers', answers };
+  }
+  if (body.cancel === true) return { kind: 'cancel' };
+  throw new HttpError(400, 'Body needs option, answers or cancel');
+}
+
 const routes: Route[] = [
   // ── Tasks ────────────────────────────────────────────────────────
   route('GET', 'tasks', (r) => {
@@ -879,11 +898,12 @@ const routes: Route[] = [
   route(
     'GET',
     'chats/:ptyId',
-    (r) => {
+    async (r) => {
       const id = r.segments[1];
       const after = r.query.get('after');
       if (after !== null) {
-        const events = chatHost.since(id, requireInt(after, 'after'));
+        const wait = Math.min(Number(r.query.get('wait') ?? 0) || 0, 30) * 1000;
+        const events = await chatHost.waitFor(id, requireInt(after, 'after'), wait);
         if (events === null) throw new HttpError(410, 'Those events are gone; read the chat again');
         return { id, events };
       }
@@ -892,7 +912,13 @@ const routes: Route[] = [
       return {
         ...snapshot,
         text: transcriptText(snapshot.nodes),
-        pending: pendingRequests(snapshot.nodes).map((node) => ({ id: node.id, title: node.title })),
+        pending: pendingRequests(snapshot.nodes).map((node) => ({
+          id: node.id,
+          title: node.title,
+          detail: node.detail,
+          options: node.options,
+          questions: node.questions,
+        })),
       };
     },
     false,
@@ -908,6 +934,27 @@ const routes: Route[] = [
       const delivery = r.body.delivery === 'steer' || r.body.delivery === 'queue' ? r.body.delivery : 'auto';
       try {
         return { id: await chatHost.prompt(r.segments[1], { text }, delivery) };
+      } catch (error) {
+        if (error instanceof ChatSessionNotFound) throw new HttpError(404, error.message);
+        throw error;
+      }
+    },
+    true,
+  ),
+
+  route(
+    'POST',
+    'chats/:id/requests/:requestId',
+    (r) => {
+      const id = r.segments[1];
+      // An agent answering its own approval would make the approval meaningless.
+      if (r.auth.ptyId === id) throw new HttpError(403, 'A chat cannot answer its own requests');
+      const answer = parseAnswer(r.body);
+      try {
+        if (!chatHost.answer(id, r.segments[3], answer)) {
+          throw new HttpError(409, 'That request is no longer waiting; it was answered or cancelled');
+        }
+        return { success: true };
       } catch (error) {
         if (error instanceof ChatSessionNotFound) throw new HttpError(404, error.message);
         throw error;

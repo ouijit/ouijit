@@ -179,11 +179,14 @@ ouijit tag clear                              # removes all of them</code></pre>
   <h2 id="chats">Chats</h2>
   <p>
     A task can run its agent as a chat instead of a terminal. These read a chat and send it messages; a chat
-    card's pty id works with the tag and panel commands too. Sending and interrupting are host only.
+    card's pty id works with the tag and panel commands too. Sending, answering and interrupting are host only, and a
+    chat cannot answer its own approvals.
   </p>
   <pre class="glass-bevel"><code>ouijit chat list                              # running chats
 ouijit chat read                              # this card's chat: status, transcript, pending approvals
 ouijit chat read pty_abc123 --after 42        # only what happened since sequence 42
+ouijit chat read pty_abc123 --after 42 --wait 25   # wait for the next event
+ouijit chat answer pty_abc123 claude-approval-toolu_1 --option allow
 ouijit chat send pty_abc123 "also update the docs"
 ouijit chat interrupt pty_abc123</code></pre>
 

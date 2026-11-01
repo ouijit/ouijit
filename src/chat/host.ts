@@ -176,7 +176,12 @@ export class ChatHost {
   private readonly sessions = new Map<string, HostedSession>();
   private readonly listeners = new Set<ChatListener>();
 
-  constructor(private readonly options: ChatHostOptions = {}) {}
+  constructor(private options: ChatHostOptions = {}) {}
+
+  /** Test-only: put a recorded agent behind the app's own host. */
+  _setOptionsForTesting(options: ChatHostOptions): void {
+    this.options = options;
+  }
 
   subscribe(listener: ChatListener): () => void {
     this.listeners.add(listener);
@@ -208,6 +213,28 @@ export class ChatHost {
 
   since(id: string, seq: number): SequencedChatEvent[] | null {
     return this.sessions.get(id)?.since(seq) ?? null;
+  }
+
+  /**
+   * The events after `seq`, waiting up to `waitMs` for the first one when
+   * there are none yet: a long poll, so a client over plain HTTP can follow a
+   * chat live. Null when `seq` has fallen out of the replay window.
+   */
+  async waitFor(id: string, seq: number, waitMs: number): Promise<SequencedChatEvent[] | null> {
+    const ready = this.since(id, seq);
+    if (ready === null || ready.length > 0 || waitMs <= 0) return ready;
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(done, waitMs);
+      const unsubscribe = this.subscribe((sessionId) => {
+        if (sessionId === id) done();
+      });
+      function done() {
+        clearTimeout(timer);
+        unsubscribe();
+        resolve();
+      }
+    });
+    return this.since(id, seq);
   }
 
   /** The most recent stored session of a task. */

@@ -408,12 +408,16 @@ ouijit tag clear [pty-id]                     # remove all of them
 ouijit chat list                              # → running chats [{id, agent, status, taskId, ...}]
 ouijit chat read [pty-id]                     # → {info, nodes, seq, text, pending} — defaults to this card
 ouijit chat read <pty-id> --after <seq>       # → {id, events} after a sequence number, for following along
+                                              # add --wait <seconds> to wait for the next one (long poll)
+ouijit chat answer <pty-id> <request-id> --option <id> [--message "<note>"]
+ouijit chat answer <pty-id> <request-id> --answer <question-id>=<value>...  # or --cancel
 ouijit chat send <pty-id> "<text>"            # steers a running turn, or starts one; --queue waits for the turn
 ouijit chat send <pty-id> -                   # text on stdin, for anything multi-line
 ouijit chat interrupt <pty-id>                # stop the running turn
 
 A chat card has a pty-id like any terminal, so tag, markdown and preview commands
-reach it the same way. Approvals in a chat are answered in the app, not here.
+reach it the same way. A chat cannot answer its own requests; sending, answering
+and interrupting need a host terminal.
 
 ## Hook Commands (project lifecycle scripts)
 Hook types: start (task moves to in_progress), continue (a task already in_progress is reopened),

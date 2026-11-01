@@ -80,6 +80,12 @@ function openDiff(cardId: string): void {
   terminalInstances.get(cardId)?.setDiffPanelOpen(true);
 }
 
+/** Agents name files by absolute path; inside the card's own worktree the rest of the path says nothing. */
+function relativeToCard(text: string, cardId: string): string {
+  const root = terminalInstances.get(cardId)?.worktreePath;
+  return root ? text.split(`${root}/`).join('') : text;
+}
+
 function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const hasDetail = Boolean(node.command || node.output || node.files.some((f) => f.diff) || children);
@@ -93,7 +99,7 @@ function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: 
         aria-expanded={open}
       >
         <Icon name={TOOL_ICONS[node.tool]} className="w-3.5 h-3.5 shrink-0 text-text-tertiary" />
-        <span className="flex-1 truncate">{node.title}</span>
+        <span className="flex-1 truncate">{relativeToCard(node.title, cardId)}</span>
         {node.files.map((file) => {
           const counts = fileCounts(file);
           return counts ? (
@@ -117,7 +123,7 @@ function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: 
               file.diff && (
                 <div key={file.path} className="flex flex-col gap-1">
                   <div className="flex items-center gap-2 text-[12px] text-text-tertiary">
-                    <span className="font-mono truncate">{file.path}</span>
+                    <span className="font-mono truncate">{relativeToCard(file.path, cardId)}</span>
                     <button
                       type="button"
                       className="ml-auto hover:text-text-primary transition-colors duration-100"

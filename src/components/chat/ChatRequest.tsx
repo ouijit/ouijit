@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ChatAnswer, RequestNode, RequestOption } from '../../chat/model';
+import { terminalInstances } from '../terminal/terminalRegistry';
 
 function answerLabel(node: RequestNode): string {
   const answer = node.answer;
@@ -142,6 +143,11 @@ function Questions({ node, cardId }: { node: RequestNode; cardId: string }) {
   );
 }
 
+function withoutWorktree(text: string, cardId: string): string {
+  const root = terminalInstances.get(cardId)?.worktreePath;
+  return root ? text.split(`${root}/`).join('') : text;
+}
+
 /** Something the agent is blocked on. Any client can answer it; the first answer wins. */
 export function ChatRequestView({ node, cardId }: { node: RequestNode; cardId: string }) {
   if (node.status !== 'pending') {
@@ -153,7 +159,7 @@ export function ChatRequestView({ node, cardId }: { node: RequestNode; cardId: s
   }
   return (
     <div className="glass-bevel rounded-[12px] border border-bezel bg-terminal-surface px-3 py-2.5 flex flex-col gap-2">
-      <div className="text-sm text-text-primary break-words">{node.title}</div>
+      <div className="text-sm text-text-primary break-words">{withoutWorktree(node.title, cardId)}</div>
       {node.detail && (
         <pre className="font-mono text-[12px] text-text-secondary whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
           {node.detail}

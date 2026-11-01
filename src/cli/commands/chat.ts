@@ -23,6 +23,9 @@ Examples:
   ouijit chat list
   ouijit chat read pty_abc123
   ouijit chat read pty_abc123 --after 42
+  ouijit chat read pty_abc123 --after 42 --wait 25
+  ouijit chat answer pty_abc123 claude-approval-toolu_1 --option allow
+  ouijit chat answer pty_abc123 codex-input-7 --answer q1=yes
   ouijit chat send pty_abc123 "also update the docs"
   echo "a longer message" | ouijit chat send pty_abc123 -
   ouijit chat interrupt pty_abc123`,
@@ -40,8 +43,12 @@ Examples:
     .description('Show a chat: its status, transcript as text, and anything waiting on a person')
     .argument('[pty-id]', 'chat session id (defaults to OUIJIT_PTY_ID)')
     .option('--after <seq>', 'only the events after this sequence number')
-    .action(async (explicitId: string | undefined, options: { after?: string }) => {
-      const query = options.after ? `?after=${encodeURIComponent(options.after)}` : '';
+    .option('--wait <seconds>', 'with --after, wait up to this long (max 30) for the next event')
+    .action(async (explicitId: string | undefined, options: { after?: string; wait?: string }) => {
+      const params = new URLSearchParams();
+      if (options.after) params.set('after', options.after);
+      if (options.after && options.wait) params.set('wait', options.wait);
+      const query = params.size ? `?${params}` : '';
       printJson(await get(`${chatUrl(resolvePtyId(explicitId))}${query}`));
     });
 
@@ -55,6 +62,38 @@ Examples:
       const body = await readBody(text);
       printJson(await post(`${chatUrl(id)}/messages`, { text: body, ...(options.queue && { delivery: 'queue' }) }));
     });
+
+  chat
+    .command('answer')
+    .description('Answer an approval or question a chat is waiting on; a chat cannot answer its own')
+    .argument('<pty-id>', 'chat session id')
+    .argument('<request-id>', 'from the pending list of `chat read`')
+    .option('--option <id>', 'pick one of the request options')
+    .option('--message <text>', 'with --option, a note for the agent')
+    .option('--answer <id=value...>', 'answer questions by id')
+    .option('--cancel', 'dismiss the request')
+    .action(
+      async (
+        id: string,
+        requestId: string,
+        options: { option?: string; message?: string; answer?: string[]; cancel?: boolean },
+      ) => {
+        const body: Record<string, unknown> = {};
+        if (options.option) body.option = options.option;
+        if (options.message) body.message = options.message;
+        if (options.cancel) body.cancel = true;
+        if (options.answer) {
+          const answers: Record<string, string[]> = {};
+          for (const pair of options.answer) {
+            const split = pair.indexOf('=');
+            const key = split === -1 ? pair : pair.slice(0, split);
+            (answers[key] ??= []).push(split === -1 ? '' : pair.slice(split + 1));
+          }
+          body.answers = answers;
+        }
+        printJson(await post(`${chatUrl(id)}/requests/${encodeURIComponent(requestId)}`, body));
+      },
+    );
 
   chat
     .command('interrupt')
