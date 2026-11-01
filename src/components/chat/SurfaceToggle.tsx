@@ -1,5 +1,6 @@
 import { useTerminalStore } from '../../stores/terminalStore';
 import { Icon } from '../terminal/Icon';
+import { SegmentedGroup, segmentBase, segmentQuiet } from '../ui/SegmentedGroup';
 import { switchToChat, switchToTerminal } from './chatActions';
 import type { TaskSurface } from '../../chat/preferences';
 
@@ -34,25 +35,25 @@ export function SurfaceToggle({ ptyId }: { ptyId: string }) {
           )}
         </span>
       )}
-      <div role="radiogroup" aria-label="View" className="flex items-center gap-0.5 p-0.5 rounded-[9px] bg-ink/[0.05]">
-        {(['chat', 'terminal'] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={surface === option}
-            aria-label={option === 'chat' ? 'Chat' : 'Terminal'}
-            disabled={switching !== null}
-            className={`w-6 h-6 flex items-center justify-center rounded-[7px] transition-colors duration-150 disabled:opacity-40 ${
-              surface === option
-                ? 'bg-terminal-bg text-text-primary shadow-[0_0_0_1px_var(--color-separator)]'
-                : 'text-text-tertiary hover:text-text-primary'
-            }`}
-            onClick={() => choose(option)}
-          >
-            <Icon name={option === 'chat' ? 'chat-circle' : 'terminal'} className="w-3.5 h-3.5" />
-          </button>
-        ))}
+      <div role="radiogroup" aria-label="View">
+        <SegmentedGroup>
+          {(['chat', 'terminal'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={surface === option}
+              aria-label={option === 'chat' ? 'Chat' : 'Terminal'}
+              disabled={switching !== null}
+              className={`${segmentBase} ${
+                surface === option ? 'bg-background-tertiary text-text-primary' : segmentQuiet
+              }`}
+              onClick={() => choose(option)}
+            >
+              <Icon name={option === 'chat' ? 'chat-circle' : 'terminal'} className="w-3.5 h-3.5" />
+            </button>
+          ))}
+        </SegmentedGroup>
       </div>
     </div>
   );
