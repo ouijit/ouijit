@@ -32,7 +32,9 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
   const here = LENS_AGENTS.filter((agent) => health[agent.id]);
 
   if (here.length === 0) {
-    return <div className="px-4 py-3 text-[13px] text-text-tertiary">Lenses need Claude Code or Codex installed.</div>;
+    return (
+      <div className="px-4 py-3 text-[13px] text-text-tertiary">Lenses need Claude Code, Codex or pi installed.</div>
+    );
   }
 
   // One agent is no decision, and the row could not be acted on.

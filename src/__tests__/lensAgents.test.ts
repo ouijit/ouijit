@@ -11,10 +11,10 @@ describe('which agent writes a lens', () => {
   test('every preset is one-shot, isolated from the repo, and held to the schema', () => {
     for (const agent of LENS_AGENTS) {
       const flags = agent.args.join(' ');
-      expect(['inline', 'file']).toContain(agent.schemaVia);
+      expect(['inline', 'file', 'tool']).toContain(agent.schemaVia);
       // Nothing of the repository's own configuration loads: no hooks, no
       // plugins, no MCP servers, no instructions file.
-      expect(flags).toMatch(/--safe-mode|--ignore-user-config/);
+      expect(flags).toMatch(/--safe-mode|--ignore-user-config|--no-approve/);
       expect(agent.command).toBeTruthy();
     }
   });

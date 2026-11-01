@@ -14,6 +14,7 @@ import * as os from 'node:os';
 import { runLens } from '../../lens/runLens';
 import { buildLensPrompt } from '../../lens/lensPrompt';
 import type { LensAgent } from '../../lens/lensAgents';
+import { LENS_SCHEMA } from '../../lens/lensSchema';
 import { fileDiff, diffsByPath } from '../lensFixtures';
 
 /** What `LENS_SCHEMA` demands: every field present, and every optional one null. */
@@ -28,6 +29,7 @@ let room: string;
 /** Where the fake writes what it was handed, for asserting the call itself. */
 const argvFile = () => path.join(room, 'argv');
 const stdinFile = () => path.join(room, 'stdin');
+const extensionCopy = () => path.join(room, 'submit.mjs');
 
 /**
  * A binary at an absolute path rather than one on PATH: `capture` spawns
@@ -42,9 +44,12 @@ async function fakeAgent(body: string, exit = 0): Promise<string> {
       '#!/bin/sh',
       `cat > "${stdinFile()}"`,
       `printf '%s\\n' "$@" > "${argvFile()}"`,
-      // Codex's shape: the answer goes to the file named by `-o`.
-      'out=""',
-      'while [ $# -gt 0 ]; do if [ "$1" = "-o" ]; then out="$2"; fi; shift; done',
+      // Codex's shape: the answer goes to the file named by `-o`. pi's: the
+      // extension is kept for the test to load, and the answer goes where its
+      // tool writes.
+      'out=""; ext=""',
+      'while [ $# -gt 0 ]; do case "$1" in -o) out="$2";; --extension) ext="$2";; esac; shift; done',
+      `if [ -n "$ext" ]; then cp "$ext" "${extensionCopy()}"; out="$OUIJIT_LENS_ANSWER"; fi`,
       `if [ -n "$out" ]; then printf '%s' '${body}' > "$out"; else printf '%s' '${body}'; fi`,
       `exit ${exit}`,
     ].join('\n'),
@@ -54,7 +59,7 @@ async function fakeAgent(body: string, exit = 0): Promise<string> {
 }
 
 function agentFor(command: string, schemaVia: LensAgent['schemaVia']): LensAgent {
-  const args = schemaVia === 'inline' ? ['-p', '--output-format', 'json'] : ['exec', '-'];
+  const args = { inline: ['-p', '--output-format', 'json'], file: ['exec', '-'], tool: ['-p'] }[schemaVia];
   return { id: 'fake', label: 'Fake', command, args, schemaVia };
 }
 
@@ -106,6 +111,43 @@ describe('asking an agent CLI for a grouping', () => {
     const argv = await fs.readFile(argvFile(), 'utf8');
     expect(argv).toContain('--output-schema');
     expect(argv).toContain('-o');
+  });
+
+  test('the tool preset loads an extension whose one tool is held to the schema and writes the reply', async () => {
+    const result = await run(agentFor(await fakeAgent(JSON.stringify(GROUPS)), 'tool'));
+    expect(result.success).toBe(true);
+    expect(JSON.parse(result.body!).groups[0].title).toBe('Transport');
+
+    // The extension against the slice of pi's API it uses: the tool's parameters
+    // are the schema, and calling it writes the reply and ends the run.
+    let tool:
+      | {
+          name: string;
+          parameters: unknown;
+          execute: (id: string, params: unknown) => Promise<{ terminate?: boolean }>;
+        }
+      | undefined;
+    const { default: extension } = await import(extensionCopy());
+    const schemaFile = path.join(room, 'schema.json');
+    const answerFile = path.join(room, 'answer.json');
+    await fs.writeFile(schemaFile, JSON.stringify(LENS_SCHEMA));
+    process.env.OUIJIT_LENS_SCHEMA = schemaFile;
+    process.env.OUIJIT_LENS_ANSWER = answerFile;
+    try {
+      extension({ registerTool: (registered: typeof tool) => (tool = registered) });
+      expect(tool!.name).toBe('submit');
+      expect(tool!.parameters).toEqual(LENS_SCHEMA);
+      expect((await tool!.execute('call-1', GROUPS)).terminate).toBe(true);
+      expect(JSON.parse(await fs.readFile(answerFile, 'utf8'))).toEqual(GROUPS);
+    } finally {
+      delete process.env.OUIJIT_LENS_SCHEMA;
+      delete process.env.OUIJIT_LENS_ANSWER;
+    }
+
+    // A model can stop without calling the tool, and that is a failed run.
+    const unsubmitted = await run(agentFor(await fakeAgent(''), 'tool'));
+    expect(unsubmitted.success).toBe(false);
+    expect(unsubmitted.error).toContain('without submitting');
   });
 
   test('a non-zero exit that still answered counts, and one that said nothing usable does not', async () => {
