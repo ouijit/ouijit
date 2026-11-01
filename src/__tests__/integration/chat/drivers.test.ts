@@ -10,6 +10,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ChatHost } from '../../../chat/host';
+import { CLI_REFERENCE, getCliReferencePath } from '../../../hookServer';
 import { getDriver } from '../../../chat/drivers';
 import { _resetCacheForTesting, setGlobalSetting } from '../../../db';
 import type { ChatAgentId, ChatNode, ChatSnapshot, RequestNode, ToolCallNode } from '../../../chat/model';
@@ -24,6 +25,9 @@ const originalPath = process.env.PATH;
 
 beforeAll(() => {
   _resetCacheForTesting();
+  // Every agent is handed the CLI reference the app installs; the test home has none until this.
+  fs.mkdirSync(path.dirname(getCliReferencePath()), { recursive: true });
+  fs.writeFileSync(getCliReferencePath(), CLI_REFERENCE);
   if (recording) return;
   fakeBin = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-agents-'));
   for (const agent of ['claude', 'codex', 'pi', 'opencode'] as const) {
