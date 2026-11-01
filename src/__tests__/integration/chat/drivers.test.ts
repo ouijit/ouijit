@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { deflateSync } from 'node:zlib';
 import { ChatHost } from '../../../chat/host';
 import { CLI_REFERENCE, getCliReferencePath } from '../../../hookServer';
 import { getDriver } from '../../../chat/drivers';
@@ -356,7 +357,12 @@ describe.each(['claude', 'codex', 'pi', 'opencode', 'acp'] as const)('%s cleared
       await until(host, id, (s) => s.info.commands.some((c) => c.name === 'clear'), timeout);
 
       await host.prompt(id, { text: 'Remember the secret word apple. Reply with only: ok' });
-      await until(host, id, (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message'), timeout);
+      await until(
+        host,
+        id,
+        (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message'),
+        timeout,
+      );
       const before = host.snapshot(id)!.info.agentSessionId;
 
       await host.prompt(id, { text: '/clear' });
@@ -374,10 +380,130 @@ describe.each(['claude', 'codex', 'pi', 'opencode', 'acp'] as const)('%s cleared
       expect(after.nodes.filter((n) => n.kind === 'user_message').map((n) => n.text)).toEqual([
         'What secret word did I ask you to remember? If none, reply with only: none',
       ]);
-      const reply = after.nodes.filter((n) => n.kind === 'assistant_message').map((n) => n.text).join(' ');
+      const reply = after.nodes
+        .filter((n) => n.kind === 'assistant_message')
+        .map((n) => n.text)
+        .join(' ');
       expect(reply).not.toMatch(/apple/i);
       await host.stop(id);
     },
     timeout * 3,
+  );
+});
+
+/** A 64×64 PNG of one solid colour, so the only thing to say about it is the colour. */
+function solidPng(file: string, [r, g, b]: [number, number, number]): void {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc = (bytes: Buffer) => {
+    let c = 0xffffffff;
+    for (const byte of bytes) c = crcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const out = Buffer.alloc(body.length + 8);
+    out.writeUInt32BE(data.length, 0);
+    body.copy(out, 4);
+    out.writeUInt32BE(crc(body), body.length + 4);
+    return out;
+  };
+  const size = 64;
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header[8] = 8;
+  header[9] = 2;
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(size * 3).fill(Buffer.from([r, g, b]))]);
+  fs.writeFileSync(
+    file,
+    Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk('IHDR', header),
+      chunk('IDAT', deflateSync(Buffer.concat(Array.from({ length: size }, () => row)))),
+      chunk('IEND', Buffer.alloc(0)),
+    ]),
+  );
+}
+
+describe.each(['claude', 'codex', 'pi', 'opencode', 'acp'] as const)('%s seeing an image', (agent) => {
+  const name = `${agent}-image`;
+  const available = recording || fs.existsSync(cassettePath(name));
+
+  test.skipIf(!available)(
+    'an attached image reaches the agent as an image it can see',
+    async () => {
+      const cwd = repo();
+      if (agent === 'acp') await setGlobalSetting('chat:acpCommand', 'opencode acp');
+      const probe = recording ? await getDriver(agent).probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording ? recordingSpawn(name, agent, probe?.version) : replayingSpawn(loadCassettes(name)),
+      });
+      const id = `pty-image-${agent}`;
+      const image = path.join(cwd, 'swatch.png');
+      solidPng(image, [220, 20, 20]);
+      await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });
+      expect(host.snapshot(id)!.info.capabilities.images).toBe(true);
+
+      await host.prompt(id, {
+        text: 'What single colour fills the attached image? Do not use any tools. Reply with only the colour name.',
+        attachments: [{ path: image, name: 'swatch.png', mimeType: 'image/png' }],
+      });
+      const done = await until(
+        host,
+        id,
+        (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message'),
+        timeout,
+      );
+      const sent = done.nodes.find((n) => n.kind === 'user_message');
+      expect(sent && 'attachments' in sent ? sent.attachments?.map((a) => a.name) : []).toEqual(['swatch.png']);
+      const reply = done.nodes
+        .filter((n) => n.kind === 'assistant_message')
+        .map((n) => n.text)
+        .join(' ');
+      expect(reply).toMatch(/red/i);
+      await host.stop(id);
+    },
+    timeout * 2,
+  );
+});
+
+describe('claude background work', () => {
+  const name = 'claude-background';
+  const available = recording || fs.existsSync(cassettePath(name));
+
+  test.skipIf(!available)(
+    'a shell the agent leaves running is listed until it is stopped from the chat',
+    async () => {
+      const cwd = repo();
+      const probe = recording ? await getDriver('claude').probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording ? recordingSpawn(name, 'claude', probe?.version) : replayingSpawn(loadCassettes(name)),
+      });
+      const unsubscribe = approveEverything(host);
+      const id = 'pty-background-claude';
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+
+      await host.prompt(id, {
+        text: 'Use your Bash tool with run_in_background set to true to run: sleep 600. Do not wait for it. Then reply with only: started',
+      });
+      const running = await until(
+        host,
+        id,
+        (s) => s.info.status === 'idle' && (s.info.background ?? []).some((task) => task.kind === 'shell'),
+        timeout,
+      );
+      const shell = running.info.background!.find((task) => task.kind === 'shell')!;
+      expect(shell.description).toBeTruthy();
+
+      await host.stopBackground(id, shell.id);
+      await until(host, id, (s) => !(s.info.background ?? []).some((task) => task.id === shell.id), timeout);
+      unsubscribe();
+      await host.stop(id);
+    },
+    timeout * 2,
   );
 });

@@ -3,6 +3,7 @@ import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { ChatNodeView, type NodeContext } from './ChatNodes';
+import { ChatBackground } from './ChatBackground';
 import { ChatComposer } from './ChatComposer';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { sendHeldPrompt } from './chatActions';
@@ -157,6 +158,7 @@ export function ChatView({ cardId }: { cardId: string }) {
         </div>
       </div>
       <div className="mx-auto w-full max-w-[52rem]">
+        <ChatBackground cardId={cardId} info={info} />
         <ChatComposer cardId={cardId} info={info} focusRef={setFocus} />
       </div>
     </div>

@@ -197,5 +197,17 @@ describe('chat view', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
     expect(window.api.chat.interrupt).toHaveBeenCalledWith(ID);
+
+    // Work the agent leaves running is listed above the composer, each with a stop.
+    act(() =>
+      host.emit({
+        type: 'session',
+        patch: { status: 'idle', background: [{ id: 'bash-1', kind: 'shell', description: 'npm run dev' }] },
+      }),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop npm run dev' }));
+    expect(window.api.chat.stopBackground).toHaveBeenCalledWith(ID, 'bash-1');
+    act(() => host.emit({ type: 'session', patch: { background: [] } }));
+    expect(screen.queryByRole('list', { name: 'Running in the background' })).toBeNull();
   });
 });

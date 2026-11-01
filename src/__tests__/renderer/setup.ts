@@ -114,6 +114,7 @@ const mockApi = {
     setMode: vi.fn().mockResolvedValue(undefined),
     rewind: vi.fn().mockResolvedValue(undefined),
     compact: vi.fn().mockResolvedValue(undefined),
+    stopBackground: vi.fn().mockResolvedValue(undefined),
     fork: vi.fn(),
     stop: vi.fn().mockResolvedValue(undefined),
     discard: vi.fn().mockResolvedValue(undefined),

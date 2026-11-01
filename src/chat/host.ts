@@ -657,6 +657,12 @@ export class ChatHost {
     if (index !== -1) session.emit({ type: 'remove', ids: session.nodes.slice(index).map((node) => node.id) });
   }
 
+  async stopBackground(id: string, taskId: string): Promise<void> {
+    const { driver } = await this.requireDriver(id);
+    if (!driver.stopBackground) throw new Error('This agent cannot stop background work from chat');
+    await driver.stopBackground(taskId);
+  }
+
   async compact(id: string): Promise<void> {
     const { session, driver } = await this.requireDriver(id);
     if (!driver.compact) throw new Error('This agent cannot compact from chat');

@@ -524,6 +524,8 @@ class ClaudeSession implements DriverSession {
 
   private begin(extra: Partial<Options>): void {
     this.input = new InputQueue();
+    // Claude reports background work per process and says nothing at startup.
+    this.sink.session({ background: [] });
     const q = query({ prompt: this.input, options: this.options(extra) });
     this.q = q;
     this.loop = this.consume(q);
@@ -661,14 +663,15 @@ class ClaudeSession implements DriverSession {
           status: 'completed',
         });
         return;
-      case 'local_command_output':
-        this.sink.node({
-          id: `claude-local-${String(message.uuid)}`,
-          kind: 'assistant_message',
-          parentId: null,
-          createdAt: Date.now(),
-          text: String(message.content ?? ''),
-          status: 'completed',
+      case 'background_tasks_changed':
+        this.sink.session({
+          background: ((message.tasks ?? []) as Json[])
+            .filter((task) => !task.ambient && !task.parent_task_id)
+            .map((task) => ({
+              id: String(task.task_id),
+              kind: task.task_type === 'local_bash' ? ('shell' as const) : ('agent' as const),
+              description: String(task.description ?? ''),
+            })),
         });
         return;
       case 'compact_boundary': {
@@ -834,6 +837,10 @@ class ClaudeSession implements DriverSession {
       this.sessionId = null;
       await this.restart({});
     }
+  }
+
+  async stopBackground(taskId: string): Promise<void> {
+    await this.q?.stopTask(taskId);
   }
 
   async compact(): Promise<void> {

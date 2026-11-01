@@ -160,6 +160,7 @@ contextBridge.exposeInMainWorld('api', {
     setMode: (id: string, mode: string) => typedInvoke('chat:set-mode', id, mode),
     rewind: (id: string, userMessageId: string) => typedInvoke('chat:rewind', id, userMessageId),
     compact: (id: string) => typedInvoke('chat:compact', id),
+    stopBackground: (id: string, taskId: string) => typedInvoke('chat:stopBackground', id, taskId),
     fork: (id: string) => typedInvoke('chat:fork', id),
     stop: (id: string) => typedInvoke('chat:stop', id),
     discard: (id: string) => typedInvoke('chat:discard', id),

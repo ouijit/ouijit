@@ -234,6 +234,14 @@ export interface ChatSessionInfo {
   modes: ChatOption[];
   commands: ChatCommand[];
   usage?: { inputTokens: number; outputTokens: number; contextWindow?: number; costUsd?: number };
+  /** Work the agent left running between turns. Only agents that report it set this. */
+  background?: ChatBackgroundTask[];
+}
+
+export interface ChatBackgroundTask {
+  id: string;
+  kind: 'shell' | 'agent';
+  description: string;
 }
 
 export type ChatTextField = 'text' | 'output';

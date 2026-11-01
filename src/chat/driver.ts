@@ -67,6 +67,7 @@ export interface DriverSession {
   /** Undo back to before a user message: the conversation, and the agent's edits where it tracks them. */
   rewind?(userMessageId: string): Promise<void>;
   compact?(): Promise<void>;
+  stopBackground?(taskId: string): Promise<void>;
   /**
    * Start a fresh conversation, for an agent whose protocol does not take
    * `/clear` as a message. The driver calls `reset` once it has.

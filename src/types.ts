@@ -429,6 +429,7 @@ export interface ChatAPI {
   setMode(id: string, mode: string): Promise<void>;
   rewind(id: string, userMessageId: string): Promise<void>;
   compact(id: string): Promise<void>;
+  stopBackground(id: string, taskId: string): Promise<void>;
   fork(id: string): Promise<ChatSnapshot>;
   stop(id: string): Promise<void>;
   discard(id: string): Promise<void>;
