@@ -6,6 +6,7 @@
  */
 import { build } from 'vite';
 import { builtinModules } from 'node:module';
+import { copyFileSync, mkdirSync } from 'node:fs';
 import '../scripts/build-cli.mjs';
 
 const external = [
@@ -75,5 +76,11 @@ await build({
     minify: false,
   },
 });
+
+// A packaged app finds its CLI beside main.js, and hands that path to every
+// session it starts; without a copy there, `ouijit` fails in every terminal
+// and chat agent the e2e app opens.
+mkdirSync(`${outRoot}/build/cli`, { recursive: true });
+copyFileSync('dist-cli/ouijit.js', `${outRoot}/build/cli/ouijit.js`);
 
 console.log('\nE2E build complete.');
