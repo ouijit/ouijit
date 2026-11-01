@@ -350,11 +350,14 @@ textarea,
   z-index: 10;
 }
 
-/* `background-secondary` is a 6% wash, invisible over a pane's own content,
-   so it needs an opaque base underneath. */
-.segmented-floating {
+/* `background-secondary` is a 6% wash: over a pane's own content the content
+   shows through, so a group placed over it needs an opaque base underneath. */
+.segmented-opaque {
   background:
     linear-gradient(var(--color-background-secondary), var(--color-background-secondary)), var(--color-surface);
+}
+
+.segmented-floating {
   box-shadow: var(--shadow-menu);
 }
 

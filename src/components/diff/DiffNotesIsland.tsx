@@ -50,7 +50,7 @@ export function DiffNotesIsland({ notes, inView, subject, ptyId, onJump, onDisca
     // Only the capsule takes pointer events, so the pane behind stays scrollable.
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100%-2rem)] pointer-events-none">
       <div className="pointer-events-auto">
-        <SegmentedGroup floating>
+        <SegmentedGroup placement="floating">
           <ActionMenu label={`${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`} dot placement="top-start">
             {(close) => (
               <>

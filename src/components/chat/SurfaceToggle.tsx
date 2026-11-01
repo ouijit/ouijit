@@ -36,7 +36,7 @@ export function SurfaceToggle({ ptyId }: { ptyId: string }) {
         </span>
       )}
       <div role="radiogroup" aria-label="View">
-        <SegmentedGroup>
+        <SegmentedGroup placement="over">
           {(['chat', 'terminal'] as const).map((option) => (
             <button
               key={option}

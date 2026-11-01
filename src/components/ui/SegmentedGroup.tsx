@@ -14,14 +14,25 @@ export const segmentBase =
 export const segmentQuiet = 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
 export const segmentAccent = 'bg-accent text-accent-ink hover:bg-accent';
 
-export function SegmentedGroup({ children, floating }: { children: ReactNode; floating?: boolean }) {
+/** `over` sits on a pane's content, which the group must hide; `floating` also lifts it with a shadow. */
+export function SegmentedGroup({
+  children,
+  placement = 'inline',
+}: {
+  children: ReactNode;
+  placement?: 'inline' | 'over' | 'floating';
+}) {
   const segments = Children.toArray(children);
   if (segments.length === 0) return null;
 
   return (
     <div
       className={`inline-flex items-center h-7 glass-bevel relative border border-bezel rounded-[12px] overflow-hidden ${
-        floating ? 'segmented-floating' : 'bg-background-secondary'
+        {
+          inline: 'bg-background-secondary',
+          over: 'segmented-opaque',
+          floating: 'segmented-opaque segmented-floating',
+        }[placement]
       }`}
     >
       {segments.map((segment, i) => (
