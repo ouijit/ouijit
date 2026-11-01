@@ -359,6 +359,7 @@ export class ChatHost {
       );
       const settings = parseChatSettings((key) => stored.get(key));
       const sandbox = isActiveSandbox(session.row.sandbox_provider) ? session.row.sandbox_provider : undefined;
+      const chosenMode = resume ? session.info.mode : undefined;
       const token = issueToken(id, sandbox ? 'sandbox' : 'host');
       const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path);
       session.referenceEnv = referenceEnv;
@@ -366,11 +367,17 @@ export class ChatHost {
         cwd: session.row.cwd,
         sessionId: id,
         resume,
+        ...(chosenMode && { mode: chosenMode }),
         spawn: (spawn) => this.spawn(session, token, spawn),
         sink: this.sink(session),
         preferences: { piApprovals: settings.piApprovals, acpCommand: settings.acpCommand },
         instructions: readCliReference(referenceEnv.OUIJIT_SANDBOX_REFERENCE_FILE ?? getCliReferencePath()),
       });
+      // For a driver that cannot launch in a mode, switch to it once started.
+      if (chosenMode && session.driver.setMode && session.info.mode !== chosenMode) {
+        await session.driver.setMode(chosenMode);
+        session.emit({ type: 'session', patch: { mode: chosenMode } });
+      }
       session.emit({
         type: 'session',
         patch: {

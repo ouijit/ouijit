@@ -448,6 +448,7 @@ class ClaudeSession implements DriverSession {
   private loop: Promise<void> | null = null;
   private sessionId: string | null;
   private effort: EffortLevel | undefined;
+  private mode: PermissionMode | null;
   private closing = false;
   private readonly transcript: ClaudeTranscript;
   private readonly messageIds = new Map<string | null, string>();
@@ -463,6 +464,7 @@ class ClaudeSession implements DriverSession {
     private readonly binary: string,
   ) {
     this.sessionId = context.resume?.agentSessionId ?? null;
+    this.mode = (context.mode as PermissionMode | undefined) ?? null;
     this.transcript = new ClaudeTranscript(context.sink);
   }
 
@@ -517,6 +519,7 @@ class ClaudeSession implements DriverSession {
       allowDangerouslySkipPermissions: true,
       canUseTool,
       ...(this.effort && { effort: this.effort }),
+      ...(this.mode && { permissionMode: this.mode }),
       ...(this.sessionId && { resume: this.sessionId }),
       ...extra,
     };
@@ -638,6 +641,7 @@ class ClaudeSession implements DriverSession {
     switch (message.subtype) {
       case 'init':
         this.sessionId = String(message.session_id);
+        if (str(message.permissionMode)) this.mode = message.permissionMode as PermissionMode;
         this.sink.session({
           agentSessionId: this.sessionId,
           ...this.modelPatch(null, str(message.model)),
@@ -646,7 +650,10 @@ class ClaudeSession implements DriverSession {
         });
         return;
       case 'status':
-        if (str(message.permissionMode)) this.sink.session({ mode: str(message.permissionMode) });
+        if (str(message.permissionMode)) {
+          this.mode = message.permissionMode as PermissionMode;
+          this.sink.session({ mode: this.mode });
+        }
         return;
       case 'session_state_changed':
         if (message.state === 'idle') this.sink.session({ status: 'idle' });
@@ -813,7 +820,8 @@ class ClaudeSession implements DriverSession {
   }
 
   async setMode(mode: string): Promise<void> {
-    await this.q?.setPermissionMode(mode as PermissionMode);
+    this.mode = mode as PermissionMode;
+    await this.q?.setPermissionMode(this.mode);
   }
 
   /** Effort is fixed for the life of a query, so a change restarts it on the same conversation. */

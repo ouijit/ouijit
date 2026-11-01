@@ -507,3 +507,34 @@ describe('claude background work', () => {
     timeout * 2,
   );
 });
+
+describe('claude mode', () => {
+  const name = 'claude-mode';
+  const available = recording || fs.existsSync(cassettePath(name));
+
+  test.skipIf(!available)(
+    'the mode picked in a chat holds when Claude is restarted for an effort change and when the chat is reopened',
+    async () => {
+      const cwd = repo();
+      const probe = recording ? await getDriver('claude').probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording ? recordingSpawn(name, 'claude', probe?.version) : replayingSpawn(loadCassettes(name)),
+      });
+      const id = 'pty-mode-claude';
+      const replied = (count: number) => (s: ChatSnapshot) =>
+        s.info.status === 'idle' && s.nodes.filter((n) => n.kind === 'assistant_message').length >= count;
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+      await host.setMode(id, 'acceptEdits');
+      await host.setEffort(id, 'high');
+      await host.prompt(id, { text: 'Reply with only: ok' });
+      expect((await until(host, id, replied(1), timeout)).info.mode).toBe('acceptEdits');
+
+      await host.stop(id);
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+      await host.prompt(id, { text: 'Reply with only: again' });
+      expect((await until(host, id, replied(2), timeout)).info.mode).toBe('acceptEdits');
+      await host.stop(id);
+    },
+    timeout * 3,
+  );
+});

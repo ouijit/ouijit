@@ -22,6 +22,8 @@ export interface DriverContext {
   sessionId: string;
   /** The agent conversation to resume — or to branch a new one from, with `fork` — or null for a new one. */
   resume: { agentSessionId: string; fork: boolean } | null;
+  /** The mode picked in this chat before a relaunch, which the agent starts in rather than its configured default. */
+  mode?: string;
   spawn: (spawn: AgentSpawn) => Promise<AgentProcess>;
   sink: DriverSink;
   /** The Ouijit CLI reference this agent is told about: the sandbox's variant when it runs sandboxed. */
