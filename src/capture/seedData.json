@@ -128,5 +128,73 @@
     }
   ],
   "onboardingPlanFilename": "rework-onboarding-flow.md",
-  "onboardingPlanMarkdown": "# Rework onboarding flow\n\n## Outcome\n\nSplit the existing single-page onboarding into a three-step stepper that persists progress per-user. Users should be able to close the tab mid-flow and pick up exactly where they left off.\n\n## Flow\n\n```mermaid\nflowchart LR\n  A[Profile] --> B[Workspace] --> C[Invite]\n  C --> D{Completed?}\n  D -- yes --> E[Dashboard]\n  D -- no --> B\n```\n\n## Starting point\n\nThe current `<Onboarding />` component renders everything in one scroll. State lives in a local `useState` tuple and evaporates on reload. Designers already provided the stepper mocks in Figma (`Onboarding / v2`).\n\n## Steps\n\n1. Extract each section into its own screen component under `src/onboarding/steps/`.\n2. Add a `useOnboardingProgress` hook that reads + writes `{ step, payload }` to `localStorage` under `onboarding:<userId>`.\n3. Wire a header-level `<Stepper />` that reflects current step and supports back/next.\n4. Replace the welcome copy block with a reusable `<WelcomeIntro />` component so the marketing site can embed it.\n5. Add analytics events (`onboarding_step_viewed`, `onboarding_step_completed`) at each boundary.\n\n## Out of scope\n\n- Server-side persistence (we can add this later once the event shape is firm).\n- Redesigning the terminal screen \u2014 it stays exactly as-is.\n\n## Test plan\n\n- Unit tests for `useOnboardingProgress` (initial read, write, clear on completion).\n- RTL tests for the stepper navigation (next, back, direct link to a completed step).\n- Manual: interrupt mid-flow, reload, confirm you land on the same step with the right payload.\n"
+  "onboardingPlanMarkdown": "# Rework onboarding flow\n\n## Outcome\n\nSplit the existing single-page onboarding into a three-step stepper that persists progress per-user. Users should be able to close the tab mid-flow and pick up exactly where they left off.\n\n## Flow\n\n```mermaid\nflowchart LR\n  A[Profile] --> B[Workspace] --> C[Invite]\n  C --> D{Completed?}\n  D -- yes --> E[Dashboard]\n  D -- no --> B\n```\n\n## Starting point\n\nThe current `<Onboarding />` component renders everything in one scroll. State lives in a local `useState` tuple and evaporates on reload. Designers already provided the stepper mocks in Figma (`Onboarding / v2`).\n\n## Steps\n\n1. Extract each section into its own screen component under `src/onboarding/steps/`.\n2. Add a `useOnboardingProgress` hook that reads + writes `{ step, payload }` to `localStorage` under `onboarding:<userId>`.\n3. Wire a header-level `<Stepper />` that reflects current step and supports back/next.\n4. Replace the welcome copy block with a reusable `<WelcomeIntro />` component so the marketing site can embed it.\n5. Add analytics events (`onboarding_step_viewed`, `onboarding_step_completed`) at each boundary.\n\n## Out of scope\n\n- Server-side persistence (we can add this later once the event shape is firm).\n- Redesigning the terminal screen \u2014 it stays exactly as-is.\n\n## Test plan\n\n- Unit tests for `useOnboardingProgress` (initial read, write, clear on completion).\n- RTL tests for the stepper navigation (next, back, direct link to a completed step).\n- Manual: interrupt mid-flow, reload, confirm you land on the same step with the right payload.\n",
+  "chats": [
+    {
+      "taskNumber": 2,
+      "agent": "claude",
+      "nodes": [
+        {
+          "kind": "user_message",
+          "text": "Stream recent events into a live activity feed on the dashboard.",
+          "attachments": [],
+          "delivery": "prompt"
+        },
+        {
+          "kind": "assistant_message",
+          "text": "I'll add an `ActivityFeed` component that subscribes to the events stream and renders the latest twenty entries.",
+          "status": "completed"
+        },
+        {
+          "kind": "plan",
+          "entries": [
+            {
+              "text": "Add the events subscription hook",
+              "status": "completed"
+            },
+            {
+              "text": "Render the feed on the dashboard",
+              "status": "in_progress"
+            },
+            {
+              "text": "Cover it with a component test",
+              "status": "pending"
+            }
+          ]
+        },
+        {
+          "kind": "tool_call",
+          "tool": "edit",
+          "name": "Write",
+          "title": "Write src/dashboard/ActivityFeed.tsx",
+          "input": {},
+          "output": "",
+          "files": [
+            {
+              "path": "src/dashboard/ActivityFeed.tsx",
+              "change": "add",
+              "diff": "@@ -0,0 +1,3 @@\n+export function ActivityFeed() {\n+  return <ul className=\"feed\" />;\n+}"
+            }
+          ],
+          "status": "completed"
+        },
+        {
+          "kind": "tool_call",
+          "tool": "command",
+          "name": "Bash",
+          "title": "Run the dashboard tests",
+          "input": {},
+          "command": "npm test -- dashboard",
+          "output": "12 passing",
+          "files": [],
+          "status": "completed"
+        },
+        {
+          "kind": "assistant_message",
+          "text": "The feed renders and the dashboard tests pass. Next I'll wire it into the layout.",
+          "status": "completed"
+        }
+      ]
+    }
+  ]
 }

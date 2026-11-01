@@ -368,6 +368,9 @@ export class ChatHost {
           if (session.info.status === 'running') session.emit({ type: 'session', patch: { status: 'awaiting' } });
         }),
       history: (nodes) => {
+        // An agent with no record of the conversation — its session file gone —
+        // is not a reason to throw away the transcript Ouijit kept.
+        if (nodes.length === 0) return;
         const incoming = new Set(nodes.map((node) => node.id));
         const stale = session.nodes.filter((node) => !incoming.has(node.id)).map((node) => node.id);
         if (stale.length) session.emit({ type: 'remove', ids: stale });

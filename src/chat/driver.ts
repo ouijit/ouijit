@@ -49,7 +49,7 @@ export interface DriverSink {
   session(patch: Partial<ChatSessionInfo>): void;
   /** Block on a person. Resolves with the first client's answer, or `cancel` if the session ends first. */
   ask(request: Omit<RequestNode, 'kind' | 'status' | 'answer' | 'createdAt'>): Promise<ChatAnswer>;
-  /** The agent's history, for a resume: replaces whatever the transcript held after the import point. */
+  /** The agent's history, for a resume: replaces the transcript. An empty history is ignored. */
   history(nodes: ChatNode[]): void;
   log(message: string, data?: Record<string, unknown>): void;
 }

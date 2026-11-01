@@ -11,7 +11,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
@@ -38,6 +38,19 @@ export function cassettePath(name: string): string {
 
 export function loadCassette(name: string): Cassette {
   return JSON.parse(readFileSync(cassettePath(name), 'utf8')) as Cassette;
+}
+
+/** The cassettes of one test, one per agent process it spawned, in spawn order. */
+export function loadCassettes(name: string): Cassette[] {
+  const cassettes: Cassette[] = [];
+  for (let index = 0; existsSync(cassettePath(spawnName(name, index))); index++) {
+    cassettes.push(loadCassette(spawnName(name, index)));
+  }
+  return cassettes;
+}
+
+function spawnName(name: string, index: number): string {
+  return index === 0 ? name : `${name}.${index + 1}`;
 }
 
 /**
@@ -93,7 +106,9 @@ function unscrub(line: string, cwd: string): string {
 
 /** A spawn that runs the real agent and writes what crossed its stdio to the named cassette when it exits. */
 export function recordingSpawn(name: string, agent: string, version: string | undefined): typeof spawnAgentProcess {
+  let spawned = 0;
   return (file, args, cwd, env) => {
+    const target = spawnName(name, spawned++);
     const proc = spawnAgentProcess(file, args, cwd, env);
     const entries: CassetteEntry[] = [];
     const write = proc.stdin.write.bind(proc.stdin);
@@ -105,7 +120,10 @@ export function recordingSpawn(name: string, agent: string, version: string | un
     onLines(proc.stdout, (line) => entries.push({ dir: 'out', line: scrub(line, cwd) }));
     proc.once('exit', () => {
       mkdirSync(CASSETTE_DIR, { recursive: true });
-      writeFileSync(cassettePath(name), JSON.stringify({ agent, version, entries } satisfies Cassette, null, 1) + '\n');
+      writeFileSync(
+        cassettePath(target),
+        JSON.stringify({ agent, version, entries } satisfies Cassette, null, 1) + '\n',
+      );
     });
     return proc;
   };
@@ -155,10 +173,13 @@ function answers(message: Json | null): string | null {
   return null;
 }
 
-/** A spawn that plays a cassette back in place of the agent. */
-export function replayingSpawn(cassette: Cassette): typeof spawnAgentProcess & { pending(): string[] } {
+/** A spawn that plays cassettes back in place of the agent, the next one for each process spawned. */
+export function replayingSpawn(cassettes: Cassette[]): typeof spawnAgentProcess & { pending(): string[] } {
   const live: { unconsumed: string[] }[] = [];
+  let spawned = 0;
   const spawn = ((_file: string, _args: string[], cwd: string) => {
+    const cassette = cassettes[spawned++];
+    if (!cassette) throw new Error(`no cassette recorded for agent process ${spawned}`);
     const events = new EventEmitter();
     const stdout = new PassThrough();
     const stderr = new PassThrough();

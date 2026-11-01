@@ -13,8 +13,9 @@ import { ChatHost } from '../../../chat/host';
 import { getDriver } from '../../../chat/drivers';
 import { _resetCacheForTesting } from '../../../db';
 import type { ChatAgentId, ChatNode, ChatSnapshot, RequestNode, ToolCallNode } from '../../../chat/model';
-import { loadCassette, recording, recordingSpawn, replayingSpawn, cassettePath } from './cassette';
+import { loadCassette, loadCassettes, recording, recordingSpawn, replayingSpawn, cassettePath } from './cassette';
 
+const FOLLOW_UP = 'What is the name of the file you just created? Reply with only the file name.';
 const PROMPT =
   'Create a file named hello.txt containing the single word hi, using your file editing tool. Then reply with exactly: done';
 
@@ -31,10 +32,14 @@ beforeAll(() => {
     fs.writeFileSync(path.join(fakeBin, agent), `#!/bin/sh\necho "${version ?? '99.0.0'}"\n`, { mode: 0o755 });
   }
   process.env.PATH = `${fakeBin}:${originalPath}`;
+  // Claude's history import reads its session files in-process rather than
+  // through the agent's stdio, so replay points it at an empty config dir.
+  process.env.CLAUDE_CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-claude-'));
 });
 
 afterAll(() => {
   process.env.PATH = originalPath;
+  delete process.env.CLAUDE_CONFIG_DIR;
 });
 
 function repo(): string {
@@ -87,7 +92,7 @@ async function hostFor(
     const probe = await getDriver(agent).probe();
     return { host: new ChatHost({ spawnProcess: recordingSpawn(agent, agent, probe.version) }), spawn: null };
   }
-  const spawn = replayingSpawn(loadCassette(agent));
+  const spawn = replayingSpawn(loadCassettes(agent));
   return { host: new ChatHost({ spawnProcess: spawn }), spawn };
 }
 
@@ -132,10 +137,26 @@ describe.each(['claude', 'codex', 'pi'] as const)('%s in chat', (agent) => {
       const stored = host.snapshot(id)!;
       expect(stored.info.status).toBe('exited');
       expect(kinds(stored.nodes)).toEqual(kinds(finished.nodes));
-
       if (recording) {
         expect(fs.readFileSync(path.join(cwd, 'hello.txt'), 'utf8').trim()).toBe('hi');
       }
+
+      // A second process picks the same conversation up: the agent remembers
+      // the first turn, and the transcript keeps it.
+      const resumed = await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });
+      expect(resumed.info.status, resumed.info.statusDetail).toBe('idle');
+      expect(resumed.info.agentSessionId).toBe(finished.info.agentSessionId);
+      await host.prompt(id, { text: FOLLOW_UP });
+      const after = await until(
+        host,
+        id,
+        (s) =>
+          s.info.status === 'idle' &&
+          s.nodes.filter((n) => n.kind === 'assistant_message' && /hello\.txt/i.test(n.text)).length > 0,
+        timeout,
+      );
+      expect(after.nodes.filter((n) => n.kind === 'user_message').map((n) => n.text)).toEqual([PROMPT, FOLLOW_UP]);
+      await host.stop(id);
       stop();
     },
     timeout * 2,

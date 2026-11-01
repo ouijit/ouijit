@@ -192,6 +192,39 @@ function seed() {
   );
   exec(scriptInserts.join('\n'));
 
+  // Chats — a stored transcript per task card, resumed when the card opens as a chat
+  for (const [index, chat] of (seedData.chats ?? []).entries()) {
+    const id = `pty-seed-chat-${index + 1}`;
+    const task = seedData.tasks[chat.taskNumber - 1];
+    const worktreePath = task.branch
+      ? join(dirname(projectPath), `${projectName}-worktrees`, `T-${chat.taskNumber}`)
+      : null;
+    const now = new Date().toISOString();
+    const info = {
+      id,
+      agent: chat.agent,
+      agentSessionId: null,
+      projectPath,
+      cwd: worktreePath ?? projectPath,
+      worktreePath,
+      sandbox: null,
+      taskId: chat.taskNumber,
+      status: 'exited',
+      capabilities: {},
+      models: [],
+      efforts: [],
+      modes: [],
+      commands: [],
+    };
+    const nodeInserts = chat.nodes.map((node, position) => {
+      const body = JSON.stringify({ id: `seed-${index}-${position}`, parentId: null, createdAt: Date.now(), ...node });
+      return `INSERT INTO chat_nodes (session_id, node_id, position, body) VALUES ('${id}', 'seed-${index}-${position}', ${position}, '${esc(body)}');`;
+    });
+    exec(
+      `INSERT INTO chat_sessions (id, project_path, task_id, cwd, worktree_path, agent, agent_session_id, sandbox_provider, info, seq, created_at, updated_at) VALUES ('${id}', '${esc(projectPath)}', ${chat.taskNumber}, '${esc(info.cwd)}', ${nullable(worktreePath)}, '${esc(chat.agent)}', NULL, NULL, '${esc(JSON.stringify(info))}', 0, '${now}', '${now}');\n${nodeInserts.join('\n')}`,
+    );
+  }
+
   // Plan markdown
   const plansDir = join(projectPath, 'plans');
   mkdirSync(plansDir, { recursive: true });
@@ -201,7 +234,9 @@ function seed() {
   exec(`INSERT OR REPLACE INTO global_settings (key, value) VALUES ('hasSeenWelcome', '1');`);
 
   console.log(`Seeded demo project at ${projectPath}`);
-  console.log(`  ${seedData.tasks.length} tasks, ${seedData.hooks.length} hooks, ${seedData.scripts.length} scripts`);
+  console.log(
+    `  ${seedData.tasks.length} tasks, ${seedData.hooks.length} hooks, ${seedData.scripts.length} scripts, ${(seedData.chats ?? []).length} chats`,
+  );
 }
 
 const cmd = process.argv[2];

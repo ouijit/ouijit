@@ -404,6 +404,17 @@ ouijit tag add <tag> [pty-id]                 # add a tag to the terminal
 ouijit tag remove <tag> [pty-id]              # remove one tag
 ouijit tag clear [pty-id]                     # remove all of them
 
+## Chat Commands (a task card can run its agent as a chat instead of a terminal)
+ouijit chat list                              # → running chats [{id, agent, status, taskId, ...}]
+ouijit chat read [pty-id]                     # → {info, nodes, seq, text, pending} — defaults to this card
+ouijit chat read <pty-id> --after <seq>       # → {id, events} after a sequence number, for following along
+ouijit chat send <pty-id> "<text>"            # steers a running turn, or starts one; --queue waits for the turn
+ouijit chat send <pty-id> -                   # text on stdin, for anything multi-line
+ouijit chat interrupt <pty-id>                # stop the running turn
+
+A chat card has a pty-id like any terminal, so tag, markdown and preview commands
+reach it the same way. Approvals in a chat are answered in the app, not here.
+
 ## Hook Commands (project lifecycle scripts)
 Hook types: start (task moves to in_progress), continue (a task already in_progress is reopened),
 review (moves to in_review), done (moves to done)

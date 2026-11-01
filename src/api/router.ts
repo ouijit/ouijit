@@ -81,6 +81,9 @@ import {
 } from '../ptyManager';
 import { getHookStatus } from '../hookServer';
 import { liveNotes } from '../diffNotesService';
+import { isSessionLive, getSessionTaskContext } from '../sessions';
+import { chatHost, ChatSessionNotFound } from '../chat/host';
+import { transcriptText, pendingRequests } from '../chat/model';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext } from '../apiAuth';
@@ -447,7 +450,7 @@ async function runPanelOp(
   kind: CliPanelKind,
   value?: string,
 ): Promise<{ ptyId: string; kind: CliPanelKind; panels: unknown }> {
-  if (!isPtyActive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
+  if (!isSessionLive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
   const result = await cliPanelRequest({ ptyId, action, kind, value });
   if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
   return { ptyId, kind, panels: result.panels ?? [] };
@@ -486,7 +489,7 @@ function describeTerminal(session: ActiveSession) {
 
 /** Forward a tag op to the renderer, where a terminal's tags live. */
 async function runTagOp(op: Omit<CliTagOp, 'requestId'>): Promise<CliTagResponse> {
-  if (op.ptyId && !isPtyActive(op.ptyId)) throw new HttpError(404, `PTY ${op.ptyId} not found or inactive`);
+  if (op.ptyId && !isSessionLive(op.ptyId)) throw new HttpError(404, `PTY ${op.ptyId} not found or inactive`);
   const result = await cliTagRequest(op);
   if (!result.ok) throw new HttpError(404, result.error ?? 'Tag operation failed');
   return result;
@@ -511,7 +514,7 @@ const routes: Route[] = [
     'GET',
     'tasks/current',
     async (r) => {
-      const ctx = getPtyTaskContext(r.auth.ptyId);
+      const ctx = getSessionTaskContext(r.auth.ptyId);
       if (!ctx) throw new HttpError(404, 'Current PTY is not associated with a task');
       const task = await getTaskWithWorkspace(ctx.projectPath, ctx.taskId);
       if (!task) throw new HttpError(404, `Task ${ctx.taskId} not found`);
@@ -868,6 +871,64 @@ const routes: Route[] = [
     (r) => terminalTags({ action: 'clear', ptyId: r.segments[1] }),
     true,
     OWN_TERMINAL,
+  ),
+
+  // ── Chats ────────────────────────────────────────────────────────
+  route('GET', 'chats', () => chatHost.list()),
+
+  route(
+    'GET',
+    'chats/:ptyId',
+    (r) => {
+      const id = r.segments[1];
+      const after = r.query.get('after');
+      if (after !== null) {
+        const events = chatHost.since(id, requireInt(after, 'after'));
+        if (events === null) throw new HttpError(410, 'Those events are gone; read the chat again');
+        return { id, events };
+      }
+      const snapshot = chatHost.snapshot(id);
+      if (!snapshot) throw new HttpError(404, `Chat ${id} not found`);
+      return {
+        ...snapshot,
+        text: transcriptText(snapshot.nodes),
+        pending: pendingRequests(snapshot.nodes).map((node) => ({ id: node.id, title: node.title })),
+      };
+    },
+    false,
+    OWN_TERMINAL,
+  ),
+
+  route(
+    'POST',
+    'chats/:id/messages',
+    async (r) => {
+      const text = typeof r.body.text === 'string' ? r.body.text : '';
+      if (!text.trim()) throw new HttpError(400, 'Missing text in body');
+      const delivery = r.body.delivery === 'steer' || r.body.delivery === 'queue' ? r.body.delivery : 'auto';
+      try {
+        return { id: await chatHost.prompt(r.segments[1], { text }, delivery) };
+      } catch (error) {
+        if (error instanceof ChatSessionNotFound) throw new HttpError(404, error.message);
+        throw error;
+      }
+    },
+    true,
+  ),
+
+  route(
+    'POST',
+    'chats/:id/interrupt',
+    async (r) => {
+      try {
+        await chatHost.interrupt(r.segments[1]);
+        return { success: true };
+      } catch (error) {
+        if (error instanceof ChatSessionNotFound) throw new HttpError(404, error.message);
+        throw error;
+      }
+    },
+    true,
   ),
 
   // ── Projects ─────────────────────────────────────────────────────

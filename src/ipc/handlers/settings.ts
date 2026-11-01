@@ -18,7 +18,8 @@ export function isAllowedKey(key: string): boolean {
     key.startsWith('onboarding:') ||
     key.startsWith('defaultSandbox:') ||
     key.startsWith('runnerSandbox:') ||
-    key.startsWith('sandboxCliAccess:')
+    key.startsWith('sandboxCliAccess:') ||
+    key.startsWith('chat:')
   );
 }
 
