@@ -16,6 +16,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { onLines, spawnAgentProcess, type AgentProcess } from '../../../chat/process';
+import { ReplayServer, URL_PLACEHOLDER, isHttpLine, recordingProxy } from './httpCassette';
 
 export interface CassetteEntry {
   dir: 'in' | 'out';
@@ -117,8 +118,28 @@ export function recordingSpawn(name: string, agent: string, version: string | un
         if (line.trim()) entries.push({ dir: 'in', line: scrub(line, cwd) });
       return (write as (...a: unknown[]) => boolean)(chunk, ...rest);
     }) as typeof proc.stdin.write;
-    onLines(proc.stdout, (line) => entries.push({ dir: 'out', line: scrub(line, cwd) }));
+    // An agent that prints a server URL is talked to over HTTP from then on,
+    // so the URL handed to the driver is a recording proxy's.
+    const toDriver = new PassThrough();
+    let chain = Promise.resolve();
+    let proxy: { close: () => void } | null = null;
+    onLines(proc.stdout, (line) => {
+      chain = chain.then(async () => {
+        const url = (parse(line) as { url?: unknown } | null)?.url;
+        if (typeof url === 'string' && url.startsWith('http')) {
+          const recorder = await recordingProxy(url, entries, (l) => scrub(l, cwd));
+          proxy = recorder;
+          entries.push({ dir: 'out', line: scrub(line.split(url).join(URL_PLACEHOLDER), cwd) });
+          toDriver.write(line.split(url).join(recorder.url) + '\n');
+          return;
+        }
+        entries.push({ dir: 'out', line: scrub(line, cwd) });
+        toDriver.write(line + '\n');
+      });
+    });
+    proc.stdout = toDriver;
     proc.once('exit', () => {
+      proxy?.close();
       mkdirSync(CASSETTE_DIR, { recursive: true });
       writeFileSync(
         cassettePath(target),
@@ -180,10 +201,11 @@ export function replayingSpawn(cassettes: Cassette[]): typeof spawnAgentProcess 
   const spawn = ((_file: string, _args: string[], cwd: string) => {
     const cassette = cassettes[spawned++];
     if (!cassette) throw new Error(`no cassette recorded for agent process ${spawned}`);
+    const speaksHttp = cassette.entries.some((entry) => entry.line.includes(URL_PLACEHOLDER));
     const events = new EventEmitter();
     const stdout = new PassThrough();
     const stderr = new PassThrough();
-    const recordedIn = cassette.entries.filter((entry) => entry.dir === 'in');
+    const recordedIn = cassette.entries.filter((entry) => entry.dir === 'in' && !isHttpLine(entry.line));
     const consumed = new Set<number>();
     const ids = new Map<string, string>();
     const answered = new Set<string>();
@@ -203,8 +225,9 @@ export function replayingSpawn(cassettes: Cassette[]): typeof spawnAgentProcess 
       });
     })();
 
+    let serverUrl = '';
     const substitute = (line: string): string => {
-      let out = unscrub(line, cwd);
+      let out = unscrub(line, cwd).split(URL_PLACEHOLDER).join(serverUrl);
       for (const [recorded, actual] of ids) {
         if (recorded !== actual)
           out = out.split(`"${recorded}"`).join(`"${actual}"`).split(`:${recorded},`).join(`:${actual},`);
@@ -212,10 +235,30 @@ export function replayingSpawn(cassettes: Cassette[]): typeof spawnAgentProcess 
       return out;
     };
 
+    const http = speaksHttp
+      ? new ReplayServer(
+          cassette.entries,
+          () => {
+            received++;
+            setImmediate(pump);
+          },
+          (line) => substitute(line),
+        )
+      : null;
+
     const pump = () => {
       while (cursor < outputs.length) {
         const next = outputs[cursor];
+        if (next.line.startsWith('{"http":')) {
+          cursor++;
+          continue;
+        }
         if (received < next.gate) return;
+        if (next.line.startsWith('{"sse":')) {
+          if (!http?.deliver(substitute(next.line))) return;
+          cursor++;
+          continue;
+        }
         if (next.answers !== null && !answered.has(next.answers)) return;
         cursor++;
         stdout.write(substitute(next.line) + '\n');
@@ -253,7 +296,14 @@ export function replayingSpawn(cassettes: Cassette[]): typeof spawnAgentProcess 
         return recordedIn.filter((_, i) => !consumed.has(i)).map((entry) => entry.line.slice(0, 120));
       },
     });
-    setImmediate(pump);
+    if (http) {
+      void http.ready.then((url) => {
+        serverUrl = url;
+        setImmediate(pump);
+      });
+    } else {
+      setImmediate(pump);
+    }
 
     const proc: AgentProcess = {
       stdin,
@@ -269,6 +319,7 @@ export function replayingSpawn(cassettes: Cassette[]): typeof spawnAgentProcess 
         if (exitCode !== null) return false;
         killed = true;
         exitCode = 1;
+        http?.close();
         stdout.end();
         stderr.end();
         setImmediate(() => events.emit('exit', null, signal));

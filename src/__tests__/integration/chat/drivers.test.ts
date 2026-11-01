@@ -26,7 +26,7 @@ beforeAll(() => {
   _resetCacheForTesting();
   if (recording) return;
   fakeBin = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-agents-'));
-  for (const agent of ['claude', 'codex', 'pi'] as const) {
+  for (const agent of ['claude', 'codex', 'pi', 'opencode'] as const) {
     if (!fs.existsSync(cassettePath(agent))) continue;
     const { version } = loadCassette(agent);
     fs.writeFileSync(path.join(fakeBin, agent), `#!/bin/sh\necho "${version ?? '99.0.0'}"\n`, { mode: 0o755 });
@@ -100,7 +100,7 @@ function kinds(nodes: ChatNode[]): string[] {
   return nodes.map((node) => node.kind);
 }
 
-describe.each(['claude', 'codex', 'pi'] as const)('%s in chat', (agent) => {
+describe.each(['claude', 'codex', 'pi', 'opencode'] as const)('%s in chat', (agent) => {
   const available = recording || fs.existsSync(cassettePath(agent));
 
   test.skipIf(!available)(
@@ -163,7 +163,7 @@ describe.each(['claude', 'codex', 'pi'] as const)('%s in chat', (agent) => {
   );
 });
 
-describe.each(['claude', 'codex', 'pi'] as const)('%s steered mid-turn', (agent) => {
+describe.each(['claude', 'codex', 'pi', 'opencode'] as const)('%s steered mid-turn', (agent) => {
   const name = `${agent}-steer`;
   const available = recording || fs.existsSync(cassettePath(name));
 

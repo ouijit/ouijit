@@ -223,18 +223,29 @@ class OpencodeSession implements DriverSession {
     const instructions = ouijitInstructions();
     if (instructions) {
       await this.call('PUT', `/api/experimental/session/${this.sessionId}/instructions/entries/ouijit`, {
-        text: instructions,
+        value: instructions,
       }).catch((error: unknown) => this.sink.log('opencode instructions not set', { error: String(error) }));
     }
     this.sink.session({ agentSessionId: this.sessionId });
-    if (resume) {
-      const { data } = await this.call<{ data: Json[] }>(
-        'GET',
-        `/api/session/${this.sessionId}/message?order=asc&limit=500`,
-      );
-      this.sink.history(opencodeHistoryNodes(data));
-    }
+    if (resume) this.sink.history(opencodeHistoryNodes(await this.messages()));
     void this.loadMetadata();
+  }
+
+  /** The whole conversation, oldest first, a page at a time: the server serves at most 200 per request. */
+  private async messages(): Promise<Json[]> {
+    const all: Json[] = [];
+    let cursor: string | null = null;
+    do {
+      // The cursor carries the order it was issued for; the server refuses both together.
+      const query = new URLSearchParams(cursor ? { limit: '200', cursor } : { order: 'asc', limit: '200' });
+      const page: { data: Json[]; cursor?: { next?: string | null } } = await this.call(
+        'GET',
+        `/api/session/${this.sessionId}/message?${query}`,
+      );
+      all.push(...page.data);
+      cursor = page.data.length ? (page.cursor?.next ?? null) : null;
+    } while (cursor);
+    return all;
   }
 
   private async loadMetadata(): Promise<void> {
