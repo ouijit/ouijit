@@ -290,7 +290,12 @@ class CodexSession implements DriverSession {
     private readonly proc: Parameters<typeof terminate>[0],
   ) {}
 
+  private cwd = '';
+  private instructions = '';
+
   async open(cwd: string, resume: DriverContext['resume'], instructions: string): Promise<void> {
+    this.cwd = cwd;
+    this.instructions = instructions;
     await this.rpc.request('initialize', {
       clientInfo: { name: 'ouijit', title: 'Ouijit', version: '1' },
       capabilities: { experimentalApi: true },
@@ -565,6 +570,17 @@ class CodexSession implements DriverSession {
   /** Applies from the next turn, as `/approvals` does in Codex's terminal UI. */
   async setMode(mode: string): Promise<void> {
     this.approvalPolicy = mode;
+  }
+
+  async clear(): Promise<void> {
+    const response = await this.rpc.request<Json>('thread/start', {
+      cwd: this.cwd,
+      developerInstructions: this.instructions || undefined,
+    });
+    this.threadId = String((response.thread as Json).id);
+    this.turnId = null;
+    this.sink.reset();
+    this.sink.session({ agentSessionId: this.threadId });
   }
 
   async compact(): Promise<void> {

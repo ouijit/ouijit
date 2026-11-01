@@ -337,3 +337,47 @@ describe.each(['claude', 'codex', 'pi', 'opencode', 'acp'] as const)('%s told ab
     timeout * 2,
   );
 });
+
+describe.each(['claude', 'codex', 'pi', 'opencode', 'acp'] as const)('%s cleared', (agent) => {
+  const name = `${agent}-clear`;
+  const available = recording || fs.existsSync(cassettePath(name));
+
+  test.skipIf(!available)(
+    '/clear empties the transcript and the agent forgets the conversation, as in its terminal',
+    async () => {
+      const cwd = repo();
+      if (agent === 'acp') await setGlobalSetting('chat:acpCommand', 'opencode acp');
+      const probe = recording ? await getDriver(agent).probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording ? recordingSpawn(name, agent, probe?.version) : replayingSpawn(loadCassettes(name)),
+      });
+      const id = `pty-clear-${agent}`;
+      await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });
+      await until(host, id, (s) => s.info.commands.some((c) => c.name === 'clear'), timeout);
+
+      await host.prompt(id, { text: 'Remember the secret word apple. Reply with only: ok' });
+      await until(host, id, (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message'), timeout);
+      const before = host.snapshot(id)!.info.agentSessionId;
+
+      await host.prompt(id, { text: '/clear' });
+      await until(host, id, (s) => s.nodes.length === 0 && s.info.agentSessionId !== before, timeout);
+
+      await host.prompt(id, {
+        text: 'What secret word did I ask you to remember? If none, reply with only: none',
+      });
+      const after = await until(
+        host,
+        id,
+        (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message'),
+        timeout,
+      );
+      expect(after.nodes.filter((n) => n.kind === 'user_message').map((n) => n.text)).toEqual([
+        'What secret word did I ask you to remember? If none, reply with only: none',
+      ]);
+      const reply = after.nodes.filter((n) => n.kind === 'assistant_message').map((n) => n.text).join(' ');
+      expect(reply).not.toMatch(/apple/i);
+      await host.stop(id);
+    },
+    timeout * 3,
+  );
+});

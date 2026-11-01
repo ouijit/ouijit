@@ -181,6 +181,18 @@ describe('chat view', () => {
     expect(await screen.findByText('and add a test')).toBeTruthy();
     expect((composer as HTMLTextAreaElement).value).toBe('');
 
+    // A command the chat does not list belongs to the agent's terminal: it is
+    // not sent, and the composer offers the terminal instead.
+    vi.mocked(window.api.chat.prompt).mockClear();
+    fireEvent.change(composer, { target: { value: '/login' } });
+    fireEvent.keyDown(composer, { key: 'Enter' });
+    expect(await screen.findByRole('button', { name: 'Open in terminal' })).toBeTruthy();
+    expect(screen.getByText(/runs in Claude Code/)).toBeTruthy();
+    expect(window.api.chat.prompt).not.toHaveBeenCalled();
+    // A path is text, not a command.
+    fireEvent.change(composer, { target: { value: '/Users/me/notes.md looks wrong' } });
+    expect(screen.queryByRole('button', { name: 'Open in terminal' })).toBeNull();
+
     // While the agent works, the composer offers Stop.
     await waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));

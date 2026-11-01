@@ -321,3 +321,36 @@ export function transcriptText(nodes: ChatNode[]): string {
   }
   return lines.join('\n\n');
 }
+
+/** Commands Ouijit runs itself for every agent, through the chat's own controls. */
+export type ConversationAction = 'clear' | 'compact' | 'model' | 'effort';
+
+const CONVERSATION_COMMANDS: Record<string, ConversationAction> = {
+  clear: 'clear',
+  new: 'clear',
+  reset: 'clear',
+  compact: 'compact',
+  model: 'model',
+  effort: 'effort',
+};
+
+export type SlashCommand =
+  | { kind: 'conversation'; action: ConversationAction; name: string; argument: string }
+  | { kind: 'agent'; name: string }
+  | { kind: 'terminal'; name: string };
+
+/**
+ * What a typed slash command is in a chat: one Ouijit runs itself, one the
+ * agent runs, or one that only exists in the agent's terminal UI — anything
+ * not in the chat's menu. Null for text that is not a command, a path
+ * (`/Users/...`) included.
+ */
+export function parseSlashCommand(text: string, commands: ChatCommand[]): SlashCommand | null {
+  const match = /^\/([A-Za-z][\w:.-]*)(?:\s+([\s\S]*))?$/.exec(text.trim());
+  if (!match) return null;
+  const name = match[1];
+  const action = CONVERSATION_COMMANDS[name];
+  if (action) return { kind: 'conversation', action, name, argument: (match[2] ?? '').trim() };
+  if (commands.some((command) => command.name === name)) return { kind: 'agent', name };
+  return { kind: 'terminal', name };
+}

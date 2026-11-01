@@ -192,9 +192,15 @@ class AcpSession implements DriverSession {
     private readonly proc: AgentProcess,
     private readonly prefix: string,
     private instructions: string,
-  ) {}
+  ) {
+    this.initialInstructions = instructions;
+  }
+
+  private readonly initialInstructions: string;
+  private cwd = '';
 
   async open(cwd: string, resume: DriverContext['resume']): Promise<void> {
+    this.cwd = cwd;
     const init = await this.rpc.request<Json>('initialize', {
       protocolVersion: PROTOCOL_VERSION,
       clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
@@ -465,6 +471,16 @@ class AcpSession implements DriverSession {
 
   async send(input: UserInput): Promise<void> {
     await this.prompt(input);
+  }
+
+  async clear(): Promise<void> {
+    const response = await this.rpc.request<Json>('session/new', { cwd: this.cwd, mcpServers: [] });
+    this.sessionId = String(response.sessionId);
+    this.instructions = this.initialInstructions;
+    this.stream = null;
+    this.tools.clear();
+    this.sink.reset();
+    this.sink.session({ agentSessionId: this.sessionId });
   }
 
   async interrupt(): Promise<void> {

@@ -616,6 +616,15 @@ class ClaudeSession implements DriverSession {
         }
         return;
       }
+      case 'conversation_reset': {
+        const reset = message as unknown as Json;
+        this.sessionId = String(reset.new_conversation_id);
+        this.lastAssistantUuid = null;
+        this.before.clear();
+        this.sink.reset();
+        this.sink.session({ agentSessionId: this.sessionId });
+        return;
+      }
       case 'rate_limit_event': {
         const info = (message as unknown as Json).rate_limit_info as Json | undefined;
         if (info?.status === 'rejected') this.notice('warning', 'Usage limit reached');
@@ -641,6 +650,26 @@ class ClaudeSession implements DriverSession {
       case 'session_state_changed':
         if (message.state === 'idle') this.sink.session({ status: 'idle' });
         else if (message.state === 'running') this.sink.session({ status: 'running' });
+        return;
+      case 'local_command_output':
+        this.sink.node({
+          id: `claude-local-${String(message.uuid)}`,
+          kind: 'assistant_message',
+          parentId: null,
+          createdAt: Date.now(),
+          text: String(message.content ?? ''),
+          status: 'completed',
+        });
+        return;
+      case 'local_command_output':
+        this.sink.node({
+          id: `claude-local-${String(message.uuid)}`,
+          kind: 'assistant_message',
+          parentId: null,
+          createdAt: Date.now(),
+          text: String(message.content ?? ''),
+          status: 'completed',
+        });
         return;
       case 'compact_boundary': {
         const metadata = (message.compact_metadata ?? {}) as Json;

@@ -4,8 +4,9 @@ import { MenuPopover } from '../ui/Menu';
 import { growToFit } from '../../hooks/useAutoResize';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { sendChat } from './chatActions';
-import type { ChatAttachment, ChatOption, ChatSessionInfo } from '../../chat/model';
+import { sendChat, switchToTerminal } from './chatActions';
+import { CHAT_AGENT_LABELS } from '../../chat/preferences';
+import { parseSlashCommand, type ChatAttachment, type ChatOption, type ChatSessionInfo } from '../../chat/model';
 import type { ChatDelivery } from '../../chat/host';
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -120,6 +121,7 @@ export function ChatComposer({
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [delivery, setDelivery] = useState<Exclude<ChatDelivery, 'auto'>>('steer');
   const [commandIndex, setCommandIndex] = useState(0);
+  const [terminalCommand, setTerminalCommand] = useState<string | null>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const busy = info.status === 'running' || info.status === 'awaiting';
@@ -143,6 +145,11 @@ export function ChatComposer({
   const send = async () => {
     const text = draft.trim();
     if ((!text && attachments.length === 0) || !ready) return;
+    const command = parseSlashCommand(text, info.commands);
+    if (command?.kind === 'terminal') {
+      setTerminalCommand(command.name);
+      return;
+    }
     const chosen: ChatDelivery = busy && caps.steer && caps.queue ? delivery : 'auto';
     setDraft(cardId, '');
     const sent = attachments;
@@ -234,6 +241,33 @@ export function ChatComposer({
           ))}
         </div>
       )}
+      {terminalCommand && (
+        <div className="flex items-center gap-3 px-3.5 pt-2.5 text-[13px] text-text-secondary">
+          <span className="flex-1">
+            <span className="font-mono">/{terminalCommand}</span> runs in {CHAT_AGENT_LABELS[info.agent]}&apos;s
+            terminal.
+          </span>
+          <button
+            type="button"
+            className="btn-secondary btn-compact"
+            onClick={() => {
+              setTerminalCommand(null);
+              setDraft(cardId, '');
+              void switchToTerminal(cardId);
+            }}
+          >
+            Open in terminal
+          </button>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            className="text-text-tertiary hover:text-text-primary"
+            onClick={() => setTerminalCommand(null)}
+          >
+            <Icon name="x" className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
           {attachments.map((attachment, index) => (
@@ -265,6 +299,7 @@ export function ChatComposer({
         className="block w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-sm text-text-primary placeholder:text-text-tertiary outline-none max-h-60 overflow-y-auto"
         onChange={(event) => {
           setDraft(cardId, event.target.value);
+          setTerminalCommand(null);
           setCommandIndex(0);
         }}
         onKeyDown={onKeyDown}

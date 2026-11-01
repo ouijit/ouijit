@@ -527,6 +527,14 @@ class PiSession implements DriverSession {
     this.sink.session({ agentSessionId: str(state.sessionId) ?? null });
   }
 
+  async clear(): Promise<void> {
+    await this.command({ type: 'new_session' });
+    this.userOrder.splice(0);
+    const state = await this.command<Json>({ type: 'get_state' });
+    this.sink.reset();
+    this.sink.session({ agentSessionId: str(state.sessionId) ?? null });
+  }
+
   async compact(): Promise<void> {
     await this.command({ type: 'compact' });
   }

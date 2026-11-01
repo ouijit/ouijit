@@ -209,7 +209,10 @@ class OpencodeSession implements DriverSession {
     return (text ? JSON.parse(text) : {}) as T;
   }
 
+  private instructions = '';
+
   async open(resume: DriverContext['resume'], instructions: string): Promise<void> {
+    this.instructions = instructions;
     void this.subscribe();
     if (resume?.fork) {
       const { data } = await this.call<{ data: Json }>('POST', `/api/session/${resume.agentSessionId}/fork`, {});
@@ -589,6 +592,21 @@ class OpencodeSession implements DriverSession {
     if (!messageID) throw new Error('opencode has no record of that message');
     await this.call('POST', `/api/session/${this.sessionId}/revert/stage`, { messageID, files: true });
     await this.call('POST', `/api/session/${this.sessionId}/revert/commit`);
+  }
+
+  async clear(): Promise<void> {
+    const { data } = await this.call<{ data: Json }>('POST', '/api/session', {});
+    this.sessionId = String(data.id);
+    this.tools.clear();
+    this.children.clear();
+    this.sentMessages.clear();
+    if (this.instructions) {
+      await this.call('PUT', `/api/experimental/session/${this.sessionId}/instructions/entries/ouijit`, {
+        value: this.instructions,
+      }).catch((error: unknown) => this.sink.log('opencode instructions not set', { error: String(error) }));
+    }
+    this.sink.reset();
+    this.sink.session({ agentSessionId: this.sessionId });
   }
 
   async compact(): Promise<void> {

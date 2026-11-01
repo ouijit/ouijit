@@ -19,6 +19,10 @@ import {
   type ChatAgentId,
   type ChatAnswer,
   type ChatAttachment,
+  type ChatCommand,
+  type ChatOption,
+  type SlashCommand,
+  parseSlashCommand,
   type ChatEvent,
   type ChatNode,
   type ChatSessionInfo,
@@ -31,6 +35,31 @@ import {
 const chatLog = getLogger().scope('chat');
 
 const FLUSH_DELAY_MS = 300;
+/** The conversation commands a driver can run, which every chat's menu offers whatever the agent lists. */
+function conversationCommands(driver: DriverSession): ChatCommand[] {
+  return [
+    { name: 'clear', description: 'Start a new conversation', available: Boolean(driver.clear) },
+    {
+      name: 'compact',
+      description: 'Summarize the conversation to free up context',
+      available: Boolean(driver.compact),
+    },
+    { name: 'model', description: 'Switch model', argumentHint: '<model>', available: Boolean(driver.setModel) },
+    {
+      name: 'effort',
+      description: 'Set reasoning effort',
+      argumentHint: '<level>',
+      available: Boolean(driver.setEffort),
+    },
+  ]
+    .filter((command) => command.available)
+    .map(({ available: _available, ...command }) => command);
+}
+
+function withConversationCommands(commands: ChatCommand[], driver: DriverSession): ChatCommand[] {
+  const own = conversationCommands(driver).filter((command) => !commands.some((c) => c.name === command.name));
+  return [...own, ...commands];
+}
 /** Events kept for a client catching up; one that falls further behind takes a fresh snapshot. */
 const REPLAY_WINDOW = 4000;
 
@@ -345,7 +374,8 @@ export class ChatHost {
       session.emit({
         type: 'session',
         patch: {
-          capabilities: session.driver.capabilities,
+          capabilities: { ...session.driver.capabilities, commands: true },
+          commands: withConversationCommands(session.info.commands, session.driver),
           ...(session.info.status === 'starting' && { status: 'idle' }),
         },
       });
@@ -392,7 +422,11 @@ export class ChatHost {
       node: (node) => session.emit({ type: 'node', node }),
       append: (nodeId, field, delta) => session.emit({ type: 'append', id: nodeId, field, delta }),
       remove: (ids) => ids.length && session.emit({ type: 'remove', ids }),
-      session: (patch) => {
+      session: (incoming) => {
+        const patch =
+          incoming.commands && session.driver
+            ? { ...incoming, commands: withConversationCommands(incoming.commands, session.driver) }
+            : incoming;
         const wasBusy = session.info.status === 'running' || session.info.status === 'awaiting';
         const next =
           patch.status === 'running' && session.asks.size > 0 ? { ...patch, status: 'awaiting' as const } : patch;
@@ -414,6 +448,10 @@ export class ChatHost {
         const stale = session.nodes.filter((node) => !incoming.has(node.id)).map((node) => node.id);
         if (stale.length) session.emit({ type: 'remove', ids: stale });
         for (const node of nodes) session.emit({ type: 'node', node });
+      },
+      reset: () => {
+        session.queued.splice(0);
+        if (session.nodes.length) session.emit({ type: 'remove', ids: session.nodes.map((node) => node.id) });
       },
       log: (message, data) => chatLog.info(message, { id, ...data }),
     };
@@ -453,6 +491,13 @@ export class ChatHost {
   ): Promise<string> {
     const { session, driver } = await this.requireDriver(id);
     const busy = session.info.status === 'running' || session.info.status === 'awaiting';
+    const command = parseSlashCommand(input.text, session.info.commands);
+    if (command?.kind === 'terminal') {
+      throw new Error(`/${command.name} runs in the agent's terminal`);
+    }
+    if (command?.kind === 'conversation' && (await this.runConversationCommand(session, driver, command, busy))) {
+      return '';
+    }
     const node: UserMessageNode = {
       id: `user-${randomUUID()}`,
       kind: 'user_message',
@@ -482,6 +527,45 @@ export class ChatHost {
       session.emit({ type: 'node', node: queued });
     }
     return node.id;
+  }
+
+  /**
+   * Run a conversation command through the chat's own controls, so the slash
+   * command and the menu do the same thing. False when the driver leaves it
+   * to the agent, as Claude does with `/clear`, which it announces as a reset.
+   */
+  private async runConversationCommand(
+    session: HostedSession,
+    driver: DriverSession,
+    command: Extract<SlashCommand, { kind: 'conversation' }>,
+    busy: boolean,
+  ): Promise<boolean> {
+    const pick = (options: ChatOption[], what: string): string => {
+      const wanted = command.argument.toLowerCase();
+      if (!wanted) throw new Error(`Pick a ${what} from the menu below, or type /${command.name} <${what}>`);
+      const found = options.find((o) => o.id.toLowerCase() === wanted || o.label.toLowerCase() === wanted);
+      if (!found) throw new Error(`No ${what} called ${command.argument}`);
+      return found.id;
+    };
+    switch (command.action) {
+      case 'clear':
+        if (!driver.clear) return false;
+        if (busy) throw new Error('Wait for the turn to end, or stop it, before clearing');
+        await driver.clear();
+        return true;
+      case 'compact':
+        if (!driver.compact) return false;
+        await this.compact(session.info.id);
+        return true;
+      case 'model':
+        if (!driver.setModel) return false;
+        await this.setModel(session.info.id, pick(session.info.models, 'model'));
+        return true;
+      case 'effort':
+        if (!driver.setEffort) return false;
+        await this.setEffort(session.info.id, pick(session.info.efforts, 'effort'));
+        return true;
+    }
   }
 
   private async drainQueue(session: HostedSession): Promise<void> {

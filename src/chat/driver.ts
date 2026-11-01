@@ -50,6 +50,8 @@ export interface DriverSink {
   ask(request: Omit<RequestNode, 'kind' | 'status' | 'answer' | 'createdAt'>): Promise<ChatAnswer>;
   /** The agent's history, for a resume: replaces the transcript. An empty history is ignored. */
   history(nodes: ChatNode[]): void;
+  /** The agent dropped its conversation and started another: the transcript starts over too. */
+  reset(): void;
   log(message: string, data?: Record<string, unknown>): void;
 }
 
@@ -65,6 +67,11 @@ export interface DriverSession {
   /** Undo back to before a user message: the conversation, and the agent's edits where it tracks them. */
   rewind?(userMessageId: string): Promise<void>;
   compact?(): Promise<void>;
+  /**
+   * Start a fresh conversation, for an agent whose protocol does not take
+   * `/clear` as a message. The driver calls `reset` once it has.
+   */
+  clear?(): Promise<void>;
   /** Stop the agent process. Safe to call twice. */
   close(): Promise<void>;
 }
