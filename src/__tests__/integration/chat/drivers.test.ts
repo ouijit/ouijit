@@ -60,7 +60,7 @@ async function until(
     if (done(snapshot)) return snapshot;
     if (Date.now() - started > timeoutMs) {
       throw new Error(
-        `timed out; status ${snapshot.info.status} ${snapshot.info.statusDetail ?? ''}\n${JSON.stringify(snapshot.nodes.map((n) => n.kind))}`,
+        `timed out; status ${snapshot.info.status} ${snapshot.info.statusDetail ?? ''}\n${JSON.stringify(snapshot.nodes.map((n) => ('text' in n ? `${n.kind}: ${n.text.slice(0, 80)}` : n.kind)))}`,
       );
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -196,6 +196,60 @@ describe.each(['claude', 'codex', 'pi'] as const)('%s steered mid-turn', (agent)
       stop();
     },
     timeout * 2,
+  );
+});
+
+describe('claude rewound and forked', () => {
+  const available = recording || fs.existsSync(cassettePath('claude-rewind'));
+
+  test.skipIf(!available)(
+    'a rewind forgets the later message, and a fork carries the conversation into a new session',
+    async () => {
+      const cwd = repo();
+      const probe = recording ? await getDriver('claude').probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording
+          ? recordingSpawn('claude-rewind', 'claude', probe?.version)
+          : replayingSpawn(loadCassettes('claude-rewind')),
+      });
+      const id = 'pty-rewind';
+      const idle = (min: number) => (s: ChatSnapshot) =>
+        s.info.status === 'idle' && s.nodes.filter((n) => n.kind === 'assistant_message').length >= min;
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+      await host.prompt(id, { text: 'Remember the word apple. Reply with only: ok' });
+      await until(host, id, idle(1), timeout);
+      const pear = await host.prompt(id, { text: 'Forget apple; remember the word pear instead. Reply with only: ok' });
+      await until(host, id, idle(2), timeout);
+
+      await host.rewind(id, pear);
+      expect(host.snapshot(id)!.nodes.some((n) => n.id === pear)).toBe(false);
+      await host.prompt(id, { text: 'Which word did I ask you to remember? Reply with only the word.' });
+      const rewound = await until(
+        host,
+        id,
+        (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message' && /apple/i.test(n.text)),
+        timeout,
+      );
+      expect(rewound.nodes.some((n) => n.kind === 'assistant_message' && /pear/i.test(n.text))).toBe(false);
+
+      const fork = await host.fork(id);
+      expect(fork.info.id).not.toBe(id);
+      expect(fork.info.status).toBe('idle');
+      const forkedFrom = rewound.info.agentSessionId;
+      await host.prompt(fork.info.id, { text: 'Repeat the word you are remembering. Reply with only the word.' });
+      const forked = await until(
+        host,
+        fork.info.id,
+        (s) =>
+          s.info.status === 'idle' &&
+          s.nodes.filter((n) => n.kind === 'assistant_message' && /apple/i.test(n.text)).length >= 2,
+        timeout,
+      );
+      expect(forked.info.agentSessionId).not.toBe(forkedFrom);
+      await host.stop(fork.info.id);
+      await host.stop(id);
+    },
+    timeout * 3,
   );
 });
 
