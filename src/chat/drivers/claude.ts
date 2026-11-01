@@ -50,7 +50,13 @@ const MODES: ChatOption[] = [
   { id: 'plan', label: 'Plan', description: 'Plan without changing anything' },
 ];
 
-const EFFORTS: ChatOption[] = (['low', 'medium', 'high', 'xhigh', 'max'] as const).map((id) => ({ id, label: id }));
+const EFFORTS: ChatOption[] = [
+  { id: 'low', label: 'Low' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'high', label: 'High' },
+  { id: 'xhigh', label: 'Extra high' },
+  { id: 'max', label: 'Max' },
+];
 
 type Json = Record<string, unknown>;
 type ContentBlock = Json & { type: string };

@@ -44,7 +44,7 @@ function Picker({
       open={open}
       onOpenChange={setOpen}
       placement="top-start"
-      className="w-72 max-h-[20rem]"
+      className={`${options.some((option) => option.description) ? 'w-72' : 'w-auto min-w-[8rem]'} max-h-[20rem]`}
       trigger={(ref) => (
         <button
           ref={ref}
