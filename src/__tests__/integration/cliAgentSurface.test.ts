@@ -144,6 +144,7 @@ describe('what an agent can see and do from the CLI', () => {
         taskNumber: 1,
         worktreePath: worktree,
         sandbox: 'nono',
+        surface: 'terminal',
         agentStatus: 'thinking',
       },
       {
@@ -153,6 +154,7 @@ describe('what an agent can see and do from the CLI', () => {
         taskNumber: null,
         worktreePath: null,
         sandbox: 'none',
+        surface: 'terminal',
         agentStatus: null,
       },
     ]);

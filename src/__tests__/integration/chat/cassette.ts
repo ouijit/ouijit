@@ -98,7 +98,9 @@ function scrub(line: string, cwd: string): string {
   } catch {
     // Not JSON: kept as the agent wrote it.
   }
-  return out.split(cwd).join('__CWD__').split(os.homedir()).join('__HOME__').split(os.hostname()).join('__HOST__');
+  // The real home, not os.homedir(): the integration setup points that at a temp dir.
+  const home = os.userInfo().homedir;
+  return out.split(cwd).join('__CWD__').split(home).join('__HOME__').split(os.hostname()).join('__HOST__');
 }
 
 function unscrub(line: string, cwd: string): string {

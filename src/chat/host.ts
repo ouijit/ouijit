@@ -4,7 +4,9 @@ import { getChatRepo, getGlobalSetting } from '../db';
 import { CHAT_SETTING_KEYS, parseChatSettings } from './preferences';
 import type { ChatSessionRow } from '../db/repos/chatRepo';
 import { issueToken, revokeToken } from '../apiAuth';
-import { hostEnv, ouijitSessionEnv, sandboxLaunch } from '../sessionEnv';
+import { hostEnv, ouijitSessionEnv, sandboxLaunch, sandboxReferenceEnv } from '../sessionEnv';
+import { getCliReferencePath } from '../hookServer';
+import { readCliReference } from './binaries';
 import { getSandboxProvider } from '../sandbox';
 import { isActiveSandbox, isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
 import { spawnAgentProcess, type AgentProcess, type AgentSpawn } from './process';
@@ -41,6 +43,7 @@ export interface ChatStartOptions {
   taskId: number | null;
   worktreePath?: string;
   sandboxProvider?: SandboxProviderId;
+  label?: string;
   /** Start from an agent conversation that began outside this session, e.g. in the card's terminal. */
   resume?: { agentSessionId: string; fork: boolean };
 }
@@ -73,6 +76,7 @@ class HostedSession {
   private readonly createdAt: string;
   readonly processes = new Set<AgentProcess>();
   starting: Promise<void> | null = null;
+  referenceEnv: Record<string, string> = {};
 
   constructor(
     readonly row: Pick<ChatSessionRow, 'id' | 'project_path' | 'task_id' | 'cwd' | 'worktree_path' | 'agent'> & {
@@ -262,6 +266,7 @@ export class ChatHost {
       ? (JSON.parse(stored.info) as ChatSessionInfo)
       : {
           id,
+          ...(options.label && { label: options.label }),
           agent,
           agentSessionId: null,
           projectPath: options.projectPath,
@@ -324,7 +329,10 @@ export class ChatHost {
         Object.values(CHAT_SETTING_KEYS).map(async (key) => stored.set(key, await getGlobalSetting(key))),
       );
       const settings = parseChatSettings((key) => stored.get(key));
-      const token = issueToken(id, isActiveSandbox(session.row.sandbox_provider) ? 'sandbox' : 'host');
+      const sandbox = isActiveSandbox(session.row.sandbox_provider) ? session.row.sandbox_provider : undefined;
+      const token = issueToken(id, sandbox ? 'sandbox' : 'host');
+      const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path);
+      session.referenceEnv = referenceEnv;
       session.driver = await driver.start({
         cwd: session.row.cwd,
         sessionId: id,
@@ -332,6 +340,7 @@ export class ChatHost {
         spawn: (spawn) => this.spawn(session, token, spawn),
         sink: this.sink(session),
         preferences: { piApprovals: settings.piApprovals, acpCommand: settings.acpCommand },
+        instructions: readCliReference(referenceEnv.OUIJIT_SANDBOX_REFERENCE_FILE ?? getCliReferencePath()),
       });
       session.emit({
         type: 'session',
@@ -351,7 +360,11 @@ export class ChatHost {
 
   private async spawn(session: HostedSession, token: string, spawn: AgentSpawn): Promise<AgentProcess> {
     const base = hostEnv();
-    const env: Record<string, string> = { ...base, ...ouijitSessionEnv(session.info.id, token, base) };
+    const env: Record<string, string> = {
+      ...base,
+      ...ouijitSessionEnv(session.info.id, token, base),
+      ...session.referenceEnv,
+    };
     for (const [key, value] of Object.entries(spawn.env ?? {})) {
       if (value === undefined) delete env[key];
       else env[key] = value;

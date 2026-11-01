@@ -333,7 +333,8 @@ ouijit task set-merge-target <number> <branch>
 ouijit task trash <number>                    # removes task, worktree goes to the system trash
 
 ## Terminal Commands
-ouijit terminal list                          # → [{ptyId, label, projectPath, taskNumber, worktreePath, sandbox, agentStatus}] across every project
+ouijit terminal list                          # → [{ptyId, label, projectPath, taskNumber, worktreePath, sandbox, surface, agentStatus}] across every project
+                                              # surface: terminal | chat — a chat card reads as its transcript, and paste fills its composer
                                               # agentStatus: thinking | ready, or null where no agent has reported
 ouijit terminal read <pty-id> [--lines <n>]   # → {ptyId, text, alternateScreen}: its screen and recent scrollback, as text
 ouijit terminal open [--task <n>] [--resume] [--sandbox host|nono|custom]

@@ -138,6 +138,7 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
       taskId: options.taskId ?? null,
       worktreePath: options.worktree?.path,
       sandboxProvider,
+      label,
     });
   } catch (error) {
     chatLog.error('chat failed to start', { error: String(error) });

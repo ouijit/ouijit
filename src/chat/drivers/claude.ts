@@ -12,7 +12,7 @@ import {
   type SDKMessage,
   type SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
-import { binaryVersion, compareVersions, ouijitInstructions, resolveAgentBinary } from '../binaries';
+import { binaryVersion, compareVersions, resolveAgentBinary } from '../binaries';
 import { deferredProcess } from '../process';
 import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
 import type {
@@ -486,7 +486,7 @@ class ClaudeSession implements DriverSession {
   }
 
   private options(extra: Partial<Options>): Options {
-    const instructions = ouijitInstructions();
+    const instructions = this.context.instructions;
     const canUseTool: CanUseTool = (toolName, input, options) => this.permission(toolName, input, options);
     return {
       cwd: this.context.cwd,

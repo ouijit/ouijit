@@ -5,6 +5,8 @@ import { addProjectTerminal, closeProjectTerminal } from '../components/terminal
 import { openTaskShell } from '../components/navigation';
 import { bufferText, pasteable } from '../components/terminal/terminalText';
 import { useTerminalStore } from '../stores/terminalStore';
+import { useChatStore } from '../stores/chatStore';
+import { transcriptText } from '../chat/model';
 import { TERMINAL_READY_WAIT_MS, type CliTerminalOp, type CliTerminalResponse } from '../types';
 
 const cliTerminalsLog = log.scope('cliTerminals');
@@ -57,6 +59,7 @@ async function handleOp(op: CliTerminalOp): Promise<CliTerminalResponse> {
     closeProjectTerminal(op.ptyId);
     return { ok: true, ptyId: op.ptyId };
   }
+  if (instance.surface === 'chat') return chatOp(op.ptyId, op);
   if (op.action === 'paste') {
     const text = pasteable(op.text ?? '', instance.xterm.modes.bracketedPasteMode);
     if (typeof text !== 'string') return { ok: false, error: text.error };
@@ -70,6 +73,21 @@ async function handleOp(op: CliTerminalOp): Promise<CliTerminalResponse> {
     text: bufferText(instance.xterm, op.lines ?? DEFAULT_READ_LINES),
     alternateScreen: instance.xterm.buffer.active.type === 'alternate',
   };
+}
+
+/**
+ * A chat card reads as its transcript, and a paste lands in its composer
+ * unsent — the same contract as a terminal, where the person presses Enter.
+ */
+async function chatOp(ptyId: string, op: CliTerminalOp): Promise<CliTerminalResponse> {
+  if (op.action === 'paste') {
+    const draft = useChatStore.getState().drafts[ptyId] ?? '';
+    useChatStore.getState().setDraft(ptyId, draft + (op.text ?? ''));
+    return { ok: true, ptyId };
+  }
+  const snapshot = useChatStore.getState().sessions[ptyId] ?? (await window.api.chat.snapshot(ptyId));
+  const lines = transcriptText(snapshot?.nodes ?? []).split('\n');
+  return { ok: true, ptyId, text: lines.slice(-(op.lines ?? DEFAULT_READ_LINES)).join('\n'), alternateScreen: false };
 }
 
 /** Handle `ouijit terminal read/paste/open/close`. Install once for the life of the renderer. */

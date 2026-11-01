@@ -210,6 +210,8 @@ export type ChatSessionStatus = 'starting' | 'idle' | 'running' | 'awaiting' | '
 
 export interface ChatSessionInfo {
   id: string;
+  /** The card's name, for listings outside the window. */
+  label?: string;
   agent: ChatAgentId;
   /** The agent's own id for this conversation, used to resume it in chat or terminal. */
   agentSessionId: string | null;

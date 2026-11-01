@@ -24,6 +24,8 @@ export interface DriverContext {
   resume: { agentSessionId: string; fork: boolean } | null;
   spawn: (spawn: AgentSpawn) => Promise<AgentProcess>;
   sink: DriverSink;
+  /** The Ouijit CLI reference this agent is told about: the sandbox's variant when it runs sandboxed. */
+  instructions: string;
   preferences: ChatPreferences;
 }
 

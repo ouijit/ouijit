@@ -120,6 +120,14 @@ function optionKind(kind: unknown): RequestOptionKind {
   }
 }
 
+/**
+ * ACP has no system prompt, so the Ouijit CLI reference goes to the agent as
+ * a tagged block ahead of the first message, and is cut back out of history.
+ */
+const PREAMBLE_OPEN = '<ouijit-cli-reference>';
+const PREAMBLE_CLOSE = '</ouijit-cli-reference>';
+const PREAMBLE_PATTERN = new RegExp(`${PREAMBLE_OPEN}[\\s\\S]*?${PREAMBLE_CLOSE}\\s*`, 'g');
+
 /** Split a command line on whitespace, honouring single and double quotes. */
 function splitCommand(line: string): string[] {
   const parts: string[] = [];
@@ -183,6 +191,7 @@ class AcpSession implements DriverSession {
     private readonly sink: DriverSink,
     private readonly proc: AgentProcess,
     private readonly prefix: string,
+    private instructions: string,
   ) {}
 
   async open(cwd: string, resume: DriverContext['resume']): Promise<void> {
@@ -205,6 +214,8 @@ class AcpSession implements DriverSession {
       response = await this.rpc.request<Json>('session/new', { cwd, mcpServers: [] });
       this.sessionId = String(response.sessionId);
     }
+    // A loaded conversation was told already, in its first message.
+    if (resume && !resume.fork) this.instructions = '';
     this.sink.session({ agentSessionId: this.sessionId });
     this.applyModes(response.modes as Json | undefined);
     this.applyModels(response.models as Json | undefined);
@@ -285,7 +296,10 @@ class AcpSession implements DriverSession {
         if (chunk.type === 'text') this.appendText('reasoning', String(chunk.text ?? ''));
         return;
       case 'user_message_chunk':
-        if (this.replaying && chunk.type === 'text') this.appendText('user_message', String(chunk.text ?? ''));
+        if (this.replaying && chunk.type === 'text') {
+          const text = String(chunk.text ?? '').replace(PREAMBLE_PATTERN, '');
+          if (text) this.appendText('user_message', text);
+        }
         return;
       case 'tool_call':
       case 'tool_call_update':
@@ -392,6 +406,10 @@ class AcpSession implements DriverSession {
 
   private async blocks(input: UserInput): Promise<Json[]> {
     const blocks: Json[] = [];
+    if (this.instructions) {
+      blocks.push({ type: 'text', text: `${PREAMBLE_OPEN}\n${this.instructions}\n${PREAMBLE_CLOSE}` });
+      this.instructions = '';
+    }
     if (input.text) blocks.push({ type: 'text', text: input.text });
     for (const attachment of input.attachments) {
       if (attachment.mimeType.startsWith('image/') && this.capabilities.images) {
@@ -502,7 +520,7 @@ export async function startAcpSession(
     },
     { envelope: true, log: context.sink.log },
   );
-  session = new AcpSession(rpc, context.sink, proc, prefix);
+  session = new AcpSession(rpc, context.sink, proc, prefix, context.instructions);
   void exited(proc).then((code) => {
     if (session?.closing) return;
     context.sink.session({

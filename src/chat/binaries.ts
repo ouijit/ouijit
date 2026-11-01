@@ -3,7 +3,6 @@ import { accessSync, constants, readFileSync, realpathSync } from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { getWrapperBinDir } from '../paths';
-import { getCliReferencePath } from '../hookServer';
 
 const execFileAsync = promisify(execFile);
 
@@ -55,10 +54,10 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** The Ouijit CLI reference the terminal wrappers hand every agent, so a chat agent knows it too. */
-export function ouijitInstructions(): string {
+/** A CLI reference file's text, or empty where it has not been written. */
+export function readCliReference(file: string): string {
   try {
-    return readFileSync(getCliReferencePath(), 'utf8');
+    return readFileSync(file, 'utf8');
   } catch {
     return '';
   }

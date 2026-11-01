@@ -1,5 +1,5 @@
 import { JsonRpcPeer, RpcError } from '../jsonRpc';
-import { binaryVersion, compareVersions, ouijitInstructions, resolveAgentBinary } from '../binaries';
+import { binaryVersion, compareVersions, resolveAgentBinary } from '../binaries';
 import { exited, stderrTail, terminate } from '../process';
 import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
 import type {
@@ -289,13 +289,13 @@ class CodexSession implements DriverSession {
     private readonly proc: Parameters<typeof terminate>[0],
   ) {}
 
-  async open(cwd: string, resume: DriverContext['resume']): Promise<void> {
+  async open(cwd: string, resume: DriverContext['resume'], instructions: string): Promise<void> {
     await this.rpc.request('initialize', {
       clientInfo: { name: 'ouijit', title: 'Ouijit', version: '1' },
       capabilities: { experimentalApi: true },
     });
     this.rpc.notify('initialized');
-    const developerInstructions = ouijitInstructions() || undefined;
+    const developerInstructions = instructions || undefined;
     let response: Json;
     if (resume?.fork) {
       response = await this.rpc.request<Json>('thread/fork', {
@@ -624,7 +624,7 @@ export const codexDriver: AgentDriver = {
       });
     });
     try {
-      await session.open(context.cwd, context.resume);
+      await session.open(context.cwd, context.resume, context.instructions);
     } catch (error) {
       await session.close();
       throw new Error(tail() || (error instanceof Error ? error.message : String(error)));

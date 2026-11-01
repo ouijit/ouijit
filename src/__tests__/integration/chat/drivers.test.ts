@@ -302,3 +302,38 @@ describe('pi with approvals on', () => {
     timeout * 2,
   );
 });
+
+describe.each(['claude', 'codex', 'pi', 'opencode', 'acp'] as const)('%s told about Ouijit', (agent) => {
+  const name = `${agent}-cli`;
+  const available = recording || fs.existsSync(cassettePath(name));
+
+  test.skipIf(!available)(
+    'knows the ouijit CLI from the reference it is handed, without being shown it',
+    async () => {
+      const cwd = repo();
+      if (agent === 'acp') await setGlobalSetting('chat:acpCommand', 'opencode acp');
+      const probe = recording ? await getDriver(agent).probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording ? recordingSpawn(name, agent, probe?.version) : replayingSpawn(loadCassettes(name)),
+      });
+      const id = `pty-cli-${agent}`;
+      await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });
+      await host.prompt(id, {
+        text: 'Without running anything: what single shell command lists the tasks of this Ouijit project? Reply with only the command.',
+      });
+      const done = await until(
+        host,
+        id,
+        (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message' && n.text.trim() !== ''),
+        timeout,
+      );
+      const reply = done.nodes
+        .filter((n) => n.kind === 'assistant_message')
+        .map((n) => n.text)
+        .join('\n');
+      expect(reply).toMatch(/ouijit task list/);
+      await host.stop(id);
+    },
+    timeout * 2,
+  );
+});

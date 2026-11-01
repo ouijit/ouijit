@@ -57,6 +57,16 @@ describe('a chat followed from another client', () => {
     await chatHost.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
     const phone = issueToken('pty-phone', 'host');
 
+    // A chat card is a terminal to the CLI: listed, with its surface and agent status.
+    const terminals = await call<{ ptyId: string; surface: string; agentStatus: string | null }[]>(
+      phone,
+      'GET',
+      '/api/terminals',
+    );
+    expect(terminals.json).toContainEqual(
+      expect.objectContaining({ ptyId: id, surface: 'chat', agentStatus: 'ready' }),
+    );
+
     const before = await call<{ seq: number; info: { status: string } }>(phone, 'GET', `/api/chats/${id}`);
     expect(before.status).toBe(200);
     expect(before.json.info.status).toBe('idle');

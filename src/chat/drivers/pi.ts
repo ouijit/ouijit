@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { binaryVersion, compareVersions, ouijitInstructions, resolveAgentBinary } from '../binaries';
+import { binaryVersion, compareVersions, resolveAgentBinary } from '../binaries';
 import { exited, onLines, stderrTail, terminate, type AgentProcess } from '../process';
 import { getPiApprovalExtensionPath } from '../piApprovals';
 import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
@@ -574,7 +574,7 @@ export const piDriver: AgentDriver = {
     const args = ['--mode', 'rpc'];
     if (context.resume?.fork) args.push('--fork', context.resume.agentSessionId);
     else args.push('--session-id', context.resume?.agentSessionId ?? randomUUID());
-    const instructions = ouijitInstructions();
+    const instructions = context.instructions;
     if (instructions) args.push('--append-system-prompt', instructions);
     if (context.preferences.piApprovals) args.push('--extension', getPiApprovalExtensionPath());
     const proc = await context.spawn({ command: binary, args });

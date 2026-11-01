@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
 import { readFile } from 'node:fs/promises';
-import { binaryVersion, compareVersions, ouijitInstructions, resolveAgentBinary } from '../binaries';
+import { binaryVersion, compareVersions, resolveAgentBinary } from '../binaries';
 import { exited, onLines, stderrTail, terminate, type AgentProcess } from '../process';
 import { startAcpSession } from './acp';
 import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
@@ -209,7 +209,7 @@ class OpencodeSession implements DriverSession {
     return (text ? JSON.parse(text) : {}) as T;
   }
 
-  async open(resume: DriverContext['resume']): Promise<void> {
+  async open(resume: DriverContext['resume'], instructions: string): Promise<void> {
     void this.subscribe();
     if (resume?.fork) {
       const { data } = await this.call<{ data: Json }>('POST', `/api/session/${resume.agentSessionId}/fork`, {});
@@ -220,7 +220,6 @@ class OpencodeSession implements DriverSession {
       const { data } = await this.call<{ data: Json }>('POST', '/api/session', {});
       this.sessionId = String(data.id);
     }
-    const instructions = ouijitInstructions();
     if (instructions) {
       await this.call('PUT', `/api/experimental/session/${this.sessionId}/instructions/entries/ouijit`, {
         value: instructions,
@@ -641,7 +640,7 @@ async function startServer(context: DriverContext, binary: string): Promise<Driv
     });
   });
   try {
-    await session.open(context.resume);
+    await session.open(context.resume, context.instructions);
   } catch (error) {
     await session.close();
     throw error;

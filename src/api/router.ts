@@ -71,17 +71,15 @@ import { fileItRuns } from '../askFile';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
 import { cliAskRequest, cliPanelRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
-import {
-  isPtyActive,
-  getPtyTaskContext,
-  getActiveSessions,
-  getPtySpawnContext,
-  callerTerminal,
-  type ActiveSession,
-} from '../ptyManager';
-import { getHookStatus } from '../hookServer';
+import { callerTerminal } from '../ptyManager';
 import { liveNotes } from '../diffNotesService';
-import { isSessionLive, getSessionTaskContext } from '../sessions';
+import {
+  isSessionLive,
+  getSessionSpawnContext,
+  getSessionTaskContext,
+  listSessions,
+  type SessionListing,
+} from '../sessions';
 import { chatHost, ChatSessionNotFound } from '../chat/host';
 import { transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
 import { typedPush } from '../ipc/helpers';
@@ -237,7 +235,7 @@ function realLocation(p: string): string {
 
 /** `file` relative to the terminal's worktree, or null when it lies outside it. */
 function worktreeRelative(ptyId: string, file: string): string | null {
-  const ctx = getPtySpawnContext(ptyId);
+  const ctx = getSessionSpawnContext(ptyId);
   const root = ctx?.worktreePath || ctx?.projectPath;
   if (!root || !path.isAbsolute(file)) return null;
   const relative = path.relative(realLocation(root), realLocation(file));
@@ -245,7 +243,7 @@ function worktreeRelative(ptyId: string, file: string): string | null {
 }
 
 async function askRun(r: ParsedRequest): Promise<AskRun> {
-  const ctx = getPtySpawnContext(r.auth.ptyId);
+  const ctx = getSessionSpawnContext(r.auth.ptyId);
   if (!ctx) throw new HttpError(404, `PTY ${r.auth.ptyId} not found or inactive`);
   const cwd = ctx.worktreePath || ctx.projectPath;
   const wait = r.body.wait === true;
@@ -462,20 +460,20 @@ async function runTerminalPanelsOp(
   action: 'list-all' | 'focus' | 'diff-open' | 'diff-close',
   value?: string,
 ): Promise<{ ptyId: string; panels: unknown; diffOpen: boolean }> {
-  if (!isPtyActive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
+  if (!isSessionLive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
   const result = await cliPanelRequest({ ptyId, action, value });
   if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
   return { ptyId, panels: result.panels ?? [], diffOpen: result.diffOpen ?? false };
 }
 
 async function runTerminalOp(op: Omit<CliTerminalOp, 'requestId'>): Promise<CliTerminalResponse> {
-  if (op.ptyId && !isPtyActive(op.ptyId)) throw new HttpError(404, `PTY ${op.ptyId} not found or inactive`);
+  if (op.ptyId && !isSessionLive(op.ptyId)) throw new HttpError(404, `PTY ${op.ptyId} not found or inactive`);
   const result = await cliTerminalRequest(op);
   if (!result.ok) throw new HttpError(op.action === 'paste' ? 400 : 404, result.error ?? 'Terminal operation failed');
   return result;
 }
 
-function describeTerminal(session: ActiveSession) {
+function describeTerminal(session: SessionListing) {
   return {
     ptyId: session.ptyId,
     label: session.label,
@@ -483,7 +481,8 @@ function describeTerminal(session: ActiveSession) {
     taskNumber: session.taskId ?? null,
     worktreePath: session.worktreePath ?? null,
     sandbox: session.sandboxProvider ?? 'none',
-    agentStatus: getHookStatus(session.ptyId)?.status ?? null,
+    surface: session.surface,
+    agentStatus: session.agentStatus,
   };
 }
 
@@ -745,7 +744,7 @@ const routes: Route[] = [
 
   // ── Terminals ────────────────────────────────────────────────────
   route('GET', 'terminals', () =>
-    getActiveSessions()
+    listSessions()
       .filter((session) => !session.isRunner)
       .map(describeTerminal),
   ),
@@ -764,7 +763,7 @@ const routes: Route[] = [
         resume: r.body.resume === true,
         sandbox,
       });
-      const session = getActiveSessions().find((s) => s.ptyId === ptyId);
+      const session = listSessions().find((s) => s.ptyId === ptyId);
       if (!session) throw new HttpError(404, 'The terminal did not open');
       return describeTerminal(session);
     },
@@ -836,7 +835,7 @@ const routes: Route[] = [
     'GET',
     'diff-notes',
     (r) => {
-      const ctx = getPtySpawnContext(r.auth.ptyId);
+      const ctx = getSessionSpawnContext(r.auth.ptyId);
       if (!ctx) throw new HttpError(404, `PTY ${r.auth.ptyId} not found or inactive`);
       return liveNotes(ctx.worktreePath || ctx.projectPath);
     },
@@ -1367,7 +1366,7 @@ interface SandboxCaller extends AuthContext {
  */
 async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
   if (auth.scope === 'host') return { ...auth, access: 'all' };
-  const context = getPtySpawnContext(auth.ptyId);
+  const context = getSessionSpawnContext(auth.ptyId);
   const access = context ? await sandboxCliAccessFor(context.projectPath) : 'read';
   return access === 'all' ? { ...auth, scope: 'host', access } : { ...auth, access };
 }
@@ -1381,7 +1380,7 @@ function sandboxAllows(
 ): boolean {
   if (!rule || (rule.level === 'task' && caller.access !== 'task')) return false;
   const project = query.get('project');
-  if (project !== null && project !== getPtySpawnContext(caller.ptyId)?.projectPath) return false;
+  if (project !== null && project !== getSessionSpawnContext(caller.ptyId)?.projectPath) return false;
   if (rule.owns === 'terminal') return ownsTerminal(caller, params.ptyId);
   if (rule.owns === 'task') return ownsTask(caller, query.get('project'), params.number ?? body.taskNumber);
   return true;
@@ -1391,19 +1390,19 @@ function ownsTerminal(caller: SandboxCaller, ptyId: string | undefined): boolean
   if (!ptyId) return false;
   if (ptyId === caller.ptyId) return true;
   if (caller.access !== 'task') return false;
-  const own = getPtyTaskContext(caller.ptyId);
-  const theirs = getPtyTaskContext(ptyId);
+  const own = getSessionTaskContext(caller.ptyId);
+  const theirs = getSessionTaskContext(ptyId);
   return (
     !!own &&
     !!theirs &&
     own.projectPath === theirs.projectPath &&
     own.taskId === theirs.taskId &&
-    isActiveSandbox(getPtySpawnContext(ptyId)?.sandboxProvider)
+    isActiveSandbox(getSessionSpawnContext(ptyId)?.sandboxProvider)
   );
 }
 
 function ownsTask(caller: SandboxCaller, project: string | null, taskNumber: unknown): boolean {
-  const own = getPtyTaskContext(caller.ptyId);
+  const own = getSessionTaskContext(caller.ptyId);
   return !!own && own.projectPath === project && String(own.taskId) === String(taskNumber);
 }
 
