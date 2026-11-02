@@ -284,12 +284,18 @@ describe('chat view', () => {
     act(() => host.emit({ type: 'session', patch: { background: [] } }));
     expect(screen.queryByRole('list', { name: 'Running in the background' })).toBeNull();
 
-    // Model and mode share one button that names both, and stay open to pick each.
-    fireEvent.click(screen.getByRole('button', { name: 'Agent settings' }));
-    expect(screen.getByRole('button', { name: 'Agent settings' }).textContent).toBe('Sonnet · Ask');
+    // Model and mode share one button that names both; the menu lists the
+    // settings, and each opens to its options.
+    const settings = screen.getByRole('button', { name: 'Agent settings' });
+    expect(settings.textContent).toBe('Sonnet · Ask');
+    fireEvent.click(settings);
+    expect(screen.queryByRole('menuitemradio', { name: 'Opus' })).toBeNull();
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Model/ }));
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'Opus' }));
-    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Accept edits' }));
     expect(window.api.chat.setModel).toHaveBeenCalledWith(ID, 'opus');
+    fireEvent.click(settings);
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Mode(?!l)/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Accept edits' }));
     expect(window.api.chat.setMode).toHaveBeenCalledWith(ID, 'acceptEdits');
   });
 });

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { Icon } from '../terminal/Icon';
-import { MenuDivider, MenuPopover } from '../ui/Menu';
+import { MenuPopover } from '../ui/Menu';
 import { growToFit } from '../../hooks/useAutoResize';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -62,21 +62,74 @@ function settingsFor(cardId: string, info: ChatSessionInfo): Setting[] {
   return settings;
 }
 
-/** Model, effort and mode behind one button that names all three. */
+function OptionList({ setting, onDone }: { setting: Setting; onDone: () => void }) {
+  return (
+    <div role="group" aria-label={setting.label}>
+      {setting.options.map((option) => {
+        const selected = option.id === setting.value;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="menuitemradio"
+            aria-checked={selected}
+            className="w-full text-left px-2.5 py-1.5 rounded-[7px] flex items-start gap-2 hover:bg-ink/[0.08] transition-colors duration-100"
+            onClick={() => {
+              onDone();
+              if (!selected) setting.onPick(option.id);
+            }}
+          >
+            <span className="flex-1 min-w-0">
+              <span className={`block text-sm ${selected ? 'text-text-primary' : 'text-text-secondary'}`}>
+                {option.label}
+              </span>
+              {option.description && (
+                <span className="block text-[12px] leading-snug text-text-tertiary">{option.description}</span>
+              )}
+            </span>
+            <Icon name="check" className={`w-3.5 h-3.5 mt-[3px] shrink-0 text-accent ${selected ? '' : 'invisible'}`} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const currentLabel = (setting: Setting) => setting.options.find((option) => option.id === setting.value)?.label;
+
+/**
+ * Model, effort and mode behind one button that names all three. The menu
+ * lists the settings, and choosing one swaps in its options.
+ */
 function SettingsPicker({ settings }: { settings: Setting[] }) {
   const [open, setOpen] = useState(false);
+  const [chosen, setChosen] = useState<string | null>(null);
   if (settings.length === 0) return null;
-  const summary = settings
-    .map((setting) => setting.options.find((option) => option.id === setting.value)?.label)
-    .filter(Boolean)
-    .join(' · ');
-  const described = settings.some((setting) => setting.options.some((option) => option.description));
+  const toggle = (next: boolean) => {
+    setOpen(next);
+    setChosen(null);
+  };
+  const shown = settings.length === 1 ? settings[0] : settings.find((setting) => setting.label === chosen);
+  const summary = settings.map(currentLabel).filter(Boolean).join(' · ');
   return (
     <MenuPopover
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={toggle}
       placement="top-start"
-      className={`${described ? 'w-72' : 'w-56'} max-h-[28rem]`}
+      className={`${shown?.options.some((option) => option.description) ? 'w-72' : 'w-56'} max-h-[22rem]`}
+      header={
+        shown &&
+        settings.length > 1 && (
+          <button
+            type="button"
+            className="flex items-center gap-1.5 px-1 text-[12px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
+            onClick={() => setChosen(null)}
+          >
+            <Icon name="caret-left" className="w-3 h-3" />
+            {shown.label}
+          </button>
+        )
+      }
       trigger={(ref) => (
         <button
           ref={ref}
@@ -86,47 +139,30 @@ function SettingsPicker({ settings }: { settings: Setting[] }) {
           className={`flex items-center gap-1 h-6 px-2 rounded-[7px] text-[12px] transition-colors duration-100 min-w-0 max-w-[22rem] ${
             open ? 'bg-ink/[0.08] text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-ink/[0.06]'
           }`}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => toggle(!open)}
         >
-          <span className="truncate">{summary || 'Settings'}</span>
+          <span className="truncate">{summary || settings[0].label}</span>
           <Icon name="caret-down" className="w-3 h-3 shrink-0 opacity-60" />
         </button>
       )}
     >
-      {settings.map((setting, index) => (
-        <div key={setting.label} role="group" aria-label={setting.label}>
-          {index > 0 && <MenuDivider />}
-          <div className="px-2.5 pt-1.5 pb-1 text-[11px] text-text-tertiary">{setting.label}</div>
-          {setting.options.map((option) => {
-            const selected = option.id === setting.value;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                role="menuitemradio"
-                aria-checked={selected}
-                className="w-full text-left px-2.5 py-1.5 rounded-[7px] flex items-start gap-2 hover:bg-ink/[0.08] transition-colors duration-100"
-                onClick={() => {
-                  if (!selected) setting.onPick(option.id);
-                }}
-              >
-                <span className="flex-1 min-w-0">
-                  <span className={`block text-sm ${selected ? 'text-text-primary' : 'text-text-secondary'}`}>
-                    {option.label}
-                  </span>
-                  {option.description && (
-                    <span className="block text-[12px] leading-snug text-text-tertiary">{option.description}</span>
-                  )}
-                </span>
-                <Icon
-                  name="check"
-                  className={`w-3.5 h-3.5 mt-[3px] shrink-0 text-accent ${selected ? '' : 'invisible'}`}
-                />
-              </button>
-            );
-          })}
-        </div>
-      ))}
+      {shown ? (
+        <OptionList setting={shown} onDone={() => toggle(false)} />
+      ) : (
+        settings.map((setting) => (
+          <button
+            key={setting.label}
+            type="button"
+            role="menuitem"
+            className="w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 text-text-secondary hover:bg-ink/[0.08] hover:text-text-primary transition-colors duration-100"
+            onClick={() => setChosen(setting.label)}
+          >
+            <span className="flex-1">{setting.label}</span>
+            <span className="text-[12px] text-text-tertiary truncate">{currentLabel(setting)}</span>
+            <Icon name="caret-right" className="w-3 h-3 shrink-0 text-text-tertiary" />
+          </button>
+        ))
+      )}
     </MenuPopover>
   );
 }
