@@ -13,7 +13,7 @@ export function ChatBackground({ cardId, info }: { cardId: string; info: ChatSes
           key={task.id}
           className="flex items-center gap-2.5 px-3 h-8 rounded-[10px] bg-ink/[0.04] text-[13px] text-text-secondary"
         >
-          <Icon name={task.kind === 'shell' ? 'terminal' : 'tree-view'} className="w-3.5 h-3.5 shrink-0" />
+          <Icon name={task.kind === 'shell' ? 'terminal' : 'flow-arrow'} className="w-3.5 h-3.5 shrink-0" />
           <span className="flex-1 min-w-0 truncate">{task.description}</span>
           <button
             type="button"

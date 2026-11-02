@@ -21,7 +21,7 @@ const TOOL_ICONS: Record<ToolKind, string> = {
   search: 'magnifying-glass',
   fetch: 'globe-simple',
   mcp: 'cube',
-  subagent: 'tree-view',
+  subagent: 'flow-arrow',
   other: 'code',
 };
 
@@ -255,7 +255,7 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
       return (
         <div className="text-sm">
           <div className="flex items-center gap-2 py-1 text-text-secondary">
-            <Icon name="tree-view" className="w-3.5 h-3.5 text-text-tertiary" />
+            <Icon name="flow-arrow" className="w-3.5 h-3.5 text-text-tertiary" />
             <span className="flex-1 truncate">{node.title}</span>
             <StatusMark status={node.status} />
           </div>
