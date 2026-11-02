@@ -56,6 +56,21 @@ function conversationCommands(driver: DriverSession): ChatCommand[] {
     .map(({ available: _available, ...command }) => command);
 }
 
+/**
+ * Nodes still running once their agent process is gone, settled: nothing will
+ * report them finished. A subagent whose launching call completed is done.
+ */
+function settled(nodes: ChatNode[]): ChatNode[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  return nodes.flatMap((node) => {
+    if (node.kind === 'request' || !('status' in node)) return [];
+    if (node.status !== 'running' && node.status !== 'pending') return [];
+    const parent = node.parentId ? byId.get(node.parentId) : undefined;
+    const done = node.kind === 'subagent' && parent?.kind === 'tool_call' && parent.status === 'completed';
+    return [{ ...node, status: done ? 'completed' : 'interrupted' } as ChatNode];
+  });
+}
+
 function withConversationCommands(commands: ChatCommand[], driver: DriverSession): ChatCommand[] {
   const own = conversationCommands(driver).filter((command) => !commands.some((c) => c.name === command.name));
   return [...own, ...commands];
@@ -329,6 +344,7 @@ export class ChatHost {
         .nodes(id)
         .map((body) => JSON.parse(body) as ChatNode);
     session.seq = stored?.seq ?? 0;
+    for (const node of settled(session.nodes)) session.emit({ type: 'node', node });
     this.sessions.set(id, session);
 
     const resume =
@@ -438,6 +454,9 @@ export class ChatHost {
         const next =
           patch.status === 'running' && session.asks.size > 0 ? { ...patch, status: 'awaiting' as const } : patch;
         session.emit({ type: 'session', patch: next });
+        if (next.status === 'exited' || next.status === 'error') {
+          for (const node of settled(session.nodes)) session.emit({ type: 'node', node });
+        }
         if (wasBusy && next.status === 'idle') void this.drainQueue(session);
       },
       ask: (request) =>
@@ -715,6 +734,7 @@ export class ChatHost {
     } catch (error) {
       chatLog.warn('agent did not close cleanly', { id, error: String(error) });
     }
+    for (const node of settled(session.nodes)) session.emit({ type: 'node', node });
     session.emit({ type: 'session', patch: { status: 'exited' } });
     session.flush();
     this.sessions.delete(id);

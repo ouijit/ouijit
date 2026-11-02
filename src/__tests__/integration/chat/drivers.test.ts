@@ -13,7 +13,8 @@ import { deflateSync } from 'node:zlib';
 import { ChatHost } from '../../../chat/host';
 import { CLI_REFERENCE, getCliReferencePath } from '../../../hookServer';
 import { getDriver } from '../../../chat/drivers';
-import { _resetCacheForTesting, setGlobalSetting } from '../../../db';
+import { _resetCacheForTesting, getChatRepo, setGlobalSetting } from '../../../db';
+import { NO_CAPABILITIES } from '../../../chat/model';
 import type { ChatAgentId, ChatNode, ChatSnapshot, RequestNode, ToolCallNode } from '../../../chat/model';
 import { loadCassette, loadCassettes, recording, recordingSpawn, replayingSpawn, cassettePath } from './cassette';
 
@@ -573,4 +574,75 @@ describe('claude subagents', () => {
     },
     timeout * 3,
   );
+});
+
+describe('a chat reopened after its agent is gone', () => {
+  test('settles the work that was still running: a launched subagent as done, the rest as stopped', async () => {
+    const cwd = repo();
+    const id = 'pty-settle';
+    const info = {
+      id,
+      agent: 'acp',
+      agentSessionId: null,
+      projectPath: cwd,
+      cwd,
+      worktreePath: null,
+      sandbox: null,
+      taskId: null,
+      status: 'running',
+      capabilities: NO_CAPABILITIES,
+      models: [],
+      efforts: [],
+      modes: [],
+      commands: [],
+    };
+    const tool = (nodeId: string, status: ToolCallNode['status'], kind: ToolCallNode['tool']): ToolCallNode => ({
+      id: nodeId,
+      kind: 'tool_call',
+      parentId: null,
+      createdAt: 0,
+      tool: kind,
+      name: kind,
+      title: nodeId,
+      input: {},
+      files: [],
+      status,
+    });
+    const nodes: ChatNode[] = [
+      tool('launched', 'completed', 'subagent'),
+      { id: 'background', kind: 'subagent', parentId: 'launched', createdAt: 0, title: 'b', status: 'running' },
+      tool('waiting', 'running', 'subagent'),
+      { id: 'foreground', kind: 'subagent', parentId: 'waiting', createdAt: 0, title: 'f', status: 'running' },
+      tool('read', 'completed', 'read'),
+    ];
+    const now = new Date().toISOString();
+    getChatRepo().save(
+      {
+        id,
+        project_path: cwd,
+        task_id: null,
+        cwd,
+        worktree_path: null,
+        agent: 'acp',
+        agent_session_id: null,
+        sandbox_provider: null,
+        info: JSON.stringify(info),
+        seq: 7,
+        created_at: now,
+        updated_at: now,
+      },
+      nodes.map((node, position) => ({ nodeId: node.id, position, body: JSON.stringify(node) })),
+      [],
+    );
+
+    const host = new ChatHost();
+    const snapshot = await host.start({ id, agent: 'acp', projectPath: cwd, cwd, taskId: null });
+    const status = (nodeId: string) => (snapshot.nodes.find((n) => n.id === nodeId) as { status: string }).status;
+    expect(status('background')).toBe('completed');
+    expect(status('waiting')).toBe('interrupted');
+    expect(status('foreground')).toBe('interrupted');
+    expect(status('read')).toBe('completed');
+    expect(snapshot.seq).toBeGreaterThan(7);
+    await host.stop(id);
+  });
 });
