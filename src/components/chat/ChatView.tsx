@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
-import { ChatNodeView, type NodeContext } from './ChatNodes';
+import { ChatNodeList, type NodeContext } from './ChatNodes';
 import { ChatBackground } from './ChatBackground';
 import { ChatComposer } from './ChatComposer';
 import { StatusGlyph } from '../terminal/StatusDot';
@@ -146,9 +146,7 @@ export function ChatView({ cardId }: { cardId: string }) {
           {top.length === 0 && info.status !== 'starting' && (
             <div className="text-sm text-text-tertiary">{CHAT_AGENT_LABELS[info.agent]} is ready.</div>
           )}
-          {top.map((node) => (
-            <ChatNodeView key={node.id} node={node} context={context} />
-          ))}
+          <ChatNodeList nodes={top} context={context} />
           {info.status === 'running' && (
             <div className="flex items-center h-5" role="status" aria-label="Working">
               <StatusGlyph status="thinking" size={8} />

@@ -538,3 +538,39 @@ describe('claude mode', () => {
     timeout * 3,
   );
 });
+
+describe('claude subagents', () => {
+  const name = 'claude-subagents';
+  const available = recording || fs.existsSync(cassettePath(name));
+
+  test.skipIf(!available)(
+    'a subagent is finished when it finishes, whether its call waited for it or it ran in the background',
+    async () => {
+      const cwd = repo();
+      const probe = recording ? await getDriver('claude').probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording ? recordingSpawn(name, 'claude', probe?.version) : replayingSpawn(loadCassettes(name)),
+      });
+      const id = 'pty-subagents-claude';
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+      await host.prompt(id, {
+        text:
+          'Launch two subagents with the Agent tool in one message. The first runs normally; the second sets ' +
+          'run_in_background to true. Each must use no tools and reply with only: ok. Do not wait for the ' +
+          'background one; reply with only: launched',
+      });
+      const done = await until(
+        host,
+        id,
+        (s) => {
+          const subagents = s.nodes.filter((n) => n.kind === 'subagent');
+          return s.info.status === 'idle' && subagents.length === 2 && subagents.every((n) => n.status === 'completed');
+        },
+        timeout * 2,
+      );
+      expect(done.nodes.filter((n) => n.kind === 'subagent')).toHaveLength(2);
+      await host.stop(id);
+    },
+    timeout * 3,
+  );
+});

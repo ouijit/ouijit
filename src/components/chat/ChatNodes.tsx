@@ -213,6 +213,79 @@ function SubagentView({
   );
 }
 
+function isSubagent(node: ChatNode): boolean {
+  return node.kind === 'subagent' || (node.kind === 'tool_call' && node.tool === 'subagent');
+}
+
+/** A subagent run in the background outlives the call that launched it, so its own status wins. */
+function subagentStatus(node: ChatNode, context: NodeContext): NodeStatus {
+  if (node.kind === 'subagent') return node.status;
+  const status = (node as ToolCallNode).status;
+  if (status === 'failed' || status === 'declined' || status === 'interrupted') return status;
+  const inner = context.children.get(node.id)?.find((child) => child.kind === 'subagent');
+  return inner?.status ?? status;
+}
+
+const GROUP_FROM = 3;
+
+/** Subagents launched together, as one line of counts until opened. */
+function SubagentGroup({ nodes, context }: { nodes: ChatNode[]; context: NodeContext }) {
+  const [open, setOpen] = useState(false);
+  const statuses = nodes.map((node) => subagentStatus(node, context));
+  const running = statuses.filter((s) => s === 'running' || s === 'pending').length;
+  const failed = statuses.filter((s) => s === 'failed').length;
+  const done = statuses.filter((s) => s === 'completed').length;
+  const stopped = nodes.length - running - failed - done;
+  const counts = [
+    running && `${running} running`,
+    done && `${done} done`,
+    failed && `${failed} failed`,
+    stopped && `${stopped} stopped`,
+  ].filter(Boolean);
+  const overall: NodeStatus = running ? 'running' : failed ? 'failed' : stopped && !done ? 'interrupted' : 'completed';
+  return (
+    <div className="text-sm">
+      <button
+        type="button"
+        className="w-full flex items-center gap-2 py-1 text-left text-text-secondary hover:text-text-primary transition-colors duration-100"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <Icon name="flow-arrow" className="w-3.5 h-3.5 shrink-0 text-text-tertiary" />
+        <span className="shrink-0">{nodes.length} subagents</span>
+        <span className={`truncate min-w-0 flex-1 ${failed ? 'text-error' : 'text-text-tertiary'}`}>
+          {counts.join(' · ')}
+        </span>
+        <StatusMark status={overall} />
+      </button>
+      {open && (
+        <div className="ml-5 mt-1 mb-2 border-l border-separator pl-3 flex flex-col gap-1">
+          {nodes.map((node) => (
+            <ChatNodeView key={node.id} node={node} context={context} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A run of sibling nodes, with subagents launched together folded into a group. */
+export function ChatNodeList({ nodes, context }: { nodes: ChatNode[]; context: NodeContext }) {
+  const items: ReactNode[] = [];
+  for (let i = 0; i < nodes.length; ) {
+    let end = i;
+    while (end < nodes.length && isSubagent(nodes[end])) end++;
+    if (end - i >= GROUP_FROM) {
+      items.push(<SubagentGroup key={nodes[i].id} nodes={nodes.slice(i, end)} context={context} />);
+      i = end;
+    } else {
+      items.push(<ChatNodeView key={nodes[i].id} node={nodes[i]} context={context} />);
+      i++;
+    }
+  }
+  return <>{items}</>;
+}
+
 function PlanView({ node }: { node: PlanNode }) {
   return (
     <div className="flex flex-col gap-1 text-sm">
@@ -296,7 +369,7 @@ export interface NodeContext {
 
 export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node: ChatNode; context: NodeContext }) {
   const nested = context.children.get(node.id);
-  const childViews = nested?.map((child) => <ChatNodeView key={child.id} node={child} context={context} />);
+  const childViews = nested && <ChatNodeList nodes={nested} context={context} />;
   switch (node.kind) {
     case 'user_message':
       return (
@@ -315,7 +388,7 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
         return (
           <SubagentView
             title={inner?.title ?? node.title}
-            status={node.status}
+            status={subagentStatus(node, context)}
             steps={stepsUnder(node.id, context.children)}
             output={node.output}
             cardId={context.cardId}

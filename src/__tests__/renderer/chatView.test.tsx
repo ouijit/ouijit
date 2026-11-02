@@ -119,7 +119,9 @@ const NODES: ChatNode[] = [
     files: [],
     status: 'completed',
   },
-  // A turn that fans out: four subagents at once, each a few steps in.
+  // A turn that fans out: four subagents at once, each a few steps in. Agent 1
+  // has finished; agent 2 runs in the background, so its launch call is done
+  // while it is not.
   ...[1, 2, 3, 4].flatMap((n): ChatNode[] => [
     {
       id: `agent${n}`,
@@ -131,7 +133,7 @@ const NODES: ChatNode[] = [
       title: `Agent ${n}`,
       input: {},
       files: [],
-      status: n === 1 ? 'completed' : 'running',
+      status: n <= 2 ? 'completed' : 'running',
     },
     {
       id: `task${n}`,
@@ -139,7 +141,7 @@ const NODES: ChatNode[] = [
       parentId: `agent${n}`,
       createdAt: 0,
       title: `Survey module ${n}`,
-      status: 'running',
+      status: n === 1 ? 'completed' : 'running',
     },
     ...[1, 2, 3].map(
       (step): ChatNode => ({
@@ -235,8 +237,12 @@ describe('chat view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
     expect(window.api.chat.interrupt).toHaveBeenCalledWith(ID);
 
-    // Each subagent is one line: its task, its latest step while it runs, and a
-    // count; the steps themselves wait behind a click.
+    // Subagents launched together are one line of counts, each one a line of
+    // its own inside: its task, its latest step while it runs, and a count.
+    expect(screen.getByText('4 subagents')).toBeTruthy();
+    expect(screen.getByText('3 running · 1 done')).toBeTruthy();
+    expect(screen.queryByText('Survey module 4')).toBeNull();
+    fireEvent.click(screen.getByText('4 subagents'));
     expect(screen.getByText('Survey module 4')).toBeTruthy();
     expect(screen.getByText('Read module4/file3.ts')).toBeTruthy();
     expect(screen.queryByText('Read module4/file1.ts')).toBeNull();

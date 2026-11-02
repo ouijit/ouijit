@@ -23,6 +23,7 @@ import type {
   FileChange,
   PlanEntry,
   RequestOption,
+  SubagentNode,
   ToolCallNode,
   ToolKind,
 } from '../model';
@@ -457,6 +458,8 @@ class ClaudeSession implements DriverSession {
   private lastAssistantUuid: string | null = null;
   /** Claude reports the model it resolved (`claude-opus-5-5`); the menu lists the aliases that resolve to them. */
   private readonly modelAliases = new Map<string, string>();
+  /** A subagent outlives its Agent call when Claude runs it in the background, so it finishes on its own report. */
+  private readonly subagents = new Map<string, SubagentNode>();
   private reportedModel: string | undefined;
 
   constructor(
@@ -704,7 +707,7 @@ class ClaudeSession implements DriverSession {
       }
       case 'task_started':
         if (str(message.tool_use_id)) {
-          this.sink.node({
+          const node: SubagentNode = {
             id: `claude-task-${String(message.task_id)}`,
             kind: 'subagent',
             parentId: `claude-tool-${String(message.tool_use_id)}`,
@@ -712,9 +715,20 @@ class ClaudeSession implements DriverSession {
             title: String(message.description ?? 'Subagent'),
             agentType: str(message.subagent_type),
             status: 'running',
-          });
+          };
+          this.subagents.set(String(message.task_id), node);
+          this.sink.node(node);
         }
         return;
+      case 'task_notification': {
+        const node = this.subagents.get(String(message.task_id));
+        if (!node) return;
+        this.subagents.delete(String(message.task_id));
+        const status =
+          message.status === 'completed' ? 'completed' : message.status === 'failed' ? 'failed' : 'interrupted';
+        this.sink.node({ ...node, status });
+        return;
+      }
       case 'notification':
       case 'informational':
         if (str(message.text) ?? str(message.message)) this.notice('info', String(message.text ?? message.message));
