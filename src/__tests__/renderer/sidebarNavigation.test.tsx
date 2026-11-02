@@ -11,6 +11,8 @@ import { useAppStore } from '../../stores/appStore';
 import { useUIStore } from '../../stores/uiStore';
 import { DEFAULT_DISPLAY_STATE, useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useWaitingStore } from '../../stores/waitingStore';
+import { loadChatSettings } from '../../components/chat/chatActions';
+import { NO_CAPABILITIES } from '../../chat/model';
 import type { GitFileStatus, PtySpawnOptions, SandboxProviderStatus, TaskWithWorkspace } from '../../types';
 
 // xterm cannot construct under jsdom. The stand-in keeps the state the cards
@@ -60,6 +62,8 @@ vi.mock('../../components/terminal/terminalReact', () => {
     fit() {}
     bind() {}
     refreshGitStatus() {}
+    bindChat() {}
+    setAgentStatus() {}
     setProjectNameGetter() {}
     suppressResizeDuring() {}
     dispose() {}
@@ -652,6 +656,61 @@ describe('creating from the sidebar', () => {
     expect(moved.querySelector('textarea')!.value).toBe('From the sidebar');
     fireEvent.keyDown(document, { key: 'Enter', metaKey: true, ctrlKey: true });
     await waitFor(() => expect(window.api.task.create).toHaveBeenCalledWith(BRAVO.path, 'From the sidebar', undefined));
+  });
+});
+
+describe('opening a task as a chat', () => {
+  test('Resume in a sandbox starts a chat there rather than resuming one on the host', async () => {
+    vi.mocked(window.api.sandbox.status).mockResolvedValue([
+      { providerId: 'nono', available: true } satisfies SandboxProviderStatus,
+    ]);
+    vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) =>
+      key === 'chat:surface' ? 'chat' : undefined,
+    );
+    const snapshot = (id: string, sandbox: string | null) => ({
+      info: {
+        id,
+        agent: 'claude' as const,
+        agentSessionId: null,
+        projectPath: ALPHA.path,
+        cwd: '/wt/8',
+        worktreePath: '/wt/8',
+        sandbox,
+        taskId: 8,
+        status: 'idle' as const,
+        capabilities: NO_CAPABILITIES,
+        models: [],
+        efforts: [],
+        modes: [],
+        commands: [],
+      },
+      nodes: [],
+      seq: 0,
+    });
+    vi.mocked(window.api.chat.latestForTask).mockResolvedValue(snapshot('host-chat', null));
+    vi.mocked(window.api.chat.start).mockImplementation(async (options) =>
+      snapshot(options.id ?? 'new', options.sandboxProvider ?? null),
+    );
+    await loadChatSettings();
+    await spawn(ALPHA.path, 8);
+    render(<App />);
+
+    fireEvent.contextMenu(row(section('Projects'), 'Ship it'));
+    const menu = await waitFor(() => {
+      const open = document.querySelector<HTMLElement>('.context-menu--visible');
+      if (!open) throw new Error('the menu did not open');
+      return open;
+    });
+    fireEvent.click(within(menu).getByText('Resume in Sandbox'));
+    await waitFor(() => expect(window.api.chat.start).toHaveBeenCalled());
+    const started = vi.mocked(window.api.chat.start).mock.calls[0][0];
+    expect(started).toMatchObject({ taskId: 8, sandboxProvider: 'nono' });
+    expect(started.id).not.toBe('host-chat');
+
+    vi.mocked(window.api.globalSettings.get).mockResolvedValue(undefined);
+    vi.mocked(window.api.chat.latestForTask).mockResolvedValue(null);
+    vi.mocked(window.api.sandbox.status).mockResolvedValue([]);
+    await loadChatSettings();
   });
 });
 

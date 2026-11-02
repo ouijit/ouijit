@@ -48,6 +48,7 @@ function forwardStatus(id: string, event: SequencedChatEvent): void {
 /** Start feeding chat events to the store and the cards. Call once at startup. */
 export function initChat(): void {
   listenForChatEvents(forwardStatus);
+  void loadChatSettings();
 }
 
 export interface SetupCommand {
@@ -84,9 +85,11 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
 
   let id = options.id;
   let agent = options.agent ?? settings.agent;
+  const sandboxProvider = isActiveSandbox(options.sandboxProvider) ? options.sandboxProvider : undefined;
   if (!id && options.resumeLatest && options.taskId != null) {
     const latest = await window.api.chat.latestForTask(projectPath, options.taskId);
-    if (latest) {
+    // A conversation stays where it started, so another sandbox means a new one.
+    if (latest && (latest.info.sandbox ?? undefined) === sandboxProvider) {
       id = latest.info.id;
       agent = latest.info.agent;
     }
@@ -94,7 +97,6 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
   id ??= generateId('pty');
 
   const label = options.label ?? resolveTerminalLabel(task?.name, options.worktree?.branch, undefined);
-  const sandboxProvider = isActiveSandbox(options.sandboxProvider) ? options.sandboxProvider : undefined;
   const term = new OuijitTerminal({
     ptyId: id,
     projectPath,

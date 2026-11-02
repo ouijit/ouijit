@@ -26,7 +26,7 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
 
 /** Callers supply the handlers and add their own entries around these. */
 export interface TaskMenuActions {
-  /** Resume the task in a new terminal, overriding the continue hook's sandbox. */
+  /** Open the task in that place, as a terminal or a chat by preference, overriding the continue hook's sandbox. */
   openTerminal: (provider: SandboxProviderId) => void;
   openEditor: () => void;
   /** Reveal the task's worktree in the OS file manager. */

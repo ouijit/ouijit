@@ -20,6 +20,7 @@ import { openEntries, moveToEntry, trackerEntries, type TaskMenuActions } from '
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { openTaskInEditor, openWorktreeInEditor } from '../../services/openInEditor';
+import { openTaskTerminal } from '../navigation';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
@@ -114,6 +115,10 @@ export const TerminalHeader = memo(function TerminalHeader({
       const hasWorktree = !!instance.worktreePath && !!instance.worktreeBranch;
       const actions: TaskMenuActions = {
         openTerminal: (provider) => {
+          if (task) {
+            void openTaskTerminal(projectPath, task, provider);
+            return;
+          }
           addProjectTerminal(projectPath, undefined, {
             existingWorktree: { path: instance.worktreePath!, branch: instance.worktreeBranch!, createdAt: '' },
             taskId: taskId!,
