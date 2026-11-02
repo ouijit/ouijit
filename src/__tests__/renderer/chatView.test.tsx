@@ -119,6 +119,43 @@ const NODES: ChatNode[] = [
     files: [],
     status: 'completed',
   },
+  // A turn that fans out: four subagents at once, each a few steps in.
+  ...[1, 2, 3, 4].flatMap((n): ChatNode[] => [
+    {
+      id: `agent${n}`,
+      kind: 'tool_call',
+      parentId: null,
+      createdAt: 0,
+      tool: 'subagent',
+      name: 'Agent',
+      title: `Agent ${n}`,
+      input: {},
+      files: [],
+      status: n === 1 ? 'completed' : 'running',
+    },
+    {
+      id: `task${n}`,
+      kind: 'subagent',
+      parentId: `agent${n}`,
+      createdAt: 0,
+      title: `Survey module ${n}`,
+      status: 'running',
+    },
+    ...[1, 2, 3].map(
+      (step): ChatNode => ({
+        id: `agent${n}-step${step}`,
+        kind: 'tool_call',
+        parentId: `agent${n}`,
+        createdAt: 0,
+        tool: 'read',
+        name: 'Read',
+        title: `Read module${n}/file${step}.ts`,
+        input: {},
+        files: [],
+        status: 'completed',
+      }),
+    ),
+  ]),
 ];
 
 beforeEach(async () => {
@@ -198,6 +235,16 @@ describe('chat view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
     expect(window.api.chat.interrupt).toHaveBeenCalledWith(ID);
 
+    // Each subagent is one line: its task, its latest step while it runs, and a
+    // count; the steps themselves wait behind a click.
+    expect(screen.getByText('Survey module 4')).toBeTruthy();
+    expect(screen.getByText('Read module4/file3.ts')).toBeTruthy();
+    expect(screen.queryByText('Read module4/file1.ts')).toBeNull();
+    expect(screen.queryByText('Read module1/file3.ts')).toBeNull();
+    expect(screen.getAllByText('3 steps')).toHaveLength(4);
+    fireEvent.click(screen.getByText('Survey module 4'));
+    expect(screen.getByText('Read module4/file1.ts')).toBeTruthy();
+
     // Work the agent leaves running is listed above the composer, each with a stop.
     act(() =>
       host.emit({
@@ -207,6 +254,23 @@ describe('chat view', () => {
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Stop npm run dev' }));
     expect(window.api.chat.stopBackground).toHaveBeenCalledWith(ID, 'bash-1');
+    // Several fold behind a count until opened.
+    act(() =>
+      host.emit({
+        type: 'session',
+        patch: {
+          background: [1, 2, 3, 4, 5].map((n) => ({
+            id: `agent-${n}`,
+            kind: 'agent' as const,
+            description: `Survey ${n}`,
+          })),
+        },
+      }),
+    );
+    expect(screen.queryByRole('button', { name: 'Stop Survey 5' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '5 running in the background' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stop Survey 5' }));
+    expect(window.api.chat.stopBackground).toHaveBeenCalledWith(ID, 'agent-5');
     act(() => host.emit({ type: 'session', patch: { background: [] } }));
     expect(screen.queryByRole('list', { name: 'Running in the background' })).toBeNull();
   });

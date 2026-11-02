@@ -149,6 +149,70 @@ function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: 
   );
 }
 
+/** Every step under a node, depth first, for a subagent's count and its latest step. */
+function stepsUnder(id: string, children: NodeContext['children']): ChatNode[] {
+  return (children.get(id) ?? []).flatMap((child) => [
+    ...(child.kind === 'tool_call' ? [child] : []),
+    ...stepsUnder(child.id, children),
+  ]);
+}
+
+/**
+ * One line however much a subagent does, so a turn that fans out to many of
+ * them stays readable: its latest step while it runs, and the rest on click.
+ */
+function SubagentView({
+  title,
+  status,
+  steps,
+  output,
+  cardId,
+  children,
+}: {
+  title: string;
+  status: NodeStatus;
+  steps: ChatNode[];
+  output?: string;
+  cardId: string;
+  children?: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const latest = steps.at(-1);
+  const running = status === 'running' || status === 'pending';
+  return (
+    <div className="text-sm">
+      <button
+        type="button"
+        className="w-full flex items-center gap-2 py-1 text-left text-text-secondary hover:text-text-primary transition-colors duration-100"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <Icon name="flow-arrow" className="w-3.5 h-3.5 shrink-0 text-text-tertiary" />
+        <span className="truncate min-w-0 shrink">{title}</span>
+        {running && latest && 'title' in latest && (
+          <span className="truncate min-w-0 flex-1 basis-0 text-text-tertiary">
+            {relativeToCard(latest.title, cardId)}
+          </span>
+        )}
+        <span className="ml-auto shrink-0 text-[12px] text-text-tertiary tabular-nums">
+          {steps.length > 0 && `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`}
+        </span>
+        <StatusMark status={status} />
+      </button>
+      {open && (
+        <div className="ml-5 mt-1 mb-2 border-l border-separator pl-3 flex flex-col gap-1">
+          {children}
+          {output && (
+            <pre className="font-mono text-[12px] leading-[1.45] text-text-secondary whitespace-pre-wrap break-words max-h-72 overflow-y-auto rounded-[8px] bg-ink/[0.04] px-3 py-2">
+              {output}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlanView({ node }: { node: PlanNode }) {
   return (
     <div className="flex flex-col gap-1 text-sm">
@@ -246,6 +310,24 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
     case 'reasoning':
       return <ReasoningView text={node.text} running={node.status === 'running'} />;
     case 'tool_call':
+      if (node.tool === 'subagent') {
+        const inner = nested?.find((child) => child.kind === 'subagent');
+        return (
+          <SubagentView
+            title={inner?.title ?? node.title}
+            status={node.status}
+            steps={stepsUnder(node.id, context.children)}
+            output={node.output}
+            cardId={context.cardId}
+          >
+            {nested
+              ?.filter((child) => child.kind !== 'subagent')
+              .map((child) => (
+                <ChatNodeView key={child.id} node={child} context={context} />
+              ))}
+          </SubagentView>
+        );
+      }
       return (
         <ToolCallView node={node} cardId={context.cardId}>
           {childViews}
@@ -253,14 +335,14 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
       );
     case 'subagent':
       return (
-        <div className="text-sm">
-          <div className="flex items-center gap-2 py-1 text-text-secondary">
-            <Icon name="flow-arrow" className="w-3.5 h-3.5 text-text-tertiary" />
-            <span className="flex-1 truncate">{node.title}</span>
-            <StatusMark status={node.status} />
-          </div>
-          {childViews && <div className="ml-5 border-l border-separator pl-3 flex flex-col gap-1">{childViews}</div>}
-        </div>
+        <SubagentView
+          title={node.title}
+          status={node.status}
+          steps={stepsUnder(node.id, context.children)}
+          cardId={context.cardId}
+        >
+          {childViews}
+        </SubagentView>
       );
     case 'plan':
       return <PlanView node={node} />;
