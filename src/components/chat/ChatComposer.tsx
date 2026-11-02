@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { Icon } from '../terminal/Icon';
-import { MenuPopover } from '../ui/Menu';
+import { MenuDivider, MenuPopover } from '../ui/Menu';
 import { growToFit } from '../../hooks/useAutoResize';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -25,69 +25,108 @@ function attachmentFor(path: string): ChatAttachment {
   return { path, name, mimeType: MIME_BY_EXTENSION[extension] ?? 'text/plain' };
 }
 
-function Picker({
-  label,
-  placeholder,
-  options,
-  value,
-  onPick,
-}: {
+interface Setting {
   label: string;
-  placeholder: string;
   options: ChatOption[];
   value: string | undefined;
   onPick: (id: string) => void;
-}) {
+}
+
+function settingsFor(cardId: string, info: ChatSessionInfo): Setting[] {
+  const caps = info.capabilities;
+  const settings: Setting[] = [];
+  if (caps.models && info.models.length > 0) {
+    settings.push({
+      label: 'Model',
+      options: info.models,
+      value: info.model,
+      onPick: (id) => void window.api.chat.setModel(cardId, id).catch(report),
+    });
+  }
+  if (caps.effort && info.efforts.length > 0) {
+    settings.push({
+      label: 'Effort',
+      options: info.efforts,
+      value: info.effort,
+      onPick: (id) => void window.api.chat.setEffort(cardId, id).catch(report),
+    });
+  }
+  if (caps.modes && info.modes.length > 0) {
+    settings.push({
+      label: 'Mode',
+      options: info.modes,
+      value: info.mode,
+      onPick: (id) => void window.api.chat.setMode(cardId, id).catch(report),
+    });
+  }
+  return settings;
+}
+
+/** Model, effort and mode behind one button that names all three. */
+function SettingsPicker({ settings }: { settings: Setting[] }) {
   const [open, setOpen] = useState(false);
-  const current = options.find((option) => option.id === value)?.label ?? placeholder;
+  if (settings.length === 0) return null;
+  const summary = settings
+    .map((setting) => setting.options.find((option) => option.id === setting.value)?.label)
+    .filter(Boolean)
+    .join(' · ');
+  const described = settings.some((setting) => setting.options.some((option) => option.description));
   return (
     <MenuPopover
       open={open}
       onOpenChange={setOpen}
       placement="top-start"
-      className={`${options.some((option) => option.description) ? 'w-72' : 'w-auto min-w-[8rem]'} max-h-[20rem]`}
+      className={`${described ? 'w-72' : 'w-56'} max-h-[28rem]`}
       trigger={(ref) => (
         <button
           ref={ref}
           type="button"
-          aria-label={label}
+          aria-label="Agent settings"
           aria-expanded={open}
-          className={`flex items-center gap-1 h-6 px-2 rounded-[7px] text-[12px] transition-colors duration-100 max-w-[12rem] ${
+          className={`flex items-center gap-1 h-6 px-2 rounded-[7px] text-[12px] transition-colors duration-100 min-w-0 max-w-[22rem] ${
             open ? 'bg-ink/[0.08] text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-ink/[0.06]'
           }`}
           onClick={() => setOpen((v) => !v)}
         >
-          <span className="truncate">{current}</span>
+          <span className="truncate">{summary || 'Settings'}</span>
           <Icon name="caret-down" className="w-3 h-3 shrink-0 opacity-60" />
         </button>
       )}
     >
-      {options.map((option) => {
-        const selected = option.id === value;
-        return (
-          <button
-            key={option.id}
-            type="button"
-            role="menuitemradio"
-            aria-checked={selected}
-            className="w-full text-left px-2.5 py-1.5 rounded-[7px] flex items-start gap-2 hover:bg-ink/[0.08] transition-colors duration-100"
-            onClick={() => {
-              setOpen(false);
-              onPick(option.id);
-            }}
-          >
-            <span className="flex-1 min-w-0">
-              <span className={`block text-sm ${selected ? 'text-text-primary' : 'text-text-secondary'}`}>
-                {option.label}
-              </span>
-              {option.description && (
-                <span className="block text-[12px] leading-snug text-text-tertiary">{option.description}</span>
-              )}
-            </span>
-            <Icon name="check" className={`w-3.5 h-3.5 mt-[3px] shrink-0 text-accent ${selected ? '' : 'invisible'}`} />
-          </button>
-        );
-      })}
+      {settings.map((setting, index) => (
+        <div key={setting.label} role="group" aria-label={setting.label}>
+          {index > 0 && <MenuDivider />}
+          <div className="px-2.5 pt-1.5 pb-1 text-[11px] text-text-tertiary">{setting.label}</div>
+          {setting.options.map((option) => {
+            const selected = option.id === setting.value;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                className="w-full text-left px-2.5 py-1.5 rounded-[7px] flex items-start gap-2 hover:bg-ink/[0.08] transition-colors duration-100"
+                onClick={() => {
+                  if (!selected) setting.onPick(option.id);
+                }}
+              >
+                <span className="flex-1 min-w-0">
+                  <span className={`block text-sm ${selected ? 'text-text-primary' : 'text-text-secondary'}`}>
+                    {option.label}
+                  </span>
+                  {option.description && (
+                    <span className="block text-[12px] leading-snug text-text-tertiary">{option.description}</span>
+                  )}
+                </span>
+                <Icon
+                  name="check"
+                  className={`w-3.5 h-3.5 mt-[3px] shrink-0 text-accent ${selected ? '' : 'invisible'}`}
+                />
+              </button>
+            );
+          })}
+        </div>
+      ))}
     </MenuPopover>
   );
 }
@@ -326,33 +365,7 @@ export function ChatComposer({
             event.target.value = '';
           }}
         />
-        {caps.models && info.models.length > 0 && (
-          <Picker
-            label="Model"
-            placeholder={info.model ?? 'Model'}
-            options={info.models}
-            value={info.model}
-            onPick={(model) => void window.api.chat.setModel(cardId, model).catch(report)}
-          />
-        )}
-        {caps.effort && info.efforts.length > 0 && (
-          <Picker
-            label="Effort"
-            placeholder="Default effort"
-            options={info.efforts}
-            value={info.effort}
-            onPick={(effort) => void window.api.chat.setEffort(cardId, effort).catch(report)}
-          />
-        )}
-        {caps.modes && info.modes.length > 0 && (
-          <Picker
-            label="Mode"
-            placeholder="Default mode"
-            options={info.modes}
-            value={info.mode}
-            onPick={(mode) => void window.api.chat.setMode(cardId, mode).catch(report)}
-          />
-        )}
+        <SettingsPicker settings={settingsFor(cardId, info)} />
         <span className="flex-1" />
         {usage && <span className="text-[11px] text-text-tertiary mr-1 truncate">{usage}</span>}
         {busy && caps.steer && caps.queue && (

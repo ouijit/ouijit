@@ -73,14 +73,18 @@ const INFO: ChatSessionInfo = {
   sandbox: null,
   taskId: 1,
   status: 'idle',
-  capabilities: { ...NO_CAPABILITIES, interrupt: true, commands: true, models: true },
+  capabilities: { ...NO_CAPABILITIES, interrupt: true, commands: true, models: true, modes: true },
   models: [
     { id: 'sonnet', label: 'Sonnet' },
     { id: 'opus', label: 'Opus' },
   ],
   model: 'sonnet',
   efforts: [],
-  modes: [],
+  modes: [
+    { id: 'default', label: 'Ask' },
+    { id: 'acceptEdits', label: 'Accept edits' },
+  ],
+  mode: 'default',
   commands: [
     { name: 'review', description: 'Review the diff' },
     { name: 'compact', description: 'Compact the conversation' },
@@ -279,5 +283,13 @@ describe('chat view', () => {
     expect(window.api.chat.stopBackground).toHaveBeenCalledWith(ID, 'agent-5');
     act(() => host.emit({ type: 'session', patch: { background: [] } }));
     expect(screen.queryByRole('list', { name: 'Running in the background' })).toBeNull();
+
+    // Model and mode share one button that names both, and stay open to pick each.
+    fireEvent.click(screen.getByRole('button', { name: 'Agent settings' }));
+    expect(screen.getByRole('button', { name: 'Agent settings' }).textContent).toBe('Sonnet · Ask');
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Opus' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Accept edits' }));
+    expect(window.api.chat.setModel).toHaveBeenCalledWith(ID, 'opus');
+    expect(window.api.chat.setMode).toHaveBeenCalledWith(ID, 'acceptEdits');
   });
 });
