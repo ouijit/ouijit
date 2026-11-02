@@ -309,7 +309,8 @@ function PlanView({ node }: { node: PlanNode }) {
 
 function ReasoningView({ text, running }: { text: string; running: boolean }) {
   const [open, setOpen] = useState(false);
-  if (!text && !running) return null;
+  // Claude sends thinking blocks with no text unless the session asks for `thinking.display: 'summarized'`.
+  if (!text) return null;
   return (
     <div className="text-sm">
       <button
