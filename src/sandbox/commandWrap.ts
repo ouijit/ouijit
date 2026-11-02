@@ -2,7 +2,7 @@ import type { BrowserWindow } from 'electron';
 import { issueCommandToken, revokeCommandToken } from '../apiAuth';
 import { getApiPort } from '../hookServer';
 import { typedPush } from '../ipc/helpers';
-import { getPtySpawnContext } from '../ptyManager';
+import { getSessionSpawnContext } from '../sessions';
 import { getSandboxProvider } from './registry';
 import type { SandboxBackendId, SandboxLaunch } from './types';
 
@@ -13,7 +13,7 @@ export interface WrappedCommand extends SandboxLaunch {
 }
 
 /**
- * Wraps one command from a host terminal in a sandbox, with the grants that
+ * Wraps one command from a host terminal or chat in a sandbox, with the grants that
  * terminal's task would get. The caller runs the result and must not pass it
  * the terminal's own token: that one is host-scoped.
  */
@@ -24,7 +24,7 @@ export async function wrapCommand(
   argv: string[],
   cwd: string,
 ): Promise<WrappedCommand> {
-  const context = getPtySpawnContext(ptyId);
+  const context = getSessionSpawnContext(ptyId);
   if (!context) throw new Error('This terminal is not one Ouijit is running');
   const provider = getSandboxProvider(backend);
   if (!provider) throw new Error(`No sandbox called ${backend}`);
@@ -46,5 +46,5 @@ export async function wrapCommand(
 
 export function releaseCommand(window: BrowserWindow, ptyId: string, token: string): void {
   if (!revokeCommandToken(ptyId, token)) return;
-  typedPush(window, 'terminal-sandbox', { ptyId, sandboxProvider: getPtySpawnContext(ptyId)?.sandboxProvider });
+  typedPush(window, 'terminal-sandbox', { ptyId, sandboxProvider: getSessionSpawnContext(ptyId)?.sandboxProvider });
 }
