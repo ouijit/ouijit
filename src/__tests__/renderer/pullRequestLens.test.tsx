@@ -302,7 +302,7 @@ describe('PullRequestsPanel — lens', () => {
     await openPicker();
     pick('Add a lens…');
 
-    const explained = /group a diff into named parts/i;
+    const explained = /groups a diff into named parts/i;
     expect(await screen.findByText('No lenses yet.')).toBeTruthy();
     expect(screen.queryByText(explained)).toBeNull();
 

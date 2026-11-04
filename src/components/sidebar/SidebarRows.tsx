@@ -72,8 +72,15 @@ function statusPhrase(display: TerminalDisplayState, now: number): string {
   return `${display.status === 'thinking' ? 'Working' : 'Ready'} for ${duration}`;
 }
 
-function rowTooltip(title: string, projectName: string, display: TerminalDisplayState, now: number): string {
-  return `${title} · ${projectName} · ${statusPhrase(display, now)}`;
+function rowTooltip(title: string, projectName: string, status: string): ReactNode {
+  return (
+    <span className="flex flex-col">
+      <span>{title}</span>
+      <span className="font-normal text-text-secondary">
+        {projectName} · {status}
+      </span>
+    </span>
+  );
 }
 
 /**
@@ -99,7 +106,7 @@ function useRevealed(selected: boolean) {
 interface RowProps {
   icon: ReactNode;
   title: string;
-  tooltip: string;
+  tooltip: ReactNode;
   bright: boolean;
   /** Set in weight too, so an unread row stands apart from the one on screen. */
   unread?: boolean;
@@ -260,7 +267,7 @@ function TerminalRow({
       icon={icon}
       title={text}
       mono={mono}
-      tooltip={rowTooltip(text, projectName, display, now)}
+      tooltip={rowTooltip(text, projectName, statusPhrase(display, now))}
       bright={unread || ptyId === shown}
       unread={unread}
       selected={selected}
@@ -385,7 +392,7 @@ function TaskRows({ group, underTag, shown, onScreen, now, at, pick, rowMenu }: 
         <SidebarRow
           icon={icon}
           title={taskTitle}
-          tooltip={`${taskTitle} · ${projectName} · No terminal open`}
+          tooltip={rowTooltip(taskTitle, projectName, 'No terminal open')}
           pointKeys={[pointKey.task(projectPath, task.taskNumber)]}
           bright={false}
           trailing={<IdleMark />}
@@ -413,7 +420,7 @@ function TaskRows({ group, underTag, shown, onScreen, now, at, pick, rowMenu }: 
             <SidebarRow
               icon={icon}
               title={taskTitle}
-              tooltip={rowTooltip(taskTitle, projectName, front, now)}
+              tooltip={rowTooltip(taskTitle, projectName, statusPhrase(front, now))}
               pointKeys={task ? [pointKey.task(projectPath, task.taskNumber)] : undefined}
               bright={anyUnread}
               unread={anyUnread}

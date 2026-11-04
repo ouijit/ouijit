@@ -20,9 +20,11 @@ export interface TooltipOptions {
   offsetPx?: number;
   disabled?: boolean;
   onHoverChange?: (hovering: boolean) => void;
-  /** Let the text wrap, to this many pixels. One line by default. */
+  /** Set as prose, wrapping at this many pixels, rather than as a label. */
   wrapAt?: number;
 }
+
+const DEFAULT_WRAP = 320;
 
 export type TooltipReferenceProps = Record<string, unknown>;
 
@@ -63,10 +65,10 @@ export function useTooltip(
           {...getFloatingProps()}
         >
           <div
-            className={`px-3 py-1.5 text-[13px] text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip animate-tooltip-pop ${
-              wrapAt ? 'leading-relaxed break-words' : 'font-medium whitespace-nowrap'
+            className={`px-3 py-1.5 text-[13px] text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip animate-tooltip-pop break-words [text-wrap:pretty] ${
+              wrapAt ? 'leading-relaxed' : 'font-medium leading-snug'
             }`}
-            style={wrapAt ? { maxWidth: wrapAt } : undefined}
+            style={{ maxWidth: wrapAt ?? DEFAULT_WRAP }}
           >
             {text}
           </div>
