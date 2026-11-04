@@ -390,6 +390,7 @@ function GroupHeader({
     <div
       {...rowProps}
       className={`group/header h-7 flex items-center gap-0.5 px-1 rounded-[7px] ${selected ? ROW_SELECTED : ROW_IDLE}`}
+      data-selected={selected || undefined}
       data-project-path={projectPath}
       data-group={groupKey}
       data-point-target={projectPath ? pointKey.project(projectPath) : undefined}
@@ -448,8 +449,6 @@ function ProjectGroup({ project }: { project: Project }) {
     s.selection.kind === 'page' && s.selection.projectPath === project.path ? s.selection.page : null,
   );
   const onScreen = useAppStore((s) => s.activeProjectPath === project.path);
-  const wholeStack = stackFrom([projectUnit(project.path)]);
-  const wholeShown = useStackShown(wholeStack);
   const flags = useProjectFlags(project.path);
   const config = useProjectDataStore((s) => s.configByProject[project.path]);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -510,7 +509,7 @@ function ProjectGroup({ project }: { project: Project }) {
         onOpen={() => void openProject(project.path)}
         onOpenAll={() => showProject(project.path, ptyIds)}
         icon={<ProjectTile project={project} />}
-        selected={openPage !== null || wholeShown}
+        selected={openPage !== null}
         rowProps={listeners}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -584,10 +583,6 @@ function showProject(projectPath: string, ptyIds: string[]): void {
   void Promise.all(sleeping.map((task) => openTaskTerminal(projectPath, task, undefined, stack))).then(() =>
     showInListOrder(stack, [], projectPath),
   );
-}
-
-function useStackShown(stack: string | null): boolean {
-  return useAppStore((s) => stack !== null && s.selection.kind === 'terminal' && s.selection.stack === stack);
 }
 
 function cloneSummary(job: CloneJob): string {
@@ -675,7 +670,6 @@ function TagGroup({
 }) {
   const [collapsed] = useGroupCollapsed(groupKey);
   const wholeStack = tag ? stackFrom([tagUnit(tag)]) : null;
-  const wholeShown = useStackShown(wholeStack);
   return (
     <div className="flex flex-col">
       <GroupHeader
@@ -683,7 +677,6 @@ function TagGroup({
         name={tag ?? 'No tag'}
         ptyIds={ptyIds}
         icon={tag ? <Icon name="tag" className="w-3.5 h-3.5 text-text-secondary" /> : undefined}
-        selected={wholeShown}
         onOpen={wholeStack ? () => showInListOrder(wholeStack, projectOrder) : undefined}
         onOpenAll={() => showInListOrder(wholeStack ?? stackFrom(ptyIds.map(terminalUnit)), projectOrder)}
       />

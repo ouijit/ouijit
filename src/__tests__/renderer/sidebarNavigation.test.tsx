@@ -468,6 +468,9 @@ describe('stacking several from the sidebar', () => {
     fireEvent.click(within(alphaHeader).getByText('Alpha'), { metaKey: true, ctrlKey: true });
     await waitFor(() => expect(cards()).toHaveLength(6));
     expect(banner()).toContain('All terminals');
+    // What is on screen is marked on its own rows; the project's row is not marked for holding them.
+    expect(alphaHeader.dataset.selected).toBeUndefined();
+    expect(projects().querySelectorAll('[data-sidebar-row][data-selected]').length).toBeGreaterThan(0);
 
     // A tag's name stacks every terminal carrying it, from any project.
     act(() => {
