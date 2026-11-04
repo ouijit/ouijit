@@ -16,7 +16,7 @@ import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
 import { RunnerDot } from './StatusDot';
 import type { GitFileStatus, RunnerScript, SandboxBackendId, Script, ScriptHook } from '../../types';
-import { openInEntry, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
+import { openEntries, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { openTaskInEditor, openWorktreeInEditor } from '../../services/openInEditor';
@@ -102,7 +102,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     if (!instance) return [];
     const items: ContextMenuEntry[] = [];
 
-    // A task terminal shares the task's context menu (Open in / Move to /
+    // A task terminal shares the task's context menu (Resume / Move to /
     // Branch), so it stays identical to the kanban card. It adds terminal-scoped
     // items — Rename terminal, Close Task — that the card has no notion of.
     if (isTaskTerminal) {
@@ -140,7 +140,7 @@ export const TerminalHeader = memo(function TerminalHeader({
       };
 
       items.push(
-        openInEntry(
+        ...openEntries(
           availableSandboxProviders,
           hasWorktree,
           actions,

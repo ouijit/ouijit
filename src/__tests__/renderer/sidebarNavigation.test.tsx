@@ -565,7 +565,7 @@ describe('creating from the sidebar', () => {
     fireEvent.click(row(section('Projects'), 'Ship it'));
     await waitFor(() => expect(front()).toBe(ship));
 
-    // A task's row has the board card's menu: Open in ▸ Terminal adds to its stack.
+    // A task's row has the board card's menu: Resume adds to its stack.
     fireEvent.contextMenu(row(section('Projects'), 'Ship it'));
     const menu = await waitFor(() => {
       const open = document.querySelector<HTMLElement>('.context-menu--visible');
@@ -573,8 +573,7 @@ describe('creating from the sidebar', () => {
       return open;
     });
     expect(within(menu).getByText('Move to')).toBeTruthy();
-    fireEvent.mouseEnter(within(menu).getByText('Open in').closest('div')!);
-    fireEvent.click(await within(menu).findByText('Host terminal'));
+    fireEvent.click(within(menu).getByText('Resume'));
     await waitFor(() => expect(cards()).toHaveLength(2));
     const second = front()!;
     expect(display(second)).toMatchObject({ taskId: 8, projectPath: ALPHA.path });

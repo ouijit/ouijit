@@ -21,7 +21,7 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
 
 /** Callers supply the handlers and add their own entries around these. */
 export interface TaskMenuActions {
-  /** Open a new terminal for the task, overriding the continue hook's sandbox. */
+  /** Resume the task in a new terminal, overriding the continue hook's sandbox. */
   openTerminal: (provider: SandboxProviderId) => void;
   openEditor: () => void;
   /** Reveal the task's worktree in the OS file manager. */
@@ -37,29 +37,30 @@ export interface TaskMenuActions {
 }
 
 /**
- * "Open in ▸" — a Terminal for each place one can run, the project default
- * first, then Editor and the OS file manager. Terminals and Editor create the worktree a task has
- * never had; the file manager needs one already on disk.
+ * Resume runs the continue hook where the project defaults to, and "Resume in ▸"
+ * names the other places. Resuming creates the worktree a task has never had;
+ * the file manager needs one already on disk.
  */
-export function openInEntry(
+export function openEntries(
   sandboxProviders: SandboxBackendId[],
   hasWorktree: boolean,
   actions: TaskMenuActions,
   projectDefault: SandboxProviderId,
-): ContextMenuEntry {
-  const places: SandboxProviderId[] = ['none', ...sandboxProviders];
-  places.sort((a, b) => Number(b === projectDefault) - Number(a === projectDefault));
-  const submenu: ContextMenuEntry[] = places.map((place) => ({
-    label: `${SANDBOX_LABELS[place]} terminal`,
-    icon: 'terminal',
-    onClick: () => actions.openTerminal(place),
-  }));
-  submenu.push({ separator: true });
-  submenu.push({ label: 'Editor', icon: 'code', onClick: actions.openEditor });
-  if (hasWorktree) {
-    submenu.push({ label: FILE_MANAGER_NAME, icon: 'folder-open', onClick: actions.openFolder });
+): ContextMenuEntry[] {
+  const elsewhere = (['none', ...sandboxProviders] as SandboxProviderId[]).filter((place) => place !== projectDefault);
+  const entries: ContextMenuEntry[] = [
+    { label: 'Resume', icon: 'play', onClick: () => actions.openTerminal(projectDefault) },
+  ];
+  if (elsewhere.length > 0) {
+    entries.push({
+      label: 'Resume in',
+      submenu: elsewhere.map((place) => ({ label: SANDBOX_LABELS[place], onClick: () => actions.openTerminal(place) })),
+    });
   }
-  return { label: 'Open in', submenu };
+  const apps: ContextMenuEntry[] = [{ label: 'Editor', icon: 'code', onClick: actions.openEditor }];
+  if (hasWorktree) apps.push({ label: FILE_MANAGER_NAME, icon: 'folder-open', onClick: actions.openFolder });
+  entries.push({ label: 'Open in', submenu: apps });
+  return entries;
 }
 
 /**
@@ -155,7 +156,7 @@ export function taskEntries(ctx: TaskMenuContext): ContextMenuEntry[] {
     },
   };
   items.push(
-    openInEntry(
+    ...openEntries(
       ctx.sandboxProviders,
       !!(task.worktreePath && task.branch),
       actions,

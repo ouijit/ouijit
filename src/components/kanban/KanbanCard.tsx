@@ -162,13 +162,13 @@ export const KanbanCard = memo(function KanbanCard({
         moveToEntry(bulkActions),
         { separator: true },
         {
-          label: 'Open in Terminal',
-          icon: 'terminal',
+          label: 'Resume',
+          icon: 'play',
           onClick: () => {
             const store = useProjectStore.getState();
             const selected = [...store.selectedTaskNumbers];
             const tasks = getProjectTasks(projectPath).filter((t) => selected.includes(t.taskNumber));
-            for (const t of tasks) onOpenTerminal(t, 'none');
+            for (const t of tasks) onOpenTerminal(t);
             store.clearSelection();
           },
         },
