@@ -30,7 +30,6 @@ interface DiffLine {
 
 interface DiffFixture {
   files: DiffFile[];
-  branchAhead?: string;
 }
 
 interface PreviewFixture {
@@ -150,7 +149,6 @@ const INVITATION_PLAN_BODY: ReactNode = (
 );
 
 const ONBOARDING_DIFF: DiffFixture = {
-  branchAhead: 'rework-onboarding',
   files: [
     {
       path: 'src/onboarding/Stepper.tsx',
@@ -215,7 +213,6 @@ const ONBOARDING_DIFF: DiffFixture = {
 };
 
 const INVITATION_DIFF: DiffFixture = {
-  branchAhead: 'polish-invitation-email',
   files: [
     {
       path: 'app/mailers/templates/invitation.tsx',
@@ -273,7 +270,6 @@ const ONBOARDING_PREVIEW: PreviewFixture = {
 };
 
 const REACT_19_DIFF: DiffFixture = {
-  branchAhead: 'migrate-react-19',
   files: [
     {
       path: 'package.json',
@@ -342,7 +338,7 @@ const FIXTURES: Record<string, PanelFixtures> = {
     diff: INVITATION_DIFF,
   },
   'pty-105-shell': {
-    diff: { branchAhead: 'main', files: [] },
+    diff: { files: [] },
   },
   'pty-142-claude': {
     plan: { filename: 'plan.md', body: REACT_19_PLAN_BODY },
@@ -376,13 +372,13 @@ function PanelHeader({ icon, title, onClose, trailing }: PanelHeaderProps) {
       <Icon name={icon} className="w-3.5 h-3.5 text-ink/50 shrink-0" />
       <span className="text-[13px] text-ink/50 truncate flex-1 font-mono">{title}</span>
       {trailing}
-      <PanelHeaderButton aria-label="Split view">
-        <Icon name="square-split-horizontal" />
+      <PanelHeaderButton aria-label="Full width">
+        <Icon name="arrows-out-line-horizontal" />
       </PanelHeaderButton>
       <PanelHeaderButton aria-label="Minimize" onClick={onClose}>
-        <Icon name="minus" className="!w-4 !h-4" />
+        <Icon name="minus" />
       </PanelHeaderButton>
-      <PanelHeaderButton aria-label="Close" onClick={onClose}>
+      <PanelHeaderButton aria-label="Close panel" onClick={onClose}>
         <Icon name="x" />
       </PanelHeaderButton>
     </div>
@@ -460,13 +456,13 @@ export function MockPreviewPanel({ fixture, onClose }: { fixture: PreviewFixture
         <span className="text-[13px] text-ink/60 truncate flex-1 min-w-0 font-mono py-0.5 px-2">
           {fixture.url.replace(/^https?:\/\//, '')}
         </span>
-        <PanelHeaderButton aria-label="Split view">
-          <Icon name="square-split-horizontal" />
+        <PanelHeaderButton aria-label="Full width">
+          <Icon name="arrows-out-line-horizontal" />
         </PanelHeaderButton>
         <PanelHeaderButton aria-label="Minimize" onClick={onClose}>
-          <Icon name="minus" className="!w-4 !h-4" />
+          <Icon name="minus" />
         </PanelHeaderButton>
-        <PanelHeaderButton aria-label="Close" onClick={onClose}>
+        <PanelHeaderButton aria-label="Close panel" onClick={onClose}>
           <Icon name="x" />
         </PanelHeaderButton>
       </div>
@@ -527,7 +523,9 @@ export function MockDiffPanel({
   const totalAdds = fixture.files.reduce((s, f) => s + f.additions, 0);
   const totalDels = fixture.files.reduce((s, f) => s + f.deletions, 0);
   const count = fixture.files.length;
+  const untracked = fixture.files.filter((f) => f.status === '?').length;
   let stats = `${count} file${count !== 1 ? 's' : ''}`;
+  if (untracked > 0) stats += ` (${untracked} untracked)`;
   if (totalAdds > 0) stats += ` +${totalAdds}`;
   if (totalDels > 0) stats += ` -${totalDels}`;
 
@@ -560,19 +558,20 @@ export function MockDiffPanel({
       )}
       <div className="relative flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="pane-ledge over-well relative z-30 px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
-          <PanelHeaderButton aria-label="Hide the file list">
-            <Icon name="sidebar-simple" />
+          <PanelHeaderButton aria-label={compact ? 'Show the file list' : 'Hide the file list'}>
+            <Icon name={compact ? 'caret-right' : 'caret-left'} />
           </PanelHeaderButton>
-          <span className="flex items-center gap-1 font-mono text-[13px] text-ink/70">
-            <Icon name="git-branch" className="w-3.5 h-3.5 text-ink/45" />
-            {fixture.branchAhead ?? 'main'}
-            <Icon name="caret-down" className="!w-3 !h-3 text-ink/40" />
+          <span className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-bezel rounded-[12px] overflow-hidden">
+            <span className="h-full px-2.5 flex items-center gap-1.5 font-sans text-[13px] font-medium text-text-secondary">
+              vs main
+              <Icon name="caret-down" className="w-3 h-3 shrink-0" />
+            </span>
           </span>
           <span className="ml-auto min-w-0 truncate text-xs text-text-tertiary">{stats}</span>
-          <PanelHeaderButton aria-label="Split view">
-            <Icon name="square-split-horizontal" />
+          <PanelHeaderButton aria-label="Full width">
+            <Icon name="arrows-out-line-horizontal" />
           </PanelHeaderButton>
-          <PanelHeaderButton aria-label="Close" onClick={onClose}>
+          <PanelHeaderButton aria-label="Close panel" onClick={onClose}>
             <Icon name="x" />
           </PanelHeaderButton>
         </div>

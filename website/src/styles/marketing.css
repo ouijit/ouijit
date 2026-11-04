@@ -400,11 +400,12 @@ body.marketing .app-markdown h4 {
 .app-window-titlebar {
   display: flex;
   align-items: center;
-  gap: 18px;
-  height: 64px;
+  gap: 8px;
+  height: 60px;
   /* The app reserves this much for the traffic lights rather than laying them
      out: macOS draws them itself. */
-  padding: 0 20px 0 88px;
+  padding: 16px 16px 8px 88px;
+  box-sizing: border-box;
   flex-shrink: 0;
 }
 
@@ -412,8 +413,8 @@ body.marketing .app-markdown h4 {
    for are native chrome — the window's own blur never reaches them. */
 .app-window-lights {
   position: absolute;
-  top: 26px;
-  left: 20px;
+  top: 28px;
+  left: 17px;
   z-index: 400;
   display: flex;
   gap: 8px;

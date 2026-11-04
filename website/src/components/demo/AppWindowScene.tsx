@@ -35,10 +35,12 @@ const PR_BY_TASK: Record<number, number> = { 99: 486, 98: 482, 95: 479 };
 const CANVAS_WIDTH = 1240;
 const CANVAS_HEIGHT = 800;
 const MIN_SCALE = 0.62;
+/** The app places its pages and stacks 82px down the window, under a 60px title bar. */
+const PAGE_TOP = 22;
 
 const PAGE_TITLES: Record<DemoPage, string> = { board: 'Board', prs: 'Pull requests', analysis: 'Analysis' };
 const SQUARE_BTN =
-  'w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary [&>svg]:w-5 [&>svg]:h-5';
+  'w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary ml-3 transition-all duration-150 ease-out hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5';
 /** The sidebar and search buttons left of the project name: no bevel and no
  *  border, so they read as titlebar chrome rather than as controls. */
 const PLAIN_BTN = 'w-9 h-9 flex items-center justify-center rounded-[10px] [&>svg]:w-5 [&>svg]:h-5';
@@ -59,6 +61,8 @@ export default function AppWindowScene() {
   // A project page, or null while a terminal is shown.
   const [page, setPage] = useState<DemoPage | null>('board');
   const [shown, setShown] = useState<string>(DEMO_WAITING);
+  // What the stack holds: the front terminal's task, that terminal alone, or every terminal.
+  const [scope, setScope] = useState<'task' | 'terminal' | 'all'>('task');
   const [waiting, setWaiting] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -81,13 +85,22 @@ export default function AppWindowScene() {
     setStackOrder((prev) => (prev[0] === ptyId ? prev : [ptyId, ...prev.filter((id) => id !== ptyId)]));
   }, []);
 
-  const openTerminal = useCallback(
-    (ptyId: string) => {
+  const show = useCallback(
+    (ptyId: string, nextScope: 'task' | 'terminal' | 'all') => {
       bringToFront(ptyId);
       setShown(ptyId);
+      setScope(nextScope);
       setPage(null);
     },
     [bringToFront],
+  );
+  const openTerminal = useCallback((ptyId: string) => show(ptyId, 'task'), [show]);
+  const openTask = useCallback(
+    (taskNumber: number) => {
+      const own = STACK_TERMINALS.filter((t) => t.taskId === taskNumber).map((t) => t.ptyId);
+      show(stackOrder.find((id) => own.includes(id)) ?? own[0], 'task');
+    },
+    [show, stackOrder],
   );
 
   const openPage = useCallback((next: DemoPage) => setPage(next), []);
@@ -100,9 +113,13 @@ export default function AppWindowScene() {
     else if (seenWaiting) setWaiting(false);
   }, [showsWaiting, seenWaiting]);
 
-  // A stack holds one task's terminals.
   const shownTask = STACK_TERMINALS.find((t) => t.ptyId === shown)?.taskId;
-  const stack = STACK_TERMINALS.filter((t) => t.taskId === shownTask);
+  const stack = STACK_TERMINALS.filter((t) =>
+    scope === 'all' ? true : scope === 'terminal' ? t.ptyId === shown : t.taskId === shownTask,
+  );
+  const stackName =
+    scope === 'all' ? 'All terminals' : (featuresTasks.find((t) => t.taskNumber === shownTask)?.name ?? null);
+  const crumb = page ? PAGE_TITLES[page] : stackName;
 
   const togglePanel = useCallback((ptyId: string, kind: PanelKind) => {
     setOpenPanelByPty((prev) => ({ ...prev, [ptyId]: prev[ptyId] === kind ? null : kind }));
@@ -145,15 +162,18 @@ export default function AppWindowScene() {
             {sidebarOpen && (
               <MockSidebar
                 page={page}
-                shown={page === null ? shown : null}
+                onScreen={page === null ? [...positionByPtyId.keys()] : []}
                 waiting={waiting}
                 onPage={openPage}
                 onTerminal={openTerminal}
+                onTerminalAlone={(ptyId) => show(ptyId, 'terminal')}
+                onTask={openTask}
                 onHide={() => setSidebarOpen(false)}
                 searching={paletteOpen}
                 onSearch={() => setPaletteOpen(!paletteOpen)}
               />
             )}
+            {sidebarOpen && <div className="pane-seam relative w-px shrink-0 -ml-px" />}
             <div className="flex flex-col flex-1 min-w-0">
               <div className="app-window-titlebar" style={sidebarOpen ? { paddingLeft: 16 } : undefined}>
                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -169,18 +189,18 @@ export default function AppWindowScene() {
                       </button>
                     </div>
                   )}
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 ml-1.5 min-w-0">
                     <ProjectAvatar size={32} />
                     <div className="flex flex-col gap-[2px] min-w-0">
                       <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
                         horizon
-                        {page && (
+                        {crumb && (
                           <>
                             <Icon
                               name="caret-right"
                               className="inline-block w-3 h-3 mx-1.5 align-[-1px] text-text-tertiary"
                             />
-                            <span className="font-normal text-text-tertiary">{PAGE_TITLES[page]}</span>
+                            <span className="font-normal text-text-tertiary">{crumb}</span>
                           </>
                         )}
                       </span>
@@ -190,12 +210,25 @@ export default function AppWindowScene() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  {page === 'board' && (
+                    <button
+                      type="button"
+                      aria-label="Terminals"
+                      className={SQUARE_BTN}
+                      onClick={() => show(stackOrder[0], 'all')}
+                    >
+                      <Icon name="cards-three" />
+                    </button>
+                  )}
                   <span className={SQUARE_BTN}>
                     <Icon name="terminal" />
                   </span>
                   <span className={SQUARE_BTN}>
                     <Icon name="plus" />
+                  </span>
+                  <span className={SQUARE_BTN}>
+                    <Icon name="gear" />
                   </span>
                 </div>
               </div>
@@ -204,7 +237,7 @@ export default function AppWindowScene() {
                   <div
                     className="glass-bevel relative flex flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"
                     style={{
-                      margin: `0 16px 16px ${contentLeft}px`,
+                      margin: `${PAGE_TOP}px 16px 16px ${contentLeft}px`,
                       background: 'var(--color-terminal-bg)',
                       boxShadow: 'var(--shadow-panel)',
                     }}
@@ -247,7 +280,7 @@ export default function AppWindowScene() {
                   <div
                     className="glass-bevel relative flex flex-1 min-w-0 rounded-[14px] overflow-hidden border border-bezel-panel"
                     style={{
-                      margin: `0 16px 16px ${contentLeft}px`,
+                      margin: `${PAGE_TOP}px 16px 16px ${contentLeft}px`,
                       background: 'var(--color-terminal-bg)',
                       boxShadow: 'var(--shadow-panel)',
                     }}
@@ -260,7 +293,7 @@ export default function AppWindowScene() {
                     pushed down 24px per back card so their peeks fit above. */}
                     <div
                       className="absolute"
-                      style={{ left: contentLeft, right: 16, bottom: 16, top: 18 + (stack.length - 1) * 24 }}
+                      style={{ left: contentLeft, right: 16, bottom: 16, top: PAGE_TOP + (stack.length - 1) * 24 }}
                     >
                       {stack.map((term) => {
                         const position = positionByPtyId.get(term.ptyId) ?? 0;
@@ -276,6 +309,7 @@ export default function AppWindowScene() {
                             onClick={isActive ? undefined : () => bringToFront(term.ptyId)}
                           >
                             <TerminalHeaderView
+                              showCloseButton
                               status={term.status}
                               sandboxed={term.sandboxed}
                               isActive={isActive}

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
-import { StatusDot } from '../../ouijit-ui/components/terminal/StatusDot';
 import { fuzzyMatch, type MatchRange } from '../../ouijit-ui/utils/fuzzyMatch';
 import { featuresTasks, featuresTerminalsByTask } from './featuresFixtures';
 import { PaletteBranchRow, PaletteFooter, PaletteGroupTitle, PaletteRow } from './paletteParts';
@@ -13,60 +12,49 @@ import { PaletteBranchRow, PaletteFooter, PaletteGroupTitle, PaletteRow } from '
  * carries that, since the window's bevel overrides positioning utilities on
  * its children.
  *
- * Ranking is the app's own fuzzyMatch over the title. Frecency, the branch and
- * tag fields, and the group caps are not modelled — with a dozen fixture rows
- * there is nothing for them to do.
+ * Ranking is the app's own fuzzyMatch over the title. Frecency is a fixed
+ * Recent list, and the branch and tag fields and the group caps are not
+ * modelled — with a dozen fixture rows there is nothing for them to do.
  */
 
 const PROJECT = { name: 'horizon', path: '~/Code/horizon' };
 
 const STATUS_LABEL: Record<string, string> = {
-  todo: 'to do',
-  in_progress: 'in progress',
-  in_review: 'in review',
-  done: 'done',
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  in_review: 'In Review',
+  done: 'Done',
 };
 
+/** Open pull requests no task carries; the ones that are carried list as their task. */
 const PULLS = [
-  { number: 486, title: 'Speed up search index build', meta: 'yours' },
-  { number: 482, title: 'Refactor billing webhook router', meta: 'needs review' },
   { number: 488, title: 'Add rate limiting to the public API', meta: 'needs review' },
+  { number: 490, title: 'Drop the legacy analytics client', meta: 'yours' },
 ];
+
+/** What the demo has opened lately, most recent first. */
+const RECENT = ['task-103', 'task-101'];
 
 interface Item {
   key: string;
-  kind: 'terminal' | 'project' | 'task' | 'pull';
+  kind: 'project' | 'task' | 'pull';
   title: string;
   context: string;
   meta?: string;
   action: string;
-  hint?: string;
   leading: ReactNode;
   children?: { key: string; title: string; status: string }[];
 }
 
-const TERMINALS = Object.values(featuresTerminalsByTask).flat();
-
+/* Every fixture terminal belongs to a task, so each lists under its task's
+   row and the palette has no Terminals group of its own. */
 const ITEMS: Item[] = [
-  ...TERMINALS.map(
-    (t): Item => ({
-      key: t.ptyId,
-      kind: 'terminal',
-      title: t.label ?? t.ptyId,
-      /* Two terminals in one task carry the same name, so the name alone
-         cannot tell them apart. What each is doing can. */
-      hint: t.lastOscTitle ?? undefined,
-      context: PROJECT.name,
-      action: 'Focus terminal',
-      leading: <StatusDot status={t.status} />,
-    }),
-  ),
   {
     key: 'project-horizon',
     kind: 'project',
     title: PROJECT.name,
     context: PROJECT.path,
-    action: 'Open project',
+    action: 'Open',
     leading: (
       <span className="w-4 h-4 overflow-hidden rounded-[4px] flex items-center justify-center text-[8px] font-bold text-white bg-[#e9679f]">
         HO
@@ -80,14 +68,15 @@ const ITEMS: Item[] = [
       title: task.name,
       context: PROJECT.name,
       meta: `${STATUS_LABEL[task.status]} · 2h`,
-      action: 'Open task',
+      action: featuresTerminalsByTask[task.taskNumber]?.length
+        ? 'Focus terminal'
+        : task.status === 'todo'
+          ? 'Start task'
+          : 'Open worktree',
       leading: <span className="font-mono text-[11px] text-text-tertiary tabular-nums">T-{task.taskNumber}</span>,
-      /* What the shell is doing, not its name: the name is the task's own,
-         so a row that showed it would repeat the line above it. This is the
-         rule the kanban card's connected rows already follow. */
       children: (featuresTerminalsByTask[task.taskNumber] ?? []).map((t) => ({
         key: t.ptyId,
-        title: t.lastOscTitle || t.label,
+        title: t.label,
         status: t.status,
       })),
     }),
@@ -106,7 +95,6 @@ const ITEMS: Item[] = [
 ];
 
 const GROUPS: { kind: Item['kind']; title: string }[] = [
-  { kind: 'terminal', title: 'Terminals' },
   { kind: 'project', title: 'Projects' },
   { kind: 'task', title: 'Tasks' },
   { kind: 'pull', title: 'Pull requests' },
@@ -173,10 +161,16 @@ export function MockCommandPalette({ onClose }: { onClose: () => void }) {
       return [{ title: null, rows: withChildren(ranked) }];
     }
 
-    return GROUPS.map(({ kind, title }) => ({
-      title,
-      rows: withChildren(ITEMS.filter((item) => item.kind === kind).map((item) => ({ item }))),
-    })).filter((g) => g.rows.length > 0);
+    const recent = RECENT.map((key) => ITEMS.find((item) => item.key === key)!);
+    return [
+      { title: 'Recent', rows: withChildren(recent.map((item) => ({ item }))) },
+      ...GROUPS.map(({ kind, title }) => ({
+        title,
+        rows: withChildren(
+          ITEMS.filter((item) => item.kind === kind && !RECENT.includes(item.key)).map((item) => ({ item })),
+        ),
+      })),
+    ].filter((g) => g.rows.length > 0);
   }, [query]);
 
   const flat = useMemo(() => groups.flatMap((g) => g.rows), [groups]);
@@ -254,7 +248,6 @@ export function MockCommandPalette({ onClose }: { onClose: () => void }) {
                       key={row.key}
                       leading={row.item.leading}
                       title={highlight(row.item.title, row.ranges)}
-                      hint={row.item.hint}
                       context={row.item.context}
                       meta={row.item.meta}
                       selected={on}
