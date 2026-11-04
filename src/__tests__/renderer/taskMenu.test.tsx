@@ -49,6 +49,14 @@ describe('resuming and opening a task', () => {
     expect(acts.openEditor).toHaveBeenCalled();
     expect(acts.openFolder).toHaveBeenCalled();
 
+    // One other place is named outright rather than behind a submenu.
+    expect(outline(openEntries(['nono'], true, actions(), 'none'))).toEqual([
+      'Resume',
+      'Resume in Sandbox',
+      'Open in',
+      ['Editor', FILE_MANAGER_NAME],
+    ]);
+
     // With one place there is nowhere else to resume, and with no worktree on
     // disk there is nothing for the file manager to show. Resuming and the
     // editor create one, so they stay.
