@@ -20,7 +20,7 @@ import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { useAsking, useWantsYou, wantsYou } from '../terminal/wantsYou';
 import { Tooltip } from '../ui/Tooltip';
-import { StageGlyph, StageIcon } from './StageIcon';
+import { StageGlyph, StageIcon, TodoStackGlyph } from './StageIcon';
 import { formatSince, groupByTask, listedOrder, unitsFor, type TaskGroup } from './sidebarTree';
 import { isModKey } from '../../utils/modKey';
 import { selectionEntries, TagPrompt } from './SelectionMenu';
@@ -548,12 +548,14 @@ function TodoMenuRow({ projectPath, todos }: { projectPath: string; todos: TaskW
           onKeyDown={(e) => open && walkRows(e)}
         >
           <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
-            <StageGlyph status="todo" />
+            <TodoStackGlyph />
           </span>
           <span className="flex-1 min-w-0 truncate" style={{ color: open ? 'var(--color-text-primary)' : DIM }}>
             To do
           </span>
-          <span className="shrink-0 font-mono text-[10.5px] text-text-tertiary">{todos.length}</span>
+          <span className="shrink-0 min-w-[18px] h-[17px] px-1.5 rounded-full bg-ink/[0.07] flex items-center justify-center text-[11px] font-medium text-text-secondary">
+            {todos.length}
+          </span>
         </button>
       )}
     >

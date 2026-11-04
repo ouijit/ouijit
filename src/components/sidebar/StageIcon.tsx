@@ -62,3 +62,28 @@ export function StageGlyph({ status }: { status: TaskStatus }) {
     </svg>
   );
 }
+
+/** Several to-dos: the To Do mark twice, one behind the other. */
+export function TodoStackGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle
+        cx="10"
+        cy="6"
+        r="4.4"
+        stroke="color-mix(in srgb, var(--color-ink) 20%, transparent)"
+        strokeWidth="1.4"
+        strokeDasharray="1.9 1.8"
+      />
+      <circle
+        cx="6.5"
+        cy="9.5"
+        r="4.4"
+        fill="var(--sidebar-bg)"
+        stroke="color-mix(in srgb, var(--color-ink) 36%, transparent)"
+        strokeWidth="1.4"
+        strokeDasharray="1.9 1.8"
+      />
+    </svg>
+  );
+}
