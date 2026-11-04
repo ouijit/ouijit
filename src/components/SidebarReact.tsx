@@ -160,7 +160,7 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
             <TreeSection onCloneSelect={onCloneSelect} />
           </div>
 
-          <div className="shrink-0 px-2.5 pt-2 pb-3 border-t border-separator">
+          <div className="shrink-0 px-2.5 pt-2 pb-3 pane-seam-top">
             <FooterButton icon="plus" label="Add project" onClick={onAddProject} />
             <FooterButton
               icon="gear"

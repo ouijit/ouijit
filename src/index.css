@@ -385,6 +385,12 @@ textarea,
   background: var(--color-accent);
 }
 
+.pane-seam-top {
+  box-shadow:
+    inset 0 1px 0 var(--seam-cut),
+    inset 0 2px 0 var(--seam-catch);
+}
+
 /* For panes laid directly against each other, such as the kanban columns. On
    the left edge: the board's own bevel already closes the right. */
 .pane-seam-left {
