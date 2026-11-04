@@ -376,8 +376,18 @@ diff line belongs to. The user follows it when they choose, and following
 goes to the exact thing. This terminal has one pointer at a time; a new one replaces
 it. Task moves and asks waiting behind it are kept, though: several starts
 without --run-hook stack on the one pointer, and following runs them all, and
-asks sent one after another come up one at a time. Point after you finish something the user should look at, instead of
-asking them to find it, and say in -m why it is worth a look.
+asks sent one after another come up one at a time.
+
+A pointer asks for the user's attention, so spend it where it saves them a
+search. Ouijit already marks this terminal when a turn ends while the user is
+elsewhere, and asks and waiting task moves bring their own pointer, so none of
+those need one from you; nor does a reply to someone who is talking to you
+here. Point when what they should look at is somewhere else: a line in the
+diff, a panel you opened, a pull request, a card you made, another task's
+terminal. Point at the exact thing, a line rather than its file. Each pointer
+replaces the last, so when you hand back work, point once at what matters
+most and name the rest in your reply. -m says what you want them to judge
+there, not what the thing is.
 
 ## Asking the user to run something (on this computer, outside any sandbox)
 ouijit ask run [-m "<why>"] [--wait] -- <command> [args]
