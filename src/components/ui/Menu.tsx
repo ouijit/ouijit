@@ -111,6 +111,7 @@ export function MenuPopover({
 }
 
 export function MenuItem({
+  icon,
   label,
   detail,
   hint,
@@ -119,6 +120,7 @@ export function MenuItem({
   selected,
   onClick,
 }: {
+  icon?: ReactNode;
   label: string;
   /** A second line under the label, for a choice its name alone does not explain. */
   detail?: string;
@@ -139,6 +141,7 @@ export function MenuItem({
       className="w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 text-text-secondary hover:bg-ink/[0.08] hover:text-text-primary disabled:opacity-40 disabled:hover:bg-transparent transition-colors duration-100"
       onClick={onClick}
     >
+      {icon && <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">{icon}</span>}
       {detail ? (
         <span className="flex-1 min-w-0">
           <span className="block truncate">{label}</span>

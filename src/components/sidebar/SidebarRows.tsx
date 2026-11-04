@@ -3,10 +3,12 @@ import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../stores/appStore';
 import { stackFrom, stackMembers, stackOf, terminalUnit, useTerminalStore } from '../../stores/terminalStore';
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
-import type { Project, SandboxBackendId } from '../../types';
+import type { Project, SandboxBackendId, TaskWithWorkspace } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
 import { focusTerminal, openTaskTerminal } from '../navigation';
 import { openTaskSheet } from '../../utils/openTaskComposer';
+import { startTodo } from '../../services/taskStartService';
+import { MenuItem, MenuPopover } from '../ui/Menu';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { taskEntries } from '../kanban/taskMenu';
@@ -18,7 +20,7 @@ import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { useAsking, useWantsYou, wantsYou } from '../terminal/wantsYou';
 import { Tooltip } from '../ui/Tooltip';
-import { StageIcon } from './StageIcon';
+import { StageGlyph, StageIcon } from './StageIcon';
 import { formatSince, groupByTask, listedOrder, unitsFor, type TaskGroup } from './sidebarTree';
 import { isModKey } from '../../utils/modKey';
 import { selectionEntries, TagPrompt } from './SelectionMenu';
@@ -467,6 +469,109 @@ function TaskRows({ group, underTag, shown, onScreen, now, at, pick, rowMenu }: 
   );
 }
 
+/** A project's to-dos with no terminal open, in board order; one that has a terminal is listed as a task. */
+function waitingTodos(projectTasks: TaskWithWorkspace[], listed: TaskGroup[]): TaskWithWorkspace[] {
+  const open = new Set(listed.map((group) => group.taskId));
+  return projectTasks
+    .filter((task) => task.status === 'todo' && !open.has(task.taskNumber))
+    .sort((a, b) => a.order - b.order);
+}
+
+/** Past this many to-dos the menu gains a field to filter them. */
+const FILTER_FROM = 8;
+
+/** One row for a project's waiting to-dos, opening a menu that starts the one picked. */
+function TodoMenuRow({ projectPath, todos }: { projectPath: string; todos: TaskWithWorkspace[] }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const listRef = useRef<HTMLDivElement>(null);
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const shown = todos.filter((task) => words.every((word) => (task.name ?? '').toLowerCase().includes(word)));
+
+  const close = () => {
+    setOpen(false);
+    setQuery('');
+  };
+  const start = (task: TaskWithWorkspace) => {
+    close();
+    startTodo(projectPath, task);
+  };
+  const walkRows = (event: React.KeyboardEvent) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    const rows = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    if (rows.length === 0) return;
+    event.preventDefault();
+    const at = rows.indexOf(document.activeElement as HTMLElement);
+    rows[Math.max(0, Math.min(rows.length - 1, event.key === 'ArrowDown' ? at + 1 : at - 1))]?.focus();
+  };
+
+  return (
+    <MenuPopover
+      open={open}
+      onOpenChange={(next) => (next ? setOpen(true) : close())}
+      placement="bottom-start"
+      className="w-64 max-h-[22rem]"
+      header={
+        todos.length > FILTER_FROM && (
+          <label className="flex items-center gap-2 h-8 px-2.5 rounded-[7px] bg-ink/[0.05] focus-within:bg-ink/[0.08] transition-colors duration-150">
+            <Icon name="magnifying-glass" className="w-3.5 h-3.5 shrink-0 text-text-tertiary" />
+            <input
+              autoFocus
+              aria-label="Filter to-dos"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                // Escape clears the query first, and only then reaches the menu's own close.
+                if (e.key === 'Escape' && query) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setQuery('');
+                }
+                if (e.key === 'Enter' && shown.length > 0) start(shown[0]);
+                walkRows(e);
+              }}
+              placeholder="Filter"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-tertiary"
+            />
+          </label>
+        )
+      }
+      trigger={(ref) => (
+        <button
+          ref={ref}
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          data-point-target={todos.map((task) => pointKey.task(projectPath, task.taskNumber)).join(' ')}
+          className={`${ROW} ${open ? 'bg-ink/[0.06]' : ROW_IDLE} cursor-default select-none`}
+          onClick={() => (open ? close() : setOpen(true))}
+          onKeyDown={(e) => open && walkRows(e)}
+        >
+          <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
+            <StageGlyph status="todo" />
+          </span>
+          <span className="flex-1 min-w-0 truncate" style={{ color: open ? 'var(--color-text-primary)' : DIM }}>
+            To do
+          </span>
+          <span className="shrink-0 font-mono text-[10.5px] text-text-tertiary">{todos.length}</span>
+        </button>
+      )}
+    >
+      <div ref={listRef} onKeyDown={walkRows}>
+        {shown.map((task) => (
+          <MenuItem
+            key={task.taskNumber}
+            icon={<StageGlyph status="todo" />}
+            label={task.name || 'Untitled'}
+            onClick={() => start(task)}
+          />
+        ))}
+        {shown.length === 0 && <div className="px-2.5 py-1.5 text-sm text-text-tertiary">No match</div>}
+      </div>
+    </MenuPopover>
+  );
+}
+
 function NewTaskRow({ projectPath }: { projectPath: string }) {
   return (
     <button
@@ -559,8 +664,16 @@ export function GroupRows({
   );
   const { tasks, shells } = grouped;
 
+  const todos = idleIn ? waitingTodos(tasksByProject[idleIn] ?? [], tasks) : [];
+  const todoRow = idleIn && todos.length > 0 && <TodoMenuRow projectPath={idleIn} todos={todos} />;
+
   if (idleIn && tasks.length === 0 && shells.length === 0) {
-    return <NewTaskRow projectPath={idleIn} />;
+    return (
+      <>
+        {todoRow}
+        <NewTaskRow projectPath={idleIn} />
+      </>
+    );
   }
 
   // Every row in the order drawn, each with the terminals clicking it picks.
@@ -623,6 +736,7 @@ export function GroupRows({
   const placed = { underTag, shown, onScreen, now, pick, rowMenu };
   return (
     <>
+      {todoRow}
       {tasks.map((group, i) => (
         <TaskRows key={group.key} group={group} at={starts[i]} {...placed} />
       ))}

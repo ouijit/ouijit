@@ -596,6 +596,35 @@ describe('creating from the sidebar', () => {
     const woken = row(section('Projects'), 'Tidy up').closest<HTMLElement>('[data-sidebar-row]')!;
     expect(within(woken).queryByLabelText('No terminal open')).toBeNull();
 
+    // A to-do with nothing open waits behind one To do row, whose menu starts the one picked.
+    const todos = within(section('Projects')).getByRole('button', { name: /^To do/ });
+    expect(todos.textContent).toBe('To do1');
+    fireEvent.click(todos);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Plan it' }));
+    await waitFor(() => expect(display(front()!)).toMatchObject({ taskId: 10, projectPath: ALPHA.path }));
+    expect(screen.queryByRole('menu')).toBeNull();
+
+    // A long list gains a field that narrows it word by word, and Enter starts the first left.
+    act(() =>
+      useAppStore.getState().updateProjectTaskCache(
+        BRAVO.path,
+        Array.from({ length: 12 }, (_, i) =>
+          task({ taskNumber: 20 + i, name: `Chore number ${i}`, status: 'todo', order: i }),
+        ),
+      ),
+    );
+    const bravo = document.querySelector<HTMLElement>(`[data-project-path="${BRAVO.path}"]`)!.parentElement!;
+    fireEvent.click(within(bravo).getByRole('button', { name: /^To do/ }));
+    expect(await screen.findAllByRole('menuitem')).toHaveLength(12);
+    fireEvent.change(screen.getByLabelText('Filter to-dos'), { target: { value: 'chore 1' } });
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Chore number 1',
+      'Chore number 10',
+      'Chore number 11',
+    ]);
+    fireEvent.keyDown(screen.getByLabelText('Filter to-dos'), { key: 'Enter' });
+    await waitFor(() => expect(display(front()!)).toMatchObject({ taskId: 21, projectPath: BRAVO.path }));
+
     // A project's right-click menu opens a shell there, wherever you are.
     fireEvent.contextMenu(document.querySelector(`[data-project-path="${BRAVO.path}"]`)!);
     fireEvent.click(await screen.findByText('New terminal'));

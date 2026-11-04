@@ -416,11 +416,16 @@ export async function createAndStartTask(
     useProjectStore.getState().addToast(result?.error ?? 'Failed to create task', 'error');
     return false;
   }
+  startTodo(projectPath, task);
+  return true;
+}
+
+/** Moves a to-do to In Progress as the board does, start hook and all, and shows its terminal. */
+export function startTodo(projectPath: string, task: TaskWithWorkspace): void {
   const { selection } = useAppStore.getState();
   beginTransition(projectPath, { origStatus: 'todo', newStatus: 'in_progress', task });
   const { terminalsByProject, displayStates } = useTerminalStore.getState();
   const slot = terminalsByProject[projectPath]?.find((id) => displayStates[id]?.taskId === task.taskNumber);
   const own = stackOf({ ptyId: '', projectPath, taskId: task.taskNumber });
   if (slot) useAppStore.getState().showTerminal(slot, joinStack(selection, projectPath, own));
-  return true;
 }
