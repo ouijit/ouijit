@@ -49,8 +49,8 @@ import type {
   CliTagResponse,
   CliTerminalOp,
   CliTerminalResponse,
-  CliPointOp,
-  CliPointResponse,
+  CliAskOp,
+  CliAskResponse,
   CliCaller,
 } from '../types';
 import type {
@@ -264,7 +264,7 @@ export interface IpcInvokeContract {
   'cli-panels:respond': { args: [requestId: number, response: CliPanelResponse]; return: void };
   'cli-tags:respond': { args: [requestId: number, response: CliTagResponse]; return: void };
   'cli-terminals:respond': { args: [requestId: number, response: CliTerminalResponse]; return: void };
-  'cli-points:respond': { args: [requestId: number, response: CliPointResponse]; return: void };
+  'cli-asks:respond': { args: [requestId: number, response: CliAskResponse]; return: void };
 
   // ── Scripts ──────────────────────────────────────────────────────────
   'scripts:get-all': { args: [projectPath: string]; return: Script[] };
@@ -483,7 +483,7 @@ export interface IpcPushContract {
   'cli:panel-op': { args: [op: CliPanelOp] };
   'cli:tag-op': { args: [op: CliTagOp] };
   'cli:terminal-op': { args: [op: CliTerminalOp] };
-  'cli:point-op': { args: [op: CliPointOp] };
+  'cli:ask-op': { args: [op: CliAskOp] };
   'plan:content-changed': { args: [planPath: string, content: string] };
   health: { args: [status: HealthStatus] };
   'update-available': { args: [info: { version: string; url: string }] };

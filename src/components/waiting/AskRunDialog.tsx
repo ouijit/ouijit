@@ -1,40 +1,47 @@
 import { useEffect, useState } from 'react';
 import { DialogOverlay } from '../dialogs/DialogOverlay';
-import { usePointerStore } from '../../stores/pointerStore';
+import { useWaitingStore } from '../../stores/waitingStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { CodePreview } from '../common/CodePreview';
 import { languageOf } from '../../utils/syntaxHighlight';
 import { homeRelative } from '../sidebar/SidebarRows';
 import { isActiveSandbox } from '../../types';
 
-/** The open ask, for the user to run on this computer or decline. Closing it leaves the ask waiting. */
+/** Takes an answered ask off the queue, opening the next one its terminal sent, if any. */
+function answered(id: number): void {
+  const { items, remove, openAsk } = useWaitingStore.getState();
+  const from = items.find((i) => i.id === id)?.from;
+  remove(id);
+  const next = useWaitingStore.getState().items.find((i) => i.kind === 'ask' && i.from === from);
+  if (next) openAsk(next.id);
+}
+
+/** The open ask, for the user to run on this computer or decline. Closing it leaves the ask in the queue. */
 export function AskRunDialog() {
-  const asking = usePointerStore((s) => s.asking);
-  const pointer = usePointerStore((s) => s.pointers.find((p) => p.from === s.asking && p.ask));
-  const display = useTerminalStore((s) => (asking ? s.displayStates[asking] : undefined));
+  const item = useWaitingStore((s) => s.items.find((i) => i.id === s.open && i.kind === 'ask'));
+  const behind = useWaitingStore((s) => s.items.length - 1);
+  const display = useTerminalStore((s) => (item ? s.displayStates[item.from] : undefined));
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!pointer) return;
+    if (!item) return;
     const frame = requestAnimationFrame(() => setVisible(true));
     return () => {
       cancelAnimationFrame(frame);
       setVisible(false);
     };
-  }, [pointer]);
+  }, [item]);
 
-  if (!pointer?.ask) return null;
-  const { ask, from } = pointer;
-  const { openAsk, answered } = usePointerStore.getState();
+  if (item?.kind !== 'ask') return null;
+  const { ask, id } = item;
+  const { openAsk } = useWaitingStore.getState();
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => openAsk(null)} maxWidth={520}>
       <h2 data-testid="dialog-title" className="text-[17px] font-semibold text-text-primary">
         {display?.label ?? 'A terminal'} <span className="font-normal text-text-secondary">asks to run</span>
       </h2>
-      {pointer.laterAsks && (
-        <div className="mt-0.5 text-xs text-text-tertiary">{pointer.laterAsks.length} more after this</div>
-      )}
+      {behind > 0 && <div className="mt-0.5 text-xs text-text-tertiary">{behind} more waiting</div>}
 
       {ask.message && (
         <p className="mt-3 max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-5 text-text-primary">
@@ -73,7 +80,7 @@ export function AskRunDialog() {
       </p>
 
       <div className="flex gap-2 justify-end mt-4">
-        <button data-testid="ask-decline" className="btn-secondary" onClick={() => answered(from)}>
+        <button data-testid="ask-decline" className="btn-secondary" onClick={() => answered(id)}>
           Decline
         </button>
         <button
@@ -81,7 +88,7 @@ export function AskRunDialog() {
           className="btn-primary"
           onClick={() => {
             ask.run();
-            answered(from);
+            answered(id);
           }}
         >
           Run

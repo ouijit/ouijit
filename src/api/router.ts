@@ -69,13 +69,13 @@ import { shellJoin } from '../utils/shellQuote';
 import { fileItRuns } from '../askFile';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
-import { cliPanelRequest, cliPointRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
+import { cliAskRequest, cliPanelRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
 import {
   isPtyActive,
   getPtyTaskContext,
   getActiveSessions,
   getPtySpawnContext,
-  pointingPty,
+  callerTerminal,
   type ActiveSession,
 } from '../ptyManager';
 import { getHookStatus } from '../hookServer';
@@ -91,9 +91,7 @@ import type {
   CliTagResponse,
   CliTerminalOp,
   CliTerminalResponse,
-  CliPointOp,
   CliCaller,
-  PointTarget,
   SandboxCliAccess,
   SandboxProviderId,
 } from '../types';
@@ -213,13 +211,12 @@ function parseHookMode(body: Record<string, unknown>): Omit<CliHookControl, 'hoo
   return { hookMode: mode };
 }
 
-/** A pointer's label, not a place to write: longer than a line or two is cut. */
-const MAX_POINT_MESSAGE = 200;
+/** Why an agent asks, in a line or two: anything longer is cut. */
+const MAX_ASK_MESSAGE = 200;
 
-function cliCaller(auth: AuthContext, body: Record<string, unknown>): CliCaller {
+function cliCaller(auth: AuthContext): CliCaller {
   return {
-    fromPtyId: pointingPty(auth.ptyId),
-    ...(body.point === true && { point: true }),
+    fromPtyId: callerTerminal(auth.ptyId),
     ...(auth.scope === 'sandbox' && { fromSandbox: true }),
   };
 }
@@ -234,15 +231,6 @@ function realLocation(p: string): string {
   }
 }
 
-/**
- * The diff names files by their path in the worktree. The CLI sends an
- * absolute one, resolved from its shell's directory, which may have come
- * through a symlink the registered worktree path did not (macOS's /var).
- */
-function pathInWorktree(ptyId: string, file: string): string {
-  return worktreeRelative(ptyId, file) ?? file;
-}
-
 /** `file` relative to the terminal's worktree, or null when it lies outside it. */
 function worktreeRelative(ptyId: string, file: string): string | null {
   const ctx = getPtySpawnContext(ptyId);
@@ -250,54 +238,6 @@ function worktreeRelative(ptyId: string, file: string): string | null {
   if (!root || !path.isAbsolute(file)) return null;
   const relative = path.relative(realLocation(root), realLocation(file));
   return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : null;
-}
-
-/** The target of `ouijit point`, from its body. The project ones take `?project=`; the rest name a terminal. */
-function pointTarget(r: ParsedRequest): PointTarget {
-  const { body } = r;
-  const ptyId = typeof body.ptyId === 'string' && body.ptyId ? body.ptyId : r.auth.ptyId;
-  switch (body.kind) {
-    case 'task':
-      return {
-        kind: 'task',
-        projectPath: requireProject(r.query),
-        taskNumber: requireInt(String(body.taskNumber), 'Task number'),
-      };
-    case 'terminal':
-      if (typeof body.ptyId !== 'string' || !body.ptyId) throw new HttpError(400, 'Missing ptyId');
-      return { kind: 'terminal', ptyId: body.ptyId };
-    case 'project':
-    case 'board':
-      return { kind: body.kind, projectPath: requireProject(r.query) };
-    case 'pr':
-      return {
-        kind: 'pr',
-        projectPath: requireProject(r.query),
-        number: requireInt(String(body.number), 'Pull request number'),
-      };
-    case 'issue':
-      if (typeof body.id !== 'string' || !body.id) throw new HttpError(400, 'Missing issue');
-      return { kind: 'issue', projectPath: requireProject(r.query), id: body.id };
-    case 'panel':
-      if (typeof body.panelId !== 'string' || !body.panelId) throw new HttpError(400, 'Missing panel id');
-      return { kind: 'panel', ptyId, panelId: body.panelId };
-    case 'diff': {
-      if (typeof body.path !== 'string' || !body.path) throw new HttpError(400, 'Missing path');
-      const line = body.line === undefined ? undefined : requireInt(String(body.line), 'Line');
-      return { kind: 'diff', ptyId, path: pathInWorktree(ptyId, body.path), ...(line !== undefined && { line }) };
-    }
-    default:
-      throw new HttpError(400, `Unknown target '${String(body.kind)}'`);
-  }
-}
-
-async function runPointOp(
-  op: Omit<CliPointOp, 'requestId'>,
-): Promise<{ target?: PointTarget; message?: string; cleared?: boolean }> {
-  const result = await cliPointRequest(op);
-  if (!result.ok) throw new HttpError(404, result.error ?? 'Point failed');
-  if (op.action === 'clear') return { cleared: true };
-  return { target: result.target, ...(op.message && { message: op.message }) };
 }
 
 async function askRun(r: ParsedRequest): Promise<AskRun> {
@@ -847,26 +787,6 @@ const routes: Route[] = [
   route('POST', 'terminals/:ptyId/diff', (r) => runTerminalPanelsOp(r.segments[1], 'diff-open'), true),
   route('DELETE', 'terminals/:ptyId/diff', (r) => runTerminalPanelsOp(r.segments[1], 'diff-close'), true),
 
-  // ── Pointers ─────────────────────────────────────────────────────
-  // A pointer only suggests where the user might look, and it is the caller's own.
-  route(
-    'POST',
-    'point',
-    (r) => {
-      const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_POINT_MESSAGE) : '';
-      const said = message ? { message } : {};
-      if (r.body.kind === 'note') {
-        if (typeof r.body.noteId !== 'string' || !r.body.noteId) throw new HttpError(400, 'Missing note id');
-        return runPointOp({ fromPtyId: pointingPty(r.auth.ptyId), action: 'note', noteId: r.body.noteId, ...said });
-      }
-      return runPointOp({ fromPtyId: pointingPty(r.auth.ptyId), action: 'point', target: pointTarget(r), ...said });
-    },
-    false,
-    READ,
-  ),
-
-  route('DELETE', 'point', (r) => runPointOp({ fromPtyId: pointingPty(r.auth.ptyId), action: 'clear' }), false, READ),
-
   // ── Asking the user ──────────────────────────────────────────────
   // Reachable at the lowest CLI access because the caller chooses nothing that
   // runs: the user reads the command and presses Run, or nothing happens.
@@ -875,10 +795,9 @@ const routes: Route[] = [
     'ask/run',
     async (r) => {
       const ask = await askRun(r);
-      const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_POINT_MESSAGE) : '';
-      const result = await cliPointRequest({
-        fromPtyId: pointingPty(r.auth.ptyId),
-        action: 'ask',
+      const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_ASK_MESSAGE) : '';
+      const result = await cliAskRequest({
+        fromPtyId: callerTerminal(r.auth.ptyId),
         ask,
         ...(message && { message }),
       });
@@ -1523,7 +1442,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             branch: task.branch,
             createdAt: task.createdAt,
             ...hookControl,
-            ...cliCaller(caller, body),
+            ...cliCaller(caller),
           });
         }
       }
@@ -1549,7 +1468,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               taskNumber,
               task,
               ...hookControl,
-              ...cliCaller(caller, body),
+              ...cliCaller(caller),
             });
           }
         }
@@ -1580,7 +1499,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
               newStatus: body.status,
               task,
               ...hookControl,
-              ...cliCaller(caller, body),
+              ...cliCaller(caller),
             });
           }
         }

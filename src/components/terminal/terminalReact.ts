@@ -9,6 +9,8 @@
 import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { LINK_PATTERN } from '../../links/ouijitLink';
+import { openLink } from '../../links/openLink';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
 import type { PtyId, PtySpawnOptions, DiffDefaults, GitFileStatus, SandboxProviderId } from '../../types';
@@ -478,6 +480,7 @@ export class OuijitTerminal {
         window.api.openExternal(uri);
       }),
     );
+    this.xterm.loadAddon(new WebLinksAddon((_event, uri) => void openLink(uri), { urlRegex: LINK_PATTERN }));
 
     setupTerminalAppHotkeys(this.xterm, (data) => {
       if (this.ptyId) window.api.pty.write(this.ptyId, data);

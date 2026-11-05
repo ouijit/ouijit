@@ -464,11 +464,11 @@ export function isPtyActive(ptyId: PtyId): boolean {
  */
 /** What a sandbox needs to wrap a command run inside this PTY. */
 /**
- * Whose pointer a pty's commands leave: a runner's parent terminal's. A runner
- * has no sidebar row, and a pointer from a terminal without one is pruned at
- * once, taking any task moves waiting on it.
+ * The terminal a pty's commands speak for: a runner's parent. A runner has no
+ * row of its own, so what it asks or leaves waiting belongs to the terminal it
+ * runs on.
  */
-export function pointingPty(ptyId: PtyId): PtyId {
+export function callerTerminal(ptyId: PtyId): PtyId {
   const managed = activePtys.get(ptyId);
   return managed?.isRunner && managed.parentPtyId ? managed.parentPtyId : ptyId;
 }

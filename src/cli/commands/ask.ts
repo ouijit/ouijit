@@ -29,8 +29,8 @@ Examples:
   ouijit ask run --wait -- ./scripts/migrate.sh --dry-run
   ouijit ask script "Dev server"
 
-The ask shows as this terminal's pointer. Nothing runs until the user opens it,
-reads the command and presses Run; it then runs in a runner panel on this
+The ask waits in Ouijit's queue. Nothing runs until the user opens it, reads
+the command and presses Run; it then runs in a runner panel on this
 terminal. Without --wait the reply is {status: "pending"}; read the runner with
 \`ouijit panel read\`. With --wait it comes once the user declines or the run
 ends: {status: "declined"} or {status: "exited", exitCode, output, panelId}.`,

@@ -1,12 +1,12 @@
 import { useShallow } from 'zustand/react/shallow';
-import { usePointerStore } from '../../stores/pointerStore';
+import { askingFrom, useWaitingStore } from '../../stores/waitingStore';
 import { isUnread, useTerminalStore, viewedPtyId, type TerminalStatus } from '../../stores/terminalStore';
 import type { SandboxProviderId } from '../../types';
 import { StatusDot } from './StatusDot';
 
 /** Terminals whose agent is asking you to run something. */
 export function useAsking(): string[] {
-  return usePointerStore(useShallow((s) => s.pointers.filter((p) => p.ask).map((p) => p.from)));
+  return useWaitingStore(useShallow((s) => askingFrom(s.items)));
 }
 
 /**

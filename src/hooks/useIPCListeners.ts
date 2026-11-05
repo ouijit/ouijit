@@ -14,7 +14,7 @@ import { projectDefaultSandbox, refreshProjectData } from '../stores/projectData
 import { isActiveSandbox } from '../sandbox/types';
 import { beginTransition } from '../services/taskStartService';
 import { hookSandbox, hookTypeForTransition } from '../services/hookRun';
-import { usePointerStore } from '../stores/pointerStore';
+import { useWaitingStore } from '../stores/waitingStore';
 import { completeTask } from '../services/taskCompletion';
 import { reloadTheme } from '../theme/themeManager';
 import log from 'electron-log/renderer';
@@ -33,9 +33,9 @@ function hookOptions({ hookMode, hookCommand, hookSandbox }: CliHookControl) {
 
 /**
  * A CLI task move never takes over the screen. Where its hook would open a
- * dialog, the move waits behind a pointer at the task, from the terminal that
- * ran it, and the dialog opens when the user follows. Otherwise it runs at
- * once, its terminal behind the one on screen.
+ * dialog, the move waits in the queue, from the terminal that ran it, and the
+ * dialog opens when the user takes it. Otherwise it runs at once, its terminal
+ * behind the one on screen.
  *
  * A sandboxed caller's `--run-hook` waits for the dialog too when the hook
  * runs on the host, since it would run there in a worktree the caller wrote.
@@ -47,19 +47,24 @@ async function stageOrRun(
   run: (background: boolean, control: CliHookControl) => void,
 ): Promise<void> {
   const { fromPtyId } = move;
-  const target = { kind: 'task' as const, projectPath, taskNumber: task.taskNumber };
   const hook = move.hookType != null ? (await window.api.hooks.get(projectPath))[move.hookType] : undefined;
   const onHostUnseen =
     !!hook &&
     !!move.fromSandbox &&
     move.hookMode === 'run' &&
     !isActiveSandbox(hookSandbox(undefined, hook, await projectDefaultSandbox(projectPath)));
-  if (hook && (!move.hookMode || onHostUnseen) && fromPtyId) {
-    usePointerStore.getState().point({ from: fromPtyId, target, move: () => run(false, {}) });
+  if (hook && move.hookType && (!move.hookMode || onHostUnseen) && fromPtyId) {
+    useWaitingStore.getState().add({
+      kind: 'move',
+      from: fromPtyId,
+      projectPath,
+      taskNumber: task.taskNumber,
+      hookType: move.hookType,
+      run: () => run(false, {}),
+    });
     return;
   }
   run(true, move);
-  if (move.point && fromPtyId) usePointerStore.getState().point({ from: fromPtyId, target });
 }
 
 async function spawnTerminalForCliStart(projectPath: string, start: CliStart): Promise<void> {

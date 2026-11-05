@@ -23,7 +23,7 @@ import { registerLinearCommands } from './commands/linear';
 import { registerTerminalCommands } from './commands/terminal';
 import { registerDiffCommands } from './commands/diff';
 import { registerPanelCommands } from './commands/panel';
-import { registerPointCommands } from './commands/point';
+import { registerLinkCommands } from './commands/link';
 import { registerAskCommands } from './commands/ask';
 
 const program = new Command();
@@ -64,7 +64,7 @@ registerDiffCommands(program, requireProject);
 registerMarkdownCommands(program);
 registerPreviewCommands(program);
 registerPanelCommands(program);
-registerPointCommands(program, requireProject);
+registerLinkCommands(program, requireProject);
 registerAskCommands(program);
 registerThemeCommands(program);
 

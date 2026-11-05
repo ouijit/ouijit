@@ -214,7 +214,7 @@ interface SandboxReference {
 }
 
 const ACCESS_NOTES: Record<SandboxCliAccess, string> = {
-  read: 'reading your own task and diff notes, pointing, and asking',
+  read: 'reading your own task and diff notes, and asking',
   task: 'your own task, which you can also move and rename, and creating to-do cards',
   all: 'everything a host terminal can',
 };
@@ -310,18 +310,18 @@ ouijit task get <number>                      # → single task object
 ouijit task current                           # → task owning this terminal (resolves via OUIJIT_PTY_ID)
 ouijit task create "<name>"                   # → {success, task: {taskNumber, ...}}
 ouijit task create "<name>" --prompt "<text>" # set description at creation
-ouijit task start <number>                    # creates git worktree, sets in_progress; default: the start hook waits behind a pointer the user follows
+ouijit task start <number>                    # creates git worktree, sets in_progress; default: the start hook waits in the user's queue
 ouijit task start <number> --branch <name>    # use a custom branch name for the worktree
 ouijit task start <number> --run-hook         # run the configured start hook immediately, no dialog
 ouijit task start <number> --skip-hook        # spawn the terminal but run no hook
 ouijit task start <number> --hook-command "<cmd>"  # spawn the terminal running a one-off command instead of the configured hook
 ouijit task create-and-start "<name>"         # create + start in one step (accepts --prompt, --branch, and the same --run-hook / --skip-hook / --hook-command flags); aliased as "task spawn"
 ouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done
-ouijit task set-status <number> in_review                    # default: the review hook waits behind a pointer the user follows
+ouijit task set-status <number> in_review                    # default: the review hook waits in the user's queue
 ouijit task set-status <number> in_review --run-hook         # run the configured review hook immediately, no dialog
 ouijit task set-status <number> in_review --skip-hook        # change status, run no hook
 ouijit task set-status <number> in_review --hook-command "<cmd>" # run a one-off command instead of the review hook
-ouijit task set-status <number> done                         # default: the done hook waits behind a pointer the user follows
+ouijit task set-status <number> done                         # default: the done hook waits in the user's queue
 ouijit task set-status <number> done --run-hook              # run the configured done hook immediately, no dialog
 ouijit task set-status <number> done --skip-hook            # change status, run no hook
 ouijit task set-status <number> done --hook-command "<cmd>" # run a one-off command instead of the done hook
@@ -356,38 +356,24 @@ Each note is about lines startLine–line of path, kept current as the file
 changes. side LEFT means code that was removed, numbered as the file was.
 snippet is the source the note was written against.
 
-## Pointing (show the user something without moving their screen)
-ouijit point task <n>                         # its terminal, opened on follow if none is; a task never started, its card
-ouijit point terminal <pty-id>
-ouijit point project
-ouijit point board
-ouijit point pr <n>
-ouijit point issue <id>                       # a GitHub issue number, or a Linear identifier like ENG-231
-ouijit point panel <id> [pty-id]              # an id from panel list
-ouijit point diff <file>[:<line>] [pty-id]    # a file, or a line, in a terminal's diff
-ouijit point note <id>                        # an id from diff notes
-ouijit point clear
-Every target takes -m "<what it's about>": a line the user reads on the pointer.
-task start, create-and-start and terminal open take --point too.
+## Links (send the user somewhere from your reply)
+ouijit link diff <file>[:<line>] [pty-id]     # a file, or a line, in this terminal's diff → {url}
+ouijit link task <n>                          # its terminal, or its card if it was never started
+ouijit link terminal [pty-id]
+ouijit link panel <id> [pty-id]               # an id from panel list
+ouijit link pr <n>
+ouijit link issue <id>                        # a GitHub issue number, or a Linear identifier like ENG-231
+ouijit link board
+ouijit link project
 
-Nothing in Ouijit moves the user's view for you. A pointer marks a row in the
-sidebar: the task, terminal or project, or the one a pull request, panel or
-diff line belongs to. The user follows it when they choose, and following
-goes to the exact thing. This terminal has one pointer at a time; a new one replaces
-it. Task moves and asks waiting behind it are kept, though: several starts
-without --run-hook stack on the one pointer, and following runs them all, and
-asks sent one after another come up one at a time.
+Each prints an ouijit:// url, such as ouijit://horizon/tasks/14/diff/src/auth.ts:88.
+Put it in your reply as is; the user clicks it in the terminal to go there.
+A link only navigates. Nothing in Ouijit moves the user's view for you.
 
-A pointer asks for the user's attention, so spend it where it saves them a
-search. Ouijit already marks this terminal when a turn ends while the user is
-elsewhere, and asks and waiting task moves bring their own pointer, so none of
-those need one from you; nor does a reply to someone who is talking to you
-here. Point when what they should look at is somewhere else: a line in the
-diff, a panel you opened, a pull request, a card you made, another task's
-terminal. Point at the exact thing, a line rather than its file. Each pointer
-replaces the last, so when you hand back work, point once at what matters
-most and name the rest in your reply. -m says what you want them to judge
-there, not what the thing is.
+Link where it saves the user a search: when your reply names something that
+lives elsewhere, such as a line in the diff, a panel you opened, a pull
+request, a card you made or another task. Link the exact thing, a line rather
+than its file. The user is already reading this terminal, so don't link it.
 
 ## Asking the user to run something (on this computer, outside any sandbox)
 ouijit ask run [-m "<why>"] [--wait] -- <command> [args]
@@ -395,7 +381,7 @@ ouijit ask script <script> [-m "<why>"] [--wait]   # a project script, by id or 
                                               # → {command, cwd, status: pending | declined | exited, panelId?, exitCode?, output?}
 
 If this terminal is the one in front, the ask opens for the user at once; otherwise
-it waits as this terminal's pointer. They read the exact command and press Run
+it waits in their queue. They read the exact command and press Run
 or Decline; nothing runs before that. It runs in a runner panel
 on this terminal, in its worktree. With --wait the reply comes once they
 decline or it finishes; without it, the reply is pending at once, and panel
@@ -537,7 +523,7 @@ ouijit theme delete <id>                      # remove a custom theme
 ## From a sandbox
 A sandboxed terminal reaches Ouijit in its own project, at that project's CLI access level:
 - Read only, the default: its own task (task current, task get), diff notes,
-  point, ask, pr list and view, pr and linear drafts, pr lenses, linear list
+  link, ask, pr list and view, pr and linear drafts, pr lenses, linear list
   and view. On this terminal: terminal read, tags, panel list and read, and
   markdown add and remove for files in its worktree.
 - Its own task: also task set-status, set-name and set-description on its own

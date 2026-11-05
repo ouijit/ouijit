@@ -3,9 +3,9 @@ import { terminalInstances } from '../components/terminal/terminalRegistry';
 import { bufferText } from '../components/terminal/terminalText';
 import { useAppStore } from '../stores/appStore';
 import { notifyUnfocused } from '../utils/notifications';
-import { usePointerStore } from '../stores/pointerStore';
+import { useWaitingStore } from '../stores/waitingStore';
 import { getActivePtyId, useTerminalStore } from '../stores/terminalStore';
-import type { AskAnswer, AskRun, CliPointResponse } from '../types';
+import type { AskAnswer, AskRun, CliAskResponse } from '../types';
 
 const OUTPUT_LINES = 100;
 
@@ -47,24 +47,21 @@ function inFront(ptyId: string): boolean {
 }
 
 /**
- * Put `ouijit ask run` in front of the user as the asking terminal's pointer,
- * opened at once when that terminal is the one in front: a pointer there
- * would point at what the user is already looking at. Closed, it stays
- * as the pointer.
+ * Put `ouijit ask run` in the queue, opened at once when the asking terminal is
+ * the one in front and no other ask is open. Closed, it stays in the queue.
  * Approved, it runs on the host in a runner panel on that terminal. The reply
  * comes at once, or with `wait` once the user declines or the run ends.
  */
-export function askToRun(fromPtyId: string, ask: AskRun, message: string | undefined): Promise<CliPointResponse> {
+export function askToRun(fromPtyId: string, ask: AskRun, message: string | undefined): Promise<CliAskResponse> {
   if (!(fromPtyId in useTerminalStore.getState().displayStates)) {
     return Promise.resolve({ ok: false, error: `No terminal ${fromPtyId}` });
   }
   return new Promise((resolve) => {
     const answer = (a: AskAnswer) => resolve({ ok: true, answer: a });
     let decided = false;
-    usePointerStore.getState().point({
+    const id = useWaitingStore.getState().add({
+      kind: 'ask',
       from: fromPtyId,
-      target: { kind: 'terminal', ptyId: fromPtyId },
-      ...(message && { message }),
       ask: {
         ...ask,
         ...(message && { message }),
@@ -87,8 +84,8 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
         },
       },
     });
-    const pointers = usePointerStore.getState();
-    if (inFront(fromPtyId) && (pointers.asking == null || pointers.asking === fromPtyId)) pointers.openAsk(fromPtyId);
+    const waiting = useWaitingStore.getState();
+    if (inFront(fromPtyId) && waiting.open == null) waiting.openAsk(id);
     const display = useTerminalStore.getState().displayStates[fromPtyId];
     const project = useAppStore.getState().projects.find((p) => p.path === display.projectPath);
     notifyUnfocused(project?.name ?? 'Ouijit', `${display.label} asks to run ${ask.command}`);

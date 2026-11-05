@@ -9,8 +9,8 @@ import { beginTransition } from '../../services/taskStartService';
 import { completeTask } from '../../services/taskCompletion';
 import type { TaskWithWorkspace } from '../../types';
 import { seedProject } from './seedProject';
-import { usePointerStore } from '../../stores/pointerStore';
-import { followPointer } from '../../components/point/followPointer';
+import { useWaitingStore } from '../../stores/waitingStore';
+import { takeWaiting } from '../../components/waiting/WaitingQueue';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -207,8 +207,8 @@ describe('useIPCListeners — CLI task lifecycle', () => {
     },
   );
 
-  test("a move whose hook would ask waits behind a pointer from the terminal that ran it, and asks once it's followed", async () => {
-    usePointerStore.setState({ pointers: [] });
+  test("a move whose hook would ask waits in the queue from the terminal that ran it, and asks once it's taken", async () => {
+    useWaitingStore.setState({ items: [], open: null });
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { id: 's', type: 'start', name: 'Agent', command: 'claude' },
       review: { id: 'r', type: 'review', name: 'PR', command: 'gh pr create' },
@@ -220,33 +220,42 @@ describe('useIPCListeners — CLI task lifecycle', () => {
     stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-agent' }));
     await flush();
     expect(beginTransition).not.toHaveBeenCalled();
-    const [pointer] = usePointerStore.getState().pointers;
-    expect(pointer).toEqual(
-      expect.objectContaining({ from: 'pty-agent', target: { kind: 'task', projectPath: PROJECT, taskNumber: 9 } }),
+    const [move] = useWaitingStore.getState().items;
+    expect(move).toEqual(
+      expect.objectContaining({
+        kind: 'move',
+        from: 'pty-agent',
+        projectPath: PROJECT,
+        taskNumber: 9,
+        hookType: 'start',
+      }),
     );
 
-    await followPointer(pointer);
+    await takeWaiting(move);
     expect(
       vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl, opts.background]),
     ).toEqual([['in_progress', undefined, false]]);
-    expect(usePointerStore.getState().pointers).toEqual([]);
+    expect(useWaitingStore.getState().items).toEqual([]);
 
-    // Review and done wait the same way; with flags they run at once, and --point leaves a pointer anyway.
+    // Review and done wait the same way, in the order they came; with a hook flag a move runs at once.
     stubs.cliTaskTransitionedCb!(transitionPayload({ fromPtyId: 'pty-agent' }));
     stubs.cliTaskCompletedCb!(completedPayload({ fromPtyId: 'pty-other' }));
     await flush();
-    expect(usePointerStore.getState().pointers.map((p) => p.from)).toEqual(['pty-agent', 'pty-other']);
+    expect(useWaitingStore.getState().items.map((i) => [i.from, i.kind === 'move' && i.hookType])).toEqual([
+      ['pty-agent', 'review'],
+      ['pty-other', 'done'],
+    ]);
     expect(completeTask).not.toHaveBeenCalled();
 
     vi.mocked(beginTransition).mockClear();
-    stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-third', hookMode: 'run', point: true }));
+    stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-third', hookMode: 'run' }));
     await flush();
     expect(beginTransition).toHaveBeenCalledTimes(1);
-    expect(usePointerStore.getState().pointers.find((p) => p.from === 'pty-third')?.waiting).toBeUndefined();
+    expect(useWaitingStore.getState().items).toHaveLength(2);
   });
 
-  test('moves from one terminal stack on its pointer, survive it pointing elsewhere, and all run on follow', async () => {
-    usePointerStore.setState({ pointers: [] });
+  test('a loop of moves waits as one item each, run oldest first, and a skipped one never runs', async () => {
+    useWaitingStore.setState({ items: [], open: null });
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { id: 's', type: 'start', name: 'Agent', command: 'claude' },
     });
@@ -260,21 +269,17 @@ describe('useIPCListeners — CLI task lifecycle', () => {
       await flush();
     }
     expect(beginTransition).not.toHaveBeenCalled();
-    expect(usePointerStore.getState().pointers).toHaveLength(1);
+    const [twelve, thirteen, fourteen] = useWaitingStore.getState().items;
 
-    // The agent pointing somewhere else, then clearing, drops none of them.
-    usePointerStore.getState().point({ from: 'pty-agent', target: { kind: 'board', projectPath: PROJECT } });
-    usePointerStore.getState().clear('pty-agent');
-    const [pointer] = usePointerStore.getState().pointers;
-    expect(pointer.target).toEqual({ kind: 'task', projectPath: PROJECT, taskNumber: 14 });
-
-    await followPointer(pointer);
-    expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => opts.task.taskNumber)).toEqual([12, 13, 14]);
-    expect(usePointerStore.getState().pointers).toEqual([]);
+    useWaitingStore.getState().remove(thirteen.id);
+    await takeWaiting(twelve);
+    await takeWaiting(fourteen);
+    expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => opts.task.taskNumber)).toEqual([12, 14]);
+    expect(useWaitingStore.getState().items).toEqual([]);
   });
 
   test("a sandboxed caller's --run-hook runs a sandboxed hook at once, and waits for the user when the hook would run on the host", async () => {
-    usePointerStore.setState({ pointers: [] });
+    useWaitingStore.setState({ items: [], open: null });
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { id: 's', type: 'start', name: 'Agent', command: 'claude', sandbox: 'nono' },
       review: { id: 'r', type: 'review', name: 'Tests', command: 'npm test' },
@@ -288,11 +293,11 @@ describe('useIPCListeners — CLI task lifecycle', () => {
     expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl])).toEqual([
       ['in_progress', { mode: 'run', command: undefined }],
     ]);
-    const [pointer] = usePointerStore.getState().pointers;
-    expect(pointer.target).toEqual({ kind: 'task', projectPath: PROJECT, taskNumber: 9 });
+    const [move] = useWaitingStore.getState().items;
+    expect(move).toEqual(expect.objectContaining({ kind: 'move', taskNumber: 9, hookType: 'review' }));
 
     vi.mocked(beginTransition).mockClear();
-    await followPointer(pointer);
+    await takeWaiting(move);
     expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl])).toEqual([
       ['in_review', undefined],
     ]);

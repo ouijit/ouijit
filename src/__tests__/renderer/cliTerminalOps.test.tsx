@@ -7,7 +7,7 @@ import { installCliTerminalListener } from '../../services/cliTerminalListener';
 import { useProjectDataStore } from '../../stores/projectDataStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useAppStore } from '../../stores/appStore';
-import { followPointer } from '../../components/point/followPointer';
+import { openLink } from '../../links/openLink';
 import type {
   CliPanelOp,
   CliPanelResponse,
@@ -224,21 +224,30 @@ describe("a terminal's panels, from the CLI", () => {
   });
 });
 
-describe('following a pointer at a task', () => {
+describe('opening a link to a task', () => {
   test("opens a started task's terminal and shows it, as its row does, and never starts one", async () => {
     window.api.task.getAll = vi.fn().mockResolvedValue([started, neverStarted]);
-    useAppStore.setState({ taskCacheByProject: { [PROJECT]: [started, neverStarted] }, selection: { kind: 'none' } });
+    useAppStore.setState({
+      projects: [{ path: PROJECT, name: PROJECT.split('/').pop() } as never],
+      taskCacheByProject: { [PROJECT]: [started, neverStarted] },
+      selection: { kind: 'none' },
+    });
     spawned.next = ['pty-task'];
+    const name = PROJECT.split('/').pop();
 
-    await followPointer({ from: 'pty-front', target: { kind: 'task', projectPath: PROJECT, taskNumber: 4 }, at: 0 });
+    await openLink(`ouijit://${name}/tasks/4`);
     expect(spawned.calls.at(-1)).toEqual(expect.objectContaining({ cwd: '/wt/T-4' }));
     expect(useAppStore.getState().selection).toEqual(
       expect.objectContaining({ kind: 'terminal', projectPath: PROJECT }),
     );
     expect(useTerminalStore.getState().order[0]).toBe('pty-task');
 
-    await followPointer({ from: 'pty-front', target: { kind: 'task', projectPath: PROJECT, taskNumber: 9 }, at: 0 });
+    await openLink(`ouijit://${name}/tasks/9`);
     expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: PROJECT, page: 'board' });
     expect(window.api.task.start).not.toHaveBeenCalled();
+
+    // A link to a project Ouijit doesn't have goes nowhere.
+    await openLink('ouijit://elsewhere/tasks/4');
+    expect(useAppStore.getState().selection).toEqual({ kind: 'page', projectPath: PROJECT, page: 'board' });
   });
 });

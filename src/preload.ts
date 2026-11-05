@@ -28,8 +28,8 @@ import type {
   CliTagResponse,
   CliTerminalOp,
   CliTerminalResponse,
-  CliPointOp,
-  CliPointResponse,
+  CliAskOp,
+  CliAskResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
 import type {
@@ -238,9 +238,9 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('cli-terminals:respond', requestId, response),
   },
 
-  cliPoints: {
-    onOp: (callback: (op: CliPointOp) => void) => typedListen('cli:point-op', callback),
-    respond: (requestId: number, response: CliPointResponse) => typedInvoke('cli-points:respond', requestId, response),
+  cliAsks: {
+    onOp: (callback: (op: CliAskOp) => void) => typedListen('cli:ask-op', callback),
+    respond: (requestId: number, response: CliAskResponse) => typedInvoke('cli-asks:respond', requestId, response),
   },
 
   globalSettings: {

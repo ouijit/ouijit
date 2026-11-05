@@ -44,7 +44,6 @@ import {
   showInListOrder,
   useShownPtyId,
 } from './sidebar/SidebarRows';
-import { pointKey } from './point/pointKeys';
 
 // Off a Mac the window keeps its own title bar, so nothing here makes room for traffic lights.
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -393,7 +392,6 @@ function GroupHeader({
       data-selected={selected || undefined}
       data-project-path={projectPath}
       data-group={groupKey}
-      data-point-target={projectPath ? pointKey.project(projectPath) : undefined}
       onContextMenu={onContextMenu}
     >
       <button
@@ -527,7 +525,6 @@ function ProjectGroup({ project }: { project: Project }) {
                 aria-label={PAGE_TITLES.board}
                 aria-current={openPage === 'board' ? 'page' : undefined}
                 className={`${ROW_BUTTON} ${rowButtonState(openPage === 'board')}`}
-                data-point-target={pointKey.board(project.path)}
                 onClick={() => void openProjectPage(project.path, 'board')}
               >
                 <Icon name={PAGE_ICONS.board} className="w-3.5 h-3.5" />

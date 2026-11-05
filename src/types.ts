@@ -261,10 +261,9 @@ export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'edito
 export type CliHookMode = 'run' | 'skip' | 'command';
 
 /** What a CLI status change asks of the hook it fires; all absent shows the hook dialog. */
-/** Which terminal ran a CLI task move, and whether it asked to point at the task. */
+/** Which terminal ran a CLI task move. */
 export interface CliCaller {
   fromPtyId?: PtyId;
-  point?: boolean;
   /** The caller runs in a sandbox, so a hook it starts must not run on the host unseen. */
   fromSandbox?: boolean;
 }
@@ -659,7 +658,7 @@ export interface ElectronAPI {
   /** CLI-driven terminal tag ops */
   cliTags: CliTagsAPI;
   cliTerminals: CliTerminalsAPI;
-  cliPoints: CliPointsAPI;
+  cliAsks: CliAsksAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   homePath(): Promise<string>;
@@ -1046,21 +1045,6 @@ export interface CliTerminalResponse {
   ptyId?: PtyId;
 }
 
-/**
- * Something an agent can point at. A diff target is in the pointing terminal's
- * worktree unless `ptyId` names another; `noteId` lands it on a note's marker.
- * An issue `id` that is all digits is a GitHub issue, anything else Linear's.
- */
-export type PointTarget =
-  | { kind: 'task'; projectPath: string; taskNumber: number }
-  | { kind: 'terminal'; ptyId: PtyId }
-  | { kind: 'project'; projectPath: string }
-  | { kind: 'board'; projectPath: string }
-  | { kind: 'pr'; projectPath: string; number: number }
-  | { kind: 'issue'; projectPath: string; id: string }
-  | { kind: 'panel'; ptyId: PtyId; panelId: string }
-  | { kind: 'diff'; ptyId: PtyId; path: string; line?: number; noteId?: string };
-
 export interface CliPanelRead {
   kind: CliPanelKind;
   text?: string;
@@ -1070,17 +1054,13 @@ export interface CliPanelRead {
   url?: string;
 }
 
-/** Op forwarded to the renderer for `ouijit point` and `ouijit ask`. A note is resolved there, to the diff line it sits on. */
-export interface CliPointOp {
+/** Op forwarded to the renderer for `ouijit ask`. */
+export interface CliAskOp {
   requestId: number;
   fromPtyId: PtyId;
-  action: 'point' | 'note' | 'clear' | 'ask';
-  target?: PointTarget;
-  /** What the pointer is about, in the agent's words. */
+  ask: AskRun;
+  /** Why the agent asks, in its words. */
   message?: string;
-  /** note */
-  noteId?: string;
-  ask?: AskRun;
 }
 
 /** What `ouijit ask run` asks the user to run on the host, resolved before the user sees it. */
@@ -1103,16 +1083,15 @@ export type AskAnswer =
   | { status: 'exited'; panelId: string; exitCode: number | null; output: string }
   | { status: 'closed'; panelId: string };
 
-export interface CliPointResponse {
+export interface CliAskResponse {
   ok: boolean;
   error?: string;
-  target?: PointTarget;
   answer?: AskAnswer;
 }
 
-export interface CliPointsAPI {
-  onOp(callback: (op: CliPointOp) => void): () => void;
-  respond(requestId: number, response: CliPointResponse): Promise<void>;
+export interface CliAsksAPI {
+  onOp(callback: (op: CliAskOp) => void): () => void;
+  respond(requestId: number, response: CliAskResponse): Promise<void>;
 }
 
 export interface CliTerminalsAPI {

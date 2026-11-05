@@ -50,8 +50,7 @@ Examples:
     .option('--task <number>', "open it in this task's worktree")
     .option('--resume', "run the project's continue hook in it, as reopening the task does")
     .option(SANDBOX_FLAG, sandboxFlagHelp('where it runs; omitted, the project default'))
-    .option('--point', 'leave a pointer to it for the user to follow')
-    .action(async (opts: { task?: string; resume?: boolean; sandbox?: string; point?: boolean }) => {
+    .action(async (opts: { task?: string; resume?: boolean; sandbox?: string }) => {
       const parsed = parseSandboxFlag(opts.sandbox);
       if ('error' in parsed) return printError(parsed.error);
       const task = opts.task === undefined ? undefined : parseInt(opts.task, 10);
@@ -62,7 +61,6 @@ Examples:
         ...(opts.resume && { resume: true }),
         ...(parsed.sandbox && { sandbox: parsed.sandbox }),
       });
-      if (opts.point) await post('/api/point', { kind: 'terminal', ptyId: opened.ptyId });
       printJson(opened);
     });
 

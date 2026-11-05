@@ -30,8 +30,8 @@ import { installVisitTracker } from './services/visitTracker';
 import { installCliPanelListener } from './services/cliPanelListener';
 import { installCliTagListener } from './services/cliTagListener';
 import { installCliTerminalListener } from './services/cliTerminalListener';
-import { installCliPointListener } from './services/cliPointListener';
-import { PointerLayer } from './components/point/PointerLayer';
+import { installCliAskListener } from './services/cliAskListener';
+import { AskRunDialog } from './components/waiting/AskRunDialog';
 import { installHookStatusListener } from './services/hookStatusListener';
 import { useUIStore, hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
@@ -161,7 +161,7 @@ export function App() {
 
   useEffect(() => installCliTerminalListener(), []);
 
-  useEffect(() => installCliPointListener(), []);
+  useEffect(() => installCliAskListener(), []);
 
   useEffect(() => installHookStatusListener(), []);
 
@@ -306,7 +306,7 @@ export function App() {
           document order, and the title bar's drag region runs under the
           sidebar, so placed first it would swallow the sidebar's buttons. */}
       <Sidebar onAddProject={handleAddProject} onCloneSelect={handleCloneSelect} />
-      <PointerLayer />
+      <AskRunDialog />
       <ToastContainer />
       {addProjectStep && <AddProjectDialog initialStep={addProjectStep} onClose={handleAddProjectClose} />}
       {gitInitPath && <InitGitRepoDialog folderPath={gitInitPath} onClose={handleGitInitClose} />}

@@ -10,8 +10,8 @@
  * timeout here means the window itself is not answering.
  *
  * These ops are the only way a panel appears without a click, and they always
- * reflect what's on screen. `ouijit tag`, `terminal` and `point` cross the same
- * bridge on channels of their own, since tags, the xterm buffer and pointers
+ * reflect what's on screen. `ouijit tag`, `terminal` and `ask` cross the same
+ * bridge on channels of their own, since tags, the xterm buffer and the queue
  * live there too.
  */
 
@@ -26,8 +26,8 @@ import {
   type CliTagResponse,
   type CliTerminalOp,
   type CliTerminalResponse,
-  type CliPointOp,
-  type CliPointResponse,
+  type CliAskOp,
+  type CliAskResponse,
 } from './types';
 
 const cliPanelsLog = getLogger().scope('cliPanels');
@@ -47,7 +47,7 @@ const pending = new Map<number, Pending>();
 
 function settle(
   requestId: number,
-  response: CliPanelResponse | CliTagResponse | CliTerminalResponse | CliPointResponse,
+  response: CliPanelResponse | CliTagResponse | CliTerminalResponse | CliAskResponse,
 ): void {
   const entry = pending.get(requestId);
   if (!entry) return; // late or duplicate reply — request already settled
@@ -67,7 +67,7 @@ export function initCliPanels(window: BrowserWindow): void {
   ipcMain.handle('cli-terminals:respond', (_event, requestId: number, response: CliTerminalResponse) =>
     settle(requestId, response),
   );
-  ipcMain.handle('cli-points:respond', (_event, requestId: number, response: CliPointResponse) =>
+  ipcMain.handle('cli-asks:respond', (_event, requestId: number, response: CliAskResponse) =>
     settle(requestId, response),
   );
 }
@@ -121,11 +121,11 @@ export function cliTerminalRequest(op: Omit<CliTerminalOp, 'requestId'>): Promis
 /** How long `ask run --wait` holds its request open before answering that the run is still pending. */
 const ASK_WAIT_MS = 10 * 60_000;
 
-export function cliPointRequest(op: Omit<CliPointOp, 'requestId'>): Promise<CliPointResponse> {
+export function cliAskRequest(op: Omit<CliAskOp, 'requestId'>): Promise<CliAskResponse> {
   return request(
-    (window, requestId) => typedPush(window, 'cli:point-op', { requestId, ...op }),
-    { fromPtyId: op.fromPtyId, action: op.action },
-    op.ask?.wait ? { ms: ASK_WAIT_MS, response: { ok: true, answer: { status: 'pending' } } } : undefined,
+    (window, requestId) => typedPush(window, 'cli:ask-op', { requestId, ...op }),
+    { fromPtyId: op.fromPtyId, action: 'ask' },
+    op.ask.wait ? { ms: ASK_WAIT_MS, response: { ok: true, answer: { status: 'pending' } } } : undefined,
   );
 }
 

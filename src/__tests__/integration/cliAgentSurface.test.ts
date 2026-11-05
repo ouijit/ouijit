@@ -11,6 +11,7 @@ import { registerDiffCommands } from '../../cli/commands/diff';
 import { registerTaskCommands } from '../../cli/commands/task';
 import { registerPrCommands } from '../../cli/commands/pr';
 import { registerAskCommands } from '../../cli/commands/ask';
+import { registerLinkCommands } from '../../cli/commands/link';
 import { startHookServer, stopHookServer, getApiPort } from '../../hookServer';
 import { issueToken, revokeAllTokens } from '../../apiAuth';
 import { createTask, getTaskByNumber, setGlobalSetting, _resetCacheForTesting } from '../../db';
@@ -27,7 +28,7 @@ vi.mock('../../ptyManager', () => {
   return {
     getActiveSessions: () => sessions,
     isPtyActive: (ptyId: string) => !!find(ptyId),
-    pointingPty: (ptyId: string) => ptyId,
+    callerTerminal: (ptyId: string) => ptyId,
     getPtySpawnContext: (ptyId: string) => {
       const s = find(ptyId);
       return s
@@ -69,6 +70,7 @@ async function ouijit(...args: string[]): Promise<unknown> {
   registerTaskCommands(program, () => repoDir);
   registerPrCommands(program, () => repoDir);
   registerAskCommands(program);
+  registerLinkCommands(program, () => repoDir);
   try {
     await program.parseAsync(args, { from: 'user' });
   } finally {
@@ -257,7 +259,8 @@ describe('what an agent can see and do from the CLI', () => {
     await expect(ouijit('pr', 'draft', 'discard', '13', ours.id)).rejects.toThrow(/No draft/);
     await ouijit('pr', 'draft', 'discard', '12', ours.id);
     expect(await call('GET', `pulls/12/drafts?project=${encodeURIComponent(tmpDir)}`)).toBe(403);
-    expect(await call('POST', `point?project=${encodeURIComponent(tmpDir)}`, { kind: 'board' })).toBe(403);
+    // A link is built from what the CLI knows, so it needs no access at all.
+    expect(await ouijit('link', 'task', '1')).toEqual({ url: `ouijit://${path.basename(repoDir)}/tasks/1` });
 
     await expect(ouijit('terminal', 'read', 'pty-agent')).rejects.toThrow(passesTheRouter);
     await expect(ouijit('terminal', 'read', 'pty-tests')).rejects.toThrow(/Forbidden/);

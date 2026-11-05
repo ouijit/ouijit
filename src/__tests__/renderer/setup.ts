@@ -156,7 +156,7 @@ const mockApi = {
     onOp: vi.fn().mockReturnValue(() => {}),
     respond: vi.fn().mockResolvedValue(undefined),
   },
-  cliPoints: {
+  cliAsks: {
     onOp: vi.fn().mockReturnValue(() => {}),
     respond: vi.fn().mockResolvedValue(undefined),
   },

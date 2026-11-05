@@ -10,7 +10,7 @@ import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { useAppStore } from '../../stores/appStore';
 import { useUIStore } from '../../stores/uiStore';
 import { DEFAULT_DISPLAY_STATE, useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
-import { usePointerStore } from '../../stores/pointerStore';
+import { useWaitingStore } from '../../stores/waitingStore';
 import type { GitFileStatus, PtySpawnOptions, SandboxProviderStatus, TaskWithWorkspace } from '../../types';
 
 // xterm cannot construct under jsdom. The stand-in keeps the state the cards
@@ -191,17 +191,18 @@ describe('the sidebar is the navigation', () => {
     expect(weight('Pricing page')).toBe('');
 
     // An agent off screen asking to run something is marked the same way while it works, until the ask is answered.
+    let ask = 0;
     act(() => {
       useTerminalStore.getState().updateDisplay(docs, { status: 'thinking' });
-      usePointerStore.getState().point({
+      ask = useWaitingStore.getState().add({
+        kind: 'ask',
         from: docs,
-        target: { kind: 'terminal', ptyId: docs },
         ask: { command: 'gh release create v1', cwd: '/wt/9', run: () => {}, decline: () => {} },
       });
     });
     expect(unread('Write docs')).toBeTruthy();
     expect(weight('Write docs')).toBe('600');
-    act(() => usePointerStore.getState().clear(docs));
+    act(() => useWaitingStore.getState().remove(ask));
     expect(unread('Write docs')).toBeNull();
     expect(useAppStore.getState().activeProjectPath).toBe(BRAVO.path);
 

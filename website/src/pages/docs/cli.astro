@@ -46,7 +46,7 @@ ouijit task start 5 --run-hook --sandbox custom # run it in a sandbox other than
 ouijit task create-and-start "Add 2FA"        # create + start in one step
 ouijit task create-and-start "Add 2FA" --prompt "..." --branch custom --skip-hook
 ouijit task spawn "Add 2FA"                   # alias for create-and-start
-ouijit task set-status 5 in_review            # the review hook waits behind a pointer by default
+ouijit task set-status 5 in_review            # the review hook waits in your queue by default
 ouijit task set-status 5 in_review --run-hook # run the review hook, no dialog
 ouijit task set-status 5 in_review --skip-hook
 ouijit task set-status 5 done --hook-command "npm run deploy"
@@ -57,8 +57,8 @@ ouijit task set-merge-target 5 develop
 ouijit task trash 5                           # worktree goes to the system trash</code></pre>
   <p>
     <code>--run-hook</code>, <code>--skip-hook</code>, and <code>--hook-command</code> are mutually exclusive.
-    By default, a status change whose hook would ask first leaves a <a href="#point">pointer</a> at the task, and
-    the hook's dialog opens when you follow it, so an agent never puts a dialog over what you're doing. Use these
+    By default, a status change whose hook would ask first waits in your <a href="#queue">queue</a>, and
+    the hook's dialog opens when you take it, so an agent never puts a dialog over what you're doing. Use these
     flags to run without waiting for you. They apply to <code>task start</code>
     and <code>create-and-start</code> (the start hook) and to <code>set-status</code> into
     <code>in_progress</code>, <code>in_review</code>, or <code>done</code> (the continue, review, and done
@@ -131,34 +131,31 @@ ouijit diff notes --task 5
 ouijit diff open                              # show this terminal's diff panel
 ouijit diff close</code></pre>
 
-  <h2 id="point">Pointing</h2>
+  <h2 id="link">Links</h2>
   <p>
-    An agent can point you at something without moving your screen. A mark appears on its row in the sidebar,
-    or the row of the task or terminal it belongs to, like a pull request's task or a diff's terminal. Click
-    it, or press <kbd>⌘J</kbd> for the latest, to go there: to the line of the diff, the panel, the pull
-    request itself. Each terminal has one pointer; a new one replaces it, but task moves and asks waiting behind
-    it stack instead, and you answer them in turn. <code>-m</code> labels it with what it's about.
+    An agent can put a link in its reply that takes you somewhere in Ouijit: a line of the diff, a panel, a pull
+    request, another task. Click it in the terminal to go there. A link only navigates; it never runs anything.
   </p>
+  <pre class="glass-bevel"><code>ouijit link diff src/auth/session.ts:88       # → {"url": "ouijit://horizon/tasks/14/diff/src/auth/session.ts:88"}
+ouijit link task 14
+ouijit link terminal pty_abc123
+ouijit link panel panel-3fa9
+ouijit link pr 212
+ouijit link issue ENG-231                     # or a GitHub issue number
+ouijit link board
+ouijit link project</code></pre>
+
+  <h2 id="queue">Your queue</h2>
   <p>
-    Agents are told to point only where it saves you a search: at something away from their own terminal, which
-    is already marked when a turn ends, and once per handoff rather than per turn.
+    What agents leave for you to decide waits in one queue, oldest first: commands they ask to run, and task moves
+    whose hook would open a dialog. A count appears in the title bar while anything waits. Open it to take an
+    item or decline it, or press <kbd>⌘J</kbd> for the oldest.
   </p>
-  <pre class="glass-bevel"><code>ouijit point task 14 -m "Split out of auth; its tests aren't written yet"
-ouijit point terminal pty_abc123
-ouijit point project
-ouijit point board
-ouijit point pr 212
-ouijit point issue ENG-231                    # or a GitHub issue number
-ouijit point panel panel-3fa9
-ouijit point diff src/auth/session.ts:88 -m "This races the refresh"
-ouijit point note 7f3c                        # from ouijit diff notes
-ouijit point clear
-ouijit task start 14 --skip-hook --point      # task start, create-and-start and terminal open take --point</code></pre>
 
   <h2 id="ask">Asking you to run something</h2>
   <p>
     An agent in a sandbox can ask you to run a command on your computer, outside the sandbox. If its terminal is the
-    one in front, the ask opens at once; otherwise it waits as the agent's pointer. It shows the exact command, where it runs
+    one in front, the ask opens at once; otherwise it waits in your <a href="#queue">queue</a>. It shows the exact command, where it runs
     and the script file it runs, then Run or Decline.
     Nothing runs until you press Run. A script the command runs, from the agent's worktree or a temp folder, is
     shown in full, and the copy you read is what runs. It runs in a runner panel on the agent's terminal, without
