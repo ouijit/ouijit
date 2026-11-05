@@ -36,13 +36,12 @@ const projectOrder = (appPage: Page, projects: string[]): Promise<string[]> =>
     return s.order.map((id: string) => s.displayStates[id].projectPath).filter((p: string) => projects.includes(p));
   }, projects);
 
-/** Opens a task's worktree in a new terminal from its card on the board. */
+/** Starts or resumes a task in a new terminal from its card on the board, where the project defaults to: the host. */
 async function openFromBoard(appPage: Page, taskName: string): Promise<string> {
   const before = (await order(appPage)).length;
   await appPage.locator('.kanban-card', { hasText: taskName }).first().click({ button: 'right' });
   const menu = appPage.locator('.context-menu--visible');
-  await menu.getByRole('button', { name: 'Open in', exact: true }).hover();
-  await menu.getByRole('button', { name: 'Host terminal', exact: true }).click();
+  await menu.getByRole('button', { name: /^(Start|Resume)$/ }).click();
   await expect.poll(async () => (await order(appPage)).length, { timeout: 15_000 }).toBe(before + 1);
   const [ptyId] = await order(appPage);
   await expect.poll(() => front(appPage), { timeout: 10_000 }).toBe(ptyId);
@@ -79,9 +78,9 @@ test('the sidebar navigates: a board from its project row, a terminal from the b
     await pressInTerminal(appPage, '1');
     await expect.poll(() => front(appPage)).toBe(t1);
 
-    // A shell is a stack of its own.
+    // A new shell joins the stack on screen, in front.
     const shell = await newShell(appPage);
-    await expect(appPage.locator('.project-card')).toHaveCount(1);
+    await expect(appPage.locator('.project-card')).toHaveCount(3);
 
     // ⌘D and ⌘P act on the terminal in front.
     await pressInTerminal(appPage, 'd');

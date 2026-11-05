@@ -70,7 +70,7 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
 
   // --- Terminal lifecycle ---
 
-  // A shell is a stack of its own, listed in the sidebar under its project.
+  // A shell opens in front, listed in the sidebar under its project; a second joins its stack.
   const project = appPage.locator(`[data-project-path="${testRepo.repoPath}"]`).locator('..');
   await appPage.keyboard.press(`${modifier}+i`);
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 10_000 });
@@ -78,7 +78,7 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await expect(appPage.locator('.terminal-xterm-container').first()).toBeAttached({ timeout: 5_000 });
   await appPage.keyboard.press(`${modifier}+i`);
   await expect(project.locator('[data-sidebar-row]')).toHaveCount(2, { timeout: 10_000 });
-  await expect(appPage.locator('.project-card')).toHaveCount(1);
+  await expect(appPage.locator('.project-card')).toHaveCount(2);
 
   // Away from the board, ⌘N opens the composer as a sheet over the terminal
   // rather than switching the view out from under you. Dismissed again here —
@@ -118,7 +118,9 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
 
   const contextMenu = appPage.locator('.context-menu--visible');
   await expect(contextMenu).toBeVisible({ timeout: 5_000 });
-  await expect(contextMenu.getByRole('button', { name: 'Open in', exact: true })).toBeVisible();
+  // A to-do is started rather than resumed.
+  await expect(contextMenu.getByRole('button', { name: 'Start', exact: true })).toBeVisible();
+  await expect(contextMenu.getByRole('button', { name: 'Resume', exact: true })).toHaveCount(0);
 
   // "Move to ▸" carries the column moves plus the danger Trash entry.
   await contextMenu.getByRole('button', { name: 'Move to', exact: true }).hover();
@@ -141,7 +143,7 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   // `inset: 0` against the panel's padding box: its border, on each side.
   expect(flyout).toEqual({ width: 2, height: 2 });
 
-  await chooseSubmenuItem(appPage, 'Open in', 'Host terminal');
+  await appPage.locator('.context-menu--visible').getByRole('button', { name: 'Start', exact: true }).click();
 
   await expect(appPage.locator('.kanban-board')).not.toBeVisible({ timeout: 5_000 });
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
@@ -250,7 +252,11 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
   // The terminal it started is listed in the sidebar.
-  const terminalRows = appPage.locator(`[data-project-path="${repoPath}"]`).locator('..').locator('[data-sidebar-row]');
+  // Rows for terminals only: an in-progress task with none open is listed too.
+  const terminalRows = appPage
+    .locator(`[data-project-path="${repoPath}"]`)
+    .locator('..')
+    .locator('[data-sidebar-row][data-pty-id]');
   await expect(terminalRows).toHaveCount(1, { timeout: 15_000 });
 
   // --- Cancel flow: create task 2, drag, cancel dialog ---
@@ -309,10 +315,10 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
   const todoColumn = appPage.locator('.kanban-column[data-status="todo"]');
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
 
-  // Open in terminal via context menu
+  // Start it from the context menu
   const kanbanCard = todoColumn.locator('.kanban-card').first();
   await kanbanCard.click({ button: 'right' });
-  await chooseSubmenuItem(appPage, 'Open in', 'Host terminal');
+  await appPage.locator('.context-menu--visible').getByRole('button', { name: 'Start', exact: true }).click();
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
 
   // Get the worktree path from the task data
@@ -337,7 +343,7 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
 
   // Try to open the task again — should show recovery dialog
   await ipCard.click({ button: 'right' });
-  await chooseSubmenuItem(appPage, 'Open in', 'Host terminal');
+  await appPage.locator('.context-menu--visible').getByRole('button', { name: 'Resume', exact: true }).click();
 
   // Recovery dialog should appear
   const recoveryDialog = appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]');

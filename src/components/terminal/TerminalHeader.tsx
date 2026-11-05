@@ -145,6 +145,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           hasWorktree,
           actions,
           getProjectConfig(projectPath)?.defaultSandbox ?? 'none',
+          task?.status !== 'todo',
         ),
       );
       items.push({ separator: true });

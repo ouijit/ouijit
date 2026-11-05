@@ -37,8 +37,9 @@ export interface TaskMenuActions {
 }
 
 /**
- * Resume runs the continue hook where the project defaults to, and "Resume in"
- * names the other places, as a submenu only when there are several. Resuming creates the worktree a task has never had;
+ * Resume runs the continue hook where the project defaults to; a to-do offers
+ * Start instead. "Resume in" names the one other place, or lists every place
+ * with the default checked. Either creates the worktree a task has never had;
  * the file manager needs one already on disk.
  */
 export function openEntries(
@@ -46,18 +47,20 @@ export function openEntries(
   hasWorktree: boolean,
   actions: TaskMenuActions,
   projectDefault: SandboxProviderId,
+  started = true,
 ): ContextMenuEntry[] {
+  const verb = started ? 'Resume' : 'Start';
   const places: SandboxProviderId[] = ['none', ...sandboxProviders];
   const elsewhere = places.filter((place) => place !== projectDefault);
   const entries: ContextMenuEntry[] = [
-    { label: 'Resume', icon: 'play', onClick: () => actions.openTerminal(projectDefault) },
+    { label: verb, icon: 'play', onClick: () => actions.openTerminal(projectDefault) },
   ];
   if (elsewhere.length === 1) {
     const [place] = elsewhere;
-    entries.push({ label: `Resume in ${SANDBOX_LABELS[place]}`, onClick: () => actions.openTerminal(place) });
+    entries.push({ label: `${verb} in ${SANDBOX_LABELS[place]}`, onClick: () => actions.openTerminal(place) });
   } else if (elsewhere.length > 1) {
     entries.push({
-      label: 'Resume in',
+      label: `${verb} in`,
       submenu: places.map((place) => ({
         label: SANDBOX_LABELS[place],
         checked: place === projectDefault,
@@ -169,6 +172,7 @@ export function taskEntries(ctx: TaskMenuContext): ContextMenuEntry[] {
       !!(task.worktreePath && task.branch),
       actions,
       getProjectConfig(ctx.projectPath)?.defaultSandbox ?? 'none',
+      task.status !== 'todo',
     ),
   );
 

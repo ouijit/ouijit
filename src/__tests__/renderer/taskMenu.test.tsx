@@ -59,6 +59,14 @@ describe('resuming and opening a task', () => {
       ['Editor', FILE_MANAGER_NAME],
     ]);
 
+    // A to-do has nothing to resume yet, so it is started.
+    expect(outline(openEntries(['nono'], false, actions(), 'none', false))).toEqual([
+      'Start',
+      'Start in Sandbox',
+      'Open in',
+      ['Editor'],
+    ]);
+
     // With one place there is nowhere else to resume, and with no worktree on
     // disk there is nothing for the file manager to show. Resuming and the
     // editor create one, so they stay.
