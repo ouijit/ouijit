@@ -380,8 +380,7 @@ ouijit ask run [-m "<why>"] [--wait] -- <command> [args]
 ouijit ask script <script> [-m "<why>"] [--wait]   # a project script, by id or name
                                               # → {command, cwd, status: pending | declined | exited, panelId?, exitCode?, output?}
 
-If this terminal is the one in front and nothing else waits, the ask opens for
-the user at once; otherwise it waits in their queue. They read the exact command and press Run
+The ask shows at the foot of this terminal, in the user's queue. They read the exact command and press Run
 or Decline; nothing runs before that. It runs in a runner panel
 on this terminal, in its worktree. With --wait the reply comes once they
 decline or it finishes; without it, the reply is pending at once, and panel

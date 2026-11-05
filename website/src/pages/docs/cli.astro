@@ -147,18 +147,15 @@ ouijit link project</code></pre>
 
   <h2 id="queue">Your queue</h2>
   <p>
-    What agents leave for you to decide waits in one queue: commands they ask to run, and task moves whose hook
-    would open a dialog. A count appears in the title bar while anything waits; it and <kbd>⌘J</kbd> open the
-    list, grouped by task or terminal, with each item's command in full and how long it has waited. Hooks that
-    start an agent and commands that run outside a sandbox are marked. Run or decline items one at a time, or
-    select several, or a whole group, and act on them together; running several first shows every command it will
-    run. A run that fails stays in the list with its runner. Closing the list decides nothing.
+    What an agent leaves for you to decide shows at the foot of its terminal, all of it at once: commands it asks to
+    run, and task moves whose hook would open a dialog. Run or decline each, or all of them. A count in the title
+    bar lists the terminals with something waiting; <kbd>⌘J</kbd> goes to the next one.
   </p>
 
   <h2 id="ask">Asking you to run something</h2>
   <p>
-    An agent in a sandbox can ask you to run a command on your computer, outside the sandbox. If its terminal is the
-    one in front and nothing else waits, the ask opens at once; otherwise it waits in your <a href="#queue">queue</a>. It shows the exact command, where it runs
+    An agent in a sandbox can ask you to run a command on your computer, outside the sandbox. It
+    shows at the foot of its terminal, in your <a href="#queue">queue</a>. It shows the exact command, where it runs
     and the script file it runs, then Run or Decline.
     Nothing runs until you press Run. A script the command runs, from the agent's worktree or a temp folder, is
     shown in full, and the copy you read is what runs. It runs in a runner panel on the agent's terminal, without

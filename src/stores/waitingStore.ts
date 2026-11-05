@@ -40,44 +40,29 @@ type NewWaiting = Unstamped<Waiting>;
 
 interface WaitingStore {
   items: Waiting[];
-  /** The ask open in its own dialog, when it is the only thing waiting. Closing the dialog leaves it waiting. */
-  open: number | null;
-  /** Whether the list of everything waiting is open. */
-  listOpen: boolean;
   add: (item: NewWaiting) => number;
   /** Take an item off the queue. An ask not yet run is declined. */
   remove: (id: number) => void;
   ran: (id: number, state: AskRunState) => void;
-  openAsk: (id: number | null) => void;
-  setListOpen: (open: boolean) => void;
 }
 
 let nextId = 1;
 
 export const useWaitingStore = create<WaitingStore>()((set, get) => ({
   items: [],
-  open: null,
-  listOpen: false,
   add: (item) => {
     const id = nextId++;
-    // A second item over an ask open on its own turns it into the list, so they are seen together.
-    const together = get().open != null;
-    set({
-      items: [...get().items, { ...item, id, at: Date.now() } as Waiting],
-      ...(together && { open: null, listOpen: true }),
-    });
+    set({ items: [...get().items, { ...item, id, at: Date.now() } as Waiting] });
     return id;
   },
   remove: (id) => {
     const item = get().items.find((i) => i.id === id);
     if (!item) return;
     if (item.kind === 'ask') item.ask.decline();
-    set({ items: get().items.filter((i) => i.id !== id), ...(get().open === id && { open: null }) });
+    set({ items: get().items.filter((i) => i.id !== id) });
   },
   ran: (id, state) =>
     set({ items: get().items.map((i) => (i.id === id && i.kind === 'ask' ? { ...i, ran: state } : i)) }),
-  openAsk: (id) => set({ open: id }),
-  setListOpen: (listOpen) => set({ listOpen, ...(listOpen && { open: null }) }),
 }));
 
 /** Still the user's to decide: not yet run, nor running. */
