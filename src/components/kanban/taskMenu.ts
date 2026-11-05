@@ -47,7 +47,8 @@ export function openEntries(
   actions: TaskMenuActions,
   projectDefault: SandboxProviderId,
 ): ContextMenuEntry[] {
-  const elsewhere = (['none', ...sandboxProviders] as SandboxProviderId[]).filter((place) => place !== projectDefault);
+  const places: SandboxProviderId[] = ['none', ...sandboxProviders];
+  const elsewhere = places.filter((place) => place !== projectDefault);
   const entries: ContextMenuEntry[] = [
     { label: 'Resume', icon: 'play', onClick: () => actions.openTerminal(projectDefault) },
   ];
@@ -57,7 +58,11 @@ export function openEntries(
   } else if (elsewhere.length > 1) {
     entries.push({
       label: 'Resume in',
-      submenu: elsewhere.map((place) => ({ label: SANDBOX_LABELS[place], onClick: () => actions.openTerminal(place) })),
+      submenu: places.map((place) => ({
+        label: SANDBOX_LABELS[place],
+        checked: place === projectDefault,
+        onClick: () => actions.openTerminal(place),
+      })),
     });
   }
   const apps: ContextMenuEntry[] = [{ label: 'Editor', icon: 'code', onClick: actions.openEditor }];

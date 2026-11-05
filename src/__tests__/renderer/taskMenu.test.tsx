@@ -34,18 +34,20 @@ function clickAll(entries: ContextMenuEntry[]): void {
 }
 
 describe('resuming and opening a task', () => {
-  it('resumes where the project defaults to, names the other places, and opens apps only where they can', () => {
+  it('resumes where the project defaults to, names every place, and opens apps only where they can', () => {
     const acts = actions();
-    const entries = openEntries(['nono', 'custom'], true, acts, 'nono');
+    const entries = openEntries(['nono', 'custom'], true, acts, 'custom');
     expect(outline(entries)).toEqual([
       'Resume',
       'Resume in',
-      ['Host', 'Custom'],
+      ['Host', 'Sandbox', 'Custom'],
       'Open in',
       ['Editor', FILE_MANAGER_NAME],
     ]);
+    const places = (entries[1] as { submenu: ContextMenuItem[] }).submenu;
+    expect(places.filter((place) => place.checked).map((place) => place.label)).toEqual(['Custom']);
     clickAll(entries);
-    expect(vi.mocked(acts.openTerminal).mock.calls).toEqual([['nono'], ['none'], ['custom']]);
+    expect(vi.mocked(acts.openTerminal).mock.calls).toEqual([['custom'], ['none'], ['nono'], ['custom']]);
     expect(acts.openEditor).toHaveBeenCalled();
     expect(acts.openFolder).toHaveBeenCalled();
 
