@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Terminal } from '@xterm/headless';
 
 import { WaitingQueue } from '../../components/waiting/WaitingQueue';
@@ -24,14 +24,23 @@ vi.mock('../../components/terminal/terminalActions', async (importOriginal) => (
 }));
 
 const PROJECT = '/code/alpha';
-const task = { taskNumber: 14, name: 'Rate limit login', status: 'in_progress', createdAt: '' } as TaskWithWorkspace;
+const tasks = [
+  { taskNumber: 14, name: 'Rate limit login', status: 'in_progress', createdAt: '' },
+  { taskNumber: 15, name: 'Write docs', status: 'in_progress', createdAt: '' },
+] as TaskWithWorkspace[];
 
 /** The code a preview shows, without its header or line numbers. */
 function codeIn(preview: HTMLElement): string {
   return [...preview.querySelectorAll('[data-code-line]')].map((line) => line.textContent).join('\n');
 }
 
-const queue = () => screen.queryByRole('button', { name: /waiting$/ });
+const count = () => screen.queryByRole('button', { name: /waiting$/ });
+const list = () => screen.queryByRole('heading', { name: 'Waiting on you' });
+const rowOf = (command: string) =>
+  screen
+    .getAllByTestId('waiting-row')
+    .find((row) => within(row).getByTestId('waiting-command').textContent === command)!;
+const openList = () => fireEvent.keyDown(document, { key: 'j', metaKey: true, ctrlKey: true });
 
 function cliAsks() {
   let send: (op: CliAskOp) => void = () => {};
@@ -43,12 +52,50 @@ function cliAsks() {
   installCliAskListener();
   let requestId = 0;
   const reply = (id: number) => vi.mocked(window.api.cliAsks.respond).mock.calls.find(([r]) => r === id)?.[1];
-  const ask = (run: AskRun, message?: string, fromPtyId = 'pty-agent'): number => {
+  const ask = (
+    command: string,
+    { message, from = 'pty-agent', ...rest }: Partial<AskRun> & { message?: string; from?: string } = {},
+  ) => {
     const id = ++requestId;
-    send({ requestId: id, fromPtyId, ask: run, ...(message && { message }) });
+    send({
+      requestId: id,
+      fromPtyId: from,
+      ask: { command, cwd: '/wt/T-14', wait: true, ...rest },
+      ...(message && { message }),
+    });
     return id;
   };
   return { ask, reply };
+}
+
+/** Runners on the agent's terminal, each finishing with the line given. */
+function runners(outputs: Record<string, string>) {
+  const children = new Map<string, { xterm: Terminal }>();
+  for (const [panelId, line] of Object.entries(outputs)) {
+    const xterm = new Terminal({ cols: 40, rows: 5, allowProposedApi: true });
+    xterm.write(`${line}\r\n`);
+    children.set(panelId, { xterm });
+  }
+  terminalInstances.set('pty-agent', {
+    worktreePath: '/wt/T-14',
+    panels: [],
+    runnerChildren: children,
+    fit: () => {},
+    xterm: { focus: () => {} },
+    activatePanel: vi.fn(),
+  } as unknown as OuijitTerminal);
+  return (panels: { id: string; status: string; exitCode?: number }[]) =>
+    act(() =>
+      useTerminalStore.setState((s) => ({
+        displayStates: {
+          ...s.displayStates,
+          'pty-agent': {
+            ...s.displayStates['pty-agent'],
+            panels: panels.map((p) => ({ ...p, kind: 'runner' }) as never),
+          },
+        },
+      })),
+    );
 }
 
 function renderQueue() {
@@ -62,76 +109,183 @@ function renderQueue() {
 
 beforeEach(() => {
   vi.mocked(startRunner).mockReset();
-  useWaitingStore.setState({ items: [], open: null });
+  useWaitingStore.setState({ items: [], open: null, listOpen: false });
   useAppStore.setState({
     projects: [{ path: PROJECT, name: 'alpha' } as never],
-    taskCacheByProject: { [PROJECT]: [task] },
+    taskCacheByProject: { [PROJECT]: tasks },
     selection: { kind: 'none' },
   });
+  const display = (ptyId: string, label: string, extra = {}) => ({
+    ...DEFAULT_DISPLAY_STATE,
+    ptyId,
+    projectPath: PROJECT,
+    label,
+    ...extra,
+  });
   useTerminalStore.setState({
-    order: ['pty-agent', 'pty-other'],
-    terminalsByProject: { [PROJECT]: ['pty-agent', 'pty-other'] },
+    order: ['pty-agent', 'pty-other', 'pty-shell'],
+    terminalsByProject: { [PROJECT]: ['pty-agent', 'pty-other', 'pty-shell'] },
     displayStates: {
-      'pty-agent': { ...DEFAULT_DISPLAY_STATE, ptyId: 'pty-agent', projectPath: PROJECT, label: 'Fix auth timeout' },
-      'pty-other': { ...DEFAULT_DISPLAY_STATE, ptyId: 'pty-other', projectPath: PROJECT, label: 'Docs nav' },
+      'pty-agent': display('pty-agent', 'Rate limit login', { taskId: 14 }),
+      'pty-other': display('pty-other', 'Rate limit login', { taskId: 14, sandboxProvider: 'nono' }),
+      'pty-shell': display('pty-shell', 'Scratch'),
     },
   });
 });
 
 afterEach(() => terminalInstances.delete('pty-agent'));
 
-describe('an agent asking to run something', () => {
-  test('waits in the queue until opened, never runs by being opened, and runs on Run in a runner the agent can wait on', async () => {
-    const runner = new Terminal({ cols: 40, rows: 5, allowProposedApi: true });
-    await new Promise<void>((done) => runner.write('signed 3 binaries\r\n', done));
-    terminalInstances.set('pty-agent', {
-      worktreePath: '/wt/T-12',
-      panels: [],
-      runnerChildren: new Map([['panel-r', { xterm: runner }]]),
-      fit: () => {},
-      xterm: { focus: () => {} },
-    } as unknown as OuijitTerminal);
-    const runnerPanel = (status: string, exitCode?: number) =>
-      act(() =>
-        useTerminalStore.setState((s) => ({
-          displayStates: {
-            ...s.displayStates,
-            'pty-agent': {
-              ...s.displayStates['pty-agent'],
-              panels: [{ id: 'panel-r', kind: 'runner', status, exitCode } as never],
-            },
-          },
-        })),
-      );
-    vi.mocked(startRunner).mockResolvedValue('panel-r');
+describe('the queue', () => {
+  test('lists everything waiting by task or terminal, and runs a batch once every command in it has been read', async () => {
+    const finish = runners({ 'panel-1': 'migrated 3 tables', 'panel-2': 'lint: 2 errors' });
+    vi.mocked(startRunner).mockResolvedValueOnce('panel-1').mockResolvedValueOnce('panel-2');
     renderQueue();
     const { ask, reply } = cliAsks();
-    const sign = {
-      command: './scripts/sign.sh --all',
-      cwd: '/wt/T-12',
+    const startHook = vi.fn();
+
+    // Five items from three terminals.
+    const migrate = ask('npm run migrate', { message: 'Needs the prod database url' });
+    const lint = ask('npm run lint');
+    ask('gh release create v2', { from: 'pty-other', message: 'Tag the release' });
+    ask('rm -rf node_modules', { from: 'pty-shell' });
+    act(() => {
+      useWaitingStore.getState().add({
+        kind: 'move',
+        from: 'pty-shell',
+        projectPath: PROJECT,
+        taskNumber: 15,
+        hookType: 'start',
+        command: 'claude "$OUIJIT_TASK_DESCRIPTION"',
+        outsideSandbox: false,
+        run: startHook,
+      });
+    });
+    await waitFor(() => expect(count()?.textContent).toBe('5 waiting'));
+
+    openList();
+    expect(list()).toBeTruthy();
+    const login = screen.getByRole('region', { name: 'Rate limit login' });
+    expect(
+      within(login)
+        .getAllByTestId('waiting-command')
+        .map((c) => c.textContent),
+    ).toEqual(['npm run migrate', 'npm run lint', 'gh release create v2']);
+    expect(within(screen.getByRole('region', { name: 'Scratch' })).getAllByTestId('waiting-row')).toHaveLength(1);
+    expect(within(screen.getByRole('region', { name: 'Write docs' })).getAllByTestId('waiting-row')).toHaveLength(1);
+    within(rowOf('npm run migrate')).getByText('Needs the prod database url');
+    within(rowOf('npm run migrate')).getByText('Command');
+    within(rowOf('claude "$OUIJIT_TASK_DESCRIPTION"')).getByText('Start hook');
+    within(rowOf('claude "$OUIJIT_TASK_DESCRIPTION"')).getByText('Starts an agent');
+    within(rowOf('gh release create v2')).getByText('Outside the sandbox');
+
+    // Two selected: the confirm step lists both, flagging the hook that starts an agent, and nothing runs before it.
+    fireEvent.click(screen.getByLabelText('Select: npm run migrate'));
+    fireEvent.click(screen.getByLabelText('Select: claude "$OUIJIT_TASK_DESCRIPTION"'));
+    screen.getByText('2 selected');
+    fireEvent.click(screen.getByRole('button', { name: 'Run selected' }));
+    expect(screen.getAllByTestId('confirm-row').map((r) => r.textContent)).toEqual([
+      'Commandnpm run migrate',
+      'Start hookStarts an agentclaude "$OUIJIT_TASK_DESCRIPTION"',
+    ]);
+    expect(startRunner).not.toHaveBeenCalled();
+    finish([{ id: 'panel-1', status: 'running' }]);
+    fireEvent.click(screen.getByTestId('confirm-run'));
+    expect(startHook).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(within(rowOf('npm run migrate')).getByText('Running…')).toBeTruthy());
+    expect(startRunner).toHaveBeenCalledWith('pty-agent', expect.objectContaining({ command: 'npm run migrate' }));
+    expect(screen.queryByText('claude "$OUIJIT_TASK_DESCRIPTION"')).toBeNull();
+
+    // A run that succeeds leaves; its --wait caller gets the output.
+    finish([{ id: 'panel-1', status: 'success', exitCode: 0 }]);
+    await waitFor(() =>
+      expect(reply(migrate)).toEqual({
+        ok: true,
+        answer: {
+          status: 'exited',
+          panelId: 'panel-1',
+          exitCode: 0,
+          output: expect.stringContaining('migrated 3 tables'),
+        },
+      }),
+    );
+    expect(screen.queryByText('npm run migrate')).toBeNull();
+
+    // A run that fails stays, marked, with its runner a click away.
+    finish([
+      { id: 'panel-1', status: 'success', exitCode: 0 },
+      { id: 'panel-2', status: 'running' },
+    ]);
+    fireEvent.click(within(rowOf('npm run lint')).getByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(startRunner).toHaveBeenCalledTimes(2));
+    finish([
+      { id: 'panel-1', status: 'success', exitCode: 0 },
+      { id: 'panel-2', status: 'error', exitCode: 1 },
+    ]);
+    await waitFor(() => within(rowOf('npm run lint')).getByText('Failed, exit 1'));
+    expect(reply(lint)).toEqual({ ok: true, answer: expect.objectContaining({ status: 'exited', exitCode: 1 }) });
+    fireEvent.click(within(rowOf('npm run lint')).getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByText('npm run lint')).toBeNull();
+    expect(count()?.textContent).toBe('2 waiting');
+  });
+
+  test('declines a group without touching the rest, and closing it, selection and all, decides nothing', async () => {
+    renderQueue();
+    const { ask, reply } = cliAsks();
+    const mine = [ask('npm run e2e'), ask('npm run bench', { from: 'pty-other' })];
+    const scratch = ask('rm -rf node_modules', { from: 'pty-shell' });
+    await waitFor(() => expect(count()?.textContent).toBe('3 waiting'));
+
+    openList();
+    const login = screen.getByRole('region', { name: 'Rate limit login' });
+    fireEvent.click(within(login).getByRole('button', { name: 'Decline all' }));
+    await waitFor(() =>
+      expect(mine.map(reply)).toEqual([0, 1].map(() => ({ ok: true, answer: { status: 'declined' } }))),
+    );
+    expect(screen.queryByRole('region', { name: 'Rate limit login' })).toBeNull();
+    expect(reply(scratch)).toBeUndefined();
+
+    fireEvent.click(screen.getByLabelText('Select all in Scratch'));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(list()).toBeNull());
+    expect(reply(scratch)).toBeUndefined();
+    expect(startRunner).not.toHaveBeenCalled();
+
+    openList();
+    expect((screen.getByLabelText('Select: rm -rf node_modules') as HTMLInputElement).checked).toBe(false);
+  });
+
+  test('an ask from the terminal in front opens on its own at once, and is in the list too; its next one follows it', async () => {
+    vi.mocked(startRunner).mockResolvedValue('panel-r');
+    runners({});
+    useAppStore.setState({ selection: { kind: 'terminal', stack: `task:14:${PROJECT}`, projectPath: PROJECT } });
+    renderQueue();
+    const { ask, reply } = cliAsks();
+
+    const behind = ask('npm run e2e', { from: 'pty-shell' });
+    await waitFor(() => expect(count()?.textContent).toBe('1 waiting'));
+    expect(screen.queryByTestId('ask-command')).toBeNull();
+
+    ask('./scripts/sign.sh --all', {
+      message: 'Needs the keychain',
       file: { path: 'scripts/sign.sh', contents: 'codesign --deep "$@"' },
       runCommand: '/data/ask-runs/1/sign.sh --all',
-    };
-
-    const waiting = ask({ ...sign, wait: true }, 'Needs the keychain');
-    await waitFor(() => expect(queue()?.textContent).toBe('1 waiting'));
-
-    // ⌘J opens it, showing what runs and the file it runs; closing it leaves it in the queue.
-    fireEvent.keyDown(document, { key: 'j', metaKey: true, ctrlKey: true });
+    });
+    const declined = ask('npm publish');
     expect(codeIn(await screen.findByTestId('ask-command'))).toBe('./scripts/sign.sh --all');
     expect(codeIn(screen.getByTestId('ask-file'))).toBe('codesign --deep "$@"');
-    screen.getByText(/The script runs as shown, even if the file changes\./);
     screen.getByText('Needs the keychain');
+    screen.getByText('2 more waiting');
+
+    // Closed, it is still waiting, and listed.
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByTestId('ask-command')).toBeNull());
-    expect(queue()?.textContent).toBe('1 waiting');
-    expect(startRunner).not.toHaveBeenCalled();
-    expect(reply(waiting)).toBeUndefined();
+    openList();
+    rowOf('./scripts/sign.sh --all');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(list()).toBeNull());
 
-    // The queue lists it by who asks and what runs; picking it opens it again.
-    fireEvent.click(queue()!);
-    fireEvent.click(await screen.findByRole('button', { name: /Fix auth timeout asks to run/ }));
-    runnerPanel('running');
+    // Opened from the list, run, and the next from its terminal comes up in turn.
+    act(() => useWaitingStore.getState().openAsk(useWaitingStore.getState().items[1].id));
     fireEvent.click(await screen.findByTestId('ask-run'));
     await waitFor(() =>
       // The copy that was read runs, not the file the agent can still edit, and nothing waits on a pager.
@@ -141,95 +295,17 @@ describe('an agent asking to run something', () => {
         env: expect.objectContaining({ PAGER: 'cat', GH_PAGER: 'cat', GIT_PAGER: 'cat' }),
       }),
     );
-    expect(queue()).toBeNull();
-    expect(reply(waiting)).toBeUndefined();
+    await waitFor(() => expect(codeIn(screen.getByTestId('ask-command'))).toBe('npm publish'));
+    fireEvent.click(screen.getByTestId('ask-decline'));
+    await waitFor(() => expect(reply(declined)).toEqual({ ok: true, answer: { status: 'declined' } }));
 
-    runnerPanel('success', 0);
-    await waitFor(() =>
-      expect(reply(waiting)).toEqual({
-        ok: true,
-        answer: {
-          status: 'exited',
-          panelId: 'panel-r',
-          exitCode: 0,
-          output: expect.stringContaining('signed 3 binaries'),
-        },
-      }),
-    );
-
-    // Without --wait the answer is that it is pending; declining from the queue refuses it.
-    const later = ask(sign);
-    await waitFor(() => expect(reply(later)).toEqual({ ok: true, answer: { status: 'pending' } }));
-    const refused = ask({ ...sign, wait: true });
-    fireEvent.click(await screen.findByRole('button', { name: /waiting$/ }));
-    // Answered pending, the first stays in the queue for the user; the second is declined there.
-    const declines = await screen.findAllByRole('button', { name: 'Decline: ./scripts/sign.sh --all' });
-    expect(declines).toHaveLength(2);
-    fireEvent.click(declines[1]);
-    await waitFor(() => expect(reply(refused)).toEqual({ ok: true, answer: { status: 'declined' } }));
-    expect(startRunner).toHaveBeenCalledTimes(1);
-    expect(queue()?.textContent).toBe('1 waiting');
-  });
-
-  test('from the terminal in front opens at once; from one behind it waits; from one that closes is declined', async () => {
-    useTerminalStore.setState((s) => ({
-      displayStates: {
-        ...s.displayStates,
-        'pty-agent': { ...s.displayStates['pty-agent'], taskId: 14 },
-        'pty-other': { ...s.displayStates['pty-other'], taskId: 14 },
-      },
-    }));
-    useAppStore.setState({ selection: { kind: 'terminal', stack: `task:14:${PROJECT}`, projectPath: PROJECT } });
-    renderQueue();
-    const { ask, reply } = cliAsks();
-    const e2e = { command: 'npm run e2e', cwd: '/wt/T-14', wait: true };
-
-    const behind = ask(e2e, undefined, 'pty-other');
-    await waitFor(() => expect(queue()?.textContent).toBe('1 waiting'));
-    expect(screen.queryByTestId('ask-command')).toBeNull();
-
-    ask(e2e);
-    expect(codeIn(await screen.findByTestId('ask-command'))).toBe('npm run e2e');
-    screen.getByText('1 more waiting');
-    expect(startRunner).not.toHaveBeenCalled();
-
+    // An ask from a terminal that closes is declined.
     act(() =>
       useTerminalStore.setState((s) => {
-        const { 'pty-other': _, ...rest } = s.displayStates;
+        const { 'pty-shell': _, ...rest } = s.displayStates;
         return { displayStates: rest };
       }),
     );
     await waitFor(() => expect(reply(behind)).toEqual({ ok: true, answer: { status: 'declined' } }));
-    expect(queue()?.textContent).toBe('1 waiting');
-  });
-
-  test('sent one after another from one terminal, each comes up as the one before is answered', async () => {
-    vi.mocked(startRunner).mockResolvedValue('panel-r');
-    renderQueue();
-    const { ask, reply } = cliAsks();
-    const trash = (n: number) => ask({ command: `ouijit task trash ${n}`, cwd: '/wt/T-29', wait: true }, `Trash ${n}`);
-    const asked = [trash(31), trash(32), trash(33)];
-
-    await waitFor(() => expect(queue()?.textContent).toBe('3 waiting'));
-    expect(asked.map(reply)).toEqual([undefined, undefined, undefined]);
-
-    fireEvent.keyDown(document, { key: 'j', metaKey: true, ctrlKey: true });
-    expect(codeIn(await screen.findByTestId('ask-command'))).toBe('ouijit task trash 31');
-    screen.getByText('Trash 31');
-    screen.getByText('2 more waiting');
-    fireEvent.click(screen.getByTestId('ask-run'));
-
-    await waitFor(() => expect(codeIn(screen.getByTestId('ask-command'))).toBe('ouijit task trash 32'));
-    screen.getByText('Trash 32');
-    fireEvent.click(screen.getByTestId('ask-decline'));
-    await waitFor(() => expect(reply(asked[1])).toEqual({ ok: true, answer: { status: 'declined' } }));
-
-    await waitFor(() => expect(codeIn(screen.getByTestId('ask-command'))).toBe('ouijit task trash 33'));
-    fireEvent.click(screen.getByTestId('ask-run'));
-    await waitFor(() => expect(queue()).toBeNull());
-    expect(vi.mocked(startRunner).mock.calls.map(([, script]) => script?.command)).toEqual([
-      'ouijit task trash 31',
-      'ouijit task trash 33',
-    ]);
   });
 });

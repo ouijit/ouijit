@@ -40,7 +40,7 @@ function showDiff(ptyId: string, diff: DiffSpot): void {
 }
 
 /** A task's terminals, as clicking its row shows them; a task never started shows its card. */
-async function showTask(projectPath: string, taskNumber: number): Promise<string | null> {
+export async function showTask(projectPath: string, taskNumber: number): Promise<string | null> {
   const unit = stackOf({ ptyId: '', projectPath, taskId: taskNumber });
   const task = (useAppStore.getState().taskCacheByProject[projectPath] ?? []).find((t) => t.taskNumber === taskNumber);
   const [front] = stackMembers(useTerminalStore.getState(), unit);

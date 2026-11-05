@@ -33,12 +33,12 @@ function hookOptions({ hookMode, hookCommand, hookSandbox }: CliHookControl) {
 
 /**
  * A CLI task move never takes over the screen. Where its hook would open a
- * dialog, the move waits in the queue, from the terminal that ran it, and the
- * dialog opens when the user takes it. Otherwise it runs at once, its terminal
- * behind the one on screen.
+ * dialog, the move waits in the queue, from the terminal that ran it, and runs
+ * its hook once the user picks it there, having read the command. Otherwise it
+ * runs at once, its terminal behind the one on screen.
  *
- * A sandboxed caller's `--run-hook` waits for the dialog too when the hook
- * runs on the host, since it would run there in a worktree the caller wrote.
+ * A sandboxed caller's `--run-hook` waits for the user too when the hook runs
+ * on the host, since it would run there in a worktree the caller wrote.
  */
 async function stageOrRun(
   projectPath: string,
@@ -48,11 +48,8 @@ async function stageOrRun(
 ): Promise<void> {
   const { fromPtyId } = move;
   const hook = move.hookType != null ? (await window.api.hooks.get(projectPath))[move.hookType] : undefined;
-  const onHostUnseen =
-    !!hook &&
-    !!move.fromSandbox &&
-    move.hookMode === 'run' &&
-    !isActiveSandbox(hookSandbox(undefined, hook, await projectDefaultSandbox(projectPath)));
+  const onHost = !!hook && !isActiveSandbox(hookSandbox(undefined, hook, await projectDefaultSandbox(projectPath)));
+  const onHostUnseen = !!move.fromSandbox && move.hookMode === 'run' && onHost;
   if (hook && move.hookType && (!move.hookMode || onHostUnseen) && fromPtyId) {
     useWaitingStore.getState().add({
       kind: 'move',
@@ -60,7 +57,9 @@ async function stageOrRun(
       projectPath,
       taskNumber: task.taskNumber,
       hookType: move.hookType,
-      run: () => run(false, {}),
+      command: hook.command,
+      outsideSandbox: !!move.fromSandbox && onHost,
+      run: () => run(true, { hookMode: 'run' }),
     });
     return;
   }

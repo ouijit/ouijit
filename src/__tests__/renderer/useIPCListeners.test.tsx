@@ -10,7 +10,7 @@ import { completeTask } from '../../services/taskCompletion';
 import type { TaskWithWorkspace } from '../../types';
 import { seedProject } from './seedProject';
 import { useWaitingStore } from '../../stores/waitingStore';
-import { takeWaiting } from '../../components/waiting/WaitingQueue';
+import { runWaiting } from '../../components/waiting/WaitingQueue';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -207,7 +207,7 @@ describe('useIPCListeners — CLI task lifecycle', () => {
     },
   );
 
-  test("a move whose hook would ask waits in the queue from the terminal that ran it, and asks once it's taken", async () => {
+  test('a move whose hook would ask waits in the queue with its command, and runs that hook once the user runs it there', async () => {
     useWaitingStore.setState({ items: [], open: null });
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { id: 's', type: 'start', name: 'Agent', command: 'claude' },
@@ -228,13 +228,15 @@ describe('useIPCListeners — CLI task lifecycle', () => {
         projectPath: PROJECT,
         taskNumber: 9,
         hookType: 'start',
+        command: 'claude',
+        outsideSandbox: false,
       }),
     );
 
-    await takeWaiting(move);
+    runWaiting(move);
     expect(
       vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl, opts.background]),
-    ).toEqual([['in_progress', undefined, false]]);
+    ).toEqual([['in_progress', { mode: 'run', command: undefined }, true]]);
     expect(useWaitingStore.getState().items).toEqual([]);
 
     // Review and done wait the same way, in the order they came; with a hook flag a move runs at once.
@@ -272,8 +274,8 @@ describe('useIPCListeners — CLI task lifecycle', () => {
     const [twelve, thirteen, fourteen] = useWaitingStore.getState().items;
 
     useWaitingStore.getState().remove(thirteen.id);
-    await takeWaiting(twelve);
-    await takeWaiting(fourteen);
+    runWaiting(twelve);
+    runWaiting(fourteen);
     expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => opts.task.taskNumber)).toEqual([12, 14]);
     expect(useWaitingStore.getState().items).toEqual([]);
   });
@@ -294,12 +296,20 @@ describe('useIPCListeners — CLI task lifecycle', () => {
       ['in_progress', { mode: 'run', command: undefined }],
     ]);
     const [move] = useWaitingStore.getState().items;
-    expect(move).toEqual(expect.objectContaining({ kind: 'move', taskNumber: 9, hookType: 'review' }));
+    expect(move).toEqual(
+      expect.objectContaining({
+        kind: 'move',
+        taskNumber: 9,
+        hookType: 'review',
+        command: 'npm test',
+        outsideSandbox: true,
+      }),
+    );
 
     vi.mocked(beginTransition).mockClear();
-    await takeWaiting(move);
+    runWaiting(move);
     expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl])).toEqual([
-      ['in_review', undefined],
+      ['in_review', { mode: 'run', command: undefined }],
     ]);
   });
 });

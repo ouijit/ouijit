@@ -48,8 +48,9 @@ function inFront(ptyId: string): boolean {
 
 /**
  * Put `ouijit ask run` in the queue, opened at once when the asking terminal is
- * the one in front and no other ask is open. Closed, it stays in the queue.
- * Approved, it runs on the host in a runner panel on that terminal. The reply
+ * the one in front and nothing else of the queue's is open. Closed, it stays in the queue.
+ * Approved, it runs on the host in a runner panel on that terminal, and stays
+ * in the queue until the run ends: one that fails stays on, marked. The reply
  * comes at once, or with `wait` once the user declines or the run ends.
  */
 export function askToRun(fromPtyId: string, ask: AskRun, message: string | undefined): Promise<CliAskResponse> {
@@ -73,8 +74,22 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
             command: ask.runCommand ?? ask.command,
             env: NO_PAGER,
           }).then(async (panelId) => {
-            if (!panelId) answer({ status: 'declined' });
-            else answer(ask.wait ? await outcome(fromPtyId, panelId) : { status: 'pending', panelId });
+            const queue = useWaitingStore.getState();
+            if (!panelId) {
+              queue.remove(id);
+              answer({ status: 'declined' });
+              return;
+            }
+            queue.ran(id, { status: 'running', panelId });
+            if (!ask.wait) answer({ status: 'pending', panelId });
+            const result = await outcome(fromPtyId, panelId);
+            answer(result);
+            // A failed run stays, for the user to see; one that succeeded, or whose runner closed, is done.
+            if (result.status === 'exited' && result.exitCode !== 0) {
+              useWaitingStore.getState().ran(id, { status: 'failed', panelId, exitCode: result.exitCode });
+            } else {
+              useWaitingStore.getState().remove(id);
+            }
           });
         },
         decline: () => {
@@ -85,7 +100,7 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
       },
     });
     const waiting = useWaitingStore.getState();
-    if (inFront(fromPtyId) && waiting.open == null) waiting.openAsk(id);
+    if (inFront(fromPtyId) && waiting.open == null && !waiting.listOpen) waiting.openAsk(id);
     const display = useTerminalStore.getState().displayStates[fromPtyId];
     const project = useAppStore.getState().projects.find((p) => p.path === display.projectPath);
     notifyUnfocused(project?.name ?? 'Ouijit', `${display.label} asks to run ${ask.command}`);

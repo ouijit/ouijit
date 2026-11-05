@@ -1,25 +1,27 @@
 import { useEffect, useState } from 'react';
 import { DialogOverlay } from '../dialogs/DialogOverlay';
-import { useWaitingStore } from '../../stores/waitingStore';
+import { undecided, useWaitingStore } from '../../stores/waitingStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { CodePreview } from '../common/CodePreview';
 import { languageOf } from '../../utils/syntaxHighlight';
 import { homeRelative } from '../sidebar/SidebarRows';
 import { isActiveSandbox } from '../../types';
 
-/** Takes an answered ask off the queue, opening the next one its terminal sent, if any. */
-function answered(id: number): void {
+/** Moves on from an answered ask to the next one its terminal sent, if any is still undecided. */
+function answered(id: number, declined: boolean): void {
   const { items, remove, openAsk } = useWaitingStore.getState();
   const from = items.find((i) => i.id === id)?.from;
-  remove(id);
-  const next = useWaitingStore.getState().items.find((i) => i.kind === 'ask' && i.from === from);
-  if (next) openAsk(next.id);
+  if (declined) remove(id);
+  const next = useWaitingStore
+    .getState()
+    .items.find((i) => i.id !== id && i.kind === 'ask' && !i.ran && i.from === from);
+  openAsk(next ? next.id : null);
 }
 
 /** The open ask, for the user to run on this computer or decline. Closing it leaves the ask in the queue. */
 export function AskRunDialog() {
-  const item = useWaitingStore((s) => s.items.find((i) => i.id === s.open && i.kind === 'ask'));
-  const behind = useWaitingStore((s) => s.items.length - 1);
+  const item = useWaitingStore((s) => s.items.find((i) => i.id === s.open && i.kind === 'ask' && !i.ran));
+  const behind = useWaitingStore((s) => s.items.filter(undecided).length - 1);
   const display = useTerminalStore((s) => (item ? s.displayStates[item.from] : undefined));
   const [visible, setVisible] = useState(false);
 
@@ -80,7 +82,7 @@ export function AskRunDialog() {
       </p>
 
       <div className="flex gap-2 justify-end mt-4">
-        <button data-testid="ask-decline" className="btn-secondary" onClick={() => answered(id)}>
+        <button data-testid="ask-decline" className="btn-secondary" onClick={() => answered(id, true)}>
           Decline
         </button>
         <button
@@ -88,7 +90,7 @@ export function AskRunDialog() {
           className="btn-primary"
           onClick={() => {
             ask.run();
-            answered(id);
+            answered(id, false);
           }}
         >
           Run
