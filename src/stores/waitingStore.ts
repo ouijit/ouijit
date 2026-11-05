@@ -27,7 +27,8 @@ export type Waiting = { id: number; from: string; at: number } & (
       projectPath: string;
       taskNumber: number;
       hookType: HookType;
-      /** The hook's command, as it will run. */
+      /** The hook's name and command, as it will run. */
+      hookName: string;
       command: string;
       /** The hook runs on the host though the agent that moved the task is sandboxed. */
       outsideSandbox: boolean;
@@ -73,18 +74,4 @@ export function undecided(item: Waiting): boolean {
 /** Terminals whose agent is waiting on an answer to an ask. */
 export function askingFrom(items: Waiting[]): string[] {
   return items.flatMap((i) => (i.kind === 'ask' && !i.ran ? [i.from] : []));
-}
-
-const AGENT_COMMANDS = new Set(['claude', 'codex', 'pi', 'opencode']);
-
-/** Whether a command starts one of the agent CLIs, anywhere in it: `cd x && claude "$PROMPT"` does. */
-export function launchesAgent(command: string): boolean {
-  return command.split(/[\s;&|()]+/).some((word) =>
-    AGENT_COMMANDS.has(
-      word
-        .replace(/^["']|["']$/g, '')
-        .split('/')
-        .pop() ?? '',
-    ),
-  );
 }

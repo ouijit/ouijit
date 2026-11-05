@@ -57,6 +57,7 @@ async function stageOrRun(
       projectPath,
       taskNumber: task.taskNumber,
       hookType: move.hookType,
+      hookName: hook.name,
       command: hook.command,
       outsideSandbox: !!move.fromSandbox && onHost,
       run: () => run(true, { hookMode: 'run' }),

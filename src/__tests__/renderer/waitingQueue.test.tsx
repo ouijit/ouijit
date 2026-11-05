@@ -142,6 +142,7 @@ describe('what an agent leaves for the user', () => {
         projectPath: PROJECT,
         taskNumber: 15,
         hookType: 'start',
+        hookName: 'Agent',
         command: 'claude "$OUIJIT_TASK_DESCRIPTION"',
         outsideSandbox: false,
         run: startHook,
@@ -153,12 +154,14 @@ describe('what an agent leaves for the user', () => {
     expect(bars()).toHaveLength(2);
     within(rowOf('./scripts/sign.sh --all')).getByText('Signing needs the keychain');
     within(rowOf('./scripts/sign.sh --all')).getByText('outside its sandbox');
-    within(rowOf('claude "$OUIJIT_TASK_DESCRIPTION"')).getByText('Moved Write docs to In Progress, its start hook');
-    within(rowOf('claude "$OUIJIT_TASK_DESCRIPTION"')).getByText('starts an agent');
+    within(rowOf('claude "$OUIJIT_TASK_DESCRIPTION"')).getByText('Start Write docs');
+    within(rowOf('claude "$OUIJIT_TASK_DESCRIPTION"')).getByText(/^Agent:/);
 
     // The script it runs, on asking.
     fireEvent.click(within(rowOf('./scripts/sign.sh --all')).getByRole('button', { name: 'Script' }));
-    expect(within(rowOf('./scripts/sign.sh --all')).getByTestId('ask-file').textContent).toContain('codesign --deep');
+    expect((await screen.findByTestId('ask-file')).textContent).toContain('codesign --deep');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByTestId('ask-file')).toBeNull());
 
     // Run: the copy that was read runs, with no pager, and the row stays until the run ends.
     panels([{ id: 'panel-1', status: 'running' }]);
