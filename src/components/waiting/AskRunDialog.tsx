@@ -7,21 +7,18 @@ import { languageOf } from '../../utils/syntaxHighlight';
 import { homeRelative } from '../sidebar/SidebarRows';
 import { isActiveSandbox } from '../../types';
 
-/** Moves on from an answered ask to the next one its terminal sent, if any is still undecided. */
+/** Closes the answered ask, going on to the list when anything else still waits: asks never come up one after another. */
 function answered(id: number, declined: boolean): void {
-  const { items, remove, openAsk } = useWaitingStore.getState();
-  const from = items.find((i) => i.id === id)?.from;
+  const { remove, openAsk, setListOpen } = useWaitingStore.getState();
   if (declined) remove(id);
-  const next = useWaitingStore
-    .getState()
-    .items.find((i) => i.id !== id && i.kind === 'ask' && !i.ran && i.from === from);
-  openAsk(next ? next.id : null);
+  const rest = useWaitingStore.getState().items.filter((i) => i.id !== id && undecided(i));
+  if (rest.length > 0) setListOpen(true);
+  else openAsk(null);
 }
 
-/** The open ask, for the user to run on this computer or decline. Closing it leaves the ask in the queue. */
+/** The one ask waiting, opened over its terminal, to run on this computer or decline. Closing it leaves it in the queue. */
 export function AskRunDialog() {
   const item = useWaitingStore((s) => s.items.find((i) => i.id === s.open && i.kind === 'ask' && !i.ran));
-  const behind = useWaitingStore((s) => s.items.filter(undecided).length - 1);
   const display = useTerminalStore((s) => (item ? s.displayStates[item.from] : undefined));
   const [visible, setVisible] = useState(false);
 
@@ -43,7 +40,6 @@ export function AskRunDialog() {
       <h2 data-testid="dialog-title" className="text-[17px] font-semibold text-text-primary">
         {display?.label ?? 'A terminal'} <span className="font-normal text-text-secondary">asks to run</span>
       </h2>
-      {behind > 0 && <div className="mt-0.5 text-xs text-text-tertiary">{behind} more waiting</div>}
 
       {ask.message && (
         <p className="mt-3 max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-5 text-text-primary">

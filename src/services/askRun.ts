@@ -3,7 +3,7 @@ import { terminalInstances } from '../components/terminal/terminalRegistry';
 import { bufferText } from '../components/terminal/terminalText';
 import { useAppStore } from '../stores/appStore';
 import { notifyUnfocused } from '../utils/notifications';
-import { useWaitingStore } from '../stores/waitingStore';
+import { undecided, useWaitingStore } from '../stores/waitingStore';
 import { getActivePtyId, useTerminalStore } from '../stores/terminalStore';
 import type { AskAnswer, AskRun, CliAskResponse } from '../types';
 
@@ -47,8 +47,8 @@ function inFront(ptyId: string): boolean {
 }
 
 /**
- * Put `ouijit ask run` in the queue, opened at once when the asking terminal is
- * the one in front and nothing else of the queue's is open. Closed, it stays in the queue.
+ * Put `ouijit ask run` in the queue, opened on its own at once when the asking
+ * terminal is the one in front and nothing else waits. Closed, it stays in the queue.
  * Approved, it runs on the host in a runner panel on that terminal, and stays
  * in the queue until the run ends: one that fails stays on, marked. The reply
  * comes at once, or with `wait` once the user declines or the run ends.
@@ -100,7 +100,7 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
       },
     });
     const waiting = useWaitingStore.getState();
-    if (inFront(fromPtyId) && waiting.open == null && !waiting.listOpen) waiting.openAsk(id);
+    if (inFront(fromPtyId) && !waiting.listOpen && waiting.items.filter(undecided).length === 1) waiting.openAsk(id);
     const display = useTerminalStore.getState().displayStates[fromPtyId];
     const project = useAppStore.getState().projects.find((p) => p.path === display.projectPath);
     notifyUnfocused(project?.name ?? 'Ouijit', `${display.label} asks to run ${ask.command}`);

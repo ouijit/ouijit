@@ -254,27 +254,21 @@ describe('the queue', () => {
     expect((screen.getByLabelText('Select: rm -rf node_modules') as HTMLInputElement).checked).toBe(false);
   });
 
-  test('an ask from the terminal in front opens on its own at once, and is in the list too; its next one follows it', async () => {
+  test('an ask from the terminal in front opens on its own only while nothing else waits, and never leads to another', async () => {
     vi.mocked(startRunner).mockResolvedValue('panel-r');
-    runners({});
+    const finish = runners({});
     useAppStore.setState({ selection: { kind: 'terminal', stack: `task:14:${PROJECT}`, projectPath: PROJECT } });
     renderQueue();
     const { ask, reply } = cliAsks();
-
-    const behind = ask('npm run e2e', { from: 'pty-shell' });
-    await waitFor(() => expect(count()?.textContent).toBe('1 waiting'));
-    expect(screen.queryByTestId('ask-command')).toBeNull();
 
     ask('./scripts/sign.sh --all', {
       message: 'Needs the keychain',
       file: { path: 'scripts/sign.sh', contents: 'codesign --deep "$@"' },
       runCommand: '/data/ask-runs/1/sign.sh --all',
     });
-    const declined = ask('npm publish');
     expect(codeIn(await screen.findByTestId('ask-command'))).toBe('./scripts/sign.sh --all');
     expect(codeIn(screen.getByTestId('ask-file'))).toBe('codesign --deep "$@"');
     screen.getByText('Needs the keychain');
-    screen.getByText('2 more waiting');
 
     // Closed, it is still waiting, and listed.
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -284,8 +278,25 @@ describe('the queue', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(list()).toBeNull());
 
-    // Opened from the list, run, and the next from its terminal comes up in turn.
-    act(() => useWaitingStore.getState().openAsk(useWaitingStore.getState().items[1].id));
+    // With something else already waiting, a new one from the front waits in the list.
+    const behind = ask('npm run e2e', { from: 'pty-shell' });
+    const publish = ask('npm publish');
+    await waitFor(() => expect(count()?.textContent).toBe('3 waiting'));
+    expect(screen.queryByTestId('ask-command')).toBeNull();
+
+    // One open on its own gives way to the list when another arrives over it.
+    act(() => useWaitingStore.getState().openAsk(useWaitingStore.getState().items[0].id));
+    await screen.findByTestId('ask-command');
+    ask('npm run deploy');
+    await waitFor(() => expect(list()).toBeTruthy());
+    expect(screen.queryByTestId('ask-command')).toBeNull();
+    expect(screen.getAllByTestId('waiting-row')).toHaveLength(4);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(list()).toBeNull());
+
+    // Answered on its own with others waiting, it goes on to the list, not to the next one.
+    act(() => useWaitingStore.getState().openAsk(useWaitingStore.getState().items[0].id));
+    finish([{ id: 'panel-r', status: 'running' }]);
     fireEvent.click(await screen.findByTestId('ask-run'));
     await waitFor(() =>
       // The copy that was read runs, not the file the agent can still edit, and nothing waits on a pager.
@@ -295,9 +306,9 @@ describe('the queue', () => {
         env: expect.objectContaining({ PAGER: 'cat', GH_PAGER: 'cat', GIT_PAGER: 'cat' }),
       }),
     );
-    await waitFor(() => expect(codeIn(screen.getByTestId('ask-command'))).toBe('npm publish'));
-    fireEvent.click(screen.getByTestId('ask-decline'));
-    await waitFor(() => expect(reply(declined)).toEqual({ ok: true, answer: { status: 'declined' } }));
+    await waitFor(() => expect(list()).toBeTruthy());
+    expect(screen.queryByTestId('ask-command')).toBeNull();
+    expect(reply(publish)).toBeUndefined();
 
     // An ask from a terminal that closes is declined.
     act(() =>

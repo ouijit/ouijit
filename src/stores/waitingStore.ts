@@ -40,7 +40,7 @@ type NewWaiting = Unstamped<Waiting>;
 
 interface WaitingStore {
   items: Waiting[];
-  /** The ask open in its own dialog. Closing the dialog leaves it waiting. */
+  /** The ask open in its own dialog, when it is the only thing waiting. Closing the dialog leaves it waiting. */
   open: number | null;
   /** Whether the list of everything waiting is open. */
   listOpen: boolean;
@@ -60,7 +60,12 @@ export const useWaitingStore = create<WaitingStore>()((set, get) => ({
   listOpen: false,
   add: (item) => {
     const id = nextId++;
-    set({ items: [...get().items, { ...item, id, at: Date.now() } as Waiting] });
+    // A second item over an ask open on its own turns it into the list, so they are seen together.
+    const together = get().open != null;
+    set({
+      items: [...get().items, { ...item, id, at: Date.now() } as Waiting],
+      ...(together && { open: null, listOpen: true }),
+    });
     return id;
   },
   remove: (id) => {
