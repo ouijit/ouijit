@@ -87,6 +87,7 @@ export function gatherSnapshot(): LastSessionSnapshot {
       ordinalInProject: (termStore.terminalsByProject[projectPath] ?? []).indexOf(ptyId),
       isActiveInProject: projectFronts.get(projectPath) === ptyId,
       recencyRank: terminals.length,
+      ...(termStore.displayStates[ptyId]?.hookStatus != null && { agent: true }),
       ui: uiFor(term),
     });
   }

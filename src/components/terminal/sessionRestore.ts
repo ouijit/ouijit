@@ -108,9 +108,9 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
           // Carry through a user rename so a restored card keeps its name
           // instead of snapping back to the task name.
           label: source.label ?? undefined,
-          // Don't fire start/continue hooks on resume — that'd kick off a new
-          // claude session. Restored terminals come back as plain shells.
-          skipAutoHook: true,
+          // Only where an agent was: a task's other terminals, a dev server
+          // say, would otherwise start one too.
+          skipAutoHook: !source.agent,
           initialUiState: source.ui,
         });
         const [restored] = useTerminalStore.getState().order;

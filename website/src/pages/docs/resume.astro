@@ -27,8 +27,8 @@ import Docs from '../../layouts/Docs.astro';
     whose task is Done, are skipped.
   </p>
   <p>
-    Restored terminals come back as plain shells. No hook fires, so resuming never launches a fresh agent
-    session on its own. To pick an agent conversation back up, use your harness's own resume (for example a
-    <code>continue</code> hook running <code>claude -c</code>).
+    A terminal that had an agent running reopens with the project's <code>continue</code> hook, so a hook
+    running your harness's own resume (for example <code>claude -c</code>) picks the conversation back up.
+    Every other terminal, a dev server or a plain shell, comes back as a plain shell.
   </p>
 </Docs>
