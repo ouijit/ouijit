@@ -120,8 +120,6 @@ describe('session persistence', () => {
     const stack = stackFrom([terminalUnit('a'), terminalUnit('b')]);
     useAppStore.getState().openPage(B, 'board');
     useAppStore.getState().select({ kind: 'terminal', projectPath: A, stack });
-    // The task's agent has reported; its other terminal and the shell have not.
-    useTerminalStore.getState().updateDisplay('b', { hookStatus: 'ready' });
 
     const snapshot = gatherSnapshot();
     expect(snapshot.activeProjectPath).toBe(A);
@@ -130,8 +128,7 @@ describe('session persistence', () => {
       ['a', 1, false],
       ['c', 2, true],
     ]);
-    expect(snapshot.terminals[0]).toMatchObject({ label: 'My Renamed Tab', taskNumber: 7, agent: true });
-    expect(snapshot.terminals.map((t) => t.agent)).toEqual([true, undefined, undefined]);
+    expect(snapshot.terminals[0]).toMatchObject({ label: 'My Renamed Tab', taskNumber: 7 });
     expect(snapshot.terminals[0].ui.panels).toEqual([{ kind: 'plan', planPath: '/plan.md' }]);
     // Diff is automatic/separate — persisted as its own flag, not a panel tab.
     expect(snapshot.terminals[2].ui).toMatchObject({ panels: [], diffPanelOpen: true });

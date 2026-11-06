@@ -213,8 +213,6 @@ export interface SnapshotTerminal {
   isActiveInProject: boolean;
   /** Place in the recency order across every project, 0 in front. Older snapshots omit it. */
   recencyRank?: number;
-  /** An agent reported from it, so resuming runs the continue hook there. Older snapshots omit it. */
-  agent?: boolean;
   ui: SnapshotTerminalUi;
 }
 

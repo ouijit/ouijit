@@ -61,13 +61,12 @@ beforeEach(() => {
 });
 
 describe('restoreSession', () => {
-  test('spawns from the back of the recency order with its labels, running the continue hook only where an agent was', async () => {
+  test('spawns from the back of the recency order, so the front terminal ends up in front, with its label', async () => {
     const a = snapTerminal({ ptyId: 'a', label: 'Build', ordinalInProject: 0, recencyRank: 1 });
     const b = snapTerminal({
       ptyId: 'b',
       label: 'My Renamed Tab',
       taskNumber: 7,
-      agent: true,
       ordinalInProject: 1,
       isActiveInProject: true,
       recencyRank: 0,
@@ -84,8 +83,7 @@ describe('restoreSession', () => {
 
     const calls = vi.mocked(addProjectTerminal).mock.calls;
     expect(calls.map((call) => call[2]?.label)).toEqual(['Other', 'Build', 'My Renamed Tab']);
-    expect(calls.map((call) => call[2]?.skipAutoHook)).toEqual([true, true, false]);
-    expect(calls[2][2]).toMatchObject({ taskId: 7 });
+    expect(calls[2][2]).toMatchObject({ taskId: 7, skipAutoHook: true });
     expect(calls.every((call) => !call[2]?.background)).toBe(true);
   });
 
