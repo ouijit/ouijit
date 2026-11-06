@@ -7,7 +7,6 @@ import { DiffPanel } from '../diff/DiffPanel';
 import { PlanPanel } from '../plan/PlanPanel';
 import { WebPreviewPanel } from '../webPreview/WebPreviewPanel';
 import { useTerminalPanels } from './useTerminalPanels';
-import { AskBar } from '../waiting/WaitingQueue';
 import { terminalInstances } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
 
@@ -210,7 +209,6 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
           </div>
         )}
       </div>
-      <AskBar ptyId={ptyId} />
     </div>
   );
 }

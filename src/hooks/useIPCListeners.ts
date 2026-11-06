@@ -15,6 +15,7 @@ import { isActiveSandbox } from '../sandbox/types';
 import { beginTransition } from '../services/taskStartService';
 import { hookSandbox, hookTypeForTransition } from '../services/hookRun';
 import { useWaitingStore } from '../stores/waitingStore';
+import { presentWaiting } from '../services/presentWaiting';
 import { completeTask } from '../services/taskCompletion';
 import { reloadTheme } from '../theme/themeManager';
 import log from 'electron-log/renderer';
@@ -51,7 +52,7 @@ async function stageOrRun(
   const onHost = !!hook && !isActiveSandbox(hookSandbox(undefined, hook, await projectDefaultSandbox(projectPath)));
   const onHostUnseen = !!move.fromSandbox && move.hookMode === 'run' && onHost;
   if (hook && move.hookType && (!move.hookMode || onHostUnseen) && fromPtyId) {
-    useWaitingStore.getState().add({
+    const id = useWaitingStore.getState().add({
       kind: 'move',
       from: fromPtyId,
       projectPath,
@@ -62,6 +63,7 @@ async function stageOrRun(
       outsideSandbox: !!move.fromSandbox && onHost,
       run: () => run(true, { hookMode: 'run' }),
     });
+    presentWaiting(id, fromPtyId);
     return;
   }
   run(true, move);

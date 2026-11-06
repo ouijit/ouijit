@@ -8,20 +8,13 @@ export interface PendingAsk extends AskRun {
   decline: () => void;
 }
 
-/** An ask the user ran, while its runner is still going or after it failed. A run that succeeds leaves the queue. */
-export interface AskRunState {
-  status: 'running' | 'failed';
-  panelId: string;
-  exitCode?: number | null;
-}
-
 /**
  * What an agent left for the user to decide: a command it asks to run on the
  * host, or a task move whose hook would have opened a dialog over whatever the
  * user was doing.
  */
 export type Waiting = { id: number; from: string; at: number } & (
-  | { kind: 'ask'; ask: PendingAsk; ran?: AskRunState }
+  | { kind: 'ask'; ask: PendingAsk }
   | {
       kind: 'move';
       projectPath: string;
@@ -41,37 +34,47 @@ type NewWaiting = Unstamped<Waiting>;
 
 interface WaitingStore {
   items: Waiting[];
+  /** Whether the dialog that shows them is open. Closing it leaves them waiting. */
+  open: boolean;
+  /** The item the dialog shows; the first when none is picked or the picked one has gone. */
+  selected: number | null;
   add: (item: NewWaiting) => number;
   /** Take an item off the queue. An ask not yet run is declined. */
   remove: (id: number) => void;
-  ran: (id: number, state: AskRunState) => void;
+  show: (id?: number) => void;
+  close: () => void;
 }
 
 let nextId = 1;
 
 export const useWaitingStore = create<WaitingStore>()((set, get) => ({
   items: [],
+  open: false,
+  selected: null,
   add: (item) => {
     const id = nextId++;
     set({ items: [...get().items, { ...item, id, at: Date.now() } as Waiting] });
     return id;
   },
   remove: (id) => {
-    const item = get().items.find((i) => i.id === id);
-    if (!item) return;
+    const { items, selected } = get();
+    const at = items.findIndex((i) => i.id === id);
+    if (at === -1) return;
+    const item = items[at];
     if (item.kind === 'ask') item.ask.decline();
-    set({ items: get().items.filter((i) => i.id !== id) });
+    const rest = items.filter((i) => i.id !== id);
+    // The next one takes the answered one's place, so the dialog moves on rather than back to the start.
+    const next = selected === id ? (rest[Math.min(at, rest.length - 1)]?.id ?? null) : selected;
+    set({ items: rest, selected: next, ...(rest.length === 0 && { open: false }) });
   },
-  ran: (id, state) =>
-    set({ items: get().items.map((i) => (i.id === id && i.kind === 'ask' ? { ...i, ran: state } : i)) }),
+  show: (id) => {
+    if (get().items.length === 0) return;
+    set({ open: true, ...(id !== undefined && { selected: id }) });
+  },
+  close: () => set({ open: false }),
 }));
-
-/** Still the user's to decide: not yet run, nor running. */
-export function undecided(item: Waiting): boolean {
-  return item.kind === 'move' || !item.ran;
-}
 
 /** Terminals whose agent is waiting on an answer to an ask. */
 export function askingFrom(items: Waiting[]): string[] {
-  return items.flatMap((i) => (i.kind === 'ask' && !i.ran ? [i.from] : []));
+  return items.flatMap((i) => (i.kind === 'ask' ? [i.from] : []));
 }

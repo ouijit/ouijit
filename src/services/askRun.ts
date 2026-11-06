@@ -4,6 +4,7 @@ import { bufferText } from '../components/terminal/terminalText';
 import { useAppStore } from '../stores/appStore';
 import { notifyUnfocused } from '../utils/notifications';
 import { useWaitingStore } from '../stores/waitingStore';
+import { presentWaiting } from './presentWaiting';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { AskAnswer, AskRun, CliAskResponse } from '../types';
 
@@ -42,9 +43,8 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
 }
 
 /**
- * Put `ouijit ask run` in the queue, shown at the foot of the asking terminal.
- * Approved, it runs on the host in a runner panel on that terminal, and stays
- * in the queue until the run ends: one that fails stays on, marked. The reply
+ * Put `ouijit ask run` in the queue, opened at once when its terminal is the one on screen.
+ * Approved, it runs on the host in a runner panel on that terminal. The reply
  * comes at once, or with `wait` once the user declines or the run ends.
  */
 export function askToRun(fromPtyId: string, ask: AskRun, message: string | undefined): Promise<CliAskResponse> {
@@ -68,22 +68,13 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
             command: ask.runCommand ?? ask.command,
             env: NO_PAGER,
           }).then(async (panelId) => {
-            const queue = useWaitingStore.getState();
+            // Its runner shows how it goes from here, so it is no longer waiting on the user.
+            useWaitingStore.getState().remove(id);
             if (!panelId) {
-              queue.remove(id);
               answer({ status: 'declined' });
               return;
             }
-            queue.ran(id, { status: 'running', panelId });
-            if (!ask.wait) answer({ status: 'pending', panelId });
-            const result = await outcome(fromPtyId, panelId);
-            answer(result);
-            // A failed run stays, for the user to see; one that succeeded, or whose runner closed, is done.
-            if (result.status === 'exited' && result.exitCode !== 0) {
-              useWaitingStore.getState().ran(id, { status: 'failed', panelId, exitCode: result.exitCode });
-            } else {
-              useWaitingStore.getState().remove(id);
-            }
+            answer(ask.wait ? await outcome(fromPtyId, panelId) : { status: 'pending', panelId });
           });
         },
         decline: () => {
@@ -93,6 +84,7 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
         },
       },
     });
+    presentWaiting(id, fromPtyId);
     const display = useTerminalStore.getState().displayStates[fromPtyId];
     const project = useAppStore.getState().projects.find((p) => p.path === display.projectPath);
     notifyUnfocused(project?.name ?? 'Ouijit', `${display.label} asks to run ${ask.command}`);
