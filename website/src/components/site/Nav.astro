@@ -1,5 +1,7 @@
 ---
 const { docsHref = '/docs/' } = Astro.props;
+const path = Astro.url.pathname;
+const current = (href: string) => (path.startsWith(href) ? 'page' : undefined);
 ---
 <nav class="site-nav">
   <div class="nav-inner">
@@ -7,15 +9,15 @@ const { docsHref = '/docs/' } = Astro.props;
       <img src="/assets/ouijit-logo.svg" alt="ouijit" width="133" height="28" />
     </a>
     <ul class="nav-links">
-      <li><a href="/sandbox/">Sandbox</a></li>
-      <li><a href={docsHref}>Docs</a></li>
+      <li><a href="/sandbox/" aria-current={current('/sandbox/')}>Sandbox</a></li>
+      <li><a href={docsHref} aria-current={current('/docs/')}>Docs</a></li>
       <li><a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a></li>
     </ul>
     <button class="nav-hamburger" aria-label="Menu" id="nav-hamburger">&#9776;</button>
   </div>
   <div class="nav-mobile" id="nav-mobile">
-    <a href="/sandbox/">Sandbox</a>
-    <a href={docsHref}>Docs</a>
+    <a href="/sandbox/" aria-current={current('/sandbox/')}>Sandbox</a>
+    <a href={docsHref} aria-current={current('/docs/')}>Docs</a>
     <a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a>
   </div>
 </nav>
