@@ -59,7 +59,7 @@ function cliAsks() {
   return { ask, reply };
 }
 
-/** A runner on the agent's terminal that prints `line` and ends with `exitCode`. */
+/** A runner on the agent's terminal that prints `line` and ends with `exitCode`, private if it was started so. */
 function runner(line: string) {
   const xterm = new Terminal({ cols: 40, rows: 5, allowProposedApi: true });
   xterm.write(`${line}\r\n`);
@@ -75,7 +75,15 @@ function runner(line: string) {
           ...s.displayStates,
           'pty-agent': {
             ...s.displayStates['pty-agent'],
-            panels: [{ id: 'panel-1', kind: 'runner', status, exitCode } as never],
+            panels: [
+              {
+                id: 'panel-1',
+                kind: 'runner',
+                status,
+                exitCode,
+                private: vi.mocked(startRunner).mock.calls.at(-1)?.[1]?.private,
+              } as never,
+            ],
           },
         },
       })),
@@ -122,6 +130,10 @@ describe('what an agent leaves for the user', () => {
       runCommand: '/data/ask-runs/1/sign.sh --all',
     });
     await screen.findByText('Signing needs the keychain');
+    // Who asks, as the sidebar names it, apart from what it says.
+    const title = screen.getByTestId('dialog-title');
+    within(title).getByText('Rate limit login');
+    within(title).getByText('T-14');
     expect(command()).toBe('./scripts/sign.sh --all');
     expect(codeIn(screen.getByTestId('ask-file'))).toBe('codesign --deep "$@"');
     screen.getByText(/Runs on your computer, outside its sandbox\. The script runs as it was when asked/);
@@ -138,6 +150,7 @@ describe('what an agent leaves for the user', () => {
         name: './scripts/sign.sh --all',
         command: '/data/ask-runs/1/sign.sh --all',
         env: expect.objectContaining({ PAGER: 'cat', GH_PAGER: 'cat', GIT_PAGER: 'cat' }),
+        private: false,
       }),
     );
     await waitFor(() => expect(screen.queryByRole('button', { name: /waiting$/ })).toBeNull());
@@ -151,6 +164,21 @@ describe('what an agent leaves for the user', () => {
           exitCode: 0,
           output: expect.stringContaining('signed 3 binaries'),
         },
+      }),
+    );
+
+    // Run privately, the agent hears how it ended and nothing it printed.
+    finish('running');
+    const token = ask('gh auth token');
+    fireEvent.click(await screen.findByTestId('waiting-run-private'));
+    await waitFor(() =>
+      expect(startRunner).toHaveBeenLastCalledWith('pty-agent', expect.objectContaining({ private: true })),
+    );
+    finish('success', 0);
+    await waitFor(() =>
+      expect(reply(token)).toEqual({
+        ok: true,
+        answer: { status: 'exited', panelId: 'panel-1', exitCode: 0, private: true },
       }),
     );
   });

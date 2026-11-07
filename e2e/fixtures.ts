@@ -1,4 +1,4 @@
-import { test as base, expect, _electron, type ElectronApplication, type Page } from '@playwright/test';
+import { test as base, expect, _electron, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -30,9 +30,16 @@ export function createTestRepo(name = 'test-project'): { repoPath: string; clean
   };
 }
 
+/** A button on a project's row, which shows once the row is hovered. */
+export async function projectRowButton(appPage: Page, repoPath: string, name: string | RegExp): Promise<Locator> {
+  const project = appPage.locator(`[data-project-path="${repoPath}"]`);
+  await project.hover();
+  return project.getByRole('button', { name });
+}
+
 /** Opens a registered project's board from its row in the sidebar. */
 export async function openBoard(appPage: Page, repoPath: string): Promise<void> {
-  await appPage.locator(`[data-project-path="${repoPath}"]`).getByRole('button', { name: 'Board' }).click();
+  await (await projectRowButton(appPage, repoPath, 'Board')).click();
   await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
 }
 

@@ -7,6 +7,8 @@ import { CodePreview } from '../common/CodePreview';
 import { homeRelative } from '../sidebar/SidebarRows';
 import { isActiveSandbox } from '../../types';
 import { ScriptPreview, scriptRisks } from './ScriptPreview';
+import { StageIcon } from '../sidebar/StageIcon';
+import { Icon } from '../terminal/Icon';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -26,9 +28,9 @@ const MOVED_TO: Record<string, string> = {
 };
 
 /** Runs what the user picked: an ask in a runner on its terminal, a move's hook with no dialog of its own. */
-export function runWaiting(item: Waiting): void {
+export function runWaiting(item: Waiting, privately = false): void {
   if (item.kind === 'ask') {
-    item.ask.run();
+    item.ask.run(privately);
     return;
   }
   useWaitingStore.getState().remove(item.id);
@@ -72,8 +74,24 @@ function useTaskName(item: Waiting): string | null {
   );
 }
 
+/** The terminal that asked, as the sidebar shows it: its task where it has one. */
+function useAsker(ptyId: string) {
+  const display = useTerminalStore((s) => s.displayStates[ptyId]);
+  const task = useAppStore((s) =>
+    display?.taskId != null
+      ? s.taskCacheByProject[display.projectPath]?.find((t) => t.taskNumber === display.taskId)
+      : undefined,
+  );
+  return {
+    name: task?.name ?? display?.label ?? 'A terminal',
+    number: display?.taskId != null ? `T-${display.taskId}` : null,
+    icon: task ? <StageIcon status={task.status} /> : <Icon name="terminal-window" className="w-3.5 h-3.5" />,
+  };
+}
+
 function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolean; onPick: () => void }) {
   const from = useTerminalStore((s) => s.displayStates[item.from]?.label ?? 'A terminal');
+  const asker = useAsker(item.from);
   const taskName = useTaskName(item);
   return (
     <button
@@ -85,15 +103,21 @@ function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolea
       onClick={onPick}
     >
       {item.kind === 'ask' ? (
-        <span className="font-mono text-xs text-text-primary truncate">{item.ask.command}</span>
+        <>
+          <span className="flex items-center gap-1.5 min-w-0 text-text-secondary">
+            <span className="shrink-0 flex">{asker.icon}</span>
+            <span className="text-[12.5px] font-semibold text-text-primary truncate">{asker.name}</span>
+          </span>
+          <span className="font-mono text-[11.5px] text-text-tertiary truncate">{item.ask.command}</span>
+        </>
       ) : (
-        <span className="text-[13px] text-text-primary truncate">
-          {HOOK_VERB[item.hookType] ?? 'Move'} {taskName}
-        </span>
+        <>
+          <span className="text-[13px] text-text-primary truncate">
+            {HOOK_VERB[item.hookType] ?? 'Move'} {taskName}
+          </span>
+          <span className="text-[11.5px] text-text-tertiary truncate">{`${item.hookName || 'Hook'}, from ${from}`}</span>
+        </>
       )}
-      <span className="text-[11.5px] text-text-tertiary truncate">
-        {item.kind === 'ask' ? from : `${item.hookName || 'Hook'}, from ${from}`}
-      </span>
     </button>
   );
 }
@@ -137,11 +161,9 @@ function Detail({ item }: { item: Waiting }) {
   const risks = scriptRisks(ask.file);
   return (
     <>
-      <h2 data-testid="dialog-title" className="text-[17px] font-semibold text-text-primary">
-        {from} <span className="font-normal text-text-secondary">asks to run</span>
-      </h2>
+      <AskerRow ptyId={item.from} />
       {ask.message && (
-        <p className="mt-2 max-h-24 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-5 text-text-primary">
+        <p className="mt-3.5 max-h-28 overflow-y-auto whitespace-pre-wrap break-words text-[15px] leading-[22px] text-text-primary">
           {ask.message}
         </p>
       )}
@@ -161,12 +183,24 @@ function Detail({ item }: { item: Waiting }) {
           <ScriptPreview file={ask.file} maxHeight="max-h-[max(8rem,calc(100vh-30rem))]" />
         </div>
       )}
-      <p className="mt-4 text-xs text-text-tertiary">
+      <p className="mt-4 text-xs leading-[17px] text-text-tertiary">
         {sandboxed ? 'Runs on your computer, outside its sandbox.' : 'Runs on your computer.'}
         {ask.runCommand && ' The script runs as it was when asked, even if the file changes.'}
+        {' Run privately and the agent learns only whether it succeeded.'}
         {risks.length > 0 && <span className="text-error"> {risks.join('. ')}.</span>}
       </p>
     </>
+  );
+}
+
+function AskerRow({ ptyId }: { ptyId: string }) {
+  const asker = useAsker(ptyId);
+  return (
+    <h2 data-testid="dialog-title" className="flex items-center gap-2 min-w-0 text-text-secondary">
+      <span className="shrink-0 flex">{asker.icon}</span>
+      <span className="flex-1 min-w-0 truncate text-sm font-semibold text-text-primary">{asker.name}</span>
+      {asker.number && <span className="shrink-0 font-mono text-xs text-text-tertiary">{asker.number}</span>}
+    </h2>
   );
 }
 
@@ -196,7 +230,7 @@ function WaitingDialog() {
         <button
           type="button"
           className="px-3.5 py-1.5 rounded-full text-sm text-text-secondary hover:text-text-primary hover:bg-ink/[0.05] transition-colors duration-100"
-          onClick={() => items.forEach(runWaiting)}
+          onClick={() => items.forEach((item) => runWaiting(item))}
         >
           Run all {items.length}
         </button>
@@ -205,6 +239,11 @@ function WaitingDialog() {
       <button data-testid="waiting-decline" className="btn-secondary" onClick={() => remove(current.id)}>
         {current.kind === 'ask' ? 'Decline' : 'Skip'}
       </button>
+      {current.kind === 'ask' && (
+        <button data-testid="waiting-run-private" className="btn-secondary" onClick={() => runWaiting(current, true)}>
+          Run privately
+        </button>
+      )}
       <button data-testid="waiting-run" className="btn-primary" onClick={() => runWaiting(current)}>
         Run
       </button>

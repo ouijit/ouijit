@@ -378,7 +378,7 @@ than its file. The user is already reading this terminal, so don't link it.
 ## Asking the user to run something (on this computer, outside any sandbox)
 ouijit ask run [-m "<why>"] [--wait] -- <command> [args]
 ouijit ask script <script> [-m "<why>"] [--wait]   # a project script, by id or name
-                                              # → {command, cwd, status: pending | declined | exited, panelId?, exitCode?, output?}
+                                              # → {command, cwd, status: pending | declined | exited, panelId?, exitCode?, output? | private?}
 
 The ask opens for the user if this terminal is on screen, and otherwise waits
 in their queue. They read the exact command and press Run
@@ -387,6 +387,10 @@ on this terminal, in its worktree. With --wait the reply comes once they
 decline or it finishes; without it, the reply is pending at once, and panel
 read shows the runner. Ask for what the sandbox stops, such as credentials,
 the network or signing, and say in -m why.
+
+The user can run it privately: then you get only its exit code, with
+private: true in place of output, and panel read of that runner the same.
+The output is theirs; don't ask to run it again to see it.
 
 Put the command itself in the ask, so the user reads what runs. A script it
 runs is shown in full when it is in your worktree or a temp folder, and that

@@ -161,6 +161,7 @@ export interface SnapshotPanel {
   restartIfRunning?: boolean;
   sandboxProvider?: SandboxProviderId;
   env?: Record<string, string>;
+  private?: boolean;
   /** webPreview (only user-set URLs are persisted) */
   url?: string | null;
   /** plan */
@@ -311,6 +312,8 @@ export interface RunnerScript {
   /** Restart the command if an instance is already running in the same task. */
   restartIfRunning?: boolean;
   env?: Record<string, string>;
+  /** Run privately: an agent reading it learns how it ended, never what it printed. */
+  private?: boolean;
 }
 
 export interface ProjectSettings {
@@ -1052,6 +1055,8 @@ export interface CliPanelRead {
   exitCode?: number | null;
   path?: string;
   url?: string;
+  /** A runner the user ran privately: `text` is withheld. */
+  private?: true;
 }
 
 /** Op forwarded to the renderer for `ouijit ask`. */
@@ -1092,6 +1097,7 @@ export type AskAnswer =
   | { status: 'pending'; panelId?: string }
   | { status: 'declined' }
   | { status: 'exited'; panelId: string; exitCode: number | null; output: string }
+  | { status: 'exited'; panelId: string; exitCode: number | null; private: true }
   | { status: 'closed'; panelId: string };
 
 export interface CliAskResponse {

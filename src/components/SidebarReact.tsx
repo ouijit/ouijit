@@ -521,8 +521,11 @@ function ProjectGroup({ project }: { project: Project }) {
         }}
         actions={
           <div
-            className={`flex gap-px shrink-0 transition-opacity duration-100 ${
-              onScreen || menu ? 'opacity-100' : 'opacity-0 group-hover/header:opacity-100 focus-within:opacity-100'
+            // Hidden, they take no width either: the name has the whole row until they show.
+            className={`flex gap-px shrink-0 overflow-hidden ${
+              onScreen || menu
+                ? ''
+                : 'max-w-0 group-hover/header:max-w-none focus-within:max-w-none opacity-0 group-hover/header:opacity-100 focus-within:opacity-100'
             }`}
           >
             <Tooltip text={PAGE_TITLES.board} placement="bottom">

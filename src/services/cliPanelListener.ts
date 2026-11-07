@@ -98,13 +98,10 @@ function read(instance: OuijitTerminal, id: string | undefined, lines: number | 
   if (!panel) return `No panel ${id ?? '(none)'}`;
   if (panel.kind === 'plan') return { kind: 'markdown', path: panel.planPath };
   if (panel.kind === 'webPreview') return { kind: 'preview', url: panel.url ?? undefined };
+  const ended = { status: panel.status, exitCode: panel.exitCode ?? null };
+  if (panel.private) return { kind: 'runner', ...ended, private: true };
   const child = instance.runnerChildren.get(panel.id);
-  return {
-    kind: 'runner',
-    text: child ? bufferText(child.xterm, lines ?? DEFAULT_READ_LINES) : '',
-    status: panel.status,
-    exitCode: panel.exitCode ?? null,
-  };
+  return { kind: 'runner', text: child ? bufferText(child.xterm, lines ?? DEFAULT_READ_LINES) : '', ...ended };
 }
 
 function respondWith(instance: OuijitTerminal, panels: TerminalPanel[]): CliPanelResponse {

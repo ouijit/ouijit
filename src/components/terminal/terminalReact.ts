@@ -787,6 +787,7 @@ export class OuijitTerminal {
       restartIfRunning?: boolean;
       sandboxProvider?: SandboxProviderId;
       env?: Record<string, string>;
+      private?: boolean;
     } | null,
     activate = true,
   ): string {
@@ -801,6 +802,7 @@ export class OuijitTerminal {
       restartIfRunning: script?.restartIfRunning ?? false,
       ...(isActiveSandbox(script?.sandboxProvider) && { sandboxProvider: script.sandboxProvider }),
       ...(script?.env && { env: script.env }),
+      ...(script?.private && { private: true }),
       status: 'idle',
     };
     this.appendPanel(panel, activate);

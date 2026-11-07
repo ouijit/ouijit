@@ -1,5 +1,6 @@
 import log from 'electron-log/renderer';
-import { whenTerminalReady } from '../components/terminal/terminalRegistry';
+import { terminalInstances, whenTerminalReady } from '../components/terminal/terminalRegistry';
+import type { OuijitTerminal } from '../components/terminal/terminalReact';
 import { addProjectTerminal, closeProjectTerminal } from '../components/terminal/terminalActions';
 import { openTaskShell } from '../components/navigation';
 import { bufferText, pasteable } from '../components/terminal/terminalText';
@@ -35,6 +36,17 @@ async function open(op: CliTerminalOp): Promise<CliTerminalResponse> {
   return { ok: true, ptyId };
 }
 
+/** A runner is registered under its own PTY too, so its panel's privacy has to hold here as well. */
+function ranPrivately(instance: OuijitTerminal): boolean {
+  if (!instance.isRunner) return false;
+  for (const parent of terminalInstances.values()) {
+    for (const [panelId, child] of parent.runnerChildren) {
+      if (child === instance) return parent.panels.some((p) => p.id === panelId && p.kind === 'runner' && p.private);
+    }
+  }
+  return false;
+}
+
 async function handleOp(op: CliTerminalOp): Promise<CliTerminalResponse> {
   if (op.action === 'open') return open(op);
 
@@ -51,6 +63,7 @@ async function handleOp(op: CliTerminalOp): Promise<CliTerminalResponse> {
     if (text) instance.xterm.paste(text);
     return { ok: true, ptyId: op.ptyId };
   }
+  if (ranPrivately(instance)) return { ok: false, error: 'The user ran this privately' };
   return {
     ok: true,
     ptyId: op.ptyId,

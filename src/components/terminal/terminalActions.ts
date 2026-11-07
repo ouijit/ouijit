@@ -94,6 +94,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
             restartIfRunning: sp.restartIfRunning ?? false,
             ...(isActiveSandbox(sp.sandboxProvider) && { sandboxProvider: sp.sandboxProvider }),
             ...(sp.env && { env: sp.env }),
+            ...(sp.private && { private: true }),
             status: 'idle',
           });
           break;

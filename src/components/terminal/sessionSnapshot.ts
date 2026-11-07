@@ -40,6 +40,7 @@ function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
           restartIfRunning: p.restartIfRunning,
           sandboxProvider: p.sandboxProvider,
           ...(p.env && { env: p.env }),
+          ...(p.private && { private: true }),
         });
         break;
       case 'webPreview':

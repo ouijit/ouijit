@@ -129,7 +129,7 @@ describe('CLI panel listener', () => {
     expect(gone.error).toContain('/notes.md');
   });
 
-  it("reads a runner's screen, status and exit code, and where any other panel points", async () => {
+  it("reads a runner's screen, status and exit code, where any other panel points, and only how a private one ended", async () => {
     const term = new FakeTerminal();
     register('pty-agent', term);
     const runner = new Terminal({ cols: 40, rows: 5, allowProposedApi: true });
@@ -139,8 +139,10 @@ describe('CLI panel listener', () => {
     term.panels = [
       { id: 'panel-r', kind: 'runner', scriptName: 'Tests', status: 'error', exitCode: 1 },
       { id: 'panel-p', kind: 'plan', planPath: '/wt/plan.md' },
+      { id: 'panel-s', kind: 'runner', scriptName: 'gh auth token', status: 'success', exitCode: 0, private: true },
     ];
     term.runnerChildren.set('panel-r', { xterm: runner });
+    term.runnerChildren.set('panel-s', { xterm: runner });
 
     expect(await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-r', lines: 1 })).toEqual({
       ok: true,
@@ -149,6 +151,10 @@ describe('CLI panel listener', () => {
     expect(await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-p' })).toEqual({
       ok: true,
       read: { kind: 'markdown', path: '/wt/plan.md' },
+    });
+    expect(await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-s' })).toEqual({
+      ok: true,
+      read: { kind: 'runner', status: 'success', exitCode: 0, private: true },
     });
     expect(await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-x' })).toEqual({
       ok: false,

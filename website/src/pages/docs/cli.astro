@@ -160,7 +160,8 @@ ouijit link project</code></pre>
     and the script file it runs, then Run or Decline.
     Nothing runs until you press Run. A script the command runs, from the agent's worktree or a temp folder, is
     shown in full, and the copy you read is what runs. It runs in a runner panel on the agent's terminal, without
-    a pager, and with <code>--wait</code> the agent gets the exit code and output back.
+    a pager, and with <code>--wait</code> the agent gets the exit code and output back. Run privately and the agent
+    gets only the exit code: it can't read that runner's output.
   </p>
   <pre class="glass-bevel"><code>ouijit ask run -m "Needs the keychain" -- npm run release:sign
 ouijit ask run --wait -- ./scripts/migrate.sh --dry-run

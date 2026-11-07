@@ -28,13 +28,13 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
         resolve({ status: 'closed', panelId });
       } else if (panel.status === 'success' || panel.status === 'error') {
         stop();
+        const ended = { status: 'exited' as const, panelId, exitCode: panel.exitCode ?? null };
+        if (panel.private) {
+          resolve({ ...ended, private: true });
+          return;
+        }
         const child = terminalInstances.get(ptyId)?.runnerChildren.get(panelId);
-        resolve({
-          status: 'exited',
-          panelId,
-          exitCode: panel.exitCode ?? null,
-          output: child ? bufferText(child.xterm, OUTPUT_LINES) : '',
-        });
+        resolve({ ...ended, output: child ? bufferText(child.xterm, OUTPUT_LINES) : '' });
       }
     };
     stop = useTerminalStore.subscribe(check);
@@ -60,13 +60,14 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
       ask: {
         ...ask,
         ...(message && { message }),
-        run: () => {
+        run: (privately = false) => {
           if (decided) return;
           decided = true;
           void startRunner(fromPtyId, {
             name: ask.scriptName ?? ask.command,
             command: ask.runCommand ?? ask.command,
             env: NO_PAGER,
+            private: privately,
           }).then(async (panelId) => {
             // Its runner shows how it goes from here, so it is no longer waiting on the user.
             useWaitingStore.getState().remove(id);

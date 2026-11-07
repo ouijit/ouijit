@@ -8,6 +8,7 @@ import { useProjectDataStore } from '../../stores/projectDataStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useAppStore } from '../../stores/appStore';
 import { openLink } from '../../links/openLink';
+import type { OuijitTerminal } from '../../components/terminal/terminalReact';
 import type {
   CliPanelOp,
   CliPanelResponse,
@@ -175,6 +176,20 @@ describe('terminals an agent opens and closes', () => {
 
     expect(await terminalOp({ action: 'close', ptyId: 'pty-task' })).toEqual({ ok: true, ptyId: 'pty-task' });
     expect(useTerminalStore.getState().terminalsByProject[PROJECT]).toEqual(['pty-front', 'pty-shell']);
+  });
+
+  test('a runner the user ran privately cannot be read by its own id either', async () => {
+    const front = terminalInstances.get('pty-front')!;
+    const child = { isRunner: true, xterm: { buffer: { active: { type: 'normal' } } } } as unknown as OuijitTerminal;
+    front.panels.push({ id: 'panel-s', kind: 'runner', status: 'success', private: true } as never);
+    front.runnerChildren.set('panel-s', child);
+    terminalInstances.set('pty-runner', child);
+
+    expect(await terminalOp({ action: 'read', ptyId: 'pty-runner' })).toEqual({
+      ok: false,
+      error: 'The user ran this privately',
+    });
+    terminalInstances.delete('pty-runner');
   });
 });
 

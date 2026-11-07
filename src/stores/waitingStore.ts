@@ -4,7 +4,8 @@ import type { AskRun, HookType } from '../types';
 /** A request to run something on the host. It is decided once: run, or declined. */
 export interface PendingAsk extends AskRun {
   message?: string;
-  run: () => void;
+  /** Privately, the agent is told how it ended but not what it printed. */
+  run: (privately?: boolean) => void;
   decline: () => void;
 }
 

@@ -37,6 +37,8 @@ export interface RunnerPanel {
   sandboxProvider?: SandboxBackendId;
   /** Set on top of the runner's own environment, on every (re)start. */
   env?: Record<string, string>;
+  /** Run privately: an agent reading it learns how it ended, never what it printed. */
+  private?: boolean;
   status: RunnerStatus;
   /** The last command's exit code, once one has finished. */
   exitCode?: number | null;
