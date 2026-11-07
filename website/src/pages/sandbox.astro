@@ -1,7 +1,5 @@
 ---
 import Site from '../layouts/Site.astro';
-import DownloadButtons from '../components/home/DownloadButtons.astro';
-import Cta from '../components/home/Cta.astro';
 import SandboxDiagram from '../components/home/SandboxDiagram.astro';
 import { SandboxMock } from '../components/demo/SandboxMocks.tsx';
 
@@ -65,8 +63,6 @@ const faqSchema = {
       Ouijit's sandbox holds the agent to its task's worktree. The kernel enforces it, and the rest of your
       machine is out of reach.
     </p>
-    <DownloadButtons />
-    <p class="hero-fine-print">Free and open source. No account, no sign-in, no telemetry.</p>
   </section>
 
   <figure class="feature-hero-visual">
@@ -158,7 +154,6 @@ const faqSchema = {
         <p>{a}</p>
       </section>
     ))}
+    <a class="cta-docs-link feature-end-link" href="/docs/sandbox/">Sandbox documentation <span aria-hidden="true">→</span></a>
   </section>
-
-  <Cta />
 </Site>
