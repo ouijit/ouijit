@@ -68,7 +68,6 @@ const faqSchema = {
   <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
   <main class="faq-content">
     <h1>FAQ</h1>
-    <p class="lead">Common questions about Ouijit, gathered in one place.</p>
     {
       faqs.map((f) => (
         <section class="faq-item">
@@ -91,11 +90,7 @@ const faqSchema = {
   }
   .faq-content h1 {
     font-size: 2.25rem;
-    margin-bottom: 0.5rem;
-  }
-  .faq-content .lead {
-    color: var(--text-secondary, #aaa);
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
   }
   .faq-item {
     padding: 1.25rem 0;
