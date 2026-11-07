@@ -22,8 +22,8 @@ export interface EditorHookInput {
 export type EditorHookRequest = EditorHookInput & Pending<ScriptHook | null>;
 
 interface UIStoreState {
-  /** Persisted in global settings. */
-  sidebarShown: boolean;
+  /** The user's choice, persisted in global settings; null until they make one. Read it through `useSidebarShown`. */
+  sidebarShown: boolean | null;
   /** Hovered into view while it is not shown. */
   sidebarRevealed: boolean;
   /** Persisted in global settings. */
@@ -85,7 +85,7 @@ function clampFileListWidth(width: number): number {
 }
 
 export const useUIStore = create<UIStore>()((set, get) => ({
-  sidebarShown: true,
+  sidebarShown: null,
   sidebarRevealed: false,
   sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
   sidebarGroupMode: 'project',

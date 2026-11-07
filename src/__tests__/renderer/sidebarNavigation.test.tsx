@@ -760,3 +760,21 @@ describe('the sidebar tree', () => {
     expect(window.api.globalSettings.set).toHaveBeenCalledWith('ui:sidebar-group', 'tag');
   });
 });
+
+test('on a first launch the sidebar stays closed until there is a project, then opens; a choice either way sticks', async () => {
+  useAppStore.setState({ projects: [] });
+  render(<App />);
+  const showSidebar = () => within(screen.getByRole('banner')).queryByRole('button', { name: 'Show sidebar' });
+
+  // Nothing to list: the window is about adding a project, and the sidebar says why it is empty.
+  expect(showSidebar()).toBeTruthy();
+  within(sidebar()).getByText('No projects yet. Add one to list its tasks and terminals here.');
+
+  act(() => useAppStore.setState({ projects: [ALPHA] }));
+  await waitFor(() => expect(showSidebar()).toBeNull());
+
+  // Hidden by hand, it stays hidden, project or not.
+  fireEvent.click(within(sidebar()).getByRole('button', { name: 'Hide sidebar' }));
+  expect(showSidebar()).toBeTruthy();
+  expect(window.api.globalSettings.set).toHaveBeenCalledWith('ui:sidebar-shown', '0');
+});

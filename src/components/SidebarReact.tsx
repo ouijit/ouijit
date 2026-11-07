@@ -34,6 +34,7 @@ import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/C
 import { PAGE_TITLES } from './TitleBarReact';
 import { LIST_TITLES, usePanelStore, type PanelList } from '../stores/panelStore';
 import { groupByTag, groupByTask } from './sidebar/sidebarTree';
+import { sidebarShownNow, useSidebarShown } from './sidebar/sidebarShown';
 import {
   GroupDots,
   GroupRows,
@@ -67,7 +68,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
-  const shown = useUIStore((s) => s.sidebarShown);
+  const shown = useSidebarShown();
   const revealed = useUIStore((s) => s.sidebarRevealed);
   const width = useUIStore((s) => s.sidebarWidth);
   const appSettingsOpen = useAppStore((s) => s.selection.kind === 'app-settings');
@@ -101,7 +102,7 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
   useEffect(() => clearTimers, []);
 
   const hideRevealed = () => {
-    if (useUIStore.getState().sidebarShown) return;
+    if (sidebarShownNow()) return;
     hideTimer.current = setTimeout(() => useUIStore.getState().setSidebarRevealed(false), 300);
   };
 
@@ -332,6 +333,11 @@ function ProjectsTree({ onCloneSelect }: { onCloneSelect: (projectPath: string) 
 
   return (
     <div className="flex flex-col gap-1.5">
+      {orderedPaths.length === 0 && cloningPaths.length === 0 && unregistered.length === 0 && (
+        <p className="px-2.5 py-1 text-[12.5px] leading-snug text-text-tertiary">
+          No projects yet. Add one to list its tasks and terminals here.
+        </p>
+      )}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={orderedPaths} strategy={verticalListSortingStrategy}>
           {orderedPaths.map((path) => {

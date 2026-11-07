@@ -19,6 +19,7 @@ import {
   useTerminalStore,
 } from '../stores/terminalStore';
 import { showInListOrder } from './sidebar/SidebarRows';
+import { useSidebarShown } from './sidebar/sidebarShown';
 import { WaitingQueue } from './waiting/WaitingQueue';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -80,7 +81,7 @@ export function TitleBar() {
   // A cloning project has no directory yet, so nothing here may act on its path.
   const cloning = useAppStore(selectIsCloning);
   const fullscreen = useAppStore((s) => s.fullscreen);
-  const sidebarShown = useUIStore((s) => s.sidebarShown);
+  const sidebarShown = useSidebarShown();
   const sidebarRevealed = useUIStore((s) => s.sidebarRevealed);
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
   const flags = useProjectFlags(project && !cloning ? project.path : null);
