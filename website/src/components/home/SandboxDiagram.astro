@@ -50,9 +50,18 @@ const agentCx = agent.x + agent.w / 2;
   </div>
   <svg viewBox="0 0 1000 420" role="img" aria-label="Inside the sandbox, the agent reaches only its worktree. Its attempts to read keys and other repositories stop at the boundary. One line still crosses: it can talk to Ouijit, which runs the dev server and the push on the host.">
     <defs>
-      <filter id="sb-shadow" x="-10%" y="-20%" width="120%" height="160%">
-        <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.35" />
+      <!-- The app's panel shadow and glass bevel, as SVG: a cast shadow under
+           the tile, a bezel-dark edge, and an inset stroke that runs from a
+           light top to a dark bottom. -->
+      <filter id="sb-shadow" x="-20%" y="-40%" width="140%" height="220%">
+        <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.15" />
+        <feDropShadow dx="0" dy="20" stdDeviation="20" flood-color="#000" flood-opacity="0.2" />
       </filter>
+      <linearGradient id="sb-bevel" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity="0.14" />
+        <stop offset="0.5" stop-color="#fff" stop-opacity="0.05" />
+        <stop offset="1" stop-color="#000" stop-opacity="0.5" />
+      </linearGradient>
       <marker id="sb-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
       </marker>
@@ -87,7 +96,8 @@ const agentCx = agent.x + agent.w / 2;
     <!-- tiles -->
     {[agent, worktree, keys, repos, ouijit, host].map((t) => (
       <g filter="url(#sb-shadow)">
-        <rect x={t.x} y={t.y} width={t.w} height={H} rx="12" fill={TILE} stroke="#fff" stroke-opacity="0.08" />
+        <rect x={t.x} y={t.y} width={t.w} height={H} rx="12" fill={TILE} stroke="var(--color-bezel-panel)" />
+        <rect x={t.x + 1} y={t.y + 1} width={t.w - 2} height={H - 2} rx="11" fill="none" stroke="url(#sb-bevel)" />
         <rect x={t.x + 10} y={t.y + 10} width="28" height="28" rx="8" fill="#fff" fill-opacity="0.06" />
         <svg x={t.x + 15} y={t.y + 15} width="18" height="18" viewBox="0 0 256 256" fill="currentColor" opacity="0.85" set:html={inner(t.icon)} />
         <text x={t.x + 50} y={t.y + 29} class="sb-title">{t.label}</text>

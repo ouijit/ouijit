@@ -1507,9 +1507,11 @@ body.marketing::after {
 }
 
 .feature-section pre {
-  background: #171717;
-  border: 1px solid rgba(0, 0, 0, 0.6);
+  position: relative;
+  background: var(--color-terminal-bg);
+  border: 1px solid var(--color-bezel-panel);
   border-radius: 14px;
+  box-shadow: var(--shadow-panel);
   margin: 0;
   overflow: hidden;
 }
