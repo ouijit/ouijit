@@ -294,12 +294,12 @@ function Desk({ wash, children }: { wash?: string; children: ReactNode }) {
 
 const ROWS: { title: string; body: ReactNode; width: number; wash?: string; Mock: () => ReactNode }[] = [
   {
-    title: 'Held to its worktree',
+    title: 'It can only touch its worktree',
     body: (
       <>
-        The agent reads and writes the task's files and commits them. Your home directory, your keys and your
-        other repositories are not there. The kernel enforces it, with Seatbelt on macOS and Landlock on Linux,
-        in place, with nothing to boot and nothing to sync.
+        This agent is running with permission checks off. It edited files, then tried to install a package
+        globally. The install was refused, so it ran the tool from the worktree instead. Everything outside the
+        task's folder is out of reach, and the kernel is what refuses.
       </>
     ),
     width: 760,
@@ -307,47 +307,39 @@ const ROWS: { title: string; body: ReactNode; width: number; wash?: string; Mock
     Mock: HeldToWorktree,
   },
   {
-    title: "The agent is sandboxed. The dev server isn't.",
+    title: 'Sandbox the agent, not the dev server',
     body: (
       <>
-        Pick a default for the project, then send anything elsewhere: a hook, one run of it, a script, or one
-        command in a longer line. The usual shape is the agent inside and everything that needs your credentials
-        outside.
+        Each project chooses where its commands run. This one runs on the host, and only the start hook that
+        launches the agent is sandboxed. The dev server and the push keep your credentials.
       </>
     ),
     width: 560,
     Mock: WhereThingsRun,
   },
   {
-    title: 'Still an agent in Ouijit',
+    title: 'It can still talk to Ouijit',
     body: (
       <>
-        It keeps the <code>ouijit</code> command, on a token scoped to its project. It reads the notes you leave
-        on its diff, stages comments for you to send, and asks you to run what it cannot. Widen that per project
-        if you want to.
+        The sandboxed agent reads the note you left on its diff, stages a review comment for you to send, and
+        asks you to run the push it is not allowed to. How much more it may do is a project setting.
       </>
     ),
     width: 760,
     Mock: StillAnAgent,
   },
   {
-    title: 'Fails closed',
-    body: (
-      <>
-        If the sandbox cannot start, nothing runs. There is no fallback to the host, and the profile that sets
-        the limits lives where the agent cannot write.
-      </>
-    ),
+    title: "If the sandbox can't start, nothing runs",
+    body: <>Ouijit never falls back to running the agent on the host.</>,
     width: 560,
     Mock: FailsClosed,
   },
   {
-    title: 'Or bring your own',
+    title: 'Or use your own',
     body: (
       <>
-        A Custom launcher is a reviewed script that owns the boundary. Ouijit passes it the worktree, the git
-        directories and the ports as hints and adds nothing of its own. The{' '}
-        <a href="/docs/sandbox/">sandbox documentation</a> has the contract.
+        Point Ouijit at a launcher your team maintains and every sandboxed command runs through it. The{' '}
+        <a href="/docs/sandbox/">sandbox documentation</a> describes what the launcher receives.
       </>
     ),
     width: 560,
