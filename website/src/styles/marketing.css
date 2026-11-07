@@ -1614,6 +1614,10 @@ body.marketing::after {
   align-items: center;
 }
 
+.feature-row:nth-child(even) {
+  grid-template-columns: 7fr 5fr;
+}
+
 .feature-row:nth-child(even) .feature-copy {
   order: 2;
 }

@@ -88,9 +88,12 @@ function CliAccess() {
   );
 }
 
+/* The width each panel lays out at; below it the panel scales rather than
+   reflows. Kept at or under the row's visual column, so neither shrinks at
+   desktop widths. */
 const MOCKS = {
-  where: { width: 600, Mock: WhereThingsRun },
-  access: { width: 520, Mock: CliAccess },
+  where: { width: 540, Mock: WhereThingsRun },
+  access: { width: 420, Mock: CliAccess },
 } as const;
 
 export type SandboxMockKind = keyof typeof MOCKS;
