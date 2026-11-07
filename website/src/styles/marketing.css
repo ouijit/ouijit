@@ -1945,6 +1945,7 @@ body.marketing::after {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9375rem;
+  margin-bottom: 1.5rem;
 }
 .compare-content th,
 .compare-content td {
@@ -1972,6 +1973,24 @@ body.marketing::after {
   padding: 2px 6px;
   border-radius: 4px;
   color: #fff;
+}
+.compare-content pre {
+  background: #171717;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+  margin: 0 0 1rem;
+  overflow: hidden;
+}
+.compare-content pre code {
+  display: block;
+  padding: 20px;
+  overflow-x: auto;
+  background: none;
+  color: #f5f5f7;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .compare-content a {
   text-decoration: underline;
