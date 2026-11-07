@@ -40,8 +40,14 @@ const repos: Tile = { x: 744, y: ROW(1), w: 192, icon: gitBranch, label: 'other 
 const ouijit: Tile = { x: 744, y: ROW(2), w: 192, icon: appWindow, label: 'Ouijit' };
 const host: Tile = { x: 744, y: ROW(3), w: 192, icon: rocketLaunch, label: 'dev server, push' };
 
-const mid = (t: Tile) => t.y + H / 2;
 const right = (t: Tile) => t.x + t.w;
+
+/* The drawing's bounds: the foil's left and top edges, the right column's
+   right edge, the last tile's bottom. The desk's own padding does the rest. */
+const VB = { x: 64, y: 86, w: right(keys) - 64, h: host.y + H - 86 };
+const FOIL = { w: BOUNDARY_X - 64, h: 230 };
+
+const mid = (t: Tile) => t.y + H / 2;
 const agentCx = agent.x + agent.w / 2;
 
 /* An S-curve between two points, horizontal at both ends. */
@@ -53,11 +59,11 @@ const curve = (x0: number, y0: number, x1: number, y1: number) => {
 const elbow = (x: number, y0: number, x1: number, y1: number, r = 18) =>
   `M ${x} ${y0} L ${x} ${y1 - r} Q ${x} ${y1}, ${x + r} ${y1} L ${x1} ${y1}`;
 ---
-<div class="sandbox-diagram">
-  <div class="sb-foil desk-wash desk-wash--graphite" aria-hidden="true" style={`left: ${(64 / 1000) * 100}%; top: ${(86 / 420) * 100}%; width: ${((BOUNDARY_X - 64) / 1000) * 100}%; height: ${(230 / 420) * 100}%`}>
+<div class="sandbox-diagram" style={`aspect-ratio: ${VB.w} / ${VB.h}`}>
+  <div class="sb-foil desk-wash desk-wash--graphite" aria-hidden="true" style={`left: 0; top: 0; width: ${(FOIL.w / VB.w) * 100}%; height: ${(FOIL.h / VB.h) * 100}%`}>
     <div class="desk-wash-field"><span class="desk-wash-grain"></span></div>
   </div>
-  <svg viewBox="0 0 1000 420" role="img" aria-label="Inside the sandbox, the agent reaches only its worktree. Its attempts to read keys and other repositories stop at the boundary. One line still crosses: it can talk to Ouijit, which runs the dev server and the push on the host.">
+  <svg viewBox={`${VB.x} ${VB.y} ${VB.w} ${VB.h}`} style={`aspect-ratio: ${VB.w} / ${VB.h}`} role="img" aria-label="Inside the sandbox, the agent reaches only its worktree. Its attempts to read keys and other repositories stop at the boundary. One line still crosses: it can talk to Ouijit, which runs the dev server and the push on the host.">
     <defs>
       <!-- The app's panel shadow and glass bevel, as SVG: a cast shadow under
            the tile, a bezel-dark edge, and an inset stroke that runs from a

@@ -1479,10 +1479,6 @@ body.marketing::after {
   padding: 0 var(--content-padding);
 }
 
-.feature-hero-visual .plan-desk {
-  padding: 0;
-}
-
 .feature-section {
   max-width: 1100px;
   margin: 0 auto;
@@ -1534,15 +1530,16 @@ body.marketing::after {
    page foreground, so strokes and labels follow the theme. */
 .sandbox-diagram {
   position: relative;
-  aspect-ratio: 1000 / 420;
   color: #f5f5f7;
 }
 
+/* Shadows and badges reach past the drawing's bounds into the desk padding. */
 .sandbox-diagram svg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  overflow: visible;
 }
 
 /* The sandbox is a foil panel on the prism desk; the svg draws over it. */
