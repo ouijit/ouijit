@@ -1,6 +1,6 @@
 ---
 import Site from '../layouts/Site.astro';
-import DownloadButtons from '../components/home/DownloadButtons.astro';
+import Cta from '../components/home/Cta.astro';
 
 const rows: [string, string][] = [
   ['Project', 'Project'],
@@ -82,10 +82,6 @@ const rows: [string, string][] = [
       <li>Put your cleanup script in the done hook.</li>
       <li>Recreate open issues as tasks with <code>⌘N</code>.</li>
     </ol>
-    <h2>Get it</h2>
-    <DownloadButtons />
-    <p class="compare-footer">
-      The <a href="/docs/">documentation</a> covers the rest.
-    </p>
   </main>
+  <Cta />
 </Site>

@@ -1893,7 +1893,7 @@ body.marketing::after {
 .compare-content {
   max-width: 760px;
   margin: 0 auto;
-  padding: 4rem 1.5rem 6rem;
+  padding: 4rem 1.5rem 1rem;
 }
 .compare-content h1 {
   font-size: 2.25rem;
@@ -1908,11 +1908,6 @@ body.marketing::after {
   width: 100%;
   border-radius: 12px;
   margin: 0 0 8px;
-}
-
-.compare-content .download-buttons {
-  justify-content: flex-start;
-  margin: 0;
 }
 
 .compare-content h2 {
@@ -1980,11 +1975,6 @@ body.marketing::after {
   text-decoration: underline;
   text-decoration-color: rgba(255, 255, 255, 0.4);
   text-underline-offset: 2px;
-}
-.compare-footer {
-  margin-top: 3rem;
-  color: var(--text-tertiary, #888);
-  font-size: 0.9rem;
 }
 @media (max-width: 768px) {
   .compare-content table {

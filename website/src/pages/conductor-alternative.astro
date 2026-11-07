@@ -1,6 +1,6 @@
 ---
 import Site from '../layouts/Site.astro';
-import DownloadButtons from '../components/home/DownloadButtons.astro';
+import Cta from '../components/home/Cta.astro';
 
 const rows: [string, string][] = [
   ['Project', 'Project'],
@@ -84,10 +84,6 @@ const rows: [string, string][] = [
       <li>Set <strong>Branch from</strong> if your workspaces branched from something other than the checked-out branch.</li>
       <li>Leave the worktree mode on Quick start if you relied on Files to copy; pick Clean checkout if you didn't.</li>
     </ol>
-    <h2>Get it</h2>
-    <DownloadButtons />
-    <p class="compare-footer">
-      The <a href="/docs/">documentation</a> covers the rest.
-    </p>
   </main>
+  <Cta />
 </Site>
