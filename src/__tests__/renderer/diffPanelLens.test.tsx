@@ -280,4 +280,28 @@ describe('the diff panel, read through a lens', () => {
     expect(screen.queryByText('Where it is stored')).toBeNull();
     expect(window.api.diffLens.run).not.toHaveBeenCalled();
   });
+
+  test("a link into the diff lands on its line once that file's diff has loaded, and only once", async () => {
+    vi.mocked(window.api.diffLens.get).mockResolvedValue(null);
+    let loadRepo: (diff: typeof REPO_DIFF) => void = () => {};
+    vi.mocked(window.api.worktree.getFileDiff).mockImplementation((_path, _base, file) =>
+      file === 'src/db/repo.ts' ? new Promise((resolve) => (loadRepo = resolve)) : Promise.resolve(null),
+    );
+    const landed: Element[] = [];
+    Element.prototype.scrollIntoView = function scrollIntoView() {
+      landed.push(this);
+    };
+    const display = useTerminalStore.getState().displayStates['pty-1'];
+    useTerminalStore.setState({
+      displayStates: { 'pty-1': { ...display, diffReveal: { path: 'src/db/repo.ts', line: 22 } } },
+    });
+
+    render(<DiffPanel {...PROPS} />);
+    await waitFor(() => expect(window.api.worktree.getFileDiff).toHaveBeenCalled());
+    expect(landed).toEqual([]);
+
+    await act(async () => loadRepo(REPO_DIFF));
+    await waitFor(() => expect(landed.some((el) => el.getAttribute('data-new-line') === '22')).toBe(true));
+    expect(useTerminalStore.getState().displayStates['pty-1'].diffReveal).toBeNull();
+  });
 });

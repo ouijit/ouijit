@@ -19,24 +19,11 @@ function projectPathOf(name: string): string | null {
   return match?.path ?? null;
 }
 
-/** Scrolls the diff to a line once it has rendered it; the diff loads after its panel opens. */
-function revealDiffLine(path: string, line: number): void {
-  const selector = `[data-path="${CSS.escape(path)}"] [data-new-line="${line}"]`;
-  const deadline = performance.now() + 1000;
-  const look = () => {
-    const el = document.querySelector(selector);
-    if (el) {
-      el.scrollIntoView({ block: 'center', inline: 'nearest' });
-      return;
-    }
-    if (performance.now() < deadline) requestAnimationFrame(look);
-  };
-  requestAnimationFrame(look);
-}
-
+/** Beside the terminal, not over it: the reply holding the link often holds others. */
 function showDiff(ptyId: string, diff: DiffSpot): void {
-  terminalInstances.get(ptyId)?.setDiffPanelOpen(true);
-  if (diff.line != null) revealDiffLine(diff.path, diff.line);
+  const instance = terminalInstances.get(ptyId);
+  instance?.setPanelFullWidth(false);
+  instance?.revealInDiff(diff.path, diff.line ?? null);
 }
 
 /** A task's terminals, as clicking its row shows them; a task never started shows its card. */

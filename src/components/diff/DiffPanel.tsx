@@ -175,6 +175,18 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     scrollToSection(contentRef.current, fileSelector(path, group));
   }, []);
 
+  // Waits for the file's diff: a section has no lines to land on before it loads.
+  const reveal = useTerminalStore((s) => s.displayStates[ptyId]?.diffReveal ?? null);
+  useEffect(() => {
+    if (!reveal || loading) return;
+    const listed = files.some((f) => f.path === reveal.path);
+    if (listed && !diffs.has(reveal.path)) return;
+    useTerminalStore.getState().updateDisplay(ptyId, { diffReveal: null });
+    if (!listed) return;
+    const line = reveal.line != null ? `[data-new-line="${reveal.line}"]` : undefined;
+    scrollToSection(contentRef.current, fileSelector(reveal.path), line);
+  }, [reveal, loading, files, diffs, ptyId]);
+
   const { setComposingAt, setEditingId } = notes;
   const startNote = useCallback(
     (path: string, anchor: DiffLineAnchor) => {

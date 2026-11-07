@@ -824,6 +824,11 @@ export class OuijitTerminal {
     this.pushDisplayState({ diffPanelOpen: open });
   }
 
+  revealInDiff(path: string, line: number | null): void {
+    this.setDiffPanelOpen(true);
+    this.pushDisplayState({ diffReveal: { path, line } });
+  }
+
   toggleDiffPanel(): void {
     this.setDiffPanelOpen(!this.diffPanelOpen);
   }
