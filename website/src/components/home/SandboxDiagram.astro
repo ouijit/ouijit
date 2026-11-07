@@ -17,7 +17,7 @@ const inner = (raw: string) => /<svg[^>]*>([\s\S]*)<\/svg>/.exec(raw)?.[1] ?? ''
 const BLUE = 'var(--color-ansi-blue)';
 const RED = 'var(--color-ansi-red)';
 const TILE = 'var(--color-terminal-bg)';
-/* Labels that sit on the prism desk rather than the foil. */
+/* Inside the prism panel, ink; on the graphite desk, the page foreground. */
 const INK = '#0f0f11';
 
 interface Tile {
@@ -45,7 +45,7 @@ const right = (t: Tile) => t.x + t.w;
 const agentCx = agent.x + agent.w / 2;
 ---
 <div class="sandbox-diagram">
-  <div class="sb-foil desk-wash desk-wash--graphite" aria-hidden="true" style={`left: ${(64 / 1000) * 100}%; top: ${(86 / 420) * 100}%; width: ${((BOUNDARY_X - 64) / 1000) * 100}%; height: ${(230 / 420) * 100}%`}>
+  <div class="sb-foil desk-wash desk-wash--prism" aria-hidden="true" style={`left: ${(64 / 1000) * 100}%; top: ${(86 / 420) * 100}%; width: ${((BOUNDARY_X - 64) / 1000) * 100}%; height: ${(230 / 420) * 100}%`}>
     <div class="desk-wash-field"><span class="desk-wash-grain"></span></div>
   </div>
   <svg viewBox="0 0 1000 420" role="img" aria-label="Inside the sandbox, the agent reaches only its worktree. Its attempts to read keys and other repositories stop at the boundary. One line still crosses: it can talk to Ouijit, which runs the dev server and the push on the host.">
@@ -56,33 +56,36 @@ const agentCx = agent.x + agent.w / 2;
       <marker id="sb-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
       </marker>
+      <marker id="sb-arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke={BLUE} stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </marker>
       <marker id="sb-arrow-ink" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke={INK} stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
       </marker>
     </defs>
 
     <!-- the sandbox header, on the foil -->
-    <svg x="84" y="104" width="18" height="18" viewBox="0 0 256 256" fill={BLUE} set:html={inner(shieldCheck)} />
-    <text x="110" y="118" class="sb-label" fill={BLUE}>sandbox</text>
-    <text x={BOUNDARY_X - 20} y="118" class="sb-label" text-anchor="end">Seatbelt · Landlock</text>
+    <svg x="84" y="104" width="18" height="18" viewBox="0 0 256 256" fill={INK} opacity="0.75" set:html={inner(shieldCheck)} />
+    <text x="110" y="118" class="sb-label sb-ink">sandbox</text>
+    <text x={BOUNDARY_X - 20} y="118" class="sb-label sb-ink" text-anchor="end">Seatbelt · Landlock</text>
 
     <!-- connections, under the tiles -->
-    <line x1={right(agent)} y1={mid(agent)} x2={worktree.x} y2={mid(worktree)} stroke="currentColor" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" marker-end="url(#sb-arrow)" />
-    <text x={(right(agent) + worktree.x) / 2} y={mid(agent) - 12} class="sb-edge" text-anchor="middle">read · write · commit</text>
+    <line x1={right(agent)} y1={mid(agent)} x2={worktree.x} y2={mid(worktree)} stroke={INK} stroke-opacity="0.6" stroke-width="2" stroke-linecap="round" marker-end="url(#sb-arrow-ink)" />
+    <text x={(right(agent) + worktree.x) / 2} y={mid(agent) - 12} class="sb-edge sb-ink" text-anchor="middle">read · write · commit</text>
 
     {[keys, repos].map((t) => (
       <g>
         <line x1={right(worktree)} y1={mid(worktree)} x2={BOUNDARY_X} y2={mid(t)} stroke={RED} stroke-opacity="0.7" stroke-width="2" stroke-linecap="round" />
-        <line x1={BOUNDARY_X} y1={mid(t)} x2={t.x} y2={mid(t)} stroke={INK} stroke-opacity="0.3" stroke-width="2" stroke-dasharray="2 6" stroke-linecap="round" />
+        <line x1={BOUNDARY_X} y1={mid(t)} x2={t.x} y2={mid(t)} stroke="#fff" stroke-opacity="0.14" stroke-width="2" stroke-dasharray="2 6" stroke-linecap="round" />
       </g>
     ))}
 
-    <polyline points={`${agentCx},${agent.y + H} ${agentCx},${mid(ouijit)} ${BOUNDARY_X},${mid(ouijit)}`} fill="none" stroke={BLUE} stroke-opacity="0.8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-    <line x1={BOUNDARY_X} y1={mid(ouijit)} x2={ouijit.x} y2={mid(ouijit)} stroke={INK} stroke-opacity="0.6" stroke-width="2" stroke-linecap="round" marker-end="url(#sb-arrow-ink)" />
-    <text x={agentCx + 14} y={mid(ouijit) - 10} class="sb-edge" fill={BLUE}>asks you to run it · stages review comments</text>
+    <polyline points={`${agentCx},${agent.y + H} ${agentCx},${mid(ouijit)} ${BOUNDARY_X},${mid(ouijit)}`} fill="none" stroke={INK} stroke-opacity="0.6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    <line x1={BOUNDARY_X} y1={mid(ouijit)} x2={ouijit.x} y2={mid(ouijit)} stroke={BLUE} stroke-opacity="0.8" stroke-width="2" stroke-linecap="round" marker-end="url(#sb-arrow-blue)" />
+    <text x={agentCx + 14} y={mid(ouijit) - 10} class="sb-edge sb-ink">asks you to run it · stages review comments</text>
 
-    <line x1={ouijit.x + ouijit.w / 2} y1={ouijit.y + H} x2={host.x + host.w / 2} y2={host.y} stroke={INK} stroke-opacity="0.6" stroke-width="2" stroke-linecap="round" marker-end="url(#sb-arrow-ink)" />
-    <text x={ouijit.x + ouijit.w / 2 + 12} y={(ouijit.y + H + host.y) / 2 + 4} class="sb-edge sb-ink">on the host</text>
+    <line x1={ouijit.x + ouijit.w / 2} y1={ouijit.y + H} x2={host.x + host.w / 2} y2={host.y} stroke="currentColor" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" marker-end="url(#sb-arrow)" />
+    <text x={ouijit.x + ouijit.w / 2 + 12} y={(ouijit.y + H + host.y) / 2 + 4} class="sb-edge">on the host</text>
 
     <!-- tiles -->
     {[agent, worktree, keys, repos, ouijit, host].map((t) => (
