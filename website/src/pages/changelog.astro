@@ -11,7 +11,6 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'lo
   description="What changed in each Ouijit release.">
   <main class="compare-content changelog">
     <h1>Changelog</h1>
-    <p class="lead">What changed in each release.</p>
 
     {releases.map((release) => (
       <article class="release" id={release.tag}>
