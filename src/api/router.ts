@@ -48,6 +48,7 @@ import {
   getInbox as getGithubInbox,
   getPullRequest as getGithubPullRequest,
   linkTaskToPr as linkGithubTaskToPr,
+  linkTaskToIssue as linkGithubTaskToIssue,
   listDrafts,
   saveDraft,
   discardDraft,
@@ -1003,6 +1004,22 @@ const routes: Route[] = [
       const result = await linkGithubTaskToPr(project, taskNumber, num);
       if (!result.success) throw new HttpError(400, result.error ?? 'Failed to link');
       return { success: true, taskNumber, prNumber: num };
+    },
+    true,
+    OWN_TASK,
+  ),
+
+  route(
+    'POST',
+    'issues/:issue/link',
+    async (r) => {
+      const project = requireProject(r.query);
+      const issue = requireInt(r.segments[1], 'Issue number');
+      const taskNumber = r.body.taskNumber;
+      if (typeof taskNumber !== 'number') throw new HttpError(400, 'Missing taskNumber in body');
+      const result = await linkGithubTaskToIssue(project, taskNumber, issue);
+      if (!result.success) throw new HttpError(400, result.error ?? 'Failed to link');
+      return { success: true, taskNumber, issue };
     },
     true,
     OWN_TASK,

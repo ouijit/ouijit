@@ -383,7 +383,28 @@ export async function linkTaskToIssue(
   taskNumber: number,
   issueNumber: number | null,
 ): Promise<{ success: boolean; error?: string }> {
+  if (issueNumber == null) return setTaskGithubIssue(projectPath, taskNumber, null);
+  try {
+    await getIssue(projectPath, issueNumber);
+  } catch (error) {
+    return { success: false, error: describeIssueError(error, issueNumber) };
+  }
+  const claimed = await issueClaimedBy(projectPath, issueNumber, taskNumber);
+  if (claimed != null) return { success: false, error: `Issue #${issueNumber} is already linked to task #${claimed}` };
   return setTaskGithubIssue(projectPath, taskNumber, issueNumber);
+}
+
+function describeIssueError(error: unknown, issueNumber: number): string {
+  return error instanceof GithubError && error.kind === 'not-found'
+    ? `Issue #${issueNumber} not found`
+    : describeError(error);
+}
+
+async function issueClaimedBy(projectPath: string, issueNumber: number, except?: number): Promise<number | null> {
+  const claimed = (await getProjectTasks(projectPath)).find(
+    (task) => task.githubIssueNumber === issueNumber && task.taskNumber !== except,
+  );
+  return claimed?.taskNumber ?? null;
 }
 
 /**
@@ -879,12 +900,11 @@ export async function createTaskFromIssue(projectPath: string, issueNumber: numb
   try {
     issue = await getIssue(projectPath, issueNumber);
   } catch (error) {
-    return { success: false, error: describeError(error) };
+    return { success: false, error: describeIssueError(error, issueNumber) };
   }
 
-  const existing = (await getProjectTasks(projectPath)).find((t) => t.githubIssueNumber === issueNumber);
-  if (existing)
-    return { success: false, error: `Task #${existing.taskNumber} is already linked to issue #${issueNumber}` };
+  const claimed = await issueClaimedBy(projectPath, issueNumber);
+  if (claimed != null) return { success: false, error: `Issue #${issueNumber} is already linked to task #${claimed}` };
 
   const taskNumber = await getNextTaskNumber(projectPath);
   const description = issue.body.trim() ? `${issue.body.trim()}\n\n${issue.url}` : issue.url;

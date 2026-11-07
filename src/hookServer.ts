@@ -468,13 +468,16 @@ Hunks no group claims are still shown, in a trailing group — a lens can reorde
 and split a diff but never hides part of it, so covering everything is not
 required.
 
-## Linear Issues
-A task made from a Linear issue carries its identifier:
-ouijit task current | jq .linearIssueIdentifier
+## Issues
+A task linked to an issue carries it:
+ouijit task current | jq .githubIssueNumber      # GitHub
+ouijit task current | jq .linearIssueIdentifier  # Linear
 
+ouijit issue link <issue> --task <n>          # a GitHub issue number, or a Linear identifier like ENG-214
+
+## Linear Issues
 ouijit linear list                            # → this project's issues, in the panel's groups
 ouijit linear view <identifier>               # → one issue with its comments and states
-ouijit linear link <identifier> --task <n>    # link an issue to a task
 
 ### Comments (staged locally, sent by the user)
 ouijit linear draft list <identifier>
@@ -527,7 +530,7 @@ A sandboxed terminal reaches Ouijit in its own project, at that project's CLI ac
   and view. On this terminal: terminal read, tags, panel list and read, and
   markdown add and remove for files in its worktree.
 - Its own task: also task set-status, set-name and set-description on its own
-  task, pr link and linear link to it, and task create for a to-do card.
+  task, pr link and issue link to it, and task create for a to-do card.
   terminal read, tags and panels reach every sandboxed terminal on its task. A hook that
   runs on the host waits for the user even with --run-hook, and --hook-command
   and --sandbox are refused.

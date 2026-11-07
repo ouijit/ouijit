@@ -8,7 +8,12 @@ import { completeTask } from '../../services/taskCompletion';
 import { openTaskInEditor } from '../../services/openInEditor';
 import { FILE_MANAGER_NAME, revealInFileManager } from '../../utils/fileManager';
 import { terminalInstances } from '../terminal/terminalRegistry';
-import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
+import {
+  openPullRequestInPanel,
+  createPullRequestForTask,
+  openGithubIssueInPanel,
+  unlinkGithubIssue,
+} from '../../services/githubTaskActions';
 import { openLinearIssueInPanel, unlinkLinearIssue } from '../../services/linearTaskActions';
 
 /** Column display names, as the "Move to" menu and its toasts write them. */
@@ -99,6 +104,18 @@ export function trackerEntries(
       icon: 'git-pull-request',
       onClick: () => void createPullRequestForTask(projectPath, task),
     });
+  }
+
+  const issueNumber = task.githubIssueNumber;
+  if (enabled.github && issueNumber != null) {
+    entries.push(
+      {
+        label: `Issue #${issueNumber}`,
+        icon: 'circle-dashed',
+        onClick: () => openGithubIssueInPanel(projectPath, issueNumber),
+      },
+      { label: 'Unlink issue', icon: 'x', onClick: () => void unlinkGithubIssue(projectPath, task.taskNumber) },
+    );
   }
 
   const issueId = task.linearIssueId;

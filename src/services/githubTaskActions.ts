@@ -28,6 +28,23 @@ export function openPullRequestInPanel(projectPath: string, prNumber: number): v
   void store.openPullRequest(projectPath, prNumber);
 }
 
+export function openGithubIssueInPanel(projectPath: string, issueNumber: number): void {
+  useAppStore.getState().openPage(projectPath, 'pull-requests');
+  usePanelStore.getState().setProject(projectPath);
+  const store = useGithubStore.getState();
+  store.setProject(projectPath);
+  void store.openIssue(projectPath, issueNumber);
+}
+
+export async function unlinkGithubIssue(projectPath: string, taskNumber: number): Promise<void> {
+  const result = await window.api.github.linkTaskIssue(projectPath, taskNumber, null);
+  if (!result.success) {
+    useProjectStore.getState().addToast(result.error ?? "Couldn't unlink the issue", 'error');
+    return;
+  }
+  await loadTasks(projectPath);
+}
+
 /**
  * Push the task's branch and open a pull request for it.
  *

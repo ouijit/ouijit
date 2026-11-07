@@ -17,7 +17,7 @@ import { KanbanCardView } from './KanbanCardView';
 import { KanbanBadgeView } from './KanbanBadgeView';
 import { KanbanTrackerBadgeView } from './KanbanTrackerBadgeView';
 import { useExperimentalStore } from '../../stores/experimentalStore';
-import { openPullRequestInPanel } from '../../services/githubTaskActions';
+import { openGithubIssueInPanel, openPullRequestInPanel } from '../../services/githubTaskActions';
 import { openLinearIssueInPanel } from '../../services/linearTaskActions';
 
 interface KanbanCardProps {
@@ -215,6 +215,20 @@ export const KanbanCard = memo(function KanbanCard({
       >
         <span className="opacity-50">#</span>
         {prNumber}
+      </KanbanTrackerBadgeView>,
+    );
+  }
+  if (githubEnabled && task.githubIssueNumber != null) {
+    const issueNumber = task.githubIssueNumber;
+    trackerBadges.push(
+      <KanbanTrackerBadgeView
+        key="github-issue"
+        icon="circle-dashed"
+        title={`GitHub issue #${issueNumber}`}
+        onClick={() => openGithubIssueInPanel(projectPath, issueNumber)}
+      >
+        <span className="opacity-50">#</span>
+        {issueNumber}
       </KanbanTrackerBadgeView>,
     );
   }
