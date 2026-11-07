@@ -29,12 +29,15 @@ interface Tile {
 
 const H = 48;
 const BOUNDARY_X = 600;
-const agent: Tile = { x: 104, y: 196, w: 172, icon: terminalWindow, label: 'claude' };
-const worktree: Tile = { x: 396, y: 196, w: 172, icon: folderSimple, label: 'worktree T-119' };
-const keys: Tile = { x: 760, y: 104, w: 192, icon: key, label: '~/.ssh, ~/.aws' };
-const repos: Tile = { x: 760, y: 176, w: 192, icon: gitBranch, label: 'other repositories' };
-const ouijit: Tile = { x: 760, y: 258, w: 192, icon: appWindow, label: 'Ouijit' };
-const host: Tile = { x: 760, y: 334, w: 192, icon: rocketLaunch, label: 'dev server, push' };
+/* Four rows on a 72px pitch down the right; the agent and worktree sit
+   between the first two, so the refused paths mirror each other. */
+const ROW = (i: number) => 104 + i * 72;
+const agent: Tile = { x: 104, y: ROW(0) + 36, w: 160, icon: terminalWindow, label: 'claude' };
+const worktree: Tile = { x: 400, y: ROW(0) + 36, w: 160, icon: folderSimple, label: 'worktree T-119' };
+const keys: Tile = { x: 744, y: ROW(0), w: 192, icon: key, label: '~/.ssh, ~/.aws' };
+const repos: Tile = { x: 744, y: ROW(1), w: 192, icon: gitBranch, label: 'other repositories' };
+const ouijit: Tile = { x: 744, y: ROW(2), w: 192, icon: appWindow, label: 'Ouijit' };
+const host: Tile = { x: 744, y: ROW(3), w: 192, icon: rocketLaunch, label: 'dev server, push' };
 
 const mid = (t: Tile) => t.y + H / 2;
 const right = (t: Tile) => t.x + t.w;
@@ -60,7 +63,7 @@ const agentCx = agent.x + agent.w / 2;
     <text x="70" y="56" class="sb-label">your machine</text>
 
     <!-- the sandbox -->
-    <rect x="64" y="86" width={BOUNDARY_X - 64} height="270" rx="16" fill={BLUE} fill-opacity="0.07" stroke={BLUE} stroke-opacity="0.45" />
+    <rect x="64" y="86" width={BOUNDARY_X - 64} height="230" rx="16" fill={BLUE} fill-opacity="0.07" stroke={BLUE} stroke-opacity="0.45" />
     <svg x="84" y="104" width="18" height="18" viewBox="0 0 256 256" fill={BLUE} set:html={inner(shieldCheck)} />
     <text x="110" y="118" class="sb-label" fill={BLUE}>sandbox</text>
     <text x={BOUNDARY_X - 20} y="118" class="sb-label" text-anchor="end">Seatbelt · Landlock</text>

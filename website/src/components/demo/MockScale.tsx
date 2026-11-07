@@ -22,6 +22,9 @@ export function MockScale({ width, children }: { width: number; children: ReactN
     if (!frameEl || !innerEl) return;
     const measure = () => {
       const available = frameEl.getBoundingClientRect().width;
+      // Not laid out yet: a zero width would scale the mock away, and the
+      // observer fires again once the frame has a size.
+      if (available === 0) return;
       const next = Math.min(1, available / width);
       setScale(next);
       /* offsetHeight, not the bounding box: the box is already scaled, so
