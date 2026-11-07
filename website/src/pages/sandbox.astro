@@ -11,14 +11,28 @@ import { SandboxSection } from '../components/demo/SandboxSection.tsx';
   <section class="hero">
     <h1 data-reveal>Permission checks off, <span class="hero-dim">machine intact.</span></h1>
     <p class="sandbox-lead" data-reveal style="--reveal-delay: 120ms">
-      Every agent CLI has a flag that turns off its permission prompts. With it, the agent runs at full speed
-      with the run of your whole computer. <strong>In Ouijit's sandbox, it gets its task's worktree and nothing
-      else.</strong>
+      Every agent has a flag that stops the permission prompts. Most people end up using it, and then there is
+      nothing between the agent and the rest of the machine. <strong>Ouijit draws the line at the task's
+      worktree.</strong>
     </p>
   </section>
 
   <section class="home-sandbox">
     <SandboxSection client:visible />
+    <div class="sandbox-prose" data-reveal>
+      <h2>Already sandboxed?</h2>
+      <p>
+        <strong>Your agent's own sandbox.</strong> Claude Code's covers shell commands. Its file tools, MCP
+        servers and hooks run outside it, it is off by default, and when it cannot start it runs the command
+        unsandboxed. Codex's is stronger and Codex-only. Pi and OpenCode have none. Ouijit's holds the whole
+        terminal, so everything the agent starts is inside, whichever agent it is.
+      </p>
+      <p>
+        <strong>A devcontainer.</strong> A container is a second environment: a Dockerfile to keep current,
+        rebuilds, tools to install again. Ouijit's sandbox is the kernel limiting a process on your machine.
+        There is nothing to maintain and nothing to sync, and it opens as fast as any other terminal.
+      </p>
+    </div>
   </section>
 
   <Cta />

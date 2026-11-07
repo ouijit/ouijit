@@ -1489,6 +1489,28 @@ body.marketing::after {
   gap: 64px;
 }
 
+.sandbox-prose {
+  max-width: 640px;
+  margin: 120px 0 0;
+}
+
+.sandbox-prose h2 {
+  font-size: 28px;
+  margin: 0 0 20px;
+}
+
+.sandbox-prose p {
+  color: #86868b;
+  font-size: 17px;
+  line-height: 1.55;
+  margin: 0 0 18px;
+}
+
+.sandbox-prose strong {
+  color: #f5f5f7;
+  font-weight: 500;
+}
+
 .plan-v3-copy code {
   font-family: 'SF Mono', Monaco, Menlo, monospace;
   font-size: 0.875em;

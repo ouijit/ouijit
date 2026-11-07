@@ -223,7 +223,7 @@ function StillAnAgent() {
     <div className="flex gap-5 items-start">
       <div className="flex-1 min-w-0">
         <Terminal
-          height={432}
+          height={456}
           status="ready"
           label="Add rate-limit headers to the public API"
           branch="api-rate-limit-headers"
@@ -294,12 +294,13 @@ function Desk({ wash, children }: { wash?: string; children: ReactNode }) {
 
 const ROWS: { title: string; body: ReactNode; width: number; wash?: string; Mock: () => ReactNode }[] = [
   {
-    title: 'It can only touch its worktree',
+    title: 'The boundary is the task',
     body: (
       <>
-        This agent is running with permission checks off. It edited files, then tried to install a package
-        globally. The install was refused, so it ran the tool from the worktree instead. Everything outside the
-        task's folder is out of reach, and the kernel is what refuses.
+        Every task already has a worktree, and the sandbox is drawn around it. The agent reads and writes those
+        files and commits them, and nothing else on the machine exists for it. Here it tried a global install,
+        the kernel refused, and it finished the job from the worktree. All of this is in place, with your tools
+        and the agent's own sign-ins, and nothing to boot.
       </>
     ),
     width: 760,
@@ -307,39 +308,46 @@ const ROWS: { title: string; body: ReactNode; width: number; wash?: string; Mock
     Mock: HeldToWorktree,
   },
   {
-    title: 'Sandbox the agent, not the dev server',
+    title: 'Agent inside, dev server outside',
     body: (
       <>
-        Each project chooses where its commands run. This one runs on the host, and only the start hook that
-        launches the agent is sandboxed. The dev server and the push keep your credentials.
+        This project runs on the host. Only the start hook that launches the agent is sandboxed, so the dev
+        server beside it and the push after it keep your credentials. Set that per hook, or for one command in
+        a longer line.
       </>
     ),
     width: 560,
     Mock: WhereThingsRun,
   },
   {
-    title: 'It can still talk to Ouijit',
+    title: 'Still wired in',
     body: (
       <>
-        The sandboxed agent reads the note you left on its diff, stages a review comment for you to send, and
-        asks you to run the push it is not allowed to. How much more it may do is a project setting.
+        The agent keeps the <code>ouijit</code> command, with a token that reaches only its own project. It
+        reads the note you left on its diff, stages a review comment for you to send, and asks you to run the
+        push it is not allowed to. How far it may go is a project setting.
       </>
     ),
     width: 760,
     Mock: StillAnAgent,
   },
   {
-    title: "If the sandbox can't start, nothing runs",
-    body: <>Ouijit never falls back to running the agent on the host.</>,
+    title: "If it can't start, nothing runs",
+    body: (
+      <>
+        Ouijit never falls back to running the agent on the host. The policy lives outside the repository,
+        where the agent cannot edit it.
+      </>
+    ),
     width: 560,
     Mock: FailsClosed,
   },
   {
-    title: 'Or use your own',
+    title: 'Or bring your own',
     body: (
       <>
         Point Ouijit at a launcher your team maintains and every sandboxed command runs through it. The{' '}
-        <a href="/docs/sandbox/">sandbox documentation</a> describes what the launcher receives.
+        <a href="/docs/sandbox/">sandbox documentation</a> lists what the launcher receives.
       </>
     ),
     width: 560,
