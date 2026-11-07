@@ -1,83 +1,108 @@
 ---
+import laptop from '@phosphor-icons/core/assets/regular/laptop.svg?raw';
+import shieldCheck from '@phosphor-icons/core/assets/regular/shield-check.svg?raw';
+import terminalWindow from '@phosphor-icons/core/assets/regular/terminal-window.svg?raw';
+import folderSimple from '@phosphor-icons/core/assets/regular/folder-simple.svg?raw';
+import key from '@phosphor-icons/core/assets/regular/key.svg?raw';
+import gitBranch from '@phosphor-icons/core/assets/regular/git-branch.svg?raw';
+import appWindow from '@phosphor-icons/core/assets/regular/app-window.svg?raw';
+import rocketLaunch from '@phosphor-icons/core/assets/regular/rocket-launch.svg?raw';
+
 /**
  * The boundary the sandbox draws: the agent and its worktree inside, the rest
  * of the machine outside, and the one line back to Ouijit that still crosses.
+ * Icons are Phosphor's, the set the app draws with.
  */
+const inner = (raw: string) => /<svg[^>]*>([\s\S]*)<\/svg>/.exec(raw)?.[1] ?? '';
+
 const BLUE = 'var(--color-ansi-blue)';
 const RED = 'var(--color-ansi-red)';
+const TILE = 'var(--color-terminal-bg)';
 
-interface Node {
+interface Tile {
   x: number;
   y: number;
   w: number;
-  title: string;
-  sub: string;
+  icon: string;
+  label: string;
 }
 
-const H = 54;
-const BOUNDARY_X = 580;
-const agent: Node = { x: 84, y: 160, w: 160, title: 'claude', sub: 'permission checks off' };
-const worktree: Node = { x: 394, y: 160, w: 166, title: 'worktree', sub: 'T-119 and .git objects' };
-const keys: Node = { x: 752, y: 78, w: 204, title: '~/.ssh  ~/.aws', sub: 'keys and credentials' };
-const repos: Node = { x: 752, y: 160, w: 204, title: '~/Code/billing-service', sub: 'other repositories' };
-const ouijit: Node = { x: 752, y: 242, w: 204, title: 'Ouijit', sub: 'diff notes, drafts, asks' };
-const host: Node = { x: 752, y: 326, w: 204, title: 'npm run dev · git push', sub: 'host, with your credentials' };
+const H = 48;
+const BOUNDARY_X = 600;
+const agent: Tile = { x: 104, y: 196, w: 172, icon: terminalWindow, label: 'claude' };
+const worktree: Tile = { x: 396, y: 196, w: 172, icon: folderSimple, label: 'worktree T-119' };
+const keys: Tile = { x: 760, y: 104, w: 192, icon: key, label: '~/.ssh, ~/.aws' };
+const repos: Tile = { x: 760, y: 176, w: 192, icon: gitBranch, label: 'other repositories' };
+const ouijit: Tile = { x: 760, y: 258, w: 192, icon: appWindow, label: 'Ouijit' };
+const host: Tile = { x: 760, y: 334, w: 192, icon: rocketLaunch, label: 'dev server, push' };
 
-const mid = (n: Node) => n.y + H / 2;
+const mid = (t: Tile) => t.y + H / 2;
+const right = (t: Tile) => t.x + t.w;
 const agentCx = agent.x + agent.w / 2;
 ---
 <figure class="sandbox-diagram">
-  <svg viewBox="0 0 1000 412" role="img" aria-label="Inside the sandbox, the agent reaches only its worktree. Its attempts to read keys and other repositories are refused at the boundary. One line still crosses: it can talk to Ouijit, which runs the dev server and the push on the host.">
+  <svg viewBox="0 0 1000 420" role="img" aria-label="Inside the sandbox, the agent reaches only its worktree. Its attempts to read keys and other repositories stop at the boundary. One line still crosses: it can talk to Ouijit, which runs the dev server and the push on the host.">
     <defs>
-      <marker id="sb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+      <filter id="sb-shadow" x="-10%" y="-20%" width="120%" height="160%">
+        <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.35" />
+      </filter>
+      <marker id="sb-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
       </marker>
-      <marker id="sb-arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill={BLUE} />
+      <marker id="sb-arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke={BLUE} stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
       </marker>
     </defs>
 
     <!-- the machine -->
-    <rect x="24" y="24" width="952" height="364" rx="18" fill="none" stroke="currentColor" stroke-opacity="0.22" stroke-dasharray="4 6" />
-    <text x="44" y="52" class="sb-label">your machine</text>
+    <rect x="24" y="24" width="952" height="372" rx="20" fill="#fff" fill-opacity="0.03" stroke="#fff" stroke-opacity="0.08" />
+    <svg x="44" y="42" width="18" height="18" viewBox="0 0 256 256" fill="currentColor" opacity="0.55" set:html={inner(laptop)} />
+    <text x="70" y="56" class="sb-label">your machine</text>
 
     <!-- the sandbox -->
-    <rect x="64" y="78" width={BOUNDARY_X - 64} height="258" rx="16" fill={BLUE} fill-opacity="0.07" stroke={BLUE} stroke-opacity="0.8" />
-    <text x="84" y="106" class="sb-label" fill={BLUE}>sandbox</text>
-    <text x={BOUNDARY_X - 20} y="106" class="sb-label" text-anchor="end" fill={BLUE}>Seatbelt · Landlock</text>
+    <rect x="64" y="86" width={BOUNDARY_X - 64} height="270" rx="16" fill={BLUE} fill-opacity="0.07" stroke={BLUE} stroke-opacity="0.45" />
+    <svg x="84" y="104" width="18" height="18" viewBox="0 0 256 256" fill={BLUE} set:html={inner(shieldCheck)} />
+    <text x="110" y="118" class="sb-label" fill={BLUE}>sandbox</text>
+    <text x={BOUNDARY_X - 20} y="118" class="sb-label" text-anchor="end">Seatbelt · Landlock</text>
 
-    <!-- nodes -->
-    {[agent, worktree, keys, repos, ouijit, host].map((n) => (
+    <!-- connections, under the tiles -->
+    <line x1={right(agent)} y1={mid(agent)} x2={worktree.x} y2={mid(worktree)} stroke="currentColor" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" marker-end="url(#sb-arrow)" />
+    <text x={(right(agent) + worktree.x) / 2} y={mid(agent) - 12} class="sb-edge" text-anchor="middle">read · write · commit</text>
+
+    {[keys, repos].map((t) => (
       <g>
-        <rect x={n.x} y={n.y} width={n.w} height={H} rx="10" fill="var(--color-terminal-bg)" stroke="currentColor" stroke-opacity="0.18" />
-        <text x={n.x + 14} y={n.y + 22} class="sb-title">{n.title}</text>
-        <text x={n.x + 14} y={n.y + 41} class="sb-sub">{n.sub}</text>
+        <line x1={right(worktree)} y1={mid(worktree)} x2={BOUNDARY_X} y2={mid(t)} stroke={RED} stroke-opacity="0.7" stroke-width="2" stroke-linecap="round" />
+        <line x1={BOUNDARY_X} y1={mid(t)} x2={t.x} y2={mid(t)} stroke="#fff" stroke-opacity="0.1" stroke-width="2" stroke-dasharray="2 6" stroke-linecap="round" />
       </g>
     ))}
 
-    <!-- agent → worktree -->
-    <line x1={agent.x + agent.w} y1={mid(agent)} x2={worktree.x - 2} y2={mid(worktree)} stroke="currentColor" stroke-opacity="0.7" marker-end="url(#sb-arrow)" />
-    <text x={(agent.x + agent.w + worktree.x) / 2} y={mid(agent) - 10} class="sb-edge" text-anchor="middle">read · write · commit</text>
+    <polyline points={`${agentCx},${agent.y + H} ${agentCx},${mid(ouijit)} ${ouijit.x},${mid(ouijit)}`} fill="none" stroke={BLUE} stroke-opacity="0.8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#sb-arrow-blue)" />
+    <text x={agentCx + 14} y={mid(ouijit) - 10} class="sb-edge" fill={BLUE}>asks you to run it · stages review comments</text>
 
-    <!-- refused: agent → keys, agent → repos, stopped at the boundary -->
-    {[keys, repos].map((n) => (
-      <g>
-        <line x1={worktree.x + worktree.w} y1={mid(worktree) - (n === keys ? 10 : 0)} x2={BOUNDARY_X - 1} y2={mid(n)} stroke={RED} stroke-opacity="0.85" />
-        <line x1={BOUNDARY_X - 6} y1={mid(n) - 6} x2={BOUNDARY_X + 6} y2={mid(n) + 6} stroke={RED} stroke-width="2" />
-        <line x1={BOUNDARY_X - 6} y1={mid(n) + 6} x2={BOUNDARY_X + 6} y2={mid(n) - 6} stroke={RED} stroke-width="2" />
-        <line x1={BOUNDARY_X + 14} y1={mid(n)} x2={n.x - 2} y2={mid(n)} stroke="currentColor" stroke-opacity="0.18" stroke-dasharray="3 5" />
-        <text x={BOUNDARY_X + 22} y={mid(n) - 8} class="sb-edge" fill={RED}>not permitted</text>
+    <line x1={ouijit.x + ouijit.w / 2} y1={ouijit.y + H} x2={host.x + host.w / 2} y2={host.y} stroke="currentColor" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" marker-end="url(#sb-arrow)" />
+    <text x={ouijit.x + ouijit.w / 2 + 12} y={(ouijit.y + H + host.y) / 2 + 4} class="sb-edge">on the host</text>
+
+    <!-- tiles -->
+    {[agent, worktree, keys, repos, ouijit, host].map((t) => (
+      <g filter="url(#sb-shadow)">
+        <rect x={t.x} y={t.y} width={t.w} height={H} rx="12" fill={TILE} stroke="#fff" stroke-opacity="0.08" />
+        <rect x={t.x + 10} y={t.y + 10} width="28" height="28" rx="8" fill="#fff" fill-opacity="0.06" />
+        <svg x={t.x + 15} y={t.y + 15} width="18" height="18" viewBox="0 0 256 256" fill="currentColor" opacity="0.85" set:html={inner(t.icon)} />
+        <text x={t.x + 50} y={t.y + 29} class="sb-title">{t.label}</text>
       </g>
     ))}
 
-    <!-- allowed across the boundary: agent → ouijit -->
-    <line x1={agentCx} y1={agent.y + H} x2={agentCx} y2={mid(ouijit)} stroke={BLUE} stroke-opacity="0.8" />
-    <line x1={agentCx} y1={mid(ouijit)} x2={ouijit.x - 2} y2={mid(ouijit)} stroke={BLUE} stroke-opacity="0.8" marker-end="url(#sb-arrow-blue)" />
-    <text x={agentCx + 12} y={mid(ouijit) - 8} class="sb-edge" fill={BLUE}>ouijit ask run · pr draft add</text>
+    <!-- refused, at the boundary -->
+    {[keys, repos].map((t) => (
+      <g>
+        <circle cx={BOUNDARY_X} cy={mid(t)} r="11" fill={TILE} stroke={RED} stroke-opacity="0.9" stroke-width="1.5" />
+        <path d={`M ${BOUNDARY_X - 4} ${mid(t) - 4} l 8 8 M ${BOUNDARY_X + 4} ${mid(t) - 4} l -8 8`} stroke={RED} stroke-width="1.8" stroke-linecap="round" />
+      </g>
+    ))}
 
-    <!-- ouijit → host -->
-    <line x1={ouijit.x + ouijit.w / 2} y1={ouijit.y + H} x2={host.x + host.w / 2} y2={host.y - 2} stroke="currentColor" stroke-opacity="0.7" marker-end="url(#sb-arrow)" />
-    <text x={ouijit.x + ouijit.w / 2 + 10} y={(ouijit.y + H + host.y) / 2 + 4} class="sb-edge">runs it for you</text>
+    <!-- allowed through, at the boundary -->
+    <circle cx={BOUNDARY_X} cy={mid(ouijit)} r="11" fill={TILE} stroke={BLUE} stroke-opacity="0.9" stroke-width="1.5" />
+    <path d={`M ${BOUNDARY_X - 4.5} ${mid(ouijit)} l 3 3 l 6 -6`} fill="none" stroke={BLUE} stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
   </svg>
   <figcaption>
     The agent gets its worktree and nothing else. It can still reach Ouijit, and Ouijit runs what needs the

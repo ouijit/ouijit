@@ -1520,10 +1520,6 @@ body.marketing::after {
   overflow-wrap: anywhere;
 }
 
-.feature-section pre .refused {
-  color: var(--color-ansi-red);
-}
-
 .feature-section pre .dim {
   color: rgba(245, 245, 247, 0.4);
 }
@@ -1543,36 +1539,32 @@ body.marketing::after {
 
 .sandbox-diagram text {
   fill: currentColor;
-  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  font-family: inherit;
 }
 
 .sandbox-diagram .sb-label {
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  fill-opacity: 0.6;
+  font-size: 13px;
+  font-weight: 500;
+  fill-opacity: 0.55;
 }
 
 .sandbox-diagram .sb-label[fill] {
-  fill-opacity: 0.9;
+  fill-opacity: 0.95;
 }
 
 .sandbox-diagram .sb-title {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
-}
-
-.sandbox-diagram .sb-sub {
-  font-size: 11px;
-  fill-opacity: 0.5;
+  fill-opacity: 0.92;
 }
 
 .sandbox-diagram .sb-edge {
-  font-size: 11px;
-  fill-opacity: 0.7;
+  font-size: 12px;
+  fill-opacity: 0.6;
 }
 
 .sandbox-diagram .sb-edge[fill] {
-  fill-opacity: 1;
+  fill-opacity: 0.95;
 }
 
 .sandbox-diagram figcaption {

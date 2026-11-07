@@ -39,6 +39,10 @@ const faqs: [string, string][] = [
   ],
   ['What does it need?', 'macOS, or Linux with kernel 5.13 or newer. nono ships inside Ouijit.'],
   [
+    "What if the sandbox can't start?",
+    "The command doesn't run and the terminal says why. Ouijit never falls back to running it on the host.",
+  ],
+  [
     'Can the agent change its own sandbox?',
     "No. The profile lives outside every worktree, and .git hooks and config are read-only inside, so it can't grant itself access or plant a hook that runs on the host.",
   ],
@@ -116,20 +120,6 @@ const faqSchema = {
             <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
             <div class="relative"><SandboxMock kind="access" client:visible /></div>
           </div>
-        </div>
-      </div>
-
-      <div class="feature-row">
-        <div class="feature-copy">
-          <h3>Fails closed</h3>
-          <p>
-            If the sandbox can't start, the command doesn't run and the terminal says why. There is no fallback
-            to the host.
-          </p>
-        </div>
-        <div class="feature-visual">
-          <pre><code><span class="refused">Sandbox failed to start: Landlock is unavailable on kernel 5.10 (needs 5.13 or newer).</span>
-<span class="dim">Nothing ran.</span></code></pre>
         </div>
       </div>
 
