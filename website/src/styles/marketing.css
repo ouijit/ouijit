@@ -945,15 +945,19 @@ html.js [data-reveal].is-revealed {
   overflow-y: auto;
 }
 
-.docs-sidebar h4 {
+body.marketing .docs-sidebar h4 {
   font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
   color: #fff;
-  font-weight: 400;
-  margin-top: 16px;
-  margin-bottom: 16px;
+  font-weight: 600;
+  margin-top: 28px;
+  margin-bottom: 4px;
+  padding: 0 12px;
+}
+
+body.marketing .docs-sidebar h4:first-child {
+  margin-top: 0;
 }
 
 .docs-sidebar ul {
@@ -964,11 +968,11 @@ html.js [data-reveal].is-revealed {
   margin-bottom: 2px;
 }
 
-.docs-sidebar a {
+body.marketing .docs-sidebar a {
   display: block;
-  padding: 8px 12px;
+  padding: 5px 12px;
   border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.6);
   font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
   font-size: 0.8125rem;
   letter-spacing: -0.01em;
@@ -976,11 +980,11 @@ html.js [data-reveal].is-revealed {
   transition: all var(--transition-fast);
 }
 
-.docs-sidebar a:hover {
+body.marketing .docs-sidebar a:hover {
   color: #fff;
 }
 
-.docs-sidebar a.active {
+body.marketing .docs-sidebar a.active {
   color: var(--marketing-accent);
   background: none;
   font-weight: 600;

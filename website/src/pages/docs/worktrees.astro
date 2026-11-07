@@ -2,7 +2,7 @@
 import Docs from '../../layouts/Docs.astro';
 ---
 <Docs slug="worktrees">
-  <h1>Worktrees</h1>
+  <h1>Tasks and worktrees</h1>
   <p class="lead">
     Every task gets its own git worktree: an isolated directory on its own branch. Work on several tasks at once
     without branch switching, stashing, or agents overwriting each other.
@@ -17,6 +17,28 @@ import Docs from '../../layouts/Docs.astro';
   my-project/
     T-42/                # Worktree for task 42
     T-43/                # Worktree for task 43</code></pre>
+
+  <h2 id="board">The board</h2>
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/kanban.png"
+    alt="A project's board, with tasks in To Do, In Progress, In Review and Done"
+    loading="lazy"
+  />
+  <p>
+    Each project has a board with a column per status. Drag a card to another column to change its status.
+    Open the board from the project's row in the sidebar, or press <code>⌘T</code>.
+  </p>
+  <p>
+    Press <code>⌘N</code> (<code>Ctrl+N</code> on Linux) for a new task. It takes a name and, optionally, a
+    prompt for the agent; images pasted into the prompt are there for the agent to read. Tasks are numbered
+    (<code>T-1</code>, <code>T-2</code>), and the number names the task's branch and worktree.
+  </p>
+  <p>
+    Right-click a card, or the task in the sidebar, to start or resume it, open it in your editor, go to its
+    pull request or issue, move it to another column or the trash, branch a new task from it, or rename it.
+    Shells that don't belong to a task get a strip of their own on the board.
+  </p>
 
   <h2 id="task-lifecycle">Task lifecycle</h2>
   <p>
@@ -55,7 +77,7 @@ import Docs from '../../layouts/Docs.astro';
         <td>Runs the <code>done</code> hook.</td>
       </tr>
       <tr>
-        <td><strong>Delete</strong></td>
+        <td><strong>Trash</strong></td>
         <td>Task removed</td>
         <td>Moves the worktree to the trash, deletes the branch.</td>
       </tr>

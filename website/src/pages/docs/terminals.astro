@@ -30,7 +30,7 @@ import Docs from '../../layouts/Docs.astro';
     front and the rest peeking out behind it; click a background card to bring it forward. Cards stay in the
     order you last used them, so the one you just left is directly behind the one in front. A shell is a card
     of its own. When an agent runs in a card, its status (thinking or idle) shows on the card even when it is
-    behind others. See <a href="/docs/harnesses/">Harnesses</a>.
+    behind others. See <a href="/docs/harnesses/">Supported agents</a>.
   </p>
 
   <h2>Keyboard shortcuts</h2>
@@ -51,7 +51,7 @@ import Docs from '../../layouts/Docs.astro';
   </table>
 
   <p>
-    With nothing open, the window offers to <a href="/docs/resume/">resume your last session</a> and lists
+    With nothing open, the window offers to <a href="#resume">resume your last session</a> and lists
     recent tasks so you can pick up where you left off.
   </p>
 
@@ -62,4 +62,23 @@ import Docs from '../../layouts/Docs.astro';
     what's running by them, listing a terminal under each of its tags.
   </p>
   <p>Manage tags from the shell or an agent with <a href="/docs/cli/"><code>ouijit tag</code></a>.</p>
+
+  <h2 id="resume">Resume a session</h2>
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/resume.png"
+    alt="Resume banner listing the previous session's terminals"
+    loading="lazy"
+  />
+  <p>
+    Quitting saves your open terminals: their project, task, worktree, sandbox, order, tags, and panels, with
+    split sizes and the diff panel. On the next launch, <strong>Resume last session</strong> reopens each one in
+    its worktree with its panels; <strong>Dismiss</strong> clears it. Terminals whose project or task is gone, or
+    whose task is Done, are skipped.
+  </p>
+  <p>
+    Restored terminals come back as plain shells, so resuming never starts an agent on its own. To pick up an
+    agent's conversation, use its own resume, such as a <code>continue</code> hook running
+    <code>claude -c</code>.
+  </p>
 </Docs>
