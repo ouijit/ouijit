@@ -894,7 +894,9 @@ html.js [data-reveal].is-revealed {
 
 .footer-links {
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px 24px;
   list-style: none;
 }
 
