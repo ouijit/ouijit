@@ -2161,6 +2161,18 @@ body.marketing .feature-end-link {
   font-size: 2.25rem;
   margin-bottom: 0.5rem;
 }
+
+.about-content h1 {
+  margin-bottom: 2rem;
+}
+
+.about-content p {
+  font-size: 1.0625rem;
+}
+
+.about-content {
+  padding-bottom: 6rem;
+}
 .compare-content .lead {
   color: var(--text-secondary, #aaa);
   margin-bottom: 3rem;

@@ -27,6 +27,7 @@ Every page below is also served as plain Markdown at https://ouijit.com/docs/<sl
 - [Home](https://ouijit.com): Download links, demo, value prop.
 - [Sandbox overview](https://ouijit.com/sandbox/): Why and how to run agents with permission checks off inside the sandbox; the docs page has the full contract.
 - [Changelog](https://ouijit.com/changelog/): What changed in each release, rendered from the GitHub release notes.
+- [About](https://ouijit.com/about/): Who builds Ouijit, and the commitments on price, privacy and licence.
 - [FAQ](https://ouijit.com/faq/): Frequently asked questions about platform support, agent integrations, sandbox behavior.
 - [GitHub repo](https://github.com/ouijit/ouijit): Source code, releases, issues.
 - [Latest release](https://github.com/ouijit/ouijit/releases/latest): macOS (arm64/x64) DMG installers and Linux (x64) zipped binaries.
