@@ -131,7 +131,15 @@ function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string)
   });
 }
 
+/**
+ * Narrower than this is a terminal mid-animation, not one anyone reads. Fitting
+ * to it reflows every line, and the shell redraws over its output at that width.
+ */
+const MIN_FIT_COLS = 10;
+
 export function scrollSafeFit(terminal: XTerminal, fitAddon: FitAddon): void {
+  const proposed = fitAddon.proposeDimensions();
+  if (!proposed || proposed.cols < MIN_FIT_COLS) return;
   const buf = terminal.buffer.active;
   const atBottom = buf.viewportY >= buf.baseY;
   const savedY = buf.viewportY;
@@ -158,6 +166,7 @@ function debouncedResize(ptyId: PtyId, terminal: XTerminal, fitAddon: FitAddon):
     ptyId,
     requestAnimationFrame(() => {
       pendingResizeFrames.delete(ptyId);
+      if (terminalInstances.get(ptyId)?.covered) return;
       scrollSafeFit(terminal, fitAddon);
     }),
   );
@@ -442,6 +451,8 @@ export class OuijitTerminal {
   private lastSentCols = 0;
   private lastSentRows = 0;
   private resizeSuppressed = false;
+  /** A full-width panel is over it: it keeps its size until it shows again. */
+  covered = false;
 
   // ── Project name callback (for notifications) ──────────────────────
   private getProjectName: (() => string) | null = null;
@@ -536,6 +547,7 @@ export class OuijitTerminal {
    *  that's handled by debouncedResize (via ResizeObserver) which coalesces
    *  rapid layout changes and avoids spurious SIGWINCH to the shell. */
   fit(): void {
+    if (this.covered) return;
     scrollSafeFit(this.xterm, this.fitAddon);
   }
 
@@ -550,7 +562,7 @@ export class OuijitTerminal {
 
   /** Send a PTY resize only when dimensions have actually changed. */
   syncPtySize(): void {
-    if (!this.ptyId || this.resizeSuppressed) return;
+    if (!this.ptyId || this.resizeSuppressed || this.covered) return;
     const { cols, rows } = this.xterm;
     if (cols === this.lastSentCols && rows === this.lastSentRows) return;
     this.lastSentCols = cols;

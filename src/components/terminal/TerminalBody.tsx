@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useShallow } from 'zustand/react/shallow';
 import { XTermContainer } from './XTermContainer';
@@ -63,6 +63,12 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   useEffect(() => {
     prevSlotKey.current = slotKey;
   });
+
+  // Before the layout changes, so no resize lands while the panel covers it.
+  useLayoutEffect(() => {
+    const inst = terminalInstances.get(ptyId);
+    if (inst) inst.covered = slotOpen && !split;
+  }, [ptyId, slotOpen, split]);
 
   // Keep the panel area in sync with the current layout, and refit both
   // terminals after the layout settles.
