@@ -31,8 +31,9 @@ import Docs from '../../layouts/Docs.astro';
     <li><strong>Any local or remote branch</strong>, searchable by name. Picking a remote ref fetches it first, and a freshness button next to the picker shows the fetch age and refetches on click.</li>
   </ul>
   <p>
-    A branch comparison shows the task's own changes, not what has landed on the target since. The chosen base
-    is remembered per worktree.
+    A branch comparison shows the task's own changes, not what has landed on the target since. Until you pick
+    one, a task merging into the project's <a href="/docs/worktrees/#branch-from">Branch from</a> branch is
+    compared against that branch, remote or not. The chosen base is remembered per worktree.
   </p>
 
   <h2>Read it through a lens</h2>

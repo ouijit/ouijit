@@ -76,6 +76,11 @@ import Docs from '../../layouts/Docs.astro';
     its origin beside it, until you press <strong>Send</strong>.
   </p>
   <p>
+    Search filters the list as you type and also asks GitHub and Linear, so an issue or pull request the list
+    isn't showing, open or closed, appears under <strong>More results</strong>. Type a number to look that one
+    up. Long lists stop at fifty with <strong>Show more</strong> at the end.
+  </p>
+  <p>
     A workspace running Linear's own GitHub sync has each piece of work as a Linear issue <em>and</em> a
     mirrored GitHub issue, so it appears twice — once under Linear's groups, once under the repository's.
   </p>
@@ -126,6 +131,11 @@ import Docs from '../../layouts/Docs.astro';
     <li><strong>Check out as task</strong> creates a task with a worktree at the pull request's head, with the PR body as its prompt and the PR's base branch as its merge target.</li>
     <li><strong>Create pull request</strong> on a task card pushes the branch and runs <code>gh pr create</code>, so your repository's PR template applies.</li>
     <li>A task created from an issue links back, and its pull request closes the issue.</li>
+    <li>
+      An existing task links to an issue with <code>ouijit issue link 299 --task 42</code>, or
+      <code>ENG-231</code> for a Linear issue. The issue shows on the card, and the task menu opens or unlinks
+      it. An issue links to one task at a time.
+    </li>
     <li>
       A task created from a Linear issue starts on the branch name Linear suggested, and the pull request opened
       from it carries the issue identifier in its body. Linear reads either one, so the issue moves to In Review
