@@ -111,7 +111,9 @@ img {
   list-style: none;
 }
 
-.nav-links a {
+/* Specific enough to beat `body.marketing a`, which paints links white. */
+body.marketing .nav-links a,
+body.marketing .nav-mobile a {
   color: var(--color-text-secondary);
   font-size: 0.875rem;
   font-weight: 500;
@@ -119,9 +121,9 @@ img {
   transition: color var(--transition-fast);
 }
 
-.nav-links a:hover,
-.nav-links a[aria-current],
-.nav-mobile a[aria-current] {
+body.marketing .nav-links a:hover,
+body.marketing .nav-links a[aria-current],
+body.marketing .nav-mobile a[aria-current] {
   color: #f5f5f7;
 }
 
