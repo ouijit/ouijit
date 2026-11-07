@@ -2173,6 +2173,11 @@ body.marketing .feature-end-link {
 .about-content {
   padding-bottom: 6rem;
 }
+
+.about-content .about-sign {
+  margin-top: 2rem;
+  color: #f5f5f7;
+}
 .compare-content .lead {
   color: var(--text-secondary, #aaa);
   margin-bottom: 3rem;
