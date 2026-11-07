@@ -2,39 +2,21 @@
 import AgentPage from '../../components/home/AgentPage.astro';
 ---
 <AgentPage
-  name="Claude Code"
-  logo="/assets/agents/claude-code.svg"
-  headline="Claude Code, one per task."
-  sub="Ouijit runs Claude Code in a worktree per task, shows when each one is thinking, and teaches it the ouijit command so it can drive the board."
-  description="Run Claude Code in parallel with Ouijit: a git worktree and terminal per task, live status, session resume, and the ouijit CLI in its system prompt."
+  name={"Claude Code"}
+  logo={"/assets/agents/claude-code.svg"}
+  headline={"Run Claude Code in parallel."}
+  sub={"A worktree and terminal per task, status from Claude Code's own hooks, and the ouijit command in its system prompt. Nothing to configure."}
+  description={"Run Claude Code in parallel with Ouijit: a git worktree and terminal per task, live status from its hooks, session resume, and the ouijit CLI in its system prompt."}
   points={[
-    [
-      'Knows Ouijit',
-      'The ouijit CLI reference is appended to the system prompt at launch, so Claude can create tasks, move cards, open its plan beside itself and stage review comments without being told how.',
-    ],
-    [
-      'Live status',
-      "Claude Code's own hooks report when a turn starts and ends, through a settings overlay Ouijit passes at launch. The card shows thinking or ready, and a sound or notification fires when it finishes.",
-    ],
-    [
-      'Sandboxed',
-      "Run it with its permission checks off inside Ouijit's sandbox and the kernel holds it to the task's worktree. The dev server beside it stays on the host.",
-    ],
+    ["Knows Ouijit", "The ouijit CLI reference is appended to the system prompt at launch, so Claude can create tasks, move cards, open its plan beside itself and stage review comments without being told how."],
+    ["Live status", "Claude Code's own hooks report when a turn starts and ends, through a settings overlay Ouijit passes at launch that merges with your settings. The card shows thinking or ready, and a sound or notification fires when it finishes."],
+    ["Sandboxed", "Run it with its permission checks off inside Ouijit's sandbox and the kernel holds it to the task's worktree. The dev server beside it stays on the host."],
   ]}
-  startHook={'claude "$OUIJIT_TASK_DESCRIPTION"'}
-  sandboxed={'claude --dangerously-skip-permissions "$OUIJIT_TASK_DESCRIPTION"'}
+  hooks={"<span class=\"dim\"># Start · a task moves to In Progress</span>\nclaude \"$OUIJIT_TASK_DESCRIPTION\"\n\n<span class=\"dim\"># Continue · a task already in progress is reopened</span>\nclaude -c"}
+  sandboxed={"claude --dangerously-skip-permissions \"$OUIJIT_TASK_DESCRIPTION\""}
   faqs={[
-    [
-      'Do I need to configure anything?',
-      'No. Run claude in any Ouijit terminal. The status hooks and the CLI reference are injected per launch and merge with your own settings. Outside Ouijit’s terminals, Claude Code is untouched.',
-    ],
-    [
-      'How do I pick a session back up?',
-      'Put claude -c in the continue hook. Reopening a task that is already in progress runs it in the same worktree.',
-    ],
-    [
-      "Does this replace Claude Code's own sandbox?",
-      "It covers more. Claude Code's sandbox wraps shell commands; Ouijit's wraps the whole terminal, including file tools, MCP servers and hooks. The two can run together.",
-    ],
+    ["Can it sign in inside the sandbox?", "Yes. The sandbox profile includes nono's Claude Code pack, so its config directory, the OS keychain and claude.ai are reachable. Everything else outside the worktree is not."],
+    ["Does this replace Claude Code's own sandbox?", "It covers more. Claude Code's sandbox wraps shell commands; Ouijit's wraps the whole terminal, including file tools, MCP servers and hooks. The two can run together."],
+    ["Does it change Claude Code anywhere else?", "No. The claude on PATH in an Ouijit terminal is a wrapper around the real one, and only there."],
   ]}
 />

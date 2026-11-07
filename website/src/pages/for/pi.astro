@@ -2,30 +2,19 @@
 import AgentPage from '../../components/home/AgentPage.astro';
 ---
 <AgentPage
-  name="Pi"
-  logo="/assets/agents/pi.svg"
-  headline="Pi, one per task."
-  sub="Ouijit runs Pi in a worktree per task, shows when each one is thinking, and teaches it the ouijit command so it can drive the board."
-  description="Run Pi in parallel with Ouijit: a git worktree and terminal per task, live status through a Pi extension, and the ouijit CLI in its system prompt."
+  name={"Pi"}
+  logo={"/assets/agents/pi.svg"}
+  headline={"Run Pi in parallel."}
+  sub={"A worktree and terminal per task, status from a Pi extension Ouijit installs, and the ouijit command in its system prompt. Nothing to configure."}
+  description={"Run Pi in parallel with Ouijit: a git worktree and terminal per task, live status through a Pi extension, and the ouijit CLI in its system prompt."}
   points={[
-    [
-      'Knows Ouijit',
-      'The ouijit CLI reference is appended to the system prompt at launch, so Pi can create tasks, move cards and stage review comments without being told how.',
-    ],
-    [
-      'Live status',
-      'Pi exposes its lifecycle to extensions, so Ouijit installs a small one and loads it at launch. It reports when a turn starts and ends, and the card shows thinking or ready.',
-    ],
-    [
-      'Sandboxed',
-      "Run it with its permission prompts off inside Ouijit's sandbox and the kernel holds it to the task's worktree. The base profile lets Pi sign in and run.",
-    ],
+    ["Knows Ouijit", "The ouijit CLI reference is appended to the system prompt at launch, so Pi can create tasks, move cards and stage review comments without being told how."],
+    ["Live status", "Pi exposes its lifecycle to extensions, so Ouijit installs a small one and loads it at launch. It reports when a turn starts and ends, and the card shows thinking or ready."],
+    ["Sandboxed", "Run it with its permission prompts off inside Ouijit's sandbox and the kernel holds it to the task's worktree. The dev server beside it stays on the host."],
   ]}
-  startHook="pi"
+  hooks={"<span class=\"dim\"># Start · a task moves to In Progress</span>\npi"}
   faqs={[
-    [
-      'Do I need to configure anything?',
-      'No. Run pi in any Ouijit terminal. The extension and the CLI reference are loaded per launch and live in your config directory, where Ouijit recreates them if removed. Outside Ouijit’s terminals, Pi is untouched.',
-    ],
+    ["Can it sign in inside the sandbox?", "Yes. The sandbox profile includes nono's Pi pack, so its config directory and the OS keychain are reachable. Everything else outside the worktree is not."],
+    ["Does it change Pi anywhere else?", "No. The pi on PATH in an Ouijit terminal is a wrapper around the real one, and only there. Pi's own subcommands, such as install and config, pass straight through."],
   ]}
 />

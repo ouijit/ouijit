@@ -12,12 +12,13 @@ interface Props {
   sub: string;
   description: string;
   points: [string, string][];
-  startHook: string;
+  /** The hook lines, with a comment per hook. */
+  hooks: string;
   sandboxed?: string;
   faqs: [string, string][];
 }
 
-const { name, logo, headline, sub, description, points, startHook, sandboxed, faqs } = Astro.props;
+const { name, logo, headline, sub, description, points, hooks, sandboxed, faqs } = Astro.props;
 
 const faqSchema = {
   '@context': 'https://schema.org',
@@ -48,16 +49,13 @@ const faqSchema = {
   </section>
 
   <section class="feature-section">
-    <h2>Start hook</h2>
+    <h2>Hooks</h2>
     <div class="step">
-      <p>
-        Runs in the new worktree when a task starts{startHook.includes('OUIJIT_TASK_DESCRIPTION') ? ", with the task's description as the prompt" : ''}.
-      </p>
-      <pre class="glass-bevel"><code>{startHook}</code></pre>
+      <pre class="glass-bevel"><code set:html={hooks} /></pre>
     </div>
     {sandboxed && (
       <div class="step" style="margin-top: 40px">
-        <p>With its permission prompts off, inside the <a href="/sandbox/">sandbox</a>.</p>
+        <p>With its permission checks off, inside the <a href="/sandbox/">sandbox</a>.</p>
         <pre class="glass-bevel"><code>{sandboxed}</code></pre>
       </div>
     )}
