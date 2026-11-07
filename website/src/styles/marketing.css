@@ -1479,6 +1479,10 @@ body.marketing::after {
   padding: 0 var(--content-padding);
 }
 
+.feature-hero-visual .plan-desk {
+  padding: 0;
+}
+
 .feature-section {
   max-width: 1100px;
   margin: 0 auto;
@@ -1527,14 +1531,33 @@ body.marketing::after {
 /* The hero diagram: SVG text takes the page's fonts; currentColor is the
    page foreground, so strokes and labels follow the theme. */
 .sandbox-diagram {
-  margin: 0;
+  position: relative;
+  aspect-ratio: 1000 / 420;
   color: #f5f5f7;
 }
 
 .sandbox-diagram svg {
-  display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: auto;
+  height: 100%;
+}
+
+/* The sandbox is a foil panel on the prism desk; the svg draws over it. */
+.sb-foil {
+  position: absolute;
+  border-radius: 16px;
+  overflow: clip;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.sb-foil::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  pointer-events: none;
 }
 
 .sandbox-diagram text {
@@ -1567,7 +1590,12 @@ body.marketing::after {
   fill-opacity: 0.95;
 }
 
-.sandbox-diagram figcaption {
+.sandbox-diagram .sb-ink {
+  fill: #0f0f11;
+  fill-opacity: 0.7;
+}
+
+.feature-hero-visual figcaption {
   margin: 20px 4px 0;
   color: #86868b;
   font-size: 0.9375rem;
