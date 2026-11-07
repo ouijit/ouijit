@@ -1,0 +1,91 @@
+---
+import Site from '../layouts/Site.astro';
+import DownloadButtons from '../components/home/DownloadButtons.astro';
+
+const rows: [string, string][] = [
+  ['Project', 'Project'],
+  ['Issue', 'Task. A card on the board, with a name and a prompt for the agent.'],
+  ['Sub-issue', 'Branch from this task, in the task menu. The new task branches off its parent.'],
+  ['Workspace', "A started task: its worktree and the terminals open in it. One repository per task."],
+  ['Session', 'A terminal on the task. Open several to run several agents on one task.'],
+  ['Setup script', 'Start hook. It runs in the new worktree when the task starts, and usually launches your agent.'],
+  ['Dev server script', 'Scripts. Each runs in a runner panel beside the terminal.'],
+  ['Cleanup script', 'Done hook'],
+  ['Chat interface and slash commands', "The agent's own CLI, in a terminal"],
+  ['Preview browser', 'Web preview panel'],
+  ['Changes panel and comments', 'Diff review, with notes the agent reads'],
+  ['Target branch', 'Merge target'],
+  ['Create PR, merge', 'Pull requests, from the project menu'],
+  ['Rebase, push', 'From the terminal, or a done hook that pushes'],
+  ['Tags (@snippets)', "None. Ouijit's tags label terminals."],
+  ['MCP server', 'The ouijit CLI, which every agent in Ouijit already has'],
+  ['Remote access, Cloud', 'None. Ouijit runs on your machine.'],
+];
+---
+<Site
+  title="Vibe Kanban alternative · Ouijit"
+  description="Moving from Vibe Kanban to Ouijit: how issues, workspaces, sessions and repository scripts map onto tasks, worktrees, terminals and hooks.">
+  <main class="compare-content">
+    <h1>Coming from Vibe Kanban</h1>
+    <p class="lead">
+      If you used Vibe Kanban, you already know how Ouijit works. Each task gets a git worktree and an agent, and
+      you run them from a board. Here's how the pieces line up.
+    </p>
+    <img
+      class="compare-screenshot"
+      src="/assets/screenshots/kanban.png"
+      alt="A project's board with tasks in To Do, In Progress, In Review and Done, and their terminals in the sidebar"
+      loading="lazy"
+    />
+
+    <h2>Why Ouijit</h2>
+    <p>
+      The agent runs as its own CLI in a terminal, in the task's worktree, so Claude Code, Codex, Pi and OpenCode
+      work exactly as they do anywhere else.
+    </p>
+    <p>
+      Every agent gets the <a href="/docs/cli/"><code>ouijit</code> command</a>. Ask it to split a feature into
+      tasks and it starts them, each with its own agent. It can read the other agents' terminals, open its plan
+      beside itself, link you to the line it changed, and stage review comments for you to send.
+    </p>
+    <p>
+      A task can run in a <a href="/docs/sandbox/">sandbox</a>, so an agent with permission checks off is held to
+      its worktree. Ouijit is free, open source, and runs on macOS and Linux.
+    </p>
+
+
+    <h2>What maps to what</h2>
+    <table>
+      <thead>
+        <tr><th>Vibe Kanban</th><th>Ouijit</th></tr>
+      </thead>
+      <tbody>
+        {rows.map(([a, b]) => (
+          <tr><td>{a}</td><td>{b}</td></tr>
+        ))}
+      </tbody>
+    </table>
+
+    <h2>What you give up</h2>
+    <ul>
+      <li>Seven of Vibe Kanban's ten agents. Gemini CLI, Amp, Cursor, Copilot, Droid, Qwen Code and Claude Code Router run in an Ouijit terminal like any CLI, but without live status or the <code>ouijit</code> command.</li>
+      <li>Workspaces spanning several repositories. A task is one repository.</li>
+      <li>Remote access and Cloud. Ouijit runs on your machine.</li>
+      <li>@snippet tags in prompts. Ouijit's tags label terminals.</li>
+    </ul>
+
+    <h2>Move a project over</h2>
+    <ol>
+      <li><a href="/docs/">Install Ouijit</a> and open the repository as a project.</li>
+      <li>Under <strong>Project Settings → Hooks</strong>, put your setup script and your agent command in the start hook, for example <code>npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"</code>.</li>
+      <li>Add your dev server script as a script.</li>
+      <li>Put your cleanup script in the done hook.</li>
+      <li>Recreate open issues as tasks with <code>⌘N</code>.</li>
+    </ol>
+    <h2>Get it</h2>
+    <DownloadButtons />
+    <p class="compare-footer">
+      The <a href="/docs/">documentation</a> covers the rest.
+    </p>
+  </main>
+</Site>

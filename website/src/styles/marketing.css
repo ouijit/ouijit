@@ -1888,3 +1888,107 @@ body.marketing::after {
     opacity: 1;
   }
 }
+
+/* Pages that map another tool onto Ouijit. */
+.compare-content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 6rem;
+}
+.compare-content h1 {
+  font-size: 2.25rem;
+  margin-bottom: 0.5rem;
+}
+.compare-content .lead {
+  color: var(--text-secondary, #aaa);
+  margin-bottom: 3rem;
+  line-height: 1.55;
+}
+.compare-content .compare-screenshot {
+  width: 100%;
+  border-radius: 12px;
+  margin: 0 0 8px;
+}
+
+.compare-content .download-buttons {
+  justify-content: flex-start;
+  margin: 0;
+}
+
+.compare-content h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 2.5rem 0 1rem;
+}
+.compare-content p,
+.compare-content li {
+  color: var(--text-secondary, #c0c0c0);
+  line-height: 1.55;
+}
+.compare-content p {
+  margin: 0 0 1rem;
+}
+.compare-content ol,
+.compare-content ul {
+  padding-left: 1.25rem;
+  margin: 0 0 1rem;
+}
+
+.compare-content ol {
+  list-style: decimal;
+}
+
+.compare-content ul {
+  list-style: disc;
+}
+.compare-content li {
+  margin-bottom: 0.5rem;
+}
+.compare-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+.compare-content th,
+.compare-content td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  line-height: 1.5;
+}
+.compare-content th {
+  color: #fff;
+  font-weight: 600;
+}
+.compare-content td {
+  color: var(--text-secondary, #c0c0c0);
+}
+.compare-content td:first-child {
+  color: #fff;
+  width: 38%;
+}
+.compare-content code {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.875em;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+}
+.compare-content a {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-underline-offset: 2px;
+}
+.compare-footer {
+  margin-top: 3rem;
+  color: var(--text-tertiary, #888);
+  font-size: 0.9rem;
+}
+@media (max-width: 768px) {
+  .compare-content table {
+    display: block;
+    overflow-x: auto;
+  }
+}
