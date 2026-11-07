@@ -1,0 +1,35 @@
+---
+import AgentPage from '../../components/home/AgentPage.astro';
+---
+<AgentPage
+  name="Pi"
+  logo="/assets/agents/pi.svg"
+  headline="Pi, one per task."
+  sub="Ouijit runs Pi in a worktree per task, shows when each one is thinking, and teaches it the ouijit command so it can drive the board."
+  description="Run Pi in parallel with Ouijit: a git worktree and terminal per task, live status through a Pi extension, and the ouijit CLI in its system prompt."
+  points={[
+    [
+      'Knows Ouijit',
+      'The ouijit CLI reference is appended to the system prompt at launch, so Pi can create tasks, move cards and stage review comments without being told how.',
+    ],
+    [
+      'Live status',
+      'Pi exposes its lifecycle to extensions, so Ouijit installs a small one and loads it at launch. It reports when a turn starts and ends, and the card shows thinking or ready.',
+    ],
+    [
+      'Only in Ouijit',
+      "The pi on PATH in an Ouijit terminal is a thin wrapper around the real one. Pi's own subcommands, such as install and config, pass straight through, and everywhere else Pi is untouched.",
+    ],
+  ]}
+  startHook="pi"
+  faqs={[
+    [
+      'Do I need to configure anything?',
+      'No. Run pi in any Ouijit terminal. The extension and the CLI reference are loaded per launch and live in your config directory, where Ouijit recreates them if removed.',
+    ],
+    [
+      'Can Pi run with its permission prompts off?',
+      "Yes, inside the sandbox. The project's base profile lets Pi sign in and run, and the kernel holds it to the task's worktree.",
+    ],
+  ]}
+/>

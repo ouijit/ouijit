@@ -1477,6 +1477,13 @@ body.marketing::after {
   color: #86868b;
 }
 
+.agent-hero .agent-logo {
+  display: block;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 28px;
+}
+
 .feature-hero-visual {
   max-width: 1100px;
   margin: 56px auto 0;

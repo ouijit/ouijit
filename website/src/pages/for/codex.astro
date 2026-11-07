@@ -1,0 +1,35 @@
+---
+import AgentPage from '../../components/home/AgentPage.astro';
+---
+<AgentPage
+  name="Codex"
+  logo="/assets/agents/codex.svg"
+  headline="Codex, one per task."
+  sub="Ouijit runs Codex in a worktree per task, shows when each one is thinking, and teaches it the ouijit command so it can drive the board."
+  description="Run OpenAI Codex CLI in parallel with Ouijit: a git worktree and terminal per task, live status, and the ouijit CLI in its developer instructions."
+  points={[
+    [
+      'Knows Ouijit',
+      'The ouijit CLI reference is passed as developer instructions through a config override at launch, so Codex can create tasks, move cards and stage review comments without being told how.',
+    ],
+    [
+      'Live status',
+      "Codex's lifecycle hooks and its notify setting report when a turn starts and ends, passed as config overrides and pre-trusted so there is no hooks prompt. The card shows thinking or ready.",
+    ],
+    [
+      'Only in Ouijit',
+      'The codex on PATH in an Ouijit terminal is a thin wrapper around the real one. Everywhere else, Codex is untouched.',
+    ],
+  ]}
+  startHook={'codex "$OUIJIT_TASK_DESCRIPTION"'}
+  faqs={[
+    [
+      'Do I need to configure anything?',
+      'No. Run codex in any Ouijit terminal. The status hooks and the CLI reference are injected per launch as config overrides.',
+    ],
+    [
+      'Codex already has a sandbox. Why use Ouijit’s?',
+      "Codex's covers the commands Codex runs. Ouijit's wraps the whole terminal, so anything Codex starts is inside it too, and the same boundary applies to every other agent in the project.",
+    ],
+  ]}
+/>

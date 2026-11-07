@@ -1,0 +1,35 @@
+---
+import AgentPage from '../../components/home/AgentPage.astro';
+---
+<AgentPage
+  name="OpenCode"
+  logo="/assets/agents/opencode.svg"
+  headline="OpenCode, one per task."
+  sub="Ouijit runs OpenCode in a worktree per task, shows when each one is thinking, and teaches it the ouijit command so it can drive the board."
+  description="Run OpenCode in parallel with Ouijit: a git worktree and terminal per task, a private server per terminal, live status, and the ouijit CLI in its session context."
+  points={[
+    [
+      'Knows Ouijit',
+      'An Ouijit plugin adds the CLI reference to each session, through the session context on OpenCode 2 and config instructions on OpenCode 1, so OpenCode can create tasks, move cards and stage review comments without being told how.',
+    ],
+    [
+      'Live status',
+      "The same plugin listens to OpenCode's session events and reports when a turn starts and ends. The card shows thinking or ready.",
+    ],
+    [
+      'A server per terminal',
+      "OpenCode 2 normally shares one background server across every terminal. In Ouijit each terminal gets its own, so a session runs in that terminal's sandbox and ends when the terminal closes. opencode -c resumes the newest session of this worktree, not of the whole repository.",
+    ],
+  ]}
+  startHook="opencode"
+  faqs={[
+    [
+      'Do I need to configure anything?',
+      'No. Run opencode in any Ouijit terminal. The plugin is pointed at the CLI reference per launch, and utility subcommands such as auth and models pass straight through.',
+    ],
+    [
+      'Which versions?',
+      'OpenCode 1 and 2. Status and the CLI reference work on both; the private server per terminal applies to OpenCode 2.',
+    ],
+  ]}
+/>
