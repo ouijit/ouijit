@@ -7,27 +7,27 @@ import { SandboxMock } from '../components/demo/SandboxMocks.tsx';
 const features: { title: string; body: string; mock: 'grants' | 'where' | 'agent' | 'fails' | 'custom' }[] = [
   {
     title: 'Bounded to the worktree',
-    body: "The agent reads and writes the task's worktree and commits to it. Git hooks and config stay read-only. Your home directory, keys and other repositories are blocked. Network access is up to the project's profile.",
+    body: "The agent can read, write and commit inside the task's worktree. Git hooks and config are read-only. Home, keys and other repositories are blocked. The network is yours to allow or not, per project.",
     mock: 'grants',
   },
   {
     title: 'Choose what runs where',
-    body: 'Set a default per project, then override it per hook, per script or per run. Sandbox the agent and keep the dev server and the push on the host, where the credentials are.',
+    body: 'A default per project, overridable per hook, script or run. Sandbox the agent. Keep the dev server and the push on the host, where the credentials are.',
     mock: 'where',
   },
   {
     title: 'The agent still drives Ouijit',
-    body: 'A sandboxed agent keeps the ouijit command, on a token scoped to its project. It reads diff notes, stages review comments for you to send, and asks you to run what it cannot. Widen its access per project.',
+    body: "The ouijit command works inside, on a token scoped to the project. The agent reads your diff notes, stages review comments for you to send, and asks you to run what it can't. How much more it may do is a project setting.",
     mock: 'agent',
   },
   {
     title: 'Fails closed',
-    body: 'If the sandbox cannot start, the command does not run and the terminal says why. Ouijit never falls back to the host.',
+    body: "If the sandbox can't start, the command doesn't run and the terminal says why. There is no fallback to the host.",
     mock: 'fails',
   },
   {
     title: 'Bring your own launcher',
-    body: 'Teams with their own sandboxing set a Custom launcher that owns the boundary. Ouijit passes the worktree, the git directories and the ports as hints and adds nothing of its own.',
+    body: 'A Custom launcher runs every sandboxed command through a script your team maintains. The script owns the boundary. Ouijit passes it the worktree, git directories and ports as hints.',
     mock: 'custom',
   },
 ];
@@ -35,39 +35,39 @@ const features: { title: string; body: string; mock: 'grants' | 'where' | 'agent
 const points: [string, string][] = [
   [
     'Kernel-enforced',
-    'Seatbelt on macOS and Landlock on Linux, through nono. The limits are an operating-system policy on the process, not a prompt and not a classifier.',
+    'Seatbelt on macOS, Landlock on Linux, via nono. The limits are an OS policy on the process, not a prompt or a classifier.',
   ],
   [
     'In place',
-    'The agent runs in the real worktree as a normal process, with your tools and its own sign-ins. No virtual machine, no file sync, no second environment to maintain.',
+    'The agent runs in the real worktree as a normal process, with your tools and its own sign-ins. No VM, no file sync, no second environment.',
   ],
   [
     'Policy outside the repository',
-    "Each project's profile lives in your config directory, where the agent cannot edit it. Open it from settings to block the network, open ports or grant folders.",
+    "Each project's profile lives in your config directory, out of the agent's reach. Edit it to block the network, open ports or grant folders.",
   ],
 ];
 
 const faqs: [string, string][] = [
   [
     "Does this replace Claude Code's own sandbox?",
-    "It holds more. Claude Code's sandbox covers the shell commands it runs; its file tools, MCP servers and hooks run outside it. Ouijit's sandbox holds the whole terminal, so everything the agent starts is inside. You can run both.",
+    "It covers more. Claude Code's sandbox wraps the shell commands it runs; its file tools, MCP servers and hooks run outside it. Ouijit's wraps the whole terminal, so everything the agent starts is inside. The two can run together.",
   ],
   [
     'Which agents does it work with?',
-    "Any command. Claude Code, Codex, Pi and OpenCode sign in and run under Ouijit's base profile with nothing to configure. Anything else is a matter of granting what it needs in the project's profile.",
+    "Any command. Claude Code, Codex, Pi and OpenCode sign in and run with nothing to configure. Anything else needs its paths granted in the project's profile.",
   ],
   [
     'Can the agent reach the network?',
-    "Yes by default. Block it, or allow specific ports, in the project's profile. Ouijit keeps its own status port reachable so the card still shows what the agent is doing.",
+    "By default, yes. Block it or allow specific ports in the project's profile. Ouijit's own status port stays reachable, so the card still shows what the agent is doing.",
   ],
   [
     'Does it slow anything down?',
-    'No. The sandbox is a kernel access policy on a normal process in the real worktree. There is nothing to boot and nothing to sync, so a sandboxed terminal opens as fast as any other.',
+    'No. There is nothing to boot and nothing to sync. A sandboxed terminal opens as fast as any other.',
   ],
-  ['What does it need?', 'macOS, or Linux with kernel 5.13 or newer. nono is bundled with Ouijit; there is nothing to install.'],
+  ['What does it need?', 'macOS, or Linux with kernel 5.13 or newer. nono ships inside Ouijit.'],
   [
     'Can the agent change its own sandbox?',
-    'No. The profile lives outside every worktree, and .git hooks and config are read-only inside the sandbox, so it cannot grant itself access or plant a hook that runs on the host.',
+    "No. The profile lives outside every worktree, and .git hooks and config are read-only inside, so it can't grant itself access or plant a hook that runs on the host.",
   ],
 ];
 
@@ -89,8 +89,8 @@ const faqSchema = {
   <section class="hero">
     <h1>Run agents with their permission checks off.</h1>
     <p class="hero-sub">
-      Ouijit's sandbox holds an agent to its task's worktree, enforced by the kernel. The rest of your machine
-      is out of reach.
+      Ouijit's sandbox holds the agent to its task's worktree. The kernel enforces it, and the rest of your
+      machine is out of reach.
     </p>
     <DownloadButtons />
     <p class="hero-fine-print">Free and open source. No account, no sign-in, no telemetry.</p>
@@ -108,8 +108,8 @@ const faqSchema = {
     <div class="steps">
       <div class="step">
         <p>
-          Set the project's default to Sandbox under <strong>Project Settings → Sandbox</strong>, or set it on the
-          start hook alone. The hook that launches the agent can then skip the prompts.
+          Set the project's default to Sandbox in <strong>Project Settings</strong>, or set it on the start hook
+          alone. Then let the hook skip the prompts.
         </p>
         <pre><code>claude --dangerously-skip-permissions "$OUIJIT_TASK_DESCRIPTION"</code></pre>
       </div>
