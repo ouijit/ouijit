@@ -17,19 +17,15 @@ import AgentPage from '../../components/home/AgentPage.astro';
       'Pi exposes its lifecycle to extensions, so Ouijit installs a small one and loads it at launch. It reports when a turn starts and ends, and the card shows thinking or ready.',
     ],
     [
-      'Only in Ouijit',
-      "The pi on PATH in an Ouijit terminal is a thin wrapper around the real one. Pi's own subcommands, such as install and config, pass straight through, and everywhere else Pi is untouched.",
+      'Sandboxed',
+      "Run it with its permission prompts off inside Ouijit's sandbox and the kernel holds it to the task's worktree. The base profile lets Pi sign in and run.",
     ],
   ]}
   startHook="pi"
   faqs={[
     [
       'Do I need to configure anything?',
-      'No. Run pi in any Ouijit terminal. The extension and the CLI reference are loaded per launch and live in your config directory, where Ouijit recreates them if removed.',
-    ],
-    [
-      'Can Pi run with its permission prompts off?',
-      "Yes, inside the sandbox. The project's base profile lets Pi sign in and run, and the kernel holds it to the task's worktree.",
+      'No. Run pi in any Ouijit terminal. The extension and the CLI reference are loaded per launch and live in your config directory, where Ouijit recreates them if removed. Outside Ouijit’s terminals, Pi is untouched.',
     ],
   ]}
 />

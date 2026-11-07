@@ -17,8 +17,8 @@ import AgentPage from '../../components/home/AgentPage.astro';
       "Claude Code's own hooks report when a turn starts and ends, through a settings overlay Ouijit passes at launch. The card shows thinking or ready, and a sound or notification fires when it finishes.",
     ],
     [
-      'Only in Ouijit',
-      'The claude on PATH in an Ouijit terminal is a thin wrapper around the real one. Everywhere else, Claude Code is untouched.',
+      'Sandboxed',
+      "Run it with its permission checks off inside Ouijit's sandbox and the kernel holds it to the task's worktree. The dev server beside it stays on the host.",
     ],
   ]}
   startHook={'claude "$OUIJIT_TASK_DESCRIPTION"'}
@@ -26,7 +26,7 @@ import AgentPage from '../../components/home/AgentPage.astro';
   faqs={[
     [
       'Do I need to configure anything?',
-      'No. Run claude in any Ouijit terminal. The status hooks and the CLI reference are injected per launch and merge with your own settings.',
+      'No. Run claude in any Ouijit terminal. The status hooks and the CLI reference are injected per launch and merge with your own settings. Outside Ouijit’s terminals, Claude Code is untouched.',
     ],
     [
       'How do I pick a session back up?',
