@@ -4,109 +4,115 @@ import Docs from '../../layouts/Docs.astro';
 <Docs slug="getting-started">
   <h1>Getting started</h1>
   <p class="lead">
-    Ouijit is a task and terminal manager for running coding agents in parallel. Each task gets its own git
-    worktree and terminal, lifecycle hooks launch your agent with the right context, and a session-aware CLI lets
-    agents drive the board back. From download to an agent working on your first task takes about a minute.
-  </p>
-
-  <p>
-    Reading this from inside an Ouijit terminal? You're an agent with <code>ouijit</code> on
-    <code>PATH</code> and its reference in your system prompt. The <a href="/docs/agents/">Agents page</a> is
-    your contract, and every page here is plain Markdown at <code>/docs/&lt;slug&gt;.md</code>.
+    Ouijit runs your coding agents side by side. Give each one a task, and it works in its own copy of the repo
+    while you watch, review and merge.
   </p>
 
   <h2>Requirements</h2>
   <ul>
-    <li><strong>macOS</strong> 13+ (Apple Silicon or Intel) or <strong>Linux</strong> x64</li>
-    <li><strong>Git</strong> 2.20+ on <code>PATH</code></li>
-    <li>An agent CLI you already use: <code>claude</code>, <code>codex</code>, <code>pi</code>, or <code>opencode</code></li>
+    <li><strong>macOS</strong> 13 or later (Apple Silicon or Intel), or <strong>Linux</strong> x64</li>
+    <li><strong>Git</strong> 2.20 or later</li>
+    <li>An agent CLI: <code>claude</code>, <code>codex</code>, <code>pi</code> or <code>opencode</code></li>
   </ul>
-  <p>The downloads are self-contained. Nothing else is required to run the app.</p>
 
-  <h2>Download and install</h2>
-  <ul>
-    <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.dmg">macOS (Apple Silicon)</a></li>
-    <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.dmg">macOS (Intel)</a></li>
-    <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip">Linux (x64)</a></li>
-  </ul>
-  <p>
-    On macOS, open the DMG and drag <strong>Ouijit.app</strong> to Applications. On Linux, unzip the archive and
-    put the binary somewhere on your <code>PATH</code>.
-  </p>
-
-  <h2>Your first agent task</h2>
-  <ol>
-    <li>
-      <strong>Add a project.</strong> Click the <strong>+</strong> button in the sidebar and open a folder,
-      create one, or clone from GitHub. If the folder isn't a git repository yet, Ouijit offers to run
-      <code>git init</code> in place.
-    </li>
-    <li>
-      <strong>Describe the task.</strong> Press <code>⌘N</code> (<code>Ctrl+N</code> on Linux), give the task a
-      name, and write the prompt you'd give your agent. Paste in screenshots if you have them.
-    </li>
-    <li>
-      <strong>Drag the card to In Progress.</strong> Ouijit creates a branch and an isolated
-      <a href="/docs/worktrees/">worktree</a>, opens a terminal in it, and asks what to run. Enter:
-      <pre class="glass-bevel"><code>claude "$OUIJIT_TASK_DESCRIPTION"</code></pre>
-      <strong>Save</strong> remembers it as the project's <a href="/docs/hooks/">start hook</a>, so from now on
-      every card you drag starts an agent on its own copy of the repo.
-    </li>
-    <li>
-      <strong>Watch it work.</strong> The card shows whether the agent is thinking or waiting on you, and Ouijit
-      chimes when a turn ends. Press <code>⌘D</code> to <a href="/docs/diff/">review the diff</a>, leave notes on
-      changed lines, and drag the card to In Review when it's ready.
-    </li>
-  </ol>
-  <p>
-    Repeat from step two, in parallel: each task runs in its own worktree, so agents never trip over each other.
-  </p>
+  <h2>Install</h2>
+  <div class="docs-tabs">
+    <div class="docs-tablist" role="tablist" aria-label="Platform">
+      <button type="button" role="tab" id="install-tab-macos" aria-controls="install-macos" aria-selected="true">macOS</button>
+      <button type="button" role="tab" id="install-tab-linux" aria-controls="install-linux" aria-selected="false" tabindex="-1">Linux</button>
+    </div>
+    <div class="docs-tabpanel" role="tabpanel" id="install-macos" aria-labelledby="install-tab-macos" data-label="macOS">
+      <ul>
+        <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.dmg">Apple Silicon</a></li>
+        <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.dmg">Intel</a></li>
+      </ul>
+      <p>Open the DMG and drag <strong>Ouijit.app</strong> into Applications.</p>
+    </div>
+    <div class="docs-tabpanel" role="tabpanel" id="install-linux" aria-labelledby="install-tab-linux" data-label="Linux" hidden>
+      <p>On Debian or Ubuntu, install the package:</p>
+      <pre class="glass-bevel"><code>curl -LO https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.deb
+sudo apt install ./ouijit-linux-x64.deb</code></pre>
+      <p>Anywhere else, unzip the app into a folder and run it from there:</p>
+      <pre class="glass-bevel"><code>curl -LO https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip
+unzip ouijit-linux-x64.zip -d ~/.local/share
+~/.local/share/ouijit-linux-x64/ouijit</code></pre>
+    </div>
+  </div>
+  <p>Open Ouijit and add a project. Its board walks you through a practice task.</p>
 
   <h2>Where to go next</h2>
   <ul>
-    <li><a href="/docs/palette/">Command palette</a>: jump between everything with <code>⌘K</code>.</li>
-    <li><a href="/docs/panels/">Panels</a>: put the agent's plan, its dev server, and a runner beside its terminal.</li>
-    <li><a href="/docs/sandbox/">Sandbox</a>: run a task under nono's access limits when you don't trust the code.</li>
-    <li><a href="/docs/pull-requests/">Pull requests</a>: review and merge without leaving Ouijit.</li>
+    <li><a href="/docs/worktrees/">Worktrees</a>: how each task gets its own copy of the repo.</li>
+    <li><a href="/docs/hooks/">Hooks</a>: start your agent when a task starts.</li>
+    <li><a href="/docs/terminals/">Terminals</a>: the sidebar, the terminal stack and shortcuts.</li>
+    <li><a href="/docs/palette/">Command palette</a>: jump to anything with <code>⌘K</code>.</li>
+    <li><a href="/docs/panels/">Panels</a>: open the agent's plan, a dev server or a script beside its terminal.</li>
+    <li><a href="/docs/sandbox/">Sandbox</a>: let an agent run without permission prompts, kept to its worktree.</li>
+    <li><a href="/docs/pull-requests/">Pull requests</a>: review and merge in Ouijit.</li>
   </ul>
 
+  <h2>Updates</h2>
+  <p>
+    Ouijit checks for updates when it opens and every hour after. On macOS it downloads the update and offers to
+    restart; on Linux it links to the release. You can turn this off under
+    <strong>App Settings &rarr; Updates</strong>.
+  </p>
+
+  <h2>Missing tools</h2>
+  <p>
+    <strong>Help &amp; setup</strong> lists the tools Ouijit looks for (git, the agent CLIs, <code>gh</code> and
+    <code>nono</code>) and which ones it found. Features that need a missing tool tell you where you use them.
+  </p>
+
+  <h2>Projects folder</h2>
+  <p>
+    Projects you create or clone go in <code>~/Ouijit/projects</code>. Change it under
+    <strong>App Settings &rarr; Projects</strong>.
+  </p>
+
   <h2>Build from source</h2>
-  <p>Building needs Node.js 20+ (the repo pins 22) and C/C++ build tools for the native modules (better-sqlite3, node-pty, koffi):</p>
+  <p>You need Node.js 20 or later and a C/C++ toolchain:</p>
   <ul>
     <li><strong>macOS:</strong> <code>xcode-select --install</code></li>
-    <li><strong>Linux:</strong> <code>sudo apt install build-essential python3</code> (Debian/Ubuntu)</li>
+    <li><strong>Linux:</strong> <code>sudo apt install build-essential python3</code> on Debian or Ubuntu</li>
   </ul>
   <pre class="glass-bevel"><code>git clone https://github.com/ouijit/ouijit.git
 cd ouijit
 npm install
 npm start</code></pre>
 
-  <h2>Projects folder</h2>
+  <h2>For agents</h2>
   <p>
-    New projects are created in <code>~/Ouijit/projects</code> by default. Change it under
-    <strong>App Settings &rarr; Projects</strong>. If projects still live in the old folder, Ouijit asks whether
-    to move them (tasks, hooks, and settings stay attached), forget them (files stay on disk), or leave them
-    where they are.
-  </p>
-
-  <h2>Check your environment</h2>
-  <p>
-    Ouijit checks your environment at startup: git, the agent CLIs (<code>claude</code>, <code>codex</code>,
-    <code>pi</code>, <code>opencode</code>), and the tools behind optional features (<code>gh</code>,
-    <code>nono</code>). The <strong>Help &amp; setup</strong> dialog shows each result, and dialogs that need a missing tool
-    say so inline.
-  </p>
-
-  <h2>Update Ouijit</h2>
-  <p>
-    Ouijit checks for updates at launch and hourly. On macOS the update downloads in the background and a dialog
-    offers to restart when it is ready. On Linux a notice links to the release page. After an update, a
-    <strong>What's New</strong> dialog shows that version's release notes once. Turn automatic checks off under
-    <strong>App Settings &rarr; Updates</strong>.
+    If you're an agent in an Ouijit terminal, <code>ouijit</code> is on your <code>PATH</code> and its reference
+    is in your system prompt. Start with <a href="/docs/agents/">Agents</a>. Every page here is also plain
+    Markdown at <code>/docs/&lt;slug&gt;.md</code>.
   </p>
 </Docs>
 
 <script>
+  for (const tabs of document.querySelectorAll<HTMLElement>('.docs-tabs')) {
+    const buttons = [...tabs.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const select = (chosen: HTMLButtonElement) => {
+      for (const button of buttons) {
+        const selected = button === chosen;
+        button.setAttribute('aria-selected', String(selected));
+        button.tabIndex = selected ? 0 : -1;
+        document.getElementById(button.getAttribute('aria-controls') ?? '')!.hidden = !selected;
+      }
+    };
+    buttons.forEach((button, i) => {
+      button.addEventListener('click', () => select(button));
+      button.addEventListener('keydown', (e) => {
+        const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (!step) return;
+        const next = buttons[(i + step + buttons.length) % buttons.length];
+        select(next);
+        next.focus();
+      });
+    });
+    if (navigator.userAgent.includes('Linux')) select(buttons.find((b) => b.textContent === 'Linux') ?? buttons[0]);
+  }
+
   // The docs lived on this one page before they were split up, so links like
   // /docs/#cli are still out in the wild. Forward them to the page that
   // section became.
