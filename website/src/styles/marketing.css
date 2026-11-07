@@ -1463,68 +1463,165 @@ body.marketing::after {
   --wash: var(--wash-graphite);
 }
 
-/* Sandbox page: the Plan section's rows, under a hero. */
-.sandbox-lead {
-  max-width: 640px;
-  margin: -16px 0 0;
+/* Feature pages: a hero, a getting-started pair, alternating copy and desk
+   rows, three points, questions. The sandbox page is the first. */
+.hero-sub {
+  max-width: 600px;
+  margin: -16px 0 32px;
   font-size: 1.25rem;
   line-height: 1.5;
   color: #86868b;
 }
 
-.sandbox-lead strong {
+.feature-hero-visual {
+  max-width: 1100px;
+  margin: 56px auto 0;
+  padding: 0 var(--content-padding);
+}
+
+.feature-section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 112px var(--content-padding) 0;
+}
+
+.feature-section h2 {
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  letter-spacing: -0.03em;
+  margin: 0 0 32px;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.step p {
+  color: #86868b;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  margin: 0 0 16px;
+}
+
+.step strong {
   color: #f5f5f7;
   font-weight: 500;
 }
 
-.home-sandbox {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 16px var(--content-padding) 48px;
+.step pre {
+  background: #171717;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+  margin: 0;
+  overflow: hidden;
 }
 
-.sandbox-rows {
+.step pre code {
+  display: block;
+  padding: 18px 20px;
+  color: #f5f5f7;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.feature-rows {
   display: flex;
   flex-direction: column;
+  gap: 96px;
+}
+
+.feature-row {
+  display: grid;
+  grid-template-columns: 5fr 7fr;
   gap: 64px;
+  align-items: center;
 }
 
-.sandbox-prose {
-  max-width: 640px;
-  margin: 120px 0 0;
+.feature-row:nth-child(even) .feature-copy {
+  order: 2;
 }
 
-.sandbox-prose h2 {
-  font-size: 28px;
-  margin: 0 0 20px;
+.feature-copy h3 {
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
 }
 
-.sandbox-prose p {
+.feature-copy p {
   color: #86868b;
-  font-size: 17px;
+  font-size: 1.0625rem;
   line-height: 1.55;
-  margin: 0 0 18px;
+  margin: 0;
+  max-width: 40ch;
 }
 
-.sandbox-prose strong {
-  color: #f5f5f7;
-  font-weight: 500;
+.feature-visual .plan-desk {
+  padding: 28px;
 }
 
-.plan-v3-copy code {
-  font-family: 'SF Mono', Monaco, Menlo, monospace;
-  font-size: 0.875em;
-  background: rgba(255, 255, 255, 0.12);
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #f5f5f7;
+.points {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
 }
 
-.plan-v3-copy a {
+.points p {
+  color: #86868b;
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.points strong {
+  display: block;
   color: #f5f5f7;
-  text-decoration: underline;
-  text-decoration-color: rgba(255, 255, 255, 0.4);
-  text-underline-offset: 2px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.feature-faq .faq-item {
+  max-width: 760px;
+  padding: 1.25rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.feature-faq .faq-item h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.feature-faq .faq-item p {
+  margin: 0;
+  color: var(--text-secondary, #c0c0c0);
+  line-height: 1.55;
+}
+
+@media (max-width: 860px) {
+  .feature-section {
+    padding-top: 72px;
+  }
+
+  .steps,
+  .points {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-rows {
+    gap: 64px;
+  }
+
+  .feature-row {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .feature-row:nth-child(even) .feature-copy {
+    order: 0;
+  }
 }
 
 .desk-wash-field {

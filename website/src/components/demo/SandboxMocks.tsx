@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
 import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
@@ -14,12 +14,11 @@ import {
   BranchLabel,
   BODY_CLS,
 } from './stackParts';
-import { DeskWash } from './DeskWash';
 import { MockScale } from './MockScale';
 
 /**
- * The sandbox page's rows: each is the Plan section's copy-beside-desk row,
- * with the app's own terminal and settings chrome on the desk.
+ * The sandbox page's visuals, built from the app's own terminal and settings
+ * chrome. The page lays them out; each island scales its mock to the column.
  */
 
 const GREEN = 'text-[#3fb950]';
@@ -113,39 +112,32 @@ function Grants() {
   );
 }
 
-function HeldToWorktree() {
+function HeroTerminal() {
   return (
-    <div className="flex gap-5 items-start">
-      <div className="flex-1 min-w-0">
-        <Terminal
-          height={430}
-          status="thinking"
-          label="Add rate-limit headers to the public API"
-          osc="Running the load test…"
-          branch="api-rate-limit-headers"
-        >
-          <ClaudeShell busy>
-            <ClaudeUser>Add rate-limit headers to every public route.</ClaudeUser>
-            <AssistantSay>Middleware first, then the router, then a load test against it.</AssistantSay>
-            <ToolCall name="Write" args="src/api/middleware/rateLimit.ts" />
-            <Lines added={48} note="lines (new)" />
-            <ToolCall name="Edit" args="src/api/router.ts" />
-            <Lines added={4} removed={1} />
-            <ToolCall name="Bash" args="npm install -g artillery" />
-            <ToolResult>
-              <span className={RED}>EPERM: operation not permitted</span>
-              <span className="ml-2 text-white/45">mkdir /usr/local/lib/node_modules/artillery</span>
-            </ToolResult>
-            <AssistantSay>No global installs from here. Running it out of the worktree instead.</AssistantSay>
-            <ToolCall name="Bash" args="npx artillery quick --count 50 http://localhost:4000/api/health" />
-            <WorkingLine verb="Hammering" elapsed="1m 02s" tokens="6.4k" />
-          </ClaudeShell>
-        </Terminal>
-      </div>
-      <div className="shrink-0" style={{ width: 272 }}>
-        <Grants />
-      </div>
-    </div>
+    <Terminal
+      height={440}
+      status="thinking"
+      label="Add rate-limit headers to the public API"
+      osc="Running the load test…"
+      branch="api-rate-limit-headers"
+    >
+      <ClaudeShell busy>
+        <ClaudeUser>Add rate-limit headers to every public route.</ClaudeUser>
+        <AssistantSay>Middleware first, then the router, then a load test against it.</AssistantSay>
+        <ToolCall name="Write" args="src/api/middleware/rateLimit.ts" />
+        <Lines added={48} note="lines (new)" />
+        <ToolCall name="Edit" args="src/api/router.ts" />
+        <Lines added={4} removed={1} />
+        <ToolCall name="Bash" args="npm install -g artillery" />
+        <ToolResult>
+          <span className={RED}>EPERM: operation not permitted</span>
+          <span className="ml-2 text-white/45">mkdir /usr/local/lib/node_modules/artillery</span>
+        </ToolResult>
+        <AssistantSay>No global installs from here. Running it out of the worktree instead.</AssistantSay>
+        <ToolCall name="Bash" args="npx artillery quick --count 50 http://localhost:4000/api/health" />
+        <WorkingLine verb="Hammering" elapsed="1m 02s" tokens="6.4k" />
+      </ClaudeShell>
+    </Terminal>
   );
 }
 
@@ -220,35 +212,23 @@ function CliAccess() {
 
 function StillAnAgent() {
   return (
-    <div className="flex gap-5 items-start">
-      <div className="flex-1 min-w-0">
-        <Terminal
-          height={456}
-          status="ready"
-          label="Add rate-limit headers to the public API"
-          branch="api-rate-limit-headers"
-        >
-          <ClaudeShell>
-            <ToolCall name="Bash" args="ouijit diff notes" />
-            <ToolResult>{'[{"path": "src/api/router.ts", "line": 41, "body": "Leave /health out of this."}]'}</ToolResult>
-            <AssistantSay>Exempting the health route.</AssistantSay>
-            <ToolCall name="Edit" args="src/api/router.ts" />
-            <Lines added={1} removed={1} />
-            <ToolCall
-              name="Bash"
-              args={'ouijit pr draft add 212 --file src/api/router.ts --line 41 --body "Health is exempt now."'}
-            />
-            <ToolResult>{'{"success": true}'}</ToolResult>
-            <ToolCall name="Bash" args={'ouijit ask run -m "Pushing needs the deploy key" -- git push -u origin HEAD'} />
-            <ToolResult>{'{"status": "pending"}'}</ToolResult>
-            <AssistantSay>Health is exempt, the comment is staged, and the push is waiting on you.</AssistantSay>
-          </ClaudeShell>
-        </Terminal>
-      </div>
-      <div className="shrink-0" style={{ width: 272 }}>
-        <CliAccess />
-      </div>
-    </div>
+    <Terminal height={456} status="ready" label="Add rate-limit headers to the public API" branch="api-rate-limit-headers">
+      <ClaudeShell>
+        <ToolCall name="Bash" args="ouijit diff notes" />
+        <ToolResult>{'[{"path": "src/api/router.ts", "line": 41, "body": "Leave /health out of this."}]'}</ToolResult>
+        <AssistantSay>Exempting the health route.</AssistantSay>
+        <ToolCall name="Edit" args="src/api/router.ts" />
+        <Lines added={1} removed={1} />
+        <ToolCall
+          name="Bash"
+          args={'ouijit pr draft add 212 --file src/api/router.ts --line 41 --body "Health is exempt now."'}
+        />
+        <ToolResult>{'{"success": true}'}</ToolResult>
+        <ToolCall name="Bash" args={'ouijit ask run -m "Pushing needs the deploy key" -- git push -u origin HEAD'} />
+        <ToolResult>{'{"status": "pending"}'}</ToolResult>
+        <AssistantSay>Health is exempt, the comment is staged, and the push is waiting on you.</AssistantSay>
+      </ClaudeShell>
+    </Terminal>
   );
 }
 
@@ -281,98 +261,25 @@ function CustomLauncher() {
   );
 }
 
-/* ─── The rows ─────────────────────────────────────────────────────── */
+/* ─── The island ───────────────────────────────────────────────────── */
 
-function Desk({ wash, children }: { wash?: string; children: ReactNode }) {
+const MOCKS = {
+  hero: { width: 900, Mock: HeroTerminal },
+  grants: { width: 560, Mock: Grants },
+  where: { width: 600, Mock: WhereThingsRun },
+  agent: { width: 600, Mock: StillAnAgent },
+  access: { width: 560, Mock: CliAccess },
+  fails: { width: 600, Mock: FailsClosed },
+  custom: { width: 600, Mock: CustomLauncher },
+} as const;
+
+export type SandboxMockKind = keyof typeof MOCKS;
+
+export function SandboxMock({ kind }: { kind: SandboxMockKind }) {
+  const { width, Mock } = MOCKS[kind];
   return (
-    <div className={`plan-desk desk-wash ${wash ? '' : 'desk-wash--graphite'}`}>
-      <DeskWash style={wash ? ({ '--wash': wash } as CSSProperties) : undefined} />
-      <div className="relative">{children}</div>
-    </div>
-  );
-}
-
-const ROWS: { title: string; body: ReactNode; width: number; wash?: string; Mock: () => ReactNode }[] = [
-  {
-    title: 'The boundary is the task',
-    body: (
-      <>
-        Every task already has a worktree, and the sandbox is drawn around it. The agent reads and writes those
-        files and commits them, and nothing else on the machine exists for it. Here it tried a global install,
-        the kernel refused, and it finished the job from the worktree. All of this is in place, with your tools
-        and the agent's own sign-ins, and nothing to boot.
-      </>
-    ),
-    width: 760,
-    wash: 'var(--wash-iris)',
-    Mock: HeldToWorktree,
-  },
-  {
-    title: 'Agent inside, dev server outside',
-    body: (
-      <>
-        This project runs on the host. Only the start hook that launches the agent is sandboxed, so the dev
-        server beside it and the push after it keep your credentials. Set that per hook, or for one command in
-        a longer line.
-      </>
-    ),
-    width: 560,
-    Mock: WhereThingsRun,
-  },
-  {
-    title: 'Still wired in',
-    body: (
-      <>
-        The agent keeps the <code>ouijit</code> command, with a token that reaches only its own project. It
-        reads the note you left on its diff, stages a review comment for you to send, and asks you to run the
-        push it is not allowed to. How far it may go is a project setting.
-      </>
-    ),
-    width: 760,
-    Mock: StillAnAgent,
-  },
-  {
-    title: "If it can't start, nothing runs",
-    body: (
-      <>
-        Ouijit never falls back to running the agent on the host. The policy lives outside the repository,
-        where the agent cannot edit it.
-      </>
-    ),
-    width: 560,
-    Mock: FailsClosed,
-  },
-  {
-    title: 'Or bring your own',
-    body: (
-      <>
-        Point Ouijit at a launcher your team maintains and every sandboxed command runs through it. The{' '}
-        <a href="/docs/sandbox/">sandbox documentation</a> lists what the launcher receives.
-      </>
-    ),
-    width: 560,
-    Mock: CustomLauncher,
-  },
-];
-
-export function SandboxSection() {
-  return (
-    <div className="sandbox-rows">
-      {ROWS.map(({ title, body, width, wash, Mock }) => (
-        <div key={title} className="plan-v3-row" data-reveal="">
-          <div className="plan-v3-copy">
-            <h3>{title}</h3>
-            <p>{body}</p>
-          </div>
-          <div className="plan-v3-mock">
-            <Desk wash={wash}>
-              <MockScale width={width}>
-                <Mock />
-              </MockScale>
-            </Desk>
-          </div>
-        </div>
-      ))}
-    </div>
+    <MockScale width={width}>
+      <Mock />
+    </MockScale>
   );
 }
