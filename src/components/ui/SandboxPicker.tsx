@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react';
 import { useProjectConfig } from '../../stores/projectDataStore';
 import { SANDBOX_BACKEND_IDS, SANDBOX_LABELS, type SandboxProviderId } from '../../types';
-import { SegmentedGroup, segmentAccent, segmentBase, segmentQuiet } from './SegmentedGroup';
+import { QuietPicker } from './QuietPicker';
 
 /**
  * Host plus each backend that can run. A chosen backend stays listed after it
@@ -12,36 +13,11 @@ export function useSandboxOptions(projectPath: string, value: SandboxProviderId 
   return ['none', ...SANDBOX_BACKEND_IDS.filter((id) => available.includes(id) || id === value)];
 }
 
-interface Segment<T> {
-  value: T;
-  label: string;
-}
-
-function Segments<T>({
-  segments,
-  value,
-  onChange,
-}: {
-  segments: Segment<T>[];
-  value: T;
-  onChange: (value: T) => void;
-}) {
+function Row({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-sm font-medium text-text-secondary">Sandbox</span>
-      <SegmentedGroup>
-        {segments.map((segment) => (
-          <button
-            key={segment.label}
-            type="button"
-            aria-pressed={value === segment.value}
-            className={`${segmentBase} ${value === segment.value ? segmentAccent : segmentQuiet}`}
-            onClick={() => onChange(segment.value)}
-          >
-            {segment.label}
-          </button>
-        ))}
-      </SegmentedGroup>
+      <span className="text-sm font-medium text-text-secondary">Run in</span>
+      {children}
     </div>
   );
 }
@@ -60,11 +36,17 @@ export function SandboxPicker({
   const projectDefault = useProjectConfig(projectPath)?.defaultSandbox ?? 'none';
   if (options.length === 1) return null;
   const ordered = [projectDefault, ...options.filter((id) => id !== projectDefault)];
-  const segments = ordered.map((id) => ({
-    value: id,
-    label: id === projectDefault ? `Default (${SANDBOX_LABELS[id]})` : SANDBOX_LABELS[id],
-  }));
-  return <Segments segments={segments} value={value} onChange={onChange} />;
+  return (
+    <Row>
+      <QuietPicker
+        label="Run in"
+        value={value}
+        options={ordered}
+        optionLabel={(id) => (id === projectDefault ? `Default (${SANDBOX_LABELS[id]})` : SANDBOX_LABELS[id])}
+        onChange={onChange}
+      />
+    </Row>
+  );
 }
 
 /** Where a hook always runs; undefined follows the project default. */
@@ -79,9 +61,16 @@ export function HookSandboxPicker({
 }) {
   const options = useSandboxOptions(projectPath, value);
   if (options.length === 1) return null;
-  const segments: Segment<SandboxProviderId | undefined>[] = [
-    { value: undefined, label: 'Default' },
-    ...options.map((id) => ({ value: id, label: SANDBOX_LABELS[id] })),
-  ];
-  return <Segments segments={segments} value={value} onChange={onChange} />;
+  const projectDefault = useProjectConfig(projectPath)?.defaultSandbox ?? 'none';
+  return (
+    <Row>
+      <QuietPicker<SandboxProviderId | 'default'>
+        label="Run in"
+        value={value ?? 'default'}
+        options={['default', ...options]}
+        optionLabel={(id) => (id === 'default' ? `Default (${SANDBOX_LABELS[projectDefault]})` : SANDBOX_LABELS[id])}
+        onChange={(id) => onChange(id === 'default' ? undefined : id)}
+      />
+    </Row>
+  );
 }
