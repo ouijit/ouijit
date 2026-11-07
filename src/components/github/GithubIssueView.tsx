@@ -1,6 +1,7 @@
 import type { IssueDetail } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore } from '../../stores/githubStore';
+import { creatingKey, usePanelStore } from '../../stores/panelStore';
 import { Avatar } from '../issues/Avatar';
 import { Fact, LabelChips } from '../issues/Sections';
 import { IssueDetailView } from '../issues/IssueDetailView';
@@ -25,6 +26,7 @@ export function GithubIssueView({
   onCreateTask,
 }: GithubIssueViewProps) {
   const loading = useGithubStore((s) => s.issueLoading);
+  const creatingTask = usePanelStore((s) => s.creating.includes(creatingKey(projectPath, 'github', issue.number)));
   const open = issue.state === 'open';
   const comments = issue.timeline.filter((i) => i.kind !== 'event');
 
@@ -48,6 +50,7 @@ export function GithubIssueView({
       openTaskLabel={openTaskLabel}
       onOpenTask={onOpenTask}
       onCreateTask={onCreateTask}
+      creatingTask={creatingTask}
       composer={<GithubCommentComposer projectPath={projectPath} number={issue.number} subject="issue" />}
       facts={
         <>

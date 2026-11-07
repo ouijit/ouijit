@@ -46,7 +46,12 @@ export function notifyReady(title: string, body: string): void {
     transitionUpAudio.play().catch(() => {});
   }
 
-  if (!document.hasFocus() && Notification.permission === 'granted') {
+  notifyUnfocused(title, body);
+}
+
+/** An OS notification, when the window isn't in front to show it already. */
+export function notifyUnfocused(title: string, body: string): void {
+  if (!document.hasFocus() && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
     new Notification(title, { body, silent: true });
   }
 }

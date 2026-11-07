@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { SandboxProviderId, ScriptHook } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
+import { deleteHook, saveHook } from '../../stores/projectDataStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { useHookCommandDefault } from '../../utils/hookDefaults';
 import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
-import { SandboxPicker } from '../ui/SandboxPicker';
+import { HookSandboxPicker } from '../ui/SandboxPicker';
 
 interface CombinedHookConfigDialogProps {
   projectPath: string;
@@ -25,8 +26,8 @@ export function CombinedHookConfigDialog({
   const continuePlaceholder = useHookCommandDefault('continue');
   const [startCommand, setStartCommand] = useState(existingStart?.command ?? '');
   const [continueCommand, setContinueCommand] = useState(existingContinue?.command ?? '');
-  const [startSandbox, setStartSandbox] = useState<SandboxProviderId>(existingStart?.sandbox ?? 'none');
-  const [continueSandbox, setContinueSandbox] = useState<SandboxProviderId>(existingContinue?.sandbox ?? 'none');
+  const [startSandbox, setStartSandbox] = useState<SandboxProviderId | undefined>(existingStart?.sandbox);
+  const [continueSandbox, setContinueSandbox] = useState<SandboxProviderId | undefined>(existingContinue?.sandbox);
   const [visible, setVisible] = useState(false);
   const startRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
@@ -51,7 +52,7 @@ export function CombinedHookConfigDialog({
 
     // Save or delete start hook
     if (startTrimmed) {
-      await useProjectStore.getState().saveHook(projectPath, {
+      await saveHook(projectPath, {
         id: existingStart?.id ?? `hook-${Date.now()}`,
         type: 'start',
         name: 'Start Hook',
@@ -59,12 +60,12 @@ export function CombinedHookConfigDialog({
         sandbox: startSandbox,
       });
     } else if (existingStart) {
-      await useProjectStore.getState().deleteHook(projectPath, 'start');
+      await deleteHook(projectPath, 'start');
     }
 
     // Save or delete continue hook
     if (continueTrimmed) {
-      await useProjectStore.getState().saveHook(projectPath, {
+      await saveHook(projectPath, {
         id: existingContinue?.id ?? `hook-${Date.now() + 1}`,
         type: 'continue',
         name: 'Continue Hook',
@@ -72,7 +73,7 @@ export function CombinedHookConfigDialog({
         sandbox: continueSandbox,
       });
     } else if (existingContinue) {
-      await useProjectStore.getState().deleteHook(projectPath, 'continue');
+      await deleteHook(projectPath, 'continue');
     }
 
     useProjectStore.getState().addToast('Hooks saved', 'success');
@@ -114,7 +115,7 @@ export function CombinedHookConfigDialog({
             rows={1}
           />
           <div className="mt-2">
-            <SandboxPicker value={startSandbox} onChange={setStartSandbox} />
+            <HookSandboxPicker projectPath={projectPath} value={startSandbox} onChange={setStartSandbox} />
           </div>
         </div>
 
@@ -138,7 +139,7 @@ export function CombinedHookConfigDialog({
             rows={1}
           />
           <div className="mt-2">
-            <SandboxPicker value={continueSandbox} onChange={setContinueSandbox} />
+            <HookSandboxPicker projectPath={projectPath} value={continueSandbox} onChange={setContinueSandbox} />
           </div>
         </div>
 

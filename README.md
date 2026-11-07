@@ -58,7 +58,7 @@ A lens is a named instruction you keep with the project, like "lead with what co
 
 ## Sandboxing
 
-Run any hook, terminal, or runner sandboxed: in place under Seatbelt/Landlock via nono, or under a launcher of your own. Each hook keeps its own setting and each runner chooses when it starts, so an agent can run sandboxed while the dev server beside it stays on the host.
+Run agents with their permission checks off without handing them your machine. Each project picks a default, host or sandbox, and any terminal, hook, runner, or single command (`ouijit sandbox -- claude …`) can go elsewhere, so the agent runs contained while the dev server beside it stays on the host. The sandbox is nono, in place under Seatbelt/Landlock and configured by a profile file per project, or a launcher of your own.
 
 ## Session resume
 
@@ -78,7 +78,7 @@ Five lifecycle hooks (start, continue, run, review, done) and per-project script
 
 <img src="website/public/assets/screenshots/settings.png" alt="Project settings with hooks and scripts" width="100%">
 
-Also in the box: a multi-project home view, a configurable projects folder, `git init` for folders that need it, an editor launcher, health checks for the agent CLIs, first-run onboarding, terminal font settings, auto-update on macOS with release notes, and a local REST API behind the CLI. Everything is stored locally in SQLite.
+Also in the box: a sidebar across every project, a configurable projects folder, `git init` for folders that need it, an editor launcher, health checks for the agent CLIs, first-run onboarding, terminal font settings, auto-update on macOS with release notes, and a local REST API behind the CLI. Everything is stored locally in SQLite.
 
 ## Supported harnesses
 

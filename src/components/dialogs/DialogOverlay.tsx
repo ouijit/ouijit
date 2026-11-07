@@ -27,7 +27,7 @@ export function DialogOverlay({ visible, onDismiss, maxWidth = 400, children }: 
     <div
       data-testid="dialog-overlay"
       data-visible={visible}
-      className={`fixed inset-0 flex justify-center z-[10001] p-10 overflow-y-auto transition-opacity duration-200 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
+      className={`fixed inset-0 flex justify-center z-[10004] p-10 overflow-y-auto transition-opacity duration-200 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
       style={{ background: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
       onMouseDown={(e) => {
         mouseDownTargetRef.current = e.target;

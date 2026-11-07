@@ -460,10 +460,10 @@ describe('task commands', () => {
     expect(result.success).toBe(true);
   });
 
-  test('delete calls DELETE /api/tasks/:number', async () => {
+  test('trash calls DELETE /api/tasks/:number', async () => {
     vi.mocked(del).mockResolvedValue({ success: true });
     const output = captureOutput();
-    await createProgram().parseAsync(['task', 'delete', '1'], { from: 'user' });
+    await createProgram().parseAsync(['task', 'trash', '1'], { from: 'user' });
     const result = output.getJson();
     expect(del).toHaveBeenCalledWith(`/api/tasks/1?project=${encodeURIComponent(PROJECT)}`);
     expect(result.success).toBe(true);

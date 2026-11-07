@@ -40,6 +40,7 @@ interface IssueDetailViewProps {
   openTaskLabel?: (task: TaskWithWorkspace) => string;
   onOpenTask: (task: TaskWithWorkspace) => void;
   onCreateTask: () => void;
+  creatingTask: boolean;
 }
 
 type Pane = 'summary' | 'timeline';
@@ -73,6 +74,7 @@ export function IssueDetailView({
   openTaskLabel,
   onOpenTask,
   onCreateTask,
+  creatingTask,
 }: IssueDetailViewProps) {
   const paneRef = useRef<HTMLDivElement>(null);
   const [pane, setPane] = useState<Pane>('summary');
@@ -131,6 +133,7 @@ export function IssueDetailView({
                 onOpenTask={onOpenTask}
                 createLabel="Create task"
                 createTitle="Create a task from this issue"
+                {...(creatingTask && { creatingLabel: 'Creating task…' })}
                 onCreate={onCreateTask}
               />
               {facts}

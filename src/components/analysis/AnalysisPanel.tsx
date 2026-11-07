@@ -12,7 +12,7 @@ import {
 import { recentCut } from '../../analysis/trend';
 import { basename, dirname } from '../../analysis/paths';
 import { useAnalysisStore } from '../../stores/analysisStore';
-import { useProjectStore } from '../../stores/projectStore';
+import { useAppStore } from '../../stores/appStore';
 import { useEscape } from '../../hooks/useEscape';
 import { openFileInEditor } from '../../services/openInEditor';
 import { Icon } from '../terminal/Icon';
@@ -35,7 +35,7 @@ export function AnalysisPanel({ projectPath }: AnalysisPanelProps) {
     void useAnalysisStore.getState().loadOverview(projectPath);
   }, [projectPath]);
 
-  useEscape(useCallback(() => useProjectStore.getState().setActivePanel('terminals'), []));
+  useEscape(useCallback(() => useAppStore.getState().showProjectTerminals(projectPath), [projectPath]));
 
   return (
     <PanelFrame>

@@ -20,7 +20,7 @@ import Docs from '../../layouts/Docs.astro';
     Click the <strong>Diff</strong> button in the terminal header (it shows the change size) or press
     <code>⌘D</code>. The panel lists changed files in a tree, renders per-file diffs with syntax highlighting,
     and marks the exact changed words within each line. Panel state survives app restarts via
-    <a href="/docs/resume/">session resume</a>.
+    <a href="/docs/terminals/#resume">session resume</a>.
   </p>
 
   <h2>Pick a base</h2>
@@ -31,8 +31,9 @@ import Docs from '../../layouts/Docs.astro';
     <li><strong>Any local or remote branch</strong>, searchable by name. Picking a remote ref fetches it first, and a freshness button next to the picker shows the fetch age and refetches on click.</li>
   </ul>
   <p>
-    A branch comparison shows the task's own changes, not what has landed on the target since. The chosen base
-    is remembered per worktree.
+    A branch comparison shows the task's own changes, not what has landed on the target since. Until you pick
+    one, a task merging into the project's <a href="/docs/worktrees/#branch-from">Branch from</a> branch is
+    compared against that branch, remote or not. The chosen base is remembered per worktree.
   </p>
 
   <h2>Read it through a lens</h2>
@@ -59,7 +60,7 @@ import Docs from '../../layouts/Docs.astro';
     A lens goes out of date when the change under it moves. The picker says so and offers to run it again, and
     on a worktree diff the older grouping stays on screen until you do — anything it no longer accounts for
     moves to that trailing group. Add and edit lenses under <strong>Lenses</strong> in project settings, or from
-    the picker itself. Writing one needs Claude Code or Codex installed; where both are, you choose which runs.
+    the picker itself. Writing one needs Claude Code, Codex or pi installed; where more than one is, you choose which runs.
   </p>
 
   <h2>Leave notes for the agent</h2>
@@ -67,7 +68,8 @@ import Docs from '../../layouts/Docs.astro';
     Hover a line and click <strong>+</strong>, or drag across several lines, and write a note. Notes are kept
     with the worktree until you hand them over: the floating island at the bottom of the panel lists them, and
     <strong>Send</strong> pastes them into the terminal's prompt as one block, quoted code and all, unsent. You
-    press Enter. <strong>Copy</strong> puts the same block on the clipboard for any other destination.
+    press Enter. <strong>Copy</strong> puts the same block on the clipboard for any other destination. An agent
+    can also read them itself with <a href="/docs/cli/"><code>ouijit diff notes</code></a>.
   </p>
   <p>
     Notes anchor to the code, not the line number. As the agent edits, each note follows its text to its new

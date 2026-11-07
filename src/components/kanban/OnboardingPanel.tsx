@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Icon } from '../terminal/Icon';
 import { useProjectStore } from '../../stores/projectStore';
+import { loadTasks, moveTask, saveHook, useProjectConfig, useProjectTasks } from '../../stores/projectDataStore';
 import { useAppStore } from '../../stores/appStore';
 import { type OnboardingStorageIO, patchOnboardingState, readOnboardingState } from '../../onboardingState';
 import type { FirstProjectSource, OnboardingState } from '../../types';
@@ -25,8 +26,8 @@ const io: OnboardingStorageIO = {
  * The ✕ and the final CTA dismiss it permanently.
  */
 export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }: OnboardingPanelProps) {
-  const tasks = useProjectStore((s) => s.tasks);
-  const startHookConfigured = useProjectStore((s) => !!s.hooks.start);
+  const tasks = useProjectTasks(projectPath);
+  const startHookConfigured = !!useProjectConfig(projectPath)?.hooks.start;
   const exampleStartHookCommand = useHookCommandDefault('start');
   // `undefined` = not yet loaded, `null` = loaded but no state exists yet.
   const [state, setState] = useState<OnboardingState | null | undefined>(undefined);
@@ -101,7 +102,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
     setSeeding(true);
     try {
       await window.api.onboarding.seedTask(projectPath);
-      await useProjectStore.getState().loadTasks(projectPath);
+      await loadTasks(projectPath);
       const next = await readOnboardingState(io);
       if (next) setState(next);
     } finally {
@@ -111,12 +112,12 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
 
   const handleMoveBackToTodo = async () => {
     if (!seededTask) return;
-    await useProjectStore.getState().moveTask(projectPath, seededTask.taskNumber, 'todo', 0);
+    await moveTask(projectPath, seededTask.taskNumber, 'todo', 0);
   };
 
   const handleUseExampleHook = async () => {
     try {
-      const result = await useProjectStore.getState().saveHook(projectPath, {
+      const result = await saveHook(projectPath, {
         id: `hook-${Date.now()}`,
         type: 'start',
         name: 'Start Hook',

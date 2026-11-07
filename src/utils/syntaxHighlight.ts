@@ -388,3 +388,33 @@ function coalesce(tokens: ThemedToken[]): ThemedToken[] {
 
   return merged;
 }
+
+/** An interpreter named on a `#!` line, for a script whose name says nothing. */
+const SHEBANG_LANGS: Array<[RegExp, BundledLanguage]> = [
+  [/\b(?:ba|z|k|da)?sh\b/, 'bash'],
+  [/\bpython[\d.]*\b/, 'python'],
+  [/\b(?:node|deno|bun)\b/, 'javascript'],
+  [/\bruby\b/, 'ruby'],
+  [/\bperl\b/, 'perl'],
+  [/\bfish\b/, 'fish'],
+];
+
+/** A file's language by its name, else by the interpreter its first line names. */
+export function languageOf(filePath: string, contents = ''): BundledLanguage | null {
+  const byName = detectLanguage(filePath);
+  if (byName) return byName;
+  const shebang = /^#!(.*)$/m.exec(contents.split('\n', 1)[0] ?? '')?.[1];
+  return shebang ? (SHEBANG_LANGS.find(([pattern]) => pattern.test(shebang))?.[1] ?? null) : null;
+}
+
+/** A whole file's tokens, one line to an entry, or null when it can't or shouldn't be highlighted. */
+export async function tokenizeCode(code: string, lang: BundledLanguage): Promise<ThemedToken[][] | null> {
+  if (code.split('\n').length > MAX_HIGHLIGHT_LINES) return null;
+  try {
+    const hl = await getHighlighter();
+    if (!hl.getLoadedLanguages().includes(lang)) await hl.loadLanguage(lang);
+    return hl.codeToTokensBase(code, { lang, theme: currentShikiTheme() });
+  } catch {
+    return null;
+  }
+}

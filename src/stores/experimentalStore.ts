@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import log from 'electron-log/renderer';
 import {
   type ExperimentalFlags,
@@ -69,3 +70,19 @@ export const useExperimentalStore = create<ExperimentalStore>()((set, get) => ({
     }
   },
 }));
+
+export function useProjectFlags(projectPath: string | null) {
+  return useExperimentalStore(
+    useShallow((s) => {
+      const flags = projectPath ? s.flagsByProject[projectPath] : undefined;
+      return {
+        canvas: flags?.canvas ?? false,
+        // Either source is enough to open the panel: gating on GitHub alone
+        // would ship Linear with no way in.
+        tracker: (flags?.github ?? false) || (flags?.linear ?? false),
+        github: flags?.github ?? false,
+        analysis: flags?.analysis ?? false,
+      };
+    }),
+  );
+}

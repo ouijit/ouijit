@@ -1,32 +1,37 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Tooltip } from '../ui/Tooltip';
 import type { SandboxProviderId } from '../../types';
-import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
+import type { TerminalStatus } from '../../stores/terminalDisplay';
+import type { RunnerStatus } from './panelTypes';
+import { SANDBOX_LABELS, isActiveSandbox } from '../../types';
 
 interface StatusDotProps {
-  summaryType: string;
+  status: TerminalStatus;
   sandboxProvider?: SandboxProviderId;
   size?: number;
+  /** Wants you: finished while you were elsewhere, or asking to run something, which it may be thinking through. */
+  unread?: boolean;
 }
 
 export function sandboxSuffix(sandboxProvider?: SandboxProviderId): string {
-  return isActiveSandbox(sandboxProvider) ? ` (${sandboxProvider})` : '';
+  return isActiveSandbox(sandboxProvider) ? ` (${SANDBOX_LABELS[sandboxProvider]})` : '';
 }
 
-const COLORS: Record<string, string> = {
+const COLORS: Record<TerminalStatus, string> = {
   thinking: 'var(--color-status-thinking)',
   ready: 'var(--color-status-ready)',
   success: 'var(--color-status-ready)',
   error: 'var(--color-error)',
 };
 
-const LABELS: Record<string, string> = {
+const LABELS: Record<TerminalStatus, string> = {
   thinking: 'Thinking',
   ready: 'Ready',
+  success: 'Ready',
   error: 'Failed',
 };
 
-function ThinkingGrid({ color }: { color: string }) {
+function Grid({ color }: { color: string }) {
   return (
     <span className="status-dot-grid" style={{ '--status-dot-color': color } as CSSProperties}>
       <span />
@@ -67,21 +72,42 @@ export function SandboxRing({
   );
 }
 
-export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotProps) {
-  const isThinking = summaryType === 'thinking';
-  const background = COLORS[summaryType] ?? COLORS.ready;
-  const label = LABELS[summaryType] ?? LABELS.ready;
-  const sandboxed = isActiveSandbox(sandboxProvider);
-  const tooltipText = sandboxed ? `${label} · ${SANDBOX_BACKEND_LABELS[sandboxProvider]}` : label;
+/** The dot alone, for a place that already says what it means. */
+export function StatusGlyph({ status, sandboxProvider, size = 6, unread }: StatusDotProps) {
+  const background = unread ? 'var(--color-status-unread)' : COLORS[status];
+  return (
+    <SandboxRing sandboxed={isActiveSandbox(sandboxProvider)} size={size} status={unread ? 'unread' : status}>
+      {status === 'thinking' && !unread ? (
+        <Grid color={background} />
+      ) : (
+        <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />
+      )}
+    </SandboxRing>
+  );
+}
+
+export function StatusDot({ status, sandboxProvider, size = 6, unread }: StatusDotProps) {
+  const label = unread ? 'Finished' : LABELS[status];
+  const tooltipText = isActiveSandbox(sandboxProvider) ? `${label} · ${SANDBOX_LABELS[sandboxProvider]}` : label;
   return (
     <Tooltip text={tooltipText} placement="top" delay={300}>
-      <SandboxRing sandboxed={sandboxed} size={size} status={summaryType}>
-        {isThinking ? (
-          <ThinkingGrid color={background} />
-        ) : (
-          <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />
-        )}
-      </SandboxRing>
+      <StatusGlyph status={status} sandboxProvider={sandboxProvider} size={size} unread={unread} />
     </Tooltip>
+  );
+}
+
+const RUNNER_DOT: Record<RunnerStatus, string> = {
+  running: 'bg-status-ready',
+  success: 'bg-status-ready',
+  error: 'bg-ansi-red',
+  idle: 'bg-ink/30',
+};
+
+/** A runner's state, ringed as a terminal's dot is when it runs sandboxed. */
+export function RunnerDot({ status, sandboxProvider }: { status: RunnerStatus; sandboxProvider?: SandboxProviderId }) {
+  return (
+    <SandboxRing sandboxed={isActiveSandbox(sandboxProvider)} size={6}>
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${RUNNER_DOT[status]}`} />
+    </SandboxRing>
   );
 }

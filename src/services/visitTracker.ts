@@ -1,16 +1,16 @@
 /**
  * Feeds palette frecency from what is on screen, not from the gestures that put
- * it there. A board showing is a visit to its project; a foregrounded shell is a
- * visit to its task. Recording per gesture instead counts things the user never
- * looked at — a card dragged between columns — and misses every arrival by a
- * route nobody instrumented.
+ * it there. A project page showing is a visit to its project; a foregrounded
+ * shell is a visit to its task. Recording per gesture instead counts things the
+ * user never looked at — a card dragged between columns — and misses every
+ * arrival by a route nobody instrumented.
  *
  * Installed once, for the life of the renderer.
  */
 
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { isBoardMounted } from '../stores/composerStore';
+import { useExperimentalStore } from '../stores/experimentalStore';
 import { getActivePtyId, useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { useGithubStore } from '../stores/githubStore';
@@ -39,35 +39,31 @@ type View =
   | null;
 
 function currentView(): View {
-  const { activeView, activeProjectPath } = useAppStore.getState();
-  if (activeView === 'home') {
-    const ptyId = useUIStore.getState().homeActivePtyId;
+  const { selection } = useAppStore.getState();
+  if (selection.kind === 'terminal') {
+    // The canvas has no single foreground card.
+    const onCanvas =
+      useProjectStore.getState().terminalLayout === 'canvas' &&
+      useExperimentalStore.getState().getFlags(selection.projectPath).canvas;
+    if (onCanvas) return { kind: 'project', projectPath: selection.projectPath };
+    const ptyId = getActivePtyId(selection.stack);
     return ptyId ? { kind: 'terminal', ptyId } : null;
   }
-  if (!activeProjectPath) return null;
+  if (selection.kind !== 'page') return null;
 
-  const project = useProjectStore.getState();
-  if (isBoardMounted(project.activePanel, project.kanbanVisible)) {
-    return { kind: 'project', projectPath: activeProjectPath };
-  }
-
-  if (project.activePanel === 'pull-requests') {
+  const { projectPath } = selection;
+  if (selection.page === 'pull-requests') {
     const open = usePanelStore.getState().open;
-    if (useGithubStore.getState().projectPath === activeProjectPath && open?.source === 'github-pr') {
-      return { kind: 'pull', projectPath: activeProjectPath, prNumber: open.number };
+    if (useGithubStore.getState().projectPath === projectPath && open?.source === 'github-pr') {
+      return { kind: 'pull', projectPath, prNumber: open.number };
     }
     // Only Linear's: the palette lists no row for a GitHub issue, and a key
     // recorded against no row takes its boost nowhere.
-    if (useLinearStore.getState().projectPath === activeProjectPath && open?.source === 'linear') {
-      return { kind: 'issue', projectPath: activeProjectPath, issueId: open.id };
+    if (useLinearStore.getState().projectPath === projectPath && open?.source === 'linear') {
+      return { kind: 'issue', projectPath, issueId: open.id };
     }
-  } else if (project.activePanel === 'terminals' && project.terminalLayout !== 'canvas') {
-    // The canvas has no single foreground card, and `activeIndices` is not
-    // maintained while it is up — reading one there names an arbitrary shell.
-    const ptyId = getActivePtyId(activeProjectPath);
-    if (ptyId) return { kind: 'terminal', ptyId };
   }
-  return { kind: 'project', projectPath: activeProjectPath };
+  return { kind: 'project', projectPath };
 }
 
 /** Compared on every store change, so it must not resolve task identity. */
@@ -122,6 +118,7 @@ export function installVisitTracker(): () => void {
   const stores = [
     useAppStore,
     useProjectStore,
+    useExperimentalStore,
     useTerminalStore,
     useUIStore,
     useGithubStore,

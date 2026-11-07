@@ -33,11 +33,11 @@ const faqs: Faq[] = [
   },
   {
     q: 'What does the sandbox do?',
-    a: 'Ouijit runs a task\'s terminals and hooks inside a sandbox, chosen per terminal from the task\'s Open in menu. Two backends are available. nono runs them in place on the host worktree under kernel-level access limits (Seatbelt on macOS, Landlock on Linux), with filesystem access scoped to the worktree and git data, and .git mounted with hooks/ and config read-only so commits land but the host-side RCE surface stays unwritable. Custom runs them under a launcher you supply, which owns the boundary entirely.',
+    a: 'It lets an agent run with its permission checks off without access to the rest of your machine. Each project picks where things run by default, Host, Sandbox, or Custom, and any terminal, hook run, script, or single command (ouijit sandbox -- <command>) can be sent elsewhere. Ouijit\'s sandbox is nono, which runs in place on the host worktree under kernel-level access limits (Seatbelt on macOS, Landlock on Linux), scoped to the worktree and git data with .git hooks/ and config read-only, and configured by a nono profile file per project. Custom runs things under a launcher you supply, which owns the boundary entirely.',
   },
   {
     q: 'Can the agent inside a sandbox terminal use the Ouijit CLI?',
-    a: 'Under nono the terminal runs on the host, so the ouijit CLI shim stays on PATH, with its token scoped to the task\'s own data — a sandboxed session can read and drive its own task, never an arbitrary one. Under the custom backend the token is scoped the same way, but whether the CLI is reachable at all is the launcher\'s call.',
+    a: 'Yes, as far as the project allows. By default a sandboxed command can read its own task and draft comments; Ouijit CLI access in the sandbox settings can also let it move and rename its own task, or do everything a host terminal can. Under the Custom sandbox, whether the CLI is reachable at all is the launcher\'s call.',
   },
   {
     q: 'Where do I download Ouijit?',

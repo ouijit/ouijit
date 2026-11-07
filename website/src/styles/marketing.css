@@ -400,11 +400,12 @@ body.marketing .app-markdown h4 {
 .app-window-titlebar {
   display: flex;
   align-items: center;
-  gap: 18px;
-  height: 64px;
+  gap: 8px;
+  height: 60px;
   /* The app reserves this much for the traffic lights rather than laying them
      out: macOS draws them itself. */
-  padding: 0 20px 0 88px;
+  padding: 16px 16px 8px 88px;
+  box-sizing: border-box;
   flex-shrink: 0;
 }
 
@@ -412,8 +413,8 @@ body.marketing .app-markdown h4 {
    for are native chrome — the window's own blur never reaches them. */
 .app-window-lights {
   position: absolute;
-  top: 26px;
-  left: 20px;
+  top: 28px;
+  left: 17px;
   z-index: 400;
   display: flex;
   gap: 8px;
@@ -439,20 +440,6 @@ body.marketing .app-markdown h4 {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-}
-
-/* Same treatment as the app's .sidebar-home-logo-mask, pointed at the site's
-   copy of the logomark. */
-.app-window-logo-mask {
-  background-color: var(--color-text-secondary);
-  -webkit-mask-image: url('/assets/ouijit-logomark.svg');
-  mask-image: url('/assets/ouijit-logomark.svg');
-  -webkit-mask-size: contain;
-  mask-size: contain;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
 }
 
 /* --- Home pitch (display paragraph below the workspace scene) --- */
@@ -958,15 +945,19 @@ html.js [data-reveal].is-revealed {
   overflow-y: auto;
 }
 
-.docs-sidebar h4 {
+body.marketing .docs-sidebar h4 {
   font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
   color: #fff;
-  font-weight: 400;
-  margin-top: 16px;
-  margin-bottom: 16px;
+  font-weight: 600;
+  margin-top: 28px;
+  margin-bottom: 4px;
+  padding: 0 12px;
+}
+
+body.marketing .docs-sidebar h4:first-child {
+  margin-top: 0;
 }
 
 .docs-sidebar ul {
@@ -977,11 +968,11 @@ html.js [data-reveal].is-revealed {
   margin-bottom: 2px;
 }
 
-.docs-sidebar a {
+body.marketing .docs-sidebar a {
   display: block;
-  padding: 8px 12px;
+  padding: 5px 12px;
   border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.6);
   font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
   font-size: 0.8125rem;
   letter-spacing: -0.01em;
@@ -989,11 +980,11 @@ html.js [data-reveal].is-revealed {
   transition: all var(--transition-fast);
 }
 
-.docs-sidebar a:hover {
+body.marketing .docs-sidebar a:hover {
   color: #fff;
 }
 
-.docs-sidebar a.active {
+body.marketing .docs-sidebar a.active {
   color: var(--marketing-accent);
   background: none;
   font-weight: 600;
@@ -1162,6 +1153,47 @@ html.js [data-reveal].is-revealed {
   width: 100%;
   border-radius: 12px;
   margin: 8px 0 24px;
+}
+
+.docs-tablist {
+  display: inline-flex;
+  margin-bottom: 16px;
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+}
+
+.docs-tablist [role='tab'] {
+  height: 28px;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-bezel);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset 0 -1px 0 var(--bevel-bottom);
+}
+
+.docs-tablist [role='tab']:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-right: none;
+}
+
+.docs-tablist [role='tab']:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-left: 1px solid var(--seam-cut);
+}
+
+.docs-tablist [role='tab']:hover {
+  color: var(--color-text-primary);
+}
+
+.docs-tablist [role='tab'][aria-selected='true'] {
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .docs-actions {

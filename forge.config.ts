@@ -178,10 +178,13 @@ const config: ForgeConfig = {
           // emitted with the same version-stamped name and would collide on the
           // shared release. Rename here (result.arch is available) to a stable,
           // arch-distinct, version-less name matching the ZIP convention.
+          // maker-deb stamps the version between underscores (ouijit_1.0.6_amd64), out of the pattern's reach.
           const stripped =
             ext === '.dmg'
               ? `ouijit-darwin-${result.arch}`
-              : // Match patterns like "ouijit-1.0.6-darwin-arm64" or "ouijit-darwin-arm64-1.0.6"
+              : ext === '.deb'
+                ? `ouijit-linux-${result.arch}`
+                : // Match patterns like "ouijit-1.0.6-darwin-arm64" or "ouijit-darwin-arm64-1.0.6"
                 base.replace(/-\d+\.\d+\.\d+/, '');
           if (stripped === base) return artifact;
           const newPath = path.join(dir, stripped + ext);

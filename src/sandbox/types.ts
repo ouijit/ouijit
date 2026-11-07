@@ -29,17 +29,39 @@ export function isSandboxProviderId(value: unknown): value is SandboxProviderId 
   return typeof value === 'string' && (SANDBOX_PROVIDER_IDS as readonly string[]).includes(value);
 }
 
-/** globalSettings key holding where a project's runners run by default. */
+/** globalSettings key holding where a project runs things unless told otherwise. */
+export function defaultSandboxSettingKey(projectPath: string): string {
+  return `defaultSandbox:${projectPath}`;
+}
+
+/** globalSettings key holding where a terminal's Run and scripts go when chosen apart from the project default. */
 export function runnerSandboxSettingKey(projectPath: string): string {
   return `runnerSandbox:${projectPath}`;
+}
+
+/**
+ * How much of the Ouijit API a sandboxed command may use: read its own task,
+ * also move and rename it, or everything a host terminal can.
+ */
+export type SandboxCliAccess = 'read' | 'task' | 'all';
+
+export const SANDBOX_CLI_ACCESS: readonly SandboxCliAccess[] = ['read', 'task', 'all'];
+
+export function isSandboxCliAccess(value: unknown): value is SandboxCliAccess {
+  return typeof value === 'string' && (SANDBOX_CLI_ACCESS as readonly string[]).includes(value);
+}
+
+export function sandboxCliAccessSettingKey(projectPath: string): string {
+  return `sandboxCliAccess:${projectPath}`;
 }
 
 /** The lifecycle hooks that run in a task terminal of their own, so can run sandboxed. */
 export const SANDBOXABLE_HOOK_TYPES: readonly string[] = ['start', 'continue', 'review', 'done'];
 
-/** Display label for each sandbox backend, shared across every UI surface. */
-export const SANDBOX_BACKEND_LABELS: Record<SandboxBackendId, string> = {
-  nono: 'nono',
+/** What each place a command can run is called, everywhere in the UI. */
+export const SANDBOX_LABELS: Record<SandboxProviderId, string> = {
+  none: 'Host',
+  nono: 'Sandbox',
   custom: 'Custom',
 };
 
@@ -81,24 +103,17 @@ export interface SandboxLaunch {
   env: Record<string, string>;
 }
 
-/** Persisted per-project nono configuration. */
-export interface NonoConfig {
-  /** Offered and usable in this project only once turned on. */
-  enabled?: boolean;
-  /** Deny outbound network (`--block-net`); the hook port stays open. */
-  blockNet?: boolean;
-  /** Extra localhost ports to open beyond the hook server. */
-  openPorts?: number[];
-  /** Extra folders granted read+write beyond the derived worktree + git grants. */
-  allowPaths?: string[];
-  /**
-   * Full escape hatch: a raw nono profile (JSON text) that replaces Ouijit's
-   * managed `ouijit` profile for this project — the developer owns the sandbox
-   * policy. Blank/absent means the managed profile is used. Ouijit still layers
-   * the per-task grants (worktree, git, hook port, caches) on top at spawn time
-   * regardless of what this contains.
-   */
-  profile?: string;
+/** Where a terminal's foreground command runs right now; absent is the host. */
+export interface TerminalSandboxPayload {
+  ptyId: string;
+  sandboxProvider?: SandboxProviderId;
+}
+
+/** The nono profile file a project's sandbox runs under. */
+export interface NonoProfile {
+  path: string;
+  /** False when the user pointed the project at a file other than its own. */
+  own: boolean;
 }
 
 /** A wrapper backend refused to spawn (`error`), or its launcher exited non-zero before the shell started. */

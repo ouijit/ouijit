@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 import { openTaskShell } from '../../components/navigation';
 import { addProjectTerminal } from '../../components/terminal/terminalActions';
+import { useProjectDataStore } from '../../stores/projectDataStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useUIStore, type MissingWorktreeRequest } from '../../stores/uiStore';
 import type { TaskWithWorkspace } from '../../types';
@@ -57,6 +58,7 @@ beforeEach(() => {
   vi.mocked(addProjectTerminal).mockResolvedValue(true);
   useUIStore.setState({ missingWorktreeQueue: [] });
   useProjectStore.setState({ toasts: [] });
+  useProjectDataStore.setState({ configByProject: {} });
   window.api.task.checkWorktree = vi.fn().mockResolvedValue({ status: 'present', worktreePath: '/work/alpha-4' });
   window.api.task.recover = vi.fn();
   window.api.task.start = vi.fn();
@@ -146,6 +148,24 @@ describe('openTaskShell', () => {
         skipAutoHook: true,
       }),
     );
+  });
+
+  test('a plain shell with no sandbox chosen opens in the project default; a resume leaves it to the continue hook', async () => {
+    window.api.globalSettings.get = vi.fn().mockResolvedValue('nono');
+    window.api.task.start = vi.fn().mockResolvedValue({
+      success: true,
+      worktreePath: '/work/alpha-9',
+      task: { branch: 'task/9' },
+    });
+    const sandboxOf = async (...args: Parameters<typeof openTaskShell>) => {
+      await openTaskShell(...args);
+      return vi.mocked(addProjectTerminal).mock.lastCall?.[2]?.sandboxProvider;
+    };
+
+    expect(await sandboxOf(PROJECT, started, { mode: 'shell' })).toBe('nono');
+    expect(await sandboxOf(PROJECT, neverStarted, { mode: 'resume' })).toBe('nono');
+    expect(await sandboxOf(PROJECT, started, { mode: 'resume' })).toBeUndefined();
+    expect(await sandboxOf(PROJECT, started, { mode: 'shell', sandboxProvider: 'custom' })).toBe('custom');
   });
 
   test('a gate that fails toasts and opens nothing, whether it rejects or reports', async () => {

@@ -19,12 +19,7 @@ export const OUIJIT_PROFILE_NAME = 'ouijit';
  * with no per-task opt-in. These must be pulled from the registry before the
  * profile resolves; `ensureUnionProfile` pulls any that are missing.
  */
-const PROFILE_PACKAGES = [
-  'always-further/claude',
-  'always-further/codex',
-  'always-further/opencode',
-  'always-further/pi',
-] as const;
+const PROFILE_PACKAGES = ['nolabs-ai/claude', 'nolabs-ai/codex', 'nolabs-ai/opencode', 'nolabs-ai/pi'] as const;
 
 /**
  * Ouijit's composed sandbox profile. `extends` unions nono's per-agent packs
@@ -260,40 +255,36 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
-/** Deterministic per-project profile name for a developer's override profile. */
+/** nono accepts letters, digits and hyphens in a profile name. */
 export function projectProfileName(projectPath: string): string {
-  const hash = createHash('sha1').update(projectPath).digest('hex').slice(0, 10);
-  return `${OUIJIT_PROFILE_NAME}-${hash}`;
+  const slug = path
+    .basename(projectPath)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const hash = createHash('sha1').update(projectPath).digest('hex').slice(0, 6);
+  return `${OUIJIT_PROFILE_NAME}-${slug ? `${slug}-` : ''}${hash}`;
 }
 
 /**
- * Resolve the profile a spawn runs under. With no override, the managed
- * `ouijit` profile. With an override (the profile editor), write the
- * developer's raw profile JSON to a per-project profile file and return its
- * name so `nono run --profile` resolves it. `meta.name` is forced to the
- * filename so a hand-edited profile can't drift from the name we pass. Invalid
- * JSON falls back to the managed profile (logged) rather than blocking the
- * spawn — the editor surfaces parse errors separately at save time.
+ * The project's own profile, written once as one that only extends Ouijit's
+ * and never touched again: from then on it is the user's file.
  */
-export async function ensureProjectProfile(projectPath: string, override: string | undefined): Promise<string> {
-  if (!override || override.trim().length === 0) return OUIJIT_PROFILE_NAME;
+export async function ensureProjectProfile(projectPath: string): Promise<string> {
   const name = projectProfileName(projectPath);
-  let parsed: Record<string, unknown>;
+  const file = path.join(nonoProfilesDir(), `${name}.json`);
+  const stub = { meta: { name }, extends: [OUIJIT_PROFILE_NAME] };
+  await fs.mkdir(path.dirname(file), { recursive: true });
   try {
-    parsed = JSON.parse(override) as Record<string, unknown>;
+    await fs.writeFile(file, `${JSON.stringify(stub, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
   } catch (error) {
-    nonoLog.warn('invalid nono profile override; falling back to the managed profile', {
-      projectPath,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return OUIJIT_PROFILE_NAME;
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
   }
-  const meta = typeof parsed.meta === 'object' && parsed.meta !== null ? (parsed.meta as Record<string, unknown>) : {};
-  const withName = { ...parsed, meta: { ...meta, name } };
-  const profilesDir = path.join(nonoConfigRoot(), 'profiles');
-  await fs.mkdir(profilesDir, { recursive: true });
-  await fs.writeFile(path.join(profilesDir, `${name}.json`), `${JSON.stringify(withName, null, 2)}\n`, 'utf8');
-  return name;
+  return file;
+}
+
+export function nonoProfilesDir(): string {
+  return path.join(nonoConfigRoot(), 'profiles');
 }
 
 /** Write the union profile JSON, skipping the write when the file already matches. */

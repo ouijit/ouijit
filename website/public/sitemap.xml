@@ -16,11 +16,6 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ouijit.com/docs/kanban/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://ouijit.com/docs/terminals/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -47,11 +42,6 @@
   </url>
   <url>
     <loc>https://ouijit.com/docs/sandbox/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ouijit.com/docs/resume/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

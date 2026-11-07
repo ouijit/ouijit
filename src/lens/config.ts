@@ -124,7 +124,7 @@ export async function resolveLensRun(
 
   const agent = await resolveLensAgentFor(projectPath);
   if (!agent) {
-    return { error: 'No supported agent is installed. A lens is written by Claude Code or Codex.' };
+    return { error: 'No supported agent is installed. A lens is written by Claude Code, Codex or pi.' };
   }
 
   return { lens, agent };

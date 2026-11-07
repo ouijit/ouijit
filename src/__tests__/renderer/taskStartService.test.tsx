@@ -1,10 +1,12 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 import { useProjectStore } from '../../stores/projectStore';
-import { useTerminalStore } from '../../stores/terminalStore';
-import { beginTransition } from '../../services/taskStartService';
+import { stackMembers, useTerminalStore } from '../../stores/terminalStore';
+import { beginTransition, createAndStartTask } from '../../services/taskStartService';
+import { useAppStore } from '../../stores/appStore';
 import { addProjectTerminal, closeProjectTerminal } from '../../components/terminal/terminalActions';
 import type { TaskWithWorkspace } from '../../types';
+import { seedProject } from './seedProject';
 
 // electron-log/renderer expects an Electron host to talk to via IPC. Stub it
 // to a no-op logger so the service module evaluates cleanly under jsdom.
@@ -45,8 +47,7 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
 
 describe('taskStartService.beginTransition', () => {
   beforeEach(() => {
-    useProjectStore.getState().resetForProject();
-    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
+    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, order: [] });
     vi.clearAllMocks();
     vi.mocked(window.api.hooks.get).mockResolvedValue({});
     vi.mocked(window.api.task.start).mockResolvedValue({
@@ -57,7 +58,42 @@ describe('taskStartService.beginTransition', () => {
     vi.mocked(window.api.task.getAll).mockResolvedValue([]);
   });
 
-  test('drop into in_progress without a hook: places loading slot, replaces it on spawn', async () => {
+  test('create and start makes the task, starts it through the start-hook dialog, and shows its terminal', async () => {
+    vi.mocked(window.api.task.create).mockResolvedValue({ success: true, task: { ...makeTask() } as never });
+    vi.mocked(window.api.task.getByNumber).mockResolvedValue(makeTask());
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 'h', type: 'start', name: 'Start', command: 'claude' },
+    });
+
+    // Started while a shell of the same project is on screen, it joins that stack.
+    useTerminalStore.getState().addTerminal(PROJECT, 'pty-shell', { label: 'shell', taskId: null });
+    useAppStore.getState().select({ kind: 'terminal', stack: 'shell:pty-shell', projectPath: PROJECT });
+    expect(await createAndStartTask(PROJECT, 'Wire up auth', 'with oauth')).toBe(true);
+    expect(window.api.task.create).toHaveBeenCalledWith(PROJECT, 'Wire up auth', 'with oauth');
+    const shown = useAppStore.getState().selection;
+    if (shown.kind !== 'terminal') throw new Error('no terminal shown');
+    const members = stackMembers(useTerminalStore.getState(), shown.stack).map(
+      (id) => useTerminalStore.getState().displayStates[id].taskId,
+    );
+    expect(members.sort()).toEqual([7, null]);
+
+    // The same dialog a drag to In progress gets; what it settles is what runs.
+    await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
+    const req = useProjectStore.getState().runHookQueue[0]!;
+    expect(req.hookType).toBe('start');
+    useProjectStore
+      .getState()
+      .resolveRunHookRequest(req.id, { command: 'claude -p', foreground: true, sandbox: 'custom' });
+    await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]?.command).toBe('claude -p');
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandboxProvider).toBe('custom');
+
+    vi.mocked(window.api.task.create).mockResolvedValue({ success: false, error: 'disk full' });
+    expect(await createAndStartTask(PROJECT, 'Again', undefined)).toBe(false);
+    expect(useProjectStore.getState().toasts.map((t) => t.message)).toContain('disk full');
+  });
+
+  test('drop into in_progress without a hook: places loading slot, replaces it on spawn, behind the front one from the CLI', async () => {
     beginTransition(PROJECT, {
       origStatus: 'todo',
       newStatus: 'in_progress',
@@ -82,9 +118,18 @@ describe('taskStartService.beginTransition', () => {
 
     // Starting flag cleared.
     expect(useProjectStore.getState().startingTaskNumbers.has(7)).toBe(false);
+
+    // A CLI start keeps the terminal in front where it is, slot and spawn alike.
+    vi.mocked(addProjectTerminal).mockClear();
+    useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, order: [] });
+    useTerminalStore.getState().addTerminal(PROJECT, 'pty-front', { label: 'shell', taskId: null });
+    beginTransition(PROJECT, { origStatus: 'todo', newStatus: 'in_progress', task: makeTask(), background: true });
+    expect(useTerminalStore.getState().order).toEqual(['pty-front', expect.stringContaining('7')]);
+    await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({ background: true });
   });
 
-  test('a hook runs in its own sandbox unless the CLI or the dialog picks another; no hook means the host', async () => {
+  test('a hook runs where it is set, else the project default, unless the CLI or the dialog picks another', async () => {
     const started = { ...makeTask(), worktreePath: '/wt/T-7', branch: 'wire-up-auth-7' };
     async function transition(opts: Partial<Parameters<typeof beginTransition>[1]>, resolveDialog?: 'nono') {
       vi.mocked(addProjectTerminal).mockClear();
@@ -102,7 +147,8 @@ describe('taskStartService.beginTransition', () => {
       return vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandboxProvider;
     }
 
-    expect(await transition({ hookControl: { mode: 'run' } })).toBeUndefined();
+    // With no hook, the plain shell opens in the project default.
+    expect(await transition({ hookControl: { mode: 'run' } })).toBe('none');
 
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { id: 'h', type: 'start', name: 'Start', command: 'claude', sandbox: 'custom' },
@@ -111,9 +157,14 @@ describe('taskStartService.beginTransition', () => {
     expect(await transition({ hookControl: { mode: 'command', command: 'claude -p' } })).toBe('custom');
     expect(await transition({ hookControl: { mode: 'run' }, sandbox: 'none' })).toBe('none');
     expect(await transition({}, 'nono')).toBe('nono');
-    // Skipping the hook leaves a plain shell, which runs where the CLI says or on the host.
-    expect(await transition({ hookControl: { mode: 'skip' } })).toBeUndefined();
+    expect(await transition({ hookControl: { mode: 'skip' } })).toBe('custom');
     expect(await transition({ hookControl: { mode: 'skip' }, sandbox: 'nono' })).toBe('nono');
+
+    seedProject(PROJECT, { defaultSandbox: 'nono' });
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 'h', type: 'start', name: 'Start', command: 'claude' },
+    });
+    expect(await transition({ hookControl: { mode: 'run' } })).toBe('nono');
   });
 
   test('hook prompt cancel: opens no terminal and removes the loading slot', async () => {
@@ -478,9 +529,7 @@ describe('taskStartService.beginTransition', () => {
 });
 
 describe('projectStore runHook queue', () => {
-  beforeEach(() => {
-    useProjectStore.getState().resetForProject();
-  });
+  beforeEach(() => {});
 
   const makeReq = (taskNumber: number) => ({
     hookType: 'start' as const,

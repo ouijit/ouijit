@@ -1,9 +1,9 @@
 /**
- * The "Open in" submenu shared by the kanban card and the terminal header,
- * plus the file-manager reveal it delegates to.
+ * The Resume and Open in entries shared by the kanban card and the terminal
+ * header, plus the file-manager reveal they delegate to.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { openInEntry, type TaskMenuActions } from '../../components/kanban/taskMenu';
+import { openEntries, type TaskMenuActions } from '../../components/kanban/taskMenu';
 import { fileManagerName, FILE_MANAGER_NAME, revealInFileManager } from '../../utils/fileManager';
 import { useProjectStore } from '../../stores/projectStore';
 import type { ContextMenuEntry, ContextMenuItem } from '../../components/ui/ContextMenu';
@@ -18,27 +18,59 @@ function actions(): TaskMenuActions {
   };
 }
 
-function submenuOf(entry: ContextMenuEntry): ContextMenuItem[] {
-  if (!('submenu' in entry)) throw new Error('expected a submenu');
-  return entry.submenu.filter((e): e is ContextMenuItem => 'onClick' in e);
+/** Each entry's label, with a submenu's labels nested under it. */
+function outline(entries: ContextMenuEntry[]): unknown[] {
+  return entries.flatMap((e): unknown[] => {
+    if ('submenu' in e) return [e.label, outline(e.submenu)];
+    return 'label' in e ? [e.label] : [];
+  });
 }
 
-describe('openInEntry', () => {
-  it('offers what needs a worktree on disk only once the task has one', () => {
-    const withWorktree = submenuOf(openInEntry(['nono'], true, actions()));
-    expect(withWorktree.map((i) => i.label)).toEqual(['Terminal', 'nono sandbox', 'Editor', FILE_MANAGER_NAME]);
+function clickAll(entries: ContextMenuEntry[]): void {
+  for (const e of entries) {
+    if ('submenu' in e) clickAll(e.submenu);
+    else if ('onClick' in e) (e as ContextMenuItem).onClick();
+  }
+}
 
-    // Terminals, sandboxed or not, and Editor create one, so they survive without it.
-    const withoutWorktree = submenuOf(openInEntry(['nono'], false, actions()));
-    expect(withoutWorktree.map((i) => i.label)).toEqual(['Terminal', 'nono sandbox', 'Editor']);
-  });
-
-  it('opens each entry where it names, so Terminal is the host whatever the continue hook says', () => {
+describe('resuming and opening a task', () => {
+  it('resumes where the project defaults to, names every place, and opens apps only where they can', () => {
     const acts = actions();
-    for (const item of submenuOf(openInEntry(['nono'], true, acts))) item.onClick();
-    expect(vi.mocked(acts.openTerminal).mock.calls).toEqual([['none'], ['nono']]);
+    const entries = openEntries(['nono', 'custom'], true, acts, 'custom');
+    expect(outline(entries)).toEqual([
+      'Resume',
+      'Resume in',
+      ['Host', 'Sandbox', 'Custom'],
+      'Open in',
+      ['Editor', FILE_MANAGER_NAME],
+    ]);
+    const places = (entries[1] as { submenu: ContextMenuItem[] }).submenu;
+    expect(places.filter((place) => place.checked).map((place) => place.label)).toEqual(['Custom']);
+    clickAll(entries);
+    expect(vi.mocked(acts.openTerminal).mock.calls).toEqual([['custom'], ['none'], ['nono'], ['custom']]);
     expect(acts.openEditor).toHaveBeenCalled();
     expect(acts.openFolder).toHaveBeenCalled();
+
+    // One other place is named outright rather than behind a submenu.
+    expect(outline(openEntries(['nono'], true, actions(), 'none'))).toEqual([
+      'Resume',
+      'Resume in Sandbox',
+      'Open in',
+      ['Editor', FILE_MANAGER_NAME],
+    ]);
+
+    // A to-do has nothing to resume yet, so it is started.
+    expect(outline(openEntries(['nono'], false, actions(), 'none', false))).toEqual([
+      'Start',
+      'Start in Sandbox',
+      'Open in',
+      ['Editor'],
+    ]);
+
+    // With one place there is nowhere else to resume, and with no worktree on
+    // disk there is nothing for the file manager to show. Resuming and the
+    // editor create one, so they stay.
+    expect(outline(openEntries([], false, actions(), 'none'))).toEqual(['Resume', 'Open in', ['Editor']]);
   });
 });
 

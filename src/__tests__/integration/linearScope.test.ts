@@ -19,12 +19,20 @@ import { linearScopeKey } from '../../linear/scope';
 import {
   getAvailability,
   getConnection,
+  getIssueGroupPage,
   getIssues,
   invalidateScopeOptions,
+  searchIssues,
   setCredential,
   setScope,
 } from '../../linear/service';
-import { issuesResponse, scopeOptionsResponse, viewerResponse } from './linearResponses';
+import {
+  groupPageResponse,
+  issuesResponse,
+  scopeOptionsResponse,
+  searchResponse,
+  viewerResponse,
+} from './linearResponses';
 
 let tmpDir: string;
 let repoDir: string;
@@ -156,6 +164,30 @@ describe('scoping a project to Linear', () => {
     expect(issuesQuery.variables.scope).toEqual({ team: { id: { eq: 'team-eng' } } });
     // Triage is opt-in per team; with it off nothing renders that group.
     expect(groups!.triageEnabled).toBe(false);
+  });
+
+  test('a later page and a search ask under the same scope as the list', async () => {
+    const { fetchImpl, asked } = replay([
+      { match: 'organization', body: viewerResponse() },
+      { match: 'issueLabels', body: scopeOptionsResponse() },
+      { match: 'after: $after', body: groupPageResponse() },
+      { match: 'searchIssues', body: searchResponse() },
+    ]);
+    vi.stubGlobal('fetch', fetchImpl);
+    await setScope(repoDir, { kind: 'team', teamId: 'team-eng', name: 'Engineering' });
+
+    const page = await getIssueGroupPage(repoDir, 'incomplete', 'cursor-1');
+    expect(page.issues.map((i) => i.identifier)).toEqual(['ENG-4']);
+    expect(page.next).toBe('cursor-2');
+    const pageAsk = asked.find((a) => a.query.includes('after: $after'))!;
+    expect(pageAsk.variables).toMatchObject({ after: 'cursor-1', scope: { team: { id: { eq: 'team-eng' } } } });
+    // The fallback for Current cycle is the scope's unfinished issues, not the active cycle's.
+    expect(pageAsk.query).not.toContain('isActive');
+
+    const found = await searchIssues(repoDir, 'onboarding');
+    expect(found.map((i) => i.identifier)).toEqual(['ENG-5']);
+    const searchAsk = asked.find((a) => a.query.includes('searchIssues'))!;
+    expect(searchAsk.variables).toMatchObject({ term: 'onboarding', scope: { team: { id: { eq: 'team-eng' } } } });
   });
 
   test('a refused key says where that key is set', async () => {

@@ -2,6 +2,7 @@ import type { LinearIssueDetail } from '../../linear/types';
 import type { TaskWithWorkspace } from '../../types';
 import { useLinearStore } from '../../stores/linearStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { creatingKey, usePanelStore } from '../../stores/panelStore';
 import { Avatar } from '../issues/Avatar';
 import { CommentComposer } from '../issues/CommentComposer';
 import { Fact, LabelChips } from '../issues/Sections';
@@ -30,6 +31,7 @@ export function LinearIssueView({
 }: LinearIssueViewProps) {
   const loading = useLinearStore((s) => s.issueLoading);
   const drafts = useLinearStore((s) => s.drafts);
+  const creatingTask = usePanelStore((s) => s.creating.includes(creatingKey(projectPath, 'linear', issue.id)));
 
   const post = async (body: string) => {
     const result = await window.api.linear.comment(projectPath, issue.id, body);
@@ -61,6 +63,7 @@ export function LinearIssueView({
       openTaskLabel={openTaskLabel}
       onOpenTask={onOpenTask}
       onCreateTask={onCreateTask}
+      creatingTask={creatingTask}
       actions={<StateControl projectPath={projectPath} issue={issue} />}
       drafts={<StagedComments projectPath={projectPath} drafts={drafts} />}
       composer={

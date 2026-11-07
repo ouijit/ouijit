@@ -20,6 +20,7 @@ function makeFakeTerm() {
     panels: [] as TerminalPanel[],
     activePanelId: null as string | null,
     syncPanels: vi.fn(),
+    setTags: vi.fn(),
   };
   return term as unknown as OuijitTerminal & typeof term;
 }

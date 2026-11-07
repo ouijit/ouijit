@@ -98,14 +98,14 @@ export function PaletteRow({ leading, title, hint, context, meta, selected = fal
 /** A task's live shell, drawn as a branch off the task's own row. */
 export function PaletteBranchRow({
   title,
-  summaryType,
+  status,
   last,
   selected = false,
   rowRef,
   onHover,
 }: {
   title: string;
-  summaryType: string;
+  status: string;
   last: boolean;
   selected?: boolean;
   rowRef?: Ref<HTMLDivElement>;
@@ -129,7 +129,7 @@ export function PaletteBranchRow({
         <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
           {last ? '└─' : '├─'}
         </span>
-        <StatusDot summaryType={summaryType} />
+        <StatusDot status={status} />
         <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">{title}</span>
       </span>
     </div>

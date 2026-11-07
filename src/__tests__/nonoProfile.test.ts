@@ -4,6 +4,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 import { installUnionProfile } from '../sandbox/nono/profile';
+import { getNonoProfile, setNonoProfile } from '../sandbox/nono/config';
+import { _resetCacheForTesting } from '../db';
 
 // Intercept `nono pull` (the registry fallback) and the bundled-resources
 // lookup; everything else (lockfile merge, pack copies, profile write) runs
@@ -20,12 +22,7 @@ vi.mock('../paths', () => ({
   resolveBundledResourceDir: (...segments: string[]) => resolveBundledResourceDir(...segments),
 }));
 
-const PACKS = [
-  'always-further/claude',
-  'always-further/codex',
-  'always-further/opencode',
-  'always-further/pi',
-] as const;
+const PACKS = ['nolabs-ai/claude', 'nolabs-ai/codex', 'nolabs-ai/opencode', 'nolabs-ai/pi'] as const;
 const NONO = '/opt/bin/nono';
 
 let configBase: string; // stands in for $XDG_CONFIG_HOME
@@ -59,7 +56,7 @@ async function writeBundledFixture(): Promise<void> {
       version: '0.0.1',
       installed_at: '2026-01-01T00:00:00Z',
       pinned: false,
-      provenance: { signer_identity: 'https://github.com/always-further/nono-packs/.github/workflows/x.yml@tag' },
+      provenance: { signer_identity: 'https://github.com/nolabs-ai/nono-packs/.github/workflows/x.yml@tag' },
       artifacts: { 'package.json': { sha256: 'abc', type: 'plugin' } },
       wiring_record: [{ type: 'write_file', dest: '/vendor/machine/only/path' }],
     };
@@ -126,7 +123,7 @@ describe('installUnionProfile', () => {
     const packagesDir = path.join(configBase, 'nono', 'packages');
     // claude: a pack dir on disk with no lockfile entry, which makes nono fail
     // every run with "has no lockfile entry".
-    const claudeDir = path.join(packagesDir, 'always-further', 'claude');
+    const claudeDir = path.join(packagesDir, 'nolabs-ai', 'claude');
     await fs.mkdir(claudeDir, { recursive: true });
     await fs.writeFile(path.join(claudeDir, 'stale.txt'), 'old contents', 'utf8');
     // acme/widget: a pack the user pulled themselves, which the merge must
@@ -141,7 +138,7 @@ describe('installUnionProfile', () => {
       JSON.stringify({
         lockfile_version: 4,
         registry: 'https://example.com/custom',
-        packages: { 'acme/widget': userEntry, 'always-further/codex': { version: '9.9.9', artifacts: {} } },
+        packages: { 'acme/widget': userEntry, 'nolabs-ai/codex': { version: '9.9.9', artifacts: {} } },
       }),
       'utf8',
     );
@@ -156,8 +153,8 @@ describe('installUnionProfile', () => {
     await expect(fs.readFile(path.join(claudeDir, 'package.json'), 'utf8')).resolves.toContain('claude');
     // codex's dangling entry was replaced together with its directory so the
     // pair stays matched.
-    expect(lockfile.packages['always-further/codex'].version).toBe('0.0.1');
-    await expect(fs.access(path.join(packagesDir, 'always-further', 'codex', 'package.json'))).resolves.toBeUndefined();
+    expect(lockfile.packages['nolabs-ai/codex'].version).toBe('0.0.1');
+    await expect(fs.access(path.join(packagesDir, 'nolabs-ai', 'codex', 'package.json'))).resolves.toBeUndefined();
     // The user's own pack and top-level fields survive the merge untouched.
     expect(lockfile.packages['acme/widget']).toEqual(userEntry);
     expect(lockfile.registry).toBe('https://example.com/custom');
@@ -210,7 +207,28 @@ describe('installUnionProfile', () => {
     // failing registry now must reject with an error naming the pack.
     execFileMock.mockImplementation((_file, _args, cb) => cb(new Error('network down')));
     await expect(installUnionProfile(NONO)).rejects.toThrow(
-      /Could not install the nono agent profile 'always-further\/claude'/,
+      /Could not install the nono agent profile 'nolabs-ai\/claude'/,
     );
+  });
+});
+
+describe('a project sandbox profile', () => {
+  test("is the project's own file, written once and then left to the user, until another file is chosen", async () => {
+    _resetCacheForTesting();
+    const project = '/Users/dev/code/My App';
+
+    const own = await getNonoProfile(project);
+    expect(own.own).toBe(true);
+    expect(path.dirname(own.path)).toBe(path.join(configBase, 'nono', 'profiles'));
+    expect(path.basename(own.path)).toMatch(/^ouijit-my-app-[0-9a-f]{6}\.json$/);
+    expect(JSON.parse(await fs.readFile(own.path, 'utf8'))).toMatchObject({ extends: ['ouijit'] });
+
+    await fs.writeFile(own.path, '{ "extends": ["ouijit"], "network": { "block": true } }');
+    expect(await getNonoProfile(project)).toEqual(own);
+    expect(await fs.readFile(own.path, 'utf8')).toContain('"block": true');
+
+    expect(await setNonoProfile(project, '/shared/strict.json')).toEqual({ path: '/shared/strict.json', own: false });
+    expect(await getNonoProfile(project)).toEqual({ path: '/shared/strict.json', own: false });
+    expect(await setNonoProfile(project, null)).toEqual(own);
   });
 });

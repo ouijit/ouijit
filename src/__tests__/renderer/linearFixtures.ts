@@ -26,7 +26,7 @@ export function linearGroups(over: Partial<LinearIssueGroups> = {}): LinearIssue
     started: [],
     assigned: [],
     cycle: [],
-    capped: { triage: false, started: false, assigned: false, cycle: false },
+    next: { triage: null, started: null, assigned: null, cycle: null },
     cycleIsFallback: false,
     triageEnabled: true,
     ...over,

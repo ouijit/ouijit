@@ -2,13 +2,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ScriptHook, HookType, SandboxProviderId } from '../../types';
 import { SANDBOXABLE_HOOK_TYPES } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
+import { deleteHook, saveHook } from '../../stores/projectDataStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { useHookCommandDefault } from '../../utils/hookDefaults';
 import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
 import { Checkbox } from '../ui/Checkbox';
-import { SandboxPicker } from '../ui/SandboxPicker';
+import { HookSandboxPicker } from '../ui/SandboxPicker';
 
 const HOOK_LABELS: Record<HookType, { title: string; description: string; envVars?: boolean }> = {
   start: {
@@ -58,7 +59,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
 
   const [command, setCommand] = useState(existingHook?.command ?? '');
   const [restartIfRunning, setRestartIfRunning] = useState(existingHook?.restartIfRunning ?? false);
-  const [sandbox, setSandbox] = useState<SandboxProviderId>(existingHook?.sandbox ?? 'none');
+  const [sandbox, setSandbox] = useState<SandboxProviderId | undefined>(existingHook?.sandbox);
   const [visible, setVisible] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
@@ -85,7 +86,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
 
     if (!trimmed) {
       // Empty command = delete hook
-      await useProjectStore.getState().deleteHook(projectPath, hookType);
+      await deleteHook(projectPath, hookType);
       dismiss(null);
       return;
     }
@@ -96,10 +97,10 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
       name: labels.title,
       command: trimmed,
       ...(isRunHook && { restartIfRunning }),
-      ...(sandboxable && { sandbox }),
+      ...(sandboxable && sandbox && { sandbox }),
     };
 
-    await useProjectStore.getState().saveHook(projectPath, hook);
+    await saveHook(projectPath, hook);
 
     useProjectStore.getState().addToast(`${labels.title} saved`, 'success');
     dismiss(hook);
@@ -153,7 +154,7 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
 
         {sandboxable && (
           <div className="mt-3">
-            <SandboxPicker value={sandbox} onChange={setSandbox} />
+            <HookSandboxPicker projectPath={projectPath} value={sandbox} onChange={setSandbox} />
           </div>
         )}
 

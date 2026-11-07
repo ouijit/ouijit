@@ -14,8 +14,9 @@ export type PanelKind = 'plan' | 'preview' | 'diff';
 
 export interface StackTerminal {
   ptyId: string;
+  taskId: number | null;
   label: string;
-  summaryType: string;
+  status: string;
   lastOscTitle: string;
   branch?: string;
   sandboxed?: boolean;
@@ -26,8 +27,9 @@ export const STACK_TERMINALS: StackTerminal[] = Object.values(featuresTerminalsB
   .flat()
   .map((t) => ({
     ptyId: t.ptyId,
+    taskId: t.taskId,
     label: t.label,
-    summaryType: t.summaryType,
+    status: t.status,
     lastOscTitle: t.lastOscTitle ?? '',
     branch: FEATURES_BRANCHES[t.ptyId],
   }));
@@ -35,8 +37,8 @@ export const STACK_TERMINALS: StackTerminal[] = Object.values(featuresTerminalsB
 /** Static branch chip mimicking the in-app BranchCopy without the interactive copy state. */
 export function BranchLabel({ branch }: { branch: string }) {
   return (
-    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-white/45 self-start shrink-0">
-      <Icon name="git-branch" className="w-3 h-3 shrink-0 text-white/35" />
+    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-ink/45 self-start shrink-0">
+      <Icon name="git-branch" className="w-3 h-3 shrink-0 text-ink/35" />
       <span className="truncate">{branch}</span>
     </span>
   );
@@ -56,7 +58,7 @@ export function ActiveActions({
   onToggle: (kind: PanelKind) => void;
 }) {
   const base =
-    'h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium transition-colors duration-150 ease-out';
+    'group/seg h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium transition-colors duration-150 ease-out';
   const inactive = 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
   const active = 'bg-accent text-accent-ink hover:bg-accent';
   const cls = (kind: PanelKind) => `${base} ${openPanel === kind ? active : inactive}`;
@@ -68,13 +70,22 @@ export function ActiveActions({
     e.stopPropagation();
     onToggle(kind);
   };
+  const closeMark = (
+    <span
+      aria-hidden
+      className="-mr-1 ml-0.5 w-4 h-4 flex items-center justify-center rounded shrink-[9999] min-w-0 overflow-hidden opacity-0 group-hover/seg:opacity-100 hover:bg-ink/15 transition-all duration-150 [&>svg]:w-3 [&>svg]:h-3"
+    >
+      <Icon name="x" />
+    </span>
+  );
   return (
     <div className="flex items-center min-w-0 h-7 bg-background-secondary glass-bevel relative border border-bezel rounded-[12px] overflow-hidden">
       {fixtures.plan && (
         <>
           <button className={cls('plan')} onClick={handle('plan')}>
             <Icon name="file-text" className="w-3.5 h-3.5" />
-            <span>{fixtures.plan.filename}</span>
+            <span className="truncate max-w-[120px]">{fixtures.plan.filename}</span>
+            {closeMark}
           </button>
           {divider}
         </>
@@ -83,7 +94,10 @@ export function ActiveActions({
         <>
           <button className={cls('preview')} onClick={handle('preview')}>
             <Icon name="globe-simple" className="w-3.5 h-3.5" />
-            <span>{fixtures.preview.url.replace(/^https?:\/\//, '').split('/')[0]}</span>
+            <span className="truncate max-w-[120px]">
+              {fixtures.preview.url.replace(/^https?:\/\//, '').split('/')[0]}
+            </span>
+            {closeMark}
           </button>
           {divider}
         </>
@@ -107,7 +121,8 @@ export function ActiveActions({
   );
 }
 
-export const BODY_CLS = 'flex-1 p-4 font-mono text-[11px] leading-[1.65] text-white/85 overflow-hidden min-h-0 flex flex-col';
+export const BODY_CLS =
+  'flex-1 p-4 font-mono text-[11px] leading-[1.65] text-white/85 overflow-hidden min-h-0 flex flex-col';
 
 /* ─── Claude conversation atoms ──────────────────────────────────── */
 
@@ -236,7 +251,15 @@ function ClaudeTuiInput({ busy = false, pendingText }: { busy?: boolean; pending
 
 /** Wraps a Claude conversation: scrolling content area on top, TUI input
  * pinned at the bottom — matching the real Claude Code TUI layout. */
-export function ClaudeShell({ children, busy, pendingText }: { children: ReactNode; busy?: boolean; pendingText?: string }) {
+export function ClaudeShell({
+  children,
+  busy,
+  pendingText,
+}: {
+  children: ReactNode;
+  busy?: boolean;
+  pendingText?: string;
+}) {
   return (
     <div className={BODY_CLS}>
       <div className="flex-1 min-h-0 overflow-hidden">{children}</div>

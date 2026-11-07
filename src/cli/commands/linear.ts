@@ -18,14 +18,13 @@ import { printJson, readBody } from '../output';
 export function registerLinearCommands(parent: Command, requireProject: () => string) {
   const linear = parent
     .command('linear')
-    .description('Inspect Linear issues and link them to tasks')
+    .description('Inspect Linear issues and comment on them')
     .addHelpText(
       'after',
       `
 Examples:
   ouijit linear list
-  ouijit linear view ENG-214
-  ouijit linear link ENG-214 --task 7`,
+  ouijit linear view ENG-214`,
     );
 
   linear
@@ -44,20 +43,6 @@ Examples:
       const project = requireProject();
       printJson(
         await get(`/api/linear/issues/${encodeURIComponent(identifier)}?project=${encodeURIComponent(project)}`),
-      );
-    });
-
-  linear
-    .command('link')
-    .description('Link an issue to a task')
-    .argument('<identifier>', 'issue identifier, e.g. ENG-214')
-    .requiredOption('--task <number>', 'task number to link it to')
-    .action(async (identifier: string, options: { task: string }) => {
-      const project = requireProject();
-      printJson(
-        await post(`/api/linear/issues/${encodeURIComponent(identifier)}/link?project=${encodeURIComponent(project)}`, {
-          taskNumber: parseInt(options.task, 10),
-        }),
       );
     });
 
