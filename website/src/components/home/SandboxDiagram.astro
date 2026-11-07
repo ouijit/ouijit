@@ -1,0 +1,86 @@
+---
+/**
+ * The boundary the sandbox draws: the agent and its worktree inside, the rest
+ * of the machine outside, and the one line back to Ouijit that still crosses.
+ */
+const BLUE = 'var(--color-ansi-blue)';
+const RED = 'var(--color-ansi-red)';
+
+interface Node {
+  x: number;
+  y: number;
+  w: number;
+  title: string;
+  sub: string;
+}
+
+const H = 54;
+const BOUNDARY_X = 580;
+const agent: Node = { x: 84, y: 160, w: 160, title: 'claude', sub: 'permission checks off' };
+const worktree: Node = { x: 394, y: 160, w: 166, title: 'worktree', sub: 'T-119 and .git objects' };
+const keys: Node = { x: 752, y: 78, w: 204, title: '~/.ssh  ~/.aws', sub: 'keys and credentials' };
+const repos: Node = { x: 752, y: 160, w: 204, title: '~/Code/billing-service', sub: 'other repositories' };
+const ouijit: Node = { x: 752, y: 242, w: 204, title: 'Ouijit', sub: 'diff notes, drafts, asks' };
+const host: Node = { x: 752, y: 326, w: 204, title: 'npm run dev · git push', sub: 'host, with your credentials' };
+
+const mid = (n: Node) => n.y + H / 2;
+const agentCx = agent.x + agent.w / 2;
+---
+<figure class="sandbox-diagram">
+  <svg viewBox="0 0 1000 412" role="img" aria-label="Inside the sandbox, the agent reaches only its worktree. Its attempts to read keys and other repositories are refused at the boundary. One line still crosses: it can talk to Ouijit, which runs the dev server and the push on the host.">
+    <defs>
+      <marker id="sb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+      </marker>
+      <marker id="sb-arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill={BLUE} />
+      </marker>
+    </defs>
+
+    <!-- the machine -->
+    <rect x="24" y="24" width="952" height="364" rx="18" fill="none" stroke="currentColor" stroke-opacity="0.22" stroke-dasharray="4 6" />
+    <text x="44" y="52" class="sb-label">your machine</text>
+
+    <!-- the sandbox -->
+    <rect x="64" y="78" width={BOUNDARY_X - 64} height="258" rx="16" fill={BLUE} fill-opacity="0.07" stroke={BLUE} stroke-opacity="0.8" />
+    <text x="84" y="106" class="sb-label" fill={BLUE}>sandbox</text>
+    <text x={BOUNDARY_X - 20} y="106" class="sb-label" text-anchor="end" fill={BLUE}>Seatbelt · Landlock</text>
+
+    <!-- nodes -->
+    {[agent, worktree, keys, repos, ouijit, host].map((n) => (
+      <g>
+        <rect x={n.x} y={n.y} width={n.w} height={H} rx="10" fill="var(--color-terminal-bg)" stroke="currentColor" stroke-opacity="0.18" />
+        <text x={n.x + 14} y={n.y + 22} class="sb-title">{n.title}</text>
+        <text x={n.x + 14} y={n.y + 41} class="sb-sub">{n.sub}</text>
+      </g>
+    ))}
+
+    <!-- agent → worktree -->
+    <line x1={agent.x + agent.w} y1={mid(agent)} x2={worktree.x - 2} y2={mid(worktree)} stroke="currentColor" stroke-opacity="0.7" marker-end="url(#sb-arrow)" />
+    <text x={(agent.x + agent.w + worktree.x) / 2} y={mid(agent) - 10} class="sb-edge" text-anchor="middle">read · write · commit</text>
+
+    <!-- refused: agent → keys, agent → repos, stopped at the boundary -->
+    {[keys, repos].map((n) => (
+      <g>
+        <line x1={worktree.x + worktree.w} y1={mid(worktree) - (n === keys ? 10 : 0)} x2={BOUNDARY_X - 1} y2={mid(n)} stroke={RED} stroke-opacity="0.85" />
+        <line x1={BOUNDARY_X - 6} y1={mid(n) - 6} x2={BOUNDARY_X + 6} y2={mid(n) + 6} stroke={RED} stroke-width="2" />
+        <line x1={BOUNDARY_X - 6} y1={mid(n) + 6} x2={BOUNDARY_X + 6} y2={mid(n) - 6} stroke={RED} stroke-width="2" />
+        <line x1={BOUNDARY_X + 14} y1={mid(n)} x2={n.x - 2} y2={mid(n)} stroke="currentColor" stroke-opacity="0.18" stroke-dasharray="3 5" />
+        <text x={BOUNDARY_X + 22} y={mid(n) - 8} class="sb-edge" fill={RED}>not permitted</text>
+      </g>
+    ))}
+
+    <!-- allowed across the boundary: agent → ouijit -->
+    <line x1={agentCx} y1={agent.y + H} x2={agentCx} y2={mid(ouijit)} stroke={BLUE} stroke-opacity="0.8" />
+    <line x1={agentCx} y1={mid(ouijit)} x2={ouijit.x - 2} y2={mid(ouijit)} stroke={BLUE} stroke-opacity="0.8" marker-end="url(#sb-arrow-blue)" />
+    <text x={agentCx + 12} y={mid(ouijit) - 8} class="sb-edge" fill={BLUE}>ouijit ask run · pr draft add</text>
+
+    <!-- ouijit → host -->
+    <line x1={ouijit.x + ouijit.w / 2} y1={ouijit.y + H} x2={host.x + host.w / 2} y2={host.y - 2} stroke="currentColor" stroke-opacity="0.7" marker-end="url(#sb-arrow)" />
+    <text x={ouijit.x + ouijit.w / 2 + 10} y={(ouijit.y + H + host.y) / 2 + 4} class="sb-edge">runs it for you</text>
+  </svg>
+  <figcaption>
+    The agent gets its worktree and nothing else. It can still reach Ouijit, and Ouijit runs what needs the
+    host for you.
+  </figcaption>
+</figure>

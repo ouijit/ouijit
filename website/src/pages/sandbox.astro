@@ -2,35 +2,8 @@
 import Site from '../layouts/Site.astro';
 import DownloadButtons from '../components/home/DownloadButtons.astro';
 import Cta from '../components/home/Cta.astro';
+import SandboxDiagram from '../components/home/SandboxDiagram.astro';
 import { SandboxMock } from '../components/demo/SandboxMocks.tsx';
-
-const features: { title: string; body: string; mock: 'grants' | 'where' | 'agent' | 'fails' | 'custom' }[] = [
-  {
-    title: 'Bounded to the worktree',
-    body: "The agent can read, write and commit inside the task's worktree. Git hooks and config are read-only. Home, keys and other repositories are blocked. The network is yours to allow or not, per project.",
-    mock: 'grants',
-  },
-  {
-    title: 'Choose what runs where',
-    body: 'A default per project, overridable per hook, script or run. Sandbox the agent. Keep the dev server and the push on the host, where the credentials are.',
-    mock: 'where',
-  },
-  {
-    title: 'The agent still drives Ouijit',
-    body: "The ouijit command works inside, on a token scoped to the project. The agent reads your diff notes, stages review comments for you to send, and asks you to run what it can't. How much more it may do is a project setting.",
-    mock: 'agent',
-  },
-  {
-    title: 'Fails closed',
-    body: "If the sandbox can't start, the command doesn't run and the terminal says why. There is no fallback to the host.",
-    mock: 'fails',
-  },
-  {
-    title: 'Bring your own launcher',
-    body: 'A Custom launcher runs every sandboxed command through a script your team maintains. The script owns the boundary. Ouijit passes it the worktree, git directories and ports as hints.',
-    mock: 'custom',
-  },
-];
 
 const points: [string, string][] = [
   [
@@ -97,45 +70,84 @@ const faqSchema = {
   </section>
 
   <div class="feature-hero-visual">
-    <div class="plan-desk desk-wash">
-      <div class="desk-wash-field" aria-hidden="true" style="--wash: var(--wash-iris)"><span class="desk-wash-grain"></span></div>
-      <div class="relative"><SandboxMock kind="hero" client:visible /></div>
+    <div class="plan-desk desk-wash desk-wash--graphite">
+      <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
+      <div class="relative"><SandboxDiagram /></div>
     </div>
   </div>
 
   <section class="feature-section">
     <h2>Turn it on</h2>
-    <div class="steps">
-      <div class="step">
-        <p>
-          Set the project's default to Sandbox in <strong>Project Settings</strong>, or set it on the start hook
-          alone. Then let the hook skip the prompts.
-        </p>
-        <pre><code>claude --dangerously-skip-permissions "$OUIJIT_TASK_DESCRIPTION"</code></pre>
-      </div>
-      <div class="step">
-        <p>Or sandbox one command and leave the rest of the line on the host.</p>
-        <pre><code>git pull origin main &amp;&amp; ouijit sandbox -- claude --dangerously-skip-permissions "$OUIJIT_TASK_DESCRIPTION"</code></pre>
-      </div>
+    <div class="step">
+      <p>Sandbox a whole terminal from the project's settings, or one command from the shell.</p>
+      <pre><code>ouijit sandbox -- claude --dangerously-skip-permissions "$OUIJIT_TASK_DESCRIPTION"</code></pre>
     </div>
   </section>
 
   <section class="feature-section">
     <div class="feature-rows">
-      {features.map((f) => (
-        <div class="feature-row">
-          <div class="feature-copy">
-            <h3>{f.title}</h3>
-            <p>{f.body}</p>
-          </div>
-          <div class="feature-visual">
-            <div class="plan-desk desk-wash desk-wash--graphite">
-              <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
-              <div class="relative"><SandboxMock kind={f.mock} client:visible /></div>
-            </div>
+      <div class="feature-row">
+        <div class="feature-copy">
+          <h3>Choose what runs where</h3>
+          <p>
+            A default per project, overridable per hook, script or run. Sandbox the agent. Keep the dev server
+            and the push on the host, where the credentials are.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <div class="plan-desk desk-wash desk-wash--graphite">
+            <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
+            <div class="relative"><SandboxMock kind="where" client:visible /></div>
           </div>
         </div>
-      ))}
+      </div>
+
+      <div class="feature-row">
+        <div class="feature-copy">
+          <h3>The agent still drives Ouijit</h3>
+          <p>
+            The ouijit command works inside, on a token scoped to the project. The agent reads your diff notes,
+            stages review comments for you to send, and asks you to run what it can't. How much more it may do
+            is a project setting.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <div class="plan-desk desk-wash desk-wash--graphite">
+            <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
+            <div class="relative"><SandboxMock kind="access" client:visible /></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-row">
+        <div class="feature-copy">
+          <h3>Fails closed</h3>
+          <p>
+            If the sandbox can't start, the command doesn't run and the terminal says why. There is no fallback
+            to the host.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <pre><code><span class="refused">Sandbox failed to start: Landlock is unavailable on kernel 5.10 (needs 5.13 or newer).</span>
+<span class="dim">Nothing ran.</span></code></pre>
+        </div>
+      </div>
+
+      <div class="feature-row">
+        <div class="feature-copy">
+          <h3>Bring your own launcher</h3>
+          <p>
+            A Custom launcher runs every sandboxed command through a script your team maintains. The script
+            owns the boundary. Ouijit passes it the worktree, git directories and ports as hints.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <pre><code><span class="dim">$</span> ~/.local/bin/team-sandbox -- zsh
+<span class="dim">OUIJIT_SANDBOX_WORKTREE</span>=~/Ouijit/worktrees/horizon/T-119
+<span class="dim">OUIJIT_SANDBOX_GIT_DIR</span>=~/Code/horizon/.git
+<span class="dim">OUIJIT_SANDBOX_HOOK_PORT</span>=52341</code></pre>
+        </div>
+      </div>
     </div>
   </section>
 

@@ -1491,10 +1491,8 @@ body.marketing::after {
   margin: 0 0 32px;
 }
 
-.steps {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
+.step {
+  max-width: 760px;
 }
 
 .step p {
@@ -1504,12 +1502,7 @@ body.marketing::after {
   margin: 0 0 16px;
 }
 
-.step strong {
-  color: #f5f5f7;
-  font-weight: 500;
-}
-
-.step pre {
+.feature-section pre {
   background: #171717;
   border: 1px solid rgba(0, 0, 0, 0.6);
   border-radius: 14px;
@@ -1517,7 +1510,7 @@ body.marketing::after {
   overflow: hidden;
 }
 
-.step pre code {
+.feature-section pre code {
   display: block;
   padding: 18px 20px;
   color: #f5f5f7;
@@ -1525,6 +1518,68 @@ body.marketing::after {
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.feature-section pre .refused {
+  color: var(--color-ansi-red);
+}
+
+.feature-section pre .dim {
+  color: rgba(245, 245, 247, 0.4);
+}
+
+/* The hero diagram: SVG text takes the page's fonts; currentColor is the
+   page foreground, so strokes and labels follow the theme. */
+.sandbox-diagram {
+  margin: 0;
+  color: #f5f5f7;
+}
+
+.sandbox-diagram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.sandbox-diagram text {
+  fill: currentColor;
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+}
+
+.sandbox-diagram .sb-label {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  fill-opacity: 0.6;
+}
+
+.sandbox-diagram .sb-label[fill] {
+  fill-opacity: 0.9;
+}
+
+.sandbox-diagram .sb-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sandbox-diagram .sb-sub {
+  font-size: 11px;
+  fill-opacity: 0.5;
+}
+
+.sandbox-diagram .sb-edge {
+  font-size: 11px;
+  fill-opacity: 0.7;
+}
+
+.sandbox-diagram .sb-edge[fill] {
+  fill-opacity: 1;
+}
+
+.sandbox-diagram figcaption {
+  margin: 20px 4px 0;
+  color: #86868b;
+  font-size: 0.9375rem;
+  line-height: 1.5;
 }
 
 .feature-rows {
@@ -1605,7 +1660,6 @@ body.marketing::after {
     padding-top: 72px;
   }
 
-  .steps,
   .points {
     grid-template-columns: 1fr;
   }
