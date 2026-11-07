@@ -1992,3 +1992,38 @@ body.marketing::after {
     overflow-x: auto;
   }
 }
+
+/* The changelog: one article per release. */
+.changelog .release {
+  padding-top: 2.5rem;
+  margin-top: 2.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.changelog .release header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.changelog .release h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.changelog .release h2 a {
+  text-decoration: none;
+}
+.changelog .release h2 a:hover {
+  text-decoration: underline;
+}
+.changelog .release time {
+  color: var(--text-tertiary, #888);
+  font-size: 0.9rem;
+}
+.changelog .release-github {
+  margin-left: auto;
+  color: var(--text-tertiary, #888);
+  font-size: 0.9rem;
+}
+.changelog .release strong {
+  color: #fff;
+}

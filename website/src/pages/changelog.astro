@@ -1,0 +1,33 @@
+---
+import Site from '../layouts/Site.astro';
+import DownloadButtons from '../components/home/DownloadButtons.astro';
+import { fetchReleases } from '../releases';
+
+const releases = await fetchReleases();
+const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+<Site
+  title="Changelog · Ouijit"
+  description="What changed in each Ouijit release.">
+  <main class="compare-content changelog">
+    <h1>Changelog</h1>
+    <p class="lead">What changed in each release.</p>
+
+    {releases.map((release) => (
+      <article class="release" id={release.tag}>
+        <header>
+          <h2><a href={`#${release.tag}`}>{release.tag}</a></h2>
+          <time datetime={release.publishedAt.toISOString()}>{dateFormat.format(release.publishedAt)}</time>
+          <a class="release-github" href={release.url} target="_blank" rel="noopener">GitHub</a>
+        </header>
+        <Fragment set:html={release.html} />
+      </article>
+    ))}
+
+    <h2>Get it</h2>
+    <DownloadButtons />
+    <p class="compare-footer">
+      Every build, including pre-releases, is on the <a href="https://github.com/ouijit/ouijit/releases" target="_blank" rel="noopener">GitHub releases page</a>.
+    </p>
+  </main>
+</Site>
