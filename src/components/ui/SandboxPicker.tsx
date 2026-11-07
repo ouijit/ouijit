@@ -60,8 +60,8 @@ export function HookSandboxPicker({
   onChange: (value: SandboxProviderId | undefined) => void;
 }) {
   const options = useSandboxOptions(projectPath, value);
-  if (options.length === 1) return null;
   const projectDefault = useProjectConfig(projectPath)?.defaultSandbox ?? 'none';
+  if (options.length === 1) return null;
   return (
     <Row>
       <QuietPicker<SandboxProviderId | 'default'>
