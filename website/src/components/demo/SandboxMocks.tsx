@@ -10,7 +10,6 @@ import {
   AssistantSay,
   ToolCall,
   ToolResult,
-  WorkingLine,
   BranchLabel,
   BODY_CLS,
 } from './stackParts';
@@ -112,30 +111,36 @@ function Grants() {
   );
 }
 
+function Refused({ path }: { path: string }) {
+  return (
+    <ToolResult>
+      <span className={RED}>Operation not permitted</span>
+      <span className="ml-2 text-white/45">{path}</span>
+    </ToolResult>
+  );
+}
+
 function HeroTerminal() {
   return (
     <Terminal
-      height={440}
-      status="thinking"
+      height={400}
+      status="ready"
       label="Add rate-limit headers to the public API"
-      osc="Running the load test…"
       branch="api-rate-limit-headers"
     >
-      <ClaudeShell busy>
-        <ClaudeUser>Add rate-limit headers to every public route.</ClaudeUser>
-        <AssistantSay>Middleware first, then the router, then a load test against it.</AssistantSay>
-        <ToolCall name="Write" args="src/api/middleware/rateLimit.ts" />
-        <Lines added={48} note="lines (new)" />
+      <ClaudeShell>
+        <ClaudeUser>Add rate-limit headers to every public route, then deploy to staging.</ClaudeUser>
         <ToolCall name="Edit" args="src/api/router.ts" />
         <Lines added={4} removed={1} />
-        <ToolCall name="Bash" args="npm install -g artillery" />
-        <ToolResult>
-          <span className={RED}>EPERM: operation not permitted</span>
-          <span className="ml-2 text-white/45">mkdir /usr/local/lib/node_modules/artillery</span>
-        </ToolResult>
-        <AssistantSay>No global installs from here. Running it out of the worktree instead.</AssistantSay>
-        <ToolCall name="Bash" args="npx artillery quick --count 50 http://localhost:4000/api/health" />
-        <WorkingLine verb="Hammering" elapsed="1m 02s" tokens="6.4k" />
+        <ToolCall name="Bash" args='git commit -am "Add rate-limit headers"' />
+        <ToolResult>[api-rate-limit-headers 3f2c1a9] 2 files changed</ToolResult>
+        <ToolCall name="Bash" args="cat ~/.aws/credentials" />
+        <Refused path="~/.aws/credentials" />
+        <ToolCall name="Bash" args="ls ~/Code/infra/staging" />
+        <Refused path="~/Code/infra" />
+        <AssistantSay>Nothing outside this worktree is reachable from here. Asking you to run the deploy.</AssistantSay>
+        <ToolCall name="Bash" args={'ouijit ask run -m "Deploy needs the AWS profile" -- ./deploy.sh staging'} />
+        <ToolResult>{'{"status": "pending"}'}</ToolResult>
       </ClaudeShell>
     </Terminal>
   );
