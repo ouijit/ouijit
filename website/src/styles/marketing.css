@@ -682,6 +682,13 @@ html.js [data-reveal].is-revealed {
   margin: 0;
 }
 
+.detail p a {
+  color: #f5f5f7;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-underline-offset: 2px;
+}
+
 /* --- Bento variant of the details grid --- */
 /* Two ribbons, each holding its cards twice and sliding by exactly one copy,
    so the seam never arrives. */
@@ -1456,6 +1463,48 @@ body.marketing::after {
   --wash: var(--wash-graphite);
 }
 
+/* Sandbox page: the Plan section's rows, under a hero. */
+.sandbox-lead {
+  max-width: 640px;
+  margin: -16px 0 0;
+  font-size: 1.25rem;
+  line-height: 1.5;
+  color: #86868b;
+}
+
+.sandbox-lead strong {
+  color: #f5f5f7;
+  font-weight: 500;
+}
+
+.home-sandbox {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px var(--content-padding) 48px;
+}
+
+.sandbox-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 64px;
+}
+
+.plan-v3-copy code {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.875em;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #f5f5f7;
+}
+
+.plan-v3-copy a {
+  color: #f5f5f7;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-underline-offset: 2px;
+}
+
 .desk-wash-field {
   position: absolute;
   inset: 0;
@@ -1973,24 +2022,6 @@ body.marketing::after {
   padding: 2px 6px;
   border-radius: 4px;
   color: #fff;
-}
-.compare-content pre {
-  background: #171717;
-  border: 1px solid rgba(0, 0, 0, 0.6);
-  border-radius: 14px;
-  margin: 0 0 1rem;
-  overflow: hidden;
-}
-.compare-content pre code {
-  display: block;
-  padding: 20px;
-  overflow-x: auto;
-  background: none;
-  color: #f5f5f7;
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 .compare-content a {
   text-decoration: underline;

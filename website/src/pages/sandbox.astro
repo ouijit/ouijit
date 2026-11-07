@@ -1,81 +1,29 @@
 ---
 import Site from '../layouts/Site.astro';
 import Cta from '../components/home/Cta.astro';
-
-const grants: [string, string][] = [
-  ["The task's worktree", 'Read and write'],
-  ['The repository\'s .git', 'Read-only, except objects, refs and logs, so commits land but hooks and config cannot change'],
-  ['A package cache for the project', 'Read and write, shared by the project\'s tasks, outside every worktree'],
-  ['Ouijit\'s status port', 'Reachable, so the card still shows what the agent is doing'],
-  ['Your home directory, keys, dotfiles and other repositories', 'Blocked'],
-  ['The network', 'Allowed by default. Block it, or open ports, in the project\'s profile.'],
-];
+import { SandboxSection } from '../components/demo/SandboxSection.tsx';
 ---
 <Site
   title="Sandbox · Ouijit"
   description="Run coding agents with their permission checks off, held to their task's worktree by kernel-level limits, while the dev server beside them stays on the host.">
-  <main class="compare-content">
-    <h1>Permission checks off, machine intact</h1>
-    <p class="lead">
-      Every agent CLI has a flag that stops it asking before each command. It is the fastest way to work and the
-      most dangerous, because the agent then has everything you have. Ouijit's sandbox holds that agent to its
-      task's worktree.
-    </p>
-    <img
-      class="compare-screenshot"
-      src="/assets/screenshots/settings.png"
-      alt="Project settings with a start hook that runs Claude Code with permission checks off, in the sandbox"
-      loading="lazy"
-    />
+  <script is:inline>document.documentElement.classList.add('js');</script>
 
-    <h2>What the agent can reach</h2>
-    <table>
-      <tbody>
-        {grants.map(([a, b]) => (
-          <tr><td>{a}</td><td>{b}</td></tr>
-        ))}
-      </tbody>
-    </table>
-    <p>
-      The limits are enforced by the kernel, with Seatbelt on macOS and Landlock on Linux, through
-      <a href="https://github.com/nolabs-ai/nono" target="_blank" rel="noopener">nono</a>. The agent runs in
-      place, in the real worktree, as a normal process. There is no virtual machine to boot and no files to sync,
-      so a sandboxed terminal opens as fast as a plain one, and the agent's own sign-ins work.
+  <section class="hero">
+    <h1 data-reveal>Permission checks off, <span class="hero-dim">machine intact.</span></h1>
+    <p class="sandbox-lead" data-reveal style="--reveal-delay: 120ms">
+      Every agent CLI has a flag that stops it asking before each command. It is the fastest way to work, and
+      the agent then has everything you have. <strong>Ouijit holds it to its task's worktree.</strong>
     </p>
+  </section>
 
-    <h2>The agent is sandboxed, the dev server isn't</h2>
-    <p>
-      A project picks a default, Host or Sandbox, and anything can go elsewhere: a terminal, one hook, one run of a
-      hook, a script, or a single command in a longer line. The usual shape is an agent in the sandbox with the dev
-      server and the tests beside it on the host, and a done hook that pushes from the host because the host has
-      the credentials.
-    </p>
-    <pre><code>git pull origin main &amp;&amp; ouijit sandbox -- claude --dangerously-skip-permissions "$OUIJIT_TASK_DESCRIPTION"</code></pre>
-    <p>
-      That start hook pulls on the host and runs only the agent inside the sandbox. A sandboxed terminal wears an
-      outlined status dot so you can tell at a glance.
-    </p>
+  <section class="home-sandbox">
+    <SandboxSection client:visible />
+  </section>
 
-    <h2>Still an agent in Ouijit</h2>
-    <p>
-      A sandboxed agent keeps the <a href="/docs/cli/"><code>ouijit</code> command</a>, with a token of its own
-      scoped to its project. By default it can read its task, read the notes you leave on its diff, draft review
-      comments for you to send, and ask you to run a command it cannot. You can widen that to moving its own task,
-      or to everything, per project. Comments it drafts are marked as written from a sandbox.
-    </p>
-
-    <h2>Fails closed</h2>
-    <p>
-      If the sandbox cannot start, the terminal says why and the command does not run. Nothing ever falls back to
-      the host. The profile that defines the limits lives outside the repository, where the agent cannot edit it.
-    </p>
-
-    <h2>Or bring your own</h2>
-    <p>
-      Teams with their own sandboxing can set a Custom launcher: a reviewed script that owns the boundary, with
-      Ouijit passing the worktree, git directories and ports as hints. The <a href="/docs/sandbox/">sandbox
-      documentation</a> has the contract.
-    </p>
-  </main>
   <Cta />
+
+  <script>
+    import { initHomeChrome } from '../scripts/homeChrome';
+    initHomeChrome();
+  </script>
 </Site>
