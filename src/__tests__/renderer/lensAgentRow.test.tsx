@@ -54,16 +54,16 @@ describe('which agent writes a lens', () => {
 
   test('the row appears exactly where there is a decision to make', async () => {
     // One installed is no decision, so nothing is drawn at all.
-    installed({ codex: false });
+    installed({ codex: false, pi: false });
     const { container } = render(<LensAgentRow projectPath={PROJECT} />);
     await waitFor(() => expect(window.api.health.check).toHaveBeenCalled());
     await waitFor(() => expect(container.textContent).toBe(''));
 
     // Said here rather than left for the run to fail with.
     cleanup();
-    installed({ claude: false, codex: false });
+    installed({ claude: false, codex: false, pi: false });
     render(<LensAgentRow projectPath={PROJECT} />);
-    expect(await screen.findByText(/Lenses need Claude Code or Codex installed/)).toBeTruthy();
+    expect(await screen.findByText(/Lenses need Claude Code, Codex or pi installed/)).toBeTruthy();
     expect(screen.queryByRole('button')).toBeNull();
   });
 
@@ -73,7 +73,7 @@ describe('which agent writes a lens', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Claude Code/ }));
     await screen.findByRole('menuitem', { name: /^Claude Code/ });
 
-    expect(screen.queryByRole('menuitem', { name: /^Pi/ })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: /^pi/ })).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: /opencode/ })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /Custom command/ })).toBeNull();
 

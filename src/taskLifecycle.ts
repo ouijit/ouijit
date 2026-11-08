@@ -20,7 +20,7 @@ import {
   type TaskStatus,
   type TaskMetadata,
 } from './db';
-import { listWorktrees, removeTaskWorktree, startTask } from './worktree';
+import { listWorktrees, startTask } from './worktree';
 import type { TaskWithWorkspace, TaskWorktreeResult, WorktreeInfo } from './types';
 import { getCachedHealth } from './healthCheck';
 import { getLogger } from './logger';
@@ -173,42 +173,6 @@ export async function reorderTaskWithHooks(
   if (!result.success) {
     taskLog.error('reorder failed', { taskNumber, status: newStatus, error: result.error });
   }
-  return result;
-}
-
-/**
- * Delete a task, removing its worktree if one exists.
- */
-export async function deleteTaskWithWorktree(
-  projectPath: string,
-  taskNumber: number,
-): Promise<{ success: boolean; error?: string }> {
-  const task = await getTaskByNumber(projectPath, taskNumber);
-
-  // Clear parent references on children before deleting
-  await clearParentReferences(projectPath, taskNumber);
-
-  const taskPaths = extractAttachmentPaths(task?.prompt);
-
-  if (task?.worktreePath || task?.branch) {
-    const worktrees = await listWorktrees(projectPath);
-    const wt = task.branch
-      ? worktrees.find((w) => w.branch === task.branch)
-      : worktrees.find((w) => w.path === task.worktreePath);
-    if (wt) {
-      taskLog.info('deleting task with worktree', { taskNumber, worktreePath: wt.path });
-      const removeResult = await removeTaskWorktree(projectPath, wt.path, taskNumber);
-      if (!removeResult.success) {
-        taskLog.error('worktree removal failed', { taskNumber, error: removeResult.error });
-        return removeResult;
-      }
-      await cleanupAttachments(projectPath, taskPaths, taskNumber);
-      return { success: true };
-    }
-    taskLog.info('deleting task (metadata-only)', { taskNumber });
-  }
-  const result = await deleteTaskByNumber(projectPath, taskNumber);
-  if (result.success) await cleanupAttachments(projectPath, taskPaths, taskNumber);
   return result;
 }
 

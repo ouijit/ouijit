@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
 import { Icon } from '../terminal/Icon';
@@ -26,6 +26,10 @@ interface TaskComposerSheetProps {
   onCollapse: (caret: number | null) => void;
   /** Throw the draft away. Omitted in `edit` mode. */
   onDiscard?: () => void;
+  /** Names, and lets the reader change, the project a new task goes to. */
+  projectPicker?: ReactNode;
+  /** Create the task and start it. */
+  onStart?: () => void;
 }
 
 /**
@@ -44,6 +48,8 @@ export function TaskComposerSheet({
   onSubmit,
   onCollapse,
   onDiscard,
+  projectPicker,
+  onStart,
 }: TaskComposerSheetProps) {
   const [visible, setVisible] = useState(false);
   const editorRef = useRef<DescriptionChipEditorHandle>(null);
@@ -80,6 +86,11 @@ export function TaskComposerSheet({
     if (!canSubmit) return;
     dismiss(onSubmit);
   }, [canSubmit, dismiss, onSubmit]);
+
+  const start = useCallback(() => {
+    if (!canSubmit || !onStart) return;
+    dismiss(onStart);
+  }, [canSubmit, dismiss, onStart]);
 
   /** Grow the title with its content — it wraps like a heading, not a field. */
   const sizeName = useCallback(() => {
@@ -120,12 +131,13 @@ export function TaskComposerSheet({
       } else if (mod && e.key === 'Enter') {
         e.preventDefault();
         e.stopPropagation();
-        submit();
+        if (e.shiftKey && onStart) start();
+        else submit();
       }
     };
     document.addEventListener('keydown', handler, true);
     return () => document.removeEventListener('keydown', handler, true);
-  }, [collapse, submit]);
+  }, [collapse, submit, start, onStart]);
 
   return createPortal(
     <div
@@ -152,7 +164,9 @@ export function TaskComposerSheet({
       >
         <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
           <Icon name={isCreate ? 'file-plus' : 'file-text'} className="w-3.5 h-3.5 text-ink/50 shrink-0" />
-          <span className="text-[13px] text-ink/50 truncate flex-1">{isCreate ? 'New task' : 'Description'}</span>
+          <span className="text-[13px] text-ink/50 flex-1 min-w-0 flex items-center gap-1">
+            {isCreate ? projectPicker ? <>New task in {projectPicker}</> : 'New task' : 'Description'}
+          </span>
           <span className="text-[13px] text-ink/35 shrink-0">{isCreate ? 'Todo' : name}</span>
         </div>
 
@@ -206,17 +220,35 @@ export function TaskComposerSheet({
         </div>
 
         <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-separator text-[11px] text-ink/40">
-          <KeyHint keys="esc" label={isCreate ? 'Draft stays in the column' : 'Back to the card'} />
+          <span className="min-w-0 truncate">
+            <KeyHint keys="esc" label={isCreate ? 'Draft stays in the column' : 'Back to the card'} />
+          </span>
           <span className="flex-1" />
           {onDiscard && (
-            <button type="button" onClick={onDiscard} className="btn-secondary">
+            <button type="button" onClick={onDiscard} className="btn-secondary shrink-0 whitespace-nowrap">
               Discard
             </button>
           )}
-          <button type="button" onClick={submit} disabled={!canSubmit} className="btn-primary">
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!canSubmit}
+            className={`${onStart ? 'btn-secondary' : 'btn-primary'} shrink-0 whitespace-nowrap`}
+          >
             {isCreate ? 'Create task' : 'Save'}
             <span className="opacity-60 font-mono text-[11px]">{MOD_LABEL}↵</span>
           </button>
+          {onStart && (
+            <button
+              type="button"
+              onClick={start}
+              disabled={!canSubmit}
+              className="btn-primary shrink-0 whitespace-nowrap"
+            >
+              Start task
+              <span className="opacity-60 font-mono text-[11px]">⇧{MOD_LABEL}↵</span>
+            </button>
+          )}
         </div>
       </div>
     </div>,

@@ -111,7 +111,9 @@ img {
   list-style: none;
 }
 
-.nav-links a {
+/* Specific enough to beat `body.marketing a`, which paints links white. */
+body.marketing .nav-links a,
+body.marketing .nav-mobile a {
   color: var(--color-text-secondary);
   font-size: 0.875rem;
   font-weight: 500;
@@ -119,7 +121,9 @@ img {
   transition: color var(--transition-fast);
 }
 
-.nav-links a:hover {
+body.marketing .nav-links a:hover,
+body.marketing .nav-links a[aria-current],
+body.marketing .nav-mobile a[aria-current] {
   color: #f5f5f7;
 }
 
@@ -400,11 +404,12 @@ body.marketing .app-markdown h4 {
 .app-window-titlebar {
   display: flex;
   align-items: center;
-  gap: 18px;
-  height: 64px;
+  gap: 8px;
+  height: 60px;
   /* The app reserves this much for the traffic lights rather than laying them
      out: macOS draws them itself. */
-  padding: 0 20px 0 88px;
+  padding: 16px 16px 8px 88px;
+  box-sizing: border-box;
   flex-shrink: 0;
 }
 
@@ -412,8 +417,8 @@ body.marketing .app-markdown h4 {
    for are native chrome — the window's own blur never reaches them. */
 .app-window-lights {
   position: absolute;
-  top: 26px;
-  left: 20px;
+  top: 28px;
+  left: 17px;
   z-index: 400;
   display: flex;
   gap: 8px;
@@ -439,20 +444,6 @@ body.marketing .app-markdown h4 {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-}
-
-/* Same treatment as the app's .sidebar-home-logo-mask, pointed at the site's
-   copy of the logomark. */
-.app-window-logo-mask {
-  background-color: var(--color-text-secondary);
-  -webkit-mask-image: url('/assets/ouijit-logomark.svg');
-  mask-image: url('/assets/ouijit-logomark.svg');
-  -webkit-mask-size: contain;
-  mask-size: contain;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
 }
 
 /* --- Home pitch (display paragraph below the workspace scene) --- */
@@ -695,6 +686,13 @@ html.js [data-reveal].is-revealed {
   margin: 0;
 }
 
+.detail p a {
+  color: #f5f5f7;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-underline-offset: 2px;
+}
+
 /* --- Bento variant of the details grid --- */
 /* Two ribbons, each holding its cards twice and sliding by exactly one copy,
    so the seam never arrives. */
@@ -891,40 +889,54 @@ html.js [data-reveal].is-revealed {
 /* --- Footer --- */
 .site-footer {
   border-top: 1px solid var(--color-border);
-  padding: 32px var(--content-padding);
+  padding: 48px var(--content-padding) 40px;
   margin-top: 40px;
 }
 
 .footer-inner {
   max-width: var(--content-max-width);
   margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   font-size: 0.8125rem;
   color: var(--color-text-tertiary);
 }
 
-.footer-links {
-  display: flex;
-  gap: 24px;
-  list-style: none;
+.footer-columns {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: 24px 72px;
 }
 
-.footer-links a {
+.footer-column ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.footer-heading {
+  color: #f5f5f7;
+  font-weight: 500;
+  margin-bottom: 14px;
+}
+
+.footer-column a {
   color: var(--color-text-tertiary);
   text-decoration: none;
 }
 
-.footer-links a:hover {
+.footer-column a:hover {
   color: #f5f5f7;
 }
 
+.footer-legal {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
 @media (max-width: 768px) {
-  .footer-inner {
-    flex-direction: column;
-    gap: 16px;
-    text-align: center;
+  .footer-columns {
+    grid-template-columns: 1fr 1fr;
   }
 
   .download-buttons {
@@ -958,15 +970,19 @@ html.js [data-reveal].is-revealed {
   overflow-y: auto;
 }
 
-.docs-sidebar h4 {
+body.marketing .docs-sidebar h4 {
   font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
   color: #fff;
-  font-weight: 400;
-  margin-top: 16px;
-  margin-bottom: 16px;
+  font-weight: 600;
+  margin-top: 28px;
+  margin-bottom: 4px;
+  padding: 0 12px;
+}
+
+body.marketing .docs-sidebar h4:first-child {
+  margin-top: 0;
 }
 
 .docs-sidebar ul {
@@ -977,11 +993,11 @@ html.js [data-reveal].is-revealed {
   margin-bottom: 2px;
 }
 
-.docs-sidebar a {
+body.marketing .docs-sidebar a {
   display: block;
-  padding: 8px 12px;
+  padding: 5px 12px;
   border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.6);
   font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
   font-size: 0.8125rem;
   letter-spacing: -0.01em;
@@ -989,11 +1005,11 @@ html.js [data-reveal].is-revealed {
   transition: all var(--transition-fast);
 }
 
-.docs-sidebar a:hover {
+body.marketing .docs-sidebar a:hover {
   color: #fff;
 }
 
-.docs-sidebar a.active {
+body.marketing .docs-sidebar a.active {
   color: var(--marketing-accent);
   background: none;
   font-weight: 600;
@@ -1162,6 +1178,47 @@ html.js [data-reveal].is-revealed {
   width: 100%;
   border-radius: 12px;
   margin: 8px 0 24px;
+}
+
+.docs-tablist {
+  display: inline-flex;
+  margin-bottom: 16px;
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+}
+
+.docs-tablist [role='tab'] {
+  height: 28px;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-bezel);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset 0 -1px 0 var(--bevel-bottom);
+}
+
+.docs-tablist [role='tab']:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-right: none;
+}
+
+.docs-tablist [role='tab']:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-left: 1px solid var(--seam-cut);
+}
+
+.docs-tablist [role='tab']:hover {
+  color: var(--color-text-primary);
+}
+
+.docs-tablist [role='tab'][aria-selected='true'] {
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .docs-actions {
@@ -1420,6 +1477,256 @@ body.marketing::after {
 
 .desk-wash--graphite {
   --wash: var(--wash-graphite);
+}
+
+/* Feature pages: a hero, a getting-started pair, alternating copy and desk
+   rows, three points, questions. The sandbox page is the first. */
+.hero-sub {
+  max-width: 600px;
+  margin: -16px 0 0;
+  font-size: 1.25rem;
+  line-height: 1.5;
+  color: #86868b;
+}
+
+.agent-hero .agent-logo {
+  display: block;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 28px;
+}
+
+.feature-hero-visual {
+  max-width: 1100px;
+  margin: 56px auto 0;
+  padding: 0 var(--content-padding);
+}
+
+.feature-section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 112px var(--content-padding) 0;
+}
+
+.feature-section h2 {
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  letter-spacing: -0.03em;
+  margin: 0 0 32px;
+}
+
+.step {
+  max-width: 760px;
+}
+
+.step p {
+  color: #86868b;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  margin: 0 0 16px;
+}
+
+.feature-section pre {
+  position: relative;
+  background: var(--color-terminal-bg);
+  border: 1px solid var(--color-bezel-panel);
+  border-radius: 14px;
+  box-shadow: var(--shadow-panel);
+  margin: 0;
+  overflow: hidden;
+}
+
+.feature-section pre code {
+  display: block;
+  padding: 18px 20px;
+  color: #f5f5f7;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.feature-section pre .dim {
+  color: rgba(245, 245, 247, 0.4);
+}
+
+/* The hero diagram: SVG text takes the page's fonts; currentColor is the
+   page foreground, so strokes and labels follow the theme. */
+.sandbox-diagram {
+  position: relative;
+  color: #f5f5f7;
+}
+
+/* Shadows and badges reach past the drawing's bounds into the desk padding. */
+.sandbox-diagram svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* The sandbox is a foil panel on the prism desk; the svg draws over it. */
+.sb-foil {
+  position: absolute;
+  border-radius: 16px;
+  overflow: clip;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.sb-foil::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+}
+
+.sandbox-diagram text {
+  fill: currentColor;
+  font-family: inherit;
+}
+
+.sandbox-diagram .sb-label {
+  font-size: 13px;
+  font-weight: 500;
+  fill-opacity: 0.55;
+}
+
+.sandbox-diagram .sb-label[fill] {
+  fill-opacity: 0.95;
+}
+
+.sandbox-diagram .sb-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  fill-opacity: 0.92;
+}
+
+.sandbox-diagram .sb-edge {
+  font-size: 12px;
+  fill-opacity: 0.6;
+}
+
+.sandbox-diagram .sb-edge[fill] {
+  fill-opacity: 0.95;
+}
+
+.sandbox-diagram .sb-ink {
+  fill: #0f0f11;
+  fill-opacity: 0.7;
+}
+
+.feature-hero-visual figcaption {
+  margin: 20px 4px 0;
+  color: #86868b;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.feature-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 96px;
+}
+
+.feature-row {
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  gap: 64px;
+  align-items: center;
+}
+
+.feature-row:nth-child(even) {
+  grid-template-columns: 7fr 5fr;
+}
+
+.feature-row:nth-child(even) .feature-copy {
+  order: 2;
+}
+
+.feature-copy h3 {
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+}
+
+.feature-copy p {
+  color: #86868b;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 40ch;
+}
+
+.feature-visual .plan-desk {
+  padding: 28px;
+}
+
+.points {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+}
+
+.points p {
+  color: #86868b;
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.points strong {
+  display: block;
+  color: #f5f5f7;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+body.marketing .feature-end-link {
+  margin: 48px 0 112px;
+}
+
+.feature-faq .faq-item {
+  max-width: 760px;
+  padding: 1.25rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.feature-faq .faq-item h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.feature-faq .faq-item p {
+  margin: 0;
+  color: var(--text-secondary, #c0c0c0);
+  line-height: 1.55;
+}
+
+@media (max-width: 860px) {
+  .feature-section {
+    padding-top: 72px;
+  }
+
+  .points {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-rows {
+    gap: 64px;
+  }
+
+  .feature-row,
+  .feature-row:nth-child(even) {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .feature-row:nth-child(even) .feature-copy {
+    order: 0;
+  }
 }
 
 .desk-wash-field {
@@ -1855,4 +2162,152 @@ body.marketing::after {
   .tui-spinner > span:first-child {
     opacity: 1;
   }
+}
+
+/* Pages that map another tool onto Ouijit. */
+.compare-content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 1rem;
+}
+.compare-content h1 {
+  font-size: 2.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.about-content h1 {
+  margin-bottom: 2rem;
+}
+
+.about-content p {
+  font-size: 1.0625rem;
+}
+
+.about-content {
+  padding-bottom: 6rem;
+}
+
+.about-content h2 {
+  font-size: 1.375rem;
+  font-weight: 500;
+  margin: 3rem 0 1rem;
+}
+.compare-content .lead {
+  color: var(--text-secondary, #aaa);
+  margin-bottom: 3rem;
+  line-height: 1.55;
+}
+.compare-content .compare-screenshot {
+  width: 100%;
+  border-radius: 12px;
+  margin: 0 0 8px;
+}
+
+.compare-content h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 2.5rem 0 1rem;
+}
+.compare-content p,
+.compare-content li {
+  color: var(--text-secondary, #c0c0c0);
+  line-height: 1.55;
+}
+.compare-content p {
+  margin: 0 0 1rem;
+}
+.compare-content ol,
+.compare-content ul {
+  padding-left: 1.25rem;
+  margin: 0 0 1rem;
+}
+
+.compare-content ol {
+  list-style: decimal;
+}
+
+.compare-content ul {
+  list-style: disc;
+}
+.compare-content li {
+  margin-bottom: 0.5rem;
+}
+.compare-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  margin-bottom: 1.5rem;
+}
+.compare-content th,
+.compare-content td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  line-height: 1.5;
+}
+.compare-content th {
+  color: #fff;
+  font-weight: 600;
+}
+.compare-content td {
+  color: var(--text-secondary, #c0c0c0);
+}
+.compare-content td:first-child {
+  color: #fff;
+  width: 38%;
+}
+.compare-content code {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.875em;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+}
+.compare-content a {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-underline-offset: 2px;
+}
+@media (max-width: 768px) {
+  .compare-content table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+/* The changelog: one article per release. */
+.changelog .release {
+  padding-top: 2.5rem;
+  margin-top: 2.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.changelog .release header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.changelog .release h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.changelog .release h2 a {
+  text-decoration: none;
+}
+.changelog .release h2 a:hover {
+  text-decoration: underline;
+}
+.changelog .release time {
+  color: var(--text-tertiary, #888);
+  font-size: 0.9rem;
+}
+.changelog .release-github {
+  margin-left: auto;
+  color: var(--text-tertiary, #888);
+  font-size: 0.9rem;
+}
+.changelog .release strong {
+  color: #fff;
 }

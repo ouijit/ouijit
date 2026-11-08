@@ -7,6 +7,8 @@ import {
   getConnection,
   getIssue,
   getIssues,
+  getIssueGroupPage,
+  searchIssues,
   linkTaskToIssue,
   listDrafts,
   moveIssue,
@@ -27,6 +29,8 @@ export function registerLinearHandlers(): void {
   typedHandle('linear:set-scope', (projectPath, scope) => setScope(projectPath, scope));
 
   typedHandle('linear:issues', (projectPath) => getIssues(projectPath));
+  typedHandle('linear:issue-page', (projectPath, group, after) => getIssueGroupPage(projectPath, group, after));
+  typedHandle('linear:search', (projectPath, term) => searchIssues(projectPath, term));
   typedHandle('linear:issue', (projectPath, id) => getIssue(projectPath, id));
 
   typedHandle('linear:comment', (projectPath, issueId, body) => comment(projectPath, issueId, body));

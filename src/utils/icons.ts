@@ -27,6 +27,7 @@ import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
 import command from '@phosphor-icons/core/assets/regular/command.svg?raw';
 import control from '@phosphor-icons/core/assets/regular/control.svg?raw';
 import dotsSixVertical from '@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw';
+import dotsThree from '@phosphor-icons/core/assets/regular/dots-three.svg?raw';
 import caretLeft from '@phosphor-icons/core/assets/regular/caret-left.svg?raw';
 import caretRight from '@phosphor-icons/core/assets/regular/caret-right.svg?raw';
 import cardsThree from '@phosphor-icons/core/assets/regular/cards-three.svg?raw';
@@ -67,6 +68,8 @@ import squareSplitHorizontal from '@phosphor-icons/core/assets/regular/square-sp
 import star from '@phosphor-icons/core/assets/regular/star.svg?raw';
 import tag from '@phosphor-icons/core/assets/regular/tag.svg?raw';
 import terminal from '@phosphor-icons/core/assets/regular/terminal.svg?raw';
+import moon from '@phosphor-icons/core/assets/regular/moon.svg?raw';
+import terminalWindow from '@phosphor-icons/core/assets/regular/terminal-window.svg?raw';
 import trash from '@phosphor-icons/core/assets/regular/trash.svg?raw';
 import treeStructure from '@phosphor-icons/core/assets/regular/tree-structure.svg?raw';
 import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
@@ -124,6 +127,7 @@ export const iconMap: Record<string, string> = {
   command: command,
   control: control,
   'dots-six-vertical': dotsSixVertical,
+  'dots-three': dotsThree,
   'caret-left': caretLeft,
   'caret-right': caretRight,
   'cards-three': cardsThree,
@@ -165,6 +169,8 @@ export const iconMap: Record<string, string> = {
   star: star,
   tag: tag,
   terminal: terminal,
+  'terminal-window': terminalWindow,
+  moon: moon,
   trash: trash,
   'tree-structure': treeStructure,
   upload: upload,

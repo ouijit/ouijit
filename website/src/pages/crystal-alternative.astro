@@ -1,0 +1,86 @@
+---
+import Site from '../layouts/Site.astro';
+import Cta from '../components/home/Cta.astro';
+
+const rows: [string, string][] = [
+  ['Project', 'Project, from a repository on disk or cloned from GitHub'],
+  ['Session', 'Task. Starting it creates the worktree and opens a terminal in it.'],
+  ['Several sessions from one prompt', 'Several terminals on one task, or ask the agent to split the prompt into tasks.'],
+  ['Main branch', 'Branch from, under Project Settings → Worktree. Each task also has its own merge target.'],
+  ['Run commands', 'Scripts, under Run Commands. Each runs in a runner panel beside the terminal.'],
+  ['Diff viewer with manual edits', 'Diff review, with notes the agent reads. Edits happen in your editor, via Open in editor.'],
+  ['Rebase from main, Merge to main', 'From the terminal, or a done hook'],
+  ['A commit per iteration', 'None. The agent commits when you ask it to, or a hook does.'],
+  ['Prompt history', "The agent's own session, resumed by the continue hook"],
+  ['Claude Code and Codex', 'Claude Code, Codex, Pi and OpenCode, with live status and the ouijit command. Any other CLI runs too.'],
+  ['Pointing Claude Code at Bedrock', 'The same. The agent is its own CLI, with its own settings.'],
+];
+---
+<Site
+  title="Crystal alternative · Ouijit"
+  description="Moving from Crystal to Ouijit after its deprecation: how sessions, run scripts, the diff viewer and the rebase buttons map onto tasks, scripts, diff review and hooks.">
+  <main class="compare-content">
+    <h1>Coming from Crystal</h1>
+    <p class="lead">
+      Crystal was deprecated in February 2026 and its successor is an editor. If what you wanted was Claude Code
+      and Codex in parallel worktrees, Ouijit does that, and is maintained. Here's how the pieces line up.
+    </p>
+    <img
+      class="compare-screenshot"
+      src="/assets/screenshots/diff.png"
+      alt="An agent working in a task's terminal, with the diff of its changes and a note for it beside"
+      loading="lazy"
+    />
+
+    <h2>Why Ouijit</h2>
+    <p>
+      The agent runs as its own CLI in a terminal, in the task's worktree, so Claude Code and Codex work exactly as
+      they do anywhere else, and Pi and OpenCode join them.
+    </p>
+    <p>
+      Every agent gets the <a href="/docs/cli/"><code>ouijit</code> command</a>. Ask it to split a feature into
+      tasks and it starts them, each with its own agent. It can read the other agents' terminals, open its plan
+      beside itself, link you to the line it changed, and stage review comments for you to send.
+    </p>
+    <p>
+      A task can run in a <a href="/docs/sandbox/">sandbox</a>, so an agent with permission checks off is held to
+      its worktree. Ouijit is free, open source, and runs on macOS and Linux.
+    </p>
+
+    <h2>What maps to what</h2>
+<p>
+      A hook is a command the project runs when a task changes status. The start hook runs in the new worktree
+      with the task's prompt in <code>$OUIJIT_TASK_DESCRIPTION</code>, and the done hook runs when the task is
+      marked done. Both live under <strong>Project Settings → Lifecycle Hooks</strong>.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Crystal</th><th>Ouijit</th></tr>
+      </thead>
+      <tbody>
+        {rows.map(([a, b]) => (
+          <tr><td>{a}</td><td>{b}</td></tr>
+        ))}
+      </tbody>
+    </table>
+
+    <h2>What you give up</h2>
+    <ul>
+      <li>Editing inside the diff. Ouijit's diff is for reading and for notes to the agent.</li>
+      <li>Checkpoint commits after every turn. Commit from the terminal, ask the agent, or put it in a hook.</li>
+      <li>The rebase and merge buttons. Git runs in the terminal.</li>
+      <li>Windows. Crystal built from source there; Ouijit runs on macOS and Linux.</li>
+    </ul>
+
+    <h2>Move a project over</h2>
+    <ol>
+      <li>Push or finish your Crystal sessions. Ouijit makes its own worktrees.</li>
+      <li><a href="/docs/">Install Ouijit</a> and open the repository as a project.</li>
+      <li>Under <strong>Project Settings → Lifecycle Hooks</strong>, put your agent in the start hook with the task's prompt, for example <code>claude "$OUIJIT_TASK_DESCRIPTION"</code> or <code>codex "$OUIJIT_TASK_DESCRIPTION"</code>.</li>
+      <li>Add each run command under <strong>Project Settings → Run Commands</strong>.</li>
+      <li>Under <strong>Project Settings → Worktree</strong>, set <strong>Branch from</strong> if your sessions branched from something other than the checked-out branch.</li>
+      <li>Press <code>⌘N</code> for a task, give it a prompt and start it. The start hook runs in its new worktree.</li>
+    </ol>
+  </main>
+  <Cta />
+</Site>

@@ -1,4 +1,4 @@
-import { test as base, expect, _electron, type ElectronApplication, type Page } from '@playwright/test';
+import { test as base, expect, _electron, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -30,26 +30,27 @@ export function createTestRepo(name = 'test-project'): { repoPath: string; clean
   };
 }
 
-/**
- * Helper: add a project and enter project mode.
- * Hovers the sidebar trigger zone to reveal the auto-hiding sidebar,
- * then clicks the project icon to navigate into project mode.
- */
+/** A button on a project's row, which shows once the row is hovered. */
+export async function projectRowButton(appPage: Page, repoPath: string, name: string | RegExp): Promise<Locator> {
+  const project = appPage.locator(`[data-project-path="${repoPath}"]`);
+  await project.hover();
+  return project.getByRole('button', { name });
+}
+
+/** Opens a registered project's board from its row in the sidebar. */
+export async function openBoard(appPage: Page, repoPath: string): Promise<void> {
+  await (await projectRowButton(appPage, repoPath, 'Board')).click();
+  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
+}
+
+/** Registers a project and opens its board. */
 export async function enterProject(appPage: Page, repoPath: string): Promise<void> {
-  // Add project and refresh the store so the sidebar item renders
   await appPage.evaluate(async (rp: string) => {
     await window.api.addProject(rp);
     const projects = await window.api.refreshProjects();
     (window as any).__appStore.getState().setProjects(projects);
   }, repoPath);
-
-  // Hover the left edge to reveal the auto-hiding sidebar
-  await appPage.mouse.move(2, 200);
-  const sidebarItem = appPage.locator('[data-project-path]').first();
-  await expect(sidebarItem).toBeVisible({ timeout: 10_000 });
-  await sidebarItem.click();
-  // First entry shows kanban board (no existing terminals)
-  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
+  await openBoard(appPage, repoPath);
 }
 
 interface ApiCredentials {
@@ -82,6 +83,13 @@ type OuijitFixtures = {
   userDataDir: string;
 };
 
+export function launchApp(userDataDir: string): Promise<ElectronApplication> {
+  return _electron.launch({
+    args: [path.resolve(__dirname, '..', '.vite-e2e', 'build', 'main.js'), '--no-sandbox'],
+    env: { ...process.env, OUIJIT_TEST_USER_DATA: userDataDir, OUIJIT_E2E: '1' },
+  });
+}
+
 export const test = base.extend<OuijitFixtures>({
   testRepo: async ({}, use) => {
     const repo = createTestRepo();
@@ -96,16 +104,7 @@ export const test = base.extend<OuijitFixtures>({
   },
 
   electronApp: async ({ userDataDir }, use) => {
-    const mainScript = path.resolve(__dirname, '..', '.vite-e2e', 'build', 'main.js');
-
-    const electronApp = await _electron.launch({
-      args: [mainScript, '--no-sandbox'],
-      env: {
-        ...process.env,
-        OUIJIT_TEST_USER_DATA: userDataDir,
-        OUIJIT_E2E: '1',
-      },
-    });
+    const electronApp = await launchApp(userDataDir);
 
     await use(electronApp);
 

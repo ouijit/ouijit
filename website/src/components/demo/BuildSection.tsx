@@ -60,7 +60,7 @@ const LAND_AT = 0.88;
 const CAPTIONS = [
   {
     title: 'Keep work isolated',
-    body: 'Starting a task cuts it a git worktree and a branch, keeping work safe and moving forward.',
+    body: 'Starting a task cuts it a git worktree and a branch, so agents never work in each other\'s files.',
   },
   {
     title: 'Reuse workflows with hooks',
@@ -68,7 +68,7 @@ const CAPTIONS = [
   },
   {
     title: 'Run agents full auto',
-    body: 'Use a sandbox to skip permission checks with peace of mind.',
+    body: 'Turn permission checks off inside a sandbox that holds the agent to its worktree. The rest of your machine is out of reach.',
   },
 ];
 
@@ -84,7 +84,7 @@ const CONNECTED: TerminalDisplayState[] = SESSIONS.map((session, i) => ({
   projectPath: '/demo/horizon',
   ptyId: `pty-${TODO_COLUMN[i].taskNumber}-claude`,
   label: session.label,
-  summaryType: 'thinking',
+  status: 'thinking',
   lastOscTitle: session.osc,
   taskId: TODO_COLUMN[i].taskNumber,
 }));
@@ -320,7 +320,7 @@ export function BuildSection() {
                 >
                   <TerminalCardView isActive={front}>
                     <TerminalHeaderView
-                      summaryType="thinking"
+                      status="thinking"
                       isActive={front}
                       isBackCard={!front}
                       stackPosition={front ? undefined : rank}

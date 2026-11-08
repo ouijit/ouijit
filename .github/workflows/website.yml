@@ -10,9 +10,12 @@ on:
       # a chance to forget), rebuild on any src/ change. Deploys are cheap.
       - 'src/**'
       - '.github/workflows/website.yml'
+  release:
+    types: [published, edited]
   workflow_dispatch:
 
 permissions:
+  contents: read
   pages: write
   id-token: write
 
@@ -42,6 +45,8 @@ jobs:
       - name: Build static site
         run: npm run build
         working-directory: website
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/configure-pages@v5
 

@@ -71,7 +71,7 @@ function forget(entry: Entry): void {
 /**
  * `replacing` names the path a retry is taking over, which keeps its place in
  * the list until this one is ready: a path that is briefly neither a clone nor
- * a project puts the project view on a directory that is not there.
+ * a project puts a project page on a directory that is not there.
  */
 export async function startClone(options: CloneProjectOptions, replacing?: string): Promise<StartCloneResult> {
   const resolved = await resolveCloneTarget(options);

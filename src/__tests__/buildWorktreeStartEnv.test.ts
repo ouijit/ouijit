@@ -38,6 +38,7 @@ describe('buildWorktreeStartEnv', () => {
     expect(env.OUIJIT_WORKTREE_PATH).toBe('/path/to/project/worktrees/T-1');
     expect(env.OUIJIT_TASK_BRANCH).toBe('feat-1234567890');
     expect(env.OUIJIT_TASK_NAME).toBe('My Task');
+    expect(env.OUIJIT_TASK_NUMBER).toBe(String(makeTask().taskNumber));
   });
 
   // The worktree snapshot's description is captured at creation time, so an

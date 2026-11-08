@@ -14,6 +14,11 @@ export type OpenItem =
 /** Which list the tab bar is on, and what closing an item returns to. */
 export type PanelList = 'pulls' | 'issues';
 
+export const LIST_TITLES: Record<PanelList, string> = {
+  pulls: 'Pull requests',
+  issues: 'Issues',
+};
+
 interface PanelStoreState {
   /** The project the slot belongs to. Switching projects empties it. */
   projectPath: string | null;
@@ -25,6 +30,8 @@ interface PanelStoreState {
    */
   sidebarWidth: number;
   sidebarCollapsed: boolean;
+  /** What a task is being made from, by `creatingKey`. Held here so it outlives the panel being closed. */
+  creating: string[];
 }
 
 interface PanelStoreActions {
@@ -34,6 +41,8 @@ interface PanelStoreActions {
   close: () => void;
   setSidebarWidth: (width: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  /** Runs `work` unless a task is already being made from `key`. */
+  whileCreating: (key: string, work: () => Promise<void>) => Promise<void>;
 }
 
 export const SIDEBAR_DEFAULT_WIDTH = 320;
@@ -46,6 +55,7 @@ export const usePanelStore = create<PanelStoreState & PanelStoreActions>()((set,
   listView: 'pulls',
   sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
   sidebarCollapsed: false,
+  creating: [],
 
   // Left set, the slot names something in the project you just left: a first
   // Escape closes a phantom, and a same-numbered row here highlights as open.
@@ -61,7 +71,25 @@ export const usePanelStore = create<PanelStoreState & PanelStoreActions>()((set,
   setSidebarWidth: (width) =>
     set({ sidebarWidth: Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, Math.round(width))) }),
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
+
+  whileCreating: async (key, work) => {
+    if (get().creating.includes(key)) return;
+    set({ creating: [...get().creating, key] });
+    try {
+      await work();
+    } finally {
+      set({ creating: get().creating.filter((k) => k !== key) });
+    }
+  },
 }));
+
+export function creatingKey(
+  projectPath: string,
+  source: IssueRow['source'] | 'github-pr',
+  key: string | number,
+): string {
+  return `${projectPath}\0${source}:${key}`;
+}
 
 /** Whether the slot holds this row — a row addresses its issue in its own terms. */
 export function isRowOpen(open: OpenItem, row: IssueRow): boolean {

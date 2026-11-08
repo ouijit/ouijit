@@ -11,22 +11,27 @@ import { create } from 'zustand';
 interface ComposerStore {
   draft: { name: string; description: string };
   /** The expanded sheet is open. Rendered by the board when it's mounted, by
-   *  the project view when it isn't. */
+   *  the main view when it isn't. */
   sheetOpen: boolean;
   /** Caret offset the sheet opens at, handed over by the inline editor. */
   sheetCaret: number | null;
+  /** The project the sheet creates in, when it is not the one on screen. */
+  sheetProjectPath: string | null;
 
   setName: (name: string) => void;
   setDescription: (description: string) => void;
   clearDraft: () => void;
-  openSheet: (caret?: number | null) => void;
+  openSheet: (caret?: number | null, projectPath?: string | null) => void;
   closeSheet: () => void;
+  /** Point the open sheet at another project, keeping the draft. */
+  retarget: (projectPath: string) => void;
 }
 
 export const useComposerStore = create<ComposerStore>()((set) => ({
   draft: { name: '', description: '' },
   sheetOpen: false,
   sheetCaret: null,
+  sheetProjectPath: null,
 
   setName: (name) => set((s) => ({ draft: { ...s.draft, name } })),
 
@@ -34,18 +39,10 @@ export const useComposerStore = create<ComposerStore>()((set) => ({
 
   clearDraft: () => set({ draft: { name: '', description: '' } }),
 
-  openSheet: (caret = null) => set({ sheetOpen: true, sheetCaret: caret }),
+  openSheet: (caret = null, projectPath = null) =>
+    set({ sheetOpen: true, sheetCaret: caret, sheetProjectPath: projectPath }),
 
-  closeSheet: () => set({ sheetOpen: false, sheetCaret: null }),
+  closeSheet: () => set({ sheetOpen: false, sheetCaret: null, sheetProjectPath: null }),
+
+  retarget: (projectPath) => set({ sheetProjectPath: projectPath }),
 }));
-
-/**
- * True when the board is on screen, so the column composer exists to focus.
- *
- * Checked in rather than out: every panel that is not `terminals` renders in
- * place of the board, so a panel added later defaults to "no board" rather than
- * claiming a composer that is not mounted.
- */
-export function isBoardMounted(activePanel: string, kanbanVisible: boolean): boolean {
-  return activePanel === 'terminals' && kanbanVisible;
-}

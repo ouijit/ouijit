@@ -1,0 +1,96 @@
+---
+import Site from '../layouts/Site.astro';
+import Cta from '../components/home/Cta.astro';
+
+const rows: [string, string][] = [
+  ['Workspace', 'Task. Starting it creates the worktree and opens a terminal in it.'],
+  ['setup in .paradev/config.json', 'Start hook. It runs in the new worktree when the task starts, and usually launches your agent.'],
+  ['run', 'Scripts, under Run Commands. Each runs in a runner panel beside the terminal.'],
+  ['teardown', 'Done hook'],
+  ['Chat pane with tool approvals', "The agent's own CLI, in a terminal"],
+  ['Model picker at launch', "The agent's own flags, in the start hook command"],
+  ['⌘I prompt editor with @-mentions', '⌘E expands the task composer into a document, with attachments'],
+  ['Terminal tabs, splits and presets', 'Terminals in a card stack, with runner, web preview and markdown panels as tabs'],
+  ['Changes pane: review, comment, edit, commit, push', 'Diff review, with notes the agent reads. Commits from the terminal or a hook.'],
+  ['Pull requests → Code, feedback to an agent', 'A note on a diff line goes to the agent in that worktree'],
+  ['Pull request pane: checks, threads, merge', 'Pull requests, from the project menu, with review comments staged until you send them'],
+  ['Browser pane, ports per workspace', 'Web preview panel. Pick ports in your scripts.'],
+  ['Working, done and waiting in the sidebar; chimes and dock badges', 'Thinking and ready on each card; a sound or OS notification when a turn ends'],
+  ['Command palette', '⌘K'],
+  ['Slack and Linear create workspaces', 'Start a task from a Linear or GitHub issue'],
+  ['Open in your IDE', 'Open in editor'],
+  ['Custom themes', 'Themes, as design-token overrides'],
+  ['MCP server, SDK', 'The ouijit CLI, which every agent in Ouijit already has'],
+  ['Remote Access, cloud workspaces, Automations, Pages, the iPhone and iPad app', 'Not yet. Ouijit runs on your machine today; hosted workspaces and a phone app are on the roadmap.'],
+];
+---
+<Site
+  title="Superset alternative · Ouijit"
+  description="Moving from Superset, now Paradev, to Ouijit: how workspaces, setup and teardown scripts, the Changes pane and the browser pane map onto tasks, hooks, diff review and panels.">
+  <main class="compare-content">
+    <h1>Coming from Superset</h1>
+    <p class="lead">
+      Superset is now Paradev. If you used it, you already know how Ouijit works. Each task gets a git worktree
+      and an agent, and the agent is a CLI in a terminal. Here's how the pieces line up.
+    </p>
+    <img
+      class="compare-screenshot"
+      src="/assets/screenshots/preview.png"
+      alt="An agent working in a task's terminal, with a web preview of the app it is building beside it"
+      loading="lazy"
+    />
+
+    <h2>Why Ouijit</h2>
+    <p>
+      The sandbox. Worktrees keep agents out of each other's files but not off your machine. In Ouijit a task can
+      run in a <a href="/docs/sandbox/">sandbox</a>, so an agent with permission checks off is held to its
+      worktree, while the dev server beside it stays on the host.
+    </p>
+    <p>
+      Every agent gets the <a href="/docs/cli/"><code>ouijit</code> command</a>. Ask it to split a feature into
+      tasks and it starts them, each with its own agent. It can read the other agents' terminals, open its plan
+      beside itself, link you to the line it changed, and stage review comments for you to send.
+    </p>
+    <p>
+      Tasks live on a board, and moving a card runs the matching hook. Ouijit is free, open source, and runs on
+      macOS and Linux, with no account and no telemetry.
+    </p>
+
+    <h2>What maps to what</h2>
+<p>
+      A hook is a command the project runs when a task changes status. The start hook runs in the new worktree
+      with the task's prompt in <code>$OUIJIT_TASK_DESCRIPTION</code>, and the done hook runs when the task is
+      marked done. Both live under <strong>Project Settings → Lifecycle Hooks</strong>.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Superset</th><th>Ouijit</th></tr>
+      </thead>
+      <tbody>
+        {rows.map(([a, b]) => (
+          <tr><td>{a}</td><td>{b}</td></tr>
+        ))}
+      </tbody>
+    </table>
+
+    <h2>What you give up</h2>
+    <ul>
+      <li>Cloud workspaces, Automations, Pages, Remote Access and the iPhone and iPad app, for now. Ouijit runs on your machine today; hosted workspaces and a phone app are on the roadmap.</li>
+      <li>The chat pane, for now. The agent's own interface runs in the terminal; a chat interface is on the roadmap.</li>
+      <li>Editing in the diff, and committing from it. Ouijit's diff is for reading and for notes to the agent.</li>
+      <li>Design mode and terminal splits.</li>
+      <li>Twenty-one named agents. Any CLI runs in an Ouijit terminal, but only Claude Code, Codex, Pi and OpenCode get live status and the <code>ouijit</code> command.</li>
+    </ul>
+
+    <h2>Move a project over</h2>
+    <ol>
+      <li><a href="/docs/">Install Ouijit</a> and open the repository as a project.</li>
+      <li>Under <strong>Project Settings → Lifecycle Hooks</strong>, put your <code>setup</code> script and your agent command in the start hook, for example <code>./.paradev/setup.sh &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"</code>, and your <code>teardown</code> script in the done hook.</li>
+      <li>Add your <code>run</code> script under <strong>Project Settings → Run Commands</strong>.</li>
+      <li>If you ran agents with their permission checks off, set the start hook to run in the sandbox, in its row under Lifecycle Hooks.</li>
+      <li>For pull requests in the app, enable them under <strong>Project Settings → Experimental</strong> and run <code>gh auth login</code>.</li>
+      <li>Press <code>⌘N</code> for a task, give it a prompt and start it. The start hook runs in its new worktree.</li>
+    </ol>
+  </main>
+  <Cta />
+</Site>

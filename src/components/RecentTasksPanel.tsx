@@ -1,8 +1,7 @@
 /**
- * Home view's "pick up where you left off" surface — replaces the empty
- * "no active terminals" state with a list of recent open tasks across all
- * projects. Single-click opens that task's terminal in its project; Cmd/Ctrl-
- * click toggles selection for bulk opening.
+ * "Pick up where you left off" for when nothing is selected: recent open tasks
+ * across all projects. Single-click opens that task's terminal in its project;
+ * Cmd/Ctrl-click toggles selection for bulk opening.
  */
 
 import { useEffect, useState } from 'react';

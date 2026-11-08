@@ -318,9 +318,6 @@ function PaletteBody({ visible }: { visible: boolean }) {
     selectedRef.current?.scrollIntoView?.({ block: 'nearest' });
   }, [selected]);
 
-  // Close before running: `navigateToProject` wraps `startViewTransition`,
-  // which snapshots the whole document — an overlay still mounted would be
-  // captured in the outgoing frame and crossfade away.
   const activate = useCallback(
     (entry: RankedItem | undefined) => {
       if (!entry) return;

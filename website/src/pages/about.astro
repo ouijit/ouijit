@@ -1,0 +1,60 @@
+---
+import Site from '../layouts/Site.astro';
+---
+<Site
+  title="About · Ouijit"
+  description="Ouijit is built by one person, Prentice Bjerkeseth. Free, open source under AGPL, no account and no telemetry, and the plan is to keep it that way.">
+  <main class="compare-content about-content">
+    <h1>About</h1>
+    <p>Ouijit is a desktop app for running coding agents in parallel. It aims to be focused, made with care, private, and independent.</p>
+    <p>
+      I'm <a href="https://github.com/pbjer" target="_blank" rel="noopener">Prentice Bjerkeseth</a> and I make
+      Ouijit alone. I also use it for all of my own work, including on Ouijit itself.
+    </p>
+
+    <h2>Focused</h2>
+    <p>
+      Running several agents at once means more code arrives than you can comfortably read, and the work shifts
+      to keeping track of it. A tool for this should protect your focus and your judgement as that volume goes
+      up, rather than ask for more of both.
+    </p>
+    <p>
+      Ouijit is for engineers who direct many pieces of work at once and read what comes back. It is deliberately
+      not a tmux-style grid of panes, and it is not an editor. If either of those is what you want, Ouijit will
+      probably frustrate you.
+    </p>
+
+    <h2>Made with care</h2>
+    <p>
+      Terminals sit in a stack, one on top of the next. Each project has its own avatar, so you can tell where
+      you are. Starting a task creates the branch and the worktree, so the checkout is never something you think
+      about. These are small choices, and most of the work goes into ones like them.
+    </p>
+    <p>
+      The agents themselves run as the CLIs they already are, in real terminals. Their capabilities and tooling
+      move fastest at the command line, and I don't want Ouijit to lag behind them by wrapping them. A chat
+      interface is planned. It will sit on top of the terminal.
+    </p>
+
+    <h2>Private</h2>
+    <p>
+      There is no account and no login. There is no telemetry. I don't think a tool like this should require
+      either, and I don't think you should have to give up privacy to get something well made.
+    </p>
+
+    <h2>Independent</h2>
+    <p>
+      Ouijit is free. If it ever charges for something, it will be a feature with an inherent running cost
+      beyond my time, such as hosted workspaces or sync. The app itself will stay free.
+    </p>
+    <p>
+      It is open source under AGPL-3.0. I wanted it open, and I wanted anyone who changes it and offers it to
+      others to have to publish those changes.
+    </p>
+    <p>
+      Many tools in this category are raising venture money, getting acquired, or shutting down. I intend for
+      this one to still be standing, still free, and still private, and to build something special as an
+      individual.
+    </p>
+  </main>
+</Site>

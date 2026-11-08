@@ -36,6 +36,18 @@ const DEPTH_STYLES: Record<number, DepthStyle> = {
   },
 };
 
+/** Past the styled depths, each card sits one more step up and in. */
+function depthStyle(depth: number): DepthStyle {
+  return (
+    DEPTH_STYLES[depth] ?? {
+      translateY: -24 * depth,
+      scaleX: Math.max(0.8, 1 - 0.02 * depth),
+      zIndex: 10 - depth,
+      boxShadow: 'none',
+    }
+  );
+}
+
 const ACTIVE_STYLE: CSSProperties = {
   zIndex: 10,
   transform: 'translateY(0) scaleX(1)',
@@ -44,7 +56,7 @@ const ACTIVE_STYLE: CSSProperties = {
 
 export interface TerminalCardViewProps {
   isActive?: boolean;
-  /** 0 = active, 1..4 = depth behind the active card */
+  /** 0 = active, otherwise how many cards behind it */
   backDepth?: number;
   /** Adds a small upward lift when hovered behind cards */
   hoverLift?: number;
@@ -72,7 +84,7 @@ export function TerminalCardView({
   onMouseLeave,
   children,
 }: TerminalCardViewProps) {
-  const depthBase = !isActive && backDepth > 0 ? DEPTH_STYLES[Math.min(backDepth, 4)] : undefined;
+  const depthBase = !isActive && backDepth > 0 ? depthStyle(backDepth) : undefined;
 
   const style: CSSProperties = {
     background: 'var(--color-terminal-bg)',

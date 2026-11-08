@@ -1,0 +1,134 @@
+---
+import shieldCheck from '@phosphor-icons/core/assets/regular/shield-check.svg?raw';
+import terminalWindow from '@phosphor-icons/core/assets/regular/terminal-window.svg?raw';
+import folderSimple from '@phosphor-icons/core/assets/regular/folder-simple.svg?raw';
+import key from '@phosphor-icons/core/assets/regular/key.svg?raw';
+import gitBranch from '@phosphor-icons/core/assets/regular/git-branch.svg?raw';
+import appWindow from '@phosphor-icons/core/assets/regular/app-window.svg?raw';
+import rocketLaunch from '@phosphor-icons/core/assets/regular/rocket-launch.svg?raw';
+
+/**
+ * The boundary the sandbox draws: the agent and its worktree inside, the rest
+ * of the machine outside, and the one line back to Ouijit that still crosses.
+ * Icons are Phosphor's, the set the app draws with.
+ */
+const inner = (raw: string) => /<svg[^>]*>([\s\S]*)<\/svg>/.exec(raw)?.[1] ?? '';
+
+const BLUE = 'var(--color-ansi-blue)';
+const RED = 'var(--color-ansi-red)';
+const TILE = 'var(--color-terminal-bg)';
+/* Labels that sit on the prism desk rather than the foil. */
+const INK = '#0f0f11';
+
+interface Tile {
+  x: number;
+  y: number;
+  w: number;
+  icon: string;
+  label: string;
+}
+
+const H = 48;
+const BOUNDARY_X = 600;
+/* Four rows on a 72px pitch down the right; the agent and worktree sit
+   between the first two, so the refused paths mirror each other. */
+const ROW = (i: number) => 104 + i * 72;
+const agent: Tile = { x: 104, y: ROW(0) + 36, w: 160, icon: terminalWindow, label: 'claude' };
+const worktree: Tile = { x: 400, y: ROW(0) + 36, w: 160, icon: folderSimple, label: 'worktree T-119' };
+const keys: Tile = { x: 744, y: ROW(0), w: 192, icon: key, label: '~/.ssh, ~/.aws' };
+const repos: Tile = { x: 744, y: ROW(1), w: 192, icon: gitBranch, label: 'other repositories' };
+const ouijit: Tile = { x: 744, y: ROW(2), w: 192, icon: appWindow, label: 'Ouijit' };
+const host: Tile = { x: 744, y: ROW(3), w: 192, icon: rocketLaunch, label: 'dev server, push' };
+
+const right = (t: Tile) => t.x + t.w;
+
+/* The drawing's bounds: the foil's left and top edges, the right column's
+   right edge, the last tile's bottom. The desk's own padding does the rest. */
+const VB = { x: 64, y: 86, w: right(keys) - 64, h: host.y + H - 86 };
+const FOIL = { w: BOUNDARY_X - 64, h: 230 };
+
+const mid = (t: Tile) => t.y + H / 2;
+const agentCx = agent.x + agent.w / 2;
+
+/* An S-curve between two points, horizontal at both ends. */
+const curve = (x0: number, y0: number, x1: number, y1: number) => {
+  const c = (x1 - x0) * 0.55;
+  return `M ${x0} ${y0} C ${x0 + c} ${y0}, ${x1 - c} ${y1}, ${x1} ${y1}`;
+};
+/* Down from (x, y0), then right to (x1, y1), with a rounded elbow. */
+const elbow = (x: number, y0: number, x1: number, y1: number, r = 18) =>
+  `M ${x} ${y0} L ${x} ${y1 - r} Q ${x} ${y1}, ${x + r} ${y1} L ${x1} ${y1}`;
+---
+<div class="sandbox-diagram" style={`aspect-ratio: ${VB.w} / ${VB.h}`}>
+  <div class="sb-foil desk-wash desk-wash--graphite" aria-hidden="true" style={`left: 0; top: 0; width: ${(FOIL.w / VB.w) * 100}%; height: ${(FOIL.h / VB.h) * 100}%`}>
+    <div class="desk-wash-field"><span class="desk-wash-grain"></span></div>
+  </div>
+  <svg viewBox={`${VB.x} ${VB.y} ${VB.w} ${VB.h}`} style={`aspect-ratio: ${VB.w} / ${VB.h}`} role="img" aria-label="Inside the sandbox, the agent reaches only its worktree. Its attempts to read keys and other repositories stop at the boundary. One line still crosses: it can talk to Ouijit, which runs the dev server and the push on the host.">
+    <defs>
+      <!-- The app's panel shadow and glass bevel, as SVG: a cast shadow under
+           the tile, a bezel-dark edge, and an inset stroke that runs from a
+           light top to a dark bottom. -->
+      <filter id="sb-shadow" x="-20%" y="-40%" width="140%" height="220%">
+        <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.15" />
+        <feDropShadow dx="0" dy="20" stdDeviation="20" flood-color="#000" flood-opacity="0.2" />
+      </filter>
+      <linearGradient id="sb-bevel" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity="0.14" />
+        <stop offset="0.5" stop-color="#fff" stop-opacity="0.05" />
+        <stop offset="1" stop-color="#000" stop-opacity="0.5" />
+      </linearGradient>
+      <marker id="sb-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+        <path d="M 0 0.5 L 7.5 4 L 0 7.5 Q 2 4 0 0.5 z" fill="currentColor" fill-opacity="0.6" />
+      </marker>
+      <marker id="sb-arrow-blue" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+        <path d="M 0 0.5 L 7.5 4 L 0 7.5 Q 2 4 0 0.5 z" fill={BLUE} />
+      </marker>
+    </defs>
+
+    <!-- the sandbox header, on the foil -->
+    <svg x="84" y="104" width="18" height="18" viewBox="0 0 256 256" fill={BLUE} set:html={inner(shieldCheck)} />
+    <text x="110" y="118" class="sb-label" fill={BLUE}>sandbox</text>
+    <text x={BOUNDARY_X - 20} y="118" class="sb-label" text-anchor="end">Seatbelt · Landlock</text>
+
+    <!-- connections, under the tiles -->
+    <line x1={right(agent) + 2} y1={mid(agent)} x2={worktree.x - 3} y2={mid(worktree)} stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" stroke-linecap="round" marker-end="url(#sb-arrow)" />
+    <text x={(right(agent) + worktree.x) / 2} y={mid(agent) - 12} class="sb-edge" text-anchor="middle">read · write · commit</text>
+
+    {[keys, repos].map((t) => (
+      <g>
+        <path d={curve(right(worktree) + 2, mid(worktree), BOUNDARY_X - 11, mid(t))} fill="none" stroke={RED} stroke-opacity="0.75" stroke-width="1.5" stroke-linecap="round" />
+        <line x1={BOUNDARY_X + 18} y1={mid(t)} x2={t.x - 6} y2={mid(t)} stroke={INK} stroke-opacity="0.35" stroke-width="2" stroke-dasharray="0 7" stroke-linecap="round" />
+      </g>
+    ))}
+
+    <path d={elbow(agentCx, agent.y + H + 2, BOUNDARY_X - 11, mid(ouijit))} fill="none" stroke={BLUE} stroke-opacity="0.85" stroke-width="1.5" stroke-linecap="round" />
+    <line x1={BOUNDARY_X + 11} y1={mid(ouijit)} x2={ouijit.x - 3} y2={mid(ouijit)} stroke={BLUE} stroke-opacity="0.85" stroke-width="1.5" stroke-linecap="round" marker-end="url(#sb-arrow-blue)" />
+    <text x={agentCx + 14} y={mid(ouijit) - 10} class="sb-edge" fill={BLUE}>asks you to run it · stages review comments</text>
+
+    <line x1={ouijit.x + ouijit.w / 2} y1={ouijit.y + H + 2} x2={host.x + host.w / 2} y2={host.y - 3} stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" stroke-linecap="round" marker-end="url(#sb-arrow)" />
+    <text x={ouijit.x + ouijit.w / 2 + 12} y={(ouijit.y + H + host.y) / 2 + 4} class="sb-edge sb-ink">on the host</text>
+
+    <!-- tiles -->
+    {[agent, worktree, keys, repos, ouijit, host].map((t) => (
+      <g filter="url(#sb-shadow)">
+        <rect x={t.x} y={t.y} width={t.w} height={H} rx="12" fill={TILE} stroke="var(--color-bezel-panel)" />
+        <rect x={t.x + 1} y={t.y + 1} width={t.w - 2} height={H - 2} rx="11" fill="none" stroke="url(#sb-bevel)" />
+        <rect x={t.x + 10} y={t.y + 10} width="28" height="28" rx="8" fill="#fff" fill-opacity="0.06" />
+        <svg x={t.x + 15} y={t.y + 15} width="18" height="18" viewBox="0 0 256 256" fill="currentColor" opacity="0.85" set:html={inner(t.icon)} />
+        <text x={t.x + 50} y={t.y + 29} class="sb-title">{t.label}</text>
+      </g>
+    ))}
+
+    <!-- refused, at the boundary -->
+    {[keys, repos].map((t) => (
+      <g>
+        <circle cx={BOUNDARY_X} cy={mid(t)} r="11" fill={TILE} stroke={RED} stroke-opacity="0.9" stroke-width="1.25" />
+        <path d={`M ${BOUNDARY_X - 4} ${mid(t) - 4} l 8 8 M ${BOUNDARY_X + 4} ${mid(t) - 4} l -8 8`} stroke={RED} stroke-width="1.8" stroke-linecap="round" />
+      </g>
+    ))}
+
+    <!-- allowed through, at the boundary -->
+    <circle cx={BOUNDARY_X} cy={mid(ouijit)} r="11" fill={TILE} stroke={BLUE} stroke-opacity="0.9" stroke-width="1.25" />
+    <path d={`M ${BOUNDARY_X - 4.5} ${mid(ouijit)} l 3 3 l 6 -6`} fill="none" stroke={BLUE} stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+  </svg>
+</div>

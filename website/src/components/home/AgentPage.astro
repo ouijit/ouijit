@@ -1,0 +1,75 @@
+---
+import Site from '../../layouts/Site.astro';
+
+/**
+ * One page per supported agent: how Ouijit wires that CLI in, and the hook
+ * lines that run it. The four pages share this shell and differ in facts.
+ */
+interface Props {
+  name: string;
+  logo: string;
+  headline: string;
+  sub: string;
+  description: string;
+  points: [string, string][];
+  /** The hook lines, with a comment per hook. */
+  hooks: string;
+  sandboxed?: string;
+  faqs: [string, string][];
+}
+
+const { name, logo, headline, sub, description, points, hooks, sandboxed, faqs } = Astro.props;
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map(([q, a]) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+};
+---
+<Site title={`${name} · Ouijit`} description={description}>
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+
+  <section class="hero agent-hero">
+    <img class="agent-logo" src={logo} alt="" width="48" height="48" />
+    <h1>{headline}</h1>
+    <p class="hero-sub">{sub}</p>
+  </section>
+
+  <section class="feature-section">
+    <h2>What Ouijit adds</h2>
+    <div class="points">
+      {points.map(([title, body]) => (
+        <p><strong>{title}</strong>{body}</p>
+      ))}
+    </div>
+  </section>
+
+  <section class="feature-section">
+    <h2>Hooks</h2>
+    <div class="step">
+      <p>What the project runs when a task changes status. Set them in project settings, or ask the agent to.</p>
+      <pre class="glass-bevel"><code set:html={hooks} /></pre>
+    </div>
+    {sandboxed && (
+      <div class="step" style="margin-top: 40px">
+        <p>The start hook with its permission checks off, for a project that runs inside the <a href="/sandbox/">sandbox</a>.</p>
+        <pre class="glass-bevel"><code>{sandboxed}</code></pre>
+      </div>
+    )}
+  </section>
+
+  <section class="feature-section feature-faq">
+    <h2>Questions</h2>
+    {faqs.map(([q, a]) => (
+      <section class="faq-item">
+        <h3>{q}</h3>
+        <p>{a}</p>
+      </section>
+    ))}
+    <a class="cta-docs-link feature-end-link" href="/docs/harnesses/">Supported agents <span aria-hidden="true">→</span></a>
+  </section>
+</Site>

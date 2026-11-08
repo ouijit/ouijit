@@ -1,6 +1,6 @@
 ---
 import Site from './Site.astro';
-import { DOC_PAGES } from '../docsNav';
+import { DOC_GROUPS, DOC_PAGES } from '../docsNav';
 
 interface Props {
   slug: string;
@@ -22,14 +22,18 @@ const chatgptUrl = `https://chatgpt.com/?q=${encodeURIComponent(askPrompt)}`;
 <Site title={title} description={page.description} markdownUrl={markdownUrl}>
   <div class="docs-layout">
     <aside class="docs-sidebar">
-      <h4>Documentation</h4>
-      <ul>
-        {DOC_PAGES.map((p) => (
-          <li>
-            <a href={p.href} class={p.slug === slug ? 'active' : undefined}>{p.label}</a>
-          </li>
-        ))}
-      </ul>
+      {DOC_GROUPS.map((group) => (
+        <>
+          <h4>{group.name}</h4>
+          <ul>
+            {group.pages.map((p) => (
+              <li>
+                <a href={p.href} class={p.slug === slug ? 'active' : undefined}>{p.label}</a>
+              </li>
+            ))}
+          </ul>
+        </>
+      ))}
     </aside>
     <main class="docs-content">
       <div class="docs-actions">

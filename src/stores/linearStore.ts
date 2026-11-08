@@ -4,6 +4,7 @@ import type {
   LinearAvailability,
   LinearCommentDraft,
   LinearIssueDetail,
+  LinearIssueGroup,
   LinearIssueGroups,
   LinearScope,
 } from '../linear/types';
@@ -25,6 +26,8 @@ interface LinearStoreState {
   groups: LinearIssueGroups | null;
   groupsLoading: boolean;
   groupsError: string | null;
+  /** The groups whose next page is on its way. */
+  paging: LinearIssueGroup[];
 
   issue: LinearIssueDetail | null;
   issueLoading: boolean;
@@ -38,6 +41,8 @@ interface LinearStoreActions {
   setProject: (projectPath: string | null) => void;
   loadAvailability: (projectPath: string, recheck?: boolean) => Promise<void>;
   loadIssues: (projectPath: string) => Promise<void>;
+  /** Append the next page of one group. Throws when the fetch fails. */
+  loadMoreIssues: (projectPath: string, group: LinearIssueGroup) => Promise<void>;
   connect: (projectPath: string, scope: LinearScope) => Promise<void>;
 
   openIssue: (projectPath: string, id: string) => Promise<void>;
@@ -56,6 +61,7 @@ const INITIAL: LinearStoreState = {
   groups: null,
   groupsLoading: false,
   groupsError: null,
+  paging: [],
   issue: null,
   issueLoading: false,
   issueError: null,
@@ -112,6 +118,34 @@ export const useLinearStore = create<LinearStore>()((set, get) => ({
     } catch (error) {
       if (version !== groupsVersion || get().projectPath !== projectPath) return;
       set({ groupsLoading: false, groupsError: describeError(error) });
+    }
+  },
+
+  loadMoreIssues: async (projectPath, group) => {
+    const groups = get().groups;
+    const after = groups?.next[group];
+    if (!groups || !after || get().paging.includes(group)) return;
+    const version = groupsVersion;
+    set({ paging: [...get().paging, group] });
+    try {
+      const filter = group === 'cycle' && groups.cycleIsFallback ? 'incomplete' : group;
+      const page = await window.api.linear.issuePage(projectPath, filter, after);
+      const current = get().groups;
+      if (version !== groupsVersion || get().projectPath !== projectPath || !current) return;
+      // An issue belongs to the first group that claims it, so a later page
+      // drops what any group already holds, not only this one.
+      const shown = new Set(
+        [...current.triage, ...current.started, ...current.assigned, ...current.cycle].map((issue) => issue.id),
+      );
+      set({
+        groups: {
+          ...current,
+          [group]: [...current[group], ...page.issues.filter((issue) => !shown.has(issue.id))],
+          next: { ...current.next, [group]: page.next },
+        },
+      });
+    } finally {
+      set({ paging: get().paging.filter((p) => p !== group) });
     }
   },
 

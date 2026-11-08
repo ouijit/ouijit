@@ -33,7 +33,7 @@ export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogP
           <Icon name="aperture" className="w-5 h-5 text-accent" />
           Lenses
           <Tooltip
-            text="Lenses group a diff into named parts so you can review by change, not by file. Each one is saved with the project and applies to any diff."
+            text="A lens groups a diff into named parts, so you review by change instead of by file. It works on any diff in the project."
             wrapAt={280}
             placement="bottom-start"
           >

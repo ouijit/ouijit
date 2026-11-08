@@ -50,9 +50,17 @@ export interface IssueRow {
   taskNumber?: number;
 }
 
+/** A list behind a group with more to fetch, named in its own source's terms. */
+export type IssuePage = { source: 'github'; group: 'assigned' | 'open' } | { source: 'linear'; group: LinearListGroup };
+
+type LinearListGroup = 'triage' | 'started' | 'assigned' | 'cycle';
+
 export interface IssueGroup {
   label: string;
   rows: IssueRow[];
-  /** The group hit its limit, so it is a page rather than the whole answer. */
-  capped: boolean;
+  /**
+   * The lists that have a page after the rows here. Assigned to you is fed by
+   * both sources, so it can have two.
+   */
+  more: IssuePage[];
 }

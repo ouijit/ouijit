@@ -1,0 +1,21 @@
+---
+import AgentPage from '../../components/home/AgentPage.astro';
+---
+<AgentPage
+  name={"OpenCode"}
+  logo={"/assets/agents/opencode.svg"}
+  headline={"Run OpenCode in parallel."}
+  sub={"A worktree and terminal per task, a private OpenCode server in each, status from its session events, and the ouijit command in its context. Nothing to configure."}
+  description={"Run OpenCode in parallel with Ouijit: a git worktree and terminal per task, a private server per terminal, live status, and the ouijit CLI in its session context."}
+  points={[
+    ["Knows Ouijit", "An Ouijit plugin adds the ouijit CLI reference to each session, so OpenCode can create tasks, move cards and stage review comments without being told how."],
+    ["Live status", "The same plugin listens to OpenCode's session events and reports when a turn starts and ends. The card shows thinking or ready."],
+    ["A server per terminal", "OpenCode 2 normally shares one background server across every terminal. In Ouijit each terminal gets its own, so a session runs in that terminal's sandbox and ends when the terminal closes."],
+  ]}
+  hooks={"<span class=\"dim\"># Start · a task moves to In Progress</span>\nopencode\n\n<span class=\"dim\"># Continue · a task already in progress is reopened; resumes this worktree's newest session</span>\nopencode -c"}
+  faqs={[
+    ["Can it sign in inside the sandbox?", "Yes. The sandbox lets it reach its config directory and the OS keychain. Everything else outside the worktree stays out of reach."],
+    ["Which versions?", "OpenCode 1 and 2. Status and the CLI reference work on both; the private server per terminal applies to OpenCode 2."],
+    ["Does it change OpenCode anywhere else?", "No. The opencode on PATH in an Ouijit terminal is a wrapper around the real one, and only there. Utility subcommands such as auth and models pass straight through."],
+  ]}
+/>

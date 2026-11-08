@@ -1,0 +1,95 @@
+---
+import Site from '../layouts/Site.astro';
+import Cta from '../components/home/Cta.astro';
+
+const rows: [string, string][] = [
+  ['Project', 'Project'],
+  ['Workspace', 'Task. Starting it creates the worktree.'],
+  ['Workspace name (a city)', 'Task number, such as T-42. It names the branch and the worktree folder.'],
+  ['Base branch', 'Branch from, in Project Settings → Worktree'],
+  ['Setup script', 'Start hook. It runs in the new worktree when the task starts, and usually launches your agent.'],
+  ['Actions and the Run button', 'Scripts, under Run Commands. Each runs in a runner panel beside the terminal.'],
+  ['Archive script', 'Done hook'],
+  ['Files to copy', 'Quick start, the default worktree mode, which copies every gitignored file into the worktree'],
+  ['.conductor/settings.toml', 'Project Settings in the app. Ouijit keeps them outside the repository.'],
+  ['CONDUCTOR_WORKSPACE_PATH', 'OUIJIT_WORKTREE_PATH'],
+  ['CONDUCTOR_ROOT_PATH', 'OUIJIT_PROJECT_PATH'],
+  ['CONDUCTOR_WORKSPACE_NAME', 'OUIJIT_TASK_BRANCH'],
+  ['CONDUCTOR_PORT', 'None. Pick ports in your scripts.'],
+  ['Diff viewer', 'Diff review, with notes the agent reads'],
+  ['conductor:// links', 'ouijit:// links'],
+  ['MCP server', 'The ouijit CLI, which every agent in Ouijit already has'],
+  ['Checks, Todos, Checkpoints', 'None'],
+  ['Conductor Cloud', 'Not yet. Ouijit runs on your machine today; hosted workspaces are on the roadmap.'],
+];
+---
+<Site
+  title="Conductor alternative · Ouijit"
+  description="Moving from Conductor to Ouijit: how workspaces, setup scripts, actions and base branches map onto tasks, hooks, scripts and Branch from.">
+  <main class="compare-content">
+    <h1>Coming from Conductor</h1>
+    <p class="lead">
+      Conductor is joining Meta and winding down. Conductor Cloud shuts down on November 20, 2026, and the Mac
+      app stops getting updates in early 2027. If you used it, you already know how Ouijit works. Each task gets
+      a git worktree and an agent. Here's how the pieces line up.
+    </p>
+    <img
+      class="compare-screenshot"
+      src="/assets/screenshots/diff.png"
+      alt="An agent working in a task's terminal, with the diff of its changes and a note for it beside"
+      loading="lazy"
+    />
+
+    <h2>Why Ouijit</h2>
+    <p>
+      The agent runs as its own CLI in a terminal, in the task's worktree, so Claude Code, Codex, Pi and OpenCode
+      work exactly as they do anywhere else.
+    </p>
+    <p>
+      Every agent gets the <a href="/docs/cli/"><code>ouijit</code> command</a>. Ask it to split a feature into
+      tasks and it starts them, each with its own agent. It can read the other agents' terminals, open its plan
+      beside itself, link you to the line it changed, and stage review comments for you to send.
+    </p>
+    <p>
+      A task can run in a <a href="/docs/sandbox/">sandbox</a>, so an agent with permission checks off is held to
+      its worktree. Ouijit is free, open source, and runs on macOS and Linux.
+    </p>
+
+
+    <h2>What maps to what</h2>
+<p>
+      A hook is a command the project runs when a task changes status. The start hook runs in the new worktree
+      with the task's prompt in <code>$OUIJIT_TASK_DESCRIPTION</code>, and the done hook runs when the task is
+      marked done. Both live under <strong>Project Settings → Lifecycle Hooks</strong>.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Conductor</th><th>Ouijit</th></tr>
+      </thead>
+      <tbody>
+        {rows.map(([a, b]) => (
+          <tr><td>{a}</td><td>{b}</td></tr>
+        ))}
+      </tbody>
+    </table>
+
+    <h2>What you give up</h2>
+    <ul>
+      <li>Conductor Cloud, shared workspaces and the iOS app, for now. Ouijit runs on your machine today; hosted workspaces and a phone app are on the roadmap.</li>
+      <li>Cursor models. Claude Code, Codex, Pi and OpenCode get live status and the <code>ouijit</code> command; any other CLI still runs in an Ouijit terminal.</li>
+      <li>Checks, Todos and Checkpoints. Review is the diff, the notes you leave on it, and the pull request.</li>
+      <li>Ports per workspace. Pick ports in your scripts.</li>
+      <li>Settings committed to the repository. Ouijit keeps a project's hooks and scripts itself.</li>
+    </ul>
+
+    <h2>Move a project over</h2>
+    <ol>
+      <li><a href="/docs/">Install Ouijit</a> and open the repository as a project.</li>
+      <li>Under <strong>Project Settings → Lifecycle Hooks</strong>, put your setup script and your agent command in the start hook, for example <code>npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"</code>.</li>
+      <li>Add each action under <strong>Project Settings → Run Commands</strong>.</li>
+      <li>Under <strong>Project Settings → Worktree</strong>, set <strong>Branch from</strong> if your workspaces branched from something other than the checked-out branch, and leave the mode on Quick start if you relied on Files to copy.</li>
+      <li>Press <code>⌘N</code> for a task, give it a prompt and start it. The start hook runs in its new worktree.</li>
+    </ol>
+  </main>
+  <Cta />
+</Site>

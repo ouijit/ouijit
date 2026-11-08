@@ -13,7 +13,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 const PROJECT = '/tmp/project';
 
 function reset() {
-  useTerminalStore.setState({ displayStates: {}, terminalsByProject: {}, activeIndices: {} });
+  useTerminalStore.setState({ displayStates: {}, terminalsByProject: {}, order: [] });
 }
 
 describe('KanbanShellBar', () => {
@@ -60,6 +60,6 @@ describe('KanbanShellBar', () => {
       .getState()
       .addTerminal(PROJECT, 'shell-1', { taskId: null, label: 'box', sandboxProvider: 'nono' });
     render(<KanbanShellBar projectPath={PROJECT} onSwitchToTerminal={vi.fn()} />);
-    expect(screen.getByText(/\(nono\)/)).toBeTruthy();
+    expect(screen.getByText(/\(Sandbox\)/)).toBeTruthy();
   });
 });

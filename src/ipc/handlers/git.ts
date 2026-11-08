@@ -1,4 +1,5 @@
 import { typedHandle } from '../helpers';
+import { defaultDiffBase } from '../../worktree';
 import {
   getGitStatus,
   getGitFileStatus,
@@ -13,7 +14,13 @@ import {
 
 export function registerGitHandlers(): void {
   typedHandle('get-git-status', (projectPath) => getGitStatus(projectPath));
-  typedHandle('get-git-file-status', (projectPath, diffBase) => getGitFileStatus(projectPath, diffBase));
+  typedHandle('get-git-file-status', async (gitPath, diffBase, defaults) =>
+    getGitFileStatus(
+      gitPath,
+      diffBase,
+      defaults && (await defaultDiffBase(defaults.projectPath, defaults.mergeTarget)),
+    ),
+  );
   typedHandle('get-git-dropdown-info', (projectPath) => getGitDropdownInfo(projectPath));
   typedHandle('git-diff-bases', (projectPath) => listDiffBases(projectPath));
   typedHandle('git-fetch-diff-base', (projectPath, ref) => fetchDiffBase(projectPath, ref));

@@ -27,6 +27,7 @@ import playFill from '@phosphor-icons/core/assets/fill/play-fill.svg?raw';
 import bug from '@phosphor-icons/core/assets/regular/bug.svg?raw';
 import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
 import dotsSixVertical from '@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw';
+import dotsThree from '@phosphor-icons/core/assets/regular/dots-three.svg?raw';
 import caretLeft from '@phosphor-icons/core/assets/regular/caret-left.svg?raw';
 import caretRight from '@phosphor-icons/core/assets/regular/caret-right.svg?raw';
 import arrowElbowDownLeft from '@phosphor-icons/core/assets/regular/arrow-elbow-down-left.svg?raw';
@@ -65,6 +66,7 @@ import listChecks from '@phosphor-icons/core/assets/regular/list-checks.svg?raw'
 import magnifyingGlass from '@phosphor-icons/core/assets/regular/magnifying-glass.svg?raw';
 import minus from '@phosphor-icons/core/assets/regular/minus.svg?raw';
 import minusCircle from '@phosphor-icons/core/assets/regular/minus-circle.svg?raw';
+import moon from '@phosphor-icons/core/assets/regular/moon.svg?raw';
 import pencilSimple from '@phosphor-icons/core/assets/regular/pencil-simple.svg?raw';
 import play from '@phosphor-icons/core/assets/regular/play.svg?raw';
 import plus from '@phosphor-icons/core/assets/regular/plus.svg?raw';
@@ -108,6 +110,7 @@ export const iconMap: Record<string, string> = {
   bug: bug,
   'caret-down': caretDown,
   'dots-six-vertical': dotsSixVertical,
+  'dots-three': dotsThree,
   'caret-left': caretLeft,
   'caret-right': caretRight,
   'arrow-elbow-down-left': arrowElbowDownLeft,
@@ -146,6 +149,7 @@ export const iconMap: Record<string, string> = {
   'magnifying-glass': magnifyingGlass,
   minus: minus,
   'minus-circle': minusCircle,
+  moon: moon,
   'pencil-simple': pencilSimple,
   play: play,
   plus: plus,

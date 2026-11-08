@@ -1,44 +1,118 @@
+import { useEffect } from 'react';
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import { DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from './terminalDisplay';
-import { useProjectStore } from './projectStore';
 
-export { DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from './terminalDisplay';
+export { DEFAULT_DISPLAY_STATE, isUnread, type TerminalDisplayState, type TerminalStatus } from './terminalDisplay';
 
-export const STACK_PAGE_SIZE = 5;
+/**
+ * A task's terminals share a stack; a shell is a stack of its own. Every stack
+ * is the one recency order restricted to its members.
+ */
+export function stackOf(display: Pick<TerminalDisplayState, 'ptyId' | 'projectPath' | 'taskId'>): string {
+  return display.taskId == null ? `shell:${display.ptyId}` : `task:${display.taskId}:${display.projectPath}`;
+}
+
+/**
+ * A stack can also be several units at once: tasks and shells as `stackOf`
+ * names them, single terminals, or a whole project or tag. A unit that names a
+ * task, project or tag takes in terminals opened there later.
+ */
+export const terminalUnit = (ptyId: string) => `pty:${ptyId}`;
+export const projectUnit = (projectPath: string) => `project:${projectPath}`;
+export const tagUnit = (tag: string) => `tag:${tag.toLowerCase()}`;
+
+export function stackFrom(units: string[]): string {
+  return [...new Set(units)].sort().join('\n');
+}
+
+export function unitsOf(stack: string): string[] {
+  return stack.split('\n');
+}
+
+/** The stack with its terminals renamed, dropping those `renamed` lacks; null when nothing is left. */
+export function renameInStack(stack: string, renamed: Map<string, string>): string | null {
+  const units = unitsOf(stack).flatMap((unit) => {
+    const colon = unit.indexOf(':');
+    const kind = unit.slice(0, colon);
+    if (kind !== 'pty' && kind !== 'shell') return [unit];
+    const to = renamed.get(unit.slice(colon + 1));
+    return to ? [`${kind}:${to}`] : [];
+  });
+  return units.length > 0 ? stackFrom(units) : null;
+}
+
+function inStack(display: TerminalDisplayState, units: Set<string>): boolean {
+  return (
+    units.has(stackOf(display)) ||
+    units.has(terminalUnit(display.ptyId)) ||
+    units.has(projectUnit(display.projectPath)) ||
+    display.tags.some((tag) => units.has(tagUnit(tag)))
+  );
+}
 
 interface TerminalStoreState {
   displayStates: Record<string, TerminalDisplayState>;
-  /** Ordered list of terminal ptyIds per project path */
+  /** Each project's terminals, in no particular order. */
   terminalsByProject: Record<string, string[]>;
-  activeIndices: Record<string, number>;
+  /** Every terminal, most recently active first. The front of a stack is its active terminal. */
+  order: string[];
+  /** Null while no stack is on screen. */
+  viewedStack: string | null;
+  windowFocused: boolean;
 }
 
 interface TerminalStoreActions {
-  addTerminal: (projectPath: string, ptyId: string, initial: Partial<TerminalDisplayState>) => void;
+  /** Enters at the front of the order, or directly behind its project's front terminal when `background`. */
+  addTerminal: (
+    projectPath: string,
+    ptyId: string,
+    initial: Partial<TerminalDisplayState>,
+    options?: { background?: boolean },
+  ) => void;
   removeTerminal: (ptyId: string) => void;
   updateDisplay: (ptyId: string, patch: Partial<TerminalDisplayState>) => void;
   /**
    * Swap a terminal's key from a placeholder id to the real PTY id. Sandbox
    * terminals register under a per-instance placeholder id before the spawn
    * returns so the loading card can render; once the PTY exists we re-key all
-   * per-pty state to the real id.
+   * per-pty state to the real id, keeping its place in the order.
    */
   rekeyTerminal: (oldPtyId: string, newPtyId: string) => void;
-  setActiveIndex: (projectPath: string, index: number) => void;
-  activateLast: (projectPath: string) => void;
+  /** Bring a terminal to the front. False if it is not registered. */
+  activate: (ptyId: string) => boolean;
+  /** Put these terminals back in this order, in the places they already hold. */
+  restoreOrder: (ptyIds: string[]) => void;
   clearProject: (projectPath: string) => void;
+  setViewedStack: (stack: string | null) => void;
+  setWindowFocused: (focused: boolean) => void;
 }
 
 type TerminalStore = TerminalStoreState & TerminalStoreActions;
 
+function insertBackground(
+  order: string[],
+  displayStates: Record<string, TerminalDisplayState>,
+  projectPath: string,
+  ptyId: string,
+): string[] {
+  const front = order.findIndex((id) => displayStates[id]?.projectPath === projectPath);
+  const at = front >= 0 ? front + 1 : Math.min(1, order.length);
+  return [...order.slice(0, at), ptyId, ...order.slice(at)];
+}
+
 export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   displayStates: {},
   terminalsByProject: {},
-  activeIndices: {},
+  order: [],
+  viewedStack: null,
+  windowFocused: true,
 
-  addTerminal: (projectPath, ptyId, initial) => {
+  addTerminal: (projectPath, ptyId, initial, options) => {
     const state = get();
     const projectTerminals = state.terminalsByProject[projectPath] ?? [];
+    const rest = state.order.filter((id) => id !== ptyId);
+    const now = Date.now();
     set({
       displayStates: {
         ...state.displayStates,
@@ -46,13 +120,16 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
           ...DEFAULT_DISPLAY_STATE,
           ptyId,
           projectPath,
+          statusSince: now,
+          lastViewedAt: now,
           ...initial,
-        } as TerminalDisplayState,
+        },
       },
       terminalsByProject: {
         ...state.terminalsByProject,
-        [projectPath]: [...projectTerminals, ptyId],
+        [projectPath]: [...projectTerminals.filter((id) => id !== ptyId), ptyId],
       },
+      order: options?.background ? insertBackground(rest, state.displayStates, projectPath, ptyId) : [ptyId, ...rest],
     });
   },
 
@@ -60,33 +137,15 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const state = get();
     const display = state.displayStates[ptyId];
     if (!display) return;
-
     const { [ptyId]: _, ...remainingDisplays } = state.displayStates;
     const projectPath = display.projectPath;
-    const projectTerminals = (state.terminalsByProject[projectPath] ?? []).filter((id) => id !== ptyId);
-    const removedIndex = (state.terminalsByProject[projectPath] ?? []).indexOf(ptyId);
-
-    // Adjust active index for this project
-    const currentActive = state.activeIndices[projectPath] ?? 0;
-    let newActive = currentActive;
-    if (projectTerminals.length === 0) {
-      newActive = 0;
-    } else if (currentActive >= projectTerminals.length) {
-      newActive = projectTerminals.length - 1;
-    } else if (removedIndex < currentActive) {
-      newActive = currentActive - 1;
-    }
-
     set({
       displayStates: remainingDisplays,
       terminalsByProject: {
         ...state.terminalsByProject,
-        [projectPath]: projectTerminals,
+        [projectPath]: (state.terminalsByProject[projectPath] ?? []).filter((id) => id !== ptyId),
       },
-      activeIndices: {
-        ...state.activeIndices,
-        [projectPath]: newActive,
-      },
+      order: state.order.filter((id) => id !== ptyId),
     });
   },
 
@@ -94,13 +153,9 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const state = get();
     const existing = state.displayStates[ptyId];
     if (!existing) return;
-
-    set({
-      displayStates: {
-        ...state.displayStates,
-        [ptyId]: { ...existing, ...patch },
-      },
-    });
+    const next = { ...existing, ...patch };
+    if (next.status !== existing.status) next.statusSince = Date.now();
+    set({ displayStates: { ...state.displayStates, [ptyId]: next } });
   },
 
   rekeyTerminal: (oldPtyId, newPtyId) => {
@@ -112,67 +167,109 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const nextDisplayStates = { ...state.displayStates };
     delete nextDisplayStates[oldPtyId];
     nextDisplayStates[newPtyId] = { ...existing, ptyId: newPtyId };
-
+    const swap = (id: string) => (id === oldPtyId ? newPtyId : id);
     const projectPath = existing.projectPath;
-    const projectTerminals = state.terminalsByProject[projectPath] ?? [];
-    const nextProjectTerminals = projectTerminals.map((id) => (id === oldPtyId ? newPtyId : id));
 
     set({
       displayStates: nextDisplayStates,
       terminalsByProject: {
         ...state.terminalsByProject,
-        [projectPath]: nextProjectTerminals,
+        [projectPath]: (state.terminalsByProject[projectPath] ?? []).map(swap),
       },
+      order: state.order.map(swap),
     });
   },
 
-  setActiveIndex: (projectPath, index) => {
-    set({
-      activeIndices: {
-        ...get().activeIndices,
-        [projectPath]: index,
-      },
-    });
+  activate: (ptyId) => {
+    const { displayStates, order } = get();
+    if (!displayStates[ptyId]) return false;
+    if (order[0] !== ptyId) set({ order: [ptyId, ...order.filter((id) => id !== ptyId)] });
+    return true;
   },
 
-  activateLast: (projectPath) => {
-    const terminals = get().terminalsByProject[projectPath] ?? [];
-    if (terminals.length > 0) {
-      set({
-        activeIndices: {
-          ...get().activeIndices,
-          [projectPath]: terminals.length - 1,
-        },
-      });
-    }
+  restoreOrder: (ptyIds) => {
+    const order = get().order;
+    const wanted = ptyIds.filter((id, i) => order.includes(id) && ptyIds.indexOf(id) === i);
+    const wantedSet = new Set(wanted);
+    let next = 0;
+    set({ order: order.map((id) => (wantedSet.has(id) ? wanted[next++] : id)) });
   },
 
   clearProject: (projectPath) => {
     const state = get();
-    const ptyIds = state.terminalsByProject[projectPath] ?? [];
+    const ptyIds = new Set(state.terminalsByProject[projectPath] ?? []);
     const remainingDisplays = { ...state.displayStates };
-    for (const id of ptyIds) {
-      delete remainingDisplays[id];
-    }
+    for (const id of ptyIds) delete remainingDisplays[id];
     const { [projectPath]: _, ...remainingProjects } = state.terminalsByProject;
-    const { [projectPath]: __, ...remainingIndices } = state.activeIndices;
-
     set({
       displayStates: remainingDisplays,
       terminalsByProject: remainingProjects,
-      activeIndices: remainingIndices,
+      order: state.order.filter((id) => !ptyIds.has(id)),
     });
+  },
+
+  setViewedStack: (stack) => {
+    if (get().viewedStack !== stack) set({ viewedStack: stack });
+  },
+
+  setWindowFocused: (focused) => {
+    if (get().windowFocused !== focused) set({ windowFocused: focused });
   },
 }));
 
-// ── Tag filtering ─────────────────────────────────────────────────────
+// ── Viewing ──────────────────────────────────────────────────────────
 
-/** Whether a terminal's display state matches the given tag filter. A null tag matches everything. */
-export function terminalMatchesTag(display: TerminalDisplayState | undefined, tag: string | null): boolean {
-  if (!tag) return true;
+/** The terminal being read: the front of the stack on screen, in a focused window. Back cards only peek. */
+export function viewedPtyId(state: TerminalStoreState): string | undefined {
+  if (!state.windowFocused || state.viewedStack === null) return undefined;
+  return stackMembers(state, state.viewedStack)[0];
+}
+
+// Stamped on leaving rather than arriving, so a terminal that finishes while
+// on screen comes out read.
+let viewed = viewedPtyId(useTerminalStore.getState());
+useTerminalStore.subscribe((state) => {
+  const left = viewed;
+  viewed = viewedPtyId(state);
+  if (left === undefined || left === viewed || !state.displayStates[left]) return;
+  state.updateDisplay(left, { lastViewedAt: Date.now() });
+});
+
+export function useViewedStack(stack: string): void {
+  useEffect(() => {
+    useTerminalStore.getState().setViewedStack(stack);
+    return () => {
+      const state = useTerminalStore.getState();
+      if (state.viewedStack === stack) state.setViewedStack(null);
+    };
+  }, [stack]);
+}
+
+export function trackWindowFocus(): void {
+  const sync = () => useTerminalStore.getState().setWindowFocused(document.hasFocus() && !document.hidden);
+  window.addEventListener('focus', sync);
+  window.addEventListener('blur', sync);
+  document.addEventListener('visibilitychange', sync);
+  sync();
+}
+
+// ── Tags ─────────────────────────────────────────────────────────────
+
+export function terminalMatchesTag(display: TerminalDisplayState | undefined, tag: string): boolean {
   if (!display) return false;
   const needle = tag.toLowerCase();
   return display.tags.some((t) => t.toLowerCase() === needle);
+}
+
+export function withTag(tags: string[], tag: string): string[] {
+  const name = tag.trim();
+  if (!name || tags.some((t) => t.toLowerCase() === name.toLowerCase())) return tags;
+  return [...tags, name];
+}
+
+export function withoutTag(tags: string[], tag: string): string[] {
+  const needle = tag.trim().toLowerCase();
+  return tags.filter((t) => t.toLowerCase() !== needle);
 }
 
 /** Distinct tags (case-insensitive, first-seen casing) present on the given terminals' display states. */
@@ -189,83 +286,25 @@ export function collectActiveTags(ptyIds: string[], displayStates: Record<string
   return [...seen.values()];
 }
 
-/** A project's ordered terminals after applying the active per-project tag filter. */
-export function getVisibleTerminals(projectPath: string): string[] {
-  const state = useTerminalStore.getState();
-  const terminals = state.terminalsByProject[projectPath] ?? [];
-  const tagFilter = useProjectStore.getState().tagFilter;
-  if (!tagFilter) return terminals;
-  return terminals.filter((id) => terminalMatchesTag(state.displayStates[id], tagFilter));
+// ── Stacks ───────────────────────────────────────────────────────────
+
+/** A stack's terminals, most recent first. */
+export function stackMembers(state: Pick<TerminalStoreState, 'order' | 'displayStates'>, stack: string): string[] {
+  const units = new Set(unitsOf(stack));
+  return state.order.filter((id) => {
+    const display = state.displayStates[id];
+    return display !== undefined && inStack(display, units);
+  });
 }
 
-// ── Derived selectors ────────────────────────────────────────────────
-
-export function getActivePtyId(projectPath: string): string | undefined {
-  const state = useTerminalStore.getState();
-  const terminals = state.terminalsByProject[projectPath];
-  if (!terminals || terminals.length === 0) return undefined;
-  const index = state.activeIndices[projectPath] ?? 0;
-  return terminals[index];
+export function getActivePtyId(stack: string): string | undefined {
+  return stackMembers(useTerminalStore.getState(), stack)[0];
 }
 
-/** Bring a shell to the front of its project's stack. False if it is not registered there. */
-export function setActiveTerminal(projectPath: string, ptyId: string): boolean {
-  const index = useTerminalStore.getState().terminalsByProject[projectPath]?.indexOf(ptyId) ?? -1;
-  if (index < 0) return false;
-  useTerminalStore.getState().setActiveIndex(projectPath, index);
-  return true;
+export function useStack(stack: string): string[] {
+  return useTerminalStore(useShallow((s) => stackMembers(s, stack)));
 }
 
-export function getStackPage(projectPath: string): number {
-  const state = useTerminalStore.getState();
-  const index = state.activeIndices[projectPath] ?? 0;
-  return Math.floor(index / STACK_PAGE_SIZE);
-}
-
-export function getTotalStackPages(projectPath: string): number {
-  const state = useTerminalStore.getState();
-  const terminals = state.terminalsByProject[projectPath] ?? [];
-  return Math.max(1, Math.ceil(terminals.length / STACK_PAGE_SIZE));
-}
-
-/**
- * Get the terminal index for a given stack position (1-indexed).
- * Only considers terminals on the current page.
- */
-export function getTerminalIndexByStackPosition(projectPath: string, stackPosition: number): number {
-  const state = useTerminalStore.getState();
-  const fullTerminals = state.terminalsByProject[projectPath] ?? [];
-  // Position math runs over the visible (filtered) list, but the returned index
-  // addresses the full list, since setActiveIndex/activeIndices are full-list.
-  const terminals = getVisibleTerminals(projectPath);
-  if (terminals.length === 0) return -1;
-
-  const activePtyId = fullTerminals[state.activeIndices[projectPath] ?? 0];
-  let currentActiveIndex = activePtyId ? terminals.indexOf(activePtyId) : -1;
-  if (currentActiveIndex < 0) currentActiveIndex = 0;
-
-  const page = Math.floor(currentActiveIndex / STACK_PAGE_SIZE);
-  const pageStart = page * STACK_PAGE_SIZE;
-  const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, terminals.length);
-  const pageSize = pageEnd - pageStart;
-
-  const backPositions: { index: number; diff: number }[] = [];
-  for (let index = pageStart; index < pageEnd; index++) {
-    if (index !== currentActiveIndex) {
-      const diff =
-        index < currentActiveIndex
-          ? currentActiveIndex - index
-          : pageSize - (index - pageStart) + (currentActiveIndex - pageStart);
-      backPositions.push({ index, diff });
-    }
-  }
-
-  backPositions.sort((a, b) => b.diff - a.diff);
-
-  const arrayIndex = stackPosition - 1;
-  if (arrayIndex >= 0 && arrayIndex < backPositions.length) {
-    return fullTerminals.indexOf(terminals[backPositions[arrayIndex].index]);
-  }
-
-  return -1;
+export function activateTerminal(ptyId: string): boolean {
+  return useTerminalStore.getState().activate(ptyId);
 }

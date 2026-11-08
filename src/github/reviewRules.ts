@@ -27,11 +27,10 @@ export function reviewSubmitProblem(
   if (unplaceable > 0) {
     return `${unplaceable} ${unplaceable === 1 ? 'comment is' : 'comments are'} on code no longer in the diff. GitHub would reject the whole review — discard or rewrite ${unplaceable === 1 ? 'it' : 'them'} first.`;
   }
-  // GitHub rejects a COMMENT or REQUEST_CHANGES review with a blank body, even
-  // when it carries inline comments — "Body can not be blank", 422, and the
-  // whole batch is lost. Only an approval may be wordless.
-  if (event !== 'APPROVE' && !body.trim()) {
-    return 'GitHub needs a summary on this kind of review. Write one, or approve instead.';
+  // GitHub takes a wordless review when it approves or carries inline
+  // comments, and refuses a wordless REQUEST_CHANGES with a 422.
+  if (event === 'REQUEST_CHANGES' && !body.trim()) {
+    return 'GitHub needs a summary to request changes. Write one, or comment instead.';
   }
   return null;
 }

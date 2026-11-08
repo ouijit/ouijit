@@ -56,19 +56,21 @@ if (fs.existsSync(projectPath)) {
 }
 fs.mkdirSync(CODE_DIR, { recursive: true });
 
-// Sized for the split panes (~66 cols); anything wider wraps and tears.
-const CLAUDE_RULE = '\x1b[38;5;240m' + '─'.repeat(64) + '\x1b[0m\r\n';
+// Sized for a half-split pane beside the sidebar (53 cols); anything wider
+// wraps and tears.
+const CLAUDE_RULE = '\x1b[38;5;240m' + '─'.repeat(52) + '\x1b[0m\r\n';
 const CLAUDE_SCREEN = [
-  '\x1b[38;5;245m>\x1b[0m \x1b[38;5;252mSplit the onboarding wizard into a stepper with saved\r\n',
-  '  progress, and move the welcome copy into a reusable intro\r\n',
-  '  component so the marketing site can embed it too.\x1b[0m\r\n',
+  '\x1b[38;5;245m>\x1b[0m \x1b[38;5;252mSplit the onboarding wizard into a stepper with\r\n',
+  '  saved progress, and move the welcome copy into a\r\n',
+  '  reusable intro component so the marketing site\r\n',
+  '  can embed it too.\x1b[0m\r\n',
   '\r\n',
-  "\x1b[38;5;252m⏺\x1b[0m I'll persist the step in localStorage first, then lift the\r\n",
-  '  welcome copy out into its own component.\r\n',
+  "\x1b[38;5;252m⏺\x1b[0m I'll persist the step in localStorage first, then\r\n",
+  '  lift the welcome copy out into its own component.\r\n',
   '\r\n',
   '\x1b[38;5;114m⏺\x1b[0m \x1b[1mEdit(src/onboarding/Stepper.tsx)\x1b[0m\r\n',
-  '\x1b[38;5;244m  ⎿  Updated src/onboarding/Stepper.tsx with 15 additions and\x1b[0m\r\n',
-  '\x1b[38;5;244m     5 removals\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿  Updated src/onboarding/Stepper.tsx with\x1b[0m\r\n',
+  '\x1b[38;5;244m     15 additions and 5 removals\x1b[0m\r\n',
   '\r\n',
   '\x1b[38;5;114m⏺\x1b[0m \x1b[1mBash(npm test -- onboarding)\x1b[0m\r\n',
   '\x1b[38;5;244m  ⎿  Tests: 14 passed, 14 total\x1b[0m\r\n',
@@ -79,7 +81,7 @@ const CLAUDE_SCREEN = [
   CLAUDE_RULE,
   '\x1b[38;5;252m>\x1b[0m \x1b[7m \x1b[0m\r\n',
   CLAUDE_RULE,
-  '  \x1b[38;5;179m⏵⏵ auto mode on\x1b[0m \x1b[38;5;244m(shift+tab to cycle) · esc to interrupt\x1b[0m\r\n',
+  '  \x1b[38;5;179m⏵⏵ auto mode on\x1b[0m \x1b[38;5;244m· esc to interrupt\x1b[0m\r\n',
 ].join('');
 
 const VITE_SCREEN = [
@@ -205,16 +207,17 @@ const PREVIEW_PAGE = `<!doctype html>
 `;
 
 /** Narrower than CLAUDE_RULE: the lens scene gives this terminal a third of
- *  the split, and 64 columns wraps there. */
-const FEED_RULE = '\x1b[38;5;240m' + '─'.repeat(42) + '\x1b[0m\r\n';
+ *  the split, 38 columns. */
+const FEED_RULE = '\x1b[38;5;240m' + '─'.repeat(36) + '\x1b[0m\r\n';
 
 // Wrapped to the rule's width for the same reason.
 const FEED_SCREEN = [
-  '\x1b[38;5;245m>\x1b[0m \x1b[38;5;252mAdd an activity feed to the dashboard,\r\n',
-  '  polling the events table so it keeps up.\x1b[0m\r\n',
+  '\x1b[38;5;245m>\x1b[0m \x1b[38;5;252mAdd an activity feed to the\r\n',
+  '  dashboard, polling the events\r\n',
+  '  table so it keeps up.\x1b[0m\r\n',
   '\r\n',
-  "\x1b[38;5;252m⏺\x1b[0m I'll add the query first, then the\r\n",
-  '  component, then wire it in.\r\n',
+  "\x1b[38;5;252m⏺\x1b[0m I'll add the query first, then\r\n",
+  '  the component, then wire it in.\r\n',
   '\r\n',
   '\x1b[38;5;114m⏺\x1b[0m \x1b[1mWrite(src/api/activity.ts)\x1b[0m\r\n',
   '\x1b[38;5;244m  ⎿  Wrote 16 lines\x1b[0m\r\n',
@@ -264,7 +267,7 @@ function buildTerminalSeeds() {
       taskId: 1,
       label: 'Rework onboarding flow',
       summary: 'Editing onboarding stepper\u2026',
-      summaryType: 'thinking',
+      status: 'thinking',
       worktreeBranch: 'rework-onboarding-flow-124',
       worktreePath: path.join(worktreesPath, 'T-1'),
       content: CLAUDE_SCREEN,
@@ -276,7 +279,7 @@ function buildTerminalSeeds() {
       taskId: 1,
       label: 'Rework onboarding flow',
       summary: 'Vite dev server',
-      summaryType: 'ready',
+      status: 'ready',
       worktreeBranch: 'rework-onboarding-flow-124',
       worktreePath: path.join(worktreesPath, 'T-1'),
       content: VITE_SCREEN,
@@ -286,7 +289,7 @@ function buildTerminalSeeds() {
       taskId: 2,
       label: 'Add activity feed to dashboard',
       summary: 'Wiring the activity feed stream',
-      summaryType: 'thinking',
+      status: 'thinking',
       worktreeBranch: 'dashboard-activity-feed-120',
       worktreePath: path.join(worktreesPath, 'T-2'),
       content: FEED_SCREEN,
@@ -300,7 +303,7 @@ function buildTerminalSeeds() {
       taskId: 3,
       label: 'Polish invitation email template',
       summary: 'Invite email copy tightened',
-      summaryType: 'ready',
+      status: 'ready',
       worktreeBranch: 'invite-email-polish-119',
       worktreePath: path.join(worktreesPath, 'T-3'),
       content: CLAUDE_SCREEN,
@@ -310,7 +313,7 @@ function buildTerminalSeeds() {
       taskId: 4,
       label: 'Refine CTA button hover states',
       summary: 'Aligning hover states with design tokens',
-      summaryType: 'thinking',
+      status: 'thinking',
       worktreeBranch: 'cta-hover-states-121',
       worktreePath: path.join(worktreesPath, 'T-4'),
       sandboxProvider: 'nono',
@@ -357,15 +360,15 @@ function buildIssuesSeed() {
 
   return {
     availability: { available: true, identity: { host: 'github.com', owner: 'acme', repo: 'widgets' } },
-    inbox: { viewer: 'mel', needsReview: [], mine: [], others: [], draftCounts: {}, linkedTasks: {} },
+    inbox: { viewer: 'mel', needsReview: [], mine: [], others: [], next: null, draftCounts: {}, linkedTasks: {} },
     githubIssues: {
       assigned: [github(299, 'Terminal scroll jumps on resize', 'rowan', '2026-07-01T11:00:00.000Z')],
       open: [
         github(291, 'Add a keyboard shortcut for the diff pane', 'jules', '2026-06-30T15:00:00.000Z'),
         github(287, 'Worktree list is slow on very large repos', 'ada', '2026-06-29T10:00:00.000Z'),
       ],
-      assignedCapped: false,
-      openCapped: false,
+      assignedNext: null,
+      openNext: null,
     },
     linear: {
       connected: true,
@@ -400,7 +403,7 @@ function buildIssuesSeed() {
           updatedAt: '2026-07-01T17:00:00.000Z',
         }),
       ],
-      capped: { triage: false, started: false, assigned: false, cycle: false },
+      next: { triage: null, started: null, assigned: null, cycle: null },
       cycleIsFallback: false,
       triageEnabled: true,
     },

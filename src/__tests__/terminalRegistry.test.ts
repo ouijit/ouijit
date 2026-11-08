@@ -18,8 +18,8 @@ describe('terminal registry', () => {
   afterEach(() => vi.useRealTimers());
 
   it('restores a session once however many callers ask, and holds them all until it is done', async () => {
-    // Two views reconnect the same session on a renderer reload: the home
-    // view's unscoped sweep and the project view's scoped one.
+    // Two callers reconnect the same session on a renderer reload: the
+    // startup sweep and a scoped one from opening the terminal.
     let finish!: () => void;
     let restores = 0;
     const restore = async (): Promise<void> => {

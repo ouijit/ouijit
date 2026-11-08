@@ -1,0 +1,157 @@
+---
+import Site from '../layouts/Site.astro';
+import SandboxDiagram from '../components/home/SandboxDiagram.astro';
+import { SandboxMock } from '../components/demo/SandboxMocks.tsx';
+
+const points: [string, string][] = [
+  [
+    'Kernel-enforced',
+    'Seatbelt on macOS, Landlock on Linux, applied by <a href="https://github.com/nolabs-ai/nono">nono</a>, an open-source sandbox runner that ships inside Ouijit. The limits are an OS policy on the process, not a prompt or a classifier.',
+  ],
+  [
+    'In place',
+    'The agent runs in the real worktree as a normal process, with your tools on PATH and its own login intact. No VM, no file sync, no second environment.',
+  ],
+  [
+    'Policy outside the repository',
+    "Each project's profile lives in your config directory, and .git hooks and config are read-only inside. The agent can't grant itself access or plant a hook that runs on the host. Edit the profile to grant folders or change the network rules.",
+  ],
+];
+
+const faqs: [string, string][] = [
+  [
+    "Does this replace Claude Code's own sandbox?",
+    "It covers more. Claude Code's sandbox wraps the shell commands it runs, and its file tools, MCP servers and hooks run outside it. Ouijit's wraps the whole terminal. The two can run together.",
+  ],
+  [
+    'Which agents does it work with?',
+    "Any command. Claude Code, Codex, Pi and OpenCode sign in and run with nothing to configure. Anything else needs its paths granted in the project's profile.",
+  ],
+  [
+    'Can the agent reach the network?',
+    "By default, yes. Block it or allow specific ports in the project's profile. Ouijit's own status port stays reachable, so the card still shows what the agent is doing.",
+  ],
+  [
+    'Does it slow anything down?',
+    'No. There is nothing to boot and nothing to sync. A sandboxed terminal opens as fast as any other.',
+  ],
+  ['What does it need?', 'macOS, or Linux with kernel 5.13 or newer. Nothing to install.'],
+];
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map(([q, a]) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+};
+---
+<Site
+  title="Sandbox · Ouijit"
+  description="Run coding agents with their permission checks off. Ouijit's sandbox holds the agent to its task's worktree with kernel-level limits, while the dev server beside it stays on the host.">
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+
+  <section class="hero">
+    <h1>Run agents with their permission checks off.</h1>
+    <p class="hero-sub">
+      The whole terminal runs inside the sandbox, so the agent, its file tools, MCP servers and hooks are all
+      held to the task's worktree. The rest of your machine is out of reach.
+    </p>
+  </section>
+
+  <figure class="feature-hero-visual">
+    <div class="plan-desk desk-wash desk-wash--prism">
+      <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
+      <div class="relative"><SandboxDiagram /></div>
+    </div>
+    <figcaption>
+      The agent gets its worktree and nothing else. Anything that needs the rest of your machine, it asks you to run.
+    </figcaption>
+  </figure>
+
+
+  <section class="feature-section">
+    <div class="feature-rows">
+      <div class="feature-row">
+        <div class="feature-copy">
+          <h3>Choose what runs where</h3>
+          <p>
+            A default per project, with an override for any one lifecycle hook, script or terminal. Sandbox the
+            agent. Keep the dev server and the push on the host, where the credentials are.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <div class="plan-desk desk-wash desk-wash--graphite">
+            <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
+            <div class="relative"><SandboxMock kind="where" client:visible /></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-row">
+        <div class="feature-copy">
+          <h3>The agent still drives Ouijit</h3>
+          <p>
+            The ouijit command works inside, on a token scoped to the project. When the agent needs the host,
+            for a push or a signed build, it asks. You see the exact command and press Run or Decline. How much
+            of Ouijit it may drive is a project setting: read only, its own task, or everything.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <div class="plan-desk desk-wash desk-wash--graphite">
+            <div class="desk-wash-field" aria-hidden="true"><span class="desk-wash-grain"></span></div>
+            <div class="relative"><SandboxMock kind="access" client:visible /></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-row">
+        <div class="feature-copy">
+          <h3>Bring your own launcher</h3>
+          <p>
+            A Custom launcher runs every sandboxed command through a script your team maintains. The script
+            owns the boundary. Ouijit passes it the worktree, git directories and ports as hints.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <pre class="glass-bevel"><code><span class="dim">$</span> ~/.local/bin/team-sandbox -- zsh
+<span class="dim">OUIJIT_SANDBOX_WORKTREE</span>=~/Ouijit/worktrees/horizon/T-119
+<span class="dim">OUIJIT_SANDBOX_GIT_DIR</span>=~/Code/horizon/.git
+<span class="dim">OUIJIT_SANDBOX_HOOK_PORT</span>=52341</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="feature-section">
+    <h2>Turn it on</h2>
+    <div class="step">
+      <p>
+        Set the project's default to Sandbox in Project settings, and every task terminal, hook and script runs
+        inside it. Or sandbox one command from any terminal:
+      </p>
+      <pre class="glass-bevel"><code>ouijit sandbox -- claude --dangerously-skip-permissions</code></pre>
+    </div>
+  </section>
+  <section class="feature-section">
+    <h2>How it works</h2>
+    <div class="points">
+      {points.map(([title, body]) => (
+        <p><strong>{title}</strong><Fragment set:html={body} /></p>
+      ))}
+    </div>
+  </section>
+
+  <section class="feature-section feature-faq">
+    <h2>Questions</h2>
+    {faqs.map(([q, a]) => (
+      <section class="faq-item">
+        <h3>{q}</h3>
+        <p>{a}</p>
+      </section>
+    ))}
+    <a class="cta-docs-link feature-end-link" href="/docs/sandbox/">Sandbox documentation <span aria-hidden="true">→</span></a>
+  </section>
+</Site>

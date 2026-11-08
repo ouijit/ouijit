@@ -1,0 +1,21 @@
+---
+import AgentPage from '../../components/home/AgentPage.astro';
+---
+<AgentPage
+  name={"Codex"}
+  logo={"/assets/agents/codex.svg"}
+  headline={"Run Codex in parallel."}
+  sub={"A worktree and terminal per task, status from Codex's own hooks, and the ouijit command in its developer instructions. Nothing to configure."}
+  description={"Run OpenAI Codex CLI in parallel with Ouijit: a git worktree and terminal per task, live status from its hooks, and the ouijit CLI in its developer instructions."}
+  points={[
+    ["Knows Ouijit", "The ouijit CLI reference is passed to Codex as developer instructions at launch, so it can create tasks, move cards and stage review comments without being told how."],
+    ["Live status", "Codex's own hooks report when a turn starts and ends. Ouijit passes them as config overrides and marks them trusted, so Codex never prompts about them. The card shows thinking or ready."],
+    ["Sandboxed", "Run it with approvals and its own sandbox bypassed inside Ouijit's sandbox and the kernel holds it to the task's worktree. Codex's sandbox covers the commands it runs; Ouijit's wraps the whole terminal, so anything Codex starts is inside too."],
+  ]}
+  hooks={"<span class=\"dim\"># Start · a task moves to In Progress</span>\ncodex \"$OUIJIT_TASK_DESCRIPTION\""}
+  sandboxed={"codex --dangerously-bypass-approvals-and-sandbox \"$OUIJIT_TASK_DESCRIPTION\""}
+  faqs={[
+    ["Can it sign in inside the sandbox?", "Yes. The sandbox lets it reach its config directory, the OS keychain and auth.openai.com. Everything else outside the worktree stays out of reach."],
+    ["Does it change Codex anywhere else?", "No. The codex on PATH in an Ouijit terminal is a wrapper around the real one, and only there."],
+  ]}
+/>

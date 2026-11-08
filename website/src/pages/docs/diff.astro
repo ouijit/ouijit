@@ -20,7 +20,7 @@ import Docs from '../../layouts/Docs.astro';
     Click the <strong>Diff</strong> button in the terminal header (it shows the change size) or press
     <code>⌘D</code>. The panel lists changed files in a tree, renders per-file diffs with syntax highlighting,
     and marks the exact changed words within each line. Panel state survives app restarts via
-    <a href="/docs/resume/">session resume</a>.
+    <a href="/docs/terminals/#resume">session resume</a>.
   </p>
 
   <h2>Pick a base</h2>
@@ -28,11 +28,12 @@ import Docs from '../../layouts/Docs.astro';
   <ul>
     <li><strong>Uncommitted changes</strong>: everything since your last commit.</li>
     <li><strong>The task's merge target</strong>, the repository's main branch, or the branch's upstream.</li>
-    <li><strong>Any local or remote branch</strong>, searchable by name. Picking a remote ref fetches it first, and a freshness button next to the picker shows the fetch age and refetches on click.</li>
+    <li><strong>Any local or remote branch</strong>, searchable by name. Picking a remote ref fetches it first. A freshness button next to the picker shows the fetch age and refetches on click.</li>
   </ul>
   <p>
-    A branch comparison shows the task's own changes, not what has landed on the target since. The chosen base
-    is remembered per worktree.
+    A branch comparison shows the task's own changes, not what has landed on the target since. Until you pick
+    a base, a task merging into the project's <a href="/docs/worktrees/#branch-from">Branch from</a> branch is
+    compared against that branch, remote or not. The chosen base is remembered per worktree.
   </p>
 
   <h2>Read it through a lens</h2>
@@ -45,10 +46,10 @@ import Docs from '../../layouts/Docs.astro';
   />
 
   <p>
-    A lens is a named instruction you keep with the project — "lead with what could break in production" — that
-    an agent applies to one change. Pick one from the picker above the file list and it reads the diff and
-    answers with the parts of the change: a titled group, a line on why those files belong together, and the
-    hunks that make it up. The file tree becomes one way of reading among several.
+    A lens is a named instruction you keep with the project, such as "lead with what could break in
+    production", that an agent applies to one change. Pick one from the picker above the file list. The agent reads
+    the diff and answers with the parts of the change: a titled group, a line on why those files belong
+    together, and the hunks that make it up.
   </p>
   <p>
     The rail and the document follow the same order, and each part folds like a folder. A file that spans two
@@ -56,22 +57,23 @@ import Docs from '../../layouts/Docs.astro';
     under a heading at the end: a lens reorders and splits a change, but never hides any of it.
   </p>
   <p>
-    A lens goes out of date when the change under it moves. The picker says so and offers to run it again, and
-    on a worktree diff the older grouping stays on screen until you do — anything it no longer accounts for
-    moves to that trailing group. Add and edit lenses under <strong>Lenses</strong> in project settings, or from
-    the picker itself. Writing one needs Claude Code or Codex installed; where both are, you choose which runs.
+    A lens goes out of date when the change under it moves. The picker says so and offers to run it again. On a
+    worktree diff the older grouping stays on screen until you do, and anything it no longer accounts for moves
+    to that trailing group. Add and edit lenses under <strong>Lenses</strong> in project settings, or from
+    the picker itself. Writing one needs Claude Code, Codex or pi installed. With more than one installed, you choose which runs.
   </p>
 
   <h2>Leave notes for the agent</h2>
   <p>
-    Hover a line and click <strong>+</strong>, or drag across several lines, and write a note. Notes are kept
-    with the worktree until you hand them over: the floating island at the bottom of the panel lists them, and
-    <strong>Send</strong> pastes them into the terminal's prompt as one block, quoted code and all, unsent. You
-    press Enter. <strong>Copy</strong> puts the same block on the clipboard for any other destination.
+    Hover a line and click <strong>+</strong>, or drag across several lines, and write a note. Notes stay with
+    the worktree until you send them. The island at the bottom of the panel lists them. <strong>Send</strong>
+    pastes them into the terminal's prompt as one block with the quoted code, and leaves Enter to you.
+    <strong>Copy</strong> puts the same block on the clipboard for anywhere else. An agent
+    can also read them itself with <a href="/docs/cli/"><code>ouijit diff notes</code></a>.
   </p>
   <p>
     Notes anchor to the code, not the line number. As the agent edits, each note follows its text to its new
-    location; a note whose text is gone is dropped. A note outside the current comparison is kept and flagged
+    location. A note whose text is gone is dropped. A note outside the current comparison is kept and flagged
     <strong>not in this comparison</strong>.
   </p>
 </Docs>

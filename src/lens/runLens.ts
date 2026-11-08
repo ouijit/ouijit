@@ -37,13 +37,20 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
   try {
     const args = [...agent.args];
     const answerFile = path.join(room, 'lens.json');
+    const schemaFile = path.join(room, 'schema.json');
+    let env: Record<string, string> = {};
 
     if (agent.schemaVia === 'inline') {
       args.push('--json-schema', JSON.stringify(LENS_SCHEMA));
-    } else {
-      const schemaFile = path.join(room, 'schema.json');
+    } else if (agent.schemaVia === 'file') {
       await writeFile(schemaFile, JSON.stringify(LENS_SCHEMA), 'utf8');
       args.push('--output-schema', schemaFile, '-o', answerFile);
+    } else {
+      const extensionFile = path.join(room, 'submit.ts');
+      await writeFile(schemaFile, JSON.stringify(LENS_SCHEMA), 'utf8');
+      await writeFile(extensionFile, SUBMIT_EXTENSION, 'utf8');
+      args.push('--extension', extensionFile);
+      env = { OUIJIT_LENS_SCHEMA: schemaFile, OUIJIT_LENS_ANSWER: answerFile };
     }
 
     log.info('lens run starting', {
@@ -51,7 +58,7 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
       promptChars: prompt.length,
     });
 
-    const output = await capture(agent.command, args, prompt, room, input.signal);
+    const output = await capture(agent.command, args, prompt, room, env, input.signal);
     const answer =
       agent.schemaVia === 'inline'
         ? fromEnvelope(output)
@@ -62,6 +69,9 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
     if (!answer.json) {
       // The tail rather than the head: the first thing said is usually a banner.
       log.warn('lens reply carried no lens', { reply: tail(output) });
+      // pi's stdout is an event stream, whose tail says nothing a reader can use.
+      if (agent.schemaVia === 'tool')
+        return { success: false, error: `${agent.label} finished without submitting a grouping.` };
       return { success: false, error: `No grouping in the reply. It ended: ${tail(output)}` };
     }
 
@@ -86,6 +96,28 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
     await rm(room, { recursive: true, force: true }).catch(() => {});
   }
 }
+
+/**
+ * A pi extension, loaded with `--extension`. pi validates a tool's arguments
+ * against `parameters` before `execute` runs, so the file holds only a reply in
+ * the schema's shape; `terminate` ends the run there rather than asking the
+ * model for a closing message.
+ */
+const SUBMIT_EXTENSION = `import { readFileSync, writeFileSync } from 'node:fs';
+
+export default function (pi) {
+  pi.registerTool({
+    name: 'submit',
+    label: 'Submit',
+    description: 'Submit the grouping. Call exactly once.',
+    parameters: JSON.parse(readFileSync(process.env.OUIJIT_LENS_SCHEMA, 'utf8')),
+    async execute(_id, params) {
+      writeFileSync(process.env.OUIJIT_LENS_ANSWER, JSON.stringify(params));
+      return { content: [{ type: 'text', text: 'Submitted.' }], details: undefined, terminate: true };
+    },
+  });
+}
+`;
 
 /**
  * `structured_output` is the schema-checked object itself. Two fields go to the
@@ -132,13 +164,20 @@ function tail(output: string): string {
  * `shell: false`, so the command is a binary and its arguments are arguments:
  * the prompt is a whole diff, which is full of things a shell would interpret.
  */
-function capture(command: string, args: string[], stdin: string, cwd: string, signal?: AbortSignal): Promise<string> {
+function capture(
+  command: string,
+  args: string[],
+  stdin: string,
+  cwd: string,
+  env: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
       shell: false,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, OUIJIT_LENS: '1' },
+      env: { ...process.env, ...env, OUIJIT_LENS: '1' },
     });
 
     let out = '';

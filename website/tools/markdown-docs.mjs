@@ -30,6 +30,15 @@ function buildTurndown() {
     filter: (node) => node.nodeType === 1 && /\bdocs-actions\b/.test(node.getAttribute?.('class') ?? ''),
     replacement: () => '',
   });
+  // A tab's panels are hidden but for one; Markdown has room for all of them, each under its tab's name.
+  turndown.addRule('drop-tablist', {
+    filter: (node) => node.getAttribute?.('role') === 'tablist',
+    replacement: () => '',
+  });
+  turndown.addRule('tabpanel-heading', {
+    filter: (node) => node.getAttribute?.('role') === 'tabpanel',
+    replacement: (content, node) => `\n\n### ${node.getAttribute('data-label')}\n\n${content.trim()}\n\n`,
+  });
   return turndown;
 }
 

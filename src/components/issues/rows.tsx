@@ -32,18 +32,37 @@ export function TaskLink({ task, onOpen }: { task: TaskWithWorkspace; onOpen: (t
 }
 
 /**
- * A heading over the rows it names, and nothing when it has none. `capped` is
- * how many the group holds when that is a page rather than all of it.
+ * A heading over the rows it names, and nothing when it has none. `more` is
+ * set when the rows are a page with another after it.
  */
-export function Group({ label, capped = 0, children }: { label: string; capped?: number; children: ReactNode[] }) {
+export function Group({
+  label,
+  more,
+  children,
+}: {
+  label: string;
+  more?: { loading: boolean; onShow: () => void };
+  children: ReactNode[];
+}) {
   if (children.length === 0) return null;
   return (
     <section className="pt-3">
-      <h2 className="px-4 pb-1 flex items-baseline gap-2 text-[13px] text-text-tertiary">
-        {label}
-        {capped > 0 && <span className="opacity-70">first {capped}</span>}
-      </h2>
+      <h2 className="px-4 pb-1 text-[13px] text-text-tertiary">{label}</h2>
       {children}
+      {more && <ShowMore {...more} />}
     </section>
+  );
+}
+
+export function ShowMore({ loading, onShow }: { loading: boolean; onShow: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={loading}
+      className="w-full px-4 py-2 text-left text-[13px] text-text-tertiary hover:text-accent disabled:hover:text-text-tertiary transition-colors duration-100"
+      onClick={onShow}
+    >
+      {loading ? 'Loading…' : 'Show more'}
+    </button>
   );
 }

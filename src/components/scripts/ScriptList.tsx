@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
+import { loadScripts, reorderScripts, saveScript, useProjectScripts } from '../../stores/projectDataStore';
 import type { Script } from '../../types';
 import { Icon } from '../terminal/Icon';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -9,6 +10,8 @@ import { ScriptRowView } from './ScriptRowView';
 import { Checkbox } from '../ui/Checkbox';
 import { scriptFromDraft } from './scriptFromDraft';
 
+const NO_SCRIPTS: Script[] = [];
+
 interface ScriptListProps {
   projectPath: string;
   /** Render rows without the card wrapper (for embedding in a shared card) */
@@ -16,14 +19,14 @@ interface ScriptListProps {
 }
 
 export function ScriptList({ projectPath, bare }: ScriptListProps) {
-  const scripts = useProjectStore((s) => s.scripts);
+  const scripts = useProjectScripts(projectPath) ?? NO_SCRIPTS;
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const reload = useCallback(() => {
-    useProjectStore.getState().loadScripts(projectPath);
+    loadScripts(projectPath);
   }, [projectPath]);
 
   const handleDragEnd = useCallback(
@@ -33,21 +36,14 @@ export function ScriptList({ projectPath, bare }: ScriptListProps) {
       const oldIndex = scripts.findIndex((s) => s.id === active.id);
       const newIndex = scripts.findIndex((s) => s.id === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
-      const reordered = arrayMove(scripts, oldIndex, newIndex);
-      // Optimistic update
-      useProjectStore.setState({ scripts: reordered });
-      await window.api.scripts.reorder(
-        projectPath,
-        reordered.map((s) => s.id),
-      );
-      reload();
+      await reorderScripts(projectPath, arrayMove(scripts, oldIndex, newIndex));
     },
-    [scripts, projectPath, reload],
+    [scripts, projectPath],
   );
 
   const handleSave = useCallback(
     async (script: Script) => {
-      if (!(await useProjectStore.getState().saveScript(projectPath, script))) return;
+      if (!(await saveScript(projectPath, script))) return;
       setExpandedId(null);
       setAddingNew(false);
     },

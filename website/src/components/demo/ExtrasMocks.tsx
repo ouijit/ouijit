@@ -36,7 +36,7 @@ export function PaletteMock() {
       <div className="px-3 pt-2 pb-1 text-[11px] text-ink/40">Terminals</div>
       <PaletteRow
         selected
-        leading={<StatusDot summaryType="thinking" />}
+        leading={<StatusDot status="thinking" />}
         title="Rework onboarding flow"
         context="ouijit"
       />
@@ -47,8 +47,8 @@ export function PaletteMock() {
         context="ouijit"
         meta="in review · 2h"
       />
-      <PaletteBranchRow title="Editing onboarding stepper…" summaryType="thinking" last={false} />
-      <PaletteBranchRow title="live dev server" summaryType="ready" last />
+      <PaletteBranchRow title="Editing onboarding stepper…" status="thinking" last={false} />
+      <PaletteBranchRow title="live dev server" status="ready" last />
       <PaletteFooter action="Focus terminal" />
     </FloatingPanel>
   );
@@ -58,7 +58,7 @@ export function SandboxMock() {
   return (
     <FloatingPanel>
       <div className="flex items-center gap-2 px-3 py-2.5">
-        <StatusDot summaryType="thinking" sandboxed />
+        <StatusDot status="thinking" sandboxed />
         <span className="font-mono text-xs font-medium text-ink/85 min-w-0 truncate">Refine CTA button hover states</span>
         <span className="font-mono text-xs text-ink/40 min-w-0 truncate">Running npm test…</span>
         <span className={`${METADATA_CHIP} ml-auto`}>nono</span>
@@ -110,7 +110,7 @@ export function TagsMock() {
   return (
     <FloatingPanel>
       <div className="flex items-center gap-2 px-3 py-2.5">
-        <StatusDot summaryType="ready" />
+        <StatusDot status="ready" />
         <span className="font-mono text-xs font-medium text-ink/85 min-w-0 truncate">Refactor billing webhook router</span>
         <span className="inline-flex items-center gap-1 min-w-0">
           <span className={METADATA_CHIP}>frontend</span>

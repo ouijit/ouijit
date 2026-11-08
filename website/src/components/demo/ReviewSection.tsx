@@ -461,7 +461,7 @@ function RoundTripTerminal({ p, depth, tip }: { p: (k: string) => number; depth:
   return (
     <>
       <TerminalHeaderView
-        summaryType={fixing && !fixed && !receded ? 'thinking' : 'ready'}
+        status={fixing && !fixed && !receded ? 'thinking' : 'ready'}
         isActive={!receded}
         isBackCard={receded}
         stackPosition={receded ? depth : undefined}
@@ -869,7 +869,7 @@ const CAPTIONS: { keys: readonly string[]; title: string; body: string; ms: numb
   {
     keys: [...ANALYSIS_KEYS, ...LOOP_KEYS],
     title: 'See and respond to code health issues',
-    body: 'Hotspots help you identify complexity, churn, and ownership risk, then highlight those problems when they’re most actionable.',
+    body: 'Files that change often and are complicated are marked as hotspots on the diff you’re reviewing, read from the repository’s own history.',
     ms: 9000,
   },
   {

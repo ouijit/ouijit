@@ -31,7 +31,7 @@ export const customProvider: SandboxProvider = {
     return {
       providerId: 'custom',
       available: configured,
-      detail: configured ? 'Ready' : 'Set a sandbox command to use it.',
+      detail: configured ? 'Ready' : 'Set a launcher first.',
     };
   },
 

@@ -1,0 +1,89 @@
+---
+import Site from '../layouts/Site.astro';
+import Cta from '../components/home/Cta.astro';
+
+const rows: [string, string][] = [
+  ['Session', 'Task. Starting it creates the worktree and opens a terminal in it.'],
+  ['n, N (new session, with a prompt)', 'New task. The prompt goes on the card, and the start hook hands it to the agent. ⌘N opens the composer from anywhere.'],
+  ['default_program and profiles', 'Start hook, per project, such as claude "$OUIJIT_TASK_DESCRIPTION".'],
+  ['cs -p codex', 'A different start hook, or a one-off command when you start the task.'],
+  ['-y, --autoyes', 'Run the agent with its permission checks off, in a sandbox that holds it to the worktree.'],
+  ['tmux session; ↵ to attach, ctrl-q to detach', 'A terminal card. Click it. Nothing to attach or detach, and no tmux.'],
+  ['Preview tab', "The terminal itself, live. Each card shows whether its agent is thinking or waiting."],
+  ['Diff tab', 'Diff review, with notes the agent reads'],
+  ['s (commit and push)', 'From the terminal, or a done hook that pushes. Pull requests from the project menu.'],
+  ['c (checkout), r (resume)', 'Nothing pauses. Open the worktree itself from Open in → Editor. Quitting saves the session, and the next launch restores the terminals in their worktrees.'],
+  ['D (kill session)', 'Trash the task. The worktree goes to the system trash.'],
+  ['↑/↓, j/k', 'The sidebar, or ⌘K to jump to any terminal, task or project.'],
+  ['One branch per session', 'One branch and worktree per task, named after the task number, such as T-42.'],
+  ['tmux and gh', 'Nothing. gh only for the pull request surface.'],
+];
+---
+<Site
+  title="Claude Squad alternative · Ouijit"
+  description="Moving from Claude Squad to Ouijit: how sessions, profiles, auto-yes and the preview and diff tabs map onto tasks, hooks, the sandbox and diff review.">
+  <main class="compare-content">
+    <h1>Coming from Claude Squad</h1>
+    <p class="lead">
+      If you used Claude Squad, you already know how Ouijit works. Each task gets a git worktree and an agent, and
+      the agent is still a CLI in a terminal. Here's how the pieces line up.
+    </p>
+    <img
+      class="compare-screenshot"
+      src="/assets/screenshots/kanban.png"
+      alt="A project's board with tasks in To Do, In Progress, In Review and Done, and their terminals in the sidebar"
+      loading="lazy"
+    />
+
+    <h2>Why Ouijit</h2>
+    <p>
+      The agents run as their own CLIs in real terminals, in their worktrees, with no tmux in between. Each card
+      shows what its agent is doing, and a sound or notification tells you when a turn ends.
+    </p>
+    <p>
+      Every agent gets the <a href="/docs/cli/"><code>ouijit</code> command</a>. Ask it to split a feature into
+      tasks and it starts them, each with its own agent. It can read the other agents' terminals, open its plan
+      beside itself, link you to the line it changed, and stage review comments for you to send.
+    </p>
+    <p>
+      Auto-yes becomes safe. A task can run in a <a href="/docs/sandbox/">sandbox</a>, so an agent with permission
+      checks off is held to its worktree. Ouijit is free, open source, and runs on macOS and Linux.
+    </p>
+
+    <h2>What maps to what</h2>
+<p>
+      A hook is a command the project runs when a task changes status. The start hook runs in the new worktree
+      with the task's prompt in <code>$OUIJIT_TASK_DESCRIPTION</code>, and the done hook runs when the task is
+      marked done. Both live under <strong>Project Settings → Lifecycle Hooks</strong>.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Claude Squad</th><th>Ouijit</th></tr>
+      </thead>
+      <tbody>
+        {rows.map(([a, b]) => (
+          <tr><td>{a}</td><td>{b}</td></tr>
+        ))}
+      </tbody>
+    </table>
+
+    <h2>What you give up</h2>
+    <ul>
+      <li>Living in one terminal. Ouijit is a desktop app, and the terminals live in it.</li>
+      <li>Gemini and Aider integration. Any CLI runs in an Ouijit terminal, but only Claude Code, Codex, Pi and OpenCode get live status and the <code>ouijit</code> command.</li>
+      <li>Auto-yes. Run the agent with its permission checks off in the sandbox instead.</li>
+      <li>One key to commit and push. Do it from the terminal, or put it in a done hook.</li>
+    </ul>
+
+    <h2>Move a project over</h2>
+    <ol>
+      <li>Push or finish your Claude Squad sessions. Ouijit makes its own worktrees.</li>
+      <li><a href="/docs/">Install Ouijit</a> and open the repository as a project.</li>
+      <li>Under <strong>Project Settings → Lifecycle Hooks</strong>, put your <code>default_program</code> command in the start hook with the task's prompt, for example <code>claude "$OUIJIT_TASK_DESCRIPTION"</code>.</li>
+      <li>If you ran with <code>--autoyes</code>, add <code>--dangerously-skip-permissions</code>, or your agent's equivalent, to that command and set the hook to run in the sandbox, in its row under Lifecycle Hooks.</li>
+      <li>For pull requests in the app, enable them under <strong>Project Settings → Experimental</strong> and run <code>gh auth login</code>.</li>
+      <li>Press <code>⌘N</code> for a task, give it a prompt and start it. The start hook runs in its new worktree.</li>
+    </ol>
+  </main>
+  <Cta />
+</Site>

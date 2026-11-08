@@ -13,7 +13,7 @@ import type { HealthStatus } from '../healthCheck';
  *              is a guess, not a contract.
  */
 
-export type LensAgentId = 'claude' | 'codex';
+export type LensAgentId = 'claude' | 'codex' | 'pi';
 
 export interface LensAgent {
   id: LensAgentId;
@@ -24,9 +24,11 @@ export interface LensAgent {
   /**
    * `inline` writes the schema onto the command line and reads the object out of
    * a JSON envelope on stdout; `file` writes it to a temporary file and reads
-   * the object out of a second file the agent is told to write.
+   * the object out of a second file the agent is told to write; `tool` loads an
+   * extension whose one tool takes the schema as its parameters and writes what
+   * it is called with to a file.
    */
-  schemaVia: 'inline' | 'file';
+  schemaVia: 'inline' | 'file' | 'tool';
 }
 
 /**
@@ -41,6 +43,12 @@ export interface LensAgent {
  *           `--ignore-rules` drop the config and execpolicy files, `--ephemeral`
  *           leaves no session behind, and `-s read-only` is the sandbox. `-o`
  *           writes the final message to a file — stdout is a banner and a log.
+ *   pi      has no schema flag. `-p` reads the prompt from stdin, the `--no-*`
+ *           flags drop the repository's extensions, skills, templates, themes
+ *           and AGENTS.md, `--no-approve` ignores its `.pi/`, and `--tools`
+ *           leaves only the extension's tool, whose arguments pi checks
+ *           against the schema before running it and hands back to the model
+ *           when they fail.
  */
 export const LENS_AGENTS: LensAgent[] = [
   {
@@ -65,6 +73,29 @@ export const LENS_AGENTS: LensAgent[] = [
       'read-only',
     ],
     schemaVia: 'file',
+  },
+  {
+    id: 'pi',
+    label: 'pi',
+    command: 'pi',
+    args: [
+      '-p',
+      '--mode',
+      'json',
+      '--no-session',
+      '--offline',
+      '--no-extensions',
+      '--no-skills',
+      '--no-prompt-templates',
+      '--no-context-files',
+      '--no-themes',
+      '--no-approve',
+      '--tools',
+      'submit',
+      '--system-prompt',
+      'Answer by calling submit once.',
+    ],
+    schemaVia: 'tool',
   },
 ];
 

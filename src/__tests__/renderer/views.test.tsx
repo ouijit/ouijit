@@ -175,7 +175,7 @@ describe('TerminalHeaderView', () => {
   it('renders nameContent and tagsContent', () => {
     render(
       <TerminalHeaderView
-        summaryType="ready"
+        status="ready"
         nameContent={<TerminalHeaderName label="claude" lastOscTitle="~/project" />}
         tagsContent={<TerminalHeaderTags tags={['auth']} />}
       />,
@@ -189,7 +189,7 @@ describe('TerminalHeaderView', () => {
     const onClose = vi.fn();
     const { container } = render(
       <TerminalHeaderView
-        summaryType="ready"
+        status="ready"
         nameContent={<TerminalHeaderName label="claude" />}
         showCloseButton
         onClose={onClose}

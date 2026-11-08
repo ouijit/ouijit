@@ -5,6 +5,7 @@ import type {
   PullRequestDetail,
   PullRequestFile,
   GithubIssueList,
+  GithubIssueListGroup,
   IssueDetail,
   ReviewDraft,
   InboxResult,
@@ -39,6 +40,9 @@ interface GithubStoreState {
   issues: GithubIssueList | null;
   issuesLoading: boolean;
   issuesError: string | null;
+
+  /** The lists whose next page is on its way. */
+  paging: Array<'pulls' | GithubIssueListGroup>;
 
   issue: IssueDetail | null;
   issueLoading: boolean;
@@ -98,6 +102,10 @@ interface GithubStoreActions {
   loadAvailability: (projectPath: string, recheck?: boolean) => Promise<void>;
   loadInbox: (projectPath: string) => Promise<void>;
   loadIssues: (projectPath: string) => Promise<void>;
+  /** Append the next page of open pull requests. Throws when the fetch fails. */
+  loadMorePulls: (projectPath: string) => Promise<void>;
+  /** Append the next page of one issue group. Throws when the fetch fails. */
+  loadMoreIssues: (projectPath: string, group: GithubIssueListGroup) => Promise<void>;
 
   openPullRequest: (projectPath: string, number: number) => Promise<void>;
   openIssue: (projectPath: string, number: number) => Promise<void>;
@@ -141,6 +149,7 @@ const INITIAL: Omit<GithubStoreState, 'railWidth'> = {
   issues: null,
   issuesLoading: false,
   issuesError: null,
+  paging: [],
   issue: null,
   issueLoading: false,
   issueError: null,
@@ -296,6 +305,57 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     } catch (error) {
       if (version !== issuesVersion || get().projectPath !== projectPath) return;
       set({ issuesLoading: false, issuesError: describeError(error) });
+    }
+  },
+
+  // Each page is checked against the version it was asked under, so a refresh
+  // landing first is not appended to: the page belongs to the list it replaced.
+  loadMorePulls: async (projectPath) => {
+    const after = get().inbox?.next;
+    if (!after || get().paging.includes('pulls')) return;
+    const version = inboxVersion;
+    set({ paging: [...get().paging, 'pulls'] });
+    try {
+      const page = await window.api.github.inbox(projectPath, after);
+      const current = get().inbox;
+      if (version !== inboxVersion || get().projectPath !== projectPath || !current) return;
+      const shown = new Set([...current.needsReview, ...current.mine, ...current.others].map((pr) => pr.number));
+      const fresh = <T extends { number: number }>(rows: T[]) => rows.filter((row) => !shown.has(row.number));
+      set({
+        inbox: {
+          ...current,
+          needsReview: [...current.needsReview, ...fresh(page.needsReview)],
+          mine: [...current.mine, ...fresh(page.mine)],
+          others: [...current.others, ...fresh(page.others)],
+          next: page.next,
+          draftCounts: { ...current.draftCounts, ...page.draftCounts },
+          linkedTasks: { ...current.linkedTasks, ...page.linkedTasks },
+        },
+      });
+    } finally {
+      set({ paging: get().paging.filter((p) => p !== 'pulls') });
+    }
+  },
+
+  loadMoreIssues: async (projectPath, group) => {
+    const after = get().issues?.[group === 'open' ? 'openNext' : 'assignedNext'];
+    if (!after || get().paging.includes(group)) return;
+    const version = issuesVersion;
+    set({ paging: [...get().paging, group] });
+    try {
+      const page = await window.api.github.issues(projectPath, { group, after });
+      const current = get().issues;
+      if (version !== issuesVersion || get().projectPath !== projectPath || !current) return;
+      const shown = new Set([...current.assigned, ...current.open].map((issue) => issue.number));
+      const fresh = page[group].filter((issue) => !shown.has(issue.number));
+      set({
+        issues:
+          group === 'open'
+            ? { ...current, open: [...current.open, ...fresh], openNext: page.openNext }
+            : { ...current, assigned: [...current.assigned, ...fresh], assignedNext: page.assignedNext },
+      });
+    } finally {
+      set({ paging: get().paging.filter((p) => p !== group) });
     }
   },
 

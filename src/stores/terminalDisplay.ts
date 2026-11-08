@@ -1,11 +1,17 @@
 import type { GitFileStatus, SandboxProviderId } from '../types';
 import type { TerminalPanel } from '../components/terminal/panelTypes';
 
+export type TerminalStatus = 'thinking' | 'ready' | 'success' | 'error';
+
 /** Renderable state pushed from OuijitTerminal class to React */
 export interface TerminalDisplayState {
   ptyId: string;
   label: string;
-  summaryType: 'thinking' | 'ready' | 'success' | 'error';
+  status: TerminalStatus;
+  /** Epoch ms; `updateDisplay` moves it whenever `status` changes. */
+  statusSince: number;
+  /** Epoch ms when the terminal last stopped being viewed. */
+  lastViewedAt: number;
   gitFileStatus: GitFileStatus | null;
   lastOscTitle: string;
   tags: string[];
@@ -18,6 +24,8 @@ export interface TerminalDisplayState {
   panelFullWidth: boolean;
   /** Automatic diff takeover (header-driven, separate from the panel tabs). */
   diffPanelOpen: boolean;
+  /** Where the diff has been asked to go, until it gets there. */
+  diffReveal: { path: string; line: number | null } | null;
   /** Which backend runs the terminal (undefined = host); `isActiveSandbox` derives the boolean. */
   sandboxProvider?: SandboxProviderId;
   taskId: number | null;
@@ -29,9 +37,12 @@ export interface TerminalDisplayState {
   isLoading: boolean;
 }
 
-export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projectPath'> = {
+export const DEFAULT_DISPLAY_STATE: Omit<
+  TerminalDisplayState,
+  'ptyId' | 'projectPath' | 'statusSince' | 'lastViewedAt'
+> = {
   label: '',
-  summaryType: 'ready',
+  status: 'ready',
   gitFileStatus: null,
   lastOscTitle: '',
   tags: [],
@@ -40,8 +51,14 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   activePanelId: null,
   panelFullWidth: true,
   diffPanelOpen: false,
+  diffReveal: null,
   taskId: null,
   worktreeBranch: null,
   exited: false,
   isLoading: false,
 };
+
+/** Only `ready`: a shell command that finished is not news. */
+export function isUnread(t: TerminalDisplayState, viewedPtyId: string | undefined): boolean {
+  return t.status === 'ready' && t.statusSince > t.lastViewedAt && t.ptyId !== viewedPtyId;
+}

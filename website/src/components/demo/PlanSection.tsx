@@ -406,7 +406,7 @@ const ROWS: { key: SourceKey; title: string; body: string }[] = [
     title: 'Agent assisted',
     body: 'Agents know how to use Ouijit out of the box.',
   },
-  { key: 'issue', title: 'Pull from GitHub', body: 'Turn any open issue into a task on the board with one click.' },
+  { key: 'issue', title: 'Pull from GitHub or Linear', body: 'Turn any open issue into a task on the board with one click.' },
   { key: 'manual', title: 'On the fly', body: '⌘N opens the composer from anywhere in the app.' },
 ];
 

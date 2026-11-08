@@ -5,7 +5,7 @@ export interface HookRowViewProps {
   description: string;
   /** The current command for this hook, if configured. */
   command?: string;
-  /** Names the sandbox the command runs in; absent runs it on the host. */
+  /** Where the command always runs; absent follows the project default. */
   sandboxLabel?: string;
   /** Click handler for the right-side action. */
   onAction?: (e: MouseEvent) => void;
@@ -29,7 +29,7 @@ export function HookRowView({ label, description, command, sandboxLabel, onActio
         {command && (
           <div className="flex items-center gap-2 mt-0.5 min-w-0">
             <span className="font-mono text-[11px] text-text-secondary truncate">{command}</span>
-            {sandboxLabel && <span className="shrink-0 text-[11px] text-text-tertiary">{sandboxLabel} sandbox</span>}
+            {sandboxLabel && <span className="shrink-0 text-[11px] text-text-tertiary">{sandboxLabel}</span>}
           </div>
         )}
       </div>

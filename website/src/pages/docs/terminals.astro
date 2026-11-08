@@ -3,13 +3,37 @@ import Docs from '../../layouts/Docs.astro';
 ---
 <Docs slug="terminals">
   <h1>Terminals</h1>
-  <p class="lead">Terminals are cards in a stack. The active one is in front; the rest peek out behind it so you can see what's running.</p>
+  <p class="lead">The sidebar lists every project's tasks and terminals. Pick one and it fills the window.</p>
+
+  <h2>Sidebar</h2>
+  <p>
+    Under <strong>Projects</strong>, each project lists its tasks in board order. A task with several terminals
+    shows each one under it. A task in progress or in review with no terminal open is listed too, marked with a
+    moon until you open one. Shells that belong to no task come after the tasks. An agent that finished while
+    you were looking elsewhere gets a blue dot until you open it, here and everywhere else it is listed.
+  </p>
+  <p>
+    Click a project to go back to the board or terminals you last had open there, even after a restart. Click
+    its arrow to fold it away. Dots next to the name then show which agents are still working and which have
+    finished unseen. On the
+    board, <strong>Terminals</strong> stacks every terminal open in the project.
+  </p>
+  <p>
+    A project's row has buttons for its board and a new task. Its <strong>…</strong> menu, also on right-click,
+    opens a new terminal, on your computer or in one of the project's sandboxes. The same menu opens the
+    project's pull requests, issues, analysis and settings. Right-click a task for the same menu the board gives it. Switch to
+    <strong>Tags</strong> to list terminals under their tags instead, with untagged ones under
+    <strong>No tag</strong>. Hide the sidebar with the button at its top. Hover the left edge to bring it
+    back.
+  </p>
 
   <h2>Card stack</h2>
   <p>
-    Each terminal runs your default shell in the task's worktree. Click a background card to
-    bring it forward. When an agent runs in a card, its status (thinking or idle) shows on the card even when it
-    is behind others. See <a href="/docs/harnesses/">Harnesses</a>.
+    Each terminal runs your default shell in the task's worktree. A task's terminals stack, with the active one in
+    front and the rest peeking out behind it. Click a background card to bring it forward. Cards stay in the
+    order you last used them, so the one you just left is directly behind the one in front. A shell is a card
+    of its own. When an agent runs in a card, its status (thinking or idle) shows on the card even when it is
+    behind others. See <a href="/docs/harnesses/">Supported agents</a>.
   </p>
 
   <h2>Keyboard shortcuts</h2>
@@ -19,38 +43,41 @@ import Docs from '../../layouts/Docs.astro';
     </thead>
     <tbody>
       <tr><td><code>⌘K</code> / <code>Ctrl+K</code></td><td>Open the <a href="/docs/palette/">command palette</a></td></tr>
-      <tr><td><code>⌘I</code> / <code>Ctrl+I</code></td><td>New terminal</td></tr>
+      <tr><td><code>⌘I</code> / <code>Ctrl+I</code></td><td>New terminal in the project on screen</td></tr>
       <tr><td><code>⌘W</code> / <code>Ctrl+W</code></td><td>Close terminal</td></tr>
-      <tr><td><code>⌘1</code>-<code>⌘9</code> / <code>Ctrl+1</code>-<code>Ctrl+9</code></td><td>Select terminal by position</td></tr>
-      <tr><td><code>⌘⇧←</code> / <code>Ctrl+Shift+Left</code></td><td>Previous stack page</td></tr>
-      <tr><td><code>⌘⇧→</code> / <code>Ctrl+Shift+Right</code></td><td>Next stack page</td></tr>
-      <tr><td><code>⌘T</code> / <code>Ctrl+T</code></td><td>Show or hide the kanban board</td></tr>
+      <tr><td><code>⌘1</code>-<code>⌘9</code> / <code>Ctrl+1</code>-<code>Ctrl+9</code></td><td>Select a card in the stack by position</td></tr>
+      <tr><td><code>⌘T</code> / <code>Ctrl+T</code></td><td>Open the project's board</td></tr>
       <tr><td><code>⌘N</code> / <code>Ctrl+N</code></td><td>New task</td></tr>
       <tr><td><code>⌘P</code> / <code>Ctrl+P</code></td><td>Open the runner <a href="/docs/panels/">panel</a></td></tr>
       <tr><td><code>⌘D</code> / <code>Ctrl+D</code></td><td>Toggle the <a href="/docs/diff/">diff panel</a></td></tr>
     </tbody>
   </table>
 
-  <h2>Home view</h2>
-  <p>
-    The home view shows every live terminal across all projects in one stack, grouped by project. Click a
-    group's tab to bring it forward. Terminals that don't belong to a registered project appear as
-    <strong>Shell</strong>. Press <code>⌘T</code> there to group by tag instead, and <code>⌘I</code> to open a
-    shell in your home directory.
-  </p>
-  <p>
-    When nothing is running, the home view offers to <a href="/docs/resume/">resume your last session</a> and lists
-    recent tasks so you can pick up where you left off.
-  </p>
-
   <h2>Tag terminals</h2>
   <p>
-    Tag a terminal from the tag button on its card. Tags belong to the task, so every terminal of the task
-    carries them. Use tags to slice what's running:
+    Tag a terminal from the tag button on its card. A terminal can carry several tags, and two terminals of one task
+    can carry different ones. Tags survive a restart. The sidebar's <strong>Tags</strong> view groups what's
+    running by them, listing a terminal under each of its tags.
   </p>
-  <ul>
-    <li><strong>Project view</strong>. A filter pill next to the toolbar buttons shows only matching cards. It appears once any session carries a tag.</li>
-    <li><strong>Home view</strong>. The tag control groups sessions by tag, or filters to one tag. Untagged sessions group under <strong>Untagged</strong>.</li>
-  </ul>
   <p>Manage tags from the shell or an agent with <a href="/docs/cli/"><code>ouijit tag</code></a>.</p>
+
+  <h2 id="resume">Resume a session</h2>
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/resume.png"
+    alt="Resume banner listing the previous session's terminals"
+    loading="lazy"
+  />
+  <p>With nothing open, the window offers to resume your last session and lists recent tasks.</p>
+  <p>
+    Quitting saves your open terminals: their project, task, worktree, sandbox, order, tags, and panels, with
+    split sizes and the diff panel. On the next launch, <strong>Resume last session</strong> reopens each one in
+    its worktree with its panels. <strong>Dismiss</strong> clears it. Terminals whose project or task is gone, or
+    whose task is Done, are skipped.
+  </p>
+  <p>
+    Restored terminals come back as plain shells, so resuming never starts an agent on its own. To pick up an
+    agent's conversation, use its own resume, such as a <code>continue</code> hook running
+    <code>claude -c</code>.
+  </p>
 </Docs>

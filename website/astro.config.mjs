@@ -10,6 +10,10 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
   },
+  redirects: {
+    '/docs/kanban': '/docs/worktrees/#board',
+    '/docs/resume': '/docs/terminals/#resume',
+  },
   build: {
     format: 'directory',
   },

@@ -11,7 +11,6 @@ import { getDatabase, _initTestDatabase } from './database';
 import { ProjectRepo } from './repos/projectRepo';
 import { TaskRepo, type TaskStatus, type TaskRow } from './repos/taskRepo';
 import { HookRepo, type HookType } from './repos/hookRepo';
-import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
@@ -20,7 +19,7 @@ import { DiffLensRepo, type DiffLensRow } from './repos/diffLensRepo';
 import { worktreeKeyPrefix } from '../lens/subjectKeys';
 import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
-import { SANDBOXABLE_HOOK_TYPES, isSandboxBackendId } from '../sandbox/types';
+import { SANDBOXABLE_HOOK_TYPES, isSandboxProviderId } from '../sandbox/types';
 import { getLogger } from '../logger';
 
 const dbLog = getLogger().scope('db');
@@ -28,7 +27,6 @@ const dbLog = getLogger().scope('db');
 // ── Re-exports ───────────────────────────────────────────────────────
 export type { TaskStatus } from './repos/taskRepo';
 export type { HookType } from './repos/hookRepo';
-export type { TagRow } from './repos/tagRepo';
 
 export interface TaskMetadata {
   taskNumber: number;
@@ -60,7 +58,6 @@ export interface TaskMetadata {
 let projectRepo: ProjectRepo | null = null;
 let taskRepo: TaskRepo | null = null;
 let hookRepo: HookRepo | null = null;
-let tagRepo: TagRepo | null = null;
 let globalSettingsRepo: GlobalSettingsRepo | null = null;
 let scriptRepo: ScriptRepo | null = null;
 let reviewDraftRepo: ReviewDraftRepo | null = null;
@@ -74,7 +71,6 @@ function repos() {
     projectRepo = new ProjectRepo(db);
     taskRepo = new TaskRepo(db);
     hookRepo = new HookRepo(db);
-    tagRepo = new TagRepo(db);
     globalSettingsRepo = new GlobalSettingsRepo(db);
     scriptRepo = new ScriptRepo(db);
     reviewDraftRepo = new ReviewDraftRepo(db);
@@ -86,7 +82,6 @@ function repos() {
     projectRepo: projectRepo!,
     taskRepo: taskRepo!,
     hookRepo: hookRepo!,
-    tagRepo: tagRepo!,
     globalSettingsRepo: globalSettingsRepo!,
     scriptRepo: scriptRepo!,
     reviewDraftRepo: reviewDraftRepo!,
@@ -103,7 +98,6 @@ export function _resetCacheForTesting(): void {
   projectRepo = new ProjectRepo(db);
   taskRepo = new TaskRepo(db);
   hookRepo = new HookRepo(db);
-  tagRepo = new TagRepo(db);
   globalSettingsRepo = new GlobalSettingsRepo(db);
   scriptRepo = new ScriptRepo(db);
   reviewDraftRepo = new ReviewDraftRepo(db);
@@ -608,7 +602,7 @@ export async function getProjectSettings(projectPath: string): Promise<ProjectSe
       command: row.command,
       restartIfRunning: row.restart_if_running === 1,
       ...(row.description && { description: row.description }),
-      ...(isSandboxBackendId(row.sandbox) && { sandbox: row.sandbox }),
+      ...(isSandboxProviderId(row.sandbox) && { sandbox: row.sandbox }),
     } as ScriptHook;
   }
 
@@ -647,7 +641,7 @@ export async function saveHook(projectPath: string, hook: ScriptHook): Promise<{
       hook.id,
       hook.description,
       hook.restartIfRunning,
-      SANDBOXABLE_HOOK_TYPES.includes(hook.type) && isSandboxBackendId(hook.sandbox) ? hook.sandbox : null,
+      SANDBOXABLE_HOOK_TYPES.includes(hook.type) && isSandboxProviderId(hook.sandbox) ? hook.sandbox : null,
     );
     return { success: true };
   } catch (error) {
@@ -713,33 +707,6 @@ export async function reorderProjects(paths: string[]): Promise<{ success: boole
     dbLog.error('failed to reorder projects', { error: error instanceof Error ? error.message : String(error) });
     return { success: false };
   }
-}
-
-// ── Tag functions ────────────────────────────────────────────────────
-
-export async function getAllTags(): Promise<TagRow[]> {
-  const { tagRepo: tr } = repos();
-  return tr.getAll();
-}
-
-export async function getTaskTags(projectPath: string, taskNumber: number): Promise<TagRow[]> {
-  const { tagRepo: tr } = repos();
-  return tr.getForTask(projectPath, taskNumber);
-}
-
-export async function addTagToTask(projectPath: string, taskNumber: number, tagName: string): Promise<TagRow> {
-  const { tagRepo: tr } = repos();
-  return tr.addToTask(projectPath, taskNumber, tagName);
-}
-
-export async function removeTagFromTask(projectPath: string, taskNumber: number, tagName: string): Promise<void> {
-  const { tagRepo: tr } = repos();
-  tr.removeFromTask(projectPath, taskNumber, tagName);
-}
-
-export async function setTaskTags(projectPath: string, taskNumber: number, tagNames: string[]): Promise<TagRow[]> {
-  const { tagRepo: tr } = repos();
-  return tr.setTaskTags(projectPath, taskNumber, tagNames);
 }
 
 // ── Global settings functions ────────────────────────────────────────

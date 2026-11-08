@@ -10,6 +10,7 @@ import { Dot, Fact, Section, TaskFact } from '../issues/Sections';
 import { RiskSection } from './RiskSection';
 import { TimelineEntries } from '../issues/TimelineEntries';
 import { checkOutcome } from './prFormat';
+import { creatingKey, usePanelStore } from '../../stores/panelStore';
 
 interface SummaryPaneProps {
   projectPath: string;
@@ -28,6 +29,7 @@ export function SummaryPane({
   onOpenTask,
   onPromoteToTask,
 }: SummaryPaneProps) {
+  const creatingTask = usePanelStore((s) => s.creating.includes(creatingKey(projectPath, 'github-pr', detail.number)));
   const unresolved = detail.threads.filter((t) => !t.isResolved).length;
   // Events belong to the timeline; this section is what people have said.
   const comments = detail.timeline.filter((i) => i.kind !== 'event');
@@ -73,6 +75,7 @@ export function SummaryPane({
           onOpenTask={onOpenTask}
           createLabel="Check out as task"
           createTitle="Create a task with a worktree at this pull request's head"
+          {...(creatingTask && { creatingLabel: 'Checking out…' })}
           onCreate={onPromoteToTask}
         />
 

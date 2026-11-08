@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Position, type Edge } from '@xyflow/react';
-import { useProjectStore } from '../../stores/projectStore';
+import { useProjectTasks } from '../../stores/projectDataStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useCanvasStore, persistCanvas, type TerminalNode } from '../../stores/canvasStore';
 import { buildChainMap, getChainColor } from '../../utils/taskChain';
@@ -70,7 +70,7 @@ function getClosestSides(
  * and syncs them into canvasStore whenever tasks or terminals change.
  */
 export function useChainEdges(projectPath: string): void {
-  const tasks = useProjectStore((s) => s.tasks);
+  const tasks = useProjectTasks(projectPath);
   const displayStates = useTerminalStore((s) => s.displayStates);
   const canvasNodes = useCanvasStore((s) => s.canvasByProject[projectPath]?.nodes);
 

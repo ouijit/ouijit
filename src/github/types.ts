@@ -227,14 +227,17 @@ export interface GithubIssue extends GithubIssueRow {
 
 /**
  * The Issues tab's GitHub half. `open` excludes anything in `assigned`, so a
- * row appears once; each `capped` says the list is a page rather than all of it.
+ * row appears once; each `next` is the cursor for the page after this one, or
+ * null when the list is all of it.
  */
 export interface GithubIssueList {
   assigned: GithubIssueRow[];
   open: GithubIssueRow[];
-  assignedCapped: boolean;
-  openCapped: boolean;
+  assignedNext: string | null;
+  openNext: string | null;
 }
+
+export type GithubIssueListGroup = 'assigned' | 'open';
 
 /** A pull request detail minus the code: the panel renders both the same way. */
 export interface IssueDetail extends GithubIssue {
@@ -251,6 +254,8 @@ export interface PullRequestInbox {
   needsReview: PullRequestSummary[];
   mine: PullRequestSummary[];
   others: PullRequestSummary[];
+  /** The cursor for the next page of open pull requests, or null when this is all of them. */
+  next: string | null;
 }
 
 /** A locally-stored review comment that has not been submitted to GitHub yet. */

@@ -1,5 +1,6 @@
-import { memo, useCallback, useMemo, useState } from 'react';
-import { useTerminalStore, setActiveTerminal, STACK_PAGE_SIZE } from '../../stores/terminalStore';
+import { memo, useCallback, useEffect, useState } from 'react';
+import { activateTerminal, useTerminalStore } from '../../stores/terminalStore';
+import { closeProjectTerminal } from './terminalActions';
 import { terminalInstances } from './terminalRegistry';
 import { TerminalHeader } from './TerminalHeader';
 import { TerminalBody } from './TerminalBody';
@@ -7,103 +8,62 @@ import { TerminalCardView } from './TerminalCardView';
 
 interface TerminalCardProps {
   ptyId: string;
-  projectPath: string;
-  /** Ordered visible (tag-filtered) terminals this card belongs to. */
-  orderedIds: string[];
-  /** The active ptyId within {@link orderedIds}, or null when the list is empty. */
-  activeId: string | null;
+  /** 0 for the card in front, otherwise how many places behind it. */
+  depth: number;
+  /** Its ⌘ number, for a back card. */
+  stackPosition?: number;
 }
 
-export const TerminalCard = memo(function TerminalCard({
-  ptyId,
-  projectPath,
-  orderedIds,
-  activeId,
-}: TerminalCardProps) {
+export const TerminalCard = memo(function TerminalCard({ ptyId, depth, stackPosition }: TerminalCardProps) {
   const isLoading = useTerminalStore((s) => s.displayStates[ptyId]?.isLoading ?? false);
-  const loadingLabel = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
-
-  // Position math runs over the visible list; the store's activeIndices stays a
-  // full-list index, so clicks map back through terminalsByProject.
-  const index = orderedIds.indexOf(ptyId);
-  const rawActiveIndex = activeId ? orderedIds.indexOf(activeId) : 0;
-  const activeIndex = rawActiveIndex < 0 ? 0 : rawActiveIndex;
-  const page = Math.floor(activeIndex / STACK_PAGE_SIZE);
-  const pageStart = page * STACK_PAGE_SIZE;
-  const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, orderedIds.length);
-  const pageSize = pageEnd - pageStart;
-  const isActive = ptyId === activeId;
-
-  const isHidden = index < pageStart || index >= pageEnd;
-
-  const backDepth = useMemo(() => {
-    if (isActive || isHidden) return 0;
-    const diff = index < activeIndex ? activeIndex - index : pageSize - (index - pageStart) + (activeIndex - pageStart);
-    return Math.min(diff, 4);
-  }, [index, activeIndex, pageStart, pageSize, isActive, isHidden]);
-
-  const stackPosition = useMemo(() => {
-    if (isActive || index < pageStart || index >= pageEnd) return undefined;
-
-    const backPositions: { idx: number; diff: number }[] = [];
-    for (let i = pageStart; i < pageEnd; i++) {
-      if (i !== activeIndex) {
-        const diff = i < activeIndex ? activeIndex - i : pageSize - (i - pageStart) + (activeIndex - pageStart);
-        backPositions.push({ idx: i, diff });
-      }
-    }
-    backPositions.sort((a, b) => b.diff - a.diff);
-    const pos = backPositions.findIndex((bp) => bp.idx === index);
-    return pos !== -1 ? pos + 1 : undefined;
-  }, [index, activeIndex, pageStart, pageEnd, pageSize, isActive]);
-
-  const handleClick = useCallback(() => {
-    if (!isActive) setActiveTerminal(projectPath, ptyId);
-  }, [isActive, projectPath, ptyId]);
-
-  const handleClose = useCallback(() => {
-    const instance = terminalInstances.get(ptyId);
-    if (instance) {
-      instance.dispose();
-    }
-    useTerminalStore.getState().removeTerminal(ptyId);
-  }, [ptyId]);
-
+  const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
+  const projectPath = useTerminalStore((s) => s.displayStates[ptyId]?.projectPath ?? '');
+  const isFront = depth === 0;
   const [hovered, setHovered] = useState(false);
 
-  if (isHidden) return null;
+  useEffect(() => {
+    if (!isFront || isLoading) return;
+    const frame = requestAnimationFrame(() => {
+      const instance = terminalInstances.get(ptyId);
+      instance?.fit();
+      instance?.xterm.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isFront, isLoading, ptyId]);
 
-  const hoverLift = !isActive && hovered ? 4 : 0;
+  const handleClick = useCallback(() => activateTerminal(ptyId), [ptyId]);
+
+  const handleClose = useCallback(() => closeProjectTerminal(ptyId), [ptyId]);
 
   return (
     <TerminalCardView
-      isActive={isActive}
-      backDepth={backDepth}
-      hoverLift={hoverLift}
+      isActive={isFront}
+      backDepth={depth}
+      hoverLift={!isFront && hovered ? 4 : 0}
       ptyId={ptyId}
       onClick={handleClick}
-      onMouseEnter={() => !isActive && setHovered(true)}
+      onMouseEnter={() => !isFront && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       {isLoading ? (
-        <LoadingContents label={loadingLabel || 'New task'} isActive={isActive} />
+        <LoadingContents label={label || 'New task'} isFront={isFront} />
       ) : (
         <>
           <TerminalHeader
             ptyId={ptyId}
-            isActive={isActive}
-            isBackCard={!isActive}
+            isActive={isFront}
+            isBackCard={!isFront}
             stackPosition={stackPosition}
             onClose={handleClose}
           />
-          {isActive && <TerminalBody ptyId={ptyId} projectPath={projectPath} />}
+          {isFront && <TerminalBody ptyId={ptyId} projectPath={projectPath} />}
         </>
       )}
     </TerminalCardView>
   );
 });
 
-function LoadingContents({ label, isActive }: { label: string; isActive: boolean }) {
+function LoadingContents({ label, isFront }: { label: string; isFront: boolean }) {
   return (
     <>
       <div className="flex items-center justify-between pl-3 pr-3 py-2 min-h-9">
@@ -116,7 +76,7 @@ function LoadingContents({ label, isActive }: { label: string; isActive: boolean
         </div>
         <div className="flex items-center gap-1 shrink-0 justify-end" />
       </div>
-      {isActive && (
+      {isFront && (
         <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
           <div className="flex-1 flex items-center justify-center">
             <div className="font-mono text-sm text-ink/40">Setting up workspace{'…'}</div>
