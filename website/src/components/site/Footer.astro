@@ -1,23 +1,59 @@
 ---
 const year = new Date().getFullYear();
+
+const groups: { title: string; links: [string, string, boolean?][] }[] = [
+  {
+    title: 'Ouijit',
+    links: [
+      ['Docs', '/docs/'],
+      ['Sandbox', '/sandbox/'],
+      ['Changelog', '/changelog/'],
+      ['FAQ', '/faq/'],
+      ['About', '/about/'],
+      ['GitHub', 'https://github.com/ouijit/ouijit', true],
+    ],
+  },
+  {
+    title: 'Coming from',
+    links: [
+      ['Conductor', '/conductor-alternative/'],
+      ['Vibe Kanban', '/vibe-kanban-alternative/'],
+      ['Claude Squad', '/claude-squad-alternative/'],
+      ['Crystal', '/crystal-alternative/'],
+      ['Superset', '/superset-alternative/'],
+    ],
+  },
+  {
+    title: 'Works with',
+    links: [
+      ['Claude Code', '/for/claude-code/'],
+      ['Codex', '/for/codex/'],
+      ['Pi', '/for/pi/'],
+      ['OpenCode', '/for/opencode/'],
+    ],
+  },
+];
 ---
 <footer class="site-footer">
   <div class="footer-inner">
-    <span>&copy; {year} Ouijit. Licensed under AGPL-3.0.</span>
-    <ul class="footer-links">
-      <li><a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a></li>
-      <li><a href="/changelog/">Changelog</a></li>
-      <li><a href="/docs/">Docs</a></li>
-      <li><a href="/faq/">FAQ</a></li>
-      <li><a href="/conductor-alternative/">From Conductor</a></li>
-      <li><a href="/vibe-kanban-alternative/">From Vibe Kanban</a></li>
-      <li><a href="/claude-squad-alternative/">From Claude Squad</a></li>
-      <li><a href="/crystal-alternative/">From Crystal</a></li>
-      <li><a href="/superset-alternative/">From Superset</a></li>
-      <li><a href="/for/claude-code/">For Claude Code</a></li>
-      <li><a href="/for/codex/">For Codex</a></li>
-      <li><a href="/for/pi/">For Pi</a></li>
-      <li><a href="/for/opencode/">For OpenCode</a></li>
-    </ul>
+    <div class="footer-columns">
+      {groups.map((g) => (
+        <div class="footer-column">
+          <div class="footer-heading">{g.title}</div>
+          <ul>
+            {g.links.map(([label, href, external]) => (
+              <li>
+                {external ? (
+                  <a href={href} target="_blank" rel="noopener">{label}</a>
+                ) : (
+                  <a href={href}>{label}</a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+    <div class="footer-legal">&copy; {year} Ouijit. Licensed under AGPL-3.0.</div>
   </div>
 </footer>

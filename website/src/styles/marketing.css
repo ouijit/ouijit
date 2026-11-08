@@ -889,42 +889,54 @@ html.js [data-reveal].is-revealed {
 /* --- Footer --- */
 .site-footer {
   border-top: 1px solid var(--color-border);
-  padding: 32px var(--content-padding);
+  padding: 48px var(--content-padding) 40px;
   margin-top: 40px;
 }
 
 .footer-inner {
   max-width: var(--content-max-width);
   margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   font-size: 0.8125rem;
   color: var(--color-text-tertiary);
 }
 
-.footer-links {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 12px 24px;
-  list-style: none;
+.footer-columns {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: 24px 72px;
 }
 
-.footer-links a {
+.footer-column ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.footer-heading {
+  color: #f5f5f7;
+  font-weight: 500;
+  margin-bottom: 14px;
+}
+
+.footer-column a {
   color: var(--color-text-tertiary);
   text-decoration: none;
 }
 
-.footer-links a:hover {
+.footer-column a:hover {
   color: #f5f5f7;
 }
 
+.footer-legal {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
 @media (max-width: 768px) {
-  .footer-inner {
-    flex-direction: column;
-    gap: 16px;
-    text-align: center;
+  .footer-columns {
+    grid-template-columns: 1fr 1fr;
   }
 
   .download-buttons {
