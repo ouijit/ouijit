@@ -5,19 +5,19 @@ import Cta from '../components/home/Cta.astro';
 const rows: [string, string][] = [
   ['Project', 'Project'],
   ['Issue', 'Task. A card on the board, with a name and a prompt for the agent.'],
-  ['Sub-issue', 'Branch from this task, in the task menu. The new task branches off its parent.'],
+  ['Sub-issue', 'None as a status relation. Branch from this task, in the task menu, starts a new task off the parent\'s branch.'],
   ['Workspace', "A started task: its worktree and the terminals open in it. One repository per task."],
   ['Session', 'A terminal on the task. Open several to run several agents on one task.'],
   ['Setup script', 'Start hook. It runs in the new worktree when the task starts, and usually launches your agent.'],
-  ['Dev server script', 'Scripts. Each runs in a runner panel beside the terminal.'],
+  ['Dev server script', 'Scripts, under Run Commands. Each runs in a runner panel beside the terminal.'],
   ['Cleanup script', 'Done hook'],
   ['Chat interface and slash commands', "The agent's own CLI, in a terminal"],
   ['Preview browser', 'Web preview panel'],
   ['Changes panel and comments', 'Diff review, with notes the agent reads'],
   ['Target branch', 'Merge target'],
-  ['Create PR, merge', 'Pull requests, from the project menu'],
-  ['Rebase, push', 'From the terminal, or a done hook that pushes'],
-  ['Tags (@snippets)', "None. Ouijit's tags label terminals."],
+  ['Create PR', 'Pull requests, from the project menu'],
+  ['Merge, rebase, push', 'From the terminal, or a done hook that pushes'],
+  ['Tags (@snippets)', 'None'],
   ['MCP server', 'The ouijit CLI, which every agent in Ouijit already has'],
   ['Remote access, Cloud', 'None. Ouijit runs on your machine.'],
 ];
@@ -55,6 +55,11 @@ const rows: [string, string][] = [
 
 
     <h2>What maps to what</h2>
+<p>
+      A hook is a command the project runs when a task changes status. The start hook runs in the new worktree
+      with the task's prompt in <code>$OUIJIT_TASK_DESCRIPTION</code>, and the done hook runs when the task is
+      marked done. Both live under <strong>Project Settings → Lifecycle Hooks</strong>.
+    </p>
     <table>
       <thead>
         <tr><th>Vibe Kanban</th><th>Ouijit</th></tr>
@@ -71,16 +76,16 @@ const rows: [string, string][] = [
       <li>Seven of Vibe Kanban's ten agents. Gemini CLI, Amp, Cursor, Copilot, Droid, Qwen Code and Claude Code Router run in an Ouijit terminal like any CLI, but without live status or the <code>ouijit</code> command.</li>
       <li>Workspaces spanning several repositories. A task is one repository.</li>
       <li>Remote access and Cloud. Ouijit runs on your machine.</li>
-      <li>@snippet tags in prompts. Ouijit's tags label terminals.</li>
+      <li>@snippet tags in prompts. Ouijit's tags are labels on terminals, for grouping them in the Tags view.</li>
     </ul>
 
     <h2>Move a project over</h2>
     <ol>
       <li><a href="/docs/">Install Ouijit</a> and open the repository as a project.</li>
-      <li>Under <strong>Project Settings → Hooks</strong>, put your setup script and your agent command in the start hook, for example <code>npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"</code>.</li>
-      <li>Add your dev server script as a script.</li>
+      <li>Under <strong>Project Settings → Lifecycle Hooks</strong>, put your setup script and your agent command in the start hook, for example <code>npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"</code>.</li>
+      <li>Add your dev server script under <strong>Project Settings → Run Commands</strong>.</li>
       <li>Put your cleanup script in the done hook.</li>
-      <li>Recreate open issues as tasks with <code>⌘N</code>.</li>
+      <li>Recreate open issues as tasks with <code>⌘N</code> and start them. The start hook runs in each new worktree.</li>
     </ol>
   </main>
   <Cta />

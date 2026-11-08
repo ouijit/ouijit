@@ -5,7 +5,7 @@ import Cta from '../components/home/Cta.astro';
 const rows: [string, string][] = [
   ['Workspace', 'Task. Starting it creates the worktree and opens a terminal in it.'],
   ['setup in .paradev/config.json', 'Start hook. It runs in the new worktree when the task starts, and usually launches your agent.'],
-  ['run', 'Scripts. Each runs in a runner panel beside the terminal.'],
+  ['run', 'Scripts, under Run Commands. Each runs in a runner panel beside the terminal.'],
   ['teardown', 'Done hook'],
   ['Chat pane with tool approvals', "The agent's own CLI, in a terminal"],
   ['Model picker at launch', "The agent's own flags, in the start hook command"],
@@ -21,7 +21,7 @@ const rows: [string, string][] = [
   ['Open in your IDE', 'Open in editor'],
   ['Custom themes', 'Themes, as design-token overrides'],
   ['MCP server, SDK', 'The ouijit CLI, which every agent in Ouijit already has'],
-  ['Remote Access, cloud workspaces, Automations, Pages, the iPhone app', 'None. Ouijit runs on your machine.'],
+  ['Remote Access, cloud workspaces, Automations, Pages, the iPhone and iPad app', 'None. Ouijit runs on your machine.'],
 ];
 ---
 <Site
@@ -57,6 +57,11 @@ const rows: [string, string][] = [
     </p>
 
     <h2>What maps to what</h2>
+<p>
+      A hook is a command the project runs when a task changes status. The start hook runs in the new worktree
+      with the task's prompt in <code>$OUIJIT_TASK_DESCRIPTION</code>, and the done hook runs when the task is
+      marked done. Both live under <strong>Project Settings → Lifecycle Hooks</strong>.
+    </p>
     <table>
       <thead>
         <tr><th>Superset</th><th>Ouijit</th></tr>
@@ -70,20 +75,21 @@ const rows: [string, string][] = [
 
     <h2>What you give up</h2>
     <ul>
-      <li>Cloud workspaces, Automations, Pages, Remote Access and the iPhone app. Ouijit runs on your machine.</li>
+      <li>Cloud workspaces, Automations, Pages, Remote Access and the iPhone and iPad app. Ouijit runs on your machine.</li>
       <li>The chat pane. The agent's own interface runs in the terminal.</li>
       <li>Editing in the diff, and committing from it. Ouijit's diff is for reading and for notes to the agent.</li>
       <li>Design mode and terminal splits.</li>
-      <li>Twenty named agents. Any CLI runs in an Ouijit terminal, but only Claude Code, Codex, Pi and OpenCode get live status and the <code>ouijit</code> command.</li>
+      <li>Twenty-one named agents. Any CLI runs in an Ouijit terminal, but only Claude Code, Codex, Pi and OpenCode get live status and the <code>ouijit</code> command.</li>
     </ul>
 
     <h2>Move a project over</h2>
     <ol>
       <li><a href="/docs/">Install Ouijit</a> and open the repository as a project.</li>
-      <li>Under <strong>Project Settings → Hooks</strong>, put your <code>setup</code> script and your agent command in the start hook, for example <code>./.paradev/setup.sh &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"</code>, and your <code>teardown</code> script in the done hook.</li>
-      <li>Add your <code>run</code> script as a script.</li>
-      <li>If you ran agents with their permission checks off, set the start hook to run in the sandbox.</li>
+      <li>Under <strong>Project Settings → Lifecycle Hooks</strong>, put your <code>setup</code> script and your agent command in the start hook, for example <code>./.paradev/setup.sh &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"</code>, and your <code>teardown</code> script in the done hook.</li>
+      <li>Add your <code>run</code> script under <strong>Project Settings → Run Commands</strong>.</li>
+      <li>If you ran agents with their permission checks off, set the start hook to run in the sandbox, in its row under Lifecycle Hooks.</li>
       <li>For pull requests in the app, enable them under <strong>Project Settings → Experimental</strong> and run <code>gh auth login</code>.</li>
+      <li>Press <code>⌘N</code> for a task, give it a prompt and start it. The start hook runs in its new worktree.</li>
     </ol>
   </main>
   <Cta />
