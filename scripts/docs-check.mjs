@@ -8,7 +8,7 @@
  *      disk.
  *   2. Every screenshot they reference is a scene `npm run capture` produces,
  *      so a stale image is one command away from fresh.
- *   3. The "Supported harnesses" list matches the wrapper binaries the app
+ *   3. The harness list under "Agents" matches the wrapper binaries the app
  *      installs (src/hookServer.ts).
  *   4. Every `ouijit` invocation in README, docs-page code fences and the
  *      agent CLI reference (src/hookServer.ts) is a real CLI command.
@@ -71,14 +71,14 @@ const hookServer = fs.readFileSync(path.join(REPO_ROOT, 'src', 'hookServer.ts'),
 const wrappers = [...hookServer.matchAll(/export const (\w+)_WRAPPER\b/g)].map((m) => m[1].toLowerCase());
 const cliReference = hookServer.match(/export const CLI_REFERENCE = `([\s\S]*?)\n`;/)?.[1] ?? '';
 if (!cliReference) fail('Could not extract CLI_REFERENCE from src/hookServer.ts — this check is not running.');
-const harnessSection = readme.match(/## Supported harnesses\n([\s\S]*?)(?=\n## |$)/)?.[1] ?? '';
+const harnessSection = readme.match(/## Agents\n([\s\S]*?)(?=\n## |$)/)?.[1] ?? '';
 
 for (const wrapper of wrappers) {
   // Wrapper names are binary names (claude, codex, pi, opencode); the README
   // lists product names, so match case-insensitively on the link text.
   const pattern = { claude: /claude code/i, codex: /codex/i, pi: /\bpi\b/i, opencode: /opencode/i }[wrapper];
   if (!pattern) fail(`New wrapper ${wrapper.toUpperCase()}_WRAPPER in hookServer.ts — add it to this check and to the README harness list.`);
-  else if (!pattern.test(harnessSection)) fail(`README "Supported harnesses" is missing ${wrapper} (the app installs a ${wrapper} wrapper).`);
+  else if (!pattern.test(harnessSection)) fail(`README "Agents" is missing ${wrapper} (the app installs a ${wrapper} wrapper).`);
 }
 
 // 4. Every `ouijit` command in README and docs-page code fences exists in the
