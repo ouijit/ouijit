@@ -6,7 +6,7 @@
 
 <br><br>
 
-Ouijit is a task and terminal manager for running coding agents in parallel. Each task gets its own git worktree and terminal. Lifecycle hooks launch your agent CLI with the right context, and a session-aware CLI lets agents drive the board back. Live status, notifications, diff review, and per-terminal sandboxing are built in.
+Ouijit is a task and terminal manager for running Claude Code, Codex, Pi and OpenCode in parallel. Each task gets its own git worktree and terminal. Hooks launch the agent with the task's prompt, and the `ouijit` CLI lets the agent create tasks, move cards and open panels beside itself. Live status, notifications, diff review, and per-terminal sandboxing are built in.
 
 Download the latest release:
 
@@ -22,19 +22,19 @@ Free and open source under AGPL-3.0. No account, no sign-in, no telemetry.
 
 ## Tasks and worktrees
 
-Tasks live on a kanban board. Dragging a card between To Do, In Progress, In Review, and Done fires the matching lifecycle hook. Starting a task creates an isolated git worktree: a copy-on-write clone that arrives instantly with `node_modules` and other gitignored files intact, or a clean `git worktree` checkout if you prefer. Chain tasks off a parent branch, act on several cards at once, set a per-task merge target, and attach images or files to a task's prompt.
+Tasks live on a kanban board. Dragging a card between To Do, In Progress, In Review, and Done fires the matching lifecycle hook. Starting a task creates an isolated git worktree: a copy-on-write clone with `node_modules` and other gitignored files intact, or a clean checkout if you prefer. Chain tasks off a parent branch, act on several cards at once, set a per-task merge target, and attach images or files to a task's prompt.
 
 ## Terminals and panels
 
-Each terminal is a card in a stack. Panels attach as tabs: a runner for the dev server or any script, a web preview, and markdown files with Mermaid diagrams, so a plan opens beside the agent working from it. Shells outside any task sit in the sidebar beside the tasks. Tag terminals and the Tags view groups them.
+Terminals sit in a stack. Panels attach as tabs: a runner for the dev server or any script, a web preview, and markdown files with Mermaid diagrams, so a plan opens beside the agent working from it. Shells outside any task sit in the sidebar beside the tasks. Tag terminals and the Tags view groups them.
 
 <img src="website/public/assets/screenshots/markdown.png" alt="Agent terminal beside a rendered markdown plan" width="100%">
 
 <img src="website/public/assets/screenshots/preview.png" alt="Agent terminal beside a web preview of the app it is building" width="100%">
 
-## Working with agents
+## Agents
 
-Ouijit shadows the agent binaries on PATH to inject lifecycle hooks and a reference for the `ouijit` CLI into each session. Agents can create tasks, advance the board, and open panels with no setup. The board shows each agent's live status, and a sound or OS notification fires when a turn ends.
+Inside an Ouijit terminal, `claude`, `codex`, `pi` and `opencode` resolve to wrappers around the real binaries that add status hooks and the `ouijit` CLI reference to the session. Nothing outside Ouijit's terminals changes, and your own settings still apply. Agents can create tasks, advance the board, and open panels with no setup. The board shows each agent's live status, and a sound or OS notification fires when a turn ends.
 
 ## Command palette
 
@@ -42,11 +42,11 @@ Ouijit shadows the agent binaries on PATH to inject lifecycle hooks and a refere
 
 <img src="website/public/assets/screenshots/palette.png" alt="Command palette over the kanban board" width="100%">
 
-## Diffs, pull requests and issues
+## Diffs, pull requests, and issues
 
-Every task terminal includes a diff of its worktree against its merge target, uncommitted changes, or any base you pick, with word-level highlighting. Leave a note on a diff line and it goes to the agent working in that worktree, re-anchoring as the code moves. An experimental GitHub surface adds a pull request inbox, review comments staged locally until you send them, and merging. It drives the `gh` CLI, so `gh auth login` is the only setup.
+Every task terminal includes a diff of its worktree against its merge target, uncommitted changes, or any base you pick, with word-level highlighting. Leave a note on a diff line and it goes to the agent working in that worktree, re-anchoring as the code moves. An experimental GitHub surface adds a pull request inbox, review comments staged locally until you send them, and merging. It drives the `gh` CLI (2.48 or newer), so `gh auth login` is the only setup.
 
-Beside it sits one issues list, fed by GitHub, Linear, or both. Each group — triage, in progress, assigned to you, this cycle, the repo's open issues — is answered by whichever tracker can answer it, so an `ENG-231` and a `#299` sit side by side. Turn an issue into a task and it starts on the branch name Linear suggested; the pull request opened from it carries the identifier, so the issue moves when the work lands.
+An issues list sits beside it, fed by GitHub, Linear, or both. Each group, from triage to the repo's open issues, is answered by whichever tracker can answer it, so an `ENG-231` and a `#299` sit side by side. Turn an issue into a task and it starts on the branch name Linear suggested; the pull request opened from it carries the identifier, so the issue moves when the work lands.
 
 <img src="website/public/assets/screenshots/diff.png" alt="Worktree diff beside the agent terminal, with a note being written on a changed line" width="100%">
 
@@ -58,7 +58,7 @@ A lens is a named instruction you keep with the project, like "lead with what co
 
 ## Sandboxing
 
-Run agents with their permission checks off without handing them your machine. Each project picks a default, host or sandbox, and any terminal, hook, runner, or single command (`ouijit sandbox -- claude …`) can go elsewhere, so the agent runs contained while the dev server beside it stays on the host. The sandbox is nono, in place under Seatbelt/Landlock and configured by a profile file per project, or a launcher of your own.
+Run agents with their permission checks off without handing them your machine. Each project picks a default, host or sandbox, and any terminal, hook, runner, or single command (`ouijit sandbox -- claude …`) can go elsewhere, so the agent runs contained while the dev server beside it stays on the host. The sandbox is [nono](https://github.com/nolabs-ai/nono), in place under Seatbelt/Landlock and configured by a profile file per project, or a launcher of your own.
 
 ## Session resume
 
@@ -74,11 +74,11 @@ Choose system, light, dark, or one of five presets, or define your own theme as 
 
 ## Hooks, scripts, and settings
 
-Five lifecycle hooks (start, continue, run, review, done) and per-project scripts define how tasks launch and what runs alongside them.
+Four hooks (start, continue, review, done) run as a task changes status, and per-project scripts define what runs alongside it.
 
 <img src="website/public/assets/screenshots/settings.png" alt="Project settings with hooks and scripts" width="100%">
 
-Also in the box: a sidebar across every project, a configurable projects folder, `git init` for folders that need it, an editor launcher, health checks for the agent CLIs, first-run onboarding, terminal font settings, auto-update on macOS with release notes, and a local REST API behind the CLI. Everything is stored locally in SQLite.
+Also: a sidebar across every project, a configurable projects folder, `git init` for folders that need it, an editor launcher, health checks for the agent CLIs, first-run onboarding, terminal font settings, auto-update on macOS with release notes, and a local REST API behind the CLI. Everything is stored locally in SQLite.
 
 ## Supported harnesses
 
@@ -91,7 +91,7 @@ To request support for another harness, [open an issue](https://github.com/ouiji
 
 ## CLI
 
-Every terminal Ouijit opens has the `ouijit` command on PATH, and the supported harnesses learn it automatically. So you shape the app by asking your agent: it can file follow-up tasks, move its own card, set up hooks, stage review comments, switch themes, or open panels beside itself. The CLI is what makes those requests work:
+Every terminal Ouijit opens has the `ouijit` command on PATH, and the supported harnesses get its reference in their context. So you shape the app by asking your agent: it can file follow-up tasks, move its own card, set up hooks, stage review comments, switch themes, or open panels beside itself.
 
 ```bash
 # "file a task for the flaky login test"
@@ -99,7 +99,7 @@ ouijit task create "Fix flaky login test"
 # "move this task to review"
 ouijit task set-status 5 in_review
 # "run claude on every task I start"
-ouijit hook set start --command 'claude "$OUIJIT_TASK_DESCRIPTION"'
+ouijit hook set start --name "Agent" --command 'claude "$OUIJIT_TASK_DESCRIPTION"'
 # "leave a review comment on PR 116"
 ouijit pr draft add 116 --file src/api.ts --line 88 --body "throws when the token is missing"
 # "switch to dracula"
