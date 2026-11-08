@@ -14,7 +14,7 @@ import AgentPage from '../../components/home/AgentPage.astro';
   ]}
   hooks={"<span class=\"dim\"># Start · a task moves to In Progress</span>\npi"}
   faqs={[
-    ["Can it sign in inside the sandbox?", "Yes. The sandbox profile includes nono's Pi pack, so its config directory and the OS keychain are reachable. Everything else outside the worktree is not."],
+    ["Can it sign in inside the sandbox?", "Yes. The sandbox lets it reach its config directory and the OS keychain. Everything else outside the worktree stays out of reach."],
     ["Does it change Pi anywhere else?", "No. The pi on PATH in an Ouijit terminal is a wrapper around the real one, and only there. Pi's own subcommands, such as install and config, pass straight through."],
   ]}
 />

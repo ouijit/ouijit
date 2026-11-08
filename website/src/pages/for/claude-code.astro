@@ -9,13 +9,13 @@ import AgentPage from '../../components/home/AgentPage.astro';
   description={"Run Claude Code in parallel with Ouijit: a git worktree and terminal per task, live status from its hooks, session resume, and the ouijit CLI in its system prompt."}
   points={[
     ["Knows Ouijit", "The ouijit CLI reference is appended to the system prompt at launch, so Claude can create tasks, move cards, open its plan beside itself and stage review comments without being told how."],
-    ["Live status", "Claude Code's own hooks report when a turn starts and ends, through a settings overlay Ouijit passes at launch that merges with your settings. The card shows thinking or ready, and a sound or notification fires when it finishes."],
+    ["Live status", "Claude Code's own hooks report when a turn starts and ends. Ouijit passes them in a settings overlay at launch, merged with yours, so your own config is untouched. The card shows thinking or ready, and a sound or notification fires when it finishes."],
     ["Sandboxed", "Run it with its permission checks off inside Ouijit's sandbox and the kernel holds it to the task's worktree. The dev server beside it stays on the host."],
   ]}
   hooks={"<span class=\"dim\"># Start · a task moves to In Progress</span>\nclaude \"$OUIJIT_TASK_DESCRIPTION\"\n\n<span class=\"dim\"># Continue · a task already in progress is reopened</span>\nclaude -c"}
   sandboxed={"claude --dangerously-skip-permissions \"$OUIJIT_TASK_DESCRIPTION\""}
   faqs={[
-    ["Can it sign in inside the sandbox?", "Yes. The sandbox profile includes nono's Claude Code pack, so its config directory, the OS keychain and claude.ai are reachable. Everything else outside the worktree is not."],
+    ["Can it sign in inside the sandbox?", "Yes. The sandbox lets it reach its config directory, the OS keychain and claude.ai. Everything else outside the worktree stays out of reach."],
     ["Does this replace Claude Code's own sandbox?", "It covers more. Claude Code's sandbox wraps shell commands; Ouijit's wraps the whole terminal, including file tools, MCP servers and hooks. The two can run together."],
     ["Does it change Claude Code anywhere else?", "No. The claude on PATH in an Ouijit terminal is a wrapper around the real one, and only there."],
   ]}
