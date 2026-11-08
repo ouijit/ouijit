@@ -26,7 +26,7 @@ Tasks live on a kanban board. Dragging a card between To Do, In Progress, In Rev
 
 ## Terminals and panels
 
-Each terminal is a card in a stack. Panels attach as tabs: a runner for the dev server or any script, a web preview, and markdown files with Mermaid diagrams, so a plan opens beside the agent working from it. Shells outside any task get their own strip on the board. Tag sessions to filter them.
+Each terminal is a card in a stack. Panels attach as tabs: a runner for the dev server or any script, a web preview, and markdown files with Mermaid diagrams, so a plan opens beside the agent working from it. Shells outside any task sit in the sidebar beside the tasks. Tag terminals and the Tags view groups them.
 
 <img src="website/public/assets/screenshots/markdown.png" alt="Agent terminal beside a rendered markdown plan" width="100%">
 
