@@ -28,15 +28,11 @@ import Docs from '../../layouts/Docs.astro';
       <tr><td><strong>Done</strong></td><td>Task moves to Done</td><td><code>git push origin HEAD</code></td></tr>
     </tbody>
   </table>
-  <p>
-    The most common setup wires the start hook to an agent: <code>claude "$OUIJIT_TASK_DESCRIPTION"</code>
-    launches Claude Code with the task's prompt the moment the task starts.
-  </p>
 
   <h2 id="sandbox">Sandbox</h2>
   <p>
     Start, continue, review, and done run in the project's default <a href="/docs/sandbox/">sandbox</a> setting
-    unless a hook is set to run somewhere else, such as a done script that pushes from the host. The hook dialog
+    unless a hook is set to run somewhere else, such as a done hook that pushes from the host. The hook dialog
     shows where it will run and can change that for one run.
   </p>
 
@@ -65,7 +61,7 @@ OUIJIT_HOOK_TYPE=start</code></pre>
   <p>
     The editor command opens a task's worktree in your editor, from <strong>Open in &rarr; Editor</strong> on a
     task or terminal. It is configured like a hook (type <code>editor</code>, e.g. <code>code</code> or
-    <code>hx</code>) but is not part of the task lifecycle; it runs on demand. The command runs inside a task
+    <code>hx</code>) but runs on demand rather than on a status change. The command runs inside a task
     terminal, so terminal editors like Helix and Vim get a real TTY, while GUI editors detach and leave a shell
     behind. File links in <a href="/docs/panels/">markdown panels</a> use the same editor to open files at a
     specific line.

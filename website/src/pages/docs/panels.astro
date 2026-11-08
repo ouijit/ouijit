@@ -11,7 +11,7 @@ import Docs from '../../layouts/Docs.astro';
   <h2>Open a panel</h2>
   <p>
     Click the <strong>+</strong> button in a terminal's header. The menu lists <strong>Run</strong> (when a
-    <a href="/docs/hooks/">run hook</a> is configured), each project script, <strong>Web Preview</strong>, and
+    <a href="/docs/hooks/">run command</a> is configured), each project script, <strong>Web Preview</strong>, and
     <strong>Markdown File</strong>. Panels open as tabs; a terminal can hold several of each kind. Tabs shrink
     like browser tabs when crowded, and clicking the active tab collapses the panel back to the bare terminal.
     Each panel can split beside the terminal or go full width.
@@ -24,13 +24,13 @@ import Docs from '../../layouts/Docs.astro';
 
   <h2>Runner</h2>
   <p>
-    A runner is a child terminal that executes the project's run hook or a named script, with a status dot on
+    A runner is a child terminal that runs the project's run command or a named script, with a status dot on
     its tab (running, success, error). Kill leaves the tab in a stopped state with a Restart button; closing the
     tab removes it. Press <code>⌘P</code> to jump to the runner, or start one if none is open.
   </p>
   <p>
-    By default, launching a runnable that is already running in the task focuses the existing instance. Check
-    <strong>Restart if it's already running in the task</strong> on a script or the run hook to kill and
+    Launching a script that is already running in the task focuses the existing runner. Check
+    <strong>Restart if it's already running in the task</strong> on the script or the run command to kill and
     relaunch instead. The restart is scoped to the task's worktree, so parallel tasks never evict each other's
     runners.
   </p>
@@ -38,8 +38,7 @@ import Docs from '../../layouts/Docs.astro';
   <h2>Web preview</h2>
   <p>
     An embedded browser for the app you're building. It has back, forward, reload/stop, and an editable URL
-    field. Open one empty and type a URL, point it at a dev server the runner started, or let an agent surface
-    its work with <code>ouijit preview add http://localhost:3000</code>.
+    field. Open one empty and type a URL, point it at a dev server the runner started, or let an agent open one with <code>ouijit preview add http://localhost:3000</code>.
   </p>
 
   <img

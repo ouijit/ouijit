@@ -15,7 +15,7 @@ import Docs from '../../layouts/Docs.astro';
     says otherwise:
   </p>
   <ul>
-    <li><strong>One terminal.</strong> Right-click a task and use <strong>Resume in</strong>. It lists every place with the default, which <strong>Resume</strong> uses, checked. With one other place it names that place instead.</li>
+    <li><strong>One terminal.</strong> Right-click a task and use <strong>Resume in</strong>. It lists every place, with the default checked; plain <strong>Resume</strong> uses the default. When there is only one other place, the item names it, as in <strong>Resume in Sandbox</strong>.</li>
     <li><strong>One run of a hook.</strong> The dialog that appears when you move a task starts on the hook's setting and can change it for that run.</li>
     <li><strong>One Run or script.</strong> <strong>Run in</strong> at the top of a terminal's <strong>+</strong> menu.</li>
     <li><strong>A hook, every time.</strong> Each of start, continue, review, and done has its own setting, which starts on Default. Set it when a hook must always run somewhere else, such as a done hook that pushes with credentials only the host has.</li>
@@ -33,8 +33,8 @@ import Docs from '../../layouts/Docs.astro';
 
   <h2 id="command">Sandboxing one command</h2>
   <p>
-    <code>ouijit sandbox</code> runs a single command in the sandbox with the grants its terminal's task would
-    get, while the rest of the line stays on the host. A start hook can pull on the host and contain only the
+    <code>ouijit sandbox</code> runs a single command in the sandbox with the same access its task's terminal
+    would have, while the rest of the line stays on the host. A start hook can pull on the host and contain only the
     agent:
   </p>
   <pre><code>git pull origin main &amp;&amp; ouijit sandbox -- claude --dangerously-skip-permissions "$OUIJIT_TASK_NAME"</code></pre>
@@ -51,8 +51,8 @@ import Docs from '../../layouts/Docs.astro';
     command reaches only its own project, and edits only the comment drafts a sandbox wrote, never yours:
   </p>
   <ul>
-    <li><strong>Read only</strong>, the default. A sandboxed command can read its own task, its diff notes and pull requests, draft pull request and Linear comments, point you at things, and ask you to run a command. On its own terminal it can read the screen, add tags, read panels, and open markdown files from its worktree.</li>
-    <li><strong>Its own task.</strong> It can also move, rename and describe its own task, link it to a pull request or issue, and add to-do tasks. It can read every sandboxed terminal on its task. Moving a task runs that column's hook as usual, but a hook that would run on the host waits for you to open it, even with <code>--run-hook</code>; a one-off <code>--hook-command</code> or <code>--sandbox</code> is refused.</li>
+    <li><strong>Read only</strong>, the default. A sandboxed command can read its own task, its diff notes and pull requests, draft pull request and Linear comments, print links to places in Ouijit, and ask you to run a command. On its own terminal it can read the screen, add tags, read panels, and open markdown files from its worktree.</li>
+    <li><strong>Its own task.</strong> It can also move, rename and describe its own task, link it to a pull request or issue, and add to-do tasks. It can read every sandboxed terminal on its task. Moving a task runs that column's hook as usual, but a hook that would run on the host waits for you to open it, even with <code>--run-hook</code>. A one-off <code>--hook-command</code> or <code>--sandbox</code> is refused.</li>
     <li><strong>Everything.</strong> It can do anything a host terminal can, which includes having Ouijit run commands on the host. Choose this only for agents you would run unsandboxed anyway.</li>
   </ul>
 
@@ -92,17 +92,17 @@ import Docs from '../../layouts/Docs.astro';
 
   <h2 id="custom">Custom</h2>
   <p>
-    <strong>Read this first.</strong> A plain task terminal carries a host-scoped <code>OUIJIT_API_TOKEN</code>.
-    A launcher you run by hand inside one passes that token into the sandbox, where an agent can rewrite hooks
-    and this very setting, so the next spawn runs its command on the host. Configure the launcher here and use
-    <code>ouijit sandbox --custom -- &lt;command&gt;</code>, which gives the command a sandbox-scoped token of
-    its own.
-  </p>
-  <p>
     The Custom backend runs a task's terminals under a launcher you provide: a reviewed script in your team's
     control, with its own pinned sandbox binary, committed policy, and preflight checks. Ouijit grants nothing
     itself; the launcher owns the boundary. Set the command under
     <strong>Project Settings &rarr; Sandbox &rarr; Custom launcher</strong> or with <code>ouijit sandbox-command set</code>.
+  </p>
+  <p>
+    Don't start the launcher by hand from a task terminal. That terminal's <code>OUIJIT_API_TOKEN</code> has
+    host access, so it goes into the sandbox with the launcher, and an agent inside can rewrite hooks and this
+    setting so the next spawn runs on the host. Configure the launcher here, or use
+    <code>ouijit sandbox --custom -- &lt;command&gt;</code>, which gives the command a sandbox-scoped token of
+    its own.
   </p>
 
   <h3>What Ouijit passes</h3>

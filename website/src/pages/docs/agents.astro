@@ -4,8 +4,7 @@ import Docs from '../../layouts/Docs.astro';
 <Docs slug="agents">
   <h1>For agents</h1>
   <p class="lead">
-    Agents are first-class users of Ouijit. This page is the contract an agent can rely on inside an Ouijit
-    terminal, and the workflows it should use to drive the app.
+    What an agent can rely on inside an Ouijit terminal, and how it should drive the app.
   </p>
 
   <h2>What an agent receives</h2>
@@ -16,10 +15,10 @@ import Docs from '../../layouts/Docs.astro';
     <code>{`{"error": "..."}`}</code> on stderr with a non-zero exit, and the flags for headless status changes.
   </p>
   <p>
-    In a sandboxed terminal the reference opens with a short section of its own: that the terminal is sandboxed,
-    what Ouijit lets it write, the project's CLI access level, and to ask with <code>ouijit ask run</code> when the
-    sandbox blocks a command rather than work around it. What else the sandbox allows is up to its profile or
-    launcher, so the section doesn't list it.
+    In a sandboxed terminal the reference opens with a short section of its own. It says the terminal is
+    sandboxed, what Ouijit lets it write and the project's CLI access level, and tells the agent to ask with
+    <code>ouijit ask run</code> when the sandbox blocks a command rather than work around it. What else the
+    sandbox allows is up to its profile or launcher, so the section doesn't list it.
   </p>
 
   <h2>Environment</h2>
@@ -31,10 +30,10 @@ import Docs from '../../layouts/Docs.astro';
     <tbody>
       <tr><td><code>OUIJIT_API_URL</code></td><td>Base URL of the local REST API the CLI talks to. Unset outside Ouijit terminals, so scripts can detect the environment.</td></tr>
       <tr><td><code>OUIJIT_API_TOKEN</code></td><td>Bearer token scoped to this terminal session.</td></tr>
-      <tr><td><code>OUIJIT_PTY_ID</code></td><td>This terminal's id. <code>ouijit task current</code> and the panel commands resolve through it.</td></tr>
+      <tr><td><code>OUIJIT_PTY_ID</code></td><td>This terminal's id. Every command that takes a <code>[pty-id]</code> defaults to it.</td></tr>
     </tbody>
   </table>
-  <p><a href="/docs/hooks/#hook-environment">Hooks</a> additionally receive <code>OUIJIT_TASK_*</code> context.</p>
+  <p><a href="/docs/hooks/#hook-environment">Hooks</a> also get <code>OUIJIT_TASK_*</code> context.</p>
 
   <h2>Drive the board</h2>
   <p>An agent working a task should resolve its own task first, then advance it when the work is committed:</p>
@@ -50,7 +49,7 @@ ouijit task set-status "$TASK" in_review --skip-hook</code></pre>
     <code>--sandbox host|nono|custom</code> says otherwise. <code>nono</code> is Ouijit's sandbox.
   </p>
 
-  <h2>Open panels beside yourself</h2>
+  <h2>Open panels beside the terminal</h2>
   <p>
     An agent can put its plan or its running app next to its own terminal. Both commands default to the current
     terminal via <code>OUIJIT_PTY_ID</code>:
@@ -63,15 +62,15 @@ ouijit preview add http://localhost:3000</code></pre>
     For anything that belongs to a pull request review, agents default to <code>ouijit pr</code> over
     <code>gh</code>. <code>gh</code> posts to GitHub the moment it runs, under the user's own account;
     <code>ouijit pr draft</code> stages comments locally and the user sends the review themselves. Reading with
-    <code>gh pr diff</code> is always fine, and a <code>gh</code> write the user asks for by name &mdash;
-    <code>gh pr create</code>, say &mdash; still goes through, as them.
+    <code>gh pr diff</code> is always fine, and a <code>gh</code> write the user asks for by name, such as
+    <code>gh pr create</code>, still goes through, as them.
   </p>
   <pre class="glass-bevel"><code>PR=$(ouijit task current | jq .githubPrNumber)
 gh pr diff $PR                                # read it
 ouijit pr draft add $PR --file src/api.ts --line 88 \
   --origin claude --body "this can throw when the token is missing"</code></pre>
   <p>
-    Pass <code>--origin</code> with your name so the user can tell agent comments apart before sending, and
+    Pass <code>--origin</code> with the agent's name so the user can tell agent comments apart before sending, and
     <code>--body -</code> to read multi-line bodies from stdin. Anchor each comment to a line that appears as an
     added line in the diff, by its new-file line number: GitHub rejects the whole review at submit time if any
     comment points outside the diff.
@@ -79,7 +78,7 @@ ouijit pr draft add $PR --file src/api.ts --line 88 \
 
   <p>
     A <a href="/docs/pull-requests/">Linear</a> comment works the same way, and for the same reason. Nothing an
-    agent runs moves an issue &mdash; that is a control on the issue, pressed by someone looking at it.
+    agent runs moves an issue. That is a control on the issue, pressed by someone looking at it.
   </p>
   <pre class="glass-bevel"><code>ISSUE=$(ouijit task current | jq -r .linearIssueIdentifier)
 ouijit linear view $ISSUE                     # read it
@@ -89,18 +88,20 @@ ouijit linear draft add $ISSUE --origin claude \
   <h2>Inside a sandbox</h2>
   <p>
     Inside a <a href="/docs/sandbox/">sandbox</a>, <code>ouijit</code> can do what the project's
-    <a href="/docs/sandbox/#cli">Ouijit CLI access</a> allows: by default read its own task, stage comments,
-    point and label its own terminal; also edit and move its task; or everything. At any level it can
-    <a href="/docs/cli/#ask">ask you to run a command</a> outside the sandbox, which runs only when you press Run.
-    A hook that would run on the host waits for you even with <code>--run-hook</code>. Pull request drafts written from a sandbox are stamped with a <code>sandbox</code> origin
-    the caller cannot forge. Under the Custom sandbox, whether <code>ouijit</code> is reachable at all is up to
-    the launcher.
+    <a href="/docs/sandbox/#cli">Ouijit CLI access</a> allows. By default it can read its own task and diff notes,
+    stage comments, print links, and on its own terminal read the screen, set tags, read panels and open markdown
+    from its worktree. At Its own task it can also move, rename and describe its task. Everything is what a host
+    terminal can do. At any level it can <a href="/docs/cli/#ask">ask the user to run a command</a> outside the
+    sandbox, which runs only when they press Run. A hook that would run on the host waits for the user even with
+    <code>--run-hook</code>. Pull request drafts written from a sandbox are stamped with a <code>sandbox</code>
+    origin the caller cannot forge. Under the Custom sandbox, whether <code>ouijit</code> is reachable at all is
+    up to the launcher.
   </p>
 
   <h2>Machine-readable docs</h2>
   <ul>
-    <li><strong>Markdown pages</strong>. Every docs page is served as plain Markdown at <code>https://ouijit.com/docs/&lt;slug&gt;.md</code>, for example <a href="/docs/cli.md">/docs/cli.md</a>.</li>
-    <li><strong>Full docs in one file</strong>. <a href="https://ouijit.com/llms-full.txt">ouijit.com/llms-full.txt</a> concatenates every page.</li>
-    <li><strong>Index with summaries</strong>. <a href="https://ouijit.com/llms.txt">ouijit.com/llms.txt</a> lists each page with a one-line summary.</li>
+    <li>Every docs page is served as plain Markdown at <code>https://ouijit.com/docs/&lt;slug&gt;.md</code>, for example <a href="/docs/cli.md">/docs/cli.md</a>.</li>
+    <li><a href="https://ouijit.com/llms-full.txt">ouijit.com/llms-full.txt</a> concatenates every page.</li>
+    <li><a href="https://ouijit.com/llms.txt">ouijit.com/llms.txt</a> lists each page with a one-line summary.</li>
   </ul>
 </Docs>

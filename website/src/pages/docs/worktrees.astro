@@ -63,7 +63,7 @@ import Docs from '../../layouts/Docs.astro';
       </tr>
       <tr>
         <td><strong>Continue</strong></td>
-        <td>In Review or Done &rarr; In Progress</td>
+        <td>In Review or Done &rarr; In Progress, or Resume on a task already In Progress</td>
         <td>Opens a new terminal in the existing worktree, runs the <code>continue</code> hook.</td>
       </tr>
       <tr>
@@ -95,9 +95,9 @@ import Docs from '../../layouts/Docs.astro';
 
   <h2>Merge targets</h2>
   <p>
-    Each task has a merge target, the branch its work is destined for. It is the branch the task started from,
-    or the local branch of a remote one (<code>main</code> for <code>origin/main</code>), and it drives the
-    default <a href="/docs/diff/">diff base</a>. Set it per task to chain a task off a parent branch:
+    Each task has a merge target: the branch its work will merge into. By default it is the branch the task
+    started from, or the local branch of a remote one (<code>main</code> for <code>origin/main</code>). It sets
+    the default <a href="/docs/diff/">diff base</a>. Set it per task to chain a task off a parent branch:
   </p>
   <pre class="glass-bevel"><code>ouijit task set-merge-target 43 T-42</code></pre>
 
