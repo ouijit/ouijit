@@ -60,7 +60,7 @@ const LAND_AT = 0.88;
 const CAPTIONS = [
   {
     title: 'Keep work isolated',
-    body: 'Starting a task cuts it a git worktree and a branch, keeping work safe and moving forward.',
+    body: 'Starting a task cuts it a git worktree and a branch, so agents never work in each other\'s files.',
   },
   {
     title: 'Reuse workflows with hooks',
@@ -68,7 +68,7 @@ const CAPTIONS = [
   },
   {
     title: 'Run agents full auto',
-    body: 'Use a sandbox to skip permission checks with peace of mind.',
+    body: 'Turn permission checks off inside a sandbox that holds the agent to its worktree. The rest of your machine is out of reach.',
   },
 ];
 
