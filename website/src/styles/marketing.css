@@ -31,6 +31,9 @@
  */
 html {
   scroll-behavior: smooth;
+  /* Overscroll shows the root canvas, not the body, so paint it the same. */
+  background: var(--marketing-bg);
+  color-scheme: dark;
 }
 
 body.marketing a {
