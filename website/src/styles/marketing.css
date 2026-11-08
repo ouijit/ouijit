@@ -1718,7 +1718,8 @@ body.marketing .feature-end-link {
     gap: 64px;
   }
 
-  .feature-row {
+  .feature-row,
+  .feature-row:nth-child(even) {
     grid-template-columns: 1fr;
     gap: 20px;
   }
