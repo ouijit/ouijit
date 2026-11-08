@@ -124,4 +124,4 @@ npm start
 
 ## Contributing
 
-Bugs and feature requests go in the [issue tracker](https://github.com/ouijit/ouijit/issues). For anything larger than a fix, open an issue before a pull request.
+Bugs and feature requests go in the [issue tracker](https://github.com/ouijit/ouijit/issues). Pull requests aren't accepted; the code is open so you can read it, build it and fork it.
