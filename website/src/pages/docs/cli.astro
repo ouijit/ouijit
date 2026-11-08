@@ -69,8 +69,8 @@ ouijit task trash 5                           # worktree goes to the system tras
     for that run, with or without the flags above. When the hook waits for you, the dialog preselects it.
   </p>
   <p>
-    <code>ouijit task current</code> resolves the task owning the current terminal via the
-    <code>OUIJIT_PTY_ID</code> env var that Ouijit sets on every spawn:
+    <code>ouijit task current</code> resolves the task that owns the current terminal, through the
+    <code>OUIJIT_PTY_ID</code> variable Ouijit sets on every spawn:
   </p>
   <pre class="glass-bevel"><code>TASK=$(ouijit task current | jq -r .taskNumber)
 ouijit task set-status "$TASK" in_review</code></pre>
@@ -86,12 +86,14 @@ ouijit hook set start --name "Install &amp; agent" --command 'npm install &amp;&
 ouijit hook set continue --name "Agent" --command "claude -c" --sandbox custom
 ouijit hook delete done</code></pre>
   <p>
-    <code>--sandbox host|nono|custom</code> sets where the hook always runs. <code>nono</code> is Ouijit's sandbox. <code>hook set</code> replaces the whole hook, so leaving it out makes the hook follow the project default.
+    <code>--sandbox host|nono|custom</code> sets where the hook always runs. <code>nono</code> is Ouijit's
+    sandbox. <code>hook set</code> replaces the whole hook, so leaving <code>--sandbox</code> out makes the hook
+    follow the project default.
   </p>
 
   <h2>Sandbox command</h2>
   <p>
-    The launcher for the <a href="/docs/sandbox/#custom">Custom sandbox</a> backend. Host terminals only; a
+    The launcher for the <a href="/docs/sandbox/#custom">Custom sandbox</a> backend. Host terminals only. A
     sandboxed session gets 403.
   </p>
   <pre class="glass-bevel"><code>ouijit sandbox-command get
@@ -129,7 +131,7 @@ ouijit diff close</code></pre>
   <h2 id="link">Links</h2>
   <p>
     An agent can put a link in its reply that takes you somewhere in Ouijit: a line of the diff, a panel, a pull
-    request, another task. Click it in the terminal to go there. A link only navigates; it never runs anything.
+    request, another task. Click it in the terminal to go there. A link only navigates. It never runs anything.
   </p>
   <pre class="glass-bevel"><code>ouijit link diff src/auth/session.ts:88       # → {`{"url": "ouijit://horizon/tasks/14/diff/src/auth/session.ts:88"}`}
 ouijit link task 14
@@ -144,18 +146,18 @@ ouijit link project</code></pre>
   <p>
     An agent can leave two things for you to decide: a command it asks to run, and a task move whose hook would
     open a dialog. Either opens as a dialog when its terminal is on screen. Otherwise a count in the title bar
-    shows it waiting; click it or press <kbd>⌘J</kbd>. With several waiting, the dialog lists them beside the one
-    in view, to take in any order or run all at once.
+    shows it waiting. Click the count or press <kbd>⌘J</kbd>. With several waiting, the dialog lists them beside
+    the one in view, to take in any order or run all at once.
   </p>
 
   <h2 id="ask">Asking you to run something</h2>
   <p>
-    An agent can ask you to run a command on your computer, outside its sandbox. The ask opens when its
-    terminal is on screen, and otherwise waits in your <a href="#queue">queue</a>. It shows the exact command,
-    where it runs and the script file it runs, then Run or Decline. Nothing runs until you press Run. A script
-    the command runs, from the agent's worktree or a temp folder, is shown in full, and the copy you read is what
+    An agent can ask you to run a command on your computer, outside its sandbox. The ask opens when its terminal
+    is on screen, and otherwise waits in your <a href="#queue">queue</a>. It shows the exact command, where it
+    runs and the script file it runs, then Run or Decline. Nothing runs until you press Run. A script the
+    command runs, from the agent's worktree or a temp folder, is shown in full, and the copy you read is what
     runs. The command runs in a runner panel on the agent's terminal, without a pager. With <code>--wait</code>
-    the agent gets the exit code and output back. Run privately and the agent gets only the exit code; it can't
+    the agent gets the exit code and output back. Run privately and the agent gets only the exit code. It can't
     read that runner's output.
   </p>
   <pre class="glass-bevel"><code>ouijit ask run -m "Needs the keychain" -- npm run release:sign
@@ -210,8 +212,8 @@ ouijit pr lens set 42 --body -                # grouping as JSON on stdin
 ouijit pr lens clear 42</code></pre>
   <p>
     <code>--body -</code> reads the body from stdin, the safe path for multi-line text. <code>--origin</code>
-    names the author shown beside the draft. <code>--side</code> defaults to <code>RIGHT</code> (the new file);
-    anchor comments to lines that appear as added lines in the diff.
+    names the author shown beside the draft. <code>--side</code> defaults to <code>RIGHT</code>, the new file.
+    Anchor comments to lines that appear as added lines in the diff.
   </p>
   <p>
     <code>pr lens set</code> takes a <a href="/docs/diff/">lens</a> an agent wrote itself: a head sha and the
@@ -228,7 +230,7 @@ ouijit issue link ENG-214 --task 5            # a Linear issue</code></pre>
   <h2>Linear issues</h2>
   <p>
     Read the <a href="/docs/pull-requests/">Linear issues</a> this project is scoped to and stage a comment.
-    Comments stay local until the user sends them from the app. Nothing here moves an issue; that is a control
+    Comments stay local until the user sends them from the app. Nothing here moves an issue. That is a control
     on the issue itself.
   </p>
   <pre class="glass-bevel"><code>ouijit linear list                            # this project's issues, in the panel's groups

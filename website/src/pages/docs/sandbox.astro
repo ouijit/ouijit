@@ -15,7 +15,7 @@ import Docs from '../../layouts/Docs.astro';
     says otherwise:
   </p>
   <ul>
-    <li><strong>One terminal.</strong> Right-click a task and use <strong>Resume in</strong>. It lists every place, with the default checked; plain <strong>Resume</strong> uses the default. When there is only one other place, the item names it, as in <strong>Resume in Sandbox</strong>.</li>
+    <li><strong>One terminal.</strong> Right-click a task and use <strong>Resume in</strong>. It lists every place, with the default checked. Plain <strong>Resume</strong> uses the default. When there is only one other place, the item names it, as in <strong>Resume in Sandbox</strong>.</li>
     <li><strong>One run of a hook.</strong> The dialog that appears when you move a task starts on the hook's setting and can change it for that run.</li>
     <li><strong>One Run or script.</strong> <strong>Run in</strong> at the top of a terminal's <strong>+</strong> menu.</li>
     <li><strong>A hook, every time.</strong> Each of start, continue, review, and done has its own setting, which starts on Default. Set it when a hook must always run somewhere else, such as a done hook that pushes with credentials only the host has.</li>
@@ -40,15 +40,16 @@ import Docs from '../../layouts/Docs.astro';
   <pre><code>git pull origin main &amp;&amp; ouijit sandbox -- claude --dangerously-skip-permissions "$OUIJIT_TASK_NAME"</code></pre>
   <p>
     Add <code>--custom</code> to use the Custom sandbox. The command gets an API token of its own at the
-    project's <a href="#cli">CLI access</a> level, never the host terminal's, and loses it when it exits. A
-    host step that runs after a sandboxed one can still execute files the agent changed, such as tests it
-    edited, so the sandbox protects your machine while the agent works rather than from what it leaves behind.
+    project's <a href="#cli">CLI access</a> level, never the host terminal's, and loses it when it exits. A host
+    step that runs after a sandboxed one can still execute files the agent changed, such as tests it edited. The
+    sandbox protects your machine while the agent works, rather than from what it leaves behind.
   </p>
 
   <h2 id="cli">The Ouijit CLI inside a sandbox</h2>
   <p>
-    Under <strong>Project Settings &rarr; Sandbox &rarr; Ouijit CLI access</strong>. At every level a sandboxed
-    command reaches only its own project, and edits only the comment drafts a sandbox wrote, never yours:
+    Set it under <strong>Project Settings &rarr; Sandbox &rarr; Ouijit CLI access</strong>. At every level a
+    sandboxed command reaches only its own project, and it edits only the comment drafts a sandbox wrote, never
+    yours:
   </p>
   <ul>
     <li><strong>Read only</strong>, the default. A sandboxed command can read its own task, its diff notes and pull requests, draft pull request and Linear comments, print links to places in Ouijit, and ask you to run a command. On its own terminal it can read the screen, add tags, read panels, and open markdown files from its worktree.</li>
@@ -65,26 +66,26 @@ import Docs from '../../layouts/Docs.astro';
   </p>
   <h3>What it grants</h3>
   <p>
-    Filesystem access is limited to the worktree and the repository's git data: <code>.git</code> is read-only
+    Filesystem access is limited to the worktree and the repository's git data. <code>.git</code> is read-only
     apart from read/write overlays at <code>objects/</code>, <code>refs/</code>, <code>logs/</code>, and
     <code>worktrees/</code>, so commits land while <code>hooks/</code> and <code>config</code> stay read-only.
-    Ouijit also grants a per-project package cache and keeps its status port reachable, so agent status
-    reports back even when the network is blocked. These are derived from the task at spawn time.
+    Ouijit also grants a per-project package cache and keeps its status port reachable, so agent status reports
+    back even when the network is blocked. All of this is derived from the task at spawn time.
   </p>
   <h3>The profile</h3>
   <p>
     Everything else is a nono profile file. Each project gets its own, at
     <code>~/.config/nono/profiles/ouijit-&lt;project&gt;-&lt;id&gt;.json</code>, written once to extend Ouijit's
-    base profile (which lets Claude Code, Codex, OpenCode, and Pi sign in and run) and then left to you. Open
-    it from <strong>Sandbox profile</strong> in settings to block the network, open ports, or grant folders,
-    in nono's own <a href="https://nono.sh/docs/cli/features/profile-authoring" target="_blank" rel="noopener">profile format</a>.
-    <strong>Change&hellip;</strong> points the project at another profile file, such as one your team shares,
-    and <strong>Reset</strong> goes back to the project's own. Profiles live outside the repository, where a
-    sandboxed agent cannot edit its own permissions.
+    base profile, which lets Claude Code, Codex, OpenCode, and Pi sign in and run, and then left to you. Open it
+    from <strong>Sandbox profile</strong> in settings to block the network, open ports, or grant folders, in
+    nono's own <a href="https://nono.sh/docs/cli/features/profile-authoring" target="_blank"
+    rel="noopener">profile format</a>. <strong>Change&hellip;</strong> points the project at another profile
+    file, such as one your team shares, and <strong>Reset</strong> goes back to the project's own. Profiles live
+    outside the repository, where a sandboxed agent cannot edit its own permissions.
   </p>
 
   <h3>Requirements</h3>
-  <p>Ouijit bundles the <code>nono</code> binary and the agent packs it uses; there is nothing extra to install.</p>
+  <p>Ouijit bundles the <code>nono</code> binary and the agent packs it uses. There is nothing extra to install.</p>
   <ul>
     <li><strong>macOS</strong>. Seatbelt (<code>sandbox-exec</code>).</li>
     <li><strong>Linux</strong>. Landlock, which needs kernel 5.13 or newer.</li>
@@ -94,15 +95,14 @@ import Docs from '../../layouts/Docs.astro';
   <p>
     The Custom backend runs a task's terminals under a launcher you provide: a reviewed script in your team's
     control, with its own pinned sandbox binary, committed policy, and preflight checks. Ouijit grants nothing
-    itself; the launcher owns the boundary. Set the command under
-    <strong>Project Settings &rarr; Sandbox &rarr; Custom launcher</strong> or with <code>ouijit sandbox-command set</code>.
+    itself. The launcher owns the boundary. Set the command under <strong>Project Settings &rarr; Sandbox &rarr;
+    Custom launcher</strong> or with <code>ouijit sandbox-command set</code>.
   </p>
   <p>
     Don't start the launcher by hand from a task terminal. That terminal's <code>OUIJIT_API_TOKEN</code> has
-    host access, so it goes into the sandbox with the launcher, and an agent inside can rewrite hooks and this
-    setting so the next spawn runs on the host. Configure the launcher here, or use
-    <code>ouijit sandbox --custom -- &lt;command&gt;</code>, which gives the command a sandbox-scoped token of
-    its own.
+    host access and would go into the sandbox with the launcher. An agent inside could then rewrite hooks and
+    this setting so the next spawn runs on the host. Configure the launcher here, or use <code>ouijit sandbox
+    --custom -- &lt;command&gt;</code>, which gives the command a sandbox-scoped token of its own.
   </p>
 
   <h3>What Ouijit passes</h3>
@@ -136,16 +136,18 @@ import Docs from '../../layouts/Docs.astro';
 
   <h3>What the launcher is responsible for</h3>
   <ul>
-    <li>Exec the argv after <code>--</code> with the inherited environment intact: at least <code>PATH</code>, <code>ZDOTDIR</code>, every <code>OUIJIT_*</code> variable, <code>TERM</code>, <code>HOME</code>, <code>SHELL</code>, and the locale. Shell integration, the status dot, and the <code>ouijit</code> and agent shims are all carried by the environment; a launcher that scrubs it starts a bare shell.</li>
+    <li>Exec the argv after <code>--</code> with the inherited environment intact: at least <code>PATH</code>, <code>ZDOTDIR</code>, every <code>OUIJIT_*</code> variable, <code>TERM</code>, <code>HOME</code>, <code>SHELL</code>, and the locale. Shell integration, the status dot, and the <code>ouijit</code> and agent shims are all carried by the environment. A launcher that scrubs it starts a bare shell.</li>
     <li>Own the boundary. Ouijit adds no <code>--allow</code> or <code>--read</code> flags.</li>
     <li>Keep the hook port reachable if you block the network.</li>
-    <li>Exit non-zero to refuse. Whatever it wrote to stderr appears in the terminal, the exit line prints red, and Ouijit raises a "sandbox failed to start" notice. It never falls back to an unsandboxed shell.</li>
+    <li>Exit non-zero to refuse. Whatever the launcher wrote to stderr appears in the terminal, the exit line prints
+    red, and Ouijit raises a "sandbox failed to start" notice. Ouijit never falls back to an unsandboxed
+    shell.</li>
   </ul>
 
   <h3>Where the launcher may live</h3>
   <p>
     An absolute path or a bare name resolved on <code>PATH</code>. Relative paths are refused, and so is any
-    absolute path inside the worktree or the spawn directory: the sandboxed agent can write there, and a
+    absolute path inside the worktree or the spawn directory. The sandboxed agent can write there, and a
     launcher it can edit is one it can turn off. Keep a versioned launcher in the repo if you like, but install
     it from a reviewed checkout to somewhere the sandbox cannot write, such as <code>~/.local/bin</code>, and
     point the setting there. If your <code>PATH</code> contains relative entries, use an absolute path.

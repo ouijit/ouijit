@@ -10,26 +10,27 @@ import Docs from '../../layouts/Docs.astro';
     Under <strong>Projects</strong>, each project lists its tasks in board order. A task with several terminals
     shows each one under it. A task in progress or in review with no terminal open is listed too, marked with a
     moon until you open one. Shells that belong to no task come after the tasks. An agent that finished while
-    you were looking elsewhere shows a blue dot, here and everywhere else it is listed, until you open it.
+    you were looking elsewhere gets a blue dot until you open it, here and everywhere else it is listed.
   </p>
   <p>
     Click a project to go back to the board or terminals you last had open there, even after a restart. Click
-    its arrow to fold it away; dots after its name then show what is still working or finished unseen. On the
+    its arrow to fold it away. Dots next to the name then show which agents are still working and which have
+    finished unseen. On the
     board, <strong>Terminals</strong> stacks every terminal open in the project.
   </p>
   <p>
     A project's row has buttons for its board and a new task. Its <strong>…</strong> menu, also on right-click,
-    opens a new terminal, on your computer or in a sandbox the project can use, and its pull requests, issues,
-    analysis and settings. Right-click a task for the same menu the board gives it. Switch to
+    opens a new terminal, on your computer or in one of the project's sandboxes. The same menu opens the
+    project's pull requests, issues, analysis and settings. Right-click a task for the same menu the board gives it. Switch to
     <strong>Tags</strong> to list terminals under their tags instead, with untagged ones under
-    <strong>No tag</strong>. Hide the sidebar with the button at its top; hovering the left edge brings it
+    <strong>No tag</strong>. Hide the sidebar with the button at its top. Hover the left edge to bring it
     back.
   </p>
 
   <h2>Card stack</h2>
   <p>
-    Each terminal runs your default shell in the task's worktree. A task's terminals stack, the active one in
-    front and the rest peeking out behind it; click a background card to bring it forward. Cards stay in the
+    Each terminal runs your default shell in the task's worktree. A task's terminals stack, with the active one in
+    front and the rest peeking out behind it. Click a background card to bring it forward. Cards stay in the
     order you last used them, so the one you just left is directly behind the one in front. A shell is a card
     of its own. When an agent runs in a card, its status (thinking or idle) shows on the card even when it is
     behind others. See <a href="/docs/harnesses/">Supported agents</a>.
@@ -54,8 +55,8 @@ import Docs from '../../layouts/Docs.astro';
 
   <h2>Tag terminals</h2>
   <p>
-    Tag a terminal from the tag button on its card. A terminal can carry several tags, two terminals of one task
-    can carry different ones, and tags survive a restart. The sidebar's <strong>Tags</strong> view groups what's
+    Tag a terminal from the tag button on its card. A terminal can carry several tags, and two terminals of one task
+    can carry different ones. Tags survive a restart. The sidebar's <strong>Tags</strong> view groups what's
     running by them, listing a terminal under each of its tags.
   </p>
   <p>Manage tags from the shell or an agent with <a href="/docs/cli/"><code>ouijit tag</code></a>.</p>
@@ -71,7 +72,7 @@ import Docs from '../../layouts/Docs.astro';
   <p>
     Quitting saves your open terminals: their project, task, worktree, sandbox, order, tags, and panels, with
     split sizes and the diff panel. On the next launch, <strong>Resume last session</strong> reopens each one in
-    its worktree with its panels; <strong>Dismiss</strong> clears it. Terminals whose project or task is gone, or
+    its worktree with its panels. <strong>Dismiss</strong> clears it. Terminals whose project or task is gone, or
     whose task is Done, are skipped.
   </p>
   <p>

@@ -31,7 +31,7 @@ import Docs from '../../layouts/Docs.astro';
   </p>
   <p>
     Press <code>⌘N</code> (<code>Ctrl+N</code> on Linux) for a new task. It takes a name and, optionally, a
-    prompt for the agent; images pasted into the prompt are there for the agent to read. Tasks are numbered
+    prompt for the agent. Images pasted into the prompt are there for the agent to read. Tasks are numbered
     (<code>T-1</code>, <code>T-2</code>), and the number names the task's branch and worktree.
   </p>
   <p>
@@ -88,7 +88,7 @@ import Docs from '../../layouts/Docs.astro';
   <p>
     A new task branches from whatever the project has checked out. To start every task from the same place,
     pick a branch under <strong>Project Settings &rarr; Worktree &rarr; Branch from</strong>. A remote branch
-    such as <code>origin/main</code> is fetched first, so tasks start from what was last pushed; if the fetch
+    such as <code>origin/main</code> is fetched first, so tasks start from what was last pushed. If the fetch
     takes longer than five seconds, the last fetched copy is used. The task's branch does not track the remote
     one.
   </p>

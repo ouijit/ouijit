@@ -22,9 +22,10 @@ import Docs from '../../layouts/Docs.astro';
   <p>
     The panel lists open pull requests in three groups: <strong>Needs your review</strong>,
     <strong>Authored</strong>, and <strong>Everything else</strong>, with an issues tab beside them. A pull
-    request opens into <strong>Summary</strong>, <strong>Timeline</strong>, and <strong>Code</strong> tabs:
-    checks, review threads with resolve and reply, and per-file diffs with a <strong>Viewed</strong> state that
-    resets when the head changes. Browsing a pull request never checks anything out.
+    request opens into <strong>Summary</strong>, <strong>Timeline</strong>, and <strong>Code</strong> tabs.
+    Between them you get checks, review threads with resolve and reply, and per-file diffs with a
+    <strong>Viewed</strong> state that resets when the head changes. Browsing a pull request never checks
+    anything out.
   </p>
 
   <h2>Add Linear</h2>
@@ -37,24 +38,24 @@ import Docs from '../../layouts/Docs.astro';
     Limiting the key to one team is fine, and narrows what Ouijit can see.
   </p>
   <p>
-    One key serves every project, since a key reads one workspace. A project in a second workspace can keep its
-    own under <strong>Project Settings &rarr; Linear</strong>, which is also where the field appears when there
-    is no key yet. Clearing it puts that project back on the app-wide key. Keys are encrypted by your OS
-    keychain and kept out of the renderer, the REST API and every sandboxed terminal. On a machine with no
+    One key serves every project, since a key reads a whole workspace. A project in a second workspace can keep
+    its own key under <strong>Project Settings &rarr; Linear</strong>. The field also appears there when there
+    is no app-wide key yet. Clearing it puts that project back on the app-wide key. Keys are encrypted by your
+    OS keychain and kept out of the renderer, the REST API and every sandboxed terminal. On a machine with no
     keychain, such as Linux without a keyring, Ouijit refuses to store one and reads <code>LINEAR_API_KEY</code>
     from your environment instead.
   </p>
   <p>
-    Ouijit then works out which issues are this project's. If the workspace labels issues under a
-    <code>repo</code> label group, the convention other Linear integrations write, the project is matched to
-    your <code>origin</code> remote and connected without being asked. Otherwise a row above the list asks once
-    which team to use. Change it, or disconnect the project from Linear entirely, under
-    <strong>Project Settings &rarr; Linear</strong>.
+    Ouijit then works out which issues belong to this project. If the workspace labels issues under a
+    <code>repo</code> label group, the convention other Linear integrations use, Ouijit matches the project to
+    your <code>origin</code> remote and connects it without asking. Otherwise a row above the list asks once
+    which team to use. Change it, or disconnect the project from Linear entirely, under <strong>Project Settings
+    &rarr; Linear</strong>.
   </p>
   <p>
-    For an issue to move on its own when its pull request opens and merges, connect
-    <strong>Linear's GitHub integration</strong> to the repository, in Linear. Without it nothing syncs, and the
-    state control on the issue is the way to move it.
+    To have an issue move on its own when its pull request opens and merges, connect <strong>Linear's GitHub
+    integration</strong> to the repository in Linear. Without it nothing syncs, and you move the issue with its
+    state control.
   </p>
 
   <h2>Work the issues</h2>
@@ -66,32 +67,31 @@ import Docs from '../../layouts/Docs.astro';
     shown, so a project with one tracker sees that tracker's groups.
   </p>
   <p>
-    An issue opens in the same chrome a pull request does, with what its source knows: assignee, priority,
-    cycle, estimate and team for a Linear issue, assignees and labels for a GitHub one. A Linear issue carries
-    a state control that moves it through its team's workflow, and it is the only way to move one unless Linear
-    is watching the repository. Under a key without <strong>Write</strong> the control is absent.
+    An issue opens in the same view a pull request does, with what its tracker knows. A Linear issue shows
+    assignee, priority, cycle, estimate and team. A GitHub issue shows assignees and labels. A Linear issue also
+    has a state control that moves it through its team's workflow. Unless Linear is watching the repository,
+    that control is the only way to move one. Under a key without <strong>Write</strong> the control is absent.
   </p>
   <p>
     Comments post when you send them. A comment written by an agent through the CLI waits above the box with
     its origin beside it, until you press <strong>Send</strong>.
   </p>
   <p>
-    Search filters the list as you type and also asks GitHub and Linear, so an issue or pull request the list
-    isn't showing, open or closed, appears under <strong>More results</strong>. Type a number to look that one
-    up. Long lists stop at fifty with <strong>Show more</strong> at the end.
+    Search filters the list as you type and also asks GitHub and Linear. Issues and pull requests the list isn't
+    showing, open or closed, appear under <strong>More results</strong>. Type a number to look that one up. Long
+    lists stop at fifty with <strong>Show more</strong> at the end.
   </p>
   <p>
-    A workspace running Linear's own GitHub sync has each piece of work as a Linear issue <em>and</em> a
-    mirrored GitHub issue, so it appears twice: once under Linear's groups, once under the repository's.
+    In a workspace running Linear's own GitHub sync, each piece of work is both a Linear issue and a mirrored
+    GitHub issue, so it appears twice: once under Linear's groups and once under the repository's.
   </p>
 
   <h2>Stage a review</h2>
   <p>
-    Review comments start as local drafts. Nothing reaches GitHub until you press
-    <strong>Comment</strong>, <strong>Approve</strong>, or <strong>Request changes</strong>, which submits the
-    drafts as one review. Drafts re-anchor when the pull request's head moves; one that can no longer be placed
-    is flagged rather than deleted, and blocks submission until you discard or rewrite it, because GitHub would
-    reject the whole review.
+    Review comments start as local drafts. Nothing reaches GitHub until you press <strong>Comment</strong>,
+    <strong>Approve</strong>, or <strong>Request changes</strong>, which submits the drafts as one review.
+    Drafts re-anchor when the pull request's head moves. One that can no longer be placed is flagged rather than
+    deleted, and blocks submission until you discard or rewrite it, since GitHub would reject the whole review.
   </p>
   <p>
     Agents stage drafts through the CLI, and each draft shows its origin so you can tell who wrote what before
@@ -104,22 +104,22 @@ import Docs from '../../layouts/Docs.astro';
   <h2>Read it through a lens</h2>
   <p>
     The Code pane takes the same <a href="/docs/diff/">lenses</a> the worktree diff does, from the picker above
-    the file list: an agent reads the change and answers with its parts, and the rail and the document both
-    follow that order instead of the file tree.
+    the file list. An agent reads the change and answers with its parts, and the rail and the document follow
+    that order instead of the file tree.
   </p>
   <p>
     Read marks follow the parts. A file split across three of them is ticked a part at a time, and counts as
-    read once every part of it has been. A lens written for an earlier head is dropped rather than shown against
-    hunks a force-push has moved; the picker offers to run it again. An agent can write one itself with
-    <code>ouijit pr lens set</code>, described under <a href="/docs/cli/">the CLI</a>.
+    read once every part of it has been. A lens written for an earlier head is not shown against hunks a
+    force-push has moved. The picker offers to run it again. An agent can write one itself with <code>ouijit pr
+    lens set</code>, described under <a href="/docs/cli/">the CLI</a>.
   </p>
 
   <h2>Merge</h2>
   <p>
     Open pull requests get a merge menu with <strong>Merge</strong>, <strong>Squash</strong>, and
-    <strong>Rebase</strong>, plus a delete-branch toggle. Unmet requirements are listed; when GitHub grants you
-    admin bypass, a separate <strong>Merge without meeting requirements</strong> entry maps to
-    <code>gh pr merge --admin</code>.
+    <strong>Rebase</strong>, plus a delete-branch toggle. Unmet requirements are listed. When GitHub grants you
+    admin bypass, a separate <strong>Merge without meeting requirements</strong> entry runs <code>gh pr merge
+    --admin</code>.
   </p>
 
   <h2>Connect pull requests and tasks</h2>
@@ -139,7 +139,7 @@ import Docs from '../../layouts/Docs.astro';
     <li>
       A task created from a Linear issue starts on the branch name Linear suggested, and the pull request opened
       from it carries the issue identifier in its body. Linear reads either one, so the issue moves to In Review
-      and then to Done as the pull request does, provided Linear's GitHub integration is connected to the
+      and then to Done as the pull request does. That needs Linear's GitHub integration connected to the
       repository.
     </li>
   </ul>

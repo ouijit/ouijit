@@ -16,8 +16,8 @@ import Docs from '../../layouts/Docs.astro';
   </p>
   <p>
     In a sandboxed terminal the reference opens with a short section of its own. It says the terminal is
-    sandboxed, what Ouijit lets it write and the project's CLI access level, and tells the agent to ask with
-    <code>ouijit ask run</code> when the sandbox blocks a command rather than work around it. What else the
+    sandboxed, what Ouijit lets it write, and the project's CLI access level. It tells the agent to ask with
+    <code>ouijit ask run</code> when the sandbox blocks a command, rather than work around it. What else the
     sandbox allows is up to its profile or launcher, so the section doesn't list it.
   </p>
 
@@ -60,8 +60,8 @@ ouijit preview add http://localhost:3000</code></pre>
   <h2>Review without posting</h2>
   <p>
     For anything that belongs to a pull request review, agents default to <code>ouijit pr</code> over
-    <code>gh</code>. <code>gh</code> posts to GitHub the moment it runs, under the user's own account;
-    <code>ouijit pr draft</code> stages comments locally and the user sends the review themselves. Reading with
+    <code>gh</code>. <code>gh</code> posts to GitHub the moment it runs, under the user's own account.
+    <code>ouijit pr draft</code> stages comments locally, and the user sends the review themselves. Reading with
     <code>gh pr diff</code> is always fine, and a <code>gh</code> write the user asks for by name, such as
     <code>gh pr create</code>, still goes through, as them.
   </p>
@@ -70,10 +70,10 @@ gh pr diff $PR                                # read it
 ouijit pr draft add $PR --file src/api.ts --line 88 \
   --origin claude --body "this can throw when the token is missing"</code></pre>
   <p>
-    Pass <code>--origin</code> with the agent's name so the user can tell agent comments apart before sending, and
-    <code>--body -</code> to read multi-line bodies from stdin. Anchor each comment to a line that appears as an
-    added line in the diff, by its new-file line number: GitHub rejects the whole review at submit time if any
-    comment points outside the diff.
+    Pass <code>--origin</code> with the agent's name so the user can tell agent comments apart before sending,
+    and <code>--body -</code> to read multi-line bodies from stdin. Anchor each comment to a line that appears
+    as an added line in the diff, by its new-file line number. GitHub rejects the whole review at submit time if
+    any comment points outside the diff.
   </p>
 
   <p>
@@ -87,15 +87,15 @@ ouijit linear draft add $ISSUE --origin claude \
 
   <h2>Inside a sandbox</h2>
   <p>
-    Inside a <a href="/docs/sandbox/">sandbox</a>, <code>ouijit</code> can do what the project's
-    <a href="/docs/sandbox/#cli">Ouijit CLI access</a> allows. By default it can read its own task and diff notes,
-    stage comments, print links, and on its own terminal read the screen, set tags, read panels and open markdown
-    from its worktree. At Its own task it can also move, rename and describe its task. Everything is what a host
-    terminal can do. At any level it can <a href="/docs/cli/#ask">ask the user to run a command</a> outside the
-    sandbox, which runs only when they press Run. A hook that would run on the host waits for the user even with
-    <code>--run-hook</code>. Pull request drafts written from a sandbox are stamped with a <code>sandbox</code>
-    origin the caller cannot forge. Under the Custom sandbox, whether <code>ouijit</code> is reachable at all is
-    up to the launcher.
+    Inside a <a href="/docs/sandbox/">sandbox</a>, <code>ouijit</code> can do what the project's <a
+    href="/docs/sandbox/#cli">Ouijit CLI access</a> allows. By default it can read its own task and diff notes,
+    stage comments, and print links. On its own terminal it can read the screen, set tags, read panels and open
+    markdown from its worktree. At Its own task it can also move, rename and describe its task. At Everything it
+    can do what a host terminal can. At any level it can <a href="/docs/cli/#ask">ask the user to run a
+    command</a> outside the sandbox, which runs only when they press Run. A hook that would run on the host
+    waits for the user even with <code>--run-hook</code>. Pull request drafts written from a sandbox are stamped
+    with a <code>sandbox</code> origin the caller cannot forge. Under the Custom sandbox, whether
+    <code>ouijit</code> is reachable at all is up to the launcher.
   </p>
 
   <h2>Machine-readable docs</h2>
