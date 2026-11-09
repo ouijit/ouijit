@@ -20,21 +20,48 @@ The index card and the post's hero both render the same cover, so one choice
 covers both. The look is deliberate and took several rounds to reach; the
 rules below are what survived.
 
-## What makes a cover right
+## What a system is
 
-- **One system, exactly spaced.** Every mark comes from a few lines of
-  arithmetic: a fan of lines meeting at a point, rows of dots swelling at one
-  column, a run of dashed ellipses with one solid. Regular spacing is what reads
-  as made-with-care. Hand-placed shapes read as sloppy at thumbnail size.
-- **Restraint.** The wash and grain carry the colour and texture. The system is
-  a single idea in two inks: `rgba(15,15,17,0.72)` for the subject and
-  `rgba(15,15,17,0.34)` for the supporting marks. Nothing else is on the cover.
-- **Abstract, with a reason.** The system should rhyme with the post's idea
-  without labelling it. The fan is many worktrees converging on one port. A
-  reader should feel that, not read it.
-- **The site's own materials.** The washes are the homepage's OKLCH sweeps,
-  the grain is the homepage's, the glass edge is the bevel used on every panel.
-  A cover that could sit on another company's blog is wrong.
+The reference is the `fan`: twenty-two lines leaving the left edge at equal
+intervals and meeting at one point on the right. Take it apart and every
+cover needs the same four things.
+
+- **Density.** Twenty marks at the very least, usually more. A system reads
+  as texture first and as an idea second; below that count it reads as a
+  drawing of something, and drawings are what we rejected.
+- **One progression.** Equal spacing, or spacing that tightens by a constant
+  ratio, or sizes that grow along one axis, or a dash that lengthens. Exactly
+  one rule, applied to every mark, so the eye can feel it.
+- **One disturbance.** The point the lines meet, the one column where the
+  dots swell, the one ellipse drawn solid. This is where the post's idea sits.
+  A system with no disturbance is wallpaper; a system with two is noise.
+- **Occupancy.** Marks cover sixty to eighty percent of the frame, with at
+  least 60px of margin on every side at the 800×450 viewBox. A large empty
+  outline, or a small figure floating in colour, fails this.
+
+The system is drawn in two inks: `rgba(15,15,17,0.72)` for the disturbance
+and `rgba(15,15,17,0.34)` for everything else. Nothing else is on the cover.
+
+## Metaphor, not depiction
+
+The post's idea goes into how the repetition behaves, never into what the
+marks resemble. A post about a stack of terminals does not get rectangles
+arranged in a stack; it gets a progression where one element in a run is
+singled out and the rest fall off behind it. A post about a human gate does
+not get a gate; it gets a run whose character changes at one column. If the
+cover could be captioned with the post's noun, start over.
+
+## Wash and contrast
+
+- **Prism** is warm and loud, **iris** is cool. Both take the dark ink well
+  and suit systems of many thin marks.
+- **Graphite** is quiet, and the dark ink nearly disappears on it; what
+  shows is the glass highlight along each mark's lower edge. Use it only for
+  systems of large or dense marks (dots of radius 4 and up, close-set lines)
+  and check the card screenshot before keeping it.
+- Vary the wash across neighbouring posts so the index is not one colour.
+- The angle turns the sweep. Put its brightest stop away from the
+  disturbance so the strong ink sits on the wash's darker part.
 
 ## What was tried and rejected
 
@@ -46,6 +73,9 @@ Do not walk these paths again; each was built, looked at, and turned down.
   basic icon.
 - Compositions of glyphs: character fields, box-drawing figures, stacked
   glyphs. Complexity without craft; looked sloppy.
+- Depictions: six receding rectangles for a post about stacked terminals,
+  rows broken by a vertical bar for a post about a human gate. Correct
+  reasoning, sparse result; both failed density and occupancy.
 - Monochrome hairlines on a black field. That is Linear's look, and the brief
   was inspiration, not imitation. Our marks are dark on colour.
 - Photographic, collage or AI-generated illustration. Not something this site
@@ -53,35 +83,36 @@ Do not walk these paths again; each was built, looked at, and turned down.
 
 ## Procedure
 
-1. Read the post. Name its one idea in a sentence: what converges, repeats,
-   stacks, splits or is shared. That sentence picks the system.
-2. Pick a motif. If `fan`, `matrix` or `coil` fits, use it. If none does, add
-   one: a new branch in `Cover.astro` that pushes into `lines`, `dots` or
-   `ellipses` from a loop or two. Keep the geometry inside the 800×450 viewBox
-   with at least 60px of margin, stroke widths of 2 for lines and 1.2 to 6 for
-   dots, and one element in the strong ink with the rest in the weak ink. Add
-   the motif name to the `cover.motif` enum in `website/src/content.config.ts`.
-3. Pick a wash. Prism is warm and loud, iris is cool, graphite is quiet and
-   suits a post about caution or limits. Vary across neighbouring posts so the
-   index does not become one colour.
-4. Pick an angle. Any value works; use it to put the brightest part of the
-   sweep away from the system's focal point so the marks stay legible.
-5. Set the frontmatter, then run the preview script to build the site and
-   screenshot the card and the hero:
+1. Read the post. Write its idea as one sentence about behaviour: what
+   converges, repeats, splits, swells, is held or falls behind. That sentence
+   picks the progression and the disturbance.
+2. Sketch three candidate systems, as geometry, not prose. Each is a loop
+   or two pushing into `lines`, `dots` or `ellipses` in
+   `website/src/components/writing/Cover.astro`. Reuse `fan`, `matrix` or
+   `coil` as one of the three when it fits. Give each its own motif name and
+   add the names to the `cover.motif` enum in `website/src/content.config.ts`.
+3. Render all three with the preview script, pointing each at the post by
+   editing its frontmatter in turn:
 
    ```sh
    node .claude/skills/writing-cover/scripts/preview.mjs <slug>
    ```
 
-   Look at both images. Check that the system is legible at card size, that
-   nothing touches the edges, and that the grain is not louder than the marks.
-6. Show the two screenshots and the frontmatter before committing. Cover art
-   is judged by eye and the final call is not yours.
+   Judge each against the four requirements above at card size, where
+   failures show first. Drop any that fail; fix or replace rather than
+   lowering the bar.
+4. Show the survivors' card and hero screenshots with their frontmatter, and
+   say which you would pick and why. The final call is not yours; cover art
+   is judged by eye.
+5. After the pick, remove the motifs that were not chosen from the component
+   and the enum, so the set stays small and every motif in it has shipped.
 
 ## Adding a motif well
 
 A motif is a function of nothing: no randomness, no post-specific text, so the
-same frontmatter always renders the same cover and the set stays coherent. If
-you find yourself wanting labels, arrows or more than one visual idea, the
-post wants a figure in its body instead; write that as a Markdown image with a
-caption and keep the cover to one system.
+same frontmatter always renders the same cover and the set stays coherent.
+Keep stroke widths at 2 for lines and radii between 1.2 and 6 for dots, so
+new motifs sit beside the old ones as one family. If you find yourself
+wanting labels, arrows or more than one visual idea, the post wants a figure
+in its body instead; write that as a Markdown image with a caption and keep
+the cover to one system.
