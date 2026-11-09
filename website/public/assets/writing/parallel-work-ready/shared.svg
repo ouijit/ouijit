@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 340" font-family="'SF Mono', Menlo, monospace" font-size="13">
+  <defs>
+    <g id="tree" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" fill="none">
+      <path d="M0 40 h190 v110 h-190 z"/>
+      <path d="M0 40 v-18 h64 v18"/>
+      <path d="M20 68 h90 M20 88 h120 M20 108 h70" stroke="rgba(255,255,255,0.15)"/>
+    </g>
+    <rect id="chip" x="-62" y="-17" width="124" height="34" rx="8" fill="#1f1f22" stroke="rgba(255,255,255,0.14)"/>
+  </defs>
+  <use href="#tree" x="75" y="20"/>
+  <use href="#tree" x="305" y="20"/>
+  <use href="#tree" x="535" y="20"/>
+  <g fill="rgba(255,255,255,0.8)" font-size="12">
+    <text x="83" y="56">T-605</text>
+    <text x="313" y="56">T-606</text>
+    <text x="543" y="56">T-607</text>
+  </g>
+  <g fill="rgba(255,255,255,0.4)" font-size="11">
+    <text x="95" y="158">files · node_modules · .env</text>
+    <text x="325" y="158">files · node_modules · .env</text>
+    <text x="555" y="158">files · node_modules · .env</text>
+  </g>
+  <g stroke="rgba(255,255,255,0.3)" stroke-width="1.5" fill="none">
+    <path d="M170 170 v34 M400 170 v34 M630 170 v34"/>
+    <path d="M170 204 h460"/>
+  </g>
+  <path d="M400 204 v30" stroke="#0a84ff" stroke-width="2.5"/>
+  <path d="M70 234 h660" stroke="#0a84ff" stroke-width="2.5"/>
+  <g fill="rgba(255,255,255,0.85)" text-anchor="middle">
+    <use href="#chip" x="140" y="275"/><text x="140" y="280">:3000</text>
+    <use href="#chip" x="270" y="275"/><text x="270" y="280">ouijit.db</text>
+    <use href="#chip" x="400" y="275"/><text x="400" y="280" font-size="12">localhost cookies</text>
+    <use href="#chip" x="530" y="275"/><text x="530" y="280">docker</text>
+    <use href="#chip" x="660" y="275"/><text x="660" y="280">.git/stash</text>
+  </g>
+  <text x="400" y="325" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="11">one per machine</text>
+</svg>

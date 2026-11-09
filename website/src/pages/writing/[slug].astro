@@ -2,7 +2,9 @@
 import { render } from 'astro:content';
 import Site from '../../layouts/Site.astro';
 import Cta from '../../components/home/Cta.astro';
-import { AUTHOR, listPosts, postDate, type Post } from '../../writing';
+import Cover from '../../components/writing/Cover.astro';
+import PostCard from '../../components/writing/PostCard.astro';
+import { AUTHOR, listPosts, postDate, readingMinutes, type Post } from '../../writing';
 
 export async function getStaticPaths() {
   const posts = await listPosts();
@@ -12,20 +14,53 @@ export async function getStaticPaths() {
 const { post } = Astro.props as { post: Post };
 const { Content } = await render(post);
 const markdownUrl = `https://ouijit.com/writing/${post.id}.md`;
+const more = (await listPosts()).filter((p) => p.id !== post.id).slice(0, 2);
 ---
 <Site title={`${post.data.title} · Ouijit`} description={post.data.description} markdownUrl={markdownUrl}>
-  <main class="compare-content writing-post">
-    <article>
-      <header>
-        <h1>{post.data.title}</h1>
-        <p class="writing-byline">
-          <a href={AUTHOR.url} target="_blank" rel="noopener">{AUTHOR.name}</a>
-          <time datetime={post.data.date.toISOString()}>{postDate.format(post.data.date)}</time>
-        </p>
-      </header>
+  <main class="writing-post">
+    <header class="writing-header">
+      <p class="writing-crumb"><a href="/writing/">Writing</a></p>
+      <h1>{post.data.title}</h1>
+      <div class="writing-byline">
+        <img src={AUTHOR.avatar} alt="" width="28" height="28" />
+        <a href={AUTHOR.url} target="_blank" rel="noopener">{AUTHOR.name}</a>
+        <time datetime={post.data.date.toISOString()}>{postDate.format(post.data.date)}</time>
+        <span>{readingMinutes(post)} min read</span>
+      </div>
+    </header>
+    <div class="writing-hero">
+      <Cover cover={post.data.cover} />
+    </div>
+    <article class="writing-body">
       <Content />
     </article>
-    <p class="writing-back"><a href="/writing/">All writing</a></p>
+    {more.length > 0 && (
+      <aside class="writing-more">
+        <h2>More writing</h2>
+        <div class="writing-grid">
+          {more.map((p) => <PostCard post={p} />)}
+        </div>
+      </aside>
+    )}
   </main>
   <Cta />
 </Site>
+
+<script>
+  for (const pre of document.querySelectorAll<HTMLPreElement>('.writing-body pre')) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'writing-copy';
+    button.textContent = 'Copy';
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(pre.querySelector('code')?.innerText ?? '');
+        button.textContent = 'Copied';
+      } catch {
+        button.textContent = "Couldn't copy";
+      }
+      setTimeout(() => (button.textContent = 'Copy'), 1500);
+    });
+    pre.appendChild(button);
+  }
+</script>

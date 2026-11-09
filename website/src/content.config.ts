@@ -7,6 +7,13 @@ const writing = defineCollection({
     title: z.string(),
     description: z.string(),
     date: z.coerce.date(),
+    cover: z
+      .object({
+        motif: z.enum(['fan', 'matrix', 'coil']).default('fan'),
+        wash: z.enum(['prism', 'iris', 'graphite']).default('prism'),
+        angle: z.number().default(150),
+      })
+      .default({}),
   }),
 });
 

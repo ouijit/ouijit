@@ -2,6 +2,8 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 import markdownDocs from './tools/markdown-docs.mjs';
+import remarkFigures from './tools/remark-figures.mjs';
+import shikiTitle from './tools/shiki-title.mjs';
 
 // https://astro.build/config
 export default defineConfig({
@@ -15,7 +17,8 @@ export default defineConfig({
     '/docs/resume': '/docs/terminals/#resume',
   },
   markdown: {
-    shikiConfig: { themes: { dark: 'github-dark' }, defaultColor: false },
+    remarkPlugins: [remarkFigures],
+    shikiConfig: { themes: { dark: 'github-dark' }, defaultColor: false, transformers: [shikiTitle()] },
   },
   build: {
     format: 'directory',

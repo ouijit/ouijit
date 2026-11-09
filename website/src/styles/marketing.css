@@ -2315,54 +2315,197 @@ body.marketing .feature-end-link {
   color: #fff;
 }
 
-/* Writing: the index lists posts; a post is prose with the docs' code-block idiom. */
-.writing-entry {
-  padding-top: 2rem;
-  margin-top: 2rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+/* Writing: cards on the index, a post with a cover, captioned figures and
+   titled code blocks. */
+.writing-index {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 6rem;
 }
-.writing-entry h2 {
-  margin: 0 0 0.25rem;
-  font-size: 1.25rem;
-  font-weight: 400;
+.writing-index h1 {
+  font-size: 2.25rem;
+  margin-bottom: 2.5rem;
 }
-.writing-entry h2 a {
+.writing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+.writing-card {
+  display: block;
+  padding: 12px 12px 20px;
+  border: 1px solid var(--marketing-border);
+  border-radius: 16px;
+  background: var(--marketing-surface);
+  color: inherit;
   text-decoration: none;
+  transition: border-color 150ms ease-out;
 }
-.writing-entry h2 a:hover {
-  text-decoration: underline;
+.writing-card:hover {
+  border-color: rgba(255, 255, 255, 0.28);
 }
-.writing-entry time,
-.writing-byline {
+.writing-card .writing-cover {
+  margin-bottom: 1rem;
+}
+.writing-card h2 {
+  font-size: 1.25rem;
+  margin: 0 8px 0.5rem;
+}
+.writing-card p {
+  color: var(--text-secondary, #c0c0c0);
+  line-height: 1.5;
+  margin: 0 8px 1rem;
+}
+.writing-card .writing-meta {
+  margin: 0 8px;
+}
+.writing-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   color: var(--text-tertiary, #888);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
-.writing-entry p {
-  margin: 0.5rem 0 0;
+
+/* A cover: one of the site's washes, the grain, and a line system in dark glass. */
+.writing-cover {
+  position: relative;
+  isolation: isolate;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0f0f11;
+}
+.writing-cover-field {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(var(--cover-angle), var(--cover-wash));
+  opacity: 0.9;
+}
+.writing-cover-grain {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  mix-blend-mode: overlay;
+  opacity: 0.6;
+}
+.writing-cover svg {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .writing-post {
-  padding-bottom: 4rem;
+  padding: 4rem 1.5rem 2rem;
+}
+.writing-header,
+.writing-body,
+.writing-more {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.writing-crumb {
+  margin: 0 0 1.5rem;
+  font-size: 0.9rem;
+}
+.writing-crumb a {
+  color: var(--text-tertiary, #888);
+  text-decoration: none;
+}
+.writing-crumb a:hover {
+  color: #fff;
 }
 .writing-post h1 {
-  font-size: 2.25rem;
-  margin-bottom: 0.75rem;
+  font-size: clamp(2rem, 4.5vw, 2.75rem);
+  margin-bottom: 1.25rem;
 }
 .writing-byline {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.75rem;
-  margin-bottom: 3rem;
+  color: var(--text-tertiary, #888);
+  font-size: 0.9rem;
 }
-.writing-post p,
-.writing-post li {
+.writing-byline img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+.writing-byline a {
+  color: #f5f5f7;
+  text-decoration: none;
+}
+.writing-byline a:hover {
+  text-decoration: underline;
+}
+.writing-hero {
+  max-width: 880px;
+  margin: 2.5rem auto 3rem;
+}
+.writing-hero .writing-cover {
+  border-radius: 16px;
+}
+
+.writing-body p,
+.writing-body li {
+  color: var(--text-secondary, #c0c0c0);
   font-size: 1.0625rem;
+  line-height: 1.6;
 }
-.writing-post h2 {
+.writing-body p {
+  margin: 0 0 1rem;
+}
+.writing-body ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0 0 1rem;
+}
+.writing-body li {
+  margin-bottom: 0.5rem;
+}
+.writing-body h2 {
   font-size: 1.375rem;
   font-weight: 500;
   margin: 3rem 0 1rem;
 }
-.writing-post pre {
+.writing-body a {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-underline-offset: 2px;
+}
+.writing-body code {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.875em;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+}
+.writing-body figure {
+  margin: 2rem 0;
+  padding: 24px;
+  background: #171717;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+  overflow-x: auto;
+}
+.writing-body figure img {
+  display: block;
+  width: 100%;
+  min-width: 560px;
+  height: auto;
+}
+.writing-body figcaption {
+  margin-top: 16px;
+  color: var(--text-tertiary, #888);
+  font-size: 0.875rem;
+  text-align: center;
+}
+.writing-body pre {
   position: relative;
   background: #171717;
   border: 1px solid rgba(0, 0, 0, 0.6);
@@ -2370,7 +2513,16 @@ body.marketing .feature-end-link {
   margin: 0 0 1.25rem;
   overflow: hidden;
 }
-.writing-post pre code {
+.writing-body pre[data-title]::before {
+  content: attr(data-title);
+  display: block;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-tertiary, #888);
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.75rem;
+}
+.writing-body pre code {
   display: block;
   padding: 20px;
   overflow-x: auto;
@@ -2379,9 +2531,32 @@ body.marketing .feature-end-link {
   font-size: 0.8125rem;
   line-height: 1.6;
 }
-.writing-post pre code span {
+.writing-body pre code span {
   color: var(--shiki-dark);
 }
-.writing-back {
-  margin-top: 3rem;
+.writing-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary, #c0c0c0);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+.writing-body pre:hover .writing-copy,
+.writing-copy:focus-visible {
+  opacity: 1;
+}
+.writing-more {
+  margin-top: 5rem;
+}
+.writing-more h2 {
+  font-size: 1.375rem;
+  margin-bottom: 1.5rem;
 }

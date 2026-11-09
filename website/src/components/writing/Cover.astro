@@ -1,0 +1,81 @@
+---
+// A cover is one generated line system drawn in dark glass on one of the
+// site's washes. Geometry is computed here so spacing stays exact at any size.
+import type { CoverSpec } from '../../writing';
+
+interface Props {
+  cover: CoverSpec;
+  class?: string;
+}
+const { cover, class: className } = Astro.props;
+const W = 800;
+const H = 450;
+const INK = 'rgba(15,15,17,0.72)';
+const INK2 = 'rgba(15,15,17,0.34)';
+
+type Line = { x1: number; y1: number; x2: number; y2: number; w: number; ink: string; dash?: string };
+type Dot = { cx: number; cy: number; r: number; ink: string };
+type Ellipse = { cx: number; rx: number; ry: number; ink: string; dash?: string };
+const lines: Line[] = [];
+const dots: Dot[] = [];
+const ellipses: Ellipse[] = [];
+
+if (cover.motif === 'fan') {
+  const vx = 690;
+  const vy = 330;
+  for (let i = 0; i < 22; i++) lines.push({ x1: 60, y1: 40 + i * (370 / 21), x2: vx, y2: vy, w: 2, ink: INK });
+  for (let k = 1; k < 7; k++) {
+    const x = 60 + k * ((vx - 60) / 7);
+    const t = (x - 60) / (vx - 60);
+    lines.push({ x1: x, y1: 40 + t * (vy - 40), x2: x, y2: 410 + t * (vy - 410), w: 2, ink: INK2 });
+  }
+  dots.push({ cx: vx, cy: vy, r: 6, ink: INK });
+}
+
+if (cover.motif === 'matrix') {
+  const cols = 44;
+  const rows = 6;
+  const shared = 30;
+  for (let r = 0; r < rows; r++) {
+    const cy = 110 + (r * 230) / (rows - 1);
+    for (let c = 0; c < cols; c++) {
+      const d = Math.abs(c - shared);
+      const rad = d < 7 ? Math.max(1.2, 5.5 - d * 0.7) : (c * 7 + r * 3) % 5 ? 1.6 : 0;
+      if (rad) dots.push({ cx: 60 + (c * 680) / (cols - 1), cy, r: rad, ink: d < 7 ? INK : INK2 });
+    }
+  }
+}
+
+if (cover.motif === 'coil') {
+  for (let i = 0; i < 9; i++) {
+    const solid = i === 5;
+    ellipses.push({ cx: 130 + i * 68, rx: 34, ry: 120, ink: solid ? INK : INK2, dash: solid ? undefined : '5 7' });
+  }
+  lines.push({ x1: 60, y1: 225, x2: 740, y2: 225, w: 2, ink: INK2 });
+}
+
+const style = `--cover-wash: var(--wash-${cover.wash}); --cover-angle: ${cover.angle}deg`;
+---
+<div class:list={['writing-cover', className]} style={style} aria-hidden="true">
+  <div class="writing-cover-field"></div>
+  <div class="writing-cover-grain"></div>
+  <svg viewBox={`0 0 ${W} ${H}`} fill="none">
+    <defs>
+      <filter id="cover-glass" x="-5%" y="-5%" width="110%" height="110%">
+        <feDropShadow dx="0" dy="1.2" stdDeviation="0" flood-color="#fff" flood-opacity="0.45" />
+        <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity="0.22" />
+      </filter>
+    </defs>
+    <g filter="url(#cover-glass)">
+      {lines.map((l) => (
+        <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.ink} stroke-width={l.w} stroke-dasharray={l.dash} />
+      ))}
+      {ellipses.map((e) => (
+        <ellipse cx={e.cx} cy={H / 2} rx={e.rx} ry={e.ry} stroke={e.ink} stroke-width="2" stroke-dasharray={e.dash} />
+      ))}
+      {dots.map((d) => (
+        <circle cx={d.cx} cy={d.cy} r={d.r} fill={d.ink} />
+      ))}
+    </g>
+  </svg>
+</div>
