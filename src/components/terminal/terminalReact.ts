@@ -401,6 +401,7 @@ export class OuijitTerminal {
 
   // ── PTY cleanup ─────────────────────────────────────────────────────
   private cleanupData: (() => void) | null = null;
+  private blank = false;
   cleanupExit: (() => void) | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
@@ -603,8 +604,14 @@ export class OuijitTerminal {
     this.resizeObserver?.disconnect();
     window.api.pty.kill(this.ptyId);
     await exitedPty;
-    this.xterm.reset();
     this.pushDisplayState({ exited: false });
+  }
+
+  /** Clear what the last PTY left, ahead of the one about to draw. */
+  clearScreen(): void {
+    this.xterm.reset();
+    this.blank = true;
+    this.pushDisplayState({ blank: true });
   }
 
   /** Suppress PTY resizes during reconnection until layout settles. */
@@ -1013,6 +1020,10 @@ export class OuijitTerminal {
 
   private wireDataHandler(skipSideEffects?: boolean, onData?: (data: string) => void): void {
     this.cleanupData = window.api.pty.onData(this.ptyId, (data) => {
+      if (this.blank) {
+        this.blank = false;
+        this.pushDisplayState({ blank: false });
+      }
       const buf = this.xterm.buffer.active;
       const atBottom = buf.viewportY >= buf.baseY;
 

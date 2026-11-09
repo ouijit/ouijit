@@ -38,8 +38,10 @@ export interface TerminalDisplayState {
   surface: TaskSurface;
   /** The agent of a card that is or has been a chat, which is what can switch it back and forth. */
   chatAgent: ChatAgentId | null;
-  /** Waiting for the turn to end before switching between chat and terminal. */
+  /** What the card is switching to, from when it is asked until the other view is up. */
   switching: TaskSurface | null;
+  /** Cleared for a PTY whose first output has not arrived, so the screen has nothing on it yet. */
+  blank: boolean;
   /** Placeholder slot for an in-flight task start. Card renders the loading
    *  body; the slot will be rekey'd + flag cleared when the real PTY spawns. */
   isLoading: boolean;
@@ -66,6 +68,7 @@ export const DEFAULT_DISPLAY_STATE: Omit<
   surface: 'terminal',
   chatAgent: null,
   switching: null,
+  blank: false,
   isLoading: false,
 };
 

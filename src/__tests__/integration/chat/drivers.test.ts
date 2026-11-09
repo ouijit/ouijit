@@ -150,8 +150,12 @@ describe.each(['claude', 'codex', 'pi', 'opencode', 'acp'] as const)('%s in chat
       }
 
       // A second process picks the same conversation up: the agent remembers
-      // the first turn, and the transcript keeps it.
-      const resumed = await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });
+      // the first turn, and the transcript keeps it. Asked for eagerly, the
+      // stored transcript comes back before the agent is up.
+      const reopened = await host.start({ id, agent, projectPath: cwd, cwd, taskId: null, eager: true });
+      expect(reopened.info.status).toBe('starting');
+      expect(kinds(reopened.nodes)).toEqual(kinds(finished.nodes));
+      const resumed = await until(host, id, (s) => s.info.status !== 'starting', timeout);
       expect(resumed.info.status, resumed.info.statusDetail).toBe('idle');
       expect(resumed.info.agentSessionId).toBe(finished.info.agentSessionId);
       await host.prompt(id, { text: FOLLOW_UP });

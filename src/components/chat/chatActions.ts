@@ -273,6 +273,7 @@ export async function switchToTerminal(id: string, opts: { interrupt?: boolean }
     }
     await window.api.chat.stop(id);
     term.openTerminal();
+    term.clearScreen();
     term.setSurface('terminal');
     const command = [resume.file, ...resume.args].map(shellQuote).join(' ');
     const env = term.worktreePath
@@ -336,7 +337,7 @@ export async function switchToChat(id: string): Promise<void> {
     if (!terminalInstances.has(id)) return;
     await term.releasePty();
     term.setSurface('chat');
-    const snapshot = await window.api.chat.start(chatStartOptions(term));
+    const snapshot = await window.api.chat.start({ ...chatStartOptions(term), eager: true });
     useChatStore.getState().adopt(snapshot);
     requestAnimationFrame(() => term.focus());
   } finally {

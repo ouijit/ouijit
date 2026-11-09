@@ -11,7 +11,7 @@ import { getSandboxProvider } from '../sandbox';
 import { isActiveSandbox, isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
 import { spawnAgentProcess, type AgentProcess, type AgentSpawn } from './process';
 import { getDriver } from './drivers';
-import type { DriverSession, DriverSink, UserInput } from './driver';
+import type { DriverProbe, DriverSession, DriverSink, UserInput } from './driver';
 import {
   NO_CAPABILITIES,
   applyChatEvent,
@@ -90,6 +90,8 @@ export interface ChatStartOptions {
   label?: string;
   /** Start from an agent conversation that began outside this session, e.g. in the card's terminal. */
   resume?: { agentSessionId: string; fork: boolean };
+  /** Return once the session exists, while the agent is still launching; the launch arrives as events. */
+  eager?: boolean;
 }
 
 export type ChatDelivery = 'auto' | 'steer' | 'queue';
@@ -223,6 +225,7 @@ export interface ChatHostOptions {
 export class ChatHost {
   private readonly sessions = new Map<string, HostedSession>();
   private readonly listeners = new Set<ChatListener>();
+  private readonly probed = new Map<ChatAgentId, DriverProbe>();
 
   constructor(private options: ChatHostOptions = {}) {}
 
@@ -352,8 +355,17 @@ export class ChatHost {
     if (options.resume)
       session.info = { ...session.info, agentSessionId: options.resume.fork ? null : options.resume.agentSessionId };
     session.starting = this.launch(session, resume);
-    await session.starting;
+    if (!options.eager) await session.starting;
     return session.snapshot();
+  }
+
+  /** A version check spawns the agent's binary, so one that passed holds for the rest of the run. */
+  private async probe(agent: ChatAgentId): Promise<DriverProbe> {
+    const known = this.probed.get(agent);
+    if (known) return known;
+    const probe = await getDriver(agent).probe();
+    if (probe.installed && !probe.problem) this.probed.set(agent, probe);
+    return probe;
   }
 
   private async launch(
@@ -364,7 +376,7 @@ export class ChatHost {
     const id = session.info.id;
     session.emit({ type: 'session', patch: { status: 'starting' } });
     try {
-      const probe = await driver.probe();
+      const probe = await this.probe(session.info.agent);
       if (!probe.installed || probe.problem) {
         throw new Error(probe.problem ?? `${driver.label} is not installed`);
       }

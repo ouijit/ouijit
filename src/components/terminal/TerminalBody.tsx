@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
+import { useChatStore } from '../../stores/chatStore';
 import { useShallow } from 'zustand/react/shallow';
 import { XTermContainer } from './XTermContainer';
 import { ChatView } from '../chat/ChatView';
@@ -11,6 +12,7 @@ import { WebPreviewPanel } from '../webPreview/WebPreviewPanel';
 import { useTerminalPanels } from './useTerminalPanels';
 import { terminalInstances } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
+import type { TaskSurface } from '../../chat/preferences';
 
 interface TerminalBodyProps {
   ptyId: string;
@@ -21,6 +23,64 @@ const EMPTY_PANELS: TerminalPanel[] = [];
 
 const XTERM_CLASS =
   'terminal-xterm-container flex-1 min-h-0 min-w-0 rounded-none border-none pt-4 pl-4 pr-2 pb-2 overflow-hidden';
+
+const FADE_MS = 180;
+/** How long the view being left stays up when the one replacing it never reports in. */
+const FADE_DEADLINE_MS = 8000;
+
+/**
+ * Whether the view the card is switching to has something to show: a chat
+ * once its session is adopted with a transcript or a settled status, a
+ * terminal once its PTY has drawn. A chat left over from an earlier switch has
+ * already exited, so it does not count.
+ */
+function useSurfaceReady(ptyId: string, surface: TaskSurface): boolean {
+  const chatReady = useChatStore((s) => {
+    const session = s.sessions[ptyId];
+    if (!session || session.info.status === 'exited') return false;
+    return session.nodes.length > 0 || session.info.status !== 'starting';
+  });
+  const painted = useTerminalStore((s) => !(s.displayStates[ptyId]?.blank ?? false));
+  return surface === 'chat' ? chatReady : painted;
+}
+
+/**
+ * Switching surface keeps the view being left in place, dimmed, until the one
+ * replacing it is ready, then fades that one in over it. Both views keep their
+ * own slot so a change of role never remounts either of them, and the leaving
+ * one is known in the same render that drops it from current, so it never
+ * leaves the tree in between.
+ */
+function useSurfaceSwap(ptyId: string, surface: TaskSurface): { outgoing: TaskSurface | null; revealed: boolean } {
+  const [outgoing, setOutgoing] = useState<TaskSurface | null>(null);
+  const [shown, setShown] = useState(surface);
+  if (shown !== surface) {
+    setShown(surface);
+    setOutgoing(shown);
+  }
+
+  const ready = useSurfaceReady(ptyId, surface);
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    if (!outgoing) {
+      setRevealed(false);
+      return;
+    }
+    if (ready) {
+      setRevealed(true);
+      return;
+    }
+    const deadline = setTimeout(() => setRevealed(true), FADE_DEADLINE_MS);
+    return () => clearTimeout(deadline);
+  }, [outgoing, ready]);
+  useEffect(() => {
+    if (!revealed) return;
+    const done = setTimeout(() => setOutgoing(null), FADE_MS);
+    return () => clearTimeout(done);
+  }, [revealed]);
+
+  return { outgoing, revealed };
+}
 
 export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   const { panels, activePanelId, panelFullWidth, diffPanelOpen, surface, hasChat } = useTerminalStore(
@@ -38,6 +98,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   );
 
   const ops = useTerminalPanels(ptyId);
+  const { outgoing, revealed } = useSurfaceSwap(ptyId, surface);
 
   const activePanel = panels.find((p) => p.id === activePanelId) ?? null;
   // The diff takes the panel slot while it is open rather than covering the
@@ -170,20 +231,25 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
           }}
         >
           <SurfaceToggle ptyId={ptyId} />
-          {surface === 'chat' ? (
-            <ChatView cardId={ptyId} />
-          ) : (
-            <XTermContainer
-              ptyId={ptyId}
-              className={XTERM_CLASS}
-              // Collapse padding too when hidden, so basis 0 means truly zero width.
-              style={{
-                background: 'var(--color-terminal-bg)',
-                // Room for the chat/terminal switch floating in the corner.
-                ...(hasChat ? { paddingTop: 48 } : {}),
-                ...(slotOpen && !split ? { padding: 0 } : {}),
-              }}
-            />
+          {(surface === 'terminal' || outgoing === 'terminal') && (
+            <SurfaceLayer role={surface === 'terminal' ? (outgoing && !revealed ? 'pending' : 'current') : 'leaving'}>
+              <XTermContainer
+                ptyId={ptyId}
+                className={XTERM_CLASS}
+                // Collapse padding too when hidden, so basis 0 means truly zero width.
+                style={{
+                  background: 'var(--color-terminal-bg)',
+                  // Room for the chat/terminal switch floating in the corner.
+                  ...(hasChat ? { paddingTop: 48 } : {}),
+                  ...(slotOpen && !split ? { padding: 0 } : {}),
+                }}
+              />
+            </SurfaceLayer>
+          )}
+          {(surface === 'chat' || outgoing === 'chat') && (
+            <SurfaceLayer role={surface === 'chat' ? (outgoing && !revealed ? 'pending' : 'current') : 'leaving'}>
+              <ChatView cardId={ptyId} />
+            </SurfaceLayer>
           )}
         </div>
         {/* One pixel of cut, with a grab target either side of it — see
@@ -292,4 +358,30 @@ function ActivePanel({
         />
       );
   }
+}
+
+/**
+ * The view that is current fills the body; one that is leaving sits under it
+ * at full size, dimmed; one still pending is in place but see-through, so the
+ * leaving view shows until it fades in.
+ */
+function SurfaceLayer({ role, children }: { role: 'current' | 'pending' | 'leaving'; children: React.ReactNode }) {
+  const leaving = role === 'leaving';
+  return (
+    <div
+      className={
+        leaving
+          ? 'absolute inset-0 flex flex-col min-h-0 min-w-0'
+          : 'relative z-[1] flex-1 flex flex-col min-h-0 min-w-0'
+      }
+      style={{
+        opacity: role === 'pending' ? 0 : leaving ? 0.55 : 1,
+        transition: `opacity ${FADE_MS}ms ease-out`,
+        pointerEvents: role === 'current' ? undefined : 'none',
+        background: 'var(--color-terminal-bg)',
+      }}
+    >
+      {children}
+    </div>
+  );
 }
