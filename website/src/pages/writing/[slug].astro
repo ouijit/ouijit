@@ -1,0 +1,31 @@
+---
+import { render } from 'astro:content';
+import Site from '../../layouts/Site.astro';
+import Cta from '../../components/home/Cta.astro';
+import { AUTHOR, listPosts, postDate, type Post } from '../../writing';
+
+export async function getStaticPaths() {
+  const posts = await listPosts();
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props as { post: Post };
+const { Content } = await render(post);
+const markdownUrl = `https://ouijit.com/writing/${post.id}.md`;
+---
+<Site title={`${post.data.title} · Ouijit`} description={post.data.description} markdownUrl={markdownUrl}>
+  <main class="compare-content writing-post">
+    <article>
+      <header>
+        <h1>{post.data.title}</h1>
+        <p class="writing-byline">
+          <a href={AUTHOR.url} target="_blank" rel="noopener">{AUTHOR.name}</a>
+          <time datetime={post.data.date.toISOString()}>{postDate.format(post.data.date)}</time>
+        </p>
+      </header>
+      <Content />
+    </article>
+    <p class="writing-back"><a href="/writing/">All writing</a></p>
+  </main>
+  <Cta />
+</Site>

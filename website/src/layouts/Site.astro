@@ -30,6 +30,7 @@ const ogImage = new URL('/assets/og-image.png', Astro.site ?? 'https://ouijit.co
   <meta name="description" content={description} />
   <link rel="canonical" href={canonical} />
   {markdownUrl && <link rel="alternate" type="text/markdown" href={markdownUrl} title="Markdown" />}
+  <link rel="alternate" type="application/rss+xml" href="/writing/rss.xml" title="Ouijit · Writing" />
 
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Ouijit" />

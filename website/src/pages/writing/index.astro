@@ -1,0 +1,20 @@
+---
+import Site from '../../layouts/Site.astro';
+import { listPosts, postDate } from '../../writing';
+
+const posts = await listPosts();
+---
+<Site
+  title="Writing · Ouijit"
+  description="Posts, technical write-ups and essays on running coding agents in parallel, from the person who makes Ouijit.">
+  <main class="compare-content writing">
+    <h1>Writing</h1>
+    {posts.map((post) => (
+      <article class="writing-entry">
+        <h2><a href={`/writing/${post.id}/`}>{post.data.title}</a></h2>
+        <time datetime={post.data.date.toISOString()}>{postDate.format(post.data.date)}</time>
+        <p>{post.data.description}</p>
+      </article>
+    ))}
+  </main>
+</Site>

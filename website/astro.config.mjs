@@ -14,6 +14,9 @@ export default defineConfig({
     '/docs/kanban': '/docs/worktrees/#board',
     '/docs/resume': '/docs/terminals/#resume',
   },
+  markdown: {
+    shikiConfig: { themes: { dark: 'github-dark' }, defaultColor: false },
+  },
   build: {
     format: 'directory',
   },

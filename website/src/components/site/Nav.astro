@@ -11,6 +11,7 @@ const current = (href: string) => (path.startsWith(href) ? 'page' : undefined);
     <ul class="nav-links">
       <li><a href="/sandbox/" aria-current={current('/sandbox/')}>Sandbox</a></li>
       <li><a href={docsHref} aria-current={current('/docs/')}>Docs</a></li>
+      <li><a href="/writing/" aria-current={current('/writing/')}>Writing</a></li>
       <li><a href="/about/" aria-current={current('/about/')}>About</a></li>
       <li><a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a></li>
     </ul>
@@ -19,6 +20,7 @@ const current = (href: string) => (path.startsWith(href) ? 'page' : undefined);
   <div class="nav-mobile" id="nav-mobile">
     <a href="/sandbox/" aria-current={current('/sandbox/')}>Sandbox</a>
     <a href={docsHref} aria-current={current('/docs/')}>Docs</a>
+    <a href="/writing/" aria-current={current('/writing/')}>Writing</a>
     <a href="/about/" aria-current={current('/about/')}>About</a>
     <a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a>
   </div>
