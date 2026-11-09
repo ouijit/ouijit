@@ -69,16 +69,18 @@ describe('switching a card between terminal and chat', () => {
     expect(screen.getByText('SCREEN')).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'Terminal' }).getAttribute('aria-checked')).toBe('true');
 
-    // The choice shows at once, and says what it is doing while nothing is waiting.
+    // The choice shows at once, and breathes until the other view is up.
+    const group = () => screen.getByRole('radiogroup', { name: 'View' });
+    expect(group().dataset.pending).toBeUndefined();
     display({ switching: 'chat' });
     expect(screen.getByRole('radio', { name: 'Chat' }).getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByText('Opening chat…')).toBeTruthy();
+    expect(group().dataset.pending).toBe('true');
 
-    // The chat view is in place but see-through; the screen stays up, dimmed, until it has content.
+    // The chat view is in place but see-through; the screen stays up, as it was, until it has content.
     display({ surface: 'chat' });
     const loading = screen.getByText('Loading chat…');
     expect(layerOf(loading).style.opacity).toBe('0');
-    expect(layerOf(screen.getByText('SCREEN')).style.opacity).toBe('0.55');
+    expect(layerOf(screen.getByText('SCREEN')).style.opacity).toBe('1');
 
     chat({ status: 'starting' });
     expect(layerOf(screen.getByText('Starting Claude Code…')).style.opacity).toBe('0');
@@ -86,6 +88,7 @@ describe('switching a card between terminal and chat', () => {
     expect(layerOf(screen.getByText('Claude Code is ready.')).style.opacity).toBe('1');
     await waitFor(() => expect(screen.queryByText('SCREEN')).toBeNull());
     display({ switching: null });
+    expect(group().dataset.pending).toBeUndefined();
 
     // Back the other way: a turn in flight is waited on, and can be cut short.
     chat({ status: 'running' });
@@ -93,15 +96,24 @@ describe('switching a card between terminal and chat', () => {
     expect(screen.getByText('Switching when this turn ends')).toBeTruthy();
     expect(screen.getByText('Stop now')).toBeTruthy();
     chat({ status: 'idle' });
-    expect(screen.getByText('Opening terminal…')).toBeTruthy();
+    expect(screen.queryByText('Switching when this turn ends')).toBeNull();
+    expect(group().dataset.pending).toBe('true');
+
+    // The chat's agent stopping is the handoff, not something the view announces.
+    chat({ status: 'exited' });
+    expect(screen.queryByText('Claude Code stopped')).toBeNull();
+    expect(screen.queryByText('Restart')).toBeNull();
 
     // The cleared screen stays see-through until the new PTY draws.
     display({ blank: true });
     display({ surface: 'terminal' });
+    display({ switching: null });
     expect(layerOf(screen.getByText('SCREEN')).style.opacity).toBe('0');
-    expect(layerOf(screen.getByText('Claude Code is ready.')).style.opacity).toBe('0.55');
+    expect(layerOf(screen.getByText('Claude Code is ready.')).style.opacity).toBe('1');
+    expect(group().dataset.pending).toBe('true');
     display({ blank: false });
     expect(layerOf(screen.getByText('SCREEN')).style.opacity).toBe('1');
+    expect(group().dataset.pending).toBeUndefined();
     await waitFor(() => expect(screen.queryByText('Claude Code is ready.')).toBeNull());
   });
 });

@@ -402,6 +402,8 @@ export class OuijitTerminal {
   // ── PTY cleanup ─────────────────────────────────────────────────────
   private cleanupData: (() => void) | null = null;
   private blank = false;
+  private blankSince = 0;
+  private blankTimer: ReturnType<typeof setTimeout> | null = null;
   cleanupExit: (() => void) | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
@@ -611,7 +613,25 @@ export class OuijitTerminal {
   clearScreen(): void {
     this.xterm.reset();
     this.blank = true;
+    this.blankSince = 0;
     this.pushDisplayState({ blank: true });
+  }
+
+  /**
+   * A full-screen UI arrives as a burst of writes, clearing and redrawing on
+   * the way, so the screen counts as drawn once the burst goes quiet, or has
+   * run long enough that it is a UI repainting rather than one still arriving.
+   */
+  private noteDrawing(): void {
+    const now = Date.now();
+    if (!this.blankSince) this.blankSince = now;
+    if (this.blankTimer) clearTimeout(this.blankTimer);
+    const settle = now - this.blankSince >= 450 ? 0 : 90;
+    this.blankTimer = setTimeout(() => {
+      this.blankTimer = null;
+      this.blank = false;
+      this.pushDisplayState({ blank: false });
+    }, settle);
   }
 
   /** Suppress PTY resizes during reconnection until layout settles. */
@@ -1020,10 +1040,7 @@ export class OuijitTerminal {
 
   private wireDataHandler(skipSideEffects?: boolean, onData?: (data: string) => void): void {
     this.cleanupData = window.api.pty.onData(this.ptyId, (data) => {
-      if (this.blank) {
-        this.blank = false;
-        this.pushDisplayState({ blank: false });
-      }
+      if (this.blank) this.noteDrawing();
       const buf = this.xterm.buffer.active;
       const atBottom = buf.viewportY >= buf.baseY;
 

@@ -212,6 +212,25 @@ textarea,
   }
 }
 
+/* The chat/terminal switch: its highlight slides to the choice, then breathes until that view is up. */
+.surface-toggle-thumb {
+  transition: transform 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.surface-toggle-thumb--pending {
+  animation: surface-toggle-breathe 1.2s ease-in-out infinite;
+}
+
+@keyframes surface-toggle-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
 @keyframes chain-badge-jitter {
   0% {
     transform: scale(1);

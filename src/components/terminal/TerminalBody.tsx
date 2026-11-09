@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -24,7 +24,7 @@ const EMPTY_PANELS: TerminalPanel[] = [];
 const XTERM_CLASS =
   'terminal-xterm-container flex-1 min-h-0 min-w-0 rounded-none border-none pt-4 pl-4 pr-2 pb-2 overflow-hidden';
 
-const FADE_MS = 180;
+const FADE_MS = 240;
 /** How long the view being left stays up when the one replacing it never reports in. */
 const FADE_DEADLINE_MS = 8000;
 
@@ -45,13 +45,16 @@ function useSurfaceReady(ptyId: string, surface: TaskSurface): boolean {
 }
 
 /**
- * Switching surface keeps the view being left in place, dimmed, until the one
- * replacing it is ready, then fades that one in over it. Both views keep their
- * own slot so a change of role never remounts either of them, and the leaving
- * one is known in the same render that drops it from current, so it never
- * leaves the tree in between.
+ * Switching surface keeps the view being left in place until the one replacing
+ * it is ready, then fades that one in over it and drops the old one once the
+ * fade has ended. Both views keep their own slot so a change of role never
+ * remounts either of them, and the leaving one is known in the same render
+ * that drops it from current, so it never leaves the tree in between.
  */
-function useSurfaceSwap(ptyId: string, surface: TaskSurface): { outgoing: TaskSurface | null; revealed: boolean } {
+function useSurfaceSwap(
+  ptyId: string,
+  surface: TaskSurface,
+): { outgoing: TaskSurface | null; revealed: boolean; onFaded: () => void } {
   const [outgoing, setOutgoing] = useState<TaskSurface | null>(null);
   const [shown, setShown] = useState(surface);
   if (shown !== surface) {
@@ -73,13 +76,15 @@ function useSurfaceSwap(ptyId: string, surface: TaskSurface): { outgoing: TaskSu
     const deadline = setTimeout(() => setRevealed(true), FADE_DEADLINE_MS);
     return () => clearTimeout(deadline);
   }, [outgoing, ready]);
+  const onFaded = useCallback(() => setOutgoing(null), []);
+  // Should the transition never fire, as when the card is off screen.
   useEffect(() => {
     if (!revealed) return;
-    const done = setTimeout(() => setOutgoing(null), FADE_MS);
-    return () => clearTimeout(done);
-  }, [revealed]);
+    const fallback = setTimeout(onFaded, FADE_MS * 2);
+    return () => clearTimeout(fallback);
+  }, [revealed, onFaded]);
 
-  return { outgoing, revealed };
+  return { outgoing, revealed, onFaded };
 }
 
 export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
@@ -98,7 +103,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   );
 
   const ops = useTerminalPanels(ptyId);
-  const { outgoing, revealed } = useSurfaceSwap(ptyId, surface);
+  const { outgoing, revealed, onFaded } = useSurfaceSwap(ptyId, surface);
 
   const activePanel = panels.find((p) => p.id === activePanelId) ?? null;
   // The diff takes the panel slot while it is open rather than covering the
@@ -232,7 +237,11 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
         >
           <SurfaceToggle ptyId={ptyId} />
           {(surface === 'terminal' || outgoing === 'terminal') && (
-            <SurfaceLayer role={surface === 'terminal' ? (outgoing && !revealed ? 'pending' : 'current') : 'leaving'}>
+            <SurfaceLayer
+              role={surface === 'terminal' ? (outgoing && !revealed ? 'pending' : 'current') : 'leaving'}
+              fading={surface === 'terminal' && outgoing !== null}
+              onFaded={onFaded}
+            >
               <XTermContainer
                 ptyId={ptyId}
                 className={XTERM_CLASS}
@@ -247,7 +256,11 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
             </SurfaceLayer>
           )}
           {(surface === 'chat' || outgoing === 'chat') && (
-            <SurfaceLayer role={surface === 'chat' ? (outgoing && !revealed ? 'pending' : 'current') : 'leaving'}>
+            <SurfaceLayer
+              role={surface === 'chat' ? (outgoing && !revealed ? 'pending' : 'current') : 'leaving'}
+              fading={surface === 'chat' && outgoing !== null}
+              onFaded={onFaded}
+            >
               <ChatView cardId={ptyId} />
             </SurfaceLayer>
           )}
@@ -362,10 +375,23 @@ function ActivePanel({
 
 /**
  * The view that is current fills the body; one that is leaving sits under it
- * at full size, dimmed; one still pending is in place but see-through, so the
- * leaving view shows until it fades in.
+ * at full size; one still pending is in place but see-through, so the leaving
+ * view shows until the pending one fades in over it. Only the view coming in
+ * moves: the one underneath is covered by the time the fade ends, so fading it
+ * too would only let the background show through midway.
  */
-function SurfaceLayer({ role, children }: { role: 'current' | 'pending' | 'leaving'; children: React.ReactNode }) {
+function SurfaceLayer({
+  role,
+  fading,
+  onFaded,
+  children,
+}: {
+  role: 'current' | 'pending' | 'leaving';
+  /** Coming in over another view, so a finished opacity transition ends the swap. */
+  fading: boolean;
+  onFaded: () => void;
+  children: React.ReactNode;
+}) {
   const leaving = role === 'leaving';
   return (
     <div
@@ -375,10 +401,14 @@ function SurfaceLayer({ role, children }: { role: 'current' | 'pending' | 'leavi
           : 'relative z-[1] flex-1 flex flex-col min-h-0 min-w-0'
       }
       style={{
-        opacity: role === 'pending' ? 0 : leaving ? 0.55 : 1,
-        transition: `opacity ${FADE_MS}ms ease-out`,
+        opacity: role === 'pending' ? 0 : 1,
+        transition: fading ? `opacity ${FADE_MS}ms cubic-bezier(0.2, 0, 0, 1)` : undefined,
+        willChange: fading ? 'opacity' : undefined,
         pointerEvents: role === 'current' ? undefined : 'none',
         background: 'var(--color-terminal-bg)',
+      }}
+      onTransitionEnd={(event) => {
+        if (fading && event.target === event.currentTarget && event.propertyName === 'opacity') onFaded();
       }}
     >
       {children}

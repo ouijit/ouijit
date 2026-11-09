@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { ChatNodeList, type NodeContext } from './ChatNodes';
 import { ChatBackground } from './ChatBackground';
@@ -18,6 +19,15 @@ function useSession(cardId: string) {
       if (snapshot && !useChatStore.getState().sessions[cardId]) useChatStore.getState().adopt(snapshot);
     });
   }, [cardId, session]);
+  // Handing the conversation to the terminal stops the chat's agent, and this
+  // view stays up until the terminal has drawn: that stop is not an ending.
+  const handingOff = useTerminalStore((s) => {
+    const display = s.displayStates[cardId];
+    return display?.switching === 'terminal' || (display?.surface ?? 'chat') !== 'chat';
+  });
+  if (session && handingOff && session.info.status === 'exited') {
+    return { ...session, info: { ...session.info, status: 'idle' as const } };
+  }
   return session;
 }
 
