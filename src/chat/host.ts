@@ -389,7 +389,7 @@ export class ChatHost {
       );
       const settings = parseChatSettings((key) => stored.get(key));
       const sandbox = isActiveSandbox(session.row.sandbox_provider) ? session.row.sandbox_provider : undefined;
-      const chosenMode = resume ? session.info.mode : undefined;
+      const chosenMode = resume ? (session.info.pendingMode ?? session.info.mode) : undefined;
       const token = issueToken(id, sandbox ? 'sandbox' : 'host');
       const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path);
       session.referenceEnv = referenceEnv;
@@ -406,8 +406,8 @@ export class ChatHost {
       // For a driver that cannot launch in a mode, switch to it once started.
       if (chosenMode && session.driver.setMode && session.info.mode !== chosenMode) {
         await session.driver.setMode(chosenMode);
-        session.emit({ type: 'session', patch: { mode: chosenMode } });
       }
+      if (chosenMode) session.emit({ type: 'session', patch: { mode: chosenMode, pendingMode: null } });
       session.emit({
         type: 'session',
         patch: {
@@ -471,7 +471,7 @@ export class ChatHost {
         if (next.status === 'exited' || next.status === 'error') {
           for (const node of settled(session.nodes)) session.emit({ type: 'node', node });
         }
-        if (wasBusy && next.status === 'idle') void this.drainQueue(session);
+        if (wasBusy && next.status === 'idle') void this.endTurn(session);
       },
       ask: (request) =>
         new Promise<ChatAnswer>((resolve) => {
@@ -608,6 +608,21 @@ export class ChatHost {
     }
   }
 
+  /** A mode picked during the turn takes effect first, so a queued message runs under it. */
+  private async endTurn(session: HostedSession): Promise<void> {
+    const pending = session.info.pendingMode;
+    if (pending && session.driver?.setMode) {
+      try {
+        await session.driver.setMode(pending);
+        session.emit({ type: 'session', patch: { mode: pending, pendingMode: null } });
+      } catch (error) {
+        chatLog.warn('mode did not apply', { id: session.info.id, mode: pending, error: String(error) });
+        session.emit({ type: 'session', patch: { pendingMode: null } });
+      }
+    }
+    await this.drainQueue(session);
+  }
+
   private async drainQueue(session: HostedSession): Promise<void> {
     const next = session.queued.shift();
     if (!next || !session.driver) return;
@@ -681,11 +696,19 @@ export class ChatHost {
     session.emit({ type: 'session', patch: { effort } });
   }
 
+  /**
+   * Changing an agent's mode partway through a turn leaves Claude Code unable
+   * to finish the turn, so a change made then waits for the turn to end.
+   */
   async setMode(id: string, mode: string): Promise<void> {
     const { session, driver } = await this.requireDriver(id);
     if (!driver.setMode) throw new Error('This agent has no modes');
+    if (session.info.status === 'running' || session.info.status === 'awaiting') {
+      session.emit({ type: 'session', patch: { pendingMode: mode === session.info.mode ? null : mode } });
+      return;
+    }
     await driver.setMode(mode);
-    session.emit({ type: 'session', patch: { mode } });
+    session.emit({ type: 'session', patch: { mode, pendingMode: null } });
   }
 
   async rewind(id: string, userMessageId: string): Promise<void> {

@@ -14,7 +14,7 @@ import { ChatHost } from '../../../chat/host';
 import { CLI_REFERENCE, getCliReferencePath } from '../../../hookServer';
 import { getDriver } from '../../../chat/drivers';
 import { _resetCacheForTesting, getChatRepo, setGlobalSetting } from '../../../db';
-import { NO_CAPABILITIES } from '../../../chat/model';
+import { NO_CAPABILITIES, pendingRequests } from '../../../chat/model';
 import type { ChatAgentId, ChatNode, ChatSnapshot, RequestNode, ToolCallNode } from '../../../chat/model';
 import { loadCassette, loadCassettes, recording, recordingSpawn, replayingSpawn, cassettePath } from './cassette';
 
@@ -517,7 +517,7 @@ describe('claude mode', () => {
   const available = recording || fs.existsSync(cassettePath(name));
 
   test.skipIf(!available)(
-    'the mode picked in a chat holds when Claude is restarted for an effort change and when the chat is reopened',
+    'a mode picked mid-turn applies when the turn ends, then holds through an effort restart and a reopen',
     async () => {
       const cwd = repo();
       const probe = recording ? await getDriver('claude').probe() : null;
@@ -525,18 +525,32 @@ describe('claude mode', () => {
         spawnProcess: recording ? recordingSpawn(name, 'claude', probe?.version) : replayingSpawn(loadCassettes(name)),
       });
       const id = 'pty-mode-claude';
-      const replied = (count: number) => (s: ChatSnapshot) =>
-        s.info.status === 'idle' && s.nodes.filter((n) => n.kind === 'assistant_message').length >= count;
+      const replied = (word: string) => (s: ChatSnapshot) =>
+        s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message' && n.text.includes(word));
       await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+
+      // Picked while Claude waits on a permission: it cannot take it until the turn is over.
+      await host.prompt(id, {
+        text: 'Create a file named note.txt containing the word hi, using your file editing tool. Then reply with only: first',
+      });
+      const asked = await until(host, id, (s) => pendingRequests(s.nodes).length > 0, timeout);
       await host.setMode(id, 'acceptEdits');
+      expect(host.snapshot(id)!.info.pendingMode).toBe('acceptEdits');
+      expect(host.snapshot(id)!.info.mode).not.toBe('acceptEdits');
+      const [request] = pendingRequests(asked.nodes);
+      const allow = request.options.find((option) => option.kind === 'allow_once') ?? request.options[0];
+      await host.answer(id, request.id, { kind: 'option', optionId: allow.id });
+      const first = await until(host, id, (s) => replied('first')(s) && s.info.pendingMode == null, timeout);
+      expect(first.info.mode).toBe('acceptEdits');
+
       await host.setEffort(id, 'high');
-      await host.prompt(id, { text: 'Reply with only: ok' });
-      expect((await until(host, id, replied(1), timeout)).info.mode).toBe('acceptEdits');
+      await host.prompt(id, { text: 'Reply with only: second' });
+      expect((await until(host, id, replied('second'), timeout)).info.mode).toBe('acceptEdits');
 
       await host.stop(id);
       await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
-      await host.prompt(id, { text: 'Reply with only: again' });
-      expect((await until(host, id, replied(2), timeout)).info.mode).toBe('acceptEdits');
+      await host.prompt(id, { text: 'Reply with only: third' });
+      expect((await until(host, id, replied('third'), timeout)).info.mode).toBe('acceptEdits');
       await host.stop(id);
     },
     timeout * 3,

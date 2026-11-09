@@ -29,6 +29,8 @@ interface Setting {
   label: string;
   options: ChatOption[];
   value: string | undefined;
+  /** The value is chosen but not yet in force. */
+  pending?: boolean;
   onPick: (id: string) => void;
 }
 
@@ -55,7 +57,8 @@ function settingsFor(cardId: string, info: ChatSessionInfo): Setting[] {
     settings.push({
       label: 'Mode',
       options: info.modes,
-      value: info.mode,
+      value: info.pendingMode ?? info.mode,
+      pending: Boolean(info.pendingMode),
       onPick: (id) => void window.api.chat.setMode(cardId, id).catch(report),
     });
   }
@@ -91,6 +94,9 @@ function OptionList({ setting, onDone }: { setting: Setting; onDone: () => void 
           </button>
         );
       })}
+      {setting.pending && (
+        <div className="px-2.5 pt-1.5 pb-1 text-[12px] text-text-tertiary">Applies when this turn ends.</div>
+      )}
     </div>
   );
 }

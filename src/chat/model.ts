@@ -231,6 +231,8 @@ export interface ChatSessionInfo {
   effort?: string;
   efforts: ChatOption[];
   mode?: string;
+  /** A mode picked during a turn, applied once the turn ends. */
+  pendingMode?: string | null;
   modes: ChatOption[];
   commands: ChatCommand[];
   usage?: { inputTokens: number; outputTokens: number; contextWindow?: number };
