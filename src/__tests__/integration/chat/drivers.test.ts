@@ -141,18 +141,17 @@ describe.each(['claude', 'codex', 'pi', 'opencode', 'acp'] as const)('%s in chat
       expect(edit!.status).toBe('completed');
       expect(finished.nodes.every((n) => n.kind !== 'request' || n.status !== 'pending')).toBe(true);
 
-      await host.stop(id);
-      const stored = host.snapshot(id)!;
-      expect(stored.info.status).toBe('exited');
-      expect(kinds(stored.nodes)).toEqual(kinds(finished.nodes));
       if (recording) {
         expect(fs.readFileSync(path.join(cwd, 'hello.txt'), 'utf8').trim()).toBe('hi');
       }
 
       // A second process picks the same conversation up: the agent remembers
       // the first turn, and the transcript keeps it. Asked for eagerly, the
-      // stored transcript comes back before the agent is up.
+      // stored transcript comes back before the agent is up; asked for while
+      // the first process is still going, the start waits for it.
+      const stopping = host.stop(id);
       const reopened = await host.start({ id, agent, projectPath: cwd, cwd, taskId: null, eager: true });
+      await stopping;
       expect(reopened.info.status).toBe('starting');
       expect(kinds(reopened.nodes)).toEqual(kinds(finished.nodes));
       const resumed = await until(host, id, (s) => s.info.status !== 'starting', timeout);

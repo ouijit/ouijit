@@ -254,7 +254,9 @@ function chatBusy(id: string): boolean {
 /**
  * Hand the card's conversation to the agent's terminal UI. A running turn
  * finishes first — switching mid-turn would kill the agent partway through a
- * tool call — unless `interrupt` asks for it to stop now.
+ * tool call — unless `interrupt` asks for it to stop now. The chat's agent
+ * takes a moment to exit and writes nothing more once idle, so the terminal
+ * starts without waiting for it.
  */
 export async function switchToTerminal(id: string, opts: { interrupt?: boolean } = {}): Promise<void> {
   const term = terminalInstances.get(id);
@@ -271,7 +273,7 @@ export async function switchToTerminal(id: string, opts: { interrupt?: boolean }
       useProjectStore.getState().addToast('This agent has no terminal to switch to', 'error');
       return;
     }
-    await window.api.chat.stop(id);
+    window.api.chat.stop(id).catch((error: unknown) => chatLog.warn('chat did not stop', { id, error: String(error) }));
     term.openTerminal();
     term.clearScreen();
     term.setSurface('terminal');
@@ -323,7 +325,8 @@ function chatStartOptions(term: OuijitTerminal) {
 /**
  * Bring the conversation back into chat. The agent's terminal UI is stopped
  * once it is idle, and the chat resumes the same conversation, importing the
- * turns that happened in the terminal.
+ * turns that happened in the terminal. The terminal UI takes a moment to exit
+ * and leaves its session file as it was, so the chat starts without waiting.
  */
 export async function switchToChat(id: string): Promise<void> {
   const term = terminalInstances.get(id);
@@ -335,7 +338,7 @@ export async function switchToChat(id: string): Promise<void> {
       () => useTerminalStore.getState().displayStates[id]?.status !== 'thinking' || !terminalInstances.has(id),
     );
     if (!terminalInstances.has(id)) return;
-    await term.releasePty();
+    void term.releasePty();
     term.setSurface('chat');
     const snapshot = await window.api.chat.start({ ...chatStartOptions(term), eager: true });
     useChatStore.getState().adopt(snapshot);

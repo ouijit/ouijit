@@ -122,6 +122,7 @@ class HostedSession {
   private readonly createdAt: string;
   readonly processes = new Set<AgentProcess>();
   starting: Promise<void> | null = null;
+  stopping: Promise<void> | null = null;
   referenceEnv: Record<string, string> = {};
 
   constructor(
@@ -297,7 +298,8 @@ export class ChatHost {
   async start(options: ChatStartOptions): Promise<ChatSnapshot> {
     const id = options.id ?? `pty-${randomUUID()}`;
     const live = this.sessions.get(id);
-    if (live) {
+    if (live?.stopping) await live.stopping;
+    else if (live) {
       await live.starting;
       return live.snapshot();
     }
@@ -734,9 +736,19 @@ export class ChatHost {
    * Resolves once the agent has exited, so the same conversation can be
    * resumed elsewhere — the card's terminal — without two processes writing it.
    */
-  async stop(id: string): Promise<void> {
+  /**
+   * Stop the agent and drop the session from memory, keeping its transcript.
+   * The agent takes a moment to go, and a start asked for meanwhile waits for it.
+   */
+  stop(id: string): Promise<void> {
     const session = this.sessions.get(id);
-    if (!session) return;
+    if (!session) return Promise.resolve();
+    session.stopping ??= this.shutDown(session);
+    return session.stopping;
+  }
+
+  private async shutDown(session: HostedSession): Promise<void> {
+    const id = session.info.id;
     await session.starting;
     this.cancelAsks(session);
     const driver = session.driver;
