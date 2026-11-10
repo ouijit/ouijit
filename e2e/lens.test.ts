@@ -1,7 +1,7 @@
 import { test, expect, createTestRepo, enterProject } from './fixtures';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import Database from 'better-sqlite3';
 import { worktreeSubjectKey } from '../src/lens/subjectKeys';
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
@@ -19,7 +19,7 @@ async function seedLens(
 ): Promise<void> {
   // Straight into the database the running app reads, which is in WAL and takes
   // a second writer for one short insert.
-  const db = new DatabaseSync(path.join(userDataDir, 'ouijit.db'));
+  const db = new Database(path.join(userDataDir, 'ouijit.db'));
   db.prepare(
     `INSERT INTO diff_lenses (project_path, subject_key, pin, groups, lens_id, lens_name, created_at)
      VALUES (?, ?, 'seeded', ?, ?, ?, datetime('now'))

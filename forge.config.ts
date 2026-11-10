@@ -16,7 +16,7 @@ const dmgSigningIdentity = resolveSigningIdentity();
 // Copy a directory tree. Does NOT preserve unix permissions (fs.copyFileSync doesn't),
 // so anything that needs +x must be chmod'd explicitly after copying.
 const copyRecursive = (src: string, dest: string) => {
-  if (!fs.existsSync(src)) return;
+  if (!fs.existsSync(src)) throw new Error(`Missing ${src}`);
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     const srcPath = path.join(src, entry.name);
@@ -50,7 +50,7 @@ const config: ForgeConfig = {
     //
     // Why this is needed:
     //   electron-forge's VitePlugin strips node_modules from the package
-    //   (since Vite bundles JS). Native modules marked as rollup externals
+    //   (since Vite bundles JS). Native modules marked as rolldown externals
     //   still need their real files on disk. This hook copies them in.
     //
     // For cross-builds (e.g. Linux from macOS), set OUIJIT_CROSS_STAGING
@@ -70,6 +70,16 @@ const config: ForgeConfig = {
           const dest = path.join(nodeModulesDest, mod);
           console.log(`Copying ${mod} from ${src}`);
           copyRecursive(src, dest);
+        }
+
+        // better-sqlite3 loads only prebuilds/<platform>-<arch>.node; the rest
+        // is SQLite sources and every other platform's binary.
+        const sqliteDest = path.join(nodeModulesDest, 'better-sqlite3');
+        for (const dir of ['deps', 'src', 'build', 'node_modules']) {
+          fs.rmSync(path.join(sqliteDest, dir), { recursive: true, force: true });
+        }
+        for (const prebuild of fs.readdirSync(path.join(sqliteDest, 'prebuilds'))) {
+          if (prebuild !== `${platform}-${arch}.node`) fs.rmSync(path.join(sqliteDest, 'prebuilds', prebuild));
         }
 
         // 2. Fix node-pty spawn-helper permissions (npm strips execute bits from tarballs)
@@ -132,10 +142,11 @@ const config: ForgeConfig = {
           fs.copyFileSync(cliSrcJs, path.join(cliDestDir, 'ouijit.js'));
           console.log(`Copied CLI bundle`);
         }
-
       },
     ],
   },
+  // Every native module here is N-API, so none needs rebuilding for Electron.
+  rebuildConfig: { onlyModules: [] },
   hooks: {
     postMake: async (_config, makeResults) => {
       // Stabilize artifact filenames so GitHub release asset URLs are stable
