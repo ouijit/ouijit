@@ -6,8 +6,7 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
-import { PublisherGithub } from '@electron-forge/publisher-github';
-import { execFileSync } from 'child_process';
+import { PublisherGitHub } from '@electron-forge/publisher-github';
 import path from 'path';
 import fs from 'fs';
 import { resolveSigningIdentity, notarizeAllowingUnstapled, notarizeDMGs } from './forge.dmg';
@@ -54,116 +53,88 @@ const config: ForgeConfig = {
     //   (since Vite bundles JS). Native modules marked as rollup externals
     //   still need their real files on disk. This hook copies them in.
     //
-    // Why we rebuild better-sqlite3 here:
-    //   forge's rebuildConfig runs BEFORE this hook, when node_modules is
-    //   still empty — so it's a no-op. We run electron-rebuild ourselves
-    //   after copying, which is the only reliable way to get the right ABI.
-    //
     // For cross-builds (e.g. Linux from macOS), set OUIJIT_CROSS_STAGING
     // to a directory with pre-built binaries for the target platform.
     afterCopy: [
-      (buildPath, electronVersion, platform, _arch, callback) => {
-        try {
-          const staging = process.env.OUIJIT_CROSS_STAGING;
-          const nodeModulesDest = path.join(buildPath, 'node_modules');
+      ({ buildPath, platform, arch }) => {
+        const staging = process.env.OUIJIT_CROSS_STAGING;
+        const nodeModulesDest = path.join(buildPath, 'node_modules');
 
-          // 1. Copy all native modules
-          const modulesToCopy = ['node-pty', 'koffi', 'better-sqlite3', 'bindings', 'file-uri-to-path'];
-          for (const mod of modulesToCopy) {
-            const stagedSrc = staging ? path.join(staging, 'node_modules', mod) : null;
-            const src = stagedSrc && fs.existsSync(stagedSrc)
-              ? stagedSrc
-              : path.join(__dirname, 'node_modules', mod);
-            const dest = path.join(nodeModulesDest, mod);
-            console.log(`Copying ${mod} from ${src}`);
-            copyRecursive(src, dest);
-          }
-
-          // 2. Fix node-pty spawn-helper permissions (npm strips execute bits from tarballs)
-          const spawnHelpers = [
-            path.join(nodeModulesDest, 'node-pty', 'prebuilds', 'darwin-arm64', 'spawn-helper'),
-            path.join(nodeModulesDest, 'node-pty', 'prebuilds', 'darwin-x64', 'spawn-helper'),
-          ];
-          for (const helper of spawnHelpers) {
-            if (fs.existsSync(helper)) {
-              fs.chmodSync(helper, 0o755);
-            }
-          }
-
-          // 3. Rebuild better-sqlite3 for Electron's ABI (skip for cross-builds
-          //    which use pre-compiled staged binaries)
-          if (!staging) {
-            console.log(`Rebuilding better-sqlite3 for Electron ${electronVersion}`);
-            execFileSync(
-              path.join(__dirname, 'node_modules', '.bin', 'electron-rebuild'),
-              ['-v', electronVersion, '-o', 'better-sqlite3', '--force', '-m', buildPath],
-              { stdio: 'inherit' },
-            );
-          }
-
-          // 4. Copy nono binary (vendored by download-nono.sh / build-linux.sh).
-          // The existsSync guard keeps a build working if the download step was
-          // skipped — the backend then resolves nono from PATH.
-          const stagedNono = staging ? path.join(staging, 'bin', 'nono') : null;
-          const nonoSrc = stagedNono && fs.existsSync(stagedNono)
-            ? stagedNono
-            : path.join(__dirname, 'resources', 'bin', 'nono');
-          if (fs.existsSync(nonoSrc)) {
-            const binDest = path.join(buildPath, '..', 'bin');
-            fs.mkdirSync(binDest, { recursive: true });
-            fs.copyFileSync(nonoSrc, path.join(binDest, 'nono'));
-            fs.chmodSync(path.join(binDest, 'nono'), 0o755);
-            console.log(`Copied nono from ${nonoSrc}`);
-          }
-
-          // 5. Copy vendored nono agent packs and their lockfile
-          // (platform-independent JSON the union profile inherits) so the
-          // first sandboxed launch needs no network. Same staged-else-resources
-          // resolution as the binaries.
-          // Uses fs.cpSync, not copyRecursive, to preserve the pack hook
-          // scripts' exec bits.
-          const stagedNonoShare = staging ? path.join(staging, 'share', 'nono') : null;
-          const nonoShareSrc = stagedNonoShare && fs.existsSync(stagedNonoShare)
-            ? stagedNonoShare
-            : path.join(__dirname, 'resources', 'share', 'nono');
-          if (fs.existsSync(nonoShareSrc)) {
-            const nonoShareDest = path.join(buildPath, '..', 'share', 'nono');
-            fs.cpSync(nonoShareSrc, nonoShareDest, { recursive: true });
-            console.log(`Copied nono agent packs from ${nonoShareSrc}`);
-          }
-
-          // 6. Copy app icon for Linux
-          if (platform === 'linux') {
-            const iconSrc = path.join(__dirname, 'src', 'assets', 'icons', 'icon.png');
-            if (fs.existsSync(iconSrc)) {
-              const iconDest = path.join(buildPath, 'icon.png');
-              fs.copyFileSync(iconSrc, iconDest);
-              console.log(`Copied icon.png for Linux`);
-            }
-          }
-
-          // 7. Copy bundled CLI (single JS file, no native deps)
-          const cliSrcJs = path.join(__dirname, 'dist-cli', 'ouijit.js');
-          if (fs.existsSync(cliSrcJs)) {
-            const cliDestDir = path.join(buildPath, 'cli');
-            fs.mkdirSync(cliDestDir, { recursive: true });
-            fs.copyFileSync(cliSrcJs, path.join(cliDestDir, 'ouijit.js'));
-            console.log(`Copied CLI bundle`);
-          }
-
-          callback();
-        } catch (err) {
-          callback(err as Error);
+        // 1. Copy all native modules
+        const modulesToCopy = ['node-pty', 'koffi', `@koromix/koffi-${platform}-${arch}`, 'better-sqlite3'];
+        for (const mod of modulesToCopy) {
+          const stagedSrc = staging ? path.join(staging, 'node_modules', mod) : null;
+          const src = stagedSrc && fs.existsSync(stagedSrc)
+            ? stagedSrc
+            : path.join(__dirname, 'node_modules', mod);
+          const dest = path.join(nodeModulesDest, mod);
+          console.log(`Copying ${mod} from ${src}`);
+          copyRecursive(src, dest);
         }
+
+        // 2. Fix node-pty spawn-helper permissions (npm strips execute bits from tarballs)
+        const spawnHelpers = [
+          path.join(nodeModulesDest, 'node-pty', 'prebuilds', 'darwin-arm64', 'spawn-helper'),
+          path.join(nodeModulesDest, 'node-pty', 'prebuilds', 'darwin-x64', 'spawn-helper'),
+        ];
+        for (const helper of spawnHelpers) {
+          if (fs.existsSync(helper)) {
+            fs.chmodSync(helper, 0o755);
+          }
+        }
+
+        // 3. Copy nono binary (vendored by download-nono.sh / build-linux.sh).
+        // The existsSync guard keeps a build working if the download step was
+        // skipped — the backend then resolves nono from PATH.
+        const stagedNono = staging ? path.join(staging, 'bin', 'nono') : null;
+        const nonoSrc = stagedNono && fs.existsSync(stagedNono)
+          ? stagedNono
+          : path.join(__dirname, 'resources', 'bin', 'nono');
+        if (fs.existsSync(nonoSrc)) {
+          const binDest = path.join(buildPath, '..', 'bin');
+          fs.mkdirSync(binDest, { recursive: true });
+          fs.copyFileSync(nonoSrc, path.join(binDest, 'nono'));
+          fs.chmodSync(path.join(binDest, 'nono'), 0o755);
+          console.log(`Copied nono from ${nonoSrc}`);
+        }
+
+        // 4. Copy vendored nono agent packs and their lockfile
+        // (platform-independent JSON the union profile inherits) so the
+        // first sandboxed launch needs no network. Same staged-else-resources
+        // resolution as the binaries.
+        // Uses fs.cpSync, not copyRecursive, to preserve the pack hook
+        // scripts' exec bits.
+        const stagedNonoShare = staging ? path.join(staging, 'share', 'nono') : null;
+        const nonoShareSrc = stagedNonoShare && fs.existsSync(stagedNonoShare)
+          ? stagedNonoShare
+          : path.join(__dirname, 'resources', 'share', 'nono');
+        if (fs.existsSync(nonoShareSrc)) {
+          const nonoShareDest = path.join(buildPath, '..', 'share', 'nono');
+          fs.cpSync(nonoShareSrc, nonoShareDest, { recursive: true });
+          console.log(`Copied nono agent packs from ${nonoShareSrc}`);
+        }
+
+        // 5. Copy app icon for Linux
+        if (platform === 'linux') {
+          const iconSrc = path.join(__dirname, 'src', 'assets', 'icons', 'icon.png');
+          if (fs.existsSync(iconSrc)) {
+            const iconDest = path.join(buildPath, 'icon.png');
+            fs.copyFileSync(iconSrc, iconDest);
+            console.log(`Copied icon.png for Linux`);
+          }
+        }
+
+        // 6. Copy bundled CLI (single JS file, no native deps)
+        const cliSrcJs = path.join(__dirname, 'dist-cli', 'ouijit.js');
+        if (fs.existsSync(cliSrcJs)) {
+          const cliDestDir = path.join(buildPath, 'cli');
+          fs.mkdirSync(cliDestDir, { recursive: true });
+          fs.copyFileSync(cliSrcJs, path.join(cliDestDir, 'ouijit.js'));
+          console.log(`Copied CLI bundle`);
+        }
+
       },
     ],
-  },
-  // Rebuild better-sqlite3 for Electron's ABI during `npm start` (dev mode).
-  // For packaging this is a no-op (Vite strips node_modules before it runs),
-  // so afterCopy handles the packaging rebuild separately above.
-  rebuildConfig: {
-    force: true,
-    onlyModules: ['better-sqlite3'],
   },
   hooks: {
     postMake: async (_config, makeResults) => {
@@ -251,7 +222,7 @@ const config: ForgeConfig = {
     ),
   ],
   publishers: [
-    new PublisherGithub({
+    new PublisherGitHub({
       repository: {
         owner: 'ouijit',
         name: 'ouijit',
@@ -268,19 +239,19 @@ const config: ForgeConfig = {
         {
           // `entry` is just an alias for `build.lib.entry` in the corresponding file of `config`.
           entry: 'src/main.ts',
-          config: 'vite.main.config.ts',
+          config: 'vite.main.config.mts',
           target: 'main',
         },
         {
           entry: 'src/preload.ts',
-          config: 'vite.preload.config.ts',
+          config: 'vite.preload.config.mts',
           target: 'preload',
         },
       ],
       renderer: [
         {
           name: 'main_window',
-          config: 'vite.renderer.config.ts',
+          config: 'vite.renderer.config.mts',
         },
       ],
     }),

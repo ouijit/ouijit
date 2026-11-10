@@ -245,7 +245,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     // background — the user opted into a bulk action rather than reviewing
     // each one.
     set({
-      runHookQueue: settleAllPrompts(queue, (req, index) =>
+      runHookQueue: settleAllPrompts<RunHookResult | null, RunHookRequest>(queue, (req, index) =>
         index === 0 ? headResult : { command: req.hook.command, foreground: false, sandbox: req.sandbox },
       ),
       runHookQueueTotal: 0,

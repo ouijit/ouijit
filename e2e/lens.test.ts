@@ -18,9 +18,7 @@ async function seedLens(
   row: { projectPath: string; subjectKey: string; lensId: string; lensName: string; groups: string },
 ): Promise<void> {
   // Straight into the database the running app reads, which is in WAL and takes
-  // a second writer for one short insert. Through `node:sqlite` rather than the
-  // app's own better-sqlite3, which is built for Electron's ABI and will not
-  // load in this process.
+  // a second writer for one short insert.
   const db = new DatabaseSync(path.join(userDataDir, 'ouijit.db'));
   db.prepare(
     `INSERT INTO diff_lenses (project_path, subject_key, pin, groups, lens_id, lens_name, created_at)

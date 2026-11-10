@@ -110,6 +110,17 @@ limactl shell "${LIMA_VM}" -- bash -c "
 echo "==> Staging cross-compiled node-pty..."
 limactl copy -r "${LIMA_VM}":/tmp/node-pty-x64/node_modules/node-pty "$STAGING/node_modules/node-pty"
 
+# 1e. Stage koffi's Linux binary, an optional dependency npm skips on macOS
+echo "==> Staging koffi for Linux x64..."
+KOFFI_VERSION="$(node -p "require('${PROJECT_DIR}/node_modules/koffi/package.json').version")"
+KOFFI_TMP="$(mktemp -d)"
+trap 'rm -rf "$KOFFI_TMP"' EXIT
+(cd "$KOFFI_TMP" && npm pack --silent "@koromix/koffi-linux-x64@${KOFFI_VERSION}" >/dev/null && tar xzf ./*.tgz)
+mkdir -p "$STAGING/node_modules/@koromix"
+mv "$KOFFI_TMP/package" "$STAGING/node_modules/@koromix/koffi-linux-x64"
+rm -rf "$KOFFI_TMP"
+trap - EXIT
+
 # ─── Step 2: Package with staged binaries ────────────────────────────
 
 echo "==> Packaging app for Linux x64..."

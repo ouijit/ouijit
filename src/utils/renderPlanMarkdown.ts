@@ -62,6 +62,8 @@ function ensureMermaid(): void {
   mermaid.initialize({
     startOnLoad: false,
     theme,
+    layout: 'dagre',
+    look: 'classic',
     securityLevel: 'strict',
     fontFamily: MERMAID_FONT_FAMILY,
     // Render labels as native SVG <text> elements rather than <foreignObject>

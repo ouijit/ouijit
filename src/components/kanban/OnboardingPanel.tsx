@@ -69,7 +69,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   // Set only on a real transition into 'in-flight'. On mount with a task
   // already in_progress, the store's hooks have not loaded and
   // startHookConfigured is briefly false, which would latch falsely.
-  const prevStageRef = useRef<Stage | undefined>(undefined);
+  const prevStageRef = useRef<Stage | null | undefined>(undefined);
   useEffect(() => {
     const prev = prevStageRef.current;
     prevStageRef.current = stage;

@@ -97,9 +97,3 @@ Where a test goes, per `vitest.config.ts`:
   under a tmpdir.
 - `src/__tests__/renderer/**/*.test.tsx` — `renderer`, jsdom.
 - `e2e/*.test.ts` — Playwright, driving a real Electron window.
-
-better-sqlite3 is built once per runtime by `scripts/sqlite-bindings.mjs`,
-which every test script runs as a pre-hook: vitest loads the Node copy from
-`node_modules/.cache`, and Electron loads the package's own `build/Release`.
-Calling `npx vitest` directly skips that hook, so run the script first on a
-fresh install.
