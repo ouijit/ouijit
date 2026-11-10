@@ -817,7 +817,7 @@ textarea,
 }
 
 .app-markdown img {
-  @apply max-w-full h-auto my-2 rounded-md;
+  @apply max-w-full h-auto my-2;
 }
 
 .app-markdown strong {
