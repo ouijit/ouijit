@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { WakeEvent } from './chat/preferences';
+import type { HomeChatState, WakeEvent } from './chat/preferences';
 import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/contract';
 import type { DiffDefaults } from './git';
 import type {
@@ -176,6 +176,11 @@ contextBridge.exposeInMainWorld('api', {
     start: () => typedInvoke('homeChat:start'),
     restart: () => typedInvoke('homeChat:restart'),
     wake: (event: WakeEvent, text: string) => typedInvoke('homeChat:wake', event, text),
+    create: () => typedInvoke('homeChat:new'),
+    switch: (id: string) => typedInvoke('homeChat:switch', id),
+    list: () => typedInvoke('homeChat:list'),
+    rename: (id: string, title: string) => typedInvoke('homeChat:rename', id, title),
+    onChanged: (callback: (state: HomeChatState) => void) => typedListen('homeChat:changed', callback),
   },
 
   worktree: {

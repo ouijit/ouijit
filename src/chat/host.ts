@@ -235,6 +235,8 @@ function persistedInfo(info: ChatSessionInfo): ChatSessionInfo {
 
 export interface ChatHostOptions {
   spawnProcess?: typeof spawnAgentProcess;
+  /** Takes `/clear` for a session instead of the driver; true when it did. */
+  onClear?: (id: string) => Promise<boolean>;
 }
 
 export class ChatHost {
@@ -247,6 +249,11 @@ export class ChatHost {
   /** Test-only: put a recorded agent behind the app's own host. */
   _setOptionsForTesting(options: ChatHostOptions): void {
     this.options = options;
+  }
+
+  /** What `/clear` does in a session, over the driver's own clear. */
+  set onClear(hook: ChatHostOptions['onClear']) {
+    this.options = { ...this.options, onClear: hook };
   }
 
   subscribe(listener: ChatListener): () => void {
@@ -619,6 +626,7 @@ export class ChatHost {
     };
     switch (command.action) {
       case 'clear':
+        if (await this.options.onClear?.(session.info.id)) return true;
         if (!driver.clear) return false;
         if (busy) throw new Error('Wait for the turn to end, or stop it, before clearing');
         await driver.clear();
@@ -710,6 +718,20 @@ export class ChatHost {
     session.queued.splice(0).forEach((node) => session.emit({ type: 'remove', ids: [node.id] }));
     this.cancelAsks(session);
     await driver.interrupt();
+  }
+
+  /** Name a session, live or stored. False when there is no such session. */
+  setLabel(id: string, label: string): boolean {
+    const live = this.sessions.get(id);
+    if (live) {
+      live.emit({ type: 'session', patch: { label } });
+      return true;
+    }
+    const row = getChatRepo().get(id);
+    if (!row) return false;
+    const info = JSON.parse(row.info) as ChatSessionInfo;
+    getChatRepo().save({ ...row, info: JSON.stringify({ ...info, label }) }, [], []);
+    return true;
   }
 
   async setModel(id: string, model: string): Promise<void> {

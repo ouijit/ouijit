@@ -45,15 +45,50 @@ export function parseChatSettings(read: (key: string) => string | undefined | nu
   };
 }
 
-/** The app-wide chat's session id: one conversation, under one card id, across every project. */
-export const HOME_CHAT_ID = 'chat';
+/**
+ * The app-wide chat's conversations are sessions with no task, under ids of
+ * their own, so one of them can be told from a card's session by its id alone.
+ */
+export const HOME_CHAT_ID_PREFIX = 'home-';
+
+export function isHomeChatId(id: string): boolean {
+  return id === 'chat' || id.startsWith(HOME_CHAT_ID_PREFIX);
+}
 
 export const HOME_CHAT_SETTING_KEYS = {
   agent: 'homeChat:agent',
   sandbox: 'homeChat:sandbox',
   instructions: 'homeChat:instructions',
   wake: 'homeChat:wake',
+  current: 'homeChat:current',
 } as const;
+
+export const UNTITLED_HOME_CHAT = 'New chat';
+
+/** A conversation's title, until renamed: the start of what it was asked first. */
+export function titleFromMessage(text: string): string {
+  const line = text
+    .split('\n')
+    .map((l) => l.replace(/^[\s#>*`-]+/, '').trim())
+    .find(Boolean);
+  if (!line) return UNTITLED_HOME_CHAT;
+  const flat = line.replace(/\s+/g, ' ').replace(/[`*_]/g, '');
+  if (flat.length <= 42) return flat;
+  const cut = flat.slice(0, 42);
+  const at = cut.lastIndexOf(' ');
+  return `${(at > 20 ? cut.slice(0, at) : cut).replace(/[\s,.;:]+$/, '')}…`;
+}
+
+export interface HomeChatSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
+export interface HomeChatState {
+  currentId: string;
+  chats: HomeChatSummary[];
+}
 
 export const WAKE_EVENTS = ['turnEnded', 'asked', 'taskMoved', 'hookFailed'] as const;
 export type WakeEvent = (typeof WAKE_EVENTS)[number];

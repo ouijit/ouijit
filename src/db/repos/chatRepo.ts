@@ -35,6 +35,13 @@ export class ChatRepo {
       .all(projectPath, taskId) as ChatSessionRow[];
   }
 
+  /** The app-wide chat's conversations, newest first. */
+  listHome(): ChatSessionRow[] {
+    return this.db
+      .prepare("SELECT * FROM chat_sessions WHERE id = 'chat' OR id LIKE 'home-%' ORDER BY updated_at DESC")
+      .all() as ChatSessionRow[];
+  }
+
   nodes(id: string): string[] {
     return (
       this.db.prepare('SELECT body FROM chat_nodes WHERE session_id = ? ORDER BY position').all(id) as {

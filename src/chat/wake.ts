@@ -2,8 +2,8 @@ import { getLogger } from '../logger';
 import { getAllProjects, getTaskByNumber } from '../db';
 import { taskEvents, type TaskStatusChange } from '../taskEvents';
 import { chatHost } from './host';
-import { loadHomeChatSettings } from './homeChat';
-import { HOME_CHAT_ID, type WakeEvent } from './preferences';
+import { homeChatCurrent, loadHomeChatSettings } from './homeChat';
+import { isHomeChatId, type WakeEvent } from './preferences';
 import type { ChatSessionInfo, ChatSessionStatus, RequestNode } from './model';
 
 const wakeLog = getLogger().scope('chat:wake');
@@ -34,10 +34,11 @@ export async function describeSession(info: ChatSessionInfo): Promise<string> {
  */
 export async function wakeHomeChat(event: WakeEvent | null, text: string): Promise<void> {
   if (event && !(await loadHomeChatSettings()).wake[event]) return;
-  const home = chatHost.snapshot(HOME_CHAT_ID);
-  if (!chatHost.isLive(HOME_CHAT_ID) || !home || home.info.status === 'error' || home.info.status === 'exited') return;
+  const id = homeChatCurrent();
+  const home = id ? chatHost.snapshot(id) : null;
+  if (!id || !chatHost.isLive(id) || !home || home.info.status === 'error' || home.info.status === 'exited') return;
   try {
-    await chatHost.prompt(HOME_CHAT_ID, { text: `Ouijit: ${text}`, wake: true }, 'queue');
+    await chatHost.prompt(id, { text: `Ouijit: ${text}`, wake: true }, 'queue');
   } catch (error) {
     wakeLog.warn('wake not delivered', { event, error: String(error) });
   }
@@ -51,7 +52,7 @@ function busy(status: ChatSessionStatus | undefined): boolean {
 export function installHomeChatWakes(): void {
   const lastStatus = new Map<string, ChatSessionStatus>();
   chatHost.subscribe((sessionId, { event }) => {
-    if (sessionId === HOME_CHAT_ID) return;
+    if (isHomeChatId(sessionId)) return;
     const info = chatHost.snapshot(sessionId)?.info;
     if (!info) return;
     if (event.type === 'session' && event.patch.status) {

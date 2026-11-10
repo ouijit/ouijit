@@ -21,7 +21,7 @@ import type {
 } from './chat/model';
 import type { DriverProbe, TerminalResume } from './chat/driver';
 import type { ChatDelivery, ChatStartOptions } from './chat/host';
-import type { WakeEvent } from './chat/preferences';
+import type { HomeChatState, WakeEvent } from './chat/preferences';
 import type {
   RepoIdentity,
   GithubAvailability,
@@ -449,6 +449,11 @@ export interface HomeChatAPI {
   start(): Promise<ChatSnapshot>;
   restart(): Promise<ChatSnapshot>;
   wake(event: WakeEvent, text: string): Promise<void>;
+  create(): Promise<ChatSnapshot>;
+  switch(id: string): Promise<ChatSnapshot>;
+  list(): Promise<HomeChatState>;
+  rename(id: string, title: string): Promise<void>;
+  onChanged(callback: (state: HomeChatState) => void): () => void;
 }
 
 export interface TaskWithWorkspace {

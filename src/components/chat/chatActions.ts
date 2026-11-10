@@ -8,7 +8,9 @@ import { useProjectStore } from '../../stores/projectStore';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import { generateId } from '../../utils/ids';
 import { isActiveSandbox } from '../../sandbox/types';
-import { CHAT_SETTING_KEYS, HOME_CHAT_ID, parseChatSettings, type ChatSettings } from '../../chat/preferences';
+import { CHAT_SETTING_KEYS, isHomeChatId, parseChatSettings, type ChatSettings } from '../../chat/preferences';
+import { listenForHomeChat, useHomeChatStore } from '../../stores/homeChatStore';
+import { useAppStore } from '../../stores/appStore';
 import type { ChatAgentId, ChatAttachment, ChatSessionStatus, SequencedChatEvent } from '../../chat/model';
 import type { SandboxProviderId, SnapshotTerminalUi, TaskWithWorkspace } from '../../types';
 import type { ChatDelivery } from '../../chat/host';
@@ -48,6 +50,7 @@ function forwardStatus(id: string, event: SequencedChatEvent): void {
 /** Start feeding chat events to the store and the cards. Call once at startup. */
 export function initChat(): void {
   listenForChatEvents(forwardStatus);
+  listenForHomeChat();
   void loadChatSettings();
   void startHomeChat();
 }
@@ -56,8 +59,29 @@ export function initChat(): void {
 export async function startHomeChat(): Promise<void> {
   try {
     useChatStore.getState().adopt(await window.api.homeChat.start());
+    useHomeChatStore.getState().set(await window.api.homeChat.list());
   } catch (error) {
     chatLog.error('chat failed to start', { error: String(error) });
+  }
+}
+
+export async function newHomeChat(): Promise<void> {
+  try {
+    useChatStore.getState().adopt(await window.api.homeChat.create());
+    useAppStore.getState().select({ kind: 'chat', page: 'chat' });
+  } catch (error) {
+    useProjectStore.getState().addToast(String(error), 'error');
+  }
+}
+
+/** Open one of Chat's conversations, resuming its agent in place of the current one's. */
+export async function openHomeChat(id: string): Promise<void> {
+  useAppStore.getState().select({ kind: 'chat', page: 'chat' });
+  if (id === useHomeChatStore.getState().currentId) return;
+  try {
+    useChatStore.getState().adopt(await window.api.homeChat.switch(id));
+  } catch (error) {
+    useProjectStore.getState().addToast(String(error), 'error');
   }
 }
 
@@ -363,7 +387,7 @@ export async function switchToChat(id: string): Promise<void> {
 export async function reconnectChatSessions(projectPath?: string): Promise<void> {
   const live = await window.api.chat.listLive();
   for (const info of live) {
-    if (info.id === HOME_CHAT_ID) continue;
+    if (isHomeChatId(info.id)) continue;
     if (projectPath && info.projectPath !== projectPath) continue;
     if (terminalInstances.has(info.id)) continue;
     const ok = await addChatCard(info.projectPath, {

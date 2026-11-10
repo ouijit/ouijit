@@ -10,13 +10,22 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { chatHost } from '../../../chat/host';
-import { homeChatDir, restartHomeChat, startHomeChat } from '../../../chat/homeChat';
+import {
+  _resetHomeChatForTesting,
+  homeChatDir,
+  homeChatState,
+  installHomeChat,
+  newHomeChat,
+  restartHomeChat,
+  startHomeChat,
+  switchHomeChat,
+} from '../../../chat/homeChat';
 import { installHomeChatWakes } from '../../../chat/wake';
-import { HOME_CHAT_ID, HOME_CHAT_SETTING_KEYS } from '../../../chat/preferences';
+import { HOME_CHAT_SETTING_KEYS, UNTITLED_HOME_CHAT, isHomeChatId } from '../../../chat/preferences';
 import { pendingRequests, type ChatAgentId, type ChatSnapshot, type UserMessageNode } from '../../../chat/model';
 import { CLI_REFERENCE, getCliReferencePath } from '../../../hookServer';
 import { getDriver } from '../../../chat/drivers';
-import { _resetCacheForTesting, setGlobalSetting } from '../../../db';
+import { _resetCacheForTesting, getChatRepo, setGlobalSetting } from '../../../db';
 import { loadCassette, loadCassettes, recording, recordingSpawn, replayingSpawn, cassettePath } from './cassette';
 
 const AGENTS = ['claude', 'codex', 'pi', 'opencode'] as const;
@@ -73,7 +82,7 @@ function replies(snapshot: ChatSnapshot, word?: RegExp): number {
 const heard = (count: number) => (s: ChatSnapshot) =>
   s.info.status === 'idle' && wakes(s).length >= count && replies(s) >= count;
 
-let wakesInstalled = false;
+let installed = false;
 
 describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
   const name = cassetteName(agent);
@@ -84,11 +93,15 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       chatHost._setOptionsForTesting({
         spawnProcess: recording ? recordingSpawn(name, agent, probe?.version) : replayingSpawn(loadCassettes(name)),
       });
-      if (!wakesInstalled) installHomeChatWakes();
-      wakesInstalled = true;
-      // One agent's leftovers must not become the next one's conversation.
+      if (!installed) {
+        installHomeChatWakes();
+        installHomeChat();
+      }
+      installed = true;
+      // One agent's leftovers must not become the next one's conversations.
       await chatHost.stopAll();
-      await chatHost.discard(HOME_CHAT_ID);
+      for (const row of getChatRepo().listHome()) getChatRepo().delete(row.id);
+      _resetHomeChatForTesting();
       await setGlobalSetting(HOME_CHAT_SETTING_KEYS.agent, agent);
       await setGlobalSetting(HOME_CHAT_SETTING_KEYS.sandbox, 'none');
       await setGlobalSetting(HOME_CHAT_SETTING_KEYS.instructions, 'Reply to every message with only the word: noted');
@@ -98,7 +111,9 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       );
 
       const home = await startHomeChat();
-      expect(home.info.id).toBe(HOME_CHAT_ID);
+      const HOME_CHAT_ID = home.info.id;
+      expect(isHomeChatId(HOME_CHAT_ID)).toBe(true);
+      expect(home.info.label).toBe(UNTITLED_HOME_CHAT);
       expect(home.info.agent).toBe(agent);
       expect(home.info.status, home.info.statusDetail).toBe('idle');
       expect(home.info.projectPath).toBe(homeChatDir());
@@ -157,8 +172,26 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       expect(after.nodes.filter((n) => n.kind === 'user_message' && !n.wake).map((n) => n.text)).toEqual([
         'Still there?',
       ]);
+      // The first thing it was asked names the conversation.
+      expect(after.info.label).toBe('Still there?');
+
+      // A new conversation leaves the old one in the list, and switching back resumes it, transcript and all.
+      const fresh = await newHomeChat();
+      expect(fresh.info.id).not.toBe(HOME_CHAT_ID);
+      expect(chatHost.isLive(HOME_CHAT_ID)).toBe(false);
+      await until(fresh.info.id, (s) => s.info.status === 'idle');
+      const listed = await homeChatState();
+      expect(listed.currentId).toBe(fresh.info.id);
+      expect(listed.chats.map((c) => [c.id, c.title])).toEqual([
+        [fresh.info.id, UNTITLED_HOME_CHAT],
+        [HOME_CHAT_ID, 'Still there?'],
+      ]);
+      const back = await switchHomeChat(HOME_CHAT_ID);
+      expect(back.nodes.map((n) => n.id)).toEqual(after.nodes.map((n) => n.id));
+      expect(chatHost.isLive(fresh.info.id)).toBe(false);
+      await until(HOME_CHAT_ID, (s) => s.info.status === 'idle');
+      expect((await homeChatState()).currentId).toBe(HOME_CHAT_ID);
       await chatHost.stopAll();
-      await chatHost.discard(HOME_CHAT_ID);
     },
     timeout * 3,
   );

@@ -7,7 +7,8 @@ import { useAppStore } from '../../stores/appStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { HOME_CHAT_ID, HOME_CHAT_SETTING_KEYS } from '../../chat/preferences';
+import { HOME_CHAT_SETTING_KEYS } from '../../chat/preferences';
+import { useHomeChatStore } from '../../stores/homeChatStore';
 import { NO_CAPABILITIES, type ChatNode, type ChatSessionInfo, type ChatSnapshot } from '../../chat/model';
 
 vi.mock('../../components/terminal/terminalReact', () => ({
@@ -18,9 +19,11 @@ vi.mock('../../components/terminal/terminalReact', () => ({
   hydrateTerminalFont: vi.fn(),
 }));
 
+const CURRENT = 'home-1';
+
 const INFO: ChatSessionInfo = {
-  id: HOME_CHAT_ID,
-  label: 'Chat',
+  id: CURRENT,
+  label: 'Ship the settings page.',
   agent: 'claude',
   agentSessionId: 'abc',
   projectPath: '/Users/test/Library/Application Support/Ouijit/chat',
@@ -85,6 +88,16 @@ beforeEach(() => {
   useTerminalStore.setState(useTerminalStore.getInitialState(), true);
   useUIStore.setState(useUIStore.getInitialState(), true);
   useChatStore.setState({ sessions: {}, setup: {}, drafts: {} });
+  useHomeChatStore.getState().set({
+    currentId: CURRENT,
+    chats: [
+      { id: CURRENT, title: 'Ship the settings page.', updatedAt: '2026-11-10T00:00:00Z' },
+      { id: 'home-2', title: 'Keychain recovery review', updatedAt: '2026-11-09T00:00:00Z' },
+    ],
+  });
+  vi.mocked(window.api.homeChat.create).mockClear();
+  vi.mocked(window.api.homeChat.switch).mockClear();
+  vi.mocked(window.api.homeChat.rename).mockClear();
   useAppStore.setState({
     projects: [{ path: '/code/alpha', name: 'Alpha' }],
     taskCacheByProject: {},
@@ -101,17 +114,34 @@ describe('Chat', () => {
     adopt(transcript(), { status: 'running' });
     render(<App />);
 
-    // The sidebar entry carries the chat's status, and opens it.
+    // The group sits above the projects: a row per conversation, the current one carrying the agent's status.
     const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
-    const entry = within(sidebar).getByRole('button', { name: /Chat/ });
-    expect(entry.compareDocumentPosition(within(sidebar).getByRole('region', { name: 'Projects' }))).toBe(
+    const group = sidebar.querySelector<HTMLElement>('[data-group="home-chat"]')!;
+    expect(group.compareDocumentPosition(within(sidebar).getByRole('region', { name: 'Projects' }))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(entry.querySelector('[data-status="thinking"]')).toBeTruthy();
-    fireEvent.click(entry);
+    const current = within(group).getByRole('button', { name: 'Ship the settings page.' });
+    expect(current.closest('[data-sidebar-row]')!.querySelector('[data-status="thinking"]')).toBeTruthy();
+    fireEvent.click(current);
     expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'chat' });
-    expect(entry.getAttribute('aria-current')).toBe('page');
-    expect(screen.getByText('Ship the settings page.')).toBeTruthy();
+    expect(window.api.homeChat.switch).not.toHaveBeenCalled();
+    expect(current.getAttribute('aria-current')).toBe('true');
+    expect(within(screen.getByRole('banner')).getByText('Ship the settings page.')).toBeTruthy();
+
+    // Another conversation resumes in place of this one; the plus starts a fresh one; a row can be renamed.
+    fireEvent.click(within(group).getByRole('button', { name: 'Keychain recovery review' }));
+    expect(window.api.homeChat.switch).toHaveBeenCalledWith('home-2');
+    fireEvent.click(within(group).getByRole('button', { name: 'New chat' }));
+    expect(window.api.homeChat.create).toHaveBeenCalledTimes(1);
+    fireEvent.contextMenu(within(group).getByRole('button', { name: 'Keychain recovery review' }));
+    fireEvent.click(await screen.findByText('Rename'));
+    const field = await within(group).findByLabelText('Name');
+    fireEvent.change(field, { target: { value: 'Keychain' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(window.api.homeChat.rename).toHaveBeenCalledWith('home-2', 'Keychain');
+    fireEvent.click(within(group).getByRole('button', { name: 'Hide chats' }));
+    expect(within(group).queryByRole('button', { name: 'Keychain recovery review' })).toBeNull();
+    fireEvent.click(within(group).getByRole('button', { name: 'Show chats' }));
 
     // Work between two things said is one line, closed; what Ouijit sent is a plain line, not a bubble.
     const fold = screen.getByRole('button', { name: /Ran 2 commands, edited 1 file/ });
@@ -134,6 +164,7 @@ describe('Chat', () => {
     expect(screen.queryByText('ouijit chat read pty-12')).toBeNull();
 
     // The gear opens Chat's settings, where a change of where it runs restarts the agent.
+    expect(within(screen.getByRole('banner')).getByText('Ship the settings page.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Chat settings' }));
     expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'settings' });
     expect(await screen.findByRole('heading', { name: 'Chat settings' })).toBeTruthy();

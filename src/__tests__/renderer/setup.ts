@@ -125,6 +125,11 @@ const mockApi = {
     start: vi.fn().mockResolvedValue(null),
     restart: vi.fn().mockResolvedValue(null),
     wake: vi.fn().mockResolvedValue(undefined),
+    create: vi.fn().mockResolvedValue(null),
+    switch: vi.fn().mockResolvedValue(null),
+    list: vi.fn().mockResolvedValue({ currentId: '', chats: [] }),
+    rename: vi.fn().mockResolvedValue(undefined),
+    onChanged: vi.fn().mockReturnValue(() => {}),
   },
   worktree: {
     validateBranchName: vi.fn().mockResolvedValue({ valid: true }),

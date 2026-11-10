@@ -122,7 +122,7 @@ interface RowProps {
   ptyId?: string;
 }
 
-interface Rename {
+export interface Rename {
   initial: string;
   onCommit: (value: string) => void;
   onCancel: () => void;
@@ -153,7 +153,7 @@ function RenameField({ initial, onCommit, onCancel }: Rename) {
   );
 }
 
-function SidebarRow({
+export function SidebarRow({
   icon,
   title,
   tooltip,

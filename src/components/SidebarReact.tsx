@@ -36,14 +36,16 @@ import { LIST_TITLES, usePanelStore, type PanelList } from '../stores/panelStore
 import { groupByTag, groupByTask } from './sidebar/sidebarTree';
 import { sidebarShownNow, useSidebarShown } from './sidebar/sidebarShown';
 import { useChatStore } from '../stores/chatStore';
-import { HOME_CHAT_ID } from '../chat/preferences';
+import { useHomeChatStore } from '../stores/homeChatStore';
+import { newHomeChat, openHomeChat } from './chat/chatActions';
 import { StatusGlyph } from './terminal/StatusDot';
 import {
   GroupDots,
   GroupRows,
-  ROW,
   ROW_IDLE,
   ROW_SELECTED,
+  SidebarRow,
+  type Rename,
   homeRelative,
   useGroupCollapsed,
   showInListOrder,
@@ -161,7 +163,7 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
             data-sidebar-scroller
             className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 pt-1 pb-4 flex flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            <ChatEntry />
+            <ChatGroup />
             <TreeSection onCloneSelect={onCloneSelect} />
           </div>
 
@@ -242,10 +244,118 @@ function FooterButton({
   );
 }
 
-/** The app-wide chat, above the projects it works across. Its dot is the chat's status, as a card's would be. */
-function ChatEntry() {
-  const selected = useAppStore((s) => s.selection.kind === 'chat');
-  const status = useChatStore((s) => s.sessions[HOME_CHAT_ID]?.info.status);
+const CHAT_ROWS_SHOWN = 6;
+
+/** Chat's conversations, above the projects they work across. One row each; the current one carries the agent's status. */
+function ChatGroup() {
+  const [collapsed, toggle] = useGroupCollapsed('home-chat');
+  const currentId = useHomeChatStore((s) => s.currentId);
+  const chats = useHomeChatStore((s) => s.chats);
+  const inChat = useAppStore((s) => s.selection.kind === 'chat' && s.selection.page === 'chat');
+  const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  return (
+    <div className="flex flex-col mb-2" data-group="home-chat">
+      <div className={`group/header h-7 flex items-center gap-0.5 px-1 rounded-[7px] ${ROW_IDLE}`}>
+        <button
+          type="button"
+          aria-label={collapsed ? 'Show chats' : 'Hide chats'}
+          aria-expanded={!collapsed}
+          className="w-5 h-5 flex items-center justify-center shrink-0 rounded-md text-text-secondary hover:text-text-primary hover:bg-ink/10"
+          onClick={toggle}
+        >
+          <Icon
+            name="caret-right"
+            className="w-3 h-3 transition-transform duration-150 ease-out"
+            style={{ transform: collapsed ? 'none' : 'rotate(90deg)' }}
+          />
+        </button>
+        <button
+          type="button"
+          aria-label="Chat"
+          className="flex-1 min-w-0 h-7 flex items-center pl-0.5 text-text-secondary hover:text-text-primary"
+          onClick={() => void openHomeChat(currentId)}
+        >
+          <Icon name="chat-circle" className="w-4 h-4" />
+        </button>
+        <Tooltip text="New chat" placement="bottom">
+          <button
+            type="button"
+            aria-label="New chat"
+            className={`${ROW_BUTTON} ${rowButtonState(false)}`}
+            onClick={() => void newHomeChat()}
+          >
+            <Icon name="plus" className="w-3.5 h-3.5" />
+          </button>
+        </Tooltip>
+      </div>
+      {!collapsed && (
+        <div className="relative">
+          <div
+            className="overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            style={{ maxHeight: CHAT_ROWS_SHOWN * 28 }}
+            data-chat-list
+          >
+            {chats.map((chat) => (
+              <ChatRow
+                key={chat.id}
+                id={chat.id}
+                title={chat.title}
+                selected={inChat && chat.id === currentId}
+                rename={
+                  renaming === chat.id
+                    ? {
+                        initial: chat.title,
+                        onCommit: (title) => {
+                          void window.api.homeChat.rename(chat.id, title);
+                          setRenaming(null);
+                        },
+                        onCancel: () => setRenaming(null),
+                      }
+                    : undefined
+                }
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenu({ x: e.clientX, y: e.clientY, id: chat.id });
+                }}
+              />
+            ))}
+          </div>
+          {chats.length > CHAT_ROWS_SHOWN && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-10"
+              style={{ background: 'linear-gradient(to bottom, transparent, var(--sidebar-bg))' }}
+            />
+          )}
+        </div>
+      )}
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={[{ label: 'Rename', icon: 'pencil-simple', onClick: () => setRenaming(menu.id) }]}
+          onClose={() => setMenu(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ChatRow({
+  id,
+  title,
+  selected,
+  rename,
+  onContextMenu,
+}: {
+  id: string;
+  title: string;
+  selected: boolean;
+  rename?: Rename;
+  onContextMenu: (e: React.MouseEvent) => void;
+}) {
+  const status = useChatStore((s) => s.sessions[id]?.info.status);
   const glyph =
     status === 'running'
       ? 'thinking'
@@ -255,17 +365,16 @@ function ChatEntry() {
           ? 'error'
           : null;
   return (
-    <button
-      type="button"
-      aria-current={selected ? 'page' : undefined}
-      className={`${ROW} mb-2 ${selected ? ROW_SELECTED : ROW_IDLE}`}
-      onClick={() => useAppStore.getState().select({ kind: 'chat', page: 'chat' })}
-    >
-      <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
-        {glyph && <StatusGlyph status={glyph} size={6} unread={status === 'awaiting'} />}
-      </span>
-      <span className="flex-1 truncate text-text-primary">Chat</span>
-    </button>
+    <SidebarRow
+      icon={glyph && <StatusGlyph status={glyph} size={6} unread={status === 'awaiting'} />}
+      title={title}
+      tooltip={title}
+      bright={selected}
+      selected={selected}
+      onClick={() => void openHomeChat(id)}
+      onContextMenu={onContextMenu}
+      rename={rename}
+    />
   );
 }
 

@@ -8,7 +8,7 @@ import { ChatBackground } from './ChatBackground';
 import { ChatComposer } from './ChatComposer';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { sendHeldPrompt } from './chatActions';
-import { CHAT_AGENT_LABELS, HOME_CHAT_ID } from '../../chat/preferences';
+import { CHAT_AGENT_LABELS, isHomeChatId } from '../../chat/preferences';
 import type { ChatNode, ChatSessionInfo } from '../../chat/model';
 
 function useSession(cardId: string) {
@@ -86,7 +86,7 @@ function StatusLine({ info, cardId }: { info: ChatSessionInfo; cardId: string })
 }
 
 async function restart(cardId: string): Promise<void> {
-  if (cardId === HOME_CHAT_ID) {
+  if (isHomeChatId(cardId)) {
     try {
       useChatStore.getState().adopt(await window.api.homeChat.restart());
     } catch (error) {

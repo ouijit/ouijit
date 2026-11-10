@@ -113,7 +113,7 @@ import type {
   SequencedChatEvent,
 } from '../chat/model';
 import type { ChatDelivery, ChatStartOptions } from '../chat/host';
-import type { WakeEvent } from '../chat/preferences';
+import type { HomeChatState, WakeEvent } from '../chat/preferences';
 import type { DriverProbe, TerminalResume } from '../chat/driver';
 
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
@@ -505,6 +505,12 @@ export interface IpcInvokeContract {
   'homeChat:restart': { args: []; return: ChatSnapshot };
   /** Something the renderer saw that Chat should hear about, under one of its wake settings. */
   'homeChat:wake': { args: [event: WakeEvent, text: string]; return: void };
+  /** A fresh conversation, which becomes the current one. */
+  'homeChat:new': { args: []; return: ChatSnapshot };
+  /** Another of Chat's conversations, resumed as the current one. */
+  'homeChat:switch': { args: [id: string]; return: ChatSnapshot };
+  'homeChat:list': { args: []; return: HomeChatState };
+  'homeChat:rename': { args: [id: string, title: string]; return: void };
 }
 
 /**
@@ -528,6 +534,8 @@ export interface IpcSendContract {
  */
 export interface IpcPushContract {
   'chat:event': { args: [sessionId: string, event: SequencedChatEvent] };
+  /** Chat's conversations or the current one changed. */
+  'homeChat:changed': { args: [state: HomeChatState] };
   'fullscreen-change': { args: [isFullscreen: boolean] };
   'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
   'cli:panel-op': { args: [op: CliPanelOp] };

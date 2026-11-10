@@ -82,7 +82,7 @@ import {
 } from '../sessions';
 import { chatHost, ChatSessionNotFound } from '../chat/host';
 import { transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
-import { HOME_CHAT_ID } from '../chat/preferences';
+import { isHomeChatId } from '../chat/preferences';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext } from '../apiAuth';
@@ -1370,7 +1370,7 @@ interface SandboxCaller extends AuthContext {
  * "Everything" it is treated as a host caller throughout, handlers included.
  */
 async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
-  if (auth.scope === 'host' || auth.ptyId === HOME_CHAT_ID) return { ...auth, scope: 'host', access: 'all' };
+  if (auth.scope === 'host' || isHomeChatId(auth.ptyId)) return { ...auth, scope: 'host', access: 'all' };
   const context = getSessionSpawnContext(auth.ptyId);
   const access = context ? await sandboxCliAccessFor(context.projectPath) : 'read';
   return access === 'all' ? { ...auth, scope: 'host', access } : { ...auth, access };
@@ -1571,7 +1571,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             branch: task.branch,
             createdAt: task.createdAt,
             // What Chat starts it steers, which takes a chat.
-            ...(caller.ptyId === HOME_CHAT_ID && { surface: 'chat' as const }),
+            ...(isHomeChatId(caller.ptyId) && { surface: 'chat' as const }),
             ...hookControl,
             ...cliCaller(caller),
           });
