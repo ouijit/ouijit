@@ -14,6 +14,8 @@ import { ProjectRepo } from '../db/repos/projectRepo';
 import { TaskRepo } from '../db/repos/taskRepo';
 import { HookRepo } from '../db/repos/hookRepo';
 import { ScriptRepo } from '../db/repos/scriptRepo';
+import { AutomationRepo } from '../db/repos/automationRepo';
+import type { AutomationInput } from '../automations/types';
 import { GlobalSettingsRepo } from '../db/repos/globalSettingsRepo';
 import { getLogger } from '../logger';
 import seedData from './seedData.json';
@@ -327,6 +329,12 @@ export function seedCaptureFixture(
 
   for (const script of seedData.scripts) {
     scriptRepo.save(projectPath, script.name, script.command);
+  }
+
+  const automationRepo = new AutomationRepo(db);
+  for (const seed of seedData.automations) {
+    const automation = automationRepo.create(projectPath, seed as AutomationInput, null);
+    if (seed.paused) automationRepo.setPaused(automation.id, true, null);
   }
 
   new GlobalSettingsRepo(db).set(`experimental:${projectPath}`, JSON.stringify({ canvas: false }));

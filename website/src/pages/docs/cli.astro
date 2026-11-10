@@ -194,6 +194,31 @@ ouijit script delete &lt;id&gt;</code></pre>
     script.
   </p>
 
+  <h2 id="automations">Automations</h2>
+  <p>
+    An automation runs a command, or the project's agent with a prompt, on a schedule. Runs stay off the board: a
+    run that fails or calls <code>automation notify</code> shows on the project's Automations page and sends a
+    notification, and any other run ends quietly.
+  </p>
+  <pre class="glass-bevel"><code>ouijit automation list
+ouijit automation create "PR triage" --every "weekdays 09:00" --prompt "Triage new PRs and stage review comments"
+ouijit automation create "Audit" --every "daily 02:00" --command "npm audit" --in project
+ouijit automation create "Lint" --cron "0 */4 * * *" --script Lint --missed skip
+ouijit automation run "PR triage"             # now, off schedule
+ouijit automation pause "PR triage"
+ouijit automation resume "PR triage"
+ouijit automation delete "PR triage"
+ouijit automation notify "Two PRs need review; comments are staged"</code></pre>
+  <p>
+    <code>--every</code> takes <code>hourly</code>, <code>daily HH:MM</code>, <code>weekdays HH:MM</code>,
+    <code>weekly &lt;day&gt; HH:MM</code> or <code>manual</code>; <code>--cron</code> takes a five-field
+    expression in local time, at most every 15 minutes. A <code>--prompt</code> automation runs the project's
+    start hook, so it uses whichever agent the project does. Each run gets a fresh worktree unless
+    <code>--in project</code>, and runs in the sandbox unless <code>--sandbox host</code>. Runs fire while Ouijit
+    is running; one missed while it was quit or the Mac slept runs once when it comes back, or not at all with
+    <code>--missed skip</code>. <code>automation notify</code> works from inside a run, sandboxed or not.
+  </p>
+
   <h2>Pull requests</h2>
   <p>
     Inspect <a href="/docs/pull-requests/">pull requests</a> and stage review drafts. Drafts stay local until

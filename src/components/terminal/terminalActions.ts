@@ -60,6 +60,8 @@ export interface AddProjectTerminalOptions {
    *  shell-integration precmd hook). On non-zero exit it stays open so the
    *  failure is debuggable in the interactive shell that survives the command. */
   autoCloseOnSuccess?: boolean;
+  /** Added to the terminal's environment, over what its worktree sets. */
+  env?: Record<string, string>;
 }
 
 // ── Apply persisted UI state from a session snapshot ────────────────
@@ -323,7 +325,7 @@ export async function addProjectTerminal(
     label,
     taskId: options?.taskId,
     worktreePath: worktreeInfo?.path,
-    env: startEnv,
+    env: options?.env ? { ...startEnv, ...options.env } : startEnv,
     sandboxProvider,
   };
 

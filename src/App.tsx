@@ -32,6 +32,7 @@ import { installCliTagListener } from './services/cliTagListener';
 import { installCliTerminalListener } from './services/cliTerminalListener';
 import { installCliAskListener } from './services/cliAskListener';
 import { installHookStatusListener } from './services/hookStatusListener';
+import { installAutomationListener } from './stores/automationStore';
 import { useUIStore, hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
 import type { LastSessionSnapshot, Project } from './types';
@@ -59,7 +60,7 @@ function restoredSelection(saved: string | undefined, projects: Project[]): Sele
   if (view.type === 'app-settings') return { kind: 'app-settings' };
   const path = view.path;
   if (!path || !projects.some((p) => p.path === path)) return null;
-  const pages = ['board', 'settings', 'pull-requests', 'analysis'] as const;
+  const pages = ['board', 'settings', 'pull-requests', 'analysis', 'automations'] as const;
   const page = pages.find((p) => p === view.page) ?? 'board';
   return { kind: 'page', projectPath: path, page };
 }
@@ -163,6 +164,8 @@ export function App() {
   useEffect(() => installCliAskListener(), []);
 
   useEffect(() => installHookStatusListener(), []);
+
+  useEffect(() => installAutomationListener((projectPath) => void openProjectPage(projectPath, 'automations')), []);
 
   // First-run marker — set so other surfaces can know whether the user has
   // launched before. The actual welcome UI lives inline in the empty main view.

@@ -48,6 +48,7 @@ interface ManagedPty {
   sandboxProvider?: SandboxProviderId;
   isRunner: boolean;
   parentPtyId?: PtyId;
+  hidden: boolean;
   // Array-based buffer for scroll history preservation (avoids string concatenation churn)
   outputChunks: string[];
   outputSize: number;
@@ -85,6 +86,23 @@ export interface ActiveSession {
 
 const activePtys = new Map<PtyId, ManagedPty>();
 let currentWindow: BrowserWindow | null = null;
+
+type PtyDataListener = (ptyId: PtyId, data: string) => void;
+type PtyExitListener = (ptyId: PtyId, exitCode: number) => void;
+const dataListeners = new Set<PtyDataListener>();
+const exitListeners = new Set<PtyExitListener>();
+
+/** Every PTY's output, in the main process. Returns the unsubscribe. */
+export function onPtyData(listener: PtyDataListener): () => void {
+  dataListeners.add(listener);
+  return () => dataListeners.delete(listener);
+}
+
+/** A PTY's shell exiting on its own; not fired for one killed through `killPty`. */
+export function onPtyExit(listener: PtyExitListener): () => void {
+  exitListeners.add(listener);
+  return () => exitListeners.delete(listener);
+}
 
 // Shells we've already shown the "limited support" notice for this session, so
 // the toast fires once per shell rather than on every spawn.
@@ -181,14 +199,14 @@ function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
  */
 export async function spawnPty(
   options: PtySpawnOptions,
-  window: BrowserWindow,
+  window: BrowserWindow | null,
   wrapper?: SandboxProvider,
 ): Promise<PtySpawnResult> {
   const ptyId = generateId('pty');
   try {
     const shell = getDefaultShell();
 
-    currentWindow = window;
+    if (window) currentWindow = window;
 
     // node-pty rejects undefined values, so process.env is filtered first.
     const baseEnv: Record<string, string> = {};
@@ -266,7 +284,7 @@ export async function spawnPty(
     if (!integration.isIntegrated && !warnedUnsupportedShells.has(shell)) {
       warnedUnsupportedShells.add(shell);
       ptyLog.warn('shell has no integration provider', { shell });
-      typedPush(window, 'shell-unsupported', { shell });
+      if (window) typedPush(window, 'shell-unsupported', { shell });
     }
 
     // A wrapper provider transforms the fully-built host launch: it
@@ -295,7 +313,7 @@ export async function spawnPty(
         launchArgs = wrapped.args;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        typedPush(window, 'sandbox-launch-failed', { ptyId, provider: wrapper.id, error: message });
+        if (window) typedPush(window, 'sandbox-launch-failed', { ptyId, provider: wrapper.id, error: message });
         throw error;
       }
     }
@@ -320,6 +338,7 @@ export async function spawnPty(
       sandboxProvider: wrapper?.id ?? options.sandboxProvider,
       isRunner: options.isRunner || false,
       parentPtyId: options.parentPtyId,
+      hidden: options.hidden || false,
       outputChunks: [],
       outputSize: 0,
       maxBufferSize: MAX_BUFFER_SIZE,
@@ -346,6 +365,7 @@ export async function spawnPty(
 
     ptyProcess.onData((data: string) => {
       handlePtyOutput(ptyId, `pty:data:${ptyId}`, data);
+      for (const listener of dataListeners) listener(ptyId, data);
     });
 
     ptyProcess.onExit(({ exitCode }) => {
@@ -368,9 +388,11 @@ export async function spawnPty(
           typedPush(currentWindow!, 'sandbox-launch-failed', { ptyId, provider, exitCode });
         }
       }
+      const wasLive = activePtys.has(ptyId);
       activePtys.delete(ptyId);
       clearHookStatus(ptyId);
       revokeToken(ptyId);
+      if (wasLive) for (const listener of exitListeners) listener(ptyId, exitCode);
     });
 
     return { success: true, ptyId };
@@ -427,7 +449,13 @@ export function reconnectPty(
  * Get list of active sessions (for restoration after renderer reload)
  */
 export function getActiveSessions(): ActiveSession[] {
-  return Array.from(activePtys.entries()).map(([ptyId, managed]) => ({
+  return Array.from(activePtys.entries())
+    .filter(([, managed]) => !managed.hidden)
+    .map(([ptyId, managed]) => toSession(ptyId, managed));
+}
+
+function toSession(ptyId: PtyId, managed: ManagedPty): ActiveSession {
+  return {
     ptyId,
     projectPath: managed.projectPath,
     command: managed.command,
@@ -437,7 +465,21 @@ export function getActiveSessions(): ActiveSession[] {
     isRunner: managed.isRunner,
     parentPtyId: managed.parentPtyId,
     sandboxProvider: managed.sandboxProvider,
-  }));
+  };
+}
+
+/** A hidden PTY as a session a renderer can attach to, from now on restored like any other. */
+export function revealPty(ptyId: PtyId): ActiveSession | null {
+  const managed = activePtys.get(ptyId);
+  if (!managed) return null;
+  managed.hidden = false;
+  return toSession(ptyId, managed);
+}
+
+/** Everything a PTY has printed that is still buffered. */
+export function readPtyOutput(ptyId: PtyId): string | null {
+  const managed = activePtys.get(ptyId);
+  return managed ? managed.outputChunks.join('') : null;
 }
 
 export function getActiveSessionCount(): number {

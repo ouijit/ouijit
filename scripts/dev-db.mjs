@@ -192,6 +192,14 @@ function seed() {
   );
   exec(scriptInserts.join('\n'));
 
+  // Automations, paused so a dev launch never runs them
+  const createdAt = new Date().toISOString();
+  const automationInserts = seedData.automations.map(
+    (a) =>
+      `INSERT INTO automations (id, project_path, name, kind, prompt, command, schedule, missed, location, sandbox, paused, created_at, next_run_at) VALUES ('${randomUUID()}', '${esc(projectPath)}', '${esc(a.name)}', '${esc(a.kind)}', ${nullable(a.prompt)}, ${nullable(a.command)}, ${nullable(a.schedule)}, '${esc(a.missed)}', '${esc(a.location)}', '${esc(a.sandbox)}', ${a.paused ? 1 : 0}, '${createdAt}', NULL);`,
+  );
+  exec(automationInserts.join('\n'));
+
   // Plan markdown
   const plansDir = join(projectPath, 'plans');
   mkdirSync(plansDir, { recursive: true });
@@ -201,7 +209,9 @@ function seed() {
   exec(`INSERT OR REPLACE INTO global_settings (key, value) VALUES ('hasSeenWelcome', '1');`);
 
   console.log(`Seeded demo project at ${projectPath}`);
-  console.log(`  ${seedData.tasks.length} tasks, ${seedData.hooks.length} hooks, ${seedData.scripts.length} scripts`);
+  console.log(
+    `  ${seedData.tasks.length} tasks, ${seedData.hooks.length} hooks, ${seedData.scripts.length} scripts, ${seedData.automations.length} automations`,
+  );
 }
 
 const cmd = process.argv[2];

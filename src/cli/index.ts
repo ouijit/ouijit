@@ -26,6 +26,7 @@ import { registerDiffCommands } from './commands/diff';
 import { registerPanelCommands } from './commands/panel';
 import { registerLinkCommands } from './commands/link';
 import { registerAskCommands } from './commands/ask';
+import { registerAutomationCommands } from './commands/automation';
 
 const program = new Command();
 
@@ -58,6 +59,7 @@ registerTerminalCommands(program, requireProject);
 registerTagCommands(program);
 registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
+registerAutomationCommands(program, requireProject);
 registerSandboxCommands(program, requireProject);
 registerPrCommands(program, requireProject);
 registerLinearCommands(program, requireProject);

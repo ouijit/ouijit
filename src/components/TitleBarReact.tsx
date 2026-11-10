@@ -29,6 +29,7 @@ export const PAGE_TITLES: Record<ProjectPage, string> = {
   settings: 'Settings',
   'pull-requests': 'Pull requests',
   analysis: 'Analysis',
+  automations: 'Automations',
 };
 
 const iconButton =

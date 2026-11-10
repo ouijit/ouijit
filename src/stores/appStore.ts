@@ -9,7 +9,7 @@ export interface HomeRecentTask extends TaskWithWorkspace {
 
 const MAX_HOME_RECENTS = 8;
 
-export type ProjectPage = 'board' | 'settings' | 'pull-requests' | 'analysis';
+export type ProjectPage = 'board' | 'settings' | 'pull-requests' | 'analysis' | 'automations';
 
 /** What the main area shows. */
 export type Selection =
