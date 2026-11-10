@@ -255,6 +255,7 @@ export interface IpcInvokeContract {
 
   // ── Plan ─────────────────────────────────────────────────────────────
   'plan:read': { args: [planPath: string]; return: string | null };
+  'plan:read-image': { args: [planPath: string, src: string]; return: string | null };
   'plan:watch': { args: [planPath: string]; return: { success: boolean } };
   'plan:unwatch': { args: [planPath: string]; return: void };
   'plan:check-files-exist': { args: [workspaceRoot: string, filePaths: string[]]; return: Record<string, boolean> };

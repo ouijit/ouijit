@@ -816,6 +816,10 @@ textarea,
   content: 'File not found';
 }
 
+.app-markdown img {
+  @apply max-w-full h-auto my-2 rounded-md;
+}
+
 .app-markdown strong {
   @apply text-text-primary font-medium;
 }

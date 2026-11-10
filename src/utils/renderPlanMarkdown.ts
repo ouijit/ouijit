@@ -126,7 +126,27 @@ async function preRenderMermaid(tokens: Token[], svgs: Map<string, string>): Pro
   });
 }
 
-export async function renderPlanMarkdown(md: string): Promise<string> {
+const URL_SCHEME_RE = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
+
+/** Resolves an image path written in the markdown to a URL the page can load, or null. */
+export type LoadLocalImage = (src: string) => Promise<string | null>;
+
+async function inlineLocalImages(root: HTMLElement, loadLocalImage: LoadLocalImage): Promise<void> {
+  const images = Array.from(root.querySelectorAll('img')).filter((img) => {
+    const src = img.getAttribute('src');
+    return src && !URL_SCHEME_RE.test(src);
+  });
+  await Promise.all(
+    images.map(async (img) => {
+      const url = await loadLocalImage(img.getAttribute('src')!).catch((): null => null);
+      // A relative src left in place would resolve against the app's own page.
+      if (url) img.setAttribute('src', url);
+      else img.removeAttribute('src');
+    }),
+  );
+}
+
+export async function renderPlanMarkdown(md: string, loadLocalImage: LoadLocalImage): Promise<string> {
   const hl = await getHighlighter();
 
   const tokens = marked.lexer(md, { gfm: true });
@@ -153,5 +173,8 @@ export async function renderPlanMarkdown(md: string): Promise<string> {
 
   const rawHtml = marked.parser(tokens, { renderer }) as string;
   const linkedHtml = linkifyFilePaths(rawHtml);
-  return DOMPurify.sanitize(linkedHtml);
+  const body = document.createElement('div');
+  body.innerHTML = DOMPurify.sanitize(linkedHtml);
+  await inlineLocalImages(body, loadLocalImage);
+  return body.innerHTML;
 }

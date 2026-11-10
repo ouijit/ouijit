@@ -4,6 +4,7 @@ import { BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getLogger } from '../../logger';
 import { resolveWithinBase, isSymlinkEscapeError } from '../../utils/pathSafety';
+import { readMarkdownImage } from '../../markdownImages';
 
 const planLog = getLogger().scope('plan');
 
@@ -22,6 +23,12 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
     } catch {
       return null;
     }
+  });
+
+  typedHandle('plan:read-image', async (planPath, src) => {
+    const resolved = path.resolve(planPath);
+    if (!isMarkdownFile(resolved)) return null;
+    return readMarkdownImage(resolved, src);
   });
 
   typedHandle('plan:watch', (planPath) => {
