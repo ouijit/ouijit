@@ -23,8 +23,7 @@ export class HookRepo {
 
   getByType(projectPath: string, type: HookType): HookRow | undefined {
     return this.db.prepare('SELECT * FROM hooks WHERE project_path = ? AND type = ?').get(projectPath, type) as
-      | HookRow
-      | undefined;
+      HookRow | undefined;
   }
 
   save(

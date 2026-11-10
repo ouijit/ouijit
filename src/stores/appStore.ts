@@ -20,8 +20,7 @@ export type Selection =
 
 /** What a project goes back to when it is opened again. */
 export type ProjectView =
-  | Extract<Selection, { kind: 'terminal' }>
-  | { kind: 'page'; projectPath: string; page: 'board' };
+  Extract<Selection, { kind: 'terminal' }> | { kind: 'page'; projectPath: string; page: 'board' };
 
 /**
  * `unit`'s stack joined to the one `selection` shows, when that is the same
