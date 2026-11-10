@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useAutomationBadge } from '../stores/automationStore';
 import { useShallow } from 'zustand/react/shallow';
 import { ProjectTile } from './ProjectTile';
 import type { CloneJob, Project } from '../types';
@@ -368,6 +369,8 @@ interface GroupHeaderProps {
   icon?: ReactNode;
   selected?: boolean;
   actions?: ReactNode;
+  /** Shown at all times, between the name and the hover actions. */
+  badge?: ReactNode;
   rowProps?: Record<string, unknown>;
   onContextMenu?: (e: React.MouseEvent) => void;
   projectPath?: string;
@@ -384,6 +387,7 @@ function GroupHeader({
   icon,
   selected,
   actions,
+  badge,
   rowProps,
   onContextMenu,
   projectPath,
@@ -425,6 +429,7 @@ function GroupHeader({
         <span className="truncate flex-1 min-w-0">{name}</span>
         {collapsed && <GroupDots ptyIds={ptyIds} />}
       </button>
+      {badge}
       {actions}
     </div>
   );
@@ -435,7 +440,28 @@ const PAGE_ICONS: Record<ProjectPage, string> = {
   settings: 'gear',
   'pull-requests': 'git-pull-request',
   analysis: 'binoculars',
+  automations: 'clock-clockwise',
 };
+
+/** Automation runs that need the user, and a dot while one is going; opens the Automations page. */
+function AutomationsBadge({ projectPath }: { projectPath: string }) {
+  const { unread, running } = useAutomationBadge(projectPath);
+  if (unread === 0 && !running) return null;
+  const label = unread > 0 ? `${unread} automation run${unread === 1 ? '' : 's'} need you` : 'An automation is running';
+  return (
+    <Tooltip text={label} placement="bottom">
+      <button
+        type="button"
+        aria-label={label}
+        className="h-5 min-w-5 px-1 flex items-center justify-center gap-1 shrink-0 rounded-md text-text-secondary hover:text-text-primary hover:bg-ink/10"
+        onClick={() => void openProjectPage(projectPath, 'automations')}
+      >
+        {running && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />}
+        {unread > 0 && <span className="text-[11px] font-medium tabular-nums">{unread}</span>}
+      </button>
+    </Tooltip>
+  );
+}
 
 const LIST_ICONS: Record<PanelList, string> = {
   pulls: 'git-pull-request',
@@ -459,7 +485,7 @@ function ProjectGroup({ project }: { project: Project }) {
   const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: project.path });
 
   // Everything the row's own buttons do not: the other pages, a shell, and removal.
-  const overflowPages: ProjectPage[] = [...(flags.analysis ? (['analysis'] as const) : []), 'settings'];
+  const overflowPages: ProjectPage[] = ['automations', ...(flags.analysis ? (['analysis'] as const) : []), 'settings'];
   const lists: PanelList[] = [
     ...(flags.github ? (['pulls'] as const) : []),
     ...(flags.tracker ? (['issues'] as const) : []),
@@ -513,6 +539,7 @@ function ProjectGroup({ project }: { project: Project }) {
         onOpen={() => void openProject(project.path)}
         onOpenAll={() => showProject(project.path, ptyIds)}
         icon={<ProjectTile project={project} />}
+        badge={<AutomationsBadge projectPath={project.path} />}
         selected={openPage !== null}
         rowProps={listeners}
         onContextMenu={(e) => {

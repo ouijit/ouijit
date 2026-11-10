@@ -32,6 +32,7 @@ import type {
   CliAskResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
+import type { AutomationInput } from './automations/types';
 import type {
   CommentKind,
   ReviewEvent,
@@ -470,5 +471,19 @@ contextBridge.exposeInMainWorld('api', {
     setAgent: (projectPath: string, chosenId: string | null) => typedInvoke('lens:set-agent', projectPath, chosenId),
     onListChanged: (callback: (projectPath: string) => void) => typedListen('lens:list-changed', callback),
     onChanged: (callback: (payload: LensChangedPayload) => void) => typedListen('lens:changed', callback),
+  },
+
+  automations: {
+    snapshot: (projectPath?: string) => typedInvoke('automations:snapshot', projectPath),
+    save: (projectPath: string, input: AutomationInput, id?: string) =>
+      typedInvoke('automations:save', projectPath, input, id),
+    delete: (id: string) => typedInvoke('automations:delete', id),
+    setPaused: (id: string, paused: boolean) => typedInvoke('automations:set-paused', id, paused),
+    runNow: (id: string) => typedInvoke('automations:run-now', id),
+    openRun: (runId: string) => typedInvoke('automations:open-run', runId),
+    dismissRun: (runId: string) => typedInvoke('automations:dismiss-run', runId),
+    makeTask: (runId: string) => typedInvoke('automations:make-task', runId),
+    onChanged: (callback: (projectPath: string) => void) => typedListen('automations:changed', callback),
+    onShow: (callback: (projectPath: string) => void) => typedListen('automations:show', callback),
   },
 });

@@ -5,6 +5,7 @@
  * from this file to ensure compile-time type safety across the Electron IPC boundary.
  */
 
+import type { Automation, AutomationInput, AutomationRun, AutomationsSnapshot, RunOpening } from '../automations/types';
 import type {
   Project,
   EditorOpenResult,
@@ -457,6 +458,20 @@ export interface IpcInvokeContract {
     return: { success: boolean; error?: string; taskNumber?: number };
   };
   'github:task-from-pr': { args: [projectPath: string, prNumber: number]; return: PromoteToTaskResult };
+  'automations:snapshot': { args: [projectPath?: string]; return: AutomationsSnapshot };
+  'automations:save': {
+    args: [projectPath: string, input: AutomationInput, id?: string];
+    return: { success: true; automation: Automation } | { success: false; error: string };
+  };
+  'automations:delete': { args: [id: string]; return: void };
+  'automations:set-paused': { args: [id: string, paused: boolean]; return: void };
+  'automations:run-now': { args: [id: string]; return: AutomationRun };
+  'automations:open-run': { args: [runId: string]; return: RunOpening };
+  'automations:dismiss-run': { args: [runId: string]; return: void };
+  'automations:make-task': {
+    args: [runId: string];
+    return: { success: true; taskNumber: number } | { success: false; error: string };
+  };
 }
 
 /**
@@ -562,4 +577,7 @@ export interface IpcPushContract {
    * kind of diff, the payload's key naming which.
    */
   'lens:changed': { args: [payload: LensChangedPayload] };
+  'automations:changed': { args: [projectPath: string] };
+  /** A notification about an automation was clicked. */
+  'automations:show': { args: [projectPath: string] };
 }

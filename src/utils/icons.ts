@@ -59,6 +59,8 @@ import magnifyingGlass from '@phosphor-icons/core/assets/regular/magnifying-glas
 import minus from '@phosphor-icons/core/assets/regular/minus.svg?raw';
 import pencilSimple from '@phosphor-icons/core/assets/regular/pencil-simple.svg?raw';
 import play from '@phosphor-icons/core/assets/regular/play.svg?raw';
+import pause from '@phosphor-icons/core/assets/regular/pause.svg?raw';
+import clockClockwise from '@phosphor-icons/core/assets/regular/clock-clockwise.svg?raw';
 import plus from '@phosphor-icons/core/assets/regular/plus.svg?raw';
 import question from '@phosphor-icons/core/assets/regular/question.svg?raw';
 import rocket from '@phosphor-icons/core/assets/regular/rocket.svg?raw';
@@ -159,6 +161,8 @@ export const iconMap: Record<string, string> = {
   minus: minus,
   'pencil-simple': pencilSimple,
   play: play,
+  pause: pause,
+  'clock-clockwise': clockClockwise,
   plus: plus,
   prohibit: prohibit,
   question: question,

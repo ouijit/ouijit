@@ -53,6 +53,7 @@ import type { LensInput, LensSummary } from './lens/config';
 import type { StoredLens } from './lens/readLens';
 import type { TaskStatus } from './db';
 import type { ActiveSession } from './ptyManager';
+import type { Automation, AutomationInput, AutomationRun, AutomationsSnapshot, RunOpening } from './automations/types';
 import type {
   SandboxProviderId,
   SandboxProviderStatus,
@@ -365,6 +366,8 @@ export interface PtySpawnOptions {
   env?: Record<string, string>;
   /** Which sandbox backend runs this terminal, or omitted/'none' for a host shell. */
   sandboxProvider?: SandboxProviderId;
+  /** Left out of the sessions a renderer restores, until revealed. */
+  hidden?: boolean;
 }
 
 export interface PtySpawnResult {
@@ -683,6 +686,24 @@ export interface ElectronAPI {
   diffLens: DiffLensAPI;
   /** The project's named lenses and the agent that runs them */
   lens: LensAPI;
+  automations: AutomationsAPI;
+}
+
+export interface AutomationsAPI {
+  snapshot(projectPath?: string): Promise<AutomationsSnapshot>;
+  save(
+    projectPath: string,
+    input: AutomationInput,
+    id?: string,
+  ): Promise<{ success: true; automation: Automation } | { success: false; error: string }>;
+  delete(id: string): Promise<void>;
+  setPaused(id: string, paused: boolean): Promise<void>;
+  runNow(id: string): Promise<AutomationRun>;
+  openRun(runId: string): Promise<RunOpening>;
+  dismissRun(runId: string): Promise<void>;
+  makeTask(runId: string): Promise<{ success: true; taskNumber: number } | { success: false; error: string }>;
+  onChanged(callback: (projectPath: string) => void): () => void;
+  onShow(callback: (projectPath: string) => void): () => void;
 }
 
 /**

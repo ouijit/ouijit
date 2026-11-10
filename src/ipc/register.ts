@@ -18,6 +18,7 @@ import { registerGithubHandlers } from './handlers/github';
 import { registerLinearHandlers } from './handlers/linear';
 import { registerDiffPanelHandlers } from './handlers/diffPanel';
 import { registerAnalysisHandlers } from './handlers/analysis';
+import { registerAutomationHandlers, cleanupAutomations } from './handlers/automations';
 import { initCliPanels } from '../cliPanels';
 import { setLensAnnouncer } from '../lens/announce';
 
@@ -50,11 +51,13 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerLinearHandlers();
   registerDiffPanelHandlers(mainWindow);
   registerAnalysisHandlers();
+  registerAutomationHandlers();
   initCliPanels(mainWindow);
   setLensAnnouncer((change) => typedPush(mainWindow, 'lens:changed', change));
 }
 
 export function cleanupIpc(): void {
+  cleanupAutomations();
   cleanupAllPtys();
   cleanupSandboxProviders();
   cleanupPlanWatchers();

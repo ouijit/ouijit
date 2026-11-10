@@ -56,6 +56,8 @@ export class ProjectRepo {
       this.db.prepare('UPDATE project_counters SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
       this.db.prepare('UPDATE hooks SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
       this.db.prepare('UPDATE scripts SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE automations SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE automation_runs SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
       // OR REPLACE: if a row already exists under the new path, the old one wins.
       const renameSetting = this.db.prepare('UPDATE OR REPLACE global_settings SET key = ? WHERE key = ?');
       for (const prefix of PATH_KEYED_SETTING_PREFIXES) {

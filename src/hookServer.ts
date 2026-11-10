@@ -53,6 +53,15 @@ export function clearAllHookStatuses(): void {
   hookStatusMap.clear();
 }
 
+type HookStatusListener = (ptyId: string, entry: HookStatusEntry) => void;
+const statusListeners = new Set<HookStatusListener>();
+
+/** An agent's turn starting or ending, in any terminal. Returns the unsubscribe. */
+export function onHookStatus(listener: HookStatusListener): () => void {
+  statusListeners.add(listener);
+  return () => statusListeners.delete(listener);
+}
+
 // ── Action handlers ──────────────────────────────────────────────────
 
 type ActionHandler = (body: Record<string, unknown>, auth: AuthContext) => void;
@@ -80,6 +89,9 @@ const actionHandlers: Record<string, ActionHandler> = {
         thinkingCount: entry?.thinkingCount ?? 0,
       });
     }
+
+    const updated = hookStatusMap.get(ptyId)!;
+    for (const listener of statusListeners) listener(ptyId, updated);
 
     // Forward to renderer for real-time UI updates
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -434,6 +446,24 @@ ouijit script delete <id>
 ouijit script run <id-or-name>                # executes and streams output
 ouijit script run <id-or-name> --task <number> # run in task's worktree dir
 
+## Automations (a command or an agent prompt on a schedule)
+ouijit automation list                        # → [{name, schedule, nextRunAt, paused, lastRun, ...}]
+ouijit automation create "<name>" --every "weekdays 09:00" --prompt "<text>"
+                                              # --every: hourly | daily HH:MM | weekdays HH:MM | weekly <day> HH:MM | manual
+                                              # or --cron "<expr>"; --command "<cmd>" or --script <name> in place of --prompt
+                                              # --missed run-once|skip, --in worktree|project, --sandbox host|nono|custom
+ouijit automation run <name>                  # run it now
+ouijit automation pause <name>                # off its schedule until resumed
+ouijit automation resume <name>
+ouijit automation delete <name>
+ouijit automation notify "<one line>"         # inside a run: it needs the user
+
+A --prompt automation runs the project's start hook with the prompt, so it uses
+whichever agent the project does. Each run gets a fresh worktree unless --in
+project, and the sandbox unless --sandbox host. Runs stay off the board. A run
+that fails, or that calls notify, shows as needing the user; any other run ends
+quietly and its worktree is removed. Inside a run, OUIJIT_AUTOMATION_NAME is set.
+
 ## Pull Requests
 A task made from a pull request carries its number:
 ouijit task current | jq .githubPrNumber
@@ -530,8 +560,8 @@ ouijit theme delete <id>                      # remove a custom theme
 ## From a sandbox
 A sandboxed terminal reaches Ouijit in its own project, at that project's CLI access level:
 - Read only, the default: its own task (task current, task get), diff notes,
-  link, ask, pr list and view, pr and linear drafts, pr lenses, linear list
-  and view. On this terminal: terminal read, tags, panel list and read, and
+  link, ask, automation notify, pr list and view, pr and linear drafts, pr
+  lenses, linear list and view. On this terminal: terminal read, tags, panel list and read, and
   markdown add and remove for files in its worktree.
 - Its own task: also task set-status, set-name and set-description on its own
   task, pr link and issue link to it, and task create for a to-do card.

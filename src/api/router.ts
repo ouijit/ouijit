@@ -66,6 +66,17 @@ import {
   resolveIssueId as resolveLinearIssueId,
 } from '../linear/service';
 import { getProjectList } from '../projectList';
+import {
+  automationsSnapshot,
+  createAutomation,
+  deleteAutomation,
+  findAutomation,
+  notifyFromRun,
+  runAutomationNow,
+  setAutomationPaused,
+} from '../automations/service';
+import { describeSchedule, scheduleFromText } from '../automations/schedule';
+import type { AutomationInput, AutomationKind } from '../automations/types';
 import { shellJoin } from '../utils/shellQuote';
 import { fileItRuns } from '../askFile';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
@@ -97,6 +108,7 @@ import type {
   SandboxProviderId,
 } from '../types';
 import {
+  defaultSandboxSettingKey,
   SANDBOXABLE_HOOK_TYPES,
   SANDBOX_PROVIDER_IDS,
   isActiveSandbox,
@@ -390,6 +402,86 @@ function draftInput(body: Record<string, unknown>): {
     body: text,
     ...(typeof body.id === 'string' ? { id: body.id } : {}),
   };
+}
+
+// ── Automation helpers ───────────────────────────────────────────────
+
+/** A service error is the caller's mistake: a bad name, schedule or field. */
+function asBadRequest<T>(fn: () => T): T {
+  try {
+    return fn();
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(400, error instanceof Error ? error.message : String(error));
+  }
+}
+
+function automationByName(r: ParsedRequest) {
+  const project = requireProject(r.query);
+  return asBadRequest(() => findAutomation(project, decodeURIComponent(r.segments[1] ?? '')));
+}
+
+async function automationInput(projectPath: string, body: Record<string, unknown>): Promise<AutomationInput> {
+  const str = (key: string) => (typeof body[key] === 'string' ? (body[key] as string) : undefined);
+  const prompt = str('prompt');
+  let command = str('command');
+  const scriptName = str('script');
+  if ([prompt, command, scriptName].filter(Boolean).length !== 1) {
+    throw new HttpError(400, 'Give exactly one of --prompt, --command or --script');
+  }
+  if (scriptName) {
+    const scripts = await getScripts(projectPath);
+    const named = scripts.find((s) => s.id === scriptName) ?? scripts.find((s) => s.name === scriptName);
+    if (!named) throw new HttpError(404, `No script named ${scriptName}`);
+    command = named.command;
+  }
+  const kind: AutomationKind = prompt ? 'agent' : 'command';
+  const schedule = asBadRequest(() => scheduleFromText(str('cron') ?? str('every') ?? 'manual'));
+  const sandbox = parseSandbox(body.sandbox, 'sandbox') ?? (await defaultAutomationSandbox(projectPath));
+  return {
+    name: str('name') ?? '',
+    kind,
+    ...(prompt ? { prompt } : { command }),
+    schedule,
+    missed: str('missed') === 'skip' ? 'skip' : 'run-once',
+    location: str('in') === 'project' ? 'project' : 'worktree',
+    sandbox,
+  };
+}
+
+/** The project's own sandbox when it has one, else Ouijit's: nobody is there to answer a prompt. */
+async function defaultAutomationSandbox(projectPath: string): Promise<SandboxProviderId> {
+  const projectDefault = await getGlobalSetting(defaultSandboxSettingKey(projectPath));
+  return isSandboxBackendId(projectDefault) ? projectDefault : 'nono';
+}
+
+function automationListing(projectPath: string) {
+  const { automations, runs } = automationsSnapshot(projectPath);
+  return automations.map((a) => {
+    const last = runs.find((r) => r.automationId === a.id);
+    return {
+      name: a.name,
+      id: a.id,
+      kind: a.kind,
+      ...(a.prompt && { prompt: a.prompt }),
+      ...(a.command && { command: a.command }),
+      schedule: describeSchedule(a.schedule),
+      ...(a.schedule && { cron: a.schedule }),
+      paused: a.paused,
+      nextRunAt: a.nextRunAt,
+      missed: a.missed,
+      in: a.location,
+      sandbox: a.sandbox,
+      ...(last && {
+        lastRun: {
+          state: last.state,
+          at: last.startedAt ?? last.scheduledFor,
+          summary: last.summary,
+          reason: last.reason,
+        },
+      }),
+    };
+  });
 }
 
 // ── Panel route helpers ──────────────────────────────────────────────
@@ -899,6 +991,46 @@ const routes: Route[] = [
       return deleteScript(project, id);
     },
     true,
+  ),
+
+  // ── Automations ──────────────────────────────────────────────────
+  route('GET', 'automations', (r) => automationListing(requireProject(r.query))),
+
+  route(
+    'POST',
+    'automations',
+    async (r) => {
+      const project = requireProject(r.query);
+      const input = await automationInput(project, r.body);
+      return asBadRequest(() => createAutomation(project, input));
+    },
+    true,
+  ),
+
+  route('POST', 'automations/:name/run', (r) => runAutomationNow(automationByName(r).id), true),
+  route('POST', 'automations/:name/pause', (r) => setAutomationPaused(automationByName(r).id, true), true),
+  route('POST', 'automations/:name/resume', (r) => setAutomationPaused(automationByName(r).id, false), true),
+  route(
+    'DELETE',
+    'automations/:name',
+    async (r) => {
+      await deleteAutomation(automationByName(r).id);
+      return { success: true };
+    },
+    true,
+  ),
+
+  // Any run may say it needs the user, sandboxed or not; it names nothing but itself.
+  route(
+    'POST',
+    'automations/notify',
+    (r) => {
+      const summary = r.body.summary;
+      if (typeof summary !== 'string' || !summary.trim()) throw new HttpError(400, 'Say what needs the user');
+      return asBadRequest(() => notifyFromRun(r.auth.ptyId, summary));
+    },
+    false,
+    READ,
   ),
 
   // ── Themes (global appearance — not project-scoped) ─────────────

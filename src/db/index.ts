@@ -18,6 +18,7 @@ import { LinearDraftRepo, type LinearDraftRow } from './repos/linearDraftRepo';
 import { DiffLensRepo, type DiffLensRow } from './repos/diffLensRepo';
 import { worktreeKeyPrefix } from '../lens/subjectKeys';
 import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
+import { AutomationRepo } from './repos/automationRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import { SANDBOXABLE_HOOK_TYPES, isSandboxProviderId } from '../sandbox/types';
 import { getLogger } from '../logger';
@@ -64,6 +65,7 @@ let reviewDraftRepo: ReviewDraftRepo | null = null;
 let linearDraftRepo: LinearDraftRepo | null = null;
 let diffLensRepo: DiffLensRepo | null = null;
 let diffNoteRepo: DiffNoteRepo | null = null;
+let automationRepo: AutomationRepo | null = null;
 
 function repos() {
   if (!taskRepo) {
@@ -77,6 +79,7 @@ function repos() {
     linearDraftRepo = new LinearDraftRepo(db);
     diffLensRepo = new DiffLensRepo(db);
     diffNoteRepo = new DiffNoteRepo(db);
+    automationRepo = new AutomationRepo(db);
   }
   return {
     projectRepo: projectRepo!,
@@ -88,6 +91,7 @@ function repos() {
     linearDraftRepo: linearDraftRepo!,
     diffLensRepo: diffLensRepo!,
     diffNoteRepo: diffNoteRepo!,
+    automationRepo: automationRepo!,
   };
 }
 
@@ -104,6 +108,7 @@ export function _resetCacheForTesting(): void {
   linearDraftRepo = new LinearDraftRepo(db);
   diffLensRepo = new DiffLensRepo(db);
   diffNoteRepo = new DiffNoteRepo(db);
+  automationRepo = new AutomationRepo(db);
 }
 
 // ── Row → TaskMetadata conversion ────────────────────────────────────
@@ -140,7 +145,7 @@ function rowToTask(row: TaskRow): TaskMetadata {
 
 // ── Ensure project exists (auto-create) ──────────────────────────────
 
-function ensureProject(projectPath: string): void {
+export function ensureProject(projectPath: string): void {
   const { projectRepo: pr } = repos();
   if (!pr.getByPath(projectPath)) {
     const name = projectPath.split('/').pop() || projectPath;
@@ -784,4 +789,10 @@ export async function reorderScripts(projectPath: string, scriptIds: string[]): 
     dbLog.error('failed to reorder scripts', { error: error instanceof Error ? error.message : String(error) });
     return { success: false };
   }
+}
+
+// ── Automations ─────────────────────────────────────────────────────
+
+export function automations(): AutomationRepo {
+  return repos().automationRepo;
 }

@@ -12,6 +12,7 @@ import { KanbanBoard } from './kanban/KanbanBoard';
 import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
 import { PullRequestsPanel } from './github/PullRequestsPanel';
 import { AnalysisPanel } from './analysis/AnalysisPanel';
+import { AutomationsPage } from './automations/AutomationsPage';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { GlobalSettingsPanel } from './GlobalSettingsPanel';
 import { CloningProjectView } from './CloningProjectView';
@@ -177,6 +178,8 @@ function Selected({
         return <PullRequestsPanel projectPath={projectPath} />;
       case 'analysis':
         return <AnalysisPanel projectPath={projectPath} />;
+      case 'automations':
+        return <AutomationsPage projectPath={projectPath} />;
     }
   }
   return <NothingSelected />;

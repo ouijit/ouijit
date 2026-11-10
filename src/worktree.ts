@@ -762,6 +762,63 @@ export async function createTaskWorktree(
   }
 }
 
+export interface RunWorktree {
+  worktreePath: string;
+  branch: string;
+  /** The commit the branch started at, so cleanup can tell whether the run committed anything. */
+  baseCommit: string;
+  mergeTarget?: string;
+}
+
+/** A worktree for one automation run, on a branch of its own, set up the way a task's is. */
+export async function createRunWorktree(projectPath: string, dirName: string, branch: string): Promise<RunWorktree> {
+  const hasHead = await execAsync('git rev-parse HEAD', { cwd: projectPath }).then(
+    () => true,
+    () => false,
+  );
+  if (!hasHead) await execAsync('git commit --allow-empty -m "Initial commit"', { cwd: projectPath });
+  const baseDir = getWorktreeBaseDir(path.basename(projectPath));
+  await fs.mkdir(baseDir, { recursive: true });
+  const worktreePath = path.join(baseDir, dirName);
+  const base = await defaultBase(projectPath);
+  const branchHead = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: projectPath })
+    .then(({ stdout }) => stdout.trim())
+    .catch((): undefined => undefined);
+  const copyIgnored = await shouldCopyIgnoredFiles(projectPath);
+  const [, ignoredFiles] = await Promise.all([
+    execFileAsync(
+      'git',
+      base
+        ? ['worktree', 'add', '--no-track', '-b', branch, worktreePath, base.ref]
+        : ['worktree', 'add', '-b', branch, worktreePath],
+      { cwd: projectPath },
+    ),
+    copyIgnored ? fetchIgnoredFiles(projectPath) : Promise.resolve<string[]>([]),
+  ]);
+  if (copyIgnored) await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
+  const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: worktreePath });
+  return { worktreePath, branch, baseCommit: stdout.trim(), mergeTarget: base?.mergeTarget ?? branchHead };
+}
+
+/** Removes a run's worktree, and its branch unless the run committed to it. */
+export async function removeRunWorktree(
+  projectPath: string,
+  worktreePath: string,
+  branch: string | undefined,
+  baseCommit: string | undefined,
+): Promise<void> {
+  await execFileAsync('git', ['worktree', 'remove', worktreePath, '--force'], { cwd: projectPath }).catch(
+    (error: unknown) => worktreeLog.warn('run worktree removal failed', { worktreePath, error: String(error) }),
+  );
+  if (!branch) return;
+  const head = await execFileAsync('git', ['rev-parse', '--verify', '--quiet', branch], { cwd: projectPath })
+    .then(({ stdout }) => stdout.trim())
+    .catch((): null => null);
+  if (head && head === baseCommit) {
+    await execFileAsync('git', ['branch', '-D', branch], { cwd: projectPath }).catch((): undefined => undefined);
+  }
+}
+
 /**
  * Remove a git worktree and its task metadata
  */
