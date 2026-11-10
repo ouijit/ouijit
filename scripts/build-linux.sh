@@ -17,7 +17,7 @@
 #
 # Prerequisites:
 #   - Lima (brew install lima)
-#   - Node.js 20+
+#   - Node.js 22.22+
 #
 # Usage:
 #   npm run make:linux
