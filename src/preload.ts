@@ -213,6 +213,7 @@ contextBridge.exposeInMainWorld('api', {
 
   plan: {
     read: (planPath: string) => typedInvoke('plan:read', planPath),
+    readImage: (planPath: string, src: string) => typedInvoke('plan:read-image', planPath, src),
     watch: (planPath: string) => typedInvoke('plan:watch', planPath),
     unwatch: (planPath: string) => typedInvoke('plan:unwatch', planPath),
     onContentChanged: (callback: (planPath: string, content: string) => void) =>

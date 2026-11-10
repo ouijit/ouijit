@@ -816,6 +816,10 @@ textarea,
   content: 'File not found';
 }
 
+.plan-markdown img {
+  @apply my-2;
+}
+
 .app-markdown strong {
   @apply text-text-primary font-medium;
 }

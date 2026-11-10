@@ -162,6 +162,7 @@ const mockApi = {
   },
   plan: {
     read: vi.fn().mockResolvedValue(null),
+    readImage: vi.fn().mockResolvedValue(null),
     watch: vi.fn().mockResolvedValue({ success: true }),
     unwatch: vi.fn().mockResolvedValue(undefined),
     onContentChanged: vi.fn().mockReturnValue(() => {}),
