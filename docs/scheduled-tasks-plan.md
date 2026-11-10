@@ -1,68 +1,92 @@
 # Scheduled tasks — plan
 
-A scheduled task is a prompt Ouijit turns into a task card on a timer. Each run
-is an ordinary task: its own worktree, the project's start hook, a card on the
-board. The board's **In review** column is the inbox.
+A schedule runs a prompt on a timer in a project. Runs stay off the board: each
+one belongs to its schedule, and only a run with something for you to look at
+reaches you, through the waiting queue. Opening it continues the run, the same
+as reopening an in-progress task.
 
 ## What others ship
 
 | | Codex app (Automations) | Claude Code Desktop (Scheduled tasks) | Cursor (Automations) |
 | :- | :- | :- | :- |
 | Runs on | Your machine, app open | Your machine, app open and awake | Cloud |
-| Where | Local checkout or a background worktree (default) | Local folder; worktree opt-in | Fresh clone |
+| Where a run works | Fresh background worktree (default) or local checkout | Your folder as it is; worktree opt-in | Fresh clone |
+| Scope | One or more projects | One folder | One repo, or none |
 | Schedule | Presets, RRULE; minutes for in-chat tasks | Hourly, Daily, Weekdays, Weekly, Manual, cron (≥1h in the form) | Presets, cron, plus GitHub/Slack/Linear/webhook events |
 | Permissions | Unattended, sandbox policy, no approvals | Per-task permission mode; runs stall on prompts | Cloud agent, no prompts |
-| Results | Triage inbox; runs with findings show unread | A session per run, listed in the task's history | Agent run, PR |
+| Results | An inbox of runs worth reading; worktrees pile up unless archived | A session per run, in the task's history | Agent run, PR |
 | Missed runs | Unspecified | One catch-up for the latest missed time in 7 days | n/a |
 | Created by | UI, or asking the agent | UI, or asking the agent | UI |
 
-What carries over: worktree by default, an inbox of runs that found something,
-one catch-up run, "run now", and letting the agent create schedules. What to
-avoid: Claude's runs stalling on a permission prompt nobody is there to answer,
-and worktrees piling up from runs with nothing to say.
+Taken: worktree per run, an inbox for runs that need you, one catch-up run, Run
+now, schedules the agent can create. Avoided: runs stalling on a permission
+prompt nobody is there to answer, worktrees piling up, and every run landing
+somewhere you have to clear.
 
 ## How it works for a user
 
-1. **Create.** In the project, **Schedules → New**: name, prompt, cadence.
-   Or on any card, **Repeat…** seeds a schedule from that card's prompt. Or ask
-   the agent: "every weekday at 9, triage new PRs" — it runs
-   `ouijit schedule create`.
+1. **Create.** On the project's **Schedules** page, **New**: name, prompt,
+   cadence. Or ask the agent — "every weekday at 9, triage new PRs" — and it
+   runs `ouijit schedule create`.
 2. **Cadence.** Hourly, Daily at, Weekdays at, Weekly on, Manual, or cron, in
    local time. Minimum 15 minutes.
-3. **A run.** When due, Ouijit runs the equivalent of
-   `task create-and-start "<name> · Nov 9" --prompt "<prompt>" --run-hook`.
-   The start hook launches whichever agent the project uses, so this works for
-   claude, codex, pi and opencode alike. The card carries a schedule badge.
-4. **Runs in the Sandbox by default.** A scheduled run has nobody to answer a
-   permission prompt, so the agent runs with checks off, and that is what the
-   sandbox is for. Host is allowed per schedule, with a warning.
-5. **Reporting.** Ouijit appends a short instruction to the prompt: if there is
-   something for the user, move the task to `in_review`; if not, move it to
-   `done`. Done runs with no commits have their worktree removed. So the board
-   only gains a card when a run found something.
-6. **Manage.** The schedule's page: **Run now**, Pause/Resume, Edit, Delete,
-   and its history — the cards it created, with skipped runs and why.
+3. **A run.** When due, Ouijit makes a fresh worktree and runs the project's
+   start hook with the prompt, so it works with whichever agent the project
+   uses. Read-only schedules can run in the project folder instead and skip the
+   worktree.
+4. **Sandbox by default.** Nobody is there to answer a permission prompt, so
+   the agent runs with checks off, which is what the sandbox is for. Host is
+   allowed per schedule, with a warning.
+5. **Report or stay quiet.** If the run has something for you — two new PRs
+   with review comments staged in drafts, outdated packages to bump — the agent
+   runs `ouijit schedule report "<one line>"`. That puts the run in the waiting
+   queue with a notification. A run that doesn't report ends quietly, and its
+   worktree is removed.
+6. **Open a run.** Opening a report runs the continue hook in the run's
+   worktree: the agent picks up its session with full context, and you carry on
+   from there.
+7. **Make a task.** If a run turns into real work, **Make a task** puts it on
+   the board, keeping its worktree and branch.
+
+A run is a task that never went on the board: same worktree, same start and
+continue hooks. Nothing new is built for sessions.
+
+## Where you see it
+
+- **Schedules page**, per project, beside Board, Pull requests and Analysis.
+  Each schedule shows its cadence and next run, with Run now, Pause/Resume,
+  Edit and Delete. Its history lists every run — reported, quiet, or skipped
+  and why — and any run can be opened.
+- **Waiting queue** for reports, alongside hooks waiting on you.
+- **CLI** for agents.
 
 ## Rules
 
 - **App must be open.** Schedules fire while Ouijit runs and the Mac is awake.
   On launch or wake, a schedule that missed runs in the last 7 days gets one
   catch-up run for the latest missed time, with a notification.
-- **No overlap.** If the previous run of a schedule is still in progress, the
-  next one is skipped and recorded as skipped.
+- **No overlap.** If a schedule's previous run is still going, the next is
+  skipped and recorded as skipped.
 - **Concurrency cap.** At most N scheduled runs at once across projects
   (default 2); the rest queue.
-- **Stored in the project's database**, one row per schedule; each run's task
-  records its schedule id. Deleting a schedule leaves its cards.
+- **Retention.** A reported run keeps its worktree until you open it and close
+  it, make it a task, or dismiss it.
+- **Stored per project**, one row per schedule, one per run.
 
 ## CLI
 
 ```
 ouijit schedule list
-ouijit schedule create "<name>" --prompt "<text>" --every "weekdays 09:00" [--cron "<expr>"] [--sandbox host|nono|custom]
+ouijit schedule create "<name>" --prompt "<text>" --every "weekdays 09:00" [--cron "<expr>"] [--in worktree|project] [--sandbox host|nono|custom]
 ouijit schedule run <id>
 ouijit schedule pause <id> | resume <id> | delete <id>
+ouijit schedule report "<summary>"     # from inside a run
 ```
+
+## Open question
+
+Should a run in progress show live anywhere — under the project in the
+sidebar, like a running terminal — or only on the Schedules page?
 
 ## Later, not v1
 
