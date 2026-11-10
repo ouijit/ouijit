@@ -74,9 +74,17 @@ sidebar row while they go.
 
 ## Rules
 
-- **App must be open.** Automations fire while Ouijit runs and the Mac is
-  awake. On launch or wake, one that missed runs in the last 7 days gets one
-  catch-up run for the latest missed time, with a notification.
+- **Ouijit must be running.** Automations fire while Ouijit runs and the Mac
+  is awake. Closing the window doesn't stop them; quitting does. Nothing runs
+  while Ouijit is quit — that would take a background service, which is out of
+  scope.
+- **Missed runs.** On launch or wake, an automation that missed runs in the
+  last 7 days does what it is set to:
+  - **Run once** (default) — one catch-up run for the latest missed time, with
+    a notification. A weekday 9:00 automation that missed Friday and Monday
+    runs once when Ouijit opens on Tuesday.
+  - **Skip** — records the misses and waits for the next scheduled time, for
+    runs that are pointless late, like a morning standup summary.
 - **No overlap.** If an automation's previous run is still going, the next is
   skipped and recorded as skipped.
 - **Concurrency cap.** At most N runs at once across projects (default 2); the
@@ -90,7 +98,7 @@ sidebar row while they go.
 
 ```
 ouijit automation list
-ouijit automation create "<name>" --every "weekdays 09:00" (--prompt "<text>" | --command "<cmd>" | --script <name>) [--cron "<expr>"] [--in worktree|project] [--sandbox host|nono|custom]
+ouijit automation create "<name>" --every "weekdays 09:00" (--prompt "<text>" | --command "<cmd>" | --script <name>) [--cron "<expr>"] [--missed run-once|skip] [--in worktree|project] [--sandbox host|nono|custom]
 ouijit automation run <name>
 ouijit automation pause <name> | resume <name> | delete <name>
 ouijit automation notify "<one line>"     # from inside a run
