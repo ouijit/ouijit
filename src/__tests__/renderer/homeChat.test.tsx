@@ -128,21 +128,6 @@ describe('Chat', () => {
     expect(current.getAttribute('aria-current')).toBe('true');
     expect(within(screen.getByRole('banner')).getByText('Ship the settings page.')).toBeTruthy();
 
-    // Another conversation resumes in place of this one; the plus starts a fresh one; a row can be renamed.
-    fireEvent.click(within(group).getByRole('button', { name: 'Keychain recovery review' }));
-    expect(window.api.homeChat.switch).toHaveBeenCalledWith('home-2');
-    fireEvent.click(within(group).getByRole('button', { name: 'New chat' }));
-    expect(window.api.homeChat.create).toHaveBeenCalledTimes(1);
-    fireEvent.contextMenu(within(group).getByRole('button', { name: 'Keychain recovery review' }));
-    fireEvent.click(await screen.findByText('Rename'));
-    const field = await within(group).findByLabelText('Name');
-    fireEvent.change(field, { target: { value: 'Keychain' } });
-    fireEvent.keyDown(field, { key: 'Enter' });
-    expect(window.api.homeChat.rename).toHaveBeenCalledWith('home-2', 'Keychain');
-    fireEvent.click(within(group).getByRole('button', { name: 'Hide chats' }));
-    expect(within(group).queryByRole('button', { name: 'Keychain recovery review' })).toBeNull();
-    fireEvent.click(within(group).getByRole('button', { name: 'Show chats' }));
-
     // Work between two things said is one line, closed; what Ouijit sent is a plain line, not a bubble.
     const fold = screen.getByRole('button', { name: /Ran 2 commands, edited 1 file/ });
     expect(fold.textContent).toBe('Ran 2 commands, edited 1 file10s');
@@ -162,6 +147,24 @@ describe('Chat', () => {
     });
     expect(screen.getByRole('button', { name: /Read 1 file/ }).getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByText('ouijit chat read pty-12')).toBeNull();
+
+    // Another conversation resumes in place of this one; the plus starts a fresh one; a row can be renamed.
+    fireEvent.click(within(group).getByRole('button', { name: 'Keychain recovery review' }));
+    expect(window.api.homeChat.switch).toHaveBeenCalledWith('home-2');
+    expect(useHomeChatStore.getState().currentId).toBe('home-2');
+    fireEvent.click(within(group).getByRole('button', { name: 'Ship the settings page.' }));
+    expect(useHomeChatStore.getState().currentId).toBe(CURRENT);
+    fireEvent.click(within(group).getByRole('button', { name: 'New chat' }));
+    expect(window.api.homeChat.create).toHaveBeenCalledTimes(1);
+    fireEvent.contextMenu(within(group).getByRole('button', { name: 'Keychain recovery review' }));
+    fireEvent.click(await screen.findByText('Rename'));
+    const field = await within(group).findByLabelText('Name');
+    fireEvent.change(field, { target: { value: 'Keychain' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(window.api.homeChat.rename).toHaveBeenCalledWith('home-2', 'Keychain');
+    fireEvent.click(within(group).getByRole('button', { name: 'Hide chats' }));
+    expect(within(group).queryByRole('button', { name: 'Keychain recovery review' })).toBeNull();
+    fireEvent.click(within(group).getByRole('button', { name: 'Show chats' }));
 
     // The gear opens Chat's settings, where a change of where it runs restarts the agent.
     expect(within(screen.getByRole('banner')).getByText('Ship the settings page.')).toBeTruthy();

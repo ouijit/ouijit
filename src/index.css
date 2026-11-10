@@ -1247,3 +1247,16 @@ textarea,
 .lens-part-enter {
   animation: lens-part-enter 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
+
+/* A conversation taking the place of another in the Chat view. */
+.chat-swap-in {
+  animation: chat-swap-in 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes chat-swap-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

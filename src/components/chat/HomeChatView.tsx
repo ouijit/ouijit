@@ -9,7 +9,11 @@ export function HomeChatView() {
       className="flex flex-col h-full transition-[margin-left] duration-200 ease-out"
       style={{ marginLeft: 'var(--sidebar-offset, 0px)' }}
     >
-      {currentId && <ChatView key={currentId} cardId={currentId} surface="page" />}
+      {currentId && (
+        <div key={currentId} className="chat-swap-in flex-1 min-h-0 flex flex-col">
+          <ChatView cardId={currentId} surface="page" />
+        </div>
+      )}
     </div>
   );
 }

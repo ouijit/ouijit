@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { getChatRepo, getGlobalSetting, setGlobalSetting } from '../db';
+import { getLogger } from '../logger';
 import { getUserDataPath } from '../paths';
 import { chatHost } from './host';
 import { HOME_CHAT_INSTRUCTIONS } from './homeChatInstructions';
@@ -21,6 +22,7 @@ import {
 import type { ChatAgentId, ChatSessionInfo, ChatSnapshot } from './model';
 
 const execFileAsync = promisify(execFile);
+const chatLog = getLogger().scope('chat:home');
 
 /** In a sandbox nothing asks first: the sandbox is the boundary. Agents without such a mode keep their own approvals. */
 const UNATTENDED_MODE: Partial<Record<ChatAgentId, string>> = { claude: 'bypassPermissions', codex: 'never' };
@@ -93,6 +95,8 @@ export async function homeChatState(): Promise<HomeChatState> {
   if (live && !chats.some((chat) => chat.id === currentId)) {
     chats.unshift(summary(currentId, live.info, new Date().toISOString()));
   }
+  // The one open is the most recent, whatever a stop's final flush wrote after it.
+  chats.sort((a, b) => Number(b.id === currentId) - Number(a.id === currentId));
   return { currentId, chats };
 }
 
@@ -136,27 +140,32 @@ export async function startHomeChat(options: { eager?: boolean } = {}): Promise<
   return startConversation(await currentHomeChatId(), options.eager);
 }
 
-/** One conversation runs at a time: the others' agents are stopped, their transcripts kept. */
-async function stopOthers(id: string): Promise<void> {
-  await Promise.all(
+/**
+ * One conversation runs at a time: the others' agents are stopped, their
+ * transcripts kept. An agent takes a moment to exit, so the one coming up is
+ * not kept waiting for it; the one going down takes no more turns meanwhile,
+ * since wakes go to the current conversation and the user has left it.
+ */
+function stopOthers(id: string): void {
+  for (const info of chatHost.list()) {
+    if (!isHomeChatId(info.id) || info.id === id) continue;
     chatHost
-      .list()
-      .filter((info) => isHomeChatId(info.id) && info.id !== id)
-      .map((info) => chatHost.stop(info.id)),
-  );
+      .stop(info.id)
+      .catch((error) => chatLog.warn('conversation did not stop', { id: info.id, error: String(error) }));
+  }
 }
 
 export async function newHomeChat(): Promise<ChatSnapshot> {
   const id = newId();
-  await stopOthers(id);
   await choose(id);
+  stopOthers(id);
   return startConversation(id, true);
 }
 
 export async function switchHomeChat(id: string): Promise<ChatSnapshot> {
   if (!isHomeChatId(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
-  await stopOthers(id);
   await choose(id);
+  stopOthers(id);
   return startConversation(id, true);
 }
 

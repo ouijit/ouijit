@@ -77,7 +77,10 @@ export async function newHomeChat(): Promise<void> {
 /** Open one of Chat's conversations, resuming its agent in place of the current one's. */
 export async function openHomeChat(id: string): Promise<void> {
   useAppStore.getState().select({ kind: 'chat', page: 'chat' });
-  if (id === useHomeChatStore.getState().currentId) return;
+  const store = useHomeChatStore.getState();
+  if (id === store.currentId) return;
+  // Shown at once, from its stored transcript; the agent catches up behind it.
+  store.set({ currentId: id, chats: store.chats });
   try {
     useChatStore.getState().adopt(await window.api.homeChat.switch(id));
   } catch (error) {

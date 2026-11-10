@@ -70,6 +70,15 @@ async function until(id: string, done: (snapshot: ChatSnapshot) => boolean): Pro
   }
 }
 
+/** The agent of a conversation left behind goes in the background; this waits for it. */
+async function awaitStopped(id: string): Promise<void> {
+  const started = Date.now();
+  while (chatHost.isLive(id)) {
+    if (Date.now() - started > timeout) throw new Error(`${id} is still live`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
 function wakes(snapshot: ChatSnapshot): UserMessageNode[] {
   return snapshot.nodes.filter((n): n is UserMessageNode => n.kind === 'user_message' && n.wake === true);
 }
@@ -178,7 +187,7 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       // A new conversation leaves the old one in the list, and switching back resumes it, transcript and all.
       const fresh = await newHomeChat();
       expect(fresh.info.id).not.toBe(HOME_CHAT_ID);
-      expect(chatHost.isLive(HOME_CHAT_ID)).toBe(false);
+      await awaitStopped(HOME_CHAT_ID);
       await until(fresh.info.id, (s) => s.info.status === 'idle');
       const listed = await homeChatState();
       expect(listed.currentId).toBe(fresh.info.id);
@@ -188,7 +197,7 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       ]);
       const back = await switchHomeChat(HOME_CHAT_ID);
       expect(back.nodes.map((n) => n.id)).toEqual(after.nodes.map((n) => n.id));
-      expect(chatHost.isLive(fresh.info.id)).toBe(false);
+      await awaitStopped(fresh.info.id);
       await until(HOME_CHAT_ID, (s) => s.info.status === 'idle');
       expect((await homeChatState()).currentId).toBe(HOME_CHAT_ID);
       await chatHost.stopAll();
