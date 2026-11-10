@@ -52,16 +52,23 @@ agent at all.
    unless the run needs you. Or the project folder, for runs that only read.
 5. **Sandbox by default.** Nobody is there to answer a permission prompt, so
    an agent runs with checks off, which is what the sandbox is for. Host is
-   allowed per automation, with a warning.
+   allowed per automation, with a warning. A sandbox's default CLI access is
+   read only, so `ouijit automation notify` has to be allowed at that level,
+   as `ouijit ask` is.
 6. **A run that needs you** — it fails, or it runs
    `ouijit automation notify "<one line>"` — shows as unread on the
    Automations page, adds to the unread count on the sidebar row, and sends a
    notification. Every other run ends quietly.
-7. **Open a run.** A script run shows its output, like a runner panel. An
-   agent run continues: the continue hook runs in its worktree and the agent
-   picks up its session.
-8. **Make a task.** If a run turns into real work, **Make a task** puts it on
-   the board, keeping its worktree and branch.
+7. **When a run ends.** A script run ends when it exits. An agent sits at its
+   prompt after a turn, so an agent run ends when the agent reports its turn
+   finished — the same status hooks that drive the board's live status — and
+   Ouijit closes its terminal, keeping the last screen.
+8. **Open a run.** A script run shows its output, like a runner panel. An
+   agent run that needs you continues: the continue hook runs in its worktree
+   and the agent picks up its session. A quiet run's worktree is gone, so it
+   opens to its last screen only.
+9. **Make a task.** If a worktree run turns into real work, **Make a task**
+   puts it on the board, keeping its worktree and branch.
 
 ## The Automations page
 
