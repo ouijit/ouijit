@@ -38,6 +38,8 @@ export interface UserMessageNode extends NodeBase {
   attachments: ChatAttachment[];
   /** `queued` waits for the turn to end; `steer` was folded into the running one. */
   delivery: 'prompt' | 'steer' | 'queued';
+  /** Sent by Ouijit about something that happened, not typed by a person. */
+  wake?: boolean;
 }
 
 export interface AssistantMessageNode extends NodeBase {

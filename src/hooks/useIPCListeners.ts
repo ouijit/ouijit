@@ -28,8 +28,12 @@ interface CliStart extends CliHookControl, CliCaller {
   branch: string;
 }
 
-function hookOptions({ hookMode, hookCommand, hookSandbox }: CliHookControl) {
-  return { hookControl: hookMode ? { mode: hookMode, command: hookCommand } : undefined, sandbox: hookSandbox };
+function hookOptions({ hookMode, hookCommand, hookSandbox, surface }: CliHookControl) {
+  return {
+    hookControl: hookMode ? { mode: hookMode, command: hookCommand } : undefined,
+    sandbox: hookSandbox,
+    surface,
+  };
 }
 
 /**

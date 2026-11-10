@@ -4,7 +4,7 @@ import { getWrapperBinDir, getUserDataPath, getCliPath } from './paths';
 import { getShellIntegrationDir } from './shellIntegration';
 import { getVendoredNonoPath } from './sandbox/nono/binary';
 import type { SandboxProvider } from './sandbox/provider';
-import type { SandboxBackendId, SandboxLaunch } from './sandbox/types';
+import type { SandboxBackendId, SandboxCliAccess, SandboxLaunch } from './sandbox/types';
 
 /** `process.env` without its undefined values, which node-pty and child_process both reject. */
 export function hostEnv(): Record<string, string> {
@@ -53,9 +53,10 @@ export function ouijitSessionEnv(
 export async function sandboxReferenceEnv(
   provider: SandboxBackendId | undefined,
   projectPath: string,
+  access?: SandboxCliAccess,
 ): Promise<Record<string, string>> {
   if (!provider) return {};
-  const access = await sandboxCliAccessFor(projectPath).catch((): 'read' => 'read');
+  access ??= await sandboxCliAccessFor(projectPath).catch((): 'read' => 'read');
   return { OUIJIT_SANDBOX_REFERENCE_FILE: getCliReferencePath({ provider, access }) };
 }
 

@@ -9,6 +9,9 @@ import { SANDBOX_FLAG, parseSandboxFlag, sandboxFlagHelp } from '../sandboxFlag'
 
 const HOOK_SANDBOX_HELP = sandboxFlagHelp("run the hook in this sandbox instead of the hook's own setting");
 
+const SURFACE_FLAG = '--surface <surface>';
+const SURFACE_HELP = 'open the task in this surface (terminal or chat) instead of the chat setting';
+
 const VALID_STATUSES = ['todo', 'in_progress', 'in_review', 'done'];
 
 interface HookFlags {
@@ -16,9 +19,10 @@ interface HookFlags {
   skipHook?: boolean;
   hookCommand?: string;
   sandbox?: string;
+  surface?: string;
 }
 
-type HookBody = { hookMode?: string; hookCommand?: string; hookSandbox?: string };
+type HookBody = { hookMode?: string; hookCommand?: string; hookSandbox?: string; surface?: string };
 
 /**
  * Resolve the --run-hook / --skip-hook / --hook-command flags into the
@@ -35,7 +39,10 @@ function resolveHookFlags(opts: HookFlags): HookBody | { error: string } {
   const hookSandbox = parsed.sandbox;
   const mode = resolveHookMode(opts);
   if ('error' in mode) return mode;
-  return { ...mode, ...(hookSandbox && { hookSandbox }) };
+  if (opts.surface !== undefined && opts.surface !== 'terminal' && opts.surface !== 'chat') {
+    return { error: `--surface must be terminal or chat, not ${opts.surface}` };
+  }
+  return { ...mode, ...(hookSandbox && { hookSandbox }), ...(opts.surface && { surface: opts.surface }) };
 }
 
 function resolveHookMode(opts: HookFlags): { hookMode?: string; hookCommand?: string } | { error: string } {
@@ -174,6 +181,7 @@ Examples:
     .option('--skip-hook', 'spawn the terminal but run no hook')
     .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
     .option(SANDBOX_FLAG, HOOK_SANDBOX_HELP)
+    .option(SURFACE_FLAG, SURFACE_HELP)
     .action(async (number: string, opts: { branch?: string } & HookFlags) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
@@ -201,6 +209,7 @@ Examples:
     .option('--skip-hook', 'spawn the terminal but run no hook')
     .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
     .option(SANDBOX_FLAG, HOOK_SANDBOX_HELP)
+    .option(SURFACE_FLAG, SURFACE_HELP)
     .action(async (name: string, opts: { prompt?: string; branch?: string } & HookFlags) => {
       const hook = resolveHookFlags(opts);
       if ('error' in hook) return printError(hook.error);

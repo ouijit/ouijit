@@ -11,6 +11,7 @@
 import log from 'electron-log/renderer';
 import { addProjectTerminal } from '../components/terminal/terminalActions';
 import { addChatCard, loadChatSettings, taskFirstPrompt } from '../components/chat/chatActions';
+import type { TaskSurface } from '../chat/preferences';
 import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import { completeTask } from './taskCompletion';
 import { headlessHookRun, hookSandbox, hookTypeForTransition, type HookControl } from './hookRun';
@@ -54,6 +55,8 @@ export interface BeginTransitionOptions {
   sandbox?: SandboxProviderId;
   /** Open the terminal behind the one in front, and leave keyboard focus where it is. */
   background?: boolean;
+  /** What the task opens in, instead of the chat setting. */
+  surface?: TaskSurface;
 }
 
 /**
@@ -174,7 +177,16 @@ export async function bulkTransitionTasks(
 }
 
 async function runTransition(projectPath: string, opts: BeginTransitionOptions, t0: number): Promise<void> {
-  const { task, origStatus, newStatus, onForegroundOpen, hookControl, sandbox: sandboxOverride, background } = opts;
+  const {
+    task,
+    origStatus,
+    newStatus,
+    onForegroundOpen,
+    hookControl,
+    sandbox: sandboxOverride,
+    background,
+    surface,
+  } = opts;
   const taskNumber = task.taskNumber;
   const transitioningToInProgress = newStatus === 'in_progress';
 
@@ -315,6 +327,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
           hookResult?.sandbox ?? sandbox,
           slotId,
           background,
+          surface,
         );
       }
     } else if (hookResult) {
@@ -356,13 +369,14 @@ async function spawnTerminalForInProgress(
   sandbox: SandboxProviderId | undefined,
   loadingSlot: string | null,
   background: boolean | undefined,
+  surface: TaskSurface | undefined,
 ): Promise<void> {
   if (!task.worktreePath) {
     // Worktree creation must have failed earlier; nothing to do.
     return;
   }
 
-  if ((await loadChatSettings()).surface === 'chat') {
+  if ((surface ?? (await loadChatSettings()).surface) === 'chat') {
     await addChatCard(projectPath, {
       worktree: { path: task.worktreePath, branch: task.branch || '' },
       taskId: task.taskNumber,

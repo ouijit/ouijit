@@ -82,6 +82,7 @@ import {
 } from '../sessions';
 import { chatHost, ChatSessionNotFound } from '../chat/host';
 import { transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
+import { HOME_CHAT_ID } from '../chat/preferences';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext } from '../apiAuth';
@@ -188,7 +189,11 @@ function isSuccessfulStart(result: unknown): result is TaskStartResult {
  */
 function parseHookControl(body: Record<string, unknown>): CliHookControl {
   const hookSandbox = parseSandbox(body.hookSandbox, 'hookSandbox');
-  return { ...parseHookMode(body), ...(hookSandbox && { hookSandbox }) };
+  const surface = body.surface;
+  if (surface !== undefined && surface !== 'terminal' && surface !== 'chat') {
+    throw new HttpError(400, `Invalid surface: ${String(surface)}. Must be terminal or chat`);
+  }
+  return { ...parseHookMode(body), ...(hookSandbox && { hookSandbox }), ...(surface && { surface }) } as CliHookControl;
 }
 
 function parseSandbox(value: unknown, field: string): SandboxProviderId | undefined {
@@ -1365,7 +1370,7 @@ interface SandboxCaller extends AuthContext {
  * "Everything" it is treated as a host caller throughout, handlers included.
  */
 async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
-  if (auth.scope === 'host') return { ...auth, access: 'all' };
+  if (auth.scope === 'host' || auth.ptyId === HOME_CHAT_ID) return { ...auth, scope: 'host', access: 'all' };
   const context = getSessionSpawnContext(auth.ptyId);
   const access = context ? await sandboxCliAccessFor(context.projectPath) : 'read';
   return access === 'all' ? { ...auth, scope: 'host', access } : { ...auth, access };
@@ -1565,6 +1570,8 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             worktreePath: startResult.worktreePath,
             branch: task.branch,
             createdAt: task.createdAt,
+            // What Chat starts it steers, which takes a chat.
+            ...(caller.ptyId === HOME_CHAT_ID && { surface: 'chat' as const }),
             ...hookControl,
             ...cliCaller(caller),
           });

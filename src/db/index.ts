@@ -22,6 +22,7 @@ import { ChatRepo } from './repos/chatRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import { SANDBOXABLE_HOOK_TYPES, isSandboxProviderId } from '../sandbox/types';
 import { getLogger } from '../logger';
+import { taskEvents } from '../taskEvents';
 
 const dbLog = getLogger().scope('db');
 
@@ -227,6 +228,7 @@ export async function setTaskStatus(
     if (!row) return { success: false, error: 'Task not found' };
 
     tr.updateStatus(projectPath, taskNumber, status);
+    if (row.status !== status) taskEvents.emit('status', { projectPath, taskNumber, from: row.status, to: status });
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -587,6 +589,9 @@ export async function reorderTask(
     if (!row) return { success: false, error: 'Task not found' };
 
     tr.reorder(projectPath, taskNumber, newStatus, targetIndex);
+    if (row.status !== newStatus) {
+      taskEvents.emit('status', { projectPath, taskNumber, from: row.status, to: newStatus });
+    }
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

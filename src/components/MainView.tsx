@@ -14,6 +14,8 @@ import { PullRequestsPanel } from './github/PullRequestsPanel';
 import { AnalysisPanel } from './analysis/AnalysisPanel';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { GlobalSettingsPanel } from './GlobalSettingsPanel';
+import { HomeChatView } from './chat/HomeChatView';
+import { HomeChatSettingsPanel } from './chat/HomeChatSettingsPanel';
 import { CloningProjectView } from './CloningProjectView';
 import { ProjectSourceList, openAddProject } from './projectSources';
 import { RecentTasksPanel } from './RecentTasksPanel';
@@ -155,6 +157,7 @@ function Selected({
   onCanvas: boolean;
 }) {
   if (selection.kind === 'app-settings') return <GlobalSettingsPanel />;
+  if (selection.kind === 'chat') return selection.page === 'settings' ? <HomeChatSettingsPanel /> : <HomeChatView />;
   if (selection.kind === 'terminal') {
     return onCanvas && projectPath ? (
       <TerminalCanvas projectPath={projectPath} />

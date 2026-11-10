@@ -327,6 +327,7 @@ ouijit task set-status <number> done --skip-hook            # change status, run
 ouijit task set-status <number> done --hook-command "<cmd>" # run a one-off command instead of the done hook
 ouijit task bulk-set-status <status> <n1> <n2>...           # set status on many tasks in parallel (in_progress/in_review/done all take --run-hook/--skip-hook/--hook-command)
 ouijit task start <number> --run-hook --sandbox custom      # start, create-and-start, set-status and bulk-set-status all take --sandbox host|nono|custom, overriding the hook's own sandbox for that run
+ouijit task start <number> --surface chat                   # start and create-and-start take --surface terminal|chat, overriding the chat setting for that task
 ouijit task set-name <number> <new name>
 ouijit task set-description <number> <text>
 ouijit task set-merge-target <number> <branch>

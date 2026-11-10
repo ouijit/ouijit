@@ -8,7 +8,7 @@ import { ChatBackground } from './ChatBackground';
 import { ChatComposer } from './ChatComposer';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { sendHeldPrompt } from './chatActions';
-import { CHAT_AGENT_LABELS } from '../../chat/preferences';
+import { CHAT_AGENT_LABELS, HOME_CHAT_ID } from '../../chat/preferences';
 import type { ChatNode, ChatSessionInfo } from '../../chat/model';
 
 function useSession(cardId: string) {
@@ -86,6 +86,14 @@ function StatusLine({ info, cardId }: { info: ChatSessionInfo; cardId: string })
 }
 
 async function restart(cardId: string): Promise<void> {
+  if (cardId === HOME_CHAT_ID) {
+    try {
+      useChatStore.getState().adopt(await window.api.homeChat.restart());
+    } catch (error) {
+      useProjectStore.getState().addToast(String(error), 'error');
+    }
+    return;
+  }
   const term = terminalInstances.get(cardId);
   if (!term) return;
   try {
@@ -105,7 +113,8 @@ async function restart(cardId: string): Promise<void> {
   }
 }
 
-export function ChatView({ cardId }: { cardId: string }) {
+/** `page` sits on the window's own background, as the board does; `card` is the surface inside a terminal card. */
+export function ChatView({ cardId, surface = 'card' }: { cardId: string; surface?: 'card' | 'page' }) {
   const session = useSession(cardId);
   const nodes = session?.nodes;
   const { ref, onScroll } = useStickToBottom(nodes);
@@ -150,13 +159,22 @@ export function ChatView({ cardId }: { cardId: string }) {
 
   const top = children.get(null) ?? [];
   return (
-    <div className="flex-1 min-h-0 min-w-0 flex flex-col" style={{ background: 'var(--color-terminal-bg)' }}>
+    <div
+      className="flex-1 min-h-0 min-w-0 flex flex-col"
+      style={{ background: surface === 'page' ? 'var(--color-background)' : 'var(--color-terminal-bg)' }}
+    >
+      {surface === 'page' && (
+        <div
+          className="pointer-events-none h-6 shrink-0 -mb-6 relative z-10"
+          style={{ background: 'linear-gradient(to bottom, var(--color-background), transparent)' }}
+        />
+      )}
       <div ref={ref} onScroll={onScroll} className="flex-1 min-h-0 overflow-y-auto">
         <div className="mx-auto max-w-[52rem] px-6 pt-14 pb-4 flex flex-col gap-3">
           {top.length === 0 && info.status !== 'starting' && (
             <div className="text-sm text-text-tertiary">{CHAT_AGENT_LABELS[info.agent]} is ready.</div>
           )}
-          <ChatNodeList nodes={top} context={context} />
+          <ChatNodeList nodes={top} context={context} fold />
           {info.status === 'running' && (
             <div className="flex items-center h-5" role="status" aria-label="Working">
               <StatusGlyph status="thinking" size={8} />
@@ -165,6 +183,12 @@ export function ChatView({ cardId }: { cardId: string }) {
           <StatusLine info={info} cardId={cardId} />
         </div>
       </div>
+      {surface === 'page' && (
+        <div
+          className="pointer-events-none h-6 shrink-0 -mt-6 relative z-10"
+          style={{ background: 'linear-gradient(to top, var(--color-background), transparent)' }}
+        />
+      )}
       <div className="mx-auto w-full max-w-[52rem]">
         <ChatBackground cardId={cardId} info={info} />
         <ChatComposer cardId={cardId} info={info} focusRef={setFocus} />

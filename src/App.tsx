@@ -58,6 +58,7 @@ function restoredSelection(saved: string | undefined, projects: Project[]): Sele
     return { kind: 'terminal', stack: front ? view.stack! : stackOf(display), projectPath: display.projectPath };
   }
   if (view.type === 'app-settings') return { kind: 'app-settings' };
+  if (view.type === 'chat') return { kind: 'chat', page: view.page === 'settings' ? 'settings' : 'chat' };
   const path = view.path;
   if (!path || !projects.some((p) => p.path === path)) return null;
   const pages = ['board', 'settings', 'pull-requests', 'analysis'] as const;

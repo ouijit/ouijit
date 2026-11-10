@@ -1,4 +1,4 @@
-import { memo, useState, type ReactNode } from 'react';
+import { memo, useEffect, useState, type ReactNode } from 'react';
 import { Icon } from '../terminal/Icon';
 import { Markdown } from '../issues/Markdown';
 import { ChatMarkdown } from './ChatMarkdown';
@@ -269,11 +269,130 @@ function SubagentGroup({ nodes, context }: { nodes: ChatNode[]; context: NodeCon
   );
 }
 
-/** A run of sibling nodes, with subagents launched together folded into a group. */
-export function ChatNodeList({ nodes, context }: { nodes: ChatNode[]; context: NodeContext }) {
+function isWork(node: ChatNode): boolean {
+  return node.kind === 'tool_call' || node.kind === 'reasoning' || node.kind === 'subagent';
+}
+
+function isRunning(node: ChatNode): boolean {
+  return 'status' in node && (node.status === 'running' || node.status === 'pending');
+}
+
+function count(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+/** What a stretch of work amounted to, in one line: what was run, read and changed. */
+function foldSummary(nodes: ChatNode[]): string {
+  let commands = 0;
+  let reads = 0;
+  let searches = 0;
+  let fetches = 0;
+  let others = 0;
+  let subagents = 0;
+  const edited = new Set<string>();
+  for (const node of nodes) {
+    if (node.kind === 'subagent') subagents++;
+    if (node.kind !== 'tool_call') continue;
+    switch (node.tool) {
+      case 'command':
+        commands++;
+        break;
+      case 'edit':
+        if (node.files.length) node.files.forEach((file) => edited.add(file.path));
+        else edited.add(node.id);
+        break;
+      case 'read':
+        reads++;
+        break;
+      case 'search':
+        searches++;
+        break;
+      case 'fetch':
+        fetches++;
+        break;
+      case 'subagent':
+        subagents++;
+        break;
+      default:
+        others++;
+    }
+  }
+  const parts = [
+    commands && `ran ${count(commands, 'command')}`,
+    edited.size && `edited ${count(edited.size, 'file')}`,
+    reads && `read ${count(reads, 'file')}`,
+    searches && count(searches, 'search', 'searches'),
+    fetches && `fetched ${count(fetches, 'page')}`,
+    subagents && count(subagents, 'subagent'),
+    others && count(others, 'tool call'),
+  ].filter((part): part is string => Boolean(part));
+  if (parts.length === 0) return 'Thought';
+  const line = parts.join(', ');
+  return line[0].toUpperCase() + line.slice(1);
+}
+
+function formatSpan(ms: number): string {
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 1) return '';
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+/**
+ * A stretch of work between two things said, as one line until opened. The
+ * stretch still running stays open, so what the agent is doing is in view, and
+ * closes once it has said what came of it.
+ */
+function Fold({ nodes, context }: { nodes: ChatNode[]; context: NodeContext }) {
+  const [opened, setOpened] = useState<boolean | null>(null);
+  const running = nodes.some(isRunning);
+  const open = opened ?? running;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [running]);
+  const started = nodes[0].createdAt;
+  const ended = running ? now : Math.max(...nodes.map((node) => node.createdAt));
+  const span = formatSpan(ended - started);
+  return (
+    <div className="flex flex-col">
+      <button
+        type="button"
+        className="w-full min-h-[26px] flex items-center gap-2 text-left text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
+        onClick={() => setOpened(!open)}
+        aria-expanded={open}
+      >
+        <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
+        <span className="flex-1 truncate">{foldSummary(nodes)}</span>
+        {running ? <StatusMark status="running" /> : span && <span className="shrink-0 tabular-nums">{span}</span>}
+      </button>
+      {open && (
+        <div className="pl-5 pb-2 flex flex-col">
+          <ChatNodeList nodes={nodes} context={context} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A run of sibling nodes, with subagents launched together folded into a
+ * group, and, at the top of a transcript, every stretch of work folded to a line.
+ */
+export function ChatNodeList({ nodes, context, fold }: { nodes: ChatNode[]; context: NodeContext; fold?: boolean }) {
   const items: ReactNode[] = [];
   for (let i = 0; i < nodes.length; ) {
     let end = i;
+    if (fold && isWork(nodes[i])) {
+      while (end < nodes.length && isWork(nodes[end])) end++;
+      items.push(<Fold key={nodes[i].id} nodes={nodes.slice(i, end)} context={context} />);
+      i = end;
+      continue;
+    }
     while (end < nodes.length && isSubagent(nodes[end])) end++;
     if (end - i >= GROUP_FROM) {
       items.push(<SubagentGroup key={nodes[i].id} nodes={nodes.slice(i, end)} context={context} />);
@@ -329,6 +448,9 @@ function ReasoningView({ text, running }: { text: string; running: boolean }) {
 }
 
 function UserMessageView({ node, onRewind }: { node: UserMessageNode; onRewind?: () => void }) {
+  if (node.wake) {
+    return <div className="text-[13px] text-text-tertiary whitespace-pre-wrap break-words">{node.text}</div>;
+  }
   return (
     <div className="group/user flex flex-col items-end gap-1">
       <div className="max-w-[85%] rounded-[12px] bg-ink/[0.07] px-3 py-2 text-sm text-text-primary whitespace-pre-wrap break-words">

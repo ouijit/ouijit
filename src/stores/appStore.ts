@@ -15,6 +15,7 @@ export type ProjectPage = 'board' | 'settings' | 'pull-requests' | 'analysis';
 export type Selection =
   | { kind: 'terminal'; stack: string; projectPath: string }
   | { kind: 'page'; projectPath: string; page: ProjectPage }
+  | { kind: 'chat'; page: 'chat' | 'settings' }
   | { kind: 'app-settings' }
   | { kind: 'none' };
 
@@ -34,7 +35,11 @@ export function joinStack(selection: Selection, projectPath: string, unit: strin
 }
 
 function isSettings(selection: Selection): boolean {
-  return selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
+  return (
+    selection.kind === 'app-settings' ||
+    (selection.kind === 'page' && selection.page === 'settings') ||
+    (selection.kind === 'chat' && selection.page === 'settings')
+  );
 }
 
 function isProjectView(selection: Selection): selection is ProjectView {
@@ -153,7 +158,9 @@ function persistSelection(selection: Selection): void {
         }
       : selection.kind === 'page'
         ? { type: 'page', path: selection.projectPath, page: selection.page }
-        : { type: selection.kind };
+        : selection.kind === 'chat'
+          ? { type: 'chat', page: selection.page }
+          : { type: selection.kind };
   void window.api.globalSettings.set('lastActiveView', JSON.stringify(view));
 }
 

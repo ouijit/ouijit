@@ -52,8 +52,9 @@ export class ChatRepo {
              sandbox_provider, info, seq, created_at, updated_at)
            VALUES (@id, @project_path, @task_id, @cwd, @worktree_path, @agent, @agent_session_id,
              @sandbox_provider, @info, @seq, @created_at, @updated_at)
-           ON CONFLICT(id) DO UPDATE SET agent_session_id = excluded.agent_session_id, info = excluded.info,
-             seq = excluded.seq, updated_at = excluded.updated_at`,
+           ON CONFLICT(id) DO UPDATE SET agent = excluded.agent, agent_session_id = excluded.agent_session_id,
+             sandbox_provider = excluded.sandbox_provider, info = excluded.info, seq = excluded.seq,
+             updated_at = excluded.updated_at`,
         )
         .run(row);
       const upsert = this.db.prepare(

@@ -488,6 +488,7 @@ export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTermina
   const panel = parent.panels.find((p) => p.id === panelId);
   if (panel?.kind === 'runner' && (panel.status !== next || panel.exitCode !== exitCode)) {
     parent.updatePanel(panelId, { status: next, exitCode });
+    if (next === 'error') noteHookFailure(parent, panelId, exitCode);
   }
 }
 
@@ -560,6 +561,18 @@ export async function spawnRunner(ptyId: string, panelId: string): Promise<void>
   } finally {
     instance.runnerSpawning.delete(panelId);
   }
+}
+
+/** A hook that fails is Chat's to hear about, since it stops the task it was starting. */
+function noteHookFailure(instance: OuijitTerminal, panelId: string, exitCode: number | undefined): void {
+  const panel = instance.panels.find((p) => p.id === panelId);
+  if (!panel || panel.kind !== 'runner' || panel.source !== 'hook') return;
+  const who = instance.taskId != null ? `${instance.label} (T-${instance.taskId})` : instance.label;
+  const code = exitCode != null ? ` with exit code ${exitCode}` : '';
+  void window.api.homeChat.wake(
+    'hookFailed',
+    `The ${panel.hookType ?? 'run'} hook on ${who} in ${instance.projectPath} failed${code}: ${panel.scriptCommand ?? ''}`,
+  );
 }
 
 async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Promise<void> {
@@ -643,6 +656,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
       },
       onExit: (exitCode) => {
         instance.updatePanel(panelId, { status: exitCode === 0 ? 'success' : 'error', exitCode });
+        if (exitCode !== 0) noteHookFailure(instance, panelId, exitCode);
       },
     });
 

@@ -35,9 +35,13 @@ import { PAGE_TITLES } from './TitleBarReact';
 import { LIST_TITLES, usePanelStore, type PanelList } from '../stores/panelStore';
 import { groupByTag, groupByTask } from './sidebar/sidebarTree';
 import { sidebarShownNow, useSidebarShown } from './sidebar/sidebarShown';
+import { useChatStore } from '../stores/chatStore';
+import { HOME_CHAT_ID } from '../chat/preferences';
+import { StatusGlyph } from './terminal/StatusDot';
 import {
   GroupDots,
   GroupRows,
+  ROW,
   ROW_IDLE,
   ROW_SELECTED,
   homeRelative,
@@ -157,6 +161,7 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
             data-sidebar-scroller
             className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 pt-1 pb-4 flex flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
+            <ChatEntry />
             <TreeSection onCloneSelect={onCloneSelect} />
           </div>
 
@@ -233,6 +238,33 @@ function FooterButton({
     >
       <Icon name={icon} className="w-3.5 h-3.5" />
       <span>{label}</span>
+    </button>
+  );
+}
+
+/** The app-wide chat, above the projects it works across. Its dot is the chat's status, as a card's would be. */
+function ChatEntry() {
+  const selected = useAppStore((s) => s.selection.kind === 'chat');
+  const status = useChatStore((s) => s.sessions[HOME_CHAT_ID]?.info.status);
+  const glyph =
+    status === 'running'
+      ? 'thinking'
+      : status === 'idle' || status === 'awaiting'
+        ? 'ready'
+        : status === 'error'
+          ? 'error'
+          : null;
+  return (
+    <button
+      type="button"
+      aria-current={selected ? 'page' : undefined}
+      className={`${ROW} mb-2 ${selected ? ROW_SELECTED : ROW_IDLE}`}
+      onClick={() => useAppStore.getState().select({ kind: 'chat', page: 'chat' })}
+    >
+      <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
+        {glyph && <StatusGlyph status={glyph} size={6} unread={status === 'awaiting'} />}
+      </span>
+      <span className="flex-1 truncate text-text-primary">Chat</span>
     </button>
   );
 }

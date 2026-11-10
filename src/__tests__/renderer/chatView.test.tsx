@@ -219,7 +219,11 @@ describe('chat view', () => {
     fireEvent.change(composer, { target: { value: 'and add a test' } });
     fireEvent.keyDown(composer, { key: 'Enter' });
     await waitFor(() =>
-      expect(window.api.chat.prompt).toHaveBeenCalledWith(ID, { text: 'and add a test', attachments: [] }, 'auto'),
+      expect(window.api.chat.prompt).toHaveBeenCalledWith(
+        ID,
+        { text: 'and add a test', attachments: [], typed: true },
+        'auto',
+      ),
     );
     expect(await screen.findByText('and add a test')).toBeTruthy();
     expect((composer as HTMLTextAreaElement).value).toBe('');

@@ -121,6 +121,11 @@ const mockApi = {
     terminalResume: vi.fn().mockResolvedValue(null),
     onEvent: vi.fn().mockReturnValue(() => {}),
   },
+  homeChat: {
+    start: vi.fn().mockResolvedValue(null),
+    restart: vi.fn().mockResolvedValue(null),
+    wake: vi.fn().mockResolvedValue(undefined),
+  },
   worktree: {
     validateBranchName: vi.fn().mockResolvedValue({ valid: true }),
     generateBranchName: vi.fn().mockResolvedValue('feat/test'),

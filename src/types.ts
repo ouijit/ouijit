@@ -21,6 +21,7 @@ import type {
 } from './chat/model';
 import type { DriverProbe, TerminalResume } from './chat/driver';
 import type { ChatDelivery, ChatStartOptions } from './chat/host';
+import type { WakeEvent } from './chat/preferences';
 import type {
   RepoIdentity,
   GithubAvailability,
@@ -288,6 +289,8 @@ export interface CliHookControl {
   hookCommand?: string;
   /** Overrides the hook's own sandbox setting. */
   hookSandbox?: SandboxProviderId;
+  /** What the task opens in, instead of the chat setting. */
+  surface?: 'terminal' | 'chat';
 }
 
 export interface ScriptHook {
@@ -421,7 +424,11 @@ export interface ChatAPI {
   listLive(): Promise<ChatSessionInfo[]>;
   since(id: string, seq: number): Promise<SequencedChatEvent[] | null>;
   latestForTask(projectPath: string, taskId: number): Promise<ChatSnapshot | null>;
-  prompt(id: string, input: { text: string; attachments?: ChatAttachment[] }, delivery?: ChatDelivery): Promise<string>;
+  prompt(
+    id: string,
+    input: { text: string; attachments?: ChatAttachment[]; typed?: boolean },
+    delivery?: ChatDelivery,
+  ): Promise<string>;
   answer(id: string, requestId: string, answer: ChatAnswer): Promise<boolean>;
   interrupt(id: string): Promise<void>;
   setModel(id: string, model: string): Promise<void>;
@@ -435,6 +442,13 @@ export interface ChatAPI {
   discard(id: string): Promise<void>;
   terminalResume(id: string): Promise<TerminalResume | null>;
   onEvent(callback: (sessionId: string, event: SequencedChatEvent) => void): () => void;
+}
+
+/** The app-wide chat: one session, started under its own settings, that steers the rest. */
+export interface HomeChatAPI {
+  start(): Promise<ChatSnapshot>;
+  restart(): Promise<ChatSnapshot>;
+  wake(event: WakeEvent, text: string): Promise<void>;
 }
 
 export interface TaskWithWorkspace {
@@ -586,6 +600,7 @@ export interface ElectronAPI {
   openExternal(url: string): Promise<void>;
   pty: PtyAPI;
   chat: ChatAPI;
+  homeChat: HomeChatAPI;
   worktree: WorktreeAPI;
   task: TaskAPI;
   refreshProjects(): Promise<Project[]>;

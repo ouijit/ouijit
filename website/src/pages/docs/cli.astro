@@ -43,6 +43,7 @@ ouijit task start 5 --run-hook                # run the configured start hook, n
 ouijit task start 5 --skip-hook               # spawn the terminal, run no hook
 ouijit task start 5 --hook-command "claude"   # one-off command instead of the configured hook
 ouijit task start 5 --run-hook --sandbox custom # run it in a sandbox other than the hook's own
+ouijit task start 5 --surface chat            # open it as a chat, whatever the chat setting says
 ouijit task create-and-start "Add 2FA"        # create + start in one step
 ouijit task create-and-start "Add 2FA" --prompt "..." --branch custom --skip-hook
 ouijit task spawn "Add 2FA"                   # alias for create-and-start
@@ -67,6 +68,9 @@ ouijit task trash 5                           # worktree goes to the system tras
   <p>
     <code>--sandbox host|nono|custom</code> overrides the hook's own <a href="/docs/sandbox/">sandbox</a> setting
     for that run, with or without the flags above. When the hook waits for you, the dialog preselects it.
+    <code>--surface terminal|chat</code>, on <code>task start</code> and <code>create-and-start</code>, picks
+    what the task opens in instead of the chat setting. A task that Chat starts opens as a chat unless it says
+    otherwise.
   </p>
   <p>
     <code>ouijit task current</code> resolves the task that owns the current terminal, through the

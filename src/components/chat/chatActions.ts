@@ -8,7 +8,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import { generateId } from '../../utils/ids';
 import { isActiveSandbox } from '../../sandbox/types';
-import { CHAT_SETTING_KEYS, parseChatSettings, type ChatSettings } from '../../chat/preferences';
+import { CHAT_SETTING_KEYS, HOME_CHAT_ID, parseChatSettings, type ChatSettings } from '../../chat/preferences';
 import type { ChatAgentId, ChatAttachment, ChatSessionStatus, SequencedChatEvent } from '../../chat/model';
 import type { SandboxProviderId, SnapshotTerminalUi, TaskWithWorkspace } from '../../types';
 import type { ChatDelivery } from '../../chat/host';
@@ -49,6 +49,16 @@ function forwardStatus(id: string, event: SequencedChatEvent): void {
 export function initChat(): void {
   listenForChatEvents(forwardStatus);
   void loadChatSettings();
+  void startHomeChat();
+}
+
+/** Chat runs from launch, so it hears about work it did not start. */
+export async function startHomeChat(): Promise<void> {
+  try {
+    useChatStore.getState().adopt(await window.api.homeChat.start());
+  } catch (error) {
+    chatLog.error('chat failed to start', { error: String(error) });
+  }
 }
 
 export interface SetupCommand {
@@ -213,9 +223,10 @@ export async function sendChat(
   text: string,
   attachments: ChatAttachment[] = [],
   delivery: ChatDelivery = 'auto',
+  typed = false,
 ): Promise<boolean> {
   try {
-    await window.api.chat.prompt(id, { text, attachments }, delivery);
+    await window.api.chat.prompt(id, { text, attachments, typed }, delivery);
     return true;
   } catch (error) {
     useProjectStore.getState().addToast(String(error instanceof Error ? error.message : error), 'error');
@@ -352,6 +363,7 @@ export async function switchToChat(id: string): Promise<void> {
 export async function reconnectChatSessions(projectPath?: string): Promise<void> {
   const live = await window.api.chat.listLive();
   for (const info of live) {
+    if (info.id === HOME_CHAT_ID) continue;
     if (projectPath && info.projectPath !== projectPath) continue;
     if (terminalInstances.has(info.id)) continue;
     const ok = await addChatCard(info.projectPath, {

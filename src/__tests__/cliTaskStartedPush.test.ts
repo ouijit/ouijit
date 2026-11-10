@@ -266,6 +266,33 @@ describe('cli:task-started push', () => {
     expect(createTaskWorktreeMock).not.toHaveBeenCalled();
   });
 
+  test('opens a task as a chat when the caller asks, or when the caller is Chat itself', async () => {
+    const started = {
+      success: true,
+      worktreePath: '/tmp/wt/T-9',
+      task: { taskNumber: 9, branch: 'feat-9', createdAt: '2026-05-10T00:00:00.000Z' },
+    };
+    createTaskWorktreeMock.mockResolvedValue(started);
+    const host = issueToken('pty-host', 'host');
+    expect(
+      (await request('POST', `/api/tasks/start?project=${PROJECT}`, host, { name: 'x', surface: 'chat' })).status,
+    ).toBe(200);
+    expect(getTaskStartedPushes()[0][2]).toMatchObject({ surface: 'chat' });
+    expect(
+      (await request('POST', `/api/tasks/start?project=${PROJECT}`, host, { name: 'x', surface: 'window' })).status,
+    ).toBe(400);
+    expect(createTaskWorktreeMock).toHaveBeenCalledTimes(1);
+
+    typedPushMock.mockClear();
+    const chat = issueToken('chat', 'sandbox');
+    expect((await request('POST', `/api/tasks/start?project=${PROJECT}`, chat, { name: 'x' })).status).toBe(200);
+    expect(getTaskStartedPushes()[0][2]).toMatchObject({ surface: 'chat', fromPtyId: 'chat' });
+    expect(
+      (await request('POST', `/api/tasks/start?project=${PROJECT}`, chat, { name: 'x', surface: 'terminal' })).status,
+    ).toBe(200);
+    expect(getTaskStartedPushes()[1][2]).toMatchObject({ surface: 'terminal' });
+  });
+
   test('rejects an invalid hookMode with 400 and does not start the task', async () => {
     const token = issueToken('pty-host', 'host');
     const res = await request('POST', `/api/tasks/start?project=${PROJECT}`, token, {

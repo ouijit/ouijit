@@ -8,7 +8,7 @@ import { hostEnv, ouijitSessionEnv, sandboxLaunch, sandboxReferenceEnv } from '.
 import { getCliReferencePath } from '../hookServer';
 import { readCliReference } from './binaries';
 import { getSandboxProvider } from '../sandbox';
-import { isActiveSandbox, isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
+import { isActiveSandbox, isSandboxProviderId, type SandboxCliAccess, type SandboxProviderId } from '../sandbox/types';
 import { spawnAgentProcess, type AgentProcess, type AgentSpawn } from './process';
 import { getDriver } from './drivers';
 import type { DriverProbe, DriverSession, DriverSink, UserInput } from './driver';
@@ -92,6 +92,17 @@ export interface ChatStartOptions {
   resume?: { agentSessionId: string; fork: boolean };
   /** Return once the session exists, while the agent is still launching; the launch arrives as events. */
   eager?: boolean;
+  /** Appended to the CLI reference the agent is given. */
+  instructions?: string;
+  /** The CLI access the agent is told it has in a sandbox, instead of its project's setting. */
+  cliAccess?: SandboxCliAccess;
+  /** The mode the agent starts in on every launch, over one picked in the chat. */
+  mode?: string;
+  /**
+   * Apply `agent` and `sandboxProvider` over a stored session's. The agent
+   * starts a conversation of its own; Ouijit's transcript carries on.
+   */
+  reconfigure?: boolean;
 }
 
 export type ChatDelivery = 'auto' | 'steer' | 'queue';
@@ -124,6 +135,9 @@ class HostedSession {
   starting: Promise<void> | null = null;
   stopping: Promise<void> | null = null;
   referenceEnv: Record<string, string> = {};
+  instructions = '';
+  cliAccess: SandboxCliAccess | undefined;
+  launchMode: string | undefined;
 
   constructor(
     readonly row: Pick<ChatSessionRow, 'id' | 'project_path' | 'task_id' | 'cwd' | 'worktree_path' | 'agent'> & {
@@ -304,7 +318,8 @@ export class ChatHost {
       return live.snapshot();
     }
 
-    const stored = getChatRepo().get(id);
+    let stored = getChatRepo().get(id);
+    if (stored && options.reconfigure) stored = reconfigured(stored, options);
     const agent = stored && isChatAgentId(stored.agent) ? stored.agent : options.agent;
     const sandboxProvider = stored
       ? isSandboxProviderId(stored.sandbox_provider)
@@ -349,6 +364,9 @@ export class ChatHost {
         .nodes(id)
         .map((body) => JSON.parse(body) as ChatNode);
     session.seq = stored?.seq ?? 0;
+    session.instructions = options.instructions ?? '';
+    session.cliAccess = options.cliAccess;
+    session.launchMode = options.mode;
     for (const node of settled(session.nodes)) session.emit({ type: 'node', node });
     this.sessions.set(id, session);
 
@@ -389,10 +407,11 @@ export class ChatHost {
       );
       const settings = parseChatSettings((key) => stored.get(key));
       const sandbox = isActiveSandbox(session.row.sandbox_provider) ? session.row.sandbox_provider : undefined;
-      const chosenMode = resume ? (session.info.pendingMode ?? session.info.mode) : undefined;
+      const chosenMode = session.launchMode ?? (resume ? (session.info.pendingMode ?? session.info.mode) : undefined);
       const token = issueToken(id, sandbox ? 'sandbox' : 'host');
-      const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path);
+      const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path, session.cliAccess);
       session.referenceEnv = referenceEnv;
+      const reference = readCliReference(referenceEnv.OUIJIT_SANDBOX_REFERENCE_FILE ?? getCliReferencePath());
       session.driver = await driver.start({
         cwd: session.row.cwd,
         sessionId: id,
@@ -401,7 +420,7 @@ export class ChatHost {
         spawn: (spawn) => this.spawn(session, token, spawn),
         sink: this.sink(session),
         preferences: { piApprovals: settings.piApprovals, acpCommand: settings.acpCommand },
-        instructions: readCliReference(referenceEnv.OUIJIT_SANDBOX_REFERENCE_FILE ?? getCliReferencePath()),
+        instructions: [reference, session.instructions].filter(Boolean).join('\n\n'),
       });
       // For a driver that cannot launch in a mode, switch to it once started.
       if (chosenMode && session.driver.setMode && session.info.mode !== chosenMode) {
@@ -484,10 +503,20 @@ export class ChatHost {
         // An agent with no record of the conversation — its session file gone —
         // is not a reason to throw away the transcript Ouijit kept.
         if (nodes.length === 0) return;
+        // The agent's record has no idea which messages Ouijit sent on its
+        // own, and an agent that numbers its history itself gives them new ids.
+        const wakes = session.nodes.filter(
+          (node): node is UserMessageNode => node.kind === 'user_message' && node.wake === true,
+        );
+        const wakeIds = new Set(wakes.map((node) => node.id));
+        const wakeTexts = new Set(wakes.map((node) => node.text));
         const incoming = new Set(nodes.map((node) => node.id));
         const stale = session.nodes.filter((node) => !incoming.has(node.id)).map((node) => node.id);
         if (stale.length) session.emit({ type: 'remove', ids: stale });
-        for (const node of nodes) session.emit({ type: 'node', node });
+        for (const node of nodes) {
+          const wake = node.kind === 'user_message' && (wakeIds.has(node.id) || wakeTexts.has(node.text));
+          session.emit({ type: 'node', node: wake ? { ...node, wake: true } : node });
+        }
       },
       reset: () => {
         session.queued.splice(0);
@@ -526,7 +555,7 @@ export class ChatHost {
    */
   async prompt(
     id: string,
-    input: { text: string; attachments?: ChatAttachment[] },
+    input: { text: string; attachments?: ChatAttachment[]; wake?: boolean },
     delivery: ChatDelivery = 'auto',
   ): Promise<string> {
     const { session, driver } = await this.requireDriver(id);
@@ -546,6 +575,7 @@ export class ChatHost {
       text: input.text,
       attachments: input.attachments ?? [],
       delivery: 'prompt',
+      ...(input.wake && { wake: true }),
     };
     const userInput: UserInput & { id: string } = { id: node.id, text: node.text, attachments: node.attachments };
     if (!busy) {
@@ -810,6 +840,22 @@ export class ChatHost {
   private cancelAsks(session: HostedSession): void {
     for (const requestId of [...session.asks.keys()]) this.answer(session.info.id, requestId, { kind: 'cancel' });
   }
+}
+
+/** The stored row under a new agent or sandbox, written back so a later start without the options finds the same. */
+function reconfigured(row: ChatSessionRow, options: ChatStartOptions): ChatSessionRow {
+  const sandbox = isActiveSandbox(options.sandboxProvider) ? options.sandboxProvider : null;
+  if (row.agent === options.agent && (row.sandbox_provider ?? null) === (options.sandboxProvider ?? null)) return row;
+  const info = JSON.parse(row.info) as ChatSessionInfo;
+  const next: ChatSessionRow = {
+    ...row,
+    agent: options.agent,
+    sandbox_provider: options.sandboxProvider ?? null,
+    agent_session_id: null,
+    info: JSON.stringify({ ...info, agent: options.agent, sandbox, agentSessionId: null }),
+  };
+  getChatRepo().save(next, [], []);
+  return next;
 }
 
 function storedSnapshot(row: ChatSessionRow): ChatSnapshot {

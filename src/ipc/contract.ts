@@ -113,6 +113,7 @@ import type {
   SequencedChatEvent,
 } from '../chat/model';
 import type { ChatDelivery, ChatStartOptions } from '../chat/host';
+import type { WakeEvent } from '../chat/preferences';
 import type { DriverProbe, TerminalResume } from '../chat/driver';
 
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
@@ -476,7 +477,12 @@ export interface IpcInvokeContract {
   'chat:since': { args: [id: string, seq: number]; return: SequencedChatEvent[] | null };
   'chat:latest-for-task': { args: [projectPath: string, taskId: number]; return: ChatSnapshot | null };
   'chat:prompt': {
-    args: [id: string, input: { text: string; attachments?: ChatAttachment[] }, delivery: ChatDelivery];
+    args: [
+      id: string,
+      /** `typed` marks a message a person wrote in the composer, as opposed to one the app sent for them. */
+      input: { text: string; attachments?: ChatAttachment[]; typed?: boolean },
+      delivery: ChatDelivery,
+    ];
     return: string;
   };
   'chat:answer': { args: [id: string, requestId: string, answer: ChatAnswer]; return: boolean };
@@ -493,6 +499,12 @@ export interface IpcInvokeContract {
   'chat:discard': { args: [id: string]; return: void };
   /** The agent's terminal UI resuming this chat's conversation, for switching the card to its terminal. */
   'chat:terminal-resume': { args: [id: string]; return: TerminalResume | null };
+  /** The app-wide chat, started or resumed under its settings. */
+  'homeChat:start': { args: []; return: ChatSnapshot };
+  /** Restart its agent on the same conversation, after its settings changed. */
+  'homeChat:restart': { args: []; return: ChatSnapshot };
+  /** Something the renderer saw that Chat should hear about, under one of its wake settings. */
+  'homeChat:wake': { args: [event: WakeEvent, text: string]; return: void };
 }
 
 /**

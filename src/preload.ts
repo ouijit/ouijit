@@ -2,6 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import type { WakeEvent } from './chat/preferences';
 import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/contract';
 import type { DiffDefaults } from './git';
 import type {
@@ -151,8 +152,11 @@ contextBridge.exposeInMainWorld('api', {
     listLive: () => typedInvoke('chat:list-live'),
     since: (id: string, seq: number) => typedInvoke('chat:since', id, seq),
     latestForTask: (projectPath: string, taskId: number) => typedInvoke('chat:latest-for-task', projectPath, taskId),
-    prompt: (id: string, input: { text: string; attachments?: ChatAttachment[] }, delivery: ChatDelivery = 'auto') =>
-      typedInvoke('chat:prompt', id, input, delivery),
+    prompt: (
+      id: string,
+      input: { text: string; attachments?: ChatAttachment[]; typed?: boolean },
+      delivery: ChatDelivery = 'auto',
+    ) => typedInvoke('chat:prompt', id, input, delivery),
     answer: (id: string, requestId: string, answer: ChatAnswer) => typedInvoke('chat:answer', id, requestId, answer),
     interrupt: (id: string) => typedInvoke('chat:interrupt', id),
     setModel: (id: string, model: string) => typedInvoke('chat:set-model', id, model),
@@ -166,6 +170,12 @@ contextBridge.exposeInMainWorld('api', {
     discard: (id: string) => typedInvoke('chat:discard', id),
     terminalResume: (id: string) => typedInvoke('chat:terminal-resume', id),
     onEvent: (callback: (sessionId: string, event: SequencedChatEvent) => void) => typedListen('chat:event', callback),
+  },
+
+  homeChat: {
+    start: () => typedInvoke('homeChat:start'),
+    restart: () => typedInvoke('homeChat:restart'),
+    wake: (event: WakeEvent, text: string) => typedInvoke('homeChat:wake', event, text),
   },
 
   worktree: {

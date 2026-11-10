@@ -234,7 +234,7 @@ export function ChatComposer({
     setDraft(cardId, '');
     const sent = attachments;
     setAttachments([]);
-    if (!(await sendChat(cardId, text, sent, chosen))) {
+    if (!(await sendChat(cardId, text, sent, chosen, true))) {
       setDraft(cardId, text);
       setAttachments(sent);
     }
