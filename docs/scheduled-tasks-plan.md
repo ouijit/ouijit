@@ -2,8 +2,8 @@
 
 A schedule runs a prompt on a timer in a project. Runs stay off the board: each
 one belongs to its schedule, and only a run with something for you to look at
-reaches you, through the waiting queue. Opening it continues the run, the same
-as reopening an in-progress task.
+asks for your attention. Opening it continues the run, the same as reopening an
+in-progress task.
 
 ## What others ship
 
@@ -39,8 +39,9 @@ somewhere you have to clear.
    allowed per schedule, with a warning.
 5. **Report or stay quiet.** If the run has something for you — two new PRs
    with review comments staged in drafts, outdated packages to bump — the agent
-   runs `ouijit schedule report "<one line>"`. That puts the run in the waiting
-   queue with a notification. A run that doesn't report ends quietly, and its
+   runs `ouijit schedule report "<one line>"`. The run shows as unread on the
+   Schedules page, the sidebar's Schedules row shows an unread count, and a
+   notification fires. A run that doesn't report ends quietly, and its
    worktree is removed.
 6. **Open a run.** Opening a report runs the continue hook in the run's
    worktree: the agent picks up its session with full context, and you carry on
@@ -55,9 +56,13 @@ continue hooks. Nothing new is built for sessions.
 
 - **Schedules page**, per project, beside Board, Pull requests and Analysis.
   Each schedule shows its cadence and next run, with Run now, Pause/Resume,
-  Edit and Delete. Its history lists every run — reported, quiet, or skipped
-  and why — and any run can be opened.
-- **Waiting queue** for reports, alongside hooks waiting on you.
+  Edit and Delete. Its history lists every run — running, reported, quiet, or
+  skipped and why — and any run can be opened. Reported runs are unread until
+  opened or dismissed.
+- **Sidebar**: the project's Schedules row carries the unread count, and a dot
+  while a run is going. Runs never appear as terminals there.
+- **Run now** opens the run in front of you, to watch it while tuning the
+  prompt. Scheduled runs stay in the background.
 - **CLI** for agents.
 
 ## Rules
@@ -82,11 +87,6 @@ ouijit schedule run <id>
 ouijit schedule pause <id> | resume <id> | delete <id>
 ouijit schedule report "<summary>"     # from inside a run
 ```
-
-## Open question
-
-Should a run in progress show live anywhere — under the project in the
-sidebar, like a running terminal — or only on the Schedules page?
 
 ## Later, not v1
 
