@@ -18,8 +18,8 @@ beforeEach(async () => {
   await fs.writeFile(path.join(tmpDir, 'docs', 'shots', 'my shot.PNG'), png);
   await fs.writeFile(path.join(tmpDir, 'docs', 'icon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
   await fs.writeFile(path.join(tmpDir, 'docs', 'secret.txt'), 'not an image');
+  await fs.writeFile(path.join(tmpDir, 'docs', 'secret.constructor'), 'not an image');
   markdownPath = path.join(tmpDir, 'docs', 'plan.md');
-  await fs.writeFile(markdownPath, '# Plan\n');
 });
 
 afterEach(async () => {
@@ -36,7 +36,9 @@ describe('images referenced from a markdown file', () => {
 
   test('anything that is not a readable image within the size cap is refused', async () => {
     expect(await readMarkdownImage(markdownPath, 'secret.txt')).toBeNull();
+    expect(await readMarkdownImage(markdownPath, 'secret.constructor')).toBeNull();
     expect(await readMarkdownImage(markdownPath, 'missing.png')).toBeNull();
-    expect(await readMarkdownImage(markdownPath, '../logo.png', 10)).toBeNull();
+    await fs.truncate(path.join(tmpDir, 'logo.png'), 13 * 1024 * 1024);
+    expect(await readMarkdownImage(markdownPath, '../logo.png')).toBeNull();
   });
 });

@@ -816,8 +816,8 @@ textarea,
   content: 'File not found';
 }
 
-.app-markdown img {
-  @apply max-w-full h-auto my-2;
+.plan-markdown img {
+  @apply my-2;
 }
 
 .app-markdown strong {

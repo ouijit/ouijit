@@ -17,5 +17,6 @@ const IMAGE_MIME: Record<string, string> = {
 export function imageMime(path: string): string | null {
   const cut = path.lastIndexOf('.');
   if (cut === -1) return null;
-  return IMAGE_MIME[path.slice(cut + 1).toLowerCase()] ?? null;
+  const extension = path.slice(cut + 1).toLowerCase();
+  return Object.hasOwn(IMAGE_MIME, extension) ? IMAGE_MIME[extension] : null;
 }

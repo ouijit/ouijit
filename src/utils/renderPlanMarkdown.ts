@@ -128,17 +128,22 @@ async function preRenderMermaid(tokens: Token[], svgs: Map<string, string>): Pro
 
 const URL_SCHEME_RE = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
 
-/** Resolves an image path written in the markdown to a URL the page can load, or null. */
-export type LoadLocalImage = (src: string) => Promise<string | null>;
+type LoadLocalImage = (src: string) => Promise<string | null>;
 
-async function inlineLocalImages(root: HTMLElement, loadLocalImage: LoadLocalImage): Promise<void> {
-  const images = Array.from(root.querySelectorAll('img')).filter((img) => {
-    const src = img.getAttribute('src');
-    return src && !URL_SCHEME_RE.test(src);
-  });
+function hasLocalCandidate(srcset: string): boolean {
+  return srcset.split(',').some((candidate) => !URL_SCHEME_RE.test(candidate.trim()));
+}
+
+async function inlineLocalImages(root: ParentNode, loadLocalImage: LoadLocalImage): Promise<void> {
+  // The browser picks a srcset candidate over the img's src, so a local one has to go for the inlined src to show.
+  for (const el of root.querySelectorAll('img[srcset], source[srcset]')) {
+    if (hasLocalCandidate(el.getAttribute('srcset')!)) el.removeAttribute('srcset');
+  }
   await Promise.all(
-    images.map(async (img) => {
-      const url = await loadLocalImage(img.getAttribute('src')!).catch((): null => null);
+    Array.from(root.querySelectorAll('img'), async (img) => {
+      const src = img.getAttribute('src');
+      if (!src || URL_SCHEME_RE.test(src)) return;
+      const url = await loadLocalImage(src).catch((): null => null);
       // A relative src left in place would resolve against the app's own page.
       if (url) img.setAttribute('src', url);
       else img.removeAttribute('src');
@@ -173,8 +178,9 @@ export async function renderPlanMarkdown(md: string, loadLocalImage: LoadLocalIm
 
   const rawHtml = marked.parser(tokens, { renderer }) as string;
   const linkedHtml = linkifyFilePaths(rawHtml);
-  const body = document.createElement('div');
-  body.innerHTML = DOMPurify.sanitize(linkedHtml);
-  await inlineLocalImages(body, loadLocalImage);
-  return body.innerHTML;
+  // A template's content is inert, so an image in it loads nothing before its src is rewritten.
+  const template = document.createElement('template');
+  template.innerHTML = DOMPurify.sanitize(linkedHtml);
+  await inlineLocalImages(template.content, loadLocalImage);
+  return template.innerHTML;
 }

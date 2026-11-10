@@ -128,17 +128,20 @@ describe('renderPlanMarkdown — images', () => {
       '![remote](https://example.com/remote.png)',
       '<img src="shots/raw html.png" alt="raw">',
       '![gone](missing.png)',
+      '<picture><source srcset="dark.png 1x, dark@2x.png 2x"><img src="light.png" srcset="light@2x.png 2x" alt="themed"></picture>',
+      '<img src="https://example.com/a.png" srcset="https://example.com/a@2x.png 2x" alt="remote set">',
     ].join('\n\n');
 
     const container = document.createElement('div');
     container.innerHTML = await renderPlanMarkdown(md, loadLocalImage);
     const src = (alt: string) => container.querySelector(`img[alt="${alt}"]`)?.getAttribute('src');
 
-    expect(asked.sort()).toEqual(['./docs/diagram.png', 'missing.png', 'shots/raw html.png']);
+    expect(asked.sort()).toEqual(['./docs/diagram.png', 'light.png', 'missing.png', 'shots/raw html.png']);
+    expect(src('themed')).toBe(`data:image/png;base64,${btoa('light.png')}`);
+    expect(Array.from(container.querySelectorAll('[srcset]'), (el) => el.getAttribute('alt'))).toEqual(['remote set']);
     expect(src('diagram')).toBe(`data:image/png;base64,${btoa('./docs/diagram.png')}`);
     expect(src('raw')).toBe(`data:image/png;base64,${btoa('shots/raw html.png')}`);
     expect(src('remote')).toBe('https://example.com/remote.png');
-    expect(container.querySelector('img[alt="gone"]')).not.toBeNull();
     expect(src('gone')).toBeNull();
   });
 });
