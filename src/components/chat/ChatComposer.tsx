@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { Icon } from '../terminal/Icon';
+import { SandboxRing } from '../terminal/StatusDot';
+import { Tooltip } from '../ui/Tooltip';
+import { SANDBOX_LABELS, isActiveSandbox, isSandboxProviderId } from '../../sandbox/types';
 import { MenuPopover } from '../ui/Menu';
 import { growToFit } from '../../hooks/useAutoResize';
 import { useChatStore } from '../../stores/chatStore';
@@ -409,6 +412,19 @@ export function ChatComposer({
           }}
         />
         <SettingsPicker settings={settingsFor(cardId, info)} />
+        {isSandboxProviderId(info.sandbox) && isActiveSandbox(info.sandbox) && (
+          <Tooltip
+            text={`Runs in ${SANDBOX_LABELS[info.sandbox]}: it can reach only what the sandbox allows, whatever its mode.`}
+            placement="top"
+          >
+            <span className="flex items-center gap-1.5 h-6 px-1 text-[12px] text-text-tertiary shrink-0 cursor-default">
+              <SandboxRing sandboxed size={6}>
+                <span className="status-dot-fill rounded-full" style={{ background: 'var(--color-text-tertiary)' }} />
+              </SandboxRing>
+              {SANDBOX_LABELS[info.sandbox]}
+            </span>
+          </Tooltip>
+        )}
         <span className="flex-1" />
         {usage && <span className="text-[11px] text-text-tertiary mr-1 truncate">{usage}</span>}
         {busy && caps.steer && caps.queue && (
