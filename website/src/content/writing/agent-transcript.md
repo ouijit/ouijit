@@ -14,7 +14,7 @@ A single agent turn can produce thoughts, tool calls, remarks and a reply, requi
 
 A transcript feels rushed when many things move at once, even if little text arrives. Anything that appears or starts moving pulls the eye,[^yantis] so each one costs attention.
 
-While a turn runs, show one status line that says what the agent is doing, drawn from its tool calls, thinking and short remarks, replaced in place. A wait the reader can explain feels shorter than one they can't,[^maister] and people prefer seeing progress to waiting without it.[^myers]
+While a turn runs, show one status line that says what the agent is doing, drawn from its tool calls, thinking and short remarks, replaced in place. Knowing what the agent is doing makes the wait feel shorter.[^maister]
 
 <figure data-demo="kinds"></figure>
 
@@ -57,22 +57,11 @@ Order needs pacing too. People read top to bottom and expect the screen to fill 
 
 Keep the view at the bottom while the reader is there, and stop the moment they scroll up to reread something. Decide that from what the reader did. New content also pushes the bottom away, so the view can fall short of it without the reader moving. Only their own scroll up should stop the auto-scroll, and coming back to the bottom should start it again.
 
-## Judge changes in motion, against real transcripts
-
-- Judge every change in motion, at the agent's real speed. None of this shows in a screenshot or a code review.
-- Run one fixed prompt every time, written to exercise everything your transcript can show.
-
-Complaints about feel are vague, and the same word can have several causes. "Too fast" might mean the text arrives in bursts, the reveal outruns reading, or too many things move at once, and each has a different fix. Treat the complaint as a symptom: list what could be causing it, find a number for each, and change one while watching whether the complaint goes away. The numbers also catch overcorrection, which is hard to see by feel. Slowing the reveal makes "too fast" go away, and the "fully shown after" figure shows it has become "too slow".
-
-Mock up changes using a real transcript, word for word, before building them. A made-up transcript is tidier than a real one, so it hides costs.
-
 [^kang]: Kang and Muter, [Reading dynamically displayed text](https://web-archive.southampton.ac.uk/cogprints.org/1971/1/Abs1989.htm), *Behaviour & Information Technology*, 1989.
 
 [^kowler]: Kowler, Rubinstein, Santos and Wang, [Predictive smooth pursuit eye movements](https://researchwith.njit.edu/en/publications/predictive-smooth-pursuit-eye-movements/), *Annual Review of Vision Science*, 2019.
 
 [^maister]: David Maister, [The Psychology of Waiting Lines](https://davidmaister.com/articles/1/52/), 1985.
-
-[^myers]: Brad Myers, [The importance of percent-done progress indicators for computer-human interfaces](https://doi.org/10.1145/317456.317459), CHI '85.
 
 [^disclosure]: Jakob Nielsen, [Progressive Disclosure](https://www.nngroup.com/articles/progressive-disclosure/), Nielsen Norman Group, 2006.
 

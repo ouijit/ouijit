@@ -177,7 +177,7 @@ const TURN_REPLY =
 
 const kinds: Demo = {
   modes: ['As it arrives', 'A turn at a time'],
-  caption: 'One agent turn, rendered two ways.',
+  caption: 'Every step streamed into the transcript vs one status line that folds away when the turn ends.',
   height: 130,
   async play(run, stage, mode) {
     if (mode === 0) {
@@ -246,7 +246,7 @@ const STEPS = [
 
 const status: Demo = {
   modes: ['No hold', 'Held'],
-  caption: 'The status line over the same run of commands.',
+  caption: 'Each step replaced when the next starts vs held two seconds so it can be read.',
   height: 72,
   async play(run, stage, mode) {
     const line = statusLine(stage);
@@ -292,7 +292,7 @@ function stopwatch(foot: HTMLElement) {
 
 const pacing: Demo = {
   modes: ['Unpaced', 'Slow', 'Fast'],
-  caption: 'The same bursts, revealed three ways.',
+  caption: 'Bursts shown as they arrive vs revealed at the slow and fast settings.',
   height: 120,
   footer: true,
   async play(run, stage, mode, foot) {
@@ -312,7 +312,7 @@ const LONG_WORDS =
 
 const clicky: Demo = {
   modes: ['By word', 'By character'],
-  caption: 'Both at the same speed.',
+  caption: 'Advancing a word at a time vs a few characters every frame, at the same speed.',
   height: 96,
   async play(run, stage, mode) {
     const reply = new Reveal(el(stage, 'td-reply'), mode === 0 ? BY_WORD : SMOOTH);
