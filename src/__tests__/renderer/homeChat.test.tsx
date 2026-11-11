@@ -180,13 +180,16 @@ describe('Chat', () => {
       status: 'running',
     });
     adopt([...transcript(), long], { status: 'running' });
-    expect(screen.getByText('Adds a settings table')).toBeTruthy();
+    expect(await screen.findByText('Adds a settings table', undefined, { timeout: 3000 })).toBeTruthy();
     expect(screen.queryByRole('status', { name: 'Working' })).toBeNull();
     adopt([...transcript(), { ...long, status: 'completed' } as ChatNode, tool('t5', 'command', 'git log')], {
       status: 'running',
     });
     expect(screen.getByText('Adds a settings table')).toBeTruthy();
-    expect(screen.getByRole('status', { name: 'Working' }).textContent).toMatch(/^git log…/);
+    // The step after it waits until it has been revealed.
+    expect((await screen.findByRole('status', { name: 'Working' }, { timeout: 3000 })).textContent).toMatch(
+      /^git log…/,
+    );
 
     // Another conversation resumes in place of this one; the plus starts a fresh one; a row can be renamed.
     fireEvent.click(within(group).getByRole('button', { name: 'Keychain recovery review' }));

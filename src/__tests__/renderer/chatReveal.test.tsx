@@ -62,7 +62,10 @@ describe('several things said while you watch', () => {
       { kind: 'assistant_message', id: 'a2', parentId: null, createdAt: at, text: second, status: 'completed' },
     ] as ChatNode[];
     const context = { cardId: 'home-1', children: new Map(), canRewind: false, onRewind: () => {} };
-    render(<ChatTurns nodes={nodes} context={context} busy={false} />);
+    // The turn is under way when what it says arrives.
+    const { rerender } = render(<ChatTurns nodes={nodes.slice(0, 1)} context={context} busy />);
+    rerender(<ChatTurns nodes={nodes} context={context} busy />);
+    rerender(<ChatTurns nodes={nodes} context={context} busy={false} />);
 
     act(() => vi.advanceTimersByTime(500));
     expect(screen.getByText(/^First part\./)).toBeTruthy();
@@ -103,5 +106,25 @@ describe('a decision card while Chat is still being revealed', () => {
     held = false;
     rerender({ keys: ['trash', 'ask'] });
     expect([...result.current]).toEqual(['trash', 'ask']);
+  });
+});
+
+describe('opening a conversation', () => {
+  test('shows what was already said whole, including history its agent sends again as it resumes', () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'performance', 'Date'] });
+    const said = (id: string, text: string) =>
+      ({ kind: 'assistant_message', id, parentId: null, createdAt: Date.now(), text, status: 'completed' }) as ChatNode;
+    const context = { cardId: 'home-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    const { rerender } = render(
+      <ChatTurns nodes={[said('a1', 'Already said before you opened it.')]} context={context} busy={false} />,
+    );
+    expect(screen.getByText('Already said before you opened it.')).toBeTruthy();
+
+    // Resuming, the agent re-sends its history under new ids and fresh times, before any turn.
+    rerender(<ChatTurns nodes={[said('h1', 'Already said before you opened it.')]} context={context} busy={false} />);
+    expect(screen.getByText('Already said before you opened it.')).toBeTruthy();
+    // And a turn starting later does not replay it.
+    rerender(<ChatTurns nodes={[said('h1', 'Already said before you opened it.')]} context={context} busy />);
+    expect(screen.getByText('Already said before you opened it.')).toBeTruthy();
   });
 });

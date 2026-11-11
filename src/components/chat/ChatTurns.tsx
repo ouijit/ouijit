@@ -234,13 +234,24 @@ export function ChatTurns({
   /** Whether something said is still being revealed, so what comes after it waits. */
   onHeld?: (held: boolean) => void;
 }) {
-  const [openedAt] = useState(() => Date.now());
+  // Whether each message is paced, decided the first time it is seen and kept:
+  // only what first appears during a turn is arriving now. A conversation
+  // opened, or its history re-sent as its agent resumes, shows whole.
+  const pacedIds = useRef<Map<string, boolean> | null>(null);
+  if (!pacedIds.current) {
+    pacedIds.current = new Map(nodes.filter((n) => n.kind === 'assistant_message').map((n) => [n.id, false]));
+  }
+  const pacedFor = (id: string): boolean => {
+    const known = pacedIds.current!.get(id);
+    if (known !== undefined) return known;
+    pacedIds.current!.set(id, busy);
+    return busy;
+  };
   const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(() => new Set());
   const onDone = useCallback((id: string) => setRevealedIds((ids) => (ids.has(id) ? ids : new Set(ids).add(id))), []);
   const turns = turnsOf(nodes);
   const layouts = turns.map((turn, index) => layoutOf(turn, busy && index === turns.length - 1));
-  // Said before the transcript opened, it is history: whole at once, and holding nothing back.
-  const pending = (node: AssistantMessageNode) => node.createdAt >= openedAt && !revealedIds.has(node.id);
+  const pending = (node: AssistantMessageNode) => pacedFor(node.id) && !revealedIds.has(node.id);
 
   let held = false;
   const shown = layouts.map(({ turn, pieces, doing }, index) => {
@@ -260,7 +271,7 @@ export function ChatTurns({
         items.push(<WorkFold key={piece.nodes[0].id} work={piece.nodes} context={context} />);
         continue;
       }
-      const paced = piece.node.createdAt >= openedAt;
+      const paced = pacedFor(piece.node.id);
       items.push(<Said key={piece.node.id} node={piece.node} paced={paced} onDone={onDone} />);
       if (pending(piece.node)) {
         held = true;
