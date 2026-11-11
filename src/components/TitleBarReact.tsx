@@ -1,5 +1,6 @@
 import { useAppStore, selectIsCloning, type ProjectPage } from '../stores/appStore';
 import { currentHomeChatTitle, useHomeChatStore } from '../stores/homeChatStore';
+import { UNTITLED_HOME_CHAT } from '../chat/preferences';
 import { useProjectStore } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
 import { LIST_TITLES, usePanelStore } from '../stores/panelStore';
@@ -108,7 +109,7 @@ export function TitleBar() {
     (selection.kind === 'page' && selection.page === 'settings') ||
     (selection.kind === 'chat' && selection.page === 'settings');
   const onChat = selection.kind === 'chat';
-  const chatTitle = useHomeChatStore((s) => currentHomeChatTitle(s)) ?? 'Chat';
+  const chatTitle = useHomeChatStore((s) => currentHomeChatTitle(s)) ?? UNTITLED_HOME_CHAT;
   const offersCreation = !cloning && !onSettings && !onChat;
   // With the sidebar out of the way the traffic lights sit over the title bar.
   const leftPad = !sidebarShown && !sidebarRevealed && isMac && !fullscreen ? 88 : 16;

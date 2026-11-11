@@ -38,7 +38,7 @@ export class ChatRepo {
   /** The app-wide chat's conversations, newest first. */
   listHome(): ChatSessionRow[] {
     return this.db
-      .prepare("SELECT * FROM chat_sessions WHERE id = 'chat' OR id LIKE 'home-%' ORDER BY updated_at DESC")
+      .prepare("SELECT * FROM chat_sessions WHERE id LIKE 'home-%' ORDER BY updated_at DESC")
       .all() as ChatSessionRow[];
   }
 

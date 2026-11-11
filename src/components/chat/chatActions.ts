@@ -74,6 +74,15 @@ export async function newHomeChat(): Promise<void> {
   }
 }
 
+export async function deleteHomeChat(id: string): Promise<void> {
+  try {
+    useHomeChatStore.getState().set(await window.api.homeChat.delete(id));
+    useChatStore.getState().forget(id);
+  } catch (error) {
+    useProjectStore.getState().addToast(String(error), 'error');
+  }
+}
+
 /** Open one of Chat's conversations, resuming its agent in place of the current one's. */
 export async function openHomeChat(id: string): Promise<void> {
   useAppStore.getState().select({ kind: 'chat', page: 'chat' });

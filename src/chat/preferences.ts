@@ -52,7 +52,7 @@ export function parseChatSettings(read: (key: string) => string | undefined | nu
 export const HOME_CHAT_ID_PREFIX = 'home-';
 
 export function isHomeChatId(id: string): boolean {
-  return id === 'chat' || id.startsWith(HOME_CHAT_ID_PREFIX);
+  return id.startsWith(HOME_CHAT_ID_PREFIX);
 }
 
 export const HOME_CHAT_SETTING_KEYS = {

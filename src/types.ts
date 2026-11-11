@@ -453,6 +453,7 @@ export interface HomeChatAPI {
   switch(id: string): Promise<ChatSnapshot>;
   list(): Promise<HomeChatState>;
   rename(id: string, title: string): Promise<void>;
+  delete(id: string): Promise<HomeChatState>;
   onChanged(callback: (state: HomeChatState) => void): () => void;
 }
 

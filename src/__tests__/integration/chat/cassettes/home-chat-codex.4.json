@@ -20,11 +20,11 @@
     },
     {
       "dir": "out",
-      "line": "{\"method\":\"remoteControl/status/changed\",\"params\":{\"status\":\"disabled\",\"serverName\":\"__REDACTED__\",\"installationId\":\"__REDACTED__\",\"environmentId\":null},\"emittedAtMs\":1794353561247}"
+      "line": "{\"method\":\"remoteControl/status/changed\",\"params\":{\"status\":\"disabled\",\"serverName\":\"__REDACTED__\",\"installationId\":\"__REDACTED__\",\"environmentId\":null},\"emittedAtMs\":1794355695666}"
     },
     {
       "dir": "out",
-      "line": "{\"id\":2,\"result\":{\"thread\":{\"id\":\"01a1c7ce-7ea2-7ef1-8e25-22f86a87d23b\",\"extra\":null,\"sessionId\":\"01a1c7ce-7ea2-7ef1-8e25-22f86a87d23b\",\"forkedFromId\":null,\"parentThreadId\":null,\"preview\":\"\",\"ephemeral\":false,\"section\":null,\"sectionEnteredAt\":null,\"projectId\":null,\"historyMode\":\"legacy\",\"modelProvider\":\"openai\",\"createdAt\":1794353561,\"updatedAt\":1794353561,\"recencyAt\":1794353561,\"status\":{\"type\":\"idle\"},\"path\":\"__HOME__/.codex/sessions/2026/11/10/rollout-2026-11-10T16-32-41-01a1c7ce-7ea2-7ef1-8e25-22f86a87d23b.jsonl\",\"cwd\":\"__CWD__\",\"cliVersion\":\"0.149.1\",\"source\":\"vscode\",\"canAcceptDirectInput\":true,\"threadSource\":null,\"agentNickname\":null,\"agentRole\":null,\"gitInfo\":null,\"name\":null,\"turns\":[]},\"model\":\"gpt-5.6-sol\",\"modelProvider\":\"openai\",\"serviceTier\":null,\"cwd\":\"__CWD__\",\"runtimeWorkspaceRoots\":[\"__CWD__\"],\"instructionSources\":[],\"approvalPolicy\":\"on-request\",\"approvalsReviewer\":\"auto_review\",\"sandbox\":{\"type\":\"readOnly\",\"networkAccess\":false},\"activePermissionProfile\":{\"id\":\":read-only\",\"extends\":null},\"reasoningEffort\":null,\"multiAgentMode\":\"explicitRequestOnly\"}}"
+      "line": "{\"id\":2,\"result\":{\"thread\":{\"id\":\"01a1c7ef-1036-75c3-bef8-bfd73356c702\",\"extra\":null,\"sessionId\":\"01a1c7ef-1036-75c3-bef8-bfd73356c702\",\"forkedFromId\":null,\"parentThreadId\":null,\"preview\":\"\",\"ephemeral\":false,\"section\":null,\"sectionEnteredAt\":null,\"projectId\":null,\"historyMode\":\"legacy\",\"modelProvider\":\"openai\",\"createdAt\":1794355695,\"updatedAt\":1794355695,\"recencyAt\":1794355695,\"status\":{\"type\":\"idle\"},\"path\":\"__HOME__/.codex/sessions/2026/11/10/rollout-2026-11-10T17-08-15-01a1c7ef-1036-75c3-bef8-bfd73356c702.jsonl\",\"cwd\":\"__CWD__\",\"cliVersion\":\"0.149.1\",\"source\":\"vscode\",\"canAcceptDirectInput\":true,\"threadSource\":null,\"agentNickname\":null,\"agentRole\":null,\"gitInfo\":null,\"name\":null,\"turns\":[]},\"model\":\"gpt-5.6-sol\",\"modelProvider\":\"openai\",\"serviceTier\":null,\"cwd\":\"__CWD__\",\"runtimeWorkspaceRoots\":[\"__CWD__\"],\"instructionSources\":[],\"approvalPolicy\":\"on-request\",\"approvalsReviewer\":\"auto_review\",\"sandbox\":{\"type\":\"readOnly\",\"networkAccess\":false},\"activePermissionProfile\":{\"id\":\":read-only\",\"extends\":null},\"reasoningEffort\":null,\"multiAgentMode\":\"explicitRequestOnly\"}}"
     },
     {
       "dir": "in",
@@ -32,11 +32,11 @@
     },
     {
       "dir": "out",
-      "line": "{\"method\":\"thread/started\",\"params\":{\"thread\":{\"id\":\"01a1c7ce-7ea2-7ef1-8e25-22f86a87d23b\",\"extra\":null,\"sessionId\":\"01a1c7ce-7ea2-7ef1-8e25-22f86a87d23b\",\"forkedFromId\":null,\"parentThreadId\":null,\"preview\":\"\",\"ephemeral\":false,\"section\":null,\"sectionEnteredAt\":null,\"projectId\":null,\"historyMode\":\"legacy\",\"modelProvider\":\"openai\",\"createdAt\":1794353561,\"updatedAt\":1794353561,\"recencyAt\":1794353561,\"status\":{\"type\":\"idle\"},\"path\":\"__HOME__/.codex/sessions/2026/11/10/rollout-2026-11-10T16-32-41-01a1c7ce-7ea2-7ef1-8e25-22f86a87d23b.jsonl\",\"cwd\":\"__CWD__\",\"cliVersion\":\"0.149.1\",\"source\":\"vscode\",\"canAcceptDirectInput\":true,\"threadSource\":null,\"agentNickname\":null,\"agentRole\":null,\"gitInfo\":null,\"name\":null,\"turns\":[]}},\"emittedAtMs\":1794353561314}"
+      "line": "{\"method\":\"thread/started\",\"params\":{\"thread\":{\"id\":\"01a1c7ef-1036-75c3-bef8-bfd73356c702\",\"extra\":null,\"sessionId\":\"01a1c7ef-1036-75c3-bef8-bfd73356c702\",\"forkedFromId\":null,\"parentThreadId\":null,\"preview\":\"\",\"ephemeral\":false,\"section\":null,\"sectionEnteredAt\":null,\"projectId\":null,\"historyMode\":\"legacy\",\"modelProvider\":\"openai\",\"createdAt\":1794355695,\"updatedAt\":1794355695,\"recencyAt\":1794355695,\"status\":{\"type\":\"idle\"},\"path\":\"__HOME__/.codex/sessions/2026/11/10/rollout-2026-11-10T17-08-15-01a1c7ef-1036-75c3-bef8-bfd73356c702.jsonl\",\"cwd\":\"__CWD__\",\"cliVersion\":\"0.149.1\",\"source\":\"vscode\",\"canAcceptDirectInput\":true,\"threadSource\":null,\"agentNickname\":null,\"agentRole\":null,\"gitInfo\":null,\"name\":null,\"turns\":[]}},\"emittedAtMs\":1794355695736}"
     },
     {
       "dir": "out",
-      "line": "{\"method\":\"mcpServer/startupStatus/updated\",\"params\":{\"threadId\":\"01a1c7ce-7ea2-7ef1-8e25-22f86a87d23b\",\"name\":\"codex_apps\",\"status\":\"starting\",\"error\":null,\"failureReason\":null},\"emittedAtMs\":1794353561314}"
+      "line": "{\"method\":\"mcpServer/startupStatus/updated\",\"params\":{\"threadId\":\"01a1c7ef-1036-75c3-bef8-bfd73356c702\",\"name\":\"codex_apps\",\"status\":\"starting\",\"error\":null,\"failureReason\":null},\"emittedAtMs\":1794355695736}"
     },
     {
       "dir": "out",

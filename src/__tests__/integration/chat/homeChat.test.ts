@@ -12,6 +12,7 @@ import * as path from 'node:path';
 import { chatHost } from '../../../chat/host';
 import {
   _resetHomeChatForTesting,
+  deleteHomeChat,
   homeChatDir,
   homeChatState,
   installHomeChat,
@@ -191,15 +192,24 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       await until(fresh.info.id, (s) => s.info.status === 'idle');
       const listed = await homeChatState();
       expect(listed.currentId).toBe(fresh.info.id);
-      expect(listed.chats.map((c) => [c.id, c.title])).toEqual([
-        [fresh.info.id, UNTITLED_HOME_CHAT],
-        [HOME_CHAT_ID, 'Still there?'],
-      ]);
+      // Nothing asked yet, the new one is open but not listed.
+      expect(listed.chats.map((c) => [c.id, c.title])).toEqual([[HOME_CHAT_ID, 'Still there?']]);
       const back = await switchHomeChat(HOME_CHAT_ID);
       expect(back.nodes.map((n) => n.id)).toEqual(after.nodes.map((n) => n.id));
       await awaitStopped(fresh.info.id);
       await until(HOME_CHAT_ID, (s) => s.info.status === 'idle');
       expect((await homeChatState()).currentId).toBe(HOME_CHAT_ID);
+
+      // Deleting another conversation leaves this one be; deleting the last one open starts a new one.
+      expect((await deleteHomeChat(fresh.info.id)).chats.map((c) => c.id)).toEqual([HOME_CHAT_ID]);
+      expect(getChatRepo().get(fresh.info.id)).toBeUndefined();
+      expect(chatHost.snapshot(fresh.info.id)).toBeNull();
+      const afterDelete = await deleteHomeChat(HOME_CHAT_ID);
+      expect(chatHost.snapshot(HOME_CHAT_ID)).toBeNull();
+      expect(afterDelete.chats).toEqual([]);
+      expect(isHomeChatId(afterDelete.currentId) && afterDelete.currentId !== HOME_CHAT_ID).toBe(true);
+      await until(afterDelete.currentId, (s) => s.info.status === 'idle');
+      expect(chatHost.snapshot(afterDelete.currentId)!.nodes).toEqual([]);
       await chatHost.stopAll();
     },
     timeout * 3,

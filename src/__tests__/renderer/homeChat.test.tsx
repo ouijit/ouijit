@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Sidebar } from '../../components/SidebarReact';
 import { MainView } from '../../components/MainView';
 import { TitleBar } from '../../components/TitleBarReact';
@@ -162,6 +162,15 @@ describe('Chat', () => {
     fireEvent.change(field, { target: { value: 'Keychain' } });
     fireEvent.keyDown(field, { key: 'Enter' });
     expect(window.api.homeChat.rename).toHaveBeenCalledWith('home-2', 'Keychain');
+    vi.mocked(window.api.homeChat.delete).mockResolvedValueOnce({
+      currentId: CURRENT,
+      chats: [{ id: CURRENT, title: 'Ship the settings page.', updatedAt: '2026-11-10T00:00:00Z' }],
+    });
+    fireEvent.contextMenu(within(group).getByRole('button', { name: 'Keychain recovery review' }));
+    fireEvent.click(await screen.findByText('Delete'));
+    await waitFor(() => expect(window.api.homeChat.delete).toHaveBeenCalledWith('home-2'));
+    await act(async () => {});
+    expect(within(group).queryByRole('button', { name: 'Keychain recovery review' })).toBeNull();
     fireEvent.click(within(group).getByRole('button', { name: 'Hide chats' }));
     expect(within(group).queryByRole('button', { name: 'Keychain recovery review' })).toBeNull();
     fireEvent.click(within(group).getByRole('button', { name: 'Show chats' }));

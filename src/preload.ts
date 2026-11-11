@@ -180,6 +180,7 @@ contextBridge.exposeInMainWorld('api', {
     switch: (id: string) => typedInvoke('homeChat:switch', id),
     list: () => typedInvoke('homeChat:list'),
     rename: (id: string, title: string) => typedInvoke('homeChat:rename', id, title),
+    delete: (id: string) => typedInvoke('homeChat:delete', id),
     onChanged: (callback: (state: HomeChatState) => void) => typedListen('homeChat:changed', callback),
   },
 

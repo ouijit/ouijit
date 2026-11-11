@@ -97,7 +97,8 @@ export async function homeChatState(): Promise<HomeChatState> {
   }
   // The one open is the most recent, whatever a stop's final flush wrote after it.
   chats.sort((a, b) => Number(b.id === currentId) - Number(a.id === currentId));
-  return { currentId, chats };
+  // A conversation is listed once it has been asked something; until then it is only where the plus leads.
+  return { currentId, chats: chats.filter((chat) => chat.title !== UNTITLED_HOME_CHAT) };
 }
 
 export function onHomeChatChange(listener: (state: HomeChatState) => void): () => void {
@@ -174,6 +175,23 @@ export async function restartHomeChat(): Promise<ChatSnapshot> {
   const id = await currentHomeChatId();
   await chatHost.stop(id);
   return startConversation(id, true);
+}
+
+/**
+ * Gone for good, transcript included. Deleting the open conversation moves to
+ * the most recent other one, or to a new one when it was the last.
+ */
+export async function deleteHomeChat(id: string): Promise<HomeChatState> {
+  if (!isHomeChatId(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
+  const wasCurrent = (await currentHomeChatId()) === id;
+  await chatHost.discard(id);
+  if (wasCurrent) {
+    const next = getChatRepo().listHome()[0]?.id ?? newId();
+    await choose(next);
+    await startConversation(next, true);
+  }
+  await announce();
+  return homeChatState();
 }
 
 export async function renameHomeChat(id: string, title: string): Promise<void> {

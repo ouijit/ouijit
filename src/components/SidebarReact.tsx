@@ -37,7 +37,7 @@ import { groupByTag, groupByTask } from './sidebar/sidebarTree';
 import { sidebarShownNow, useSidebarShown } from './sidebar/sidebarShown';
 import { useChatStore } from '../stores/chatStore';
 import { useHomeChatStore } from '../stores/homeChatStore';
-import { newHomeChat, openHomeChat } from './chat/chatActions';
+import { deleteHomeChat, newHomeChat, openHomeChat } from './chat/chatActions';
 import { StatusGlyph } from './terminal/StatusDot';
 import {
   GroupDots,
@@ -334,7 +334,10 @@ function ChatGroup() {
         <ContextMenu
           x={menu.x}
           y={menu.y}
-          items={[{ label: 'Rename', icon: 'pencil-simple', onClick: () => setRenaming(menu.id) }]}
+          items={[
+            { label: 'Rename', icon: 'pencil-simple', onClick: () => setRenaming(menu.id) },
+            { label: 'Delete', icon: 'trash', danger: true, onClick: () => void deleteHomeChat(menu.id) },
+          ]}
           onClose={() => setMenu(null)}
         />
       )}

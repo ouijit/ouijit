@@ -511,6 +511,8 @@ export interface IpcInvokeContract {
   'homeChat:switch': { args: [id: string]; return: ChatSnapshot };
   'homeChat:list': { args: []; return: HomeChatState };
   'homeChat:rename': { args: [id: string, title: string]; return: void };
+  /** Gone for good; the state after, with the open conversation moved on if it was the one. */
+  'homeChat:delete': { args: [id: string]; return: HomeChatState };
 }
 
 /**

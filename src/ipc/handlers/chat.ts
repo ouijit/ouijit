@@ -4,6 +4,7 @@ import { chatHost } from '../../chat/host';
 import { getDriver } from '../../chat/drivers';
 import type { ChatAnswer } from '../../chat/model';
 import {
+  deleteHomeChat,
   homeChatState,
   installHomeChat,
   newHomeChat,
@@ -55,6 +56,7 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   typedHandle('homeChat:switch', (id) => switchHomeChat(id));
   typedHandle('homeChat:list', () => homeChatState());
   typedHandle('homeChat:rename', (id, title) => renameHomeChat(id, title));
+  typedHandle('homeChat:delete', (id) => deleteHomeChat(id));
   typedHandle('homeChat:wake', (event, text) => wakeHomeChat(event, text));
   typedHandle('homeChat:restart', () => restartHomeChat());
   typedHandle('chat:terminal-resume', (id) => {

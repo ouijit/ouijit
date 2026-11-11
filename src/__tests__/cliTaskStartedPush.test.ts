@@ -284,9 +284,9 @@ describe('cli:task-started push', () => {
     expect(createTaskWorktreeMock).toHaveBeenCalledTimes(1);
 
     typedPushMock.mockClear();
-    const chat = issueToken('chat', 'sandbox');
+    const chat = issueToken('home-1', 'sandbox');
     expect((await request('POST', `/api/tasks/start?project=${PROJECT}`, chat, { name: 'x' })).status).toBe(200);
-    expect(getTaskStartedPushes()[0][2]).toMatchObject({ surface: 'chat', fromPtyId: 'chat' });
+    expect(getTaskStartedPushes()[0][2]).toMatchObject({ surface: 'chat', fromPtyId: 'home-1' });
     expect(
       (await request('POST', `/api/tasks/start?project=${PROJECT}`, chat, { name: 'x', surface: 'terminal' })).status,
     ).toBe(200);
