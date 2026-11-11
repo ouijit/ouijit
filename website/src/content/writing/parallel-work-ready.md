@@ -1,10 +1,11 @@
 ---
-title: Making your codebase ready for parallel skadoinking
-description: A worktree isolates the files. Ports, databases, env files, lockfiles, the stash and your browser are still shared.
+title: Making your codebase ready for parallel agents
+description: How to isolate everything a worktree doesn't
 date: 2026-11-08
+draft: true
 cover:
   field: { wash: prism, angle: 150 }
-  system: { motif: fan }
+  system: { motif: fan, x: 740, tx: 110 }
 ---
 
 An agent fixes a bug, starts the app, and the bug is still there, so it reverts the fix and tries another. Its dev server had found port 3000 taken and moved to 3001, and its requests went to the server in another worktree, which never had the fix.

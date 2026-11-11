@@ -2429,12 +2429,8 @@ body.marketing .writing-card:hover {
   color: var(--text-tertiary, #888);
   font-size: 0.9rem;
 }
-.writing-byline a {
+.writing-byline-name {
   color: #f5f5f7;
-  text-decoration: none;
-}
-.writing-byline a:hover {
-  text-decoration: underline;
 }
 .writing-hero {
   max-width: 880px;
@@ -2569,12 +2565,8 @@ body.marketing .writing-card:hover {
   color: var(--text-tertiary, #888);
   font-size: 0.9rem;
 }
-.writing-byline a {
+.writing-byline-name {
   color: #f5f5f7;
-  text-decoration: none;
-}
-.writing-byline a:hover {
-  text-decoration: underline;
 }
 .writing-hero {
   max-width: 880px;

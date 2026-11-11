@@ -3,10 +3,10 @@ import { render } from 'astro:content';
 import Site from '../../layouts/Site.astro';
 import Cover from '../../components/writing/Cover.astro';
 import PostCard from '../../components/writing/PostCard.astro';
-import { AUTHOR, listPosts, postDate, readingMinutes, type Post } from '../../writing';
+import { AUTHOR, listAllPosts, listPosts, postDate, type Post } from '../../writing';
 
 export async function getStaticPaths() {
-  const posts = await listPosts();
+  const posts = await listAllPosts();
   return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
 }
 
@@ -15,14 +15,13 @@ const { Content } = await render(post);
 const markdownUrl = `https://ouijit.com/writing/${post.id}.md`;
 const more = (await listPosts()).filter((p) => p.id !== post.id).slice(0, 2);
 ---
-<Site title={`${post.data.title} · Ouijit`} description={post.data.description} markdownUrl={markdownUrl}>
+<Site title={`${post.data.title} · Ouijit`} description={post.data.description} markdownUrl={post.data.draft ? undefined : markdownUrl} noindex={post.data.draft}>
   <main class="writing-post">
     <header class="writing-header">
       <h1>{post.data.title}</h1>
       <div class="writing-byline">
-        <a href={AUTHOR.url} target="_blank" rel="noopener">{AUTHOR.name}</a>
+        <span class="writing-byline-name">{AUTHOR.name}</span>
         <time datetime={post.data.date.toISOString()}>{postDate.format(post.data.date)}</time>
-        <span>{readingMinutes(post)} min read</span>
       </div>
     </header>
     <div class="writing-hero">

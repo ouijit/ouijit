@@ -1,6 +1,6 @@
 ---
 import Cover from './Cover.astro';
-import { AUTHOR, postDate, readingMinutes, type Post } from '../../writing';
+import { AUTHOR, postDate, type Post } from '../../writing';
 
 interface Props {
   post: Post;
@@ -15,7 +15,6 @@ const { post } = Astro.props;
     <div class="writing-meta">
     <span>{AUTHOR.name}</span>
     <time datetime={post.data.date.toISOString()}>{postDate.format(post.data.date)}</time>
-    <span>{readingMinutes(post)} min read</span>
     </div>
   </div>
 </a>

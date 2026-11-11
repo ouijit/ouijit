@@ -2,6 +2,7 @@
 title: What makes an agent chat feel good?
 description: How to show an agent's work without spending the reader's attention
 date: 2026-11-11
+draft: true
 cover:
   field: { wash: graphite, angle: 160 }
   shape: { kind: circle, wash: prism, angle: 60, cx: 820, cy: 260, r: 250 }
@@ -24,9 +25,9 @@ The status line moves too, so give each phrase time to be read. Subtitles solve 
 
 ## Stream replies and collapse the agent's work
 
-Messages written for the reader stream into the transcript during the turn and stay there. Size is a decent test of which messages those are. Check it as the text grows. A message stays on the status line until it passes about 220 characters or picks up structure, like a paragraph break, a list, a heading or code. From then on it streams from its first character. A short remark like "Next I'll check where the expiry is set" never gets past the status line. When the turn ends, the status line gives way to a fold: one closed line holding everything the agent did, above the reply. That's progressive disclosure: what the reader needs now is on the page, and the rest is one click away.[^disclosure] The turn's final message is its reply and always shows, but nothing is known to be last until the turn ends, so a short reply appears then.
+During a turn, the reader should see what the agent is doing and anything it wrote for them. Short remarks between steps belong on the status line. Longer messages, or ones with a list, heading or code, are written for the reader, so stream them into the transcript and keep them there.
 
-Size is a heuristic, and 220 is tuned by eye. It fails both ways. An agent that narrates in long paragraphs streams its narration, and one that answers in a line keeps its answer back until the turn ends. Nothing in the agent's output marks a remark apart from an answer, so the fix is in the instructions: tell the agent to keep remarks between steps short and to put results in its reply rather than its thinking.
+When the turn ends, the reader should see the reply, with everything the agent did folded into one closed line above it. That's progressive disclosure: what the reader needs now is on the page, and the rest is one click away.[^disclosure]
 
 ## Reveal streamed text evenly
 

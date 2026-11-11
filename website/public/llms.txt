@@ -27,7 +27,6 @@ Every page below is also served as plain Markdown at https://ouijit.com/docs/<sl
 - [Home](https://ouijit.com): Download links, demo, value prop.
 - [Sandbox overview](https://ouijit.com/sandbox/): Why and how to run agents with permission checks off inside the sandbox; the docs page has the full contract.
 - [Changelog](https://ouijit.com/changelog/): What changed in each release, rendered from the GitHub release notes.
-- [Writing](https://ouijit.com/writing/): Posts, technical write-ups and essays on running coding agents in parallel. Each post is also served as Markdown at https://ouijit.com/writing/<slug>.md, and there is a feed at https://ouijit.com/writing/rss.xml.
 - [About](https://ouijit.com/about/): Who builds Ouijit, and the commitments on price, privacy and licence.
 - [FAQ](https://ouijit.com/faq/): Frequently asked questions about platform support, agent integrations, sandbox behavior.
 - [GitHub repo](https://github.com/ouijit/ouijit): Source code, releases, issues.
