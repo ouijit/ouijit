@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { Icon } from '../terminal/Icon';
 import { SandboxRing } from '../terminal/StatusDot';
-import { Tooltip } from '../ui/Tooltip';
-import { SANDBOX_LABELS, isActiveSandbox, isSandboxProviderId } from '../../sandbox/types';
+import { SANDBOX_LABELS, isActiveSandbox, isSandboxProviderId, type SandboxBackendId } from '../../sandbox/types';
+import { useAppStore } from '../../stores/appStore';
 import { MenuPopover } from '../ui/Menu';
 import { growToFit } from '../../hooks/useAutoResize';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { sendChat, switchToTerminal } from './chatActions';
-import { CHAT_AGENT_LABELS } from '../../chat/preferences';
+import { CHAT_AGENT_LABELS, isHomeChatId } from '../../chat/preferences';
 import { parseSlashCommand, type ChatAttachment, type ChatOption, type ChatSessionInfo } from '../../chat/model';
 import type { ChatDelivery } from '../../chat/host';
 
@@ -101,6 +101,79 @@ function OptionList({ setting, onDone }: { setting: Setting; onDone: () => void 
         <div className="px-2.5 pt-1.5 pb-1 text-[12px] text-text-tertiary">Applies when this turn ends.</div>
       )}
     </div>
+  );
+}
+
+/** What the sandbox means for this agent, in words for someone who has never set one up. */
+function sandboxLines(info: ChatSessionInfo, sandbox: SandboxBackendId): string[] {
+  if (sandbox === 'custom') {
+    return [
+      'It runs inside the sandbox command set for this project, which decides what it can reach.',
+      "Ouijit doesn't know that command's rules, so check them before trusting it to run unattended.",
+    ];
+  }
+  if (isHomeChatId(info.id)) {
+    return [
+      'It can do anything in Ouijit: create, start and move tasks, read the agents working on them, message them, and answer what they ask. It can use the internet.',
+      "It can't open or change files in your projects, or anywhere else on your computer. Work on your code happens in the tasks it starts. That's why it runs without asking your permission first.",
+    ];
+  }
+  return [
+    "It can change files in this task's own folder and commit to its branch.",
+    "It can't open or change anything else on your computer, including your other projects.",
+    "It can use the internet, unless the project's sandbox profile blocks it.",
+  ];
+}
+
+function SandboxNote({ info, sandbox }: { info: ChatSessionInfo; sandbox: SandboxBackendId }) {
+  const [open, setOpen] = useState(false);
+  const home = isHomeChatId(info.id);
+  return (
+    <MenuPopover
+      open={open}
+      onOpenChange={setOpen}
+      placement="top-start"
+      className="w-80"
+      trigger={(ref) => (
+        <button
+          ref={ref}
+          type="button"
+          aria-expanded={open}
+          className={`flex items-center gap-1.5 h-6 px-1.5 rounded-[7px] text-[12px] shrink-0 transition-colors duration-100 ${
+            open ? 'bg-ink/[0.08] text-text-primary' : 'text-text-tertiary hover:text-text-primary hover:bg-ink/[0.06]'
+          }`}
+          onClick={() => setOpen(!open)}
+        >
+          <SandboxRing sandboxed size={6}>
+            <span className="status-dot-fill rounded-full" style={{ background: 'var(--color-text-tertiary)' }} />
+          </SandboxRing>
+          {SANDBOX_LABELS[sandbox]}
+        </button>
+      )}
+    >
+      <div className="flex flex-col gap-2 px-2.5 py-2 text-[13px] leading-snug text-text-secondary">
+        <div className="font-medium text-text-primary">
+          {home ? 'Chat' : 'This agent'} runs in a {sandbox === 'custom' ? 'custom sandbox' : 'sandbox'}
+        </div>
+        {sandboxLines(info, sandbox).map((line) => (
+          <p key={line} className="m-0">
+            {line}
+          </p>
+        ))}
+        {home && (
+          <button
+            type="button"
+            className="self-start mt-1 btn-secondary btn-compact"
+            onClick={() => {
+              setOpen(false);
+              useAppStore.getState().select({ kind: 'chat', page: 'settings' });
+            }}
+          >
+            Change where Chat runs
+          </button>
+        )}
+      </div>
+    </MenuPopover>
   );
 }
 
@@ -413,17 +486,7 @@ export function ChatComposer({
         />
         <SettingsPicker settings={settingsFor(cardId, info)} />
         {isSandboxProviderId(info.sandbox) && isActiveSandbox(info.sandbox) && (
-          <Tooltip
-            text={`Runs in ${SANDBOX_LABELS[info.sandbox]}: it can reach only what the sandbox allows, whatever its mode.`}
-            placement="top"
-          >
-            <span className="flex items-center gap-1.5 h-6 px-1 text-[12px] text-text-tertiary shrink-0 cursor-default">
-              <SandboxRing sandboxed size={6}>
-                <span className="status-dot-fill rounded-full" style={{ background: 'var(--color-text-tertiary)' }} />
-              </SandboxRing>
-              {SANDBOX_LABELS[info.sandbox]}
-            </span>
-          </Tooltip>
+          <SandboxNote info={info} sandbox={info.sandbox} />
         )}
         <span className="flex-1" />
         {usage && <span className="text-[11px] text-text-tertiary mr-1 truncate">{usage}</span>}
