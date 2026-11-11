@@ -157,6 +157,7 @@ type Demo = {
   modes: string[];
   caption: string;
   height: number;
+  footer?: boolean;
   play(run: Run, stage: HTMLElement, mode: number, foot: HTMLElement): Promise<void>;
 };
 
@@ -177,7 +178,7 @@ const TURN_REPLY =
 const kinds: Demo = {
   modes: ['As it arrives', 'A turn at a time'],
   caption: 'One agent turn, rendered two ways.',
-  height: 320,
+  height: 130,
   async play(run, stage, mode) {
     if (mode === 0) {
       type Open = { f: ReturnType<typeof fold>; n: number };
@@ -283,8 +284,8 @@ const PACED_REPLY =
 
 function stopwatch(foot: HTMLElement) {
   foot.textContent = '';
-  const agent = el(foot, 'td-meter');
-  const shown = el(foot, 'td-meter');
+  const agent = el(foot, 'td-meter', 'Agent finished –');
+  const shown = el(foot, 'td-meter', 'On screen –');
   return {
     agent: (s: number) => (agent.textContent = `Agent finished ${(s / 1000).toFixed(1)} s`),
     shown: (s: number) => (shown.textContent = `On screen ${(s / 1000).toFixed(1)} s`),
@@ -292,9 +293,10 @@ function stopwatch(foot: HTMLElement) {
 }
 
 const pacing: Demo = {
-  modes: ['As it lands', 'Reading speed', 'Smoothed'],
+  modes: ['As it lands', 'Slow', 'Fast'],
   caption: 'The same bursts, revealed three ways.',
-  height: 200,
+  height: 120,
+  footer: true,
   async play(run, stage, mode, foot) {
     const watch = stopwatch(foot);
     const reply = new Reveal(el(stage, 'td-reply'), [null, READING, SMOOTH][mode]);
@@ -313,7 +315,7 @@ const LONG_WORDS =
 const clicky: Demo = {
   modes: ['By word', 'By character'],
   caption: 'Both at the same speed.',
-  height: 130,
+  height: 96,
   async play(run, stage, mode) {
     const reply = new Reveal(el(stage, 'td-reply'), mode === 0 ? BY_WORD : SMOOTH);
     await Promise.all([write(run, reply, LONG_WORDS, 11, [60, 300]), reply.play(run)]);
@@ -330,7 +332,7 @@ const SECOND = 'Committing needs your approval.';
 const queue: Demo = {
   modes: ['Each on its own', 'One queue'],
   caption: 'A slow message, then a fast one.',
-  height: 300,
+  height: 150,
   async play(run, stage, mode) {
     const first = new Reveal(el(stage, 'td-reply'), SMOOTH);
     const firstPlay = Promise.all([write(run, first, FIRST, 5, [80, 200], [180, 320]), first.play(run)]);
@@ -368,6 +370,7 @@ function mount(figure: HTMLElement) {
   const stage = el(frame, 'td-stage');
   stage.style.setProperty('--td-height', `${demo.height}px`);
   const foot = el(frame, 'td-foot');
+  if (demo.footer) stopwatch(foot);
   const caption = document.createElement('figcaption');
   caption.textContent = demo.caption;
   figure.append(caption);
@@ -392,7 +395,6 @@ function mount(figure: HTMLElement) {
     run = current;
     buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(i === mode)));
     stage.innerHTML = '';
-    foot.textContent = '';
     const inner = el(stage, 'td-scroll');
     demo
       .play(current, inner, mode, foot)

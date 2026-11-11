@@ -1,6 +1,6 @@
 ---
-title: What makes a chat interface feel good?
-description: An agent's chat feels good when its transcript is easy to follow. What to show, when, and how fast, with numbers.
+title: What makes an agent chat feel good?
+description: How to show an agent's work without spending the reader's attention
 date: 2026-11-10
 cover:
   field: { wash: graphite, angle: 160 }
@@ -8,78 +8,78 @@ cover:
   system: { motif: rows, breakAt: 560, x1: 740 }
 ---
 
-A single agent turn can produce thoughts, tool calls, remarks and a reply, requiring careful emphasis to preserve the user's attention. Streamed as they arrive, they reflow the page so often that the agent looks faster than it is, and the reader can't keep up.
-
-If your client speaks the [Agent Client Protocol](https://agentclientprotocol.com), each rule below is a decision about one update type, made once for every agent behind it.
+A single agent turn can produce thoughts, tool calls, remarks and a reply, requiring careful emphasis to preserve the reader's attention. Getting that emphasis right means three things: the reader knows what the agent is doing, their eye goes only where it's needed, and each piece arrives where and when they expect it.
 
 ## Count the kinds of thing that move
 
-Motion reads as speed. The eye is drawn to anything that moves, whether or not it matters, so every moving element costs a little attention. A transcript feels rushed because of how many different kinds of thing are moving, more than because of how much text arrives. A thought line, a growing list of commands, a card and a streaming reply each move differently, and the eye follows every one.
+A transcript feels rushed because of how many different kinds of thing are moving, more than because of how much text arrives. The eye is drawn to anything that appears or starts moving, whether or not it matters, so every moving element costs a little attention. A thought line, a growing list of commands, a card and a streaming reply each move differently, and the eye follows every one.
 
-Cut the kinds before the amount. While a turn runs, show one status line that says what the agent is doing, replaced in place. When the turn ends, show its work as one collapsed line, a fold, already closed, and the reply. A fold that opens while the work runs and snaps shut when the agent speaks reads as content being replaced. Anything that vanishes from the screen looks like an error, or like something the reader was meant to catch and missed. The status line still names what the agent is on within two seconds of it starting, so you can interrupt the agent without waiting for the turn to end.
+While a turn runs, show one status line that says what the agent is doing, drawn from its tool calls, thinking and short remarks, replaced in place. A wait the reader can explain feels shorter than one they can't,[^maister] and people prefer seeing progress to waiting without it.[^myers]
 
 <figure data-demo="kinds"></figure>
 
-The status line moves too. Hold each phrase for at least 2 seconds, a figure tuned by eye, skipping any that came and went in between, and keep the latest step up when a command finishes. Falling back to "Thinking…" between steps makes the line flicker between two states. A label that keeps changing its mind comes across as indecisive, and the reader stops trusting what it says.
+The status line moves too, so give each phrase time to be read. Subtitles solve the same problem. In eye-tracking studies, most viewers kept up with subtitles at 20 characters a second,[^szarkowska] and Netflix uses that as its limit for adult programmes.[^netflix] Step phrases like "Reading src/auth/session.ts" run 20 to 40 characters, so one to two seconds each. If more steps came and went during the hold, show only the latest one when it ends. Each new phrase is something appearing on screen, and new things pull attention,[^yantis] so a phrase replaced before it can be read costs attention and tells the reader nothing.
 
 <figure data-demo="status"></figure>
 
 ## Stream what's said, fold what's done
 
-Holding every message until the turn ends lands the reply as a wall, with any decisions right behind it. A wall has no reading order: the eye lands somewhere in the middle and has to go back up to find the start. Some messages have to stream during the turn, and size is a decent test of which. Check it as the text grows. A message stays on the status line until it passes about 220 characters or picks up structure, like a paragraph break, a list, a heading or code. From then on it streams in place from its first character and stays. A short remark like "Next I'll check the sessions" never gets past the status line, and folds with the work. The turn's last reply always shows, but nothing is known to be last until the turn ends, so a short final reply appears then.
+Messages written for the reader stream during the turn, in place, and stay. Size is a decent test of which messages those are. Check it as the text grows. A message stays on the status line until it passes about 220 characters or picks up structure, like a paragraph break, a list, a heading or code. From then on it streams from its first character. A short remark like "Next I'll check the sessions" never gets past the status line. When the turn ends, the status line gives way to a fold: one closed line holding everything the agent did, above the reply. That's progressive disclosure: what the reader needs now is on the page, and the rest is one click away.[^disclosure] The turn's last reply always shows, but nothing is known to be last until the turn ends, so a short final reply appears then.
 
 Size is a heuristic, and 220 is tuned by eye. It fails both ways. An agent that narrates in long paragraphs streams its narration, and one that answers in a line keeps its answer back until the turn ends. Nothing in the agent's output marks a remark apart from an answer, so the fix is in the instructions: tell the agent to keep remarks between steps short and to put results in its reply rather than its reasoning.
 
-Thinking feeds the status line too, when there is any to read. Some agents send thinking with no text unless asked for summaries; Claude Code, for one, needs `--thinking-display summarized`.
-
 ## Pace to smooth bursts, not to slow down
 
-Agents send text in bursts, and a message that arrives whole lands in a single frame. The eye follows steady motion easily and notices every change in its rate, so bursts look like stutter even when the average speed is fine. Revealing the text at an even rate fixes that, catching up faster the further behind it falls, and where the floor sits decides how far the screen trails the agent. For a 1,000-character message that arrives all at once, in characters per second (cps):
+Streamed text doesn't arrive at an even pace. It comes in chunks of very different sizes, and some agents only send a message once it's finished. Uneven chunks look like stutter even when the average speed is fine. Revealing the text smoothly fixes that. The reveal never runs slower than a floor or faster than a ceiling. In between, it speeds up the further behind it falls, aiming to clear its backlog within a catch-up target. The floor and the target decide how far the screen trails the agent. The table shows a 1,000-character message that arrives all at once, with rates in characters per second (cps).
 
-| | Floor | Ceiling | Catch up within | Fully shown after |
+| | Floor | Ceiling | Catch-up target | Fully shown after |
 |---|---|---|---|---|
-| Reading speed | 35 cps | 120 cps | 6 s | 15.7 s |
-| Smoothed, lower floor | 90 cps | 400 cps | 1.5 s | 4.7 s |
-| Smoothed | 120 cps | 400 cps | 1 s | 3.7 s |
+| Slow | 35 cps | 120 cps | 6 s | 15.7 s |
+| Fast, lower floor | 90 cps | 400 cps | 1.5 s | 4.7 s |
+| Fast | 120 cps | 400 cps | 1 s | 3.7 s |
 
-At reading speed, a hosted agent feels as slow as a model running on your laptop. The floor only has to even out bursts. Set it to make the reader wait after the agent has finished, and it becomes a brake.
+With the slow settings, a hosted agent feels as slow as a model running on your laptop. Subtitles show the same thing: slow ones caused more rereading, more frustration and less enjoyment than fast ones.[^szarkowska] The floor only has to even out bursts. Set it to make the reader wait after the agent has finished, and it becomes a brake.
 
 <figure data-demo="pacing"></figure>
 
-Move something every frame. Advancing a word at a time makes long words land as jumps, which reads as clicking. At 120 cps and 60 frames a second, a reply advances 2 characters a frame.
+How far the text advances each frame also matters. Advance it by a few characters on every frame. A word at a time makes the step size change with every word, which the eye notices for the same reason it notices bursts. In one study of scrolling text, comprehension dropped when it advanced in the largest steps, and readers preferred it moving smoothly.[^kang] At 120 cps and 60 frames a second, that's 2 characters a frame.
 
 <figure data-demo="clicky"></figure>
 
-Pacing also creates an ordering problem. When each message owns its reveal, which is the natural way to write it in a component framework, a long message that arrived first can still be revealing after a short one below it has finished. Anything not paced, like a fold or a decision card, appears the instant it exists, below words that haven't arrived yet. People read top to bottom and expect the screen to fill the same way. When the bottom finishes first, the eye jumps down to the newest thing and then back up to the middle. Pace the transcript as one queue: nothing past a message shows until that message has caught up. Badges outside the transcript, like a waiting count in the title bar, don't wait.
+The eye anticipates motion it can predict.[^kowler] At an even rate, the end of the text and each new line arrive where and when the reader expects them. Bursts break both: the end jumps, and several lines arrive at once, pushing what the reader was reading up in one jump.
+
+Order needs pacing too. People read top to bottom and expect the screen to fill the same way. When something lower down finishes first, the eye jumps to it and then back up to find its place. Pace the whole transcript as one queue, folds and cards included: nothing past a message shows until that message has caught up. Indicators outside the transcript, like an unread badge or the tab title, don't wait.
 
 <figure data-demo="queue"></figure>
 
 ## Follow the bottom on intent, not distance
 
-Scroll position belongs to the reader. A view that moves after they've scrolled away, or stops following when they haven't, feels like the app fighting them. A transcript that follows new content has to tell the reader scrolling away from its own scrolling. Checking the distance to the bottom on every scroll event gets this wrong. The scroll event the view's own follow causes lands a frame later, and if a fold and a paragraph arrived in that frame, the view finds itself more than 48 px from the bottom, treats that as the reader leaving, and stops following. New content then piles up out of sight.
+Scroll position belongs to the reader. Following new content is right while they're at the bottom, and wrong the moment they scroll up to reread something. The view has to tell those apart by what the reader did, not by where the view ended up. New content moves the bottom away too, a frame before the view catches up, so distance from the bottom alone is no guide. Let only the reader's own upward scroll stop the follow, and start following again when they come back to the bottom.
 
-Compare `scrollTop` with its value at the last scroll event instead, and let go only when it went down. New content never moves `scrollTop` up. Browser scroll anchoring can, so turn it off on the transcript with `overflow-anchor: none`. Pin again whenever the reader comes back within 48 px of the bottom. Follow from a `ResizeObserver` on both the content and the scroller, so text revealed between events, and a scroller that changes height, both keep the view down. With that, the view stays within a pixel of the bottom across long sections with commands between them.
+In a browser, that means comparing `scrollTop` between scroll events and letting go only when it decreased while the view wasn't at the bottom, with scroll anchoring turned off (`overflow-anchor: none`) so the browser never moves it on the reader's behalf.
 
 ## Tuning the feel
 
-None of the problems above show up in a screenshot or a code review. They only show up in motion, at the agent's real speed, so judge every change by watching it run.
+- Judge every change in motion, at the agent's real speed. None of this shows in a screenshot or a code review.
+- Run one fixed prompt every time, written to exercise everything your transcript can show.
+- Change one thing per run.
 
-Use one fixed prompt for every run, so the interface is the only thing that changes. It has to make the agent format a reply, think, run a string of commands including a long one, hit an error, and ask for permission. Change one thing per run. Two changes at once make it impossible to tell which one helped.
+The hard part is that complaints about feel are vague, and the same word can have several causes. "Too fast" might mean the text arrives in bursts, the reveal outruns reading, or too many things move at once, and each has a different fix. Treat the complaint as a symptom: list what could be causing it, find a number for each, and change one while watching whether the complaint goes away. The numbers also catch overcorrection, which is hard to see by feel. Slowing the reveal makes "too fast" go away, and the "fully shown after" figure shows it has become "too slow".
 
-Put what feels wrong into plain words first, like "too fast", "clicky" or "jumpy", then find the number behind it: characters per second, seconds behind the agent, characters per frame, pixels from the bottom. The words find the problem, and the number tells you when it's fixed and stops you overcorrecting. The reading-speed floor in the table above is what overcorrecting "too fast" looks like.
+Mock changes against a real transcript, word for word, before building them. A made-up transcript is tidier than a real one, so it hides costs.
 
-Mock a proposal against a real run's exact transcript, word for word, before building it. A real transcript shows costs a made-up one hides, like a step's only reply ending up inside a fold.
+[^kang]: Kang and Muter, [Reading dynamically displayed text](https://web-archive.southampton.ac.uk/cogprints.org/1971/1/Abs1989.htm), *Behaviour & Information Technology*, 1989.
 
-## Mapped to ACP
+[^kowler]: Kowler, Rubinstein, Santos and Wang, [Predictive smooth pursuit eye movements](https://researchwith.njit.edu/en/publications/predictive-smooth-pursuit-eye-movements/), *Annual Review of Vision Science*, 2019.
 
-ACP reduces every agent to the same few updates, so the rules above come down to one table:
+[^maister]: David Maister, [The Psychology of Waiting Lines](https://davidmaister.com/articles/1/52/).
 
-| ACP update | While the turn runs | Once it ends |
-|---|---|---|
-| `agent_thought_chunk` | Its first finished sentence on the status line | In the fold |
-| `tool_call`, `tool_call_update` | Its title on the status line | In the fold |
-| `agent_message_chunk`, short | Its first sentence on the status line | In the fold, unless it was the last message |
-| `agent_message_chunk`, over 220 characters or structured | Streams in place | Stays |
-| `session/request_permission` | A card, after the text before it | One line, once answered |
+[^myers]: Brad Myers, *The importance of percent-done progress indicators for computer-human interfaces*, CHI '85.
 
-Chunks that share a `messageId` are one message. Agents may leave the ID out, and then a message is the run of `agent_message_chunk` updates until a different update arrives. The turn ends when the `session/prompt` request returns its `stopReason`, and only then can a short last message be told apart from a remark. ACP has no field that marks a message as a remark or as the answer, so the size rule is a guess every ACP client has to make.
+[^disclosure]: Jakob Nielsen, [Progressive Disclosure](https://www.nngroup.com/articles/progressive-disclosure/), Nielsen Norman Group.
+
+[^netflix]: Netflix, [English (USA) Timed Text Style Guide](https://partnerhelp.netflixstudios.com/hc/en-us/articles/217350977-English-USA-Timed-Text-Style-Guide), reading speed limits.
+
+[^szarkowska]: Szarkowska and Gerber-Morón, [Viewers can keep up with fast subtitles: Evidence from eye movements](https://pmc.ncbi.nlm.nih.gov/articles/PMC6007935/), *PLOS ONE*, 2018.
+
+[^yantis]: Yantis and Jonides, [Abrupt visual onsets and selective attention: Evidence from visual search](https://doi.org/10.1037/0096-1523.10.5.601), *Journal of Experimental Psychology: Human Perception and Performance*, 1984.

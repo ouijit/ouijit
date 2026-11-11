@@ -3,6 +3,7 @@ import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 import markdownDocs from './tools/markdown-docs.mjs';
 import remarkFigures from './tools/remark-figures.mjs';
+import rehypeSidenotes from './tools/rehype-sidenotes.mjs';
 import shikiTitle from './tools/shiki-title.mjs';
 
 // https://astro.build/config
@@ -18,6 +19,7 @@ export default defineConfig({
   },
   markdown: {
     remarkPlugins: [remarkFigures],
+    rehypePlugins: [rehypeSidenotes],
     shikiConfig: { themes: { dark: 'github-dark' }, defaultColor: false, transformers: [shikiTitle()] },
   },
   build: {

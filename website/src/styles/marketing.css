@@ -2810,6 +2810,7 @@ body.marketing .writing-card:hover {
   position: relative;
   height: var(--td-height);
   overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent, #000 32px);
   padding: 0 20px;
 }
 @media (max-width: 640px) {
@@ -2890,4 +2891,57 @@ body.marketing .writing-card:hover {
 .td-foot:not(:empty) {
   padding: 10px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Footnotes, lifted into the margin as sidenotes (tools/rehype-sidenotes.mjs)
+   where the viewport has room beside the 760px column. */
+.writing-body sup a[data-footnote-ref] {
+  margin-left: 1px;
+  color: var(--color-accent);
+  font-size: 0.75em;
+  text-decoration: none;
+}
+.writing-body .sidenote {
+  display: none;
+}
+.writing-body .footnotes {
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.writing-body .footnotes ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+.writing-body .footnotes li,
+.writing-body .footnotes p {
+  font-size: 0.875rem;
+  color: var(--color-text-tertiary);
+}
+.writing-body .footnotes a[data-footnote-backref] {
+  text-decoration: none;
+}
+@media (min-width: 1240px) {
+  .writing-body .sidenote {
+    display: block;
+    float: right;
+    clear: right;
+    width: 180px;
+    margin: 0.2rem -216px 1rem 0;
+    color: var(--color-text-tertiary);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+  .writing-body .sidenote-number {
+    margin-right: 4px;
+    color: var(--color-accent);
+    font-size: 0.75rem;
+  }
+  .writing-body .sidenote a {
+    color: var(--color-text-secondary);
+    text-decoration-color: rgba(255, 255, 255, 0.25);
+  }
+  .writing-body .footnotes {
+    display: none;
+  }
 }
