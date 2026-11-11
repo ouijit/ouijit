@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 
-/** Near reading pace: follows along rather than outrunning the eye. */
-const BASE_CPS = 35;
-/** However far behind, never faster than a reader can still scan. */
-const MAX_CPS = 120;
-/** How far behind the agent the reveal may fall before it speeds up. */
-const CATCH_UP_SECONDS = 6;
+/**
+ * The aim is to even out the agent's bursts, not to slow it down: a floor
+ * that keeps pace with a quick writer, catching up within a moment of the
+ * agent, and a ceiling past which text would only flash by.
+ */
+const BASE_CPS = 90;
+const MAX_CPS = 400;
+const CATCH_UP_SECONDS = 1.5;
 
 /** The end of the word `index` falls in, so text is revealed a whole word at a time. */
 function wordEnd(text: string, index: number): number {
