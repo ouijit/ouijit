@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { revealed, useReveal } from './useReveal';
 import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
@@ -183,6 +184,21 @@ function WakeOpener({ node }: { node: UserMessageNode }) {
   );
 }
 
+/** When the transcript was opened: what was said before then is history, shown whole. */
+const OpenedAt = createContext(0);
+
+function Said({ node }: { node: AssistantMessageNode }) {
+  const openedAt = useContext(OpenedAt);
+  // Mounted after the transcript opened and said since: it is arriving now, so it is paced.
+  const [paced] = useState(() => node.createdAt >= openedAt);
+  const text = useReveal(node.text, paced);
+  return (
+    <div className="chat-said-in">
+      <ChatMarkdown text={text} complete={node.status !== 'running' && revealed(text, node.text)} />
+    </div>
+  );
+}
+
 function TurnView({ turn, running, context }: { turn: Turn; running: boolean; context: NodeContext }) {
   const pieces = piecesOf(turn.body, !running);
   // While it runs, the work after the last thing said is the line saying what it is on.
@@ -196,9 +212,7 @@ function TurnView({ turn, running, context }: { turn: Turn; running: boolean; co
         piece.kind === 'work' ? (
           <WorkFold key={piece.nodes[0].id} work={piece.nodes} context={context} />
         ) : (
-          <div key={piece.node.id} className="chat-said-in">
-            <ChatMarkdown text={piece.node.text} complete={piece.node.status !== 'running'} />
-          </div>
+          <Said key={piece.node.id} node={piece.node} />
         ),
       )}
       {running && !streaming && (
@@ -221,16 +235,19 @@ function TurnView({ turn, running, context }: { turn: Turn; running: boolean; co
  */
 export function ChatTurns({ nodes, context, busy }: { nodes: ChatNode[]; context: NodeContext; busy: boolean }) {
   const turns = turnsOf(nodes);
+  const [openedAt] = useState(() => Date.now());
   return (
-    <div className="chat-turns flex flex-col gap-5">
-      {turns.map((turn, index) => (
-        <TurnView
-          key={turn.opener?.id ?? turn.body[0]?.id ?? turn.kept[0]?.id ?? `turn-${index}`}
-          turn={turn}
-          running={busy && index === turns.length - 1}
-          context={context}
-        />
-      ))}
-    </div>
+    <OpenedAt.Provider value={openedAt}>
+      <div className="chat-turns flex flex-col gap-5">
+        {turns.map((turn, index) => (
+          <TurnView
+            key={turn.opener?.id ?? turn.body[0]?.id ?? turn.kept[0]?.id ?? `turn-${index}`}
+            turn={turn}
+            running={busy && index === turns.length - 1}
+            context={context}
+          />
+        ))}
+      </div>
+    </OpenedAt.Provider>
   );
 }

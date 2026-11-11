@@ -33,9 +33,14 @@ function useSession(cardId: string) {
   return session;
 }
 
-/** Follow new output while the reader is at the bottom; leave them be once they scroll up. */
-function useStickToBottom(dependency: unknown) {
+/**
+ * Follow new output while the reader is at the bottom; leave them be once
+ * they scroll up. Output grows between node events too, as a message is
+ * revealed, so this follows the content's height rather than the nodes.
+ */
+function useStickToBottom(loaded: boolean) {
   const ref = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const onScroll = useCallback(() => {
     const el = ref.current;
@@ -43,9 +48,18 @@ function useStickToBottom(dependency: unknown) {
   }, []);
   useLayoutEffect(() => {
     const el = ref.current;
-    if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [dependency]);
-  return { ref, onScroll };
+    const inner = content.current;
+    if (!el || !inner) return;
+    const follow = () => {
+      if (pinned.current) el.scrollTop = el.scrollHeight;
+    };
+    follow();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(follow);
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, [loaded]);
+  return { ref, content, onScroll };
 }
 
 function StatusLine({ info, cardId, quiet }: { info: ChatSessionInfo; cardId: string; quiet: boolean }) {
@@ -124,7 +138,7 @@ export function ChatView({
 }) {
   const session = useSession(cardId);
   const nodes = session?.nodes;
-  const { ref, onScroll } = useStickToBottom(nodes);
+  const { ref, content, onScroll } = useStickToBottom(Boolean(session));
 
   const children = useMemo(() => {
     const map = new Map<string | null, ChatNode[]>();
@@ -182,7 +196,7 @@ export function ChatView({
         />
       )}
       <div ref={ref} onScroll={onScroll} className="flex-1 min-h-0 overflow-y-auto">
-        <div className="mx-auto max-w-[52rem] px-6 pt-14 pb-4 flex flex-col gap-3">
+        <div ref={content} className="mx-auto max-w-[52rem] px-6 pt-14 pb-4 flex flex-col gap-3">
           {surface === 'card' && top.length === 0 && info.status !== 'starting' && (
             <div className="text-sm text-text-tertiary">{CHAT_AGENT_LABELS[info.agent]} is ready.</div>
           )}
