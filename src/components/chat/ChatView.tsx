@@ -8,7 +8,8 @@ import { ChatBackground } from './ChatBackground';
 import { ChatComposer } from './ChatComposer';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { sendHeldPrompt } from './chatActions';
-import { CHAT_AGENT_LABELS, isHomeChatId } from '../../chat/preferences';
+import { CHAT_AGENT_LABELS } from '../../chat/preferences';
+import { restartHomeChat } from './homeChatActions';
 import type { ChatNode, ChatSessionInfo } from '../../chat/model';
 
 function useSession(cardId: string) {
@@ -77,7 +78,7 @@ function StatusLine({ info, cardId, quiet }: { info: ChatSessionInfo; cardId: st
           >
             {info.statusDetail ?? `${CHAT_AGENT_LABELS[info.agent]} stopped`}
           </span>
-          <button type="button" className="btn-secondary btn-compact shrink-0" onClick={() => void restart(cardId)}>
+          <button type="button" className="btn-secondary btn-compact shrink-0" onClick={() => void restart(info)}>
             Restart
           </button>
         </div>
@@ -87,15 +88,9 @@ function StatusLine({ info, cardId, quiet }: { info: ChatSessionInfo; cardId: st
   }
 }
 
-async function restart(cardId: string): Promise<void> {
-  if (isHomeChatId(cardId)) {
-    try {
-      useChatStore.getState().adopt(await window.api.homeChat.restart());
-    } catch (error) {
-      useProjectStore.getState().addToast(String(error), 'error');
-    }
-    return;
-  }
+async function restart(info: ChatSessionInfo): Promise<void> {
+  if (info.role === 'home') return restartHomeChat();
+  const cardId = info.id;
   const term = terminalInstances.get(cardId);
   if (!term) return;
   try {

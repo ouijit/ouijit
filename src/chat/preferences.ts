@@ -1,5 +1,6 @@
 import { isChatAgentId, type ChatAgentId } from './model';
 import { isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
+import type { AskRun } from '../types';
 
 export const CHAT_AGENT_LABELS: Record<ChatAgentId, string> = {
   claude: 'Claude Code',
@@ -45,15 +46,8 @@ export function parseChatSettings(read: (key: string) => string | undefined | nu
   };
 }
 
-/**
- * The app-wide chat's conversations are sessions with no task, under ids of
- * their own, so one of them can be told from a card's session by its id alone.
- */
+/** Readable in logs and the database; what makes a session one of Chat's is its role, not this. */
 export const HOME_CHAT_ID_PREFIX = 'home-';
-
-export function isHomeChatId(id: string): boolean {
-  return id.startsWith(HOME_CHAT_ID_PREFIX);
-}
 
 export const HOME_CHAT_SETTING_KEYS = {
   agent: 'homeChat:agent',
@@ -85,18 +79,37 @@ export interface HomeChatSummary {
   createdAt: string;
 }
 
-export interface HomeChatConfirm {
+/**
+ * Something Chat set off that waits for the user: a done or a trash, which
+ * can't be undone, or a command it asks to run outside its sandbox. Held in
+ * the main process, so it survives a reload and any window can answer it.
+ */
+export type ChatDecision = {
+  id: string;
   /** The conversation that asked. */
   from: string;
+  at: number;
+} & (
+  | { kind: 'confirm'; projectPath: string; taskNumber: number; action: 'done' | 'trash' }
+  | { kind: 'ask'; ask: AskRun; message?: string }
+);
+
+/** A task, as news about it is routed: to the conversation that started it. */
+export interface TaskRef {
   projectPath: string;
   taskNumber: number;
-  action: 'done' | 'trash';
 }
+
+export type ChatDecisionChoice = { kind: 'run'; privately?: boolean } | { kind: 'decline' };
 
 export interface HomeChatState {
   currentId: string;
   chats: HomeChatSummary[];
+  /** The conversation that started each task, by `taskKey`. */
+  owners: Record<string, string>;
 }
+
+export const taskKey = (projectPath: string, taskNumber: number) => `${projectPath}#${taskNumber}`;
 
 export const WAKE_EVENTS = ['turnEnded', 'asked', 'taskMoved', 'hookFailed'] as const;
 export type WakeEvent = (typeof WAKE_EVENTS)[number];

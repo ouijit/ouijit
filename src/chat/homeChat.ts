@@ -1,4 +1,4 @@
-import { execFile, spawn } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -6,15 +6,14 @@ import { promisify } from 'node:util';
 import { getChatRepo, getGlobalSetting, setGlobalSetting } from '../db';
 import { getLogger } from '../logger';
 import { getUserDataPath } from '../paths';
-import { hostEnv } from '../sessionEnv';
 import { chatHost } from './host';
 import { HOME_CHAT_INSTRUCTIONS } from './homeChatInstructions';
 import {
   HOME_CHAT_ID_PREFIX,
   HOME_CHAT_SETTING_KEYS,
   UNTITLED_HOME_CHAT,
-  isHomeChatId,
   parseHomeChatSettings,
+  taskKey,
   titleFromMessage,
   type HomeChatSettings,
   type HomeChatState,
@@ -27,6 +26,19 @@ const chatLog = getLogger().scope('chat:home');
 
 /** In a sandbox nothing asks first: the sandbox is the boundary. Agents without such a mode keep their own approvals. */
 const UNATTENDED_MODE: Partial<Record<ChatAgentId, string>> = { claude: 'bypassPermissions', codex: 'never' };
+
+/** One of Chat's conversations, by the role its session was created with. */
+export function isHomeChat(id: string): boolean {
+  return chatHost.roleOf(id) === 'home';
+}
+
+/**
+ * Whether an API caller is Chat. A session's token lives as long as its
+ * agent, so a caller is always a running session, and nothing stored is read.
+ */
+export function callerIsHomeChat(id: string): boolean {
+  return chatHost.list().some((info) => info.id === id && info.role === 'home');
+}
 
 export function homeChatDir(): string {
   return path.join(getUserDataPath(), 'chat');
@@ -59,7 +71,7 @@ const listeners = new Set<(state: HomeChatState) => void>();
 export async function currentHomeChatId(): Promise<string> {
   if (current) return current;
   const chosen = await getGlobalSetting(HOME_CHAT_SETTING_KEYS.current);
-  current = chosen && isHomeChatId(chosen) ? chosen : (getChatRepo().listHome()[0]?.id ?? newId());
+  current = chosen && isHomeChat(chosen) ? chosen : (getChatRepo().listHome()[0]?.id ?? newId());
   return current;
 }
 
@@ -96,8 +108,13 @@ export async function homeChatState(): Promise<HomeChatState> {
   if (live && !chats.some((chat) => chat.id === currentId)) {
     chats.unshift(summary(currentId, live.info, new Date().toISOString()));
   }
+  const owners = Object.fromEntries(
+    getChatRepo()
+      .taskOwners()
+      .map((owner) => [taskKey(owner.projectPath, owner.taskNumber), owner.chatId]),
+  );
   // A conversation is listed once it has been asked something; until then it is only where the plus leads.
-  return { currentId, chats: chats.filter((chat) => chat.title !== UNTITLED_HOME_CHAT) };
+  return { currentId, chats: chats.filter((chat) => chat.title !== UNTITLED_HOME_CHAT), owners };
 }
 
 export function onHomeChatChange(listener: (state: HomeChatState) => void): () => void {
@@ -126,7 +143,7 @@ async function startConversation(id: string, eager: boolean | undefined): Promis
     sandboxProvider: settings.sandbox,
     label: UNTITLED_HOME_CHAT,
     instructions: [HOME_CHAT_INSTRUCTIONS, settings.instructions.trim()].filter(Boolean).join('\n\n'),
-    cliAccess: 'all',
+    role: 'home',
     ...(settings.sandbox !== 'none' && { mode: UNATTENDED_MODE[settings.agent] }),
     reconfigure: true,
     eager,
@@ -148,23 +165,23 @@ export async function startHomeChat(options: { eager?: boolean } = {}): Promise<
  */
 function stopOthers(id: string): void {
   for (const info of chatHost.list()) {
-    if (!isHomeChatId(info.id) || info.id === id) continue;
+    if (info.role !== 'home' || info.id === id) continue;
     chatHost
       .stop(info.id)
       .catch((error) => chatLog.warn('conversation did not stop', { id: info.id, error: String(error) }));
   }
 }
 
-/** `id` lets the caller show the conversation before this returns. */
+/** `id` lets the caller show the conversation before this returns; it has to be new. */
 export async function newHomeChat(id = newId()): Promise<ChatSnapshot> {
-  if (!isHomeChatId(id)) throw new Error(`Not an id for Chat's conversations: ${id}`);
+  if (chatHost.roleOf(id)) throw new Error(`There is already a session ${id}`);
   await choose(id);
   stopOthers(id);
   return startConversation(id, true);
 }
 
 export async function switchHomeChat(id: string): Promise<ChatSnapshot> {
-  if (!isHomeChatId(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
+  if (!isHomeChat(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
   await choose(id);
   stopOthers(id);
   return startConversation(id, true);
@@ -182,7 +199,7 @@ export async function restartHomeChat(): Promise<ChatSnapshot> {
  * the most recent other one, or to a new one when it was the last.
  */
 export async function deleteHomeChat(id: string): Promise<HomeChatState> {
-  if (!isHomeChatId(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
+  if (!isHomeChat(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
   const wasCurrent = (await currentHomeChatId()) === id;
   await chatHost.discard(id);
   if (wasCurrent) {
@@ -195,7 +212,7 @@ export async function deleteHomeChat(id: string): Promise<HomeChatState> {
 }
 
 export async function renameHomeChat(id: string, title: string): Promise<void> {
-  if (!isHomeChatId(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
+  if (!isHomeChat(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
   const trimmed = title.trim();
   if (!trimmed) throw new Error('A title cannot be empty');
   if (!chatHost.setLabel(id, trimmed)) throw new Error(`No conversation ${id}`);
@@ -209,7 +226,7 @@ export async function renameHomeChat(id: string, title: string): Promise<void> {
 export function installHomeChat(): void {
   chatHost.onClear = clearStartsAnother;
   chatHost.subscribe((sessionId, { event }) => {
-    if (!isHomeChatId(sessionId) || event.type !== 'node') return;
+    if (event.type !== 'node' || !isHomeChat(sessionId)) return;
     const node = event.node;
     if (node.kind !== 'user_message' || node.wake) return;
     const info = chatHost.snapshot(sessionId)?.info;
@@ -220,38 +237,22 @@ export function installHomeChat(): void {
 }
 
 async function clearStartsAnother(id: string): Promise<boolean> {
-  if (!isHomeChatId(id)) return false;
+  if (!isHomeChat(id)) return false;
   await newHomeChat();
   return true;
 }
 
-const ASK_OUTPUT_LINES = 100;
-
 /**
- * Run a command Chat asked for, once the user has pressed Run. Chat has no
- * terminal to hold a runner, so it runs without one: no input, so a command
- * that prompts gets an end of file rather than waiting on nobody.
+ * The conversation that started a task hears about it and holds what its
+ * worker leaves for the user. The owner row references the conversation's,
+ * which a conversation opened a moment ago may not have written yet.
  */
-export function runHomeChatAsk(command: string, cwd: string): Promise<{ exitCode: number | null; output: string }> {
-  return new Promise((resolve) => {
-    const child = spawn('/bin/sh', ['-c', command], {
-      cwd,
-      env: { ...hostEnv(), PAGER: 'cat', GH_PAGER: 'cat', GIT_PAGER: 'cat' },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let output = '';
-    const take = (chunk: Buffer) => {
-      output += chunk.toString();
-      if (output.length > 200_000) output = output.slice(-100_000);
-    };
-    child.stdout.on('data', take);
-    child.stderr.on('data', take);
-    const finish = (exitCode: number | null) =>
-      resolve({ exitCode, output: output.split('\n').slice(-ASK_OUTPUT_LINES).join('\n').trimEnd() });
-    child.on('error', (error) => {
-      output += `${error.message}\n`;
-      finish(null);
-    });
-    child.on('close', finish);
-  });
+export function ownTask(conversation: string, projectPath: string, taskNumber: number): void {
+  chatHost.flush(conversation);
+  getChatRepo().setTaskOwner(projectPath, taskNumber, conversation);
+  void announce();
+}
+
+export function taskOwner(projectPath: string, taskNumber: number): string | null {
+  return getChatRepo().taskOwner(projectPath, taskNumber);
 }

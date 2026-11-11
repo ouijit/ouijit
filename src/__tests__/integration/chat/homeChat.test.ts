@@ -16,13 +16,14 @@ import {
   homeChatDir,
   homeChatState,
   installHomeChat,
+  isHomeChat,
   newHomeChat,
   restartHomeChat,
   startHomeChat,
   switchHomeChat,
 } from '../../../chat/homeChat';
 import { installHomeChatWakes } from '../../../chat/wake';
-import { HOME_CHAT_SETTING_KEYS, UNTITLED_HOME_CHAT, isHomeChatId } from '../../../chat/preferences';
+import { HOME_CHAT_SETTING_KEYS, UNTITLED_HOME_CHAT } from '../../../chat/preferences';
 import { pendingRequests, type ChatAgentId, type ChatSnapshot, type UserMessageNode } from '../../../chat/model';
 import { CLI_REFERENCE, getCliReferencePath } from '../../../hookServer';
 import { getDriver } from '../../../chat/drivers';
@@ -122,7 +123,7 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
 
       const home = await startHomeChat();
       const HOME_CHAT_ID = home.info.id;
-      expect(isHomeChatId(HOME_CHAT_ID)).toBe(true);
+      expect(home.info.role).toBe('home');
       expect(home.info.label).toBe(UNTITLED_HOME_CHAT);
       expect(home.info.agent).toBe(agent);
       expect(home.info.status, home.info.statusDetail).toBe('idle');
@@ -207,7 +208,7 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       const afterDelete = await deleteHomeChat(HOME_CHAT_ID);
       expect(chatHost.snapshot(HOME_CHAT_ID)).toBeNull();
       expect(afterDelete.chats).toEqual([]);
-      expect(isHomeChatId(afterDelete.currentId) && afterDelete.currentId !== HOME_CHAT_ID).toBe(true);
+      expect(isHomeChat(afterDelete.currentId) && afterDelete.currentId !== HOME_CHAT_ID).toBe(true);
       await until(afterDelete.currentId, (s) => s.info.status === 'idle');
       expect(chatHost.snapshot(afterDelete.currentId)!.nodes).toEqual([]);
       await chatHost.stopAll();

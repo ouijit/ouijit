@@ -4,8 +4,8 @@ import { useWaitingStore, type Waiting } from '../../stores/waitingStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useAppStore } from '../../stores/appStore';
-import { taskKey, useHomeChatStore } from '../../stores/homeChatStore';
-import { isHomeChatId } from '../../chat/preferences';
+import { isHomeChat, useHomeChatStore, useIsHomeChat } from '../../stores/homeChatStore';
+import { taskKey } from '../../chat/preferences';
 import { pendingRequests, type RequestNode } from '../../chat/model';
 import { CONFIRM_VERB, runWaiting } from '../waiting/WaitingQueue';
 
@@ -14,7 +14,7 @@ export function useOwnerOf(): (item: Waiting) => string | null {
   const owners = useHomeChatStore((s) => s.owners);
   const displays = useTerminalStore((s) => s.displayStates);
   return (item) => {
-    if (isHomeChatId(item.from)) return item.from;
+    if (isHomeChat(item.from)) return item.from;
     if (item.kind === 'move' || item.kind === 'confirm')
       return owners[taskKey(item.projectPath, item.taskNumber)] ?? null;
     const display = displays[item.from];
@@ -86,13 +86,14 @@ function useTaskName(projectPath: string, taskNumber: number): string {
 }
 
 function useAskerName(ptyId: string): string {
+  const home = useIsHomeChat(ptyId);
   const display = useTerminalStore((s) => s.displayStates[ptyId]);
   const task = useAppStore((s) =>
     display?.taskId != null
       ? s.taskCacheByProject[display.projectPath]?.find((t) => t.taskNumber === display.taskId)?.name
       : undefined,
   );
-  return isHomeChatId(ptyId) ? 'Chat' : (task ?? display?.label ?? 'A terminal');
+  return home ? 'Chat' : (task ?? display?.label ?? 'A terminal');
 }
 
 function QueuedCard({ item }: { item: Waiting }) {

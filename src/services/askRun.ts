@@ -7,17 +7,7 @@ import { useWaitingStore } from '../stores/waitingStore';
 import { presentWaiting } from './presentWaiting';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { AskAnswer, AskRun, CliAskResponse } from '../types';
-import { isHomeChatId } from '../chat/preferences';
-import { askFromHomeChat } from './homeChatDecisions';
-
-const OUTPUT_LINES = 100;
-
-/**
- * The run is a real terminal, so `gh api` or `git log` would open a pager and
- * wait for a keypress nobody is there to give. An editor still waits: that one
- * the user can answer in the panel, and turning it off would change the command.
- */
-const NO_PAGER = { PAGER: 'cat', GH_PAGER: 'cat', GIT_PAGER: 'cat' };
+import { ASK_OUTPUT_LINES, NO_PAGER, exitedAnswer } from '../askOutput';
 
 /** Resolves once the runner's command has finished, or its panel has closed. */
 function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
@@ -30,13 +20,15 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
         resolve({ status: 'closed', panelId });
       } else if (panel.status === 'success' || panel.status === 'error') {
         stop();
-        const ended = { status: 'exited' as const, panelId, exitCode: panel.exitCode ?? null };
-        if (panel.private) {
-          resolve({ ...ended, private: true });
-          return;
-        }
         const child = terminalInstances.get(ptyId)?.runnerChildren.get(panelId);
-        resolve({ ...ended, output: child ? bufferText(child.xterm, OUTPUT_LINES) : '' });
+        resolve(
+          exitedAnswer({
+            exitCode: panel.exitCode ?? null,
+            output: child && !panel.private ? bufferText(child.xterm, ASK_OUTPUT_LINES) : '',
+            privately: !!panel.private,
+            panelId,
+          }),
+        );
       }
     };
     stop = useTerminalStore.subscribe(check);
@@ -50,7 +42,6 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
  * comes at once, or with `wait` once the user declines or the run ends.
  */
 export function askToRun(fromPtyId: string, ask: AskRun, message: string | undefined): Promise<CliAskResponse> {
-  if (isHomeChatId(fromPtyId)) return askFromHomeChat(fromPtyId, ask, message);
   if (!(fromPtyId in useTerminalStore.getState().displayStates)) {
     return Promise.resolve({ ok: false, error: `No terminal ${fromPtyId}` });
   }

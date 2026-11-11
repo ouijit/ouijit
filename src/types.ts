@@ -21,7 +21,7 @@ import type {
 } from './chat/model';
 import type { DriverProbe, TerminalResume } from './chat/driver';
 import type { ChatDelivery, ChatStartOptions } from './chat/host';
-import type { HomeChatConfirm, HomeChatState, WakeEvent } from './chat/preferences';
+import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from './chat/preferences';
 import type {
   RepoIdentity,
   GithubAvailability,
@@ -448,15 +448,16 @@ export interface ChatAPI {
 export interface HomeChatAPI {
   start(): Promise<ChatSnapshot>;
   restart(): Promise<ChatSnapshot>;
-  /** Null for something the user did, which Chat always hears about. */
-  wake(event: WakeEvent | null, text: string): Promise<void>;
+  /** Null for something the user did, which Chat always hears about. News of a task goes to the conversation that started it. */
+  wake(event: WakeEvent | null, text: string, about?: TaskRef | null): Promise<void>;
   create(id?: string): Promise<ChatSnapshot>;
   switch(id: string): Promise<ChatSnapshot>;
   list(): Promise<HomeChatState>;
   rename(id: string, title: string): Promise<void>;
   delete(id: string): Promise<HomeChatState>;
-  runAsk(command: string, cwd: string): Promise<{ exitCode: number | null; output: string }>;
-  onConfirm(callback: (request: HomeChatConfirm) => void): () => void;
+  decisions(): Promise<ChatDecision[]>;
+  decide(id: string, choice: ChatDecisionChoice): Promise<boolean>;
+  onDecisions(callback: (decisions: ChatDecision[]) => void): () => void;
   onChanged(callback: (state: HomeChatState) => void): () => void;
 }
 
@@ -1160,8 +1161,8 @@ export interface AskRun {
 export type AskAnswer =
   | { status: 'pending'; panelId?: string }
   | { status: 'declined' }
-  | { status: 'exited'; panelId: string; exitCode: number | null; output: string }
-  | { status: 'exited'; panelId: string; exitCode: number | null; private: true }
+  | { status: 'exited'; panelId?: string; exitCode: number | null; output: string }
+  | { status: 'exited'; panelId?: string; exitCode: number | null; private: true }
   | { status: 'closed'; panelId: string };
 
 export interface CliAskResponse {

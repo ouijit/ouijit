@@ -7,7 +7,8 @@ import { useAppStore } from '../../stores/appStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { HOME_CHAT_SETTING_KEYS } from '../../chat/preferences';
+import { HOME_CHAT_SETTING_KEYS, taskKey, type ChatDecision } from '../../chat/preferences';
+import { listenForChatDecisions } from '../../services/homeChatDecisions';
 import { useHomeChatStore } from '../../stores/homeChatStore';
 import { useWaitingStore } from '../../stores/waitingStore';
 import { NO_CAPABILITIES, type ChatNode, type ChatSessionInfo, type ChatSnapshot } from '../../chat/model';
@@ -24,6 +25,7 @@ const CURRENT = 'home-1';
 
 const INFO: ChatSessionInfo = {
   id: CURRENT,
+  role: 'home',
   label: 'Ship the settings page.',
   agent: 'claude',
   agentSessionId: 'abc',
@@ -96,6 +98,7 @@ beforeEach(() => {
       { id: CURRENT, title: 'Ship the settings page.', createdAt: '2026-11-10T00:00:00Z' },
       { id: 'home-2', title: 'Keychain recovery review', createdAt: '2026-11-09T00:00:00Z' },
     ],
+    owners: {},
   });
   vi.mocked(window.api.homeChat.create).mockClear();
   vi.mocked(window.api.homeChat.switch).mockClear();
@@ -204,12 +207,13 @@ describe('Chat', () => {
       status: 'idle',
     });
     // A worker Chat started, in a sandbox, with a request Chat left to the user.
-    useHomeChatStore.getState().own('/code/alpha', 12, CURRENT);
+    useHomeChatStore.setState({ owners: { [taskKey('/code/alpha', 12)]: CURRENT } });
     act(() =>
       useChatStore.getState().adopt({
         info: {
           ...INFO,
           id: 'pty-12',
+          role: 'card',
           label: 'Settings storage',
           taskId: 12,
           projectPath: '/code/alpha',
@@ -235,24 +239,33 @@ describe('Chat', () => {
         seq: 1,
       }),
     );
-    const decline = vi.fn();
-    const run = vi.fn();
-    act(() => {
-      useWaitingStore.getState().add({
+    // What Chat set off, as the main process holds it.
+    let pushDecisions: (decisions: ChatDecision[]) => void = () => {};
+    vi.mocked(window.api.homeChat.onDecisions).mockImplementation((listener) => {
+      pushDecisions = listener;
+      return () => {};
+    });
+    listenForChatDecisions();
+    const held: ChatDecision[] = [
+      {
+        id: 'd-ask',
+        from: CURRENT,
+        at: 1,
         kind: 'ask',
+        ask: { command: 'gh pr list', cwd: '/chat' },
+        message: 'needs your GitHub sign-in',
+      },
+      {
+        id: 'd-trash',
         from: CURRENT,
-        ask: { command: 'gh pr list', cwd: '/chat', message: 'needs your GitHub sign-in', run, decline },
-      });
-      useWaitingStore.getState().add({
+        at: 2,
         kind: 'confirm',
-        from: CURRENT,
         projectPath: '/code/alpha',
         taskNumber: 12,
         action: 'trash',
-        run: vi.fn(),
-        cancel: vi.fn(),
-      });
-    });
+      },
+    ];
+    act(() => pushDecisions(held));
     render(<App />);
     act(() => useAppStore.getState().select({ kind: 'chat', page: 'chat' }));
 
@@ -270,11 +283,13 @@ describe('Chat', () => {
       .querySelector<HTMLElement>('[data-group="home-chat"]')!;
     expect(within(group).getByLabelText('3 waiting on you')).toBeTruthy();
 
-    // Answering a card answers the queue item and the worker.
+    // Answering a card answers the main process, and the queue follows what it holds.
     fireEvent.click(within(ask).getByRole('button', { name: 'Run' }));
-    expect(run).toHaveBeenCalledWith(false);
+    expect(window.api.homeChat.decide).toHaveBeenCalledWith('d-ask', { kind: 'run', privately: false });
     fireEvent.click(within(trash).getByRole('button', { name: 'Cancel' }));
-    expect(useWaitingStore.getState().items.some((item) => item.kind === 'confirm')).toBe(false);
+    expect(window.api.homeChat.decide).toHaveBeenCalledWith('d-trash', { kind: 'decline' });
+    act(() => pushDecisions([]));
+    expect(useWaitingStore.getState().items).toEqual([]);
     fireEvent.click(within(worker).getByRole('button', { name: 'Deny' }));
     expect(window.api.chat.answer).toHaveBeenCalledWith('pty-12', 'req-1', { kind: 'option', optionId: 'deny' });
 

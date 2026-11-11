@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import type { ChatRole } from '../../chat/model';
 
 export interface ChatSessionRow {
   id: string;
@@ -9,6 +10,7 @@ export interface ChatSessionRow {
   agent: string;
   agent_session_id: string | null;
   sandbox_provider: string | null;
+  role: ChatRole;
   info: string;
   seq: number;
   created_at: string;
@@ -38,8 +40,30 @@ export class ChatRepo {
   /** The app-wide chat's conversations, newest started first. */
   listHome(): ChatSessionRow[] {
     return this.db
-      .prepare("SELECT * FROM chat_sessions WHERE id LIKE 'home-%' ORDER BY created_at DESC")
+      .prepare("SELECT * FROM chat_sessions WHERE role = 'home' ORDER BY created_at DESC")
       .all() as ChatSessionRow[];
+  }
+
+  setTaskOwner(projectPath: string, taskNumber: number, chatId: string): void {
+    this.db
+      .prepare(
+        `INSERT INTO chat_task_owners (project_path, task_number, chat_id) VALUES (?, ?, ?)
+         ON CONFLICT(project_path, task_number) DO UPDATE SET chat_id = excluded.chat_id`,
+      )
+      .run(projectPath, taskNumber, chatId);
+  }
+
+  taskOwner(projectPath: string, taskNumber: number): string | null {
+    const row = this.db
+      .prepare('SELECT chat_id FROM chat_task_owners WHERE project_path = ? AND task_number = ?')
+      .get(projectPath, taskNumber) as { chat_id: string } | undefined;
+    return row?.chat_id ?? null;
+  }
+
+  taskOwners(): { projectPath: string; taskNumber: number; chatId: string }[] {
+    return this.db
+      .prepare('SELECT project_path AS projectPath, task_number AS taskNumber, chat_id AS chatId FROM chat_task_owners')
+      .all() as { projectPath: string; taskNumber: number; chatId: string }[];
   }
 
   nodes(id: string): string[] {
@@ -56,9 +80,9 @@ export class ChatRepo {
       this.db
         .prepare(
           `INSERT INTO chat_sessions (id, project_path, task_id, cwd, worktree_path, agent, agent_session_id,
-             sandbox_provider, info, seq, created_at, updated_at)
+             sandbox_provider, role, info, seq, created_at, updated_at)
            VALUES (@id, @project_path, @task_id, @cwd, @worktree_path, @agent, @agent_session_id,
-             @sandbox_provider, @info, @seq, @created_at, @updated_at)
+             @sandbox_provider, @role, @info, @seq, @created_at, @updated_at)
            ON CONFLICT(id) DO UPDATE SET agent = excluded.agent, agent_session_id = excluded.agent_session_id,
              sandbox_provider = excluded.sandbox_provider, info = excluded.info, seq = excluded.seq,
              updated_at = excluded.updated_at`,

@@ -16,7 +16,9 @@ export function printJson(data: unknown): void {
  */
 export function forbiddenMessage(reason: string, argv: string[]): string {
   const why =
-    reason === 'Forbidden' ? "this terminal's sandbox does not allow it at the project's Ouijit CLI access" : reason;
+    reason === 'Forbidden'
+      ? "this terminal's sandbox does not allow it at the project's Ouijit CLI access"
+      : reason.replace(/\.$/, '');
   if (argv[0] === 'ask' || argv.includes('-')) return `Forbidden: ${why}`;
   return `Forbidden: ${why}. To ask the user to run it outside the sandbox: ouijit ask run -m "<why>" -- ${shellJoin(['ouijit', ...argv])}`;
 }

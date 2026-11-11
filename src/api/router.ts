@@ -82,8 +82,10 @@ import {
 } from '../sessions';
 import { chatHost, ChatSessionNotFound } from '../chat/host';
 import { transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
-import { isHomeChatId } from '../chat/preferences';
+import { callerIsHomeChat, ownTask } from '../chat/homeChat';
 import { wakeForAsk } from '../chat/wake';
+import { holdAsk, holdConfirm } from '../chat/decisions';
+import { chatRefusal, chatSandbox } from './chatPolicy';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext } from '../apiAuth';
@@ -230,24 +232,51 @@ const MAX_ASK_MESSAGE = 200;
 function cliCaller(auth: AuthContext): CliCaller {
   return {
     fromPtyId: callerTerminal(auth.ptyId),
-    ...((auth.scope === 'sandbox' || isHomeChatId(auth.ptyId)) && { fromSandbox: true }),
+    ...((auth.scope === 'sandbox' || callerIsHomeChat(auth.ptyId)) && { fromSandbox: true }),
   };
 }
 
-/** Done and trash can't be undone, so from Chat they wait for the user, who sees them in Chat. */
+/**
+ * Done and trash can't be undone, so from Chat they wait for the user, who
+ * sees them in Chat. Confirmed, each goes as it would from the CLI: the done
+ * still counts as Chat's, so its hook waits for the user where it runs on the host.
+ */
 function holdForUser(
-  r: Pick<ParsedRequest, 'auth' | 'window'>,
+  r: Pick<ParsedRequest, 'auth' | 'window' | 'body'>,
   project: string,
   taskNumber: number,
   action: 'done' | 'trash',
-): { success: true; waiting: true; message: string } | null {
-  if (!isHomeChatId(r.auth.ptyId)) return null;
-  typedPush(r.window, 'homeChat:confirm', { from: r.auth.ptyId, projectPath: project, taskNumber, action });
-  return {
-    success: true,
-    waiting: true,
-    message: `Waiting for the user to confirm ${action === 'done' ? 'moving it to done' : 'trashing it'}; you will be told how they decide.`,
-  };
+): ReturnType<typeof holdConfirm> | null {
+  if (!callerIsHomeChat(r.auth.ptyId)) return null;
+  const from = r.auth.ptyId;
+  const control = action === 'done' ? parseHookControl(r.body) : {};
+  return holdConfirm({ from, projectPath: project, taskNumber, action }, async () => {
+    if (action === 'trash') {
+      const result = await trashTaskWithWorktree(project, taskNumber);
+      if (result.success) notifyChanged(r.window, project, `DELETE /api/tasks/${taskNumber}`);
+      return result;
+    }
+    const before = await getTaskByNumber(project, taskNumber);
+    const result = await setTaskStatusWithHooks(project, taskNumber, 'done');
+    const task = result.success && before?.status !== 'done' ? await getTaskWithWorkspace(project, taskNumber) : null;
+    notifyChanged(r.window, project, `PATCH /api/tasks/${taskNumber}/status`);
+    if (task && !r.window.isDestroyed()) {
+      typedPush(r.window, 'cli:task-completed', {
+        project,
+        taskNumber,
+        task,
+        ...control,
+        fromPtyId: from,
+        fromSandbox: true,
+      });
+    }
+    return result;
+  });
+}
+
+function notifyChanged(window: BrowserWindow, project: string, action: string): void {
+  if (window.isDestroyed()) return;
+  typedPush(window, 'cli-change', { project, action, resource: 'tasks', ts: Date.now() });
 }
 
 /** A path's real location, through any symlink, for as much of it as exists. */
@@ -852,7 +881,11 @@ const routes: Route[] = [
     async (r) => {
       const ask = await askRun(r);
       const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_ASK_MESSAGE) : '';
-      if (!isHomeChatId(r.auth.ptyId)) void wakeForAsk(r.auth.ptyId, ask.command, message);
+      // Chat has no terminal for a runner, so its own asks wait here, in Chat.
+      if (callerIsHomeChat(r.auth.ptyId)) {
+        return { command: ask.command, cwd: ask.cwd, ...(await holdAsk(r.auth.ptyId, ask, message || undefined)) };
+      }
+      void wakeForAsk(r.auth.ptyId, ask.command, message);
       const result = await cliAskRequest({
         fromPtyId: callerTerminal(r.auth.ptyId),
         ask,
@@ -983,14 +1016,6 @@ const routes: Route[] = [
       const id = r.segments[1];
       // An agent answering its own approval would make the approval meaningless.
       if (r.auth.ptyId === id) throw new HttpError(403, 'A chat cannot answer its own requests');
-      // Chat's own sandbox would mean nothing if it could approve what an agent on the host does.
-      const target = chatHost.list().find((info) => info.id === id);
-      if (isHomeChatId(r.auth.ptyId) && !isActiveSandbox(target?.sandbox as SandboxProviderId | undefined)) {
-        throw new HttpError(
-          403,
-          "That agent runs on the user's computer, outside a sandbox, so its requests are theirs to answer. Tell them what it is asking.",
-        );
-      }
       const answer = parseAnswer(r.body);
       try {
         if (!chatHost.answer(id, r.segments[3], answer)) {
@@ -1408,7 +1433,7 @@ interface SandboxCaller extends AuthContext {
  * "Everything" it is treated as a host caller throughout, handlers included.
  */
 async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
-  if (auth.scope === 'host' || isHomeChatId(auth.ptyId)) return { ...auth, scope: 'host', access: 'all' };
+  if (auth.scope === 'host' || callerIsHomeChat(auth.ptyId)) return { ...auth, scope: 'host', access: 'all' };
   const context = getSessionSpawnContext(auth.ptyId);
   const access = context ? await sandboxCliAccessFor(context.projectPath) : 'read';
   return access === 'all' ? { ...auth, scope: 'host', access } : { ...auth, access };
@@ -1528,6 +1553,18 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     json(res, 403, { error: 'Forbidden' });
     return;
   }
+  if (callerIsHomeChat(caller.ptyId)) {
+    const refusal = chatRefusal(method, segments, body);
+    if (refusal) {
+      json(res, 403, { error: refusal });
+      return;
+    }
+    const project = url.searchParams.get('project') ?? '';
+    if (isTaskStartRoute(method, segments)) body.hookSandbox = await chatSandbox(project, body.hookSandbox, 'start');
+    if (method === 'POST' && segments.join('/') === 'terminals') {
+      body.sandbox = await chatSandbox(project, body.sandbox, body.resume === true ? 'continue' : null);
+    }
+  }
 
   // A status PATCH to in_progress/in_review/done fires a renderer-side hook,
   // which needs the *old* status to disambiguate start vs continue and to skip
@@ -1556,6 +1593,18 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       window,
     });
     json(res, 200, { data: result });
+
+    // A task Chat made, or started, is the conversation's to hear about.
+    const made = (result as { success?: boolean; task?: { taskNumber?: number } } | null) ?? null;
+    if (
+      method === 'POST' &&
+      (segments.join('/') === 'tasks' || isTaskStartRoute(method, segments)) &&
+      made?.success &&
+      typeof made.task?.taskNumber === 'number' &&
+      callerIsHomeChat(caller.ptyId)
+    ) {
+      ownTask(caller.ptyId, url.searchParams.get('project') ?? '', made.task.taskNumber);
+    }
 
     // Notify renderer after mutating operations
     if (matched.route.mutating && window && !window.isDestroyed()) {
@@ -1602,6 +1651,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
         const task = startResult.task;
         if (task && startResult.worktreePath && task.branch) {
           const hookControl = parseHookControl(body);
+          const fromChat = callerIsHomeChat(caller.ptyId);
           typedPush(window, 'cli:task-started', {
             project,
             taskNumber: task.taskNumber,
@@ -1609,7 +1659,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             branch: task.branch,
             createdAt: task.createdAt,
             // What Chat starts it steers, which takes a chat.
-            ...(isHomeChatId(caller.ptyId) && { surface: 'chat' as const }),
+            ...(fromChat && { surface: 'chat' as const }),
             ...hookControl,
             ...cliCaller(caller),
           });

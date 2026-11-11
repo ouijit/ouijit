@@ -8,7 +8,7 @@ import { growToFit } from '../../hooks/useAutoResize';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { sendChat, switchToTerminal } from './chatActions';
-import { CHAT_AGENT_LABELS, isHomeChatId } from '../../chat/preferences';
+import { CHAT_AGENT_LABELS } from '../../chat/preferences';
 import { parseSlashCommand, type ChatAttachment, type ChatOption, type ChatSessionInfo } from '../../chat/model';
 import type { ChatDelivery } from '../../chat/host';
 
@@ -112,10 +112,11 @@ function sandboxLines(info: ChatSessionInfo, sandbox: SandboxBackendId): string[
       "Ouijit doesn't know that command's rules, so check them before trusting it to run unattended.",
     ];
   }
-  if (isHomeChatId(info.id)) {
+  if (info.role === 'home') {
     return [
-      'It can do anything in Ouijit: create, start and move tasks, read the agents working on them, message them, and answer what they ask. It can use the internet.',
-      "It can't open or change files in your projects, or anywhere else on your computer. Work on your code happens in the tasks it starts. That's why it runs without asking your permission first.",
+      'It can run your board: create, start and move tasks, read the agents working on them, and message and answer the ones in a sandbox. It can use the internet.',
+      "It can't open or change files in your projects, or anywhere else on your computer. Work on your code happens in the tasks it starts, which run in a sandbox too. That's why it runs without asking your permission first.",
+      "Anything it can't undo, or that would run outside a sandbox, waits for you here.",
     ];
   }
   return [
@@ -127,7 +128,7 @@ function sandboxLines(info: ChatSessionInfo, sandbox: SandboxBackendId): string[
 
 function SandboxNote({ info, sandbox }: { info: ChatSessionInfo; sandbox: SandboxBackendId }) {
   const [open, setOpen] = useState(false);
-  const home = isHomeChatId(info.id);
+  const home = info.role === 'home';
   return (
     <MenuPopover
       open={open}

@@ -36,7 +36,7 @@ import { LIST_TITLES, usePanelStore, type PanelList } from '../stores/panelStore
 import { groupByTag, groupByTask } from './sidebar/sidebarTree';
 import { sidebarShownNow, useSidebarShown } from './sidebar/sidebarShown';
 import { useHomeChatStore } from '../stores/homeChatStore';
-import { deleteHomeChat, newHomeChat, openHomeChat } from './chat/chatActions';
+import { deleteHomeChat, newHomeChat, openHomeChat } from './chat/homeChatActions';
 import { useWaitingCount } from './chat/HomeChatDecisions';
 import {
   GroupDots,

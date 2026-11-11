@@ -113,7 +113,7 @@ import type {
   SequencedChatEvent,
 } from '../chat/model';
 import type { ChatDelivery, ChatStartOptions } from '../chat/host';
-import type { HomeChatConfirm, HomeChatState, WakeEvent } from '../chat/preferences';
+import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from '../chat/preferences';
 import type { DriverProbe, TerminalResume } from '../chat/driver';
 
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
@@ -504,7 +504,7 @@ export interface IpcInvokeContract {
   /** Restart its agent on the same conversation, after its settings changed. */
   'homeChat:restart': { args: []; return: ChatSnapshot };
   /** Something the renderer saw that Chat should hear about, under one of its wake settings. */
-  'homeChat:wake': { args: [event: WakeEvent | null, text: string]; return: void };
+  'homeChat:wake': { args: [event: WakeEvent | null, text: string, about: TaskRef | null]; return: void };
   /** A fresh conversation, which becomes the current one. */
   'homeChat:new': { args: [id?: string]; return: ChatSnapshot };
   /** Another of Chat's conversations, resumed as the current one. */
@@ -513,8 +513,10 @@ export interface IpcInvokeContract {
   'homeChat:rename': { args: [id: string, title: string]; return: void };
   /** Gone for good; the state after, with the open conversation moved on if it was the one. */
   'homeChat:delete': { args: [id: string]; return: HomeChatState };
-  /** Run an ask from Chat the user has approved; Chat has no card to hold a runner. */
-  'homeChat:run-ask': { args: [command: string, cwd: string]; return: { exitCode: number | null; output: string } };
+  /** What Chat set off that waits for the user. */
+  'homeChat:decisions': { args: []; return: ChatDecision[] };
+  /** False when it was already decided. */
+  'homeChat:decide': { args: [id: string, choice: ChatDecisionChoice]; return: boolean };
 }
 
 /**
@@ -540,8 +542,7 @@ export interface IpcPushContract {
   'chat:event': { args: [sessionId: string, event: SequencedChatEvent] };
   /** Chat's conversations or the current one changed. */
   'homeChat:changed': { args: [state: HomeChatState] };
-  /** Chat moved a task to done or trashed it; neither happens until the user confirms. */
-  'homeChat:confirm': { args: [request: HomeChatConfirm] };
+  'homeChat:decisions-changed': { args: [decisions: ChatDecision[]] };
   'fullscreen-change': { args: [isFullscreen: boolean] };
   'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
   'cli:panel-op': { args: [op: CliPanelOp] };

@@ -3,12 +3,22 @@ import { getLogger } from '../logger';
 import { getChatRepo, getGlobalSetting } from '../db';
 import { CHAT_SETTING_KEYS, parseChatSettings } from './preferences';
 import type { ChatSessionRow } from '../db/repos/chatRepo';
+import {
+  pendingWrites,
+  persistedInfo,
+  reconfigured,
+  relabel,
+  storedInfo,
+  storedNodes,
+  storedRow,
+  storedSnapshot,
+} from './sessionStore';
 import { issueToken, revokeToken } from '../apiAuth';
 import { hostEnv, ouijitSessionEnv, sandboxLaunch, sandboxReferenceEnv } from '../sessionEnv';
 import { getCliReferencePath } from '../hookServer';
 import { readCliReference } from './binaries';
 import { getSandboxProvider } from '../sandbox';
-import { isActiveSandbox, isSandboxProviderId, type SandboxCliAccess, type SandboxProviderId } from '../sandbox/types';
+import { isActiveSandbox, isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
 import { spawnAgentProcess, type AgentProcess, type AgentSpawn } from './process';
 import { getDriver } from './drivers';
 import type { DriverProbe, DriverSession, DriverSink, UserInput } from './driver';
@@ -25,6 +35,7 @@ import {
   parseSlashCommand,
   type ChatEvent,
   type ChatNode,
+  type ChatRole,
   type ChatSessionInfo,
   type ChatSnapshot,
   type RequestNode,
@@ -94,8 +105,8 @@ export interface ChatStartOptions {
   eager?: boolean;
   /** Appended to the CLI reference the agent is given. */
   instructions?: string;
-  /** The CLI access the agent is told it has in a sandbox, instead of its project's setting. */
-  cliAccess?: SandboxCliAccess;
+  /** Fixed when the session is first created; a start that names another role for a stored one fails. */
+  role?: ChatRole;
   /** The mode the agent starts in on every launch, over one picked in the chat. */
   mode?: string;
   /**
@@ -136,7 +147,6 @@ class HostedSession {
   stopping: Promise<void> | null = null;
   referenceEnv: Record<string, string> = {};
   instructions = '';
-  cliAccess: SandboxCliAccess | undefined;
   launchMode: string | undefined;
 
   constructor(
@@ -189,27 +199,13 @@ class HostedSession {
   flush(): void {
     if (this.flushTimer) clearTimeout(this.flushTimer);
     this.flushTimer = null;
-    const positions = new Map(this.nodes.map((node, index) => [node.id, index]));
-    const upserts = [...this.dirty].flatMap((id) => {
-      const position = positions.get(id);
-      if (position === undefined) return [];
-      return [{ nodeId: id, position, body: JSON.stringify(this.nodes[position]) }];
-    });
-    // Positions shift when a remove or a mid-list insert lands, so every node
-    // after the first change is rewritten with its new position.
-    const firstChange = Math.min(...upserts.map((u) => u.position), this.removed.size ? 0 : Infinity);
-    if (Number.isFinite(firstChange)) {
-      const written = new Set(upserts.map((u) => u.nodeId));
-      for (let index = firstChange; index < this.nodes.length; index++) {
-        const node = this.nodes[index];
-        if (!written.has(node.id)) upserts.push({ nodeId: node.id, position: index, body: JSON.stringify(node) });
-      }
-    }
+    const upserts = pendingWrites(this.nodes, this.dirty, this.removed);
     try {
       getChatRepo().save(
         {
           ...this.row,
           sandbox_provider: this.row.sandbox_provider ?? null,
+          role: this.info.role,
           agent_session_id: this.info.agentSessionId,
           info: JSON.stringify(persistedInfo(this.info)),
           seq: this.seq,
@@ -225,12 +221,6 @@ class HostedSession {
       chatLog.error('failed to persist chat session', { id: this.info.id, error: String(error) });
     }
   }
-}
-
-/** What survives a restart: the conversation's settings, not the live process state. */
-function persistedInfo(info: ChatSessionInfo): ChatSessionInfo {
-  const status = info.status === 'error' ? 'error' : 'exited';
-  return { ...info, status, statusDetail: info.status === 'error' ? info.statusDetail : undefined };
 }
 
 export interface ChatHostOptions {
@@ -280,8 +270,18 @@ export class ChatHost {
   snapshot(id: string): ChatSnapshot | null {
     const live = this.sessions.get(id);
     if (live) return live.snapshot();
-    const row = getChatRepo().get(id);
+    const row = storedRow(id);
     return row ? storedSnapshot(row) : null;
+  }
+
+  /** Write a live session's pending changes now rather than on the next timer. */
+  flush(id: string): void {
+    this.sessions.get(id)?.flush();
+  }
+
+  /** Read off the stored row for a session that is not running, so a role outlives its process. */
+  roleOf(id: string): ChatRole | null {
+    return this.sessions.get(id)?.info.role ?? storedRow(id)?.role ?? null;
   }
 
   since(id: string, seq: number): SequencedChatEvent[] | null {
@@ -325,7 +325,9 @@ export class ChatHost {
       return live.snapshot();
     }
 
-    let stored = getChatRepo().get(id);
+    let stored = storedRow(id);
+    const role = stored?.role ?? options.role ?? 'card';
+    if ((options.role ?? 'card') !== role) throw new Error(`Session ${id} already exists in another role`);
     if (stored && options.reconfigure) stored = reconfigured(stored, options);
     const agent = stored && isChatAgentId(stored.agent) ? stored.agent : options.agent;
     const sandboxProvider = stored
@@ -334,9 +336,10 @@ export class ChatHost {
         : undefined
       : options.sandboxProvider;
     const base: ChatSessionInfo = stored
-      ? (JSON.parse(stored.info) as ChatSessionInfo)
+      ? storedInfo(stored)
       : {
           id,
+          role,
           ...(options.label && { label: options.label }),
           agent,
           agentSessionId: null,
@@ -366,13 +369,9 @@ export class ChatHost {
       stored?.created_at ?? new Date().toISOString(),
       (sessionId, event) => this.broadcast(sessionId, event),
     );
-    if (stored)
-      session.nodes = getChatRepo()
-        .nodes(id)
-        .map((body) => JSON.parse(body) as ChatNode);
+    if (stored) session.nodes = storedNodes(id);
     session.seq = stored?.seq ?? 0;
     session.instructions = options.instructions ?? '';
-    session.cliAccess = options.cliAccess;
     session.launchMode = options.mode;
     for (const node of settled(session.nodes)) session.emit({ type: 'node', node });
     this.sessions.set(id, session);
@@ -416,7 +415,9 @@ export class ChatHost {
       const sandbox = isActiveSandbox(session.row.sandbox_provider) ? session.row.sandbox_provider : undefined;
       const chosenMode = session.launchMode ?? (resume ? (session.info.pendingMode ?? session.info.mode) : undefined);
       const token = issueToken(id, sandbox ? 'sandbox' : 'host');
-      const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path, session.cliAccess);
+      // Chat reaches the whole API, under the limits the router keeps for it.
+      const cliAccess = session.info.role === 'home' ? 'all' : undefined;
+      const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path, cliAccess);
       session.referenceEnv = referenceEnv;
       const reference = readCliReference(referenceEnv.OUIJIT_SANDBOX_REFERENCE_FILE ?? getCliReferencePath());
       session.driver = await driver.start({
@@ -727,10 +728,9 @@ export class ChatHost {
       live.emit({ type: 'session', patch: { label } });
       return true;
     }
-    const row = getChatRepo().get(id);
+    const row = storedRow(id);
     if (!row) return false;
-    const info = JSON.parse(row.info) as ChatSessionInfo;
-    getChatRepo().save({ ...row, info: JSON.stringify({ ...info, label }) }, [], []);
+    relabel(row, label);
     return true;
   }
 
@@ -791,7 +791,7 @@ export class ChatHost {
   async fork(id: string): Promise<ChatSnapshot> {
     const source = this.snapshot(id);
     if (!source?.info.agentSessionId) throw new Error('Nothing to fork yet: the agent has not started a conversation');
-    const row = getChatRepo().get(id);
+    const row = storedRow(id);
     const snapshot = await this.start({
       agent: source.info.agent,
       projectPath: source.info.projectPath,
@@ -806,11 +806,6 @@ export class ChatHost {
     return forked.snapshot();
   }
 
-  /**
-   * Stop the agent and drop the session from memory, keeping its transcript.
-   * Resolves once the agent has exited, so the same conversation can be
-   * resumed elsewhere — the card's terminal — without two processes writing it.
-   */
   /**
    * Stop the agent and drop the session from memory, keeping its transcript.
    * The agent takes a moment to go, and a start asked for meanwhile waits for it.
@@ -862,33 +857,6 @@ export class ChatHost {
   private cancelAsks(session: HostedSession): void {
     for (const requestId of [...session.asks.keys()]) this.answer(session.info.id, requestId, { kind: 'cancel' });
   }
-}
-
-/** The stored row under a new agent or sandbox, written back so a later start without the options finds the same. */
-function reconfigured(row: ChatSessionRow, options: ChatStartOptions): ChatSessionRow {
-  const sandbox = isActiveSandbox(options.sandboxProvider) ? options.sandboxProvider : null;
-  if (row.agent === options.agent && (row.sandbox_provider ?? null) === (options.sandboxProvider ?? null)) return row;
-  const info = JSON.parse(row.info) as ChatSessionInfo;
-  const next: ChatSessionRow = {
-    ...row,
-    agent: options.agent,
-    sandbox_provider: options.sandboxProvider ?? null,
-    agent_session_id: null,
-    info: JSON.stringify({ ...info, agent: options.agent, sandbox, agentSessionId: null }),
-  };
-  getChatRepo().save(next, [], []);
-  return next;
-}
-
-function storedSnapshot(row: ChatSessionRow): ChatSnapshot {
-  const info = JSON.parse(row.info) as ChatSessionInfo;
-  return {
-    info: { ...info, agentSessionId: row.agent_session_id },
-    nodes: getChatRepo()
-      .nodes(row.id)
-      .map((body) => JSON.parse(body) as ChatNode),
-    seq: row.seq,
-  };
 }
 
 export const chatHost = new ChatHost();

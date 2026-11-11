@@ -11,30 +11,31 @@ import {
   onHomeChatChange,
   renameHomeChat,
   restartHomeChat,
-  runHomeChatAsk,
+  isHomeChat,
   startHomeChat,
   switchHomeChat,
 } from '../../chat/homeChat';
-import { describeSession, installHomeChatWakes, wakeHomeChat } from '../../chat/wake';
-import { isHomeChatId } from '../../chat/preferences';
+import { describeSession, installHomeChatWakes, sessionTask, wakeHomeChat } from '../../chat/wake';
+import { chatDecisions, decide, dropDecisionsFrom, onChatDecisionsChange } from '../../chat/decisions';
 
 export function registerChatHandlers(mainWindow: BrowserWindow): void {
   chatHost.subscribe((sessionId, event) => typedPush(mainWindow, 'chat:event', sessionId, event));
 
   typedHandle('chat:probe', (agent) => getDriver(agent).probe());
-  typedHandle('chat:start', (options) => chatHost.start(options));
+  // Only Chat's own module makes one of its conversations: the role is what grants its reach.
+  typedHandle('chat:start', ({ role: _role, ...options }) => chatHost.start(options));
   typedHandle('chat:snapshot', (id) => chatHost.snapshot(id));
   typedHandle('chat:list-live', () => chatHost.list());
   typedHandle('chat:since', (id, seq) => chatHost.since(id, seq));
   typedHandle('chat:latest-for-task', (projectPath, taskId) => chatHost.latestForTask(projectPath, taskId));
   typedHandle('chat:prompt', async (id, input, delivery) => {
     const messageId = await chatHost.prompt(id, input, delivery);
-    if (input.typed && !isHomeChatId(id)) void tellHomeChat(id, (who) => `you told ${who} "${input.text}"`);
+    if (input.typed && !isHomeChat(id)) void tellHomeChat(id, (who) => `you told ${who} "${input.text}"`);
     return messageId;
   });
   typedHandle('chat:answer', (id, requestId, answer) => {
     const answered = chatHost.answer(id, requestId, answer);
-    if (answered && !isHomeChatId(id)) {
+    if (answered && !isHomeChat(id)) {
       void tellHomeChat(id, (who) => `you answered ${who} request ${requestId} yourself: ${describeAnswer(answer)}.`);
     }
     return answered;
@@ -57,9 +58,14 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   typedHandle('homeChat:switch', (id) => switchHomeChat(id));
   typedHandle('homeChat:list', () => homeChatState());
   typedHandle('homeChat:rename', (id, title) => renameHomeChat(id, title));
-  typedHandle('homeChat:delete', (id) => deleteHomeChat(id));
-  typedHandle('homeChat:run-ask', (command, cwd) => runHomeChatAsk(command, cwd));
-  typedHandle('homeChat:wake', (event, text) => wakeHomeChat(event, text));
+  typedHandle('homeChat:delete', async (id) => {
+    await dropDecisionsFrom(id);
+    return deleteHomeChat(id);
+  });
+  onChatDecisionsChange((decisions) => typedPush(mainWindow, 'homeChat:decisions-changed', decisions));
+  typedHandle('homeChat:decisions', () => chatDecisions());
+  typedHandle('homeChat:decide', (id, choice) => decide(id, choice));
+  typedHandle('homeChat:wake', (event, text, about) => wakeHomeChat(event, text, about));
   typedHandle('homeChat:restart', () => restartHomeChat());
   typedHandle('chat:terminal-resume', (id) => {
     const snapshot = chatHost.snapshot(id);
@@ -71,7 +77,7 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
 async function tellHomeChat(id: string, text: (who: string) => string): Promise<void> {
   const info = chatHost.snapshot(id)?.info;
   if (!info) return;
-  await wakeHomeChat(null, text(await describeSession(info)));
+  await wakeHomeChat(null, text(await describeSession(info)), sessionTask(id));
 }
 
 function describeAnswer(answer: ChatAnswer): string {

@@ -9,8 +9,7 @@ import { isActiveSandbox } from '../../types';
 import { ScriptPreview, scriptRisks } from './ScriptPreview';
 import { StageIcon } from '../sidebar/StageIcon';
 import { Icon } from '../terminal/Icon';
-import { isHomeChatId } from '../../chat/preferences';
-import { useHomeChatStore } from '../../stores/homeChatStore';
+import { isHomeChat, useHomeChatStore, useIsHomeChat } from '../../stores/homeChatStore';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -49,7 +48,7 @@ function usePruneAsks(): void {
       useTerminalStore.subscribe((s) => {
         const { items, remove } = useWaitingStore.getState();
         for (const item of items) {
-          if (item.kind === 'ask' && !isHomeChatId(item.from) && !(item.from in s.displayStates)) remove(item.id);
+          if (item.kind === 'ask' && !isHomeChat(item.from) && !(item.from in s.displayStates)) remove(item.id);
         }
       }),
     [],
@@ -86,6 +85,7 @@ function useTaskName(item: Waiting): string | null {
 
 /** The terminal that asked, as the sidebar shows it: its task where it has one. */
 function useAsker(ptyId: string) {
+  const home = useIsHomeChat(ptyId);
   const display = useTerminalStore((s) => s.displayStates[ptyId]);
   const conversation = useHomeChatStore((s) => s.chats.find((chat) => chat.id === ptyId)?.title);
   const task = useAppStore((s) =>
@@ -93,7 +93,7 @@ function useAsker(ptyId: string) {
       ? s.taskCacheByProject[display.projectPath]?.find((t) => t.taskNumber === display.taskId)
       : undefined,
   );
-  if (isHomeChatId(ptyId)) {
+  if (home) {
     return { name: conversation ?? 'Chat', number: null, icon: <Icon name="chat-circle" className="w-3.5 h-3.5" /> };
   }
   return {
@@ -148,7 +148,8 @@ function Detail({ item }: { item: Waiting }) {
   const display = useTerminalStore((s) => s.displayStates[item.from]);
   const taskName = useTaskName(item);
   const from = useAsker(item.from).name;
-  const sandboxed = isActiveSandbox(display?.sandboxProvider) || isHomeChatId(item.from);
+  const fromChat = useIsHomeChat(item.from);
+  const sandboxed = isActiveSandbox(display?.sandboxProvider) || fromChat;
 
   if (item.kind === 'confirm') {
     return (

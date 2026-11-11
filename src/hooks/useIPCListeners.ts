@@ -1,6 +1,4 @@
 import { useEffect } from 'react';
-import { isHomeChatId } from '../chat/preferences';
-import { useHomeChatStore } from '../stores/homeChatStore';
 import { useAppStore } from '../stores/appStore';
 import {
   SANDBOX_LABELS,
@@ -101,17 +99,6 @@ async function spawnTerminalForCliStart(projectPath: string, start: CliStart): P
     worktreePath: found.worktreePath ?? start.worktreePath,
     branch: found.branch ?? start.branch,
   };
-
-  // What Chat starts runs in a sandbox whatever the project's default, so its
-  // own sandbox can't be stepped around through a task on the host.
-  if (start.fromPtyId && isHomeChatId(start.fromPtyId)) {
-    useHomeChatStore.getState().own(projectPath, start.taskNumber, start.fromPtyId);
-    if (!isActiveSandbox(start.hookSandbox)) {
-      const hook = (await window.api.hooks.get(projectPath)).start;
-      const chosen = hookSandbox(undefined, hook, await projectDefaultSandbox(projectPath));
-      start = { ...start, hookSandbox: isActiveSandbox(chosen) ? chosen : 'nono' };
-    }
-  }
 
   // The same service a kanban drag to In progress goes through.
   await stageOrRun(projectPath, task, { ...start, hookType: 'start' }, (background, control) =>

@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { HomeChatConfirm, HomeChatState, WakeEvent } from './chat/preferences';
+import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from './chat/preferences';
 import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/contract';
 import type { DiffDefaults } from './git';
 import type {
@@ -175,14 +175,16 @@ contextBridge.exposeInMainWorld('api', {
   homeChat: {
     start: () => typedInvoke('homeChat:start'),
     restart: () => typedInvoke('homeChat:restart'),
-    wake: (event: WakeEvent | null, text: string) => typedInvoke('homeChat:wake', event, text),
+    wake: (event: WakeEvent | null, text: string, about?: TaskRef | null) =>
+      typedInvoke('homeChat:wake', event, text, about ?? null),
     create: (id?: string) => typedInvoke('homeChat:new', id),
     switch: (id: string) => typedInvoke('homeChat:switch', id),
     list: () => typedInvoke('homeChat:list'),
     rename: (id: string, title: string) => typedInvoke('homeChat:rename', id, title),
     delete: (id: string) => typedInvoke('homeChat:delete', id),
-    runAsk: (command: string, cwd: string) => typedInvoke('homeChat:run-ask', command, cwd),
-    onConfirm: (callback: (request: HomeChatConfirm) => void) => typedListen('homeChat:confirm', callback),
+    decisions: () => typedInvoke('homeChat:decisions'),
+    decide: (id: string, choice: ChatDecisionChoice) => typedInvoke('homeChat:decide', id, choice),
+    onDecisions: (callback: (decisions: ChatDecision[]) => void) => typedListen('homeChat:decisions-changed', callback),
     onChanged: (callback: (state: HomeChatState) => void) => typedListen('homeChat:changed', callback),
   },
 

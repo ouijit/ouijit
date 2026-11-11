@@ -643,6 +643,7 @@ describe('a chat reopened after its agent is gone', () => {
         agent: 'acp',
         agent_session_id: null,
         sandbox_provider: null,
+        role: 'card',
         info: JSON.stringify(info),
         seq: 7,
         created_at: now,
