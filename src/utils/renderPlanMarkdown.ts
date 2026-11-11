@@ -62,15 +62,16 @@ function ensureMermaid(): void {
   mermaid.initialize({
     startOnLoad: false,
     theme,
+    layout: 'dagre',
+    look: 'classic',
     securityLevel: 'strict',
     fontFamily: MERMAID_FONT_FAMILY,
     // Render labels as native SVG <text> elements rather than <foreignObject>
     // wrappers around HTML. Keeps DOMPurify config trivial and dodges the
     // namespace edge cases that strip child content of foreignObject.
-    // Mermaid 11 only honors the top-level flag; the flowchart-scoped one is
-    // ignored, and DOMPurify then strips every node label.
     htmlLabels: false,
-    flowchart: { htmlLabels: false },
+    // The default pads short labels to 120px, which shrinks a whole diagram to fit the panel.
+    flowchart: { minNodeWidth: 0 },
   });
   mermaidTheme = theme;
 }
@@ -126,7 +127,32 @@ async function preRenderMermaid(tokens: Token[], svgs: Map<string, string>): Pro
   });
 }
 
-export async function renderPlanMarkdown(md: string): Promise<string> {
+const URL_SCHEME_RE = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
+
+type LoadLocalImage = (src: string) => Promise<string | null>;
+
+function hasLocalCandidate(srcset: string): boolean {
+  return srcset.split(',').some((candidate) => !URL_SCHEME_RE.test(candidate.trim()));
+}
+
+async function inlineLocalImages(root: ParentNode, loadLocalImage: LoadLocalImage): Promise<void> {
+  // The browser picks a srcset candidate over the img's src, so a local one has to go for the inlined src to show.
+  for (const el of root.querySelectorAll('img[srcset], source[srcset]')) {
+    if (hasLocalCandidate(el.getAttribute('srcset')!)) el.removeAttribute('srcset');
+  }
+  await Promise.all(
+    Array.from(root.querySelectorAll('img'), async (img) => {
+      const src = img.getAttribute('src');
+      if (!src || URL_SCHEME_RE.test(src)) return;
+      const url = await loadLocalImage(src).catch((): null => null);
+      // A relative src left in place would resolve against the app's own page.
+      if (url) img.setAttribute('src', url);
+      else img.removeAttribute('src');
+    }),
+  );
+}
+
+export async function renderPlanMarkdown(md: string, loadLocalImage: LoadLocalImage): Promise<string> {
   const hl = await getHighlighter();
 
   const tokens = marked.lexer(md, { gfm: true });
@@ -153,5 +179,9 @@ export async function renderPlanMarkdown(md: string): Promise<string> {
 
   const rawHtml = marked.parser(tokens, { renderer }) as string;
   const linkedHtml = linkifyFilePaths(rawHtml);
-  return DOMPurify.sanitize(linkedHtml);
+  // A template's content is inert, so an image in it loads nothing before its src is rewritten.
+  const template = document.createElement('template');
+  template.innerHTML = DOMPurify.sanitize(linkedHtml);
+  await inlineLocalImages(template.content, loadLocalImage);
+  return template.innerHTML;
 }

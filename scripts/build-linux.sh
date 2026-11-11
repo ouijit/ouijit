@@ -17,7 +17,7 @@
 #
 # Prerequisites:
 #   - Lima (brew install lima)
-#   - Node.js 20+
+#   - Node.js 22.22+
 #
 # Usage:
 #   npm run make:linux
@@ -87,19 +87,21 @@ limactl shell "${LIMA_VM}" -- bash -c "
         curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
         sudo apt-get install -y nodejs build-essential
     fi
-    if ! command -v qemu-x86_64 &> /dev/null; then
+    if [ ! -e /proc/sys/fs/binfmt_misc/qemu-x86_64 ]; then
         sudo apt-get update
-        sudo apt-get install -y qemu-user-static binfmt-support zip
-        sudo update-binfmts --enable
+        sudo apt-get install -y qemu-user-binfmt
     fi
+    sudo systemctl start containerd
 "
 
-# 1d. Cross-compile node-pty for Linux x64 via Docker
+# 1d. Cross-compile node-pty for Linux x64 in an emulated container. Rootful:
+# a rootless container gets its own, empty binfmt_misc on current kernels, so
+# it cannot see the VM's x86_64 emulator.
 echo "==> Cross-compiling node-pty for Linux x64..."
 limactl shell "${LIMA_VM}" -- bash -c "
-    rm -rf /tmp/node-pty-x64
+    sudo rm -rf /tmp/node-pty-x64
     mkdir -p /tmp/node-pty-x64
-    nerdctl run --rm --platform linux/amd64 \
+    sudo nerdctl run --rm --platform linux/amd64 \
         -v /tmp/node-pty-x64:/workspace \
         -w /workspace \
         node:20 \
@@ -109,6 +111,17 @@ limactl shell "${LIMA_VM}" -- bash -c "
 # Copy cross-compiled node-pty into staging
 echo "==> Staging cross-compiled node-pty..."
 limactl copy -r "${LIMA_VM}":/tmp/node-pty-x64/node_modules/node-pty "$STAGING/node_modules/node-pty"
+
+# 1e. Stage koffi's Linux binary, an optional dependency npm skips on macOS
+echo "==> Staging koffi for Linux x64..."
+KOFFI_VERSION="$(node -p "require('${PROJECT_DIR}/node_modules/koffi/package.json').version")"
+KOFFI_TMP="$(mktemp -d)"
+trap 'rm -rf "$KOFFI_TMP"' EXIT
+(cd "$KOFFI_TMP" && npm pack --silent "@koromix/koffi-linux-x64@${KOFFI_VERSION}" >/dev/null && tar xzf ./*.tgz)
+mkdir -p "$STAGING/node_modules/@koromix"
+mv "$KOFFI_TMP/package" "$STAGING/node_modules/@koromix/koffi-linux-x64"
+rm -rf "$KOFFI_TMP"
+trap - EXIT
 
 # ─── Step 2: Package with staged binaries ────────────────────────────
 

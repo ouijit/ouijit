@@ -168,7 +168,7 @@ const createWindow = (): BrowserWindow => {
     ...(isLinux && { icon: path.join(__dirname, '..', '..', 'icon.png') }),
     backgroundColor,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       webviewTag: true,
     },
   });

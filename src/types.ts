@@ -903,6 +903,7 @@ export interface AgentHooksAPI {
 /** Backs the "Markdown File" panel. */
 export interface PlanAPI {
   read(planPath: string): Promise<string | null>;
+  readImage(planPath: string, src: string): Promise<string | null>;
   watch(planPath: string): Promise<{ success: boolean }>;
   unwatch(planPath: string): Promise<void>;
   onContentChanged(callback: (planPath: string, content: string) => void): () => void;

@@ -58,5 +58,4 @@ vi.mock('node:os', async (importOriginal) => {
   const homedir = () => testDataDir;
   return { ...actual, homedir, default: { ...actual, homedir } };
 });
-vi.mock('better-sqlite3', () => import('../nodeSqlite').then((m) => m.nodeSqliteFactory()));
 setUserDataPath(testDataDir);

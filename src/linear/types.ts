@@ -51,8 +51,7 @@ export interface LinearRepoLabel {
  * issue, either through the `repo` label convention or a team picked once.
  */
 export type LinearScope =
-  | { kind: 'repo-label'; labelId: string; name: string }
-  | { kind: 'team'; teamId: string; name: string };
+  { kind: 'repo-label'; labelId: string; name: string } | { kind: 'team'; teamId: string; name: string };
 
 export interface LinearProjectScope {
   workspaceId: string;

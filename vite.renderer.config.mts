@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
-import { deriveDevServerPort } from './devServerPort';
+import { deriveDevServerPort } from './devServerPort.mts';
 
 export default defineConfig(() => ({
   plugins: [react()],

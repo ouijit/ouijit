@@ -33,13 +33,7 @@ const MAX_CONCURRENT = 4;
 const GH_TIMEOUT_MS = 45_000;
 
 export type GithubErrorKind =
-  | 'not-found'
-  | 'unauthorized'
-  | 'forbidden'
-  | 'rate-limited'
-  | 'network'
-  | 'gh-missing'
-  | 'unknown';
+  'not-found' | 'unauthorized' | 'forbidden' | 'rate-limited' | 'network' | 'gh-missing' | 'unknown';
 
 export class GithubError extends Error {
   constructor(

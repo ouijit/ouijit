@@ -162,6 +162,7 @@ const mockApi = {
   },
   plan: {
     read: vi.fn().mockResolvedValue(null),
+    readImage: vi.fn().mockResolvedValue(null),
     watch: vi.fn().mockResolvedValue({ success: true }),
     unwatch: vi.fn().mockResolvedValue(undefined),
     onContentChanged: vi.fn().mockReturnValue(() => {}),
@@ -309,4 +310,16 @@ if (!('IntersectionObserver' in window)) {
 
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function scrollIntoView() {};
+}
+
+// Shiki decompresses its inlined wasm through Blob.stream(), which jsdom's Blob lacks.
+if (!Blob.prototype.stream) {
+  Blob.prototype.stream = function stream(this: Blob) {
+    return new ReadableStream<Uint8Array<ArrayBuffer>>({
+      start: async (controller) => {
+        controller.enqueue(new Uint8Array(await this.arrayBuffer()));
+        controller.close();
+      },
+    });
+  };
 }

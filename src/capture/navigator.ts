@@ -172,19 +172,17 @@ export function installCaptureNavigator(): void {
             version: 1,
             capturedAt: new Date(Date.now() - 30 * 60_000).toISOString(),
             activeProjectPath: projectPath,
-            terminals: payload.terminalSeeds.map(
-              (seed, i): SnapshotTerminal => ({
-                projectPath,
-                taskNumber: seed.taskId,
-                worktreePath: seed.worktreePath ?? null,
-                worktreeBranch: seed.worktreeBranch ?? null,
-                label: seed.label,
-                ordinalInProject: i,
-                isActiveInProject: i === 0,
-                recencyRank: i,
-                ui: {},
-              }),
-            ),
+            terminals: payload.terminalSeeds.map((seed, i): SnapshotTerminal => ({
+              projectPath,
+              taskNumber: seed.taskId,
+              worktreePath: seed.worktreePath ?? null,
+              worktreeBranch: seed.worktreeBranch ?? null,
+              label: seed.label,
+              ordinalInProject: i,
+              isActiveInProject: i === 0,
+              recencyRank: i,
+              ui: {},
+            })),
           };
           await window.api.globalSettings.set(SNAPSHOT_KEY, JSON.stringify(snapshot));
         }

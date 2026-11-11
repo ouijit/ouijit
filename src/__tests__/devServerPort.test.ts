@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveDevServerPort } from '../../devServerPort';
+import { deriveDevServerPort } from '../../devServerPort.mts';
 
 describe('deriveDevServerPort', () => {
   it('is deterministic for the same repo path', () => {

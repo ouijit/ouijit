@@ -25,4 +25,6 @@ export default defineConfig({
   build: {
     format: 'directory',
   },
+  // The default, 'jsx', drops the space where prose wraps before an inline tag.
+  compressHTML: true,
 });
