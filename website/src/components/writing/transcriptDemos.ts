@@ -406,7 +406,6 @@ function mount(figure: HTMLElement) {
   replay.addEventListener('click', () => start());
 
   buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(i === mode)));
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const seen = new IntersectionObserver(
     (entries) => {
       if (entries.some((e) => e.isIntersecting)) {

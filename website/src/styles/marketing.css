@@ -2730,6 +2730,10 @@ body.marketing .writing-card:hover {
    drawn in the app's chat vocabulary. */
 .writing-body figure.td {
   overflow: visible;
+  margin: 3.5rem 0;
+}
+.writing-body figure.td figcaption {
+  margin-top: 10px;
 }
 .td-frame {
   position: relative;

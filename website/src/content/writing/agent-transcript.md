@@ -1,7 +1,7 @@
 ---
 title: What makes an agent chat feel good?
 description: How to show an agent's work without spending the reader's attention
-date: 2026-11-10
+date: 2026-11-11
 cover:
   field: { wash: graphite, angle: 160 }
   shape: { kind: circle, wash: prism, angle: 60, cx: 820, cy: 260, r: 250 }
@@ -57,7 +57,7 @@ Order needs pacing too. People read top to bottom and expect the screen to fill 
 
 Keep the view at the bottom while the reader is there, and stop the moment they scroll up to reread something. Decide that from what the reader did. New content also pushes the bottom away, so the view can fall short of it without the reader moving. Only their own scroll up should stop the auto-scroll, and coming back to the bottom should start it again.
 
-[^kang]: Kang and Muter, [Reading dynamically displayed text](https://web-archive.southampton.ac.uk/cogprints.org/1971/1/Abs1989.htm), *Behaviour & Information Technology*, 1989.
+[^kang]: Kang and Muter, [Reading dynamically displayed text](https://doi.org/10.1080/01449298908914536), *Behaviour & Information Technology*, 1989.
 
 [^kowler]: Kowler, Rubinstein, Santos and Wang, [Predictive smooth pursuit eye movements](https://researchwith.njit.edu/en/publications/predictive-smooth-pursuit-eye-movements/), *Annual Review of Vision Science*, 2019.
 
