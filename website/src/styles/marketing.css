@@ -2314,3 +2314,634 @@ body.marketing .feature-end-link {
 .changelog .release strong {
   color: #fff;
 }
+
+/* Writing: cards on the index, a post with a cover, captioned figures and
+   titled code blocks. */
+.writing-index {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 6rem;
+}
+.writing-index h1 {
+  font-size: 2.25rem;
+  margin-bottom: 2.5rem;
+}
+.writing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+body.marketing .writing-card {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+  background: var(--color-terminal-bg, #171717);
+  box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.7);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+body.marketing .writing-card:hover {
+  background: #1f1f1f;
+  transform: translateY(-1px);
+}
+.writing-card .writing-cover {
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.6);
+}
+.writing-card-body {
+  padding: 20px 20px 22px;
+}
+.writing-card h2 {
+  font-size: 1.25rem;
+  margin: 0 0 0.5rem;
+  text-wrap: balance;
+}
+.writing-card p {
+  color: var(--text-secondary, #c0c0c0);
+  line-height: 1.5;
+  margin: 0 0 1rem;
+  text-wrap: pretty;
+}
+.writing-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  color: var(--text-tertiary, #888);
+  font-size: 0.875rem;
+}
+
+/* A cover: one of the site's washes, the grain, and a line system in dark glass. */
+.writing-cover {
+  position: relative;
+  isolation: isolate;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0f0f11;
+}
+.writing-cover-field {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(var(--cover-angle), var(--cover-wash));
+  opacity: 0.9;
+}
+.writing-cover-grain {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  mix-blend-mode: overlay;
+  opacity: 0.6;
+}
+.writing-cover svg {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.writing-post {
+  padding: 4rem 1.5rem 2rem;
+}
+.writing-header,
+.writing-body,
+.writing-more {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.writing-post h1 {
+  font-size: clamp(2rem, 4.5vw, 2.75rem);
+  margin-bottom: 1.25rem;
+  text-wrap: balance;
+}
+.writing-byline {
+  max-width: 760px;
+  margin: 0 auto 3rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-tertiary, #888);
+  font-size: 0.9rem;
+}
+.writing-hero {
+  max-width: 880px;
+  margin: 2.5rem auto 1.25rem;
+}
+.writing-hero .writing-cover {
+  border-radius: 16px;
+}
+
+.writing-body p,
+.writing-body li {
+  color: var(--text-secondary, #c0c0c0);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.writing-body p {
+  margin: 0 0 1rem;
+}
+.writing-body ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0 0 1rem;
+}
+.writing-body li {
+  margin-bottom: 0.5rem;
+}
+.writing-body h2 {
+  font-size: 1.375rem;
+  font-weight: 500;
+  margin: 3rem 0 1rem;
+}
+.writing-body a {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-underline-offset: 2px;
+}
+.writing-body code {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.875em;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+}
+.writing-body figure {
+  margin: 2.5rem 0;
+  overflow-x: auto;
+}
+.writing-body figure img {
+  display: block;
+  width: 100%;
+  min-width: 560px;
+  height: auto;
+}
+.writing-body figcaption {
+  margin-top: 16px;
+  color: var(--text-tertiary, #888);
+  font-size: 0.875rem;
+  text-align: center;
+}
+.writing-body pre {
+  position: relative;
+  background: var(--color-terminal-bg, #171717);
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.7);
+  margin: 0 0 1.25rem;
+  overflow: hidden;
+}
+.writing-code-title {
+  display: block;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-tertiary, #888);
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.75rem;
+}
+.writing-body pre code {
+  display: block;
+  padding: 20px;
+  overflow-x: auto;
+  background: none;
+  color: #f5f5f7;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.writing-body pre code span {
+  color: var(--shiki-dark);
+}
+/* The same extruded knob as the docs' Copy page button. */
+.writing-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-bezel);
+  border-radius: var(--radius-sm);
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset 1px 0 0 var(--bevel-side),
+    inset -1px 0 0 var(--bevel-side),
+    inset 0 -1px 0 var(--bevel-bottom);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+.writing-copy:hover {
+  color: var(--color-text-primary);
+}
+.writing-more {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.writing-post h1 {
+  font-size: clamp(2rem, 4.5vw, 2.75rem);
+  margin-bottom: 1.25rem;
+  text-wrap: balance;
+}
+.writing-byline {
+  max-width: 760px;
+  margin: 0 auto 3rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-tertiary, #888);
+  font-size: 0.9rem;
+}
+.writing-hero {
+  max-width: 880px;
+  margin: 2.5rem auto 1.25rem;
+}
+.writing-hero .writing-cover {
+  border-radius: 16px;
+}
+
+.writing-body p,
+.writing-body li {
+  color: var(--text-secondary, #c0c0c0);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.writing-body p {
+  margin: 0 0 1rem;
+}
+.writing-body ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0 0 1rem;
+}
+.writing-body li {
+  margin-bottom: 0.5rem;
+}
+.writing-body h2 {
+  font-size: 1.375rem;
+  font-weight: 500;
+  margin: 3rem 0 1rem;
+}
+.writing-body a {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-underline-offset: 2px;
+}
+.writing-body code {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.875em;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+}
+.writing-body figure {
+  margin: 2.5rem 0;
+  overflow-x: auto;
+}
+.writing-body figure img {
+  display: block;
+  width: 100%;
+  min-width: 560px;
+  height: auto;
+}
+.writing-body figcaption {
+  margin-top: 16px;
+  color: var(--text-tertiary, #888);
+  font-size: 0.875rem;
+  text-align: center;
+}
+.writing-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0 2rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+.writing-body th,
+.writing-body td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 16px 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.writing-body th {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+.writing-body td {
+  color: var(--text-secondary, #c0c0c0);
+}
+.writing-body td:first-child {
+  color: #fff;
+}
+.writing-body td code {
+  white-space: nowrap;
+}
+@media (max-width: 768px) {
+  .writing-body table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+.writing-body pre {
+  position: relative;
+  background: var(--color-terminal-bg, #171717);
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.7);
+  margin: 0 0 1.25rem;
+  overflow: hidden;
+}
+.writing-code-title {
+  display: block;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-tertiary, #888);
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.75rem;
+}
+.writing-body pre code {
+  display: block;
+  padding: 20px;
+  overflow-x: auto;
+  background: none;
+  color: #f5f5f7;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.writing-body pre code span {
+  color: var(--shiki-dark);
+}
+.writing-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary, #c0c0c0);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+.writing-body pre:hover .writing-copy,
+.writing-copy:focus-visible {
+  opacity: 1;
+}
+.writing-more {
+  margin-top: 5rem;
+}
+.writing-more h2 {
+  font-size: 1.375rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Live transcript demos in posts (components/writing/transcriptDemos.ts),
+   drawn in the app's chat vocabulary. */
+.writing-body figure.td {
+  overflow: visible;
+  margin: 3.5rem 0;
+}
+.writing-body figure.td figcaption {
+  margin-top: 10px;
+}
+.td-frame {
+  position: relative;
+  background: var(--color-terminal-bg, #171717);
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+.td-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+  padding: 10px 12px;
+  box-shadow:
+    inset 0 -1px 0 var(--bevel-bottom),
+    0 1px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
+}
+.td-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  height: 28px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-bezel);
+  border-radius: 12px;
+}
+.td-toggle button {
+  height: 100%;
+  padding: 0 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+.td-toggle button:hover {
+  color: var(--color-text-primary);
+  background: var(--color-background-tertiary);
+}
+.td-toggle button[aria-pressed='true'] {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+.td-toggle button + button {
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+.td-replay {
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-bezel);
+  border-radius: var(--radius-sm);
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset 1px 0 0 var(--bevel-side),
+    inset -1px 0 0 var(--bevel-side),
+    inset 0 -1px 0 var(--bevel-bottom);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+.td-replay:hover {
+  color: var(--color-text-primary);
+}
+.td-stage {
+  position: relative;
+  height: var(--td-height);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent, #000 32px);
+  padding: 0 20px;
+}
+@media (max-width: 640px) {
+  .td-stage {
+    height: calc(var(--td-height) * 1.7);
+  }
+}
+.td-scroll {
+  position: absolute;
+  inset: auto 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.td-reply {
+  color: #f5f5f7;
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.td-thought,
+.td-status,
+.td-fold-head {
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.td-status,
+.td-fold-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+}
+.td-glyph {
+  width: 12px;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.td-phrase,
+.td-fold-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.td-caret {
+  width: 12px;
+  flex-shrink: 0;
+  text-align: center;
+}
+.td-caret::before {
+  content: '▸';
+}
+.td-caret[data-open='true']::before {
+  content: '▾';
+}
+.td-fold-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0 2px 20px;
+}
+.td-command {
+  color: var(--color-text-tertiary);
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 12px;
+}
+.td-foot {
+  display: flex;
+  gap: 16px;
+  min-height: 0;
+  padding: 0 20px;
+  color: var(--color-text-tertiary);
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 12px;
+}
+.td-foot:not(:empty) {
+  padding: 10px 20px;
+  box-shadow:
+    0 -1px 0 var(--bevel-bottom),
+    inset 0 1px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
+}
+
+/* Footnotes, lifted into the margin as sidenotes (tools/rehype-sidenotes.mjs)
+   where the viewport has room beside the 760px column. */
+.writing-body sup a[data-footnote-ref] {
+  margin-left: 1px;
+  color: var(--color-accent);
+  font-size: 0.75em;
+  text-decoration: none;
+}
+.writing-body .sidenote {
+  display: none;
+}
+.writing-body .footnotes {
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.writing-body .footnotes ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+.writing-body .footnotes li,
+.writing-body .footnotes p {
+  font-size: 0.875rem;
+  color: var(--color-text-tertiary);
+}
+.writing-body .footnotes a[data-footnote-backref] {
+  text-decoration: none;
+}
+@media (min-width: 1240px) {
+  .writing-body .sidenote {
+    display: block;
+    float: right;
+    clear: right;
+    width: 180px;
+    margin: 0.2rem -216px 1rem 0;
+    color: var(--color-text-tertiary);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+  .writing-body .sidenote-number {
+    margin-right: 4px;
+    color: var(--color-accent);
+    font-size: 0.75rem;
+  }
+  .writing-body .sidenote a {
+    color: var(--color-text-secondary);
+    text-decoration-color: rgba(255, 255, 255, 0.25);
+  }
+  .writing-body .footnotes {
+    display: none;
+  }
+}

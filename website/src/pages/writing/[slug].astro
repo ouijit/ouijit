@@ -1,0 +1,67 @@
+---
+import { render } from 'astro:content';
+import Site from '../../layouts/Site.astro';
+import Cover from '../../components/writing/Cover.astro';
+import PostCard from '../../components/writing/PostCard.astro';
+import { AUTHOR, listAllPosts, listPosts, postDate, type Post } from '../../writing';
+
+export async function getStaticPaths() {
+  const posts = await listAllPosts();
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props as { post: Post };
+const { Content } = await render(post);
+const markdownUrl = `https://ouijit.com/writing/${post.id}.md`;
+const more = (await listPosts()).filter((p) => p.id !== post.id).slice(0, 2);
+---
+<Site title={`${post.data.title} · Ouijit`} description={post.data.description} markdownUrl={post.data.draft ? undefined : markdownUrl} noindex={post.data.draft}>
+  <main class="writing-post">
+    <header class="writing-header">
+      <h1>{post.data.title}</h1>
+    </header>
+    <div class="writing-hero">
+      <Cover cover={post.data.cover} />
+    </div>
+    <div class="writing-byline">
+      <span>{AUTHOR.name}</span>
+      <time datetime={post.data.date.toISOString()}>{postDate.format(post.data.date)}</time>
+    </div>
+    <article class="writing-body">
+      <Content />
+    </article>
+    {more.length > 0 && (
+      <aside class="writing-more">
+        <h2>More writing</h2>
+        <div class="writing-grid">
+          {more.map((p) => <PostCard post={p} />)}
+        </div>
+      </aside>
+    )}
+  </main>
+</Site>
+
+<script>
+  for (const pre of document.querySelectorAll<HTMLPreElement>('.writing-body pre')) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'writing-copy';
+    button.innerHTML =
+      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span>';
+    const label = button.querySelector('span')!;
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(pre.querySelector('code')?.innerText ?? '');
+        label.textContent = 'Copied';
+      } catch {
+        label.textContent = "Couldn't copy";
+      }
+      setTimeout(() => (label.textContent = 'Copy'), 1500);
+    });
+    pre.appendChild(button);
+  }
+</script>
+<script>
+  import { mountTranscriptDemos } from '../../components/writing/transcriptDemos';
+  mountTranscriptDemos();
+</script>

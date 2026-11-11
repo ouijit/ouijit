@@ -1,6 +1,7 @@
 ---
 import Nav from '../components/site/Nav.astro';
 import Footer from '../components/site/Footer.astro';
+import { listPosts } from '../writing';
 import iosevkaExtended from '../../../src/assets/fonts/iosevka-extended-regular.woff2?url';
 import iosevkaTermExtended from '../../../src/assets/fonts/iosevka-term-extended-regular.woff2?url';
 import '../styles/global.css';
@@ -10,13 +11,16 @@ interface Props {
   title?: string;
   description?: string;
   markdownUrl?: string;
+  noindex?: boolean;
 }
 
 const {
   title = 'Ouijit · Command coding agents on your terms',
   description = 'A task and terminal manager for running coding agents like Claude Code in parallel, with per-task git worktrees, lifecycle hooks, per-terminal sandboxing, and a session-aware CLI.',
   markdownUrl,
+  noindex = false,
 } = Astro.props;
+const hasWriting = (await listPosts()).length > 0;
 
 const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://ouijit.com').toString();
 const ogImage = new URL('/assets/og-image.png', Astro.site ?? 'https://ouijit.com').toString();
@@ -30,6 +34,8 @@ const ogImage = new URL('/assets/og-image.png', Astro.site ?? 'https://ouijit.co
   <meta name="description" content={description} />
   <link rel="canonical" href={canonical} />
   {markdownUrl && <link rel="alternate" type="text/markdown" href={markdownUrl} title="Markdown" />}
+  {noindex && <meta name="robots" content="noindex" />}
+  {hasWriting && <link rel="alternate" type="application/rss+xml" href="/writing/rss.xml" title="Ouijit · Writing" />}
 
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Ouijit" />

@@ -1,0 +1,20 @@
+---
+import Cover from './Cover.astro';
+import { AUTHOR, postDate, type Post } from '../../writing';
+
+interface Props {
+  post: Post;
+}
+const { post } = Astro.props;
+---
+<a class="writing-card glass-bevel" href={`/writing/${post.id}/`}>
+  <Cover cover={post.data.cover} />
+  <div class="writing-card-body">
+    <h2>{post.data.title}</h2>
+    <p>{post.data.description}</p>
+    <div class="writing-meta">
+    <span>{AUTHOR.name}</span>
+    <time datetime={post.data.date.toISOString()}>{postDate.format(post.data.date)}</time>
+    </div>
+  </div>
+</a>
