@@ -82,7 +82,7 @@ export function titleFromMessage(text: string): string {
 export interface HomeChatSummary {
   id: string;
   title: string;
-  updatedAt: string;
+  createdAt: string;
 }
 
 export interface HomeChatState {

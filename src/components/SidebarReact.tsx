@@ -35,10 +35,8 @@ import { PAGE_TITLES } from './TitleBarReact';
 import { LIST_TITLES, usePanelStore, type PanelList } from '../stores/panelStore';
 import { groupByTag, groupByTask } from './sidebar/sidebarTree';
 import { sidebarShownNow, useSidebarShown } from './sidebar/sidebarShown';
-import { useChatStore } from '../stores/chatStore';
 import { useHomeChatStore } from '../stores/homeChatStore';
 import { deleteHomeChat, newHomeChat, openHomeChat } from './chat/chatActions';
-import { StatusGlyph } from './terminal/StatusDot';
 import {
   GroupDots,
   GroupRows,
@@ -246,7 +244,7 @@ function FooterButton({
 
 const CHAT_ROWS_SHOWN = 6;
 
-/** Chat's conversations, above the projects they work across. One row each; the current one carries the agent's status. */
+/** Chat's conversations, above the projects they work across, newest started first. */
 function ChatGroup() {
   const [collapsed, toggle] = useGroupCollapsed('home-chat');
   const currentId = useHomeChatStore((s) => s.currentId);
@@ -358,18 +356,9 @@ function ChatRow({
   rename?: Rename;
   onContextMenu: (e: React.MouseEvent) => void;
 }) {
-  const status = useChatStore((s) => s.sessions[id]?.info.status);
-  const glyph =
-    status === 'running'
-      ? 'thinking'
-      : status === 'idle' || status === 'awaiting'
-        ? 'ready'
-        : status === 'error'
-          ? 'error'
-          : null;
   return (
     <SidebarRow
-      icon={glyph && <StatusGlyph status={glyph} size={6} unread={status === 'awaiting'} />}
+      icon={null}
       title={title}
       tooltip={title}
       bright={selected}

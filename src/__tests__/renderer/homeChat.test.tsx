@@ -91,8 +91,8 @@ beforeEach(() => {
   useHomeChatStore.getState().set({
     currentId: CURRENT,
     chats: [
-      { id: CURRENT, title: 'Ship the settings page.', updatedAt: '2026-11-10T00:00:00Z' },
-      { id: 'home-2', title: 'Keychain recovery review', updatedAt: '2026-11-09T00:00:00Z' },
+      { id: CURRENT, title: 'Ship the settings page.', createdAt: '2026-11-10T00:00:00Z' },
+      { id: 'home-2', title: 'Keychain recovery review', createdAt: '2026-11-09T00:00:00Z' },
     ],
   });
   vi.mocked(window.api.homeChat.create).mockClear();
@@ -114,14 +114,14 @@ describe('Chat', () => {
     adopt(transcript(), { status: 'running' });
     render(<App />);
 
-    // The group sits above the projects: a row per conversation, the current one carrying the agent's status.
+    // The group sits above the projects: a row per conversation, with no status: only the open one runs.
     const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
     const group = sidebar.querySelector<HTMLElement>('[data-group="home-chat"]')!;
     expect(group.compareDocumentPosition(within(sidebar).getByRole('region', { name: 'Projects' }))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     const current = within(group).getByRole('button', { name: 'Ship the settings page.' });
-    expect(current.closest('[data-sidebar-row]')!.querySelector('[data-status="thinking"]')).toBeTruthy();
+    expect(current.closest('[data-sidebar-row]')!.querySelector('[data-status]')).toBeNull();
     fireEvent.click(current);
     expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'chat' });
     expect(window.api.homeChat.switch).not.toHaveBeenCalled();
@@ -164,7 +164,7 @@ describe('Chat', () => {
     expect(window.api.homeChat.rename).toHaveBeenCalledWith('home-2', 'Keychain');
     vi.mocked(window.api.homeChat.delete).mockResolvedValueOnce({
       currentId: CURRENT,
-      chats: [{ id: CURRENT, title: 'Ship the settings page.', updatedAt: '2026-11-10T00:00:00Z' }],
+      chats: [{ id: CURRENT, title: 'Ship the settings page.', createdAt: '2026-11-10T00:00:00Z' }],
     });
     fireEvent.contextMenu(within(group).getByRole('button', { name: 'Keychain recovery review' }));
     fireEvent.click(await screen.findByText('Delete'));

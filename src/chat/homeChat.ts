@@ -75,8 +75,8 @@ function newId(): string {
   return `${HOME_CHAT_ID_PREFIX}${randomUUID()}`;
 }
 
-function summary(id: string, info: ChatSessionInfo, updatedAt: string): HomeChatSummary {
-  return { id, title: info.label || UNTITLED_HOME_CHAT, updatedAt };
+function summary(id: string, info: ChatSessionInfo, createdAt: string): HomeChatSummary {
+  return { id, title: info.label || UNTITLED_HOME_CHAT, createdAt };
 }
 
 /** Stored rows lag a running session by a flush, so a live session's own info wins. */
@@ -88,15 +88,13 @@ export async function homeChatState(): Promise<HomeChatState> {
       summary(
         row.id,
         chatHost.isLive(row.id) ? chatHost.snapshot(row.id)!.info : (JSON.parse(row.info) as ChatSessionInfo),
-        row.updated_at,
+        row.created_at,
       ),
     );
   const live = chatHost.snapshot(currentId);
   if (live && !chats.some((chat) => chat.id === currentId)) {
     chats.unshift(summary(currentId, live.info, new Date().toISOString()));
   }
-  // The one open is the most recent, whatever a stop's final flush wrote after it.
-  chats.sort((a, b) => Number(b.id === currentId) - Number(a.id === currentId));
   // A conversation is listed once it has been asked something; until then it is only where the plus leads.
   return { currentId, chats: chats.filter((chat) => chat.title !== UNTITLED_HOME_CHAT) };
 }
