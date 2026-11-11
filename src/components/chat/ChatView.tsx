@@ -37,26 +37,38 @@ function useSession(cardId: string) {
  * Follow new output while the reader is at the bottom; leave them be once
  * they scroll up. Output grows between node events too, as a message is
  * revealed, so this follows the content's height rather than the nodes.
+ *
+ * Only a move up lets go. The scroll event from following lands a frame
+ * later, by when more may have arrived, so "how far from the bottom" alone
+ * would read new output as the reader having scrolled away.
  */
 function useStickToBottom(loaded: boolean) {
   const ref = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
+  const lastTop = useRef(0);
   const onScroll = useCallback(() => {
     const el = ref.current;
-    if (el) pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+    if (atBottom) pinned.current = true;
+    else if (el.scrollTop < lastTop.current) pinned.current = false;
+    lastTop.current = el.scrollTop;
   }, []);
   useLayoutEffect(() => {
     const el = ref.current;
     const inner = content.current;
     if (!el || !inner) return;
     const follow = () => {
-      if (pinned.current) el.scrollTop = el.scrollHeight;
+      if (!pinned.current) return;
+      el.scrollTop = el.scrollHeight;
+      lastTop.current = el.scrollTop;
     };
     follow();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(follow);
     observer.observe(inner);
+    observer.observe(el);
     return () => observer.disconnect();
   }, [loaded]);
   return { ref, content, onScroll };
@@ -195,7 +207,7 @@ export function ChatView({
           style={{ background: 'linear-gradient(to bottom, var(--color-background), transparent)' }}
         />
       )}
-      <div ref={ref} onScroll={onScroll} className="flex-1 min-h-0 overflow-y-auto">
+      <div ref={ref} onScroll={onScroll} className="flex-1 min-h-0 overflow-y-auto [overflow-anchor:none]">
         <div ref={content} className="mx-auto max-w-[52rem] px-6 pt-14 pb-4 flex flex-col gap-3">
           {surface === 'card' && top.length === 0 && info.status !== 'starting' && (
             <div className="text-sm text-text-tertiary">{CHAT_AGENT_LABELS[info.agent]} is ready.</div>
