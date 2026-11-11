@@ -180,7 +180,7 @@ export function SidebarRow({
       onClick={onClick}
       onContextMenu={onContextMenu}
     >
-      <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">{icon}</span>
+      {icon != null && <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">{icon}</span>}
       {rename ? (
         <RenameField {...rename} />
       ) : (
