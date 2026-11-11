@@ -7,6 +7,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import { generateId } from '../../utils/ids';
+import { chatSetupCommand } from '../../chat/hookSetup';
 import { isActiveSandbox } from '../../sandbox/types';
 import {
   CHAT_SETTING_KEYS,
@@ -147,7 +148,7 @@ export interface AddChatCardOptions {
   label?: string;
   background?: boolean;
   replaceLoadingId?: string;
-  /** Run before the first prompt goes out, in a runner panel on the card. */
+  /** Run before the first prompt goes out, in a runner panel on the card, less any agent it launches. */
   setup?: SetupCommand;
   /** Sent as the first message; the task description when a task starts. */
   firstPrompt?: string;
@@ -229,8 +230,9 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
   useChatStore.getState().adopt(started);
 
   const firstPrompt = options.firstPrompt?.trim();
-  if (options.setup) {
-    void runSetupThenPrompt(term, options.setup, firstPrompt);
+  const setupCommand = options.setup && chatSetupCommand(options.setup.command);
+  if (options.setup && setupCommand) {
+    void runSetupThenPrompt(term, { ...options.setup, command: setupCommand }, firstPrompt);
   } else if (firstPrompt) {
     await sendChat(id, firstPrompt);
   }
