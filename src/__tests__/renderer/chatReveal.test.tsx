@@ -7,20 +7,22 @@ import type { ChatNode } from '../../chat/model';
 afterEach(() => vi.useRealTimers());
 
 describe('a message arriving while you watch', () => {
-  test('is revealed a word at a time at an even pace that keeps up with the agent, and history shows whole', () => {
+  test('is revealed a character at a time at an even pace that keeps up with the agent, and history shows whole', () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'performance'] });
     const words = Array.from({ length: 40 }, (_, i) => `word${i}`).join(' ');
     const { result, rerender } = renderHook(({ text }) => useReveal(text, true), {
-      initialProps: { text: words.slice(0, 160) },
+      initialProps: { text: words.slice(0, 200) },
     });
-    expect(result.current).toBe('word0');
+    expect(result.current).toBe('');
 
     act(() => vi.advanceTimersByTime(1000));
-    // About 90 characters a second, ending on a whole word.
-    expect(result.current.length).toBeGreaterThan(75);
-    expect(result.current.length).toBeLessThan(110);
+    // About 120 characters a second, and moving every frame rather than a word at a time.
+    expect(result.current.length).toBeGreaterThan(105);
+    expect(result.current.length).toBeLessThan(140);
     expect(words.startsWith(result.current)).toBe(true);
-    expect(/word\d+$/.test(result.current)).toBe(true);
+    const before16 = result.current.length;
+    act(() => vi.advanceTimersByTime(16));
+    expect(result.current.length - before16).toBeLessThanOrEqual(3);
 
     // Far behind, it catches up quickly, but never past the ceiling.
     const long = words.repeat(8);
@@ -70,6 +72,7 @@ describe('several things said while you watch', () => {
     act(() => vi.advanceTimersByTime(5000));
     expect(screen.getByText(/end of first/)).toBeTruthy();
     expect(screen.getByRole('button', { name: /Ran 1 command/ })).toBeTruthy();
+    act(() => vi.advanceTimersByTime(200));
     expect(screen.getByText(/^Second/)).toBeTruthy();
     act(() => vi.advanceTimersByTime(5000));
     expect(screen.getByText(/end of second/)).toBeTruthy();

@@ -5,23 +5,17 @@ import { useEffect, useRef, useState } from 'react';
  * that keeps pace with a quick writer, catching up within a moment of the
  * agent, and a ceiling past which text would only flash by.
  */
-const BASE_CPS = 90;
+const BASE_CPS = 120;
 const MAX_CPS = 400;
-const CATCH_UP_SECONDS = 1.5;
-
-/** The end of the word `index` falls in, so text is revealed a whole word at a time. */
-function wordEnd(text: string, index: number): number {
-  if (index >= text.length) return text.length;
-  const next = text.slice(index).search(/\s/);
-  return next === -1 ? text.length : index + next;
-}
+const CATCH_UP_SECONDS = 1;
 
 /**
  * How much of `text` to show: all of it at once when `paced` is off, else
- * revealed at an even pace as it grows, however the agent's chunks arrive.
+ * revealed a character at a time, every frame, at an even pace as it grows,
+ * however the agent's chunks arrive. A word at a time reads as clicking.
  */
 export function useReveal(text: string, paced: boolean): string {
-  const [shown, setShown] = useState(paced ? 0 : text.length);
+  const [shown, setShown] = useState(0);
   const target = useRef(text.length);
   target.current = text.length;
   const position = useRef(shown);
@@ -45,8 +39,7 @@ export function useReveal(text: string, paced: boolean): string {
     return () => cancelAnimationFrame(frame);
   }, [paced]);
 
-  if (!paced) return text;
-  return text.slice(0, wordEnd(text, shown));
+  return paced ? text.slice(0, shown) : text;
 }
 
 /** Whether the reveal has caught up with all there is. */
