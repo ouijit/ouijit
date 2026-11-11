@@ -87,19 +87,21 @@ limactl shell "${LIMA_VM}" -- bash -c "
         curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
         sudo apt-get install -y nodejs build-essential
     fi
-    if ! command -v qemu-x86_64 &> /dev/null; then
+    if [ ! -e /proc/sys/fs/binfmt_misc/qemu-x86_64 ]; then
         sudo apt-get update
-        sudo apt-get install -y qemu-user-static binfmt-support zip
-        sudo update-binfmts --enable
+        sudo apt-get install -y qemu-user-binfmt
     fi
+    sudo systemctl start containerd
 "
 
-# 1d. Cross-compile node-pty for Linux x64 via Docker
+# 1d. Cross-compile node-pty for Linux x64 in an emulated container. Rootful:
+# a rootless container gets its own, empty binfmt_misc on current kernels, so
+# it cannot see the VM's x86_64 emulator.
 echo "==> Cross-compiling node-pty for Linux x64..."
 limactl shell "${LIMA_VM}" -- bash -c "
-    rm -rf /tmp/node-pty-x64
+    sudo rm -rf /tmp/node-pty-x64
     mkdir -p /tmp/node-pty-x64
-    nerdctl run --rm --platform linux/amd64 \
+    sudo nerdctl run --rm --platform linux/amd64 \
         -v /tmp/node-pty-x64:/workspace \
         -w /workspace \
         node:20 \
