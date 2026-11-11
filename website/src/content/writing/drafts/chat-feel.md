@@ -181,16 +181,32 @@ more than 1 px from the bottom.
 
 ## Replaying the versions
 
-The post wants each version shown moving, on the same conversation. Every
-version renders the same event stream: the host's sequenced chat events,
-unchanged in shape across these commits apart from wake `notes`, which older
-versions ignore. So:
+The post wants each version shown moving, on the same conversation. None of
+that material exists yet: the stored QA conversations keep the nodes but not
+when each chunk streamed, cassettes replay only inside tests, and the old
+commits have no way to take a recording. The website can play video; it
+can't run the app's interface, so the replays are clips.
 
-1. Record once. Capture one real Chat conversation's sequenced events with
-   wall-clock offsets, including every streamed delta, into a JSON file. The
-   stored transcripts above lack the delta timing, so this needs a fresh run
-   of the QA prompt with a recorder on.
-2. Replay anywhere. A dev-only page, or a Playwright script, feeds the events
-   into the chat store at their recorded offsets and renders the Chat page.
-3. Run it at each commit. A worktree per commit, the same recording, a
-   Playwright screen recording of each, cut side by side.
+The plan:
+
+1. **Record once.** Run the QA prompt for real, once, capturing the agent's
+   raw stdio with a timestamp on every line. The cassette recorder in
+   `src/__tests__/integration/chat/cassette.ts` already captures the stdio;
+   it needs the timestamps added.
+2. **Replay at the original timing.** Today's replay is gated by order, not
+   time. Add a timed mode, and let the running app use a replaying spawn when
+   an environment variable points at a recording (today only tests can, via
+   `chatHost._setOptionsForTesting`).
+3. **Patch each version.** For each of the nine commits, a worktree with that
+   small patch applied on top, so the version's own renderer draws the same
+   recording.
+4. **Script the user.** A Playwright script sends the prompt, then presses the
+   same cards at the same moments: allow the worker, Run privately, Move to
+   done, Cancel the trash. Your clicks aren't in the recording, so they have
+   to be played.
+5. **Film it.** Playwright records the window as video, one clip per version
+   of the same conversation, at the same size. Cut them for side by side or
+   before and after.
+
+Cost: one real Claude session for the recording; the rest is scripting. It
+doesn't depend on the post's text, so it can be done when the post is.
