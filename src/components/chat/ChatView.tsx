@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { ChatNodeList, type NodeContext } from './ChatNodes';
-import { ChatTurns } from './ChatTurns';
+import { ChatTurns, RevealHeld } from './ChatTurns';
 import { ChatBackground } from './ChatBackground';
 import { ChatComposer } from './ChatComposer';
 import { StatusGlyph } from '../terminal/StatusDot';
@@ -149,6 +149,7 @@ export function ChatView({
   footer?: ReactNode;
 }) {
   const session = useSession(cardId);
+  const [held, setHeld] = useState(false);
   const nodes = session?.nodes;
   const { ref, content, onScroll } = useStickToBottom(Boolean(session));
 
@@ -213,7 +214,12 @@ export function ChatView({
             <div className="text-sm text-text-tertiary">{CHAT_AGENT_LABELS[info.agent]} is ready.</div>
           )}
           {surface === 'page' ? (
-            <ChatTurns nodes={top} context={context} busy={info.status === 'running' || info.status === 'awaiting'} />
+            <ChatTurns
+              nodes={top}
+              context={context}
+              busy={info.status === 'running' || info.status === 'awaiting'}
+              onHeld={setHeld}
+            />
           ) : (
             <ChatNodeList nodes={top} context={context} fold />
           )}
@@ -223,7 +229,7 @@ export function ChatView({
             </div>
           )}
           <StatusLine info={info} cardId={cardId} quiet={surface === 'page'} />
-          {footer}
+          <RevealHeld.Provider value={held}>{footer}</RevealHeld.Provider>
         </div>
       </div>
       {surface === 'page' && (

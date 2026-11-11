@@ -1,7 +1,8 @@
 import { describe, test, expect, vi, afterEach } from 'vitest';
+import type { ReactNode } from 'react';
 import { act, render, renderHook, screen } from '@testing-library/react';
 import { useReveal } from '../../components/chat/useReveal';
-import { ChatTurns } from '../../components/chat/ChatTurns';
+import { ChatTurns, RevealHeld, useRevealGate } from '../../components/chat/ChatTurns';
 import type { ChatNode } from '../../chat/model';
 
 afterEach(() => vi.useRealTimers());
@@ -76,5 +77,31 @@ describe('several things said while you watch', () => {
     expect(screen.getByText(/^Second/)).toBeTruthy();
     act(() => vi.advanceTimersByTime(5000));
     expect(screen.getByText(/end of second/)).toBeTruthy();
+  });
+});
+
+describe('a decision card while Chat is still being revealed', () => {
+  test('waits for the words before it, and once shown is not taken back', () => {
+    let held = true;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <RevealHeld.Provider value={held}>{children}</RevealHeld.Provider>
+    );
+    const { result, rerender } = renderHook(({ keys }) => useRevealGate(keys), {
+      wrapper,
+      initialProps: { keys: ['trash'] },
+    });
+    expect([...result.current]).toEqual([]);
+
+    held = false;
+    rerender({ keys: ['trash'] });
+    expect([...result.current]).toEqual(['trash']);
+
+    // More words start arriving: the card already up stays, a new one waits.
+    held = true;
+    rerender({ keys: ['trash', 'ask'] });
+    expect([...result.current]).toEqual(['trash']);
+    held = false;
+    rerender({ keys: ['trash', 'ask'] });
+    expect([...result.current]).toEqual(['trash', 'ask']);
   });
 });

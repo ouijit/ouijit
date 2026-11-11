@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { revealed, useReveal } from './useReveal';
 import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
@@ -222,7 +222,18 @@ function layoutOf(turn: Turn, running: boolean): Layout {
  * nothing after a message still being revealed shows until it has caught up,
  * so a later part never lands, or finishes, ahead of an earlier one.
  */
-export function ChatTurns({ nodes, context, busy }: { nodes: ChatNode[]; context: NodeContext; busy: boolean }) {
+export function ChatTurns({
+  nodes,
+  context,
+  busy,
+  onHeld,
+}: {
+  nodes: ChatNode[];
+  context: NodeContext;
+  busy: boolean;
+  /** Whether something said is still being revealed, so what comes after it waits. */
+  onHeld?: (held: boolean) => void;
+}) {
   const [openedAt] = useState(() => Date.now());
   const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(() => new Set());
   const onDone = useCallback((id: string) => setRevealedIds((ids) => (ids.has(id) ? ids : new Set(ids).add(id))), []);
@@ -273,5 +284,24 @@ export function ChatTurns({ nodes, context, busy }: { nodes: ChatNode[]; context
       </div>
     );
   });
+  useEffect(() => onHeld?.(held), [held, onHeld]);
   return <div className="chat-turns flex flex-col gap-5">{shown}</div>;
+}
+
+/** True while the transcript is still revealing something; what follows it, like a card, waits. */
+export const RevealHeld = createContext(false);
+
+/**
+ * Of `keys`, the ones to show: everything once the transcript has caught up,
+ * and, while it has not, only what was already showing, so nothing jumps
+ * ahead of the words that lead to it and nothing shown is taken back.
+ */
+export function useRevealGate(keys: string[]): Set<string> {
+  const held = useContext(RevealHeld);
+  const shown = useRef(new Set<string>());
+  const visible = new Set(held ? keys.filter((key) => shown.current.has(key)) : keys);
+  useEffect(() => {
+    for (const key of visible) shown.current.add(key);
+  });
+  return visible;
 }

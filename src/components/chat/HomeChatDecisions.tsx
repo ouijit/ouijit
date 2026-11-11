@@ -8,6 +8,7 @@ import { isHomeChat, useHomeChatStore, useIsHomeChat } from '../../stores/homeCh
 import { taskKey } from '../../chat/preferences';
 import { pendingRequests, type RequestNode } from '../../chat/model';
 import { CONFIRM_VERB, runWaiting } from '../waiting/WaitingQueue';
+import { useRevealGate } from './ChatTurns';
 
 /** The conversation a queued item came from: Chat itself, or a task one of its conversations started. */
 export function useOwnerOf(): (item: Waiting) => string | null {
@@ -206,15 +207,13 @@ export function HomeChatDecisions({ conversation }: { conversation: string }) {
   const ownerOf = useOwnerOf();
   const queued = useWaitingStore(useShallow((s) => s.items.filter((item) => ownerOf(item) === conversation)));
   const left = useLeftToYou(conversation);
-  if (queued.length === 0 && left.length === 0) return null;
-  return (
-    <div className="flex flex-col gap-3 pt-1">
-      {queued.map((item) => (
-        <QueuedCard key={item.id} item={item} />
-      ))}
-      {left.map((entry) => (
-        <WorkerRequestCard key={entry.request.id} {...entry} />
-      ))}
-    </div>
-  );
+  const visible = useRevealGate([...queued.map((item) => `q${item.id}`), ...left.map((e) => e.request.id)]);
+  const cards = [
+    ...queued.filter((item) => visible.has(`q${item.id}`)).map((item) => <QueuedCard key={item.id} item={item} />),
+    ...left
+      .filter((entry) => visible.has(entry.request.id))
+      .map((entry) => <WorkerRequestCard key={entry.request.id} {...entry} />),
+  ];
+  if (cards.length === 0) return null;
+  return <div className="chat-said-in flex flex-col gap-3 pt-1">{cards}</div>;
 }
