@@ -70,6 +70,8 @@ function ensureMermaid(): void {
     // wrappers around HTML. Keeps DOMPurify config trivial and dodges the
     // namespace edge cases that strip child content of foreignObject.
     htmlLabels: false,
+    // The default pads short labels to 120px, which shrinks a whole diagram to fit the panel.
+    flowchart: { minNodeWidth: 0 },
   });
   mermaidTheme = theme;
 }
