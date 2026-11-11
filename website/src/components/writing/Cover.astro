@@ -1,6 +1,8 @@
 ---
-// A cover is one generated line system drawn in dark glass on one of the
-// site's washes. Geometry is computed here so spacing stays exact at any size.
+// A cover is a composition: a field wash, an optional shape filled with
+// another wash, and a line system in glass ink. Everything comes from the
+// post's frontmatter, so most covers need no new code.
+import { COVER_H, COVER_W, WASH_STOPS, coverMarks } from './coverGeometry';
 import type { CoverSpec } from '../../writing';
 
 interface Props {
@@ -8,74 +10,175 @@ interface Props {
   class?: string;
 }
 const { cover, class: className } = Astro.props;
-const W = 800;
-const H = 450;
-const INK = 'rgba(15,15,17,0.72)';
-const INK2 = 'rgba(15,15,17,0.34)';
+const marks = coverMarks(cover.system);
+const ink = cover.system.ink ?? (cover.field.wash === 'graphite' ? 'light' : 'dark');
+const strong = ink === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(15,15,17,0.72)';
+const weak = ink === 'light' ? 'rgba(255,255,255,0.24)' : 'rgba(15,15,17,0.34)';
+const uid = Math.random().toString(36).slice(2, 8);
 
-type Line = { x1: number; y1: number; x2: number; y2: number; w: number; ink: string; dash?: string };
-type Dot = { cx: number; cy: number; r: number; ink: string };
-type Ellipse = { cx: number; rx: number; ry: number; ink: string; dash?: string };
-const lines: Line[] = [];
-const dots: Dot[] = [];
-const ellipses: Ellipse[] = [];
-
-if (cover.motif === 'fan') {
-  const vx = 690;
-  const vy = 330;
-  for (let i = 0; i < 22; i++) lines.push({ x1: 60, y1: 40 + i * (370 / 21), x2: vx, y2: vy, w: 2, ink: INK });
-  for (let k = 1; k < 7; k++) {
-    const x = 60 + k * ((vx - 60) / 7);
-    const t = (x - 60) / (vx - 60);
-    lines.push({ x1: x, y1: 40 + t * (vy - 40), x2: x, y2: 410 + t * (vy - 410), w: 2, ink: INK2 });
-  }
-  dots.push({ cx: vx, cy: vy, r: 6, ink: INK });
+function gradientPoints(angle: number) {
+  const a = (angle * Math.PI) / 180;
+  const x2 = 50 + 50 * Math.sin(a);
+  const y2 = 50 - 50 * Math.cos(a);
+  return { x1: `${100 - x2}%`, y1: `${100 - y2}%`, x2: `${x2}%`, y2: `${y2}%` };
 }
-
-if (cover.motif === 'matrix') {
-  const cols = 44;
-  const rows = 6;
-  const shared = 30;
-  for (let r = 0; r < rows; r++) {
-    const cy = 110 + (r * 230) / (rows - 1);
-    for (let c = 0; c < cols; c++) {
-      const d = Math.abs(c - shared);
-      const rad = d < 7 ? Math.max(1.2, 5.5 - d * 0.7) : (c * 7 + r * 3) % 5 ? 1.6 : 0;
-      if (rad) dots.push({ cx: 60 + (c * 680) / (cols - 1), cy, r: rad, ink: d < 7 ? INK : INK2 });
-    }
-  }
-}
-
-if (cover.motif === 'coil') {
-  for (let i = 0; i < 9; i++) {
-    const solid = i === 5;
-    ellipses.push({ cx: 130 + i * 68, rx: 34, ry: 120, ink: solid ? INK : INK2, dash: solid ? undefined : '5 7' });
-  }
-  lines.push({ x1: 60, y1: 225, x2: 740, y2: 225, w: 2, ink: INK2 });
-}
-
-const style = `--cover-wash: var(--wash-${cover.wash}); --cover-angle: ${cover.angle}deg`;
+const shapeGradient = cover.shape ? gradientPoints(cover.shape.angle) : null;
+const style = `--cover-wash: var(--wash-${cover.field.wash}); --cover-angle: ${cover.field.angle}deg`;
 ---
-<div class:list={['writing-cover', className]} style={style} aria-hidden="true">
+<div class:list={['writing-cover', className]} style={style} aria-hidden="true" data-cover={JSON.stringify(cover)} data-ink={ink}>
   <div class="writing-cover-field"></div>
-  <div class="writing-cover-grain"></div>
-  <svg viewBox={`0 0 ${W} ${H}`} fill="none">
+  <svg viewBox={`0 0 ${COVER_W} ${COVER_H}`} fill="none">
     <defs>
-      <filter id="cover-glass" x="-5%" y="-5%" width="110%" height="110%">
-        <feDropShadow dx="0" dy="1.2" stdDeviation="0" flood-color="#fff" flood-opacity="0.45" />
+      {cover.shape && shapeGradient && (
+        <linearGradient id={`shape-${uid}`} {...shapeGradient}>
+          {WASH_STOPS[cover.shape.wash].map((color, i, all) => (
+            <stop offset={i / (all.length - 1)} stop-color={color} />
+          ))}
+        </linearGradient>
+      )}
+      <filter id={`shape-glass-${uid}`} x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.28" />
+      </filter>
+      <filter id={`glass-${uid}`} x="-5%" y="-5%" width="110%" height="110%">
+        <feDropShadow dx="0" dy="1.2" stdDeviation="0" flood-color="#fff" flood-opacity="0.4" />
         <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity="0.22" />
       </filter>
     </defs>
-    <g filter="url(#cover-glass)">
-      {lines.map((l) => (
-        <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.ink} stroke-width={l.w} stroke-dasharray={l.dash} />
+    {cover.shape?.layer !== 'over' && (
+      <g class="writing-cover-shape">
+        {cover.shape?.kind === 'circle' && (
+          <circle cx={cover.shape.cx} cy={cover.shape.cy} r={cover.shape.r} fill={`url(#shape-${uid})`} filter={`url(#shape-glass-${uid})`} />
+        )}
+        {cover.shape?.kind === 'rect' && (
+          <rect
+            x={cover.shape.x}
+            y={cover.shape.y}
+            width={cover.shape.w}
+            height={cover.shape.h}
+            transform={`rotate(${cover.shape.rotate} ${cover.shape.x + cover.shape.w / 2} ${cover.shape.y + cover.shape.h / 2})`}
+            fill={`url(#shape-${uid})`}
+            filter={`url(#shape-glass-${uid})`}
+          />
+        )}
+        {cover.shape?.kind === 'polygon' && (
+          <polygon points={cover.shape.points} fill={`url(#shape-${uid})`} filter={`url(#shape-glass-${uid})`} />
+        )}
+      </g>
+    )}
+    <g class="writing-cover-marks" filter={`url(#glass-${uid})`}>
+      {marks.lines.map((l) => (
+        <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.strong ? strong : weak} stroke-width={l.w ?? 2} stroke-dasharray={l.dash} />
       ))}
-      {ellipses.map((e) => (
-        <ellipse cx={e.cx} cy={H / 2} rx={e.rx} ry={e.ry} stroke={e.ink} stroke-width="2" stroke-dasharray={e.dash} />
+      {marks.ellipses.map((e) => (
+        <ellipse cx={e.cx} cy={e.cy} rx={e.rx} ry={e.ry} stroke={e.strong ? strong : weak} stroke-width="2" stroke-dasharray={e.dash} />
       ))}
-      {dots.map((d) => (
-        <circle cx={d.cx} cy={d.cy} r={d.r} fill={d.ink} />
+      {marks.dots.map((d) => (
+        <circle cx={d.cx} cy={d.cy} r={d.r} fill={d.strong ? strong : weak} />
       ))}
     </g>
+    {cover.shape?.layer === 'over' && (
+      <g class="writing-cover-shape">
+        {cover.shape?.kind === 'circle' && (
+          <circle cx={cover.shape.cx} cy={cover.shape.cy} r={cover.shape.r} fill={`url(#shape-${uid})`} filter={`url(#shape-glass-${uid})`} />
+        )}
+        {cover.shape?.kind === 'rect' && (
+          <rect
+            x={cover.shape.x}
+            y={cover.shape.y}
+            width={cover.shape.w}
+            height={cover.shape.h}
+            transform={`rotate(${cover.shape.rotate} ${cover.shape.x + cover.shape.w / 2} ${cover.shape.y + cover.shape.h / 2})`}
+            fill={`url(#shape-${uid})`}
+            filter={`url(#shape-glass-${uid})`}
+          />
+        )}
+        {cover.shape?.kind === 'polygon' && (
+          <polygon points={cover.shape.points} fill={`url(#shape-${uid})`} filter={`url(#shape-glass-${uid})`} />
+        )}
+      </g>
+    )}
   </svg>
+  <div class="writing-cover-grain"></div>
 </div>
+
+<script>
+  import { COVER_H, COVER_W, coverMarks, focusSystem } from './coverGeometry';
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const hovers = matchMedia('(hover: hover)').matches;
+
+  for (const el of document.querySelectorAll<HTMLElement>('.writing-cover[data-cover]')) {
+    if (reduced || !hovers) continue;
+    const spec = JSON.parse(el.dataset.cover ?? '{}');
+    const light = el.dataset.ink === 'light';
+    const strong = light ? 'rgba(255,255,255,0.6)' : 'rgba(15,15,17,0.72)';
+    const weak = light ? 'rgba(255,255,255,0.24)' : 'rgba(15,15,17,0.34)';
+    const marksEl = el.querySelector<SVGGElement>('.writing-cover-marks');
+    const shapeEl = el.querySelector<SVGGElement>('.writing-cover-shape');
+    const baseAngle = spec.field.angle as number;
+    if (!marksEl) continue;
+
+    // Where the break is, where it is headed, and whether a frame is scheduled.
+    const home = { x: COVER_W * 0.6, y: COVER_H * 0.5 };
+    const at = { ...home };
+    const to = { ...home };
+    let settled = true;
+    let raf = 0;
+
+    const draw = () => {
+      const marks = coverMarks(focusSystem(spec.system, at.x, at.y));
+      marksEl.innerHTML =
+        marks.lines
+          .map(
+            (l) =>
+              `<line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="${l.strong ? strong : weak}" stroke-width="${l.w ?? 2}"${l.dash ? ` stroke-dasharray="${l.dash}"` : ''}/>`,
+          )
+          .join('') +
+        marks.ellipses
+          .map(
+            (e) =>
+              `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" stroke="${e.strong ? strong : weak}" stroke-width="2"${e.dash ? ` stroke-dasharray="${e.dash}"` : ''}/>`,
+          )
+          .join('') +
+        marks.dots.map((d) => `<circle cx="${d.cx}" cy="${d.cy}" r="${d.r}" fill="${d.strong ? strong : weak}"/>`).join('');
+      const dx = at.x / COVER_W - 0.5;
+      const dy = at.y / COVER_H - 0.5;
+      el.style.setProperty('--cover-angle', `${baseAngle + dx * 14}deg`);
+      shapeEl?.setAttribute('transform', `translate(${(-dx * 16).toFixed(1)} ${(-dy * 10).toFixed(1)})`);
+    };
+
+    const step = () => {
+      at.x += (to.x - at.x) * 0.14;
+      at.y += (to.y - at.y) * 0.14;
+      draw();
+      settled = Math.abs(to.x - at.x) < 0.3 && Math.abs(to.y - at.y) < 0.3;
+      raf = settled ? 0 : requestAnimationFrame(step);
+    };
+    const wake = () => {
+      if (!raf) raf = requestAnimationFrame(step);
+    };
+
+    el.addEventListener('pointerenter', () => {
+      // The designed composition is the rest state; start the chase from there.
+      const marks = coverMarks(spec.system);
+      const focal = marks.dots.find((d) => d.strong) ?? marks.lines.find((l) => l.strong);
+      if (focal) {
+        home.x = 'cx' in focal ? focal.cx : focal.x2;
+        home.y = 'cy' in focal ? focal.cy : focal.y2;
+      }
+      at.x = home.x;
+      at.y = home.y;
+    });
+    el.addEventListener('pointermove', (e) => {
+      const r = el.getBoundingClientRect();
+      to.x = ((e.clientX - r.left) / r.width) * COVER_W;
+      to.y = ((e.clientY - r.top) / r.height) * COVER_H;
+      wake();
+    });
+    el.addEventListener('pointerleave', () => {
+      to.x = home.x;
+      to.y = home.y;
+      wake();
+    });
+  }
+</script>

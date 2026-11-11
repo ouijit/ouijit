@@ -7,13 +7,15 @@ interface Props {
 }
 const { post } = Astro.props;
 ---
-<a class="writing-card" href={`/writing/${post.id}/`}>
+<a class="writing-card glass-bevel" href={`/writing/${post.id}/`}>
   <Cover cover={post.data.cover} />
-  <h2>{post.data.title}</h2>
-  <p>{post.data.description}</p>
-  <div class="writing-meta">
+  <div class="writing-card-body">
+    <h2>{post.data.title}</h2>
+    <p>{post.data.description}</p>
+    <div class="writing-meta">
     <span>{AUTHOR.name}</span>
     <time datetime={post.data.date.toISOString()}>{postDate.format(post.data.date)}</time>
     <span>{readingMinutes(post)} min read</span>
+    </div>
   </div>
 </a>

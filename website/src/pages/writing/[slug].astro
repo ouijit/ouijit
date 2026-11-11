@@ -1,7 +1,6 @@
 ---
 import { render } from 'astro:content';
 import Site from '../../layouts/Site.astro';
-import Cta from '../../components/home/Cta.astro';
 import Cover from '../../components/writing/Cover.astro';
 import PostCard from '../../components/writing/PostCard.astro';
 import { AUTHOR, listPosts, postDate, readingMinutes, type Post } from '../../writing';
@@ -19,10 +18,8 @@ const more = (await listPosts()).filter((p) => p.id !== post.id).slice(0, 2);
 <Site title={`${post.data.title} · Ouijit`} description={post.data.description} markdownUrl={markdownUrl}>
   <main class="writing-post">
     <header class="writing-header">
-      <p class="writing-crumb"><a href="/writing/">Writing</a></p>
       <h1>{post.data.title}</h1>
       <div class="writing-byline">
-        <img src={AUTHOR.avatar} alt="" width="28" height="28" />
         <a href={AUTHOR.url} target="_blank" rel="noopener">{AUTHOR.name}</a>
         <time datetime={post.data.date.toISOString()}>{postDate.format(post.data.date)}</time>
         <span>{readingMinutes(post)} min read</span>
@@ -43,7 +40,6 @@ const more = (await listPosts()).filter((p) => p.id !== post.id).slice(0, 2);
       </aside>
     )}
   </main>
-  <Cta />
 </Site>
 
 <script>
@@ -51,16 +47,22 @@ const more = (await listPosts()).filter((p) => p.id !== post.id).slice(0, 2);
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'writing-copy';
-    button.textContent = 'Copy';
+    button.innerHTML =
+      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span>';
+    const label = button.querySelector('span')!;
     button.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(pre.querySelector('code')?.innerText ?? '');
-        button.textContent = 'Copied';
+        label.textContent = 'Copied';
       } catch {
-        button.textContent = "Couldn't copy";
+        label.textContent = "Couldn't copy";
       }
-      setTimeout(() => (button.textContent = 'Copy'), 1500);
+      setTimeout(() => (label.textContent = 'Copy'), 1500);
     });
     pre.appendChild(button);
   }
+</script>
+<script>
+  import { mountTranscriptDemos } from '../../components/writing/transcriptDemos';
+  mountTranscriptDemos();
 </script>

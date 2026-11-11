@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Builds the website and screenshots a post's cover as it appears on the
-// index card and as the hero on the post page.
+// Builds the website and screenshots a post's cover as the index card and as
+// the hero, plus the sketch page when website/.cover-sketches.json exists.
 //
 //   node .claude/skills/writing-cover/scripts/preview.mjs <slug> [out-dir]
 //
@@ -9,7 +9,7 @@
 
 import { createRequire } from 'node:module';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,6 +22,10 @@ if (!slug) {
 }
 const out = resolve(outArg ?? resolve(root, '.claude/skills/writing-cover/.preview'));
 mkdirSync(out, { recursive: true });
+
+// Astro caches rendered Markdown by file digest, so an edit to a remark or
+// shiki plugin does not reach a post until the cache goes.
+rmSync(resolve(website, 'node_modules/.astro'), { recursive: true, force: true });
 
 const token = spawnSync('gh', ['auth', 'token'], { encoding: 'utf8' }).stdout.trim();
 const build = spawnSync('npm', ['run', 'build'], {
@@ -44,13 +48,31 @@ for (let i = 0; i < 60; i++) {
 const require = createRequire(resolve(root, 'node_modules/'));
 const { chromium } = require('playwright-core');
 const browser = await chromium.launch();
+const written = [];
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  if (existsSync(resolve(website, '.cover-sketches.json'))) {
+    await page.goto(`${base}/writing/sketch/`, { waitUntil: 'networkidle' });
+    await page.screenshot({ path: `${out}/sketches.png`, fullPage: true });
+    written.push(`${out}/sketches.png`);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${base}/writing/${slug}/`, { waitUntil: 'networkidle' });
-  await page.locator('.writing-hero').screenshot({ path: `${out}/${slug}-hero.png` });
+  const hero = page.locator('.writing-hero');
+  await hero.screenshot({ path: `${out}/${slug}-hero.png` });
+  const box = await hero.boundingBox();
+  if (box) {
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await page.mouse.move(box.x + box.width * 0.15, box.y + box.height * 0.15, { steps: 15 });
+    await page.waitForTimeout(800);
+    await hero.screenshot({ path: `${out}/${slug}-hero-live.png` });
+    written.push(`${out}/${slug}-hero-live.png`);
+    await page.mouse.move(0, 0);
+  }
   await page.goto(`${base}/writing/`, { waitUntil: 'networkidle' });
   await page.locator(`.writing-card[href="/writing/${slug}/"]`).screenshot({ path: `${out}/${slug}-card.png` });
-  console.log(`${out}/${slug}-hero.png\n${out}/${slug}-card.png`);
+  written.push(`${out}/${slug}-hero.png`, `${out}/${slug}-card.png`);
+  console.log(written.join('\n'));
 } finally {
   await browser.close();
   server.kill();

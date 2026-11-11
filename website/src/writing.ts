@@ -1,9 +1,10 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
+import type { System } from './components/writing/coverGeometry';
 
 export type Post = CollectionEntry<'writing'>;
-export type CoverSpec = Post['data']['cover'];
+export type CoverSpec = Post['data']['cover'] & { system: System };
 
-export const AUTHOR = { name: 'Prentice Bjerkeseth', url: 'https://github.com/pbjer', avatar: '/assets/prentice.jpg' };
+export const AUTHOR = { name: 'Prentice Bjerkeseth', url: 'https://github.com/pbjer' };
 
 export const postDate = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
