@@ -148,6 +148,17 @@ more than 1 px from the bottom.
 
 > "ok that felt pretty good."
 
+## 8. Cards jumping ahead
+
+Asked after step 7, not reported as a problem: the decision cards sat outside
+the reveal queue, so a card could appear while the words leading to it were
+still arriving.
+
+`e4b90551`: a new card waits until the text before it has been revealed, then
+fades in. A card already up stays up. The waiting count in the title bar and
+the dot on the sidebar row don't wait, so it still shows at once, from
+anywhere, that something needs you.
+
 ## What it adds up to
 
 - Motion reads as speed. The number of kinds of thing moving matters more
@@ -167,6 +178,119 @@ more than 1 px from the bottom.
   should break it.
 - Mock with the user's own transcript. The comparison board made the
   trade-offs concrete before any code moved.
+
+## Why this matters more for agent tools
+
+Draft argument, not settled, for cutting or keeping:
+
+- A chat with one assistant is read like a conversation. A chat that runs
+  other agents is watched: it starts work, waits, comes back with news. The
+  reader is supervising, not conversing, and supervision is a matter of
+  attention.
+- With several agents running, attention is the bottleneck, not tokens or
+  speed. Anything moving on screen takes some of it. A transcript that churns
+  spends the one thing the user is short of.
+- Agents produce far more than a person reads: tool calls, thoughts, interim
+  remarks, results. A general chat can show most of it. An agent tool has to
+  decide what the user sees, and the rest has to stay reachable without
+  being in the way.
+- The waiting matters as much as the output. Most of the time the agent is
+  working and the user is doing something else. The status line, the dot on
+  the sidebar row and the waiting count are the interface for that time; the
+  transcript is for when they come back.
+- Ouijit's stance elsewhere fits: the interface gets quieter as the amount of
+  work goes up (an idea in the article backlog).
+
+## How it felt (to fill in)
+
+The chronology only has what was typed during testing. Worth adding in
+Prentice's own words before drafting:
+
+- What the first version felt like to watch, beyond "moving really fast and
+  hard to follow".
+- What "feels good" meant by the end: calm, trustworthy, fast, something else?
+- Whether comparing on the canvas board before building helped, or whether
+  only the live version could settle it ("i may need to see it actually live").
+- Which change made the biggest difference.
+- What still isn't right.
+
+## Timeline
+
+Commit times on 2026-11-10, local. Each was followed by a QA run and the
+next piece of feedback; testing time between commits isn't recorded.
+
+| Time | Commit | Change |
+|---|---|---|
+| 21:51 | `28b514ba` | Starting point: per-stretch folds, running fold opens itself |
+| 22:05 | `2ca32290` | Thinking summaries; thoughts as grey lines |
+| (mock) | canvas board | "QA run, two ways", same transcript side by side |
+| 22:28 | `d49956b5` | A turn at a time: status line, one fold, last reply |
+| 22:38 | `d561fa35` | Substantial messages stream in place; step line holds |
+| 22:47 | `f1a8c4ae` | Paced to reading speed (too slow) |
+| 22:52 | `0f38ecb1` | Paced to keep up with the agent |
+| 22:58 | `aee0f88b` | One reveal queue in transcript order |
+| 23:03 | `d40c6bfe` | Per character, every frame |
+| 23:10 | `a97ee17e` | Stay at the bottom until the reader scrolls up |
+| 23:27 | `e4b90551` | Cards wait for the words before them |
+
+About an hour and a half from the first fix to the last.
+
+## What the QA prompt caught besides the feel
+
+The same prompt exercised the permission rules Chat runs under, and Chat
+reported what looked wrong in its own replies. Useful as a side note on
+letting the agent test its own surface:
+
+- Told it had answered a worker's approval itself when the user had. The
+  message said "you answered", meaning the user; Chat read it as itself.
+  Fixed: "the user answered … themselves".
+- A held move to done replied `{"success": true, "status": "Done"}` with no
+  sign it was waiting. Fixed: the CLI prints `waiting`.
+- A confirmed done was reported twice, and in the wrong order: the column
+  change before the confirmation. Fixed: told once, as the confirmation.
+- Messages named the project "ouijit-demo" where `project list` said
+  "seed-project". Fixed: named as the sidebar names it.
+- `ask run` ignored `--project` and ran in Chat's own folder. Not fixed.
+- Task #14 got worktree `T-15`, from a leftover earlier task. Not Chat's.
+
+Earlier the same day, an architecture review found that Chat could escape its
+sandbox by starting a task with its own hook command on the host. That was
+closed before any of this, and is a separate story.
+
+## The QA prompt
+
+Used for every run, unchanged:
+
+```
+QA run for your own UI. Use the project at "<seed project path>". Start each step's reply with "Step N:", and say what came of it in the reply itself.
+
+1. Reply with a heading, a bulleted list, a numbered list, a small table, inline code, and a fenced code block.
+2. Run `ouijit project list`, `ouijit task list` and `ouijit terminal list`, one after another, then say what you found.
+3. Try `ouijit hook set review --name Review --command "code ."` and quote the error.
+4. Create a task "QA worker" with the description "Create qa.txt containing hi, commit it, then reply done", and start it with --run-hook. Then end your turn.
+5. When the worker asks for approval, don't answer it: say it's mine to answer, and end your turn.
+6. Once it finishes, read its chat and summarize it in two lines.
+7. Ask me to run `whoami` outside your sandbox with ouijit ask run and a reason, without --wait.
+8. Move "QA worker" to done.
+9. Create a task "QA trash me", then trash it. End your turn.
+10. Once you've heard how I decided 7–9, list every "Ouijit:" message you received this conversation, word for word.
+```
+
+On the user's side: allow the worker's approval, Run privately for `whoami`,
+Move to done, Cancel the trash.
+
+## Other agents
+
+Every run here used Claude Code. What carries over:
+
+- The turn view, the status line, the reveal queue, the pacing and the
+  scrolling work on Ouijit's own event model, which Codex, Pi and opencode
+  feed the same way. They should behave the same, but weren't watched.
+- Thinking is the part that differs. The `--thinking-display summarized` flag
+  is Claude Code's. Whether the others send readable reasoning, and how much,
+  is untested here; an empty thought is hidden either way.
+- How chatty each agent is between steps changes how much the status line
+  and the "substantial message" rule have to do.
 
 ## Material on hand
 
