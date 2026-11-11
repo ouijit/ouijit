@@ -176,7 +176,7 @@ contextBridge.exposeInMainWorld('api', {
     start: () => typedInvoke('homeChat:start'),
     restart: () => typedInvoke('homeChat:restart'),
     wake: (event: WakeEvent, text: string) => typedInvoke('homeChat:wake', event, text),
-    create: () => typedInvoke('homeChat:new'),
+    create: (id?: string) => typedInvoke('homeChat:new', id),
     switch: (id: string) => typedInvoke('homeChat:switch', id),
     list: () => typedInvoke('homeChat:list'),
     rename: (id: string, title: string) => typedInvoke('homeChat:rename', id, title),

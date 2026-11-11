@@ -506,7 +506,7 @@ export interface IpcInvokeContract {
   /** Something the renderer saw that Chat should hear about, under one of its wake settings. */
   'homeChat:wake': { args: [event: WakeEvent, text: string]; return: void };
   /** A fresh conversation, which becomes the current one. */
-  'homeChat:new': { args: []; return: ChatSnapshot };
+  'homeChat:new': { args: [id?: string]; return: ChatSnapshot };
   /** Another of Chat's conversations, resumed as the current one. */
   'homeChat:switch': { args: [id: string]; return: ChatSnapshot };
   'homeChat:list': { args: []; return: HomeChatState };

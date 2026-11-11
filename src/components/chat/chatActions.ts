@@ -8,7 +8,14 @@ import { useProjectStore } from '../../stores/projectStore';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import { generateId } from '../../utils/ids';
 import { isActiveSandbox } from '../../sandbox/types';
-import { CHAT_SETTING_KEYS, isHomeChatId, parseChatSettings, type ChatSettings } from '../../chat/preferences';
+import {
+  CHAT_SETTING_KEYS,
+  HOME_CHAT_ID_PREFIX,
+  isHomeChatId,
+  parseChatSettings,
+  type ChatSettings,
+} from '../../chat/preferences';
+import { NO_CAPABILITIES } from '../../chat/model';
 import { listenForHomeChat, useHomeChatStore } from '../../stores/homeChatStore';
 import { useAppStore } from '../../stores/appStore';
 import type { ChatAgentId, ChatAttachment, ChatSessionStatus, SequencedChatEvent } from '../../chat/model';
@@ -65,10 +72,35 @@ export async function startHomeChat(): Promise<void> {
   }
 }
 
+/** Shown at once, empty and starting; the agent comes up behind it. */
 export async function newHomeChat(): Promise<void> {
+  const store = useHomeChatStore.getState();
+  const id = generateId(HOME_CHAT_ID_PREFIX.slice(0, -1));
+  const previous = useChatStore.getState().sessions[store.currentId]?.info;
+  useChatStore.getState().adopt({
+    info: {
+      id,
+      agent: previous?.agent ?? 'claude',
+      agentSessionId: null,
+      projectPath: previous?.projectPath ?? '',
+      cwd: previous?.cwd ?? '',
+      worktreePath: null,
+      sandbox: previous?.sandbox ?? null,
+      taskId: null,
+      status: 'starting',
+      capabilities: NO_CAPABILITIES,
+      models: [],
+      efforts: [],
+      modes: [],
+      commands: [],
+    },
+    nodes: [],
+    seq: 0,
+  });
+  store.set({ currentId: id, chats: store.chats });
+  useAppStore.getState().select({ kind: 'chat', page: 'chat' });
   try {
-    useChatStore.getState().adopt(await window.api.homeChat.create());
-    useAppStore.getState().select({ kind: 'chat', page: 'chat' });
+    useChatStore.getState().adopt(await window.api.homeChat.create(id));
   } catch (error) {
     useProjectStore.getState().addToast(String(error), 'error');
   }

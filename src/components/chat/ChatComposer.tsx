@@ -205,7 +205,8 @@ export function ChatComposer({
   const textarea = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const busy = info.status === 'running' || info.status === 'awaiting';
-  const ready = info.status !== 'starting' && info.status !== 'error' && info.status !== 'exited';
+  // A message sent while the agent starts waits for it in the host, so only a stopped agent refuses one.
+  const ready = info.status !== 'error' && info.status !== 'exited';
   const caps = info.capabilities;
 
   useEffect(() => {

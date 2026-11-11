@@ -154,8 +154,9 @@ function stopOthers(id: string): void {
   }
 }
 
-export async function newHomeChat(): Promise<ChatSnapshot> {
-  const id = newId();
+/** `id` lets the caller show the conversation before this returns. */
+export async function newHomeChat(id = newId()): Promise<ChatSnapshot> {
+  if (!isHomeChatId(id)) throw new Error(`Not an id for Chat's conversations: ${id}`);
   await choose(id);
   stopOthers(id);
   return startConversation(id, true);

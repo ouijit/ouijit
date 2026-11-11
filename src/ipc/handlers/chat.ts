@@ -52,7 +52,7 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   installHomeChat();
   onHomeChatChange((state) => typedPush(mainWindow, 'homeChat:changed', state));
   typedHandle('homeChat:start', () => startHomeChat({ eager: true }));
-  typedHandle('homeChat:new', () => newHomeChat());
+  typedHandle('homeChat:new', (id) => newHomeChat(id));
   typedHandle('homeChat:switch', (id) => switchHomeChat(id));
   typedHandle('homeChat:list', () => homeChatState());
   typedHandle('homeChat:rename', (id, title) => renameHomeChat(id, title));

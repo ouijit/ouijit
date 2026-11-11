@@ -449,7 +449,7 @@ export interface HomeChatAPI {
   start(): Promise<ChatSnapshot>;
   restart(): Promise<ChatSnapshot>;
   wake(event: WakeEvent, text: string): Promise<void>;
-  create(): Promise<ChatSnapshot>;
+  create(id?: string): Promise<ChatSnapshot>;
   switch(id: string): Promise<ChatSnapshot>;
   list(): Promise<HomeChatState>;
   rename(id: string, title: string): Promise<void>;

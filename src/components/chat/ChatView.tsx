@@ -46,7 +46,7 @@ function useStickToBottom(dependency: unknown) {
   return { ref, onScroll };
 }
 
-function StatusLine({ info, cardId }: { info: ChatSessionInfo; cardId: string }) {
+function StatusLine({ info, cardId, quiet }: { info: ChatSessionInfo; cardId: string; quiet: boolean }) {
   const held = useChatStore((s) => s.setup[cardId]);
   if (held?.status === 'running') {
     return (
@@ -65,6 +65,8 @@ function StatusLine({ info, cardId }: { info: ChatSessionInfo; cardId: string })
   }
   switch (info.status) {
     case 'starting':
+      // On the Chat page the composer is already there to type into; the agent takes what is sent once up.
+      if (quiet) return null;
       return <div className="text-[13px] text-text-tertiary">Starting {CHAT_AGENT_LABELS[info.agent]}…</div>;
     case 'error':
     case 'exited':
@@ -132,10 +134,15 @@ export function ChatView({ cardId, surface = 'card' }: { cardId: string; surface
 
   const setFocus = useCallback(
     (focus: (() => void) | null) => {
+      // On its own page a conversation is what you came to type into.
+      if (surface === 'page') {
+        focus?.();
+        return;
+      }
       const term = terminalInstances.get(cardId);
       if (term) term.chatFocus = focus;
     },
-    [cardId],
+    [cardId, surface],
   );
 
   const info = session?.info;
@@ -171,7 +178,7 @@ export function ChatView({ cardId, surface = 'card' }: { cardId: string; surface
       )}
       <div ref={ref} onScroll={onScroll} className="flex-1 min-h-0 overflow-y-auto">
         <div className="mx-auto max-w-[52rem] px-6 pt-14 pb-4 flex flex-col gap-3">
-          {top.length === 0 && info.status !== 'starting' && (
+          {surface === 'card' && top.length === 0 && info.status !== 'starting' && (
             <div className="text-sm text-text-tertiary">{CHAT_AGENT_LABELS[info.agent]} is ready.</div>
           )}
           <ChatNodeList nodes={top} context={context} fold />
@@ -180,7 +187,7 @@ export function ChatView({ cardId, surface = 'card' }: { cardId: string; surface
               <StatusGlyph status="thinking" size={8} />
             </div>
           )}
-          <StatusLine info={info} cardId={cardId} />
+          <StatusLine info={info} cardId={cardId} quiet={surface === 'page'} />
         </div>
       </div>
       {surface === 'page' && (
