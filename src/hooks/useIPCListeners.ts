@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { isHomeChatId } from '../chat/preferences';
+import { useHomeChatStore } from '../stores/homeChatStore';
 import { useAppStore } from '../stores/appStore';
 import {
   SANDBOX_LABELS,
@@ -53,7 +55,8 @@ async function stageOrRun(
 ): Promise<void> {
   const { fromPtyId } = move;
   const hook = move.hookType != null ? (await window.api.hooks.get(projectPath))[move.hookType] : undefined;
-  const onHost = !!hook && !isActiveSandbox(hookSandbox(undefined, hook, await projectDefaultSandbox(projectPath)));
+  const onHost =
+    !!hook && !isActiveSandbox(hookSandbox(move.hookSandbox, hook, await projectDefaultSandbox(projectPath)));
   const onHostUnseen = !!move.fromSandbox && move.hookMode === 'run' && onHost;
   if (hook && move.hookType && (!move.hookMode || onHostUnseen) && fromPtyId) {
     const id = useWaitingStore.getState().add({
@@ -65,7 +68,7 @@ async function stageOrRun(
       hookName: hook.name,
       command: hook.command,
       outsideSandbox: !!move.fromSandbox && onHost,
-      run: () => run(true, { hookMode: 'run' }),
+      run: () => run(true, { ...move, hookMode: 'run', hookCommand: undefined }),
     });
     presentWaiting(id, fromPtyId);
     return;
@@ -98,6 +101,17 @@ async function spawnTerminalForCliStart(projectPath: string, start: CliStart): P
     worktreePath: found.worktreePath ?? start.worktreePath,
     branch: found.branch ?? start.branch,
   };
+
+  // What Chat starts runs in a sandbox whatever the project's default, so its
+  // own sandbox can't be stepped around through a task on the host.
+  if (start.fromPtyId && isHomeChatId(start.fromPtyId)) {
+    useHomeChatStore.getState().own(projectPath, start.taskNumber, start.fromPtyId);
+    if (!isActiveSandbox(start.hookSandbox)) {
+      const hook = (await window.api.hooks.get(projectPath)).start;
+      const chosen = hookSandbox(undefined, hook, await projectDefaultSandbox(projectPath));
+      start = { ...start, hookSandbox: isActiveSandbox(chosen) ? chosen : 'nono' };
+    }
+  }
 
   // The same service a kanban drag to In progress goes through.
   await stageOrRun(projectPath, task, { ...start, hookType: 'start' }, (background, control) =>

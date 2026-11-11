@@ -42,13 +42,14 @@ vi.mock('../db', () => ({
   getTaskByNumber: (...args: unknown[]) => getTaskByNumberMock(...args),
 }));
 
+const trashMock = vi.fn(async () => ({ success: true }));
 const beginTaskMock = vi.fn();
 const setTaskStatusWithHooksMock = vi.fn(async () => ({ success: true }));
 const getTaskWithWorkspaceMock = vi.fn(async () => null);
 vi.mock('../taskLifecycle', () => ({
   beginTask: (...args: unknown[]) => beginTaskMock(...args),
   setTaskStatusWithHooks: (...args: unknown[]) => setTaskStatusWithHooksMock(...args),
-  trashTaskWithWorktree: vi.fn(async () => ({})),
+  trashTaskWithWorktree: (...args: unknown[]) => trashMock(...args),
   getTasksWithWorkspaces: vi.fn(async () => []),
   getTaskWithWorkspace: (...args: unknown[]) => getTaskWithWorkspaceMock(...args),
 }));
@@ -496,5 +497,51 @@ describe('PUT /api/hooks/:type', () => {
     expect((await put('start', 'vm')).status).toBe(400);
     expect((await put('run', 'nono')).status).toBe(400);
     expect(saveHook).not.toHaveBeenCalled();
+  });
+});
+
+describe('what Chat sets off', () => {
+  test("waits for the user when it can't be undone, counts as sandboxed, and can't approve for an agent on the host", async () => {
+    const chat = issueToken('home-1', 'sandbox');
+    const confirms = () => typedPushMock.mock.calls.filter((call) => call[1] === 'homeChat:confirm').map((c) => c[2]);
+
+    // Done writes nothing and completes nothing; it asks the user, in Chat.
+    const done = await request('PATCH', `/api/tasks/8/status?project=${PROJECT}`, chat, { status: 'done' });
+    expect(done.status).toBe(200);
+    expect(done.body.data).toMatchObject({ waiting: true });
+    expect(setTaskStatusWithHooksMock).not.toHaveBeenCalled();
+    expect(getTaskCompletedPushes()).toHaveLength(0);
+
+    // So does trash.
+    const trash = await request('DELETE', `/api/tasks/8?project=${PROJECT}`, chat);
+    expect(trash.body.data).toMatchObject({ waiting: true });
+    expect(trashMock).not.toHaveBeenCalled();
+    expect(confirms()).toEqual([
+      { from: 'home-1', projectPath: '/tmp/test-project', taskNumber: 8, action: 'done' },
+      { from: 'home-1', projectPath: '/tmp/test-project', taskNumber: 8, action: 'trash' },
+    ]);
+
+    // Anywhere else they happen at once.
+    const host = issueToken('pty-host', 'host');
+    await request('DELETE', `/api/tasks/8?project=${PROJECT}`, host);
+    expect(trashMock).toHaveBeenCalledTimes(1);
+
+    // A move from Chat carries that it came from a sandbox, so a host hook waits for the user.
+    createTaskWorktreeMock.mockResolvedValueOnce({
+      success: true,
+      worktreePath: '/tmp/wt/T-9',
+      task: { taskNumber: 9, branch: 'feat-9', createdAt: '2026-05-10T00:00:00.000Z' },
+    });
+    await request('POST', `/api/tasks/start?project=${PROJECT}`, chat, { name: 'x', hookMode: 'run' });
+    expect(getTaskStartedPushes().at(-1)![2]).toMatchObject({
+      fromPtyId: 'home-1',
+      fromSandbox: true,
+      hookMode: 'run',
+    });
+
+    // An agent outside a sandbox is the user's to answer, not Chat's.
+    const answer = await request('POST', '/api/chats/pty-worker/requests/req-1', chat, { optionId: 'allow' });
+    expect(answer.status).toBe(403);
+    expect(String(answer.body.error)).toMatch(/outside a sandbox/);
   });
 });

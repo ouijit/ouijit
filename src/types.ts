@@ -21,7 +21,7 @@ import type {
 } from './chat/model';
 import type { DriverProbe, TerminalResume } from './chat/driver';
 import type { ChatDelivery, ChatStartOptions } from './chat/host';
-import type { HomeChatState, WakeEvent } from './chat/preferences';
+import type { HomeChatConfirm, HomeChatState, WakeEvent } from './chat/preferences';
 import type {
   RepoIdentity,
   GithubAvailability,
@@ -448,12 +448,15 @@ export interface ChatAPI {
 export interface HomeChatAPI {
   start(): Promise<ChatSnapshot>;
   restart(): Promise<ChatSnapshot>;
-  wake(event: WakeEvent, text: string): Promise<void>;
+  /** Null for something the user did, which Chat always hears about. */
+  wake(event: WakeEvent | null, text: string): Promise<void>;
   create(id?: string): Promise<ChatSnapshot>;
   switch(id: string): Promise<ChatSnapshot>;
   list(): Promise<HomeChatState>;
   rename(id: string, title: string): Promise<void>;
   delete(id: string): Promise<HomeChatState>;
+  runAsk(command: string, cwd: string): Promise<{ exitCode: number | null; output: string }>;
+  onConfirm(callback: (request: HomeChatConfirm) => void): () => void;
   onChanged(callback: (state: HomeChatState) => void): () => void;
 }
 

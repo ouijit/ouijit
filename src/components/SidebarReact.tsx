@@ -37,6 +37,7 @@ import { groupByTag, groupByTask } from './sidebar/sidebarTree';
 import { sidebarShownNow, useSidebarShown } from './sidebar/sidebarShown';
 import { useHomeChatStore } from '../stores/homeChatStore';
 import { deleteHomeChat, newHomeChat, openHomeChat } from './chat/chatActions';
+import { useWaitingCount } from './chat/HomeChatDecisions';
 import {
   GroupDots,
   GroupRows,
@@ -356,10 +357,20 @@ function ChatRow({
   rename?: Rename;
   onContextMenu: (e: React.MouseEvent) => void;
 }) {
+  const waiting = useWaitingCount(id);
   return (
     <SidebarRow
       icon={null}
       title={title}
+      trailing={
+        waiting > 0 && (
+          <span
+            className="w-1.5 h-1.5 rounded-full shrink-0"
+            style={{ background: 'var(--color-status-unread)' }}
+            aria-label={`${waiting} waiting on you`}
+          />
+        )
+      }
       tooltip={title}
       bright={selected}
       selected={selected}

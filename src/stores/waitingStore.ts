@@ -28,6 +28,15 @@ export type Waiting = { id: number; from: string; at: number } & (
       outsideSandbox: boolean;
       run: () => void;
     }
+  | {
+      /** Chat moved a task to done or trashed it, which waits for the user to confirm. */
+      kind: 'confirm';
+      projectPath: string;
+      taskNumber: number;
+      action: 'done' | 'trash';
+      run: () => void;
+      cancel: () => void;
+    }
 );
 
 type Unstamped<W> = W extends Waiting ? Omit<W, 'id' | 'at'> : never;
@@ -63,6 +72,7 @@ export const useWaitingStore = create<WaitingStore>()((set, get) => ({
     if (at === -1) return;
     const item = items[at];
     if (item.kind === 'ask') item.ask.decline();
+    if (item.kind === 'confirm') item.cancel();
     const rest = items.filter((i) => i.id !== id);
     // The next one takes the answered one's place, so the dialog moves on rather than back to the start.
     const next = selected === id ? (rest[Math.min(at, rest.length - 1)]?.id ?? null) : selected;

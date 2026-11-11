@@ -85,6 +85,14 @@ export interface HomeChatSummary {
   createdAt: string;
 }
 
+export interface HomeChatConfirm {
+  /** The conversation that asked. */
+  from: string;
+  projectPath: string;
+  taskNumber: number;
+  action: 'done' | 'trash';
+}
+
 export interface HomeChatState {
   currentId: string;
   chats: HomeChatSummary[];

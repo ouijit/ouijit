@@ -9,6 +9,8 @@ import { isActiveSandbox } from '../../types';
 import { ScriptPreview, scriptRisks } from './ScriptPreview';
 import { StageIcon } from '../sidebar/StageIcon';
 import { Icon } from '../terminal/Icon';
+import { isHomeChatId } from '../../chat/preferences';
+import { useHomeChatStore } from '../../stores/homeChatStore';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -33,8 +35,11 @@ export function runWaiting(item: Waiting, privately = false): void {
     item.ask.run(privately);
     return;
   }
+  const run = item.run;
+  // Taken off first, so removing it can't count as a cancel.
+  if (item.kind === 'confirm') item.cancel = () => {};
   useWaitingStore.getState().remove(item.id);
-  item.run();
+  run();
 }
 
 /** An ask from a terminal that has gone can no longer run where it asked to. */
@@ -43,7 +48,9 @@ function usePruneAsks(): void {
     () =>
       useTerminalStore.subscribe((s) => {
         const { items, remove } = useWaitingStore.getState();
-        for (const item of items) if (item.kind === 'ask' && !(item.from in s.displayStates)) remove(item.id);
+        for (const item of items) {
+          if (item.kind === 'ask' && !isHomeChatId(item.from) && !(item.from in s.displayStates)) remove(item.id);
+        }
       }),
     [],
   );
@@ -65,9 +72,12 @@ function useOpenShortcut(): void {
   }, []);
 }
 
+/** What a held move does, as a button and a title say it. */
+export const CONFIRM_VERB = { done: 'Move to done', trash: 'Trash' } as const;
+
 function useTaskName(item: Waiting): string | null {
   return useAppStore((s) =>
-    item.kind === 'move'
+    item.kind === 'move' || item.kind === 'confirm'
       ? (s.taskCacheByProject[item.projectPath]?.find((t) => t.taskNumber === item.taskNumber)?.name ??
         `T-${item.taskNumber}`)
       : null,
@@ -77,11 +87,15 @@ function useTaskName(item: Waiting): string | null {
 /** The terminal that asked, as the sidebar shows it: its task where it has one. */
 function useAsker(ptyId: string) {
   const display = useTerminalStore((s) => s.displayStates[ptyId]);
+  const conversation = useHomeChatStore((s) => s.chats.find((chat) => chat.id === ptyId)?.title);
   const task = useAppStore((s) =>
     display?.taskId != null
       ? s.taskCacheByProject[display.projectPath]?.find((t) => t.taskNumber === display.taskId)
       : undefined,
   );
+  if (isHomeChatId(ptyId)) {
+    return { name: conversation ?? 'Chat', number: null, icon: <Icon name="chat-circle" className="w-3.5 h-3.5" /> };
+  }
   return {
     name: task?.name ?? display?.label ?? 'A terminal',
     number: display?.taskId != null ? `T-${display.taskId}` : null,
@@ -90,8 +104,8 @@ function useAsker(ptyId: string) {
 }
 
 function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolean; onPick: () => void }) {
-  const from = useTerminalStore((s) => s.displayStates[item.from]?.label ?? 'A terminal');
   const asker = useAsker(item.from);
+  const from = asker.name;
   const taskName = useTaskName(item);
   return (
     <button
@@ -110,6 +124,13 @@ function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolea
           </span>
           <span className="font-mono text-[11.5px] text-text-tertiary truncate">{item.ask.command}</span>
         </>
+      ) : item.kind === 'confirm' ? (
+        <>
+          <span className="text-[13px] text-text-primary truncate">
+            {CONFIRM_VERB[item.action]} {taskName}
+          </span>
+          <span className="text-[11.5px] text-text-tertiary truncate">{`From ${from}`}</span>
+        </>
       ) : (
         <>
           <span className="text-[13px] text-text-primary truncate">
@@ -126,8 +147,23 @@ function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolea
 function Detail({ item }: { item: Waiting }) {
   const display = useTerminalStore((s) => s.displayStates[item.from]);
   const taskName = useTaskName(item);
-  const from = display?.label ?? 'A terminal';
-  const sandboxed = isActiveSandbox(display?.sandboxProvider);
+  const from = useAsker(item.from).name;
+  const sandboxed = isActiveSandbox(display?.sandboxProvider) || isHomeChatId(item.from);
+
+  if (item.kind === 'confirm') {
+    return (
+      <>
+        <h2 data-testid="dialog-title" className="text-[17px] font-semibold text-text-primary">
+          {CONFIRM_VERB[item.action]} {taskName}
+        </h2>
+        <p className="mt-2 text-sm leading-5 text-text-primary">
+          {item.action === 'done'
+            ? `${from} wants to move ${taskName} to done, which runs its done hook.`
+            : `${from} wants to trash ${taskName}. Its folder goes to the system trash.`}
+        </p>
+      </>
+    );
+  }
 
   if (item.kind === 'move') {
     return (
@@ -223,21 +259,23 @@ function WaitingDialog() {
   const current = items.find((i) => i.id === selected) ?? items[0];
   if (!current) return null;
   const several = items.length > 1;
+  // Nothing that can't be undone goes in a batch.
+  const runnable = items.filter((item) => item.kind !== 'confirm');
 
   const footer = (
     <div className="flex items-center gap-2 mt-4 shrink-0">
-      {several && (
+      {several && runnable.length > 0 && (
         <button
           type="button"
           className="px-3.5 py-1.5 rounded-full text-sm text-text-secondary hover:text-text-primary hover:bg-ink/[0.05] transition-colors duration-100"
-          onClick={() => items.forEach((item) => runWaiting(item))}
+          onClick={() => runnable.forEach((item) => runWaiting(item))}
         >
-          Run all {items.length}
+          Run all {runnable.length}
         </button>
       )}
       <span className="flex-1" />
       <button data-testid="waiting-decline" className="btn-secondary" onClick={() => remove(current.id)}>
-        {current.kind === 'ask' ? 'Decline' : 'Skip'}
+        {current.kind === 'ask' ? 'Decline' : current.kind === 'confirm' ? 'Cancel' : 'Skip'}
       </button>
       {current.kind === 'ask' && (
         <button data-testid="waiting-run-private" className="btn-secondary" onClick={() => runWaiting(current, true)}>
@@ -245,7 +283,7 @@ function WaitingDialog() {
         </button>
       )}
       <button data-testid="waiting-run" className="btn-primary" onClick={() => runWaiting(current)}>
-        Run
+        {current.kind === 'confirm' ? CONFIRM_VERB[current.action] : 'Run'}
       </button>
     </div>
   );

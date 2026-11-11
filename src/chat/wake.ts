@@ -1,6 +1,7 @@
 import { getLogger } from '../logger';
 import { getAllProjects, getTaskByNumber } from '../db';
 import { taskEvents, type TaskStatusChange } from '../taskEvents';
+import { getSessionSpawnContext } from '../sessions';
 import { chatHost } from './host';
 import { homeChatCurrent, loadHomeChatSettings } from './homeChat';
 import { isHomeChatId, type WakeEvent } from './preferences';
@@ -46,6 +47,22 @@ export async function wakeHomeChat(event: WakeEvent | null, text: string): Promi
 
 function busy(status: ChatSessionStatus | undefined): boolean {
   return status === 'running' || status === 'awaiting';
+}
+
+/** A worker that has asked the user to run something outside its sandbox is stuck until they do. */
+export async function wakeForAsk(ptyId: string, command: string, message: string): Promise<void> {
+  const info = chatHost.snapshot(ptyId)?.info;
+  const context = getSessionSpawnContext(ptyId);
+  const who = info
+    ? await describeSession(info)
+    : context?.taskId != null
+      ? `${await describeTask(context.projectPath, context.taskId)},`
+      : `Terminal ${ptyId},`;
+  const why = message ? ` (${message})` : '';
+  await wakeHomeChat(
+    'asked',
+    `${who} is waiting on the user to run \`${command}\` outside its sandbox${why}. Only the user can run it.`,
+  );
 }
 
 /** Follow every other chat and every task for what Chat should hear about. Once per process. */

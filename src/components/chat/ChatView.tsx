@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -116,7 +116,16 @@ async function restart(cardId: string): Promise<void> {
 }
 
 /** `page` sits on the window's own background, as the board does; `card` is the surface inside a terminal card. */
-export function ChatView({ cardId, surface = 'card' }: { cardId: string; surface?: 'card' | 'page' }) {
+export function ChatView({
+  cardId,
+  surface = 'card',
+  footer,
+}: {
+  cardId: string;
+  surface?: 'card' | 'page';
+  /** After the transcript, as part of it: what the conversation waits on the user for. */
+  footer?: ReactNode;
+}) {
   const session = useSession(cardId);
   const nodes = session?.nodes;
   const { ref, onScroll } = useStickToBottom(nodes);
@@ -188,6 +197,7 @@ export function ChatView({ cardId, surface = 'card' }: { cardId: string; surface
             </div>
           )}
           <StatusLine info={info} cardId={cardId} quiet={surface === 'page'} />
+          {footer}
         </div>
       </div>
       {surface === 'page' && (

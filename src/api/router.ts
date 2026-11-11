@@ -83,6 +83,7 @@ import {
 import { chatHost, ChatSessionNotFound } from '../chat/host';
 import { transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
 import { isHomeChatId } from '../chat/preferences';
+import { wakeForAsk } from '../chat/wake';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext } from '../apiAuth';
@@ -221,10 +222,31 @@ function parseHookMode(body: Record<string, unknown>): Omit<CliHookControl, 'hoo
 /** Why an agent asks, in a line or two: anything longer is cut. */
 const MAX_ASK_MESSAGE = 200;
 
+/**
+ * Chat reaches all of the API, but counts as sandboxed for what it sets off:
+ * a hook it would run on the host waits for the user, as a sandboxed
+ * terminal's does.
+ */
 function cliCaller(auth: AuthContext): CliCaller {
   return {
     fromPtyId: callerTerminal(auth.ptyId),
-    ...(auth.scope === 'sandbox' && { fromSandbox: true }),
+    ...((auth.scope === 'sandbox' || isHomeChatId(auth.ptyId)) && { fromSandbox: true }),
+  };
+}
+
+/** Done and trash can't be undone, so from Chat they wait for the user, who sees them in Chat. */
+function holdForUser(
+  r: Pick<ParsedRequest, 'auth' | 'window'>,
+  project: string,
+  taskNumber: number,
+  action: 'done' | 'trash',
+): { success: true; waiting: true; message: string } | null {
+  if (!isHomeChatId(r.auth.ptyId)) return null;
+  typedPush(r.window, 'homeChat:confirm', { from: r.auth.ptyId, projectPath: project, taskNumber, action });
+  return {
+    success: true,
+    waiting: true,
+    message: `Waiting for the user to confirm ${action === 'done' ? 'moving it to done' : 'trashing it'}; you will be told how they decide.`,
   };
 }
 
@@ -283,8 +305,11 @@ function isStatusPatchRoute(method: string, segments: string[]): boolean {
   return method === 'PATCH' && segments.length === 3 && segments[0] === 'tasks' && segments[2] === 'status';
 }
 
+/** A move held for the user has not happened yet, so nothing that follows a move may fire for it. */
 function isSuccessfulMutation(result: unknown): result is { success: true } {
-  return typeof result === 'object' && result !== null && (result as Record<string, unknown>).success === true;
+  if (typeof result !== 'object' || result === null) return false;
+  const fields = result as Record<string, unknown>;
+  return fields.success === true && fields.waiting !== true;
 }
 
 // ── Route dispatch ───────────────────────────────────────────────────
@@ -616,6 +641,10 @@ const routes: Route[] = [
       // the same hook-control flags as task-start. Validate them up front so a
       // bad hookMode fails before any status is written.
       if (status === 'in_progress' || status === 'in_review' || status === 'done') parseHookControl(r.body);
+      if (status === 'done') {
+        const held = holdForUser(r, project, num, 'done');
+        if (held) return held;
+      }
       return setTaskStatusWithHooks(project, num, status as 'todo' | 'in_progress' | 'in_review' | 'done');
     },
     true,
@@ -666,7 +695,7 @@ const routes: Route[] = [
     (r) => {
       const project = requireProject(r.query);
       const num = requireInt(r.segments[1], 'Task number');
-      return trashTaskWithWorktree(project, num);
+      return holdForUser(r, project, num, 'trash') ?? trashTaskWithWorktree(project, num);
     },
     true,
   ),
@@ -823,6 +852,7 @@ const routes: Route[] = [
     async (r) => {
       const ask = await askRun(r);
       const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_ASK_MESSAGE) : '';
+      if (!isHomeChatId(r.auth.ptyId)) void wakeForAsk(r.auth.ptyId, ask.command, message);
       const result = await cliAskRequest({
         fromPtyId: callerTerminal(r.auth.ptyId),
         ask,
@@ -953,6 +983,14 @@ const routes: Route[] = [
       const id = r.segments[1];
       // An agent answering its own approval would make the approval meaningless.
       if (r.auth.ptyId === id) throw new HttpError(403, 'A chat cannot answer its own requests');
+      // Chat's own sandbox would mean nothing if it could approve what an agent on the host does.
+      const target = chatHost.list().find((info) => info.id === id);
+      if (isHomeChatId(r.auth.ptyId) && !isActiveSandbox(target?.sandbox as SandboxProviderId | undefined)) {
+        throw new HttpError(
+          403,
+          "That agent runs on the user's computer, outside a sandbox, so its requests are theirs to answer. Tell them what it is asking.",
+        );
+      }
       const answer = parseAnswer(r.body);
       try {
         if (!chatHost.answer(id, r.segments[3], answer)) {

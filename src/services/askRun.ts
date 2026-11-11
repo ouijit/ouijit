@@ -7,6 +7,8 @@ import { useWaitingStore } from '../stores/waitingStore';
 import { presentWaiting } from './presentWaiting';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { AskAnswer, AskRun, CliAskResponse } from '../types';
+import { isHomeChatId } from '../chat/preferences';
+import { askFromHomeChat } from './homeChatDecisions';
 
 const OUTPUT_LINES = 100;
 
@@ -48,6 +50,7 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
  * comes at once, or with `wait` once the user declines or the run ends.
  */
 export function askToRun(fromPtyId: string, ask: AskRun, message: string | undefined): Promise<CliAskResponse> {
+  if (isHomeChatId(fromPtyId)) return askFromHomeChat(fromPtyId, ask, message);
   if (!(fromPtyId in useTerminalStore.getState().displayStates)) {
     return Promise.resolve({ ok: false, error: `No terminal ${fromPtyId}` });
   }

@@ -17,6 +17,7 @@ import {
 } from '../../chat/preferences';
 import { NO_CAPABILITIES } from '../../chat/model';
 import { listenForHomeChat, useHomeChatStore } from '../../stores/homeChatStore';
+import { holdHomeChatConfirm } from '../../services/homeChatDecisions';
 import { useAppStore } from '../../stores/appStore';
 import type { ChatAgentId, ChatAttachment, ChatSessionStatus, SequencedChatEvent } from '../../chat/model';
 import type { SandboxProviderId, SnapshotTerminalUi, TaskWithWorkspace } from '../../types';
@@ -57,7 +58,7 @@ function forwardStatus(id: string, event: SequencedChatEvent): void {
 /** Start feeding chat events to the store and the cards. Call once at startup. */
 export function initChat(): void {
   listenForChatEvents(forwardStatus);
-  listenForHomeChat();
+  listenForHomeChat(holdHomeChatConfirm);
   void loadChatSettings();
   void startHomeChat();
 }

@@ -11,6 +11,7 @@ import {
   onHomeChatChange,
   renameHomeChat,
   restartHomeChat,
+  runHomeChatAsk,
   startHomeChat,
   switchHomeChat,
 } from '../../chat/homeChat';
@@ -57,6 +58,7 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   typedHandle('homeChat:list', () => homeChatState());
   typedHandle('homeChat:rename', (id, title) => renameHomeChat(id, title));
   typedHandle('homeChat:delete', (id) => deleteHomeChat(id));
+  typedHandle('homeChat:run-ask', (command, cwd) => runHomeChatAsk(command, cwd));
   typedHandle('homeChat:wake', (event, text) => wakeHomeChat(event, text));
   typedHandle('homeChat:restart', () => restartHomeChat());
   typedHandle('chat:terminal-resume', (id) => {

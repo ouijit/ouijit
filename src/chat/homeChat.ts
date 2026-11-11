@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { getChatRepo, getGlobalSetting, setGlobalSetting } from '../db';
 import { getLogger } from '../logger';
 import { getUserDataPath } from '../paths';
+import { hostEnv } from '../sessionEnv';
 import { chatHost } from './host';
 import { HOME_CHAT_INSTRUCTIONS } from './homeChatInstructions';
 import {
@@ -222,4 +223,35 @@ async function clearStartsAnother(id: string): Promise<boolean> {
   if (!isHomeChatId(id)) return false;
   await newHomeChat();
   return true;
+}
+
+const ASK_OUTPUT_LINES = 100;
+
+/**
+ * Run a command Chat asked for, once the user has pressed Run. Chat has no
+ * terminal to hold a runner, so it runs without one: no input, so a command
+ * that prompts gets an end of file rather than waiting on nobody.
+ */
+export function runHomeChatAsk(command: string, cwd: string): Promise<{ exitCode: number | null; output: string }> {
+  return new Promise((resolve) => {
+    const child = spawn('/bin/sh', ['-c', command], {
+      cwd,
+      env: { ...hostEnv(), PAGER: 'cat', GH_PAGER: 'cat', GIT_PAGER: 'cat' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let output = '';
+    const take = (chunk: Buffer) => {
+      output += chunk.toString();
+      if (output.length > 200_000) output = output.slice(-100_000);
+    };
+    child.stdout.on('data', take);
+    child.stderr.on('data', take);
+    const finish = (exitCode: number | null) =>
+      resolve({ exitCode, output: output.split('\n').slice(-ASK_OUTPUT_LINES).join('\n').trimEnd() });
+    child.on('error', (error) => {
+      output += `${error.message}\n`;
+      finish(null);
+    });
+    child.on('close', finish);
+  });
 }

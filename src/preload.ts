@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { HomeChatState, WakeEvent } from './chat/preferences';
+import type { HomeChatConfirm, HomeChatState, WakeEvent } from './chat/preferences';
 import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/contract';
 import type { DiffDefaults } from './git';
 import type {
@@ -175,12 +175,14 @@ contextBridge.exposeInMainWorld('api', {
   homeChat: {
     start: () => typedInvoke('homeChat:start'),
     restart: () => typedInvoke('homeChat:restart'),
-    wake: (event: WakeEvent, text: string) => typedInvoke('homeChat:wake', event, text),
+    wake: (event: WakeEvent | null, text: string) => typedInvoke('homeChat:wake', event, text),
     create: (id?: string) => typedInvoke('homeChat:new', id),
     switch: (id: string) => typedInvoke('homeChat:switch', id),
     list: () => typedInvoke('homeChat:list'),
     rename: (id: string, title: string) => typedInvoke('homeChat:rename', id, title),
     delete: (id: string) => typedInvoke('homeChat:delete', id),
+    runAsk: (command: string, cwd: string) => typedInvoke('homeChat:run-ask', command, cwd),
+    onConfirm: (callback: (request: HomeChatConfirm) => void) => typedListen('homeChat:confirm', callback),
     onChanged: (callback: (state: HomeChatState) => void) => typedListen('homeChat:changed', callback),
   },
 

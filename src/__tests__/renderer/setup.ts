@@ -130,6 +130,8 @@ const mockApi = {
     list: vi.fn().mockResolvedValue({ currentId: '', chats: [] }),
     rename: vi.fn().mockResolvedValue(undefined),
     delete: vi.fn().mockResolvedValue({ currentId: '', chats: [] }),
+    runAsk: vi.fn().mockResolvedValue({ exitCode: 0, output: '' }),
+    onConfirm: vi.fn().mockReturnValue(() => {}),
     onChanged: vi.fn().mockReturnValue(() => {}),
   },
   worktree: {

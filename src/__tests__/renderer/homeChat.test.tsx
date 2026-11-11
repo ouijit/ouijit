@@ -9,6 +9,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { HOME_CHAT_SETTING_KEYS } from '../../chat/preferences';
 import { useHomeChatStore } from '../../stores/homeChatStore';
+import { useWaitingStore } from '../../stores/waitingStore';
 import { NO_CAPABILITIES, type ChatNode, type ChatSessionInfo, type ChatSnapshot } from '../../chat/model';
 
 vi.mock('../../components/terminal/terminalReact', () => ({
@@ -88,6 +89,7 @@ beforeEach(() => {
   useTerminalStore.setState(useTerminalStore.getInitialState(), true);
   useUIStore.setState(useUIStore.getInitialState(), true);
   useChatStore.setState({ sessions: {}, setup: {}, drafts: {} });
+  useWaitingStore.setState({ items: [], open: false, selected: null });
   useHomeChatStore.getState().set({
     currentId: CURRENT,
     chats: [
@@ -195,5 +197,89 @@ describe('Chat', () => {
     // Escape leaves settings for the chat.
     fireEvent.keyDown(document.body, { key: 'Escape' });
     expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'chat' });
+  });
+
+  test('shows what it waits on you for as cards, with the same answers as the queue, and marks the row', async () => {
+    adopt(transcript().map((n) => (n.id === 't4' ? { ...n, status: 'completed' } : n)) as ChatNode[], {
+      status: 'idle',
+    });
+    // A worker Chat started, in a sandbox, with a request Chat left to the user.
+    useHomeChatStore.getState().own('/code/alpha', 12, CURRENT);
+    act(() =>
+      useChatStore.getState().adopt({
+        info: {
+          ...INFO,
+          id: 'pty-12',
+          label: 'Settings storage',
+          taskId: 12,
+          projectPath: '/code/alpha',
+          sandbox: 'nono',
+        },
+        nodes: [
+          {
+            kind: 'request',
+            id: 'req-1',
+            parentId: null,
+            createdAt: 1,
+            request: 'approval',
+            title: 'Delete old.test.tsx',
+            detail: 'rm src/old.test.tsx',
+            options: [
+              { id: 'allow', label: 'Allow', kind: 'allow_once' },
+              { id: 'deny', label: 'Deny', kind: 'reject_once' },
+            ],
+            questions: [],
+            status: 'pending',
+          } as ChatNode,
+        ],
+        seq: 1,
+      }),
+    );
+    const decline = vi.fn();
+    const run = vi.fn();
+    act(() => {
+      useWaitingStore.getState().add({
+        kind: 'ask',
+        from: CURRENT,
+        ask: { command: 'gh pr list', cwd: '/chat', message: 'needs your GitHub sign-in', run, decline },
+      });
+      useWaitingStore.getState().add({
+        kind: 'confirm',
+        from: CURRENT,
+        projectPath: '/code/alpha',
+        taskNumber: 12,
+        action: 'trash',
+        run: vi.fn(),
+        cancel: vi.fn(),
+      });
+    });
+    render(<App />);
+    act(() => useAppStore.getState().select({ kind: 'chat', page: 'chat' }));
+
+    const cards = () => [...document.querySelectorAll<HTMLElement>('[data-chat-decision]')];
+    expect(cards()).toHaveLength(3);
+    const [ask, trash, worker] = cards();
+    expect(ask.textContent).toContain('gh pr list');
+    expect(ask.textContent).toContain('needs your GitHub sign-in');
+    expect(trash.textContent).toContain('Trash T-12');
+    expect(worker.textContent).toContain('Delete old.test.tsx');
+
+    // The row of the conversation carries a dot while anything waits.
+    const group = screen
+      .getByRole('complementary', { name: 'Sidebar' })
+      .querySelector<HTMLElement>('[data-group="home-chat"]')!;
+    expect(within(group).getByLabelText('3 waiting on you')).toBeTruthy();
+
+    // Answering a card answers the queue item and the worker.
+    fireEvent.click(within(ask).getByRole('button', { name: 'Run' }));
+    expect(run).toHaveBeenCalledWith(false);
+    fireEvent.click(within(trash).getByRole('button', { name: 'Cancel' }));
+    expect(useWaitingStore.getState().items.some((item) => item.kind === 'confirm')).toBe(false);
+    fireEvent.click(within(worker).getByRole('button', { name: 'Deny' }));
+    expect(window.api.chat.answer).toHaveBeenCalledWith('pty-12', 'req-1', { kind: 'option', optionId: 'deny' });
+
+    // Nothing waits while Chat is still working out what to do with a request.
+    adopt(transcript(), { status: 'running' });
+    expect(cards().some((card) => card.textContent?.includes('Delete old.test.tsx'))).toBe(false);
   });
 });
