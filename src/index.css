@@ -712,6 +712,17 @@ textarea,
   @apply text-sm font-medium text-ink/90 mt-3 mb-1;
 }
 
+/* What Chat says arrives softly rather than landing all at once. */
+.chat-said-in {
+  animation: chat-swap-in 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-said-in {
+    animation: none;
+  }
+}
+
 /* Chat's replies read as conversation: a heading is a bold line, not a change of size. */
 .chat-turns .app-markdown :is(h1, h2, h3, h4) {
   @apply text-sm font-semibold text-text-primary mt-3 mb-1;

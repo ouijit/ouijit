@@ -172,6 +172,22 @@ describe('Chat', () => {
     expect(screen.getByRole('button', { name: /Read 1 file/ }).getAttribute('aria-expanded')).toBe('false');
     expect(screen.getByText('Reading what it did.')).toBeTruthy();
 
+    // What it says at length streams in where it says it, and stays once it moves on; a remark only names the step.
+    const long = node({
+      kind: 'assistant_message',
+      id: 'a3',
+      text: 'It wrote the migration.\n\n- Adds a settings table\n- Backfills from the old file',
+      status: 'running',
+    });
+    adopt([...transcript(), long], { status: 'running' });
+    expect(screen.getByText('Adds a settings table')).toBeTruthy();
+    expect(screen.queryByRole('status', { name: 'Working' })).toBeNull();
+    adopt([...transcript(), { ...long, status: 'completed' } as ChatNode, tool('t5', 'command', 'git log')], {
+      status: 'running',
+    });
+    expect(screen.getByText('Adds a settings table')).toBeTruthy();
+    expect(screen.getByRole('status', { name: 'Working' }).textContent).toMatch(/^git log…/);
+
     // Another conversation resumes in place of this one; the plus starts a fresh one; a row can be renamed.
     fireEvent.click(within(group).getByRole('button', { name: 'Keychain recovery review' }));
     expect(window.api.homeChat.switch).toHaveBeenCalledWith('home-2');

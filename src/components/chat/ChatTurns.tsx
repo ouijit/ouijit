@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../terminal/Icon';
+import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
 import { ChatNodeView, ThoughtLine, foldSummary, formatSpan, isEmptyThought, type NodeContext } from './ChatNodes';
-import type { ChatNode, UserMessageNode } from '../../chat/model';
+import type { AssistantMessageNode, ChatNode, UserMessageNode } from '../../chat/model';
+
+type Piece = { kind: 'work'; nodes: ChatNode[] } | { kind: 'said'; node: AssistantMessageNode };
 
 interface Turn {
   opener: UserMessageNode | null;
-  work: ChatNode[];
-  reply: ChatNode | null;
+  body: ChatNode[];
   /** Shown whatever the turn's state: what stops for the user, and failures. */
   kept: ChatNode[];
 }
@@ -19,41 +21,77 @@ function turnsOf(nodes: ChatNode[]): Turn[] {
   let current: Turn | null = null;
   for (const node of nodes) {
     if (node.kind === 'user_message') {
-      current = { opener: node, work: [], reply: null, kept: [] };
+      current = { opener: node, body: [], kept: [] };
       turns.push(current);
       continue;
     }
     if (!current) {
-      current = { opener: null, work: [], reply: null, kept: [] };
+      current = { opener: null, body: [], kept: [] };
       turns.push(current);
     }
     if (KEPT.includes(node.kind)) current.kept.push(node);
-    else if (!isEmptyThought(node)) current.work.push(node);
-  }
-  for (const turn of turns) {
-    const last = turn.work.findLastIndex((n) => n.kind === 'assistant_message' && n.text.trim() !== '');
-    if (last !== -1) [turn.reply] = turn.work.splice(last, 1);
+    else if (!isEmptyThought(node)) current.body.push(node);
   }
   return turns;
 }
 
-/** What the agent is doing now, in a phrase: the step it is on, else the start of its last thought. */
-function doingNow(work: ChatNode[]): string {
+function said(node: ChatNode): node is AssistantMessageNode {
+  return node.kind === 'assistant_message' && node.text.trim() !== '';
+}
+
+/**
+ * More than a remark on the way to the next step: a paragraph, a list, a
+ * heading or code, or a few sentences. That is what the reader reads, so it
+ * streams in where it was said; a remark only names the step.
+ */
+function substantial(text: string): boolean {
+  const trimmed = text.trim();
+  return trimmed.length > 220 || /\n\s*\n|\n\s*([-*]|\d+\.)\s|^#|```/m.test(trimmed);
+}
+
+/**
+ * The turn as it reads: substantial messages where they were said, the work
+ * between them folded to a line each, and a finished turn's last message kept
+ * whatever its length.
+ */
+function piecesOf(body: ChatNode[], finished: boolean): Piece[] {
+  const lastSaid = finished ? body.findLastIndex(said) : -1;
+  const pieces: Piece[] = [];
+  body.forEach((node, index) => {
+    if (said(node) && (index === lastSaid || substantial(node.text))) {
+      pieces.push({ kind: 'said', node });
+      return;
+    }
+    const last = pieces.at(-1);
+    if (last?.kind === 'work') last.nodes.push(node);
+    else pieces.push({ kind: 'work', nodes: [node] });
+  });
+  return pieces;
+}
+
+function firstSentence(text: string): string {
+  const sentence = text.trim().split(/(?<=[.!?])\s/)[0];
+  return sentence.length > 90 ? `${sentence.slice(0, 89)}…` : sentence;
+}
+
+/**
+ * What the agent is on now, from the latest thing that names it: a step, a
+ * finished thought, or a remark. Something still streaming in is a few words
+ * of a sentence, so it waits until it is whole; until then the last phrase stands.
+ */
+function doingNow(work: ChatNode[]): string | null {
   for (let i = work.length - 1; i >= 0; i--) {
     const node = work[i];
-    if (node.kind === 'tool_call' && node.status === 'running') return `${node.title.replace(/[.…]+$/, '')}…`;
-    // A thought still streaming in is a few words of a sentence; it is read once it is whole.
-    if (node.kind === 'reasoning' && node.status !== 'running' && node.text.trim()) {
-      const sentence = node.text.trim().split(/(?<=[.!?])\s/)[0];
-      return sentence.length > 90 ? `${sentence.slice(0, 89)}…` : sentence;
+    if (node.kind === 'tool_call') return `${node.title.replace(/[.…]+$/, '')}…`;
+    if ((node.kind === 'reasoning' || node.kind === 'assistant_message') && node.status !== 'running') {
+      if (node.text.trim()) return firstSentence(node.text);
     }
-    if (node.kind === 'tool_call') break;
   }
-  return 'Thinking…';
+  return null;
 }
 
 /** Each phrase stays up long enough to read before the next replaces it; ones in between are skipped. */
-const HOLD_MS = 1500;
+const HOLD_MS = 2000;
 
 function useHeld(phrase: string): string {
   const [shown, setShown] = useState(phrase);
@@ -71,7 +109,9 @@ function useHeld(phrase: string): string {
 }
 
 function Doing({ work, started }: { work: ChatNode[]; started: number }) {
-  const phrase = useHeld(doingNow(work));
+  const latest = useRef('Thinking…');
+  latest.current = doingNow(work) ?? latest.current;
+  const phrase = useHeld(latest.current);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -83,7 +123,9 @@ function Doing({ work, started }: { work: ChatNode[]; started: number }) {
       role="status"
       aria-label="Working"
     >
-      <span className="w-1.5 h-1.5 rounded-full bg-text-tertiary animate-pulse motion-reduce:animate-none shrink-0" />
+      <span className="w-3 flex justify-center shrink-0">
+        <StatusGlyph status="thinking" size={8} />
+      </span>
       <span className="flex-1 truncate">{phrase}</span>
       <span className="shrink-0 tabular-nums">{formatSpan(now - started)}</span>
     </div>
@@ -141,43 +183,54 @@ function WakeOpener({ node }: { node: UserMessageNode }) {
   );
 }
 
+function TurnView({ turn, running, context }: { turn: Turn; running: boolean; context: NodeContext }) {
+  const pieces = piecesOf(turn.body, !running);
+  // While it runs, the work after the last thing said is the line saying what it is on.
+  const tail = running && pieces.at(-1)?.kind === 'work' ? pieces.pop() : undefined;
+  const streaming = running && !tail && pieces.at(-1)?.kind === 'said';
+  return (
+    <div className="flex flex-col gap-3">
+      {turn.opener &&
+        (turn.opener.wake ? <WakeOpener node={turn.opener} /> : <ChatNodeView node={turn.opener} context={context} />)}
+      {pieces.map((piece) =>
+        piece.kind === 'work' ? (
+          <WorkFold key={piece.nodes[0].id} work={piece.nodes} context={context} />
+        ) : (
+          <div key={piece.node.id} className="chat-said-in">
+            <ChatMarkdown text={piece.node.text} complete={piece.node.status !== 'running'} />
+          </div>
+        ),
+      )}
+      {running && !streaming && (
+        <Doing
+          work={tail?.kind === 'work' ? tail.nodes : []}
+          started={turn.opener?.createdAt ?? turn.body[0]?.createdAt ?? Date.now()}
+        />
+      )}
+      {turn.kept.map((node) => (
+        <ChatNodeView key={node.id} node={node} context={context} />
+      ))}
+    </div>
+  );
+}
+
 /**
- * A transcript a turn at a time: what started it, one closed line for the
- * work, and what it said last. While a turn runs, only a line saying what it
- * is doing now: the work is never shown happening and then put away.
+ * A transcript a turn at a time. While a turn runs, a line says what it is
+ * on, and what it says to the reader streams in where it is said; the steps
+ * between fold to a line, and nothing shown is put away afterwards.
  */
 export function ChatTurns({ nodes, context, busy }: { nodes: ChatNode[]; context: NodeContext; busy: boolean }) {
   const turns = turnsOf(nodes);
   return (
     <div className="chat-turns flex flex-col gap-5">
-      {turns.map((turn, index) => {
-        const running = busy && index === turns.length - 1;
-        const key = turn.opener?.id ?? turn.work[0]?.id ?? turn.kept[0]?.id ?? `turn-${index}`;
-        return (
-          <div key={key} className="flex flex-col gap-3">
-            {turn.opener &&
-              (turn.opener.wake ? (
-                <WakeOpener node={turn.opener} />
-              ) : (
-                <ChatNodeView node={turn.opener} context={context} />
-              ))}
-            {running ? (
-              <Doing
-                work={turn.reply ? [...turn.work, turn.reply] : turn.work}
-                started={turn.opener?.createdAt ?? turn.work[0]?.createdAt ?? Date.now()}
-              />
-            ) : (
-              <>
-                {turn.work.length > 0 && <WorkFold work={turn.work} context={context} />}
-                {turn.reply?.kind === 'assistant_message' && <ChatMarkdown text={turn.reply.text} complete />}
-              </>
-            )}
-            {turn.kept.map((node) => (
-              <ChatNodeView key={node.id} node={node} context={context} />
-            ))}
-          </div>
-        );
-      })}
+      {turns.map((turn, index) => (
+        <TurnView
+          key={turn.opener?.id ?? turn.body[0]?.id ?? turn.kept[0]?.id ?? `turn-${index}`}
+          turn={turn}
+          running={busy && index === turns.length - 1}
+          context={context}
+        />
+      ))}
     </div>
   );
 }
