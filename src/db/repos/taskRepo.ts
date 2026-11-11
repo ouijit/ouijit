@@ -34,8 +34,7 @@ export class TaskRepo {
 
   getByBranch(projectPath: string, branch: string): TaskRow | undefined {
     return this.db.prepare('SELECT * FROM tasks WHERE project_path = ? AND branch = ?').get(projectPath, branch) as
-      | TaskRow
-      | undefined;
+      TaskRow | undefined;
   }
 
   getByTaskNumber(projectPath: string, taskNumber: number): TaskRow | undefined {

@@ -22,7 +22,7 @@ emulation flakiness.
 
 - **macOS** (Apple Silicon or Intel)
 - **Lima** - Linux virtual machine manager for macOS
-- **Node.js 20+**
+- **Node.js 22.22+**
 
 ### Install Lima
 

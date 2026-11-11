@@ -85,7 +85,7 @@ type OuijitFixtures = {
 
 export function launchApp(userDataDir: string): Promise<ElectronApplication> {
   return _electron.launch({
-    args: [path.resolve(__dirname, '..', '.vite-e2e', 'build', 'main.js'), '--no-sandbox'],
+    args: [path.resolve(__dirname, '..', '.vite-e2e', 'build', 'main.cjs'), '--no-sandbox'],
     env: { ...process.env, OUIJIT_TEST_USER_DATA: userDataDir, OUIJIT_E2E: '1' },
   });
 }

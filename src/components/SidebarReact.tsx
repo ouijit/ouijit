@@ -474,25 +474,21 @@ function ProjectGroup({ project }: { project: Project }) {
   }));
   const overflow: ContextMenuEntry[] = [
     { label: 'New terminal', icon: 'terminal', onClick: () => void openShell(project.path) },
-    ...(config?.availableSandboxProviders ?? []).map(
-      (backend): ContextMenuItem => ({
-        label: `New ${SANDBOX_LABELS[backend].toLowerCase()} terminal`,
-        icon: 'terminal',
-        onClick: () => void openShell(project.path, backend),
-      }),
-    ),
+    ...(config?.availableSandboxProviders ?? []).map((backend): ContextMenuItem => ({
+      label: `New ${SANDBOX_LABELS[backend].toLowerCase()} terminal`,
+      icon: 'terminal',
+      onClick: () => void openShell(project.path, backend),
+    })),
     ...(ptyIds.length > 0
       ? [{ label: 'All terminals', icon: 'cards-three', onClick: () => showProject(project.path, ptyIds) }]
       : []),
     { separator: true },
     ...trackerLists,
-    ...overflowPages.map(
-      (page): ContextMenuItem => ({
-        label: PAGE_TITLES[page],
-        icon: PAGE_ICONS[page],
-        onClick: () => void openProjectPage(project.path, page),
-      }),
-    ),
+    ...overflowPages.map((page): ContextMenuItem => ({
+      label: PAGE_TITLES[page],
+      icon: PAGE_ICONS[page],
+      onClick: () => void openProjectPage(project.path, page),
+    })),
   ];
   const openMenuAt = (x: number, y: number) => {
     if (!config) void loadProjectConfig(project.path);

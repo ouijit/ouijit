@@ -62,15 +62,16 @@ function ensureMermaid(): void {
   mermaid.initialize({
     startOnLoad: false,
     theme,
+    layout: 'dagre',
+    look: 'classic',
     securityLevel: 'strict',
     fontFamily: MERMAID_FONT_FAMILY,
     // Render labels as native SVG <text> elements rather than <foreignObject>
     // wrappers around HTML. Keeps DOMPurify config trivial and dodges the
     // namespace edge cases that strip child content of foreignObject.
-    // Mermaid 11 only honors the top-level flag; the flowchart-scoped one is
-    // ignored, and DOMPurify then strips every node label.
     htmlLabels: false,
-    flowchart: { htmlLabels: false },
+    // The default pads short labels to 120px, which shrinks a whole diagram to fit the panel.
+    flowchart: { minNodeWidth: 0 },
   });
   mermaidTheme = theme;
 }

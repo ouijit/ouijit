@@ -462,7 +462,7 @@ function waitingTodos(projectTasks: TaskWithWorkspace[], listed: TaskGroup[]): T
   const open = new Set(listed.map((group) => group.taskId));
   return projectTasks
     .filter((task) => task.status === 'todo' && !open.has(task.taskNumber))
-    .sort((a, b) => a.order - b.order);
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 /** Past this many to-dos the menu gains a field to filter them. */

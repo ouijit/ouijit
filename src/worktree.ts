@@ -870,8 +870,7 @@ export async function listWorktrees(projectPath: string): Promise<WorktreeInfo[]
  * without it TypeScript does not narrow a union by a boolean literal.
  */
 export type CheckWorktreeResult =
-  | { status: 'present'; worktreePath: string }
-  | { status: 'missing'; branchExists: boolean };
+  { status: 'present'; worktreePath: string } | { status: 'missing'; branchExists: boolean };
 
 /**
  * Check if a task's worktree directory and branch still exist
