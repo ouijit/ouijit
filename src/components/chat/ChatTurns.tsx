@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { revealed, useReveal } from './useReveal';
 import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
@@ -184,70 +184,94 @@ function WakeOpener({ node }: { node: UserMessageNode }) {
   );
 }
 
-/** When the transcript was opened: what was said before then is history, shown whole. */
-const OpenedAt = createContext(0);
-
-function Said({ node }: { node: AssistantMessageNode }) {
-  const openedAt = useContext(OpenedAt);
-  // Mounted after the transcript opened and said since: it is arriving now, so it is paced.
-  const [paced] = useState(() => node.createdAt >= openedAt);
+function Said({ node, paced, onDone }: { node: AssistantMessageNode; paced: boolean; onDone: (id: string) => void }) {
   const text = useReveal(node.text, paced);
+  const done = node.status !== 'running' && revealed(text, node.text);
+  useEffect(() => {
+    if (done) onDone(node.id);
+  }, [done, node.id, onDone]);
   return (
     <div className="chat-said-in">
-      <ChatMarkdown text={text} complete={node.status !== 'running' && revealed(text, node.text)} />
+      <ChatMarkdown text={text} complete={done} />
     </div>
   );
 }
 
-function TurnView({ turn, running, context }: { turn: Turn; running: boolean; context: NodeContext }) {
+interface Layout {
+  turn: Turn;
+  pieces: Piece[];
+  /** The line saying what it is on, from the work after the last thing said; null when there is none to show. */
+  doing: ChatNode[] | null;
+}
+
+function layoutOf(turn: Turn, running: boolean): Layout {
   const pieces = piecesOf(turn.body, !running);
-  // While it runs, the work after the last thing said is the line saying what it is on.
-  const tail = running && pieces.at(-1)?.kind === 'work' ? pieces.pop() : undefined;
-  const streaming = running && !tail && pieces.at(-1)?.kind === 'said';
-  return (
-    <div className="flex flex-col gap-3">
-      {turn.opener &&
-        (turn.opener.wake ? <WakeOpener node={turn.opener} /> : <ChatNodeView node={turn.opener} context={context} />)}
-      {pieces.map((piece) =>
-        piece.kind === 'work' ? (
-          <WorkFold key={piece.nodes[0].id} work={piece.nodes} context={context} />
-        ) : (
-          <Said key={piece.node.id} node={piece.node} />
-        ),
-      )}
-      {running && !streaming && (
-        <Doing
-          work={tail?.kind === 'work' ? tail.nodes : []}
-          started={turn.opener?.createdAt ?? turn.body[0]?.createdAt ?? Date.now()}
-        />
-      )}
-      {turn.kept.map((node) => (
-        <ChatNodeView key={node.id} node={node} context={context} />
-      ))}
-    </div>
-  );
+  if (!running) return { turn, pieces, doing: null };
+  const tail = pieces.at(-1)?.kind === 'work' ? pieces.pop() : undefined;
+  if (tail?.kind === 'work') return { turn, pieces, doing: tail.nodes };
+  // Something being said shows itself happening; with nothing yet, the line says it is thinking.
+  return { turn, pieces, doing: pieces.at(-1)?.kind === 'said' ? null : [] };
 }
 
 /**
  * A transcript a turn at a time. While a turn runs, a line says what it is
  * on, and what it says to the reader streams in where it is said; the steps
  * between fold to a line, and nothing shown is put away afterwards.
+ *
+ * What is said while it is open is revealed in order, one message at a time:
+ * nothing after a message still being revealed shows until it has caught up,
+ * so a later part never lands, or finishes, ahead of an earlier one.
  */
 export function ChatTurns({ nodes, context, busy }: { nodes: ChatNode[]; context: NodeContext; busy: boolean }) {
-  const turns = turnsOf(nodes);
   const [openedAt] = useState(() => Date.now());
-  return (
-    <OpenedAt.Provider value={openedAt}>
-      <div className="chat-turns flex flex-col gap-5">
-        {turns.map((turn, index) => (
-          <TurnView
-            key={turn.opener?.id ?? turn.body[0]?.id ?? turn.kept[0]?.id ?? `turn-${index}`}
-            turn={turn}
-            running={busy && index === turns.length - 1}
-            context={context}
-          />
-        ))}
+  const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const onDone = useCallback((id: string) => setRevealedIds((ids) => (ids.has(id) ? ids : new Set(ids).add(id))), []);
+  const turns = turnsOf(nodes);
+  const layouts = turns.map((turn, index) => layoutOf(turn, busy && index === turns.length - 1));
+  // Said before the transcript opened, it is history: whole at once, and holding nothing back.
+  const pending = (node: AssistantMessageNode) => node.createdAt >= openedAt && !revealedIds.has(node.id);
+
+  let held = false;
+  const shown = layouts.map(({ turn, pieces, doing }, index) => {
+    if (held) return null;
+    const items: ReactNode[] = [];
+    if (turn.opener) {
+      items.push(
+        turn.opener.wake ? (
+          <WakeOpener key={turn.opener.id} node={turn.opener} />
+        ) : (
+          <ChatNodeView key={turn.opener.id} node={turn.opener} context={context} />
+        ),
+      );
+    }
+    for (const piece of pieces) {
+      if (piece.kind === 'work') {
+        items.push(<WorkFold key={piece.nodes[0].id} work={piece.nodes} context={context} />);
+        continue;
+      }
+      const paced = piece.node.createdAt >= openedAt;
+      items.push(<Said key={piece.node.id} node={piece.node} paced={paced} onDone={onDone} />);
+      if (pending(piece.node)) {
+        held = true;
+        break;
+      }
+    }
+    if (!held) {
+      if (doing) {
+        items.push(
+          <Doing key="doing" work={doing} started={turn.opener?.createdAt ?? turn.body[0]?.createdAt ?? Date.now()} />,
+        );
+      }
+      for (const node of turn.kept) items.push(<ChatNodeView key={node.id} node={node} context={context} />);
+    }
+    return (
+      <div
+        key={turn.opener?.id ?? turn.body[0]?.id ?? turn.kept[0]?.id ?? `turn-${index}`}
+        className="flex flex-col gap-3"
+      >
+        {items}
       </div>
-    </OpenedAt.Provider>
-  );
+    );
+  });
+  return <div className="chat-turns flex flex-col gap-5">{shown}</div>;
 }

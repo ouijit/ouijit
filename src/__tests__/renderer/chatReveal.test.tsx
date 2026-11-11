@@ -1,6 +1,8 @@
 import { describe, test, expect, vi, afterEach } from 'vitest';
-import { act, renderHook } from '@testing-library/react';
+import { act, render, renderHook, screen } from '@testing-library/react';
 import { useReveal } from '../../components/chat/useReveal';
+import { ChatTurns } from '../../components/chat/ChatTurns';
+import type { ChatNode } from '../../chat/model';
 
 afterEach(() => vi.useRealTimers());
 
@@ -31,5 +33,45 @@ describe('a message arriving while you watch', () => {
 
     const history = renderHook(() => useReveal(long, false));
     expect(history.result.current).toBe(long);
+  });
+});
+
+describe('several things said while you watch', () => {
+  test('arrive in order: nothing after a message still being revealed shows until it has caught up', () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'performance', 'Date'] });
+    const at = Date.now();
+    const first = `First part. ${'one two three four '.repeat(20)}end of first.`;
+    const second = `Second part. ${'five six seven eight '.repeat(20)}end of second.`;
+    const nodes = [
+      { kind: 'user_message', id: 'u', parentId: null, createdAt: at, text: 'Go', attachments: [], delivery: 'prompt' },
+      { kind: 'assistant_message', id: 'a1', parentId: null, createdAt: at, text: first, status: 'completed' },
+      {
+        kind: 'tool_call',
+        id: 't1',
+        parentId: null,
+        createdAt: at,
+        tool: 'command',
+        title: 'git log',
+        status: 'completed',
+        files: [],
+        output: '',
+      },
+      { kind: 'assistant_message', id: 'a2', parentId: null, createdAt: at, text: second, status: 'completed' },
+    ] as ChatNode[];
+    const context = { cardId: 'home-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    render(<ChatTurns nodes={nodes} context={context} busy={false} />);
+
+    act(() => vi.advanceTimersByTime(500));
+    expect(screen.getByText(/^First part\./)).toBeTruthy();
+    expect(screen.queryByText(/end of first/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Ran 1 command/ })).toBeNull();
+    expect(screen.queryByText(/Second part/)).toBeNull();
+
+    act(() => vi.advanceTimersByTime(5000));
+    expect(screen.getByText(/end of first/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Ran 1 command/ })).toBeTruthy();
+    expect(screen.getByText(/^Second/)).toBeTruthy();
+    act(() => vi.advanceTimersByTime(5000));
+    expect(screen.getByText(/end of second/)).toBeTruthy();
   });
 });
