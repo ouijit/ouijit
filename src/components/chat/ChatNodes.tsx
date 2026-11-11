@@ -274,12 +274,12 @@ function isWork(node: ChatNode): boolean {
 }
 
 /** Claude sends a thought with no text unless the session asks for summaries; such a thought shows nothing. */
-function isEmptyThought(node: ChatNode): boolean {
+export function isEmptyThought(node: ChatNode): boolean {
   return node.kind === 'reasoning' && !node.text.trim();
 }
 
 /** A thought in the story's order, in the grey of work: often where the agent says what it is about to do. */
-function ThoughtLine({ text }: { text: string }) {
+export function ThoughtLine({ text }: { text: string }) {
   return <div className="text-[13px] leading-relaxed text-text-tertiary whitespace-pre-wrap break-words">{text}</div>;
 }
 
@@ -291,17 +291,19 @@ function count(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
-/** What a stretch of work amounted to, in one line: what was run, read and changed. */
-function foldSummary(nodes: ChatNode[]): string {
+/** What a stretch of work amounted to, in one line: what was run, read, changed and said. */
+export function foldSummary(nodes: ChatNode[]): string {
   let commands = 0;
   let reads = 0;
   let searches = 0;
   let fetches = 0;
   let others = 0;
   let subagents = 0;
+  let said = 0;
   const edited = new Set<string>();
   for (const node of nodes) {
     if (node.kind === 'subagent') subagents++;
+    if (node.kind === 'assistant_message' && node.text.trim()) said++;
     if (node.kind !== 'tool_call') continue;
     switch (node.tool) {
       case 'command':
@@ -335,13 +337,14 @@ function foldSummary(nodes: ChatNode[]): string {
     fetches && `fetched ${count(fetches, 'page')}`,
     subagents && count(subagents, 'subagent'),
     others && count(others, 'tool call'),
+    said && `said ${count(said, 'thing')}`,
   ].filter((part): part is string => Boolean(part));
   if (parts.length === 0) return 'Thought';
   const line = parts.join(', ');
   return line[0].toUpperCase() + line.slice(1);
 }
 
-function formatSpan(ms: number): string {
+export function formatSpan(ms: number): string {
   const seconds = Math.round(ms / 1000);
   if (seconds < 1) return '';
   if (seconds < 60) return `${seconds}s`;

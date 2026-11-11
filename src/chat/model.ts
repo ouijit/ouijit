@@ -40,6 +40,14 @@ export interface UserMessageNode extends NodeBase {
   delivery: 'prompt' | 'steer' | 'queued';
   /** Sent by Ouijit about something that happened, not typed by a person. */
   wake?: boolean;
+  /** What a wake is about, in a line each for the person reading the transcript; its text is for the agent. */
+  notes?: WakeNote[];
+}
+
+/** `decision` is something the user did; `event` is something that happened. */
+export interface WakeNote {
+  kind: 'event' | 'decision';
+  text: string;
 }
 
 export interface AssistantMessageNode extends NodeBase {

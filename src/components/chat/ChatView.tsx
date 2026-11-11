@@ -4,6 +4,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { ChatNodeList, type NodeContext } from './ChatNodes';
+import { ChatTurns } from './ChatTurns';
 import { ChatBackground } from './ChatBackground';
 import { ChatComposer } from './ChatComposer';
 import { StatusGlyph } from '../terminal/StatusDot';
@@ -185,8 +186,12 @@ export function ChatView({
           {surface === 'card' && top.length === 0 && info.status !== 'starting' && (
             <div className="text-sm text-text-tertiary">{CHAT_AGENT_LABELS[info.agent]} is ready.</div>
           )}
-          <ChatNodeList nodes={top} context={context} fold />
-          {info.status === 'running' && (
+          {surface === 'page' ? (
+            <ChatTurns nodes={top} context={context} busy={info.status === 'running' || info.status === 'awaiting'} />
+          ) : (
+            <ChatNodeList nodes={top} context={context} fold />
+          )}
+          {surface === 'card' && info.status === 'running' && (
             <div className="flex items-center h-5" role="status" aria-label="Working">
               <StatusGlyph status="thinking" size={8} />
             </div>

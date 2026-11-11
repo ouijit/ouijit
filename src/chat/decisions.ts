@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { getLogger } from '../logger';
 import { hostEnv } from '../sessionEnv';
 import { NO_PAGER, exitedAnswer } from '../askOutput';
-import { tellConversation } from './wake';
+import { quietMove, taskName, tellConversation } from './wake';
+import type { WakeNote } from './model';
 import type { ChatDecision, ChatDecisionChoice } from './preferences';
 import type { AskAnswer, AskRun } from '../types';
 
@@ -50,8 +51,10 @@ export async function decide(id: string, choice: ChatDecisionChoice, quiet = fal
   return true;
 }
 
-function tell(from: string, text: string): void {
-  tellConversation(from, text).catch((error: unknown) =>
+const youDid = (text: string): WakeNote => ({ kind: 'decision', text });
+
+function tell(from: string, text: string, note: WakeNote): void {
+  tellConversation(from, text, note).catch((error: unknown) =>
     decisionLog.warn('outcome not delivered', { from, error: String(error) }),
   );
 }
@@ -67,15 +70,23 @@ export function holdConfirm(
   const what =
     confirm.action === 'done' ? `moving T-${confirm.taskNumber} to done` : `trashing T-${confirm.taskNumber}`;
   hold({ kind: 'confirm', ...confirm }, async (choice, quiet) => {
+    const name = await taskName(confirm.projectPath, confirm.taskNumber);
+    const shown = confirm.action === 'done' ? `moving ${name} to done` : `trashing ${name}`;
     if (choice.kind === 'decline') {
-      if (!quiet) tell(confirm.from, `the user cancelled ${what}.`);
+      if (!quiet) tell(confirm.from, `the user cancelled ${what}.`, youDid(`You cancelled ${shown}`));
       return;
     }
-    const result = await apply().catch((error: unknown) => ({ success: false, error: String(error) }));
-    tell(
-      confirm.from,
-      result.success ? `the user confirmed ${what}.` : `${what} failed: ${result.error ?? 'unknown error'}.`,
-    );
+    const unquiet = quietMove(confirm.projectPath, confirm.taskNumber);
+    const result = await apply()
+      .catch((error: unknown) => ({ success: false, error: String(error) }))
+      .finally(unquiet);
+    if (result.success) {
+      const done = confirm.action === 'done' ? `You moved ${name} to done` : `You trashed ${name}`;
+      tell(confirm.from, `the user confirmed ${what}.`, youDid(done));
+    } else {
+      const failed = `${what} failed: ${result.error ?? 'unknown error'}.`;
+      tell(confirm.from, failed, { kind: 'event', text: `${shown[0].toUpperCase()}${shown.slice(1)} failed` });
+    }
   });
   return {
     success: true,
@@ -100,10 +111,17 @@ export function holdAsk(from: string, ask: AskRun, message: string | undefined):
         answer = exitedAnswer({ ...run, privately: !!choice.privately });
       }
       resolve(answer);
-      if (!ask.wait && !quiet) tell(from, describeOutcome(ask.command, answer));
+      if (!ask.wait && !quiet)
+        tell(from, describeOutcome(ask.command, answer), youDid(outcomeNote(ask.command, answer)));
     });
     if (!ask.wait) resolve({ status: 'pending' });
   });
+}
+
+function outcomeNote(command: string, answer: AskAnswer): string {
+  if (answer.status !== 'exited') return `You declined to run \`${command}\``;
+  const how = 'private' in answer ? 'privately' : 'on your computer';
+  return `You ran \`${command}\` ${how} · exit ${answer.exitCode ?? 'unknown'}`;
 }
 
 function describeOutcome(command: string, answer: AskAnswer): string {

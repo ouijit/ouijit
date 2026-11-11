@@ -180,5 +180,12 @@ describe('what Chat sets off', () => {
       'Ouijit: the user confirmed moving T-1 to done.',
       'Ouijit: the user cancelled trashing T-2.',
     ]);
+    // And the transcript says what you did, by name.
+    expect(
+      chatHost.snapshot(chat)!.nodes.flatMap((n) => (n.kind === 'user_message' && n.notes ? n.notes : [])),
+    ).toEqual([
+      { kind: 'decision', text: 'You moved Fix auth to done' },
+      { kind: 'decision', text: 'You cancelled trashing Old spike' },
+    ]);
   });
 });

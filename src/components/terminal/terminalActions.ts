@@ -572,6 +572,7 @@ function noteHookFailure(instance: OuijitTerminal, panelId: string, exitCode: nu
   void window.api.homeChat.wake(
     'hookFailed',
     `The ${panel.hookType ?? 'run'} hook on ${who} in ${instance.projectPath} failed${code}: ${panel.scriptCommand ?? ''}`,
+    `The ${panel.hookType ?? 'run'} hook on ${instance.label} failed`,
     instance.taskId != null ? { projectPath: instance.projectPath, taskNumber: instance.taskId } : null,
   );
 }

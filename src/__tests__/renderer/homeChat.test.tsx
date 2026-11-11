@@ -54,12 +54,18 @@ const tool = (id: string, tool: string, title: string, status = 'completed', fil
 function transcript(): ChatNode[] {
   return [
     node({ kind: 'user_message', id: 'u1', text: 'Ship the settings page.', attachments: [], delivery: 'prompt' }),
-    node({ kind: 'assistant_message', id: 'a1', text: 'Three tasks. Starting the first.', status: 'completed' }),
     node({ kind: 'reasoning', id: 'r0', text: '', status: 'completed' }),
     tool('t1', 'command', 'ouijit task create "Settings storage"'),
     tool('t2', 'command', 'ouijit task start 12'),
     node({ kind: 'reasoning', id: 'r1', text: 'Started. Writing the plan down next.', status: 'completed' }),
+    node({ kind: 'assistant_message', id: 'a1', text: 'Starting the first.', status: 'completed' }),
     tool('t3', 'edit', 'Write notes.md', 'completed', [{ path: '/chat/notes.md' }]),
+    node({
+      kind: 'assistant_message',
+      id: 'a1b',
+      text: '## Board\n\nSettings storage is running.',
+      status: 'completed',
+    }),
     node({
       kind: 'user_message',
       id: 'w1',
@@ -67,6 +73,10 @@ function transcript(): ChatNode[] {
       attachments: [],
       delivery: 'prompt',
       wake: true,
+      notes: [
+        { kind: 'decision', text: 'You allowed Settings storage: Write migration' },
+        { kind: 'event', text: 'Settings storage finished its turn' },
+      ],
     }),
     node({ kind: 'assistant_message', id: 'a2', text: 'Reading what it did.', status: 'completed' }),
     tool('t4', 'read', 'ouijit chat read pty-12', 'running'),
@@ -135,29 +145,32 @@ describe('Chat', () => {
     expect(current.getAttribute('aria-current')).toBe('true');
     expect(within(screen.getByRole('banner')).getByText('Ship the settings page.')).toBeTruthy();
 
-    // Work between two things said is one line, closed; a thought with something in it is said
-    // between them, one with nothing is not shown at all; what Ouijit sent is a plain line, not a bubble.
+    // A finished turn is one closed line for its work, then what it said last; an empty thought counts for nothing.
     const fold = screen.getByRole('button', { name: /Ran 2 commands/ });
-    expect(fold.textContent).toBe('Ran 2 commands5s');
-    expect(screen.getByText('Started. Writing the plan down next.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Edited 1 file/ })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /^Thought/ })).toBeNull();
+    expect(fold.textContent).toBe('Ran 2 commands, edited 1 file, said 1 thing20s');
     expect(fold.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByText('ouijit task start 12')).toBeNull();
+    expect(screen.queryByText('Starting the first.')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Board' })).toBeTruthy();
+    expect(screen.getByText('Settings storage is running.')).toBeTruthy();
     fireEvent.click(fold);
     expect(screen.getByText('ouijit task start 12')).toBeTruthy();
-    const wake = screen.getByText(/finished its turn/);
-    expect(wake.className).not.toContain('rounded');
+    expect(screen.getByText('Started. Writing the plan down next.')).toBeTruthy();
+    expect(screen.getByText('Starting the first.')).toBeTruthy();
 
-    // The stretch still running stays open, and closes once it is done.
-    expect(screen.getByText('ouijit chat read pty-12')).toBeTruthy();
-    const running = screen.getByRole('button', { name: /Read 1 file/ });
-    expect(running.getAttribute('aria-expanded')).toBe('true');
+    // A wake is what you did, a line each, and a caption for what happened.
+    expect(screen.getByText('You allowed Settings storage: Write migration')).toBeTruthy();
+    expect(screen.getByText('Settings storage finished its turn')).toBeTruthy();
+    expect(screen.queryByText(/chat pty-12, finished its turn/)).toBeNull();
+
+    // The turn running is one line of what it is doing now: nothing of its work, not even what it has said.
+    expect(screen.getByRole('status', { name: 'Working' }).textContent).toMatch(/^ouijit chat read pty-12…/);
+    expect(screen.queryByText('Reading what it did.')).toBeNull();
     adopt(transcript().map((n) => (n.id === 't4' ? { ...n, status: 'completed' } : n)) as ChatNode[], {
       status: 'idle',
     });
+    expect(screen.queryByRole('status', { name: 'Working' })).toBeNull();
     expect(screen.getByRole('button', { name: /Read 1 file/ }).getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByText('ouijit chat read pty-12')).toBeNull();
+    expect(screen.getByText('Reading what it did.')).toBeTruthy();
 
     // Another conversation resumes in place of this one; the plus starts a fresh one; a row can be renamed.
     fireEvent.click(within(group).getByRole('button', { name: 'Keychain recovery review' }));

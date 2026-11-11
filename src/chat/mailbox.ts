@@ -1,8 +1,10 @@
+import type { WakeNote } from './model';
+
 /** Most kept for one conversation; past that the oldest go, and it is told how many. */
 const MAX_HELD = 50;
 
 interface Box {
-  messages: string[];
+  messages: { text: string; note: WakeNote }[];
   dropped: number;
 }
 
@@ -21,13 +23,13 @@ export class Mailbox {
       exists: (id: string) => boolean;
       /** Running and between turns. */
       ready: (id: string) => boolean;
-      send: (id: string, text: string) => Promise<void>;
+      send: (id: string, text: string, notes: WakeNote[]) => Promise<void>;
     },
   ) {}
 
-  async post(id: string, text: string): Promise<void> {
+  async post(id: string, text: string, note: WakeNote): Promise<void> {
     const box = this.boxes.get(id) ?? { messages: [], dropped: 0 };
-    box.messages.push(text);
+    box.messages.push({ text, note });
     if (box.messages.length > MAX_HELD) box.dropped += box.messages.splice(0, box.messages.length - MAX_HELD).length;
     this.boxes.set(id, box);
     await this.deliver(id);
@@ -45,7 +47,11 @@ export class Mailbox {
     this.boxes.delete(id);
     this.sending.add(id);
     try {
-      await this.target.send(id, letter(box));
+      await this.target.send(
+        id,
+        letter(box),
+        box.messages.map((m) => m.note),
+      );
     } finally {
       this.sending.delete(id);
     }
@@ -55,7 +61,8 @@ export class Mailbox {
 }
 
 function letter(box: Box): string {
-  if (box.messages.length === 1 && box.dropped === 0) return `Ouijit: ${box.messages[0]}`;
+  const texts = box.messages.map((m) => m.text);
+  if (texts.length === 1 && box.dropped === 0) return `Ouijit: ${texts[0]}`;
   const earlier = box.dropped ? `\n- and ${box.dropped} earlier, no longer kept` : '';
-  return `Ouijit: while you were busy or away:\n${box.messages.map((m) => `- ${m}`).join('\n')}${earlier}`;
+  return `Ouijit: while you were busy or away:\n${texts.map((t) => `- ${t}`).join('\n')}${earlier}`;
 }

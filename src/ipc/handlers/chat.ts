@@ -15,7 +15,7 @@ import {
   startHomeChat,
   switchHomeChat,
 } from '../../chat/homeChat';
-import { describeSession, installHomeChatWakes, sessionTask, wakeHomeChat } from '../../chat/wake';
+import { describeSession, installHomeChatWakes, sessionName, sessionTask, wakeHomeChat } from '../../chat/wake';
 import { chatDecisions, decide, dropDecisionsFrom, onChatDecisionsChange } from '../../chat/decisions';
 
 export function registerChatHandlers(mainWindow: BrowserWindow): void {
@@ -30,13 +30,24 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   typedHandle('chat:latest-for-task', (projectPath, taskId) => chatHost.latestForTask(projectPath, taskId));
   typedHandle('chat:prompt', async (id, input, delivery) => {
     const messageId = await chatHost.prompt(id, input, delivery);
-    if (input.typed && !isHomeChat(id)) void tellHomeChat(id, (who) => `you told ${who} "${input.text}"`);
+    if (input.typed && !isHomeChat(id)) {
+      void tellHomeChat(
+        id,
+        (who) => `the user told ${who} "${input.text}"`,
+        (name) => `You told ${name}: ${clip(input.text)}`,
+      );
+    }
     return messageId;
   });
   typedHandle('chat:answer', (id, requestId, answer) => {
     const answered = chatHost.answer(id, requestId, answer);
     if (answered && !isHomeChat(id)) {
-      void tellHomeChat(id, (who) => `you answered ${who} request ${requestId} yourself: ${describeAnswer(answer)}.`);
+      const said = describeAnswer(id, requestId, answer);
+      void tellHomeChat(
+        id,
+        (who) => `the user answered ${who} request ${requestId} themselves: ${said}.`,
+        (name) => `You answered ${name}: ${said}`,
+      );
     }
     return answered;
   });
@@ -65,7 +76,9 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   onChatDecisionsChange((decisions) => typedPush(mainWindow, 'homeChat:decisions-changed', decisions));
   typedHandle('homeChat:decisions', () => chatDecisions());
   typedHandle('homeChat:decide', (id, choice) => decide(id, choice));
-  typedHandle('homeChat:wake', (event, text, about) => wakeHomeChat(event, text, about));
+  typedHandle('homeChat:wake', (event, text, note, about) =>
+    wakeHomeChat(event, text, { kind: 'event', text: note }, about),
+  );
   typedHandle('homeChat:restart', () => restartHomeChat());
   typedHandle('chat:terminal-resume', (id) => {
     const snapshot = chatHost.snapshot(id);
@@ -74,16 +87,26 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
 }
 
 /** The user acted on a worker from its own card, which Chat may be steering. */
-async function tellHomeChat(id: string, text: (who: string) => string): Promise<void> {
+async function tellHomeChat(id: string, text: (who: string) => string, note: (name: string) => string): Promise<void> {
   const info = chatHost.snapshot(id)?.info;
   if (!info) return;
-  await wakeHomeChat(null, text(await describeSession(info)), sessionTask(id));
+  const [who, name] = await Promise.all([describeSession(info), sessionName(info)]);
+  await wakeHomeChat(null, text(who), { kind: 'decision', text: note(name) }, sessionTask(id));
 }
 
-function describeAnswer(answer: ChatAnswer): string {
+function clip(text: string): string {
+  const line = text.replace(/\s+/g, ' ').trim();
+  return line.length > 80 ? `${line.slice(0, 79)}…` : line;
+}
+
+/** An answer in the words its options were shown in. */
+function describeAnswer(id: string, requestId: string, answer: ChatAnswer): string {
   switch (answer.kind) {
-    case 'option':
-      return answer.optionId;
+    case 'option': {
+      const request = chatHost.snapshot(id)?.nodes.find((n) => n.id === requestId);
+      const option = request?.kind === 'request' ? request.options.find((o) => o.id === answer.optionId) : undefined;
+      return option?.label ?? answer.optionId;
+    }
     case 'answers':
       return Object.entries(answer.answers)
         .map(([question, reply]) => `${question}=${reply.join('/')}`)

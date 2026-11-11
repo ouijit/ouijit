@@ -449,7 +449,7 @@ export interface HomeChatAPI {
   start(): Promise<ChatSnapshot>;
   restart(): Promise<ChatSnapshot>;
   /** Null for something the user did, which Chat always hears about. News of a task goes to the conversation that started it. */
-  wake(event: WakeEvent | null, text: string, about?: TaskRef | null): Promise<void>;
+  wake(event: WakeEvent | null, text: string, note: string, about?: TaskRef | null): Promise<void>;
   create(id?: string): Promise<ChatSnapshot>;
   switch(id: string): Promise<ChatSnapshot>;
   list(): Promise<HomeChatState>;

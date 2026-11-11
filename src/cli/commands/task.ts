@@ -244,11 +244,15 @@ Examples:
       const hook = resolveStatusHookFlags(status, opts);
       if ('error' in hook) return printError(hook.error);
       const project = requireProject();
-      const result = await patch<{ success: boolean; error?: string; hookWarning?: string }>(
-        `/api/tasks/${num}/status${projectQuery(project)}`,
-        { status, ...hook.body },
-      );
+      const result = await patch<{
+        success: boolean;
+        error?: string;
+        hookWarning?: string;
+        waiting?: boolean;
+        message?: string;
+      }>(`/api/tasks/${num}/status${projectQuery(project)}`, { status, ...hook.body });
       if (!result.success) return printError(result.error || 'Failed to set status');
+      if (result.waiting) return printJson({ success: true, waiting: true, message: result.message });
       printJson({ success: true, status: STATUS_LABELS[status] || status, hookWarning: result.hookWarning });
     });
 

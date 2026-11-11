@@ -41,6 +41,7 @@ import {
   type RequestNode,
   type SequencedChatEvent,
   type UserMessageNode,
+  type WakeNote,
 } from './model';
 
 const chatLog = getLogger().scope('chat');
@@ -516,14 +517,20 @@ export class ChatHost {
         const wakes = session.nodes.filter(
           (node): node is UserMessageNode => node.kind === 'user_message' && node.wake === true,
         );
-        const wakeIds = new Set(wakes.map((node) => node.id));
-        const wakeTexts = new Set(wakes.map((node) => node.text));
+        const byId = new Map(wakes.map((node) => [node.id, node]));
+        const byText = new Map(wakes.map((node) => [node.text, node]));
         const incoming = new Set(nodes.map((node) => node.id));
         const stale = session.nodes.filter((node) => !incoming.has(node.id)).map((node) => node.id);
         if (stale.length) session.emit({ type: 'remove', ids: stale });
         for (const node of nodes) {
-          const wake = node.kind === 'user_message' && (wakeIds.has(node.id) || wakeTexts.has(node.text));
-          session.emit({ type: 'node', node: wake ? { ...node, wake: true } : node });
+          const wake = node.kind === 'user_message' ? (byId.get(node.id) ?? byText.get(node.text)) : undefined;
+          session.emit({
+            type: 'node',
+            node:
+              node.kind === 'user_message' && wake
+                ? { ...node, wake: true, ...(wake.notes && { notes: wake.notes }) }
+                : node,
+          });
         }
       },
       reset: () => {
@@ -563,7 +570,7 @@ export class ChatHost {
    */
   async prompt(
     id: string,
-    input: { text: string; attachments?: ChatAttachment[]; wake?: boolean },
+    input: { text: string; attachments?: ChatAttachment[]; wake?: boolean; notes?: WakeNote[] },
     delivery: ChatDelivery = 'auto',
   ): Promise<string> {
     const { session, driver } = await this.requireDriver(id);
@@ -584,6 +591,7 @@ export class ChatHost {
       attachments: input.attachments ?? [],
       delivery: 'prompt',
       ...(input.wake && { wake: true }),
+      ...(input.notes?.length && { notes: input.notes }),
     };
     const userInput: UserInput & { id: string } = { id: node.id, text: node.text, attachments: node.attachments };
     if (!busy) {

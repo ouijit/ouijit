@@ -504,7 +504,10 @@ export interface IpcInvokeContract {
   /** Restart its agent on the same conversation, after its settings changed. */
   'homeChat:restart': { args: []; return: ChatSnapshot };
   /** Something the renderer saw that Chat should hear about, under one of its wake settings. */
-  'homeChat:wake': { args: [event: WakeEvent | null, text: string, about: TaskRef | null]; return: void };
+  'homeChat:wake': {
+    args: [event: WakeEvent | null, text: string, note: string, about: TaskRef | null];
+    return: void;
+  };
   /** A fresh conversation, which becomes the current one. */
   'homeChat:new': { args: [id?: string]; return: ChatSnapshot };
   /** Another of Chat's conversations, resumed as the current one. */
