@@ -30,7 +30,9 @@ Size is a heuristic, and 220 is tuned by eye. It fails both ways. An agent that 
 
 ## Reveal streamed text evenly
 
-Streamed text doesn't arrive at an even pace. It comes in chunks of very different sizes, and some agents only send a message once it's finished. Uneven chunks look like stutter even when the average speed is fine. Revealing the text smoothly fixes that. The reveal never runs slower than a floor or faster than a ceiling. In between, it speeds up the further behind it falls, aiming to clear its backlog within a catch-up target. The floor and the target decide how far the screen trails the agent. The table shows a 1,000-character message that arrives all at once, with rates in characters per second (cps).
+Streamed text doesn't arrive at an even pace. It comes in chunks of very different sizes, and some agents only send a message once it's finished. Uneven chunks look like stutter even when the average speed is fine. The fix is to hold text back and reveal it at a smooth pace instead of as it arrives.
+
+Set the pace by how much is waiting: fast enough to clear it within a set time, the catch-up target. A minimum rate, the floor, keeps the last few characters from crawling, and a maximum, the ceiling, keeps a big chunk from arriving as a jump. The cost is that the screen trails the agent, and these three settings decide by how much. The table shows it for a 1,000-character message that arrives all at once, with rates in characters per second (cps).
 
 | | Floor | Ceiling | Catch-up target | Fully shown after |
 |---|---|---|---|---|
