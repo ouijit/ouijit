@@ -236,16 +236,16 @@ const kinds: Demo = {
 };
 
 const STEPS = [
-  { at: 0, step: 'Reading src/auth/session.ts', ends: 700 },
-  { at: 900, step: 'Running the session tests', ends: 2600 },
-  { at: 2800, step: 'Reading test/session.test.ts', ends: 3300 },
-  { at: 3500, step: 'Searching for expiresAt', ends: 3900 },
-  { at: 4100, step: 'Running the session tests', ends: 5600 },
-  { at: 5800, step: 'Checking the diff', ends: 6200 },
+  { at: 0, step: 'Reading src/auth/session.ts' },
+  { at: 900, step: 'Running the session tests' },
+  { at: 2800, step: 'Reading test/session.test.ts' },
+  { at: 3500, step: 'Searching for expiresAt' },
+  { at: 4100, step: 'Running the session tests' },
+  { at: 5800, step: 'Checking the diff' },
 ];
 
 const status: Demo = {
-  modes: ['Falls back', 'Holds'],
+  modes: ['No hold', 'Held'],
   caption: 'The status line over the same run of commands.',
   height: 72,
   async play(run, stage, mode) {
@@ -254,10 +254,8 @@ const status: Demo = {
       for (const s of STEPS) {
         await run.until(s.at);
         line.set(s.step);
-        await run.until(s.ends);
-        line.set('Thinking…');
       }
-      await run.sleep(800);
+      await run.until(8000);
       return;
     }
     let shownAt = -Infinity;
@@ -293,7 +291,7 @@ function stopwatch(foot: HTMLElement) {
 }
 
 const pacing: Demo = {
-  modes: ['As it lands', 'Slow', 'Fast'],
+  modes: ['Unpaced', 'Slow', 'Fast'],
   caption: 'The same bursts, revealed three ways.',
   height: 120,
   footer: true,
@@ -331,7 +329,7 @@ const SECOND = 'Committing needs your approval.';
 
 const queue: Demo = {
   modes: ['Each on its own', 'One queue'],
-  caption: 'A slow message, then a fast one.',
+  caption: 'A short message arrives while the one above is still revealing.',
   height: 150,
   async play(run, stage, mode) {
     const first = new Reveal(el(stage, 'td-reply'), SMOOTH);
