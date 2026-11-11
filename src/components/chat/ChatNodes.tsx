@@ -270,7 +270,17 @@ function SubagentGroup({ nodes, context }: { nodes: ChatNode[]; context: NodeCon
 }
 
 function isWork(node: ChatNode): boolean {
-  return node.kind === 'tool_call' || node.kind === 'reasoning' || node.kind === 'subagent';
+  return node.kind === 'tool_call' || node.kind === 'subagent';
+}
+
+/** Claude sends a thought with no text unless the session asks for summaries; such a thought shows nothing. */
+function isEmptyThought(node: ChatNode): boolean {
+  return node.kind === 'reasoning' && !node.text.trim();
+}
+
+/** A thought in the story's order, in the grey of work: often where the agent says what it is about to do. */
+function ThoughtLine({ text }: { text: string }) {
+  return <div className="text-[13px] leading-relaxed text-text-tertiary whitespace-pre-wrap break-words">{text}</div>;
 }
 
 function isRunning(node: ChatNode): boolean {
@@ -383,10 +393,25 @@ function Fold({ nodes, context }: { nodes: ChatNode[]; context: NodeContext }) {
  * A run of sibling nodes, with subagents launched together folded into a
  * group, and, at the top of a transcript, every stretch of work folded to a line.
  */
-export function ChatNodeList({ nodes, context, fold }: { nodes: ChatNode[]; context: NodeContext; fold?: boolean }) {
+export function ChatNodeList({
+  nodes: all,
+  context,
+  fold,
+}: {
+  nodes: ChatNode[];
+  context: NodeContext;
+  fold?: boolean;
+}) {
+  const nodes = fold ? all.filter((node) => !isEmptyThought(node)) : all;
   const items: ReactNode[] = [];
   for (let i = 0; i < nodes.length; ) {
     let end = i;
+    const node = nodes[i];
+    if (fold && node.kind === 'reasoning') {
+      items.push(<ThoughtLine key={node.id} text={node.text.trim()} />);
+      i++;
+      continue;
+    }
     if (fold && isWork(nodes[i])) {
       while (end < nodes.length && isWork(nodes[end])) end++;
       items.push(<Fold key={nodes[i].id} nodes={nodes.slice(i, end)} context={context} />);
@@ -428,7 +453,6 @@ function PlanView({ node }: { node: PlanNode }) {
 
 function ReasoningView({ text, running }: { text: string; running: boolean }) {
   const [open, setOpen] = useState(false);
-  // Claude sends thinking blocks with no text unless the session asks for `thinking.display: 'summarized'`.
   if (!text) return null;
   return (
     <div className="text-sm">

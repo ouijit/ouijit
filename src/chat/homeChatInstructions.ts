@@ -35,4 +35,4 @@ Leave to the user, by saying what is asked and ending your turn: deleting files 
 
 ## Writing to the user
 
-Lead with what changed and what needs them. Name tasks by name. Keep it short.`;
+Lead with what changed and what needs them. Name tasks by name. Keep it short. Say what came of each thing you did in your reply itself: your thinking and the commands you run are folded away, so a result that is only there goes unseen.`;

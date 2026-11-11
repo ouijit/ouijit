@@ -55,8 +55,10 @@ function transcript(): ChatNode[] {
   return [
     node({ kind: 'user_message', id: 'u1', text: 'Ship the settings page.', attachments: [], delivery: 'prompt' }),
     node({ kind: 'assistant_message', id: 'a1', text: 'Three tasks. Starting the first.', status: 'completed' }),
+    node({ kind: 'reasoning', id: 'r0', text: '', status: 'completed' }),
     tool('t1', 'command', 'ouijit task create "Settings storage"'),
     tool('t2', 'command', 'ouijit task start 12'),
+    node({ kind: 'reasoning', id: 'r1', text: 'Started. Writing the plan down next.', status: 'completed' }),
     tool('t3', 'edit', 'Write notes.md', 'completed', [{ path: '/chat/notes.md' }]),
     node({
       kind: 'user_message',
@@ -133,9 +135,13 @@ describe('Chat', () => {
     expect(current.getAttribute('aria-current')).toBe('true');
     expect(within(screen.getByRole('banner')).getByText('Ship the settings page.')).toBeTruthy();
 
-    // Work between two things said is one line, closed; what Ouijit sent is a plain line, not a bubble.
-    const fold = screen.getByRole('button', { name: /Ran 2 commands, edited 1 file/ });
-    expect(fold.textContent).toBe('Ran 2 commands, edited 1 file10s');
+    // Work between two things said is one line, closed; a thought with something in it is said
+    // between them, one with nothing is not shown at all; what Ouijit sent is a plain line, not a bubble.
+    const fold = screen.getByRole('button', { name: /Ran 2 commands/ });
+    expect(fold.textContent).toBe('Ran 2 commands5s');
+    expect(screen.getByText('Started. Writing the plan down next.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Edited 1 file/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Thought/ })).toBeNull();
     expect(fold.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByText('ouijit task start 12')).toBeNull();
     fireEvent.click(fold);

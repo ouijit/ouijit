@@ -516,6 +516,8 @@ class ClaudeSession implements DriverSession {
       settingSources: ['user', 'project', 'local'],
       systemPrompt: { type: 'preset', preset: 'claude_code', ...(instructions && { append: instructions }) },
       includePartialMessages: true,
+      // Without it a thinking block arrives with no text, so there is nothing to show.
+      extraArgs: { 'thinking-display': 'summarized' },
       enableFileCheckpointing: true,
       // Makes skip-permissions choosable, as `--allow-dangerously-skip-permissions`
       // does in the terminal; the session still starts in the user's own mode.
