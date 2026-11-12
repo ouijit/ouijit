@@ -29,7 +29,7 @@ During a turn, the reader should see what the agent is doing and anything it wro
 
 When the turn ends, the reader should see the reply, with everything the agent did folded into one closed line above it. That's progressive disclosure: what the reader needs now is on the page, and the rest is one click away.[^disclosure]
 
-## Streamed text should arrive evenly
+## Streamed text should arrive evenly, just behind the agent
 
 Streamed text doesn't arrive at an even pace. It comes in chunks of very different sizes, and some agents only send a message once it's finished. Uneven chunks look like stutter even when the average speed is fine. The fix is to hold text back and reveal it at a smooth pace instead of as it arrives.
 
