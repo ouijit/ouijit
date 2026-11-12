@@ -2716,6 +2716,14 @@ body.marketing .writing-card:hover {
   margin-bottom: 1.5rem;
 }
 
+.writing-body hr {
+  width: 48px;
+  height: 1px;
+  margin: 3.5rem auto;
+  border: 0;
+  background: color-mix(in srgb, var(--color-ink) 18%, transparent);
+}
+
 /* Live transcript demos in posts (components/writing/transcriptDemos.ts),
    drawn in the app's chat vocabulary. */
 .writing-body figure.td {
@@ -2891,6 +2899,73 @@ body.marketing .writing-card:hover {
   box-shadow:
     0 -1px 0 var(--bevel-bottom),
     inset 0 1px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
+}
+
+.td-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.td-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 12px 0 16px;
+}
+.td-pane + .td-pane {
+  box-shadow:
+    inset 1px 0 0 var(--bevel-bottom),
+    inset 2px 0 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
+}
+.td-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  margin-bottom: 8px;
+  padding: 0 12px 0 20px;
+}
+.td-pane-label {
+  color: var(--color-text-tertiary);
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 12px;
+}
+.td-prompt {
+  align-self: flex-end;
+  max-width: 85%;
+  margin-bottom: 6px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+  color: #f5f5f7;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.td-composer {
+  position: relative;
+  margin: 12px 16px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--color-background-secondary, #232323);
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+@media (min-width: 1000px) {
+  .writing-body figure.td-wide {
+    margin-inline: -80px;
+  }
+}
+@media (max-width: 720px) {
+  .td-panes {
+    grid-template-columns: 1fr;
+  }
+  .td-pane + .td-pane {
+    box-shadow:
+      inset 0 1px 0 var(--bevel-bottom),
+      inset 0 2px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
+  }
+  .td-panes .td-stage {
+    height: var(--td-height);
+  }
 }
 
 /* Footnotes, lifted into the margin as sidenotes (tools/rehype-sidenotes.mjs)

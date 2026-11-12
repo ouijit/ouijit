@@ -158,6 +158,8 @@ type Demo = {
   caption: string;
   height: number;
   footer?: boolean;
+  /** Plays every mode at once, in panes side by side, instead of behind a toggle. */
+  sideBySide?: boolean;
   play(run: Run, stage: HTMLElement, mode: number, foot: HTMLElement): Promise<void>;
 };
 
@@ -347,7 +349,91 @@ const queue: Demo = {
   },
 };
 
-const DEMOS: Record<string, Demo> = { kinds, status, pacing, clicky, queue };
+const WHOLE_TURN = [
+  { at: 0, kind: 'thought', text: 'Checking how the session token gets refreshed.' },
+  { at: 700, kind: 'command', text: 'rg -n refreshToken src', step: 'Searching for refreshToken' },
+  { at: 1100, kind: 'command', text: 'cat src/auth/session.ts', step: 'Reading src/auth/session.ts' },
+  { at: 1800, kind: 'remark', text: "Next I'll check where the expiry is set." },
+  { at: 2400, kind: 'command', text: 'npm test -- session', step: 'Running the session tests' },
+  {
+    at: 3900,
+    kind: 'message',
+    text:
+      'Found it. The expiry is read in two places:\n' +
+      '- src/auth/session.ts reads it before the refresh resolves\n' +
+      '- an old helper reads it too, but nothing imports it',
+  },
+  { at: 5600, kind: 'thought', text: 'Moving the read after the refresh should be enough.' },
+  { at: 6000, kind: 'command', text: 'git apply fix.patch', step: 'Applying the fix' },
+  { at: 6300, kind: 'command', text: 'npm test -- session', step: 'Running the session tests' },
+] as const;
+const WHOLE_END = 8400;
+const WHOLE_PROMPT = 'Sessions keep expiring early. Can you find out why and fix it?';
+const WHOLE_REPLY =
+  'Sessions expired early because the expiry was read before the refresh finished. The read now waits for the ' +
+  'refresh, and a new test refreshes twice in a row and checks the later expiry wins. The session tests pass.';
+
+const whole: Demo = {
+  modes: ['Basic', 'Together'],
+  caption: 'A basic transcript vs everything above together, over the same turn.',
+  height: 300,
+  sideBySide: true,
+  async play(run, stage, mode) {
+    el(stage, 'td-prompt', WHOLE_PROMPT);
+    if (mode === 0) {
+      let seed = 30;
+      for (const e of WHOLE_TURN) {
+        await run.until(e.at);
+        if (e.kind === 'command') {
+          el(stage, 'td-command', '$ ' + e.text);
+          continue;
+        }
+        const cls = e.kind === 'thought' ? 'td-thought' : 'td-reply';
+        write(run, new Reveal(el(stage, cls), null), e.text, seed++, [30, 200], [10, 60]);
+      }
+      await run.until(WHOLE_END);
+      await write(run, new Reveal(el(stage, 'td-reply'), null), WHOLE_REPLY, seed, [60, 420], [12, 80]);
+      return;
+    }
+
+    const status = statusLine(stage);
+    let latest = '';
+    let showing = '';
+    let shownAt = -Infinity;
+    void (async () => {
+      for (;;) {
+        await run.sleep(50);
+        if (latest && latest !== showing && run.elapsed() - shownAt >= 2000) {
+          showing = latest;
+          shownAt = run.elapsed();
+          status.set(showing);
+        }
+      }
+    })().catch(() => {});
+
+    const reveals: Promise<void>[] = [];
+    let seed = 30;
+    for (const e of WHOLE_TURN) {
+      await run.until(e.at);
+      if (e.kind === 'message') {
+        const message = new Reveal(document.createElement('div'), SMOOTH);
+        message.el.className = 'td-reply';
+        stage.insertBefore(message.el, status.row);
+        reveals.push(write(run, message, e.text, seed++, [30, 200], [10, 60]), message.play(run));
+        continue;
+      }
+      latest = e.kind === 'command' ? e.step : e.text;
+    }
+    await run.until(WHOLE_END);
+    await Promise.all(reveals);
+    status.row.remove();
+    fold(stage, 'Ran 5 commands, thought twice · 8s', false);
+    const reply = new Reveal(el(stage, 'td-reply'), SMOOTH);
+    await Promise.all([write(run, reply, WHOLE_REPLY, seed, [60, 420], [12, 80]), reply.play(run)]);
+  },
+};
+
+const DEMOS: Record<string, Demo> = { kinds, status, pacing, clicky, queue, whole };
 
 // --- mounting ----------------------------------------------------------------
 
@@ -356,6 +442,7 @@ function mount(figure: HTMLElement) {
   if (!demo) return;
   figure.classList.add('td');
   figure.innerHTML = '';
+  if (demo.sideBySide) return mountSideBySide(figure, demo);
 
   const frame = el(figure, 'td-frame glass-bevel');
   const bar = el(frame, 'td-bar');
@@ -414,6 +501,55 @@ function mount(figure: HTMLElement) {
           mode = demo.modes.length - 1;
           start();
         });
+      }
+    },
+    { threshold: 0.6 },
+  );
+  seen.observe(figure);
+}
+
+function mountSideBySide(figure: HTMLElement, demo: Demo) {
+  figure.classList.add('td-wide');
+  const frame = el(figure, 'td-frame td-panes glass-bevel');
+  const replay = document.createElement('button');
+  replay.className = 'td-replay';
+  replay.type = 'button';
+  replay.textContent = 'Replay';
+  const stages = demo.modes.map((label, i) => {
+    const pane = el(frame, 'td-pane');
+    const head = el(pane, 'td-pane-head');
+    el(head, 'td-pane-label', label);
+    if (i === demo.modes.length - 1) head.append(replay);
+    const stage = el(pane, 'td-stage');
+    stage.style.setProperty('--td-height', `${demo.height}px`);
+    el(pane, 'td-composer glass-bevel', 'Reply…');
+    return stage;
+  });
+  const caption = document.createElement('figcaption');
+  caption.textContent = demo.caption;
+  figure.append(caption);
+
+  let run: Run | null = null;
+  function start() {
+    if (run) run.live = false;
+    const current = new Run();
+    run = current;
+    Promise.all(
+      stages.map((stage, mode) => {
+        stage.innerHTML = '';
+        return demo.play(current, el(stage, 'td-scroll'), mode, stage);
+      }),
+    ).catch((e) => {
+      if (!(e instanceof Cancelled)) throw e;
+    });
+  }
+
+  replay.addEventListener('click', start);
+  const seen = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        seen.disconnect();
+        start();
       }
     },
     { threshold: 0.6 },
