@@ -129,24 +129,54 @@ function statusLine(stage: HTMLElement) {
   };
 }
 
+/**
+ * Lets a demo's fixed-height stage scroll while one of its folds is open, and
+ * brings the fold's header into view, since the transcript is drawn from the
+ * bottom up and an opened fold would otherwise push it out of the top.
+ */
+function revealFold(wrap: HTMLElement) {
+  const stage = wrap.closest<HTMLElement>('.td-stage');
+  if (!stage) return;
+  const anyOpen = stage.querySelector('.td-fold-body:not([hidden])') !== null;
+  stage.classList.toggle('td-stage-scrolling', anyOpen || stage.dataset.scroll === 'always');
+  if (!anyOpen) return;
+  const offset = wrap.getBoundingClientRect().top - stage.getBoundingClientRect().top;
+  stage.scrollTop += offset - 32;
+}
+
 function fold(stage: HTMLElement, summary: string, open: boolean) {
   const wrap = el(stage, 'td-fold');
   const head = el(wrap, 'td-fold-head');
+  head.tabIndex = 0;
+  head.setAttribute('role', 'button');
   const caret = el(head, 'td-caret');
+  caret.innerHTML =
+    '<svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M3.5 2 6.5 5 3.5 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const label = el(head, 'td-fold-label', summary);
   const body = el(wrap, 'td-fold-body');
   const set = (isOpen: boolean) => {
     caret.dataset.open = String(isOpen);
+    head.setAttribute('aria-expanded', String(isOpen));
     body.hidden = !isOpen;
   };
   set(open);
+  const toggle = () => {
+    set(body.hidden);
+    revealFold(wrap);
+  };
+  head.addEventListener('click', toggle);
+  head.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    toggle();
+  });
   return {
     wrap,
     body,
     label,
     set,
-    add(text: string) {
-      el(body, 'td-command', text);
+    add(text: string, cls = 'td-command') {
+      el(body, cls, text);
     },
   };
 }
@@ -198,8 +228,8 @@ const kinds: Demo = {
           continue;
         }
         open = null;
-        if (e.kind === 'thought') write(run, new Reveal(el(stage, 'td-thought'), null), e.text, e.at, [30, 160]);
-        else write(run, new Reveal(el(stage, 'td-reply'), null), e.text, e.at, [30, 160]);
+        if (e.kind === 'thought') write(run, new Reveal(el(stage, 'td-thought'), null), e.text, e.at, [30, 160]).catch(() => {});
+        else write(run, new Reveal(el(stage, 'td-reply'), null), e.text, e.at, [30, 160]).catch(() => {});
       }
       await run.until(7600);
       for (const { f, n } of folds) {
@@ -231,7 +261,8 @@ const kinds: Demo = {
     }
     await run.until(7600);
     status.row.remove();
-    fold(stage, 'Ran 4 commands, thought twice · 8s', false);
+    const work = fold(stage, 'Ran 4 commands, thought twice · 8s', false);
+    for (const e of TURN) work.add(e.kind === 'command' ? '$ ' + e.text : e.text, e.kind === 'command' ? 'td-command' : 'td-thought');
     const reply = new Reveal(el(stage, 'td-reply'), SMOOTH);
     await Promise.all([write(run, reply, TURN_REPLY, 7, [60, 380]), reply.play(run)]);
   },
@@ -341,7 +372,10 @@ const queue: Demo = {
     const second = new Reveal(secondEl, SMOOTH);
     await run.until(700);
     if (mode === 1) await firstPlay;
-    foldSlot.replaceWith(fold(stage, 'Ran 2 commands · 3s', false).wrap);
+    const work = fold(stage, 'Ran 2 commands · 3s', false);
+    work.add('$ rg -n refreshToken src');
+    work.add('$ npm test -- session');
+    foldSlot.replaceWith(work.wrap);
     second.push(SECOND);
     second.close();
     stage.append(secondEl);
@@ -389,7 +423,7 @@ const whole: Demo = {
           continue;
         }
         const cls = e.kind === 'thought' ? 'td-thought' : 'td-reply';
-        write(run, new Reveal(el(stage, cls), null), e.text, seed++, [30, 200], [10, 60]);
+        write(run, new Reveal(el(stage, cls), null), e.text, seed++, [30, 200], [10, 60]).catch(() => {});
       }
       await run.until(WHOLE_END);
       await write(run, new Reveal(el(stage, 'td-reply'), null), WHOLE_REPLY, seed, [60, 420], [12, 80]);
@@ -427,7 +461,10 @@ const whole: Demo = {
     await run.until(WHOLE_END);
     await Promise.all(reveals);
     status.row.remove();
-    fold(stage, 'Ran 5 commands, thought twice · 8s', false);
+    const work = fold(stage, 'Ran 5 commands, thought twice · 8s', false);
+    for (const e of WHOLE_TURN) {
+      if (e.kind !== 'message') work.add(e.kind === 'command' ? '$ ' + e.text : e.text, e.kind === 'command' ? 'td-command' : 'td-thought');
+    }
     const reply = new Reveal(el(stage, 'td-reply'), SMOOTH);
     await Promise.all([write(run, reply, WHOLE_REPLY, seed, [60, 420], [12, 80]), reply.play(run)]);
   },
@@ -474,38 +511,53 @@ function mount(figure: HTMLElement) {
     return b;
   });
 
-  function start(then?: () => void) {
+  function start() {
     if (run) run.live = false;
     const current = new Run();
     run = current;
     buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(i === mode)));
     stage.innerHTML = '';
+    stage.classList.remove('td-stage-scrolling');
     const inner = el(stage, 'td-scroll');
-    demo
-      .play(current, inner, mode, foot)
-      .then(() => current.sleep(1800))
-      .then(() => then?.())
-      .catch((e) => {
-        if (!(e instanceof Cancelled)) throw e;
-      });
+    demo.play(current, inner, mode, foot).catch((e) => {
+      if (!(e instanceof Cancelled)) throw e;
+    });
   }
 
-  replay.addEventListener('click', () => start());
+  replay.addEventListener('click', start);
 
   buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(i === mode)));
   const seen = new IntersectionObserver(
     (entries) => {
       if (entries.some((e) => e.isIntersecting)) {
         seen.disconnect();
-        start(() => {
-          mode = demo.modes.length - 1;
-          start();
-        });
+        start();
       }
     },
     { threshold: 0.6 },
   );
   seen.observe(figure);
+}
+
+/** Keeps a scrollable stage pinned to its newest line until the reader scrolls up, and again once they return to the bottom. */
+function followBottom(stage: HTMLElement) {
+  let following = true;
+  let lastTop = 0;
+  stage.addEventListener('scroll', () => {
+    const atBottom = stage.scrollHeight - stage.clientHeight - stage.scrollTop < 2;
+    if (stage.scrollTop < lastTop - 1) following = false;
+    else if (atBottom) following = true;
+    lastTop = stage.scrollTop;
+  });
+  const tick = () => {
+    if (following) stage.scrollTop = stage.scrollHeight;
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  return () => {
+    following = true;
+    lastTop = 0;
+  };
 }
 
 function mountSideBySide(figure: HTMLElement, demo: Demo) {
@@ -520,10 +572,11 @@ function mountSideBySide(figure: HTMLElement, demo: Demo) {
     const head = el(pane, 'td-pane-head');
     el(head, 'td-pane-label', label);
     if (i === demo.modes.length - 1) head.append(replay);
-    const stage = el(pane, 'td-stage');
+    const stage = el(pane, 'td-stage td-stage-scrolling');
+    stage.dataset.scroll = 'always';
     stage.style.setProperty('--td-height', `${demo.height}px`);
     el(pane, 'td-composer glass-bevel', 'Reply…');
-    return stage;
+    return { stage, refollow: followBottom(stage) };
   });
   const caption = document.createElement('figcaption');
   caption.textContent = demo.caption;
@@ -535,8 +588,9 @@ function mountSideBySide(figure: HTMLElement, demo: Demo) {
     const current = new Run();
     run = current;
     Promise.all(
-      stages.map((stage, mode) => {
+      stages.map(({ stage, refollow }, mode) => {
         stage.innerHTML = '';
+        refollow();
         return demo.play(current, el(stage, 'td-scroll'), mode, stage);
       }),
     ).catch((e) => {
