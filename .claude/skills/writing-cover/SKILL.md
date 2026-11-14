@@ -107,6 +107,10 @@ Each of these was built, looked at, and turned down. Do not rebuild them.
    final call is not yours; cover art is judged by eye.
 5. Put the chosen spec into the post's frontmatter, rerun the preview to
    confirm, and delete the sketches file.
+6. Write the post's link-preview image, the cover cropped to 1200×630,
+   with `node .claude/skills/writing-cover/scripts/og.mjs`, and commit the
+   PNG it writes to `website/public/assets/og/`. Rerun it whenever a cover
+   changes.
 
 ## The live layer
 

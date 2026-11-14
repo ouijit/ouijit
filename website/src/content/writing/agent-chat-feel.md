@@ -1,8 +1,7 @@
 ---
 title: What makes an agent chat feel good?
 description: How to show an agent's work without spending the reader's attention
-date: 2026-11-11
-draft: true
+date: 2026-11-14
 cover:
   field: { wash: graphite, angle: 160 }
   shape: { kind: circle, wash: prism, angle: 60, cx: 820, cy: 260, r: 250 }

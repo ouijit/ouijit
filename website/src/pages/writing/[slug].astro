@@ -15,7 +15,10 @@ const { Content } = await render(post);
 const markdownUrl = `https://ouijit.com/writing/${post.id}.md`;
 const more = (await listPosts()).filter((p) => p.id !== post.id).slice(0, 2);
 ---
-<Site title={`${post.data.title} · Ouijit`} description={post.data.description} markdownUrl={post.data.draft ? undefined : markdownUrl} noindex={post.data.draft}>
+<Site title={`${post.data.title} · Ouijit`} description={post.data.description} markdownUrl={post.data.draft ? undefined : markdownUrl} noindex={post.data.draft}
+  socialTitle={post.data.title}
+  image={`/assets/og/${post.id}.png`}
+  published={post.data.date}>
   <main class="writing-post">
     <header class="writing-header">
       <h1>{post.data.title}</h1>
