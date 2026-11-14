@@ -2824,6 +2824,19 @@ body.marketing .writing-card:hover {
     height: calc(var(--td-height) * 1.7);
   }
 }
+.td-stage-scrolling {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.td-stage-scrolling .td-scroll {
+  position: relative;
+  inset: auto;
+  margin-top: auto;
+  padding: 32px 0 16px;
+}
 .td-scroll {
   position: absolute;
   inset: auto 20px 16px;
@@ -2863,16 +2876,27 @@ body.marketing .writing-card:hover {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.td-fold-head {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color var(--transition-fast);
+}
+.td-fold-head:hover,
+.td-fold-head:focus-visible {
+  color: var(--color-text-secondary);
+  outline: none;
+}
 .td-caret {
+  display: flex;
+  justify-content: center;
   width: 12px;
   flex-shrink: 0;
-  text-align: center;
 }
-.td-caret::before {
-  content: '▸';
+.td-caret svg {
+  transition: transform 160ms ease;
 }
-.td-caret[data-open='true']::before {
-  content: '▾';
+.td-caret[data-open='true'] svg {
+  transform: rotate(90deg);
 }
 .td-fold-body {
   display: flex;
@@ -3006,6 +3030,21 @@ body.marketing .writing-card:hover {
     color: var(--color-text-tertiary);
     font-size: 0.8125rem;
     line-height: 1.5;
+    transition: color 150ms ease;
+  }
+  .writing-body sup:hover + .sidenote,
+  .writing-body sup:has(a:focus-visible) + .sidenote,
+  .writing-body .sidenote:hover {
+    color: var(--color-text-secondary);
+  }
+  .writing-body sup:hover + .sidenote a,
+  .writing-body sup:has(a:focus-visible) + .sidenote a,
+  .writing-body .sidenote:hover a {
+    color: var(--color-text-primary);
+  }
+  .writing-body sup:has(+ .sidenote:hover) a[data-footnote-ref] {
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
   .writing-body .sidenote-number {
     margin-right: 4px;
