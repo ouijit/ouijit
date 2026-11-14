@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore, selectIsCloning, type Selection } from '../stores/appStore';
+import { useHomeChatStore } from '../stores/homeChatStore';
 import { useProjectStore } from '../stores/projectStore';
 import { stackMembers, useTerminalStore } from '../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../stores/canvasStore';
@@ -156,8 +157,11 @@ function Selected({
   projectPath: string | null;
   onCanvas: boolean;
 }) {
+  const chatEnabled = useHomeChatStore((s) => s.enabled);
   if (selection.kind === 'app-settings') return <GlobalSettingsPanel />;
-  if (selection.kind === 'chat') return selection.page === 'settings' ? <HomeChatSettingsPanel /> : <HomeChatView />;
+  if (selection.kind === 'chat' && chatEnabled) {
+    return selection.page === 'settings' ? <HomeChatSettingsPanel /> : <HomeChatView />;
+  }
   if (selection.kind === 'terminal') {
     return onCanvas && projectPath ? (
       <TerminalCanvas projectPath={projectPath} />

@@ -3,7 +3,10 @@ import { useChatStore } from './chatStore';
 import type { HomeChatState, HomeChatSummary } from '../chat/preferences';
 
 interface HomeChatStore extends HomeChatState {
+  /** Whether chat is turned on; until it is, Chat never starts and none of it shows. */
+  enabled: boolean;
   set: (state: HomeChatState) => void;
+  setEnabled: (enabled: boolean) => void;
 }
 
 /** Chat's conversations, which one is current, and which started each task, as the main process reports them. */
@@ -11,7 +14,9 @@ export const useHomeChatStore = create<HomeChatStore>()((set) => ({
   currentId: '',
   chats: [],
   owners: {},
+  enabled: false,
   set: (state) => set(state),
+  setEnabled: (enabled) => set({ enabled }),
 }));
 
 export function currentHomeChatTitle(state: HomeChatState): string | undefined {

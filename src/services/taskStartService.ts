@@ -376,7 +376,8 @@ async function spawnTerminalForInProgress(
     return;
   }
 
-  if ((surface ?? (await loadChatSettings()).surface) === 'chat') {
+  const settings = await loadChatSettings();
+  if (settings.enabled && (surface ?? settings.surface) === 'chat') {
     await addChatCard(projectPath, {
       worktree: { path: task.worktreePath, branch: task.branch || '' },
       taskId: task.taskNumber,

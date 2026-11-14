@@ -12,6 +12,7 @@ export const CHAT_AGENT_LABELS: Record<ChatAgentId, string> = {
 
 /** globalSettings keys for the app-level chat preferences. Leaf module, shared by main and renderer. */
 export const CHAT_SETTING_KEYS = {
+  enabled: 'chat:enabled',
   surface: 'chat:surface',
   agent: 'chat:agent',
   piApprovals: 'chat:piApprovals',
@@ -21,6 +22,8 @@ export const CHAT_SETTING_KEYS = {
 export type TaskSurface = 'terminal' | 'chat';
 
 export interface ChatSettings {
+  /** Experimental, off by default: Chat itself, and tasks opening as a chat. */
+  enabled: boolean;
   /** What a task opens in. */
   surface: TaskSurface;
   agent: ChatAgentId;
@@ -29,6 +32,7 @@ export interface ChatSettings {
 }
 
 export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
+  enabled: false,
   surface: 'terminal',
   agent: 'claude',
   piApprovals: false,
@@ -36,10 +40,13 @@ export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
 };
 
 export function parseChatSettings(read: (key: string) => string | undefined | null): ChatSettings {
+  const enabled = read(CHAT_SETTING_KEYS.enabled) === '1';
   const surface = read(CHAT_SETTING_KEYS.surface);
   const agent = read(CHAT_SETTING_KEYS.agent);
   return {
-    surface: surface === 'chat' ? 'chat' : 'terminal',
+    enabled,
+    // With chat off, every task opens as a terminal whatever was chosen while it was on.
+    surface: enabled && surface === 'chat' ? 'chat' : 'terminal',
     agent: isChatAgentId(agent) ? agent : DEFAULT_CHAT_SETTINGS.agent,
     piApprovals: read(CHAT_SETTING_KEYS.piApprovals) === '1',
     acpCommand: read(CHAT_SETTING_KEYS.acpCommand) ?? '',

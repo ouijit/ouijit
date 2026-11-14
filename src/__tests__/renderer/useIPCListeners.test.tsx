@@ -313,6 +313,25 @@ describe('useIPCListeners — CLI task lifecycle', () => {
     expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl])).toEqual([
       ['in_review', { mode: 'run', command: undefined }],
     ]);
+    // A sandbox the move names counts: the host review hook put in one runs at once, even for a sandboxed caller.
+    vi.mocked(beginTransition).mockClear();
+    stubs.cliTaskTransitionedCb!(
+      transitionPayload({ fromPtyId: 'pty-agent', fromSandbox: true, hookMode: 'run', hookSandbox: 'nono' }),
+    );
+    await flush();
+    expect(useWaitingStore.getState().items).toEqual([]);
+    expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => opts.sandbox)).toEqual(['nono']);
+
+    // A move that waits for the user keeps that sandbox, and what else it asked for, once they run it.
+    vi.mocked(beginTransition).mockClear();
+    stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-host', hookSandbox: 'nono', surface: 'chat' }));
+    await flush();
+    const [waiting] = useWaitingStore.getState().items;
+    expect(waiting).toEqual(expect.objectContaining({ kind: 'move', hookType: 'start', outsideSandbox: false }));
+    runWaiting(waiting);
+    expect(
+      vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.hookControl, opts.sandbox, opts.surface]),
+    ).toEqual([[{ mode: 'run', command: undefined }, 'nono', 'chat']]);
   });
 });
 

@@ -10,7 +10,8 @@ import { generateId } from '../../utils/ids';
 import { chatSetupCommand } from '../../chat/hookSetup';
 import { isActiveSandbox } from '../../sandbox/types';
 import { CHAT_SETTING_KEYS, parseChatSettings, type ChatSettings } from '../../chat/preferences';
-import { listenForHomeChat } from '../../stores/homeChatStore';
+import { listenForHomeChat, useHomeChatStore } from '../../stores/homeChatStore';
+import { useAppStore } from '../../stores/appStore';
 import { listenForChatDecisions } from '../../services/homeChatDecisions';
 import { startHomeChat } from './homeChatActions';
 import type { ChatAgentId, ChatAttachment, ChatSessionStatus, SequencedChatEvent } from '../../chat/model';
@@ -54,8 +55,19 @@ export function initChat(): void {
   listenForChatEvents(forwardStatus);
   listenForHomeChat();
   listenForChatDecisions();
-  void loadChatSettings();
-  void startHomeChat();
+  void loadChatSettings().then(({ enabled }) => setChatEnabled(enabled));
+}
+
+/** Turn chat on or off for the app: Chat starts or stops, and its page and sidebar group come and go. */
+export async function setChatEnabled(enabled: boolean): Promise<void> {
+  useHomeChatStore.getState().setEnabled(enabled);
+  if (enabled) {
+    await startHomeChat();
+    return;
+  }
+  if (useAppStore.getState().selection.kind === 'chat') useAppStore.getState().select({ kind: 'none' });
+  const { currentId } = useHomeChatStore.getState();
+  if (currentId) await window.api.chat.stop(currentId).catch(() => {});
 }
 
 export interface SetupCommand {

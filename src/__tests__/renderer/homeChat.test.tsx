@@ -9,6 +9,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { HOME_CHAT_SETTING_KEYS, taskKey, type ChatDecision } from '../../chat/preferences';
 import { listenForChatDecisions } from '../../services/homeChatDecisions';
+import { ChatSettingsSection } from '../../components/chat/ChatSettingsSection';
 import { useHomeChatStore } from '../../stores/homeChatStore';
 import { useWaitingStore } from '../../stores/waitingStore';
 import { NO_CAPABILITIES, type ChatNode, type ChatSessionInfo, type ChatSnapshot } from '../../chat/model';
@@ -112,6 +113,7 @@ beforeEach(() => {
     ],
     owners: {},
   });
+  useHomeChatStore.getState().setEnabled(true);
   vi.mocked(window.api.homeChat.create).mockClear();
   vi.mocked(window.api.homeChat.switch).mockClear();
   vi.mocked(window.api.homeChat.rename).mockClear();
@@ -127,6 +129,26 @@ beforeEach(() => {
 });
 
 describe('Chat', () => {
+  test('is off until turned on in Settings: no group, no page, and Chat never starts', async () => {
+    useHomeChatStore.getState().setEnabled(false);
+    vi.mocked(window.api.homeChat.start).mockClear();
+    render(<App />);
+    const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
+    expect(sidebar.querySelector('[data-group="home-chat"]')).toBeNull();
+    act(() => useAppStore.getState().select({ kind: 'chat', page: 'chat' }));
+    expect(document.querySelector('.chat-turns')).toBeNull();
+
+    render(<ChatSettingsSection />);
+    const toggle = await screen.findByRole('switch', { name: /^Chat/ });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(screen.queryByText('Open tasks in')).toBeNull();
+    fireEvent.click(toggle);
+    expect(window.api.globalSettings.set).toHaveBeenCalledWith('chat:enabled', '1');
+    await waitFor(() => expect(window.api.homeChat.start).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('Open tasks in')).toBeTruthy();
+    expect(sidebar.querySelector('[data-group="home-chat"]')).not.toBeNull();
+  });
+
   test('sits above the projects, opens as a folded transcript, and has settings of its own', async () => {
     adopt(transcript(), { status: 'running' });
     render(<App />);

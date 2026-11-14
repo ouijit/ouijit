@@ -11,7 +11,7 @@ import {
 } from '../../chat/preferences';
 import { CHAT_AGENT_IDS, type ChatAgentId } from '../../chat/model';
 import type { DriverProbe } from '../../chat/driver';
-import { loadChatSettings } from './chatActions';
+import { loadChatSettings, setChatEnabled } from './chatActions';
 
 function Row({ label, description, children }: { label: string; description: string; children: React.ReactNode }) {
   return (
@@ -53,73 +53,89 @@ export function ChatSettingsSection() {
     <section>
       <h2 className="text-sm font-semibold text-text-primary mb-4">Chat</h2>
       <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg">
-        <Row label="Open tasks in" description="Any task can switch between chat and terminal from its card.">
-          <SegmentedGroup>
-            {(['terminal', 'chat'] as TaskSurface[]).map((surface) => (
-              <button
-                key={surface}
-                type="button"
-                aria-pressed={settings.surface === surface}
-                className={`${segmentBase} ${settings.surface === surface ? segmentAccent : segmentQuiet}`}
-                onClick={() => save('surface', surface, surface)}
+        <ToggleRow
+          label="Chat"
+          description="Experimental. A conversation that runs your tasks across projects, and tasks that open as a chat."
+          checked={settings.enabled}
+          onChange={() => {
+            const enabled = !settings.enabled;
+            save('enabled', enabled, enabled ? '1' : '');
+            void setChatEnabled(enabled);
+          }}
+        />
+        {settings.enabled && (
+          <>
+            <Row label="Open tasks in" description="Any task can switch between chat and terminal from its card.">
+              <SegmentedGroup>
+                {(['terminal', 'chat'] as TaskSurface[]).map((surface) => (
+                  <button
+                    key={surface}
+                    type="button"
+                    aria-pressed={settings.surface === surface}
+                    className={`${segmentBase} ${settings.surface === surface ? segmentAccent : segmentQuiet}`}
+                    onClick={() => save('surface', surface, surface)}
+                  >
+                    {surface === 'chat' ? 'Chat' : 'Terminal'}
+                  </button>
+                ))}
+              </SegmentedGroup>
+            </Row>
+            <Row
+              label="Chat agent"
+              description={
+                probe?.problem ??
+                (probe?.version
+                  ? `${CHAT_AGENT_LABELS[settings.agent]} ${probe.version}`
+                  : 'The agent a new chat runs.')
+              }
+            >
+              <SettingsDropdown
+                open={agentOpen}
+                onOpenChange={setAgentOpen}
+                widthClass="w-[13rem]"
+                ariaLabel="Choose the chat agent"
+                triggerLabel={CHAT_AGENT_LABELS[settings.agent]}
               >
-                {surface === 'chat' ? 'Chat' : 'Terminal'}
-              </button>
-            ))}
-          </SegmentedGroup>
-        </Row>
-        <Row
-          label="Chat agent"
-          description={
-            probe?.problem ??
-            (probe?.version ? `${CHAT_AGENT_LABELS[settings.agent]} ${probe.version}` : 'The agent a new chat runs.')
-          }
-        >
-          <SettingsDropdown
-            open={agentOpen}
-            onOpenChange={setAgentOpen}
-            widthClass="w-[13rem]"
-            ariaLabel="Choose the chat agent"
-            triggerLabel={CHAT_AGENT_LABELS[settings.agent]}
-          >
-            {CHAT_AGENT_IDS.map((agent) => (
-              <SettingsDropdownOption
-                key={agent}
-                label={CHAT_AGENT_LABELS[agent]}
-                hint={
-                  agent === 'acp'
-                    ? undefined
-                    : probes[agent]?.installed === false
-                      ? 'Not installed'
-                      : probes[agent]?.version
-                }
-                selected={settings.agent === agent}
-                onClick={() => {
-                  setAgentOpen(false);
-                  save('agent', agent, agent);
-                }}
+                {CHAT_AGENT_IDS.map((agent) => (
+                  <SettingsDropdownOption
+                    key={agent}
+                    label={CHAT_AGENT_LABELS[agent]}
+                    hint={
+                      agent === 'acp'
+                        ? undefined
+                        : probes[agent]?.installed === false
+                          ? 'Not installed'
+                          : probes[agent]?.version
+                    }
+                    selected={settings.agent === agent}
+                    onClick={() => {
+                      setAgentOpen(false);
+                      save('agent', agent, agent);
+                    }}
+                  />
+                ))}
+              </SettingsDropdown>
+            </Row>
+            {settings.agent === 'pi' && (
+              <ToggleRow
+                label="Ask before Pi runs tools"
+                description="Pi runs tools without asking. This adds an approval before each one, in chat."
+                checked={settings.piApprovals}
+                onChange={() => save('piApprovals', !settings.piApprovals, settings.piApprovals ? '' : '1')}
               />
-            ))}
-          </SettingsDropdown>
-        </Row>
-        {settings.agent === 'pi' && (
-          <ToggleRow
-            label="Ask before Pi runs tools"
-            description="Pi runs tools without asking. This adds an approval before each one, in chat."
-            checked={settings.piApprovals}
-            onChange={() => save('piApprovals', !settings.piApprovals, settings.piApprovals ? '' : '1')}
-          />
-        )}
-        {settings.agent === 'acp' && (
-          <Row label="ACP agent command" description="Any agent that speaks the Agent Client Protocol over stdio.">
-            <input
-              className="field w-[16rem] font-mono text-[12px]"
-              placeholder="gemini --experimental-acp"
-              value={acpDraft}
-              onChange={(event) => setAcpDraft(event.target.value)}
-              onBlur={() => save('acpCommand', acpDraft.trim(), acpDraft.trim())}
-            />
-          </Row>
+            )}
+            {settings.agent === 'acp' && (
+              <Row label="ACP agent command" description="Any agent that speaks the Agent Client Protocol over stdio.">
+                <input
+                  className="field w-[16rem] font-mono text-[12px]"
+                  placeholder="gemini --experimental-acp"
+                  value={acpDraft}
+                  onChange={(event) => setAcpDraft(event.target.value)}
+                  onBlur={() => save('acpCommand', acpDraft.trim(), acpDraft.trim())}
+                />
+              </Row>
+            )}
+          </>
         )}
       </div>
     </section>

@@ -77,6 +77,7 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
   const revealed = useUIStore((s) => s.sidebarRevealed);
   const width = useUIStore((s) => s.sidebarWidth);
   const appSettingsOpen = useAppStore((s) => s.selection.kind === 'app-settings');
+  const chatEnabled = useHomeChatStore((s) => s.enabled);
   const open = shown || revealed;
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -162,7 +163,7 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
             data-sidebar-scroller
             className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 pt-1 pb-4 flex flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            <ChatGroup />
+            {chatEnabled && <ChatGroup />}
             <TreeSection onCloneSelect={onCloneSelect} />
           </div>
 
