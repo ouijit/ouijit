@@ -12,6 +12,10 @@ interface Props {
   description?: string;
   markdownUrl?: string;
   noindex?: boolean;
+  /** Link previews: the bare title, without the site name the card already shows. */
+  socialTitle?: string;
+  image?: string;
+  published?: Date;
 }
 
 const {
@@ -19,11 +23,14 @@ const {
   description = 'A task and terminal manager for running coding agents like Claude Code in parallel, with per-task git worktrees, lifecycle hooks, per-terminal sandboxing, and a session-aware CLI.',
   markdownUrl,
   noindex = false,
+  socialTitle = title,
+  image = '/assets/og-image.png',
+  published,
 } = Astro.props;
 const hasWriting = (await listPosts()).length > 0;
 
 const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://ouijit.com').toString();
-const ogImage = new URL('/assets/og-image.png', Astro.site ?? 'https://ouijit.com').toString();
+const ogImage = new URL(image, Astro.site ?? 'https://ouijit.com').toString();
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -37,18 +44,20 @@ const ogImage = new URL('/assets/og-image.png', Astro.site ?? 'https://ouijit.co
   {noindex && <meta name="robots" content="noindex" />}
   {hasWriting && <link rel="alternate" type="application/rss+xml" href="/writing/rss.xml" title="Ouijit · Writing" />}
 
-  <meta property="og:type" content="website" />
+  <meta property="og:type" content={published ? 'article' : 'website'} />
+  {published && <meta property="article:published_time" content={published.toISOString()} />}
   <meta property="og:site_name" content="Ouijit" />
-  <meta property="og:title" content={title} />
+  <meta property="og:title" content={socialTitle} />
   <meta property="og:description" content={description} />
   <meta property="og:url" content={canonical} />
   <meta property="og:image" content={ogImage} />
 
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content={title} />
+  <meta name="twitter:title" content={socialTitle} />
   <meta name="twitter:description" content={description} />
   <meta name="twitter:image" content={ogImage} />
 
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <link rel="icon" type="image/png" href="/assets/favicon.png" />
   <link rel="apple-touch-icon" href="/assets/ouijit-app-icon.png" />
   <link rel="preload" href={iosevkaExtended} as="font" type="font/woff2" crossorigin />
