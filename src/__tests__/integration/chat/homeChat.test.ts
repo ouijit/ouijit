@@ -22,7 +22,7 @@ import {
   startHomeChat,
   switchHomeChat,
 } from '../../../chat/homeChat';
-import { installHomeChatWakes } from '../../../chat/wake';
+import { follow, installHomeChatWakes, sessionSubject, unfollow, wakeHomeChat } from '../../../chat/wake';
 import { HOME_CHAT_SETTING_KEYS, UNTITLED_HOME_CHAT } from '../../../chat/preferences';
 import { pendingRequests, type ChatAgentId, type ChatSnapshot, type UserMessageNode } from '../../../chat/model';
 import { CLI_REFERENCE, getCliReferencePath } from '../../../hookServer';
@@ -103,7 +103,9 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       const probe = recording ? await getDriver(agent).probe() : null;
       chatHost._setOptionsForTesting({
         spawnProcess: recording ? recordingSpawn(name, agent, probe?.version) : replayingSpawn(loadCassettes(name)),
+        spawnOneShot: replayingSpawn(loadCassettes(`title-${agent}`)),
       });
+      const title = loadCassette(`title-${agent}`).entries.at(-1)!.line;
       if (!installed) {
         installHomeChatWakes();
         installHomeChat();
@@ -131,13 +133,14 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       expect(home.info.taskId).toBeNull();
       expect(fs.existsSync(path.join(homeChatDir(), '.git'))).toBe(true);
 
-      // A worker that stops on an approval: Chat hears who, which chat, and
-      // which request. One that runs its tools without asking, as Pi does, is
-      // heard from when its turn ends.
+      // A worker Chat follows that stops on an approval: Chat hears who,
+      // which chat, and which request. One that runs its tools without asking,
+      // as Pi does, is heard from when its turn ends.
       const cwd = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-worker-')));
       execFileSync('git', ['init', '-q'], { cwd });
       const worker = `pty-worker-${agent}`;
       await chatHost.start({ id: worker, agent, projectPath: cwd, cwd, taskId: null, label: 'Worker' });
+      follow(HOME_CHAT_ID, sessionSubject(worker));
       await chatHost.prompt(worker, {
         text: 'Create a file named note.txt containing the word hi, using your file editing tool. Then reply with only: first',
       });
@@ -160,13 +163,19 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
           .at(-1),
       ).toBe(`Ouijit: Worker, chat ${worker}, finished its turn.`);
 
-      // A kind of wake switched off is not delivered.
+      // Unfollowed, its turns are someone else's, and Chat hears nothing of them.
+      unfollow(sessionSubject(worker));
+      await chatHost.prompt(worker, { text: 'Reply with only: second' });
+      await until(worker, (s) => s.info.status === 'idle' && replies(s, /second/) >= 1);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(wakes(chatHost.snapshot(HOME_CHAT_ID)!)).toHaveLength(count);
+      // Nor is a kind of wake switched off delivered, even about what it follows.
       await setGlobalSetting(
         HOME_CHAT_SETTING_KEYS.wake,
         JSON.stringify({ turnEnded: false, asked: true, taskMoved: true, hookFailed: true }),
       );
-      await chatHost.prompt(worker, { text: 'Reply with only: second' });
-      await until(worker, (s) => s.info.status === 'idle' && replies(s, /second/) >= 1);
+      follow(HOME_CHAT_ID, sessionSubject(worker));
+      await wakeHomeChat('turnEnded', 'Worker finished its turn.', { kind: 'event', text: '' }, sessionSubject(worker));
       await new Promise((resolve) => setTimeout(resolve, 300));
       expect(wakes(chatHost.snapshot(HOME_CHAT_ID)!)).toHaveLength(count);
 
@@ -183,8 +192,8 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       expect(after.nodes.filter((n) => n.kind === 'user_message' && !n.wake).map((n) => n.text)).toEqual([
         'Still there?',
       ]);
-      // The first thing it was asked names the conversation.
-      expect(after.info.label).toBe('Still there?');
+      // The first thing it was asked names the conversation, then its agent sums it up.
+      expect((await until(HOME_CHAT_ID, (s) => s.info.label === title)).info.label).toBe(title);
 
       // A new conversation leaves the old one in the list, and switching back resumes it, transcript and all.
       const fresh = await newHomeChat();
@@ -194,7 +203,7 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       const listed = await homeChatState();
       expect(listed.currentId).toBe(fresh.info.id);
       // Nothing asked yet, the new one is open but not listed.
-      expect(listed.chats.map((c) => [c.id, c.title])).toEqual([[HOME_CHAT_ID, 'Still there?']]);
+      expect(listed.chats.map((c) => [c.id, c.title])).toEqual([[HOME_CHAT_ID, title]]);
       const back = await switchHomeChat(HOME_CHAT_ID);
       expect(back.nodes.map((n) => n.id)).toEqual(after.nodes.map((n) => n.id));
       await awaitStopped(fresh.info.id);

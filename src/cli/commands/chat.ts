@@ -4,7 +4,7 @@
  */
 
 import type { Command } from 'commander';
-import { get, post } from '../api';
+import { del, get, post, put, projectQuery } from '../api';
 import { printJson, readBody } from '../output';
 import { resolvePtyId } from '../ptyId';
 
@@ -12,7 +12,7 @@ function chatUrl(id: string): string {
   return `/api/chats/${encodeURIComponent(id)}`;
 }
 
-export function registerChatCommands(parent: Command) {
+export function registerChatCommands(parent: Command, requireProject: () => string) {
   const chat = parent
     .command('chat')
     .description('Read and message chat sessions')
@@ -28,7 +28,10 @@ Examples:
   ouijit chat answer pty_abc123 codex-input-7 --answer q1=yes
   ouijit chat send pty_abc123 "also update the docs"
   echo "a longer message" | ouijit chat send pty_abc123 -
-  ouijit chat interrupt pty_abc123`,
+  ouijit chat interrupt pty_abc123
+  ouijit chat follow 12 --project ~/code/app
+  ouijit chat unfollow 12 --project ~/code/app
+  ouijit chat following`,
     );
 
   chat
@@ -94,6 +97,34 @@ Examples:
         printJson(await post(`${chatUrl(id)}/requests/${encodeURIComponent(requestId)}`, body));
       },
     );
+
+  const target = (taskOrChat: string): string =>
+    /^\d+$/.test(taskOrChat)
+      ? `/api/following/tasks/${taskOrChat}${projectQuery(requireProject())}`
+      : `/api/following/chats/${encodeURIComponent(taskOrChat)}`;
+
+  chat
+    .command('follow')
+    .description('Chat only: hear what happens to a task, or a chat with no task, until it is done or unfollowed')
+    .argument('<task-or-chat>', 'a task number, or a chat session id')
+    .action(async (taskOrChat: string) => {
+      printJson(await put(target(taskOrChat), {}));
+    });
+
+  chat
+    .command('unfollow')
+    .description('Chat only: stop hearing about a task or chat')
+    .argument('<task-or-chat>', 'a task number, or a chat session id')
+    .action(async (taskOrChat: string) => {
+      printJson(await del(target(taskOrChat)));
+    });
+
+  chat
+    .command('following')
+    .description('Chat only: the tasks and chats this conversation follows')
+    .action(async () => {
+      printJson(await get('/api/following'));
+    });
 
   chat
     .command('interrupt')

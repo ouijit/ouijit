@@ -208,6 +208,8 @@ export interface ChatOption {
   id: string;
   label: string;
   description?: string;
+  /** For an alias such as Claude's Default: the label of the option it currently stands for. */
+  standsFor?: string;
 }
 
 export interface ChatCommand {
@@ -359,6 +361,48 @@ const CONVERSATION_COMMANDS: Record<string, ConversationAction> = {
   effort: 'effort',
 };
 
+export function isConversationCommand(name: string): boolean {
+  return name in CONVERSATION_COMMANDS;
+}
+
+/**
+ * Commands each agent has only in its own terminal UI, which a chat cannot
+ * run. Anything else that starts with a slash and is not in the chat's menu
+ * is just a message.
+ */
+const TERMINAL_ONLY_COMMANDS: Partial<Record<ChatAgentId, string[]>> = {
+  claude: [
+    'login',
+    'logout',
+    'config',
+    'doctor',
+    'terminal-setup',
+    'vim',
+    'ide',
+    'permissions',
+    'status',
+    'statusline',
+    'memory',
+    'resume',
+    'export',
+    'theme',
+    'mcp',
+    'agents',
+    'hooks',
+    'bug',
+    'upgrade',
+    'usage',
+    'cost',
+    'add-dir',
+    'privacy-settings',
+    'release-notes',
+    'exit',
+  ],
+  codex: ['login', 'logout', 'status', 'approvals', 'diff', 'mention', 'resume', 'quit', 'exit'],
+  pi: ['login', 'logout', 'settings', 'hotkeys', 'resume', 'session', 'tree', 'export', 'share', 'quit'],
+  opencode: ['themes', 'editor', 'sessions', 'share', 'unshare', 'exit'],
+};
+
 export type SlashCommand =
   | { kind: 'conversation'; action: ConversationAction; name: string; argument: string }
   | { kind: 'agent'; name: string }
@@ -366,16 +410,16 @@ export type SlashCommand =
 
 /**
  * What a typed slash command is in a chat: one Ouijit runs itself, one the
- * agent runs, or one that only exists in the agent's terminal UI — anything
- * not in the chat's menu. Null for text that is not a command, a path
- * (`/Users/...`) included.
+ * agent runs, or one that only exists in the agent's terminal UI. Null for
+ * anything else, which is sent as a message: a path (`/Users/...`), or a
+ * sentence that happens to start with a slash.
  */
-export function parseSlashCommand(text: string, commands: ChatCommand[]): SlashCommand | null {
+export function parseSlashCommand(text: string, commands: ChatCommand[], agent: ChatAgentId): SlashCommand | null {
   const match = /^\/([A-Za-z][\w:.-]*)(?:\s+([\s\S]*))?$/.exec(text.trim());
   if (!match) return null;
   const name = match[1];
   const action = CONVERSATION_COMMANDS[name];
   if (action) return { kind: 'conversation', action, name, argument: (match[2] ?? '').trim() };
   if (commands.some((command) => command.name === name)) return { kind: 'agent', name };
-  return { kind: 'terminal', name };
+  return TERMINAL_ONLY_COMMANDS[agent]?.includes(name) ? { kind: 'terminal', name } : null;
 }

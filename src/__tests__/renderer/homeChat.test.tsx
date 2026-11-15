@@ -129,6 +129,24 @@ beforeEach(() => {
 });
 
 describe('Chat', () => {
+  test("says a command that only works in the agent's own terminal can't run here, with nothing to click", () => {
+    adopt(transcript().map((n) => (n.id === 't4' ? { ...n, status: 'completed' } : n)) as ChatNode[], {
+      status: 'idle',
+    });
+    render(<App />);
+    act(() => useAppStore.getState().select({ kind: 'chat', page: 'chat' }));
+    const composer = screen.getByLabelText('Message');
+    fireEvent.change(composer, { target: { value: '/login' } });
+    fireEvent.keyDown(composer, { key: 'Enter' });
+    expect(screen.getByText(/only works in Claude Code's own terminal, which Chat doesn't have/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Open in terminal' })).toBeNull();
+    expect(window.api.chat.prompt).not.toHaveBeenCalledWith(
+      CURRENT,
+      expect.objectContaining({ text: '/login' }),
+      'auto',
+    );
+  });
+
   test('is off until turned on in Settings: no group, no page, and Chat never starts', async () => {
     useHomeChatStore.getState().setEnabled(false);
     vi.mocked(window.api.homeChat.start).mockClear();
@@ -246,16 +264,27 @@ describe('Chat', () => {
     expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'settings' });
     expect(await screen.findByRole('heading', { name: 'Chat settings' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sandbox', pressed: true })).toBeTruthy();
+    // In the sandbox, Chat has a profile of its own, and choosing another restarts it.
+    expect(await screen.findByText('Sandbox profile')).toBeTruthy();
+    expect(window.api.sandbox.nonoProfile).toHaveBeenCalledWith(await window.api.homeChat.dir());
+    vi.mocked(window.api.sandbox.chooseNonoProfile).mockResolvedValueOnce({
+      path: '/Users/test/strict.json',
+      own: false,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Change…' }));
+    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('~/strict.json')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Host' }));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(HOME_CHAT_SETTING_KEYS.sandbox, 'none');
     await act(async () => {});
-    expect(window.api.homeChat.restart).toHaveBeenCalledTimes(1);
+    expect(window.api.homeChat.restart).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Sandbox profile')).toBeNull();
     fireEvent.click(screen.getByRole('checkbox', { name: 'A hook fails' }));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(
       HOME_CHAT_SETTING_KEYS.wake,
       JSON.stringify({ turnEnded: true, asked: true, taskMoved: true, hookFailed: false }),
     );
-    expect(window.api.homeChat.restart).toHaveBeenCalledTimes(1);
+    expect(window.api.homeChat.restart).toHaveBeenCalledTimes(2);
 
     // Escape leaves settings for the chat.
     fireEvent.keyDown(document.body, { key: 'Escape' });

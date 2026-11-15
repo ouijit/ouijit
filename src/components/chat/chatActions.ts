@@ -359,6 +359,9 @@ export async function switchToChat(id: string): Promise<void> {
       () => useTerminalStore.getState().displayStates[id]?.status !== 'thinking' || !terminalInstances.has(id),
     );
     if (!terminalInstances.has(id)) return;
+    // Shown at once from what was stored, while the agent comes up behind it.
+    const stored = await window.api.chat.snapshot(id);
+    if (stored) useChatStore.getState().adopt({ ...stored, info: { ...stored.info, status: 'starting' } });
     void term.releasePty();
     term.setSurface('chat');
     const snapshot = await window.api.chat.start({ ...chatStartOptions(term), eager: true });

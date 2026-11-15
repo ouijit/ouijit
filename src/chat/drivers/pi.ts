@@ -560,6 +560,11 @@ export const piDriver: AgentDriver = {
   id: 'pi',
   label: 'Pi',
 
+  oneShot(prompt) {
+    const binary = resolveAgentBinary('pi');
+    return binary ? { command: binary, args: ['-p', '--no-session', '--no-tools', prompt] } : null;
+  },
+
   async probe() {
     const binary = resolveAgentBinary('pi');
     if (!binary) return { installed: false, problem: 'Pi is not installed. Install it from pi.dev.' };

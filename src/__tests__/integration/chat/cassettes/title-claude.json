@@ -1,0 +1,11 @@
+{
+  "agent": "claude",
+  "entries": [
+    {
+      "dir": "out",
+      "line": "Fix Release Workflow Notarize Failure",
+      "t": 2307
+    }
+  ],
+  "exit": 0
+}

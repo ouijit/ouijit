@@ -1,12 +1,12 @@
 import * as path from 'node:path';
 import { getLogger } from '../logger';
-import { getTaskByNumber } from '../db';
+import { getChatRepo, getTaskByNumber } from '../db';
 import { taskEvents, type TaskStatusChange } from '../taskEvents';
 import { getSessionSpawnContext, getSessionTaskContext } from '../sessions';
 import { chatHost } from './host';
 import { Mailbox } from './mailbox';
-import { homeChatCurrent, loadHomeChatSettings, taskOwner } from './homeChat';
-import type { TaskRef, WakeEvent } from './preferences';
+import { loadHomeChatSettings } from './homeChat';
+import { taskKey, type TaskRef, type WakeEvent } from './preferences';
 import type { ChatSessionInfo, ChatSessionStatus, RequestNode, WakeNote } from './model';
 
 const wakeLog = getLogger().scope('chat:wake');
@@ -57,20 +57,70 @@ const mailbox = new Mailbox({
   },
 });
 
+export function taskSubject(task: TaskRef): string {
+  return taskKey(task.projectPath, task.taskNumber);
+}
+
+/** A task's chat is heard about as its task, so a restarted session is still the work Chat set going. */
+export function sessionSubject(id: string): string {
+  const task = sessionTask(id);
+  return task ? taskSubject(task) : id;
+}
+
 /**
- * Tell Chat something that happened, when its settings ask for that kind.
- * News of a task goes to the conversation that started it, anything else to
- * the one open.
+ * A conversation follows a task, or a chat with no task, and hears what
+ * happens to it; Chat hears about nothing else, so what the user drives
+ * themselves stays theirs. Starting, messaging or answering something follows
+ * it; the user taking it over, or it reaching done, ends that.
+ */
+export function follow(conversation: string, subject: string): void {
+  getChatRepo().follow(subject, conversation);
+}
+
+export function unfollow(subject: string): void {
+  getChatRepo().unfollow(subject);
+}
+
+export type Followed =
+  | { task: number; project: string; name: string; status: string }
+  | { chat: string; label: string; status: string };
+
+/** What a conversation follows. A task since deleted is dropped from it. */
+export async function following(conversation: string): Promise<Followed[]> {
+  const out: Followed[] = [];
+  for (const subject of getChatRepo().following(conversation)) {
+    const at = subject.lastIndexOf('#');
+    const taskNumber = at === -1 ? NaN : Number(subject.slice(at + 1));
+    if (Number.isInteger(taskNumber)) {
+      const project = subject.slice(0, at);
+      const task = await getTaskByNumber(project, taskNumber);
+      if (task) out.push({ task: taskNumber, project, name: task.name, status: task.status });
+      else unfollow(subject);
+      continue;
+    }
+    const info = chatHost.snapshot(subject)?.info;
+    if (info) out.push({ chat: subject, label: info.label, status: info.status });
+    else unfollow(subject);
+  }
+  return out;
+}
+
+/**
+ * Tell the conversation following `subject` what happened, when Chat's
+ * settings ask for that kind. `release` ends the following once told.
  */
 export async function wakeHomeChat(
   kind: WakeEvent | null,
   text: string,
   note: WakeNote,
-  about?: TaskRef | null,
+  subject: string | null,
+  { release = false }: { release?: boolean } = {},
 ): Promise<void> {
+  const to = subject ? getChatRepo().follower(subject) : null;
+  if (!to) return;
+  if (release) unfollow(subject!);
   if (kind && !(await loadHomeChatSettings()).wake[kind]) return;
-  const to = (about && taskOwner(about.projectPath, about.taskNumber)) ?? homeChatCurrent();
-  if (to) await mailbox.post(to, text, note);
+  await mailbox.post(to, text, note);
 }
 
 /** Straight to one conversation, whatever the settings: the answer to something it asked. */
@@ -113,7 +163,7 @@ export async function wakeForAsk(ptyId: string, command: string, message: string
     'asked',
     `${who} is waiting on the user to run \`${command}\` outside its sandbox${why}. Only the user can run it.`,
     eventNote(`${name} asks you to run \`${command}\``),
-    sessionTask(ptyId),
+    sessionSubject(ptyId),
   );
 }
 
@@ -136,7 +186,7 @@ export function installHomeChatWakes(): void {
             'turnEnded',
             `${who} finished its turn.`,
             eventNote(`${name} finished its turn`),
-            sessionTask(sessionId),
+            sessionSubject(sessionId),
           ),
         );
       }
@@ -149,13 +199,16 @@ export function installHomeChatWakes(): void {
           'asked',
           `${who} is waiting on an approval: ${request.title} (request ${request.id}).`,
           eventNote(`${name} asks for approval: ${request.title}`),
-          sessionTask(sessionId),
+          sessionSubject(sessionId),
         ),
       );
     }
   });
   taskEvents.on('status', (change: TaskStatusChange) => {
-    if (quiet.has(`${change.projectPath}#${change.taskNumber}`)) return;
+    if (quiet.has(`${change.projectPath}#${change.taskNumber}`)) {
+      if (change.to === 'done') unfollow(taskSubject(change));
+      return;
+    }
     const to = COLUMNS[change.to] ?? change.to;
     void Promise.all([
       describeTask(change.projectPath, change.taskNumber),
@@ -165,7 +218,8 @@ export function installHomeChatWakes(): void {
         'taskMoved',
         `${who} moved from ${COLUMNS[change.from] ?? change.from} to ${to}.`,
         eventNote(`${name} moved to ${to}`),
-        change,
+        taskSubject(change),
+        { release: change.to === 'done' },
       ),
     );
   });

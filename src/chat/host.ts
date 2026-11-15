@@ -20,6 +20,7 @@ import { readCliReference } from './binaries';
 import { getSandboxProvider } from '../sandbox';
 import { isActiveSandbox, isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
 import { spawnAgentProcess, type AgentProcess, type AgentSpawn } from './process';
+import { generateTitle, titlePrompt } from './title';
 import { getDriver } from './drivers';
 import type { DriverProbe, DriverSession, DriverSink, UserInput } from './driver';
 import {
@@ -226,6 +227,11 @@ class HostedSession {
 
 export interface ChatHostOptions {
   spawnProcess?: typeof spawnAgentProcess;
+  /**
+   * Runs the agent's one-shots, such as a title. With only `spawnProcess` set
+   * there are none: its stand-in agent has nothing recorded for them.
+   */
+  spawnOneShot?: typeof spawnAgentProcess;
   /** Takes `/clear` for a session instead of the driver; true when it did. */
   onClear?: (id: string) => Promise<boolean>;
 }
@@ -237,9 +243,9 @@ export class ChatHost {
 
   constructor(private options: ChatHostOptions = {}) {}
 
-  /** Test-only: put a recorded agent behind the app's own host. */
+  /** Tests and e2e runs only: put a recorded agent behind the app's own host. */
   _setOptionsForTesting(options: ChatHostOptions): void {
-    this.options = options;
+    this.options = { ...this.options, ...options };
   }
 
   /** What `/clear` does in a session, over the driver's own clear. */
@@ -453,12 +459,30 @@ export class ChatHost {
     }
   }
 
-  private async spawn(session: HostedSession, token: string, spawn: AgentSpawn): Promise<AgentProcess> {
+  /**
+   * A short title for a conversation that opens with `message`, from a one-shot
+   * of its agent in the session's own sandbox. Null where the agent has no
+   * one-shot, or it fails.
+   */
+  async suggestTitle(id: string, message: string): Promise<string | null> {
+    const session = this.sessions.get(id);
+    const run = this.options.spawnOneShot ?? (this.options.spawnProcess ? null : spawnAgentProcess);
+    const oneShot = session && run && getDriver(session.info.agent).oneShot?.(titlePrompt(message));
+    if (!session || !run || !oneShot) return null;
+    // Without the session's Ouijit token: a one-shot has no business with the API.
+    return generateTitle((spawn) => this.spawn(session, null, spawn, run), oneShot);
+  }
+
+  private async spawn(
+    session: HostedSession,
+    token: string | null,
+    spawn: AgentSpawn,
+    run: typeof spawnAgentProcess = this.options.spawnProcess ?? spawnAgentProcess,
+  ): Promise<AgentProcess> {
     const base = hostEnv();
     const env: Record<string, string> = {
       ...base,
-      ...ouijitSessionEnv(session.info.id, token, base),
-      ...session.referenceEnv,
+      ...(token && { ...ouijitSessionEnv(session.info.id, token, base), ...session.referenceEnv }),
     };
     for (const [key, value] of Object.entries(spawn.env ?? {})) {
       if (value === undefined) delete env[key];
@@ -475,7 +499,7 @@ export class ChatHost {
       },
     );
     chatLog.info('spawning agent', { id: session.info.id, file: launch.file, sandbox: session.row.sandbox_provider });
-    const proc = (this.options.spawnProcess ?? spawnAgentProcess)(launch.file, launch.args, cwd, launch.env);
+    const proc = run(launch.file, launch.args, cwd, launch.env);
     session.processes.add(proc);
     proc.once('exit', () => session.processes.delete(proc));
     return proc;
@@ -575,7 +599,7 @@ export class ChatHost {
   ): Promise<string> {
     const { session, driver } = await this.requireDriver(id);
     const busy = session.info.status === 'running' || session.info.status === 'awaiting';
-    const command = parseSlashCommand(input.text, session.info.commands);
+    const command = parseSlashCommand(input.text, session.info.commands, session.info.agent);
     if (command?.kind === 'terminal') {
       throw new Error(`/${command.name} runs in the agent's terminal`);
     }
@@ -628,7 +652,7 @@ export class ChatHost {
   ): Promise<boolean> {
     const pick = (options: ChatOption[], what: string): string => {
       const wanted = command.argument.toLowerCase();
-      if (!wanted) throw new Error(`Pick a ${what} from the menu below, or type /${command.name} <${what}>`);
+      if (!wanted) throw new Error(`Name a ${what}: /${command.name} <${what}>`);
       const found = options.find((o) => o.id.toLowerCase() === wanted || o.label.toLowerCase() === wanted);
       if (!found) throw new Error(`No ${what} called ${command.argument}`);
       return found.id;

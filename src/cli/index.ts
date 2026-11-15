@@ -57,7 +57,7 @@ registerTaskCommands(program, requireProject);
 registerHookCommands(program, requireProject);
 registerTerminalCommands(program, requireProject);
 registerTagCommands(program);
-registerChatCommands(program);
+registerChatCommands(program, requireProject);
 registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
 registerSandboxCommands(program, requireProject);

@@ -18,6 +18,7 @@ import {
 import { CHAT_AGENT_IDS, type ChatAgentId } from '../../chat/model';
 import { SANDBOX_LABELS, SANDBOX_PROVIDER_IDS, type SandboxProviderId } from '../../sandbox/types';
 import type { DriverProbe } from '../../chat/driver';
+import { SandboxProfileRow } from '../scripts/SandboxProfileRow';
 
 async function loadHomeChatSettings(): Promise<HomeChatSettings> {
   const values = new Map<string, string | undefined>();
@@ -61,15 +62,23 @@ export function HomeChatSettingsPanel() {
 
   useEscape(useCallback(() => useAppStore.getState().leaveSettings(), []));
 
-  /** Agent, sandbox and instructions reach the agent only at launch, so a change restarts it. */
-  const save = async (key: keyof typeof HOME_CHAT_SETTING_KEYS, stored: string, restart: boolean) => {
-    await window.api.globalSettings.set(HOME_CHAT_SETTING_KEYS[key], stored);
-    if (!restart) return;
+  const [chatDir, setChatDir] = useState<string | null>(null);
+  useEffect(() => {
+    void window.api.homeChat.dir().then(setChatDir);
+  }, []);
+
+  const restart = async () => {
     try {
       useChatStore.getState().adopt(await window.api.homeChat.restart());
     } catch (error) {
       useProjectStore.getState().addToast(String(error), 'error');
     }
+  };
+
+  /** Agent, sandbox and instructions reach the agent only at launch, so a change restarts it. */
+  const save = async (key: keyof typeof HOME_CHAT_SETTING_KEYS, stored: string, restarts: boolean) => {
+    await window.api.globalSettings.set(HOME_CHAT_SETTING_KEYS[key], stored);
+    if (restarts) await restart();
   };
 
   const setAgent = (agent: ChatAgentId) => {
@@ -168,6 +177,9 @@ export function HomeChatSettingsPanel() {
                 ))}
               </SegmentedGroup>
             </Row>
+            {settings.sandbox === 'nono' && chatDir && (
+              <SandboxProfileRow projectPath={chatDir} onChange={() => void restart()} />
+            )}
           </section>
 
           <section>

@@ -1,0 +1,11 @@
+{
+  "agent": "codex",
+  "entries": [
+    {
+      "dir": "out",
+      "line": "Fix Notarization Workflow Failure",
+      "t": 3591
+    }
+  ],
+  "exit": 0
+}

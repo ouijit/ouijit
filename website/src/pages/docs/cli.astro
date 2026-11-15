@@ -193,6 +193,13 @@ ouijit chat read pty_abc123 --after 42 --wait 25   # wait for the next event
 ouijit chat answer pty_abc123 claude-approval-toolu_1 --option allow
 ouijit chat send pty_abc123 "also update the docs"
 ouijit chat interrupt pty_abc123</code></pre>
+  <p>
+    Chat hears about the tasks and chats it follows, and nothing else. Starting, messaging or answering one follows it;
+    you messaging it yourself, or it reaching done, ends that.
+  </p>
+  <pre class="glass-bevel"><code>ouijit chat follow 12 --project ~/code/app     # Chat only
+ouijit chat unfollow 12 --project ~/code/app
+ouijit chat following                         # what this conversation follows</code></pre>
 
   <h2 id="scripts">Scripts</h2>
   <p>

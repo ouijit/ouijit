@@ -20,6 +20,7 @@ import { up as migration018 } from './migrations/018-hook-sandbox';
 import { up as migration019 } from './migrations/019-drop-task-tags';
 import { up as migration020 } from './migrations/020-chat-sessions';
 import { up as migration021 } from './migrations/021-chat-roles';
+import { up as migration022 } from './migrations/022-chat-subscriptions';
 
 const migrations = [
   { version: 1, up: migration001 },
@@ -43,6 +44,7 @@ const migrations = [
   { version: 19, up: migration019 },
   { version: 20, up: migration020 },
   { version: 21, up: migration021 },
+  { version: 22, up: migration022 },
 ];
 
 let db: Database.Database | null = null;

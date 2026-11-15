@@ -453,6 +453,8 @@ export interface HomeChatAPI {
   create(id?: string): Promise<ChatSnapshot>;
   switch(id: string): Promise<ChatSnapshot>;
   list(): Promise<HomeChatState>;
+  /** Chat's own folder, which stands in for a project wherever a setting is per project, such as its sandbox profile. */
+  dir(): Promise<string>;
   rename(id: string, title: string): Promise<void>;
   delete(id: string): Promise<HomeChatState>;
   decisions(): Promise<ChatDecision[]>;

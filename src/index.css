@@ -369,6 +369,12 @@ textarea,
   z-index: 10;
 }
 
+/* The composer's command menu floats above it; the rule above would put it in the composer's flow. */
+.glass-bevel > .composer-menu {
+  position: absolute;
+  z-index: 20;
+}
+
 /* `background-secondary` is a 6% wash: over a pane's own content the content
    shows through, so a group placed over it needs an opaque base underneath. */
 .segmented-opaque {

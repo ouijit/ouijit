@@ -3,11 +3,10 @@ import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
-import { ChatNodeList, type NodeContext } from './ChatNodes';
+import { type NodeContext } from './ChatNodes';
 import { ChatTurns, RevealHeld } from './ChatTurns';
 import { ChatBackground } from './ChatBackground';
 import { ChatComposer } from './ChatComposer';
-import { StatusGlyph } from '../terminal/StatusDot';
 import { sendHeldPrompt } from './chatActions';
 import { CHAT_AGENT_LABELS } from '../../chat/preferences';
 import { restartHomeChat } from './homeChatActions';
@@ -213,21 +212,12 @@ export function ChatView({
           {surface === 'card' && top.length === 0 && info.status !== 'starting' && (
             <div className="text-sm text-text-tertiary">{CHAT_AGENT_LABELS[info.agent]} is ready.</div>
           )}
-          {surface === 'page' ? (
-            <ChatTurns
-              nodes={top}
-              context={context}
-              busy={info.status === 'running' || info.status === 'awaiting'}
-              onHeld={setHeld}
-            />
-          ) : (
-            <ChatNodeList nodes={top} context={context} fold />
-          )}
-          {surface === 'card' && info.status === 'running' && (
-            <div className="flex items-center h-5" role="status" aria-label="Working">
-              <StatusGlyph status="thinking" size={8} />
-            </div>
-          )}
+          <ChatTurns
+            nodes={top}
+            context={context}
+            busy={info.status === 'running' || info.status === 'awaiting'}
+            onHeld={setHeld}
+          />
           <StatusLine info={info} cardId={cardId} quiet={surface === 'page'} />
           <RevealHeld.Provider value={held}>{footer}</RevealHeld.Provider>
         </div>

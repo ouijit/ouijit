@@ -128,6 +128,7 @@ const mockApi = {
     create: vi.fn().mockResolvedValue(null),
     switch: vi.fn().mockResolvedValue(null),
     list: vi.fn().mockResolvedValue({ currentId: '', chats: [], owners: {} }),
+    dir: vi.fn().mockResolvedValue('/Users/test/Library/Application Support/ouijit/chat'),
     rename: vi.fn().mockResolvedValue(undefined),
     delete: vi.fn().mockResolvedValue({ currentId: '', chats: [], owners: {} }),
     decisions: vi.fn().mockResolvedValue([]),

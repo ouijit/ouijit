@@ -202,6 +202,7 @@ export async function deleteHomeChat(id: string): Promise<HomeChatState> {
   if (!isHomeChat(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
   const wasCurrent = (await currentHomeChatId()) === id;
   await chatHost.discard(id);
+  getChatRepo().unfollowAll(id);
   if (wasCurrent) {
     const next = getChatRepo().listHome()[0]?.id ?? newId();
     await choose(next);
@@ -220,7 +221,8 @@ export async function renameHomeChat(id: string, title: string): Promise<void> {
 }
 
 /**
- * A conversation takes its title from the first thing it was asked, and
+ * A conversation takes its title from the first thing it was asked, cut
+ * short at once and then summed up by its agent, and
  * `/clear` in one starts another rather than emptying it. Once per process.
  */
 export function installHomeChat(): void {
@@ -231,8 +233,15 @@ export function installHomeChat(): void {
     if (node.kind !== 'user_message' || node.wake) return;
     const info = chatHost.snapshot(sessionId)?.info;
     if (!info || (info.label && info.label !== UNTITLED_HOME_CHAT)) return;
-    chatHost.setLabel(sessionId, titleFromMessage(node.text));
+    const placeholder = titleFromMessage(node.text);
+    chatHost.setLabel(sessionId, placeholder);
     void announce();
+    void chatHost.suggestTitle(sessionId, node.text).then((title) => {
+      // Unless the user renamed it meanwhile.
+      if (!title || chatHost.snapshot(sessionId)?.info.label !== placeholder) return;
+      chatHost.setLabel(sessionId, title);
+      void announce();
+    });
   });
 }
 

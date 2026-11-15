@@ -32,7 +32,8 @@ import {
   isCaptureMode,
 } from './capture/captureMode';
 import { seedCaptureFixture } from './capture/fixture';
-import { issueToken, registerStaticToken } from './apiAuth';
+import { issueCommandToken, issueToken, registerStaticToken } from './apiAuth';
+import { useRecordedAgents } from './chat/e2eAgent';
 import { buildAppMenu } from './appMenu';
 
 function createElectronLogAdapter(electronLog: typeof log): Logger {
@@ -300,14 +301,21 @@ app.on('ready', async () => {
     }
   }
 
+  if (process.env.OUIJIT_E2E === '1' && process.env.OUIJIT_E2E_CHAT) {
+    await useRecordedAgents(process.env.OUIJIT_E2E_CHAT, process.env.OUIJIT_E2E_CHAT_RECORD === '1');
+  }
+
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
 
-  // Read by the e2e `cli` fixture through electronApp.evaluate.
+  // Read by the e2e `cli` fixture through electronApp.evaluate. `tokenFor`
+  // lets a test call the API as a session, Chat say, without taking the
+  // session's own token away from it.
   if (process.env.OUIJIT_E2E === '1') {
     (globalThis as Record<string, unknown>).__ouijitE2EApi = {
       url: `http://127.0.0.1:${getApiPort()}`,
       token: issueToken('e2e-driver', 'host'),
+      tokenFor: (ptyId: string) => issueCommandToken(ptyId),
     };
   }
 

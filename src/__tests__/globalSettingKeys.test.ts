@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { isAllowedKey } from '../ipc/handlers/settings';
 import { diffBaseSettingKey } from '../diffSource';
 import { defaultSandboxSettingKey, runnerSandboxSettingKey } from '../sandbox/types';
+import { CHAT_SETTING_KEYS, HOME_CHAT_SETTING_KEYS } from '../chat/preferences';
 
 /**
  * A key the allow-list refuses is refused in both directions and reported as
@@ -17,6 +18,12 @@ describe('keys the renderer persists through the settings channel', () => {
   test("a project's default environment for its commands, and where its terminals' Run goes", () => {
     expect(isAllowedKey(defaultSandboxSettingKey('/Users/x/code/proj'))).toBe(true);
     expect(isAllowedKey(runnerSandboxSettingKey('/Users/x/code/proj'))).toBe(true);
+  });
+
+  test("chat's settings, and Chat's own: its agent, where it runs, its instructions and what wakes it", () => {
+    for (const key of [...Object.values(CHAT_SETTING_KEYS), ...Object.values(HOME_CHAT_SETTING_KEYS)]) {
+      expect(isAllowedKey(key), key).toBe(true);
+    }
   });
 
   test('and a key of some other shape is refused, which is the trap', () => {

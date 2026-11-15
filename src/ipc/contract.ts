@@ -513,6 +513,7 @@ export interface IpcInvokeContract {
   /** Another of Chat's conversations, resumed as the current one. */
   'homeChat:switch': { args: [id: string]; return: ChatSnapshot };
   'homeChat:list': { args: []; return: HomeChatState };
+  'homeChat:dir': { args: []; return: string };
   'homeChat:rename': { args: [id: string, title: string]; return: void };
   /** Gone for good; the state after, with the open conversation moved on if it was the one. */
   'homeChat:delete': { args: [id: string]; return: HomeChatState };

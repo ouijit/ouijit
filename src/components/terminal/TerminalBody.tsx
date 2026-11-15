@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -24,67 +24,49 @@ const EMPTY_PANELS: TerminalPanel[] = [];
 const XTERM_CLASS =
   'terminal-xterm-container flex-1 min-h-0 min-w-0 rounded-none border-none pt-4 pl-4 pr-2 pb-2 overflow-hidden';
 
-const FADE_MS = 240;
 /** How long the view being left stays up when the one replacing it never reports in. */
-const FADE_DEADLINE_MS = 8000;
+const SWAP_DEADLINE_MS = 8000;
 
 /**
- * Whether the view the card is switching to has something to show: a chat
- * once its session is adopted with a transcript or a settled status, a
- * terminal once its PTY has drawn. A chat left over from an earlier switch has
- * already exited, so it does not count.
+ * Whether the view the card is switching to can be shown. The switch shows it
+ * at once and its process catches up behind it: a chat as soon as its session
+ * is adopted, which is its stored transcript before the agent is up; a
+ * terminal at once, saying it is resuming until its PTY has drawn. A chat left
+ * over from an earlier switch has already exited, so it does not count.
  */
 function useSurfaceReady(ptyId: string, surface: TaskSurface): boolean {
-  const chatReady = useChatStore((s) => {
+  const chatAdopted = useChatStore((s) => {
     const session = s.sessions[ptyId];
-    if (!session || session.info.status === 'exited') return false;
-    return session.nodes.length > 0 || session.info.status !== 'starting';
+    return Boolean(session) && session.info.status !== 'exited';
   });
-  const painted = useTerminalStore((s) => !(s.displayStates[ptyId]?.blank ?? false));
-  return surface === 'chat' ? chatReady : painted;
+  return surface === 'chat' ? chatAdopted : true;
 }
 
 /**
- * Switching surface keeps the view being left in place until the one replacing
- * it is ready, then fades that one in over it and drops the old one once the
- * fade has ended. Both views keep their own slot so a change of role never
- * remounts either of them, and the leaving one is known in the same render
- * that drops it from current, so it never leaves the tree in between.
+ * Switching surface cuts straight to the other view once it can be shown. A
+ * fade would let the view being left show through the new one while it is
+ * still blank. Both views keep their own slot so a change of role never
+ * remounts either, and the leaving one is known in the same render that drops
+ * it from current, so it never leaves the tree in between.
  */
-function useSurfaceSwap(
-  ptyId: string,
-  surface: TaskSurface,
-): { outgoing: TaskSurface | null; revealed: boolean; onFaded: () => void } {
+function useSurfaceSwap(ptyId: string, surface: TaskSurface): TaskSurface | null {
   const [outgoing, setOutgoing] = useState<TaskSurface | null>(null);
   const [shown, setShown] = useState(surface);
   if (shown !== surface) {
     setShown(surface);
     setOutgoing(shown);
   }
-
   const ready = useSurfaceReady(ptyId, surface);
-  const [revealed, setRevealed] = useState(false);
   useEffect(() => {
-    if (!outgoing) {
-      setRevealed(false);
-      return;
-    }
+    if (!outgoing) return;
     if (ready) {
-      setRevealed(true);
+      setOutgoing(null);
       return;
     }
-    const deadline = setTimeout(() => setRevealed(true), FADE_DEADLINE_MS);
+    const deadline = setTimeout(() => setOutgoing(null), SWAP_DEADLINE_MS);
     return () => clearTimeout(deadline);
   }, [outgoing, ready]);
-  const onFaded = useCallback(() => setOutgoing(null), []);
-  // Should the transition never fire, as when the card is off screen.
-  useEffect(() => {
-    if (!revealed) return;
-    const fallback = setTimeout(onFaded, FADE_MS * 2);
-    return () => clearTimeout(fallback);
-  }, [revealed, onFaded]);
-
-  return { outgoing, revealed, onFaded };
+  return outgoing;
 }
 
 export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
@@ -103,7 +85,10 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   );
 
   const ops = useTerminalPanels(ptyId);
-  const { outgoing, revealed, onFaded } = useSurfaceSwap(ptyId, surface);
+  const outgoing = useSurfaceSwap(ptyId, surface);
+  const resuming = useTerminalStore(
+    (s) => hasChat && surface === 'terminal' && (s.displayStates[ptyId]?.blank ?? false),
+  );
 
   const activePanel = panels.find((p) => p.id === activePanelId) ?? null;
   // The diff takes the panel slot while it is open rather than covering the
@@ -237,11 +222,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
         >
           <SurfaceToggle ptyId={ptyId} />
           {(surface === 'terminal' || outgoing === 'terminal') && (
-            <SurfaceLayer
-              role={surface === 'terminal' ? (outgoing && !revealed ? 'pending' : 'current') : 'leaving'}
-              fading={surface === 'terminal' && outgoing !== null}
-              onFaded={onFaded}
-            >
+            <SurfaceLayer role={surface === 'terminal' ? (outgoing ? 'pending' : 'current') : 'leaving'}>
               <XTermContainer
                 ptyId={ptyId}
                 className={XTERM_CLASS}
@@ -253,14 +234,15 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
                   ...(slotOpen && !split ? { padding: 0 } : {}),
                 }}
               />
+              {resuming && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[13px] text-text-tertiary">
+                  Resuming…
+                </div>
+              )}
             </SurfaceLayer>
           )}
           {(surface === 'chat' || outgoing === 'chat') && (
-            <SurfaceLayer
-              role={surface === 'chat' ? (outgoing && !revealed ? 'pending' : 'current') : 'leaving'}
-              fading={surface === 'chat' && outgoing !== null}
-              onFaded={onFaded}
-            >
+            <SurfaceLayer role={surface === 'chat' ? (outgoing ? 'pending' : 'current') : 'leaving'}>
               <ChatView cardId={ptyId} />
             </SurfaceLayer>
           )}
@@ -376,22 +358,9 @@ function ActivePanel({
 /**
  * The view that is current fills the body; one that is leaving sits under it
  * at full size; one still pending is in place but see-through, so the leaving
- * view shows until the pending one fades in over it. Only the view coming in
- * moves: the one underneath is covered by the time the fade ends, so fading it
- * too would only let the background show through midway.
+ * view shows until the pending one can be shown.
  */
-function SurfaceLayer({
-  role,
-  fading,
-  onFaded,
-  children,
-}: {
-  role: 'current' | 'pending' | 'leaving';
-  /** Coming in over another view, so a finished opacity transition ends the swap. */
-  fading: boolean;
-  onFaded: () => void;
-  children: React.ReactNode;
-}) {
+function SurfaceLayer({ role, children }: { role: 'current' | 'pending' | 'leaving'; children: React.ReactNode }) {
   const leaving = role === 'leaving';
   return (
     <div
@@ -402,13 +371,8 @@ function SurfaceLayer({
       }
       style={{
         opacity: role === 'pending' ? 0 : 1,
-        transition: fading ? `opacity ${FADE_MS}ms cubic-bezier(0.2, 0, 0, 1)` : undefined,
-        willChange: fading ? 'opacity' : undefined,
         pointerEvents: role === 'current' ? undefined : 'none',
         background: 'var(--color-terminal-bg)',
-      }}
-      onTransitionEnd={(event) => {
-        if (fading && event.target === event.currentTarget && event.propertyName === 'opacity') onFaded();
       }}
     >
       {children}

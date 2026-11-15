@@ -8,7 +8,8 @@ function tildePath(file: string, home: string | null): string {
   return home && file.startsWith(`${home}/`) ? `~${file.slice(home.length)}` : file;
 }
 
-export function SandboxProfileRow({ projectPath }: { projectPath: string }) {
+/** `onChange` runs after another profile is chosen, or the project's own restored. */
+export function SandboxProfileRow({ projectPath, onChange }: { projectPath: string; onChange?: () => void }) {
   const [profile, setProfile] = useState<NonoProfile | null>(null);
   const [home, setHome] = useState<string | null>(null);
   const status = useProjectConfig(projectPath)?.sandboxStatuses.find((st) => st.providerId === 'nono');
@@ -31,9 +32,14 @@ export function SandboxProfileRow({ projectPath }: { projectPath: string }) {
   };
   const choose = async () => {
     const next = await window.api.sandbox.chooseNonoProfile(projectPath);
-    if (next) setProfile(next);
+    if (!next) return;
+    setProfile(next);
+    onChange?.();
   };
-  const reset = async () => setProfile(await window.api.sandbox.resetNonoProfile(projectPath));
+  const reset = async () => {
+    setProfile(await window.api.sandbox.resetNonoProfile(projectPath));
+    onChange?.();
+  };
 
   const unavailable = status && !status.available ? status.detail : undefined;
 

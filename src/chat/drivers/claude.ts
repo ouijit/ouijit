@@ -549,7 +549,14 @@ class ClaudeSession implements DriverSession {
           description: command.description,
           argumentHint: command.argumentHint || undefined,
         })),
-        models: models.map((model) => ({ id: model.value, label: model.displayName, description: model.description })),
+        models: models.map((model) => ({
+          id: model.value,
+          label: model.displayName,
+          description: model.description,
+          standsFor: models.find(
+            (other) => other !== model && other.resolvedModel && other.resolvedModel === model.resolvedModel,
+          )?.displayName,
+        })),
         modes: models.some((model) => model.supportsAutoMode)
           ? [...MODES.slice(0, 3), AUTO_MODE, ...MODES.slice(3)]
           : MODES,
@@ -570,7 +577,8 @@ class ClaudeSession implements DriverSession {
       }
     }
     if (reported) this.reportedModel = reported;
-    if (!this.reportedModel) return {};
+    // Until its first turn reports one, Claude runs the model it lists first: its default.
+    if (!this.reportedModel) return models?.[0] ? { model: models[0].value } : {};
     return { model: this.modelAliases.get(this.reportedModel) ?? this.reportedModel };
   }
 
@@ -915,6 +923,13 @@ function permissionResult(
 export const claudeDriver: AgentDriver = {
   id: 'claude',
   label: 'Claude Code',
+
+  oneShot(prompt) {
+    const binary = resolveAgentBinary('claude');
+    if (!binary) return null;
+    const args = ['-p', '--model', 'haiku', '--tools', '', '--no-session-persistence', '--disable-slash-commands'];
+    return { command: binary, args: [...args, '--strict-mcp-config', prompt] };
+  },
 
   async probe() {
     const binary = resolveAgentBinary('claude');

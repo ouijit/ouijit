@@ -19,7 +19,8 @@ export function isAllowedKey(key: string): boolean {
     key.startsWith('defaultSandbox:') ||
     key.startsWith('runnerSandbox:') ||
     key.startsWith('sandboxCliAccess:') ||
-    key.startsWith('chat:')
+    key.startsWith('chat:') ||
+    key.startsWith('homeChat:')
   );
 }
 

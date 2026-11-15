@@ -9,6 +9,7 @@ import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { sendChat, switchToTerminal } from './chatActions';
 import { CHAT_AGENT_LABELS } from '../../chat/preferences';
+import { commandMenu, type MenuItem } from '../../chat/commandMenu';
 import { parseSlashCommand, type ChatAttachment, type ChatOption, type ChatSessionInfo } from '../../chat/model';
 import type { ChatDelivery } from '../../chat/host';
 
@@ -178,11 +179,12 @@ function SandboxNote({ info, sandbox }: { info: ChatSessionInfo; sandbox: Sandbo
   );
 }
 
-const currentLabel = (setting: Setting) => setting.options.find((option) => option.id === setting.value)?.label;
+const current = (setting: Setting) => setting.options.find((option) => option.id === setting.value);
+const currentLabel = (setting: Setting) => current(setting)?.label;
 
 /**
- * Model, effort and mode behind one button that names all three. The menu
- * lists the settings, and choosing one swaps in its options.
+ * Model, effort and mode behind one button that names the first of them. The
+ * menu lists the settings, and choosing one swaps in its options.
  */
 function SettingsPicker({ settings }: { settings: Setting[] }) {
   const [open, setOpen] = useState(false);
@@ -193,7 +195,7 @@ function SettingsPicker({ settings }: { settings: Setting[] }) {
     setChosen(null);
   };
   const shown = settings.length === 1 ? settings[0] : settings.find((setting) => setting.label === chosen);
-  const summary = settings.map(currentLabel).filter(Boolean).join(' · ');
+  const summary = current(settings[0])?.standsFor ?? currentLabel(settings[0]);
   return (
     <MenuPopover
       open={open}
@@ -293,17 +295,19 @@ export function ChatComposer({
 
   useEffect(() => growToFit(textarea.current), [draft]);
 
-  const commandQuery = /^\/(\S*)$/.exec(draft)?.[1];
-  const commands = useMemo(() => {
-    if (commandQuery === undefined || !caps.commands) return [];
-    const query = commandQuery.toLowerCase();
-    return info.commands.filter((command) => command.name.toLowerCase().startsWith(query)).slice(0, 8);
-  }, [commandQuery, caps.commands, info.commands]);
+  // Escape closes the menu for the draft it was open on; typing more opens it again.
+  const [dismissedFor, setDismissedFor] = useState<string | null>(null);
+  const items = useMemo(
+    () => (caps.commands && dismissedFor !== draft ? commandMenu(draft, info) : []),
+    [caps.commands, dismissedFor, draft, info],
+  );
+  const selected = items.length ? items[Math.min(commandIndex, items.length - 1)] : undefined;
+  useEffect(() => setCommandIndex(0), [draft]);
 
-  const send = async () => {
-    const text = draft.trim();
+  const send = async (override?: string) => {
+    const text = (override ?? draft).trim();
     if ((!text && attachments.length === 0) || !ready) return;
-    const command = parseSlashCommand(text, info.commands);
+    const command = parseSlashCommand(text, info.commands, info.agent);
     if (command?.kind === 'terminal') {
       setTerminalCommand(command.name);
       return;
@@ -318,19 +322,40 @@ export function ChatComposer({
     }
   };
 
+  /**
+   * Choosing from the menu: a command that needs nothing more runs at once,
+   * one that takes an argument is filled in to finish (Tab only ever fills),
+   * and a model or effort choice runs with it.
+   */
+  const choose = (item: MenuItem, fillOnly = false) => {
+    if (item.kind === 'option') {
+      void send(`/${item.command} ${item.id}`);
+      return;
+    }
+    if (fillOnly || item.takesArgument) {
+      setDraft(cardId, `/${item.command.name} `);
+      textarea.current?.focus();
+      return;
+    }
+    void send(`/${item.command.name}`);
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (commands.length > 0) {
+    if (selected) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault();
         const step = event.key === 'ArrowDown' ? 1 : -1;
-        setCommandIndex((index) => (index + step + commands.length) % commands.length);
+        setCommandIndex((index) => (Math.min(index, items.length - 1) + step + items.length) % items.length);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setDismissedFor(draft);
         return;
       }
       if (event.key === 'Tab' || (event.key === 'Enter' && !event.shiftKey)) {
         event.preventDefault();
-        const command = commands[Math.min(commandIndex, commands.length - 1)];
-        setDraft(cardId, `/${command.name} `);
-        setCommandIndex(0);
+        choose(selected, event.key === 'Tab');
         return;
       }
     }
@@ -373,49 +398,75 @@ export function ChatComposer({
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
     >
-      {commands.length > 0 && (
+      {selected && (
         <div
-          role="listbox"
-          className="absolute left-2 right-2 bottom-full mb-2 glass-bevel rounded-[10px] border border-bezel bg-terminal-surface p-1 shadow-lg"
+          className="composer-menu left-2 right-2 bottom-full mb-2 max-h-72 flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px]"
+          style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-menu)' }}
         >
-          {commands.map((command, index) => (
-            <button
-              key={command.name}
-              type="button"
-              role="option"
-              aria-selected={index === commandIndex}
-              className={`w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-baseline gap-2 ${index === commandIndex ? 'bg-ink/[0.08] text-text-primary' : 'text-text-secondary'}`}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                setDraft(cardId, `/${command.name} `);
-                textarea.current?.focus();
-              }}
-            >
-              <span className="font-mono text-[13px]">/{command.name}</span>
-              {command.description && (
-                <span className="text-[12px] text-text-tertiary truncate">{command.description}</span>
-              )}
-            </button>
-          ))}
+          <div
+            role="listbox"
+            aria-label={items[0].kind === 'option' ? `Choose a ${items[0].command}` : 'Commands'}
+            className="min-h-0 overflow-y-auto p-1"
+          >
+            {items.map((item, index) => {
+              const on = item === selected;
+              const key = item.kind === 'option' ? `option-${item.id}` : item.command.name;
+              return (
+                <button
+                  key={key}
+                  ref={on ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
+                  type="button"
+                  role="option"
+                  aria-selected={on}
+                  className={`w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 transition-colors duration-100 ${on ? 'bg-ink/[0.08] text-text-primary' : 'text-text-secondary'}`}
+                  onMouseEnter={() => setCommandIndex(index)}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    choose(item);
+                  }}
+                >
+                  {item.kind === 'option' ? (
+                    <span className="shrink-0">{item.label}</span>
+                  ) : (
+                    <span className="shrink-0">
+                      /{item.command.name}
+                      {item.command.argumentHint && (
+                        <span className="text-text-tertiary"> {item.command.argumentHint}</span>
+                      )}
+                    </span>
+                  )}
+                  {(item.kind === 'option' ? item.description : item.command.description) && (
+                    <span className="min-w-0 text-xs text-text-tertiary truncate">
+                      {item.kind === 'option' ? item.description : item.command.description}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
       {terminalCommand && (
         <div className="flex items-center gap-3 px-3.5 pt-2.5 text-[13px] text-text-secondary">
           <span className="flex-1">
-            <span className="font-mono">/{terminalCommand}</span> runs in {CHAT_AGENT_LABELS[info.agent]}&apos;s
-            terminal.
+            <span className="font-mono">/{terminalCommand}</span>{' '}
+            {info.role === 'home'
+              ? `only works in ${CHAT_AGENT_LABELS[info.agent]}'s own terminal, which Chat doesn't have.`
+              : `runs in ${CHAT_AGENT_LABELS[info.agent]}'s terminal.`}
           </span>
-          <button
-            type="button"
-            className="btn-secondary btn-compact"
-            onClick={() => {
-              setTerminalCommand(null);
-              setDraft(cardId, '');
-              void switchToTerminal(cardId);
-            }}
-          >
-            Open in terminal
-          </button>
+          {info.role !== 'home' && (
+            <button
+              type="button"
+              className="btn-secondary btn-compact"
+              onClick={() => {
+                setTerminalCommand(null);
+                setDraft(cardId, '');
+                void switchToTerminal(cardId);
+              }}
+            >
+              Open in terminal
+            </button>
+          )}
           <button
             type="button"
             aria-label="Dismiss"
@@ -454,7 +505,7 @@ export function ChatComposer({
         disabled={!ready}
         placeholder={ready ? (busy ? 'Send a message while it works' : 'Message the agent') : ''}
         aria-label="Message"
-        className="block w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-sm text-text-primary placeholder:text-text-tertiary outline-none max-h-60 overflow-y-auto"
+        className="block w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-sm text-text-primary placeholder:text-text-tertiary outline-none min-h-14 max-h-60 overflow-y-auto"
         onChange={(event) => {
           setDraft(cardId, event.target.value);
           setTerminalCommand(null);

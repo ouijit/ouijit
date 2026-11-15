@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { revealed, useReveal } from './useReveal';
+import { closeOpenMarkup, revealed, useReveal } from './useReveal';
 import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
-import { ChatNodeView, ThoughtLine, foldSummary, formatSpan, isEmptyThought, type NodeContext } from './ChatNodes';
+import { ChatNodeList, ChatNodeView, foldSummary, formatSpan, isEmptyThought, type NodeContext } from './ChatNodes';
 import type { AssistantMessageNode, ChatNode, UserMessageNode } from '../../chat/model';
 
 type Piece = { kind: 'work'; nodes: ChatNode[] } | { kind: 'said'; node: AssistantMessageNode };
@@ -150,13 +150,7 @@ function WorkFold({ work, context }: { work: ChatNode[]; context: NodeContext })
       </button>
       {open && (
         <div className="pl-5 pb-2 flex flex-col gap-2">
-          {work.map((node) =>
-            node.kind === 'reasoning' ? (
-              <ThoughtLine key={node.id} text={node.text.trim()} />
-            ) : (
-              <ChatNodeView key={node.id} node={node} context={context} />
-            ),
-          )}
+          <ChatNodeList nodes={work} context={context} thoughtsAsText />
         </div>
       )}
     </div>
@@ -192,7 +186,7 @@ function Said({ node, paced, onDone }: { node: AssistantMessageNode; paced: bool
   }, [done, node.id, onDone]);
   return (
     <div className="chat-said-in">
-      <ChatMarkdown text={text} complete={done} />
+      <ChatMarkdown text={done ? text : closeOpenMarkup(text)} complete={done} />
     </div>
   );
 }
@@ -249,6 +243,9 @@ export function ChatTurns({
   };
   const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(() => new Set());
   const onDone = useCallback((id: string) => setRevealedIds((ids) => (ids.has(id) ? ids : new Set(ids).add(id))), []);
+  // Decided as each message arrives, not when it is first drawn: one held
+  // behind an earlier message is drawn later, maybe after the turn is over.
+  for (const node of nodes) if (node.kind === 'assistant_message') pacedFor(node.id);
   const turns = turnsOf(nodes);
   const layouts = turns.map((turn, index) => layoutOf(turn, busy && index === turns.length - 1));
   const pending = (node: AssistantMessageNode) => pacedFor(node.id) && !revealedIds.has(node.id);

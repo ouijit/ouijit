@@ -75,10 +75,11 @@ const INFO: ChatSessionInfo = {
   status: 'idle',
   capabilities: { ...NO_CAPABILITIES, interrupt: true, commands: true, models: true, modes: true },
   models: [
+    { id: 'default', label: 'Default (recommended)', standsFor: 'Sonnet' },
     { id: 'sonnet', label: 'Sonnet' },
     { id: 'opus', label: 'Opus' },
   ],
-  model: 'sonnet',
+  model: 'default',
   efforts: [],
   modes: [
     { id: 'default', label: 'Ask' },
@@ -178,7 +179,9 @@ describe('chat view', () => {
     expect(screen.getByText('Fix the login bug')).toBeTruthy();
     expect(screen.getByText('auth.ts').tagName).toBe('STRONG');
 
-    // A tool call is one line until opened.
+    // A finished turn's work is one closed line above its reply; opened, each tool call is a line of its own.
+    expect(screen.queryByRole('button', { name: /Run the tests/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^Ran 1 command/ }));
     expect(screen.queryByText('3 passing')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Run the tests/ }));
     expect(screen.getByText('3 passing')).toBeTruthy();
@@ -240,8 +243,41 @@ describe('chat view', () => {
     fireEvent.change(composer, { target: { value: '/Users/me/notes.md looks wrong' } });
     expect(screen.queryByRole('button', { name: 'Open in terminal' })).toBeNull();
 
+    // A command that needs nothing more runs on Enter, without being filled in first.
+    vi.mocked(window.api.chat.prompt).mockClear();
+    fireEvent.change(composer, { target: { value: '/comp' } });
+    fireEvent.keyDown(composer, { key: 'Enter' });
+    await waitFor(() =>
+      expect(window.api.chat.prompt).toHaveBeenCalledWith(
+        ID,
+        { text: '/compact', attachments: [], typed: true },
+        'auto',
+      ),
+    );
+    // After /model, the menu offers the models; the pointer moves the highlight, and Enter runs the one picked.
+    fireEvent.change(composer, { target: { value: '/model ' } });
+    expect(screen.getByRole('listbox', { name: 'Choose a model' })).toBeTruthy();
+    fireEvent.mouseEnter(screen.getByRole('option', { name: 'Opus' }));
+    expect(screen.getByRole('option', { name: 'Opus' }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(composer, { key: 'Enter' });
+    await waitFor(() =>
+      expect(window.api.chat.prompt).toHaveBeenCalledWith(
+        ID,
+        { text: '/model opus', attachments: [], typed: true },
+        'auto',
+      ),
+    );
+
     // While the agent works, the composer offers Stop.
     await waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy());
+    // Escape with the menu open closes the menu; it does not stop the agent.
+    const interrupts = vi.mocked(window.api.chat.interrupt).mock.calls.length;
+    fireEvent.change(composer, { target: { value: '/' } });
+    expect(screen.getByRole('listbox', { name: 'Commands' })).toBeTruthy();
+    fireEvent.keyDown(composer, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(window.api.chat.interrupt).toHaveBeenCalledTimes(interrupts);
+    fireEvent.change(composer, { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
     expect(window.api.chat.interrupt).toHaveBeenCalledWith(ID);
 
@@ -288,10 +324,42 @@ describe('chat view', () => {
     act(() => host.emit({ type: 'session', patch: { background: [] } }));
     expect(screen.queryByRole('list', { name: 'Running in the background' })).toBeNull();
 
-    // Model and mode share one button that names both; the menu lists the
-    // settings, and each opens to its options.
+    // What the agent thought folds to a line with the rest of its work, opened as plain text.
+    act(() => {
+      host.emit({ type: 'session', patch: { status: 'idle' } });
+      host.emit({
+        type: 'node',
+        node: {
+          kind: 'reasoning',
+          id: 'think-1',
+          parentId: null,
+          createdAt: Date.now(),
+          text: 'Keeping the reply short, since they only said hi.',
+          status: 'completed',
+        },
+      });
+      host.emit({
+        type: 'node',
+        node: {
+          kind: 'assistant_message',
+          id: 'hi-1',
+          parentId: null,
+          createdAt: Date.now(),
+          text: 'Hi.',
+          status: 'completed',
+        },
+      });
+    });
+    expect(screen.queryByText('Keeping the reply short, since they only said hi.')).toBeNull();
+    const thought = screen.getAllByRole('button', { name: /^Thought/ }).at(-1)!;
+    expect(thought.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(thought);
+    expect(screen.getByText('Keeping the reply short, since they only said hi.')).toBeTruthy();
+
+    // Model and mode share one button that names the model, the real one
+    // behind an alias; the menu lists the settings, and each opens to its options.
     const settings = screen.getByRole('button', { name: 'Agent settings' });
-    expect(settings.textContent).toBe('Sonnet · Ask');
+    expect(settings.textContent).toBe('Sonnet');
     fireEvent.click(settings);
     expect(screen.queryByRole('menuitemradio', { name: 'Opus' })).toBeNull();
     fireEvent.click(screen.getByRole('menuitem', { name: /^Model/ }));

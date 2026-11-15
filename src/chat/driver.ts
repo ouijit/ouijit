@@ -101,4 +101,9 @@ export interface AgentDriver {
    * to the terminal mid-task. Null where the agent has no such command.
    */
   terminalResume(agentSessionId: string | null): TerminalResume | null;
+  /**
+   * The agent answering one prompt on stdout and exiting, with no tools and
+   * nothing saved. Null where it has no such mode.
+   */
+  oneShot?(prompt: string): AgentSpawn | null;
 }

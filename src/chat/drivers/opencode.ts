@@ -668,6 +668,11 @@ export const opencodeDriver: AgentDriver = {
   id: 'opencode',
   label: 'opencode',
 
+  oneShot(prompt) {
+    const binary = resolveAgentBinary('opencode');
+    return binary ? { command: binary, args: ['run', prompt] } : null;
+  },
+
   async probe() {
     const binary = resolveAgentBinary('opencode');
     if (!binary) return { installed: false, problem: 'opencode is not installed. Install it from opencode.ai.' };

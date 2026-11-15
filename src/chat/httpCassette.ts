@@ -38,10 +38,10 @@ function listen(server: Server): Promise<string> {
   );
 }
 
-/** A proxy to `target` that appends every exchange to `entries`. Resolves with its own URL. */
+/** A proxy to `target` that records every exchange. Resolves with its own URL. */
 export async function recordingProxy(
   target: string,
-  entries: CassetteEntry[],
+  record: (entry: CassetteEntry) => void,
   scrub: (line: string) => string,
 ): Promise<{ url: string; close: () => void }> {
   let seq = 0;
@@ -49,7 +49,7 @@ export async function recordingProxy(
     const body = await readBody(req);
     const n = seq++;
     const path = req.url ?? '/';
-    entries.push({
+    record({
       dir: 'in',
       line: scrub(JSON.stringify({ http: { seq: n, method: req.method ?? 'GET', path, body } })),
     });
@@ -62,7 +62,7 @@ export async function recordingProxy(
     });
     const type = upstream.headers.get('content-type') ?? '';
     if (type.includes('text/event-stream') && upstream.body) {
-      entries.push({
+      record({
         dir: 'out',
         line: JSON.stringify({ http: { re: n, status: upstream.status, body: '', sse: true } }),
       });
@@ -83,7 +83,7 @@ export async function recordingProxy(
               .filter((line) => line.startsWith('data:'))
               .map((line) => line.slice(5).trimStart())
               .join('\n');
-            if (data) entries.push({ dir: 'out', line: scrub(JSON.stringify({ sse: data })) });
+            if (data) record({ dir: 'out', line: scrub(JSON.stringify({ sse: data })) });
             boundary = buffer.indexOf('\n\n');
           }
         }
@@ -94,7 +94,7 @@ export async function recordingProxy(
       return;
     }
     const text = await upstream.text();
-    entries.push({ dir: 'out', line: scrub(JSON.stringify({ http: { re: n, status: upstream.status, body: text } })) });
+    record({ dir: 'out', line: scrub(JSON.stringify({ http: { re: n, status: upstream.status, body: text } })) });
     res.writeHead(upstream.status, { 'content-type': type || 'application/json' });
     res.end(text);
   });

@@ -97,6 +97,10 @@ Where a test goes, per `vitest.config.ts`:
   under a tmpdir.
 - `src/__tests__/renderer/**/*.test.tsx` — `renderer`, jsdom.
 - `e2e/*.test.ts` — Playwright, driving a real Electron window.
+- `npm run smoke:packaged` — the packaged build in `out/` (after `npm run package`),
+  driven over Chromium's debugging port since its fuses shut Playwright's
+  Electron launcher out. It runs a real Chat turn, so it needs Claude Code
+  signed in, and is run by hand before a release rather than in CI.
 
 better-sqlite3 is built once per runtime by `scripts/sqlite-bindings.mjs`,
 which every test script runs as a pre-hook: vitest loads the Node copy from

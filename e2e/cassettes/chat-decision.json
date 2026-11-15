@@ -1,0 +1,1286 @@
+{
+ "agent": "claude",
+ "version": "2.1.323",
+ "entries": [
+  {
+   "dir": "in",
+   "line": "{\"request_id\":\"l40v664kw9f\",\"type\":\"control_request\",\"request\":{\"subtype\":\"initialize\",\"appendSystemPrompt\":\"# Ouijit CLI Reference\\n\\nYou are running inside an Ouijit terminal. The `ouijit` CLI manages tasks, terminals, panels, tags, hooks, and scripts for this project. All commands output JSON to stdout. The CLI is pre-configured via environment variables — no setup needed.\\n\\n## Environment (pre-set, do not modify)\\n- OUIJIT_API_URL — REST API endpoint (already configured)\\n- OUIJIT_PTY_ID — this terminal session's ID (the default for every [pty-id] argument)\\n\\n## Task Commands (most common)\\nouijit task list                              # → [{taskNumber, name, status, branch, worktreePath, prompt, ...}]\\nouijit task get <number>                      # → single task object\\nouijit task current                           # → task owning this terminal (resolves via OUIJIT_PTY_ID)\\nouijit task create \\\"<name>\\\"                   # → {success, task: {taskNumber, ...}}\\nouijit task create \\\"<name>\\\" --prompt \\\"<text>\\\" # set description at creation\\nouijit task start <number>                    # creates git worktree, sets in_progress; default: the start hook waits in the user's queue\\nouijit task start <number> --branch <name>    # use a custom branch name for the worktree\\nouijit task start <number> --run-hook         # run the configured start hook immediately, no dialog\\nouijit task start <number> --skip-hook        # spawn the terminal but run no hook\\nouijit task start <number> --hook-command \\\"<cmd>\\\"  # spawn the terminal running a one-off command instead of the configured hook\\nouijit task create-and-start \\\"<name>\\\"         # create + start in one step (accepts --prompt, --branch, and the same --run-hook / --skip-hook / --hook-command flags); aliased as \\\"task spawn\\\"\\nouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done\\nouijit task set-status <number> in_review                    # default: the review hook waits in the user's queue\\nouijit task set-status <number> in_review --run-hook         # run the configured review hook immediately, no dialog\\nouijit task set-status <number> in_review --skip-hook        # change status, run no hook\\nouijit task set-status <number> in_review --hook-command \\\"<cmd>\\\" # run a one-off command instead of the review hook\\nouijit task set-status <number> done                         # default: the done hook waits in the user's queue\\nouijit task set-status <number> done --run-hook              # run the configured done hook immediately, no dialog\\nouijit task set-status <number> done --skip-hook            # change status, run no hook\\nouijit task set-status <number> done --hook-command \\\"<cmd>\\\" # run a one-off command instead of the done hook\\nouijit task bulk-set-status <status> <n1> <n2>...           # set status on many tasks in parallel (in_progress/in_review/done all take --run-hook/--skip-hook/--hook-command)\\nouijit task start <number> --run-hook --sandbox custom      # start, create-and-start, set-status and bulk-set-status all take --sandbox host|nono|custom, overriding the hook's own sandbox for that run\\nouijit task start <number> --surface chat                   # start and create-and-start take --surface terminal|chat, overriding the chat setting for that task\\nouijit task set-name <number> <new name>\\nouijit task set-description <number> <text>\\nouijit task set-merge-target <number> <branch>\\nouijit task trash <number>                    # removes task, worktree goes to the system trash\\n\\n## Terminal Commands\\nouijit terminal list                          # → [{ptyId, label, projectPath, taskNumber, worktreePath, sandbox, surface, agentStatus}] across every project\\n                                              # surface: terminal | chat — a chat card reads as its transcript, and paste fills its composer\\n                                              # agentStatus: thinking | ready, or null where no agent has reported\\nouijit terminal read <pty-id> [--lines <n>]   # → {ptyId, text, alternateScreen}: its screen and recent scrollback, as text\\nouijit terminal open [--task <n>] [--resume] [--sandbox host|nono|custom]\\n                                              # a terminal in a started task's worktree, or a shell in the project; --resume runs the continue hook\\nouijit terminal paste <pty-id> \\\"<text>\\\"       # into its prompt, never pressing Enter: the user sends it\\nouijit terminal paste <pty-id> -              # text on stdin, for anything multi-line\\nouijit terminal close <pty-id>\\n\\nOpening a terminal never changes what the user is looking at: it opens behind\\nthe one on screen. A multi-line paste is refused where the program in that\\nterminal would read each newline as Enter.\\n\\n## Diff Notes (left by the user on a worktree's diff, for you)\\nouijit diff notes                             # → [{id, path, startLine, line, side, snippet, body, createdAt}] on this terminal's worktree\\nouijit diff notes --task <n>                  # on a task's worktree instead\\nouijit diff open [pty-id]                     # show a terminal's diff panel\\nouijit diff close [pty-id]\\n\\nEach note is about lines startLine–line of path, kept current as the file\\nchanges. side LEFT means code that was removed, numbered as the file was.\\nsnippet is the source the note was written against.\\n\\n## Links (send the user somewhere from your reply)\\nouijit link diff <file>[:<line>] [pty-id]     # a file, or a line, in this terminal's diff → {url}\\nouijit link task <n>                          # its terminal, or its card if it was never started\\nouijit link terminal [pty-id]\\nouijit link panel <id> [pty-id]               # an id from panel list\\nouijit link pr <n>\\nouijit link issue <id>                        # a GitHub issue number, or a Linear identifier like ENG-231\\nouijit link board\\nouijit link project\\n\\nEach prints an ouijit:// url, such as ouijit://horizon/tasks/14/diff/src/auth.ts:88.\\nPut it in your reply as is; the user clicks it in the terminal to go there.\\nA link only navigates. Nothing in Ouijit moves the user's view for you.\\n\\nLink where it saves the user a search: when your reply names something that\\nlives elsewhere, such as a line in the diff, a panel you opened, a pull\\nrequest, a card you made or another task. Link the exact thing, a line rather\\nthan its file. The user is already reading this terminal, so don't link it.\\n\\n## Asking the user to run something (on this computer, outside any sandbox)\\nouijit ask run [-m \\\"<why>\\\"] [--wait] -- <command> [args]\\nouijit ask script <script> [-m \\\"<why>\\\"] [--wait]   # a project script, by id or name\\n                                              # → {command, cwd, status: pending | declined | exited, panelId?, exitCode?, output? | private?}\\n\\nThe ask opens for the user if this terminal is on screen, and otherwise waits\\nin their queue. They read the exact command and press Run\\nor Decline; nothing runs before that. It runs in a runner panel\\non this terminal, in its worktree. With --wait the reply comes once they\\ndecline or it finishes; without it, the reply is pending at once, and panel\\nread shows the runner. Ask for what the sandbox stops, such as credentials,\\nthe network or signing, and say in -m why.\\n\\nThe user can run it privately: then you get only its exit code, with\\nprivate: true in place of output, and panel read of that runner the same.\\nThe output is theirs; don't ask to run it again to see it.\\n\\nPut the command itself in the ask, so the user reads what runs. A script it\\nruns is shown in full when it is in your worktree or a temp folder, and that\\ncopy is what runs; keep such a script short. Pagers are off. A command that\\nopens an editor or prompts waits for the user, so pass non-interactive flags.\\n\\n## Tag Commands (the tags on a terminal's card)\\nouijit tag list                               # → [{name, terminals: [{ptyId, label, projectPath}]}] across open terminals\\nouijit tag get [pty-id]                       # → {ptyId, tags} — defaults to this terminal\\nouijit tag add <tag> [pty-id]                 # add a tag to the terminal\\nouijit tag remove <tag> [pty-id]              # remove one tag\\nouijit tag clear [pty-id]                     # remove all of them\\n\\n## Chat Commands (a task card can run its agent as a chat instead of a terminal)\\nouijit chat list                              # → running chats [{id, agent, status, taskId, ...}]\\nouijit chat read [pty-id]                     # → {info, nodes, seq, text, pending} — defaults to this card\\nouijit chat read <pty-id> --after <seq>       # → {id, events} after a sequence number, for following along\\n                                              # add --wait <seconds> to wait for the next one (long poll)\\nouijit chat answer <pty-id> <request-id> --option <id> [--message \\\"<note>\\\"]\\nouijit chat answer <pty-id> <request-id> --answer <question-id>=<value>...  # or --cancel\\nouijit chat send <pty-id> \\\"<text>\\\"            # steers a running turn, or starts one; --queue waits for the turn\\nouijit chat send <pty-id> -                   # text on stdin, for anything multi-line\\nouijit chat interrupt <pty-id>                # stop the running turn\\n\\nA chat card has a pty-id like any terminal, so tag, markdown and preview commands\\nreach it the same way. A chat cannot answer its own requests; sending, answering\\nand interrupting need a host terminal.\\n\\n## Hook Commands (project lifecycle scripts)\\nHook types: start (task moves to in_progress), continue (a task already in_progress is reopened),\\nreview (moves to in_review), done (moves to done)\\n\\nouijit hook list                              # → {start?: {name, command}, ...}\\nouijit hook get <type>\\nouijit hook set <type> --name \\\"<name>\\\" --command \\\"<cmd>\\\" [--description \\\"<desc>\\\"] [--sandbox host|nono|custom]\\n                                              # omitting --sandbox follows the project default\\nouijit hook delete <type>\\n\\n## Sandbox (host terminals only)\\nRun one command in the project's sandbox; the rest of the line stays on the host.\\n\\nouijit sandbox -- <command> [args]            # in Ouijit's sandbox\\nouijit sandbox --custom -- <command> [args]   # in the Custom sandbox\\n\\nThe Custom sandbox's launcher, run as <command> -- <shell>. Not reachable from\\ninside a sandbox.\\n\\nouijit sandbox-command get                    # → {command?}\\nouijit sandbox-command set \\\"<launcher>\\\"       # absolute path or a name on PATH, outside the repo\\nouijit sandbox-command clear\\n\\n## Script Commands (ad-hoc project scripts)\\nouijit script list                            # → [{id, name, command, sortOrder}]\\nouijit script set --name \\\"<name>\\\" --command \\\"<cmd>\\\"\\nouijit script delete <id>\\nouijit script run <id-or-name>                # executes and streams output\\nouijit script run <id-or-name> --task <number> # run in task's worktree dir\\n\\n## Pull Requests\\nA task made from a pull request carries its number:\\nouijit task current | jq .githubPrNumber\\n\\nouijit pr list                                # → open PRs, grouped review/yours/others\\nouijit pr view <number>                       # → one PR with threads, timeline, checks\\nouijit pr link <number> --task <n>            # link a PR to a task\\n\\n### Review comments (staged locally, sent by the user)\\nouijit pr draft list <number>\\nouijit pr draft add <number> --file <path> --line <n> --body \\\"<text>\\\" [--origin <name>]\\nouijit pr draft add <number> --file <path> --line <n> --body -    # body on stdin\\nouijit pr draft discard <number> <draft-id>\\n\\n--body - is the one to use for anything multi-line. --origin names who wrote it,\\nso the user can see which comments came from an agent before sending.\\nAnchor to a line that appears as an ADDED line in the diff, by its new-file line\\nnumber: GitHub rejects the whole review at submit time if any comment points at\\na line outside the diff, so a bad anchor loses every comment with it.\\n\\n### Lenses (how the Code pane groups the diff)\\nouijit pr lens get <number> --head-sha <sha>\\nouijit pr lens set <number> --body -          # JSON on stdin\\nouijit pr lens clear <number>\\n\\nThe body names the parts of the change and points each at the hunks that make\\nit up. One file can appear in several parts — that is the point of it:\\n{\\\"headSha\\\": \\\"<sha>\\\", \\\"groups\\\": [\\n  {\\\"title\\\": \\\"Draft storage\\\", \\\"summary\\\": \\\"Where an unsent comment lives\\\",\\n   \\\"slices\\\": [{\\\"path\\\": \\\"src/github/service.ts\\\", \\\"ranges\\\": [[329, 388]]},\\n              {\\\"path\\\": \\\"src/db/repos/reviewDraftRepo.ts\\\"}]}\\n]}\\nRanges are new-file line numbers and select whole hunks; omit \\\"ranges\\\" to claim\\nthe whole file. headSha must be the PR's current head, or the lens is ignored.\\nHunks no group claims are still shown, in a trailing group — a lens can reorder\\nand split a diff but never hides part of it, so covering everything is not\\nrequired.\\n\\n## Issues\\nA task linked to an issue carries it:\\nouijit task current | jq .githubIssueNumber      # GitHub\\nouijit task current | jq .linearIssueIdentifier  # Linear\\n\\nouijit issue link <issue> --task <n>          # a GitHub issue number, or a Linear identifier like ENG-214\\n\\n## Linear Issues\\nouijit linear list                            # → this project's issues, in the panel's groups\\nouijit linear view <identifier>               # → one issue with its comments and states\\n\\n### Comments (staged locally, sent by the user)\\nouijit linear draft list <identifier>\\nouijit linear draft add <identifier> --body \\\"<text>\\\" [--origin <name>]\\nouijit linear draft add <identifier> --body -   # body on stdin\\nouijit linear draft discard <identifier> <draft-id>\\n\\nComments stage rather than post, for the reason review comments do: a person\\nsends them. There is no command that moves an issue — that is a control on the\\nissue, pressed by someone looking at it.\\n\\n## Markdown Panel Commands (open .md files as tabs in this terminal)\\nouijit markdown add <path.md>                 # open a markdown file panel on this terminal\\nouijit markdown list                          # → {ptyId, kind, panels: [{id, label, path, active}, ...]}\\nouijit markdown remove <path.md>              # close that markdown panel\\n\\n## Web Preview Commands (open a URL as a tab in this terminal)\\nouijit preview add <url>                      # open a web preview panel (http/https) on this terminal\\nouijit preview list                           # → {ptyId, kind, panels: [{id, label, url, active}, ...]}\\nouijit preview remove <url>                   # close that preview panel\\n\\n## Runner Commands (run a project script in a tab on this terminal)\\nouijit runner add <script>                    # by id or name from script list, in the project's default sandbox\\nouijit runner list                            # → {ptyId, kind, panels: [{id, label, script, active}, ...]}\\nouijit runner remove <script>                 # close it, stopping the script\\n\\n## Panel Commands (every kind of tab on a terminal)\\nouijit panel list [pty-id]                    # → {ptyId, panels: [{id, kind, label, active, ...}], diffOpen}\\nouijit panel read <id> [pty-id] [--lines <n>] # a runner → {kind, text, status, exitCode}; markdown → {path}; preview → {url}\\nouijit panel focus <id> [pty-id]              # bring one forward; focus terminal shows the terminal itself\\n\\n## Project Commands\\nouijit project list                           # → all registered projects\\n\\n## Theme Commands (global appearance, not project-scoped)\\nouijit theme list                             # → {preference, presets: [...], customThemes: [...]}\\nouijit theme use <theme>                      # system | light | dark | a preset/custom id (e.g. dracula)\\nouijit theme save '<json>'                    # create or update a custom theme (also: --file <path.json>)\\nouijit theme delete <id>                      # remove a custom theme\\n\\n# A theme is design-token overrides on a \\\"dark\\\" or \\\"light\\\" base:\\n# {\\\"id\\\":\\\"my-theme\\\",\\\"name\\\":\\\"My Theme\\\",\\\"base\\\":\\\"dark\\\",\\\"tokens\\\":{\\\"--color-accent\\\":\\\"#ff2d55\\\"}}\\n# The presets in `ouijit theme list` show the full token vocabulary (colors,\\n# ANSI palette, shadows). Saving an id that matches a preset overrides it.\\n\\n## From a sandbox\\nA sandboxed terminal reaches Ouijit in its own project, at that project's CLI access level:\\n- Read only, the default: its own task (task current, task get), diff notes,\\n  link, ask, pr list and view, pr and linear drafts, pr lenses, linear list\\n  and view. On this terminal: terminal read, tags, panel list and read, and\\n  markdown add and remove for files in its worktree.\\n- Its own task: also task set-status, set-name and set-description on its own\\n  task, pr link and issue link to it, and task create for a to-do card.\\n  terminal read, tags and panels reach every sandboxed terminal on its task. A hook that\\n  runs on the host waits for the user even with --run-hook, and --hook-command\\n  and --sandbox are refused.\\n- Everything: what a host terminal can.\\nIt edits and discards only the drafts a sandbox wrote. Anything else is\\nForbidden, and the error names the ouijit ask that would run it outside the sandbox.\\n\\n## Key Behaviors\\n- All mutating commands notify the Ouijit app UI in real-time.\\n- Task statuses: todo → in_progress → in_review → done (set any directly).\\n- \\\"start\\\" creates a git worktree branch — the task gets its own isolated directory.\\n- Project is auto-detected from the current git repo. Override with --project <path>.\\n- Errors return JSON to stderr: {\\\"error\\\": \\\"message\\\"} with non-zero exit code.\\n- Always prefer ouijit over editing task files directly.\\n\\n## Common Workflows\\n# Update the task owning this terminal:\\nouijit task current\\nouijit task set-status $(ouijit task current | jq .taskNumber) in_review\\n\\n# Create a task and immediately start working:\\nouijit task create-and-start \\\"Fix auth timeout\\\" --prompt \\\"Session expires too early\\\"\\n\\n# Start without waiting for the user: run the hook, skip it, or run something else.\\n# The flags are mutually exclusive.\\nouijit task start 5 --skip-hook\\nouijit task start 5 --run-hook\\nouijit task start 5 --hook-command \\\"claude\\\"\\n\\n# Describe a task and tag this terminal:\\nouijit task set-description 3 \\\"Refactor the auth middleware to use JWT refresh tokens\\\"\\nouijit tag add refactor\\n\\n# Run an agent whenever a task starts:\\nouijit hook set start --name \\\"Agent\\\" --command 'claude \\\"$OUIJIT_TASK_DESCRIPTION\\\"'\\n\\n# Stage a review comment on the task's pull request:\\nPR=$(ouijit task current | jq .githubPrNumber)\\nouijit pr draft add $PR --file src/api.ts --line 88 \\\\\\n  --origin claude --body \\\"this can throw when the token is missing\\\"\\n\\n\\n# You are Chat, the assistant that runs the work in Ouijit\\n\\nYou are not inside a task. You work across every project Ouijit has open: you create tasks, start them, read the agents working on them, steer them, review what they produce, and tell the user what matters.\\n\\n## How work runs here\\n\\n- `ouijit project list` names the projects. Every project command needs `--project <path>`; there is no project to detect from where you run.\\n- Start tasks with `--run-hook`, or they wait for the user to approve the start hook. A task you start opens as a chat and runs in a sandbox, whatever the project's default. `ouijit terminal list` lists every session with its task. Read a chat with `ouijit chat read <id>`, follow it with `--after <seq> --wait <seconds>`, message it with `ouijit chat send`, and answer what it asks with `ouijit chat answer`.\\n- A task the user opened as a terminal shows you its screen with `ouijit terminal read` and takes `ouijit terminal paste`. It has no transcript and never asks you anything.\\n- Don't sit waiting on workers. When nothing needs you, end your turn by saying what you are waiting on. Ouijit messages you when a worker finishes a turn or waits on an approval, when a task changes column, and when a hook fails. Those messages start with \\\"Ouijit:\\\". News about a task you created or started comes to this conversation; what arrives while you are working, or while the conversation is closed, comes together in one message once you are free.\\n- The user may message or answer a worker themselves. Read the worker's chat before acting on an older picture of it.\\n\\n## What only the user decides\\n\\nThese come back as \\\"waiting for the user\\\" rather than happening. Say what you asked for and end your turn; Ouijit tells you how they decide.\\n\\n- Moving a task to done, and trashing one.\\n- A hook that would run on the user's computer outside a sandbox.\\n- Anything outside your sandbox. When you or a worker needs a command run on the user's computer, such as one that needs their credentials, ask with `ouijit ask run -m \\\"<why>\\\" -- <command>`. Only the user can run it.\\n- Messages to, and requests from, a worker that runs outside a sandbox. You can't send or answer those; tell the user what it needs.\\n\\n## What you can't do\\n\\nThese are refused, with a reason; tell the user what you would have done instead.\\n\\n- Pass a hook command of your own, or run a task or terminal outside a sandbox.\\n- Change hooks, scripts or the Custom sandbox's launcher, or start a runner. They run on the user's computer when the user starts them.\\n\\n## Answering for a worker\\n\\nA worker's approval reaches you when it runs in Ask mode. Answer what is routine inside its own worktree: installs, test runs, edits to its own files, commits and pushes to its own branch.\\n\\nLeave to the user, by saying what is asked and ending your turn: deleting files the worker did not add, anything touching main or another task's branch, anything outside a worktree, credentials, and anything you would not do yourself.\\n\\n## Writing to the user\\n\\nLead with what changed and what needs them. Name tasks by name. Keep it short. Say what came of each thing you did in your reply itself: your thinking and the commands you run are folded away, so a result that is only there goes unseen.\"}}",
+   "t": 1
+  },
+  {
+   "dir": "in",
+   "line": "{\"request_id\":\"9aakpzizqjb\",\"type\":\"control_request\",\"request\":{\"subtype\":\"set_permission_mode\",\"mode\":\"bypassPermissions\"}}",
+   "t": 162
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":\"l40v664kw9f\",\"response\":{\"commands\":[{\"name\":\"deep-research\",\"description\":\"Deep research harness — fan-out web searches, fetch sources, adversarially verify claims, synthesize a cited report. (dynamic workflow)\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"compound-writing:cw-commands\",\"description\":\"(compound-writing) List Compound Writing workflows by the outcome they support.\",\"argumentHint\":\"\",\"aliases\":[\"cw-commands\"]},{\"name\":\"compound-writing:cw-help\",\"description\":\"(compound-writing) Explain how to use Compound Writing and route the user to the right workflow.\",\"argumentHint\":\"\",\"aliases\":[\"cw-help\"]},{\"name\":\"humanizer:humanizer\",\"description\":\"(humanizer) Rewrite AI-sounding text so it reads like the writer without changing what it says. Use when editing or reviewing prose for AI tells: not-X-but-Y contrasts, one-line closers, staged openers, forced triads, dashes everywhere, inflated claims, sales language, stock AI words, bold labels, or filler. Based on Wikipedia's \\\"Signs of AI writing.\\\"\",\"argumentHint\":\"\",\"aliases\":[\"humanizer\"]},{\"name\":\"compound-writing:cw-ai-check\",\"description\":\"(compound-writing) Scan or clean prose for AI-generated residue, including unsupported connective tissue, epistemic inflation, over-completed arguments, performed voice, formulaic structure, empty figurative language, stock phrasing, corporate abstraction, hedging, and false enthusiasm. Use for AI-smell cleanup, humanizing model-assisted prose, source-faithful drafting validation, writing polish, or pre-publication checks; enforce silently when composed into drafting or line editing.\",\"argumentHint\":\"\",\"aliases\":[\"cw-ai-check\"]},{\"name\":\"compound-writing:cw-analogy\",\"description\":\"(compound-writing) Generate analogy options to explain a concept. Invoke with /cw-analogy or /cw-analogy [concept to explain].\",\"argumentHint\":\"\",\"aliases\":[\"cw-analogy\"]},{\"name\":\"compound-writing:cw-bluf\",\"description\":\"(compound-writing) Diagnose whether the most important idea in an article, essay, post, memo, section, paragraph, or sentence appears where it best serves the reader. Use for BLUF checks, buried or misplaced ledes, slow or misleading openings, intro drift, competing main ideas, and requests to get to the point or find the real opening. Compare what the opening foregrounds with what the artifact actually delivers, judge whether any delay is earned, and recommend the smallest structural move. Diagnose by default; rewrite only when asked.\",\"argumentHint\":\"\",\"aliases\":[\"cw-bluf\"]},{\"name\":\"compound-writing:cw-brainstorm\",\"description\":\"(compound-writing) Help users surface raw material for a piece when they don't have a specific idea yet. Invoke with /cw-brainstorm or when user says they want to explore ideas.\",\"argumentHint\":\"\",\"aliases\":[\"cw-brainstorm\"]},{\"name\":\"compound-writing:cw-debate\",\"description\":\"(compound-writing) Run a multi-round deliberation between reviewers. Unlike /cw-panel (which synthesizes), /cw-debate has reviewers respond to each other's arguments across rounds until tensions resolve or reach acknowledged stalemate.\",\"argumentHint\":\"\",\"aliases\":[\"cw-debate\"]},{\"name\":\"compound-writing:cw-dev-edit\",\"description\":\"(compound-writing) Review a draft for big-picture issues in argument, structure, stakes, evidence, and payoff. Use when a piece needs developmental editing, a top-level diagnosis, or substantial restructuring before sentence polish.\",\"argumentHint\":\"\",\"aliases\":[\"cw-dev-edit\"]},{\"name\":\"compound-writing:cw-draft\",\"description\":\"(compound-writing) Turn an outline, notes, source material, or partial prose into a complete draft while preserving the writer's voice, thesis ownership, and source provenance. Use when the user asks to draft a piece or section.\",\"argumentHint\":\"\",\"aliases\":[\"cw-draft\"]},{\"name\":\"compound-writing:cw-emergent\",\"description\":\"(compound-writing) Compose existing Compound Writing skills and runtime capabilities for open-ended writing outcomes that no single skill covers, such as cross-draft analysis, source-to-outline comparison, or multi-pass revision.\",\"argumentHint\":\"\",\"aliases\":[\"cw-emergent\"]},{\"name\":\"compound-writing:cw-final-pass\",\"description\":\"(compound-writing) Run a publication-readiness check on a nearly complete piece and deliver a clear ready, almost-ready, or needs-work verdict. Use when the user asks for a final pass, quality gate, or pre-publication check.\",\"argumentHint\":\"\",\"aliases\":[\"cw-final-pass\"]},{\"name\":\"compound-writing:cw-hemingway\",\"description\":\"(compound-writing) Cuts ruthlessly. Flags every adjective, adverb, and unnecessary word. Demands you kill your darlings.\",\"argumentHint\":\"\",\"aliases\":[\"cw-hemingway\"]},{\"name\":\"compound-writing:cw-hitchcock\",\"description\":\"(compound-writing) Reviews for suspense and tension. Where's the bomb under the table? What does the reader know that someone doesn't?\",\"argumentHint\":\"\",\"aliases\":[\"cw-hitchcock\"]},{\"name\":\"compound-writing:cw-hook\",\"description\":\"(compound-writing) Generate 3 hook options tailored to your content. Invoke with /cw-hook or /cw-hook [topic/context].\",\"argumentHint\":\"\",\"aliases\":[\"cw-hook\"]},{\"name\":\"compound-writing:cw-interview\",\"description\":\"(compound-writing) Draw out and organize the writer's own thinking without supplying meaning, stakes, or an argument for them. Invoke with /cw-interview or when the user has a specific idea they want to explore before outlining.\",\"argumentHint\":\"\",\"aliases\":[\"cw-interview\"]},{\"name\":\"compound-writing:cw-line-edit\",\"description\":\"(compound-writing) Revise prose at the sentence and word level while preserving voice, meaning, source accuracy, and useful weirdness. Use when the structure is stable and the user asks for a line edit, polish, tightening pass, or usable rewrite.\",\"argumentHint\":\"\",\"aliases\":[\"cw-line-edit\"]},{\"name\":\"compound-writing:cw-mom\",\"description\":\"(compound-writing) Reads your writing from a loving, supportive, but not-quite-getting-it perspective. Surfaces where you've lost the general reader.\",\"argumentHint\":\"\",\"aliases\":[\"cw-mom\"]},{\"name\":\"compound-writing:cw-nemesis\",\"description\":\"(compound-writing) Reads your writing through the meanest, least-charitable lens. Challenges every claim, questions every assumption, pokes holes in the logic. Use for later drafts when you want hard feedback.\",\"argumentHint\":\"\",\"aliases\":[\"cw-nemesis\"]},{\"name\":\"compound-writing:cw-objections\",\"description\":\"(compound-writing) Surfaces counterarguments, objections, and \\\"yeah buts\\\" a reader might have to your argument. Helps you anticipate and address resistance before it derails the piece.\",\"argumentHint\":\"\",\"aliases\":[\"cw-objections\"]},{\"name\":\"compound-writing:cw-onboarding\",\"description\":\"(compound-writing) Begin or refresh the separate VOICE.md, STYLE.md, and optional AUDIENCE.md guides in a writer's durable writing home from a short conversation, existing writing, or maintained context. Use during first-run writing-home setup and when the user wants to define, calibrate, import, or update voice, style, or audience context.\",\"argumentHint\":\"\",\"aliases\":[\"cw-onboarding\"]},{\"name\":\"compound-writing:cw-outline\",\"description\":\"(compound-writing) Organize interview material into a detailed structure using the 10%/30% framework. Invoke with /cw-outline or after completing an interview.\",\"argumentHint\":\"\",\"aliases\":[\"cw-outline\"]},{\"name\":\"compound-writing:cw-panel\",\"description\":\"(compound-writing) Convene a panel of reviewers to analyze a draft from multiple perspectives, then synthesize their feedback into consensus findings, productive tensions, and prioritized recommendations.\",\"argumentHint\":\"\",\"aliases\":[\"cw-panel\"]},{\"name\":\"compound-writing:cw-promise\",\"description\":\"(compound-writing) Generate 3 promise options that create anticipation for what's to come. Invoke with /cw-promise or /cw-promise [topic/context].\",\"argumentHint\":\"\",\"aliases\":[\"cw-promise\"]},{\"name\":\"compound-writing:cw-reader\",\"description\":\"(compound-writing) Review copy as an intended reader encountering it for the first time, with no access to the writer's unstated context. Identify confusing language, missing setup, assumed knowledge, broken expectations, trust-eroding or off-putting moments, and points where the reader may stop. Use for cold reads, fresh-eyes reviews, first-time-reader perspectives, reader-journey checks, or feedback on what feels confusing, missing, alienating, or hard to follow.\",\"argumentHint\":\"\",\"aliases\":[\"cw-reader\"]},{\"name\":\"compound-writing:cw-save\",\"description\":\"(compound-writing) Capture a confirmed writing preference, editorial lesson, recurring failure pattern, or workflow improvement in the right durable context file. Use when the user asks to save, remember, codify, or turn a repeated correction into a rule.\",\"argumentHint\":\"\",\"aliases\":[\"cw-save\"]},{\"name\":\"compound-writing:cw-scribe\",\"description\":\"(compound-writing) Route open-ended writing work through the smallest useful Compound Writing workflow. Use when the user wants to start, continue, finish, or improve a piece and has not named a more specific skill.\",\"argumentHint\":\"\",\"aliases\":[\"cw-scribe\"]},{\"name\":\"compound-writing:cw-sedaris\",\"description\":\"(compound-writing) Finds the funny. Looks for moments that could be mined for humor, absurdity, or self-deprecation.\",\"argumentHint\":\"\",\"aliases\":[\"cw-sedaris\"]},{\"name\":\"compound-writing:cw-setup-project\",\"description\":\"(compound-writing) Create or initialize a durable writing home with VOICE.md, STYLE.md, examples/, and drafts/. Use when Scribe identifies a first-time writer with no established writing context after resolving the target, or when the user explicitly asks to set up, scaffold, initialize, or migrate a self-contained writing folder.\",\"argumentHint\":\"\",\"aliases\":[\"cw-setup-project\"]},{\"name\":\"compound-writing:cw-simplify\",\"description\":\"(compound-writing) Rewrite complex text in plainer language. Invoke with /cw-simplify or /cw-simplify [paste text].\",\"argumentHint\":\"\",\"aliases\":[\"cw-simplify\"]},{\"name\":\"compound-writing:cw-sorkin\",\"description\":\"(compound-writing) Checks pacing and momentum. Is there enough forward motion? Are you walking and talking or standing still?\",\"argumentHint\":\"\",\"aliases\":[\"cw-sorkin\"]},{\"name\":\"compound-writing:cw-thesis\",\"description\":\"(compound-writing) Generate 3 thesis options tailored to your content. Invoke with /cw-thesis or /cw-thesis [topic/context].\",\"argumentHint\":\"\",\"aliases\":[\"cw-thesis\"]},{\"name\":\"compound-writing:cw-tracks\",\"description\":\"(compound-writing) Finds where the writing shows its tracks—scaffolding, throat-clearing, process narration, and arrival sequences that should be erased now that the destination is clear.\",\"argumentHint\":\"\",\"aliases\":[\"cw-tracks\"]},{\"name\":\"compound-writing:cw-transition\",\"description\":\"(compound-writing) Generate 3 context-aware transition options between sections. Invoke with /cw-transition or /cw-transition [from section X to section Y].\",\"argumentHint\":\"\",\"aliases\":[\"cw-transition\"]},{\"name\":\"compound-writing:cw-voice-check\",\"description\":\"(compound-writing) Diagnose whether writing matches the active writer, project, publication, and platform voice context, then offer a closer revision. Use when the user asks whether text sounds like them, feels generic, or has drifted from an established voice.\",\"argumentHint\":\"\",\"aliases\":[\"cw-voice-check\"]},{\"name\":\"compound-writing:cw-vonnegut\",\"description\":\"(compound-writing) Applies Vonnegut's 8 rules for writing. Start close to the end, give characters wants, be a sadist, etc.\",\"argumentHint\":\"\",\"aliases\":[\"cw-vonnegut\"]},{\"name\":\"design\",\"description\":\"Grant or revoke Claude agent access to your Design projects\",\"argumentHint\":\"consent | revoke\",\"builtin\":true},{\"name\":\"design-sync\",\"description\":\"Push a React design system to claude.ai/design. This runs a converter that bundles the real component code (from Storybook or a bare package) and uploads it. Use when the user runs /design-sync or says \\\"sync my design system to Claude Design\\\".\",\"argumentHint\":\"[<project hint, e.g. \\\"Acme DS\\\">]\",\"builtin\":true},{\"name\":\"dataviz\",\"description\":\"Use this skill whenever you are about to create ANY chart, graph, plot, dashboard, or data visualization, in ANY output medium — an HTML or React artifact, inline SVG, plotting code in any library (matplotlib, plotly, d3, Recharts, …), an image/PNG you will render and upload, or a chart shared into Slack. Read it BEFORE writing the first line of chart code, choosing chart colors, building a stat tile / meter / KPI row, or laying out a dashboard. When the destination is a first-party document connector (host-designated, never self-described) that renders live charts, hand it the rows (inline, or as an uploaded data file the chart cites) rather than a rendered PNG/SVG — a picture of a chart loses hover, data inspection and per-value comments. Produces visualizations that read as one system — elegant, accessible, consistent in light and dark — using a brand-neutral placeholder palette you swap for your own. Teaches a design-system-agnostic method: a form heuristic, a color formula with a runnable validator, mark specs, and interaction rules. A validated default palette is documented in `references/palette.md` — swap that file's values for your brand's. Triggers on: \\\"chart\\\", \\\"graph\\\", \\\"plot\\\", \\\"data viz\\\", \\\"visualization\\\", \\\"dashboard\\\", \\\"analytics\\\", \\\"visualize data\\\", \\\"categorical colors\\\", \\\"sequential / diverging palette\\\", \\\"stat tile\\\", \\\"sparkline\\\", \\\"heatmap\\\", \\\"legend\\\", \\\"axis\\\", \\\"tooltip\\\", \\\"chart colors\\\", \\\"color by series\\\".\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"update-config\",\"description\":\"Use this skill to configure the Claude Code harness via settings.json. Automated behaviors (\\\"from now on when X\\\", \\\"each time X\\\", \\\"whenever X\\\", \\\"before/after X\\\") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions (\\\"allow X\\\", \\\"add permission\\\", \\\"move permission to\\\"), env vars (\\\"set X=Y\\\"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: \\\"allow npm commands\\\", \\\"add bq permission to global settings\\\", \\\"move permission to user settings\\\", \\\"set DEBUG=true\\\", \\\"when claude stops show X\\\". For simple settings like theme/model, suggest the /config command.\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"verify\",\"description\":\"Verify that a code change actually does what it's supposed to by exercising it end-to-end and observing behavior — drive the affected flow, not just tests or typecheck. Run before committing nontrivial changes; bootstraps this repo's project verify skill if none exists yet. Don't invoke it on a diff that only touches tests, docs, or other code with no runtime surface to drive (a change to product source always has one) — there's nothing to observe.\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"debug\",\"description\":\"Enable debug logging for this session and help diagnose issues\",\"argumentHint\":\"[issue description]\",\"builtin\":true},{\"name\":\"code-review\",\"description\":\"Review the current diff, or a PR number/branch/path target, for correctness bugs (plus reuse/simplification/efficiency cleanups where the model's recipe covers them) at the effort level given first, before any target (low|medium|high|xhigh|max: from few high-confidence findings to many, some uncertain; ultra: deep multi-agent review in the cloud); with no level given, it reuses the level you typed last. Pass --comment to post findings as inline PR comments, or --fix to apply them to the working tree after the review. Pass --max-findings <n> to report up to n findings, or --max-findings all for every finding. The choice stays until you pass --max-findings default. For ultra on a GitHub.com PR target, --post asks to post the finished review’s findings to the PR as a single comment from the user’s GitHub account (not a review; the launch dialog still confirms in interactive sessions, while non-interactive mode posts on the flag alone) and --no-post hides that option.\",\"argumentHint\":\"[low|medium|high|xhigh|max|ultra] [--fix] [--comment] [<pr#>|<branch>|<path>] [--max-findings <n>|all]\",\"aliases\":[\"review\"],\"builtin\":true},{\"name\":\"simplify\",\"description\":\"Review the changed code for reuse, simplification, efficiency, and altitude cleanups, then apply the fixes. Quality only — it does not hunt for bugs; use /code-review for that.\",\"argumentHint\":\"[<target>]\",\"builtin\":true},{\"name\":\"batch\",\"description\":\"Research and plan a large-scale change, then execute it in parallel across 5–30 isolated worktree agents that each open a PR.\",\"argumentHint\":\"<instruction>\",\"builtin\":true},{\"name\":\"fewer-permission-prompts\",\"description\":\"Scan your transcripts for common read-only Bash and MCP tool calls, then add a prioritized allowlist to project .claude/settings.json to reduce permission prompts.\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"doctor\",\"description\":\"Health-check the user's Claude Code setup and fix issues: diagnose installation health — what the `claude doctor` terminal diagnostics cover — from local data (duplicate or leftover installs, PATH, unparseable settings files, broken or colliding agent definitions, skills whose frontmatter fails to parse); find unused skills, MCP servers, and plugins versus their context cost and disable dead weight; deduplicate local CLAUDE.md files against checked-in ones; trim checked-in CLAUDE.md files by cutting content a session could derive from the codebase (directory layouts, tech-stack lists, architecture overviews) while keeping gotchas, rationale, and non-standard conventions; migrate always-loaded CLAUDE.md guidance into lazy skills and nested CLAUDE.md files; flag slow hooks and context-heavy extensions; check the installed version is current; make auto mode the default permission mode; and pre-approve frequently denied read-only commands. Use when the user asks for a doctor run, checkup, audit, tune-up, or cleanup of their Claude Code setup or configuration.\",\"argumentHint\":\"[prompt-audit [<path>]]\",\"aliases\":[\"checkup\"],\"builtin\":true},{\"name\":\"loop\",\"description\":\"Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo). Omit the interval to let the model self-pace.\",\"argumentHint\":\"[interval] [prompt]\",\"aliases\":[\"proactive\"],\"builtin\":true},{\"name\":\"schedule\",\"description\":\"Create, update, list, or run scheduled cloud agents (routines) that execute on a cron schedule.\",\"argumentHint\":\"\",\"aliases\":[\"routines\"],\"builtin\":true},{\"name\":\"send-to-project\",\"description\":\"Send this session's work to a Claude Project\",\"argumentHint\":\"[\\\"project name\\\" or id] [message]\",\"builtin\":true},{\"name\":\"claude-api\",\"description\":\"Reference for the Claude API / Anthropic SDK — model ids, pricing, params, streaming, tool use, MCP, agents, caching, token counting, model migration.\\nTRIGGER — read FIRST, before you answer, run a command or open a file (already started? read it now); don't skip because it \\\"looks like a one-liner\\\" — whenever: the prompt names Claude/Anthropic in any form (Claude, Anthropic, Fable, Opus, Sonnet, Haiku, `anthropic`, `@anthropic-ai`, `claude-*`, `us.anthropic.*`, `[1m]`); the user asks about an LLM (pricing/model choice/limits/caching) — never answer from memory; OR the task is LLM-shaped with provider unstated (agent/MCP/tool-definition/multi-agent/RAG/LLM-judge/computer-use; generate/summarize/extract/classify/rewrite/converse over NL; debugging refusals/cutoffs/streaming/tool-calls/tokens).\\nSKIP only when another provider is being worked on (overrides all triggers): OpenAI/GPT/Gemini/Llama/Mistral/Cohere/Ollama named in the query; OR `grep -rE 'openai|langchain_openai|google.generativeai|genai|mistralai|cohere|ollama'` over the project hits (run this grep FIRST if no provider named — don't Read the file; if nothing hits, load this skill).\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"workflow-authoring\",\"description\":\"Reference for writing a Workflow tool script (script API and gotchas, resume, quality patterns, worked examples). Load before authoring a script for a workflow the user already opted into; it does not itself authorize running one.\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"run\",\"description\":\"Launch and drive this project's app to see a change working. Use when asked to run, start, or screenshot the app, or to confirm a change works in the real app (not just tests). First looks for a project skill that already covers launching the app; otherwise falls back to built-in patterns per project type (CLI, server, TUI, Electron, browser-driven, library).\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"run-skill-generator\",\"description\":\"Author or improve the run-<unit> skill - a per-project skill that tells agents how to build, launch, and drive this project's app. Use when the user asks to set up the project, get it running, write run instructions, or verify build/run steps work from a clean environment.\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"plugin-authoring\",\"description\":\"Make a mod: a change to Claude's own interface or behaviour, such as a panel or pane that stays beside the chat and updates, a band, status line, toast, slash command, or hook on tool calls. Use to make, change or debug a mod or its hooks module.\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"advisor\",\"description\":\"Let Claude consult a stronger model at key moments\",\"argumentHint\":\"[fable|opus|sonnet|off]\",\"builtin\":true},{\"name\":\"agents\",\"description\":\"(removed) Ask Claude to create/manage subagents, or edit .claude/agents/\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"auto-mode-setup\",\"description\":\"Teach auto mode about your environment, plus optional rule tweaks\",\"argumentHint\":\"[--request-id <uuid>] (--wizard posture=… scope=… depth=… --propose | --expect-sha256 <64-hex> --apply-file <path>)\",\"builtin\":true},{\"name\":\"autocompact\",\"description\":\"Configure the auto-compact window size\",\"argumentHint\":\"[auto|<tokens>]\",\"builtin\":true},{\"name\":\"clear\",\"description\":\"Start a new session with empty context; previous session stays on disk (resumable with /resume)\",\"argumentHint\":\"[name]\",\"aliases\":[\"reset\",\"new\"],\"builtin\":true},{\"name\":\"color\",\"description\":\"Set the prompt bar color for this session\",\"argumentHint\":\"[red|blue|green|yellow|purple|orange|pink|cyan|default]\",\"builtin\":true},{\"name\":\"compact\",\"description\":\"Free up context by summarizing the conversation so far\",\"argumentHint\":\"<optional custom summarization instructions>\",\"builtin\":true},{\"name\":\"config\",\"description\":\"Set a setting by key\",\"argumentHint\":\"key=value\",\"aliases\":[\"settings\"],\"builtin\":true},{\"name\":\"output-style\",\"description\":\"List output styles or switch to one\",\"argumentHint\":\"[style]\",\"builtin\":true},{\"name\":\"context\",\"description\":\"Show current context usage\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"effort\",\"description\":\"Set effort level for model usage\",\"argumentHint\":\"<low|medium|high|xhigh|max|auto|ultracode [on|off]>\",\"builtin\":true},{\"name\":\"fast\",\"description\":\"Toggle fast mode (Opus 5.5)\",\"argumentHint\":\"[on|off]\",\"builtin\":true},{\"name\":\"focus\",\"description\":\"Toggle focus view: just your prompt, summary, and response\",\"argumentHint\":\"[on|off]\",\"builtin\":true},{\"name\":\"heapdump\",\"description\":\"Dump the JS heap to the Desktop; on Linux with no Desktop folder, the home directory\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"init\",\"description\":\"Initialize a new CLAUDE.md file with codebase documentation\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"mcp\",\"description\":\"Manage MCP servers\",\"argumentHint\":\"[reconnect|enable|disable [<server>|all]]\",\"builtin\":true},{\"name\":\"import\",\"description\":\"Import config from another AI coding agent\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"model\",\"description\":\"Set the AI model for Claude Code\",\"argumentHint\":\"<model>\",\"builtin\":true},{\"name\":\"__remote-workflow\",\"description\":\"Run the workflow script delivered in this session environment (server-launched sessions only)\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"workflow-launch-exec\",\"description\":\"Execute a server-launched workflow handoff (workflow_launch event sessions only)\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"reload-plugins\",\"description\":\"Activate pending plugin changes in the current session\",\"argumentHint\":\"[--force]\",\"builtin\":true},{\"name\":\"reload-skills\",\"description\":\"Pick up skills added or changed on disk during this session\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"rename\",\"description\":\"Rename the current conversation\",\"argumentHint\":\"[name]\",\"aliases\":[\"name\"],\"builtin\":true},{\"name\":\"ultrareview\",\"description\":\"Start a cloud agent that finds and verifies bugs in your branch (~5-15 min, $5-$25 USD) · Runs in a cloud session. See https://code.claude.com/docs/en/claude-code-on-the-web\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"security-review\",\"description\":\"Complete a security review of the pending changes on the current branch\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"usage-credits\",\"description\":\"Configure usage credits or request them from your admin when you hit a limit\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"extra-usage\",\"description\":\"Renamed to /usage-credits\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"usage\",\"description\":\"Show session cost, plan usage, and what's contributing to your limits\",\"argumentHint\":\"\",\"aliases\":[\"cost\",\"stats\"],\"builtin\":true},{\"name\":\"insights\",\"description\":\"Generate a report analyzing your Claude Code sessions\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"recap\",\"description\":\"Generate a one-line session recap now\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"skill-doctor\",\"description\":\"Show which loaded skills are unused and costing context\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"goal\",\"description\":\"Set a goal — keep working until the condition is met\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"design-consent\",\"description\":\"Grant Claude agent access to your Design projects\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"design-revoke\",\"description\":\"Revoke Claude agent access to your Design projects\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"list-agents\",\"description\":\"List subagents, teammates, and other Claude sessions you can message\",\"argumentHint\":\"\",\"aliases\":[\"peers\"],\"builtin\":true},{\"name\":\"team-onboarding\",\"description\":\"Help teammates ramp on Claude Code with a guide from your usage\",\"argumentHint\":\"\",\"builtin\":true},{\"name\":\"built-in-browser\",\"description\":\"Read this skill before the first step that uses the built-in browser, the browser pane inside the Claude desktop app (also called the in-app browser, the browser pane, Claude's browser, or \\\"your own browser\\\"), whose tools are named mcp__Claude_Browser__* when the session runs in the desktop app and mcp__remote-devices__Claude_Browser__* when a cloud session is linked to the person's computer; before those tools are turned on there may be a single enable__mcp__remote-devices__Claude_Browser tool instead. It covers the pane's persistent sign-ins, tabs and preview_start, reading pages as text, site approvals, what the pane cannot open, and what to do when it cannot be reached. It is not for Claude in Chrome (mcp__claude-in-chrome__* tools), which has its own skill, and it does not decide which browser to use. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:built-in-browser\"]},{\"name\":\"chrome-browser\",\"description\":\"Read this skill before the first step that uses Claude in Chrome, the browser extension whose tools are named mcp__claude-in-chrome__* (also called Chrome, the browser extension, or the external browser) and which acts in the person's real Chrome with their own sign-ins; before those tools are turned on there may be a single enable__mcp__claude-in-chrome tool instead. It covers loading the tools in one ToolSearch call, checking the person's open tabs and working in a new tab, site permissions, GIF recordings, console logs, dialogs to avoid, and when to stop and ask. It is not for the built-in browser (mcp__Claude_Browser__* or mcp__remote-devices__Claude_Browser__* tools), which has its own skill, and it does not decide which browser to use. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:chrome-browser\"]},{\"name\":\"computer-use\",\"description\":\"Read this skill before the first step of any request to do something in an app on the person's own computer (Notes, Finder, System Settings, any desktop app), to look at their screen, or for \\\"computer use\\\". Computer use (desktop control) lets Claude take screenshots of the person's desktop and control it with clicks, typing and scrolling through the Claude desktop app; its tools are named mcp__computer-use__* when the session runs in the desktop app and mcp__remote-devices__computer_* when a cloud session is linked to the person's computer; before computer use is turned on for a conversation there may be no such tools, only an enable__mcp__remote-devices__computer tool, which turns it on. It covers turning it on, picking the right tool, the access flow, and the safety rules for tiered apps, links and financial actions. It is not for websites, which go through Claude in Chrome or the built-in browser and their own skills. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:computer-use\"]},{\"name\":\"anthropic-skills:deep-research\",\"description\":\"Use this skill when the user's prompt requires (1) researching a topic across multiple sources, comparing options or alternatives, analyzing trends or history, understanding markets or industries, or reviewing literature or studies and (2) synthesizing that research into a comprehensive, narrative report. If you're planning to search the web or internal knowledge bases, consider using this skill. This skill coordinates research subagents, so use it only when you have a tool for spawning subagents (the Agent or Task tool); otherwise, research the question directly. (claude.ai sync)\",\"argumentHint\":\"\"},{\"name\":\"docs\",\"description\":\"docs (editable docs people share and comment on; the default for any document, named as a doc or not: a document, report, proposal, resume, cover letter, letter, contract, policy, form, template, worksheet, essay, handbook, guide, how-to, cheat sheet, SOP or other writing to keep, share, collaborate on, send, submit, print or sign; a doc exports to Word, PDF, Markdown or Google Docs, so needing a file to send, attach, upload, submit or print is no reason to pick Word, and a file nobody asked for is a doc, not Word; a plan, comparison, summary or notes asked in chat stays in chat; a pasted claude.ai artifact link may be a doc: check with docs tools first; Word or another file format named, tracked changes wanted, or a .docx to change or use as a template → that format's skill): making one → if no docs-connector instructions are in context, call its `guide` (topic.instructions) first; then create the doc (headings only, no body) before any search, file read or plan, even with files attached. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:docs\"]},{\"name\":\"docx\",\"description\":\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx) or Word templates (.dotx). Triggers include: any mention of Microsoft Word Documents, such as 'Word doc', 'word document', '.docx', '.dotx', 'microsoft doc'. Also use when extracting or reorganizing content from .docx or .dotx files, inserting or replacing images in documents, find-and-replace in Word files, working with tracked changes or comments, or converting content into a polished Word document. If the user asks for a deliverable as a Word or .docx file (to download, email or print), use this skill. However, if they ask for a document, page, report, memo, or notes WITHOUT naming a file format and the session offers Claude's own dedicated document or page skill or connector, use that instead, even if they will email or print it. Do NOT use for PDFs, spreadsheets, Google Docs, or coding unrelated to document generation. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:docx\"]},{\"name\":\"google-workspace\",\"description\":\"Read this before the first Google Drive, Docs, Sheets or Slides connector call whenever the task creates or changes a Google file. Use this skill whenever the user wants to create or change a Google Doc, Sheet or Slides file in their Google Drive. Triggers include: a request that names Google Docs, Sheets, Slides or Drive and asks to make, edit, format, copy or rename a file; a docs.google.com link with a request to change that file, even a one-line fix or suggested edits; and any follow-up change to a Google file from earlier in the chat, even \\\"change it\\\" or \\\"add a tab\\\". Includes helper scripts for document positions, cell ranges and slide layout. However, if the user asks for a doc, deck or spreadsheet without naming Google, or gives a Google file only as source material for something new, use Claude's own output type instead. Do NOT use for read-only questions about a Google file, or for Word, Excel, PowerPoint or PDF files. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:google-workspace\"]},{\"name\":\"import-memory\",\"description\":\"Import a memory export from another AI assistant into Claude's memory — conversationally, additively, and with the content treated as data. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:import-memory\"]},{\"name\":\"morning\",\"description\":\"Render the user's morning brief as a styled HTML artifact, or set it up as a recurring weekday task. Use only when the user explicitly asks to run, see, or set up their morning brief, or if they invoke /morning by name. A question about their day, schedule, or calendar is not by itself a request for the brief; answer it directly instead. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:morning\"]},{\"name\":\"pdf\",\"description\":\"Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rotating pages, adding watermarks, creating new PDFs, filling PDF forms, encrypting/decrypting PDFs, extracting images, and OCR on scanned PDFs to make them searchable. If the user mentions a .pdf file or asks to produce one, use this skill. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:pdf\"]},{\"name\":\"pptx\",\"description\":\"Use this skill any time a .pptx or .potx file is involved in any way — as input, output, or both. This includes: creating slide decks, pitch decks, or presentations as PowerPoint (.pptx) files; reading, parsing, or extracting text from any .pptx or .potx file (even if the extracted content will be used elsewhere, like in an email, summary, or creating a different type of slide deck); editing, modifying, or updating existing presentations; combining or splitting slide files; working with templates (.potx), layouts, speaker notes, or comments. Trigger whenever the user asks for a PowerPoint or .pptx file, or references a .pptx or .potx filename, regardless of what they plan to do with the content afterward. However, when the user asks for a deck, slides, a slide deck, or a presentation without naming a file format, default to using a dedicated slide-deck artifact type or a separate slides skill if this session offers one; otherwise, use this skill. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:pptx\"]},{\"name\":\"skill-creator\",\"description\":\"Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:skill-creator\"]},{\"name\":\"xlsx\",\"description\":\"Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .xltx, .csv, or .tsv file (e.g., adding columns, computing formulas, formatting, charting, cleaning messy data); create a new spreadsheet from scratch or from other data sources; or convert between tabular file formats. Trigger especially when the user references a spreadsheet file by name or path — even casually (like \\\"the xlsx in my downloads\\\") — and wants something done to it or produced from it. Also trigger for cleaning or restructuring messy tabular data files (malformed rows, misplaced headers, junk data) into proper spreadsheets. The deliverable must be a spreadsheet file. Do NOT trigger when the primary deliverable is a Word document, HTML report, standalone Python script, database pipeline, or Google Sheets API integration, even if tabular data is involved. (claude.ai sync)\",\"argumentHint\":\"\",\"aliases\":[\"anthropic-skills:xlsx\"]}],\"agents\":[],\"output_style\":\"default\",\"available_output_styles\":[\"default\",\"Proactive\",\"Concise\",\"Explanatory\",\"Learning\"],\"user_output_styles_dir\":\"__HOME__/.claude/output-styles\",\"models\":[{\"value\":\"default\",\"resolvedModel\":\"claude-opus-5-5\",\"displayName\":\"Default (recommended)\",\"description\":\"Opus 5.5 · Best for everyday, complex tasks\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"xhigh\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsFastMode\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":false},{\"value\":\"opus\",\"resolvedModel\":\"claude-opus-5-5\",\"displayName\":\"Opus 5.5\",\"description\":\"For complex work and everyday tasks\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"xhigh\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsFastMode\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":false},{\"value\":\"fable\",\"resolvedModel\":\"claude-fable-5-2\",\"displayName\":\"Fable 5.2\",\"description\":\"For your toughest challenges\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"xhigh\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsFastMode\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":false},{\"value\":\"sonnet\",\"resolvedModel\":\"claude-sonnet-5-5\",\"displayName\":\"Sonnet 5.5\",\"description\":\"Most efficient for simpler tasks\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"xhigh\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":false},{\"value\":\"haiku\",\"resolvedModel\":\"claude-haiku-5-5\",\"displayName\":\"Haiku 5.5\",\"description\":\"Fastest for quick answers\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"xhigh\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":false},{\"value\":\"claude-fable-5-1\",\"resolvedModel\":\"claude-fable-5-1\",\"displayName\":\"Fable 5.1\",\"description\":\"Most capable for your hardest and longest-running tasks\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"xhigh\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":false},{\"value\":\"claude-haiku-4-5-20251001\",\"resolvedModel\":\"claude-haiku-4-5-20251001\",\"displayName\":\"Haiku 4.5\",\"description\":\"Fastest for quick answers\",\"supportsThinkingOff\":true},{\"value\":\"claude-sonnet-5\",\"resolvedModel\":\"claude-sonnet-5\",\"displayName\":\"Sonnet 5\",\"description\":\"Efficient for routine tasks\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"xhigh\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":true},{\"value\":\"claude-opus-5\",\"resolvedModel\":\"claude-opus-5\",\"displayName\":\"Opus 5\",\"description\":\"Best for everyday, complex tasks\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"xhigh\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsFastMode\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":true},{\"value\":\"claude-fable-5\",\"resolvedModel\":\"claude-fable-5\",\"displayName\":\"Fable 5\",\"description\":\"Most capable for your hardest and longest-running tasks\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"xhigh\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":false},{\"value\":\"claude-opus-4-8\",\"resolvedModel\":\"claude-opus-4-8\",\"displayName\":\"Opus 4.8\",\"description\":\"Best for everyday, complex tasks\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"xhigh\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsFastMode\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":true},{\"value\":\"claude-opus-4-7\",\"resolvedModel\":\"claude-opus-4-7\",\"displayName\":\"Opus 4.7\",\"description\":\"Best for everyday, complex tasks\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"xhigh\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":true},{\"value\":\"claude-opus-4-6\",\"resolvedModel\":\"claude-opus-4-6\",\"displayName\":\"Opus 4.6\",\"description\":\"Best for everyday, complex tasks\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":true},{\"value\":\"claude-sonnet-4-6\",\"resolvedModel\":\"claude-sonnet-4-6\",\"displayName\":\"Sonnet 4.6\",\"description\":\"Efficient for routine tasks\",\"supportsEffort\":true,\"supportedEffortLevels\":[\"low\",\"medium\",\"high\",\"max\"],\"supportsAdaptiveThinking\":true,\"supportsAutoMode\":true,\"supportsThinkingOff\":true}],\"account\":{},\"pid\":77183,\"claude_code_version\":\"2.1.323\",\"current_permission_mode\":\"default\",\"hook_on_failure_supported\":true,\"other_hook_ask_outranks_host\":true,\"feedback_mode\":{\"kind\":\"post\"},\"analytics_disabled\":false,\"remote_control_auto_enable\":false,\"remote_control_auto_connect_default\":false,\"remote_control_available\":true,\"remote_control_auto_on_by_default\":false,\"ide_rc_auto_enable_gate\":true,\"fast_mode_state\":\"off\",\"fast_mode_disabled_reason\":\"sdk_opt_in_required\",\"session_state\":\"idle\",\"capabilities\":[\"ui_surface_v1\",\"mcp_call_result_not_for_model_v1\",\"mcp_call_check_permissions_v1\",\"voice_call_talk_line_v1\",\"ui_pane_widget_v1\"]},\"pending_permission_requests\":[],\"pending_user_dialog_requests\":[]}}",
+   "t": 242
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":\"9aakpzizqjb\",\"response\":{\"mode\":\"bypassPermissions\"}}}",
+   "t": 242
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":null,\"permissionMode\":\"bypassPermissions\",\"uuid\":\"218d217f-3be9-4644-80ca-5fba8973d1a8\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 243
+  },
+  {
+   "dir": "in",
+   "line": "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Write three paragraphs on why only a person should trash a task, as one message. Do not run any commands. Then end your turn.\"}]},\"parent_tool_use_id\":null,\"uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\",\"session_id\":\"\"}",
+   "t": 321
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"session_state_changed\",\"state\":\"running\",\"sdk_host_only\":true,\"uuid\":\"f4631480-9b38-4d15-be7e-c3b2d9d5a7a5\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 325
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"command_lifecycle\",\"command_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\",\"state\":\"queued\",\"uuid\":\"34f413db-d8a1-4f64-ab20-ea15e1b703e6\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 325
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"command_lifecycle\",\"command_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\",\"state\":\"started\",\"uuid\":\"385a5b83-6148-49f4-86d8-2f515a309b7f\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 327
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"init\",\"cwd\":\"/private__CWD__\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"tools\":[\"Task\",\"AskUserQuestion\",\"Bash\",\"CronCreate\",\"CronDelete\",\"CronList\",\"DesignSync\",\"Edit\",\"EnterPlanMode\",\"EnterWorktree\",\"ExitPlanMode\",\"ExitWorktree\",\"ListAgents\",\"Monitor\",\"NotebookEdit\",\"PushNotification\",\"Read\",\"RemoteTrigger\",\"ReportFindings\",\"ScheduleWakeup\",\"SendMessage\",\"SendToProject\",\"SendToProjectContext\",\"Skill\",\"TaskStop\",\"ToolSearch\",\"WebFetch\",\"WebSearch\",\"Workflow\",\"Write\"],\"mcp_servers\":[],\"model\":\"claude-opus-5-5\",\"permissionMode\":\"bypassPermissions\",\"slash_commands\":[],\"terminal_slash_commands\":[\"doctor\",\"send-to-project\",\"color\",\"focus\",\"reload-plugins\"],\"apiKeySource\":\"none\",\"claude_code_version\":\"2.1.323\",\"output_style\":\"default\",\"agents\":[],\"skills\":[],\"plugins\":[],\"capabilities\":[\"interrupt_receipt_v1\",\"interrupt_cancel_queued_v1\",\"interrupt_send_now_v1\",\"interrupt_requeue_taken_v1\",\"msg_lifecycle_v1\",\"request_marker_lists_v1\",\"ask_user_question_unanswered_v1\",\"lifecycle_wakeup_source_v1\",\"sdk_mcp_tools_list_changed\",\"sdk_mcp_manifests\",\"mcp_read_resource_v1\",\"mcp_tool_ui_meta_v1\",\"ui_surface_v1\",\"mcp_call_result_not_for_model_v1\",\"mcp_call_check_permissions_v1\",\"voice_call_talk_line_v1\",\"withdrawn_files_note_v2\",\"ui_pane_widget_v1\"],\"analytics_disabled\":false,\"product_feedback_disabled\":false,\"uuid\":\"c08511f4-e91e-4bd2-b3ad-2a72f75d13e5\",\"memory_paths\":{},\"original_cwd\":\"/private__CWD__\",\"additional_directories\":[],\"messaging_socket_path\":\"/tmp/cc-socks/77183.sock\",\"fast_mode_state\":\"off\",\"fast_mode_disabled_reason\":\"sdk_opt_in_required\",\"per_turn_effort_active\":true,\"ultrathink_available\":false,\"ultrathink_typed_raises\":false,\"view_mode\":\"default\",\"user_message_uuids\":[\"5673688e-e1fb-4439-876a-35a251a8f0c0\"]}",
+   "t": 358
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"409aebc4-99bc-4169-8431-4f69abe6233b\",\"user_message_uuids\":[\"5673688e-e1fb-4439-876a-35a251a8f0c0\"]}",
+   "t": 360
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\",\"message\":{\"model\":\"claude-opus-5-5\",\"id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":24902,\"cache_read_input_tokens\":12929,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":24902},\"output_tokens\":4,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"input_transformations\":[],\"diagnostics\":null,\"context_management\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"3447ea24-3244-4f87-a3d7-95050dc60abf\",\"ttft_ms\":3200,\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\",\"user_message_uuids\":[\"5673688e-e1fb-4439-876a-35a251a8f0c0\"],\"owed_rows\":[]}",
+   "t": 3575
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\",\"signature\":\"\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"0afbdb19-b053-4bf7-83ef-9546c247e9d9\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 3576
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":2,\"estimated_tokens_delta\":2,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"e4db50b1-563e-4cce-ab1a-a2ec51e9faa0\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\"}",
+   "t": 4850
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"I need\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"d5f99414-518b-43ca-9eb9-259a762f7ad8\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":3,\"estimated_tokens_delta\":1,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"b0409f4e-d828-4e3d-bee8-dec626696fd2\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" to\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"b5c60bc2-63d8-4968-935a-cbad880dc104\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":10,\"estimated_tokens_delta\":7,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"6ecc2e02-4440-4cae-a563-0d216d3914f4\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" write three paragraphs as\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"594258a3-d6e1-4281-bc72-2ab0abd0c253\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":11,\"estimated_tokens_delta\":1,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"01a718fc-6ce0-41cf-846f-d4d9f959c396\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" a\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"70cc82c3-1a56-48f3-a6b0-12e7246d43f0\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":17,\"estimated_tokens_delta\":6,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"51d4648b-001e-468f-8c94-2943cf89a474\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" single message, without\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"16bb8bb9-c846-422c-ac33-aeb15b9f93d7\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":18,\"estimated_tokens_delta\":1,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"852707f0-141e-4600-b674-bd27e279f86e\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" any\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"c72bccf7-cd06-4aea-b5f7-558d5724df0f\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":21,\"estimated_tokens_delta\":3,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"b13f59af-ee75-4a06-8050-b9586a62ba15\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" commands in\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"8391a906-5488-4f2b-93d4-68d02d213da5\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4851
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":22,\"estimated_tokens_delta\":1,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"c9f207f2-7507-42c1-ac13-9f41b8ded366\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\"}",
+   "t": 4852
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" it.\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"ae4b167c-b017-4b1a-abf5-5d90b98a1c57\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4852
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":23,\"estimated_tokens_delta\":1,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"afcb4af1-184d-4841-9cec-6a11cac1f008\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\"}",
+   "t": 4852
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\\n\\n\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"68f1619a-ba82-40ae-ab78-96345bbc303b\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4852
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":177,\"estimated_tokens_delta\":154,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"6ff58b7f-82f9-4b39-9464-806704a43272\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\"}",
+   "t": 4852
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"CAQSugUKEAgTGAI4AUIIdGhpbmtpbmcSDCQlPI3mBIcxh70QyxoMdTX2fgZs1+8FX0IdIjCzIDzIwUalYPjTLFXSSnCNFh5DrmsjFoYnddQX2CNa56oomW6ZiY+4wWuCN3OPqvIq1wRUvsRh89XgD7q9ZVrW9cZErtwWvCSAl1H5YawzItWXFCoC+gLaiGblV+QnSC9pQ2fjXz1SFYT2flecP/+XJDhp89W2OfmToJPiUr9vDZbc5COqB7U4us33lOrL4CauS+3thQjoz5KfQQ6Iqrx7F6YRPLYhZXbUX58vkjRAydqt8FHzv154YbLaJMd7WNe8nTJVHy3eqGs3oS6lFD3YgCJMwsmR3qeghmYghQ1FcQGfJ0WyMj24SXSZbdS6twHfhy8Ak1Cn+mdIUltv4a8BdgL1MfUChBFxt9/hWTtdkMy6XEBOUMHyXlt9vB/HzjWETUPGzkzhy0LmBtKXAlT0hmOEHTHcrwLFdMSSmm1hiUWEFEKHAdJc23FN0rzdOhI+jqxfXuZlwN0670Y4m8wW7scNWF+NPupnf2tZ5629B+GpEjZbeWQbkJRxtTrXFthXl1gkSn2H77BIAF18s9bANdgoZYm1lmUwWGqQgM+lejOgxkyiRUtAVPBzwdTyHSTmTtyQ2IVELL+/WJw7FAT+JPRGbkg49UNV8330jVTjhfWzKMystMUxU8mFHrnP3Oa7TIc0llNEEebxTlivAnOGKZp6hguTLzvWCUd1K1dwRPKMTVX7a5J6hio9h5IPdLtVsANaWVEgGsbuwjQNBO4NSm/Y5OW30KJ4cmtGJqv/+4D29jyNO6lIdHCiFtVXdZCDrKNleEksT/kmgvH6NPLAnXkspmAa7crTsOkwbpAgQv0o9cWneLHvp9nMIMSwOWdrm1t4PvDksaliLUiZkRvwzaQCigxF/ibu1hgB\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"672a73b7-5a39-42ec-a86a-bb7a93d587e9\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4852
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"assistant\",\"message\":{\"model\":\"claude-opus-5-5\",\"id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"thinking\",\"thinking\":\"I need to write three paragraphs as a single message, without any commands in it.\\n\\n\",\"signature\":\"CAQSugUKEAgTGAI4AUIIdGhpbmtpbmcSDCQlPI3mBIcxh70QyxoMdTX2fgZs1+8FX0IdIjCzIDzIwUalYPjTLFXSSnCNFh5DrmsjFoYnddQX2CNa56oomW6ZiY+4wWuCN3OPqvIq1wRUvsRh89XgD7q9ZVrW9cZErtwWvCSAl1H5YawzItWXFCoC+gLaiGblV+QnSC9pQ2fjXz1SFYT2flecP/+XJDhp89W2OfmToJPiUr9vDZbc5COqB7U4us33lOrL4CauS+3thQjoz5KfQQ6Iqrx7F6YRPLYhZXbUX58vkjRAydqt8FHzv154YbLaJMd7WNe8nTJVHy3eqGs3oS6lFD3YgCJMwsmR3qeghmYghQ1FcQGfJ0WyMj24SXSZbdS6twHfhy8Ak1Cn+mdIUltv4a8BdgL1MfUChBFxt9/hWTtdkMy6XEBOUMHyXlt9vB/HzjWETUPGzkzhy0LmBtKXAlT0hmOEHTHcrwLFdMSSmm1hiUWEFEKHAdJc23FN0rzdOhI+jqxfXuZlwN0670Y4m8wW7scNWF+NPupnf2tZ5629B+GpEjZbeWQbkJRxtTrXFthXl1gkSn2H77BIAF18s9bANdgoZYm1lmUwWGqQgM+lejOgxkyiRUtAVPBzwdTyHSTmTtyQ2IVELL+/WJw7FAT+JPRGbkg49UNV8330jVTjhfWzKMystMUxU8mFHrnP3Oa7TIc0llNEEebxTlivAnOGKZp6hguTLzvWCUd1K1dwRPKMTVX7a5J6hio9h5IPdLtVsANaWVEgGsbuwjQNBO4NSm/Y5OW30KJ4cmtGJqv/+4D29jyNO6lIdHCiFtVXdZCDrKNleEksT/kmgvH6NPLAnXkspmAa7crTsOkwbpAgQv0o9cWneLHvp9nMIMSwOWdrm1t4PvDksaliLUiZkRvwzaQCigxF/ibu1hgB\"}],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":24902,\"cache_read_input_tokens\":12929,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":24902},\"output_tokens\":4,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"input_transformations\":[],\"diagnostics\":null,\"context_management\":null},\"parent_tool_use_id\":null,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"cafcd771-b8b2-4b06-ad69-c0804b5a74c8\",\"timestamp\":\"2026-11-14T18:37:30.162Z\",\"request_id\":\"req_011Ch3JgemFd7nizfXh8ja4v\",\"thinking_duration_ms\":1277,\"thinking_display\":\"summarized\",\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\",\"user_message_uuids\":[\"5673688e-e1fb-4439-876a-35a251a8f0c0\"]}",
+   "t": 4855
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_stop\",\"index\":0},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"9d2dbbbe-d7d4-45ca-a69a-a8b8688310b3\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4855
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"5fa80c76-1e70-4eed-97db-e3067dd276bd\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4855
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Trashing a task de\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"4a3c0f34-bc31-492d-8a8f-798c9c6e85b6\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4856
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"letes more than a\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"275a24f0-9ae8-44d6-86aa-8ed1a9ab1a87\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4856
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" card. It removes the task's\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"6d1cd8f6-45ed-4ed8-b294-f0ec324a87a5\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4856
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" record\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"2303b197-d9b5-4240-b369-1da38684c6e8\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4856
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" and sends its wor\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"7be57352-82d3-4ce5-a758-90ee7ba8111a\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4856
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ktree to the system trash,\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"3d9e264d-9db3-4400-a3e3-ea2c2907865f\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4856
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" and\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"9aa3f219-21e9-469f-8347-204d39ccdbf5\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4856
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" that wor\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"9c4f0461-b5e8-4121-b50d-bcced084a6ae\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ktree can\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"8aff31c2-6433-4454-8423-4f10d6dc6d13\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" hold u\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"c49b728e-0eff-4437-b77e-039c47545064\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ncommitted ed\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"b8fc6592-3680-41d2-a0ce-44eb6e0316a8\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"its, local\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"9427cdcb-81f5-4522-a698-e268efe3146c\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" experiments, not\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"83ea7097-9725-46a8-b362-881c8d2de575\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"es, or a branch that was\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"db16a39e-8fd1-42aa-a9c4-8d7326d638b1\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" never pushed. None\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"da5ded81-7ce4-42a1-aade-0305a5e57f2a\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" of that can\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"bf3b7029-c4c1-4b19-8f70-78a5fc1966e5\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" be f\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"046b48d3-a9c4-43e1-b413-48169ced72e4\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ully recovered from in\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"f7782e74-db3b-440e-8a05-24785b531e08\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"side Ouijit.\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"0b8dc635-40be-48d7-9064-1db456e21ace\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Once it\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"be5e2bcf-abec-45a5-996f-03e72d5fb732\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"'s\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"16909346-4530-46d3-aa18-db2c2f9da2e3\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" gone, the next step is dig\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"5ed2acd0-c183-419d-af44-831de6ef1b9a\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4857
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ging through the system trash, if\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"21777969-92c3-4ada-a5f6-be6a2ed0e65a\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4858
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" the user even\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"f32f1b2a-f8ee-4a9b-9fa8-3624e1d43487\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 4910
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" kn\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"4e003a57-1cc1-4fbc-a13c-c4dc246bf539\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5001
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ows to\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"405fc9e1-56fa-41d4-86ec-dc7765216b73\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5192
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" look there\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"244ae07a-3e04-47eb-84c1-db16ffe0b785\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5192
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\". An action\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"970570fb-18f5-494e-9781-da674e65fc4d\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5192
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" that\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"2c14062b-f581-4cd8-801b-9e822ba3275b\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5192
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" can qu\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"bc118309-7198-4b02-ad20-2d70404eeffe\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5201
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ietly destroy work\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"6ca41453-0ef8-4b5c-98fa-87f1e7921fd8\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5249
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" should be ta\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"19e37314-a11e-4145-b242-157bb33dc8ff\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5299
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ken by someone who kn\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"d6e9899f-28f0-4a52-8dfa-744fbe8d7b43\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5350
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ows what the\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"69fede38-c53b-4249-8f0c-25a01151eb9e\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5400
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" work was\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"df5d76f9-2c5a-4d67-9462-bbcf658b40ba\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5450
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" wor\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"d12ca4d0-e143-4846-9b12-c767985acc8a\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5499
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"th, and that's the\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"7a1bc926-a2a4-49e6-89c4-0f0f051bab6e\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5551
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" person who as\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"900983d2-fb55-4a60-8e41-784538556a8f\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5644
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ked for it, not an ass\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"eb0d07b0-3deb-438f-bb88-8b01edd53093\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5650
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"istant re\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"2c72fd32-3282-455e-a16f-04c2d1b8f565\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5701
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ading a status\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"ecbf898e-89ef-41cc-9eb2-d6afce0b2ce0\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5749
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" column\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"dc6af02d-42a2-4a20-8c96-1ed6a152cc10\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5798
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\".\\n\\nAn\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"bdd27f63-e48d-41c9-8fc1-8ea2fc48faf3\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5849
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" agent's\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"fc452e62-f600-4953-a39a-65754211f18e\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5899
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" view\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"a2c9c3c5-14bb-4e20-81c4-69fb74fc704a\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5947
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" of a task is also part\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"174edad2-da31-4430-a3f2-f1626bf41599\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 5999
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ial. I\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"11a0caa5-6e28-46ad-8762-798646124b9c\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6053
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" can read\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"6d201202-c4bc-4078-b637-660993a39fdf\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6097
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" a wor\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"5ccf3a2e-b486-4188-a63b-f3334d3be37d\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6148
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ker's trans\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"938582fd-0802-45d8-8b10-a7d51878a3d0\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6201
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"cript, its\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"98ef1591-d9db-437a-8998-342f84ea38a4\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6247
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" di\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"80d025d8-e084-4f55-b8c5-708289b2a50b\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6295
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ff and its\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"0ddc8d72-7d60-4557-bd50-b42b85d5ecbf\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6345
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" column\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"b5b1fc7b-5a6e-4cf1-8ed2-9d28fb4a0105\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6394
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" on\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"3b9b799b-8b6f-4357-9296-a59b49805d3e\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6443
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" the board.\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"931bac98-55e9-4d49-8de5-58d6388736d1\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6493
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" I can't see the half\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"fa375951-8e37-434a-b69e-cdc04d109a6d\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"-form\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"9d627b71-824f-45a9-80c6-b6ab04924061\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6593
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ed idea the\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"5e60fda1-25a3-44c7-a163-654142a17f8f\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6644
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" user me\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"96508265-681e-4600-961b-aee2a39c1252\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6693
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ant to come\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"b369069a-436c-4a4e-96f7-3e840c811686\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6744
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" back to, or the reason they\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"3a0180cd-9a5c-4097-9880-9d0c04b38810\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6794
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" par\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"0924aa3f-ac47-495e-9928-553b4ede7286\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6846
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ked a task in review\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"183c7db4-670c-4bca-a0fd-14d6b44bf6f7\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6895
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" instead of clos\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"639921cb-7b65-421b-a63e-d5a00693c27b\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6943
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ing it.\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"5682aed1-0b98-46b6-8685-838267b24989\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 6995
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" I also can't tell whether\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"92939ae0-2943-4690-bcbe-0546e8031337\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7045
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" a branch that\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"eacc9f3b-9af0-4653-9f99-3659c20d0a93\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7094
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" looks ab\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"b92a0583-cb4e-4044-a63e-95160616bcd0\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7144
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"andoned is\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"500f208e-be35-44bf-9847-21e0e0e3dcac\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7195
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" one\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"1ed37ef3-d79d-41e1-a3db-c4108750cfe5\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7244
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" a\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"61d2fefb-a599-43b0-b799-d5195fd36b49\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7294
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" te\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"ea7469f2-9690-461f-92c6-febd292b2da3\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7345
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ammate is about\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"346ac2dc-b4d3-4cbe-bcc2-b151221b643d\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7392
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" to p\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"f92c3389-1a07-4e41-8509-05ea7b6cea77\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7442
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ick up. \\\"This loo\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"ce9ecbab-01d5-40e1-aea5-326c21f9bebd\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7493
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ks fin\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"6de4eed9-d902-450f-9e26-81472ba9bfb0\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7542
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ished\\\"\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"84dd8294-a7d6-4016-993c-aef9e923296f\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7592
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" or \\\"this looks stale\\\"\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"2a7dd513-daa7-432d-929e-6c8f786fa21a\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7642
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" is a gu\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"1b11bc15-1139-4cb5-bd10-ff6a23a4bfcc\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7694
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ess based\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"05c53b4e-d12f-4f2a-bcd6-b988e3e519fe\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7743
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" on the par\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"82eff349-e15e-4f01-8cbd-769b67b90a3a\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7793
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ts I\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"c066d390-b3e5-4acc-bb5f-c47544c3243c\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7842
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" can see. Mo\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"a910b737-8759-4442-b9d0-ebdd72a733f6\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7892
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ving a task to done or to the\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"9711d1b7-fc94-40fc-921e-f8f842075e06\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7995
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" trash is a\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"f8d10c1f-1015-420b-85a4-6928f5d71ae5\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 7995
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" judgment about int\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"3caa02e6-040c-4273-bbb3-43fde6968217\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8043
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ent, and the int\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"d42e2250-b4bd-411e-9184-418466064f63\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8094
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ent is the user's.\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"2fcc8d27-925b-487b-8c7f-d4dbff6246ea\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8144
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" If\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"5f7aff13-4561-4291-b523-898b6d28f285\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8194
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" I get\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"bb5feea2-f18f-4493-8e10-d741f1040f9d\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8245
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" it wrong, I've\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"4c0146f4-3d2a-48dc-996b-543c5995f8a0\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8294
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" erased something\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"55bb177f-e42f-4bf8-bbc5-b246e15e2e0e\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8344
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" they\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"44f0526e-75b3-4817-8ba7-7800223cd1d8\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8394
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" wanted and le\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"c9adec8b-f686-426f-b8c1-4af95129627c\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8443
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ave\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"68643b72-aa8f-45b9-b921-2c17c3182f6c\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8493
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" them to\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"92c3e742-77ad-4b8d-820d-d705a516827c\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" find out later\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"f4d533ff-21f5-48c5-a1ee-16c75d6f7900\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8592
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\", often\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"13f34665-c4c7-43a0-a11f-a4f7d8093e74\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8643
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" when\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"2921d449-d2a2-4b60-af70-11df2d0b2ca2\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8692
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" it\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"acb903dc-b1a7-444c-a59f-b897bdcaab6c\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8742
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"'s h\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"53ed5a31-49e2-4bbd-9e6e-ed6fd3893403\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8791
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ardest to fix.\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"3f5ebfe7-5d45-447a-81b1-ca462ab42362\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8845
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n\\nFin\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"a2497a5b-e03a-4c5a-abd4-9051227e3bb2\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8893
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ally, keeping this decision\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"afd3d956-6787-4a9a-9c60-dd4fe4c1bbed\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8943
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" with a\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"ba621731-be2d-4471-ba7e-6b8ad542adf5\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 8993
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" person ke\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"1b5cf018-e3e3-423c-987a-57667ebdd39e\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9043
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"eps the system\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"cd5c769e-3b06-4ceb-a99f-bc6184690932\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9092
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" tr\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"8ca1edba-4b82-4d10-8f0e-b94772f155a5\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9143
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ustworthy. If\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"ca5ea12e-6c02-4360-b4f9-d88dfff77dc8\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9193
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" I could\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"c18e19bf-f170-48b0-b4f0-d5f205242fb2\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9242
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" trash tasks, every\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"eec1d87e-579c-4423-ae79-f1fe68aa4421\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9295
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" c\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"8ff7d4a0-8ae9-4f11-b10e-350579e55c02\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9342
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"leanup I\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"cdf8e749-24b6-4bd9-87a2-025e01597cc4\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9392
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" did would be something\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"8e206dfd-e88c-4060-8131-6377e55a69aa\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9447
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" the user had\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"8cf18bd4-bd90-4283-9e3e-a4806ea0720d\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9492
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" to aud\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"1a2db5dd-1e63-4b7c-8f9d-7066d600a106\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9542
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"it, and they would never be\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"e79666c7-2c57-4f89-bbd4-90ff75236244\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9592
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" quite sure their\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"a4cc61c2-44f2-48e9-8b44-d4a4b69b6e18\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9642
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" board still\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"dc465f80-ceb4-4e54-81bf-4805c1765adf\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9692
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" held\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"9fc1dc80-b34c-4bc0-a889-8518c3f5f4d3\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9742
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" what they left\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"396fb1bf-f71b-43f3-a550-a80d8befba06\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9794
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" on it. Because\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"d907ddc2-025a-47a8-bac6-d08118b8d47a\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9842
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" only\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"d7749f4a-8b7c-4931-8ba3-fb90a15faad6\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9893
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" they\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"2f8b3671-5510-4b85-b485-963135322a1d\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9943
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" can trash, the r\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"70da4464-a70c-48e1-911d-7e8f5acfb1fb\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 9993
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ule st\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"1f97a6e1-10d9-40dd-ae6f-991734ad4628\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10042
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ays simple. I can create,\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"746fbc02-ff55-4a0e-821f-eb27ad26fc6b\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10092
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" start, steer and review\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"214a603d-4002-4c8c-ac76-a1f75cbde580\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10143
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" as\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"bb541222-9a49-4e27-9e84-40d6b684812c\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10193
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" much as is\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"823494cd-97c1-4c0f-995e-34299190be16\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10242
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" useful, and n\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"69671ed2-73d3-4764-886c-57c8ce898397\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10292
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"othing dis\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"661d21f4-6dd4-4ba3-963d-186a7abc107b\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10342
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"appears un\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"89068311-b6be-45d2-95ae-6b94bceb21cf\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10394
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"less they say so. That bo\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"85495c21-a3c1-4a54-bb7b-bfd556b9a34c\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10442
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"undary l\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"3970aab2-edb6-4f34-ac6b-77588a7530be\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10491
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ets them\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"31e4211a-17d8-4f6c-aa7f-bf97127b7935\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" hand me more\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"4776e684-8ab3-4a0d-bf84-bc12c178c2b0\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10591
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" work, because the wor\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"bd34ffe0-31c2-4191-aa01-511a992ce042\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10642
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"st I\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"f140f0f6-828b-4339-9268-c4e2df59e390\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10691
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" can do is le\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"656695e0-91c2-45cc-aca7-aba924f23b08\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10743
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ave cl\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"c5d1eb7c-0855-4ca0-8645-bc40f536496b\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10792
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"utter, never\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"17f9ebaf-78bf-4a8a-9c33-bb584433a616\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10842
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" a\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"8e287859-97b0-4864-ae3a-de2c6db99b76\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10892
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" loss.\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"299fc98b-d567-4dae-8f6e-3a6ee1e86ecc\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10941
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" When a\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"020cd1b1-ed13-4e4e-a2c1-5dc8dc25b2f4\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 10992
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" task looks \"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"da2b360a-295b-4b25-92e0-6d84e218eae9\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 11041
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ready to go\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"c5eee9ae-cd15-413e-882a-a8e339ecf9aa\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 11093
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\", I say\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"d7c8ae1c-71fb-4841-bb0a-61a31b3caeae\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 11141
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" so and le\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"a41d86d0-617b-4f28-86c9-d108ab1b4bfc\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 11194
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ave the\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"12f87b22-c18b-46e1-93a9-b370c927f49c\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 11241
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" decision to them.\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"e980b4fc-f328-4f13-99a4-cac9478dc9b7\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 11258
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"assistant\",\"message\":{\"model\":\"claude-opus-5-5\",\"id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Trashing a task deletes more than a card. It removes the task's record and sends its worktree to the system trash, and that worktree can hold uncommitted edits, local experiments, notes, or a branch that was never pushed. None of that can be fully recovered from inside Ouijit. Once it's gone, the next step is digging through the system trash, if the user even knows to look there. An action that can quietly destroy work should be taken by someone who knows what the work was worth, and that's the person who asked for it, not an assistant reading a status column.\\n\\nAn agent's view of a task is also partial. I can read a worker's transcript, its diff and its column on the board. I can't see the half-formed idea the user meant to come back to, or the reason they parked a task in review instead of closing it. I also can't tell whether a branch that looks abandoned is one a teammate is about to pick up. \\\"This looks finished\\\" or \\\"this looks stale\\\" is a guess based on the parts I can see. Moving a task to done or to the trash is a judgment about intent, and the intent is the user's. If I get it wrong, I've erased something they wanted and leave them to find out later, often when it's hardest to fix.\\n\\nFinally, keeping this decision with a person keeps the system trustworthy. If I could trash tasks, every cleanup I did would be something the user had to audit, and they would never be quite sure their board still held what they left on it. Because only they can trash, the rule stays simple. I can create, start, steer and review as much as is useful, and nothing disappears unless they say so. That boundary lets them hand me more work, because the worst I can do is leave clutter, never a loss. When a task looks ready to go, I say so and leave the decision to them.\"}],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":24902,\"cache_read_input_tokens\":12929,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":24902},\"output_tokens\":4,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"input_transformations\":[],\"diagnostics\":null,\"context_management\":null},\"parent_tool_use_id\":null,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"7ca111e4-5e83-49e4-a7cf-88279815af88\",\"timestamp\":\"2026-11-14T18:37:36.570Z\",\"request_id\":\"req_011Ch3JgemFd7nizfXh8ja4v\"}",
+   "t": 11262
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_stop\",\"index\":1},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"eed7258b-4d38-45cf-8744-091d1e92e93a\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 11262
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"stop_details\":null,\"container\":null},\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":24902,\"cache_read_input_tokens\":12929,\"output_tokens\":562,\"output_tokens_details\":{\"thinking_tokens\":24},\"iterations\":[{\"input_tokens\":2,\"output_tokens\":562,\"cache_read_input_tokens\":12929,\"cache_creation_input_tokens\":24902,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":24902},\"type\":\"message\"}]},\"context_management\":{\"applied_edits\":[]}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"4910e3cc-47cc-45f0-9519-4ca825ed936f\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 11274
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_stop\"},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"2527139e-3edb-44e0-85a4-5ed1d5a14ab1\",\"api_message_id\":\"msg_011Ch3JgeyQQnCcW5HGnXQ6d\"}",
+   "t": 11275
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"rate_limit_event\",\"rate_limit_info\":{\"status\":\"allowed\",\"resetsAt\":1794691200,\"rateLimitType\":\"five_hour\",\"overageStatus\":\"rejected\",\"overageDisabledReason\":\"out_of_credits\",\"isUsingOverage\":false,\"unifiedWindows\":{\"five_hour\":{\"utilization\":0.13,\"resetsAt\":1794691200,\"status\":\"allowed\"},\"seven_day\":{\"utilization\":0.66,\"resetsAt\":1794704400,\"status\":\"allowed\"}}},\"uuid\":\"4dcf481e-ea27-446a-a971-aa7ed445ba5f\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 11276
+  },
+  {
+   "dir": "out",
+   "line": "{\"duration_api_ms\":11861,\"stop_reason\":\"end_turn\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"total_cost_usd\":0.213179,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":24902,\"cache_read_input_tokens\":12929,\"output_tokens\":562,\"output_tokens_details\":{\"thinking_tokens\":24},\"server_tool_use\":{\"web_search_requests\":0,\"web_fetch_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":24902,\"ephemeral_5m_input_tokens\":0},\"inference_geo\":\"global\",\"iterations\":[{\"input_tokens\":2,\"output_tokens\":562,\"cache_read_input_tokens\":12929,\"cache_creation_input_tokens\":24902,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":24902},\"type\":\"message\"}],\"speed\":\"standard\",\"fallback_credit\":null},\"modelUsage\":{\"claude-haiku-5-5\":{\"inputTokens\":1202,\"outputTokens\":18,\"cacheReadInputTokens\":0,\"cacheCreationInputTokens\":0,\"webSearchRequests\":0,\"costUSD\":0.0001292,\"contextWindow\":1000000,\"maxOutputTokens\":128000,\"thinkingTokens\":0,\"cacheCreationEphemeral5mInputTokens\":0,\"cacheCreationEphemeral1hInputTokens\":0,\"canonicalModel\":\"claude-haiku-5-5\",\"provider\":\"firstParty\",\"costBasis\":\"list\"},\"claude-opus-5-5\":{\"inputTokens\":2,\"outputTokens\":562,\"cacheReadInputTokens\":12929,\"cacheCreationInputTokens\":24902,\"webSearchRequests\":0,\"costUSD\":0.2130498,\"contextWindow\":1000000,\"maxOutputTokens\":128000,\"thinkingTokens\":24,\"cacheCreationEphemeral5mInputTokens\":0,\"cacheCreationEphemeral1hInputTokens\":24902,\"canonicalModel\":\"claude-opus-5-5\",\"provider\":\"firstParty\",\"costBasis\":\"list\"}},\"permission_denials\":[],\"terminal_reason\":\"completed\",\"fast_mode_state\":\"off\",\"fast_mode_disabled_reason\":\"sdk_opt_in_required\",\"subagent_stats\":{\"spawned\":0,\"requested\":{\"background\":0,\"foreground\":0,\"unset\":0},\"started_in_background\":0,\"max_depth\":0,\"spawned_by_subagents\":0,\"completed\":0,\"failed\":0,\"killed\":{\"parent\":0,\"user\":0,\"system\":0},\"refused\":{\"depth_limit\":0,\"concurrency_limit\":0,\"budget\":0},\"by_type\":{}},\"safety_stops\":0,\"is_error\":false,\"num_turns\":1,\"subtype\":\"success\",\"api_error_status\":null,\"result\":\"Trashing a task deletes more than a card. It removes the task's record and sends its worktree to the system trash, and that worktree can hold uncommitted edits, local experiments, notes, or a branch that was never pushed. None of that can be fully recovered from inside Ouijit. Once it's gone, the next step is digging through the system trash, if the user even knows to look there. An action that can quietly destroy work should be taken by someone who knows what the work was worth, and that's the person who asked for it, not an assistant reading a status column.\\n\\nAn agent's view of a task is also partial. I can read a worker's transcript, its diff and its column on the board. I can't see the half-formed idea the user meant to come back to, or the reason they parked a task in review instead of closing it. I also can't tell whether a branch that looks abandoned is one a teammate is about to pick up. \\\"This looks finished\\\" or \\\"this looks stale\\\" is a guess based on the parts I can see. Moving a task to done or to the trash is a judgment about intent, and the intent is the user's. If I get it wrong, I've erased something they wanted and leave them to find out later, often when it's hardest to fix.\\n\\nFinally, keeping this decision with a person keeps the system trustworthy. If I could trash tasks, every cleanup I did would be something the user had to audit, and they would never be quite sure their board still held what they left on it. Because only they can trash, the rule stays simple. I can create, start, steer and review as much as is useful, and nothing disappears unless they say so. That boundary lets them hand me more work, because the worst I can do is leave clutter, never a loss. When a task looks ready to go, I say so and leave the decision to them.\",\"ttft_ms\":4524,\"type\":\"result\",\"duration_ms\":10953,\"uuid\":\"fbfaae92-a154-4dca-8376-d24b73b253b2\",\"ttft_stream_ms\":3245,\"time_to_request_ms\":44,\"first_content_frame_ms\":3246,\"user_message_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\",\"user_message_uuids\":[\"5673688e-e1fb-4439-876a-35a251a8f0c0\"],\"request_sent_wall_ms\":1794681445683,\"first_request_input_tokens\":37833,\"first_request_cache_read_input_tokens\":12929,\"queued_turn_count\":0,\"result_index\":0,\"model_usage_since_last_result\":{\"claude-haiku-5-5\":{\"inputTokens\":1202,\"outputTokens\":18,\"cacheReadInputTokens\":0,\"cacheCreationInputTokens\":0,\"webSearchRequests\":0,\"costUSD\":0.0001292,\"contextWindow\":1000000,\"maxOutputTokens\":128000,\"thinkingTokens\":0,\"cacheCreationEphemeral5mInputTokens\":0,\"cacheCreationEphemeral1hInputTokens\":0,\"canonicalModel\":\"claude-haiku-5-5\",\"provider\":\"firstParty\",\"costBasis\":\"list\"},\"claude-opus-5-5\":{\"inputTokens\":2,\"outputTokens\":562,\"cacheReadInputTokens\":12929,\"cacheCreationInputTokens\":24902,\"webSearchRequests\":0,\"costUSD\":0.2130498,\"contextWindow\":1000000,\"maxOutputTokens\":128000,\"thinkingTokens\":24,\"cacheCreationEphemeral5mInputTokens\":0,\"cacheCreationEphemeral1hInputTokens\":24902,\"canonicalModel\":\"claude-opus-5-5\",\"provider\":\"firstParty\",\"costBasis\":\"list\"}},\"credential_expires_at\":\"2026-12-03T16:14:31.053Z\"}",
+   "t": 11285
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"command_lifecycle\",\"command_uuid\":\"5673688e-e1fb-4439-876a-35a251a8f0c0\",\"state\":\"completed\",\"uuid\":\"eaac123e-8f8d-4db3-bd81-5f0b99233433\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 11287
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"session_state_changed\",\"state\":\"idle\",\"sdk_host_only\":true,\"uuid\":\"c8120c04-3b9d-4639-bcb1-376f77728dc8\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 11288
+  },
+  {
+   "dir": "in",
+   "line": "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Ouijit: the user cancelled trashing T-1.\"}]},\"parent_tool_use_id\":null,\"uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 12957
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"session_state_changed\",\"state\":\"running\",\"sdk_host_only\":true,\"uuid\":\"3fa6d989-1ef2-4a0f-9d0d-dd2b4ed8e15e\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 12959
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"command_lifecycle\",\"command_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\",\"state\":\"queued\",\"uuid\":\"af113757-9fa3-4db3-8336-53986326a451\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 12959
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"command_lifecycle\",\"command_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\",\"state\":\"started\",\"uuid\":\"5f6484ef-9828-44d1-bc9e-2723d962e30b\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 12961
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"init\",\"cwd\":\"/private__CWD__\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"tools\":[\"Task\",\"AskUserQuestion\",\"Bash\",\"CronCreate\",\"CronDelete\",\"CronList\",\"DesignSync\",\"Edit\",\"EnterPlanMode\",\"EnterWorktree\",\"ExitPlanMode\",\"ExitWorktree\",\"ListAgents\",\"Monitor\",\"NotebookEdit\",\"PushNotification\",\"Read\",\"RemoteTrigger\",\"ReportFindings\",\"ScheduleWakeup\",\"SendMessage\",\"SendToProject\",\"SendToProjectContext\",\"Skill\",\"TaskStop\",\"ToolSearch\",\"WebFetch\",\"WebSearch\",\"Workflow\",\"Write\",\"mcp__claude_ai_Claude_Docs__batch\",\"mcp__claude_ai_Claude_Docs__create\",\"mcp__claude_ai_Claude_Docs__delete\",\"mcp__claude_ai_Claude_Docs__export\",\"mcp__claude_ai_Claude_Docs__guide\",\"mcp__claude_ai_Claude_Docs__query\",\"mcp__claude_ai_Claude_Docs__read\",\"mcp__claude_ai_Claude_Docs__update\"],\"mcp_servers\":[],\"model\":\"claude-opus-5-5\",\"permissionMode\":\"bypassPermissions\",\"slash_commands\":[],\"terminal_slash_commands\":[\"doctor\",\"send-to-project\",\"color\",\"focus\",\"reload-plugins\"],\"apiKeySource\":\"none\",\"claude_code_version\":\"2.1.323\",\"output_style\":\"default\",\"agents\":[],\"skills\":[],\"plugins\":[],\"capabilities\":[\"interrupt_receipt_v1\",\"interrupt_cancel_queued_v1\",\"interrupt_send_now_v1\",\"interrupt_requeue_taken_v1\",\"msg_lifecycle_v1\",\"request_marker_lists_v1\",\"ask_user_question_unanswered_v1\",\"lifecycle_wakeup_source_v1\",\"sdk_mcp_tools_list_changed\",\"sdk_mcp_manifests\",\"mcp_read_resource_v1\",\"mcp_tool_ui_meta_v1\",\"ui_surface_v1\",\"mcp_call_result_not_for_model_v1\",\"mcp_call_check_permissions_v1\",\"voice_call_talk_line_v1\",\"withdrawn_files_note_v2\",\"ui_pane_widget_v1\"],\"analytics_disabled\":false,\"product_feedback_disabled\":false,\"uuid\":\"41281db1-d48f-42f9-aaf1-1f5c838d916c\",\"memory_paths\":{},\"original_cwd\":\"/private__CWD__\",\"additional_directories\":[],\"messaging_socket_path\":\"/tmp/cc-socks/77183.sock\",\"fast_mode_state\":\"off\",\"fast_mode_disabled_reason\":\"sdk_opt_in_required\",\"per_turn_effort_active\":true,\"ultrathink_available\":false,\"ultrathink_typed_raises\":false,\"view_mode\":\"default\",\"user_message_uuids\":[\"fa9ed0dc-d347-41a0-8270-597b04da269f\"]}",
+   "t": 12972
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"status\",\"status\":\"requesting\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"638f3db0-9d78-4763-be89-157fc75a27c9\",\"user_message_uuids\":[\"fa9ed0dc-d347-41a0-8270-597b04da269f\"]}",
+   "t": 12973
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\",\"message\":{\"model\":\"claude-opus-5-5\",\"id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":2595,\"cache_read_input_tokens\":37831,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":2595},\"output_tokens\":8,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"input_transformations\":[],\"diagnostics\":null,\"context_management\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"9ee6b6e5-654a-4e15-afb5-7ce9b0d08e55\",\"ttft_ms\":1428,\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\",\"user_message_uuids\":[\"fa9ed0dc-d347-41a0-8270-597b04da269f\"],\"owed_rows\":[]}",
+   "t": 14407
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\",\"signature\":\"\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"78096982-1fd9-4cf2-bdf7-b9bd171956a1\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 14407
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":4,\"estimated_tokens_delta\":4,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"e01c9f49-6fd2-4a5a-a7c0-3918b807cc70\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\"}",
+   "t": 15542
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"The user back\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"5ad79fe4-565a-4093-a92b-3eead4830396\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15542
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":10,\"estimated_tokens_delta\":6,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"8c309eea-e90d-4487-98b0-fcaee17cd216\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\"}",
+   "t": 15542
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"ed out of trashing T-\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"8815f56a-ff07-4da1-8b85-29a6eb662bc9\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15542
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":12,\"estimated_tokens_delta\":2,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"327dcb5b-f522-4f8b-b710-244a7ed6f7d8\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\"}",
+   "t": 15542
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"1, which\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"9bc5f1e0-1f14-4164-b537-f14cfc950901\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":13,\"estimated_tokens_delta\":1,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"da0d92f9-f285-4832-87b1-b4e01a3bac15\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" I h\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"2c8c9e02-b166-4829-802c-e063435b9d04\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":18,\"estimated_tokens_delta\":5,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"672c5a47-1b9e-4b97-8feb-397c0440e2f9\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"adn't asked for. A\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"d66a5f9a-f044-4aa9-a7c1-48f4bf30c44c\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":19,\"estimated_tokens_delta\":1,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"75de0d47-ce86-4bc2-aaa4-99f3889f3124\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" qu\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"63541a26-fb6b-4a1d-b365-651b5f5d1ebb\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":25,\"estimated_tokens_delta\":6,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"7db99b3a-1215-4c4e-9c1d-8c392baf8b78\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"ick acknowledgment is\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"a69343d5-4e2c-45ef-8963-e34b0ad5832b\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":32,\"estimated_tokens_delta\":7,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"b308ec5a-c4cd-4619-bf23-319c322744cd\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" enough, and there's noth\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"5d067573-10ba-4a37-bbb9-9cc0e89ec8f6\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":36,\"estimated_tokens_delta\":4,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"86015fec-0390-4eae-8d57-ba4226ec0b58\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"ing else to do.\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"6e07cad2-e9e7-4281-8221-40dc756764d5\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":37,\"estimated_tokens_delta\":1,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"45c89194-5d9d-4f6a-9af2-2fbff8056779\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\\n\\n\",\"estimated_tokens\":null}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"63e7f193-a6f3-49cf-8dd0-088d7184dc1b\",\"thinking_display\":\"summarized\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"thinking_tokens\",\"estimated_tokens\":180,\"estimated_tokens_delta\":143,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"4dcd2a99-0cd2-4fbe-aa1c-9ce99ad88e62\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"CAQSxAUKEAgTGAI4AUIIdGhpbmtpbmcSDNtPyitIO7n8x23vrxoMjF/W4M9PoNw/gwwFIjBnh2AgPGKG1fpA4xBI8G5oubI2qrRDvvfoGbH6jiK7PGz8CoJsVdyu6t5+O/ErNDYq4QQqn0idXtV4skp39hPXeg3lPkmVtw2my7DCY1/12PGBrvUCskz+GHSFA3cmrxkjK0JEdupexoW6Xkh6QH1Btj8KCjEoAhg+HL8G1xOuxgo8yM93pE/Gsgsjn2SqVaNMRkfL0UQwqq790455NHuzrDisYjDixMLlEJ10gxhMB436QyP4MlPr9fn6+tikqqvevfiBTXfqHJPRzjGNKGALBfM+Mop/dr6UVTY3iZp7swzO4ni/eh+OttWpqkF5nYeDo4WlT6jEQHin7oEjJCZNX9FvWw4A1QMkMNxIAG5npi38/tU37/bdUIDgPbFTxu2BPxvSVxEzuido28cCatrYLs36eHzqiknEuEprJ1IsmEkELCk3FHfiNcBrkN4YqSNkEWuy4oVtI7U+0Bs6TivbZBXP/v896Y2eZSQbVK915JVLw3oRLiSvG/dQTh0dAZLxm8vVNfN7iOzRtG3HnJK3MnHnRjrP8ZS2r/6jAzs48Fgyb87j7mOw/jNBhiUHclmEmb3HNdEvlCMNJGEDv6D37g9K4FIycYPLa89Ll8ZKb9Yvtc07HssFXq3DBUIn6wRrk+nJ9kENmo5T32cYbTNmGIn2i+nkePXlgL/GjIQD2ZUpn9JFcQaQxlfq5u8xaEOXBk/RiUAxPzyy6YigTyjdLPuwnF6Gg1iL1gyvhsfJJugNosdW+nAcCOVPMbkuSV+MIGqv4EqdoUp+BBki0xP3c+0ieTx9BJrAvhIUHMvzNv4ZEkH4K884cD244L9Kw+w4ldVF/FGEnfq0mupjFvk0syXb7vth6/utSmlrLt9M4In9WFYYAQ==\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"b7088c9e-7593-48bf-9348-d70211ecbdee\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"assistant\",\"message\":{\"model\":\"claude-opus-5-5\",\"id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"thinking\",\"thinking\":\"The user backed out of trashing T-1, which I hadn't asked for. A quick acknowledgment is enough, and there's nothing else to do.\\n\\n\",\"signature\":\"CAQSxAUKEAgTGAI4AUIIdGhpbmtpbmcSDNtPyitIO7n8x23vrxoMjF/W4M9PoNw/gwwFIjBnh2AgPGKG1fpA4xBI8G5oubI2qrRDvvfoGbH6jiK7PGz8CoJsVdyu6t5+O/ErNDYq4QQqn0idXtV4skp39hPXeg3lPkmVtw2my7DCY1/12PGBrvUCskz+GHSFA3cmrxkjK0JEdupexoW6Xkh6QH1Btj8KCjEoAhg+HL8G1xOuxgo8yM93pE/Gsgsjn2SqVaNMRkfL0UQwqq790455NHuzrDisYjDixMLlEJ10gxhMB436QyP4MlPr9fn6+tikqqvevfiBTXfqHJPRzjGNKGALBfM+Mop/dr6UVTY3iZp7swzO4ni/eh+OttWpqkF5nYeDo4WlT6jEQHin7oEjJCZNX9FvWw4A1QMkMNxIAG5npi38/tU37/bdUIDgPbFTxu2BPxvSVxEzuido28cCatrYLs36eHzqiknEuEprJ1IsmEkELCk3FHfiNcBrkN4YqSNkEWuy4oVtI7U+0Bs6TivbZBXP/v896Y2eZSQbVK915JVLw3oRLiSvG/dQTh0dAZLxm8vVNfN7iOzRtG3HnJK3MnHnRjrP8ZS2r/6jAzs48Fgyb87j7mOw/jNBhiUHclmEmb3HNdEvlCMNJGEDv6D37g9K4FIycYPLa89Ll8ZKb9Yvtc07HssFXq3DBUIn6wRrk+nJ9kENmo5T32cYbTNmGIn2i+nkePXlgL/GjIQD2ZUpn9JFcQaQxlfq5u8xaEOXBk/RiUAxPzyy6YigTyjdLPuwnF6Gg1iL1gyvhsfJJugNosdW+nAcCOVPMbkuSV+MIGqv4EqdoUp+BBki0xP3c+0ieTx9BJrAvhIUHMvzNv4ZEkH4K884cD244L9Kw+w4ldVF/FGEnfq0mupjFvk0syXb7vth6/utSmlrLt9M4In9WFYYAQ==\"}],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":2595,\"cache_read_input_tokens\":37831,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":2595},\"output_tokens\":8,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"input_transformations\":[],\"diagnostics\":null,\"context_management\":null},\"parent_tool_use_id\":null,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"91be8155-933f-4cad-bb8d-7470fe776a33\",\"timestamp\":\"2026-11-14T18:37:40.853Z\",\"request_id\":\"req_011Ch3JhaSpTcKrUdJxHKSWm\",\"thinking_duration_ms\":1136,\"thinking_display\":\"summarized\",\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\",\"user_message_uuids\":[\"fa9ed0dc-d347-41a0-8270-597b04da269f\"]}",
+   "t": 15543
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_stop\",\"index\":0},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"98788aaf-4fcd-4a01-9960-9a341c73ea8f\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"96a09dc3-13bf-4190-a302-7c4520e8bbfe\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"You\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"b0a53131-79d6-49a2-8308-db2279e29387\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" cancelled trashing T\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"1a93b565-7c02-4532-b445-bf063db7e895\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"-1, so it stays where\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"7576a95b-9c17-43dc-ba2e-df355cd7ff83\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" it was\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"93d04379-800b-4417-8726-b52735e35653\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\".\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"48a1f570-d69d-4039-8dd7-41eba7e22e79\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Its card\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"4b1e6793-6bbf-4377-8b74-94beab808ebf\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" and worktree we\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"e71aa4b9-415b-405e-b504-3fe721e7604d\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ren't touched.\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"717b3414-893f-4933-ada9-aef644bf14a5\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n\\nThat\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"ca9fa2d6-f4d9-4f9c-93be-530f2c02bcde\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" request did\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"7e2920c2-0b74-427d-b679-fb76681dc3fb\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"n't come from me in\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"186ceed0-3d8b-473a-9a14-e6560d4b5096\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" this con\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"660742e9-908b-4021-bcc2-107309c044b3\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"versation. If\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"e707a416-d553-4958-8634-51916ca55b0d\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 15544
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" you\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"0c1fdb74-ecae-4717-ad3f-22d9fd36b3a6\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 16470
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"'\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"d9822940-214c-404a-a59e-f69947a2c790\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 16470
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"d like T-1 trash\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"7dd5d6be-05eb-4506-9050-cd15facc038c\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 16470
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ed later, or moved som\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"a462d3c4-351c-42d8-beae-0ef5741e4ba7\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 16470
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ewhere else, just say so\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"2fd7f930-4835-4616-9582-edfd4251970c\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 16470
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\".\"}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"5f88421b-7c32-4ebb-9800-a728588a108d\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 16470
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"assistant\",\"message\":{\"model\":\"claude-opus-5-5\",\"id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"You cancelled trashing T-1, so it stays where it was. Its card and worktree weren't touched.\\n\\nThat request didn't come from me in this conversation. If you'd like T-1 trashed later, or moved somewhere else, just say so.\"}],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":2595,\"cache_read_input_tokens\":37831,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":2595},\"output_tokens\":8,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"input_transformations\":[],\"diagnostics\":null,\"context_management\":null},\"parent_tool_use_id\":null,\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"uuid\":\"368ae9fa-994c-4e5c-9793-357ae548f0bc\",\"timestamp\":\"2026-11-14T18:37:41.780Z\",\"request_id\":\"req_011Ch3JhaSpTcKrUdJxHKSWm\"}",
+   "t": 16471
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_stop\",\"index\":1},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"d0834262-a244-4348-a535-f2d303890057\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 16471
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"stop_details\":null,\"container\":null},\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":2595,\"cache_read_input_tokens\":37831,\"output_tokens\":117,\"output_tokens_details\":{\"thinking_tokens\":40},\"iterations\":[{\"input_tokens\":2,\"output_tokens\":117,\"cache_read_input_tokens\":37831,\"cache_creation_input_tokens\":2595,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":2595},\"type\":\"message\"}]},\"context_management\":{\"applied_edits\":[]}},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"1b4f664a-4299-4d9e-aacf-c58c2f2ee710\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 16471
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_stop\"},\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"parent_tool_use_id\":null,\"uuid\":\"9f282d01-9ad6-468c-a5e3-ff2e4cc5b7fe\",\"api_message_id\":\"msg_011Ch3JhamvTEDCcsCuKEx3r\"}",
+   "t": 16471
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"rate_limit_event\",\"rate_limit_info\":{\"status\":\"allowed\",\"resetsAt\":1794691200,\"rateLimitType\":\"five_hour\",\"overageStatus\":\"rejected\",\"overageDisabledReason\":\"out_of_credits\",\"isUsingOverage\":false,\"unifiedWindows\":{\"five_hour\":{\"utilization\":0.14,\"resetsAt\":1794691200,\"status\":\"allowed\"},\"seven_day\":{\"utilization\":0.66,\"resetsAt\":1794704400,\"status\":\"allowed\"}}},\"uuid\":\"27abf870-61a6-4214-bc1f-4e7de92a59a4\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 16471
+  },
+  {
+   "dir": "out",
+   "line": "{\"duration_api_ms\":15355,\"stop_reason\":\"end_turn\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\",\"total_cost_usd\":0.2438532,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":2595,\"cache_read_input_tokens\":37831,\"output_tokens\":117,\"output_tokens_details\":{\"thinking_tokens\":40},\"server_tool_use\":{\"web_search_requests\":0,\"web_fetch_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":2595,\"ephemeral_5m_input_tokens\":0},\"inference_geo\":\"global\",\"iterations\":[{\"input_tokens\":2,\"output_tokens\":117,\"cache_read_input_tokens\":37831,\"cache_creation_input_tokens\":2595,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":2595},\"type\":\"message\"}],\"speed\":\"standard\",\"fallback_credit\":null},\"modelUsage\":{\"claude-haiku-5-5\":{\"inputTokens\":1202,\"outputTokens\":18,\"cacheReadInputTokens\":0,\"cacheCreationInputTokens\":0,\"webSearchRequests\":0,\"costUSD\":0.0001292,\"contextWindow\":1000000,\"maxOutputTokens\":128000,\"thinkingTokens\":0,\"cacheCreationEphemeral5mInputTokens\":0,\"cacheCreationEphemeral1hInputTokens\":0,\"canonicalModel\":\"claude-haiku-5-5\",\"provider\":\"firstParty\",\"costBasis\":\"list\"},\"claude-opus-5-5\":{\"inputTokens\":4,\"outputTokens\":679,\"cacheReadInputTokens\":50760,\"cacheCreationInputTokens\":27497,\"webSearchRequests\":0,\"costUSD\":0.243724,\"contextWindow\":1000000,\"maxOutputTokens\":128000,\"thinkingTokens\":64,\"cacheCreationEphemeral5mInputTokens\":0,\"cacheCreationEphemeral1hInputTokens\":27497,\"canonicalModel\":\"claude-opus-5-5\",\"provider\":\"firstParty\",\"costBasis\":\"list\"}},\"permission_denials\":[],\"terminal_reason\":\"completed\",\"fast_mode_state\":\"off\",\"fast_mode_disabled_reason\":\"sdk_opt_in_required\",\"subagent_stats\":{\"spawned\":0,\"requested\":{\"background\":0,\"foreground\":0,\"unset\":0},\"started_in_background\":0,\"max_depth\":0,\"spawned_by_subagents\":0,\"completed\":0,\"failed\":0,\"killed\":{\"parent\":0,\"user\":0,\"system\":0},\"refused\":{\"depth_limit\":0,\"concurrency_limit\":0,\"budget\":0},\"by_type\":{}},\"safety_stops\":0,\"is_error\":false,\"num_turns\":1,\"subtype\":\"success\",\"api_error_status\":null,\"result\":\"You cancelled trashing T-1, so it stays where it was. Its card and worktree weren't touched.\\n\\nThat request didn't come from me in this conversation. If you'd like T-1 trashed later, or moved somewhere else, just say so.\",\"ttft_ms\":2581,\"type\":\"result\",\"duration_ms\":3511,\"uuid\":\"8c6ecb3f-460f-487d-bcfd-203884caa9c0\",\"ttft_stream_ms\":1445,\"time_to_request_ms\":19,\"first_content_frame_ms\":1446,\"user_message_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\",\"user_message_uuids\":[\"fa9ed0dc-d347-41a0-8270-597b04da269f\"],\"request_sent_wall_ms\":1794681458290,\"first_request_input_tokens\":40428,\"first_request_cache_read_input_tokens\":37831,\"queued_turn_count\":0,\"result_index\":1,\"model_usage_since_last_result\":{\"claude-opus-5-5\":{\"inputTokens\":2,\"outputTokens\":117,\"cacheReadInputTokens\":37831,\"cacheCreationInputTokens\":2595,\"webSearchRequests\":0,\"costUSD\":0.0306742,\"contextWindow\":1000000,\"maxOutputTokens\":128000,\"thinkingTokens\":40,\"cacheCreationEphemeral5mInputTokens\":0,\"cacheCreationEphemeral1hInputTokens\":2595,\"canonicalModel\":\"claude-opus-5-5\",\"provider\":\"firstParty\",\"costBasis\":\"list\"}},\"credential_expires_at\":\"2026-12-03T16:14:31.053Z\"}",
+   "t": 16474
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"command_lifecycle\",\"command_uuid\":\"fa9ed0dc-d347-41a0-8270-597b04da269f\",\"state\":\"completed\",\"uuid\":\"9d29d9fc-1276-4391-8da0-c8185a7c8887\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 16474
+  },
+  {
+   "dir": "out",
+   "line": "{\"type\":\"system\",\"subtype\":\"session_state_changed\",\"state\":\"idle\",\"sdk_host_only\":true,\"uuid\":\"cace888f-348e-44f1-aac8-fff3ba5ed6b1\",\"session_id\":\"6252358a-807d-4a58-835b-93a4d1db2a3f\"}",
+   "t": 16474
+  }
+ ]
+}

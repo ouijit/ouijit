@@ -5,6 +5,7 @@ import { getDriver } from '../../chat/drivers';
 import type { ChatAnswer } from '../../chat/model';
 import {
   deleteHomeChat,
+  homeChatDir,
   homeChatState,
   installHomeChat,
   newHomeChat,
@@ -15,7 +16,14 @@ import {
   startHomeChat,
   switchHomeChat,
 } from '../../chat/homeChat';
-import { describeSession, installHomeChatWakes, sessionName, sessionTask, wakeHomeChat } from '../../chat/wake';
+import {
+  describeSession,
+  installHomeChatWakes,
+  sessionName,
+  sessionSubject,
+  taskSubject,
+  wakeHomeChat,
+} from '../../chat/wake';
 import { chatDecisions, decide, dropDecisionsFrom, onChatDecisionsChange } from '../../chat/decisions';
 
 export function registerChatHandlers(mainWindow: BrowserWindow): void {
@@ -33,8 +41,10 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
     if (input.typed && !isHomeChat(id)) {
       void tellHomeChat(
         id,
-        (who) => `the user told ${who} "${input.text}"`,
+        (who) =>
+          `the user told ${who} "${input.text}" and has taken it over. You won't hear from it again unless you message it.`,
         (name) => `You told ${name}: ${clip(input.text)}`,
+        true,
       );
     }
     return messageId;
@@ -47,6 +57,7 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
         id,
         (who) => `the user answered ${who} request ${requestId} themselves: ${said}.`,
         (name) => `You answered ${name}: ${said}`,
+        false,
       );
     }
     return answered;
@@ -68,6 +79,7 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   typedHandle('homeChat:new', (id) => newHomeChat(id));
   typedHandle('homeChat:switch', (id) => switchHomeChat(id));
   typedHandle('homeChat:list', () => homeChatState());
+  typedHandle('homeChat:dir', () => homeChatDir());
   typedHandle('homeChat:rename', (id, title) => renameHomeChat(id, title));
   typedHandle('homeChat:delete', async (id) => {
     await dropDecisionsFrom(id);
@@ -77,7 +89,7 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   typedHandle('homeChat:decisions', () => chatDecisions());
   typedHandle('homeChat:decide', (id, choice) => decide(id, choice));
   typedHandle('homeChat:wake', (event, text, note, about) =>
-    wakeHomeChat(event, text, { kind: 'event', text: note }, about),
+    wakeHomeChat(event, text, { kind: 'event', text: note }, about ? taskSubject(about) : null),
   );
   typedHandle('homeChat:restart', () => restartHomeChat());
   typedHandle('chat:terminal-resume', (id) => {
@@ -86,12 +98,23 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   });
 }
 
-/** The user acted on a worker from its own card, which Chat may be steering. */
-async function tellHomeChat(id: string, text: (who: string) => string, note: (name: string) => string): Promise<void> {
+/**
+ * The user acted on a worker from its own card. Chat hears of it only when it
+ * is waiting on that worker; a message from the user takes the worker over,
+ * so Chat stops waiting on it.
+ */
+async function tellHomeChat(
+  id: string,
+  text: (who: string) => string,
+  note: (name: string) => string,
+  takesOver: boolean,
+): Promise<void> {
   const info = chatHost.snapshot(id)?.info;
   if (!info) return;
   const [who, name] = await Promise.all([describeSession(info), sessionName(info)]);
-  await wakeHomeChat(null, text(who), { kind: 'decision', text: note(name) }, sessionTask(id));
+  await wakeHomeChat(null, text(who), { kind: 'decision', text: note(name) }, sessionSubject(id), {
+    release: takesOver,
+  });
 }
 
 function clip(text: string): string {

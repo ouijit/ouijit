@@ -66,6 +66,38 @@ export class ChatRepo {
       .all() as { projectPath: string; taskNumber: number; chatId: string }[];
   }
 
+  follow(subject: string, chatId: string): void {
+    this.db
+      .prepare(
+        `INSERT INTO chat_subscriptions (subject, chat_id) VALUES (?, ?)
+         ON CONFLICT(subject) DO UPDATE SET chat_id = excluded.chat_id`,
+      )
+      .run(subject, chatId);
+  }
+
+  unfollow(subject: string): void {
+    this.db.prepare('DELETE FROM chat_subscriptions WHERE subject = ?').run(subject);
+  }
+
+  unfollowAll(chatId: string): void {
+    this.db.prepare('DELETE FROM chat_subscriptions WHERE chat_id = ?').run(chatId);
+  }
+
+  follower(subject: string): string | null {
+    const row = this.db.prepare('SELECT chat_id FROM chat_subscriptions WHERE subject = ?').get(subject) as
+      | { chat_id: string }
+      | undefined;
+    return row?.chat_id ?? null;
+  }
+
+  following(chatId: string): string[] {
+    return (
+      this.db.prepare('SELECT subject FROM chat_subscriptions WHERE chat_id = ? ORDER BY rowid').all(chatId) as {
+        subject: string;
+      }[]
+    ).map((row) => row.subject);
+  }
+
   nodes(id: string): string[] {
     return (
       this.db.prepare('SELECT body FROM chat_nodes WHERE session_id = ? ORDER BY position').all(id) as {

@@ -603,6 +603,13 @@ export const codexDriver: AgentDriver = {
   id: 'codex',
   label: 'Codex',
 
+  oneShot(prompt) {
+    const binary = resolveAgentBinary('codex');
+    return binary
+      ? { command: binary, args: ['exec', '--ephemeral', '--skip-git-repo-check', '-s', 'read-only', prompt] }
+      : null;
+  },
+
   async probe() {
     const binary = resolveAgentBinary('codex');
     if (!binary)

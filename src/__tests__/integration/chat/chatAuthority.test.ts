@@ -138,6 +138,20 @@ describe('what Chat sets off', () => {
     });
     expect((await homeChatState()).owners[taskKey(repo, 1)]).toBe(chat);
 
+    // It follows what it starts, and follows or drops anything else when told to; only Chat follows.
+    const followed = async () =>
+      ((await api('GET', 'following')).data as unknown as { task: number }[]).map((f) => f.task);
+    expect(await followed()).toEqual([1]);
+    expect((await api('PUT', `following/tasks/2?${project}`, {})).status).toBe(200);
+    expect(await followed()).toEqual([1, 2]);
+    expect((await api('DELETE', `following/tasks/2?${project}`)).status).toBe(200);
+    expect(await followed()).toEqual([1]);
+    expect((await api('PUT', `following/tasks/99?${project}`, {})).status).toBe(404);
+    const own = token;
+    token = issueToken('pty-not-chat', 'host');
+    expect((await api('GET', 'following')).status).toBe(403);
+    token = own;
+
     // Done and trash wait for the user; nothing has happened yet.
     const done = await api('PATCH', `tasks/1/status?${project}`, { status: 'done', hookMode: 'run' });
     const trash = await api('DELETE', `tasks/2?${project}`);
@@ -154,6 +168,8 @@ describe('what Chat sets off', () => {
     expect(await decide(held[0].id, { kind: 'run' })).toBe(true);
     expect(await decide(held[0].id, { kind: 'run' })).toBe(false);
     expect((await getTaskByNumber(repo, 1))?.status).toBe('done');
+    // Done, it is no longer followed.
+    expect(await followed()).toEqual([]);
     expect(pushes.find(([channel]) => channel === 'cli:task-completed')?.[1]).toMatchObject({
       taskNumber: 1,
       hookMode: 'run',

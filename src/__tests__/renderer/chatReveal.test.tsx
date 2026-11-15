@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { act, render, renderHook, screen } from '@testing-library/react';
-import { useReveal } from '../../components/chat/useReveal';
+import { closeOpenMarkup, useReveal } from '../../components/chat/useReveal';
 import { ChatTurns, RevealHeld, useRevealGate } from '../../components/chat/ChatTurns';
 import type { ChatNode } from '../../chat/model';
 
@@ -33,6 +33,19 @@ describe('a message arriving while you watch', () => {
     const gained = result.current.length - before;
     expect(gained).toBeGreaterThan(200);
     expect(gained).toBeLessThanOrEqual(410);
+
+    // A frame stamped before the reveal began never shows text it has not reached.
+    const early = renderHook(() => useReveal('one two three four five six', true));
+    const now = performance.now();
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+    vi.spyOn(performance, 'now').mockReturnValue(now + 50);
+    const stale = renderHook(() => useReveal('one two three four five six', true));
+    act(() => vi.advanceTimersByTime(16));
+    expect(stale.result.current.length).toBeLessThan(5);
+    vi.mocked(performance.now).mockRestore();
+    expect(early.result.current.length).toBeLessThan(5);
 
     const history = renderHook(() => useReveal(long, false));
     expect(history.result.current).toBe(long);
@@ -126,5 +139,16 @@ describe('opening a conversation', () => {
     // And a turn starting later does not replay it.
     rerender(<ChatTurns nodes={[said('h1', 'Already said before you opened it.')]} context={context} busy />);
     expect(screen.getByText('Already said before you opened it.')).toBeTruthy();
+  });
+});
+
+describe('formatting cut off mid-reveal', () => {
+  test('renders as it will once whole, rather than as its markers', () => {
+    expect(closeOpenMarkup('Run `ouijit pro')).toBe('Run `ouijit pro`');
+    expect(closeOpenMarkup('This is **impor')).toBe('This is **impor**');
+    expect(closeOpenMarkup('Half a marker *')).toBe('Half a marker ');
+    expect(closeOpenMarkup('```bash\necho hi')).toBe('```bash\necho hi\n```');
+    expect(closeOpenMarkup('`a` and **b** done')).toBe('`a` and **b** done');
+    expect(closeOpenMarkup('```\n**x\n```\nafter **bo')).toBe('```\n**x\n```\nafter **bo**');
   });
 });

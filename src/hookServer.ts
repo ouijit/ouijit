@@ -416,6 +416,9 @@ ouijit chat answer <pty-id> <request-id> --answer <question-id>=<value>...  # or
 ouijit chat send <pty-id> "<text>"            # steers a running turn, or starts one; --queue waits for the turn
 ouijit chat send <pty-id> -                   # text on stdin, for anything multi-line
 ouijit chat interrupt <pty-id>                # stop the running turn
+ouijit chat follow <task-or-chat>             # Chat only: hear what happens to it; a task number takes --project
+ouijit chat unfollow <task-or-chat>           # Chat only: stop hearing about it
+ouijit chat following                         # Chat only: → [{task, project, name, status} | {chat, label, status}]
 
 A chat card has a pty-id like any terminal, so tag, markdown and preview commands
 reach it the same way. A chat cannot answer its own requests; sending, answering

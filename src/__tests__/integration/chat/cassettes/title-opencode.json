@@ -1,0 +1,11 @@
+{
+  "agent": "opencode",
+  "entries": [
+    {
+      "dir": "out",
+      "line": "Fix notarization step failure",
+      "t": 3087
+    }
+  ],
+  "exit": 0
+}

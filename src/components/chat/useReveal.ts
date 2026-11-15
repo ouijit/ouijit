@@ -25,7 +25,10 @@ export function useReveal(text: string, paced: boolean): string {
     let frame = 0;
     let last = performance.now();
     const step = (now: number) => {
-      const seconds = Math.min(0.1, (now - last) / 1000);
+      // A frame's timestamp can be from before the effect ran; a negative step
+      // would put the reveal below zero, and a negative slice end shows almost
+      // all of the text.
+      const seconds = Math.max(0, Math.min(0.1, (now - last) / 1000));
       last = now;
       const backlog = target.current - position.current;
       if (backlog > 0) {
@@ -45,4 +48,20 @@ export function useReveal(text: string, paced: boolean): string {
 /** Whether the reveal has caught up with all there is. */
 export function revealed(shown: string, text: string): boolean {
   return shown.length >= text.length;
+}
+
+/**
+ * Text cut off mid-reveal, made to render as it will once whole: a code fence,
+ * inline code or bold left open at the cut is closed, and a marker half typed
+ * at the cut is held back. Otherwise the markers show as characters until
+ * their closing half arrives, and then vanish.
+ */
+export function closeOpenMarkup(cut: string): string {
+  let text = cut.replace(/[*`]+$/, '');
+  const fences = (text.match(/^```/gm) ?? []).length;
+  if (fences % 2 === 1) return `${text}\n\`\`\``;
+  const prose = text.replace(/^```[\s\S]*?^```/gm, '');
+  if ((prose.match(/`/g) ?? []).length % 2 === 1) text += '`';
+  else if ((prose.replace(/`[^`]*`/g, '').match(/\*\*/g) ?? []).length % 2 === 1) text += '**';
+  return text;
 }

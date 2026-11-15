@@ -83,7 +83,7 @@ import {
 import { chatHost, ChatSessionNotFound } from '../chat/host';
 import { transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
 import { callerIsHomeChat, ownTask } from '../chat/homeChat';
-import { wakeForAsk } from '../chat/wake';
+import { follow, following, sessionSubject, taskSubject, unfollow, wakeForAsk } from '../chat/wake';
 import { holdAsk, holdConfirm } from '../chat/decisions';
 import { chatRefusal, chatSandbox } from './chatPolicy';
 import { typedPush } from '../ipc/helpers';
@@ -152,6 +152,12 @@ function requireProject(query: URLSearchParams): string {
   const project = query.get('project');
   if (!project) throw new HttpError(400, 'Missing ?project= query parameter');
   return project;
+}
+
+/** The Chat conversation making a request; only Chat follows work. */
+function chatCaller(r: Pick<ParsedRequest, 'auth'>): string {
+  if (!callerIsHomeChat(r.auth.ptyId)) throw new HttpError(403, 'Only Chat follows tasks and chats');
+  return r.auth.ptyId;
 }
 
 function requireInt(value: string | undefined, label: string): number {
@@ -1000,7 +1006,9 @@ const routes: Route[] = [
       if (!text.trim()) throw new HttpError(400, 'Missing text in body');
       const delivery = r.body.delivery === 'steer' || r.body.delivery === 'queue' ? r.body.delivery : 'auto';
       try {
-        return { id: await chatHost.prompt(r.segments[1], { text }, delivery) };
+        const id = await chatHost.prompt(r.segments[1], { text }, delivery);
+        if (callerIsHomeChat(r.auth.ptyId)) follow(r.auth.ptyId, sessionSubject(r.segments[1]));
+        return { id };
       } catch (error) {
         if (error instanceof ChatSessionNotFound) throw new HttpError(404, error.message);
         throw error;
@@ -1021,11 +1029,59 @@ const routes: Route[] = [
         if (!chatHost.answer(id, r.segments[3], answer)) {
           throw new HttpError(409, 'That request is no longer waiting; it was answered or cancelled');
         }
+        if (callerIsHomeChat(r.auth.ptyId)) follow(r.auth.ptyId, sessionSubject(id));
         return { success: true };
       } catch (error) {
         if (error instanceof ChatSessionNotFound) throw new HttpError(404, error.message);
         throw error;
       }
+    },
+    true,
+  ),
+
+  // ── What Chat follows ────────────────────────────────────────────
+  route('GET', 'following', (r) => following(chatCaller(r))),
+  route(
+    'PUT',
+    'following/tasks/:number',
+    async (r) => {
+      const project = requireProject(r.query);
+      const taskNumber = requireInt(r.segments[2], 'Task number');
+      if (!(await getTaskByNumber(project, taskNumber))) throw new HttpError(404, `Task ${taskNumber} not found`);
+      follow(chatCaller(r), taskSubject({ projectPath: project, taskNumber }));
+      return { success: true };
+    },
+    true,
+  ),
+  route(
+    'DELETE',
+    'following/tasks/:number',
+    (r) => {
+      chatCaller(r);
+      unfollow(
+        taskSubject({ projectPath: requireProject(r.query), taskNumber: requireInt(r.segments[2], 'Task number') }),
+      );
+      return { success: true };
+    },
+    true,
+  ),
+  route(
+    'PUT',
+    'following/chats/:id',
+    (r) => {
+      if (!chatHost.snapshot(r.segments[2])) throw new HttpError(404, `No chat ${r.segments[2]}`);
+      follow(chatCaller(r), sessionSubject(r.segments[2]));
+      return { success: true };
+    },
+    true,
+  ),
+  route(
+    'DELETE',
+    'following/chats/:id',
+    (r) => {
+      chatCaller(r);
+      unfollow(sessionSubject(r.segments[2]));
+      return { success: true };
     },
     true,
   ),
@@ -1594,7 +1650,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     });
     json(res, 200, { data: result });
 
-    // A task Chat made, or started, is the conversation's to hear about.
+    // A task Chat made, or started, is the conversation's; one it started, it follows.
     const made = (result as { success?: boolean; task?: { taskNumber?: number } } | null) ?? null;
     if (
       method === 'POST' &&
@@ -1603,7 +1659,9 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       typeof made.task?.taskNumber === 'number' &&
       callerIsHomeChat(caller.ptyId)
     ) {
-      ownTask(caller.ptyId, url.searchParams.get('project') ?? '', made.task.taskNumber);
+      const task = { projectPath: url.searchParams.get('project') ?? '', taskNumber: made.task.taskNumber };
+      ownTask(caller.ptyId, task.projectPath, task.taskNumber);
+      if (isTaskStartRoute(method, segments)) follow(caller.ptyId, taskSubject(task));
     }
 
     // Notify renderer after mutating operations
