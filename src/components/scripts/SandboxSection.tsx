@@ -38,7 +38,9 @@ export function SandboxSection({ projectPath }: { projectPath: string }) {
           <div className="text-sm text-text-primary">Default</div>
           <div className={`mt-0.5 text-xs ${defaultUnavailable ? 'text-error' : 'text-text-tertiary'}`}>
             {defaultUnavailable
-              ? `${SANDBOX_LABELS[defaultSandbox]} can't run. ${defaultStatus.detail.replace(/\.?$/, '.')}`
+              ? [`${SANDBOX_LABELS[defaultSandbox]} can't run.`, defaultStatus.detail?.replace(/\.?$/, '.')]
+                  .filter(Boolean)
+                  .join(' ')
               : 'Where terminals, hooks and scripts run.'}
           </div>
         </div>

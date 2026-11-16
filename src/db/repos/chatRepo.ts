@@ -85,8 +85,7 @@ export class ChatRepo {
 
   follower(subject: string): string | null {
     const row = this.db.prepare('SELECT chat_id FROM chat_subscriptions WHERE subject = ?').get(subject) as
-      | { chat_id: string }
-      | undefined;
+      { chat_id: string } | undefined;
     return row?.chat_id ?? null;
   }
 

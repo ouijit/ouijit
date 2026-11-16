@@ -111,5 +111,6 @@ test-results/
 /docs/
 !/docs/building-linux.md
 
-# Claude Code local state
-.claude/
+# Claude Code local state; project skills are checked in
+.claude/*
+!.claude/skills/

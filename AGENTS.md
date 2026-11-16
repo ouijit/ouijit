@@ -101,9 +101,3 @@ Where a test goes, per `vitest.config.ts`:
   driven over Chromium's debugging port since its fuses shut Playwright's
   Electron launcher out. It runs a real Chat turn, so it needs Claude Code
   signed in, and is run by hand before a release rather than in CI.
-
-better-sqlite3 is built once per runtime by `scripts/sqlite-bindings.mjs`,
-which every test script runs as a pre-hook: vitest loads the Node copy from
-`node_modules/.cache`, and Electron loads the package's own `build/Release`.
-Calling `npx vitest` directly skips that hook, so run the script first on a
-fresh install.

@@ -20,8 +20,12 @@ const websiteDir = resolve(__dirname, '..');
 
 function serve() {
   const mimeTypes = {
-    '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
-    '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml',
+    '.html': 'text/html',
+    '.js': 'text/javascript',
+    '.css': 'text/css',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.svg': 'image/svg+xml',
   };
   const server = createServer((req, res) => {
     const filePath = resolve(websiteDir, '.' + (req.url === '/' ? '/index.html' : req.url));
@@ -29,7 +33,10 @@ function serve() {
       const data = readFileSync(filePath);
       res.writeHead(200, { 'Content-Type': mimeTypes[extname(filePath)] || 'application/octet-stream' });
       res.end(data);
-    } catch { res.writeHead(404); res.end('Not found'); }
+    } catch {
+      res.writeHead(404);
+      res.end('Not found');
+    }
   });
   return new Promise((r) => server.listen(0, '127.0.0.1', () => r(server)));
 }
@@ -43,7 +50,8 @@ async function main() {
   const port = server.address().port;
   console.log(`Serving on http://127.0.0.1:${port}`);
 
-  const cursorSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='23'%3E%3Cpath d='M1.5 1.5l0 19 4.6-4.6 3 6.9 2.5-1-3-6.9H14.5L1.5 1.5z' fill='%23000' stroke='%23fff' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E";
+  const cursorSvg =
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='23'%3E%3Cpath d='M1.5 1.5l0 19 4.6-4.6 3 6.9 2.5-1-3-6.9H14.5L1.5 1.5z' fill='%23000' stroke='%23fff' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E";
 
   const playerPage = `<!DOCTYPE html><html><head>
     <style>
@@ -104,8 +112,7 @@ async function main() {
   });
   const page = await context.newPage();
 
-  await page.route('**/capture', (route) =>
-    route.fulfill({ status: 200, contentType: 'text/html', body: playerPage }));
+  await page.route('**/capture', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: playerPage }));
   await page.goto(`http://127.0.0.1:${port}/capture`);
   await page.waitForFunction('window.__ready === true', null, { timeout: 30000 });
 
@@ -134,29 +141,50 @@ async function main() {
 
   // Encode — use actual achieved framerate
   console.log(`Encoding -> demo.mp4`);
-  const ffmpegProc = spawn('ffmpeg', [
-    '-y', '-f', 'image2pipe', '-framerate', String(fps),
-    '-i', '-',
-    '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2',
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', '20',
-    '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
-    mp4Path,
-  ], { stdio: ['pipe', 'pipe', 'pipe'] });
+  const ffmpegProc = spawn(
+    'ffmpeg',
+    [
+      '-y',
+      '-f',
+      'image2pipe',
+      '-framerate',
+      String(fps),
+      '-i',
+      '-',
+      '-vf',
+      'pad=ceil(iw/2)*2:ceil(ih/2)*2',
+      '-c:v',
+      'libx264',
+      '-preset',
+      'slow',
+      '-crf',
+      '20',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      mp4Path,
+    ],
+    { stdio: ['pipe', 'pipe', 'pipe'] },
+  );
 
   for (const frame of frames) {
     await new Promise((res, rej) => {
-      if (!ffmpegProc.stdin.write(frame, (err) => err ? rej(err) : res())) {
+      if (!ffmpegProc.stdin.write(frame, (err) => (err ? rej(err) : res()))) {
         ffmpegProc.stdin.once('drain', res);
       }
     });
   }
   ffmpegProc.stdin.end();
   await new Promise((res, rej) => {
-    ffmpegProc.on('close', (code) => code === 0 ? res() : rej(new Error(`ffmpeg exit ${code}`)));
+    ffmpegProc.on('close', (code) => (code === 0 ? res() : rej(new Error(`ffmpeg exit ${code}`))));
   });
 
   const size = statSync(mp4Path).size;
   console.log(`Done! ${mp4Path} (${(size / 1024 / 1024).toFixed(1)} MB)`);
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -110,7 +110,7 @@ A sidebar across every project, a configurable projects folder, `git init` for f
 
 Ouijit runs on macOS 13+ (Apple Silicon or Intel) and Linux x64, and needs git 2.20+ on PATH and at least one of the agent CLIs above installed and signed in. The pull request and issues surfaces also need `gh` 2.48 or newer. The downloads above are self-contained.
 
-Building from source also needs Node.js 20+ (the repo pins 22 in `.nvmrc`) and C/C++ build tools for the native modules (better-sqlite3, node-pty, koffi):
+Building from source also needs Node.js 22.22+ and C/C++ build tools for node-pty:
 
 - **macOS:** `xcode-select --install`
 - **Linux:** `sudo apt install build-essential python3` (Debian/Ubuntu)

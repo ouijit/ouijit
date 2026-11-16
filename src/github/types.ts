@@ -39,9 +39,7 @@ export interface GithubRepoSummary {
  * limited. It must never block the clone: the answer is missing, not negative.
  */
 export type ResolvedRepo =
-  | { status: 'found'; repo: GithubRepoSummary }
-  | { status: 'not-found' }
-  | { status: 'unknown' };
+  { status: 'found'; repo: GithubRepoSummary } | { status: 'not-found' } | { status: 'unknown' };
 
 /** The import dialog's repo list, or why it is empty. */
 export interface UserReposResult {
@@ -51,12 +49,7 @@ export interface UserReposResult {
 }
 
 export type GithubUnavailableReason =
-  | 'flag-off'
-  | 'gh-missing'
-  | 'gh-unauthenticated'
-  | 'no-remote'
-  | 'not-github'
-  | 'gh-too-old';
+  'flag-off' | 'gh-missing' | 'gh-unauthenticated' | 'no-remote' | 'not-github' | 'gh-too-old';
 
 export interface GithubAvailability {
   available: boolean;

@@ -148,20 +148,18 @@ const NODES: ChatNode[] = [
       title: `Survey module ${n}`,
       status: n === 1 ? 'completed' : 'running',
     },
-    ...[1, 2, 3].map(
-      (step): ChatNode => ({
-        id: `agent${n}-step${step}`,
-        kind: 'tool_call',
-        parentId: `agent${n}`,
-        createdAt: 0,
-        tool: 'read',
-        name: 'Read',
-        title: `Read module${n}/file${step}.ts`,
-        input: {},
-        files: [],
-        status: 'completed',
-      }),
-    ),
+    ...[1, 2, 3].map((step): ChatNode => ({
+      id: `agent${n}-step${step}`,
+      kind: 'tool_call',
+      parentId: `agent${n}`,
+      createdAt: 0,
+      tool: 'read',
+      name: 'Read',
+      title: `Read module${n}/file${step}.ts`,
+      input: {},
+      files: [],
+      status: 'completed',
+    })),
   ]),
 ];
 

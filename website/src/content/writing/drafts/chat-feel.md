@@ -1,0 +1,336 @@
+# What makes a chat feel good: notes from Chat's transcript
+
+Raw material for a post (task 607). It records what was tried on the Chat page's
+transcript on 2026-11-10, in order: what Prentice saw and said, what was wrong
+underneath, what changed, and the commit. Every step is a commit on
+`chat-605`, so each version can be checked out and run again.
+
+The test bed throughout was the same QA prompt: ten steps that make Chat
+format a reply, run commands, hit a refusal, start a worker, wait on it, and
+ask for three decisions. A replay plan for the post is at the end.
+
+## The starting point
+
+`28b514ba`. Each stretch of work between two things Chat said folded to one
+grey line ("Ran 3 commands"). The stretch still running stayed open, and
+closed once Chat spoke. A thought counted as work. Wakes ("Ouijit: …") were
+grey lines of their own. Cards appeared only for decisions.
+
+## 1. Steps vanish, thoughts are empty
+
+> "i feel i didnt see basically any of the special bevel card components … also, thoughts all seem to be empty after the fact?"
+>
+> "it seems like nothing is rendering or remained visible for steps 3 and 4? the transcript just jumps from 2 to 5"
+
+What was underneath:
+
+- Chat announced steps 3 and 4 only in its thinking. A thought counted as
+  work, so everything from step 2 to step 4 became one "Ran 6 commands" fold.
+- The running stretch opened itself and snapped shut when Chat spoke, which
+  read as content being replaced.
+- Claude Code sends thinking blocks with no text unless the session asks for
+  summaries (`--thinking-display summarized`; checked against the CLI both
+  ways). Every empty thought still made a row.
+- The cards were there by design only for decisions, and the run had not
+  reached one yet.
+
+Change, `2ca32290`: ask Claude for thinking summaries; hide empty thoughts;
+show a thought as a grey line where it happened, splitting folds; tell Chat to
+put results in its reply rather than its thinking.
+
+## 2. Too much, too many kinds of thing
+
+> "the chat message ui coming back and leftover from the chat agent is overly... complex? lots of stuff with different formatting etc, which made the response feel like it was moving really fast and hard to follow"
+
+Counted on the second QA run: 35 pieces in one conversation. 12 thought
+lines, 7 folds, 7 wake messages, 9 replies, plus headings, tables, code and
+cards. Each type streamed in and reflowed the page. The motion read as speed.
+
+Step 1 made this worse: the grey thought lines added a whole new kind of
+thing in motion.
+
+Mocked before building: the design canvas board "QA run, two ways" put that
+exact transcript beside the proposal, same words
+(https://claude.ai/artifact/531a2PpvJRZh5JBi4ZNy5E). The proposal: one fold
+per turn, only the turn's last reply as prose, wakes as captions, answered
+decisions as one line, one status line while working. The board named its
+own cost: Chat's step 1 reply ended up inside a fold.
+
+> "ok its ts a little shortber but i may need to see it actually live to understand if it feels eassier to follow"
+>
+> "things wont be expanded while theyre happening right? its important that it feels much more like its just thinking/responding vs running through tons of stages etc then only appearing collapsed after."
+
+That second line is the brief the rest of the work kept to.
+
+Change, `d49956b5`: a turn at a time. While it runs, one grey line says what
+Chat is doing, replaced in place and held 1.5 s per phrase. Once it ends, one
+closed fold and the last reply. Headings render at body size. Wakes carry a
+line for the reader alongside the text for the agent: what the user did as a
+check line ("You moved QA worker to done"), what happened as a caption.
+
+## 3. Better, but it flip-flops and lands in blocks
+
+> "still not the right balance but still an improvement. issues: it no longer is using my special thinking icon; it kept switching bettween thinking/doing thing which was dumb; when it finished, suddenly tons of text appeared followed by prompts, then responding to those prompts more text appeared in a jarring way"
+>
+> "a reply should still stream, just more intelligently"
+
+What was underneath:
+
+- The status line fell back to "Thinking…" whenever a command finished, so it
+  alternated between that and the next step.
+- The plain pulse dot had replaced the app's own thinking glyph.
+- Withholding every message until the turn ended meant the reply arrived as a
+  wall, all at once.
+
+Change, `d561fa35`: the line keeps the latest step or finished thought, held
+2 s, and says "Thinking…" only before there is anything. The glyph is back.
+A message with substance streams where it is said and stays: a paragraph
+break, a list, a heading, code or more than about 220 characters. Short
+remarks ("Next I'll check the sessions") only name the step on the status
+line, then fold. The last reply always shows. Nothing seen is put away.
+
+## 4. Pacing: too fast, then too slow
+
+> "there were still times where it seems like blocks of content appeared faster than is preferrable. maybe there is a best practice around limiting the stream rendering speak"
+
+Agents send text in bursts, and a message that arrives finished lands in one
+frame. The established fix is smoothing: buffer the text and reveal it at an
+even rate, catching up when far behind.
+
+`f1a8c4ae`: floor 35 characters per second (near reading speed), ceiling 120,
+catch up within 6 s. Measured: a 970-character reply finished revealing 13 s
+after Chat had finished writing.
+
+> "nope thats too slow, feels sluggish like im doing local inference"
+
+The lesson: pacing is for evening out bursts, never for slowing the agent
+down. Reading speed is the wrong floor.
+
+`0f38ecb1`: floor 90, ceiling 400, catch up within 1.5 s. Measured: about
+220 characters per second while streaming, done 2.8 s after Chat.
+
+## 5. Out of order
+
+> "there is something not being accounted for where multiple sections can appear and an earlier section is continueing to stream after a later one is done?"
+
+Each message paced itself independently, and folds, the status line and wake
+lines appeared the instant they existed.
+
+`aee0f88b`: one queue in transcript order. Nothing after a message still
+being revealed is shown until it catches up. Checked live: the first part
+revealed to its end (922 characters) before the status line, the fold and the
+second part appeared.
+
+## 6. Clicky
+
+> "one thing that stands out is that the streaming is 'clicky'. maybe because its not smooth by character but jumping by word or token?"
+
+The reveal advanced a whole word at a time, so long words landed as jumps.
+
+`d40c6bfe`: a character at a time, every frame; floor raised to 120, catch up
+within 1 s. Measured: 180 of 181 frames moved, 2 characters per frame
+typically, never more than 3.
+
+## 7. Losing the bottom
+
+> "maintaining the scroll the bottom as content appears doesnt sustain … when i scrolled down to see more content had appeared aftre the step that was positioned as last in the scroll view"
+
+The view decided whether the reader was at the bottom from every scroll
+event, including the one its own following caused. That event lands a frame
+later. If a fold and a paragraph arrived together in between, the view saw
+itself more than 48 px from the bottom, read that as the reader scrolling
+away, and stopped following.
+
+`a97ee17e`: only a scroll upward lets go. Browser scroll anchoring is off on
+the transcript, and the view follows the scroller's own height as well as the
+content's. Measured over three long sections with commands between them: never
+more than 1 px from the bottom.
+
+> "ok that felt pretty good."
+
+## 8. Cards jumping ahead
+
+Asked after step 7, not reported as a problem: the decision cards sat outside
+the reveal queue, so a card could appear while the words leading to it were
+still arriving.
+
+`e4b90551`: a new card waits until the text before it has been revealed, then
+fades in. A card already up stays up. The waiting count in the title bar and
+the dot on the sidebar row don't wait, so it still shows at once, from
+anywhere, that something needs you.
+
+## What it adds up to
+
+- Motion reads as speed. The number of kinds of thing moving matters more
+  than the amount of text.
+- Never show work happening and then take it away. Either it stays, or it
+  was never shown.
+- A working indicator should name one thing and hold it long enough to read.
+  Flipping back to a generic state is worse than staying put.
+- Stream what is said to the reader; fold what is done. Size is a decent
+  proxy for which is which.
+- Pace to smooth bursts, not to slow the agent. A reading-speed floor feels
+  like local inference.
+- One reveal queue for the whole transcript. Order on screen must match order
+  of speech.
+- Smooth means every frame, per character. Per word clicks.
+- Stick to the bottom on intent, not on distance. Only the reader scrolling up
+  should break it.
+- Mock with the user's own transcript. The comparison board made the
+  trade-offs concrete before any code moved.
+
+## Why this matters more for agent tools
+
+Draft argument, not settled, for cutting or keeping:
+
+- A chat with one assistant is read like a conversation. A chat that runs
+  other agents is watched: it starts work, waits, comes back with news. The
+  reader is supervising, not conversing, and supervision is a matter of
+  attention.
+- With several agents running, attention is the bottleneck, not tokens or
+  speed. Anything moving on screen takes some of it. A transcript that churns
+  spends the one thing the user is short of.
+- Agents produce far more than a person reads: tool calls, thoughts, interim
+  remarks, results. A general chat can show most of it. An agent tool has to
+  decide what the user sees, and the rest has to stay reachable without
+  being in the way.
+- The waiting matters as much as the output. Most of the time the agent is
+  working and the user is doing something else. The status line, the dot on
+  the sidebar row and the waiting count are the interface for that time; the
+  transcript is for when they come back.
+- Ouijit's stance elsewhere fits: the interface gets quieter as the amount of
+  work goes up (an idea in the article backlog).
+
+## How it felt (to fill in)
+
+The chronology only has what was typed during testing. Worth adding in
+Prentice's own words before drafting:
+
+- What the first version felt like to watch, beyond "moving really fast and
+  hard to follow".
+- What "feels good" meant by the end: calm, trustworthy, fast, something else?
+- Whether comparing on the canvas board before building helped, or whether
+  only the live version could settle it ("i may need to see it actually live").
+- Which change made the biggest difference.
+- What still isn't right.
+
+## Timeline
+
+Commit times on 2026-11-10, local. Each was followed by a QA run and the
+next piece of feedback; testing time between commits isn't recorded.
+
+| Time | Commit | Change |
+|---|---|---|
+| 21:51 | `28b514ba` | Starting point: per-stretch folds, running fold opens itself |
+| 22:05 | `2ca32290` | Thinking summaries; thoughts as grey lines |
+| (mock) | canvas board | "QA run, two ways", same transcript side by side |
+| 22:28 | `d49956b5` | A turn at a time: status line, one fold, last reply |
+| 22:38 | `d561fa35` | Substantial messages stream in place; step line holds |
+| 22:47 | `f1a8c4ae` | Paced to reading speed (too slow) |
+| 22:52 | `0f38ecb1` | Paced to keep up with the agent |
+| 22:58 | `aee0f88b` | One reveal queue in transcript order |
+| 23:03 | `d40c6bfe` | Per character, every frame |
+| 23:10 | `a97ee17e` | Stay at the bottom until the reader scrolls up |
+| 23:27 | `e4b90551` | Cards wait for the words before them |
+
+About an hour and a half from the first fix to the last.
+
+## What the QA prompt caught besides the feel
+
+The same prompt exercised the permission rules Chat runs under, and Chat
+reported what looked wrong in its own replies. Useful as a side note on
+letting the agent test its own surface:
+
+- Told it had answered a worker's approval itself when the user had. The
+  message said "you answered", meaning the user; Chat read it as itself.
+  Fixed: "the user answered … themselves".
+- A held move to done replied `{"success": true, "status": "Done"}` with no
+  sign it was waiting. Fixed: the CLI prints `waiting`.
+- A confirmed done was reported twice, and in the wrong order: the column
+  change before the confirmation. Fixed: told once, as the confirmation.
+- Messages named the project "ouijit-demo" where `project list` said
+  "seed-project". Fixed: named as the sidebar names it.
+- `ask run` ignored `--project` and ran in Chat's own folder. Not fixed.
+- Task #14 got worktree `T-15`, from a leftover earlier task. Not Chat's.
+
+Earlier the same day, an architecture review found that Chat could escape its
+sandbox by starting a task with its own hook command on the host. That was
+closed before any of this, and is a separate story.
+
+## The QA prompt
+
+Used for every run, unchanged:
+
+```
+QA run for your own UI. Use the project at "<seed project path>". Start each step's reply with "Step N:", and say what came of it in the reply itself.
+
+1. Reply with a heading, a bulleted list, a numbered list, a small table, inline code, and a fenced code block.
+2. Run `ouijit project list`, `ouijit task list` and `ouijit terminal list`, one after another, then say what you found.
+3. Try `ouijit hook set review --name Review --command "code ."` and quote the error.
+4. Create a task "QA worker" with the description "Create qa.txt containing hi, commit it, then reply done", and start it with --run-hook. Then end your turn.
+5. When the worker asks for approval, don't answer it: say it's mine to answer, and end your turn.
+6. Once it finishes, read its chat and summarize it in two lines.
+7. Ask me to run `whoami` outside your sandbox with ouijit ask run and a reason, without --wait.
+8. Move "QA worker" to done.
+9. Create a task "QA trash me", then trash it. End your turn.
+10. Once you've heard how I decided 7–9, list every "Ouijit:" message you received this conversation, word for word.
+```
+
+On the user's side: allow the worker's approval, Run privately for `whoami`,
+Move to done, Cancel the trash.
+
+## Other agents
+
+Every run here used Claude Code. What carries over:
+
+- The turn view, the status line, the reveal queue, the pacing and the
+  scrolling work on Ouijit's own event model, which Codex, Pi and opencode
+  feed the same way. They should behave the same, but weren't watched.
+- Thinking is the part that differs. The `--thinking-display summarized` flag
+  is Claude Code's. Whether the others send readable reasoning, and how much,
+  is untested here; an empty thought is hidden either way.
+- How chatty each agent is between steps changes how much the status line
+  and the "substantial message" rule have to do.
+
+## Material on hand
+
+- Commits: `28b514ba` (start), `2ca32290`, `d49956b5`, `d561fa35`,
+  `f1a8c4ae`, `0f38ecb1`, `aee0f88b`, `d40c6bfe`, `a97ee17e` on `chat-605`.
+- The two QA conversations, in this worktree's dev database
+  (`node scripts/dev-db.mjs path`, here `~/Library/Application Support/ouijit-dev-15ab3c85/ouijit.db`),
+  sessions `home-1794372995395-d6scjof` and `home-1794373704380-1pbsnqx`.
+  They hold the nodes, not the timing of each streamed chunk.
+- The canvas board "QA run, two ways".
+- The QA prompt itself, which made a good stress test.
+
+## Replaying the versions
+
+The post wants each version shown moving, on the same conversation. None of
+that material exists yet: the stored QA conversations keep the nodes but not
+when each chunk streamed, cassettes replay only inside tests, and the old
+commits have no way to take a recording. The website can play video; it
+can't run the app's interface, so the replays are clips.
+
+The plan:
+
+1. **Record once.** Run the QA prompt for real, once, capturing the agent's
+   raw stdio with a timestamp on every line. The cassette recorder in
+   `src/__tests__/integration/chat/cassette.ts` already captures the stdio;
+   it needs the timestamps added.
+2. **Replay at the original timing.** Today's replay is gated by order, not
+   time. Add a timed mode, and let the running app use a replaying spawn when
+   an environment variable points at a recording (today only tests can, via
+   `chatHost._setOptionsForTesting`).
+3. **Patch each version.** For each of the nine commits, a worktree with that
+   small patch applied on top, so the version's own renderer draws the same
+   recording.
+4. **Script the user.** A Playwright script sends the prompt, then presses the
+   same cards at the same moments: allow the worker, Run privately, Move to
+   done, Cancel the trash. Your clicks aren't in the recording, so they have
+   to be played.
+5. **Film it.** Playwright records the window as video, one clip per version
+   of the same conversation, at the same size. Cut them for side by side or
+   before and after.
+
+Cost: one real Claude session for the recording; the rest is scripting. It
+doesn't depend on the post's text, so it can be done when the post is.

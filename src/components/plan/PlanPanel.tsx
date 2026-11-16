@@ -96,7 +96,7 @@ export function PlanPanel({
 
     const generation = ++renderGenRef.current;
     const timer = setTimeout(() => {
-      renderPlanMarkdown(content).then((html) => {
+      renderPlanMarkdown(content, (src) => window.api.plan.readImage(planPath, src)).then((html) => {
         if (renderGenRef.current !== generation) return;
         // Preserve scroll position across innerHTML replacement
         const scrollEl = contentRef.current?.parentElement;
@@ -112,7 +112,7 @@ export function PlanPanel({
     return () => {
       clearTimeout(timer);
     };
-  }, [content, resolvedTheme]);
+  }, [content, planPath, resolvedTheme]);
 
   // Fetch file existence when rendered HTML changes, cache results for re-application
   const fileExistenceRef = useRef<Record<string, boolean>>({});

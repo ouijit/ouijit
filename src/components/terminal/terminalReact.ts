@@ -12,6 +12,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { LINK_PATTERN } from '../../links/ouijitLink';
 import { openLink } from '../../links/openLink';
+import { dropUnmeasuredMouseReports } from './mouseReports';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
 import type { PtyId, PtySpawnOptions, DiffDefaults, GitFileStatus, SandboxProviderId } from '../../types';
@@ -1089,8 +1090,9 @@ export class OuijitTerminal {
 
   private wireInputForwarding(): void {
     this.xterm.onData((data) => {
-      if (this.ptyId) {
-        window.api.pty.write(this.ptyId, data);
+      const input = dropUnmeasuredMouseReports(data);
+      if (this.ptyId && input) {
+        window.api.pty.write(this.ptyId, input);
       }
     });
   }

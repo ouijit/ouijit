@@ -1,0 +1,18 @@
+---
+import Site from '../../layouts/Site.astro';
+import PostCard from '../../components/writing/PostCard.astro';
+import { listPosts } from '../../writing';
+
+const posts = await listPosts();
+---
+<Site
+  title="Writing · Ouijit"
+  noindex={posts.length === 0}
+  description="Posts, technical write-ups and essays on running coding agents in parallel, from the person who makes Ouijit.">
+  <main class="writing-index">
+    <h1>Writing</h1>
+    <div class="writing-grid">
+      {posts.map((post) => <PostCard post={post} />)}
+    </div>
+  </main>
+</Site>

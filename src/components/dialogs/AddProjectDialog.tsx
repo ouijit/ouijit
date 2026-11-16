@@ -11,9 +11,7 @@ import { ProjectSourceList, type ProjectSourceKind } from '../projectSources';
  * be a git repo has its own recovery dialog to run afterwards.
  */
 export type AddProjectResult =
-  | { kind: 'add-existing' }
-  | { kind: 'created'; projectPath: string }
-  | { kind: 'cloning'; projectPath: string };
+  { kind: 'add-existing' } | { kind: 'created'; projectPath: string } | { kind: 'cloning'; projectPath: string };
 
 export type AddProjectStep = 'choose' | 'create' | 'clone';
 

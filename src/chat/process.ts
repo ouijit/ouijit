@@ -18,7 +18,8 @@ export interface AgentProcess {
   on(event: 'error', listener: (error: Error) => void): void;
   once(event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void): void;
   once(event: 'error', listener: (error: Error) => void): void;
-  off(event: 'exit' | 'error', listener: (...args: never[]) => void): void;
+  off(event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void): void;
+  off(event: 'error', listener: (error: Error) => void): void;
 }
 
 export interface AgentSpawn {

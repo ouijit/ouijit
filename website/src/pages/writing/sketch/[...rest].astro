@@ -1,0 +1,47 @@
+---
+// Renders candidate covers from website/.cover-sketches.json so they can be
+// compared on one page before a post commits to one. The file is gitignored;
+// without it this page is not built.
+import { existsSync, readFileSync } from 'node:fs';
+import Cover from '../../../components/writing/Cover.astro';
+import { coverSchema } from '../../../content.config';
+import type { CoverSpec } from '../../../writing';
+import '../../../styles/global.css';
+import '../../../styles/marketing.css';
+
+export function getStaticPaths() {
+  return existsSync(new URL('../../../../.cover-sketches.json', import.meta.url)) ? [{ params: { rest: undefined } }] : [];
+}
+
+const raw = JSON.parse(readFileSync(new URL('../../../../.cover-sketches.json', import.meta.url), 'utf8')) as {
+  label: string;
+  cover: unknown;
+}[];
+const sketches = raw.map((s) => ({ label: s.label, cover: coverSchema.parse(s.cover) as CoverSpec }));
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <title>Cover sketches</title>
+    <style>
+      body { margin: 0; padding: 40px; background: #0a0a0c; color: #888; font: 400 15px system-ui; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 32px 24px; }
+      h2 { font: 400 0.95rem ui-monospace, monospace; margin: 0 0 10px; }
+      .pair { display: flex; gap: 16px; align-items: flex-start; }
+      .pair > :first-child { flex: 1; }
+      .pair > :last-child { width: 180px; flex: none; }
+    </style>
+  </head>
+  <body class="marketing">
+    <div class="grid">
+      {sketches.map((s, i) => (
+        <div>
+          <h2>{i + 1} · {s.label}</h2>
+          <div class="pair"><Cover cover={s.cover} /><Cover cover={s.cover} /></div>
+        </div>
+      ))}
+    </div>
+  </body>
+</html>

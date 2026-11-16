@@ -22,16 +22,16 @@ const outRoot = '.vite-e2e';
 
 // Build main process
 await build({
-  configFile: 'vite.main.config.ts',
+  configFile: 'vite.main.config.mts',
   build: {
     outDir: `${outRoot}/build`,
     emptyOutDir: false,
     lib: {
       entry: 'src/main.ts',
-      fileName: () => '[name].js',
+      fileName: () => '[name].cjs',
       formats: ['cjs'],
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: [...external, 'node-pty', 'koffi'],
     },
     minify: false,
@@ -49,16 +49,16 @@ await build({
 
 // Build preload
 await build({
-  configFile: 'vite.preload.config.ts',
+  configFile: 'vite.preload.config.mts',
   build: {
     outDir: `${outRoot}/build`,
     emptyOutDir: false,
     lib: {
       entry: 'src/preload.ts',
-      fileName: () => '[name].js',
+      fileName: () => '[name].cjs',
       formats: ['cjs'],
     },
-    rollupOptions: {
+    rolldownOptions: {
       external,
     },
     minify: false,
@@ -67,7 +67,7 @@ await build({
 
 // Build renderer (base './' so assets use relative paths for file:// loading)
 await build({
-  configFile: 'vite.renderer.config.ts',
+  configFile: 'vite.renderer.config.mts',
   root: '.',
   base: './',
   build: {

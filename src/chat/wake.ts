@@ -82,8 +82,7 @@ export function unfollow(subject: string): void {
 }
 
 export type Followed =
-  | { task: number; project: string; name: string; status: string }
-  | { chat: string; label: string; status: string };
+  { task: number; project: string; name: string; status: string } | { chat: string; label: string; status: string };
 
 /** What a conversation follows. A task since deleted is dropped from it. */
 export async function following(conversation: string): Promise<Followed[]> {
@@ -99,7 +98,7 @@ export async function following(conversation: string): Promise<Followed[]> {
       continue;
     }
     const info = chatHost.snapshot(subject)?.info;
-    if (info) out.push({ chat: subject, label: info.label, status: info.status });
+    if (info) out.push({ chat: subject, label: info.label ?? subject, status: info.status });
     else unfollow(subject);
   }
   return out;

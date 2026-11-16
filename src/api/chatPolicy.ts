@@ -41,7 +41,7 @@ export function chatRefusal(method: string, segments: string[], body: Record<str
   }
   if (resource === 'chats' && method === 'POST' && (sub === 'messages' || sub === 'requests')) {
     const target = chatHost.list().find((info) => info.id === segments[1]);
-    if (target && !isActiveSandbox(target.sandbox as SandboxProviderId | null)) {
+    if (target && !isActiveSandbox((target.sandbox ?? undefined) as SandboxProviderId | undefined)) {
       return "That agent runs on the user's computer, outside a sandbox, so only they steer it or answer its requests. Tell them what it needs.";
     }
   }

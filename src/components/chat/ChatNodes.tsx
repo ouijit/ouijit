@@ -357,7 +357,7 @@ export function ChatNodeList({
   thoughtsAsText?: boolean;
 }) {
   const items: ReactNode[] = [];
-  for (let i = 0; i < nodes.length; ) {
+  for (let i = 0; i < nodes.length;) {
     let end = i;
     const node = nodes[i];
     if (thoughtsAsText && node.kind === 'reasoning') {

@@ -1,5 +1,8 @@
 ---
+import { listPosts } from '../../writing';
+
 const year = new Date().getFullYear();
+const hasWriting = (await listPosts()).length > 0;
 
 const groups: { title: string; links: [string, string, boolean?][] }[] = [
   {
@@ -8,6 +11,7 @@ const groups: { title: string; links: [string, string, boolean?][] }[] = [
       ['Docs', '/docs/'],
       ['Sandbox', '/sandbox/'],
       ['Changelog', '/changelog/'],
+      ...(hasWriting ? ([['Writing', '/writing/']] as [string, string][]) : []),
       ['FAQ', '/faq/'],
       ['About', '/about/'],
       ['GitHub', 'https://github.com/ouijit/ouijit', true],

@@ -123,8 +123,7 @@ export async function initGitRepo(
 export type NewProjectPathFailure = 'relative-parent' | 'escapes-parent' | 'taken';
 
 export type ResolvedProjectPath =
-  | { ok: true; parentDir: string; projectPath: string }
-  | { ok: false; reason: NewProjectPathFailure };
+  { ok: true; parentDir: string; projectPath: string } | { ok: false; reason: NewProjectPathFailure };
 
 /**
  * Where a project folder named `name` will go, refusing anything that is
