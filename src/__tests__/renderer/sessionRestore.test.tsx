@@ -1,6 +1,10 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { ResumeBanner } from '../../components/ResumeBanner';
+import { SNAPSHOT_KEY } from '../../types';
 
-import { restoreSession } from '../../components/terminal/sessionRestore';
+import { restoreSession, returnToLastAppView } from '../../components/terminal/sessionRestore';
+import { useHomeChatStore } from '../../stores/homeChatStore';
 import { addProjectTerminal } from '../../components/terminal/terminalActions';
 import { useAppStore } from '../../stores/appStore';
 import { stackFrom, useTerminalStore } from '../../stores/terminalStore';
@@ -101,7 +105,7 @@ describe('restoreSession', () => {
     expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({ label: undefined, taskId: 3 });
   });
 
-  test('each project goes back to its board or stack, with the terminals in it under the ids they came back with', async () => {
+  test('each project goes back to its board or stack, with the terminals in it under the ids they came back with, and Chat if it was on screen', async () => {
     vi.mocked(addProjectTerminal).mockImplementation(async (projectPath, _run, options) => {
       useTerminalStore
         .getState()
@@ -136,5 +140,57 @@ describe('restoreSession', () => {
       page: 'board',
     });
     expect(useAppStore.getState().projectView('/gone')).toBeNull();
+
+    // Quit on Chat, it comes back to Chat, with the projects' views still put back behind it; with Chat off, it can't.
+    vi.mocked(window.api.globalSettings.get).mockImplementation(async (key: string) =>
+      key === 'lastActiveView' ? JSON.stringify({ type: 'chat', page: 'chat' }) : undefined,
+    );
+    useHomeChatStore.getState().setEnabled(true);
+    useAppStore.getState().select({ kind: 'none' });
+    await restoreSession(snapshot, [entry({ source: shell }), entry({ source: task })]);
+    expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'chat' });
+    expect(useAppStore.getState().projectView(PROJECT)).toMatchObject({ kind: 'terminal' });
+    useHomeChatStore.getState().setEnabled(false);
+    await restoreSession(snapshot, [entry({ source: shell }), entry({ source: task })]);
+    expect(useAppStore.getState().selection).toMatchObject({ kind: 'terminal', projectPath: PROJECT });
+    // Dismissing the banner goes back to it too.
+    useHomeChatStore.getState().setEnabled(true);
+    useAppStore.getState().select({ kind: 'none' });
+    await returnToLastAppView();
+    expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'chat' });
+  });
+});
+
+describe('the resume banner', () => {
+  test('lists Chat with the terminals that come back, and returns to it when it was on screen', async () => {
+    const snapshot: LastSessionSnapshot = {
+      version: 1,
+      capturedAt: new Date().toISOString(),
+      activeProjectPath: PROJECT,
+      terminals: [snapTerminal({ ptyId: 'a', label: 'Build', recencyRank: 0 })],
+    };
+    vi.mocked(window.api.globalSettings.get).mockImplementation(async (key: string) =>
+      key === SNAPSHOT_KEY
+        ? JSON.stringify(snapshot)
+        : key === 'lastActiveView'
+          ? JSON.stringify({ type: 'chat', page: 'chat' })
+          : undefined,
+    );
+    useHomeChatStore.setState({
+      enabled: true,
+      currentId: 'home-1',
+      chats: [{ id: 'home-1', title: 'Plan the release', createdAt: '2026-11-15T00:00:00Z' }],
+    });
+    render(<ResumeBanner />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Show session details' }));
+    expect(screen.getByRole('button', { name: 'Hide session details' }).textContent).toBe(
+      'Chat and 1 terminal across 1 project',
+    );
+    expect(screen.getByText('Plan the release')).toBeTruthy();
+    expect(screen.getByText('Build')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+    await waitFor(() => expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'chat' }));
+    expect(addProjectTerminal).toHaveBeenCalledTimes(1);
   });
 });

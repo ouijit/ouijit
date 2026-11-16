@@ -164,6 +164,30 @@ function persistSelection(selection: Selection): void {
   void window.api.globalSettings.set('lastActiveView', JSON.stringify(view));
 }
 
+/** The view `persistSelection` saved, if what it shows is still there. */
+export function restoredSelection(saved: string | undefined, projects: Project[]): Selection | null {
+  let view: { type?: string; ptyId?: string; stack?: string; path?: string; page?: string };
+  try {
+    view = JSON.parse(saved ?? '');
+  } catch {
+    return null;
+  }
+  if (view.type === 'terminal') {
+    const terminals = useTerminalStore.getState();
+    const [front] = view.stack ? stackMembers(terminals, view.stack) : [];
+    const display = terminals.displayStates[front ?? view.ptyId ?? ''];
+    if (!display) return null;
+    return { kind: 'terminal', stack: front ? view.stack! : stackOf(display), projectPath: display.projectPath };
+  }
+  if (view.type === 'app-settings') return { kind: 'app-settings' };
+  if (view.type === 'chat') return { kind: 'chat', page: view.page === 'settings' ? 'settings' : 'chat' };
+  const path = view.path;
+  if (!path || !projects.some((p) => p.path === path)) return null;
+  const pages = ['board', 'settings', 'pull-requests', 'analysis'] as const;
+  const page = pages.find((p) => p === view.page) ?? 'board';
+  return { kind: 'page', projectPath: path, page };
+}
+
 /**
  * The clone standing in for the active project, when the project is not real
  * yet. The job object is replaced on every progress line, so anything that

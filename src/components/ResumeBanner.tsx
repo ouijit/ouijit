@@ -8,10 +8,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { readSnapshot, clearSnapshot } from './terminal/sessionSnapshot';
-import { listRestorable, restoreSession, summarizeRestorable, type RestorableEntry } from './terminal/sessionRestore';
+import {
+  listRestorable,
+  restoreSession,
+  returnToLastAppView,
+  summarizeRestorable,
+  type RestorableEntry,
+} from './terminal/sessionRestore';
 import { Icon } from './terminal/Icon';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import type { LastSessionSnapshot, Project, TaskStatus } from '../types';
+import { currentHomeChatTitle, useHomeChatStore } from '../stores/homeChatStore';
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   todo: 'to do',
@@ -26,6 +33,8 @@ export function ResumeBanner() {
   const [resuming, setResuming] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  // Chat starts its conversation on every launch; listed so the banner says all that comes back.
+  const chatTitle = useHomeChatStore((s) => (s.enabled ? currentHomeChatTitle(s) : undefined));
 
   useEffect(() => {
     let cancelled = false;
@@ -100,16 +109,18 @@ export function ResumeBanner() {
   const handleDismiss = async () => {
     setDismissed(true);
     await clearSnapshot();
+    await returnToLastAppView();
   };
 
   const { total, tasks, projects } = counts;
   const terminalLabel = total === 1 ? 'terminal' : 'terminals';
   const taskLabel = tasks === 1 ? 'task' : 'tasks';
   const projectLabel = projects === 1 ? 'project' : 'projects';
-  const subtitle =
+  const terminals =
     tasks > 0
       ? `${total} ${terminalLabel} across ${tasks} ${taskLabel} and ${projects} ${projectLabel}`
       : `${total} ${terminalLabel} across ${projects} ${projectLabel}`;
+  const subtitle = chatTitle ? `Chat and ${terminals}` : terminals;
 
   return (
     <div
@@ -157,8 +168,17 @@ export function ResumeBanner() {
       </div>
       {expanded && (
         <div className="border-t border-separator max-h-[14rem] overflow-y-auto settings-scrollable">
+          {chatTitle && (
+            <div className="flex items-center gap-2 px-5 py-2.5 min-w-0">
+              <span className="shrink-0 w-10 flex items-center text-text-tertiary">
+                <Icon name="chat-circle" className="w-3 h-3" />
+              </span>
+              <span className="text-[12px] text-text-secondary truncate flex-1">{chatTitle}</span>
+              <span className="text-[10px] text-text-tertiary shrink-0 uppercase tracking-wider">Chat</span>
+            </div>
+          )}
           {grouped.map((group, idx) => (
-            <ProjectGroup key={group.project.path} group={group} isFirst={idx === 0} />
+            <ProjectGroup key={group.project.path} group={group} isFirst={idx === 0 && !chatTitle} />
           ))}
         </div>
       )}

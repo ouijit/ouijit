@@ -6,7 +6,8 @@
  */
 
 import log from 'electron-log/renderer';
-import { useAppStore } from '../../stores/appStore';
+import { restoredSelection, useAppStore, type Selection } from '../../stores/appStore';
+import { useHomeChatStore } from '../../stores/homeChatStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { addProjectTerminal } from './terminalActions';
 import { addChatCard } from '../chat/chatActions';
@@ -75,8 +76,26 @@ export function summarizeRestorable(entries: RestorableEntry[]): RestoreCounts {
   return { total: entries.length, tasks: taskSet.size, projects: projectSet.size };
 }
 
+/**
+ * Chat, or the app's settings, when one was on screen at quit. Launch leaves
+ * the last view to the resume banner whenever there is a session to resume,
+ * and the session only knows projects, so these come back from here.
+ */
+async function lastAppView(): Promise<Selection | null> {
+  const saved = restoredSelection(await window.api.globalSettings.get('lastActiveView'), []);
+  if (saved?.kind === 'chat' && useHomeChatStore.getState().enabled) return saved;
+  return saved?.kind === 'app-settings' ? saved : null;
+}
+
+/** On dismissing the resume banner: back to Chat or the app's settings, if one was on screen. */
+export async function returnToLastAppView(): Promise<void> {
+  const view = await lastAppView();
+  if (view) useAppStore.getState().select(view);
+}
+
 export async function restoreSession(snapshot: LastSessionSnapshot, entries: RestorableEntry[]): Promise<void> {
   const projects = useAppStore.getState().projects;
+  const appView = await lastAppView();
   const projectByPath = new Map(projects.map((p) => [p.path, p]));
 
   // Suspend snapshot auto-save during restore: every spawn/navigate fires a
@@ -144,7 +163,9 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
 
     rememberSnapshotViews(snapshot, renamed);
     const active = snapshot.activeProjectPath;
-    if (active && projectByPath.has(active)) {
+    if (appView) {
+      useAppStore.getState().select(appView);
+    } else if (active && projectByPath.has(active)) {
       const app = useAppStore.getState();
       const view = app.projectView(active);
       if (view) app.select(view);

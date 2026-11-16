@@ -2,10 +2,9 @@ import { Component, useCallback, useEffect, useState, type ErrorInfo, type React
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { usePaletteShortcut } from './hooks/usePaletteShortcut';
 import { useTerminalShortcuts } from './components/terminal/terminalShortcuts';
-import { useAppStore, selectIsCloning, type Selection } from './stores/appStore';
+import { useAppStore, restoredSelection, selectIsCloning } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
 import { useExperimentalStore } from './stores/experimentalStore';
-import { stackMembers, stackOf, useTerminalStore } from './stores/terminalStore';
 import { TitleBar } from './components/TitleBarReact';
 import { Sidebar } from './components/SidebarReact';
 import { MainView } from './components/MainView';
@@ -35,7 +34,7 @@ import { installCliAskListener } from './services/cliAskListener';
 import { installHookStatusListener } from './services/hookStatusListener';
 import { useUIStore, hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
-import type { LastSessionSnapshot, Project } from './types';
+import type { LastSessionSnapshot } from './types';
 
 const appLog = log.scope('app');
 
@@ -43,28 +42,6 @@ const appLog = log.scope('app');
  * What was on screen when the renderer last ran. A terminal that did not
  * survive, or a project since removed, leaves nothing selected.
  */
-function restoredSelection(saved: string | undefined, projects: Project[]): Selection | null {
-  let view: { type?: string; ptyId?: string; stack?: string; path?: string; page?: string };
-  try {
-    view = JSON.parse(saved ?? '');
-  } catch {
-    return null;
-  }
-  if (view.type === 'terminal') {
-    const terminals = useTerminalStore.getState();
-    const [front] = view.stack ? stackMembers(terminals, view.stack) : [];
-    const display = terminals.displayStates[front ?? view.ptyId ?? ''];
-    if (!display) return null;
-    return { kind: 'terminal', stack: front ? view.stack! : stackOf(display), projectPath: display.projectPath };
-  }
-  if (view.type === 'app-settings') return { kind: 'app-settings' };
-  if (view.type === 'chat') return { kind: 'chat', page: view.page === 'settings' ? 'settings' : 'chat' };
-  const path = view.path;
-  if (!path || !projects.some((p) => p.path === path)) return null;
-  const pages = ['board', 'settings', 'pull-requests', 'analysis'] as const;
-  const page = pages.find((p) => p === view.page) ?? 'board';
-  return { kind: 'page', projectPath: path, page };
-}
 
 class ViewErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
