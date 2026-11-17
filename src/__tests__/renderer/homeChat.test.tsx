@@ -235,7 +235,7 @@ describe('Chat', () => {
     const lines = screen.getAllByRole('button', { name: /^Chat \(T-605\) wants to run .*Allowed by Chat$/ });
     expect(lines.map((line) => line.textContent)).toEqual([
       'Chat (T-605) wants to run npx tsc --noEmit -p .Allowed by Chat',
-      "Chat (T-605) wants to run python3 - <<'EOF' …Allowed by Chat",
+      "Chat (T-605) wants to run python3 - <<'EOF'Allowed by Chat",
       'Chat (T-605) wants to run npm run checkAllowed by Chat',
     ]);
     fireEvent.click(lines[1]);
@@ -307,7 +307,7 @@ describe('Chat', () => {
 
     // A finished turn is one closed line for its work, then what it said last; an empty thought counts for nothing.
     const fold = screen.getByRole('button', { name: /Ran 2 commands/ });
-    expect(fold.textContent).toBe('Ran 2 commands, edited 1 file, said 1 thing20s');
+    expect(fold.textContent).toBe('Ran 2 commands, edited 1 file, said 1 thing · 20s');
     expect(fold.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByText('Starting the first.')).toBeNull();
     expect(screen.getByRole('heading', { name: 'Board' })).toBeTruthy();
@@ -323,7 +323,7 @@ describe('Chat', () => {
     expect(screen.queryByText(/chat pty-12, finished its turn/)).toBeNull();
 
     // The turn running is one line of what it is doing now: nothing of its work, not even what it has said.
-    expect(screen.getByRole('status', { name: 'Working' }).textContent).toMatch(/^ouijit chat read pty-12…/);
+    expect(screen.getByRole('status', { name: 'Working' }).textContent).toMatch(/^ouijit chat read pty-12 · /);
     expect(screen.queryByText('Reading what it did.')).toBeNull();
     adopt(transcript().map((n) => (n.id === 't4' ? { ...n, status: 'completed' } : n)) as ChatNode[], {
       status: 'idle',
@@ -348,7 +348,7 @@ describe('Chat', () => {
     expect(screen.getByText('Adds a settings table')).toBeTruthy();
     // The step after it waits until it has been revealed.
     expect((await screen.findByRole('status', { name: 'Working' }, { timeout: 3000 })).textContent).toMatch(
-      /^git log…/,
+      /^git log · /,
     );
 
     // Another conversation resumes in place of this one; the plus starts a fresh one; a row can be renamed.

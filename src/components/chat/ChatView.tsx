@@ -94,7 +94,7 @@ function StatusLine({ info, cardId, quiet }: { info: ChatSessionInfo; cardId: st
     case 'starting':
       // On the Chat page the composer is already there to type into; the agent takes what is sent once up.
       if (quiet) return null;
-      return <div className="text-[13px] text-text-tertiary">Starting {CHAT_AGENT_LABELS[info.agent]}…</div>;
+      return <div className="text-[13px] text-text-tertiary">Starting {CHAT_AGENT_LABELS[info.agent]}</div>;
     case 'error':
     case 'exited':
       return (
@@ -192,7 +192,7 @@ export function ChatView({
   );
 
   if (!session || !info) {
-    return <div className="flex-1 flex items-center justify-center text-sm text-text-tertiary">Loading chat…</div>;
+    return <div className="flex-1 flex items-center justify-center text-sm text-text-tertiary">Loading chat</div>;
   }
 
   const top = children.get(null) ?? [];

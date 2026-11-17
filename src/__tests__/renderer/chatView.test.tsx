@@ -208,7 +208,7 @@ describe('chat view', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Allow' }));
     expect(window.api.chat.answer).toHaveBeenCalledWith(ID, 'r1', { kind: 'option', optionId: 'allow' });
     // Answered, it settles at once to one line: the command's first line, and how it was answered.
-    const settled = await screen.findByRole('button', { name: /^python3 - <<'EOF' …Allowed$/ });
+    const settled = await screen.findByRole('button', { name: /^python3 - <<'EOF'Allowed$/ });
     expect(screen.queryByText(/shutil/)).toBeNull();
     fireEvent.click(settled);
     expect(screen.getByText(/shutil\.rmtree/).closest('pre, div')).toBeTruthy();
@@ -356,7 +356,8 @@ describe('chat view', () => {
           kind: 'reasoning',
           id: 'think-1',
           parentId: null,
-          createdAt: Date.now(),
+          createdAt: Date.now() - 12_000,
+          endedAt: Date.now(),
           text: 'Keeping the reply short, since they only said hi.',
           status: 'completed',
         },
@@ -375,6 +376,8 @@ describe('chat view', () => {
     });
     expect(screen.queryByText('Keeping the reply short, since they only said hi.')).toBeNull();
     const thought = screen.getAllByRole('button', { name: /^Thought/ }).at(-1)!;
+    // How long it thought follows the line, as every duration does.
+    expect(thought.textContent).toBe('Thought · 12s');
     expect(thought.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(thought);
     expect(screen.getByText('Keeping the reply short, since they only said hi.')).toBeTruthy();

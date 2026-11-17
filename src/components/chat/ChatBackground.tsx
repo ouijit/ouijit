@@ -6,7 +6,7 @@ function TaskRow({ cardId, task }: { cardId: string; task: ChatBackgroundTask })
   return (
     <li className="flex items-center gap-2.5 px-3 h-8 text-[13px] text-text-secondary">
       <Icon name={task.kind === 'shell' ? 'terminal' : 'flow-arrow'} className="w-3.5 h-3.5 shrink-0" />
-      <span className="flex-1 min-w-0 truncate">{task.description}</span>
+      <span className="flex-1 min-w-0 overflow-hidden whitespace-nowrap">{task.description}</span>
       <button
         type="button"
         aria-label={`Stop ${task.description}`}

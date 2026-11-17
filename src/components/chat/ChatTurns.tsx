@@ -3,7 +3,7 @@ import { closeOpenMarkup, revealed, useReveal } from './useReveal';
 import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
-import { ChatNodeList, ChatNodeView, foldSummary, formatSpan, isEmptyThought, type NodeContext } from './ChatNodes';
+import { ChatNodeList, ChatNodeView, Span, foldSummary, isEmptyThought, type NodeContext } from './ChatNodes';
 import { ChatRequestView, SettledLine, approvedByChat, firstLine, settledLabel } from './ChatRequest';
 import type { AssistantMessageNode, ChatNode, UserMessageNode, WakeNote, WakeRequest } from '../../chat/model';
 
@@ -73,7 +73,7 @@ function piecesOf(body: ChatNode[], finished: boolean): Piece[] {
 
 function firstSentence(text: string): string {
   const sentence = text.trim().split(/(?<=[.!?])\s/)[0];
-  return sentence.length > 90 ? `${sentence.slice(0, 89)}…` : sentence;
+  return sentence;
 }
 
 /**
@@ -84,7 +84,7 @@ function firstSentence(text: string): string {
 function doingNow(work: ChatNode[]): string | null {
   for (let i = work.length - 1; i >= 0; i--) {
     const node = work[i];
-    if (node.kind === 'tool_call') return `${node.title.replace(/[.…]+$/, '')}…`;
+    if (node.kind === 'tool_call') return node.title.replace(/[.…]+$/, '');
     if ((node.kind === 'reasoning' || node.kind === 'assistant_message') && node.status !== 'running') {
       if (node.text.trim()) return firstSentence(node.text);
     }
@@ -111,7 +111,7 @@ function useHeld(phrase: string): string {
 }
 
 function Doing({ work, started }: { work: ChatNode[]; started: number }) {
-  const latest = useRef('Thinking…');
+  const latest = useRef('Thinking');
   latest.current = doingNow(work) ?? latest.current;
   const phrase = useHeld(latest.current);
   const [now, setNow] = useState(() => Date.now());
@@ -128,15 +128,15 @@ function Doing({ work, started }: { work: ChatNode[]; started: number }) {
       <span className="w-3 flex justify-center shrink-0">
         <StatusGlyph status="thinking" size={8} />
       </span>
-      <span className="flex-1 truncate">{phrase}</span>
-      <span className="shrink-0 tabular-nums">{formatSpan(now - started)}</span>
+      <span className="min-w-0 overflow-hidden whitespace-nowrap">{phrase}</span>
+      <Span ms={now - started} />
     </div>
   );
 }
 
 function WorkFold({ work, context }: { work: ChatNode[]; context: NodeContext }) {
   const [open, setOpen] = useState(false);
-  const span = formatSpan(Math.max(...work.map((n) => n.createdAt)) - work[0].createdAt);
+  const span = Math.max(...work.map((n) => ('endedAt' in n && n.endedAt) || n.createdAt)) - work[0].createdAt;
   return (
     <div className="flex flex-col">
       <button
@@ -146,8 +146,8 @@ function WorkFold({ work, context }: { work: ChatNode[]; context: NodeContext })
         aria-expanded={open}
       >
         <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
-        <span className="flex-1 truncate">{foldSummary(work)}</span>
-        {span && <span className="shrink-0 tabular-nums">{span}</span>}
+        <span className="min-w-0 overflow-hidden whitespace-nowrap">{foldSummary(work)}</span>
+        <Span ms={span} />
       </button>
       {open && (
         <div className="pl-5 pb-2 flex flex-col gap-2">
@@ -245,7 +245,9 @@ function RoutineApprovals({ turns }: { turns: Turn[] }) {
         aria-expanded={open}
       >
         <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
-        <span className="flex-1 min-w-0 truncate">{approvalsSummary(notes.map((note) => note.request!))}</span>
+        <span className="flex-1 min-w-0 overflow-hidden whitespace-nowrap">
+          {approvalsSummary(notes.map((note) => note.request!))}
+        </span>
       </button>
       {open && (
         <div className="pl-5 min-w-0 flex flex-col">

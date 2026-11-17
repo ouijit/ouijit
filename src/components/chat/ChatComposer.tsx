@@ -226,7 +226,7 @@ function SettingsPicker({ settings }: { settings: Setting[] }) {
           }`}
           onClick={() => toggle(!open)}
         >
-          <span className="truncate">{summary || settings[0].label}</span>
+          <span className="overflow-hidden whitespace-nowrap">{summary || settings[0].label}</span>
           <Icon name="caret-down" className="w-3 h-3 shrink-0 opacity-60" />
         </button>
       )}
@@ -243,7 +243,9 @@ function SettingsPicker({ settings }: { settings: Setting[] }) {
             onClick={() => setChosen(setting.label)}
           >
             <span className="flex-1">{setting.label}</span>
-            <span className="text-[12px] text-text-tertiary truncate">{currentLabel(setting)}</span>
+            <span className="text-[12px] text-text-tertiary overflow-hidden whitespace-nowrap">
+              {currentLabel(setting)}
+            </span>
             <Icon name="caret-right" className="w-3 h-3 shrink-0 text-text-tertiary" />
           </button>
         ))
@@ -480,7 +482,7 @@ export function ChatComposer({
                     </span>
                   )}
                   {(item.kind === 'option' ? item.description : item.command.description) && (
-                    <span className="min-w-0 text-xs text-text-tertiary truncate">
+                    <span className="min-w-0 text-xs text-text-tertiary overflow-hidden whitespace-nowrap">
                       {item.kind === 'option' ? item.description : item.command.description}
                     </span>
                   )}
@@ -575,7 +577,9 @@ export function ChatComposer({
           <SandboxNote info={info} sandbox={info.sandbox} />
         )}
         <span className="flex-1" />
-        {usage && <span className="text-[11px] text-text-tertiary mr-1 truncate">{usage}</span>}
+        {usage && (
+          <span className="text-[11px] text-text-tertiary mr-1 overflow-hidden whitespace-nowrap">{usage}</span>
+        )}
         {busy && caps.steer && caps.queue && (
           <button
             type="button"

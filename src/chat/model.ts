@@ -72,6 +72,8 @@ export interface ReasoningNode extends NodeBase {
   kind: 'reasoning';
   text: string;
   status: NodeStatus;
+  /** When it stopped running, stamped by the host as it sees that happen. */
+  endedAt?: number;
 }
 
 export type ToolKind = 'command' | 'edit' | 'read' | 'search' | 'fetch' | 'mcp' | 'subagent' | 'other';

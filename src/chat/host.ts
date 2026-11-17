@@ -85,6 +85,20 @@ function settled(nodes: ChatNode[]): ChatNode[] {
   });
 }
 
+/**
+ * A node a driver sends again keeps when it first appeared, since drivers
+ * stamp every send; a thought gets when it finished, for its duration.
+ */
+function restamped(nodes: ChatNode[], node: ChatNode): ChatNode {
+  const before = nodes.find((other) => other.id === node.id);
+  if (!before) return node;
+  if (node.kind === 'reasoning' && before.kind === 'reasoning' && node.status !== 'running') {
+    const endedAt = before.status === 'running' ? Date.now() : before.endedAt;
+    return { ...node, createdAt: before.createdAt, ...(endedAt !== undefined && { endedAt }) };
+  }
+  return { ...node, createdAt: before.createdAt };
+}
+
 function withConversationCommands(commands: ChatCommand[], driver: DriverSession): ChatCommand[] {
   const own = conversationCommands(driver).filter((command) => !commands.some((c) => c.name === command.name));
   return [...own, ...commands];
@@ -514,7 +528,7 @@ export class ChatHost {
   private sink(session: HostedSession): DriverSink {
     const id = session.info.id;
     return {
-      node: (node) => session.emit({ type: 'node', node }),
+      node: (node) => session.emit({ type: 'node', node: restamped(session.nodes, node) }),
       append: (nodeId, field, delta) => session.emit({ type: 'append', id: nodeId, field, delta }),
       remove: (ids) => ids.length && session.emit({ type: 'remove', ids }),
       session: (incoming) => {

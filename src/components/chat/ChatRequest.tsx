@@ -30,8 +30,7 @@ export function settledLabel(node: RequestNode): string | null {
 }
 
 export function firstLine(text: string): string {
-  const [line, ...rest] = text.trim().split('\n');
-  return rest.length ? `${line} …` : line;
+  return text.trim().split('\n')[0];
 }
 
 /** A request as one quiet line, cut to the width; what it asked for in full behind the disclosure. */
@@ -56,7 +55,7 @@ export function SettledLine({
         aria-expanded={open}
       >
         <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
-        <span className="flex-1 min-w-0 truncate">{summary}</span>
+        <span className="flex-1 min-w-0 overflow-hidden whitespace-nowrap">{summary}</span>
         {label && <span className="shrink-0 text-[12px]">{label}</span>}
       </button>
       {open && (

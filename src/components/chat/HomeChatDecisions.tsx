@@ -62,7 +62,9 @@ function Card({ title, actions, children }: { title: string; actions: ReactNode;
             style={{ background: 'var(--color-status-unread)' }}
             aria-hidden="true"
           />
-          <span className="font-mono text-[12px] font-medium text-text-primary truncate">{title}</span>
+          <span className="font-mono text-[12px] font-medium text-text-primary overflow-hidden whitespace-nowrap">
+            {title}
+          </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">{actions}</div>
       </div>

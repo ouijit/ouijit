@@ -100,7 +100,7 @@ function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: 
         aria-expanded={open}
       >
         <Icon name={TOOL_ICONS[node.tool]} className="w-3.5 h-3.5 shrink-0 text-text-tertiary" />
-        <span className="flex-1 truncate">{relativeToCard(node.title, cardId)}</span>
+        <span className="flex-1 overflow-hidden whitespace-nowrap">{relativeToCard(node.title, cardId)}</span>
         {node.files.map((file) => {
           const counts = fileCounts(file);
           return counts ? (
@@ -124,7 +124,9 @@ function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: 
               file.diff && (
                 <div key={file.path} className="flex flex-col gap-1">
                   <div className="flex items-center gap-2 text-[12px] text-text-tertiary">
-                    <span className="font-mono truncate">{relativeToCard(file.path, cardId)}</span>
+                    <span className="font-mono overflow-hidden whitespace-nowrap">
+                      {relativeToCard(file.path, cardId)}
+                    </span>
                     <button
                       type="button"
                       className="ml-auto hover:text-text-primary transition-colors duration-100"
@@ -188,9 +190,9 @@ function SubagentView({
         aria-expanded={open}
       >
         <Icon name="flow-arrow" className="w-3.5 h-3.5 shrink-0 text-text-tertiary" />
-        <span className="truncate min-w-0 shrink">{title}</span>
+        <span className="overflow-hidden whitespace-nowrap min-w-0 shrink">{title}</span>
         {running && latest && 'title' in latest && (
-          <span className="truncate min-w-0 flex-1 basis-0 text-text-tertiary">
+          <span className="overflow-hidden whitespace-nowrap min-w-0 flex-1 basis-0 text-text-tertiary">
             {relativeToCard(latest.title, cardId)}
           </span>
         )}
@@ -253,7 +255,9 @@ function SubagentGroup({ nodes, context }: { nodes: ChatNode[]; context: NodeCon
       >
         <Icon name="flow-arrow" className="w-3.5 h-3.5 shrink-0 text-text-tertiary" />
         <span className="shrink-0">{nodes.length} subagents</span>
-        <span className={`truncate min-w-0 flex-1 ${failed ? 'text-error' : 'text-text-tertiary'}`}>
+        <span
+          className={`overflow-hidden whitespace-nowrap min-w-0 flex-1 ${failed ? 'text-error' : 'text-text-tertiary'}`}
+        >
           {counts.join(' · ')}
         </span>
         <StatusMark status={overall} />
@@ -336,6 +340,12 @@ export function foldSummary(nodes: ChatNode[]): string {
   return line[0].toUpperCase() + line.slice(1);
 }
 
+/** A duration placed right after the line it belongs to, " · 19s"; nothing under a second. */
+export function Span({ ms }: { ms: number | undefined }) {
+  const span = ms === undefined ? '' : formatSpan(ms);
+  return span ? <span className="shrink-0 -ml-2 tabular-nums whitespace-nowrap">{` · ${span}`}</span> : null;
+}
+
 export function formatSpan(ms: number): string {
   const seconds = Math.round(ms / 1000);
   if (seconds < 1) return '';
@@ -400,7 +410,7 @@ function PlanView({ node }: { node: PlanNode }) {
   );
 }
 
-function ReasoningView({ text, running }: { text: string; running: boolean }) {
+function ReasoningView({ text, running, ms }: { text: string; running: boolean; ms: number | undefined }) {
   const [open, setOpen] = useState(false);
   if (!text) return null;
   return (
@@ -413,6 +423,7 @@ function ReasoningView({ text, running }: { text: string; running: boolean }) {
       >
         <Icon name="brain" className="w-3.5 h-3.5" />
         <span>{running ? 'Thinking' : 'Thought'}</span>
+        {!running && <Span ms={ms} />}
         <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3" />
       </button>
       {open && <div className="ml-5 whitespace-pre-wrap text-text-tertiary text-[13px] leading-relaxed">{text}</div>}
@@ -477,7 +488,13 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
     case 'assistant_message':
       return node.text ? <ChatMarkdown text={node.text} complete={node.status !== 'running'} /> : null;
     case 'reasoning':
-      return <ReasoningView text={node.text} running={node.status === 'running'} />;
+      return (
+        <ReasoningView
+          text={node.text}
+          running={node.status === 'running'}
+          ms={node.endedAt === undefined ? undefined : node.endedAt - node.createdAt}
+        />
+      );
     case 'tool_call':
       if (node.tool === 'subagent') {
         const inner = nested?.find((child) => child.kind === 'subagent');
