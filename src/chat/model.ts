@@ -252,7 +252,8 @@ export interface ChatSessionInfo {
   pendingMode?: string | null;
   modes: ChatOption[];
   commands: ChatCommand[];
-  usage?: { inputTokens: number; outputTokens: number; contextWindow?: number };
+  /** How much of the model's window the conversation fills, as of the agent's last request. */
+  usage?: { contextTokens: number; contextWindow?: number };
   /** Work the agent left running between turns. Only agents that report it set this. */
   background?: ChatBackgroundTask[];
 }

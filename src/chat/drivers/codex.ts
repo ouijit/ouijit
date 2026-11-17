@@ -421,11 +421,10 @@ class CodexSession implements DriverSession {
         return;
       case 'thread/tokenUsage/updated': {
         const usage = params.tokenUsage as Json;
-        const total = usage.total as Json;
+        const last = usage.last as Json;
         this.sink.session({
           usage: {
-            inputTokens: Number(total.inputTokens ?? 0),
-            outputTokens: Number(total.outputTokens ?? 0),
+            contextTokens: Number(last.totalTokens ?? 0),
             contextWindow: typeof usage.modelContextWindow === 'number' ? usage.modelContextWindow : undefined,
           },
         });

@@ -20,6 +20,7 @@ import type {
   ChatCapabilities,
   ChatNode,
   ChatOption,
+  ChatSessionInfo,
   FileChange,
   PlanEntry,
   RequestOption,
@@ -427,6 +428,16 @@ async function messageContent(input: UserInput): Promise<Json[]> {
   return blocks;
 }
 
+function contextOf(message: Json): { tokens: number; model: string | undefined } {
+  const usage = (message.usage ?? {}) as Json;
+  const tokens =
+    Number(usage.input_tokens ?? 0) +
+    Number(usage.cache_creation_input_tokens ?? 0) +
+    Number(usage.cache_read_input_tokens ?? 0) +
+    Number(usage.output_tokens ?? 0);
+  return { tokens, model: str(message.model) };
+}
+
 function uuidOf(nodeId: string): string {
   return nodeId.startsWith(USER_PREFIX) ? nodeId.slice(USER_PREFIX.length) : nodeId;
 }
@@ -461,6 +472,7 @@ class ClaudeSession implements DriverSession {
   /** A subagent outlives its Agent call when Claude runs it in the background, so it finishes on its own report. */
   private readonly subagents = new Map<string, SubagentNode>();
   private reportedModel: string | undefined;
+  private lastContext: { tokens: number; model: string | undefined } | null = null;
 
   constructor(
     private readonly context: DriverContext,
@@ -604,7 +616,10 @@ class ClaudeSession implements DriverSession {
         return;
       case 'assistant':
         this.transcript.assistant(message.message as unknown as Json, message.parent_tool_use_id);
-        if (!message.parent_tool_use_id) this.lastAssistantUuid = message.uuid;
+        if (!message.parent_tool_use_id) {
+          this.lastAssistantUuid = message.uuid;
+          this.lastContext = contextOf(message.message as unknown as Json);
+        }
         if (message.error) this.notice('error', `Claude: ${message.error}`);
         return;
       case 'user':
@@ -617,14 +632,7 @@ class ClaudeSession implements DriverSession {
         return;
       case 'result': {
         const result = message as unknown as Json;
-        const usage = (result.usage ?? {}) as Json;
-        this.sink.session({
-          status: 'idle',
-          usage: {
-            inputTokens: Number(usage.input_tokens ?? 0) + Number(usage.cache_read_input_tokens ?? 0),
-            outputTokens: Number(usage.output_tokens ?? 0),
-          },
-        });
+        this.sink.session({ status: 'idle', ...this.usage(result) });
         if (result.subtype !== 'success') {
           const errors = Array.isArray(result.errors) ? result.errors.join('\n') : '';
           if (result.subtype !== 'error_during_execution' || errors) {
@@ -637,6 +645,7 @@ class ClaudeSession implements DriverSession {
         const reset = message as unknown as Json;
         this.sessionId = String(reset.new_conversation_id);
         this.lastAssistantUuid = null;
+        this.lastContext = null;
         this.before.clear();
         this.sink.reset();
         this.sink.session({ agentSessionId: this.sessionId });
@@ -648,6 +657,16 @@ class ClaudeSession implements DriverSession {
         return;
       }
     }
+  }
+
+  /** A result's own usage is summed over every request in the turn, so the context is the last request's. */
+  private usage(result: Json): Pick<ChatSessionInfo, 'usage'> {
+    if (!this.lastContext) return {};
+    const models = (result.modelUsage ?? {}) as Record<string, Json>;
+    const window = this.lastContext.model ? models[this.lastContext.model]?.contextWindow : undefined;
+    return {
+      usage: { contextTokens: this.lastContext.tokens, contextWindow: typeof window === 'number' ? window : undefined },
+    };
   }
 
   private system(message: Json): void {

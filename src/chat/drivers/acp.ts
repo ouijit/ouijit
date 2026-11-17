@@ -340,6 +340,16 @@ class AcpSession implements DriverSession {
       case 'current_mode_update':
         this.sink.session({ mode: String(update.currentModeId) });
         return;
+      case 'usage_update':
+        if (typeof update.used === 'number') {
+          this.sink.session({
+            usage: {
+              contextTokens: update.used,
+              contextWindow: typeof update.size === 'number' ? update.size : undefined,
+            },
+          });
+        }
+        return;
     }
   }
 

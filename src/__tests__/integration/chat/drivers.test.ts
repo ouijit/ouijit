@@ -167,6 +167,14 @@ describe.each(['claude', 'codex', 'pi', 'opencode', 'acp'] as const)('%s in chat
         timeout,
       );
       expect(after.nodes.filter((n) => n.kind === 'user_message').map((n) => n.text)).toEqual([PROMPT, FOLLOW_UP]);
+
+      // The first turn took several requests and the follow-up one, so a count
+      // summed over a turn's requests would shrink here where the context grew.
+      const first = finished.info.usage!;
+      const second = after.info.usage!;
+      expect(first.contextTokens).toBeGreaterThan(0);
+      expect(second.contextTokens).toBeGreaterThanOrEqual(first.contextTokens);
+      expect(second.contextTokens).toBeLessThan(second.contextWindow ?? Infinity);
       await host.stop(id);
       stop();
     },

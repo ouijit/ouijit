@@ -254,12 +254,15 @@ function SettingsPicker({ settings }: { settings: Setting[] }) {
 
 function usageLabel(info: ChatSessionInfo): string | null {
   const usage = info.usage;
-  if (!usage) return null;
-  const tokens = usage.inputTokens + usage.outputTokens;
-  if (tokens === 0) return null;
-  const compact = tokens >= 1000 ? `${(tokens / 1000).toFixed(tokens >= 10_000 ? 0 : 1)}k` : String(tokens);
-  const context = usage.contextWindow ? ` of ${Math.round(usage.contextWindow / 1000)}k` : '';
-  return `${compact}${context} tokens`;
+  if (!usage?.contextTokens) return null;
+  const window = usage.contextWindow ? ` of ${compactCount(usage.contextWindow)}` : '';
+  return `${compactCount(usage.contextTokens)}${window} tokens`;
+}
+
+function compactCount(count: number): string {
+  if (count >= 1_000_000) return `${Number((count / 1_000_000).toFixed(1))}m`;
+  if (count >= 1000) return `${(count / 1000).toFixed(count >= 10_000 ? 0 : 1)}k`;
+  return String(count);
 }
 
 function report(error: unknown): void {

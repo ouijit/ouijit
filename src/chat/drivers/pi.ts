@@ -178,6 +178,7 @@ class PiSession implements DriverSession {
   private readonly waiting = new Map<string, { resolve: (data: unknown) => void; reject: (error: Error) => void }>();
   private currentAssistant: unknown = null;
   private readonly tools = new Map<string, ToolCallNode>();
+  private readonly contextWindows = new Map<string, number>();
   private readonly userOrder: string[] = [];
   closing = false;
 
@@ -203,6 +204,8 @@ class PiSession implements DriverSession {
   async open(resumed: boolean): Promise<void> {
     const state = await this.command<Json>({ type: 'get_state' });
     const model = state.model as Json | null;
+    if (model && typeof model.contextWindow === 'number')
+      this.contextWindows.set(`${String(model.provider)}/${String(model.id)}`, model.contextWindow);
     this.sink.session({
       agentSessionId: str(state.sessionId) ?? null,
       ...(model && { model: `${String(model.provider)}/${String(model.id)}` }),
@@ -222,11 +225,11 @@ class PiSession implements DriverSession {
         this.command<{ levels: string[] }>({ type: 'get_available_thinking_levels' }),
         this.command<{ commands: Json[] }>({ type: 'get_commands' }),
       ]);
-      const options: ChatOption[] = models.map((model) => ({
-        id: `${String(model.provider)}/${String(model.id)}`,
-        label: String(model.name ?? model.id),
-        description: String(model.provider),
-      }));
+      const options: ChatOption[] = models.map((model) => {
+        const id = `${String(model.provider)}/${String(model.id)}`;
+        if (typeof model.contextWindow === 'number') this.contextWindows.set(id, model.contextWindow);
+        return { id, label: String(model.name ?? model.id), description: String(model.provider) };
+      });
       this.sink.session({
         models: options,
         efforts: levels.map((level) => ({ id: level, label: level })),
@@ -297,6 +300,7 @@ class PiSession implements DriverSession {
             });
           }
         });
+        this.reportContext(message);
         if (message.stopReason === 'error' && str(message.errorMessage))
           this.notice('error', String(message.errorMessage));
         return;
@@ -373,15 +377,22 @@ class PiSession implements DriverSession {
         this.sink.append(id, 'text', String(delta.delta ?? ''));
         return;
     }
-    const usage = event.usage as Json | undefined;
-    if (usage) {
-      this.sink.session({
-        usage: {
-          inputTokens: Number(usage.input ?? 0) + Number(usage.cacheRead ?? 0),
-          outputTokens: Number(usage.output ?? 0),
-        },
-      });
-    }
+  }
+
+  private reportContext(message: Json): void {
+    const usage = message.usage as Json | undefined;
+    const contextTokens =
+      Number(usage?.input ?? 0) +
+      Number(usage?.output ?? 0) +
+      Number(usage?.cacheRead ?? 0) +
+      Number(usage?.cacheWrite ?? 0);
+    if (!contextTokens) return;
+    this.sink.session({
+      usage: {
+        contextTokens,
+        contextWindow: this.contextWindows.get(`${String(message.provider)}/${String(message.model)}`),
+      },
+    });
   }
 
   /** Extension dialogs — our approval gate's among them — answered from any client. */

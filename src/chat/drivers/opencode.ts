@@ -184,6 +184,8 @@ class OpencodeSession implements DriverSession {
   private readonly sentMessages = new Map<string, string>();
   private model: { id: string; providerID: string; variant?: string } | null = null;
   private variants = new Map<string, string[]>();
+  private readonly contextWindows = new Map<string, number>();
+  private stepModel: string | null = null;
   private commands = new Set<string>();
   private events: AbortController | null = null;
   closing = false;
@@ -268,6 +270,8 @@ class OpencodeSession implements DriverSession {
             id,
             Array.isArray(model.variants) ? (model.variants as Json[]).map((v) => String(v.id)) : [],
           );
+          const limit = (model.limit ?? {}) as Json;
+          if (typeof limit.context === 'number') this.contextWindows.set(id, limit.context);
           return { id, label: String(model.name ?? model.id), description: String(model.providerID) };
         });
       this.commands = new Set(commands.map((command) => String(command.name)));
@@ -466,13 +470,25 @@ class OpencodeSession implements DriverSession {
       case 'session.retry.scheduled':
         this.notice('warning', `Retrying: ${String(data.message ?? 'transient error')}`, parentId);
         return;
-      case 'session.usage.updated': {
+      case 'session.step.started': {
+        const model = (data.model ?? {}) as Json;
+        if (top) this.stepModel = `${String(model.providerID)}/${String(model.id)}`;
+        return;
+      }
+      case 'session.step.ended': {
         if (!top) return;
         const tokens = (data.tokens ?? {}) as Json;
+        const cache = (tokens.cache ?? {}) as Json;
+        const contextTokens =
+          Number(tokens.input ?? 0) +
+          Number(tokens.output ?? 0) +
+          Number(tokens.reasoning ?? 0) +
+          Number(cache.read ?? 0) +
+          Number(cache.write ?? 0);
         this.sink.session({
           usage: {
-            inputTokens: Number(tokens.input ?? 0),
-            outputTokens: Number(tokens.output ?? 0),
+            contextTokens,
+            contextWindow: this.stepModel ? this.contextWindows.get(this.stepModel) : undefined,
           },
         });
         return;
