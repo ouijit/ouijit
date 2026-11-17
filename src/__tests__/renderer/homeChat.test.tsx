@@ -285,6 +285,16 @@ describe('Chat', () => {
       JSON.stringify({ turnEnded: true, asked: true, taskMoved: true, hookFailed: false }),
     );
     expect(window.api.homeChat.restart).toHaveBeenCalledTimes(2);
+    // In a custom sandbox it has a launcher of its own, and setting one restarts it.
+    fireEvent.click(screen.getByRole('button', { name: 'Custom' }));
+    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(3));
+    fireEvent.click(await screen.findByRole('button', { name: '+ Configure' }));
+    fireEvent.change(screen.getByLabelText('Launcher command'), { target: { value: 'my-sandbox' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(4));
+    expect(window.api.sandbox.setCustomConfig).toHaveBeenCalledWith(await window.api.homeChat.dir(), {
+      command: 'my-sandbox',
+    });
 
     // Escape leaves settings for the chat.
     fireEvent.keyDown(document.body, { key: 'Escape' });

@@ -26,6 +26,7 @@ import {
 } from '../../sandbox/types';
 import type { DriverProbe } from '../../chat/driver';
 import { SandboxProfileRow } from '../scripts/SandboxProfileRow';
+import { CustomLauncherRow } from '../scripts/CustomLauncherRow';
 import { CliAccessRow } from '../scripts/SandboxSection';
 
 async function loadHomeChatSettings(): Promise<HomeChatSettings> {
@@ -173,7 +174,9 @@ export function HomeChatSettingsPanel() {
               description={
                 settings.sandbox === 'none'
                   ? 'On your computer.'
-                  : 'Reads every project, and changes only what its profile allows.'
+                  : settings.sandbox === 'nono'
+                    ? 'Reads every project, and changes only what its profile allows.'
+                    : 'Inside your launcher.'
               }
             >
               <SegmentedGroup>
@@ -192,6 +195,9 @@ export function HomeChatSettingsPanel() {
             </Row>
             {settings.sandbox === 'nono' && chatDir && (
               <SandboxProfileRow projectPath={chatDir} onChange={() => void restart()} />
+            )}
+            {settings.sandbox === 'custom' && chatDir && (
+              <CustomLauncherRow projectPath={chatDir} onChange={() => void restart()} />
             )}
             {settings.sandbox !== 'none' && chatDir && (
               <CliAccessRow

@@ -6,11 +6,12 @@ import { QUIET_BUTTON } from './LensList';
 
 interface CustomLauncherRowProps {
   projectPath: string;
+  onChange?: () => void;
 }
 
 const SAVE_FAILED = 'Could not save the sandbox command';
 
-export function CustomLauncherRow({ projectPath }: CustomLauncherRowProps) {
+export function CustomLauncherRow({ projectPath, onChange }: CustomLauncherRowProps) {
   const [config, setConfig] = useState<CustomSandboxConfig>({});
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -37,8 +38,9 @@ export function CustomLauncherRow({ projectPath }: CustomLauncherRowProps) {
       setEditing(false);
       setError(null);
       await loadProjectConfig(projectPath);
+      onChange?.();
     },
-    [projectPath],
+    [projectPath, onChange],
   );
 
   const openEditor = () => {
