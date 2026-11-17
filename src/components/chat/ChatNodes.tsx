@@ -343,7 +343,8 @@ export function foldSummary(nodes: ChatNode[]): string {
 /** A duration placed right after the line it belongs to, " · 19s"; nothing under a second. */
 export function Span({ ms }: { ms: number | undefined }) {
   const span = ms === undefined ? '' : formatSpan(ms);
-  return span ? <span className="shrink-0 -ml-2 tabular-nums whitespace-nowrap">{` · ${span}`}</span> : null;
+  // A flex item drops its leading space unless whitespace is kept; -ml-2 takes back the row's gap.
+  return span ? <span className="shrink-0 -ml-2 tabular-nums whitespace-pre">{` · ${span}`}</span> : null;
 }
 
 export function formatSpan(ms: number): string {
