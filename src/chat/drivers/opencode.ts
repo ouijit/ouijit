@@ -6,6 +6,7 @@ import { exited, onLines, stderrTail, terminate, type AgentProcess } from '../pr
 import { startAcpSession } from './acp';
 import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
 import type { ChatCapabilities, ChatNode, ChatOption, FileChange, ToolCallNode, ToolKind } from '../model';
+import { stoppedNode } from '../model';
 
 /** The `/api` server this driver speaks arrived with opencode 2. Older releases go through `opencode acp`. */
 const OPENCODE_SERVER_VERSION = '2.0.0';
@@ -370,8 +371,10 @@ class OpencodeSession implements DriverSession {
         return;
       case 'session.execution.succeeded':
       case 'session.execution.interrupted':
-        if (top) this.sink.session({ status: 'idle' });
-        else this.finishChild(sessionId, 'completed');
+        if (top) {
+          if (type === 'session.execution.interrupted') this.sink.node(stoppedNode(`oc-stopped-${Date.now()}`));
+          this.sink.session({ status: 'idle' });
+        } else this.finishChild(sessionId, 'completed');
         return;
       case 'session.execution.failed': {
         const error = (data.error ?? {}) as Json;

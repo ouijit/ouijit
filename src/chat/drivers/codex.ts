@@ -13,6 +13,7 @@ import type {
   RequestOption,
   ToolCallNode,
 } from '../model';
+import { stoppedNode } from '../model';
 
 /** The oldest release the chat driver has been recorded against; app-server's v2 surface moves between releases. */
 const CODEX_MIN_VERSION = '0.149.0';
@@ -355,12 +356,13 @@ class CodexSession implements DriverSession {
       includeTurns: true,
     });
     const turns = Array.isArray(thread.turns) ? (thread.turns as Json[]) : [];
-    const nodes = turns.flatMap((turn) =>
-      (Array.isArray(turn.items) ? (turn.items as CodexItem[]) : []).flatMap((item): ChatNode[] => {
+    const nodes = turns.flatMap((turn) => [
+      ...(Array.isArray(turn.items) ? (turn.items as CodexItem[]) : []).flatMap((item): ChatNode[] => {
         const node = codexItemNode(item);
         return node ? [node] : [];
       }),
-    );
+      ...(turn.status === 'interrupted' ? [stoppedNode(`codex-stopped-${String(turn.id)}`)] : []),
+    ]);
     this.sink.history(nodes);
   }
 
@@ -399,6 +401,8 @@ class CodexSession implements DriverSession {
         if (turn.status === 'failed') {
           const error = turn.error as Json | null;
           this.notice('error', String(error?.message ?? 'The turn failed'));
+        } else if (turn.status === 'interrupted') {
+          this.sink.node(stoppedNode(`codex-stopped-${String(turn.id)}`));
         }
         this.sink.session({ status: 'idle' });
         return;

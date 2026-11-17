@@ -5,6 +5,7 @@ import { exited, onLines, stderrTail, terminate, type AgentProcess } from '../pr
 import { getPiApprovalExtensionPath } from '../piApprovals';
 import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
 import type { ChatAnswer, ChatCapabilities, ChatNode, ChatOption, FileChange, ToolCallNode, ToolKind } from '../model';
+import { stoppedNode } from '../model';
 
 /** The oldest release the chat driver has been recorded against; RPC mode changed shape before it. */
 const PI_MIN_VERSION = '0.84.0';
@@ -107,6 +108,14 @@ function toolNode(toolCallId: string, name: string, args: Json): ToolCallNode {
   };
 }
 
+/** A stop that lands while a tool runs reaches pi as an error carrying the abort signal's message. */
+function stopped(message: Json): boolean {
+  return (
+    message.stopReason === 'aborted' ||
+    (message.stopReason === 'error' && message.errorMessage === 'This operation was aborted')
+  );
+}
+
 function piHistoryNodes(messages: Json[]): ChatNode[] {
   const nodes: ChatNode[] = [];
   const tools = new Map<string, ToolCallNode>();
@@ -156,6 +165,7 @@ function piHistoryNodes(messages: Json[]): ChatNode[] {
           nodes.push(node);
         }
       });
+      if (stopped(message)) nodes.push(stoppedNode(`pi-stopped-${String(message.timestamp)}`));
     } else if (message.role === 'toolResult') {
       const node = tools.get(String(message.toolCallId));
       if (node) {
@@ -301,7 +311,8 @@ class PiSession implements DriverSession {
           }
         });
         this.reportContext(message);
-        if (message.stopReason === 'error' && str(message.errorMessage))
+        if (stopped(message)) this.sink.node(stoppedNode(`pi-stopped-${String(message.timestamp)}`));
+        else if (message.stopReason === 'error' && str(message.errorMessage))
           this.notice('error', String(message.errorMessage));
         return;
       }

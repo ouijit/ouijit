@@ -13,6 +13,7 @@ import type {
   ToolCallNode,
   ToolKind,
 } from '../model';
+import { stoppedNode } from '../model';
 
 type Json = Record<string, unknown>;
 
@@ -452,7 +453,8 @@ class AcpSession implements DriverSession {
       .request<Json>('session/prompt', { sessionId: this.sessionId, prompt })
       .then((result) => {
         this.finishStreams();
-        if (result.stopReason === 'refusal') this.notice('warning', 'The agent refused this request');
+        if (result.stopReason === 'cancelled') this.emit(stoppedNode(`${this.prefix}-stopped-${this.turn}`));
+        else if (result.stopReason === 'refusal') this.notice('warning', 'The agent refused this request');
         else if (result.stopReason === 'max_tokens') this.notice('warning', 'The agent hit its token limit');
         this.sink.session({ status: 'idle' });
       })

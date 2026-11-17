@@ -28,6 +28,7 @@ import type {
   ToolCallNode,
   ToolKind,
 } from '../model';
+import { stoppedNode } from '../model';
 
 /** The Agent SDK this build ships needs a CLI at least this new for `canUseTool` and session state events. */
 const CLAUDE_MIN_VERSION = '2.1.200';
@@ -391,15 +392,7 @@ class ClaudeTranscript {
       this.tools.set(toolUseId, stopped);
       this.sink.node(stopped);
     }
-    if (parentToolUseId) return;
-    this.sink.node({
-      id: `claude-stopped-${uuid}`,
-      kind: 'notice',
-      level: 'info',
-      parentId: null,
-      createdAt: Date.now(),
-      text: 'Stopped',
-    });
+    if (!parentToolUseId) this.sink.node(stoppedNode(`claude-stopped-${uuid}`));
   }
 
   private userMessage(uuid: string, text: string, parentToolUseId: string | null): void {

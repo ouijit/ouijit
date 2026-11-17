@@ -125,6 +125,11 @@ export interface NoticeNode extends NodeBase {
   text: string;
 }
 
+/** Where the user stopped a turn: the same quiet line for every agent. */
+export function stoppedNode(id: string): NoticeNode {
+  return { id, kind: 'notice', level: 'info', parentId: null, createdAt: Date.now(), text: 'Stopped' };
+}
+
 export interface CompactionNode extends NodeBase {
   kind: 'compaction';
   trigger: 'manual' | 'auto';
