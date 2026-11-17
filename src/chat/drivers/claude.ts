@@ -31,6 +31,8 @@ import type {
 
 /** The Agent SDK this build ships needs a CLI at least this new for `canUseTool` and session state events. */
 const CLAUDE_MIN_VERSION = '2.1.200';
+/** Older ones leave a turn hanging when the permission mode changes after one of its tools ran. */
+const CLAUDE_MODE_MID_TURN_VERSION = '2.1.326';
 
 const CAPABILITIES: ChatCapabilities = {
   images: true,
@@ -47,16 +49,22 @@ const CAPABILITIES: ChatCapabilities = {
 };
 
 const MODES: ChatOption[] = [
-  { id: 'default', label: 'Ask', description: 'Ask before edits and commands your settings do not allow' },
-  { id: 'acceptEdits', label: 'Accept edits', description: 'Edit files without asking' },
-  { id: 'plan', label: 'Plan', description: 'Plan without changing anything' },
-  { id: 'bypassPermissions', label: 'Skip permissions', description: 'Run everything without asking' },
+  {
+    id: 'default',
+    label: 'Ask',
+    description: 'Ask before edits and commands your settings do not allow',
+    latitude: 1,
+  },
+  { id: 'acceptEdits', label: 'Accept edits', description: 'Edit files without asking', latitude: 2 },
+  { id: 'plan', label: 'Plan', description: 'Plan without changing anything', latitude: 0 },
+  { id: 'bypassPermissions', label: 'Skip permissions', description: 'Run everything without asking', latitude: 4 },
 ];
 
 const AUTO_MODE: ChatOption = {
   id: 'auto',
   label: 'Auto',
   description: 'A classifier approves safe actions and asks about the rest',
+  latitude: 3,
 };
 
 const EFFORTS: ChatOption[] = [
@@ -482,6 +490,7 @@ const PLAN_APPROVAL: RequestOption[] = [
 
 class ClaudeSession implements DriverSession {
   readonly capabilities = CAPABILITIES;
+  modeMidTurn = false;
   private q: Query | null = null;
   private input: InputQueue | null = null;
   private loop: Promise<void> | null = null;
@@ -1002,6 +1011,8 @@ export const claudeDriver: AgentDriver = {
     const binary = resolveAgentBinary('claude');
     if (!binary) throw new Error('Claude Code is not installed');
     const session = new ClaudeSession(context, binary);
+    const version = await binaryVersion(binary);
+    session.modeMidTurn = !!version && compareVersions(version, CLAUDE_MODE_MID_TURN_VERSION) >= 0;
     await session.open();
     return session;
   },

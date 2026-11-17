@@ -263,10 +263,25 @@ function codexInput(input: UserInput): Json[] {
 
 /** The approval policies Codex's `/approvals` offers. The thread starts on whatever the user's config says. */
 const APPROVAL_MODES: ChatOption[] = [
-  { id: 'untrusted', label: 'Ask first', description: 'Ask before running anything not known to be safe' },
-  { id: 'on-request', label: 'Ask when needed', description: 'Ask when a command needs more than the sandbox allows' },
-  { id: 'never', label: 'Never ask', description: 'Run without asking; failures go back to the model' },
-  { id: 'full-access', label: 'Full access', description: 'No sandbox and no asking: network and every file' },
+  {
+    id: 'untrusted',
+    label: 'Ask first',
+    description: 'Ask before running anything not known to be safe',
+    latitude: 1,
+  },
+  {
+    id: 'on-request',
+    label: 'Ask when needed',
+    description: 'Ask when a command needs more than the sandbox allows',
+    latitude: 2,
+  },
+  { id: 'never', label: 'Never ask', description: 'Run without asking; failures go back to the model', latitude: 3 },
+  {
+    id: 'full-access',
+    label: 'Full access',
+    description: 'No sandbox and no asking: network and every file',
+    latitude: 4,
+  },
 ];
 
 const APPROVAL_OPTIONS: RequestOption[] = [

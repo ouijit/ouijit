@@ -66,6 +66,8 @@ export interface DriverSession {
   setModel?(model: string): Promise<void>;
   setEffort?(effort: string): Promise<void>;
   setMode?(mode: string): Promise<void>;
+  /** Takes a new mode during a turn; otherwise the turn has to end first. */
+  readonly modeMidTurn?: boolean;
   /** Undo back to before a user message: the conversation, and the agent's edits where it tracks them. */
   rewind?(userMessageId: string): Promise<void>;
   compact?(): Promise<void>;

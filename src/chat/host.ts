@@ -808,13 +808,17 @@ export class ChatHost {
   }
 
   /**
-   * Changing an agent's mode partway through a turn leaves Claude Code unable
-   * to finish the turn, so a change made then waits for the turn to end.
+   * A looser mode takes effect at once where the agent can change modes
+   * mid-turn, so its approvals stop without stopping the turn. A stricter one,
+   * or any on an agent that cannot, waits for the turn to end.
    */
   async setMode(id: string, mode: string): Promise<void> {
     const { session, driver } = await this.requireDriver(id);
     if (!driver.setMode) throw new Error('This agent has no modes');
-    if (session.info.status === 'running' || session.info.status === 'awaiting') {
+    const latitude = (of: string | undefined) => session.info.modes.find((option) => option.id === of)?.latitude;
+    const [from, to] = [latitude(session.info.mode), latitude(mode)];
+    const looser = !!driver.modeMidTurn && from !== undefined && to !== undefined && to > from;
+    if ((session.info.status === 'running' || session.info.status === 'awaiting') && !looser) {
       session.emit({ type: 'session', patch: { pendingMode: mode === session.info.mode ? null : mode } });
       return;
     }

@@ -224,6 +224,8 @@ export interface ChatOption {
   description?: string;
   /** For an alias such as Claude's Default: the label of the option it currently stands for. */
   standsFor?: string;
+  /** For a mode: how much the agent does without asking, higher doing more. */
+  latitude?: number;
 }
 
 export interface ChatCommand {

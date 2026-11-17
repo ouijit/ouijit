@@ -606,6 +606,50 @@ describe('claude mode', () => {
   );
 });
 
+describe('claude given a looser mode mid-turn', () => {
+  const name = 'claude-mode-looser';
+  const available = recording || fs.existsSync(cassettePath(name));
+
+  test.skipIf(!available)(
+    'takes it at once, so what it does next stops asking',
+    async () => {
+      const cwd = repo();
+      const probe = recording ? await getDriver('claude').probe() : null;
+      // Claude Code takes a mode mid-turn from a version on, read off the binary as the driver starts.
+      const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-claude-bin-'));
+      if (!recording) {
+        const { version } = loadCassette(name);
+        fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\necho "${version}"\n`, { mode: 0o755 });
+        process.env.PATH = `${bin}:${process.env.PATH}`;
+      }
+      const host = new ChatHost({
+        spawnProcess: recording ? recordingSpawn(name, 'claude', probe?.version) : replayingSpawn(loadCassettes(name)),
+      });
+      const id = 'pty-mode-looser';
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null, mode: 'default' });
+      await host.prompt(id, {
+        text: 'Use the Read tool to read the file .git/HEAD. Then create a file named note.txt containing hi with your file editing tool. Then create a file named two.txt containing hi. Then reply with only: done',
+      });
+      const asked = await until(host, id, (s) => pendingRequests(s.nodes).length > 0, timeout);
+      await host.setMode(id, 'acceptEdits');
+      expect(host.snapshot(id)!.info).toMatchObject({ mode: 'acceptEdits', pendingMode: null });
+
+      const [request] = pendingRequests(asked.nodes);
+      host.answer(id, request.id, { kind: 'option', optionId: 'allow' });
+      const done = await until(
+        host,
+        id,
+        (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message' && /done/i.test(n.text)),
+        timeout,
+      );
+      expect(done.nodes.filter((n) => n.kind === 'request')).toHaveLength(1);
+      await host.stop(id);
+      process.env.PATH = process.env.PATH!.replace(`${bin}:`, '');
+    },
+    timeout * 2,
+  );
+});
+
 describe('task chats Chat owns', () => {
   const name = 'claude-owned';
   const available = recording || fs.existsSync(cassettePath(name));
