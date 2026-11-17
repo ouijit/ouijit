@@ -7,7 +7,7 @@ import { useAppStore } from '../../stores/appStore';
 import { isHomeChat, useHomeChatStore, useIsHomeChat } from '../../stores/homeChatStore';
 import { taskKey } from '../../chat/preferences';
 import { pendingRequests, type RequestNode } from '../../chat/model';
-import { CONFIRM_VERB, runWaiting } from '../waiting/WaitingQueue';
+import { runWaiting } from '../waiting/WaitingQueue';
 import { useRevealGate } from './ChatTurns';
 
 /** The conversation a queued item came from: Chat itself, or a task one of its conversations started. */
@@ -16,8 +16,7 @@ export function useOwnerOf(): (item: Waiting) => string | null {
   const displays = useTerminalStore((s) => s.displayStates);
   return (item) => {
     if (isHomeChat(item.from)) return item.from;
-    if (item.kind === 'move' || item.kind === 'confirm')
-      return owners[taskKey(item.projectPath, item.taskNumber)] ?? null;
+    if (item.kind === 'move') return owners[taskKey(item.projectPath, item.taskNumber)] ?? null;
     const display = displays[item.from];
     return display?.taskId != null ? (owners[taskKey(display.projectPath, display.taskId)] ?? null) : null;
   };
@@ -128,46 +127,23 @@ function QueuedCard({ item }: { item: Waiting }) {
       </Card>
     );
   }
-  if (item.kind === 'move') {
-    return (
-      <Card
-        title={`${taskName}: ${item.hookName || 'hook'}`}
-        actions={
-          <>
-            <button type="button" className="btn-secondary btn-compact" onClick={remove}>
-              Skip
-            </button>
-            <button type="button" className="btn-primary btn-compact" onClick={() => runWaiting(item)}>
-              Run
-            </button>
-          </>
-        }
-      >
-        <Command text={item.command} />
-        <div className="text-[12px] text-text-tertiary">
-          {item.outsideSandbox ? 'Runs on your computer, outside the sandbox.' : 'Runs in its sandbox.'}
-        </div>
-      </Card>
-    );
-  }
   return (
     <Card
-      title={`${CONFIRM_VERB[item.action]} ${taskName}`}
+      title={`${taskName}: ${item.hookName || 'hook'}`}
       actions={
         <>
           <button type="button" className="btn-secondary btn-compact" onClick={remove}>
-            Cancel
+            Skip
           </button>
           <button type="button" className="btn-primary btn-compact" onClick={() => runWaiting(item)}>
-            {CONFIRM_VERB[item.action]}
+            Run
           </button>
         </>
       }
     >
-      <div className="text-text-secondary">
-        {item.action === 'done'
-          ? 'Moves it to done, which runs its done hook.'
-          : 'Its folder goes to the system trash, where you can still get it back.'}
+      <Command text={item.command} />
+      <div className="text-[12px] text-text-tertiary">
+        {item.outsideSandbox ? 'Runs on your computer, outside the sandbox.' : 'Runs in its sandbox.'}
       </div>
     </Card>
   );

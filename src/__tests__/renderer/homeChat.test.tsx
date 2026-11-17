@@ -263,8 +263,13 @@ describe('Chat', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Chat settings' }));
     expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'settings' });
     expect(await screen.findByRole('heading', { name: 'Chat settings' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sandbox', pressed: true })).toBeTruthy();
-    // In the sandbox, Chat has a profile of its own, and choosing another restarts it.
+    // It runs on the host unless set otherwise, with no sandbox profile to show.
+    expect(screen.getByRole('button', { name: 'Host', pressed: true })).toBeTruthy();
+    expect(screen.queryByText('Sandbox profile')).toBeNull();
+    // In the sandbox it has a profile of its own, and choosing another restarts it.
+    fireEvent.click(screen.getByRole('button', { name: 'Sandbox' }));
+    expect(window.api.globalSettings.set).toHaveBeenCalledWith(HOME_CHAT_SETTING_KEYS.sandbox, 'nono');
+    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(1));
     expect(await screen.findByText('Sandbox profile')).toBeTruthy();
     expect(window.api.sandbox.nonoProfile).toHaveBeenCalledWith(await window.api.homeChat.dir());
     vi.mocked(window.api.sandbox.chooseNonoProfile).mockResolvedValueOnce({
@@ -272,13 +277,8 @@ describe('Chat', () => {
       own: false,
     });
     fireEvent.click(screen.getByRole('button', { name: 'Change…' }));
-    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(2));
     expect(screen.getByText('~/strict.json')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Host' }));
-    expect(window.api.globalSettings.set).toHaveBeenCalledWith(HOME_CHAT_SETTING_KEYS.sandbox, 'none');
-    await act(async () => {});
-    expect(window.api.homeChat.restart).toHaveBeenCalledTimes(2);
-    expect(screen.queryByText('Sandbox profile')).toBeNull();
     fireEvent.click(screen.getByRole('checkbox', { name: 'A hook fails' }));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(
       HOME_CHAT_SETTING_KEYS.wake,
@@ -345,13 +345,11 @@ describe('Chat', () => {
         message: 'needs your GitHub sign-in',
       },
       {
-        id: 'd-trash',
+        id: 'd-push',
         from: CURRENT,
         at: 2,
-        kind: 'confirm',
-        projectPath: '/code/alpha',
-        taskNumber: 12,
-        action: 'trash',
+        kind: 'ask',
+        ask: { command: 'git push', cwd: '/code/alpha' },
       },
     ];
     act(() => pushDecisions(held));
@@ -360,10 +358,10 @@ describe('Chat', () => {
 
     const cards = () => [...document.querySelectorAll<HTMLElement>('[data-chat-decision]')];
     expect(cards()).toHaveLength(3);
-    const [ask, trash, worker] = cards();
+    const [ask, push, worker] = cards();
     expect(ask.textContent).toContain('gh pr list');
     expect(ask.textContent).toContain('needs your GitHub sign-in');
-    expect(trash.textContent).toContain('Trash T-12');
+    expect(push.textContent).toContain('git push');
     expect(worker.textContent).toContain('Delete old.test.tsx');
 
     // The row of the conversation carries a dot while anything waits.
@@ -375,8 +373,8 @@ describe('Chat', () => {
     // Answering a card answers the main process, and the queue follows what it holds.
     fireEvent.click(within(ask).getByRole('button', { name: 'Run' }));
     expect(window.api.homeChat.decide).toHaveBeenCalledWith('d-ask', { kind: 'run', privately: false });
-    fireEvent.click(within(trash).getByRole('button', { name: 'Cancel' }));
-    expect(window.api.homeChat.decide).toHaveBeenCalledWith('d-trash', { kind: 'decline' });
+    fireEvent.click(within(push).getByRole('button', { name: 'Decline' }));
+    expect(window.api.homeChat.decide).toHaveBeenCalledWith('d-push', { kind: 'decline' });
     act(() => pushDecisions([]));
     expect(useWaitingStore.getState().items).toEqual([]);
     fireEvent.click(within(worker).getByRole('button', { name: 'Deny' }));

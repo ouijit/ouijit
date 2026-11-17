@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import { existsSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { getOuijitDir, getCliPath } from '../../paths';
 import { getLogger } from '../../logger';
@@ -91,6 +92,8 @@ export const nonoProvider: SandboxProvider = {
       cacheDir,
       nonoBinPath: getVendoredNonoPath() ?? undefined,
       profile: profile.path,
+      // nono refuses a grant for a path that does not exist.
+      readPaths: ctx.readPaths?.filter((dir) => existsSync(dir)),
     });
   },
 };

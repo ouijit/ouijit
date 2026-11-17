@@ -91,8 +91,11 @@ try {
     'with chat off, no chat session runs',
   );
 
-  // Turned on, Chat comes up in its sandbox and answers a real turn.
-  await app.page.evaluate(() => window.api.globalSettings.set('chat:enabled', '1'));
+  // Turned on and set to run sandboxed, Chat comes up there and answers a real turn.
+  await app.page.evaluate(async () => {
+    await window.api.globalSettings.set('chat:enabled', '1');
+    await window.api.globalSettings.set('homeChat:sandbox', 'nono');
+  });
   await app.close();
   app = await launch(binary, userData);
   await until(

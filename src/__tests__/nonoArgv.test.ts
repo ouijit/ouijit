@@ -75,6 +75,13 @@ describe('buildNonoLaunch', () => {
     expect(writeTargets).not.toContain('/Users/dev/code/proj/.git/hooks');
   });
 
+  test('grants extra folders, such as every project for Chat, to read and never to write', () => {
+    const { args } = build({ readPaths: ['/Users/dev/code/proj', '/Users/dev/Ouijit/worktrees'] });
+    const granted = (flag: string) => args.flatMap((a, i) => (a === flag ? [args[i + 1]] : []));
+    expect(granted('--read')).toEqual(expect.arrayContaining(['/Users/dev/code/proj', '/Users/dev/Ouijit/worktrees']));
+    expect([...granted('--allow'), ...granted('--write')]).not.toContain('/Users/dev/code/proj');
+  });
+
   test('always opens the hook-server port', () => {
     const { args } = build();
     const openPortIdxs = args.reduce<number[]>((acc, a, i) => (a === '--open-port' ? [...acc, i] : acc), []);

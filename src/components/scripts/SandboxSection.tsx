@@ -54,22 +54,36 @@ export function SandboxSection({ projectPath }: { projectPath: string }) {
       </div>
       <SandboxProfileRow projectPath={projectPath} />
       <CustomLauncherRow projectPath={projectPath} />
-      <div className="flex items-center gap-4 px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-sm text-text-primary">Ouijit CLI access</div>
-          <div className={`mt-0.5 text-xs ${cliAccess === 'all' ? 'text-error' : 'text-text-tertiary'}`}>
-            {CLI_ACCESS[cliAccess].detail}
-          </div>
+      <CliAccessRow value={cliAccess} onChange={(level) => void setSandboxCliAccess(projectPath, level)} />
+    </div>
+  );
+}
+
+export function CliAccessRow({
+  value,
+  onChange,
+  levels = ['read', 'task', 'all'],
+}: {
+  value: SandboxCliAccess;
+  onChange: (level: SandboxCliAccess) => void;
+  levels?: SandboxCliAccess[];
+}) {
+  return (
+    <div className="flex items-center gap-4 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="text-sm text-text-primary">Ouijit CLI access</div>
+        <div className={`mt-0.5 text-xs ${value === 'all' ? 'text-error' : 'text-text-tertiary'}`}>
+          {CLI_ACCESS[value].detail}
         </div>
-        <QuietPicker<SandboxCliAccess>
-          label="Ouijit CLI access"
-          value={cliAccess}
-          options={['read', 'task', 'all']}
-          optionLabel={(level) => CLI_ACCESS[level].label}
-          optionDetail={(level) => CLI_ACCESS[level].option}
-          onChange={(level) => void setSandboxCliAccess(projectPath, level)}
-        />
       </div>
+      <QuietPicker<SandboxCliAccess>
+        label="Ouijit CLI access"
+        value={value}
+        options={levels}
+        optionLabel={(level) => CLI_ACCESS[level].label}
+        optionDetail={(level) => CLI_ACCESS[level].option}
+        onChange={onChange}
+      />
     </div>
   );
 }

@@ -87,19 +87,15 @@ export interface HomeChatSummary {
 }
 
 /**
- * Something Chat set off that waits for the user: a done or a trash, which
- * can't be undone, or a command it asks to run outside its sandbox. Held in
- * the main process, so it survives a reload and any window can answer it.
+ * A command Chat asks the user to run outside its sandbox. Held in the main
+ * process, so it survives a reload and any window can answer it.
  */
 export type ChatDecision = {
   id: string;
   /** The conversation that asked. */
   from: string;
   at: number;
-} & (
-  | { kind: 'confirm'; projectPath: string; taskNumber: number; action: 'done' | 'trash' }
-  | { kind: 'ask'; ask: AskRun; message?: string }
-);
+} & { kind: 'ask'; ask: AskRun; message?: string };
 
 /** A task, as news about it is routed: to the conversation that started it. */
 export interface TaskRef {
@@ -138,7 +134,7 @@ export interface HomeChatSettings {
 
 export const DEFAULT_HOME_CHAT_SETTINGS: HomeChatSettings = {
   agent: 'claude',
-  sandbox: 'nono',
+  sandbox: 'none',
   instructions: '',
   wake: { turnEnded: true, asked: true, taskMoved: true, hookFailed: true },
 };

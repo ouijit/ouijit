@@ -35,8 +35,6 @@ export function runWaiting(item: Waiting, privately = false): void {
     return;
   }
   const run = item.run;
-  // Taken off first, so removing it can't count as a cancel.
-  if (item.kind === 'confirm') item.cancel = () => {};
   useWaitingStore.getState().remove(item.id);
   run();
 }
@@ -71,12 +69,9 @@ function useOpenShortcut(): void {
   }, []);
 }
 
-/** What a held move does, as a button and a title say it. */
-export const CONFIRM_VERB = { done: 'Move to done', trash: 'Trash' } as const;
-
 function useTaskName(item: Waiting): string | null {
   return useAppStore((s) =>
-    item.kind === 'move' || item.kind === 'confirm'
+    item.kind === 'move'
       ? (s.taskCacheByProject[item.projectPath]?.find((t) => t.taskNumber === item.taskNumber)?.name ??
         `T-${item.taskNumber}`)
       : null,
@@ -124,13 +119,6 @@ function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolea
           </span>
           <span className="font-mono text-[11.5px] text-text-tertiary truncate">{item.ask.command}</span>
         </>
-      ) : item.kind === 'confirm' ? (
-        <>
-          <span className="text-[13px] text-text-primary truncate">
-            {CONFIRM_VERB[item.action]} {taskName}
-          </span>
-          <span className="text-[11.5px] text-text-tertiary truncate">{`From ${from}`}</span>
-        </>
       ) : (
         <>
           <span className="text-[13px] text-text-primary truncate">
@@ -150,21 +138,6 @@ function Detail({ item }: { item: Waiting }) {
   const from = useAsker(item.from).name;
   const fromChat = useIsHomeChat(item.from);
   const sandboxed = isActiveSandbox(display?.sandboxProvider) || fromChat;
-
-  if (item.kind === 'confirm') {
-    return (
-      <>
-        <h2 data-testid="dialog-title" className="text-[17px] font-semibold text-text-primary">
-          {CONFIRM_VERB[item.action]} {taskName}
-        </h2>
-        <p className="mt-2 text-sm leading-5 text-text-primary">
-          {item.action === 'done'
-            ? `${from} wants to move ${taskName} to done, which runs its done hook.`
-            : `${from} wants to trash ${taskName}. Its folder goes to the system trash.`}
-        </p>
-      </>
-    );
-  }
 
   if (item.kind === 'move') {
     return (
@@ -260,8 +233,7 @@ function WaitingDialog() {
   const current = items.find((i) => i.id === selected) ?? items[0];
   if (!current) return null;
   const several = items.length > 1;
-  // Nothing that can't be undone goes in a batch.
-  const runnable = items.filter((item) => item.kind !== 'confirm');
+  const runnable = items;
 
   const footer = (
     <div className="flex items-center gap-2 mt-4 shrink-0">
@@ -276,7 +248,7 @@ function WaitingDialog() {
       )}
       <span className="flex-1" />
       <button data-testid="waiting-decline" className="btn-secondary" onClick={() => remove(current.id)}>
-        {current.kind === 'ask' ? 'Decline' : current.kind === 'confirm' ? 'Cancel' : 'Skip'}
+        {current.kind === 'ask' ? 'Decline' : 'Skip'}
       </button>
       {current.kind === 'ask' && (
         <button data-testid="waiting-run-private" className="btn-secondary" onClick={() => runWaiting(current, true)}>
@@ -284,7 +256,7 @@ function WaitingDialog() {
         </button>
       )}
       <button data-testid="waiting-run" className="btn-primary" onClick={() => runWaiting(current)}>
-        {current.kind === 'confirm' ? CONFIRM_VERB[current.action] : 'Run'}
+        Run
       </button>
     </div>
   );

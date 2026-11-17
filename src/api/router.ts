@@ -83,9 +83,8 @@ import {
 import { chatHost, ChatSessionNotFound } from '../chat/host';
 import { transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
 import { callerIsHomeChat, ownTask } from '../chat/homeChat';
-import { follow, following, sessionSubject, taskSubject, unfollow, wakeForAsk } from '../chat/wake';
-import { holdAsk, holdConfirm } from '../chat/decisions';
-import { chatRefusal, chatSandbox } from './chatPolicy';
+import { follow, following, quietMove, sessionSubject, taskSubject, unfollow, wakeForAsk } from '../chat/wake';
+import { holdAsk } from '../chat/decisions';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext } from '../apiAuth';
@@ -238,51 +237,26 @@ const MAX_ASK_MESSAGE = 200;
 function cliCaller(auth: AuthContext): CliCaller {
   return {
     fromPtyId: callerTerminal(auth.ptyId),
-    ...((auth.scope === 'sandbox' || callerIsHomeChat(auth.ptyId)) && { fromSandbox: true }),
+    ...(auth.scope === 'sandbox' && { fromSandbox: true }),
   };
 }
 
 /**
- * Done and trash can't be undone, so from Chat they wait for the user, who
- * sees them in Chat. Confirmed, each goes as it would from the CLI: the done
- * still counts as Chat's, so its hook waits for the user where it runs on the host.
+ * Chat follows the tasks it starts, and is not told of a move it made itself.
  */
-function holdForUser(
-  r: Pick<ParsedRequest, 'auth' | 'window' | 'body'>,
+async function quietForChat<T>(
+  r: Pick<ParsedRequest, 'auth'>,
   project: string,
   taskNumber: number,
-  action: 'done' | 'trash',
-): ReturnType<typeof holdConfirm> | null {
-  if (!callerIsHomeChat(r.auth.ptyId)) return null;
-  const from = r.auth.ptyId;
-  const control = action === 'done' ? parseHookControl(r.body) : {};
-  return holdConfirm({ from, projectPath: project, taskNumber, action }, async () => {
-    if (action === 'trash') {
-      const result = await trashTaskWithWorktree(project, taskNumber);
-      if (result.success) notifyChanged(r.window, project, `DELETE /api/tasks/${taskNumber}`);
-      return result;
-    }
-    const before = await getTaskByNumber(project, taskNumber);
-    const result = await setTaskStatusWithHooks(project, taskNumber, 'done');
-    const task = result.success && before?.status !== 'done' ? await getTaskWithWorkspace(project, taskNumber) : null;
-    notifyChanged(r.window, project, `PATCH /api/tasks/${taskNumber}/status`);
-    if (task && !r.window.isDestroyed()) {
-      typedPush(r.window, 'cli:task-completed', {
-        project,
-        taskNumber,
-        task,
-        ...control,
-        fromPtyId: from,
-        fromSandbox: true,
-      });
-    }
-    return result;
-  });
-}
-
-function notifyChanged(window: BrowserWindow, project: string, action: string): void {
-  if (window.isDestroyed()) return;
-  typedPush(window, 'cli-change', { project, action, resource: 'tasks', ts: Date.now() });
+  act: () => Promise<T>,
+): Promise<T> {
+  if (!callerIsHomeChat(r.auth.ptyId)) return act();
+  const unquiet = quietMove(project, taskNumber);
+  try {
+    return await act();
+  } finally {
+    unquiet();
+  }
 }
 
 /** A path's real location, through any symlink, for as much of it as exists. */
@@ -676,11 +650,9 @@ const routes: Route[] = [
       // the same hook-control flags as task-start. Validate them up front so a
       // bad hookMode fails before any status is written.
       if (status === 'in_progress' || status === 'in_review' || status === 'done') parseHookControl(r.body);
-      if (status === 'done') {
-        const held = holdForUser(r, project, num, 'done');
-        if (held) return held;
-      }
-      return setTaskStatusWithHooks(project, num, status as 'todo' | 'in_progress' | 'in_review' | 'done');
+      return quietForChat(r, project, num, () =>
+        setTaskStatusWithHooks(project, num, status as 'todo' | 'in_progress' | 'in_review' | 'done'),
+      );
     },
     true,
     OWN_TASK,
@@ -730,7 +702,7 @@ const routes: Route[] = [
     (r) => {
       const project = requireProject(r.query);
       const num = requireInt(r.segments[1], 'Task number');
-      return holdForUser(r, project, num, 'trash') ?? trashTaskWithWorktree(project, num);
+      return quietForChat(r, project, num, () => trashTaskWithWorktree(project, num));
     },
     true,
   ),
@@ -1489,7 +1461,7 @@ interface SandboxCaller extends AuthContext {
  * "Everything" it is treated as a host caller throughout, handlers included.
  */
 async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
-  if (auth.scope === 'host' || callerIsHomeChat(auth.ptyId)) return { ...auth, scope: 'host', access: 'all' };
+  if (auth.scope === 'host') return { ...auth, scope: 'host', access: 'all' };
   const context = getSessionSpawnContext(auth.ptyId);
   const access = context ? await sandboxCliAccessFor(context.projectPath) : 'read';
   return access === 'all' ? { ...auth, scope: 'host', access } : { ...auth, access };
@@ -1609,19 +1581,6 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     json(res, 403, { error: 'Forbidden' });
     return;
   }
-  if (callerIsHomeChat(caller.ptyId)) {
-    const refusal = chatRefusal(method, segments, body);
-    if (refusal) {
-      json(res, 403, { error: refusal });
-      return;
-    }
-    const project = url.searchParams.get('project') ?? '';
-    if (isTaskStartRoute(method, segments)) body.hookSandbox = await chatSandbox(project, body.hookSandbox, 'start');
-    if (method === 'POST' && segments.join('/') === 'terminals') {
-      body.sandbox = await chatSandbox(project, body.sandbox, body.resume === true ? 'continue' : null);
-    }
-  }
-
   // A status PATCH to in_progress/in_review/done fires a renderer-side hook,
   // which needs the *old* status to disambiguate start vs continue and to skip
   // a no-op (status unchanged — e.g. re-running set-status on a task already in

@@ -208,6 +208,8 @@ export function installHomeChatWakes(): void {
       if (change.to === 'done') unfollow(taskSubject(change));
       return;
     }
+    // Who hears is settled as the move happens: a task Chat starts is followed only once it has moved.
+    if (!getChatRepo().follower(taskSubject(change))) return;
     const to = COLUMNS[change.to] ?? change.to;
     void Promise.all([
       describeTask(change.projectPath, change.taskNumber),

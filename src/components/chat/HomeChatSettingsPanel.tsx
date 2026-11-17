@@ -16,9 +16,17 @@ import {
   type WakeEvent,
 } from '../../chat/preferences';
 import { CHAT_AGENT_IDS, type ChatAgentId } from '../../chat/model';
-import { SANDBOX_LABELS, SANDBOX_PROVIDER_IDS, type SandboxProviderId } from '../../sandbox/types';
+import {
+  SANDBOX_LABELS,
+  SANDBOX_PROVIDER_IDS,
+  isSandboxCliAccess,
+  sandboxCliAccessSettingKey,
+  type SandboxCliAccess,
+  type SandboxProviderId,
+} from '../../sandbox/types';
 import type { DriverProbe } from '../../chat/driver';
 import { SandboxProfileRow } from '../scripts/SandboxProfileRow';
+import { CliAccessRow } from '../scripts/SandboxSection';
 
 async function loadHomeChatSettings(): Promise<HomeChatSettings> {
   const values = new Map<string, string | undefined>();
@@ -63,8 +71,13 @@ export function HomeChatSettingsPanel() {
   useEscape(useCallback(() => useAppStore.getState().leaveSettings(), []));
 
   const [chatDir, setChatDir] = useState<string | null>(null);
+  const [cliAccess, setCliAccess] = useState<SandboxCliAccess>('read');
   useEffect(() => {
-    void window.api.homeChat.dir().then(setChatDir);
+    void window.api.homeChat.dir().then(async (dir) => {
+      setChatDir(dir);
+      const stored = await window.api.globalSettings.get(sandboxCliAccessSettingKey(dir));
+      if (isSandboxCliAccess(stored)) setCliAccess(stored);
+    });
   }, []);
 
   const restart = async () => {
@@ -159,8 +172,8 @@ export function HomeChatSettingsPanel() {
               label="Run in"
               description={
                 settings.sandbox === 'none'
-                  ? 'On your computer, asking before it acts, as its mode is set.'
-                  : 'Everything Ouijit can do, with no approvals. The sandbox decides what else it may touch.'
+                  ? 'On your computer.'
+                  : 'Reads every project, and changes only what its profile allows.'
               }
             >
               <SegmentedGroup>
@@ -179,6 +192,16 @@ export function HomeChatSettingsPanel() {
             </Row>
             {settings.sandbox === 'nono' && chatDir && (
               <SandboxProfileRow projectPath={chatDir} onChange={() => void restart()} />
+            )}
+            {settings.sandbox !== 'none' && chatDir && (
+              <CliAccessRow
+                value={cliAccess}
+                levels={['read', 'all']}
+                onChange={(level) => {
+                  setCliAccess(level);
+                  void window.api.globalSettings.set(sandboxCliAccessSettingKey(chatDir), level).then(() => restart());
+                }}
+              />
             )}
           </section>
 

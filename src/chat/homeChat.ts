@@ -19,13 +19,10 @@ import {
   type HomeChatState,
   type HomeChatSummary,
 } from './preferences';
-import type { ChatAgentId, ChatSessionInfo, ChatSnapshot } from './model';
+import type { ChatSessionInfo, ChatSnapshot } from './model';
 
 const execFileAsync = promisify(execFile);
 const chatLog = getLogger().scope('chat:home');
-
-/** In a sandbox nothing asks first: the sandbox is the boundary. Agents without such a mode keep their own approvals. */
-const UNATTENDED_MODE: Partial<Record<ChatAgentId, string>> = { claude: 'bypassPermissions', codex: 'never' };
 
 /** One of Chat's conversations, by the role its session was created with. */
 export function isHomeChat(id: string): boolean {
@@ -144,7 +141,6 @@ async function startConversation(id: string, eager: boolean | undefined): Promis
     label: UNTITLED_HOME_CHAT,
     instructions: [HOME_CHAT_INSTRUCTIONS, settings.instructions.trim()].filter(Boolean).join('\n\n'),
     role: 'home',
-    ...(settings.sandbox !== 'none' && { mode: UNATTENDED_MODE[settings.agent] }),
     reconfigure: true,
     eager,
   });

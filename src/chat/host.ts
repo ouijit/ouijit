@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { getLogger } from '../logger';
-import { getChatRepo, getGlobalSetting } from '../db';
+import { getAllProjects, getChatRepo, getGlobalSetting } from '../db';
+import { getWorktreesRoot } from '../worktree';
 import { CHAT_SETTING_KEYS, parseChatSettings } from './preferences';
 import type { ChatSessionRow } from '../db/repos/chatRepo';
 import {
@@ -236,6 +237,12 @@ export interface ChatHostOptions {
   onClear?: (id: string) => Promise<boolean>;
 }
 
+/** Chat reads every project and every task's worktree to answer about them; it changes them only through tasks. */
+async function chatReadPaths(): Promise<string[]> {
+  const projects = await getAllProjects();
+  return [...projects.map((project) => project.path), getWorktreesRoot()];
+}
+
 export class ChatHost {
   private readonly sessions = new Map<string, HostedSession>();
   private readonly listeners = new Set<ChatListener>();
@@ -422,9 +429,7 @@ export class ChatHost {
       const sandbox = isActiveSandbox(session.row.sandbox_provider) ? session.row.sandbox_provider : undefined;
       const chosenMode = session.launchMode ?? (resume ? (session.info.pendingMode ?? session.info.mode) : undefined);
       const token = issueToken(id, sandbox ? 'sandbox' : 'host');
-      // Chat reaches the whole API, under the limits the router keeps for it.
-      const cliAccess = session.info.role === 'home' ? 'all' : undefined;
-      const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path, cliAccess);
+      const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path);
       session.referenceEnv = referenceEnv;
       const reference = readCliReference(referenceEnv.OUIJIT_SANDBOX_REFERENCE_FILE ?? getCliReferencePath());
       session.driver = await driver.start({
@@ -496,6 +501,7 @@ export class ChatHost {
         cwd: spawn.cwd ?? session.row.cwd,
         taskId: session.row.task_id ?? undefined,
         worktreePath: session.row.worktree_path ?? undefined,
+        ...(session.info.role === 'home' && { readPaths: await chatReadPaths() }),
       },
     );
     chatLog.info('spawning agent', { id: session.info.id, file: launch.file, sandbox: session.row.sandbox_provider });

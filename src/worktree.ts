@@ -138,11 +138,13 @@ export interface WorktreeRemoveResult {
   error?: string;
 }
 
-/**
- * Get the worktree directory for a project
- */
+/** Where every project's task worktrees live. */
+export function getWorktreesRoot(): string {
+  return path.join(os.homedir(), 'Ouijit', 'worktrees');
+}
+
 export function getWorktreeBaseDir(projectName: string): string {
-  return path.join(os.homedir(), 'Ouijit', 'worktrees', projectName);
+  return path.join(getWorktreesRoot(), projectName);
 }
 
 /**

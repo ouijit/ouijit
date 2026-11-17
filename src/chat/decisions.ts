@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { getLogger } from '../logger';
 import { hostEnv } from '../sessionEnv';
 import { NO_PAGER, exitedAnswer } from '../askOutput';
-import { quietMove, taskName, tellConversation } from './wake';
+import { tellConversation } from './wake';
 import type { WakeNote } from './model';
 import type { ChatDecision, ChatDecisionChoice } from './preferences';
 import type { AskAnswer, AskRun } from '../types';
@@ -57,42 +57,6 @@ function tell(from: string, text: string, note: WakeNote): void {
   tellConversation(from, text, note).catch((error: unknown) =>
     decisionLog.warn('outcome not delivered', { from, error: String(error) }),
   );
-}
-
-/**
- * A done or a trash from Chat, held for the user. `apply` does what the user
- * would have done had they asked for it themselves.
- */
-export function holdConfirm(
-  confirm: { from: string; projectPath: string; taskNumber: number; action: 'done' | 'trash' },
-  apply: () => Promise<{ success: boolean; error?: string }>,
-): { success: true; waiting: true; message: string } {
-  const what =
-    confirm.action === 'done' ? `moving T-${confirm.taskNumber} to done` : `trashing T-${confirm.taskNumber}`;
-  hold({ kind: 'confirm', ...confirm }, async (choice, quiet) => {
-    const name = await taskName(confirm.projectPath, confirm.taskNumber);
-    const shown = confirm.action === 'done' ? `moving ${name} to done` : `trashing ${name}`;
-    if (choice.kind === 'decline') {
-      if (!quiet) tell(confirm.from, `the user cancelled ${what}.`, youDid(`You cancelled ${shown}`));
-      return;
-    }
-    const unquiet = quietMove(confirm.projectPath, confirm.taskNumber);
-    const result = await apply()
-      .catch((error: unknown) => ({ success: false, error: String(error) }))
-      .finally(unquiet);
-    if (result.success) {
-      const done = confirm.action === 'done' ? `You moved ${name} to done` : `You trashed ${name}`;
-      tell(confirm.from, `the user confirmed ${what}.`, youDid(done));
-    } else {
-      const failed = `${what} failed: ${result.error ?? 'unknown error'}.`;
-      tell(confirm.from, failed, { kind: 'event', text: `${shown[0].toUpperCase()}${shown.slice(1)} failed` });
-    }
-  });
-  return {
-    success: true,
-    waiting: true,
-    message: `Waiting for the user to confirm ${what}; you will be told how they decide.`,
-  };
 }
 
 /**

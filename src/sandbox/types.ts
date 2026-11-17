@@ -94,6 +94,8 @@ export interface SandboxSpawnContext {
   worktreePath?: string;
   /** Host hook-server port that must stay reachable from inside the sandbox. */
   apiPort: number;
+  /** Folders it may also read, and not write, such as every project for Chat. */
+  readPaths?: string[];
 }
 
 /** A concrete process launch (post shell-integration) that a wrapper transforms. */

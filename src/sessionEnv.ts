@@ -53,10 +53,9 @@ export function ouijitSessionEnv(
 export async function sandboxReferenceEnv(
   provider: SandboxBackendId | undefined,
   projectPath: string,
-  access?: SandboxCliAccess,
 ): Promise<Record<string, string>> {
   if (!provider) return {};
-  access ??= await sandboxCliAccessFor(projectPath).catch((): 'read' => 'read');
+  const access = await sandboxCliAccessFor(projectPath).catch((): SandboxCliAccess => 'read');
   return { OUIJIT_SANDBOX_REFERENCE_FILE: getCliReferencePath({ provider, access }) };
 }
 
@@ -66,6 +65,7 @@ export interface SandboxTarget {
   cwd: string;
   taskId?: number;
   worktreePath?: string;
+  readPaths?: string[];
 }
 
 export class SandboxLaunchError extends Error {
@@ -93,6 +93,7 @@ export async function sandboxLaunch(
     taskId: target.taskId,
     worktreePath: target.worktreePath,
     apiPort: getApiPort(),
+    readPaths: target.readPaths,
   };
   try {
     const prepared = await provider.prepare({ ...context, cwd: target.cwd });

@@ -25,22 +25,11 @@ function show(decisions: ChatDecision[]): void {
     if (shown.has(decision.id)) continue;
     const decline = () => decide(decision.id, { kind: 'decline' });
     const run = (privately = false) => decide(decision.id, { kind: 'run', privately });
-    const waitingId =
-      decision.kind === 'ask'
-        ? store.add({
-            kind: 'ask',
-            from: decision.from,
-            ask: { ...decision.ask, ...(decision.message && { message: decision.message }), run, decline },
-          })
-        : store.add({
-            kind: 'confirm',
-            from: decision.from,
-            projectPath: decision.projectPath,
-            taskNumber: decision.taskNumber,
-            action: decision.action,
-            run: () => run(),
-            cancel: decline,
-          });
+    const waitingId = store.add({
+      kind: 'ask',
+      from: decision.from,
+      ask: { ...decision.ask, ...(decision.message && { message: decision.message }), run, decline },
+    });
     shown.set(decision.id, waitingId);
     presentWaiting(waitingId, decision.from);
   }

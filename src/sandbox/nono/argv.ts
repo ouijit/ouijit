@@ -4,6 +4,8 @@ import { GIT_WRITABLE_OVERLAY_DIRS } from '../types';
 
 /** Everything the argv builder needs, resolved at spawn time. */
 export interface NonoArgvContext {
+  /** Folders granted read-only, beyond the task's own. */
+  readPaths?: string[];
   /** The task worktree — granted read+write. */
   worktreePath: string;
   /** Absolute main-repo `.git` common dir (a linked worktree's real gitdir). */
@@ -71,6 +73,8 @@ export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: No
   for (const dir of GIT_WRITABLE_OVERLAY_DIRS) {
     args.push('--write', path.join(git, dir));
   }
+
+  for (const dir of ctx.readPaths ?? []) args.push('--read', dir);
 
   // Ouijit wrapper scripts (first on PATH) and the bundled CLI they exec.
   args.push('--read', ctx.wrapperDir);

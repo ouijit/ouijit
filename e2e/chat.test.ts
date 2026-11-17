@@ -225,30 +225,30 @@ test('decision: a card waits for the words before it, and Chat hears how you dec
 }) => {
   test.setTimeout(TIMEOUT);
   const id = await turnChatOn(appPage, testRepo.repoPath);
-  await appPage.evaluate((repo) => window.api.task.create(repo, 'QA trash me'), testRepo.repoPath);
   await send(
     appPage,
-    'Write three paragraphs on why only a person should trash a task, as one message. Do not run any commands. Then end your turn.',
+    'Write three paragraphs on why some commands should only run with the user watching, as one message. Do not run any commands. Then end your turn.',
   );
 
-  // While its words are still arriving, Chat asks to trash the task.
+  // While its words are still arriving, Chat asks to run a command on your computer.
   await expect
     .poll(() => appPage.locator('.chat-turns .chat-said-in').count(), { timeout: TIMEOUT })
     .toBeGreaterThan(0);
-  expect(await asChat(electronApp, id, testRepo.repoPath, ['task', 'trash', '1'])).toMatchObject({ waiting: true });
+  expect(await asChat(electronApp, id, testRepo.repoPath, ['ask', 'run', '--', 'echo', 'hi'])).toMatchObject({
+    status: 'pending',
+  });
   const { frames } = await sampleFrames(appPage, id);
   const revealed = frames.findIndex((f) => f.said.length > 0 && f.said[0] === frames.at(-1)!.said[0]);
   expect(frames.slice(0, revealed).every((f) => f.cards === 0)).toBe(true);
   const card = appPage.locator('[data-chat-decision]');
   await expect(card).toHaveCount(1);
-  await expect(card).toContainText('QA trash me');
+  await expect(card).toContainText('echo hi');
 
-  // Cancelled, the task stays, and Chat is told, in a line that says what you did.
-  await card.getByRole('button', { name: 'Cancel' }).click();
+  // Declined, Chat is told, in a line that says what you did.
+  await card.getByRole('button', { name: 'Decline' }).click();
   await expect(card).toHaveCount(0);
-  await expect(appPage.getByText('You cancelled trashing QA trash me')).toBeVisible({ timeout: TIMEOUT });
+  await expect(appPage.getByText('You declined to run `echo hi`')).toBeVisible({ timeout: TIMEOUT });
   await chatIdle(appPage, id);
-  expect(await appPage.evaluate((repo) => window.api.task.getByNumber(repo, 1), testRepo.repoPath)).toBeTruthy();
 });
 
 test('switching: going to another conversation and back shows the first one whole, without streaming it again', async ({
