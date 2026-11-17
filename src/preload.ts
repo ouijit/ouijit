@@ -159,6 +159,7 @@ contextBridge.exposeInMainWorld('api', {
     ) => typedInvoke('chat:prompt', id, input, delivery),
     answer: (id: string, requestId: string, answer: ChatAnswer) => typedInvoke('chat:answer', id, requestId, answer),
     interrupt: (id: string) => typedInvoke('chat:interrupt', id),
+    attachmentPreview: (path: string) => typedInvoke('chat:attachment-preview', path),
     setModel: (id: string, model: string) => typedInvoke('chat:set-model', id, model),
     setEffort: (id: string, effort: string) => typedInvoke('chat:set-effort', id, effort),
     setMode: (id: string, mode: string) => typedInvoke('chat:set-mode', id, mode),

@@ -6,10 +6,12 @@ const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 
 export async function readMarkdownImage(markdownPath: string, src: string): Promise<string | null> {
   const imagePath = decodeSrc(src.replace(/[?#].*$/, ''));
-  const mime = imageMime(imagePath);
-  if (!mime) return null;
+  return readImageDataUrl(path.resolve(path.dirname(markdownPath), imagePath));
+}
 
-  const file = path.resolve(path.dirname(markdownPath), imagePath);
+export async function readImageDataUrl(file: string): Promise<string | null> {
+  const mime = imageMime(file);
+  if (!mime) return null;
   try {
     const stat = await fs.promises.stat(file);
     if (!stat.isFile() || stat.size > MAX_IMAGE_BYTES) return null;

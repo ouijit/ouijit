@@ -279,6 +279,27 @@ describe('chat view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
     expect(window.api.chat.interrupt).toHaveBeenCalledWith(ID);
 
+    // An attached image shows itself on hover or focus; another file is just its name.
+    vi.mocked(window.api.getPathForFile).mockImplementation((file) => `/tmp/${file.name}`);
+    vi.mocked(window.api.chat.attachmentPreview).mockResolvedValue('data:image/png;base64,AAAA');
+    fireEvent.drop(composer, {
+      dataTransfer: { files: [new File([''], 'shot.png'), new File([''], 'notes.txt')] },
+    });
+    const shot = screen.getByText('shot.png');
+    fireEvent.mouseEnter(shot);
+    expect((await screen.findByRole('img', { name: 'shot.png' })).getAttribute('src')).toBe(
+      'data:image/png;base64,AAAA',
+    );
+    fireEvent.mouseLeave(shot);
+    expect(screen.queryByRole('img', { name: 'shot.png' })).toBeNull();
+    fireEvent.focus(shot);
+    expect(screen.getByRole('img', { name: 'shot.png' })).toBeTruthy();
+    fireEvent.blur(shot);
+    fireEvent.mouseEnter(screen.getByText('notes.txt'));
+    expect(window.api.chat.attachmentPreview).toHaveBeenCalledTimes(1);
+    for (const name of ['shot.png', 'notes.txt'])
+      fireEvent.click(screen.getByRole('button', { name: `Remove ${name}` }));
+
     // Subagents launched together are one line of counts, each one a line of
     // its own inside: its task, its latest step while it runs, and a count.
     expect(screen.getByText('4 subagents')).toBeTruthy();

@@ -1,7 +1,9 @@
+import * as path from 'node:path';
 import { BrowserWindow } from 'electron';
 import { typedHandle, typedPush } from '../helpers';
 import { chatHost } from '../../chat/host';
 import { getDriver } from '../../chat/drivers';
+import { readImageDataUrl } from '../../markdownImages';
 import type { ChatAnswer } from '../../chat/model';
 import {
   deleteHomeChat,
@@ -63,6 +65,7 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
     return answered;
   });
   typedHandle('chat:interrupt', (id) => chatHost.interrupt(id));
+  typedHandle('chat:attachment-preview', (file) => (path.isAbsolute(file) ? readImageDataUrl(file) : null));
   typedHandle('chat:set-model', (id, model) => chatHost.setModel(id, model));
   typedHandle('chat:set-effort', (id, effort) => chatHost.setEffort(id, effort));
   typedHandle('chat:set-mode', (id, mode) => chatHost.setMode(id, mode));

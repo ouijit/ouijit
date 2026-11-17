@@ -109,6 +109,7 @@ const mockApi = {
     prompt: vi.fn(),
     answer: vi.fn().mockResolvedValue(true),
     interrupt: vi.fn().mockResolvedValue(undefined),
+    attachmentPreview: vi.fn().mockResolvedValue(null),
     setModel: vi.fn().mockResolvedValue(undefined),
     setEffort: vi.fn().mockResolvedValue(undefined),
     setMode: vi.fn().mockResolvedValue(undefined),

@@ -252,6 +252,47 @@ function SettingsPicker({ settings }: { settings: Setting[] }) {
   );
 }
 
+function AttachmentChip({ attachment, onRemove }: { attachment: ChatAttachment; onRemove: () => void }) {
+  const image = attachment.mimeType.startsWith('image/');
+  const [preview, setPreview] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const show = () => {
+    if (!image) return;
+    setOpen(true);
+    if (preview === null) void window.api.chat.attachmentPreview(attachment.path).then(setPreview, report);
+  };
+  return (
+    <span
+      tabIndex={image ? 0 : undefined}
+      onMouseEnter={show}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={show}
+      onBlur={() => setOpen(false)}
+      className="relative inline-flex items-center gap-1 rounded-[6px] bg-ink/[0.06] px-2 py-0.5 text-[12px] text-text-secondary"
+    >
+      <Icon name="paperclip" className="w-3 h-3" />
+      {attachment.name}
+      <button
+        type="button"
+        aria-label={`Remove ${attachment.name}`}
+        className="hover:text-text-primary"
+        onClick={onRemove}
+      >
+        <Icon name="x" className="w-3 h-3" />
+      </button>
+      {open && preview && (
+        <span className="absolute left-0 bottom-full mb-2 z-10 glass-bevel rounded-[10px] border border-bezel bg-terminal-surface p-1.5 pointer-events-none">
+          <img
+            src={preview}
+            alt={attachment.name}
+            className="block max-w-[240px] max-h-[180px] rounded-[6px] object-contain"
+          />
+        </span>
+      )}
+    </span>
+  );
+}
+
 function usageLabel(info: ChatSessionInfo): string | null {
   const usage = info.usage;
   if (!usage?.contextTokens) return null;
@@ -483,21 +524,11 @@ export function ChatComposer({
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
           {attachments.map((attachment, index) => (
-            <span
+            <AttachmentChip
               key={`${attachment.path}-${index}`}
-              className="inline-flex items-center gap-1 rounded-[6px] bg-ink/[0.06] px-2 py-0.5 text-[12px] text-text-secondary"
-            >
-              <Icon name="paperclip" className="w-3 h-3" />
-              {attachment.name}
-              <button
-                type="button"
-                aria-label={`Remove ${attachment.name}`}
-                className="hover:text-text-primary"
-                onClick={() => setAttachments((current) => current.filter((_, i) => i !== index))}
-              >
-                <Icon name="x" className="w-3 h-3" />
-              </button>
-            </span>
+              attachment={attachment}
+              onRemove={() => setAttachments((current) => current.filter((_, i) => i !== index))}
+            />
           ))}
         </div>
       )}

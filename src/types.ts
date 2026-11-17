@@ -431,6 +431,8 @@ export interface ChatAPI {
   ): Promise<string>;
   answer(id: string, requestId: string, answer: ChatAnswer): Promise<boolean>;
   interrupt(id: string): Promise<void>;
+  /** An image attachment as a data URL, or null for anything else. */
+  attachmentPreview(path: string): Promise<string | null>;
   setModel(id: string, model: string): Promise<void>;
   setEffort(id: string, effort: string): Promise<void>;
   setMode(id: string, mode: string): Promise<void>;
