@@ -247,7 +247,11 @@ export function useIPCListeners() {
     cleanups.push(
       window.api.onCliChange((payload) => {
         ipcLog.info('CLI change detected, refreshing', { action: payload.action, project: payload.project });
-        refreshProjectData(payload.project, payload.resource);
+        if (payload.resource === 'projects') {
+          void window.api.refreshProjects().then((projects) => useAppStore.getState().setProjects(projects));
+        } else {
+          refreshProjectData(payload.project, payload.resource);
+        }
         if (payload.message) useProjectStore.getState().addToast(payload.message, 'info');
       }),
     );

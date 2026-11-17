@@ -40,6 +40,8 @@ vi.mock('../db', () => ({
   saveScript: vi.fn(),
   deleteScript: vi.fn(),
   getTaskByNumber: (...args: unknown[]) => getTaskByNumberMock(...args),
+  getGlobalSetting: vi.fn(),
+  setGlobalSetting: vi.fn(),
 }));
 
 const beginTaskMock = vi.fn();

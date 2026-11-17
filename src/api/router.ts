@@ -84,6 +84,7 @@ import { chatHost, ChatSessionNotFound } from '../chat/host';
 import { transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
 import { callerIsHomeChat, ownTask } from '../chat/homeChat';
 import { follow, following, quietMove, sessionSubject, taskSubject, unfollow, wakeForAsk } from '../chat/wake';
+import { addExistingProject, createAndRegisterProject } from '../services/projectRegistration';
 import { holdAsk } from '../chat/decisions';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
@@ -1077,6 +1078,27 @@ const routes: Route[] = [
   route('GET', 'projects', () => {
     return getProjectList();
   }),
+  route(
+    'POST',
+    'projects',
+    (r) => {
+      const name = typeof r.body.name === 'string' ? r.body.name.trim() : '';
+      if (!name) throw new HttpError(400, 'Missing name in body');
+      return createAndRegisterProject({ name });
+    },
+    true,
+  ),
+  route(
+    'POST',
+    'projects/add',
+    (r) => {
+      if (typeof r.body.path !== 'string' || !path.isAbsolute(r.body.path)) {
+        throw new HttpError(400, 'Missing an absolute path in body');
+      }
+      return addExistingProject(r.body.path);
+    },
+    true,
+  ),
 
   // ── Scripts ──────────────────────────────────────────────────────
   route('GET', 'scripts', (r) => {

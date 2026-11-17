@@ -535,6 +535,8 @@ ouijit panel focus <id> [pty-id]              # bring one forward; focus termina
 
 ## Project Commands
 ouijit project list                           # → all registered projects
+ouijit project create <name>                  # a new folder in your projects folder, with a git repo, added
+ouijit project add <path>                     # add an existing git repo as a project
 
 ## Theme Commands (global appearance, not project-scoped)
 ouijit theme list                             # → {preference, presets: [...], customThemes: [...]}
