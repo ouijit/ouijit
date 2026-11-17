@@ -218,6 +218,9 @@ function userText(content: unknown): string {
 
 const USER_PREFIX = 'user-';
 
+/** Claude records a stop as a user message of its own, after the results of any tools it cut off. */
+const INTERRUPTED = /^\[Request interrupted by user( for tool use)?\]$/;
+
 /**
  * Translates Claude's message stream into transcript nodes. Ids derive from
  * what the CLI writes to its session file — the API message id and the
@@ -229,6 +232,8 @@ class ClaudeTranscript {
   private readonly tools = new Map<string, ToolCallNode>();
   private plan: PlanEntry[] = [];
   private tasks = new Map<string, PlanEntry>();
+  /** A tool cut off by a stop reads as rejected until the stop's own message says otherwise. */
+  private rejected: string[] = [];
 
   constructor(private readonly sink: Pick<DriverSink, 'node' | 'append'>) {}
 
@@ -276,6 +281,7 @@ class ClaudeTranscript {
   }
 
   assistant(message: Json, parentToolUseId: string | null): void {
+    this.rejected = [];
     const parentId = this.parent(parentToolUseId);
     const messageId = String(message.id);
     const content = Array.isArray(message.content) ? (message.content as ContentBlock[]) : [];
@@ -343,15 +349,16 @@ class ClaudeTranscript {
 
   user(message: Json, structured: unknown, parentToolUseId: string | null, uuid: string | undefined): void {
     const content = message.content;
-    if (!Array.isArray(content)) {
-      if (uuid && typeof content === 'string') this.userMessage(uuid, content, parentToolUseId);
-      return;
-    }
-    const results = (content as ContentBlock[]).filter((part) => part.type === 'tool_result');
+    const results = Array.isArray(content)
+      ? (content as ContentBlock[]).filter((part) => part.type === 'tool_result')
+      : [];
     if (results.length === 0) {
-      if (uuid) this.userMessage(uuid, userText(content), parentToolUseId);
+      const text = userText(content);
+      if (INTERRUPTED.test(text.trim())) this.stopped(uuid ?? randomUUID(), parentToolUseId);
+      else if (uuid) this.userMessage(uuid, text, parentToolUseId);
       return;
     }
+    this.rejected = [];
     for (const result of results) {
       const node = this.tools.get(String(result.tool_use_id));
       if (!node) continue;
@@ -363,8 +370,28 @@ class ClaudeTranscript {
       };
       this.tools.set(String(result.tool_use_id), updated);
       this.sink.node(updated);
+      if (result.is_error) this.rejected.push(String(result.tool_use_id));
       if (node.name === 'TaskCreate') this.taskCreated(node, structured);
     }
+  }
+
+  private stopped(uuid: string, parentToolUseId: string | null): void {
+    for (const toolUseId of this.rejected.splice(0)) {
+      const node = this.tools.get(toolUseId);
+      if (!node) continue;
+      const stopped: ToolCallNode = { ...node, status: 'interrupted' };
+      this.tools.set(toolUseId, stopped);
+      this.sink.node(stopped);
+    }
+    if (parentToolUseId) return;
+    this.sink.node({
+      id: `claude-stopped-${uuid}`,
+      kind: 'notice',
+      level: 'info',
+      parentId: null,
+      createdAt: Date.now(),
+      text: 'Stopped',
+    });
   }
 
   private userMessage(uuid: string, text: string, parentToolUseId: string | null): void {
@@ -473,6 +500,8 @@ class ClaudeSession implements DriverSession {
   private readonly subagents = new Map<string, SubagentNode>();
   private reportedModel: string | undefined;
   private lastContext: { tokens: number; model: string | undefined } | null = null;
+  /** The user stopped this turn, so it ending early is not an error. */
+  private stopping = false;
 
   constructor(
     private readonly context: DriverContext,
@@ -633,7 +662,9 @@ class ClaudeSession implements DriverSession {
       case 'result': {
         const result = message as unknown as Json;
         this.sink.session({ status: 'idle', ...this.usage(result) });
-        if (result.subtype !== 'success') {
+        const stopped = this.stopping;
+        this.stopping = false;
+        if (result.subtype !== 'success' && !stopped) {
           const errors = Array.isArray(result.errors) ? result.errors.join('\n') : '';
           if (result.subtype !== 'error_during_execution' || errors) {
             this.notice('error', errors || `The turn ended: ${String(result.subtype)}`);
@@ -829,6 +860,7 @@ class ClaudeSession implements DriverSession {
           : APPROVAL,
       questions: [],
     });
+    if (answer.kind === 'cancel') this.stopping = true;
     return permissionResult(answer, input, options.suggestions);
   }
 
@@ -855,6 +887,7 @@ class ClaudeSession implements DriverSession {
   }
 
   async interrupt(): Promise<void> {
+    this.stopping = true;
     await this.q?.interrupt();
   }
 

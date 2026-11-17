@@ -218,6 +218,47 @@ describe.each(['claude', 'codex', 'pi', 'opencode'] as const)('%s steered mid-tu
   );
 });
 
+describe('claude stopped mid-turn', () => {
+  const available = recording || fs.existsSync(cassettePath('claude-stopped'));
+
+  test.skipIf(!available)(
+    'reads as the user stopping it, live and once the conversation is reopened',
+    async () => {
+      const cwd = repo();
+      const probe = recording ? await getDriver('claude').probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording
+          ? recordingSpawn('claude-stopped', 'claude', probe?.version)
+          : replayingSpawn(loadCassettes('claude-stopped')),
+      });
+      const stop = approveEverything(host);
+      const id = 'pty-stopped';
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+      await host.prompt(id, { text: 'Run the shell command `sleep 30` and then tell me it finished.' });
+      await until(host, id, (s) => s.nodes.some((n) => n.kind === 'tool_call' && n.status === 'running'), timeout);
+      await host.interrupt(id);
+
+      const reads = (s: ChatSnapshot) => {
+        expect(s.nodes.filter((n) => n.kind === 'user_message').map((n) => n.text)).toEqual([
+          'Run the shell command `sleep 30` and then tell me it finished.',
+        ]);
+        expect(s.nodes.filter((n) => n.kind === 'notice').map((n) => [n.level, n.text])).toEqual([['info', 'Stopped']]);
+        expect(s.nodes.find((n) => n.kind === 'tool_call')).toMatchObject({ status: 'interrupted' });
+      };
+      reads(
+        await until(host, id, (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'notice'), timeout),
+      );
+
+      await host.stop(id);
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+      reads(host.snapshot(id)!);
+      await host.stop(id);
+      stop();
+    },
+    timeout * 2,
+  );
+});
+
 describe('claude rewound and forked', () => {
   const available = recording || fs.existsSync(cassettePath('claude-rewind'));
 
