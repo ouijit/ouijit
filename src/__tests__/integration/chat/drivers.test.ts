@@ -606,6 +606,32 @@ describe('claude mode', () => {
   );
 });
 
+describe('task chats Chat owns', () => {
+  const name = 'claude-owned';
+  const available = recording || fs.existsSync(cassettePath(name));
+
+  test.skipIf(!available)(
+    "start in Chat's mode; a task it does not own starts in the agent's own",
+    async () => {
+      const cwd = repo();
+      const probe = recording ? await getDriver('claude').probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording ? recordingSpawn(name, 'claude', probe?.version) : replayingSpawn(loadCassettes(name)),
+      });
+      await host.start({ id: 'pty-chat', agent: 'claude', projectPath: cwd, cwd, taskId: null, mode: 'acceptEdits' });
+      host.flush('pty-chat');
+      getChatRepo().setTaskOwner(cwd, 7, 'pty-chat');
+
+      const owned = await host.start({ id: 'pty-owned', agent: 'claude', projectPath: cwd, cwd, taskId: 7 });
+      expect(owned.info.mode).toBe('acceptEdits');
+      const other = await host.start({ id: 'pty-other', agent: 'claude', projectPath: cwd, cwd, taskId: 8 });
+      expect(other.info.mode).not.toBe('acceptEdits');
+      for (const id of ['pty-other', 'pty-owned', 'pty-chat']) await host.stop(id);
+    },
+    timeout,
+  );
+});
+
 describe('claude subagents', () => {
   const name = 'claude-subagents';
   const available = recording || fs.existsSync(cassettePath(name));

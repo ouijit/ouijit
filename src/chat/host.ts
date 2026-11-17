@@ -386,7 +386,7 @@ export class ChatHost {
     if (stored) session.nodes = storedNodes(id);
     session.seq = stored?.seq ?? 0;
     session.instructions = options.instructions ?? '';
-    session.launchMode = options.mode;
+    session.launchMode = options.mode ?? this.ownersMode(options);
     for (const node of settled(session.nodes)) session.emit({ type: 'node', node });
     this.sessions.set(id, session);
 
@@ -750,6 +750,14 @@ export class ChatHost {
     }
     pending.resolve(answer);
     return true;
+  }
+
+  /** A task Chat owns starts in Chat's mode. Modes are the agent's own, so only a worker on Chat's agent takes it. */
+  private ownersMode(options: ChatStartOptions): string | undefined {
+    if (options.taskId == null) return undefined;
+    const owner = getChatRepo().taskOwner(options.projectPath, options.taskId);
+    const chat = owner ? this.sessions.get(owner)?.info : undefined;
+    return chat?.agent === options.agent ? chat.mode : undefined;
   }
 
   /** Rewrite the notes of every wake a live Chat conversation holds. */
