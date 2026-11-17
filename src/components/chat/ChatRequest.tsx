@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import type { ChatAnswer, RequestNode, RequestOption } from '../../chat/model';
 import { terminalInstances } from '../terminal/terminalRegistry';
+import { ChatMarkdown } from './ChatMarkdown';
+
+/** A command as a reply's code block: monospace, highlighted, with its copy button. */
+export function CommandBlock({ command }: { command: string }) {
+  const fence = command.includes('```') ? '~~~~' : '```';
+  return <ChatMarkdown text={`${fence}sh\n${command}\n${fence}`} complete />;
+}
 
 function answerLabel(node: RequestNode): string {
   const answer = node.answer;
@@ -148,8 +155,21 @@ function withoutWorktree(text: string, cardId: string): string {
   return root ? text.split(`${root}/`).join('') : text;
 }
 
-/** Something the agent is blocked on. Any client can answer it; the first answer wins. */
-export function ChatRequestView({ node, cardId }: { node: RequestNode; cardId: string }) {
+/**
+ * Something the agent is blocked on. Any client can answer it; the first answer
+ * wins. `heading` and `command` describe it where it is shown away from its own transcript.
+ */
+export function ChatRequestView({
+  node,
+  cardId,
+  heading,
+  command,
+}: {
+  node: RequestNode;
+  cardId: string;
+  heading?: string;
+  command?: string;
+}) {
   if (node.status !== 'pending') {
     return (
       <div className="text-[13px] text-text-tertiary">
@@ -159,7 +179,8 @@ export function ChatRequestView({ node, cardId }: { node: RequestNode; cardId: s
   }
   return (
     <div className="glass-bevel rounded-[12px] border border-bezel bg-terminal-surface px-3 py-2.5 flex flex-col gap-2">
-      <div className="text-sm text-text-primary break-words">{withoutWorktree(node.title, cardId)}</div>
+      <div className="text-sm text-text-primary break-words">{heading ?? withoutWorktree(node.title, cardId)}</div>
+      {command && <CommandBlock command={command} />}
       {node.detail && (
         <pre className="font-mono text-[12px] text-text-secondary whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
           {node.detail}

@@ -735,7 +735,7 @@ export class ChatHost {
   }
 
   /** Answer a pending request. False when it was already answered, here or on another client. */
-  answer(id: string, requestId: string, answer: ChatAnswer): boolean {
+  answer(id: string, requestId: string, answer: ChatAnswer, { byChat = false } = {}): boolean {
     const session = this.require(id);
     const pending = session.asks.get(requestId);
     const node = session.nodes.find((n): n is RequestNode => n.id === requestId && n.kind === 'request');
@@ -743,13 +743,26 @@ export class ChatHost {
     session.asks.delete(requestId);
     session.emit({
       type: 'node',
-      node: { ...node, status: answer.kind === 'cancel' ? 'cancelled' : 'answered', answer },
+      node: { ...node, status: answer.kind === 'cancel' ? 'cancelled' : 'answered', answer, ...(byChat && { byChat }) },
     });
     if (session.asks.size === 0 && session.info.status === 'awaiting') {
       session.emit({ type: 'session', patch: { status: 'running' } });
     }
     pending.resolve(answer);
     return true;
+  }
+
+  /** Rewrite the notes of every wake a live Chat conversation holds. */
+  reviseWakeNotes(revise: (note: WakeNote) => WakeNote): void {
+    for (const session of this.sessions.values()) {
+      if (session.info.role !== 'home') continue;
+      for (const node of session.nodes) {
+        if (node.kind !== 'user_message' || !node.notes) continue;
+        const notes = node.notes.map(revise);
+        if (notes.some((note, index) => note !== node.notes![index]))
+          session.emit({ type: 'node', node: { ...node, notes } });
+      }
+    }
   }
 
   async interrupt(id: string): Promise<void> {

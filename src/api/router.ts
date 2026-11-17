@@ -999,7 +999,7 @@ const routes: Route[] = [
       if (r.auth.ptyId === id) throw new HttpError(403, 'A chat cannot answer its own requests');
       const answer = parseAnswer(r.body);
       try {
-        if (!chatHost.answer(id, r.segments[3], answer)) {
+        if (!chatHost.answer(id, r.segments[3], answer, { byChat: callerIsHomeChat(r.auth.ptyId) })) {
           throw new HttpError(409, 'That request is no longer waiting; it was answered or cancelled');
         }
         if (callerIsHomeChat(r.auth.ptyId)) follow(r.auth.ptyId, sessionSubject(id));

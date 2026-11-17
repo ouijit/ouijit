@@ -27,6 +27,13 @@ export class Mailbox {
     },
   ) {}
 
+  /** Rewrite the notes still held. */
+  revise(revise: (note: WakeNote) => WakeNote): void {
+    for (const box of this.boxes.values()) {
+      box.messages = box.messages.map((message) => ({ ...message, note: revise(message.note) }));
+    }
+  }
+
   async post(id: string, text: string, note: WakeNote): Promise<void> {
     const box = this.boxes.get(id) ?? { messages: [], dropped: 0 };
     box.messages.push({ text, note });

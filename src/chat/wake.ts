@@ -7,7 +7,7 @@ import { chatHost } from './host';
 import { Mailbox } from './mailbox';
 import { loadHomeChatSettings } from './homeChat';
 import { taskKey, type TaskRef, type WakeEvent } from './preferences';
-import type { ChatSessionInfo, ChatSessionStatus, RequestNode, WakeNote } from './model';
+import type { ChatSessionInfo, ChatSessionStatus, RequestNode, ToolCallNode, WakeNote } from './model';
 
 const wakeLog = getLogger().scope('chat:wake');
 
@@ -166,6 +166,43 @@ export async function wakeForAsk(ptyId: string, command: string, message: string
   );
 }
 
+/** A worker's request as a line: what kind of thing it asks, with the request itself kept for showing in full. */
+function requestNote(sessionId: string, info: ChatSessionInfo, name: string, request: RequestNode): WakeNote {
+  const nodes = chatHost.snapshot(sessionId)?.nodes ?? [];
+  const call = nodes.find((node): node is ToolCallNode => node.kind === 'tool_call' && node.id === request.toolCallId);
+  // Answered while the names were being looked up: the note starts out current.
+  const latest = nodes.find((node): node is RequestNode => node.kind === 'request' && node.id === request.id);
+  const command = call?.tool === 'command' ? (call.command ?? request.title) : undefined;
+  const edited = call?.tool === 'edit' ? call.files[0]?.path : undefined;
+  const asks =
+    request.request === 'questions'
+      ? 'has a question'
+      : command
+        ? 'asked to run a command'
+        : edited
+          ? `asked to edit ${path.basename(edited)}`
+          : 'asked for approval';
+  return {
+    kind: 'event',
+    text: `${name} ${asks}`,
+    request: {
+      session: sessionId,
+      name: info.taskId != null ? `${name} (T-${info.taskId})` : name,
+      node: latest ?? request,
+      ...(command && { command }),
+    },
+  };
+}
+
+function reviseRequest(sessionId: string, request: RequestNode): void {
+  const revise = (note: WakeNote): WakeNote =>
+    note.request?.session === sessionId && note.request.node.id === request.id
+      ? { ...note, request: { ...note.request, node: request } }
+      : note;
+  mailbox.revise(revise);
+  chatHost.reviseWakeNotes(revise);
+}
+
 /** Follow every other chat and every task for what Chat should hear about. Once per process. */
 export function installHomeChatWakes(): void {
   const lastStatus = new Map<string, ChatSessionStatus>();
@@ -191,13 +228,17 @@ export function installHomeChatWakes(): void {
       }
       return;
     }
-    if (event.type === 'node' && event.node.kind === 'request' && event.node.status === 'pending') {
-      const request = event.node as RequestNode;
+    if (event.type === 'node' && event.node.kind === 'request') {
+      const request = event.node;
+      if (request.status !== 'pending') {
+        reviseRequest(sessionId, request);
+        return;
+      }
       void Promise.all([describeSession(info), sessionName(info)]).then(([who, name]) =>
         wakeHomeChat(
           'asked',
           `${who} is waiting on an approval: ${request.title} (request ${request.id}).`,
-          eventNote(`${name} asks for approval: ${request.title}`),
+          requestNote(sessionId, info, name, request),
           sessionSubject(sessionId),
         ),
       );

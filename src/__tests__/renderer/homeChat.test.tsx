@@ -128,7 +128,76 @@ beforeEach(() => {
   vi.mocked(window.api.homeChat.restart).mockClear();
 });
 
+function approvalWake(n: number, command: string, answered: boolean): ChatNode[] {
+  const options = [
+    { id: 'allow', label: 'Allow', kind: 'allow_once' as const },
+    { id: 'deny', label: 'Deny', kind: 'reject_once' as const },
+  ];
+  const request = node({
+    kind: 'request',
+    id: `req-${n}`,
+    request: 'approval',
+    title: command,
+    options,
+    questions: [],
+    status: answered ? 'answered' : 'pending',
+    ...(answered && { answer: { kind: 'option', optionId: 'allow' }, byChat: true }),
+  }) as Extract<ChatNode, { kind: 'request' }>;
+  return [
+    node({
+      kind: 'user_message',
+      id: `wake-${n}`,
+      text: `Ouijit: Chat (T-605 in ouijit), chat pty-605, is waiting on an approval: ${command} (request req-${n}).`,
+      attachments: [],
+      delivery: 'prompt',
+      wake: true,
+      notes: [
+        {
+          kind: 'event',
+          text: 'Chat asked to run a command',
+          request: { session: 'pty-605', name: 'Chat (T-605)', node: request, command },
+        },
+      ],
+    }),
+    tool(`answer-${n}`, 'command', `ouijit chat answer pty-605 req-${n} --option allow`),
+    node({
+      kind: 'assistant_message',
+      id: `reply-${n}`,
+      text: answered ? 'Approved.' : 'This one deletes the build folder, so it is yours to decide.',
+      status: 'completed',
+    }),
+  ];
+}
+
 describe('Chat', () => {
+  test("shows a worker's requests as a line each, folds the ones it approved, and leaves the rest to you", async () => {
+    vi.mocked(window.api.chat.answer).mockClear();
+    adopt([
+      ...approvalWake(1, 'npx tsc --noEmit -p .', true),
+      ...approvalWake(2, "python3 - <<'EOF'\nprint('a')\nEOF", true),
+      ...approvalWake(3, 'npm run check', true),
+      ...approvalWake(4, 'rm -rf build', false),
+    ]);
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Ship the settings page.' }));
+
+    // Approvals Chat took care of are one line, opening to a line each, each opening to its command.
+    expect(screen.queryByText('Approved.')).toBeNull();
+    expect(screen.queryByText(/print\('a'\)/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Approved 3 commands for Chat (T-605)' }));
+    const lines = screen.getAllByRole('button', { name: 'Chat asked to run a command · approved by Chat' });
+    expect(lines).toHaveLength(3);
+    fireEvent.click(lines[1]);
+    expect(screen.getByText(/print\('a'\)/).closest('pre')).toBeTruthy();
+
+    // What Chat left waiting is a card, the command as code, answered on the worker's chat.
+    expect(screen.getByText('This one deletes the build folder, so it is yours to decide.')).toBeTruthy();
+    expect(screen.getByText('Chat asked to run a command')).toBeTruthy();
+    expect(screen.getByText('rm -rf build').closest('pre')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }));
+    expect(window.api.chat.answer).toHaveBeenCalledWith('pty-605', 'req-4', { kind: 'option', optionId: 'allow' });
+  });
+
   test("says a command that only works in the agent's own terminal can't run here, with nothing to click", () => {
     adopt(transcript().map((n) => (n.id === 't4' ? { ...n, status: 'completed' } : n)) as ChatNode[], {
       status: 'idle',

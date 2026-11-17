@@ -48,6 +48,18 @@ export interface UserMessageNode extends NodeBase {
 export interface WakeNote {
   kind: 'event' | 'decision';
   text: string;
+  /** A worker's request the wake is about, kept current as it is answered. */
+  request?: WakeRequest;
+}
+
+export interface WakeRequest {
+  /** The worker's chat, where the request is answered. */
+  session: string;
+  /** The worker as the reader knows it, with its task's number. */
+  name: string;
+  node: RequestNode;
+  /** The command it would run, where the request is to run one. */
+  command?: string;
 }
 
 export interface AssistantMessageNode extends NodeBase {
@@ -152,6 +164,8 @@ export interface RequestNode extends NodeBase {
   questions: RequestQuestion[];
   status: 'pending' | 'answered' | 'cancelled';
   answer?: ChatAnswer;
+  /** Answered by Chat rather than a person. */
+  byChat?: boolean;
 }
 
 export type ChatNode =

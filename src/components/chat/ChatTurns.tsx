@@ -4,7 +4,8 @@ import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
 import { ChatNodeList, ChatNodeView, foldSummary, formatSpan, isEmptyThought, type NodeContext } from './ChatNodes';
-import type { AssistantMessageNode, ChatNode, UserMessageNode } from '../../chat/model';
+import { ChatRequestView, CommandBlock } from './ChatRequest';
+import type { AssistantMessageNode, ChatNode, UserMessageNode, WakeNote, WakeRequest } from '../../chat/model';
 
 type Piece = { kind: 'work'; nodes: ChatNode[] } | { kind: 'said'; node: AssistantMessageNode };
 
@@ -157,23 +158,134 @@ function WorkFold({ work, context }: { work: ChatNode[]; context: NodeContext })
   );
 }
 
-/** A wake, as what happened: what the user did as a line each, the rest as one caption. */
-function WakeOpener({ node }: { node: UserMessageNode }) {
+function outcome(request: WakeRequest): string | null {
+  const { node } = request;
+  if (node.status === 'pending') return null;
+  const by = node.byChat ? 'by Chat' : 'by you';
+  if (node.status === 'cancelled' || node.answer?.kind === 'cancel') return 'withdrawn';
+  if (node.answer?.kind !== 'option') return `answered ${by}`;
+  const optionId = node.answer.optionId;
+  const kind = node.options.find((option) => option.id === optionId)?.kind;
+  return `${kind?.startsWith('allow') ? 'approved' : 'declined'} ${by}`;
+}
+
+/** A worker's request as one line, what it asked for behind a disclosure. */
+function RequestLine({ note, request }: { note: WakeNote; request: WakeRequest }) {
+  const [open, setOpen] = useState(false);
+  const result = outcome(request);
+  return (
+    <div className="flex flex-col">
+      <button
+        type="button"
+        className="w-full min-h-[22px] flex items-center gap-2 text-left text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
+        <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
+        <span className="flex-1 truncate">
+          {note.text}
+          {result && ` · ${result}`}
+        </span>
+      </button>
+      {open && (
+        <div className="pl-5">
+          {request.command ? (
+            <CommandBlock command={request.command} />
+          ) : (
+            <div className="text-[13px] text-text-secondary whitespace-pre-wrap break-words py-1">
+              {[request.node.title, request.node.detail].filter(Boolean).join('\n\n')}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A wake, as what happened: what the user did as a line each, a worker's
+ * request as a line of its own, and the rest as one caption. A request Chat
+ * left waiting once its turn is over is the user's, shown in full to answer.
+ */
+function WakeOpener({ node, settled }: { node: UserMessageNode; settled: boolean }) {
   if (!node.notes?.length) {
     return <div className="text-[13px] text-text-tertiary whitespace-pre-wrap break-words">{node.text}</div>;
   }
-  const events = node.notes.filter((n) => n.kind === 'event').map((n) => n.text);
+  const events = node.notes.filter((n) => n.kind === 'event' && !n.request).map((n) => n.text);
   return (
     <div className="flex flex-col gap-1 pt-1">
-      {node.notes
-        .filter((n) => n.kind === 'decision')
-        .map((n, index) => (
-          <div key={index} className="flex items-center gap-2 text-[13px] text-text-secondary">
-            <Icon name="check" className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
-            <span className="min-w-0 break-words">{n.text}</span>
-          </div>
-        ))}
+      {node.notes.map((n, index) => {
+        if (n.kind === 'decision') {
+          return (
+            <div key={index} className="flex items-center gap-2 text-[13px] text-text-secondary">
+              <Icon name="check" className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+              <span className="min-w-0 break-words">{n.text}</span>
+            </div>
+          );
+        }
+        if (!n.request) return null;
+        if (settled && n.request.node.status === 'pending') {
+          return (
+            <ChatRequestView
+              key={index}
+              node={n.request.node}
+              cardId={n.request.session}
+              heading={n.text}
+              command={n.request.command}
+            />
+          );
+        }
+        return <RequestLine key={index} note={n} request={n.request} />;
+      })}
       {events.length > 0 && <div className="text-[12px] text-text-tertiary break-words">{events.join(' · ')}</div>}
+    </div>
+  );
+}
+
+/**
+ * A turn Chat spent approving what workers asked, with nothing to read: every
+ * note a request it approved, and no more than remarks said.
+ */
+function routine(turn: Turn, running: boolean): boolean {
+  const notes = turn.opener?.wake ? (turn.opener.notes ?? []) : [];
+  return (
+    !running &&
+    notes.length > 0 &&
+    turn.kept.length === 0 &&
+    notes.every((note) => note.request && outcome(note.request) === 'approved by Chat') &&
+    !turn.body.some((node) => said(node) && substantial(node.text))
+  );
+}
+
+function approvalsSummary(requests: WakeRequest[]): string {
+  const noun = requests.every((request) => request.command) ? 'command' : 'request';
+  const names = [...new Set(requests.map((request) => request.name))];
+  const whose = names.length <= 2 ? names.join(' and ') : `${names.length} tasks`;
+  return `Approved ${requests.length} ${noun}${requests.length === 1 ? '' : 's'} for ${whose}`;
+}
+
+/** Turns of routine approvals in a row, as one line that opens to each. */
+function RoutineApprovals({ turns }: { turns: Turn[] }) {
+  const [open, setOpen] = useState(false);
+  const notes = turns.flatMap((turn) => turn.opener?.notes ?? []);
+  return (
+    <div className="flex flex-col">
+      <button
+        type="button"
+        className="w-full min-h-[22px] flex items-center gap-2 text-left text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
+        <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
+        <span className="flex-1 truncate">{approvalsSummary(notes.map((note) => note.request!))}</span>
+      </button>
+      {open && (
+        <div className="pl-5 flex flex-col">
+          {notes.map((note, index) => (
+            <RequestLine key={index} note={note} request={note.request!} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -250,14 +362,28 @@ export function ChatTurns({
   const layouts = turns.map((turn, index) => layoutOf(turn, busy && index === turns.length - 1));
   const pending = (node: AssistantMessageNode) => pacedFor(node.id) && !revealedIds.has(node.id);
 
+  // Each run of routine turns shows as one line, from where it starts.
+  let run: Turn[] | null = null;
+  const runs = turns.map((turn, index): Turn[] | 'within' | null => {
+    if (!routine(turn, busy && index === turns.length - 1)) return (run = null);
+    if (run) {
+      run.push(turn);
+      return 'within';
+    }
+    return (run = [turn]);
+  });
+
   let held = false;
   const shown = layouts.map(({ turn, pieces, doing }, index) => {
     if (held) return null;
+    const routineRun = runs[index];
+    if (routineRun === 'within') return null;
+    if (routineRun) return <RoutineApprovals key={turn.opener!.id} turns={routineRun} />;
     const items: ReactNode[] = [];
     if (turn.opener) {
       items.push(
         turn.opener.wake ? (
-          <WakeOpener key={turn.opener.id} node={turn.opener} />
+          <WakeOpener key={turn.opener.id} node={turn.opener} settled={!(busy && index === turns.length - 1)} />
         ) : (
           <ChatNodeView key={turn.opener.id} node={turn.opener} context={context} />
         ),
