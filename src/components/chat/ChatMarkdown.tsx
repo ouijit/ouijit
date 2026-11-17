@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { renderChatMarkdown, renderChatMarkdownHighlighted } from '../../utils/renderChatMarkdown';
+import { openLink } from '../../links/openLink';
+
+function onClick(event: MouseEvent<HTMLDivElement>): void {
+  const link = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="ouijit://"]');
+  if (link) {
+    event.preventDefault();
+    void openLink(link.getAttribute('href')!);
+    return;
+  }
+  copyCode(event);
+}
 
 function copyCode(event: MouseEvent<HTMLDivElement>): void {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-copy-code]');
@@ -30,7 +41,7 @@ export function ChatMarkdown({ text, complete }: { text: string; complete: boole
   return (
     <div
       className="app-markdown chat-markdown text-sm text-text-primary leading-relaxed break-words"
-      onClick={copyCode}
+      onClick={onClick}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
