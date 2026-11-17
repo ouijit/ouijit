@@ -195,7 +195,7 @@ describe('chat view', () => {
           parentId: null,
           createdAt: 0,
           request: 'approval',
-          title: 'Run rm -rf build',
+          title: "python3 - <<'EOF'\nimport shutil; shutil.rmtree('build')\nEOF",
           options: [
             { id: 'allow', label: 'Allow', kind: 'allow_once' },
             { id: 'deny', label: 'Deny', kind: 'reject_once' },
@@ -207,7 +207,11 @@ describe('chat view', () => {
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Allow' }));
     expect(window.api.chat.answer).toHaveBeenCalledWith(ID, 'r1', { kind: 'option', optionId: 'allow' });
-    await waitFor(() => expect(screen.getByText(/Run rm -rf build · Allow/)).toBeTruthy());
+    // Answered, it settles at once to one line: the command's first line, and how it was answered.
+    const settled = await screen.findByRole('button', { name: /^python3 - <<'EOF' …Allowed$/ });
+    expect(screen.queryByText(/shutil/)).toBeNull();
+    fireEvent.click(settled);
+    expect(screen.getByText(/shutil\.rmtree/).closest('pre, div')).toBeTruthy();
 
     // A slash opens the agent's commands; Tab takes the highlighted one.
     const composer = screen.getByLabelText('Message');

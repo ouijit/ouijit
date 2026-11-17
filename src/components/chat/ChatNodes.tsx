@@ -389,7 +389,9 @@ function PlanView({ node }: { node: PlanNode }) {
             }
             className={`w-3.5 h-3.5 mt-[3px] shrink-0 ${entry.status === 'in_progress' ? 'text-accent' : 'text-text-tertiary'}`}
           />
-          <span className={entry.status === 'completed' ? 'text-text-tertiary line-through' : 'text-text-primary'}>
+          <span
+            className={`min-w-0 break-words ${entry.status === 'completed' ? 'text-text-tertiary line-through' : 'text-text-primary'}`}
+          >
             {entry.text}
           </span>
         </div>
@@ -513,12 +515,22 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
       );
     case 'plan':
       return <PlanView node={node} />;
-    case 'request':
-      return <ChatRequestView node={node} cardId={context.cardId} />;
+    case 'request': {
+      const call = [...context.children.values()]
+        .flat()
+        .find((other): other is ToolCallNode => other.kind === 'tool_call' && other.id === node.toolCallId);
+      return (
+        <ChatRequestView
+          node={node}
+          cardId={context.cardId}
+          command={call?.tool === 'command' ? call.command : undefined}
+        />
+      );
+    }
     case 'notice':
       return (
         <div
-          className={`text-[13px] ${node.level === 'error' ? 'text-error' : node.level === 'warning' ? 'text-text-secondary' : 'text-text-tertiary'}`}
+          className={`text-[13px] break-words ${node.level === 'error' ? 'text-error' : node.level === 'warning' ? 'text-text-secondary' : 'text-text-tertiary'}`}
         >
           {node.text}
         </div>

@@ -924,6 +924,15 @@ textarea,
   @apply font-sans text-[11px] text-text-tertiary hover:text-text-primary transition-colors duration-100;
 }
 
+/* Wide content scrolls inside itself rather than widening the transcript. */
+.chat-markdown table {
+  @apply block overflow-x-auto;
+}
+
+.chat-markdown img {
+  @apply max-w-full;
+}
+
 .chat-markdown .chat-code pre {
   @apply m-0 px-3 pt-1 pb-3 border-0 rounded-none text-[13px] leading-relaxed overflow-x-auto;
   background: transparent !important;

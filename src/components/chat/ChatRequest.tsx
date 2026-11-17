@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ChatAnswer, RequestNode, RequestOption } from '../../chat/model';
 import { terminalInstances } from '../terminal/terminalRegistry';
+import { Icon } from '../terminal/Icon';
 import { ChatMarkdown } from './ChatMarkdown';
 
 /** A command as a reply's code block: monospace, highlighted, with its copy button. */
@@ -9,12 +10,66 @@ export function CommandBlock({ command }: { command: string }) {
   return <ChatMarkdown text={`${fence}sh\n${command}\n${fence}`} complete />;
 }
 
-function answerLabel(node: RequestNode): string {
+function chosenKind(node: RequestNode): RequestOption['kind'] | undefined {
+  const answer = node.answer;
+  return answer?.kind === 'option' ? node.options.find((option) => option.id === answer.optionId)?.kind : undefined;
+}
+
+export function approvedByChat(node: RequestNode): boolean {
+  return node.status === 'answered' && !!node.byChat && !!chosenKind(node)?.startsWith('allow');
+}
+
+/** How a request was settled, and by Chat where it was; null while it waits. */
+export function settledLabel(node: RequestNode): string | null {
+  if (node.status === 'pending') return null;
   const answer = node.answer;
   if (!answer || node.status === 'cancelled' || answer.kind === 'cancel') return 'Dismissed';
-  if (answer.kind === 'option')
-    return node.options.find((option) => option.id === answer.optionId)?.label ?? 'Answered';
-  return 'Answered';
+  const kind = chosenKind(node);
+  const label = kind?.startsWith('allow') ? 'Allowed' : kind?.startsWith('reject') ? 'Declined' : 'Answered';
+  return node.byChat ? `${label} by Chat` : label;
+}
+
+export function firstLine(text: string): string {
+  const [line, ...rest] = text.trim().split('\n');
+  return rest.length ? `${line} …` : line;
+}
+
+/** A request as one quiet line, cut to the width; what it asked for in full behind the disclosure. */
+export function SettledLine({
+  summary,
+  label,
+  command,
+  detail,
+}: {
+  summary: string;
+  label: string | null;
+  command?: string;
+  detail?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="min-w-0 flex flex-col">
+      <button
+        type="button"
+        className="w-full min-w-0 min-h-[22px] flex items-center gap-2 text-left text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
+        <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
+        <span className="flex-1 min-w-0 truncate">{summary}</span>
+        {label && <span className="shrink-0 text-[12px]">{label}</span>}
+      </button>
+      {open && (
+        <div className="pl-5 min-w-0">
+          {command ? (
+            <CommandBlock command={command} />
+          ) : (
+            <div className="text-[13px] text-text-secondary whitespace-pre-wrap break-words py-1">{detail}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function optionClass(option: RequestOption, first: boolean): string {
@@ -172,13 +227,16 @@ export function ChatRequestView({
 }) {
   if (node.status !== 'pending') {
     return (
-      <div className="text-[13px] text-text-tertiary">
-        {node.title} · {answerLabel(node)}
-      </div>
+      <SettledLine
+        summary={firstLine(withoutWorktree(command ?? node.title, cardId))}
+        label={settledLabel(node)}
+        command={command}
+        detail={[node.title, node.detail].filter(Boolean).join('\n\n')}
+      />
     );
   }
   return (
-    <div className="glass-bevel rounded-[12px] border border-bezel bg-terminal-surface px-3 py-2.5 flex flex-col gap-2">
+    <div className="min-w-0 glass-bevel rounded-[12px] border border-bezel bg-terminal-surface px-3 py-2.5 flex flex-col gap-2">
       <div className="text-sm text-text-primary break-words">{heading ?? withoutWorktree(node.title, cardId)}</div>
       {command && <CommandBlock command={command} />}
       {node.detail && (

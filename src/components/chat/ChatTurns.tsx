@@ -4,7 +4,7 @@ import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
 import { ChatNodeList, ChatNodeView, foldSummary, formatSpan, isEmptyThought, type NodeContext } from './ChatNodes';
-import { ChatRequestView, CommandBlock } from './ChatRequest';
+import { ChatRequestView, SettledLine, approvedByChat, firstLine, settledLabel } from './ChatRequest';
 import type { AssistantMessageNode, ChatNode, UserMessageNode, WakeNote, WakeRequest } from '../../chat/model';
 
 type Piece = { kind: 'work'; nodes: ChatNode[] } | { kind: 'said'; node: AssistantMessageNode };
@@ -158,47 +158,15 @@ function WorkFold({ work, context }: { work: ChatNode[]; context: NodeContext })
   );
 }
 
-function outcome(request: WakeRequest): string | null {
-  const { node } = request;
-  if (node.status === 'pending') return null;
-  const by = node.byChat ? 'by Chat' : 'by you';
-  if (node.status === 'cancelled' || node.answer?.kind === 'cancel') return 'withdrawn';
-  if (node.answer?.kind !== 'option') return `answered ${by}`;
-  const optionId = node.answer.optionId;
-  const kind = node.options.find((option) => option.id === optionId)?.kind;
-  return `${kind?.startsWith('allow') ? 'approved' : 'declined'} ${by}`;
-}
-
-/** A worker's request as one line, what it asked for behind a disclosure. */
+/** A worker's request as one line: who wants what, how it was settled, the request in full behind it. */
 function RequestLine({ note, request }: { note: WakeNote; request: WakeRequest }) {
-  const [open, setOpen] = useState(false);
-  const result = outcome(request);
   return (
-    <div className="flex flex-col">
-      <button
-        type="button"
-        className="w-full min-h-[22px] flex items-center gap-2 text-left text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-      >
-        <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
-        <span className="flex-1 truncate">
-          {note.text}
-          {result && ` · ${result}`}
-        </span>
-      </button>
-      {open && (
-        <div className="pl-5">
-          {request.command ? (
-            <CommandBlock command={request.command} />
-          ) : (
-            <div className="text-[13px] text-text-secondary whitespace-pre-wrap break-words py-1">
-              {[request.node.title, request.node.detail].filter(Boolean).join('\n\n')}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    <SettledLine
+      summary={request.command ? `${request.name} wants to run ${firstLine(request.command)}` : note.text}
+      label={settledLabel(request.node)}
+      command={request.command}
+      detail={[request.node.title, request.node.detail].filter(Boolean).join('\n\n')}
+    />
   );
 }
 
@@ -213,7 +181,7 @@ function WakeOpener({ node, settled }: { node: UserMessageNode; settled: boolean
   }
   const events = node.notes.filter((n) => n.kind === 'event' && !n.request).map((n) => n.text);
   return (
-    <div className="flex flex-col gap-1 pt-1">
+    <div className="min-w-0 flex flex-col gap-1 pt-1">
       {node.notes.map((n, index) => {
         if (n.kind === 'decision') {
           return (
@@ -244,15 +212,15 @@ function WakeOpener({ node, settled }: { node: UserMessageNode; settled: boolean
 
 /**
  * A turn Chat spent approving what workers asked, with nothing to read: every
- * note a request it approved, and no more than remarks said.
+ * note a request it approved, nothing left waiting, and no more than remarks said.
  */
 function routine(turn: Turn, running: boolean): boolean {
   const notes = turn.opener?.wake ? (turn.opener.notes ?? []) : [];
   return (
     !running &&
     notes.length > 0 &&
-    turn.kept.length === 0 &&
-    notes.every((note) => note.request && outcome(note.request) === 'approved by Chat') &&
+    turn.kept.every((node) => node.kind === 'request' && node.status !== 'pending') &&
+    notes.every((note) => note.request && approvedByChat(note.request.node)) &&
     !turn.body.some((node) => said(node) && substantial(node.text))
   );
 }
@@ -269,18 +237,18 @@ function RoutineApprovals({ turns }: { turns: Turn[] }) {
   const [open, setOpen] = useState(false);
   const notes = turns.flatMap((turn) => turn.opener?.notes ?? []);
   return (
-    <div className="flex flex-col">
+    <div className="min-w-0 flex flex-col">
       <button
         type="button"
-        className="w-full min-h-[22px] flex items-center gap-2 text-left text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
+        className="w-full min-w-0 min-h-[22px] flex items-center gap-2 text-left text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
         <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
-        <span className="flex-1 truncate">{approvalsSummary(notes.map((note) => note.request!))}</span>
+        <span className="flex-1 min-w-0 truncate">{approvalsSummary(notes.map((note) => note.request!))}</span>
       </button>
       {open && (
-        <div className="pl-5 flex flex-col">
+        <div className="pl-5 min-w-0 flex flex-col">
           {notes.map((note, index) => (
             <RequestLine key={index} note={note} request={note.request!} />
           ))}
@@ -412,14 +380,14 @@ export function ChatTurns({
     return (
       <div
         key={turn.opener?.id ?? turn.body[0]?.id ?? turn.kept[0]?.id ?? `turn-${index}`}
-        className="flex flex-col gap-3"
+        className="min-w-0 flex flex-col gap-3"
       >
         {items}
       </div>
     );
   });
   useEffect(() => onHeld?.(held), [held, onHeld]);
-  return <div className="chat-turns flex flex-col gap-5">{shown}</div>;
+  return <div className="chat-turns min-w-0 flex flex-col gap-5">{shown}</div>;
 }
 
 /** True while the transcript is still revealing something; what follows it, like a card, waits. */

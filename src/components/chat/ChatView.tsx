@@ -207,8 +207,12 @@ export function ChatView({
           style={{ background: 'linear-gradient(to bottom, var(--color-background), transparent)' }}
         />
       )}
-      <div ref={ref} onScroll={onScroll} className="flex-1 min-h-0 overflow-y-auto [overflow-anchor:none]">
-        <div ref={content} className="mx-auto max-w-[52rem] px-6 pt-14 pb-4 flex flex-col gap-3">
+      <div
+        ref={ref}
+        onScroll={onScroll}
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden [overflow-anchor:none]"
+      >
+        <div ref={content} className="mx-auto max-w-[52rem] min-w-0 px-6 pt-14 pb-4 flex flex-col gap-3">
           {surface === 'card' && top.length === 0 && info.status !== 'starting' && (
             <div className="text-sm text-text-tertiary">{CHAT_AGENT_LABELS[info.agent]} is ready.</div>
           )}

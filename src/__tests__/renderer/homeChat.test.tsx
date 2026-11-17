@@ -128,7 +128,12 @@ beforeEach(() => {
   vi.mocked(window.api.homeChat.restart).mockClear();
 });
 
-function approvalWake(n: number, command: string, answered: boolean): ChatNode[] {
+function approvalWake(
+  n: number,
+  command: string,
+  answered: boolean,
+  reply = answered ? 'Approved.' : 'This one deletes the build folder, so it is yours to decide.',
+): ChatNode[] {
   const options = [
     { id: 'allow', label: 'Allow', kind: 'allow_once' as const },
     { id: 'deny', label: 'Deny', kind: 'reject_once' as const },
@@ -163,7 +168,7 @@ function approvalWake(n: number, command: string, answered: boolean): ChatNode[]
     node({
       kind: 'assistant_message',
       id: `reply-${n}`,
-      text: answered ? 'Approved.' : 'This one deletes the build folder, so it is yours to decide.',
+      text: reply,
       status: 'completed',
     }),
   ];
@@ -174,19 +179,65 @@ describe('Chat', () => {
     vi.mocked(window.api.chat.answer).mockClear();
     adopt([
       ...approvalWake(1, 'npx tsc --noEmit -p .', true),
+      // Chat's own run of the answer, which you allowed, is part of its routine.
+      node({
+        kind: 'request',
+        id: 'own-1',
+        request: 'approval',
+        title: 'ouijit chat answer pty-605 req-1 --option allow',
+        options: [{ id: 'allow', label: 'Allow', kind: 'allow_once' }],
+        questions: [],
+        status: 'answered',
+        answer: { kind: 'option', optionId: 'allow' },
+      }),
       ...approvalWake(2, "python3 - <<'EOF'\nprint('a')\nEOF", true),
-      ...approvalWake(3, 'npm run check', true),
+      ...approvalWake(3, 'npm run check', false, 'Approved.'),
       ...approvalWake(4, 'rm -rf build', false),
     ]);
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Ship the settings page.' }));
 
+    // A wake folds in as Chat's answer to it arrives.
+    expect(screen.getByRole('button', { name: 'Approved 2 commands for Chat (T-605)' })).toBeTruthy();
+    const session = useChatStore.getState().sessions[CURRENT];
+    const wake = session.nodes.find((n) => n.id === 'wake-3') as Extract<ChatNode, { kind: 'user_message' }>;
+    const [note] = wake.notes!;
+    act(() =>
+      useChatStore.getState().apply(CURRENT, {
+        seq: session.seq + 1,
+        event: {
+          type: 'node',
+          node: {
+            ...wake,
+            notes: [
+              {
+                ...note,
+                request: {
+                  ...note.request!,
+                  node: {
+                    ...note.request!.node,
+                    status: 'answered',
+                    answer: { kind: 'option', optionId: 'allow' },
+                    byChat: true,
+                  },
+                },
+              },
+            ],
+          },
+        },
+      }),
+    );
+
     // Approvals Chat took care of are one line, opening to a line each, each opening to its command.
     expect(screen.queryByText('Approved.')).toBeNull();
     expect(screen.queryByText(/print\('a'\)/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Approved 3 commands for Chat (T-605)' }));
-    const lines = screen.getAllByRole('button', { name: 'Chat asked to run a command · approved by Chat' });
-    expect(lines).toHaveLength(3);
+    const lines = screen.getAllByRole('button', { name: /^Chat \(T-605\) wants to run .*Allowed by Chat$/ });
+    expect(lines.map((line) => line.textContent)).toEqual([
+      'Chat (T-605) wants to run npx tsc --noEmit -p .Allowed by Chat',
+      "Chat (T-605) wants to run python3 - <<'EOF' …Allowed by Chat",
+      'Chat (T-605) wants to run npm run checkAllowed by Chat',
+    ]);
     fireEvent.click(lines[1]);
     expect(screen.getByText(/print\('a'\)/).closest('pre')).toBeTruthy();
 
