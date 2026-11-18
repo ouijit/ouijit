@@ -420,3 +420,47 @@ describe('a long fold', () => {
     }
   });
 });
+
+describe('stopping a turn', () => {
+  test('shows at once: what was streaming lands whole, the working line says Stopping, and the stop button goes', async () => {
+    const reply = 'Here is the plan, still arriving a few characters at a time when the user pressed stop.';
+    const text = `${reply}\n\nFirst the query, then the component.`;
+    const live = (patch: Partial<ChatSessionInfo>, extra: ChatNode[] = []) =>
+      act(() =>
+        useChatStore
+          .getState()
+          .adopt({ info: { ...INFO, status: 'running', ...patch }, nodes: [...NODES, ...extra], seq: 0 }),
+      );
+    live({});
+    render(<ChatView cardId={ID} />);
+    live({}, [
+      {
+        id: 'u9',
+        kind: 'user_message',
+        parentId: null,
+        createdAt: 0,
+        text: 'Keep going',
+        attachments: [],
+        delivery: 'prompt',
+      },
+      { id: 'a9', kind: 'assistant_message', parentId: null, createdAt: 0, text, status: 'running' },
+    ]);
+    expect(screen.queryByText(reply)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy();
+
+    live({ stopping: true }, [
+      {
+        id: 'u9',
+        kind: 'user_message',
+        parentId: null,
+        createdAt: 0,
+        text: 'Keep going',
+        attachments: [],
+        delivery: 'prompt',
+      },
+      { id: 'a9', kind: 'assistant_message', parentId: null, createdAt: 0, text, status: 'running' },
+    ]);
+    expect(screen.getByText(reply)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+  });
+});

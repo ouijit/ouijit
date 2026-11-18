@@ -605,7 +605,7 @@ export function ChatComposer({
         {usage && (
           <span className="text-[11px] text-text-tertiary mr-1 overflow-hidden whitespace-nowrap">{usage}</span>
         )}
-        {busy && caps.interrupt && (
+        {busy && caps.interrupt && !info.stopping && (
           <button
             type="button"
             aria-label="Stop"

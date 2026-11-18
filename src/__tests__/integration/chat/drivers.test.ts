@@ -236,7 +236,10 @@ describe.each(['claude', 'codex', 'pi'] as const)('%s stopped mid-turn', (agent)
       await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });
       await host.prompt(id, { text: 'Run the shell command `sleep 30` and then tell me it finished.' });
       await until(host, id, (s) => s.nodes.some((n) => n.kind === 'tool_call' && n.status === 'running'), timeout);
-      await host.interrupt(id);
+      // Anyone watching hears the stop asked for at once, before the agent acts on it.
+      const stopping = host.interrupt(id);
+      expect(host.snapshot(id)!.info.stopping).toBe(true);
+      await stopping;
 
       const reads = (s: ChatSnapshot) => {
         expect(s.nodes.filter((n) => n.kind === 'user_message').map((n) => n.text)).toEqual([
@@ -247,9 +250,14 @@ describe.each(['claude', 'codex', 'pi'] as const)('%s stopped mid-turn', (agent)
         if (agent === 'claude')
           expect(s.nodes.find((n) => n.kind === 'tool_call')).toMatchObject({ status: 'interrupted' });
       };
-      reads(
-        await until(host, id, (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'notice'), timeout),
+      const stopped = await until(
+        host,
+        id,
+        (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'notice'),
+        timeout,
       );
+      reads(stopped);
+      expect(stopped.info.stopping).toBe(false);
 
       await host.stop(id);
       await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });

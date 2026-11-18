@@ -92,17 +92,17 @@ function firstSentence(text: string): string {
   return sentence;
 }
 
-/**
- * What the agent is on now, from the latest thing that names it: a step, a
- * finished thought, or a remark. Something still streaming in is a few words
- * of a sentence, so it waits until it is whole; until then the last phrase stands.
- */
 /** A step as the line names it: what the agent said it does, never a raw command. */
 function stepPhrase(node: ToolCallNode): string {
   if (node.tool === 'command' && (!node.title || node.title === node.command)) return 'Running a command';
   return node.title.replace(/[.…]+$/, '');
 }
 
+/**
+ * What the agent is on now, from the latest thing that names it: a step, a
+ * finished thought, or a remark. Something still streaming in is a few words
+ * of a sentence, so it waits until it is whole; until then the last phrase stands.
+ */
 function doingNow(work: ChatNode[]): string | null {
   for (let i = work.length - 1; i >= 0; i--) {
     const node = work[i];
@@ -132,10 +132,11 @@ function useHeld(phrase: string): string {
   return shown;
 }
 
-function Doing({ work, started }: { work: ChatNode[]; started: number }) {
+function Doing({ work, started, stopping }: { work: ChatNode[]; started: number; stopping: boolean }) {
   const latest = useRef('Thinking');
   latest.current = doingNow(work) ?? latest.current;
-  const phrase = useHeld(latest.current);
+  const held = useHeld(latest.current);
+  const phrase = stopping ? 'Stopping' : held;
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -148,7 +149,7 @@ function Doing({ work, started }: { work: ChatNode[]; started: number }) {
       aria-label="Working"
     >
       <span className="w-3 flex justify-center shrink-0">
-        <StatusGlyph status="thinking" size={8} />
+        {!stopping && <StatusGlyph status="thinking" size={8} />}
       </span>
       <span className="min-w-0 overflow-hidden whitespace-nowrap">{phrase}</span>
       <Span ms={now - started} />
@@ -373,11 +374,14 @@ export function ChatTurns({
   nodes,
   context,
   busy,
+  stopping = false,
   onHeld,
 }: {
   nodes: ChatNode[];
   context: NodeContext;
   busy: boolean;
+  /** Asked to stop: what is still being revealed shows whole at once, and the working line says so. */
+  stopping?: boolean;
   /** Whether something said is still being revealed, so what comes after it waits. */
   onHeld?: (held: boolean) => void;
 }) {
@@ -401,7 +405,7 @@ export function ChatTurns({
   for (const node of nodes) if (node.kind === 'assistant_message') pacedFor(node.id);
   const turns = turnsOf(nodes);
   const layouts = turns.map((turn, index) => layoutOf(turn, busy && index === turns.length - 1));
-  const pending = (node: AssistantMessageNode) => pacedFor(node.id) && !revealedIds.has(node.id);
+  const pending = (node: AssistantMessageNode) => !stopping && pacedFor(node.id) && !revealedIds.has(node.id);
 
   // Each run of routine turns shows as one line, from where it starts.
   let run: Turn[] | null = null;
@@ -435,7 +439,7 @@ export function ChatTurns({
         items.push(<WorkFold key={piece.nodes[0].id} work={piece.nodes} context={context} />);
         continue;
       }
-      const paced = pacedFor(piece.node.id);
+      const paced = !stopping && pacedFor(piece.node.id);
       items.push(<Said key={piece.node.id} node={piece.node} paced={paced} onDone={onDone} />);
       if (pending(piece.node)) {
         held = true;
@@ -445,7 +449,12 @@ export function ChatTurns({
     if (!held) {
       if (doing) {
         items.push(
-          <Doing key="doing" work={doing} started={turn.opener?.createdAt ?? turn.body[0]?.createdAt ?? Date.now()} />,
+          <Doing
+            key="doing"
+            work={doing}
+            started={turn.opener?.createdAt ?? turn.body[0]?.createdAt ?? Date.now()}
+            stopping={stopping}
+          />,
         );
       }
       for (const node of turn.kept) items.push(<ChatNodeView key={node.id} node={node} context={context} />);

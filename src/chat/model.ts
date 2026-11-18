@@ -284,6 +284,8 @@ export interface ChatSessionInfo {
   mode?: string;
   /** A mode picked during a turn, applied once the turn ends. */
   pendingMode?: string | null;
+  /** Asked to stop and not yet stopped: the turn is over as far as anyone watching is concerned. */
+  stopping?: boolean;
   modes: ChatOption[];
   commands: ChatCommand[];
   /** How much of the model's window the conversation fills, as of the agent's last request. */

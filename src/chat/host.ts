@@ -600,8 +600,10 @@ export class ChatHost {
             ? { ...incoming, commands: withConversationCommands(incoming.commands, session.driver) }
             : incoming;
         const wasBusy = session.info.status === 'running' || session.info.status === 'awaiting';
-        const next =
+        const awaited =
           patch.status === 'running' && session.asks.size > 0 ? { ...patch, status: 'awaiting' as const } : patch;
+        const ended = awaited.status !== undefined && awaited.status !== 'running' && awaited.status !== 'awaiting';
+        const next = ended && session.info.stopping ? { ...awaited, stopping: false } : awaited;
         session.emit({ type: 'session', patch: next });
         if (next.status === 'exited' || next.status === 'error') {
           for (const node of settled(session.nodes)) session.emit({ type: 'node', node });
@@ -849,10 +851,20 @@ export class ChatHost {
   }
 
   async interrupt(id: string): Promise<void> {
-    const { session, driver } = await this.requireDriver(id);
-    session.queued.splice(0).forEach((node) => session.emit({ type: 'remove', ids: [node.id] }));
-    this.cancelAsks(session);
-    await driver.interrupt();
+    // Said before anything is awaited, so whoever pressed stop sees it taken at once.
+    const live = this.sessions.get(id);
+    if (live && (live.info.status === 'running' || live.info.status === 'awaiting')) {
+      live.emit({ type: 'session', patch: { stopping: true } });
+    }
+    try {
+      const { session, driver } = await this.requireDriver(id);
+      session.queued.splice(0).forEach((node) => session.emit({ type: 'remove', ids: [node.id] }));
+      this.cancelAsks(session);
+      await driver.interrupt();
+    } catch (error) {
+      if (live?.info.stopping) live.emit({ type: 'session', patch: { stopping: false } });
+      throw error;
+    }
   }
 
   /** Name a session, live or stored. False when there is no such session. */
