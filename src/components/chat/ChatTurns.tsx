@@ -5,7 +5,14 @@ import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
 import { ChatNodeList, ChatNodeView, Span, foldSummary, isEmptyThought, type NodeContext } from './ChatNodes';
 import { ChatRequestView, SettledLine, approvedByChat, firstLine, settledLabel } from './ChatRequest';
-import type { AssistantMessageNode, ChatNode, UserMessageNode, WakeNote, WakeRequest } from '../../chat/model';
+import type {
+  AssistantMessageNode,
+  ChatNode,
+  ToolCallNode,
+  UserMessageNode,
+  WakeNote,
+  WakeRequest,
+} from '../../chat/model';
 
 type Piece = { kind: 'work'; nodes: ChatNode[] } | { kind: 'said'; node: AssistantMessageNode };
 
@@ -81,10 +88,16 @@ function firstSentence(text: string): string {
  * finished thought, or a remark. Something still streaming in is a few words
  * of a sentence, so it waits until it is whole; until then the last phrase stands.
  */
+/** A step as the line names it: what the agent said it does, never a raw command. */
+function stepPhrase(node: ToolCallNode): string {
+  if (node.tool === 'command' && (!node.title || node.title === node.command)) return 'Running a command';
+  return node.title.replace(/[.…]+$/, '');
+}
+
 function doingNow(work: ChatNode[]): string | null {
   for (let i = work.length - 1; i >= 0; i--) {
     const node = work[i];
-    if (node.kind === 'tool_call') return node.title.replace(/[.…]+$/, '');
+    if (node.kind === 'tool_call') return stepPhrase(node);
     if ((node.kind === 'reasoning' || node.kind === 'assistant_message') && node.status !== 'running') {
       if (node.text.trim()) return firstSentence(node.text);
     }

@@ -342,13 +342,20 @@ describe('Chat', () => {
     adopt([...transcript(), long], { status: 'running' });
     expect(await screen.findByText('Adds a settings table', undefined, { timeout: 3000 })).toBeTruthy();
     expect(screen.queryByRole('status', { name: 'Working' })).toBeNull();
-    adopt([...transcript(), { ...long, status: 'completed' } as ChatNode, tool('t5', 'command', 'git log')], {
-      status: 'running',
-    });
+    adopt(
+      [
+        ...transcript(),
+        { ...long, status: 'completed' } as ChatNode,
+        { ...tool('t5', 'command', 'git log'), command: 'git log' } as ChatNode,
+      ],
+      {
+        status: 'running',
+      },
+    );
     expect(screen.getByText('Adds a settings table')).toBeTruthy();
     // The step after it waits until it has been revealed.
     expect((await screen.findByRole('status', { name: 'Working' }, { timeout: 3000 })).textContent).toMatch(
-      /^git log · /,
+      /^Running a command · /,
     );
 
     // Another conversation resumes in place of this one; the plus starts a fresh one; a row can be renamed.
