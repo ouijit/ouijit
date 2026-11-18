@@ -402,6 +402,7 @@ export class OuijitTerminal {
 
   // ── PTY cleanup ─────────────────────────────────────────────────────
   private cleanupData: (() => void) | null = null;
+  private inputForwarding: { dispose(): void } | null = null;
   private blank = false;
   private blankSince = 0;
   private blankTimer: ReturnType<typeof setTimeout> | null = null;
@@ -595,6 +596,8 @@ export class OuijitTerminal {
   async releasePty(): Promise<void> {
     this.cleanupData?.();
     this.cleanupData = null;
+    this.inputForwarding?.dispose();
+    this.inputForwarding = null;
     const exitedPty = new Promise<void>((resolve) => {
       const stop = window.api.pty.onExit(this.ptyId, () => {
         stop();
@@ -1089,7 +1092,8 @@ export class OuijitTerminal {
   }
 
   private wireInputForwarding(): void {
-    this.xterm.onData((data) => {
+    this.inputForwarding?.dispose();
+    this.inputForwarding = this.xterm.onData((data) => {
       const input = dropUnmeasuredMouseReports(data);
       if (this.ptyId && input) {
         window.api.pty.write(this.ptyId, input);
