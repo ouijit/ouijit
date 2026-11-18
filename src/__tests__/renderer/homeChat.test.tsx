@@ -406,7 +406,7 @@ describe('Chat', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Change…' }));
     await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(2));
     expect(screen.getByText('~/strict.json')).toBeTruthy();
-    fireEvent.click(screen.getByRole('checkbox', { name: 'A hook fails' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'A hook fails' }));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(
       HOME_CHAT_SETTING_KEYS.wake,
       JSON.stringify({ turnEnded: true, asked: true, taskMoved: true, hookFailed: false }),
