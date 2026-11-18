@@ -28,6 +28,7 @@ import type { DriverProbe } from '../../chat/driver';
 import { SandboxProfileRow } from '../scripts/SandboxProfileRow';
 import { CustomLauncherRow } from '../scripts/CustomLauncherRow';
 import { CliAccessRow } from '../scripts/SandboxSection';
+import { ToggleRow } from '../ui/SettingsRows';
 
 async function loadHomeChatSettings(): Promise<HomeChatSettings> {
   const values = new Map<string, string | undefined>();
@@ -233,18 +234,12 @@ export function HomeChatSettingsPanel() {
             </p>
             <div className={PANEL}>
               {WAKE_EVENTS.map((event) => (
-                <label
+                <ToggleRow
                   key={event}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-ink/[0.02]"
-                >
-                  <input
-                    type="checkbox"
-                    className="accent-accent"
-                    checked={settings.wake[event]}
-                    onChange={() => toggleWake(event)}
-                  />
-                  {WAKE_EVENT_LABELS[event]}
-                </label>
+                  label={WAKE_EVENT_LABELS[event]}
+                  checked={settings.wake[event]}
+                  onChange={() => toggleWake(event)}
+                />
               ))}
             </div>
           </section>

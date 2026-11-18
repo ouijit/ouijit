@@ -1,7 +1,7 @@
 /** A settings-panel row with a switch, shared by the app settings sections. */
 export interface ToggleRowProps {
   label: string;
-  description: string;
+  description?: string;
   checked: boolean;
   onChange: () => void;
 }
@@ -11,7 +11,7 @@ export function ToggleRow({ label, description, checked, onChange }: ToggleRowPr
     <label className="flex items-center gap-4 px-4 py-3 hover:bg-ink/[0.02]">
       <div className="flex-1 min-w-0">
         <div className="text-sm text-text-primary">{label}</div>
-        <div className="text-xs text-text-tertiary mt-0.5">{description}</div>
+        {description && <div className="text-xs text-text-tertiary mt-0.5">{description}</div>}
       </div>
       <button
         type="button"
