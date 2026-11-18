@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { commandMenu } from '../chat/commandMenu';
+import { SHORT_LIST, commandMenu } from '../chat/commandMenu';
 import { parseSlashCommand, type ChatCommand } from '../chat/model';
 
 const COMMANDS: ChatCommand[] = [
@@ -25,9 +25,13 @@ const names = (draft: string) =>
   commandMenu(draft, INFO).map((item) => (item.kind === 'command' ? item.command.name : `${item.command}:${item.id}`));
 
 describe('the slash command menu', () => {
-  test("puts Ouijit's own commands first, finds the rest by any part of their name or what they do, and lists every match", () => {
-    expect(names('/').slice(0, 3)).toEqual(['clear', 'compact', 'model']);
-    expect(names('/')).toHaveLength(COMMANDS.length);
+  test("offers Ouijit's own and the recent ones on a bare slash, and finds the rest by any part of their name or what they do", () => {
+    expect(names('/')).toEqual(['clear', 'compact', 'model']);
+    const bare = (recent: string[]) =>
+      commandMenu('/', INFO, recent).map((item) => (item.kind === 'command' ? item.command.name : ''));
+    // What was sent lately follows them, once each, and only commands the agent still has.
+    expect(bare(['review', 'clear', 'gone'])).toEqual(['clear', 'compact', 'model', 'review']);
+    expect(bare(COMMANDS.map((c) => c.name))).toHaveLength(SHORT_LIST);
     // The prefix a plugin puts on its commands does not bury a built-in.
     expect(names('/co')).toEqual(['compact', 'compound-writing:cw-commands', 'compound-writing:cw-bluf']);
     // Both match only in a description, so Ouijit's own order holds.
@@ -45,9 +49,10 @@ describe('the slash command menu', () => {
 
   test('knows which commands take something more, and offers the choices for a model', () => {
     const takes = Object.fromEntries(
-      commandMenu('/', INFO).flatMap((item) =>
-        item.kind === 'command' ? [[item.command.name, item.takesArgument]] : [],
-      ),
+      ['/compact', '/clear', '/review', '/add-test', '/model'].flatMap((draft) => {
+        const [item] = commandMenu(draft, INFO);
+        return item.kind === 'command' ? [[item.command.name, item.takesArgument]] : [];
+      }),
     );
     // An argument marked optional, in brackets or in words, does not hold a command back.
     expect(takes).toMatchObject({ compact: false, clear: false, review: false, 'add-test': true, model: true });

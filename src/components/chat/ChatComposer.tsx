@@ -10,7 +10,13 @@ import { useProjectStore } from '../../stores/projectStore';
 import { sendChat, switchToTerminal } from './chatActions';
 import { CHAT_AGENT_LABELS } from '../../chat/preferences';
 import { commandMenu, type MenuItem } from '../../chat/commandMenu';
-import { parseSlashCommand, type ChatAttachment, type ChatOption, type ChatSessionInfo } from '../../chat/model';
+import {
+  parseSlashCommand,
+  type ChatAttachment,
+  type ChatNode,
+  type ChatOption,
+  type ChatSessionInfo,
+} from '../../chat/model';
 import type { ChatDelivery } from '../../chat/host';
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -295,6 +301,18 @@ function AttachmentChip({ attachment, onRemove }: { attachment: ChatAttachment; 
   );
 }
 
+/** The commands sent in this conversation, latest first. */
+function recentCommands(nodes: ChatNode[]): string[] {
+  const names: string[] = [];
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const node = nodes[i];
+    if (node.kind !== 'user_message' || node.wake) continue;
+    const name = /^\/(\S+)/.exec(node.text)?.[1];
+    if (name && !names.includes(name)) names.push(name);
+  }
+  return names;
+}
+
 function usageLabel(info: ChatSessionInfo): string | null {
   const usage = info.usage;
   if (!usage?.contextTokens) return null;
@@ -322,9 +340,10 @@ export function ChatComposer({
   focusRef: (focus: (() => void) | null) => void;
 }) {
   const draft = useChatStore((s) => s.drafts[cardId] ?? '');
+  const nodes = useChatStore((s) => s.sessions[cardId]?.nodes);
+  const recent = useMemo(() => recentCommands(nodes ?? []), [nodes]);
   const setDraft = useChatStore((s) => s.setDraft);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
-  const [delivery, setDelivery] = useState<Exclude<ChatDelivery, 'auto'>>('steer');
   const [commandIndex, setCommandIndex] = useState(0);
   const [terminalCommand, setTerminalCommand] = useState<string | null>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
@@ -344,8 +363,8 @@ export function ChatComposer({
   // Escape closes the menu for the draft it was open on; typing more opens it again.
   const [dismissedFor, setDismissedFor] = useState<string | null>(null);
   const items = useMemo(
-    () => (caps.commands && dismissedFor !== draft ? commandMenu(draft, info) : []),
-    [caps.commands, dismissedFor, draft, info],
+    () => (caps.commands && dismissedFor !== draft ? commandMenu(draft, info, recent) : []),
+    [caps.commands, dismissedFor, draft, info, recent],
   );
   const selected = items.length ? items[Math.min(commandIndex, items.length - 1)] : undefined;
   useEffect(() => setCommandIndex(0), [draft]);
@@ -358,7 +377,8 @@ export function ChatComposer({
       setTerminalCommand(command.name);
       return;
     }
-    const chosen: ChatDelivery = busy && caps.steer && caps.queue ? delivery : 'auto';
+    // A message sent mid-turn steers it wherever the agent can take one.
+    const chosen: ChatDelivery = busy && caps.steer ? 'steer' : 'auto';
     setDraft(cardId, '');
     const sent = attachments;
     setAttachments([]);
@@ -490,6 +510,11 @@ export function ChatComposer({
               );
             })}
           </div>
+          {draft === '/' && info.commands.length > items.length && (
+            <div className="px-3 py-1.5 border-t border-separator text-[12px] text-text-tertiary">
+              Type to search {info.commands.length} commands
+            </div>
+          )}
         </div>
       )}
       {terminalCommand && (
@@ -539,7 +564,7 @@ export function ChatComposer({
         rows={1}
         value={draft}
         disabled={!ready}
-        placeholder={ready ? (busy ? 'Send a message while it works' : 'Message the agent') : ''}
+        placeholder={ready ? 'Send a message' : ''}
         aria-label="Message"
         className="block w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-sm text-text-primary placeholder:text-text-tertiary outline-none min-h-14 max-h-60 overflow-y-auto"
         onChange={(event) => {
@@ -579,16 +604,6 @@ export function ChatComposer({
         <span className="flex-1" />
         {usage && (
           <span className="text-[11px] text-text-tertiary mr-1 overflow-hidden whitespace-nowrap">{usage}</span>
-        )}
-        {busy && caps.steer && caps.queue && (
-          <button
-            type="button"
-            title={delivery === 'steer' ? 'Messages join the running turn' : 'Messages wait for the turn to end'}
-            className="px-1.5 py-0.5 rounded-[6px] text-[12px] text-text-tertiary hover:text-text-primary hover:bg-ink/[0.06] transition-colors duration-100"
-            onClick={() => setDelivery((d) => (d === 'steer' ? 'queue' : 'steer'))}
-          >
-            {delivery === 'steer' ? 'Steer' : 'Queue'}
-          </button>
         )}
         {busy && caps.interrupt && (
           <button

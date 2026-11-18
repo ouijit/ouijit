@@ -7,6 +7,9 @@ export type MenuItem =
 /** Ouijit's own commands come first in the menu, in this order; they are the ones used most. */
 const PINNED = ['clear', 'compact', 'model', 'effort'];
 
+/** How many a bare slash offers; typing searches the rest. */
+export const SHORT_LIST = 8;
+
 /**
  * Whether choosing a command should wait for more before it runs: it needs an
  * argument, or offers choices (a model, an effort). An argument agents mark
@@ -43,11 +46,16 @@ function rank(command: ChatCommand, query: string): number | null {
 }
 
 /**
- * What the composer's menu offers for a draft: the commands matching a
- * `/word` being typed, or, once `/model ` or `/effort ` is typed, that
- * setting's choices. Empty for anything else.
+ * What the composer's menu offers for a draft: for a bare slash, Ouijit's own
+ * commands and the `recent` ones sent; the commands matching a `/word` being
+ * typed; or, once `/model ` or `/effort ` is typed, that setting's choices.
+ * Empty for anything else.
  */
-export function commandMenu(draft: string, info: Pick<ChatSessionInfo, 'commands' | 'models' | 'efforts'>): MenuItem[] {
+export function commandMenu(
+  draft: string,
+  info: Pick<ChatSessionInfo, 'commands' | 'models' | 'efforts'>,
+  recent: string[] = [],
+): MenuItem[] {
   const option = /^\/(model|effort)\s+(\S*)$/.exec(draft);
   if (option) {
     const which = option[1] as 'model' | 'effort';
@@ -60,6 +68,16 @@ export function commandMenu(draft: string, info: Pick<ChatSessionInfo, 'commands
   const typed = /^\/(\S*)$/.exec(draft);
   if (!typed) return [];
   const query = typed[1].toLowerCase();
+  if (!query) {
+    const byName = new Map(info.commands.map((command) => [command.name, command]));
+    const names = [...new Set([...PINNED, ...recent])];
+    return names
+      .flatMap((name) => {
+        const command = byName.get(name);
+        return command ? [{ kind: 'command' as const, command, takesArgument: takesArgument(command) }] : [];
+      })
+      .slice(0, SHORT_LIST);
+  }
   return info.commands
     .map((command, index) => ({ command, index, score: rank(command, query) }))
     .filter((entry): entry is { command: ChatCommand; index: number; score: number } => entry.score !== null)
