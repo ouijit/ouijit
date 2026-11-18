@@ -1,8 +1,7 @@
 /**
  * OuijitTerminal (React) — one card: its identity, panels, tags and status,
  * and the session behind its body. The body is a PTY in an xterm, or a chat
- * session the main process runs; a card that has been a chat can switch
- * between the two on one conversation, keeping its id.
+ * session the main process runs.
  *
  * React owns the card chrome (header, tags, git stats, runner panel).
  */
@@ -55,7 +54,7 @@ export interface TerminalOptions {
    */
   autoCloseOnSuccess?: boolean;
   surface?: TaskSurface;
-  /** The agent this card's conversation belongs to, for a card that is or has been a chat. */
+  /** The agent a chat card's conversation belongs to. */
   chatAgent?: ChatAgentId;
 }
 
@@ -390,8 +389,8 @@ export class OuijitTerminal {
   readonly projectPath: string;
   command: string | undefined;
   readonly isRunner: boolean;
-  surface: TaskSurface;
-  chatAgent: ChatAgentId | null;
+  readonly surface: TaskSurface;
+  readonly chatAgent: ChatAgentId | null;
   /** Set by the mounted chat view, so focusing the card focuses its composer. */
   chatFocus: (() => void) | null = null;
 
@@ -402,10 +401,6 @@ export class OuijitTerminal {
 
   // ── PTY cleanup ─────────────────────────────────────────────────────
   private cleanupData: (() => void) | null = null;
-  private inputForwarding: { dispose(): void } | null = null;
-  private blank = false;
-  private blankSince = 0;
-  private blankTimer: ReturnType<typeof setTimeout> | null = null;
   cleanupExit: (() => void) | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
@@ -555,11 +550,7 @@ export class OuijitTerminal {
 
   // ── Public API ──────────────────────────────────────────────────────
 
-  private opened = false;
-
   openTerminal(): void {
-    if (this.opened) return;
-    this.opened = true;
     this.xterm.open(this.viewportElement);
     this.wireDragDrop(this.viewportElement);
   }
@@ -582,60 +573,6 @@ export class OuijitTerminal {
     this.clearIdleTimer();
     if (status === 'ready') this.becomeReady();
     else this.setStatus(status);
-  }
-
-  setSurface(surface: TaskSurface): void {
-    this.surface = surface;
-    this.pushDisplayState({ surface });
-  }
-
-  /**
-   * Let go of the PTY behind the body without disposing the card, so the same
-   * id can carry the chat session instead. Resolves once the PTY has exited.
-   */
-  async releasePty(): Promise<void> {
-    this.cleanupData?.();
-    this.cleanupData = null;
-    this.inputForwarding?.dispose();
-    this.inputForwarding = null;
-    const exitedPty = new Promise<void>((resolve) => {
-      const stop = window.api.pty.onExit(this.ptyId, () => {
-        stop();
-        resolve();
-      });
-      setTimeout(resolve, 4000);
-    });
-    this.cleanupExit?.();
-    this.cleanupExit = null;
-    this.resizeObserver?.disconnect();
-    window.api.pty.kill(this.ptyId);
-    await exitedPty;
-    this.pushDisplayState({ exited: false });
-  }
-
-  /** Clear what the last PTY left, ahead of the one about to draw. */
-  clearScreen(): void {
-    this.xterm.reset();
-    this.blank = true;
-    this.blankSince = 0;
-    this.pushDisplayState({ blank: true });
-  }
-
-  /**
-   * A full-screen UI arrives as a burst of writes, clearing and redrawing on
-   * the way, so the screen counts as drawn once the burst goes quiet, or has
-   * run long enough that it is a UI repainting rather than one still arriving.
-   */
-  private noteDrawing(): void {
-    const now = Date.now();
-    if (!this.blankSince) this.blankSince = now;
-    if (this.blankTimer) clearTimeout(this.blankTimer);
-    const settle = now - this.blankSince >= 450 ? 0 : 90;
-    this.blankTimer = setTimeout(() => {
-      this.blankTimer = null;
-      this.blank = false;
-      this.pushDisplayState({ blank: false });
-    }, settle);
   }
 
   /** Suppress PTY resizes during reconnection until layout settles. */
@@ -1044,7 +981,6 @@ export class OuijitTerminal {
 
   private wireDataHandler(skipSideEffects?: boolean, onData?: (data: string) => void): void {
     this.cleanupData = window.api.pty.onData(this.ptyId, (data) => {
-      if (this.blank) this.noteDrawing();
       const buf = this.xterm.buffer.active;
       const atBottom = buf.viewportY >= buf.baseY;
 
@@ -1092,8 +1028,7 @@ export class OuijitTerminal {
   }
 
   private wireInputForwarding(): void {
-    this.inputForwarding?.dispose();
-    this.inputForwarding = this.xterm.onData((data) => {
+    this.xterm.onData((data) => {
       const input = dropUnmeasuredMouseReports(data);
       if (this.ptyId && input) {
         window.api.pty.write(this.ptyId, input);

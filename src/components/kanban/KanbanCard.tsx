@@ -2,6 +2,7 @@ import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode
 import { useDraggable } from '@dnd-kit/core';
 import { useShallow } from 'zustand/react/shallow';
 import type { TaskWithWorkspace, SandboxBackendId, SandboxProviderId } from '../../types';
+import { openTaskSession } from '../navigation';
 import { moveToEntry, taskEntries, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -183,6 +184,7 @@ export const KanbanCard = memo(function KanbanCard({
       terminals: connectedDisplays,
       trackers: { github: githubEnabled, linear: linearEnabled },
       openTerminal: (provider) => onOpenTerminal(task, provider),
+      openSession: (surface) => void openTaskSession(projectPath, task, surface),
       showTerminal: onSwitchToTerminal,
       branchFrom: () => setBranchFromDialog(true),
       rename: handleStartRenameTask,

@@ -95,10 +95,6 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
     wakeHomeChat(event, text, { kind: 'event', text: note }, about ? taskSubject(about) : null),
   );
   typedHandle('homeChat:restart', () => restartHomeChat());
-  typedHandle('chat:terminal-resume', (id) => {
-    const snapshot = chatHost.snapshot(id);
-    return snapshot ? getDriver(snapshot.info.agent).terminalResume(snapshot.info.agentSessionId) : null;
-  });
 }
 
 /**

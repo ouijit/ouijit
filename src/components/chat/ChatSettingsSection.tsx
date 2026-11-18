@@ -12,6 +12,7 @@ import {
 import { CHAT_AGENT_IDS, type ChatAgentId } from '../../chat/model';
 import type { DriverProbe } from '../../chat/driver';
 import { loadChatSettings, setChatEnabled } from './chatActions';
+import { useHomeChatStore } from '../../stores/homeChatStore';
 
 function Row({ label, description, children }: { label: string; description: string; children: React.ReactNode }) {
   return (
@@ -65,7 +66,7 @@ export function ChatSettingsSection() {
         />
         {settings.enabled && (
           <>
-            <Row label="Open tasks in" description="Any task can switch between chat and terminal from its card.">
+            <Row label="Open tasks in" description="A task can have more of either, from its menu.">
               <SegmentedGroup>
                 {(['terminal', 'chat'] as TaskSurface[]).map((surface) => (
                   <button
@@ -73,7 +74,10 @@ export function ChatSettingsSection() {
                     type="button"
                     aria-pressed={settings.surface === surface}
                     className={`${segmentBase} ${settings.surface === surface ? segmentAccent : segmentQuiet}`}
-                    onClick={() => save('surface', surface, surface)}
+                    onClick={() => {
+                      save('surface', surface, surface);
+                      useHomeChatStore.getState().setTaskSurface(surface);
+                    }}
                   >
                     {surface === 'chat' ? 'Chat' : 'Terminal'}
                   </button>

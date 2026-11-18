@@ -1032,8 +1032,4 @@ export const claudeDriver: AgentDriver = {
     await session.open();
     return session;
   },
-
-  terminalResume(agentSessionId) {
-    return { file: 'claude', args: agentSessionId ? ['--resume', agentSessionId] : [] };
-  },
 };

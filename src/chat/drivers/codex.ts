@@ -676,10 +676,4 @@ export const codexDriver: AgentDriver = {
     }
     return session;
   },
-
-  terminalResume(agentSessionId) {
-    const binary = resolveAgentBinary('codex');
-    if (!binary) return null;
-    return { file: 'codex', args: agentSessionId ? ['resume', agentSessionId] : [] };
-  },
 };

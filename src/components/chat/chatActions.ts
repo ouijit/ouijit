@@ -1,6 +1,6 @@
 import log from 'electron-log/renderer';
 import { OuijitTerminal, resolveTerminalLabel } from '../terminal/terminalReact';
-import { registerTerminal, spawnRunner, buildWorktreeStartEnv, applyInitialUiState } from '../terminal/terminalActions';
+import { registerTerminal, spawnRunner, applyInitialUiState, addProjectTerminal } from '../terminal/terminalActions';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { useChatStore, listenForChatEvents } from '../../stores/chatStore';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -14,6 +14,7 @@ import { listenForHomeChat, useHomeChatStore } from '../../stores/homeChatStore'
 import { useAppStore } from '../../stores/appStore';
 import { listenForChatDecisions } from '../../services/homeChatDecisions';
 import { startHomeChat } from './homeChatActions';
+import { AGENT_TERMINAL_COMMANDS } from '../../chat/model';
 import type { ChatAgentId, ChatAttachment, ChatSessionStatus, SequencedChatEvent } from '../../chat/model';
 import type { SandboxProviderId, SnapshotTerminalUi, TaskWithWorkspace } from '../../types';
 import type { ChatDelivery } from '../../chat/host';
@@ -55,7 +56,10 @@ export function initChat(): void {
   listenForChatEvents(forwardStatus);
   listenForHomeChat();
   listenForChatDecisions();
-  void loadChatSettings().then(({ enabled }) => setChatEnabled(enabled));
+  void loadChatSettings().then(({ enabled, surface }) => {
+    useHomeChatStore.getState().setTaskSurface(surface);
+    return setChatEnabled(enabled);
+  });
 }
 
 /** Turn chat on or off for the app: Chat starts or stops, and its page and sidebar group come and go. */
@@ -138,7 +142,6 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
       taskId: options.taskId ?? null,
       worktreeBranch: options.worktree?.branch ?? null,
       surface: 'chat',
-      chatAgent: agent,
     },
     options.background,
     options.replaceLoadingId,
@@ -249,127 +252,26 @@ export function taskFirstPrompt(task: TaskWithWorkspace | null | undefined): str
   return task?.prompt ? descriptionToHookPrompt(task.prompt) : undefined;
 }
 
-function shellQuote(arg: string): string {
-  return /^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`;
-}
-
-function waitFor(predicate: () => boolean): Promise<void> {
-  if (predicate()) return Promise.resolve();
-  return new Promise((resolve) => {
-    const stopChat = useChatStore.subscribe(check);
-    const stopTerminal = useTerminalStore.subscribe(check);
-    function check() {
-      if (!predicate()) return;
-      stopChat();
-      stopTerminal();
-      resolve();
-    }
-  });
-}
-
-function chatBusy(id: string): boolean {
-  const status = useChatStore.getState().sessions[id]?.info.status;
-  return status === 'running' || status === 'awaiting';
-}
-
 /**
- * Hand the card's conversation to the agent's terminal UI. A running turn
- * finishes first — switching mid-turn would kill the agent partway through a
- * tool call — unless `interrupt` asks for it to stop now. The chat's agent
- * takes a moment to exit and writes nothing more once idle, so the terminal
- * starts without waiting for it.
+ * A terminal on the chat's task running its agent's own UI, for a command only
+ * that UI has. It starts a conversation of its own; the chat's stays the chat's.
  */
-export async function switchToTerminal(id: string, opts: { interrupt?: boolean } = {}): Promise<void> {
+export async function openAgentTerminal(id: string): Promise<void> {
   const term = terminalInstances.get(id);
-  if (!term || term.surface !== 'chat' || useTerminalStore.getState().displayStates[id]?.switching) return;
-  term.pushDisplayState({ switching: 'terminal' });
-  try {
-    if (chatBusy(id)) {
-      if (opts.interrupt) await window.api.chat.interrupt(id);
-      await waitFor(() => !chatBusy(id) || !terminalInstances.has(id));
-    }
-    if (!terminalInstances.has(id)) return;
-    const resume = await window.api.chat.terminalResume(id);
-    if (!resume) {
-      useProjectStore.getState().addToast('This agent has no terminal to switch to', 'error');
-      return;
-    }
-    window.api.chat.stop(id).catch((error: unknown) => chatLog.warn('chat did not stop', { id, error: String(error) }));
-    term.openTerminal();
-    term.clearScreen();
-    term.setSurface('terminal');
-    const command = [resume.file, ...resume.args].map(shellQuote).join(' ');
-    const env = term.worktreePath
-      ? buildWorktreeStartEnv({
-          hookType: 'continue',
-          projectPath: term.projectPath,
-          worktreeInfo: { path: term.worktreePath, branch: term.worktreeBranch ?? '', createdAt: '' },
-          label: term.label,
-          task: null,
-        })
-      : undefined;
-    const spawned = await term.spawnPty({
-      ptyId: id,
-      cwd: term.worktreePath ?? term.projectPath,
-      projectPath: term.projectPath,
-      command,
-      cols: term.xterm.cols || 80,
-      rows: term.xterm.rows || 24,
-      label: term.label,
+  const command = term?.chatAgent ? AGENT_TERMINAL_COMMANDS[term.chatAgent] : undefined;
+  if (!term || !command) return;
+  await addProjectTerminal(
+    term.projectPath,
+    { name: command, command, source: 'custom', priority: 0 },
+    {
+      existingWorktree: term.worktreePath
+        ? { path: term.worktreePath, branch: term.worktreeBranch ?? '', createdAt: '' }
+        : undefined,
       taskId: term.taskId ?? undefined,
-      worktreePath: term.worktreePath,
-      env,
       sandboxProvider: term.sandboxProvider,
-    });
-    if (!spawned) {
-      term.setSurface('chat');
-      await window.api.chat.start(chatStartOptions(term));
-    }
-    requestAnimationFrame(() => term.focus());
-  } finally {
-    term.pushDisplayState({ switching: null });
-  }
-}
-
-function chatStartOptions(term: OuijitTerminal) {
-  return {
-    id: term.ptyId,
-    agent: term.chatAgent ?? 'claude',
-    projectPath: term.projectPath,
-    cwd: term.worktreePath ?? term.projectPath,
-    taskId: term.taskId,
-    worktreePath: term.worktreePath,
-    sandboxProvider: term.sandboxProvider,
-  } as const;
-}
-
-/**
- * Bring the conversation back into chat. The agent's terminal UI is stopped
- * once it is idle, and the chat resumes the same conversation, importing the
- * turns that happened in the terminal. The terminal UI takes a moment to exit
- * and leaves its session file as it was, so the chat starts without waiting.
- */
-export async function switchToChat(id: string): Promise<void> {
-  const term = terminalInstances.get(id);
-  if (!term || term.surface !== 'terminal' || !term.chatAgent) return;
-  if (useTerminalStore.getState().displayStates[id]?.switching) return;
-  term.pushDisplayState({ switching: 'chat' });
-  try {
-    await waitFor(
-      () => useTerminalStore.getState().displayStates[id]?.status !== 'thinking' || !terminalInstances.has(id),
-    );
-    if (!terminalInstances.has(id)) return;
-    // Shown at once from what was stored, while the agent comes up behind it.
-    const stored = await window.api.chat.snapshot(id);
-    if (stored) useChatStore.getState().adopt({ ...stored, info: { ...stored.info, status: 'starting' } });
-    void term.releasePty();
-    term.setSurface('chat');
-    const snapshot = await window.api.chat.start({ ...chatStartOptions(term), eager: true });
-    useChatStore.getState().adopt(snapshot);
-    requestAnimationFrame(() => term.focus());
-  } finally {
-    term.pushDisplayState({ switching: null });
-  }
+      label: term.label,
+    },
+  );
 }
 
 /** Put the cards of chat sessions still running in the main process back, after a window reload. */

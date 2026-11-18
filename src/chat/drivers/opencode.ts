@@ -707,8 +707,4 @@ export const opencodeDriver: AgentDriver = {
     }
     return startServer(context, binary);
   },
-
-  terminalResume(agentSessionId) {
-    return { file: 'opencode', args: agentSessionId ? ['--session', agentSessionId] : [] };
-  },
 };

@@ -637,8 +637,4 @@ export const piDriver: AgentDriver = {
     }
     return session;
   },
-
-  terminalResume(agentSessionId) {
-    return { file: 'pi', args: agentSessionId ? ['--session', agentSessionId] : [] };
-  },
 };

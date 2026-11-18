@@ -119,7 +119,6 @@ const mockApi = {
     fork: vi.fn(),
     stop: vi.fn().mockResolvedValue(undefined),
     discard: vi.fn().mockResolvedValue(undefined),
-    terminalResume: vi.fn().mockResolvedValue(null),
     onEvent: vi.fn().mockReturnValue(() => {}),
   },
   homeChat: {

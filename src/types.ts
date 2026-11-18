@@ -19,7 +19,7 @@ import type {
   ChatSnapshot,
   SequencedChatEvent,
 } from './chat/model';
-import type { DriverProbe, TerminalResume } from './chat/driver';
+import type { DriverProbe } from './chat/driver';
 import type { ChatDelivery, ChatStartOptions } from './chat/host';
 import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from './chat/preferences';
 import type {
@@ -442,7 +442,6 @@ export interface ChatAPI {
   fork(id: string): Promise<ChatSnapshot>;
   stop(id: string): Promise<void>;
   discard(id: string): Promise<void>;
-  terminalResume(id: string): Promise<TerminalResume | null>;
   onEvent(callback: (sessionId: string, event: SequencedChatEvent) => void): () => void;
 }
 

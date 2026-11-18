@@ -5,7 +5,7 @@ import { stackFrom, stackMembers, stackOf, terminalUnit, useTerminalStore } from
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import type { Project, SandboxBackendId, TaskWithWorkspace } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
-import { focusTerminal, openTaskTerminal } from '../navigation';
+import { focusTerminal, openTaskSession, openTaskTerminal } from '../navigation';
 import { openTaskSheet } from '../../utils/openTaskComposer';
 import { startTodo } from '../../services/taskStartService';
 import { MenuItem, MenuPopover } from '../ui/Menu';
@@ -335,6 +335,7 @@ function TaskRows({ group, underTag, shown, onScreen, now, at, pick, rowMenu }: 
           terminals: displays.filter((d): d is TerminalDisplayState => d !== undefined && !d.isLoading),
           trackers: { github, linear },
           openTerminal: (provider) => void openTaskTerminal(projectPath, task, provider),
+          openSession: (surface) => void openTaskSession(projectPath, task, surface),
           showTerminal: (id) => void focusTerminal(id),
           branchFrom: () => setBranchingFrom(true),
           rename: () => setRenaming('task'),

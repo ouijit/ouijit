@@ -802,10 +802,6 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
         label: snapEntry?.label ?? undefined,
       });
       if (term && snapEntry) await applyInitialUiState(term, snapEntry.ui);
-      if (term && snapEntry?.chatAgent) {
-        term.chatAgent = snapEntry.chatAgent;
-        term.pushDisplayState({ chatAgent: snapEntry.chatAgent });
-      }
     });
   }
 

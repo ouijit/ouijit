@@ -81,11 +81,6 @@ export interface DriverSession {
   close(): Promise<void>;
 }
 
-export interface TerminalResume {
-  file: string;
-  args: string[];
-}
-
 export interface DriverProbe {
   installed: boolean;
   version?: string;
@@ -98,11 +93,6 @@ export interface AgentDriver {
   readonly label: string;
   probe(): Promise<DriverProbe>;
   start(context: DriverContext): Promise<DriverSession>;
-  /**
-   * The agent's own terminal UI resuming a conversation, so a card can switch
-   * to the terminal mid-task. Null where the agent has no such command.
-   */
-  terminalResume(agentSessionId: string | null): TerminalResume | null;
   /**
    * The agent answering one prompt on stdout and exiting, with no tools and
    * nothing saved. Null where it has no such mode.

@@ -8,6 +8,8 @@ import { completeTask } from '../../services/taskCompletion';
 import { openTaskInEditor } from '../../services/openInEditor';
 import { FILE_MANAGER_NAME, revealInFileManager } from '../../utils/fileManager';
 import { terminalInstances } from '../terminal/terminalRegistry';
+import { useHomeChatStore } from '../../stores/homeChatStore';
+import type { TaskSurface } from '../../chat/preferences';
 import {
   openPullRequestInPanel,
   createPullRequestForTask,
@@ -28,6 +30,8 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
 export interface TaskMenuActions {
   /** Open the task in that place, as a terminal or a chat by preference, overriding the continue hook's sandbox. */
   openTerminal: (provider: SandboxProviderId) => void;
+  /** Add a new chat, or a plain terminal, beside what the task already has. */
+  openSession?: (surface: TaskSurface) => void;
   openEditor: () => void;
   /** Reveal the task's worktree in the OS file manager. */
   openFolder: () => void;
@@ -72,6 +76,14 @@ export function openEntries(
         onClick: () => actions.openTerminal(place),
       })),
     });
+  }
+  const { enabled: chat, taskSurface } = useHomeChatStore.getState();
+  if (chat && actions.openSession && started) {
+    const open = actions.openSession;
+    entries.push({ label: 'New chat', icon: 'chat-circle', onClick: () => open('chat') });
+    // Resuming opens a terminal anyway where tasks open in one.
+    if (taskSurface === 'chat')
+      entries.push({ label: 'New terminal', icon: 'terminal', onClick: () => open('terminal') });
   }
   const apps: ContextMenuEntry[] = [{ label: 'Editor', icon: 'code', onClick: actions.openEditor }];
   if (hasWorktree) apps.push({ label: FILE_MANAGER_NAME, icon: 'folder-open', onClick: actions.openFolder });
@@ -158,6 +170,7 @@ export interface TaskMenuContext {
   terminals: TerminalDisplayState[];
   trackers: { github: boolean; linear: boolean };
   openTerminal: (provider: SandboxProviderId) => void;
+  openSession: (surface: TaskSurface) => void;
   showTerminal: (ptyId: string) => void;
   branchFrom: () => void;
   rename: () => void;
@@ -170,6 +183,7 @@ export function taskEntries(ctx: TaskMenuContext): ContextMenuEntry[] {
 
   const actions: TaskMenuActions = {
     openTerminal: ctx.openTerminal,
+    openSession: ctx.openSession,
     openEditor: () => void openTaskInEditor(projectPath, task),
     openFolder: () => void revealInFileManager(task.worktreePath!),
     setStatus: async (status) => {

@@ -18,6 +18,7 @@ import { hookSandbox } from '../services/hookRun';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalRegistry';
 import { ensureWorktree } from '../services/worktreeRecovery';
+import type { TaskSurface } from '../chat/preferences';
 
 /** Tasks load first, so a board's first paint has its cards. */
 export async function openProjectPage(path: string, page: ProjectPage): Promise<void> {
@@ -101,6 +102,8 @@ export interface OpenTaskShellOptions {
   mode: 'resume' | 'shell';
   /** Never persisted on the task — passed straight to the spawn. */
   sandboxProvider?: SandboxProviderId;
+  /** A new one of these, in place of picking the task back up the way the chat setting says. */
+  fresh?: TaskSurface;
   replaceLoadingId?: string;
   background?: boolean;
 }
@@ -136,12 +139,13 @@ export async function openTaskShell(
   task: TaskWithWorkspace,
   options: OpenTaskShellOptions,
 ): Promise<boolean> {
-  const skipAutoHook = options.mode === 'shell' || !task.branch;
+  const skipAutoHook = options.mode === 'shell' || options.fresh === 'terminal' || !task.branch;
 
   const worktree = await ensureTaskWorktree(projectPath, task);
   if (!worktree) return false;
 
-  if (options.mode === 'resume' && (await loadChatSettings()).surface === 'chat') {
+  const chat = options.fresh ? options.fresh === 'chat' : (await loadChatSettings()).surface === 'chat';
+  if (options.mode === 'resume' && chat) {
     const hooks = skipAutoHook ? null : await window.api.hooks.get(projectPath);
     const continueHook = hooks?.continue;
     // The agent runs in the sandbox it would have in the hook's terminal.
@@ -155,7 +159,7 @@ export async function openTaskShell(
       sandboxProvider: sandbox,
       replaceLoadingId: options.replaceLoadingId,
       background: options.background,
-      resumeLatest: true,
+      resumeLatest: !options.fresh,
       setup: continueHook
         ? { name: continueHook.name, command: continueHook.command, hookType: 'continue', sandboxProvider: sandbox }
         : undefined,
@@ -181,6 +185,18 @@ export async function openTaskTerminal(
   stack?: string,
 ): Promise<void> {
   if (!(await openTaskShell(projectPath, task, { mode: 'resume', sandboxProvider }))) return;
+  const [front] = useTerminalStore.getState().order;
+  if (front) useAppStore.getState().showTerminal(front, stack);
+}
+
+/** A new chat, or a plain terminal, on a task, beside whatever it already has. */
+export async function openTaskSession(
+  projectPath: string,
+  task: TaskWithWorkspace,
+  surface: TaskSurface,
+  stack?: string,
+): Promise<void> {
+  if (!(await openTaskShell(projectPath, task, { mode: 'resume', fresh: surface }))) return;
   const [front] = useTerminalStore.getState().order;
   if (front) useAppStore.getState().showTerminal(front, stack);
 }

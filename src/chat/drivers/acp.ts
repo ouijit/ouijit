@@ -579,8 +579,4 @@ export const acpDriver: AgentDriver = {
     const resolved = command.includes('/') ? command : (resolveAgentBinary(command) ?? command);
     return startAcpSession(context, resolved, args, 'acp', command);
   },
-
-  terminalResume() {
-    return null;
-  },
 };

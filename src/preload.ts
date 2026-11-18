@@ -169,7 +169,6 @@ contextBridge.exposeInMainWorld('api', {
     fork: (id: string) => typedInvoke('chat:fork', id),
     stop: (id: string) => typedInvoke('chat:stop', id),
     discard: (id: string) => typedInvoke('chat:discard', id),
-    terminalResume: (id: string) => typedInvoke('chat:terminal-resume', id),
     onEvent: (callback: (sessionId: string, event: SequencedChatEvent) => void) => typedListen('chat:event', callback),
   },
 

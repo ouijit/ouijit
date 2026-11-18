@@ -20,7 +20,7 @@ import { openEntries, moveToEntry, trackerEntries, type TaskMenuActions } from '
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { openTaskInEditor, openWorktreeInEditor } from '../../services/openInEditor';
-import { openTaskTerminal } from '../navigation';
+import { openTaskSession, openTaskTerminal } from '../navigation';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
@@ -125,6 +125,7 @@ export const TerminalHeader = memo(function TerminalHeader({
             sandboxProvider: provider,
           });
         },
+        openSession: task ? (surface) => void openTaskSession(projectPath, task, surface) : undefined,
         openEditor: () => {
           if (instance.worktreePath) {
             void openWorktreeInEditor(

@@ -7,7 +7,7 @@ import { MenuPopover } from '../ui/Menu';
 import { growToFit } from '../../hooks/useAutoResize';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { sendChat, switchToTerminal } from './chatActions';
+import { openAgentTerminal, sendChat } from './chatActions';
 import { CHAT_AGENT_LABELS } from '../../chat/preferences';
 import { commandMenu, type MenuItem } from '../../chat/commandMenu';
 import {
@@ -532,7 +532,7 @@ export function ChatComposer({
               onClick={() => {
                 setTerminalCommand(null);
                 setDraft(cardId, '');
-                void switchToTerminal(cardId);
+                void openAgentTerminal(cardId);
               }}
             >
               Open in terminal

@@ -6,11 +6,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { openEntries, type TaskMenuActions } from '../../components/kanban/taskMenu';
 import { fileManagerName, FILE_MANAGER_NAME, revealInFileManager } from '../../utils/fileManager';
 import { useProjectStore } from '../../stores/projectStore';
+import { useHomeChatStore } from '../../stores/homeChatStore';
 import type { ContextMenuEntry, ContextMenuItem } from '../../components/ui/ContextMenu';
 
 function actions(): TaskMenuActions {
   return {
     openTerminal: vi.fn(),
+    openSession: vi.fn(),
     openEditor: vi.fn(),
     openFolder: vi.fn(),
     setStatus: vi.fn(),
@@ -71,6 +73,36 @@ describe('resuming and opening a task', () => {
     // disk there is nothing for the file manager to show. Resuming and the
     // editor create one, so they stay.
     expect(outline(openEntries([], false, actions(), 'none'))).toEqual(['Resume', 'Open in', ['Editor']]);
+  });
+});
+
+describe('adding to a task', () => {
+  it('offers a new chat beside what the task has once chat is on, and a terminal where tasks open as chats', () => {
+    useHomeChatStore.setState({ enabled: false, taskSurface: 'terminal' });
+    expect(outline(openEntries([], true, actions(), 'none'))).toEqual([
+      'Resume',
+      'Open in',
+      ['Editor', FILE_MANAGER_NAME],
+    ]);
+
+    useHomeChatStore.setState({ enabled: true, taskSurface: 'terminal' });
+    const acts = actions();
+    const entries = openEntries([], true, acts, 'none');
+    expect(outline(entries)).toEqual(['Resume', 'New chat', 'Open in', ['Editor', FILE_MANAGER_NAME]]);
+    (entries[1] as ContextMenuItem).onClick();
+    expect(acts.openSession).toHaveBeenCalledWith('chat');
+
+    useHomeChatStore.setState({ taskSurface: 'chat' });
+    expect(outline(openEntries([], true, actions(), 'none'))).toEqual([
+      'Resume',
+      'New chat',
+      'New terminal',
+      'Open in',
+      ['Editor', FILE_MANAGER_NAME],
+    ]);
+    // A to-do is started first, the way the setting says.
+    expect(outline(openEntries([], false, actions(), 'none', false))).toEqual(['Start', 'Open in', ['Editor']]);
+    useHomeChatStore.setState({ enabled: false, taskSurface: 'terminal' });
   });
 });
 

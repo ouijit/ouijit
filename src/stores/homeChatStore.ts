@@ -1,12 +1,15 @@
 import { create } from 'zustand';
 import { useChatStore } from './chatStore';
-import type { HomeChatState, HomeChatSummary } from '../chat/preferences';
+import type { HomeChatState, HomeChatSummary, TaskSurface } from '../chat/preferences';
 
 interface HomeChatStore extends HomeChatState {
   /** Whether chat is turned on; until it is, Chat never starts and none of it shows. */
   enabled: boolean;
+  /** What resuming a task opens, by the chat setting. */
+  taskSurface: TaskSurface;
   set: (state: HomeChatState) => void;
   setEnabled: (enabled: boolean) => void;
+  setTaskSurface: (surface: TaskSurface) => void;
 }
 
 /** Chat's conversations, which one is current, and which started each task, as the main process reports them. */
@@ -15,8 +18,10 @@ export const useHomeChatStore = create<HomeChatStore>()((set) => ({
   chats: [],
   owners: {},
   enabled: false,
+  taskSurface: 'terminal',
   set: (state) => set(state),
   setEnabled: (enabled) => set({ enabled }),
+  setTaskSurface: (taskSurface) => set({ taskSurface }),
 }));
 
 export function currentHomeChatTitle(state: HomeChatState): string | undefined {

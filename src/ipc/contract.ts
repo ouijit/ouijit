@@ -114,7 +114,7 @@ import type {
 } from '../chat/model';
 import type { ChatDelivery, ChatStartOptions } from '../chat/host';
 import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from '../chat/preferences';
-import type { DriverProbe, TerminalResume } from '../chat/driver';
+import type { DriverProbe } from '../chat/driver';
 
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
 
@@ -499,8 +499,6 @@ export interface IpcInvokeContract {
   /** Stop the agent and keep the transcript; resolves once it has exited. */
   'chat:stop': { args: [id: string]; return: void };
   'chat:discard': { args: [id: string]; return: void };
-  /** The agent's terminal UI resuming this chat's conversation, for switching the card to its terminal. */
-  'chat:terminal-resume': { args: [id: string]; return: TerminalResume | null };
   /** The app-wide chat, started or resumed under its settings. */
   'homeChat:start': { args: []; return: ChatSnapshot };
   /** Restart its agent on the same conversation, after its settings changed. */

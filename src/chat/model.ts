@@ -394,6 +394,14 @@ export function isConversationCommand(name: string): boolean {
  * run. Anything else that starts with a slash and is not in the chat's menu
  * is just a message.
  */
+/** The command that starts an agent's own terminal UI, for what only that UI does. */
+export const AGENT_TERMINAL_COMMANDS: Partial<Record<ChatAgentId, string>> = {
+  claude: 'claude',
+  codex: 'codex',
+  pi: 'pi',
+  opencode: 'opencode',
+};
+
 const TERMINAL_ONLY_COMMANDS: Partial<Record<ChatAgentId, string[]>> = {
   claude: [
     'login',
