@@ -7,7 +7,8 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as http from 'node:http';
 import type { BrowserWindow } from 'electron';
 
-import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
+import { startHookServer, stopHookServer } from '../hookServer';
+import { getApiPort } from '../apiPort';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 import { saveHook } from '../db';
 

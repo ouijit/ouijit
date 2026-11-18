@@ -4,9 +4,10 @@ import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from '
 import { isActiveSandbox } from './sandbox/types';
 import type { SandboxProvider } from './sandbox/provider';
 import { generateId } from './utils/ids';
-import { clearHookStatus, clearAllHookStatuses } from './hookServer';
+import { clearHookStatus, clearAllHookStatuses } from './hookStatus';
 import { getShellIntegrationDir, resolveShellIntegration } from './shellIntegration';
-import { hostEnv, ouijitSessionEnv, sandboxLaunch, sandboxReferenceEnv, SandboxLaunchError } from './sessionEnv';
+import { hostEnv, ouijitSessionEnv, sandboxLaunch, SandboxLaunchError } from './sessionEnv';
+import { sandboxReferenceEnv } from './sandbox/cliAccess';
 import { typedPush } from './ipc/helpers';
 import { getLogger } from './logger';
 import { issueToken, revokeToken, revokeAllTokens } from './apiAuth';

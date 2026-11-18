@@ -19,21 +19,7 @@ import * as path from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { onLines, spawnAgentProcess, type AgentProcess } from './process';
 import { ReplayServer, URL_PLACEHOLDER, isHttpLine, recordingProxy } from './httpCassette';
-
-export interface CassetteEntry {
-  dir: 'in' | 'out';
-  line: string;
-  /** Milliseconds since the process was spawned, so a replay can keep the agent's pace. */
-  t?: number;
-}
-
-export interface Cassette {
-  agent: string;
-  version?: string;
-  entries: CassetteEntry[];
-  /** How the agent exited by itself, as a one-shot does; absent for one that ran until it was stopped. */
-  exit?: number;
-}
+import type { Cassette, CassetteEntry } from './cassetteFormat';
 
 export function cassettePath(dir: string, name: string): string {
   return path.join(dir, `${name}.json`);

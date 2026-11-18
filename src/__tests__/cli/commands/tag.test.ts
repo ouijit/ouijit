@@ -3,7 +3,8 @@ import { Command } from 'commander';
 import type { BrowserWindow } from 'electron';
 
 import { registerTagCommands } from '../../../cli/commands/tag';
-import { startHookServer, stopHookServer, getApiPort } from '../../../hookServer';
+import { startHookServer, stopHookServer } from '../../../hookServer';
+import { getApiPort } from '../../../apiPort';
 import { issueToken, revokeAllTokens } from '../../../apiAuth';
 import { initCliPanels } from '../../../cliPanels';
 import type { CliTagOp, CliTagResponse } from '../../../types';

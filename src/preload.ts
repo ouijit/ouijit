@@ -48,7 +48,7 @@ import type { SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
 import type { LensChangedPayload } from './lens/subjectKeys';
 import type { ChatAgentId, ChatAnswer, ChatAttachment, SequencedChatEvent } from './chat/model';
-import type { ChatDelivery, ChatStartOptions } from './chat/host';
+import type { ChatDelivery, ChatStartOptions } from './chat/startOptions';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all

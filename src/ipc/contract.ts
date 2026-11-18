@@ -101,7 +101,7 @@ import type {
   SandboxLaunchFailedPayload,
   TerminalSandboxPayload,
 } from '../sandbox/types';
-import type { HookStatusEntry } from '../hookServer';
+import type { HookStatusEntry } from '../hookStatus';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
 import type {
@@ -112,7 +112,7 @@ import type {
   ChatSnapshot,
   SequencedChatEvent,
 } from '../chat/model';
-import type { ChatDelivery, ChatStartOptions } from '../chat/host';
+import type { ChatDelivery, ChatStartOptions } from '../chat/startOptions';
 import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from '../chat/preferences';
 import type { DriverProbe } from '../chat/driver';
 
@@ -548,7 +548,7 @@ export interface IpcPushContract {
   'homeChat:changed': { args: [state: HomeChatState] };
   'homeChat:decisions-changed': { args: [decisions: ChatDecision[]] };
   'fullscreen-change': { args: [isFullscreen: boolean] };
-  'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
+  'agent-hook-status': { args: [ptyId: string, status: import('../hookStatus').HookStatus] };
   'cli:panel-op': { args: [op: CliPanelOp] };
   'cli:tag-op': { args: [op: CliTagOp] };
   'cli:terminal-op': { args: [op: CliTerminalOp] };

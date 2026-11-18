@@ -5,7 +5,7 @@ import {
   isPtyActive,
   type ActiveSession,
 } from './ptyManager';
-import { getHookStatus } from './hookServer';
+import { getHookStatus } from './hookStatus';
 import { chatHost } from './chat/host';
 import type { SandboxProviderId } from './types';
 import { isSandboxProviderId } from './sandbox/types';

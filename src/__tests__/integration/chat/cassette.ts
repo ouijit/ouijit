@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as store from '../../../chat/cassette';
 
-export type { Cassette, CassetteEntry } from '../../../chat/cassette';
+export type { Cassette, CassetteEntry } from '../../../chat/cassetteFormat';
 export { replayingSpawn } from '../../../chat/cassette';
 
 const CASSETTE_DIR = path.join(__dirname, 'cassettes');

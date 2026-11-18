@@ -1,10 +1,9 @@
-import { getApiPort, getCliReferencePath } from './hookServer';
-import { sandboxCliAccessFor } from './sandbox/cliAccess';
+import { getApiPort } from './apiPort';
 import { getWrapperBinDir, getUserDataPath, getCliPath } from './paths';
 import { getShellIntegrationDir } from './shellIntegration';
 import { getVendoredNonoPath } from './sandbox/nono/binary';
 import type { SandboxProvider } from './sandbox/provider';
-import type { SandboxBackendId, SandboxCliAccess, SandboxLaunch } from './sandbox/types';
+import type { SandboxBackendId, SandboxLaunch } from './sandbox/types';
 
 /** `process.env` without its undefined values, which node-pty and child_process both reject. */
 export function hostEnv(): Record<string, string> {
@@ -43,20 +42,6 @@ export function ouijitSessionEnv(
   const vendoredNono = getVendoredNonoPath();
   if (vendoredNono) env['OUIJIT_NONO_PATH'] = vendoredNono;
   return env;
-}
-
-/**
- * A sandboxed session reads the CLI reference written for its backend and the
- * project's CLI access level, so an agent is not told about commands the
- * sandbox will refuse.
- */
-export async function sandboxReferenceEnv(
-  provider: SandboxBackendId | undefined,
-  projectPath: string,
-): Promise<Record<string, string>> {
-  if (!provider) return {};
-  const access = await sandboxCliAccessFor(projectPath).catch((): SandboxCliAccess => 'read');
-  return { OUIJIT_SANDBOX_REFERENCE_FILE: getCliReferencePath({ provider, access }) };
 }
 
 export interface SandboxTarget {

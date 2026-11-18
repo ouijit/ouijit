@@ -8,7 +8,7 @@
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import type { CassetteEntry } from './cassette';
+import type { CassetteEntry } from './cassetteFormat';
 
 export const URL_PLACEHOLDER = '__URL__';
 

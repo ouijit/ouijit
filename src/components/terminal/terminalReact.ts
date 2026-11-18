@@ -10,7 +10,6 @@ import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { LINK_PATTERN } from '../../links/ouijitLink';
-import { openLink } from '../../links/openLink';
 import { dropUnmeasuredMouseReports } from './mouseReports';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
@@ -56,6 +55,16 @@ export interface TerminalOptions {
   surface?: TaskSurface;
   /** The agent a chat card's conversation belongs to. */
   chatAgent?: ChatAgentId;
+}
+
+let openOuijitLink: (uri: string) => void = () => {};
+
+/**
+ * How a card opens an ouijit:// link it shows, set once at startup. Opening one
+ * navigates, and navigating opens cards, so this module cannot import it.
+ */
+export function handleTerminalLinks(open: (uri: string) => void): void {
+  openOuijitLink = open;
 }
 
 /** How long to leave an auto-close terminal visible on success before closing. */
@@ -503,7 +512,7 @@ export class OuijitTerminal {
         window.api.openExternal(uri);
       }),
     );
-    this.xterm.loadAddon(new WebLinksAddon((_event, uri) => void openLink(uri), { urlRegex: LINK_PATTERN }));
+    this.xterm.loadAddon(new WebLinksAddon((_event, uri) => openOuijitLink(uri), { urlRegex: LINK_PATTERN }));
 
     setupTerminalAppHotkeys(this.xterm, (data) => {
       if (this.ptyId) window.api.pty.write(this.ptyId, data);

@@ -17,7 +17,7 @@ import {
   type ChatOption,
   type ChatSessionInfo,
 } from '../../chat/model';
-import type { ChatDelivery } from '../../chat/host';
+import type { ChatDelivery } from '../../chat/startOptions';
 
 const MIME_BY_EXTENSION: Record<string, string> = {
   png: 'image/png',

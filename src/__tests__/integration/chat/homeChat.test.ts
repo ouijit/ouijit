@@ -25,7 +25,8 @@ import {
 import { follow, installHomeChatWakes, sessionSubject, unfollow, wakeHomeChat } from '../../../chat/wake';
 import { HOME_CHAT_SETTING_KEYS, UNTITLED_HOME_CHAT } from '../../../chat/preferences';
 import { pendingRequests, type ChatAgentId, type ChatSnapshot, type UserMessageNode } from '../../../chat/model';
-import { CLI_REFERENCE, getCliReferencePath } from '../../../hookServer';
+import { CLI_REFERENCE } from '../../../hookServer';
+import { getCliReferencePath } from '../../../cliReferencePath';
 import { getDriver } from '../../../chat/drivers';
 import { _resetCacheForTesting, getChatRepo, setGlobalSetting } from '../../../db';
 import { loadCassette, loadCassettes, recording, recordingSpawn, replayingSpawn, cassettePath } from './cassette';

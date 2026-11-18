@@ -17,7 +17,7 @@ import { startHomeChat } from './homeChatActions';
 import { AGENT_TERMINAL_COMMANDS } from '../../chat/model';
 import type { ChatAgentId, ChatAttachment, ChatSessionStatus, SequencedChatEvent } from '../../chat/model';
 import type { SandboxProviderId, SnapshotTerminalUi, TaskWithWorkspace } from '../../types';
-import type { ChatDelivery } from '../../chat/host';
+import type { ChatDelivery } from '../../chat/startOptions';
 
 const chatLog = log.scope('chatActions');
 

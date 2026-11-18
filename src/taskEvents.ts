@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import type { TaskStatus } from './types';
+import type { TaskStatus } from './db/repos/taskRepo';
 
 export interface TaskStatusChange {
   projectPath: string;

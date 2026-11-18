@@ -1,6 +1,6 @@
 import { isChatAgentId, type ChatAgentId } from './model';
 import { isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
-import type { AskRun } from '../types';
+import type { AskRun } from '../ask';
 
 export const CHAT_AGENT_LABELS: Record<ChatAgentId, string> = {
   claude: 'Claude Code',

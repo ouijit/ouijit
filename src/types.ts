@@ -20,7 +20,7 @@ import type {
   SequencedChatEvent,
 } from './chat/model';
 import type { DriverProbe } from './chat/driver';
-import type { ChatDelivery, ChatStartOptions } from './chat/host';
+import type { ChatDelivery, ChatStartOptions } from './chat/startOptions';
 import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from './chat/preferences';
 import type {
   RepoIdentity,
@@ -63,6 +63,7 @@ import type { LensChangedPayload } from './lens/subjectKeys';
 import type { LensInput, LensSummary } from './lens/config';
 import type { StoredLens } from './lens/readLens';
 import type { TaskStatus } from './db';
+import type { AskRun } from './ask';
 import type { ActiveSession } from './ptyManager';
 import type {
   SandboxProviderId,
@@ -72,7 +73,8 @@ import type {
   SandboxLaunchFailedPayload,
   TerminalSandboxPayload,
 } from './sandbox/types';
-import type { HookStatus, HookStatusEntry } from './hookServer';
+import type { HookStatus, HookStatusEntry } from './hookStatus';
+export type { AskRun } from './ask';
 
 export type {
   GitStatus,
@@ -117,7 +119,7 @@ export {
   sandboxCliAccessSettingKey,
   isSandboxCliAccess,
 } from './sandbox/types';
-export type { HookStatus, HookStatusEntry } from './hookServer';
+export type { HookStatus, HookStatusEntry } from './hookStatus';
 export type {
   RepoIdentity,
   GithubAvailability,
@@ -1135,31 +1137,6 @@ export interface CliAskOp {
   ask: AskRun;
   /** Why the agent asks, in its words. */
   message?: string;
-}
-
-/** What `ouijit ask run` asks the user to run on the host, resolved before the user sees it. */
-export interface AskRun {
-  command: string;
-  /** The project script it names, if it named one. */
-  scriptName?: string;
-  cwd: string;
-  /** A script the command runs that the agent could have written, as the user is shown it. */
-  file?: {
-    path: string;
-    /** As much of it as is shown: all of it, unless it is `cut`. */
-    contents: string;
-    size: number;
-    /** Longer than is shown. */
-    cut?: boolean;
-    /** Not text, so nothing of it is shown. */
-    binary?: boolean;
-    /** Too large to copy, so the file itself runs, and can change after it is read. */
-    uncopied?: boolean;
-  };
-  /** The command as it runs: `command` with that script swapped for a copy the agent cannot change. */
-  runCommand?: string;
-  /** Answer once the run ends, rather than once it is asked. */
-  wait?: boolean;
 }
 
 export type AskAnswer =
