@@ -314,6 +314,58 @@ describe('claude rewound and forked', () => {
   );
 });
 
+// Claude's record is its session file, which a cassette of its stdio does not
+// hold; 'claude compacted in its terminal' covers its import.
+describe.each(['codex', 'pi', 'opencode'] as const)('%s compacted', (agent) => {
+  const name = `${agent}-compact`;
+  const available = recording || fs.existsSync(cassettePath(name));
+
+  test.skipIf(!available)(
+    'a compacted conversation reopens looking as it did live',
+    async () => {
+      const cwd = repo();
+      const probe = recording ? await getDriver(agent).probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording ? recordingSpawn(name, agent, probe?.version) : replayingSpawn(loadCassettes(name)),
+      });
+      const id = `pty-compact-${agent}`;
+      // pi refuses to compact a conversation shorter than the 20k tokens it
+      // keeps verbatim, so its first turn reads enough to pass that.
+      const remember = 'Remember the word apple. Reply with only: ok';
+      const first = agent === 'pi' ? `Read notes-1.txt and notes-2.txt with your read tool. ${remember}` : remember;
+      for (const part of [1, 2]) {
+        const line = `${'lorem ipsum dolor sit amet '.repeat(3)}\n`;
+        fs.writeFileSync(path.join(cwd, `notes-${part}.txt`), line.repeat(500));
+      }
+      const replies = (min: number) => (s: ChatSnapshot) =>
+        s.info.status === 'idle' && s.nodes.filter((n) => n.kind === 'assistant_message').length >= min;
+      await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });
+      await host.prompt(id, { text: first });
+      await until(host, id, replies(1), timeout);
+      await host.compact(id);
+      await until(host, id, (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'compaction'), timeout);
+      const asked = 'Which word did I ask you to remember? Reply with only the word.';
+      await host.prompt(id, { text: asked });
+      const live = await until(
+        host,
+        id,
+        (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message' && /apple/i.test(n.text)),
+        timeout,
+      );
+      await host.stop(id);
+
+      await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });
+      const reopened = await until(host, id, (s) => s.info.status === 'idle', timeout);
+      const users = (s: ChatSnapshot) => s.nodes.filter((n) => n.kind === 'user_message').map((n) => n.text);
+      expect(users(live)).toEqual([first, asked]);
+      expect(users(reopened)).toEqual(users(live));
+      expect(kinds(reopened.nodes)).toEqual(kinds(live.nodes));
+      await host.stop(id);
+    },
+    timeout * 3,
+  );
+});
+
 describe('claude compacted in its terminal', () => {
   // Writes the session file a terminal compaction leaves, which a recording
   // would put in the real config dir.

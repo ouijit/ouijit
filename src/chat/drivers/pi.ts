@@ -166,6 +166,14 @@ function piHistoryNodes(messages: Json[]): ChatNode[] {
         }
       });
       if (stopped(message)) nodes.push(stoppedNode(`pi-stopped-${String(message.timestamp)}`));
+    } else if (message.role === 'compactionSummary') {
+      nodes.push({
+        id: `pi-compact-${String(message.timestamp)}`,
+        kind: 'compaction',
+        parentId: null,
+        createdAt,
+        trigger: 'auto',
+      });
     } else if (message.role === 'toolResult') {
       const node = tools.get(String(message.toolCallId));
       if (node) {
@@ -345,6 +353,7 @@ class PiSession implements DriverSession {
         return;
       }
       case 'compaction_end':
+        if (event.aborted || event.errorMessage) return;
         this.sink.node({
           id: `pi-compact-${Date.now()}`,
           kind: 'compaction',

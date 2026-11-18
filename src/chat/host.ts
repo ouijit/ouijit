@@ -99,6 +99,73 @@ function restamped(nodes: ChatNode[], node: ChatNode): ChatNode {
   return { ...node, createdAt: before.createdAt };
 }
 
+/** Made by Ouijit as they happen, so no agent's record of the conversation holds them. */
+const OUIJIT_KINDS = new Set<ChatNode['kind']>(['notice', 'request']);
+
+/**
+ * The transcript an agent's record of the conversation gives, in the record's
+ * order and under its ids. An agent that numbers messages itself names the
+ * user's messages and its compactions differently from how they were shown
+ * live, so those are matched in order instead; a match keeps when it happened
+ * and what only Ouijit knew about it. Ouijit's own nodes, and a compaction
+ * already shown, stay after the node they followed: a record puts a compaction
+ * where its summary sits in the context, ahead of what it kept verbatim.
+ */
+function mergedHistory(stored: ChatNode[], record: ChatNode[]): ChatNode[] {
+  const ids = new Set(record.map((node) => node.id));
+  const byId = new Map(stored.map((node) => [node.id, node]));
+  const unmatched = stored.filter(
+    (node) => !ids.has(node.id) && (node.kind === 'user_message' || node.kind === 'compaction'),
+  );
+  const matchedAt = new Map<string, number>();
+  const merged = record.map((node, index) => {
+    let before = byId.get(node.id);
+    if (!before && (node.kind === 'user_message' || node.kind === 'compaction')) {
+      const at = unmatched.findIndex(
+        (other) =>
+          other.kind === node.kind && (node.kind !== 'user_message' || (other as UserMessageNode).text === node.text),
+      );
+      if (at !== -1) before = unmatched.splice(at, 1)[0];
+    }
+    if (!before) return node;
+    matchedAt.set(before.id, index);
+    return carried(before, node);
+  });
+  const following = new Map<number, ChatNode[]>();
+  const follow = (after: number, node: ChatNode) => following.set(after, [...(following.get(after) ?? []), node]);
+  const placed = new Set<number>();
+  let last = -1;
+  stored.forEach((node, at) => {
+    const index = matchedAt.get(node.id);
+    const previous = at > 0 ? matchedAt.get(stored[at - 1].id) : -1;
+    if (index !== undefined && node.kind === 'compaction' && previous !== undefined) {
+      placed.add(index);
+      follow(previous, merged[index]);
+    } else if (index !== undefined) last = index;
+    else if (OUIJIT_KINDS.has(node.kind) && !ids.has(node.id)) follow(last, node);
+  });
+  return [
+    ...(following.get(-1) ?? []),
+    ...merged.flatMap((node, index) => [...(placed.has(index) ? [] : [node]), ...(following.get(index) ?? [])]),
+  ];
+}
+
+function carried(before: ChatNode, node: ChatNode): ChatNode {
+  if (node.kind === 'user_message' && before.kind === 'user_message') {
+    return {
+      ...node,
+      createdAt: before.createdAt,
+      attachments: node.attachments.length ? node.attachments : before.attachments,
+      ...(before.wake && { wake: true }),
+      ...(before.notes && { notes: before.notes }),
+    };
+  }
+  if (node.kind === 'reasoning' && before.kind === 'reasoning' && before.endedAt !== undefined) {
+    return { ...node, createdAt: before.createdAt, endedAt: node.endedAt ?? before.endedAt };
+  }
+  return { ...node, createdAt: before.createdAt };
+}
+
 function withConversationCommands(commands: ChatCommand[], driver: DriverSession): ChatCommand[] {
   const own = conversationCommands(driver).filter((command) => !commands.some((c) => c.name === command.name));
   return [...own, ...commands];
@@ -556,31 +623,24 @@ export class ChatHost {
         // An agent with no record of the conversation — its session file gone —
         // is not a reason to throw away the transcript Ouijit kept.
         if (nodes.length === 0) return;
-        // The agent's record has no idea which messages Ouijit sent on its
-        // own, and an agent that numbers its history itself gives them new ids.
-        const wakes = session.nodes.filter(
-          (node): node is UserMessageNode => node.kind === 'user_message' && node.wake === true,
-        );
-        const byId = new Map(wakes.map((node) => [node.id, node]));
-        const byText = new Map(wakes.map((node) => [node.text, node]));
         const incoming = new Set(nodes.map((node) => node.id));
         // A record that opens with a compaction has dropped what came before
         // it; that part of the transcript is kept rather than read as stale.
         const overlap = session.nodes.findIndex((node) => incoming.has(node.id));
-        const covered =
-          nodes[0]?.kind === 'compaction' ? (overlap === -1 ? [] : session.nodes.slice(overlap)) : session.nodes;
-        const stale = covered.filter((node) => !incoming.has(node.id)).map((node) => node.id);
+        const start = nodes[0]?.kind === 'compaction' ? (overlap === -1 ? session.nodes.length : overlap) : 0;
+        const covered = session.nodes.slice(start);
+        const merged = mergedHistory(covered, nodes);
+        const kept = new Set(merged.map((node) => node.id));
+        const stale = covered.filter((node) => !kept.has(node.id)).map((node) => node.id);
         if (stale.length) session.emit({ type: 'remove', ids: stale });
-        for (const node of nodes) {
-          const wake = node.kind === 'user_message' ? (byId.get(node.id) ?? byText.get(node.text)) : undefined;
-          session.emit({
-            type: 'node',
-            node:
-              node.kind === 'user_message' && wake
-                ? { ...node, wake: true, ...(wake.notes && { notes: wake.notes }) }
-                : node,
-          });
-        }
+        // A node event updates a node in place or appends it, so whatever is
+        // out of the record's order is taken out and appended again.
+        const remaining = covered.filter((node) => kept.has(node.id));
+        let inOrder = 0;
+        while (inOrder < remaining.length && remaining[inOrder].id === merged[inOrder].id) inOrder++;
+        const moved = remaining.slice(inOrder).map((node) => node.id);
+        if (moved.length) session.emit({ type: 'remove', ids: moved });
+        for (const node of merged) session.emit({ type: 'node', node });
       },
       reset: () => {
         session.queued.splice(0);
