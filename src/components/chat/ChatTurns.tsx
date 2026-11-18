@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { closeOpenMarkup, revealed, useReveal } from './useReveal';
+import { relativeToCard } from './cardPaths';
 import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
@@ -93,9 +94,9 @@ function firstSentence(text: string): string {
 }
 
 /** A step as the line names it: what the agent said it does, never a raw command. */
-function stepPhrase(node: ToolCallNode): string {
+function stepPhrase(node: ToolCallNode, cardId: string): string {
   if (node.tool === 'command' && (!node.title || node.title === node.command)) return 'Running a command';
-  return node.title.replace(/[.…]+$/, '');
+  return relativeToCard(node.title, cardId).replace(/[.…]+$/, '');
 }
 
 /**
@@ -103,10 +104,10 @@ function stepPhrase(node: ToolCallNode): string {
  * finished thought, or a remark. Something still streaming in is a few words
  * of a sentence, so it waits until it is whole; until then the last phrase stands.
  */
-function doingNow(work: ChatNode[]): string | null {
+function doingNow(work: ChatNode[], cardId: string): string | null {
   for (let i = work.length - 1; i >= 0; i--) {
     const node = work[i];
-    if (node.kind === 'tool_call') return stepPhrase(node);
+    if (node.kind === 'tool_call') return stepPhrase(node, cardId);
     if ((node.kind === 'reasoning' || node.kind === 'assistant_message') && node.status !== 'running') {
       if (node.text.trim()) return firstSentence(node.text);
     }
@@ -132,9 +133,19 @@ function useHeld(phrase: string): string {
   return shown;
 }
 
-function Doing({ work, started, stopping }: { work: ChatNode[]; started: number; stopping: boolean }) {
+function Doing({
+  work,
+  started,
+  stopping,
+  cardId,
+}: {
+  work: ChatNode[];
+  started: number;
+  stopping: boolean;
+  cardId: string;
+}) {
   const latest = useRef('Thinking');
-  latest.current = doingNow(work) ?? latest.current;
+  latest.current = doingNow(work, cardId) ?? latest.current;
   const held = useHeld(latest.current);
   const phrase = stopping ? 'Stopping' : held;
   const [now, setNow] = useState(() => Date.now());
@@ -454,6 +465,7 @@ export function ChatTurns({
             work={doing}
             started={turn.opener?.createdAt ?? turn.body[0]?.createdAt ?? Date.now()}
             stopping={stopping}
+            cardId={context.cardId}
           />,
         );
       }

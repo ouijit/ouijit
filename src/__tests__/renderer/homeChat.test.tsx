@@ -357,6 +357,19 @@ describe('Chat', () => {
     expect((await screen.findByRole('status', { name: 'Working' }, { timeout: 3000 })).textContent).toMatch(
       /^Running a command · /,
     );
+    // A path in its own folder is named from there.
+    adopt(
+      [
+        ...transcript(),
+        { ...long, status: 'completed' } as ChatNode,
+        tool('t6', 'read', `Read ${INFO.cwd}/notes/plan.md`) as ChatNode,
+      ],
+      { status: 'running' },
+    );
+    await waitFor(
+      () => expect(screen.getByRole('status', { name: 'Working' }).textContent).toMatch(/^Read notes\/plan\.md · /),
+      { timeout: 3000 },
+    );
 
     // Another conversation resumes in place of this one; the plus starts a fresh one; a row can be renamed.
     fireEvent.click(within(group).getByRole('button', { name: 'Keychain recovery review' }));

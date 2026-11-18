@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import type { ChatAnswer, RequestNode, RequestOption } from '../../chat/model';
-import { terminalInstances } from '../terminal/terminalRegistry';
 import { Icon } from '../terminal/Icon';
 import { ChatMarkdown } from './ChatMarkdown';
+import { relativeToCard } from './cardPaths';
 
 /** A command as a reply's code block: monospace, highlighted, with its copy button. */
 export function CommandBlock({ command }: { command: string }) {
@@ -204,11 +204,6 @@ function Questions({ node, cardId }: { node: RequestNode; cardId: string }) {
   );
 }
 
-function withoutWorktree(text: string, cardId: string): string {
-  const root = terminalInstances.get(cardId)?.worktreePath;
-  return root ? text.split(`${root}/`).join('') : text;
-}
-
 /**
  * Something the agent is blocked on. Any client can answer it; the first answer
  * wins. `heading` and `command` describe it where it is shown away from its own transcript.
@@ -227,7 +222,7 @@ export function ChatRequestView({
   if (node.status !== 'pending') {
     return (
       <SettledLine
-        summary={firstLine(withoutWorktree(command ?? node.title, cardId))}
+        summary={firstLine(relativeToCard(command ?? node.title, cardId))}
         label={settledLabel(node)}
         command={command}
         detail={[node.title, node.detail].filter(Boolean).join('\n\n')}
@@ -236,7 +231,7 @@ export function ChatRequestView({
   }
   return (
     <div className="min-w-0 glass-bevel rounded-[12px] border border-bezel bg-terminal-surface px-3 py-2.5 flex flex-col gap-2">
-      <div className="text-sm text-text-primary break-words">{heading ?? withoutWorktree(node.title, cardId)}</div>
+      <div className="text-sm text-text-primary break-words">{heading ?? relativeToCard(node.title, cardId)}</div>
       {command && <CommandBlock command={command} />}
       {node.detail && (
         <pre className="font-mono text-[12px] text-text-secondary whitespace-pre-wrap break-words max-h-48 overflow-y-auto">

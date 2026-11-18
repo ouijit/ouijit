@@ -13,6 +13,7 @@ import type {
   ToolKind,
   UserMessageNode,
 } from '../../chat/model';
+import { relativeToCard } from './cardPaths';
 
 const TOOL_ICONS: Record<ToolKind, string> = {
   command: 'terminal',
@@ -82,11 +83,6 @@ function openDiff(cardId: string): void {
 }
 
 /** Agents name files by absolute path; inside the card's own worktree the rest of the path says nothing. */
-function relativeToCard(text: string, cardId: string): string {
-  const root = terminalInstances.get(cardId)?.worktreePath;
-  return root ? text.split(`${root}/`).join('') : text;
-}
-
 function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const hasDetail = Boolean(node.command || node.output || node.files.some((f) => f.diff) || children);
