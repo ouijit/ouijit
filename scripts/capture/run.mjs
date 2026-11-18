@@ -9,6 +9,7 @@
  * Env:
  *   OUIJIT_CAPTURE_KEEP=1  leave the temp dir + app running for inspection
  *   OUIJIT_CAPTURE_SKIP_SCREENCAPTURE=1  dry-run navigate-only
+ *   OUIJIT_CAPTURE_SCENES=chat,diff  capture only these scenes, and no theme composite
  *
  * Usage: npm run capture
  */
@@ -322,6 +323,125 @@ function buildTerminalSeeds() {
   ];
 }
 
+/**
+ * Task 2's chat: a finished turn folded to one line above its reply, and a
+ * follow-up still running. Timestamps are relative to the capture so the
+ * durations read the same every run.
+ */
+function buildChatSeed() {
+  const start = Date.now() - 7 * 60_000;
+  const at = (seconds) => start + seconds * 1000;
+  const T2 = path.join(worktreesPath, 'T-2');
+  const tool = (id, seconds, tool, title, extra = {}) => ({
+    id,
+    kind: 'tool_call',
+    parentId: null,
+    createdAt: at(seconds),
+    tool,
+    name: tool === 'command' ? 'Bash' : tool === 'edit' ? 'Edit' : 'Read',
+    title,
+    input: {},
+    output: '',
+    files: [],
+    status: 'completed',
+    ...extra,
+  });
+  const say = (id, seconds, text, status = 'completed') => ({
+    id,
+    kind: 'assistant_message',
+    parentId: null,
+    createdAt: at(seconds),
+    text,
+    status,
+  });
+  const user = (id, seconds, text) => ({
+    id,
+    kind: 'user_message',
+    parentId: null,
+    createdAt: at(seconds),
+    text,
+    attachments: [],
+    delivery: 'prompt',
+  });
+  const nodes = [
+    user('u1', 0, 'Add an activity feed to the dashboard. Poll the events table so it keeps up.'),
+    {
+      id: 'r1',
+      kind: 'reasoning',
+      parentId: null,
+      createdAt: at(2),
+      endedAt: at(11),
+      text: 'The dashboard reads from the api layer, so the query belongs there.',
+      status: 'completed',
+    },
+    tool('t1', 12, 'read', 'Read the dashboard layout'),
+    tool('t2', 18, 'search', 'Find where events are stored'),
+    say('s1', 25, "I'll add the query first, then the component, then wire it into the dashboard."),
+    tool('t3', 31, 'edit', 'Add the activity query', { files: [{ path: 'src/api/activity.ts', change: 'add' }] }),
+    tool('t4', 58, 'edit', 'Add the feed component', {
+      files: [{ path: 'src/dashboard/ActivityFeed.tsx', change: 'add' }],
+    }),
+    tool('t5', 96, 'edit', 'Wire the feed into the dashboard', {
+      files: [{ path: 'src/dashboard/Dashboard.tsx', change: 'modify' }],
+    }),
+    tool('t6', 130, 'command', 'Run the tests', { command: 'npm test', output: '14 passing', exitCode: 0 }),
+    say(
+      's2',
+      214,
+      'The feed is on the dashboard and refreshes every five seconds.\n\n' +
+        '- **src/api/activity.ts** reads the newest 50 events\n' +
+        '- **ActivityFeed.tsx** lists them, newest first\n\n' +
+        'The tests pass. Should it stop polling while the tab is hidden?',
+    ),
+    user('u2', 300, 'Yes, pause it while the tab is hidden.'),
+    tool('t7', 309, 'read', 'Read the polling hook'),
+    tool('t8', 318, 'edit', 'Pause polling while the tab is hidden', {
+      status: 'running',
+      files: [{ path: 'src/dashboard/Dashboard.tsx', change: 'modify' }],
+    }),
+  ];
+  const models = [{ id: 'opus', label: 'Opus' }];
+  return {
+    ptyId: 'capture-chat-2',
+    taskId: 2,
+    label: 'Add activity feed to dashboard',
+    worktreeBranch: 'dashboard-activity-feed-120',
+    worktreePath: T2,
+    nodes,
+    info: {
+      id: 'capture-chat-2',
+      role: 'card',
+      label: 'Add activity feed to dashboard',
+      agent: 'claude',
+      agentSessionId: 'capture',
+      projectPath: '',
+      cwd: T2,
+      worktreePath: T2,
+      sandbox: null,
+      taskId: 2,
+      status: 'running',
+      capabilities: {
+        images: true,
+        steer: true,
+        queue: true,
+        interrupt: true,
+        models: true,
+        effort: true,
+        modes: true,
+        commands: true,
+        fork: true,
+        rewind: true,
+        compact: true,
+      },
+      model: 'opus',
+      models,
+      efforts: [],
+      modes: [],
+      commands: [],
+      usage: { contextTokens: 41_000, contextWindow: 200_000 },
+    },
+  };
+}
 
 /**
  * The Issues list with both trackers connected — the shot that shows one list
@@ -392,9 +512,7 @@ function buildIssuesSeed() {
           updatedAt: '2026-07-02T14:00:00.000Z',
         }),
       ],
-      assigned: [
-        linear('ENG-231', 'Stream events into the activity feed', { updatedAt: '2026-07-02T12:00:00.000Z' }),
-      ],
+      assigned: [linear('ENG-231', 'Stream events into the activity feed', { updatedAt: '2026-07-02T12:00:00.000Z' })],
       cycle: [
         linear('ENG-244', 'Tighten the invitation email copy', {
           assignee: person('Rowan Diaz', 'rowan'),
@@ -415,7 +533,14 @@ function buildIssuesSeed() {
 const SCENES = [
   { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds(), theme: 'dark' },
   { scene: 'markdown', file: 'markdown.png', needsProject: true, theme: 'dark', settleMs: 1600 },
-  { scene: 'preview', file: 'preview.png', needsProject: true, previewPtyId: 'capture-pty-1a', theme: 'dark', settleMs: 2500 },
+  {
+    scene: 'preview',
+    file: 'preview.png',
+    needsProject: true,
+    previewPtyId: 'capture-pty-1a',
+    theme: 'dark',
+    settleMs: 2500,
+  },
   { scene: 'palette', file: 'palette.png', needsProject: true, theme: 'dark' },
   {
     scene: 'diff',
@@ -449,10 +574,7 @@ const SCENES = [
         {
           title: 'Polling that outlives the page',
           summary: 'A five-second interval, and the unbounded query behind it.',
-          slices: [
-            { path: 'src/dashboard/Dashboard.tsx', ranges: [[13, 18]] },
-            { path: 'src/api/activity.ts' },
-          ],
+          slices: [{ path: 'src/dashboard/Dashboard.tsx', ranges: [[13, 18]] }, { path: 'src/api/activity.ts' }],
         },
         {
           title: 'The feed itself',
@@ -469,6 +591,15 @@ const SCENES = [
   },
   { scene: 'issues', file: 'issues.png', needsProject: true, theme: 'dark', issues: buildIssuesSeed() },
   { scene: 'settings', file: 'settings.png', needsProject: true, theme: 'dark' },
+  {
+    scene: 'chat',
+    file: 'chat.png',
+    needsProject: true,
+    seeds: buildTerminalSeeds(),
+    theme: 'dark',
+    chatSeed: buildChatSeed(),
+    settleMs: 1600,
+  },
   // The resume banner lists one row per snapshot terminal; three rows reads as
   // an example, the full seed list reads as clutter.
   {
@@ -601,16 +732,7 @@ async function main() {
     const info = await waitForReady(userDataDir);
     electronPid = info.pid;
     const apiPort = info.port;
-    console.log(
-      'apiPort:',
-      apiPort,
-      'electronPid:',
-      info.pid,
-      'cgWindowId:',
-      info.cgWindowId,
-      'bounds:',
-      info.bounds,
-    );
+    console.log('apiPort:', apiPort, 'electronPid:', info.pid, 'cgWindowId:', info.cgWindowId, 'bounds:', info.bounds);
     // Let the renderer settle before the first navigate
     await sleep(1500);
 
@@ -631,7 +753,9 @@ async function main() {
       }
     };
 
+    const only = process.env.OUIJIT_CAPTURE_SCENES?.split(',');
     for (const scene of SCENES) {
+      if (only && !only.includes(scene.scene)) continue;
       const payload = { scene: scene.scene };
       if (scene.needsProject) payload.projectPath = projectPath;
       if (scene.seeds) payload.terminalSeeds = scene.seeds;
@@ -640,6 +764,7 @@ async function main() {
       if (scene.diffLens) payload.diffLens = scene.diffLens;
       if (scene.diffNote) payload.diffNote = scene.diffNote;
       if (scene.issues) payload.issues = scene.issues;
+      if (scene.chatSeed) payload.chatSeed = scene.chatSeed;
       if (scene.previewPtyId) {
         payload.previewPtyId = scene.previewPtyId;
         payload.previewUrl = previewUrl;
@@ -649,6 +774,10 @@ async function main() {
       await capture(payload, path.join(OUT_DIR, scene.file), scene.settleMs);
     }
 
+    if (only && !only.includes('themes')) {
+      console.log('Done.');
+      return;
+    }
     console.log(`→ ${THEME_COMPOSITE.file}`);
     const slicePaths = [];
     for (const [i, theme] of THEME_COMPOSITE.themes.entries()) {

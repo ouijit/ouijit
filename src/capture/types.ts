@@ -3,6 +3,18 @@ import type { LensGroup } from '../lens/lens';
 import type { SandboxProviderId } from '../types';
 import type { GithubAvailability, GithubIssueList, InboxResult } from '../github/types';
 import type { LinearAvailability, LinearIssueGroups } from '../linear/types';
+import type { ChatNode, ChatSessionInfo } from '../chat/model';
+
+/** A chat card with its conversation handed over ready-made, since a capture cannot run an agent. */
+export interface CaptureChatSeed {
+  ptyId: string;
+  taskId: number;
+  label: string;
+  worktreeBranch?: string;
+  worktreePath?: string;
+  info: ChatSessionInfo;
+  nodes: ChatNode[];
+}
 
 export type CaptureScene =
   | 'kanban'
@@ -15,7 +27,8 @@ export type CaptureScene =
   | 'markdown'
   | 'preview'
   | 'issues'
-  | 'resume';
+  | 'resume'
+  | 'chat';
 
 export interface CaptureTerminalSeed {
   ptyId: string;
@@ -45,6 +58,8 @@ export interface CaptureNavigatePayload {
   focusedTaskId?: number;
   /** Canvas scene viewport (pan + zoom) */
   canvasViewport?: { x: number; y: number; zoom: number };
+  /** The chat card the chat scene shows — only consumed by the chat scene */
+  chatSeed?: CaptureChatSeed;
   /** Terminal whose diff takeover opens — only consumed by the diff scene */
   diffPtyId?: string;
   /** Note composer opened on the diff line containing `lineText` — only consumed by the diff scene */

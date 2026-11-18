@@ -23,7 +23,8 @@ import { OuijitTerminal } from '../components/terminal/terminalReact';
 import { terminalInstances } from '../components/terminal/terminalRegistry';
 import { SNAPSHOT_KEY, suspendSnapshotSaves } from '../components/terminal/sessionSnapshot';
 import type { LastSessionSnapshot, SnapshotTerminal } from '../types';
-import type { CaptureNavigatePayload, CaptureTerminalSeed } from './types';
+import { useChatStore } from '../stores/chatStore';
+import type { CaptureChatSeed, CaptureNavigatePayload, CaptureTerminalSeed } from './types';
 
 const captureLog = log.scope('capture');
 
@@ -65,6 +66,32 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     // would sit after the last written character, outside the mock input.
     term.xterm.write(seed.content + '\x1b[?25l');
   }
+}
+
+function seedChat(projectPath: string, seed: CaptureChatSeed): void {
+  if (terminalInstances.has(seed.ptyId)) return;
+  useTerminalStore.getState().addTerminal(projectPath, seed.ptyId, {
+    ...DEFAULT_DISPLAY_STATE,
+    ptyId: seed.ptyId,
+    projectPath,
+    taskId: seed.taskId,
+    label: seed.label,
+    status: seed.info.status === 'running' ? 'thinking' : 'ready',
+    worktreeBranch: seed.worktreeBranch ?? null,
+    surface: 'chat',
+  });
+  const term = new OuijitTerminal({
+    projectPath,
+    label: seed.label,
+    taskId: seed.taskId,
+    worktreeBranch: seed.worktreeBranch,
+    worktreePath: seed.worktreePath,
+    ptyId: seed.ptyId,
+    surface: 'chat',
+    chatAgent: seed.info.agent,
+  });
+  terminalInstances.set(seed.ptyId, term);
+  useChatStore.getState().adopt({ info: { ...seed.info, projectPath }, nodes: seed.nodes, seq: 0 });
 }
 
 async function waitFor<T>(get: () => T | null | undefined, timeoutMs = 5000): Promise<T | null> {
@@ -298,6 +325,13 @@ export function installCaptureNavigator(): void {
         }
         break;
       }
+      case 'chat':
+        projectStore.setTerminalLayout('stack');
+        if (payload.chatSeed) {
+          seedChat(projectPath, payload.chatSeed);
+          app.showTerminal(payload.chatSeed.ptyId);
+        }
+        break;
       case 'canvas':
         projectStore.setTerminalLayout('canvas');
         app.showProjectTerminals(projectPath);
