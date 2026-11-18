@@ -16,11 +16,11 @@ import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
 import { RunnerDot } from './StatusDot';
 import type { GitFileStatus, RunnerScript, SandboxBackendId, Script, ScriptHook } from '../../types';
-import { openEntries, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
+import { closedTaskChats, openEntries, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { openTaskInEditor, openWorktreeInEditor } from '../../services/openInEditor';
-import { openTaskSession, openTaskTerminal } from '../navigation';
+import { openTaskChat, openTaskSession, openTaskTerminal } from '../navigation';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
@@ -103,6 +103,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   const task = useProjectTask(projectPath, taskId);
   const githubEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.github ?? false);
   const linearEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.linear ?? false);
+  const taskChats = useChatStore((s) => s.taskChats[projectPath]);
 
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (!instance) return [];
@@ -126,6 +127,12 @@ export const TerminalHeader = memo(function TerminalHeader({
           });
         },
         openSession: task ? (surface) => void openTaskSession(projectPath, task, surface) : undefined,
+        earlierChats: task
+          ? {
+              chats: closedTaskChats(taskChats, task.taskNumber),
+              open: (chat) => void openTaskChat(projectPath, task, chat),
+            }
+          : undefined,
         openEditor: () => {
           if (instance.worktreePath) {
             void openWorktreeInEditor(
@@ -206,6 +213,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     surface,
     chatCapabilities,
     ptyId,
+    taskChats,
   ]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {

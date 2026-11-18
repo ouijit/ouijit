@@ -37,6 +37,15 @@ export class ChatRepo {
       .all(projectPath, taskId) as ChatSessionRow[];
   }
 
+  /** Every task's chats in a project, most recently active first. */
+  listTaskChats(projectPath: string): ChatSessionRow[] {
+    return this.db
+      .prepare(
+        "SELECT * FROM chat_sessions WHERE project_path = ? AND role = 'card' AND task_id IS NOT NULL ORDER BY updated_at DESC",
+      )
+      .all(projectPath) as ChatSessionRow[];
+  }
+
   /** The app-wide chat's conversations, newest started first. */
   listHome(): ChatSessionRow[] {
     return this.db

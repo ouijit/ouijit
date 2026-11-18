@@ -21,6 +21,7 @@ import {
 } from '../types';
 import { useAppStore } from './appStore';
 import { useProjectStore } from './projectStore';
+import { loadTaskChats } from './chatStore';
 
 export interface ProjectConfig {
   sandboxStatuses: SandboxProviderStatus[];
@@ -76,6 +77,7 @@ export async function loadTasks(projectPath: string): Promise<void> {
   try {
     const tasks = await window.api.task.getAll(projectPath);
     if (isLatest()) setTasks(projectPath, tasks);
+    void loadTaskChats(projectPath);
   } catch (err) {
     if (!isLatest()) return;
     useProjectStore

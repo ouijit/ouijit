@@ -3,7 +3,9 @@
  * header, plus the file-manager reveal they delegate to.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { openEntries, type TaskMenuActions } from '../../components/kanban/taskMenu';
+import { closedTaskChats, openEntries, type TaskMenuActions } from '../../components/kanban/taskMenu';
+import { terminalInstances } from '../../components/terminal/terminalRegistry';
+import type { TaskChatSummary } from '../../chat/model';
 import { fileManagerName, FILE_MANAGER_NAME, revealInFileManager } from '../../utils/fileManager';
 import { useProjectStore } from '../../stores/projectStore';
 import { useHomeChatStore } from '../../stores/homeChatStore';
@@ -102,6 +104,47 @@ describe('adding to a task', () => {
     ]);
     // A to-do is started first, the way the setting says.
     expect(outline(openEntries([], false, actions(), 'none', false))).toEqual(['Start', 'Open in', ['Editor']]);
+    useHomeChatStore.setState({ enabled: false, taskSurface: 'terminal' });
+  });
+
+  it('lists the chats no card has open by what was first asked in them, and opens the one picked', () => {
+    const chat = (id: string, taskId: number, firstMessage: string): TaskChatSummary => ({
+      id,
+      taskId,
+      agent: 'claude',
+      sandbox: null,
+      firstMessage,
+      updatedAt: '2026-11-17T00:00:00Z',
+    });
+    const project = [
+      chat('a', 3, 'Make the login form remember the last email address that signed in on this machine'),
+      chat('b', 3, 'Fix the flaky test\nIt fails one run in ten'),
+      chat('c', 3, 'Open already'),
+      chat('d', 4, 'Another task'),
+    ];
+    terminalInstances.set('c', {} as never);
+    const chats = closedTaskChats(project, 3);
+    terminalInstances.delete('c');
+    expect(chats.map((c) => c.id)).toEqual(['a', 'b']);
+
+    useHomeChatStore.setState({ enabled: true, taskSurface: 'terminal' });
+    const open = vi.fn();
+    const entries = openEntries([], true, { ...actions(), earlierChats: { chats, open } }, 'none');
+    expect(outline(entries)).toEqual([
+      'Resume',
+      'New chat',
+      'Earlier chats',
+      ['Make the login form remember the last email', 'Fix the flaky test'],
+      'Open in',
+      ['Editor', FILE_MANAGER_NAME],
+    ]);
+    (entries[2] as { submenu: ContextMenuItem[] }).submenu[1].onClick();
+    expect(open).toHaveBeenCalledWith(chats[1]);
+
+    // With nothing closed there is nothing to list.
+    expect(outline(openEntries([], true, { ...actions(), earlierChats: { chats: [], open } }, 'none'))).not.toContain(
+      'Earlier chats',
+    );
     useHomeChatStore.setState({ enabled: false, taskSurface: 'terminal' });
   });
 });

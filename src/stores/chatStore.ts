@@ -6,9 +6,19 @@ import {
   type ChatSessionInfo,
   type ChatSnapshot,
   type SequencedChatEvent,
+  type TaskChatSummary,
 } from '../chat/model';
 
 const chatLog = log.scope('chatStore');
+
+export async function loadTaskChats(projectPath: string): Promise<void> {
+  try {
+    const chats = await window.api.chat.taskChats(projectPath);
+    useChatStore.setState((s) => ({ taskChats: { ...s.taskChats, [projectPath]: chats } }));
+  } catch (error) {
+    chatLog.warn('could not list task chats', { projectPath, error: String(error) });
+  }
+}
 
 interface ChatSessionState {
   info: ChatSessionInfo;
@@ -24,6 +34,8 @@ interface ChatStore {
   setup: Record<string, SetupState>;
   /** Unsent composer text per card, which `ouijit` and a switch between surfaces both preserve. */
   drafts: Record<string, string>;
+  /** Each project's task chats, as the main process last listed them. */
+  taskChats: Record<string, TaskChatSummary[]>;
   adopt: (snapshot: ChatSnapshot) => void;
   apply: (id: string, event: SequencedChatEvent) => void;
   forget: (id: string) => void;
@@ -35,6 +47,7 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
   sessions: {},
   setup: {},
   drafts: {},
+  taskChats: {},
 
   adopt: (snapshot) =>
     set((s) => ({

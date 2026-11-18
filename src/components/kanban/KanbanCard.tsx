@@ -2,7 +2,8 @@ import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode
 import { useDraggable } from '@dnd-kit/core';
 import { useShallow } from 'zustand/react/shallow';
 import type { TaskWithWorkspace, SandboxBackendId, SandboxProviderId } from '../../types';
-import { openTaskSession } from '../navigation';
+import { useChatStore } from '../../stores/chatStore';
+import { openTaskChat, openTaskSession } from '../navigation';
 import { moveToEntry, taskEntries, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -129,6 +130,7 @@ export const KanbanCard = memo(function KanbanCard({
     }
   }, []);
 
+  const taskChats = useChatStore((st) => st.taskChats[projectPath]);
   const terminalContextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (!terminalContextMenu) return [];
     return [
@@ -185,6 +187,8 @@ export const KanbanCard = memo(function KanbanCard({
       trackers: { github: githubEnabled, linear: linearEnabled },
       openTerminal: (provider) => onOpenTerminal(task, provider),
       openSession: (surface) => void openTaskSession(projectPath, task, surface),
+      chats: taskChats,
+      openChat: (chat) => void openTaskChat(projectPath, task, chat),
       showTerminal: onSwitchToTerminal,
       branchFrom: () => setBranchFromDialog(true),
       rename: handleStartRenameTask,
@@ -201,6 +205,7 @@ export const KanbanCard = memo(function KanbanCard({
     onSwitchToTerminal,
     onOpenTerminal,
     handleStartRenameTask,
+    taskChats,
   ]);
 
   // A list, not a fragment: the row below the card only exists when there is a

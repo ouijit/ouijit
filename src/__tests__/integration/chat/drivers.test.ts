@@ -367,6 +367,28 @@ describe.each(['codex', 'pi', 'opencode'] as const)('%s compacted', (agent) => {
   );
 });
 
+describe("a task's chats", () => {
+  // Replays the first turn of the plain claude cassette, which a recording here would overwrite.
+  test.skipIf(recording || !fs.existsSync(cassettePath('claude')))(
+    'are listed by what was first asked in each, leaving out one where nothing was asked yet',
+    async () => {
+      const cwd = repo();
+      const host = new ChatHost({ spawnProcess: replayingSpawn(loadCassettes('claude')) });
+      const stop = approveEverything(host);
+      await host.start({ id: 'pty-task-chat', agent: 'claude', projectPath: cwd, cwd, taskId: 7 });
+      expect(host.taskChats(cwd)).toEqual([]);
+      await host.prompt('pty-task-chat', { text: PROMPT });
+      await until(host, 'pty-task-chat', (s) => s.info.status === 'idle' && s.nodes.length > 1, timeout);
+      await host.stop('pty-task-chat');
+      expect(host.taskChats(cwd)).toEqual([
+        expect.objectContaining({ id: 'pty-task-chat', taskId: 7, agent: 'claude', firstMessage: PROMPT }),
+      ]);
+      stop();
+    },
+    timeout * 2,
+  );
+});
+
 describe('claude compacted in its terminal', () => {
   // Writes the session file a terminal compaction leaves, which a recording
   // would put in the real config dir.

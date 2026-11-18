@@ -246,6 +246,17 @@ export type ChatSessionStatus = 'starting' | 'idle' | 'running' | 'awaiting' | '
 /** A card's own chat, or one of Chat's conversations, which the API grants Chat's reach. */
 export type ChatRole = 'card' | 'home';
 
+/** A task's chat as its menu lists it, to open again. */
+export interface TaskChatSummary {
+  id: string;
+  taskId: number;
+  agent: ChatAgentId;
+  sandbox: string | null;
+  /** What the user first asked, which is what tells one of a task's chats from another. */
+  firstMessage: string;
+  updatedAt: string;
+}
+
 export interface ChatSessionInfo {
   id: string;
   /** Set by the host when the session is created, from its stored row; never by a client. */

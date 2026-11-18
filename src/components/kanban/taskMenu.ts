@@ -9,6 +9,7 @@ import { openTaskInEditor } from '../../services/openInEditor';
 import { FILE_MANAGER_NAME, revealInFileManager } from '../../utils/fileManager';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { useHomeChatStore } from '../../stores/homeChatStore';
+import type { TaskChatSummary } from '../../chat/model';
 import type { TaskSurface } from '../../chat/preferences';
 import {
   openPullRequestInPanel,
@@ -26,12 +27,30 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
   done: 'Done',
 };
 
+const CHAT_LABEL_LENGTH = 48;
+
+/** A chat named by the first thing asked in it: its first line, cut at a word to fit a menu. */
+export function chatLabel(text: string): string {
+  const line = text.trim().split('\n')[0];
+  if (line.length <= CHAT_LABEL_LENGTH) return line;
+  const cut = line.slice(0, CHAT_LABEL_LENGTH);
+  const word = cut.lastIndexOf(' ');
+  return word > CHAT_LABEL_LENGTH / 2 ? cut.slice(0, word) : cut;
+}
+
+/** Of a project's task chats, the ones of this task that no card has open. */
+export function closedTaskChats(chats: TaskChatSummary[] | undefined, taskNumber: number): TaskChatSummary[] {
+  return (chats ?? []).filter((chat) => chat.taskId === taskNumber && !terminalInstances.has(chat.id));
+}
+
 /** Callers supply the handlers and add their own entries around these. */
 export interface TaskMenuActions {
   /** Open the task in that place, as a terminal or a chat by preference, overriding the continue hook's sandbox. */
   openTerminal: (provider: SandboxProviderId) => void;
   /** Add a new chat, or a plain terminal, beside what the task already has. */
   openSession?: (surface: TaskSurface) => void;
+  /** The task's chats that are not open as a card, newest first, and how to open one again. */
+  earlierChats?: { chats: TaskChatSummary[]; open: (chat: TaskChatSummary) => void };
   openEditor: () => void;
   /** Reveal the task's worktree in the OS file manager. */
   openFolder: () => void;
@@ -84,6 +103,16 @@ export function openEntries(
     // Resuming opens a terminal anyway where tasks open in one.
     if (taskSurface === 'chat')
       entries.push({ label: 'New terminal', icon: 'terminal', onClick: () => open('terminal') });
+  }
+  const earlier = actions.earlierChats;
+  if (chat && earlier && earlier.chats.length > 0) {
+    entries.push({
+      label: 'Earlier chats',
+      submenu: earlier.chats.map((past) => ({
+        label: chatLabel(past.firstMessage),
+        onClick: () => earlier.open(past),
+      })),
+    });
   }
   const apps: ContextMenuEntry[] = [{ label: 'Editor', icon: 'code', onClick: actions.openEditor }];
   if (hasWorktree) apps.push({ label: FILE_MANAGER_NAME, icon: 'folder-open', onClick: actions.openFolder });
@@ -171,6 +200,9 @@ export interface TaskMenuContext {
   trackers: { github: boolean; linear: boolean };
   openTerminal: (provider: SandboxProviderId) => void;
   openSession: (surface: TaskSurface) => void;
+  /** The project's task chats, as the chat store lists them. */
+  chats: TaskChatSummary[] | undefined;
+  openChat: (chat: TaskChatSummary) => void;
   showTerminal: (ptyId: string) => void;
   branchFrom: () => void;
   rename: () => void;
@@ -184,6 +216,7 @@ export function taskEntries(ctx: TaskMenuContext): ContextMenuEntry[] {
   const actions: TaskMenuActions = {
     openTerminal: ctx.openTerminal,
     openSession: ctx.openSession,
+    earlierChats: { chats: closedTaskChats(ctx.chats, task.taskNumber), open: ctx.openChat },
     openEditor: () => void openTaskInEditor(projectPath, task),
     openFolder: () => void revealInFileManager(task.worktreePath!),
     setStatus: async (status) => {

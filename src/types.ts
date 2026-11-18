@@ -18,6 +18,7 @@ import type {
   ChatSessionInfo,
   ChatSnapshot,
   SequencedChatEvent,
+  TaskChatSummary,
 } from './chat/model';
 import type { DriverProbe } from './chat/driver';
 import type { ChatDelivery, ChatStartOptions } from './chat/startOptions';
@@ -426,6 +427,7 @@ export interface ChatAPI {
   listLive(): Promise<ChatSessionInfo[]>;
   since(id: string, seq: number): Promise<SequencedChatEvent[] | null>;
   latestForTask(projectPath: string, taskId: number): Promise<ChatSnapshot | null>;
+  taskChats(projectPath: string): Promise<TaskChatSummary[]>;
   prompt(
     id: string,
     input: { text: string; attachments?: ChatAttachment[]; typed?: boolean },

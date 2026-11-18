@@ -111,6 +111,7 @@ import type {
   ChatSessionInfo,
   ChatSnapshot,
   SequencedChatEvent,
+  TaskChatSummary,
 } from '../chat/model';
 import type { ChatDelivery, ChatStartOptions } from '../chat/startOptions';
 import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from '../chat/preferences';
@@ -477,6 +478,7 @@ export interface IpcInvokeContract {
   'chat:list-live': { args: []; return: ChatSessionInfo[] };
   'chat:since': { args: [id: string, seq: number]; return: SequencedChatEvent[] | null };
   'chat:latest-for-task': { args: [projectPath: string, taskId: number]; return: ChatSnapshot | null };
+  'chat:task-chats': { args: [projectPath: string]; return: TaskChatSummary[] };
   'chat:prompt': {
     args: [
       id: string,

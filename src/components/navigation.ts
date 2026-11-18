@@ -19,6 +19,8 @@ import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartSe
 import { terminalInstances } from './terminal/terminalRegistry';
 import { ensureWorktree } from '../services/worktreeRecovery';
 import type { TaskSurface } from '../chat/preferences';
+import type { TaskChatSummary } from '../chat/model';
+import { isSandboxProviderId } from '../sandbox/types';
 
 /** Tasks load first, so a board's first paint has its cards. */
 export async function openProjectPage(path: string, page: ProjectPage): Promise<void> {
@@ -199,6 +201,20 @@ export async function openTaskSession(
   if (!(await openTaskShell(projectPath, task, { mode: 'resume', fresh: surface }))) return;
   const [front] = useTerminalStore.getState().order;
   if (front) useAppStore.getState().showTerminal(front, stack);
+}
+
+/** One of a task's earlier chats, open as a card again with its conversation. */
+export async function openTaskChat(projectPath: string, task: TaskWithWorkspace, chat: TaskChatSummary): Promise<void> {
+  const worktree = await ensureTaskWorktree(projectPath, task);
+  if (!worktree) return;
+  const opened = await addChatCard(projectPath, {
+    id: chat.id,
+    agent: chat.agent,
+    worktree,
+    taskId: task.taskNumber,
+    sandboxProvider: isSandboxProviderId(chat.sandbox) ? chat.sandbox : undefined,
+  });
+  if (opened) useAppStore.getState().showTerminal(chat.id);
 }
 
 /** Lands on the first task that actually opened. */

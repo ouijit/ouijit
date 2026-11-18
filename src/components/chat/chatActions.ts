@@ -2,7 +2,7 @@ import log from 'electron-log/renderer';
 import { OuijitTerminal, resolveTerminalLabel } from '../terminal/terminalReact';
 import { registerTerminal, spawnRunner, applyInitialUiState, addProjectTerminal } from '../terminal/terminalActions';
 import { terminalInstances } from '../terminal/terminalRegistry';
-import { useChatStore, listenForChatEvents } from '../../stores/chatStore';
+import { useChatStore, listenForChatEvents, loadTaskChats } from '../../stores/chatStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
@@ -170,6 +170,7 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
     return false;
   }
   useChatStore.getState().adopt(started);
+  if (options.taskId != null) void loadTaskChats(projectPath);
 
   const firstPrompt = options.firstPrompt?.trim();
   const setupCommand = options.setup && chatSetupCommand(options.setup.command);

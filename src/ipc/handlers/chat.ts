@@ -38,6 +38,7 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   typedHandle('chat:list-live', () => chatHost.list());
   typedHandle('chat:since', (id, seq) => chatHost.since(id, seq));
   typedHandle('chat:latest-for-task', (projectPath, taskId) => chatHost.latestForTask(projectPath, taskId));
+  typedHandle('chat:task-chats', (projectPath) => chatHost.taskChats(projectPath));
   typedHandle('chat:prompt', async (id, input, delivery) => {
     const messageId = await chatHost.prompt(id, input, delivery);
     if (input.typed && !isHomeChat(id)) {

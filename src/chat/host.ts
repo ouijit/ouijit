@@ -46,6 +46,7 @@ import {
   type SequencedChatEvent,
   type UserMessageNode,
   type WakeNote,
+  type TaskChatSummary,
 } from './model';
 
 const chatLog = getLogger().scope('chat');
@@ -376,6 +377,28 @@ export class ChatHost {
       }
     });
     return this.since(id, seq);
+  }
+
+  /** A project's task chats, by the first thing the user asked in each; one with nothing asked yet is left out. */
+  taskChats(projectPath: string): TaskChatSummary[] {
+    return getChatRepo()
+      .listTaskChats(projectPath)
+      .flatMap((row) => {
+        const asked = this.snapshot(row.id)?.nodes.find(
+          (node): node is UserMessageNode => node.kind === 'user_message' && !node.wake,
+        );
+        if (!asked || row.task_id === null || !isChatAgentId(row.agent)) return [];
+        return [
+          {
+            id: row.id,
+            taskId: row.task_id,
+            agent: row.agent,
+            sandbox: row.sandbox_provider,
+            firstMessage: asked.text,
+            updatedAt: row.updated_at,
+          },
+        ];
+      });
   }
 
   /** The most recent stored session of a task. */

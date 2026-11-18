@@ -18,6 +18,7 @@ import type {
 import { isActiveSandbox } from '../../types';
 import { useTerminalStore, type TerminalDisplayState, type TerminalStatus } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { loadTaskChats } from '../../stores/chatStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore } from '../../stores/appStore';
 import { OuijitTerminal, resolveTerminalLabel } from './terminalReact';
@@ -404,6 +405,7 @@ export function closeProjectTerminal(ptyId: string): void {
   const projectPath = instance?.projectPath;
   if (instance) {
     instance.dispose();
+    if (instance.surface === 'chat' && projectPath) void loadTaskChats(projectPath);
   }
   useTerminalStore.getState().removeTerminal(ptyId);
 

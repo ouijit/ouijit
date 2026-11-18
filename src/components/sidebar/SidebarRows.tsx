@@ -5,12 +5,13 @@ import { stackFrom, stackMembers, stackOf, terminalUnit, useTerminalStore } from
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import type { Project, SandboxBackendId, TaskWithWorkspace } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
-import { focusTerminal, openTaskSession, openTaskTerminal } from '../navigation';
+import { focusTerminal, openTaskChat, openTaskSession, openTaskTerminal } from '../navigation';
 import { openTaskSheet } from '../../utils/openTaskComposer';
 import { startTodo } from '../../services/taskStartService';
 import { MenuItem, MenuPopover } from '../ui/Menu';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
+import { useChatStore } from '../../stores/chatStore';
 import { taskEntries } from '../kanban/taskMenu';
 import { renameTerminal } from '../terminal/terminalActions';
 import { loadTasks, useProjectConfig } from '../../stores/projectDataStore';
@@ -336,6 +337,8 @@ function TaskRows({ group, underTag, shown, onScreen, now, at, pick, rowMenu }: 
           trackers: { github, linear },
           openTerminal: (provider) => void openTaskTerminal(projectPath, task, provider),
           openSession: (surface) => void openTaskSession(projectPath, task, surface),
+          chats: useChatStore.getState().taskChats[projectPath],
+          openChat: (chat) => void openTaskChat(projectPath, task, chat),
           showTerminal: (id) => void focusTerminal(id),
           branchFrom: () => setBranchingFrom(true),
           rename: () => setRenaming('task'),

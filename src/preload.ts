@@ -152,6 +152,7 @@ contextBridge.exposeInMainWorld('api', {
     listLive: () => typedInvoke('chat:list-live'),
     since: (id: string, seq: number) => typedInvoke('chat:since', id, seq),
     latestForTask: (projectPath: string, taskId: number) => typedInvoke('chat:latest-for-task', projectPath, taskId),
+    taskChats: (projectPath: string) => typedInvoke('chat:task-chats', projectPath),
     prompt: (
       id: string,
       input: { text: string; attachments?: ChatAttachment[]; typed?: boolean },
