@@ -5,6 +5,7 @@ import { typedHandle } from '../helpers';
 import { getLogger } from '../../logger';
 import { resolveWithinBase, isSymlinkEscapeError } from '../../utils/pathSafety';
 import { readMarkdownImage } from '../../markdownImages';
+import { watchFileContents } from '../../fileWatch';
 
 const planLog = getLogger().scope('plan');
 
@@ -12,7 +13,7 @@ function isMarkdownFile(filePath: string): boolean {
   return path.extname(filePath).toLowerCase() === '.md';
 }
 
-const watchers = new Map<string, { watcher: fs.FSWatcher; timer: ReturnType<typeof setTimeout> | null }>();
+const watchers = new Map<string, () => void>();
 
 export function registerPlanHandlers(mainWindow: BrowserWindow): void {
   typedHandle('plan:read', async (planPath) => {
@@ -37,28 +38,20 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
     if (watchers.has(resolved)) return { success: true };
 
     try {
-      const watcher = fs.watch(resolved, () => {
-        // Debounce: fs.watch can fire multiple times per write
-        const entry = watchers.get(resolved);
-        if (!entry) return;
-        if (entry.timer) clearTimeout(entry.timer);
-        entry.timer = setTimeout(async () => {
-          entry.timer = null;
-          try {
-            const content = await fs.promises.readFile(resolved, 'utf-8');
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('plan:content-changed', planPath, content);
-            }
-          } catch (err) {
-            planLog.warn('failed to read plan file on change', {
-              planPath: resolved,
-              error: err instanceof Error ? err.message : String(err),
-            });
+      const stop = watchFileContents(
+        resolved,
+        (content) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('plan:content-changed', planPath, content);
           }
-        }, 200);
-      });
-
-      watchers.set(resolved, { watcher, timer: null });
+        },
+        (err) =>
+          planLog.warn('failed to read plan file on change', {
+            planPath: resolved,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+      );
+      watchers.set(resolved, stop);
       return { success: true };
     } catch (err) {
       planLog.warn('failed to watch plan file', {
@@ -71,12 +64,8 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
 
   typedHandle('plan:unwatch', (planPath) => {
     const resolved = path.resolve(planPath);
-    const entry = watchers.get(resolved);
-    if (entry) {
-      if (entry.timer) clearTimeout(entry.timer);
-      entry.watcher.close();
-      watchers.delete(resolved);
-    }
+    watchers.get(resolved)?.();
+    watchers.delete(resolved);
   });
 
   typedHandle('plan:check-files-exist', async (workspaceRoot, filePaths) => {
@@ -123,9 +112,6 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
 }
 
 export function cleanupPlanWatchers(): void {
-  for (const [, entry] of watchers) {
-    if (entry.timer) clearTimeout(entry.timer);
-    entry.watcher.close();
-  }
+  for (const stop of watchers.values()) stop();
   watchers.clear();
 }
