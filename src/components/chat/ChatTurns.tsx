@@ -93,10 +93,15 @@ function firstSentence(text: string): string {
   return sentence;
 }
 
-/** A step as the line names it: what the agent said it does, never a raw command. */
+/**
+ * A step as the line names it: what the agent said it does, never a raw
+ * command, and a file it reads or edits by name alone.
+ */
 function stepPhrase(node: ToolCallNode, cardId: string): string {
   if (node.tool === 'command' && (!node.title || node.title === node.command)) return 'Running a command';
-  return relativeToCard(node.title, cardId).replace(/[.…]+$/, '');
+  const title = relativeToCard(node.title, cardId).replace(/[.…]+$/, '');
+  if (node.tool !== 'read' && node.tool !== 'edit') return title;
+  return title.replace(/\S*\/(\S+)/g, (path, name: string) => (path.includes('://') ? path : name));
 }
 
 /**

@@ -357,7 +357,7 @@ describe('Chat', () => {
     expect((await screen.findByRole('status', { name: 'Working' }, { timeout: 3000 })).textContent).toMatch(
       /^Running a command · /,
     );
-    // A path in its own folder is named from there.
+    // A file it reads or edits is named, not spelled out.
     adopt(
       [
         ...transcript(),
@@ -367,7 +367,7 @@ describe('Chat', () => {
       { status: 'running' },
     );
     await waitFor(
-      () => expect(screen.getByRole('status', { name: 'Working' }).textContent).toMatch(/^Read notes\/plan\.md · /),
+      () => expect(screen.getByRole('status', { name: 'Working' }).textContent).toMatch(/^Read plan\.md · /),
       { timeout: 3000 },
     );
 
