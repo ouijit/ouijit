@@ -243,8 +243,24 @@ class ClaudeTranscript {
   private tasks = new Map<string, PlanEntry>();
   /** A tool cut off by a stop reads as rejected until the stop's own message says otherwise. */
   private rejected: string[] = [];
+  /** When the message being translated was written, for a history import; live messages are stamped as they arrive. */
+  at: number | null = null;
 
   constructor(private readonly sink: Pick<DriverSink, 'node' | 'append'>) {}
+
+  private now(): number {
+    return this.at ?? Date.now();
+  }
+
+  compaction(uuid: string, trigger: 'manual' | 'auto'): void {
+    this.sink.node({
+      id: `claude-compact-${uuid}`,
+      kind: 'compaction',
+      parentId: null,
+      createdAt: this.now(),
+      trigger,
+    });
+  }
 
   private parent(parentToolUseId: string | null | undefined): string | null {
     return parentToolUseId ? `claude-tool-${parentToolUseId}` : null;
@@ -268,12 +284,12 @@ class ClaudeTranscript {
             id,
             kind: 'assistant_message',
             parentId,
-            createdAt: Date.now(),
+            createdAt: this.now(),
             text: '',
             status: 'running',
           });
         } else if (block.type === 'thinking') {
-          this.sink.node({ id, kind: 'reasoning', parentId, createdAt: Date.now(), text: '', status: 'running' });
+          this.sink.node({ id, kind: 'reasoning', parentId, createdAt: this.now(), text: '', status: 'running' });
         }
         return;
       }
@@ -298,7 +314,7 @@ class ClaudeTranscript {
       const ordinal = this.blockOrdinals.get(messageId) ?? 0;
       this.blockOrdinals.set(messageId, ordinal + 1);
       const id = `claude-${messageId}-${ordinal}`;
-      const createdAt = Date.now();
+      const createdAt = this.now();
       if (block.type === 'text') {
         this.sink.node({
           id,
@@ -335,7 +351,7 @@ class ClaudeTranscript {
       id: `claude-tool-${String(block.id)}`,
       kind: 'tool_call',
       parentId,
-      createdAt: Date.now(),
+      createdAt: this.now(),
       tool: toolKind(name),
       name,
       title: toolTitle(name, input),
@@ -401,7 +417,7 @@ class ClaudeTranscript {
       id: `${USER_PREFIX}${uuid}`,
       kind: 'user_message',
       parentId: null,
-      createdAt: Date.now(),
+      createdAt: this.now(),
       text,
       attachments: [],
       delivery: 'prompt',
@@ -436,7 +452,7 @@ class ClaudeTranscript {
   }
 
   private emitPlan(parentId: string | null): void {
-    this.sink.node({ id: 'claude-plan', kind: 'plan', parentId, createdAt: Date.now(), entries: this.plan });
+    this.sink.node({ id: 'claude-plan', kind: 'plan', parentId, createdAt: this.now(), entries: this.plan });
   }
 }
 
@@ -526,15 +542,28 @@ class ClaudeSession implements DriverSession {
 
   private async importHistory(sessionId: string): Promise<void> {
     try {
-      const messages = await getSessionMessages(sessionId, { dir: this.context.cwd });
+      const messages = await getSessionMessages(sessionId, { dir: this.context.cwd, includeSystemMessages: true });
       const nodes = new Map<string, ChatNode>();
       const collector = new ClaudeTranscript({
         node: (node) => nodes.set(node.id, node),
         append: () => undefined,
       });
+      // The SDK gives a system message no subtype, so a compaction is known by
+      // the summary that follows its boundary, and takes the boundary's uuid
+      // as the live stream does.
+      let boundary: string | null = null;
       for (const message of messages) {
         const body = (message.message ?? {}) as Json;
-        if (message.type === 'assistant') {
+        const entry = message as unknown as Json;
+        const at = Date.parse(String(entry.timestamp));
+        collector.at = Number.isNaN(at) ? null : at;
+        if (message.type === 'system') {
+          boundary = message.uuid;
+        } else if (entry.isCompactSummary) {
+          collector.compaction(boundary ?? message.uuid, 'auto');
+        } else if (entry.is_meta) {
+          continue;
+        } else if (message.type === 'assistant') {
           collector.assistant(body, message.parent_tool_use_id);
           this.lastAssistantUuid = message.uuid;
         } else if (message.type === 'user') {
@@ -747,13 +776,7 @@ class ClaudeSession implements DriverSession {
         return;
       case 'compact_boundary': {
         const metadata = (message.compact_metadata ?? {}) as Json;
-        this.sink.node({
-          id: `claude-compact-${String(message.uuid)}`,
-          kind: 'compaction',
-          parentId: null,
-          createdAt: Date.now(),
-          trigger: metadata.trigger === 'manual' ? 'manual' : 'auto',
-        });
+        this.transcript.compaction(String(message.uuid), metadata.trigger === 'manual' ? 'manual' : 'auto');
         return;
       }
       case 'commands_changed': {

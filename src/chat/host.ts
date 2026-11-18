@@ -564,7 +564,12 @@ export class ChatHost {
         const byId = new Map(wakes.map((node) => [node.id, node]));
         const byText = new Map(wakes.map((node) => [node.text, node]));
         const incoming = new Set(nodes.map((node) => node.id));
-        const stale = session.nodes.filter((node) => !incoming.has(node.id)).map((node) => node.id);
+        // A record that opens with a compaction has dropped what came before
+        // it; that part of the transcript is kept rather than read as stale.
+        const overlap = session.nodes.findIndex((node) => incoming.has(node.id));
+        const covered =
+          nodes[0]?.kind === 'compaction' ? (overlap === -1 ? [] : session.nodes.slice(overlap)) : session.nodes;
+        const stale = covered.filter((node) => !incoming.has(node.id)).map((node) => node.id);
         if (stale.length) session.emit({ type: 'remove', ids: stale });
         for (const node of nodes) {
           const wake = node.kind === 'user_message' ? (byId.get(node.id) ?? byText.get(node.text)) : undefined;

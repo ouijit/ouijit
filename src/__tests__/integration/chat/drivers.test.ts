@@ -314,6 +314,86 @@ describe('claude rewound and forked', () => {
   );
 });
 
+describe('claude compacted in its terminal', () => {
+  // Writes the session file a terminal compaction leaves, which a recording
+  // would put in the real config dir.
+  test.skipIf(recording || !fs.existsSync(cassettePath('claude')))(
+    'a chat picking the conversation back up keeps what came before the compaction and shows no summary',
+    async () => {
+      const cwd = repo();
+      const host = new ChatHost({ spawnProcess: replayingSpawn(loadCassettes('claude')) });
+      const stop = approveEverything(host);
+      const id = 'pty-compacted';
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+      await host.prompt(id, { text: PROMPT });
+      const before = await until(
+        host,
+        id,
+        (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message' && /done/i.test(n.text)),
+        timeout,
+      );
+      await host.stop(id);
+
+      const sessionId = before.info.agentSessionId!;
+      const at = (seconds: number) => new Date(Date.UTC(2026, 10, 1, 9, 0, seconds)).toISOString();
+      const line = (uuid: string, parentUuid: string | null, seconds: number, rest: object) =>
+        JSON.stringify({ uuid, parentUuid, sessionId, cwd, isSidechain: false, timestamp: at(seconds), ...rest });
+      const user = (content: string, extra: object = {}) => ({
+        type: 'user',
+        message: { role: 'user', content },
+        ...extra,
+      });
+      const entries = [
+        line('boundary', null, 0, {
+          type: 'system',
+          subtype: 'compact_boundary',
+          content: 'Conversation compacted',
+          compactMetadata: { trigger: 'manual', preTokens: 1000 },
+        }),
+        line(
+          'summary',
+          'boundary',
+          1,
+          user('This session is being continued from a previous conversation.', {
+            isCompactSummary: true,
+            isVisibleInTranscriptOnly: true,
+          }),
+        ),
+        line('caveat', 'summary', 2, user('<local-command-caveat>Caveat</local-command-caveat>', { isMeta: true })),
+        line('command', 'caveat', 2, user('<command-name>/compact</command-name>')),
+        line('output', 'command', 2, user('<local-command-stdout>Compacted</local-command-stdout>')),
+        line('asked', 'output', 10, user('Did that work?')),
+        line('answered', 'asked', 14, {
+          type: 'assistant',
+          message: {
+            id: 'msg_after',
+            role: 'assistant',
+            model: 'claude',
+            type: 'message',
+            content: [{ type: 'text', text: 'It did.' }],
+          },
+        }),
+      ];
+      const dir = path.join(process.env.CLAUDE_CONFIG_DIR!, 'projects', cwd.replace(/[^a-zA-Z0-9]/g, '-'));
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, `${sessionId}.jsonl`), entries.join('\n') + '\n');
+
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+      const after = await until(host, id, (s) => s.nodes.some((n) => n.kind === 'compaction'), timeout);
+      const users = after.nodes.filter((n) => n.kind === 'user_message').map((n) => n.text);
+      expect(users).toEqual([PROMPT, 'Did that work?']);
+      expect(kinds(after.nodes).slice(0, before.nodes.length)).toEqual(kinds(before.nodes));
+      const compaction = after.nodes.findIndex((n) => n.kind === 'compaction');
+      expect(compaction).toBe(before.nodes.length);
+      const reply = after.nodes.find((n) => n.kind === 'assistant_message' && n.text === 'It did.')!;
+      expect(reply.createdAt).toBe(Date.parse(at(14)));
+      await host.stop(id);
+      stop();
+    },
+    timeout * 2,
+  );
+});
+
 describe('pi with approvals on', () => {
   const available = recording || fs.existsSync(cassettePath('pi-approvals'));
 
