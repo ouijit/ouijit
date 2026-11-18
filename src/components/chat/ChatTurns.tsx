@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { closeOpenMarkup, revealed, useReveal } from './useReveal';
 import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
@@ -163,9 +172,58 @@ function WorkFold({ work, context }: { work: ChatNode[]; context: NodeContext })
         <Span ms={span} />
       </button>
       {open && (
-        <div className="pl-5 pb-2 flex flex-col gap-2">
+        <FoldBody>
           <ChatNodeList nodes={work} context={context} thoughtsAsText />
+        </FoldBody>
+      )}
+    </div>
+  );
+}
+
+/** How much more of an opened fold each step shows. */
+const FOLD_STEP_PX = 480;
+const FOLD_FADE = 'linear-gradient(to bottom, black calc(100% - 64px), transparent)';
+
+/**
+ * An opened fold, shown a screenful at a time: past its height it fades out,
+ * and Show more lets the rest down a step at a time.
+ */
+function FoldBody({ children }: { children: ReactNode }) {
+  const [limit, setLimit] = useState(FOLD_STEP_PX);
+  const [height, setHeight] = useState(0);
+  const content = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = content.current;
+    if (!element) return;
+    const measure = () => setHeight(element.scrollHeight);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const clipped = height > limit;
+  return (
+    <div className="pl-5 pb-2 flex flex-col">
+      <div
+        className="overflow-hidden transition-[max-height] duration-300 ease-out"
+        style={{
+          maxHeight: limit,
+          ...(clipped && { maskImage: FOLD_FADE, WebkitMaskImage: FOLD_FADE }),
+        }}
+      >
+        <div ref={content} className="flex flex-col gap-2">
+          {children}
         </div>
+      </div>
+      {clipped && (
+        <button
+          type="button"
+          className="self-start mt-1 text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
+          onClick={() => setLimit(limit + FOLD_STEP_PX)}
+        >
+          Show more
+        </button>
       )}
     </div>
   );

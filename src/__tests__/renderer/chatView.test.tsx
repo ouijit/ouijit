@@ -397,3 +397,26 @@ describe('chat view', () => {
     expect(window.api.chat.setMode).toHaveBeenCalledWith(ID, 'acceptEdits');
   });
 });
+
+describe('a long fold', () => {
+  test('an opened fold too tall for the screen fades out, and Show more lets it down a step at a time', async () => {
+    fakeHost(INFO, NODES);
+    listenForChatEvents();
+    useChatStore.getState().adopt(await window.api.chat.snapshot(ID)!);
+    const tall = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
+    try {
+      render(<ChatView cardId={ID} />);
+      fireEvent.click(screen.getByRole('button', { name: /^Ran 1 command/ }));
+      const shown = () => screen.getByRole('button', { name: /Run the tests/ }).closest('[style]') as HTMLElement;
+      expect(shown().style.maxHeight).toBe('480px');
+      expect(shown().style.maskImage).toContain('linear-gradient');
+      fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
+      expect(shown().style.maxHeight).toBe('960px');
+      fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
+      expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
+      expect(shown().style.maskImage).toBe('');
+    } finally {
+      tall.mockRestore();
+    }
+  });
+});
