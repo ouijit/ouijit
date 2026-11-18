@@ -88,7 +88,7 @@ async function turnChatOn(page: Page, repo: string): Promise<string> {
 }
 
 async function send(page: Page, text: string): Promise<void> {
-  const composer = page.getByPlaceholder('Message the agent');
+  const composer = page.getByPlaceholder('Send a message');
   await composer.fill(text);
   await composer.press('Enter');
 }
