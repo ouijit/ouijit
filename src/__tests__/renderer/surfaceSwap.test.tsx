@@ -79,10 +79,10 @@ describe('switching a card between terminal and chat', () => {
 
     // Until there is a session to show, the screen stays up; once there is, even one still starting, the chat shows.
     display({ surface: 'chat' });
-    expect(layerOf(screen.getByText('Loading chat…')).style.opacity).toBe('0');
+    expect(layerOf(screen.getByText('Loading chat')).style.opacity).toBe('0');
     expect(layerOf(screen.getByText('SCREEN')).style.opacity).toBe('1');
     chat({ status: 'starting' });
-    await waitFor(() => expect(layerOf(screen.getByText('Starting Claude Code…')).style.opacity).toBe('1'));
+    await waitFor(() => expect(layerOf(screen.getByText('Starting Claude Code')).style.opacity).toBe('1'));
     chat({ status: 'idle' });
     expect(layerOf(screen.getByText('Claude Code is ready.')).style.opacity).toBe('1');
     await waitFor(() => expect(screen.queryByText('SCREEN')).toBeNull());
