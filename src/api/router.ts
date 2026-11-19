@@ -7,7 +7,6 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { BrowserWindow } from 'electron';
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createTodoTask, createTaskWorktree } from '../worktree';
 import {
@@ -67,6 +66,7 @@ import {
 } from '../linear/service';
 import { getProjectList } from '../projectList';
 import { shellJoin } from '../utils/shellQuote';
+import { relativeWithin } from '../utils/pathSafety';
 import { fileItRuns } from '../askFile';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
@@ -222,23 +222,12 @@ function cliCaller(auth: AuthContext): CliCaller {
   };
 }
 
-/** A path's real location, through any symlink, for as much of it as exists. */
-function realLocation(p: string): string {
-  try {
-    return fs.realpathSync(p);
-  } catch {
-    const parent = path.dirname(p);
-    return parent === p ? p : path.join(realLocation(parent), path.basename(p));
-  }
-}
-
 /** `file` relative to the terminal's worktree, or null when it lies outside it. */
 function worktreeRelative(ptyId: string, file: string): string | null {
   const ctx = getPtySpawnContext(ptyId);
   const root = ctx?.worktreePath || ctx?.projectPath;
   if (!root || !path.isAbsolute(file)) return null;
-  const relative = path.relative(realLocation(root), realLocation(file));
-  return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : null;
+  return relativeWithin(root, file) || null;
 }
 
 async function askRun(r: ParsedRequest): Promise<AskRun> {
@@ -298,20 +287,22 @@ interface Route {
  * Who in a sandbox may call a route; without one, only the host may. `level`
  * is the project's Ouijit CLI access it needs. `owns` is what the request must
  * name of the caller's own: its terminal, which at "Its own task" widens to
- * every sandboxed terminal on its task, or its task, by `:number` or
- * `taskNumber`. Any `?project=` must be the caller's own project.
+ * every sandboxed terminal on its task; its task, by `:number` or
+ * `taskNumber`; or a `:ptyId` in its project. Any `?project=` must be the
+ * caller's own project.
  *
  * A route with a rule never lets the caller choose what runs on the host, and
  * anything it runs stays in the sandbox — keep it that way when changing one.
  */
 interface SandboxRule {
   level: 'read' | 'task';
-  owns?: 'terminal' | 'task';
+  owns?: 'terminal' | 'task' | 'project';
 }
 
 const READ: SandboxRule = { level: 'read' };
 const OWN_TERMINAL: SandboxRule = { level: 'read', owns: 'terminal' };
 const OWN_TASK: SandboxRule = { level: 'task', owns: 'task' };
+const IN_OWN_PROJECT: SandboxRule = { level: 'read', owns: 'project' };
 
 function matchRoute(
   routes: Route[],
@@ -726,6 +717,18 @@ const routes: Route[] = [
     getActiveSessions()
       .filter((session) => !session.isRunner)
       .map(describeTerminal),
+  ),
+
+  route(
+    'GET',
+    'terminals/:ptyId',
+    (r) => {
+      const session = getActiveSessions().find((s) => s.ptyId === r.segments[1] && !s.isRunner);
+      if (!session) throw new HttpError(404, `PTY ${r.segments[1]} not found or inactive`);
+      return describeTerminal(session);
+    },
+    false,
+    IN_OWN_PROJECT,
   ),
 
   route(
@@ -1275,6 +1278,10 @@ function sandboxAllows(
   const project = query.get('project');
   if (project !== null && project !== getPtySpawnContext(caller.ptyId)?.projectPath) return false;
   if (rule.owns === 'terminal') return ownsTerminal(caller, params.ptyId);
+  if (rule.owns === 'project') {
+    const theirs = getPtySpawnContext(params.ptyId)?.projectPath;
+    return !!theirs && theirs === getPtySpawnContext(caller.ptyId)?.projectPath;
+  }
   if (rule.owns === 'task') return ownsTask(caller, query.get('project'), params.number ?? body.taskNumber);
   return true;
 }
