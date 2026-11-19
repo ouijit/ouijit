@@ -29,7 +29,7 @@ const QUERY = `?project=${encodeURIComponent(PROJECT)}`;
 function createProgram() {
   const program = new Command();
   program.exitOverride();
-  registerSandboxCommands(program, () => PROJECT);
+  registerSandboxCommands(program, async () => PROJECT);
   return program;
 }
 
