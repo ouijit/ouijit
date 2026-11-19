@@ -29,7 +29,7 @@ vi.mock('../../ptyManager', () => {
   return {
     getActiveSessions: () => sessions,
     isPtyActive: (ptyId: string) => !!find(ptyId),
-    callerTerminal: (ptyId: string) => find(ptyId)?.parentPtyId ?? ptyId,
+    callerTerminal: (ptyId: string) => ptyId,
     getPtySpawnContext: (ptyId: string) => {
       const s = find(ptyId);
       return s
@@ -113,14 +113,7 @@ beforeEach(async () => {
   });
   sessions.push(
     { ptyId: 'pty-shell', projectPath: repoDir, command: 'zsh', label: 'Shell' },
-    {
-      ptyId: 'pty-runner',
-      projectPath: repoDir,
-      command: 'npm run dev',
-      label: 'Run',
-      isRunner: true,
-      parentPtyId: 'pty-shell',
-    },
+    { ptyId: 'pty-runner', projectPath: repoDir, command: 'npm run dev', label: 'Run', isRunner: true },
   );
 
   await startHookServer(fakeWindow);
@@ -330,7 +323,6 @@ describe('what an agent can see and do from the CLI', () => {
         url: `ouijit://${project}/terminals/pty-agent/diff/auth.ts`,
       });
 
-      // A runner speaks for the terminal it runs on.
       as('pty-runner', 'host');
       expect(await ouijit('link', 'board')).toEqual({ url: `ouijit://${project}/board` });
 

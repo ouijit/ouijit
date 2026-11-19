@@ -723,8 +723,7 @@ const routes: Route[] = [
     'GET',
     'terminals/:ptyId',
     (r) => {
-      const ptyId = callerTerminal(r.segments[1]);
-      const session = getActiveSessions().find((s) => s.ptyId === ptyId && !s.isRunner);
+      const session = getActiveSessions().find((s) => s.ptyId === r.segments[1] && !s.isRunner);
       if (!session) throw new HttpError(404, `PTY ${r.segments[1]} not found or inactive`);
       return describeTerminal(session);
     },
@@ -878,6 +877,18 @@ const routes: Route[] = [
   route('GET', 'projects', () => {
     return getProjectList();
   }),
+
+  route(
+    'GET',
+    'projects/current',
+    (r) => {
+      const ctx = getPtySpawnContext(r.auth.ptyId);
+      if (!ctx) throw new HttpError(404, `PTY ${r.auth.ptyId} not found or inactive`);
+      return { projectPath: ctx.projectPath };
+    },
+    false,
+    READ,
+  ),
 
   // ── Scripts ──────────────────────────────────────────────────────
   route('GET', 'scripts', (r) => {

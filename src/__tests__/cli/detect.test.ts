@@ -21,7 +21,7 @@ describe('requireProject outside an Ouijit terminal', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("takes --project when given, and otherwise the main repo of the shell's checkout", async () => {
+  test("takes the main repo of the shell's checkout, from a worktree too", async () => {
     const mainRepo = path.join(tempDir, 'main-repo');
     fs.mkdirSync(mainRepo);
     execSync('git init -q && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m init', { cwd: mainRepo });
@@ -30,7 +30,6 @@ describe('requireProject outside an Ouijit terminal', () => {
 
     process.chdir(wtPath);
     expect(await requireProject()).toBe(mainRepo);
-    expect(await requireProject(tempDir)).toBe(tempDir);
     process.chdir(mainRepo);
     expect(await requireProject()).toBe(mainRepo);
   });

@@ -46,18 +46,13 @@ function resolveGitRoot(cwd: string): string | null {
   }
 }
 
-/**
- * The project a command acts on: `--project`, else the calling terminal's
- * project, else the git repo of the shell's cwd outside an Ouijit terminal.
- */
 export async function requireProject(explicitPath?: string): Promise<string> {
   if (explicitPath) {
     const resolved = path.resolve(explicitPath);
     if (!fs.existsSync(resolved)) return printError(`No project at ${resolved}`);
     return resolved;
   }
-  const ptyId = process.env['OUIJIT_PTY_ID'];
-  if (ptyId) return (await get<{ projectPath: string }>(`/api/terminals/${encodeURIComponent(ptyId)}`)).projectPath;
+  if (process.env['OUIJIT_PTY_ID']) return (await get<{ projectPath: string }>('/api/projects/current')).projectPath;
   return (
     resolveGitRoot(process.cwd()) ??
     printError('Could not detect project. Use --project <path> or run from within a git repo.')
