@@ -326,14 +326,14 @@ describe('what an agent can see and do from the CLI', () => {
       as('pty-runner', 'host');
       expect(await ouijit('link', 'board')).toEqual({ url: `ouijit://${project}/board` });
 
-      // Outside an Ouijit terminal, the shell's repo is all there is to go on.
-      vi.stubEnv('OUIJIT_PTY_ID', '');
-      expect(await ouijit('link', 'pr', '12')).toEqual({ url: 'ouijit://elsewhere/pulls/12' });
-
       process.chdir(worktree);
       expect(await ouijit('link', 'diff', 'auth.ts:2', 'pty-agent')).toEqual({
         url: `ouijit://${project}/terminals/pty-agent/diff/auth.ts:2`,
       });
+
+      process.chdir(elsewhere);
+      vi.stubEnv('OUIJIT_API_TOKEN', '');
+      expect(await ouijit('link', 'pr', '12')).toEqual({ url: 'ouijit://elsewhere/pulls/12' });
     } finally {
       process.chdir(home);
     }

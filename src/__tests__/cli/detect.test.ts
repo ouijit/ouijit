@@ -10,7 +10,7 @@ describe('requireProject outside an Ouijit terminal', () => {
   const home = process.cwd();
 
   beforeEach(() => {
-    vi.stubEnv('OUIJIT_PTY_ID', '');
+    vi.stubEnv('OUIJIT_API_TOKEN', '');
     // Resolve symlinks (macOS /var → /private/var) so paths match git output
     tempDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-detect-')));
   });

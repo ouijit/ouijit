@@ -52,7 +52,7 @@ export async function requireProject(explicitPath?: string): Promise<string> {
     if (!fs.existsSync(resolved)) return printError(`No project at ${resolved}`);
     return resolved;
   }
-  if (process.env['OUIJIT_PTY_ID']) return (await get<{ projectPath: string }>('/api/projects/current')).projectPath;
+  if (process.env['OUIJIT_API_TOKEN']) return (await get<{ projectPath: string }>('/api/projects/current')).projectPath;
   return (
     resolveGitRoot(process.cwd()) ??
     printError('Could not detect project. Use --project <path> or run from within a git repo.')
