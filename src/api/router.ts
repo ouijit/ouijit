@@ -728,6 +728,26 @@ const routes: Route[] = [
       .map(describeTerminal),
   ),
 
+  // Where a terminal lives, for a link to it. A sandbox sees only its own project's.
+  route(
+    'GET',
+    'terminals/:ptyId',
+    (r) => {
+      const ctx = getPtySpawnContext(r.segments[1]);
+      const visible =
+        ctx && (r.auth.scope === 'host' || ctx.projectPath === getPtySpawnContext(r.auth.ptyId)?.projectPath);
+      if (!visible) throw new HttpError(404, `PTY ${r.segments[1]} not found or inactive`);
+      return {
+        ptyId: r.segments[1],
+        projectPath: ctx.projectPath,
+        taskNumber: ctx.taskId ?? null,
+        worktreePath: ctx.worktreePath ?? null,
+      };
+    },
+    false,
+    READ,
+  ),
+
   route(
     'POST',
     'terminals',
