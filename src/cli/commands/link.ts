@@ -4,11 +4,12 @@
  * access level.
  */
 
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Command } from 'commander';
 import { get } from '../api';
 import { printJson, printError } from '../output';
+import { resolvePtyId } from '../ptyId';
+import { relativeWithin } from '../../utils/pathSafety';
 import { buildLink, type DiffSpot, type LinkTarget } from '../../links/ouijitLink';
 
 function int(value: string, label: string): number {
@@ -24,26 +25,9 @@ interface Terminal {
   worktreePath: string | null;
 }
 
-/** The terminal a link points at: its project, not this shell's, names the link. */
-function terminal(ptyId?: string): Promise<Terminal> {
-  const id = ptyId ?? process.env['OUIJIT_PTY_ID'];
-  if (!id) return printError('OUIJIT_PTY_ID not set — run from an Ouijit terminal, or name the terminal');
-  return get<Terminal>(`/api/terminals/${encodeURIComponent(id)}`);
-}
-
-/** A path's real location, through any symlink, for as much of it as exists. */
-function real(p: string): string {
-  try {
-    return fs.realpathSync(p);
-  } catch {
-    const parent = path.dirname(p);
-    return parent === p ? p : path.join(real(parent), path.basename(p));
-  }
-}
-
-function within(root: string, file: string): string | null {
-  const relative = path.relative(real(root), real(file));
-  return relative.startsWith('..') || path.isAbsolute(relative) ? null : relative;
+async function terminal(ptyId?: string): Promise<Terminal & { project: string }> {
+  const found = await get<Terminal>(`/api/terminals/${encodeURIComponent(resolvePtyId(ptyId))}`);
+  return { ...found, project: path.basename(found.projectPath) };
 }
 
 /**
@@ -51,11 +35,14 @@ function within(root: string, file: string): string | null {
  * from this shell when it is inside the terminal's checkout, and from the
  * checkout's root when it is not.
  */
-function diffSpot(spec: string, { worktreePath, projectPath }: Terminal): DiffSpot {
+function diffSpot(
+  spec: string,
+  { worktreePath, projectPath }: Pick<Terminal, 'worktreePath' | 'projectPath'>,
+): DiffSpot {
   const match = /^(.*):(\d+)$/.exec(spec);
   const root = worktreePath ?? projectPath;
-  const base = within(root, process.cwd()) === null ? root : process.cwd();
-  const relative = within(root, path.resolve(base, match ? match[1] : spec));
+  const shellInCheckout = relativeWithin(root, process.cwd()) !== null;
+  const relative = relativeWithin(root, path.resolve(shellInCheckout ? process.cwd() : root, match ? match[1] : spec));
   if (!relative) return printError(`${spec} is not in ${root}`);
   return { path: relative.split(path.sep).join('/'), ...(match && { line: parseInt(match[2], 10) }) };
 }
@@ -93,14 +80,11 @@ A link only navigates: opening one never runs or changes anything.`,
     .argument('<file[:line]>', 'path, optionally with a line')
     .argument('[pty-id]', 'terminal session id (defaults to this terminal)')
     .action(async (spec: string, ptyId?: string) => {
-      const target = await terminal(ptyId);
-      const diff = diffSpot(spec, target);
-      const project = path.basename(target.projectPath);
+      const { project, ptyId: id, taskNumber, ...where } = await terminal(ptyId);
+      const diff = diffSpot(spec, where);
       // A link through the task outlives the terminal.
-      if (!ptyId && target.taskNumber != null) {
-        return print({ kind: 'task', project, taskNumber: target.taskNumber, diff });
-      }
-      print({ kind: 'terminal', project, ptyId: target.ptyId, diff });
+      if (!ptyId && taskNumber != null) return print({ kind: 'task', project, taskNumber, diff });
+      print({ kind: 'terminal', project, ptyId: id, diff });
     });
 
   link
@@ -108,8 +92,8 @@ A link only navigates: opening one never runs or changes anything.`,
     .description('A terminal')
     .argument('[pty-id]', 'terminal session id (defaults to this terminal)')
     .action(async (ptyId?: string) => {
-      const target = await terminal(ptyId);
-      print({ kind: 'terminal', project: path.basename(target.projectPath), ptyId: target.ptyId });
+      const { project, ptyId: id } = await terminal(ptyId);
+      print({ kind: 'terminal', project, ptyId: id });
     });
 
   link
@@ -118,8 +102,8 @@ A link only navigates: opening one never runs or changes anything.`,
     .argument('<id>', 'panel id')
     .argument('[pty-id]', 'terminal session id (defaults to this terminal)')
     .action(async (panelId: string, ptyId?: string) => {
-      const target = await terminal(ptyId);
-      print({ kind: 'terminal', project: path.basename(target.projectPath), ptyId: target.ptyId, panelId });
+      const { project, ptyId: id } = await terminal(ptyId);
+      print({ kind: 'terminal', project, ptyId: id, panelId });
     });
 
   link

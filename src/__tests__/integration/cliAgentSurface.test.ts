@@ -307,7 +307,7 @@ describe('what an agent can see and do from the CLI', () => {
         url: `ouijit://${project}/terminals/pty-agent/panels/panel_3`,
       });
       expect(await ouijit('link', 'diff', 'auth.ts:2')).toEqual({ url: `ouijit://${project}/tasks/1/diff/auth.ts:2` });
-      await expect(ouijit('link', 'terminal', 'pty-elsewhere')).rejects.toThrow(/not found/);
+      await expect(ouijit('link', 'terminal', 'pty-elsewhere')).rejects.toThrow(/Forbidden/);
       expect(await ouijit('link', 'pr', '12')).toEqual({ url: 'ouijit://elsewhere/pulls/12' });
 
       as('pty-shell', 'host');
