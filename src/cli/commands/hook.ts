@@ -17,7 +17,7 @@ function validateHookType(type: string): string {
   return type;
 }
 
-export function registerHookCommands(parent: Command, requireProject: () => string) {
+export function registerHookCommands(parent: Command, requireProject: () => Promise<string>) {
   const hook = parent
     .command('hook')
     .description('Manage script hooks')
@@ -38,7 +38,7 @@ Examples:
     .command('list')
     .description('List all hooks')
     .action(async () => {
-      const project = requireProject();
+      const project = await requireProject();
       const hooks = await get(`/api/hooks${projectQuery(project)}`);
       printJson(hooks);
     });
@@ -49,7 +49,7 @@ Examples:
     .argument('<type>', `hook type (${VALID_HOOK_TYPES.join('|')})`)
     .action(async (type: string) => {
       const t = validateHookType(type);
-      const project = requireProject();
+      const project = await requireProject();
       const hooks = await get<Record<string, unknown>>(`/api/hooks${projectQuery(project)}`);
       printJson(hooks[t] || null);
     });
@@ -80,7 +80,7 @@ Examples:
         if (isActiveSandbox(sandbox) && !SANDBOXABLE_HOOK_TYPES.includes(t)) {
           return printError(`--sandbox is only valid for the ${SANDBOXABLE_HOOK_TYPES.join(', ')} hooks`);
         }
-        const project = requireProject();
+        const project = await requireProject();
         const result = await put(`/api/hooks/${t}${projectQuery(project)}`, {
           name: opts.name,
           command: opts.command,
@@ -98,7 +98,7 @@ Examples:
     .argument('<type>', `hook type (${VALID_HOOK_TYPES.join('|')})`)
     .action(async (type: string) => {
       const t = validateHookType(type);
-      const project = requireProject();
+      const project = await requireProject();
       const result = await del(`/api/hooks/${t}${projectQuery(project)}`);
       printJson(result);
     });

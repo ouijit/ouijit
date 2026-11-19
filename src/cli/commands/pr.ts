@@ -11,7 +11,7 @@ import type { Command } from 'commander';
 import { get, post, put, del } from '../api';
 import { printJson, readBody } from '../output';
 
-export function registerPrCommands(parent: Command, requireProject: () => string) {
+export function registerPrCommands(parent: Command, requireProject: () => Promise<string>) {
   const pr = parent
     .command('pr')
     .description('Inspect pull requests and link them to tasks')
@@ -27,7 +27,7 @@ Examples:
   pr.command('list')
     .description('List open pull requests, grouped into review / yours / others')
     .action(async () => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(await get(`/api/pulls?project=${encodeURIComponent(project)}`));
     });
 
@@ -35,7 +35,7 @@ Examples:
     .description('Show one pull request with its threads, timeline, and checks')
     .argument('<number>', 'pull request number')
     .action(async (number: string) => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(await get(`/api/pulls/${encodeURIComponent(number)}?project=${encodeURIComponent(project)}`));
     });
 
@@ -61,7 +61,7 @@ Examples:
     .description('List the unsent review comments on a pull request')
     .argument('<number>', 'pull request number')
     .action(async (number: string) => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(await get(`/api/pulls/${encodeURIComponent(number)}/drafts?project=${encodeURIComponent(project)}`));
     });
 
@@ -80,7 +80,7 @@ Examples:
         number: string,
         options: { file: string; line: string; body: string; side: string; startLine?: string; origin: string },
       ) => {
-        const project = requireProject();
+        const project = await requireProject();
         printJson(
           await post(`/api/pulls/${encodeURIComponent(number)}/drafts?project=${encodeURIComponent(project)}`, {
             path: options.file,
@@ -100,7 +100,7 @@ Examples:
     .argument('<number>', 'pull request number')
     .argument('<id>', 'draft id, from `pr draft list`')
     .action(async (number: string, id: string) => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(
         await del(
           `/api/pulls/${encodeURIComponent(number)}/drafts/${encodeURIComponent(id)}?project=${encodeURIComponent(project)}`,
@@ -140,7 +140,7 @@ Examples:
     .argument('<number>', 'pull request number')
     .requiredOption('--head-sha <sha>', 'head commit the lens must describe')
     .action(async (number: string, options: { headSha: string }) => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(
         await get(
           `/api/pulls/${encodeURIComponent(number)}/lens?project=${encodeURIComponent(project)}&headSha=${encodeURIComponent(options.headSha)}`,
@@ -154,7 +154,7 @@ Examples:
     .argument('<number>', 'pull request number')
     .requiredOption('--body <json>', 'the lens as JSON, or - to read stdin')
     .action(async (number: string, options: { body: string }) => {
-      const project = requireProject();
+      const project = await requireProject();
       const raw = await readBody(options.body);
       let parsed: Record<string, unknown>;
       try {
@@ -172,7 +172,7 @@ Examples:
     .description('Delete the lens stored for a pull request')
     .argument('<number>', 'pull request number')
     .action(async (number: string) => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(await del(`/api/pulls/${encodeURIComponent(number)}/lens?project=${encodeURIComponent(project)}`));
     });
 
@@ -181,7 +181,7 @@ Examples:
     .argument('<number>', 'pull request number')
     .requiredOption('--task <number>', 'task number to link it to')
     .action(async (number: string, options: { task: string }) => {
-      const project = requireProject();
+      const project = await requireProject();
       const taskNumber = parseInt(options.task, 10);
       printJson(
         await post(`/api/pulls/${encodeURIComponent(number)}/link?project=${encodeURIComponent(project)}`, {

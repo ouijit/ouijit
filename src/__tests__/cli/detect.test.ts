@@ -1,76 +1,37 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { detectProject } from '../../cli/detect';
+import { requireProject } from '../../cli/detect';
 
-describe('detectProject', () => {
+describe('requireProject outside an Ouijit terminal', () => {
   let tempDir: string;
+  const home = process.cwd();
 
   beforeEach(() => {
+    vi.stubEnv('OUIJIT_PTY_ID', '');
     // Resolve symlinks (macOS /var → /private/var) so paths match git output
     tempDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-detect-')));
   });
 
-  test('returns explicit path when provided', () => {
-    fs.mkdirSync(path.join(tempDir, 'myproject'), { recursive: true });
-    const result = detectProject(path.join(tempDir, 'myproject'));
-    expect(result).toBe(path.join(tempDir, 'myproject'));
+  afterEach(() => {
+    process.chdir(home);
+    vi.unstubAllEnvs();
+    fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test('returns null for nonexistent explicit path', () => {
-    const result = detectProject('/does/not/exist');
-    expect(result).toBeNull();
-  });
-
-  test('detects project from git repo CWD', () => {
-    const repoPath = path.join(tempDir, 'repo');
-    fs.mkdirSync(repoPath);
-    execSync('git init', { cwd: repoPath, stdio: 'ignore' });
-
-    const orig = process.cwd();
-    process.chdir(repoPath);
-    try {
-      const result = detectProject();
-      expect(result).toBe(repoPath);
-    } finally {
-      process.chdir(orig);
-    }
-  });
-
-  test('resolves main repo root from worktree', () => {
+  test("takes --project when given, and otherwise the main repo of the shell's checkout", async () => {
     const mainRepo = path.join(tempDir, 'main-repo');
     fs.mkdirSync(mainRepo);
-    execSync('git init', { cwd: mainRepo, stdio: 'ignore' });
-    execSync('git config user.email "test@test.com"', { cwd: mainRepo, stdio: 'ignore' });
-    execSync('git config user.name "Test"', { cwd: mainRepo, stdio: 'ignore' });
-    execSync('git commit --allow-empty -m "init"', { cwd: mainRepo, stdio: 'ignore' });
-
+    execSync('git init -q && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m init', { cwd: mainRepo });
     const wtPath = path.join(tempDir, 'wt-1');
-    execSync(`git worktree add -b test-branch "${wtPath}"`, { cwd: mainRepo, stdio: 'ignore' });
+    execSync(`git worktree add -q -b test-branch "${wtPath}"`, { cwd: mainRepo });
 
-    const orig = process.cwd();
     process.chdir(wtPath);
-    try {
-      const result = detectProject();
-      expect(result).toBe(mainRepo);
-    } finally {
-      process.chdir(orig);
-    }
-  });
-
-  test('returns null when not in a git repo', () => {
-    const noGit = path.join(tempDir, 'no-git');
-    fs.mkdirSync(noGit);
-
-    const orig = process.cwd();
-    process.chdir(noGit);
-    try {
-      const result = detectProject();
-      expect(result).toBeNull();
-    } finally {
-      process.chdir(orig);
-    }
+    expect(await requireProject()).toBe(mainRepo);
+    expect(await requireProject(tempDir)).toBe(tempDir);
+    process.chdir(mainRepo);
+    expect(await requireProject()).toBe(mainRepo);
   });
 });

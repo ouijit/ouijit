@@ -12,6 +12,7 @@ import { registerTaskCommands } from '../../cli/commands/task';
 import { registerPrCommands } from '../../cli/commands/pr';
 import { registerAskCommands } from '../../cli/commands/ask';
 import { registerLinkCommands } from '../../cli/commands/link';
+import { requireProject } from '../../cli/detect';
 import { startHookServer, stopHookServer, getApiPort } from '../../hookServer';
 import { issueToken, revokeAllTokens } from '../../apiAuth';
 import { createTask, getTaskByNumber, setGlobalSetting, _resetCacheForTesting } from '../../db';
@@ -28,7 +29,7 @@ vi.mock('../../ptyManager', () => {
   return {
     getActiveSessions: () => sessions,
     isPtyActive: (ptyId: string) => !!find(ptyId),
-    callerTerminal: (ptyId: string) => ptyId,
+    callerTerminal: (ptyId: string) => find(ptyId)?.parentPtyId ?? ptyId,
     getPtySpawnContext: (ptyId: string) => {
       const s = find(ptyId);
       return s
@@ -51,7 +52,6 @@ let tmpDir: string;
 let repoDir: string;
 let worktree: string;
 let trashDir: string;
-let shellRepo: string;
 
 const fakeWindow = {
   isDestroyed: () => false,
@@ -65,13 +65,14 @@ async function ouijit(...args: string[]): Promise<unknown> {
     return true;
   });
   const program = new Command();
-  program.exitOverride();
-  registerTerminalCommands(program, () => repoDir);
-  registerDiffCommands(program, () => repoDir);
-  registerTaskCommands(program, () => repoDir);
-  registerPrCommands(program, () => repoDir);
+  program.exitOverride().option('--project <path>');
+  const project = () => requireProject(program.opts<{ project?: string }>().project);
+  registerTerminalCommands(program, project);
+  registerDiffCommands(program, project);
+  registerTaskCommands(program, project);
+  registerPrCommands(program, project);
   registerAskCommands(program);
-  registerLinkCommands(program, () => shellRepo);
+  registerLinkCommands(program, project);
   try {
     await program.parseAsync(args, { from: 'user' });
   } finally {
@@ -94,7 +95,6 @@ beforeEach(async () => {
   repoDir = path.join(tmpDir, 'project');
   worktree = path.join(tmpDir, 'T-1');
   trashDir = path.join(tmpDir, 'trash');
-  shellRepo = repoDir;
   await fs.mkdir(repoDir);
   await fs.mkdir(trashDir);
   execSync('git init -q && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m init', { cwd: repoDir });
@@ -113,7 +113,14 @@ beforeEach(async () => {
   });
   sessions.push(
     { ptyId: 'pty-shell', projectPath: repoDir, command: 'zsh', label: 'Shell' },
-    { ptyId: 'pty-runner', projectPath: repoDir, command: 'npm run dev', label: 'Run', isRunner: true },
+    {
+      ptyId: 'pty-runner',
+      projectPath: repoDir,
+      command: 'npm run dev',
+      label: 'Run',
+      isRunner: true,
+      parentPtyId: 'pty-shell',
+    },
   );
 
   await startHookServer(fakeWindow);
@@ -220,7 +227,7 @@ describe('what an agent can see and do from the CLI', () => {
       },
     );
     await createTask(repoDir, 2, 'Someone else');
-    as('pty-host', 'host');
+    as('pty-shell', 'host');
     const theirs = (await ouijit(
       'pr',
       'draft',
@@ -291,32 +298,45 @@ describe('what an agent can see and do from the CLI', () => {
     );
   });
 
-  test("a link names the terminal's project, even from a shell that has moved into another repo", async () => {
+  test("commands act on the calling terminal's project, even from a shell that has moved into another repo", async () => {
     const elsewhere = path.join(tmpDir, 'elsewhere');
     await fs.mkdir(elsewhere);
     execSync('git init -q', { cwd: elsewhere });
+    await createTask(elsewhere, 1, 'Elsewhere task');
     sessions.push({ ptyId: 'pty-elsewhere', projectPath: elsewhere, command: 'zsh', label: 'Elsewhere' });
     const home = process.cwd();
     process.chdir(elsewhere);
-    shellRepo = elsewhere;
     const project = path.basename(repoDir);
     try {
       as('pty-agent', 'sandbox');
+      expect(await ouijit('task', 'get', '1')).toEqual(expect.objectContaining({ name: 'Fix auth' }));
+      await expect(ouijit('--project', elsewhere, 'task', 'get', '1')).rejects.toThrow(/Forbidden/);
       expect(await ouijit('link', 'terminal')).toEqual({ url: `ouijit://${project}/terminals/pty-agent` });
       expect(await ouijit('link', 'panel', 'panel_3')).toEqual({
         url: `ouijit://${project}/terminals/pty-agent/panels/panel_3`,
       });
       expect(await ouijit('link', 'diff', 'auth.ts:2')).toEqual({ url: `ouijit://${project}/tasks/1/diff/auth.ts:2` });
       await expect(ouijit('link', 'terminal', 'pty-elsewhere')).rejects.toThrow(/Forbidden/);
-      expect(await ouijit('link', 'pr', '12')).toEqual({ url: 'ouijit://elsewhere/pulls/12' });
+      expect(await ouijit('link', 'pr', '12')).toEqual({ url: `ouijit://${project}/pulls/12` });
 
       as('pty-shell', 'host');
+      expect(await ouijit('--project', elsewhere, 'task', 'get', '1')).toEqual(
+        expect.objectContaining({ name: 'Elsewhere task' }),
+      );
       expect(await ouijit('link', 'terminal', 'pty-elsewhere')).toEqual({
         url: 'ouijit://elsewhere/terminals/pty-elsewhere',
       });
       expect(await ouijit('link', 'diff', `${worktree}/auth.ts`, 'pty-agent')).toEqual({
         url: `ouijit://${project}/terminals/pty-agent/diff/auth.ts`,
       });
+
+      // A runner speaks for the terminal it runs on.
+      as('pty-runner', 'host');
+      expect(await ouijit('link', 'board')).toEqual({ url: `ouijit://${project}/board` });
+
+      // Outside an Ouijit terminal, the shell's repo is all there is to go on.
+      vi.stubEnv('OUIJIT_PTY_ID', '');
+      expect(await ouijit('link', 'pr', '12')).toEqual({ url: 'ouijit://elsewhere/pulls/12' });
 
       process.chdir(worktree);
       expect(await ouijit('link', 'diff', 'auth.ts:2', 'pty-agent')).toEqual({

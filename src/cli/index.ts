@@ -7,7 +7,7 @@
 
 import { Command } from 'commander';
 import { ApiError } from './api';
-import { detectProject } from './detect';
+import { requireProject as resolveProject } from './detect';
 import { forbiddenMessage, printError } from './output';
 import { registerTaskCommands } from './commands/task';
 import { registerHookCommands } from './commands/hook';
@@ -45,12 +45,7 @@ Examples:
   ouijit pr list`,
   );
 
-function requireProject(): string {
-  const opts = program.opts();
-  const project = detectProject(opts.project);
-  if (!project) return printError('Could not detect project. Use --project <path> or run from within a git repo.');
-  return project;
-}
+const requireProject = () => resolveProject(program.opts<{ project?: string }>().project);
 
 registerTaskCommands(program, requireProject);
 registerHookCommands(program, requireProject);

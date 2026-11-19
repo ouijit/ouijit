@@ -19,7 +19,7 @@ interface TaskEntry {
   worktreePath?: string;
 }
 
-export function registerScriptCommands(parent: Command, requireProject: () => string) {
+export function registerScriptCommands(parent: Command, requireProject: () => Promise<string>) {
   const script = parent
     .command('script')
     .description('Manage and run scripts')
@@ -38,7 +38,7 @@ Examples:
     .command('list')
     .description('List all scripts (JSON array)')
     .action(async () => {
-      const project = requireProject();
+      const project = await requireProject();
       const scripts = await get(`/api/scripts${projectQuery(project)}`);
       printJson(scripts);
     });
@@ -51,7 +51,7 @@ Examples:
     .option('--restart-if-running', 'restart the command if an instance is already running in the same task')
     .option('--id <id>', '(deprecated) ignored — scripts are now upserted by name')
     .action(async (opts: { name: string; command: string; id?: string; restartIfRunning?: boolean }) => {
-      const project = requireProject();
+      const project = await requireProject();
       const existing = await get<ScriptEntry[]>(`/api/scripts${projectQuery(project)}`);
       const id = existing.find((s) => s.name === opts.name)?.id ?? opts.id ?? randomUUID();
       const result = await put<{ success: boolean; script?: ScriptEntry }>(
@@ -67,7 +67,7 @@ Examples:
     .description('Delete a script')
     .argument('<id>', 'script id')
     .action(async (id: string) => {
-      const project = requireProject();
+      const project = await requireProject();
       const result = await del<{ success: boolean }>(`/api/scripts/${encodeURIComponent(id)}${projectQuery(project)}`);
       if (!result.success) return printError('Failed to delete script');
       printJson(result);
@@ -79,7 +79,7 @@ Examples:
     .argument('<id-or-name>', 'script id or name')
     .option('--task <number>', 'run in task worktree directory')
     .action(async (idOrName: string, opts: { task?: string }) => {
-      const project = requireProject();
+      const project = await requireProject();
 
       // Resolve the script
       const scripts = await get<ScriptEntry[]>(`/api/scripts${projectQuery(project)}`);

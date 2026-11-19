@@ -723,7 +723,8 @@ const routes: Route[] = [
     'GET',
     'terminals/:ptyId',
     (r) => {
-      const session = getActiveSessions().find((s) => s.ptyId === r.segments[1] && !s.isRunner);
+      const ptyId = callerTerminal(r.segments[1]);
+      const session = getActiveSessions().find((s) => s.ptyId === ptyId && !s.isRunner);
       if (!session) throw new HttpError(404, `PTY ${r.segments[1]} not found or inactive`);
       return describeTerminal(session);
     },
