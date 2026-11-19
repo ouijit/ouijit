@@ -11,6 +11,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { LINK_PATTERN } from '../../links/ouijitLink';
 import { openLink } from '../../links/openLink';
+import { openTerminalLink } from '../../links/terminalLink';
 import { dropUnmeasuredMouseReports } from './mouseReports';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
@@ -483,6 +484,10 @@ export class OuijitTerminal {
       cursorStyle: 'bar',
       allowTransparency: false,
       scrollback: 2000,
+      linkHandler: {
+        allowNonHttpProtocols: true,
+        activate: (_event, uri) => void openTerminalLink(uri, this.projectPath, this.worktreePath || this.projectPath),
+      },
     });
 
     this.fitAddon = new FitAddon();
