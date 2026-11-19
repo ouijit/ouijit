@@ -10,7 +10,6 @@ import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { LINK_PATTERN } from '../../links/ouijitLink';
-import { openLink } from '../../links/openLink';
 import { openTerminalLink } from '../../links/terminalLink';
 import { dropUnmeasuredMouseReports } from './mouseReports';
 import { subscribeTheme } from '../../theme/themeManager';
@@ -475,6 +474,9 @@ export class OuijitTerminal {
     this.label = opts.label;
     this.status = opts.initialStatus ?? 'ready';
 
+    const openClickedLink = (_event: MouseEvent, uri: string) =>
+      void openTerminalLink(uri, this.projectPath, this.worktreePath || this.projectPath);
+
     this.xterm = new XTerminal({
       theme: buildXtermTheme(),
       fontFamily: cachedTerminalFontFamily,
@@ -486,18 +488,17 @@ export class OuijitTerminal {
       scrollback: 2000,
       linkHandler: {
         allowNonHttpProtocols: true,
-        activate: (_event, uri) => void openTerminalLink(uri, this.projectPath, this.worktreePath || this.projectPath),
+        activate: openClickedLink,
+        // An OSC 8 link's text can say anything, so where it goes has to be visible before the click.
+        hover: (_event, uri) => this.xterm.element?.setAttribute('title', uri),
+        leave: () => this.xterm.element?.removeAttribute('title'),
       },
     });
 
     this.fitAddon = new FitAddon();
     this.xterm.loadAddon(this.fitAddon);
-    this.xterm.loadAddon(
-      new WebLinksAddon((_event, uri) => {
-        window.api.openExternal(uri);
-      }),
-    );
-    this.xterm.loadAddon(new WebLinksAddon((_event, uri) => void openLink(uri), { urlRegex: LINK_PATTERN }));
+    this.xterm.loadAddon(new WebLinksAddon(openClickedLink));
+    this.xterm.loadAddon(new WebLinksAddon(openClickedLink, { urlRegex: LINK_PATTERN }));
 
     setupTerminalAppHotkeys(this.xterm, (data) => {
       if (this.ptyId) window.api.pty.write(this.ptyId, data);

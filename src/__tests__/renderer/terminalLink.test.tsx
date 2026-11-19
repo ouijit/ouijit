@@ -1,4 +1,4 @@
-import { test, expect, vi } from 'vitest';
+import { test, expect } from 'vitest';
 import { openTerminalLink } from '../../links/terminalLink';
 import { useProjectStore } from '../../stores/projectStore';
 
@@ -16,14 +16,15 @@ test('a link clicked in a terminal goes where its scheme says, and nowhere for s
     '/work/alpha/src/with space.ts',
     undefined,
   );
+  await openTerminalLink('file:///work/alpha/src/main.ts#42', PROJECT, WORKTREE);
+  expect(window.api.openFileInEditor).toHaveBeenCalledWith(PROJECT, WORKTREE, '/work/alpha/src/main.ts', 42);
 
   await openTerminalLink('ouijit://nowhere/board', PROJECT, WORKTREE);
   expect(useProjectStore.getState().toasts.map((t) => t.message)).toContain('No project named nowhere');
 
-  vi.mocked(window.api.openExternal).mockClear();
-  vi.mocked(window.api.openFileInEditor).mockClear();
   await openTerminalLink('javascript:alert(1)', PROJECT, WORKTREE);
   await openTerminalLink('not a url', PROJECT, WORKTREE);
-  expect(window.api.openExternal).not.toHaveBeenCalled();
-  expect(window.api.openFileInEditor).not.toHaveBeenCalled();
+  await openTerminalLink('file:///work/alpha/%E0%A4%A', PROJECT, WORKTREE);
+  expect(window.api.openExternal).toHaveBeenCalledTimes(1);
+  expect(window.api.openFileInEditor).toHaveBeenCalledTimes(2);
 });
