@@ -40,7 +40,7 @@ function diffSpot(
   { worktreePath, projectPath }: Pick<Terminal, 'worktreePath' | 'projectPath'>,
 ): DiffSpot {
   const match = /^(.*):(\d+)$/.exec(spec);
-  const root = worktreePath ?? projectPath;
+  const root = worktreePath || projectPath;
   const shellInCheckout = relativeWithin(root, process.cwd()) !== null;
   const relative = relativeWithin(root, path.resolve(shellInCheckout ? process.cwd() : root, match ? match[1] : spec));
   if (!relative) return printError(`${spec} is not in ${root}`);

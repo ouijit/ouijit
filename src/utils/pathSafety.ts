@@ -107,5 +107,5 @@ export function realLocation(p: string): string {
 /** `file` relative to `root`, through any symlink: `''` for `root` itself, null outside it. */
 export function relativeWithin(root: string, file: string): string | null {
   const relative = path.relative(realLocation(root), realLocation(file));
-  return relative.startsWith('..') || path.isAbsolute(relative) ? null : relative;
+  return relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative) ? null : relative;
 }

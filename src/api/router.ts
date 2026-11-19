@@ -1279,8 +1279,8 @@ function sandboxAllows(
   if (project !== null && project !== getPtySpawnContext(caller.ptyId)?.projectPath) return false;
   if (rule.owns === 'terminal') return ownsTerminal(caller, params.ptyId);
   if (rule.owns === 'project') {
-    const project = getPtySpawnContext(params.ptyId)?.projectPath;
-    return !!project && project === getPtySpawnContext(caller.ptyId)?.projectPath;
+    const theirs = getPtySpawnContext(params.ptyId)?.projectPath;
+    return !!theirs && theirs === getPtySpawnContext(caller.ptyId)?.projectPath;
   }
   if (rule.owns === 'task') return ownsTask(caller, query.get('project'), params.number ?? body.taskNumber);
   return true;
