@@ -25,9 +25,10 @@ async function open(op: CliTerminalOp): Promise<CliTerminalResponse> {
     if (!task.branch)
       return { ok: false, error: `Task ${op.taskNumber} is not started; start it with ouijit task start` };
     opened = await openTaskShell(projectPath, task, {
-      mode: op.resume ? 'resume' : 'shell',
+      mode: op.resume || op.chat ? 'resume' : 'shell',
       sandboxProvider: op.sandbox,
       background: true,
+      ...(op.chat && { fresh: 'chat' as const, chat: op.chat }),
     });
   } else {
     opened = await addProjectTerminal(projectPath, undefined, { sandboxProvider: op.sandbox, background: true });

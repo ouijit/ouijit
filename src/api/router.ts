@@ -81,7 +81,7 @@ import {
   type SessionListing,
 } from '../sessions';
 import { chatHost, ChatSessionNotFound } from '../chat/host';
-import { transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
+import { CHAT_AGENT_IDS, isChatAgentId, transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
 import { callerIsHomeChat, ownTask } from '../chat/homeChat';
 import { follow, following, quietMove, sessionSubject, taskSubject, unfollow, wakeForAsk } from '../chat/wake';
 import { addExistingProject, createAndRegisterProject } from '../services/projectRegistration';
@@ -950,6 +950,40 @@ const routes: Route[] = [
 
   // ── Chats ────────────────────────────────────────────────────────
   route('GET', 'chats', () => chatHost.list()),
+
+  // The task menu's New chat, for a task already under way. Opened the way
+  // `terminal open` opens a terminal, so a sandboxed caller reaches it alike.
+  route(
+    'POST',
+    'chats',
+    async (r) => {
+      const projectPath = requireProject(r.query);
+      if (r.body.task === undefined) throw new HttpError(400, 'Missing task');
+      const taskNumber = requireInt(String(r.body.task), 'Task number');
+      const task = await getTaskByNumber(projectPath, taskNumber);
+      if (!task) throw new HttpError(404, `Task ${taskNumber} not found`);
+      if (!task.branch || !task.worktreePath) {
+        throw new HttpError(409, `Task ${taskNumber} is not started; start it with ouijit task start`);
+      }
+      const agent = r.body.agent;
+      if (agent !== undefined && !isChatAgentId(agent)) {
+        throw new HttpError(400, `Invalid agent: ${String(agent)}. Must be one of ${CHAT_AGENT_IDS.join(', ')}`);
+      }
+      const prompt = typeof r.body.prompt === 'string' && r.body.prompt.trim() ? r.body.prompt : undefined;
+      const { ptyId } = await runTerminalOp({
+        action: 'open',
+        projectPath,
+        taskNumber,
+        sandbox: parseSandbox(r.body.sandbox, 'sandbox'),
+        chat: { ...(agent !== undefined && { agent }), ...(prompt && { prompt }) },
+      });
+      if (!ptyId) throw new HttpError(404, 'The chat did not open');
+      if (callerIsHomeChat(r.auth.ptyId)) follow(r.auth.ptyId, sessionSubject(ptyId));
+      const session = listSessions().find((s) => s.ptyId === ptyId);
+      return session ? describeTerminal(session) : { ptyId };
+    },
+    true,
+  ),
 
   route(
     'GET',

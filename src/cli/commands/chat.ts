@@ -5,8 +5,9 @@
 
 import type { Command } from 'commander';
 import { del, get, post, put, projectQuery } from '../api';
-import { printJson, readBody } from '../output';
+import { printError, printJson, readBody } from '../output';
 import { resolvePtyId } from '../ptyId';
+import { SANDBOX_FLAG, parseSandboxFlag, sandboxFlagHelp } from '../sandboxFlag';
 
 function chatUrl(id: string): string {
   return `/api/chats/${encodeURIComponent(id)}`;
@@ -21,6 +22,8 @@ export function registerChatCommands(parent: Command, requireProject: () => Prom
       `
 Examples:
   ouijit chat list
+  ouijit chat open --task 12 --prompt "add tests for the session timeout"
+  echo "a longer first message" | ouijit chat open --task 12 --prompt -
   ouijit chat read pty_abc123
   ouijit chat read pty_abc123 --after 42
   ouijit chat read pty_abc123 --after 42 --wait 25
@@ -39,6 +42,29 @@ Examples:
     .description('List running chat sessions')
     .action(async () => {
       printJson(await get('/api/chats'));
+    });
+
+  chat
+    .command('open')
+    .description("Open a new chat on a started task, in its worktree, without changing what's on screen")
+    .requiredOption('--task <number>', 'the task, which must already be started')
+    .option('--prompt <text>', 'its first message, sent once the agent is up, or - to read it from stdin')
+    .option('--agent <agent>', 'claude, codex, pi, opencode or acp; omitted, the chat setting')
+    .option(SANDBOX_FLAG, sandboxFlagHelp('where it runs; omitted, as the task menu would open it'))
+    .action(async (opts: { task: string; prompt?: string; agent?: string; sandbox?: string }) => {
+      const parsed = parseSandboxFlag(opts.sandbox);
+      if ('error' in parsed) return printError(parsed.error);
+      const task = parseInt(opts.task, 10);
+      if (isNaN(task)) return printError('Task number must be an integer');
+      const prompt = opts.prompt === undefined ? undefined : await readBody(opts.prompt);
+      printJson(
+        await post(`/api/chats${projectQuery(await requireProject())}`, {
+          task,
+          ...(prompt && { prompt }),
+          ...(opts.agent && { agent: opts.agent }),
+          ...(parsed.sandbox && { sandbox: parsed.sandbox }),
+        }),
+      );
     });
 
   chat

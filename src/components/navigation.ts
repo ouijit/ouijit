@@ -19,7 +19,7 @@ import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartSe
 import { terminalInstances } from './terminal/terminalRegistry';
 import { ensureWorktree } from '../services/worktreeRecovery';
 import type { TaskSurface } from '../chat/preferences';
-import type { TaskChatSummary } from '../chat/model';
+import type { ChatAgentId, TaskChatSummary } from '../chat/model';
 import { isSandboxProviderId } from '../sandbox/types';
 
 /** Tasks load first, so a board's first paint has its cards. */
@@ -106,6 +106,8 @@ export interface OpenTaskShellOptions {
   sandboxProvider?: SandboxProviderId;
   /** A new one of these, in place of picking the task back up the way the chat setting says. */
   fresh?: TaskSurface;
+  /** A fresh chat: its agent, where not the chat setting's, and its first message. */
+  chat?: { agent?: ChatAgentId; prompt?: string };
   replaceLoadingId?: string;
   background?: boolean;
 }
@@ -156,6 +158,8 @@ export async function openTaskShell(
       ? hookSandbox(options.sandboxProvider, continueHook, projectDefault)
       : (options.sandboxProvider ?? projectDefault);
     return addChatCard(projectPath, {
+      agent: options.chat?.agent,
+      firstPrompt: options.chat?.prompt,
       worktree,
       taskId: task.taskNumber,
       sandboxProvider: sandbox,

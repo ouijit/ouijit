@@ -1109,6 +1109,8 @@ export interface CliTerminalOp {
   taskNumber?: number;
   resume?: boolean;
   sandbox?: SandboxProviderId;
+  /** open: a new chat on the task, as its menu's New chat opens, rather than a terminal. */
+  chat?: { agent?: ChatAgentId; prompt?: string };
 }
 
 /** Renderer's reply for a {@link CliTerminalOp}. */

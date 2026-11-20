@@ -356,6 +356,9 @@ ouijit tag clear [pty-id]                     # remove all of them
 
 ## Chat Commands (a task card can run its agent as a chat instead of a terminal)
 ouijit chat list                              # → running chats [{id, agent, status, taskId, ...}]
+ouijit chat open --task <n> [--prompt "<first message>"]  # a new chat on a started task, behind what's on screen → {ptyId, ...}
+                                              # --prompt - reads it from stdin; --agent claude|codex|pi|opencode|acp
+                                              # and --sandbox host|nono|custom, omitted, as the task menu's New chat
 ouijit chat read [pty-id]                     # → {info, nodes, seq, text, pending} — defaults to this card
 ouijit chat read <pty-id> --after <seq>       # → {id, events} after a sequence number, for following along
                                               # add --wait <seconds> to wait for the next one (long poll)
@@ -369,8 +372,8 @@ ouijit chat unfollow <task-or-chat>           # Chat only: stop hearing about it
 ouijit chat following                         # Chat only: → [{task, project, name, status} | {chat, label, status}]
 
 A chat card has a pty-id like any terminal, so tag, markdown and preview commands
-reach it the same way. A chat cannot answer its own requests; sending, answering
-and interrupting need a host terminal.
+reach it the same way. A chat cannot answer its own requests; opening, sending,
+answering and interrupting need a host terminal.
 
 ## Hook Commands (project lifecycle scripts)
 Hook types: start (task moves to in_progress), continue (a task already in_progress is reopened),

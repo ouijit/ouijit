@@ -46,6 +46,8 @@ vi.mock('../../components/terminal/terminalReact', () => {
     bind = vi.fn();
     dispose = vi.fn();
     refreshGitStatus = vi.fn();
+    bindChat = vi.fn();
+    setAgentStatus = vi.fn();
     setProjectNameGetter = vi.fn();
     killRunnerChild = vi.fn();
     setRunnerChild = vi.fn();
@@ -55,7 +57,13 @@ vi.mock('../../components/terminal/terminalReact', () => {
       if (ptyId) this.ptyId = ptyId;
       return ptyId;
     });
-    constructor(opts: { projectPath: string; worktreePath?: string; sandboxProvider?: SandboxProviderId }) {
+    constructor(opts: {
+      ptyId?: string;
+      projectPath: string;
+      worktreePath?: string;
+      sandboxProvider?: SandboxProviderId;
+    }) {
+      if (opts.ptyId) this.ptyId = opts.ptyId;
       this.projectPath = opts.projectPath;
       this.worktreePath = opts.worktreePath;
       this.sandboxProvider = opts.sandboxProvider;
@@ -179,6 +187,40 @@ describe('terminals an agent opens and closes', () => {
 
     expect(await terminalOp({ action: 'close', ptyId: 'pty-task' })).toEqual({ ok: true, ptyId: 'pty-task' });
     expect(useTerminalStore.getState().terminalsByProject[PROJECT]).toEqual(['pty-front', 'pty-shell']);
+  });
+
+  test("opens a new chat on a started task the way its menu's New chat does, and sends it the first message", async () => {
+    vi.mocked(window.api.chat.start).mockImplementation(async (options) => ({
+      info: { id: options.id!, agent: options.agent, status: 'idle', background: [] } as never,
+      nodes: [],
+      seq: 0,
+    }));
+    const reply = await terminalOp({
+      action: 'open',
+      projectPath: PROJECT,
+      taskNumber: 4,
+      sandbox: 'none',
+      chat: { agent: 'codex', prompt: 'add tests for the timeout' },
+    });
+    expect(reply.ok).toBe(true);
+    const id = reply.ptyId!;
+    // A new conversation in the task's worktree, not the task's latest picked back up.
+    expect(window.api.chat.latestForTask).not.toHaveBeenCalled();
+    expect(window.api.chat.start).toHaveBeenCalledWith(
+      expect.objectContaining({ id, agent: 'codex', cwd: '/wt/T-4', taskId: 4, worktreePath: '/wt/T-4' }),
+    );
+    expect(window.api.chat.prompt).toHaveBeenCalledWith(
+      id,
+      expect.objectContaining({ text: 'add tests for the timeout' }),
+      'auto',
+    );
+    expect(useTerminalStore.getState().displayStates[id]).toMatchObject({ surface: 'chat', taskId: 4 });
+    expect(useTerminalStore.getState().order[0]).toBe('pty-front');
+
+    expect(await terminalOp({ action: 'open', projectPath: PROJECT, taskNumber: 9, chat: {} })).toEqual({
+      ok: false,
+      error: expect.stringMatching(/not started/),
+    });
   });
 
   test('a runner the user ran privately cannot be read by its own id either', async () => {
