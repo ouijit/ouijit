@@ -116,9 +116,8 @@ function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolea
 
 /** The one item the dialog shows, at full size: who wants it, why, what runs, and the script it runs. */
 function Detail({ item }: { item: Waiting }) {
-  const display = useTerminalStore((s) => s.displayStates[item.from]);
   const taskName = useTaskName(item);
-  const sandboxed = isActiveSandbox(display?.sandboxProvider);
+  const sandboxed = useTerminalStore((s) => isActiveSandbox(s.displayStates[item.from]?.sandboxProvider));
 
   if (item.kind === 'move') {
     return (
