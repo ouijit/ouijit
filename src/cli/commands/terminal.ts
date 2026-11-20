@@ -11,7 +11,7 @@ function terminalUrl(ptyId: string): string {
   return `/api/terminals/${encodeURIComponent(ptyId)}`;
 }
 
-export function registerTerminalCommands(parent: Command, requireProject: () => string) {
+export function registerTerminalCommands(parent: Command, requireProject: () => Promise<string>) {
   const terminal = parent
     .command('terminal')
     .description('See, open and close terminals, and paste into them')
@@ -56,7 +56,7 @@ Examples:
       const task = opts.task === undefined ? undefined : parseInt(opts.task, 10);
       if (task !== undefined && isNaN(task)) return printError('Task number must be an integer');
       if (opts.resume && task === undefined) return printError('--resume needs --task');
-      const opened = await post<{ ptyId: string }>(`/api/terminals${projectQuery(requireProject())}`, {
+      const opened = await post<{ ptyId: string }>(`/api/terminals${projectQuery(await requireProject())}`, {
         ...(task !== undefined && { task }),
         ...(opts.resume && { resume: true }),
         ...(parsed.sandbox && { sandbox: parsed.sandbox }),

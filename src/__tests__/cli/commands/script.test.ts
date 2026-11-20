@@ -31,7 +31,7 @@ const PROJECT = '/test/project';
 function createProgram() {
   const program = new Command();
   program.exitOverride();
-  registerScriptCommands(program, () => PROJECT);
+  registerScriptCommands(program, async () => PROJECT);
   return program;
 }
 

@@ -93,3 +93,19 @@ export function isPathInside(file: string, root: string): boolean {
 export function isSymlinkEscapeError(err: unknown): err is SymlinkEscapeError {
   return err instanceof SymlinkEscapeError;
 }
+
+/** A path's real location, through any symlink, for as much of it as exists. */
+export function realLocation(p: string): string {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    const parent = path.dirname(p);
+    return parent === p ? p : path.join(realLocation(parent), path.basename(p));
+  }
+}
+
+/** `file` relative to `root`, through any symlink: `''` for `root` itself, null outside it. */
+export function relativeWithin(root: string, file: string): string | null {
+  const relative = path.relative(realLocation(root), realLocation(file));
+  return relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative) ? null : relative;
+}

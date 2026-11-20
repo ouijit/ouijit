@@ -21,13 +21,6 @@ const HOOK_VERB: Record<string, string> = {
   done: 'Finish',
 };
 
-const MOVED_TO: Record<string, string> = {
-  start: 'In Progress',
-  continue: 'In Progress',
-  review: 'In Review',
-  done: 'Done',
-};
-
 /** Runs what the user picked: an ask in a runner on its terminal, a move's hook with no dialog of its own. */
 export function runWaiting(item: Waiting, privately = false): void {
   if (item.kind === 'ask') {
@@ -98,10 +91,17 @@ function useAsker(ptyId: string) {
   };
 }
 
+function useMovesOwnTask(item: Waiting): boolean {
+  return useTerminalStore((s) => {
+    const display = s.displayStates[item.from];
+    return item.kind === 'move' && display?.taskId === item.taskNumber && display.projectPath === item.projectPath;
+  });
+}
+
 function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolean; onPick: () => void }) {
   const asker = useAsker(item.from);
-  const from = asker.name;
   const taskName = useTaskName(item);
+  const ownTask = useMovesOwnTask(item);
   return (
     <button
       type="button"
@@ -124,7 +124,9 @@ function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolea
           <span className="text-[13px] text-text-primary truncate">
             {HOOK_VERB[item.hookType] ?? 'Move'} {taskName}
           </span>
-          <span className="text-[11.5px] text-text-tertiary truncate">{`${item.hookName || 'Hook'}, from ${from}`}</span>
+          <span className="text-[11.5px] text-text-tertiary truncate">
+            {ownTask ? item.hookName || 'Hook' : `${item.hookName || 'Hook'}, from ${asker.name}`}
+          </span>
         </>
       )}
     </button>
@@ -133,21 +135,21 @@ function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolea
 
 /** The one item the dialog shows, at full size: who wants it, why, what runs, and the script it runs. */
 function Detail({ item }: { item: Waiting }) {
-  const display = useTerminalStore((s) => s.displayStates[item.from]);
   const taskName = useTaskName(item);
-  const from = useAsker(item.from).name;
   const fromChat = useIsHomeChat(item.from);
-  const sandboxed = isActiveSandbox(display?.sandboxProvider) || fromChat;
+  const sandboxed = useTerminalStore((s) => isActiveSandbox(s.displayStates[item.from]?.sandboxProvider)) || fromChat;
+  const ownTask = useMovesOwnTask(item);
 
   if (item.kind === 'move') {
     return (
       <>
-        <h2 data-testid="dialog-title" className="text-[17px] font-semibold text-text-primary">
+        {!ownTask && <AskerRow ptyId={item.from} />}
+        <h2
+          data-testid="dialog-title"
+          className={`${ownTask ? '' : 'mt-3.5 '}text-[17px] font-semibold text-text-primary`}
+        >
           {HOOK_VERB[item.hookType] ?? 'Move'} {taskName}
         </h2>
-        <p className="mt-2 text-sm leading-5 text-text-primary">
-          {from} moved {taskName} to {MOVED_TO[item.hookType] ?? item.hookType}.
-        </p>
         <div className="mt-4">
           <CodePreview
             testId="waiting-command"
@@ -159,10 +161,9 @@ function Detail({ item }: { item: Waiting }) {
             maxHeight="max-h-32"
           />
         </div>
-        <p className="mt-4 text-xs text-text-tertiary">
-          Opens a terminal for {taskName} running this
-          {item.outsideSandbox ? ', on your computer, outside the sandbox.' : '.'}
-        </p>
+        {item.outsideSandbox && (
+          <p className="mt-4 text-xs text-text-tertiary">Runs on your computer, outside the sandbox.</p>
+        )}
       </>
     );
   }
@@ -171,7 +172,9 @@ function Detail({ item }: { item: Waiting }) {
   const risks = scriptRisks(ask.file);
   return (
     <>
-      <AskerRow ptyId={item.from} />
+      <h2 data-testid="dialog-title">
+        <AskerRow ptyId={item.from} />
+      </h2>
       {ask.message && (
         <p className="mt-3.5 max-h-28 overflow-y-auto whitespace-pre-wrap break-words text-[15px] leading-[22px] text-text-primary">
           {ask.message}
@@ -206,11 +209,11 @@ function Detail({ item }: { item: Waiting }) {
 function AskerRow({ ptyId }: { ptyId: string }) {
   const asker = useAsker(ptyId);
   return (
-    <h2 data-testid="dialog-title" className="flex items-center gap-2 min-w-0 text-text-secondary">
+    <span className="flex items-center gap-2 min-w-0 text-text-secondary">
       <span className="shrink-0 flex">{asker.icon}</span>
       <span className="flex-1 min-w-0 truncate text-sm font-semibold text-text-primary">{asker.name}</span>
       {asker.number && <span className="shrink-0 font-mono text-xs text-text-tertiary">{asker.number}</span>}
-    </h2>
+    </span>
   );
 }
 

@@ -57,14 +57,16 @@ export interface TerminalOptions {
   chatAgent?: ChatAgentId;
 }
 
-let openOuijitLink: (uri: string) => void = () => {};
+type OpenTerminalLink = (uri: string, projectPath: string, workspaceRoot: string) => void;
+let openTerminalLink: OpenTerminalLink = () => {};
 
 /**
- * How a card opens an ouijit:// link it shows, set once at startup. Opening one
- * navigates, and navigating opens cards, so this module cannot import it.
+ * How a card opens a link clicked in it, set once at startup. Opening an
+ * ouijit:// link navigates, and navigating opens cards, so this module cannot
+ * import it.
  */
-export function handleTerminalLinks(open: (uri: string) => void): void {
-  openOuijitLink = open;
+export function handleTerminalLinks(open: OpenTerminalLink): void {
+  openTerminalLink = open;
 }
 
 /** How long to leave an auto-close terminal visible on success before closing. */
@@ -494,6 +496,9 @@ export class OuijitTerminal {
     this.label = opts.label;
     this.status = opts.initialStatus ?? 'ready';
 
+    const openClickedLink = (_event: MouseEvent, uri: string) =>
+      void openTerminalLink(uri, this.projectPath, this.worktreePath || this.projectPath);
+
     this.xterm = new XTerminal({
       theme: buildXtermTheme(),
       fontFamily: cachedTerminalFontFamily,
@@ -503,16 +508,19 @@ export class OuijitTerminal {
       cursorStyle: 'bar',
       allowTransparency: false,
       scrollback: 2000,
+      linkHandler: {
+        allowNonHttpProtocols: true,
+        activate: openClickedLink,
+        // An OSC 8 link's text can say anything, so where it goes has to be visible before the click.
+        hover: (_event, uri) => this.xterm.element?.setAttribute('title', uri),
+        leave: () => this.xterm.element?.removeAttribute('title'),
+      },
     });
 
     this.fitAddon = new FitAddon();
     this.xterm.loadAddon(this.fitAddon);
-    this.xterm.loadAddon(
-      new WebLinksAddon((_event, uri) => {
-        window.api.openExternal(uri);
-      }),
-    );
-    this.xterm.loadAddon(new WebLinksAddon((_event, uri) => openOuijitLink(uri), { urlRegex: LINK_PATTERN }));
+    this.xterm.loadAddon(new WebLinksAddon(openClickedLink));
+    this.xterm.loadAddon(new WebLinksAddon(openClickedLink, { urlRegex: LINK_PATTERN }));
 
     setupTerminalAppHotkeys(this.xterm, (data) => {
       if (this.ptyId) window.api.pty.write(this.ptyId, data);

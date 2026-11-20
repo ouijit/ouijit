@@ -23,7 +23,10 @@ vi.mock('../../components/terminal/terminalActions', async (importOriginal) => (
 }));
 
 const PROJECT = '/code/alpha';
-const tasks = [{ taskNumber: 15, name: 'Write docs', status: 'in_progress', createdAt: '' }] as TaskWithWorkspace[];
+const tasks = [
+  { taskNumber: 14, name: 'Rate limit login', status: 'in_progress', createdAt: '' },
+  { taskNumber: 15, name: 'Write docs', status: 'in_progress', createdAt: '' },
+] as TaskWithWorkspace[];
 
 /** The code a preview shows, without its header or line numbers. */
 function codeIn(preview: HTMLElement): string {
@@ -203,7 +206,7 @@ describe('what an agent leaves for the user', () => {
         hookType: 'start',
         hookName: 'Agent',
         command: 'claude "$OUIJIT_TASK_DESCRIPTION"',
-        outsideSandbox: false,
+        outsideSandbox: true,
         run: startHook,
       });
     });
@@ -220,7 +223,10 @@ describe('what an agent leaves for the user', () => {
 
     // Picked out of order: the held hook reads as what it does.
     fireEvent.click(within(nav).getByText('Start Write docs'));
-    screen.getByText('Rate limit login moved Write docs to In Progress.');
+    expect(screen.getByTestId('dialog-title').textContent).toBe('Start Write docs');
+    expect(screen.getAllByText('Rate limit login').filter((el) => !nav.contains(el))).toHaveLength(1);
+    screen.getByText('T-14');
+    screen.getByText('Runs on your computer, outside the sandbox.');
     expect(command()).toBe('claude "$OUIJIT_TASK_DESCRIPTION"');
     fireEvent.click(screen.getByTestId('waiting-decline'));
     expect(startHook).not.toHaveBeenCalled();
@@ -237,6 +243,30 @@ describe('what an agent leaves for the user', () => {
     await waitFor(() => expect(list()).toBeNull());
     expect(screen.queryByRole('button', { name: /waiting$/ })).toBeNull();
     expect([reply(lint), reply(publish)].every((r) => r === undefined || r.ok)).toBe(true);
+  });
+
+  test('a hook an agent holds for its own task names the task once, and says nothing of where it runs inside the sandbox', async () => {
+    useAppStore.setState({ selection: { kind: 'none' } });
+    render(<WaitingQueue />);
+    act(() => {
+      useWaitingStore.getState().add({
+        kind: 'move',
+        from: 'pty-agent',
+        projectPath: PROJECT,
+        taskNumber: 14,
+        hookType: 'review',
+        hookName: 'Review',
+        command: 'gh pr create --fill',
+        outsideSandbox: false,
+        run: vi.fn(),
+      });
+    });
+    fireEvent.keyDown(document, { key: 'j', metaKey: true, ctrlKey: true });
+    await waitFor(() => expect(command()).toBe('gh pr create --fill'));
+    expect(screen.getByTestId('dialog-title').textContent).toBe('Review Rate limit login');
+    expect(screen.queryByText('Rate limit login')).toBeNull();
+    expect(screen.queryByText('T-14')).toBeNull();
+    expect(screen.queryByText(/Runs on your computer/)).toBeNull();
   });
 
   test('one from a terminal that closes is declined', async () => {

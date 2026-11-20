@@ -25,9 +25,9 @@ import Docs from '../../layouts/Docs.astro';
 
   <h2>Project detection</h2>
   <p>
-    The CLI detects the active project from your current directory by walking up to the nearest git root. Inside
-    a worktree it follows the <code>.git</code> file back to the main repository. Override with
-    <code>--project &lt;path&gt;</code>.
+    Inside an Ouijit terminal, commands act on that terminal's project, even after the shell has moved into
+    another repository. Elsewhere the CLI walks up from your current directory to the nearest git root, following
+    a worktree back to its main repository. Override either with <code>--project &lt;path&gt;</code>.
   </p>
 
   <h2>Tasks</h2>

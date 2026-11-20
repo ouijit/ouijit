@@ -14,6 +14,7 @@ import { registerAskCommands } from '../../cli/commands/ask';
 import { registerLinkCommands } from '../../cli/commands/link';
 import { registerProjectCommands } from '../../cli/commands/project';
 import { getDefaultProjectsDir } from '../../projectsFolder';
+import { requireProject } from '../../cli/detect';
 import { startHookServer, stopHookServer } from '../../hookServer';
 import { getApiPort } from '../../apiPort';
 import { issueToken, revokeAllTokens } from '../../apiAuth';
@@ -67,13 +68,14 @@ async function ouijit(...args: string[]): Promise<unknown> {
     return true;
   });
   const program = new Command();
-  program.exitOverride();
-  registerTerminalCommands(program, () => repoDir);
-  registerDiffCommands(program, () => repoDir);
-  registerTaskCommands(program, () => repoDir);
-  registerPrCommands(program, () => repoDir);
+  program.exitOverride().option('--project <path>');
+  const project = () => requireProject(program.opts<{ project?: string }>().project);
+  registerTerminalCommands(program, project);
+  registerDiffCommands(program, project);
+  registerTaskCommands(program, project);
+  registerPrCommands(program, project);
   registerAskCommands(program);
-  registerLinkCommands(program, () => repoDir);
+  registerLinkCommands(program, project);
   registerProjectCommands(program);
   try {
     await program.parseAsync(args, { from: 'user' });
@@ -224,7 +226,7 @@ describe('what an agent can see and do from the CLI', () => {
       },
     );
     await createTask(repoDir, 2, 'Someone else');
-    as('pty-host', 'host');
+    as('pty-shell', 'host');
     const theirs = (await ouijit(
       'pr',
       'draft',
@@ -316,6 +318,54 @@ describe('what an agent can see and do from the CLI', () => {
 
     as('pty-agent', 'sandbox');
     await expect(ouijit('project', 'create', 'escape')).rejects.toThrow(/Forbidden/);
+  });
+
+  test("commands act on the calling terminal's project, even from a shell that has moved into another repo", async () => {
+    const elsewhere = path.join(tmpDir, 'elsewhere');
+    await fs.mkdir(elsewhere);
+    execSync('git init -q', { cwd: elsewhere });
+    await createTask(elsewhere, 1, 'Elsewhere task');
+    sessions.push({ ptyId: 'pty-elsewhere', projectPath: elsewhere, command: 'zsh', label: 'Elsewhere' });
+    const home = process.cwd();
+    process.chdir(elsewhere);
+    const project = path.basename(repoDir);
+    try {
+      as('pty-agent', 'sandbox');
+      expect(await ouijit('task', 'get', '1')).toEqual(expect.objectContaining({ name: 'Fix auth' }));
+      await expect(ouijit('--project', elsewhere, 'task', 'get', '1')).rejects.toThrow(/Forbidden/);
+      expect(await ouijit('link', 'terminal')).toEqual({ url: `ouijit://${project}/terminals/pty-agent` });
+      expect(await ouijit('link', 'panel', 'panel_3')).toEqual({
+        url: `ouijit://${project}/terminals/pty-agent/panels/panel_3`,
+      });
+      expect(await ouijit('link', 'diff', 'auth.ts:2')).toEqual({ url: `ouijit://${project}/tasks/1/diff/auth.ts:2` });
+      await expect(ouijit('link', 'terminal', 'pty-elsewhere')).rejects.toThrow(/Forbidden/);
+      expect(await ouijit('link', 'pr', '12')).toEqual({ url: `ouijit://${project}/pulls/12` });
+
+      as('pty-shell', 'host');
+      expect(await ouijit('--project', elsewhere, 'task', 'get', '1')).toEqual(
+        expect.objectContaining({ name: 'Elsewhere task' }),
+      );
+      expect(await ouijit('link', 'terminal', 'pty-elsewhere')).toEqual({
+        url: 'ouijit://elsewhere/terminals/pty-elsewhere',
+      });
+      expect(await ouijit('link', 'diff', `${worktree}/auth.ts`, 'pty-agent')).toEqual({
+        url: `ouijit://${project}/terminals/pty-agent/diff/auth.ts`,
+      });
+
+      as('pty-runner', 'host');
+      expect(await ouijit('link', 'board')).toEqual({ url: `ouijit://${project}/board` });
+
+      process.chdir(worktree);
+      expect(await ouijit('link', 'diff', 'auth.ts:2', 'pty-agent')).toEqual({
+        url: `ouijit://${project}/terminals/pty-agent/diff/auth.ts:2`,
+      });
+
+      process.chdir(elsewhere);
+      vi.stubEnv('OUIJIT_API_TOKEN', '');
+      expect(await ouijit('link', 'pr', '12')).toEqual({ url: 'ouijit://elsewhere/pulls/12' });
+    } finally {
+      process.chdir(home);
+    }
   });
 
   test('trashing a task removes it and its branch, and sends its worktree to the trash rather than deleting it', async () => {

@@ -12,7 +12,7 @@ function chatUrl(id: string): string {
   return `/api/chats/${encodeURIComponent(id)}`;
 }
 
-export function registerChatCommands(parent: Command, requireProject: () => string) {
+export function registerChatCommands(parent: Command, requireProject: () => Promise<string>) {
   const chat = parent
     .command('chat')
     .description('Read and message chat sessions')
@@ -98,9 +98,9 @@ Examples:
       },
     );
 
-  const target = (taskOrChat: string): string =>
+  const target = async (taskOrChat: string): Promise<string> =>
     /^\d+$/.test(taskOrChat)
-      ? `/api/following/tasks/${taskOrChat}${projectQuery(requireProject())}`
+      ? `/api/following/tasks/${taskOrChat}${projectQuery(await requireProject())}`
       : `/api/following/chats/${encodeURIComponent(taskOrChat)}`;
 
   chat
@@ -108,7 +108,7 @@ Examples:
     .description('Chat only: hear what happens to a task, or a chat with no task, until it is done or unfollowed')
     .argument('<task-or-chat>', 'a task number, or a chat session id')
     .action(async (taskOrChat: string) => {
-      printJson(await put(target(taskOrChat), {}));
+      printJson(await put(await target(taskOrChat), {}));
     });
 
   chat
@@ -116,7 +116,7 @@ Examples:
     .description('Chat only: stop hearing about a task or chat')
     .argument('<task-or-chat>', 'a task number, or a chat session id')
     .action(async (taskOrChat: string) => {
-      printJson(await del(target(taskOrChat)));
+      printJson(await del(await target(taskOrChat)));
     });
 
   chat

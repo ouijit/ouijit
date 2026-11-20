@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { getUserDataPath } from './paths';
 import { shellJoin } from './utils/shellQuote';
+import { relativeWithin } from './utils/pathSafety';
 import type { AskRun } from './types';
 
 /** How much of a script the user is shown; the rest is summed up by its size. */
@@ -11,20 +12,6 @@ const MAX_SHOWN_FILE = 32_768;
 /** Past this a script is not copied, so it can still change after it is read, and the ask says so. */
 const MAX_COPIED_FILE = 10 * 1024 * 1024;
 const SNAPSHOT_DAYS = 7;
-
-function realLocation(p: string): string {
-  try {
-    return fs.realpathSync(p);
-  } catch {
-    const parent = path.dirname(p);
-    return parent === p ? p : path.join(realLocation(parent), path.basename(p));
-  }
-}
-
-function within(root: string, file: string): boolean {
-  const relative = path.relative(realLocation(root), realLocation(file));
-  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
-}
 
 /** The start of a file, as much as is shown, and whether it is text at all. */
 function readStart(file: string): { size: number; head: string; binary: boolean } | null {
@@ -79,10 +66,10 @@ export function fileItRuns(command: string, cwd: string): Pick<AskRun, 'file' | 
     const word = token.replace(/^['"]|['"]$/g, '');
     if (!word.trim() || word.startsWith('-')) continue;
     const file = path.resolve(cwd, word);
-    if (!roots.some((root) => within(root, file))) continue;
+    if (!roots.some((root) => relativeWithin(root, file))) continue;
     const start = readStart(file);
     if (!start) continue;
-    const shown = within(cwd, file) ? path.relative(realLocation(cwd), realLocation(file)) : file;
+    const shown = relativeWithin(cwd, file) || file;
     const seen: NonNullable<AskRun['file']> = {
       path: shown,
       contents: start.head,

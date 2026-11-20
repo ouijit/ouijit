@@ -5,7 +5,7 @@ import { App } from './App';
 import { initIcons } from './utils/icons';
 import { initChat } from './components/chat/chatActions';
 import { handleTerminalLinks } from './components/terminal/terminalReact';
-import { openLink } from './links/openLink';
+import { openTerminalLink } from './links/terminalLink';
 import { initThemeSync, initTheme } from './theme/themeManager';
 import { useAppStore } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
@@ -20,7 +20,7 @@ void initTheme();
 initIcons();
 trackWindowFocus();
 initChat();
-handleTerminalLinks((uri) => void openLink(uri));
+handleTerminalLinks((uri, projectPath, workspaceRoot) => void openTerminalLink(uri, projectPath, workspaceRoot));
 
 // Expose stores for e2e tests
 (window as any).__appStore = useAppStore;

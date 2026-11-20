@@ -516,7 +516,7 @@ Forbidden, and the error names the ouijit ask that would run it outside the sand
 - All mutating commands notify the Ouijit app UI in real-time.
 - Task statuses: todo → in_progress → in_review → done (set any directly).
 - "start" creates a git worktree branch — the task gets its own isolated directory.
-- Project is auto-detected from the current git repo. Override with --project <path>.
+- The project is this terminal's own, wherever the shell has cd'd. Override with --project <path>.
 - Errors return JSON to stderr: {"error": "message"} with non-zero exit code.
 - Always prefer ouijit over editing task files directly.
 
