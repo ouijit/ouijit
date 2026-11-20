@@ -207,13 +207,11 @@ describe('chat view', () => {
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Allow' }));
     expect(window.api.chat.answer).toHaveBeenCalledWith(ID, 'r1', { kind: 'option', optionId: 'allow' });
-    // Answered, it settles at once to one line: the command's first line, and how it was answered.
-    const settled = await screen.findByRole('button', { name: /^python3 - <<'EOF'Allowed$/ });
-    expect(screen.queryByText(/shutil/)).toBeNull();
-    fireEvent.click(settled);
-    expect(screen.getByText(/shutil\.rmtree/).closest('pre, div')).toBeTruthy();
+    // Allowed, it leaves the transcript at once: the step it gated is the record.
+    await waitFor(() => expect(screen.queryByText(/shutil/)).toBeNull());
+    expect(screen.queryByRole('button', { name: /Allowed$/ })).toBeNull();
 
-    // A command the agent described settles to its description, not the command.
+    // A refusal stays as one line, naming the command by what the agent said it does.
     act(() => {
       host.emit({
         type: 'node',
@@ -241,14 +239,16 @@ describe('chat view', () => {
           request: 'approval',
           title: 'ouijit task list | jq \'[.[] | select(.status != "done")]\'',
           toolCallId: 'c2',
-          options: [{ id: 'allow', label: 'Allow', kind: 'allow_once' }],
+          options: [{ id: 'deny', label: 'Deny', kind: 'reject_once' }],
           questions: [],
           status: 'answered',
-          answer: { kind: 'option', optionId: 'allow' },
+          answer: { kind: 'option', optionId: 'deny' },
         },
       });
     });
-    expect(await screen.findByRole('button', { name: /^List the open tasksAllowed$/ })).toBeTruthy();
+    const declined = await screen.findByRole('button', { name: /^List the open tasksDeclined$/ });
+    fireEvent.click(declined);
+    expect(screen.getByText(/select\(\.status != "done"\)/)).toBeTruthy();
 
     // A slash opens the agent's commands; Tab takes the highlighted one.
     const composer = screen.getByLabelText('Message');

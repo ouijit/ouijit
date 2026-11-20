@@ -14,7 +14,7 @@ import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
 import { ChatNodeList, ChatNodeView, Span, foldSummary, isEmptyThought, useNow, type NodeContext } from './ChatNodes';
-import { ChatRequestView, SettledLine, approvedByChat, firstLine, settledLabel } from './ChatRequest';
+import { ChatRequestView, SettledLine, allowed, approvedByChat, firstLine, settledLabel } from './ChatRequest';
 import type {
   AssistantMessageNode,
   ChatNode,
@@ -65,6 +65,8 @@ function turnsOf(nodes: ChatNode[]): Turn[] {
       current = { opener: null, body: [], kept: [] };
       turns.push(current);
     }
+    // An allowed request leaves nothing to show: the step it gated is in the turn's work.
+    if (node.kind === 'request' && allowed(node)) continue;
     if (KEPT.includes(node.kind)) current.kept.push(node);
     else if (!isEmptyThought(node)) current.body.push(node);
   }

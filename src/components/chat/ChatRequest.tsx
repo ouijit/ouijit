@@ -15,8 +15,12 @@ function chosenKind(node: RequestNode): RequestOption['kind'] | undefined {
   return answer?.kind === 'option' ? node.options.find((option) => option.id === answer.optionId)?.kind : undefined;
 }
 
+export function allowed(node: RequestNode): boolean {
+  return node.status === 'answered' && !!chosenKind(node)?.startsWith('allow');
+}
+
 export function approvedByChat(node: RequestNode): boolean {
-  return node.status === 'answered' && !!node.byChat && !!chosenKind(node)?.startsWith('allow');
+  return allowed(node) && !!node.byChat;
 }
 
 /** How a request was settled, and by Chat where it was; null while it waits. */
@@ -232,7 +236,7 @@ export function ChatRequestView({
   if (node.status !== 'pending') {
     return (
       <SettledLine
-        summary={step ?? firstLine(relativeToCard(command ?? node.title, cardId))}
+        summary={firstLine(relativeToCard(step ?? command ?? node.title, cardId))}
         label={settledLabel(node)}
         command={command}
         detail={[node.title, node.detail].filter(Boolean).join('\n\n')}
