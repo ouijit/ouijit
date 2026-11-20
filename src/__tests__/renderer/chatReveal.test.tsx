@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
-import { act, cleanup, render, renderHook, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import { closeOpenMarkup, useReveal } from '../../components/chat/useReveal';
 import { ChatTurns, RevealHeld, useRevealGate } from '../../components/chat/ChatTurns';
 import type { ChatNode } from '../../chat/model';
@@ -256,5 +256,57 @@ describe("the working line's phrase", () => {
       />,
     );
     expect(line()).toBe('Thinking');
+  });
+});
+
+describe('a step in an opened fold', () => {
+  test('reads as its title with its time right after, and shows trouble in place of its tool icon', () => {
+    const at = Date.now();
+    const context = { cardId: 'card-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    const step = (id: string, title: string, status: string, ms: number) =>
+      ({
+        kind: 'tool_call',
+        id,
+        parentId: null,
+        createdAt: at,
+        endedAt: at + ms,
+        tool: 'command',
+        title,
+        command: 'git push',
+        status,
+        files: [],
+        output: '',
+      }) as ChatNode;
+    const nodes = [
+      {
+        kind: 'user_message',
+        id: 'u',
+        parentId: null,
+        createdAt: at,
+        text: 'Ship it',
+        attachments: [],
+        delivery: 'prompt',
+      },
+      step('t1', 'Push prntc main and check the deploy run', 'completed', 13_000),
+      step('t2', 'Run the smoke test', 'failed', 4_000),
+      {
+        kind: 'assistant_message',
+        id: 'a',
+        parentId: null,
+        createdAt: at,
+        text: 'Pushed; the smoke test failed.',
+        status: 'completed',
+      },
+    ] as ChatNode[];
+    render(<ChatTurns nodes={nodes} context={context} busy={false} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Ran 2 commands/ }));
+
+    const pushed = screen.getByRole('button', { name: /^Push prntc main/ });
+    expect(pushed.textContent).toBe('Push prntc main and check the deploy run · 13s');
+    expect(within(pushed).queryByRole('img')).toBeNull();
+
+    const smoke = screen.getByRole('button', { name: /Run the smoke test/ });
+    expect(smoke.textContent).toBe('Run the smoke test · 4s');
+    expect(within(smoke).getByRole('img', { name: 'Failed' })).toBeTruthy();
   });
 });

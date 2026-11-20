@@ -27,6 +27,38 @@ const TOOL_ICONS: Record<ToolKind, string> = {
   other: 'code',
 };
 
+/**
+ * A step's state, in the slot its tool's icon holds: the icon while all is
+ * well, and in its place a spinner, a failure or a refusal. A finished fold is
+ * already done, so a done step needs no mark of its own.
+ */
+function StepMark({ node }: { node: ToolCallNode }) {
+  const mark = (label: string, children: ReactNode) => (
+    <span role="img" aria-label={label} className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
+      {children}
+    </span>
+  );
+  switch (node.status) {
+    case 'pending':
+    case 'running':
+      return mark(
+        'Running',
+        <span
+          className="w-2.5 h-2.5 rounded-full border-[1.5px] border-ink/25 border-t-ink/70"
+          style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
+        />,
+      );
+    case 'failed':
+      return mark('Failed', <Icon name="x" className="w-3.5 h-3.5 text-error" />);
+    case 'declined':
+      return mark('Declined', <Icon name="prohibit" className="w-3.5 h-3.5 text-text-tertiary" />);
+    case 'interrupted':
+      return mark('Stopped', <Icon name="prohibit" className="w-3.5 h-3.5 text-text-tertiary" />);
+    case 'completed':
+      return <Icon name={TOOL_ICONS[node.tool]} className="w-3.5 h-3.5 shrink-0 text-text-tertiary" />;
+  }
+}
+
 function StatusMark({ status }: { status: NodeStatus }) {
   switch (status) {
     case 'pending':
@@ -106,8 +138,13 @@ function ToolCallView({
         disabled={!hasDetail}
         aria-expanded={open}
       >
-        <Icon name={TOOL_ICONS[node.tool]} className="w-3.5 h-3.5 shrink-0 text-text-tertiary" />
-        <span className="flex-1 overflow-hidden whitespace-nowrap">{relativeToCard(node.title, cardId)}</span>
+        <StepMark node={node} />
+        <span className="min-w-0 overflow-hidden whitespace-nowrap">{relativeToCard(node.title, cardId)}</span>
+        {inBackground ? (
+          <span className="shrink-0 text-[12px] text-text-tertiary">In background</span>
+        ) : (
+          <StepSpan node={node} />
+        )}
         {node.files.map((file) => {
           const counts = fileCounts(file);
           return counts ? (
@@ -117,14 +154,6 @@ function ToolCallView({
             </span>
           ) : null;
         })}
-        {inBackground ? (
-          <span className="shrink-0 text-[12px] text-text-tertiary">In background</span>
-        ) : (
-          <>
-            <StepSpan node={node} />
-            <StatusMark status={node.status} />
-          </>
-        )}
       </button>
       {!open && node.status === 'running' && node.output && (
         <pre className="ml-5 mb-1 font-mono text-[12px] leading-[1.45] text-text-tertiary whitespace-pre overflow-hidden rounded-[8px] bg-ink/[0.04] px-3 py-2">
