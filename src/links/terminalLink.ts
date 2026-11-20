@@ -36,7 +36,6 @@ async function openFile(url: URL, projectPath: string, workspaceRoot: string): P
     linkLog.warn('malformed terminal link', { uri: url.href });
     return;
   }
-  // A shell over ssh names the remote machine as the host, and that path may exist here too.
   if (!(await isThisMachine(url.hostname))) {
     useProjectStore.getState().addToast(`${basename(filePath)} is on ${url.hostname}`, 'error');
     return;
