@@ -82,9 +82,17 @@ function useAsker(ptyId: string) {
   };
 }
 
+function useMovesOwnTask(item: Waiting): boolean {
+  return useTerminalStore((s) => {
+    const display = s.displayStates[item.from];
+    return item.kind === 'move' && display?.taskId === item.taskNumber && display.projectPath === item.projectPath;
+  });
+}
+
 function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolean; onPick: () => void }) {
   const asker = useAsker(item.from);
   const taskName = useTaskName(item);
+  const ownTask = useMovesOwnTask(item);
   return (
     <button
       type="button"
@@ -107,7 +115,9 @@ function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolea
           <span className="text-[13px] text-text-primary truncate">
             {HOOK_VERB[item.hookType] ?? 'Move'} {taskName}
           </span>
-          <span className="text-[11.5px] text-text-tertiary truncate">{`${item.hookName || 'Hook'}, from ${asker.name}`}</span>
+          <span className="text-[11.5px] text-text-tertiary truncate">
+            {ownTask ? item.hookName || 'Hook' : `${item.hookName || 'Hook'}, from ${asker.name}`}
+          </span>
         </>
       )}
     </button>
@@ -118,12 +128,16 @@ function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolea
 function Detail({ item }: { item: Waiting }) {
   const taskName = useTaskName(item);
   const sandboxed = useTerminalStore((s) => isActiveSandbox(s.displayStates[item.from]?.sandboxProvider));
+  const ownTask = useMovesOwnTask(item);
 
   if (item.kind === 'move') {
     return (
       <>
-        <AskerRow ptyId={item.from} />
-        <h2 data-testid="dialog-title" className="mt-3.5 text-[17px] font-semibold text-text-primary">
+        {!ownTask && <AskerRow ptyId={item.from} />}
+        <h2
+          data-testid="dialog-title"
+          className={`${ownTask ? '' : 'mt-3.5 '}text-[17px] font-semibold text-text-primary`}
+        >
           {HOOK_VERB[item.hookType] ?? 'Move'} {taskName}
         </h2>
         <div className="mt-4">
