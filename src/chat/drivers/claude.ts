@@ -522,6 +522,11 @@ class ClaudeSession implements DriverSession {
   private readonly agentsSeen = new Map<string, Omit<ChatBackgroundTask, 'id' | 'kind'>>();
   /** The list as Claude last reported it. */
   private backgroundTasks: Json[] = [];
+  /**
+   * Shells that were ever in that list. Claude starts and ends a task for
+   * every shell, in the foreground too; only these were background work.
+   */
+  private readonly listed = new Set<string>();
   private reportedModel: string | undefined;
   private lastContext: { tokens: number; model: string | undefined } | null = null;
   /** The user stopped this turn, so it ending early is not an error. */
@@ -818,7 +823,7 @@ class ClaudeSession implements DriverSession {
         const shell = this.shells.get(String(message.task_id));
         if (shell) {
           this.shells.delete(String(message.task_id));
-          if (message.ambient || message.skip_transcript) return;
+          if (!this.listed.delete(String(message.task_id)) || message.ambient || message.skip_transcript) return;
           const status =
             message.status === 'completed' ? 'completed' : message.status === 'failed' ? 'failed' : 'stopped';
           const verb = { completed: 'finished', failed: 'failed', stopped: 'stopped' }[status];
@@ -857,6 +862,7 @@ class ClaudeSession implements DriverSession {
           const description = String(task.description ?? '');
           const shell = task.task_type === 'local_bash';
           const seen = shell ? this.shells : this.agentsSeen;
+          if (shell) this.listed.add(id);
           const known = seen.get(id) ?? { description, startedAt: Date.now() };
           seen.set(id, { ...known, description });
           return { id, kind: shell ? ('shell' as const) : ('agent' as const), ...known, description };

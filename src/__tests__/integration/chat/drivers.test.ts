@@ -713,7 +713,7 @@ describe('claude background work', () => {
       await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
 
       await host.prompt(id, {
-        text: 'Use your Bash tool with run_in_background set to true to run: sleep 600. Do not wait for it. Then reply with only: started',
+        text: 'First use your Bash tool, in the foreground, to run: sleep 8 && echo ready. Then use your Bash tool with run_in_background set to true to run: sleep 600. Do not wait for it. Then reply with only: started',
       });
       const running = await until(
         host,
@@ -733,7 +733,8 @@ describe('claude background work', () => {
         (s) => !(s.info.background ?? []).some((task) => task.id === shell.id),
         timeout,
       );
-      // Its end stays in the transcript, saying how it ended.
+      // Its end stays in the transcript, saying how it ended; a shell that ran in the turn leaves none.
+      expect(stopped.nodes.filter((n) => n.kind === 'notice' && n.ended)).toHaveLength(1);
       expect(stopped.nodes.at(-1)).toMatchObject({
         kind: 'notice',
         text: `${shell.description} stopped`,
