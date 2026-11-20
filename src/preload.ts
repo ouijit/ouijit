@@ -317,6 +317,7 @@ contextBridge.exposeInMainWorld('api', {
 
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   homePath: (): Promise<string> => typedInvoke('get-home-path'),
+  hostname: (): Promise<string> => typedInvoke('get-hostname'),
 
   sandbox: {
     status: (projectPath: string) => typedInvoke('sandbox:status', projectPath),
