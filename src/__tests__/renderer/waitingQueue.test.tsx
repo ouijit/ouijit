@@ -203,7 +203,7 @@ describe('what an agent leaves for the user', () => {
         hookType: 'start',
         hookName: 'Agent',
         command: 'claude "$OUIJIT_TASK_DESCRIPTION"',
-        outsideSandbox: false,
+        outsideSandbox: true,
         run: startHook,
       });
     });
@@ -220,7 +220,9 @@ describe('what an agent leaves for the user', () => {
 
     // Picked out of order: the held hook reads as what it does.
     fireEvent.click(within(nav).getByText('Start Write docs'));
-    screen.getByText('Rate limit login moved Write docs to In Progress.');
+    expect(screen.getByTestId('dialog-title').textContent).toBe('Start Write docs');
+    expect(screen.getAllByText('Rate limit login').filter((el) => !nav.contains(el))).toHaveLength(1);
+    screen.getByText('Runs on your computer, outside the sandbox.');
     expect(command()).toBe('claude "$OUIJIT_TASK_DESCRIPTION"');
     fireEvent.click(screen.getByTestId('waiting-decline'));
     expect(startHook).not.toHaveBeenCalled();
