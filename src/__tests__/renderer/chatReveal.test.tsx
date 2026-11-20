@@ -310,3 +310,75 @@ describe('a step in an opened fold', () => {
     expect(within(smoke).getByRole('img', { name: 'Failed' })).toBeTruthy();
   });
 });
+
+describe('subagents in an opened fold', () => {
+  test('read like steps: trouble in place of their icon, time and step count right after the task, no done mark', () => {
+    const at = Date.now();
+    const launch = (n: number, status: string, endedAt?: number): ChatNode[] => [
+      {
+        kind: 'tool_call',
+        id: `agent${n}`,
+        parentId: null,
+        createdAt: at,
+        endedAt,
+        tool: 'subagent',
+        title: `Agent ${n}`,
+        status,
+        files: [],
+        output: '',
+      } as ChatNode,
+      { kind: 'subagent', id: `task${n}`, parentId: `agent${n}`, createdAt: at, title: `Survey module ${n}`, status },
+    ];
+    const step = (n: number, endedAt: number): ChatNode =>
+      ({
+        kind: 'tool_call',
+        id: `agent${n}-step`,
+        parentId: `agent${n}`,
+        createdAt: at,
+        endedAt,
+        tool: 'read',
+        title: `Read module${n}/index.ts`,
+        status: 'completed',
+        files: [],
+        output: '',
+      }) as ChatNode;
+    // Agent 1 was launched in the background: its call ended at once, its last step 20s in.
+    const all = [
+      {
+        kind: 'user_message',
+        id: 'u',
+        parentId: null,
+        createdAt: at,
+        text: 'Survey',
+        attachments: [],
+        delivery: 'prompt',
+      },
+      ...launch(1, 'completed', at + 1_000),
+      step(1, at + 20_000),
+      ...launch(2, 'failed', at + 5_000),
+      ...launch(3, 'interrupted', at + 8_000),
+      { kind: 'assistant_message', id: 'a', parentId: null, createdAt: at, text: 'Surveyed.', status: 'completed' },
+    ] as ChatNode[];
+    const children = new Map<string | null, ChatNode[]>();
+    for (const node of all) children.set(node.parentId, [...(children.get(node.parentId) ?? []), node]);
+    const context = { cardId: 'card-1', children, canRewind: false, onRewind: () => {} };
+    render(<ChatTurns nodes={children.get(null)!} context={context} busy={false} />);
+    fireEvent.click(screen.getByRole('button', { name: /^3 subagents/ }));
+
+    const group = screen.getByRole('button', { name: /^Failed\s?3 subagents/ });
+    expect(within(group).getByRole('img', { name: 'Failed' })).toBeTruthy();
+    fireEvent.click(group);
+
+    const done = screen.getByRole('button', { name: /^Survey module 1/ });
+    expect(done.textContent).toBe('Survey module 1 · 20s1 step');
+    expect(within(done).queryByRole('img')).toBeNull();
+    expect(done.lastElementChild?.textContent).toBe('1 step');
+
+    const failed = screen.getByRole('button', { name: /Survey module 2/ });
+    expect(failed.textContent).toBe('Survey module 2 · 5s');
+    expect(within(failed).getByRole('img', { name: 'Failed' })).toBeTruthy();
+    expect(
+      within(screen.getByRole('button', { name: /Survey module 3/ })).getByRole('img', { name: 'Stopped' }),
+    ).toBeTruthy();
+  });
+});
