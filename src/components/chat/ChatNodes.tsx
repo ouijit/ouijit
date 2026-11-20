@@ -95,17 +95,7 @@ function openDiff(cardId: string): void {
 }
 
 /** Agents name files by absolute path; inside the card's own worktree the rest of the path says nothing. */
-function ToolCallView({
-  node,
-  cardId,
-  inBackground = false,
-  children,
-}: {
-  node: ToolCallNode;
-  cardId: string;
-  inBackground?: boolean;
-  children?: ReactNode;
-}) {
+function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const hasDetail = Boolean(node.command || node.output || node.files.some((f) => f.diff) || children);
   return (
@@ -119,11 +109,7 @@ function ToolCallView({
       >
         <StateMark status={node.status} icon={TOOL_ICONS[node.tool]} />
         <span className="min-w-0 overflow-hidden whitespace-nowrap">{relativeToCard(node.title, cardId)}</span>
-        {inBackground ? (
-          <span className="shrink-0 text-[12px] text-text-tertiary">In background</span>
-        ) : (
-          <StepSpan node={node} />
-        )}
+        <StepSpan node={node} />
         {node.files.map((file) => {
           const counts = fileCounts(file);
           return counts ? (
@@ -561,8 +547,6 @@ export interface NodeContext {
   children: Map<string | null, ChatNode[]>;
   canRewind: boolean;
   onRewind: (nodeId: string) => void;
-  /** Tool calls whose work carries on in the background after they returned. */
-  inBackground?: ReadonlySet<string>;
   /** Background tasks the bar is showing, whose endings wait until it lets them go. */
   inBar?: ReadonlySet<string>;
 }
@@ -609,7 +593,7 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
         );
       }
       return (
-        <ToolCallView node={node} cardId={context.cardId} inBackground={context.inBackground?.has(node.id)}>
+        <ToolCallView node={node} cardId={context.cardId}>
           {childViews}
         </ToolCallView>
       );

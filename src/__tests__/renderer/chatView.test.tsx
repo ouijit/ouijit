@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 
 import { ChatView } from '../../components/chat/ChatView';
 import { useChatStore, listenForChatEvents } from '../../stores/chatStore';
@@ -537,7 +537,7 @@ describe('compacting from chat', () => {
 });
 
 describe('a background shell', () => {
-  test('tags the call that started it, and on ending says how in the bar a moment, then in the transcript for good, never both at once', () => {
+  test('lives in the bar while it runs, with the step that started it reading as any step; on ending says how there a moment, then in the transcript for good, never both at once', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] });
     const at = Date.now();
     const call: ChatNode = {
@@ -545,6 +545,7 @@ describe('a background shell', () => {
       kind: 'tool_call',
       parentId: null,
       createdAt: at,
+      endedAt: at + 2_000,
       tool: 'command',
       title: 'Build the app',
       command: 'npm run make',
@@ -561,9 +562,12 @@ describe('a background shell', () => {
       );
     live({ background: [task] });
     render(<ChatView cardId={ID} />);
-    // It sits in the turn's folded work, with the rest of what the agent did.
+    // The step that started it is what the agent did, the same before and after the task ends.
     fireEvent.click(screen.getAllByRole('button', { name: /^Ran / }).at(-1)!);
-    expect(screen.getByRole('button', { name: /^Build the app\s?In background$/ })).toBeTruthy();
+    const step = () =>
+      within(document.querySelector<HTMLElement>('.chat-turns')!).getByRole('button', { name: /^Build the app/ })
+        .textContent;
+    expect(step()).toBe('Build the app · 2s');
 
     const ended: ChatNode = {
       id: 'ended-b1',
@@ -594,6 +598,7 @@ describe('a background shell', () => {
     act(() => vi.advanceTimersByTime(200));
     expect(inBar()).toBeNull();
     expect(inTranscript('Build the app')).toBe(true);
+    expect(step()).toBe('Build the app · 2s');
 
     // One the user stopped goes as soon as it ends: they already know how.
     const server = { id: 's1', kind: 'shell' as const, description: 'Dev server', startedAt: at };

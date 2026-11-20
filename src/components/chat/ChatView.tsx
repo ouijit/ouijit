@@ -179,7 +179,6 @@ export function ChatView({
       cardId,
       children,
       canRewind: Boolean(info?.capabilities.rewind && info.status === 'idle'),
-      inBackground: new Set((info?.background ?? []).flatMap((task) => (task.toolCallId ? [task.toolCallId] : []))),
       inBar: bar.shown,
       onRewind: (nodeId) => {
         void window.api.chat
@@ -187,7 +186,7 @@ export function ChatView({
           .catch((error: unknown) => useProjectStore.getState().addToast(String(error), 'error'));
       },
     }),
-    [cardId, children, info?.capabilities.rewind, info?.status, info?.background, bar.shown],
+    [cardId, children, info?.capabilities.rewind, info?.status, bar.shown],
   );
 
   if (!session || !info) {
