@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import {
+  filterEscalatingDefaultMode,
   getSessionMessages,
   query,
+  resolveSettings,
   type CanUseTool,
   type EffortLevel,
   type Options,
@@ -11,6 +13,7 @@ import {
   type Query,
   type SDKMessage,
   type SDKUserMessage,
+  type SettingSource,
 } from '@anthropic-ai/claude-agent-sdk';
 import { binaryVersion, compareVersions, resolveAgentBinary } from '../binaries';
 import { deferredProcess } from '../process';
@@ -68,6 +71,8 @@ const AUTO_MODE: ChatOption = {
   description: 'A classifier approves safe actions and asks about the rest',
   latitude: 3,
 };
+
+const SETTING_SOURCES: SettingSource[] = ['user', 'project', 'local'];
 
 const EFFORTS: ChatOption[] = [
   { id: 'low', label: 'Low' },
@@ -547,8 +552,26 @@ class ClaudeSession implements DriverSession {
 
   async open(): Promise<void> {
     if (this.context.resume) await this.importHistory(this.context.resume.agentSessionId);
+    if (!this.mode) {
+      this.mode = await this.startingMode();
+      if (this.mode) this.sink.session({ mode: this.mode });
+    }
     this.begin(this.context.resume?.fork ? { forkSession: true } : {});
     this.sink.session({ modes: MODES, efforts: EFFORTS });
+  }
+
+  /**
+   * Given no mode, an SDK session starts in default even where the terminal
+   * starts in auto, so auto is asked for unless the settings name a mode.
+   */
+  private async startingMode(): Promise<PermissionMode | null> {
+    try {
+      const resolved = await resolveSettings({ cwd: this.context.cwd, settingSources: SETTING_SOURCES });
+      return filterEscalatingDefaultMode(resolved).permissions?.defaultMode ? null : 'auto';
+    } catch (error) {
+      this.sink.log('claude settings resolve failed', { error: String(error) });
+      return null;
+    }
   }
 
   private async importHistory(sessionId: string): Promise<void> {
@@ -596,7 +619,7 @@ class ClaudeSession implements DriverSession {
       cwd: this.context.cwd,
       pathToClaudeCodeExecutable: this.binary,
       spawnClaudeCodeProcess: (spawn) => deferredProcess(this.context.spawn({ ...spawn, env: addedEnv(spawn.env) })),
-      settingSources: ['user', 'project', 'local'],
+      settingSources: SETTING_SOURCES,
       systemPrompt: { type: 'preset', preset: 'claude_code', ...(instructions && { append: instructions }) },
       includePartialMessages: true,
       // Without it a thinking block arrives with no text, so there is nothing to show.

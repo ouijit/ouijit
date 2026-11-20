@@ -849,8 +849,12 @@ export class ChatHost {
   /** A task Chat owns starts in Chat's mode. Modes are the agent's own, so only a worker on Chat's agent takes it. */
   private ownersMode(options: ChatStartOptions): string | undefined {
     if (options.taskId == null) return undefined;
-    const owner = getChatRepo().taskOwner(options.projectPath, options.taskId);
-    const chat = owner ? this.sessions.get(owner)?.info : undefined;
+    const repo = getChatRepo();
+    const owner = repo.taskOwner(options.projectPath, options.taskId);
+    if (!owner) return undefined;
+    const live = this.sessions.get(owner)?.info;
+    const row = live ? undefined : repo.get(owner);
+    const chat = live ?? (row ? (JSON.parse(row.info) as ChatSessionInfo) : undefined);
     return chat?.agent === options.agent ? chat.mode : undefined;
   }
 

@@ -841,22 +841,28 @@ describe('task chats Chat owns', () => {
   const available = recording || fs.existsSync(cassettePath(name));
 
   test.skipIf(!available)(
-    "start in Chat's mode; a task it does not own starts in the agent's own",
+    "start in Chat's mode whether or not Chat is running; a task it does not own starts in auto",
     async () => {
       const cwd = repo();
       const probe = recording ? await getDriver('claude').probe() : null;
+      // The starting mode follows the Claude settings it finds, so a replay reads none.
+      const configDir = process.env.CLAUDE_CONFIG_DIR;
+      if (!recording) process.env.CLAUDE_CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-claude-config-'));
       const host = new ChatHost({
         spawnProcess: recording ? recordingSpawn(name, 'claude', probe?.version) : replayingSpawn(loadCassettes(name)),
       });
       await host.start({ id: 'pty-chat', agent: 'claude', projectPath: cwd, cwd, taskId: null, mode: 'acceptEdits' });
       host.flush('pty-chat');
       getChatRepo().setTaskOwner(cwd, 7, 'pty-chat');
+      await host.stop('pty-chat');
 
       const owned = await host.start({ id: 'pty-owned', agent: 'claude', projectPath: cwd, cwd, taskId: 7 });
       expect(owned.info.mode).toBe('acceptEdits');
       const other = await host.start({ id: 'pty-other', agent: 'claude', projectPath: cwd, cwd, taskId: 8 });
-      expect(other.info.mode).not.toBe('acceptEdits');
-      for (const id of ['pty-other', 'pty-owned', 'pty-chat']) await host.stop(id);
+      expect(other.info.mode).toBe('auto');
+      for (const id of ['pty-other', 'pty-owned']) await host.stop(id);
+      if (configDir === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+      else process.env.CLAUDE_CONFIG_DIR = configDir;
     },
     timeout,
   );
