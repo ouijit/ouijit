@@ -586,7 +586,16 @@ describe('a background shell', () => {
     // The ending can arrive while the task is still listed; the bar has it, so the transcript waits.
     live({ background: [task] }, [ended]);
     expect(inTranscript('Build the app')).toBe(false);
-    live({ background: [] }, [ended]);
+    // Woken by the ending, the agent replies in the same turn.
+    const reply: ChatNode = {
+      id: 'reply-b1',
+      kind: 'assistant_message',
+      parentId: null,
+      createdAt: at + 181_000,
+      text: 'The build failed.',
+      status: 'completed',
+    };
+    live({ background: [] }, [ended, reply]);
     expect(inBar()!.textContent).toMatch(/^Build the app\s?· 3m$/);
     expect(screen.queryByRole('button', { name: 'Stop Build the app' })).toBeNull();
     expect(inTranscript('Build the app')).toBe(false);
@@ -598,11 +607,20 @@ describe('a background shell', () => {
     act(() => vi.advanceTimersByTime(200));
     expect(inBar()).toBeNull();
     expect(inTranscript('Build the app')).toBe(true);
+    // It sits where it ended: before the reply it woke the agent for.
+    const line = [...document.querySelectorAll('.chat-turns div')].find((el) =>
+      /^Build the app\s?· 3m$/.test(el.textContent ?? ''),
+    )!;
+    expect(
+      line.compareDocumentPosition(screen.getByText('The build failed.')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    // The reply ends the turn, so the work before it folds again.
+    fireEvent.click(screen.getAllByRole('button', { name: /^Ran / }).at(-1)!);
     expect(step()).toBe('Build the app · 2s');
 
     // One the user stopped goes as soon as it ends: they already know how.
     const server = { id: 's1', kind: 'shell' as const, description: 'Dev server', startedAt: at };
-    live({ background: [server] }, [ended]);
+    live({ background: [server] }, [ended, reply]);
     fireEvent.click(screen.getByRole('button', { name: 'Stop Dev server' }));
     const stopped: ChatNode = {
       id: 'ended-s1',
@@ -613,7 +631,7 @@ describe('a background shell', () => {
       text: 'Dev server',
       ended: { taskId: 's1', status: 'stopped', ms: 60_000 },
     };
-    live({ background: [] }, [ended, stopped]);
+    live({ background: [] }, [ended, reply, stopped]);
     expect(inTranscript('Dev server')).toBe(false);
     act(() => vi.advanceTimersByTime(250));
     expect(inBar()).toBeNull();

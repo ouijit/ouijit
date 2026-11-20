@@ -18,13 +18,17 @@ import { ChatRequestView, SettledLine, allowed, approvedByChat, firstLine, settl
 import type {
   AssistantMessageNode,
   ChatNode,
+  NoticeNode,
   ToolCallNode,
   UserMessageNode,
   WakeNote,
   WakeRequest,
 } from '../../chat/model';
 
-type Piece = { kind: 'work'; nodes: ChatNode[] } | { kind: 'said'; node: AssistantMessageNode };
+type Piece =
+  | { kind: 'work'; nodes: ChatNode[] }
+  | { kind: 'said'; node: AssistantMessageNode }
+  | { kind: 'endings'; nodes: NoticeNode[] };
 
 interface Turn {
   opener: UserMessageNode | null;
@@ -35,16 +39,8 @@ interface Turn {
 
 const KEPT: ChatNode['kind'][] = ['request', 'notice', 'plan'];
 
-/** Background work ending one after another reads as one group; anything else stands alone. */
-function endingsTogether(nodes: ChatNode[]): ChatNode[][] {
-  const runs: ChatNode[][] = [];
-  for (const node of nodes) {
-    const last = runs.at(-1);
-    const ending = node.kind === 'notice' && node.ended;
-    if (ending && last?.every((other) => other.kind === 'notice' && other.ended)) last.push(node);
-    else runs.push([node]);
-  }
-  return runs;
+function isEnding(node: ChatNode): node is NoticeNode {
+  return node.kind === 'notice' && Boolean(node.ended);
 }
 
 function turnsOf(nodes: ChatNode[]): Turn[] {
@@ -67,7 +63,7 @@ function turnsOf(nodes: ChatNode[]): Turn[] {
     }
     // An allowed request leaves nothing to show: the step it gated is in the turn's work.
     if (node.kind === 'request' && allowed(node)) continue;
-    if (KEPT.includes(node.kind)) current.kept.push(node);
+    if (KEPT.includes(node.kind) && !isEnding(node)) current.kept.push(node);
     else if (!isEmptyThought(node)) current.body.push(node);
   }
   return turns;
@@ -101,7 +97,11 @@ function piecesOf(body: ChatNode[], finished: boolean): Piece[] {
       return;
     }
     const last = pieces.at(-1);
-    if (last?.kind === 'work') last.nodes.push(node);
+    // Unlike the turn's other notices, background work ending shows where it happened, not after the turn.
+    if (isEnding(node)) {
+      if (last?.kind === 'endings') last.nodes.push(node);
+      else pieces.push({ kind: 'endings', nodes: [node] });
+    } else if (last?.kind === 'work') last.nodes.push(node);
     else pieces.push({ kind: 'work', nodes: [node] });
   });
   return pieces;
@@ -500,6 +500,19 @@ export function ChatTurns({
         items.push(<WorkFold key={piece.nodes[0].id} work={piece.nodes} context={context} />);
         continue;
       }
+      if (piece.kind === 'endings') {
+        const shown = piece.nodes.filter((node) => !context.inBar?.has(node.ended!.taskId));
+        if (shown.length > 0) {
+          items.push(
+            <div key={shown[0].id} className="flex flex-col gap-1">
+              {shown.map((node) => (
+                <ChatNodeView key={node.id} node={node} context={context} />
+              ))}
+            </div>,
+          );
+        }
+        continue;
+      }
       const paced = !stopping && pacedFor(piece.node.id);
       items.push(<Said key={piece.node.id} node={piece.node} paced={paced} onDone={onDone} />);
       if (pending(piece.node)) {
@@ -518,22 +531,7 @@ export function ChatTurns({
           />,
         );
       }
-      const kept = turn.kept.filter(
-        (node) => !(node.kind === 'notice' && node.ended && context.inBar?.has(node.ended.taskId)),
-      );
-      for (const run of endingsTogether(kept)) {
-        items.push(
-          run.length === 1 ? (
-            <ChatNodeView key={run[0].id} node={run[0]} context={context} />
-          ) : (
-            <div key={run[0].id} className="flex flex-col gap-1">
-              {run.map((node) => (
-                <ChatNodeView key={node.id} node={node} context={context} />
-              ))}
-            </div>
-          ),
-        );
-      }
+      for (const node of turn.kept) items.push(<ChatNodeView key={node.id} node={node} context={context} />);
     }
     if (items.length === 0) return null;
     return (
