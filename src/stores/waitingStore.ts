@@ -14,7 +14,7 @@ export interface PendingAsk extends AskRun {
  * host, or a task move whose hook would have opened a dialog over whatever the
  * user was doing.
  */
-export type Waiting = { id: number; from: string; at: number } & (
+export type Waiting = { id: number; from: string; at: number; toastHidden?: boolean } & (
   | { kind: 'ask'; ask: PendingAsk }
   | {
       kind: 'move';
@@ -30,50 +30,50 @@ export type Waiting = { id: number; from: string; at: number } & (
     }
 );
 
-type Unstamped<W> = W extends Waiting ? Omit<W, 'id' | 'at'> : never;
+type Unstamped<W> = W extends Waiting ? Omit<W, 'id' | 'at' | 'toastHidden'> : never;
 type NewWaiting = Unstamped<Waiting>;
 
 interface WaitingStore {
   items: Waiting[];
-  /** Whether the dialog that shows them is open. Closing it leaves them waiting. */
-  open: boolean;
-  /** The item the dialog shows; the first when none is picked or the picked one has gone. */
-  selected: number | null;
+  /** Terminals with a card on screen, by how many: what they leave shows there rather than as a toast. */
+  shownOn: Record<string, number>;
   add: (item: NewWaiting) => number;
   /** Take an item off the queue. An ask not yet run is declined. */
   remove: (id: number) => void;
-  show: (id?: number) => void;
-  close: () => void;
+  hideToast: (id: number) => void;
+  cardMounted: (ptyId: string) => () => void;
 }
 
 let nextId = 1;
 
 export const useWaitingStore = create<WaitingStore>()((set, get) => ({
   items: [],
-  open: false,
-  selected: null,
+  shownOn: {},
   add: (item) => {
     const id = nextId++;
     set({ items: [...get().items, { ...item, id, at: Date.now() } as Waiting] });
     return id;
   },
   remove: (id) => {
-    const { items, selected } = get();
-    const at = items.findIndex((i) => i.id === id);
-    if (at === -1) return;
-    const item = items[at];
+    const item = get().items.find((i) => i.id === id);
+    if (!item) return;
     if (item.kind === 'ask') item.ask.decline();
-    const rest = items.filter((i) => i.id !== id);
-    // The next one takes the answered one's place, so the dialog moves on rather than back to the start.
-    const next = selected === id ? (rest[Math.min(at, rest.length - 1)]?.id ?? null) : selected;
-    set({ items: rest, selected: next, ...(rest.length === 0 && { open: false }) });
+    set({ items: get().items.filter((i) => i.id !== id) });
   },
-  show: (id) => {
-    if (get().items.length === 0) return;
-    set({ open: true, ...(id !== undefined && { selected: id }) });
+  hideToast: (id) => set({ items: get().items.map((i) => (i.id === id ? { ...i, toastHidden: true } : i)) }),
+  cardMounted: (ptyId) => {
+    const count = (delta: number) => {
+      const { [ptyId]: was = 0, ...rest } = get().shownOn;
+      set({ shownOn: was + delta > 0 ? { ...rest, [ptyId]: was + delta } : rest });
+    };
+    count(1);
+    return () => count(-1);
   },
-  close: () => set({ open: false }),
 }));
+
+export function toasted(items: Waiting[], shownOn: Record<string, number>): Waiting[] {
+  return items.filter((i) => !i.toastHidden && !(i.from in shownOn));
+}
 
 /** Terminals whose agent is waiting on an answer to an ask. */
 export function askingFrom(items: Waiting[]): string[] {

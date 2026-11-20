@@ -10,7 +10,7 @@ import { completeTask } from '../../services/taskCompletion';
 import type { TaskWithWorkspace } from '../../types';
 import { seedProject } from './seedProject';
 import { useWaitingStore } from '../../stores/waitingStore';
-import { runWaiting } from '../../components/waiting/WaitingQueue';
+import { runWaiting } from '../../components/waiting/WaitingDialog';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -208,7 +208,7 @@ describe('useIPCListeners — CLI task lifecycle', () => {
   );
 
   test('a move whose hook would ask waits in the queue with its command, and runs that hook once the user runs it there', async () => {
-    useWaitingStore.setState({ items: [], open: null });
+    useWaitingStore.setState({ items: [] });
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { id: 's', type: 'start', name: 'Agent', command: 'claude' },
       review: { id: 'r', type: 'review', name: 'PR', command: 'gh pr create' },
@@ -258,7 +258,7 @@ describe('useIPCListeners — CLI task lifecycle', () => {
   });
 
   test('a loop of moves waits as one item each, run oldest first, and a skipped one never runs', async () => {
-    useWaitingStore.setState({ items: [], open: null });
+    useWaitingStore.setState({ items: [] });
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { id: 's', type: 'start', name: 'Agent', command: 'claude' },
     });
@@ -282,7 +282,7 @@ describe('useIPCListeners — CLI task lifecycle', () => {
   });
 
   test("a sandboxed caller's --run-hook runs a sandboxed hook at once, and waits for the user when the hook would run on the host", async () => {
-    useWaitingStore.setState({ items: [], open: null });
+    useWaitingStore.setState({ items: [] });
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { id: 's', type: 'start', name: 'Agent', command: 'claude', sandbox: 'nono' },
       review: { id: 'r', type: 'review', name: 'Tests', command: 'npm test' },

@@ -7,6 +7,7 @@ import { installCliTerminalListener } from '../../services/cliTerminalListener';
 import { useProjectDataStore } from '../../stores/projectDataStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useAppStore } from '../../stores/appStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { openLink } from '../../links/openLink';
 import type { OuijitTerminal } from '../../components/terminal/terminalReact';
 import type {
@@ -40,6 +41,7 @@ vi.mock('../../components/terminal/terminalReact', () => {
     runnerSpawning = new Set<string>();
     xterm = { cols: 80, rows: 24, writeln: vi.fn(), focus: vi.fn() };
     openTerminal = vi.fn();
+    fit = vi.fn();
     bind = vi.fn();
     dispose = vi.fn();
     refreshGitStatus = vi.fn();
@@ -230,8 +232,15 @@ describe("a terminal's panels, from the CLI", () => {
     expect((await panelOp({ ptyId: 'pty-front', action: 'diff-open' })).diffOpen).toBe(true);
     expect((await panelOp({ ptyId: 'pty-front', action: 'diff-close' })).diffOpen).toBe(false);
 
+    // A link brings a panel forward, and says so when the panel it names has closed.
+    useAppStore.setState({ projects: [{ path: PROJECT, name: 'alpha' } as never] });
+    await openLink('ouijit://alpha/terminals/pty-front/panels/panel-2');
+    expect(terminalInstances.get('pty-front')?.activePanelId).toBe('panel-2');
+
     const removed = await panelOp({ ptyId: 'pty-front', action: 'remove', kind: 'runner', value: 'scr-1' });
     expect(removed.panels).toEqual([]);
+    await openLink('ouijit://alpha/terminals/pty-front/panels/panel-1');
+    expect(useProjectStore.getState().toasts.map((t) => t.message)).toContain('That panel was closed');
     expect(await panelOp({ ptyId: 'pty-front', action: 'add', kind: 'runner', value: 'nope' })).toEqual({
       ok: false,
       error: 'No script named nope',
