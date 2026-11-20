@@ -60,6 +60,8 @@ export interface WakeRequest {
   node: RequestNode;
   /** The command it would run, where the request is to run one. */
   command?: string;
+  /** What the agent said that command does, where it said. */
+  step?: string;
 }
 
 export interface AssistantMessageNode extends NodeBase {

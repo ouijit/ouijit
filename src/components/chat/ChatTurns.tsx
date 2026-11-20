@@ -283,7 +283,13 @@ function FoldBody({ children }: { children: ReactNode }) {
 function RequestLine({ note, request }: { note: WakeNote; request: WakeRequest }) {
   return (
     <SettledLine
-      summary={request.command ? `${request.name} wants to run ${firstLine(request.command)}` : note.text}
+      summary={
+        request.step
+          ? `${request.name}: ${request.step}`
+          : request.command
+            ? `${request.name} wants to run ${firstLine(request.command)}`
+            : note.text
+      }
       label={settledLabel(request.node)}
       command={request.command}
       detail={[request.node.title, request.node.detail].filter(Boolean).join('\n\n')}

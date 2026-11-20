@@ -29,6 +29,13 @@ export function settledLabel(node: RequestNode): string | null {
   return node.byChat ? `${label} by Chat` : label;
 }
 
+/** What a step says it does, where the agent described it; undefined where its title is only the raw command. */
+export function stepTitle(call: { title: string; command?: string }): string | undefined {
+  const title = call.title?.trim();
+  if (!title || title === call.command?.trim()) return undefined;
+  return title.replace(/[.…]+$/, '');
+}
+
 export function firstLine(text: string): string {
   return text.trim().split('\n')[0];
 }
@@ -213,16 +220,19 @@ export function ChatRequestView({
   cardId,
   heading,
   command,
+  step,
 }: {
   node: RequestNode;
   cardId: string;
   heading?: string;
   command?: string;
+  /** What the gated step says it does; named on the settled line in place of its command. */
+  step?: string;
 }) {
   if (node.status !== 'pending') {
     return (
       <SettledLine
-        summary={firstLine(relativeToCard(command ?? node.title, cardId))}
+        summary={step ?? firstLine(relativeToCard(command ?? node.title, cardId))}
         label={settledLabel(node)}
         command={command}
         detail={[node.title, node.detail].filter(Boolean).join('\n\n')}

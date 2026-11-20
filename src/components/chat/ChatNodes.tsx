@@ -3,7 +3,7 @@ import { Icon } from '../terminal/Icon';
 import { Markdown } from '../issues/Markdown';
 import { ChatMarkdown } from './ChatMarkdown';
 import { terminalInstances } from '../terminal/terminalRegistry';
-import { ChatRequestView } from './ChatRequest';
+import { ChatRequestView, stepTitle } from './ChatRequest';
 import type {
   ChatNode,
   FileChange,
@@ -610,6 +610,7 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
           node={node}
           cardId={context.cardId}
           command={call?.tool === 'command' ? call.command : undefined}
+          step={call ? stepTitle(call) : undefined}
         />
       );
     }

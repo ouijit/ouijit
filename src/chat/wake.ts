@@ -190,6 +190,10 @@ function requestNote(sessionId: string, info: ChatSessionInfo, name: string, req
       name: info.taskId != null ? `${name} (T-${info.taskId})` : name,
       node: latest ?? request,
       ...(command && { command }),
+      ...(command &&
+        call &&
+        call.title?.trim() &&
+        call.title.trim() !== command.trim() && { step: call.title.trim().replace(/[.…]+$/, '') }),
     },
   };
 }

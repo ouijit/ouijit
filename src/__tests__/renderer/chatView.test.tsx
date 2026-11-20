@@ -213,6 +213,43 @@ describe('chat view', () => {
     fireEvent.click(settled);
     expect(screen.getByText(/shutil\.rmtree/).closest('pre, div')).toBeTruthy();
 
+    // A command the agent described settles to its description, not the command.
+    act(() => {
+      host.emit({
+        type: 'node',
+        node: {
+          id: 'c2',
+          kind: 'tool_call',
+          parentId: null,
+          createdAt: 0,
+          tool: 'command',
+          name: 'Bash',
+          title: 'List the open tasks',
+          command: 'ouijit task list | jq \'[.[] | select(.status != "done")]\'',
+          input: {},
+          files: [],
+          status: 'completed',
+        },
+      });
+      host.emit({
+        type: 'node',
+        node: {
+          id: 'r2',
+          kind: 'request',
+          parentId: null,
+          createdAt: 0,
+          request: 'approval',
+          title: 'ouijit task list | jq \'[.[] | select(.status != "done")]\'',
+          toolCallId: 'c2',
+          options: [{ id: 'allow', label: 'Allow', kind: 'allow_once' }],
+          questions: [],
+          status: 'answered',
+          answer: { kind: 'option', optionId: 'allow' },
+        },
+      });
+    });
+    expect(await screen.findByRole('button', { name: /^List the open tasksAllowed$/ })).toBeTruthy();
+
     // A slash opens the agent's commands; Tab takes the highlighted one.
     const composer = screen.getByLabelText('Message');
     fireEvent.change(composer, { target: { value: '/re' } });
