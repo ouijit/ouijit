@@ -518,7 +518,10 @@ export function ChatTurns({
           />,
         );
       }
-      for (const run of endingsTogether(turn.kept)) {
+      const kept = turn.kept.filter(
+        (node) => !(node.kind === 'notice' && node.ended && context.inBar?.has(node.ended.taskId)),
+      );
+      for (const run of endingsTogether(kept)) {
         items.push(
           run.length === 1 ? (
             <ChatNodeView key={run[0].id} node={run[0]} context={context} />
@@ -532,6 +535,7 @@ export function ChatTurns({
         );
       }
     }
+    if (items.length === 0) return null;
     return (
       <div
         key={turn.opener?.id ?? turn.body[0]?.id ?? turn.kept[0]?.id ?? `turn-${index}`}

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../terminal/Icon';
 import { EndedMark, Span, useNow } from './ChatNodes';
-import type { ChatBackgroundTask, ChatNode, ChatSessionInfo, NoticeNode } from '../../chat/model';
+import type { ChatBackgroundTask, ChatNode, NoticeNode } from '../../chat/model';
 
 /** How much of a task's output shows when its row is opened. */
 const TAIL_LINES = 4;
@@ -126,7 +126,7 @@ interface Gone {
 /**
  * Tasks that have just left the list. One that ended on its own says how for
  * a moment; one the user stopped goes at once, since they know how it ended.
- * Either folds away, with the transcript's line for it left in its place.
+ * Either folds away, and only then does the transcript's line for it show.
  */
 function useLeaving(
   tasks: ChatBackgroundTask[],
@@ -162,17 +162,22 @@ function useLeaving(
   });
 }
 
-/**
- * What the agent left running between turns: each with how long it has run,
- * its latest output a click away, and a way to stop it. More than one folds
- * behind a count, so a fan-out does not push the transcript off the card.
- */
-export function ChatBackground({ cardId, info, nodes }: { cardId: string; info: ChatSessionInfo; nodes: ChatNode[] }) {
-  const [open, setOpen] = useState(false);
+export interface BackgroundBar {
+  cardId: string;
+  tasks: ChatBackgroundTask[];
+  leaving: { task: ChatBackgroundTask; ended: Ended; leaving: boolean }[];
+  stopping: ReadonlySet<string>;
+  stop: (task: ChatBackgroundTask) => void;
+  /** Every task the bar shows, running or saying how it ended: the transcript holds back their endings. */
+  shown: ReadonlySet<string>;
+}
+
+/** The bar's state, held above both it and the transcript so a task shows in one place at a time. */
+export function useBackgroundBar(cardId: string, tasks: ChatBackgroundTask[], nodes: ChatNode[]): BackgroundBar {
   const [stopping, setStopping] = useState<ReadonlySet<string>>(() => new Set());
-  const tasks = info.background ?? [];
   const leaving = useLeaving(tasks, nodes, stopping);
-  const now = useNow(tasks.length > 1);
+  const key = [...tasks.map((task) => task.id), ...leaving.map(({ task }) => task.id)].join('\n');
+  const shown = useMemo(() => new Set(key ? key.split('\n') : []), [key]);
   const stop = (task: ChatBackgroundTask) => {
     setStopping((ids) => new Set(ids).add(task.id));
     window.api.chat.stopBackground(cardId, task.id).catch(() =>
@@ -183,6 +188,18 @@ export function ChatBackground({ cardId, info, nodes }: { cardId: string; info: 
       }),
     );
   };
+  return { cardId, tasks, leaving, stopping, stop, shown };
+}
+
+/**
+ * What the agent left running between turns: each with how long it has run,
+ * its latest output a click away, and a way to stop it. More than one folds
+ * behind a count, so a fan-out does not push the transcript off the card.
+ */
+export function ChatBackground({ bar }: { bar: BackgroundBar }) {
+  const { cardId, tasks, leaving, stopping, stop } = bar;
+  const [open, setOpen] = useState(false);
+  const now = useNow(tasks.length > 1);
   const rows = [
     ...tasks.map((task) => (
       <TaskRow key={task.id} cardId={cardId} task={task} stopping={stopping.has(task.id)} onStop={() => stop(task)} />

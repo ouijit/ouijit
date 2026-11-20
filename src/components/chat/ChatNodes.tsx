@@ -189,7 +189,7 @@ export function EndedMark({ status }: { status: NonNullable<NoticeNode['ended']>
 /** Background work that ended, where it ended: its mark says how, so the line is only its name and time. */
 function EndedLine({ ended, text }: { ended: NonNullable<NoticeNode['ended']>; text: string }) {
   return (
-    <div className="flex items-center gap-2 text-[13px] text-text-tertiary">
+    <div className="chat-said-in flex items-center gap-2 text-[13px] text-text-tertiary">
       <EndedMark status={ended.status} />
       <span className="min-w-0 break-words">{text}</span>
       <Span ms={ended.ms} />
@@ -563,6 +563,8 @@ export interface NodeContext {
   onRewind: (nodeId: string) => void;
   /** Tool calls whose work carries on in the background after they returned. */
   inBackground?: ReadonlySet<string>;
+  /** Background tasks the bar is showing, whose endings wait until it lets them go. */
+  inBar?: ReadonlySet<string>;
 }
 
 export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node: ChatNode; context: NodeContext }) {

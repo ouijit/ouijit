@@ -537,7 +537,7 @@ describe('compacting from chat', () => {
 });
 
 describe('a background shell', () => {
-  test('tags the call that started it, and on ending says how in the bar a moment, or not at all when stopped, and in the transcript for good', () => {
+  test('tags the call that started it, and on ending says how in the bar a moment, then in the transcript for good, never both at once', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] });
     const at = Date.now();
     const call: ChatNode = {
@@ -574,21 +574,26 @@ describe('a background shell', () => {
       text: 'Build the app',
       ended: { taskId: 'b1', status: 'failed', ms: 180_000 },
     };
+    const inTranscript = (name: string) =>
+      [...document.querySelectorAll('.chat-turns div')].some((el) =>
+        new RegExp(`^${name}\\s?· \\d+m$`).test(el.textContent ?? ''),
+      );
+    const inBar = () => screen.queryByRole('list', { name: 'Running in the background' });
+    // The ending can arrive while the task is still listed; the bar has it, so the transcript waits.
+    live({ background: [task] }, [ended]);
+    expect(inTranscript('Build the app')).toBe(false);
     live({ background: [] }, [ended]);
-    const bar = screen.getByRole('list', { name: 'Running in the background' });
-    expect(bar.textContent).toMatch(/^Build the app\s?· 3m$/);
+    expect(inBar()!.textContent).toMatch(/^Build the app\s?· 3m$/);
     expect(screen.queryByRole('button', { name: 'Stop Build the app' })).toBeNull();
-    expect(screen.getAllByText('Build the app')).toHaveLength(3);
+    expect(inTranscript('Build the app')).toBe(false);
 
-    // A moment later it folds away, leaving the transcript's row: the mark, the name, the time.
-    act(() => vi.advanceTimersByTime(1000));
-    expect(screen.getByRole('list', { name: 'Running in the background' })).toBeTruthy();
-    act(() => vi.advanceTimersByTime(800));
-    expect(screen.queryByRole('list', { name: 'Running in the background' })).toBeNull();
-    const kept = [...document.querySelectorAll('.chat-turns div')].filter((el) =>
-      /^Build the app\s?· 3m$/.test(el.textContent ?? ''),
-    );
-    expect(kept.length).toBeGreaterThan(0);
+    // A moment later it folds away, and only then is the transcript's row there: the mark, the name, the time.
+    act(() => vi.advanceTimersByTime(1600));
+    expect(inBar()).toBeTruthy();
+    expect(inTranscript('Build the app')).toBe(false);
+    act(() => vi.advanceTimersByTime(200));
+    expect(inBar()).toBeNull();
+    expect(inTranscript('Build the app')).toBe(true);
 
     // One the user stopped goes as soon as it ends: they already know how.
     const server = { id: 's1', kind: 'shell' as const, description: 'Dev server', startedAt: at };
@@ -604,8 +609,10 @@ describe('a background shell', () => {
       ended: { taskId: 's1', status: 'stopped', ms: 60_000 },
     };
     live({ background: [] }, [ended, stopped]);
+    expect(inTranscript('Dev server')).toBe(false);
     act(() => vi.advanceTimersByTime(250));
-    expect(screen.queryByRole('list', { name: 'Running in the background' })).toBeNull();
+    expect(inBar()).toBeNull();
+    expect(inTranscript('Dev server')).toBe(true);
     vi.useRealTimers();
   });
 });

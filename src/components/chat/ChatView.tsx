@@ -4,12 +4,15 @@ import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { type NodeContext } from './ChatNodes';
 import { ChatTurns, RevealHeld } from './ChatTurns';
-import { ChatBackground } from './ChatBackground';
+import { ChatBackground, useBackgroundBar } from './ChatBackground';
 import { ChatComposer } from './ChatComposer';
 import { sendHeldPrompt } from './chatActions';
 import { CHAT_AGENT_LABELS } from '../../chat/preferences';
 import { restartHomeChat } from './homeChatActions';
-import type { ChatNode, ChatSessionInfo } from '../../chat/model';
+import type { ChatBackgroundTask, ChatNode, ChatSessionInfo } from '../../chat/model';
+
+const NO_TASKS: ChatBackgroundTask[] = [];
+const NO_NODES: ChatNode[] = [];
 
 function useSession(cardId: string) {
   const session = useChatStore((s) => s.sessions[cardId]);
@@ -170,19 +173,21 @@ export function ChatView({
   );
 
   const info = session?.info;
+  const bar = useBackgroundBar(cardId, info?.background ?? NO_TASKS, nodes ?? NO_NODES);
   const context: NodeContext = useMemo(
     () => ({
       cardId,
       children,
       canRewind: Boolean(info?.capabilities.rewind && info.status === 'idle'),
       inBackground: new Set((info?.background ?? []).flatMap((task) => (task.toolCallId ? [task.toolCallId] : []))),
+      inBar: bar.shown,
       onRewind: (nodeId) => {
         void window.api.chat
           .rewind(cardId, nodeId)
           .catch((error: unknown) => useProjectStore.getState().addToast(String(error), 'error'));
       },
     }),
-    [cardId, children, info?.capabilities.rewind, info?.status, info?.background],
+    [cardId, children, info?.capabilities.rewind, info?.status, info?.background, bar.shown],
   );
 
   if (!session || !info) {
@@ -230,7 +235,7 @@ export function ChatView({
       )}
       <div className="mx-auto w-full max-w-[52rem]">
         {aboveComposer}
-        <ChatBackground cardId={cardId} info={info} nodes={nodes ?? []} />
+        <ChatBackground bar={bar} />
         <ChatComposer cardId={cardId} info={info} focusRef={setFocus} />
       </div>
     </div>
