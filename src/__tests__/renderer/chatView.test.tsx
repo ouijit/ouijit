@@ -464,3 +464,21 @@ describe('stopping a turn', () => {
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
   });
 });
+
+describe('compacting from chat', () => {
+  test('says so below the last turn until the compaction lands', () => {
+    const live = (patch: Partial<ChatSessionInfo>, extra: ChatNode[] = []) =>
+      act(() => useChatStore.getState().adopt({ info: { ...INFO, ...patch }, nodes: [...NODES, ...extra], seq: 0 }));
+    live({ status: 'idle' });
+    render(<ChatView cardId={ID} />);
+    live({ status: 'running', compacting: Date.now() });
+    expect(screen.getByRole('status', { name: 'Working' }).textContent).toContain('Compacting');
+    expect(screen.queryByText('Thinking')).toBeNull();
+
+    live({ status: 'idle', compacting: null }, [
+      { id: 'c1', kind: 'compaction', parentId: null, createdAt: 0, trigger: 'manual' },
+    ]);
+    expect(screen.queryByText('Compacting')).toBeNull();
+    expect(screen.getByText('Context compacted')).toBeTruthy();
+  });
+});

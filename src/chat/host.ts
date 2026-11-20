@@ -590,8 +590,12 @@ export class ChatHost {
 
   private sink(session: HostedSession): DriverSink {
     const id = session.info.id;
-    return {
-      node: (node) => session.emit({ type: 'node', node: restamped(session.nodes, node) }),
+    const sink: DriverSink = {
+      node: (node) => {
+        session.emit({ type: 'node', node: restamped(session.nodes, node) });
+        // Pi reports nothing more once a compaction is done, so its landing ends the wait.
+        if (node.kind === 'compaction' && session.info.compacting) sink.session({ status: 'idle' });
+      },
       append: (nodeId, field, delta) => session.emit({ type: 'append', id: nodeId, field, delta }),
       remove: (ids) => ids.length && session.emit({ type: 'remove', ids }),
       session: (incoming) => {
@@ -603,7 +607,13 @@ export class ChatHost {
         const awaited =
           patch.status === 'running' && session.asks.size > 0 ? { ...patch, status: 'awaiting' as const } : patch;
         const ended = awaited.status !== undefined && awaited.status !== 'running' && awaited.status !== 'awaiting';
-        const next = ended && session.info.stopping ? { ...awaited, stopping: false } : awaited;
+        const next = ended
+          ? {
+              ...awaited,
+              ...(session.info.stopping && { stopping: false }),
+              ...(session.info.compacting && { compacting: null }),
+            }
+          : awaited;
         session.emit({ type: 'session', patch: next });
         if (next.status === 'exited' || next.status === 'error') {
           for (const node of settled(session.nodes)) session.emit({ type: 'node', node });
@@ -646,6 +656,7 @@ export class ChatHost {
       },
       log: (message, data) => chatLog.info(message, { id, ...data }),
     };
+    return sink;
   }
 
   private broadcast(sessionId: string, event: SequencedChatEvent): void {
@@ -708,16 +719,18 @@ export class ChatHost {
       return node.id;
     }
     const wantsSteer = delivery === 'steer' || (delivery === 'auto' && driver.capabilities.steer);
-    if (wantsSteer && driver.capabilities.steer) {
-      session.emit({ type: 'node', node: { ...node, delivery: 'steer' } });
-      await this.run(session, () => driver.send(userInput, 'steer'));
-    } else if (driver.capabilities.queue) {
-      session.emit({ type: 'node', node: { ...node, delivery: 'queued' } });
-      await this.run(session, () => driver.send(userInput, 'queue'));
-    } else {
+    // Held by Ouijit during a compaction, which would otherwise take the message into what it summarizes.
+    const held = session.info.compacting || (!(wantsSteer && driver.capabilities.steer) && !driver.capabilities.queue);
+    if (held) {
       const queued = { ...node, delivery: 'queued' as const };
       session.queued.push(queued);
       session.emit({ type: 'node', node: queued });
+    } else if (wantsSteer && driver.capabilities.steer) {
+      session.emit({ type: 'node', node: { ...node, delivery: 'steer' } });
+      await this.run(session, () => driver.send(userInput, 'steer'));
+    } else {
+      session.emit({ type: 'node', node: { ...node, delivery: 'queued' } });
+      await this.run(session, () => driver.send(userInput, 'queue'));
     }
     return node.id;
   }
@@ -806,7 +819,7 @@ export class ChatHost {
         },
       });
       if (session.info.status === 'running' || session.info.status === 'awaiting') {
-        session.emit({ type: 'session', patch: { status: 'idle' } });
+        session.emit({ type: 'session', patch: { status: 'idle', compacting: null } });
       }
     }
   }
@@ -929,9 +942,19 @@ export class ChatHost {
   }
 
   async compact(id: string): Promise<void> {
-    const { session, driver } = await this.requireDriver(id);
-    if (!driver.compact) throw new Error('This agent cannot compact from chat');
-    await this.run(session, () => driver.compact!());
+    // Said before anything is awaited: some agents report nothing until the compaction is done.
+    const live = this.sessions.get(id);
+    if (live?.info.status === 'idle') {
+      live.emit({ type: 'session', patch: { status: 'running', compacting: Date.now() } });
+    }
+    try {
+      const { session, driver } = await this.requireDriver(id);
+      if (!driver.compact) throw new Error('This agent cannot compact from chat');
+      await this.run(session, () => driver.compact!());
+    } catch (error) {
+      if (live?.info.compacting) live.emit({ type: 'session', patch: { status: 'idle', compacting: null } });
+      throw error;
+    }
   }
 
   /**

@@ -286,6 +286,8 @@ export interface ChatSessionInfo {
   pendingMode?: string | null;
   /** Asked to stop and not yet stopped: the turn is over as far as anyone watching is concerned. */
   stopping?: boolean;
+  /** When a compaction asked for from chat began, until it ends. */
+  compacting?: number | null;
   modes: ChatOption[];
   commands: ChatCommand[];
   /** How much of the model's window the conversation fills, as of the agent's last request. */

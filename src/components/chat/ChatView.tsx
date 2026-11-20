@@ -211,6 +211,7 @@ export function ChatView({
             context={context}
             busy={info.status === 'running' || info.status === 'awaiting'}
             stopping={info.stopping === true}
+            compacting={info.compacting}
             onHeld={setHeld}
           />
           <StatusLine info={info} cardId={cardId} quiet={surface === 'page'} />

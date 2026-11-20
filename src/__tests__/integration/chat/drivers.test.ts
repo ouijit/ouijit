@@ -351,16 +351,22 @@ describe.each(['codex', 'pi', 'opencode'] as const)('%s compacted', (agent) => {
       await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });
       await host.prompt(id, { text: first });
       await until(host, id, replies(1), timeout);
-      await host.compact(id);
-      await until(host, id, (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'compaction'), timeout);
+      const compacting = host.compact(id);
+      expect(host.snapshot(id)!.info).toMatchObject({ status: 'running', compacting: expect.any(Number) });
+      // Asked before the compaction is done, it waits for it rather than being summarized away.
       const asked = 'Which word did I ask you to remember? Reply with only the word.';
       await host.prompt(id, { text: asked });
+      expect(host.snapshot(id)!.nodes.at(-1)).toMatchObject({ text: asked, delivery: 'queued' });
+      await compacting;
       const live = await until(
         host,
         id,
         (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message' && /apple/i.test(n.text)),
         timeout,
       );
+      expect(live.info.compacting).toBeNull();
+      const order = live.nodes.map((n) => n.kind);
+      expect(order.indexOf('compaction')).toBeLessThan(order.lastIndexOf('user_message'));
       await host.stop(id);
 
       await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });

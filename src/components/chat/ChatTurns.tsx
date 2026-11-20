@@ -44,6 +44,11 @@ function turnsOf(nodes: ChatNode[]): Turn[] {
       turns.push(current);
       continue;
     }
+    if (node.kind === 'compaction') {
+      turns.push({ opener: null, body: [], kept: [node] });
+      current = null;
+      continue;
+    }
     if (!current) {
       current = { opener: null, body: [], kept: [] };
       turns.push(current);
@@ -143,14 +148,17 @@ function Doing({
   started,
   stopping,
   cardId,
+  what,
 }: {
   work: ChatNode[];
   started: number;
   stopping: boolean;
   cardId: string;
+  /** Said in place of what the work shows. */
+  what?: string;
 }) {
   const latest = useRef('Thinking');
-  latest.current = doingNow(work, cardId) ?? latest.current;
+  latest.current = what ?? doingNow(work, cardId) ?? latest.current;
   const held = useHeld(latest.current);
   const phrase = stopping ? 'Stopping' : held;
   const [now, setNow] = useState(() => Date.now());
@@ -391,6 +399,7 @@ export function ChatTurns({
   context,
   busy,
   stopping = false,
+  compacting = null,
   onHeld,
 }: {
   nodes: ChatNode[];
@@ -398,6 +407,8 @@ export function ChatTurns({
   busy: boolean;
   /** Asked to stop: what is still being revealed shows whole at once, and the working line says so. */
   stopping?: boolean;
+  /** When a compaction began: it is no turn of its own, so it has a working line of its own. */
+  compacting?: number | null;
   /** Whether something said is still being revealed, so what comes after it waits. */
   onHeld?: (held: boolean) => void;
 }) {
@@ -420,13 +431,14 @@ export function ChatTurns({
   // behind an earlier message is drawn later, maybe after the turn is over.
   for (const node of nodes) if (node.kind === 'assistant_message') pacedFor(node.id);
   const turns = turnsOf(nodes);
-  const layouts = turns.map((turn, index) => layoutOf(turn, busy && index === turns.length - 1));
+  const open = busy && !compacting;
+  const layouts = turns.map((turn, index) => layoutOf(turn, open && index === turns.length - 1));
   const pending = (node: AssistantMessageNode) => !stopping && pacedFor(node.id) && !revealedIds.has(node.id);
 
   // Each run of routine turns shows as one line, from where it starts.
   let run: Turn[] | null = null;
   const runs = turns.map((turn, index): Turn[] | 'within' | null => {
-    if (!routine(turn, busy && index === turns.length - 1)) return (run = null);
+    if (!routine(turn, open && index === turns.length - 1)) return (run = null);
     if (run) {
       run.push(turn);
       return 'within';
@@ -444,7 +456,7 @@ export function ChatTurns({
     if (turn.opener) {
       items.push(
         turn.opener.wake ? (
-          <WakeOpener key={turn.opener.id} node={turn.opener} settled={!(busy && index === turns.length - 1)} />
+          <WakeOpener key={turn.opener.id} node={turn.opener} settled={!(open && index === turns.length - 1)} />
         ) : (
           <ChatNodeView key={turn.opener.id} node={turn.opener} context={context} />
         ),
@@ -486,7 +498,14 @@ export function ChatTurns({
     );
   });
   useEffect(() => onHeld?.(held), [held, onHeld]);
-  return <div className="chat-turns min-w-0 flex flex-col gap-5">{shown}</div>;
+  return (
+    <div className="chat-turns min-w-0 flex flex-col gap-5">
+      {shown}
+      {compacting && !held && (
+        <Doing work={[]} started={compacting} stopping={stopping} cardId={context.cardId} what="Compacting" />
+      )}
+    </div>
+  );
 }
 
 /** True while the transcript is still revealing something; what follows it, like a card, waits. */
