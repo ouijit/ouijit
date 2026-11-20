@@ -339,6 +339,9 @@ describe('chat view', () => {
     expect(window.api.chat.backgroundOutput).toHaveBeenCalledWith(ID, 'bash-1');
     fireEvent.click(screen.getByRole('button', { name: 'Stop npm run dev' }));
     expect(window.api.chat.stopBackground).toHaveBeenCalledWith(ID, 'bash-1');
+    // Taken at once: the row says so, with no second stop to press.
+    expect(screen.getByText('Stopping')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Stop npm run dev' })).toBeNull();
     // Several fold behind a count, naming the newest, until opened.
     act(() =>
       host.emit({
@@ -497,7 +500,7 @@ describe('compacting from chat', () => {
 });
 
 describe('a background shell', () => {
-  test('tags the call that started it, and on ending says how in the bar a moment and in the transcript for good', () => {
+  test('tags the call that started it, and on ending says how in the bar a moment, or not at all when stopped, and in the transcript for good', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] });
     const at = Date.now();
     const call: ChatNode = {
@@ -540,13 +543,32 @@ describe('a background shell', () => {
     expect(screen.queryByRole('button', { name: 'Stop Build the app' })).toBeNull();
     expect(screen.getAllByText('Build the app')).toHaveLength(3);
 
-    act(() => vi.advanceTimersByTime(5000));
+    // A moment later it folds away, leaving the transcript's row: the mark, the name, the time.
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.getByRole('list', { name: 'Running in the background' })).toBeTruthy();
+    act(() => vi.advanceTimersByTime(800));
     expect(screen.queryByRole('list', { name: 'Running in the background' })).toBeNull();
-    // The transcript keeps it as a row: the mark, the name, the time.
     const kept = [...document.querySelectorAll('.chat-turns div')].filter((el) =>
       /^Build the app\s?· 3m$/.test(el.textContent ?? ''),
     );
     expect(kept.length).toBeGreaterThan(0);
+
+    // One the user stopped goes as soon as it ends: they already know how.
+    const server = { id: 's1', kind: 'shell' as const, description: 'Dev server', startedAt: at };
+    live({ background: [server] }, [ended]);
+    fireEvent.click(screen.getByRole('button', { name: 'Stop Dev server' }));
+    const stopped: ChatNode = {
+      id: 'ended-s1',
+      kind: 'notice',
+      parentId: null,
+      createdAt: at + 60_000,
+      level: 'info',
+      text: 'Dev server',
+      ended: { taskId: 's1', status: 'stopped', ms: 60_000 },
+    };
+    live({ background: [] }, [ended, stopped]);
+    act(() => vi.advanceTimersByTime(250));
+    expect(screen.queryByRole('list', { name: 'Running in the background' })).toBeNull();
     vi.useRealTimers();
   });
 });

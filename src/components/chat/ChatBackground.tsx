@@ -5,8 +5,10 @@ import type { ChatBackgroundTask, ChatNode, ChatSessionInfo, NoticeNode } from '
 
 /** How much of a task's output shows when its row is opened. */
 const TAIL_LINES = 4;
-/** How long an ended task stays in the bar, saying how it ended, before it leaves. */
-const LINGER_MS = 4000;
+/** How long a task that ended on its own stays in the bar, saying how, before it leaves. */
+const LINGER_MS = 1500;
+/** How long a row takes to fold away. */
+const LEAVE_MS = 200;
 const OUTPUT_POLL_MS = 1000;
 
 type Ended = NoticeNode['ended'];
@@ -45,67 +47,118 @@ function lastLines(text: string): string {
   return text.replace(/\s+$/, '').split('\n').slice(-TAIL_LINES).join('\n');
 }
 
-function TaskRow({ cardId, task, ended }: { cardId: string; task: ChatBackgroundTask; ended?: Ended }) {
+function TaskRow({
+  cardId,
+  task,
+  ended,
+  leaving = false,
+  stopping = false,
+  onStop,
+}: {
+  cardId: string;
+  task: ChatBackgroundTask;
+  ended?: Ended;
+  leaving?: boolean;
+  stopping?: boolean;
+  onStop: () => void;
+}) {
   const [open, setOpen] = useState(false);
-  const now = useNow(!ended);
+  const now = useNow(!ended && !stopping);
   const tail = useTail(cardId, task.id, open && !ended);
   return (
-    <li className="group">
-      <div className="flex items-center gap-2.5 px-3 h-8 text-[13px] text-text-secondary">
-        {ended ? <EndedMark status={ended.status} /> : <BackgroundDots />}
-        <button
-          type="button"
-          aria-expanded={open}
-          disabled={Boolean(ended) || task.kind !== 'shell'}
-          className="flex-1 min-w-0 flex items-center gap-2 text-left enabled:hover:text-text-primary transition-colors duration-100"
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span className="min-w-0 overflow-hidden whitespace-nowrap">{task.description}</span>
-          <Span ms={ended ? ended.ms : now - task.startedAt} className="text-text-tertiary" />
-        </button>
-        {!ended && (
+    <li
+      className="group grid transition-[grid-template-rows,opacity] ease-out"
+      style={{
+        gridTemplateRows: leaving ? '0fr' : '1fr',
+        opacity: leaving ? 0 : 1,
+        transitionDuration: `${LEAVE_MS}ms`,
+      }}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <div className="flex items-center gap-2.5 px-3 h-8 text-[13px] text-text-secondary">
+          {ended ? (
+            <EndedMark status={ended.status} />
+          ) : stopping ? (
+            <span className="w-3.5 shrink-0" />
+          ) : (
+            <BackgroundDots />
+          )}
           <button
             type="button"
-            aria-label={`Stop ${task.description}`}
-            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-text-tertiary hover:text-text-primary transition-opacity duration-100"
-            onClick={() => void window.api.chat.stopBackground(cardId, task.id)}
+            aria-expanded={open}
+            disabled={Boolean(ended) || task.kind !== 'shell'}
+            className="flex-1 min-w-0 flex items-center gap-2 text-left enabled:hover:text-text-primary transition-colors duration-100"
+            onClick={() => setOpen((v) => !v)}
           >
-            <Icon name="x" className="w-3.5 h-3.5" />
+            <span className="min-w-0 overflow-hidden whitespace-nowrap">{task.description}</span>
+            {stopping && !ended ? (
+              <span className="shrink-0 text-text-tertiary">Stopping</span>
+            ) : (
+              <Span ms={ended ? ended.ms : now - task.startedAt} className="text-text-tertiary" />
+            )}
           </button>
+          {!ended && !stopping && (
+            <button
+              type="button"
+              aria-label={`Stop ${task.description}`}
+              className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-text-tertiary hover:text-text-primary transition-opacity duration-100"
+              onClick={onStop}
+            >
+              <Icon name="x" className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {open && tail && (
+          <pre className="mx-3 mb-2 ml-9 font-mono text-[12px] leading-[1.45] text-text-tertiary whitespace-pre overflow-hidden">
+            {tail}
+          </pre>
         )}
       </div>
-      {open && tail && (
-        <pre className="mx-3 mb-2 ml-9 font-mono text-[12px] leading-[1.45] text-text-tertiary whitespace-pre overflow-hidden">
-          {tail}
-        </pre>
-      )}
     </li>
   );
 }
 
+interface Gone {
+  task: ChatBackgroundTask;
+  leaving: boolean;
+}
+
 /**
- * Tasks that have just left the list, kept a moment with how they ended,
- * which the transcript's line for each says.
+ * Tasks that have just left the list. One that ended on its own says how for
+ * a moment; one the user stopped goes at once, since they know how it ended.
+ * Either folds away, with the transcript's line for it left in its place.
  */
-function useLingering(tasks: ChatBackgroundTask[], nodes: ChatNode[]): { task: ChatBackgroundTask; ended: Ended }[] {
+function useLeaving(
+  tasks: ChatBackgroundTask[],
+  nodes: ChatNode[],
+  stopped: ReadonlySet<string>,
+): { task: ChatBackgroundTask; ended: Ended; leaving: boolean }[] {
   const previous = useRef(tasks);
-  const [gone, setGone] = useState<{ task: ChatBackgroundTask; until: number }[]>([]);
+  const [gone, setGone] = useState<Gone[]>([]);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
   useEffect(() => {
     const live = new Set(tasks.map((task) => task.id));
     const left = previous.current.filter((task) => !live.has(task.id));
     previous.current = tasks;
     if (left.length === 0) return;
-    const until = Date.now() + LINGER_MS;
-    setGone((current) => [...current, ...left.map((task) => ({ task, until }))]);
-    const timer = setTimeout(() => setGone((current) => current.filter((g) => g.until > Date.now())), LINGER_MS);
-    return () => clearTimeout(timer);
-  }, [tasks]);
+    setGone((current) => [...current, ...left.map((task) => ({ task, leaving: false }))]);
+    for (const task of left) {
+      const wait = stopped.has(task.id) ? 0 : LINGER_MS;
+      timers.current.push(
+        setTimeout(() => {
+          setGone((current) => current.map((g) => (g.task.id === task.id ? { ...g, leaving: true } : g)));
+        }, wait),
+        setTimeout(() => setGone((current) => current.filter((g) => g.task.id !== task.id)), wait + LEAVE_MS),
+      );
+    }
+  }, [tasks, stopped]);
   const endings = new Map(
     nodes.flatMap((node) => (node.kind === 'notice' && node.ended ? [[node.ended.taskId, node.ended] as const] : [])),
   );
-  return gone.flatMap(({ task }) => {
+  return gone.flatMap(({ task, leaving }) => {
     const ended = endings.get(task.id);
-    return ended ? [{ task, ended }] : [];
+    return ended ? [{ task, ended, leaving }] : [];
   });
 }
 
@@ -116,12 +169,27 @@ function useLingering(tasks: ChatBackgroundTask[], nodes: ChatNode[]): { task: C
  */
 export function ChatBackground({ cardId, info, nodes }: { cardId: string; info: ChatSessionInfo; nodes: ChatNode[] }) {
   const [open, setOpen] = useState(false);
+  const [stopping, setStopping] = useState<ReadonlySet<string>>(() => new Set());
   const tasks = info.background ?? [];
-  const lingering = useLingering(tasks, nodes);
+  const leaving = useLeaving(tasks, nodes, stopping);
   const now = useNow(tasks.length > 1);
+  const stop = (task: ChatBackgroundTask) => {
+    setStopping((ids) => new Set(ids).add(task.id));
+    window.api.chat.stopBackground(cardId, task.id).catch(() =>
+      setStopping((ids) => {
+        const rest = new Set(ids);
+        rest.delete(task.id);
+        return rest;
+      }),
+    );
+  };
   const rows = [
-    ...tasks.map((task) => <TaskRow key={task.id} cardId={cardId} task={task} />),
-    ...lingering.map(({ task, ended }) => <TaskRow key={task.id} cardId={cardId} task={task} ended={ended} />),
+    ...tasks.map((task) => (
+      <TaskRow key={task.id} cardId={cardId} task={task} stopping={stopping.has(task.id)} onStop={() => stop(task)} />
+    )),
+    ...leaving.map(({ task, ended, leaving }) => (
+      <TaskRow key={task.id} cardId={cardId} task={task} ended={ended} leaving={leaving} onStop={() => {}} />
+    )),
   ];
   if (rows.length === 0) return null;
 
