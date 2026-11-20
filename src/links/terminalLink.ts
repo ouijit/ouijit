@@ -1,5 +1,7 @@
 import log from 'electron-log/renderer';
+import { basename } from '../analysis/paths';
 import { openFileInEditor } from '../services/openInEditor';
+import { useProjectStore } from '../stores/projectStore';
 import { openLink } from './openLink';
 
 const linkLog = log.scope('links');
@@ -34,7 +36,16 @@ async function openFile(url: URL, projectPath: string, workspaceRoot: string): P
     linkLog.warn('malformed terminal link', { uri: url.href });
     return;
   }
+  if (!(await isThisMachine(url.hostname))) {
+    useProjectStore.getState().addToast(`${basename(filePath)} is on ${url.hostname}`, 'error');
+    return;
+  }
   // kitty's convention, which ripgrep's `kitty` hyperlink format writes: a fragment of digits is a line.
   const line = /^#(\d+)$/.exec(url.hash)?.[1];
   return openFileInEditor(projectPath, workspaceRoot, filePath, line ? Number(line) : undefined);
+}
+
+async function isThisMachine(host: string): Promise<boolean> {
+  if (host === '' || host === 'localhost') return true;
+  return host === (await window.api.hostname()).toLowerCase();
 }

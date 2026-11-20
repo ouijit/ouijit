@@ -2,7 +2,7 @@ import { test, expect } from 'vitest';
 import { openTerminalLink } from '../../links/terminalLink';
 import { useProjectStore } from '../../stores/projectStore';
 
-test('a link clicked in a terminal goes where its scheme says, and nowhere for schemes it does not know', async () => {
+test('a link clicked in a terminal goes where its scheme says, and nowhere for schemes or hosts it does not know', async () => {
   const PROJECT = '/work/alpha';
   const WORKTREE = '/work/alpha-worktrees/T-3';
 
@@ -18,6 +18,8 @@ test('a link clicked in a terminal goes where its scheme says, and nowhere for s
   );
   await openTerminalLink('file:///work/alpha/src/main.ts#42', PROJECT, WORKTREE);
   expect(window.api.openFileInEditor).toHaveBeenCalledWith(PROJECT, WORKTREE, '/work/alpha/src/main.ts', 42);
+  await openTerminalLink('file://devbox/work/alpha/src/main.ts#42', PROJECT, WORKTREE);
+  expect(useProjectStore.getState().toasts.map((t) => t.message)).toContain('main.ts is on devbox');
 
   await openTerminalLink('ouijit://nowhere/board', PROJECT, WORKTREE);
   expect(useProjectStore.getState().toasts.map((t) => t.message)).toContain('No project named nowhere');

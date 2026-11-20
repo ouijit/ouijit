@@ -87,6 +87,7 @@ const mockApi = {
   onFullscreenChange: vi.fn().mockReturnValue(() => {}),
   getPathForFile: vi.fn().mockReturnValue(''),
   homePath: vi.fn().mockResolvedValue('/Users/test'),
+  hostname: vi.fn().mockResolvedValue('my-mac.local'),
   pty: {
     spawn: vi.fn().mockResolvedValue({ success: true, ptyId: 'pty-test-1' }),
     write: vi.fn(),
