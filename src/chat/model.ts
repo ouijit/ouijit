@@ -100,6 +100,8 @@ export interface ToolCallNode extends NodeBase {
   exitCode?: number;
   files: FileChange[];
   status: NodeStatus;
+  /** When it stopped running, stamped by the host as it sees that happen. */
+  endedAt?: number;
 }
 
 export interface PlanEntry {

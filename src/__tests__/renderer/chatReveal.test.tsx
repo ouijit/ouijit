@@ -152,3 +152,57 @@ describe('formatting cut off mid-reveal', () => {
     expect(closeOpenMarkup('```\n**x\n```\nafter **bo')).toBe('```\n**x\n```\nafter **bo**');
   });
 });
+
+describe('a turn still working', () => {
+  test('says how long its current step has run, opens to every step so far, and stays open as it ends', () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'setTimeout', 'Date'] });
+    const at = Date.now();
+    const step = (id: string, title: string, start: number, extra: object) =>
+      ({
+        kind: 'tool_call',
+        id,
+        parentId: null,
+        createdAt: at + start,
+        tool: 'command',
+        title,
+        command: 'npm test',
+        files: [],
+        output: '',
+        ...extra,
+      }) as ChatNode;
+    const opener = {
+      kind: 'user_message',
+      id: 'u',
+      parentId: null,
+      createdAt: at,
+      text: 'Go',
+      attachments: [],
+      delivery: 'prompt',
+    } as ChatNode;
+    const lint = step('t1', 'Run lint', 0, { status: 'completed', endedAt: at + 300_000 });
+    const tests = (extra: object) => step('t2', 'Run driver tests', 300_000, extra);
+    const context = { cardId: 'card-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    const running = [opener, lint, tests({ status: 'running', output: 'one\ntwo\nthree\nfour\n ✓ codex compacted\n' })];
+    act(() => vi.setSystemTime(at + 420_000));
+    const { rerender } = render(<ChatTurns nodes={running} context={context} busy />);
+
+    // Closed, the line names the step and its own two minutes, not the turn's seven.
+    const line = () => screen.getByRole('status', { name: 'Working' });
+    expect(line().textContent).toBe('Run driver tests · 2m');
+
+    // Opened, every step so far under the turn's total; the running command shows its latest output.
+    act(() => screen.getByRole('button', { expanded: false }).click());
+    expect(screen.getByRole('button', { name: /Ran 2 commands\s?· 7m/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Run lint\s?· 5m/ })).toBeTruthy();
+    const tail = [...document.querySelectorAll('pre')].map((pre) => pre.textContent);
+    expect(tail).toEqual(['two\nthree\nfour\n ✓ codex compacted']);
+
+    // Done, it is the fold, still open where the reader left it.
+    const done = [opener, lint, tests({ status: 'completed', endedAt: at + 480_000, output: 'all passed' })];
+    rerender(<ChatTurns nodes={done} context={context} busy={false} />);
+    expect(screen.queryByRole('status', { name: 'Working' })).toBeNull();
+    expect(screen.getByRole('button', { name: /Ran 2 commands\s?· 8m/, expanded: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Run driver tests\s?· 3m/ })).toBeTruthy();
+    vi.useRealTimers();
+  });
+});

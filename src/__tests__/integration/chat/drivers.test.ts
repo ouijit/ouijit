@@ -140,6 +140,8 @@ describe.each(['claude', 'codex', 'pi', 'opencode', 'acp'] as const)('%s in chat
       );
       expect(edit, JSON.stringify(kinds(finished.nodes))).toBeDefined();
       expect(edit!.status).toBe('completed');
+      // Timed from when it was first seen to when it was seen to finish.
+      expect(edit!.endedAt).toBeGreaterThanOrEqual(edit!.createdAt);
       expect(finished.nodes.every((n) => n.kind !== 'request' || n.status !== 'pending')).toBe(true);
 
       if (recording) {

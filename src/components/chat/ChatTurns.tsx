@@ -13,7 +13,7 @@ import { relativeToCard } from './cardPaths';
 import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
-import { ChatNodeList, ChatNodeView, Span, foldSummary, isEmptyThought, type NodeContext } from './ChatNodes';
+import { ChatNodeList, ChatNodeView, Span, foldSummary, isEmptyThought, useNow, type NodeContext } from './ChatNodes';
 import { ChatRequestView, SettledLine, approvedByChat, firstLine, settledLabel } from './ChatRequest';
 import type {
   AssistantMessageNode,
@@ -114,12 +114,16 @@ function stepPhrase(node: ToolCallNode, cardId: string): string {
  * finished thought, or a remark. Something still streaming in is a few words
  * of a sentence, so it waits until it is whole; until then the last phrase stands.
  */
-function doingNow(work: ChatNode[], cardId: string): string | null {
+function doingNow(work: ChatNode[], cardId: string): { phrase: string; since: number } | null {
   for (let i = work.length - 1; i >= 0; i--) {
     const node = work[i];
-    if (node.kind === 'tool_call') return stepPhrase(node, cardId);
+    if (node.kind === 'tool_call') return { phrase: stepPhrase(node, cardId), since: node.createdAt };
     if ((node.kind === 'reasoning' || node.kind === 'assistant_message') && node.status !== 'running') {
-      if (node.text.trim()) return firstSentence(node.text);
+      if (node.text.trim())
+        return {
+          phrase: firstSentence(node.text),
+          since: (node.kind === 'reasoning' && node.endedAt) || node.createdAt,
+        };
     }
   }
   return null;
@@ -143,60 +147,67 @@ function useHeld(phrase: string): string {
   return shown;
 }
 
-function Doing({
-  work,
-  started,
-  stopping,
-  cardId,
-  what,
-}: {
-  work: ChatNode[];
+/** What a turn still running is on: the phrase its line says, and when that began. */
+interface Live {
+  /** When the turn began, for the total an opened line shows. */
   started: number;
   stopping: boolean;
-  cardId: string;
   /** Said in place of what the work shows. */
   what?: string;
-}) {
-  const latest = useRef('Thinking');
-  latest.current = what ?? doingNow(work, cardId) ?? latest.current;
-  const held = useHeld(latest.current);
-  const phrase = stopping ? 'Stopping' : held;
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  return (
-    <div
-      className="flex items-center gap-2 min-h-[22px] text-[13px] text-text-tertiary"
-      role="status"
-      aria-label="Working"
-    >
-      <span className="w-3 flex justify-center shrink-0">
-        {!stopping && <StatusGlyph status="thinking" size={8} />}
-      </span>
-      <span className="min-w-0 overflow-hidden whitespace-nowrap">{phrase}</span>
-      <Span ms={now - started} />
-    </div>
-  );
 }
 
-function WorkFold({ work, context }: { work: ChatNode[]; context: NodeContext }) {
+/**
+ * The work between two things said, as one line. While the turn runs, the line
+ * says what it is on now and for how long; opened, it shows every step so far
+ * under the turn's total, and stays open as the turn ends and it becomes the
+ * fold, so nothing moves under the reader.
+ */
+function WorkFold({ work, context, live }: { work: ChatNode[]; context: NodeContext; live?: Live }) {
   const [open, setOpen] = useState(false);
-  const span = Math.max(...work.map((n) => ('endedAt' in n && n.endedAt) || n.createdAt)) - work[0].createdAt;
+  const now = useNow(Boolean(live));
+  const latest = useRef<{ phrase: string; since: number }>({ phrase: 'Thinking', since: live?.started ?? 0 });
+  const doing = live && (live.what ? { phrase: live.what, since: live.started } : doingNow(work, context.cardId));
+  if (doing && doing.phrase !== latest.current.phrase) latest.current = doing;
+  const held = useHeld(latest.current.phrase);
+  const since = useRef(new Map<string, number>());
+  since.current.set(latest.current.phrase, latest.current.since);
+  const expandable = work.length > 0;
+  const expanded = open && expandable;
+
+  let summary: ReactNode;
+  if (live && !expanded) {
+    summary = (
+      <>
+        <span className="w-3 flex justify-center shrink-0">
+          {!live.stopping && <StatusGlyph status="thinking" size={8} />}
+        </span>
+        <span className="min-w-0 overflow-hidden whitespace-nowrap">{live.stopping ? 'Stopping' : held}</span>
+        <Span ms={now - (since.current.get(held) ?? live.started)} />
+      </>
+    );
+  } else {
+    const end = Math.max(...work.map((n) => ('endedAt' in n && n.endedAt) || n.createdAt));
+    summary = (
+      <>
+        <Icon name={expanded ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
+        <span className="min-w-0 overflow-hidden whitespace-nowrap">{foldSummary(work)}</span>
+        <Span ms={live ? now - live.started : end - work[0].createdAt} />
+      </>
+    );
+  }
+
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col" {...(live && { role: 'status', 'aria-label': 'Working' })}>
       <button
         type="button"
-        className="w-full min-h-[22px] flex items-center gap-2 text-left text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
+        className="w-full min-h-[22px] flex items-center gap-2 text-left text-[13px] text-text-tertiary enabled:hover:text-text-primary transition-colors duration-100"
         onClick={() => setOpen(!open)}
-        aria-expanded={open}
+        disabled={!expandable}
+        aria-expanded={expanded}
       >
-        <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
-        <span className="min-w-0 overflow-hidden whitespace-nowrap">{foldSummary(work)}</span>
-        <Span ms={span} />
+        {summary}
       </button>
-      {open && (
+      {expanded && (
         <FoldBody>
           <ChatNodeList nodes={work} context={context} thoughtsAsText />
         </FoldBody>
@@ -477,12 +488,11 @@ export function ChatTurns({
     if (!held) {
       if (doing) {
         items.push(
-          <Doing
-            key="doing"
+          <WorkFold
+            key={doing[0]?.id ?? 'doing'}
             work={doing}
-            started={turn.opener?.createdAt ?? turn.body[0]?.createdAt ?? Date.now()}
-            stopping={stopping}
-            cardId={context.cardId}
+            context={context}
+            live={{ started: turn.opener?.createdAt ?? turn.body[0]?.createdAt ?? Date.now(), stopping }}
           />,
         );
       }
@@ -502,7 +512,7 @@ export function ChatTurns({
     <div className="chat-turns min-w-0 flex flex-col gap-5">
       {shown}
       {compacting && !held && (
-        <Doing work={[]} started={compacting} stopping={stopping} cardId={context.cardId} what="Compacting" />
+        <WorkFold work={[]} context={context} live={{ started: compacting, stopping, what: 'Compacting' }} />
       )}
     </div>
   );

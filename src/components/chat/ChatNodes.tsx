@@ -1,4 +1,4 @@
-import { memo, useState, type ReactNode } from 'react';
+import { memo, useEffect, useState, type ReactNode } from 'react';
 import { Icon } from '../terminal/Icon';
 import { Markdown } from '../issues/Markdown';
 import { ChatMarkdown } from './ChatMarkdown';
@@ -106,8 +106,14 @@ function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: 
             </span>
           ) : null;
         })}
+        <StepSpan node={node} />
         <StatusMark status={node.status} />
       </button>
+      {!open && node.status === 'running' && node.output && (
+        <pre className="ml-5 mb-1 font-mono text-[12px] leading-[1.45] text-text-tertiary whitespace-pre overflow-hidden rounded-[8px] bg-ink/[0.04] px-3 py-2">
+          {lastLines(node.output, TAIL_LINES)}
+        </pre>
+      )}
       {open && (
         <div className="ml-5 mt-1 mb-2 flex flex-col gap-2">
           {node.command && node.command !== node.title && (
@@ -337,10 +343,38 @@ export function foldSummary(nodes: ChatNode[]): string {
 }
 
 /** A duration placed right after the line it belongs to, " · 19s"; nothing under a second. */
-export function Span({ ms }: { ms: number | undefined }) {
+/** How much of a running command's output shows under it before it is opened. */
+const TAIL_LINES = 4;
+
+function lastLines(text: string, count: number): string {
+  return text.replace(/\s+$/, '').split('\n').slice(-count).join('\n');
+}
+
+/** The time now, a second at a time while `ticking`. */
+export function useNow(ticking = true): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ticking) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [ticking]);
+  return now;
+}
+
+/** How long a step took, or has taken so far. */
+function StepSpan({ node }: { node: ToolCallNode }) {
+  const running = node.status === 'running' || node.status === 'pending';
+  const now = useNow(running);
+  const end = running ? now : node.endedAt;
+  return end === undefined ? null : <Span ms={end - node.createdAt} className="text-text-tertiary" />;
+}
+
+export function Span({ ms, className = '' }: { ms: number | undefined; className?: string }) {
   const span = ms === undefined ? '' : formatSpan(ms);
   // A flex item drops its leading space unless whitespace is kept; -ml-2 takes back the row's gap.
-  return span ? <span className="shrink-0 -ml-2 tabular-nums whitespace-pre">{` · ${span}`}</span> : null;
+  return span ? (
+    <span className={`shrink-0 -ml-2 tabular-nums whitespace-pre ${className}`}>{` · ${span}`}</span>
+  ) : null;
 }
 
 export function formatSpan(ms: number): string {

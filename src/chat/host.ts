@@ -44,6 +44,8 @@ import {
   type ChatSnapshot,
   type RequestNode,
   type SequencedChatEvent,
+  type ReasoningNode,
+  type ToolCallNode,
   type UserMessageNode,
   type WakeNote,
   type TaskChatSummary,
@@ -90,13 +92,15 @@ function settled(nodes: ChatNode[]): ChatNode[] {
 
 /**
  * A node a driver sends again keeps when it first appeared, since drivers
- * stamp every send; a thought gets when it finished, for its duration.
+ * stamp every send; a thought or a step gets when it finished, for its duration.
  */
 function restamped(nodes: ChatNode[], node: ChatNode): ChatNode {
   const before = nodes.find((other) => other.id === node.id);
   if (!before) return node;
-  if (node.kind === 'reasoning' && before.kind === 'reasoning' && node.status !== 'running') {
-    const endedAt = before.status === 'running' ? Date.now() : before.endedAt;
+  const timed = (n: ChatNode): n is ReasoningNode | ToolCallNode => n.kind === 'reasoning' || n.kind === 'tool_call';
+  const going = (n: ReasoningNode | ToolCallNode) => n.status === 'running' || n.status === 'pending';
+  if (timed(node) && timed(before) && !going(node)) {
+    const endedAt = going(before) ? Date.now() : before.endedAt;
     return { ...node, createdAt: before.createdAt, ...(endedAt !== undefined && { endedAt }) };
   }
   return { ...node, createdAt: before.createdAt };
