@@ -45,7 +45,7 @@ export async function newHomeChat(): Promise<void> {
     nodes: [],
     seq: 0,
   });
-  store.set({ currentId: id, chats: store.chats, owners: store.owners });
+  store.set({ currentId: id, chats: store.chats, owners: store.owners, following: store.following });
   useAppStore.getState().select({ kind: 'chat', page: 'chat' });
   try {
     useChatStore.getState().adopt(await window.api.homeChat.create(id));
@@ -69,7 +69,7 @@ export async function openHomeChat(id: string): Promise<void> {
   const store = useHomeChatStore.getState();
   if (id === store.currentId) return;
   // Shown at once, from its stored transcript; the agent catches up behind it.
-  store.set({ currentId: id, chats: store.chats, owners: store.owners });
+  store.set({ currentId: id, chats: store.chats, owners: store.owners, following: store.following });
   try {
     useChatStore.getState().adopt(await window.api.homeChat.switch(id));
   } catch (error) {

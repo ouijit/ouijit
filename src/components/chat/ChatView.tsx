@@ -131,11 +131,14 @@ export function ChatView({
   cardId,
   surface = 'card',
   footer,
+  aboveComposer,
 }: {
   cardId: string;
   surface?: 'card' | 'page';
   /** After the transcript, as part of it: what the conversation waits on the user for. */
   footer?: ReactNode;
+  /** Held above the composer, out of the transcript's scroll. */
+  aboveComposer?: ReactNode;
 }) {
   const session = useSession(cardId);
   const [held, setHeld] = useState(false);
@@ -226,6 +229,7 @@ export function ChatView({
         />
       )}
       <div className="mx-auto w-full max-w-[52rem]">
+        {aboveComposer}
         <ChatBackground cardId={cardId} info={info} nodes={nodes ?? []} />
         <ChatComposer cardId={cardId} info={info} focusRef={setFocus} />
       </div>

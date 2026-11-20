@@ -17,6 +17,7 @@ export const useHomeChatStore = create<HomeChatStore>()((set) => ({
   currentId: '',
   chats: [],
   owners: {},
+  following: {},
   enabled: false,
   taskSurface: 'terminal',
   set: (state) => set(state),

@@ -1,6 +1,7 @@
 import { useHomeChatStore } from '../../stores/homeChatStore';
 import { ChatView } from './ChatView';
 import { HomeChatDecisions } from './HomeChatDecisions';
+import { ManagedTasks } from './ManagedTasks';
 
 /** Chat's current conversation on screen. Its title and settings sit in the title bar, as a project's do. */
 export function HomeChatView() {
@@ -12,7 +13,12 @@ export function HomeChatView() {
     >
       {currentId && (
         <div key={currentId} className="chat-swap-in flex-1 min-h-0 flex flex-col">
-          <ChatView cardId={currentId} surface="page" footer={<HomeChatDecisions conversation={currentId} />} />
+          <ChatView
+            cardId={currentId}
+            surface="page"
+            footer={<HomeChatDecisions conversation={currentId} />}
+            aboveComposer={<ManagedTasks conversation={currentId} />}
+          />
         </div>
       )}
     </div>

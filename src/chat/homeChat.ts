@@ -14,6 +14,7 @@ import {
   UNTITLED_HOME_CHAT,
   parseHomeChatSettings,
   taskKey,
+  taskOfKey,
   titleFromMessage,
   type HomeChatSettings,
   type HomeChatState,
@@ -110,8 +111,16 @@ export async function homeChatState(): Promise<HomeChatState> {
       .taskOwners()
       .map((owner) => [taskKey(owner.projectPath, owner.taskNumber), owner.chatId]),
   );
+  const following = Object.fromEntries(
+    [currentId, ...chats.map((chat) => chat.id)].map((id) => [
+      id,
+      getChatRepo()
+        .following(id)
+        .flatMap((subject) => taskOfKey(subject) ?? []),
+    ]),
+  );
   // A conversation is listed once it has been asked something; until then it is only where the plus leads.
-  return { currentId, chats: chats.filter((chat) => chat.title !== UNTITLED_HOME_CHAT), owners };
+  return { currentId, chats: chats.filter((chat) => chat.title !== UNTITLED_HOME_CHAT), owners, following };
 }
 
 export function onHomeChatChange(listener: (state: HomeChatState) => void): () => void {
@@ -119,7 +128,8 @@ export function onHomeChatChange(listener: (state: HomeChatState) => void): () =
   return () => listeners.delete(listener);
 }
 
-async function announce(): Promise<void> {
+/** Tell the window what Chat's conversations are and what they follow, after either changes. */
+export async function announce(): Promise<void> {
   const state = await homeChatState();
   for (const listener of listeners) listener(state);
 }

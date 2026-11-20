@@ -14,11 +14,11 @@ import { getCliReferencePath } from '../../../cliReferencePath';
 import { issueToken } from '../../../apiAuth';
 import { _resetCacheForTesting, createTask, getTaskByNumber, setGlobalSetting } from '../../../db';
 import { chatHost } from '../../../chat/host';
-import { homeChatDir, homeChatState, installHomeChat, startHomeChat } from '../../../chat/homeChat';
+import { homeChatDir, homeChatState, installHomeChat, onHomeChatChange, startHomeChat } from '../../../chat/homeChat';
 import { sandboxCliAccessSettingKey } from '../../../sandbox/types';
 import { installHomeChatWakes } from '../../../chat/wake';
 import { chatDecisions, decide } from '../../../chat/decisions';
-import { HOME_CHAT_SETTING_KEYS, taskKey } from '../../../chat/preferences';
+import { HOME_CHAT_SETTING_KEYS, taskKey, type HomeChatState } from '../../../chat/preferences';
 import type { ChatSnapshot, UserMessageNode } from '../../../chat/model';
 import { loadCassette, loadCassettes, replayingSpawn } from './cassette';
 
@@ -120,8 +120,14 @@ describe('what Chat can do', () => {
     expect(await followed()).toEqual([1]);
     expect((await api('PUT', `following/tasks/2?${project}`, {})).status).toBe(200);
     expect(await followed()).toEqual([1, 2]);
+    // The window hears each change, with what every conversation follows, for the tasks shown above its composer.
+    const announced: HomeChatState[] = [];
+    const listening = onHomeChatChange((state) => announced.push(state));
     expect((await api('DELETE', `following/tasks/2?${project}`)).status).toBe(200);
     expect(await followed()).toEqual([1]);
+    await until(() => announced.at(-1)?.following[chat]?.length === 1, 'the announcement');
+    expect(announced.at(-1)!.following[chat]).toEqual([{ projectPath: repo, taskNumber: 1 }]);
+    listening();
     expect((await api('PUT', `following/tasks/99?${project}`, {})).status).toBe(404);
     const own = token;
     token = issueToken('pty-not-chat', 'host');

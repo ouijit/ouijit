@@ -64,7 +64,7 @@ function projectNameOf(projects: Project[], projectPath: string): string {
   return projects.find((p) => p.path === projectPath)?.name ?? homeRelative(projectPath);
 }
 
-function useProjectName(projectPath: string): string {
+export function useProjectName(projectPath: string): string {
   return useAppStore((s) => projectNameOf(s.projects, projectPath));
 }
 
@@ -579,7 +579,7 @@ function NewTaskRow({ projectPath }: { projectPath: string }) {
 }
 
 /** Where a task with no terminal open would show its status dot. */
-function IdleMark() {
+export function IdleMark() {
   return (
     <span aria-label="No terminal open" className="w-3.5 flex items-center justify-center shrink-0 text-text-tertiary">
       <Icon name="moon" className="w-3 h-3" />
@@ -780,26 +780,37 @@ function onScreenHere(ptyIds: string[]): string[] {
   return stackMembers(useTerminalStore.getState(), selection.stack).filter((id) => ptyIds.includes(id));
 }
 
-/** One per terminal that is working or finished unseen, for a group folded away. */
+/** A group's state, for a line that stands for several: what most needs the user, then what is still going. */
+export type GroupState = 'unread' | 'thinking' | 'ready';
+
+export function mostUrgent(states: GroupState[]): GroupState | null {
+  if (states.includes('unread')) return 'unread';
+  if (states.includes('thinking')) return 'thinking';
+  return states.includes('ready') ? 'ready' : null;
+}
+
+export function GroupMark({ state }: { state: GroupState | null }) {
+  if (!state) return null;
+  return (
+    <span className="w-3.5 flex items-center justify-center shrink-0" data-testid="group-mark" data-state={state}>
+      <StatusGlyph status={state === 'thinking' ? 'thinking' : 'ready'} unread={state === 'unread'} />
+    </span>
+  );
+}
+
+/** For a group folded away: whether any of its terminals wants the user, or failing that is working. */
 export function GroupDots({ ptyIds }: { ptyIds: string[] }) {
   const asking = useAsking();
-  const dots = useTerminalStore(
-    useShallow((s) =>
-      ptyIds.flatMap((id) => {
+  const state = useTerminalStore((s) =>
+    mostUrgent(
+      ptyIds.flatMap((id): GroupState[] => {
         // Before thinking: an agent waiting on an ask is still working, as far as its status says.
         if (wantsYou(s, id, asking)) return ['unread'];
         return s.displayStates[id]?.status === 'thinking' ? ['thinking'] : [];
       }),
     ),
   );
-  if (dots.length === 0) return null;
-  return (
-    <span className="flex items-center gap-1 shrink-0" data-testid="group-dots">
-      {dots.map((dot, i) => (
-        <StatusGlyph key={i} status={dot === 'thinking' ? 'thinking' : 'ready'} unread={dot === 'unread'} />
-      ))}
-    </span>
-  );
+  return <GroupMark state={state} />;
 }
 
 export function useGroupCollapsed(key: string): [boolean, () => void] {

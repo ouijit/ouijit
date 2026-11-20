@@ -110,9 +110,18 @@ export interface HomeChatState {
   chats: HomeChatSummary[];
   /** The conversation that started each task, by `taskKey`. */
   owners: Record<string, string>;
+  /** The tasks each conversation follows, by conversation id. */
+  following: Record<string, TaskRef[]>;
 }
 
 export const taskKey = (projectPath: string, taskNumber: number) => `${projectPath}#${taskNumber}`;
+
+/** The task a `taskKey` names; null for anything else followed, such as a chat with no task. */
+export function taskOfKey(key: string): TaskRef | null {
+  const at = key.lastIndexOf('#');
+  const taskNumber = at === -1 ? NaN : Number(key.slice(at + 1));
+  return Number.isInteger(taskNumber) ? { projectPath: key.slice(0, at), taskNumber } : null;
+}
 
 export const WAKE_EVENTS = ['turnEnded', 'asked', 'taskMoved', 'hookFailed'] as const;
 export type WakeEvent = (typeof WAKE_EVENTS)[number];

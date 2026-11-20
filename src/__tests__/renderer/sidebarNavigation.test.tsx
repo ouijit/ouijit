@@ -791,11 +791,14 @@ describe('the sidebar tree', () => {
     expect(row(section('Projects'), 'Write docs').dataset.bright).toBeUndefined();
     expect(row(section('Projects'), 'Tidy up').querySelector('[data-status="unread"]')).toBeTruthy();
 
-    // A folded project still shows what is working or waiting in it.
+    // A folded project still shows what is working or waiting in it, as one mark: what wants you first.
+    const folded = (path: string) =>
+      within(document.querySelector<HTMLElement>(`[data-project-path="${path}"]`)!).getAllByTestId('group-mark');
     fireEvent.click(screen.getByLabelText('Hide Bravo'));
-    expect(
-      within(document.querySelector<HTMLElement>(`[data-project-path="${BRAVO.path}"]`)!).getByTestId('group-dots'),
-    ).toBeTruthy();
+    expect(folded(BRAVO.path).map((mark) => mark.dataset.state)).toEqual(['thinking']);
+    fireEvent.click(screen.getByLabelText('Hide Alpha'));
+    expect(folded(ALPHA.path).map((mark) => mark.dataset.state)).toEqual(['unread']);
+    fireEvent.click(screen.getByLabelText('Show Alpha'));
 
     // By tag: a task sits under each tag its terminals carry, listing only those terminals,
     // with its project beside it; the rest go under No tag.

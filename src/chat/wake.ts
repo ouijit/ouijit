@@ -5,8 +5,8 @@ import { taskEvents, type TaskStatusChange } from '../taskEvents';
 import { getSessionSpawnContext, getSessionTaskContext } from '../sessions';
 import { chatHost } from './host';
 import { Mailbox } from './mailbox';
-import { loadHomeChatSettings } from './homeChat';
-import { taskKey, type TaskRef, type WakeEvent } from './preferences';
+import { announce, loadHomeChatSettings } from './homeChat';
+import { taskKey, taskOfKey, type TaskRef, type WakeEvent } from './preferences';
 import type { ChatSessionInfo, ChatSessionStatus, RequestNode, ToolCallNode, WakeNote } from './model';
 
 const wakeLog = getLogger().scope('chat:wake');
@@ -75,10 +75,12 @@ export function sessionSubject(id: string): string {
  */
 export function follow(conversation: string, subject: string): void {
   getChatRepo().follow(subject, conversation);
+  void announce();
 }
 
 export function unfollow(subject: string): void {
   getChatRepo().unfollow(subject);
+  void announce();
 }
 
 export type Followed =
@@ -88,12 +90,10 @@ export type Followed =
 export async function following(conversation: string): Promise<Followed[]> {
   const out: Followed[] = [];
   for (const subject of getChatRepo().following(conversation)) {
-    const at = subject.lastIndexOf('#');
-    const taskNumber = at === -1 ? NaN : Number(subject.slice(at + 1));
-    if (Number.isInteger(taskNumber)) {
-      const project = subject.slice(0, at);
-      const task = await getTaskByNumber(project, taskNumber);
-      if (task) out.push({ task: taskNumber, project, name: task.name, status: task.status });
+    const ref = taskOfKey(subject);
+    if (ref) {
+      const task = await getTaskByNumber(ref.projectPath, ref.taskNumber);
+      if (task) out.push({ task: ref.taskNumber, project: ref.projectPath, name: task.name, status: task.status });
       else unfollow(subject);
       continue;
     }
