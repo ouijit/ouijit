@@ -186,7 +186,7 @@ export const KanbanCard = memo(function KanbanCard({
       terminals: connectedDisplays,
       trackers: { github: githubEnabled, linear: linearEnabled },
       openTerminal: (provider) => onOpenTerminal(task, provider),
-      openSession: (surface) => void openTaskSession(projectPath, task, surface),
+      openSession: (surface, place) => void openTaskSession(projectPath, task, surface, place),
       chats: taskChats,
       openChat: (chat) => void openTaskChat(projectPath, task, chat),
       showTerminal: onSwitchToTerminal,

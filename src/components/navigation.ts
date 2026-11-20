@@ -196,9 +196,10 @@ export async function openTaskSession(
   projectPath: string,
   task: TaskWithWorkspace,
   surface: TaskSurface,
+  sandboxProvider: SandboxProviderId,
   stack?: string,
 ): Promise<void> {
-  if (!(await openTaskShell(projectPath, task, { mode: 'resume', fresh: surface }))) return;
+  if (!(await openTaskShell(projectPath, task, { mode: 'resume', fresh: surface, sandboxProvider }))) return;
   const [front] = useTerminalStore.getState().order;
   if (front) useAppStore.getState().showTerminal(front, stack);
 }

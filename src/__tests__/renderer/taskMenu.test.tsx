@@ -92,15 +92,28 @@ describe('adding to a task', () => {
     const entries = openEntries([], true, acts, 'none');
     expect(outline(entries)).toEqual(['Resume', 'New chat', 'Open in', ['Editor', FILE_MANAGER_NAME]]);
     (entries[1] as ContextMenuItem).onClick();
-    expect(acts.openSession).toHaveBeenCalledWith('chat');
+    expect(acts.openSession).toHaveBeenCalledWith('chat', 'none');
 
+    // Each opens in any place, the way Resume does.
     useHomeChatStore.setState({ taskSurface: 'chat' });
-    expect(outline(openEntries([], true, actions(), 'none'))).toEqual([
+    const placed = actions();
+    const anywhere = openEntries(['nono'], true, placed, 'none');
+    expect(outline(anywhere)).toEqual([
       'Resume',
+      'Resume in Sandbox',
       'New chat',
+      'New chat in Sandbox',
       'New terminal',
+      'New terminal in Sandbox',
       'Open in',
       ['Editor', FILE_MANAGER_NAME],
+    ]);
+    clickAll(anywhere);
+    expect(vi.mocked(placed.openSession).mock.calls).toEqual([
+      ['chat', 'none'],
+      ['chat', 'nono'],
+      ['terminal', 'none'],
+      ['terminal', 'nono'],
     ]);
     // A to-do is started first, the way the setting says.
     expect(outline(openEntries([], false, actions(), 'none', false))).toEqual(['Start', 'Open in', ['Editor']]);

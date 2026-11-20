@@ -47,8 +47,8 @@ export function closedTaskChats(chats: TaskChatSummary[] | undefined, taskNumber
 export interface TaskMenuActions {
   /** Open the task in that place, as a terminal or a chat by preference, overriding the continue hook's sandbox. */
   openTerminal: (provider: SandboxProviderId) => void;
-  /** Add a new chat, or a plain terminal, beside what the task already has. */
-  openSession?: (surface: TaskSurface) => void;
+  /** Add a new chat, or a plain terminal, in that place beside what the task already has. */
+  openSession?: (surface: TaskSurface, provider: SandboxProviderId) => void;
   /** The task's chats that are not open as a card, newest first, and how to open one again. */
   earlierChats?: { chats: TaskChatSummary[]; open: (chat: TaskChatSummary) => void };
   openEditor: () => void;
@@ -65,10 +65,37 @@ export interface TaskMenuActions {
 }
 
 /**
- * Resume runs the continue hook where the project defaults to; a to-do offers
- * Start instead. "Resume in" names the one other place, or lists every place
- * with the default checked. Either creates the worktree a task has never had;
- * the file manager needs one already on disk.
+ * An entry that opens in the project's default place, then "<label> in", which
+ * names the one other place or lists every place with the default checked.
+ */
+function placedEntries(
+  label: string,
+  icon: string,
+  places: SandboxProviderId[],
+  projectDefault: SandboxProviderId,
+  open: (place: SandboxProviderId) => void,
+): ContextMenuEntry[] {
+  const entries: ContextMenuEntry[] = [{ label, icon, onClick: () => open(projectDefault) }];
+  const elsewhere = places.filter((place) => place !== projectDefault);
+  if (elsewhere.length === 1) {
+    const [place] = elsewhere;
+    entries.push({ label: `${label} in ${SANDBOX_LABELS[place]}`, onClick: () => open(place) });
+  } else if (elsewhere.length > 1) {
+    entries.push({
+      label: `${label} in`,
+      submenu: places.map((place) => ({
+        label: SANDBOX_LABELS[place],
+        checked: place === projectDefault,
+        onClick: () => open(place),
+      })),
+    });
+  }
+  return entries;
+}
+
+/**
+ * Resume runs the continue hook; a to-do offers Start instead. Either creates
+ * the worktree a task has never had; the file manager needs one already on disk.
  */
 export function openEntries(
   sandboxProviders: SandboxBackendId[],
@@ -77,32 +104,18 @@ export function openEntries(
   projectDefault: SandboxProviderId,
   started = true,
 ): ContextMenuEntry[] {
-  const verb = started ? 'Resume' : 'Start';
   const places: SandboxProviderId[] = ['none', ...sandboxProviders];
-  const elsewhere = places.filter((place) => place !== projectDefault);
-  const entries: ContextMenuEntry[] = [
-    { label: verb, icon: 'play', onClick: () => actions.openTerminal(projectDefault) },
-  ];
-  if (elsewhere.length === 1) {
-    const [place] = elsewhere;
-    entries.push({ label: `${verb} in ${SANDBOX_LABELS[place]}`, onClick: () => actions.openTerminal(place) });
-  } else if (elsewhere.length > 1) {
-    entries.push({
-      label: `${verb} in`,
-      submenu: places.map((place) => ({
-        label: SANDBOX_LABELS[place],
-        checked: place === projectDefault,
-        onClick: () => actions.openTerminal(place),
-      })),
-    });
-  }
+  const entries = placedEntries(started ? 'Resume' : 'Start', 'play', places, projectDefault, actions.openTerminal);
   const { enabled: chat, taskSurface } = useHomeChatStore.getState();
   if (chat && actions.openSession && started) {
     const open = actions.openSession;
-    entries.push({ label: 'New chat', icon: 'chat-circle', onClick: () => open('chat') });
+    entries.push(...placedEntries('New chat', 'chat-circle', places, projectDefault, (place) => open('chat', place)));
     // Resuming opens a terminal anyway where tasks open in one.
-    if (taskSurface === 'chat')
-      entries.push({ label: 'New terminal', icon: 'terminal', onClick: () => open('terminal') });
+    if (taskSurface === 'chat') {
+      entries.push(
+        ...placedEntries('New terminal', 'terminal', places, projectDefault, (place) => open('terminal', place)),
+      );
+    }
   }
   const earlier = actions.earlierChats;
   if (chat && earlier && earlier.chats.length > 0) {
@@ -199,7 +212,7 @@ export interface TaskMenuContext {
   terminals: TerminalDisplayState[];
   trackers: { github: boolean; linear: boolean };
   openTerminal: (provider: SandboxProviderId) => void;
-  openSession: (surface: TaskSurface) => void;
+  openSession: (surface: TaskSurface, provider: SandboxProviderId) => void;
   /** The project's task chats, as the chat store lists them. */
   chats: TaskChatSummary[] | undefined;
   openChat: (chat: TaskChatSummary) => void;

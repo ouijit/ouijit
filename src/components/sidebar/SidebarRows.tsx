@@ -336,7 +336,7 @@ function TaskRows({ group, underTag, shown, onScreen, now, at, pick, rowMenu }: 
           terminals: displays.filter((d): d is TerminalDisplayState => d !== undefined && !d.isLoading),
           trackers: { github, linear },
           openTerminal: (provider) => void openTaskTerminal(projectPath, task, provider),
-          openSession: (surface) => void openTaskSession(projectPath, task, surface),
+          openSession: (surface, place) => void openTaskSession(projectPath, task, surface, place),
           chats: useChatStore.getState().taskChats[projectPath],
           openChat: (chat) => void openTaskChat(projectPath, task, chat),
           showTerminal: (id) => void focusTerminal(id),

@@ -126,7 +126,7 @@ export const TerminalHeader = memo(function TerminalHeader({
             sandboxProvider: provider,
           });
         },
-        openSession: task ? (surface) => void openTaskSession(projectPath, task, surface) : undefined,
+        openSession: task ? (surface, place) => void openTaskSession(projectPath, task, surface, place) : undefined,
         earlierChats: task
           ? {
               chats: closedTaskChats(taskChats, task.taskNumber),
