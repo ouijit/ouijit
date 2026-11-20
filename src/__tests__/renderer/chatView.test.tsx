@@ -531,18 +531,22 @@ describe('a background shell', () => {
       parentId: null,
       createdAt: at + 180_000,
       level: 'error',
-      text: 'Build the app failed',
+      text: 'Build the app',
       ended: { taskId: 'b1', status: 'failed', ms: 180_000 },
     };
     live({ background: [] }, [ended]);
     const bar = screen.getByRole('list', { name: 'Running in the background' });
     expect(bar.textContent).toMatch(/^Build the app\s?· 3m$/);
     expect(screen.queryByRole('button', { name: 'Stop Build the app' })).toBeNull();
-    expect(screen.getByText('Build the app failed')).toBeTruthy();
+    expect(screen.getAllByText('Build the app')).toHaveLength(3);
 
     act(() => vi.advanceTimersByTime(5000));
     expect(screen.queryByRole('list', { name: 'Running in the background' })).toBeNull();
-    expect(screen.getByText('Build the app failed')).toBeTruthy();
+    // The transcript keeps it as a row: the mark, the name, the time.
+    const kept = [...document.querySelectorAll('.chat-turns div')].filter((el) =>
+      /^Build the app\s?· 3m$/.test(el.textContent ?? ''),
+    );
+    expect(kept.length).toBeGreaterThan(0);
     vi.useRealTimers();
   });
 });

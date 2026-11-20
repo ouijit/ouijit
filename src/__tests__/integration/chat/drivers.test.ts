@@ -737,7 +737,7 @@ describe('claude background work', () => {
       expect(stopped.nodes.filter((n) => n.kind === 'notice' && n.ended)).toHaveLength(1);
       expect(stopped.nodes.at(-1)).toMatchObject({
         kind: 'notice',
-        text: `${shell.description} stopped`,
+        text: shell.description,
         ended: { taskId: shell.id, status: 'stopped' },
       });
       unsubscribe();

@@ -826,14 +826,13 @@ class ClaudeSession implements DriverSession {
           if (!this.listed.delete(String(message.task_id)) || message.ambient || message.skip_transcript) return;
           const status =
             message.status === 'completed' ? 'completed' : message.status === 'failed' ? 'failed' : 'stopped';
-          const verb = { completed: 'finished', failed: 'failed', stopped: 'stopped' }[status];
           this.sink.node({
             id: `claude-ended-${String(message.task_id)}`,
             kind: 'notice',
             parentId: null,
             createdAt: Date.now(),
             level: status === 'failed' ? 'error' : 'info',
-            text: `${shell.description} ${verb}`,
+            text: shell.description,
             ended: { taskId: String(message.task_id), status, ms: Date.now() - shell.startedAt },
           });
           return;

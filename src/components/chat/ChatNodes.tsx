@@ -8,6 +8,7 @@ import type {
   ChatNode,
   FileChange,
   NodeStatus,
+  NoticeNode,
   PlanNode,
   ToolCallNode,
   ToolKind,
@@ -165,6 +166,25 @@ function ToolCallView({
           {children && <div className="border-l border-separator pl-3 flex flex-col gap-1">{children}</div>}
         </div>
       )}
+    </div>
+  );
+}
+
+/** The mark for how background work ended, here and in the bar. */
+export function EndedMark({ status }: { status: NonNullable<NoticeNode['ended']>['status'] }) {
+  const name = status === 'failed' ? 'x' : status === 'stopped' ? 'prohibit' : 'check';
+  return (
+    <Icon name={name} className={`w-3.5 h-3.5 shrink-0 ${status === 'failed' ? 'text-error' : 'text-text-tertiary'}`} />
+  );
+}
+
+/** Background work that ended, where it ended: its mark says how, so the line is only its name and time. */
+function EndedLine({ ended, text }: { ended: NonNullable<NoticeNode['ended']>; text: string }) {
+  return (
+    <div className="flex items-center gap-2 text-[13px] text-text-tertiary">
+      <EndedMark status={ended.status} />
+      <span className="min-w-0 break-words">{text}</span>
+      <Span ms={ended.ms} />
     </div>
   );
 }
@@ -594,20 +614,7 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
       );
     }
     case 'notice':
-      if (node.ended) {
-        return (
-          <div
-            className={`flex items-center gap-3 text-[11px] ${node.ended.status === 'failed' ? 'text-error' : 'text-text-tertiary'}`}
-          >
-            <div className="flex-1 border-t border-separator" />
-            <span className="flex items-center gap-2">
-              {node.text}
-              <Span ms={node.ended.ms} />
-            </span>
-            <div className="flex-1 border-t border-separator" />
-          </div>
-        );
-      }
+      if (node.ended) return <EndedLine ended={node.ended} text={node.text} />;
       return (
         <div
           className={`text-[13px] break-words ${node.level === 'error' ? 'text-error' : node.level === 'warning' ? 'text-text-secondary' : 'text-text-tertiary'}`}

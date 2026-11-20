@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../terminal/Icon';
-import { Span, useNow } from './ChatNodes';
+import { EndedMark, Span, useNow } from './ChatNodes';
 import type { ChatBackgroundTask, ChatNode, ChatSessionInfo, NoticeNode } from '../../chat/model';
 
 /** How much of a task's output shows when its row is opened. */
@@ -52,14 +52,7 @@ function TaskRow({ cardId, task, ended }: { cardId: string; task: ChatBackground
   return (
     <li className="group">
       <div className="flex items-center gap-2.5 px-3 h-8 text-[13px] text-text-secondary">
-        {ended ? (
-          <Icon
-            name={ended.status === 'failed' ? 'x-circle' : ended.status === 'stopped' ? 'prohibit' : 'check'}
-            className={`w-3.5 h-3.5 shrink-0 ${ended.status === 'failed' ? 'text-error' : 'text-text-tertiary'}`}
-          />
-        ) : (
-          <BackgroundDots />
-        )}
+        {ended ? <EndedMark status={ended.status} /> : <BackgroundDots />}
         <button
           type="button"
           aria-expanded={open}

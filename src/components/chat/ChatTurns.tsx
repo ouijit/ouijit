@@ -35,6 +35,18 @@ interface Turn {
 
 const KEPT: ChatNode['kind'][] = ['request', 'notice', 'plan'];
 
+/** Background work ending one after another reads as one group; anything else stands alone. */
+function endingsTogether(nodes: ChatNode[]): ChatNode[][] {
+  const runs: ChatNode[][] = [];
+  for (const node of nodes) {
+    const last = runs.at(-1);
+    const ending = node.kind === 'notice' && node.ended;
+    if (ending && last?.every((other) => other.kind === 'notice' && other.ended)) last.push(node);
+    else runs.push([node]);
+  }
+  return runs;
+}
+
 function turnsOf(nodes: ChatNode[]): Turn[] {
   const turns: Turn[] = [];
   let current: Turn | null = null;
@@ -498,7 +510,19 @@ export function ChatTurns({
           />,
         );
       }
-      for (const node of turn.kept) items.push(<ChatNodeView key={node.id} node={node} context={context} />);
+      for (const run of endingsTogether(turn.kept)) {
+        items.push(
+          run.length === 1 ? (
+            <ChatNodeView key={run[0].id} node={run[0]} context={context} />
+          ) : (
+            <div key={run[0].id} className="flex flex-col gap-1">
+              {run.map((node) => (
+                <ChatNodeView key={node.id} node={node} context={context} />
+              ))}
+            </div>
+          ),
+        );
+      }
     }
     return (
       <div
