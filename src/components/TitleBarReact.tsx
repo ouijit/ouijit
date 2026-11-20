@@ -20,7 +20,6 @@ import {
 } from '../stores/terminalStore';
 import { showInListOrder } from './sidebar/SidebarRows';
 import { useSidebarShown } from './sidebar/sidebarShown';
-import { WaitingQueue } from './waiting/WaitingQueue';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -154,7 +153,6 @@ export function TitleBar() {
           </div>
         )}
         <div className="flex-1" />
-        <WaitingQueue />
         {showsTerminal && flags.canvas && (
           <Tooltip text={terminalLayout === 'canvas' ? 'Stack' : 'Canvas'} placement="bottom">
             <button

@@ -15,7 +15,6 @@ import { isActiveSandbox } from '../sandbox/types';
 import { beginTransition } from '../services/taskStartService';
 import { hookSandbox, hookTypeForTransition } from '../services/hookRun';
 import { useWaitingStore } from '../stores/waitingStore';
-import { presentWaiting } from '../services/presentWaiting';
 import { completeTask } from '../services/taskCompletion';
 import { reloadTheme } from '../theme/themeManager';
 import log from 'electron-log/renderer';
@@ -34,9 +33,9 @@ function hookOptions({ hookMode, hookCommand, hookSandbox }: CliHookControl) {
 
 /**
  * A CLI task move never takes over the screen. Where its hook would open a
- * dialog, the move waits in the queue, from the terminal that ran it, and runs
- * its hook once the user picks it there, having read the command. Otherwise it
- * runs at once, its terminal behind the one on screen.
+ * dialog, the move waits on the terminal that ran it, and runs its hook once
+ * the user picks it there, having read the command. Otherwise it runs at once,
+ * its terminal behind the one on screen.
  *
  * A sandboxed caller's `--run-hook` waits for the user too when the hook runs
  * on the host, since it would run there in a worktree the caller wrote.
@@ -52,7 +51,7 @@ async function stageOrRun(
   const onHost = !!hook && !isActiveSandbox(hookSandbox(undefined, hook, await projectDefaultSandbox(projectPath)));
   const onHostUnseen = !!move.fromSandbox && move.hookMode === 'run' && onHost;
   if (hook && move.hookType && (!move.hookMode || onHostUnseen) && fromPtyId) {
-    const id = useWaitingStore.getState().add({
+    useWaitingStore.getState().add({
       kind: 'move',
       from: fromPtyId,
       projectPath,
@@ -63,7 +62,6 @@ async function stageOrRun(
       outsideSandbox: !!move.fromSandbox && onHost,
       run: () => run(true, { hookMode: 'run' }),
     });
-    presentWaiting(id, fromPtyId);
     return;
   }
   run(true, move);

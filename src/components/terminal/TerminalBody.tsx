@@ -6,6 +6,7 @@ import { RunnerPanel } from './RunnerPanel';
 import { DiffPanel } from '../diff/DiffPanel';
 import { PlanPanel } from '../plan/PlanPanel';
 import { WebPreviewPanel } from '../webPreview/WebPreviewPanel';
+import { WaitingDialog } from '../waiting/WaitingDialog';
 import { useTerminalPanels } from './useTerminalPanels';
 import { terminalInstances } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
@@ -215,6 +216,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
           </div>
         )}
       </div>
+      <WaitingDialog ptyId={ptyId} />
     </div>
   );
 }

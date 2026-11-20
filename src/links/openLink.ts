@@ -74,7 +74,11 @@ export async function openLink(uri: string): Promise<void> {
       }
       await focusTerminal(target.ptyId);
       if (target.diff) showDiff(target.ptyId, target.diff);
-      else if (target.panelId) terminalInstances.get(target.ptyId)?.activatePanel(target.panelId);
+      else if (target.panelId) {
+        const instance = terminalInstances.get(target.ptyId);
+        if (instance?.panels.some((p) => p.id === target.panelId)) instance.activatePanel(target.panelId);
+        else useProjectStore.getState().addToast('That panel was closed');
+      }
       return;
     }
     case 'pr':
