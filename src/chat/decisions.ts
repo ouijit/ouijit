@@ -64,20 +64,28 @@ function tell(from: string, text: string, note: WakeNote): void {
  * hold a runner, so an approved run happens here, with no input: a command
  * that prompts gets an end of file rather than waiting on nobody.
  */
-export function holdAsk(from: string, ask: AskRun, message: string | undefined): Promise<AskAnswer> {
+export function holdAsk(
+  from: string,
+  ask: AskRun,
+  message: string | undefined,
+  sandboxed: boolean,
+): Promise<AskAnswer> {
   return new Promise((resolve) => {
-    hold({ kind: 'ask', from, ask, ...(message && { message }) }, async (choice, quiet) => {
-      let answer: AskAnswer;
-      if (choice.kind === 'decline') {
-        answer = { status: 'declined' };
-      } else {
-        const run = await runHeadless(ask.runCommand ?? ask.command, ask.cwd);
-        answer = exitedAnswer({ ...run, privately: !!choice.privately });
-      }
-      resolve(answer);
-      if (!ask.wait && !quiet)
-        tell(from, describeOutcome(ask.command, answer), youDid(outcomeNote(ask.command, answer)));
-    });
+    hold(
+      { kind: 'ask', from, ask, ...(message && { message }), ...(sandboxed && { sandboxed }) },
+      async (choice, quiet) => {
+        let answer: AskAnswer;
+        if (choice.kind === 'decline') {
+          answer = { status: 'declined' };
+        } else {
+          const run = await runHeadless(ask.runCommand ?? ask.command, ask.cwd);
+          answer = exitedAnswer({ ...run, privately: !!choice.privately });
+        }
+        resolve(answer);
+        if (!ask.wait && !quiet)
+          tell(from, describeOutcome(ask.command, answer), youDid(outcomeNote(ask.command, answer)));
+      },
+    );
     if (!ask.wait) resolve({ status: 'pending' });
   });
 }

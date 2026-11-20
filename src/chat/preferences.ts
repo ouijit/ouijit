@@ -95,7 +95,7 @@ export type ChatDecision = {
   /** The conversation that asked. */
   from: string;
   at: number;
-} & { kind: 'ask'; ask: AskRun; message?: string };
+} & { kind: 'ask'; ask: AskRun; message?: string; sandboxed?: boolean };
 
 /** A task, as news about it is routed: to the conversation that started it. */
 export interface TaskRef {

@@ -284,3 +284,25 @@ describe('what an agent leaves for the user', () => {
     expect(screen.queryByRole('button', { name: /waiting$/ })).toBeNull();
   });
 });
+
+describe("Chat's asks", () => {
+  test('say they leave its sandbox only when Chat runs in one', async () => {
+    render(<WaitingQueue />);
+    for (const [outsideSandbox, said] of [
+      [false, /^Runs on your computer\. Run privately/],
+      [true, /^Runs on your computer, outside its sandbox\./],
+    ] as const) {
+      // Chat's asks reach the queue as decisions the main process holds, not through a terminal.
+      act(() => {
+        useWaitingStore.getState().add({
+          kind: 'ask',
+          from: 'chat-home',
+          ask: { command: 'gh pr list', cwd: PROJECT, wait: true, outsideSandbox, run: vi.fn(), decline: vi.fn() },
+        });
+        useWaitingStore.setState({ open: true });
+      });
+      await screen.findByText(said);
+      act(() => useWaitingStore.setState({ items: [], open: false, selected: null }));
+    }
+  });
+});

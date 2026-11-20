@@ -28,7 +28,13 @@ function show(decisions: ChatDecision[]): void {
     const waitingId = store.add({
       kind: 'ask',
       from: decision.from,
-      ask: { ...decision.ask, ...(decision.message && { message: decision.message }), run, decline },
+      ask: {
+        ...decision.ask,
+        ...(decision.message && { message: decision.message }),
+        ...(decision.sandboxed && { outsideSandbox: true }),
+        run,
+        decline,
+      },
     });
     shown.set(decision.id, waitingId);
     presentWaiting(waitingId, decision.from);

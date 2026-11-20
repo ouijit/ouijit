@@ -870,7 +870,10 @@ const routes: Route[] = [
       const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_ASK_MESSAGE) : '';
       // Chat has no terminal for a runner, so its own asks wait here, in Chat.
       if (callerIsHomeChat(r.auth.ptyId)) {
-        return { command: ask.command, cwd: ask.cwd, ...(await holdAsk(r.auth.ptyId, ask, message || undefined)) };
+        // The token cannot say: a sandbox at Everything access is served as the host.
+        const sandboxed = chatHost.snapshot(r.auth.ptyId)?.info.sandbox != null;
+        const answer = await holdAsk(r.auth.ptyId, ask, message || undefined, sandboxed);
+        return { command: ask.command, cwd: ask.cwd, ...answer };
       }
       void wakeForAsk(r.auth.ptyId, ask.command, message);
       const result = await cliAskRequest({

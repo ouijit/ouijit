@@ -142,10 +142,11 @@ describe('what Chat can do', () => {
     expect((await api('DELETE', `tasks/2?${project}`)).status).toBe(200);
     expect(await getTaskByNumber(repo, 2)).toBeFalsy();
 
-    // A command it asks to run outside its sandbox waits for the user, and the answer comes back to it.
+    // A command it asks to run on the host waits for the user, and the answer comes back to it.
     const asking = api('POST', 'ask/run', { argv: ['echo', 'from the host'], wait: true });
     const ask = await until(() => chatDecisions().find((d) => d.kind === 'ask'), 'the ask');
     expect(ask).toMatchObject({ from: chat, ask: { command: "echo 'from the host'" } });
+    expect(ask.sandboxed).toBeUndefined();
     await decide(ask.id, { kind: 'run' });
     expect((await asking).data).toMatchObject({ status: 'exited', exitCode: 0, output: 'from the host' });
     expect(chatDecisions()).toEqual([]);

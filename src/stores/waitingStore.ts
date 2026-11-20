@@ -4,6 +4,8 @@ import type { AskRun, HookType } from '../types';
 /** A request to run something on the host. It is decided once: run, or declined. */
 export interface PendingAsk extends AskRun {
   message?: string;
+  /** Asked from a sandbox, rather than from an agent already on the host. Terminals' asks go by their card. */
+  outsideSandbox?: boolean;
   /** Privately, the agent is told how it ended but not what it printed. */
   run: (privately?: boolean) => void;
   decline: () => void;

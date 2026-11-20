@@ -136,8 +136,7 @@ function ListEntry({ item, selected, onPick }: { item: Waiting; selected: boolea
 /** The one item the dialog shows, at full size: who wants it, why, what runs, and the script it runs. */
 function Detail({ item }: { item: Waiting }) {
   const taskName = useTaskName(item);
-  const fromChat = useIsHomeChat(item.from);
-  const sandboxed = useTerminalStore((s) => isActiveSandbox(s.displayStates[item.from]?.sandboxProvider)) || fromChat;
+  const cardSandboxed = useTerminalStore((s) => isActiveSandbox(s.displayStates[item.from]?.sandboxProvider));
   const ownTask = useMovesOwnTask(item);
 
   if (item.kind === 'move') {
@@ -169,6 +168,7 @@ function Detail({ item }: { item: Waiting }) {
   }
 
   const { ask } = item;
+  const sandboxed = cardSandboxed || ask.outsideSandbox;
   const risks = scriptRisks(ask.file);
   return (
     <>
