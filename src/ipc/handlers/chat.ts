@@ -73,6 +73,7 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   typedHandle('chat:rewind', (id, userMessageId) => chatHost.rewind(id, userMessageId));
   typedHandle('chat:compact', (id) => chatHost.compact(id));
   typedHandle('chat:stopBackground', (id, taskId) => chatHost.stopBackground(id, taskId));
+  typedHandle('chat:backgroundOutput', (id, taskId) => chatHost.backgroundOutput(id, taskId));
   typedHandle('chat:fork', (id) => chatHost.fork(id));
   typedHandle('chat:stop', (id) => chatHost.stop(id));
   typedHandle('chat:discard', (id) => chatHost.discard(id));

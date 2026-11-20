@@ -127,6 +127,8 @@ export interface NoticeNode extends NodeBase {
   kind: 'notice';
   level: 'info' | 'warning' | 'error';
   text: string;
+  /** Set where the notice is a background task ending: which, how, and after how long. */
+  ended?: { taskId: string; status: 'completed' | 'failed' | 'stopped'; ms: number };
 }
 
 /** Where the user stopped a turn: the same quiet line for every agent. */
@@ -302,6 +304,10 @@ export interface ChatBackgroundTask {
   id: string;
   kind: 'shell' | 'agent';
   description: string;
+  /** When the agent started it, or when Ouijit first saw it running. */
+  startedAt: number;
+  /** The tool call that sent it to the background. */
+  toolCallId?: string;
 }
 
 export type ChatTextField = 'text' | 'output';

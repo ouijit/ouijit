@@ -172,13 +172,14 @@ export function ChatView({
       cardId,
       children,
       canRewind: Boolean(info?.capabilities.rewind && info.status === 'idle'),
+      inBackground: new Set((info?.background ?? []).flatMap((task) => (task.toolCallId ? [task.toolCallId] : []))),
       onRewind: (nodeId) => {
         void window.api.chat
           .rewind(cardId, nodeId)
           .catch((error: unknown) => useProjectStore.getState().addToast(String(error), 'error'));
       },
     }),
-    [cardId, children, info?.capabilities.rewind, info?.status],
+    [cardId, children, info?.capabilities.rewind, info?.status, info?.background],
   );
 
   if (!session || !info) {
@@ -225,7 +226,7 @@ export function ChatView({
         />
       )}
       <div className="mx-auto w-full max-w-[52rem]">
-        <ChatBackground cardId={cardId} info={info} />
+        <ChatBackground cardId={cardId} info={info} nodes={nodes ?? []} />
         <ChatComposer cardId={cardId} info={info} focusRef={setFocus} />
       </div>
     </div>

@@ -945,6 +945,12 @@ export class ChatHost {
     await driver.stopBackground(taskId);
   }
 
+  /** Null where the agent does not share it. */
+  async backgroundOutput(id: string, taskId: string): Promise<string | null> {
+    const { driver } = await this.requireDriver(id);
+    return driver.backgroundOutput ? driver.backgroundOutput(taskId) : null;
+  }
+
   async compact(id: string): Promise<void> {
     // Said before anything is awaited: some agents report nothing until the compaction is done.
     const live = this.sessions.get(id);

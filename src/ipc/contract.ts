@@ -497,6 +497,7 @@ export interface IpcInvokeContract {
   'chat:rewind': { args: [id: string, userMessageId: string]; return: void };
   'chat:compact': { args: [id: string]; return: void };
   'chat:stopBackground': { args: [id: string, taskId: string]; return: void };
+  'chat:backgroundOutput': { args: [id: string, taskId: string]; return: string | null };
   'chat:fork': { args: [id: string]; return: ChatSnapshot };
   /** Stop the agent and keep the transcript; resolves once it has exited. */
   'chat:stop': { args: [id: string]; return: void };

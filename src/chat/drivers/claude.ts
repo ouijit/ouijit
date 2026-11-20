@@ -16,6 +16,7 @@ import { binaryVersion, compareVersions, resolveAgentBinary } from '../binaries'
 import { deferredProcess } from '../process';
 import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
 import type {
+  ChatBackgroundTask,
   ChatAnswer,
   ChatCapabilities,
   ChatNode,
@@ -516,6 +517,11 @@ class ClaudeSession implements DriverSession {
   private readonly modelAliases = new Map<string, string>();
   /** A subagent outlives its Agent call when Claude runs it in the background, so it finishes on its own report. */
   private readonly subagents = new Map<string, SubagentNode>();
+  /** Background shells, from when each started, for its time and the line that marks its end. */
+  private readonly shells = new Map<string, Omit<ChatBackgroundTask, 'id' | 'kind'>>();
+  private readonly agentsSeen = new Map<string, Omit<ChatBackgroundTask, 'id' | 'kind'>>();
+  /** The list as Claude last reported it. */
+  private backgroundTasks: Json[] = [];
   private reportedModel: string | undefined;
   private lastContext: { tokens: number; model: string | undefined } | null = null;
   /** The user stopped this turn, so it ending early is not an error. */
@@ -605,6 +611,7 @@ class ClaudeSession implements DriverSession {
   private begin(extra: Partial<Options>): void {
     this.input = new InputQueue();
     // Claude reports background work per process and says nothing at startup.
+    this.backgroundTasks = [];
     this.sink.session({ background: [] });
     const q = query({ prompt: this.input, options: this.options(extra) });
     this.q = q;
@@ -764,15 +771,8 @@ class ClaudeSession implements DriverSession {
         });
         return;
       case 'background_tasks_changed':
-        this.sink.session({
-          background: ((message.tasks ?? []) as Json[])
-            .filter((task) => !task.ambient && !task.parent_task_id)
-            .map((task) => ({
-              id: String(task.task_id),
-              kind: task.task_type === 'local_bash' ? ('shell' as const) : ('agent' as const),
-              description: String(task.description ?? ''),
-            })),
-        });
+        this.backgroundTasks = (message.tasks ?? []) as Json[];
+        this.reportBackground();
         return;
       case 'compact_boundary': {
         const metadata = (message.compact_metadata ?? {}) as Json;
@@ -791,7 +791,16 @@ class ClaudeSession implements DriverSession {
         return;
       }
       case 'task_started':
-        if (str(message.tool_use_id)) {
+        if (message.task_type === 'local_bash') {
+          const id = String(message.task_id);
+          this.shells.set(id, {
+            description: String(message.description ?? ''),
+            startedAt: this.shells.get(id)?.startedAt ?? Date.now(),
+            ...(str(message.tool_use_id) && { toolCallId: `claude-tool-${String(message.tool_use_id)}` }),
+          });
+          // The list can name a task before its start does.
+          if (this.backgroundTasks.some((task) => String(task.task_id) === id)) this.reportBackground();
+        } else if (str(message.tool_use_id)) {
           const node: SubagentNode = {
             id: `claude-task-${String(message.task_id)}`,
             kind: 'subagent',
@@ -806,6 +815,24 @@ class ClaudeSession implements DriverSession {
         }
         return;
       case 'task_notification': {
+        const shell = this.shells.get(String(message.task_id));
+        if (shell) {
+          this.shells.delete(String(message.task_id));
+          if (message.ambient || message.skip_transcript) return;
+          const status =
+            message.status === 'completed' ? 'completed' : message.status === 'failed' ? 'failed' : 'stopped';
+          const verb = { completed: 'finished', failed: 'failed', stopped: 'stopped' }[status];
+          this.sink.node({
+            id: `claude-ended-${String(message.task_id)}`,
+            kind: 'notice',
+            parentId: null,
+            createdAt: Date.now(),
+            level: status === 'failed' ? 'error' : 'info',
+            text: `${shell.description} ${verb}`,
+            ended: { taskId: String(message.task_id), status, ms: Date.now() - shell.startedAt },
+          });
+          return;
+        }
         const node = this.subagents.get(String(message.task_id));
         if (!node) return;
         this.subagents.delete(String(message.task_id));
@@ -819,6 +846,22 @@ class ClaudeSession implements DriverSession {
         if (str(message.text) ?? str(message.message)) this.notice('info', String(message.text ?? message.message));
         return;
     }
+  }
+
+  private reportBackground(): void {
+    this.sink.session({
+      background: this.backgroundTasks
+        .filter((task) => !task.ambient && !task.parent_task_id)
+        .map((task) => {
+          const id = String(task.task_id);
+          const description = String(task.description ?? '');
+          const shell = task.task_type === 'local_bash';
+          const seen = shell ? this.shells : this.agentsSeen;
+          const known = seen.get(id) ?? { description, startedAt: Date.now() };
+          seen.set(id, { ...known, description });
+          return { id, kind: shell ? ('shell' as const) : ('agent' as const), ...known, description };
+        }),
+    });
   }
 
   private notice(level: 'info' | 'warning' | 'error', text: string): void {
@@ -949,6 +992,12 @@ class ClaudeSession implements DriverSession {
 
   async stopBackground(taskId: string): Promise<void> {
     await this.q?.stopTask(taskId);
+  }
+
+  async backgroundOutput(taskId: string): Promise<string> {
+    // At runtime the query has it, though the SDK's types leave it out.
+    const q = this.q as (Query & { getTaskOutput?(id: string): Promise<{ output: string }> }) | null;
+    return (await q?.getTaskOutput?.(taskId))?.output ?? '';
   }
 
   async compact(): Promise<void> {

@@ -318,16 +318,28 @@ describe('chat view', () => {
     fireEvent.click(screen.getByText('Survey module 4'));
     expect(screen.getByText('Read module4/file1.ts')).toBeTruthy();
 
-    // Work the agent leaves running is listed above the composer, each with a stop.
+    // Work the agent leaves running is listed above the composer: how long it has run,
+    // its latest output a click away, a stop, and a tag on the call that started it.
+    const started = Date.now() - 125_000;
+    vi.mocked(window.api.chat.backgroundOutput).mockResolvedValue('compiling\nready on :5173\n');
     act(() =>
       host.emit({
         type: 'session',
-        patch: { status: 'idle', background: [{ id: 'bash-1', kind: 'shell', description: 'npm run dev' }] },
+        patch: {
+          status: 'idle',
+          background: [
+            { id: 'bash-1', kind: 'shell', description: 'npm run dev', startedAt: started, toolCallId: 't1' },
+          ],
+        },
       }),
     );
-    fireEvent.click(await screen.findByRole('button', { name: 'Stop npm run dev' }));
+    const dev = await screen.findByRole('button', { name: /^npm run dev\s?· 2m$/ });
+    fireEvent.click(dev);
+    expect(await screen.findByText(/ready on :5173/)).toBeTruthy();
+    expect(window.api.chat.backgroundOutput).toHaveBeenCalledWith(ID, 'bash-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Stop npm run dev' }));
     expect(window.api.chat.stopBackground).toHaveBeenCalledWith(ID, 'bash-1');
-    // Several fold behind a count until opened.
+    // Several fold behind a count, naming the newest, until opened.
     act(() =>
       host.emit({
         type: 'session',
@@ -336,12 +348,13 @@ describe('chat view', () => {
             id: `agent-${n}`,
             kind: 'agent' as const,
             description: `Survey ${n}`,
+            startedAt: started + n * 1000,
           })),
         },
       }),
     );
     expect(screen.queryByRole('button', { name: 'Stop Survey 5' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '5 running in the background' }));
+    fireEvent.click(screen.getByRole('button', { name: /^5 running · Survey 5/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Stop Survey 5' }));
     expect(window.api.chat.stopBackground).toHaveBeenCalledWith(ID, 'agent-5');
     act(() => host.emit({ type: 'session', patch: { background: [] } }));
@@ -480,5 +493,56 @@ describe('compacting from chat', () => {
     ]);
     expect(screen.queryByText('Compacting')).toBeNull();
     expect(screen.getByText('Context compacted')).toBeTruthy();
+  });
+});
+
+describe('a background shell', () => {
+  test('tags the call that started it, and on ending says how in the bar a moment and in the transcript for good', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] });
+    const at = Date.now();
+    const call: ChatNode = {
+      id: 'tool-build',
+      kind: 'tool_call',
+      parentId: null,
+      createdAt: at,
+      tool: 'command',
+      title: 'Build the app',
+      command: 'npm run make',
+      status: 'completed',
+      files: [],
+      output: '',
+    };
+    const task = { id: 'b1', kind: 'shell' as const, description: 'Build the app', startedAt: at, toolCallId: call.id };
+    const live = (patch: Partial<ChatSessionInfo>, extra: ChatNode[] = []) =>
+      act(() =>
+        useChatStore
+          .getState()
+          .adopt({ info: { ...INFO, status: 'idle', ...patch }, nodes: [...NODES, call, ...extra], seq: 0 }),
+      );
+    live({ background: [task] });
+    render(<ChatView cardId={ID} />);
+    // It sits in the turn's folded work, with the rest of what the agent did.
+    fireEvent.click(screen.getAllByRole('button', { name: /^Ran / }).at(-1)!);
+    expect(screen.getByRole('button', { name: /^Build the app\s?In background$/ })).toBeTruthy();
+
+    const ended: ChatNode = {
+      id: 'ended-b1',
+      kind: 'notice',
+      parentId: null,
+      createdAt: at + 180_000,
+      level: 'error',
+      text: 'Build the app failed',
+      ended: { taskId: 'b1', status: 'failed', ms: 180_000 },
+    };
+    live({ background: [] }, [ended]);
+    const bar = screen.getByRole('list', { name: 'Running in the background' });
+    expect(bar.textContent).toMatch(/^Build the app\s?· 3m$/);
+    expect(screen.queryByRole('button', { name: 'Stop Build the app' })).toBeNull();
+    expect(screen.getByText('Build the app failed')).toBeTruthy();
+
+    act(() => vi.advanceTimersByTime(5000));
+    expect(screen.queryByRole('list', { name: 'Running in the background' })).toBeNull();
+    expect(screen.getByText('Build the app failed')).toBeTruthy();
+    vi.useRealTimers();
   });
 });

@@ -72,6 +72,8 @@ export interface DriverSession {
   rewind?(userMessageId: string): Promise<void>;
   compact?(): Promise<void>;
   stopBackground?(taskId: string): Promise<void>;
+  /** The end of what a background task has printed so far. */
+  backgroundOutput?(taskId: string): Promise<string>;
   /**
    * Start a fresh conversation, for an agent whose protocol does not take
    * `/clear` as a message. The driver calls `reset` once it has.

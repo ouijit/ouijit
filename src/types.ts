@@ -443,6 +443,7 @@ export interface ChatAPI {
   rewind(id: string, userMessageId: string): Promise<void>;
   compact(id: string): Promise<void>;
   stopBackground(id: string, taskId: string): Promise<void>;
+  backgroundOutput(id: string, taskId: string): Promise<string | null>;
   fork(id: string): Promise<ChatSnapshot>;
   stop(id: string): Promise<void>;
   discard(id: string): Promise<void>;

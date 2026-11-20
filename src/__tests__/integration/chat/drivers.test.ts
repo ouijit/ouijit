@@ -701,7 +701,7 @@ describe('claude background work', () => {
   const available = recording || fs.existsSync(cassettePath(name));
 
   test.skipIf(!available)(
-    'a shell the agent leaves running is listed until it is stopped from the chat',
+    'a shell the agent leaves running is listed, timed and tied to its call until stopped, and its end is kept',
     async () => {
       const cwd = repo();
       const probe = recording ? await getDriver('claude').probe() : null;
@@ -723,9 +723,22 @@ describe('claude background work', () => {
       );
       const shell = running.info.background!.find((task) => task.kind === 'shell')!;
       expect(shell.description).toBeTruthy();
+      expect(shell.startedAt).toBeGreaterThan(0);
+      expect(running.nodes.some((n) => n.kind === 'tool_call' && n.id === shell.toolCallId)).toBe(true);
 
       await host.stopBackground(id, shell.id);
-      await until(host, id, (s) => !(s.info.background ?? []).some((task) => task.id === shell.id), timeout);
+      const stopped = await until(
+        host,
+        id,
+        (s) => !(s.info.background ?? []).some((task) => task.id === shell.id),
+        timeout,
+      );
+      // Its end stays in the transcript, saying how it ended.
+      expect(stopped.nodes.at(-1)).toMatchObject({
+        kind: 'notice',
+        text: `${shell.description} stopped`,
+        ended: { taskId: shell.id, status: 'stopped' },
+      });
       unsubscribe();
       await host.stop(id);
     },

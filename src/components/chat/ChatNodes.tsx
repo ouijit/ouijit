@@ -83,7 +83,17 @@ function openDiff(cardId: string): void {
 }
 
 /** Agents name files by absolute path; inside the card's own worktree the rest of the path says nothing. */
-function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: string; children?: ReactNode }) {
+function ToolCallView({
+  node,
+  cardId,
+  inBackground = false,
+  children,
+}: {
+  node: ToolCallNode;
+  cardId: string;
+  inBackground?: boolean;
+  children?: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const hasDetail = Boolean(node.command || node.output || node.files.some((f) => f.diff) || children);
   return (
@@ -106,8 +116,14 @@ function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: 
             </span>
           ) : null;
         })}
-        <StepSpan node={node} />
-        <StatusMark status={node.status} />
+        {inBackground ? (
+          <span className="shrink-0 text-[12px] text-text-tertiary">In background</span>
+        ) : (
+          <>
+            <StepSpan node={node} />
+            <StatusMark status={node.status} />
+          </>
+        )}
       </button>
       {!open && node.status === 'running' && node.output && (
         <pre className="ml-5 mb-1 font-mono text-[12px] leading-[1.45] text-text-tertiary whitespace-pre overflow-hidden rounded-[8px] bg-ink/[0.04] px-3 py-2">
@@ -503,6 +519,8 @@ export interface NodeContext {
   children: Map<string | null, ChatNode[]>;
   canRewind: boolean;
   onRewind: (nodeId: string) => void;
+  /** Tool calls whose work carries on in the background after they returned. */
+  inBackground?: ReadonlySet<string>;
 }
 
 export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node: ChatNode; context: NodeContext }) {
@@ -546,7 +564,7 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
         );
       }
       return (
-        <ToolCallView node={node} cardId={context.cardId}>
+        <ToolCallView node={node} cardId={context.cardId} inBackground={context.inBackground?.has(node.id)}>
           {childViews}
         </ToolCallView>
       );
@@ -576,6 +594,20 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
       );
     }
     case 'notice':
+      if (node.ended) {
+        return (
+          <div
+            className={`flex items-center gap-3 text-[11px] ${node.ended.status === 'failed' ? 'text-error' : 'text-text-tertiary'}`}
+          >
+            <div className="flex-1 border-t border-separator" />
+            <span className="flex items-center gap-2">
+              {node.text}
+              <Span ms={node.ended.ms} />
+            </span>
+            <div className="flex-1 border-t border-separator" />
+          </div>
+        );
+      }
       return (
         <div
           className={`text-[13px] break-words ${node.level === 'error' ? 'text-error' : node.level === 'warning' ? 'text-text-secondary' : 'text-text-tertiary'}`}
