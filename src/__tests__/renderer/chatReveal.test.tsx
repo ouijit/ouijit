@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
-import { act, render, renderHook, screen } from '@testing-library/react';
+import { act, cleanup, render, renderHook, screen } from '@testing-library/react';
 import { closeOpenMarkup, useReveal } from '../../components/chat/useReveal';
 import { ChatTurns, RevealHeld, useRevealGate } from '../../components/chat/ChatTurns';
 import type { ChatNode } from '../../chat/model';
@@ -204,5 +204,57 @@ describe('a turn still working', () => {
     expect(screen.getByRole('button', { name: /Ran 2 commands\s?· 8m/, expanded: true })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Run driver tests\s?· 3m/ })).toBeTruthy();
     vi.useRealTimers();
+  });
+});
+
+describe("the working line's phrase", () => {
+  test('names steps and short remarks, and never quotes a thought or a remark that runs on', () => {
+    const at = Date.now();
+    const context = { cardId: 'card-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    const opener = {
+      kind: 'user_message',
+      id: 'u',
+      parentId: null,
+      createdAt: at,
+      text: 'Go',
+      attachments: [],
+      delivery: 'prompt',
+    } as ChatNode;
+    const thought = {
+      kind: 'reasoning',
+      id: 'r',
+      parentId: null,
+      createdAt: at,
+      text: "I'm checking whether a background bash task gets a subagent node under the Bash tool call, which would explain it.",
+      status: 'completed',
+    } as ChatNode;
+    const remark = (text: string) =>
+      ({
+        kind: 'assistant_message',
+        id: `a-${text.length}`,
+        parentId: null,
+        createdAt: at,
+        text,
+        status: 'completed',
+      }) as ChatNode;
+    const line = () => screen.getByRole('status', { name: 'Working' }).textContent;
+
+    const { unmount } = render(<ChatTurns nodes={[opener, thought]} context={context} busy />);
+    expect(line()).toBe('Thinking');
+    unmount();
+    render(<ChatTurns nodes={[opener, remark('Checking the tests.')]} context={context} busy />);
+    expect(line()).toBe('Checking the tests.');
+    cleanup();
+    render(
+      <ChatTurns
+        nodes={[
+          opener,
+          remark('The compaction lands after the message, so it is folded into that turn and never shown.'),
+        ]}
+        context={context}
+        busy
+      />,
+    );
+    expect(line()).toBe('Thinking');
   });
 });

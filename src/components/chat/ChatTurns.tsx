@@ -109,21 +109,23 @@ function stepPhrase(node: ToolCallNode, cardId: string): string {
   return title.replace(/\S*\/(\S+)/g, (path, name: string) => (path.includes('://') ? path : name));
 }
 
+/** Longer than this, a remark is a paragraph's opening rather than a name for what is happening. */
+const REMARK_CHARS = 60;
+
 /**
- * What the agent is on now, from the latest thing that names it: a step, a
- * finished thought, or a remark. Something still streaming in is a few words
- * of a sentence, so it waits until it is whole; until then the last phrase stands.
+ * What the agent is on now: the latest step, or a short remark it made on the
+ * way to the next one. A thought is the agent's own working, too long to read
+ * as a line and not meant as a report, so it is Thinking, as is a remark that
+ * runs on. Something still streaming waits until it is whole.
  */
 function doingNow(work: ChatNode[], cardId: string): { phrase: string; since: number } | null {
   for (let i = work.length - 1; i >= 0; i--) {
     const node = work[i];
     if (node.kind === 'tool_call') return { phrase: stepPhrase(node, cardId), since: node.createdAt };
-    if ((node.kind === 'reasoning' || node.kind === 'assistant_message') && node.status !== 'running') {
-      if (node.text.trim())
-        return {
-          phrase: firstSentence(node.text),
-          since: (node.kind === 'reasoning' && node.endedAt) || node.createdAt,
-        };
+    if (node.kind === 'reasoning') return { phrase: 'Thinking', since: node.createdAt };
+    if (node.kind === 'assistant_message' && node.status !== 'running' && node.text.trim()) {
+      const remark = firstSentence(node.text);
+      return { phrase: remark.length <= REMARK_CHARS ? remark : 'Thinking', since: node.createdAt };
     }
   }
   return null;
