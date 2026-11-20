@@ -7,7 +7,7 @@ import { get, post, del, projectQuery } from '../api';
 import { resolvePtyId } from '../ptyId';
 import { printJson, printError } from '../output';
 
-export function registerDiffCommands(parent: Command, requireProject: () => string) {
+export function registerDiffCommands(parent: Command, requireProject: () => Promise<string>) {
   const diff = parent
     .command('diff')
     .description("Read the notes on a worktree's diff, and show or hide a terminal's diff")
@@ -32,7 +32,7 @@ Examples:
       }
       const num = parseInt(opts.task, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      printJson(await get(`/api/tasks/${num}/diff-notes${projectQuery(requireProject())}`));
+      printJson(await get(`/api/tasks/${num}/diff-notes${projectQuery(await requireProject())}`));
     });
 
   diff

@@ -31,7 +31,7 @@ const PROJECT = '/test/project';
 function createProgram() {
   const program = new Command();
   program.exitOverride();
-  registerHookCommands(program, () => PROJECT);
+  registerHookCommands(program, async () => PROJECT);
   return program;
 }
 

@@ -230,9 +230,14 @@ function worktreeRelative(ptyId: string, file: string): string | null {
   return relativeWithin(root, file) || null;
 }
 
-async function askRun(r: ParsedRequest): Promise<AskRun> {
+function callerContext(r: ParsedRequest) {
   const ctx = getPtySpawnContext(r.auth.ptyId);
   if (!ctx) throw new HttpError(404, `PTY ${r.auth.ptyId} not found or inactive`);
+  return ctx;
+}
+
+async function askRun(r: ParsedRequest): Promise<AskRun> {
+  const ctx = callerContext(r);
   const cwd = ctx.worktreePath || ctx.projectPath;
   const wait = r.body.wait === true;
   const { script, argv } = r.body;
@@ -817,8 +822,7 @@ const routes: Route[] = [
     'GET',
     'diff-notes',
     (r) => {
-      const ctx = getPtySpawnContext(r.auth.ptyId);
-      if (!ctx) throw new HttpError(404, `PTY ${r.auth.ptyId} not found or inactive`);
+      const ctx = callerContext(r);
       return liveNotes(ctx.worktreePath || ctx.projectPath);
     },
     false,
@@ -877,6 +881,8 @@ const routes: Route[] = [
   route('GET', 'projects', () => {
     return getProjectList();
   }),
+
+  route('GET', 'projects/current', (r) => ({ projectPath: callerContext(r).projectPath }), false, READ),
 
   // ── Scripts ──────────────────────────────────────────────────────
   route('GET', 'scripts', (r) => {

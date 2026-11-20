@@ -124,8 +124,8 @@ export const test = base.extend<OuijitFixtures>({
       // The runner may itself be inside an Ouijit terminal, whose session would
       // otherwise answer the markdown and preview commands.
       const { OUIJIT_PTY_ID: _, ...env } = process.env;
-      // --project rather than cwd detection: git resolves the tmpdir through
-      // its symlink (/var → /private/var), which is not the path the app registered.
+      // The driver's token belongs to no terminal, so a command that needs a
+      // project has to name one.
       const projectFlag = project ? '--project "$OUIJIT_E2E_PROJECT" ' : '';
       try {
         const { stdout } = await execFileAsync(

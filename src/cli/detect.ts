@@ -1,12 +1,8 @@
-/**
- * Auto-detect the project path from CWD via git.
- *
- * Resolves the main repo root even if CWD is inside a git worktree.
- */
-
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { get } from './api';
+import { printError } from './output';
 
 /**
  * Resolve the main git repo root from a path.
@@ -50,17 +46,15 @@ function resolveGitRoot(cwd: string): string | null {
   }
 }
 
-/**
- * Detect the project path for CLI commands.
- * Priority: --project flag > git-detected root > CWD
- */
-export function detectProject(explicitPath?: string): string | null {
+export async function requireProject(explicitPath?: string): Promise<string> {
   if (explicitPath) {
     const resolved = path.resolve(explicitPath);
-    return fs.existsSync(resolved) ? resolved : null;
+    if (!fs.existsSync(resolved)) return printError(`No project at ${resolved}`);
+    return resolved;
   }
-
-  const cwd = process.cwd();
-  const gitRoot = resolveGitRoot(cwd);
-  return gitRoot ?? null;
+  if (process.env['OUIJIT_API_TOKEN']) return (await get<{ projectPath: string }>('/api/projects/current')).projectPath;
+  return (
+    resolveGitRoot(process.cwd()) ??
+    printError('Could not detect project. Use --project <path> or run from within a git repo.')
+  );
 }

@@ -7,7 +7,7 @@
 
 import { Command } from 'commander';
 import { ApiError } from './api';
-import { detectProject } from './detect';
+import { requireProject } from './detect';
 import { forbiddenMessage, printError } from './output';
 import { registerTaskCommands } from './commands/task';
 import { registerHookCommands } from './commands/hook';
@@ -45,28 +45,23 @@ Examples:
   ouijit pr list`,
   );
 
-function requireProject(): string {
-  const opts = program.opts();
-  const project = detectProject(opts.project);
-  if (!project) return printError('Could not detect project. Use --project <path> or run from within a git repo.');
-  return project;
-}
+const project = () => requireProject(program.opts<{ project?: string }>().project);
 
-registerTaskCommands(program, requireProject);
-registerHookCommands(program, requireProject);
-registerTerminalCommands(program, requireProject);
+registerTaskCommands(program, project);
+registerHookCommands(program, project);
+registerTerminalCommands(program, project);
 registerTagCommands(program);
 registerProjectCommands(program);
-registerScriptCommands(program, requireProject);
-registerSandboxCommands(program, requireProject);
-registerPrCommands(program, requireProject);
-registerLinearCommands(program, requireProject);
-registerIssueCommands(program, requireProject);
-registerDiffCommands(program, requireProject);
+registerScriptCommands(program, project);
+registerSandboxCommands(program, project);
+registerPrCommands(program, project);
+registerLinearCommands(program, project);
+registerIssueCommands(program, project);
+registerDiffCommands(program, project);
 registerMarkdownCommands(program);
 registerPreviewCommands(program);
 registerPanelCommands(program);
-registerLinkCommands(program, requireProject);
+registerLinkCommands(program, project);
 registerAskCommands(program);
 registerThemeCommands(program);
 

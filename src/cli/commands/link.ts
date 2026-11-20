@@ -47,8 +47,8 @@ function diffSpot(
   return { path: relative.split(path.sep).join('/'), ...(match && { line: parseInt(match[2], 10) }) };
 }
 
-export function registerLinkCommands(parent: Command, requireProject: () => string) {
-  const project = () => path.basename(requireProject());
+export function registerLinkCommands(parent: Command, requireProject: () => Promise<string>) {
+  const project = async () => path.basename(await requireProject());
   const print = (target: LinkTarget) => printJson({ url: buildLink(target) });
 
   const link = parent
@@ -72,7 +72,7 @@ A link only navigates: opening one never runs or changes anything.`,
     .command('task')
     .description('A task: its terminal, or its card if it was never started')
     .argument('<number>', 'task number')
-    .action((n: string) => print({ kind: 'task', project: project(), taskNumber: int(n, 'Task number') }));
+    .action(async (n: string) => print({ kind: 'task', project: await project(), taskNumber: int(n, 'Task number') }));
 
   link
     .command('diff')
@@ -110,21 +110,23 @@ A link only navigates: opening one never runs or changes anything.`,
     .command('pr')
     .description('A pull request')
     .argument('<number>', 'pull request number')
-    .action((n: string) => print({ kind: 'pr', project: project(), number: int(n, 'Pull request number') }));
+    .action(async (n: string) =>
+      print({ kind: 'pr', project: await project(), number: int(n, 'Pull request number') }),
+    );
 
   link
     .command('issue')
     .description('An issue: a GitHub issue number, or a Linear identifier')
     .argument('<id>', '231 or ENG-231')
-    .action((id: string) => print({ kind: 'issue', project: project(), id }));
+    .action(async (id: string) => print({ kind: 'issue', project: await project(), id }));
 
   link
     .command('board')
     .description("This project's board")
-    .action(() => print({ kind: 'board', project: project() }));
+    .action(async () => print({ kind: 'board', project: await project() }));
 
   link
     .command('project')
     .description('This project')
-    .action(() => print({ kind: 'project', project: project() }));
+    .action(async () => print({ kind: 'project', project: await project() }));
 }

@@ -89,7 +89,7 @@ const STATUS_LABELS: Record<string, string> = {
   done: 'Done',
 };
 
-export function registerTaskCommands(parent: Command, requireProject: () => string) {
+export function registerTaskCommands(parent: Command, requireProject: () => Promise<string>) {
   const task = parent
     .command('task')
     .description('Manage tasks')
@@ -123,7 +123,7 @@ Examples:
     .command('list')
     .description('List all tasks (JSON array)')
     .action(async () => {
-      const project = requireProject();
+      const project = await requireProject();
       const tasks = await get(`/api/tasks${projectQuery(project)}`);
       printJson(tasks);
     });
@@ -135,7 +135,7 @@ Examples:
     .action(async (number: string) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      const project = requireProject();
+      const project = await requireProject();
       const t = await get(`/api/tasks/${num}${projectQuery(project)}`);
       if (!t) return printError(`Task ${num} not found`);
       printJson(t);
@@ -159,7 +159,7 @@ Examples:
     .argument('<name>', 'task name')
     .option('--prompt <text>', 'task prompt/description')
     .action(async (name: string, opts: { prompt?: string }) => {
-      const project = requireProject();
+      const project = await requireProject();
       const result = await post(`/api/tasks${projectQuery(project)}`, { name, prompt: opts.prompt });
       if (!(result as { success?: boolean }).success) return printError('Failed to create task');
       printJson(result);
@@ -179,7 +179,7 @@ Examples:
       if (isNaN(num)) return printError('Task number must be an integer');
       const hook = resolveHookFlags(opts);
       if ('error' in hook) return printError(hook.error);
-      const project = requireProject();
+      const project = await requireProject();
       const result = await post(`/api/tasks/${num}/start${projectQuery(project)}`, {
         branchName: opts.branch,
         ...hook,
@@ -204,7 +204,7 @@ Examples:
     .action(async (name: string, opts: { prompt?: string; branch?: string } & HookFlags) => {
       const hook = resolveHookFlags(opts);
       if ('error' in hook) return printError(hook.error);
-      const project = requireProject();
+      const project = await requireProject();
       const result = await post(`/api/tasks/start${projectQuery(project)}`, {
         name,
         prompt: opts.prompt,
@@ -234,7 +234,7 @@ Examples:
       }
       const hook = resolveStatusHookFlags(status, opts);
       if ('error' in hook) return printError(hook.error);
-      const project = requireProject();
+      const project = await requireProject();
       const result = await patch<{ success: boolean; error?: string; hookWarning?: string }>(
         `/api/tasks/${num}/status${projectQuery(project)}`,
         { status, ...hook.body },
@@ -264,7 +264,7 @@ Examples:
       }
       const hook = resolveStatusHookFlags(status, opts);
       if ('error' in hook) return printError(hook.error);
-      const project = requireProject();
+      const project = await requireProject();
       const results = await Promise.allSettled(
         numbers.map((n) =>
           patch<{ success: boolean; error?: string; hookWarning?: string }>(
@@ -302,7 +302,7 @@ Examples:
       const num = parseInt(number, 10);
       const name = nameParts.join(' ');
       if (isNaN(num) || !name) return printError('Usage: ouijit task set-name <number> <name>');
-      const project = requireProject();
+      const project = await requireProject();
       const result = await patch(`/api/tasks/${num}/name${projectQuery(project)}`, { name });
       printJson(result);
     });
@@ -316,7 +316,7 @@ Examples:
       const num = parseInt(number, 10);
       const desc = textParts.join(' ');
       if (isNaN(num) || !desc) return printError('Usage: ouijit task set-description <number> <text>');
-      const project = requireProject();
+      const project = await requireProject();
       const result = await patch(`/api/tasks/${num}/description${projectQuery(project)}`, { description: desc });
       printJson(result);
     });
@@ -329,7 +329,7 @@ Examples:
     .action(async (number: string, branch: string) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      const project = requireProject();
+      const project = await requireProject();
       const result = await patch(`/api/tasks/${num}/merge-target${projectQuery(project)}`, { mergeTarget: branch });
       printJson(result);
     });
@@ -341,7 +341,7 @@ Examples:
     .action(async (number: string) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      const project = requireProject();
+      const project = await requireProject();
       const result = await del(`/api/tasks/${num}${projectQuery(project)}`);
       printJson(result);
     });

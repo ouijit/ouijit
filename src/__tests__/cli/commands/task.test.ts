@@ -32,7 +32,7 @@ const PROJECT = '/test/project';
 function createProgram() {
   const program = new Command();
   program.exitOverride();
-  registerTaskCommands(program, () => PROJECT);
+  registerTaskCommands(program, async () => PROJECT);
   return program;
 }
 

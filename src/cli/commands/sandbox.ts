@@ -44,7 +44,7 @@ async function runSandboxed(argv: string[], custom: boolean): Promise<never> {
   process.exit(code);
 }
 
-export function registerSandboxCommands(parent: Command, requireProject: () => string) {
+export function registerSandboxCommands(parent: Command, requireProject: () => Promise<string>) {
   parent
     .command('sandbox')
     .description("Run a command in the project's sandbox, from a host terminal")
@@ -84,7 +84,7 @@ Examples:
     .command('get')
     .description('Show the configured launcher')
     .action(async () => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(await get(`/api/sandbox/command${projectQuery(project)}`));
     });
 
@@ -93,7 +93,7 @@ Examples:
     .description('Set the launcher command')
     .argument('<command>', 'launcher and its arguments, as one quoted string')
     .action(async (command: string) => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(await put(`/api/sandbox/command${projectQuery(project)}`, { command }));
     });
 
@@ -101,7 +101,7 @@ Examples:
     .command('clear')
     .description('Remove the launcher')
     .action(async () => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(await del(`/api/sandbox/command${projectQuery(project)}`));
     });
 }

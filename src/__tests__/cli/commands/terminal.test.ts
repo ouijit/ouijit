@@ -82,9 +82,9 @@ async function ouijit(...args: string[]): Promise<unknown> {
   });
   const program = new Command();
   program.exitOverride();
-  registerTerminalCommands(program, () => '/p');
+  registerTerminalCommands(program, async () => '/p');
   registerPanelCommands(program);
-  registerDiffCommands(program, () => '/p');
+  registerDiffCommands(program, async () => '/p');
   try {
     await program.parseAsync(args, { from: 'user' });
   } finally {

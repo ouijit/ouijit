@@ -15,7 +15,7 @@ import type { Command } from 'commander';
 import { get, post, del } from '../api';
 import { printJson, readBody } from '../output';
 
-export function registerLinearCommands(parent: Command, requireProject: () => string) {
+export function registerLinearCommands(parent: Command, requireProject: () => Promise<string>) {
   const linear = parent
     .command('linear')
     .description('Inspect Linear issues and comment on them')
@@ -31,7 +31,7 @@ Examples:
     .command('list')
     .description("This project's Linear issues, in the groups the panel shows")
     .action(async () => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(await get(`/api/linear/issues?project=${encodeURIComponent(project)}`));
     });
 
@@ -40,7 +40,7 @@ Examples:
     .description('Show one issue with its comments and workflow states')
     .argument('<identifier>', 'issue identifier, e.g. ENG-214')
     .action(async (identifier: string) => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(
         await get(`/api/linear/issues/${encodeURIComponent(identifier)}?project=${encodeURIComponent(project)}`),
       );
@@ -63,7 +63,7 @@ Examples:
     .description('List the unsent comments on an issue')
     .argument('<identifier>', 'issue identifier')
     .action(async (identifier: string) => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(
         await get(`/api/linear/issues/${encodeURIComponent(identifier)}/drafts?project=${encodeURIComponent(project)}`),
       );
@@ -76,7 +76,7 @@ Examples:
     .requiredOption('--body <text>', 'comment text, or - to read stdin')
     .option('--origin <name>', 'who wrote it, shown beside the comment', 'cli')
     .action(async (identifier: string, options: { body: string; origin: string }) => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(
         await post(
           `/api/linear/issues/${encodeURIComponent(identifier)}/drafts?project=${encodeURIComponent(project)}`,
@@ -91,7 +91,7 @@ Examples:
     .argument('<identifier>', 'issue identifier')
     .argument('<id>', 'draft id, from `linear draft list`')
     .action(async (identifier: string, id: string) => {
-      const project = requireProject();
+      const project = await requireProject();
       printJson(
         await del(
           `/api/linear/issues/${encodeURIComponent(identifier)}/drafts/${encodeURIComponent(id)}?project=${encodeURIComponent(project)}`,
