@@ -1,6 +1,4 @@
-import { useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useTerminalStore } from '../../stores/terminalStore';
 import { toasted, useWaitingStore, type Waiting } from '../../stores/waitingStore';
 import { focusTerminal } from '../navigation';
 import { isHomeChat } from '../../stores/homeChatStore';
@@ -8,24 +6,9 @@ import { openHomeChat } from '../chat/homeChatActions';
 import { Icon } from '../terminal/Icon';
 import { HOOK_VERB, runWaiting, useAsker, useMovesOwnTask, useTaskName } from './WaitingDialog';
 
-/** An ask from a terminal that has gone can no longer run where it asked to. */
-function usePruneAsks(): void {
-  useEffect(
-    () =>
-      useTerminalStore.subscribe((s) => {
-        const { items, remove } = useWaitingStore.getState();
-        for (const item of items) {
-          if (item.kind === 'ask' && !isHomeChat(item.from) && !(item.from in s.displayStates)) remove(item.id);
-        }
-      }),
-    [],
-  );
-}
-
 /** What agents left on terminals the user has no card open for, until it is answered or its toast is closed. */
 export function WaitingToasts() {
   const items = useWaitingStore(useShallow((s) => toasted(s.items, s.shownOn)));
-  usePruneAsks();
   return items.map((item) => <WaitingToast key={item.id} item={item} />);
 }
 

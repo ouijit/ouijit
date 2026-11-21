@@ -114,7 +114,8 @@ import type {
   TaskChatSummary,
 } from '../chat/model';
 import type { ChatDelivery, ChatStartOptions } from '../chat/startOptions';
-import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from '../chat/preferences';
+import type { HomeChatState, TaskRef, WakeEvent } from '../chat/preferences';
+import type { Decision, DecisionChoice } from '../ask';
 import type { DriverProbe } from '../agents';
 
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
@@ -521,10 +522,9 @@ export interface IpcInvokeContract {
   'homeChat:rename': { args: [id: string, title: string]; return: void };
   /** Gone for good; the state after, with the open conversation moved on if it was the one. */
   'homeChat:delete': { args: [id: string]; return: HomeChatState };
-  /** What Chat set off that waits for the user. */
-  'homeChat:decisions': { args: []; return: ChatDecision[] };
-  /** False when it was already decided. */
-  'homeChat:decide': { args: [id: string, choice: ChatDecisionChoice]; return: boolean };
+
+  'decisions:list': { args: []; return: Decision[] };
+  'decisions:decide': { args: [id: string, choice: DecisionChoice]; return: boolean };
 }
 
 /**
@@ -550,7 +550,7 @@ export interface IpcPushContract {
   'chat:event': { args: [sessionId: string, event: SequencedChatEvent] };
   /** Chat's conversations or the current one changed. */
   'homeChat:changed': { args: [state: HomeChatState] };
-  'homeChat:decisions-changed': { args: [decisions: ChatDecision[]] };
+  'decisions:changed': { args: [decisions: Decision[]] };
   'fullscreen-change': { args: [isFullscreen: boolean] };
   'agent-hook-status': { args: [ptyId: string, status: import('../hookStatus').HookStatus] };
   'cli:panel-op': { args: [op: CliPanelOp] };

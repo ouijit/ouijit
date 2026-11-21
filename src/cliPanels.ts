@@ -10,9 +10,9 @@
  * timeout here means the window itself is not answering.
  *
  * These ops are the only way a panel appears without a click, and they always
- * reflect what's on screen. `ouijit tag`, `terminal` and `ask` cross the same
- * bridge on channels of their own, since tags, the xterm buffer and the queue
- * live there too.
+ * reflect what's on screen. `ouijit tag`, `terminal` and an approved `ask`
+ * cross the same bridge on channels of their own, since tags, the xterm buffer
+ * and runners live there too.
  */
 
 import { BrowserWindow, ipcMain } from 'electron';
@@ -119,12 +119,13 @@ export function cliTerminalRequest(op: Omit<CliTerminalOp, 'requestId'>): Promis
 }
 
 /** How long `ask run --wait` holds its request open before answering that the run is still pending. */
-const ASK_WAIT_MS = 10 * 60_000;
+export const ASK_WAIT_MS = 10 * 60_000;
 
-export function cliAskRequest(op: Omit<CliAskOp, 'requestId'>): Promise<CliAskResponse> {
+/** Run an ask the user approved in a runner on its card, answering as the ask would be. */
+export function cliAskRunRequest(op: Omit<CliAskOp, 'requestId'>): Promise<CliAskResponse> {
   return request(
     (window, requestId) => typedPush(window, 'cli:ask-op', { requestId, ...op }),
-    { fromPtyId: op.fromPtyId, action: 'ask' },
+    { fromPtyId: op.fromPtyId, action: 'ask-run' },
     op.ask.wait ? { ms: ASK_WAIT_MS, response: { ok: true, answer: { status: 'pending' } } } : undefined,
   );
 }

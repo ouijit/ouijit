@@ -272,7 +272,9 @@ describe('what an agent can see and do from the CLI', () => {
 
     await expect(ouijit('terminal', 'read', 'pty-agent')).rejects.toThrow(passesTheRouter);
     await expect(ouijit('terminal', 'read', 'pty-tests')).rejects.toThrow(/Forbidden/);
-    await expect(ouijit('ask', 'run', '--', 'npm', 'run', 'sign')).rejects.toThrow(passesTheRouter);
+    expect(await ouijit('ask', 'run', '--', 'npm', 'run', 'sign')).toEqual(
+      expect.objectContaining({ command: 'npm run sign', status: 'pending' }),
+    );
     await expect(ouijit('task', 'set-description', '1', 'Session expiry')).rejects.toThrow(/Forbidden/);
 
     // Its own task: its record, its links, to-do cards, and its task's terminals.

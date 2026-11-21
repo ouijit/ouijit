@@ -99,7 +99,7 @@ import { relativeWithin } from '../utils/pathSafety';
 import { fileItRuns } from '../askFile';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
-import { cliAskRequest, cliPanelRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
+import { cliPanelRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
 import { callerTerminal } from '../ptyManager';
 import { liveNotes } from '../diffNotesService';
 import {
@@ -115,6 +115,7 @@ import { callerIsHomeChat, homeChatCurrent, loadHomeChatSettings, ownTask, resta
 import { follow, following, quietMove, sessionSubject, taskSubject, unfollow, wakeForAsk } from '../chat/wake';
 import { addExistingProject, createAndRegisterProject } from '../services/projectRegistration';
 import { holdAsk } from '../chat/decisions';
+import { holdCardAsk } from '../cardAsks';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext } from '../apiAuth';
@@ -1147,13 +1148,8 @@ const routes: Route[] = [
         return { command: ask.command, cwd: ask.cwd, ...answer };
       }
       void wakeForAsk(r.auth.ptyId, ask.command, message);
-      const result = await cliAskRequest({
-        fromPtyId: callerTerminal(r.auth.ptyId),
-        ask,
-        ...(message && { message }),
-      });
-      if (!result.ok) throw new HttpError(404, result.error ?? 'Ask failed');
-      return { command: ask.command, cwd: ask.cwd, ...result.answer };
+      const answer = await holdCardAsk(callerTerminal(r.auth.ptyId), ask, message || undefined);
+      return { command: ask.command, cwd: ask.cwd, ...answer };
     },
     false,
     READ,

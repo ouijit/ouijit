@@ -31,6 +31,7 @@ import { installCliPanelListener } from './services/cliPanelListener';
 import { installCliTagListener } from './services/cliTagListener';
 import { installCliTerminalListener } from './services/cliTerminalListener';
 import { installCliAskListener } from './services/cliAskListener';
+import { listenForDecisions } from './services/decisions';
 import { installHookStatusListener } from './services/hookStatusListener';
 import { useUIStore, hydrateUIPreferences } from './stores/uiStore';
 import log from 'electron-log/renderer';
@@ -140,6 +141,7 @@ export function App() {
   useEffect(() => installCliTerminalListener(), []);
 
   useEffect(() => installCliAskListener(), []);
+  useEffect(() => listenForDecisions(), []);
 
   useEffect(() => installHookStatusListener(), []);
 

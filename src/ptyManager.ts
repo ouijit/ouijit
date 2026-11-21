@@ -11,6 +11,7 @@ import { sandboxReferenceEnv } from './sandbox/cliAccess';
 import { typedPush } from './ipc/helpers';
 import { getLogger } from './logger';
 import { issueToken, revokeToken, revokeAllTokens } from './apiAuth';
+import { dropDecisionsFrom } from './decisions';
 import { terminalLocale } from './locale';
 
 const ptyLog = getLogger().scope('pty');
@@ -322,6 +323,7 @@ export async function spawnPty(
       activePtys.delete(ptyId);
       clearHookStatus(ptyId);
       revokeToken(ptyId);
+      void dropDecisionsFrom(ptyId);
     });
 
     return { success: true, ptyId };
@@ -490,6 +492,7 @@ export function killPty(ptyId: PtyId): void {
   activePtys.delete(ptyId);
   clearHookStatus(ptyId);
   revokeToken(ptyId);
+  void dropDecisionsFrom(ptyId);
 }
 
 export function cleanupAllPtys(): void {

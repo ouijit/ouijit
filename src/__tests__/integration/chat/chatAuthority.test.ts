@@ -17,7 +17,7 @@ import { chatHost } from '../../../chat/host';
 import { homeChatDir, homeChatState, installHomeChat, onHomeChatChange, startHomeChat } from '../../../chat/homeChat';
 import { sandboxCliAccessSettingKey } from '../../../sandbox/types';
 import { installHomeChatWakes } from '../../../chat/wake';
-import { chatDecisions, decide } from '../../../chat/decisions';
+import { decide, decisions } from '../../../decisions';
 import { HOME_CHAT_SETTING_KEYS, taskKey, type HomeChatState } from '../../../chat/preferences';
 import type { ChatSnapshot, UserMessageNode } from '../../../chat/model';
 import { loadCassette, loadCassettes, replayingSpawn } from './cassette';
@@ -150,12 +150,12 @@ describe('what Chat can do', () => {
 
     // A command it asks to run on the host waits for the user, and the answer comes back to it.
     const asking = api('POST', 'ask/run', { argv: ['echo', 'from the host'], wait: true });
-    const ask = await until(() => chatDecisions().find((d) => d.kind === 'ask'), 'the ask');
+    const ask = await until(() => decisions().find((d) => d.kind === 'ask'), 'the ask');
     expect(ask).toMatchObject({ from: chat, ask: { command: "echo 'from the host'" } });
     expect(ask.sandboxed).toBeUndefined();
     await decide(ask.id, { kind: 'run' });
     expect((await asking).data).toMatchObject({ status: 'exited', exitCode: 0, output: 'from the host' });
-    expect(chatDecisions()).toEqual([]);
+    expect(decisions()).toEqual([]);
 
     // Sandboxed, it has the Ouijit access its own setting gives, read only until widened.
     await createTask(repo, 3, 'Sandboxed', { status: 'todo' });

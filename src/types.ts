@@ -22,7 +22,7 @@ import type {
 } from './chat/model';
 import type { DriverProbe } from './agents';
 import type { ChatDelivery, ChatStartOptions } from './chat/startOptions';
-import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from './chat/preferences';
+import type { HomeChatState, TaskRef, WakeEvent } from './chat/preferences';
 import type {
   RepoIdentity,
   GithubAvailability,
@@ -64,7 +64,7 @@ import type { LensChangedPayload } from './lens/subjectKeys';
 import type { LensInput, LensSummary } from './lens/config';
 import type { StoredLens } from './lens/readLens';
 import type { TaskStatus } from './db';
-import type { AskRun } from './ask';
+import type { AskRun, Decision, DecisionChoice } from './ask';
 import type { ActiveSession } from './ptyManager';
 import type {
   SandboxProviderId,
@@ -75,7 +75,7 @@ import type {
   TerminalSandboxPayload,
 } from './sandbox/types';
 import type { HookStatus, HookStatusEntry } from './hookStatus';
-export type { AskRun } from './ask';
+export type { AskRun, Decision, DecisionChoice } from './ask';
 
 export type {
   GitStatus,
@@ -463,9 +463,6 @@ export interface HomeChatAPI {
   dir(): Promise<string>;
   rename(id: string, title: string): Promise<void>;
   delete(id: string): Promise<HomeChatState>;
-  decisions(): Promise<ChatDecision[]>;
-  decide(id: string, choice: ChatDecisionChoice): Promise<boolean>;
-  onDecisions(callback: (decisions: ChatDecision[]) => void): () => void;
   onChanged(callback: (state: HomeChatState) => void): () => void;
 }
 
@@ -736,6 +733,7 @@ export interface ElectronAPI {
   cliTags: CliTagsAPI;
   cliTerminals: CliTerminalsAPI;
   cliAsks: CliAsksAPI;
+  decisions: DecisionsAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   homePath(): Promise<string>;
@@ -1137,13 +1135,12 @@ export interface CliPanelRead {
   private?: true;
 }
 
-/** Op forwarded to the renderer for `ouijit ask`. */
+/** An ask the user approved, for the renderer to run on the card that asked. */
 export interface CliAskOp {
   requestId: number;
   fromPtyId: PtyId;
   ask: AskRun;
-  /** Why the agent asks, in its words. */
-  message?: string;
+  privately: boolean;
 }
 
 export type AskAnswer =
@@ -1157,6 +1154,13 @@ export interface CliAskResponse {
   ok: boolean;
   error?: string;
   answer?: AskAnswer;
+}
+
+export interface DecisionsAPI {
+  list(): Promise<Decision[]>;
+  /** False when it was already decided. */
+  decide(id: string, choice: DecisionChoice): Promise<boolean>;
+  onChange(callback: (decisions: Decision[]) => void): () => void;
 }
 
 export interface CliAsksAPI {

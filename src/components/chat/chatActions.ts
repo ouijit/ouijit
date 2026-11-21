@@ -11,7 +11,6 @@ import { loadChatSettings } from '../../services/chatSettings';
 import { projectTaskOpening } from '../../stores/projectDataStore';
 import { listenForHomeChat, useHomeChatStore } from '../../stores/homeChatStore';
 import { useAppStore } from '../../stores/appStore';
-import { listenForChatDecisions } from '../../services/homeChatDecisions';
 import { startHomeChat } from './homeChatActions';
 import { AGENT_TERMINAL_COMMANDS } from '../../chat/model';
 import type { ChatAgentId, ChatAttachment, ChatSessionStatus, SequencedChatEvent } from '../../chat/model';
@@ -46,7 +45,6 @@ function forwardStatus(id: string, event: SequencedChatEvent): void {
 export function initChat(): void {
   listenForChatEvents(forwardStatus);
   listenForHomeChat();
-  listenForChatDecisions();
   void loadChatSettings().then(({ enabled }) => setChatEnabled(enabled));
 }
 

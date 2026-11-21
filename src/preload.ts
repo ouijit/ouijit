@@ -2,7 +2,8 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from './chat/preferences';
+import type { HomeChatState, TaskRef, WakeEvent } from './chat/preferences';
+import type { Decision, DecisionChoice } from './ask';
 import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/contract';
 import type { DiffDefaults } from './git';
 import type {
@@ -185,9 +186,6 @@ contextBridge.exposeInMainWorld('api', {
     dir: () => typedInvoke('homeChat:dir'),
     rename: (id: string, title: string) => typedInvoke('homeChat:rename', id, title),
     delete: (id: string) => typedInvoke('homeChat:delete', id),
-    decisions: () => typedInvoke('homeChat:decisions'),
-    decide: (id: string, choice: ChatDecisionChoice) => typedInvoke('homeChat:decide', id, choice),
-    onDecisions: (callback: (decisions: ChatDecision[]) => void) => typedListen('homeChat:decisions-changed', callback),
     onChanged: (callback: (state: HomeChatState) => void) => typedListen('homeChat:changed', callback),
   },
 
@@ -291,6 +289,12 @@ contextBridge.exposeInMainWorld('api', {
   cliAsks: {
     onOp: (callback: (op: CliAskOp) => void) => typedListen('cli:ask-op', callback),
     respond: (requestId: number, response: CliAskResponse) => typedInvoke('cli-asks:respond', requestId, response),
+  },
+
+  decisions: {
+    list: () => typedInvoke('decisions:list'),
+    decide: (id: string, choice: DecisionChoice) => typedInvoke('decisions:decide', id, choice),
+    onChange: (callback: (decisions: Decision[]) => void) => typedListen('decisions:changed', callback),
   },
 
   globalSettings: {

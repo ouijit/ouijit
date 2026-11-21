@@ -1,55 +1,13 @@
 import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import { getLogger } from '../logger';
 import { hostEnv } from '../sessionEnv';
 import { NO_PAGER, exitedAnswer } from '../askOutput';
+import { hold } from '../decisions';
 import { tellConversation } from './wake';
 import type { WakeNote } from './model';
-import type { ChatDecision, ChatDecisionChoice } from './preferences';
 import type { AskAnswer, AskRun } from '../types';
 
 const decisionLog = getLogger().scope('chat:decisions');
-
-type Unstamped<D> = D extends ChatDecision ? Omit<D, 'id' | 'at'> : never;
-
-interface Held {
-  decision: ChatDecision;
-  /** `quiet` when nobody is left to tell: the conversation that asked is gone. */
-  settle: (choice: ChatDecisionChoice, quiet: boolean) => Promise<void>;
-}
-
-const held = new Map<string, Held>();
-const listeners = new Set<(decisions: ChatDecision[]) => void>();
-
-export function chatDecisions(): ChatDecision[] {
-  return [...held.values()].map((h) => h.decision);
-}
-
-export function onChatDecisionsChange(listener: (decisions: ChatDecision[]) => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function changed(): void {
-  const decisions = chatDecisions();
-  for (const listener of listeners) listener(decisions);
-}
-
-function hold(decision: Unstamped<ChatDecision>, settle: Held['settle']): void {
-  const id = randomUUID();
-  held.set(id, { decision: { ...decision, id, at: Date.now() } as ChatDecision, settle });
-  changed();
-}
-
-/** Decided once. False when it was already decided, here or in another window. */
-export async function decide(id: string, choice: ChatDecisionChoice, quiet = false): Promise<boolean> {
-  const entry = held.get(id);
-  if (!entry) return false;
-  held.delete(id);
-  changed();
-  await entry.settle(choice, quiet);
-  return true;
-}
 
 const youDid = (text: string): WakeNote => ({ kind: 'decision', text });
 
@@ -125,10 +83,4 @@ function runHeadless(command: string, cwd: string): Promise<{ exitCode: number |
     });
     child.on('close', (exitCode) => resolve({ exitCode, output }));
   });
-}
-
-/** A conversation deleted takes what it was waiting on with it, declined. */
-export async function dropDecisionsFrom(conversation: string): Promise<void> {
-  const ids = [...held.entries()].filter(([, h]) => h.decision.from === conversation).map(([id]) => id);
-  for (const id of ids) await decide(id, { kind: 'decline' }, true);
 }

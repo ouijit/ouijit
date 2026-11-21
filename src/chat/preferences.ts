@@ -1,7 +1,6 @@
 import { isChatAgentId, type ChatAgentId } from './model';
 import { isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
 import { DEFAULT_HOME_CHAT_INSTRUCTIONS } from './homeChatInstructions';
-import type { AskRun } from '../ask';
 
 export const CHAT_AGENT_LABELS: Record<ChatAgentId, string> = {
   claude: 'Claude Code',
@@ -117,24 +116,11 @@ export interface HomeChatSummary {
   createdAt: string;
 }
 
-/**
- * A command Chat asks the user to run outside its sandbox. Held in the main
- * process, so it survives a reload and any window can answer it.
- */
-export type ChatDecision = {
-  id: string;
-  /** The conversation that asked. */
-  from: string;
-  at: number;
-} & { kind: 'ask'; ask: AskRun; message?: string; sandboxed?: boolean };
-
 /** A task, as news about it is routed: to the conversation that started it. */
 export interface TaskRef {
   projectPath: string;
   taskNumber: number;
 }
-
-export type ChatDecisionChoice = { kind: 'run'; privately?: boolean } | { kind: 'decline' };
 
 export interface HomeChatState {
   currentId: string;

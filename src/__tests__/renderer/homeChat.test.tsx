@@ -8,11 +8,12 @@ import { useAppStore } from '../../stores/appStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { HOME_CHAT_SETTING_KEYS, taskKey, type ChatDecision } from '../../chat/preferences';
-import { listenForChatDecisions } from '../../services/homeChatDecisions';
+import { HOME_CHAT_SETTING_KEYS, taskKey } from '../../chat/preferences';
 import { ChatSettingsSection } from '../../components/chat/ChatSettingsSection';
 import { useHomeChatStore } from '../../stores/homeChatStore';
 import { useWaitingStore } from '../../stores/waitingStore';
+import type { Decision } from '../../types';
+import { listenForDecisions } from '../../services/decisions';
 import { NO_CAPABILITIES, type ChatNode, type ChatSessionInfo, type ChatSnapshot } from '../../chat/model';
 
 vi.mock('../../components/terminal/terminalReact', () => ({
@@ -496,13 +497,12 @@ describe('Chat', () => {
       }),
     );
     // What Chat set off, as the main process holds it.
-    let pushDecisions: (decisions: ChatDecision[]) => void = () => {};
-    vi.mocked(window.api.homeChat.onDecisions).mockImplementation((listener) => {
+    let pushDecisions: (decisions: Decision[]) => void = () => {};
+    vi.mocked(window.api.decisions.onChange).mockImplementation((listener) => {
       pushDecisions = listener;
       return () => {};
     });
-    listenForChatDecisions();
-    const held: ChatDecision[] = [
+    const held: Decision[] = [
       {
         id: 'd-ask',
         from: CURRENT,
@@ -519,12 +519,13 @@ describe('Chat', () => {
         ask: { command: 'git push', cwd: '/code/alpha' },
       },
     ];
-    act(() => pushDecisions(held));
+    vi.mocked(window.api.decisions.list).mockResolvedValueOnce(held);
+    const stopListening = listenForDecisions();
     render(<App />);
     act(() => useAppStore.getState().select({ kind: 'chat' }));
 
     const cards = () => [...document.querySelectorAll<HTMLElement>('[data-chat-decision]')];
-    expect(cards()).toHaveLength(3);
+    await waitFor(() => expect(cards()).toHaveLength(3));
     const [ask, push, worker] = cards();
     expect(ask.textContent).toContain('gh pr list');
     expect(ask.textContent).toContain('needs your GitHub sign-in');
@@ -539,11 +540,12 @@ describe('Chat', () => {
 
     // Answering a card answers the main process, and the queue follows what it holds.
     fireEvent.click(within(ask).getByRole('button', { name: 'Run' }));
-    expect(window.api.homeChat.decide).toHaveBeenCalledWith('d-ask', { kind: 'run', privately: false });
+    expect(window.api.decisions.decide).toHaveBeenCalledWith('d-ask', { kind: 'run', privately: false });
     fireEvent.click(within(push).getByRole('button', { name: 'Decline' }));
-    expect(window.api.homeChat.decide).toHaveBeenCalledWith('d-push', { kind: 'decline' });
+    expect(window.api.decisions.decide).toHaveBeenCalledWith('d-push', { kind: 'decline' });
     act(() => pushDecisions([]));
     expect(useWaitingStore.getState().items).toEqual([]);
+    stopListening();
     fireEvent.click(within(worker).getByRole('button', { name: 'Deny' }));
     expect(window.api.chat.answer).toHaveBeenCalledWith('pty-12', 'req-1', { kind: 'option', optionId: 'deny' });
 

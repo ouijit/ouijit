@@ -135,9 +135,6 @@ const mockApi = {
     dir: vi.fn().mockResolvedValue('/Users/test/Library/Application Support/ouijit/chat'),
     rename: vi.fn().mockResolvedValue(undefined),
     delete: vi.fn().mockResolvedValue({ currentId: '', chats: [], owners: {} }),
-    decisions: vi.fn().mockResolvedValue([]),
-    decide: vi.fn().mockResolvedValue(true),
-    onDecisions: vi.fn().mockReturnValue(() => {}),
     onChanged: vi.fn().mockReturnValue(() => {}),
   },
   worktree: {
@@ -200,6 +197,11 @@ const mockApi = {
   cliAsks: {
     onOp: vi.fn().mockReturnValue(() => {}),
     respond: vi.fn().mockResolvedValue(undefined),
+  },
+  decisions: {
+    list: vi.fn().mockResolvedValue([]),
+    decide: vi.fn().mockResolvedValue(true),
+    onChange: vi.fn().mockReturnValue(() => {}),
   },
   plan: {
     read: vi.fn().mockResolvedValue(null),

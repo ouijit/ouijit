@@ -26,7 +26,7 @@ import {
   taskSubject,
   wakeHomeChat,
 } from '../../chat/wake';
-import { chatDecisions, decide, dropDecisionsFrom, onChatDecisionsChange } from '../../chat/decisions';
+import { dropDecisionsFrom } from '../../decisions';
 
 export function registerChatHandlers(mainWindow: BrowserWindow): void {
   chatHost.subscribe((sessionId, event) => typedPush(mainWindow, 'chat:event', sessionId, event));
@@ -90,9 +90,6 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
     await dropDecisionsFrom(id);
     return deleteHomeChat(id);
   });
-  onChatDecisionsChange((decisions) => typedPush(mainWindow, 'homeChat:decisions-changed', decisions));
-  typedHandle('homeChat:decisions', () => chatDecisions());
-  typedHandle('homeChat:decide', (id, choice) => decide(id, choice));
   typedHandle('homeChat:wake', (event, text, note, about) =>
     wakeHomeChat(event, text, { kind: 'event', text: note }, about ? taskSubject(about) : null),
   );

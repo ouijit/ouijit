@@ -5,13 +5,14 @@ import { Terminal } from '@xterm/headless';
 import { WaitingDialog } from '../../components/waiting/WaitingDialog';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { installCliAskListener } from '../../services/cliAskListener';
+import { listenForDecisions } from '../../services/decisions';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import type { OuijitTerminal } from '../../components/terminal/terminalReact';
 import { useAppStore } from '../../stores/appStore';
 import { useWaitingStore } from '../../stores/waitingStore';
 import { startRunner } from '../../components/terminal/terminalActions';
 import { DEFAULT_DISPLAY_STATE, useTerminalStore } from '../../stores/terminalStore';
-import type { AskRun, CliAskOp, TaskWithWorkspace } from '../../types';
+import type { AskRun, CliAskOp, Decision, TaskWithWorkspace } from '../../types';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -47,7 +48,49 @@ function Card({ ptyId }: { ptyId: string }) {
   );
 }
 
-function cliAsks() {
+let asked = 0;
+
+/** Asks as the main process holds them: each waits until it is decided, once, and then leaves every window's queue. */
+function heldAsks() {
+  let push: (decisions: Decision[]) => void = () => {};
+  let held: Decision[] = [];
+  vi.mocked(window.api.decisions.onChange).mockImplementation((listener) => {
+    push = listener;
+    return () => {};
+  });
+  vi.mocked(window.api.decisions.decide).mockClear();
+  vi.mocked(window.api.decisions.decide).mockImplementation(async (id) => {
+    const was = held.length;
+    held = held.filter((d) => d.id !== id);
+    push(held);
+    return held.length < was;
+  });
+  listenForDecisions();
+  const ask = (
+    run: string,
+    { message, from = 'pty-agent', ...rest }: Partial<AskRun> & { message?: string; from?: string } = {},
+  ) => {
+    const id = `d-${++asked}`;
+    held = [
+      ...held,
+      {
+        id,
+        from,
+        at: asked,
+        kind: 'ask',
+        ask: { command: run, cwd: '/wt/T-14', wait: true, ...rest },
+        ...(message && { message }),
+      },
+    ];
+    act(() => push(held));
+    return id;
+  };
+  const decided = (id: string) => vi.mocked(window.api.decisions.decide).mock.calls.find(([d]) => d === id)?.[1];
+  return { ask, decided };
+}
+
+/** The main process handing the window an approved ask to run on the card that asked. */
+function approvedAsks() {
   let send: (op: CliAskOp) => void = () => {};
   vi.mocked(window.api.cliAsks.onOp).mockImplementation((cb) => {
     send = cb;
@@ -57,20 +100,12 @@ function cliAsks() {
   installCliAskListener();
   let requestId = 0;
   const reply = (id: number) => vi.mocked(window.api.cliAsks.respond).mock.calls.find(([r]) => r === id)?.[1];
-  const ask = (
-    run: string,
-    { message, from = 'pty-agent', ...rest }: Partial<AskRun> & { message?: string; from?: string } = {},
-  ) => {
+  const run = (ask: Partial<AskRun> & { command: string }, privately = false) => {
     const id = ++requestId;
-    send({
-      requestId: id,
-      fromPtyId: from,
-      ask: { command: run, cwd: '/wt/T-14', wait: true, ...rest },
-      ...(message && { message }),
-    });
+    send({ requestId: id, fromPtyId: 'pty-agent', ask: { cwd: '/wt/T-14', wait: true, ...ask }, privately });
     return id;
   };
-  return { ask, reply };
+  return { run, reply };
 }
 
 /** A runner on the agent's terminal that prints `line` and ends with `exitCode`, private if it was started so. */
@@ -133,15 +168,13 @@ afterEach(() => terminalInstances.delete('pty-agent'));
 
 describe('what an agent leaves for the user', () => {
   test('from a terminal whose card is open, it shows over that card, script and all, and only answering closes it', async () => {
-    const finish = runner('signed 3 binaries');
-    vi.mocked(startRunner).mockResolvedValue('panel-1');
     render(
       <>
         <Card ptyId="pty-agent" />
         <ToastContainer />
       </>,
     );
-    const { ask, reply } = cliAsks();
+    const { ask, decided } = heldAsks();
 
     const sign = ask('./scripts/sign.sh --all', {
       message: 'Signing needs the keychain',
@@ -159,8 +192,31 @@ describe('what an agent leaves for the user', () => {
     expect(toasts()).toEqual([]);
 
     fireEvent.keyDown(document, { key: 'Escape' });
-    finish('running');
     fireEvent.click(screen.getByTestId('waiting-run'));
+    expect(decided(sign)).toEqual({ kind: 'run', privately: false });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    const token = ask('gh auth token');
+    fireEvent.click(await screen.findByTestId('waiting-run-private'));
+    expect(decided(token)).toEqual({ kind: 'run', privately: true });
+
+    // The run shortcut answers only from the card the keyboard is in.
+    const test = ask('npm test');
+    await screen.findByRole('dialog');
+    fireEvent.keyDown(document, { key: 'Enter', metaKey: true, ctrlKey: true });
+    expect(decided(test)).toBeUndefined();
+    screen.getByLabelText('xterm pty-agent').focus();
+    fireEvent.keyDown(document, { key: 'Enter', metaKey: true, ctrlKey: true });
+    expect(decided(test)).toEqual({ kind: 'run', privately: false });
+  });
+
+  test('approved, it runs in a runner on the card that asked, and the asker hears how that went', async () => {
+    const finish = runner('signed 3 binaries');
+    vi.mocked(startRunner).mockResolvedValue('panel-1');
+    const { run, reply } = approvedAsks();
+
+    finish('running');
+    const sign = run({ command: './scripts/sign.sh --all', runCommand: '/data/ask-runs/1/sign.sh --all' });
     await waitFor(() =>
       expect(startRunner).toHaveBeenCalledWith('pty-agent', {
         name: './scripts/sign.sh --all',
@@ -169,7 +225,6 @@ describe('what an agent leaves for the user', () => {
         private: false,
       }),
     );
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     finish('success', 0);
     await waitFor(() =>
       expect(reply(sign)).toEqual({
@@ -185,8 +240,7 @@ describe('what an agent leaves for the user', () => {
 
     // Run privately, the agent hears how it ended and nothing it printed.
     finish('running');
-    const token = ask('gh auth token');
-    fireEvent.click(await screen.findByTestId('waiting-run-private'));
+    const token = run({ command: 'gh auth token' }, true);
     await waitFor(() =>
       expect(startRunner).toHaveBeenLastCalledWith('pty-agent', expect.objectContaining({ private: true })),
     );
@@ -198,25 +252,20 @@ describe('what an agent leaves for the user', () => {
       }),
     );
 
-    // The run shortcut answers only from the card the keyboard is in.
-    finish('running');
-    ask('npm test');
-    await screen.findByRole('dialog');
-    fireEvent.keyDown(document, { key: 'Enter', metaKey: true, ctrlKey: true });
-    expect(startRunner).toHaveBeenCalledTimes(2);
-    screen.getByLabelText('xterm pty-agent').focus();
-    fireEvent.keyDown(document, { key: 'Enter', metaKey: true, ctrlKey: true });
-    await waitFor(() => expect(startRunner).toHaveBeenCalledTimes(3));
+    // Without --wait it answers with the runner, and a card that cannot run it declines.
+    const lint = run({ command: 'npm run lint', wait: false });
+    await waitFor(() => expect(reply(lint)).toEqual({ ok: true, answer: { status: 'pending', panelId: 'panel-1' } }));
+    vi.mocked(startRunner).mockResolvedValue(null);
+    const gone = run({ command: 'npm run lint' });
+    await waitFor(() => expect(reply(gone)).toEqual({ ok: true, answer: { status: 'declined' } }));
   });
 
   test('from a terminal with no card open, it is a toast until answered, and still waits on its card once the toast is closed', async () => {
-    vi.mocked(startRunner).mockResolvedValue('panel-1');
-    runner('');
     const { rerender } = render(<ToastContainer />);
-    const { ask } = cliAsks();
+    const { ask, decided } = heldAsks();
     const startHook = vi.fn();
 
-    ask('npm run lint', { from: 'pty-shell' });
+    const lintAsk = ask('npm run lint', { from: 'pty-shell' });
     ask('./scripts/sign.sh', { file: { path: 'scripts/sign.sh', contents: 'codesign "$@"', size: 13 } });
     act(() => {
       useWaitingStore.getState().add({
@@ -238,7 +287,7 @@ describe('what an agent leaves for the user', () => {
     within(lint).getByText('Scratch');
     within(lint).getByText('npm run lint');
     fireEvent.click(within(lint).getByRole('button', { name: 'Run' }));
-    await waitFor(() => expect(startRunner).toHaveBeenCalledWith('pty-shell', expect.anything()));
+    expect(decided(lintAsk)).toEqual({ kind: 'run', privately: false });
 
     // A held hook reads as what it does, and can be skipped there.
     within(move).getByText('Start Write docs');
@@ -285,12 +334,10 @@ describe('what an agent leaves for the user', () => {
   });
 
   test('several from one terminal list down the side of its dialog, taken in any order, with no other terminal’s among them', async () => {
-    vi.mocked(startRunner).mockResolvedValue('panel-1');
-    runner('');
     render(<Card ptyId="pty-agent" />);
-    const { ask, reply } = cliAsks();
+    const { ask, decided } = heldAsks();
 
-    ask('npm test');
+    const test = ask('npm test');
     await screen.findByRole('dialog');
     expect(screen.queryByRole('navigation', { name: 'Waiting' })).toBeNull();
 
@@ -318,27 +365,13 @@ describe('what an agent leaves for the user', () => {
     fireEvent.click(within(list).getByText('Signing needs the keychain'));
     expect(command()).toBe('./scripts/sign.sh');
     fireEvent.click(screen.getByTestId('waiting-decline'));
-    await waitFor(() => expect(reply(sign)).toEqual({ ok: true, answer: { status: 'declined' } }));
+    expect(decided(sign)).toEqual({ kind: 'decline' });
     expect(command()).toBe('npm test');
     within(screen.getByRole('navigation', { name: 'Waiting' })).getByText('2 waiting on you');
 
     fireEvent.click(screen.getByTestId('waiting-run'));
+    expect(decided(test)).toEqual({ kind: 'run', privately: false });
     await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Waiting' })).toBeNull());
     expect(command()).toBe('claude');
-  });
-
-  test('one from a terminal that closes is declined', async () => {
-    render(<ToastContainer />);
-    const { ask, reply } = cliAsks();
-    const scratch = ask('rm -rf node_modules', { from: 'pty-shell' });
-    await waitFor(() => expect(toasts()).toHaveLength(1));
-    act(() =>
-      useTerminalStore.setState((s) => {
-        const { 'pty-shell': _, ...rest } = s.displayStates;
-        return { displayStates: rest };
-      }),
-    );
-    await waitFor(() => expect(reply(scratch)).toEqual({ ok: true, answer: { status: 'declined' } }));
-    expect(toasts()).toEqual([]);
   });
 });
