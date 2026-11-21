@@ -217,17 +217,6 @@ export function TitleBar() {
             </button>
           </Tooltip>
         )}
-        {onChat && (
-          <Tooltip text="Chat settings" placement="bottom-end">
-            <button
-              className={raisedButton}
-              aria-label="Chat settings"
-              onClick={() => useAppStore.getState().select({ kind: 'app-settings', section: 'main-chat' })}
-            >
-              <Icon name="gear" />
-            </button>
-          </Tooltip>
-        )}
         {onSettings && (
           <Tooltip text="Close settings" placement="bottom-end">
             <button

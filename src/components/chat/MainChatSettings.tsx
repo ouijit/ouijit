@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { useAppStore } from '../../stores/appStore';
+import { useEffect, useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { SettingsDropdown, SettingsDropdownOption } from '../ui/SettingsDropdown';
@@ -61,7 +60,6 @@ export function MainChatSettings({
   onAgentChange: (agent: ChatAgentId) => void;
 }) {
   const [settings, setSettings] = useState<HomeChatSettings>(DEFAULT_HOME_CHAT_SETTINGS);
-  const ref = useRef<HTMLElement>(null);
   const [agentOpen, setAgentOpen] = useState(false);
   const [instructions, setInstructions] = useState('');
 
@@ -70,10 +68,6 @@ export function MainChatSettings({
       setSettings(loaded);
       setInstructions(loaded.instructions);
       onAgentChange(loaded.agent);
-      const { selection } = useAppStore.getState();
-      if (selection.kind === 'app-settings' && selection.section === 'main-chat') {
-        ref.current?.scrollIntoView({ block: 'start' });
-      }
     });
   }, [onAgentChange]);
 
@@ -129,7 +123,7 @@ export function MainChatSettings({
   const probe = probes[settings.agent];
 
   return (
-    <section ref={ref} aria-label="Main chat" className="scroll-mt-6 space-y-6">
+    <section aria-label="Main chat" className="space-y-6">
       <div>
         <h3 className="text-sm font-semibold text-text-primary">Main chat</h3>
         <p className="text-xs text-text-tertiary mt-1">

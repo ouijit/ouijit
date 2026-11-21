@@ -16,7 +16,7 @@ export type Selection =
   | { kind: 'terminal'; stack: string; projectPath: string }
   | { kind: 'page'; projectPath: string; page: ProjectPage }
   | { kind: 'chat' }
-  | { kind: 'app-settings'; section?: 'main-chat' }
+  | { kind: 'app-settings' }
   | { kind: 'none' };
 
 /** What a project goes back to when it is opened again. */

@@ -11,7 +11,6 @@ import {
 import { Icon } from '../terminal/Icon';
 import { SandboxRing } from '../terminal/StatusDot';
 import { SANDBOX_LABELS, isActiveSandbox, isSandboxProviderId, type SandboxBackendId } from '../../sandbox/types';
-import { useAppStore } from '../../stores/appStore';
 import { MenuPopover } from '../ui/Menu';
 import { growToFit } from '../../hooks/useAutoResize';
 import { useChatStore } from '../../stores/chatStore';
@@ -177,18 +176,6 @@ function SandboxNote({ info, sandbox }: { info: ChatSessionInfo; sandbox: Sandbo
             {line}
           </p>
         ))}
-        {home && (
-          <button
-            type="button"
-            className="self-start mt-1 btn-secondary btn-compact"
-            onClick={() => {
-              setOpen(false);
-              useAppStore.getState().select({ kind: 'app-settings', section: 'main-chat' });
-            }}
-          >
-            Change where Chat runs
-          </button>
-        )}
       </div>
     </MenuPopover>
   );

@@ -399,10 +399,9 @@ describe('Chat', () => {
     expect(within(group).queryByRole('button', { name: 'Keychain recovery review' })).toBeNull();
     fireEvent.click(within(group).getByRole('button', { name: 'Show chats' }));
 
-    // The gear opens Settings at the main chat's part, where a change of where it runs restarts the agent.
+    // Its settings are in Settings, where a change of where it runs restarts the agent.
     expect(within(screen.getByRole('banner')).getByText('Ship the settings page.')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Chat settings' }));
-    expect(useAppStore.getState().selection).toEqual({ kind: 'app-settings', section: 'main-chat' });
+    act(() => useAppStore.getState().select({ kind: 'app-settings' }));
     const main = await screen.findByRole('region', { name: 'Main chat' });
     expect(screen.getByRole('heading', { name: 'Task chats' })).toBeTruthy();
     // It runs on the host unless set otherwise, with no sandbox profile to show.
