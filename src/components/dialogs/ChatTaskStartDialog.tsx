@@ -108,7 +108,7 @@ export function ChatTaskStartDialog({ projectPath, onClose }: { projectPath: str
 
   return (
     <DialogOverlay visible={visible} onDismiss={dismiss}>
-      <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">Start & Continue Hooks</h2>
+      <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">Start Hook</h2>
 
       <div className="mb-6 flex flex-col gap-4">
         <Field
@@ -135,13 +135,6 @@ export function ChatTaskStartDialog({ projectPath, onClose }: { projectPath: str
             {sample || <span className="text-text-tertiary">Nothing is sent; the chat waits for you.</span>}
           </div>
         </div>
-        <Field
-          id="chat-resume-setup"
-          label="Setup on resume"
-          description="Runs before a task chat reopens"
-          value={values.resumeSetup}
-          onChange={(resumeSetup) => set({ resumeSetup })}
-        />
         <HookEnvVars />
       </div>
 

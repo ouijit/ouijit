@@ -9,7 +9,7 @@
 import type { Project, SandboxBackendId, SandboxProviderId, TaskWithWorkspace, WorktreeInfo } from '../types';
 import { joinStack, useAppStore, type ProjectPage } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { loadTasks, projectChatTaskStart, projectDefaultSandbox } from '../stores/projectDataStore';
+import { loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
 import { stackMembers, stackOf, useTerminalStore } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
@@ -151,8 +151,6 @@ export async function openTaskShell(
   const chat = options.fresh ? options.fresh === 'chat' : (await loadChatSettings()).surface === 'chat';
   if (options.mode === 'resume' && chat) {
     const sandbox = options.sandboxProvider ?? (await projectDefaultSandbox(projectPath));
-    const resumeSetup =
-      skipAutoHook || options.fresh ? '' : (await projectChatTaskStart(projectPath)).resumeSetup.trim();
     return addChatCard(projectPath, {
       agent: options.chat?.agent,
       firstPrompt: options.chat?.prompt,
@@ -162,9 +160,6 @@ export async function openTaskShell(
       replaceLoadingId: options.replaceLoadingId,
       background: options.background,
       resumeLatest: !options.fresh,
-      setup: resumeSetup
-        ? { name: 'Setup', command: resumeSetup, hookType: 'continue', sandboxProvider: sandbox }
-        : undefined,
     });
   }
 

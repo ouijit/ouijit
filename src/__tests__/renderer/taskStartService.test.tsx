@@ -534,7 +534,7 @@ describe('taskStartService.beginTransition', () => {
     expect(useProjectStore.getState().runHookQueueTotal).toBe(0);
   });
 
-  test('a task that opens as a chat runs the project chat Setup, not its start hook, then sends the First message filled in', async () => {
+  test('a task that opens as a chat runs the project chat Setup, not its start hook, then sends the First message filled in, and back from review picks up its last chat', async () => {
     const stored: Record<string, string> = {
       'chat:enabled': '1',
       'chat:surface': 'chat',
@@ -574,6 +574,20 @@ describe('taskStartService.beginTransition', () => {
     await waitFor(() => vi.mocked(addChatCard).mock.calls.length > 0);
     expect(useProjectStore.getState().runHookQueue).toHaveLength(0);
     expect(vi.mocked(addChatCard).mock.calls[0][1]).toMatchObject({ setup: undefined, firstPrompt: 'with oauth' });
+
+    // Back from review it picks up its last chat, with no hook and nothing sent again.
+    vi.mocked(addChatCard).mockClear();
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      continue: { id: 'c', type: 'continue', name: 'Continue', command: 'claude --continue' },
+    });
+    const reviewed = { ...task, status: 'in_review' as const, worktreePath: '/wt/T-7', branch: 'wire-up-auth-7' };
+    beginTransition(PROJECT, { origStatus: 'in_review', newStatus: 'in_progress', task: reviewed });
+    await waitFor(() => vi.mocked(addChatCard).mock.calls.length > 0);
+    expect(useProjectStore.getState().runHookQueue).toHaveLength(0);
+    const resumed = vi.mocked(addChatCard).mock.calls[0][1];
+    expect(resumed).toMatchObject({ taskId: 7, resumeLatest: true });
+    expect(resumed.firstPrompt).toBeUndefined();
+    expect(resumed.setup).toBeUndefined();
   });
 });
 

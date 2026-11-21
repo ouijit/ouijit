@@ -10,7 +10,7 @@ afterEach(() => {
   useHomeChatStore.setState({ enabled: false, taskSurface: 'terminal' });
 });
 
-test('where tasks open in chat, the hooks dialog edits Setup, First message and Setup on resume instead, and saves them apart from the hooks', async () => {
+test('where tasks open in chat, the start hook dialog edits Setup and First message instead, saved apart from the hooks, and continue stays a command', async () => {
   const stored: Record<string, string> = {
     'chat:taskStart:/project': JSON.stringify({ setup: 'npm install' }),
   };
@@ -34,24 +34,25 @@ test('where tasks open in chat, the hooks dialog edits Setup, First message and 
   expect(preview.textContent).toBe('Read PLAN.md, then: Add a dark mode toggle');
   fireEvent.change(message, { target: { value: '' } });
   expect(preview.textContent).toBe('Nothing is sent; the chat waits for you.');
-  fireEvent.change(screen.getByLabelText('Setup on resume'), { target: { value: 'git pull' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() =>
     expect(getProjectConfig('/project')?.chatTaskStart).toEqual({
       setup: 'npm install',
       firstMessage: '',
-      resumeSetup: 'git pull',
     }),
   );
   expect(window.api.hooks.save).not.toHaveBeenCalled();
   cleanup();
 
-  // The single-hook dialog opens the same fields for start and continue; with tasks in terminals it is a command again.
-  render(<HookConfigDialog projectPath="/project" hookType="continue" onClose={vi.fn()} />);
-  expect((screen.getByLabelText('Setup on resume') as HTMLTextAreaElement).value).toBe('git pull');
+  // The single start hook dialog opens the same fields; continue only reopens a terminal's agent, so it stays a command.
+  render(<HookConfigDialog projectPath="/project" hookType="start" onClose={vi.fn()} />);
+  expect((screen.getByLabelText('Setup') as HTMLTextAreaElement).value).toBe('npm install');
   cleanup();
-  useHomeChatStore.setState({ taskSurface: 'terminal' });
   render(<HookConfigDialog projectPath="/project" hookType="continue" onClose={vi.fn()} />);
   expect(screen.getByLabelText('Command')).toBeTruthy();
-  expect(screen.queryByLabelText('Setup on resume')).toBeNull();
+  cleanup();
+  useHomeChatStore.setState({ taskSurface: 'terminal' });
+  render(<HookConfigDialog projectPath="/project" hookType="start" onClose={vi.fn()} />);
+  expect(screen.getByLabelText('Command')).toBeTruthy();
+  expect(screen.queryByLabelText('First message')).toBeNull();
 });

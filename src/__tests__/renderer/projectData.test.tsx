@@ -122,14 +122,14 @@ describe('project config', () => {
       hooks: { editor },
       defaultSandbox: 'nono',
       sandboxCliAccess: 'task',
-      chatTaskStart: { setup: '', firstMessage: '$OUIJIT_TASK_DESCRIPTION', resumeSetup: '' },
+      chatTaskStart: { setup: '', firstMessage: '$OUIJIT_TASK_DESCRIPTION' },
     });
     expect(getProjectConfig('/b')).toMatchObject({
       availableSandboxProviders: [],
       hooks: {},
       defaultSandbox: 'none',
       sandboxCliAccess: 'read',
-      chatTaskStart: { setup: 'npm ci', firstMessage: '$OUIJIT_TASK_DESCRIPTION', resumeSetup: '' },
+      chatTaskStart: { setup: 'npm ci', firstMessage: '$OUIJIT_TASK_DESCRIPTION' },
     });
 
     vi.mocked(window.api.sandbox.status).mockRejectedValueOnce(new Error('boom'));
@@ -149,7 +149,7 @@ describe('project config', () => {
     expect(window.api.hooks.delete).toHaveBeenCalledWith('/b', 'run');
 
     // An emptied first message stays empty rather than going back to the default.
-    const chatStart = { setup: '', firstMessage: '', resumeSetup: 'git pull' };
+    const chatStart = { setup: 'npm ci', firstMessage: '' };
     expect(await saveChatTaskStart('/b', chatStart)).toBe(true);
     expect(getProjectConfig('/b')?.chatTaskStart).toEqual(chatStart);
     await loadProjectConfig('/b');

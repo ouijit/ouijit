@@ -53,17 +53,15 @@ export function parseChatSettings(read: (key: string) => string | undefined | nu
   };
 }
 
-/** A project's task chats: what runs before one starts, what it is sent first, and what runs before one resumes. */
+/** A project's task chats: what runs before one starts, and what it is sent first. */
 export interface ChatTaskStart {
   setup: string;
   firstMessage: string;
-  resumeSetup: string;
 }
 
 export const DEFAULT_CHAT_TASK_START: ChatTaskStart = {
   setup: '',
   firstMessage: '$OUIJIT_TASK_DESCRIPTION',
-  resumeSetup: '',
 };
 
 /** globalSettings key holding a project's ChatTaskStart, as JSON. */
@@ -83,7 +81,7 @@ export function parseChatTaskStart(raw: string | null | undefined): ChatTaskStar
     const value = stored[key];
     return typeof value === 'string' ? value : DEFAULT_CHAT_TASK_START[key];
   };
-  return { setup: text('setup'), firstMessage: text('firstMessage'), resumeSetup: text('resumeSetup') };
+  return { setup: text('setup'), firstMessage: text('firstMessage') };
 }
 
 /** Readable in logs and the database; what makes a session one of Chat's is its role, not this. */

@@ -17,8 +17,8 @@ export async function opensAsChat(surface: TaskSurface | undefined): Promise<boo
 
 /**
  * What a move runs in place of a hook. Where the task opens as a chat, the
- * chat is the agent, so the project's chat Setup, or Setup on resume, stands
- * where the start or continue hook would.
+ * chat is the agent: the project's chat Setup stands where the start hook
+ * would, and the continue hook, which only reopens a terminal agent, runs nothing.
  */
 export async function hookForMove(
   projectPath: string,
@@ -27,9 +27,8 @@ export async function hookForMove(
 ): Promise<ScriptHook | undefined> {
   if (!hookType) return undefined;
   if ((hookType === 'start' || hookType === 'continue') && (await opensAsChat(surface))) {
-    const chatStart = await projectChatTaskStart(projectPath);
-    const command = (hookType === 'start' ? chatStart.setup : chatStart.resumeSetup).trim();
-    return command ? { id: `chat-${hookType}`, type: hookType, name: 'Setup', command } : undefined;
+    const command = hookType === 'start' ? (await projectChatTaskStart(projectPath)).setup.trim() : '';
+    return command ? { id: 'chat-start', type: 'start', name: 'Setup', command } : undefined;
   }
   return (await window.api.hooks.get(projectPath))[hookType] ?? undefined;
 }

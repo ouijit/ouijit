@@ -55,7 +55,7 @@ interface HookConfigDialogProps {
 
 export function HookConfigDialog(props: HookConfigDialogProps) {
   const chat = useHomeChatStore((s) => s.enabled && s.taskSurface === 'chat');
-  if (chat && (props.hookType === 'start' || props.hookType === 'continue')) {
+  if (chat && props.hookType === 'start') {
     return <ChatTaskStartDialog projectPath={props.projectPath} onClose={() => props.onClose(null)} />;
   }
   return <CommandHookDialog {...props} />;

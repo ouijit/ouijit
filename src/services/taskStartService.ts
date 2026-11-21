@@ -379,6 +379,17 @@ async function spawnTerminalForInProgress(
   if (await opensAsChat(surface)) {
     const worktree = { path: task.worktreePath, branch: task.branch || '' };
     const live = (await window.api.task.getByNumber(projectPath, task.taskNumber)) ?? task;
+    // Back in progress, a task picks up its last chat rather than starting over.
+    if (hookType === 'continue') {
+      await addChatCard(projectPath, {
+        worktree,
+        taskId: task.taskNumber,
+        sandboxProvider: sandbox,
+        replaceLoadingId: loadingSlot ?? undefined,
+        resumeLatest: true,
+      });
+      return;
+    }
     const { firstMessage } = await projectChatTaskStart(projectPath);
     await addChatCard(projectPath, {
       worktree,
