@@ -1,295 +1,36 @@
 import { randomUUID } from 'node:crypto';
-import { getLogger } from '../logger';
-import { getAllProjects, getChatRepo, getGlobalSetting } from '../db';
-import { getWorktreesRoot } from '../worktree';
-import { CHAT_SETTING_KEYS, parseChatSettings } from './preferences';
-import type { ChatSessionRow } from '../db/repos/chatRepo';
-import {
-  pendingWrites,
-  persistedInfo,
-  reconfigured,
-  relabel,
-  storedInfo,
-  storedNodes,
-  storedRow,
-  storedSnapshot,
-} from './sessionStore';
-import { issueToken, revokeToken } from '../apiAuth';
-import { hostEnv, ouijitSessionEnv, sandboxLaunch } from '../sessionEnv';
-import { sandboxReferenceEnv } from '../sandbox/cliAccess';
-import { getCliReferencePath, readCliReference } from '../cliReferencePath';
-import { getSandboxProvider } from '../sandbox';
-import { isActiveSandbox, isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
-import {
-  spawnAgentProcess,
-  type AgentProcess,
-  type AgentSpawn,
-  type DriverProbe,
-  type DriverSession,
-  type DriverSink,
-  type UserInput,
-} from '../agents';
+import { getChatRepo } from '../db';
+import { reconfigured, relabel, storedInfo, storedNodes, storedRow, storedSnapshot } from './sessionStore';
+import { revokeToken } from '../apiAuth';
+import { isActiveSandbox, isSandboxProviderId } from '../sandbox/types';
+import { spawnAgentProcess, type DriverProbe, type DriverSession } from '../agents';
 import { generateTitle, titlePrompt } from './title';
 import { getDriver } from './drivers';
 import type { ChatDelivery, ChatStartOptions } from './startOptions';
 import {
   NO_CAPABILITIES,
-  applyChatEvent,
   isChatAgentId,
+  parseSlashCommand,
   type ChatAgentId,
   type ChatAnswer,
-  type ChatAttachment,
-  type ChatCommand,
-  type ChatOption,
-  type SlashCommand,
-  parseSlashCommand,
-  type ChatEvent,
-  type ChatNode,
   type ChatRole,
   type ChatSessionInfo,
   type ChatSnapshot,
-  type RequestNode,
   type SequencedChatEvent,
-  type ReasoningNode,
-  type ToolCallNode,
   type UserMessageNode,
   type WakeNote,
   type TaskChatSummary,
 } from './model';
+import { chatLog, settled, HostedSession, type ChatListener } from './hostedSession';
+import { launch, spawnAgent } from './sessionLaunch';
+import { deliverPrompt, type PromptInput } from './promptDelivery';
+import * as commands from './conversationCommands';
 
-const CHAT_SURFACE = `You are talking with the user in Ouijit Chat, which renders your replies as Markdown. To show the user an image, such as a screenshot or a diagram you made, put it in your reply as a Markdown image with an absolute path: ![what it shows](/absolute/path/to/image.png). An image you only read with a tool is seen by you, not by the user.`;
-
-const chatLog = getLogger().scope('chat');
-
-const FLUSH_DELAY_MS = 300;
-/** The conversation commands a driver can run, which every chat's menu offers whatever the agent lists. */
-function conversationCommands(driver: DriverSession): ChatCommand[] {
-  return [
-    { name: 'clear', description: 'Start a new conversation', available: Boolean(driver.clear) },
-    {
-      name: 'compact',
-      description: 'Summarize the conversation to free up context',
-      available: Boolean(driver.compact),
-    },
-    { name: 'model', description: 'Switch model', argumentHint: '<model>', available: Boolean(driver.setModel) },
-    {
-      name: 'effort',
-      description: 'Set reasoning effort',
-      argumentHint: '<level>',
-      available: Boolean(driver.setEffort),
-    },
-  ]
-    .filter((command) => command.available)
-    .map(({ available: _available, ...command }) => command);
-}
-
-/**
- * Nodes still running once their agent process is gone, settled: nothing will
- * report them finished. A subagent whose launching call completed is done.
- */
-function settled(nodes: ChatNode[]): ChatNode[] {
-  const byId = new Map(nodes.map((node) => [node.id, node]));
-  return nodes.flatMap((node) => {
-    if (node.kind === 'request' || !('status' in node)) return [];
-    if (node.status !== 'running' && node.status !== 'pending') return [];
-    const parent = node.parentId ? byId.get(node.parentId) : undefined;
-    const done = node.kind === 'subagent' && parent?.kind === 'tool_call' && parent.status === 'completed';
-    return [{ ...node, status: done ? 'completed' : 'interrupted' } as ChatNode];
-  });
-}
-
-/**
- * A node a driver sends again keeps when it first appeared, since drivers
- * stamp every send; a thought or a step gets when it finished, for its duration.
- */
-function restamped(nodes: ChatNode[], node: ChatNode): ChatNode {
-  const before = nodes.find((other) => other.id === node.id);
-  if (!before) return node;
-  const timed = (n: ChatNode): n is ReasoningNode | ToolCallNode => n.kind === 'reasoning' || n.kind === 'tool_call';
-  const going = (n: ReasoningNode | ToolCallNode) => n.status === 'running' || n.status === 'pending';
-  if (timed(node) && timed(before) && !going(node)) {
-    const endedAt = going(before) ? Date.now() : before.endedAt;
-    return { ...node, createdAt: before.createdAt, ...(endedAt !== undefined && { endedAt }) };
-  }
-  return { ...node, createdAt: before.createdAt };
-}
-
-/** Made by Ouijit as they happen, so no agent's record of the conversation holds them. */
-const OUIJIT_KINDS = new Set<ChatNode['kind']>(['notice', 'request']);
-
-/**
- * The transcript an agent's record of the conversation gives, in the record's
- * order and under its ids. An agent that numbers messages itself names the
- * user's messages and its compactions differently from how they were shown
- * live, so those are matched in order instead; a match keeps when it happened
- * and what only Ouijit knew about it. Ouijit's own nodes, and a compaction
- * already shown, stay after the node they followed: a record puts a compaction
- * where its summary sits in the context, ahead of what it kept verbatim.
- */
-function mergedHistory(stored: ChatNode[], record: ChatNode[]): ChatNode[] {
-  const ids = new Set(record.map((node) => node.id));
-  const byId = new Map(stored.map((node) => [node.id, node]));
-  const unmatched = stored.filter(
-    (node) => !ids.has(node.id) && (node.kind === 'user_message' || node.kind === 'compaction'),
-  );
-  const matchedAt = new Map<string, number>();
-  const merged = record.map((node, index) => {
-    let before = byId.get(node.id);
-    if (!before && (node.kind === 'user_message' || node.kind === 'compaction')) {
-      const at = unmatched.findIndex(
-        (other) =>
-          other.kind === node.kind && (node.kind !== 'user_message' || (other as UserMessageNode).text === node.text),
-      );
-      if (at !== -1) before = unmatched.splice(at, 1)[0];
-    }
-    if (!before) return node;
-    matchedAt.set(before.id, index);
-    return carried(before, node);
-  });
-  const following = new Map<number, ChatNode[]>();
-  const follow = (after: number, node: ChatNode) => following.set(after, [...(following.get(after) ?? []), node]);
-  const placed = new Set<number>();
-  let last = -1;
-  stored.forEach((node, at) => {
-    const index = matchedAt.get(node.id);
-    const previous = at > 0 ? matchedAt.get(stored[at - 1].id) : -1;
-    if (index !== undefined && node.kind === 'compaction' && previous !== undefined) {
-      placed.add(index);
-      follow(previous, merged[index]);
-    } else if (index !== undefined) last = index;
-    else if (OUIJIT_KINDS.has(node.kind) && !ids.has(node.id)) follow(last, node);
-  });
-  return [
-    ...(following.get(-1) ?? []),
-    ...merged.flatMap((node, index) => [...(placed.has(index) ? [] : [node]), ...(following.get(index) ?? [])]),
-  ];
-}
-
-function carried(before: ChatNode, node: ChatNode): ChatNode {
-  if (node.kind === 'user_message' && before.kind === 'user_message') {
-    return {
-      ...node,
-      createdAt: before.createdAt,
-      attachments: node.attachments.length ? node.attachments : before.attachments,
-      ...(before.wake && { wake: true }),
-      ...(before.notes && { notes: before.notes }),
-    };
-  }
-  if (node.kind === 'reasoning' && before.kind === 'reasoning' && before.endedAt !== undefined) {
-    return { ...node, createdAt: before.createdAt, endedAt: node.endedAt ?? before.endedAt };
-  }
-  return { ...node, createdAt: before.createdAt };
-}
-
-function withConversationCommands(commands: ChatCommand[], driver: DriverSession): ChatCommand[] {
-  const own = conversationCommands(driver).filter((command) => !commands.some((c) => c.name === command.name));
-  return [...own, ...commands];
-}
-/** Events kept for a client catching up; one that falls further behind takes a fresh snapshot. */
-const REPLAY_WINDOW = 4000;
-
-export type ChatListener = (sessionId: string, event: SequencedChatEvent) => void;
+export type { ChatListener } from './hostedSession';
 
 export class ChatSessionNotFound extends Error {
   constructor(id: string) {
     super(`Chat session ${id} not found`);
-  }
-}
-
-interface Pending {
-  resolve: (answer: ChatAnswer) => void;
-}
-
-class HostedSession {
-  info: ChatSessionInfo;
-  nodes: ChatNode[] = [];
-  seq = 0;
-  driver: DriverSession | null = null;
-  readonly asks = new Map<string, Pending>();
-  readonly queued: UserMessageNode[] = [];
-  private readonly recent: SequencedChatEvent[] = [];
-  private dirty = new Set<string>();
-  private removed = new Set<string>();
-  private flushTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly createdAt: string;
-  readonly processes = new Set<AgentProcess>();
-  starting: Promise<void> | null = null;
-  stopping: Promise<void> | null = null;
-  referenceEnv: Record<string, string> = {};
-  instructions = '';
-  launchMode: string | undefined;
-
-  constructor(
-    readonly row: Pick<ChatSessionRow, 'id' | 'project_path' | 'task_id' | 'cwd' | 'worktree_path' | 'agent'> & {
-      sandbox_provider: SandboxProviderId | undefined;
-    },
-    info: ChatSessionInfo,
-    createdAt: string,
-    private readonly broadcast: ChatListener,
-  ) {
-    this.info = info;
-    this.createdAt = createdAt;
-  }
-
-  emit(event: ChatEvent): void {
-    applyChatEvent(this, event);
-    const sequenced = { seq: ++this.seq, event };
-    this.recent.push(sequenced);
-    if (this.recent.length > REPLAY_WINDOW) this.recent.splice(0, this.recent.length - REPLAY_WINDOW);
-    this.track(event);
-    this.broadcast(this.info.id, sequenced);
-  }
-
-  since(seq: number): SequencedChatEvent[] | null {
-    if (seq >= this.seq) return [];
-    const first = this.recent[0];
-    if (!first || first.seq > seq + 1) return null;
-    return this.recent.filter((entry) => entry.seq > seq);
-  }
-
-  snapshot(): ChatSnapshot {
-    return { info: this.info, nodes: this.nodes, seq: this.seq };
-  }
-
-  private track(event: ChatEvent): void {
-    if (event.type === 'node') {
-      this.dirty.add(event.node.id);
-      this.removed.delete(event.node.id);
-    } else if (event.type === 'append') {
-      this.dirty.add(event.id);
-    } else if (event.type === 'remove') {
-      for (const id of event.ids) {
-        this.dirty.delete(id);
-        this.removed.add(id);
-      }
-    }
-    this.flushTimer ??= setTimeout(() => this.flush(), FLUSH_DELAY_MS);
-  }
-
-  flush(): void {
-    if (this.flushTimer) clearTimeout(this.flushTimer);
-    this.flushTimer = null;
-    const upserts = pendingWrites(this.nodes, this.dirty, this.removed);
-    try {
-      getChatRepo().save(
-        {
-          ...this.row,
-          sandbox_provider: this.row.sandbox_provider ?? null,
-          role: this.info.role,
-          agent_session_id: this.info.agentSessionId,
-          info: JSON.stringify(persistedInfo(this.info)),
-          seq: this.seq,
-          created_at: this.createdAt,
-          updated_at: new Date().toISOString(),
-        },
-        upserts,
-        [...this.removed],
-      );
-      this.dirty.clear();
-      this.removed.clear();
-    } catch (error) {
-      chatLog.error('failed to persist chat session', { id: this.info.id, error: String(error) });
-    }
   }
 }
 
@@ -302,12 +43,6 @@ export interface ChatHostOptions {
   spawnOneShot?: typeof spawnAgentProcess;
   /** Takes `/clear` for a session instead of the driver; true when it did. */
   onClear?: (id: string) => Promise<boolean>;
-}
-
-/** Chat reads every project and every task's worktree to answer about them; it changes them only through tasks. */
-async function chatReadPaths(): Promise<string[]> {
-  const projects = await getAllProjects();
-  return [...projects.map((project) => project.path), getWorktreesRoot()];
 }
 
 export class ChatHost {
@@ -483,7 +218,10 @@ export class ChatHost {
       options.resume ?? (base.agentSessionId ? { agentSessionId: base.agentSessionId, fork: false } : null);
     if (options.resume)
       session.info = { ...session.info, agentSessionId: options.resume.fork ? null : options.resume.agentSessionId };
-    session.starting = this.launch(session, resume);
+    session.starting = launch(session, resume, {
+      probe: (agent) => this.probe(agent),
+      spawn: (token, spawn) => spawnAgent(session, token, spawn, this.options.spawnProcess ?? spawnAgentProcess),
+    });
     if (!options.eager) await session.starting;
     return session.snapshot();
   }
@@ -497,62 +235,6 @@ export class ChatHost {
     return probe;
   }
 
-  private async launch(
-    session: HostedSession,
-    resume: { agentSessionId: string; fork: boolean } | null,
-  ): Promise<void> {
-    const driver = getDriver(session.info.agent);
-    const id = session.info.id;
-    session.emit({ type: 'session', patch: { status: 'starting' } });
-    try {
-      const probe = await this.probe(session.info.agent);
-      if (!probe.installed || probe.problem) {
-        throw new Error(probe.problem ?? `${driver.label} is not installed`);
-      }
-      session.emit({ type: 'session', patch: { agentVersion: probe.version } });
-      const stored = new Map<string, string | undefined>();
-      await Promise.all(
-        Object.values(CHAT_SETTING_KEYS).map(async (key) => stored.set(key, await getGlobalSetting(key))),
-      );
-      const settings = parseChatSettings((key) => stored.get(key));
-      const sandbox = isActiveSandbox(session.row.sandbox_provider) ? session.row.sandbox_provider : undefined;
-      const chosenMode = session.launchMode ?? (resume ? (session.info.pendingMode ?? session.info.mode) : undefined);
-      const token = issueToken(id, sandbox ? 'sandbox' : 'host');
-      const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path);
-      session.referenceEnv = referenceEnv;
-      const reference = readCliReference(referenceEnv.OUIJIT_SANDBOX_REFERENCE_FILE ?? getCliReferencePath());
-      session.driver = await driver.start({
-        cwd: session.row.cwd,
-        sessionId: id,
-        resume,
-        ...(chosenMode && { mode: chosenMode }),
-        spawn: (spawn) => this.spawn(session, token, spawn),
-        sink: this.sink(session),
-        preferences: { piApprovals: settings.piApprovals, acpCommand: settings.acpCommand },
-        instructions: [reference, CHAT_SURFACE, session.instructions].filter(Boolean).join('\n\n'),
-      });
-      // For a driver that cannot launch in a mode, switch to it once started.
-      if (chosenMode && session.driver.setMode && session.info.mode !== chosenMode) {
-        await session.driver.setMode(chosenMode);
-      }
-      if (chosenMode) session.emit({ type: 'session', patch: { mode: chosenMode, pendingMode: null } });
-      session.emit({
-        type: 'session',
-        patch: {
-          capabilities: { ...session.driver.capabilities, commands: true },
-          commands: withConversationCommands(session.info.commands, session.driver),
-          ...(session.info.status === 'starting' && { status: 'idle' }),
-        },
-      });
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      chatLog.error('chat session failed to start', { id, agent: session.info.agent, error: detail });
-      session.emit({ type: 'session', patch: { status: 'error', statusDetail: detail } });
-      session.driver = null;
-      revokeToken(id);
-    }
-  }
-
   /**
    * A short title for a conversation that opens with `message`, from a one-shot
    * of its agent in the session's own sandbox. Null where the agent has no
@@ -564,111 +246,7 @@ export class ChatHost {
     const oneShot = session && run && getDriver(session.info.agent).oneShot?.(titlePrompt(message));
     if (!session || !run || !oneShot) return null;
     // Without the session's Ouijit token: a one-shot has no business with the API.
-    return generateTitle((spawn) => this.spawn(session, null, spawn, run), oneShot);
-  }
-
-  private async spawn(
-    session: HostedSession,
-    token: string | null,
-    spawn: AgentSpawn,
-    run: typeof spawnAgentProcess = this.options.spawnProcess ?? spawnAgentProcess,
-  ): Promise<AgentProcess> {
-    const base = hostEnv();
-    const env: Record<string, string> = {
-      ...base,
-      ...(token && { ...ouijitSessionEnv(session.info.id, token, base), ...session.referenceEnv }),
-    };
-    for (const [key, value] of Object.entries(spawn.env ?? {})) {
-      if (value === undefined) delete env[key];
-      else env[key] = value;
-    }
-    const { launch, cwd } = await sandboxLaunch(
-      { file: spawn.command, args: spawn.args, env },
-      {
-        provider: getSandboxProvider(session.row.sandbox_provider),
-        projectPath: session.row.project_path,
-        cwd: spawn.cwd ?? session.row.cwd,
-        taskId: session.row.task_id ?? undefined,
-        worktreePath: session.row.worktree_path ?? undefined,
-        ...(session.info.role === 'home' && { readPaths: await chatReadPaths() }),
-      },
-    );
-    chatLog.info('spawning agent', { id: session.info.id, file: launch.file, sandbox: session.row.sandbox_provider });
-    const proc = run(launch.file, launch.args, cwd, launch.env);
-    session.processes.add(proc);
-    proc.once('exit', () => session.processes.delete(proc));
-    return proc;
-  }
-
-  private sink(session: HostedSession): DriverSink {
-    const id = session.info.id;
-    const sink: DriverSink = {
-      node: (node) => {
-        session.emit({ type: 'node', node: restamped(session.nodes, node) });
-        // Pi reports nothing more once a compaction is done, so its landing ends the wait.
-        if (node.kind === 'compaction' && session.info.compacting) sink.session({ status: 'idle' });
-      },
-      append: (nodeId, field, delta) => session.emit({ type: 'append', id: nodeId, field, delta }),
-      remove: (ids) => ids.length && session.emit({ type: 'remove', ids }),
-      session: (incoming) => {
-        const patch =
-          incoming.commands && session.driver
-            ? { ...incoming, commands: withConversationCommands(incoming.commands, session.driver) }
-            : incoming;
-        const wasBusy = session.info.status === 'running' || session.info.status === 'awaiting';
-        const awaited =
-          patch.status === 'running' && session.asks.size > 0 ? { ...patch, status: 'awaiting' as const } : patch;
-        const ended = awaited.status !== undefined && awaited.status !== 'running' && awaited.status !== 'awaiting';
-        const next = ended
-          ? {
-              ...awaited,
-              ...(session.info.stopping && { stopping: false }),
-              ...(session.info.compacting && { compacting: null }),
-            }
-          : awaited;
-        session.emit({ type: 'session', patch: next });
-        if (next.status === 'exited' || next.status === 'error') {
-          for (const node of settled(session.nodes)) session.emit({ type: 'node', node });
-        }
-        if (wasBusy && next.status === 'idle') void this.endTurn(session);
-      },
-      ask: (request) =>
-        new Promise<ChatAnswer>((resolve) => {
-          const node: RequestNode = { ...request, kind: 'request', status: 'pending', createdAt: Date.now() };
-          session.asks.set(node.id, { resolve });
-          session.emit({ type: 'node', node });
-          if (session.info.status === 'running') session.emit({ type: 'session', patch: { status: 'awaiting' } });
-        }),
-      history: (nodes) => {
-        // An agent with no record of the conversation — its session file gone —
-        // is not a reason to throw away the transcript Ouijit kept.
-        if (nodes.length === 0) return;
-        const incoming = new Set(nodes.map((node) => node.id));
-        // A record that opens with a compaction has dropped what came before
-        // it; that part of the transcript is kept rather than read as stale.
-        const overlap = session.nodes.findIndex((node) => incoming.has(node.id));
-        const start = nodes[0]?.kind === 'compaction' ? (overlap === -1 ? session.nodes.length : overlap) : 0;
-        const covered = session.nodes.slice(start);
-        const merged = mergedHistory(covered, nodes);
-        const kept = new Set(merged.map((node) => node.id));
-        const stale = covered.filter((node) => !kept.has(node.id)).map((node) => node.id);
-        if (stale.length) session.emit({ type: 'remove', ids: stale });
-        // A node event updates a node in place or appends it, so whatever is
-        // out of the record's order is taken out and appended again.
-        const remaining = covered.filter((node) => kept.has(node.id));
-        let inOrder = 0;
-        while (inOrder < remaining.length && remaining[inOrder].id === merged[inOrder].id) inOrder++;
-        const moved = remaining.slice(inOrder).map((node) => node.id);
-        if (moved.length) session.emit({ type: 'remove', ids: moved });
-        for (const node of merged) session.emit({ type: 'node', node });
-      },
-      reset: () => {
-        session.queued.splice(0);
-        if (session.nodes.length) session.emit({ type: 'remove', ids: session.nodes.map((node) => node.id) });
-      },
-      log: (message, data) => chatLog.info(message, { id, ...data }),
-    };
-    return sink;
+    return generateTitle((spawn) => spawnAgent(session, null, spawn, run), oneShot);
   }
 
   private broadcast(sessionId: string, event: SequencedChatEvent): void {
@@ -689,169 +267,28 @@ export class ChatHost {
 
   private async requireDriver(id: string): Promise<{ session: HostedSession; driver: DriverSession }> {
     const session = this.require(id);
-    await session.starting;
-    if (!session.driver) throw new Error(session.info.statusDetail ?? 'The agent is not running');
-    return { session, driver: session.driver };
+    return { session, driver: await session.readyDriver() };
   }
 
-  /**
-   * Send a message. `auto` steers a running turn where the agent can, queues it
-   * where it cannot, and starts a turn when the agent is idle.
-   */
-  async prompt(
-    id: string,
-    input: { text: string; attachments?: ChatAttachment[]; wake?: boolean; notes?: WakeNote[] },
-    delivery: ChatDelivery = 'auto',
-  ): Promise<string> {
+  async prompt(id: string, input: PromptInput, delivery: ChatDelivery = 'auto'): Promise<string> {
     const { session, driver } = await this.requireDriver(id);
     const busy = session.info.status === 'running' || session.info.status === 'awaiting';
     const command = parseSlashCommand(input.text, session.info.commands, session.info.agent);
     if (command?.kind === 'terminal') {
       throw new Error(`/${command.name} runs in the agent's terminal`);
     }
-    if (command?.kind === 'conversation' && (await this.runConversationCommand(session, driver, command, busy))) {
+    if (
+      command?.kind === 'conversation' &&
+      (await commands.runConversationCommand(session, driver, command, busy, this.options.onClear))
+    ) {
       return '';
     }
-    const node: UserMessageNode = {
-      id: `user-${randomUUID()}`,
-      kind: 'user_message',
-      parentId: null,
-      createdAt: Date.now(),
-      text: input.text,
-      attachments: input.attachments ?? [],
-      delivery: 'prompt',
-      ...(input.wake && { wake: true }),
-      ...(input.notes?.length && { notes: input.notes }),
-    };
-    const userInput: UserInput & { id: string } = { id: node.id, text: node.text, attachments: node.attachments };
-    if (!busy) {
-      session.emit({ type: 'node', node });
-      session.emit({ type: 'session', patch: { status: 'running' } });
-      await this.run(session, () => driver.prompt(userInput));
-      return node.id;
-    }
-    const wantsSteer = delivery === 'steer' || (delivery === 'auto' && driver.capabilities.steer);
-    // Held by Ouijit during a compaction, which would otherwise take the message into what it summarizes.
-    const held = session.info.compacting || (!(wantsSteer && driver.capabilities.steer) && !driver.capabilities.queue);
-    if (held) {
-      const queued = { ...node, delivery: 'queued' as const };
-      session.queued.push(queued);
-      session.emit({ type: 'node', node: queued });
-    } else if (wantsSteer && driver.capabilities.steer) {
-      session.emit({ type: 'node', node: { ...node, delivery: 'steer' } });
-      await this.run(session, () => driver.send(userInput, 'steer'));
-    } else {
-      session.emit({ type: 'node', node: { ...node, delivery: 'queued' } });
-      await this.run(session, () => driver.send(userInput, 'queue'));
-    }
-    return node.id;
-  }
-
-  /**
-   * Run a conversation command through the chat's own controls, so the slash
-   * command and the menu do the same thing. False when the driver leaves it
-   * to the agent, as Claude does with `/clear`, which it announces as a reset.
-   */
-  private async runConversationCommand(
-    session: HostedSession,
-    driver: DriverSession,
-    command: Extract<SlashCommand, { kind: 'conversation' }>,
-    busy: boolean,
-  ): Promise<boolean> {
-    const pick = (options: ChatOption[], what: string): string => {
-      const wanted = command.argument.toLowerCase();
-      if (!wanted) throw new Error(`Name a ${what}: /${command.name} <${what}>`);
-      const found = options.find((o) => o.id.toLowerCase() === wanted || o.label.toLowerCase() === wanted);
-      if (!found) throw new Error(`No ${what} called ${command.argument}`);
-      return found.id;
-    };
-    switch (command.action) {
-      case 'clear':
-        if (await this.options.onClear?.(session.info.id)) return true;
-        if (!driver.clear) return false;
-        if (busy) throw new Error('Wait for the turn to end, or stop it, before clearing');
-        await driver.clear();
-        return true;
-      case 'compact':
-        if (!driver.compact) return false;
-        await this.compact(session.info.id);
-        return true;
-      case 'model':
-        if (!driver.setModel) return false;
-        await this.setModel(session.info.id, pick(session.info.models, 'model'));
-        return true;
-      case 'effort':
-        if (!driver.setEffort) return false;
-        await this.setEffort(session.info.id, pick(session.info.efforts, 'effort'));
-        return true;
-    }
-  }
-
-  /** A mode picked during the turn takes effect first, so a queued message runs under it. */
-  private async endTurn(session: HostedSession): Promise<void> {
-    const pending = session.info.pendingMode;
-    if (pending && session.driver?.setMode) {
-      try {
-        await session.driver.setMode(pending);
-        session.emit({ type: 'session', patch: { mode: pending, pendingMode: null } });
-      } catch (error) {
-        chatLog.warn('mode did not apply', { id: session.info.id, mode: pending, error: String(error) });
-        session.emit({ type: 'session', patch: { pendingMode: null } });
-      }
-    }
-    await this.drainQueue(session);
-  }
-
-  private async drainQueue(session: HostedSession): Promise<void> {
-    const next = session.queued.shift();
-    if (!next || !session.driver) return;
-    const driver = session.driver;
-    // Moved to the end: it is sent now, after whatever the finished turn wrote.
-    session.emit({ type: 'remove', ids: [next.id] });
-    session.emit({ type: 'node', node: { ...next, delivery: 'prompt', createdAt: Date.now() } });
-    session.emit({ type: 'session', patch: { status: 'running' } });
-    await this.run(session, () => driver.prompt({ id: next.id, text: next.text, attachments: next.attachments }));
-  }
-
-  /** A driver call failing ends the turn with the failure in the transcript rather than an exception. */
-  private async run(session: HostedSession, call: () => Promise<void>): Promise<void> {
-    try {
-      await call();
-    } catch (error) {
-      const text = error instanceof Error ? error.message : String(error);
-      session.emit({
-        type: 'node',
-        node: {
-          id: `notice-${randomUUID()}`,
-          kind: 'notice',
-          parentId: null,
-          createdAt: Date.now(),
-          level: 'error',
-          text,
-        },
-      });
-      if (session.info.status === 'running' || session.info.status === 'awaiting') {
-        session.emit({ type: 'session', patch: { status: 'idle', compacting: null } });
-      }
-    }
+    return deliverPrompt(session, driver, input, delivery, busy);
   }
 
   /** Answer a pending request. False when it was already answered, here or on another client. */
   answer(id: string, requestId: string, answer: ChatAnswer, { byChat = false } = {}): boolean {
-    const session = this.require(id);
-    const pending = session.asks.get(requestId);
-    const node = session.nodes.find((n): n is RequestNode => n.id === requestId && n.kind === 'request');
-    if (!pending || !node) return false;
-    session.asks.delete(requestId);
-    session.emit({
-      type: 'node',
-      node: { ...node, status: answer.kind === 'cancel' ? 'cancelled' : 'answered', answer, ...(byChat && { byChat }) },
-    });
-    if (session.asks.size === 0 && session.info.status === 'awaiting') {
-      session.emit({ type: 'session', patch: { status: 'running' } });
-    }
-    pending.resolve(answer);
-    return true;
+    return this.require(id).answer(requestId, answer, { byChat });
   }
 
   /** A task Chat owns starts in Chat's mode. Modes are the agent's own, so only a worker on Chat's agent takes it. */
@@ -880,20 +317,7 @@ export class ChatHost {
   }
 
   async interrupt(id: string): Promise<void> {
-    // Said before anything is awaited, so whoever pressed stop sees it taken at once.
-    const live = this.sessions.get(id);
-    if (live && (live.info.status === 'running' || live.info.status === 'awaiting')) {
-      live.emit({ type: 'session', patch: { stopping: true } });
-    }
-    try {
-      const { session, driver } = await this.requireDriver(id);
-      session.queued.splice(0).forEach((node) => session.emit({ type: 'remove', ids: [node.id] }));
-      this.cancelAsks(session);
-      await driver.interrupt();
-    } catch (error) {
-      if (live?.info.stopping) live.emit({ type: 'session', patch: { stopping: false } });
-      throw error;
-    }
+    await commands.interrupt(this.require(id));
   }
 
   /** Name a session, live or stored. False when there is no such session. */
@@ -910,73 +334,31 @@ export class ChatHost {
   }
 
   async setModel(id: string, model: string): Promise<void> {
-    const { session, driver } = await this.requireDriver(id);
-    if (!driver.setModel) throw new Error('This agent cannot change models from chat');
-    await driver.setModel(model);
-    session.emit({ type: 'session', patch: { model } });
+    await commands.setModel(this.require(id), model);
   }
 
   async setEffort(id: string, effort: string): Promise<void> {
-    const { session, driver } = await this.requireDriver(id);
-    if (!driver.setEffort) throw new Error('This agent has no reasoning effort setting');
-    await driver.setEffort(effort);
-    session.emit({ type: 'session', patch: { effort } });
+    await commands.setEffort(this.require(id), effort);
   }
 
-  /**
-   * A looser mode takes effect at once where the agent can change modes
-   * mid-turn, so its approvals stop without stopping the turn. A stricter one,
-   * or any on an agent that cannot, waits for the turn to end.
-   */
   async setMode(id: string, mode: string): Promise<void> {
-    const { session, driver } = await this.requireDriver(id);
-    if (!driver.setMode) throw new Error('This agent has no modes');
-    const latitude = (of: string | undefined) => session.info.modes.find((option) => option.id === of)?.latitude;
-    const [from, to] = [latitude(session.info.mode), latitude(mode)];
-    const looser = !!driver.modeMidTurn && from !== undefined && to !== undefined && to > from;
-    if ((session.info.status === 'running' || session.info.status === 'awaiting') && !looser) {
-      session.emit({ type: 'session', patch: { pendingMode: mode === session.info.mode ? null : mode } });
-      return;
-    }
-    await driver.setMode(mode);
-    session.emit({ type: 'session', patch: { mode, pendingMode: null } });
+    await commands.setMode(this.require(id), mode);
   }
 
   async rewind(id: string, userMessageId: string): Promise<void> {
-    const { session, driver } = await this.requireDriver(id);
-    if (!driver.rewind) throw new Error('This agent cannot rewind');
-    if (session.info.status !== 'idle') throw new Error('Wait for the turn to end before rewinding');
-    await driver.rewind(userMessageId);
-    const index = session.nodes.findIndex((node) => node.id === userMessageId);
-    if (index !== -1) session.emit({ type: 'remove', ids: session.nodes.slice(index).map((node) => node.id) });
+    await commands.rewind(this.require(id), userMessageId);
   }
 
   async stopBackground(id: string, taskId: string): Promise<void> {
-    const { driver } = await this.requireDriver(id);
-    if (!driver.stopBackground) throw new Error('This agent cannot stop background work from chat');
-    await driver.stopBackground(taskId);
+    await commands.stopBackground(this.require(id), taskId);
   }
 
-  /** Null where the agent does not share it. */
   async backgroundOutput(id: string, taskId: string): Promise<string | null> {
-    const { driver } = await this.requireDriver(id);
-    return driver.backgroundOutput ? driver.backgroundOutput(taskId) : null;
+    return commands.backgroundOutput(this.require(id), taskId);
   }
 
   async compact(id: string): Promise<void> {
-    // Said before anything is awaited: some agents report nothing until the compaction is done.
-    const live = this.sessions.get(id);
-    if (live?.info.status === 'idle') {
-      live.emit({ type: 'session', patch: { status: 'running', compacting: Date.now() } });
-    }
-    try {
-      const { session, driver } = await this.requireDriver(id);
-      if (!driver.compact) throw new Error('This agent cannot compact from chat');
-      await this.run(session, () => driver.compact!());
-    } catch (error) {
-      if (live?.info.compacting) live.emit({ type: 'session', patch: { status: 'idle', compacting: null } });
-      throw error;
-    }
+    await commands.compact(this.require(id));
   }
 
   /**
@@ -1015,7 +397,7 @@ export class ChatHost {
   private async shutDown(session: HostedSession): Promise<void> {
     const id = session.info.id;
     await session.starting;
-    this.cancelAsks(session);
+    session.cancelAsks();
     const driver = session.driver;
     session.driver = null;
     try {
@@ -1047,10 +429,6 @@ export class ChatHost {
       revokeToken(session.info.id);
     }
     this.sessions.clear();
-  }
-
-  private cancelAsks(session: HostedSession): void {
-    for (const requestId of [...session.asks.keys()]) this.answer(session.info.id, requestId, { kind: 'cancel' });
   }
 }
 
