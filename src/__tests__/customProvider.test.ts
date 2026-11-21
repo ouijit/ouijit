@@ -79,11 +79,13 @@ describe('customProvider', () => {
     expect(env.npm_config_cache).toBeUndefined();
   });
 
-  test('prepare falls back to <project>/.git when git cannot resolve the common dir', async () => {
+  test('prepare hints no git dir for a folder that is not a repository', async () => {
     await setCustomSandboxConfig(ctx.projectPath, { command: 'sandbox' });
     getMainGitDir.mockResolvedValue(null);
     const prepared = await customProvider.prepare(ctx);
-    expect(prepared.env?.OUIJIT_SANDBOX_GIT_DIR).toBe('/Users/dev/code/proj/.git');
+    expect(prepared.env?.OUIJIT_SANDBOX_GIT_DIR).toBeUndefined();
+    expect(prepared.env?.OUIJIT_SANDBOX_GIT_WRITABLE_DIRS).toBeUndefined();
+    expect(prepared.env?.OUIJIT_SANDBOX_WORKTREE).toBeTruthy();
   });
 
   test('wrapLaunch refuses loudly instead of falling back to a host shell', async () => {

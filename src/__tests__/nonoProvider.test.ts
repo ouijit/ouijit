@@ -117,10 +117,11 @@ describe('nonoProvider', () => {
     expect(wrapped.args.slice(-3)).toEqual(['--', '/bin/zsh', '-il']);
   });
 
-  test('wrapLaunch falls back to <worktree>/.git when the git dir cannot be resolved', async () => {
+  test('wrapLaunch grants no .git for a folder that is not a repository, and still grants the folder', async () => {
     getMainGitDir.mockResolvedValue(null);
     const wrapped = await nonoProvider.wrapLaunch(launch, ctx);
-    expect(wrapped.args).toContain('/Users/dev/wt/T-3/.git');
+    expect(wrapped.args.some((arg) => arg.includes('.git'))).toBe(false);
+    expect(wrapped.args[wrapped.args.indexOf('--allow') + 1]).toBe('/Users/dev/wt/T-3');
   });
 
   test('getStatus reports unavailable with a reason on an unsupported platform', async () => {

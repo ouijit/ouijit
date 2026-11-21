@@ -1,11 +1,11 @@
-import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { promisify } from 'node:util';
 import { getChatRepo, getGlobalSetting, setGlobalSetting } from '../db';
 import { getLogger } from '../logger';
 import { getUserDataPath } from '../paths';
+import { trashItem } from '../platform';
 import { chatHost } from './host';
 import { HOME_CHAT_INSTRUCTIONS } from './homeChatInstructions';
 import {
@@ -22,7 +22,6 @@ import {
 } from './preferences';
 import type { ChatSessionInfo, ChatSnapshot } from './model';
 
-const execFileAsync = promisify(execFile);
 const chatLog = getLogger().scope('chat:home');
 
 /** One of Chat's conversations, by the role its session was created with. */
@@ -50,16 +49,13 @@ export async function loadHomeChatSettings(): Promise<HomeChatSettings> {
   return parseHomeChatSettings((key) => stored.get(key));
 }
 
-/** The sandboxes grant a checkout and its `.git`, so Chat's home is a repository with nothing in it. */
-async function ensureHomeChatDir(): Promise<string> {
-  const dir = homeChatDir();
-  await fs.mkdir(dir, { recursive: true });
-  try {
-    await fs.access(path.join(dir, '.git'));
-  } catch {
-    await execFileAsync('git', ['init', '-q'], { cwd: dir });
-  }
-  return dir;
+/**
+ * A conversation's own folder, where its agent works and what its sandbox
+ * grants. Chat's settings, sandbox ones included, are kept against
+ * `homeChatDir()`, which every conversation shares as its project.
+ */
+export function conversationDir(id: string): string {
+  return path.join(homeChatDir(), 'conversations', id);
 }
 
 let current: string | null = null;
@@ -144,11 +140,12 @@ async function choose(id: string): Promise<void> {
 }
 
 async function startConversation(id: string, eager: boolean | undefined): Promise<ChatSnapshot> {
-  const [settings, dir] = await Promise.all([loadHomeChatSettings(), ensureHomeChatDir()]);
+  const dir = conversationDir(id);
+  const [settings] = await Promise.all([loadHomeChatSettings(), fs.mkdir(dir, { recursive: true })]);
   const snapshot = await chatHost.start({
     id,
     agent: settings.agent,
-    projectPath: dir,
+    projectPath: homeChatDir(),
     cwd: dir,
     taskId: null,
     sandboxProvider: settings.sandbox,
@@ -205,13 +202,15 @@ export async function restartHomeChat(): Promise<ChatSnapshot> {
 }
 
 /**
- * Gone for good, transcript included. Deleting the open conversation moves to
- * the most recent other one, or to a new one when it was the last.
+ * Its transcript gone for good, and its folder to the system Trash. Deleting
+ * the open conversation moves to the most recent other one, or to a new one
+ * when it was the last.
  */
 export async function deleteHomeChat(id: string): Promise<HomeChatState> {
   if (!isHomeChat(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
   const wasCurrent = (await currentHomeChatId()) === id;
   await chatHost.discard(id);
+  await trashFolder(conversationDir(id));
   getChatRepo().unfollowAll(id);
   if (wasCurrent) {
     const next = getChatRepo().listHome()[0]?.id ?? newId();
@@ -256,6 +255,15 @@ export function installHomeChat(): void {
       void announce();
     });
   });
+}
+
+async function trashFolder(dir: string): Promise<void> {
+  if (!existsSync(dir)) return;
+  try {
+    await trashItem(dir);
+  } catch (error) {
+    chatLog.warn('conversation folder was not trashed', { dir, error: String(error) });
+  }
 }
 
 async function clearStartsAnother(id: string): Promise<boolean> {

@@ -125,7 +125,7 @@ import Docs from '../../layouts/Docs.astro';
     <thead><tr><th>Variable</th><th>What Ouijit's other backends do with it</th></tr></thead>
     <tbody>
       <tr><td><code>OUIJIT_SANDBOX_WORKTREE</code></td><td>The task worktree, read+write.</td></tr>
-      <tr><td><code>OUIJIT_SANDBOX_GIT_DIR</code></td><td>The repository's <code>.git</code>, read-only.</td></tr>
+      <tr><td><code>OUIJIT_SANDBOX_GIT_DIR</code></td><td>The repository's <code>.git</code>, read-only. Unset for a folder that is not a repository.</td></tr>
       <tr><td><code>OUIJIT_SANDBOX_GIT_WRITABLE_DIRS</code></td><td>Colon-separated <code>objects</code>, <code>refs</code>, <code>logs</code>, <code>worktrees</code> under it, writable so commits land while <code>hooks/</code> and <code>config</code> stay read-only.</td></tr>
       <tr><td><code>OUIJIT_SANDBOX_HOOK_PORT</code></td><td>The localhost port that must stay reachable for agent status to report back.</td></tr>
       <tr><td><code>OUIJIT_SANDBOX_CACHE_DIR</code></td><td>A per-project package-manager cache outside any worktree, read+write. Shared by every task of the project.</td></tr>

@@ -8,8 +8,8 @@ export interface NonoArgvContext {
   readPaths?: string[];
   /** The task worktree — granted read+write. */
   worktreePath: string;
-  /** Absolute main-repo `.git` common dir (a linked worktree's real gitdir). */
-  mainGitDir: string;
+  /** Absolute main-repo `.git` common dir (a linked worktree's real gitdir); none for a plain folder. */
+  mainGitDir: string | null;
   /** Host hook-server port to keep reachable from inside the sandbox. */
   apiPort: number;
   /** Ouijit wrapper/CLI dir (`~/.config/Ouijit`) the agent hooks live in. */
@@ -69,9 +69,11 @@ export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: No
   // Per-project package-manager cache dir, so installs write their caches here
   // instead of failing on the read-only home caches.
   if (ctx.cacheDir) args.push('--allow', ctx.cacheDir);
-  args.push('--read', git);
-  for (const dir of GIT_WRITABLE_OVERLAY_DIRS) {
-    args.push('--write', path.join(git, dir));
+  if (git) {
+    args.push('--read', git);
+    for (const dir of GIT_WRITABLE_OVERLAY_DIRS) {
+      args.push('--write', path.join(git, dir));
+    }
   }
 
   for (const dir of ctx.readPaths ?? []) args.push('--read', dir);

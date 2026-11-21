@@ -215,7 +215,7 @@ class OpencodeSession implements DriverSession {
 
   private instructions = '';
 
-  async open(resume: DriverContext['resume'], instructions: string): Promise<void> {
+  async open(resume: DriverContext['resume'], instructions: string, cwd: string): Promise<void> {
     this.instructions = instructions;
     void this.subscribe();
     if (resume?.fork) {
@@ -224,9 +224,10 @@ class OpencodeSession implements DriverSession {
     } else if (resume) {
       this.sessionId = resume.agentSessionId;
     } else {
-      const { data } = await this.call<{ data: Json }>('POST', '/api/session', {});
+      const { data } = await this.call<{ data: Json }>('POST', '/api/session', { location: { directory: cwd } });
       this.sessionId = String(data.id);
     }
+    if (resume) await this.moveTo(cwd);
     if (instructions) {
       await this.call('PUT', `/api/experimental/session/${this.sessionId}/instructions/entries/${this.client.name}`, {
         value: instructions,
@@ -235,6 +236,21 @@ class OpencodeSession implements DriverSession {
     this.sink.session({ agentSessionId: this.sessionId });
     if (resume) this.sink.history(opencodeHistoryNodes(await this.messages()));
     void this.loadMetadata();
+  }
+
+  /**
+   * A session keeps the folder it was created in, wherever its server runs,
+   * and its tools work there; one resumed from another folder is moved to
+   * this one.
+   */
+  private async moveTo(directory: string): Promise<void> {
+    try {
+      const { data } = await this.call<{ data: Json }>('GET', `/api/session/${this.sessionId}`);
+      if ((data.location as Json | undefined)?.directory === directory) return;
+      await this.call('POST', `/api/session/${this.sessionId}/move`, { directory });
+    } catch (error) {
+      this.sink.log('opencode session not moved', { directory, error: String(error) });
+    }
   }
 
   /** The whole conversation, oldest first, a page at a time: the server serves at most 200 per request. */
@@ -676,7 +692,7 @@ async function startServer(client: AgentClient, context: DriverContext, binary: 
     });
   });
   try {
-    await session.open(context.resume, context.instructions);
+    await session.open(context.resume, context.instructions, context.cwd);
   } catch (error) {
     await session.close();
     throw error;

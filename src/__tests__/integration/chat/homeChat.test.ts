@@ -12,6 +12,7 @@ import * as path from 'node:path';
 import { chatHost } from '../../../chat/host';
 import {
   _resetHomeChatForTesting,
+  conversationDir,
   deleteHomeChat,
   homeChatDir,
   homeChatState,
@@ -132,7 +133,10 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       expect(home.info.status, home.info.statusDetail).toBe('idle');
       expect(home.info.projectPath).toBe(homeChatDir());
       expect(home.info.taskId).toBeNull();
-      expect(fs.existsSync(path.join(homeChatDir(), '.git'))).toBe(true);
+      // Its own folder to work in, a plain one: no repository, and none needed for the sandbox.
+      expect(home.info.cwd).toBe(conversationDir(HOME_CHAT_ID));
+      expect(fs.existsSync(home.info.cwd)).toBe(true);
+      expect(fs.existsSync(path.join(home.info.cwd, '.git'))).toBe(false);
 
       // A worker Chat follows that stops on an approval: Chat hears who,
       // which chat, and which request. One that runs its tools without asking,
@@ -212,8 +216,12 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       expect((await homeChatState()).currentId).toBe(HOME_CHAT_ID);
 
       // Deleting another conversation leaves this one be; deleting the last one open starts a new one.
+      // Its folder goes with it, and no other conversation's.
+      fs.writeFileSync(path.join(conversationDir(fresh.info.id), 'notes.md'), 'draft');
       expect((await deleteHomeChat(fresh.info.id)).chats.map((c) => c.id)).toEqual([HOME_CHAT_ID]);
       expect(getChatRepo().get(fresh.info.id)).toBeUndefined();
+      expect(fs.existsSync(conversationDir(fresh.info.id))).toBe(false);
+      expect(fs.existsSync(conversationDir(HOME_CHAT_ID))).toBe(true);
       expect(chatHost.snapshot(fresh.info.id)).toBeNull();
       const afterDelete = await deleteHomeChat(HOME_CHAT_ID);
       expect(chatHost.snapshot(HOME_CHAT_ID)).toBeNull();

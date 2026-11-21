@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { binaryVersion, compareVersions, resolveAgentBinary } from '../binaries';
 import { exited, onLines, stderrTail, terminate, type AgentProcess } from '../process';
 import { getPiApprovalExtensionPath, piGatePrefix } from '../piApprovals';
@@ -588,6 +590,45 @@ function parseGate(request: Json, prefix: string): { toolCallId: string; title: 
   }
 }
 
+/** Where Pi keeps its sessions, as Pi itself resolves it. */
+function piSessionsDir(): string {
+  const env = process.env;
+  if (env.PI_CODING_AGENT_SESSION_DIR) return env.PI_CODING_AGENT_SESSION_DIR;
+  return path.join(env.PI_CODING_AGENT_DIR ?? path.join(os.homedir(), '.pi', 'agent'), 'sessions');
+}
+
+/**
+ * The file of Pi's session `id`, its first line naming `cwd` as the folder it
+ * runs in. Pi resumes a session by id only from the folder it was started in,
+ * and starts an empty one under that id anywhere else; and a session opened
+ * by its file runs in the folder written in it. Null when there is no such
+ * session.
+ */
+export async function piSessionFile(id: string, cwd: string, root = piSessionsDir()): Promise<string | null> {
+  const suffix = `_${id}.jsonl`;
+  let folders: string[];
+  try {
+    folders = await readdir(root);
+  } catch {
+    return null;
+  }
+  for (const folder of folders) {
+    const names = await readdir(path.join(root, folder)).catch(() => [] as string[]);
+    const name = names.find((entry) => entry.endsWith(suffix));
+    if (!name) continue;
+    const file = path.join(root, folder, name);
+    const text = await readFile(file, 'utf8');
+    const end = text.indexOf('\n');
+    const header = JSON.parse(end === -1 ? text : text.slice(0, end)) as Json;
+    if (header.type !== 'session' || header.id !== id) continue;
+    if (header.cwd !== cwd) {
+      await writeFile(file, JSON.stringify({ ...header, cwd }) + (end === -1 ? '' : text.slice(end)));
+    }
+    return file;
+  }
+  return null;
+}
+
 export function piDriver(client: AgentClient): AgentDriver {
   return {
     id: 'pi',
@@ -616,8 +657,11 @@ export function piDriver(client: AgentClient): AgentDriver {
       const binary = resolveAgentBinary('pi', client);
       if (!binary) throw new Error('Pi is not installed');
       const args = ['--mode', 'rpc'];
-      if (context.resume?.fork) args.push('--fork', context.resume.agentSessionId);
-      else args.push('--session-id', context.resume?.agentSessionId ?? randomUUID());
+      const resume = context.resume;
+      const file = resume ? await piSessionFile(resume.agentSessionId, context.cwd) : null;
+      if (resume?.fork) args.push('--fork', file ?? resume.agentSessionId);
+      else if (file) args.push('--session', file);
+      else args.push('--session-id', resume?.agentSessionId ?? randomUUID());
       const instructions = context.instructions;
       if (instructions) args.push('--append-system-prompt', instructions);
       if (context.preferences.piApprovals) args.push('--extension', getPiApprovalExtensionPath(client));

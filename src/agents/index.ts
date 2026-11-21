@@ -1,4 +1,5 @@
 export { createDrivers } from './drivers';
+export { piSessionFile } from './drivers/pi';
 export type {
   AgentClient,
   AgentDriver,
