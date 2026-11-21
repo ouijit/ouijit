@@ -1,5 +1,6 @@
 import { isChatAgentId, type ChatAgentId } from './model';
 import { isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
+import { DEFAULT_HOME_CHAT_INSTRUCTIONS } from './homeChatInstructions';
 import type { AskRun } from '../ask';
 
 export const CHAT_AGENT_LABELS: Record<ChatAgentId, string> = {
@@ -90,7 +91,7 @@ export const HOME_CHAT_ID_PREFIX = 'home-';
 export const HOME_CHAT_SETTING_KEYS = {
   agent: 'homeChat:agent',
   sandbox: 'homeChat:sandbox',
-  instructions: 'homeChat:instructions',
+  instructions: 'homeChat:userInstructions',
   wake: 'homeChat:wake',
   current: 'homeChat:current',
 } as const;
@@ -175,7 +176,7 @@ export interface HomeChatSettings {
 export const DEFAULT_HOME_CHAT_SETTINGS: HomeChatSettings = {
   agent: 'claude',
   sandbox: 'none',
-  instructions: '',
+  instructions: DEFAULT_HOME_CHAT_INSTRUCTIONS,
   wake: { turnEnded: true, asked: true, taskMoved: true, hookFailed: true },
 };
 
@@ -195,7 +196,7 @@ export function parseHomeChatSettings(read: (key: string) => string | undefined 
   return {
     agent: isChatAgentId(agent) ? agent : DEFAULT_HOME_CHAT_SETTINGS.agent,
     sandbox: isSandboxProviderId(sandbox) ? sandbox : DEFAULT_HOME_CHAT_SETTINGS.sandbox,
-    instructions: read(HOME_CHAT_SETTING_KEYS.instructions) ?? '',
+    instructions: read(HOME_CHAT_SETTING_KEYS.instructions) ?? DEFAULT_HOME_CHAT_INSTRUCTIONS,
     wake,
   };
 }

@@ -1,3 +1,4 @@
+import { DEFAULT_HOME_CHAT_INSTRUCTIONS } from '../../chat/homeChatInstructions';
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Sidebar } from '../../components/SidebarReact';
@@ -435,6 +436,22 @@ describe('Chat', () => {
     expect(window.api.sandbox.setCustomConfig).toHaveBeenCalledWith(await window.api.homeChat.dir(), {
       command: 'my-sandbox',
     });
+
+    // Its instructions start as Ouijit's default, are the user's to rewrite or empty, and come back on request.
+    const instructions = screen.getByLabelText('Chat instructions') as HTMLTextAreaElement;
+    expect(instructions.value).toBe(DEFAULT_HOME_CHAT_INSTRUCTIONS);
+    expect(screen.queryByRole('button', { name: 'Restore default' })).toBeNull();
+    fireEvent.change(instructions, { target: { value: '' } });
+    fireEvent.blur(instructions);
+    expect(window.api.globalSettings.set).toHaveBeenCalledWith(HOME_CHAT_SETTING_KEYS.instructions, '');
+    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(5));
+    fireEvent.click(screen.getByRole('button', { name: 'Restore default' }));
+    expect(instructions.value).toBe(DEFAULT_HOME_CHAT_INSTRUCTIONS);
+    expect(window.api.globalSettings.set).toHaveBeenLastCalledWith(
+      HOME_CHAT_SETTING_KEYS.instructions,
+      DEFAULT_HOME_CHAT_INSTRUCTIONS,
+    );
+    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(6));
 
     // Escape leaves settings for the chat.
     fireEvent.keyDown(document.body, { key: 'Escape' });

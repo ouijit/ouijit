@@ -5,6 +5,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useEscape } from '../../hooks/useEscape';
 import { SettingsDropdown, SettingsDropdownOption } from '../ui/SettingsDropdown';
 import { SegmentedGroup, segmentAccent, segmentBase, segmentQuiet } from '../ui/SegmentedGroup';
+import { DEFAULT_HOME_CHAT_INSTRUCTIONS } from '../../chat/homeChatInstructions';
 import {
   CHAT_AGENT_LABELS,
   DEFAULT_HOME_CHAT_SETTINGS,
@@ -104,11 +105,15 @@ export function HomeChatSettingsPanel() {
     setSettings((current) => ({ ...current, sandbox }));
     void save('sandbox', sandbox, true);
   };
-  const commitInstructions = () => {
-    const next = instructions.trim();
+  const commitInstructions = (text = instructions) => {
+    const next = text.trim();
     if (next === settings.instructions) return;
     setSettings((current) => ({ ...current, instructions: next }));
     void save('instructions', next, true);
+  };
+  const restoreInstructions = () => {
+    setInstructions(DEFAULT_HOME_CHAT_INSTRUCTIONS);
+    commitInstructions(DEFAULT_HOME_CHAT_INSTRUCTIONS);
   };
   const toggleWake = (event: WakeEvent) => {
     const wake = { ...settings.wake, [event]: !settings.wake[event] };
@@ -213,17 +218,27 @@ export function HomeChatSettingsPanel() {
           </section>
 
           <section>
-            <h2 className="text-sm font-semibold text-text-primary mb-1">Instructions</h2>
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="flex-1 text-sm font-semibold text-text-primary">Instructions</h2>
+              {instructions.trim() !== DEFAULT_HOME_CHAT_INSTRUCTIONS && (
+                <button
+                  type="button"
+                  className="text-xs text-text-tertiary hover:text-text-primary transition-colors duration-100"
+                  onClick={restoreInstructions}
+                >
+                  Restore default
+                </button>
+              )}
+            </div>
             <p className="text-xs text-text-tertiary mb-3">
               Read at the start of every conversation, after what Ouijit tells it about running work here.
             </p>
             <textarea
               aria-label="Chat instructions"
-              className="field w-full min-h-[9rem] font-mono text-[12px] leading-relaxed resize-y"
-              placeholder="Approve installs and test runs for a worker. Come to me for anything touching main."
+              className="field w-full min-h-[16rem] font-mono text-[12px] leading-relaxed resize-y"
               value={instructions}
               onChange={(event) => setInstructions(event.target.value)}
-              onBlur={commitInstructions}
+              onBlur={() => commitInstructions()}
             />
           </section>
 
