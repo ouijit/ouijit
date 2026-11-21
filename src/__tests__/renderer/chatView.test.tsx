@@ -762,7 +762,7 @@ describe("the context's fill", () => {
 });
 
 describe('editing a message already sent', () => {
-  test('loads it into the composer, fades what it replaces, and rewinds only once the edit is sent', async () => {
+  test('copies, loads into the composer, fades what it replaces, and rewinds only once the edit is sent', async () => {
     const user = (id: string, text: string): ChatNode => ({
       id,
       kind: 'user_message',
@@ -798,6 +798,14 @@ describe('editing a message already sent', () => {
     render(<ChatView cardId={ID} />);
     const composer = screen.getByLabelText('Message') as HTMLTextAreaElement;
     const turnOf = (text: string) => screen.getByText(text).closest('.min-w-0.flex.flex-col.gap-3')!;
+
+    // Each side's words copy as they were written: what was sent, and a finished reply whole.
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    fireEvent.click(within(turnOf('Open a PR')).getAllByRole('button', { name: 'Copy' })[0]);
+    expect(writeText).toHaveBeenLastCalledWith('Open a PR');
+    fireEvent.click(within(turnOf('Opened #352.')).getAllByRole('button', { name: 'Copy' }).at(-1)!);
+    expect(writeText).toHaveBeenLastCalledWith('Opened #352.');
 
     // ↑ in an empty composer picks up the last message; Esc puts back what was there.
     fireEvent.keyDown(composer, { key: 'ArrowUp' });

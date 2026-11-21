@@ -13,7 +13,16 @@ import { relativeToCard } from './cardPaths';
 import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
-import { ChatNodeList, ChatNodeView, Span, foldSummary, isEmptyThought, useNow, type NodeContext } from './ChatNodes';
+import {
+  ChatNodeList,
+  ChatNodeView,
+  CopyAction,
+  Span,
+  foldSummary,
+  isEmptyThought,
+  useNow,
+  type NodeContext,
+} from './ChatNodes';
 import { ChatRequestView, SettledLine, allowed, approvedByChat, firstLine, settledLabel } from './ChatRequest';
 import { ChatBackground, useBackgroundToggle, type BackgroundBar } from './ChatBackground';
 import type {
@@ -607,13 +616,28 @@ export function ChatTurns({
           />,
         );
       }
+      const reply = doing
+        ? []
+        : pieces.flatMap((piece) =>
+            piece.kind === 'said' && piece.node.status !== 'running' ? [piece.node.text] : [],
+          );
+      if (reply.length > 0 && !(open && index === turns.length - 1)) {
+        items.push(
+          <div
+            key="reply-actions"
+            className="-mt-2 flex items-center min-h-6 opacity-0 group-hover/turn:opacity-100 focus-within:opacity-100 transition-opacity duration-100"
+          >
+            <CopyAction text={reply.join('\n\n')} />
+          </div>,
+        );
+      }
       for (const node of turn.kept) items.push(<ChatNodeView key={node.id} node={node} context={context} />);
     }
     if (items.length === 0) return null;
     return (
       <div
         key={turn.opener?.id ?? turn.body[0]?.id ?? turn.kept[0]?.id ?? `turn-${index}`}
-        className={`min-w-0 flex flex-col gap-3 transition-opacity duration-150 ${editedFrom !== -1 && index >= editedFrom ? 'opacity-40' : ''}`}
+        className={`group/turn min-w-0 flex flex-col gap-3 transition-opacity duration-150 ${editedFrom !== -1 && index >= editedFrom ? 'opacity-40' : ''}`}
       >
         {items}
       </div>

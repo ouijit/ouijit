@@ -522,8 +522,24 @@ function MessageAction({ icon, label, onClick }: { icon: string; label: string; 
   );
 }
 
-function UserMessageView({ node, waiting, onEdit }: { node: UserMessageNode; waiting?: boolean; onEdit?: () => void }) {
+/** Copies text, and says so for a moment where its icon was. */
+export function CopyAction({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  return (
+    <MessageAction
+      icon={copied ? 'check' : 'copy'}
+      label={copied ? 'Copied' : 'Copy'}
+      onClick={() =>
+        void navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1200);
+        })
+      }
+    />
+  );
+}
+
+function UserMessageView({ node, waiting, onEdit }: { node: UserMessageNode; waiting?: boolean; onEdit?: () => void }) {
   if (node.wake) {
     return <div className="text-[13px] text-text-tertiary whitespace-pre-wrap break-words">{node.text}</div>;
   }
@@ -546,16 +562,7 @@ function UserMessageView({ node, waiting, onEdit }: { node: UserMessageNode; wai
         {node.delivery === 'queued' && <span>Queued</span>}
         {node.delivery === 'steer' && <span>{waiting ? 'Waiting for the current step' : 'Sent mid-turn'}</span>}
         <span className="flex items-center gap-0.5 opacity-0 group-hover/user:opacity-100 focus-within:opacity-100 transition-opacity duration-100">
-          <MessageAction
-            icon={copied ? 'check' : 'copy'}
-            label={copied ? 'Copied' : 'Copy'}
-            onClick={() =>
-              void navigator.clipboard.writeText(node.text).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1200);
-              })
-            }
-          />
+          <CopyAction text={node.text} />
           {onEdit && <MessageAction icon="pencil-simple" label="Edit" onClick={onEdit} />}
         </span>
       </div>
