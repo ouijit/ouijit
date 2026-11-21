@@ -744,3 +744,19 @@ describe('a message sent mid-turn', () => {
     expect(screen.getByText('Done.')).toBeTruthy();
   });
 });
+
+describe("the context's fill", () => {
+  test('is a ring that says how full on hover, and plain tokens where the agent reports no window', async () => {
+    const live = (usage: ChatSessionInfo['usage']) =>
+      act(() => useChatStore.getState().adopt({ info: { ...INFO, status: 'idle', usage }, nodes: NODES, seq: 0 }));
+    live({ contextTokens: 780_000, contextWindow: 1_000_000 });
+    render(<ChatView cardId={ID} />);
+    const ring = screen.getByRole('img', { name: '78% of context used' });
+    fireEvent.mouseEnter(ring);
+    expect(await screen.findByText('780k of 1m tokens')).toBeTruthy();
+
+    live({ contextTokens: 12_000 });
+    expect(screen.queryByRole('img', { name: /of context used/ })).toBeNull();
+    expect(screen.getByText('12k tokens')).toBeTruthy();
+  });
+});
