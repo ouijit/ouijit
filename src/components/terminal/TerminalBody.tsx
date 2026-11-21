@@ -28,7 +28,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
       return {
         panels: d?.panels ?? EMPTY_PANELS,
         activePanelId: d?.activePanelId ?? null,
-        panelFullWidth: d?.panelFullWidth ?? true,
+        panelFullWidth: d?.panelFullWidth ?? false,
         diffPanelOpen: d?.diffPanelOpen ?? false,
       };
     }),
