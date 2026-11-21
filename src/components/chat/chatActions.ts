@@ -8,6 +8,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { generateId } from '../../utils/ids';
 import { isActiveSandbox } from '../../sandbox/types';
 import { loadChatSettings } from '../../services/chatSettings';
+import { projectTaskOpening } from '../../stores/projectDataStore';
 import { listenForHomeChat, useHomeChatStore } from '../../stores/homeChatStore';
 import { useAppStore } from '../../stores/appStore';
 import { listenForChatDecisions } from '../../services/homeChatDecisions';
@@ -46,10 +47,7 @@ export function initChat(): void {
   listenForChatEvents(forwardStatus);
   listenForHomeChat();
   listenForChatDecisions();
-  void loadChatSettings().then(({ enabled, surface }) => {
-    useHomeChatStore.getState().setTaskSurface(surface);
-    return setChatEnabled(enabled);
-  });
+  void loadChatSettings().then(({ enabled }) => setChatEnabled(enabled));
 }
 
 /** Turn chat on or off for the app: Chat starts or stops, and its page and sidebar group come and go. */
@@ -92,12 +90,12 @@ export interface AddChatCardOptions {
 
 /** Open a chat card. Resolves false when the agent could not be started at all. */
 export async function addChatCard(projectPath: string, options: AddChatCardOptions = {}): Promise<boolean> {
-  const settings = await loadChatSettings();
+  const opening = await projectTaskOpening(projectPath);
   let task: TaskWithWorkspace | null = null;
   if (options.taskId != null) task = await window.api.task.getByNumber(projectPath, options.taskId);
 
   let id = options.id;
-  let agent = options.agent ?? settings.agent;
+  let agent = options.agent ?? opening.agent;
   const sandboxProvider = isActiveSandbox(options.sandboxProvider) ? options.sandboxProvider : undefined;
   if (!id && options.resumeLatest && options.taskId != null) {
     const latest = await window.api.chat.latestForTask(projectPath, options.taskId);

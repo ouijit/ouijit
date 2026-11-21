@@ -7,6 +7,7 @@ import { getProjectConfig, runnerPlace, useProjectDataStore } from '../../stores
 import { useTerminalStore } from '../../stores/terminalStore';
 import { DEFAULT_DISPLAY_STATE } from '../../stores/terminalDisplay';
 import type { ProjectHooks, SandboxBackendId, SandboxProviderId, Script } from '../../types';
+import { DEFAULT_TASK_OPENING } from '../../chat/preferences';
 
 vi.mock('../../components/terminal/terminalReact', () => ({
   refreshTerminalGitStatus: vi.fn().mockResolvedValue(undefined),
@@ -39,6 +40,7 @@ function seed(
         hooks,
         defaultSandbox,
         sandboxCliAccess: 'read',
+        taskOpening: DEFAULT_TASK_OPENING,
       },
     },
     scriptsByProject: { ...s.scriptsByProject, [projectPath]: scripts },

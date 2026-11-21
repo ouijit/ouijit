@@ -3,16 +3,21 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { CombinedHookConfigDialog } from '../../components/dialogs/CombinedHookConfigDialog';
 import { HookConfigDialog } from '../../components/dialogs/HookConfigDialog';
 import { useHomeChatStore } from '../../stores/homeChatStore';
-import { getProjectConfig, useProjectDataStore } from '../../stores/projectDataStore';
+import {
+  getProjectConfig,
+  loadProjectConfig,
+  saveTaskOpening,
+  useProjectDataStore,
+} from '../../stores/projectDataStore';
 
 afterEach(() => {
   cleanup();
-  useHomeChatStore.setState({ enabled: false, taskSurface: 'terminal' });
+  useHomeChatStore.setState({ enabled: false });
 });
 
-test('where tasks open in chat, the start hook dialog edits Setup and First message instead, saved apart from the hooks, and continue stays a command', async () => {
+test('where a project opens tasks in chat, the start hook dialog edits Setup and First message instead, saved apart from the hooks, and continue stays a command', async () => {
   const stored: Record<string, string> = {
-    'chat:taskStart:/project': JSON.stringify({ setup: 'npm install' }),
+    'chat:taskStart:/project': JSON.stringify({ surface: 'chat', setup: 'npm install' }),
   };
   vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) => stored[key]);
   vi.mocked(window.api.globalSettings.set).mockImplementation(async (key, value) => {
@@ -20,7 +25,8 @@ test('where tasks open in chat, the start hook dialog edits Setup and First mess
     return { success: true };
   });
   useProjectDataStore.setState({ configByProject: {} });
-  useHomeChatStore.setState({ enabled: true, taskSurface: 'chat' });
+  useHomeChatStore.setState({ enabled: true });
+  await loadProjectConfig('/project');
 
   render(<CombinedHookConfigDialog projectPath="/project" onClose={vi.fn()} />);
   await waitFor(() => expect((screen.getByLabelText('Setup') as HTMLTextAreaElement).value).toBe('npm install'));
@@ -36,7 +42,9 @@ test('where tasks open in chat, the start hook dialog edits Setup and First mess
   expect(preview.textContent).toBe('Nothing is sent; the chat waits for you.');
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() =>
-    expect(getProjectConfig('/project')?.chatTaskStart).toEqual({
+    expect(getProjectConfig('/project')?.taskOpening).toEqual({
+      surface: 'chat',
+      agent: 'claude',
       setup: 'npm install',
       firstMessage: '',
     }),
@@ -51,7 +59,7 @@ test('where tasks open in chat, the start hook dialog edits Setup and First mess
   render(<HookConfigDialog projectPath="/project" hookType="continue" onClose={vi.fn()} />);
   expect(screen.getByLabelText('Command')).toBeTruthy();
   cleanup();
-  useHomeChatStore.setState({ taskSurface: 'terminal' });
+  await saveTaskOpening('/project', { ...getProjectConfig('/project')!.taskOpening, surface: 'terminal' });
   render(<HookConfigDialog projectPath="/project" hookType="start" onClose={vi.fn()} />);
   expect(screen.getByLabelText('Command')).toBeTruthy();
   expect(screen.queryByLabelText('First message')).toBeNull();

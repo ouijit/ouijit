@@ -33,7 +33,7 @@ export function joinStack(selection: Selection, projectPath: string, unit: strin
   return stackFrom([...unitsOf(selection.stack), unit]);
 }
 
-function isSettings(selection: Selection): boolean {
+export function isSettings(selection: Selection): boolean {
   return selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
 }
 

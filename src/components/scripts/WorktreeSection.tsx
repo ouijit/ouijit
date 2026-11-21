@@ -26,7 +26,7 @@ const MODE_OPTIONS: ModeOption[] = [
     value: 'clean-checkout',
     label: 'Clean checkout',
     description:
-      'Just `git worktree add`. Only tracked files appear in the worktree. Configure your setup using the Start hook below.',
+      'Just `git worktree add`. Only tracked files appear in the worktree. Configure your setup using the Start hook.',
   },
 ];
 

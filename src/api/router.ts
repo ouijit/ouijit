@@ -35,7 +35,7 @@ import {
   type CustomTheme,
 } from '../theme/themes';
 import { PRESET_THEMES, withPresets, selectionOrphanedByDelete } from '../theme/presets';
-import { chatTaskStartKey, parseChatTaskStart } from '../chat/preferences';
+import { taskOpeningKey, parseTaskOpening } from '../chat/preferences';
 import {
   beginTask,
   setTaskStatusWithHooks,
@@ -737,7 +737,8 @@ const routes: Route[] = [
 
   // ── Task chat start (what stands in for the start hook where tasks open as chats) ──
   route('GET', 'chat-start', async (r) => {
-    return parseChatTaskStart(await getGlobalSetting(chatTaskStartKey(requireProject(r.query))));
+    const { setup, firstMessage } = parseTaskOpening(await getGlobalSetting(taskOpeningKey(requireProject(r.query))));
+    return { setup, firstMessage };
   }),
 
   route(
@@ -751,12 +752,12 @@ const routes: Route[] = [
         throw new HttpError(400, 'firstMessage must be a string');
       }
       const next = {
-        ...parseChatTaskStart(await getGlobalSetting(chatTaskStartKey(project))),
+        ...parseTaskOpening(await getGlobalSetting(taskOpeningKey(project))),
         ...(setup !== undefined && { setup }),
         ...(firstMessage !== undefined && { firstMessage }),
       };
-      await setGlobalSetting(chatTaskStartKey(project), JSON.stringify(next));
-      return next;
+      await setGlobalSetting(taskOpeningKey(project), JSON.stringify(next));
+      return { setup: next.setup, firstMessage: next.firstMessage };
     },
     true,
   ),

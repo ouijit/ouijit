@@ -81,14 +81,14 @@ describe('resuming and opening a task', () => {
 
 describe('adding to a task', () => {
   it('offers a new chat beside what the task has once chat is on, a terminal where tasks open as chats, and the same in each other place', () => {
-    useHomeChatStore.setState({ enabled: false, taskSurface: 'terminal' });
+    useHomeChatStore.setState({ enabled: false });
     expect(outline(openEntries([], true, actions(), 'none'))).toEqual([
       'Resume',
       'Open in',
       ['Editor', FILE_MANAGER_NAME],
     ]);
 
-    useHomeChatStore.setState({ enabled: true, taskSurface: 'terminal' });
+    useHomeChatStore.setState({ enabled: true });
     const acts = actions();
     const entries = openEntries([], true, acts, 'none');
     expect(outline(entries)).toEqual(['Resume', 'New chat', 'Open in', ['Editor', FILE_MANAGER_NAME]]);
@@ -96,9 +96,8 @@ describe('adding to a task', () => {
     expect(acts.openSession).toHaveBeenCalledWith('chat', 'none');
 
     // Each appears once; the sandbox holds the same three behind one row.
-    useHomeChatStore.setState({ taskSurface: 'chat' });
     const placed = actions();
-    const anywhere = openEntries(['nono'], true, placed, 'none');
+    const anywhere = openEntries(['nono'], true, placed, 'none', true, true);
     expect(outline(anywhere)).toEqual([
       'Resume',
       'New chat',
@@ -118,7 +117,7 @@ describe('adding to a task', () => {
     expect(vi.mocked(placed.openTerminal).mock.calls).toEqual([['none'], ['nono']]);
 
     // More than one other place is a row each, under one.
-    expect(outline(openEntries(['nono', 'custom'], true, actions(), 'none'))).toEqual([
+    expect(outline(openEntries(['nono', 'custom'], true, actions(), 'none', true, true))).toEqual([
       'Resume',
       'New chat',
       'New terminal',
@@ -131,7 +130,7 @@ describe('adding to a task', () => {
 
     // A to-do is started first, the way the setting says.
     expect(outline(openEntries([], false, actions(), 'none', false))).toEqual(['Start', 'Open in', ['Editor']]);
-    useHomeChatStore.setState({ enabled: false, taskSurface: 'terminal' });
+    useHomeChatStore.setState({ enabled: false });
   });
 
   it('lists the chats no card has open by what was first asked in them, and opens the one picked', () => {
@@ -154,7 +153,7 @@ describe('adding to a task', () => {
     terminalInstances.delete('c');
     expect(chats.map((c) => c.id)).toEqual(['a', 'b']);
 
-    useHomeChatStore.setState({ enabled: true, taskSurface: 'terminal' });
+    useHomeChatStore.setState({ enabled: true });
     const open = vi.fn();
     const entries = openEntries([], true, { ...actions(), earlierChats: { chats, open } }, 'none');
     expect(outline(entries)).toEqual([
@@ -172,7 +171,7 @@ describe('adding to a task', () => {
     expect(outline(openEntries([], true, { ...actions(), earlierChats: { chats: [], open } }, 'none'))).not.toContain(
       'Earlier chats',
     );
-    useHomeChatStore.setState({ enabled: false, taskSurface: 'terminal' });
+    useHomeChatStore.setState({ enabled: false });
   });
 });
 

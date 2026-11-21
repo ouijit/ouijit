@@ -665,7 +665,11 @@ describe('opening a task as a chat', () => {
       { providerId: 'nono', available: true } satisfies SandboxProviderStatus,
     ]);
     vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) =>
-      key === 'chat:surface' ? 'chat' : key === 'chat:enabled' ? '1' : undefined,
+      key === 'chat:enabled'
+        ? '1'
+        : key === `chat:taskStart:${ALPHA.path}`
+          ? JSON.stringify({ surface: 'chat' })
+          : undefined,
     );
     const snapshot = (id: string, sandbox: string | null) => ({
       info: {

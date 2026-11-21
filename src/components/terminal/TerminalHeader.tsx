@@ -2,6 +2,7 @@ import { Fragment, memo, useState, useCallback, useEffect, useMemo, useRef } fro
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { getProjectConfig, loadTasks, useProjectConfig, useProjectTask } from '../../stores/projectDataStore';
+import { tasksOpenAsChat } from '../../services/chatSettings';
 import { useShallow } from 'zustand/react/shallow';
 import { terminalInstances } from './terminalRegistry';
 import { addProjectTerminal, renameTerminal, startRunner } from './terminalActions';
@@ -164,6 +165,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           actions,
           getProjectConfig(projectPath)?.defaultSandbox ?? 'none',
           task?.status !== 'todo',
+          tasksOpenAsChat(projectPath),
         ),
       );
       items.push({ separator: true });

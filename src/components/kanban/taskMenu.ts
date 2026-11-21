@@ -9,6 +9,7 @@ import { openTaskInEditor } from '../../services/openInEditor';
 import { FILE_MANAGER_NAME, revealInFileManager } from '../../utils/fileManager';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { useHomeChatStore } from '../../stores/homeChatStore';
+import { tasksOpenAsChat } from '../../services/chatSettings';
 import type { TaskChatSummary } from '../../chat/model';
 import type { TaskSurface } from '../../chat/preferences';
 import {
@@ -118,8 +119,9 @@ export function openEntries(
   actions: TaskMenuActions,
   projectDefault: SandboxProviderId,
   started = true,
+  opensAsChat = false,
 ): ContextMenuEntry[] {
-  const { enabled: chat, taskSurface } = useHomeChatStore.getState();
+  const chat = useHomeChatStore.getState().enabled;
   const sessions = (place: SandboxProviderId): ContextMenuItem[] => {
     const list: ContextMenuItem[] = [
       { label: started ? 'Resume' : 'Start', icon: 'play', onClick: () => actions.openTerminal(place) },
@@ -128,7 +130,7 @@ export function openEntries(
     if (chat && open && started) {
       list.push({ label: 'New chat', icon: 'chat-circle', onClick: () => open('chat', place) });
       // Resuming opens a terminal anyway where tasks open in one.
-      if (taskSurface === 'chat') {
+      if (opensAsChat) {
         list.push({ label: 'New terminal', icon: 'terminal', onClick: () => open('terminal', place) });
       }
     }
@@ -274,6 +276,7 @@ export function taskEntries(ctx: TaskMenuContext): ContextMenuEntry[] {
       actions,
       getProjectConfig(ctx.projectPath)?.defaultSandbox ?? 'none',
       task.status !== 'todo',
+      tasksOpenAsChat(ctx.projectPath),
     ),
   );
 

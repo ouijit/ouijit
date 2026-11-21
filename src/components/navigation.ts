@@ -14,7 +14,7 @@ import { stackMembers, stackOf, useTerminalStore } from '../stores/terminalStore
 import { useCanvasStore } from '../stores/canvasStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { addChatCard, reconnectChatSessions } from './chat/chatActions';
-import { loadChatSettings } from '../services/chatSettings';
+import { opensAsChat } from '../services/chatSettings';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalRegistry';
 import { ensureWorktree } from '../services/worktreeRecovery';
@@ -148,7 +148,7 @@ export async function openTaskShell(
   const worktree = await ensureTaskWorktree(projectPath, task);
   if (!worktree) return false;
 
-  const chat = options.fresh ? options.fresh === 'chat' : (await loadChatSettings()).surface === 'chat';
+  const chat = options.fresh ? options.fresh === 'chat' : await opensAsChat(projectPath, undefined);
   if (options.mode === 'resume' && chat) {
     const sandbox = options.sandboxProvider ?? (await projectDefaultSandbox(projectPath));
     return addChatCard(projectPath, {

@@ -14,8 +14,6 @@ export const CHAT_AGENT_LABELS: Record<ChatAgentId, string> = {
 /** globalSettings keys for the app-level chat preferences. Leaf module, shared by main and renderer. */
 export const CHAT_SETTING_KEYS = {
   enabled: 'chat:enabled',
-  surface: 'chat:surface',
-  agent: 'chat:agent',
   piApprovals: 'chat:piApprovals',
   acpCommand: 'chat:acpCommand',
 } as const;
@@ -25,52 +23,48 @@ export type TaskSurface = 'terminal' | 'chat';
 export interface ChatSettings {
   /** Experimental, off by default: Chat itself, and tasks opening as a chat. */
   enabled: boolean;
-  /** What a task opens in. */
-  surface: TaskSurface;
-  agent: ChatAgentId;
   piApprovals: boolean;
   acpCommand: string;
 }
 
 export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
   enabled: false,
-  surface: 'terminal',
-  agent: 'claude',
   piApprovals: false,
   acpCommand: '',
 };
 
 export function parseChatSettings(read: (key: string) => string | undefined | null): ChatSettings {
-  const enabled = read(CHAT_SETTING_KEYS.enabled) === '1';
-  const surface = read(CHAT_SETTING_KEYS.surface);
-  const agent = read(CHAT_SETTING_KEYS.agent);
   return {
-    enabled,
-    // With chat off, every task opens as a terminal whatever was chosen while it was on.
-    surface: enabled && surface === 'chat' ? 'chat' : 'terminal',
-    agent: isChatAgentId(agent) ? agent : DEFAULT_CHAT_SETTINGS.agent,
+    enabled: read(CHAT_SETTING_KEYS.enabled) === '1',
     piApprovals: read(CHAT_SETTING_KEYS.piApprovals) === '1',
     acpCommand: read(CHAT_SETTING_KEYS.acpCommand) ?? '',
   };
 }
 
-/** A project's task chats: what runs before one starts, and what it is sent first. */
-export interface ChatTaskStart {
+/**
+ * How a project's tasks open: in a terminal, where the start hook runs, or as
+ * a chat, which runs Setup first and then sends the first message.
+ */
+export interface TaskOpening {
+  surface: TaskSurface;
+  agent: ChatAgentId;
   setup: string;
   firstMessage: string;
 }
 
-export const DEFAULT_CHAT_TASK_START: ChatTaskStart = {
+export const DEFAULT_TASK_OPENING: TaskOpening = {
+  surface: 'terminal',
+  agent: 'claude',
   setup: '',
   firstMessage: '$OUIJIT_TASK_DESCRIPTION',
 };
 
-/** globalSettings key holding a project's ChatTaskStart, as JSON. */
-export function chatTaskStartKey(projectPath: string): string {
+/** globalSettings key holding a project's TaskOpening, as JSON. */
+export function taskOpeningKey(projectPath: string): string {
   return `chat:taskStart:${projectPath}`;
 }
 
-export function parseChatTaskStart(raw: string | null | undefined): ChatTaskStart {
+export function parseTaskOpening(raw: string | null | undefined): TaskOpening {
   let stored: Record<string, unknown> = {};
   try {
     const parsed: unknown = raw ? JSON.parse(raw) : {};
@@ -78,11 +72,16 @@ export function parseChatTaskStart(raw: string | null | undefined): ChatTaskStar
   } catch {
     // A value that will not parse reads as nothing stored.
   }
-  const text = (key: keyof ChatTaskStart) => {
+  const text = (key: 'setup' | 'firstMessage') => {
     const value = stored[key];
-    return typeof value === 'string' ? value : DEFAULT_CHAT_TASK_START[key];
+    return typeof value === 'string' ? value : DEFAULT_TASK_OPENING[key];
   };
-  return { setup: text('setup'), firstMessage: text('firstMessage') };
+  return {
+    surface: stored.surface === 'chat' ? 'chat' : 'terminal',
+    agent: isChatAgentId(stored.agent) ? stored.agent : DEFAULT_TASK_OPENING.agent,
+    setup: text('setup'),
+    firstMessage: text('firstMessage'),
+  };
 }
 
 /** Readable in logs and the database; what makes a session one of Chat's is its role, not this. */

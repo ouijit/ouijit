@@ -280,11 +280,11 @@ describe('Chat', () => {
     render(<ChatSettingsSection />);
     const toggle = await screen.findByRole('switch', { name: /^Chat/ });
     expect(toggle.getAttribute('aria-checked')).toBe('false');
-    expect(screen.queryByText('Open tasks in')).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Main chat' })).toBeNull();
     fireEvent.click(toggle);
     expect(window.api.globalSettings.set).toHaveBeenCalledWith('chat:enabled', '1');
     await waitFor(() => expect(window.api.homeChat.start).toHaveBeenCalledTimes(1));
-    expect(screen.getByText('Open tasks in')).toBeTruthy();
+    expect(await screen.findByRole('region', { name: 'Main chat' })).toBeTruthy();
     expect(sidebar.querySelector('[data-group="home-chat"]')).not.toBeNull();
   });
 
@@ -399,11 +399,11 @@ describe('Chat', () => {
     expect(within(group).queryByRole('button', { name: 'Keychain recovery review' })).toBeNull();
     fireEvent.click(within(group).getByRole('button', { name: 'Show chats' }));
 
-    // Its settings are in Settings, where a change of where it runs restarts the agent.
+    // Its settings are Settings' Chat section, where a change of where it runs restarts the agent.
     expect(within(screen.getByRole('banner')).getByText('Ship the settings page.')).toBeTruthy();
     act(() => useAppStore.getState().select({ kind: 'app-settings' }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Settings' })).getByRole('button', { name: 'Chat' }));
     const main = await screen.findByRole('region', { name: 'Main chat' });
-    expect(screen.getByRole('heading', { name: 'Task chats' })).toBeTruthy();
     // It runs on the host unless set otherwise, with no sandbox profile to show.
     expect(within(main).getByRole('button', { name: 'Host', pressed: true })).toBeTruthy();
     expect(within(main).queryByText('Sandbox profile')).toBeNull();

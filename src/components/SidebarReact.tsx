@@ -7,7 +7,7 @@ import { ProjectTile } from './ProjectTile';
 import type { CloneJob, Project } from '../types';
 import { SANDBOX_LABELS } from '../types';
 import { loadProjectConfig, useProjectDataStore } from '../stores/projectDataStore';
-import { useAppStore, selectCloneJob, type ProjectPage } from '../stores/appStore';
+import { useAppStore, isSettings, selectCloneJob, type ProjectPage } from '../stores/appStore';
 import { useExperimentalStore, useProjectFlags } from '../stores/experimentalStore';
 import {
   projectUnit,
@@ -76,9 +76,9 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
   const shown = useSidebarShown();
   const revealed = useUIStore((s) => s.sidebarRevealed);
   const width = useUIStore((s) => s.sidebarWidth);
-  const appSettingsOpen = useAppStore((s) => s.selection.kind === 'app-settings');
   const chatEnabled = useHomeChatStore((s) => s.enabled);
-  const open = shown || revealed;
+  const settingsOpen = useAppStore((s) => isSettings(s.selection));
+  const open = (shown || revealed) && !settingsOpen;
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -113,7 +113,8 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
   };
 
   return (
-    <>
+    // Hidden rather than gone, so what it had open and where it was scrolled are there when settings close.
+    <div className="contents" hidden={settingsOpen}>
       {!open && (
         <div
           className="fixed top-0 bottom-0 left-0 z-[10000]"
@@ -172,7 +173,6 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
             <FooterButton
               icon="gear"
               label="Settings"
-              selected={appSettingsOpen}
               onClick={() => useAppStore.getState().select({ kind: 'app-settings' })}
             />
           </div>
@@ -197,7 +197,7 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
           />
         </div>
       )}
-    </>
+    </div>
   );
 }
 

@@ -10,11 +10,10 @@ import { loadProjectConfig, loadScripts } from '../stores/projectDataStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { TerminalCanvas } from './canvas/TerminalCanvas';
 import { KanbanBoard } from './kanban/KanbanBoard';
-import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
 import { PullRequestsPanel } from './github/PullRequestsPanel';
 import { AnalysisPanel } from './analysis/AnalysisPanel';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
-import { GlobalSettingsPanel } from './GlobalSettingsPanel';
+import { SettingsView } from './settings/SettingsView';
 import { HomeChatView } from './chat/HomeChatView';
 import { CloningProjectView } from './CloningProjectView';
 import { ProjectSourceList, openAddProject } from './projectSources';
@@ -157,7 +156,7 @@ function Selected({
   onCanvas: boolean;
 }) {
   const chatEnabled = useHomeChatStore((s) => s.enabled);
-  if (selection.kind === 'app-settings') return <GlobalSettingsPanel />;
+  if (selection.kind === 'app-settings') return <SettingsView projectPath={null} />;
   if (selection.kind === 'chat' && chatEnabled) {
     return <HomeChatView />;
   }
@@ -178,7 +177,7 @@ function Selected({
           />
         );
       case 'settings':
-        return <ProjectSettingsPanel projectPath={projectPath} />;
+        return <SettingsView projectPath={projectPath} />;
       case 'pull-requests':
         return <PullRequestsPanel projectPath={projectPath} />;
       case 'analysis':

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
-import { getProjectConfig, loadProjectConfig, saveChatTaskStart } from '../../stores/projectDataStore';
-import { parseChatTaskStart, type ChatTaskStart } from '../../chat/preferences';
+import { getProjectConfig, loadProjectConfig, saveTaskOpening } from '../../stores/projectDataStore';
+import { parseTaskOpening, type TaskOpening } from '../../chat/preferences';
 import { fillHookVars, taskHookVars } from '../../utils/hookEnvVars';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { DialogOverlay } from './DialogOverlay';
@@ -62,8 +62,8 @@ function Field({
 
 /** What a project's task chats run first and are sent first, used in place of its start and continue hooks where tasks open in chat. */
 export function ChatTaskStartDialog({ projectPath, onClose }: { projectPath: string; onClose: () => void }) {
-  const [values, setValues] = useState<ChatTaskStart>(
-    () => getProjectConfig(projectPath)?.chatTaskStart ?? parseChatTaskStart(null),
+  const [values, setValues] = useState<TaskOpening>(
+    () => getProjectConfig(projectPath)?.taskOpening ?? parseTaskOpening(null),
   );
   const edited = useRef(false);
   const [visible, setVisible] = useState(false);
@@ -72,12 +72,12 @@ export function ChatTaskStartDialog({ projectPath, onClose }: { projectPath: str
     requestAnimationFrame(() => setVisible(true));
     if (getProjectConfig(projectPath)) return;
     void loadProjectConfig(projectPath).then(() => {
-      const loaded = getProjectConfig(projectPath)?.chatTaskStart;
+      const loaded = getProjectConfig(projectPath)?.taskOpening;
       if (loaded && !edited.current) setValues(loaded);
     });
   }, [projectPath]);
 
-  const set = (patch: Partial<ChatTaskStart>) => {
+  const set = (patch: Partial<TaskOpening>) => {
     edited.current = true;
     setValues((current) => ({ ...current, ...patch }));
   };
@@ -88,7 +88,7 @@ export function ChatTaskStartDialog({ projectPath, onClose }: { projectPath: str
   }, [onClose]);
 
   const save = useCallback(async () => {
-    if (!(await saveChatTaskStart(projectPath, values))) {
+    if (!(await saveTaskOpening(projectPath, values))) {
       useProjectStore.getState().addToast('Could not save', 'error');
       return;
     }

@@ -102,7 +102,9 @@ export function TitleBar() {
   const chatTitle = useHomeChatStore((s) => currentHomeChatTitle(s)) ?? UNTITLED_HOME_CHAT;
   const offersCreation = !cloning && !onSettings && !onChat;
   // With the sidebar out of the way the traffic lights sit over the title bar.
-  const leftPad = !sidebarShown && !sidebarRevealed && isMac && !fullscreen ? 88 : 16;
+  // Settings takes the whole window, sidebar and all.
+  const sidebarAway = onSettings || (!sidebarShown && !sidebarRevealed);
+  const leftPad = sidebarAway && isMac && !fullscreen ? 88 : 16;
 
   return (
     <header
@@ -119,7 +121,7 @@ export function TitleBar() {
         className={`box-content h-9 flex items-center gap-2 ${isMac ? 'pt-4' : 'pt-2'} pb-2 pr-4 transition-[padding-left] duration-200`}
         style={{ paddingLeft: `calc(var(--sidebar-offset, 0px) + ${leftPad}px)` }}
       >
-        {!sidebarShown && (
+        {!sidebarShown && !onSettings && (
           <div className="flex items-center h-9 shrink-0 [-webkit-app-region:no-drag]">
             <Tooltip text="Show sidebar" placement="bottom-start">
               <button
@@ -140,7 +142,12 @@ export function TitleBar() {
             </span>
           </div>
         )}
-        {project && !onChat && (
+        {onSettings && (
+          <div className="flex items-center ml-1.5 min-w-0">
+            <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight">Settings</span>
+          </div>
+        )}
+        {project && !onChat && !onSettings && (
           <div className="flex items-center gap-3 ml-1.5 min-w-0">
             <div
               className="w-8 h-8 shrink-0 overflow-hidden rounded-md flex items-center justify-center text-xs font-bold text-white"

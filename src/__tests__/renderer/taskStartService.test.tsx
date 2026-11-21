@@ -537,8 +537,8 @@ describe('taskStartService.beginTransition', () => {
   test('a task that opens as a chat runs the project chat Setup, not its start hook, then sends the First message filled in, and back from review picks up its last chat', async () => {
     const stored: Record<string, string> = {
       'chat:enabled': '1',
-      'chat:surface': 'chat',
       [`chat:taskStart:${PROJECT}`]: JSON.stringify({
+        surface: 'chat',
         setup: 'npm install',
         firstMessage: 'Work on $OUIJIT_TASK_NAME: ${OUIJIT_TASK_DESCRIPTION} $HOME',
       }),
@@ -568,7 +568,7 @@ describe('taskStartService.beginTransition', () => {
 
     // With no Setup nothing asks first, and the chat is sent its message straight away.
     vi.mocked(addChatCard).mockClear();
-    stored[`chat:taskStart:${PROJECT}`] = JSON.stringify({ setup: '' });
+    stored[`chat:taskStart:${PROJECT}`] = JSON.stringify({ surface: 'chat', setup: '' });
     useProjectDataStore.setState({ configByProject: {} });
     beginTransition(PROJECT, { origStatus: 'todo', newStatus: 'in_progress', task });
     await waitFor(() => vi.mocked(addChatCard).mock.calls.length > 0);

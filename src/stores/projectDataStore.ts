@@ -22,7 +22,7 @@ import {
 import { useAppStore } from './appStore';
 import { useProjectStore } from './projectStore';
 import { loadTaskChats } from './chatStore';
-import { chatTaskStartKey, parseChatTaskStart, type ChatTaskStart } from '../chat/preferences';
+import { taskOpeningKey, parseTaskOpening, type TaskOpening } from '../chat/preferences';
 
 export interface ProjectConfig {
   sandboxStatuses: SandboxProviderStatus[];
@@ -34,8 +34,7 @@ export interface ProjectConfig {
   /** Where Run and scripts from a terminal's + menu go, when the last one run there was moved off the default. */
   runnerSandbox?: SandboxProviderId;
   sandboxCliAccess: SandboxCliAccess;
-  /** Used in place of the start and continue hooks where tasks open in chat. */
-  chatTaskStart: ChatTaskStart;
+  taskOpening: TaskOpening;
 }
 
 interface ProjectDataState {
@@ -92,13 +91,13 @@ export async function loadTasks(projectPath: string): Promise<void> {
 export async function loadProjectConfig(projectPath: string): Promise<void> {
   const isLatest = configLoads.begin(projectPath);
   try {
-    const [statuses, hooks, defaultSandbox, runnerSandbox, sandboxCliAccess, chatTaskStart] = await Promise.all([
+    const [statuses, hooks, defaultSandbox, runnerSandbox, sandboxCliAccess, taskOpening] = await Promise.all([
       window.api.sandbox.status(projectPath),
       window.api.hooks.get(projectPath),
       window.api.globalSettings.get(defaultSandboxSettingKey(projectPath)),
       window.api.globalSettings.get(runnerSandboxSettingKey(projectPath)),
       window.api.globalSettings.get(sandboxCliAccessSettingKey(projectPath)),
-      window.api.globalSettings.get(chatTaskStartKey(projectPath)),
+      window.api.globalSettings.get(taskOpeningKey(projectPath)),
     ]);
     if (!isLatest()) return;
     setConfig(projectPath, {
@@ -108,7 +107,7 @@ export async function loadProjectConfig(projectPath: string): Promise<void> {
       defaultSandbox: isSandboxProviderId(defaultSandbox) ? defaultSandbox : 'none',
       runnerSandbox: isSandboxProviderId(runnerSandbox) ? runnerSandbox : undefined,
       sandboxCliAccess: isSandboxCliAccess(sandboxCliAccess) ? sandboxCliAccess : 'read',
-      chatTaskStart: parseChatTaskStart(chatTaskStart),
+      taskOpening: parseTaskOpening(taskOpening),
     });
   } catch {
     // Swallowed: with no config the cards render without sandbox and hook
@@ -166,16 +165,16 @@ export async function deleteHook(projectPath: string, hookType: HookType): Promi
   });
 }
 
-export async function saveChatTaskStart(projectPath: string, chatTaskStart: ChatTaskStart): Promise<boolean> {
-  const { success } = await window.api.globalSettings.set(chatTaskStartKey(projectPath), JSON.stringify(chatTaskStart));
-  if (success) patchConfig(projectPath, () => ({ chatTaskStart }));
+export async function saveTaskOpening(projectPath: string, taskOpening: TaskOpening): Promise<boolean> {
+  const { success } = await window.api.globalSettings.set(taskOpeningKey(projectPath), JSON.stringify(taskOpening));
+  if (success) patchConfig(projectPath, () => ({ taskOpening }));
   return success;
 }
 
 /** Loaded first when nothing has, so a project never opened still gets its own. */
-export async function projectChatTaskStart(projectPath: string): Promise<ChatTaskStart> {
+export async function projectTaskOpening(projectPath: string): Promise<TaskOpening> {
   if (!getProjectConfig(projectPath)) await loadProjectConfig(projectPath);
-  return getProjectConfig(projectPath)?.chatTaskStart ?? parseChatTaskStart(null);
+  return getProjectConfig(projectPath)?.taskOpening ?? parseTaskOpening(null);
 }
 
 /** Loads the project's config first when nothing has, so a project never opened still gets its own default. */

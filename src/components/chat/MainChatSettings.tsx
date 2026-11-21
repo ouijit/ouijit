@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { SettingsDropdown, SettingsDropdownOption } from '../ui/SettingsDropdown';
 import { SegmentedGroup, segmentAccent, segmentBase, segmentQuiet } from '../ui/SegmentedGroup';
 import { DEFAULT_HOME_CHAT_INSTRUCTIONS } from '../../chat/homeChatInstructions';
 import {
-  CHAT_AGENT_LABELS,
   DEFAULT_HOME_CHAT_SETTINGS,
   HOME_CHAT_SETTING_KEYS,
   WAKE_EVENTS,
@@ -14,7 +12,7 @@ import {
   type HomeChatSettings,
   type WakeEvent,
 } from '../../chat/preferences';
-import { CHAT_AGENT_IDS, type ChatAgentId } from '../../chat/model';
+import type { ChatAgentId } from '../../chat/model';
 import {
   SANDBOX_LABELS,
   SANDBOX_PROVIDER_IDS,
@@ -23,7 +21,7 @@ import {
   type SandboxCliAccess,
   type SandboxProviderId,
 } from '../../sandbox/types';
-import { agentHint, type AgentProbes } from './chatAgentProbes';
+import { AgentPicker } from './AgentPicker';
 import { SandboxProfileRow } from '../scripts/SandboxProfileRow';
 import { CustomLauncherRow } from '../scripts/CustomLauncherRow';
 import { CliAccessRow } from '../scripts/SandboxSection';
@@ -52,24 +50,16 @@ function Row({ label, description, children }: { label: string; description?: st
 export const PANEL =
   'glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg';
 
-export function MainChatSettings({
-  probes,
-  onAgentChange,
-}: {
-  probes: AgentProbes;
-  onAgentChange: (agent: ChatAgentId) => void;
-}) {
+export function MainChatSettings() {
   const [settings, setSettings] = useState<HomeChatSettings>(DEFAULT_HOME_CHAT_SETTINGS);
-  const [agentOpen, setAgentOpen] = useState(false);
   const [instructions, setInstructions] = useState('');
 
   useEffect(() => {
     void loadHomeChatSettings().then((loaded) => {
       setSettings(loaded);
       setInstructions(loaded.instructions);
-      onAgentChange(loaded.agent);
     });
-  }, [onAgentChange]);
+  }, []);
 
   const [chatDir, setChatDir] = useState<string | null>(null);
   const [cliAccess, setCliAccess] = useState<SandboxCliAccess>('read');
@@ -97,7 +87,6 @@ export function MainChatSettings({
 
   const setAgent = (agent: ChatAgentId) => {
     setSettings((current) => ({ ...current, agent }));
-    onAgentChange(agent);
     void save('agent', agent, true);
   };
   const setSandbox = (sandbox: SandboxProviderId) => {
@@ -120,8 +109,6 @@ export function MainChatSettings({
     void save('wake', JSON.stringify(wake), false);
   };
 
-  const probe = probes[settings.agent];
-
   return (
     <section aria-label="Main chat" className="space-y-6">
       <div>
@@ -132,33 +119,7 @@ export function MainChatSettings({
       </div>
 
       <div className={PANEL}>
-        <Row
-          label="Agent"
-          description={
-            probe?.problem ?? (probe?.version ? `${CHAT_AGENT_LABELS[settings.agent]} ${probe.version}` : undefined)
-          }
-        >
-          <SettingsDropdown
-            open={agentOpen}
-            onOpenChange={setAgentOpen}
-            widthClass="w-[13rem]"
-            ariaLabel="Choose the main chat's agent"
-            triggerLabel={CHAT_AGENT_LABELS[settings.agent]}
-          >
-            {CHAT_AGENT_IDS.map((agent) => (
-              <SettingsDropdownOption
-                key={agent}
-                label={CHAT_AGENT_LABELS[agent]}
-                hint={agentHint(agent, probes)}
-                selected={settings.agent === agent}
-                onClick={() => {
-                  setAgentOpen(false);
-                  setAgent(agent);
-                }}
-              />
-            ))}
-          </SettingsDropdown>
-        </Row>
+        <AgentPicker agent={settings.agent} ariaLabel="Choose the main chat's agent" onChange={setAgent} />
         <Row
           label="Run in"
           description={

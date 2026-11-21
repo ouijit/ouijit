@@ -57,7 +57,7 @@ export function ThemeSettingsSection() {
 
   return (
     <section>
-      <h2 className="text-sm font-semibold text-text-primary mb-4">Appearance</h2>
+      <h2 className="text-sm font-semibold text-text-primary mb-4">Theme</h2>
       <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg">
         <div className="flex items-center gap-4 px-4 py-3 hover:bg-ink/[0.02]">
           <div className="flex-1 min-w-0">

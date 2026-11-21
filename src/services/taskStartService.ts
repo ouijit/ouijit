@@ -19,7 +19,7 @@ import { completeTask } from './taskCompletion';
 import { headlessHookRun, hookSandbox, hookTypeForTransition, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';
 import { joinStack, useAppStore } from '../stores/appStore';
-import { getProjectTasks, loadTasks, projectChatTaskStart, projectDefaultSandbox } from '../stores/projectDataStore';
+import { getProjectTasks, loadTasks, projectTaskOpening, projectDefaultSandbox } from '../stores/projectDataStore';
 import { stackOf, useTerminalStore } from '../stores/terminalStore';
 import type { RunHookResult, SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../types';
 
@@ -376,7 +376,7 @@ async function spawnTerminalForInProgress(
     return;
   }
 
-  if (await opensAsChat(surface)) {
+  if (await opensAsChat(projectPath, surface)) {
     const worktree = { path: task.worktreePath, branch: task.branch || '' };
     const live = (await window.api.task.getByNumber(projectPath, task.taskNumber)) ?? task;
     // Back in progress, a task picks up its last chat rather than starting over.
@@ -390,7 +390,7 @@ async function spawnTerminalForInProgress(
       });
       return;
     }
-    const { firstMessage } = await projectChatTaskStart(projectPath);
+    const { firstMessage } = await projectTaskOpening(projectPath);
     await addChatCard(projectPath, {
       worktree,
       taskId: task.taskNumber,

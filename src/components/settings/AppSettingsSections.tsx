@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAppStore } from '../stores/appStore';
-import { useProjectStore } from '../stores/projectStore';
-import { setTerminalFontFamily, setTerminalFontSize } from './terminal/terminalReact';
-import { setReadyAudioDisabled } from '../utils/notifications';
-import { FontPickerRow } from './FontPickerRow';
-import { ThemeSettingsSection } from './ThemeSettingsSection';
-import { LinearSettingsSection } from './LinearSettingsSection';
-import { ChatSettingsSection } from './chat/ChatSettingsSection';
-import { ToggleRow } from './ui/SettingsRows';
-import { MoveProjectsDialog } from './dialogs/MoveProjectsDialog';
-import type { AffectedProject, ProjectsFolderChangeAction } from '../types';
+import { useAppStore } from '../../stores/appStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { setTerminalFontFamily, setTerminalFontSize } from '../terminal/terminalReact';
+import { setReadyAudioDisabled } from '../../utils/notifications';
+import { FontPickerRow } from '../FontPickerRow';
+import { ThemeSettingsSection } from '../ThemeSettingsSection';
+import { ToggleRow } from '../ui/SettingsRows';
+import { MoveProjectsDialog } from '../dialogs/MoveProjectsDialog';
+import type { AffectedProject, ProjectsFolderChangeAction } from '../../types';
 import log from 'electron-log/renderer';
 
 const settingsLog = log.scope('globalSettings');
@@ -18,35 +16,15 @@ const DEFAULT_TERMINAL_FONT_SIZE = 14;
 const MIN_TERMINAL_FONT_SIZE = 8;
 const MAX_TERMINAL_FONT_SIZE = 32;
 
-export function GlobalSettingsPanel() {
-  const [autoUpdate, setAutoUpdate] = useState(true);
-  const [readyAudio, setReadyAudio] = useState(true);
-  const [fontFamily, setFontFamily] = useState('');
-  const [fontSize, setFontSize] = useState<number | null>(null);
-  const [projectsFolder, setProjectsFolder] = useState<string | null>(null);
-  const [moveDialog, setMoveDialog] = useState<{
-    newFolder: string;
-    projects: AffectedProject[];
-  } | null>(null);
+const PANEL =
+  'glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg';
 
-  // Hydrate persisted settings on mount.
+function useStored<T>(read: () => Promise<T>, apply: (value: T) => void): void {
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      window.api.globalSettings.get('disableUpdates'),
-      window.api.globalSettings.get('disableReadyAudio'),
-      window.api.globalSettings.get('terminal:font-family'),
-      window.api.globalSettings.get('terminal:font-size'),
-      window.api.getDefaultProjectsFolder(),
-    ])
-      .then(([disableUpdates, disableReadyAudio, family, size, folder]) => {
-        if (cancelled) return;
-        setAutoUpdate(disableUpdates !== '1');
-        setReadyAudio(disableReadyAudio !== '1');
-        setFontFamily(family ?? '');
-        const parsed = parseFloat((size ?? '').trim());
-        setFontSize(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
-        setProjectsFolder(folder);
+    read()
+      .then((value) => {
+        if (!cancelled) apply(value);
       })
       .catch((error) => {
         settingsLog.error('failed to hydrate settings', {
@@ -56,15 +34,32 @@ export function GlobalSettingsPanel() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+}
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') useAppStore.getState().leaveSettings();
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, []);
+export function AppGeneralSettings() {
+  const [autoUpdate, setAutoUpdate] = useState(true);
+  const [readyAudio, setReadyAudio] = useState(true);
+  const [projectsFolder, setProjectsFolder] = useState<string | null>(null);
+  const [moveDialog, setMoveDialog] = useState<{
+    newFolder: string;
+    projects: AffectedProject[];
+  } | null>(null);
+
+  useStored(
+    () =>
+      Promise.all([
+        window.api.globalSettings.get('disableUpdates'),
+        window.api.globalSettings.get('disableReadyAudio'),
+        window.api.getDefaultProjectsFolder(),
+      ]),
+    ([disableUpdates, disableReadyAudio, folder]) => {
+      setAutoUpdate(disableUpdates !== '1');
+      setReadyAudio(disableReadyAudio !== '1');
+      setProjectsFolder(folder);
+    },
+  );
 
   const toggleAutoUpdate = async () => {
     const next = !autoUpdate;
@@ -78,19 +73,6 @@ export function GlobalSettingsPanel() {
     // Update the notifications cache immediately so the change applies without a reload.
     setReadyAudioDisabled(!next);
     await window.api.globalSettings.set('disableReadyAudio', next ? '0' : '1');
-  };
-
-  const commitFontFamily = async (value: string) => {
-    const trimmed = value.trim();
-    setFontFamily(trimmed);
-    setTerminalFontFamily(trimmed || null);
-    await window.api.globalSettings.set('terminal:font-family', trimmed);
-  };
-
-  const commitFontSize = async (value: number | null) => {
-    setFontSize(value);
-    setTerminalFontSize(value);
-    await window.api.globalSettings.set('terminal:font-size', value == null ? '' : String(value));
   };
 
   const handleChangeProjectsFolder = async () => {
@@ -149,89 +131,27 @@ export function GlobalSettingsPanel() {
   };
 
   return (
-    <div
-      className="flex flex-col h-full transition-[margin-left] duration-200 ease-out"
-      style={{ marginLeft: 'var(--sidebar-offset, 0px)' }}
-    >
-      {/* Fade overlay — content fades out under the header (mirrors ProjectSettingsPanel) */}
-      <div
-        className="pointer-events-none h-6 shrink-0 -mb-6 relative z-10"
-        style={{ background: 'linear-gradient(to bottom, var(--color-background), transparent)' }}
-      />
-      <div className="flex-1 overflow-y-auto settings-scrollable">
-        <div className="px-6 pt-4 pb-16 min-w-full max-w-2xl space-y-8">
-          <div>
-            <h1 className="text-base font-semibold text-text-primary">App Settings</h1>
-            <p className="text-xs text-text-tertiary mt-1">
-              Settings that apply to every project. Scripts, hooks, sandbox, and worktree options are set in each
-              project's settings.
-            </p>
-          </div>
-          <ThemeSettingsSection />
-          <section>
-            <h2 className="text-sm font-semibold text-text-primary mb-4">Projects</h2>
-            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg">
-              <PathRow
-                label="Projects folder"
-                description="New projects are created here. Changing it lets you move or forget existing projects."
-                value={projectsFolder}
-                buttonLabel="Change…"
-                onChoose={handleChangeProjectsFolder}
-              />
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-sm font-semibold text-text-primary mb-4">Terminal</h2>
-            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg">
-              <FontPickerRow
-                label="Font family"
-                description="Pick a monospace font. Falls back gracefully if not installed."
-                value={fontFamily}
-                defaultLabel="Iosevka Term Extended"
-                onCommit={commitFontFamily}
-              />
-              <NumberRow
-                label="Font size"
-                description={`In pixels. Defaults to ${DEFAULT_TERMINAL_FONT_SIZE}.`}
-                value={fontSize}
-                placeholder={String(DEFAULT_TERMINAL_FONT_SIZE)}
-                suffix="px"
-                min={MIN_TERMINAL_FONT_SIZE}
-                max={MAX_TERMINAL_FONT_SIZE}
-                onCommit={commitFontSize}
-              />
-            </div>
-          </section>
-
-          <ChatSettingsSection />
-
-          <LinearSettingsSection />
-
-          <section>
-            <h2 className="text-sm font-semibold text-text-primary mb-4">Updates</h2>
-            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg">
-              <ToggleRow
-                label="Check for updates automatically"
-                description="When off, Ouijit won't contact the update service or download new versions."
-                checked={autoUpdate}
-                onChange={toggleAutoUpdate}
-              />
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-sm font-semibold text-text-primary mb-4">Sound</h2>
-            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg">
-              <ToggleRow
-                label="Play a sound when a task is ready"
-                description="Plays a chime when a terminal returns to the ready state."
-                checked={readyAudio}
-                onChange={toggleReadyAudio}
-              />
-            </div>
-          </section>
-        </div>
+    <>
+      <div className={PANEL}>
+        <PathRow
+          label="Projects folder"
+          description="New projects are created here. Changing it lets you move or forget existing projects."
+          value={projectsFolder}
+          buttonLabel="Change…"
+          onChoose={handleChangeProjectsFolder}
+        />
+        <ToggleRow
+          label="Check for updates automatically"
+          description="When off, Ouijit won't contact the update service or download new versions."
+          checked={autoUpdate}
+          onChange={toggleAutoUpdate}
+        />
+        <ToggleRow
+          label="Play a sound when a task is ready"
+          description="Plays a chime when a terminal returns to the ready state."
+          checked={readyAudio}
+          onChange={toggleReadyAudio}
+        />
       </div>
       {moveDialog && (
         <MoveProjectsDialog
@@ -240,7 +160,66 @@ export function GlobalSettingsPanel() {
           onClose={handleMoveDialogClose}
         />
       )}
-    </div>
+    </>
+  );
+}
+
+export function AppAppearanceSettings() {
+  const [fontFamily, setFontFamily] = useState('');
+  const [fontSize, setFontSize] = useState<number | null>(null);
+
+  useStored(
+    () =>
+      Promise.all([
+        window.api.globalSettings.get('terminal:font-family'),
+        window.api.globalSettings.get('terminal:font-size'),
+      ]),
+    ([family, size]) => {
+      setFontFamily(family ?? '');
+      const parsed = parseFloat((size ?? '').trim());
+      setFontSize(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+    },
+  );
+
+  const commitFontFamily = async (value: string) => {
+    const trimmed = value.trim();
+    setFontFamily(trimmed);
+    setTerminalFontFamily(trimmed || null);
+    await window.api.globalSettings.set('terminal:font-family', trimmed);
+  };
+
+  const commitFontSize = async (value: number | null) => {
+    setFontSize(value);
+    setTerminalFontSize(value);
+    await window.api.globalSettings.set('terminal:font-size', value == null ? '' : String(value));
+  };
+
+  return (
+    <>
+      <ThemeSettingsSection />
+      <section>
+        <h2 className="text-sm font-semibold text-text-primary mb-4">Terminal</h2>
+        <div className={PANEL}>
+          <FontPickerRow
+            label="Font family"
+            description="Pick a monospace font. Falls back gracefully if not installed."
+            value={fontFamily}
+            defaultLabel="Iosevka Term Extended"
+            onCommit={commitFontFamily}
+          />
+          <NumberRow
+            label="Font size"
+            description={`In pixels. Defaults to ${DEFAULT_TERMINAL_FONT_SIZE}.`}
+            value={fontSize}
+            placeholder={String(DEFAULT_TERMINAL_FONT_SIZE)}
+            suffix="px"
+            min={MIN_TERMINAL_FONT_SIZE}
+            max={MAX_TERMINAL_FONT_SIZE}
+            onCommit={commitFontSize}
+          />
+        </div>
+      </section>
+    </>
   );
 }
 

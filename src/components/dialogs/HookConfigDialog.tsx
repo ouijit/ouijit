@@ -10,7 +10,7 @@ import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
 import { Checkbox } from '../ui/Checkbox';
 import { HookSandboxPicker } from '../ui/SandboxPicker';
-import { useHomeChatStore } from '../../stores/homeChatStore';
+import { useTasksOpenAsChat } from '../../services/chatSettings';
 import { ChatTaskStartDialog } from './ChatTaskStartDialog';
 
 const HOOK_LABELS: Record<HookType, { title: string; description: string; envVars?: boolean }> = {
@@ -54,7 +54,7 @@ interface HookConfigDialogProps {
 }
 
 export function HookConfigDialog(props: HookConfigDialogProps) {
-  const chat = useHomeChatStore((s) => s.enabled && s.taskSurface === 'chat');
+  const chat = useTasksOpenAsChat(props.projectPath);
   if (chat && props.hookType === 'start') {
     return <ChatTaskStartDialog projectPath={props.projectPath} onClose={() => props.onClose(null)} />;
   }

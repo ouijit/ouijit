@@ -10,19 +10,19 @@ async function openProjectSettings(appPage: Page, repoPath: string): Promise<voi
   }, repoPath);
   await (await projectRowButton(appPage, repoPath, /^More for /)).click();
   await appPage.locator('.context-menu--visible').getByRole('button', { name: 'Settings' }).click();
-  await expect(appPage.getByRole('heading', { name: 'Project Settings' })).toBeVisible({ timeout: 10_000 });
+  await expect(appPage.getByRole('navigation', { name: 'Settings' })).toBeVisible({ timeout: 10_000 });
 }
 
-test('settings: project→app cross-link navigates, and the ready-audio toggle persists', async ({
+test("settings: a project's settings lead to App's from the same list, and the ready-audio toggle persists", async ({
   appPage,
   testRepo,
 }) => {
   await openProjectSettings(appPage, testRepo.repoPath);
 
-  // The supporting text carries an inline link to App Settings.
-  await appPage.getByRole('button', { name: 'App Settings' }).click();
+  // App's General is the first General in the list; the project's is under it.
+  await appPage.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'General' }).first().click();
 
-  await expect(appPage.getByRole('heading', { name: 'App Settings' })).toBeVisible({ timeout: 10_000 });
+  await expect(appPage.getByRole('heading', { name: 'General' })).toBeVisible({ timeout: 10_000 });
   const selection = await appPage.evaluate(
     () => (window as unknown as { __appStore: { getState: () => any } }).__appStore.getState().selection,
   );

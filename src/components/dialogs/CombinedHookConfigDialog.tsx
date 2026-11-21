@@ -8,7 +8,7 @@ import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
 import { HookSandboxPicker } from '../ui/SandboxPicker';
-import { useHomeChatStore } from '../../stores/homeChatStore';
+import { useTasksOpenAsChat } from '../../services/chatSettings';
 import { ChatTaskStartDialog } from './ChatTaskStartDialog';
 
 interface CombinedHookConfigDialogProps {
@@ -19,7 +19,7 @@ interface CombinedHookConfigDialogProps {
 }
 
 export function CombinedHookConfigDialog(props: CombinedHookConfigDialogProps) {
-  const chat = useHomeChatStore((s) => s.enabled && s.taskSurface === 'chat');
+  const chat = useTasksOpenAsChat(props.projectPath);
   if (chat) return <ChatTaskStartDialog projectPath={props.projectPath} onClose={props.onClose} />;
   return <TerminalHooksDialog {...props} />;
 }
