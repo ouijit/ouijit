@@ -625,7 +625,7 @@ export function ChatTurns({
         items.push(
           <div
             key="reply-actions"
-            className="-mt-2 -ml-1.5 flex items-center min-h-6 opacity-0 group-hover/turn:opacity-100 focus-within:opacity-100 transition-opacity duration-100"
+            className="-mt-2 -mb-2 -ml-1 flex items-center h-[22px] opacity-0 group-hover/turn:opacity-100 focus-within:opacity-100 transition-opacity duration-100"
           >
             <CopyAction text={reply.join('\n\n')} />
           </div>,

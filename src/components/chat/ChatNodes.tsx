@@ -509,11 +509,11 @@ function ReasoningView({ text, running, ms }: { text: string; running: boolean; 
 
 function MessageAction({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
   return (
-    <Tooltip text={label} placement="bottom">
+    <Tooltip text={label} placement="bottom" delay={600}>
       <button
         type="button"
         aria-label={label}
-        className="w-6 h-6 flex items-center justify-center rounded-md text-text-tertiary hover:text-text-primary hover:bg-ink/[0.08] transition-colors duration-100"
+        className="w-[22px] h-[22px] flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors duration-100"
         onClick={onClick}
       >
         <Icon name={icon} className="w-3.5 h-3.5" />
@@ -544,7 +544,7 @@ function UserMessageView({ node, waiting, onEdit }: { node: UserMessageNode; wai
     return <div className="text-[13px] text-text-tertiary whitespace-pre-wrap break-words">{node.text}</div>;
   }
   return (
-    <div className="group/user flex flex-col items-end gap-1">
+    <div className="group/user flex flex-col items-end">
       <div className="max-w-[85%] rounded-[12px] bg-ink/[0.07] px-3 py-2 text-sm text-text-primary whitespace-pre-wrap break-words">
         {node.text}
         {node.attachments.length > 0 && (
@@ -558,10 +558,10 @@ function UserMessageView({ node, waiting, onEdit }: { node: UserMessageNode; wai
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 text-[11px] text-text-tertiary min-h-6">
+      <div className="mt-1 -mb-2.5 -mr-1 flex items-center gap-2 h-[22px] text-[11px] text-text-tertiary">
         {node.delivery === 'queued' && <span>Queued</span>}
         {node.delivery === 'steer' && <span>{waiting ? 'Waiting for the current step' : 'Sent mid-turn'}</span>}
-        <span className="flex items-center gap-0.5 opacity-0 group-hover/user:opacity-100 focus-within:opacity-100 transition-opacity duration-100">
+        <span className="flex items-center opacity-0 group-hover/user:opacity-100 focus-within:opacity-100 transition-opacity duration-100">
           <CopyAction text={node.text} />
           {onEdit && <MessageAction icon="pencil-simple" label="Edit" onClick={onEdit} />}
         </span>
