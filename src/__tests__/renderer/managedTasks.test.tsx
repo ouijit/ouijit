@@ -102,7 +102,7 @@ describe('the tasks Chat manages, above its composer', () => {
     expect(screen.queryByLabelText('Tasks Chat is managing')).toBeNull();
   });
 
-  test('say what is still running in the background, and tell a running turn from background work alone', () => {
+  test('say what is still running in the background, tell a running turn from background work alone, and how full the context is', () => {
     seed('fix', { taskId: 12, status: 'thinking' });
     follow([APP, 12]);
     const info = (patch: Partial<ChatSessionInfo>) =>
@@ -149,5 +149,14 @@ describe('the tasks Chat manages, above its composer', () => {
     act(() => useTerminalStore.getState().updateDisplay('fix', { status: 'ready' }));
     expect(row().textContent).not.toContain('in background');
     expect(mark()).toBe('unread');
+
+    // No context reported yet, no ring; once it is, the ring sits before the mark.
+    const ring = () => within(row()).queryByRole('img', { name: /of context used/ });
+    expect(ring()).toBeNull();
+    info({ status: 'idle', usage: { contextTokens: 126_000, contextWindow: 200_000 } });
+    expect(ring()?.getAttribute('aria-label')).toBe('63% of context used');
+    expect(ring()!.compareDocumentPosition(within(row()).getByTestId('group-mark'))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 });

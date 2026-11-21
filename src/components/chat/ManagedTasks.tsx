@@ -10,6 +10,7 @@ import { useHomeChatStore } from '../../stores/homeChatStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useChatStore } from '../../stores/chatStore';
 import { BackgroundDots } from './ChatBackground';
+import { ContextUsage } from './ContextUsage';
 import { loadTasks } from '../../stores/projectDataStore';
 import type { TaskRef } from '../../chat/preferences';
 import type { TaskWithWorkspace } from '../../types';
@@ -65,10 +66,17 @@ function useBackground(managed: Managed): { count: number; turn: boolean } {
   );
 }
 
+/** How full the context is in the task's most recently used chat that has reported it. */
+function useUsage(managed: Managed) {
+  const ids = useTerminalStore(useShallow((s) => taskSessions(s, managed)));
+  return useChatStore((s) => ids.map((id) => s.sessions[id]?.info.usage).find((usage) => usage?.contextTokens));
+}
+
 function ManagedRow({ managed, state }: { managed: Managed; state: GroupState | null }) {
   const { projectPath, task } = managed;
   const projectName = useProjectName(projectPath);
   const background = useBackground(managed);
+  const usage = useUsage(managed);
   const backgroundOnly = background.count > 0 && !background.turn && state === 'thinking';
   const open = () => {
     const [front] = taskSessions(useTerminalStore.getState(), managed);
@@ -97,18 +105,21 @@ function ManagedRow({ managed, state }: { managed: Managed; state: GroupState | 
           projectName
         )
       }
-      trailing={
-        backgroundOnly ? (
-          <span
-            className="w-3.5 flex items-center justify-center shrink-0"
-            data-testid="group-mark"
-            data-state="background"
-          >
-            <BackgroundDots />
-          </span>
-        ) : (
-          state && <GroupMark state={state} />
-        )
+      end={
+        <>
+          {!!usage?.contextWindow && <ContextUsage usage={usage} size={14} />}
+          {backgroundOnly ? (
+            <span
+              className="w-3.5 flex items-center justify-center shrink-0"
+              data-testid="group-mark"
+              data-state="background"
+            >
+              <BackgroundDots />
+            </span>
+          ) : (
+            state && <GroupMark state={state} />
+          )}
+        </>
       }
       onClick={open}
     />

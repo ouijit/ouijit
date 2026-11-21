@@ -119,6 +119,8 @@ interface RowProps {
   mono?: boolean;
   detail?: ReactNode;
   trailing?: ReactNode;
+  /** At the row's end, outside the title's tooltip, for marks with a tooltip of their own. */
+  end?: ReactNode;
   onClick: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   /** Swaps the title for a field, prefilled, until committed or cancelled. */
@@ -216,6 +218,7 @@ export function SidebarRow({
   mono,
   detail,
   trailing,
+  end,
   onClick,
   onContextMenu,
   rename,
@@ -274,6 +277,7 @@ export function SidebarRow({
           )}
         </Tooltip>
       )}
+      {end}
       {onContextMenu && !rename && <MoreButton title={title} onMenu={onContextMenu} />}
     </div>
   );

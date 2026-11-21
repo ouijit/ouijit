@@ -3,7 +3,7 @@ import { Icon } from '../terminal/Icon';
 import { SandboxRing } from '../terminal/StatusDot';
 import { SANDBOX_LABELS, isActiveSandbox, isSandboxProviderId, type SandboxBackendId } from '../../sandbox/types';
 import { MenuPopover } from '../ui/Menu';
-import { Tooltip } from '../ui/Tooltip';
+import { ContextUsage } from './ContextUsage';
 import { growToFit, useFitOnResize } from '../../hooks/useAutoResize';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -300,74 +300,6 @@ function recentCommands(nodes: ChatNode[]): string[] {
     if (name && !names.includes(name)) names.push(name);
   }
   return names;
-}
-
-const RING_RADIUS = 6;
-const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
-
-/** How full the context is, as a ring, with the numbers on hover. */
-function ContextUsage({ info }: { info: ChatSessionInfo }) {
-  const usage = info.usage;
-  if (!usage?.contextTokens) return null;
-  const { contextTokens: used, contextWindow: window } = usage;
-  if (!window) {
-    return <span className="text-[11px] text-text-tertiary mr-1 whitespace-nowrap">{compactCount(used)} tokens</span>;
-  }
-  const share = Math.min(1, used / window);
-  const percent = Math.round(share * 100);
-  return (
-    <Tooltip
-      placement="top-end"
-      text={
-        <span className="flex flex-col">
-          <span>{percent}% of context used</span>
-          <span className="font-normal text-text-secondary">
-            {compactCount(used)} of {compactCount(window)} tokens
-          </span>
-        </span>
-      }
-    >
-      {(ref, props) => (
-        <span
-          ref={ref}
-          {...props}
-          role="img"
-          aria-label={`${percent}% of context used`}
-          className="mr-1.5 p-0.5 flex text-text-secondary"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" className="shrink-0">
-            <circle
-              cx="8"
-              cy="8"
-              r={RING_RADIUS}
-              fill="none"
-              stroke="currentColor"
-              strokeOpacity="0.16"
-              strokeWidth="2"
-            />
-            <circle
-              cx="8"
-              cy="8"
-              r={RING_RADIUS}
-              fill="none"
-              stroke="currentColor"
-              strokeOpacity={share >= 0.9 ? 0.9 : 0.55}
-              strokeWidth="2"
-              strokeDasharray={`${share * RING_LENGTH} ${RING_LENGTH}`}
-              strokeLinecap="round"
-              transform="rotate(-90 8 8)"
-            />
-          </svg>
-        </span>
-      )}
-    </Tooltip>
-  );
-}
-
-function compactCount(count: number): string {
-  if (count >= 1_000_000) return `${Number((count / 1_000_000).toFixed(1))}m`;
-  if (count >= 1000) return `${(count / 1000).toFixed(count >= 10_000 ? 0 : 1)}k`;
-  return String(count);
 }
 
 function report(error: unknown): void {
@@ -700,7 +632,7 @@ export function ChatComposer({
           <SandboxNote info={info} sandbox={info.sandbox} />
         )}
         <span className="flex-1" />
-        <ContextUsage info={info} />
+        <ContextUsage usage={info.usage} className="mr-1.5 p-0.5" />
         {busy && caps.interrupt && !info.stopping && (
           <button
             type="button"
