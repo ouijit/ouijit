@@ -8,6 +8,8 @@ import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
 import { HookSandboxPicker } from '../ui/SandboxPicker';
+import { useHomeChatStore } from '../../stores/homeChatStore';
+import { ChatTaskStartDialog } from './ChatTaskStartDialog';
 
 interface CombinedHookConfigDialogProps {
   projectPath: string;
@@ -16,12 +18,13 @@ interface CombinedHookConfigDialogProps {
   onClose: () => void;
 }
 
-export function CombinedHookConfigDialog({
-  projectPath,
-  existingStart,
-  existingContinue,
-  onClose,
-}: CombinedHookConfigDialogProps) {
+export function CombinedHookConfigDialog(props: CombinedHookConfigDialogProps) {
+  const chat = useHomeChatStore((s) => s.enabled && s.taskSurface === 'chat');
+  if (chat) return <ChatTaskStartDialog projectPath={props.projectPath} onClose={props.onClose} />;
+  return <TerminalHooksDialog {...props} />;
+}
+
+function TerminalHooksDialog({ projectPath, existingStart, existingContinue, onClose }: CombinedHookConfigDialogProps) {
   const startPlaceholder = useHookCommandDefault('start');
   const continuePlaceholder = useHookCommandDefault('continue');
   const [startCommand, setStartCommand] = useState(existingStart?.command ?? '');

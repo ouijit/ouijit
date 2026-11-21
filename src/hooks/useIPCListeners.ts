@@ -13,6 +13,7 @@ import { useTerminalStore } from '../stores/terminalStore';
 import { projectDefaultSandbox, refreshProjectData } from '../stores/projectDataStore';
 import { isActiveSandbox } from '../sandbox/types';
 import { beginTransition } from '../services/taskStartService';
+import { hookForMove } from '../services/chatSettings';
 import { hookSandbox, hookTypeForTransition } from '../services/hookRun';
 import { useWaitingStore } from '../stores/waitingStore';
 import { presentWaiting } from '../services/presentWaiting';
@@ -52,7 +53,7 @@ async function stageOrRun(
   run: (background: boolean, control: CliHookControl) => void,
 ): Promise<void> {
   const { fromPtyId } = move;
-  const hook = move.hookType != null ? (await window.api.hooks.get(projectPath))[move.hookType] : undefined;
+  const hook = await hookForMove(projectPath, move.hookType, move.surface);
   const onHost =
     !!hook && !isActiveSandbox(hookSandbox(move.hookSandbox, hook, await projectDefaultSandbox(projectPath)));
   const onHostUnseen = !!move.fromSandbox && move.hookMode === 'run' && onHost;

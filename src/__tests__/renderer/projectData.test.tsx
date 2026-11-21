@@ -9,6 +9,7 @@ import {
   loadTasks,
   moveTask,
   refreshProjectData,
+  saveChatTaskStart,
   saveHook,
   useProjectDataStore,
 } from '../../stores/projectDataStore';
@@ -94,7 +95,7 @@ describe('project tasks', () => {
 });
 
 describe('project config', () => {
-  test('is loaded per project, keeps what it had when a load fails, and reflects a saved or deleted hook', async () => {
+  test('is loaded per project, keeps what it had when a load fails, and reflects a saved or deleted hook and chat start', async () => {
     const statuses = [
       { providerId: 'nono' as const, available: true },
       { providerId: 'custom' as const, available: false, detail: 'Set a launcher first.' },
@@ -102,9 +103,16 @@ describe('project config', () => {
     const editor = { id: 'e', type: 'editor' as const, name: 'edit', command: 'code' };
     vi.mocked(window.api.sandbox.status).mockResolvedValueOnce(statuses).mockResolvedValueOnce([]);
     vi.mocked(window.api.hooks.get).mockResolvedValueOnce({ editor }).mockResolvedValueOnce({});
-    vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) =>
-      key === 'defaultSandbox:/a' ? 'nono' : key === 'sandboxCliAccess:/a' ? 'task' : undefined,
-    );
+    const stored: Record<string, string> = {
+      'defaultSandbox:/a': 'nono',
+      'sandboxCliAccess:/a': 'task',
+      'chat:taskStart:/b': JSON.stringify({ setup: 'npm ci' }),
+    };
+    vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) => stored[key]);
+    vi.mocked(window.api.globalSettings.set).mockImplementation(async (key, value) => {
+      stored[key] = value;
+      return { success: true };
+    });
 
     await loadProjectConfig('/a');
     await loadProjectConfig('/b');
@@ -114,12 +122,14 @@ describe('project config', () => {
       hooks: { editor },
       defaultSandbox: 'nono',
       sandboxCliAccess: 'task',
+      chatTaskStart: { setup: '', firstMessage: '$OUIJIT_TASK_DESCRIPTION', resumeSetup: '' },
     });
     expect(getProjectConfig('/b')).toMatchObject({
       availableSandboxProviders: [],
       hooks: {},
       defaultSandbox: 'none',
       sandboxCliAccess: 'read',
+      chatTaskStart: { setup: 'npm ci', firstMessage: '$OUIJIT_TASK_DESCRIPTION', resumeSetup: '' },
     });
 
     vi.mocked(window.api.sandbox.status).mockRejectedValueOnce(new Error('boom'));
@@ -137,5 +147,12 @@ describe('project config', () => {
     await deleteHook('/b', 'run');
     expect(getProjectConfig('/b')?.hooks).toEqual({});
     expect(window.api.hooks.delete).toHaveBeenCalledWith('/b', 'run');
+
+    // An emptied first message stays empty rather than going back to the default.
+    const chatStart = { setup: '', firstMessage: '', resumeSetup: 'git pull' };
+    expect(await saveChatTaskStart('/b', chatStart)).toBe(true);
+    expect(getProjectConfig('/b')?.chatTaskStart).toEqual(chatStart);
+    await loadProjectConfig('/b');
+    expect(getProjectConfig('/b')?.chatTaskStart).toEqual(chatStart);
   });
 });

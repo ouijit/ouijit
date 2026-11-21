@@ -29,6 +29,7 @@ import { parseOsc133ExitCodes } from './osc133';
 import { buildEditorCommand } from './editorCommand';
 import { readSnapshot, snapshotRecency } from './sessionSnapshot';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
+import { taskHookVars } from '../../utils/hookEnvVars';
 import { detectPullRequestForTask } from '../../services/githubTaskActions';
 import { hookSandbox } from '../../services/hookRun';
 import { projectDefaultSandbox } from '../../stores/projectDataStore';
@@ -186,19 +187,7 @@ export function registerTerminal(
 
 // ── Worktree hook environment ────────────────────────────────────────
 
-/**
- * Build the env vars handed to a worktree-backed terminal's hook.
- *
- * The task description MUST come from `task` — a live DB fetch — and never
- * from the worktree snapshot in `AddProjectTerminalOptions.existingWorktree`.
- * That snapshot is captured when the worktree is created and never refreshed,
- * so sourcing it from there leaves OUIJIT_TASK_DESCRIPTION stale (or absent
- * entirely, since the var is only set when the value is truthy) after a task's
- * description is edited.
- *
- * OUIJIT_TASK_PROMPT is kept as a deprecated alias of OUIJIT_TASK_DESCRIPTION
- * so existing user hooks that reference the old name keep working.
- */
+/** The env vars handed to a worktree-backed terminal's hook. */
 export function buildWorktreeStartEnv(params: {
   hookType: string;
   projectPath: string;
@@ -207,21 +196,10 @@ export function buildWorktreeStartEnv(params: {
   task: TaskWithWorkspace | null;
 }): Record<string, string> {
   const { hookType, projectPath, worktreeInfo, label, task } = params;
-  const env: Record<string, string> = {
+  return {
     OUIJIT_HOOK_TYPE: hookType,
-    OUIJIT_PROJECT_PATH: projectPath,
-    OUIJIT_WORKTREE_PATH: worktreeInfo.path,
-    OUIJIT_TASK_BRANCH: worktreeInfo.branch,
-    OUIJIT_TASK_NAME: label,
-    ...(task && { OUIJIT_TASK_NUMBER: String(task.taskNumber) }),
+    ...taskHookVars({ projectPath, worktree: worktreeInfo, name: label, task }),
   };
-  const description = task?.prompt;
-  if (description) {
-    const descriptionForHook = descriptionToHookPrompt(description);
-    env.OUIJIT_TASK_DESCRIPTION = descriptionForHook;
-    env.OUIJIT_TASK_PROMPT = descriptionForHook;
-  }
-  return env;
 }
 
 // ── Spawn a new project terminal ─────────────────────────────────────

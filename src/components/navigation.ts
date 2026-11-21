@@ -9,12 +9,12 @@
 import type { Project, SandboxBackendId, SandboxProviderId, TaskWithWorkspace, WorktreeInfo } from '../types';
 import { joinStack, useAppStore, type ProjectPage } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
-import { loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
+import { loadTasks, projectChatTaskStart, projectDefaultSandbox } from '../stores/projectDataStore';
 import { stackMembers, stackOf, useTerminalStore } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
-import { addChatCard, loadChatSettings, reconnectChatSessions } from './chat/chatActions';
-import { hookSandbox } from '../services/hookRun';
+import { addChatCard, reconnectChatSessions } from './chat/chatActions';
+import { loadChatSettings } from '../services/chatSettings';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalRegistry';
 import { ensureWorktree } from '../services/worktreeRecovery';
@@ -150,13 +150,9 @@ export async function openTaskShell(
 
   const chat = options.fresh ? options.fresh === 'chat' : (await loadChatSettings()).surface === 'chat';
   if (options.mode === 'resume' && chat) {
-    const hooks = skipAutoHook ? null : await window.api.hooks.get(projectPath);
-    const continueHook = hooks?.continue;
-    // The agent runs in the sandbox it would have in the hook's terminal.
-    const projectDefault = await projectDefaultSandbox(projectPath);
-    const sandbox = continueHook
-      ? hookSandbox(options.sandboxProvider, continueHook, projectDefault)
-      : (options.sandboxProvider ?? projectDefault);
+    const sandbox = options.sandboxProvider ?? (await projectDefaultSandbox(projectPath));
+    const resumeSetup =
+      skipAutoHook || options.fresh ? '' : (await projectChatTaskStart(projectPath)).resumeSetup.trim();
     return addChatCard(projectPath, {
       agent: options.chat?.agent,
       firstPrompt: options.chat?.prompt,
@@ -166,8 +162,8 @@ export async function openTaskShell(
       replaceLoadingId: options.replaceLoadingId,
       background: options.background,
       resumeLatest: !options.fresh,
-      setup: continueHook
-        ? { name: continueHook.name, command: continueHook.command, hookType: 'continue', sandboxProvider: sandbox }
+      setup: resumeSetup
+        ? { name: 'Setup', command: resumeSetup, hookType: 'continue', sandboxProvider: sandbox }
         : undefined,
     });
   }

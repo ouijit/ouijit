@@ -5,6 +5,8 @@ import { stackMembers, useTerminalStore } from '../../stores/terminalStore';
 import { beginTransition, createAndStartTask } from '../../services/taskStartService';
 import { useAppStore } from '../../stores/appStore';
 import { addProjectTerminal, closeProjectTerminal } from '../../components/terminal/terminalActions';
+import { addChatCard } from '../../components/chat/chatActions';
+import { useProjectDataStore } from '../../stores/projectDataStore';
 import type { TaskWithWorkspace } from '../../types';
 import { seedProject } from './seedProject';
 
@@ -18,6 +20,10 @@ vi.mock('electron-log/renderer', () => ({
 vi.mock('../../components/terminal/terminalActions', () => ({
   addProjectTerminal: vi.fn().mockResolvedValue(true),
   closeProjectTerminal: vi.fn(),
+}));
+// A chat card builds a terminal instance too, which xterm cannot do under jsdom.
+vi.mock('../../components/chat/chatActions', () => ({
+  addChatCard: vi.fn().mockResolvedValue(true),
 }));
 
 const PROJECT = '/project';
@@ -50,6 +56,7 @@ describe('taskStartService.beginTransition', () => {
     useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, order: [] });
     vi.clearAllMocks();
     vi.mocked(window.api.hooks.get).mockResolvedValue({});
+    vi.mocked(window.api.globalSettings.get).mockResolvedValue(undefined);
     vi.mocked(window.api.task.start).mockResolvedValue({
       success: true,
       worktreePath: '/wt/T-7',
@@ -525,6 +532,48 @@ describe('taskStartService.beginTransition', () => {
     // spawned a terminal — no start hook was silently dropped.
     expect(addProjectTerminal).toHaveBeenCalledTimes(2);
     expect(useProjectStore.getState().runHookQueueTotal).toBe(0);
+  });
+
+  test('a task that opens as a chat runs the project chat Setup, not its start hook, then sends the First message filled in', async () => {
+    const stored: Record<string, string> = {
+      'chat:enabled': '1',
+      'chat:surface': 'chat',
+      [`chat:taskStart:${PROJECT}`]: JSON.stringify({
+        setup: 'npm install',
+        firstMessage: 'Work on $OUIJIT_TASK_NAME: ${OUIJIT_TASK_DESCRIPTION} $HOME',
+      }),
+    };
+    vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) => stored[key]);
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { id: 'h', type: 'start', name: 'Start', command: 'npm install && claude "$OUIJIT_TASK_DESCRIPTION"' },
+    });
+    const task = { ...makeTask(), prompt: 'with oauth' };
+    vi.mocked(window.api.task.getByNumber).mockResolvedValue(task);
+    useProjectDataStore.setState({ configByProject: {} });
+
+    beginTransition(PROJECT, { origStatus: 'todo', newStatus: 'in_progress', task });
+    await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
+    const req = useProjectStore.getState().runHookQueue[0]!;
+    expect([req.hookType, req.hook.command]).toEqual(['start', 'npm install']);
+    useProjectStore
+      .getState()
+      .resolveRunHookRequest(req.id, { command: 'npm install', foreground: true, sandbox: 'none' });
+    await waitFor(() => vi.mocked(addChatCard).mock.calls.length > 0);
+    expect(vi.mocked(addChatCard).mock.calls[0][1]).toMatchObject({
+      taskId: 7,
+      setup: { name: 'Setup', command: 'npm install', hookType: 'start', sandboxProvider: 'none' },
+      firstPrompt: 'Work on Wire up auth: with oauth $HOME',
+    });
+    expect(addProjectTerminal).not.toHaveBeenCalled();
+
+    // With no Setup nothing asks first, and the chat is sent its message straight away.
+    vi.mocked(addChatCard).mockClear();
+    stored[`chat:taskStart:${PROJECT}`] = JSON.stringify({ setup: '' });
+    useProjectDataStore.setState({ configByProject: {} });
+    beginTransition(PROJECT, { origStatus: 'todo', newStatus: 'in_progress', task });
+    await waitFor(() => vi.mocked(addChatCard).mock.calls.length > 0);
+    expect(useProjectStore.getState().runHookQueue).toHaveLength(0);
+    expect(vi.mocked(addChatCard).mock.calls[0][1]).toMatchObject({ setup: undefined, firstPrompt: 'with oauth' });
   });
 });
 

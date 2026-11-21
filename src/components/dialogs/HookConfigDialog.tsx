@@ -10,7 +10,8 @@ import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
 import { Checkbox } from '../ui/Checkbox';
 import { HookSandboxPicker } from '../ui/SandboxPicker';
-import { loadChatSettings } from '../chat/chatActions';
+import { useHomeChatStore } from '../../stores/homeChatStore';
+import { ChatTaskStartDialog } from './ChatTaskStartDialog';
 
 const HOOK_LABELS: Record<HookType, { title: string; description: string; envVars?: boolean }> = {
   start: {
@@ -52,16 +53,20 @@ interface HookConfigDialogProps {
   onClose: (hook: ScriptHook | null) => void;
 }
 
-export function HookConfigDialog({ projectPath, hookType, existingHook, onClose }: HookConfigDialogProps) {
+export function HookConfigDialog(props: HookConfigDialogProps) {
+  const chat = useHomeChatStore((s) => s.enabled && s.taskSurface === 'chat');
+  if (chat && (props.hookType === 'start' || props.hookType === 'continue')) {
+    return <ChatTaskStartDialog projectPath={props.projectPath} onClose={() => props.onClose(null)} />;
+  }
+  return <CommandHookDialog {...props} />;
+}
+
+function CommandHookDialog({ projectPath, hookType, existingHook, onClose }: HookConfigDialogProps) {
   const labels = HOOK_LABELS[hookType];
   const placeholder = useHookCommandDefault(hookType);
   const isRunHook = hookType === 'run';
   const sandboxable = SANDBOXABLE_HOOK_TYPES.includes(hookType);
 
-  const [chatMode, setChatMode] = useState(false);
-  useEffect(() => {
-    void loadChatSettings().then((settings) => setChatMode(settings.surface === 'chat'));
-  }, []);
   const [command, setCommand] = useState(existingHook?.command ?? '');
   const [restartIfRunning, setRestartIfRunning] = useState(existingHook?.restartIfRunning ?? false);
   const [sandbox, setSandbox] = useState<SandboxProviderId | undefined>(existingHook?.sandbox);
@@ -126,12 +131,6 @@ export function HookConfigDialog({ projectPath, hookType, existingHook, onClose 
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
       <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">{labels.title}</h2>
       <p className="text-sm text-text-secondary leading-snug -mt-2 mb-4">{labels.description}</p>
-      {chatMode && (hookType === 'start' || hookType === 'continue') && (
-        <p className="text-xs text-text-tertiary leading-snug -mt-2 mb-4">
-          Tasks open in chat, so this runs as setup before the task is sent. Agent flags here don't apply to the chat;
-          set the agent in Settings.
-        </p>
-      )}
 
       <div className="mb-6">
         <div className="flex flex-col gap-1">

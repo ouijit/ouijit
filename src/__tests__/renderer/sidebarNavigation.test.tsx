@@ -11,7 +11,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useUIStore } from '../../stores/uiStore';
 import { DEFAULT_DISPLAY_STATE, useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useWaitingStore } from '../../stores/waitingStore';
-import { loadChatSettings } from '../../components/chat/chatActions';
+import { loadChatSettings } from '../../services/chatSettings';
 import { NO_CAPABILITIES } from '../../chat/model';
 import type { GitFileStatus, PtySpawnOptions, SandboxProviderStatus, TaskWithWorkspace } from '../../types';
 

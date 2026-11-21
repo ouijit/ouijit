@@ -5,11 +5,9 @@ import { terminalInstances } from '../terminal/terminalRegistry';
 import { useChatStore, listenForChatEvents, loadTaskChats } from '../../stores/chatStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import { generateId } from '../../utils/ids';
-import { chatSetupCommand } from '../../chat/hookSetup';
 import { isActiveSandbox } from '../../sandbox/types';
-import { CHAT_SETTING_KEYS, parseChatSettings, type ChatSettings } from '../../chat/preferences';
+import { loadChatSettings } from '../../services/chatSettings';
 import { listenForHomeChat, useHomeChatStore } from '../../stores/homeChatStore';
 import { useAppStore } from '../../stores/appStore';
 import { listenForChatDecisions } from '../../services/homeChatDecisions';
@@ -20,14 +18,6 @@ import type { SandboxProviderId, SnapshotTerminalUi, TaskWithWorkspace } from '.
 import type { ChatDelivery } from '../../chat/startOptions';
 
 const chatLog = log.scope('chatActions');
-
-export async function loadChatSettings(): Promise<ChatSettings> {
-  const values = new Map<string, string | undefined>();
-  await Promise.all(
-    Object.values(CHAT_SETTING_KEYS).map(async (key) => values.set(key, await window.api.globalSettings.get(key))),
-  );
-  return parseChatSettings((key) => values.get(key));
-}
 
 /** A chat's status, as the card's status dot reads it: waiting on a person counts as ready for one. */
 function cardStatus(status: ChatSessionStatus): 'thinking' | 'ready' | 'error' | null {
@@ -91,9 +81,9 @@ export interface AddChatCardOptions {
   label?: string;
   background?: boolean;
   replaceLoadingId?: string;
-  /** Run before the first prompt goes out, in a runner panel on the card, less any agent it launches. */
+  /** Run before the first prompt goes out, in a runner panel on the card. */
   setup?: SetupCommand;
-  /** Sent as the first message; the task description when a task starts. */
+  /** Sent as the first message. */
   firstPrompt?: string;
   /** Pick up the task's most recent chat rather than starting a new one. */
   resumeLatest?: boolean;
@@ -173,9 +163,8 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
   if (options.taskId != null) void loadTaskChats(projectPath);
 
   const firstPrompt = options.firstPrompt?.trim();
-  const setupCommand = options.setup && chatSetupCommand(options.setup.command);
-  if (options.setup && setupCommand) {
-    void runSetupThenPrompt(term, { ...options.setup, command: setupCommand }, firstPrompt);
+  if (options.setup?.command.trim()) {
+    void runSetupThenPrompt(term, options.setup, firstPrompt);
   } else if (firstPrompt) {
     await sendChat(id, firstPrompt);
   }
@@ -183,8 +172,8 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
 }
 
 /**
- * The start hook in a chat card does setup only: it runs in a runner panel
- * beside the chat, and the first prompt waits for it to succeed.
+ * Setup runs in a runner panel beside the chat, and the first prompt waits for
+ * it to succeed.
  */
 async function runSetupThenPrompt(
   term: OuijitTerminal,
@@ -246,11 +235,6 @@ export async function sendChat(
     useProjectStore.getState().addToast(String(error instanceof Error ? error.message : error), 'error');
     return false;
   }
-}
-
-/** The task description as a first message: attachments become the paths the agent can open. */
-export function taskFirstPrompt(task: TaskWithWorkspace | null | undefined): string | undefined {
-  return task?.prompt ? descriptionToHookPrompt(task.prompt) : undefined;
 }
 
 /**

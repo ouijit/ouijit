@@ -1,14 +1,7 @@
 import { useState, useCallback } from 'react';
+import { HOOK_ENV_VARS } from '../../utils/hookEnvVars';
 
-/** Variables Ouijit sets in the hook's shell. */
-const ENV_VARS = [
-  '$OUIJIT_PROJECT_PATH',
-  '$OUIJIT_WORKTREE_PATH',
-  '$OUIJIT_TASK_BRANCH',
-  '$OUIJIT_TASK_NUMBER',
-  '$OUIJIT_TASK_NAME',
-  '$OUIJIT_TASK_DESCRIPTION',
-];
+const ENV_VARS = HOOK_ENV_VARS.map((name) => `$${name}`);
 
 /**
  * The "Environment variables" disclosure shared by the hook dialogs. Explains

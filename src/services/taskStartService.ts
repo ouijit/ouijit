@@ -10,16 +10,18 @@
 
 import log from 'electron-log/renderer';
 import { addProjectTerminal } from '../components/terminal/terminalActions';
-import { addChatCard, loadChatSettings, taskFirstPrompt } from '../components/chat/chatActions';
+import { addChatCard } from '../components/chat/chatActions';
+import { hookForMove, opensAsChat } from './chatSettings';
 import type { TaskSurface } from '../chat/preferences';
+import { fillHookVars, taskHookVars } from '../utils/hookEnvVars';
 import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import { completeTask } from './taskCompletion';
 import { headlessHookRun, hookSandbox, hookTypeForTransition, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';
 import { joinStack, useAppStore } from '../stores/appStore';
-import { getProjectTasks, loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
+import { getProjectTasks, loadTasks, projectChatTaskStart, projectDefaultSandbox } from '../stores/projectDataStore';
 import { stackOf, useTerminalStore } from '../stores/terminalStore';
-import type { RunHookResult, SandboxProviderId, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
+import type { RunHookResult, SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
 /** Id for a loading slot standing in for a task's terminal while it spawns. */
@@ -212,11 +214,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
   try {
     // 1. Look up any configured hook for this transition.
     const hookType = hookTypeForTransition(origStatus, newStatus);
-    let hook: ScriptHook | undefined;
-    if (hookType) {
-      const hooks = await window.api.hooks.get(projectPath);
-      hook = hooks[hookType] ?? undefined;
-    }
+    const hook = await hookForMove(projectPath, hookType, surface);
 
     // 2. Kick off worktree creation in parallel with the hook prompt.
     const needsWorktree = transitioningToInProgress && !task.worktreePath;
@@ -324,6 +322,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
           projectPath,
           resolvedTask,
           hookResult,
+          hookType === 'continue' ? 'continue' : 'start',
           hookResult?.sandbox ?? sandbox,
           slotId,
           background,
@@ -366,6 +365,7 @@ async function spawnTerminalForInProgress(
   projectPath: string,
   task: TaskWithWorkspace,
   hookResult: RunHookResult | null,
+  hookType: 'start' | 'continue',
   sandbox: SandboxProviderId | undefined,
   loadingSlot: string | null,
   background: boolean | undefined,
@@ -376,17 +376,19 @@ async function spawnTerminalForInProgress(
     return;
   }
 
-  const settings = await loadChatSettings();
-  if (settings.enabled && (surface ?? settings.surface) === 'chat') {
+  if (await opensAsChat(surface)) {
+    const worktree = { path: task.worktreePath, branch: task.branch || '' };
+    const live = (await window.api.task.getByNumber(projectPath, task.taskNumber)) ?? task;
+    const { firstMessage } = await projectChatTaskStart(projectPath);
     await addChatCard(projectPath, {
-      worktree: { path: task.worktreePath, branch: task.branch || '' },
+      worktree,
       taskId: task.taskNumber,
       sandboxProvider: sandbox,
       replaceLoadingId: loadingSlot ?? undefined,
       setup: hookResult
-        ? { name: 'Start', command: hookResult.command, hookType: 'start', sandboxProvider: sandbox }
+        ? { name: 'Setup', command: hookResult.command, hookType, sandboxProvider: sandbox }
         : undefined,
-      firstPrompt: taskFirstPrompt(task),
+      firstPrompt: fillHookVars(firstMessage, taskHookVars({ projectPath, worktree, name: live.name, task: live })),
     });
     return;
   }

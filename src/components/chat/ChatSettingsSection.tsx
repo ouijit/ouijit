@@ -11,7 +11,8 @@ import {
 } from '../../chat/preferences';
 import { CHAT_AGENT_IDS, type ChatAgentId } from '../../chat/model';
 import type { DriverProbe } from '../../chat/driver';
-import { loadChatSettings, setChatEnabled } from './chatActions';
+import { setChatEnabled } from './chatActions';
+import { loadChatSettings } from '../../services/chatSettings';
 import { useHomeChatStore } from '../../stores/homeChatStore';
 
 function Row({ label, description, children }: { label: string; description: string; children: React.ReactNode }) {
