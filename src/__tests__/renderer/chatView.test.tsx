@@ -451,6 +451,54 @@ describe('chat view', () => {
   });
 });
 
+describe('reading back up the transcript', () => {
+  test('lets the view stay where it was as output arrives, and takes it back to the bottom when a message is sent', () => {
+    const shown: ChatNode[] = [...NODES];
+    const add = (node: ChatNode) =>
+      act(() => {
+        shown.push(node);
+        useChatStore.getState().adopt({ info: INFO, nodes: [...shown], seq: shown.length });
+      });
+    act(() => useChatStore.getState().adopt({ info: INFO, nodes: [...shown], seq: 0 }));
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(2000);
+    try {
+      const { container } = render(<ChatView cardId={ID} />);
+      const scroller = container.querySelector<HTMLElement>('.overflow-y-auto')!;
+      expect(scroller.scrollTop).toBe(2000);
+      scroller.scrollTop = 300;
+      fireEvent.scroll(scroller);
+
+      add({ kind: 'assistant_message', id: 'more', parentId: null, createdAt: 0, text: 'More.', status: 'completed' });
+      expect(scroller.scrollTop).toBe(300);
+      // A message that only wakes Chat is not the reader's.
+      add({
+        kind: 'user_message',
+        id: 'woken',
+        parentId: null,
+        createdAt: 0,
+        text: 'Ouijit: T-3 finished',
+        attachments: [],
+        delivery: 'prompt',
+        wake: true,
+      } as ChatNode);
+      expect(scroller.scrollTop).toBe(300);
+
+      add({
+        kind: 'user_message',
+        id: 'sent',
+        parentId: null,
+        createdAt: 0,
+        text: 'And the tests?',
+        attachments: [],
+        delivery: 'prompt',
+      });
+      expect(scroller.scrollTop).toBe(2000);
+    } finally {
+      height.mockRestore();
+    }
+  });
+});
+
 describe('a long fold', () => {
   test('an opened fold too tall for the screen fades out, and Show more lets it down a step at a time', async () => {
     fakeHost(INFO, NODES);

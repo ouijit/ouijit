@@ -32,9 +32,10 @@ function useSession(cardId: string) {
  *
  * Only a move up lets go. The scroll event from following lands a frame
  * later, by when more may have arrived, so "how far from the bottom" alone
- * would read new output as the reader having scrolled away.
+ * would read new output as the reader having scrolled away. Sending takes
+ * hold again: what was sent, and the reply, are what the reader wants next.
  */
-function useStickToBottom(loaded: boolean) {
+function useStickToBottom(loaded: boolean, lastSent: string | undefined) {
   const ref = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -63,6 +64,16 @@ function useStickToBottom(loaded: boolean) {
     observer.observe(el);
     return () => observer.disconnect();
   }, [loaded]);
+  const sentBefore = useRef(lastSent);
+  useLayoutEffect(() => {
+    if (lastSent === sentBefore.current) return;
+    sentBefore.current = lastSent;
+    const el = ref.current;
+    if (!el) return;
+    pinned.current = true;
+    el.scrollTop = el.scrollHeight;
+    lastTop.current = el.scrollTop;
+  }, [lastSent]);
   return { ref, content, onScroll };
 }
 
@@ -146,7 +157,8 @@ export function ChatView({
   const session = useSession(cardId);
   const [held, setHeld] = useState(false);
   const nodes = session?.nodes;
-  const { ref, content, onScroll } = useStickToBottom(Boolean(session));
+  const lastSent = nodes?.findLast((node) => node.kind === 'user_message' && !node.wake)?.id;
+  const { ref, content, onScroll } = useStickToBottom(Boolean(session), lastSent);
 
   const children = useMemo(() => {
     const map = new Map<string | null, ChatNode[]>();
