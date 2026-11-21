@@ -35,7 +35,7 @@ function atScreenSize(root: HTMLElement | null): (() => void) | void {
     (img) => img.src.startsWith('file:') && img.parentElement?.querySelectorAll(':scope > img').length === 1,
   );
   const fit = (img: HTMLImageElement) => {
-    if (img.naturalWidth) img.style.width = `${img.naturalWidth / window.devicePixelRatio}px`;
+    if (img.naturalWidth) img.style.maxWidth = `min(100%, ${img.naturalWidth / window.devicePixelRatio}px)`;
   };
   for (const img of images) {
     if (img.complete) fit(img);
