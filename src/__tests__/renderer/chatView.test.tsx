@@ -687,3 +687,50 @@ describe('a background shell', () => {
     vi.useRealTimers();
   });
 });
+
+describe('a message sent mid-turn', () => {
+  test('leaves a remark before it folded into the work, as it would be had the turn gone on unbroken', () => {
+    const user = (id: string, text: string, delivery: 'prompt' | 'steer'): ChatNode => ({
+      id,
+      kind: 'user_message',
+      parentId: null,
+      createdAt: 0,
+      text,
+      attachments: [],
+      delivery,
+    });
+    const step = (id: string): ChatNode => ({
+      id,
+      kind: 'tool_call',
+      parentId: null,
+      createdAt: 0,
+      tool: 'command',
+      name: 'Bash',
+      title: 'Run the tests',
+      input: {},
+      command: 'npm test',
+      output: '3 passing',
+      files: [],
+      status: 'completed',
+    });
+    const remark = 'Using the store flag here instead.';
+    act(() =>
+      useChatStore.getState().adopt({
+        info: { ...INFO, status: 'idle' },
+        nodes: [
+          user('m1', 'Merge the settings', 'prompt'),
+          step('m2'),
+          { id: 'm3', kind: 'assistant_message', parentId: null, createdAt: 0, text: remark, status: 'completed' },
+          step('m4'),
+          user('m5', 'Pull main too', 'steer'),
+          step('m6'),
+          { id: 'm7', kind: 'assistant_message', parentId: null, createdAt: 0, text: 'Done.', status: 'completed' },
+        ],
+        seq: 0,
+      }),
+    );
+    render(<ChatView cardId={ID} />);
+    expect(screen.queryByText(remark)).toBeNull();
+    expect(screen.getByText('Done.')).toBeTruthy();
+  });
+});

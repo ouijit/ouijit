@@ -409,8 +409,9 @@ interface Layout {
   doing: ChatNode[] | null;
 }
 
-function layoutOf(turn: Turn, running: boolean): Layout {
-  const pieces = piecesOf(turn.body, !running);
+/** `steered` is a turn a message sent mid-turn cut short: it went on after that message, so it has no last word here. */
+function layoutOf(turn: Turn, running: boolean, steered: boolean): Layout {
+  const pieces = piecesOf(turn.body, !running && !steered);
   if (!running) return { turn, pieces, doing: null };
   const tail = pieces.at(-1)?.kind === 'work' ? pieces.pop() : undefined;
   if (tail?.kind === 'work') return { turn, pieces, doing: tail.nodes };
@@ -465,7 +466,9 @@ export function ChatTurns({
   for (const node of nodes) if (node.kind === 'assistant_message') pacedFor(node.id);
   const turns = turnsOf(nodes);
   const open = busy && !compacting;
-  const layouts = turns.map((turn, index) => layoutOf(turn, open && index === turns.length - 1));
+  const layouts = turns.map((turn, index) =>
+    layoutOf(turn, open && index === turns.length - 1, turns[index + 1]?.opener?.delivery === 'steer'),
+  );
   const pending = (node: AssistantMessageNode) => !stopping && pacedFor(node.id) && !revealedIds.has(node.id);
 
   // Each run of routine turns shows as one line, from where it starts.
