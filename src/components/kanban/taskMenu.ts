@@ -1,4 +1,4 @@
-import type { ContextMenuEntry } from '../ui/ContextMenu';
+import type { ContextMenuEntry, ContextMenuItem } from '../ui/ContextMenu';
 import type { SandboxBackendId, SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../../types';
 import { SANDBOX_LABELS } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
@@ -64,38 +64,53 @@ export interface TaskMenuActions {
   trash: () => void;
 }
 
-/**
- * An entry that opens in the project's default place, then "<label> in", which
- * names the one other place or lists every place with the default checked.
- */
-function placedEntries(
-  label: string,
-  icon: string,
-  places: SandboxProviderId[],
-  projectDefault: SandboxProviderId,
-  open: (place: SandboxProviderId) => void,
-): ContextMenuEntry[] {
-  const entries: ContextMenuEntry[] = [{ label, icon, onClick: () => open(projectDefault) }];
-  const elsewhere = places.filter((place) => place !== projectDefault);
-  if (elsewhere.length === 1) {
-    const [place] = elsewhere;
-    entries.push({ label: `${label} in ${SANDBOX_LABELS[place]}`, onClick: () => open(place) });
-  } else if (elsewhere.length > 1) {
-    entries.push({
-      label: `${label} in`,
-      submenu: places.map((place) => ({
-        label: SANDBOX_LABELS[place],
-        checked: place === projectDefault,
-        onClick: () => open(place),
-      })),
-    });
-  }
-  return entries;
+function placeIcon(place: SandboxProviderId): string {
+  return place === 'none' ? 'desktop' : 'shield-check';
+}
+
+function inPlace(place: SandboxProviderId): string {
+  return place === 'none' ? 'on Host' : `in ${SANDBOX_LABELS[place]}`;
 }
 
 /**
- * Resume runs the continue hook; a to-do offers Start instead. Either creates
- * the worktree a task has never had; the file manager needs one already on disk.
+ * The places other than the project's default. One place is a row of its
+ * own; more are rows under one. A place offering a single entry is that entry
+ * named with the place, rather than a submenu of one.
+ */
+function placesEntry(
+  places: SandboxProviderId[],
+  sessions: (place: SandboxProviderId) => ContextMenuItem[],
+): ContextMenuEntry {
+  const single = sessions(places[0]).length === 1;
+  if (places.length === 1) {
+    const [place] = places;
+    const capital = inPlace(place).replace(/^./, (c) => c.toUpperCase());
+    if (!single) return { label: capital, icon: placeIcon(place), submenu: sessions(place) };
+    const [only] = sessions(place);
+    return { ...only, label: `${only.label} ${inPlace(place)}`, icon: placeIcon(place) };
+  }
+  if (single) {
+    const label = sessions(places[0])[0].label;
+    return {
+      label: `${label} in`,
+      icon: 'shield-check',
+      submenu: places.map((place) => ({ ...sessions(place)[0], label: SANDBOX_LABELS[place], icon: placeIcon(place) })),
+    };
+  }
+  return {
+    label: places.includes('none') ? 'Elsewhere' : 'In a sandbox',
+    icon: 'shield-check',
+    submenu: places.map((place) => ({
+      label: SANDBOX_LABELS[place],
+      icon: placeIcon(place),
+      submenu: sessions(place),
+    })),
+  };
+}
+
+/**
+ * Resume, with New chat and New terminal where chat offers them, in the
+ * project's default place; the other places offer the same behind a row.
  */
 export function openEntries(
   sandboxProviders: SandboxBackendId[],
@@ -104,32 +119,40 @@ export function openEntries(
   projectDefault: SandboxProviderId,
   started = true,
 ): ContextMenuEntry[] {
-  const places: SandboxProviderId[] = ['none', ...sandboxProviders];
-  const entries = placedEntries(started ? 'Resume' : 'Start', 'play', places, projectDefault, actions.openTerminal);
   const { enabled: chat, taskSurface } = useHomeChatStore.getState();
-  if (chat && actions.openSession && started) {
+  const sessions = (place: SandboxProviderId): ContextMenuItem[] => {
+    const list: ContextMenuItem[] = [
+      { label: started ? 'Resume' : 'Start', icon: 'play', onClick: () => actions.openTerminal(place) },
+    ];
     const open = actions.openSession;
-    entries.push(...placedEntries('New chat', 'chat-circle', places, projectDefault, (place) => open('chat', place)));
-    // Resuming opens a terminal anyway where tasks open in one.
-    if (taskSurface === 'chat') {
-      entries.push(
-        ...placedEntries('New terminal', 'terminal', places, projectDefault, (place) => open('terminal', place)),
-      );
+    if (chat && open && started) {
+      list.push({ label: 'New chat', icon: 'chat-circle', onClick: () => open('chat', place) });
+      // Resuming opens a terminal anyway where tasks open in one.
+      if (taskSurface === 'chat') {
+        list.push({ label: 'New terminal', icon: 'terminal', onClick: () => open('terminal', place) });
+      }
     }
-  }
+    return list;
+  };
+
+  const entries: ContextMenuEntry[] = sessions(projectDefault);
   const earlier = actions.earlierChats;
   if (chat && earlier && earlier.chats.length > 0) {
     entries.push({
       label: 'Earlier chats',
+      icon: 'clock-counter-clockwise',
       submenu: earlier.chats.map((past) => ({
         label: chatLabel(past.firstMessage),
         onClick: () => earlier.open(past),
       })),
     });
   }
+
+  const elsewhere = (['none', ...sandboxProviders] as SandboxProviderId[]).filter((place) => place !== projectDefault);
+  if (elsewhere.length > 0) entries.push(placesEntry(elsewhere, sessions));
   const apps: ContextMenuEntry[] = [{ label: 'Editor', icon: 'code', onClick: actions.openEditor }];
   if (hasWorktree) apps.push({ label: FILE_MANAGER_NAME, icon: 'folder-open', onClick: actions.openFolder });
-  entries.push({ label: 'Open in', submenu: apps });
+  entries.push({ separator: true }, { label: 'Open in', icon: 'arrow-square-out', submenu: apps });
   return entries;
 }
 
@@ -193,6 +216,7 @@ export function moveToEntry(
 ): ContextMenuEntry {
   return {
     label: 'Move to',
+    icon: 'kanban',
     submenu: [
       { label: STATUS_LABELS.todo, onClick: () => actions.setStatus('todo') },
       { label: STATUS_LABELS.in_progress, onClick: () => actions.setStatus('in_progress') },

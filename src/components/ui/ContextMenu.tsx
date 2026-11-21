@@ -95,7 +95,9 @@ function MenuList({
           return (
             <div key={i} className="relative" onMouseEnter={() => openSubmenu(i)} onMouseLeave={scheduleClose}>
               <button type="button" className={`${ITEM_CLASS} justify-between ${open ? 'bg-ink/[0.08]' : ''}`}>
-                <span className={`flex items-center gap-1.5 ${item.value ? 'text-[11px] text-text-tertiary' : ''}`}>
+                <span
+                  className={`flex items-center gap-1.5 [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60 ${item.value ? 'text-[11px] text-text-tertiary' : ''}`}
+                >
                   {item.icon && <Icon name={item.icon} />}
                   {item.label}
                 </span>

@@ -38,22 +38,22 @@ function clickAll(entries: ContextMenuEntry[]): void {
 }
 
 describe('resuming and opening a task', () => {
-  it('resumes where the project defaults to, names every place, and opens apps only where they can', () => {
+  it('opens in the project default, names the other places, and opens apps only where they can', () => {
     const acts = actions();
     const entries = openEntries(['nono', 'custom'], true, acts, 'custom');
     expect(outline(entries)).toEqual([
       'Resume',
       'Resume in',
-      ['Host', 'Sandbox', 'Custom'],
+      ['Host', 'Sandbox'],
       'Open in',
       ['Editor', FILE_MANAGER_NAME],
     ]);
-    const places = (entries[1] as { submenu: ContextMenuItem[] }).submenu;
-    expect(places.filter((place) => place.checked).map((place) => place.label)).toEqual(['Custom']);
     clickAll(entries);
-    expect(vi.mocked(acts.openTerminal).mock.calls).toEqual([['custom'], ['none'], ['nono'], ['custom']]);
+    expect(vi.mocked(acts.openTerminal).mock.calls).toEqual([['custom'], ['none'], ['nono']]);
     expect(acts.openEditor).toHaveBeenCalled();
     expect(acts.openFolder).toHaveBeenCalled();
+    // Every row carries an icon, so their labels line up.
+    expect(entries.every((e) => 'separator' in e || e.icon)).toBe(true);
 
     // One other place is named outright rather than behind a submenu.
     expect(outline(openEntries(['nono'], true, actions(), 'none'))).toEqual([
@@ -62,6 +62,7 @@ describe('resuming and opening a task', () => {
       'Open in',
       ['Editor', FILE_MANAGER_NAME],
     ]);
+    expect(outline(openEntries(['nono'], true, actions(), 'nono'))).toContain('Resume on Host');
 
     // A to-do has nothing to resume yet, so it is started.
     expect(outline(openEntries(['nono'], false, actions(), 'none', false))).toEqual([
@@ -79,7 +80,7 @@ describe('resuming and opening a task', () => {
 });
 
 describe('adding to a task', () => {
-  it('offers a new chat beside what the task has once chat is on, and a terminal where tasks open as chats', () => {
+  it('offers a new chat beside what the task has once chat is on, a terminal where tasks open as chats, and the same in each other place', () => {
     useHomeChatStore.setState({ enabled: false, taskSurface: 'terminal' });
     expect(outline(openEntries([], true, actions(), 'none'))).toEqual([
       'Resume',
@@ -94,27 +95,40 @@ describe('adding to a task', () => {
     (entries[1] as ContextMenuItem).onClick();
     expect(acts.openSession).toHaveBeenCalledWith('chat', 'none');
 
-    // Each opens in any place, the way Resume does.
+    // Each appears once; the sandbox holds the same three behind one row.
     useHomeChatStore.setState({ taskSurface: 'chat' });
     const placed = actions();
     const anywhere = openEntries(['nono'], true, placed, 'none');
     expect(outline(anywhere)).toEqual([
       'Resume',
-      'Resume in Sandbox',
       'New chat',
-      'New chat in Sandbox',
       'New terminal',
-      'New terminal in Sandbox',
+      'In Sandbox',
+      ['Resume', 'New chat', 'New terminal'],
       'Open in',
       ['Editor', FILE_MANAGER_NAME],
     ]);
     clickAll(anywhere);
     expect(vi.mocked(placed.openSession).mock.calls).toEqual([
       ['chat', 'none'],
-      ['chat', 'nono'],
       ['terminal', 'none'],
+      ['chat', 'nono'],
       ['terminal', 'nono'],
     ]);
+    expect(vi.mocked(placed.openTerminal).mock.calls).toEqual([['none'], ['nono']]);
+
+    // More than one other place is a row each, under one.
+    expect(outline(openEntries(['nono', 'custom'], true, actions(), 'none'))).toEqual([
+      'Resume',
+      'New chat',
+      'New terminal',
+      'In a sandbox',
+      ['Sandbox', ['Resume', 'New chat', 'New terminal'], 'Custom', ['Resume', 'New chat', 'New terminal']],
+      'Open in',
+      ['Editor', FILE_MANAGER_NAME],
+    ]);
+    expect(outline(openEntries(['nono', 'custom'], true, actions(), 'nono'))).toContain('Elsewhere');
+
     // A to-do is started first, the way the setting says.
     expect(outline(openEntries([], false, actions(), 'none', false))).toEqual(['Start', 'Open in', ['Editor']]);
     useHomeChatStore.setState({ enabled: false, taskSurface: 'terminal' });

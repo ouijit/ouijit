@@ -105,6 +105,9 @@ import stop from '@phosphor-icons/core/assets/regular/stop.svg?raw';
 import paperclip from '@phosphor-icons/core/assets/regular/paperclip.svg?raw';
 import brain from '@phosphor-icons/core/assets/regular/brain.svg?raw';
 import arrowBendUpLeft from '@phosphor-icons/core/assets/regular/arrow-bend-up-left.svg?raw';
+import clockCounterClockwise from '@phosphor-icons/core/assets/regular/clock-counter-clockwise.svg?raw';
+import shieldCheck from '@phosphor-icons/core/assets/regular/shield-check.svg?raw';
+import desktop from '@phosphor-icons/core/assets/regular/desktop.svg?raw';
 
 const iconsLog = log.scope('icons');
 
@@ -207,6 +210,9 @@ export const iconMap: Record<string, string> = {
   paperclip: paperclip,
   brain: brain,
   'arrow-bend-up-left': arrowBendUpLeft,
+  'clock-counter-clockwise': clockCounterClockwise,
+  'shield-check': shieldCheck,
+  desktop: desktop,
 };
 
 /**
