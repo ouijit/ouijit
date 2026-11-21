@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { Icon } from '../terminal/Icon';
 import { SandboxRing } from '../terminal/StatusDot';
 import { SANDBOX_LABELS, isActiveSandbox, isSandboxProviderId, type SandboxBackendId } from '../../sandbox/types';
@@ -334,10 +343,12 @@ export function ChatComposer({
   cardId,
   info,
   focusRef,
+  header,
 }: {
   cardId: string;
   info: ChatSessionInfo;
   focusRef: (focus: (() => void) | null) => void;
+  header?: ReactNode;
 }) {
   const draft = useChatStore((s) => s.drafts[cardId] ?? '');
   const nodes = useChatStore((s) => s.sessions[cardId]?.nodes);
@@ -517,6 +528,7 @@ export function ChatComposer({
           )}
         </div>
       )}
+      {header}
       {terminalCommand && (
         <div className="flex items-center gap-3 px-3.5 pt-2.5 text-[13px] text-text-secondary">
           <span className="flex-1">

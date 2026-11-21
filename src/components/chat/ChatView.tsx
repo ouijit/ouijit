@@ -246,8 +246,7 @@ export function ChatView({
       )}
       <div className="mx-auto w-full max-w-[52rem]">
         {aboveComposer}
-        <ChatBackground bar={bar} />
-        <ChatComposer cardId={cardId} info={info} focusRef={setFocus} />
+        <ChatComposer cardId={cardId} info={info} focusRef={setFocus} header={<ChatBackground bar={bar} />} />
       </div>
     </div>
   );

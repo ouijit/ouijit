@@ -212,7 +212,7 @@ export function ChatBackground({ bar }: { bar: BackgroundBar }) {
 
   if (rows.length === 1) {
     return (
-      <ul aria-label="Running in the background" className="mx-4 mb-2 rounded-[10px] bg-ink/[0.04]">
+      <ul aria-label="Running in the background" className="border-b border-separator">
         {rows}
       </ul>
     );
@@ -224,22 +224,24 @@ export function ChatBackground({ bar }: { bar: BackgroundBar }) {
   );
   const oldest = Math.min(...tasks.map((task) => task.startedAt));
   return (
-    <div className="mx-4 mb-2 rounded-[10px] bg-ink/[0.04]">
+    <div className="border-b border-separator">
       <button
         type="button"
         aria-expanded={open}
         className="w-full flex items-center gap-2.5 px-3 h-8 text-[13px] text-text-secondary hover:text-text-primary transition-colors duration-100"
         onClick={() => setOpen((v) => !v)}
       >
-        <Icon
-          name="caret-down"
-          className={`w-3 h-3 text-text-tertiary shrink-0 transition-transform duration-150 ${open ? '' : '-rotate-90'}`}
-        />
+        {tasks.length > 0 ? <BackgroundDots /> : <span className="w-3.5 shrink-0" />}
         <span className="min-w-0 overflow-hidden whitespace-nowrap text-left">
           {tasks.length > 0 ? `${tasks.length} running` : 'Finished'}
           {newest && ` · ${newest.description}`}
         </span>
         {tasks.length > 0 && <Span ms={now - oldest} className="text-text-tertiary" />}
+        <span className="flex-1" />
+        <Icon
+          name="caret-down"
+          className={`w-3 h-3 text-text-tertiary shrink-0 transition-transform duration-150 ${open ? '' : '-rotate-90'}`}
+        />
       </button>
       {open && (
         <ul aria-label="Running in the background" className="max-h-40 overflow-y-auto border-t border-separator">
