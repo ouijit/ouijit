@@ -17,7 +17,7 @@ export function TerminalCardStack({ stack }: { stack: string }) {
     <div
       className="fixed right-4 bottom-4 z-[100] overflow-visible"
       style={{
-        top: `${82 + backCards.length * 24}px`,
+        top: `calc(var(--content-top) + ${backCards.length * 24}px)`,
         left: 'calc(var(--sidebar-offset, 0px) + 16px)',
         transition: 'left 0.2s ease-out, right 0.25s ease, top 0.2s ease',
       }}

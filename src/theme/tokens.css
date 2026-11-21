@@ -141,6 +141,8 @@
   --spacing-lg: 24px;
   --spacing-xl: 32px;
   --spacing-2xl: 48px;
+  /* Where cards, the board and side panels start, under the title bar's 60px. */
+  --content-top: 71px;
 
   /* ── Border radius ─────────────────────────────────────────────── */
   --radius-sm: 8px;

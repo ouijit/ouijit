@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 export function PanelFrame({ children }: { children?: ReactNode }) {
   return (
     <div
-      className="glass-bevel fixed top-[82px] bottom-4 z-[140] flex rounded-[14px] overflow-hidden border border-bezel-panel"
+      className="glass-bevel fixed top-[var(--content-top)] bottom-4 z-[140] flex rounded-[14px] overflow-hidden border border-bezel-panel"
       style={{
         left: 'calc(var(--sidebar-offset, 0px) + 16px)',
         right: 16,

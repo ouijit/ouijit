@@ -196,7 +196,7 @@ function NothingSelected() {
 
   return (
     <div
-      className="fixed top-[82px] right-4 bottom-4 z-[100] overflow-visible"
+      className="fixed top-[var(--content-top)] right-4 bottom-4 z-[100] overflow-visible"
       style={{
         left: 'calc(var(--sidebar-offset, 0px) + 16px)',
         transition: 'left 0.2s ease-out, right 0.25s ease, top 0.2s ease',

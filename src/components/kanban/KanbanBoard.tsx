@@ -570,7 +570,7 @@ export function KanbanBoard({ projectPath, onTerminalOpened }: KanbanBoardProps)
       }}
     >
       <div
-        className="kanban-board glass-bevel fixed top-[82px] bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-bezel-panel"
+        className="kanban-board glass-bevel fixed top-[var(--content-top)] bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-bezel-panel"
         style={{
           left: 'calc(var(--sidebar-offset, 0px) + 16px)',
           right: showTrash ? 144 : 16,
@@ -693,7 +693,7 @@ const KanbanTrashZone = forwardRef<HTMLDivElement, { visible: boolean; isOver: b
         if (typeof ref === 'function') ref(node);
         else if (ref) ref.current = node;
       }}
-      className="fixed top-[82px] right-4 bottom-4 z-[140] flex flex-col items-center justify-center gap-2 overflow-hidden rounded-[14px]"
+      className="fixed top-[var(--content-top)] right-4 bottom-4 z-[140] flex flex-col items-center justify-center gap-2 overflow-hidden rounded-[14px]"
       style={{
         width: visible ? 120 : 0,
         opacity: visible ? 1 : 0,
