@@ -577,8 +577,9 @@ describe('creating from the sidebar', () => {
     fireEvent.click(row(section('Projects'), 'Ship it'));
     await waitFor(() => expect(front()).toBe(ship));
 
-    // A task's row has the board card's menu: Resume adds to its stack.
-    fireEvent.contextMenu(row(section('Projects'), 'Ship it'));
+    // A task's row has the board card's menu, from its "…" as from right-click: Resume adds to its stack.
+    const shipRow = row(section('Projects'), 'Ship it').closest<HTMLElement>('[data-sidebar-row]')!;
+    fireEvent.click(within(shipRow).getByRole('button', { name: 'More for Ship it' }));
     const menu = await waitFor(() => {
       const open = document.querySelector<HTMLElement>('.context-menu--visible');
       if (!open) throw new Error('the menu did not open');

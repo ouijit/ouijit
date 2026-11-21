@@ -110,8 +110,8 @@ beforeEach(() => {
   useHomeChatStore.getState().set({
     currentId: CURRENT,
     chats: [
-      { id: CURRENT, title: 'Ship the settings page.', createdAt: '2026-11-10T00:00:00Z' },
-      { id: 'home-2', title: 'Keychain recovery review', createdAt: '2026-11-09T00:00:00Z' },
+      { id: CURRENT, title: 'Ship the settings page.', createdAt: '2026-11-10T00:00:00Z', activeAt: 2 },
+      { id: 'home-2', title: 'Keychain recovery review', createdAt: '2026-11-09T00:00:00Z', activeAt: 1 },
     ],
     owners: {},
   });
@@ -389,9 +389,11 @@ describe('Chat', () => {
     expect(window.api.homeChat.rename).toHaveBeenCalledWith('home-2', 'Keychain');
     vi.mocked(window.api.homeChat.delete).mockResolvedValueOnce({
       currentId: CURRENT,
-      chats: [{ id: CURRENT, title: 'Ship the settings page.', createdAt: '2026-11-10T00:00:00Z' }],
+      chats: [{ id: CURRENT, title: 'Ship the settings page.', createdAt: '2026-11-10T00:00:00Z', activeAt: 2 }],
     });
-    fireEvent.contextMenu(within(group).getByRole('button', { name: 'Keychain recovery review' }));
+    // Its "…" opens the same menu as right-click: what acts on the conversation itself is inside it.
+    fireEvent.click(within(group).getByRole('button', { name: 'More for Keychain recovery review' }));
+    expect(screen.getByText('Rename')).toBeTruthy();
     fireEvent.click(await screen.findByText('Delete'));
     await waitFor(() => expect(window.api.homeChat.delete).toHaveBeenCalledWith('home-2'));
     await act(async () => {});

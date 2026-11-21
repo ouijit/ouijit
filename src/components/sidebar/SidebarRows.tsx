@@ -157,6 +157,54 @@ function RenameField({ initial, onCommit, onCancel }: Rename) {
   );
 }
 
+/**
+ * A row's menu from its "…", at the button rather than the pointer: the same
+ * menu right-clicking it opens, whose handler reads only where to put it.
+ */
+function MoreButton({ title, onMenu }: { title: string; onMenu: (e: React.MouseEvent) => void }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    // The menu closes on the next press anywhere, or Escape; the button stays lit until then.
+    const id = setTimeout(() => {
+      document.addEventListener('mousedown', close, { once: true });
+      document.addEventListener('keydown', close, { once: true });
+    }, 0);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', close);
+    };
+  }, [open]);
+  return (
+    <button
+      type="button"
+      aria-label={`More for ${title}`}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      className={`absolute right-1 top-0.5 w-6 h-6 items-center justify-center rounded-md transition-colors duration-100 ${
+        open
+          ? 'flex bg-ink/10 text-text-primary'
+          : 'hidden group-hover/row:flex group-has-[:focus-visible]/row:flex text-text-secondary hover:text-text-primary hover:bg-ink/10'
+      }`}
+      onClick={(e) => {
+        e.stopPropagation();
+        const box = e.currentTarget.getBoundingClientRect();
+        setOpen(true);
+        onMenu({
+          preventDefault: () => {},
+          stopPropagation: () => {},
+          clientX: box.left,
+          clientY: box.bottom + 4,
+        } as unknown as React.MouseEvent);
+      }}
+    >
+      <Icon name="dots-three" className="w-3.5 h-3.5" />
+    </button>
+  );
+}
+
 export function SidebarRow({
   icon,
   title,
@@ -178,7 +226,7 @@ export function SidebarRow({
   // tooltip of its own, opens the row too; the button's click bubbles to it.
   return (
     <div
-      className={`${ROW} ${selected ? ROW_SELECTED : ROW_IDLE} cursor-default select-none`}
+      className={`group/row relative ${ROW} ${selected ? ROW_SELECTED : ROW_IDLE} cursor-default select-none`}
       data-sidebar-row
       data-selected={selected || undefined}
       data-pty-id={ptyId}
@@ -198,7 +246,9 @@ export function SidebarRow({
               }}
               {...tipProps}
               type="button"
-              className="flex-1 min-w-0 h-full flex items-center gap-2 bg-transparent border-none p-0 text-left outline-none"
+              className={`flex-1 min-w-0 h-full flex items-center gap-2 bg-transparent border-none p-0 text-left outline-none ${
+                onContextMenu && !trailing ? 'group-hover/row:pr-5 group-has-[:focus-visible]/row:pr-5' : ''
+              }`}
               aria-current={selected ? 'true' : undefined}
               data-bright={bright ? 'true' : undefined}
               data-faint={faint ? 'true' : undefined}
@@ -213,11 +263,18 @@ export function SidebarRow({
                 {title}
               </span>
               {detail && <span className="shrink-0 font-mono text-[10.5px] text-text-tertiary">{detail}</span>}
-              {trailing}
+              {onContextMenu && trailing ? (
+                <span className="flex shrink-0 group-hover/row:invisible group-has-[:focus-visible]/row:invisible">
+                  {trailing}
+                </span>
+              ) : (
+                trailing
+              )}
             </button>
           )}
         </Tooltip>
       )}
+      {onContextMenu && !rename && <MoreButton title={title} onMenu={onContextMenu} />}
     </div>
   );
 }
