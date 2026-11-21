@@ -1,7 +1,7 @@
 import { JsonRpcPeer, RpcError } from '../jsonRpc';
 import { binaryVersion, compareVersions, resolveAgentBinary } from '../binaries';
 import { exited, stderrTail, terminate } from '../process';
-import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
+import type { AgentClient, AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
 import type {
   ChatAnswer,
   ChatCapabilities,
@@ -304,6 +304,7 @@ class CodexSession implements DriverSession {
     private readonly rpc: JsonRpcPeer,
     private readonly sink: DriverSink,
     private readonly proc: Parameters<typeof terminate>[0],
+    private readonly client: AgentClient,
   ) {}
 
   private cwd = '';
@@ -313,7 +314,7 @@ class CodexSession implements DriverSession {
     this.cwd = cwd;
     this.instructions = instructions;
     await this.rpc.request('initialize', {
-      clientInfo: { name: 'ouijit', title: 'Ouijit', version: '1' },
+      clientInfo: { name: this.client.name, title: this.client.title, version: '1' },
       capabilities: { experimentalApi: true },
     });
     this.rpc.notify('initialized');
@@ -532,7 +533,7 @@ class CodexSession implements DriverSession {
         };
       }
       default:
-        throw new RpcError(-32601, `Ouijit does not handle ${method}`);
+        throw new RpcError(-32601, `${this.client.title} does not handle ${method}`);
     }
   }
 
@@ -617,63 +618,65 @@ function decision(answer: ChatAnswer): string {
   return answer.optionId;
 }
 
-export const codexDriver: AgentDriver = {
-  id: 'codex',
-  label: 'Codex',
+export function codexDriver(client: AgentClient): AgentDriver {
+  return {
+    id: 'codex',
+    label: 'Codex',
 
-  oneShot(prompt) {
-    const binary = resolveAgentBinary('codex');
-    return binary
-      ? { command: binary, args: ['exec', '--ephemeral', '--skip-git-repo-check', '-s', 'read-only', prompt] }
-      : null;
-  },
+    oneShot(prompt) {
+      const binary = resolveAgentBinary('codex', client);
+      return binary
+        ? { command: binary, args: ['exec', '--ephemeral', '--skip-git-repo-check', '-s', 'read-only', prompt] }
+        : null;
+    },
 
-  async probe() {
-    const binary = resolveAgentBinary('codex');
-    if (!binary)
-      return { installed: false, problem: 'Codex is not installed. Install it from github.com/openai/codex.' };
-    const version = await binaryVersion(binary);
-    if (version && compareVersions(version, CODEX_MIN_VERSION) < 0) {
-      return {
-        installed: true,
-        version,
-        problem: `Chat needs Codex ${CODEX_MIN_VERSION} or newer; ${version} is installed.`,
-      };
-    }
-    return { installed: true, version };
-  },
+    async probe() {
+      const binary = resolveAgentBinary('codex', client);
+      if (!binary)
+        return { installed: false, problem: 'Codex is not installed. Install it from github.com/openai/codex.' };
+      const version = await binaryVersion(binary);
+      if (version && compareVersions(version, CODEX_MIN_VERSION) < 0) {
+        return {
+          installed: true,
+          version,
+          problem: `Chat needs Codex ${CODEX_MIN_VERSION} or newer; ${version} is installed.`,
+        };
+      }
+      return { installed: true, version };
+    },
 
-  async start(context) {
-    const binary = resolveAgentBinary('codex');
-    if (!binary) throw new Error('Codex is not installed');
-    const proc = await context.spawn({ command: binary, args: ['app-server'] });
-    const tail = stderrTail(proc);
-    let session: CodexSession | null = null;
-    const rpc = new JsonRpcPeer(
-      proc,
-      {
-        notification: (method, params) => session?.notification(method, (params ?? {}) as Json),
-        request: async (method, params) => {
-          if (!session) throw new RpcError(-32603, 'not ready');
-          return session.request(method, (params ?? {}) as Json);
+    async start(context) {
+      const binary = resolveAgentBinary('codex', client);
+      if (!binary) throw new Error('Codex is not installed');
+      const proc = await context.spawn({ command: binary, args: ['app-server'] });
+      const tail = stderrTail(proc);
+      let session: CodexSession | null = null;
+      const rpc = new JsonRpcPeer(
+        proc,
+        {
+          notification: (method, params) => session?.notification(method, (params ?? {}) as Json),
+          request: async (method, params) => {
+            if (!session) throw new RpcError(-32603, 'not ready');
+            return session.request(method, (params ?? {}) as Json);
+          },
         },
-      },
-      { envelope: false, log: context.sink.log },
-    );
-    session = new CodexSession(rpc, context.sink, proc);
-    void exited(proc).then((code) => {
-      if (session?.closing) return;
-      context.sink.session({
-        status: code === 0 ? 'exited' : 'error',
-        statusDetail: tail() || `Codex exited (code ${code ?? 'signal'})`,
+        { envelope: false, log: context.sink.log },
+      );
+      session = new CodexSession(rpc, context.sink, proc, client);
+      void exited(proc).then((code) => {
+        if (session?.closing) return;
+        context.sink.session({
+          status: code === 0 ? 'exited' : 'error',
+          statusDetail: tail() || `Codex exited (code ${code ?? 'signal'})`,
+        });
       });
-    });
-    try {
-      await session.open(context.cwd, context.resume, context.instructions);
-    } catch (error) {
-      await session.close();
-      throw new Error(tail() || (error instanceof Error ? error.message : String(error)));
-    }
-    return session;
-  },
-};
+      try {
+        await session.open(context.cwd, context.resume, context.instructions);
+      } catch (error) {
+        await session.close();
+        throw new Error(tail() || (error instanceof Error ? error.message : String(error)));
+      }
+      return session;
+    },
+  };
+}

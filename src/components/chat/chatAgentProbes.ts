@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { DriverProbe } from '../../chat/driver';
+import type { DriverProbe } from '../../agents';
 import { CHAT_AGENT_IDS, type ChatAgentId } from '../../chat/model';
 
 export type AgentProbes = Partial<Record<ChatAgentId, DriverProbe>>;

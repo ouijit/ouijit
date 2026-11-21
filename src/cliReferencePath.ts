@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { SandboxBackendId, SandboxCliAccess } from './sandbox/types';
@@ -15,4 +16,13 @@ export function getCliReferencePath(sandbox?: SandboxReference): string {
 export interface SandboxReference {
   provider: SandboxBackendId;
   access: SandboxCliAccess;
+}
+
+/** A CLI reference file's text, or empty where it has not been written. */
+export function readCliReference(file: string): string {
+  try {
+    return readFileSync(file, 'utf8');
+  } catch {
+    return '';
+  }
 }

@@ -17,7 +17,7 @@ import {
 } from '@anthropic-ai/claude-agent-sdk';
 import { binaryVersion, compareVersions, resolveAgentBinary } from '../binaries';
 import { deferredProcess } from '../process';
-import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
+import type { AgentClient, AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
 import type {
   ChatBackgroundTask,
   ChatAnswer,
@@ -1074,39 +1074,41 @@ function permissionResult(
   return { behavior: 'deny', message, ...(answer.kind === 'cancel' && { interrupt: true }) };
 }
 
-export const claudeDriver: AgentDriver = {
-  id: 'claude',
-  label: 'Claude Code',
+export function claudeDriver(client: AgentClient): AgentDriver {
+  return {
+    id: 'claude',
+    label: 'Claude Code',
 
-  oneShot(prompt) {
-    const binary = resolveAgentBinary('claude');
-    if (!binary) return null;
-    const args = ['-p', '--model', 'haiku', '--tools', '', '--no-session-persistence', '--disable-slash-commands'];
-    return { command: binary, args: [...args, '--strict-mcp-config', prompt] };
-  },
+    oneShot(prompt) {
+      const binary = resolveAgentBinary('claude', client);
+      if (!binary) return null;
+      const args = ['-p', '--model', 'haiku', '--tools', '', '--no-session-persistence', '--disable-slash-commands'];
+      return { command: binary, args: [...args, '--strict-mcp-config', prompt] };
+    },
 
-  async probe() {
-    const binary = resolveAgentBinary('claude');
-    if (!binary)
-      return { installed: false, problem: 'Claude Code is not installed. Install it from claude.com/claude-code.' };
-    const version = await binaryVersion(binary);
-    if (version && compareVersions(version, CLAUDE_MIN_VERSION) < 0) {
-      return {
-        installed: true,
-        version,
-        problem: `Chat needs Claude Code ${CLAUDE_MIN_VERSION} or newer; ${version} is installed.`,
-      };
-    }
-    return { installed: true, version };
-  },
+    async probe() {
+      const binary = resolveAgentBinary('claude', client);
+      if (!binary)
+        return { installed: false, problem: 'Claude Code is not installed. Install it from claude.com/claude-code.' };
+      const version = await binaryVersion(binary);
+      if (version && compareVersions(version, CLAUDE_MIN_VERSION) < 0) {
+        return {
+          installed: true,
+          version,
+          problem: `Chat needs Claude Code ${CLAUDE_MIN_VERSION} or newer; ${version} is installed.`,
+        };
+      }
+      return { installed: true, version };
+    },
 
-  async start(context) {
-    const binary = resolveAgentBinary('claude');
-    if (!binary) throw new Error('Claude Code is not installed');
-    const session = new ClaudeSession(context, binary);
-    const version = await binaryVersion(binary);
-    session.modeMidTurn = !!version && compareVersions(version, CLAUDE_MODE_MID_TURN_VERSION) >= 0;
-    await session.open();
-    return session;
-  },
-};
+    async start(context) {
+      const binary = resolveAgentBinary('claude', client);
+      if (!binary) throw new Error('Claude Code is not installed');
+      const session = new ClaudeSession(context, binary);
+      const version = await binaryVersion(binary);
+      session.modeMidTurn = !!version && compareVersions(version, CLAUDE_MODE_MID_TURN_VERSION) >= 0;
+      await session.open();
+      return session;
+    },
+  };
+}

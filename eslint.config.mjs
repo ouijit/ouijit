@@ -32,6 +32,20 @@ export default tseslint.config(
       'import-x/no-duplicates': 'error',
       'import-x/no-self-import': 'error',
 
+      // src/agents is kept ready to publish as its own package: it imports
+      // nothing else of ours, and the app reaches it only through its index
+      // and its renderer-safe model.
+      'import-x/no-restricted-paths': ['error', {
+        zones: [
+          { target: './src/agents', from: './src', except: ['./agents'] },
+          {
+            target: ['./src/*.*', './src/!(agents)/**/*'],
+            from: './src/agents',
+            except: ['./index.ts', './model.ts'],
+          },
+        ],
+      }],
+
       // React hooks rules
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',

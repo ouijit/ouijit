@@ -10,6 +10,19 @@ import type {
 } from './model';
 import type { AgentProcess, AgentSpawn } from './process';
 
+/** The client driving the agents, as they see it. */
+export interface AgentClient {
+  /** Lowercase, used in identifiers an agent sees: `clientInfo`, pi's gate, OpenCode's instructions entry. */
+  name: string;
+  title: string;
+  /** The tag wrapping `instructions` for an ACP agent, which has no system prompt. */
+  instructionsTag: string;
+  /** A directory on PATH of wrappers named after the agents, skipped when finding their binaries. */
+  wrapperBinDir?: () => string;
+  /** Where the drivers may write files an agent loads, such as pi's approval gate. */
+  dataDir: () => string;
+}
+
 export interface UserInput {
   /** The transcript node this message is, so an agent that keys messages by id can rewind to it. */
   id: string;
@@ -26,13 +39,13 @@ export interface DriverContext {
   mode?: string;
   spawn: (spawn: AgentSpawn) => Promise<AgentProcess>;
   sink: DriverSink;
-  /** The Ouijit CLI reference this agent is told about: the sandbox's variant when it runs sandboxed. */
+  /** Added to the agent's system prompt, or sent ahead of the first prompt where it has none. */
   instructions: string;
   preferences: ChatPreferences;
 }
 
 export interface ChatPreferences {
-  /** Load Ouijit's gate into pi, which otherwise runs every tool call without asking. */
+  /** Load the approval gate into pi, which otherwise runs every tool call without asking. */
   piApprovals: boolean;
   /** The ACP agent to run for the `acp` driver, as a command line. */
   acpCommand: string;

@@ -17,7 +17,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
-import { onLines, spawnAgentProcess, type AgentProcess } from './process';
+import { onLines, spawnAgentProcess, type AgentProcess } from '../agents';
 import { ReplayServer, URL_PLACEHOLDER, isHttpLine, recordingProxy } from './httpCassette';
 import type { Cassette, CassetteEntry } from './cassetteFormat';
 

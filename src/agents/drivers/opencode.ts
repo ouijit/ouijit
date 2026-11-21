@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { binaryVersion, compareVersions, resolveAgentBinary } from '../binaries';
 import { exited, onLines, stderrTail, terminate, type AgentProcess } from '../process';
 import { startAcpSession } from './acp';
-import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
+import type { AgentClient, AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
 import type { ChatCapabilities, ChatNode, ChatOption, FileChange, ToolCallNode, ToolKind } from '../model';
 import { stoppedNode } from '../model';
 
@@ -196,6 +196,7 @@ class OpencodeSession implements DriverSession {
     private readonly password: string,
     private readonly proc: AgentProcess,
     private readonly sink: DriverSink,
+    private readonly client: AgentClient,
   ) {}
 
   private async call<T = Json>(method: string, path: string, body?: unknown): Promise<T> {
@@ -227,7 +228,7 @@ class OpencodeSession implements DriverSession {
       this.sessionId = String(data.id);
     }
     if (instructions) {
-      await this.call('PUT', `/api/experimental/session/${this.sessionId}/instructions/entries/ouijit`, {
+      await this.call('PUT', `/api/experimental/session/${this.sessionId}/instructions/entries/${this.client.name}`, {
         value: instructions,
       }).catch((error: unknown) => this.sink.log('opencode instructions not set', { error: String(error) }));
     }
@@ -618,7 +619,7 @@ class OpencodeSession implements DriverSession {
     this.children.clear();
     this.sentMessages.clear();
     if (this.instructions) {
-      await this.call('PUT', `/api/experimental/session/${this.sessionId}/instructions/entries/ouijit`, {
+      await this.call('PUT', `/api/experimental/session/${this.sessionId}/instructions/entries/${this.client.name}`, {
         value: this.instructions,
       }).catch((error: unknown) => this.sink.log('opencode instructions not set', { error: String(error) }));
     }
@@ -638,7 +639,7 @@ class OpencodeSession implements DriverSession {
   }
 }
 
-async function startServer(context: DriverContext, binary: string): Promise<DriverSession> {
+async function startServer(client: AgentClient, context: DriverContext, binary: string): Promise<DriverSession> {
   const password = randomBytes(24).toString('hex');
   const port = await freePort();
   const proc = await context.spawn({
@@ -666,7 +667,7 @@ async function startServer(context: DriverContext, binary: string): Promise<Driv
       reject(new Error(tail() || `opencode exited (code ${code ?? 'signal'})`));
     });
   });
-  const session = new OpencodeSession(url, password, proc, context.sink);
+  const session = new OpencodeSession(url, password, proc, context.sink, client);
   void exited(proc).then((code) => {
     if (session.closing) return;
     context.sink.session({
@@ -683,28 +684,30 @@ async function startServer(context: DriverContext, binary: string): Promise<Driv
   return session;
 }
 
-export const opencodeDriver: AgentDriver = {
-  id: 'opencode',
-  label: 'opencode',
+export function opencodeDriver(client: AgentClient): AgentDriver {
+  return {
+    id: 'opencode',
+    label: 'opencode',
 
-  oneShot(prompt) {
-    const binary = resolveAgentBinary('opencode');
-    return binary ? { command: binary, args: ['run', prompt] } : null;
-  },
+    oneShot(prompt) {
+      const binary = resolveAgentBinary('opencode', client);
+      return binary ? { command: binary, args: ['run', prompt] } : null;
+    },
 
-  async probe() {
-    const binary = resolveAgentBinary('opencode');
-    if (!binary) return { installed: false, problem: 'opencode is not installed. Install it from opencode.ai.' };
-    return { installed: true, version: await binaryVersion(binary) };
-  },
+    async probe() {
+      const binary = resolveAgentBinary('opencode', client);
+      if (!binary) return { installed: false, problem: 'opencode is not installed. Install it from opencode.ai.' };
+      return { installed: true, version: await binaryVersion(binary) };
+    },
 
-  async start(context) {
-    const binary = resolveAgentBinary('opencode');
-    if (!binary) throw new Error('opencode is not installed');
-    const version = await binaryVersion(binary);
-    if (version && compareVersions(version, OPENCODE_SERVER_VERSION) < 0) {
-      return startAcpSession(context, binary, ['acp'], 'oc', 'opencode');
-    }
-    return startServer(context, binary);
-  },
-};
+    async start(context) {
+      const binary = resolveAgentBinary('opencode', client);
+      if (!binary) throw new Error('opencode is not installed');
+      const version = await binaryVersion(binary);
+      if (version && compareVersions(version, OPENCODE_SERVER_VERSION) < 0) {
+        return startAcpSession(client, context, binary, ['acp'], 'oc', 'opencode');
+      }
+      return startServer(client, context, binary);
+    },
+  };
+}

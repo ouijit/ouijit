@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { binaryVersion, compareVersions, resolveAgentBinary } from '../binaries';
 import { exited, onLines, stderrTail, terminate, type AgentProcess } from '../process';
-import { getPiApprovalExtensionPath } from '../piApprovals';
-import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
+import { getPiApprovalExtensionPath, piGatePrefix } from '../piApprovals';
+import type { AgentClient, AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
 import type { ChatAnswer, ChatCapabilities, ChatNode, ChatOption, FileChange, ToolCallNode, ToolKind } from '../model';
 import { stoppedNode } from '../model';
 
@@ -203,6 +203,7 @@ class PiSession implements DriverSession {
   constructor(
     private readonly proc: AgentProcess,
     private readonly sink: DriverSink,
+    private readonly client: AgentClient,
   ) {
     onLines(proc.stdout, (line) => this.receive(line));
     proc.once('exit', () => {
@@ -212,7 +213,7 @@ class PiSession implements DriverSession {
   }
 
   private command<T = unknown>(command: Json): Promise<T> {
-    const id = `ouijit-${this.nextId++}`;
+    const id = `${this.client.name}-${this.nextId++}`;
     return new Promise<T>((resolve, reject) => {
       this.waiting.set(id, { resolve: resolve as (data: unknown) => void, reject });
       this.proc.stdin.write(JSON.stringify({ ...command, id }) + '\n');
@@ -427,7 +428,7 @@ class PiSession implements DriverSession {
       return;
     }
     if (!['select', 'confirm', 'input', 'editor'].includes(method)) return;
-    const gate = parseGate(request);
+    const gate = parseGate(request, piGatePrefix(this.client));
     let answer: ChatAnswer;
     if (method === 'select') {
       const options = Array.isArray(request.options) ? request.options.map(String) : [];
@@ -576,65 +577,67 @@ class PiSession implements DriverSession {
 }
 
 /** The approval gate extension marks its dialogs so they render as tool approvals. */
-function parseGate(request: Json): { toolCallId: string; title: string; detail?: string } | null {
+function parseGate(request: Json, prefix: string): { toolCallId: string; title: string; detail?: string } | null {
   const title = str(request.title);
-  if (!title?.startsWith('ouijit-gate:')) return null;
+  if (!title?.startsWith(prefix)) return null;
   try {
-    const gate = JSON.parse(title.slice('ouijit-gate:'.length)) as Json;
+    const gate = JSON.parse(title.slice(prefix.length)) as Json;
     return { toolCallId: String(gate.toolCallId), title: String(gate.title), detail: str(gate.detail) };
   } catch {
     return null;
   }
 }
 
-export const piDriver: AgentDriver = {
-  id: 'pi',
-  label: 'Pi',
+export function piDriver(client: AgentClient): AgentDriver {
+  return {
+    id: 'pi',
+    label: 'Pi',
 
-  oneShot(prompt) {
-    const binary = resolveAgentBinary('pi');
-    return binary ? { command: binary, args: ['-p', '--no-session', '--no-tools', prompt] } : null;
-  },
+    oneShot(prompt) {
+      const binary = resolveAgentBinary('pi', client);
+      return binary ? { command: binary, args: ['-p', '--no-session', '--no-tools', prompt] } : null;
+    },
 
-  async probe() {
-    const binary = resolveAgentBinary('pi');
-    if (!binary) return { installed: false, problem: 'Pi is not installed. Install it from pi.dev.' };
-    const version = await binaryVersion(binary);
-    if (version && compareVersions(version, PI_MIN_VERSION) < 0) {
-      return {
-        installed: true,
-        version,
-        problem: `Chat needs Pi ${PI_MIN_VERSION} or newer; ${version} is installed.`,
-      };
-    }
-    return { installed: true, version };
-  },
+    async probe() {
+      const binary = resolveAgentBinary('pi', client);
+      if (!binary) return { installed: false, problem: 'Pi is not installed. Install it from pi.dev.' };
+      const version = await binaryVersion(binary);
+      if (version && compareVersions(version, PI_MIN_VERSION) < 0) {
+        return {
+          installed: true,
+          version,
+          problem: `Chat needs Pi ${PI_MIN_VERSION} or newer; ${version} is installed.`,
+        };
+      }
+      return { installed: true, version };
+    },
 
-  async start(context: DriverContext) {
-    const binary = resolveAgentBinary('pi');
-    if (!binary) throw new Error('Pi is not installed');
-    const args = ['--mode', 'rpc'];
-    if (context.resume?.fork) args.push('--fork', context.resume.agentSessionId);
-    else args.push('--session-id', context.resume?.agentSessionId ?? randomUUID());
-    const instructions = context.instructions;
-    if (instructions) args.push('--append-system-prompt', instructions);
-    if (context.preferences.piApprovals) args.push('--extension', getPiApprovalExtensionPath());
-    const proc = await context.spawn({ command: binary, args });
-    const tail = stderrTail(proc);
-    const session = new PiSession(proc, context.sink);
-    void exited(proc).then((code) => {
-      if (session.closing) return;
-      context.sink.session({
-        status: code === 0 ? 'exited' : 'error',
-        statusDetail: tail() || `Pi exited (code ${code ?? 'signal'})`,
+    async start(context: DriverContext) {
+      const binary = resolveAgentBinary('pi', client);
+      if (!binary) throw new Error('Pi is not installed');
+      const args = ['--mode', 'rpc'];
+      if (context.resume?.fork) args.push('--fork', context.resume.agentSessionId);
+      else args.push('--session-id', context.resume?.agentSessionId ?? randomUUID());
+      const instructions = context.instructions;
+      if (instructions) args.push('--append-system-prompt', instructions);
+      if (context.preferences.piApprovals) args.push('--extension', getPiApprovalExtensionPath(client));
+      const proc = await context.spawn({ command: binary, args });
+      const tail = stderrTail(proc);
+      const session = new PiSession(proc, context.sink, client);
+      void exited(proc).then((code) => {
+        if (session.closing) return;
+        context.sink.session({
+          status: code === 0 ? 'exited' : 'error',
+          statusDetail: tail() || `Pi exited (code ${code ?? 'signal'})`,
+        });
       });
-    });
-    try {
-      await session.open(context.resume != null);
-    } catch (error) {
-      await session.close();
-      throw new Error(tail() || (error instanceof Error ? error.message : String(error)));
-    }
-    return session;
-  },
-};
+      try {
+        await session.open(context.resume != null);
+      } catch (error) {
+        await session.close();
+        throw new Error(tail() || (error instanceof Error ? error.message : String(error)));
+      }
+      return session;
+    },
+  };
+}

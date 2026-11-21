@@ -1,5 +1,5 @@
-import type { AgentProcess, AgentSpawn } from './process';
-import { exited, onLines, terminate } from './process';
+import type { AgentProcess, AgentSpawn } from '../agents';
+import { exited, onLines, terminate } from '../agents';
 
 const TITLE_TIMEOUT_MS = 30_000;
 const MAX_TITLE = 60;

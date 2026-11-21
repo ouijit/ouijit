@@ -20,7 +20,7 @@ import type {
   SequencedChatEvent,
   TaskChatSummary,
 } from './chat/model';
-import type { DriverProbe } from './chat/driver';
+import type { DriverProbe } from './agents';
 import type { ChatDelivery, ChatStartOptions } from './chat/startOptions';
 import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from './chat/preferences';
 import type {

@@ -1,8 +1,8 @@
 import { execFile } from 'node:child_process';
-import { accessSync, constants, readFileSync, realpathSync } from 'node:fs';
+import { accessSync, constants, realpathSync } from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { getWrapperBinDir } from '../paths';
+import type { AgentClient } from './driver';
 
 const execFileAsync = promisify(execFile);
 
@@ -15,12 +15,12 @@ function realpath(file: string): string {
 }
 
 /**
- * The agent's own binary, skipping Ouijit's wrapper of the same name. A chat
- * driver takes status from the agent's protocol, so the wrapper's status hooks
- * would only report it twice.
+ * The agent's own binary, skipping the client's wrapper of the same name. A
+ * chat driver takes status from the agent's protocol, so the wrapper's status
+ * hooks would only report it twice.
  */
-export function resolveAgentBinary(name: string, envPath = process.env.PATH ?? ''): string | null {
-  const wrapperDir = realpath(getWrapperBinDir());
+export function resolveAgentBinary(name: string, client: AgentClient, envPath = process.env.PATH ?? ''): string | null {
+  const wrapperDir = client.wrapperBinDir && realpath(client.wrapperBinDir());
   for (const dir of envPath.split(path.delimiter)) {
     if (!dir || realpath(dir) === wrapperDir) continue;
     const candidate = path.join(dir, name);
@@ -52,13 +52,4 @@ export function compareVersions(a: string, b: string): number {
     if (diff !== 0) return Math.sign(diff);
   }
   return 0;
-}
-
-/** A CLI reference file's text, or empty where it has not been written. */
-export function readCliReference(file: string): string {
-  try {
-    return readFileSync(file, 'utf8');
-  } catch {
-    return '';
-  }
 }

@@ -17,15 +17,21 @@ import {
 import { issueToken, revokeToken } from '../apiAuth';
 import { hostEnv, ouijitSessionEnv, sandboxLaunch } from '../sessionEnv';
 import { sandboxReferenceEnv } from '../sandbox/cliAccess';
-import { getCliReferencePath } from '../cliReferencePath';
-import { readCliReference } from './binaries';
+import { getCliReferencePath, readCliReference } from '../cliReferencePath';
 import { getSandboxProvider } from '../sandbox';
 import { isActiveSandbox, isSandboxProviderId, type SandboxProviderId } from '../sandbox/types';
-import { spawnAgentProcess, type AgentProcess, type AgentSpawn } from './process';
+import {
+  spawnAgentProcess,
+  type AgentProcess,
+  type AgentSpawn,
+  type DriverProbe,
+  type DriverSession,
+  type DriverSink,
+  type UserInput,
+} from '../agents';
 import { generateTitle, titlePrompt } from './title';
 import { getDriver } from './drivers';
 import type { ChatDelivery, ChatStartOptions } from './startOptions';
-import type { DriverProbe, DriverSession, DriverSink, UserInput } from './driver';
 import {
   NO_CAPABILITIES,
   applyChatEvent,

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { JsonRpcPeer, RpcError } from '../jsonRpc';
 import { exited, stderrTail, terminate, type AgentProcess } from '../process';
 import { resolveAgentBinary } from '../binaries';
-import type { AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
+import type { AgentClient, AgentDriver, DriverContext, DriverSession, DriverSink, UserInput } from '../driver';
 import type {
   ChatCapabilities,
   ChatNode,
@@ -122,12 +122,14 @@ function optionKind(kind: unknown): RequestOptionKind {
 }
 
 /**
- * ACP has no system prompt, so the Ouijit CLI reference goes to the agent as
- * a tagged block ahead of the first message, and is cut back out of history.
+ * ACP has no system prompt, so the instructions go to the agent as a tagged
+ * block ahead of the first message, and are cut back out of history.
  */
-const PREAMBLE_OPEN = '<ouijit-cli-reference>';
-const PREAMBLE_CLOSE = '</ouijit-cli-reference>';
-const PREAMBLE_PATTERN = new RegExp(`${PREAMBLE_OPEN}[\\s\\S]*?${PREAMBLE_CLOSE}\\s*`, 'g');
+function preamble(client: AgentClient) {
+  const open = `<${client.instructionsTag}>`;
+  const close = `</${client.instructionsTag}>`;
+  return { open, close, pattern: new RegExp(`${open}[\\s\\S]*?${close}\\s*`, 'g') };
+}
 
 /** Split a command line on whitespace, honouring single and double quotes. */
 function splitCommand(line: string): string[] {
@@ -193,9 +195,13 @@ class AcpSession implements DriverSession {
     private readonly proc: AgentProcess,
     private readonly prefix: string,
     private instructions: string,
+    private readonly client: AgentClient,
   ) {
     this.initialInstructions = instructions;
+    this.preamble = preamble(client);
   }
+
+  private readonly preamble: ReturnType<typeof preamble>;
 
   private readonly initialInstructions: string;
   private cwd = '';
@@ -205,7 +211,7 @@ class AcpSession implements DriverSession {
     const init = await this.rpc.request<Json>('initialize', {
       protocolVersion: PROTOCOL_VERSION,
       clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-      clientInfo: { name: 'ouijit', title: 'Ouijit', version: '1' },
+      clientInfo: { name: this.client.name, title: this.client.title, version: '1' },
     });
     const agent = (init.agentCapabilities ?? {}) as Json;
     const prompt = (agent.promptCapabilities ?? {}) as Json;
@@ -304,7 +310,7 @@ class AcpSession implements DriverSession {
         return;
       case 'user_message_chunk':
         if (this.replaying && chunk.type === 'text') {
-          const text = String(chunk.text ?? '').replace(PREAMBLE_PATTERN, '');
+          const text = String(chunk.text ?? '').replace(this.preamble.pattern, '');
           if (text) this.appendText('user_message', text);
         }
         return;
@@ -398,7 +404,8 @@ class AcpSession implements DriverSession {
   }
 
   async request(method: string, params: Json): Promise<unknown> {
-    if (method !== 'session/request_permission') throw new RpcError(-32601, `Ouijit does not provide ${method}`);
+    if (method !== 'session/request_permission')
+      throw new RpcError(-32601, `${this.client.title} does not provide ${method}`);
     const toolCall = (params.toolCall ?? {}) as Json;
     const options = Array.isArray(params.options) ? (params.options as Json[]) : [];
     const answer = await this.sink.ask({
@@ -424,7 +431,7 @@ class AcpSession implements DriverSession {
   private async blocks(input: UserInput): Promise<Json[]> {
     const blocks: Json[] = [];
     if (this.instructions) {
-      blocks.push({ type: 'text', text: `${PREAMBLE_OPEN}\n${this.instructions}\n${PREAMBLE_CLOSE}` });
+      blocks.push({ type: 'text', text: `${this.preamble.open}\n${this.instructions}\n${this.preamble.close}` });
       this.instructions = '';
     }
     if (input.text) blocks.push({ type: 'text', text: input.text });
@@ -528,6 +535,7 @@ class AcpSession implements DriverSession {
 
 /** Run any ACP agent over stdio, for `acp` and for agents whose own protocol is ACP. */
 export async function startAcpSession(
+  client: AgentClient,
   context: DriverContext,
   command: string,
   args: string[],
@@ -548,7 +556,7 @@ export async function startAcpSession(
     },
     { envelope: true, log: context.sink.log },
   );
-  session = new AcpSession(rpc, context.sink, proc, prefix, context.instructions);
+  session = new AcpSession(rpc, context.sink, proc, prefix, context.instructions, client);
   void exited(proc).then((code) => {
     if (session?.closing) return;
     context.sink.session({
@@ -565,18 +573,20 @@ export async function startAcpSession(
   return session;
 }
 
-export const acpDriver: AgentDriver = {
-  id: 'acp',
-  label: 'ACP agent',
+export function acpDriver(client: AgentClient): AgentDriver {
+  return {
+    id: 'acp',
+    label: 'ACP agent',
 
-  async probe() {
-    return { installed: true };
-  },
+    async probe() {
+      return { installed: true };
+    },
 
-  async start(context) {
-    const [command, ...args] = splitCommand(context.preferences.acpCommand);
-    if (!command) throw new Error('Set the ACP agent command in Settings → Chat to use an ACP agent.');
-    const resolved = command.includes('/') ? command : (resolveAgentBinary(command) ?? command);
-    return startAcpSession(context, resolved, args, 'acp', command);
-  },
-};
+    async start(context) {
+      const [command, ...args] = splitCommand(context.preferences.acpCommand);
+      if (!command) throw new Error('Set the ACP agent command in Settings → Chat to use an ACP agent.');
+      const resolved = command.includes('/') ? command : (resolveAgentBinary(command, client) ?? command);
+      return startAcpSession(client, context, resolved, args, 'acp', command);
+    },
+  };
+}

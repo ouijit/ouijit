@@ -115,7 +115,7 @@ import type {
 } from '../chat/model';
 import type { ChatDelivery, ChatStartOptions } from '../chat/startOptions';
 import type { ChatDecision, ChatDecisionChoice, HomeChatState, TaskRef, WakeEvent } from '../chat/preferences';
-import type { DriverProbe } from '../chat/driver';
+import type { DriverProbe } from '../agents';
 
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
 
