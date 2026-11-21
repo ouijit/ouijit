@@ -7,6 +7,7 @@ import {
 } from './ptyManager';
 import { getHookStatus } from './hookStatus';
 import { chatHost } from './chat/host';
+import { stillWorking } from './chat/model';
 import type { SandboxProviderId } from './types';
 import { isSandboxProviderId } from './sandbox/types';
 
@@ -48,6 +49,8 @@ export function getSessionTaskContext(id: string): { projectPath: string; taskId
 export interface SessionListing extends ActiveSession {
   surface: 'terminal' | 'chat';
   agentStatus: 'thinking' | 'ready' | null;
+  /** A chat's work still running after its turn, by how many. */
+  background?: number;
 }
 
 /** Every card's session: live PTYs and running chats. */
@@ -69,8 +72,12 @@ export function listSessions(): SessionListing[] {
       worktreePath: info.worktreePath ?? undefined,
       ...(isSandboxProviderId(info.sandbox) && { sandboxProvider: info.sandbox }),
       surface: 'chat',
-      agentStatus:
-        info.status === 'running' ? 'thinking' : info.status === 'idle' || info.status === 'awaiting' ? 'ready' : null,
+      agentStatus: stillWorking(info)
+        ? 'thinking'
+        : info.status === 'idle' || info.status === 'awaiting'
+          ? 'ready'
+          : null,
+      ...(info.background?.length && { background: info.background.length }),
     }));
   return [...ptys, ...chats];
 }

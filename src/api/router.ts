@@ -617,6 +617,7 @@ function describeTerminal(session: SessionListing) {
     sandbox: session.sandboxProvider ?? 'none',
     surface: session.surface,
     agentStatus: session.agentStatus,
+    ...(session.background && { background: session.background }),
   };
 }
 

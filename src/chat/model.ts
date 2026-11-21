@@ -283,3 +283,11 @@ export function parseSlashCommand(text: string, commands: ChatCommand[], agent: 
   if (commands.some((command) => command.name === name)) return { kind: 'agent', name };
   return TERMINAL_ONLY_COMMANDS[agent]?.includes(name) ? { kind: 'terminal', name } : null;
 }
+
+/**
+ * Whether the agent is still at work: in a turn, or with work it left
+ * running in the background. Only once both are over has it finished.
+ */
+export function stillWorking(info: Pick<ChatSessionInfo, 'status' | 'background'>): boolean {
+  return info.status === 'running' || (info.background?.length ?? 0) > 0;
+}

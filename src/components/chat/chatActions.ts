@@ -12,7 +12,7 @@ import { projectTaskOpening } from '../../stores/projectDataStore';
 import { listenForHomeChat, useHomeChatStore } from '../../stores/homeChatStore';
 import { useAppStore } from '../../stores/appStore';
 import { startHomeChat } from './homeChatActions';
-import { AGENT_TERMINAL_COMMANDS } from '../../chat/model';
+import { AGENT_TERMINAL_COMMANDS, stillWorking } from '../../chat/model';
 import type { ChatAgentId, ChatAttachment, ChatSessionStatus, SequencedChatEvent } from '../../chat/model';
 import type { SandboxProviderId, SnapshotTerminalUi, TaskWithWorkspace } from '../../types';
 import type { ChatDelivery } from '../../chat/startOptions';
@@ -34,9 +34,13 @@ function cardStatus(status: ChatSessionStatus): 'thinking' | 'ready' | 'error' |
   }
 }
 
+/** A card reads as working until its turn and the work it left in the background have both ended. */
 function forwardStatus(id: string, event: SequencedChatEvent): void {
-  if (event.event.type !== 'session' || !event.event.patch.status) return;
-  const status = cardStatus(event.event.patch.status);
+  const { patch } = event.event.type === 'session' ? event.event : { patch: null };
+  if (!patch || (!patch.status && !patch.background)) return;
+  const info = useChatStore.getState().sessions[id]?.info;
+  if (!info) return;
+  const status = stillWorking(info) ? 'thinking' : cardStatus(info.status);
   const instance = terminalInstances.get(id);
   if (status && instance?.surface === 'chat') instance.setAgentStatus(status);
 }
