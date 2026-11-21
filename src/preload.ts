@@ -325,6 +325,7 @@ contextBridge.exposeInMainWorld('api', {
   ) => typedListen('cli-change', callback),
 
   onCliThemeChanged: (callback: () => void) => typedListen('cli:theme-changed', callback),
+  onCliChatSettingsChanged: (callback: () => void) => typedListen('cli:chat-settings-changed', callback),
 
   onCliTaskStarted: (
     callback: (

@@ -25,6 +25,7 @@ import {
   type TaskMetadata,
 } from './db';
 import { fetchDiffBase, mergeWorktreeBranch } from './git';
+import { parseWorktreeSettings, worktreeSettingsKey, type WorktreeSettings } from './worktreeSettings';
 
 const worktreeLog = getLogger().scope('worktree');
 
@@ -203,14 +204,8 @@ async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T
   await Promise.all(runners);
 }
 
-/** Written by the renderer's `worktreeSettingsStore`. */
-async function readWorktreeSettings(projectPath: string): Promise<{ mode?: string; base?: string }> {
-  try {
-    const json = await getGlobalSetting(`worktree:${projectPath}`);
-    return json ? (JSON.parse(json) as { mode?: string; base?: string }) : {};
-  } catch {
-    return {};
-  }
+async function readWorktreeSettings(projectPath: string): Promise<WorktreeSettings> {
+  return parseWorktreeSettings(await getGlobalSetting(worktreeSettingsKey(projectPath)).catch((): null => null));
 }
 
 /** Quick-start, copying ignored files, unless the project picked a clean checkout. */

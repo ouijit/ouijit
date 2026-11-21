@@ -12,7 +12,8 @@ function tildePath(file: string, home: string | null): string {
 export function SandboxProfileRow({ projectPath, onChange }: { projectPath: string; onChange?: () => void }) {
   const [profile, setProfile] = useState<NonoProfile | null>(null);
   const [home, setHome] = useState<string | null>(null);
-  const status = useProjectConfig(projectPath)?.sandboxStatuses.find((st) => st.providerId === 'nono');
+  const statuses = useProjectConfig(projectPath)?.sandboxStatuses;
+  const status = statuses?.find((st) => st.providerId === 'nono');
 
   useEffect(() => {
     let active = true;
@@ -24,7 +25,8 @@ export function SandboxProfileRow({ projectPath, onChange }: { projectPath: stri
     return () => {
       active = false;
     };
-  }, [projectPath]);
+    // A reload of the project's config, which a change from the CLI sets off, renews `statuses`.
+  }, [projectPath, statuses]);
 
   const open = async () => {
     const result = await window.api.sandbox.openNonoProfile(projectPath);

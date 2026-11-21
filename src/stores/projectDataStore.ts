@@ -22,6 +22,7 @@ import {
 import { useAppStore } from './appStore';
 import { useProjectStore } from './projectStore';
 import { loadTaskChats } from './chatStore';
+import { useWorktreeSettingsStore } from './worktreeSettingsStore';
 import { taskOpeningKey, parseTaskOpening, type TaskOpening } from '../chat/preferences';
 
 export interface ProjectConfig {
@@ -144,9 +145,17 @@ export function refreshProjectData(projectPath: string, resource: string): void 
   const { configByProject, scriptsByProject } = useProjectDataStore.getState();
   if (resource === 'scripts') {
     if (scriptsByProject[projectPath]) void loadScripts(projectPath);
-  } else if (resource === 'hooks' || resource === 'sandbox' || resource === 'chat-start') {
+  } else if (
+    resource === 'hooks' ||
+    resource === 'sandbox' ||
+    resource === 'sandbox-settings' ||
+    resource === 'task-opening'
+  ) {
     if (configByProject[projectPath]) void loadProjectConfig(projectPath);
-  } else {
+  } else if (resource === 'worktree-settings') {
+    const worktree = useWorktreeSettingsStore.getState();
+    if (worktree.settingsByProject[projectPath]) void worktree.loadFor(projectPath);
+  } else if (resource !== 'project-lenses' && resource !== 'lens-agent' && resource !== 'chat-settings') {
     void loadTasks(projectPath);
   }
 }

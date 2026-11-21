@@ -10,7 +10,11 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    void window.api.lens.agent(projectPath).then(setChosenId);
+    const load = () => void window.api.lens.agent(projectPath).then(setChosenId);
+    load();
+    return window.api.lens.onListChanged((changed) => {
+      if (changed === projectPath) load();
+    });
   }, [projectPath]);
 
   // Probed rather than read off the startup cache: an agent installed while the

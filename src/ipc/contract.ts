@@ -581,6 +581,8 @@ export interface IpcPushContract {
   };
   /** A CLI theme mutation wrote global settings — re-read and re-apply. */
   'cli:theme-changed': { args: [] };
+  /** The CLI changed Chat's settings, after restarting Chat where the change needed it. */
+  'cli:chat-settings-changed': { args: [] };
   'cli:task-started': {
     args: [
       payload: {

@@ -146,25 +146,4 @@ describe('hook commands', () => {
     expect(del).toHaveBeenCalledWith(`/api/hooks/done?project=${encodeURIComponent(PROJECT)}`);
     expect(result.success).toBe(true);
   });
-
-  test('chat-start set sends only what is given, and refuses to send nothing', async () => {
-    vi.mocked(put).mockResolvedValue({ setup: '', firstMessage: 'Read PLAN.md' });
-    const output = captureOutput();
-    await createProgram().parseAsync(['hook', 'chat-start', 'set', '--first-message', 'Read PLAN.md'], {
-      from: 'user',
-    });
-    expect(output.getJson()).toEqual({ setup: '', firstMessage: 'Read PLAN.md' });
-    expect(put).toHaveBeenCalledWith(`/api/chat-start?project=${encodeURIComponent(PROJECT)}`, {
-      firstMessage: 'Read PLAN.md',
-    });
-
-    const error = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const exit = vi.spyOn(process, 'exit').mockImplementation((() => {
-      throw new Error('exit');
-    }) as never);
-    await expect(createProgram().parseAsync(['hook', 'chat-start', 'set'], { from: 'user' })).rejects.toThrow('exit');
-    expect(put).toHaveBeenCalledTimes(1);
-    error.mockRestore();
-    exit.mockRestore();
-  });
 });

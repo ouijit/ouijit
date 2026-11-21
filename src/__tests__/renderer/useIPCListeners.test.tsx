@@ -11,6 +11,8 @@ import type { TaskWithWorkspace } from '../../types';
 import { seedProject } from './seedProject';
 import { useWaitingStore } from '../../stores/waitingStore';
 import { runWaiting } from '../../components/waiting/WaitingDialog';
+import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
+import { useHomeChatStore } from '../../stores/homeChatStore';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -96,6 +98,7 @@ interface ListenerStubs {
   cliChangeCb: CliChangeCb | null;
   launchFailedCb: LaunchFailedCb | null;
   terminalSandboxCb: TerminalSandboxCb | null;
+  chatSettingsCb: (() => void) | null;
 }
 
 /**
@@ -112,6 +115,7 @@ function installListenerStubs(): ListenerStubs {
     cliChangeCb: null,
     launchFailedCb: null,
     terminalSandboxCb: null,
+    chatSettingsCb: null,
   };
   const api = window.api as unknown as Record<string, unknown>;
   api['onUpdateAvailable'] = vi.fn(() => () => {});
@@ -131,6 +135,10 @@ function installListenerStubs(): ListenerStubs {
     return () => {};
   });
   api['onCliThemeChanged'] = vi.fn(() => () => {});
+  api['onCliChatSettingsChanged'] = vi.fn((cb: () => void) => {
+    stubs.chatSettingsCb = cb;
+    return () => {};
+  });
   api['health'] = { onUpdate: vi.fn(() => () => {}) };
   api['onCliTaskStarted'] = vi.fn((cb: CliTaskStartedCb) => {
     stubs.cliTaskStartedCb = cb;
@@ -370,6 +378,32 @@ describe('useIPCListeners — cli-change refreshes the resource that changed', (
     await flush();
     expect(window.api.sandbox.status).toHaveBeenCalledWith(PROJECT);
 
+    // `ouijit settings tasks` and `settings sandbox` land in the config the Settings page reads.
+    for (const resource of ['task-opening', 'sandbox-settings']) {
+      vi.clearAllMocks();
+      fire(resource);
+      await flush();
+      expect(window.api.hooks.get).toHaveBeenCalledWith(PROJECT);
+    }
+
+    vi.clearAllMocks();
+    useWorktreeSettingsStore.setState({ settingsByProject: { [PROJECT]: { mode: 'quick-start', base: null } } });
+    vi.mocked(window.api.globalSettings.get).mockResolvedValueOnce('{"mode":"clean-checkout","base":"origin/main"}');
+    fire('worktree-settings');
+    await flush();
+    expect(useWorktreeSettingsStore.getState().settingsByProject[PROJECT]).toEqual({
+      mode: 'clean-checkout',
+      base: 'origin/main',
+    });
+
+    // Lenses are told by their own push, and Chat's settings are no project's.
+    for (const resource of ['project-lenses', 'lens-agent', 'chat-settings']) {
+      vi.clearAllMocks();
+      fire(resource);
+      await flush();
+      expect(window.api.task.getAll).not.toHaveBeenCalled();
+    }
+
     vi.clearAllMocks();
     fire('tasks', '/proj/never-loaded');
     await flush();
@@ -380,6 +414,29 @@ describe('useIPCListeners — cli-change refreshes the resource that changed', (
     fire('scripts', '/proj/never-loaded');
     await flush();
     expect(window.api.scripts.getAll).not.toHaveBeenCalled();
+  });
+});
+
+describe('useIPCListeners — Chat settings from the CLI', () => {
+  test('turning Chat on or off from the CLI starts or stops it, as the Settings toggle does', async () => {
+    const stubs = installListenerStubs();
+    renderHook(() => useIPCListeners());
+    const chatEnabled = (stored: string) =>
+      vi
+        .mocked(window.api.globalSettings.get)
+        .mockImplementation(async (key) => (key === 'chat:enabled' ? stored : undefined));
+
+    chatEnabled('1');
+    stubs.chatSettingsCb!();
+    await flush();
+    expect(useHomeChatStore.getState().enabled).toBe(true);
+    expect(window.api.homeChat.start).toHaveBeenCalled();
+
+    chatEnabled('');
+    stubs.chatSettingsCb!();
+    await flush();
+    expect(useHomeChatStore.getState().enabled).toBe(false);
+    vi.mocked(window.api.globalSettings.get).mockResolvedValue(undefined);
   });
 });
 

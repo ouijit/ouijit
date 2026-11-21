@@ -19,6 +19,7 @@ import { registerSandboxCommands } from './commands/sandbox';
 import { registerMarkdownCommands } from './commands/markdown';
 import { registerPreviewCommands } from './commands/preview';
 import { registerThemeCommands } from './commands/theme';
+import { registerSettingsCommands } from './commands/settings';
 import { registerPrCommands } from './commands/pr';
 import { registerLinearCommands } from './commands/linear';
 import { registerIssueCommands } from './commands/issue';
@@ -66,6 +67,7 @@ registerPanelCommands(program);
 registerLinkCommands(program, project);
 registerAskCommands(program);
 registerThemeCommands(program);
+registerSettingsCommands(program, project);
 
 // Command actions are async; parse() would let an API rejection surface as an
 // uncaught error with a raw stack trace. parseAsync + a single catch turns any

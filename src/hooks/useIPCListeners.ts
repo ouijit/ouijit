@@ -13,7 +13,8 @@ import { useTerminalStore } from '../stores/terminalStore';
 import { projectDefaultSandbox, refreshProjectData } from '../stores/projectDataStore';
 import { isActiveSandbox } from '../sandbox/types';
 import { beginTransition } from '../services/taskStartService';
-import { hookForMove } from '../services/chatSettings';
+import { hookForMove, loadChatSettings } from '../services/chatSettings';
+import { setChatEnabled } from '../components/chat/chatActions';
 import { hookSandbox, hookTypeForTransition } from '../services/hookRun';
 import { useWaitingStore } from '../stores/waitingStore';
 import { completeTask } from '../services/taskCompletion';
@@ -261,6 +262,12 @@ export function useIPCListeners() {
       window.api.onCliThemeChanged(() => {
         ipcLog.info('CLI theme change detected, reloading theme');
         void reloadTheme();
+      }),
+    );
+
+    cleanups.push(
+      window.api.onCliChatSettingsChanged(() => {
+        void loadChatSettings().then(({ enabled }) => setChatEnabled(enabled));
       }),
     );
 

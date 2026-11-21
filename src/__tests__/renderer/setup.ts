@@ -77,6 +77,7 @@ const mockApi = {
   listClones: vi.fn().mockResolvedValue([]),
   onClonesChanged: vi.fn().mockReturnValue(() => {}),
   onCloneLanded: vi.fn().mockReturnValue(() => {}),
+  onCliChatSettingsChanged: vi.fn().mockReturnValue(() => {}),
   listGithubRepos: vi.fn().mockResolvedValue({ repos: [] }),
   resolveGithubRepo: vi.fn().mockResolvedValue({ status: 'unknown' }),
   addProject: vi.fn().mockResolvedValue({ success: true }),

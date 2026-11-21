@@ -95,10 +95,9 @@ ouijit hook delete done</code></pre>
     follow the project default.
   </p>
   <p>
-    Where tasks open as chats, a project's start hook gives way to a setup command and the task chat's first message.
+    Where tasks open as chats, a project's start hook gives way to a setup command and the task chat's first message,
+    set with <code>ouijit settings tasks</code> below.
   </p>
-  <pre class="glass-bevel"><code>ouijit hook chat-start get
-ouijit hook chat-start set --setup "npm install" --first-message 'Read PLAN.md, then: $OUIJIT_TASK_DESCRIPTION'</code></pre>
 
   <h2>Sandbox command</h2>
   <p>
@@ -108,6 +107,33 @@ ouijit hook chat-start set --setup "npm install" --first-message 'Read PLAN.md, 
   <pre class="glass-bevel"><code>ouijit sandbox-command get
 ouijit sandbox-command set "$HOME/.local/bin/ouijit-sandbox --strict"
 ouijit sandbox-command clear</code></pre>
+
+  <h2>Settings</h2>
+  <p>
+    What the Settings page sets, for the project and for Chat. Each <code>set</code> changes only the flags it is
+    given, and the app shows the change at once.
+  </p>
+  <pre class="glass-bevel"><code>ouijit settings tasks get
+ouijit settings tasks set --open-in chat --agent codex --setup "npm install" --first-message 'Read PLAN.md, then: $OUIJIT_TASK_DESCRIPTION'
+ouijit settings worktree get
+ouijit settings worktree set --mode clean-checkout --branch-from origin/main
+ouijit settings lens list
+ouijit settings lens add "Risk first" --instruction "Lead with what could break in production"
+ouijit settings lens edit "Risk first" --name "Risk"
+ouijit settings lens remove "Risk"
+ouijit settings lens agent get
+ouijit settings lens agent set codex
+ouijit settings sandbox get
+ouijit settings sandbox set --default nono --profile ~/.config/nono/profiles/strict.json --cli-access task
+ouijit settings chat get
+ouijit settings chat set --enable --agent claude --wake taskMoved=off
+echo "Keep replies short." | ouijit settings chat set --instructions -</code></pre>
+  <p>
+    A project's lenses are the groupings any of its diffs can be read by; <code>pr lens</code> writes the one lens
+    shown for a pull request. Changing the main chat's agent, where it runs or its instructions restarts it on the
+    same conversation. <code>settings sandbox</code> and <code>settings chat set --run-in</code> are host terminals
+    only: a sandboxed session gets 403 whatever its Ouijit CLI access.
+  </p>
 
   <h2>Terminals</h2>
   <p>

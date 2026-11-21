@@ -690,6 +690,7 @@ export interface ElectronAPI {
   ): () => void;
   /** Listen for a CLI theme mutation — re-read and re-apply theme settings */
   onCliThemeChanged(callback: () => void): () => void;
+  onCliChatSettingsChanged(callback: () => void): () => void;
   /** Listen for a CLI-initiated task start that requires spawning a terminal */
   onCliTaskStarted(
     callback: (

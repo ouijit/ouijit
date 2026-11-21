@@ -384,10 +384,6 @@ ouijit hook get <type>
 ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"] [--sandbox host|nono|custom]
                                               # omitting --sandbox follows the project default
 ouijit hook delete <type>
-ouijit hook chat-start get                    # → {setup, firstMessage}: what replaces the start hook where tasks open as chats
-ouijit hook chat-start set [--setup "<cmd>"] [--first-message "<text>"]
-                                              # setup runs before a new task chat; the first message, with $OUIJIT_ variables
-                                              # filled in, is sent once it succeeds; --first-message - reads stdin
 
 ## Sandbox (host terminals only)
 Run one command in the project's sandbox; the rest of the line stays on the host.
@@ -401,6 +397,34 @@ inside a sandbox.
 ouijit sandbox-command get                    # → {command?}
 ouijit sandbox-command set "<launcher>"       # absolute path or a name on PATH, outside the repo
 ouijit sandbox-command clear
+
+## Settings (what the Settings page sets; each set changes only the flags given)
+ouijit settings tasks get                     # → {surface, agent, setup, firstMessage}
+ouijit settings tasks set [--open-in terminal|chat] [--agent claude|codex|pi|opencode|acp]
+                          [--setup "<cmd>"] [--first-message "<text>"]
+                                              # a terminal runs the start hook; a chat runs setup, then sends the first
+                                              # message with $OUIJIT_ variables filled in; --first-message - reads stdin
+ouijit settings worktree get                  # → {mode, branchFrom}
+ouijit settings worktree set [--mode quick-start|clean-checkout] [--branch-from <branch>]
+                                              # quick-start copies ignored files like .env; --branch-from "" for the checked-out branch
+ouijit settings lens list                     # → [{id, name, instruction}]: the project's lenses, for any diff
+ouijit settings lens add "<name>" --instruction "<text>"   # --instruction - reads stdin
+ouijit settings lens edit <id-or-name> [--name "<name>"] [--instruction "<text>"]
+ouijit settings lens remove <id-or-name>
+ouijit settings lens agent get                # → {agent}; null picks the first one installed
+ouijit settings lens agent set claude|codex|pi|auto
+ouijit settings sandbox get                   # host terminals only → {default, profile: {path, own}, cliAccess}
+ouijit settings sandbox set [--default host|nono|custom] [--profile <file>] [--cli-access read|task|all]
+                                              # host terminals only; --profile "" goes back to the project's own
+ouijit settings chat get                      # → {enabled, agent, sandbox, instructions, wake}, app-wide
+ouijit settings chat set [--enable|--disable] [--agent <agent>] [--run-in host|nono|custom]
+                         [--instructions "<text>"] [--wake <event>=on|off]...
+                                              # a new agent, place or instructions restarts the main chat; --run-in is
+                                              # host terminals only; --instructions - reads stdin; events: turnEnded,
+                                              # asked, taskMoved, hookFailed
+
+A project's lens is a grouping any of its diffs can be read by; ouijit pr lens
+writes the lens shown for one pull request.
 
 ## Script Commands (ad-hoc project scripts)
 ouijit script list                            # → [{id, name, command, sortOrder}]

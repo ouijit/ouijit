@@ -55,10 +55,13 @@ export function MainChatSettings() {
   const [instructions, setInstructions] = useState('');
 
   useEffect(() => {
-    void loadHomeChatSettings().then((loaded) => {
-      setSettings(loaded);
-      setInstructions(loaded.instructions);
-    });
+    const load = () =>
+      void loadHomeChatSettings().then((loaded) => {
+        setSettings(loaded);
+        setInstructions(loaded.instructions);
+      });
+    load();
+    return window.api.onCliChatSettingsChanged(load);
   }, []);
 
   const [chatDir, setChatDir] = useState<string | null>(null);

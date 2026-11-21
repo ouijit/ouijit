@@ -8,7 +8,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { BrowserWindow } from 'electron';
 import * as path from 'node:path';
-import { createTodoTask, createTaskWorktree } from '../worktree';
+import * as fs from 'node:fs/promises';
+import { createTodoTask, createTaskWorktree, branchNamedBy } from '../worktree';
 import {
   setTaskMergeTarget,
   setTaskName,
@@ -35,7 +36,34 @@ import {
   type CustomTheme,
 } from '../theme/themes';
 import { PRESET_THEMES, withPresets, selectionOrphanedByDelete } from '../theme/presets';
-import { taskOpeningKey, parseTaskOpening } from '../chat/preferences';
+import {
+  CHAT_SETTING_KEYS,
+  HOME_CHAT_SETTING_KEYS,
+  WAKE_EVENTS,
+  taskOpeningKey,
+  parseTaskOpening,
+  type TaskOpening,
+  type WakeEvent,
+} from '../chat/preferences';
+import {
+  WORKTREE_MODES,
+  isWorktreeMode,
+  parseWorktreeSettings,
+  serializeWorktreeSettings,
+  worktreeSettingsKey,
+  type WorktreeMode,
+  type WorktreeSettings,
+} from '../worktreeSettings';
+import {
+  listLenses,
+  saveLens,
+  deleteLens,
+  getLensAgentChoice,
+  setLensAgentChoice,
+  type LensSummary,
+} from '../lens/config';
+import { LENS_AGENTS } from '../lens/lensAgents';
+import { getNonoProfile, setNonoProfile } from '../sandbox/nono/config';
 import {
   beginTask,
   setTaskStatusWithHooks,
@@ -83,7 +111,7 @@ import {
 } from '../sessions';
 import { chatHost, ChatSessionNotFound } from '../chat/host';
 import { CHAT_AGENT_IDS, isChatAgentId, transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
-import { callerIsHomeChat, ownTask } from '../chat/homeChat';
+import { callerIsHomeChat, homeChatCurrent, loadHomeChatSettings, ownTask, restartHomeChat } from '../chat/homeChat';
 import { follow, following, quietMove, sessionSubject, taskSubject, unfollow, wakeForAsk } from '../chat/wake';
 import { addExistingProject, createAndRegisterProject } from '../services/projectRegistration';
 import { holdAsk } from '../chat/decisions';
@@ -104,8 +132,12 @@ import type {
 } from '../types';
 import {
   SANDBOXABLE_HOOK_TYPES,
+  SANDBOX_CLI_ACCESS,
   SANDBOX_PROVIDER_IDS,
+  defaultSandboxSettingKey,
   isActiveSandbox,
+  isSandboxCliAccess,
+  sandboxCliAccessSettingKey,
   isSandboxBackendId,
   isSandboxProviderId,
 } from '../sandbox/types';
@@ -124,7 +156,7 @@ interface ParsedRequest {
   segments: string[]; // URL path segments after /api/
   query: URLSearchParams;
   body: Record<string, unknown>;
-  auth: AuthContext;
+  auth: SandboxCaller;
   window: BrowserWindow;
 }
 
@@ -226,6 +258,70 @@ function parseHookMode(body: Record<string, unknown>): Omit<CliHookControl, 'hoo
     return { hookMode: mode, hookCommand: command };
   }
   return { hookMode: mode };
+}
+
+// ── Settings route helpers ───────────────────────────────────────────
+
+function describeWorktreeSettings({ mode, base }: WorktreeSettings): { mode: WorktreeMode; branchFrom: string | null } {
+  return { mode, branchFrom: base };
+}
+
+function findLens(lenses: LensSummary[], segment: string): LensSummary {
+  const wanted = decodeURIComponent(segment);
+  const lens = lenses.find((l) => l.id === wanted) ?? lenses.find((l) => l.name === wanted);
+  if (!lens) throw new HttpError(404, `No lens ${wanted}`);
+  return lens;
+}
+
+function lensInput(body: Record<string, unknown>, current: { name: string; instruction: string }) {
+  const read = (key: 'name' | 'instruction') => {
+    const value = body[key] ?? current[key];
+    if (typeof value !== 'string' || !value.trim()) throw new HttpError(400, `Missing ${key}`);
+    return value.trim();
+  };
+  return { name: read('name'), instruction: read('instruction') };
+}
+
+function refuseLensNameTaken(lenses: LensSummary[], name: string): void {
+  if (lenses.some((lens) => lens.name === name)) throw new HttpError(409, `A lens called "${name}" already exists`);
+}
+
+async function describeSandboxSettings(project: string) {
+  const [place, profile, cliAccess] = await Promise.all([
+    getGlobalSetting(defaultSandboxSettingKey(project)),
+    getNonoProfile(project),
+    sandboxCliAccessFor(project),
+  ]);
+  return { default: isSandboxProviderId(place) ? place : 'none', profile, cliAccess };
+}
+
+async function requireProfileFile(profile: string): Promise<void> {
+  if (!path.isAbsolute(profile)) throw new HttpError(400, 'profile must be an absolute path');
+  const stat = await fs.stat(profile).catch((): null => null);
+  if (!stat?.isFile()) throw new HttpError(400, `No profile file at ${profile}`);
+}
+
+async function describeChatSettings() {
+  const enabled = (await getGlobalSetting(CHAT_SETTING_KEYS.enabled)) === '1';
+  return { enabled, ...(await loadHomeChatSettings()) };
+}
+
+function parseWakes(value: unknown): Partial<Record<WakeEvent, boolean>> | undefined {
+  if (value === undefined) return undefined;
+  const entries = value && typeof value === 'object' ? Object.entries(value) : null;
+  if (!entries || entries.some(([event, on]) => !WAKE_EVENTS.includes(event as WakeEvent) || typeof on !== 'boolean')) {
+    throw new HttpError(400, `wake must map events (${WAKE_EVENTS.join(', ')}) to true or false`);
+  }
+  return Object.fromEntries(entries);
+}
+
+/**
+ * For what decides where things run and what a sandbox may do. A sandbox at
+ * "Everything" is otherwise served as the host, and these would let it widen
+ * its own walls.
+ */
+function hostOnly(r: Pick<ParsedRequest, 'auth'>): void {
+  if (r.auth.sandboxed) throw new HttpError(403, 'Forbidden');
 }
 
 /** Why an agent asks, in a line or two: anything longer is cut. */
@@ -735,37 +831,143 @@ const routes: Route[] = [
     true,
   ),
 
-  // ── Task chat start (what stands in for the start hook where tasks open as chats) ──
-  route('GET', 'chat-start', async (r) => {
-    const { setup, firstMessage } = parseTaskOpening(await getGlobalSetting(taskOpeningKey(requireProject(r.query))));
-    return { setup, firstMessage };
-  }),
+  // ── How a project's tasks open ───────────────────────────────────
+  route('GET', 'task-opening', async (r) =>
+    parseTaskOpening(await getGlobalSetting(taskOpeningKey(requireProject(r.query)))),
+  ),
 
   route(
     'PUT',
-    'chat-start',
+    'task-opening',
     async (r) => {
       const project = requireProject(r.query);
-      const { setup, firstMessage } = r.body;
+      const { surface, agent, setup, firstMessage } = r.body;
+      if (surface !== undefined && surface !== 'terminal' && surface !== 'chat') {
+        throw new HttpError(400, `Invalid surface: ${String(surface)}. Must be terminal or chat`);
+      }
+      if (agent !== undefined && !isChatAgentId(agent)) {
+        throw new HttpError(400, `Invalid agent: ${String(agent)}. Must be one of: ${CHAT_AGENT_IDS.join(', ')}`);
+      }
       if (setup !== undefined && typeof setup !== 'string') throw new HttpError(400, 'setup must be a string');
       if (firstMessage !== undefined && typeof firstMessage !== 'string') {
         throw new HttpError(400, 'firstMessage must be a string');
       }
-      const next = {
+      const next: TaskOpening = {
         ...parseTaskOpening(await getGlobalSetting(taskOpeningKey(project))),
+        ...(surface !== undefined && { surface }),
+        ...(agent !== undefined && { agent }),
         ...(setup !== undefined && { setup }),
         ...(firstMessage !== undefined && { firstMessage }),
       };
       await setGlobalSetting(taskOpeningKey(project), JSON.stringify(next));
-      return { setup: next.setup, firstMessage: next.firstMessage };
+      return next;
+    },
+    true,
+  ),
+
+  // ── Worktree settings ────────────────────────────────────────────
+  route('GET', 'worktree-settings', async (r) =>
+    describeWorktreeSettings(
+      parseWorktreeSettings(await getGlobalSetting(worktreeSettingsKey(requireProject(r.query)))),
+    ),
+  ),
+
+  route(
+    'PUT',
+    'worktree-settings',
+    async (r) => {
+      const project = requireProject(r.query);
+      const { mode, branchFrom } = r.body;
+      if (mode !== undefined && !isWorktreeMode(mode)) {
+        throw new HttpError(400, `Invalid mode: ${String(mode)}. Must be one of: ${WORKTREE_MODES.join(', ')}`);
+      }
+      if (branchFrom !== undefined && branchFrom !== null && typeof branchFrom !== 'string') {
+        throw new HttpError(400, 'branchFrom must be a string or null');
+      }
+      const base = branchFrom || null;
+      if (base && !(await branchNamedBy(project, base))) {
+        throw new HttpError(400, `${base} isn't a branch in this repository`);
+      }
+      const next = {
+        ...parseWorktreeSettings(await getGlobalSetting(worktreeSettingsKey(project))),
+        ...(mode !== undefined && { mode }),
+        ...(branchFrom !== undefined && { base }),
+      };
+      await setGlobalSetting(worktreeSettingsKey(project), serializeWorktreeSettings(next));
+      return describeWorktreeSettings(next);
+    },
+    true,
+  ),
+
+  // ── A project's lenses (the groupings a diff can be read by; a PR's own lens is under pulls) ──
+  route('GET', 'project-lenses', (r) => listLenses(requireProject(r.query))),
+
+  route('GET', 'lens-agent', async (r) => ({ agent: await getLensAgentChoice(requireProject(r.query)) })),
+
+  route(
+    'PUT',
+    'lens-agent',
+    async (r) => {
+      const project = requireProject(r.query);
+      const { agent } = r.body;
+      if (agent !== null && !LENS_AGENTS.some((a) => a.id === agent)) {
+        throw new HttpError(
+          400,
+          `Invalid agent: ${String(agent)}. Must be null or one of: ${LENS_AGENTS.map((a) => a.id).join(', ')}`,
+        );
+      }
+      await setLensAgentChoice(project, agent as string | null);
+      return { agent };
+    },
+    true,
+  ),
+
+  route(
+    'POST',
+    'project-lenses',
+    async (r) => {
+      const project = requireProject(r.query);
+      const input = lensInput(r.body, { name: '', instruction: '' });
+      refuseLensNameTaken(await listLenses(project), input.name);
+      return saveLens(project, input);
+    },
+    true,
+  ),
+
+  route(
+    'PUT',
+    'project-lenses/:lens',
+    async (r) => {
+      const project = requireProject(r.query);
+      const lenses = await listLenses(project);
+      const lens = findLens(lenses, r.segments[1]);
+      const input = lensInput(r.body, lens);
+      refuseLensNameTaken(
+        lenses.filter((other) => other.id !== lens.id),
+        input.name,
+      );
+      return saveLens(project, { id: lens.id, ...input });
+    },
+    true,
+  ),
+
+  route(
+    'DELETE',
+    'project-lenses/:lens',
+    async (r) => {
+      const project = requireProject(r.query);
+      const lens = findLens(await listLenses(project), r.segments[1]);
+      await deleteLens(project, lens.id);
+      return lens;
     },
     true,
   ),
 
   // ── Sandbox command (custom backend launcher) ────────────────────
-  // The only route family that decides what the next sandboxed spawn executes:
-  // a sandbox token must never reach it.
-  route('GET', 'sandbox/command', (r) => getCustomSandboxConfig(requireProject(r.query))),
+  route('GET', 'sandbox/command', (r) => {
+    hostOnly(r);
+    return getCustomSandboxConfig(requireProject(r.query));
+  }),
 
   route('POST', 'sandbox/wrap', (r) => {
     const { argv, cwd, backend } = r.body;
@@ -796,6 +998,7 @@ const routes: Route[] = [
     'PUT',
     'sandbox/command',
     async (r) => {
+      hostOnly(r);
       const project = requireProject(r.query);
       const command = typeof r.body.command === 'string' ? r.body.command.trim() : '';
       if (!command) throw new HttpError(400, 'command is required');
@@ -806,7 +1009,47 @@ const routes: Route[] = [
     true,
   ),
 
-  route('DELETE', 'sandbox/command', (r) => setCustomSandboxConfig(requireProject(r.query), {}), true),
+  route(
+    'DELETE',
+    'sandbox/command',
+    (r) => {
+      hostOnly(r);
+      return setCustomSandboxConfig(requireProject(r.query), {});
+    },
+    true,
+  ),
+
+  // ── Sandbox settings (where a project's work runs) ───────────────
+  route('GET', 'sandbox-settings', (r) => {
+    hostOnly(r);
+    return describeSandboxSettings(requireProject(r.query));
+  }),
+
+  route(
+    'PUT',
+    'sandbox-settings',
+    async (r) => {
+      hostOnly(r);
+      const project = requireProject(r.query);
+      const place = parseSandbox(r.body.default, 'default');
+      const { profile, cliAccess } = r.body;
+      if (cliAccess !== undefined && !isSandboxCliAccess(cliAccess)) {
+        throw new HttpError(
+          400,
+          `Invalid cliAccess: ${String(cliAccess)}. Must be one of: ${SANDBOX_CLI_ACCESS.join(', ')}`,
+        );
+      }
+      if (profile !== undefined && profile !== null && typeof profile !== 'string') {
+        throw new HttpError(400, "profile must be a path, or null for the project's own");
+      }
+      if (profile) await requireProfileFile(profile);
+      if (place) await setGlobalSetting(defaultSandboxSettingKey(project), place);
+      if (cliAccess !== undefined) await setGlobalSetting(sandboxCliAccessSettingKey(project), cliAccess);
+      if (profile !== undefined) await setNonoProfile(project, profile || null);
+      return describeSandboxSettings(project);
+    },
+    true,
+  ),
 
   // ── Terminals ────────────────────────────────────────────────────
   route('GET', 'terminals', () =>
@@ -1080,6 +1323,51 @@ const routes: Route[] = [
         if (error instanceof ChatSessionNotFound) throw new HttpError(404, error.message);
         throw error;
       }
+    },
+    true,
+  ),
+
+  // ── Chat's own settings (app-wide, not project-scoped) ───────────
+  route('GET', 'chat-settings', describeChatSettings),
+
+  route(
+    'PUT',
+    'chat-settings',
+    async (r) => {
+      const { enabled, agent, instructions, wake } = r.body;
+      const sandbox = parseSandbox(r.body.sandbox, 'sandbox');
+      if (sandbox !== undefined) hostOnly(r);
+      if (enabled !== undefined && typeof enabled !== 'boolean') throw new HttpError(400, 'enabled must be a boolean');
+      if (agent !== undefined && !isChatAgentId(agent)) {
+        throw new HttpError(400, `Invalid agent: ${String(agent)}. Must be one of: ${CHAT_AGENT_IDS.join(', ')}`);
+      }
+      if (instructions !== undefined && typeof instructions !== 'string') {
+        throw new HttpError(400, 'instructions must be a string');
+      }
+      const wakes = parseWakes(wake);
+
+      const before = await loadHomeChatSettings();
+      const next = {
+        agent: agent ?? before.agent,
+        sandbox: sandbox ?? before.sandbox,
+        instructions: instructions?.trim() ?? before.instructions,
+        wake: { ...before.wake, ...wakes },
+      };
+      if (enabled !== undefined) await setGlobalSetting(CHAT_SETTING_KEYS.enabled, enabled ? '1' : '');
+      if (agent !== undefined) await setGlobalSetting(HOME_CHAT_SETTING_KEYS.agent, next.agent);
+      if (sandbox !== undefined) await setGlobalSetting(HOME_CHAT_SETTING_KEYS.sandbox, next.sandbox);
+      if (instructions !== undefined) await setGlobalSetting(HOME_CHAT_SETTING_KEYS.instructions, next.instructions);
+      if (wakes) await setGlobalSetting(HOME_CHAT_SETTING_KEYS.wake, JSON.stringify(next.wake));
+      const running = homeChatCurrent();
+      if (
+        enabled !== false &&
+        running &&
+        chatHost.isLive(running) &&
+        (next.agent !== before.agent || next.sandbox !== before.sandbox || next.instructions !== before.instructions)
+      ) {
+        await restartHomeChat();
+      }
+      return describeChatSettings();
     },
     true,
   ),
@@ -1550,6 +1838,8 @@ const routes: Route[] = [
 
 interface SandboxCaller extends AuthContext {
   access: SandboxCliAccess;
+  /** Whether the token is a sandbox's, which its scope stops saying at "Everything". */
+  sandboxed: boolean;
 }
 
 /**
@@ -1557,10 +1847,10 @@ interface SandboxCaller extends AuthContext {
  * "Everything" it is treated as a host caller throughout, handlers included.
  */
 async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
-  if (auth.scope === 'host') return { ...auth, scope: 'host', access: 'all' };
+  if (auth.scope === 'host') return { ...auth, scope: 'host', access: 'all', sandboxed: false };
   const context = getSessionSpawnContext(auth.ptyId);
   const access = context ? await sandboxCliAccessFor(context.projectPath) : 'read';
-  return access === 'all' ? { ...auth, scope: 'host', access } : { ...auth, access };
+  return { ...auth, ...(access === 'all' && { scope: 'host' }), access, sandboxed: true };
 }
 
 function sandboxAllows(
@@ -1738,6 +2028,12 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       if (segments[0] === 'themes') {
         typedPush(window, 'cli:theme-changed');
       }
+
+      // Chat is turned on and off in the renderer, as it is from Settings.
+      if (segments[0] === 'chat-settings') typedPush(window, 'cli:chat-settings-changed');
+
+      if (segments[0] === 'project-lenses' || segments[0] === 'lens-agent')
+        typedPush(window, 'lens:list-changed', project);
 
       // A draft written here belongs to a pull request the renderer may have
       // open, and it happened in another process, so there is nothing for the
