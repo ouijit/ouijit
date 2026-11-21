@@ -844,3 +844,43 @@ describe('editing a message already sent', () => {
     expect(screen.queryByText(/^Editing/)).toBeNull();
   });
 });
+
+describe('the composer after the card around it changes size', () => {
+  test('fits its text again once a panel beside it closes, rather than keeping the height it had squeezed', () => {
+    // jsdom has no layout: the field's width and the height its text needs at that width stand in for it.
+    let width = 600;
+    const observers: ResizeObserverCallback[] = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          observers.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => width);
+    const scrollHeight = vi
+      .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+      .mockImplementation(() => (width < 100 ? 208 : 54));
+    act(() => useChatStore.getState().adopt({ info: INFO, nodes: NODES, seq: 0 }));
+    render(<ChatView cardId={ID} />);
+    const composer = screen.getByLabelText('Message') as HTMLTextAreaElement;
+    const resized = () => act(() => observers.forEach((callback) => callback([], {} as ResizeObserver)));
+
+    // A panel opening squeezes the card, and the empty field's placeholder wraps.
+    width = 40;
+    resized();
+    expect(composer.style.height).toBe('208px');
+
+    // The panel closes and the field is wide again: it fits to one line.
+    width = 600;
+    resized();
+    expect(composer.style.height).toBe('54px');
+
+    clientWidth.mockRestore();
+    scrollHeight.mockRestore();
+    vi.unstubAllGlobals();
+  });
+});

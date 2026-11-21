@@ -4,7 +4,7 @@ import { SandboxRing } from '../terminal/StatusDot';
 import { SANDBOX_LABELS, isActiveSandbox, isSandboxProviderId, type SandboxBackendId } from '../../sandbox/types';
 import { MenuPopover } from '../ui/Menu';
 import { Tooltip } from '../ui/Tooltip';
-import { growToFit } from '../../hooks/useAutoResize';
+import { growToFit, useFitOnResize } from '../../hooks/useAutoResize';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { openAgentTerminal, sendChat } from './chatActions';
@@ -404,6 +404,7 @@ export function ChatComposer({
   }, [focusRef]);
 
   useEffect(() => growToFit(textarea.current), [draft]);
+  useFitOnResize(textarea);
 
   // An edited message brings its attachments along, and the caret to the end of its text.
   const editedId = editing?.messageId;
