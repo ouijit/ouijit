@@ -76,7 +76,10 @@ async function turnChatOn(page: Page, repo: string): Promise<string> {
   const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
   await expect(sidebar.locator('[data-group="home-chat"]')).toHaveCount(0);
   await sidebar.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'Chat', exact: true }).click();
   await page.getByRole('switch', { name: /^Chat/ }).click();
+  // Settings take the window, sidebar and all, until closed.
+  await page.getByRole('button', { name: 'Close settings' }).click();
   await expect(sidebar.locator('[data-group="home-chat"]')).toHaveCount(1);
   await sidebar.getByRole('button', { name: 'Chat', exact: true }).click();
   const id = await currentChat(page);
