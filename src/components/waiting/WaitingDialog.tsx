@@ -204,7 +204,7 @@ export function WaitingDialog({ ptyId }: { ptyId: string }) {
   const several = items.length > 1;
 
   const footer = (
-    <div className="flex items-center justify-end gap-2 mt-4 shrink-0">
+    <div className="flex flex-wrap items-center justify-end gap-2 mt-4 shrink-0 [&>button]:whitespace-nowrap">
       <button data-testid="waiting-decline" className="btn-secondary" onClick={() => remove(item.id)}>
         {item.kind === 'ask' ? 'Decline' : 'Skip'}
       </button>
@@ -223,18 +223,18 @@ export function WaitingDialog({ ptyId }: { ptyId: string }) {
   return (
     <div
       ref={ref}
-      className="absolute inset-0 z-20 flex justify-center overflow-y-auto p-6"
+      className="@container absolute inset-0 z-20 flex justify-center overflow-y-auto p-6"
       style={{ background: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
     >
       {several ? (
         <div
           role="dialog"
           aria-labelledby={`waiting-${item.id}`}
-          className="bg-surface rounded-[32px] shadow-lg w-full max-w-[880px] h-[min(36rem,100%)] border border-border shrink-0 my-auto overflow-hidden flex"
+          className="bg-surface rounded-[32px] shadow-lg w-full max-w-[880px] h-[min(36rem,100%)] border border-border shrink-0 my-auto overflow-hidden flex flex-col @xl:flex-row"
         >
           <nav
             aria-label="Waiting"
-            className="w-56 shrink-0 flex flex-col gap-0.5 px-2.5 py-5 overflow-y-auto"
+            className="max-h-40 @xl:max-h-none @xl:w-56 shrink-0 flex flex-col gap-0.5 px-2.5 py-3 @xl:py-5 overflow-y-auto"
             style={{ background: 'color-mix(in srgb, var(--color-surface) 22%, var(--color-background))' }}
           >
             <div className="px-2.5 pb-2 text-xs text-text-tertiary">{items.length} waiting on you</div>
@@ -242,8 +242,8 @@ export function WaitingDialog({ ptyId }: { ptyId: string }) {
               <ListEntry key={i.id} item={i} selected={i.id === item.id} onPick={() => setSelected(i.id)} />
             ))}
           </nav>
-          <div aria-hidden className="pane-seam w-px shrink-0" />
-          <div className="flex-1 min-w-0 p-6 flex flex-col">
+          <div aria-hidden className="pane-seam h-px @xl:h-auto @xl:w-px shrink-0" />
+          <div className="flex-1 min-w-0 min-h-0 p-6 flex flex-col">
             <div className="flex-1 min-h-0 overflow-y-auto">{detail}</div>
             {footer}
           </div>
