@@ -10,8 +10,9 @@ interface Box {
 
 /**
  * What Chat is told, held per conversation until it can take it: a
- * conversation in a turn, or not running, gets everything that arrived
- * meanwhile in one message once it is free, so a burst costs one turn.
+ * conversation in a turn gets everything that arrived meanwhile in one
+ * message once it is free, so a burst costs one turn, and one not running is
+ * started to take it.
  */
 export class Mailbox {
   private readonly boxes = new Map<string, Box>();
@@ -23,6 +24,8 @@ export class Mailbox {
       exists: (id: string) => boolean;
       /** Running and between turns. */
       ready: (id: string) => boolean;
+      /** Not ready: start it if it is not running, and call `deliver` once it is ready. */
+      wake: (id: string) => void;
       send: (id: string, text: string, notes: WakeNote[]) => Promise<void>;
     },
   ) {}
@@ -50,7 +53,10 @@ export class Mailbox {
       this.boxes.delete(id);
       return;
     }
-    if (!this.target.ready(id)) return;
+    if (!this.target.ready(id)) {
+      this.target.wake(id);
+      return;
+    }
     this.boxes.delete(id);
     this.sending.add(id);
     try {

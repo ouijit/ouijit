@@ -111,7 +111,7 @@ import {
 } from '../sessions';
 import { chatHost, ChatSessionNotFound } from '../chat/host';
 import { CHAT_AGENT_IDS, isChatAgentId, transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
-import { callerIsHomeChat, homeChatCurrent, loadHomeChatSettings, ownTask, restartHomeChat } from '../chat/homeChat';
+import { callerIsHomeChat, loadHomeChatSettings, ownTask, reconfigureHomeChats } from '../chat/homeChat';
 import { follow, following, quietMove, sessionSubject, taskSubject, unfollow, wakeForAsk } from '../chat/wake';
 import { addExistingProject, createAndRegisterProject } from '../services/projectRegistration';
 import { holdAsk } from '../chat/decisions';
@@ -1355,14 +1355,11 @@ const routes: Route[] = [
       if (sandbox !== undefined) await setGlobalSetting(HOME_CHAT_SETTING_KEYS.sandbox, next.sandbox);
       if (instructions !== undefined) await setGlobalSetting(HOME_CHAT_SETTING_KEYS.instructions, next.instructions);
       if (wakes) await setGlobalSetting(HOME_CHAT_SETTING_KEYS.wake, JSON.stringify(next.wake));
-      const running = homeChatCurrent();
       if (
         enabled !== false &&
-        running &&
-        chatHost.isLive(running) &&
         (next.agent !== before.agent || next.sandbox !== before.sandbox || next.instructions !== before.instructions)
       ) {
-        await restartHomeChat();
+        await reconfigureHomeChats();
       }
       return describeChatSettings();
     },

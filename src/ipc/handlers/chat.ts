@@ -13,6 +13,7 @@ import {
   newHomeChat,
   onHomeChatChange,
   renameHomeChat,
+  reconfigureHomeChats,
   restartHomeChat,
   isHomeChat,
   startHomeChat,
@@ -94,6 +95,7 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
     wakeHomeChat(event, text, { kind: 'event', text: note }, about ? taskSubject(about) : null),
   );
   typedHandle('homeChat:restart', () => restartHomeChat());
+  typedHandle('homeChat:reconfigure', () => reconfigureHomeChats());
 }
 
 /**

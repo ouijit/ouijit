@@ -450,10 +450,12 @@ export interface ChatAPI {
   onEvent(callback: (sessionId: string, event: SequencedChatEvent) => void): () => void;
 }
 
-/** The app-wide chat: one session, started under its own settings, that steers the rest. */
+/** The app-wide chat: its conversations, each running under its settings, that steer the rest. */
 export interface HomeChatAPI {
   start(): Promise<ChatSnapshot>;
   restart(): Promise<ChatSnapshot>;
+  /** After a settings change: every running conversation restarts once it is free. */
+  reconfigure(): Promise<ChatSnapshot>;
   /** Null for something the user did, which Chat always hears about. News of a task goes to the conversation that started it. */
   wake(event: WakeEvent | null, text: string, note: string, about?: TaskRef | null): Promise<void>;
   create(id?: string): Promise<ChatSnapshot>;

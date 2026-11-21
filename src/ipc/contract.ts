@@ -508,6 +508,7 @@ export interface IpcInvokeContract {
   'homeChat:start': { args: []; return: ChatSnapshot };
   /** Restart its agent on the same conversation, after its settings changed. */
   'homeChat:restart': { args: []; return: ChatSnapshot };
+  'homeChat:reconfigure': { args: []; return: ChatSnapshot };
   /** Something the renderer saw that Chat should hear about, under one of its wake settings. */
   'homeChat:wake': {
     args: [event: WakeEvent | null, text: string, note: string, about: TaskRef | null];

@@ -76,13 +76,13 @@ export function MainChatSettings() {
 
   const restart = async () => {
     try {
-      useChatStore.getState().adopt(await window.api.homeChat.restart());
+      useChatStore.getState().adopt(await window.api.homeChat.reconfigure());
     } catch (error) {
       useProjectStore.getState().addToast(String(error), 'error');
     }
   };
 
-  /** Agent, sandbox and instructions reach the agent only at launch, so a change restarts it. */
+  /** Agent, sandbox and instructions reach an agent only at launch, so a change restarts the conversations. */
   const save = async (key: keyof typeof HOME_CHAT_SETTING_KEYS, stored: string, restarts: boolean) => {
     await window.api.globalSettings.set(HOME_CHAT_SETTING_KEYS[key], stored);
     if (restarts) await restart();
@@ -117,7 +117,7 @@ export function MainChatSettings() {
       <div>
         <h3 className="text-sm font-semibold text-text-primary">Main chat</h3>
         <p className="text-xs text-text-tertiary mt-1">
-          Changing its agent, where it runs, or its instructions restarts it on the same conversation.
+          Changing its agent, where it runs, or its instructions restarts each running conversation once it is free.
         </p>
       </div>
 

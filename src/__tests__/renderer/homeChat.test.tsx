@@ -107,6 +107,7 @@ beforeEach(() => {
   useUIStore.setState(useUIStore.getInitialState(), true);
   useChatStore.setState({ sessions: {}, setup: {}, drafts: {} });
   useWaitingStore.setState({ items: [], open: false, selected: null });
+  useHomeChatStore.setState({ unread: {} });
   useHomeChatStore.getState().set({
     currentId: CURRENT,
     chats: [
@@ -127,7 +128,7 @@ beforeEach(() => {
   useAppStore.getState().select({ kind: 'none' });
   vi.mocked(window.api.globalSettings.get).mockReset().mockResolvedValue(undefined);
   vi.mocked(window.api.globalSettings.set).mockClear();
-  vi.mocked(window.api.homeChat.restart).mockClear();
+  vi.mocked(window.api.homeChat.reconfigure).mockClear();
 });
 
 function approvalWake(
@@ -289,11 +290,44 @@ describe('Chat', () => {
     expect(sidebar.querySelector('[data-group="home-chat"]')).not.toBeNull();
   });
 
+  test('marks a conversation working while it runs off screen, and unread once it ends, until it is opened', async () => {
+    render(<App />);
+    const group = screen
+      .getByRole('complementary', { name: 'Sidebar' })
+      .querySelector<HTMLElement>('[data-group="home-chat"]')!;
+    const row = () =>
+      within(group)
+        .getByRole('button', { name: /^Keychain recovery review/ })
+        .closest<HTMLElement>('[data-sidebar-row]')!;
+    const report = (working: boolean) =>
+      act(() =>
+        useHomeChatStore.getState().set({
+          ...useHomeChatStore.getState(),
+          chats: useHomeChatStore.getState().chats.map((chat) => (chat.id === 'home-2' ? { ...chat, working } : chat)),
+        }),
+      );
+
+    report(true);
+    expect(within(row()).getByLabelText('Working')).toBeTruthy();
+    report(false);
+    expect(within(row()).queryByLabelText('Working')).toBeNull();
+    expect(within(row()).getByLabelText('Done, not yet read')).toBeTruthy();
+
+    fireEvent.click(within(group).getByRole('button', { name: /^Keychain recovery review/ }));
+    expect(window.api.homeChat.switch).toHaveBeenCalledWith('home-2');
+    expect(within(row()).queryByLabelText('Done, not yet read')).toBeNull();
+
+    // One that ends while it is the one on screen was seen.
+    report(true);
+    report(false);
+    expect(within(row()).queryByLabelText('Done, not yet read')).toBeNull();
+  });
+
   test('sits above the projects, opens as a folded transcript, and has settings of its own', async () => {
     adopt(transcript(), { status: 'running' });
     render(<App />);
 
-    // The group sits above the projects: a row per conversation, with no status: only the open one runs.
+    // The group sits above the projects: a row per conversation, with no mark while it is idle.
     const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
     const group = sidebar.querySelector<HTMLElement>('[data-group="home-chat"]')!;
     expect(group.compareDocumentPosition(within(sidebar).getByRole('region', { name: 'Projects' }))).toBe(
@@ -413,7 +447,7 @@ describe('Chat', () => {
     // In the sandbox it has a profile of its own, and choosing another restarts it.
     fireEvent.click(within(main).getByRole('button', { name: 'Sandbox' }));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(HOME_CHAT_SETTING_KEYS.sandbox, 'nono');
-    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(window.api.homeChat.reconfigure).toHaveBeenCalledTimes(1));
     expect(await within(main).findByText('Sandbox profile')).toBeTruthy();
     expect(window.api.sandbox.nonoProfile).toHaveBeenCalledWith(await window.api.homeChat.dir());
     vi.mocked(window.api.sandbox.chooseNonoProfile).mockResolvedValueOnce({
@@ -421,21 +455,21 @@ describe('Chat', () => {
       own: false,
     });
     fireEvent.click(within(main).getByRole('button', { name: 'Change…' }));
-    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(window.api.homeChat.reconfigure).toHaveBeenCalledTimes(2));
     expect(within(main).getByText('~/strict.json')).toBeTruthy();
     fireEvent.click(within(main).getByRole('switch', { name: 'A hook fails' }));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(
       HOME_CHAT_SETTING_KEYS.wake,
       JSON.stringify({ turnEnded: true, asked: true, taskMoved: true, hookFailed: false }),
     );
-    expect(window.api.homeChat.restart).toHaveBeenCalledTimes(2);
+    expect(window.api.homeChat.reconfigure).toHaveBeenCalledTimes(2);
     // In a custom sandbox it has a launcher of its own, and setting one restarts it.
     fireEvent.click(within(main).getByRole('button', { name: 'Custom' }));
-    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(window.api.homeChat.reconfigure).toHaveBeenCalledTimes(3));
     fireEvent.click(await within(main).findByRole('button', { name: '+ Configure' }));
     fireEvent.change(within(main).getByLabelText('Launcher command'), { target: { value: 'my-sandbox' } });
     fireEvent.click(within(main).getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(window.api.homeChat.reconfigure).toHaveBeenCalledTimes(4));
     expect(window.api.sandbox.setCustomConfig).toHaveBeenCalledWith(await window.api.homeChat.dir(), {
       command: 'my-sandbox',
     });
@@ -447,14 +481,14 @@ describe('Chat', () => {
     fireEvent.change(instructions, { target: { value: '' } });
     fireEvent.blur(instructions);
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(HOME_CHAT_SETTING_KEYS.instructions, '');
-    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(window.api.homeChat.reconfigure).toHaveBeenCalledTimes(5));
     fireEvent.click(within(main).getByRole('button', { name: 'Restore default' }));
     expect(instructions.value).toBe(DEFAULT_HOME_CHAT_INSTRUCTIONS);
     expect(window.api.globalSettings.set).toHaveBeenLastCalledWith(
       HOME_CHAT_SETTING_KEYS.instructions,
       DEFAULT_HOME_CHAT_INSTRUCTIONS,
     );
-    await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(6));
+    await waitFor(() => expect(window.api.homeChat.reconfigure).toHaveBeenCalledTimes(6));
 
     // Escape leaves settings for the chat.
     fireEvent.keyDown(document.body, { key: 'Escape' });

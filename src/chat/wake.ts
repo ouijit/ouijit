@@ -5,7 +5,7 @@ import { taskEvents, type TaskStatusChange } from '../taskEvents';
 import { getSessionSpawnContext, getSessionTaskContext } from '../sessions';
 import { chatHost } from './host';
 import { Mailbox } from './mailbox';
-import { announce, loadHomeChatSettings } from './homeChat';
+import { announce, loadHomeChatSettings, restartingHomeChat, resumeHomeChat } from './homeChat';
 import { taskKey, taskOfKey, type TaskRef, type WakeEvent } from './preferences';
 import type { ChatSessionInfo, ChatSessionStatus, RequestNode, ToolCallNode, WakeNote } from './model';
 
@@ -47,7 +47,13 @@ export function sessionTask(id: string): TaskRef | null {
 
 const mailbox = new Mailbox({
   exists: (id) => chatHost.roleOf(id) !== null,
-  ready: (id) => chatHost.isLive(id) && chatHost.snapshot(id)?.info.status === 'idle',
+  ready: (id) => chatHost.isLive(id) && chatHost.snapshot(id)?.info.status === 'idle' && !restartingHomeChat(id),
+  wake: (id) => {
+    if (chatHost.isLive(id)) return;
+    resumeHomeChat(id).catch((error: unknown) =>
+      wakeLog.warn('conversation not started', { id, error: String(error) }),
+    );
+  },
   send: async (id, text, notes) => {
     try {
       await chatHost.prompt(id, { text, wake: true, notes });

@@ -1,12 +1,20 @@
 import { create } from 'zustand';
+import { useAppStore } from './appStore';
 import { useChatStore } from './chatStore';
 import type { HomeChatState, HomeChatSummary } from '../chat/preferences';
 
 interface HomeChatStore extends HomeChatState {
   /** Whether chat is turned on; until it is, Chat never starts and none of it shows. */
   enabled: boolean;
+  /** Conversations whose work ended while they were not on screen. */
+  unread: Record<string, true>;
   set: (state: HomeChatState) => void;
   setEnabled: (enabled: boolean) => void;
+  markRead: (id: string) => void;
+}
+
+function onScreen(id: string, currentId: string): boolean {
+  return id === currentId && useAppStore.getState().selection.kind === 'chat';
 }
 
 /** Chat's conversations, which one is current, and which started each task, as the main process reports them. */
@@ -16,8 +24,23 @@ export const useHomeChatStore = create<HomeChatStore>()((set) => ({
   owners: {},
   following: {},
   enabled: false,
-  set: (state) => set(state),
+  unread: {},
+  set: (state) =>
+    set((before) => {
+      const unread = { ...before.unread };
+      for (const chat of state.chats) {
+        const was = before.chats.find((c) => c.id === chat.id);
+        if (was?.working && !chat.working && !onScreen(chat.id, state.currentId)) unread[chat.id] = true;
+      }
+      return { ...state, unread };
+    }),
   setEnabled: (enabled) => set({ enabled }),
+  markRead: (id) =>
+    set((s) => {
+      if (!s.unread[id]) return {};
+      const { [id]: _read, ...unread } = s.unread;
+      return { unread };
+    }),
 }));
 
 export function currentHomeChatTitle(state: HomeChatState): string | undefined {

@@ -26,6 +26,7 @@ import {
 } from '../stores/uiStore';
 import { ResizeHandle } from './common/ResizeHandle';
 import { Icon } from './terminal/Icon';
+import { StatusGlyph } from './terminal/StatusDot';
 import { Tooltip } from './ui/Tooltip';
 import { openProject, openProjectPage, openShell, openTaskTerminal } from './navigation';
 import { isModKey } from '../utils/modKey';
@@ -359,17 +360,33 @@ function ChatRow({
   onContextMenu: (e: React.MouseEvent) => void;
 }) {
   const waiting = useWaitingCount(id);
+  const working = useHomeChatStore((s) => s.chats.find((chat) => chat.id === id)?.working ?? false);
+  const unread = useHomeChatStore((s) => !!s.unread[id]);
+  useEffect(() => {
+    if (selected) useHomeChatStore.getState().markRead(id);
+  }, [selected, unread, id]);
   return (
     <SidebarRow
       icon={null}
       title={title}
+      unread={unread}
       trailing={
-        waiting > 0 && (
+        waiting > 0 ? (
           <span
             className="w-1.5 h-1.5 rounded-full shrink-0"
             style={{ background: 'var(--color-status-unread)' }}
             aria-label={`${waiting} waiting on you`}
           />
+        ) : working ? (
+          <span className="w-3.5 flex items-center justify-center shrink-0" aria-label="Working">
+            <StatusGlyph status="thinking" />
+          </span>
+        ) : (
+          unread && (
+            <span className="w-3.5 flex items-center justify-center shrink-0" aria-label="Done, not yet read">
+              <StatusGlyph status="ready" unread />
+            </span>
+          )
         )
       }
       tooltip={title}

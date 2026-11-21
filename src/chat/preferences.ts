@@ -116,6 +116,8 @@ export interface HomeChatSummary {
   createdAt: string;
   /** When its last turn began, or it started if none has: what the list is ordered by. */
   activeAt: number;
+  /** In a turn, or with work it left running in the background. */
+  working: boolean;
 }
 
 /** A task, as news about it is routed: to the conversation that started it. */

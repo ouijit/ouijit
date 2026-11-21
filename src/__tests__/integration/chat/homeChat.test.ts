@@ -19,7 +19,7 @@ import {
   installHomeChat,
   isHomeChat,
   newHomeChat,
-  restartHomeChat,
+  reconfigureHomeChats,
   startHomeChat,
   switchHomeChat,
 } from '../../../chat/homeChat';
@@ -184,10 +184,10 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       await new Promise((resolve) => setTimeout(resolve, 300));
       expect(wakes(chatHost.snapshot(HOME_CHAT_ID)!)).toHaveLength(count);
 
-      // A settings change restarts the agent on the same conversation: the
-      // transcript stays, and the agent picks its own session back up.
+      // A settings change restarts a free conversation's agent on the same
+      // conversation: the transcript stays, and the agent picks its own session back up.
       await setGlobalSetting(HOME_CHAT_SETTING_KEYS.instructions, 'Reply to every message with only the word: noted');
-      const restarted = await restartHomeChat();
+      const restarted = await reconfigureHomeChats();
       expect(restarted.info.status).toBe('starting');
       expect(restarted.nodes.map((n) => n.id)).toEqual(heardTurn.nodes.map((n) => n.id));
       const resumed = await until(HOME_CHAT_ID, (s) => s.info.status === 'idle');
@@ -200,19 +200,22 @@ describe.each(AGENTS)('the app-wide chat on %s', (agent) => {
       // The first thing it was asked names the conversation, then its agent sums it up.
       expect((await until(HOME_CHAT_ID, (s) => s.info.label === title)).info.label).toBe(title);
 
-      // A new conversation leaves the old one in the list, and switching back resumes it, transcript and all.
+      // A new conversation leaves the old one in the list and running.
       const fresh = await newHomeChat();
       expect(fresh.info.id).not.toBe(HOME_CHAT_ID);
-      await awaitStopped(HOME_CHAT_ID);
       await until(fresh.info.id, (s) => s.info.status === 'idle');
+      expect(chatHost.isLive(HOME_CHAT_ID)).toBe(true);
       const listed = await homeChatState();
       expect(listed.currentId).toBe(fresh.info.id);
       // Nothing asked yet, the new one is open but not listed.
       expect(listed.chats.map((c) => [c.id, c.title])).toEqual([[HOME_CHAT_ID, title]]);
+      // Switching to one that is not running, as after a relaunch, resumes it, transcript and all, and leaves the other running.
+      await chatHost.stop(HOME_CHAT_ID);
+      await awaitStopped(HOME_CHAT_ID);
       const back = await switchHomeChat(HOME_CHAT_ID);
       expect(back.nodes.map((n) => n.id)).toEqual(after.nodes.map((n) => n.id));
-      await awaitStopped(fresh.info.id);
       await until(HOME_CHAT_ID, (s) => s.info.status === 'idle');
+      expect(chatHost.isLive(fresh.info.id)).toBe(true);
       expect((await homeChatState()).currentId).toBe(HOME_CHAT_ID);
 
       // Deleting another conversation leaves this one be; deleting the last one open starts a new one.

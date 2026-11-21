@@ -128,6 +128,7 @@ const mockApi = {
   homeChat: {
     start: vi.fn().mockResolvedValue(null),
     restart: vi.fn().mockResolvedValue(null),
+    reconfigure: vi.fn().mockResolvedValue(null),
     wake: vi.fn().mockResolvedValue(undefined),
     create: vi.fn().mockResolvedValue(null),
     switch: vi.fn().mockResolvedValue(null),

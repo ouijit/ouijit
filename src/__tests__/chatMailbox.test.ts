@@ -8,10 +8,12 @@ describe("what Chat is told while it can't take it", () => {
     const note = (text: string) => ({ kind: 'event' as const, text });
     const ready = new Set(['a']);
     const exists = new Set(['a', 'b']);
+    const woken: string[] = [];
     let release = () => {};
     const mailbox = new Mailbox({
       exists: (id) => exists.has(id),
       ready: (id) => ready.has(id),
+      wake: (id) => woken.push(id),
       send: (id, text, notes) => {
         sent.push([id, text]);
         captions.push(notes.map((n) => n.text));
@@ -40,8 +42,9 @@ describe("what Chat is told while it can't take it", () => {
       'Ouijit: while you were busy or away:\n- T-2 is waiting on an approval.\n- T-3 moved to In review.',
     ]);
 
-    // A conversation that is not running keeps what it is sent, up to a point.
+    // A conversation that is not running is started for what it is sent, and keeps it meanwhile, up to a point.
     for (let i = 1; i <= 52; i++) await mailbox.post('b', `event ${i}`, note(`event ${i}`));
+    expect(woken).toContain('b');
     ready.add('b');
     const third = mailbox.deliver('b');
     release();

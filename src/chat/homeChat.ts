@@ -9,6 +9,7 @@ import { trashItem } from '../platform';
 import { chatHost } from './host';
 import { HOME_CHAT_INSTRUCTIONS } from './homeChatInstructions';
 import {
+  CHAT_SETTING_KEYS,
   HOME_CHAT_ID_PREFIX,
   HOME_CHAT_SETTING_KEYS,
   UNTITLED_HOME_CHAT,
@@ -20,7 +21,7 @@ import {
   type HomeChatState,
   type HomeChatSummary,
 } from './preferences';
-import type { ChatSessionInfo, ChatSnapshot } from './model';
+import { stillWorking, type ChatSessionInfo, type ChatSnapshot } from './model';
 
 const chatLog = getLogger().scope('chat:home');
 
@@ -85,7 +86,8 @@ function newId(): string {
 function summary(id: string, info: ChatSessionInfo, createdAt: string): HomeChatSummary {
   const live = chatHost.snapshot(id)?.nodes.findLast((node) => node.kind === 'user_message')?.createdAt;
   const activeAt = live ?? getChatRepo().lastTurnAt(id) ?? Date.parse(createdAt);
-  return { id, title: info.label || UNTITLED_HOME_CHAT, createdAt, activeAt };
+  const working = chatHost.isLive(id) && stillWorking(info);
+  return { id, title: info.label || UNTITLED_HOME_CHAT, createdAt, activeAt, working };
 }
 
 /** Stored rows lag a running session by a flush, so a live session's own info wins. */
@@ -164,41 +166,64 @@ export async function startHomeChat(options: { eager?: boolean } = {}): Promise<
   return startConversation(await currentHomeChatId(), options.eager);
 }
 
-/**
- * One conversation runs at a time: the others' agents are stopped, their
- * transcripts kept. An agent takes a moment to exit, so the one coming up is
- * not kept waiting for it; the one going down takes no more turns meanwhile,
- * since wakes go to the current conversation and the user has left it.
- */
-function stopOthers(id: string): void {
-  for (const info of chatHost.list()) {
-    if (info.role !== 'home' || info.id === id) continue;
-    chatHost
-      .stop(info.id)
-      .catch((error) => chatLog.warn('conversation did not stop', { id: info.id, error: String(error) }));
-  }
-}
-
 /** `id` lets the caller show the conversation before this returns; it has to be new. */
 export async function newHomeChat(id = newId()): Promise<ChatSnapshot> {
   if (chatHost.roleOf(id)) throw new Error(`There is already a session ${id}`);
   await choose(id);
-  stopOthers(id);
   return startConversation(id, true);
 }
 
+/** Every conversation keeps running while another is on screen; this only changes which one that is. */
 export async function switchHomeChat(id: string): Promise<ChatSnapshot> {
   if (!isHomeChat(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
   await choose(id);
-  stopOthers(id);
   return startConversation(id, true);
 }
 
-/** A settings change restarts the agent on the same conversation. */
+/** A conversation not running, started to take what it has been sent. */
+export async function resumeHomeChat(id: string): Promise<void> {
+  if (!isHomeChat(id) || chatHost.isLive(id)) return;
+  if ((await getGlobalSetting(CHAT_SETTING_KEYS.enabled)) !== '1') return;
+  await startConversation(id, true);
+}
+
+/** Its agent again on the conversation on screen, after it stopped or failed. */
 export async function restartHomeChat(): Promise<ChatSnapshot> {
   const id = await currentHomeChatId();
   await chatHost.stop(id);
   return startConversation(id, true);
+}
+
+const restartWhenFree = new Set<string>();
+
+/**
+ * Agent, sandbox and instructions reach an agent only at launch, so a
+ * settings change restarts every running conversation: now if it is free,
+ * else once its work is over, since restarting ends whatever it left running.
+ * One not running takes the new settings when it next starts.
+ */
+export async function reconfigureHomeChats(): Promise<ChatSnapshot> {
+  await Promise.all(
+    chatHost.list().flatMap((info) => {
+      if (info.role !== 'home') return [];
+      if (!stillWorking(info)) return [restartConversation(info.id)];
+      restartWhenFree.add(info.id);
+      return [];
+    }),
+  );
+  const id = await currentHomeChatId();
+  return chatHost.snapshot(id) ?? startConversation(id, true);
+}
+
+/** Held for a restart: what it is sent waits until it is back. */
+export function restartingHomeChat(id: string): boolean {
+  return restartWhenFree.has(id);
+}
+
+async function restartConversation(id: string): Promise<void> {
+  restartWhenFree.delete(id);
+  await chatHost.stop(id);
+  await startConversation(id, true);
 }
 
 /**
@@ -237,7 +262,17 @@ export async function renameHomeChat(id: string, title: string): Promise<void> {
 export function installHomeChat(): void {
   chatHost.onClear = clearStartsAnother;
   chatHost.subscribe((sessionId, { event }) => {
-    if (event.type !== 'node' || !isHomeChat(sessionId)) return;
+    if (!isHomeChat(sessionId)) return;
+    if (event.type === 'session' && (event.patch.status !== undefined || event.patch.background !== undefined)) {
+      const info = chatHost.snapshot(sessionId)?.info;
+      if (info && restartWhenFree.has(sessionId) && !stillWorking(info) && info.status !== 'starting') {
+        void restartConversation(sessionId);
+      }
+      // Whether it is working shows on its row.
+      void announce();
+      return;
+    }
+    if (event.type !== 'node') return;
     const node = event.node;
     if (node.kind !== 'user_message') return;
     // A turn beginning, typed or woken, moves its conversation up the list.
